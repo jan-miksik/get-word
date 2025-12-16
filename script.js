@@ -10,47 +10,22 @@
  * In hidden modes, the covered fields reveal while press / long-press is held.
  */
 
-const MODES = {
-  HIDE_CZ: "hide-cz",
-  HIDE_ENVI: "hide-envi",
-  HIDE_VI: "hide-vi",
-  SHOW_ALL: "show-all",
-};
-
 const STORAGE_KEY = "wordlink_progress_v1";
+const ROLE_KEY = "wordlink_role_v1";
 
-// Spaced-repetition style categories
-const CATEGORIES = [
-  {
-    id: "A",
-    name: "Fresh / Forgot",
-    description: "Review very often",
-    intervalMs: 0, // every session
-  },
-  {
-    id: "B",
-    name: "1 day",
-    description: "Seen a few times",
-    intervalMs: 24 * 60 * 60 * 1000,
-  },
-  {
-    id: "C",
-    name: "3 days",
-    description: "Getting stable",
-    intervalMs: 3 * 24 * 60 * 60 * 1000,
-  },
-  {
-    id: "D",
-    name: "1 week",
-    description: "Longer memory",
-    intervalMs: 7 * 24 * 60 * 60 * 1000,
-  },
-  {
-    id: "E",
-    name: "2 weeks+",
-    description: "Well known",
-    intervalMs: 14 * 24 * 60 * 60 * 1000,
-  },
+// Spaced-repetition stages (0 = new/forgotten, then growing intervals)
+const STAGES = [
+  { id: 0, name: "New / forgotten", intervalMs: 0 }, // learn now
+  { id: 1, name: "1 minute", intervalMs: 1 * 60 * 1000 },
+  { id: 2, name: "10 minutes", intervalMs: 10 * 60 * 1000 },
+  { id: 3, name: "1 hour", intervalMs: 60 * 60 * 1000 },
+  { id: 4, name: "8 hours", intervalMs: 8 * 60 * 60 * 1000 },
+  { id: 5, name: "1 day", intervalMs: 24 * 60 * 60 * 1000 },
+  { id: 6, name: "3 days", intervalMs: 3 * 24 * 60 * 60 * 1000 },
+  { id: 7, name: "7 days", intervalMs: 7 * 24 * 60 * 60 * 1000 },
+  { id: 8, name: "14 days", intervalMs: 14 * 24 * 60 * 60 * 1000 },
+  { id: 9, name: "30 days", intervalMs: 30 * 24 * 60 * 60 * 1000 },
+  { id: 10, name: "60 days", intervalMs: 60 * 24 * 60 * 60 * 1000 },
 ];
 
 /** @type {{ cz: string; en: string; vi: string; section?: string; czPron?: string; viPron?: string }[]} */
@@ -191,8 +166,10 @@ const PHRASES = [
   { cz: "Gel", en: "Gel", vi: "Gel", czPron: "GEL", viPron: "zel" },
 ];
 
-let currentMode = MODES.HIDE_CZ;
+let currentMode = null; // legacy, no direct button binding now
 let lastMovedIndex = null;
+let currentRole = loadRole(); // "cz" or "vi"
+let modeIndex = 0; // 0 or 1 depending on role
 
 /**
  * Load progress map from localStorage.
@@ -218,6 +195,57 @@ function saveProgress(map) {
 }
 
 const progressMap = loadProgress();
+let currentTab = "all"; // "all" | "ready"
+
+function getProgress(index) {
+  const key = String(index);
+  const data = progressMap[key];
+  if (data && typeof data.stageIndex === "number") {
+    return data;
+  }
+  // migrate old shape with categoryIndex
+  if (data && typeof data.categoryIndex === "number") {
+    const migrated = {
+      stageIndex: Math.max(0, Math.min(data.categoryIndex, STAGES.length - 1)),
+      knownCount: data.knownCount || 0,
+      unknownCount: data.unknownCount || 0,
+      lastKnownAt: data.lastKnownAt,
+      lastUnknownAt: data.lastUnknownAt,
+      nextDueAt: data.nextDueAt,
+    };
+    progressMap[String(index)] = migrated;
+    return migrated;
+  }
+  return {
+    stageIndex: 0,
+    knownCount: 0,
+    unknownCount: 0,
+  };
+}
+
+function isDue(progress) {
+  if (!progress || progress.stageIndex === 0) return false;
+  if (!progress.nextDueAt) return false;
+  return Date.now() >= progress.nextDueAt;
+}
+
+function loadRole() {
+  try {
+    const raw = localStorage.getItem(ROLE_KEY);
+    if (raw === "cz" || raw === "vi") return raw;
+  } catch {
+    // ignore
+  }
+  return "cz";
+}
+
+function saveRole(role) {
+  try {
+    localStorage.setItem(ROLE_KEY, role);
+  } catch {
+    // ignore
+  }
+}
 
 /**
  * Create a language row (Czech / English / Vietnamese).
@@ -252,7 +280,11 @@ function createLangRow(label, value, langKey, pron) {
   mainSpan.textContent = value;
   textWrapper.appendChild(mainSpan);
 
-  if (pron && (langKey === "cz" || langKey === "vi")) {
+  const shouldShowPron =
+    (langKey === "cz" && currentRole === "vi") ||
+    (langKey === "vi" && currentRole === "cz");
+
+  if (pron && shouldShowPron) {
     const pronEl = document.createElement("span");
     pronEl.className = "pron-hint";
     pronEl.textContent = pron;
@@ -310,21 +342,21 @@ function renderPhrases() {
 
   root.innerHTML = "";
 
-  // Group phrases by category
-  const grouped = CATEGORIES.map(() => []);
+  // Group phrases by stage
+  const grouped = STAGES.map(() => []);
+  let readyCount = 0;
 
   PHRASES.forEach((phrase, index) => {
-    const key = String(index);
-    const data = progressMap[key];
-    const catIndex = data && typeof data.categoryIndex === "number" ? data.categoryIndex : 0;
-    grouped[Math.min(Math.max(catIndex, 0), CATEGORIES.length - 1)].push({
-      phrase,
-      index,
-    });
+    const prog = getProgress(index);
+    const due = isDue(prog);
+    if (due) readyCount += 1;
+    if (currentTab === "ready" && !due) return;
+    const sIdx = Math.max(0, Math.min(prog.stageIndex || 0, STAGES.length - 1));
+    grouped[sIdx].push({ phrase, index });
   });
 
-  CATEGORIES.forEach((cat, catIndex) => {
-    const items = grouped[catIndex];
+  STAGES.forEach((stage, stageIndex) => {
+    const items = grouped[stageIndex];
     if (!items.length) return;
 
     const zone = document.createElement("section");
@@ -332,7 +364,7 @@ function renderPhrases() {
 
     const title = document.createElement("h2");
     title.className = "category-zone-title";
-    title.textContent = cat.name;
+    title.textContent = stage.name;
     zone.appendChild(title);
 
     items.forEach(({ phrase, index }) => {
@@ -379,6 +411,22 @@ function renderPhrases() {
       actions.appendChild(knownBtn);
 
       card.appendChild(langWrap);
+      // countdown for waiting items (only in "all" tab)
+      const prog = getProgress(index);
+      const due = isDue(prog);
+      if (currentTab === "all" && prog.stageIndex > 0 && prog.nextDueAt && !due) {
+        const countdown = document.createElement("div");
+        countdown.className = "countdown";
+        countdown.dataset.nextDueAt = String(prog.nextDueAt);
+        const dot = document.createElement("span");
+        dot.className = "countdown-dot";
+        const label = document.createElement("span");
+        label.className = "countdown-label";
+        label.textContent = formatRemaining(prog.nextDueAt - Date.now());
+        countdown.appendChild(dot);
+        countdown.appendChild(label);
+        card.appendChild(countdown);
+      }
       card.appendChild(actions);
 
       zone.appendChild(card);
@@ -400,13 +448,32 @@ function renderPhrases() {
   const coverTargets = root.querySelectorAll(".cover-target");
   coverTargets.forEach((el) => attachPressHandlers(/** @type {HTMLElement} */ (el)));
 
-  applyModeToView();
+  applyVisibilityMode();
+
+  // update ready-count badge
+  const readyBtn = document.querySelector('.bottom-nav-btn[data-tab="ready"]');
+  if (readyBtn) {
+    readyBtn.setAttribute("data-count", readyCount ? String(readyCount) : "");
+  }
+}
+
+function formatRemaining(ms) {
+  if (ms <= 0) return "ready now";
+  const totalSeconds = Math.round(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes <= 0) return `${seconds}s`;
+  if (minutes < 60) return `${minutes}m`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  return `${days}d`;
 }
 
 /**
  * Apply current mode to all elements.
  */
-function applyModeToView() {
+function applyVisibilityMode() {
   const root = document.getElementById("phrases");
   if (!root) return;
 
@@ -417,17 +484,23 @@ function applyModeToView() {
 
     el.classList.remove("is-covered", "is-pressed");
 
-    if (currentMode === MODES.SHOW_ALL) {
-      // always visible
-      return;
-    }
-
-    if (currentMode === MODES.HIDE_CZ && lang === "cz") {
-      el.classList.add("is-covered");
-    } else if (currentMode === MODES.HIDE_ENVI && (lang === "en" || lang === "vi")) {
-      el.classList.add("is-covered");
-    } else if (currentMode === MODES.HIDE_VI && lang === "vi") {
-      el.classList.add("is-covered");
+    // modeIndex: 0 or 1 – meaning depends on learner role
+    if (currentRole === "cz") {
+      if (modeIndex === 0) {
+        // hide Vietnamese only
+        if (lang === "vi") el.classList.add("is-covered");
+      } else {
+        // hide Czech + English
+        if (lang === "cz" || lang === "en") el.classList.add("is-covered");
+      }
+    } else {
+      if (modeIndex === 0) {
+        // hide Czech only
+        if (lang === "cz") el.classList.add("is-covered");
+      } else {
+        // hide Vietnamese + English
+        if (lang === "vi" || lang === "en") el.classList.add("is-covered");
+      }
     }
   });
 }
@@ -438,11 +511,7 @@ function applyModeToView() {
  * @param {HTMLElement} card
  */
 function updateCardProgress(index, card) {
-  const data = progressMap[index] || {
-    categoryIndex: 0,
-    knownCount: 0,
-    unknownCount: 0,
-  };
+  const data = getProgress(index);
 
   const knownCountEl = card.querySelector(".progress-btn.known .count");
   const unknownCountEl = card.querySelector(".progress-btn.unknown .count");
@@ -464,26 +533,24 @@ function updateCardProgress(index, card) {
 function handleMark(index, kind, card) {
   const key = String(index);
   const now = Date.now();
-  const existing =
-    progressMap[key] || {
-      categoryIndex: 0,
-      knownCount: 0,
-      unknownCount: 0,
-    };
+  const existing = getProgress(index);
 
   if (kind === "known") {
     existing.knownCount += 1;
     existing.lastKnownAt = now;
-    // Move to a "later" category (longer interval) but never beyond the last
-    existing.categoryIndex = Math.min(
-      (existing.categoryIndex || 0) + 1,
-      CATEGORIES.length - 1
-    );
+    // Move to a "later" stage (longer interval) but never beyond the last
+    const nextStage = Math.min((existing.stageIndex || 0) + 1, STAGES.length - 1);
+    existing.stageIndex = nextStage;
+    const interval = STAGES[nextStage].intervalMs;
+    existing.nextDueAt = interval ? now + interval : null;
   } else {
     existing.unknownCount += 1;
     existing.lastUnknownAt = now;
     // Move back towards more frequent review
-    existing.categoryIndex = Math.max((existing.categoryIndex || 0) - 1, 0);
+    const prevStage = Math.max((existing.stageIndex || 0) - 1, 0);
+    existing.stageIndex = prevStage;
+    const interval = STAGES[prevStage].intervalMs;
+    existing.nextDueAt = interval ? now + interval : null;
   }
 
   progressMap[key] = existing;
@@ -496,26 +563,108 @@ function handleMark(index, kind, card) {
 /**
  * Initialize mode switch buttons.
  */
-function setupModeSwitcher() {
-  const buttons = document.querySelectorAll(".mode-btn");
-  buttons.forEach((btn) => {
+function updateSwitchButtonLabel() {
+  const btn = document.getElementById("switch-btn");
+  if (!btn) return;
+
+  if (currentRole === "cz") {
+    btn.textContent = modeIndex === 0 ? "🙈" : "🙉";
+  } else {
+    btn.textContent = modeIndex === 0 ? "🙈" : "🙉";
+  }
+}
+
+function setupTopControls() {
+  const settingsBtn = document.getElementById("settings-btn");
+  const switchBtn = document.getElementById("switch-btn");
+  const panel = document.getElementById("settings-panel");
+  const bottomButtons = document.querySelectorAll(".bottom-nav-btn");
+
+  if (settingsBtn && panel) {
+    settingsBtn.addEventListener("click", () => {
+      panel.classList.toggle("is-open");
+    });
+
+    const radios = panel.querySelectorAll('input[name="learner-role"]');
+    radios.forEach((radio) => {
+      if (radio.value === currentRole) {
+        radio.checked = true;
+      }
+      radio.addEventListener("change", () => {
+        const value = radio.value;
+        if (value !== "cz" && value !== "vi") return;
+        currentRole = value;
+        saveRole(currentRole);
+        // Reset mode index for new role
+        modeIndex = 0;
+        updateSwitchButtonLabel();
+        renderPhrases();
+      });
+    });
+  }
+
+  if (switchBtn) {
+    switchBtn.addEventListener("click", () => {
+      modeIndex = modeIndex === 0 ? 1 : 0;
+      updateSwitchButtonLabel();
+      applyVisibilityMode();
+    });
+  }
+
+  updateSwitchButtonLabel();
+
+  // bottom nav tabs
+  bottomButtons.forEach((btn) => {
     btn.addEventListener("click", () => {
-      const mode = btn.getAttribute("data-mode");
-      if (!mode || mode === currentMode) return;
-
-      currentMode = mode;
-
-      buttons.forEach((b) => b.classList.remove("is-active"));
+      const tab = btn.getAttribute("data-tab");
+      if (!tab || tab === currentTab) return;
+      currentTab = tab;
+      bottomButtons.forEach((b) => b.classList.remove("is-active"));
       btn.classList.add("is-active");
-
-      applyModeToView();
+      renderPhrases();
     });
   });
 }
 
+/**
+ * Update countdown labels for countdowns less than 1 minute.
+ */
+function updateShortCountdowns() {
+  if (document.hidden) return;
+  const countdowns = document.querySelectorAll(".countdown[data-next-due-at]");
+  countdowns.forEach((countdown) => {
+    const nextDueAt = Number(countdown.dataset.nextDueAt);
+    if (!nextDueAt) return;
+    const remaining = nextDueAt - Date.now();
+    const minutes = Math.floor(remaining / 60000);
+    
+    // Only update if less than 1 minute
+    if (minutes < 1 && remaining > 0) {
+      const label = countdown.querySelector(".countdown-label");
+      if (label) {
+        label.textContent = formatRemaining(remaining);
+      }
+    } else if (remaining <= 0) {
+      // If countdown expired, trigger a full refresh
+      renderPhrases();
+    }
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
-  setupModeSwitcher();
+  setupTopControls();
   renderPhrases();
+  
+  // Update countdowns less than 1 minute every second
+  setInterval(() => {
+    updateShortCountdowns();
+  }, 1000);
+  
+  // refresh countdowns roughly every 30 seconds (for longer countdowns and full refresh)
+  setInterval(() => {
+    if (document.hidden) return;
+    renderPhrases();
+  }, 30000);
 });
 
 

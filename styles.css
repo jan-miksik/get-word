@@ -42,6 +42,7 @@ body {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  position: relative;
 }
 
 @media (min-width: 768px) {
@@ -88,17 +89,7 @@ body {
 }
 
 .mode-switcher {
-  margin-top: 6px;
-  padding: 4px;
-  border-radius: var(--radius-pill);
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  display: flex;
-  gap: 4px;
-  position: sticky;
-  top: 0;
-  z-index: 10;
-  backdrop-filter: blur(10px);
+  display: none;
 }
 
 .mode-btn {
@@ -106,7 +97,7 @@ body {
   border: none;
   border-radius: var(--radius-pill);
   padding: 8px 10px;
-  font-size: 0.8rem;
+  font-size: 1.25rem;
   font-weight: 500;
   color: var(--text-soft);
   background: transparent;
@@ -117,6 +108,60 @@ body {
     color var(--transition-med),
     transform var(--transition-fast),
     box-shadow var(--transition-fast);
+}
+
+.mode-btn.settings-btn {
+  position: absolute;
+  top: 12px;
+  right: 14px;
+  flex: 0 0 auto;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  z-index: 20;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.9);
+  color: var(--text-soft);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-med),
+    color var(--transition-med),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.mode-btn.settings-btn:hover {
+  background: rgba(15, 23, 42, 1);
+  transform: translateY(-0.5px);
+}
+
+.mode-btn.switch-btn {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  flex: 0 0 auto;
+  min-width: 50px;
+  font-size: 1.5rem;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.9);
+  color: var(--text-soft);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-med),
+    color var(--transition-med),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.mode-btn.switch-btn:hover {
+  background: rgba(15, 23, 42, 1);
+  transform: translateY(-0.5px);
 }
 
 .mode-btn.is-active {
@@ -130,8 +175,87 @@ body {
   transform: translateY(0);
 }
 
+.settings-panel {
+  margin-top: 4px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.96);
+  padding: 8px 10px 10px;
+  display: none;
+}
+
+.settings-panel.is-open {
+  display: block;
+}
+
+.settings-inner {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 0.8rem;
+}
+
+.settings-title {
+  margin: 0 0 4px;
+  font-size: 0.78rem;
+  color: var(--text-soft);
+}
+
+.settings-option {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+}
+
+.settings-option input[type="radio"] {
+  accent-color: var(--accent);
+}
+
+.bottom-nav {
+  position: sticky;
+  bottom: 0;
+  margin-top: auto;
+  display: flex;
+  gap: 6px;
+  padding: 8px 4px 4px;
+  background: linear-gradient(to top, rgba(15, 23, 42, 0.96), transparent);
+}
+
+.bottom-nav-btn {
+  flex: 1;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+  background: rgba(15, 23, 42, 0.9);
+  color: var(--text-soft);
+  font-size: 0.78rem;
+  padding: 6px 8px;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.bottom-nav-btn.is-active {
+  background: radial-gradient(circle at top, var(--accent) 0, #0ea5e9 55%);
+  color: #020617;
+  box-shadow: var(--shadow-chip);
+  border-color: transparent;
+  transform: translateY(-1px);
+}
+
+.bottom-nav-btn[data-tab="ready"]::after {
+  content: attr(data-count);
+  margin-left: 6px;
+  font-size: 0.7rem;
+  color: inherit;
+  opacity: 0.85;
+}
+
 .phrases {
-  margin-top: 2px;
+  margin-top: 30px;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -282,6 +406,44 @@ body {
   color: var(--text-soft);
   margin: 0 2px 4px;
   opacity: 0.9;
+}
+
+.countdown {
+  margin-top: 4px;
+  font-size: 0.7rem;
+  color: var(--text-soft);
+  display: flex;
+  justify-content: center;
+  gap: 4px;
+  align-items: center;
+}
+
+.countdown-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--accent);
+  opacity: 0.8;
+  animation: countdown-pulse 1.8s ease-in-out infinite;
+}
+
+.countdown-label {
+  opacity: 0.9;
+}
+
+@keyframes countdown-pulse {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0.6;
+  }
 }
 
 .phrase-card {

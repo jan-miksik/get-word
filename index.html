@@ -11,38 +11,53 @@
   </head>
   <body>
     <div class="app">
-      <section class="mode-switcher" aria-label="Display mode">
-        <button
-          class="mode-btn is-active"
-          data-mode="hide-cz"
-          type="button"
-        >
-          Hide Czech
-        </button>
-        <button
-          class="mode-btn"
-          data-mode="hide-envi"
-          type="button"
-        >
-          Hide EN + VI
-        </button>
-        <button
-          class="mode-btn"
-          data-mode="hide-vi"
-          type="button"
-        >
-          Hide VI
-        </button>
-        <button
-          class="mode-btn"
-          data-mode="show-all"
-          type="button"
-        >
-          Show all
-        </button>
+      <button
+        class="mode-btn settings-btn"
+        id="settings-btn"
+        type="button"
+      >
+        Settings
+      </button>
+      <button
+        class="mode-btn switch-btn"
+        id="switch-btn"
+        type="button"
+      >
+        Hide…
+      </button>
+
+      <section class="settings-panel" id="settings-panel" aria-label="Settings">
+        <div class="settings-inner">
+          <p class="settings-title">Who are you?</p>
+          <label class="settings-option">
+            <input type="radio" name="learner-role" value="cz" />
+            <span>I am Czech</span>
+          </label>
+          <label class="settings-option">
+            <input type="radio" name="learner-role" value="vi" />
+            <span>I am Vietnamese</span>
+          </label>
+        </div>
       </section>
 
       <main class="phrases" id="phrases" aria-live="polite"></main>
+
+      <nav class="bottom-nav" aria-label="View selection">
+        <button
+          class="bottom-nav-btn is-active"
+          data-tab="all"
+          type="button"
+        >
+          All words
+        </button>
+        <button
+          class="bottom-nav-btn"
+          data-tab="ready"
+          type="button"
+        >
+          Ready to repeat
+        </button>
+      </nav>
 
       <footer class="app-footer">
         <p class="hint">
