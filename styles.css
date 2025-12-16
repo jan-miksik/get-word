@@ -164,6 +164,35 @@ body {
   transform: translateY(-0.5px);
 }
 
+.mode-btn.show-all-btn {
+  position: absolute;
+  top: 12px;
+  left: 72px;
+  flex: 0 0 auto;
+  min-width: 50px;
+  font-size: 1.5rem;
+  padding: 8px 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 20;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.9);
+  color: var(--text-soft);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-med),
+    color var(--transition-med),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.mode-btn.show-all-btn:hover {
+  background: rgba(15, 23, 42, 1);
+  transform: translateY(-0.5px);
+}
+
 .mode-btn.is-active {
   background: radial-gradient(circle at top, var(--accent) 0, #0ea5e9 55%);
   color: #0b1120;
@@ -347,7 +376,6 @@ body {
   text-align: center;
   font-size: 0.85rem;
   color: var(--text-soft);
-  padding: 6px 10px;
   border-radius: var(--radius-pill);
   cursor: pointer;
   transition:

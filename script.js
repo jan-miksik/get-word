@@ -32,7 +32,6 @@ const STAGES = [
 /** @type {{ cz: string; en: string; vi: string; section?: string; czPron?: string; viPron?: string }[]} */
 const PHRASES = [
   {
-    section: "ZÁKLADNÍ POZDRAVY",
     cz: "Dobrý den / Dobrý večer",
     en: "Good day / Good evening",
     vi: "Xin chào",
@@ -97,7 +96,6 @@ const PHRASES = [
   },
 
   {
-    section: "NEHTY A TVARY",
     cz: "Tvar (nehtu)",
     en: "(Nail) shape",
     vi: "Hình dạng (móng)",
@@ -171,6 +169,7 @@ let currentMode = null; // legacy, no direct button binding now
 let lastMovedIndex = null;
 let currentRole = loadRole(); // "cz" or "vi"
 let modeIndex = 0; // 0 or 1 depending on role
+let showAll = false; // when true, always show everything
 
 /**
  * Load progress map from localStorage.
@@ -627,6 +626,14 @@ function applyVisibilityMode() {
   if (!root) return;
 
   const targets = root.querySelectorAll(".cover-target");
+  // If "show everything" is enabled, nothing is covered
+  if (showAll) {
+    targets.forEach((el) => {
+      el.classList.remove("is-covered", "is-pressed");
+    });
+    return;
+  }
+
   targets.forEach((el) => {
     const lang = el.dataset.lang;
     if (!lang) return;
@@ -721,17 +728,23 @@ function updateSwitchButtonLabel() {
   const btn = document.getElementById("switch-btn");
   if (!btn) return;
 
-  if (currentRole === "cz") {
-    btn.textContent = modeIndex === 0 ? "🙈" : "🙉";
-  } else {
-    btn.textContent = modeIndex === 0 ? "🙈" : "🙉";
-  }
+  // Use a reload-style icon for the mode switch button
+  btn.textContent = "🔄";
+}
+
+function updateShowAllButtonLabel() {
+  const btn = document.getElementById("show-all-btn");
+  if (!btn) return;
+
+  // Use monkey emojis for the "show everything" toggle
+  btn.textContent = showAll ? "🙉" : "🙈";
 }
 
 function setupTopControls() {
   const settingsBtn = document.getElementById("settings-btn");
   const switchBtn = document.getElementById("switch-btn");
   const panel = document.getElementById("settings-panel");
+  const showAllBtn = document.getElementById("show-all-btn");
   const bottomButtons = document.querySelectorAll(".bottom-nav-btn");
 
   if (settingsBtn && panel) {
@@ -752,6 +765,7 @@ function setupTopControls() {
         // Reset mode index for new role
         modeIndex = 0;
         updateSwitchButtonLabel();
+        // keep showAll state as-is when switching role
         renderPhrases();
       });
     });
@@ -765,7 +779,16 @@ function setupTopControls() {
     });
   }
 
+  if (showAllBtn) {
+    showAllBtn.addEventListener("click", () => {
+      showAll = !showAll;
+      updateShowAllButtonLabel();
+      applyVisibilityMode();
+    });
+  }
+
   updateSwitchButtonLabel();
+  updateShowAllButtonLabel();
 
   // bottom nav tabs
   bottomButtons.forEach((btn) => {
@@ -785,6 +808,7 @@ function setupTopControls() {
  */
 function updateShortCountdowns() {
   if (document.hidden) return;
+  if (isEditingMemoryHook()) return;
   const countdowns = document.querySelectorAll(".countdown[data-next-due-at]");
   countdowns.forEach((countdown) => {
     const nextDueAt = Number(countdown.dataset.nextDueAt);
@@ -799,10 +823,19 @@ function updateShortCountdowns() {
         label.textContent = formatRemaining(remaining);
       }
     } else if (remaining <= 0) {
-      // If countdown expired, trigger a full refresh
-      renderPhrases();
+      // If countdown expired, trigger a full refresh (unless user is editing a hook)
+      if (!isEditingMemoryHook()) {
+        renderPhrases();
+      }
     }
   });
+}
+
+/**
+ * Whether any memory hook input is currently being edited.
+ */
+function isEditingMemoryHook() {
+  return !!document.querySelector(".memory-hook-container.editing");
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -817,6 +850,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // refresh countdowns roughly every 30 seconds (for longer countdowns and full refresh)
   setInterval(() => {
     if (document.hidden) return;
+    if (isEditingMemoryHook()) return;
     renderPhrases();
   }, 30000);
 });
