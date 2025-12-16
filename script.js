@@ -12,6 +12,7 @@
 
 const STORAGE_KEY = "wordlink_progress_v1";
 const ROLE_KEY = "wordlink_role_v1";
+const MEMORY_HOOK_KEY = "wordlink_memory_hooks_v1";
 
 // Spaced-repetition stages (0 = new/forgotten, then growing intervals)
 const STAGES = [
@@ -196,6 +197,45 @@ function saveProgress(map) {
 
 const progressMap = loadProgress();
 let currentTab = "all"; // "all" | "ready"
+
+/**
+ * Load memory hooks from localStorage.
+ * Shape: { [index: string]: string }
+ */
+function loadMemoryHooks() {
+  try {
+    const raw = localStorage.getItem(MEMORY_HOOK_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveMemoryHooks(map) {
+  try {
+    localStorage.setItem(MEMORY_HOOK_KEY, JSON.stringify(map));
+  } catch {
+    // ignore
+  }
+}
+
+const memoryHooksMap = loadMemoryHooks();
+
+function getMemoryHook(index) {
+  return memoryHooksMap[String(index)] || "";
+}
+
+function setMemoryHook(index, value) {
+  const key = String(index);
+  if (value && value.trim()) {
+    memoryHooksMap[key] = value.trim();
+  } else {
+    delete memoryHooksMap[key];
+  }
+  saveMemoryHooks(memoryHooksMap);
+}
 
 function getProgress(index) {
   const key = String(index);
@@ -394,6 +434,35 @@ function renderPhrases() {
       langWrap.appendChild(rowEn);
       langWrap.appendChild(rowVi);
 
+      // Memory hook element
+      const memoryHookContainer = document.createElement("div");
+      memoryHookContainer.className = "memory-hook-container";
+      
+      const memoryHookDisplay = document.createElement("div");
+      memoryHookDisplay.className = "memory-hook-display cover-target";
+      memoryHookDisplay.dataset.lang = "memory-hook";
+      
+      const memoryHookText = document.createElement("span");
+      memoryHookText.className = "memory-hook-text";
+      const hookValue = getMemoryHook(index);
+      memoryHookText.textContent = hookValue || "💭 Add memory hook...";
+      memoryHookText.dataset.index = String(index);
+      if (!hookValue) {
+        memoryHookText.classList.add("placeholder");
+      }
+      
+      memoryHookDisplay.appendChild(memoryHookText);
+      memoryHookContainer.appendChild(memoryHookDisplay);
+      
+      const memoryHookInput = document.createElement("input");
+      memoryHookInput.type = "text";
+      memoryHookInput.className = "memory-hook-input";
+      memoryHookInput.placeholder = "Enter memory hook...";
+      memoryHookInput.value = hookValue;
+      memoryHookInput.style.display = "none";
+      memoryHookInput.dataset.index = String(index);
+      memoryHookContainer.appendChild(memoryHookInput);
+
       const actions = document.createElement("div");
       actions.className = "progress-actions";
 
@@ -411,6 +480,7 @@ function renderPhrases() {
       actions.appendChild(knownBtn);
 
       card.appendChild(langWrap);
+      card.appendChild(memoryHookContainer);
       // countdown for waiting items (only in "all" tab)
       const prog = getProgress(index);
       const due = isDue(prog);
@@ -436,6 +506,39 @@ function renderPhrases() {
       });
       unknownBtn.addEventListener("click", () => {
         handleMark(index, "unknown", card);
+      });
+
+      // Memory hook event handlers
+      // Use double-click to edit (single click/press is for revealing hidden text)
+      memoryHookDisplay.addEventListener("dblclick", (e) => {
+        e.stopPropagation();
+        if (!memoryHookContainer.classList.contains("editing")) {
+          startEditingMemoryHook(index, memoryHookContainer, memoryHookDisplay, memoryHookInput, memoryHookText);
+        }
+      });
+      
+      // Also allow tap on empty placeholder to edit
+      if (!hookValue) {
+        memoryHookDisplay.addEventListener("click", (e) => {
+          e.stopPropagation();
+          if (!memoryHookContainer.classList.contains("editing")) {
+            startEditingMemoryHook(index, memoryHookContainer, memoryHookDisplay, memoryHookInput, memoryHookText);
+          }
+        });
+      }
+
+      memoryHookInput.addEventListener("blur", () => {
+        finishEditingMemoryHook(index, memoryHookContainer, memoryHookDisplay, memoryHookInput, memoryHookText);
+      });
+
+      memoryHookInput.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          finishEditingMemoryHook(index, memoryHookContainer, memoryHookDisplay, memoryHookInput, memoryHookText);
+        } else if (e.key === "Escape") {
+          e.preventDefault();
+          cancelEditingMemoryHook(index, memoryHookContainer, memoryHookDisplay, memoryHookInput, memoryHookText);
+        }
       });
 
       updateCardProgress(index, card);
@@ -471,6 +574,52 @@ function formatRemaining(ms) {
 }
 
 /**
+ * Start editing a memory hook.
+ */
+function startEditingMemoryHook(index, container, display, input, text) {
+  container.classList.add("editing");
+  display.style.display = "none";
+  input.style.display = "block";
+  input.focus();
+  input.select();
+}
+
+/**
+ * Finish editing a memory hook and save it.
+ */
+function finishEditingMemoryHook(index, container, display, input, text) {
+  const value = input.value.trim();
+  setMemoryHook(index, value);
+  
+  container.classList.remove("editing");
+  display.style.display = "block";
+  input.style.display = "none";
+  
+  if (value) {
+    text.textContent = value;
+    text.classList.remove("placeholder");
+  } else {
+    text.textContent = "💭 Add memory hook...";
+    text.classList.add("placeholder");
+  }
+  
+  // Re-apply visibility mode after editing
+  applyVisibilityMode();
+}
+
+/**
+ * Cancel editing a memory hook without saving.
+ */
+function cancelEditingMemoryHook(index, container, display, input, text) {
+  const hookValue = getMemoryHook(index);
+  input.value = hookValue;
+  
+  container.classList.remove("editing");
+  display.style.display = "block";
+  input.style.display = "none";
+}
+
+/**
  * Apply current mode to all elements.
  */
 function applyVisibilityMode() {
@@ -481,6 +630,11 @@ function applyVisibilityMode() {
   targets.forEach((el) => {
     const lang = el.dataset.lang;
     if (!lang) return;
+    
+    // Skip if editing (memory hooks stay visible when editing)
+    if (el.closest(".memory-hook-container")?.classList.contains("editing")) {
+      return;
+    }
 
     el.classList.remove("is-covered", "is-pressed");
 
@@ -488,7 +642,7 @@ function applyVisibilityMode() {
     if (currentRole === "cz") {
       if (modeIndex === 0) {
         // hide Vietnamese only
-        if (lang === "vi") el.classList.add("is-covered");
+        if (lang === "vi" || lang === "memory-hook") el.classList.add("is-covered");
       } else {
         // hide Czech + English
         if (lang === "cz" || lang === "en") el.classList.add("is-covered");
@@ -499,7 +653,7 @@ function applyVisibilityMode() {
         if (lang === "cz") el.classList.add("is-covered");
       } else {
         // hide Vietnamese + English
-        if (lang === "vi" || lang === "en") el.classList.add("is-covered");
+        if (lang === "vi" || lang === "en" || lang === "memory-hook") el.classList.add("is-covered");
       }
     }
   });

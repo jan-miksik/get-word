@@ -338,6 +338,67 @@ body {
   margin: 0;
 }
 
+.memory-hook-container {
+  margin-top: 8px;
+  margin-bottom: 4px;
+}
+
+.memory-hook-display {
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--text-soft);
+  padding: 6px 10px;
+  border-radius: var(--radius-pill);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+  min-height: 1.5em;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.memory-hook-display:hover {
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.memory-hook-text {
+  position: relative;
+  display: inline-block;
+}
+
+.memory-hook-text.placeholder {
+  opacity: 0.6;
+  font-style: italic;
+}
+
+.memory-hook-container.editing .memory-hook-display {
+  display: none;
+}
+
+.memory-hook-input {
+  width: 100%;
+  padding: 6px 10px;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--accent);
+  background: rgba(15, 23, 42, 0.95);
+  color: var(--text);
+  font-size: 0.85rem;
+  font-family: var(--font-sans);
+  text-align: center;
+  outline: none;
+}
+
+.memory-hook-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.memory-hook-container.editing .memory-hook-input {
+  display: block;
+}
+
 .progress-actions {
   margin-top: 8px;
   display: flex;
@@ -505,11 +566,41 @@ body {
   padding-inline: 8px;
 }
 
+.is-covered .memory-hook-text {
+  color: transparent;
+  text-shadow: none;
+}
+
+.is-covered .memory-hook-text::before {
+  content: "••••••••";
+  letter-spacing: 0.14em;
+  color: var(--accent-strong);
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+}
+
+.is-covered .memory-hook-text {
+  background: linear-gradient(120deg, #020617 0, #020617 50%, #020617 100%);
+  border-radius: 999px;
+  padding-inline: 8px;
+}
+
 .cover-target.is-pressed .lang-text {
   color: var(--text);
 }
 
 .cover-target.is-pressed .lang-text::before {
+  content: "";
+}
+
+.cover-target.is-pressed .memory-hook-text {
+  color: var(--text);
+}
+
+.cover-target.is-pressed .memory-hook-text::before {
   content: "";
 }
 
@@ -521,6 +612,12 @@ body {
 .lang-text {
   display: inline-block;
   position: relative;
+  min-height: 1.4em;
+}
+
+.memory-hook-text {
+  position: relative;
+  display: inline-block;
   min-height: 1.4em;
 }
 
