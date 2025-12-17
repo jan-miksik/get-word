@@ -619,17 +619,79 @@ function renderPhrases() {
           currentRole === "vi" ? "Play Czech audio" : "Play Vietnamese audio";
         audioBtn.textContent = "🔊";
 
-        const stopEvent = (event) => {
+        let touchStartTime = 0;
+        let touchStartPos = null;
+
+        // Handle touch events for mobile
+        audioBtn.addEventListener("touchstart", (event) => {
+          event.stopPropagation();
+          touchStartTime = Date.now();
+          if (event.touches.length > 0) {
+            touchStartPos = {
+              x: event.touches[0].clientX,
+              y: event.touches[0].clientY
+            };
+          }
+          audioBtn.classList.add("audio-btn-pressed");
+        }, { passive: true });
+
+        audioBtn.addEventListener("touchend", (event) => {
           event.stopPropagation();
           event.preventDefault();
-        };
+          
+          const touchEnd = event.changedTouches[0];
+          const touchDuration = Date.now() - touchStartTime;
+          let moved = false;
+          
+          if (touchStartPos && touchEnd) {
+            const deltaX = Math.abs(touchEnd.clientX - touchStartPos.x);
+            const deltaY = Math.abs(touchEnd.clientY - touchStartPos.y);
+            moved = deltaX > 10 || deltaY > 10;
+          }
+          
+          audioBtn.classList.remove("audio-btn-pressed");
+          
+          // Only play if it was a quick tap without movement
+          if (!moved && touchDuration < 500) {
+            audioBtn.classList.add("audio-btn-playing");
+            playAudio(audioSrcForRole);
+            
+            // Remove playing state after a short delay
+            setTimeout(() => {
+              audioBtn.classList.remove("audio-btn-playing");
+            }, 300);
+          }
+          
+          touchStartTime = 0;
+          touchStartPos = null;
+        }, { passive: false });
 
-        audioBtn.addEventListener("mousedown", stopEvent);
-        audioBtn.addEventListener("touchstart", stopEvent, { passive: false });
+        // Handle mouse/desktop events
+        audioBtn.addEventListener("mousedown", (event) => {
+          event.stopPropagation();
+          audioBtn.classList.add("audio-btn-pressed");
+        });
+
+        audioBtn.addEventListener("mouseup", (event) => {
+          event.stopPropagation();
+          audioBtn.classList.remove("audio-btn-pressed");
+        });
+
         audioBtn.addEventListener("click", (event) => {
           event.stopPropagation();
           event.preventDefault();
+          audioBtn.classList.add("audio-btn-playing");
           playAudio(audioSrcForRole);
+          
+          // Remove playing state after a short delay
+          setTimeout(() => {
+            audioBtn.classList.remove("audio-btn-playing");
+          }, 300);
+        });
+
+        // Also handle mouseleave to remove pressed state if user drags away
+        audioBtn.addEventListener("mouseleave", () => {
+          audioBtn.classList.remove("audio-btn-pressed");
         });
 
         actions.appendChild(audioBtn);

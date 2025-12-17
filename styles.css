@@ -348,11 +348,18 @@ body {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 2px 4px;
+  padding: 6px 8px;
+  min-width: 36px;
+  min-height: 36px;
   border-radius: 999px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   transition:
     background-color var(--transition-fast),
-    transform var(--transition-fast);
+    transform var(--transition-fast),
+    color var(--transition-fast),
+    opacity var(--transition-fast);
+  position: relative;
 }
 
 .audio-btn:hover {
@@ -360,8 +367,29 @@ body {
   transform: translateY(-0.5px);
 }
 
-.audio-btn:active {
-  transform: translateY(0);
+.audio-btn:active,
+.audio-btn-pressed {
+  background: var(--accent-soft);
+  transform: scale(0.95);
+  color: var(--accent);
+}
+
+.audio-btn-playing {
+  background: var(--accent-soft);
+  color: var(--accent);
+  animation: audio-pulse 0.3s ease-out;
+}
+
+@keyframes audio-pulse {
+  0% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.1);
+  }
+  100% {
+    transform: scale(1);
+  }
 }
 
 .chip {
