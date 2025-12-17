@@ -275,7 +275,7 @@ function loadRole() {
   } catch {
     // ignore
   }
-  return "cz";
+  return "vi";
 }
 
 function saveRole(role) {
