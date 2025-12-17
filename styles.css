@@ -338,6 +338,32 @@ body {
   color: var(--text-soft);
 }
 
+.audio-btn {
+  margin-left: 8px;
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  cursor: pointer;
+  font-size: 0.95rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2px 4px;
+  border-radius: 999px;
+  transition:
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.audio-btn:hover {
+  background: rgba(15, 23, 42, 0.8);
+  transform: translateY(-0.5px);
+}
+
+.audio-btn:active {
+  transform: translateY(0);
+}
+
 .chip {
   display: none;
 }

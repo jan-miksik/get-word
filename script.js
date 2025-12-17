@@ -29,7 +29,7 @@ const STAGES = [
   { id: 10, name: "60 days", intervalMs: 60 * 24 * 60 * 60 * 1000 },
 ];
 
-/** @type {{ cz: string; en: string; vi: string; section?: string; czPron?: string; viPron?: string }[]} */
+/** @type {{ cz: string; en: string; vi: string; section?: string; czPron?: string; viPron?: string; czAudio?: string | string[]; viAudio?: string | string[] }[]} */
 const PHRASES = [
   {
     cz: "Dobrý den / Dobrý večer",
@@ -37,13 +37,24 @@ const PHRASES = [
     vi: "Xin chào",
     czPron: "DO-bri den / DO-bri VE-čer",
     viPron: "sin čao",
+    // Audio variants for greeting
+    czAudio: ["speech/cz/dobry-den.mp3", "speech/cz/dobry-vecer.mp3"],
   },
   {
-    cz: "Děkuji / Prosím 🙏",
-    en: "Thank you / Please",
-    vi: "Cảm ơn / Làm ơn",
-    czPron: "DĚ-ku-ji / PRO-sím",
-    viPron: "kam ən / lam ən",
+    cz: "Děkuji 🙏",
+    en: "Thank you",
+    vi: "Cảm ơn",
+    czPron: "DĚ-ku-ji",
+    viPron: "kam ən",
+    czAudio: "speech/cz/dekuji.mp3",
+  },
+  {
+    cz: "Prosím 🙏",
+    en: "Please",
+    vi: "Làm ơn",
+    czPron: "PRO-sím",
+    viPron: "lam ən",
+    czAudio: "speech/cz/prosim.mp3",
   },
   {
     cz: "Jak se máte? 🙂",
@@ -51,6 +62,8 @@ const PHRASES = [
     vi: "Bạn khỏe không?",
     czPron: "JAK se MÁ-te?",
     viPron: "ban kchue khong",
+    czAudio: "speech/cz/jak-se-mate.mp3",
+    viAudio: "speech/vi/ban-khoe-khong.mp3",
   },
   {
     cz: "Posaďte se, prosím. 💺",
@@ -58,6 +71,8 @@ const PHRASES = [
     vi: "Mời bạn ngồi.",
     czPron: "PO-sať-te se PRO-sím",
     viPron: "moi ban ngoi",
+    czAudio: "speech/cz/posadte-se-prosim.mp3",
+    viAudio: "speech/vi/xin-moi-ngoi.mp3",
   },
   {
     cz: "Bolí to? 😬",
@@ -65,6 +80,8 @@ const PHRASES = [
     vi: "Có đau không?",
     czPron: "BO-lí to?",
     viPron: "ko dau khong",
+    czAudio: "speech/cz/boli-to.mp3",
+    viAudio: "speech/vi/co-djau-khong.mp3",
   },
   {
     cz: "Tady? 👉",
@@ -72,6 +89,8 @@ const PHRASES = [
     vi: "Ở đây hả?",
     czPron: "TA-di?",
     viPron: "a daj ha",
+    czAudio: "speech/cz/tady.mp3",
+    viAudio: "speech/vi/o-djay.mp3",
   },
   {
     cz: "Nashle / Na shledanou 👋",
@@ -79,6 +98,8 @@ const PHRASES = [
     vi: "Tạm biệt",
     czPron: "NA-shle / NA skhle-da-no",
     viPron: "tam biet",
+    czAudio: "speech/cz/na-shledanou.mp3",
+    viAudio: "speech/vi/tam-biet.mp3",
   },
   {
     cz: "Máte představu? 💡",
@@ -86,6 +107,8 @@ const PHRASES = [
     vi: "Bạn có ý tưởng gì không?",
     czPron: "MÁ-te PŘED-sta-vu?",
     viPron: "ban ko i tuong zi khong",
+    czAudio: "speech/cz/mate-predstavu.mp3",
+    viAudio: "speech/vi/ban-co-y-tuong-gi-khong.mp3",
   },
   {
     cz: "Jakou barvu? 🎨",
@@ -93,6 +116,7 @@ const PHRASES = [
     vi: "Màu nào?",
     czPron: "JA-kou BAR-vu?",
     viPron: "mau nao",
+    czAudio: "speech/cz/jakou-barvu.mp3",
   },
 
   {
@@ -101,22 +125,23 @@ const PHRASES = [
     vi: "Hình dạng (móng)",
     czPron: "TVAR (NE-tu)",
     viPron: "hin jang mong",
+    czAudio: "speech/cz/tvar-nehtu.mp3",
   },
-  { cz: "Kulatý ⭕", en: "Round", vi: "Tròn", czPron: "KU-la-tý", viPron: "tron" },
-  { cz: "Hranatý ⬛", en: "Square", vi: "Vuông", czPron: "HRA-na-tý", viPron: "vuong" },
-  { cz: "Lak", en: "Nail polish", vi: "Sơn móng", czPron: "LAK", viPron: "son mong" },
-  { cz: "Manikúra 💅", en: "Manicure", vi: "Làm móng tay", czPron: "MA-ni-kú-ra", viPron: "lam mong taj" },
-  { cz: "Pedikúra 🦶", en: "Pedicure", vi: "Chăm sóc chân", czPron: "PE-di-kú-ra", viPron: "čam sok čan" },
-  { cz: "Gelové nehty ✨", en: "Gel nails", vi: "Móng gel", czPron: "GE-lo-vé NE-ty", viPron: "mong gel" },
-  { cz: "Hotovo ✅", en: "Finished / Done", vi: "Xong rồi", czPron: "HO-to-vo", viPron: "xong zoj" },
-  { cz: "Ruka / Ruce", en: "Hand / Hands", vi: "Tay / Hai tay", czPron: "RU-ka / RU-ce", viPron: "taj / haj taj" },
-  { cz: "Noha / Nohy", en: "Foot / Feet", vi: "Chân / Hai chân", czPron: "NO-ha / NO-hy", viPron: "čan / haj čan" },
-  { cz: "Nehet / Nehty", en: "Nail / Nails", vi: "Móng tay / Móng", czPron: "NE-het / NE-ty", viPron: "mong taj / mong" },
-  { cz: "Pilník", en: "Nail file", vi: "Cây dũa móng", czPron: "PIL-ník", viPron: "kaj zua mong" },
-  { cz: "Nůžky ✂️", en: "Scissors", vi: "Cái kéo", czPron: "NŮŠ-ky", viPron: "kaj keo" },
-  { cz: "Suché", en: "Dry", vi: "Khô", czPron: "SU-ché", viPron: "kho" },
-  { cz: "Mokré", en: "Wet", vi: "Ướt", czPron: "MO-kré", viPron: "uot" },
-  { cz: "Voda 💧", en: "Water", vi: "Nước", czPron: "VO-da", viPron: "nuok" },
+  { cz: "Kulatý ⭕", en: "Round", vi: "Tròn", czPron: "KU-la-tý", viPron: "tron", czAudio: "speech/cz/kulaty.mp3" },
+  { cz: "Hranatý ⬛", en: "Square", vi: "Vuông", czPron: "HRA-na-tý", viPron: "vuong", czAudio: "speech/cz/hranaty.mp3" },
+  { cz: "Lak", en: "Nail polish", vi: "Sơn móng", czPron: "LAK", viPron: "son mong", czAudio: "speech/cz/lak.mp3" },
+  { cz: "Manikúra 💅", en: "Manicure", vi: "Làm móng tay", czPron: "MA-ni-kú-ra", viPron: "lam mong taj", czAudio: "speech/cz/manikura.mp3", viAudio: "speech/vi/lam-mong-tay.mp3" },
+  { cz: "Pedikúra 🦶", en: "Pedicure", vi: "Chăm sóc chân", czPron: "PE-di-kú-ra", viPron: "čam sok čan", czAudio: "speech/cz/pedikura.mp3", viAudio: "speech/vi/lam-mong-chan.mp3" },
+  { cz: "Gelové nehty ✨", en: "Gel nails", vi: "Móng gel", czPron: "GE-lo-vé NE-ty", viPron: "mong gel", czAudio: "speech/cz/gelove-nehty.mp3", viAudio: "speech/vi/mong-gel.mp3" },
+  { cz: "Hotovo ✅", en: "Finished / Done", vi: "Xong rồi", czPron: "HO-to-vo", viPron: "xong zoj", czAudio: "speech/cz/hotovo.mp3", viAudio: "speech/vi/xong-roi.mp3" },
+  { cz: "Ruka / Ruce", en: "Hand / Hands", vi: "Tay / Hai tay", czPron: "RU-ka / RU-ce", viPron: "taj / haj taj", czAudio: ["speech/cz/ruka.mp3", "speech/cz/ruce.mp3"], viAudio: ["speech/vi/tay.mp3", "speech/vi/hai-tay.mp3"] },
+  { cz: "Noha / Nohy", en: "Foot / Feet", vi: "Chân / Hai chân", czPron: "NO-ha / NO-hy", viPron: "čan / haj čan", czAudio: ["speech/cz/noha.mp3", "speech/cz/nohy.mp3"], viAudio: ["speech/vi/chan.mp3", "speech/vi/hai-chan.mp3"] },
+  { cz: "Nehet / Nehty", en: "Nail / Nails", vi: "Móng tay / Móng", czPron: "NE-het / NE-ty", viPron: "mong taj / mong", czAudio: ["speech/cz/nehet.mp3", "speech/cz/nehty.mp3"], viAudio: "speech/vi/mong-tay.mp3" },
+  { cz: "Pilník", en: "Nail file", vi: "Cây dũa móng", czPron: "PIL-ník", viPron: "kaj zua mong", czAudio: "speech/cz/pilnik.mp3", viAudio: "speech/vi/dua.mp3" },
+  { cz: "Nůžky ✂️", en: "Scissors", vi: "Cái kéo", czPron: "NŮŠ-ky", viPron: "kaj keo", czAudio: "speech/cz/nuzky.mp3", viAudio: "speech/vi/keo.mp3" },
+  { cz: "Suché", en: "Dry", vi: "Khô", czPron: "SU-ché", viPron: "kho", czAudio: "speech/cz/suche.mp3", viAudio: "speech/vi/kho.mp3" },
+  { cz: "Mokré", en: "Wet", vi: "Ướt", czPron: "MO-kré", viPron: "uot", czAudio: "speech/cz/mokre.mp3", viAudio: "speech/vi/uot.mp3" },
+  { cz: "Voda 💧", en: "Water", vi: "Nước", czPron: "VO-da", viPron: "nuok", czAudio: "speech/cz/voda.mp3", viAudio: "speech/vi/nuoc.mp3" },
 
   {
     section: "🎨 BARVY A ČAS",
@@ -125,13 +150,15 @@ const PHRASES = [
     vi: "Màu sắc",
     czPron: "BAR-va",
     viPron: "mau sak",
+    czAudio: "speech/cz/barva.mp3",
+    viAudio: "speech/vi/mau-sac.mp3",
   },
-  { cz: "Červená 🔴", en: "Red", vi: "Đỏ", czPron: "ČER-ve-ná", viPron: "do" },
-  { cz: "Růžová 🌸", en: "Pink", vi: "Hồng", czPron: "RŮ-žo-vá", viPron: "hong" },
-  { cz: "Černá ⚫", en: "Black", vi: "Đen", czPron: "ČER-ná", viPron: "den" },
-  { cz: "Bílá ⚪", en: "White", vi: "Trắng", czPron: "BÍ-lá", viPron: "čang" },
-  { cz: "Dnes 📅", en: "Today", vi: "Hôm nay", czPron: "DNES", viPron: "hom naj" },
-  { cz: "Zítra ⏭️", en: "Tomorrow", vi: "Ngày mai", czPron: "ZÍ-tra", viPron: "ngaj maj" },
+  { cz: "Červená 🔴", en: "Red", vi: "Đỏ", czPron: "ČER-ve-ná", viPron: "do", czAudio: "speech/cz/cervena.mp3", viAudio: "speech/vi/djo.mp3" },
+  { cz: "Růžová 🌸", en: "Pink", vi: "Hồng", czPron: "RŮ-žo-vá", viPron: "hong", czAudio: "speech/cz/ruzova.mp3", viAudio: "speech/vi/hong.mp3" },
+  { cz: "Černá ⚫", en: "Black", vi: "Đen", czPron: "ČER-ná", viPron: "den", czAudio: "speech/cz/cerna.mp3", viAudio: "speech/vi/djen.mp3" },
+  { cz: "Bílá ⚪", en: "White", vi: "Trắng", czPron: "BÍ-lá", viPron: "čang", czAudio: "speech/cz/bila.mp3", viAudio: "speech/vi/trang.mp3" },
+  { cz: "Dnes 📅", en: "Today", vi: "Hôm nay", czPron: "DNES", viPron: "hom naj", viAudio: "speech/vi/hom-nay.mp3" },
+  { cz: "Zítra ⏭️", en: "Tomorrow", vi: "Ngày mai", czPron: "ZÍ-tra", viPron: "ngaj maj", czAudio: "speech/cz/zitra.mp3", viAudio: "speech/vi/ngay-mai.mp3" },
 
   {
     section: "PENÍZE A PLATBA",
@@ -140,6 +167,8 @@ const PHRASES = [
     vi: "Giá bao nhiêu?",
     czPron: "CE-na / KO-lik to STO-jí?",
     viPron: "za bao nju",
+    czAudio: ["speech/cz/cena.mp3", "speech/cz/kolik-to-stoji.mp3"],
+    viAudio: ["speech/vi/gia.mp3", "speech/vi/bao-nhieu-tien.mp3"],
   },
   {
     cz: "Můžete platit.",
@@ -147,22 +176,24 @@ const PHRASES = [
     vi: "Bạn có thể thanh toán.",
     czPron: "MŮ-že-te PLA-tit",
     viPron: "ban ko tche tan toan",
+    czAudio: "speech/cz/muzete-platit.mp3",
+    viAudio: "speech/vi/ban-co-the-thanh-toan.mp3",
   },
-  { cz: "Hotově 💶", en: "Cash", vi: "Tiền mặt", czPron: "HO-to-vě", viPron: "tjen mat" },
-  { cz: "Kartou 💳", en: "By card", vi: "Bằng thẻ", czPron: "KAR-tou", viPron: "bang te" },
-  { cz: "Perfektní ✨", en: "Perfect", vi: "Hoàn hảo", czPron: "PER-fek-tní", viPron: "hoan hao" },
-  { cz: "Moment ⏱️", en: "Moment", vi: "Khoảnh khắc", czPron: "MO-ment", viPron: "khoanh khak" },
-  { cz: "Kafe ☕", en: "Coffee", vi: "Cà phê", czPron: "KA-fe", viPron: "ka fe" },
-  { cz: "Klient (muž) / Klientka (žena)", en: "Client", vi: "Khách hàng", czPron: "KLI-ent / KLI-ent-ka", viPron: "khak hang" },
-  { cz: "Salon", en: "Salon", vi: "Tiệm / Thẩm mỹ viện", czPron: "SA-lon", viPron: "tiem" },
-  { cz: "Design 🎨", en: "Design", vi: "Thiết kế", czPron: "DE-zajn", viPron: "thjet ke" },
-  { cz: "Problém ⚠️", en: "Problem", vi: "Vấn đề", czPron: "PRO-blém", viPron: "van de" },
-  { cz: "Detail 🔍", en: "Detail", vi: "Chi tiết", czPron: "DE-tajl", viPron: "či tiet" },
-  { cz: "Materiál", en: "Material", vi: "Vật liệu", czPron: "MA-te-ri-ál", viPron: "vat lijeu" },
-  { cz: "Informace ℹ️", en: "Information", vi: "Thông tin", czPron: "IN-for-ma-ce", viPron: "thong tin" },
-  { cz: "Super 😄", en: "Super", vi: "Tuyệt vời", czPron: "SU-per", viPron: "tujet voj" },
-  { cz: "Akryl", en: "Acrylic", vi: "Acrylic", czPron: "A-kryl", viPron: "ak-ril" },
-  { cz: "Gel", en: "Gel", vi: "Gel", czPron: "GEL", viPron: "zel" },
+  { cz: "Hotově 💶", en: "Cash", vi: "Tiền mặt", czPron: "HO-to-vě", viPron: "tjen mat", czAudio: "speech/cz/hotove.mp3", viAudio: "speech/vi/tien-mat.mp3" },
+  { cz: "Kartou 💳", en: "By card", vi: "Bằng thẻ", czPron: "KAR-tou", viPron: "bang te", czAudio: "speech/cz/kartou.mp3", viAudio: "speech/vi/the.mp3" },
+  { cz: "Perfektní ✨", en: "Perfect", vi: "Hoàn hảo", czPron: "PER-fek-tní", viPron: "hoan hao", czAudio: "speech/cz/perfektni.mp3", viAudio: "speech/vi/hoan-hao.mp3" },
+  { cz: "Moment ⏱️", en: "Moment", vi: "Khoảnh khắc", czPron: "MO-ment", viPron: "khoanh khak", czAudio: "speech/cz/moment.mp3", viAudio: "speech/vi/mot-chut.mp3" },
+  { cz: "Kafe ☕", en: "Coffee", vi: "Cà phê", czPron: "KA-fe", viPron: "ka fe", czAudio: "speech/cz/kafe.mp3", viAudio: "speech/vi/ca-phe.mp3" },
+  { cz: "Klient (muž) / Klientka (žena)", en: "Client", vi: "Khách hàng", czPron: "KLI-ent / KLI-ent-ka", viPron: "khak hang", czAudio: ["speech/cz/klient.mp3", "speech/cz/klientka.mp3"], viAudio: ["speech/vi/khach-hang.mp3", "speech/vi/khach-hang-nu.mp3"] },
+  { cz: "Salon", en: "Salon", vi: "Tiệm / Thẩm mỹ viện", czPron: "SA-lon", viPron: "tiem", czAudio: "speech/cz/salon.mp3", viAudio: "speech/vi/tiem.mp3" },
+  { cz: "Design 🎨", en: "Design", vi: "Thiết kế", czPron: "DE-zajn", viPron: "thjet ke", czAudio: "speech/cz/design.mp3", viAudio: "speech/vi/thiet-ke.mp3" },
+  { cz: "Problém ⚠️", en: "Problem", vi: "Vấn đề", czPron: "PRO-blém", viPron: "van de", czAudio: "speech/cz/problem.mp3", viAudio: "speech/vi/van-dje.mp3" },
+  { cz: "Detail 🔍", en: "Detail", vi: "Chi tiết", czPron: "DE-tajl", viPron: "či tiet", viAudio: "speech/vi/chi-tiet.mp3" },
+  { cz: "Materiál", en: "Material", vi: "Vật liệu", czPron: "MA-te-ri-ál", viPron: "vat lijeu", czAudio: "speech/cz/material.mp3", viAudio: "speech/vi/vat-lieu.mp3" },
+  { cz: "Informace ℹ️", en: "Information", vi: "Thông tin", czPron: "IN-for-ma-ce", viPron: "thong tin", czAudio: "speech/cz/informace.mp3", viAudio: "speech/vi/thong-tin.mp3" },
+  { cz: "Super 😄", en: "Super", vi: "Tuyệt vời", czPron: "SU-per", viPron: "tujet voj", czAudio: "speech/cz/super.mp3", viAudio: "speech/vi/tuyet-voi.mp3" },
+  { cz: "Akryl", en: "Acrylic", vi: "Acrylic", czPron: "A-kryl", viPron: "ak-ril", czAudio: "speech/cz/akryl.mp3", viAudio: "speech/vi/acrylic.mp3" },
+  { cz: "Gel", en: "Gel", vi: "Gel", czPron: "GEL", viPron: "zel", czAudio: "speech/cz/gel.mp3", viAudio: "speech/vi/gel.mp3" },
 ];
 
 let currentMode = null; // legacy, no direct button binding now
@@ -170,6 +201,24 @@ let lastMovedIndex = null;
 let currentRole = loadRole(); // "cz" or "vi"
 let modeIndex = 0; // 0 or 1 depending on role
 let showAll = false; // when true, always show everything
+
+// Single shared audio element for playback
+let currentAudio = null;
+
+function playAudio(src) {
+  try {
+    if (currentAudio) {
+      currentAudio.pause();
+      currentAudio.currentTime = 0;
+    }
+    currentAudio = new Audio(src);
+    currentAudio.play().catch(() => {
+      // ignore playback errors (e.g., user gesture requirements)
+    });
+  } catch {
+    // ignore
+  }
+}
 
 /**
  * Load progress map from localStorage.
@@ -288,9 +337,6 @@ function saveRole(role) {
 
 /**
  * Create a language row (Czech / English / Vietnamese).
- * @param {string} label
- * @param {string} value
- * @param {"cz" | "en" | "vi"} langKey
  * @param {string} label
  * @param {string} value
  * @param {"cz" | "en" | "vi"} langKey
@@ -552,6 +598,42 @@ function renderPhrases() {
 
       actions.appendChild(unknownBtn);
       actions.appendChild(knownBtn);
+
+      // Audio button: play Czech for Vietnamese learner, Vietnamese for Czech learner
+      let audioSrcForRole = null;
+      if (currentRole === "vi" && phrase.czAudio) {
+        audioSrcForRole = Array.isArray(phrase.czAudio)
+          ? phrase.czAudio[0]
+          : phrase.czAudio;
+      } else if (currentRole === "cz" && phrase.viAudio) {
+        audioSrcForRole = Array.isArray(phrase.viAudio)
+          ? phrase.viAudio[0]
+          : phrase.viAudio;
+      }
+
+      if (audioSrcForRole) {
+        const audioBtn = document.createElement("button");
+        audioBtn.type = "button";
+        audioBtn.className = "audio-btn";
+        audioBtn.title =
+          currentRole === "vi" ? "Play Czech audio" : "Play Vietnamese audio";
+        audioBtn.textContent = "🔊";
+
+        const stopEvent = (event) => {
+          event.stopPropagation();
+          event.preventDefault();
+        };
+
+        audioBtn.addEventListener("mousedown", stopEvent);
+        audioBtn.addEventListener("touchstart", stopEvent, { passive: false });
+        audioBtn.addEventListener("click", (event) => {
+          event.stopPropagation();
+          event.preventDefault();
+          playAudio(audioSrcForRole);
+        });
+
+        actions.appendChild(audioBtn);
+      }
 
       card.appendChild(langWrap);
       card.appendChild(memoryHookContainer);
