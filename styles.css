@@ -414,10 +414,17 @@ body {
   border: 1px solid var(--accent);
   background: rgba(15, 23, 42, 0.95);
   color: var(--text);
-  font-size: 0.85rem;
+  /* Prevent iOS zoom on focus - use 16px minimum on mobile */
+  font-size: 16px;
   font-family: var(--font-sans);
   text-align: center;
   outline: none;
+}
+
+@media (min-width: 640px) {
+  .memory-hook-input {
+    font-size: 0.85rem;
+  }
 }
 
 .memory-hook-input:focus {

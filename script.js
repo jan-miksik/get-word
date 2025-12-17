@@ -351,8 +351,9 @@ function attachPressHandlers(el) {
   let touchStartTime = 0;
   let isScrolling = false;
   let pressTimeout = null;
-  const SCROLL_THRESHOLD = 10; // pixels - movement beyond this indicates scrolling
-  const PRESS_DELAY = 100; // ms - delay before activating press (to distinguish from quick scroll)
+  let hasMoved = false;
+  const SCROLL_THRESHOLD = 5; // pixels - reduced threshold for better scroll detection
+  const PRESS_DELAY = 150; // ms - increased delay to better distinguish scrolls
 
   const setPressed = (value) => {
     pressed = value;
@@ -371,10 +372,11 @@ function attachPressHandlers(el) {
       touchStartTime = Date.now();
       isScrolling = false;
       pressed = false;
+      hasMoved = false;
       
       // Set a timeout to activate press if no movement (to handle press without movement)
       pressTimeout = setTimeout(() => {
-        if (!isScrolling && touchStartX !== 0) {
+        if (!isScrolling && !hasMoved && touchStartX !== 0) {
           setPressed(true);
         }
       }, PRESS_DELAY);
@@ -392,9 +394,12 @@ function attachPressHandlers(el) {
     if (event.type === "touchmove" && event.touches.length > 0 && touchStartX !== 0) {
       const deltaX = Math.abs(event.touches[0].clientX - touchStartX);
       const deltaY = Math.abs(event.touches[0].clientY - touchStartY);
+      const totalDelta = Math.max(deltaX, deltaY);
       
-      // If user moved significantly, they're scrolling
-      if (deltaX > SCROLL_THRESHOLD || deltaY > SCROLL_THRESHOLD) {
+      hasMoved = true;
+      
+      // If user moved at all, they might be scrolling - be more permissive
+      if (totalDelta > SCROLL_THRESHOLD) {
         isScrolling = true;
         setPressed(false);
         if (pressTimeout) {
@@ -405,14 +410,17 @@ function attachPressHandlers(el) {
         return;
       }
       
-      // Small movement, likely a press - prevent default to stop scrolling
-      if (!isScrolling && !pressed) {
+      // Small movement detected - cancel press timeout and allow scroll
+      // Only activate press if user holds still for the full delay
+      if (pressTimeout && totalDelta > 2) {
+        clearTimeout(pressTimeout);
+        pressTimeout = null;
+      }
+      
+      // Only prevent default if we're already in pressed state (user held still)
+      if (!isScrolling && pressed) {
+        // Already pressed, keep preventing default
         event.preventDefault();
-        if (pressTimeout) {
-          clearTimeout(pressTimeout);
-          pressTimeout = null;
-        }
-        setPressed(true);
       }
     }
   };
@@ -427,6 +435,7 @@ function attachPressHandlers(el) {
     touchStartY = 0;
     touchStartTime = 0;
     isScrolling = false;
+    hasMoved = false;
   };
 
   el.addEventListener("mousedown", onDown);
