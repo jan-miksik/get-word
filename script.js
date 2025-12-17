@@ -346,6 +346,13 @@ function createLangRow(label, value, langKey, pron) {
  */
 function attachPressHandlers(el) {
   let pressed = false;
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTime = 0;
+  let isScrolling = false;
+  let pressTimeout = null;
+  const SCROLL_THRESHOLD = 10; // pixels - movement beyond this indicates scrolling
+  const PRESS_DELAY = 100; // ms - delay before activating press (to distinguish from quick scroll)
 
   const setPressed = (value) => {
     pressed = value;
@@ -357,15 +364,74 @@ function attachPressHandlers(el) {
   };
 
   const onDown = (event) => {
-    // Prevent text selection / long-press menu on mobile
+    // For touch events, track initial position and time
+    if (event.type === "touchstart" && event.touches.length > 0) {
+      touchStartX = event.touches[0].clientX;
+      touchStartY = event.touches[0].clientY;
+      touchStartTime = Date.now();
+      isScrolling = false;
+      pressed = false;
+      
+      // Set a timeout to activate press if no movement (to handle press without movement)
+      pressTimeout = setTimeout(() => {
+        if (!isScrolling && touchStartX !== 0) {
+          setPressed(true);
+        }
+      }, PRESS_DELAY);
+      
+      // Don't preventDefault yet - wait to see if it's a scroll
+      return;
+    }
+    
+    // For mouse events, prevent default immediately
     event.preventDefault();
     setPressed(true);
   };
 
-  const onUp = () => setPressed(false);
+  const onMove = (event) => {
+    if (event.type === "touchmove" && event.touches.length > 0 && touchStartX !== 0) {
+      const deltaX = Math.abs(event.touches[0].clientX - touchStartX);
+      const deltaY = Math.abs(event.touches[0].clientY - touchStartY);
+      
+      // If user moved significantly, they're scrolling
+      if (deltaX > SCROLL_THRESHOLD || deltaY > SCROLL_THRESHOLD) {
+        isScrolling = true;
+        setPressed(false);
+        if (pressTimeout) {
+          clearTimeout(pressTimeout);
+          pressTimeout = null;
+        }
+        // Don't preventDefault - allow scrolling
+        return;
+      }
+      
+      // Small movement, likely a press - prevent default to stop scrolling
+      if (!isScrolling && !pressed) {
+        event.preventDefault();
+        if (pressTimeout) {
+          clearTimeout(pressTimeout);
+          pressTimeout = null;
+        }
+        setPressed(true);
+      }
+    }
+  };
+
+  const onUp = () => {
+    if (pressTimeout) {
+      clearTimeout(pressTimeout);
+      pressTimeout = null;
+    }
+    setPressed(false);
+    touchStartX = 0;
+    touchStartY = 0;
+    touchStartTime = 0;
+    isScrolling = false;
+  };
 
   el.addEventListener("mousedown", onDown);
-  el.addEventListener("touchstart", onDown, { passive: false });
+  el.addEventListener("touchstart", onDown, { passive: true });
+  el.addEventListener("touchmove", onMove, { passive: false });
 
   window.addEventListener("mouseup", onUp);
   window.addEventListener("touchend", onUp);
@@ -508,20 +574,99 @@ function renderPhrases() {
       });
 
       // Memory hook event handlers
-      // Use double-click to edit (single click/press is for revealing hidden text)
+      // Track touch state for mobile tap detection
+      let memoryHookTouchStart = null;
+      let memoryHookEditTimeout = null;
+      
+      // Use double-click to edit on desktop
       memoryHookDisplay.addEventListener("dblclick", (e) => {
         e.stopPropagation();
+        e.preventDefault();
         if (!memoryHookContainer.classList.contains("editing")) {
           startEditingMemoryHook(index, memoryHookContainer, memoryHookDisplay, memoryHookInput, memoryHookText);
         }
       });
       
-      // Also allow tap on empty placeholder to edit
+      // For mobile: detect tap vs press
+      // Store touch start info before press handlers run
+      memoryHookDisplay.addEventListener("touchstart", (e) => {
+        if (e.touches.length > 0) {
+          memoryHookTouchStart = {
+            x: e.touches[0].clientX,
+            y: e.touches[0].clientY,
+            time: Date.now()
+          };
+          
+          // Set a timeout to trigger edit if it's a quick tap
+          // This will be cancelled if user moves (scrolls) or presses long (reveals)
+          memoryHookEditTimeout = setTimeout(() => {
+            // Only edit if it was a very quick tap and element is not covered
+            if (memoryHookTouchStart && !memoryHookDisplay.classList.contains("is-covered")) {
+              if (!memoryHookContainer.classList.contains("editing")) {
+                startEditingMemoryHook(index, memoryHookContainer, memoryHookDisplay, memoryHookInput, memoryHookText);
+              }
+            }
+            memoryHookTouchStart = null;
+          }, 250); // 250ms threshold for quick tap
+        }
+      }, { passive: true, capture: true });
+      
+      // Track movement - if moved, cancel edit timeout (user is scrolling)
+      memoryHookDisplay.addEventListener("touchmove", (e) => {
+        if (memoryHookTouchStart && e.touches.length > 0) {
+          const deltaX = Math.abs(e.touches[0].clientX - memoryHookTouchStart.x);
+          const deltaY = Math.abs(e.touches[0].clientY - memoryHookTouchStart.y);
+          // If moved significantly, cancel edit timeout (user is scrolling)
+          if (deltaX > 10 || deltaY > 10) {
+            if (memoryHookEditTimeout) {
+              clearTimeout(memoryHookEditTimeout);
+              memoryHookEditTimeout = null;
+            }
+            memoryHookTouchStart = null;
+          }
+        }
+      }, { passive: true });
+      
+      memoryHookDisplay.addEventListener("touchend", (e) => {
+        if (memoryHookEditTimeout) {
+          clearTimeout(memoryHookEditTimeout);
+          memoryHookEditTimeout = null;
+        }
+        
+        if (memoryHookTouchStart) {
+          const touch = e.changedTouches[0];
+          const deltaX = Math.abs(touch.clientX - memoryHookTouchStart.x);
+          const deltaY = Math.abs(touch.clientY - memoryHookTouchStart.y);
+          const deltaTime = Date.now() - memoryHookTouchStart.time;
+          const isCovered = memoryHookDisplay.classList.contains("is-covered");
+          const wasPressed = memoryHookDisplay.classList.contains("is-pressed");
+          
+          // If it's a quick tap without movement:
+          // - If covered: let press handlers reveal (don't edit)
+          // - If not covered: edit
+          if (deltaX < 10 && deltaY < 10 && deltaTime < 300) {
+            if (!isCovered && !wasPressed) {
+              e.preventDefault();
+              e.stopPropagation();
+              if (!memoryHookContainer.classList.contains("editing")) {
+                startEditingMemoryHook(index, memoryHookContainer, memoryHookDisplay, memoryHookInput, memoryHookText);
+              }
+            }
+          }
+          memoryHookTouchStart = null;
+        }
+      }, { passive: false });
+      
+      // Also allow click on empty placeholder to edit (desktop fallback)
       if (!hookValue) {
         memoryHookDisplay.addEventListener("click", (e) => {
-          e.stopPropagation();
-          if (!memoryHookContainer.classList.contains("editing")) {
-            startEditingMemoryHook(index, memoryHookContainer, memoryHookDisplay, memoryHookInput, memoryHookText);
+          // Only trigger if not currently pressed (revealed) and not covered
+          if (!memoryHookDisplay.classList.contains("is-pressed") && 
+              !memoryHookDisplay.classList.contains("is-covered")) {
+            e.stopPropagation();
+            if (!memoryHookContainer.classList.contains("editing")) {
+              startEditingMemoryHook(index, memoryHookContainer, memoryHookDisplay, memoryHookInput, memoryHookText);
+            }
           }
         });
       }
@@ -546,7 +691,7 @@ function renderPhrases() {
     root.appendChild(zone);
   });
 
-  // Attach press behavior to all cover targets
+  // Attach press behavior to all cover targets (including memory hooks for reveal functionality)
   const coverTargets = root.querySelectorAll(".cover-target");
   coverTargets.forEach((el) => attachPressHandlers(/** @type {HTMLElement} */ (el)));
 
