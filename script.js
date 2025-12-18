@@ -194,6 +194,342 @@ const PHRASES = [
   { cz: "Super 😄", en: "Super", vi: "Tuyệt vời", czPron: "SU-per", viPron: "tujet voj", czAudio: "speech/cz/super.mp3", viAudio: "speech/vi/tuyet-voi.mp3" },
   { cz: "Akryl", en: "Acrylic", vi: "Acrylic", czPron: "A-kryl", viPron: "ak-ril", czAudio: "speech/cz/akryl.mp3", viAudio: "speech/vi/acrylic.mp3" },
   { cz: "Gel", en: "Gel", vi: "Gel", czPron: "GEL", viPron: "zel", czAudio: "speech/cz/gel.mp3", viAudio: "speech/vi/gel.mp3" },
+  {
+    cz: "Jak se jmenujete?",
+    en: "What is your name?",
+    vi: "Bạn tên là gì?",
+    czPron: "Jak se JE-me-nu-je-te",
+    viPron: "ban ten la zi",
+    hint: "jméno ≈ name / tên"
+  },
+  {
+    cz: "Jmenuji se…",
+    en: "My name is…",
+    vi: "Tôi tên là…",
+    czPron: "JE-me-nu-ji se",
+    viPron: "toj ten la",
+    hint: "jmenuji = name action"
+  },
+  {
+    cz: "Odkud jste?",
+    en: "Where are you from?",
+    vi: "Bạn đến từ đâu?",
+    czPron: "OD-kud jste",
+    viPron: "ban den tů dau",
+    hint: "odkud = from where / đâu"
+  },
+  {
+    cz: "Jsem z Česka",
+    en: "I am from Czechia",
+    vi: "Tôi đến từ Séc",
+    czPron: "Jsem z ČES-ka",
+    viPron: "toj den tů sek",
+    hint: "z = from"
+  },
+  {
+    cz: "Kolik je hodin?",
+    en: "What time is it?",
+    vi: "Mấy giờ rồi?",
+    czPron: "KO-lik je HO-din",
+    viPron: "me zo zui",
+    hint: "hodiny = hours / giờ"
+  },
+  {
+    cz: "Počkejte prosím",
+    en: "Please wait",
+    vi: "Vui lòng đợi",
+    czPron: "PO-čkej-te PRO-sím",
+    viPron: "vuj long doj",
+    hint: "čekat = wait"
+  },
+  {
+    cz: "Pojďte sem",
+    en: "Come here",
+    vi: "Lại đây",
+    czPron: "POJ-te sem",
+    viPron: "laj dej",
+    hint: "sem = here"
+  },
+  {
+    cz: "Pojďme",
+    en: "Let’s go",
+    vi: "Đi thôi",
+    czPron: "POJď-me",
+    viPron: "di thoj",
+    hint: "pojď = move / đi"
+  },
+  {
+    cz: "Kam jdete?",
+    en: "Where are you going?",
+    vi: "Bạn đi đâu?",
+    czPron: "Kam JDE-te",
+    viPron: "ban di dau",
+    hint: "kam = where to"
+  },
+  {
+    cz: "Jdu domů",
+    en: "I’m going home",
+    vi: "Tôi về nhà",
+    czPron: "Jdu DO-mů",
+    viPron: "toj ve nja",
+    hint: "domů = home"
+  },
+  {
+    cz: "Mám hlad",
+    en: "I’m hungry",
+    vi: "Tôi đói",
+    czPron: "Mám hlad",
+    viPron: "toj doj",
+    hint: "hlad = hunger"
+  },
+  {
+    cz: "Mám žízeň",
+    en: "I’m thirsty",
+    vi: "Tôi khát",
+    czPron: "Mám ŽÍ-zeň",
+    viPron: "toj kat",
+    hint: "žízeň = thirst"
+  },
+  {
+    cz: "Chci jíst",
+    en: "I want to eat",
+    vi: "Tôi muốn ăn",
+    czPron: "Chci jíst",
+    viPron: "toj muon an",
+    hint: "jíst = eat / ăn"
+  },
+  {
+    cz: "Chci pít",
+    en: "I want to drink",
+    vi: "Tôi muốn uống",
+    czPron: "Chci pít",
+    viPron: "toj muon uong",
+    hint: "pít = drink"
+  },
+  {
+    cz: "Je to daleko?",
+    en: "Is it far?",
+    vi: "Có xa không?",
+    czPron: "Je to DA-le-ko",
+    viPron: "ko sa kong",
+    hint: "daleko = far"
+  },
+  {
+    cz: "Je to blízko",
+    en: "It’s close",
+    vi: "Gần",
+    czPron: "Je to BLÍZ-ko",
+    viPron: "gan",
+    hint: "blízko = near"
+  },
+  {
+    cz: "Líbí se mi to",
+    en: "I like it",
+    vi: "Tôi thích cái này",
+    czPron: "LÍ-bí se mi to",
+    viPron: "toj tik kaj naj",
+    hint: "líbit se = like"
+  },
+  {
+    cz: "Nelíbí se mi to",
+    en: "I don’t like it",
+    vi: "Tôi không thích",
+    czPron: "NE-lí-bí se mi to",
+    viPron: "toj kong tik",
+    hint: "ne = not"
+  },
+  {
+    cz: "Je to v pořádku",
+    en: "It’s okay",
+    vi: "Ổn",
+    czPron: "Je to v PO-řád-ku",
+    viPron: "on",
+    hint: "pořádek = order / OK"
+  },
+  {
+    cz: "Není problém",
+    en: "No problem",
+    vi: "Không vấn đề",
+    czPron: "NE-ní PRO-blém",
+    viPron: "kong van de",
+    hint: "problém = same word"
+  },
+  {
+    cz: "Možná",
+    en: "Maybe",
+    vi: "Có lẽ",
+    czPron: "MOŽ-ná",
+    viPron: "ko le",
+    hint: "nejistota = maybe"
+  },
+  {
+    cz: "Určitě",
+    en: "Definitely",
+    vi: "Chắc chắn",
+    czPron: "UR-či-tě",
+    viPron: "čak čan",
+    hint: "určit = sure"
+  },
+  {
+    cz: "Teď nemůžu",
+    en: "I can’t now",
+    vi: "Bây giờ không được",
+    czPron: "Teď NE-mů-žu",
+    viPron: "bej zo kong duk",
+    hint: "můžu = can"
+  },
+  {
+    cz: "Můžu?",
+    en: "May I?",
+    vi: "Tôi có thể không?",
+    czPron: "MŮ-žu",
+    viPron: "toj ko te kong",
+    hint: "můžu = ability"
+  },
+  {
+    cz: "Potřebuji pomoc",
+    en: "I need help",
+    vi: "Tôi cần giúp đỡ",
+    czPron: "PO-tře-bu-ji PO-moc",
+    viPron: "toj kan zup do",
+    hint: "potřeba = need"
+  },
+  {
+    cz: "Ztratil jsem se",
+    en: "I am lost",
+    vi: "Tôi bị lạc",
+    czPron: "ZTRA-ti-l jsem se",
+    viPron: "toj bi lak",
+    hint: "ztratit = lose"
+  },
+  {
+    cz: "Mluvím trochu česky",
+    en: "I speak a little Czech",
+    vi: "Tôi nói tiếng Séc một chút",
+    czPron: "MLU-vím TRO-chu ČES-ky",
+    viPron: "toj noj tiéng sek mot čut",
+    hint: "trochu = a little"
+  },
+  {
+    cz: "Mluvte pomalu",
+    en: "Speak slowly",
+    vi: "Nói chậm thôi",
+    czPron: "MLUV-te PO-ma-lu",
+    viPron: "noj čam thoj",
+    hint: "pomalu = slow"
+  },
+  {
+    cz: "Ještě jednou",
+    en: "Once again",
+    vi: "Lặp lại",
+    czPron: "JEŠ-tě JED-nou",
+    viPron: "lap laj",
+    hint: "jednou = one time"
+  },
+  {
+    cz: "Rozumíte?",
+    en: "Do you understand?",
+    vi: "Bạn hiểu không?",
+    czPron: "RO-zu-mí-te",
+    viPron: "ban hieu kong",
+    hint: "rozumět = understand"
+  },
+  {
+    cz: "Chvíli",
+    en: "A moment",
+    vi: "Một lát",
+    czPron: "CHVÍ-li",
+    viPron: "mot lat",
+    hint: "chvíle = short time"
+  },
+  {
+    cz: "Hned",
+    en: "Immediately",
+    vi: "Ngay",
+    czPron: "Hned",
+    viPron: "ngaj",
+    hint: "hned = now-now"
+  },
+  {
+    cz: "Brát",
+    en: "To take",
+    vi: "Lấy",
+    czPron: "Brát",
+    viPron: "lej",
+    hint: "brát = take"
+  },
+  {
+    cz: "Dát",
+    en: "To give",
+    vi: "Đưa",
+    czPron: "Dát",
+    viPron: "dưa",
+    hint: "dát = give"
+  },
+  {
+    cz: "Vidím",
+    en: "I see",
+    vi: "Tôi thấy",
+    czPron: "VI-dím",
+    viPron: "toj tej",
+    hint: "vidět = see"
+  },
+  {
+    cz: "Slyším",
+    en: "I hear",
+    vi: "Tôi nghe",
+    czPron: "SLY-ším",
+    viPron: "toj nge",
+    hint: "sluch = hearing"
+  },
+  {
+    cz: "Drahé",
+    en: "Expensive",
+    vi: "Đắt",
+    czPron: "DRA-hé",
+    viPron: "dat",
+    hint: "drahý = expensive"
+  },
+  {
+    cz: "Levné",
+    en: "Cheap",
+    vi: "Rẻ",
+    czPron: "LEV-né",
+    viPron: "ze",
+    hint: "levný = cheap"
+  },
+  {
+    cz: "Otevřete",
+    en: "Open (imperative)",
+    vi: "Mở ra",
+    czPron: "O-te-vře-te",
+    viPron: "mo ra",
+    hint: "otevřít = open"
+  },
+  {
+    cz: "Zavřete",
+    en: "Close (imperative)",
+    vi: "Đóng lại",
+    czPron: "ZA-vře-te",
+    viPron: "dong laj",
+    hint: "zavřít = close"
+  },
+  {
+    cz: "Pozor! ⚠️",
+    en: "Attention!",
+    vi: "Cẩn thận!",
+    czPron: "PO-zor",
+    viPron: "kan than",
+    hint: "pozor = watch out"
+  },
+  {
+    cz: "Vítejte 🤝",
+    en: "Welcome",
+    vi: "Chào mừng",
+    czPron: "VÍ-tej-te",
+    viPron: "čao mung",
+    hint: "vítat = welcome"
+  }
 ];
 
 let currentMode = null; // legacy, no direct button binding now
