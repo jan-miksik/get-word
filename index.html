@@ -19,6 +19,13 @@
         Settings
       </button>
       <button
+        class="mode-btn progress-btn"
+        id="progress-btn"
+        type="button"
+      >
+        📊
+      </button>
+      <button
         class="mode-btn show-all-btn"
         id="show-all-btn"
         type="button"
@@ -46,6 +53,12 @@
           </label>
         </div>
       </section>
+
+      <section class="progress-panel" id="progress-panel" aria-label="Progress">
+        <div class="progress-panel-inner" id="progress-panel-content"></div>
+      </section>
+
+      <div class="progress-summary" id="progress-summary"></div>
 
       <main class="phrases" id="phrases" aria-live="polite"></main>
 

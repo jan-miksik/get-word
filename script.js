@@ -22,9 +22,11 @@ const STAGES = [
   { id: 3, name: "1 hour", intervalMs: 60 * 60 * 1000 },
   { id: 4, name: "8 hours", intervalMs: 8 * 60 * 60 * 1000 },
   { id: 5, name: "1 day", intervalMs: 24 * 60 * 60 * 1000 },
+  
   { id: 6, name: "3 days", intervalMs: 3 * 24 * 60 * 60 * 1000 },
   { id: 7, name: "7 days", intervalMs: 7 * 24 * 60 * 60 * 1000 },
   { id: 8, name: "14 days", intervalMs: 14 * 24 * 60 * 60 * 1000 },
+
   { id: 9, name: "30 days", intervalMs: 30 * 24 * 60 * 60 * 1000 },
   { id: 10, name: "60 days", intervalMs: 60 * 24 * 60 * 60 * 1000 },
 ];
@@ -555,11 +557,266 @@ function attachPressHandlers(el) {
 }
 
 /**
+ * Calculate progress statistics.
+ * @returns {Object} Statistics object
+ */
+function calculateProgressStats() {
+  const stats = {
+    total: PHRASES.length,
+    byStage: STAGES.map(() => 0),
+    totalKnown: 0,
+    totalUnknown: 0,
+    readyCount: 0,
+    fresh: 0, // stages 1-5 (1min to 1 day)
+    learning: 0, // stages 6-8 (3 days to 14 days)
+    done: 0, // stages 9-10 (30 days to 60 days)
+    new: 0, // stage 0
+  };
+
+  PHRASES.forEach((phrase, index) => {
+    const prog = getProgress(index);
+    const stageIdx = Math.max(0, Math.min(prog.stageIndex || 0, STAGES.length - 1));
+    
+    stats.byStage[stageIdx] += 1;
+    stats.totalKnown += prog.knownCount || 0;
+    stats.totalUnknown += prog.unknownCount || 0;
+    
+    if (isDue(prog)) {
+      stats.readyCount += 1;
+    }
+    
+    if (stageIdx === 0) {
+      stats.new += 1;
+    } else if (stageIdx >= 1 && stageIdx <= 5) {
+      stats.fresh += 1;
+    } else if (stageIdx >= 6 && stageIdx <= 8) {
+      stats.learning += 1;
+    } else if (stageIdx >= 9) {
+      stats.done += 1;
+    }
+  });
+
+  return stats;
+}
+
+/**
+ * Render simplified progress summary for main page.
+ */
+function renderProgressSummary() {
+  const summaryEl = document.getElementById("progress-summary");
+  if (!summaryEl) return;
+
+  const stats = calculateProgressStats();
+  
+  summaryEl.innerHTML = `
+    <div class="progress-summary-item fresh">
+      <div class="progress-summary-label">Fresh</div>
+      <div class="progress-summary-value">${stats.fresh}</div>
+    </div>
+    <div class="progress-summary-item learning">
+      <div class="progress-summary-label">Learning</div>
+      <div class="progress-summary-value">${stats.learning}</div>
+    </div>
+    <div class="progress-summary-item done">
+      <div class="progress-summary-label">Done</div>
+      <div class="progress-summary-value">${stats.done}</div>
+    </div>
+  `;
+}
+
+/**
+ * Render progress overview in panel.
+ */
+function renderProgressOverview() {
+  const panelContent = document.getElementById("progress-panel-content");
+  if (!panelContent) return;
+
+  panelContent.innerHTML = "";
+  
+  const stats = calculateProgressStats();
+  const progressPercent = stats.total > 0 
+    ? Math.round((stats.fresh + stats.learning + stats.done) / stats.total * 100) 
+    : 0;
+
+  const container = document.createElement("div");
+  container.className = "progress-overview";
+
+  // Header
+  const header = document.createElement("div");
+  header.className = "progress-header";
+  const title = document.createElement("h1");
+  title.textContent = "📊 Learning Progress";
+  header.appendChild(title);
+  container.appendChild(header);
+
+  // Overall stats
+  const overallStats = document.createElement("div");
+  overallStats.className = "progress-stats-grid";
+  
+  const statCard = (label, value, subtitle = "") => {
+    const card = document.createElement("div");
+    card.className = "progress-stat-card";
+    const valueEl = document.createElement("div");
+    valueEl.className = "progress-stat-value";
+    valueEl.textContent = value;
+    const labelEl = document.createElement("div");
+    labelEl.className = "progress-stat-label";
+    labelEl.textContent = label;
+    card.appendChild(valueEl);
+    card.appendChild(labelEl);
+    if (subtitle) {
+      const subEl = document.createElement("div");
+      subEl.className = "progress-stat-subtitle";
+      subEl.textContent = subtitle;
+      card.appendChild(subEl);
+    }
+    return card;
+  };
+
+  overallStats.appendChild(statCard("Total Words", stats.total));
+  overallStats.appendChild(statCard("Progress", `${progressPercent}%`, `${stats.fresh + stats.learning + stats.done} / ${stats.total}`));
+  overallStats.appendChild(statCard("Ready Now", stats.readyCount));
+  overallStats.appendChild(statCard("Done", stats.done, `Stage 9-10`));
+  
+  container.appendChild(overallStats);
+
+  // Learning status breakdown
+  const statusSection = document.createElement("div");
+  statusSection.className = "progress-section";
+  const statusTitle = document.createElement("h2");
+  statusTitle.textContent = "Learning Status";
+  statusSection.appendChild(statusTitle);
+
+  const statusGrid = document.createElement("div");
+  statusGrid.className = "progress-status-grid";
+  
+  const newCard = document.createElement("div");
+  newCard.className = "progress-status-card new";
+  newCard.innerHTML = `
+    <div class="progress-status-value">${stats.new}</div>
+    <div class="progress-status-label">New / Not Started</div>
+  `;
+  
+  const freshCard = document.createElement("div");
+  freshCard.className = "progress-status-card fresh";
+  freshCard.innerHTML = `
+    <div class="progress-status-value">${stats.fresh}</div>
+    <div class="progress-status-label">Fresh</div>
+  `;
+  
+  const learningCard = document.createElement("div");
+  learningCard.className = "progress-status-card learning";
+  learningCard.innerHTML = `
+    <div class="progress-status-value">${stats.learning}</div>
+    <div class="progress-status-label">Learning</div>
+  `;
+  
+  const doneCard = document.createElement("div");
+  doneCard.className = "progress-status-card done";
+  doneCard.innerHTML = `
+    <div class="progress-status-value">${stats.done}</div>
+    <div class="progress-status-label">Done</div>
+  `;
+  
+  statusGrid.appendChild(newCard);
+  statusGrid.appendChild(freshCard);
+  statusGrid.appendChild(learningCard);
+  statusGrid.appendChild(doneCard);
+  statusSection.appendChild(statusGrid);
+  container.appendChild(statusSection);
+
+  // Stage breakdown
+  const stageSection = document.createElement("div");
+  stageSection.className = "progress-section";
+  const stageTitle = document.createElement("h2");
+  stageTitle.textContent = "Words by Stage";
+  stageSection.appendChild(stageTitle);
+
+  const stageList = document.createElement("div");
+  stageList.className = "progress-stage-list";
+  
+  STAGES.forEach((stage, index) => {
+    const count = stats.byStage[index];
+    if (count === 0 && index > 0) return; // Skip empty stages except stage 0
+    
+    const stageItem = document.createElement("div");
+    stageItem.className = "progress-stage-item";
+    if (index === 0) stageItem.classList.add("stage-new");
+    if (index >= 7) stageItem.classList.add("stage-mastered");
+    
+    const stageName = document.createElement("div");
+    stageName.className = "progress-stage-name";
+    stageName.textContent = stage.name;
+    
+    const stageCount = document.createElement("div");
+    stageCount.className = "progress-stage-count";
+    stageCount.textContent = count;
+    
+    const stageBar = document.createElement("div");
+    stageBar.className = "progress-stage-bar";
+    const barFill = document.createElement("div");
+    barFill.className = "progress-stage-bar-fill";
+    const barPercent = stats.total > 0 ? (count / stats.total * 100) : 0;
+    barFill.style.width = `${barPercent}%`;
+    stageBar.appendChild(barFill);
+    
+    stageItem.appendChild(stageName);
+    stageItem.appendChild(stageCount);
+    stageItem.appendChild(stageBar);
+    stageList.appendChild(stageItem);
+  });
+  
+  stageSection.appendChild(stageList);
+  container.appendChild(stageSection);
+
+  // Answer statistics
+  const answerSection = document.createElement("div");
+  answerSection.className = "progress-section";
+  const answerTitle = document.createElement("h2");
+  answerTitle.textContent = "Answer Statistics";
+  answerSection.appendChild(answerTitle);
+
+  const answerStats = document.createElement("div");
+  answerStats.className = "progress-answer-stats";
+  
+  const totalAnswers = stats.totalKnown + stats.totalUnknown;
+  const accuracy = totalAnswers > 0 
+    ? Math.round((stats.totalKnown / totalAnswers) * 100) 
+    : 0;
+  
+  answerStats.innerHTML = `
+    <div class="progress-answer-item">
+      <div class="progress-answer-label">Correct</div>
+      <div class="progress-answer-value correct">${stats.totalKnown}</div>
+    </div>
+    <div class="progress-answer-item">
+      <div class="progress-answer-label">Incorrect</div>
+      <div class="progress-answer-value incorrect">${stats.totalUnknown}</div>
+    </div>
+    <div class="progress-answer-item">
+      <div class="progress-answer-label">Accuracy</div>
+      <div class="progress-answer-value">${accuracy}%</div>
+    </div>
+  `;
+  
+  answerSection.appendChild(answerStats);
+  container.appendChild(answerSection);
+
+  panelContent.appendChild(container);
+}
+
+/**
  * Render all phrase cards.
  */
 function renderPhrases() {
   const root = document.getElementById("phrases");
   if (!root) return;
+
+  // Show progress overview if progress tab is selected
+  if (currentTab === "progress") {
+    renderProgressOverview();
+    return;
+  }
 
   root.innerHTML = "";
 
@@ -1078,6 +1335,8 @@ function handleMark(index, kind, card) {
   // Remember which card moved and re-render so the word moves to its new category zone
   lastMovedIndex = index;
   renderPhrases();
+  // Update progress summary in real-time
+  renderProgressSummary();
 }
 
 /**
@@ -1101,17 +1360,21 @@ function updateShowAllButtonLabel() {
 
 function setupTopControls() {
   const settingsBtn = document.getElementById("settings-btn");
+  const progressBtn = document.getElementById("progress-btn");
   const switchBtn = document.getElementById("switch-btn");
-  const panel = document.getElementById("settings-panel");
+  const settingsPanel = document.getElementById("settings-panel");
+  const progressPanel = document.getElementById("progress-panel");
   const showAllBtn = document.getElementById("show-all-btn");
   const bottomButtons = document.querySelectorAll(".bottom-nav-btn");
 
-  if (settingsBtn && panel) {
+  if (settingsBtn && settingsPanel) {
     settingsBtn.addEventListener("click", () => {
-      panel.classList.toggle("is-open");
+      settingsPanel.classList.toggle("is-open");
+      // Close progress panel if open
+      if (progressPanel) progressPanel.classList.remove("is-open");
     });
 
-    const radios = panel.querySelectorAll('input[name="learner-role"]');
+    const radios = settingsPanel.querySelectorAll('input[name="learner-role"]');
     radios.forEach((radio) => {
       if (radio.value === currentRole) {
         radio.checked = true;
@@ -1127,6 +1390,18 @@ function setupTopControls() {
         // keep showAll state as-is when switching role
         renderPhrases();
       });
+    });
+  }
+
+  if (progressBtn && progressPanel) {
+    progressBtn.addEventListener("click", () => {
+      progressPanel.classList.toggle("is-open");
+      // Close settings panel if open
+      if (settingsPanel) settingsPanel.classList.remove("is-open");
+      // Render progress overview when opening
+      if (progressPanel.classList.contains("is-open")) {
+        renderProgressOverview();
+      }
     });
   }
 
@@ -1160,6 +1435,9 @@ function setupTopControls() {
       renderPhrases();
     });
   });
+  
+  // Initial render of progress summary
+  renderProgressSummary();
 }
 
 /**
