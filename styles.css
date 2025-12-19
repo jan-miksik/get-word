@@ -38,7 +38,7 @@ body {
   min-height: 100vh;
   max-width: 720px;
   margin: 0 auto;
-  padding: 12px 14px 22px;
+  padding: 32px 14px 22px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -112,7 +112,7 @@ body {
 
 .mode-btn.settings-btn {
   position: absolute;
-  top: 12px;
+  top: 28px;
   right: 14px;
   flex: 0 0 auto;
   padding: 6px 12px;
@@ -137,7 +137,7 @@ body {
 
 .mode-btn.switch-btn {
   position: absolute;
-  top: 12px;
+  top: 28px;
   left: 14px;
   flex: 0 0 auto;
   min-width: 50px;
@@ -166,7 +166,7 @@ body {
 
 .mode-btn.show-all-btn {
   position: absolute;
-  top: 12px;
+  top: 28px;
   left: 72px;
   flex: 0 0 auto;
   min-width: 50px;
@@ -195,7 +195,7 @@ body {
 
 .mode-btn.progress-btn {
   position: absolute;
-  top: 12px;
+  top: 28px;
   left: 130px;
   flex: 0 0 auto;
   min-width: 50px;
@@ -258,7 +258,7 @@ body {
   max-height: 80vh;
   overflow-y: auto;
   position: absolute;
-  top: 50px;
+  top: 66px;
   right: 14px;
   left: 14px;
   max-width: 720px;
@@ -993,53 +993,50 @@ body {
 /* Progress Summary (simplified view on main page) */
 .progress-summary {
   position: absolute;
-  top: 12px;
-  right: 100px;
+  top: 0;
+  left: 0;
+  right: 0;
   display: flex;
-  gap: 4px;
-  padding: 4px 6px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: 10px;
-  width: auto;
-  z-index: 20;
+  justify-content: center;
+  gap: 12px;
+  padding: 6px 8px;
+  backdrop-filter: blur(8px);
+  width: 100%;
+  z-index: 30;
+  font-size: 0.6875rem;
+  opacity: 0.5;
 }
 
 .progress-summary-item {
-  flex: 1;
-  min-width: 40px;
-  display: flex;
-  flex-direction: column;
+  display: inline-flex;
   align-items: center;
-  gap: 1px;
-  padding: 3px 2px;
-  border-radius: 6px;
+  gap: 4px;
+  color: var(--text-soft);
 }
 
-.progress-summary-item.fresh {
-  background: rgba(251, 191, 36, 0.12);
-  border: 1px solid rgba(251, 191, 36, 0.32);
+.progress-summary-item.fresh .progress-summary-label {
+  color: #fbbf24;
 }
 
-.progress-summary-item.learning {
-  background: var(--accent-soft);
-  border: 1px solid var(--accent-strong);
+.progress-summary-item.learning .progress-summary-label {
+  color: var(--accent);
 }
 
-.progress-summary-item.done {
-  background: rgba(34, 197, 94, 0.12);
-  border: 1px solid rgba(34, 197, 94, 0.32);
+.progress-summary-item.done .progress-summary-label {
+  color: #22c55e;
 }
 
 .progress-summary-label {
-  font-size: 0.5625rem;
-  color: var(--text-soft);
+  font-size: 0.6875rem;
   font-weight: 500;
+  text-transform: lowercase;
 }
 
 .progress-summary-value {
-  font-size: 0.875rem;
-  font-weight: 700;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--text-soft);
+  opacity: 0.9;
 }
 
 .progress-summary-item.fresh .progress-summary-value {

@@ -609,18 +609,18 @@ function renderProgressSummary() {
   const stats = calculateProgressStats();
   
   summaryEl.innerHTML = `
-    <div class="progress-summary-item fresh">
-      <div class="progress-summary-label">Fresh</div>
-      <div class="progress-summary-value">${stats.fresh}</div>
-    </div>
-    <div class="progress-summary-item learning">
-      <div class="progress-summary-label">Learning</div>
-      <div class="progress-summary-value">${stats.learning}</div>
-    </div>
-    <div class="progress-summary-item done">
-      <div class="progress-summary-label">Done</div>
-      <div class="progress-summary-value">${stats.done}</div>
-    </div>
+    <span class="progress-summary-item fresh">
+      <span class="progress-summary-label">fresh</span>
+      <span class="progress-summary-value">(${stats.fresh})</span>
+    </span>
+    <span class="progress-summary-item learning">
+      <span class="progress-summary-label">learning</span>
+      <span class="progress-summary-value">(${stats.learning})</span>
+    </span>
+    <span class="progress-summary-item done">
+      <span class="progress-summary-label">done</span>
+      <span class="progress-summary-value">(${stats.done})</span>
+    </span>
   `;
 }
 
