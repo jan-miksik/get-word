@@ -38,7 +38,7 @@ body {
   min-height: 100vh;
   max-width: 720px;
   margin: 0 auto;
-  padding: 32px 14px 22px;
+  padding: 12px 14px 22px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -110,14 +110,43 @@ body {
     box-shadow var(--transition-fast);
 }
 
+.mode-btn.memory-hooks-btn {
+  position: absolute;
+  top: 12px;
+  right: 95px;
+  flex: 0 0 auto;
+  min-width: 32px;
+  font-size: 1rem;
+  padding: 6px 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+  border-radius: var(--radius-pill);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  background: rgba(15, 23, 42, 0.9);
+  color: var(--text-soft);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-med),
+    color var(--transition-med),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.mode-btn.memory-hooks-btn:hover {
+  background: rgba(15, 23, 42, 1);
+  transform: translateY(-0.5px);
+}
+
 .mode-btn.settings-btn {
   position: absolute;
-  top: 28px;
+  top: 12px;
   right: 14px;
   flex: 0 0 auto;
   padding: 6px 12px;
   font-size: 0.85rem;
-  z-index: 20;
+  z-index: 50;
   border-radius: var(--radius-pill);
   border: 1px solid rgba(148, 163, 184, 0.3);
   background: rgba(15, 23, 42, 0.9);
@@ -137,7 +166,7 @@ body {
 
 .mode-btn.switch-btn {
   position: absolute;
-  top: 28px;
+  top: 12px;
   left: 14px;
   flex: 0 0 auto;
   min-width: 50px;
@@ -166,7 +195,7 @@ body {
 
 .mode-btn.show-all-btn {
   position: absolute;
-  top: 28px;
+  top: 12px;
   left: 72px;
   flex: 0 0 auto;
   min-width: 50px;
@@ -195,7 +224,7 @@ body {
 
 .mode-btn.progress-btn {
   position: absolute;
-  top: 28px;
+  top: 12px;
   left: 130px;
   flex: 0 0 auto;
   min-width: 50px;
@@ -245,6 +274,8 @@ body {
 
 .settings-panel.is-open {
   display: block;
+  position: absolute;
+  z-index: 60;
 }
 
 .progress-panel {
@@ -258,7 +289,7 @@ body {
   max-height: 80vh;
   overflow-y: auto;
   position: absolute;
-  top: 66px;
+  top: 50px;
   right: 14px;
   left: 14px;
   max-width: 720px;
@@ -274,6 +305,71 @@ body {
 
 .progress-panel-inner {
   padding: 16px;
+}
+
+.memory-hooks-panel {
+  margin-top: 4px;
+  border-radius: 18px;
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  background: rgba(15, 23, 42, 0.96);
+  padding: 0;
+  display: none;
+  align-self: end;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: absolute;
+  top: 50px;
+  right: 14px;
+  left: 14px;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
+  z-index: 100;
+  box-shadow: var(--shadow-soft);
+}
+
+.memory-hooks-panel.is-open {
+  display: block;
+}
+
+.memory-hooks-panel-inner {
+  padding: 20px;
+}
+
+.memory-hooks-title {
+  margin: 0 0 16px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.memory-hooks-content {
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: var(--text-soft);
+}
+
+.memory-hooks-content p {
+  margin: 0 0 12px;
+}
+
+.memory-hooks-content p:last-child {
+  margin-bottom: 0;
+}
+
+.memory-hooks-content ul {
+  margin: 8px 0 12px;
+  padding-left: 24px;
+}
+
+.memory-hooks-content li {
+  margin-bottom: 8px;
+}
+
+.memory-hooks-content strong {
+  color: var(--text);
+  font-weight: 600;
 }
 
 .settings-inner {
@@ -316,8 +412,8 @@ body {
   border: 1px solid rgba(148, 163, 184, 0.5);
   background: rgba(15, 23, 42, 0.9);
   color: var(--text-soft);
-  font-size: 0.78rem;
-  padding: 6px 8px;
+  font-size: 0.9rem;
+  padding: 10px 14px;
   cursor: pointer;
   transition:
     background-color var(--transition-fast),
@@ -658,7 +754,16 @@ body {
 }
 
 .phrase-card {
-  will-change: transform, opacity;
+  will-change: transform, opacity, margin, padding, max-height;
+  transition: 
+    transform 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    margin 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    border-width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden;
+  max-height: 1000px;
 }
 
 .card-moved {
@@ -675,6 +780,7 @@ body {
     transform: translateY(0) scale(1);
   }
 }
+
 
 /*
  * Hiding / reveal behavior
@@ -991,6 +1097,7 @@ body {
 }
 
 /* Progress Summary (simplified view on main page) */
+/* Progress Summary (simplified view on main page) */
 .progress-summary {
   position: absolute;
   top: 0;
@@ -1061,7 +1168,8 @@ body {
   }
   
   .settings-panel,
-  .progress-panel {
+  .progress-panel,
+  .memory-hooks-panel {
     left: auto;
     right: 14px;
     max-width: 500px;

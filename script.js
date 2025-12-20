@@ -257,6 +257,325 @@ const PHRASES = [
   { cz: "čisté", en: "clean", vi: "sạch", czPron: "ČIS-té", viPron: "sach", czAudio: "speech/cz/ciste.mp3", viAudio: "speech/vi/sach.mp3" },
   { cz: "dezinfekce", en: "disinfection", vi: "khử trùng", czPron: "DE-zin-fek-ce", viPron: "khu čung", czAudio: "speech/cz/dezinfekce.mp3", viAudio: "speech/vi/khu-trung.mp3" },
   { cz: "zákaznice", en: "customer (female)", vi: "khách hàng", czPron: "ZÁ-kaz-ni-ce", viPron: "kach hang", czAudio: "speech/cz/zakaznice.mp3", viAudio: "speech/vi/khach-hang.mp3" },
+
+  // Basic Phrases
+  {
+    cz: "Je to v pořádku",
+    en: "It's okay",
+    vi: "Không sao",
+    czPron: "JE to v po-ŘÁD-ku",
+    viPron: "chom sao",
+    czAudio: "speech/cz/je-to-v-poradku.mp3",
+    viAudio: "speech/vi/khong-sao.mp3",
+  },
+  {
+    cz: "Ano, rozumím",
+    en: "Yes, I understand",
+    vi: "Vâng, tôi hiểu",
+    czPron: "A-no ro-ZU-mím",
+    viPron: "vang toj hieu",
+    czAudio: "speech/cz/ano-rozumim.mp3",
+    viAudio: "speech/vi/vang-toi-hieu.mp3",
+  },
+  {
+    cz: "Ne, nerozumím",
+    en: "No, I don't understand",
+    vi: "Không, tôi không hiểu",
+    czPron: "NE ne-ro-ZU-mím",
+    viPron: "chom toj chom hieu",
+    czAudio: "speech/cz/ne-nerozumim.mp3",
+    viAudio: "speech/vi/khong-toi-khong-hieu.mp3",
+  },
+  {
+    cz: "Můžete to zopakovat?",
+    en: "Can you repeat it?",
+    vi: "Bạn có thể nhắc lại không?",
+    czPron: "MŮ-že-te to zo-pa-KO-vat",
+    viPron: "ban ko tche ňak laj chom",
+    czAudio: "speech/cz/muzete-to-zopakovat.mp3",
+    viAudio: "speech/vi/ban-co-the-nhac-lai-khong.mp3",
+  },
+  {
+    cz: "Mluvte prosím pomalu",
+    en: "Please speak slowly",
+    vi: "Làm ơn nói chậm",
+    czPron: "MLUV-te PRO-sím po-MA-lu",
+    viPron: "lam ən noj čam",
+    czAudio: "speech/cz/mluvte-prosim-pomalu.mp3",
+    viAudio: "speech/vi/lam-on-noi-cham.mp3",
+  },
+  {
+    cz: "Počkejte prosím chvilku",
+    en: "Please wait a moment",
+    vi: "Làm ơn chờ một chút",
+    czPron: "POČ-kej-te chvil-ku",
+    viPron: "lam ən čo mot čut",
+    czAudio: "speech/cz/pockejte-prosim-chvilku.mp3",
+    viAudio: "speech/vi/lam-on-cho-mot-chut.mp3",
+  },
+  {
+    cz: "Teď nemám čas",
+    en: "I don't have time now",
+    vi: "Bây giờ tôi không có thời gian",
+    czPron: "TEĎ ne-mám čas",
+    viPron: "baj zə toj chom ko thoj zan",
+    czAudio: "speech/cz/ted-nemam-cas.mp3",
+    viAudio: "speech/vi/bay-gio-toi-khong-co-thoi-gian.mp3",
+  },
+  {
+    cz: "Teď je to možné",
+    en: "It's possible now",
+    vi: "Bây giờ được",
+    czPron: "TEĎ je to MOŽ-né",
+    viPron: "baj zə duk",
+    czAudio: "speech/cz/ted-je-to-mozne.mp3",
+    viAudio: "speech/vi/bay-gio-djuoc.mp3",
+  },
+  {
+    cz: "Chci se zeptat",
+    en: "I want to ask",
+    vi: "Tôi muốn hỏi",
+    czPron: "CHCI se ZEP-tat",
+    viPron: "toj muon hoj",
+    czAudio: "speech/cz/chci-se-zeptat.mp3",
+    viAudio: "speech/vi/toi-muon-hoi.mp3",
+  },
+  {
+    cz: "Kolik to stojí?",
+    en: "How much is it?",
+    vi: "Bao nhiêu tiền?",
+    czPron: "KO-lik to STO-jí",
+    viPron: "bao ňjeu tien",
+    czAudio: "speech/cz/kolik-to-stoji.mp3",
+    viAudio: "speech/vi/bao-nhieu-tien.mp3",
+  },
+  {
+    cz: "Kde to je?",
+    en: "Where is it?",
+    vi: "Ở đâu?",
+    czPron: "GDE to je",
+    viPron: "ə dau",
+    czAudio: "speech/cz/kde-to-je.mp3",
+    viAudio: "speech/vi/o-djau.mp3",
+  },
+  {
+    cz: "Kdy to bude?",
+    en: "When will it be?",
+    vi: "Khi nào?",
+    czPron: "GDI to BU-de",
+    viPron: "chi nao",
+    czAudio: "speech/cz/kdy-to-bude.mp3",
+    viAudio: "speech/vi/khi-nao.mp3",
+  },
+  {
+    cz: "Dnes to stačí",
+    en: "That's enough for today",
+    vi: "Hôm nay như vậy đủ rồi",
+    czPron: "DNES to STA-čí",
+    viPron: "hom naj ňu vaj du zoj",
+    czAudio: "speech/cz/dnes-to-staci.mp3",
+    viAudio: "speech/vi/hom-nay-nhu-vay-dju-roi.mp3",
+  },
+  {
+    cz: "Zítra to bude lepší",
+    en: "Tomorrow will be better",
+    vi: "Ngày mai sẽ tốt hơn",
+    czPron: "ZÍT-ra to BU-de LEP-ší",
+    viPron: "ngaj maj se tot hon",
+    czAudio: "speech/cz/zitra-to-bude-lepsi.mp3",
+    viAudio: "speech/vi/ngay-mai-se-tot-hon.mp3",
+  },
+  {
+    cz: "To je dobré",
+    en: "That's good",
+    vi: "Như vậy tốt",
+    czPron: "TO je DO-bré",
+    viPron: "ňu vaj tot",
+    czAudio: "speech/cz/to-je-dobre.mp3",
+    viAudio: "speech/vi/nhu-vay-tot.mp3",
+  },
+  {
+    cz: "To není dobré",
+    en: "That's not good",
+    vi: "Không tốt",
+    czPron: "TO NE-ní DO-bré",
+    viPron: "chom tot",
+    czAudio: "speech/cz/to-neni-dobre.mp3",
+    viAudio: "speech/vi/khong-tot.mp3",
+  },
+
+  // Basic Phrases Nails
+  {
+    cz: "Můžete se posadit",
+    en: "You can sit down",
+    vi: "Bạn có thể ngồi",
+    czPron: "MŮ-že-te se po-SA-dit",
+    viPron: "ban ko tche ngoj",
+    czAudio: "speech/cz/muzete-se-posadit.mp3",
+    viAudio: "speech/vi/ban-co-the-ngoi.mp3",
+  },
+  {
+    cz: "Začneme teď",
+    en: "We will start now",
+    vi: "Bắt đầu bây giờ",
+    czPron: "ZAČ-ne-me teď",
+    viPron: "bat dau baj zə",
+    czAudio: "speech/cz/zacneme-ted.mp3",
+    viAudio: "speech/vi/bat-djau-bay-gio.mp3",
+  },
+  {
+    cz: "Už je to hotové",
+    en: "It's finished",
+    vi: "Xong rồi",
+    czPron: "UŽ je to HO-to-vé",
+    viPron: "song zoj",
+    czAudio: "speech/cz/uz-je-to-hotove.mp3",
+    viAudio: "speech/vi/xong-roi.mp3",
+  },
+  {
+    cz: "Počkejte prosím chvilku",
+    en: "Please wait a moment",
+    vi: "Làm ơn chờ một chút",
+    czPron: "POČ-kej-te chvil-ku",
+    viPron: "lam ən čo mot čut",
+    czAudio: "speech/cz/pockejte-prosim-chvilku.mp3",
+    viAudio: "speech/vi/lam-on-cho-mot-chut.mp3",
+  },
+  {
+    cz: "Nebude to bolet",
+    en: "It won't hurt",
+    vi: "Không đau đâu",
+    czPron: "NE-bu-de to BO-let",
+    viPron: "chom zau dau",
+    czAudio: "speech/cz/nebude-to-bolet.mp3",
+    viAudio: "speech/vi/khong-djau-djau.mp3",
+  },
+  {
+    cz: "Líbí se vám to?",
+    en: "Do you like it?",
+    vi: "Bạn có thích không?",
+    czPron: "LÍ-bí se vám to",
+    viPron: "ban ko thik chom",
+    czAudio: "speech/cz/libi-se-vam-to.mp3",
+    viAudio: "speech/vi/ban-co-thich-khong.mp3",
+  },
+  {
+    cz: "Je to hezké?",
+    en: "Is it nice?",
+    vi: "Đẹp không?",
+    czPron: "JE to HEZ-ké",
+    viPron: "dep chom",
+    czAudio: "speech/cz/je-to-hezke.mp3",
+    viAudio: "speech/vi/djep-khong.mp3",
+  },
+  {
+    cz: "Chcete jinou barvu?",
+    en: "Do you want another color?",
+    vi: "Bạn muốn màu khác không?",
+    czPron: "CHCE-te JI-nou BAR-vu",
+    viPron: "ban muon mau chac chom",
+    czAudio: "speech/cz/chcete-jinou-barvu.mp3",
+    viAudio: "speech/vi/ban-muon-mau-khac-khong.mp3",
+  },
+  {
+    cz: "Krátké nebo dlouhé?",
+    en: "Shorter or longer?",
+    vi: "Ngắn hay dài?",
+    czPron: "KRÁT-ké ne-bo DLOU-hé?",
+    viPron: "ngan haj zaj",
+    czAudio: "speech/cz/kratke-nebo-dlouhe.mp3",
+    viAudio: "speech/vi/ngan-hay-dai.mp3",
+  },
+  {
+    cz: "Uděláme to kratší",
+    en: "We will make it shorter",
+    vi: "Làm ngắn lại",
+    czPron: "U-DĚ-lá-me to KRAT-ší",
+    viPron: "lam ngan laj",
+    czAudio: "speech/cz/udelame-to-kratsi.mp3",
+    viAudio: "speech/vi/lam-ngan-lai.mp3",
+  },
+  {
+    cz: "Uděláme to delší",
+    en: "We will make it longer",
+    vi: "Làm dài hơn",
+    czPron: "U-DĚ-lá-me to DEL-ší",
+    viPron: "lam zaj hon",
+    czAudio: "speech/cz/udelame-to-delsi.mp3",
+    viAudio: "speech/vi/lam-dai-hon.mp3",
+  },
+  {
+    cz: "Necháme to takto",
+    en: "We'll leave it like this",
+    vi: "Giữ như vậy",
+    czPron: "NE-CHÁ-me to TAK-to",
+    viPron: "zu ňu vaj",
+    czAudio: "speech/cz/nechame-to-takto.mp3",
+    viAudio: "speech/vi/giu-nhu-vay.mp3",
+  },
+  {
+    cz: "Trochu to upravím",
+    en: "I'll adjust it a bit",
+    vi: "Sửa một chút",
+    czPron: "TRO-chu to U-PRA-vím",
+    viPron: "sua mot čut",
+    czAudio: "speech/cz/trochu-to-upravim.mp3",
+    viAudio: "speech/vi/sua-mot-chut.mp3",
+  },
+  {
+    cz: "Musíme to opravit",
+    en: "We need to fix it",
+    vi: "Cần sửa lại",
+    czPron: "MU-sí-me to O-PRA-vit",
+    viPron: "kan sua laj",
+    czAudio: "speech/cz/musime-to-opravit.mp3",
+    viAudio: "speech/vi/can-sua-lai.mp3",
+  },
+  {
+    cz: "Cena je tady",
+    en: "The price is here",
+    vi: "Giá là thế này",
+    czPron: "CE-na je TA-dy",
+    viPron: "za la the naj",
+    czAudio: "speech/cz/cena-je-tady.mp3",
+    viAudio: "speech/vi/gia-la-the-nay.mp3",
+  },
+  {
+    cz: "Je to trochu drahé",
+    en: "It's a bit expensive",
+    vi: "Hơi đắt",
+    czPron: "JE to TRO-chu DRA-hé",
+    viPron: "hoj dat",
+    czAudio: "speech/cz/je-to-trochu-drahe.mp3",
+    viAudio: "speech/vi/hoi-djat.mp3",
+  },
+  {
+    cz: "Je to levnější",
+    en: "It's cheaper",
+    vi: "Rẻ hơn",
+    czPron: "JE to LEV-něj-ší",
+    viPron: "re hon",
+    czAudio: "speech/cz/je-to-levnejsi.mp3",
+    viAudio: "speech/vi/re-hon.mp3",
+  },
+  {
+    cz: "Bude to trvat chvíli",
+    en: "It will take a while",
+    vi: "Sẽ mất một chút thời gian",
+    czPron: "BU-de to TR-vat CHVÍ-li",
+    viPron: "se mat mot čut thoj zan",
+    czAudio: "speech/cz/bude-to-trvat-chvili.mp3",
+    viAudio: "speech/vi/se-mat-mot-chut-thoi-gian.mp3",
+  },
+  {
+    cz: "Děkuji, nashledanou",
+    en: "Thank you, goodbye",
+    vi: "Cảm ơn, hẹn gặp lại",
+    czPron: "DĚ-ku-ji na-SCHLE-da-nou",
+    viPron: "kam ən hen gap laj",
+    czAudio: "speech/cz/dekuji-nashledanou.mp3",
+    viAudio: "speech/vi/cam-on-hen-gap-lai.mp3",
+  },
 ];
 
 let currentMode = null; // legacy, no direct button binding now
@@ -1162,6 +1481,7 @@ function renderPhrases() {
     root.appendChild(zone);
   });
 
+
   // Attach press behavior to all cover targets (including memory hooks for reveal functionality)
   const coverTargets = root.querySelectorAll(".cover-target");
   coverTargets.forEach((el) => attachPressHandlers(/** @type {HTMLElement} */ (el)));
@@ -1332,6 +1652,7 @@ function handleMark(index, kind, card) {
 
   progressMap[key] = existing;
   saveProgress(progressMap);
+  
   // Remember which card moved and re-render so the word moves to its new category zone
   lastMovedIndex = index;
   renderPhrases();
@@ -1361,17 +1682,80 @@ function updateShowAllButtonLabel() {
 function setupTopControls() {
   const settingsBtn = document.getElementById("settings-btn");
   const progressBtn = document.getElementById("progress-btn");
+  const memoryHooksBtn = document.getElementById("memory-hooks-btn");
   const switchBtn = document.getElementById("switch-btn");
   const settingsPanel = document.getElementById("settings-panel");
   const progressPanel = document.getElementById("progress-panel");
+  const memoryHooksPanel = document.getElementById("memory-hooks-panel");
   const showAllBtn = document.getElementById("show-all-btn");
   const bottomButtons = document.querySelectorAll(".bottom-nav-btn");
 
+  // Function to close all panels
+  function closeAllPanels() {
+    if (settingsPanel) settingsPanel.classList.remove("is-open");
+    if (progressPanel) progressPanel.classList.remove("is-open");
+    if (memoryHooksPanel) memoryHooksPanel.classList.remove("is-open");
+  }
+
+  // Handle clicks outside panels to close them
+  document.addEventListener("click", (event) => {
+    // Check if any panel is currently open
+    const settingsOpen = settingsPanel && settingsPanel.classList.contains("is-open");
+    const progressOpen = progressPanel && progressPanel.classList.contains("is-open");
+    const memoryHooksOpen = memoryHooksPanel && memoryHooksPanel.classList.contains("is-open");
+    
+    if (!settingsOpen && !progressOpen && !memoryHooksOpen) {
+      return; // No panels open, nothing to close
+    }
+
+    // Check if click is outside any panel and its button
+    const clickedInsideSettings = settingsPanel && (
+      settingsPanel.contains(event.target) || 
+      settingsBtn && settingsBtn.contains(event.target)
+    );
+    const clickedInsideProgress = progressPanel && (
+      progressPanel.contains(event.target) || 
+      progressBtn && progressBtn.contains(event.target)
+    );
+    const clickedInsideMemoryHooks = memoryHooksPanel && (
+      memoryHooksPanel.contains(event.target) || 
+      memoryHooksBtn && memoryHooksBtn.contains(event.target)
+    );
+
+    // If click is outside all panels and their buttons, close all panels
+    if (!clickedInsideSettings && !clickedInsideProgress && !clickedInsideMemoryHooks) {
+      closeAllPanels();
+    }
+  });
+
+  // Prevent clicks inside panels from closing them
+  if (settingsPanel) {
+    settingsPanel.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+  }
+
+  if (progressPanel) {
+    progressPanel.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+  }
+
+  if (memoryHooksPanel) {
+    memoryHooksPanel.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+  }
+
   if (settingsBtn && settingsPanel) {
-    settingsBtn.addEventListener("click", () => {
-      settingsPanel.classList.toggle("is-open");
-      // Close progress panel if open
-      if (progressPanel) progressPanel.classList.remove("is-open");
+    settingsBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const wasOpen = settingsPanel.classList.contains("is-open");
+      closeAllPanels();
+      // Toggle settings panel
+      if (!wasOpen) {
+        settingsPanel.classList.add("is-open");
+      }
     });
 
     const radios = settingsPanel.querySelectorAll('input[name="learner-role"]');
@@ -1394,13 +1778,27 @@ function setupTopControls() {
   }
 
   if (progressBtn && progressPanel) {
-    progressBtn.addEventListener("click", () => {
-      progressPanel.classList.toggle("is-open");
-      // Close settings panel if open
-      if (settingsPanel) settingsPanel.classList.remove("is-open");
-      // Render progress overview when opening
-      if (progressPanel.classList.contains("is-open")) {
+    progressBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const wasOpen = progressPanel.classList.contains("is-open");
+      closeAllPanels();
+      // Toggle progress panel
+      if (!wasOpen) {
+        progressPanel.classList.add("is-open");
+        // Render progress overview when opening
         renderProgressOverview();
+      }
+    });
+  }
+
+  if (memoryHooksBtn && memoryHooksPanel) {
+    memoryHooksBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const wasOpen = memoryHooksPanel.classList.contains("is-open");
+      closeAllPanels();
+      // Toggle memory hooks panel
+      if (!wasOpen) {
+        memoryHooksPanel.classList.add("is-open");
       }
     });
   }
