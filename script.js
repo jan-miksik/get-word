@@ -31,16 +31,16 @@ const STAGES = [
   { id: 10, name: "60 days", intervalMs: 60 * 24 * 60 * 60 * 1000 },
 ];
 
-/** @type {{ cz: string; en: string; vi: string; section?: string; czPron?: string; viPron?: string; czAudio?: string | string[]; viAudio?: string | string[] }[]} */
+/** @type {{ cz: string; en: string; vi: string; section?: string; czPron?: string; viPron?: string; czAudio?: string | string[]; viAudio?: string | string[]; czHint?: string; viHint?: string }[]} */
 const PHRASES = [
   {
-    cz: "Dobrý den / Dobrý večer",
-    en: "Good day / Good evening",
+    cz: "Dobrý den",
+    en: "Good day",
     vi: "Xin chào",
-    czPron: "DO-bri den / DO-bri VE-čer",
+    czPron: "DO-bri den",
     viPron: "sin čao",
     // Audio variants for greeting
-    czAudio: ["speech/cz/dobry-den.mp3", "speech/cz/dobry-vecer.mp3"],
+    czAudio: "speech/cz/dobry-den.mp3",
   },
   {
     cz: "Děkuji 🙏",
@@ -48,6 +48,7 @@ const PHRASES = [
     vi: "Cảm ơn",
     czPron: "DĚ-ku-ji",
     viPron: "kam ən",
+    czHint: "(dê) (cú) (gì): goat bows head.",
     czAudio: "speech/cz/dekuji.mp3",
   },
   {
@@ -56,6 +57,7 @@ const PHRASES = [
     vi: "Làm ơn",
     czPron: "PRO-sím",
     viPron: "lam ən",
+    viHint: "Lám on: lampa bliká.",
     czAudio: "speech/cz/prosim.mp3",
   },
   {
@@ -64,6 +66,7 @@ const PHRASES = [
     vi: "Bạn khỏe không?",
     czPron: "JAK se MÁ-te?",
     viPron: "ban kchue khong",
+    viHint: "Banán křupe, Kong zívá.",
     czAudio: "speech/cz/jak-se-mate.mp3",
     viAudio: "speech/vi/ban-khoe-khong.mp3",
   },
@@ -82,6 +85,7 @@ const PHRASES = [
     vi: "Có đau không?",
     czPron: "BO-lí to?",
     viPron: "ko dau khong",
+    czHint: "(Boli)via country with injured knee",
     czAudio: "speech/cz/boli-to.mp3",
     viAudio: "speech/vi/co-djau-khong.mp3",
   },
@@ -91,6 +95,8 @@ const PHRASES = [
     vi: "Ở đây hả?",
     czPron: "TA-di?",
     viPron: "a daj ha",
+    czHint: "Ta đi? finger points at map.",
+    viHint: "A dej hák; někdo po mně chce hák",
     czAudio: "speech/cz/tady.mp3",
     viAudio: "speech/vi/o-djay.mp3",
   },
@@ -100,6 +106,7 @@ const PHRASES = [
     vi: "Tạm biệt",
     czPron: "NA-shle / NA skhle-da-no",
     viPron: "tam biet",
+    viHint: "Tam běž; pusa a mávnutí.",
     czAudio: "speech/cz/na-shledanou.mp3",
     viAudio: "speech/vi/tam-biet.mp3",
   },
@@ -118,6 +125,7 @@ const PHRASES = [
     vi: "Màu nào?",
     czPron: "JA-kou BAR-vu?",
     viPron: "mau nao",
+    viHint: "Mňau! Nao! kočka kouše pastelku.",
     czAudio: "speech/cz/jakou-barvu.mp3",
   },
 
@@ -127,12 +135,13 @@ const PHRASES = [
     vi: "Hình dạng (móng)",
     czPron: "TVAR (NE-tu)",
     viPron: "hin jang mong",
+    czHint: "(TV) b(ar)",
     czAudio: "speech/cz/tvar-nehtu.mp3",
   },
   { cz: "Kulatý ⭕", en: "Round", vi: "Tròn", czPron: "KU-la-tý", viPron: "tron", czAudio: "speech/cz/kulaty.mp3" },
-  { cz: "Hranatý ⬛", en: "Square", vi: "Vuông", czPron: "HRA-na-tý", viPron: "vuong", czAudio: "speech/cz/hranaty.mp3" },
-  { cz: "Lak", en: "Nail polish", vi: "Sơn móng", czPron: "LAK", viPron: "son mong", czAudio: "speech/cz/lak.mp3" },
-  { cz: "Manikúra 💅", en: "Manicure", vi: "Làm móng tay", czPron: "MA-ni-kú-ra", viPron: "lam mong taj", czAudio: "speech/cz/manikura.mp3", viAudio: "speech/vi/lam-mong-tay.mp3" },
+  { cz: "Hranatý ⬛", en: "Square", vi: "Vuông", czPron: "HRA-na-tý", viPron: "vuong", czHint: "Hạt nát", viHint: "Vůně písmena g", czAudio: "speech/cz/hranaty.mp3" },
+  { cz: "Lak", en: "Nail polish", vi: "Sơn móng", czPron: "LAK", viPron: "son mong", czHint: "Lắc! shaking with hand", viHint: "Syn mongola", czAudio: "speech/cz/lak.mp3" },
+  { cz: "Manikúra 💅", en: "Manicure", vi: "Làm móng tay", czPron: "MA-ni-kú-ra", viPron: "lam mong taj", czHint: "Ma-ni cưa", czAudio: "speech/cz/manikura.mp3", viAudio: "speech/vi/lam-mong-tay.mp3" },
   { cz: "Pedikúra 🦶", en: "Pedicure", vi: "Chăm sóc chân", czPron: "PE-di-kú-ra", viPron: "čam sok čan", czAudio: "speech/cz/pedikura.mp3", viAudio: "speech/vi/lam-mong-chan.mp3" },
   { cz: "Gelové nehty ✨", en: "Gel nails", vi: "Móng gel", czPron: "GE-lo-vé NE-ty", viPron: "mong gel", czAudio: "speech/cz/gelove-nehty.mp3", viAudio: "speech/vi/mong-gel.mp3" },
   { cz: "Hotovo ✅", en: "Finished / Done", vi: "Xong rồi", czPron: "HO-to-vo", viPron: "xong zoj", czAudio: "speech/cz/hotovo.mp3", viAudio: "speech/vi/xong-roi.mp3" },
@@ -152,6 +161,8 @@ const PHRASES = [
     vi: "Màu sắc",
     czPron: "BAR-va",
     viPron: "mau sak",
+    czHint: "Bar va; bar and my friend",
+    viHint: "Mňau sáček; pastelky se rozsypou.",
     czAudio: "speech/cz/barva.mp3",
     viAudio: "speech/vi/mau-sac.mp3",
   },
@@ -655,6 +666,18 @@ const memoryHooksMap = loadMemoryHooks();
 
 function getMemoryHook(index) {
   return memoryHooksMap[String(index)] || "";
+}
+
+/**
+ * Get a suggested (built-in) sound mnemonic for the current learner role.
+ * This is only meant as a fallback when the user hasn't written their own hook.
+ */
+function getSuggestedMemoryHook(index) {
+  const phrase = PHRASES[index];
+  if (!phrase) return "";
+  if (currentRole === "vi") return phrase.czHint || "";
+  if (currentRole === "cz") return phrase.viHint || "";
+  return "";
 }
 
 function setMemoryHook(index, value) {
@@ -1202,7 +1225,14 @@ function renderPhrases() {
       const memoryHookText = document.createElement("span");
       memoryHookText.className = "memory-hook-text";
       const hookValue = getMemoryHook(index);
-      memoryHookText.textContent = hookValue || "💭 Add memory hook...";
+      const suggestedHook = !hookValue ? getSuggestedMemoryHook(index) : "";
+      if (hookValue) {
+        memoryHookText.textContent = hookValue;
+      } else if (suggestedHook) {
+        memoryHookText.textContent = `💡 ${suggestedHook}`;
+      } else {
+        memoryHookText.textContent = "💭 Add memory hook...";
+      }
       memoryHookText.dataset.index = String(index);
       if (!hookValue) {
         memoryHookText.classList.add("placeholder");
@@ -1534,7 +1564,8 @@ function finishEditingMemoryHook(index, container, display, input, text) {
     text.textContent = value;
     text.classList.remove("placeholder");
   } else {
-    text.textContent = "💭 Add memory hook...";
+    const suggestedHook = getSuggestedMemoryHook(index);
+    text.textContent = suggestedHook ? `💡 ${suggestedHook}` : "💭 Add memory hook...";
     text.classList.add("placeholder");
   }
   
