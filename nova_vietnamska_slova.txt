@@ -1,34 +1,89 @@
-Bao nhiêu tiền?
-Bây giờ tôi không có thời gian
-Bây giờ được
-Bạn có thích không?
-Bạn có thể ngồi
-Bạn có thể nhắc lại không?
-Bạn muốn màu khác không?
-Bắt đầu bây giờ
-Cảm ơn, hẹn gặp lại
-Cần sửa lại
-Giá là thế này
-Giữ như vậy
-Hôm nay như vậy đủ rồi
-Hơi đắt
-Khi nào?
-Không sao
-Không tốt
-Không đau đâu
-Không, tôi không hiểu
-Làm dài hơn
-Làm ngắn lại
-Làm ơn chờ một chút
-Làm ơn nói chậm
-Ngày mai sẽ tốt hơn
-Ngắn hay dài?
-Như vậy tốt
-Rẻ hơn
-Sẽ mất một chút thời gian
-Sửa một chút
-Tôi muốn hỏi
-Vâng, tôi hiểu
-Xong rồi
-Đẹp không?
-Ở đâu?
+Đến
+Thấy
+Nghe
+Nói
+Nói chuyện
+Hiểu
+Không biết
+Biết
+Lớn
+Nhỏ
+Mới
+Cũ
+Ở đây
+Hôm qua
+Giá
+Được
+Giúp
+Chờ
+Tìm
+Mất
+Bắt đầu
+Kết thúc
+Người
+Mọi người
+Vật
+Nơi
+Đường
+Câu hỏi
+Trả lời
+Kế hoạch
+Tình huống
+Lý do
+Chậm
+Nhanh
+Luôn luôn
+Không bao giờ
+Đôi khi
+Vì vậy
+Bởi vì
+Nếu
+Khi
+Nhưng
+Hoặc
+Cũng
+Chỉ
+Đã
+Vẫn
+Lại
+Ngay
+Sớm
+Muộn
+Lâu
+Nhiều
+Ít
+Mọi thứ
+Không có gì
+Cái gì đó
+Ai đó
+Mỗi người
+Một
+Hai
+Hơn
+Ít hơn
+Giống
+Khác
+Đúng
+Sai
+Dễ
+Khó
+Nghĩ
+Tin
+Hy vọng
+Thử
+Quyết định
+Ở lại
+Quay lại
+Lấy
+Cho
+Giữ
+Để
+Thuộc
+Áp dụng
+Có vẻ
+Đủ
+Thiếu
+Chính xác
+Khoảng
+Thật sự
+Có lẽ
