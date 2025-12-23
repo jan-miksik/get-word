@@ -6,6 +6,7 @@ export const WORDS = [
     czPron: "DO-bri den",
     viPron: "sin čao",
     czAudio: "speech/cz/dobry-den.mp3",
+    viHint: "(đô) (bởi) (đến) with r in the middle",
   },
   {
     cz: "Děkuji 🙏",
@@ -23,7 +24,8 @@ export const WORDS = [
     czPron: "PRO-sím",
     viPron: "lam ən",
     czAudio: "speech/cz/prosim.mp3",
-    czHint: "Lám on: lampa bliká.",
+    czHint: "(lam)pa je (on)zapnutá",
+    viHint: "(pro)fessional (xin)",
   },
   {
     cz: "Jak se máte? 🙂",
@@ -34,6 +36,7 @@ export const WORDS = [
     czAudio: "speech/cz/jak-se-mate.mp3",
     viAudio: "speech/vi/ban-khoe-khong.mp3",
     czHint: "Banán křupe, Kong zívá.",
+    viHint: "(giắc xe) (má tê) lift up/start conversation",
   },
   {
     cz: "Posaďte se, prosím. 💺",
@@ -43,6 +46,7 @@ export const WORDS = [
     viPron: "moi ban ngoi",
     czAudio: "speech/cz/posadte-se-prosim.mp3",
     viAudio: "speech/vi/xin-moi-ngoi.mp3",
+    viHint: "phở sát-tê-sờ pro-xin",
   },
   {
     cz: "Bolí to? 😬",
@@ -73,7 +77,8 @@ export const WORDS = [
     viPron: "tam biet",
     czAudio: "speech/cz/na-shledanou.mp3",
     viAudio: "speech/vi/tam-biet.mp3",
-    czHint: "Tam běž; pusa a mávnutí.",
+    czHint: "Tam běž; mává na rozloučenou",
+    viHint: "(NAS)A -the space company, +hle - look at this; spaceship flies away",
   },
   {
     cz: "Máte představu? 💡",
