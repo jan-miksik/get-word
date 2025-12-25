@@ -1058,6 +1058,12 @@ function applyVisibilityMode() {
 
     el.classList.remove("is-covered", "is-pressed");
 
+    // When in hidden mode (showAll === false), always hide memory hooks
+    if (lang === "memory-hook") {
+      el.classList.add("is-covered");
+      return;
+    }
+
     // modeIndex: 0 or 1 – meaning depends on learner role
     if (currentRole === "cz") {
       if (modeIndex === 0) {

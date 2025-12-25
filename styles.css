@@ -110,6 +110,36 @@ body {
     box-shadow var(--transition-fast);
 }
 
+.top-menu {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 25px; /* moves the whole top menu down a bit */
+}
+
+@media (min-width: 768px) {
+  .top-menu {
+    margin-top: 0;
+  }
+}
+
+.top-menu-left,
+.top-menu-right {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.top-menu-right {
+  margin-left: auto;
+}
+
+.top-menu .mode-btn {
+  flex: 0 0 auto;
+}
+
 .mode-btn.memory-hooks-btn {
   position: absolute;
   top: 12px;
@@ -246,6 +276,17 @@ body {
     box-shadow var(--transition-fast);
 }
 
+.top-menu .mode-btn.memory-hooks-btn,
+.top-menu .mode-btn.settings-btn,
+.top-menu .mode-btn.switch-btn,
+.top-menu .mode-btn.show-all-btn,
+.top-menu .mode-btn.progress-btn {
+  position: static;
+  top: auto;
+  right: auto;
+  left: auto;
+}
+
 .mode-btn.progress-btn:hover {
   background: rgba(15, 23, 42, 1);
   transform: translateY(-0.5px);
@@ -289,7 +330,6 @@ body {
   max-height: 80vh;
   overflow-y: auto;
   position: absolute;
-  top: 50px;
   right: 14px;
   left: 14px;
   max-width: 720px;
@@ -318,7 +358,6 @@ body {
   max-height: 80vh;
   overflow-y: auto;
   position: absolute;
-  top: 50px;
   right: 14px;
   left: 14px;
   max-width: 720px;
@@ -439,7 +478,6 @@ body {
 }
 
 .phrases {
-  margin-top: 30px;
   display: flex;
   flex-direction: column;
   gap: 18px;

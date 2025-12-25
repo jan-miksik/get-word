@@ -11,42 +11,24 @@
   </head>
   <body>
     <div class="app">
-      <button
-        class="mode-btn memory-hooks-btn"
-        id="memory-hooks-btn"
-        type="button"
-        title="Memory Hooks Info"
-      >
-        ℹ️
-      </button>
-      <button
-        class="mode-btn settings-btn"
-        id="settings-btn"
-        type="button"
-      >
-        Settings
-      </button>
-      <button
-        class="mode-btn progress-btn"
-        id="progress-btn"
-        type="button"
-      >
-        📊
-      </button>
-      <button
-        class="mode-btn show-all-btn"
-        id="show-all-btn"
-        type="button"
-      >
-        🙈
-      </button>
-      <button
-        class="mode-btn switch-btn"
-        id="switch-btn"
-        type="button"
-      >
-        🔄
-      </button>
+      <div class="top-menu" aria-label="Top menu">
+        <div class="top-menu-left">
+          <button class="mode-btn switch-btn" id="switch-btn" type="button">🔄</button>
+          <button class="mode-btn show-all-btn" id="show-all-btn" type="button">🙈</button>
+          <button class="mode-btn progress-btn" id="progress-btn" type="button">📊</button>
+        </div>
+        <div class="top-menu-right">
+          <button
+            class="mode-btn memory-hooks-btn"
+            id="memory-hooks-btn"
+            type="button"
+            title="Memory Hooks Info"
+          >
+            ℹ️
+          </button>
+          <button class="mode-btn settings-btn" id="settings-btn" type="button">Settings</button>
+        </div>
+      </div>
 
       <section class="settings-panel" id="settings-panel" aria-label="Settings">
         <div class="settings-inner">
