@@ -665,7 +665,6 @@ export const WORDS = [
     czAudio: "speech/cz/spatne.mp3",
   },
   {
-    section: "NEHTOVÉ STUDIO - DODATEČNÁ SLOVÍČKA",
     cz: "prsty",
     en: "fingers",
     vi: "ngón tay",
