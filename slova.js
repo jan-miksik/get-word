@@ -1,5 +1,6 @@
 export const WORDS = [
   {
+    category: ["basic", "phrase"],
     cz: "Dobrý den",
     en: "Good day",
     vi: "Xin chào",
@@ -9,6 +10,7 @@ export const WORDS = [
     viHint: "(đô) (bởi) (đến) with r in the middle",
   },
   {
+    category: ["basic", "word"],
     cz: "Děkuji 🙏",
     en: "Thank you",
     vi: "Cảm ơn",
@@ -18,6 +20,7 @@ export const WORDS = [
     viHint: "(dê) (cú) (gì): goat bows head.",
   },
   {
+    category: ["basic", "word"],
     cz: "Prosím 🙏",
     en: "Please",
     vi: "Làm ơn",
@@ -28,6 +31,7 @@ export const WORDS = [
     viHint: "(pro)fessional (xin)",
   },
   {
+    category: ["phrase"],
     cz: "Jak se máte? 🙂",
     en: "How are you?",
     vi: "Bạn khỏe không?",
@@ -39,6 +43,7 @@ export const WORDS = [
     viHint: "(giắc xe) (má tê) lift up/start conversation",
   },
   {
+    category: ["basic", "phrase"],
     cz: "Posaďte se, prosím. 💺",
     en: "Please sit down.",
     vi: "Mời bạn ngồi.",
@@ -49,6 +54,7 @@ export const WORDS = [
     viHint: "phở sát-tê-sờ pro-xin",
   },
   {
+    category: ["phrase"],
     cz: "Bolí to? 😬",
     en: "Does it hurt?",
     vi: "Có đau không?",
@@ -59,6 +65,7 @@ export const WORDS = [
     viHint: "(Boli)via country with injured knee",
   },
   {
+    category: ["basic", "word"],
     cz: "Tady? 👉",
     en: "Here?",
     vi: "Ở đây hả?",
@@ -70,6 +77,7 @@ export const WORDS = [
     viHint: "Ta đi? finger points at map.",
   },
   {
+    category: ["basic", "word"],
     cz: "Nashle / Na shledanou 👋",
     en: "Goodbye",
     vi: "Tạm biệt",
@@ -81,6 +89,7 @@ export const WORDS = [
     viHint: "(NAS)A -the space company, +hle - look at this; spaceship flies away",
   },
   {
+    category: ["phrase"],
     cz: "Máte představu? 💡",
     en: "Do you have an idea?",
     vi: "Bạn có ý tưởng gì không?",
@@ -90,6 +99,7 @@ export const WORDS = [
     viAudio: "speech/vi/ban-co-y-tuong-gi-khong.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Jakou barvu? 🎨",
     en: "What colour?",
     vi: "Màu nào?",
@@ -99,6 +109,7 @@ export const WORDS = [
     czHint: "Mňau! Nao! kočka kouše pastelku.",
   },
   {
+    category: ["nails", "word"],
     cz: "Tvar (nehtu)",
     en: "(Nail) shape",
     vi: "Hình dạng (móng)",
@@ -108,6 +119,7 @@ export const WORDS = [
     viHint: "(TV) b(ar)",
   },
   {
+    category: ["nails", "word"],
     cz: "Kulatý ⭕",
     en: "Round",
     vi: "Tròn",
@@ -116,6 +128,7 @@ export const WORDS = [
     czAudio: "speech/cz/kulaty.mp3",
   },
   {
+    category: ["nails", "word"],
     cz: "Hranatý ⬛",
     en: "Square",
     vi: "Vuông",
@@ -126,6 +139,7 @@ export const WORDS = [
     viHint: "Hạt nát",
   },
   {
+    category: ["nails", "word"],
     cz: "Lak",
     en: "Nail polish",
     vi: "Sơn móng",
@@ -136,6 +150,7 @@ export const WORDS = [
     viHint: "Lắc! shaking with hand",
   },
   {
+    category: ["nails", "word"],
     cz: "Manikúra 💅",
     en: "Manicure",
     vi: "Làm móng tay",
@@ -146,6 +161,7 @@ export const WORDS = [
     viHint: "Ma-ni cưa",
   },
   {
+    category: ["nails", "word"],
     cz: "Pedikúra 🦶",
     en: "Pedicure",
     vi: "Chăm sóc chân",
@@ -155,6 +171,7 @@ export const WORDS = [
     viAudio: "speech/vi/lam-mong-chan.mp3",
   },
   {
+    category: ["nails", "phrase"],
     cz: "Gelové nehty ✨",
     en: "Gel nails",
     vi: "Móng gel",
@@ -164,6 +181,7 @@ export const WORDS = [
     viAudio: "speech/vi/mong-gel.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Hotovo ✅",
     en: "Finished / Done",
     vi: "Xong rồi",
@@ -173,6 +191,7 @@ export const WORDS = [
     viAudio: "speech/vi/xong-roi.mp3",
   },
   {
+    category: ["basic", "phrase"],
     cz: "Ruka / Ruce",
     en: "Hand / Hands",
     vi: "Tay / Hai tay",
@@ -182,6 +201,7 @@ export const WORDS = [
     viAudio: ["speech/vi/tay.mp3", "speech/vi/hai-tay.mp3"],
   },
   {
+    category: ["basic", "phrase"],
     cz: "Noha / Nohy",
     en: "Foot / Feet",
     vi: "Chân / Hai chân",
@@ -191,6 +211,7 @@ export const WORDS = [
     viAudio: ["speech/vi/chan.mp3", "speech/vi/hai-chan.mp3"],
   },
   {
+    category: ["nails", "phrase"],
     cz: "Nehet / Nehty",
     en: "Nail / Nails",
     vi: "Móng tay / Móng",
@@ -200,6 +221,7 @@ export const WORDS = [
     viAudio: "speech/vi/mong-tay.mp3",
   },
   {
+    category: ["nails", "word"],
     cz: "Pilník",
     en: "Nail file",
     vi: "Cây dũa móng",
@@ -209,6 +231,7 @@ export const WORDS = [
     viAudio: "speech/vi/dua.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Nůžky ✂️",
     en: "Scissors",
     vi: "Cái kéo",
@@ -218,6 +241,7 @@ export const WORDS = [
     viAudio: "speech/vi/keo.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Suché",
     en: "Dry",
     vi: "Khô",
@@ -227,6 +251,7 @@ export const WORDS = [
     viAudio: "speech/vi/kho.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Mokré",
     en: "Wet",
     vi: "Ướt",
@@ -236,6 +261,7 @@ export const WORDS = [
     viAudio: "speech/vi/uot.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Voda 💧",
     en: "Water",
     vi: "Nước",
@@ -246,6 +272,7 @@ export const WORDS = [
   },
   {
     section: "🎨 BARVY A ČAS",
+    category: ["basic", "word"],
     cz: "Barva",
     en: "Color",
     vi: "Màu sắc",
@@ -257,6 +284,7 @@ export const WORDS = [
     viHint: "Bar va; on the bar and my friend",
   },
   {
+    category: ["basic", "word"],
     cz: "Červená 🔴",
     en: "Red",
     vi: "Đỏ",
@@ -266,6 +294,7 @@ export const WORDS = [
     viAudio: "speech/vi/djo.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Růžová 🌸",
     en: "Pink",
     vi: "Hồng",
@@ -275,6 +304,7 @@ export const WORDS = [
     viAudio: "speech/vi/hong.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Černá ⚫",
     en: "Black",
     vi: "Đen",
@@ -284,6 +314,7 @@ export const WORDS = [
     viAudio: "speech/vi/djen.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Bílá ⚪",
     en: "White",
     vi: "Trắng",
@@ -293,6 +324,7 @@ export const WORDS = [
     viAudio: "speech/vi/trang.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Dnes 📅",
     en: "Today",
     vi: "Hôm nay",
@@ -301,6 +333,7 @@ export const WORDS = [
     viAudio: "speech/vi/hom-nay.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Zítra ⏭️",
     en: "Tomorrow",
     vi: "Ngày mai",
@@ -311,6 +344,7 @@ export const WORDS = [
   },
   {
     section: "PENÍZE A PLATBA",
+    category: ["basic", "phrase"],
     cz: "Cena / Kolik to stojí? 💵",
     en: "Price / How much does it cost?",
     vi: "Giá bao nhiêu?",
@@ -320,6 +354,7 @@ export const WORDS = [
     viAudio: ["speech/vi/gia.mp3", "speech/vi/bao-nhieu-tien.mp3"],
   },
   {
+    category: ["phrase"],
     cz: "Můžete platit.",
     en: "You can pay.",
     vi: "Bạn có thể thanh toán.",
@@ -329,6 +364,7 @@ export const WORDS = [
     viAudio: "speech/vi/ban-co-the-thanh-toan.mp3",
   },
   {
+    category: ["word"],
     cz: "Hotově 💶",
     en: "Cash",
     vi: "Tiền mặt",
@@ -338,6 +374,7 @@ export const WORDS = [
     viAudio: "speech/vi/tien-mat.mp3",
   },
   {
+    category: ["word"],
     cz: "Kartou 💳",
     en: "By card",
     vi: "Bằng thẻ",
@@ -347,6 +384,7 @@ export const WORDS = [
     viAudio: "speech/vi/the.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Perfektní ✨",
     en: "Perfect",
     vi: "Hoàn hảo",
@@ -356,6 +394,7 @@ export const WORDS = [
     viAudio: "speech/vi/hoan-hao.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Moment ⏱️",
     en: "Moment",
     vi: "Khoảnh khắc",
@@ -365,6 +404,7 @@ export const WORDS = [
     viAudio: "speech/vi/mot-chut.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Kafe ☕",
     en: "Coffee",
     vi: "Cà phê",
@@ -374,6 +414,7 @@ export const WORDS = [
     viAudio: "speech/vi/ca-phe.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Klient (muž) / Klientka (žena)",
     en: "Client",
     vi: "Khách hàng",
@@ -383,6 +424,7 @@ export const WORDS = [
     viAudio: ["speech/vi/khach-hang.mp3", "speech/vi/khach-hang-nu.mp3"],
   },
   {
+    category: ["basic", "word"],
     cz: "Salon",
     en: "Salon",
     vi: "Tiệm / Thẩm mỹ viện",
@@ -392,6 +434,7 @@ export const WORDS = [
     viAudio: "speech/vi/tiem.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Design 🎨",
     en: "Design",
     vi: "Thiết kế",
@@ -401,6 +444,7 @@ export const WORDS = [
     viAudio: "speech/vi/thiet-ke.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Problém ⚠️",
     en: "Problem",
     vi: "Vấn đề",
@@ -410,6 +454,7 @@ export const WORDS = [
     viAudio: "speech/vi/van-dje.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Detail 🔍",
     en: "Detail",
     vi: "Chi tiết",
@@ -418,6 +463,7 @@ export const WORDS = [
     viAudio: "speech/vi/chi-tiet.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Materiál",
     en: "Material",
     vi: "Vật liệu",
@@ -427,6 +473,7 @@ export const WORDS = [
     viAudio: "speech/vi/vat-lieu.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Informace ℹ️",
     en: "Information",
     vi: "Thông tin",
@@ -436,6 +483,7 @@ export const WORDS = [
     viAudio: "speech/vi/thong-tin.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "Super 😄",
     en: "Super",
     vi: "Tuyệt vời",
@@ -445,6 +493,7 @@ export const WORDS = [
     viAudio: "speech/vi/tuyet-voi.mp3",
   },
   {
+    category: ["nails", "word"],
     cz: "Akryl",
     en: "Acrylic",
     vi: "Acrylic",
@@ -454,6 +503,7 @@ export const WORDS = [
     viAudio: "speech/vi/acrylic.mp3",
   },
   {
+    category: ["nails", "word"],
     cz: "Gel",
     en: "Gel",
     vi: "Gel",
@@ -464,6 +514,7 @@ export const WORDS = [
   },
   {
     section: "ZÁKLADNÍ SLOVESA A ZÁJMENA",
+    category: ["basic", "word"],
     cz: "já",
     en: "I",
     vi: "tôi",
@@ -473,6 +524,7 @@ export const WORDS = [
     viAudio: "speech/vi/toi.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "ty",
     en: "you (singular)",
     vi: "bạn",
@@ -481,6 +533,7 @@ export const WORDS = [
     czAudio: "speech/cz/ty.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "on",
     en: "he",
     vi: "anh ấy / ông ấy",
@@ -490,6 +543,7 @@ export const WORDS = [
     viAudio: ["speech/vi/anh-ay.mp3", "speech/vi/ong-ay.mp3"],
   },
   {
+    category: ["basic", "word"],
     cz: "ona",
     en: "she",
     vi: "cô ấy / bà ấy",
@@ -499,6 +553,7 @@ export const WORDS = [
     viAudio: ["speech/vi/co-ay.mp3", "speech/vi/ba-ay.mp3"],
   },
   {
+    category: ["basic", "word"],
     cz: "my",
     en: "we",
     vi: "chúng tôi",
@@ -508,6 +563,7 @@ export const WORDS = [
     viAudio: "speech/vi/chung-toi.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "vy",
     en: "you (plural)",
     vi: "các bạn",
@@ -517,6 +573,7 @@ export const WORDS = [
     viAudio: "speech/vi/cac-ban.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "ano",
     en: "yes",
     vi: "vâng / có",
@@ -526,6 +583,7 @@ export const WORDS = [
     viAudio: ["speech/vi/vang.mp3", "speech/vi/co.mp3"],
   },
   {
+    category: ["basic", "word"],
     cz: "ne",
     en: "no",
     vi: "không",
@@ -534,6 +592,7 @@ export const WORDS = [
     czAudio: "speech/cz/ne.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "špatný",
     en: "bad",
     vi: "xấu",
@@ -543,6 +602,7 @@ export const WORDS = [
     viAudio: "speech/vi/xau.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "mít",
     en: "to have",
     vi: "có",
@@ -552,6 +612,7 @@ export const WORDS = [
     viAudio: "speech/vi/co.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "být",
     en: "to be",
     vi: "là",
@@ -561,6 +622,7 @@ export const WORDS = [
     viAudio: "speech/vi/la.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "dělat",
     en: "to do",
     vi: "làm",
@@ -569,6 +631,7 @@ export const WORDS = [
     czAudio: "speech/cz/delat.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "jít",
     en: "to go",
     vi: "đi",
@@ -578,6 +641,7 @@ export const WORDS = [
     viAudio: "speech/vi/dji.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "chtít",
     en: "to want",
     vi: "muốn",
@@ -587,6 +651,7 @@ export const WORDS = [
     viAudio: "speech/vi/muon.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "moci",
     en: "can / to be able",
     vi: "có thể",
@@ -595,6 +660,7 @@ export const WORDS = [
     czAudio: "speech/cz/moci.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "potřebovat",
     en: "to need",
     vi: "cần",
@@ -604,6 +670,7 @@ export const WORDS = [
     viAudio: "speech/vi/can.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "tam",
     en: "there",
     vi: "ở đó",
@@ -613,6 +680,7 @@ export const WORDS = [
     viAudio: "speech/vi/o-djo.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "teď",
     en: "now",
     vi: "bây giờ",
@@ -622,6 +690,7 @@ export const WORDS = [
     viAudio: "speech/vi/bay-gio.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "čas",
     en: "time",
     vi: "thời gian",
@@ -631,6 +700,7 @@ export const WORDS = [
     viAudio: "speech/vi/thoi-gian.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "peníze",
     en: "money",
     vi: "tiền",
@@ -639,6 +709,7 @@ export const WORDS = [
     czAudio: "speech/cz/penize.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "práce",
     en: "work",
     vi: "công việc",
@@ -648,6 +719,7 @@ export const WORDS = [
     viAudio: "speech/vi/cong-viec.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "dobře",
     en: "well / good",
     vi: "tốt",
@@ -657,6 +729,7 @@ export const WORDS = [
     viAudio: "speech/vi/tot.mp3",
   },
   {
+    category: ["basic", "word"],
     cz: "špatně",
     en: "badly",
     vi: "không tốt",
@@ -665,6 +738,7 @@ export const WORDS = [
     czAudio: "speech/cz/spatne.mp3",
   },
   {
+    category: ["nails", "word"],
     cz: "prsty",
     en: "fingers",
     vi: "ngón tay",
@@ -674,6 +748,7 @@ export const WORDS = [
     viAudio: "speech/vi/ngon-tay.mp3",
   },
   {
+    category: ["nails", "word"],
     cz: "kůžička",
     en: "cuticle",
     vi: "da quanh móng",
@@ -682,6 +757,7 @@ export const WORDS = [
     czAudio: "speech/cz/kuzicka.mp3",
   },
   {
+    category: ["nails", "word"],
     cz: "délka",
     en: "length",
     vi: "độ dài",
@@ -691,6 +767,7 @@ export const WORDS = [
     viAudio: "speech/vi/djo-dai.mp3",
   },
   {
+    category: ["nails", "word"],
     cz: "krátké",
     en: "short",
     vi: "ngắn",
@@ -700,6 +777,7 @@ export const WORDS = [
     viAudio: "speech/vi/ngan.mp3",
   },
   {
+    category: ["nails", "word"],
     cz: "dlouhé",
     en: "long",
     vi: "dài",
@@ -709,6 +787,7 @@ export const WORDS = [
     viAudio: "speech/vi/dai.mp3",
   },
   {
+    category: ["word"],
     cz: "lampa",
     en: "lamp",
     vi: "đèn",
@@ -718,6 +797,7 @@ export const WORDS = [
     viAudio: "speech/vi/djen.mp3",
   },
   {
+    category: ["word"],
     cz: "chvilku",
     en: "a moment",
     vi: "một chút",
@@ -727,6 +807,7 @@ export const WORDS = [
     viAudio: "speech/vi/mot-chut.mp3",
   },
   {
+    category: ["word"],
     cz: "opravit",
     en: "to fix",
     vi: "sửa",
@@ -736,6 +817,7 @@ export const WORDS = [
     viAudio: "speech/vi/sua.mp3",
   },
   {
+    category: ["word"],
     cz: "zkrátit",
     en: "to shorten",
     vi: "cắt ngắn",
@@ -745,6 +827,7 @@ export const WORDS = [
     viAudio: "speech/vi/cat-ngan.mp3",
   },
   {
+    category: ["word"],
     cz: "prodloužit",
     en: "to lengthen",
     vi: "làm dài",
@@ -754,6 +837,7 @@ export const WORDS = [
     viAudio: "speech/vi/lam-dai.mp3",
   },
   {
+    category: ["word"],
     cz: "změna",
     en: "change",
     vi: "thay đổi",
@@ -763,6 +847,7 @@ export const WORDS = [
     viAudio: "speech/vi/thay-djoi.mp3",
   },
   {
+    category: ["phrase"],
     cz: "líbí se",
     en: "to like",
     vi: "thích",
@@ -772,6 +857,7 @@ export const WORDS = [
     viAudio: "speech/vi/thich.mp3",
   },
   {
+    category: ["phrase"],
     cz: "nelíbí se",
     en: "to not like",
     vi: "không thích",
@@ -780,6 +866,7 @@ export const WORDS = [
     czAudio: "speech/cz/nelibi-se.mp3",
   },
   {
+    category: ["word"],
     cz: "levné",
     en: "cheap",
     vi: "rẻ",
@@ -789,6 +876,7 @@ export const WORDS = [
     viAudio: "speech/vi/re.mp3",
   },
   {
+    category: ["word"],
     cz: "drahé",
     en: "expensive",
     vi: "đắt",
@@ -798,6 +886,7 @@ export const WORDS = [
     viAudio: "speech/vi/djat.mp3",
   },
   {
+    category: ["word"],
     cz: "čisté",
     en: "clean",
     vi: "sạch",
@@ -807,6 +896,7 @@ export const WORDS = [
     viAudio: "speech/vi/sach.mp3",
   },
   {
+    category: ["word"],
     cz: "dezinfekce",
     en: "disinfection",
     vi: "khử trùng",
@@ -816,6 +906,7 @@ export const WORDS = [
     viAudio: "speech/vi/khu-trung.mp3",
   },
   {
+    category: ["word"],
     cz: "zákaznice",
     en: "customer (female)",
     vi: "khách hàng",
@@ -825,6 +916,7 @@ export const WORDS = [
     viAudio: "speech/vi/khach-hang.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Je to v pořádku",
     en: "It's okay",
     vi: "Không sao",
@@ -834,6 +926,7 @@ export const WORDS = [
     viAudio: "speech/vi/khong-sao.mp3",
   },
   {
+    category: ["basic", "phrase"],
     cz: "Ano, rozumím",
     en: "Yes, I understand",
     vi: "Vâng, tôi hiểu",
@@ -843,6 +936,7 @@ export const WORDS = [
     viAudio: "speech/vi/vang-toi-hieu.mp3",
   },
   {
+    category: ["basic", "phrase"],
     cz: "Ne, nerozumím",
     en: "No, I don't understand",
     vi: "Không, tôi không hiểu",
@@ -852,6 +946,7 @@ export const WORDS = [
     viAudio: "speech/vi/khong-toi-khong-hieu.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Můžete to zopakovat?",
     en: "Can you repeat it?",
     vi: "Bạn có thể nhắc lại không?",
@@ -861,6 +956,7 @@ export const WORDS = [
     viAudio: "speech/vi/ban-co-the-nhac-lai-khong.mp3",
   },
   {
+    category: ["basic", "phrase"],
     cz: "Mluvte prosím pomalu",
     en: "Please speak slowly",
     vi: "Làm ơn nói chậm",
@@ -870,6 +966,7 @@ export const WORDS = [
     viAudio: "speech/vi/lam-on-noi-cham.mp3",
   },
   {
+    category: ["basic", "phrase"],
     cz: "Počkejte prosím chvilku",
     en: "Please wait a moment",
     vi: "Làm ơn chờ một chút",
@@ -879,6 +976,7 @@ export const WORDS = [
     viAudio: "speech/vi/lam-on-cho-mot-chut.mp3",
   },
   {
+    category: ["basic", "phrase"],
     cz: "Teď nemám čas",
     en: "I don't have time now",
     vi: "Bây giờ tôi không có thời gian",
@@ -888,6 +986,7 @@ export const WORDS = [
     viAudio: "speech/vi/bay-gio-toi-khong-co-thoi-gian.mp3",
   },
   {
+    category: ["basic", "phrase"],
     cz: "Teď je to možné",
     en: "It's possible now",
     vi: "Bây giờ được",
@@ -897,6 +996,7 @@ export const WORDS = [
     viAudio: "speech/vi/bay-gio-djuoc.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Chci se zeptat",
     en: "I want to ask",
     vi: "Tôi muốn hỏi",
@@ -906,6 +1006,7 @@ export const WORDS = [
     viAudio: "speech/vi/toi-muon-hoi.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Kolik to stojí?",
     en: "How much is it?",
     vi: "Bao nhiêu tiền?",
@@ -915,6 +1016,7 @@ export const WORDS = [
     viAudio: "speech/vi/bao-nhieu-tien.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Kde to je?",
     en: "Where is it?",
     vi: "Ở đâu?",
@@ -924,6 +1026,7 @@ export const WORDS = [
     viAudio: "speech/vi/o-djau.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Kdy to bude?",
     en: "When will it be?",
     vi: "Khi nào?",
@@ -933,6 +1036,7 @@ export const WORDS = [
     viAudio: "speech/vi/khi-nao.mp3",
   },
   {
+    category: ["basic", "phrase"],
     cz: "Dnes to stačí",
     en: "That's enough for today",
     vi: "Hôm nay như vậy đủ rồi",
@@ -942,6 +1046,7 @@ export const WORDS = [
     viAudio: "speech/vi/hom-nay-nhu-vay-dju-roi.mp3",
   },
   {
+    category: ["basic", "phrase"],
     cz: "Zítra to bude lepší",
     en: "Tomorrow will be better",
     vi: "Ngày mai sẽ tốt hơn",
@@ -951,6 +1056,7 @@ export const WORDS = [
     viAudio: "speech/vi/ngay-mai-se-tot-hon.mp3",
   },
   {
+    category: ["phrase"],
     cz: "To je dobré",
     en: "That's good",
     vi: "Như vậy tốt",
@@ -960,6 +1066,7 @@ export const WORDS = [
     viAudio: "speech/vi/nhu-vay-tot.mp3",
   },
   {
+    category: ["phrase"],
     cz: "To není dobré",
     en: "That's not good",
     vi: "Không tốt",
@@ -969,6 +1076,7 @@ export const WORDS = [
     viAudio: "speech/vi/khong-tot.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Můžete se posadit",
     en: "You can sit down",
     vi: "Bạn có thể ngồi",
@@ -978,6 +1086,7 @@ export const WORDS = [
     viAudio: "speech/vi/ban-co-the-ngoi.mp3",
   },
   {
+    category: ["basic", "phrase"],
     cz: "Začneme teď",
     en: "We will start now",
     vi: "Bắt đầu bây giờ",
@@ -987,6 +1096,7 @@ export const WORDS = [
     viAudio: "speech/vi/bat-djau-bay-gio.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Už je to hotové",
     en: "It's finished",
     vi: "Xong rồi",
@@ -996,6 +1106,7 @@ export const WORDS = [
     viAudio: "speech/vi/xong-roi.mp3",
   },
   {
+    category: ["basic", "phrase"],
     cz: "Počkejte prosím chvilku",
     en: "Please wait a moment",
     vi: "Làm ơn chờ một chút",
@@ -1005,6 +1116,7 @@ export const WORDS = [
     viAudio: "speech/vi/lam-on-cho-mot-chut.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Nebude to bolet",
     en: "It won't hurt",
     vi: "Không đau đâu",
@@ -1014,6 +1126,7 @@ export const WORDS = [
     viAudio: "speech/vi/khong-djau-djau.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Líbí se vám to?",
     en: "Do you like it?",
     vi: "Bạn có thích không?",
@@ -1023,6 +1136,7 @@ export const WORDS = [
     viAudio: "speech/vi/ban-co-thich-khong.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Je to hezké?",
     en: "Is it nice?",
     vi: "Đẹp không?",
@@ -1032,6 +1146,7 @@ export const WORDS = [
     viAudio: "speech/vi/djep-khong.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Chcete jinou barvu?",
     en: "Do you want another color?",
     vi: "Bạn muốn màu khác không?",
@@ -1041,6 +1156,7 @@ export const WORDS = [
     viAudio: "speech/vi/ban-muon-mau-khac-khong.mp3",
   },
   {
+    category: ["nails", "phrase"],
     cz: "Krátké nebo dlouhé?",
     en: "Shorter or longer?",
     vi: "Ngắn hay dài?",
@@ -1050,6 +1166,7 @@ export const WORDS = [
     viAudio: "speech/vi/ngan-hay-dai.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Uděláme to kratší",
     en: "We will make it shorter",
     vi: "Làm ngắn lại",
@@ -1059,6 +1176,7 @@ export const WORDS = [
     viAudio: "speech/vi/lam-ngan-lai.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Uděláme to delší",
     en: "We will make it longer",
     vi: "Làm dài hơn",
@@ -1068,6 +1186,7 @@ export const WORDS = [
     viAudio: "speech/vi/lam-dai-hon.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Necháme to takto",
     en: "We'll leave it like this",
     vi: "Giữ như vậy",
@@ -1077,6 +1196,7 @@ export const WORDS = [
     viAudio: "speech/vi/giu-nhu-vay.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Trochu to upravím",
     en: "I'll adjust it a bit",
     vi: "Sửa một chút",
@@ -1086,6 +1206,7 @@ export const WORDS = [
     viAudio: "speech/vi/sua-mot-chut.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Musíme to opravit",
     en: "We need to fix it",
     vi: "Cần sửa lại",
@@ -1095,6 +1216,7 @@ export const WORDS = [
     viAudio: "speech/vi/can-sua-lai.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Cena je tady",
     en: "The price is here",
     vi: "Giá là thế này",
@@ -1104,6 +1226,7 @@ export const WORDS = [
     viAudio: "speech/vi/gia-la-the-nay.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Je to trochu drahé",
     en: "It's a bit expensive",
     vi: "Hơi đắt",
@@ -1113,6 +1236,7 @@ export const WORDS = [
     viAudio: "speech/vi/hoi-djat.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Je to levnější",
     en: "It's cheaper",
     vi: "Rẻ hơn",
@@ -1122,6 +1246,7 @@ export const WORDS = [
     viAudio: "speech/vi/re-hon.mp3",
   },
   {
+    category: ["phrase"],
     cz: "Bude to trvat chvíli",
     en: "It will take a while",
     vi: "Sẽ mất một chút thời gian",
@@ -1131,6 +1256,7 @@ export const WORDS = [
     viAudio: "speech/vi/se-mat-mot-chut-thoi-gian.mp3",
   },
   {
+    category: ["basic", "phrase"],
     cz: "Děkuji, nashledanou",
     en: "Thank you, goodbye",
     vi: "Cảm ơn, hẹn gặp lại",
@@ -1140,6 +1266,7 @@ export const WORDS = [
     viAudio: "speech/vi/cam-on-hen-gap-lai.mp3",
   },
   {
+    category: ["word"],
     cz: "Přijít",
     en: "To come",
     vi: "Đến",
@@ -1147,6 +1274,7 @@ export const WORDS = [
     viPron: "den",
   },
   {
+    category: ["word"],
     cz: "Vidět",
     en: "To see",
     vi: "Thấy",
@@ -1154,6 +1282,7 @@ export const WORDS = [
     viPron: "thaj",
   },
   {
+    category: ["word"],
     cz: "Slyšet",
     en: "To hear",
     vi: "Nghe",
@@ -1161,6 +1290,7 @@ export const WORDS = [
     viPron: "nge",
   },
   {
+    category: ["word"],
     cz: "Říct",
     en: "To say",
     vi: "Nói",
@@ -1168,6 +1298,7 @@ export const WORDS = [
     viPron: "noj",
   },
   {
+    category: ["word"],
     cz: "Mluvit",
     en: "To speak",
     vi: "Nói chuyện",
@@ -1175,6 +1306,7 @@ export const WORDS = [
     viPron: "noj čuen",
   },
   {
+    category: ["word"],
     cz: "Rozumět",
     en: "To understand",
     vi: "Hiểu",
@@ -1182,6 +1314,7 @@ export const WORDS = [
     viPron: "hieu",
   },
   {
+    category: ["word"],
     cz: "Nevědět",
     en: "Not to know",
     vi: "Không biết",
@@ -1189,6 +1322,7 @@ export const WORDS = [
     viPron: "chom bjet",
   },
   {
+    category: ["word"],
     cz: "Vědět",
     en: "To know",
     vi: "Biết",
@@ -1196,6 +1330,7 @@ export const WORDS = [
     viPron: "bjet",
   },
   {
+    category: ["basic", "word"],
     cz: "Dobrý",
     en: "Good",
     vi: "Tốt",
@@ -1203,6 +1338,7 @@ export const WORDS = [
     viPron: "tot",
   },
   {
+    category: ["word"],
     cz: "Velký",
     en: "Big",
     vi: "Lớn",
@@ -1210,6 +1346,7 @@ export const WORDS = [
     viPron: "lon",
   },
   {
+    category: ["word"],
     cz: "Malý",
     en: "Small",
     vi: "Nhỏ",
@@ -1217,6 +1354,7 @@ export const WORDS = [
     viPron: "ňo",
   },
   {
+    category: ["word"],
     cz: "Nový",
     en: "New",
     vi: "Mới",
@@ -1224,6 +1362,7 @@ export const WORDS = [
     viPron: "moj",
   },
   {
+    category: ["word"],
     cz: "Starý",
     en: "Old",
     vi: "Cũ",
@@ -1231,6 +1370,7 @@ export const WORDS = [
     viPron: "ku",
   },
   {
+    category: ["basic", "word"],
     cz: "Včera",
     en: "Yesterday",
     vi: "Hôm qua",
@@ -1238,6 +1378,7 @@ export const WORDS = [
     viPron: "hom kua",
   },
   {
+    category: ["word"],
     cz: "Levný",
     en: "Cheap",
     vi: "Rẻ",
@@ -1245,6 +1386,7 @@ export const WORDS = [
     viPron: "re",
   },
   {
+    category: ["word"],
     cz: "Drahý",
     en: "Expensive",
     vi: "Đắt",
@@ -1252,6 +1394,7 @@ export const WORDS = [
     viPron: "dat",
   },
   {
+    category: ["word"],
     cz: "Možnost",
     en: "Possibility",
     vi: "Có thể",
@@ -1259,6 +1402,7 @@ export const WORDS = [
     viPron: "ko tche",
   },
   {
+    category: ["word"],
     cz: "Pomoc",
     en: "Help",
     vi: "Giúp",
@@ -1266,6 +1410,7 @@ export const WORDS = [
     viPron: "zup",
   },
   {
+    category: ["word"],
     cz: "Čekat",
     en: "To wait",
     vi: "Chờ",
@@ -1273,6 +1418,7 @@ export const WORDS = [
     viPron: "čo",
   },
   {
+    category: ["word"],
     cz: "Najít",
     en: "To find",
     vi: "Tìm",
@@ -1280,6 +1426,7 @@ export const WORDS = [
     viPron: "tim",
   },
   {
+    category: ["word"],
     cz: "Ztratit",
     en: "To lose",
     vi: "Mất",
@@ -1287,6 +1434,7 @@ export const WORDS = [
     viPron: "mat",
   },
   {
+    category: ["word"],
     cz: "Začít",
     en: "To start",
     vi: "Bắt đầu",
@@ -1294,6 +1442,7 @@ export const WORDS = [
     viPron: "bat dau",
   },
   {
+    category: ["word"],
     cz: "Skončit",
     en: "To finish",
     vi: "Kết thúc",
@@ -1301,6 +1450,7 @@ export const WORDS = [
     viPron: "ket thuk",
   },
   {
+    category: ["word"],
     cz: "Člověk",
     en: "Person",
     vi: "Người",
@@ -1308,6 +1458,7 @@ export const WORDS = [
     viPron: "nguoj",
   },
   {
+    category: ["word"],
     cz: "Lidé",
     en: "People",
     vi: "Mọi người",
@@ -1315,6 +1466,7 @@ export const WORDS = [
     viPron: "moj nguoj",
   },
   {
+    category: ["word"],
     cz: "Věc",
     en: "Thing",
     vi: "Vật",
@@ -1322,6 +1474,7 @@ export const WORDS = [
     viPron: "vat",
   },
   {
+    category: ["word"],
     cz: "Místo",
     en: "Place",
     vi: "Nơi",
@@ -1329,6 +1482,7 @@ export const WORDS = [
     viPron: "noj",
   },
   {
+    category: ["word"],
     cz: "Cesta",
     en: "Way / road",
     vi: "Đường",
@@ -1336,6 +1490,7 @@ export const WORDS = [
     viPron: "duong",
   },
   {
+    category: ["word"],
     cz: "Otázka",
     en: "Question",
     vi: "Câu hỏi",
@@ -1343,6 +1498,7 @@ export const WORDS = [
     viPron: "kau hoj",
   },
   {
+    category: ["word"],
     cz: "Odpověď",
     en: "Answer",
     vi: "Trả lời",
@@ -1350,6 +1506,7 @@ export const WORDS = [
     viPron: "ča loj",
   },
   {
+    category: ["word"],
     cz: "Plán",
     en: "Plan",
     vi: "Kế hoạch",
@@ -1357,6 +1514,7 @@ export const WORDS = [
     viPron: "ke hoak",
   },
   {
+    category: ["word"],
     cz: "Situace",
     en: "Situation",
     vi: "Tình huống",
@@ -1364,6 +1522,7 @@ export const WORDS = [
     viPron: "tin huong",
   },
   {
+    category: ["word"],
     cz: "Důvod",
     en: "Reason",
     vi: "Lý do",
@@ -1371,6 +1530,7 @@ export const WORDS = [
     viPron: "li zo",
   },
   {
+    category: ["word"],
     cz: "Pomalu",
     en: "Slowly",
     vi: "Chậm",
@@ -1378,6 +1538,7 @@ export const WORDS = [
     viPron: "čam",
   },
   {
+    category: ["word"],
     cz: "Rychle",
     en: "Fast",
     vi: "Nhanh",
@@ -1385,6 +1546,7 @@ export const WORDS = [
     viPron: "ňanh",
   },
   {
+    category: ["word"],
     cz: "Vždy",
     en: "Always",
     vi: "Luôn luôn",
@@ -1392,6 +1554,7 @@ export const WORDS = [
     viPron: "luon luon",
   },
   {
+    category: ["word"],
     cz: "Nikdy",
     en: "Never",
     vi: "Không bao giờ",
@@ -1399,6 +1562,7 @@ export const WORDS = [
     viPron: "chom bao zə",
   },
   {
+    category: ["word"],
     cz: "Někdy",
     en: "Sometimes",
     vi: "Đôi khi",
@@ -1406,6 +1570,7 @@ export const WORDS = [
     viPron: "doj chi",
   },
   {
+    category: ["word"],
     cz: "Proto",
     en: "Therefore",
     vi: "Vì vậy",
@@ -1413,6 +1578,7 @@ export const WORDS = [
     viPron: "vi zəj",
   },
   {
+    category: ["word"],
     cz: "Protože",
     en: "Because",
     vi: "Bởi vì",
@@ -1420,6 +1586,7 @@ export const WORDS = [
     viPron: "boj vi",
   },
   {
+    category: ["word"],
     cz: "Jestli",
     en: "If",
     vi: "Nếu",
@@ -1427,6 +1594,7 @@ export const WORDS = [
     viPron: "neu",
   },
   {
+    category: ["word"],
     cz: "Když",
     en: "When / if",
     vi: "Khi",
@@ -1434,6 +1602,7 @@ export const WORDS = [
     viPron: "chi",
   },
   {
+    category: ["word"],
     cz: "Ale",
     en: "But",
     vi: "Nhưng",
@@ -1441,6 +1610,7 @@ export const WORDS = [
     viPron: "ňung",
   },
   {
+    category: ["word"],
     cz: "Nebo",
     en: "Or",
     vi: "Hoặc",
@@ -1448,6 +1618,7 @@ export const WORDS = [
     viPron: "huak",
   },
   {
+    category: ["word"],
     cz: "Také",
     en: "Also",
     vi: "Cũng",
@@ -1455,6 +1626,7 @@ export const WORDS = [
     viPron: "kung",
   },
   {
+    category: ["word"],
     cz: "Jen",
     en: "Only",
     vi: "Chỉ",
@@ -1462,6 +1634,7 @@ export const WORDS = [
     viPron: "či",
   },
   {
+    category: ["word"],
     cz: "Už",
     en: "Already",
     vi: "Đã",
@@ -1469,6 +1642,7 @@ export const WORDS = [
     viPron: "da",
   },
   {
+    category: ["word"],
     cz: "Ještě",
     en: "Still",
     vi: "Vẫn",
@@ -1476,6 +1650,7 @@ export const WORDS = [
     viPron: "van",
   },
   {
+    category: ["word"],
     cz: "Zase",
     en: "Again",
     vi: "Lại",
@@ -1483,6 +1658,7 @@ export const WORDS = [
     viPron: "laj",
   },
   {
+    category: ["word"],
     cz: "Hned",
     en: "Immediately",
     vi: "Ngay",
@@ -1490,6 +1666,7 @@ export const WORDS = [
     viPron: "ngaj",
   },
   {
+    category: ["word"],
     cz: "Brzy",
     en: "Soon",
     vi: "Sớm",
@@ -1497,6 +1674,7 @@ export const WORDS = [
     viPron: "som",
   },
   {
+    category: ["word"],
     cz: "Pozdě",
     en: "Late",
     vi: "Muộn",
@@ -1504,6 +1682,7 @@ export const WORDS = [
     viPron: "muon",
   },
   {
+    category: ["word"],
     cz: "Dlouho",
     en: "Long (time)",
     vi: "Lâu",
@@ -1511,6 +1690,7 @@ export const WORDS = [
     viPron: "lau",
   },
   {
+    category: ["word"],
     cz: "Krátce",
     en: "Briefly",
     vi: "Ngắn",
@@ -1518,6 +1698,7 @@ export const WORDS = [
     viPron: "ngan",
   },
   {
+    category: ["word"],
     cz: "Hodně",
     en: "A lot",
     vi: "Nhiều",
@@ -1525,6 +1706,7 @@ export const WORDS = [
     viPron: "ňieu",
   },
   {
+    category: ["word"],
     cz: "Málo",
     en: "Little",
     vi: "Ít",
@@ -1532,6 +1714,7 @@ export const WORDS = [
     viPron: "it",
   },
   {
+    category: ["word"],
     cz: "Všechno",
     en: "Everything",
     vi: "Mọi thứ",
@@ -1539,6 +1722,7 @@ export const WORDS = [
     viPron: "moj thu",
   },
   {
+    category: ["word"],
     cz: "Nic",
     en: "Nothing",
     vi: "Không có gì",
@@ -1546,6 +1730,7 @@ export const WORDS = [
     viPron: "chom ko zi",
   },
   {
+    category: ["word"],
     cz: "Něco",
     en: "Something",
     vi: "Cái gì đó",
@@ -1553,6 +1738,7 @@ export const WORDS = [
     viPron: "kaj zi do",
   },
   {
+    category: ["word"],
     cz: "Někdo",
     en: "Someone",
     vi: "Ai đó",
@@ -1560,6 +1746,7 @@ export const WORDS = [
     viPron: "aj do",
   },
   {
+    category: ["word"],
     cz: "Každý",
     en: "Everyone",
     vi: "Mỗi người",
@@ -1567,6 +1754,7 @@ export const WORDS = [
     viPron: "moj nguoj",
   },
   {
+    category: ["word"],
     cz: "Jeden",
     en: "One",
     vi: "Một",
@@ -1574,6 +1762,7 @@ export const WORDS = [
     viPron: "mot",
   },
   {
+    category: ["word"],
     cz: "Dva",
     en: "Two",
     vi: "Hai",
@@ -1581,6 +1770,7 @@ export const WORDS = [
     viPron: "haj",
   },
   {
+    category: ["word"],
     cz: "Více",
     en: "More",
     vi: "Hơn",
@@ -1588,6 +1778,7 @@ export const WORDS = [
     viPron: "hon",
   },
   {
+    category: ["word"],
     cz: "Méně",
     en: "Less",
     vi: "Ít hơn",
@@ -1595,6 +1786,7 @@ export const WORDS = [
     viPron: "it hon",
   },
   {
+    category: ["word"],
     cz: "Stejně",
     en: "Same",
     vi: "Giống",
@@ -1602,6 +1794,7 @@ export const WORDS = [
     viPron: "zong",
   },
   {
+    category: ["word"],
     cz: "Jinak",
     en: "Differently",
     vi: "Khác",
@@ -1609,6 +1802,7 @@ export const WORDS = [
     viPron: "chak",
   },
   {
+    category: ["word"],
     cz: "Správně",
     en: "Correctly",
     vi: "Đúng",
@@ -1616,6 +1810,7 @@ export const WORDS = [
     viPron: "dung",
   },
   {
+    category: ["word"],
     cz: "Snadno",
     en: "Easily",
     vi: "Dễ",
@@ -1623,6 +1818,7 @@ export const WORDS = [
     viPron: "ze",
   },
   {
+    category: ["word"],
     cz: "Těžko",
     en: "Hard",
     vi: "Khó",
@@ -1630,6 +1826,7 @@ export const WORDS = [
     viPron: "cho",
   },
   {
+    category: ["word"],
     cz: "Rád",
     en: "Gladly / like",
     vi: "Thích",
@@ -1637,6 +1834,7 @@ export const WORDS = [
     viPron: "thich",
   },
   {
+    category: ["word"],
     cz: "Myslet",
     en: "To think",
     vi: "Nghĩ",
@@ -1644,6 +1842,7 @@ export const WORDS = [
     viPron: "ňi",
   },
   {
+    category: ["word"],
     cz: "Věřit",
     en: "To believe",
     vi: "Tin",
@@ -1651,6 +1850,7 @@ export const WORDS = [
     viPron: "tin",
   },
   {
+    category: ["word"],
     cz: "Doufat",
     en: "To hope",
     vi: "Hy vọng",
@@ -1658,6 +1858,7 @@ export const WORDS = [
     viPron: "hi vong",
   },
   {
+    category: ["word"],
     cz: "Zkusit",
     en: "To try",
     vi: "Thử",
@@ -1665,6 +1866,7 @@ export const WORDS = [
     viPron: "thu",
   },
   {
+    category: ["word"],
     cz: "Rozhodnout",
     en: "To decide",
     vi: "Quyết định",
@@ -1672,6 +1874,7 @@ export const WORDS = [
     viPron: "kvet din",
   },
   {
+    category: ["word"],
     cz: "Změnit",
     en: "To change",
     vi: "Thay đổi",
@@ -1679,6 +1882,7 @@ export const WORDS = [
     viPron: "thaj doj",
   },
   {
+    category: ["word"],
     cz: "Zůstat",
     en: "To stay",
     vi: "Ở lại",
@@ -1686,6 +1890,7 @@ export const WORDS = [
     viPron: "ə laj",
   },
   {
+    category: ["word"],
     cz: "Vrátit",
     en: "To return",
     vi: "Quay lại",
@@ -1693,6 +1898,7 @@ export const WORDS = [
     viPron: "kuaj laj",
   },
   {
+    category: ["word"],
     cz: "Vzít",
     en: "To take",
     vi: "Lấy",
@@ -1700,6 +1906,7 @@ export const WORDS = [
     viPron: "lej",
   },
   {
+    category: ["word"],
     cz: "Dát",
     en: "To give",
     vi: "Cho",
@@ -1707,6 +1914,7 @@ export const WORDS = [
     viPron: "čo",
   },
   {
+    category: ["word"],
     cz: "Držet",
     en: "To hold",
     vi: "Giữ",
@@ -1714,6 +1922,7 @@ export const WORDS = [
     viPron: "zu",
   },
   {
+    category: ["word"],
     cz: "Nechat",
     en: "To let",
     vi: "Để",
@@ -1721,6 +1930,7 @@ export const WORDS = [
     viPron: "de",
   },
   {
+    category: ["word"],
     cz: "Patřit",
     en: "To belong",
     vi: "Thuộc",
@@ -1728,6 +1938,7 @@ export const WORDS = [
     viPron: "thuok",
   },
   {
+    category: ["word"],
     cz: "Platí",
     en: "It applies",
     vi: "Áp dụng",
@@ -1735,6 +1946,7 @@ export const WORDS = [
     viPron: "ap zun",
   },
   {
+    category: ["phrase"],
     cz: "Zdát se",
     en: "To seem",
     vi: "Có vẻ",
@@ -1742,6 +1954,7 @@ export const WORDS = [
     viPron: "ko ve",
   },
   {
+    category: ["word"],
     cz: "Stačit",
     en: "To be enough",
     vi: "Đủ",
@@ -1749,6 +1962,7 @@ export const WORDS = [
     viPron: "du",
   },
   {
+    category: ["word"],
     cz: "Chybět",
     en: "To be missing",
     vi: "Thiếu",
@@ -1756,6 +1970,7 @@ export const WORDS = [
     viPron: "thieu",
   },
   {
+    category: ["word"],
     cz: "Přesně",
     en: "Exactly",
     vi: "Chính xác",
@@ -1763,6 +1978,7 @@ export const WORDS = [
     viPron: "činh sak",
   },
   {
+    category: ["word"],
     cz: "Přibližně",
     en: "Approximately",
     vi: "Khoảng",
@@ -1770,6 +1986,7 @@ export const WORDS = [
     viPron: "chuoang",
   },
   {
+    category: ["word"],
     cz: "Opravdu",
     en: "Really",
     vi: "Thật sự",
@@ -1777,6 +1994,7 @@ export const WORDS = [
     viPron: "that su",
   },
   {
+    category: ["word"],
     cz: "Možná",
     en: "Maybe",
     vi: "Có lẽ",

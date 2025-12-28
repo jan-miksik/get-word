@@ -10,13 +10,43 @@
  * In hidden modes, the covered fields reveal while press / long-press is held.
  */
 
-import { WORDS } from "./slova.js";
+import { WORDS as RAW_WORDS } from "./slova.js";
+
+function inferWordType(entry) {
+  const explicit = Array.isArray(entry.category)
+    ? entry.category.find((tag) => tag === "word" || tag === "phrase")
+    : null;
+  if (explicit) return explicit;
+
+  // Strip non-letter/number characters (emojis, punctuation) for a fair token count
+  const normalized = (entry.cz || "")
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+  if (!normalized) return "word";
+
+  const tokenCount = normalized.split(/\s+/).filter(Boolean).length;
+  return tokenCount > 1 ? "phrase" : "word";
+}
+
+function normalizeWords(list) {
+  return list.map((entry) => {
+    const baseTags = Array.isArray(entry.category)
+      ? entry.category.filter((tag) => tag !== "word" && tag !== "phrase")
+      : [];
+    const typeTag = inferWordType(entry);
+    const category = [...new Set([...baseTags, typeTag])];
+    return { ...entry, category };
+  });
+}
+
+const WORDS = normalizeWords(RAW_WORDS);
 
 /** @type {{ cz: string; en: string; vi: string; section?: string; czPron?: string; viPron?: string; czAudio?: string | string[]; viAudio?: string | string[]; czHint?: string; viHint?: string }[]} */
 
 const STORAGE_KEY = "wordlink_progress_v1";
 const ROLE_KEY = "wordlink_role_v1";
 const MEMORY_HOOK_KEY = "wordlink_memory_hooks_v1";
+const CATEGORY_FILTER_KEY = "wordlink_category_filter_v1";
 
 // Spaced-repetition stages (0 = new/forgotten, then growing intervals)
 const STAGES = [
@@ -109,9 +139,36 @@ function saveMemoryHooks(map) {
 }
 
 const memoryHooksMap = loadMemoryHooks();
+const selectedCategories = loadCategoryFilter();
 
 function getMemoryHook(index) {
   return memoryHooksMap[String(index)] || "";
+}
+
+/**
+ * Category filter persistence helpers.
+ */
+function loadCategoryFilter() {
+  try {
+    const raw = localStorage.getItem(CATEGORY_FILTER_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    const cleaned = parsed.filter(
+      (item) => typeof item === "string" && item !== "word" && item !== "phrase"
+    );
+    return new Set(cleaned);
+  } catch {
+    return new Set();
+  }
+}
+
+function saveCategoryFilter(set) {
+  try {
+    localStorage.setItem(CATEGORY_FILTER_KEY, JSON.stringify(Array.from(set)));
+  } catch {
+    // ignore
+  }
 }
 
 /**
@@ -160,6 +217,39 @@ function getProgress(index) {
     knownCount: 0,
     unknownCount: 0,
   };
+}
+
+/**
+ * Category helpers.
+ */
+function getAvailableCategories() {
+  const counts = new Map();
+  WORDS.forEach((phrase) => {
+    const cats = Array.isArray(phrase.category) ? phrase.category : [];
+    cats.forEach((cat) => {
+      if (cat === "word" || cat === "phrase") return;
+      counts.set(cat, (counts.get(cat) || 0) + 1);
+    });
+  });
+  return Array.from(counts.entries())
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function matchesCategoryFilter(phrase) {
+  if (!selectedCategories.size) return true;
+  const cats = Array.isArray(phrase.category) ? phrase.category : [];
+  return cats.some((cat) => selectedCategories.has(cat));
+}
+
+function getFilteredIndices() {
+  const result = [];
+  WORDS.forEach((phrase, index) => {
+    if (matchesCategoryFilter(phrase)) {
+      result.push(index);
+    }
+  });
+  return result;
 }
 
 function isDue(progress) {
@@ -348,9 +438,13 @@ function attachPressHandlers(el) {
  * Calculate progress statistics.
  * @returns {Object} Statistics object
  */
-function calculateProgressStats() {
+function calculateProgressStats(filteredIndices) {
+  const indices =
+    Array.isArray(filteredIndices) && filteredIndices.length
+      ? filteredIndices
+      : WORDS.map((_, idx) => idx);
   const stats = {
-    total: WORDS.length,
+    total: indices.length,
     byStage: STAGES.map(() => 0),
     totalKnown: 0,
     totalUnknown: 0,
@@ -361,7 +455,8 @@ function calculateProgressStats() {
     new: 0, // stage 0
   };
 
-  WORDS.forEach((phrase, index) => {
+  indices.forEach((index) => {
+    const phrase = WORDS[index];
     const prog = getProgress(index);
     const stageIdx = Math.max(0, Math.min(prog.stageIndex || 0, STAGES.length - 1));
     
@@ -394,7 +489,7 @@ function renderProgressSummary() {
   const summaryEl = document.getElementById("progress-summary");
   if (!summaryEl) return;
 
-  const stats = calculateProgressStats();
+  const stats = calculateProgressStats(getFilteredIndices());
   
   summaryEl.innerHTML = `
     <span class="progress-summary-item fresh">
@@ -421,7 +516,7 @@ function renderProgressOverview() {
 
   panelContent.innerHTML = "";
   
-  const stats = calculateProgressStats();
+  const stats = calculateProgressStats(getFilteredIndices());
   const progressPercent = stats.total > 0 
     ? Math.round((stats.fresh + stats.learning + stats.done) / stats.total * 100) 
     : 0;
@@ -594,6 +689,107 @@ function renderProgressOverview() {
 }
 
 /**
+ * Render category filter modal content.
+ */
+function renderCategoryPanel() {
+  const panelContent = document.getElementById("category-panel-content");
+  if (!panelContent) return;
+
+  const categories = getAvailableCategories();
+  panelContent.innerHTML = "";
+
+  const header = document.createElement("div");
+  header.className = "category-panel-header";
+
+  const title = document.createElement("h2");
+  title.textContent = "Filter by category";
+  header.appendChild(title);
+
+  const clearBtn = document.createElement("button");
+  clearBtn.type = "button";
+  clearBtn.className = "category-clear-btn";
+  clearBtn.textContent = selectedCategories.size ? "Show all" : "All categories";
+  clearBtn.addEventListener("click", () => {
+    selectedCategories.clear();
+    saveCategoryFilter(selectedCategories);
+    updateCategoryButtonState();
+    renderCategoryPanel();
+    renderPhrases();
+    renderProgressSummary();
+    const progressPanel = document.getElementById("progress-panel");
+    if (progressPanel && progressPanel.classList.contains("is-open")) {
+      renderProgressOverview();
+    }
+  });
+  header.appendChild(clearBtn);
+  panelContent.appendChild(header);
+
+  const grid = document.createElement("div");
+  grid.className = "category-grid";
+
+  categories.forEach(({ name, count }) => {
+    const label = document.createElement("label");
+    label.className = "category-chip";
+
+    const input = document.createElement("input");
+    input.type = "checkbox";
+    input.value = name;
+    input.checked = selectedCategories.has(name);
+    if (input.checked) {
+      label.classList.add("is-selected");
+    }
+
+    input.addEventListener("change", () => {
+      if (input.checked) {
+        selectedCategories.add(name);
+      } else {
+        selectedCategories.delete(name);
+      }
+      label.classList.toggle("is-selected", input.checked);
+      saveCategoryFilter(selectedCategories);
+      updateCategoryButtonState();
+      renderCategoryPanel();
+      renderPhrases();
+      renderProgressSummary();
+      const progressPanel = document.getElementById("progress-panel");
+      if (progressPanel && progressPanel.classList.contains("is-open")) {
+        renderProgressOverview();
+      }
+    });
+
+    const span = document.createElement("span");
+    span.className = "category-chip-label";
+    span.textContent = name;
+
+    const counter = document.createElement("span");
+    counter.className = "category-chip-count";
+    counter.textContent = count.toString();
+
+    label.appendChild(input);
+    label.appendChild(span);
+    label.appendChild(counter);
+    grid.appendChild(label);
+  });
+
+  if (!categories.length) {
+    const empty = document.createElement("p");
+    empty.className = "category-empty";
+    empty.textContent = "No categories available.";
+    panelContent.appendChild(empty);
+  } else {
+    panelContent.appendChild(grid);
+  }
+}
+
+function updateCategoryButtonState() {
+  const btn = document.getElementById("category-btn");
+  if (!btn) return;
+  const hasFilter = selectedCategories.size > 0;
+  btn.classList.toggle("is-active", hasFilter);
+  btn.setAttribute("data-count", hasFilter ? String(selectedCategories.size) : "");
+}
+
+/**
  * Render all phrase cards.
  */
 function renderPhrases() {
@@ -612,7 +808,10 @@ function renderPhrases() {
   const grouped = STAGES.map(() => []);
   let readyCount = 0;
 
-  WORDS.forEach((phrase, index) => {
+  const filteredIndices = getFilteredIndices();
+
+  filteredIndices.forEach((index) => {
+    const phrase = WORDS[index];
     const prog = getProgress(index);
     const due = isDue(prog);
     if (due) readyCount += 1;
@@ -1166,10 +1365,12 @@ function setupTopControls() {
   const settingsBtn = document.getElementById("settings-btn");
   const progressBtn = document.getElementById("progress-btn");
   const memoryHooksBtn = document.getElementById("memory-hooks-btn");
+  const categoryBtn = document.getElementById("category-btn");
   const switchBtn = document.getElementById("switch-btn");
   const settingsPanel = document.getElementById("settings-panel");
   const progressPanel = document.getElementById("progress-panel");
   const memoryHooksPanel = document.getElementById("memory-hooks-panel");
+  const categoryPanel = document.getElementById("category-panel");
   const showAllBtn = document.getElementById("show-all-btn");
   const bottomButtons = document.querySelectorAll(".bottom-nav-btn");
 
@@ -1178,6 +1379,7 @@ function setupTopControls() {
     if (settingsPanel) settingsPanel.classList.remove("is-open");
     if (progressPanel) progressPanel.classList.remove("is-open");
     if (memoryHooksPanel) memoryHooksPanel.classList.remove("is-open");
+    if (categoryPanel) categoryPanel.classList.remove("is-open");
   }
 
   // Handle clicks outside panels to close them
@@ -1186,8 +1388,9 @@ function setupTopControls() {
     const settingsOpen = settingsPanel && settingsPanel.classList.contains("is-open");
     const progressOpen = progressPanel && progressPanel.classList.contains("is-open");
     const memoryHooksOpen = memoryHooksPanel && memoryHooksPanel.classList.contains("is-open");
+    const categoryOpen = categoryPanel && categoryPanel.classList.contains("is-open");
     
-    if (!settingsOpen && !progressOpen && !memoryHooksOpen) {
+    if (!settingsOpen && !progressOpen && !memoryHooksOpen && !categoryOpen) {
       return; // No panels open, nothing to close
     }
 
@@ -1204,9 +1407,13 @@ function setupTopControls() {
       memoryHooksPanel.contains(event.target) || 
       memoryHooksBtn && memoryHooksBtn.contains(event.target)
     );
+    const clickedInsideCategory = categoryPanel && (
+      categoryPanel.contains(event.target) ||
+      categoryBtn && categoryBtn.contains(event.target)
+    );
 
     // If click is outside all panels and their buttons, close all panels
-    if (!clickedInsideSettings && !clickedInsideProgress && !clickedInsideMemoryHooks) {
+    if (!clickedInsideSettings && !clickedInsideProgress && !clickedInsideMemoryHooks && !clickedInsideCategory) {
       closeAllPanels();
     }
   });
@@ -1226,6 +1433,12 @@ function setupTopControls() {
 
   if (memoryHooksPanel) {
     memoryHooksPanel.addEventListener("click", (event) => {
+      event.stopPropagation();
+    });
+  }
+
+  if (categoryPanel) {
+    categoryPanel.addEventListener("click", (event) => {
       event.stopPropagation();
     });
   }
@@ -1286,6 +1499,18 @@ function setupTopControls() {
     });
   }
 
+  if (categoryBtn && categoryPanel) {
+    categoryBtn.addEventListener("click", (event) => {
+      event.stopPropagation();
+      const wasOpen = categoryPanel.classList.contains("is-open");
+      closeAllPanels();
+      if (!wasOpen) {
+        categoryPanel.classList.add("is-open");
+        renderCategoryPanel();
+      }
+    });
+  }
+
   if (switchBtn) {
     switchBtn.addEventListener("click", () => {
       modeIndex = modeIndex === 0 ? 1 : 0;
@@ -1304,6 +1529,7 @@ function setupTopControls() {
 
   updateSwitchButtonLabel();
   updateShowAllButtonLabel();
+  updateCategoryButtonState();
 
   // bottom nav tabs
   bottomButtons.forEach((btn) => {
