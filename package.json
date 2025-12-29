@@ -1,0 +1,30 @@
+{
+  "name": "wordlink",
+  "version": "1.0.0",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build && pnpm exec @cloudflare/next-on-pages",
+    "build:cf": "pnpm exec @cloudflare/next-on-pages",
+    "start": "next start",
+    "lint": "next lint",
+    "db:migrate": "wrangler d1 migrations apply wordlink-db",
+    "db:migrate:remote": "wrangler d1 migrations apply wordlink-db --remote",
+    "db:create": "wrangler d1 create wordlink-db"
+  },
+  "dependencies": {
+    "next": "^16.1.1",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "devDependencies": {
+    "@cloudflare/next-on-pages": "^1.13.16",
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.2.3",
+    "@types/react-dom": "^19.2.3",
+    "typescript": "^5.9.0",
+    "wrangler": "^3.90.0"
+  }
+}
+

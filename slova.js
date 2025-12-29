@@ -271,7 +271,6 @@ export const WORDS = [
     viAudio: "speech/vi/nuoc.mp3",
   },
   {
-    section: "🎨 BARVY A ČAS",
     category: ["basic", "word"],
     cz: "Barva",
     en: "Color",
@@ -343,7 +342,6 @@ export const WORDS = [
     viAudio: "speech/vi/ngay-mai.mp3",
   },
   {
-    section: "PENÍZE A PLATBA",
     category: ["basic", "phrase"],
     cz: "Cena / Kolik to stojí? 💵",
     en: "Price / How much does it cost?",
@@ -415,13 +413,13 @@ export const WORDS = [
   },
   {
     category: ["phrase"],
-    cz: "Klient (muž) / Klientka (žena)",
+    cz: "Klient",
     en: "Client",
     vi: "Khách hàng",
-    czPron: "KLI-ent / KLI-ent-ka",
+    czPron: "KLI-ent",
     viPron: "khak hang",
-    czAudio: ["speech/cz/klient.mp3", "speech/cz/klientka.mp3"],
-    viAudio: ["speech/vi/khach-hang.mp3", "speech/vi/khach-hang-nu.mp3"],
+    czAudio: ["speech/cz/klient.mp3"],
+    viAudio: ["speech/vi/khach-hang.mp3"],
   },
   {
     category: ["basic", "word"],
