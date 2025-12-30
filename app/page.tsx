@@ -39,6 +39,7 @@ export default function Home() {
     setMemoryHook,
     getSuggestedMemoryHook,
     lastMovedIndex,
+    isHydrated,
   } = useAppState(WORDS);
 
   const categories = getAvailableCategories(WORDS);
@@ -178,7 +179,23 @@ export default function Home() {
     };
   }, [currentTab, selectedCategories, progress, showAll, modeIndex, role]);
 
-  // Group words by stage
+  const closeAllPanels = () => {
+    setSettingsOpen(false);
+    setProgressOpen(false);
+    setCategoryOpen(false);
+    setMemoryHooksOpen(false);
+  };
+
+  // Don't render main content until hydrated to avoid hydration mismatches
+  if (!isHydrated) {
+    return (
+      <div className="app">
+        <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>
+      </div>
+    );
+  }
+
+  // Group words by stage (only after hydration)
   const groupedWords = STAGES.map(() => [] as Array<{ word: typeof WORDS[0]; index: number }>);
   let readyCount = 0;
 
@@ -186,6 +203,7 @@ export default function Home() {
 
   filteredWords.forEach(({ word, index }) => {
     const prog = progress[index] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
+    // Only calculate isDue after hydration to avoid server/client mismatches
     const due = isDue(prog);
     if (due) readyCount += 1;
     if (currentTab === 'ready' && !due) return;
@@ -193,18 +211,54 @@ export default function Home() {
     groupedWords[sIdx].push({ word, index });
   });
 
-  // Calculate progress summary
-  const progressStats = {
-    total: filteredWords.length,
-    ready: readyCount,
+  // Calculate comprehensive progress statistics
+  const calculateProgressStats = () => {
+    const stats = {
+      total: filteredWords.length,
+      byStage: STAGES.map(() => 0),
+      totalKnown: 0,
+      totalUnknown: 0,
+      readyCount: readyCount,
+      fresh: 0, // stages 1-5 (1min to 1 day)
+      learning: 0, // stages 6-8 (3 days to 14 days)
+      done: 0, // stages 9-10 (30 days to 60 days)
+      new: 0, // stage 0
+    };
+
+    filteredWords.forEach(({ index }) => {
+      const prog = progress[index] || {
+        stageIndex: 0,
+        knownCount: 0,
+        unknownCount: 0,
+      };
+      const stageIdx = Math.max(0, Math.min(prog.stageIndex || 0, STAGES.length - 1));
+      
+      stats.byStage[stageIdx] += 1;
+      stats.totalKnown += prog.knownCount || 0;
+      stats.totalUnknown += prog.unknownCount || 0;
+      
+      if (stageIdx === 0) {
+        stats.new += 1;
+      } else if (stageIdx >= 1 && stageIdx <= 5) {
+        stats.fresh += 1;
+      } else if (stageIdx >= 6 && stageIdx <= 8) {
+        stats.learning += 1;
+      } else if (stageIdx >= 9) {
+        stats.done += 1;
+      }
+    });
+
+    return stats;
   };
 
-  const closeAllPanels = () => {
-    setSettingsOpen(false);
-    setProgressOpen(false);
-    setCategoryOpen(false);
-    setMemoryHooksOpen(false);
-  };
+  const progressStats = calculateProgressStats();
+  const progressPercent = progressStats.total > 0 
+    ? Math.round((progressStats.fresh + progressStats.learning + progressStats.done) / progressStats.total * 100) 
+    : 0;
+  const totalAnswers = progressStats.totalKnown + progressStats.totalUnknown;
+  const accuracy = totalAnswers > 0 
+    ? Math.round((progressStats.totalKnown / totalAnswers) * 100) 
+    : 0;
 
   return (
     <div className="app">
@@ -264,15 +318,104 @@ export default function Home() {
         onClick={(e) => e.stopPropagation()}
       >
         <div className="progress-panel-inner" id="progress-panel-content">
-          <h2>📊 Learning Progress</h2>
-          <div className="progress-stats-grid">
-            <div className="progress-stat-card">
-              <div className="progress-stat-value">{progressStats.total}</div>
-              <div className="progress-stat-label">Total Words</div>
+          <div className="progress-overview">
+            <div className="progress-header">
+              <h1>📊 Learning Progress</h1>
             </div>
-            <div className="progress-stat-card">
-              <div className="progress-stat-value">{progressStats.ready}</div>
-              <div className="progress-stat-label">Ready to Review</div>
+
+            {/* Overall stats */}
+            <div className="progress-stats-grid">
+              <div className="progress-stat-card">
+                <div className="progress-stat-value">{progressStats.total}</div>
+                <div className="progress-stat-label">Total Words</div>
+              </div>
+              <div className="progress-stat-card">
+                <div className="progress-stat-value">{progressPercent}%</div>
+                <div className="progress-stat-label">Progress</div>
+                <div className="progress-stat-subtitle">
+                  {progressStats.fresh + progressStats.learning + progressStats.done} / {progressStats.total}
+                </div>
+              </div>
+              <div className="progress-stat-card">
+                <div className="progress-stat-value">{progressStats.readyCount}</div>
+                <div className="progress-stat-label">Ready Now</div>
+              </div>
+              <div className="progress-stat-card">
+                <div className="progress-stat-value">{progressStats.done}</div>
+                <div className="progress-stat-label">Done</div>
+                <div className="progress-stat-subtitle">Stage 9-10</div>
+              </div>
+            </div>
+
+            {/* Learning status breakdown */}
+            <div className="progress-section">
+              <h2>Learning Status</h2>
+              <div className="progress-status-grid">
+                <div className="progress-status-card new">
+                  <div className="progress-status-value">{progressStats.new}</div>
+                  <div className="progress-status-label">New / Not Started</div>
+                </div>
+                <div className="progress-status-card fresh">
+                  <div className="progress-status-value">{progressStats.fresh}</div>
+                  <div className="progress-status-label">Fresh</div>
+                </div>
+                <div className="progress-status-card learning">
+                  <div className="progress-status-value">{progressStats.learning}</div>
+                  <div className="progress-status-label">Learning</div>
+                </div>
+                <div className="progress-status-card done">
+                  <div className="progress-status-value">{progressStats.done}</div>
+                  <div className="progress-status-label">Done</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Words by Stage */}
+            <div className="progress-section">
+              <h2>Words by Stage</h2>
+              <div className="progress-stage-list">
+                {STAGES.map((stage, index) => {
+                  const count = progressStats.byStage[index];
+                  if (count === 0 && index > 0) return null; // Skip empty stages except stage 0
+                  
+                  const barPercent = progressStats.total > 0 ? (count / progressStats.total * 100) : 0;
+                  
+                  return (
+                    <div
+                      key={index}
+                      className={`progress-stage-item ${index === 0 ? 'stage-new' : ''} ${index >= 7 ? 'stage-mastered' : ''}`}
+                    >
+                      <div className="progress-stage-name">{stage.name}</div>
+                      <div className="progress-stage-count">{count}</div>
+                      <div className="progress-stage-bar">
+                        <div
+                          className="progress-stage-bar-fill"
+                          style={{ width: `${barPercent}%` }}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Answer statistics */}
+            <div className="progress-section">
+              <h2>Answer Statistics</h2>
+              <div className="progress-answer-stats">
+                <div className="progress-answer-item">
+                  <div className="progress-answer-label">Correct</div>
+                  <div className="progress-answer-value correct">{progressStats.totalKnown}</div>
+                </div>
+                <div className="progress-answer-item">
+                  <div className="progress-answer-label">Incorrect</div>
+                  <div className="progress-answer-value incorrect">{progressStats.totalUnknown}</div>
+                </div>
+                <div className="progress-answer-item">
+                  <div className="progress-answer-label">Accuracy</div>
+                  <div className="progress-answer-value">{accuracy}%</div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -280,13 +423,17 @@ export default function Home() {
 
       {progressStats.total > 0 && (
         <div className="progress-summary">
-          <span className="progress-summary-item">
-            <span className="progress-summary-label">total</span>
-            <span className="progress-summary-value">({progressStats.total})</span>
+          <span className="progress-summary-item fresh">
+            <span className="progress-summary-label">fresh</span>
+            <span className="progress-summary-value">({progressStats.fresh})</span>
           </span>
-          <span className="progress-summary-item">
-            <span className="progress-summary-label">ready</span>
-            <span className="progress-summary-value">({progressStats.ready})</span>
+          <span className="progress-summary-item learning">
+            <span className="progress-summary-label">learning</span>
+            <span className="progress-summary-value">({progressStats.learning})</span>
+          </span>
+          <span className="progress-summary-item done">
+            <span className="progress-summary-label">done</span>
+            <span className="progress-summary-value">({progressStats.done})</span>
           </span>
         </div>
       )}
@@ -294,7 +441,7 @@ export default function Home() {
       <main className="phrases" ref={phrasesRef} aria-live="polite">
         {filteredWords.length === 0 ? (
           <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-soft)' }}>
-            No words match your current filters.
+            {currentTab === 'ready' ? 'All catched up!' : 'No words match your current filters.'}
           </div>
         ) : (
           STAGES.map((stage, stageIndex) => {
@@ -346,18 +493,12 @@ export default function Home() {
           className={`bottom-nav-btn ${currentTab === 'ready' ? 'is-active' : ''}`}
           onClick={() => setCurrentTab('ready')}
           type="button"
+          data-tab="ready"
           data-count={readyCount > 0 ? readyCount : ''}
         >
           Ready to repeat
         </button>
       </nav>
-
-      <footer className="app-footer">
-        <p className="hint">
-          💡 <strong>Tip:</strong> In hidden modes, press and hold on a word to see it. Release to
-          hide again.
-        </p>
-      </footer>
     </div>
   );
 }

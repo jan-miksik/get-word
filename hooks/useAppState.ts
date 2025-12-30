@@ -9,35 +9,51 @@ export type Role = 'cz' | 'vi';
 export type Tab = 'all' | 'ready';
 
 export function useAppState(words: NormalizedWord[]) {
-  const [role, setRole] = useState<Role>(loadRole());
+  // Initialize with defaults that match server-side rendering
+  // Update from localStorage after hydration to avoid mismatches
+  const [role, setRole] = useState<Role>('vi');
   const [modeIndex, setModeIndex] = useState(0); // 0 or 1 depending on role
   const [showAll, setShowAll] = useState(false);
   const [currentTab, setCurrentTab] = useState<Tab>('all');
-  const [progress, setProgress] = useState<Record<number, ProgressData>>(loadProgress());
-  const [memoryHooks, setMemoryHooks] = useState<Record<number, string>>(loadMemoryHooks());
-  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(loadCategoryFilter());
+  const [progress, setProgress] = useState<Record<number, ProgressData>>({});
+  const [memoryHooks, setMemoryHooks] = useState<Record<number, string>>({});
+  const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [memoryHooksOpen, setMemoryHooksOpen] = useState(false);
   const [lastMovedIndex, setLastMovedIndex] = useState<number | null>(null);
+  const [isHydrated, setIsHydrated] = useState(false);
 
-  // Save to localStorage when state changes
+  // Load from localStorage after hydration
   useEffect(() => {
+    setRole(loadRole());
+    setProgress(loadProgress());
+    setMemoryHooks(loadMemoryHooks());
+    setSelectedCategories(loadCategoryFilter());
+    setIsHydrated(true);
+  }, []);
+
+  // Save to localStorage when state changes (only after hydration)
+  useEffect(() => {
+    if (!isHydrated) return;
     saveProgress(progress);
-  }, [progress]);
+  }, [progress, isHydrated]);
 
   useEffect(() => {
+    if (!isHydrated) return;
     saveRole(role);
-  }, [role]);
+  }, [role, isHydrated]);
 
   useEffect(() => {
+    if (!isHydrated) return;
     saveMemoryHooks(memoryHooks);
-  }, [memoryHooks]);
+  }, [memoryHooks, isHydrated]);
 
   useEffect(() => {
+    if (!isHydrated) return;
     saveCategoryFilter(selectedCategories);
-  }, [selectedCategories]);
+  }, [selectedCategories, isHydrated]);
 
   // Update progress for a word
   const updateProgress = useCallback((wordIndex: number, updates: Partial<ProgressData>) => {
@@ -97,7 +113,7 @@ export function useAppState(words: NormalizedWord[]) {
     let filtered = words.map((word, index) => ({ word, index }))
       .filter(({ word }) => matchesCategoryFilter(word, selectedCategories));
 
-    if (currentTab === 'ready') {
+    if (currentTab === 'ready' && isHydrated) {
       filtered = filtered.filter(({ index }) => {
         const prog = progress[index];
         return prog && isDue(prog);
@@ -105,7 +121,7 @@ export function useAppState(words: NormalizedWord[]) {
     }
 
     return filtered;
-  }, [words, selectedCategories, currentTab, progress]);
+  }, [words, selectedCategories, currentTab, progress, isHydrated]);
 
   // Toggle category filter
   const toggleCategory = useCallback((category: string) => {
@@ -182,6 +198,7 @@ export function useAppState(words: NormalizedWord[]) {
     setMemoryHook,
     getSuggestedMemoryHook,
     lastMovedIndex,
+    isHydrated,
   };
 }
 

@@ -50,7 +50,6 @@ export const WORDS = [
     czPron: "PO-sať-te se PRO-sím",
     viPron: "moi ban ngoi",
     czAudio: "speech/cz/posadte-se-prosim.mp3",
-    viAudio: "speech/vi/xin-moi-ngoi.mp3",
     viHint: "phở sát-tê-sờ pro-xin",
   },
   {

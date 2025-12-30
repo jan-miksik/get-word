@@ -35,6 +35,7 @@ export function WordCard({
 }: WordCardProps) {
   const [editingHook, setEditingHook] = useState(false);
   const [hookValue, setHookValue] = useState(memoryHook);
+  const [isMounted, setIsMounted] = useState(false);
   const hookInputRef = useRef<HTMLInputElement>(null);
   const hookDisplayRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -42,6 +43,10 @@ export function WordCard({
   useEffect(() => {
     setHookValue(memoryHook);
   }, [memoryHook]);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   // Determine which languages should be covered
   const shouldCover = (lang: string): boolean => {
@@ -80,12 +85,20 @@ export function WordCard({
     } catch {}
   };
 
+  // Helper to normalize audio paths for Next.js (add leading slash if needed)
+  const normalizeAudioPath = (path: string | string[]): string => {
+    const pathStr = Array.isArray(path) ? path[0] : path;
+    // Ensure path starts with / for Next.js public directory
+    // Paths in data are like "speech/cz/file.mp3", need to be "/speech/cz/file.mp3"
+    return pathStr.startsWith('/') ? pathStr : `/${pathStr}`;
+  };
+
   // Get audio source for current role
-  const getAudioSrc = () => {
+  const getAudioSrc = (): string | null => {
     if (role === 'vi' && word.czAudio) {
-      return Array.isArray(word.czAudio) ? word.czAudio[0] : word.czAudio;
+      return normalizeAudioPath(word.czAudio);
     } else if (role === 'cz' && word.viAudio) {
-      return Array.isArray(word.viAudio) ? word.viAudio[0] : word.viAudio;
+      return normalizeAudioPath(word.viAudio);
     }
     return null;
   };
@@ -124,8 +137,9 @@ export function WordCard({
     return `${days}d`;
   };
 
-  const isDue = progress.nextDueAt && Date.now() >= progress.nextDueAt;
-  const showCountdown = progress.stageIndex > 0 && progress.nextDueAt && !isDue;
+  // Only calculate time-based values on client to avoid hydration mismatches
+  const isDue = isMounted && progress.nextDueAt ? Date.now() >= progress.nextDueAt : false;
+  const showCountdown = isMounted && progress.stageIndex > 0 && progress.nextDueAt && !isDue;
 
   return (
     <article className={`phrase-card ${isMoved ? 'card-moved' : ''}`} data-index={index}>

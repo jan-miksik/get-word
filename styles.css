@@ -38,7 +38,6 @@ body {
   min-height: 100vh;
   max-width: 720px;
   margin: 0 auto;
-  padding: 12px 14px 22px;
   display: flex;
   flex-direction: column;
   gap: 16px;
@@ -592,9 +591,11 @@ body {
   bottom: 0;
   margin-top: auto;
   display: flex;
-  gap: 6px;
-  padding: 8px 4px 4px;
+  gap: 8px;
+  padding: 8px 4px 20px;
   background: linear-gradient(to top, rgba(15, 23, 42, 0.96), transparent);
+  z-index: 10;
+  flex-shrink: 0;
 }
 
 .bottom-nav-btn {
@@ -621,7 +622,7 @@ body {
   transform: translateY(-1px);
 }
 
-.bottom-nav-btn[data-tab="ready"]::after {
+.bottom-nav-btn[data-tab="ready"][data-count]:not([data-count=""])::after {
   content: attr(data-count);
   margin-left: 6px;
   font-size: 0.7rem;
@@ -634,6 +635,8 @@ body {
   flex-direction: column;
   gap: 18px;
   padding-bottom: 18px;
+  flex: 1;
+  min-height: 0;
 }
 
 .phrase-card {
@@ -756,10 +759,11 @@ body {
 }
 
 .app-footer {
-  margin-top: auto;
+  margin-top: 0;
   padding: 6px 2px 0;
   font-size: 0.75rem;
   color: var(--text-soft);
+  flex-shrink: 0;
 }
 
 .hint {
