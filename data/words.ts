@@ -14,8 +14,12 @@ export interface Word {
 
 // Import the original data from slova.js
 // Note: slova.js uses .js extension but exports ES modules
-// @ts-ignore - JS file import
 import { WORDS as RAW_WORDS } from '../slova.js';
+
+// Validate at least one word to ensure structure matches
+if (RAW_WORDS.length > 0 && !RAW_WORDS[0].category) {
+  throw new Error('Invalid word data structure in slova.js');
+}
 
 // Normalize words (shared across all users - static data)
 import { normalizeWords, NormalizedWord } from '@/lib/words';

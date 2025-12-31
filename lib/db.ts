@@ -154,37 +154,47 @@ export async function batchUpsertProgress(
   db: D1Database,
   progressList: Omit<Progress, 'updated_at'>[]
 ): Promise<void> {
-  const now = Math.floor(Date.now() / 1000);
-  const statements = progressList.map((progress) =>
-    db
-      .prepare(`
-        INSERT INTO progress (
-          user_id, word_index, stage_index, known_count, unknown_count,
-          last_known_at, last_unknown_at, next_due_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        ON CONFLICT(user_id, word_index) DO UPDATE SET
-          stage_index = excluded.stage_index,
-          known_count = excluded.known_count,
-          unknown_count = excluded.unknown_count,
-          last_known_at = excluded.last_known_at,
-          last_unknown_at = excluded.last_unknown_at,
-          next_due_at = excluded.next_due_at,
-          updated_at = excluded.updated_at
-      `)
-      .bind(
-        progress.user_id,
-        progress.word_index,
-        progress.stage_index,
-        progress.known_count,
-        progress.unknown_count,
-        progress.last_known_at,
-        progress.last_unknown_at,
-        progress.next_due_at,
-        now
-      )
-  );
+  // Cloudflare D1 limits the number of prepared statements per `db.batch()` call.
+  // Keep this <= the D1 limit to avoid "too many statements" errors.
+  const BATCH_SIZE = 100;
 
-  await db.batch(statements);
+  if (progressList.length === 0) return;
+
+  const now = Math.floor(Date.now() / 1000);
+
+  for (let i = 0; i < progressList.length; i += BATCH_SIZE) {
+    const chunk = progressList.slice(i, i + BATCH_SIZE);
+    const statements = chunk.map((progress) =>
+      db
+        .prepare(`
+          INSERT INTO progress (
+            user_id, word_index, stage_index, known_count, unknown_count,
+            last_known_at, last_unknown_at, next_due_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(user_id, word_index) DO UPDATE SET
+            stage_index = excluded.stage_index,
+            known_count = excluded.known_count,
+            unknown_count = excluded.unknown_count,
+            last_known_at = excluded.last_known_at,
+            last_unknown_at = excluded.last_unknown_at,
+            next_due_at = excluded.next_due_at,
+            updated_at = excluded.updated_at
+        `)
+        .bind(
+          progress.user_id,
+          progress.word_index,
+          progress.stage_index,
+          progress.known_count,
+          progress.unknown_count,
+          progress.last_known_at,
+          progress.last_unknown_at,
+          progress.next_due_at,
+          now
+        )
+    );
+
+    await db.batch(statements);
+  }
 }
 
 // Get all memory hooks for a user
@@ -257,20 +267,17 @@ export async function setUserCategoryFilters(
 ): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
   
-  // Delete existing filters
-  await db
+  // Combine delete and inserts in a single batch for atomicity
+  const deleteStmt = db
     .prepare('DELETE FROM category_filters WHERE user_id = ?')
-    .bind(userId)
-    .run();
+    .bind(userId);
 
-  // Insert new filters
-  if (categories.length > 0) {
-    const statements = categories.map((category) =>
-      db
-        .prepare('INSERT INTO category_filters (user_id, category, updated_at) VALUES (?, ?, ?)')
-        .bind(userId, category, now)
-    );
-    await db.batch(statements);
-  }
+  const insertStmts = categories.map((category) =>
+    db
+      .prepare('INSERT INTO category_filters (user_id, category, updated_at) VALUES (?, ?, ?)')
+      .bind(userId, category, now)
+  );
+
+  await db.batch([deleteStmt, ...insertStmts]);
 }
 

@@ -30,17 +30,17 @@ export function TopMenu({
   return (
     <div className="top-menu" aria-label="Top menu">
       <div className="top-menu-left">
-        <button className="mode-btn switch-btn" onClick={onSwitch} type="button">
+        <button className="mode-btn switch-btn" onClick={onSwitch} type="button" aria-label="Switch mode">
           🔄
         </button>
-        <button className="mode-btn show-all-btn" onClick={onShowAll} type="button">
+        <button className="mode-btn show-all-btn" onClick={onShowAll} type="button" aria-label={showAll ? "Hide completed items" : "Show all items"}>
           {showAll ? '🙉' : '🙈'}
         </button>
         <button
           className={`mode-btn category-btn ${categoryActive ? 'is-active' : ''}`}
           onClick={onCategory}
           type="button"
-          title="Filter by category"
+          aria-label="Filter by category"
           data-count={categoryCount > 0 ? categoryCount : ''}
         >
           🏷️
@@ -49,6 +49,7 @@ export function TopMenu({
           className={`mode-btn progress-btn ${progressActive ? 'is-active' : ''}`}
           onClick={onProgress}
           type="button"
+          aria-label="View progress"
         >
           📊
         </button>
@@ -58,11 +59,11 @@ export function TopMenu({
           className="mode-btn memory-hooks-btn"
           onClick={onMemoryHooks}
           type="button"
-          title="Memory Hooks Info"
+          aria-label="Memory Hooks Info"
         >
           ℹ️
         </button>
-        <button className="mode-btn settings-btn" onClick={onSettings} type="button">
+        <button className="mode-btn settings-btn" onClick={onSettings} type="button" aria-label="Settings">
           Settings
         </button>
       </div>

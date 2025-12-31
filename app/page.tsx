@@ -177,7 +177,7 @@ export default function Home() {
     return () => {
       cleanup.forEach((fn) => fn());
     };
-  }, [currentTab, selectedCategories, progress, showAll, modeIndex, role]);
+  }, [currentTab, selectedCategories, showAll, modeIndex, role]);
 
   const closeAllPanels = () => {
     setSettingsOpen(false);
@@ -441,7 +441,7 @@ export default function Home() {
       <main className="phrases" ref={phrasesRef} aria-live="polite">
         {filteredWords.length === 0 ? (
           <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-soft)' }}>
-            {currentTab === 'ready' ? 'All catched up!' : 'No words match your current filters.'}
+            {currentTab === 'ready' ? 'All caught up!' : 'No words match your current filters.'}
           </div>
         ) : (
           STAGES.map((stage, stageIndex) => {

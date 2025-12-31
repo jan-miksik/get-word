@@ -72,10 +72,20 @@ export async function POST(request: NextRequest) {
     if (memory_hooks) {
       for (const [wordIndexStr, hookText] of Object.entries(memory_hooks)) {
         const wordIndex = parseInt(wordIndexStr, 10);
-        if (hookText === null) {
+        
+        // Validate wordIndex: must be integer and >= 0
+        if (!Number.isInteger(wordIndex) || wordIndex < 0) {
+          console.warn(`Invalid wordIndex: ${wordIndexStr} (parsed as ${wordIndex}), skipping`);
+          continue;
+        }
+        
+        // Normalize hookText: treat non-null values as strings and trim
+        const trimmed = hookText === null ? null : String(hookText).trim();
+        
+        if (trimmed === null || trimmed === '') {
           await deleteMemoryHook(db, user.id, wordIndex);
-        } else if (hookText.trim()) {
-          await upsertMemoryHook(db, user.id, wordIndex, hookText);
+        } else {
+          await upsertMemoryHook(db, user.id, wordIndex, trimmed);
         }
       }
     }
@@ -105,7 +115,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('Sync error:', error);
     return NextResponse.json(
-      { error: 'Failed to sync data', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to sync data' },
       { status: 500 }
     );
   }
@@ -145,7 +155,7 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error('Fetch error:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch data', details: error instanceof Error ? error.message : 'Unknown error' },
+      { error: 'Failed to fetch data' },
       { status: 500 }
     );
   }

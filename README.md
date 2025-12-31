@@ -19,6 +19,14 @@ A Next.js application for learning Czech and Vietnamese, with cross-device progr
 - pnpm (install with `npm install -g pnpm` or `corepack enable`)
 - Cloudflare account (for deployment)
 
+### Package Manager Configuration
+
+The project uses pnpm with the following configuration (see `.npmrc`):
+- `auto-install-peers=true`: Automatically installs peer dependencies
+- `strict-peer-dependencies=true`: Enforces compatibility checks for peer dependencies to prevent version conflicts
+
+This configuration ensures that peer dependencies are automatically installed while maintaining strict version compatibility checks for safer dependency management.
+
 ### Local Development
 
 1. **Install dependencies:**

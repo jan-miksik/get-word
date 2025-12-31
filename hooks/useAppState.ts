@@ -1,7 +1,7 @@
 // Main app state hook
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { loadProgress, saveProgress, loadRole, saveRole, loadMemoryHooks, saveMemoryHooks, loadCategoryFilter, saveCategoryFilter, ProgressData } from '@/lib/storage';
 import { NormalizedWord, STAGES, isDue, matchesCategoryFilter } from '@/lib/words';
 
@@ -24,6 +24,7 @@ export function useAppState(words: NormalizedWord[]) {
   const [memoryHooksOpen, setMemoryHooksOpen] = useState(false);
   const [lastMovedIndex, setLastMovedIndex] = useState<number | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
+  const lastMovedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load from localStorage after hydration
   useEffect(() => {
@@ -55,6 +56,15 @@ export function useAppState(words: NormalizedWord[]) {
     saveCategoryFilter(selectedCategories);
   }, [selectedCategories, isHydrated]);
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (lastMovedTimeoutRef.current) {
+        clearTimeout(lastMovedTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Update progress for a word
   const updateProgress = useCallback((wordIndex: number, updates: Partial<ProgressData>) => {
     setProgress((prev) => {
@@ -72,41 +82,61 @@ export function useAppState(words: NormalizedWord[]) {
 
   // Mark word as known
   const markKnown = useCallback((wordIndex: number) => {
-    const current = progress[wordIndex] || {
-      stageIndex: 0,
-      knownCount: 0,
-      unknownCount: 0,
-    };
-    const newStageIndex = Math.min(current.stageIndex + 1, STAGES.length - 1);
-    const stage = STAGES[newStageIndex];
-    updateProgress(wordIndex, {
-      stageIndex: newStageIndex,
-      knownCount: current.knownCount + 1,
-      lastKnownAt: Date.now(),
-      nextDueAt: stage.intervalMs > 0 ? Date.now() + stage.intervalMs : undefined,
+    setProgress((prev) => {
+      const current = prev[wordIndex] || {
+        stageIndex: 0,
+        knownCount: 0,
+        unknownCount: 0,
+      };
+      const newStageIndex = Math.min(current.stageIndex + 1, STAGES.length - 1);
+      const stage = STAGES[newStageIndex];
+      return {
+        ...prev,
+        [wordIndex]: {
+          ...current,
+          stageIndex: newStageIndex,
+          knownCount: current.knownCount + 1,
+          lastKnownAt: Date.now(),
+          nextDueAt: stage.intervalMs > 0 ? Date.now() + stage.intervalMs : undefined,
+        },
+      };
     });
     setLastMovedIndex(wordIndex);
-    setTimeout(() => setLastMovedIndex(null), 1000);
-  }, [progress, updateProgress]);
+    // Clear any existing timeout before setting a new one
+    if (lastMovedTimeoutRef.current) {
+      clearTimeout(lastMovedTimeoutRef.current);
+    }
+    lastMovedTimeoutRef.current = setTimeout(() => setLastMovedIndex(null), 1000);
+  }, []);
 
   // Mark word as unknown
   const markUnknown = useCallback((wordIndex: number) => {
-    const current = progress[wordIndex] || {
-      stageIndex: 0,
-      knownCount: 0,
-      unknownCount: 0,
-    };
-    const prevStage = Math.max(current.stageIndex - 1, 0);
-    const stage = STAGES[prevStage];
-    updateProgress(wordIndex, {
-      stageIndex: prevStage,
-      unknownCount: current.unknownCount + 1,
-      lastUnknownAt: Date.now(),
-      nextDueAt: stage.intervalMs > 0 ? Date.now() + stage.intervalMs : undefined,
+    setProgress((prev) => {
+      const current = prev[wordIndex] || {
+        stageIndex: 0,
+        knownCount: 0,
+        unknownCount: 0,
+      };
+      const prevStage = Math.max(current.stageIndex - 1, 0);
+      const stage = STAGES[prevStage];
+      return {
+        ...prev,
+        [wordIndex]: {
+          ...current,
+          stageIndex: prevStage,
+          unknownCount: current.unknownCount + 1,
+          lastUnknownAt: Date.now(),
+          nextDueAt: stage.intervalMs > 0 ? Date.now() + stage.intervalMs : undefined,
+        },
+      };
     });
     setLastMovedIndex(wordIndex);
-    setTimeout(() => setLastMovedIndex(null), 1000);
-  }, [progress, updateProgress]);
+    // Clear any existing timeout before setting a new one
+    if (lastMovedTimeoutRef.current) {
+      clearTimeout(lastMovedTimeoutRef.current);
+    }
+    lastMovedTimeoutRef.current = setTimeout(() => setLastMovedIndex(null), 1000);
+  }, []);
 
   // Get filtered words based on current tab and filters
   const getFilteredWords = useCallback(() => {

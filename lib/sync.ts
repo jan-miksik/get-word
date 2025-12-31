@@ -62,18 +62,57 @@ export async function syncUserData(data: {
 
 // Debounced sync helper
 let syncTimeout: number | null = null;
+let pendingPromise: Promise<void> | null = null;
+let resolvePending: (() => void) | null = null;
+let rejectPending: ((error: unknown) => void) | null = null;
+let latestData: Parameters<typeof syncUserData>[0] | null = null;
 const SYNC_DELAY = 1000; // 1 second
 
-export function debouncedSync(data: Parameters<typeof syncUserData>[0]) {
-  if (syncTimeout) {
-    clearTimeout(syncTimeout);
+function executeSync(): void {
+  if (latestData && resolvePending && rejectPending) {
+    syncUserData(latestData)
+      .then(() => {
+        resolvePending!();
+      })
+      .catch((error) => {
+        rejectPending!(error);
+      })
+      .finally(() => {
+        pendingPromise = null;
+        resolvePending = null;
+        rejectPending = null;
+        syncTimeout = null;
+        latestData = null;
+      });
+  }
+}
+
+export function debouncedSync(data: Parameters<typeof syncUserData>[0]): Promise<void> {
+  // Store the latest data to sync
+  latestData = data;
+  
+  // If there's already a pending promise, return it (callers get the same promise)
+  if (pendingPromise) {
+    // Clear the existing timeout and recreate it with the latest data
+    if (syncTimeout) {
+      clearTimeout(syncTimeout);
+    }
+    
+    // Recreate the timeout with the latest data
+    syncTimeout = window.setTimeout(executeSync, SYNC_DELAY);
+    
+    return pendingPromise;
   }
   
-  syncTimeout = window.setTimeout(() => {
-    syncUserData(data).catch((error) => {
-      console.error('Sync failed:', error);
-      // Could implement retry logic or offline queue here
-    });
-  }, SYNC_DELAY);
+  // Create a new promise and its resolve/reject handlers
+  pendingPromise = new Promise<void>((resolve, reject) => {
+    resolvePending = resolve;
+    rejectPending = reject;
+  });
+  
+  // Schedule the timeout
+  syncTimeout = window.setTimeout(executeSync, SYNC_DELAY);
+  
+  return pendingPromise;
 }
 

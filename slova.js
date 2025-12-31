@@ -417,8 +417,8 @@ export const WORDS = [
     vi: "Khách hàng",
     czPron: "KLI-ent",
     viPron: "khak hang",
-    czAudio: ["speech/cz/klient.mp3"],
-    viAudio: ["speech/vi/khach-hang.mp3"],
+    czAudio: "speech/cz/klient.mp3",
+    viAudio: "speech/vi/khach-hang.mp3",
   },
   {
     category: ["basic", "word"],
