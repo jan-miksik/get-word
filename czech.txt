@@ -216,3 +216,14 @@ Přesně
 Přibližně
 Opravdu
 Možná
+
+//
+tma
+dole
+nahoře
+vpravo
+vlevo
+vpředu
+vzadu
+světlo
+slunce
