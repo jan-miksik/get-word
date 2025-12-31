@@ -1,14 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getOrCreateUser, getUserProgress, batchUpsertProgress, getUserMemoryHooks, upsertMemoryHook, deleteMemoryHook, getUserCategoryFilters, setUserCategoryFilters, updateUserRole, D1Database } from '@/lib/db';
 
-// Cloudflare Pages runtime
+// Cloudflare Workers/Pages runtime
 export const runtime = 'edge';
 
-// Helper to get DB from Cloudflare Pages context
-// With @cloudflare/next-on-pages, bindings are available via process.env in edge runtime
+// Helper to get DB from Cloudflare context
+// With OpenNext, D1 bindings are available via process.env in edge runtime
 function getDB(): D1Database | null {
-  // In Cloudflare Pages, D1 binding is available as process.env.DB
-  // For local dev, it might be in request context, but in production it's in process.env
+  // In Cloudflare Workers/Pages, D1 binding is available as process.env.DB
+  // Configured in wrangler.toml with the binding name "DB"
   if (typeof process !== 'undefined' && (process.env as any).DB) {
     return (process.env as any).DB as D1Database;
   }
@@ -33,9 +33,8 @@ interface SyncRequest {
 
 export async function POST(request: NextRequest) {
   try {
-    // In Cloudflare Pages, we need to get DB from the request context
-    // For now, we'll assume it's available via process.env or context
-    // This will need to be adjusted based on your Cloudflare Pages setup
+    // Get DB from Cloudflare Workers/Pages bindings
+    // The D1 database is configured in wrangler.toml and available via process.env.DB
     
     const body: SyncRequest = await request.json();
     const { deviceId, role, progress, memory_hooks, category_filters } = body;
@@ -44,7 +43,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'deviceId is required' }, { status: 400 });
     }
 
-    // Get DB from environment (Cloudflare Pages)
+    // Get DB from environment (Cloudflare Workers/Pages)
     const db = getDB();
     if (!db) {
       return NextResponse.json({ error: 'Database not available' }, { status: 500 });

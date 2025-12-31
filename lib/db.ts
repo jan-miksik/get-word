@@ -267,32 +267,101 @@ export async function setUserCategoryFilters(
 ): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
   
-  // Cloudflare D1 limits the number of prepared statements per `db.batch()` call (~100).
-  // Execute DELETE first, then split INSERTs into chunks to avoid exceeding the limit.
-  const deleteStmt = db
-    .prepare('DELETE FROM category_filters WHERE user_id = ?')
-    .bind(userId);
+  // Step 1: Read current category filters to preserve state if operation fails
+  const currentCategories = await getUserCategoryFilters(db, userId);
+  const currentSet = new Set(currentCategories);
+  const newSet = new Set(categories);
   
-  await deleteStmt.run();
-
-  // Split INSERTs into chunks at or below D1 batch limit
+  // Step 2: Deduplicate input categories to prevent duplicate inserts
+  const uniqueCategories = Array.from(newSet);
+  
+  // Step 3: Insert all new categories with idempotency (ON CONFLICT)
+  // This ensures retries don't create duplicates and existing categories are updated
   const BATCH_SIZE = 100;
+  const insertBatches: D1PreparedStatement[][] = [];
   
-  for (let i = 0; i < categories.length; i += BATCH_SIZE) {
-    const chunk = categories.slice(i, i + BATCH_SIZE);
+  // Prepare all INSERT batches first
+  for (let i = 0; i < uniqueCategories.length; i += BATCH_SIZE) {
+    const chunk = uniqueCategories.slice(i, i + BATCH_SIZE);
     const insertStmts = chunk.map((category) =>
       db
-        .prepare('INSERT INTO category_filters (user_id, category, updated_at) VALUES (?, ?, ?)')
+        .prepare(`
+          INSERT INTO category_filters (user_id, category, updated_at)
+          VALUES (?, ?, ?)
+          ON CONFLICT(user_id, category) DO UPDATE SET
+            updated_at = excluded.updated_at
+        `)
         .bind(userId, category, now)
     );
-
-    try {
-      await db.batch(insertStmts);
-    } catch (error) {
-      // Log error and propagate to caller
-      console.error(`Error inserting category filters batch (chunk ${Math.floor(i / BATCH_SIZE) + 1}):`, error);
-      throw error;
+    insertBatches.push(insertStmts);
+  }
+  
+  // Step 4: Execute all INSERT batches with error handling
+  // If any batch fails, abort the entire operation (old data remains intact)
+  const batchResults: D1Result[] = [];
+  try {
+    for (let i = 0; i < insertBatches.length; i++) {
+      const batch = insertBatches[i];
+      const results = await db.batch(batch);
+      
+      // Verify batch succeeded
+      const allSucceeded = results.every((result) => result.success !== false);
+      if (!allSucceeded) {
+        const failedIndices = results
+          .map((result, idx) => (result.success === false ? idx : null))
+          .filter((idx) => idx !== null);
+        throw new Error(
+          `Category filter INSERT batch ${i + 1} failed: ${failedIndices.length} statements failed`
+        );
+      }
+      
+      batchResults.push(...results);
     }
+    
+    // Step 5: Verify all batches completed successfully
+    // Note: rows_written may be 0 for ON CONFLICT updates, so we check success instead
+    const allBatchesSucceeded = batchResults.every((result) => result.success !== false);
+    if (!allBatchesSucceeded) {
+      throw new Error('Not all category filter INSERT batches succeeded');
+    }
+    
+    // Step 6: Only after all INSERTs succeed, delete categories not in the new set
+    // This ensures we never leave the DB in a partial state
+    const categoriesToDelete = currentCategories.filter((cat) => !newSet.has(cat));
+    
+    if (categoriesToDelete.length > 0) {
+      // Delete in batches to respect D1 limits
+      for (let i = 0; i < categoriesToDelete.length; i += BATCH_SIZE) {
+        const chunk = categoriesToDelete.slice(i, i + BATCH_SIZE);
+        const deleteStmts = chunk.map((category) =>
+          db
+            .prepare('DELETE FROM category_filters WHERE user_id = ? AND category = ?')
+            .bind(userId, category)
+        );
+        
+        const deleteResults = await db.batch(deleteStmts);
+        
+        // Verify delete batch succeeded
+        const allDeleteSucceeded = deleteResults.every((result) => result.success !== false);
+        if (!allDeleteSucceeded) {
+          throw new Error(
+            `Category filter DELETE batch ${Math.floor(i / BATCH_SIZE) + 1} failed`
+          );
+        }
+      }
+    }
+    
+  } catch (error) {
+    // Log detailed error information
+    console.error('Error in setUserCategoryFilters:', {
+      userId,
+      categoriesCount: categories.length,
+      uniqueCategoriesCount: uniqueCategories.length,
+      error: error instanceof Error ? error.message : String(error),
+    });
+    
+    // Re-throw to abort operation - old data remains intact since we didn't delete first
+    throw error;
   }
 }
 
