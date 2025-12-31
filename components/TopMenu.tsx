@@ -63,7 +63,7 @@ export function TopMenu({
         >
           ℹ️
         </button>
-        <button className="mode-btn settings-btn" onClick={onSettings} type="button" aria-label="Settings">
+        <button className="mode-btn settings-btn" onClick={onSettings} type="button">
           Settings
         </button>
       </div>

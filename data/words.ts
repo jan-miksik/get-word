@@ -17,8 +17,11 @@ export interface Word {
 import { WORDS as RAW_WORDS } from '../slova.js';
 
 // Validate at least one word to ensure structure matches
-if (RAW_WORDS.length > 0 && !RAW_WORDS[0].category) {
-  throw new Error('Invalid word data structure in slova.js');
+if (RAW_WORDS.length > 0) {
+  const firstWord = RAW_WORDS[0];
+  if (!('category' in firstWord) || !Array.isArray(firstWord.category)) {
+    throw new Error('Invalid word data structure in slova.js: category must be an array');
+  }
 }
 
 // Normalize words (shared across all users - static data)

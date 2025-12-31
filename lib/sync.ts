@@ -70,20 +70,29 @@ const SYNC_DELAY = 1000; // 1 second
 
 function executeSync(): void {
   if (latestData && resolvePending && rejectPending) {
-    syncUserData(latestData)
-      .then(() => {
-        resolvePending!();
-      })
-      .catch((error) => {
-        rejectPending!(error);
-      })
-      .finally(() => {
-        pendingPromise = null;
-        resolvePending = null;
-        rejectPending = null;
-        syncTimeout = null;
-        latestData = null;
-      });
+    try {
+      syncUserData(latestData)
+        .then(() => {
+          resolvePending!();
+        })
+        .catch((error) => {
+          rejectPending!(error);
+        })
+        .finally(() => {
+          pendingPromise = null;
+          resolvePending = null;
+          rejectPending = null;
+          syncTimeout = null;
+          latestData = null;
+        });
+    } catch (error) {
+      rejectPending!(error);
+      pendingPromise = null;
+      resolvePending = null;
+      rejectPending = null;
+      syncTimeout = null;
+      latestData = null;
+    }
   }
 }
 

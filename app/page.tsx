@@ -177,7 +177,7 @@ export default function Home() {
     return () => {
       cleanup.forEach((fn) => fn());
     };
-  }, [currentTab, selectedCategories, showAll, modeIndex, role]);
+  }, [currentTab, selectedCategories, showAll, modeIndex, role, progress]);
 
   const closeAllPanels = () => {
     setSettingsOpen(false);

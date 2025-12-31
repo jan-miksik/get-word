@@ -11,6 +11,9 @@
 const DEVICE_ID_KEY = 'wordlink_device_id';
 const CONSENT_KEY = 'wordlink_device_id_consent';
 
+// Module-scoped in-memory ID to persist across calls when localStorage fails
+let inMemoryId: string | null = null;
+
 /**
  * Retrieves the stored device ID if one exists.
  * This is a read-only operation - it will NOT create a new ID.
@@ -23,13 +26,19 @@ export function getDeviceId(): string {
   }
 
   try {
-    return localStorage.getItem(DEVICE_ID_KEY) || '';
+    const stored = localStorage.getItem(DEVICE_ID_KEY);
+    if (stored) {
+      // Update in-memory ID if we successfully read from storage
+      inMemoryId = stored;
+      return stored;
+    }
   } catch (error) {
     // Storage unavailable (private mode, disabled, quota exceeded, etc.)
-    // Treat as missing key and return empty string
     console.warn('Failed to read device ID from localStorage:', error);
-    return '';
   }
+  
+  // Fall back to in-memory ID if storage read failed or was empty
+  return inMemoryId || '';
 }
 
 /**
@@ -43,11 +52,12 @@ export function getDeviceId(): string {
  * before invoking this function.
  * 
  * @param hasConsent - Explicit consent flag. If true, creates ID and stores consent marker.
- * @returns The created or existing device ID, or empty string if no consent or on server
+ * @returns Object with id (the device ID) and persisted (true if successfully stored, false otherwise).
+ *          Returns { id: '', persisted: false } if no consent or on server.
  */
-export function createDeviceIdForConsentedUser(hasConsent: boolean): string {
+export function createDeviceIdForConsentedUser(hasConsent: boolean): { id: string; persisted: boolean } {
   if (typeof window === 'undefined') {
-    return '';
+    return { id: '', persisted: false };
   }
 
   // Check for existing consent marker if explicit consent not provided
@@ -60,32 +70,40 @@ export function createDeviceIdForConsentedUser(hasConsent: boolean): string {
   }
   
   if (!hasConsent && !hasStoredConsent) {
-    return '';
+    return { id: '', persisted: false };
   }
 
   // Check if device ID already exists
   let existingId: string | null = null;
   try {
     existingId = localStorage.getItem(DEVICE_ID_KEY);
+    if (existingId) {
+      // Update in-memory ID if we successfully read from storage
+      inMemoryId = existingId;
+      return { id: existingId, persisted: true };
+    }
   } catch (error) {
     // Storage unavailable - treat as missing, will generate new ID
     console.warn('Failed to read device ID from localStorage:', error);
   }
   
-  if (existingId) {
-    return existingId;
+  // Check in-memory ID as fallback
+  if (inMemoryId) {
+    return { id: inMemoryId, persisted: false };
   }
 
   // Generate new device ID
   const deviceId = crypto.randomUUID();
+  inMemoryId = deviceId; // Store in memory immediately
   
   // Attempt to store device ID
+  let persisted = false;
   try {
     localStorage.setItem(DEVICE_ID_KEY, deviceId);
+    persisted = true;
   } catch (error) {
     // Storage unavailable - log warning but continue with in-memory ID
     console.warn('Failed to store device ID in localStorage:', error);
-    // Return the generated ID anyway so the app continues to work
   }
   
   // Store consent marker
@@ -98,7 +116,7 @@ export function createDeviceIdForConsentedUser(hasConsent: boolean): string {
     }
   }
   
-  return deviceId;
+  return { id: deviceId, persisted };
 }
 
 /**
@@ -139,6 +157,8 @@ export function deleteDeviceId(): boolean {
     console.warn('Failed to remove consent marker from localStorage:', error);
   }
 
+  // Clear in-memory ID when deleting
+  inMemoryId = null;
+
   return hadId || hadConsent;
 }
-

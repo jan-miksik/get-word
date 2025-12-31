@@ -267,17 +267,32 @@ export async function setUserCategoryFilters(
 ): Promise<void> {
   const now = Math.floor(Date.now() / 1000);
   
-  // Combine delete and inserts in a single batch for atomicity
+  // Cloudflare D1 limits the number of prepared statements per `db.batch()` call (~100).
+  // Execute DELETE first, then split INSERTs into chunks to avoid exceeding the limit.
   const deleteStmt = db
     .prepare('DELETE FROM category_filters WHERE user_id = ?')
     .bind(userId);
+  
+  await deleteStmt.run();
 
-  const insertStmts = categories.map((category) =>
-    db
-      .prepare('INSERT INTO category_filters (user_id, category, updated_at) VALUES (?, ?, ?)')
-      .bind(userId, category, now)
-  );
+  // Split INSERTs into chunks at or below D1 batch limit
+  const BATCH_SIZE = 100;
+  
+  for (let i = 0; i < categories.length; i += BATCH_SIZE) {
+    const chunk = categories.slice(i, i + BATCH_SIZE);
+    const insertStmts = chunk.map((category) =>
+      db
+        .prepare('INSERT INTO category_filters (user_id, category, updated_at) VALUES (?, ?, ?)')
+        .bind(userId, category, now)
+    );
 
-  await db.batch([deleteStmt, ...insertStmts]);
+    try {
+      await db.batch(insertStmts);
+    } catch (error) {
+      // Log error and propagate to caller
+      console.error(`Error inserting category filters batch (chunk ${Math.floor(i / BATCH_SIZE) + 1}):`, error);
+      throw error;
+    }
+  }
 }
 
