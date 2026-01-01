@@ -23,9 +23,17 @@ A Next.js application for learning Czech and Vietnamese, with cross-device progr
 
 The project uses pnpm with the following configuration (see `.npmrc`):
 - `auto-install-peers=true`: Automatically installs peer dependencies
-- `strict-peer-dependencies=true`: Enforces compatibility checks for peer dependencies to prevent version conflicts
+- `strict-peer-dependencies=false`: **Disabled** - Peer dependency checks relaxed (workaround for Cloudflare build)
+- `shamefully-hoist=true`: **Enabled** - npm-like hoisting enabled (workaround for Cloudflare build)
+- `node-linker=hoisted`: Uses hoisted node linker instead of pnpm's default isolation (workaround for Cloudflare build)
 
-This configuration ensures that peer dependencies are automatically installed while maintaining strict version compatibility checks for safer dependency management.
+**⚠️ Important Note**: These settings were added as a workaround for `@opennextjs/cloudflare` build issues during Cloudflare deployment. They fundamentally alter pnpm's dependency management from strict isolation to npm-like hoisting, which:
+
+- Increases risk of phantom dependencies (packages accessible without being declared)
+- Reduces environment consistency guarantees
+- Loses pnpm's core strict isolation benefits
+
+**Recommendation**: Consider investigating the root cause and alternative solutions. See `.npmrc` for detailed comments and recommendations.
 
 ### Local Development
 

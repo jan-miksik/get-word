@@ -215,7 +215,6 @@ Chybět
 Přesně
 Přibližně
 Opravdu
-Možná
 
 //
 tma
