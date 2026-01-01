@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getCloudflareContext } from '@opennextjs/cloudflare';
 import { getOrCreateUser, getUserProgress, batchUpsertProgress, getUserMemoryHooks, upsertMemoryHook, deleteMemoryHook, getUserCategoryFilters, setUserCategoryFilters, updateUserRole, D1Database } from '@/lib/db';
 
-// Cloudflare Workers/Pages runtime
-export const runtime = 'edge';
-
 // Helper to get DB from Cloudflare context
-// With OpenNext, D1 bindings are available via process.env in edge runtime
 function getDB(): D1Database | null {
-  // In Cloudflare Workers/Pages, D1 binding is available as process.env.DB
-  // Configured in wrangler.toml with the binding name "DB"
-  if (typeof process !== 'undefined' && (process.env as any).DB) {
-    return (process.env as any).DB as D1Database;
+  try {
+    const { env } = getCloudflareContext();
+    return (env as any).DB as D1Database || null;
+  } catch {
+    return null;
   }
-  return null;
 }
 
 interface SyncRequest {
