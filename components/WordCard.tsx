@@ -17,6 +17,8 @@ interface WordCardProps {
   onUnknown: () => void;
   onMemoryHookChange: (hook: string) => void;
   isMoved?: boolean;
+  isEditMode?: boolean;
+  onCategoryToggle?: (category: string) => void;
 }
 
 export function WordCard({
@@ -32,6 +34,8 @@ export function WordCard({
   onUnknown,
   onMemoryHookChange,
   isMoved,
+  isEditMode = false,
+  onCategoryToggle,
 }: WordCardProps) {
   const [editingHook, setEditingHook] = useState(false);
   const [hookValue, setHookValue] = useState(memoryHook);
@@ -141,8 +145,35 @@ export function WordCard({
   const isDue = isMounted && progress.nextDueAt ? Date.now() >= progress.nextDueAt : false;
   const showCountdown = isMounted && progress.stageIndex > 0 && progress.nextDueAt && !isDue;
 
+  // Get categories to display (exclude "to fix" unless in edit mode)
+  const displayCategories = word.category?.filter(
+    (cat) => cat !== 'to fix' || isEditMode
+  ) || [];
+
   return (
     <article className={`phrase-card ${isMoved ? 'card-moved' : ''}`} data-index={index}>
+      {/* Category badges */}
+      {displayCategories.length > 0 && (
+        <div className="word-categories">
+          {displayCategories.map((cat) => {
+            // Convert category name to valid CSS class (replace spaces with hyphens)
+            const cssClass = cat.replace(/\s+/g, '-');
+            return (
+              <span
+                key={cat}
+                className={`word-category-badge word-category-${cssClass} ${isEditMode && onCategoryToggle ? 'word-category-editable' : ''}`}
+                onClick={isEditMode && onCategoryToggle ? (e) => {
+                  e.stopPropagation();
+                  onCategoryToggle(cat);
+                } : undefined}
+                style={isEditMode && onCategoryToggle ? { cursor: 'pointer' } : undefined}
+              >
+                {cat}
+              </span>
+            );
+          })}
+        </div>
+      )}
       <div className="phrase-languages">
         {/* Czech */}
         <div className="phrase-row">

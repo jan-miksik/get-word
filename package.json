@@ -1,5 +1,5 @@
 {
-  "name": "wordlink",
+  "name": "app-for-learning-language",
   "version": "1.0.0",
   "private": true,
   "packageManager": "pnpm@9.0.0",
@@ -7,7 +7,7 @@
     "dev": "next dev",
     "build": "rm -rf .next .open-next && next build && opennextjs-cloudflare build --skipNextBuild",
     "preview": "pnpm build && opennextjs-cloudflare preview",
-    "deploy": "pnpm build && opennextjs-cloudflare deploy",
+    "deploy:cf": "pnpm build && opennextjs-cloudflare deploy",
     "start": "next start",
     "lint": "next lint",
     "db:migrate": "wrangler d1 migrations apply wordlink-db",

@@ -1,16 +1,26 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 import { WORDS } from '@/data/words';
+import { Word } from '@/data/words';
+import { normalizeWords, getAvailableCategories, STAGES, isDue } from '@/lib/words';
 import { useAppState } from '@/hooks/useAppState';
-import { getAvailableCategories, STAGES, isDue } from '@/lib/words';
 import { TopMenu } from '@/components/TopMenu';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { CategoryPanel } from '@/components/CategoryPanel';
 import { MemoryHooksPanel } from '@/components/MemoryHooksPanel';
-import { WordCard } from '@/components/WordCard';
+import { EditableWordCard } from '@/components/EditableWordCard';
 
-export default function Home() {
+export default function EditPage() {
+  const router = useRouter();
+  const [words, setWords] = useState<Word[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+
+  // Use normalized words for app state (for filtering, etc.)
+  const normalizedWords = words.length > 0 ? normalizeWords(words as Word[]) : [];
   const {
     role,
     setRole,
@@ -34,16 +44,37 @@ export default function Home() {
     markKnown,
     markUnknown,
     getFilteredWords,
-    toggleCategory,
+    toggleCategory: toggleCategoryFilter,
     getMemoryHook,
     setMemoryHook,
     getSuggestedMemoryHook,
     lastMovedIndex,
     isHydrated,
-  } = useAppState(WORDS);
+  } = useAppState(normalizedWords);
 
-  const categories = getAvailableCategories(WORDS);
+  const categories = getAvailableCategories(normalizedWords);
   const phrasesRef = useRef<HTMLElement>(null);
+
+  useEffect(() => {
+    // Start with normalized WORDS from data/words as default
+    const defaultWords = WORDS.map((w) => {
+      return { ...w, category: [...w.category] };
+    });
+    setWords(defaultWords as Word[]);
+    setIsLoading(false);
+
+    // Try to load from API in the background
+    fetch('/api/words')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.words && Array.isArray(data.words) && data.words.length > 0) {
+          setWords(data.words);
+        }
+      })
+      .catch((err) => {
+        console.log('API load failed, using default words:', err);
+      });
+  }, []);
 
   // Close panels when clicking outside
   useEffect(() => {
@@ -177,6 +208,89 @@ export default function Home() {
     };
   }, [currentTab, selectedCategories, showAll, modeIndex, role, progress]);
 
+  const handleWordFieldChange = (index: number, field: keyof Word, value: string | string[]) => {
+    setWords((prevWords) => {
+      const updated = [...prevWords];
+      const word = { ...updated[index] };
+      (word as any)[field] = value;
+      updated[index] = word;
+      return updated;
+    });
+  };
+
+  const handleCategoryAdd = (index: number, category: string) => {
+    setWords((prevWords) => {
+      const updated = [...prevWords];
+      const word = { ...updated[index] };
+      const categories = [...(word.category || [])];
+      if (!categories.includes(category)) {
+        categories.push(category);
+        word.category = categories;
+        updated[index] = word;
+      }
+      return updated;
+    });
+  };
+
+  const handleCategoryRemove = (index: number, category: string) => {
+    setWords((prevWords) => {
+      const updated = [...prevWords];
+      const word = { ...updated[index] };
+      const categories = [...(word.category || [])];
+      const indexOf = categories.indexOf(category);
+      if (indexOf >= 0) {
+        categories.splice(indexOf, 1);
+        word.category = categories;
+        updated[index] = word;
+      }
+      return updated;
+    });
+  };
+
+  const handleCategoryToggle = (index: number, category: string) => {
+    setWords((prevWords) => {
+      const updated = [...prevWords];
+      const word = { ...updated[index] };
+      const categories = [...(word.category || [])];
+      const indexOf = categories.indexOf(category);
+      if (indexOf >= 0) {
+        categories.splice(indexOf, 1);
+      } else {
+        categories.push(category);
+      }
+      word.category = categories;
+      updated[index] = word;
+      return updated;
+    });
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    setSaveMessage(null);
+
+    try {
+      const response = await fetch('/api/words', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ words }),
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setSaveMessage('Saved successfully!');
+        setTimeout(() => {
+          router.push('/');
+        }, 1000);
+      } else {
+        setSaveMessage(`Error: ${data.error || 'Failed to save'}`);
+      }
+    } catch (error) {
+      setSaveMessage(`Error: ${error instanceof Error ? error.message : 'Failed to save'}`);
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const closeAllPanels = () => {
     setSettingsOpen(false);
     setProgressOpen(false);
@@ -184,8 +298,7 @@ export default function Home() {
     setMemoryHooksOpen(false);
   };
 
-  // Don't render main content until hydrated to avoid hydration mismatches
-  if (!isHydrated) {
+  if (isLoading || !isHydrated) {
     return (
       <div className="app">
         <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>
@@ -193,15 +306,14 @@ export default function Home() {
     );
   }
 
-  // Group words by stage (only after hydration)
-  const groupedWords = STAGES.map(() => [] as Array<{ word: typeof WORDS[0]; index: number }>);
+  // Group words by stage (same as main page)
+  const groupedWords = STAGES.map(() => [] as Array<{ word: typeof normalizedWords[0]; index: number }>);
   let readyCount = 0;
 
   const filteredWords = getFilteredWords();
 
   filteredWords.forEach(({ word, index }) => {
     const prog = progress[index] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
-    // Only calculate isDue after hydration to avoid server/client mismatches
     const due = isDue(prog);
     if (due) readyCount += 1;
     if (currentTab === 'ready' && !due) return;
@@ -209,7 +321,7 @@ export default function Home() {
     groupedWords[sIdx].push({ word, index });
   });
 
-  // Calculate comprehensive progress statistics
+  // Calculate progress stats
   const calculateProgressStats = () => {
     const stats = {
       total: filteredWords.length,
@@ -217,10 +329,10 @@ export default function Home() {
       totalKnown: 0,
       totalUnknown: 0,
       readyCount: readyCount,
-      fresh: 0, // stages 1-5 (1min to 1 day)
-      learning: 0, // stages 6-8 (3 days to 14 days)
-      done: 0, // stages 9-10 (30 days to 60 days)
-      new: 0, // stage 0
+      fresh: 0,
+      learning: 0,
+      done: 0,
+      new: 0,
     };
 
     filteredWords.forEach(({ index }) => {
@@ -260,6 +372,60 @@ export default function Home() {
 
   return (
     <div className="app">
+      {/* Edit mode header */}
+      <div style={{ 
+        padding: '0.75rem 1rem', 
+        borderBottom: '1px solid var(--border-subtle)', 
+        background: 'var(--bg-elevated)',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        flexWrap: 'wrap',
+        gap: '0.5rem'
+      }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <span style={{ fontSize: '0.875rem', color: 'var(--accent)', fontWeight: 600 }}>✏️ EDIT MODE</span>
+          {saveMessage && (
+            <span style={{ color: saveMessage.includes('Error') ? 'var(--danger)' : 'var(--accent)', fontSize: '0.875rem' }}>
+              {saveMessage}
+            </span>
+          )}
+        </div>
+        <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <button
+            onClick={() => router.push('/')}
+            style={{
+              padding: '0.375rem 0.75rem',
+              borderRadius: 'var(--radius-pill)',
+              border: '1px solid var(--border-subtle)',
+              background: 'transparent',
+              color: 'var(--text)',
+              cursor: 'pointer',
+              fontSize: '0.75rem',
+            }}
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            style={{
+              padding: '0.375rem 0.75rem',
+              borderRadius: 'var(--radius-pill)',
+              border: 'none',
+              background: 'var(--accent)',
+              color: 'var(--bg)',
+              cursor: isSaving ? 'not-allowed' : 'pointer',
+              opacity: isSaving ? 0.6 : 1,
+              fontSize: '0.75rem',
+              fontWeight: 500,
+            }}
+          >
+            {isSaving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
+      </div>
+
       <TopMenu
         onSwitch={(e) => {
           e.stopPropagation();
@@ -305,7 +471,7 @@ export default function Home() {
         isOpen={categoryOpen}
         categories={categories}
         selectedCategories={selectedCategories}
-        onToggleCategory={toggleCategory}
+        onToggleCategory={toggleCategoryFilter}
       />
 
       <MemoryHooksPanel isOpen={memoryHooksOpen} />
@@ -321,7 +487,6 @@ export default function Home() {
               <h1>📊 Learning Progress</h1>
             </div>
 
-            {/* Overall stats */}
             <div className="progress-stats-grid">
               <div className="progress-stat-card">
                 <div className="progress-stat-value">{progressStats.total}</div>
@@ -345,7 +510,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Learning status breakdown */}
             <div className="progress-section">
               <h2>Learning Status</h2>
               <div className="progress-status-grid">
@@ -368,13 +532,12 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Words by Stage */}
             <div className="progress-section">
               <h2>Words by Stage</h2>
               <div className="progress-stage-list">
                 {STAGES.map((stage, index) => {
                   const count = progressStats.byStage[index];
-                  if (count === 0 && index > 0) return null; // Skip empty stages except stage 0
+                  if (count === 0 && index > 0) return null;
                   
                   const barPercent = progressStats.total > 0 ? (count / progressStats.total * 100) : 0;
                   
@@ -397,7 +560,6 @@ export default function Home() {
               </div>
             </div>
 
-            {/* Answer statistics */}
             <div className="progress-section">
               <h2>Answer Statistics</h2>
               <div className="progress-answer-stats">
@@ -449,27 +611,38 @@ export default function Home() {
             return (
               <section key={stageIndex} className="category-zone">
                 <h2 className="category-zone-title">{stage.name}</h2>
-                {items.map(({ word, index }) => {
-                  const prog = progress[index] || {
+                {items.map(({ word, index: normalizedIndex }) => {
+                  const prog = progress[normalizedIndex] || {
                     stageIndex: 0,
                     knownCount: 0,
                     unknownCount: 0,
                   };
+                  // The index from getFilteredWords is the normalized index
+                  // We need to find the corresponding raw word
+                  // Since normalizedWords are derived from words, indices should match
+                  const rawWordIndex = normalizedIndex < words.length ? normalizedIndex : -1;
+                  
+                  if (rawWordIndex < 0) return null;
+                  
                   return (
-                    <WordCard
-                      key={index}
+                    <EditableWordCard
+                      key={normalizedIndex}
                       word={word}
-                      index={index}
+                      index={normalizedIndex}
                       progress={prog}
                       role={role}
                       modeIndex={modeIndex}
                       showAll={showAll}
-                      memoryHook={getMemoryHook(index)}
-                      suggestedHook={getSuggestedMemoryHook(index)}
-                      onKnown={() => markKnown(index)}
-                      onUnknown={() => markUnknown(index)}
-                      onMemoryHookChange={(hook) => setMemoryHook(index, hook)}
-                      isMoved={lastMovedIndex === index}
+                      memoryHook={getMemoryHook(normalizedIndex)}
+                      suggestedHook={getSuggestedMemoryHook(normalizedIndex)}
+                      onKnown={() => markKnown(normalizedIndex)}
+                      onUnknown={() => markUnknown(normalizedIndex)}
+                      onMemoryHookChange={(hook) => setMemoryHook(normalizedIndex, hook)}
+                      isMoved={lastMovedIndex === normalizedIndex}
+                      onWordChange={(idx, field, value) => handleWordFieldChange(rawWordIndex, field, value)}
+                      onCategoryToggle={(cat) => handleCategoryToggle(rawWordIndex, cat)}
+                      onCategoryAdd={(cat) => handleCategoryAdd(rawWordIndex, cat)}
+                      onCategoryRemove={(cat) => handleCategoryRemove(rawWordIndex, cat)}
                     />
                   );
                 })}
