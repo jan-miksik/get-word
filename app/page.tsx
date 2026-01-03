@@ -299,16 +299,25 @@ export default function Home() {
         progressActive={progressOpen}
       />
 
-      <SettingsPanel role={role} onRoleChange={setRole} isOpen={settingsOpen} />
+      <SettingsPanel 
+        role={role} 
+        onRoleChange={setRole} 
+        isOpen={settingsOpen} 
+        onClose={() => setSettingsOpen(false)}
+      />
 
       <CategoryPanel
         isOpen={categoryOpen}
         categories={categories}
         selectedCategories={selectedCategories}
         onToggleCategory={toggleCategory}
+        onClose={() => setCategoryOpen(false)}
       />
 
-      <MemoryHooksPanel isOpen={memoryHooksOpen} />
+      <MemoryHooksPanel 
+        isOpen={memoryHooksOpen} 
+        onClose={() => setMemoryHooksOpen(false)}
+      />
 
       <section
         className={`progress-panel ${progressOpen ? 'is-open' : ''}`}
@@ -317,8 +326,41 @@ export default function Home() {
       >
         <div className="progress-panel-inner" id="progress-panel-content">
           <div className="progress-overview">
-            <div className="progress-header">
+            <div className="progress-header" style={{ position: 'relative' }}>
               <h1>📊 Learning Progress</h1>
+              <button
+                onClick={() => setProgressOpen(false)}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  background: 'transparent',
+                  border: 'none',
+                  fontSize: '1.25rem',
+                  color: 'var(--text-soft)',
+                  cursor: 'pointer',
+                  padding: '0.25rem',
+                  lineHeight: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '1.5rem',
+                  height: '1.5rem',
+                  borderRadius: 'var(--radius-sm)',
+                  transition: 'all var(--transition-fast)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--bg-elevated)';
+                  e.currentTarget.style.color = 'var(--text)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = 'var(--text-soft)';
+                }}
+                aria-label="Close progress"
+              >
+                ×
+              </button>
             </div>
 
             {/* Overall stats */}

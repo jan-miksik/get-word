@@ -60,6 +60,41 @@ export function getAvailableCategories(words: NormalizedWord[]): Array<{ name: s
     .sort((a, b) => a.name.localeCompare(b.name));
 }
 
+// Get all categories from allWords, but count occurrences in filteredWords
+// This allows showing categories with 0 count in edit mode
+export function getAllCategoriesWithCounts(
+  allWords: NormalizedWord[],
+  filteredWords: NormalizedWord[],
+  additionalCategories: string[] = []
+): Array<{ name: string; count: number }> {
+  // Start with additional categories first (like edit-only categories)
+  // This ensures they're always included even if no words have them
+  const allCategories = new Set<string>(additionalCategories);
+  
+  // Get all unique categories from all words
+  allWords.forEach((word) => {
+    word.category.forEach((cat) => {
+      if (cat !== "word" && cat !== "phrase") {
+        allCategories.add(cat);
+      }
+    });
+  });
+
+  // Count occurrences in filtered words
+  const counts = new Map<string, number>();
+  filteredWords.forEach((word) => {
+    word.category.forEach((cat) => {
+      if (cat === "word" || cat === "phrase") return;
+      counts.set(cat, (counts.get(cat) || 0) + 1);
+    });
+  });
+
+  // Return all categories with their counts (0 if not in filtered words)
+  return Array.from(allCategories)
+    .map((name) => ({ name, count: counts.get(name) || 0 }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 export function matchesCategoryFilter(word: NormalizedWord, selectedCategories: Set<string>): boolean {
   if (!selectedCategories.size) return true;
   return word.category.some((cat) => selectedCategories.has(cat));

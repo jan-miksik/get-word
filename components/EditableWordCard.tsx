@@ -24,9 +24,9 @@ interface EditableWordCardProps {
   onCategoryRemove: (category: string) => void;
 }
 
-const STANDARD_CATEGORIES = ['basic', 'phrase', 'nails', 'word'];
-const EDIT_ONLY_CATEGORIES = ['to fix'];
-const ALL_CATEGORIES = [...STANDARD_CATEGORIES, ...EDIT_ONLY_CATEGORIES];
+export const STANDARD_CATEGORIES = ['basic', 'phrase', 'nails', 'word'];
+export const EDIT_ONLY_CATEGORIES = ['to fix'];
+export const ALL_CATEGORIES = [...STANDARD_CATEGORIES, ...EDIT_ONLY_CATEGORIES];
 
 export function EditableWordCard({
   word,
@@ -268,9 +268,44 @@ export function EditableWordCard({
               width: '100%',
               border: '1px solid var(--border-subtle)',
               overflow: 'auto',
+              position: 'relative',
             }}
             onClick={(e) => e.stopPropagation()}
           >
+            <button
+              onClick={() => setShowEditModal(false)}
+              style={{
+                position: 'absolute',
+                top: '1rem',
+                right: '1rem',
+                background: 'transparent',
+                border: 'none',
+                fontSize: '1.25rem',
+                color: 'var(--text-soft)',
+                cursor: 'pointer',
+                padding: '0.25rem',
+                lineHeight: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '1.5rem',
+                height: '1.5rem',
+                borderRadius: 'var(--radius-sm)',
+                transition: 'all var(--transition-fast)',
+                zIndex: 1,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--bg-elevated)';
+                e.currentTarget.style.color = 'var(--text)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'var(--text-soft)';
+              }}
+              aria-label="Close edit modal"
+            >
+              ×
+            </button>
             <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem' }}>
               Edit Word Fields
             </h3>
@@ -328,21 +363,6 @@ export function EditableWordCard({
                   />
                 </div>
               ))}
-            </div>
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-              <button
-                onClick={() => setShowEditModal(false)}
-                style={{
-                  padding: '0.5rem 1rem',
-                  borderRadius: 'var(--radius-pill)',
-                  border: '1px solid var(--border-subtle)',
-                  background: 'transparent',
-                  color: 'var(--text)',
-                  cursor: 'pointer',
-                }}
-              >
-                Close
-              </button>
             </div>
           </div>
         </div>

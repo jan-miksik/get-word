@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { WORDS } from '@/data/words';
 import { Word } from '@/data/words';
-import { normalizeWords, getAvailableCategories, STAGES, isDue } from '@/lib/words';
+import { normalizeWords, getAvailableCategories, getAllCategoriesWithCounts, STAGES, isDue } from '@/lib/words';
 import { useAppState } from '@/hooks/useAppState';
 import { TopMenu } from '@/components/TopMenu';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { CategoryPanel } from '@/components/CategoryPanel';
 import { MemoryHooksPanel } from '@/components/MemoryHooksPanel';
-import { EditableWordCard } from '@/components/EditableWordCard';
+import { EditableWordCard, EDIT_ONLY_CATEGORIES } from '@/components/EditableWordCard';
 
 export default function EditPage() {
   const router = useRouter();
@@ -52,7 +52,12 @@ export default function EditPage() {
     isHydrated,
   } = useAppState(normalizedWords);
 
-  const categories = getAvailableCategories(normalizedWords);
+  const filteredWords = getFilteredWords();
+  // In edit mode, always show all categories with counts from all words (not filtered)
+  // Include edit-only categories (like "to fix") even if they have 0 occurrences
+  const categories = useMemo(() => {
+    return getAllCategoriesWithCounts(normalizedWords, normalizedWords, EDIT_ONLY_CATEGORIES);
+  }, [normalizedWords]);
   const phrasesRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
@@ -310,8 +315,6 @@ export default function EditPage() {
   const groupedWords = STAGES.map(() => [] as Array<{ word: typeof normalizedWords[0]; index: number }>);
   let readyCount = 0;
 
-  const filteredWords = getFilteredWords();
-
   filteredWords.forEach(({ word, index }) => {
     const prog = progress[index] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
     const due = isDue(prog);
@@ -465,16 +468,25 @@ export default function EditPage() {
         progressActive={progressOpen}
       />
 
-      <SettingsPanel role={role} onRoleChange={setRole} isOpen={settingsOpen} />
+      <SettingsPanel 
+        role={role} 
+        onRoleChange={setRole} 
+        isOpen={settingsOpen} 
+        onClose={() => setSettingsOpen(false)}
+      />
 
       <CategoryPanel
         isOpen={categoryOpen}
         categories={categories}
         selectedCategories={selectedCategories}
         onToggleCategory={toggleCategoryFilter}
+        onClose={() => setCategoryOpen(false)}
       />
 
-      <MemoryHooksPanel isOpen={memoryHooksOpen} />
+      <MemoryHooksPanel 
+        isOpen={memoryHooksOpen} 
+        onClose={() => setMemoryHooksOpen(false)}
+      />
 
       <section
         className={`progress-panel ${progressOpen ? 'is-open' : ''}`}
@@ -483,8 +495,41 @@ export default function EditPage() {
       >
         <div className="progress-panel-inner" id="progress-panel-content">
           <div className="progress-overview">
-            <div className="progress-header">
+            <div className="progress-header" style={{ position: 'relative' }}>
               <h1>📊 Learning Progress</h1>
+              <button
+                onClick={() => setProgressOpen(false)}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  right: 0,
+                  background: 'transparent',
+                  border: 'none',
+                  fontSize: '1.25rem',
+                  color: 'var(--text-soft)',
+                  cursor: 'pointer',
+                  padding: '0.25rem',
+                  lineHeight: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '1.5rem',
+                  height: '1.5rem',
+                  borderRadius: 'var(--radius-sm)',
+                  transition: 'all var(--transition-fast)',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = 'var(--bg-elevated)';
+                  e.currentTarget.style.color = 'var(--text)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = 'transparent';
+                  e.currentTarget.style.color = 'var(--text-soft)';
+                }}
+                aria-label="Close progress"
+              >
+                ×
+              </button>
             </div>
 
             <div className="progress-stats-grid">

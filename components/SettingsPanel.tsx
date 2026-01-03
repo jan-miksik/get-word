@@ -1,14 +1,13 @@
 'use client';
 
-import Link from 'next/link';
-
 interface SettingsPanelProps {
   role: 'cz' | 'vi';
   onRoleChange: (role: 'cz' | 'vi') => void;
   isOpen: boolean;
+  onClose?: () => void;
 }
 
-export function SettingsPanel({ role, onRoleChange, isOpen }: SettingsPanelProps) {
+export function SettingsPanel({ role, onRoleChange, isOpen, onClose }: SettingsPanelProps) {
   return (
     <section
       className={`settings-panel ${isOpen ? 'is-open' : ''}`}
@@ -16,7 +15,44 @@ export function SettingsPanel({ role, onRoleChange, isOpen }: SettingsPanelProps
       onClick={(e) => e.stopPropagation()}
     >
       <div className="settings-inner">
-        <p className="settings-title">Who are you?</p>
+        <div style={{ position: 'relative' }}>
+          {onClose && (
+            <button
+              onClick={onClose}
+              style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                background: 'transparent',
+                border: 'none',
+                fontSize: '1.25rem',
+                color: 'var(--text-soft)',
+                cursor: 'pointer',
+                padding: '0.25rem',
+                lineHeight: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '1.5rem',
+                height: '1.5rem',
+                borderRadius: 'var(--radius-sm)',
+                transition: 'all var(--transition-fast)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--bg-elevated)';
+                e.currentTarget.style.color = 'var(--text)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'var(--text-soft)';
+              }}
+              aria-label="Close settings"
+            >
+              ×
+            </button>
+          )}
+          <p className="settings-title">Who are you?</p>
+        </div>
         <label className="settings-option">
           <input
             type="radio"
@@ -37,34 +73,6 @@ export function SettingsPanel({ role, onRoleChange, isOpen }: SettingsPanelProps
           />
           <span>I am Vietnamese</span>
         </label>
-        <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-subtle)' }}>
-          <Link
-            href="/edit"
-            style={{
-              display: 'block',
-              padding: '0.75rem 1rem',
-              borderRadius: 'var(--radius-lg)',
-              background: 'var(--bg-elevated)',
-              border: '1px solid var(--border-subtle)',
-              color: 'var(--text)',
-              textDecoration: 'none',
-              textAlign: 'center',
-              fontSize: '0.875rem',
-              fontWeight: 500,
-              transition: 'all var(--transition-fast)',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'var(--accent-soft)';
-              e.currentTarget.style.borderColor = 'var(--accent)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'var(--bg-elevated)';
-              e.currentTarget.style.borderColor = 'var(--border-subtle)';
-            }}
-          >
-            ✏️ Edit Words
-          </Link>
-        </div>
       </div>
     </section>
   );

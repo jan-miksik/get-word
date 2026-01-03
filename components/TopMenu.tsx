@@ -36,6 +36,8 @@ export function TopMenu({
         <button className="mode-btn show-all-btn" onClick={onShowAll} type="button" aria-label={showAll ? "Hide completed items" : "Show all items"}>
           {showAll ? '🙉' : '🙈'}
         </button>
+      </div>
+      <div className="top-menu-right">
         <button
           className={`mode-btn category-btn ${categoryActive ? 'is-active' : ''}`}
           onClick={onCategory}
@@ -53,8 +55,6 @@ export function TopMenu({
         >
           📊
         </button>
-      </div>
-      <div className="top-menu-right">
         <button
           className="mode-btn memory-hooks-btn"
           onClick={onMemoryHooks}

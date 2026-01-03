@@ -2,9 +2,10 @@
 
 interface MemoryHooksPanelProps {
   isOpen: boolean;
+  onClose?: () => void;
 }
 
-export function MemoryHooksPanel({ isOpen }: MemoryHooksPanelProps) {
+export function MemoryHooksPanel({ isOpen, onClose }: MemoryHooksPanelProps) {
   return (
     <section
       className={`memory-hooks-panel ${isOpen ? 'is-open' : ''}`}
@@ -12,7 +13,44 @@ export function MemoryHooksPanel({ isOpen }: MemoryHooksPanelProps) {
       onClick={(e) => e.stopPropagation()}
     >
       <div className="memory-hooks-panel-inner">
-        <h2 className="memory-hooks-title">Memory Hooks (Mnemonic Techniques) – Quick Summary</h2>
+        <div style={{ position: 'relative' }}>
+          {onClose && (
+            <button
+              onClick={onClose}
+              style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                background: 'transparent',
+                border: 'none',
+                fontSize: '1.25rem',
+                color: 'var(--text-soft)',
+                cursor: 'pointer',
+                padding: '0.25rem',
+                lineHeight: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '1.5rem',
+                height: '1.5rem',
+                borderRadius: 'var(--radius-sm)',
+                transition: 'all var(--transition-fast)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.background = 'var(--bg-elevated)';
+                e.currentTarget.style.color = 'var(--text)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.background = 'transparent';
+                e.currentTarget.style.color = 'var(--text-soft)';
+              }}
+              aria-label="Close memory hooks info"
+            >
+              ×
+            </button>
+          )}
+          <h2 className="memory-hooks-title">Memory Hooks (Mnemonic Techniques) – Quick Summary</h2>
+        </div>
         <div className="memory-hooks-content">
           <p>
             Memory hooks are temporary mental bridges that connect a new word to something you
