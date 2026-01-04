@@ -33,6 +33,10 @@ export default function EditPage() {
     progress,
     memoryHooks,
     selectedCategories,
+    showEnglish,
+    setShowEnglish,
+    showCategoryBadges,
+    setShowCategoryBadges,
     settingsOpen,
     setSettingsOpen,
     progressOpen,
@@ -283,9 +287,10 @@ export default function EditPage() {
       const data = await response.json();
       if (data.success) {
         setSaveMessage('Saved successfully!');
+        // Keep editing mode - don't redirect
         setTimeout(() => {
-          router.push('/');
-        }, 1000);
+          setSaveMessage(null);
+        }, 2000);
       } else {
         setSaveMessage(`Error: ${data.error || 'Failed to save'}`);
       }
@@ -470,7 +475,11 @@ export default function EditPage() {
 
       <SettingsPanel 
         role={role} 
-        onRoleChange={setRole} 
+        onRoleChange={setRole}
+        showEnglish={showEnglish}
+        onShowEnglishChange={setShowEnglish}
+        showCategoryBadges={showCategoryBadges}
+        onShowCategoryBadgesChange={setShowCategoryBadges}
         isOpen={settingsOpen} 
         onClose={() => setSettingsOpen(false)}
       />
@@ -688,6 +697,8 @@ export default function EditPage() {
                       onCategoryToggle={(cat) => handleCategoryToggle(rawWordIndex, cat)}
                       onCategoryAdd={(cat) => handleCategoryAdd(rawWordIndex, cat)}
                       onCategoryRemove={(cat) => handleCategoryRemove(rawWordIndex, cat)}
+                      showEnglish={showEnglish}
+                      showCategoryBadges={showCategoryBadges}
                     />
                   );
                 })}

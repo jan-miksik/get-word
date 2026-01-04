@@ -94,7 +94,7 @@ export const WORDS = [
     "en": "Here?",
     "vi": "Ở đây hả?",
     "czPron": "TA-di?",
-    "viPron": "a daj ha",
+    "viPron": "o daj ha",
     "czAudio": "speech/cz/tady.mp3",
     "viAudio": [
       "speech/vi/o-djay-ha.mp3"
@@ -310,7 +310,7 @@ export const WORDS = [
     "en": "Nail / Nails",
     "vi": "Móng tay / Móng",
     "czPron": "NE-het / NE-ty",
-    "viPron": "mong taj / mong",
+    "viPron": "mong / mong taj",
     "czAudio": [
       "speech/cz/nehet.mp3",
       "speech/cz/nehty.mp3"
@@ -359,7 +359,8 @@ export const WORDS = [
     "czPron": "SU-ché",
     "viPron": "kho",
     "czAudio": "speech/cz/suche.mp3",
-    "viAudio": "speech/vi/kho.mp3"
+    "viAudio": "speech/vi/kho.mp3",
+    "czHint": "\"kh\" syceni někoho kdo je vyprahly a chce se napit"
   },
   {
     "category": [
@@ -529,7 +530,7 @@ export const WORDS = [
     "en": "Cash",
     "vi": "Tiền mặt",
     "czPron": "HO-to-vě",
-    "viPron": "tjen mat",
+    "viPron": "tien mat",
     "czAudio": "speech/cz/hotove.mp3",
     "viAudio": "speech/vi/tien-mat.mp3",
     "czHint": "ty jen-om mat-eš - nedorozumění při placení"
@@ -554,7 +555,8 @@ export const WORDS = [
     "category": [
       "basic",
       "word",
-      "nails"
+      "nails",
+      "cz ≈ en"
     ],
     "cz": "Perfektní ✨",
     "en": "Perfect",
@@ -568,7 +570,8 @@ export const WORDS = [
   {
     "category": [
       "basic",
-      "word"
+      "word",
+      "cz ≈ en"
     ],
     "cz": "Moment ⏱️",
     "en": "Moment",
@@ -580,8 +583,9 @@ export const WORDS = [
   },
   {
     "category": [
-      "basic",
-      "word"
+      "word",
+      "cz ≈ en",
+      "basic 2"
     ],
     "cz": "Kafe ☕",
     "en": "Coffee",
@@ -593,7 +597,9 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "word",
+      "nails",
+      "cz ≈ en"
     ],
     "cz": "Klient",
     "en": "Client",
@@ -605,21 +611,23 @@ export const WORDS = [
   },
   {
     "category": [
-      "basic",
-      "word"
+      "word",
+      "cz ≈ en",
+      "nails"
     ],
-    "cz": "Salon",
-    "en": "Salon",
+    "cz": "Salon / Salon krásy",
+    "en": "Salon / Beauty salon",
     "vi": "Tiệm / Thẩm mỹ viện",
     "czPron": "SA-lon",
-    "viPron": "tiem",
+    "viPron": "tiem / tham my vien",
     "czAudio": "speech/cz/salon.mp3",
     "viAudio": "speech/vi/tiem-tham-my-vien.mp3"
   },
   {
     "category": [
-      "basic",
-      "word"
+      "word",
+      "cz ≈ en",
+      "nails"
     ],
     "cz": "Design 🎨",
     "en": "Design",
@@ -632,7 +640,8 @@ export const WORDS = [
   {
     "category": [
       "basic",
-      "word"
+      "word",
+      "cz ≈ en"
     ],
     "cz": "Problém ⚠️",
     "en": "Problem",
@@ -644,20 +653,24 @@ export const WORDS = [
   },
   {
     "category": [
-      "basic",
-      "word"
+      "word",
+      "cz ≈ en",
+      "nails",
+      "basic 2"
     ],
     "cz": "Detail 🔍",
     "en": "Detail",
     "vi": "Chi tiết",
     "czPron": "DE-tajl",
     "viPron": "či tiet",
-    "viAudio": "speech/vi/chi-tiet.mp3"
+    "viAudio": "speech/vi/chi-tiet.mp3",
+    "czHint": "čti ty - ukazuje na drobné písmo"
   },
   {
     "category": [
-      "basic",
-      "word"
+      "word",
+      "cz ≈ en",
+      "nails"
     ],
     "cz": "Materiál",
     "en": "Material",
@@ -669,8 +682,9 @@ export const WORDS = [
   },
   {
     "category": [
-      "basic",
-      "word"
+      "word",
+      "cz ≈ en",
+      "basic 2"
     ],
     "cz": "Informace ℹ️",
     "en": "Information",
@@ -682,8 +696,9 @@ export const WORDS = [
   },
   {
     "category": [
-      "basic",
-      "word"
+      "word",
+      "cz ≈ en",
+      "basic 2"
     ],
     "cz": "Super 😄",
     "en": "Super",
@@ -691,12 +706,14 @@ export const WORDS = [
     "czPron": "SU-per",
     "viPron": "tujet voj",
     "czAudio": "speech/cz/super.mp3",
-    "viAudio": "speech/vi/tuyet-voi.mp3"
+    "viAudio": "speech/vi/tuyet-voi.mp3",
+    "czHint": "tu jedl vojak"
   },
   {
     "category": [
       "nails",
-      "word"
+      "word",
+      "cz ≈ en"
     ],
     "cz": "Akryl",
     "en": "Acrylic",
@@ -709,7 +726,8 @@ export const WORDS = [
   {
     "category": [
       "nails",
-      "word"
+      "word",
+      "cz ≈ en"
     ],
     "cz": "Gel",
     "en": "Gel",
@@ -755,27 +773,24 @@ export const WORDS = [
     "en": "he",
     "vi": "anh ấy / ông ấy",
     "czPron": "ON",
-    "viPron": "anh ej / ong ej",
+    "viPron": "aň aj / on aj",
     "czAudio": "speech/cz/on.mp3",
     "viAudio": [
-      "speech/vi/anh-ay.mp3",
-      "speech/vi/ong-ay.mp3"
+      "speech/vi/anh-ay-ong-ay.mp3"
     ]
   },
   {
     "category": [
-      "basic",
-      "word"
+      "basic"
     ],
     "cz": "ona",
     "en": "she",
     "vi": "cô ấy / bà ấy",
     "czPron": "O-na",
-    "viPron": "ko ej / ba ej",
+    "viPron": "ko aj / ba aj",
     "czAudio": "speech/cz/ona.mp3",
     "viAudio": [
-      "speech/vi/co-ay.mp3",
-      "speech/vi/ba-ay.mp3"
+      "speech/vi/co-ay-ba-ay.mp3"
     ]
   },
   {
@@ -802,7 +817,8 @@ export const WORDS = [
     "czPron": "VI",
     "viPron": "kak ban",
     "czAudio": "speech/cz/vy.mp3",
-    "viAudio": "speech/vi/cac-ban.mp3"
+    "viAudio": "speech/vi/cac-ban.mp3",
+    "czHint": "kak-ovy banán"
   },
   {
     "category": [
@@ -816,8 +832,7 @@ export const WORDS = [
     "viPron": "vang / ko",
     "czAudio": "speech/cz/ano.mp3",
     "viAudio": [
-      "speech/vi/vang.mp3",
-      "speech/vi/co.mp3"
+      "speech/vi/vang-co.mp3"
     ]
   },
   {
@@ -921,7 +936,10 @@ export const WORDS = [
     "vi": "có thể",
     "czPron": "MO-ci",
     "viPron": "ko te",
-    "czAudio": "speech/cz/moci.mp3"
+    "czAudio": "speech/cz/moci.mp3",
+    "viAudio": [
+      "speech/vi/co-the.mp3"
+    ]
   },
   {
     "category": [
@@ -945,9 +963,10 @@ export const WORDS = [
     "en": "there",
     "vi": "ở đó",
     "czPron": "TAM",
-    "viPron": "o djo",
+    "viPron": "o dó",
     "czAudio": "speech/cz/tam.mp3",
-    "viAudio": "speech/vi/o-djo.mp3"
+    "viAudio": "speech/vi/o-djo.mp3",
+    "czHint": "Oldo jsi tam?"
   },
   {
     "category": [
@@ -960,12 +979,13 @@ export const WORDS = [
     "czPron": "TEĎ",
     "viPron": "bej zo",
     "czAudio": "speech/cz/ted.mp3",
-    "viAudio": "speech/vi/bay-gio.mp3"
+    "viAudio": "speech/vi/bay-gio.mp3",
+    "czHint": "brzo"
   },
   {
     "category": [
-      "basic",
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "čas",
     "en": "time",
@@ -973,7 +993,8 @@ export const WORDS = [
     "czPron": "ČAS",
     "viPron": "toj zan",
     "czAudio": "speech/cz/cas.mp3",
-    "viAudio": "speech/vi/thoi-gian.mp3"
+    "viAudio": "speech/vi/thoi-gian.mp3",
+    "czHint": "toy(en) jan - čas na janovu hračku"
   },
   {
     "category": [
@@ -999,7 +1020,8 @@ export const WORDS = [
     "czPron": "PRÁ-ce",
     "viPron": "kong viek",
     "czAudio": "speech/cz/prace.mp3",
-    "viAudio": "speech/vi/cong-viec.mp3"
+    "viAudio": "speech/vi/cong-viec.mp3",
+    "czHint": "ne pro staré - khong(vi) věk"
   },
   {
     "category": [
@@ -1038,7 +1060,8 @@ export const WORDS = [
     "czPron": "PRS-ty",
     "viPron": "ngon taj",
     "czAudio": "speech/cz/prsty.mp3",
-    "viAudio": "speech/vi/ngon-tay.mp3"
+    "viAudio": "speech/vi/ngon-tay.mp3",
+    "czHint": "krátké ruce(vi)"
   },
   {
     "category": [
@@ -1049,9 +1072,10 @@ export const WORDS = [
     "en": "cuticle",
     "vi": "da quanh móng",
     "czPron": "KŮ-žič-ka",
-    "viPron": "za kuanh mong",
+    "viPron": "za kuaň mong",
     "czAudio": "speech/cz/kuzicka.mp3",
-    "viAudio": "speech/vi/da-quanh-mong.mp3"
+    "viAudio": "speech/vi/da-quanh-mong.mp3",
+    "czHint": "zažblunknutí nehtu(vi)"
   },
   {
     "category": [
@@ -1814,6 +1838,7 @@ export const WORDS = [
   {
     "category": [
       "basic",
+      "basic 2",
       "word"
     ],
     "cz": "Včera",

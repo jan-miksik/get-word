@@ -3,11 +3,24 @@
 interface SettingsPanelProps {
   role: 'cz' | 'vi';
   onRoleChange: (role: 'cz' | 'vi') => void;
+  showEnglish: boolean;
+  onShowEnglishChange: (show: boolean) => void;
+  showCategoryBadges: boolean;
+  onShowCategoryBadgesChange: (show: boolean) => void;
   isOpen: boolean;
   onClose?: () => void;
 }
 
-export function SettingsPanel({ role, onRoleChange, isOpen, onClose }: SettingsPanelProps) {
+export function SettingsPanel({ 
+  role, 
+  onRoleChange, 
+  showEnglish,
+  onShowEnglishChange,
+  showCategoryBadges,
+  onShowCategoryBadgesChange,
+  isOpen, 
+  onClose 
+}: SettingsPanelProps) {
   return (
     <section
       className={`settings-panel ${isOpen ? 'is-open' : ''}`}
@@ -73,6 +86,27 @@ export function SettingsPanel({ role, onRoleChange, isOpen, onClose }: SettingsP
           />
           <span>I am Vietnamese</span>
         </label>
+
+        {/* Display Options Section */}
+        <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-subtle)' }}>
+          <p className="settings-title" style={{ marginBottom: '0.75rem' }}>Display Options</p>
+          <label className="settings-option">
+            <input
+              type="checkbox"
+              checked={showEnglish}
+              onChange={(e) => onShowEnglishChange(e.target.checked)}
+            />
+            <span>Show English</span>
+          </label>
+          <label className="settings-option">
+            <input
+              type="checkbox"
+              checked={showCategoryBadges}
+              onChange={(e) => onShowCategoryBadgesChange(e.target.checked)}
+            />
+            <span>Show Category Badges</span>
+          </label>
+        </div>
       </div>
     </section>
   );

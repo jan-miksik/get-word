@@ -5,6 +5,8 @@ const STORAGE_KEY = "wordlink_progress_v1";
 const ROLE_KEY = "wordlink_role_v1";
 const MEMORY_HOOK_KEY = "wordlink_memory_hooks_v1";
 const CATEGORY_FILTER_KEY = "wordlink_category_filter_v1";
+const SHOW_ENGLISH_KEY = "wordlink_show_english_v1";
+const SHOW_CATEGORY_BADGES_KEY = "wordlink_show_category_badges_v1";
 
 export interface ProgressData {
   stageIndex: number;
@@ -128,6 +130,48 @@ export function saveCategoryFilter(categories: Set<string>): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(CATEGORY_FILTER_KEY, JSON.stringify(Array.from(categories)));
+  } catch {
+    // ignore
+  }
+}
+
+// Show English storage (default: true)
+export function loadShowEnglish(): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    const raw = localStorage.getItem(SHOW_ENGLISH_KEY);
+    if (raw === null) return true; // default to true
+    return raw === 'true';
+  } catch {
+    return true;
+  }
+}
+
+export function saveShowEnglish(show: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(SHOW_ENGLISH_KEY, String(show));
+  } catch {
+    // ignore
+  }
+}
+
+// Show Category Badges storage (default: false)
+export function loadShowCategoryBadges(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    const raw = localStorage.getItem(SHOW_CATEGORY_BADGES_KEY);
+    if (raw === null) return false; // default to false
+    return raw === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function saveShowCategoryBadges(show: boolean): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(SHOW_CATEGORY_BADGES_KEY, String(show));
   } catch {
     // ignore
   }

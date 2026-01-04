@@ -22,9 +22,11 @@ interface EditableWordCardProps {
   onCategoryToggle: (category: string) => void;
   onCategoryAdd: (category: string) => void;
   onCategoryRemove: (category: string) => void;
+  showEnglish?: boolean;
+  showCategoryBadges?: boolean;
 }
 
-export const STANDARD_CATEGORIES = ['basic', 'phrase', 'nails', 'word'];
+export const STANDARD_CATEGORIES = ['basic', 'basic 2', 'cz ≈ en', 'phrase', 'nails', 'word'];
 export const EDIT_ONLY_CATEGORIES = ['to fix'];
 export const ALL_CATEGORIES = [...STANDARD_CATEGORIES, ...EDIT_ONLY_CATEGORIES];
 
@@ -45,6 +47,8 @@ export function EditableWordCard({
   onCategoryToggle,
   onCategoryAdd,
   onCategoryRemove,
+  showEnglish = true,
+  showCategoryBadges = false,
 }: EditableWordCardProps) {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -384,6 +388,8 @@ export function EditableWordCard({
         isMoved={isMoved}
         isEditMode={true}
         onCategoryToggle={onCategoryToggle}
+        showEnglish={showEnglish}
+        showCategoryBadges={showCategoryBadges}
       />
     </div>
   );

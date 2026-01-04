@@ -19,6 +19,8 @@ interface WordCardProps {
   isMoved?: boolean;
   isEditMode?: boolean;
   onCategoryToggle?: (category: string) => void;
+  showEnglish?: boolean;
+  showCategoryBadges?: boolean;
 }
 
 export function WordCard({
@@ -36,6 +38,8 @@ export function WordCard({
   isMoved,
   isEditMode = false,
   onCategoryToggle,
+  showEnglish = true,
+  showCategoryBadges = false,
 }: WordCardProps) {
   const [editingHook, setEditingHook] = useState(false);
   const [hookValue, setHookValue] = useState(memoryHook);
@@ -150,10 +154,13 @@ export function WordCard({
     (cat) => cat !== 'to fix' || isEditMode
   ) || [];
 
+  // In edit mode, always show category badges; otherwise use the setting
+  const shouldShowCategoryBadges = isEditMode || showCategoryBadges;
+
   return (
     <article className={`phrase-card ${isMoved ? 'card-moved' : ''}`} data-index={index}>
       {/* Category badges */}
-      {displayCategories.length > 0 && (
+      {shouldShowCategoryBadges && displayCategories.length > 0 && (
         <div className="word-categories">
           {displayCategories.map((cat) => {
             // Convert category name to valid CSS class (replace spaces with hyphens)
@@ -194,17 +201,19 @@ export function WordCard({
         </div>
 
         {/* English */}
-        <div className="phrase-row">
-          <div className="lang-label">EN</div>
-          <div className="lang-value">
-            <div
-              className={`cover-target ${shouldCover('en') ? 'is-covered' : ''}`}
-              data-lang="en"
-            >
-              <span className="lang-text">{word.en}</span>
+        {showEnglish && (
+          <div className="phrase-row">
+            <div className="lang-label">EN</div>
+            <div className="lang-value">
+              <div
+                className={`cover-target ${shouldCover('en') ? 'is-covered' : ''}`}
+                data-lang="en"
+              >
+                <span className="lang-text">{word.en}</span>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Vietnamese */}
         <div className="phrase-row">

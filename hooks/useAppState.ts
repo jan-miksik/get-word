@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { loadProgress, saveProgress, loadRole, saveRole, loadMemoryHooks, saveMemoryHooks, loadCategoryFilter, saveCategoryFilter, ProgressData } from '@/lib/storage';
+import { loadProgress, saveProgress, loadRole, saveRole, loadMemoryHooks, saveMemoryHooks, loadCategoryFilter, saveCategoryFilter, loadShowEnglish, saveShowEnglish, loadShowCategoryBadges, saveShowCategoryBadges, ProgressData } from '@/lib/storage';
 import { NormalizedWord, STAGES, isDue, matchesCategoryFilter } from '@/lib/words';
 
 export type Role = 'cz' | 'vi';
@@ -18,6 +18,8 @@ export function useAppState(words: NormalizedWord[]) {
   const [progress, setProgress] = useState<Record<number, ProgressData>>({});
   const [memoryHooks, setMemoryHooks] = useState<Record<number, string>>({});
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
+  const [showEnglish, setShowEnglish] = useState(true);
+  const [showCategoryBadges, setShowCategoryBadges] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
@@ -32,6 +34,8 @@ export function useAppState(words: NormalizedWord[]) {
     setProgress(loadProgress());
     setMemoryHooks(loadMemoryHooks());
     setSelectedCategories(loadCategoryFilter());
+    setShowEnglish(loadShowEnglish());
+    setShowCategoryBadges(loadShowCategoryBadges());
     setIsHydrated(true);
   }, []);
 
@@ -55,6 +59,16 @@ export function useAppState(words: NormalizedWord[]) {
     if (!isHydrated) return;
     saveCategoryFilter(selectedCategories);
   }, [selectedCategories, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveShowEnglish(showEnglish);
+  }, [showEnglish, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    saveShowCategoryBadges(showCategoryBadges);
+  }, [showCategoryBadges, isHydrated]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -211,6 +225,10 @@ export function useAppState(words: NormalizedWord[]) {
     progress,
     memoryHooks,
     selectedCategories,
+    showEnglish,
+    setShowEnglish,
+    showCategoryBadges,
+    setShowCategoryBadges,
     settingsOpen,
     setSettingsOpen,
     progressOpen,

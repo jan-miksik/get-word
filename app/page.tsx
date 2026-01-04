@@ -23,6 +23,10 @@ export default function Home() {
     progress,
     memoryHooks,
     selectedCategories,
+    showEnglish,
+    setShowEnglish,
+    showCategoryBadges,
+    setShowCategoryBadges,
     settingsOpen,
     setSettingsOpen,
     progressOpen,
@@ -301,7 +305,11 @@ export default function Home() {
 
       <SettingsPanel 
         role={role} 
-        onRoleChange={setRole} 
+        onRoleChange={setRole}
+        showEnglish={showEnglish}
+        onShowEnglishChange={setShowEnglish}
+        showCategoryBadges={showCategoryBadges}
+        onShowCategoryBadgesChange={setShowCategoryBadges}
         isOpen={settingsOpen} 
         onClose={() => setSettingsOpen(false)}
       />
@@ -512,6 +520,8 @@ export default function Home() {
                       onUnknown={() => markUnknown(index)}
                       onMemoryHookChange={(hook) => setMemoryHook(index, hook)}
                       isMoved={lastMovedIndex === index}
+                      showEnglish={showEnglish}
+                      showCategoryBadges={showCategoryBadges}
                     />
                   );
                 })}
