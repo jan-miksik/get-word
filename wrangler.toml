@@ -12,6 +12,7 @@ binding = "DB"
 database_name = "wordlink-db"
 database_id = "" # Will be set after running: wrangler d1 create wordlink-db
 
-[env.production]
-routes = []
+# Production environment (optional - can be removed if not needed)
+# [env.production]
+# routes = []
 

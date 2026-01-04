@@ -781,7 +781,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "basic"
+      "basic",
+      "word"
     ],
     "cz": "ona",
     "en": "she",
@@ -937,9 +938,7 @@ export const WORDS = [
     "czPron": "MO-ci",
     "viPron": "ko te",
     "czAudio": "speech/cz/moci.mp3",
-    "viAudio": [
-      "speech/vi/co-the.mp3"
-    ]
+    "viAudio": "speech/vi/co-the.mp3"
   },
   {
     "category": [
