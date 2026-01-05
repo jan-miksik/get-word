@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { WORDS } from '@/data/words';
 import { useAppState } from '@/hooks/useAppState';
 import { getAvailableCategories, STAGES, isDue } from '@/lib/words';
@@ -9,6 +9,77 @@ import { SettingsPanel } from '@/components/SettingsPanel';
 import { CategoryPanel } from '@/components/CategoryPanel';
 import { MemoryHooksPanel } from '@/components/MemoryHooksPanel';
 import { WordCard } from '@/components/WordCard';
+
+const PAGE_STYLES = `
+  .toggle-button-container {
+    padding: 1rem 1.5rem;
+    text-align: center;
+    border-top: 1px solid var(--border-subtle);
+    margin-top: 1rem;
+  }
+
+  .toggle-button-container-large {
+    padding: 1.5rem;
+    text-align: center;
+    border-top: 1px solid var(--border-subtle);
+    margin-top: 1rem;
+  }
+
+  .toggle-button {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 0.75rem 1.5rem;
+    font-size: 0.9rem;
+    color: var(--text);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-weight: 500;
+    font-family: var(--font-sans);
+  }
+
+  .toggle-button:hover {
+    background: rgba(15, 23, 42, 1);
+  }
+
+  .toggle-button-secondary {
+    background: transparent;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    color: var(--text-soft);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-family: var(--font-sans);
+  }
+
+  .toggle-button-secondary:hover {
+    background: rgba(15, 23, 42, 0.9);
+    color: var(--text);
+  }
+
+  .waiting-for-repeat-header {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border-subtle);
+    margin-top: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-elevated);
+  }
+
+  .waiting-for-repeat-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-soft);
+  }
+`;
+
+function PageStyles() {
+  return <style>{PAGE_STYLES}</style>;
+}
 
 export default function Home() {
   const {
@@ -46,6 +117,8 @@ export default function Home() {
     isHydrated,
   } = useAppState(WORDS);
 
+  const [showWaitingForRepeat, setShowWaitingForRepeat] = useState(false);
+  const [showNotReady, setShowNotReady] = useState(true);
   const categories = getAvailableCategories(WORDS);
   const phrasesRef = useRef<HTMLElement>(null);
 
@@ -181,6 +254,12 @@ export default function Home() {
     };
   }, [currentTab, selectedCategories, showAll, modeIndex, role, progress]);
 
+  // Reset showWaitingForRepeat when switching tabs or filters change
+  useEffect(() => {
+    setShowWaitingForRepeat(false);
+    setShowNotReady(true);
+  }, [currentTab, selectedCategories]);
+
   const closeAllPanels = () => {
     setSettingsOpen(false);
     setProgressOpen(false);
@@ -199,7 +278,9 @@ export default function Home() {
 
   // Group words by stage (only after hydration)
   const groupedWords = STAGES.map(() => [] as Array<{ word: typeof WORDS[0]; index: number }>);
+  const groupedWordsWaiting = STAGES.map(() => [] as Array<{ word: typeof WORDS[0]; index: number }>);
   let readyCount = 0;
+  let notReadyCount = 0;
 
   const filteredWords = getFilteredWords();
 
@@ -207,10 +288,21 @@ export default function Home() {
     const prog = progress[index] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
     // Only calculate isDue after hydration to avoid server/client mismatches
     const due = isDue(prog);
-    if (due) readyCount += 1;
+    if (due) {
+      readyCount += 1;
+    } else if (currentTab === 'all' && prog.stageIndex > 0) {
+      // Count words that are in progress but not yet due (not ready to repeat)
+      notReadyCount += 1;
+    }
     if (currentTab === 'ready' && !due) return;
     const sIdx = Math.max(0, Math.min(prog.stageIndex || 0, STAGES.length - 1));
-    groupedWords[sIdx].push({ word, index });
+    
+    // In "all" tab, separate words that are due (waiting for repeat) from others
+    if (currentTab === 'all' && due) {
+      groupedWordsWaiting[sIdx].push({ word, index });
+    } else {
+      groupedWords[sIdx].push({ word, index });
+    }
   });
 
   // Calculate comprehensive progress statistics
@@ -492,42 +584,134 @@ export default function Home() {
             {currentTab === 'ready' ? 'All caught up!' : 'No words match your current filters.'}
           </div>
         ) : (
-          STAGES.map((stage, stageIndex) => {
-            const items = groupedWords[stageIndex];
-            if (!items.length) return null;
+          <>
+            {/* Regular words (not waiting for repeat) */}
+            {STAGES.map((stage, stageIndex) => {
+              const items = groupedWords[stageIndex];
+              if (!items.length) return null;
+              
+              // Hide words that are not ready (stageIndex > 0 and not due) when showNotReady is false
+              // But always show stage 0 (new words)
+              const shouldShow = stageIndex === 0 || showNotReady;
 
-            return (
-              <section key={stageIndex} className="category-zone">
-                <h2 className="category-zone-title">{stage.name}</h2>
-                {items.map(({ word, index }) => {
-                  const prog = progress[index] || {
-                    stageIndex: 0,
-                    knownCount: 0,
-                    unknownCount: 0,
-                  };
-                  return (
-                    <WordCard
-                      key={index}
-                      word={word}
-                      index={index}
-                      progress={prog}
-                      role={role}
-                      modeIndex={modeIndex}
-                      showAll={showAll}
-                      memoryHook={getMemoryHook(index)}
-                      suggestedHook={getSuggestedMemoryHook(index)}
-                      onKnown={() => markKnown(index)}
-                      onUnknown={() => markUnknown(index)}
-                      onMemoryHookChange={(hook) => setMemoryHook(index, hook)}
-                      isMoved={lastMovedIndex === index}
-                      showEnglish={showEnglish}
-                      showCategoryBadges={showCategoryBadges}
-                    />
-                  );
-                })}
-              </section>
-            );
-          })
+              if (!shouldShow) return null;
+
+              return (
+                <div key={stageIndex}>
+                  <section className="category-zone">
+                    <h2 className="category-zone-title">{stage.name}</h2>
+                    {items.map(({ word, index }) => {
+                      const prog = progress[index] || {
+                        stageIndex: 0,
+                        knownCount: 0,
+                        unknownCount: 0,
+                      };
+                      return (
+                        <WordCard
+                          key={index}
+                          word={word}
+                          index={index}
+                          progress={prog}
+                          role={role}
+                          modeIndex={modeIndex}
+                          showAll={showAll}
+                          memoryHook={getMemoryHook(index)}
+                          suggestedHook={getSuggestedMemoryHook(index)}
+                          onKnown={() => markKnown(index)}
+                          onUnknown={() => markUnknown(index)}
+                          onMemoryHookChange={(hook) => setMemoryHook(index, hook)}
+                          isMoved={lastMovedIndex === index}
+                          showEnglish={showEnglish}
+                          showCategoryBadges={showCategoryBadges}
+                        />
+                      );
+                    })}
+                  </section>
+                  {/* Button to hide/show words not ready to repeat - appears after "New / forgotten" section */}
+                  {stageIndex === 0 && currentTab === 'all' && notReadyCount > 0 && (
+                    <div className="toggle-button-container">
+                      <button
+                        type="button"
+                        className="toggle-button"
+                        onClick={() => setShowNotReady(!showNotReady)}
+                      >
+                        {showNotReady ? 'Hide' : 'Show'} {notReadyCount} word{notReadyCount !== 1 ? 's' : ''} settling in before repeat
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            
+            {/* Words waiting for repeat - hidden by default in "all" tab */}
+            {currentTab === 'all' && readyCount > 0 && (
+              <>
+                {!showWaitingForRepeat && (
+                  <div className="toggle-button-container-large">
+                    <button
+                      type="button"
+                      className="toggle-button"
+                      onClick={() => setShowWaitingForRepeat(true)}
+                    >
+                      Show {readyCount} word{readyCount !== 1 ? 's' : ''} waiting for repeat
+                    </button>
+                  </div>
+                )}
+                {showWaitingForRepeat && (
+                  <>
+                    <div className="waiting-for-repeat-header">
+                      <h2 className="waiting-for-repeat-title">
+                        Waiting for repeat ({readyCount})
+                      </h2>
+                      <button
+                        type="button"
+                        className="toggle-button-secondary"
+                        onClick={() => setShowWaitingForRepeat(false)}
+                      >
+                        Hide
+                      </button>
+                    </div>
+                    {STAGES.map((stage, stageIndex) => {
+                      const items = groupedWordsWaiting[stageIndex];
+                      if (!items.length) return null;
+
+                      return (
+                        <section key={`waiting-${stageIndex}`} className="category-zone">
+                          <h2 className="category-zone-title">{stage.name}</h2>
+                          {items.map(({ word, index }) => {
+                            const prog = progress[index] || {
+                              stageIndex: 0,
+                              knownCount: 0,
+                              unknownCount: 0,
+                            };
+                            return (
+                              <WordCard
+                                key={index}
+                                word={word}
+                                index={index}
+                                progress={prog}
+                                role={role}
+                                modeIndex={modeIndex}
+                                showAll={showAll}
+                                memoryHook={getMemoryHook(index)}
+                                suggestedHook={getSuggestedMemoryHook(index)}
+                                onKnown={() => markKnown(index)}
+                                onUnknown={() => markUnknown(index)}
+                                onMemoryHookChange={(hook) => setMemoryHook(index, hook)}
+                                isMoved={lastMovedIndex === index}
+                                showEnglish={showEnglish}
+                                showCategoryBadges={showCategoryBadges}
+                              />
+                            );
+                          })}
+                        </section>
+                      );
+                    })}
+                  </>
+                )}
+              </>
+            )}
+          </>
         )}
       </main>
 
@@ -549,6 +733,7 @@ export default function Home() {
           Ready to repeat
         </button>
       </nav>
+      <PageStyles />
     </div>
   );
 }

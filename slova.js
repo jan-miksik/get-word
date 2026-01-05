@@ -83,7 +83,8 @@ export const WORDS = [
     "viPron": "ko dau khong",
     "czAudio": "speech/cz/boli-to.mp3",
     "viAudio": "speech/vi/co-djau-khong.mp3",
-    "viHint": "(Boli)via country with injured knee"
+    "viHint": "(Boli)via country with injured knee",
+    "czHint": "má bolest ne(vi)"
   },
   {
     "category": [
@@ -306,11 +307,11 @@ export const WORDS = [
       "nails",
       "word"
     ],
-    "cz": "Nehet / Nehty",
-    "en": "Nail / Nails",
-    "vi": "Móng tay / Móng",
-    "czPron": "NE-het / NE-ty",
-    "viPron": "mong / mong taj",
+    "cz": "Nehty / Nehet",
+    "en": "Nails / Nail ",
+    "vi": "Móng / Móng tay",
+    "czPron": " NEh-ty / NE-het",
+    "viPron": "mong taj / mong",
     "czAudio": [
       "speech/cz/nehet.mp3",
       "speech/cz/nehty.mp3"
@@ -569,7 +570,6 @@ export const WORDS = [
   },
   {
     "category": [
-      "basic",
       "word",
       "cz ≈ en"
     ],
@@ -635,7 +635,8 @@ export const WORDS = [
     "czPron": "DE-zajn",
     "viPron": "thjet ke",
     "czAudio": "speech/cz/design.mp3",
-    "viAudio": "speech/vi/thiet-ke.mp3"
+    "viAudio": "speech/vi/thiet-ke.mp3",
+    "czHint": "ty jet ke-ks - v zajímavém designovém balení"
   },
   {
     "category": [
@@ -805,7 +806,8 @@ export const WORDS = [
     "czPron": "MI",
     "viPron": "čung toj",
     "czAudio": "speech/cz/my.mp3",
-    "viAudio": "speech/vi/chung-toi.mp3"
+    "viAudio": "speech/vi/chung-toi.mp3",
+    "czHint": "my dvě čuňátka si hrajem (toy(en))"
   },
   {
     "category": [
@@ -965,7 +967,7 @@ export const WORDS = [
     "viPron": "o dó",
     "czAudio": "speech/cz/tam.mp3",
     "viAudio": "speech/vi/o-djo.mp3",
-    "czHint": "Oldo jsi tam?"
+    "czHint": "Óldó jsi tam?"
   },
   {
     "category": [
@@ -1079,7 +1081,8 @@ export const WORDS = [
   {
     "category": [
       "nails",
-      "word"
+      "word",
+      "basic 2"
     ],
     "cz": "délka",
     "en": "length",
@@ -1092,7 +1095,8 @@ export const WORDS = [
   {
     "category": [
       "nails",
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "krátké",
     "en": "short",
@@ -1100,12 +1104,14 @@ export const WORDS = [
     "czPron": "KRÁT-ké",
     "viPron": "ngan",
     "czAudio": "speech/cz/kratke.mp3",
-    "viAudio": "speech/vi/ngan.mp3"
+    "viAudio": "speech/vi/ngan.mp3",
+    "czHint": "jan - krátké jméno"
   },
   {
     "category": [
       "nails",
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "dlouhé",
     "en": "long",
@@ -1113,35 +1119,40 @@ export const WORDS = [
     "czPron": "DLOU-hé",
     "viPron": "zaj",
     "czAudio": "speech/cz/dlouhe.mp3",
-    "viAudio": "speech/vi/dai.mp3"
+    "viAudio": "speech/vi/dai.mp3",
+    "czHint": "dlouhý zaj-íc"
   },
   {
     "category": [
-      "word"
+      "word",
+      "nails"
     ],
     "cz": "lampa",
     "en": "lamp",
     "vi": "đèn",
     "czPron": "LAM-pa",
-    "viPron": "djen",
+    "viPron": "dèn",
     "czAudio": "speech/cz/lampa.mp3",
     "viAudio": "speech/vi/djen.mp3"
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
-    "cz": "chvilku",
-    "en": "a moment",
+    "cz": "trochu, chvilku",
+    "en": "a little bit, moment",
     "vi": "một chút",
-    "czPron": "CHVIL-ku",
+    "czPron": "tro-chu, CHVIL-ku",
     "viPron": "mot čut",
     "czAudio": "speech/cz/chvilku.mp3",
     "viAudio": "speech/vi/mot-chut.mp3"
   },
   {
     "category": [
-      "word"
+      "word",
+      "nails",
+      "basic 2"
     ],
     "cz": "opravit",
     "en": "to fix",
@@ -1149,11 +1160,14 @@ export const WORDS = [
     "czPron": "O-pra-vit",
     "viPron": "sua",
     "czAudio": "speech/cz/opravit.mp3",
-    "viAudio": "speech/vi/sua.mp3"
+    "viAudio": "speech/vi/sua.mp3",
+    "czHint": "sup opravuje auto na poušti"
   },
   {
     "category": [
-      "word"
+      "word",
+      "nails",
+      "basic 2"
     ],
     "cz": "zkrátit",
     "en": "to shorten",
@@ -1161,11 +1175,14 @@ export const WORDS = [
     "czPron": "ZKRÁ-tit",
     "viPron": "kat ngan",
     "czAudio": "speech/cz/zkratit.mp3",
-    "viAudio": "speech/vi/cat-ngan.mp3"
+    "viAudio": "speech/vi/cat-ngan.mp3",
+    "czHint": "kat zkracuje - sv. jan"
   },
   {
     "category": [
-      "word"
+      "word",
+      "nails",
+      "basic 2"
     ],
     "cz": "prodloužit",
     "en": "to lengthen",
@@ -1177,7 +1194,9 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic",
+      "nails"
     ],
     "cz": "změna",
     "en": "change",
@@ -1185,23 +1204,29 @@ export const WORDS = [
     "czPron": "ZMĚ-na",
     "viPron": "thaj doj",
     "czAudio": "speech/cz/zmena.mp3",
-    "viAudio": "speech/vi/thay-djoi.mp3"
+    "viAudio": "speech/vi/thay-djoi.mp3",
+    "czHint": "thajka dojí pokemona, který se změní"
   },
   {
     "category": [
-      "phrase"
+      "word",
+      "basic",
+      "nails"
     ],
     "cz": "líbí se",
     "en": "to like",
     "vi": "thích",
     "czPron": "LÍ-bí se",
-    "viPron": "thik",
+    "viPron": "thi",
     "czAudio": "speech/cz/libi-se.mp3",
-    "viAudio": "speech/vi/thich.mp3"
+    "viAudio": "speech/vi/thich.mp3",
+    "czHint": "ty - se mi líbíš"
   },
   {
     "category": [
-      "phrase"
+      "word",
+      "nails",
+      "basic"
     ],
     "cz": "nelíbí se",
     "en": "to not like",
@@ -1213,7 +1238,9 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic 2",
+      "nails"
     ],
     "cz": "levné",
     "en": "cheap",
@@ -1225,7 +1252,9 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "nails",
+      "basic 2"
     ],
     "cz": "drahé",
     "en": "expensive",
@@ -1233,23 +1262,28 @@ export const WORDS = [
     "czPron": "DRA-hé",
     "viPron": "dat",
     "czAudio": "speech/cz/drahe.mp3",
-    "viAudio": "speech/vi/djat.mp3"
+    "viAudio": "speech/vi/djat.mp3",
+    "czHint": "drahé data"
   },
   {
     "category": [
-      "word"
+      "word",
+      "nails",
+      "basic 2"
     ],
     "cz": "čisté",
     "en": "clean",
     "vi": "sạch",
     "czPron": "ČIS-té",
-    "viPron": "sach",
+    "viPron": "sek",
     "czAudio": "speech/cz/ciste.mp3",
-    "viAudio": "speech/vi/sach.mp3"
+    "viAudio": "speech/vi/sach.mp3",
+    "czHint": "čistý sek"
   },
   {
     "category": [
-      "word"
+      "word",
+      "nails"
     ],
     "cz": "dezinfekce",
     "en": "disinfection",
@@ -1257,23 +1291,14 @@ export const WORDS = [
     "czPron": "DE-zin-fek-ce",
     "viPron": "khu čung",
     "czAudio": "speech/cz/dezinfekce.mp3",
-    "viAudio": "speech/vi/khu-trung.mp3"
+    "viAudio": "speech/vi/khu-trung.mp3",
+    "czHint": "khšic(odhánění) čuněte"
   },
   {
     "category": [
-      "word"
-    ],
-    "cz": "zákaznice",
-    "en": "customer (female)",
-    "vi": "khách hàng",
-    "czPron": "ZÁ-kaz-ni-ce",
-    "viPron": "kach hang",
-    "czAudio": "speech/cz/zakaznice.mp3",
-    "viAudio": "speech/vi/khach-hang.mp3"
-  },
-  {
-    "category": [
-      "phrase"
+      "phrase",
+      "basic",
+      "nails"
     ],
     "cz": "Je to v pořádku",
     "en": "It's okay",
