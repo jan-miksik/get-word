@@ -346,7 +346,7 @@ body {
 .settings-panel.is-open {
   display: block;
   position: absolute;
-  z-index: 60;
+  z-index: 160;
 }
 
 .progress-panel {

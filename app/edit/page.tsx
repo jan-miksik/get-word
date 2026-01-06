@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { WORDS } from '@/data/words';
 import { Word } from '@/data/words';
-import { normalizeWords, getAvailableCategories, getAllCategoriesWithCounts, STAGES, isDue } from '@/lib/words';
+import { normalizeWords, getAllCategoriesWithCounts, STAGES, isDue } from '@/lib/words';
 import { useAppState } from '@/hooks/useAppState';
 import { TopMenu } from '@/components/TopMenu';
 import { SettingsPanel } from '@/components/SettingsPanel';

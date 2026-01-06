@@ -44,7 +44,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "basic"
     ],
     "cz": "Jak se máte? 🙂",
     "en": "How are you?",
@@ -127,7 +128,7 @@ export const WORDS = [
     "en": "Do you have an idea?",
     "vi": "Bạn có ý tưởng gì không?",
     "czPron": "MÁ-te PŘED-sta-vu?",
-    "viPron": "ban ko i tuong zi khong",
+    "viPron": "ban ko i tuong zi chong",
     "czAudio": "speech/cz/mate-predstavu.mp3",
     "viAudio": "speech/vi/ban-co-y-tuong-gi-khong.mp3"
   },
@@ -309,7 +310,7 @@ export const WORDS = [
     ],
     "cz": "Nehty / Nehet",
     "en": "Nails / Nail ",
-    "vi": "Móng / Móng tay",
+    "vi": "Móng tay / Móng",
     "czPron": " NEh-ty / NE-het",
     "viPron": "mong taj / mong",
     "czAudio": [
@@ -1336,7 +1337,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "basic"
     ],
     "cz": "Můžete to zopakovat?",
     "en": "Can you repeat it?",
