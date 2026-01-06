@@ -13,6 +13,10 @@ interface TopMenuProps {
   categoryCount: number;
   categoryActive: boolean;
   progressActive: boolean;
+  readyCount?: number;
+  showWaitingForRepeat?: boolean;
+  onToggleWaitingForRepeat?: (e: MouseEvent) => void;
+  currentTab?: 'all' | 'ready';
 }
 
 export function TopMenu({

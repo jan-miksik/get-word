@@ -1357,12 +1357,14 @@ export const WORDS = [
     "czPron": "MLUV-te PRO-sím po-MA-lu",
     "viPron": "lam ən noj čam",
     "czAudio": "speech/cz/mluvte-prosim-pomalu.mp3",
-    "viAudio": "speech/vi/lam-on-noi-cham.mp3"
+    "viAudio": "speech/vi/lam-on-noi-cham.mp3",
+    "czHint": "prosím(vi) no i čaj"
   },
   {
     "category": [
       "basic",
-      "phrase"
+      "phrase",
+      "nails"
     ],
     "cz": "Počkejte prosím chvilku",
     "en": "Please wait a moment",
@@ -1370,12 +1372,14 @@ export const WORDS = [
     "czPron": "POČ-kej-te chvil-ku",
     "viPron": "lam ən čo mot čut",
     "czAudio": "speech/cz/pockejte-prosim-chvilku.mp3",
-    "viAudio": "speech/vi/lam-on-cho-mot-chut.mp3"
+    "viAudio": "speech/vi/lam-on-cho-mot-chut.mp3",
+    "czHint": "prosím čekejte[čo] chvilku[mot čut] - č m č"
   },
   {
     "category": [
       "basic",
-      "phrase"
+      "phrase",
+      "nails"
     ],
     "cz": "Teď nemám čas",
     "en": "I don't have time now",
@@ -1396,11 +1400,13 @@ export const WORDS = [
     "czPron": "TEĎ je to MOŽ-né",
     "viPron": "baj zə duk",
     "czAudio": "speech/cz/ted-je-to-mozne.mp3",
-    "viAudio": "speech/vi/bay-gio-djuoc.mp3"
+    "viAudio": "speech/vi/bay-gio-djuoc.mp3",
+    "czHint": "těď dobře - duk --buk"
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "basic"
     ],
     "cz": "Chci se zeptat",
     "en": "I want to ask",
@@ -1412,7 +1418,9 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "nails",
+      "basic"
     ],
     "cz": "Kolik to stojí?",
     "en": "How much is it?",
@@ -1420,36 +1428,41 @@ export const WORDS = [
     "czPron": "KO-lik to STO-jí",
     "viPron": "bao ňjeu tien",
     "czAudio": "speech/cz/kolik-to-stoji.mp3",
-    "viAudio": "speech/vi/bao-nhieu-tien.mp3"
+    "viAudio": "speech/vi/bao-nhieu-tien.mp3",
+    "czHint": "kolik peněz?"
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "basic"
     ],
     "cz": "Kde to je?",
-    "en": "Where is it?",
+    "en": "Where it is?",
     "vi": "Ở đâu?",
     "czPron": "GDE to je",
     "viPron": "ə dau",
     "czAudio": "speech/cz/kde-to-je.mp3",
-    "viAudio": "speech/vi/o-djau.mp3"
+    "viAudio": "speech/vi/o-djau.mp3",
+    "czHint": "Kde?"
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "basic"
     ],
     "cz": "Kdy to bude?",
     "en": "When will it be?",
     "vi": "Khi nào?",
     "czPron": "GDI to BU-de",
-    "viPron": "chi nao",
+    "viPron": "či nao",
     "czAudio": "speech/cz/kdy-to-bude.mp3",
     "viAudio": "speech/vi/khi-nao.mp3"
   },
   {
     "category": [
       "basic",
-      "phrase"
+      "phrase",
+      "nails"
     ],
     "cz": "Dnes to stačí",
     "en": "That's enough for today",
@@ -1474,7 +1487,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "basic"
     ],
     "cz": "To je dobré",
     "en": "That's good",
@@ -1486,7 +1500,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "basic"
     ],
     "cz": "To není dobré",
     "en": "That's not good",
@@ -1498,7 +1513,9 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "basic",
+      "nails"
     ],
     "cz": "Můžete se posadit",
     "en": "You can sit down",
@@ -1523,7 +1540,9 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "nails",
+      "basic"
     ],
     "cz": "Už je to hotové",
     "en": "It's finished",
@@ -1536,7 +1555,8 @@ export const WORDS = [
   {
     "category": [
       "basic",
-      "phrase"
+      "phrase",
+      "nails"
     ],
     "cz": "Počkejte prosím chvilku",
     "en": "Please wait a moment",
@@ -1548,19 +1568,23 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "basic",
+      "nails"
     ],
     "cz": "Nebude to bolet",
     "en": "It won't hurt",
     "vi": "Không đau đâu",
     "czPron": "NE-bu-de to BO-let",
-    "viPron": "chom zau dau",
+    "viPron": "chom dau dau",
     "czAudio": "speech/cz/nebude-to-bolet.mp3",
     "viAudio": "speech/vi/khong-djau-djau.mp3"
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "basic",
+      "nails"
     ],
     "cz": "Líbí se vám to?",
     "en": "Do you like it?",
@@ -1572,7 +1596,9 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "basic",
+      "nails"
     ],
     "cz": "Je to hezké?",
     "en": "Is it nice?",
@@ -1584,7 +1610,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "nails"
     ],
     "cz": "Chcete jinou barvu?",
     "en": "Do you want another color?",
@@ -1609,7 +1636,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "nails"
     ],
     "cz": "Uděláme to kratší",
     "en": "We will make it shorter",
@@ -1621,7 +1649,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "nails"
     ],
     "cz": "Uděláme to delší",
     "en": "We will make it longer",
@@ -1633,7 +1662,9 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "basic",
+      "nails"
     ],
     "cz": "Necháme to takto",
     "en": "We'll leave it like this",
@@ -1645,7 +1676,9 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "basic",
+      "nails"
     ],
     "cz": "Trochu to upravím",
     "en": "I'll adjust it a bit",
@@ -1657,7 +1690,9 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "basic",
+      "nails"
     ],
     "cz": "Musíme to opravit",
     "en": "We need to fix it",
@@ -1669,7 +1704,9 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "nails",
+      "basic"
     ],
     "cz": "Cena je tady",
     "en": "The price is here",
@@ -1681,7 +1718,9 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "basic",
+      "nails"
     ],
     "cz": "Je to trochu drahé",
     "en": "It's a bit expensive",
@@ -1693,19 +1732,23 @@ export const WORDS = [
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "basic",
+      "nails"
     ],
     "cz": "Je to levnější",
     "en": "It's cheaper",
     "vi": "Rẻ hơn",
     "czPron": "JE to LEV-něj-ší",
-    "viPron": "re hon",
+    "viPron": "ze hon",
     "czAudio": "speech/cz/je-to-levnejsi.mp3",
     "viAudio": "speech/vi/re-hon.mp3"
   },
   {
     "category": [
-      "phrase"
+      "phrase",
+      "basic",
+      "nails"
     ],
     "cz": "Bude to trvat chvíli",
     "en": "It will take a while",
@@ -1718,7 +1761,8 @@ export const WORDS = [
   {
     "category": [
       "basic",
-      "phrase"
+      "phrase",
+      "nails"
     ],
     "cz": "Děkuji, nashledanou",
     "en": "Thank you, goodbye",

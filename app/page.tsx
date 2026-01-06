@@ -22,7 +22,15 @@ const PAGE_STYLES = `
     padding: 1.5rem;
     text-align: center;
     border-top: 1px solid var(--border-subtle);
+    border-bottom: 1px solid var(--border-subtle);
     margin-top: 1rem;
+    position: sticky;
+    top: 0;
+    background: rgba(5, 8, 22, 0.98);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    z-index: 10;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
   }
 
   .toggle-button {

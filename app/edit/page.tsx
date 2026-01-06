@@ -12,6 +12,70 @@ import { CategoryPanel } from '@/components/CategoryPanel';
 import { MemoryHooksPanel } from '@/components/MemoryHooksPanel';
 import { EditableWordCard, EDIT_ONLY_CATEGORIES } from '@/components/EditableWordCard';
 
+const PAGE_STYLES = `
+  .toggle-button-container-large {
+    padding: 1.5rem;
+    text-align: center;
+    border-top: 1px solid var(--border-subtle);
+    margin-top: 1rem;
+  }
+
+  .toggle-button {
+    background: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 0.75rem 1.5rem;
+    font-size: 0.9rem;
+    color: var(--text);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-weight: 500;
+    font-family: var(--font-sans);
+  }
+
+  .toggle-button:hover {
+    background: rgba(15, 23, 42, 1);
+  }
+
+  .toggle-button-secondary {
+    background: transparent;
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-lg);
+    padding: 0.5rem 1rem;
+    font-size: 0.85rem;
+    color: var(--text-soft);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    font-family: var(--font-sans);
+  }
+
+  .toggle-button-secondary:hover {
+    background: rgba(15, 23, 42, 0.9);
+    color: var(--text);
+  }
+
+  .waiting-for-repeat-header {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid var(--border-subtle);
+    margin-top: 1rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--bg-elevated);
+  }
+
+  .waiting-for-repeat-title {
+    margin: 0;
+    font-size: 1rem;
+    font-weight: 600;
+    color: var(--text-soft);
+  }
+`;
+
+function PageStyles() {
+  return <style>{PAGE_STYLES}</style>;
+}
+
 export default function EditPage() {
   const router = useRouter();
   const [words, setWords] = useState<Word[]>([]);
@@ -63,6 +127,7 @@ export default function EditPage() {
     return getAllCategoriesWithCounts(normalizedWords, normalizedWords, EDIT_ONLY_CATEGORIES);
   }, [normalizedWords]);
   const phrasesRef = useRef<HTMLElement>(null);
+  const [showWaitingForRepeat, setShowWaitingForRepeat] = useState(false);
 
   useEffect(() => {
     // Start with normalized WORDS from data/words as default
@@ -301,6 +366,11 @@ export default function EditPage() {
     }
   };
 
+  // Reset showWaitingForRepeat when switching tabs or filters change
+  useEffect(() => {
+    setShowWaitingForRepeat(false);
+  }, [currentTab, selectedCategories]);
+
   const closeAllPanels = () => {
     setSettingsOpen(false);
     setProgressOpen(false);
@@ -318,6 +388,7 @@ export default function EditPage() {
 
   // Group words by stage (same as main page)
   const groupedWords = STAGES.map(() => [] as Array<{ word: typeof normalizedWords[0]; index: number }>);
+  const groupedWordsWaiting = STAGES.map(() => [] as Array<{ word: typeof normalizedWords[0]; index: number }>);
   let readyCount = 0;
 
   filteredWords.forEach(({ word, index }) => {
@@ -326,7 +397,13 @@ export default function EditPage() {
     if (due) readyCount += 1;
     if (currentTab === 'ready' && !due) return;
     const sIdx = Math.max(0, Math.min(prog.stageIndex || 0, STAGES.length - 1));
-    groupedWords[sIdx].push({ word, index });
+    
+    // In "all" tab, separate words that are due (waiting for repeat) from others
+    if (currentTab === 'all' && due) {
+      groupedWordsWaiting[sIdx].push({ word, index });
+    } else {
+      groupedWords[sIdx].push({ word, index });
+    }
   });
 
   // Calculate progress stats
@@ -658,53 +735,133 @@ export default function EditPage() {
             {currentTab === 'ready' ? 'All caught up!' : 'No words match your current filters.'}
           </div>
         ) : (
-          STAGES.map((stage, stageIndex) => {
-            const items = groupedWords[stageIndex];
-            if (!items.length) return null;
+          <>
+            {/* Regular words (not waiting for repeat) */}
+            {STAGES.map((stage, stageIndex) => {
+              const items = groupedWords[stageIndex];
+              if (!items.length) return null;
 
-            return (
-              <section key={stageIndex} className="category-zone">
-                <h2 className="category-zone-title">{stage.name}</h2>
-                {items.map(({ word, index: normalizedIndex }) => {
-                  const prog = progress[normalizedIndex] || {
-                    stageIndex: 0,
-                    knownCount: 0,
-                    unknownCount: 0,
-                  };
-                  // The index from getFilteredWords is the normalized index
-                  // We need to find the corresponding raw word
-                  // Since normalizedWords are derived from words, indices should match
-                  const rawWordIndex = normalizedIndex < words.length ? normalizedIndex : -1;
-                  
-                  if (rawWordIndex < 0) return null;
-                  
-                  return (
-                    <EditableWordCard
-                      key={normalizedIndex}
-                      word={word}
-                      index={normalizedIndex}
-                      progress={prog}
-                      role={role}
-                      modeIndex={modeIndex}
-                      showAll={showAll}
-                      memoryHook={getMemoryHook(normalizedIndex)}
-                      suggestedHook={getSuggestedMemoryHook(normalizedIndex)}
-                      onKnown={() => markKnown(normalizedIndex)}
-                      onUnknown={() => markUnknown(normalizedIndex)}
-                      onMemoryHookChange={(hook) => setMemoryHook(normalizedIndex, hook)}
-                      isMoved={lastMovedIndex === normalizedIndex}
-                      onWordChange={(idx, field, value) => handleWordFieldChange(rawWordIndex, field, value)}
-                      onCategoryToggle={(cat) => handleCategoryToggle(rawWordIndex, cat)}
-                      onCategoryAdd={(cat) => handleCategoryAdd(rawWordIndex, cat)}
-                      onCategoryRemove={(cat) => handleCategoryRemove(rawWordIndex, cat)}
-                      showEnglish={showEnglish}
-                      showCategoryBadges={showCategoryBadges}
-                    />
-                  );
-                })}
-              </section>
-            );
-          })
+              return (
+                <section key={stageIndex} className="category-zone">
+                  <h2 className="category-zone-title">{stage.name}</h2>
+                  {items.map(({ word, index: normalizedIndex }) => {
+                    const prog = progress[normalizedIndex] || {
+                      stageIndex: 0,
+                      knownCount: 0,
+                      unknownCount: 0,
+                    };
+                    // The index from getFilteredWords is the normalized index
+                    // We need to find the corresponding raw word
+                    // Since normalizedWords are derived from words, indices should match
+                    const rawWordIndex = normalizedIndex < words.length ? normalizedIndex : -1;
+                    
+                    if (rawWordIndex < 0) return null;
+                    
+                    return (
+                      <EditableWordCard
+                        key={normalizedIndex}
+                        word={word}
+                        index={normalizedIndex}
+                        progress={prog}
+                        role={role}
+                        modeIndex={modeIndex}
+                        showAll={showAll}
+                        memoryHook={getMemoryHook(normalizedIndex)}
+                        suggestedHook={getSuggestedMemoryHook(normalizedIndex)}
+                        onKnown={() => markKnown(normalizedIndex)}
+                        onUnknown={() => markUnknown(normalizedIndex)}
+                        onMemoryHookChange={(hook) => setMemoryHook(normalizedIndex, hook)}
+                        isMoved={lastMovedIndex === normalizedIndex}
+                        onWordChange={(idx, field, value) => handleWordFieldChange(rawWordIndex, field, value)}
+                        onCategoryToggle={(cat) => handleCategoryToggle(rawWordIndex, cat)}
+                        onCategoryAdd={(cat) => handleCategoryAdd(rawWordIndex, cat)}
+                        onCategoryRemove={(cat) => handleCategoryRemove(rawWordIndex, cat)}
+                        showEnglish={showEnglish}
+                        showCategoryBadges={showCategoryBadges}
+                      />
+                    );
+                  })}
+                </section>
+              );
+            })}
+            
+            {/* Words waiting for repeat - hidden by default in "all" tab */}
+            {currentTab === 'all' && readyCount > 0 && (
+              <>
+                {!showWaitingForRepeat && (
+                  <div className="toggle-button-container-large">
+                    <button
+                      type="button"
+                      className="toggle-button"
+                      onClick={() => setShowWaitingForRepeat(true)}
+                    >
+                      Show {readyCount} word{readyCount !== 1 ? 's' : ''} waiting for repeat
+                    </button>
+                  </div>
+                )}
+                {showWaitingForRepeat && (
+                  <>
+                    <div className="waiting-for-repeat-header">
+                      <h2 className="waiting-for-repeat-title">
+                        Waiting for repeat ({readyCount})
+                      </h2>
+                      <button
+                        type="button"
+                        className="toggle-button-secondary"
+                        onClick={() => setShowWaitingForRepeat(false)}
+                      >
+                        Hide
+                      </button>
+                    </div>
+                    {STAGES.map((stage, stageIndex) => {
+                      const items = groupedWordsWaiting[stageIndex];
+                      if (!items.length) return null;
+
+                      return (
+                        <section key={`waiting-${stageIndex}`} className="category-zone">
+                          <h2 className="category-zone-title">{stage.name}</h2>
+                          {items.map(({ word, index: normalizedIndex }) => {
+                            const prog = progress[normalizedIndex] || {
+                              stageIndex: 0,
+                              knownCount: 0,
+                              unknownCount: 0,
+                            };
+                            const rawWordIndex = normalizedIndex < words.length ? normalizedIndex : -1;
+                            
+                            if (rawWordIndex < 0) return null;
+                            
+                            return (
+                              <EditableWordCard
+                                key={normalizedIndex}
+                                word={word}
+                                index={normalizedIndex}
+                                progress={prog}
+                                role={role}
+                                modeIndex={modeIndex}
+                                showAll={showAll}
+                                memoryHook={getMemoryHook(normalizedIndex)}
+                                suggestedHook={getSuggestedMemoryHook(normalizedIndex)}
+                                onKnown={() => markKnown(normalizedIndex)}
+                                onUnknown={() => markUnknown(normalizedIndex)}
+                                onMemoryHookChange={(hook) => setMemoryHook(normalizedIndex, hook)}
+                                isMoved={lastMovedIndex === normalizedIndex}
+                                onWordChange={(idx, field, value) => handleWordFieldChange(rawWordIndex, field, value)}
+                                onCategoryToggle={(cat) => handleCategoryToggle(rawWordIndex, cat)}
+                                onCategoryAdd={(cat) => handleCategoryAdd(rawWordIndex, cat)}
+                                onCategoryRemove={(cat) => handleCategoryRemove(rawWordIndex, cat)}
+                                showEnglish={showEnglish}
+                                showCategoryBadges={showCategoryBadges}
+                              />
+                            );
+                          })}
+                        </section>
+                      );
+                    })}
+                  </>
+                )}
+              </>
+            )}
+          </>
         )}
       </main>
 
@@ -726,6 +883,7 @@ export default function EditPage() {
           Ready to repeat
         </button>
       </nav>
+      <PageStyles />
     </div>
   );
 }
