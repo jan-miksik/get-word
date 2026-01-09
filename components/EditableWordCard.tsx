@@ -15,6 +15,7 @@ interface EditableWordCardProps {
   memoryHook: string;
   suggestedHook: string;
   onKnown: () => void;
+  onReallyKnown?: () => void;
   onUnknown: () => void;
   onMemoryHookChange: (hook: string) => void;
   isMoved?: boolean;
@@ -40,6 +41,7 @@ export function EditableWordCard({
   memoryHook,
   suggestedHook,
   onKnown,
+  onReallyKnown,
   onUnknown,
   onMemoryHookChange,
   isMoved,
@@ -383,6 +385,7 @@ export function EditableWordCard({
         memoryHook={memoryHook}
         suggestedHook={suggestedHook}
         onKnown={onKnown}
+        onReallyKnown={onReallyKnown}
         onUnknown={onUnknown}
         onMemoryHookChange={onMemoryHookChange}
         isMoved={isMoved}

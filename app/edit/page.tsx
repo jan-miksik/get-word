@@ -110,6 +110,7 @@ export default function EditPage() {
     memoryHooksOpen,
     setMemoryHooksOpen,
     markKnown,
+    markReallyKnown,
     markUnknown,
     getFilteredWords,
     toggleCategory: toggleCategoryFilter,
@@ -769,6 +770,7 @@ export default function EditPage() {
                         memoryHook={getMemoryHook(normalizedIndex)}
                         suggestedHook={getSuggestedMemoryHook(normalizedIndex)}
                         onKnown={() => markKnown(normalizedIndex)}
+                        onReallyKnown={() => markReallyKnown(normalizedIndex)}
                         onUnknown={() => markUnknown(normalizedIndex)}
                         onMemoryHookChange={(hook) => setMemoryHook(normalizedIndex, hook)}
                         isMoved={lastMovedIndex === normalizedIndex}
@@ -842,6 +844,7 @@ export default function EditPage() {
                                 memoryHook={getMemoryHook(normalizedIndex)}
                                 suggestedHook={getSuggestedMemoryHook(normalizedIndex)}
                                 onKnown={() => markKnown(normalizedIndex)}
+                                onReallyKnown={() => markReallyKnown(normalizedIndex)}
                                 onUnknown={() => markUnknown(normalizedIndex)}
                                 onMemoryHookChange={(hook) => setMemoryHook(normalizedIndex, hook)}
                                 isMoved={lastMovedIndex === normalizedIndex}

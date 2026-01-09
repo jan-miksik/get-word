@@ -346,7 +346,7 @@ body {
 .settings-panel.is-open {
   display: block;
   position: absolute;
-  z-index: 160;
+  z-index: 150;
 }
 
 .progress-panel {
@@ -365,7 +365,7 @@ body {
   max-width: 720px;
   margin-left: auto;
   margin-right: auto;
-  z-index: 100;
+  z-index: 150;
   box-shadow: var(--shadow-soft);
 }
 
@@ -393,7 +393,7 @@ body {
   max-width: 720px;
   margin-left: auto;
   margin-right: auto;
-  z-index: 100;
+  z-index: 150;
   box-shadow: var(--shadow-soft);
 }
 
@@ -457,7 +457,7 @@ body {
   max-width: 720px;
   margin-left: auto;
   margin-right: auto;
-  z-index: 90;
+  z-index: 150;
   box-shadow: var(--shadow-soft);
 }
 
@@ -599,7 +599,7 @@ body {
   gap: 8px;
   padding: 8px 4px 20px;
   background: linear-gradient(to top, rgba(15, 23, 42, 0.96), transparent);
-  z-index: 10;
+  z-index: 110;
   flex-shrink: 0;
 }
 

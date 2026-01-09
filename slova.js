@@ -1403,7 +1403,7 @@ export const WORDS = [
     "viPron": "baj zə duk",
     "czAudio": "speech/cz/ted-je-to-mozne.mp3",
     "viAudio": "speech/vi/bay-gio-djuoc.mp3",
-    "czHint": "těď dobře - duk --buk"
+    "czHint": "těď dobře - duk"
   },
   {
     "category": [
@@ -1456,9 +1456,10 @@ export const WORDS = [
     "en": "When will it be?",
     "vi": "Khi nào?",
     "czPron": "GDI to BU-de",
-    "viPron": "či nao",
+    "viPron": "chi nao",
     "czAudio": "speech/cz/kdy-to-bude.mp3",
-    "viAudio": "speech/vi/khi-nao.mp3"
+    "viAudio": "speech/vi/khi-nao.mp3",
+    "czHint": "chi na-o, čekání na balíček z číny"
   },
   {
     "category": [
@@ -2149,7 +2150,8 @@ export const WORDS = [
     "czPron": "CES-ta",
     "viPron": "duong",
     "czAudio": "speech/cz/cesta.mp3",
-    "viAudio": "speech/vi/djuong.mp3"
+    "viAudio": "speech/vi/djuong.mp3",
+    "czHint": "du po cestě"
   },
   {
     "category": [

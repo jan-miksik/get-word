@@ -14,6 +14,7 @@ interface WordCardProps {
   memoryHook: string;
   suggestedHook: string;
   onKnown: () => void;
+  onReallyKnown?: () => void;
   onUnknown: () => void;
   onMemoryHookChange: (hook: string) => void;
   isMoved?: boolean;
@@ -33,6 +34,7 @@ export function WordCard({
   memoryHook,
   suggestedHook,
   onKnown,
+  onReallyKnown,
   onUnknown,
   onMemoryHookChange,
   isMoved,
@@ -285,7 +287,24 @@ export function WordCard({
         >
           ✖ <span className="count">{progress.unknownCount > 0 ? `(${progress.unknownCount})` : ''}</span>
         </button>
-        {audioSrc && (
+        <button
+          type="button"
+          className="progress-btn known"
+          onClick={onKnown}
+        >
+          ✔ <span className="count">{progress.knownCount > 0 ? `(${progress.knownCount})` : ''}</span>
+        </button>
+        {onReallyKnown && (
+          <button
+            type="button"
+            className="progress-btn known really-known"
+            onClick={onReallyKnown}
+            title="Mark as really known (skip one time frame)"
+          >
+            ✔✔
+          </button>
+        )}
+                {audioSrc && (
           <button
             type="button"
             className="audio-btn"
@@ -295,13 +314,6 @@ export function WordCard({
             🔊
           </button>
         )}
-        <button
-          type="button"
-          className="progress-btn known"
-          onClick={onKnown}
-        >
-          ✔ <span className="count">{progress.knownCount > 0 ? `(${progress.knownCount})` : ''}</span>
-        </button>
       </div>
     </article>
   );

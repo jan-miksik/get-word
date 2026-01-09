@@ -123,6 +123,36 @@ export function useAppState(words: NormalizedWord[]) {
     lastMovedTimeoutRef.current = setTimeout(() => setLastMovedIndex(null), 1000);
   }, []);
 
+  // Mark word as really known (skips one stage)
+  const markReallyKnown = useCallback((wordIndex: number) => {
+    setProgress((prev) => {
+      const current = prev[wordIndex] || {
+        stageIndex: 0,
+        knownCount: 0,
+        unknownCount: 0,
+      };
+      // Advance by 2 stages instead of 1 to skip one time frame
+      const newStageIndex = Math.min(current.stageIndex + 2, STAGES.length - 1);
+      const stage = STAGES[newStageIndex];
+      return {
+        ...prev,
+        [wordIndex]: {
+          ...current,
+          stageIndex: newStageIndex,
+          knownCount: current.knownCount + 1,
+          lastKnownAt: Date.now(),
+          nextDueAt: stage.intervalMs > 0 ? Date.now() + stage.intervalMs : undefined,
+        },
+      };
+    });
+    setLastMovedIndex(wordIndex);
+    // Clear any existing timeout before setting a new one
+    if (lastMovedTimeoutRef.current) {
+      clearTimeout(lastMovedTimeoutRef.current);
+    }
+    lastMovedTimeoutRef.current = setTimeout(() => setLastMovedIndex(null), 1000);
+  }, []);
+
   // Mark word as unknown
   const markUnknown = useCallback((wordIndex: number) => {
     setProgress((prev) => {
@@ -239,6 +269,7 @@ export function useAppState(words: NormalizedWord[]) {
     setMemoryHooksOpen,
     updateProgress,
     markKnown,
+    markReallyKnown,
     markUnknown,
     getFilteredWords,
     toggleCategory,

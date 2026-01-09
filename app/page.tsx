@@ -115,6 +115,7 @@ export default function Home() {
     memoryHooksOpen,
     setMemoryHooksOpen,
     markKnown,
+    markReallyKnown,
     markUnknown,
     getFilteredWords,
     toggleCategory,
@@ -626,6 +627,7 @@ export default function Home() {
                           memoryHook={getMemoryHook(index)}
                           suggestedHook={getSuggestedMemoryHook(index)}
                           onKnown={() => markKnown(index)}
+                          onReallyKnown={() => markReallyKnown(index)}
                           onUnknown={() => markUnknown(index)}
                           onMemoryHookChange={(hook) => setMemoryHook(index, hook)}
                           isMoved={lastMovedIndex === index}
@@ -704,6 +706,7 @@ export default function Home() {
                                 memoryHook={getMemoryHook(index)}
                                 suggestedHook={getSuggestedMemoryHook(index)}
                                 onKnown={() => markKnown(index)}
+                                onReallyKnown={() => markReallyKnown(index)}
                                 onUnknown={() => markUnknown(index)}
                                 onMemoryHookChange={(hook) => setMemoryHook(index, hook)}
                                 isMoved={lastMovedIndex === index}
