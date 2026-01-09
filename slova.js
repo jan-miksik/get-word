@@ -1463,320 +1463,6 @@ export const WORDS = [
   },
   {
     "category": [
-      "basic",
-      "phrase",
-      "nails"
-    ],
-    "cz": "Dnes to stačí",
-    "en": "That's enough for today",
-    "vi": "Hôm nay như vậy đủ rồi",
-    "czPron": "DNES to STA-čí",
-    "viPron": "hom naj ňu vaj du zoj",
-    "czAudio": "speech/cz/dnes-to-staci.mp3",
-    "viAudio": "speech/vi/hom-nay-nhu-vay-dju-roi.mp3"
-  },
-  {
-    "category": [
-      "basic",
-      "phrase"
-    ],
-    "cz": "Zítra to bude lepší",
-    "en": "Tomorrow will be better",
-    "vi": "Ngày mai sẽ tốt hơn",
-    "czPron": "ZÍT-ra to BU-de LEP-ší",
-    "viPron": "ngaj maj se tot hon",
-    "czAudio": "speech/cz/zitra-to-bude-lepsi.mp3",
-    "viAudio": "speech/vi/ngay-mai-se-tot-hon.mp3"
-  },
-  {
-    "category": [
-      "phrase",
-      "basic"
-    ],
-    "cz": "To je dobré",
-    "en": "That's good",
-    "vi": "Như vậy tốt",
-    "czPron": "TO je DO-bré",
-    "viPron": "ňu vaj tot",
-    "czAudio": "speech/cz/to-je-dobre.mp3",
-    "viAudio": "speech/vi/nhu-vay-tot.mp3"
-  },
-  {
-    "category": [
-      "phrase",
-      "basic"
-    ],
-    "cz": "To není dobré",
-    "en": "That's not good",
-    "vi": "Không tốt",
-    "czPron": "TO NE-ní DO-bré",
-    "viPron": "chom tot",
-    "czAudio": "speech/cz/to-neni-dobre.mp3",
-    "viAudio": "speech/vi/khong-tot.mp3"
-  },
-  {
-    "category": [
-      "phrase",
-      "basic",
-      "nails"
-    ],
-    "cz": "Můžete se posadit",
-    "en": "You can sit down",
-    "vi": "Bạn có thể ngồi",
-    "czPron": "MŮ-že-te se po-SA-dit",
-    "viPron": "ban ko tche ngoj",
-    "czAudio": "speech/cz/muzete-se-posadit.mp3",
-    "viAudio": "speech/vi/ban-co-the-ngoi.mp3"
-  },
-  {
-    "category": [
-      "basic",
-      "phrase"
-    ],
-    "cz": "Začneme teď",
-    "en": "We will start now",
-    "vi": "Bắt đầu bây giờ",
-    "czPron": "ZAČ-ne-me teď",
-    "viPron": "bat dau baj zə",
-    "czAudio": "speech/cz/zacneme-ted.mp3",
-    "viAudio": "speech/vi/bat-djau-bay-gio.mp3"
-  },
-  {
-    "category": [
-      "phrase",
-      "nails",
-      "basic"
-    ],
-    "cz": "Už je to hotové",
-    "en": "It's finished",
-    "vi": "Xong rồi",
-    "czPron": "UŽ je to HO-to-vé",
-    "viPron": "song zoj",
-    "czAudio": "speech/cz/uz-je-to-hotove.mp3",
-    "viAudio": "speech/vi/xong-roi.mp3"
-  },
-  {
-    "category": [
-      "basic",
-      "phrase",
-      "nails"
-    ],
-    "cz": "Počkejte prosím chvilku",
-    "en": "Please wait a moment",
-    "vi": "Làm ơn chờ một chút",
-    "czPron": "POČ-kej-te chvil-ku",
-    "viPron": "lam ən čo mot čut",
-    "czAudio": "speech/cz/pockejte-prosim-chvilku.mp3",
-    "viAudio": "speech/vi/lam-on-cho-mot-chut.mp3"
-  },
-  {
-    "category": [
-      "phrase",
-      "basic",
-      "nails"
-    ],
-    "cz": "Nebude to bolet",
-    "en": "It won't hurt",
-    "vi": "Không đau đâu",
-    "czPron": "NE-bu-de to BO-let",
-    "viPron": "chom dau dau",
-    "czAudio": "speech/cz/nebude-to-bolet.mp3",
-    "viAudio": "speech/vi/khong-djau-djau.mp3"
-  },
-  {
-    "category": [
-      "phrase",
-      "basic",
-      "nails"
-    ],
-    "cz": "Líbí se vám to?",
-    "en": "Do you like it?",
-    "vi": "Bạn có thích không?",
-    "czPron": "LÍ-bí se vám to",
-    "viPron": "ban ko thik chom",
-    "czAudio": "speech/cz/libi-se-vam-to.mp3",
-    "viAudio": "speech/vi/ban-co-thich-khong.mp3"
-  },
-  {
-    "category": [
-      "phrase",
-      "basic",
-      "nails"
-    ],
-    "cz": "Je to hezké?",
-    "en": "Is it nice?",
-    "vi": "Đẹp không?",
-    "czPron": "JE to HEZ-ké",
-    "viPron": "dep chom",
-    "czAudio": "speech/cz/je-to-hezke.mp3",
-    "viAudio": "speech/vi/djep-khong.mp3"
-  },
-  {
-    "category": [
-      "phrase",
-      "nails"
-    ],
-    "cz": "Chcete jinou barvu?",
-    "en": "Do you want another color?",
-    "vi": "Bạn muốn màu khác không?",
-    "czPron": "CHCE-te JI-nou BAR-vu",
-    "viPron": "ban muon mau chac chom",
-    "czAudio": "speech/cz/chcete-jinou-barvu.mp3",
-    "viAudio": "speech/vi/ban-muon-mau-khac-khong.mp3"
-  },
-  {
-    "category": [
-      "nails",
-      "phrase"
-    ],
-    "cz": "Krátké nebo dlouhé?",
-    "en": "Shorter or longer?",
-    "vi": "Ngắn hay dài?",
-    "czPron": "KRÁT-ké ne-bo DLOU-hé?",
-    "viPron": "ngan haj zaj",
-    "czAudio": "speech/cz/kratke-nebo-dlouhe.mp3",
-    "viAudio": "speech/vi/ngan-hay-dai.mp3"
-  },
-  {
-    "category": [
-      "phrase",
-      "nails"
-    ],
-    "cz": "Uděláme to kratší",
-    "en": "We will make it shorter",
-    "vi": "Làm ngắn lại",
-    "czPron": "U-DĚ-lá-me to KRAT-ší",
-    "viPron": "lam ngan laj",
-    "czAudio": "speech/cz/udelame-to-kratsi.mp3",
-    "viAudio": "speech/vi/lam-ngan-lai.mp3"
-  },
-  {
-    "category": [
-      "phrase",
-      "nails"
-    ],
-    "cz": "Uděláme to delší",
-    "en": "We will make it longer",
-    "vi": "Làm dài hơn",
-    "czPron": "U-DĚ-lá-me to DEL-ší",
-    "viPron": "lam zaj hon",
-    "czAudio": "speech/cz/udelame-to-delsi.mp3",
-    "viAudio": "speech/vi/lam-dai-hon.mp3"
-  },
-  {
-    "category": [
-      "phrase",
-      "basic",
-      "nails"
-    ],
-    "cz": "Necháme to takto",
-    "en": "We'll leave it like this",
-    "vi": "Giữ như vậy",
-    "czPron": "NE-CHÁ-me to TAK-to",
-    "viPron": "zu ňu vaj",
-    "czAudio": "speech/cz/nechame-to-takto.mp3",
-    "viAudio": "speech/vi/giu-nhu-vay.mp3"
-  },
-  {
-    "category": [
-      "phrase",
-      "basic",
-      "nails"
-    ],
-    "cz": "Trochu to upravím",
-    "en": "I'll adjust it a bit",
-    "vi": "Sửa một chút",
-    "czPron": "TRO-chu to U-PRA-vím",
-    "viPron": "sua mot čut",
-    "czAudio": "speech/cz/trochu-to-upravim.mp3",
-    "viAudio": "speech/vi/sua-mot-chut.mp3"
-  },
-  {
-    "category": [
-      "phrase",
-      "basic",
-      "nails"
-    ],
-    "cz": "Musíme to opravit",
-    "en": "We need to fix it",
-    "vi": "Cần sửa lại",
-    "czPron": "MU-sí-me to O-PRA-vit",
-    "viPron": "kan sua laj",
-    "czAudio": "speech/cz/musime-to-opravit.mp3",
-    "viAudio": "speech/vi/can-sua-lai.mp3"
-  },
-  {
-    "category": [
-      "phrase",
-      "nails",
-      "basic"
-    ],
-    "cz": "Cena je tady",
-    "en": "The price is here",
-    "vi": "Giá là thế này",
-    "czPron": "CE-na je TA-dy",
-    "viPron": "za la the naj",
-    "czAudio": "speech/cz/cena-je-tady.mp3",
-    "viAudio": "speech/vi/gia-la-the-nay.mp3"
-  },
-  {
-    "category": [
-      "phrase",
-      "basic",
-      "nails"
-    ],
-    "cz": "Je to trochu drahé",
-    "en": "It's a bit expensive",
-    "vi": "Hơi đắt",
-    "czPron": "JE to TRO-chu DRA-hé",
-    "viPron": "hoj dat",
-    "czAudio": "speech/cz/je-to-trochu-drahe.mp3",
-    "viAudio": "speech/vi/hoi-djat.mp3"
-  },
-  {
-    "category": [
-      "phrase",
-      "basic",
-      "nails"
-    ],
-    "cz": "Je to levnější",
-    "en": "It's cheaper",
-    "vi": "Rẻ hơn",
-    "czPron": "JE to LEV-něj-ší",
-    "viPron": "ze hon",
-    "czAudio": "speech/cz/je-to-levnejsi.mp3",
-    "viAudio": "speech/vi/re-hon.mp3"
-  },
-  {
-    "category": [
-      "phrase",
-      "basic",
-      "nails"
-    ],
-    "cz": "Bude to trvat chvíli",
-    "en": "It will take a while",
-    "vi": "Sẽ mất một chút thời gian",
-    "czPron": "BU-de to TR-vat CHVÍ-li",
-    "viPron": "se mat mot čut thoj zan",
-    "czAudio": "speech/cz/bude-to-trvat-chvili.mp3",
-    "viAudio": "speech/vi/se-mat-mot-chut-thoi-gian.mp3"
-  },
-  {
-    "category": [
-      "basic",
-      "phrase",
-      "nails"
-    ],
-    "cz": "Děkuji, nashledanou",
-    "en": "Thank you, goodbye",
-    "vi": "Cảm ơn, hẹn gặp lại",
-    "czPron": "DĚ-ku-ji na-SCHLE-da-nou",
-    "viPron": "kam ən hen gap laj",
-    "czAudio": "speech/cz/dekuji-nashledanou.mp3",
-    "viAudio": "speech/vi/cam-on-hen-gap-lai.mp3"
-  },
-  {
-    "category": [
       "word",
       "basic"
     ],
@@ -2335,7 +2021,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Nebo",
     "en": "Or",
@@ -2347,7 +2034,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Také",
     "en": "Also",
@@ -2355,11 +2043,13 @@ export const WORDS = [
     "czPron": "TA-ké",
     "viPron": "kung",
     "czAudio": "speech/cz/take.mp3",
-    "viAudio": "speech/vi/cung.mp3"
+    "viAudio": "speech/vi/cung.mp3",
+    "czHint": "kung - taky umí kung fu"
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic 2"
     ],
     "cz": "Jen",
     "en": "Only",
@@ -2371,7 +2061,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Už",
     "en": "Already",
@@ -2383,7 +2074,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Ještě",
     "en": "Still",
@@ -2683,7 +2375,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Věřit",
     "en": "To believe",
@@ -2920,5 +2613,319 @@ export const WORDS = [
     "viPron": "ko le",
     "czAudio": "speech/cz/mozna.mp3",
     "viAudio": "speech/vi/co-le.mp3"
+  },
+  {
+    "category": [
+      "basic",
+      "phrase",
+      "nails"
+    ],
+    "cz": "Dnes to stačí",
+    "en": "That's enough for today",
+    "vi": "Hôm nay như vậy đủ rồi",
+    "czPron": "DNES to STA-čí",
+    "viPron": "hom naj ňu vaj du zoj",
+    "czAudio": "speech/cz/dnes-to-staci.mp3",
+    "viAudio": "speech/vi/hom-nay-nhu-vay-dju-roi.mp3"
+  },
+  {
+    "category": [
+      "basic",
+      "phrase"
+    ],
+    "cz": "Zítra to bude lepší",
+    "en": "Tomorrow will be better",
+    "vi": "Ngày mai sẽ tốt hơn",
+    "czPron": "ZÍT-ra to BU-de LEP-ší",
+    "viPron": "ngaj maj se tot hon",
+    "czAudio": "speech/cz/zitra-to-bude-lepsi.mp3",
+    "viAudio": "speech/vi/ngay-mai-se-tot-hon.mp3"
+  },
+  {
+    "category": [
+      "phrase",
+      "basic"
+    ],
+    "cz": "To je dobré",
+    "en": "That's good",
+    "vi": "Như vậy tốt",
+    "czPron": "TO je DO-bré",
+    "viPron": "ňu vaj tot",
+    "czAudio": "speech/cz/to-je-dobre.mp3",
+    "viAudio": "speech/vi/nhu-vay-tot.mp3"
+  },
+  {
+    "category": [
+      "phrase",
+      "basic"
+    ],
+    "cz": "To není dobré",
+    "en": "That's not good",
+    "vi": "Không tốt",
+    "czPron": "TO NE-ní DO-bré",
+    "viPron": "chom tot",
+    "czAudio": "speech/cz/to-neni-dobre.mp3",
+    "viAudio": "speech/vi/khong-tot.mp3"
+  },
+  {
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Můžete se posadit",
+    "en": "You can sit down",
+    "vi": "Bạn có thể ngồi",
+    "czPron": "MŮ-že-te se po-SA-dit",
+    "viPron": "ban ko tche ngoj",
+    "czAudio": "speech/cz/muzete-se-posadit.mp3",
+    "viAudio": "speech/vi/ban-co-the-ngoi.mp3"
+  },
+  {
+    "category": [
+      "basic",
+      "phrase"
+    ],
+    "cz": "Začneme teď",
+    "en": "We will start now",
+    "vi": "Bắt đầu bây giờ",
+    "czPron": "ZAČ-ne-me teď",
+    "viPron": "bat dau baj zə",
+    "czAudio": "speech/cz/zacneme-ted.mp3",
+    "viAudio": "speech/vi/bat-djau-bay-gio.mp3"
+  },
+  {
+    "category": [
+      "phrase",
+      "nails",
+      "basic"
+    ],
+    "cz": "Už je to hotové",
+    "en": "It's finished",
+    "vi": "Xong rồi",
+    "czPron": "UŽ je to HO-to-vé",
+    "viPron": "song zoj",
+    "czAudio": "speech/cz/uz-je-to-hotove.mp3",
+    "viAudio": "speech/vi/xong-roi.mp3"
+  },
+  {
+    "category": [
+      "basic",
+      "phrase",
+      "nails"
+    ],
+    "cz": "Počkejte prosím chvilku",
+    "en": "Please wait a moment",
+    "vi": "Làm ơn chờ một chút",
+    "czPron": "POČ-kej-te chvil-ku",
+    "viPron": "lam ən čo mot čut",
+    "czAudio": "speech/cz/pockejte-prosim-chvilku.mp3",
+    "viAudio": "speech/vi/lam-on-cho-mot-chut.mp3"
+  },
+  {
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Nebude to bolet",
+    "en": "It won't hurt",
+    "vi": "Không đau đâu",
+    "czPron": "NE-bu-de to BO-let",
+    "viPron": "chom dau dau",
+    "czAudio": "speech/cz/nebude-to-bolet.mp3",
+    "viAudio": "speech/vi/khong-djau-djau.mp3"
+  },
+  {
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Líbí se vám to?",
+    "en": "Do you like it?",
+    "vi": "Bạn có thích không?",
+    "czPron": "LÍ-bí se vám to",
+    "viPron": "ban ko thik chom",
+    "czAudio": "speech/cz/libi-se-vam-to.mp3",
+    "viAudio": "speech/vi/ban-co-thich-khong.mp3"
+  },
+  {
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Je to hezké?",
+    "en": "Is it nice?",
+    "vi": "Đẹp không?",
+    "czPron": "JE to HEZ-ké",
+    "viPron": "dep chom",
+    "czAudio": "speech/cz/je-to-hezke.mp3",
+    "viAudio": "speech/vi/djep-khong.mp3"
+  },
+  {
+    "category": [
+      "phrase",
+      "nails"
+    ],
+    "cz": "Chcete jinou barvu?",
+    "en": "Do you want another color?",
+    "vi": "Bạn muốn màu khác không?",
+    "czPron": "CHCE-te JI-nou BAR-vu",
+    "viPron": "ban muon mau chac chom",
+    "czAudio": "speech/cz/chcete-jinou-barvu.mp3",
+    "viAudio": "speech/vi/ban-muon-mau-khac-khong.mp3"
+  },
+  {
+    "category": [
+      "nails",
+      "phrase"
+    ],
+    "cz": "Krátké nebo dlouhé?",
+    "en": "Shorter or longer?",
+    "vi": "Ngắn hay dài?",
+    "czPron": "KRÁT-ké ne-bo DLOU-hé?",
+    "viPron": "ngan haj zaj",
+    "czAudio": "speech/cz/kratke-nebo-dlouhe.mp3",
+    "viAudio": "speech/vi/ngan-hay-dai.mp3"
+  },
+  {
+    "category": [
+      "phrase",
+      "nails"
+    ],
+    "cz": "Uděláme to kratší",
+    "en": "We will make it shorter",
+    "vi": "Làm ngắn lại",
+    "czPron": "U-DĚ-lá-me to KRAT-ší",
+    "viPron": "lam ngan laj",
+    "czAudio": "speech/cz/udelame-to-kratsi.mp3",
+    "viAudio": "speech/vi/lam-ngan-lai.mp3"
+  },
+  {
+    "category": [
+      "phrase",
+      "nails"
+    ],
+    "cz": "Uděláme to delší",
+    "en": "We will make it longer",
+    "vi": "Làm dài hơn",
+    "czPron": "U-DĚ-lá-me to DEL-ší",
+    "viPron": "lam zaj hon",
+    "czAudio": "speech/cz/udelame-to-delsi.mp3",
+    "viAudio": "speech/vi/lam-dai-hon.mp3"
+  },
+  {
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Necháme to takto",
+    "en": "We'll leave it like this",
+    "vi": "Giữ như vậy",
+    "czPron": "NE-CHÁ-me to TAK-to",
+    "viPron": "zu ňu vaj",
+    "czAudio": "speech/cz/nechame-to-takto.mp3",
+    "viAudio": "speech/vi/giu-nhu-vay.mp3"
+  },
+  {
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Trochu to upravím",
+    "en": "I'll adjust it a bit",
+    "vi": "Sửa một chút",
+    "czPron": "TRO-chu to U-PRA-vím",
+    "viPron": "sua mot čut",
+    "czAudio": "speech/cz/trochu-to-upravim.mp3",
+    "viAudio": "speech/vi/sua-mot-chut.mp3"
+  },
+  {
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Musíme to opravit",
+    "en": "We need to fix it",
+    "vi": "Cần sửa lại",
+    "czPron": "MU-sí-me to O-PRA-vit",
+    "viPron": "kan sua laj",
+    "czAudio": "speech/cz/musime-to-opravit.mp3",
+    "viAudio": "speech/vi/can-sua-lai.mp3"
+  },
+  {
+    "category": [
+      "phrase",
+      "nails",
+      "basic"
+    ],
+    "cz": "Cena je tady",
+    "en": "The price is here",
+    "vi": "Giá là thế này",
+    "czPron": "CE-na je TA-dy",
+    "viPron": "za la the naj",
+    "czAudio": "speech/cz/cena-je-tady.mp3",
+    "viAudio": "speech/vi/gia-la-the-nay.mp3"
+  },
+  {
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Je to trochu drahé",
+    "en": "It's a bit expensive",
+    "vi": "Hơi đắt",
+    "czPron": "JE to TRO-chu DRA-hé",
+    "viPron": "hoj dat",
+    "czAudio": "speech/cz/je-to-trochu-drahe.mp3",
+    "viAudio": "speech/vi/hoi-djat.mp3"
+  },
+  {
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Je to levnější",
+    "en": "It's cheaper",
+    "vi": "Rẻ hơn",
+    "czPron": "JE to LEV-něj-ší",
+    "viPron": "ze hon",
+    "czAudio": "speech/cz/je-to-levnejsi.mp3",
+    "viAudio": "speech/vi/re-hon.mp3"
+  },
+  {
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Bude to trvat chvíli",
+    "en": "It will take a while",
+    "vi": "Sẽ mất một chút thời gian",
+    "czPron": "BU-de to TR-vat CHVÍ-li",
+    "viPron": "se mat mot čut thoj zan",
+    "czAudio": "speech/cz/bude-to-trvat-chvili.mp3",
+    "viAudio": "speech/vi/se-mat-mot-chut-thoi-gian.mp3"
+  },
+  {
+    "category": [
+      "basic",
+      "phrase",
+      "nails"
+    ],
+    "cz": "Děkuji, nashledanou",
+    "en": "Thank you, goodbye",
+    "vi": "Cảm ơn, hẹn gặp lại",
+    "czPron": "DĚ-ku-ji na-SCHLE-da-nou",
+    "viPron": "kam ən hen gap laj",
+    "czAudio": "speech/cz/dekuji-nashledanou.mp3",
+    "viAudio": "speech/vi/cam-on-hen-gap-lai.mp3"
   }
 ];

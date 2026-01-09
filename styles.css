@@ -118,7 +118,7 @@ body {
   position: sticky;
   top: 0;
   backdrop-filter: blur(5px);
-  z-index: 100;
+  z-index: 150;
   padding: 0.5rem 0;
 }
 
