@@ -2123,7 +2123,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Pozdě",
     "en": "Late",
@@ -2131,11 +2132,13 @@ export const WORDS = [
     "czPron": "POZ-dě",
     "viPron": "muon",
     "czAudio": "speech/cz/pozde.mp3",
-    "viAudio": "speech/vi/muon.mp3"
+    "viAudio": "speech/vi/muon.mp3",
+    "czHint": "trochu jako chtít (vi)"
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Dlouho",
     "en": "Long (time)",
@@ -2143,11 +2146,13 @@ export const WORDS = [
     "czPron": "DLOU-ho",
     "viPron": "lau",
     "czAudio": "speech/cz/dlouho.mp3",
-    "viAudio": "speech/vi/lau.mp3"
+    "viAudio": "speech/vi/lau.mp3",
+    "czHint": "stejné první písmeno jako Long, + au"
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Krátce",
     "en": "Briefly",
@@ -2159,7 +2164,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Hodně",
     "en": "A lot",
@@ -2171,7 +2177,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Málo",
     "en": "Little",
@@ -2183,7 +2190,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Všechno",
     "en": "Everything",
@@ -2195,7 +2203,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Nic",
     "en": "Nothing",
@@ -2207,7 +2216,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Něco",
     "en": "Something",
@@ -2219,7 +2229,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Někdo",
     "en": "Someone",
@@ -2231,7 +2242,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Každý",
     "en": "Everyone",
@@ -2243,7 +2255,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Jeden",
     "en": "One",
@@ -2255,7 +2268,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Dva",
     "en": "Two",
@@ -2267,7 +2281,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Více",
     "en": "More",
@@ -2279,7 +2294,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Méně",
     "en": "Less",
@@ -2291,7 +2307,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Stejně",
     "en": "Same",
@@ -2303,7 +2320,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Jinak",
     "en": "Differently",
@@ -2327,7 +2345,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Snadno",
     "en": "Easily",
@@ -2339,7 +2358,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Těžko",
     "en": "Hard",
@@ -2351,7 +2371,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Rád",
     "en": "Gladly / like",
@@ -2363,7 +2384,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Myslet",
     "en": "To think",
@@ -2388,7 +2410,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic 2"
     ],
     "cz": "Doufat",
     "en": "To hope",
@@ -2400,7 +2423,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Zkusit",
     "en": "To try",
@@ -2412,7 +2436,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Rozhodnout",
     "en": "To decide",
@@ -2424,7 +2449,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Změnit",
     "en": "To change",
@@ -2436,7 +2462,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Zůstat",
     "en": "To stay",
