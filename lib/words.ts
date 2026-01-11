@@ -2,6 +2,7 @@
 import { Word } from '@/data/words';
 
 export interface NormalizedWord extends Word {
+  id: string;
   category: string[];
 }
 
@@ -43,6 +44,7 @@ export function normalizeWords(words: Word[]): NormalizedWord[] {
       : [];
     const typeTag = inferWordType(entry);
     const category = [...new Set([...baseTags, typeTag])];
+    // id comes from the word data (slova.js)
     return { ...entry, category };
   });
 }

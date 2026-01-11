@@ -117,7 +117,7 @@ export default function EditPage() {
     getMemoryHook,
     setMemoryHook,
     getSuggestedMemoryHook,
-    lastMovedIndex,
+    lastMovedId,
     isHydrated,
   } = useAppState(normalizedWords);
 
@@ -283,7 +283,14 @@ export default function EditPage() {
     };
   }, [currentTab, selectedCategories, showAll, modeIndex, role, progress]);
 
-  const handleWordFieldChange = (index: number, field: keyof Word, value: string | string[]) => {
+  // Helper to find raw word index from word ID
+  const findRawWordIndex = (wordId: string): number => {
+    return normalizedWords.findIndex(w => w.id === wordId);
+  };
+
+  const handleWordFieldChange = (wordId: string, field: keyof Word, value: string | string[]) => {
+    const index = findRawWordIndex(wordId);
+    if (index < 0) return;
     setWords((prevWords) => {
       const updated = [...prevWords];
       const word = { ...updated[index] };
@@ -293,7 +300,9 @@ export default function EditPage() {
     });
   };
 
-  const handleCategoryAdd = (index: number, category: string) => {
+  const handleCategoryAdd = (wordId: string, category: string) => {
+    const index = findRawWordIndex(wordId);
+    if (index < 0) return;
     setWords((prevWords) => {
       const updated = [...prevWords];
       const word = { ...updated[index] };
@@ -307,7 +316,9 @@ export default function EditPage() {
     });
   };
 
-  const handleCategoryRemove = (index: number, category: string) => {
+  const handleCategoryRemove = (wordId: string, category: string) => {
+    const index = findRawWordIndex(wordId);
+    if (index < 0) return;
     setWords((prevWords) => {
       const updated = [...prevWords];
       const word = { ...updated[index] };
@@ -322,7 +333,9 @@ export default function EditPage() {
     });
   };
 
-  const handleCategoryToggle = (index: number, category: string) => {
+  const handleCategoryToggle = (wordId: string, category: string) => {
+    const index = findRawWordIndex(wordId);
+    if (index < 0) return;
     setWords((prevWords) => {
       const updated = [...prevWords];
       const word = { ...updated[index] };
@@ -388,12 +401,12 @@ export default function EditPage() {
   }
 
   // Group words by stage (same as main page)
-  const groupedWords = STAGES.map(() => [] as Array<{ word: typeof normalizedWords[0]; index: number }>);
-  const groupedWordsWaiting = STAGES.map(() => [] as Array<{ word: typeof normalizedWords[0]; index: number }>);
+  const groupedWords = STAGES.map(() => [] as typeof normalizedWords);
+  const groupedWordsWaiting = STAGES.map(() => [] as typeof normalizedWords);
   let readyCount = 0;
 
-  filteredWords.forEach(({ word, index }) => {
-    const prog = progress[index] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
+  filteredWords.forEach((word) => {
+    const prog = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
     const due = isDue(prog);
     if (due) readyCount += 1;
     if (currentTab === 'ready' && !due) return;
@@ -401,9 +414,9 @@ export default function EditPage() {
     
     // In "all" tab, separate words that are due (waiting for repeat) from others
     if (currentTab === 'all' && due) {
-      groupedWordsWaiting[sIdx].push({ word, index });
+      groupedWordsWaiting[sIdx].push(word);
     } else {
-      groupedWords[sIdx].push({ word, index });
+      groupedWords[sIdx].push(word);
     }
   });
 
@@ -421,8 +434,8 @@ export default function EditPage() {
       new: 0,
     };
 
-    filteredWords.forEach(({ index }) => {
-      const prog = progress[index] || {
+    filteredWords.forEach((word) => {
+      const prog = progress[word.id] || {
         stageIndex: 0,
         knownCount: 0,
         unknownCount: 0,
@@ -745,39 +758,32 @@ export default function EditPage() {
               return (
                 <section key={stageIndex} className="category-zone">
                   <h2 className="category-zone-title">{stage.name}</h2>
-                  {items.map(({ word, index: normalizedIndex }) => {
-                    const prog = progress[normalizedIndex] || {
+                  {items.map((word) => {
+                    const prog = progress[word.id] || {
                       stageIndex: 0,
                       knownCount: 0,
                       unknownCount: 0,
                     };
-                    // The index from getFilteredWords is the normalized index
-                    // We need to find the corresponding raw word
-                    // Since normalizedWords are derived from words, indices should match
-                    const rawWordIndex = normalizedIndex < words.length ? normalizedIndex : -1;
-                    
-                    if (rawWordIndex < 0) return null;
                     
                     return (
                       <EditableWordCard
-                        key={normalizedIndex}
+                        key={word.id}
                         word={word}
-                        index={normalizedIndex}
                         progress={prog}
                         role={role}
                         modeIndex={modeIndex}
                         showAll={showAll}
-                        memoryHook={getMemoryHook(normalizedIndex)}
-                        suggestedHook={getSuggestedMemoryHook(normalizedIndex)}
-                        onKnown={() => markKnown(normalizedIndex)}
-                        onReallyKnown={() => markReallyKnown(normalizedIndex)}
-                        onUnknown={() => markUnknown(normalizedIndex)}
-                        onMemoryHookChange={(hook) => setMemoryHook(normalizedIndex, hook)}
-                        isMoved={lastMovedIndex === normalizedIndex}
-                        onWordChange={(idx, field, value) => handleWordFieldChange(rawWordIndex, field, value)}
-                        onCategoryToggle={(cat) => handleCategoryToggle(rawWordIndex, cat)}
-                        onCategoryAdd={(cat) => handleCategoryAdd(rawWordIndex, cat)}
-                        onCategoryRemove={(cat) => handleCategoryRemove(rawWordIndex, cat)}
+                        memoryHook={getMemoryHook(word.id)}
+                        suggestedHook={getSuggestedMemoryHook(word)}
+                        onKnown={() => markKnown(word.id)}
+                        onReallyKnown={() => markReallyKnown(word.id)}
+                        onUnknown={() => markUnknown(word.id)}
+                        onMemoryHookChange={(hook) => setMemoryHook(word.id, hook)}
+                        isMoved={lastMovedId === word.id}
+                        onWordChange={(wordId, field, value) => handleWordFieldChange(wordId, field, value)}
+                        onCategoryToggle={(cat) => handleCategoryToggle(word.id, cat)}
+                        onCategoryAdd={(cat) => handleCategoryAdd(word.id, cat)}
+                        onCategoryRemove={(cat) => handleCategoryRemove(word.id, cat)}
                         showEnglish={showEnglish}
                         showCategoryBadges={showCategoryBadges}
                       />
@@ -822,36 +828,32 @@ export default function EditPage() {
                       return (
                         <section key={`waiting-${stageIndex}`} className="category-zone">
                           <h2 className="category-zone-title">{stage.name}</h2>
-                          {items.map(({ word, index: normalizedIndex }) => {
-                            const prog = progress[normalizedIndex] || {
+                          {items.map((word) => {
+                            const prog = progress[word.id] || {
                               stageIndex: 0,
                               knownCount: 0,
                               unknownCount: 0,
                             };
-                            const rawWordIndex = normalizedIndex < words.length ? normalizedIndex : -1;
-                            
-                            if (rawWordIndex < 0) return null;
                             
                             return (
                               <EditableWordCard
-                                key={normalizedIndex}
+                                key={word.id}
                                 word={word}
-                                index={normalizedIndex}
                                 progress={prog}
                                 role={role}
                                 modeIndex={modeIndex}
                                 showAll={showAll}
-                                memoryHook={getMemoryHook(normalizedIndex)}
-                                suggestedHook={getSuggestedMemoryHook(normalizedIndex)}
-                                onKnown={() => markKnown(normalizedIndex)}
-                                onReallyKnown={() => markReallyKnown(normalizedIndex)}
-                                onUnknown={() => markUnknown(normalizedIndex)}
-                                onMemoryHookChange={(hook) => setMemoryHook(normalizedIndex, hook)}
-                                isMoved={lastMovedIndex === normalizedIndex}
-                                onWordChange={(idx, field, value) => handleWordFieldChange(rawWordIndex, field, value)}
-                                onCategoryToggle={(cat) => handleCategoryToggle(rawWordIndex, cat)}
-                                onCategoryAdd={(cat) => handleCategoryAdd(rawWordIndex, cat)}
-                                onCategoryRemove={(cat) => handleCategoryRemove(rawWordIndex, cat)}
+                                memoryHook={getMemoryHook(word.id)}
+                                suggestedHook={getSuggestedMemoryHook(word)}
+                                onKnown={() => markKnown(word.id)}
+                                onReallyKnown={() => markReallyKnown(word.id)}
+                                onUnknown={() => markUnknown(word.id)}
+                                onMemoryHookChange={(hook) => setMemoryHook(word.id, hook)}
+                                isMoved={lastMovedId === word.id}
+                                onWordChange={(wordId, field, value) => handleWordFieldChange(wordId, field, value)}
+                                onCategoryToggle={(cat) => handleCategoryToggle(word.id, cat)}
+                                onCategoryAdd={(cat) => handleCategoryAdd(word.id, cat)}
+                                onCategoryRemove={(cat) => handleCategoryRemove(word.id, cat)}
                                 showEnglish={showEnglish}
                                 showCategoryBadges={showCategoryBadges}
                               />

@@ -1,5 +1,6 @@
 // Type definitions for word data
 export interface Word {
+  id: string;
   category: string[];
   cz: string;
   en: string;

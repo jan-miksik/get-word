@@ -122,7 +122,7 @@ export default function Home() {
     getMemoryHook,
     setMemoryHook,
     getSuggestedMemoryHook,
-    lastMovedIndex,
+    lastMovedId,
     isHydrated,
   } = useAppState(WORDS);
 
@@ -286,15 +286,15 @@ export default function Home() {
   }
 
   // Group words by stage (only after hydration)
-  const groupedWords = STAGES.map(() => [] as Array<{ word: typeof WORDS[0]; index: number }>);
-  const groupedWordsWaiting = STAGES.map(() => [] as Array<{ word: typeof WORDS[0]; index: number }>);
+  const groupedWords = STAGES.map(() => [] as typeof WORDS);
+  const groupedWordsWaiting = STAGES.map(() => [] as typeof WORDS);
   let readyCount = 0;
   let notReadyCount = 0;
 
   const filteredWords = getFilteredWords();
 
-  filteredWords.forEach(({ word, index }) => {
-    const prog = progress[index] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
+  filteredWords.forEach((word) => {
+    const prog = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
     // Only calculate isDue after hydration to avoid server/client mismatches
     const due = isDue(prog);
     if (due) {
@@ -308,9 +308,9 @@ export default function Home() {
     
     // In "all" tab, separate words that are due (waiting for repeat) from others
     if (currentTab === 'all' && due) {
-      groupedWordsWaiting[sIdx].push({ word, index });
+      groupedWordsWaiting[sIdx].push(word);
     } else {
-      groupedWords[sIdx].push({ word, index });
+      groupedWords[sIdx].push(word);
     }
   });
 
@@ -328,8 +328,8 @@ export default function Home() {
       new: 0, // stage 0
     };
 
-    filteredWords.forEach(({ index }) => {
-      const prog = progress[index] || {
+    filteredWords.forEach((word) => {
+      const prog = progress[word.id] || {
         stageIndex: 0,
         knownCount: 0,
         unknownCount: 0,
@@ -609,28 +609,27 @@ export default function Home() {
                 <div key={stageIndex}>
                   <section className="category-zone">
                     <h2 className="category-zone-title">{stage.name}</h2>
-                    {items.map(({ word, index }) => {
-                      const prog = progress[index] || {
+                    {items.map((word) => {
+                      const prog = progress[word.id] || {
                         stageIndex: 0,
                         knownCount: 0,
                         unknownCount: 0,
                       };
                       return (
                         <WordCard
-                          key={index}
+                          key={word.id}
                           word={word}
-                          index={index}
                           progress={prog}
                           role={role}
                           modeIndex={modeIndex}
                           showAll={showAll}
-                          memoryHook={getMemoryHook(index)}
-                          suggestedHook={getSuggestedMemoryHook(index)}
-                          onKnown={() => markKnown(index)}
-                          onReallyKnown={() => markReallyKnown(index)}
-                          onUnknown={() => markUnknown(index)}
-                          onMemoryHookChange={(hook) => setMemoryHook(index, hook)}
-                          isMoved={lastMovedIndex === index}
+                          memoryHook={getMemoryHook(word.id)}
+                          suggestedHook={getSuggestedMemoryHook(word)}
+                          onKnown={() => markKnown(word.id)}
+                          onReallyKnown={() => markReallyKnown(word.id)}
+                          onUnknown={() => markUnknown(word.id)}
+                          onMemoryHookChange={(hook) => setMemoryHook(word.id, hook)}
+                          isMoved={lastMovedId === word.id}
                           showEnglish={showEnglish}
                           showCategoryBadges={showCategoryBadges}
                         />
@@ -688,28 +687,27 @@ export default function Home() {
                       return (
                         <section key={`waiting-${stageIndex}`} className="category-zone">
                           <h2 className="category-zone-title">{stage.name}</h2>
-                          {items.map(({ word, index }) => {
-                            const prog = progress[index] || {
+                          {items.map((word) => {
+                            const prog = progress[word.id] || {
                               stageIndex: 0,
                               knownCount: 0,
                               unknownCount: 0,
                             };
                             return (
                               <WordCard
-                                key={index}
+                                key={word.id}
                                 word={word}
-                                index={index}
                                 progress={prog}
                                 role={role}
                                 modeIndex={modeIndex}
                                 showAll={showAll}
-                                memoryHook={getMemoryHook(index)}
-                                suggestedHook={getSuggestedMemoryHook(index)}
-                                onKnown={() => markKnown(index)}
-                                onReallyKnown={() => markReallyKnown(index)}
-                                onUnknown={() => markUnknown(index)}
-                                onMemoryHookChange={(hook) => setMemoryHook(index, hook)}
-                                isMoved={lastMovedIndex === index}
+                                memoryHook={getMemoryHook(word.id)}
+                                suggestedHook={getSuggestedMemoryHook(word)}
+                                onKnown={() => markKnown(word.id)}
+                                onReallyKnown={() => markReallyKnown(word.id)}
+                                onUnknown={() => markUnknown(word.id)}
+                                onMemoryHookChange={(hook) => setMemoryHook(word.id, hook)}
+                                isMoved={lastMovedId === word.id}
                                 showEnglish={showEnglish}
                                 showCategoryBadges={showCategoryBadges}
                               />

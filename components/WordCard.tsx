@@ -6,7 +6,6 @@ import { ProgressData } from '@/lib/storage';
 
 interface WordCardProps {
   word: NormalizedWord;
-  index: number;
   progress: ProgressData;
   role: 'cz' | 'vi';
   modeIndex: number;
@@ -26,7 +25,6 @@ interface WordCardProps {
 
 export function WordCard({
   word,
-  index,
   progress,
   role,
   modeIndex,
@@ -160,7 +158,7 @@ export function WordCard({
   const shouldShowCategoryBadges = isEditMode || showCategoryBadges;
 
   return (
-    <article className={`phrase-card ${isMoved ? 'card-moved' : ''}`} data-index={index}>
+    <article className={`phrase-card ${isMoved ? 'card-moved' : ''}`} data-word-id={word.id}>
       {/* Category badges */}
       {shouldShowCategoryBadges && displayCategories.length > 0 && (
         <div className="word-categories">

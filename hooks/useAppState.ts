@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { loadProgress, saveProgress, loadRole, saveRole, loadMemoryHooks, saveMemoryHooks, loadCategoryFilter, saveCategoryFilter, loadShowEnglish, saveShowEnglish, loadShowCategoryBadges, saveShowCategoryBadges, ProgressData } from '@/lib/storage';
+import { loadProgress, saveProgress, loadRole, saveRole, loadMemoryHooks, saveMemoryHooks, loadCategoryFilter, saveCategoryFilter, loadShowEnglish, saveShowEnglish, loadShowCategoryBadges, saveShowCategoryBadges, hasMigratedToIds, markMigrationComplete, generateOldHashId, ProgressData } from '@/lib/storage';
 import { NormalizedWord, STAGES, isDue, matchesCategoryFilter } from '@/lib/words';
 
 export type Role = 'cz' | 'vi';
@@ -15,8 +15,8 @@ export function useAppState(words: NormalizedWord[]) {
   const [modeIndex, setModeIndex] = useState(0); // 0 or 1 depending on role
   const [showAll, setShowAll] = useState(false);
   const [currentTab, setCurrentTab] = useState<Tab>('all');
-  const [progress, setProgress] = useState<Record<number, ProgressData>>({});
-  const [memoryHooks, setMemoryHooks] = useState<Record<number, string>>({});
+  const [progress, setProgress] = useState<Record<string, ProgressData>>({});
+  const [memoryHooks, setMemoryHooks] = useState<Record<string, string>>({});
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [showEnglish, setShowEnglish] = useState(true);
   const [showCategoryBadges, setShowCategoryBadges] = useState(false);
@@ -24,20 +24,58 @@ export function useAppState(words: NormalizedWord[]) {
   const [progressOpen, setProgressOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [memoryHooksOpen, setMemoryHooksOpen] = useState(false);
-  const [lastMovedIndex, setLastMovedIndex] = useState<number | null>(null);
+  const [lastMovedId, setLastMovedId] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const lastMovedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const hasLoadedRef = useRef(false);
 
-  // Load from localStorage after hydration
+  // Load from localStorage after hydration (only once)
+  // Create mappings for migrating old data to new word IDs
   useEffect(() => {
+    // Only load once, and only when we have words
+    if (hasLoadedRef.current || words.length === 0) {
+      console.log('[useAppState] Skipping load, hasLoaded:', hasLoadedRef.current, 'words.length:', words.length);
+      return;
+    }
+    hasLoadedRef.current = true;
+    console.log('[useAppState] Loading with', words.length, 'words');
+    
+    // Build mappings for migration:
+    // 1. Old numeric index -> new ID (for very old data)
+    // 2. Old hash ID -> new ID (for hash-based data like "ffkl5c" -> "w000")
+    const indexToIdMap = new Map<number, string>();
+    const hashToIdMap = new Map<string, string>();
+    
+    words.forEach((word) => {
+      // Map from old numeric index (extracted from new ID like "w095" -> 95)
+      const originalIndex = parseInt(word.id.substring(1), 10);
+      if (!isNaN(originalIndex)) {
+        indexToIdMap.set(originalIndex, word.id);
+      }
+      
+      // Map from old hash ID to new ID
+      const oldHash = generateOldHashId(word.cz, word.vi, word.en);
+      hashToIdMap.set(oldHash, word.id);
+    });
+    
+    // Check if migration is needed before loading either
+    const needsMigration = !hasMigratedToIds();
+    
     setRole(loadRole());
-    setProgress(loadProgress());
-    setMemoryHooks(loadMemoryHooks());
+    // Pass both maps for migration
+    setProgress(loadProgress(indexToIdMap, hashToIdMap, needsMigration));
+    setMemoryHooks(loadMemoryHooks(indexToIdMap, hashToIdMap, needsMigration));
     setSelectedCategories(loadCategoryFilter());
     setShowEnglish(loadShowEnglish());
     setShowCategoryBadges(loadShowCategoryBadges());
+    
+    // Mark migration complete after both progress and hooks are migrated
+    if (needsMigration) {
+      markMigrationComplete();
+    }
+    
     setIsHydrated(true);
-  }, []);
+  }, [words]);
 
   // Save to localStorage when state changes (only after hydration)
   useEffect(() => {
@@ -79,25 +117,25 @@ export function useAppState(words: NormalizedWord[]) {
     };
   }, []);
 
-  // Update progress for a word
-  const updateProgress = useCallback((wordIndex: number, updates: Partial<ProgressData>) => {
+  // Update progress for a word by its stable ID
+  const updateProgress = useCallback((wordId: string, updates: Partial<ProgressData>) => {
     setProgress((prev) => {
-      const current = prev[wordIndex] || {
+      const current = prev[wordId] || {
         stageIndex: 0,
         knownCount: 0,
         unknownCount: 0,
       };
       return {
         ...prev,
-        [wordIndex]: { ...current, ...updates },
+        [wordId]: { ...current, ...updates },
       };
     });
   }, []);
 
-  // Mark word as known
-  const markKnown = useCallback((wordIndex: number) => {
+  // Mark word as known by its stable ID
+  const markKnown = useCallback((wordId: string) => {
     setProgress((prev) => {
-      const current = prev[wordIndex] || {
+      const current = prev[wordId] || {
         stageIndex: 0,
         knownCount: 0,
         unknownCount: 0,
@@ -106,7 +144,7 @@ export function useAppState(words: NormalizedWord[]) {
       const stage = STAGES[newStageIndex];
       return {
         ...prev,
-        [wordIndex]: {
+        [wordId]: {
           ...current,
           stageIndex: newStageIndex,
           knownCount: current.knownCount + 1,
@@ -115,18 +153,18 @@ export function useAppState(words: NormalizedWord[]) {
         },
       };
     });
-    setLastMovedIndex(wordIndex);
+    setLastMovedId(wordId);
     // Clear any existing timeout before setting a new one
     if (lastMovedTimeoutRef.current) {
       clearTimeout(lastMovedTimeoutRef.current);
     }
-    lastMovedTimeoutRef.current = setTimeout(() => setLastMovedIndex(null), 1000);
+    lastMovedTimeoutRef.current = setTimeout(() => setLastMovedId(null), 1000);
   }, []);
 
-  // Mark word as really known (skips one stage)
-  const markReallyKnown = useCallback((wordIndex: number) => {
+  // Mark word as really known (skips one stage) by its stable ID
+  const markReallyKnown = useCallback((wordId: string) => {
     setProgress((prev) => {
-      const current = prev[wordIndex] || {
+      const current = prev[wordId] || {
         stageIndex: 0,
         knownCount: 0,
         unknownCount: 0,
@@ -136,7 +174,7 @@ export function useAppState(words: NormalizedWord[]) {
       const stage = STAGES[newStageIndex];
       return {
         ...prev,
-        [wordIndex]: {
+        [wordId]: {
           ...current,
           stageIndex: newStageIndex,
           knownCount: current.knownCount + 1,
@@ -145,18 +183,18 @@ export function useAppState(words: NormalizedWord[]) {
         },
       };
     });
-    setLastMovedIndex(wordIndex);
+    setLastMovedId(wordId);
     // Clear any existing timeout before setting a new one
     if (lastMovedTimeoutRef.current) {
       clearTimeout(lastMovedTimeoutRef.current);
     }
-    lastMovedTimeoutRef.current = setTimeout(() => setLastMovedIndex(null), 1000);
+    lastMovedTimeoutRef.current = setTimeout(() => setLastMovedId(null), 1000);
   }, []);
 
-  // Mark word as unknown
-  const markUnknown = useCallback((wordIndex: number) => {
+  // Mark word as unknown by its stable ID
+  const markUnknown = useCallback((wordId: string) => {
     setProgress((prev) => {
-      const current = prev[wordIndex] || {
+      const current = prev[wordId] || {
         stageIndex: 0,
         knownCount: 0,
         unknownCount: 0,
@@ -165,7 +203,7 @@ export function useAppState(words: NormalizedWord[]) {
       const stage = STAGES[prevStage];
       return {
         ...prev,
-        [wordIndex]: {
+        [wordId]: {
           ...current,
           stageIndex: prevStage,
           unknownCount: current.unknownCount + 1,
@@ -174,22 +212,22 @@ export function useAppState(words: NormalizedWord[]) {
         },
       };
     });
-    setLastMovedIndex(wordIndex);
+    setLastMovedId(wordId);
     // Clear any existing timeout before setting a new one
     if (lastMovedTimeoutRef.current) {
       clearTimeout(lastMovedTimeoutRef.current);
     }
-    lastMovedTimeoutRef.current = setTimeout(() => setLastMovedIndex(null), 1000);
+    lastMovedTimeoutRef.current = setTimeout(() => setLastMovedId(null), 1000);
   }, []);
 
   // Get filtered words based on current tab and filters
   const getFilteredWords = useCallback(() => {
-    let filtered = words.map((word, index) => ({ word, index }))
-      .filter(({ word }) => matchesCategoryFilter(word, selectedCategories));
+    let filtered = words
+      .filter((word) => matchesCategoryFilter(word, selectedCategories));
 
     if (currentTab === 'ready' && isHydrated) {
-      filtered = filtered.filter(({ index }) => {
-        const prog = progress[index];
+      filtered = filtered.filter((word) => {
+        const prog = progress[word.id];
         return prog && isDue(prog);
       });
     }
@@ -210,32 +248,31 @@ export function useAppState(words: NormalizedWord[]) {
     });
   }, []);
 
-  // Get memory hook for a word
-  const getMemoryHook = useCallback((index: number) => {
-    return memoryHooks[index] || '';
+  // Get memory hook for a word by its stable ID
+  const getMemoryHook = useCallback((wordId: string) => {
+    return memoryHooks[wordId] || '';
   }, [memoryHooks]);
 
-  // Set memory hook for a word
-  const setMemoryHook = useCallback((index: number, hook: string) => {
+  // Set memory hook for a word by its stable ID
+  const setMemoryHook = useCallback((wordId: string, hook: string) => {
     setMemoryHooks((prev) => {
       const next = { ...prev };
       if (hook.trim()) {
-        next[index] = hook.trim();
+        next[wordId] = hook.trim();
       } else {
-        delete next[index];
+        delete next[wordId];
       }
       return next;
     });
   }, []);
 
-  // Get suggested memory hook
-  const getSuggestedMemoryHook = useCallback((index: number) => {
-    const word = words[index];
+  // Get suggested memory hook for a word
+  const getSuggestedMemoryHook = useCallback((word: NormalizedWord) => {
     if (!word) return '';
     if (role === 'vi') return word.viHint || '';
     if (role === 'cz') return word.czHint || '';
     return '';
-  }, [words, role]);
+  }, [role]);
 
   // Handle role change
   const handleRoleChange = useCallback((newRole: 'cz' | 'vi') => {
@@ -276,7 +313,7 @@ export function useAppState(words: NormalizedWord[]) {
     getMemoryHook,
     setMemoryHook,
     getSuggestedMemoryHook,
-    lastMovedIndex,
+    lastMovedId,
     isHydrated,
   };
 }

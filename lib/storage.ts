@@ -7,6 +7,7 @@ const MEMORY_HOOK_KEY = "wordlink_memory_hooks_v1";
 const CATEGORY_FILTER_KEY = "wordlink_category_filter_v1";
 const SHOW_ENGLISH_KEY = "wordlink_show_english_v1";
 const SHOW_CATEGORY_BADGES_KEY = "wordlink_show_category_badges_v1";
+const MIGRATION_KEY = "wordlink_migrated_to_ids_v1";
 
 export interface ProgressData {
   stageIndex: number;
@@ -17,24 +18,63 @@ export interface ProgressData {
   nextDueAt?: number;
 }
 
-// Progress storage
-export function loadProgress(): Record<number, ProgressData> {
+// Check if migration has already been done
+export function hasMigratedToIds(): boolean {
+  if (typeof window === 'undefined') return true;
+  return localStorage.getItem(MIGRATION_KEY) === 'true';
+}
+
+// Mark migration as complete
+export function markMigrationComplete(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(MIGRATION_KEY, 'true');
+}
+
+// Generate the old hash-based ID (for migration purposes)
+// This matches the old generateWordId function
+export function generateOldHashId(cz: string, vi: string, en: string): string {
+  const content = `${cz}|${vi}|${en}`;
+  let hash = 0;
+  for (let i = 0; i < content.length; i++) {
+    const char = content.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash;
+  }
+  return Math.abs(hash).toString(36);
+}
+
+// Progress storage - uses string word IDs as keys
+// Accepts optional maps for migrating old data:
+// - indexToIdMap: old numeric index -> new ID (e.g., 5 -> "w005")
+// - hashToIdMap: old hash ID -> new ID (e.g., "ffkl5c" -> "w000")
+export function loadProgress(
+  indexToIdMap?: Map<number, string>,
+  hashToIdMap?: Map<string, string>,
+  needsMigration?: boolean
+): Record<string, ProgressData> {
   if (typeof window === 'undefined') return {};
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return {};
+    if (!raw) {
+      console.log('[Migration] No progress data in localStorage');
+      return {};
+    }
     const parsed = JSON.parse(raw);
-    // Migrate old format if needed
-    const migrated: Record<number, ProgressData> = {};
+    const result: Record<string, ProgressData> = {};
+    
+    console.log('[Migration] Loading progress, needsMigration:', needsMigration);
+    console.log('[Migration] hashToIdMap size:', hashToIdMap?.size);
+    console.log('[Migration] Keys in localStorage:', Object.keys(parsed).slice(0, 5).join(', '), '...');
+    
+    let didMigrate = false;
+    
     for (const [key, value] of Object.entries(parsed)) {
-      const index = parseInt(key, 10);
-      if (isNaN(index)) continue;
       const data = value as any;
-      if (data.stageIndex !== undefined) {
-        migrated[index] = data as ProgressData;
-      } else if (data.categoryIndex !== undefined) {
-        // Migrate old format
-        migrated[index] = {
+      let progressData: ProgressData;
+      
+      // Handle old categoryIndex format
+      if (data.categoryIndex !== undefined) {
+        progressData = {
           stageIndex: Math.max(0, Math.min(data.categoryIndex, 10)),
           knownCount: data.knownCount || 0,
           unknownCount: data.unknownCount || 0,
@@ -42,15 +82,52 @@ export function loadProgress(): Record<number, ProgressData> {
           lastUnknownAt: data.lastUnknownAt,
           nextDueAt: data.nextDueAt,
         };
+      } else if (data.stageIndex !== undefined) {
+        progressData = data as ProgressData;
+      } else {
+        continue;
       }
+      
+      // Try to migrate the key to new format
+      let newKey = key;
+      
+      if (needsMigration) {
+        // First check if it's a numeric index
+        const numericIndex = parseInt(key, 10);
+        if (!isNaN(numericIndex) && indexToIdMap?.has(numericIndex)) {
+          newKey = indexToIdMap.get(numericIndex)!;
+          console.log('[Migration] Numeric key', key, '->', newKey);
+          didMigrate = true;
+        }
+        // Then check if it's an old hash ID
+        else if (hashToIdMap?.has(key)) {
+          newKey = hashToIdMap.get(key)!;
+          console.log('[Migration] Hash key', key, '->', newKey);
+          didMigrate = true;
+        } else {
+          console.log('[Migration] Key not found in maps:', key);
+        }
+      }
+      
+      result[newKey] = progressData;
     }
-    return migrated;
-  } catch {
+    
+    // If we migrated, save the new format
+    if (didMigrate) {
+      saveProgress(result);
+      console.log(`[Migration] Saved ${Object.keys(result).length} progress entries with new word IDs`);
+    } else {
+      console.log('[Migration] No migration needed or no keys matched');
+    }
+    
+    return result;
+  } catch (e) {
+    console.error('[Migration] Error:', e);
     return {};
   }
 }
 
-export function saveProgress(progress: Record<number, ProgressData>): void {
+export function saveProgress(progress: Record<string, ProgressData>): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(progress));
@@ -80,27 +157,60 @@ export function saveRole(role: 'cz' | 'vi'): void {
   }
 }
 
-// Memory hooks storage
-export function loadMemoryHooks(): Record<number, string> {
+// Memory hooks storage - uses string word IDs as keys
+// Accepts optional maps for migrating old data:
+// - indexToIdMap: old numeric index -> new ID (e.g., 5 -> "w005")
+// - hashToIdMap: old hash ID -> new ID (e.g., "ffkl5c" -> "w000")
+export function loadMemoryHooks(
+  indexToIdMap?: Map<number, string>,
+  hashToIdMap?: Map<string, string>,
+  needsMigration?: boolean
+): Record<string, string> {
   if (typeof window === 'undefined') return {};
   try {
     const raw = localStorage.getItem(MEMORY_HOOK_KEY);
     if (!raw) return {};
     const parsed = JSON.parse(raw);
-    const hooks: Record<number, string> = {};
+    const hooks: Record<string, string> = {};
+    
+    let didMigrate = false;
+    
     for (const [key, value] of Object.entries(parsed)) {
-      const index = parseInt(key, 10);
-      if (!isNaN(index) && typeof value === 'string') {
-        hooks[index] = value;
+      if (typeof value !== 'string') continue;
+      
+      // Try to migrate the key to new format
+      let newKey = key;
+      
+      if (needsMigration) {
+        // First check if it's a numeric index
+        const numericIndex = parseInt(key, 10);
+        if (!isNaN(numericIndex) && indexToIdMap?.has(numericIndex)) {
+          newKey = indexToIdMap.get(numericIndex)!;
+          didMigrate = true;
+        }
+        // Then check if it's an old hash ID
+        else if (hashToIdMap?.has(key)) {
+          newKey = hashToIdMap.get(key)!;
+          didMigrate = true;
+        }
       }
+      
+      hooks[newKey] = value;
     }
+    
+    // If we migrated, save the new format
+    if (didMigrate) {
+      saveMemoryHooks(hooks);
+      console.log(`Migrated ${Object.keys(hooks).length} memory hooks to new word IDs`);
+    }
+    
     return hooks;
   } catch {
     return {};
   }
 }
 
-export function saveMemoryHooks(hooks: Record<number, string>): void {
+export function saveMemoryHooks(hooks: Record<string, string>): void {
   if (typeof window === 'undefined') return;
   try {
     localStorage.setItem(MEMORY_HOOK_KEY, JSON.stringify(hooks));

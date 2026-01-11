@@ -2,12 +2,12 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { NormalizedWord } from '@/lib/words';
+import { Word } from '@/data/words';
 import { ProgressData } from '@/lib/storage';
 import { WordCard } from './WordCard';
 
 interface EditableWordCardProps {
   word: NormalizedWord;
-  index: number;
   progress: ProgressData;
   role: 'cz' | 'vi';
   modeIndex: number;
@@ -19,7 +19,7 @@ interface EditableWordCardProps {
   onUnknown: () => void;
   onMemoryHookChange: (hook: string) => void;
   isMoved?: boolean;
-  onWordChange: (index: number, field: keyof NormalizedWord, value: string | string[]) => void;
+  onWordChange: (wordId: string, field: keyof Word, value: string | string[]) => void;
   onCategoryToggle: (category: string) => void;
   onCategoryAdd: (category: string) => void;
   onCategoryRemove: (category: string) => void;
@@ -33,7 +33,6 @@ export const ALL_CATEGORIES = [...STANDARD_CATEGORIES, ...EDIT_ONLY_CATEGORIES];
 
 export function EditableWordCard({
   word,
-  index,
   progress,
   role,
   modeIndex,
@@ -318,7 +317,7 @@ export function EditableWordCard({
                     value={word[field] || ''}
                     onChange={(e) => {
                       const value = e.target.value;
-                      onWordChange(index, field, value);
+                      onWordChange(word.id, field, value);
                     }}
                     placeholder={`Enter ${field}`}
                     style={{
@@ -345,7 +344,7 @@ export function EditableWordCard({
                     onChange={(e) => {
                       const value = e.target.value;
                       const arrayValue = value.split(',').map(s => s.trim()).filter(Boolean);
-                      onWordChange(index, field, arrayValue.length > 0 ? arrayValue : value);
+                      onWordChange(word.id, field, arrayValue.length > 0 ? arrayValue : value);
                     }}
                     placeholder={`Enter ${field} (comma-separated for multiple)`}
                     style={{
@@ -369,7 +368,6 @@ export function EditableWordCard({
       {/* Render the actual WordCard */}
       <WordCard
         word={word}
-        index={index}
         progress={progress}
         role={role}
         modeIndex={modeIndex}

@@ -1,5 +1,6 @@
 export const WORDS = [
   {
+    "id": "w000",
     "category": [
       "basic",
       "phrase"
@@ -14,6 +15,7 @@ export const WORDS = [
     "viHint": "(đô) (bởi) (đến) with r in the middle"
   },
   {
+    "id": "w001",
     "category": [
       "basic",
       "word"
@@ -28,6 +30,7 @@ export const WORDS = [
     "viHint": "(dê) (cú) (gì): goat bows head."
   },
   {
+    "id": "w002",
     "category": [
       "basic",
       "word"
@@ -43,6 +46,7 @@ export const WORDS = [
     "viHint": "(pro)fessional (xin)"
   },
   {
+    "id": "w003",
     "category": [
       "phrase",
       "basic"
@@ -58,6 +62,7 @@ export const WORDS = [
     "viHint": "(giắc xe) (má tê) lift up/start conversation"
   },
   {
+    "id": "w004",
     "category": [
       "basic",
       "phrase"
@@ -72,6 +77,7 @@ export const WORDS = [
     "viHint": "phở sát-tê-sờ pro-xin"
   },
   {
+    "id": "w005",
     "category": [
       "phrase",
       "basic",
@@ -88,6 +94,7 @@ export const WORDS = [
     "czHint": "má bolest ne(vi)"
   },
   {
+    "id": "w006",
     "category": [
       "basic",
       "word"
@@ -105,6 +112,7 @@ export const WORDS = [
     "viHint": "Ta đi? finger points at map."
   },
   {
+    "id": "w007",
     "category": [
       "basic",
       "word"
@@ -120,6 +128,7 @@ export const WORDS = [
     "viHint": "(NAS)A -the space company, +hle - look at this; spaceship flies away"
   },
   {
+    "id": "w008",
     "category": [
       "phrase",
       "nails"
@@ -133,6 +142,7 @@ export const WORDS = [
     "viAudio": "speech/vi/ban-co-y-tuong-gi-khong.mp3"
   },
   {
+    "id": "w009",
     "category": [
       "phrase",
       "nails"
@@ -149,6 +159,7 @@ export const WORDS = [
     ]
   },
   {
+    "id": "w010",
     "category": [
       "nails",
       "word"
@@ -165,6 +176,7 @@ export const WORDS = [
     ]
   },
   {
+    "id": "w011",
     "category": [
       "nails",
       "word"
@@ -181,6 +193,7 @@ export const WORDS = [
     "czHint": "sci-fi film Tron"
   },
   {
+    "id": "w012",
     "category": [
       "nails",
       "word"
@@ -198,6 +211,7 @@ export const WORDS = [
     ]
   },
   {
+    "id": "w013",
     "category": [
       "nails",
       "word"
@@ -215,6 +229,7 @@ export const WORDS = [
     ]
   },
   {
+    "id": "w014",
     "category": [
       "nails",
       "word"
@@ -229,6 +244,7 @@ export const WORDS = [
     "viHint": "Ma-ni cưa"
   },
   {
+    "id": "w015",
     "category": [
       "nails",
       "word"
@@ -243,6 +259,7 @@ export const WORDS = [
     "czHint": "sok-ol tančí ča ča"
   },
   {
+    "id": "w016",
     "category": [
       "nails",
       "word"
@@ -256,6 +273,7 @@ export const WORDS = [
     "viAudio": "speech/vi/mong-gel.mp3"
   },
   {
+    "id": "w017",
     "category": [
       "basic",
       "word"
@@ -269,6 +287,7 @@ export const WORDS = [
     "viAudio": "speech/vi/xong-roi.mp3"
   },
   {
+    "id": "w018",
     "category": [
       "basic",
       "word"
@@ -285,6 +304,7 @@ export const WORDS = [
     "viAudio": "speech/vi/tay-hai-tay.mp3"
   },
   {
+    "id": "w019",
     "category": [
       "basic",
       "word",
@@ -304,6 +324,7 @@ export const WORDS = [
     ]
   },
   {
+    "id": "w020",
     "category": [
       "nails",
       "word"
@@ -322,6 +343,7 @@ export const WORDS = [
     ]
   },
   {
+    "id": "w021",
     "category": [
       "nails",
       "word"
@@ -335,6 +357,7 @@ export const WORDS = [
     "viAudio": "speech/vi/cay-dua-mong.mp3"
   },
   {
+    "id": "w022",
     "category": [
       "basic",
       "word",
@@ -351,6 +374,7 @@ export const WORDS = [
     ]
   },
   {
+    "id": "w023",
     "category": [
       "basic",
       "word"
@@ -365,6 +389,7 @@ export const WORDS = [
     "czHint": "\"kh\" syceni někoho kdo je vyprahly a chce se napit"
   },
   {
+    "id": "w024",
     "category": [
       "basic",
       "word"
@@ -379,6 +404,7 @@ export const WORDS = [
     "czHint": "trochu podobné jako voda - nuoc(vi) bez n"
   },
   {
+    "id": "w025",
     "category": [
       "basic",
       "word"
@@ -392,6 +418,7 @@ export const WORDS = [
     "viAudio": "speech/vi/nuoc.mp3"
   },
   {
+    "id": "w026",
     "category": [
       "basic",
       "word",
@@ -408,6 +435,7 @@ export const WORDS = [
     "viHint": "Bar va; on the bar and my friend"
   },
   {
+    "id": "w027",
     "category": [
       "basic",
       "word",
@@ -423,6 +451,7 @@ export const WORDS = [
     "czHint": "do cervena"
   },
   {
+    "id": "w028",
     "category": [
       "basic",
       "word",
@@ -438,6 +467,7 @@ export const WORDS = [
     "czHint": "růžový mrakodrap v hong kongu"
   },
   {
+    "id": "w029",
     "category": [
       "basic",
       "word"
@@ -452,6 +482,7 @@ export const WORDS = [
     "czHint": "opak noci - den"
   },
   {
+    "id": "w030",
     "category": [
       "basic",
       "word",
@@ -467,6 +498,7 @@ export const WORDS = [
     "czHint": "podobné jako jang"
   },
   {
+    "id": "w031",
     "category": [
       "basic",
       "word"
@@ -479,6 +511,7 @@ export const WORDS = [
     "viAudio": "speech/vi/hom-nay.mp3"
   },
   {
+    "id": "w032",
     "category": [
       "basic",
       "word"
@@ -492,6 +525,7 @@ export const WORDS = [
     "viAudio": "speech/vi/ngay-mai.mp3"
   },
   {
+    "id": "w033",
     "category": [
       "basic",
       "phrase",
@@ -511,6 +545,7 @@ export const WORDS = [
     "czHint": "za-bao-lit new(en) - při nakupování"
   },
   {
+    "id": "w034",
     "category": [
       "phrase",
       "nails"
@@ -524,6 +559,7 @@ export const WORDS = [
     "viAudio": "speech/vi/ban-co-the-thanh-toan.mp3"
   },
   {
+    "id": "w035",
     "category": [
       "word",
       "nails"
@@ -538,6 +574,7 @@ export const WORDS = [
     "czHint": "ty jen-om mat-eš - nedorozumění při placení"
   },
   {
+    "id": "w036",
     "category": [
       "word",
       "nails"
@@ -554,6 +591,7 @@ export const WORDS = [
     "czHint": "bankuju te - přijímá platbu kartou"
   },
   {
+    "id": "w037",
     "category": [
       "basic",
       "word",
@@ -570,6 +608,7 @@ export const WORDS = [
     "czHint": "ho ha ha"
   },
   {
+    "id": "w038",
     "category": [
       "word",
       "cz ≈ en"
@@ -583,6 +622,7 @@ export const WORDS = [
     "viAudio": "speech/vi/khoanh-khac.mp3"
   },
   {
+    "id": "w039",
     "category": [
       "word",
       "cz ≈ en",
@@ -597,6 +637,7 @@ export const WORDS = [
     "viAudio": "speech/vi/ca-phe.mp3"
   },
   {
+    "id": "w040",
     "category": [
       "word",
       "nails",
@@ -611,6 +652,7 @@ export const WORDS = [
     "viAudio": "speech/vi/khach-hang.mp3"
   },
   {
+    "id": "w041",
     "category": [
       "word",
       "cz ≈ en",
@@ -625,6 +667,7 @@ export const WORDS = [
     "viAudio": "speech/vi/tiem-tham-my-vien.mp3"
   },
   {
+    "id": "w042",
     "category": [
       "word",
       "cz ≈ en",
@@ -640,6 +683,7 @@ export const WORDS = [
     "czHint": "ty jet ke-ks - v zajímavém designovém balení"
   },
   {
+    "id": "w043",
     "category": [
       "basic",
       "word",
@@ -654,6 +698,7 @@ export const WORDS = [
     "viAudio": "speech/vi/van-dje.mp3"
   },
   {
+    "id": "w044",
     "category": [
       "word",
       "cz ≈ en",
@@ -669,6 +714,7 @@ export const WORDS = [
     "czHint": "čti ty - ukazuje na drobné písmo"
   },
   {
+    "id": "w045",
     "category": [
       "word",
       "cz ≈ en",
@@ -683,6 +729,7 @@ export const WORDS = [
     "viAudio": "speech/vi/vat-lieu.mp3"
   },
   {
+    "id": "w046",
     "category": [
       "word",
       "cz ≈ en",
@@ -697,6 +744,7 @@ export const WORDS = [
     "viAudio": "speech/vi/thong-tin.mp3"
   },
   {
+    "id": "w047",
     "category": [
       "word",
       "cz ≈ en",
@@ -712,6 +760,7 @@ export const WORDS = [
     "czHint": "tu jedl vojak"
   },
   {
+    "id": "w048",
     "category": [
       "nails",
       "word",
@@ -726,6 +775,7 @@ export const WORDS = [
     "viAudio": "speech/vi/acrylic.mp3"
   },
   {
+    "id": "w049",
     "category": [
       "nails",
       "word",
@@ -740,6 +790,7 @@ export const WORDS = [
     "viAudio": "speech/vi/gel.mp3"
   },
   {
+    "id": "w050",
     "section": "ZÁKLADNÍ SLOVESA A ZÁJMENA",
     "category": [
       "basic",
@@ -754,6 +805,7 @@ export const WORDS = [
     "viAudio": "speech/vi/toi.mp3"
   },
   {
+    "id": "w051",
     "category": [
       "basic",
       "word"
@@ -767,6 +819,7 @@ export const WORDS = [
     "viAudio": "speech/vi/ban.mp3"
   },
   {
+    "id": "w052",
     "category": [
       "basic",
       "word"
@@ -782,6 +835,7 @@ export const WORDS = [
     ]
   },
   {
+    "id": "w053",
     "category": [
       "basic",
       "word"
@@ -797,6 +851,7 @@ export const WORDS = [
     ]
   },
   {
+    "id": "w054",
     "category": [
       "basic",
       "word"
@@ -811,6 +866,7 @@ export const WORDS = [
     "czHint": "my dvě čuňátka si hrajem (toy(en))"
   },
   {
+    "id": "w055",
     "category": [
       "basic",
       "word"
@@ -825,6 +881,7 @@ export const WORDS = [
     "czHint": "kak-ovy banán"
   },
   {
+    "id": "w056",
     "category": [
       "basic",
       "word"
@@ -840,6 +897,7 @@ export const WORDS = [
     ]
   },
   {
+    "id": "w057",
     "category": [
       "basic",
       "word"
@@ -853,6 +911,7 @@ export const WORDS = [
     "viAudio": "speech/vi/khong.mp3"
   },
   {
+    "id": "w058",
     "category": [
       "basic",
       "word"
@@ -866,6 +925,7 @@ export const WORDS = [
     "viAudio": "speech/vi/xau.mp3"
   },
   {
+    "id": "w059",
     "category": [
       "basic",
       "word"
@@ -879,6 +939,7 @@ export const WORDS = [
     "viAudio": "speech/vi/co.mp3"
   },
   {
+    "id": "w060",
     "category": [
       "basic",
       "word"
@@ -892,6 +953,7 @@ export const WORDS = [
     "viAudio": "speech/vi/la.mp3"
   },
   {
+    "id": "w061",
     "category": [
       "basic",
       "word"
@@ -905,6 +967,7 @@ export const WORDS = [
     "viAudio": "speech/vi/lam.mp3"
   },
   {
+    "id": "w062",
     "category": [
       "basic",
       "word"
@@ -918,6 +981,7 @@ export const WORDS = [
     "viAudio": "speech/vi/dji.mp3"
   },
   {
+    "id": "w063",
     "category": [
       "basic",
       "word"
@@ -931,6 +995,7 @@ export const WORDS = [
     "viAudio": "speech/vi/muon.mp3"
   },
   {
+    "id": "w064",
     "category": [
       "basic",
       "word"
@@ -944,6 +1009,7 @@ export const WORDS = [
     "viAudio": "speech/vi/co-the.mp3"
   },
   {
+    "id": "w065",
     "category": [
       "basic",
       "word"
@@ -957,6 +1023,7 @@ export const WORDS = [
     "viAudio": "speech/vi/can.mp3"
   },
   {
+    "id": "w066",
     "category": [
       "basic",
       "word"
@@ -971,6 +1038,7 @@ export const WORDS = [
     "czHint": "Óldó jsi tam?"
   },
   {
+    "id": "w067",
     "category": [
       "basic",
       "word"
@@ -985,6 +1053,7 @@ export const WORDS = [
     "czHint": "brzo"
   },
   {
+    "id": "w068",
     "category": [
       "word",
       "basic"
@@ -999,6 +1068,7 @@ export const WORDS = [
     "czHint": "toy(en) jan - čas na janovu hračku"
   },
   {
+    "id": "w069",
     "category": [
       "basic",
       "word"
@@ -1012,6 +1082,7 @@ export const WORDS = [
     "viAudio": "speech/vi/tien.mp3"
   },
   {
+    "id": "w070",
     "category": [
       "basic",
       "word"
@@ -1026,6 +1097,7 @@ export const WORDS = [
     "czHint": "ne pro staré - khong(vi) věk"
   },
   {
+    "id": "w071",
     "category": [
       "basic",
       "word"
@@ -1039,6 +1111,7 @@ export const WORDS = [
     "viAudio": "speech/vi/tot.mp3"
   },
   {
+    "id": "w072",
     "category": [
       "basic",
       "word"
@@ -1052,6 +1125,7 @@ export const WORDS = [
     "viAudio": "speech/vi/khong-tot.mp3"
   },
   {
+    "id": "w073",
     "category": [
       "nails",
       "word"
@@ -1066,6 +1140,7 @@ export const WORDS = [
     "czHint": "krátké ruce(vi)"
   },
   {
+    "id": "w074",
     "category": [
       "nails",
       "word"
@@ -1080,6 +1155,7 @@ export const WORDS = [
     "czHint": "zažblunknutí nehtu(vi)"
   },
   {
+    "id": "w075",
     "category": [
       "nails",
       "word",
@@ -1094,6 +1170,7 @@ export const WORDS = [
     "viAudio": "speech/vi/djo-dai.mp3"
   },
   {
+    "id": "w076",
     "category": [
       "nails",
       "word",
@@ -1109,6 +1186,7 @@ export const WORDS = [
     "czHint": "jan - krátké jméno"
   },
   {
+    "id": "w077",
     "category": [
       "nails",
       "word",
@@ -1124,6 +1202,7 @@ export const WORDS = [
     "czHint": "dlouhý zaj-íc"
   },
   {
+    "id": "w078",
     "category": [
       "word",
       "nails"
@@ -1137,6 +1216,7 @@ export const WORDS = [
     "viAudio": "speech/vi/djen.mp3"
   },
   {
+    "id": "w079",
     "category": [
       "word",
       "basic"
@@ -1150,6 +1230,7 @@ export const WORDS = [
     "viAudio": "speech/vi/mot-chut.mp3"
   },
   {
+    "id": "w080",
     "category": [
       "word",
       "nails",
@@ -1165,6 +1246,7 @@ export const WORDS = [
     "czHint": "sup opravuje auto na poušti"
   },
   {
+    "id": "w081",
     "category": [
       "word",
       "nails",
@@ -1180,6 +1262,7 @@ export const WORDS = [
     "czHint": "kat zkracuje - sv. jan"
   },
   {
+    "id": "w082",
     "category": [
       "word",
       "nails",
@@ -1194,6 +1277,7 @@ export const WORDS = [
     "viAudio": "speech/vi/lam-dai.mp3"
   },
   {
+    "id": "w083",
     "category": [
       "word",
       "basic",
@@ -1209,6 +1293,7 @@ export const WORDS = [
     "czHint": "thajka dojí pokemona, který se změní"
   },
   {
+    "id": "w084",
     "category": [
       "word",
       "basic",
@@ -1224,6 +1309,7 @@ export const WORDS = [
     "czHint": "ty - se mi líbíš"
   },
   {
+    "id": "w085",
     "category": [
       "word",
       "nails",
@@ -1238,6 +1324,7 @@ export const WORDS = [
     "viAudio": "speech/vi/khong-thich.mp3"
   },
   {
+    "id": "w086",
     "category": [
       "word",
       "basic 2",
@@ -1252,6 +1339,7 @@ export const WORDS = [
     "viAudio": "speech/vi/re.mp3"
   },
   {
+    "id": "w087",
     "category": [
       "word",
       "nails",
@@ -1267,6 +1355,7 @@ export const WORDS = [
     "czHint": "drahé data"
   },
   {
+    "id": "w088",
     "category": [
       "word",
       "nails",
@@ -1282,6 +1371,7 @@ export const WORDS = [
     "czHint": "čistý sek"
   },
   {
+    "id": "w089",
     "category": [
       "word",
       "nails"
@@ -1296,6 +1386,7 @@ export const WORDS = [
     "czHint": "khšic(odhánění) čuněte"
   },
   {
+    "id": "w090",
     "category": [
       "phrase",
       "basic",
@@ -1310,6 +1401,7 @@ export const WORDS = [
     "viAudio": "speech/vi/khong-sao.mp3"
   },
   {
+    "id": "w091",
     "category": [
       "basic",
       "phrase"
@@ -1323,6 +1415,7 @@ export const WORDS = [
     "viAudio": "speech/vi/vang-toi-hieu.mp3"
   },
   {
+    "id": "w092",
     "category": [
       "basic",
       "phrase"
@@ -1336,6 +1429,7 @@ export const WORDS = [
     "viAudio": "speech/vi/khong-toi-khong-hieu.mp3"
   },
   {
+    "id": "w093",
     "category": [
       "phrase",
       "basic"
@@ -1349,6 +1443,7 @@ export const WORDS = [
     "viAudio": "speech/vi/ban-co-the-nhac-lai-khong.mp3"
   },
   {
+    "id": "w094",
     "category": [
       "basic",
       "phrase"
@@ -1363,6 +1458,7 @@ export const WORDS = [
     "czHint": "prosím(vi) no i čaj"
   },
   {
+    "id": "w095",
     "category": [
       "basic",
       "phrase",
@@ -1378,6 +1474,7 @@ export const WORDS = [
     "czHint": "prosím čekejte[čo] chvilku[mot čut] - č m č"
   },
   {
+    "id": "w096",
     "category": [
       "basic",
       "phrase",
@@ -1392,6 +1489,7 @@ export const WORDS = [
     "viAudio": "speech/vi/bay-gio-toi-khong-co-thoi-gian.mp3"
   },
   {
+    "id": "w097",
     "category": [
       "basic",
       "phrase"
@@ -1406,6 +1504,7 @@ export const WORDS = [
     "czHint": "těď dobře - duk"
   },
   {
+    "id": "w098",
     "category": [
       "phrase",
       "basic"
@@ -1419,6 +1518,7 @@ export const WORDS = [
     "viAudio": "speech/vi/toi-muon-hoi.mp3"
   },
   {
+    "id": "w099",
     "category": [
       "phrase",
       "nails",
@@ -1434,6 +1534,7 @@ export const WORDS = [
     "czHint": "kolik peněz?"
   },
   {
+    "id": "w100",
     "category": [
       "phrase",
       "basic"
@@ -1448,6 +1549,7 @@ export const WORDS = [
     "czHint": "Kde?"
   },
   {
+    "id": "w101",
     "category": [
       "phrase",
       "basic"
@@ -1462,6 +1564,7 @@ export const WORDS = [
     "czHint": "chi na-o, čekání na balíček z číny"
   },
   {
+    "id": "w102",
     "category": [
       "word",
       "basic"
@@ -1476,6 +1579,7 @@ export const WORDS = [
     "czHint": "přijít ve dne"
   },
   {
+    "id": "w103",
     "category": [
       "word",
       "basic"
@@ -1490,6 +1594,7 @@ export const WORDS = [
     "czHint": "vidím thajku"
   },
   {
+    "id": "w104",
     "category": [
       "word",
       "basic"
@@ -1504,6 +1609,7 @@ export const WORDS = [
     "czHint": "ne-slyším"
   },
   {
+    "id": "w105",
     "category": [
       "word",
       "basic"
@@ -1517,6 +1623,7 @@ export const WORDS = [
     "viAudio": "speech/vi/noi.mp3"
   },
   {
+    "id": "w106",
     "category": [
       "word",
       "basic"
@@ -1531,6 +1638,7 @@ export const WORDS = [
     "czHint": ""
   },
   {
+    "id": "w107",
     "category": [
       "word",
       "basic"
@@ -1544,6 +1652,7 @@ export const WORDS = [
     "viAudio": "speech/vi/hieu.mp3"
   },
   {
+    "id": "w108",
     "category": [
       "word",
       "basic"
@@ -1557,6 +1666,7 @@ export const WORDS = [
     "viAudio": "speech/vi/khong-biet.mp3"
   },
   {
+    "id": "w109",
     "category": [
       "word",
       "basic"
@@ -1570,6 +1680,7 @@ export const WORDS = [
     "viAudio": "speech/vi/biet.mp3"
   },
   {
+    "id": "w110",
     "category": [
       "basic",
       "word"
@@ -1583,6 +1694,7 @@ export const WORDS = [
     "viAudio": "speech/vi/tot.mp3"
   },
   {
+    "id": "w111",
     "category": [
       "word",
       "basic"
@@ -1597,6 +1709,7 @@ export const WORDS = [
     "czHint": "lon-g - velký a dlouhý "
   },
   {
+    "id": "w112",
     "category": [
       "word",
       "basic"
@@ -1610,6 +1723,7 @@ export const WORDS = [
     "viAudio": "speech/vi/nho.mp3"
   },
   {
+    "id": "w113",
     "category": [
       "word",
       "basic"
@@ -1623,6 +1737,7 @@ export const WORDS = [
     "viAudio": "speech/vi/moi.mp3"
   },
   {
+    "id": "w114",
     "category": [
       "word",
       "basic"
@@ -1636,6 +1751,7 @@ export const WORDS = [
     "viAudio": "speech/vi/cu.mp3"
   },
   {
+    "id": "w115",
     "category": [
       "basic",
       "word"
@@ -1650,6 +1766,7 @@ export const WORDS = [
     "czHint": "den + starý(vi)"
   },
   {
+    "id": "w116",
     "category": [
       "word",
       "basic"
@@ -1664,6 +1781,7 @@ export const WORDS = [
     "czHint": "ze levněný"
   },
   {
+    "id": "w117",
     "category": [
       "word",
       "basic"
@@ -1678,6 +1796,7 @@ export const WORDS = [
     "czHint": "drahé dat-a"
   },
   {
+    "id": "w118",
     "category": [
       "word",
       "basic"
@@ -1691,6 +1810,7 @@ export const WORDS = [
     "viAudio": "speech/vi/co-the.mp3"
   },
   {
+    "id": "w119",
     "category": [
       "word",
       "basic"
@@ -1705,6 +1825,7 @@ export const WORDS = [
     "czHint": "pomoc se zub-em"
   },
   {
+    "id": "w120",
     "category": [
       "word",
       "basic"
@@ -1719,6 +1840,7 @@ export const WORDS = [
     "czHint": "stejné první písmeno čo-kat"
   },
   {
+    "id": "w121",
     "category": [
       "word",
       "basic"
@@ -1732,6 +1854,7 @@ export const WORDS = [
     "viAudio": "speech/vi/tim.mp3"
   },
   {
+    "id": "w122",
     "category": [
       "word",
       "basic"
@@ -1746,6 +1869,7 @@ export const WORDS = [
     "czHint": "šach mat - ztratit krále"
   },
   {
+    "id": "w123",
     "category": [
       "word",
       "basic"
@@ -1760,6 +1884,7 @@ export const WORDS = [
     "czHint": "bat - netopýr + d-au, netopýra začíná bolet křídlo"
   },
   {
+    "id": "w124",
     "category": [
       "word",
       "basic"
@@ -1774,6 +1899,7 @@ export const WORDS = [
     "czHint": "ket-o dieta na skoncování s tuk-em"
   },
   {
+    "id": "w125",
     "category": [
       "word",
       "basic"
@@ -1787,6 +1913,7 @@ export const WORDS = [
     "viAudio": "speech/vi/nguoi.mp3"
   },
   {
+    "id": "w126",
     "category": [
       "word",
       "basic"
@@ -1800,6 +1927,7 @@ export const WORDS = [
     "viAudio": "speech/vi/moi-nguoi.mp3"
   },
   {
+    "id": "w127",
     "category": [
       "word",
       "basic"
@@ -1813,6 +1941,7 @@ export const WORDS = [
     "viAudio": "speech/vi/vat.mp3"
   },
   {
+    "id": "w128",
     "category": [
       "word",
       "basic"
@@ -1826,6 +1955,7 @@ export const WORDS = [
     "viAudio": "speech/vi/noi.mp3"
   },
   {
+    "id": "w129",
     "category": [
       "word",
       "basic"
@@ -1840,6 +1970,7 @@ export const WORDS = [
     "czHint": "du po cestě"
   },
   {
+    "id": "w130",
     "category": [
       "word"
     ],
@@ -1852,6 +1983,7 @@ export const WORDS = [
     "viAudio": "speech/vi/cau-hoi.mp3"
   },
   {
+    "id": "w131",
     "category": [
       "word"
     ],
@@ -1864,6 +1996,7 @@ export const WORDS = [
     "viAudio": "speech/vi/tra-loi.mp3"
   },
   {
+    "id": "w132",
     "category": [
       "word"
     ],
@@ -1876,6 +2009,7 @@ export const WORDS = [
     "viAudio": "speech/vi/ke-hoach.mp3"
   },
   {
+    "id": "w133",
     "category": [
       "word"
     ],
@@ -1888,6 +2022,7 @@ export const WORDS = [
     "viAudio": "speech/vi/tinh-huong.mp3"
   },
   {
+    "id": "w134",
     "category": [
       "word"
     ],
@@ -1900,6 +2035,7 @@ export const WORDS = [
     "viAudio": "speech/vi/ly-do.mp3"
   },
   {
+    "id": "w135",
     "category": [
       "word"
     ],
@@ -1912,6 +2048,7 @@ export const WORDS = [
     "viAudio": "speech/vi/cham.mp3"
   },
   {
+    "id": "w136",
     "category": [
       "word"
     ],
@@ -1924,6 +2061,7 @@ export const WORDS = [
     "viAudio": "speech/vi/nhanh.mp3"
   },
   {
+    "id": "w137",
     "category": [
       "word"
     ],
@@ -1936,6 +2074,7 @@ export const WORDS = [
     "viAudio": "speech/vi/luon-luon.mp3"
   },
   {
+    "id": "w138",
     "category": [
       "word"
     ],
@@ -1948,6 +2087,7 @@ export const WORDS = [
     "viAudio": "speech/vi/khong-bao-gio.mp3"
   },
   {
+    "id": "w139",
     "category": [
       "word"
     ],
@@ -1960,6 +2100,7 @@ export const WORDS = [
     "viAudio": "speech/vi/djoi-khi.mp3"
   },
   {
+    "id": "w140",
     "category": [
       "word"
     ],
@@ -1972,6 +2113,7 @@ export const WORDS = [
     "viAudio": "speech/vi/vi-vay.mp3"
   },
   {
+    "id": "w141",
     "category": [
       "word"
     ],
@@ -1984,6 +2126,7 @@ export const WORDS = [
     "viAudio": "speech/vi/boi-vi.mp3"
   },
   {
+    "id": "w142",
     "category": [
       "word"
     ],
@@ -1996,6 +2139,7 @@ export const WORDS = [
     "viAudio": "speech/vi/neu.mp3"
   },
   {
+    "id": "w143",
     "category": [
       "word"
     ],
@@ -2008,6 +2152,7 @@ export const WORDS = [
     "viAudio": "speech/vi/khi.mp3"
   },
   {
+    "id": "w144",
     "category": [
       "word"
     ],
@@ -2020,6 +2165,7 @@ export const WORDS = [
     "viAudio": "speech/vi/nhung.mp3"
   },
   {
+    "id": "w145",
     "category": [
       "word",
       "basic"
@@ -2033,6 +2179,7 @@ export const WORDS = [
     "viAudio": "speech/vi/hoac.mp3"
   },
   {
+    "id": "w146",
     "category": [
       "word",
       "basic"
@@ -2047,6 +2194,7 @@ export const WORDS = [
     "czHint": "kung - taky umí kung fu"
   },
   {
+    "id": "w147",
     "category": [
       "word",
       "basic 2"
@@ -2060,6 +2208,7 @@ export const WORDS = [
     "viAudio": "speech/vi/chi.mp3"
   },
   {
+    "id": "w148",
     "category": [
       "word",
       "basic"
@@ -2073,6 +2222,7 @@ export const WORDS = [
     "viAudio": "speech/vi/dja.mp3"
   },
   {
+    "id": "w149",
     "category": [
       "word",
       "basic"
@@ -2086,6 +2236,7 @@ export const WORDS = [
     "viAudio": "speech/vi/van.mp3"
   },
   {
+    "id": "w150",
     "category": [
       "word"
     ],
@@ -2098,6 +2249,7 @@ export const WORDS = [
     "viAudio": "speech/vi/lai.mp3"
   },
   {
+    "id": "w151",
     "category": [
       "word"
     ],
@@ -2110,6 +2262,7 @@ export const WORDS = [
     "viAudio": "speech/vi/ngay.mp3"
   },
   {
+    "id": "w152",
     "category": [
       "word"
     ],
@@ -2122,6 +2275,7 @@ export const WORDS = [
     "viAudio": "speech/vi/som.mp3"
   },
   {
+    "id": "w153",
     "category": [
       "word",
       "basic"
@@ -2136,6 +2290,7 @@ export const WORDS = [
     "czHint": "trochu jako chtít (vi)"
   },
   {
+    "id": "w154",
     "category": [
       "word",
       "basic"
@@ -2150,6 +2305,7 @@ export const WORDS = [
     "czHint": "stejné první písmeno jako Long, + au"
   },
   {
+    "id": "w155",
     "category": [
       "word",
       "basic"
@@ -2163,6 +2319,7 @@ export const WORDS = [
     "viAudio": "speech/vi/ngan.mp3"
   },
   {
+    "id": "w156",
     "category": [
       "word",
       "basic"
@@ -2176,6 +2333,7 @@ export const WORDS = [
     "viAudio": "speech/vi/nhieu.mp3"
   },
   {
+    "id": "w157",
     "category": [
       "word",
       "basic"
@@ -2189,6 +2347,7 @@ export const WORDS = [
     "viAudio": "speech/vi/it.mp3"
   },
   {
+    "id": "w158",
     "category": [
       "word",
       "basic"
@@ -2202,6 +2361,7 @@ export const WORDS = [
     "viAudio": "speech/vi/moi-thu.mp3"
   },
   {
+    "id": "w159",
     "category": [
       "word",
       "basic"
@@ -2215,6 +2375,7 @@ export const WORDS = [
     "viAudio": "speech/vi/khong-co-gi.mp3"
   },
   {
+    "id": "w160",
     "category": [
       "word",
       "basic"
@@ -2228,6 +2389,7 @@ export const WORDS = [
     "viAudio": "speech/vi/cai-gi-djo.mp3"
   },
   {
+    "id": "w161",
     "category": [
       "word",
       "basic"
@@ -2241,6 +2403,7 @@ export const WORDS = [
     "viAudio": "speech/vi/ai-djo.mp3"
   },
   {
+    "id": "w162",
     "category": [
       "word",
       "basic"
@@ -2254,6 +2417,7 @@ export const WORDS = [
     "viAudio": "speech/vi/moi-nguoi.mp3"
   },
   {
+    "id": "w163",
     "category": [
       "word",
       "basic"
@@ -2267,6 +2431,7 @@ export const WORDS = [
     "viAudio": "speech/vi/mot.mp3"
   },
   {
+    "id": "w164",
     "category": [
       "word",
       "basic"
@@ -2280,6 +2445,7 @@ export const WORDS = [
     "viAudio": "speech/vi/hai.mp3"
   },
   {
+    "id": "w165",
     "category": [
       "word",
       "basic"
@@ -2293,6 +2459,7 @@ export const WORDS = [
     "viAudio": "speech/vi/hon.mp3"
   },
   {
+    "id": "w166",
     "category": [
       "word",
       "basic"
@@ -2306,6 +2473,7 @@ export const WORDS = [
     "viAudio": "speech/vi/it-hon.mp3"
   },
   {
+    "id": "w167",
     "category": [
       "word",
       "basic"
@@ -2319,6 +2487,7 @@ export const WORDS = [
     "viAudio": "speech/vi/giong.mp3"
   },
   {
+    "id": "w168",
     "category": [
       "word",
       "basic"
@@ -2332,6 +2501,7 @@ export const WORDS = [
     "viAudio": "speech/vi/khac.mp3"
   },
   {
+    "id": "w169",
     "category": [
       "word",
       "basic"
@@ -2345,6 +2515,7 @@ export const WORDS = [
     "viAudio": "speech/vi/dung.mp3"
   },
   {
+    "id": "w170",
     "category": [
       "word",
       "basic"
@@ -2358,6 +2529,7 @@ export const WORDS = [
     "viAudio": "speech/vi/de.mp3"
   },
   {
+    "id": "w171",
     "category": [
       "word",
       "basic"
@@ -2371,6 +2543,7 @@ export const WORDS = [
     "viAudio": "speech/vi/kho.mp3"
   },
   {
+    "id": "w172",
     "category": [
       "word",
       "basic"
@@ -2384,6 +2557,7 @@ export const WORDS = [
     "viAudio": "speech/vi/thich.mp3"
   },
   {
+    "id": "w173",
     "category": [
       "word",
       "basic"
@@ -2397,6 +2571,7 @@ export const WORDS = [
     "viAudio": "speech/vi/nghi.mp3"
   },
   {
+    "id": "w174",
     "category": [
       "word",
       "basic"
@@ -2410,6 +2585,7 @@ export const WORDS = [
     "viAudio": "speech/vi/tin.mp3"
   },
   {
+    "id": "w175",
     "category": [
       "word",
       "basic 2"
@@ -2423,6 +2599,7 @@ export const WORDS = [
     "viAudio": "speech/vi/hy-vong.mp3"
   },
   {
+    "id": "w176",
     "category": [
       "word",
       "basic"
@@ -2436,6 +2613,7 @@ export const WORDS = [
     "viAudio": "speech/vi/thu.mp3"
   },
   {
+    "id": "w177",
     "category": [
       "word",
       "basic"
@@ -2449,6 +2627,7 @@ export const WORDS = [
     "viAudio": "speech/vi/quyet-djinh.mp3"
   },
   {
+    "id": "w178",
     "category": [
       "word",
       "basic"
@@ -2462,6 +2641,7 @@ export const WORDS = [
     "viAudio": "speech/vi/thay-djoi.mp3"
   },
   {
+    "id": "w179",
     "category": [
       "word",
       "basic"
@@ -2475,6 +2655,7 @@ export const WORDS = [
     "viAudio": "speech/vi/o-lai.mp3"
   },
   {
+    "id": "w180",
     "category": [
       "word"
     ],
@@ -2487,6 +2668,7 @@ export const WORDS = [
     "viAudio": "speech/vi/quay-lai.mp3"
   },
   {
+    "id": "w181",
     "category": [
       "word"
     ],
@@ -2499,6 +2681,7 @@ export const WORDS = [
     "viAudio": "speech/vi/lay.mp3"
   },
   {
+    "id": "w182",
     "category": [
       "word"
     ],
@@ -2511,6 +2694,7 @@ export const WORDS = [
     "viAudio": "speech/vi/cho.mp3"
   },
   {
+    "id": "w183",
     "category": [
       "word"
     ],
@@ -2523,6 +2707,7 @@ export const WORDS = [
     "viAudio": "speech/vi/giu.mp3"
   },
   {
+    "id": "w184",
     "category": [
       "word"
     ],
@@ -2535,6 +2720,7 @@ export const WORDS = [
     "viAudio": "speech/vi/de.mp3"
   },
   {
+    "id": "w185",
     "category": [
       "word"
     ],
@@ -2547,6 +2733,7 @@ export const WORDS = [
     "viAudio": "speech/vi/thuoc.mp3"
   },
   {
+    "id": "w186",
     "category": [
       "word"
     ],
@@ -2559,6 +2746,7 @@ export const WORDS = [
     "viAudio": "speech/vi/ap-dung.mp3"
   },
   {
+    "id": "w187",
     "category": [
       "phrase"
     ],
@@ -2571,6 +2759,7 @@ export const WORDS = [
     "viAudio": "speech/vi/co-ve.mp3"
   },
   {
+    "id": "w188",
     "category": [
       "word"
     ],
@@ -2583,6 +2772,7 @@ export const WORDS = [
     "viAudio": "speech/vi/dju.mp3"
   },
   {
+    "id": "w189",
     "category": [
       "word"
     ],
@@ -2595,6 +2785,7 @@ export const WORDS = [
     "viAudio": "speech/vi/thieu.mp3"
   },
   {
+    "id": "w190",
     "category": [
       "word"
     ],
@@ -2607,6 +2798,7 @@ export const WORDS = [
     "viAudio": "speech/vi/chinh-xac.mp3"
   },
   {
+    "id": "w191",
     "category": [
       "word"
     ],
@@ -2619,6 +2811,7 @@ export const WORDS = [
     "viAudio": "speech/vi/khoang.mp3"
   },
   {
+    "id": "w192",
     "category": [
       "word"
     ],
@@ -2631,6 +2824,7 @@ export const WORDS = [
     "viAudio": "speech/vi/that-su.mp3"
   },
   {
+    "id": "w193",
     "category": [
       "word"
     ],
@@ -2643,6 +2837,7 @@ export const WORDS = [
     "viAudio": "speech/vi/co-le.mp3"
   },
   {
+    "id": "w194",
     "category": [
       "basic",
       "phrase",
@@ -2657,6 +2852,7 @@ export const WORDS = [
     "viAudio": "speech/vi/hom-nay-nhu-vay-dju-roi.mp3"
   },
   {
+    "id": "w195",
     "category": [
       "basic",
       "phrase"
@@ -2670,6 +2866,7 @@ export const WORDS = [
     "viAudio": "speech/vi/ngay-mai-se-tot-hon.mp3"
   },
   {
+    "id": "w196",
     "category": [
       "phrase",
       "basic"
@@ -2683,6 +2880,7 @@ export const WORDS = [
     "viAudio": "speech/vi/nhu-vay-tot.mp3"
   },
   {
+    "id": "w197",
     "category": [
       "phrase",
       "basic"
@@ -2696,6 +2894,7 @@ export const WORDS = [
     "viAudio": "speech/vi/khong-tot.mp3"
   },
   {
+    "id": "w198",
     "category": [
       "phrase",
       "basic",
@@ -2710,6 +2909,7 @@ export const WORDS = [
     "viAudio": "speech/vi/ban-co-the-ngoi.mp3"
   },
   {
+    "id": "w199",
     "category": [
       "basic",
       "phrase"
@@ -2723,6 +2923,7 @@ export const WORDS = [
     "viAudio": "speech/vi/bat-djau-bay-gio.mp3"
   },
   {
+    "id": "w200",
     "category": [
       "phrase",
       "nails",
@@ -2737,20 +2938,7 @@ export const WORDS = [
     "viAudio": "speech/vi/xong-roi.mp3"
   },
   {
-    "category": [
-      "basic",
-      "phrase",
-      "nails"
-    ],
-    "cz": "Počkejte prosím chvilku",
-    "en": "Please wait a moment",
-    "vi": "Làm ơn chờ một chút",
-    "czPron": "POČ-kej-te chvil-ku",
-    "viPron": "lam ən čo mot čut",
-    "czAudio": "speech/cz/pockejte-prosim-chvilku.mp3",
-    "viAudio": "speech/vi/lam-on-cho-mot-chut.mp3"
-  },
-  {
+    "id": "w202",
     "category": [
       "phrase",
       "basic",
@@ -2765,6 +2953,7 @@ export const WORDS = [
     "viAudio": "speech/vi/khong-djau-djau.mp3"
   },
   {
+    "id": "w203",
     "category": [
       "phrase",
       "basic",
@@ -2779,6 +2968,7 @@ export const WORDS = [
     "viAudio": "speech/vi/ban-co-thich-khong.mp3"
   },
   {
+    "id": "w204",
     "category": [
       "phrase",
       "basic",
@@ -2793,6 +2983,7 @@ export const WORDS = [
     "viAudio": "speech/vi/djep-khong.mp3"
   },
   {
+    "id": "w205",
     "category": [
       "phrase",
       "nails"
@@ -2806,6 +2997,7 @@ export const WORDS = [
     "viAudio": "speech/vi/ban-muon-mau-khac-khong.mp3"
   },
   {
+    "id": "w206",
     "category": [
       "nails",
       "phrase"
@@ -2819,6 +3011,7 @@ export const WORDS = [
     "viAudio": "speech/vi/ngan-hay-dai.mp3"
   },
   {
+    "id": "w207",
     "category": [
       "phrase",
       "nails"
@@ -2832,6 +3025,7 @@ export const WORDS = [
     "viAudio": "speech/vi/lam-ngan-lai.mp3"
   },
   {
+    "id": "w208",
     "category": [
       "phrase",
       "nails"
@@ -2845,6 +3039,7 @@ export const WORDS = [
     "viAudio": "speech/vi/lam-dai-hon.mp3"
   },
   {
+    "id": "w209",
     "category": [
       "phrase",
       "basic",
@@ -2859,6 +3054,7 @@ export const WORDS = [
     "viAudio": "speech/vi/giu-nhu-vay.mp3"
   },
   {
+    "id": "w210",
     "category": [
       "phrase",
       "basic",
@@ -2873,6 +3069,7 @@ export const WORDS = [
     "viAudio": "speech/vi/sua-mot-chut.mp3"
   },
   {
+    "id": "w211",
     "category": [
       "phrase",
       "basic",
@@ -2887,6 +3084,7 @@ export const WORDS = [
     "viAudio": "speech/vi/can-sua-lai.mp3"
   },
   {
+    "id": "w212",
     "category": [
       "phrase",
       "nails",
@@ -2901,6 +3099,7 @@ export const WORDS = [
     "viAudio": "speech/vi/gia-la-the-nay.mp3"
   },
   {
+    "id": "w213",
     "category": [
       "phrase",
       "basic",
@@ -2915,6 +3114,7 @@ export const WORDS = [
     "viAudio": "speech/vi/hoi-djat.mp3"
   },
   {
+    "id": "w214",
     "category": [
       "phrase",
       "basic",
@@ -2929,6 +3129,7 @@ export const WORDS = [
     "viAudio": "speech/vi/re-hon.mp3"
   },
   {
+    "id": "w215",
     "category": [
       "phrase",
       "basic",
@@ -2943,6 +3144,7 @@ export const WORDS = [
     "viAudio": "speech/vi/se-mat-mot-chut-thoi-gian.mp3"
   },
   {
+    "id": "w216",
     "category": [
       "basic",
       "phrase",
