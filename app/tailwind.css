@@ -1,0 +1,57 @@
+@import "tailwindcss";
+
+/*
+  Tailwind v4 CSS-based theme configuration.
+  We keep existing styling in `styles.css` (imported by `app/globals.css`)
+  and will migrate styles to Tailwind gradually.
+*/
+
+@theme {
+  /* Custom colors matching our CSS variables */
+  --color-background: #050816;
+  --color-background-elevated: #0b1220;
+  --color-accent: #38bdf8;
+  --color-accent-soft: rgba(56, 189, 248, 0.12);
+  --color-accent-strong: rgba(56, 189, 248, 0.32);
+  --color-text: #e5e7eb;
+  --color-text-soft: #9ca3af;
+  --color-border-subtle: rgba(148, 163, 184, 0.35);
+  --color-danger: #fb7185;
+
+  /* Custom border radius */
+  --radius-pill: 999px;
+  --radius-lg: 18px;
+
+  /* Custom shadows */
+  --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.75);
+  --shadow-chip: 0 10px 25px rgba(15, 23, 42, 0.7);
+}
+
+/* Keep CSS variables for existing styles.css compatibility */
+:root {
+  color-scheme: light dark;
+  --bg: #050816;
+  --bg-elevated: #0b1220;
+  --accent: #38bdf8;
+  --accent-soft: rgba(56, 189, 248, 0.12);
+  --accent-strong: rgba(56, 189, 248, 0.32);
+  --text: #e5e7eb;
+  --text-soft: #9ca3af;
+  --border-subtle: rgba(148, 163, 184, 0.35);
+  --danger: #fb7185;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+  --radius-sm: 6px;
+  --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.75);
+  --shadow-chip: 0 10px 25px rgba(15, 23, 42, 0.7);
+  --transition-fast: 160ms ease-out;
+  --transition-med: 220ms ease;
+  --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "SF Pro Text",
+    "Segoe UI", sans-serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}

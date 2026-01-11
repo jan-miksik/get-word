@@ -2333,7 +2333,8 @@ export const WORDS = [
   },
   {
     "category": [
-      "word"
+      "word",
+      "basic"
     ],
     "cz": "Správně",
     "en": "Correctly",

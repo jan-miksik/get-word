@@ -22,38 +22,12 @@ export function CategoryPanel({
       onClick={(e) => e.stopPropagation()}
     >
       <div className="category-panel-inner">
-        <div className="category-panel-header" style={{ position: 'relative' }}>
+        <div className="category-panel-header relative">
           <h2>Filter by Category</h2>
           {onClose && (
             <button
               onClick={onClose}
-              style={{
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                background: 'transparent',
-                border: 'none',
-                fontSize: '1.25rem',
-                color: 'var(--text-soft)',
-                cursor: 'pointer',
-                padding: '0.25rem',
-                lineHeight: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '1.5rem',
-                height: '1.5rem',
-                borderRadius: 'var(--radius-sm)',
-                transition: 'all var(--transition-fast)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--bg-elevated)';
-                e.currentTarget.style.color = 'var(--text)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.color = 'var(--text-soft)';
-              }}
+              className="absolute right-0 top-0 flex h-6 w-6 items-center justify-center rounded-md p-1 text-[1.25rem] text-text-soft transition-colors duration-150 hover:bg-background-elevated hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
               aria-label="Close category filter"
             >
               ×

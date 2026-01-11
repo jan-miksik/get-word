@@ -128,15 +128,7 @@ export function EditableWordCard({
             onTouchStart={(e) => {
               e.stopPropagation();
             }}
-            style={{
-              padding: '4px 8px',
-              fontSize: '0.75rem',
-              borderRadius: 'var(--radius-pill)',
-              border: '1px solid var(--border-subtle)',
-              background: 'var(--bg-elevated)',
-              color: 'var(--text)',
-              cursor: 'pointer',
-            }}
+            className="rounded-full border border-border-subtle bg-background-elevated px-2 py-1 text-xs text-text transition-colors duration-150 hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
             title="Edit categories"
           >
             🏷️

@@ -4,8 +4,10 @@
   "private": true,
   "packageManager": "pnpm@9.0.0",
   "scripts": {
-    "dev": "next dev",
-    "build": "rm -rf .next .open-next && next build && opennextjs-cloudflare build --skipNextBuild",
+    "dev:css": "pnpm dlx @tailwindcss/cli -c tailwind.config.js -i ./app/tailwind.css -o ./app/.generated/tailwind.css --watch",
+    "dev": "pnpm run build:css && pnpm run dev:css & next dev",
+    "build:css": "pnpm dlx @tailwindcss/cli -c tailwind.config.js -i ./app/tailwind.css -o ./app/.generated/tailwind.css",
+    "build": "pnpm run build:css && rm -rf .next .open-next && next build && opennextjs-cloudflare build --skipNextBuild",
     "preview": "pnpm build && opennextjs-cloudflare preview",
     "deploy:cf": "pnpm build && opennextjs-cloudflare deploy",
     "start": "next start",
@@ -21,9 +23,11 @@
     "react-dom": "^19.2.3"
   },
   "devDependencies": {
+    "@tailwindcss/cli": "^4.1.0",
     "@types/node": "^22.10.0",
     "@types/react": "^19.2.3",
     "@types/react-dom": "^19.2.3",
+    "tailwindcss": "^4.1.0",
     "typescript": "^5.9.0",
     "wrangler": "^4.53.0"
   }
