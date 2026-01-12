@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, memo } from 'react';
 import { NormalizedWord } from '@/lib/words';
 import { Word } from '@/data/words';
 import { ProgressData } from '@/lib/storage';
@@ -31,7 +31,7 @@ export const STANDARD_CATEGORIES = ['basic', 'basic 2', 'cz ≈ en', 'phrase', '
 export const EDIT_ONLY_CATEGORIES = ['to fix'];
 export const ALL_CATEGORIES = [...STANDARD_CATEGORIES, ...EDIT_ONLY_CATEGORIES];
 
-export function EditableWordCard({
+export const EditableWordCard = memo(function EditableWordCard({
   word,
   progress,
   role,
@@ -386,5 +386,5 @@ export function EditableWordCard({
       />
     </div>
   );
-}
+});
 

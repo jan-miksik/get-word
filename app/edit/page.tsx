@@ -1,16 +1,17 @@
 'use client';
 
-import { useState, useEffect, useRef, useMemo } from 'react';
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { WORDS } from '@/data/words';
 import { Word } from '@/data/words';
-import { normalizeWords, getAllCategoriesWithCounts, STAGES, isDue } from '@/lib/words';
+import { normalizeWords, getAllCategoriesWithCounts, STAGES, isDue, NormalizedWord } from '@/lib/words';
 import { useAppState } from '@/hooks/useAppState';
 import { TopMenu } from '@/components/TopMenu';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { CategoryPanel } from '@/components/CategoryPanel';
 import { MemoryHooksPanel } from '@/components/MemoryHooksPanel';
 import { EditableWordCard, EDIT_ONLY_CATEGORIES } from '@/components/EditableWordCard';
+import { useDueTimer } from '@/hooks/useDueTimer';
 
 const PAGE_STYLES = `
   .toggle-button-container-large {
@@ -129,6 +130,9 @@ export default function EditPage() {
   }, [normalizedWords]);
   const phrasesRef = useRef<HTMLElement>(null);
   const [showWaitingForRepeat, setShowWaitingForRepeat] = useState(false);
+
+  // Trigger re-render when cards become due for review
+  useDueTimer(progress);
 
   useEffect(() => {
     // Start with normalized WORDS from data/words as default
@@ -392,6 +396,61 @@ export default function EditPage() {
     setMemoryHooksOpen(false);
   };
 
+  // Group words by stage (memoized for performance) - must be before early return
+  const { groupedWords, groupedWordsWaiting, readyCount } = useMemo(() => {
+    const grouped = STAGES.map(() => [] as NormalizedWord[]);
+    const groupedWaiting = STAGES.map(() => [] as NormalizedWord[]);
+    let ready = 0;
+
+    filteredWords.forEach((word) => {
+      const prog = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
+      const due = isDue(prog);
+      if (due) ready += 1;
+      if (currentTab === 'ready' && !due) return;
+      const sIdx = Math.max(0, Math.min(prog.stageIndex || 0, STAGES.length - 1));
+
+      if (currentTab === 'all' && due) {
+        groupedWaiting[sIdx].push(word);
+      } else {
+        grouped[sIdx].push(word);
+      }
+    });
+
+    return { groupedWords: grouped, groupedWordsWaiting: groupedWaiting, readyCount: ready };
+  }, [filteredWords, progress, currentTab]);
+
+  // Memoized card renderer for EditableWordCard - must be before early return
+  const renderEditableCard = useCallback((word: NormalizedWord) => {
+    const prog = progress[word.id] || {
+      stageIndex: 0,
+      knownCount: 0,
+      unknownCount: 0,
+    };
+    return (
+      <EditableWordCard
+        key={word.id}
+        word={word}
+        progress={prog}
+        role={role}
+        modeIndex={modeIndex}
+        showAll={showAll}
+        memoryHook={getMemoryHook(word.id)}
+        suggestedHook={getSuggestedMemoryHook(word)}
+        onKnown={() => markKnown(word.id)}
+        onReallyKnown={() => markReallyKnown(word.id)}
+        onUnknown={() => markUnknown(word.id)}
+        onMemoryHookChange={(hook) => setMemoryHook(word.id, hook)}
+        isMoved={lastMovedId === word.id}
+        onWordChange={(wordId, field, value) => handleWordFieldChange(wordId, field, value)}
+        onCategoryToggle={(cat) => handleCategoryToggle(word.id, cat)}
+        onCategoryAdd={(cat) => handleCategoryAdd(word.id, cat)}
+        onCategoryRemove={(cat) => handleCategoryRemove(word.id, cat)}
+        showEnglish={showEnglish}
+        showCategoryBadges={showCategoryBadges}
+      />
+    );
+  }, [progress, role, modeIndex, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, handleWordFieldChange, handleCategoryToggle, handleCategoryAdd, handleCategoryRemove, showEnglish, showCategoryBadges]);
+
   if (isLoading || !isHydrated) {
     return (
       <div className="app">
@@ -399,26 +458,6 @@ export default function EditPage() {
       </div>
     );
   }
-
-  // Group words by stage (same as main page)
-  const groupedWords = STAGES.map(() => [] as typeof normalizedWords);
-  const groupedWordsWaiting = STAGES.map(() => [] as typeof normalizedWords);
-  let readyCount = 0;
-
-  filteredWords.forEach((word) => {
-    const prog = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
-    const due = isDue(prog);
-    if (due) readyCount += 1;
-    if (currentTab === 'ready' && !due) return;
-    const sIdx = Math.max(0, Math.min(prog.stageIndex || 0, STAGES.length - 1));
-    
-    // In "all" tab, separate words that are due (waiting for repeat) from others
-    if (currentTab === 'all' && due) {
-      groupedWordsWaiting[sIdx].push(word);
-    } else {
-      groupedWords[sIdx].push(word);
-    }
-  });
 
   // Calculate progress stats
   const calculateProgressStats = () => {
@@ -758,37 +797,7 @@ export default function EditPage() {
               return (
                 <section key={stageIndex} className="category-zone">
                   <h2 className="category-zone-title">{stage.name}</h2>
-                  {items.map((word) => {
-                    const prog = progress[word.id] || {
-                      stageIndex: 0,
-                      knownCount: 0,
-                      unknownCount: 0,
-                    };
-                    
-                    return (
-                      <EditableWordCard
-                        key={word.id}
-                        word={word}
-                        progress={prog}
-                        role={role}
-                        modeIndex={modeIndex}
-                        showAll={showAll}
-                        memoryHook={getMemoryHook(word.id)}
-                        suggestedHook={getSuggestedMemoryHook(word)}
-                        onKnown={() => markKnown(word.id)}
-                        onReallyKnown={() => markReallyKnown(word.id)}
-                        onUnknown={() => markUnknown(word.id)}
-                        onMemoryHookChange={(hook) => setMemoryHook(word.id, hook)}
-                        isMoved={lastMovedId === word.id}
-                        onWordChange={(wordId, field, value) => handleWordFieldChange(wordId, field, value)}
-                        onCategoryToggle={(cat) => handleCategoryToggle(word.id, cat)}
-                        onCategoryAdd={(cat) => handleCategoryAdd(word.id, cat)}
-                        onCategoryRemove={(cat) => handleCategoryRemove(word.id, cat)}
-                        showEnglish={showEnglish}
-                        showCategoryBadges={showCategoryBadges}
-                      />
-                    );
-                  })}
+                  {items.map(renderEditableCard)}
                 </section>
               );
             })}
@@ -828,37 +837,7 @@ export default function EditPage() {
                       return (
                         <section key={`waiting-${stageIndex}`} className="category-zone">
                           <h2 className="category-zone-title">{stage.name}</h2>
-                          {items.map((word) => {
-                            const prog = progress[word.id] || {
-                              stageIndex: 0,
-                              knownCount: 0,
-                              unknownCount: 0,
-                            };
-                            
-                            return (
-                              <EditableWordCard
-                                key={word.id}
-                                word={word}
-                                progress={prog}
-                                role={role}
-                                modeIndex={modeIndex}
-                                showAll={showAll}
-                                memoryHook={getMemoryHook(word.id)}
-                                suggestedHook={getSuggestedMemoryHook(word)}
-                                onKnown={() => markKnown(word.id)}
-                                onReallyKnown={() => markReallyKnown(word.id)}
-                                onUnknown={() => markUnknown(word.id)}
-                                onMemoryHookChange={(hook) => setMemoryHook(word.id, hook)}
-                                isMoved={lastMovedId === word.id}
-                                onWordChange={(wordId, field, value) => handleWordFieldChange(wordId, field, value)}
-                                onCategoryToggle={(cat) => handleCategoryToggle(word.id, cat)}
-                                onCategoryAdd={(cat) => handleCategoryAdd(word.id, cat)}
-                                onCategoryRemove={(cat) => handleCategoryRemove(word.id, cat)}
-                                showEnglish={showEnglish}
-                                showCategoryBadges={showCategoryBadges}
-                              />
-                            );
-                          })}
+                          {items.map(renderEditableCard)}
                         </section>
                       );
                     })}

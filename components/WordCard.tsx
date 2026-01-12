@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, memo } from 'react';
 import { NormalizedWord } from '@/lib/words';
 import { ProgressData } from '@/lib/storage';
 
@@ -23,7 +23,7 @@ interface WordCardProps {
   showCategoryBadges?: boolean;
 }
 
-export function WordCard({
+export const WordCard = memo(function WordCard({
   word,
   progress,
   role,
@@ -315,4 +315,4 @@ export function WordCard({
       </div>
     </article>
   );
-}
+});
