@@ -9,6 +9,7 @@ import { SettingsPanel } from '@/components/SettingsPanel';
 import { CategoryPanel } from '@/components/CategoryPanel';
 import { MemoryHooksPanel } from '@/components/MemoryHooksPanel';
 import { WordCard } from '@/components/WordCard';
+import { VirtualizedWordList } from '@/components/VirtualizedWordList';
 import { useDueTimer } from '@/hooks/useDueTimer';
 
 const PAGE_STYLES = `
@@ -311,7 +312,8 @@ export default function Home() {
   }, [filteredWords, progress, currentTab]);
 
   // Memoized card renderer to avoid recreating functions on each render - must be before early return
-  const renderCard = useCallback((word: NormalizedWord) => {
+  // Accepts optional stageIndex for VirtualizedWordList compatibility
+  const renderCard = useCallback((word: NormalizedWord, _stageIndex?: number) => {
     const prog = progress[word.id] || {
       stageIndex: 0,
       knownCount: 0,
@@ -625,13 +627,20 @@ export default function Home() {
           <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-soft)' }}>
             {currentTab === 'ready' ? 'All caught up!' : 'No words match your current filters.'}
           </div>
+        ) : currentTab === 'ready' ? (
+          /* Virtualized list for "Ready to repeat" tab - better performance with many cards */
+          <VirtualizedWordList
+            groupedWords={groupedWords}
+            renderCard={renderCard}
+            emptyMessage="All caught up! No words ready for review."
+          />
         ) : (
           <>
             {/* Regular words (not waiting for repeat) */}
             {STAGES.map((stage, stageIndex) => {
               const items = groupedWords[stageIndex];
               if (!items.length) return null;
-              
+
               // Hide words that are not ready (stageIndex > 0 and not due) when showNotReady is false
               // But always show stage 0 (new words)
               const shouldShow = stageIndex === 0 || showNotReady;
@@ -645,7 +654,7 @@ export default function Home() {
                     {items.map(renderCard)}
                   </section>
                   {/* Button to hide/show words not ready to repeat - appears after "New / forgotten" section */}
-                  {stageIndex === 0 && currentTab === 'all' && notReadyCount > 0 && (
+                  {stageIndex === 0 && notReadyCount > 0 && (
                     <div className="toggle-button-container">
                       <button
                         type="button"
@@ -659,9 +668,9 @@ export default function Home() {
                 </div>
               );
             })}
-            
+
             {/* Words waiting for repeat - hidden by default in "all" tab */}
-            {currentTab === 'all' && readyCount > 0 && (
+            {readyCount > 0 && (
               <>
                 {!showWaitingForRepeat && (
                   <div className="toggle-button-container-large">

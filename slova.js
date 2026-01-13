@@ -2011,7 +2011,8 @@ export const WORDS = [
   {
     "id": "w133",
     "category": [
-      "word"
+      "word",
+      "cz ≈ en"
     ],
     "cz": "Situace",
     "en": "Situation",

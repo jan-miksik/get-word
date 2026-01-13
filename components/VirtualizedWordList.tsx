@@ -3,7 +3,6 @@
 import { useRef, useMemo, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { NormalizedWord, STAGES } from '@/lib/words';
-import { ProgressData } from '@/lib/storage';
 
 export type Stage = (typeof STAGES)[number];
 
@@ -13,7 +12,6 @@ export type VirtualItem =
 
 interface VirtualizedWordListProps {
   groupedWords: NormalizedWord[][];
-  progress: Record<string, ProgressData>;
   renderCard: (word: NormalizedWord, stageIndex: number) => ReactNode;
   className?: string;
   emptyMessage?: string;
@@ -21,7 +19,6 @@ interface VirtualizedWordListProps {
 
 export function VirtualizedWordList({
   groupedWords,
-  progress,
   renderCard,
   className = '',
   emptyMessage = 'No words to display.',
@@ -66,10 +63,9 @@ export function VirtualizedWordList({
   });
 
   // Track which stage is currently at the top
-  useEffect(() => {
+  const updateActiveStage = useCallback(() => {
     const visibleItems = virtualizer.getVirtualItems();
     if (visibleItems.length > 0) {
-      // Find the first visible item that's a card or header
       for (const virtualItem of visibleItems) {
         const item = items[virtualItem.index];
         if (item) {
@@ -78,7 +74,15 @@ export function VirtualizedWordList({
         }
       }
     }
-  }, [virtualizer.getVirtualItems(), items]);
+  }, [virtualizer, items]);
+
+  useEffect(() => {
+    const scrollEl = parentRef.current;
+    if (!scrollEl) return;
+    
+    scrollEl.addEventListener('scroll', updateActiveStage);
+    return () => scrollEl.removeEventListener('scroll', updateActiveStage);
+  }, [updateActiveStage]);
 
   const activeStage = STAGES[activeStageIndex];
 

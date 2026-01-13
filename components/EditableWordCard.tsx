@@ -31,6 +31,19 @@ export const STANDARD_CATEGORIES = ['basic', 'basic 2', 'cz ≈ en', 'phrase', '
 export const EDIT_ONLY_CATEGORIES = ['to fix'];
 export const ALL_CATEGORIES = [...STANDARD_CATEGORIES, ...EDIT_ONLY_CATEGORIES];
 
+// Field labels for better UX
+const FIELD_LABELS: Record<string, string> = {
+  cz: 'Czech',
+  en: 'English',
+  vi: 'Vietnamese',
+  czPron: 'Czech Pronunciation',
+  viPron: 'Vietnamese Pronunciation',
+  czHint: 'Czech Hint',
+  viHint: 'Vietnamese Hint',
+  czAudio: 'Czech Audio',
+  viAudio: 'Vietnamese Audio',
+};
+
 export const EditableWordCard = memo(function EditableWordCard({
   word,
   progress,
@@ -82,37 +95,25 @@ export const EditableWordCard = memo(function EditableWordCard({
   }, [showCategoryDropdown]);
 
   return (
-    <div 
-      style={{ position: 'relative' }}
+    <div
+      className="relative"
       onMouseDown={(e) => {
-        // Only stop propagation if clicking on buttons, otherwise let events pass through
         const target = e.target as HTMLElement;
         if (!target.closest('[data-edit-button]')) {
-          // Allow event to bubble to card
           return;
         }
       }}
       onTouchStart={(e) => {
-        // Only stop propagation if clicking on buttons, otherwise let events pass through
         const target = e.target as HTMLElement;
         if (!target.closest('[data-edit-button]')) {
-          // Allow event to bubble to card
           return;
         }
       }}
     >
-      {/* Edit button overlay - positioned relative to card */}
-      <div style={{
-        position: 'absolute',
-        top: '8px',
-        right: '8px',
-        zIndex: 100,
-        display: 'flex',
-        gap: '4px',
-        pointerEvents: 'none', // Allow clicks to pass through to card below
-      }}>
+      {/* Edit button overlay - Glass morphism buttons */}
+      <div className="absolute top-2 right-2 z-[100] flex gap-1.5 pointer-events-none">
         {/* Category edit button */}
-        <div style={{ position: 'relative', pointerEvents: 'auto' }}>
+        <div className="relative pointer-events-auto">
           <button
             ref={categoryButtonRef}
             data-edit-button
@@ -121,88 +122,122 @@ export const EditableWordCard = memo(function EditableWordCard({
               e.preventDefault();
               setShowCategoryDropdown(!showCategoryDropdown);
             }}
-            onMouseDown={(e) => {
-              e.stopPropagation();
-            }}
-            onTouchStart={(e) => {
-              e.stopPropagation();
-            }}
-            className="rounded-full border border-border-subtle bg-background-elevated px-2 py-1 text-xs text-text transition-colors duration-150 hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+            onMouseDown={(e) => e.stopPropagation()}
+            onTouchStart={(e) => e.stopPropagation()}
+            className={`
+              group relative flex items-center justify-center
+              w-8 h-8 rounded-xl
+              bg-white/[0.03] backdrop-blur-xl
+              border border-white/[0.08]
+              shadow-[0_2px_8px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]
+              transition-all duration-200 ease-out
+              hover:bg-white/[0.08] hover:border-white/[0.15] hover:shadow-[0_4px_16px_rgba(0,0,0,0.4)]
+              hover:-translate-y-0.5
+              active:translate-y-0 active:shadow-[0_2px_8px_rgba(0,0,0,0.3)]
+              focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50
+              ${showCategoryDropdown ? 'bg-white/[0.08] border-sky-400/30 shadow-[0_0_20px_rgba(56,189,248,0.15)]' : ''}
+            `}
             title="Edit categories"
           >
-            🏷️
+            <span className="text-sm transition-transform duration-200 group-hover:scale-110">🏷️</span>
           </button>
-          {showCategoryDropdown && (
-            <div
-              ref={categoryDropdownRef}
-              style={{
-                position: 'absolute',
-                top: '100%',
-                right: 0,
-                marginTop: '4px',
-                padding: '8px',
-                background: 'var(--bg-elevated)',
-                border: '1px solid var(--border-subtle)',
-                borderRadius: 'var(--radius-lg)',
-                minWidth: '200px',
-                zIndex: 101,
-                pointerEvents: 'auto',
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-soft)', marginBottom: '8px' }}>
-                Categories:
+
+          {/* Category dropdown - Glass panel */}
+          <div
+            ref={categoryDropdownRef}
+            className={`
+              absolute top-full right-0 mt-2
+              min-w-[220px] p-3
+              bg-slate-900/80 backdrop-blur-2xl
+              border border-white/[0.08]
+              rounded-2xl
+              shadow-[0_8px_32px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)_inset]
+              z-[101] pointer-events-auto
+              transition-all duration-200 ease-out
+              ${showCategoryDropdown
+                ? 'opacity-100 translate-y-0 scale-100'
+                : 'opacity-0 -translate-y-2 scale-95 pointer-events-none'}
+            `}
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Current categories section */}
+            <div className="mb-3">
+              <div className="text-[0.65rem] uppercase tracking-wider text-slate-400 mb-2 font-medium">
+                Current
               </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px' }}>
-                {currentCategories.map((cat) => (
-                  <span
-                    key={cat}
-                    className={`word-category-badge word-category-${cat.replace(/\s+/g, '-')}`}
-                    style={{ cursor: 'pointer', fontSize: '0.7rem' }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onCategoryRemove(cat);
-                      // Don't close dropdown - keep it open for multiple removals
-                    }}
-                    title="Click to remove"
-                  >
-                    {cat} ×
-                  </span>
-                ))}
+              <div className="flex flex-wrap gap-1.5">
+                {currentCategories.length > 0 ? (
+                  currentCategories.map((cat) => (
+                    <button
+                      key={cat}
+                      className={`
+                        group/badge relative
+                        px-2.5 py-1 rounded-lg
+                        text-[0.7rem] font-medium
+                        bg-white/[0.05] backdrop-blur
+                        border border-white/[0.1]
+                        transition-all duration-150
+                        hover:bg-rose-500/20 hover:border-rose-400/40 hover:text-rose-300
+                        active:scale-95
+                        word-category-badge word-category-${cat.replace(/\s+/g, '-')}
+                      `}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCategoryRemove(cat);
+                      }}
+                      title="Click to remove"
+                    >
+                      <span>{cat}</span>
+                      <span className="ml-1 opacity-60 group-hover/badge:opacity-100">×</span>
+                    </button>
+                  ))
+                ) : (
+                  <span className="text-[0.7rem] text-slate-500 italic">None</span>
+                )}
               </div>
-              {availableCategoriesToAdd.length > 0 && (
-                <>
-                  <div style={{ fontSize: '0.75rem', color: 'var(--text-soft)', marginBottom: '4px' }}>
-                    Add:
-                  </div>
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                    {availableCategoriesToAdd.map((cat) => (
-                      <button
-                        key={cat}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          onCategoryAdd(cat);
-                          // Don't close dropdown - keep it open for multiple additions
-                        }}
-                        style={{
-                          padding: '4px 8px',
-                          fontSize: '0.7rem',
-                          borderRadius: 'var(--radius-pill)',
-                          border: '1px solid var(--accent)',
-                          background: 'transparent',
-                          color: 'var(--accent)',
-                          cursor: 'pointer',
-                        }}
-                      >
-                        + {cat}
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
             </div>
-          )}
+
+            {/* Divider */}
+            {availableCategoriesToAdd.length > 0 && (
+              <div className="h-px bg-gradient-to-r from-transparent via-white/[0.1] to-transparent my-3" />
+            )}
+
+            {/* Add categories section */}
+            {availableCategoriesToAdd.length > 0 && (
+              <div>
+                <div className="text-[0.65rem] uppercase tracking-wider text-slate-400 mb-2 font-medium">
+                  Add
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {availableCategoriesToAdd.map((cat) => (
+                    <button
+                      key={cat}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onCategoryAdd(cat);
+                      }}
+                      className="
+                        group/add relative
+                        px-2.5 py-1 rounded-lg
+                        text-[0.7rem] font-medium
+                        bg-transparent
+                        border border-dashed border-sky-400/30
+                        text-sky-400/80
+                        transition-all duration-150
+                        hover:bg-sky-400/10 hover:border-sky-400/50 hover:text-sky-300
+                        active:scale-95
+                      "
+                    >
+                      <span className="opacity-70 group-hover/add:opacity-100">+</span>
+                      <span className="ml-1">{cat}</span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
+
         {/* Text edit button */}
         <button
           data-edit-button
@@ -211,44 +246,36 @@ export const EditableWordCard = memo(function EditableWordCard({
             e.preventDefault();
             setShowEditModal(true);
           }}
-          onMouseDown={(e) => {
-            e.stopPropagation();
-          }}
-          onTouchStart={(e) => {
-            e.stopPropagation();
-          }}
-          style={{
-            padding: '4px 8px',
-            fontSize: '0.75rem',
-            borderRadius: 'var(--radius-pill)',
-            border: '1px solid var(--border-subtle)',
-            background: 'var(--bg-elevated)',
-            color: 'var(--text)',
-            cursor: 'pointer',
-            pointerEvents: 'auto',
-          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onTouchStart={(e) => e.stopPropagation()}
+          className="
+            group relative flex items-center justify-center
+            w-8 h-8 rounded-xl pointer-events-auto
+            bg-white/[0.03] backdrop-blur-xl
+            border border-white/[0.08]
+            shadow-[0_2px_8px_rgba(0,0,0,0.3),inset_0_1px_0_rgba(255,255,255,0.05)]
+            transition-all duration-200 ease-out
+            hover:bg-white/[0.08] hover:border-white/[0.15] hover:shadow-[0_4px_16px_rgba(0,0,0,0.4)]
+            hover:-translate-y-0.5
+            active:translate-y-0 active:shadow-[0_2px_8px_rgba(0,0,0,0.3)]
+            focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50
+          "
           title="Edit text fields"
         >
-          ✏️
+          <span className="text-sm transition-transform duration-200 group-hover:scale-110">✏️</span>
         </button>
       </div>
 
-      {/* Text edit modal */}
+      {/* Text edit modal - Glass morphism modal */}
       {showEditModal && (
         <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: 'rgba(0, 0, 0, 0.7)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 1000,
-            padding: '1rem',
-          }}
+          className="
+            fixed inset-0 z-[1000]
+            flex items-center justify-center
+            p-4
+            bg-black/60 backdrop-blur-sm
+            animate-[fadeIn_200ms_ease-out]
+          "
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowEditModal(false);
@@ -256,116 +283,169 @@ export const EditableWordCard = memo(function EditableWordCard({
           }}
         >
           <div
-            style={{
-              background: 'var(--bg-elevated)',
-              borderRadius: 'var(--radius-lg)',
-              padding: '1.5rem',
-              maxWidth: '600px',
-              maxHeight: '80vh',
-              width: '100%',
-              border: '1px solid var(--border-subtle)',
-              overflow: 'auto',
-              position: 'relative',
-            }}
+            className="
+              relative w-full max-w-lg max-h-[85vh]
+              bg-slate-900/90 backdrop-blur-2xl
+              border border-white/[0.08]
+              rounded-3xl
+              shadow-[0_24px_64px_rgba(0,0,0,0.5),0_0_0_1px_rgba(255,255,255,0.05)_inset]
+              overflow-hidden
+              animate-[slideUp_300ms_cubic-bezier(0.16,1,0.3,1)]
+            "
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              onClick={() => setShowEditModal(false)}
-              style={{
-                position: 'absolute',
-                top: '1rem',
-                right: '1rem',
-                background: 'transparent',
-                border: 'none',
-                fontSize: '1.25rem',
-                color: 'var(--text-soft)',
-                cursor: 'pointer',
-                padding: '0.25rem',
-                lineHeight: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '1.5rem',
-                height: '1.5rem',
-                borderRadius: 'var(--radius-sm)',
-                transition: 'all var(--transition-fast)',
-                zIndex: 1,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--bg-elevated)';
-                e.currentTarget.style.color = 'var(--text)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.color = 'var(--text-soft)';
-              }}
-              aria-label="Close edit modal"
-            >
-              ×
-            </button>
-            <h3 style={{ margin: '0 0 1rem 0', fontSize: '1rem' }}>
-              Edit Word Fields
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1rem' }}>
-              {(['cz', 'en', 'vi', 'czPron', 'viPron', 'czHint', 'viHint'] as const).map((field) => (
-                <div key={field}>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-soft)', marginBottom: '0.25rem' }}>
-                    {field.toUpperCase()}
-                  </label>
-                  <input
-                    type="text"
-                    value={word[field] || ''}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      onWordChange(word.id, field, value);
-                    }}
-                    placeholder={`Enter ${field}`}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      borderRadius: 'var(--radius-lg)',
-                      border: '1px solid var(--border-subtle)',
-                      background: 'var(--bg)',
-                      color: 'var(--text)',
-                      fontFamily: 'inherit',
-                      fontSize: '0.875rem',
-                    }}
-                  />
+            {/* Modal header */}
+            <div className="
+              sticky top-0 z-10
+              flex items-center justify-between
+              px-6 py-4
+              bg-slate-900/80 backdrop-blur-xl
+              border-b border-white/[0.05]
+            ">
+              <div>
+                <h3 className="text-base font-semibold text-white">Edit Word</h3>
+                <p className="text-xs text-slate-400 mt-0.5">{word.en || word.cz}</p>
+              </div>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="
+                  flex items-center justify-center
+                  w-8 h-8 rounded-xl
+                  bg-white/[0.05]
+                  border border-white/[0.08]
+                  text-slate-400
+                  transition-all duration-150
+                  hover:bg-white/[0.1] hover:text-white hover:border-white/[0.15]
+                  active:scale-95
+                "
+                aria-label="Close edit modal"
+              >
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal content */}
+            <div className="p-6 overflow-y-auto max-h-[calc(85vh-80px)] custom-scrollbar">
+              <div className="space-y-4">
+                {/* Main language fields */}
+                <div className="grid grid-cols-1 gap-4">
+                  {(['cz', 'en', 'vi'] as const).map((field) => (
+                    <div key={field} className="group">
+                      <label className="
+                        block text-[0.7rem] uppercase tracking-wider
+                        text-slate-400 mb-1.5 font-medium
+                        transition-colors group-focus-within:text-sky-400
+                      ">
+                        {FIELD_LABELS[field]}
+                      </label>
+                      <input
+                        type="text"
+                        value={word[field] || ''}
+                        onChange={(e) => onWordChange(word.id, field, e.target.value)}
+                        placeholder={`Enter ${FIELD_LABELS[field].toLowerCase()}`}
+                        className="
+                          w-full px-4 py-2.5 rounded-xl
+                          bg-white/[0.03]
+                          border border-white/[0.08]
+                          text-white text-sm
+                          placeholder:text-slate-500
+                          transition-all duration-200
+                          focus:outline-none focus:bg-white/[0.05]
+                          focus:border-sky-400/50 focus:shadow-[0_0_20px_rgba(56,189,248,0.1)]
+                        "
+                      />
+                    </div>
+                  ))}
                 </div>
-              ))}
-              {(['czAudio', 'viAudio'] as const).map((field) => (
-                <div key={field}>
-                  <label style={{ display: 'block', fontSize: '0.75rem', color: 'var(--text-soft)', marginBottom: '0.25rem' }}>
-                    {field.toUpperCase()} (comma-separated)
-                  </label>
-                  <input
-                    type="text"
-                    value={Array.isArray(word[field]) ? (word[field] as string[]).join(', ') : (word[field] || '')}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      const arrayValue = value.split(',').map(s => s.trim()).filter(Boolean);
-                      onWordChange(word.id, field, arrayValue.length > 0 ? arrayValue : value);
-                    }}
-                    placeholder={`Enter ${field} (comma-separated for multiple)`}
-                    style={{
-                      width: '100%',
-                      padding: '0.5rem',
-                      borderRadius: 'var(--radius-lg)',
-                      border: '1px solid var(--border-subtle)',
-                      background: 'var(--bg)',
-                      color: 'var(--text)',
-                      fontFamily: 'inherit',
-                      fontSize: '0.875rem',
-                    }}
-                  />
+
+                {/* Divider */}
+                <div className="flex items-center gap-3 py-2">
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+                  <span className="text-[0.65rem] uppercase tracking-wider text-slate-500">Pronunciation & Hints</span>
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
                 </div>
-              ))}
+
+                {/* Pronunciation and hint fields */}
+                <div className="grid grid-cols-2 gap-3">
+                  {(['czPron', 'viPron', 'czHint', 'viHint'] as const).map((field) => (
+                    <div key={field} className="group">
+                      <label className="
+                        block text-[0.65rem] uppercase tracking-wider
+                        text-slate-400 mb-1.5 font-medium
+                        transition-colors group-focus-within:text-sky-400
+                      ">
+                        {FIELD_LABELS[field]}
+                      </label>
+                      <input
+                        type="text"
+                        value={word[field] || ''}
+                        onChange={(e) => onWordChange(word.id, field, e.target.value)}
+                        placeholder={`Enter ${field.includes('Pron') ? 'pronunciation' : 'hint'}`}
+                        className="
+                          w-full px-3 py-2 rounded-xl
+                          bg-white/[0.03]
+                          border border-white/[0.08]
+                          text-white text-sm
+                          placeholder:text-slate-500
+                          transition-all duration-200
+                          focus:outline-none focus:bg-white/[0.05]
+                          focus:border-sky-400/50 focus:shadow-[0_0_20px_rgba(56,189,248,0.1)]
+                        "
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                {/* Divider */}
+                <div className="flex items-center gap-3 py-2">
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+                  <span className="text-[0.65rem] uppercase tracking-wider text-slate-500">Audio Files</span>
+                  <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
+                </div>
+
+                {/* Audio fields */}
+                <div className="grid grid-cols-1 gap-3">
+                  {(['czAudio', 'viAudio'] as const).map((field) => (
+                    <div key={field} className="group">
+                      <label className="
+                        block text-[0.65rem] uppercase tracking-wider
+                        text-slate-400 mb-1.5 font-medium
+                        transition-colors group-focus-within:text-sky-400
+                      ">
+                        {FIELD_LABELS[field]}
+                        <span className="ml-1 text-slate-500 normal-case tracking-normal">(comma-separated)</span>
+                      </label>
+                      <input
+                        type="text"
+                        value={Array.isArray(word[field]) ? (word[field] as string[]).join(', ') : (word[field] || '')}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          const arrayValue = value.split(',').map(s => s.trim()).filter(Boolean);
+                          onWordChange(word.id, field, arrayValue.length > 0 ? arrayValue : value);
+                        }}
+                        placeholder="path/to/audio.mp3"
+                        className="
+                          w-full px-3 py-2 rounded-xl
+                          bg-white/[0.03]
+                          border border-white/[0.08]
+                          text-white text-sm font-mono
+                          placeholder:text-slate-500
+                          transition-all duration-200
+                          focus:outline-none focus:bg-white/[0.05]
+                          focus:border-sky-400/50 focus:shadow-[0_0_20px_rgba(56,189,248,0.1)]
+                        "
+                      />
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Render the actual WordCard */}
       <WordCard
         word={word}
         progress={progress}
