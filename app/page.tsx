@@ -157,11 +157,15 @@ export default function Home() {
     return () => document.removeEventListener('click', handleClick);
   }, [setSettingsOpen, setProgressOpen, setCategoryOpen, setMemoryHooksOpen]);
 
-  // Attach press handlers to cover targets
+  // Attach press handlers to cover targets (supports virtualized mounts)
   useEffect(() => {
     if (!phrasesRef.current) return;
 
+    const cleanupMap = new Map<HTMLElement, () => void>();
+
     const attachPressHandlers = (el: HTMLElement) => {
+      if (cleanupMap.has(el)) return; // already attached
+
       let pressed = false;
       let touchStartX = 0;
       let touchStartY = 0;
@@ -245,7 +249,7 @@ export default function Home() {
       window.addEventListener('touchend', onUp);
       window.addEventListener('touchcancel', onUp);
 
-      return () => {
+      const cleanup = () => {
         el.removeEventListener('mousedown', onDown);
         el.removeEventListener('touchstart', onDown);
         el.removeEventListener('touchmove', onMove);
@@ -254,17 +258,52 @@ export default function Home() {
         window.removeEventListener('touchcancel', onUp);
         if (pressTimeout) clearTimeout(pressTimeout);
       };
+
+      cleanupMap.set(el, cleanup);
     };
 
-    const coverTargets = phrasesRef.current.querySelectorAll('.cover-target');
-    const cleanup: (() => void)[] = [];
-    coverTargets.forEach((el) => {
-      const cleanupFn = attachPressHandlers(el as HTMLElement);
-      if (cleanupFn) cleanup.push(cleanupFn);
+    const attachExisting = () => {
+      const coverTargets = phrasesRef.current?.querySelectorAll('.cover-target') || [];
+      coverTargets.forEach((el) => attachPressHandlers(el as HTMLElement));
+    };
+
+    attachExisting();
+
+    // Observe DOM changes so we also attach to virtualized elements rendered later
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          if (node.classList.contains('cover-target')) {
+            attachPressHandlers(node);
+          }
+          node.querySelectorAll?.('.cover-target').forEach((child) => attachPressHandlers(child as HTMLElement));
+        });
+
+        mutation.removedNodes.forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          const cleanup = cleanupMap.get(node);
+          if (cleanup) {
+            cleanup();
+            cleanupMap.delete(node);
+          }
+          node.querySelectorAll?.('.cover-target').forEach((child) => {
+            const childCleanup = cleanupMap.get(child as HTMLElement);
+            if (childCleanup) {
+              childCleanup();
+              cleanupMap.delete(child as HTMLElement);
+            }
+          });
+        });
+      });
     });
 
+    observer.observe(phrasesRef.current, { childList: true, subtree: true });
+
     return () => {
-      cleanup.forEach((fn) => fn());
+      observer.disconnect();
+      cleanupMap.forEach((cleanup) => cleanup());
+      cleanupMap.clear();
     };
   }, [currentTab, selectedCategories, showAll, modeIndex, role, progress]);
 
