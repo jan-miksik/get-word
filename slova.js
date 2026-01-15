@@ -1440,7 +1440,8 @@ export const WORDS = [
     "czPron": "MŮ-že-te to zo-pa-KO-vat",
     "viPron": "ban ko tche ňak laj chom",
     "czAudio": "speech/cz/muzete-to-zopakovat.mp3",
-    "viAudio": "speech/vi/ban-co-the-nhac-lai-khong.mp3"
+    "viAudio": "speech/vi/ban-co-the-nhac-lai-khong.mp3",
+    "czHint": "můžete(vi) +ňak-ladej + ne(vi) - znovu mi nalož"
   },
   {
     "id": "w094",

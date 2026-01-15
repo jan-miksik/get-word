@@ -7,19 +7,21 @@
     "dev:css": "pnpm dlx @tailwindcss/cli -c tailwind.config.js -i ./app/tailwind.css -o ./app/.generated/tailwind.css --watch",
     "dev": "pnpm run build:css && pnpm run dev:css & next dev",
     "build:css": "pnpm dlx @tailwindcss/cli -c tailwind.config.js -i ./app/tailwind.css -o ./app/.generated/tailwind.css",
-    "build": "pnpm run build:css && rm -rf .next .open-next && next build && opennextjs-cloudflare build --skipNextBuild",
-    "preview": "pnpm build && opennextjs-cloudflare preview",
-    "deploy:cf": "pnpm build && opennextjs-cloudflare deploy",
+    "build": "pnpm run build:css && next build",
     "start": "next start",
     "lint": "next lint",
-    "db:migrate": "wrangler d1 migrations apply wordlink-db",
-    "db:migrate:remote": "wrangler d1 migrations apply wordlink-db --remote"
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "npx tsx scripts/seed-words.ts"
   },
   "dependencies": {
-    "@opennextjs/aws": "^3.9.7",
-    "@opennextjs/cloudflare": "^1.14.7",
+    "@supabase/supabase-js": "^2.90.1",
     "@tanstack/react-virtual": "^3.13.18",
+    "drizzle-orm": "^0.45.1",
     "next": "^15.4.10",
+    "postgres": "^3.4.8",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"
   },
@@ -28,8 +30,10 @@
     "@types/node": "^22.10.0",
     "@types/react": "^19.2.3",
     "@types/react-dom": "^19.2.3",
+    "dotenv": "^17.2.3",
+    "drizzle-kit": "^0.31.8",
     "tailwindcss": "^4.1.0",
-    "typescript": "^5.9.0",
-    "wrangler": "^4.53.0"
+    "tsx": "^4.21.0",
+    "typescript": "^5.9.0"
   }
 }
