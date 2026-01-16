@@ -287,14 +287,23 @@ export default function EditPage() {
     };
   }, [currentTab, selectedCategories, showAll, modeIndex, role, progress]);
 
-  // Helper to find raw word index from word ID
-  const findRawWordIndex = (wordId: string): number => {
-    return normalizedWords.findIndex(w => w.id === wordId);
-  };
+  // Create a Map for O(1) word lookups by ID
+  const wordIndexMap = useMemo(() => {
+    const map = new Map<string, number>();
+    words.forEach((word, index) => {
+      map.set(word.id, index);
+    });
+    return map;
+  }, [words]);
 
-  const handleWordFieldChange = (wordId: string, field: keyof Word, value: string | string[]) => {
-    const index = findRawWordIndex(wordId);
-    if (index < 0) return;
+  // Helper to find raw word index from word ID (O(1) lookup)
+  const findRawWordIndex = useCallback((wordId: string): number => {
+    return wordIndexMap.get(wordId) ?? -1;
+  }, [wordIndexMap]);
+
+  const handleWordFieldChange = useCallback((wordId: string, field: keyof Word, value: string | string[]) => {
+    const index = wordIndexMap.get(wordId);
+    if (index === undefined) return;
     setWords((prevWords) => {
       const updated = [...prevWords];
       const word = { ...updated[index] };
@@ -302,11 +311,11 @@ export default function EditPage() {
       updated[index] = word;
       return updated;
     });
-  };
+  }, [wordIndexMap]);
 
-  const handleCategoryAdd = (wordId: string, category: string) => {
-    const index = findRawWordIndex(wordId);
-    if (index < 0) return;
+  const handleCategoryAdd = useCallback((wordId: string, category: string) => {
+    const index = wordIndexMap.get(wordId);
+    if (index === undefined) return;
     setWords((prevWords) => {
       const updated = [...prevWords];
       const word = { ...updated[index] };
@@ -318,11 +327,11 @@ export default function EditPage() {
       }
       return updated;
     });
-  };
+  }, [wordIndexMap]);
 
-  const handleCategoryRemove = (wordId: string, category: string) => {
-    const index = findRawWordIndex(wordId);
-    if (index < 0) return;
+  const handleCategoryRemove = useCallback((wordId: string, category: string) => {
+    const index = wordIndexMap.get(wordId);
+    if (index === undefined) return;
     setWords((prevWords) => {
       const updated = [...prevWords];
       const word = { ...updated[index] };
@@ -335,11 +344,11 @@ export default function EditPage() {
       }
       return updated;
     });
-  };
+  }, [wordIndexMap]);
 
-  const handleCategoryToggle = (wordId: string, category: string) => {
-    const index = findRawWordIndex(wordId);
-    if (index < 0) return;
+  const handleCategoryToggle = useCallback((wordId: string, category: string) => {
+    const index = wordIndexMap.get(wordId);
+    if (index === undefined) return;
     setWords((prevWords) => {
       const updated = [...prevWords];
       const word = { ...updated[index] };
@@ -354,7 +363,7 @@ export default function EditPage() {
       updated[index] = word;
       return updated;
     });
-  };
+  }, [wordIndexMap]);
 
   const handleSave = async () => {
     setIsSaving(true);

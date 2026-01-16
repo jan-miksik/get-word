@@ -55,17 +55,17 @@ export async function upsertWords(wordList: NewWord[]): Promise<void> {
     .onConflictDoUpdate({
       target: words.id,
       set: {
-        category: words.category,
-        cz: words.cz,
-        en: words.en,
-        vi: words.vi,
-        czPron: words.czPron,
-        viPron: words.viPron,
-        czAudio: words.czAudio,
-        viAudio: words.viAudio,
-        czHint: words.czHint,
-        viHint: words.viHint,
-        updatedAt: new Date(),
+        category: sql`excluded.category`,
+        cz: sql`excluded.cz`,
+        en: sql`excluded.en`,
+        vi: sql`excluded.vi`,
+        czPron: sql`excluded.cz_pron`,
+        viPron: sql`excluded.vi_pron`,
+        czAudio: sql`excluded.cz_audio`,
+        viAudio: sql`excluded.vi_audio`,
+        czHint: sql`excluded.cz_hint`,
+        viHint: sql`excluded.vi_hint`,
+        updatedAt: sql`now()`,
       },
     });
 }

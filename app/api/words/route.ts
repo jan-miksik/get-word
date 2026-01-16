@@ -5,6 +5,7 @@ import {
   createWord,
   updateWord,
   deleteWord,
+  upsertWords,
   type NewWord,
 } from "@/lib/db";
 
@@ -35,12 +36,43 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: Create a new word
+// POST: Create a new word or bulk upsert words
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Validate required fields
+    // Check if this is a bulk operation (array of words)
+    if (Array.isArray(body.words)) {
+      // Validate all words have required fields
+      for (const word of body.words) {
+        if (!word.id || !word.cz || !word.en || !word.vi) {
+          return NextResponse.json(
+            { error: `Missing required fields (id, cz, en, vi) in word: ${word.id || 'unknown'}` },
+            { status: 400 }
+          );
+        }
+      }
+
+      // Prepare words for upsert
+      const wordsToUpsert: NewWord[] = body.words.map((word: any) => ({
+        id: word.id,
+        category: word.category || [],
+        cz: word.cz,
+        en: word.en,
+        vi: word.vi,
+        czPron: word.czPron || null,
+        viPron: word.viPron || null,
+        czAudio: word.czAudio || null,
+        viAudio: word.viAudio || null,
+        czHint: word.czHint || null,
+        viHint: word.viHint || null,
+      }));
+
+      await upsertWords(wordsToUpsert);
+      return NextResponse.json({ success: true, count: wordsToUpsert.length }, { status: 200 });
+    }
+
+    // Single word creation (existing behavior)
     if (!body.id || !body.cz || !body.en || !body.vi) {
       return NextResponse.json(
         { error: "Missing required fields: id, cz, en, vi" },
@@ -65,9 +97,9 @@ export async function POST(request: NextRequest) {
     const word = await createWord(newWord);
     return NextResponse.json({ word }, { status: 201 });
   } catch (error) {
-    console.error("Error creating word:", error);
+    console.error("Error creating/updating words:", error);
     return NextResponse.json(
-      { error: "Failed to create word" },
+      { error: "Failed to create/update words" },
       { status: 500 }
     );
   }

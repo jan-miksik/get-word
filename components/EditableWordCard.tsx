@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, memo } from 'react';
+import { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { NormalizedWord } from '@/lib/words';
 import { Word } from '@/data/words';
 import { ProgressData } from '@/lib/storage';
@@ -68,6 +68,57 @@ export const EditableWordCard = memo(function EditableWordCard({
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
   const categoryButtonRef = useRef<HTMLButtonElement>(null);
+  
+  // Local state for editing - only syncs to parent on modal close
+  const [localWord, setLocalWord] = useState<Partial<Word>>(word);
+  const isClosingRef = useRef(false);
+  
+  // Update local state when word prop changes (e.g., from external updates)
+  // But only if modal is closed and we're not in the process of closing
+  useEffect(() => {
+    if (!showEditModal && !isClosingRef.current) {
+      setLocalWord(word);
+    }
+  }, [word, showEditModal]);
+  
+  // Sync function that updates parent state
+  const syncChangesToParent = useCallback(() => {
+    if (isClosingRef.current) return; // Prevent double-sync
+    
+    isClosingRef.current = true;
+    
+    // Use requestAnimationFrame to batch all updates together
+    requestAnimationFrame(() => {
+      // Sync all changed fields
+      (['cz', 'en', 'vi', 'czPron', 'viPron', 'czAudio', 'viAudio', 'czHint', 'viHint', 'category'] as const).forEach((field) => {
+        const localValue = localWord[field];
+        const originalValue = word[field];
+        
+        // Handle array comparison for category
+        if (field === 'category') {
+          const localArr = Array.isArray(localValue) ? localValue : [];
+          const originalArr = Array.isArray(originalValue) ? originalValue : [];
+          const localSorted = [...localArr].sort().join(',');
+          const originalSorted = [...originalArr].sort().join(',');
+          if (localSorted !== originalSorted) {
+            onWordChange(word.id, field, localArr);
+          }
+        } else {
+          // String comparison
+          const localStr = String(localValue ?? '');
+          const originalStr = String(originalValue ?? '');
+          if (localStr !== originalStr) {
+            onWordChange(word.id, field, localStr);
+          }
+        }
+      });
+      
+      // Reset flag after a short delay
+      setTimeout(() => {
+        isClosingRef.current = false;
+      }, 200);
+    });
+  }, [localWord, word, onWordChange]);
 
   const availableCategoriesToAdd = ALL_CATEGORIES.filter(cat => !word.category?.includes(cat));
   const currentCategories = word.category || [];
@@ -244,6 +295,12 @@ export const EditableWordCard = memo(function EditableWordCard({
           onClick={(e) => {
             e.stopPropagation();
             e.preventDefault();
+            isClosingRef.current = false; // Reset closing flag
+            // Deep copy to avoid reference issues, especially for arrays
+            setLocalWord({
+              ...word,
+              category: word.category ? [...word.category] : [],
+            });
             setShowEditModal(true);
           }}
           onMouseDown={(e) => e.stopPropagation()}
@@ -277,7 +334,12 @@ export const EditableWordCard = memo(function EditableWordCard({
             animate-[fadeIn_200ms_ease-out]
           "
           onClick={(e) => {
-            if (e.target === e.currentTarget) {
+            if (e.target === e.currentTarget && !isClosingRef.current) {
+              try {
+                syncChangesToParent();
+              } catch (error) {
+                console.error('Error syncing changes:', error);
+              }
               setShowEditModal(false);
             }
           }}
@@ -307,7 +369,17 @@ export const EditableWordCard = memo(function EditableWordCard({
                 <p className="text-xs text-slate-400 mt-0.5">{word.en || word.cz}</p>
               </div>
               <button
-                onClick={() => setShowEditModal(false)}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (!isClosingRef.current) {
+                    try {
+                      syncChangesToParent();
+                    } catch (error) {
+                      console.error('Error syncing changes:', error);
+                    }
+                    setShowEditModal(false);
+                  }
+                }}
                 className="
                   flex items-center justify-center
                   w-8 h-8 rounded-xl
@@ -342,8 +414,8 @@ export const EditableWordCard = memo(function EditableWordCard({
                       </label>
                       <input
                         type="text"
-                        value={word[field] || ''}
-                        onChange={(e) => onWordChange(word.id, field, e.target.value)}
+                        value={localWord[field] || ''}
+                        onChange={(e) => setLocalWord(prev => ({ ...prev, [field]: e.target.value }))}
                         placeholder={`Enter ${FIELD_LABELS[field].toLowerCase()}`}
                         className="
                           w-full px-4 py-2.5 rounded-xl
@@ -380,8 +452,8 @@ export const EditableWordCard = memo(function EditableWordCard({
                       </label>
                       <input
                         type="text"
-                        value={word[field] || ''}
-                        onChange={(e) => onWordChange(word.id, field, e.target.value)}
+                        value={localWord[field] || ''}
+                        onChange={(e) => setLocalWord(prev => ({ ...prev, [field]: e.target.value }))}
                         placeholder={`Enter ${field.includes('Pron') ? 'pronunciation' : 'hint'}`}
                         className="
                           w-full px-3 py-2 rounded-xl
@@ -419,11 +491,11 @@ export const EditableWordCard = memo(function EditableWordCard({
                       </label>
                       <input
                         type="text"
-                        value={Array.isArray(word[field]) ? (word[field] as string[]).join(', ') : (word[field] || '')}
+                        value={Array.isArray(localWord[field]) ? (localWord[field] as string[]).join(', ') : (localWord[field] || '')}
                         onChange={(e) => {
                           const value = e.target.value;
                           const arrayValue = value.split(',').map(s => s.trim()).filter(Boolean);
-                          onWordChange(word.id, field, arrayValue.length > 0 ? arrayValue : value);
+                          setLocalWord(prev => ({ ...prev, [field]: arrayValue.length > 0 ? arrayValue : value }));
                         }}
                         placeholder="path/to/audio.mp3"
                         className="
