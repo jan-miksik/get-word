@@ -2,7 +2,7 @@
   "name": "app-for-learning-language",
   "version": "1.0.0",
   "private": true,
-  "packageManager": "pnpm@8.15.0",
+  "packageManager": "pnpm@8.15.1",
   "scripts": {
     "dev:css": "pnpm dlx @tailwindcss/cli -c tailwind.config.js -i ./app/tailwind.css -o ./app/.generated/tailwind.css --watch",
     "dev": "pnpm run build:css && pnpm run dev:css & next dev",
