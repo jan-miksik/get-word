@@ -1,0 +1,93 @@
+#!/bin/bash
+
+# Script to dump local Supabase database (schema + data) and restore to remote Supabase
+# This version includes schema, useful if you want to migrate everything
+
+set -e  # Exit on error
+
+# Colors for output
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+NC='\033[0m' # No Color
+
+echo -e "${BLUE}🚀 Supabase Database Full Dump & Restore (Schema + Data)${NC}\n"
+
+# Load environment variables
+if [ -f .env.local ]; then
+  export $(cat .env.local | grep -v '^#' | xargs)
+else
+  echo -e "${RED}❌ .env.local file not found${NC}"
+  exit 1
+fi
+
+# Local Supabase connection (default)
+LOCAL_DB_URL="${LOCAL_DATABASE_URL:-postgresql://postgres:postgres@127.0.0.1:54322/postgres}"
+
+# Remote Supabase connection
+REMOTE_DB_URL="${DATABASE_URL}"
+
+if [ -z "$REMOTE_DB_URL" ]; then
+  echo -e "${RED}❌ DATABASE_URL not set in .env.local${NC}"
+  exit 1
+fi
+
+# Check if using pooler connection (warn user)
+if echo "$REMOTE_DB_URL" | grep -q "pooler\|pool"; then
+  echo -e "${YELLOW}⚠️  WARNING: You're using a connection pooler URL${NC}"
+  echo -e "${YELLOW}   For pg_dump/psql operations, use the DIRECT connection string instead.${NC}"
+  echo -e "${YELLOW}   Get it from: Supabase Dashboard → Settings → Database → Connection String → Direct Connection${NC}\n"
+  read -p "Continue anyway? (y/N) " -n 1 -r
+  echo
+  if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+    echo -e "${BLUE}Cancelled. Please update DATABASE_URL in .env.local with the direct connection string.${NC}"
+    exit 0
+  fi
+fi
+
+# Temporary dump file
+DUMP_FILE="supabase_full_dump_$(date +%Y%m%d_%H%M%S).sql"
+
+echo -e "${YELLOW}⚠️  WARNING: This will replace the entire remote database schema and data!${NC}"
+echo -e "${YELLOW}   Make sure you have a backup of your remote database before proceeding.${NC}\n"
+read -p "Continue? (y/N) " -n 1 -r
+echo
+if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+  echo -e "${BLUE}Cancelled.${NC}"
+  exit 0
+fi
+
+echo -e "\n${BLUE}📥 Step 1: Dumping local database (schema + data)...${NC}"
+echo -e "   Local: ${LOCAL_DB_URL}\n"
+
+# Dump the entire database (schema + data)
+pg_dump "$LOCAL_DB_URL" \
+  --no-owner \
+  --no-acl \
+  --clean \
+  --if-exists \
+  > "$DUMP_FILE"
+
+if [ $? -eq 0 ]; then
+  DUMP_SIZE=$(du -h "$DUMP_FILE" | cut -f1)
+  echo -e "${GREEN}✓ Dump created: ${DUMP_FILE} (${DUMP_SIZE})${NC}\n"
+else
+  echo -e "${RED}❌ Dump failed${NC}"
+  exit 1
+fi
+
+echo -e "${BLUE}📤 Step 2: Restoring to remote Supabase...${NC}"
+echo -e "   Remote: ${REMOTE_DB_URL}\n"
+
+# Restore to remote database
+psql "$REMOTE_DB_URL" < "$DUMP_FILE"
+
+if [ $? -eq 0 ]; then
+  echo -e "\n${GREEN}✅ Restore completed successfully!${NC}\n"
+  echo -e "${YELLOW}💡 Tip: You can delete ${DUMP_FILE} if you don't need it anymore${NC}"
+else
+  echo -e "\n${RED}❌ Restore failed${NC}"
+  echo -e "${YELLOW}💡 The dump file ${DUMP_FILE} is still available for manual restore${NC}"
+  exit 1
+fi
