@@ -2,6 +2,7 @@ import * as dotenv from "dotenv";
 dotenv.config({ path: ".env.local" });
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
+import * as readline from "readline";
 import * as schema from "../lib/db/schema";
 
 // Remote Supabase connection (from .env.local)
@@ -17,6 +18,21 @@ if (!REMOTE_DB_URL) {
 const LOCAL_DB_URL_FINAL =
   process.env.LOCAL_DATABASE_URL ||
   "postgresql://postgres:postgres@127.0.0.1:54322/postgres";
+
+// Helper function to prompt for user confirmation
+async function confirm(message: string): Promise<boolean> {
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(`${message} (y/N): `, (answer) => {
+      rl.close();
+      resolve(answer.toLowerCase() === "y");
+    });
+  });
+}
 
 async function migrate() {
   console.log("🚀 Starting migration from local Supabase to remote Supabase...\n");
@@ -67,7 +83,13 @@ async function migrate() {
       console.log("   - Insert new words (skip duplicates by ID)");
       console.log("   - Insert new users (skip duplicates by device_id/email/wallet_address)");
       console.log("   - Insert all user progress, memory hooks, and filters");
-      console.log("\n   Continue? (This will not delete existing data)");
+      console.log("\n   This will not delete existing data.");
+      
+      const shouldContinue = await confirm("Continue?");
+      if (!shouldContinue) {
+        console.log("Migration cancelled.");
+        process.exit(0);
+      }
     }
 
     // Step 3: Import data to remote database
@@ -119,40 +141,31 @@ async function migrate() {
       let imported = 0;
       let skipped = 0;
 
-      // Create a map of existing users by their unique identifiers
+      // Get all existing users from remote database
       const existingUsers = await remoteDb.select().from(schema.users);
-      const existingDeviceIds = new Set(
-        existingUsers.map((u) => u.deviceId).filter(Boolean)
-      );
-      const existingEmails = new Set(
-        existingUsers.map((u) => u.email).filter(Boolean)
-      );
-      const existingWallets = new Set(
-        existingUsers.map((u) => u.walletAddress).filter(Boolean)
-      );
 
       for (const user of localUsers) {
-        // Check if user already exists
-        const exists =
-          (user.deviceId && existingDeviceIds.has(user.deviceId)) ||
-          (user.email && existingEmails.has(user.email)) ||
-          (user.walletAddress && existingWallets.has(user.walletAddress));
+        // Find an existing user where ALL non-null identifiers match
+        // Only treat as a match if all non-null identifiers on local user
+        // match the same existing user
+        const existingUser = existingUsers.find((existing) => {
+          // If local.deviceId is set, then existing.deviceId must equal it
+          const deviceIdMatch =
+            !user.deviceId || user.deviceId === existing.deviceId;
+          // If local.email is set, then existing.email must equal it
+          const emailMatch =
+            !user.email || user.email === existing.email;
+          // If local.walletAddress is set, then existing.walletAddress must equal it
+          const walletMatch =
+            !user.walletAddress || user.walletAddress === existing.walletAddress;
 
-        if (exists) {
-          // Find the existing user
-          const existingUser =
-            existingUsers.find(
-              (u) =>
-                u.deviceId === user.deviceId ||
-                u.email === user.email ||
-                u.walletAddress === user.walletAddress
-            ) || null;
+          return deviceIdMatch && emailMatch && walletMatch;
+        });
 
-          if (existingUser) {
-            userIdMap.set(user.id, existingUser.id);
-            skipped++;
-            continue;
-          }
+        if (existingUser) {
+          userIdMap.set(user.id, existingUser.id);
+          skipped++;
+          continue;
         }
 
         try {

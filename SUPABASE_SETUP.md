@@ -1,6 +1,6 @@
 # Supabase Setup Guide
 
-This guide will help you connect your to Supabase.
+This guide will help you connect your app to Supabase.
 
 ## Step 1: Get Your Supabase Connection Strings
 
