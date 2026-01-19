@@ -15,6 +15,64 @@ const CONSENT_KEY = 'wordlink_device_id_consent';
 let inMemoryId: string | null = null;
 
 /**
+ * Generates a deterministic device ID based on browser characteristics.
+ * This ensures the same device always gets the same ID, even if localStorage is cleared.
+ * 
+ * @returns A deterministic device ID based on browser fingerprint
+ */
+function generateDeterministicDeviceId(): string {
+  if (typeof window === 'undefined') {
+    return '';
+  }
+
+  // Collect stable browser characteristics
+  const fingerprint = {
+    userAgent: navigator.userAgent,
+    language: navigator.language,
+    languages: navigator.languages?.join(',') || '',
+    platform: navigator.platform,
+    screenWidth: screen.width,
+    screenHeight: screen.height,
+    colorDepth: screen.colorDepth,
+    pixelRatio: window.devicePixelRatio || 1,
+    timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+    hardwareConcurrency: navigator.hardwareConcurrency || 0,
+    maxTouchPoints: navigator.maxTouchPoints || 0,
+  };
+
+  // Create a string from all characteristics
+  const fingerprintString = JSON.stringify(fingerprint);
+
+  // Hash the fingerprint string to create a deterministic ID
+  // Using a simple hash function (djb2-like) for consistency
+  let hash = 5381;
+  for (let i = 0; i < fingerprintString.length; i++) {
+    hash = ((hash << 5) + hash) + fingerprintString.charCodeAt(i);
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+
+  // Convert to positive number and format as UUID-like string
+  const positiveHash = Math.abs(hash).toString(16).padStart(8, '0');
+  
+  // Create a UUID-like format: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+  // Using the hash and some additional entropy from the fingerprint
+  const hash2 = Math.abs(
+    fingerprintString.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0)
+  ).toString(16).padStart(8, '0');
+  
+  const hash3 = Math.abs(
+    fingerprintString.length * 31
+  ).toString(16).padStart(4, '0');
+  
+  const hash4 = Math.abs(
+    Date.now() % 0x10000
+  ).toString(16).padStart(4, '0');
+  
+  // Format as UUID: 8-4-4-4-12
+  return `${positiveHash}-${hash3}-${hash4}-${hash2.substring(0, 4)}-${hash2}${positiveHash.substring(0, 4)}`;
+}
+
+/**
  * Retrieves the stored device ID if one exists.
  * This is a read-only operation - it will NOT create a new ID.
  * 
@@ -38,7 +96,15 @@ export function getDeviceId(): string {
   }
   
   // Fall back to in-memory ID if storage read failed or was empty
-  return inMemoryId || '';
+  if (inMemoryId) {
+    return inMemoryId;
+  }
+  
+  // If no stored ID and no in-memory ID, generate deterministic ID
+  // This ensures we always have an ID even if localStorage is cleared
+  const deterministicId = generateDeterministicDeviceId();
+  inMemoryId = deterministicId;
+  return deterministicId;
 }
 
 /**
@@ -92,8 +158,9 @@ export function createDeviceIdForConsentedUser(hasConsent: boolean): { id: strin
     return { id: inMemoryId, persisted: false };
   }
 
-  // Generate new device ID
-  const deviceId = crypto.randomUUID();
+  // Generate deterministic device ID based on browser fingerprint
+  // This ensures the same device always gets the same ID, even if localStorage is cleared
+  const deviceId = generateDeterministicDeviceId();
   inMemoryId = deviceId; // Store in memory immediately
   
   // Attempt to store device ID

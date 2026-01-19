@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getOrCreateUserByDeviceId,
+  getUserById,
   getUserProgress,
   batchUpsertProgress,
   getUserMemoryHooks,
@@ -10,9 +11,13 @@ import {
   setUserCategoryFilters,
   updateUserRole,
 } from "@/lib/db";
+import { db } from "@/lib/db/client";
+import { users } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 
 interface SyncRequest {
-  deviceId: string;
+  deviceId?: string;
+  userId?: string; // Optional: fallback user ID for recovery
   role?: "cz" | "vi";
   progress?: Array<{
     word_id: string;
@@ -31,16 +36,46 @@ export async function POST(request: NextRequest) {
   try {
     const body: SyncRequest = await request.json();
     const { deviceId, role, progress, memory_hooks, category_filters } = body;
+    const userId = body.userId as string | undefined; // Optional: fallback user ID from client
 
-    if (!deviceId) {
+    if (!deviceId && !userId) {
       return NextResponse.json(
-        { error: "deviceId is required" },
+        { error: "deviceId or userId is required" },
         { status: 400 }
       );
     }
 
     // Get or create user
-    const user = await getOrCreateUserByDeviceId(deviceId);
+    // First try by device ID (primary method)
+    let user = deviceId ? await getOrCreateUserByDeviceId(deviceId) : null;
+    
+    // Fallback: if device ID lookup failed but we have a user ID, try to get by user ID
+    // This helps recover if device ID was lost but user ID is still stored
+    if (!user && userId) {
+      user = await getUserById(userId);
+      // If user found but device ID doesn't match, update the device ID to link them
+      if (user && deviceId && user.deviceId !== deviceId) {
+        // Update device ID to maintain the link
+        const updated = await db
+          .update(users)
+          .set({ deviceId, updatedAt: new Date() })
+          .where(eq(users.id, user.id))
+          .returning();
+        user = updated[0] || user;
+      }
+    }
+    
+    // If still no user and we have device ID, create new one
+    if (!user && deviceId) {
+      user = await getOrCreateUserByDeviceId(deviceId);
+    }
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: "Failed to get or create user" },
+        { status: 500 }
+      );
+    }
 
     // Update role if provided
     if (role && role !== user.role) {
@@ -108,15 +143,45 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const deviceId = searchParams.get("deviceId");
+    const userId = searchParams.get("userId"); // Optional: fallback user ID
 
-    if (!deviceId) {
+    if (!deviceId && !userId) {
       return NextResponse.json(
-        { error: "deviceId is required" },
+        { error: "deviceId or userId is required" },
         { status: 400 }
       );
     }
 
-    const user = await getOrCreateUserByDeviceId(deviceId);
+    // Get or create user
+    // First try by device ID (primary method)
+    let user = deviceId ? await getOrCreateUserByDeviceId(deviceId) : null;
+    
+    // Fallback: if device ID lookup failed but we have a user ID, try to get by user ID
+    if (!user && userId) {
+      user = await getUserById(userId);
+      // If user found but device ID doesn't match, update the device ID to link them
+      if (user && deviceId && user.deviceId !== deviceId) {
+        // Update device ID to maintain the link
+        const updated = await db
+          .update(users)
+          .set({ deviceId, updatedAt: new Date() })
+          .where(eq(users.id, user.id))
+          .returning();
+        user = updated[0] || user;
+      }
+    }
+    
+    // If still no user and we have device ID, create new one
+    if (!user && deviceId) {
+      user = await getOrCreateUserByDeviceId(deviceId);
+    }
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: "Failed to get or create user" },
+        { status: 500 }
+      );
+    }
     const [progress, memoryHooks, categoryFilters] = await Promise.all([
       getUserProgress(user.id),
       getUserMemoryHooks(user.id),

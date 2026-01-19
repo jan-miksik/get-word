@@ -14,6 +14,24 @@ if (!REMOTE_DB_URL) {
   process.exit(1);
 }
 
+// Check if using Direct Connection (requires IPv6)
+// Direct connection format: db.[PROJECT-REF].supabase.co:5432
+// Pooler connection format: aws-0-[REGION].pooler.supabase.com:6543 or [PROJECT-REF].pooler.supabase.com
+const isDirectConnection = REMOTE_DB_URL.includes("db.") && 
+                           REMOTE_DB_URL.includes(".supabase.co:5432");
+
+if (isDirectConnection) {
+  console.warn("⚠️  WARNING: You're using a Direct Connection string");
+  console.warn("   Direct connections require IPv6, which may not work on your network.");
+  console.warn("   For this migration script, use the Connection Pooler string instead:");
+  console.warn("   - Go to Supabase Dashboard → Settings → Database");
+  console.warn("   - Copy the 'Connection Pooler' string (Transaction or Session mode)");
+  console.warn("   - Format: postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres");
+  console.warn("");
+  console.warn("   Alternatively, enable the IPv4 add-on in Supabase Dashboard.");
+  console.warn("");
+}
+
 // Ensure LOCAL_DB_URL is defined
 const LOCAL_DB_URL_FINAL =
   process.env.LOCAL_DATABASE_URL ||
@@ -48,6 +66,35 @@ async function migrate() {
   const remoteClient = postgres(REMOTE_DB_URL!, { max: 1, prepare: false });
   const remoteDb = drizzle(remoteClient, { schema });
 
+  // Test connection before proceeding
+  try {
+    console.log("   Testing connection...");
+    await remoteClient`SELECT 1`;
+    console.log("   ✓ Connection successful\n");
+  } catch (connError: any) {
+    console.error("\n❌ Failed to connect to remote database");
+    
+    if (connError?.cause?.code === "28P01" || 
+        connError?.cause?.message?.includes("password authentication failed") ||
+        connError?.message?.includes("password authentication failed")) {
+      console.error("\n🔐 Authentication Error:");
+      console.error("   The password in your DATABASE_URL is incorrect.");
+      console.error("\n   To fix this:");
+      console.error("   1. Go to Supabase Dashboard → Settings → Database");
+      console.error("   2. Check your database password (or reset it if needed)");
+      console.error("   3. Copy the Connection Pooler string again");
+      console.error("   4. Update DATABASE_URL in .env.local");
+      console.error("\n   Your connection string format looks correct (pooler connection),");
+      console.error("   but the password might be wrong or expired.");
+    } else {
+      console.error("   Error:", connError?.cause?.message || connError?.message || connError);
+    }
+    
+    await localClient.end();
+    await remoteClient.end();
+    process.exit(1);
+  }
+
   try {
     // Step 1: Export data from local database
     console.log("\n📊 Exporting data from local database...\n");
@@ -72,8 +119,31 @@ async function migrate() {
     // Step 2: Check if remote database has data
     console.log("\n🔍 Checking remote database...\n");
 
-    const remoteWords = await remoteDb.select().from(schema.words);
-    const remoteUsers = await remoteDb.select().from(schema.users);
+    let remoteWords, remoteUsers;
+    try {
+      remoteWords = await remoteDb.select().from(schema.words);
+      remoteUsers = await remoteDb.select().from(schema.users);
+    } catch (schemaError: any) {
+      if (schemaError?.cause?.code === "42P01" || 
+          schemaError?.message?.includes("does not exist") ||
+          schemaError?.cause?.message?.includes("does not exist")) {
+        console.error("\n❌ Schema Error: Database tables do not exist on remote database");
+        console.error("\n   The remote Supabase database needs to have the schema created first.");
+        console.error("\n   To fix this:");
+        console.error("   1. Make sure your DATABASE_URL in .env.local points to the remote Supabase");
+        console.error("   2. Run the schema migration:");
+        console.error("      pnpm run db:push");
+        console.error("\n   This will create all the necessary tables (words, users, user_progress, etc.)");
+        console.error("   on your remote Supabase database.");
+        console.error("\n   After the schema is created, run this migration script again:");
+        console.error("      pnpm run db:migrate-to-supabase");
+      } else {
+        throw schemaError;
+      }
+      await localClient.end();
+      await remoteClient.end();
+      process.exit(1);
+    }
 
     if (remoteWords.length > 0 || remoteUsers.length > 0) {
       console.log("⚠️  WARNING: Remote database already contains data!");
@@ -88,6 +158,8 @@ async function migrate() {
       const shouldContinue = await confirm("Continue?");
       if (!shouldContinue) {
         console.log("Migration cancelled.");
+        await localClient.end();
+        await remoteClient.end();
         process.exit(0);
       }
     }
@@ -145,19 +217,33 @@ async function migrate() {
       const existingUsers = await remoteDb.select().from(schema.users);
 
       for (const user of localUsers) {
+        // Count how many local identifiers are non-null
+        const nonNullIdentifiers = [
+          user.deviceId,
+          user.email,
+          user.walletAddress,
+        ].filter((id) => id != null);
+        const nonNullCount = nonNullIdentifiers.length;
+
         // Find an existing user where ALL non-null identifiers match
-        // Only treat as a match if all non-null identifiers on local user
-        // match the same existing user
+        // Only treat as a match if at least one local identifier is non-null
+        // AND all non-null local identifiers match the existing user
         const existingUser = existingUsers.find((existing) => {
+          // Require at least one non-null identifier
+          if (nonNullCount === 0) {
+            return false;
+          }
+
           // If local.deviceId is set, then existing.deviceId must equal it
           const deviceIdMatch =
-            !user.deviceId || user.deviceId === existing.deviceId;
+            user.deviceId == null || user.deviceId === existing.deviceId;
           // If local.email is set, then existing.email must equal it
           const emailMatch =
-            !user.email || user.email === existing.email;
+            user.email == null || user.email === existing.email;
           // If local.walletAddress is set, then existing.walletAddress must equal it
           const walletMatch =
-            !user.walletAddress || user.walletAddress === existing.walletAddress;
+            user.walletAddress == null ||
+            user.walletAddress === existing.walletAddress;
 
           return deviceIdMatch && emailMatch && walletMatch;
         });
@@ -339,8 +425,55 @@ async function migrate() {
     console.log(`   - Progress records: ${localUserProgress.length} exported`);
     console.log(`   - Memory hooks: ${localMemoryHooks.length} exported`);
     console.log(`   - Category filters: ${localCategoryFilters.length} exported`);
-  } catch (error) {
+  } catch (error: any) {
     console.error("\n❌ Migration failed:", error);
+    
+    // Check for IPv6 connection errors
+    if (error?.cause?.code === "ECONNREFUSED" && error?.cause?.address?.includes(":")) {
+      console.error("\n🔍 IPv6 Connection Issue Detected:");
+      console.error("   The connection string resolved to an IPv6 address, but your network");
+      console.error("   cannot reach IPv6 addresses.");
+      console.error("\n   Solution: Use the Connection Pooler string instead:");
+      console.error("   1. Go to Supabase Dashboard → Settings → Database");
+      console.error("   2. Copy the 'Connection Pooler' string (Transaction or Session mode)");
+      console.error("   3. Update DATABASE_URL in .env.local");
+      console.error("   4. Format: postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres");
+      console.error("\n   The pooler connection works without IPv6 and is compatible with this script.");
+    }
+    
+    // Check for authentication errors
+    if (error?.cause?.code === "28P01" || error?.cause?.message?.includes("password authentication failed")) {
+      console.error("\n🔐 Authentication Error Detected:");
+      console.error("   The password in your DATABASE_URL is incorrect.");
+      console.error("\n   Solutions:");
+      console.error("   1. Verify your database password in Supabase Dashboard");
+      console.error("      - Go to Settings → Database → Database password");
+      console.error("      - If you forgot it, you can reset it");
+      console.error("   2. Check your .env.local file:");
+      console.error("      - Make sure DATABASE_URL has the correct password");
+      console.error("      - If password contains special characters, URL-encode them:");
+      console.error("        @ → %40, # → %23, $ → %24, % → %25, etc.");
+      console.error("   3. Copy the connection string directly from Supabase Dashboard");
+      console.error("      - Settings → Database → Connection String");
+      console.error("      - The dashboard handles URL encoding automatically");
+    }
+    
+    // Check for schema errors
+    if (error?.cause?.code === "42P01" || 
+        error?.message?.includes("does not exist") ||
+        error?.cause?.message?.includes("does not exist")) {
+      console.error("\n📋 Schema Error Detected:");
+      console.error("   The database tables do not exist on the remote database.");
+      console.error("\n   Solution: Create the schema first:");
+      console.error("   1. Make sure DATABASE_URL in .env.local points to your remote Supabase");
+      console.error("   2. Run the schema migration:");
+      console.error("      pnpm run db:push");
+      console.error("\n   This will create all necessary tables (words, users, user_progress, etc.)");
+      console.error("   on your remote Supabase database.");
+      console.error("\n   After the schema is created, run this migration script again:");
+      console.error("      pnpm run db:migrate-to-supabase");
+    }
+    
     throw error;
   } finally {
     await localClient.end();
@@ -354,7 +487,54 @@ migrate()
     console.log("\n🎉 All done!");
     process.exit(0);
   })
-  .catch((error) => {
+  .catch((error: any) => {
     console.error("\n💥 Migration failed:", error);
+    
+    // Check for IPv6 connection errors
+    if (error?.cause?.code === "ECONNREFUSED" && error?.cause?.address?.includes(":")) {
+      console.error("\n🔍 IPv6 Connection Issue Detected:");
+      console.error("   The connection string resolved to an IPv6 address, but your network");
+      console.error("   cannot reach IPv6 addresses.");
+      console.error("\n   Solution: Use the Connection Pooler string instead:");
+      console.error("   1. Go to Supabase Dashboard → Settings → Database");
+      console.error("   2. Copy the 'Connection Pooler' string (Transaction or Session mode)");
+      console.error("   3. Update DATABASE_URL in .env.local");
+      console.error("   4. Format: postgresql://postgres.[PROJECT-REF]:[PASSWORD]@aws-0-[REGION].pooler.supabase.com:6543/postgres");
+      console.error("\n   The pooler connection works without IPv6 and is compatible with this script.");
+    }
+    
+    // Check for authentication errors
+    if (error?.cause?.code === "28P01" || error?.cause?.message?.includes("password authentication failed")) {
+      console.error("\n🔐 Authentication Error Detected:");
+      console.error("   The password in your DATABASE_URL is incorrect.");
+      console.error("\n   Solutions:");
+      console.error("   1. Verify your database password in Supabase Dashboard");
+      console.error("      - Go to Settings → Database → Database password");
+      console.error("      - If you forgot it, you can reset it");
+      console.error("   2. Check your .env.local file:");
+      console.error("      - Make sure DATABASE_URL has the correct password");
+      console.error("      - If password contains special characters, URL-encode them:");
+      console.error("        @ → %40, # → %23, $ → %24, % → %25, etc.");
+      console.error("   3. Copy the connection string directly from Supabase Dashboard");
+      console.error("      - Settings → Database → Connection String");
+      console.error("      - The dashboard handles URL encoding automatically");
+    }
+    
+    // Check for schema errors
+    if (error?.cause?.code === "42P01" || 
+        error?.message?.includes("does not exist") ||
+        error?.cause?.message?.includes("does not exist")) {
+      console.error("\n📋 Schema Error Detected:");
+      console.error("   The database tables do not exist on the remote database.");
+      console.error("\n   Solution: Create the schema first:");
+      console.error("   1. Make sure DATABASE_URL in .env.local points to your remote Supabase");
+      console.error("   2. Run the schema migration:");
+      console.error("      pnpm run db:push");
+      console.error("\n   This will create all necessary tables (words, users, user_progress, etc.)");
+      console.error("   on your remote Supabase database.");
+      console.error("\n   After the schema is created, run this migration script again:");
+      console.error("      pnpm run db:migrate-to-supabase");
+    }
+    
     process.exit(1);
   });

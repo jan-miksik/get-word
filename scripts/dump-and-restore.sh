@@ -52,19 +52,45 @@ DUMP_FILE="supabase_dump_$(date +%Y%m%d_%H%M%S).sql"
 echo -e "${BLUE}📥 Step 1: Dumping local database...${NC}"
 echo -e "   Local: ${LOCAL_DB_URL}\n"
 
-# Dump the database (data only, no schema - assuming schema is already on remote)
-# Use --data-only to only dump data, or remove it to dump schema + data
-pg_dump "$LOCAL_DB_URL" \
-  --data-only \
-  --no-owner \
-  --no-acl \
-  --column-inserts \
-  --table=words \
-  --table=users \
-  --table=user_progress \
-  --table=user_memory_hooks \
-  --table=user_category_filters \
-  > "$DUMP_FILE"
+# Try to find the Supabase container (project_id from config.toml is "wordlink")
+SUPABASE_CONTAINER=$(docker ps --filter "name=supabase_db_wordlink" --format "{{.Names}}" | head -n 1)
+
+# Use pg_dump from Docker container if available (to match PostgreSQL version)
+# Otherwise fall back to system pg_dump
+if [ -n "$SUPABASE_CONTAINER" ]; then
+  echo -e "${BLUE}   Using pg_dump from Supabase container: ${SUPABASE_CONTAINER}${NC}\n"
+  # Dump the database (data only, no schema - assuming schema is already on remote)
+  # Use --data-only to only dump data, or remove it to dump schema + data
+  docker exec "$SUPABASE_CONTAINER" pg_dump \
+    -U postgres \
+    -d postgres \
+    --data-only \
+    --no-owner \
+    --no-acl \
+    --column-inserts \
+    --table=words \
+    --table=users \
+    --table=user_progress \
+    --table=user_memory_hooks \
+    --table=user_category_filters \
+    > "$DUMP_FILE"
+else
+  echo -e "${YELLOW}   Container not found, using system pg_dump${NC}"
+  echo -e "${YELLOW}   (Note: Version mismatch may cause issues)${NC}\n"
+  # Dump the database (data only, no schema - assuming schema is already on remote)
+  # Use --data-only to only dump data, or remove it to dump schema + data
+  pg_dump "$LOCAL_DB_URL" \
+    --data-only \
+    --no-owner \
+    --no-acl \
+    --column-inserts \
+    --table=words \
+    --table=users \
+    --table=user_progress \
+    --table=user_memory_hooks \
+    --table=user_category_filters \
+    > "$DUMP_FILE"
+fi
 
 if [ $? -eq 0 ]; then
   DUMP_SIZE=$(du -h "$DUMP_FILE" | cut -f1)

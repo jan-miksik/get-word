@@ -1,6 +1,8 @@
 // Client-side sync utilities
 import { getDeviceId } from "./device-id";
 
+const USER_ID_KEY = 'wordlink_user_id';
+
 export interface ProgressData {
   word_id: string;
   stage_index: number;
@@ -37,18 +39,49 @@ export interface SyncResponse {
   category_filters: string[];
 }
 
+// Store user ID in localStorage for persistence
+function storeUserId(userId: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    localStorage.setItem(USER_ID_KEY, userId);
+  } catch (error) {
+    console.warn('Failed to store user ID in localStorage:', error);
+  }
+}
+
+// Get stored user ID from localStorage
+export function getStoredUserId(): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return localStorage.getItem(USER_ID_KEY);
+  } catch (error) {
+    console.warn('Failed to read user ID from localStorage:', error);
+    return null;
+  }
+}
+
 // Fetch data from server
 export async function fetchUserData(): Promise<SyncResponse> {
   const deviceId = getDeviceId();
-  const response = await fetch(
-    `/api/sync?deviceId=${encodeURIComponent(deviceId)}`
-  );
+  const userId = getStoredUserId(); // Get stored user ID as fallback
+  
+  // Build query string with both device ID and user ID (if available)
+  const params = new URLSearchParams();
+  if (deviceId) params.set('deviceId', deviceId);
+  if (userId) params.set('userId', userId);
+  
+  const response = await fetch(`/api/sync?${params.toString()}`);
 
   if (!response.ok) {
     throw new Error(`Failed to fetch user data: ${response.statusText}`);
   }
 
-  return response.json();
+  const data = await response.json();
+  // Store user ID for persistence
+  if (data.user?.id) {
+    storeUserId(data.user.id);
+  }
+  return data;
 }
 
 // Sync data to server
@@ -59,6 +92,8 @@ export async function syncUserData(data: {
   category_filters?: string[];
 }): Promise<SyncResponse> {
   const deviceId = getDeviceId();
+  const userId = getStoredUserId(); // Get stored user ID as fallback
+  
   const response = await fetch("/api/sync", {
     method: "POST",
     headers: {
@@ -66,6 +101,7 @@ export async function syncUserData(data: {
     },
     body: JSON.stringify({
       deviceId,
+      userId, // Include user ID as fallback
       ...data,
     }),
   });
@@ -74,7 +110,12 @@ export async function syncUserData(data: {
     throw new Error(`Failed to sync data: ${response.statusText}`);
   }
 
-  return response.json();
+  const result = await response.json();
+  // Store user ID for persistence
+  if (result.user?.id) {
+    storeUserId(result.user.id);
+  }
+  return result;
 }
 
 // Debounced sync helper
