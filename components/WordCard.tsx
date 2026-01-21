@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, memo } from 'react';
 import { NormalizedWord } from '@/lib/words';
-import { ProgressData } from '@/lib/storage';
+import { ProgressData } from '@/lib/sync';
 
 interface WordCardProps {
   word: NormalizedWord;
@@ -250,7 +250,7 @@ export const WordCard = memo(function WordCard({
         <input
           ref={hookInputRef}
           type="text"
-          className="memory-hook-input"
+          className={`memory-hook-input ${editingHook ? 'block' : 'hidden'}`}
           placeholder="Enter memory hook..."
           value={hookValue}
           onChange={(e) => setHookValue(e.target.value)}
@@ -262,7 +262,6 @@ export const WordCard = memo(function WordCard({
               cancelEditing();
             }
           }}
-          style={{ display: editingHook ? 'block' : 'none' }}
         />
       </div>
 

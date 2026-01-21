@@ -9,6 +9,7 @@ interface SettingsPanelProps {
   onShowCategoryBadgesChange: (show: boolean) => void;
   isOpen: boolean;
   onClose?: () => void;
+  userId?: string | null;
 }
 
 export function SettingsPanel({ 
@@ -19,7 +20,8 @@ export function SettingsPanel({
   showCategoryBadges,
   onShowCategoryBadgesChange,
   isOpen, 
-  onClose 
+  onClose,
+  userId,
 }: SettingsPanelProps) {
   return (
     <section
@@ -28,37 +30,11 @@ export function SettingsPanel({
       onClick={(e) => e.stopPropagation()}
     >
       <div className="settings-inner">
-        <div style={{ position: 'relative' }}>
+        <div className="relative">
           {onClose && (
             <button
               onClick={onClose}
-              style={{
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                background: 'transparent',
-                border: 'none',
-                fontSize: '1.25rem',
-                color: 'var(--text-soft)',
-                cursor: 'pointer',
-                padding: '0.25rem',
-                lineHeight: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '1.5rem',
-                height: '1.5rem',
-                borderRadius: 'var(--radius-sm)',
-                transition: 'all var(--transition-fast)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--bg-elevated)';
-                e.currentTarget.style.color = 'var(--text)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.color = 'var(--text-soft)';
-              }}
+              className="absolute top-0 right-0 bg-transparent border-none text-xl text-text-soft cursor-pointer p-1 leading-none flex items-center justify-center w-6 h-6 rounded-md transition-all hover:bg-background-elevated hover:text-text"
               aria-label="Close settings"
             >
               ×
@@ -88,8 +64,8 @@ export function SettingsPanel({
         </label>
 
         {/* Display Options Section */}
-        <div style={{ marginTop: '1.5rem', paddingTop: '1.5rem', borderTop: '1px solid var(--border-subtle)' }}>
-          <p className="settings-title" style={{ marginBottom: '0.75rem' }}>Display Options</p>
+        <div className="mt-6 pt-6 border-t border-border-subtle">
+          <p className="settings-title mb-3">Display Options</p>
           <label className="settings-option">
             <input
               type="checkbox"
@@ -106,6 +82,14 @@ export function SettingsPanel({
             />
             <span>Show Category Badges</span>
           </label>
+        </div>
+
+        {/* User ID */}
+        <div className="mt-6 pt-6 border-t border-border-subtle">
+          <p className="settings-title mb-2">User ID</p>
+          <code className="block text-xs text-text-soft break-all font-mono">
+            {userId || '—'}
+          </code>
         </div>
       </div>
     </section>

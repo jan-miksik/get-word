@@ -119,6 +119,7 @@ export default function EditPage() {
     setMemoryHook,
     getSuggestedMemoryHook,
     lastMovedId,
+    userId,
     isHydrated,
   } = useAppState(normalizedWords);
 
@@ -463,7 +464,7 @@ export default function EditPage() {
   if (isLoading || !isHydrated) {
     return (
       <div className="app">
-        <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>
+        <div className="p-8 text-center">Loading...</div>
       </div>
     );
   }
@@ -520,53 +521,26 @@ export default function EditPage() {
   return (
     <div className="app">
       {/* Edit mode header */}
-      <div style={{ 
-        padding: '0.75rem 1rem', 
-        borderBottom: '1px solid var(--border-subtle)', 
-        background: 'var(--bg-elevated)',
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: '0.5rem'
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontSize: '0.875rem', color: 'var(--accent)', fontWeight: 600 }}>✏️ EDIT MODE</span>
+      <div className="py-3 px-4 border-b border-border-subtle bg-background-elevated flex justify-between items-center flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-accent font-semibold">✏️ EDIT MODE</span>
           {saveMessage && (
-            <span style={{ color: saveMessage.includes('Error') ? 'var(--danger)' : 'var(--accent)', fontSize: '0.875rem' }}>
+            <span className={`text-sm ${saveMessage.includes('Error') ? 'text-danger' : 'text-accent'}`}>
               {saveMessage}
             </span>
           )}
         </div>
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div className="flex gap-2">
           <button
             onClick={() => router.push('/')}
-            style={{
-              padding: '0.375rem 0.75rem',
-              borderRadius: 'var(--radius-pill)',
-              border: '1px solid var(--border-subtle)',
-              background: 'transparent',
-              color: 'var(--text)',
-              cursor: 'pointer',
-              fontSize: '0.75rem',
-            }}
+            className="py-1.5 px-3 rounded-full border border-border-subtle bg-transparent text-text cursor-pointer text-xs"
           >
             Cancel
           </button>
           <button
             onClick={handleSave}
             disabled={isSaving}
-            style={{
-              padding: '0.375rem 0.75rem',
-              borderRadius: 'var(--radius-pill)',
-              border: 'none',
-              background: 'var(--accent)',
-              color: 'var(--bg)',
-              cursor: isSaving ? 'not-allowed' : 'pointer',
-              opacity: isSaving ? 0.6 : 1,
-              fontSize: '0.75rem',
-              fontWeight: 500,
-            }}
+            className={`py-1.5 px-3 rounded-full border-none bg-accent text-background text-xs font-medium ${isSaving ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
           >
             {isSaving ? 'Saving...' : 'Save'}
           </button>
@@ -621,6 +595,7 @@ export default function EditPage() {
         onShowCategoryBadgesChange={setShowCategoryBadges}
         isOpen={settingsOpen} 
         onClose={() => setSettingsOpen(false)}
+        userId={userId}
       />
 
       <CategoryPanel
@@ -643,37 +618,11 @@ export default function EditPage() {
       >
         <div className="progress-panel-inner" id="progress-panel-content">
           <div className="progress-overview">
-            <div className="progress-header" style={{ position: 'relative' }}>
+            <div className="progress-header relative">
               <h1>📊 Learning Progress</h1>
               <button
                 onClick={() => setProgressOpen(false)}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  right: 0,
-                  background: 'transparent',
-                  border: 'none',
-                  fontSize: '1.25rem',
-                  color: 'var(--text-soft)',
-                  cursor: 'pointer',
-                  padding: '0.25rem',
-                  lineHeight: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '1.5rem',
-                  height: '1.5rem',
-                  borderRadius: 'var(--radius-sm)',
-                  transition: 'all var(--transition-fast)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--bg-elevated)';
-                  e.currentTarget.style.color = 'var(--text)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = 'var(--text-soft)';
-                }}
+                className="absolute top-0 right-0 bg-transparent border-none text-xl text-text-soft cursor-pointer p-1 leading-none flex items-center justify-center w-6 h-6 rounded-md transition-all hover:bg-background-elevated hover:text-text"
                 aria-label="Close progress"
               >
                 ×
@@ -793,7 +742,7 @@ export default function EditPage() {
 
       <main className="phrases" ref={phrasesRef} aria-live="polite">
         {filteredWords.length === 0 ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-soft)' }}>
+          <div className="p-8 text-center text-text-soft">
             {currentTab === 'ready' ? 'All caught up!' : 'No words match your current filters.'}
           </div>
         ) : (

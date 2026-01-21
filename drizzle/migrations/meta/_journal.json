@@ -8,6 +8,13 @@
       "when": 1768813974130,
       "tag": "0000_tough_union_jack",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1768813974131,
+      "tag": "0001_add_user_show_english_and_show_category_badges",
+      "breakpoints": true
     }
   ]
 }

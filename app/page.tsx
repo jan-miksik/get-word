@@ -125,6 +125,7 @@ export default function Home() {
     setMemoryHook,
     getSuggestedMemoryHook,
     lastMovedId,
+    userId,
     isHydrated,
   } = useAppState(WORDS);
 
@@ -383,7 +384,7 @@ export default function Home() {
   if (!isHydrated) {
     return (
       <div className="app">
-        <div style={{ padding: '2rem', textAlign: 'center' }}>Loading...</div>
+        <div className="p-8 text-center">Loading...</div>
       </div>
     );
   }
@@ -487,6 +488,7 @@ export default function Home() {
         onShowCategoryBadgesChange={setShowCategoryBadges}
         isOpen={settingsOpen} 
         onClose={() => setSettingsOpen(false)}
+        userId={userId}
       />
 
       <CategoryPanel
@@ -509,37 +511,11 @@ export default function Home() {
       >
         <div className="progress-panel-inner" id="progress-panel-content">
           <div className="progress-overview">
-            <div className="progress-header" style={{ position: 'relative' }}>
+            <div className="progress-header relative">
               <h1>📊 Learning Progress</h1>
               <button
                 onClick={() => setProgressOpen(false)}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  right: 0,
-                  background: 'transparent',
-                  border: 'none',
-                  fontSize: '1.25rem',
-                  color: 'var(--text-soft)',
-                  cursor: 'pointer',
-                  padding: '0.25rem',
-                  lineHeight: 1,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: '1.5rem',
-                  height: '1.5rem',
-                  borderRadius: 'var(--radius-sm)',
-                  transition: 'all var(--transition-fast)',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'var(--bg-elevated)';
-                  e.currentTarget.style.color = 'var(--text)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'transparent';
-                  e.currentTarget.style.color = 'var(--text-soft)';
-                }}
+                className="absolute top-0 right-0 bg-transparent border-none text-xl text-text-soft cursor-pointer p-1 leading-none flex items-center justify-center w-6 h-6 rounded-md transition-all hover:bg-background-elevated hover:text-text"
                 aria-label="Close progress"
               >
                 ×
@@ -663,7 +639,7 @@ export default function Home() {
 
       <main className="phrases" ref={phrasesRef} aria-live="polite">
         {filteredWords.length === 0 ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-soft)' }}>
+          <div className="p-8 text-center text-text-soft">
             {currentTab === 'ready' ? 'All caught up!' : 'No words match your current filters.'}
           </div>
         ) : currentTab === 'ready' ? (

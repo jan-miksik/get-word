@@ -10,6 +10,7 @@ import {
   getUserCategoryFilters,
   setUserCategoryFilters,
   updateUserRole,
+  updateUserPreferences,
 } from "@/lib/db";
 import { db } from "@/lib/db/client";
 import { users } from "@/lib/db/schema";
@@ -19,6 +20,8 @@ interface SyncRequest {
   deviceId?: string;
   userId?: string; // Optional: fallback user ID for recovery
   role?: "cz" | "vi";
+  show_english?: boolean;
+  show_category_badges?: boolean;
   progress?: Array<{
     word_id: string;
     stage_index: number;
@@ -35,7 +38,7 @@ interface SyncRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: SyncRequest = await request.json();
-    const { deviceId, role, progress, memory_hooks, category_filters } = body;
+    const { deviceId, role, show_english, show_category_badges, progress, memory_hooks, category_filters } = body;
     const userId = body.userId as string | undefined; // Optional: fallback user ID from client
 
     if (!deviceId && !userId) {
@@ -80,6 +83,12 @@ export async function POST(request: NextRequest) {
     // Update role if provided
     if (role && role !== user.role) {
       await updateUserRole(user.id, role);
+    }
+
+    // Update display preferences if provided
+    if (show_english !== undefined || show_category_badges !== undefined) {
+      const updated = await updateUserPreferences(user.id, { show_english, show_category_badges });
+      if (updated) user = updated;
     }
 
     // Sync progress
@@ -127,7 +136,9 @@ export async function POST(request: NextRequest) {
       success: true,
       user: {
         id: user.id,
-        role: role || user.role,
+        role: role ?? user.role,
+        show_english: user.showEnglish ?? true,
+        show_category_badges: user.showCategoryBadges ?? false,
       },
       progress: currentProgress,
       memory_hooks: currentHooks,
@@ -193,6 +204,8 @@ export async function GET(request: NextRequest) {
       user: {
         id: user.id,
         role: user.role,
+        show_english: user.showEnglish ?? true,
+        show_category_badges: user.showCategoryBadges ?? false,
       },
       progress,
       memory_hooks: memoryHooks,

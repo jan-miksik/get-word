@@ -4,6 +4,7 @@ import {
   timestamp,
   uuid,
   integer,
+  boolean,
   unique,
 } from "drizzle-orm/pg-core";
 
@@ -31,6 +32,8 @@ export const users = pgTable("users", {
   email: text("email").unique(), // Email auth (future)
   walletAddress: text("wallet_address").unique(), // Web3 auth (future)
   role: text("role").notNull().default("vi"), // "cz" or "vi"
+  showEnglish: boolean("show_english").default(true).notNull(),
+  showCategoryBadges: boolean("show_category_badges").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { ProgressData } from '@/lib/storage';
+import { ProgressData } from '@/lib/sync';
 
 const MAX_DELAY = 2147483647; // 2^31 - 1, maximum setTimeout delay
 

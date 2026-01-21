@@ -2,15 +2,15 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { loadProgress, saveProgress, loadRole, saveRole, loadMemoryHooks, saveMemoryHooks, loadCategoryFilter, saveCategoryFilter, loadShowEnglish, saveShowEnglish, loadShowCategoryBadges, saveShowCategoryBadges, hasMigratedToIds, markMigrationComplete, generateOldHashId, ProgressData } from '@/lib/storage';
+import type { ProgressData } from '@/lib/sync';
 import { NormalizedWord, STAGES, isDue, matchesCategoryFilter } from '@/lib/words';
+import { fetchUserData, debouncedSync } from '@/lib/sync';
 
 export type Role = 'cz' | 'vi';
 export type Tab = 'all' | 'ready';
 
 export function useAppState(words: NormalizedWord[]) {
-  // Initialize with defaults that match server-side rendering
-  // Update from localStorage after hydration to avoid mismatches
+  // Defaults; overwritten by fetchUserData (DB-only, no localStorage)
   const [role, setRole] = useState<Role>('vi');
   const [modeIndex, setModeIndex] = useState(0); // 0 or 1 depending on role
   const [showAll, setShowAll] = useState(false);
@@ -25,87 +25,98 @@ export function useAppState(words: NormalizedWord[]) {
   const [categoryOpen, setCategoryOpen] = useState(false);
   const [memoryHooksOpen, setMemoryHooksOpen] = useState(false);
   const [lastMovedId, setLastMovedId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const lastMovedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasLoadedRef = useRef(false);
+  const isUpdatingFromServerRef = useRef(false);
 
-  // Load from localStorage after hydration (only once)
-  // Create mappings for migrating old data to new word IDs
+  // Load from DB only (no localStorage). Run once when we have words.
   useEffect(() => {
-    // Only load once, and only when we have words
-    if (hasLoadedRef.current || words.length === 0) {
-      console.log('[useAppState] Skipping load, hasLoaded:', hasLoadedRef.current, 'words.length:', words.length);
-      return;
-    }
+    if (hasLoadedRef.current || words.length === 0) return;
     hasLoadedRef.current = true;
-    console.log('[useAppState] Loading with', words.length, 'words');
-    
-    // Build mappings for migration:
-    // 1. Old numeric index -> new ID (for very old data)
-    // 2. Old hash ID -> new ID (for hash-based data like "ffkl5c" -> "w000")
-    const indexToIdMap = new Map<number, string>();
-    const hashToIdMap = new Map<string, string>();
-    
-    words.forEach((word) => {
-      // Map from old numeric index (extracted from new ID like "w095" -> 95)
-      const originalIndex = parseInt(word.id.substring(1), 10);
-      if (!isNaN(originalIndex)) {
-        indexToIdMap.set(originalIndex, word.id);
-      }
-      
-      // Map from old hash ID to new ID
-      const oldHash = generateOldHashId(word.cz, word.vi, word.en);
-      hashToIdMap.set(oldHash, word.id);
-    });
-    
-    // Check if migration is needed before loading either
-    const needsMigration = !hasMigratedToIds();
-    
-    setRole(loadRole());
-    // Pass both maps for migration
-    setProgress(loadProgress(indexToIdMap, hashToIdMap, needsMigration));
-    setMemoryHooks(loadMemoryHooks(indexToIdMap, hashToIdMap, needsMigration));
-    setSelectedCategories(loadCategoryFilter());
-    setShowEnglish(loadShowEnglish());
-    setShowCategoryBadges(loadShowCategoryBadges());
-    
-    // Mark migration complete after both progress and hooks are migrated
-    if (needsMigration) {
-      markMigrationComplete();
-    }
-    
-    setIsHydrated(true);
+
+    fetchUserData()
+      .then((serverData) => {
+        isUpdatingFromServerRef.current = true;
+
+        if (serverData.progress && Object.keys(serverData.progress).length > 0) {
+          const next: Record<string, ProgressData> = {};
+          for (const [wordId, p] of Object.entries(serverData.progress)) {
+            next[wordId] = {
+              stageIndex: p.stageIndex,
+              knownCount: p.knownCount,
+              unknownCount: p.unknownCount,
+              lastKnownAt: p.lastKnownAt ? new Date(p.lastKnownAt).getTime() : undefined,
+              lastUnknownAt: p.lastUnknownAt ? new Date(p.lastUnknownAt).getTime() : undefined,
+              nextDueAt: p.nextDueAt ? new Date(p.nextDueAt).getTime() : undefined,
+            };
+          }
+          setProgress(next);
+        }
+        if (serverData.memory_hooks && Object.keys(serverData.memory_hooks).length > 0) {
+          setMemoryHooks(serverData.memory_hooks);
+        }
+        if (serverData.category_filters && serverData.category_filters.length > 0) {
+          setSelectedCategories(new Set(serverData.category_filters));
+        }
+        if (serverData.user?.role) setRole(serverData.user.role);
+        setShowEnglish(serverData.user?.show_english ?? true);
+        setShowCategoryBadges(serverData.user?.show_category_badges ?? false);
+        if (serverData.user?.id) setUserId(serverData.user.id);
+
+        setIsHydrated(true);
+        setTimeout(() => { isUpdatingFromServerRef.current = false; }, 100);
+      })
+      .catch((err) => {
+        console.error('[useAppState] Failed to fetch from server:', err);
+        setIsHydrated(true);
+        isUpdatingFromServerRef.current = false;
+      });
   }, [words]);
 
-  // Save to localStorage when state changes (only after hydration)
+  // Sync to DB when state changes (only after hydration; no localStorage)
   useEffect(() => {
-    if (!isHydrated) return;
-    saveProgress(progress);
+    if (!isHydrated || isUpdatingFromServerRef.current) return;
+    const progressArray = Object.entries(progress).map(([word_id, data]) => ({
+      word_id,
+      stage_index: data.stageIndex,
+      known_count: data.knownCount,
+      unknown_count: data.unknownCount,
+      last_known_at: data.lastKnownAt ?? null,
+      last_unknown_at: data.lastUnknownAt ?? null,
+      next_due_at: data.nextDueAt ?? null,
+    }));
+    debouncedSync({ progress: progressArray }).catch((e) => console.error('[useAppState] Sync progress:', e));
   }, [progress, isHydrated]);
 
   useEffect(() => {
-    if (!isHydrated) return;
-    saveRole(role);
+    if (!isHydrated || isUpdatingFromServerRef.current) return;
+    debouncedSync({ role }).catch((e) => console.error('[useAppState] Sync role:', e));
   }, [role, isHydrated]);
 
   useEffect(() => {
-    if (!isHydrated) return;
-    saveMemoryHooks(memoryHooks);
+    if (!isHydrated || isUpdatingFromServerRef.current) return;
+    const hooksForSync: Record<string, string | null> = {};
+    for (const [wordId, hook] of Object.entries(memoryHooks)) {
+      hooksForSync[wordId] = hook || null;
+    }
+    debouncedSync({ memory_hooks: hooksForSync }).catch((e) => console.error('[useAppState] Sync memory hooks:', e));
   }, [memoryHooks, isHydrated]);
 
   useEffect(() => {
-    if (!isHydrated) return;
-    saveCategoryFilter(selectedCategories);
+    if (!isHydrated || isUpdatingFromServerRef.current) return;
+    debouncedSync({ category_filters: Array.from(selectedCategories) }).catch((e) => console.error('[useAppState] Sync category filters:', e));
   }, [selectedCategories, isHydrated]);
 
   useEffect(() => {
-    if (!isHydrated) return;
-    saveShowEnglish(showEnglish);
+    if (!isHydrated || isUpdatingFromServerRef.current) return;
+    debouncedSync({ show_english: showEnglish }).catch((e) => console.error('[useAppState] Sync show_english:', e));
   }, [showEnglish, isHydrated]);
 
   useEffect(() => {
-    if (!isHydrated) return;
-    saveShowCategoryBadges(showCategoryBadges);
+    if (!isHydrated || isUpdatingFromServerRef.current) return;
+    debouncedSync({ show_category_badges: showCategoryBadges }).catch((e) => console.error('[useAppState] Sync show_category_badges:', e));
   }, [showCategoryBadges, isHydrated]);
 
   // Cleanup timeout on unmount
@@ -314,6 +325,7 @@ export function useAppState(words: NormalizedWord[]) {
     setMemoryHook,
     getSuggestedMemoryHook,
     lastMovedId,
+    userId,
     isHydrated,
   };
 }

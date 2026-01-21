@@ -1,9 +1,11 @@
 // Client-side sync utilities
 import { getDeviceId } from "./device-id";
 
-const USER_ID_KEY = 'wordlink_user_id';
+// In-memory only: set from API responses, passed as hint to API. No localStorage.
+let lastKnownUserId: string | null = null;
 
-export interface ProgressData {
+/** API request shape for progress items. */
+export interface SyncProgressItem {
   word_id: string;
   stage_index: number;
   known_count: number;
@@ -13,11 +15,23 @@ export interface ProgressData {
   next_due_at: number | null;
 }
 
+/** App-side progress shape (stageIndex, camelCase). Used by useAppState, WordCard, etc. */
+export interface ProgressData {
+  stageIndex: number;
+  knownCount: number;
+  unknownCount: number;
+  lastKnownAt?: number;
+  lastUnknownAt?: number;
+  nextDueAt?: number;
+}
+
 export interface SyncResponse {
   success: boolean;
   user: {
     id: string;
     role: "cz" | "vi";
+    show_english?: boolean;
+    show_category_badges?: boolean;
   };
   progress: Record<
     string,
@@ -39,37 +53,13 @@ export interface SyncResponse {
   category_filters: string[];
 }
 
-// Store user ID in localStorage for persistence
-function storeUserId(userId: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(USER_ID_KEY, userId);
-  } catch (error) {
-    console.warn('Failed to store user ID in localStorage:', error);
-  }
-}
-
-// Get stored user ID from localStorage
-export function getStoredUserId(): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return localStorage.getItem(USER_ID_KEY);
-  } catch (error) {
-    console.warn('Failed to read user ID from localStorage:', error);
-    return null;
-  }
-}
-
-// Fetch data from server
+// Fetch data from server (DB-only; no localStorage).
 export async function fetchUserData(): Promise<SyncResponse> {
   const deviceId = getDeviceId();
-  const userId = getStoredUserId(); // Get stored user ID as fallback
-  
-  // Build query string with both device ID and user ID (if available)
   const params = new URLSearchParams();
   if (deviceId) params.set('deviceId', deviceId);
-  if (userId) params.set('userId', userId);
-  
+  if (lastKnownUserId) params.set('userId', lastKnownUserId);
+
   const response = await fetch(`/api/sync?${params.toString()}`);
 
   if (!response.ok) {
@@ -77,31 +67,27 @@ export async function fetchUserData(): Promise<SyncResponse> {
   }
 
   const data = await response.json();
-  // Store user ID for persistence
-  if (data.user?.id) {
-    storeUserId(data.user.id);
-  }
+  if (data.user?.id) lastKnownUserId = data.user.id;
   return data;
 }
 
-// Sync data to server
+// Sync data to server (DB-only; no localStorage).
 export async function syncUserData(data: {
   role?: "cz" | "vi";
-  progress?: ProgressData[];
+  show_english?: boolean;
+  show_category_badges?: boolean;
+  progress?: SyncProgressItem[];
   memory_hooks?: Record<string, string | null>;
   category_filters?: string[];
 }): Promise<SyncResponse> {
   const deviceId = getDeviceId();
-  const userId = getStoredUserId(); // Get stored user ID as fallback
-  
+
   const response = await fetch("/api/sync", {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       deviceId,
-      userId, // Include user ID as fallback
+      userId: lastKnownUserId,
       ...data,
     }),
   });
@@ -111,10 +97,7 @@ export async function syncUserData(data: {
   }
 
   const result = await response.json();
-  // Store user ID for persistence
-  if (result.user?.id) {
-    storeUserId(result.user.id);
-  }
+  if (result.user?.id) lastKnownUserId = result.user.id;
   return result;
 }
 

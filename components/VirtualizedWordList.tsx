@@ -93,7 +93,7 @@ export function VirtualizedWordList({
 
   if (totalWords === 0) {
     return (
-      <div className={className} style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-soft)' }}>
+      <div className={`${className} p-8 text-center text-text-soft`}>
         {emptyMessage}
       </div>
     );
@@ -102,43 +102,19 @@ export function VirtualizedWordList({
   return (
     <div
       ref={parentRef}
-      className={className}
-      style={{
-        height: 'calc(100vh - 180px)', // Account for header and bottom nav
-        overflow: 'auto',
-        position: 'relative',
-      }}
+      className={`${className} h-[calc(100vh-180px)] overflow-auto relative`}
     >
       {/* Sticky header showing current stage */}
-      <div
-        style={{
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-          background: 'rgba(5, 8, 22, 0.98)',
-          backdropFilter: 'blur(12px)',
-          WebkitBackdropFilter: 'blur(12px)',
-          borderBottom: '1px solid var(--border-subtle)',
-          padding: '0.75rem 1.5rem',
-        }}
-      >
-        <h2 style={{
-          margin: 0,
-          fontSize: '1rem',
-          fontWeight: 600,
-          color: 'var(--accent)',
-        }}>
+      <div className="sticky top-0 z-10 bg-[rgba(5,8,22,0.98)] backdrop-blur-[12px] border-b border-border-subtle py-3 px-6">
+        <h2 className="m-0 text-base font-semibold text-accent">
           {activeStage?.name || 'Loading...'}
         </h2>
       </div>
 
       {/* Virtual list container */}
       <div
-        style={{
-          height: virtualizer.getTotalSize(),
-          width: '100%',
-          position: 'relative',
-        }}
+        className="w-full relative"
+        style={{ height: virtualizer.getTotalSize() }}
       >
         {virtualizer.getVirtualItems().map(virtualRow => {
           const item = items[virtualRow.index];
@@ -150,24 +126,12 @@ export function VirtualizedWordList({
                 key={`header-${item.stageIndex}`}
                 data-index={virtualRow.index}
                 ref={virtualizer.measureElement}
-                style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  width: '100%',
-                  transform: `translateY(${virtualRow.start}px)`,
-                }}
+                className="absolute top-0 left-0 w-full"
+                style={{ transform: `translateY(${virtualRow.start}px)` }}
               >
                 {/* Inline header for scroll position tracking */}
                 <h2
-                  className="category-zone-title"
-                  style={{
-                    padding: '0.75rem 1.5rem',
-                    margin: 0,
-                    fontSize: '0.9rem',
-                    color: 'var(--text-soft)',
-                    borderTop: item.stageIndex > 0 ? '1px solid var(--border-subtle)' : 'none',
-                  }}
+                  className={`category-zone-title py-3 px-6 m-0 text-sm text-text-soft ${item.stageIndex > 0 ? 'border-t border-border-subtle' : ''}`}
                 >
                   {item.stage.name}
                 </h2>
@@ -180,13 +144,8 @@ export function VirtualizedWordList({
               key={item.word.id}
               data-index={virtualRow.index}
               ref={virtualizer.measureElement}
-              style={{
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                width: '100%',
-                transform: `translateY(${virtualRow.start}px)`,
-              }}
+              className="absolute top-0 left-0 w-full"
+              style={{ transform: `translateY(${virtualRow.start}px)` }}
             >
               {renderCard(item.word, item.stageIndex)}
             </div>

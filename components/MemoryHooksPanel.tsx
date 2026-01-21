@@ -13,37 +13,11 @@ export function MemoryHooksPanel({ isOpen, onClose }: MemoryHooksPanelProps) {
       onClick={(e) => e.stopPropagation()}
     >
       <div className="memory-hooks-panel-inner">
-        <div style={{ position: 'relative' }}>
+        <div className="relative">
           {onClose && (
             <button
               onClick={onClose}
-              style={{
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                background: 'transparent',
-                border: 'none',
-                fontSize: '1.25rem',
-                color: 'var(--text-soft)',
-                cursor: 'pointer',
-                padding: '0.25rem',
-                lineHeight: 1,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: '1.5rem',
-                height: '1.5rem',
-                borderRadius: 'var(--radius-sm)',
-                transition: 'all var(--transition-fast)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.background = 'var(--bg-elevated)';
-                e.currentTarget.style.color = 'var(--text)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.background = 'transparent';
-                e.currentTarget.style.color = 'var(--text-soft)';
-              }}
+              className="absolute top-0 right-0 bg-transparent border-none text-xl text-text-soft cursor-pointer p-1 leading-none flex items-center justify-center w-6 h-6 rounded-md transition-all hover:bg-background-elevated hover:text-text"
               aria-label="Close memory hooks info"
             >
               ×

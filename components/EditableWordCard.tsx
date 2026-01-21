@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { NormalizedWord } from '@/lib/words';
 import { Word } from '@/data/words';
-import { ProgressData } from '@/lib/storage';
+import { ProgressData } from '@/lib/sync';
 import { WordCard } from './WordCard';
 
 interface EditableWordCardProps {
