@@ -13,8 +13,52 @@ import {
   updateUserPreferences,
 } from "@/lib/db";
 import { db } from "@/lib/db/client";
-import { users } from "@/lib/db/schema";
+import { users, type User } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+
+const PG_STATEMENT_TIMEOUT = "57014";
+
+function isStatementTimeout(err: unknown): boolean {
+  const e = err as { code?: string; cause?: { code?: string } };
+  return e?.code === PG_STATEMENT_TIMEOUT || e?.cause?.code === PG_STATEMENT_TIMEOUT;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function withRetryOnTimeout<T>(fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    if (isStatementTimeout(e)) {
+      await sleep(800);
+      return fn();
+    }
+    throw e;
+  }
+}
+
+/** Prefers userId (PK lookup) when provided; falls back to deviceId get-or-create. */
+async function resolveUser(
+  deviceId: string | null,
+  userId: string | null
+): Promise<User | null> {
+  if (userId) {
+    let user = await getUserById(userId);
+    if (user && deviceId && user.deviceId !== deviceId) {
+      const updated = await db
+        .update(users)
+        .set({ deviceId, updatedAt: new Date() })
+        .where(eq(users.id, user.id))
+        .returning();
+      user = updated[0] ?? user;
+    }
+    if (user) return user;
+  }
+  if (deviceId) return await getOrCreateUserByDeviceId(deviceId);
+  return null;
+}
 
 interface SyncRequest {
   deviceId?: string;
@@ -48,31 +92,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get or create user
-    // First try by device ID (primary method)
-    let user = deviceId ? await getOrCreateUserByDeviceId(deviceId) : null;
-    
-    // Fallback: if device ID lookup failed but we have a user ID, try to get by user ID
-    // This helps recover if device ID was lost but user ID is still stored
-    if (!user && userId) {
-      user = await getUserById(userId);
-      // If user found but device ID doesn't match, update the device ID to link them
-      if (user && deviceId && user.deviceId !== deviceId) {
-        // Update device ID to maintain the link
-        const updated = await db
-          .update(users)
-          .set({ deviceId, updatedAt: new Date() })
-          .where(eq(users.id, user.id))
-          .returning();
-        user = updated[0] || user;
-      }
-    }
-    
-    // If still no user and we have device ID, create new one
-    if (!user && deviceId) {
-      user = await getOrCreateUserByDeviceId(deviceId);
-    }
-    
+    let user = await withRetryOnTimeout(() =>
+      resolveUser(deviceId || null, userId || null)
+    );
     if (!user) {
       return NextResponse.json(
         { error: "Failed to get or create user" },
@@ -146,7 +168,11 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("Sync error:", error);
-    return NextResponse.json({ error: "Failed to sync data" }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : "Failed to sync data";
+    return NextResponse.json(
+      { success: false, error: errorMessage },
+      { status: 500 }
+    );
   }
 }
 
@@ -158,38 +184,18 @@ export async function GET(request: NextRequest) {
 
     if (!deviceId && !userId) {
       return NextResponse.json(
-        { error: "deviceId or userId is required" },
+        { success: false, error: "deviceId or userId is required" },
         { status: 400 }
       );
     }
 
-    // Get or create user
-    // First try by device ID (primary method)
-    let user = deviceId ? await getOrCreateUserByDeviceId(deviceId) : null;
-    
-    // Fallback: if device ID lookup failed but we have a user ID, try to get by user ID
-    if (!user && userId) {
-      user = await getUserById(userId);
-      // If user found but device ID doesn't match, update the device ID to link them
-      if (user && deviceId && user.deviceId !== deviceId) {
-        // Update device ID to maintain the link
-        const updated = await db
-          .update(users)
-          .set({ deviceId, updatedAt: new Date() })
-          .where(eq(users.id, user.id))
-          .returning();
-        user = updated[0] || user;
-      }
-    }
-    
-    // If still no user and we have device ID, create new one
-    if (!user && deviceId) {
-      user = await getOrCreateUserByDeviceId(deviceId);
-    }
-    
+    let user = await withRetryOnTimeout(() =>
+      resolveUser(deviceId || null, userId || null)
+    );
     if (!user) {
+      console.error("Failed to resolve user", { deviceId, userId });
       return NextResponse.json(
-        { error: "Failed to get or create user" },
+        { success: false, error: "Failed to get or create user" },
         { status: 500 }
       );
     }
@@ -213,8 +219,9 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error("Fetch error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Failed to fetch data";
     return NextResponse.json(
-      { error: "Failed to fetch data" },
+      { success: false, error: errorMessage },
       { status: 500 }
     );
   }

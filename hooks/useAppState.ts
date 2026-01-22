@@ -66,10 +66,17 @@ export function useAppState(words: NormalizedWord[]) {
         if (serverData.user?.id) setUserId(serverData.user.id);
 
         setIsHydrated(true);
-        setTimeout(() => { isUpdatingFromServerRef.current = false; }, 100);
+        // Delay clearing until after the sync effects have had a chance to check the flag
+        requestAnimationFrame(() => {
+          isUpdatingFromServerRef.current = false;
+        });
       })
       .catch((err) => {
         console.error('[useAppState] Failed to fetch from server:', err);
+        if (err instanceof Error) {
+          console.error('[useAppState] Error message:', err.message);
+          console.error('[useAppState] Error stack:', err.stack);
+        }
         setIsHydrated(true);
         isUpdatingFromServerRef.current = false;
       });

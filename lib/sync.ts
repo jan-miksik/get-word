@@ -60,15 +60,34 @@ export async function fetchUserData(): Promise<SyncResponse> {
   if (deviceId) params.set('deviceId', deviceId);
   if (lastKnownUserId) params.set('userId', lastKnownUserId);
 
-  const response = await fetch(`/api/sync?${params.toString()}`);
+  try {
+    const response = await fetch(`/api/sync?${params.toString()}`);
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch user data: ${response.statusText}`);
+    if (!response.ok) {
+      let errorMessage = `Failed to fetch user data: ${response.status} ${response.statusText}`;
+      try {
+        const errorData = await response.json();
+        if (errorData.error) {
+          errorMessage = `Failed to fetch user data: ${errorData.error}`;
+        }
+      } catch {
+        // If JSON parsing fails, use the status text
+      }
+      throw new Error(errorMessage);
+    }
+
+    const data = await response.json();
+    if (!data.success) {
+      throw new Error(data.error || 'Failed to fetch user data: Unknown error');
+    }
+    if (data.user?.id) lastKnownUserId = data.user.id;
+    return data;
+  } catch (error) {
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(`Failed to fetch user data: ${String(error)}`);
   }
-
-  const data = await response.json();
-  if (data.user?.id) lastKnownUserId = data.user.id;
-  return data;
 }
 
 // Sync data to server (DB-only; no localStorage).
