@@ -345,7 +345,9 @@ body {
 
 .settings-panel.is-open {
   display: block;
-  position: absolute;
+  position: fixed;
+  top: 60px;
+  /* right: 14px; */
   z-index: 150;
 }
 
@@ -359,18 +361,19 @@ body {
   align-self: end;
   max-height: 80vh;
   overflow-y: auto;
-  position: absolute;
-  right: 14px;
-  left: 14px;
-  max-width: 720px;
-  margin-left: auto;
-  margin-right: auto;
   z-index: 150;
   box-shadow: var(--shadow-soft);
 }
 
 .progress-panel.is-open {
   display: block;
+  position: fixed;
+  top: 60px;
+  right: 14px;
+  left: 14px;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .progress-panel-inner {
@@ -387,18 +390,19 @@ body {
   align-self: end;
   max-height: 80vh;
   overflow-y: auto;
-  position: absolute;
-  right: 14px;
-  left: 14px;
-  max-width: 720px;
-  margin-left: auto;
-  margin-right: auto;
   z-index: 150;
   box-shadow: var(--shadow-soft);
 }
 
 .memory-hooks-panel.is-open {
   display: block;
+  position: fixed;
+  top: 60px;
+  right: 14px;
+  left: 14px;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .memory-hooks-panel-inner {
@@ -451,18 +455,19 @@ body {
   align-self: end;
   max-height: 70vh;
   overflow-y: auto;
-  position: absolute;
-  right: 14px;
-  left: 14px;
-  max-width: 720px;
-  margin-left: auto;
-  margin-right: auto;
   z-index: 150;
   box-shadow: var(--shadow-soft);
 }
 
 .category-panel.is-open {
   display: block;
+  position: fixed;
+  top: 60px;
+  right: 14px;
+  left: 14px;
+  max-width: 720px;
+  margin-left: auto;
+  margin-right: auto;
 }
 
 .category-panel-inner {
@@ -1429,11 +1434,11 @@ body {
     padding: 24px 0;
   }
 
-  .settings-panel,
-  .progress-panel,
-  .memory-hooks-panel {
-    left: auto;
-    right: 14px;
+  .settings-panel.is-open,
+  .progress-panel.is-open,
+  .memory-hooks-panel.is-open,
+  .category-panel.is-open {
+    /* right: auto; */
     max-width: 500px;
   }
 }

@@ -30,14 +30,27 @@ export function useAppState(words: NormalizedWord[]) {
   const lastMovedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasLoadedRef = useRef(false);
   const isUpdatingFromServerRef = useRef(false);
+  const isHydratedRef = useRef(false);
 
   // Load from DB only (no localStorage). Run once when we have words.
   useEffect(() => {
     if (hasLoadedRef.current || words.length === 0) return;
     hasLoadedRef.current = true;
 
+    // Set a timeout to ensure hydration completes even if fetch hangs
+    const HYDRATION_TIMEOUT = 10000; // 10 seconds
+    const timeoutId = setTimeout(() => {
+      if (!isHydratedRef.current) {
+        console.warn('[useAppState] Hydration timeout - proceeding without server data');
+        isHydratedRef.current = true;
+        setIsHydrated(true);
+        isUpdatingFromServerRef.current = false;
+      }
+    }, HYDRATION_TIMEOUT);
+
     fetchUserData()
       .then((serverData) => {
+        clearTimeout(timeoutId);
         isUpdatingFromServerRef.current = true;
 
         if (serverData.progress && Object.keys(serverData.progress).length > 0) {
@@ -65,6 +78,7 @@ export function useAppState(words: NormalizedWord[]) {
         setShowCategoryBadges(serverData.user?.show_category_badges ?? false);
         if (serverData.user?.id) setUserId(serverData.user.id);
 
+        isHydratedRef.current = true;
         setIsHydrated(true);
         // Delay clearing until after the sync effects have had a chance to check the flag
         requestAnimationFrame(() => {
@@ -72,14 +86,20 @@ export function useAppState(words: NormalizedWord[]) {
         });
       })
       .catch((err) => {
+        clearTimeout(timeoutId);
         console.error('[useAppState] Failed to fetch from server:', err);
         if (err instanceof Error) {
           console.error('[useAppState] Error message:', err.message);
           console.error('[useAppState] Error stack:', err.stack);
         }
+        isHydratedRef.current = true;
         setIsHydrated(true);
         isUpdatingFromServerRef.current = false;
       });
+
+    return () => {
+      clearTimeout(timeoutId);
+    };
   }, [words]);
 
   // Sync to DB when state changes (only after hydration; no localStorage)

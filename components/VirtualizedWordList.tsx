@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useMemo, useState, useEffect, useCallback, ReactNode } from 'react';
+import { useRef, useMemo, useState, useEffect, useCallback, ReactNode, RefObject } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { NormalizedWord, STAGES } from '@/lib/words';
 
@@ -15,6 +15,7 @@ interface VirtualizedWordListProps {
   renderCard: (word: NormalizedWord, stageIndex: number) => ReactNode;
   className?: string;
   emptyMessage?: string;
+  scrollElementRef?: RefObject<HTMLElement | null>;
 }
 
 export function VirtualizedWordList({
@@ -22,11 +23,12 @@ export function VirtualizedWordList({
   renderCard,
   className = '',
   emptyMessage = 'No words to display.',
+  scrollElementRef,
 }: VirtualizedWordListProps) {
-  const parentRef = useRef<HTMLDivElement>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
   const [activeStageIndex, setActiveStageIndex] = useState(0);
 
-  // Flatten items: headers + cards
+  // Flatten items: headers + cards with spacing
   const items = useMemo(() => {
     const flat: VirtualItem[] = [];
     STAGES.forEach((stage, stageIndex) => {
@@ -51,11 +53,26 @@ export function VirtualizedWordList({
 
   const virtualizer = useVirtualizer({
     count: items.length,
-    getScrollElement: () => parentRef.current,
+    getScrollElement: () => {
+      // When using parent scroll, use document.documentElement (for whole page scroll)
+      // Otherwise use the container ref
+      if (scrollElementRef) {
+        // For whole page scroll, use document.documentElement
+        return typeof document !== 'undefined' ? document.documentElement : null;
+      }
+      return containerRef.current;
+    },
     estimateSize: useCallback((index: number) => {
       const item = items[index];
-      // Header height
-      if (item.type === 'header') return 48;
+      // Header height - increased for more spacing between categories
+      if (item.type === 'header') {
+        // First header has less top spacing, subsequent headers have more
+        const prevItem = index > 0 ? items[index - 1] : null;
+        if (prevItem && prevItem.type === 'card') {
+          return 80; // More spacing for headers after cards
+        }
+        return 64; // Base header height
+      }
       // Card height estimate (will be measured dynamically)
       return 280;
     }, [items]),
@@ -77,12 +94,19 @@ export function VirtualizedWordList({
   }, [virtualizer, items]);
 
   useEffect(() => {
-    const scrollEl = parentRef.current;
-    if (!scrollEl) return;
-    
-    scrollEl.addEventListener('scroll', updateActiveStage);
-    return () => scrollEl.removeEventListener('scroll', updateActiveStage);
-  }, [updateActiveStage]);
+    // When using parent scroll, listen to window scroll
+    // Otherwise listen to container scroll
+    if (scrollElementRef) {
+      if (typeof window === 'undefined') return;
+      window.addEventListener('scroll', updateActiveStage, { passive: true });
+      return () => window.removeEventListener('scroll', updateActiveStage);
+    } else {
+      const scrollEl = containerRef.current;
+      if (!scrollEl) return;
+      scrollEl.addEventListener('scroll', updateActiveStage);
+      return () => scrollEl.removeEventListener('scroll', updateActiveStage);
+    }
+  }, [updateActiveStage, scrollElementRef]);
 
   const activeStage = STAGES[activeStageIndex];
 
@@ -100,26 +124,25 @@ export function VirtualizedWordList({
   }
 
   return (
-    <div
-      ref={parentRef}
-      className={`${className} h-[calc(100vh-180px)] overflow-auto relative`}
-    >
-      {/* Sticky header showing current stage */}
-      <div className="sticky top-0 z-10 bg-[rgba(5,8,22,0.98)] backdrop-blur-[12px] border-b border-border-subtle py-3 px-6">
-        <h2 className="m-0 text-base font-semibold text-accent">
-          {activeStage?.name || 'Loading...'}
-        </h2>
-      </div>
-
-      {/* Virtual list container */}
-      <div
-        className="w-full relative"
-        style={{ height: virtualizer.getTotalSize() }}
-      >
+    <>
+      {/* Sticky header showing current stage - only shown when using parent scroll */}
+      {scrollElementRef && (
+        <div className="sticky top-0 z-10 bg-[rgba(5,8,22,0.98)] backdrop-blur-[12px] border-b border-border-subtle py-3 px-6 mb-2">
+          <h2 className="m-0 text-base font-semibold text-accent">
+            {activeStage?.name || 'Loading...'}
+          </h2>
+        </div>
+      )}
+      <div ref={containerRef} className={`${className} relative`}>
+        {/* Virtual list container */}
+        <div
+          className="w-full relative"
+          style={{ height: virtualizer.getTotalSize() }}
+        >
         {virtualizer.getVirtualItems().map(virtualRow => {
           const item = items[virtualRow.index];
 
-          // Skip rendering headers in the virtual list (we have sticky header)
+          // Render headers with more spacing
           if (item.type === 'header') {
             return (
               <div
@@ -129,9 +152,10 @@ export function VirtualizedWordList({
                 className="absolute top-0 left-0 w-full"
                 style={{ transform: `translateY(${virtualRow.start}px)` }}
               >
-                {/* Inline header for scroll position tracking */}
+                {/* Inline header for scroll position tracking - with more spacing */}
                 <h2
-                  className={`category-zone-title py-3 px-6 m-0 text-sm text-text-soft ${item.stageIndex > 0 ? 'border-t border-border-subtle' : ''}`}
+                  className={`category-zone-title py-4 px-6 m-0 text-sm text-text-soft ${item.stageIndex > 0 ? 'border-t border-border-subtle' : ''}`}
+                  style={{ marginTop: item.stageIndex > 0 ? '32px' : '0', paddingTop: item.stageIndex > 0 ? '20px' : '16px' }}
                 >
                   {item.stage.name}
                 </h2>
@@ -151,7 +175,8 @@ export function VirtualizedWordList({
             </div>
           );
         })}
+        </div>
       </div>
-    </div>
+    </>
   );
 }

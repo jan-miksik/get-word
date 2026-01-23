@@ -2,8 +2,9 @@
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { WORDS } from '@/data/words';
+import { Word } from '@/data/words';
 import { useAppState } from '@/hooks/useAppState';
-import { getAvailableCategories, STAGES, isDue, NormalizedWord } from '@/lib/words';
+import { getAvailableCategories, STAGES, isDue, NormalizedWord, normalizeWords } from '@/lib/words';
 import { TopMenu } from '@/components/TopMenu';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { CategoryPanel } from '@/components/CategoryPanel';
@@ -92,6 +93,12 @@ function PageStyles() {
 }
 
 export default function Home() {
+  const [words, setWords] = useState<Word[]>([]);
+  const [isLoadingWords, setIsLoadingWords] = useState(true);
+
+  // Use normalized words for app state (for filtering, etc.)
+  const normalizedWords = words.length > 0 ? normalizeWords(words as Word[]) : [];
+  
   const {
     role,
     setRole,
@@ -127,12 +134,34 @@ export default function Home() {
     lastMovedId,
     userId,
     isHydrated,
-  } = useAppState(WORDS);
+  } = useAppState(normalizedWords);
 
   const [showWaitingForRepeat, setShowWaitingForRepeat] = useState(false);
   const [showNotReady, setShowNotReady] = useState(true);
-  const categories = getAvailableCategories(WORDS);
+  const categories = getAvailableCategories(normalizedWords);
   const phrasesRef = useRef<HTMLElement>(null);
+
+  // Load words from database
+  useEffect(() => {
+    // Start with normalized WORDS from data/words as default
+    const defaultWords = WORDS.map((w) => {
+      return { ...w, category: [...w.category] };
+    });
+    setWords(defaultWords as Word[]);
+    setIsLoadingWords(false);
+
+    // Try to load from API in the background
+    fetch('/api/words')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.words && Array.isArray(data.words) && data.words.length > 0) {
+          setWords(data.words);
+        }
+      })
+      .catch((err) => {
+        console.log('API load failed, using default words:', err);
+      });
+  }, []);
 
   // Trigger re-render when cards become due for review
   useDueTimer(progress);
@@ -380,8 +409,8 @@ export default function Home() {
     );
   }, [progress, role, modeIndex, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges]);
 
-  // Don't render main content until hydrated to avoid hydration mismatches
-  if (!isHydrated) {
+  // Don't render main content until hydrated and words are loaded to avoid hydration mismatches
+  if (!isHydrated || isLoadingWords) {
     return (
       <div className="app">
         <div className="p-8 text-center">Loading...</div>
@@ -648,6 +677,7 @@ export default function Home() {
             groupedWords={groupedWords}
             renderCard={renderCard}
             emptyMessage="All caught up! No words ready for review."
+            scrollElementRef={phrasesRef}
           />
         ) : (
           <>
