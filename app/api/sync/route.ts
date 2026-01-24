@@ -189,7 +189,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    let user = await withRetryOnTimeout(() =>
+    const user = await withRetryOnTimeout(() =>
       resolveUser(deviceId || null, userId || null)
     );
     if (!user) {

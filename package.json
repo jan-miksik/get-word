@@ -9,7 +9,7 @@
     "build:css": "pnpm dlx @tailwindcss/cli -c tailwind.config.js -i ./app/tailwind.css -o ./app/.generated/tailwind.css",
     "build": "pnpm run build:css && next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -23,7 +23,7 @@
     "@supabase/supabase-js": "^2.90.1",
     "@tanstack/react-virtual": "^3.13.18",
     "drizzle-orm": "^0.45.1",
-    "next": "^15.4.10",
+    "next": "^15.5.9",
     "postgres": "^3.4.8",
     "react": "^19.2.3",
     "react-dom": "^19.2.3"

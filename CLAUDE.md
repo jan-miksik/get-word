@@ -4,24 +4,26 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-WordLink is a language learning app for Czech and Vietnamese built with Next.js 15 (React 19), using Supabase (PostgreSQL) with Drizzle ORM for cross-device sync. Deploys to Vercel. Uses device-based identification with localStorage for offline persistence.
+WordLink is a language learning app for Czech and Vietnamese built with Next.js 15 (React 19), using Supabase PostgreSQL with Drizzle ORM. Deploys to Vercel. Device-based identification stored in localStorage; all user data syncs to remote DB only (no localStorage for progress/settings).
 
 ## Commands
 
 ```bash
 pnpm run dev              # Dev server with Tailwind watcher (port 3000)
 pnpm run build            # Production build
-pnpm lint                 # Run Next.js linter
-pnpm db:push              # Push schema to database
+pnpm lint                 # ESLint (flat config in eslint.config.mjs)
+pnpm db:push              # Push schema to database (fast, no migrations)
 pnpm db:generate          # Generate migration from schema changes
 pnpm db:migrate           # Apply migrations
 pnpm db:studio            # Open Drizzle Studio
 pnpm db:seed              # Seed words from slova.js
 ```
 
-## Local Development
+## Environment Setup
 
-Requires Docker for local Supabase:
+Requires `.env.local` with `DATABASE_URL` pointing to Supabase PostgreSQL connection string.
+
+For local development with Supabase (requires Docker):
 ```bash
 npx supabase start        # Start local PostgreSQL
 npx supabase stop         # Stop local PostgreSQL
@@ -32,43 +34,49 @@ npx supabase studio       # Open Supabase Studio (http://localhost:54323)
 
 ### Data Flow
 ```
-Client (localStorage + useAppState)
+Client (useAppState React state)
   → debouncedSync (1s debounce)
-  → /api/sync
-  → lib/db/ (Drizzle queries)
+  → /api/sync (GET/POST)
+  → lib/db/queries/* (Drizzle)
   → Supabase PostgreSQL
 ```
 
+Only `device_id` persisted in localStorage; all other state fetched from DB on load.
+
 ### Key Files
 
-- **`hooks/useAppState.ts`** - Central state management hub. Loads from localStorage, handles migrations, provides all state setters, auto-syncs to server
-- **`app/page.tsx`** - Main app orchestration. Renders all panels, manages word card grid, spaced repetition UI
-- **`app/api/sync/route.ts`** - GET/POST endpoints for user data sync
+- **`hooks/useAppState.ts`** - Central state management. Fetches from DB on mount, syncs changes via debounced POST. Hydration timeout (10s) prevents UI blocking if fetch hangs.
+- **`app/page.tsx`** - Main app. Renders word card grid, panels, spaced repetition UI.
+- **`app/api/sync/route.ts`** - GET fetches user data by deviceId/userId; POST syncs progress, hooks, filters, preferences. Includes retry logic for Postgres statement timeouts.
 - **`lib/db/`** - Drizzle ORM layer:
-  - `schema.ts` - Database schema definitions
+  - `schema.ts` - Table definitions (words, users, user_progress, user_memory_hooks, user_category_filters)
   - `client.ts` - Drizzle connection
-  - `queries/` - CRUD operations for each table
-- **`lib/sync.ts`** - Client-side sync utilities with debouncing
-- **`lib/words.ts`** - Word normalization and STAGES array (11 spaced repetition intervals)
-- **`slova.js`** - Raw word data (~216 words with id, cz, en, vi, pronunciations, hints)
-- **`lib/storage.ts`** - localStorage utilities with legacy data migration support
+  - `queries/` - CRUD for each table
+- **`lib/sync.ts`** - Client sync utilities. Maintains in-memory `lastKnownUserId` for recovery.
+- **`lib/words.ts`** - Word normalization, `STAGES` array (11 intervals), `isDue()` check.
+- **`lib/device-id.ts`** - Device ID management. Falls back to in-memory ID if localStorage unavailable.
+- **`slova.js`** - Word data (216 entries with id, cz, en, vi, pronunciations, hints)
 
-### Database Schema (PostgreSQL)
+### Database Schema
 
-Five tables:
-- `words` - Vocabulary (id, category[], cz, en, vi, pronunciations, hints)
-- `users` - Users (device_id, email, wallet_address for future auth)
-- `user_progress` - Spaced repetition progress per word
-- `user_memory_hooks` - Custom memory notes
-- `user_category_filters` - Selected categories
+Five tables with foreign key constraints and unique constraints:
+- `words` - Vocabulary (id like "w000", category[], translations, pronunciations, hints)
+- `users` - Device-based auth (device_id unique); email/wallet_address for future auth
+- `user_progress` - Spaced repetition per user+word (unique on userId+wordId)
+- `user_memory_hooks` - Custom notes per user+word
+- `user_category_filters` - Selected categories per user
 
 ### Spaced Repetition
 
-11 stages from "New" (0) to "60 days" (10). `markKnown()` advances +1, `markReallyKnown()` +2, `markUnknown()` -1. Word is due when `nextDueAt <= now` or `stageIndex = 0`.
+11 stages: New (0) → 1min → 10min → 1hr → 8hr → 1day → 3days → 7days → 14days → 30days → 60days.
+- `markKnown()` advances +1 stage
+- `markReallyKnown()` advances +2 stages
+- `markUnknown()` regresses -1 stage
+- Word due when `nextDueAt <= now` (stage 0 always shown in "All" tab, not "Ready")
 
 ## Important Notes
 
-- **Device ID consent**: `lib/device-id.ts` implements explicit consent handling before creating IDs
-- **Data migration**: System supports migrating from old numeric indices and hash-based IDs to new "w000" format
-- **Tailwind output**: Generated to `app/.generated/tailwind.css`
-- **No test framework** currently configured
+- **DB-only storage**: Progress, preferences, memory hooks, and filters stored only in remote DB. Device ID is the only localStorage item.
+- **Word IDs**: Format "w000", "w001", etc. Defined in `slova.js`, seeded to DB via `db:seed`.
+- **Tailwind v4**: Uses CLI-based build. Output goes to `app/.generated/tailwind.css`.
+- **No test framework** configured.
