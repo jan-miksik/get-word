@@ -1,100 +1,22 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { WORDS } from '@/data/words';
 import { Word } from '@/data/words';
 import { useAppState } from '@/hooks/useAppState';
+import { useWordsLoader } from '@/hooks/useWordsLoader';
+import { usePanelClose } from '@/hooks/usePanelClose';
+import { useTopMenuHandlers } from '@/hooks/useTopMenuHandlers';
 import { getAvailableCategories, STAGES, isDue, NormalizedWord, normalizeWords } from '@/lib/words';
-import { TopMenu } from '@/components/TopMenu';
-import { SettingsPanel } from '@/components/SettingsPanel';
-import { CategoryPanel } from '@/components/CategoryPanel';
-import { MemoryHooksPanel } from '@/components/MemoryHooksPanel';
+import { calculateProgressStats } from '@/lib/progress-stats';
+import { AppLayout } from '@/components/AppLayout';
+import { BottomNav } from '@/components/BottomNav';
 import { WordCard } from '@/components/WordCard';
 import { VirtualizedWordList } from '@/components/VirtualizedWordList';
 import { useDueTimer } from '@/hooks/useDueTimer';
 
-const PAGE_STYLES = `
-  .toggle-button-container {
-    padding: 1rem 1.5rem;
-    text-align: center;
-    border-top: 1px solid var(--border-subtle);
-    margin-top: 1rem;
-  }
-
-  .toggle-button-container-large {
-    padding: 1.5rem;
-    text-align: center;
-    border-top: 1px solid var(--border-subtle);
-    border-bottom: 1px solid var(--border-subtle);
-    margin-top: 1rem;
-    position: sticky;
-    top: 0;
-    background: rgba(5, 8, 22, 0.98);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    z-index: 10;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
-  }
-
-  .toggle-button {
-    background: var(--bg-elevated);
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-    padding: 0.75rem 1.5rem;
-    font-size: 0.9rem;
-    color: var(--text);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    font-weight: 500;
-    font-family: var(--font-sans);
-  }
-
-  .toggle-button:hover {
-    background: rgba(15, 23, 42, 1);
-  }
-
-  .toggle-button-secondary {
-    background: transparent;
-    border: 1px solid var(--border-subtle);
-    border-radius: var(--radius-lg);
-    padding: 0.5rem 1rem;
-    font-size: 0.85rem;
-    color: var(--text-soft);
-    cursor: pointer;
-    transition: all var(--transition-fast);
-    font-family: var(--font-sans);
-  }
-
-  .toggle-button-secondary:hover {
-    background: rgba(15, 23, 42, 0.9);
-    color: var(--text);
-  }
-
-  .waiting-for-repeat-header {
-    padding: 1rem 1.5rem;
-    border-top: 1px solid var(--border-subtle);
-    margin-top: 1rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: var(--bg-elevated);
-  }
-
-  .waiting-for-repeat-title {
-    margin: 0;
-    font-size: 1rem;
-    font-weight: 600;
-    color: var(--text-soft);
-  }
-`;
-
-function PageStyles() {
-  return <style>{PAGE_STYLES}</style>;
-}
 
 export default function Home() {
-  const [words, setWords] = useState<Word[]>([]);
-  const [isLoadingWords, setIsLoadingWords] = useState(true);
+  const { words, isLoading: isLoadingWords } = useWordsLoader();
 
   // Use normalized words for app state (for filtering, etc.)
   const normalizedWords = words.length > 0 ? normalizeWords(words as Word[]) : [];
@@ -141,51 +63,11 @@ export default function Home() {
   const categories = getAvailableCategories(normalizedWords);
   const phrasesRef = useRef<HTMLElement>(null);
 
-  // Load words from database
-  useEffect(() => {
-    // Start with normalized WORDS from data/words as default
-    const defaultWords = WORDS.map((w) => {
-      return { ...w, category: [...w.category] };
-    });
-    setWords(defaultWords as Word[]);
-    setIsLoadingWords(false);
-
-    // Try to load from API in the background
-    fetch('/api/words')
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.words && Array.isArray(data.words) && data.words.length > 0) {
-          setWords(data.words);
-        }
-      })
-      .catch((err) => {
-        console.log('API load failed, using default words:', err);
-      });
-  }, []);
-
   // Trigger re-render when cards become due for review
   useDueTimer(progress);
 
   // Close panels when clicking outside
-  useEffect(() => {
-    const handleClick = (e: MouseEvent) => {
-      const target = e.target as HTMLElement;
-      if (
-        !target.closest('.settings-panel') &&
-        !target.closest('.progress-panel') &&
-        !target.closest('.category-panel') &&
-        !target.closest('.memory-hooks-panel') &&
-        !target.closest('.mode-btn')
-      ) {
-        setSettingsOpen(false);
-        setProgressOpen(false);
-        setCategoryOpen(false);
-        setMemoryHooksOpen(false);
-      }
-    };
-    document.addEventListener('click', handleClick);
-    return () => document.removeEventListener('click', handleClick);
-  }, [setSettingsOpen, setProgressOpen, setCategoryOpen, setMemoryHooksOpen]);
+  usePanelClose(setSettingsOpen, setProgressOpen, setCategoryOpen, setMemoryHooksOpen);
 
   // Attach press handlers to cover targets (supports virtualized mounts)
   useEffect(() => {
@@ -343,12 +225,29 @@ export default function Home() {
     setShowNotReady(true);
   }, [currentTab, selectedCategories]);
 
-  const closeAllPanels = () => {
+  const closeAllPanels = useCallback(() => {
     setSettingsOpen(false);
     setProgressOpen(false);
     setCategoryOpen(false);
     setMemoryHooksOpen(false);
-  };
+  }, [setSettingsOpen, setProgressOpen, setCategoryOpen, setMemoryHooksOpen]);
+
+  const topMenuHandlers = useTopMenuHandlers({
+    modeIndex,
+    setModeIndex,
+    showAll,
+    setShowAll,
+    categoryOpen,
+    setCategoryOpen,
+    progressOpen,
+    setProgressOpen,
+    memoryHooksOpen,
+    setMemoryHooksOpen,
+    settingsOpen,
+    setSettingsOpen,
+    closeAllPanels,
+    selectedCategories,
+  });
 
   // Group words by stage (memoized for performance) - must be before early return
   const filteredWords = getFilteredWords();
@@ -419,252 +318,31 @@ export default function Home() {
   }
 
   // Calculate comprehensive progress statistics
-  const calculateProgressStats = () => {
-    const stats = {
-      total: filteredWords.length,
-      byStage: STAGES.map(() => 0),
-      totalKnown: 0,
-      totalUnknown: 0,
-      readyCount: readyCount,
-      fresh: 0, // stages 1-5 (1min to 1 day)
-      learning: 0, // stages 6-8 (3 days to 14 days)
-      done: 0, // stages 9-10 (30 days to 60 days)
-      new: 0, // stage 0
-    };
-
-    filteredWords.forEach((word) => {
-      const prog = progress[word.id] || {
-        stageIndex: 0,
-        knownCount: 0,
-        unknownCount: 0,
-      };
-      const stageIdx = Math.max(0, Math.min(prog.stageIndex || 0, STAGES.length - 1));
-      
-      stats.byStage[stageIdx] += 1;
-      stats.totalKnown += prog.knownCount || 0;
-      stats.totalUnknown += prog.unknownCount || 0;
-      
-      if (stageIdx === 0) {
-        stats.new += 1;
-      } else if (stageIdx >= 1 && stageIdx <= 5) {
-        stats.fresh += 1;
-      } else if (stageIdx >= 6 && stageIdx <= 8) {
-        stats.learning += 1;
-      } else if (stageIdx >= 9) {
-        stats.done += 1;
-      }
-    });
-
-    return stats;
-  };
-
-  const progressStats = calculateProgressStats();
-  const progressPercent = progressStats.total > 0 
-    ? Math.round((progressStats.fresh + progressStats.learning + progressStats.done) / progressStats.total * 100) 
-    : 0;
-  const totalAnswers = progressStats.totalKnown + progressStats.totalUnknown;
-  const accuracy = totalAnswers > 0 
-    ? Math.round((progressStats.totalKnown / totalAnswers) * 100) 
-    : 0;
+  const progressStats = calculateProgressStats(filteredWords, progress, readyCount);
 
   return (
-    <div className="app">
-      <TopMenu
-        onSwitch={(e) => {
-          e.stopPropagation();
-          setModeIndex(modeIndex === 0 ? 1 : 0);
-        }}
-        onShowAll={(e) => {
-          e.stopPropagation();
-          setShowAll(!showAll);
-        }}
-        onCategory={(e) => {
-          e.stopPropagation();
-          const wasOpen = categoryOpen;
-          closeAllPanels();
-          if (!wasOpen) setCategoryOpen(true);
-        }}
-        onProgress={(e) => {
-          e.stopPropagation();
-          const wasOpen = progressOpen;
-          closeAllPanels();
-          if (!wasOpen) setProgressOpen(true);
-        }}
-        onMemoryHooks={(e) => {
-          e.stopPropagation();
-          const wasOpen = memoryHooksOpen;
-          closeAllPanels();
-          if (!wasOpen) setMemoryHooksOpen(true);
-        }}
-        onSettings={(e) => {
-          e.stopPropagation();
-          const wasOpen = settingsOpen;
-          closeAllPanels();
-          if (!wasOpen) setSettingsOpen(true);
-        }}
-        showAll={showAll}
-        categoryCount={selectedCategories.size}
-        categoryActive={selectedCategories.size > 0}
-        progressActive={progressOpen}
-      />
-
-      <SettingsPanel 
-        role={role} 
-        onRoleChange={setRole}
-        showEnglish={showEnglish}
-        onShowEnglishChange={setShowEnglish}
-        showCategoryBadges={showCategoryBadges}
-        onShowCategoryBadgesChange={setShowCategoryBadges}
-        isOpen={settingsOpen} 
-        onClose={() => setSettingsOpen(false)}
-        userId={userId}
-      />
-
-      <CategoryPanel
-        isOpen={categoryOpen}
-        categories={categories}
-        selectedCategories={selectedCategories}
-        onToggleCategory={toggleCategory}
-        onClose={() => setCategoryOpen(false)}
-      />
-
-      <MemoryHooksPanel 
-        isOpen={memoryHooksOpen} 
-        onClose={() => setMemoryHooksOpen(false)}
-      />
-
-      <section
-        className={`progress-panel ${progressOpen ? 'is-open' : ''}`}
-        aria-label="Progress"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="progress-panel-inner" id="progress-panel-content">
-          <div className="progress-overview">
-            <div className="progress-header relative">
-              <h1>📊 Learning Progress</h1>
-              <button
-                onClick={() => setProgressOpen(false)}
-                className="absolute top-0 right-0 bg-transparent border-none text-xl text-text-soft cursor-pointer p-1 leading-none flex items-center justify-center w-6 h-6 rounded-md transition-all hover:bg-background-elevated hover:text-text"
-                aria-label="Close progress"
-              >
-                ×
-              </button>
-            </div>
-
-            {/* Overall stats */}
-            <div className="progress-stats-grid">
-              <div className="progress-stat-card">
-                <div className="progress-stat-value">{progressStats.total}</div>
-                <div className="progress-stat-label">Total Words</div>
-              </div>
-              <div className="progress-stat-card">
-                <div className="progress-stat-value">{progressPercent}%</div>
-                <div className="progress-stat-label">Progress</div>
-                <div className="progress-stat-subtitle">
-                  {progressStats.fresh + progressStats.learning + progressStats.done} / {progressStats.total}
-                </div>
-              </div>
-              <div className="progress-stat-card">
-                <div className="progress-stat-value">{progressStats.readyCount}</div>
-                <div className="progress-stat-label">Ready Now</div>
-              </div>
-              <div className="progress-stat-card">
-                <div className="progress-stat-value">{progressStats.done}</div>
-                <div className="progress-stat-label">Done</div>
-                <div className="progress-stat-subtitle">Stage 9-10</div>
-              </div>
-            </div>
-
-            {/* Learning status breakdown */}
-            <div className="progress-section">
-              <h2>Learning Status</h2>
-              <div className="progress-status-grid">
-                <div className="progress-status-card new">
-                  <div className="progress-status-value">{progressStats.new}</div>
-                  <div className="progress-status-label">New / Not Started</div>
-                </div>
-                <div className="progress-status-card fresh">
-                  <div className="progress-status-value">{progressStats.fresh}</div>
-                  <div className="progress-status-label">Fresh</div>
-                </div>
-                <div className="progress-status-card learning">
-                  <div className="progress-status-value">{progressStats.learning}</div>
-                  <div className="progress-status-label">Learning</div>
-                </div>
-                <div className="progress-status-card done">
-                  <div className="progress-status-value">{progressStats.done}</div>
-                  <div className="progress-status-label">Done</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Words by Stage */}
-            <div className="progress-section">
-              <h2>Words by Stage</h2>
-              <div className="progress-stage-list">
-                {STAGES.map((stage, index) => {
-                  const count = progressStats.byStage[index];
-                  if (count === 0 && index > 0) return null; // Skip empty stages except stage 0
-                  
-                  const barPercent = progressStats.total > 0 ? (count / progressStats.total * 100) : 0;
-                  
-                  return (
-                    <div
-                      key={index}
-                      className={`progress-stage-item ${index === 0 ? 'stage-new' : ''} ${index >= 7 ? 'stage-mastered' : ''}`}
-                    >
-                      <div className="progress-stage-name">{stage.name}</div>
-                      <div className="progress-stage-count">{count}</div>
-                      <div className="progress-stage-bar">
-                        <div
-                          className="progress-stage-bar-fill"
-                          style={{ width: `${barPercent}%` }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Answer statistics */}
-            <div className="progress-section">
-              <h2>Answer Statistics</h2>
-              <div className="progress-answer-stats">
-                <div className="progress-answer-item">
-                  <div className="progress-answer-label">Correct</div>
-                  <div className="progress-answer-value correct">{progressStats.totalKnown}</div>
-                </div>
-                <div className="progress-answer-item">
-                  <div className="progress-answer-label">Incorrect</div>
-                  <div className="progress-answer-value incorrect">{progressStats.totalUnknown}</div>
-                </div>
-                <div className="progress-answer-item">
-                  <div className="progress-answer-label">Accuracy</div>
-                  <div className="progress-answer-value">{accuracy}%</div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {progressStats.total > 0 && (
-        <div className="progress-summary">
-          <span className="progress-summary-item fresh">
-            <span className="progress-summary-label">fresh</span>
-            <span className="progress-summary-value">({progressStats.fresh})</span>
-          </span>
-          <span className="progress-summary-item learning">
-            <span className="progress-summary-label">learning</span>
-            <span className="progress-summary-value">({progressStats.learning})</span>
-          </span>
-          <span className="progress-summary-item done">
-            <span className="progress-summary-label">done</span>
-            <span className="progress-summary-value">({progressStats.done})</span>
-          </span>
-        </div>
-      )}
+    <AppLayout
+      topMenuHandlers={topMenuHandlers}
+      role={role}
+      onRoleChange={setRole}
+      showEnglish={showEnglish}
+      onShowEnglishChange={setShowEnglish}
+      showCategoryBadges={showCategoryBadges}
+      onShowCategoryBadgesChange={setShowCategoryBadges}
+      userId={userId}
+      categories={categories}
+      selectedCategories={selectedCategories}
+      onToggleCategory={toggleCategory}
+      progressStats={progressStats}
+      settingsOpen={settingsOpen}
+      setSettingsOpen={setSettingsOpen}
+      progressOpen={progressOpen}
+      setProgressOpen={setProgressOpen}
+      categoryOpen={categoryOpen}
+      setCategoryOpen={setCategoryOpen}
+      memoryHooksOpen={memoryHooksOpen}
+      setMemoryHooksOpen={setMemoryHooksOpen}
+    >
 
       <main className="phrases" ref={phrasesRef} aria-live="polite">
         {filteredWords.length === 0 ? (
@@ -700,10 +378,10 @@ export default function Home() {
                   </section>
                   {/* Button to hide/show words not ready to repeat - appears after "New / forgotten" section */}
                   {stageIndex === 0 && notReadyCount > 0 && (
-                    <div className="toggle-button-container">
+                    <div className="p-4 px-6 text-center border-t border-border-subtle mt-4">
                       <button
                         type="button"
-                        className="toggle-button"
+                        className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-[rgba(15,23,42,1)]"
                         onClick={() => setShowNotReady(!showNotReady)}
                       >
                         {showNotReady ? 'Hide' : 'Show'} {notReadyCount} word{notReadyCount !== 1 ? 's' : ''} settling in before repeat
@@ -718,10 +396,10 @@ export default function Home() {
             {readyCount > 0 && (
               <>
                 {!showWaitingForRepeat && (
-                  <div className="toggle-button-container-large">
+                  <div className="p-6 text-center border-t border-b border-border-subtle mt-4 sticky top-0 bg-[rgba(5,8,22,0.98)] backdrop-blur-xl z-10 shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
                     <button
                       type="button"
-                      className="toggle-button"
+                      className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-[rgba(15,23,42,1)]"
                       onClick={() => setShowWaitingForRepeat(true)}
                     >
                       Show {readyCount} word{readyCount !== 1 ? 's' : ''} waiting for repeat
@@ -730,13 +408,13 @@ export default function Home() {
                 )}
                 {showWaitingForRepeat && (
                   <>
-                    <div className="waiting-for-repeat-header">
-                      <h2 className="waiting-for-repeat-title">
+                    <div className="p-4 px-6 border-t border-border-subtle mt-4 flex justify-between items-center bg-background-elevated">
+                      <h2 className="m-0 text-base font-semibold text-text-soft">
                         Waiting for repeat ({readyCount})
                       </h2>
                       <button
                         type="button"
-                        className="toggle-button-secondary"
+                        className="bg-transparent border border-border-subtle rounded-lg px-4 py-2 text-sm text-text-soft cursor-pointer transition-all hover:bg-[rgba(15,23,42,0.9)] hover:text-text"
                         onClick={() => setShowWaitingForRepeat(false)}
                       >
                         Hide
@@ -761,25 +439,11 @@ export default function Home() {
         )}
       </main>
 
-      <nav className="bottom-nav" aria-label="View selection">
-        <button
-          className={`bottom-nav-btn ${currentTab === 'all' ? 'is-active' : ''}`}
-          onClick={() => setCurrentTab('all')}
-          type="button"
-        >
-          All words
-        </button>
-        <button
-          className={`bottom-nav-btn ${currentTab === 'ready' ? 'is-active' : ''}`}
-          onClick={() => setCurrentTab('ready')}
-          type="button"
-          data-tab="ready"
-          data-count={readyCount > 0 ? readyCount : ''}
-        >
-          Ready to repeat
-        </button>
-      </nav>
-      <PageStyles />
-    </div>
+      <BottomNav
+        currentTab={currentTab}
+        readyCount={readyCount}
+        onTabChange={setCurrentTab}
+      />
+    </AppLayout>
   );
 }
