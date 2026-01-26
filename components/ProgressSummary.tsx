@@ -11,17 +11,17 @@ export function ProgressSummary({ progressStats }: ProgressSummaryProps) {
 
   return (
     <div className="progress-summary">
-      <span className="progress-summary-item fresh">
-        <span className="progress-summary-label">fresh</span>
-        <span className="progress-summary-value">({progressStats.fresh})</span>
+      <span className="inline-flex items-center gap-1 text-[#fbbf24]">
+        <span className="text-[0.6875rem] font-medium lowercase">fresh</span>
+        <span className="text-[0.6875rem] font-semibold opacity-90">({progressStats.fresh})</span>
       </span>
-      <span className="progress-summary-item learning">
-        <span className="progress-summary-label">learning</span>
-        <span className="progress-summary-value">({progressStats.learning})</span>
+      <span className="inline-flex items-center gap-1 text-accent">
+        <span className="text-[0.6875rem] font-medium lowercase">learning</span>
+        <span className="text-[0.6875rem] font-semibold opacity-90">({progressStats.learning})</span>
       </span>
-      <span className="progress-summary-item done">
-        <span className="progress-summary-label">done</span>
-        <span className="progress-summary-value">({progressStats.done})</span>
+      <span className="inline-flex items-center gap-1 text-[#22c55e]">
+        <span className="text-[0.6875rem] font-medium lowercase">done</span>
+        <span className="text-[0.6875rem] font-semibold opacity-90">({progressStats.done})</span>
       </span>
     </div>
   );

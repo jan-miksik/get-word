@@ -33,7 +33,7 @@ export function TopMenu({
 }: TopMenuProps) {
   return (
     <div className="top-menu" aria-label="Top menu">
-      <div className="top-menu-left">
+      <div className="flex flex-wrap items-center gap-2">
         <button className="mode-btn switch-btn" onClick={onSwitch} type="button" aria-label="Switch mode">
           🔄
         </button>
@@ -41,7 +41,7 @@ export function TopMenu({
           {showAll ? '🙉' : '🙈'}
         </button>
       </div>
-      <div className="top-menu-right">
+      <div className="flex flex-wrap items-center gap-2 ml-auto">
         <button
           className={`mode-btn category-btn ${categoryActive ? 'is-active' : ''}`}
           onClick={onCategory}

@@ -54,11 +54,11 @@ export function VirtualizedWordList({
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => {
-      // When using parent scroll, use document.documentElement (for whole page scroll)
+      // When using parent scroll, use the actual scroll element
       // Otherwise use the container ref
       if (scrollElementRef) {
-        // For whole page scroll, use document.documentElement
-        return typeof document !== 'undefined' ? document.documentElement : null;
+        // Use the actual scroll element (main element)
+        return scrollElementRef.current || (typeof document !== 'undefined' ? document.documentElement : null);
       }
       return containerRef.current;
     },
@@ -74,9 +74,11 @@ export function VirtualizedWordList({
         return 64; // Base header height
       }
       // Card height estimate (will be measured dynamically)
-      return 280;
+      // Account for margin-top: 4px on phrase-card
+      return 284;
     }, [items]),
     overscan: 5,
+    horizontal: false,
   });
 
   // Track which stage is currently at the top
@@ -133,7 +135,7 @@ export function VirtualizedWordList({
           </h2>
         </div>
       )}
-      <div ref={containerRef} className={`${className} relative`}>
+      <div ref={containerRef} className={`${className} relative w-full`}>
         {/* Virtual list container */}
         <div
           className="w-full relative"
@@ -149,12 +151,12 @@ export function VirtualizedWordList({
                 key={`header-${item.stageIndex}`}
                 data-index={virtualRow.index}
                 ref={virtualizer.measureElement}
-                className="absolute top-0 left-0 w-full"
+                className="absolute top-0 left-0 right-0"
                 style={{ transform: `translateY(${virtualRow.start}px)` }}
               >
                 {/* Inline header for scroll position tracking - with more spacing */}
                 <h2
-                  className={`category-zone-title py-4 px-6 m-0 text-sm text-text-soft ${item.stageIndex > 0 ? 'border-t border-border-subtle' : ''}`}
+                  className={`text-[0.7rem] uppercase tracking-[0.12em] text-text-soft m-0 mb-1 mx-0.5 opacity-90 py-4 px-6 text-sm ${item.stageIndex > 0 ? 'border-t border-border-subtle' : ''}`}
                   style={{ marginTop: item.stageIndex > 0 ? '32px' : '0', paddingTop: item.stageIndex > 0 ? '20px' : '16px' }}
                 >
                   {item.stage.name}
@@ -168,8 +170,12 @@ export function VirtualizedWordList({
               key={item.word.id}
               data-index={virtualRow.index}
               ref={virtualizer.measureElement}
-              className="absolute top-0 left-0 w-full"
-              style={{ transform: `translateY(${virtualRow.start}px)` }}
+              className="absolute top-0 left-0 right-0"
+              style={{ 
+                transform: `translateY(${virtualRow.start}px)`,
+                width: '100%',
+                willChange: 'transform'
+              }}
             >
               {renderCard(item.word, item.stageIndex)}
             </div>

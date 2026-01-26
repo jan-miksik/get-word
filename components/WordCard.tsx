@@ -59,7 +59,6 @@ export const WordCard = memo(function WordCard({
   // Determine which languages should be covered
   const shouldCover = (lang: string): boolean => {
     if (showAll) return false;
-    if (lang === 'memory-hook') return !showAll;
     
     if (role === 'cz') {
       if (modeIndex === 0) {
@@ -181,19 +180,19 @@ export const WordCard = memo(function WordCard({
           })}
         </div>
       )}
-      <div className="phrase-languages">
+      <div className="flex flex-col gap-1">
         {/* Czech */}
-        <div className="phrase-row">
-          <div className="lang-label">CZ</div>
-          <div className="lang-value">
+        <div className="flex justify-center items-center gap-1.5">
+          <div className="hidden">CZ</div>
+          <div className="flex-none w-full text-center text-[0.98rem] font-medium leading-[1.35] sm:text-[1.02rem]">
             <div
-              className={`cover-target ${shouldCover('cz') ? 'is-covered' : ''}`}
+              className={`cover-target relative cursor-pointer touch-manipulation select-none ${shouldCover('cz') ? 'is-covered' : ''}`}
               data-lang="cz"
             >
-              <span className="lang-text">
+              <span className="lang-text inline-block relative min-h-[1.4em]">
                 <span>{word.cz}</span>
                 {word.czPron && shouldShowPron('cz') && (
-                  <span className="pron-hint">{word.czPron}</span>
+                  <span className="text-base text-inherit opacity-70 ml-1.5">{word.czPron}</span>
                 )}
               </span>
             </div>
@@ -202,31 +201,31 @@ export const WordCard = memo(function WordCard({
 
         {/* English */}
         {showEnglish && (
-          <div className="phrase-row">
-            <div className="lang-label">EN</div>
-            <div className="lang-value">
+          <div className="flex justify-center items-center gap-1.5">
+            <div className="hidden">EN</div>
+            <div className="flex-none w-full text-center text-[0.98rem] font-medium leading-[1.35] sm:text-[1.02rem]">
               <div
-                className={`cover-target ${shouldCover('en') ? 'is-covered' : ''}`}
+                className={`cover-target relative cursor-pointer touch-manipulation select-none ${shouldCover('en') ? 'is-covered' : ''}`}
                 data-lang="en"
               >
-                <span className="lang-text">{word.en}</span>
+                <span className="lang-text inline-block relative min-h-[1.4em]">{word.en}</span>
               </div>
             </div>
           </div>
         )}
 
         {/* Vietnamese */}
-        <div className="phrase-row">
-          <div className="lang-label">VI</div>
-          <div className="lang-value">
+        <div className="flex justify-center items-center gap-1.5">
+          <div className="hidden">VI</div>
+          <div className="flex-none w-full text-center text-[0.98rem] font-medium leading-[1.35] sm:text-[1.02rem]">
             <div
-              className={`cover-target ${shouldCover('vi') ? 'is-covered' : ''}`}
+              className={`cover-target relative cursor-pointer touch-manipulation select-none ${shouldCover('vi') ? 'is-covered' : ''}`}
               data-lang="vi"
             >
-              <span className="lang-text">
+              <span className="lang-text inline-block relative min-h-[1.4em]">
                 <span>{word.vi}</span>
                 {word.viPron && shouldShowPron('vi') && (
-                  <span className="pron-hint">{word.viPron}</span>
+                  <span className="text-base text-inherit opacity-70 ml-1.5">{word.viPron}</span>
                 )}
               </span>
             </div>
@@ -235,15 +234,15 @@ export const WordCard = memo(function WordCard({
       </div>
 
       {/* Memory Hook */}
-      <div className={`memory-hook-container ${editingHook ? 'editing' : ''}`}>
+      <div className={`mt-2 mb-1 ${editingHook ? 'editing' : ''}`}>
         <div
           ref={hookDisplayRef}
-          className={`memory-hook-display cover-target ${shouldCover('memory-hook') ? 'is-covered' : ''}`}
+          className={`memory-hook-display cover-target relative cursor-pointer touch-manipulation select-none ${shouldCover('memory-hook') ? 'is-covered' : ''}`}
           data-lang="memory-hook"
           onDoubleClick={startEditing}
           onClick={() => !memoryHook && !shouldCover('memory-hook') && startEditing()}
         >
-          <span className={`memory-hook-text ${!memoryHook ? 'placeholder' : ''}`}>
+          <span className={`memory-hook-text relative inline-block min-h-[1.4em] ${!memoryHook ? 'opacity-60 italic' : ''}`}>
             {displayHook}
           </span>
         </div>
@@ -267,16 +266,16 @@ export const WordCard = memo(function WordCard({
 
       {/* Countdown */}
       {showCountdown && (
-        <div className="countdown" data-next-due-at={progress.nextDueAt}>
-          <span className="countdown-dot"></span>
-          <span className="countdown-label">
+        <div className="mt-1 text-[0.7rem] text-text-soft flex justify-center gap-1 items-center" data-next-due-at={progress.nextDueAt}>
+          <span className="w-1.5 h-1.5 rounded-full bg-accent opacity-80 animate-[countdown-pulse_1.8s_ease-in-out_infinite]"></span>
+          <span className="opacity-90">
             {formatRemaining(progress.nextDueAt! - Date.now())}
           </span>
         </div>
       )}
 
       {/* Actions */}
-      <div className="progress-actions">
+      <div className="mt-2 flex justify-center gap-[30px] items-center opacity-70">
         <button
           type="button"
           className="progress-btn unknown"

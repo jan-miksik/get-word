@@ -29,7 +29,7 @@ export function SettingsPanel({
       aria-label="Settings"
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="settings-inner">
+      <div className="flex flex-col gap-1 text-[0.8rem]">
         <div className="relative">
           {onClose && (
             <button
@@ -40,11 +40,12 @@ export function SettingsPanel({
               ×
             </button>
           )}
-          <p className="settings-title">Who are you?</p>
+          <p className="m-0 mb-1 text-[0.78rem] text-text-soft">Who are you?</p>
         </div>
-        <label className="settings-option">
+        <label className="flex items-center gap-1.5 cursor-pointer">
           <input
             type="radio"
+            className="accent-accent"
             name="learner-role"
             value="cz"
             checked={role === 'cz'}
@@ -52,9 +53,10 @@ export function SettingsPanel({
           />
           <span>I am Czech</span>
         </label>
-        <label className="settings-option">
+        <label className="flex items-center gap-1.5 cursor-pointer">
           <input
             type="radio"
+            className="accent-accent"
             name="learner-role"
             value="vi"
             checked={role === 'vi'}
@@ -65,8 +67,8 @@ export function SettingsPanel({
 
         {/* Display Options Section */}
         <div className="mt-6 pt-6 border-t border-border-subtle">
-          <p className="settings-title mb-3">Display Options</p>
-          <label className="settings-option">
+          <p className="m-0 mb-1 text-[0.78rem] text-text-soft mb-3">Display Options</p>
+          <label className="flex items-center gap-1.5 cursor-pointer">
             <input
               type="checkbox"
               checked={showEnglish}
@@ -74,7 +76,7 @@ export function SettingsPanel({
             />
             <span>Show English</span>
           </label>
-          <label className="settings-option">
+          <label className="flex items-center gap-1.5 cursor-pointer">
             <input
               type="checkbox"
               checked={showCategoryBadges}
@@ -86,7 +88,7 @@ export function SettingsPanel({
 
         {/* User ID */}
         <div className="mt-6 pt-6 border-t border-border-subtle">
-          <p className="settings-title mb-2">User ID</p>
+          <p className="m-0 mb-1 text-[0.78rem] text-text-soft mb-2">User ID</p>
           <code className="block text-xs text-text-soft break-all font-mono">
             {userId || '—'}
           </code>

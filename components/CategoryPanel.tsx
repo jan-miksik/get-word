@@ -21,9 +21,9 @@ export function CategoryPanel({
       aria-label="Category filter"
       onClick={(e) => e.stopPropagation()}
     >
-      <div className="category-panel-inner">
-        <div className="category-panel-header relative">
-          <h2>Filter by Category</h2>
+      <div className="px-3.5 pt-3.5 pb-4">
+        <div className="flex items-center justify-between gap-3 mb-3 relative">
+          <h2 className="m-0 text-[1.05rem]">Filter by Category</h2>
           {onClose && (
             <button
               onClick={onClose}
@@ -34,9 +34,9 @@ export function CategoryPanel({
             </button>
           )}
         </div>
-        <div className="category-grid">
+        <div className="flex flex-wrap gap-2">
           {categories.length === 0 ? (
-            <p className="category-empty">No categories available.</p>
+            <p className="m-0 text-text-soft">No categories available.</p>
           ) : (
             categories.map((cat) => (
               <label
@@ -45,11 +45,12 @@ export function CategoryPanel({
               >
                 <input
                   type="checkbox"
+                  className="hidden"
                   checked={selectedCategories.has(cat.name)}
                   onChange={() => onToggleCategory(cat.name)}
                 />
-                <span className="category-chip-label">{cat.name}</span>
-                <span className="category-chip-count">{cat.count}</span>
+                <span className="category-chip-label font-semibold tracking-[0.01em]">{cat.name}</span>
+                <span className="category-chip-count text-[0.8rem] text-text-soft px-2 py-0.5 rounded-pill bg-[rgba(148,163,184,0.15)] border border-[rgba(148,163,184,0.25)]">{cat.count}</span>
               </label>
             ))
           )}

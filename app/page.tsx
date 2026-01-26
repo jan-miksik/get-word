@@ -344,7 +344,7 @@ export default function Home() {
       setMemoryHooksOpen={setMemoryHooksOpen}
     >
 
-      <main className="phrases" ref={phrasesRef} aria-live="polite">
+      <main className="flex flex-col gap-[18px] pb-[18px] flex-1 min-h-0" ref={phrasesRef} aria-live="polite">
         {filteredWords.length === 0 ? (
           <div className="p-8 text-center text-text-soft">
             {currentTab === 'ready' ? 'All caught up!' : 'No words match your current filters.'}
@@ -372,8 +372,8 @@ export default function Home() {
 
               return (
                 <div key={stageIndex}>
-                  <section className="category-zone">
-                    <h2 className="category-zone-title">{stage.name}</h2>
+                  <section className="mt-4">
+                    <h2 className="text-[0.7rem] uppercase tracking-[0.12em] text-text-soft m-0 mb-1 mx-0.5 opacity-90">{stage.name}</h2>
                     {items.map(renderCard)}
                   </section>
                   {/* Button to hide/show words not ready to repeat - appears after "New / forgotten" section */}
@@ -425,8 +425,8 @@ export default function Home() {
                       if (!items.length) return null;
 
                       return (
-                        <section key={`waiting-${stageIndex}`} className="category-zone">
-                          <h2 className="category-zone-title">{stage.name}</h2>
+                        <section key={`waiting-${stageIndex}`} className="mt-4">
+                          <h2 className="text-[0.7rem] uppercase tracking-[0.12em] text-text-soft m-0 mb-1 mx-0.5 opacity-90">{stage.name}</h2>
                           {items.map(renderCard)}
                         </section>
                       );
