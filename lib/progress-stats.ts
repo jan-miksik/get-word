@@ -1,4 +1,4 @@
-import { STAGES } from '@/lib/words';
+import { STAGES, matchesCategoryFilter } from '@/lib/words';
 import type { ProgressData } from '@/lib/sync';
 import type { NormalizedWord } from '@/lib/words';
 
@@ -12,6 +12,13 @@ export interface ProgressStats {
   learning: number;
   done: number;
   new: number;
+}
+
+export function getProgressStatsWords(
+  allWords: NormalizedWord[],
+  selectedCategories: Set<string>
+): NormalizedWord[] {
+  return allWords.filter((word) => matchesCategoryFilter(word, selectedCategories));
 }
 
 export function calculateProgressStats(

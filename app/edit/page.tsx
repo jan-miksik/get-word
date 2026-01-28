@@ -3,12 +3,12 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Word } from '@/data/words';
-import { normalizeWords, getAllCategoriesWithCounts, STAGES, isDue, NormalizedWord } from '@/lib/words';
+import { normalizeWords, getAllCategoriesWithCounts, STAGES, isDue, NormalizedWord, matchesCategoryFilter } from '@/lib/words';
 import { useAppState } from '@/hooks/useAppState';
 import { useWordsLoader } from '@/hooks/useWordsLoader';
 import { usePanelClose } from '@/hooks/usePanelClose';
 import { useTopMenuHandlers } from '@/hooks/useTopMenuHandlers';
-import { calculateProgressStats } from '@/lib/progress-stats';
+import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-stats';
 import { AppLayout } from '@/components/AppLayout';
 import { BottomNav } from '@/components/BottomNav';
 import { EditableWordCard, EDIT_ONLY_CATEGORIES } from '@/components/EditableWordCard';
@@ -316,16 +316,29 @@ export default function EditPage() {
     selectedCategories,
   });
 
+  // Calculate readyCount from all words (with category filters) before tab filtering
+  const readyCount = useMemo(() => {
+    const categoryFiltered = normalizedWords.filter((word) => 
+      matchesCategoryFilter(word, selectedCategories)
+    );
+    let count = 0;
+    categoryFiltered.forEach((word) => {
+      const prog = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
+      if (isDue(prog)) {
+        count += 1;
+      }
+    });
+    return count;
+  }, [normalizedWords, selectedCategories, progress]);
+
   // Group words by stage (memoized for performance) - must be before early return
-  const { groupedWords, groupedWordsWaiting, readyCount } = useMemo(() => {
+  const { groupedWords, groupedWordsWaiting } = useMemo(() => {
     const grouped = STAGES.map(() => [] as NormalizedWord[]);
     const groupedWaiting = STAGES.map(() => [] as NormalizedWord[]);
-    let ready = 0;
 
     filteredWords.forEach((word) => {
       const prog = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
       const due = isDue(prog);
-      if (due) ready += 1;
       if (currentTab === 'ready' && !due) return;
       const sIdx = Math.max(0, Math.min(prog.stageIndex || 0, STAGES.length - 1));
 
@@ -336,8 +349,12 @@ export default function EditPage() {
       }
     });
 
-    return { groupedWords: grouped, groupedWordsWaiting: groupedWaiting, readyCount: ready };
+    return { groupedWords: grouped, groupedWordsWaiting: groupedWaiting };
   }, [filteredWords, progress, currentTab]);
+
+  const statsWords = useMemo(() => {
+    return getProgressStatsWords(normalizedWords, selectedCategories);
+  }, [normalizedWords, selectedCategories]);
 
   // Memoized card renderer for EditableWordCard - must be before early return
   const renderEditableCard = useCallback((word: NormalizedWord) => {
@@ -380,7 +397,7 @@ export default function EditPage() {
   }
 
   // Calculate progress stats
-  const progressStats = calculateProgressStats(filteredWords, progress, readyCount);
+  const progressStats = calculateProgressStats(statsWords, progress, readyCount);
 
   const editHeader = (
     <div className="py-3 px-4 border-b border-border-subtle bg-background-elevated flex justify-between items-center flex-wrap gap-2">

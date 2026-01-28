@@ -6,8 +6,8 @@ import { useAppState } from '@/hooks/useAppState';
 import { useWordsLoader } from '@/hooks/useWordsLoader';
 import { usePanelClose } from '@/hooks/usePanelClose';
 import { useTopMenuHandlers } from '@/hooks/useTopMenuHandlers';
-import { getAvailableCategories, STAGES, isDue, NormalizedWord, normalizeWords } from '@/lib/words';
-import { calculateProgressStats } from '@/lib/progress-stats';
+import { getAvailableCategories, STAGES, isDue, NormalizedWord, normalizeWords, matchesCategoryFilter } from '@/lib/words';
+import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-stats';
 import { AppLayout } from '@/components/AppLayout';
 import { BottomNav } from '@/components/BottomNav';
 import { WordCard } from '@/components/WordCard';
@@ -252,18 +252,57 @@ export default function Home() {
   // Group words by stage (memoized for performance) - must be before early return
   const filteredWords = getFilteredWords();
 
-  const { groupedWords, groupedWordsWaiting, readyCount, notReadyCount } = useMemo(() => {
+  const statsWords = useMemo(() => {
+    return getProgressStatsWords(normalizedWords, selectedCategories);
+  }, [normalizedWords, selectedCategories]);
+
+  // Calculate readyCount - must match exactly what getFilteredWords() returns when currentTab === 'ready'
+  // This ensures the count matches what's actually displayed in the ready tab
+  const readyCount = useMemo(() => {
+    if (!isHydrated) return 0;
+    
+    // Apply the same filtering logic as getFilteredWords() when currentTab === 'ready'
+    const categoryFiltered = normalizedWords.filter((word) =>
+      matchesCategoryFilter(word, selectedCategories)
+    );
+
+    const diagnostic = {
+      categoryFiltered: 0,
+      missingProgress: 0,
+      stageZero: 0,
+      missingNextDueAt: 0,
+      due: 0,
+    };
+
+    // Filter to only due words (same as getFilteredWords does for ready tab)
+    const readyWords = categoryFiltered.filter((word) => {
+      diagnostic.categoryFiltered += 1;
+      const prog = progress[word.id];
+      if (!prog) {
+        diagnostic.missingProgress += 1;
+        return false;
+      }
+      if (prog.stageIndex === 0) diagnostic.stageZero += 1;
+      if (!prog.nextDueAt) diagnostic.missingNextDueAt += 1;
+      if (isDue(prog)) {
+        diagnostic.due += 1;
+        return true;
+      }
+      return false;
+    });
+
+    return readyWords.length;
+  }, [normalizedWords, selectedCategories, progress, isHydrated]);
+
+  const { groupedWords, groupedWordsWaiting, notReadyCount } = useMemo(() => {
     const grouped = STAGES.map(() => [] as NormalizedWord[]);
     const groupedWaiting = STAGES.map(() => [] as NormalizedWord[]);
-    let ready = 0;
     let notReady = 0;
 
     filteredWords.forEach((word) => {
       const prog = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
       const due = isDue(prog);
-      if (due) {
-        ready += 1;
-      } else if (currentTab === 'all' && prog.stageIndex > 0) {
+      if (currentTab === 'all' && !due && prog.stageIndex > 0) {
         notReady += 1;
       }
       if (currentTab === 'ready' && !due) return;
@@ -276,8 +315,9 @@ export default function Home() {
       }
     });
 
-    return { groupedWords: grouped, groupedWordsWaiting: groupedWaiting, readyCount: ready, notReadyCount: notReady };
+    return { groupedWords: grouped, groupedWordsWaiting: groupedWaiting, notReadyCount: notReady };
   }, [filteredWords, progress, currentTab]);
+
 
   // Memoized card renderer to avoid recreating functions on each render - must be before early return
   // Accepts optional stageIndex for VirtualizedWordList compatibility
@@ -318,7 +358,7 @@ export default function Home() {
   }
 
   // Calculate comprehensive progress statistics
-  const progressStats = calculateProgressStats(filteredWords, progress, readyCount);
+  const progressStats = calculateProgressStats(statsWords, progress, readyCount);
 
   return (
     <AppLayout
