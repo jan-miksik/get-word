@@ -66,6 +66,11 @@ The project uses pnpm with the following configuration (see `.npmrc`):
 
    The app will be available at `http://localhost:3000`
 
+5. **Verify virtualization (Ready tab):**  
+   On the "Ready to repeat" tab, only a small number of cards are rendered in the DOM at once. To confirm:
+   - In development, a badge under the stage title shows e.g. **Virtual: rendering 12 of 80 items ✓**.
+   - Or open the app with `?virtualDebug=1` (e.g. `http://localhost:3000?virtualDebug=1`), go to the Ready tab, and check the same badge. As you scroll, the first number should stay low (~10–20); the second is the total. If the first number stayed equal to the total, virtualization would not be active.
+
 ### Deployment to Cloudflare Pages
 
 1. **Build the project:**

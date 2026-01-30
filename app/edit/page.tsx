@@ -21,8 +21,11 @@ export default function EditPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
-  // Use normalized words for app state (for filtering, etc.)
-  const normalizedWords = words.length > 0 ? normalizeWords(words as Word[]) : [];
+  // Memoize normalized words so we don't recompute on every render
+  const normalizedWords = useMemo(
+    () => (words.length > 0 ? normalizeWords(words as Word[]) : []),
+    [words]
+  );
   const {
     role,
     setRole,
@@ -50,7 +53,7 @@ export default function EditPage() {
     markKnown,
     markReallyKnown,
     markUnknown,
-    getFilteredWords,
+    filteredWords,
     toggleCategory: toggleCategoryFilter,
     getMemoryHook,
     setMemoryHook,
@@ -59,8 +62,6 @@ export default function EditPage() {
     userId,
     isHydrated,
   } = useAppState(normalizedWords);
-
-  const filteredWords = getFilteredWords();
   // In edit mode, always show all categories with counts from all words (not filtered)
   // Include edit-only categories (like "to fix") even if they have 0 occurrences
   const categories = useMemo(() => {

@@ -1,13 +1,14 @@
 // Main app state hook
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { ProgressData } from '@/lib/sync';
 import { NormalizedWord, STAGES, isDue, matchesCategoryFilter } from '@/lib/words';
 import { fetchUserData, debouncedSync } from '@/lib/sync';
 
 export type Role = 'cz' | 'vi';
 export type Tab = 'all' | 'ready';
+export type Theme = 'default' | 'warm' | 'calm';
 
 export function useAppState(words: NormalizedWord[]) {
   // Defaults; overwritten by fetchUserData (DB-only, no localStorage)
@@ -20,6 +21,7 @@ export function useAppState(words: NormalizedWord[]) {
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
   const [showEnglish, setShowEnglish] = useState(true);
   const [showCategoryBadges, setShowCategoryBadges] = useState(false);
+  const [theme, setThemeState] = useState<Theme>('default');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [progressOpen, setProgressOpen] = useState(false);
   const [categoryOpen, setCategoryOpen] = useState(false);
@@ -155,6 +157,29 @@ export function useAppState(words: NormalizedWord[]) {
     };
   }, []);
 
+  // Load theme from localStorage on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const savedTheme = localStorage.getItem('wordlink-theme') as Theme | null;
+      if (savedTheme && ['default', 'warm', 'calm'].includes(savedTheme)) {
+        setThemeState(savedTheme);
+      }
+    }
+  }, []);
+
+  // Apply theme to document and persist to localStorage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('wordlink-theme', theme);
+    }
+  }, [theme]);
+
+  // Theme setter
+  const setTheme = useCallback((newTheme: Theme) => {
+    setThemeState(newTheme);
+  }, []);
+
   // Update progress for a word by its stable ID
   const updateProgress = useCallback((wordId: string, updates: Partial<ProgressData>) => {
     setProgress((prev) => {
@@ -258,18 +283,15 @@ export function useAppState(words: NormalizedWord[]) {
     lastMovedTimeoutRef.current = setTimeout(() => setLastMovedId(null), 1000);
   }, []);
 
-  // Get filtered words based on current tab and filters
-  const getFilteredWords = useCallback(() => {
-    let filtered = words
-      .filter((word) => matchesCategoryFilter(word, selectedCategories));
-
+  // Memoized filtered words so downstream useMemo (e.g. groupedWords) gets stable reference when filters unchanged
+  const filteredWords = useMemo(() => {
+    let filtered = words.filter((word) => matchesCategoryFilter(word, selectedCategories));
     if (currentTab === 'ready' && isHydrated) {
       filtered = filtered.filter((word) => {
         const prog = progress[word.id];
         return prog && isDue(prog);
       });
     }
-
     return filtered;
   }, [words, selectedCategories, currentTab, progress, isHydrated]);
 
@@ -334,6 +356,8 @@ export function useAppState(words: NormalizedWord[]) {
     setShowEnglish,
     showCategoryBadges,
     setShowCategoryBadges,
+    theme,
+    setTheme,
     settingsOpen,
     setSettingsOpen,
     progressOpen,
@@ -346,7 +370,7 @@ export function useAppState(words: NormalizedWord[]) {
     markKnown,
     markReallyKnown,
     markUnknown,
-    getFilteredWords,
+    filteredWords,
     toggleCategory,
     getMemoryHook,
     setMemoryHook,

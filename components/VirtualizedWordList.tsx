@@ -4,6 +4,19 @@ import { useRef, useMemo, useState, useEffect, useCallback, ReactNode, RefObject
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { NormalizedWord, STAGES } from '@/lib/words';
 
+/** Show virtualization debug badge when ?virtualDebug=1 in URL (or in development) */
+function useShowVirtualDebug(): boolean {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    const isDev = process.env.NODE_ENV === 'development';
+    const fromUrl =
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('virtualDebug') === '1';
+    setShow(isDev || fromUrl);
+  }, []);
+  return show;
+}
+
 export type Stage = (typeof STAGES)[number];
 
 export type VirtualItem =
@@ -54,13 +67,10 @@ export function VirtualizedWordList({
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => {
-      // When using parent scroll, use the actual scroll element
-      // Otherwise use the container ref
-      if (scrollElementRef) {
-        // Use the actual scroll element (main element)
-        return scrollElementRef.current || (typeof document !== 'undefined' ? document.documentElement : null);
-      }
-      return containerRef.current;
+      // When using parent scroll, use only that element (no fallback to window/document)
+      if (scrollElementRef?.current) return scrollElementRef.current;
+      if (!scrollElementRef) return containerRef.current;
+      return null;
     },
     estimateSize: useCallback((index: number) => {
       const item = items[index];
@@ -96,21 +106,16 @@ export function VirtualizedWordList({
   }, [virtualizer, items]);
 
   useEffect(() => {
-    // When using parent scroll, listen to window scroll
-    // Otherwise listen to container scroll
-    if (scrollElementRef) {
-      if (typeof window === 'undefined') return;
-      window.addEventListener('scroll', updateActiveStage, { passive: true });
-      return () => window.removeEventListener('scroll', updateActiveStage);
-    } else {
-      const scrollEl = containerRef.current;
-      if (!scrollEl) return;
-      scrollEl.addEventListener('scroll', updateActiveStage);
-      return () => scrollEl.removeEventListener('scroll', updateActiveStage);
-    }
+    // When using parent scroll, listen to that element's scroll (not window)
+    const scrollEl = scrollElementRef?.current ?? containerRef.current;
+    if (!scrollEl) return;
+    scrollEl.addEventListener('scroll', updateActiveStage, { passive: true });
+    return () => scrollEl.removeEventListener('scroll', updateActiveStage);
   }, [updateActiveStage, scrollElementRef]);
 
   const activeStage = STAGES[activeStageIndex];
+  const showVirtualDebug = useShowVirtualDebug();
+  const virtualItems = virtualizer.getVirtualItems();
 
   // Total word count
   const totalWords = useMemo(() => {
@@ -133,6 +138,12 @@ export function VirtualizedWordList({
           <h2 className="m-0 text-base font-semibold text-accent">
             {activeStage?.name || 'Loading...'}
           </h2>
+          {showVirtualDebug && items.length > 0 && (
+            <p className="m-0 mt-1 text-[0.7rem] text-text-soft font-mono" role="status" aria-live="polite">
+              Virtual: rendering <strong>{virtualItems.length}</strong> of <strong>{items.length}</strong> items
+              {virtualItems.length < items.length ? ' ✓' : ''}
+            </p>
+          )}
         </div>
       )}
       <div ref={containerRef} className={`${className} relative w-full`}>
@@ -141,7 +152,7 @@ export function VirtualizedWordList({
           className="w-full relative"
           style={{ height: virtualizer.getTotalSize() }}
         >
-        {virtualizer.getVirtualItems().map(virtualRow => {
+        {virtualItems.map(virtualRow => {
           const item = items[virtualRow.index];
 
           // Render headers with more spacing
@@ -183,6 +194,12 @@ export function VirtualizedWordList({
         })}
         </div>
       </div>
+      {showVirtualDebug && !scrollElementRef && items.length > 0 && (
+        <p className="mt-2 text-[0.7rem] text-text-soft font-mono" role="status">
+          Virtual: {virtualItems.length} of {items.length} items
+          {virtualItems.length < items.length ? ' ✓' : ''}
+        </p>
+      )}
     </>
   );
 }

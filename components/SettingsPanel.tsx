@@ -1,5 +1,7 @@
 'use client';
 
+import type { Theme } from '@/hooks/useAppState';
+
 interface SettingsPanelProps {
   role: 'cz' | 'vi';
   onRoleChange: (role: 'cz' | 'vi') => void;
@@ -7,6 +9,8 @@ interface SettingsPanelProps {
   onShowEnglishChange: (show: boolean) => void;
   showCategoryBadges: boolean;
   onShowCategoryBadgesChange: (show: boolean) => void;
+  theme: Theme;
+  onThemeChange: (theme: Theme) => void;
   isOpen: boolean;
   onClose?: () => void;
   userId?: string | null;
@@ -19,6 +23,8 @@ export function SettingsPanel({
   onShowEnglishChange,
   showCategoryBadges,
   onShowCategoryBadgesChange,
+  theme,
+  onThemeChange,
   isOpen, 
   onClose,
   userId,
@@ -64,6 +70,37 @@ export function SettingsPanel({
           />
           <span>I am Vietnamese</span>
         </label>
+
+        {/* Theme Section */}
+        <div className="mt-6 pt-6 border-t border-border-subtle">
+          <p className="m-0 mb-1 text-[0.78rem] text-text-soft mb-3">Theme</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onThemeChange('default')}
+              className={`theme-option ${theme === 'default' ? 'is-selected' : ''}`}
+              aria-label="Default dark theme"
+            >
+              <span className="theme-preview theme-preview-default" />
+              <span className="theme-label">Dark</span>
+            </button>
+            <button
+              onClick={() => onThemeChange('warm')}
+              className={`theme-option ${theme === 'warm' ? 'is-selected' : ''}`}
+              aria-label="Warm light theme"
+            >
+              <span className="theme-preview theme-preview-warm" />
+              <span className="theme-label">Warm</span>
+            </button>
+            <button
+              onClick={() => onThemeChange('calm')}
+              className={`theme-option ${theme === 'calm' ? 'is-selected' : ''}`}
+              aria-label="Calm blue theme"
+            >
+              <span className="theme-preview theme-preview-calm" />
+              <span className="theme-label">Calm</span>
+            </button>
+          </div>
+        </div>
 
         {/* Display Options Section */}
         <div className="mt-6 pt-6 border-t border-border-subtle">

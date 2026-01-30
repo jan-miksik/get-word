@@ -18,9 +18,12 @@ import { useDueTimer } from '@/hooks/useDueTimer';
 export default function Home() {
   const { words, isLoading: isLoadingWords } = useWordsLoader();
 
-  // Use normalized words for app state (for filtering, etc.)
-  const normalizedWords = words.length > 0 ? normalizeWords(words as Word[]) : [];
-  
+  // Memoize normalized words so we don't recompute on every render
+  const normalizedWords = useMemo(
+    () => (words.length > 0 ? normalizeWords(words as Word[]) : []),
+    [words]
+  );
+
   const {
     role,
     setRole,
@@ -37,6 +40,8 @@ export default function Home() {
     setShowEnglish,
     showCategoryBadges,
     setShowCategoryBadges,
+    theme,
+    setTheme,
     settingsOpen,
     setSettingsOpen,
     progressOpen,
@@ -48,7 +53,7 @@ export default function Home() {
     markKnown,
     markReallyKnown,
     markUnknown,
-    getFilteredWords,
+    filteredWords,
     toggleCategory,
     getMemoryHook,
     setMemoryHook,
@@ -60,7 +65,10 @@ export default function Home() {
 
   const [showWaitingForRepeat, setShowWaitingForRepeat] = useState(false);
   const [showNotReady, setShowNotReady] = useState(true);
-  const categories = getAvailableCategories(normalizedWords);
+  const categories = useMemo(
+    () => getAvailableCategories(normalizedWords),
+    [normalizedWords]
+  );
   const phrasesRef = useRef<HTMLElement>(null);
 
   // Trigger re-render when cards become due for review
@@ -217,7 +225,7 @@ export default function Home() {
       cleanupMap.forEach((cleanup) => cleanup());
       cleanupMap.clear();
     };
-  }, [currentTab, selectedCategories, showAll, modeIndex, role, progress]);
+  }, [currentTab, selectedCategories, showAll, modeIndex, role]);
 
   // Reset showWaitingForRepeat when switching tabs or filters change
   useEffect(() => {
@@ -250,45 +258,24 @@ export default function Home() {
   });
 
   // Group words by stage (memoized for performance) - must be before early return
-  const filteredWords = getFilteredWords();
-
   const statsWords = useMemo(() => {
     return getProgressStatsWords(normalizedWords, selectedCategories);
   }, [normalizedWords, selectedCategories]);
 
-  // Calculate readyCount - must match exactly what getFilteredWords() returns when currentTab === 'ready'
+  // Calculate readyCount - must match exactly what filteredWords contains when currentTab === 'ready'
   // This ensures the count matches what's actually displayed in the ready tab
   const readyCount = useMemo(() => {
     if (!isHydrated) return 0;
-    
-    // Apply the same filtering logic as getFilteredWords() when currentTab === 'ready'
+
     const categoryFiltered = normalizedWords.filter((word) =>
       matchesCategoryFilter(word, selectedCategories)
     );
 
-    const diagnostic = {
-      categoryFiltered: 0,
-      missingProgress: 0,
-      stageZero: 0,
-      missingNextDueAt: 0,
-      due: 0,
-    };
-
-    // Filter to only due words (same as getFilteredWords does for ready tab)
+    // Filter to only due words (same as filteredWords for ready tab)
     const readyWords = categoryFiltered.filter((word) => {
-      diagnostic.categoryFiltered += 1;
       const prog = progress[word.id];
-      if (!prog) {
-        diagnostic.missingProgress += 1;
-        return false;
-      }
-      if (prog.stageIndex === 0) diagnostic.stageZero += 1;
-      if (!prog.nextDueAt) diagnostic.missingNextDueAt += 1;
-      if (isDue(prog)) {
-        diagnostic.due += 1;
-        return true;
-      }
-      return false;
+      if (!prog) return false;
+      return isDue(prog);
     });
 
     return readyWords.length;
@@ -348,6 +335,12 @@ export default function Home() {
     );
   }, [progress, role, modeIndex, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges]);
 
+  // Memoize progress stats (must be before early return to keep hook order stable)
+  const progressStats = useMemo(
+    () => calculateProgressStats(statsWords, progress, readyCount),
+    [statsWords, progress, readyCount]
+  );
+
   // Don't render main content until hydrated and words are loaded to avoid hydration mismatches
   if (!isHydrated || isLoadingWords) {
     return (
@@ -356,9 +349,6 @@ export default function Home() {
       </div>
     );
   }
-
-  // Calculate comprehensive progress statistics
-  const progressStats = calculateProgressStats(statsWords, progress, readyCount);
 
   return (
     <AppLayout
@@ -369,6 +359,8 @@ export default function Home() {
       onShowEnglishChange={setShowEnglish}
       showCategoryBadges={showCategoryBadges}
       onShowCategoryBadgesChange={setShowCategoryBadges}
+      theme={theme}
+      onThemeChange={setTheme}
       userId={userId}
       categories={categories}
       selectedCategories={selectedCategories}
@@ -384,7 +376,7 @@ export default function Home() {
       setMemoryHooksOpen={setMemoryHooksOpen}
     >
 
-      <main className="flex flex-col gap-[18px] pb-[18px] flex-1 min-h-0" ref={phrasesRef} aria-live="polite">
+      <main className="flex flex-col gap-[18px] pb-[18px] flex-1 min-h-0 overflow-y-auto" ref={phrasesRef} aria-live="polite">
         {filteredWords.length === 0 ? (
           <div className="p-8 text-center text-text-soft">
             {currentTab === 'ready' ? 'All caught up!' : 'No words match your current filters.'}

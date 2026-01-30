@@ -7,7 +7,7 @@ import { CategoryPanel } from '@/components/CategoryPanel';
 import { MemoryHooksPanel } from '@/components/MemoryHooksPanel';
 import { ProgressPanel } from '@/components/ProgressPanel';
 import { ProgressSummary } from '@/components/ProgressSummary';
-import type { Role, Tab } from '@/hooks/useAppState';
+import type { Role, Tab, Theme } from '@/hooks/useAppState';
 import type { ProgressStats } from '@/lib/progress-stats';
 
 interface AppLayoutProps {
@@ -31,6 +31,8 @@ interface AppLayoutProps {
   onShowEnglishChange: (show: boolean) => void;
   showCategoryBadges: boolean;
   onShowCategoryBadgesChange: (show: boolean) => void;
+  theme: Theme;
+  onThemeChange: (theme: Theme) => void;
   userId: string | null;
   // CategoryPanel props
   categories: Array<{ name: string; count: number }>;
@@ -61,6 +63,8 @@ export function AppLayout({
   onShowEnglishChange,
   showCategoryBadges,
   onShowCategoryBadgesChange,
+  theme,
+  onThemeChange,
   userId,
   categories,
   selectedCategories,
@@ -88,6 +92,8 @@ export function AppLayout({
         onShowEnglishChange={onShowEnglishChange}
         showCategoryBadges={showCategoryBadges}
         onShowCategoryBadgesChange={onShowCategoryBadgesChange}
+        theme={theme}
+        onThemeChange={onThemeChange}
         isOpen={settingsOpen} 
         onClose={() => setSettingsOpen(false)}
         userId={userId}
