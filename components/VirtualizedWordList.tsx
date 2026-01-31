@@ -21,11 +21,13 @@ export type Stage = (typeof STAGES)[number];
 
 export type VirtualItem =
   | { type: 'header'; stage: Stage; stageIndex: number }
-  | { type: 'card'; word: NormalizedWord; stageIndex: number };
+  | { type: 'card'; word: NormalizedWord; stageIndex: number }
+  | { type: 'footer'; stageIndex: number; content: ReactNode };
 
 interface VirtualizedWordListProps {
   groupedWords: NormalizedWord[][];
   renderCard: (word: NormalizedWord, stageIndex: number) => ReactNode;
+  stageFooter?: (stageIndex: number) => ReactNode | null;
   className?: string;
   emptyMessage?: string;
   scrollElementRef?: RefObject<HTMLElement | null>;
@@ -34,6 +36,7 @@ interface VirtualizedWordListProps {
 export function VirtualizedWordList({
   groupedWords,
   renderCard,
+  stageFooter,
   className = '',
   emptyMessage = 'No words to display.',
   scrollElementRef,
@@ -41,7 +44,7 @@ export function VirtualizedWordList({
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeStageIndex, setActiveStageIndex] = useState(0);
 
-  // Flatten items: headers + cards with spacing
+  // Flatten items: headers + cards + optional footers
   const items = useMemo(() => {
     const flat: VirtualItem[] = [];
     STAGES.forEach((stage, stageIndex) => {
@@ -51,10 +54,14 @@ export function VirtualizedWordList({
         words.forEach(word => {
           flat.push({ type: 'card', word, stageIndex });
         });
+        const footerContent = stageFooter?.(stageIndex);
+        if (footerContent) {
+          flat.push({ type: 'footer', stageIndex, content: footerContent });
+        }
       }
     });
     return flat;
-  }, [groupedWords]);
+  }, [groupedWords, stageFooter]);
 
   // Find the first non-empty stage for initial active stage
   useEffect(() => {
@@ -82,6 +89,9 @@ export function VirtualizedWordList({
           return 80; // More spacing for headers after cards
         }
         return 64; // Base header height
+      }
+      if (item.type === 'footer') {
+        return 96; // Estimated control/footer block height
       }
       // Card height estimate (will be measured dynamically)
       // Account for margin-top: 4px on phrase-card
@@ -134,7 +144,7 @@ export function VirtualizedWordList({
     <>
       {/* Sticky header showing current stage - only shown when using parent scroll */}
       {scrollElementRef && (
-        <div className="sticky top-0 z-10 bg-[rgba(5,8,22,0.98)] backdrop-blur-[12px] border-b border-border-subtle py-3 px-6 mb-2">
+        <div className="sticky top-0 z-10 bg-background backdrop-blur-[12px] border-b border-border-subtle py-3 px-6 mb-2">
           <h2 className="m-0 text-base font-semibold text-accent">
             {activeStage?.name || 'Loading...'}
           </h2>
@@ -172,6 +182,24 @@ export function VirtualizedWordList({
                 >
                   {item.stage.name}
                 </h2>
+              </div>
+            );
+          }
+
+          if (item.type === 'footer') {
+            return (
+              <div
+                key={`footer-${item.stageIndex}`}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                className="absolute top-0 left-0 right-0"
+                style={{
+                  transform: `translateY(${virtualRow.start}px)`,
+                  width: '100%',
+                  willChange: 'transform',
+                }}
+              >
+                {item.content}
               </div>
             );
           }

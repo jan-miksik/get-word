@@ -305,6 +305,11 @@ export default function Home() {
     return { groupedWords: grouped, groupedWordsWaiting: groupedWaiting, notReadyCount: notReady };
   }, [filteredWords, progress, currentTab]);
 
+  const groupedWordsForAll = useMemo(() => {
+    if (showNotReady) return groupedWords;
+    return groupedWords.map((words, stageIndex) => (stageIndex === 0 ? words : []));
+  }, [groupedWords, showNotReady]);
+
 
   // Memoized card renderer to avoid recreating functions on each render - must be before early return
   // Accepts optional stageIndex for VirtualizedWordList compatibility
@@ -391,47 +396,35 @@ export default function Home() {
           />
         ) : (
           <>
-            {/* Regular words (not waiting for repeat) */}
-            {STAGES.map((stage, stageIndex) => {
-              const items = groupedWords[stageIndex];
-              if (!items.length) return null;
-
-              // Hide words that are not ready (stageIndex > 0 and not due) when showNotReady is false
-              // But always show stage 0 (new words)
-              const shouldShow = stageIndex === 0 || showNotReady;
-
-              if (!shouldShow) return null;
-
-              return (
-                <div key={stageIndex}>
-                  <section className="mt-4">
-                    <h2 className="text-[0.7rem] uppercase tracking-[0.12em] text-text-soft m-0 mb-1 mx-0.5 opacity-90">{stage.name}</h2>
-                    {items.map(renderCard)}
-                  </section>
-                  {/* Button to hide/show words not ready to repeat - appears after "New / forgotten" section */}
-                  {stageIndex === 0 && notReadyCount > 0 && (
-                    <div className="p-4 px-6 text-center border-t border-border-subtle mt-4">
-                      <button
-                        type="button"
-                        className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-[rgba(15,23,42,1)]"
-                        onClick={() => setShowNotReady(!showNotReady)}
-                      >
-                        {showNotReady ? 'Hide' : 'Show'} {notReadyCount} word{notReadyCount !== 1 ? 's' : ''} settling in before repeat
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+            {/* Virtualized list for "All words" tab */}
+            <VirtualizedWordList
+              groupedWords={groupedWordsForAll}
+              renderCard={renderCard}
+              scrollElementRef={phrasesRef}
+              stageFooter={(stageIndex) => {
+                if (stageIndex !== 0 || notReadyCount === 0) return null;
+                return (
+                  <div className="p-4 px-6 text-center border-t border-border-subtle mt-4">
+                    <button
+                      type="button"
+                      className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-background-elevated"
+                      onClick={() => setShowNotReady(!showNotReady)}
+                    >
+                      {showNotReady ? 'Hide' : 'Show'} {notReadyCount} word{notReadyCount !== 1 ? 's' : ''} settling in before repeat
+                    </button>
+                  </div>
+                );
+              }}
+            />
 
             {/* Words waiting for repeat - hidden by default in "all" tab */}
             {readyCount > 0 && (
               <>
                 {!showWaitingForRepeat && (
-                  <div className="p-6 text-center border-t border-b border-border-subtle mt-4 sticky top-0 bg-[rgba(5,8,22,0.98)] backdrop-blur-xl z-10 shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
+                  <div className="p-6 text-center border-t border-b border-border-subtle mt-4 sticky top-0 bg-background backdrop-blur-xl z-10 shadow-soft">
                     <button
                       type="button"
-                      className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-[rgba(15,23,42,1)]"
+                      className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-background-elevated"
                       onClick={() => setShowWaitingForRepeat(true)}
                     >
                       Show {readyCount} word{readyCount !== 1 ? 's' : ''} waiting for repeat
@@ -446,7 +439,7 @@ export default function Home() {
                       </h2>
                       <button
                         type="button"
-                        className="bg-transparent border border-border-subtle rounded-lg px-4 py-2 text-sm text-text-soft cursor-pointer transition-all hover:bg-[rgba(15,23,42,0.9)] hover:text-text"
+                        className="bg-transparent border border-border-subtle rounded-lg px-4 py-2 text-sm text-text-soft cursor-pointer transition-all hover:bg-background-elevated hover:text-text"
                         onClick={() => setShowWaitingForRepeat(false)}
                       >
                         Hide

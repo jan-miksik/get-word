@@ -50,7 +50,7 @@ export function CategoryPanel({
                   onChange={() => onToggleCategory(cat.name)}
                 />
                 <span className="category-chip-label font-semibold tracking-[0.01em]">{cat.name}</span>
-                <span className="category-chip-count text-[0.8rem] text-text-soft px-2 py-0.5 rounded-pill bg-[rgba(148,163,184,0.15)] border border-[rgba(148,163,184,0.25)]">{cat.count}</span>
+                <span className="category-chip-count text-[0.8rem] text-text-soft px-2 py-0.5 rounded-pill bg-accent-soft border border-border-subtle">{cat.count}</span>
               </label>
             ))
           )}

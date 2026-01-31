@@ -9,6 +9,8 @@
   --text-soft: #9ca3af;
   --border-subtle: rgba(148, 163, 184, 0.35);
   --danger: #fb7185;
+  --fresh: #fbbf24;
+  --done: #22c55e;
   --radius-lg: 18px;
   --radius-pill: 999px;
   --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.75);
@@ -42,6 +44,7 @@ body {
   flex-direction: column;
   gap: 16px;
   position: relative;
+  padding-bottom: 80px;
 }
 
 @media (min-width: 768px) {
@@ -446,22 +449,24 @@ body {
 
 
 .bottom-nav {
-  position: sticky;
+  position: fixed;
   bottom: 0;
-  margin-top: auto;
+  left: 0;
+  right: 0;
   display: flex;
   gap: 8px;
-  padding: 8px 4px 20px;
-  background: linear-gradient(to top, rgba(15, 23, 42, 0.96), transparent);
+  padding: 8px 16px calc(env(safe-area-inset-bottom, 12px) + 8px);
+  background: linear-gradient(to top, rgba(15, 23, 42, 0.96) 60%, transparent);
   z-index: 110;
-  flex-shrink: 0;
+  justify-content: center;
 }
 
 .bottom-nav-btn {
   flex: 1;
+  max-width: 350px;
   border-radius: var(--radius-pill);
-  border: 1px solid rgba(148, 163, 184, 0.5);
-  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
   color: var(--text-soft);
   font-size: 0.9rem;
   padding: 10px 14px;
@@ -876,8 +881,11 @@ body {
   width: 100%;
   z-index: 30;
   font-size: 0.6875rem;
-  opacity: 0.5;
 }
+
+.progress-summary .text-fresh { color: var(--fresh); }
+.progress-summary .text-accent { color: var(--accent); }
+.progress-summary .text-done { color: var(--done); }
 
 
 @media (min-width: 640px) {
@@ -1004,13 +1012,15 @@ body {
   --text-secondary: #2A9D8F;
   --border-subtle: rgba(51, 51, 51, 0.25);
   --danger: #DC2626;
+  --fresh: #D97706;
+  --done: #059669;
   --shadow-soft: 0 18px 45px rgba(0, 0, 0, 0.08);
   --shadow-chip: 0 10px 25px rgba(0, 0, 0, 0.06);
 }
 
 html[data-theme="warm"],
 html[data-theme="warm"] body {
-  background: #FBF8F2 !important;
+  background: #b3a369 !important;
   background-image: none !important;
 }
 
@@ -1085,8 +1095,8 @@ html[data-theme="warm"] body {
 /* Warm theme bottom nav - segmented style from screenshot */
 [data-theme="warm"] .bottom-nav {
   gap: 0;
-  padding: 8px 4px 20px;
-  background: linear-gradient(to top, var(--bg) 85%, transparent);
+  padding: 8px 16px calc(env(safe-area-inset-bottom, 12px) + 8px);
+  background: #63979e;
 }
 
 [data-theme="warm"] .bottom-nav-btn {
@@ -1211,6 +1221,23 @@ html[data-theme="warm"] body {
   background: radial-gradient(circle at top, var(--accent-soft) 0, transparent 65%);
 }
 
+/* Warm theme category clear button */
+[data-theme="warm"] .category-clear-btn {
+  background: var(--bg);
+  border-color: var(--text);
+  border-width: 2px;
+  color: var(--text);
+}
+
+[data-theme="warm"] .category-clear-btn:hover {
+  background: var(--bg-elevated);
+}
+
+/* Warm theme memory hook display */
+[data-theme="warm"] .memory-hook-display:hover {
+  background: var(--accent-soft);
+}
+
 /* Warm theme scrollbar */
 [data-theme="warm"] .custom-scrollbar {
   scrollbar-color: rgba(51, 51, 51, 0.3) transparent;
@@ -1236,6 +1263,8 @@ html[data-theme="warm"] body {
   --text-secondary: #7C3AED;
   --border-subtle: rgba(44, 62, 80, 0.18);
   --danger: #E74C3C;
+  --fresh: #F59E0B;
+  --done: #10B981;
   --shadow-soft: 0 18px 45px rgba(44, 62, 80, 0.08);
   --shadow-chip: 0 10px 25px rgba(44, 62, 80, 0.06);
 }
@@ -1317,7 +1346,7 @@ html[data-theme="calm"] body {
 /* Calm theme bottom nav */
 [data-theme="calm"] .bottom-nav {
   gap: 8px;
-  padding: 8px 4px 20px;
+  padding: 8px 16px calc(env(safe-area-inset-bottom, 12px) + 8px);
   background: linear-gradient(to top, var(--bg) 85%, transparent);
 }
 
@@ -1428,6 +1457,23 @@ html[data-theme="calm"] body {
 
 [data-theme="calm"] .cover-target.is-pressed {
   background: radial-gradient(circle at top, var(--accent-soft) 0, transparent 65%);
+}
+
+/* Calm theme category clear button */
+[data-theme="calm"] .category-clear-btn {
+  background: var(--bg-elevated);
+  border-color: var(--border-subtle);
+  color: var(--text);
+}
+
+[data-theme="calm"] .category-clear-btn:hover {
+  background: var(--bg);
+  border-color: var(--accent);
+}
+
+/* Calm theme memory hook display */
+[data-theme="calm"] .memory-hook-display:hover {
+  background: var(--accent-soft);
 }
 
 /* Calm theme scrollbar */

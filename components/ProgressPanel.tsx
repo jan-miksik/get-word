@@ -65,20 +65,20 @@ export function ProgressPanel({ isOpen, progressStats, onClose }: ProgressPanelP
           <div className="mb-5">
             <h2 className="text-base font-semibold m-0 mb-2.5 text-text">Learning Status</h2>
             <div className="grid grid-cols-4 gap-2">
-              <div className="bg-background-elevated border border-[rgba(148,163,184,0.5)] rounded-lg p-2.5 text-center">
+              <div className="bg-background-elevated border border-border-subtle rounded-lg p-2.5 text-center">
                 <div className="text-xl font-bold mb-1 text-text-soft">{progressStats.new}</div>
                 <div className="text-[0.6875rem] text-text-soft font-medium">New / Not Started</div>
               </div>
               <div className="bg-background-elevated border border-border-subtle rounded-lg p-2.5 text-center">
-                <div className="text-xl font-bold mb-1 text-[#fbbf24]">{progressStats.fresh}</div>
+                <div className="text-xl font-bold mb-1 text-fresh">{progressStats.fresh}</div>
                 <div className="text-[0.6875rem] text-text-soft font-medium">Fresh</div>
               </div>
               <div className="bg-background-elevated border border-accent-strong rounded-lg p-2.5 text-center">
                 <div className="text-xl font-bold mb-1 text-accent">{progressStats.learning}</div>
                 <div className="text-[0.6875rem] text-text-soft font-medium">Learning</div>
               </div>
-              <div className="bg-background-elevated border border-[rgba(34,197,94,0.5)] rounded-lg p-2.5 text-center">
-                <div className="text-xl font-bold mb-1 text-[#22c55e]">{progressStats.done}</div>
+              <div className="bg-background-elevated border border-border-subtle rounded-lg p-2.5 text-center">
+                <div className="text-xl font-bold mb-1 text-done">{progressStats.done}</div>
                 <div className="text-[0.6875rem] text-text-soft font-medium">Done</div>
               </div>
             </div>
@@ -98,13 +98,13 @@ export function ProgressPanel({ isOpen, progressStats, onClose }: ProgressPanelP
                 return (
                   <div
                     key={index}
-                    className={`bg-background-elevated border border-border-subtle rounded-lg py-2 px-3 flex items-center gap-2 ${index === 0 ? 'border-[rgba(148,163,184,0.5)]' : ''} ${isMastered ? 'border-[rgba(34,197,94,0.5)]' : ''}`}
+                    className={`bg-background-elevated border border-border-subtle rounded-lg py-2 px-3 flex items-center gap-2`}
                   >
                     <div className="flex-1 text-[0.8125rem] font-medium text-text">{stage.name}</div>
                     <div className="text-sm font-semibold text-accent min-w-[28px] text-right">{count}</div>
-                    <div className="w-[60px] h-1 bg-[rgba(148,163,184,0.2)] rounded-pill overflow-hidden">
+                    <div className="w-[60px] h-1 bg-border-subtle rounded-pill overflow-hidden">
                       <div
-                        className={`h-full rounded-pill transition-[width] duration-[220ms] ease-med ${isMastered ? 'bg-[#22c55e]' : 'bg-accent'}`}
+                        className={`h-full rounded-pill transition-[width] duration-[220ms] ease-med ${isMastered ? 'bg-done' : 'bg-accent'}`}
                         style={{ width: `${barPercent}%` }}
                       />
                     </div>
@@ -120,7 +120,7 @@ export function ProgressPanel({ isOpen, progressStats, onClose }: ProgressPanelP
             <div className="grid grid-cols-3 gap-2">
               <div className="bg-background-elevated border border-border-subtle rounded-lg p-2.5 text-center">
                 <div className="text-[0.6875rem] text-text-soft mb-1 font-medium">Correct</div>
-                <div className="text-xl font-bold text-[#22c55e]">{progressStats.totalKnown}</div>
+                <div className="text-xl font-bold text-done">{progressStats.totalKnown}</div>
               </div>
               <div className="bg-background-elevated border border-border-subtle rounded-lg p-2.5 text-center">
                 <div className="text-[0.6875rem] text-text-soft mb-1 font-medium">Incorrect</div>

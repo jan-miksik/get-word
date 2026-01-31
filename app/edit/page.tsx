@@ -42,6 +42,8 @@ export default function EditPage() {
     setShowEnglish,
     showCategoryBadges,
     setShowCategoryBadges,
+    theme,
+    setTheme,
     settingsOpen,
     setSettingsOpen,
     progressOpen,
@@ -437,6 +439,8 @@ export default function EditPage() {
       onShowEnglishChange={setShowEnglish}
       showCategoryBadges={showCategoryBadges}
       onShowCategoryBadgesChange={setShowCategoryBadges}
+      theme={theme}
+      onThemeChange={setTheme}
       userId={userId}
       categories={categories}
       selectedCategories={selectedCategories}
@@ -477,10 +481,10 @@ export default function EditPage() {
             {currentTab === 'all' && readyCount > 0 && (
               <>
                 {!showWaitingForRepeat && (
-                  <div className="p-6 text-center border-t border-b border-border-subtle mt-4 sticky top-0 bg-[rgba(5,8,22,0.98)] backdrop-blur-xl z-10 shadow-[0_2px_8px_rgba(0,0,0,0.3)]">
+                  <div className="p-6 text-center border-t border-b border-border-subtle mt-4 sticky top-0 bg-background backdrop-blur-xl z-10 shadow-soft">
                     <button
                       type="button"
-                      className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-[rgba(15,23,42,1)]"
+                      className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-background-elevated"
                       onClick={() => setShowWaitingForRepeat(true)}
                     >
                       Show {readyCount} word{readyCount !== 1 ? 's' : ''} waiting for repeat
@@ -495,7 +499,7 @@ export default function EditPage() {
                       </h2>
                       <button
                         type="button"
-                        className="bg-transparent border border-border-subtle rounded-lg px-4 py-2 text-sm text-text-soft cursor-pointer transition-all hover:bg-[rgba(15,23,42,0.9)] hover:text-text"
+                        className="bg-transparent border border-border-subtle rounded-lg px-4 py-2 text-sm text-text-soft cursor-pointer transition-all hover:bg-background-elevated hover:text-text"
                         onClick={() => setShowWaitingForRepeat(false)}
                       >
                         Hide
