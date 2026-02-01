@@ -457,7 +457,7 @@ export default function EditPage() {
       header={editHeader}
     >
 
-      <main className="flex flex-col gap-[18px] pb-[18px] flex-1 min-h-0" ref={phrasesRef} aria-live="polite">
+      <main className="block pb-[calc(env(safe-area-inset-bottom,12px)+96px)] flex-1 min-h-0" ref={phrasesRef} aria-live="polite">
         {filteredWords.length === 0 ? (
           <div className="p-8 text-center text-text-soft">
             {currentTab === 'ready' ? 'All caught up!' : 'No words match your current filters.'}

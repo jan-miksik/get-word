@@ -64,7 +64,7 @@ export default function Home() {
   } = useAppState(normalizedWords);
 
   const [showWaitingForRepeat, setShowWaitingForRepeat] = useState(false);
-  const [showNotReady, setShowNotReady] = useState(true);
+  const [showNotReady, setShowNotReady] = useState(false);
   const categories = useMemo(
     () => getAvailableCategories(normalizedWords),
     [normalizedWords]
@@ -227,10 +227,10 @@ export default function Home() {
     };
   }, [currentTab, selectedCategories, showAll, modeIndex, role]);
 
-  // Reset showWaitingForRepeat when switching tabs or filters change
+  // Reset expandable sections when switching tabs or filters change
   useEffect(() => {
     setShowWaitingForRepeat(false);
-    setShowNotReady(true);
+    setShowNotReady(false);
   }, [currentTab, selectedCategories]);
 
   const closeAllPanels = useCallback(() => {
@@ -320,23 +320,24 @@ export default function Home() {
       unknownCount: 0,
     };
     return (
-      <WordCard
-        key={word.id}
-        word={word}
-        progress={prog}
-        role={role}
-        modeIndex={modeIndex}
-        showAll={showAll}
-        memoryHook={getMemoryHook(word.id)}
-        suggestedHook={getSuggestedMemoryHook(word)}
-        onKnown={() => markKnown(word.id)}
-        onReallyKnown={() => markReallyKnown(word.id)}
-        onUnknown={() => markUnknown(word.id)}
-        onMemoryHookChange={(hook) => setMemoryHook(word.id, hook)}
-        isMoved={lastMovedId === word.id}
-        showEnglish={showEnglish}
-        showCategoryBadges={showCategoryBadges}
-      />
+      <div key={word.id} className="pt-1">
+        <WordCard
+          word={word}
+          progress={prog}
+          role={role}
+          modeIndex={modeIndex}
+          showAll={showAll}
+          memoryHook={getMemoryHook(word.id)}
+          suggestedHook={getSuggestedMemoryHook(word)}
+          onKnown={() => markKnown(word.id)}
+          onReallyKnown={() => markReallyKnown(word.id)}
+          onUnknown={() => markUnknown(word.id)}
+          onMemoryHookChange={(hook) => setMemoryHook(word.id, hook)}
+          isMoved={lastMovedId === word.id}
+          showEnglish={showEnglish}
+          showCategoryBadges={showCategoryBadges}
+        />
+      </div>
     );
   }, [progress, role, modeIndex, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges]);
 
@@ -381,87 +382,89 @@ export default function Home() {
       setMemoryHooksOpen={setMemoryHooksOpen}
     >
 
-      <main className="flex flex-col gap-[18px] pb-[18px] flex-1 min-h-0 overflow-y-auto" ref={phrasesRef} aria-live="polite">
-        {filteredWords.length === 0 ? (
-          <div className="p-8 text-center text-text-soft">
-            {currentTab === 'ready' ? 'All caught up!' : 'No words match your current filters.'}
-          </div>
-        ) : currentTab === 'ready' ? (
-          /* Virtualized list for "Ready to repeat" tab - better performance with many cards */
-          <VirtualizedWordList
-            groupedWords={groupedWords}
-            renderCard={renderCard}
-            emptyMessage="All caught up! No words ready for review."
-            scrollElementRef={phrasesRef}
-          />
-        ) : (
-          <>
-            {/* Virtualized list for "All words" tab */}
+      <main className="block pb-[calc(env(safe-area-inset-bottom,12px)+96px)] flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden" ref={phrasesRef} aria-live="polite">
+        <div className="app-content-column flex flex-col gap-[18px] flex-1 min-h-0">
+          {filteredWords.length === 0 ? (
+            <div className="p-8 text-center text-text-soft">
+              {currentTab === 'ready' ? 'All caught up!' : 'No words match your current filters.'}
+            </div>
+          ) : currentTab === 'ready' ? (
+            /* Virtualized list for "Ready to repeat" tab - better performance with many cards */
             <VirtualizedWordList
-              groupedWords={groupedWordsForAll}
+              groupedWords={groupedWords}
               renderCard={renderCard}
+              emptyMessage="All caught up! No words ready for review."
               scrollElementRef={phrasesRef}
-              stageFooter={(stageIndex) => {
-                if (stageIndex !== 0 || notReadyCount === 0) return null;
-                return (
-                  <div className="p-4 px-6 text-center border-t border-border-subtle mt-4">
-                    <button
-                      type="button"
-                      className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-background-elevated"
-                      onClick={() => setShowNotReady(!showNotReady)}
-                    >
-                      {showNotReady ? 'Hide' : 'Show'} {notReadyCount} word{notReadyCount !== 1 ? 's' : ''} settling in before repeat
-                    </button>
-                  </div>
-                );
-              }}
             />
-
-            {/* Words waiting for repeat - hidden by default in "all" tab */}
-            {readyCount > 0 && (
-              <>
-                {!showWaitingForRepeat && (
-                  <div className="p-6 text-center border-t border-b border-border-subtle mt-4 sticky top-0 bg-background backdrop-blur-xl z-10 shadow-soft">
-                    <button
-                      type="button"
-                      className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-background-elevated"
-                      onClick={() => setShowWaitingForRepeat(true)}
-                    >
-                      Show {readyCount} word{readyCount !== 1 ? 's' : ''} waiting for repeat
-                    </button>
-                  </div>
-                )}
-                {showWaitingForRepeat && (
-                  <>
-                    <div className="p-4 px-6 border-t border-border-subtle mt-4 flex justify-between items-center bg-background-elevated">
-                      <h2 className="m-0 text-base font-semibold text-text-soft">
-                        Waiting for repeat ({readyCount})
-                      </h2>
+          ) : (
+            <>
+              {/* Virtualized list for "All words" tab */}
+              <VirtualizedWordList
+                groupedWords={groupedWordsForAll}
+                renderCard={renderCard}
+                scrollElementRef={phrasesRef}
+                stageFooter={(stageIndex) => {
+                  if (stageIndex !== 0 || notReadyCount === 0) return null;
+                  return (
+                    <div className="p-4 px-4 text-center border-t border-border-subtle mt-4">
                       <button
                         type="button"
-                        className="bg-transparent border border-border-subtle rounded-lg px-4 py-2 text-sm text-text-soft cursor-pointer transition-all hover:bg-background-elevated hover:text-text"
-                        onClick={() => setShowWaitingForRepeat(false)}
+                        className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-background-elevated"
+                        onClick={() => setShowNotReady(!showNotReady)}
                       >
-                        Hide
+                        {showNotReady ? 'Hide' : 'Show'} {notReadyCount} word{notReadyCount !== 1 ? 's' : ''} settling in before repeat
                       </button>
                     </div>
-                    {STAGES.map((stage, stageIndex) => {
-                      const items = groupedWordsWaiting[stageIndex];
-                      if (!items.length) return null;
+                  );
+                }}
+              />
 
-                      return (
-                        <section key={`waiting-${stageIndex}`} className="mt-4">
-                          <h2 className="text-[0.7rem] uppercase tracking-[0.12em] text-text-soft m-0 mb-1 mx-0.5 opacity-90">{stage.name}</h2>
-                          {items.map(renderCard)}
-                        </section>
-                      );
-                    })}
-                  </>
-                )}
-              </>
-            )}
-          </>
-        )}
+              {/* Words waiting for repeat - hidden by default in "all" tab */}
+              {readyCount > 0 && (
+                <>
+                  {!showWaitingForRepeat && (
+                    <div className="p-4 text-center border-t border-b border-border-subtle mt-4 sticky top-0 bg-background backdrop-blur-xl z-10 shadow-soft">
+                      <button
+                        type="button"
+                        className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-background-elevated"
+                        onClick={() => setShowWaitingForRepeat(true)}
+                      >
+                        Show {readyCount} word{readyCount !== 1 ? 's' : ''} waiting for repeat
+                      </button>
+                    </div>
+                  )}
+                  {showWaitingForRepeat && (
+                    <>
+                      <div className="p-4 px-4 border-t border-border-subtle mt-4 flex justify-between items-center bg-background-elevated">
+                        <h2 className="m-0 text-base font-semibold text-text-soft">
+                          Waiting for repeat ({readyCount})
+                        </h2>
+                        <button
+                          type="button"
+                          className="bg-transparent border border-border-subtle rounded-lg px-4 py-2 text-sm text-text-soft cursor-pointer transition-all hover:bg-background-elevated hover:text-text"
+                          onClick={() => setShowWaitingForRepeat(false)}
+                        >
+                          Hide
+                        </button>
+                      </div>
+                      {STAGES.map((stage, stageIndex) => {
+                        const items = groupedWordsWaiting[stageIndex];
+                        if (!items.length) return null;
+
+                        return (
+                          <section key={`waiting-${stageIndex}`} className="mt-4">
+                            <h2 className="text-[0.7rem] uppercase tracking-[0.12em] text-text-soft m-0 mb-1 mx-0.5 opacity-90">{stage.name}</h2>
+                            {items.map(renderCard)}
+                          </section>
+                        );
+                      })}
+                    </>
+                  )}
+                </>
+              )}
+            </>
+          )}
+        </div>
       </main>
 
       <BottomNav

@@ -254,7 +254,8 @@ export function useAppState(words: NormalizedWord[]) {
     lastMovedTimeoutRef.current = setTimeout(() => setLastMovedId(null), 1000);
   }, []);
 
-  // Mark word as unknown by its stable ID
+  // Mark word as unknown: regress -1 stage, next repeat uses the regressed stage's interval.
+  // e.g. 1 day -> unknown -> wait 8hr; 3 days -> unknown -> wait 1 day; 7 days -> unknown -> wait 3 days
   const markUnknown = useCallback((wordId: string) => {
     setProgress((prev) => {
       const current = prev[wordId] || {
@@ -262,16 +263,17 @@ export function useAppState(words: NormalizedWord[]) {
         knownCount: 0,
         unknownCount: 0,
       };
-      const prevStage = Math.max(current.stageIndex - 1, 0);
-      const stage = STAGES[prevStage];
+      const regressedStageIndex = Math.max(current.stageIndex - 1, 0);
+      const regressedStage = STAGES[regressedStageIndex];
+      const nextRepeatMs = regressedStage.intervalMs > 0 ? regressedStage.intervalMs : undefined;
       return {
         ...prev,
         [wordId]: {
           ...current,
-          stageIndex: prevStage,
+          stageIndex: regressedStageIndex,
           unknownCount: current.unknownCount + 1,
           lastUnknownAt: Date.now(),
-          nextDueAt: stage.intervalMs > 0 ? Date.now() + stage.intervalMs : undefined,
+          nextDueAt: nextRepeatMs != null ? Date.now() + nextRepeatMs : undefined,
         },
       };
     });

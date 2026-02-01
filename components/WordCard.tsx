@@ -234,7 +234,7 @@ export const WordCard = memo(function WordCard({
       </div>
 
       {/* Memory Hook */}
-      <div className={`mt-2 mb-1 ${editingHook ? 'editing' : ''}`}>
+      <div className={`memory-hook-container mt-2 mb-1 ${editingHook ? 'editing' : ''}`}>
         <div
           ref={hookDisplayRef}
           className={`memory-hook-display cover-target relative cursor-pointer touch-manipulation select-none ${shouldCover('memory-hook') ? 'is-covered' : ''}`}

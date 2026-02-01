@@ -37,20 +37,35 @@ body {
 }
 
 .app {
+  height: 100vh;
   min-height: 100vh;
-  max-width: 720px;
   margin: 0 auto;
   display: flex;
   flex-direction: column;
   gap: 16px;
   position: relative;
-  padding-bottom: 80px;
+  overflow: hidden;
 }
 
 @media (min-width: 768px) {
   .app {
     padding-top: 32px;
   }
+}
+
+/* Main scroll area uses full width of app so scrollbar is at the right edge */
+.app > main {
+  width: 100%;
+  min-width: 0;
+}
+
+/* Centered content column: top menu and cards share this max-width */
+.app-content-column {
+  max-width: 640px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  padding-inline: 16px;
 }
 
 .app-header {
@@ -86,11 +101,17 @@ body {
   align-items: center;
   gap: 8px;
   margin-top: 25px; /* moves the whole top menu down a bit */
+  margin-left: auto;
+  margin-right: auto;
+  max-width: 640px;
+  width: 100%;
+  padding-inline: 16px;
   position: sticky;
   top: 0;
   backdrop-filter: blur(5px);
   z-index: 150;
-  padding: 0.5rem 0;
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
 }
 
 @media (min-width: 768px) {
@@ -503,7 +524,7 @@ body {
   flex-direction: column;
   gap: 4px;
   text-align: center;
-  margin-top: 4px;
+  margin-top: 0;
   position: relative;
 }
 
@@ -662,11 +683,26 @@ body {
   font-style: italic;
 }
 
+.memory-hook-container {
+  position: relative;
+  /* Match input height (padding 6*2 + line ~1.2em + border 2px) to prevent layout shift when editing */
+  min-height: calc(12px + 1.2em + 2px);
+}
+
+.memory-hook-container .memory-hook-display {
+  min-height: inherit;
+}
+
 .memory-hook-container.editing .memory-hook-display {
-  display: none;
+  visibility: hidden;
 }
 
 .memory-hook-input {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
   width: 100%;
   padding: 6px 10px;
   border-radius: var(--radius-pill);
@@ -678,6 +714,7 @@ body {
   font-family: var(--font-sans);
   text-align: center;
   outline: none;
+  box-sizing: border-box;
 }
 
 @media (min-width: 640px) {
@@ -689,6 +726,10 @@ body {
 .memory-hook-input:focus {
   border-color: var(--accent);
   box-shadow: 0 0 0 2px var(--accent-soft);
+}
+
+.memory-hook-container .memory-hook-input {
+  display: none;
 }
 
 .memory-hook-container.editing .memory-hook-input {
@@ -1237,6 +1278,11 @@ html[data-theme="warm"] body {
 [data-theme="warm"] .memory-hook-display:hover {
   background: var(--accent-soft);
 }
+
+/* Warm theme progress summary - use distinct, visible colors */
+[data-theme="warm"] .progress-summary .text-fresh { color: #B45309; }
+[data-theme="warm"] .progress-summary .text-accent { color: #7C3AED; }
+[data-theme="warm"] .progress-summary .text-done { color: #047857; }
 
 /* Warm theme scrollbar */
 [data-theme="warm"] .custom-scrollbar {

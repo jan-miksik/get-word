@@ -4,19 +4,6 @@ import { useRef, useMemo, useState, useEffect, useCallback, ReactNode, RefObject
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { NormalizedWord, STAGES } from '@/lib/words';
 
-/** Show virtualization debug badge when ?virtualDebug=1 in URL (or in development) */
-function useShowVirtualDebug(): boolean {
-  const [show, setShow] = useState(false);
-  useEffect(() => {
-    const isDev = process.env.NODE_ENV === 'development';
-    const fromUrl =
-      typeof window !== 'undefined' &&
-      new URLSearchParams(window.location.search).get('virtualDebug') === '1';
-    setShow(isDev || fromUrl);
-  }, []);
-  return show;
-}
-
 export type Stage = (typeof STAGES)[number];
 
 export type VirtualItem =
@@ -43,6 +30,7 @@ export function VirtualizedWordList({
 }: VirtualizedWordListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeStageIndex, setActiveStageIndex] = useState(0);
+  const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
 
   // Flatten items: headers + cards + optional footers
   const items = useMemo(() => {
@@ -71,14 +59,21 @@ export function VirtualizedWordList({
     }
   }, [groupedWords]);
 
+  // Make the scroll element "reactive" (ref.current changes don't re-render by themselves)
+  useEffect(() => {
+    setScrollEl(scrollElementRef?.current ?? null);
+  }, [scrollElementRef]);
+
+  // When scroll is the parent (main), the sticky header sits above the list; tell the virtualizer so it computes the visible range correctly.
+  const scrollMargin = scrollEl && scrollElementRef ? 56 : 0;
+
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => {
-      // When using parent scroll, use only that element (no fallback to window/document)
-      if (scrollElementRef?.current) return scrollElementRef.current;
-      if (!scrollElementRef) return containerRef.current;
-      return null;
+      // Prefer parent scroll when available; otherwise fall back so we still render.
+      return scrollEl ?? containerRef.current;
     },
+    scrollMargin,
     estimateSize: useCallback((index: number) => {
       const item = items[index];
       // Header height - increased for more spacing between categories
@@ -97,7 +92,7 @@ export function VirtualizedWordList({
       // Account for margin-top: 4px on phrase-card
       return 284;
     }, [items]),
-    overscan: 5,
+    overscan: 15,
     horizontal: false,
   });
 
@@ -117,14 +112,13 @@ export function VirtualizedWordList({
 
   useEffect(() => {
     // When using parent scroll, listen to that element's scroll (not window)
-    const scrollEl = scrollElementRef?.current ?? containerRef.current;
-    if (!scrollEl) return;
-    scrollEl.addEventListener('scroll', updateActiveStage, { passive: true });
-    return () => scrollEl.removeEventListener('scroll', updateActiveStage);
-  }, [updateActiveStage, scrollElementRef]);
+    const el = scrollEl ?? containerRef.current;
+    if (!el) return;
+    el.addEventListener('scroll', updateActiveStage, { passive: true });
+    return () => el.removeEventListener('scroll', updateActiveStage);
+  }, [updateActiveStage, scrollEl]);
 
   const activeStage = STAGES[activeStageIndex];
-  const showVirtualDebug = useShowVirtualDebug();
   const virtualItems = virtualizer.getVirtualItems();
 
   // Total word count
@@ -144,22 +138,16 @@ export function VirtualizedWordList({
     <>
       {/* Sticky header showing current stage - only shown when using parent scroll */}
       {scrollElementRef && (
-        <div className="sticky top-0 z-10 bg-background backdrop-blur-[12px] border-b border-border-subtle py-3 px-6 mb-2">
+        <div className="sticky top-0 z-10 bg-background backdrop-blur-[12px] border-b border-border-subtle py-3 px-4 mb-2">
           <h2 className="m-0 text-base font-semibold text-accent">
             {activeStage?.name || 'Loading...'}
           </h2>
-          {showVirtualDebug && items.length > 0 && (
-            <p className="m-0 mt-1 text-[0.7rem] text-text-soft font-mono" role="status" aria-live="polite">
-              Virtual: rendering <strong>{virtualItems.length}</strong> of <strong>{items.length}</strong> items
-              {virtualItems.length < items.length ? ' ✓' : ''}
-            </p>
-          )}
         </div>
       )}
       <div ref={containerRef} className={`${className} relative w-full`}>
         {/* Virtual list container */}
         <div
-          className="w-full relative"
+          className="w-full relative mb-[15rem]"
           style={{ height: virtualizer.getTotalSize() }}
         >
         {virtualItems.map(virtualRow => {
@@ -177,7 +165,7 @@ export function VirtualizedWordList({
               >
                 {/* Inline header for scroll position tracking - with more spacing */}
                 <h2
-                  className={`text-[0.7rem] uppercase tracking-[0.12em] text-text-soft m-0 mb-1 mx-0.5 opacity-90 py-4 px-6 text-sm ${item.stageIndex > 0 ? 'border-t border-border-subtle' : ''}`}
+                  className={`text-[0.7rem] uppercase tracking-[0.12em] text-text-soft m-0 mb-1 mx-0.5 opacity-90 py-4 px-4 text-sm ${item.stageIndex > 0 ? 'border-t border-border-subtle' : ''}`}
                   style={{ marginTop: item.stageIndex > 0 ? '32px' : '0', paddingTop: item.stageIndex > 0 ? '20px' : '16px' }}
                 >
                   {item.stage.name}
@@ -222,12 +210,6 @@ export function VirtualizedWordList({
         })}
         </div>
       </div>
-      {showVirtualDebug && !scrollElementRef && items.length > 0 && (
-        <p className="mt-2 text-[0.7rem] text-text-soft font-mono" role="status">
-          Virtual: {virtualItems.length} of {items.length} items
-          {virtualItems.length < items.length ? ' ✓' : ''}
-        </p>
-      )}
     </>
   );
 }
