@@ -57,6 +57,7 @@ body {
 .app > main {
   width: 100%;
   min-width: 0;
+  padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 10rem);
 }
 
 /* Centered content column: top menu and cards share this max-width */

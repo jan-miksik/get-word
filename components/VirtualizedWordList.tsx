@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useMemo, useState, useEffect, useCallback, ReactNode, RefObject } from 'react';
+import { useRef, useMemo, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { NormalizedWord, STAGES } from '@/lib/words';
 
@@ -17,7 +17,7 @@ interface VirtualizedWordListProps {
   stageFooter?: (stageIndex: number) => ReactNode | null;
   className?: string;
   emptyMessage?: string;
-  scrollElementRef?: RefObject<HTMLElement | null>;
+  scrollElement?: HTMLElement | null;
 }
 
 export function VirtualizedWordList({
@@ -26,11 +26,11 @@ export function VirtualizedWordList({
   stageFooter,
   className = '',
   emptyMessage = 'No words to display.',
-  scrollElementRef,
+  scrollElement,
 }: VirtualizedWordListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeStageIndex, setActiveStageIndex] = useState(0);
-  const [scrollEl, setScrollEl] = useState<HTMLElement | null>(null);
+  const [scrollEl, setScrollEl] = useState<HTMLElement | null>(scrollElement ?? null);
 
   // Flatten items: headers + cards + optional footers
   const items = useMemo(() => {
@@ -59,13 +59,13 @@ export function VirtualizedWordList({
     }
   }, [groupedWords]);
 
-  // Make the scroll element "reactive" (ref.current changes don't re-render by themselves)
+  // Keep internal scroll element in sync with prop
   useEffect(() => {
-    setScrollEl(scrollElementRef?.current ?? null);
-  }, [scrollElementRef]);
+    setScrollEl(scrollElement ?? null);
+  }, [scrollElement]);
 
   // When scroll is the parent (main), the sticky header sits above the list; tell the virtualizer so it computes the visible range correctly.
-  const scrollMargin = scrollEl && scrollElementRef ? 56 : 0;
+  const scrollMargin = scrollEl ? 56 : 0;
 
   const virtualizer = useVirtualizer({
     count: items.length,
@@ -137,7 +137,7 @@ export function VirtualizedWordList({
   return (
     <>
       {/* Sticky header showing current stage - only shown when using parent scroll */}
-      {scrollElementRef && (
+      {scrollEl && (
         <div className="sticky top-0 z-10 bg-background backdrop-blur-[12px] border-b border-border-subtle py-3 px-4 mb-2">
           <h2 className="m-0 text-base font-semibold text-accent">
             {activeStage?.name || 'Loading...'}
@@ -147,7 +147,7 @@ export function VirtualizedWordList({
       <div ref={containerRef} className={`${className} relative w-full`}>
         {/* Virtual list container */}
         <div
-          className="w-full relative mb-[15rem]"
+          className="w-full relative"
           style={{ height: virtualizer.getTotalSize() }}
         >
         {virtualItems.map(virtualRow => {

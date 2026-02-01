@@ -70,6 +70,11 @@ export default function Home() {
     [normalizedWords]
   );
   const phrasesRef = useRef<HTMLElement>(null);
+  const [phrasesScrollElement, setPhrasesScrollElement] = useState<HTMLElement | null>(null);
+
+  useEffect(() => {
+    setPhrasesScrollElement(phrasesRef.current);
+  }, []);
 
   // Trigger re-render when cards become due for review
   useDueTimer(progress);
@@ -382,7 +387,11 @@ export default function Home() {
       setMemoryHooksOpen={setMemoryHooksOpen}
     >
 
-      <main className="block pb-[calc(env(safe-area-inset-bottom,12px)+96px)] flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden" ref={phrasesRef} aria-live="polite">
+      <main
+        className="block flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden"
+        ref={phrasesRef}
+        aria-live="polite"
+      >
         <div className="app-content-column flex flex-col gap-[18px] flex-1 min-h-0">
           {filteredWords.length === 0 ? (
             <div className="p-8 text-center text-text-soft">
@@ -394,7 +403,7 @@ export default function Home() {
               groupedWords={groupedWords}
               renderCard={renderCard}
               emptyMessage="All caught up! No words ready for review."
-              scrollElementRef={phrasesRef}
+              scrollElement={phrasesScrollElement}
             />
           ) : (
             <>
@@ -402,7 +411,7 @@ export default function Home() {
               <VirtualizedWordList
                 groupedWords={groupedWordsForAll}
                 renderCard={renderCard}
-                scrollElementRef={phrasesRef}
+                scrollElement={phrasesScrollElement}
                 stageFooter={(stageIndex) => {
                   if (stageIndex !== 0 || notReadyCount === 0) return null;
                   return (
