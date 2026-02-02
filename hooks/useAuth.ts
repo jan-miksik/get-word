@@ -19,7 +19,7 @@ export function useAuth() {
   return {
     isConnected,
     address,
-    email: embeddedWalletInfo?.email,
+    email: embeddedWalletInfo?.user?.email,
     signIn,
     signOut,
   }
