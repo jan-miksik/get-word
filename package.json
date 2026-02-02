@@ -17,7 +17,9 @@
     "db:seed": "npx tsx scripts/seed-words.ts",
     "db:migrate-to-supabase": "npx tsx scripts/migrate-to-supabase.ts",
     "db:dump-restore": "bash scripts/dump-and-restore.sh",
-    "db:dump-restore-full": "bash scripts/dump-and-restore-full.sh"
+    "db:dump-restore-full": "bash scripts/dump-and-restore-full.sh",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@reown/appkit": "^1.8.17",
