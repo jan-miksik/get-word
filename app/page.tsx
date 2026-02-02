@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { Word } from '@/data/words';
 import { useAppState } from '@/hooks/useAppState';
 import { useWordsLoader } from '@/hooks/useWordsLoader';
@@ -72,7 +72,8 @@ export default function Home() {
   const phrasesRef = useRef<HTMLElement>(null);
   const [phrasesScrollElement, setPhrasesScrollElement] = useState<HTMLElement | null>(null);
 
-  useEffect(() => {
+  // Set scroll element before paint so VirtualizedWordList uses correct scroll container on first render
+  useLayoutEffect(() => {
     setPhrasesScrollElement(phrasesRef.current);
   }, []);
 
@@ -400,6 +401,8 @@ export default function Home() {
           ) : currentTab === 'ready' ? (
             /* Virtualized list for "Ready to repeat" tab - better performance with many cards */
             <VirtualizedWordList
+              key="ready"
+              dataTab="ready"
               groupedWords={groupedWords}
               renderCard={renderCard}
               emptyMessage="All caught up! No words ready for review."
@@ -409,6 +412,8 @@ export default function Home() {
             <>
               {/* Virtualized list for "All words" tab */}
               <VirtualizedWordList
+                key="all"
+                dataTab="all"
                 groupedWords={groupedWordsForAll}
                 renderCard={renderCard}
                 scrollElement={phrasesScrollElement}

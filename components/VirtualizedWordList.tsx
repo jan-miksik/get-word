@@ -18,6 +18,8 @@ interface VirtualizedWordListProps {
   className?: string;
   emptyMessage?: string;
   scrollElement?: HTMLElement | null;
+  /** For verification: identifies which tab this list serves (e.g. "ready" | "all") */
+  dataTab?: string;
 }
 
 export function VirtualizedWordList({
@@ -27,6 +29,7 @@ export function VirtualizedWordList({
   className = '',
   emptyMessage = 'No words to display.',
   scrollElement,
+  dataTab,
 }: VirtualizedWordListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeStageIndex, setActiveStageIndex] = useState(0);
@@ -128,7 +131,13 @@ export function VirtualizedWordList({
 
   if (totalWords === 0) {
     return (
-      <div className={`${className} p-8 text-center text-text-soft`}>
+      <div
+        className={`${className} p-8 text-center text-text-soft`}
+        data-virtualized="true"
+        data-tab={dataTab}
+        data-total-items={0}
+        data-rendered-items={0}
+      >
         {emptyMessage}
       </div>
     );
@@ -144,7 +153,14 @@ export function VirtualizedWordList({
           </h2>
         </div>
       )}
-      <div ref={containerRef} className={`${className} relative w-full`}>
+      <div
+        ref={containerRef}
+        className={`${className} relative w-full`}
+        data-virtualized="true"
+        data-tab={dataTab}
+        data-total-items={items.length}
+        data-rendered-items={virtualItems.length}
+      >
         {/* Virtual list container */}
         <div
           className="w-full relative"

@@ -403,29 +403,31 @@ export default function EditPage() {
   const progressStats = calculateProgressStats(statsWords, progress, readyCount);
 
   const editHeader = (
-    <div className="py-3 px-4 border-b border-border-subtle bg-background-elevated flex justify-between items-center flex-wrap gap-2">
-      <div className="flex items-center gap-2">
-        <span className="text-sm text-accent font-semibold">✏️ EDIT MODE</span>
-        {saveMessage && (
-          <span className={`text-sm ${saveMessage.includes('Error') ? 'text-danger' : 'text-accent'}`}>
-            {saveMessage}
-          </span>
-        )}
-      </div>
-      <div className="flex gap-2">
-        <button
-          onClick={() => router.push('/')}
-          className="py-1.5 px-3 rounded-full border border-border-subtle bg-transparent text-text cursor-pointer text-xs"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={isSaving}
-          className={`py-1.5 px-3 rounded-full border-none bg-accent text-background text-xs font-medium ${isSaving ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
-        >
-          {isSaving ? 'Saving...' : 'Save'}
-        </button>
+    <div className="py-3 border-b border-border-subtle bg-background-elevated">
+      <div className="app-content-column flex justify-between items-center flex-wrap gap-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-accent font-semibold">✏️ EDIT MODE</span>
+          {saveMessage && (
+            <span className={`text-sm ${saveMessage.includes('Error') ? 'text-danger' : 'text-accent'}`}>
+              {saveMessage}
+            </span>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => router.push('/')}
+            className="py-1.5 px-3 rounded-full border border-border-subtle bg-transparent text-text cursor-pointer text-xs"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={isSaving}
+            className={`py-1.5 px-3 rounded-full border-none bg-accent text-background text-xs font-medium ${isSaving ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
+          >
+            {isSaving ? 'Saving...' : 'Save'}
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -462,59 +464,60 @@ export default function EditPage() {
         ref={phrasesRef}
         aria-live="polite"
       >
-        {filteredWords.length === 0 ? (
-          <div className="p-8 text-center text-text-soft">
-            {currentTab === 'ready' ? 'All caught up!' : 'No words match your current filters.'}
-          </div>
-        ) : (
-          <>
-            {/* Regular words (not waiting for repeat) */}
-            {STAGES.map((stage, stageIndex) => {
-              const items = groupedWords[stageIndex];
-              if (!items.length) return null;
+        <div className="app-content-column flex flex-col gap-[18px] flex-1 min-h-0">
+          {filteredWords.length === 0 ? (
+            <div className="p-8 text-center text-text-soft">
+              {currentTab === 'ready' ? 'All caught up!' : 'No words match your current filters.'}
+            </div>
+          ) : (
+            <>
+              {/* Regular words (not waiting for repeat) */}
+              {STAGES.map((stage, stageIndex) => {
+                const items = groupedWords[stageIndex];
+                if (!items.length) return null;
 
-              return (
-                <section key={stageIndex} className="mt-4">
-                  <h2 className="text-[0.7rem] uppercase tracking-[0.12em] text-text-soft m-0 mb-1 mx-0.5 opacity-90">{stage.name}</h2>
-                  {items.map(renderEditableCard)}
-                </section>
-              );
-            })}
-            
-            {/* Words waiting for repeat - hidden by default in "all" tab */}
-            {currentTab === 'all' && readyCount > 0 && (
-              <>
-                {!showWaitingForRepeat && (
-                  <div className="p-6 text-center border-t border-b border-border-subtle mt-4 sticky top-0 bg-background backdrop-blur-xl z-10 shadow-soft">
-                    <button
-                      type="button"
-                      className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-background-elevated"
-                      onClick={() => setShowWaitingForRepeat(true)}
-                    >
-                      Show {readyCount} word{readyCount !== 1 ? 's' : ''} waiting for repeat
-                    </button>
-                  </div>
-                )}
-                {showWaitingForRepeat && (
-                  <>
-                    <div className="p-4 px-6 border-t border-border-subtle mt-4 flex justify-between items-center bg-background-elevated">
-                      <h2 className="m-0 text-base font-semibold text-text-soft">
-                        Waiting for repeat ({readyCount})
-                      </h2>
+                return (
+                  <section key={stageIndex} className="mt-4 flex flex-col gap-4">
+                    <h2 className="text-[0.7rem] uppercase tracking-[0.12em] text-text-soft m-0 mb-1 mx-0.5 opacity-90">{stage.name}</h2>
+                    {items.map(renderEditableCard)}
+                  </section>
+                );
+              })}
+              
+              {/* Words waiting for repeat - hidden by default in "all" tab */}
+              {currentTab === 'all' && readyCount > 0 && (
+                <>
+                  {!showWaitingForRepeat && (
+                    <div className="p-4 text-center border-t border-b border-border-subtle mt-4 sticky top-0 bg-background backdrop-blur-xl z-10 shadow-soft">
                       <button
                         type="button"
-                        className="bg-transparent border border-border-subtle rounded-lg px-4 py-2 text-sm text-text-soft cursor-pointer transition-all hover:bg-background-elevated hover:text-text"
-                        onClick={() => setShowWaitingForRepeat(false)}
+                        className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-background-elevated"
+                        onClick={() => setShowWaitingForRepeat(true)}
                       >
-                        Hide
+                        Show {readyCount} word{readyCount !== 1 ? 's' : ''} waiting for repeat
                       </button>
                     </div>
+                  )}
+                  {showWaitingForRepeat && (
+                    <>
+                      <div className="p-4 px-4 border-t border-border-subtle mt-4 flex justify-between items-center bg-background-elevated">
+                        <h2 className="m-0 text-base font-semibold text-text-soft">
+                          Waiting for repeat ({readyCount})
+                        </h2>
+                        <button
+                          type="button"
+                          className="bg-transparent border border-border-subtle rounded-lg px-4 py-2 text-sm text-text-soft cursor-pointer transition-all hover:bg-background-elevated hover:text-text"
+                          onClick={() => setShowWaitingForRepeat(false)}
+                        >
+                          Hide
+                        </button>
+                      </div>
                     {STAGES.map((stage, stageIndex) => {
                       const items = groupedWordsWaiting[stageIndex];
                       if (!items.length) return null;
 
                       return (
-                        <section key={`waiting-${stageIndex}`} className="mt-4">
+                        <section key={`waiting-${stageIndex}`} className="mt-4 flex flex-col gap-4">
                           <h2 className="text-[0.7rem] uppercase tracking-[0.12em] text-text-soft m-0 mb-1 mx-0.5 opacity-90">{stage.name}</h2>
                           {items.map(renderEditableCard)}
                         </section>
@@ -526,6 +529,7 @@ export default function EditPage() {
             )}
           </>
         )}
+        </div>
       </main>
 
       <BottomNav

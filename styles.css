@@ -329,7 +329,11 @@ body {
   display: block;
   position: fixed;
   top: 60px;
-  /* right: 14px; */
+  right: 14px;
+  left: 14px;
+  max-width: 500px;
+  margin-left: auto;
+  margin-right: auto;
   z-index: 150;
 }
 
