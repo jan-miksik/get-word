@@ -40,6 +40,11 @@ interface AppLayoutProps {
   onToggleCategory: (category: string) => void;
   // ProgressPanel props
   progressStats: ProgressStats;
+  // Auth props
+  isAuthenticated?: boolean;
+  authEmail?: string;
+  authAddress?: string;
+  onSignOut?: () => void;
   // Panel states
   settingsOpen: boolean;
   setSettingsOpen: (open: boolean) => void;
@@ -66,6 +71,10 @@ export function AppLayout({
   theme,
   onThemeChange,
   userId,
+  isAuthenticated,
+  authEmail,
+  authAddress,
+  onSignOut,
   categories,
   selectedCategories,
   onToggleCategory,
@@ -85,8 +94,8 @@ export function AppLayout({
     <div className="app">
       {header}
       <TopMenu {...topMenuHandlers} />
-      <SettingsPanel 
-        role={role} 
+      <SettingsPanel
+        role={role}
         onRoleChange={onRoleChange}
         showEnglish={showEnglish}
         onShowEnglishChange={onShowEnglishChange}
@@ -94,9 +103,13 @@ export function AppLayout({
         onShowCategoryBadgesChange={onShowCategoryBadgesChange}
         theme={theme}
         onThemeChange={onThemeChange}
-        isOpen={settingsOpen} 
+        isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         userId={userId}
+        isAuthenticated={isAuthenticated}
+        authEmail={authEmail}
+        authAddress={authAddress}
+        onSignOut={onSignOut}
       />
       <CategoryPanel
         isOpen={categoryOpen}

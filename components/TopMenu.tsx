@@ -1,6 +1,7 @@
 'use client';
 
 import { MouseEvent } from 'react';
+import { AuthButton } from '@/components/AuthButton';
 
 interface TopMenuProps {
   onSwitch: (e: MouseEvent) => void;
@@ -67,6 +68,7 @@ export function TopMenu({
         >
           ℹ️
         </button>
+        <AuthButton />
         <button className="mode-btn settings-btn" onClick={onSettings} type="button">
           Settings
         </button>
