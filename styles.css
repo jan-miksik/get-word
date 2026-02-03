@@ -1553,8 +1553,8 @@ html[data-theme="calm"] body {
 }
 
 .auth-button:hover {
-  background: var(--bg-elevated);
   border-color: var(--accent);
+  opacity: 0.85;
 }
 
 .auth-button.is-connected {

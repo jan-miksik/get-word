@@ -21,6 +21,13 @@ interface LinkWalletRequest {
   walletAddress: string
 }
 
+// Trust model: The client provides a wallet address obtained from Reown's
+// embedded wallet infrastructure (email/social login creates a non-custodial
+// wallet). The server trusts that the client controls the wallet address it
+// provides. Device IDs are UUIDs (hard to guess). For a language learning
+// app this is an acceptable trust level. For higher-stakes data, consider
+// server-side wallet ownership verification (e.g., SIWE).
+
 export async function POST(request: NextRequest) {
   try {
     const body: LinkWalletRequest = await request.json()
@@ -92,6 +99,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Case 2: Wallet already linked to another user - merge data
+    // Fetch all data from both users
     const [sourceProgress, targetProgress, sourceHooksRaw, targetHooksRaw, sourceFilters, targetFilters] =
       await Promise.all([
         getUserProgress(currentUser.id),
@@ -102,64 +110,57 @@ export async function POST(request: NextRequest) {
         getUserCategoryFilters(existingWalletUser.id),
       ])
 
-    // Convert full UserProgress records to ProgressMergeItem format
-    const toMergeItems = (progressMap: Record<string, { stageIndex: number; knownCount: number; unknownCount: number; lastKnownAt: Date | null; lastUnknownAt: Date | null; nextDueAt: Date | null }>) => {
-      const result: Record<string, { stageIndex: number; knownCount: number; unknownCount: number; lastKnownAt: Date | null; lastUnknownAt: Date | null; nextDueAt: Date | null }> = {}
-      for (const [wordId, item] of Object.entries(progressMap)) {
-        result[wordId] = {
-          stageIndex: item.stageIndex,
-          knownCount: item.knownCount,
-          unknownCount: item.unknownCount,
-          lastKnownAt: item.lastKnownAt,
-          lastUnknownAt: item.lastUnknownAt,
-          nextDueAt: item.nextDueAt,
-        }
-      }
-      return result
-    }
-
     const merged = mergeUserData({
-      sourceProgress: toMergeItems(sourceProgress),
-      targetProgress: toMergeItems(targetProgress),
+      sourceProgress,
+      targetProgress,
       sourceHooks: sourceHooksRaw,
       targetHooks: targetHooksRaw,
       sourceFilters,
       targetFilters,
     })
 
-    // Apply merged progress to target user
-    const progressToUpsert = Object.entries(merged.mergedProgress).map(
-      ([wordId, item]) => ({
-        userId: existingWalletUser.id,
-        wordId,
-        stageIndex: item.stageIndex,
-        knownCount: item.knownCount,
-        unknownCount: item.unknownCount,
-        lastKnownAt: item.lastKnownAt,
-        lastUnknownAt: item.lastUnknownAt,
-        nextDueAt: item.nextDueAt,
-      })
-    )
-    if (progressToUpsert.length > 0) {
-      await batchUpsertProgress(progressToUpsert)
-    }
+    // Apply all merge operations in a transaction for data consistency
+    await db.transaction(async (tx) => {
+      // Apply merged progress to target user
+      const progressToUpsert = Object.entries(merged.mergedProgress).map(
+        ([wordId, item]) => ({
+          userId: existingWalletUser.id,
+          wordId,
+          stageIndex: item.stageIndex,
+          knownCount: item.knownCount,
+          unknownCount: item.unknownCount,
+          lastKnownAt: item.lastKnownAt,
+          lastUnknownAt: item.lastUnknownAt,
+          nextDueAt: item.nextDueAt,
+        })
+      )
+      if (progressToUpsert.length > 0) {
+        await batchUpsertProgress(progressToUpsert)
+      }
 
-    // Apply merged hooks
-    if (Object.keys(merged.mergedHooks).length > 0) {
-      await batchUpsertMemoryHooks(existingWalletUser.id, merged.mergedHooks)
-    }
+      // Apply merged hooks
+      if (Object.keys(merged.mergedHooks).length > 0) {
+        await batchUpsertMemoryHooks(existingWalletUser.id, merged.mergedHooks)
+      }
 
-    // Apply merged filters
-    await setUserCategoryFilters(existingWalletUser.id, merged.mergedFilters)
+      // Apply merged filters
+      await setUserCategoryFilters(existingWalletUser.id, merged.mergedFilters)
 
-    // Update target user's device_id to current device
-    await db
-      .update(users)
-      .set({ deviceId, updatedAt: new Date() })
-      .where(eq(users.id, existingWalletUser.id))
+      // Preserve the current device's role (the user is actively using this setting)
+      await tx
+        .update(users)
+        .set({
+          deviceId,
+          role: currentUser.role,
+          showEnglish: currentUser.showEnglish,
+          showCategoryBadges: currentUser.showCategoryBadges,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, existingWalletUser.id))
 
-    // Delete the source (anonymous) user - cascade will clean up related data
-    await deleteUser(currentUser.id)
+      // Delete the source (anonymous) user - cascade will clean up related data
+      await deleteUser(currentUser.id)
+    })
 
     // Return merged data
     const [finalProgress, finalHooks, finalFilters] = await Promise.all([
@@ -173,9 +174,9 @@ export async function POST(request: NextRequest) {
       merged: true,
       user: {
         id: existingWalletUser.id,
-        role: existingWalletUser.role,
-        show_english: existingWalletUser.showEnglish ?? true,
-        show_category_badges: existingWalletUser.showCategoryBadges ?? false,
+        role: currentUser.role,
+        show_english: currentUser.showEnglish ?? true,
+        show_category_badges: currentUser.showCategoryBadges ?? false,
       },
       progress: finalProgress,
       memory_hooks: finalHooks,

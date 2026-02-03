@@ -29,6 +29,13 @@ vi.mock('@/lib/db', () => ({
   setUserCategoryFilters: (...args: unknown[]) => mockSetUserCategoryFilters(...args),
   db: {
     update: (...args: unknown[]) => mockDbUpdate(...args),
+    transaction: async (fn: (tx: unknown) => Promise<void>) => {
+      // Execute the callback with a mock tx that has update().set().where()
+      const mockTx = {
+        update: (...args: unknown[]) => mockDbUpdate(...args),
+      }
+      await fn(mockTx)
+    },
   },
   users: {},
 }))

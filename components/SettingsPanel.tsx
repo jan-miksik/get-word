@@ -133,7 +133,7 @@ export function SettingsPanel({
 
         {/* Account Section */}
         <div className="mt-6 pt-6 border-t border-border-subtle">
-          <p className="m-0 mb-1 text-[0.78rem] text-text-soft mb-2">Account</p>
+          <p className="m-0 text-[0.78rem] text-text-soft mb-2">Account</p>
           {isAuthenticated ? (
             <div className="flex flex-col gap-2">
               <code className="block text-xs text-text-soft break-all font-mono">

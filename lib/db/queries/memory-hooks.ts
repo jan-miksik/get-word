@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, sql } from "drizzle-orm";
 import { db } from "../client";
 import {
   userMemoryHooks,
@@ -102,7 +102,7 @@ export async function batchUpsertMemoryHooks(
       .onConflictDoUpdate({
         target: [userMemoryHooks.userId, userMemoryHooks.wordId],
         set: {
-          hookText: userMemoryHooks.hookText,
+          hookText: sql`excluded.hook_text`,
           updatedAt: new Date(),
         },
       });

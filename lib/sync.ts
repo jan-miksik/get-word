@@ -105,6 +105,9 @@ export async function linkWallet(walletAddress: string): Promise<SyncResponse> {
   }
 
   const result = await response.json();
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to link wallet: Unknown error');
+  }
   if (result.user?.id) lastKnownUserId = result.user.id;
   return result;
 }
