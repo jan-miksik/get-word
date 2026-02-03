@@ -13,7 +13,7 @@ const mockGetUserCategoryFilters = vi.fn()
 const mockBatchUpsertProgress = vi.fn()
 const mockBatchUpsertMemoryHooks = vi.fn()
 const mockSetUserCategoryFilters = vi.fn()
-const mockDbUpdate = vi.fn()
+const mockUpdateUserFields = vi.fn()
 
 vi.mock('@/lib/db', () => ({
   getUserByDeviceId: (...args: unknown[]) => mockGetUserByDeviceId(...args),
@@ -27,31 +27,13 @@ vi.mock('@/lib/db', () => ({
   batchUpsertProgress: (...args: unknown[]) => mockBatchUpsertProgress(...args),
   batchUpsertMemoryHooks: (...args: unknown[]) => mockBatchUpsertMemoryHooks(...args),
   setUserCategoryFilters: (...args: unknown[]) => mockSetUserCategoryFilters(...args),
-  db: {
-    update: (...args: unknown[]) => mockDbUpdate(...args),
-    transaction: async (fn: (tx: unknown) => Promise<void>) => {
-      // Execute the callback with a mock tx that has update().set().where()
-      const mockTx = {
-        update: (...args: unknown[]) => mockDbUpdate(...args),
-      }
-      await fn(mockTx)
-    },
-  },
-  users: {},
+  updateUserFields: (...args: unknown[]) => mockUpdateUserFields(...args),
 }))
-
-vi.mock('drizzle-orm', () => ({
-  eq: vi.fn(),
-}))
-
-// Chain mock for db.update().set().where()
-mockDbUpdate.mockReturnValue({
-  set: vi.fn().mockReturnValue({
-    where: vi.fn().mockResolvedValue(undefined),
-  }),
-})
 
 import { POST } from '../../auth/link-wallet/route'
+
+// Valid Ethereum address for tests
+const VALID_WALLET = '0x1234567890abcdef1234567890abcdef12345678'
 
 function makeRequest(body: Record<string, unknown>) {
   return new NextRequest('http://localhost:3000/api/auth/link-wallet', {
@@ -67,15 +49,11 @@ describe('POST /api/auth/link-wallet', () => {
     mockGetUserProgress.mockResolvedValue({})
     mockGetUserMemoryHooks.mockResolvedValue({})
     mockGetUserCategoryFilters.mockResolvedValue([])
-    mockDbUpdate.mockReturnValue({
-      set: vi.fn().mockReturnValue({
-        where: vi.fn().mockResolvedValue(undefined),
-      }),
-    })
+    mockUpdateUserFields.mockResolvedValue(null)
   })
 
   it('returns 400 if deviceId missing', async () => {
-    const res = await POST(makeRequest({ walletAddress: '0xABC' }))
+    const res = await POST(makeRequest({ walletAddress: VALID_WALLET }))
     const data = await res.json()
     expect(res.status).toBe(400)
     expect(data.success).toBe(false)
@@ -88,9 +66,17 @@ describe('POST /api/auth/link-wallet', () => {
     expect(data.success).toBe(false)
   })
 
+  it('returns 400 if walletAddress format is invalid', async () => {
+    mockGetUserByDeviceId.mockResolvedValue({ id: 'uuid-A' })
+    const res = await POST(makeRequest({ deviceId: 'dev-123', walletAddress: 'not-a-wallet' }))
+    const data = await res.json()
+    expect(res.status).toBe(400)
+    expect(data.error).toMatch(/Invalid wallet address/)
+  })
+
   it('returns 404 if device has no user', async () => {
     mockGetUserByDeviceId.mockResolvedValue(null)
-    const res = await POST(makeRequest({ deviceId: 'dev-123', walletAddress: '0xABC' }))
+    const res = await POST(makeRequest({ deviceId: 'dev-123', walletAddress: VALID_WALLET }))
     const data = await res.json()
     expect(res.status).toBe(404)
     expect(data.success).toBe(false)
@@ -100,22 +86,22 @@ describe('POST /api/auth/link-wallet', () => {
     const user = { id: 'uuid-A', deviceId: 'dev-123', walletAddress: null, role: 'vi', showEnglish: true, showCategoryBadges: false }
     mockGetUserByDeviceId.mockResolvedValue(user)
     mockGetUserByWalletAddress.mockResolvedValue(null)
-    mockLinkWalletToUser.mockResolvedValue({ ...user, walletAddress: '0xABC' })
+    mockLinkWalletToUser.mockResolvedValue({ ...user, walletAddress: VALID_WALLET })
 
-    const res = await POST(makeRequest({ deviceId: 'dev-123', walletAddress: '0xABC' }))
+    const res = await POST(makeRequest({ deviceId: 'dev-123', walletAddress: VALID_WALLET }))
     const data = await res.json()
 
     expect(res.status).toBe(200)
     expect(data.success).toBe(true)
     expect(data.user.id).toBe('uuid-A')
-    expect(mockLinkWalletToUser).toHaveBeenCalledWith('uuid-A', '0xABC')
+    expect(mockLinkWalletToUser).toHaveBeenCalledWith('uuid-A', VALID_WALLET)
   })
 
   it('idempotent: returns data if wallet already linked to same user', async () => {
-    const user = { id: 'uuid-A', deviceId: 'dev-123', walletAddress: '0xABC', role: 'vi', showEnglish: true, showCategoryBadges: false }
+    const user = { id: 'uuid-A', deviceId: 'dev-123', walletAddress: VALID_WALLET, role: 'vi', showEnglish: true, showCategoryBadges: false }
     mockGetUserByDeviceId.mockResolvedValue(user)
 
-    const res = await POST(makeRequest({ deviceId: 'dev-123', walletAddress: '0xABC' }))
+    const res = await POST(makeRequest({ deviceId: 'dev-123', walletAddress: VALID_WALLET }))
     const data = await res.json()
 
     expect(res.status).toBe(200)
@@ -125,7 +111,7 @@ describe('POST /api/auth/link-wallet', () => {
 
   it('merge: merges users when wallet belongs to different user', async () => {
     const currentUser = { id: 'uuid-A', deviceId: 'dev-123', walletAddress: null, role: 'vi', showEnglish: true, showCategoryBadges: false }
-    const existingUser = { id: 'uuid-B', deviceId: 'dev-456', walletAddress: '0xABC', role: 'cz', showEnglish: false, showCategoryBadges: true }
+    const existingUser = { id: 'uuid-B', deviceId: 'dev-456', walletAddress: VALID_WALLET, role: 'cz', showEnglish: false, showCategoryBadges: true }
 
     mockGetUserByDeviceId.mockResolvedValue(currentUser)
     mockGetUserByWalletAddress.mockResolvedValue(existingUser)
@@ -135,7 +121,7 @@ describe('POST /api/auth/link-wallet', () => {
       mergedFilters: [],
     })
 
-    const res = await POST(makeRequest({ deviceId: 'dev-123', walletAddress: '0xABC' }))
+    const res = await POST(makeRequest({ deviceId: 'dev-123', walletAddress: VALID_WALLET }))
     const data = await res.json()
 
     expect(res.status).toBe(200)
@@ -143,6 +129,27 @@ describe('POST /api/auth/link-wallet', () => {
     expect(data.merged).toBe(true)
     expect(data.user.id).toBe('uuid-B')
     expect(mockDeleteUser).toHaveBeenCalledWith('uuid-A')
-    expect(mockMergeUserData).toHaveBeenCalled()
+    expect(mockMergeUserData).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceProgress: expect.any(Object),
+        targetProgress: expect.any(Object),
+        sourceHooks: expect.any(Object),
+        targetHooks: expect.any(Object),
+      })
+    )
+    expect(mockUpdateUserFields).toHaveBeenCalledWith('uuid-B', expect.objectContaining({
+      deviceId: 'dev-123',
+      role: 'vi',
+    }))
+  })
+
+  it('returns 500 if body is malformed JSON', async () => {
+    const req = new NextRequest('http://localhost:3000/api/auth/link-wallet', {
+      method: 'POST',
+      body: 'not json',
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(500)
   })
 })

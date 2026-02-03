@@ -3,7 +3,15 @@
 import { useCallback } from 'react'
 import { useAppKit, useAppKitAccount, useDisconnect } from '@reown/appkit/react'
 
-export function useAuth() {
+interface UseAuthReturn {
+  isConnected: boolean
+  address: string | undefined
+  email: string | undefined
+  signIn: () => void
+  signOut: () => void
+}
+
+export function useAuth(): UseAuthReturn {
   const { open } = useAppKit()
   const { isConnected, address, embeddedWalletInfo } = useAppKitAccount()
   const { disconnect } = useDisconnect()
@@ -19,7 +27,7 @@ export function useAuth() {
   return {
     isConnected,
     address,
-    email: embeddedWalletInfo?.user?.email,
+    email: embeddedWalletInfo?.user?.email ?? undefined,
     signIn,
     signOut,
   }

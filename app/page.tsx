@@ -377,7 +377,7 @@ export default function Home() {
       onThemeChange={setTheme}
       userId={userId}
       isAuthenticated={isConnected}
-      authEmail={email ?? undefined}
+      authEmail={email}
       authAddress={walletAddress}
       onSignOut={signOut}
       categories={categories}

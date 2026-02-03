@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import type { ProgressData } from '@/lib/sync';
+import type { ProgressData, SyncResponse } from '@/lib/sync';
 import { NormalizedWord, STAGES, isDue, matchesCategoryFilter } from '@/lib/words';
 import { fetchUserData, debouncedSync, linkWallet } from '@/lib/sync';
 
@@ -35,6 +35,30 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
   const isHydratedRef = useRef(false);
   const hasLinkedRef = useRef(false);
 
+  // Apply server data to local state (shared between initial hydration and wallet-link)
+  function applyServerData(serverData: SyncResponse) {
+    if (serverData.progress && Object.keys(serverData.progress).length > 0) {
+      const next: Record<string, ProgressData> = {};
+      for (const [wordId, p] of Object.entries(serverData.progress)) {
+        next[wordId] = {
+          stageIndex: p.stageIndex,
+          knownCount: p.knownCount,
+          unknownCount: p.unknownCount,
+          lastKnownAt: p.lastKnownAt ? new Date(p.lastKnownAt).getTime() : undefined,
+          lastUnknownAt: p.lastUnknownAt ? new Date(p.lastUnknownAt).getTime() : undefined,
+          nextDueAt: p.nextDueAt ? new Date(p.nextDueAt).getTime() : undefined,
+        };
+      }
+      setProgress(next);
+    }
+    if (serverData.memory_hooks) setMemoryHooks(serverData.memory_hooks);
+    if (serverData.category_filters) setSelectedCategories(new Set(serverData.category_filters));
+    if (serverData.user?.id) setUserId(serverData.user.id);
+    if (serverData.user?.role) setRole(serverData.user.role);
+    setShowEnglish(serverData.user?.show_english ?? true);
+    setShowCategoryBadges(serverData.user?.show_category_badges ?? false);
+  }
+
   // Load from DB only (no localStorage). Run once when we have words.
   useEffect(() => {
     if (hasLoadedRef.current || words.length === 0) return;
@@ -55,31 +79,7 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
       .then((serverData) => {
         clearTimeout(timeoutId);
         isUpdatingFromServerRef.current = true;
-
-        if (serverData.progress && Object.keys(serverData.progress).length > 0) {
-          const next: Record<string, ProgressData> = {};
-          for (const [wordId, p] of Object.entries(serverData.progress)) {
-            next[wordId] = {
-              stageIndex: p.stageIndex,
-              knownCount: p.knownCount,
-              unknownCount: p.unknownCount,
-              lastKnownAt: p.lastKnownAt ? new Date(p.lastKnownAt).getTime() : undefined,
-              lastUnknownAt: p.lastUnknownAt ? new Date(p.lastUnknownAt).getTime() : undefined,
-              nextDueAt: p.nextDueAt ? new Date(p.nextDueAt).getTime() : undefined,
-            };
-          }
-          setProgress(next);
-        }
-        if (serverData.memory_hooks && Object.keys(serverData.memory_hooks).length > 0) {
-          setMemoryHooks(serverData.memory_hooks);
-        }
-        if (serverData.category_filters && serverData.category_filters.length > 0) {
-          setSelectedCategories(new Set(serverData.category_filters));
-        }
-        if (serverData.user?.role) setRole(serverData.user.role);
-        setShowEnglish(serverData.user?.show_english ?? true);
-        setShowCategoryBadges(serverData.user?.show_category_badges ?? false);
-        if (serverData.user?.id) setUserId(serverData.user.id);
+        applyServerData(serverData);
 
         isHydratedRef.current = true;
         setIsHydrated(true);
@@ -157,25 +157,7 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
     linkWallet(walletAddress)
       .then((serverData) => {
         isUpdatingFromServerRef.current = true;
-
-        if (serverData.progress && Object.keys(serverData.progress).length > 0) {
-          const next: Record<string, ProgressData> = {};
-          for (const [wordId, p] of Object.entries(serverData.progress)) {
-            next[wordId] = {
-              stageIndex: p.stageIndex,
-              knownCount: p.knownCount,
-              unknownCount: p.unknownCount,
-              lastKnownAt: p.lastKnownAt ? new Date(p.lastKnownAt).getTime() : undefined,
-              lastUnknownAt: p.lastUnknownAt ? new Date(p.lastUnknownAt).getTime() : undefined,
-              nextDueAt: p.nextDueAt ? new Date(p.nextDueAt).getTime() : undefined,
-            };
-          }
-          setProgress(next);
-        }
-        if (serverData.memory_hooks) setMemoryHooks(serverData.memory_hooks);
-        if (serverData.category_filters) setSelectedCategories(new Set(serverData.category_filters));
-        if (serverData.user?.id) setUserId(serverData.user.id);
-        if (serverData.user?.role) setRole(serverData.user.role);
+        applyServerData(serverData);
 
         requestAnimationFrame(() => {
           isUpdatingFromServerRef.current = false;

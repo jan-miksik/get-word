@@ -1,4 +1,4 @@
-import { eq, or } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "../client";
 import { users, type User, type NewUser } from "../schema";
 
@@ -168,6 +168,19 @@ export function mergeUserData(input: MergeInput): MergeResult {
   const mergedFilters = [...new Set([...targetFilters, ...sourceFilters])]
 
   return { mergedProgress, mergedHooks, mergedFilters }
+}
+
+// Update arbitrary user fields
+export async function updateUserFields(
+  userId: string,
+  fields: Partial<Omit<User, 'id' | 'createdAt'>>
+): Promise<User | null> {
+  const results = await db
+    .update(users)
+    .set({ ...fields, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning();
+  return results[0] || null;
 }
 
 // Delete user

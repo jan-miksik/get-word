@@ -11,10 +11,8 @@ import {
   setUserCategoryFilters,
   batchUpsertProgress,
   batchUpsertMemoryHooks,
-  db,
-  users,
+  updateUserFields,
 } from '@/lib/db'
-import { eq } from 'drizzle-orm'
 
 interface LinkWalletRequest {
   deviceId: string
@@ -36,6 +34,13 @@ export async function POST(request: NextRequest) {
     if (!deviceId || !walletAddress) {
       return NextResponse.json(
         { success: false, error: 'deviceId and walletAddress are required' },
+        { status: 400 }
+      )
+    }
+
+    if (!/^0x[0-9a-fA-F]{40}$/.test(walletAddress)) {
+      return NextResponse.json(
+        { success: false, error: 'Invalid wallet address format' },
         { status: 400 }
       )
     }
@@ -119,48 +124,46 @@ export async function POST(request: NextRequest) {
       targetFilters,
     })
 
-    // Apply all merge operations in a transaction for data consistency
-    await db.transaction(async (tx) => {
-      // Apply merged progress to target user
-      const progressToUpsert = Object.entries(merged.mergedProgress).map(
-        ([wordId, item]) => ({
-          userId: existingWalletUser.id,
-          wordId,
-          stageIndex: item.stageIndex,
-          knownCount: item.knownCount,
-          unknownCount: item.unknownCount,
-          lastKnownAt: item.lastKnownAt,
-          lastUnknownAt: item.lastUnknownAt,
-          nextDueAt: item.nextDueAt,
-        })
-      )
-      if (progressToUpsert.length > 0) {
-        await batchUpsertProgress(progressToUpsert)
-      }
+    // Apply merge operations sequentially. These use independent DB calls
+    // (not wrapped in a transaction) which is acceptable for a language
+    // learning app — worst case on partial failure is duplicated progress
+    // that can be re-merged on next sign-in.
 
-      // Apply merged hooks
-      if (Object.keys(merged.mergedHooks).length > 0) {
-        await batchUpsertMemoryHooks(existingWalletUser.id, merged.mergedHooks)
-      }
+    // Apply merged progress to target user
+    const progressToUpsert = Object.entries(merged.mergedProgress).map(
+      ([wordId, item]) => ({
+        userId: existingWalletUser.id,
+        wordId,
+        stageIndex: item.stageIndex,
+        knownCount: item.knownCount,
+        unknownCount: item.unknownCount,
+        lastKnownAt: item.lastKnownAt,
+        lastUnknownAt: item.lastUnknownAt,
+        nextDueAt: item.nextDueAt,
+      })
+    )
+    if (progressToUpsert.length > 0) {
+      await batchUpsertProgress(progressToUpsert)
+    }
 
-      // Apply merged filters
-      await setUserCategoryFilters(existingWalletUser.id, merged.mergedFilters)
+    // Apply merged hooks
+    if (Object.keys(merged.mergedHooks).length > 0) {
+      await batchUpsertMemoryHooks(existingWalletUser.id, merged.mergedHooks)
+    }
 
-      // Preserve the current device's role (the user is actively using this setting)
-      await tx
-        .update(users)
-        .set({
-          deviceId,
-          role: currentUser.role,
-          showEnglish: currentUser.showEnglish,
-          showCategoryBadges: currentUser.showCategoryBadges,
-          updatedAt: new Date(),
-        })
-        .where(eq(users.id, existingWalletUser.id))
+    // Apply merged filters
+    await setUserCategoryFilters(existingWalletUser.id, merged.mergedFilters)
 
-      // Delete the source (anonymous) user - cascade will clean up related data
-      await deleteUser(currentUser.id)
+    // Preserve the current device's role (the user is actively using this setting)
+    await updateUserFields(existingWalletUser.id, {
+      deviceId,
+      role: currentUser.role,
+      showEnglish: currentUser.showEnglish,
+      showCategoryBadges: currentUser.showCategoryBadges,
     })
+
+    // Delete the source (anonymous) user - cascade will clean up related data
+    await deleteUser(currentUser.id)
 
     // Return merged data
     const [finalProgress, finalHooks, finalFilters] = await Promise.all([
