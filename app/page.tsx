@@ -63,7 +63,7 @@ export default function Home() {
     lastMovedId,
     userId,
     isHydrated,
-  } = useAppState(normalizedWords);
+  } = useAppState(normalizedWords, walletAddress);
 
   const [showWaitingForRepeat, setShowWaitingForRepeat] = useState(false);
   const [showNotReady, setShowNotReady] = useState(false);

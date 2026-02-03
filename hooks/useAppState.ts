@@ -4,13 +4,13 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { ProgressData } from '@/lib/sync';
 import { NormalizedWord, STAGES, isDue, matchesCategoryFilter } from '@/lib/words';
-import { fetchUserData, debouncedSync } from '@/lib/sync';
+import { fetchUserData, debouncedSync, linkWallet } from '@/lib/sync';
 
 export type Role = 'cz' | 'vi';
 export type Tab = 'all' | 'ready';
 export type Theme = 'default' | 'warm' | 'calm';
 
-export function useAppState(words: NormalizedWord[]) {
+export function useAppState(words: NormalizedWord[], walletAddress?: string | undefined) {
   // Defaults; overwritten by fetchUserData (DB-only, no localStorage)
   const [role, setRole] = useState<Role>('vi');
   const [modeIndex, setModeIndex] = useState(0); // 0 or 1 depending on role
@@ -33,6 +33,7 @@ export function useAppState(words: NormalizedWord[]) {
   const hasLoadedRef = useRef(false);
   const isUpdatingFromServerRef = useRef(false);
   const isHydratedRef = useRef(false);
+  const hasLinkedRef = useRef(false);
 
   // Load from DB only (no localStorage). Run once when we have words.
   useEffect(() => {
@@ -147,6 +148,51 @@ export function useAppState(words: NormalizedWord[]) {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
     debouncedSync({ show_category_badges: showCategoryBadges }).catch((e) => console.error('[useAppState] Sync show_category_badges:', e));
   }, [showCategoryBadges, isHydrated]);
+
+  // Link wallet when user connects
+  useEffect(() => {
+    if (!isHydrated || !walletAddress || hasLinkedRef.current) return;
+    hasLinkedRef.current = true;
+
+    linkWallet(walletAddress)
+      .then((serverData) => {
+        isUpdatingFromServerRef.current = true;
+
+        if (serverData.progress && Object.keys(serverData.progress).length > 0) {
+          const next: Record<string, ProgressData> = {};
+          for (const [wordId, p] of Object.entries(serverData.progress)) {
+            next[wordId] = {
+              stageIndex: p.stageIndex,
+              knownCount: p.knownCount,
+              unknownCount: p.unknownCount,
+              lastKnownAt: p.lastKnownAt ? new Date(p.lastKnownAt).getTime() : undefined,
+              lastUnknownAt: p.lastUnknownAt ? new Date(p.lastUnknownAt).getTime() : undefined,
+              nextDueAt: p.nextDueAt ? new Date(p.nextDueAt).getTime() : undefined,
+            };
+          }
+          setProgress(next);
+        }
+        if (serverData.memory_hooks) setMemoryHooks(serverData.memory_hooks);
+        if (serverData.category_filters) setSelectedCategories(new Set(serverData.category_filters));
+        if (serverData.user?.id) setUserId(serverData.user.id);
+        if (serverData.user?.role) setRole(serverData.user.role);
+
+        requestAnimationFrame(() => {
+          isUpdatingFromServerRef.current = false;
+        });
+      })
+      .catch((err) => {
+        console.error('[useAppState] Failed to link wallet:', err);
+        hasLinkedRef.current = false; // Allow retry
+      });
+  }, [isHydrated, walletAddress]);
+
+  // Reset linked state when wallet disconnects
+  useEffect(() => {
+    if (!walletAddress) {
+      hasLinkedRef.current = false;
+    }
+  }, [walletAddress]);
 
   // Cleanup timeout on unmount
   useEffect(() => {

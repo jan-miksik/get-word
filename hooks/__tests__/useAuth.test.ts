@@ -5,7 +5,7 @@ const mockOpen = vi.fn()
 const mockDisconnect = vi.fn()
 let mockIsConnected = false
 let mockAddress: string | undefined = undefined
-let mockEmbeddedWalletInfo: { email?: string } | undefined = undefined
+let mockEmbeddedWalletInfo: { user?: { email?: string } } | undefined = undefined
 
 vi.mock('@reown/appkit/react', () => ({
   useAppKit: () => ({ open: mockOpen }),
@@ -47,7 +47,7 @@ describe('useAuth', () => {
   it('returns email from embedded wallet info', () => {
     mockIsConnected = true
     mockAddress = '0xABC123'
-    mockEmbeddedWalletInfo = { email: 'user@example.com' }
+    mockEmbeddedWalletInfo = { user: { email: 'user@example.com' } }
     const { result } = renderHook(() => useAuth())
     expect(result.current.email).toBe('user@example.com')
   })
