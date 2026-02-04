@@ -1536,7 +1536,15 @@ html[data-theme="calm"] body {
   background: rgba(44, 62, 80, 0.2);
 }
 
-/* Auth button */
+/* Auth button - fixed top-right corner of the page */
+.auth-corner {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 200;
+  padding: 0.5rem 0.75rem;
+}
+
 .auth-button {
   display: inline-flex;
   align-items: center;

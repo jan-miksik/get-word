@@ -2,6 +2,7 @@
 
 import { ReactNode } from 'react';
 import { TopMenu } from '@/components/TopMenu';
+import { AuthButton } from '@/components/AuthButton';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { CategoryPanel } from '@/components/CategoryPanel';
 import { MemoryHooksPanel } from '@/components/MemoryHooksPanel';
@@ -92,6 +93,9 @@ export function AppLayout({
 }: AppLayoutProps) {
   return (
     <div className="app">
+      <div className="auth-corner" aria-label="Sign in">
+        <AuthButton />
+      </div>
       {header}
       <TopMenu {...topMenuHandlers} />
       <SettingsPanel
