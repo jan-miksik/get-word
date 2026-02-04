@@ -14,20 +14,28 @@ interface SettingsPanelProps {
   isOpen: boolean;
   onClose?: () => void;
   userId?: string | null;
+  isAuthenticated?: boolean;
+  authEmail?: string;
+  authAddress?: string;
+  onSignOut?: () => void;
 }
 
-export function SettingsPanel({ 
-  role, 
-  onRoleChange, 
+export function SettingsPanel({
+  role,
+  onRoleChange,
   showEnglish,
   onShowEnglishChange,
   showCategoryBadges,
   onShowCategoryBadgesChange,
   theme,
   onThemeChange,
-  isOpen, 
+  isOpen,
   onClose,
   userId,
+  isAuthenticated,
+  authEmail,
+  authAddress,
+  onSignOut,
 }: SettingsPanelProps) {
   return (
     <section
@@ -121,6 +129,28 @@ export function SettingsPanel({
             />
             <span>Show Category Badges</span>
           </label>
+        </div>
+
+        {/* Account Section */}
+        <div className="mt-6 pt-6 border-t border-border-subtle">
+          <p className="m-0 text-[0.78rem] text-text-soft mb-2">Account</p>
+          {isAuthenticated ? (
+            <div className="flex flex-col gap-2">
+              <code className="block text-xs text-text-soft break-all font-mono">
+                {authEmail || authAddress || 'Connected'}
+              </code>
+              {onSignOut && (
+                <button
+                  onClick={onSignOut}
+                  className="text-xs text-text-soft underline cursor-pointer bg-transparent border-none p-0 text-left hover:text-text"
+                >
+                  Sign out
+                </button>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-text-soft">Not signed in</p>
+          )}
         </div>
 
         {/* User ID */}

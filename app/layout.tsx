@@ -1,4 +1,6 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
+import { AppKitProvider } from '@/components/AppKitProvider';
 import './globals.css';
 import './.generated/tailwind.css';
 
@@ -7,14 +9,21 @@ export const metadata: Metadata = {
   description: 'Learn Czech and Vietnamese with spaced repetition',
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const headersList = await headers();
+  const cookies = headersList.get('cookie');
+
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AppKitProvider cookies={cookies}>
+          {children}
+        </AppKitProvider>
+      </body>
     </html>
   );
 }

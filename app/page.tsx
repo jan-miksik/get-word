@@ -13,10 +13,12 @@ import { BottomNav } from '@/components/BottomNav';
 import { WordCard } from '@/components/WordCard';
 import { VirtualizedWordList } from '@/components/VirtualizedWordList';
 import { useDueTimer } from '@/hooks/useDueTimer';
+import { useAuth } from '@/hooks/useAuth';
 
 
 export default function Home() {
   const { words, isLoading: isLoadingWords } = useWordsLoader();
+  const { isConnected, email, address: walletAddress, signOut } = useAuth();
 
   // Memoize normalized words so we don't recompute on every render
   const normalizedWords = useMemo(
@@ -61,7 +63,7 @@ export default function Home() {
     lastMovedId,
     userId,
     isHydrated,
-  } = useAppState(normalizedWords);
+  } = useAppState(normalizedWords, walletAddress);
 
   const [showWaitingForRepeat, setShowWaitingForRepeat] = useState(false);
   const [showNotReady, setShowNotReady] = useState(false);
@@ -374,6 +376,10 @@ export default function Home() {
       theme={theme}
       onThemeChange={setTheme}
       userId={userId}
+      isAuthenticated={isConnected}
+      authEmail={email}
+      authAddress={walletAddress}
+      onSignOut={signOut}
       categories={categories}
       selectedCategories={selectedCategories}
       onToggleCategory={toggleCategory}

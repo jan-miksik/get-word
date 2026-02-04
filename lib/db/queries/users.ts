@@ -1,4 +1,4 @@
-import { eq, or } from "drizzle-orm";
+import { eq } from "drizzle-orm";
 import { db } from "../client";
 import { users, type User, type NewUser } from "../schema";
 
@@ -117,6 +117,67 @@ export async function linkWalletToUser(
   const results = await db
     .update(users)
     .set({ walletAddress, updatedAt: new Date() })
+    .where(eq(users.id, userId))
+    .returning();
+  return results[0] || null;
+}
+
+// --- Merge logic for wallet linking ---
+
+export interface ProgressMergeItem {
+  stageIndex: number
+  knownCount: number
+  unknownCount: number
+  lastKnownAt: Date | null
+  lastUnknownAt: Date | null
+  nextDueAt: Date | null
+}
+
+export interface MergeInput {
+  sourceProgress: Record<string, ProgressMergeItem>
+  targetProgress: Record<string, ProgressMergeItem>
+  sourceHooks: Record<string, string>
+  targetHooks: Record<string, string>
+  sourceFilters: string[]
+  targetFilters: string[]
+}
+
+export interface MergeResult {
+  mergedProgress: Record<string, ProgressMergeItem>
+  mergedHooks: Record<string, string>
+  mergedFilters: string[]
+}
+
+/** Pure function: merge two users' data. Highest stageIndex wins per word. */
+export function mergeUserData(input: MergeInput): MergeResult {
+  const { sourceProgress, targetProgress, sourceHooks, targetHooks, sourceFilters, targetFilters } = input
+
+  // Merge progress: highest stageIndex wins
+  const mergedProgress: Record<string, ProgressMergeItem> = { ...targetProgress }
+  for (const [wordId, sourceItem] of Object.entries(sourceProgress)) {
+    const targetItem = mergedProgress[wordId]
+    if (!targetItem || sourceItem.stageIndex > targetItem.stageIndex) {
+      mergedProgress[wordId] = sourceItem
+    }
+  }
+
+  // Merge hooks: target wins on conflict, source fills gaps
+  const mergedHooks: Record<string, string> = { ...sourceHooks, ...targetHooks }
+
+  // Merge filters: union
+  const mergedFilters = [...new Set([...targetFilters, ...sourceFilters])]
+
+  return { mergedProgress, mergedHooks, mergedFilters }
+}
+
+// Update arbitrary user fields
+export async function updateUserFields(
+  userId: string,
+  fields: Partial<Omit<User, 'id' | 'createdAt'>>
+): Promise<User | null> {
+  const results = await db
+    .update(users)
+    .set({ ...fields, updatedAt: new Date() })
     .where(eq(users.id, userId))
     .returning();
   return results[0] || null;

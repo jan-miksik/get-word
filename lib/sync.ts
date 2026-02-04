@@ -90,6 +90,28 @@ export async function fetchUserData(): Promise<SyncResponse> {
   }
 }
 
+/** Link a wallet address to the current device user. */
+export async function linkWallet(walletAddress: string): Promise<SyncResponse> {
+  const deviceId = getDeviceId();
+
+  const response = await fetch('/api/auth/link-wallet', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ deviceId, walletAddress }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to link wallet: ${response.statusText}`);
+  }
+
+  const result = await response.json();
+  if (!result.success) {
+    throw new Error(result.error || 'Failed to link wallet: Unknown error');
+  }
+  if (result.user?.id) lastKnownUserId = result.user.id;
+  return result;
+}
+
 // Sync data to server (DB-only; no localStorage).
 export async function syncUserData(data: {
   role?: "cz" | "vi";
