@@ -8,6 +8,23 @@ to
 je
 láska
 milovat
+
+vlevo
+vpravo
+vepředu
+vzadu
+v
+s
+dole
+nahoře
+na
+nad
+pod
+u
+vedle
+před
+za
+
 rok
 měsíc
 den
@@ -15,10 +32,59 @@ hodina
 minuta
 vteřina
 
+pondělí
+úterý
+středa
+čtvrtek
+pátek
+sobota
+neděle
+
+leden
+únor 
+březen
+duben
+květen
+Červen
+červenec
+srpen
+září
+říjen
+listopad
+prosinec
+
+
+nula
+jedna
+dvě
+tři
+čtyři
+pět
+šest
+sedm
+osum
+devět
+deset
+jedenáct
+dvanáct
+dvacet
+dvacet dva
+třicet
+sto
+tisíc
+milion
+miliarda
+bilion
+trilion
+sto deset ticís pětset třicet šest
+
 Jmenuji se
 Pracuji jako
 Bydlím v 
 Jsem v Česku 1 rok
+
+
+
 
 
 Jak se máte? 🙂
