@@ -35,6 +35,7 @@ interface AppLayoutProps {
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
   userId: string | null;
+  userWalletAddress?: string | null;
   // CategoryPanel props
   categories: Array<{ name: string; count: number }>;
   selectedCategories: Set<string>;
@@ -72,6 +73,7 @@ export function AppLayout({
   theme,
   onThemeChange,
   userId,
+  userWalletAddress,
   isAuthenticated,
   authEmail,
   authAddress,
@@ -110,6 +112,7 @@ export function AppLayout({
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         userId={userId}
+        userWalletAddress={userWalletAddress}
         isAuthenticated={isAuthenticated}
         authEmail={authEmail}
         authAddress={authAddress}

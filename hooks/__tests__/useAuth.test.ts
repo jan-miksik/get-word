@@ -63,4 +63,10 @@ describe('useAuth', () => {
     result.current.signOut()
     expect(mockDisconnect).toHaveBeenCalled()
   })
+
+  it('openAccountMenu calls appKit.open', () => {
+    const { result } = renderHook(() => useAuth())
+    result.current.openAccountMenu()
+    expect(mockOpen).toHaveBeenCalled()
+  })
 })

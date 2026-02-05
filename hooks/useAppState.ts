@@ -28,6 +28,7 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
   const [memoryHooksOpen, setMemoryHooksOpen] = useState(false);
   const [lastMovedId, setLastMovedId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [userWalletAddress, setUserWalletAddress] = useState<string | null>(null);
   const [isHydrated, setIsHydrated] = useState(false);
   const lastMovedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasLoadedRef = useRef(false);
@@ -57,6 +58,7 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
     if (serverData.user?.role) setRole(serverData.user.role);
     setShowEnglish(serverData.user?.show_english ?? true);
     setShowCategoryBadges(serverData.user?.show_category_badges ?? false);
+    setUserWalletAddress(serverData.user?.wallet_address ?? null);
   }
 
   // Load from DB only (no localStorage). Run once when we have words.
@@ -407,6 +409,7 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
     getSuggestedMemoryHook,
     lastMovedId,
     userId,
+    userWalletAddress,
     isHydrated,
   };
 }

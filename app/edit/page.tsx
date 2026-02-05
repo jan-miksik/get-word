@@ -62,6 +62,7 @@ export default function EditPage() {
     getSuggestedMemoryHook,
     lastMovedId,
     userId,
+    userWalletAddress,
     isHydrated,
   } = useAppState(normalizedWords);
   // In edit mode, always show all categories with counts from all words (not filtered)
@@ -444,6 +445,7 @@ export default function EditPage() {
       theme={theme}
       onThemeChange={setTheme}
       userId={userId}
+      userWalletAddress={userWalletAddress}
       categories={categories}
       selectedCategories={selectedCategories}
       onToggleCategory={toggleCategoryFilter}

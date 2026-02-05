@@ -14,6 +14,7 @@ interface SettingsPanelProps {
   isOpen: boolean;
   onClose?: () => void;
   userId?: string | null;
+  userWalletAddress?: string | null;
   isAuthenticated?: boolean;
   authEmail?: string;
   authAddress?: string;
@@ -32,6 +33,7 @@ export function SettingsPanel({
   isOpen,
   onClose,
   userId,
+  userWalletAddress,
   isAuthenticated,
   authEmail,
   authAddress,
@@ -136,9 +138,21 @@ export function SettingsPanel({
           <p className="m-0 text-[0.78rem] text-text-soft mb-2">Account</p>
           {isAuthenticated ? (
             <div className="flex flex-col gap-2">
-              <code className="block text-xs text-text-soft break-all font-mono">
-                {authEmail || authAddress || 'Connected'}
-              </code>
+              {authEmail && (
+                <code className="block text-xs text-text-soft break-all font-mono">
+                  {authEmail}
+                </code>
+              )}
+              {(authAddress || userWalletAddress) && (
+                <code className="block text-xs text-text-soft break-all font-mono">
+                  {authAddress || userWalletAddress}
+                </code>
+              )}
+              {!authEmail && !authAddress && !userWalletAddress && (
+                <code className="block text-xs text-text-soft break-all font-mono">
+                  Connected
+                </code>
+              )}
               {onSignOut && (
                 <button
                   onClick={onSignOut}
@@ -149,7 +163,14 @@ export function SettingsPanel({
               )}
             </div>
           ) : (
-            <p className="text-xs text-text-soft">Not signed in</p>
+            <div className="flex flex-col gap-2">
+              <p className="text-xs text-text-soft">Not signed in</p>
+              {userWalletAddress && (
+                <code className="block text-xs text-text-soft break-all font-mono">
+                  {userWalletAddress}
+                </code>
+              )}
+            </div>
           )}
         </div>
 

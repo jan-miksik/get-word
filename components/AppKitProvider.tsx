@@ -3,9 +3,9 @@
 import { type ReactNode, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createAppKit } from '@reown/appkit/react'
-import { mainnet } from '@reown/appkit/networks'
+import type { AppKitNetwork } from '@reown/appkit/networks'
 import { cookieToInitialState, WagmiProvider, type Config } from 'wagmi'
-import { wagmiAdapter, projectId } from '@/lib/wagmi-config'
+import { wagmiAdapter, projectId, networks } from '@/lib/wagmi-config'
 
 const metadata = {
   name: 'WordLink',
@@ -17,8 +17,7 @@ const metadata = {
 createAppKit({
   adapters: [wagmiAdapter],
   projectId,
-  networks: [mainnet],
-  defaultNetwork: mainnet,
+  networks: networks as unknown as [AppKitNetwork, ...AppKitNetwork[]],
   metadata,
   features: {
     email: true,

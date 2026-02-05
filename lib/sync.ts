@@ -32,6 +32,7 @@ export interface SyncResponse {
     role: "cz" | "vi";
     show_english?: boolean;
     show_category_badges?: boolean;
+    wallet_address?: string | null;
   };
   progress: Record<
     string,

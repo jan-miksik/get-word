@@ -62,6 +62,7 @@ export default function Home() {
     getSuggestedMemoryHook,
     lastMovedId,
     userId,
+    userWalletAddress,
     isHydrated,
   } = useAppState(normalizedWords, walletAddress);
 
@@ -376,6 +377,7 @@ export default function Home() {
       theme={theme}
       onThemeChange={setTheme}
       userId={userId}
+      userWalletAddress={userWalletAddress}
       isAuthenticated={isConnected}
       authEmail={email}
       authAddress={walletAddress}

@@ -1,10 +1,17 @@
 import { cookieStorage, createStorage } from 'wagmi'
 import { WagmiAdapter } from '@reown/appkit-adapter-wagmi'
-import { mainnet } from '@reown/appkit/networks'
+import {
+  mainnet,
+  polygon,
+  arbitrum,
+  base,
+  optimism,
+} from '@reown/appkit/networks'
 
 export const projectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID || ''
 
-export const networks = [mainnet]
+// Multiple EVM networks so wallet connection works regardless of which chain the user is on
+export const networks = [mainnet, polygon, arbitrum, base, optimism]
 
 // WagmiAdapter and config are created even without a project ID so the app
 // can still render (anonymous mode). Auth features simply won't work until

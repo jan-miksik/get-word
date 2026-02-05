@@ -3,15 +3,15 @@
 import { useAuth } from '@/hooks/useAuth'
 
 export function AuthButton() {
-  const { isConnected, email, address, signIn, signOut } = useAuth()
+  const { isConnected, email, address, signIn, openAccountMenu } = useAuth()
 
   if (isConnected) {
     const displayName = email || (address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Connected')
     return (
       <button
-        onClick={signOut}
+        onClick={openAccountMenu}
         className="auth-button is-connected"
-        title={`Signed in as ${displayName}. Click to sign out.`}
+        title={`Signed in as ${displayName}. Click for account options.`}
       >
         <span className="auth-dot" />
         <span className="auth-label">{displayName}</span>

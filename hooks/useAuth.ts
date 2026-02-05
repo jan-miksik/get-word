@@ -9,6 +9,8 @@ interface UseAuthReturn {
   email: string | undefined
   signIn: () => void
   signOut: () => void
+  /** Opens Reown wallet/account menu (when connected shows account view, otherwise connect flow) */
+  openAccountMenu: () => void
 }
 
 export function useAuth(): UseAuthReturn {
@@ -24,11 +26,16 @@ export function useAuth(): UseAuthReturn {
     disconnect()
   }, [disconnect])
 
+  const openAccountMenu = useCallback(() => {
+    open()
+  }, [open])
+
   return {
     isConnected,
     address,
     email: embeddedWalletInfo?.user?.email ?? undefined,
     signIn,
     signOut,
+    openAccountMenu,
   }
 }
