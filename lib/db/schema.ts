@@ -32,6 +32,7 @@ export const users = pgTable("users", {
   email: text("email").unique(), // Email auth (future)
   walletAddress: text("wallet_address").unique(), // Web3 auth (future)
   role: text("role").notNull().default("vi"), // "cz" or "vi"
+  userRole: text("user_role").notNull().default("user"), // "user" or "editor"
   showEnglish: boolean("show_english").default(true).notNull(),
   showCategoryBadges: boolean("show_category_badges").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

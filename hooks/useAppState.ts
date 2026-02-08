@@ -29,6 +29,7 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
   const [lastMovedId, setLastMovedId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [userWalletAddress, setUserWalletAddress] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<'user' | 'editor'>('user');
   const [isHydrated, setIsHydrated] = useState(false);
   const lastMovedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasLoadedRef = useRef(false);
@@ -59,6 +60,10 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
     setShowEnglish(serverData.user?.show_english ?? true);
     setShowCategoryBadges(serverData.user?.show_category_badges ?? false);
     setUserWalletAddress(serverData.user?.wallet_address ?? null);
+    if (serverData.user?.user_role) {
+      setUserRole(serverData.user.user_role);
+      document.cookie = `wordlink_user_role=${serverData.user.user_role};path=/;max-age=31536000;SameSite=Lax`;
+    }
   }
 
   // Load from DB only (no localStorage). Run once when we have words.
@@ -410,6 +415,8 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
     lastMovedId,
     userId,
     userWalletAddress,
+    userRole,
+    isEditor: userRole === 'editor',
     isHydrated,
   };
 }

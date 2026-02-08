@@ -8,6 +8,12 @@ import {
   upsertWords,
   type NewWord,
 } from "@/lib/db";
+import {
+  resolveUserFromRequest,
+  isEditor,
+  unauthorizedResponse,
+  forbiddenResponse,
+} from "@/lib/auth";
 
 // GET: Fetch all words or a specific word by ID
 export async function GET(request: NextRequest) {
@@ -39,6 +45,10 @@ export async function GET(request: NextRequest) {
 // POST: Create a new word or bulk upsert words
 export async function POST(request: NextRequest) {
   try {
+    const user = await resolveUserFromRequest(request);
+    if (!user) return unauthorizedResponse();
+    if (!isEditor(user)) return forbiddenResponse();
+
     const body = await request.json();
 
     // Check if this is a bulk operation (array of words)
@@ -108,6 +118,10 @@ export async function POST(request: NextRequest) {
 // PUT: Update an existing word
 export async function PUT(request: NextRequest) {
   try {
+    const user = await resolveUserFromRequest(request);
+    if (!user) return unauthorizedResponse();
+    if (!isEditor(user)) return forbiddenResponse();
+
     const body = await request.json();
 
     if (!body.id) {
@@ -137,6 +151,10 @@ export async function PUT(request: NextRequest) {
 // DELETE: Delete a word
 export async function DELETE(request: NextRequest) {
   try {
+    const user = await resolveUserFromRequest(request);
+    if (!user) return unauthorizedResponse();
+    if (!isEditor(user)) return forbiddenResponse();
+
     const searchParams = request.nextUrl.searchParams;
     const wordId = searchParams.get("id");
 

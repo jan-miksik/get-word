@@ -159,6 +159,7 @@ export async function POST(request: NextRequest) {
       user: {
         id: user.id,
         role: role ?? user.role,
+        user_role: user.userRole,
         show_english: user.showEnglish ?? true,
         show_category_badges: user.showCategoryBadges ?? false,
         wallet_address: user.walletAddress ?? null,
@@ -211,6 +212,7 @@ export async function GET(request: NextRequest) {
       user: {
         id: user.id,
         role: user.role,
+        user_role: user.userRole,
         show_english: user.showEnglish ?? true,
         show_category_badges: user.showCategoryBadges ?? false,
         wallet_address: user.walletAddress ?? null,

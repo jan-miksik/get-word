@@ -27,8 +27,12 @@ export function useAuth(): UseAuthReturn {
   }, [disconnect])
 
   const openAccountMenu = useCallback(() => {
-    open()
-  }, [open])
+    if (isConnected) {
+      open({ view: 'Account' })
+    } else {
+      open({ view: 'Connect' })
+    }
+  }, [open, isConnected])
 
   return {
     isConnected,

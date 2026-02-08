@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Word } from '@/data/words';
+import { getDeviceId } from '@/lib/device-id';
 import { normalizeWords, getAllCategoriesWithCounts, STAGES, isDue, NormalizedWord, matchesCategoryFilter } from '@/lib/words';
 import { useAppState } from '@/hooks/useAppState';
 import { useWordsLoader } from '@/hooks/useWordsLoader';
@@ -63,8 +64,16 @@ export default function EditPage() {
     lastMovedId,
     userId,
     userWalletAddress,
+    userRole,
     isHydrated,
   } = useAppState(normalizedWords);
+
+  // Client-side guard: redirect non-editors
+  useEffect(() => {
+    if (isHydrated && userRole !== 'editor') {
+      router.replace('/');
+    }
+  }, [isHydrated, userRole, router]);
   // In edit mode, always show all categories with counts from all words (not filtered)
   // Include edit-only categories (like "to fix") even if they have 0 occurrences
   const categories = useMemo(() => {
@@ -270,7 +279,10 @@ export default function EditPage() {
     try {
       const response = await fetch('/api/words', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'x-device-id': getDeviceId(),
+        },
         body: JSON.stringify({ words }),
       });
 

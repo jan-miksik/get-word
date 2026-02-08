@@ -18,6 +18,7 @@
     "db:migrate-to-supabase": "npx tsx scripts/migrate-to-supabase.ts",
     "db:dump-restore": "bash scripts/dump-and-restore.sh",
     "db:dump-restore-full": "bash scripts/dump-and-restore-full.sh",
+    "db:backup": "bash scripts/backup-remote-db.sh",
     "test": "vitest run",
     "test:watch": "vitest"
   },

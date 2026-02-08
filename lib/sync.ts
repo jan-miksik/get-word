@@ -30,6 +30,7 @@ export interface SyncResponse {
   user: {
     id: string;
     role: "cz" | "vi";
+    user_role?: "user" | "editor";
     show_english?: boolean;
     show_category_badges?: boolean;
     wallet_address?: string | null;
