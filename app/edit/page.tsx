@@ -21,6 +21,7 @@ export default function EditPage() {
   const { words, setWords, isLoading } = useWordsLoader();
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [isRedirecting, setIsRedirecting] = useState(false);
 
   // Memoize normalized words so we don't recompute on every render
   const normalizedWords = useMemo(
@@ -70,7 +71,9 @@ export default function EditPage() {
 
   // Client-side guard: redirect non-editors
   useEffect(() => {
-    if (isHydrated && userRole !== 'editor') {
+    if (!isHydrated) return;
+    if (userRole !== 'editor') {
+      setIsRedirecting(true);
       router.replace('/');
     }
   }, [isHydrated, userRole, router]);
@@ -408,6 +411,15 @@ export default function EditPage() {
     return (
       <div className="app">
         <div className="p-8 text-center">Loading...</div>
+      </div>
+    );
+  }
+
+  // Prevent rendering edit UI for non-editors (avoids flash before router.replace completes)
+  if (isRedirecting || userRole !== 'editor') {
+    return (
+      <div className="app">
+        <div className="p-8 text-center">Redirecting...</div>
       </div>
     );
   }

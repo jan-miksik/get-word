@@ -15,6 +15,11 @@ import {
 import { db } from "@/lib/db/client";
 import { users, type User } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import {
+  signSession,
+  WORDLINK_SESSION_COOKIE_NAME,
+  WORDLINK_SESSION_TTL_SECONDS,
+} from "@/lib/session";
 
 const PG_STATEMENT_TIMEOUT = "57014";
 
@@ -154,7 +159,7 @@ export async function POST(request: NextRequest) {
       getUserCategoryFilters(user.id),
     ]);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       user: {
         id: user.id,
@@ -168,6 +173,22 @@ export async function POST(request: NextRequest) {
       memory_hooks: currentHooks,
       category_filters: currentFilters,
     });
+    const safeUserRole = user.userRole === "editor" ? "editor" : "user";
+    const token = await signSession({
+      userId: user.id,
+      userRole: safeUserRole,
+      ttlSeconds: WORDLINK_SESSION_TTL_SECONDS,
+    });
+    response.cookies.set({
+      name: WORDLINK_SESSION_COOKIE_NAME,
+      value: token,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: WORDLINK_SESSION_TTL_SECONDS,
+    });
+    return response;
   } catch (error) {
     console.error("Sync error:", error);
     const errorMessage = error instanceof Error ? error.message : "Failed to sync data";
@@ -207,7 +228,7 @@ export async function GET(request: NextRequest) {
       getUserCategoryFilters(user.id),
     ]);
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       user: {
         id: user.id,
@@ -221,6 +242,22 @@ export async function GET(request: NextRequest) {
       memory_hooks: memoryHooks,
       category_filters: categoryFilters,
     });
+    const safeUserRole = user.userRole === "editor" ? "editor" : "user";
+    const token = await signSession({
+      userId: user.id,
+      userRole: safeUserRole,
+      ttlSeconds: WORDLINK_SESSION_TTL_SECONDS,
+    });
+    response.cookies.set({
+      name: WORDLINK_SESSION_COOKIE_NAME,
+      value: token,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: WORDLINK_SESSION_TTL_SECONDS,
+    });
+    return response;
   } catch (error) {
     console.error("Fetch error:", error);
     const errorMessage = error instanceof Error ? error.message : "Failed to fetch data";
