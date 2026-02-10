@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState, useMemo, useCallback } from 'react';
+import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { Word } from '@/data/words';
 import { useAppState } from '@/hooks/useAppState';
 import { useWordsLoader } from '@/hooks/useWordsLoader';
@@ -75,9 +75,10 @@ export default function Home() {
   const phrasesRef = useRef<HTMLElement>(null);
   const [phrasesScrollElement, setPhrasesScrollElement] = useState<HTMLElement | null>(null);
 
-  // Set scroll element before paint so VirtualizedWordList uses correct scroll container on first render
-  useLayoutEffect(() => {
-    setPhrasesScrollElement(phrasesRef.current);
+  // Callback ref: fires immediately when <main> mounts, guaranteeing scroll element is set
+  const phrasesCallbackRef = useCallback((node: HTMLElement | null) => {
+    phrasesRef.current = node;
+    setPhrasesScrollElement(node);
   }, []);
 
   // Trigger re-render when cards become due for review
@@ -398,7 +399,7 @@ export default function Home() {
 
       <main
         className="block flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden"
-        ref={phrasesRef}
+        ref={phrasesCallbackRef}
         aria-live="polite"
       >
         <div className="app-content-column flex flex-col gap-[18px] flex-1 min-h-0">

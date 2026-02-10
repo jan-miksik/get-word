@@ -33,7 +33,9 @@ export function VirtualizedWordList({
 }: VirtualizedWordListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeStageIndex, setActiveStageIndex] = useState(0);
-  const [scrollEl, setScrollEl] = useState<HTMLElement | null>(scrollElement ?? null);
+
+  // Resolve scroll container: prefer explicit prop, fall back to own container
+  const resolvedScrollEl = scrollElement ?? containerRef.current;
 
   // Flatten items: headers + cards + optional footers
   const items = useMemo(() => {
@@ -62,20 +64,12 @@ export function VirtualizedWordList({
     }
   }, [groupedWords]);
 
-  // Keep internal scroll element in sync with prop
-  useEffect(() => {
-    setScrollEl(scrollElement ?? null);
-  }, [scrollElement]);
-
   // When scroll is the parent (main), the sticky header sits above the list; tell the virtualizer so it computes the visible range correctly.
-  const scrollMargin = scrollEl ? 56 : 0;
+  const scrollMargin = scrollElement ? 56 : 0;
 
   const virtualizer = useVirtualizer({
     count: items.length,
-    getScrollElement: () => {
-      // Prefer parent scroll when available; otherwise fall back so we still render.
-      return scrollEl ?? containerRef.current;
-    },
+    getScrollElement: () => scrollElement ?? containerRef.current,
     scrollMargin,
     estimateSize: useCallback((index: number) => {
       const item = items[index];
@@ -95,7 +89,7 @@ export function VirtualizedWordList({
       // Account for margin-top: 4px on phrase-card
       return 284;
     }, [items]),
-    overscan: 15,
+    overscan: 5,
     horizontal: false,
   });
 
@@ -115,11 +109,11 @@ export function VirtualizedWordList({
 
   useEffect(() => {
     // When using parent scroll, listen to that element's scroll (not window)
-    const el = scrollEl ?? containerRef.current;
+    const el = scrollElement ?? containerRef.current;
     if (!el) return;
     el.addEventListener('scroll', updateActiveStage, { passive: true });
     return () => el.removeEventListener('scroll', updateActiveStage);
-  }, [updateActiveStage, scrollEl]);
+  }, [updateActiveStage, scrollElement]);
 
   const activeStage = STAGES[activeStageIndex];
   const virtualItems = virtualizer.getVirtualItems();
@@ -128,6 +122,41 @@ export function VirtualizedWordList({
   const totalWords = useMemo(() => {
     return groupedWords.reduce((sum, words) => sum + (words?.length || 0), 0);
   }, [groupedWords]);
+
+  // Debug: log virtualization stats
+  const isDev = process.env.NODE_ENV === 'development';
+  const [showDebug, setShowDebug] = useState(false);
+  const [debugScrollInfo, setDebugScrollInfo] = useState({ clientH: 0, scrollH: 0, tag: '' });
+
+  useEffect(() => {
+    if (!isDev) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.ctrlKey && e.shiftKey && e.key === 'V') {
+        e.preventDefault();
+        setShowDebug(prev => !prev);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isDev]);
+
+  // Poll scroll element dimensions for debug
+  useEffect(() => {
+    if (!isDev || !showDebug) return;
+    const update = () => {
+      const el = scrollElement ?? containerRef.current;
+      if (el) {
+        setDebugScrollInfo({
+          clientH: el.clientHeight,
+          scrollH: el.scrollHeight,
+          tag: `${el.tagName.toLowerCase()}${el.className ? '.' + el.className.split(' ')[0] : ''}`,
+        });
+      }
+    };
+    update();
+    const id = setInterval(update, 500);
+    return () => clearInterval(id);
+  }, [isDev, showDebug, scrollElement]);
 
   if (totalWords === 0) {
     return (
@@ -145,8 +174,70 @@ export function VirtualizedWordList({
 
   return (
     <>
+      {/* Debug overlay for virtualization stats (dev only, toggle with Ctrl+Shift+V) */}
+      {isDev && showDebug && (
+        <div
+          style={{
+            position: 'fixed',
+            bottom: 12,
+            right: 12,
+            zIndex: 9999,
+            background: 'rgba(0,0,0,0.85)',
+            color: '#0f0',
+            fontFamily: 'monospace',
+            fontSize: 11,
+            padding: '8px 12px',
+            borderRadius: 8,
+            lineHeight: 1.6,
+            pointerEvents: 'none',
+            backdropFilter: 'blur(4px)',
+            border: '1px solid rgba(0,255,0,0.2)',
+            maxWidth: 260,
+          }}
+        >
+          <div style={{ color: '#6f6', fontWeight: 700, marginBottom: 2 }}>
+            Virtualization {dataTab ? `[${dataTab}]` : ''}
+          </div>
+          <div>Total items: <span style={{ color: '#fff' }}>{items.length}</span></div>
+          <div>
+            Rendered DOM:{' '}
+            <span style={{ color: virtualItems.length < items.length ? '#0f0' : '#f80' }}>
+              {virtualItems.length}
+            </span>
+          </div>
+          <div>Word cards: <span style={{ color: '#fff' }}>{totalWords}</span></div>
+          <div>Overscan: <span style={{ color: '#fff' }}>5</span></div>
+          <div>Virtual height: <span style={{ color: '#fff' }}>{virtualizer.getTotalSize()}px</span></div>
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: 4, paddingTop: 4 }}>
+            <div style={{ color: '#6f6', fontWeight: 700, marginBottom: 2 }}>Scroll container</div>
+            <div>Element: <span style={{ color: '#fff' }}>{debugScrollInfo.tag || 'null'}</span></div>
+            <div>scrollElement: <span style={{ color: scrollElement ? '#0f0' : '#f00' }}>{scrollElement ? `set (${scrollElement.tagName.toLowerCase()})` : 'NULL'}</span></div>
+            <div>clientHeight: <span style={{ color: '#fff' }}>{debugScrollInfo.clientH}px</span></div>
+            <div>scrollHeight: <span style={{ color: '#fff' }}>{debugScrollInfo.scrollH}px</span></div>
+            <div>
+              Scrollable:{' '}
+              <span style={{ color: debugScrollInfo.scrollH > debugScrollInfo.clientH ? '#0f0' : '#f00' }}>
+                {debugScrollInfo.scrollH > debugScrollInfo.clientH ? 'YES' : 'NO (content fits)'}
+              </span>
+            </div>
+          </div>
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: 4, paddingTop: 4 }}>
+            Saving:{' '}
+            <span style={{ color: virtualItems.length < items.length ? '#0f0' : '#f80' }}>
+              {items.length > 0
+                ? virtualItems.length < items.length
+                  ? `${Math.round((1 - virtualItems.length / items.length) * 100)}% fewer DOM nodes`
+                  : 'NONE -- not virtualizing!'
+                : 'N/A'}
+            </span>
+          </div>
+          <div style={{ color: '#666', fontSize: 10, marginTop: 4 }}>
+            Ctrl+Shift+V to hide
+          </div>
+        </div>
+      )}
       {/* Sticky header showing current stage - only shown when using parent scroll */}
-      {scrollEl && (
+      {scrollElement && (
         <div className="sticky top-0 z-10 bg-background backdrop-blur-[12px] border-b border-border-subtle py-3 px-4 mb-2">
           <h2 className="m-0 text-base font-semibold text-accent">
             {activeStage?.name || 'Loading...'}

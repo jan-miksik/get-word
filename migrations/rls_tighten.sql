@@ -26,7 +26,8 @@ CREATE POLICY "users_update_own" ON public.users FOR UPDATE
   USING (id = auth.uid())
   WITH CHECK (id = auth.uid());
 
--- Prevent non–service_role from changing user_role (RLS does not restrict columns)
+-- Prevent non–service_role from changing user_role (RLS does not restrict columns).
+-- API calls must use service_role JWT; direct SQL (Dashboard, psql, migrations) has no JWT and is allowed.
 CREATE OR REPLACE FUNCTION public.users_block_user_role_change()
 RETURNS TRIGGER
 LANGUAGE plpgsql
@@ -40,8 +41,9 @@ BEGIN
     RETURN NEW;
   END IF;
   jwt_claims := current_setting('request.jwt.claims', true);
+  -- No JWT = direct connection (SQL Editor, psql, app server). Allow role change.
   IF jwt_claims IS NULL OR jwt_claims = '' THEN
-    RAISE EXCEPTION 'user_role can only be changed by service_role';
+    RETURN NEW;
   END IF;
   jwt_role := (jwt_claims::json)->>'role';
   IF jwt_role IS NULL OR jwt_role <> 'service_role' THEN
