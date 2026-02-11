@@ -85,9 +85,9 @@ export function VirtualizedWordList({
       if (item.type === 'footer') {
         return 96; // Estimated control/footer block height
       }
-      // Card height estimate (will be measured dynamically)
-      // Account for margin-top: 4px on phrase-card
-      return 284;
+      // Card height estimate (measured dynamically via measureElement).
+      // Use a safe upper bound so cards with badges, memory hook, countdown don’t overlap before measurement.
+      return 340;
     }, [items]),
     overscan: 5,
     horizontal: false,

@@ -13,6 +13,7 @@ import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-st
 import { AppLayout } from '@/components/AppLayout';
 import { BottomNav } from '@/components/BottomNav';
 import { EditableWordCard, EDIT_ONLY_CATEGORIES } from '@/components/EditableWordCard';
+import { VirtualizedWordList } from '@/components/VirtualizedWordList';
 import { useDueTimer } from '@/hooks/useDueTimer';
 
 
@@ -83,7 +84,14 @@ export default function EditPage() {
     return getAllCategoriesWithCounts(normalizedWords, normalizedWords, EDIT_ONLY_CATEGORIES);
   }, [normalizedWords]);
   const phrasesRef = useRef<HTMLElement>(null);
+  const [phrasesScrollElement, setPhrasesScrollElement] = useState<HTMLElement | null>(null);
   const [showWaitingForRepeat, setShowWaitingForRepeat] = useState(false);
+  const [showNotReady, setShowNotReady] = useState(false);
+
+  const phrasesCallbackRef = useCallback((node: HTMLElement | null) => {
+    phrasesRef.current = node;
+    setPhrasesScrollElement(node);
+  }, []);
 
   // Trigger re-render when cards become due for review
   useDueTimer(progress);
@@ -91,11 +99,15 @@ export default function EditPage() {
   // Close panels when clicking outside
   usePanelClose(setSettingsOpen, setProgressOpen, setCategoryOpen, setMemoryHooksOpen);
 
-  // Attach press handlers to cover targets
+  // Attach press handlers to cover targets (supports virtualized mounts)
   useEffect(() => {
     if (!phrasesRef.current) return;
 
+    const cleanupMap = new Map<HTMLElement, () => void>();
+
     const attachPressHandlers = (el: HTMLElement) => {
+      if (cleanupMap.has(el)) return;
+
       let pressed = false;
       let touchStartX = 0;
       let touchStartY = 0;
@@ -107,11 +119,8 @@ export default function EditPage() {
 
       const setPressed = (value: boolean) => {
         pressed = value;
-        if (pressed) {
-          el.classList.add('is-pressed');
-        } else {
-          el.classList.remove('is-pressed');
-        }
+        if (pressed) el.classList.add('is-pressed');
+        else el.classList.remove('is-pressed');
       };
 
       const onDown = (e: MouseEvent | TouchEvent) => {
@@ -120,15 +129,11 @@ export default function EditPage() {
           touchStartY = e.touches[0].clientY;
           isScrolling = false;
           hasMoved = false;
-
           pressTimeout = window.setTimeout(() => {
-            if (!isScrolling && !hasMoved) {
-              setPressed(true);
-            }
+            if (!isScrolling && !hasMoved) setPressed(true);
           }, PRESS_DELAY);
           return;
         }
-
         e.preventDefault();
         setPressed(true);
       };
@@ -137,11 +142,7 @@ export default function EditPage() {
         if (e.touches.length > 0 && touchStartX !== 0) {
           const deltaX = Math.abs(e.touches[0].clientX - touchStartX);
           const deltaY = Math.abs(e.touches[0].clientY - touchStartY);
-          const totalDelta = Math.max(deltaX, deltaY);
-
-          // Only mark as moved if movement exceeds threshold
-          // This allows for small natural finger movements while still holding
-          if (totalDelta > SCROLL_THRESHOLD) {
+          if (Math.max(deltaX, deltaY) > SCROLL_THRESHOLD) {
             hasMoved = true;
             isScrolling = true;
             setPressed(false);
@@ -149,12 +150,7 @@ export default function EditPage() {
               clearTimeout(pressTimeout);
               pressTimeout = null;
             }
-            return;
-          }
-
-          // Don't cancel timeout for tiny movements - user is still holding still
-          // Only prevent default if already pressed
-          if (!isScrolling && pressed) {
+          } else if (!isScrolling && pressed) {
             e.preventDefault();
           }
         }
@@ -179,7 +175,7 @@ export default function EditPage() {
       window.addEventListener('touchend', onUp);
       window.addEventListener('touchcancel', onUp);
 
-      return () => {
+      const cleanup = () => {
         el.removeEventListener('mousedown', onDown);
         el.removeEventListener('touchstart', onDown);
         el.removeEventListener('touchmove', onMove);
@@ -188,17 +184,45 @@ export default function EditPage() {
         window.removeEventListener('touchcancel', onUp);
         if (pressTimeout) clearTimeout(pressTimeout);
       };
+      cleanupMap.set(el, cleanup);
     };
 
-    const coverTargets = phrasesRef.current.querySelectorAll('.cover-target');
-    const cleanup: (() => void)[] = [];
-    coverTargets.forEach((el) => {
-      const cleanupFn = attachPressHandlers(el as HTMLElement);
-      if (cleanupFn) cleanup.push(cleanupFn);
+    const attachExisting = () => {
+      const coverTargets = phrasesRef.current?.querySelectorAll('.cover-target') || [];
+      coverTargets.forEach((el) => attachPressHandlers(el as HTMLElement));
+    };
+    attachExisting();
+
+    const observer = new MutationObserver((mutations) => {
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          if (node.classList.contains('cover-target')) attachPressHandlers(node);
+          node.querySelectorAll?.('.cover-target').forEach((child) => attachPressHandlers(child as HTMLElement));
+        });
+        mutation.removedNodes.forEach((node) => {
+          if (!(node instanceof HTMLElement)) return;
+          const cleanup = cleanupMap.get(node);
+          if (cleanup) {
+            cleanup();
+            cleanupMap.delete(node);
+          }
+          node.querySelectorAll?.('.cover-target').forEach((child) => {
+            const childCleanup = cleanupMap.get(child as HTMLElement);
+            if (childCleanup) {
+              childCleanup();
+              cleanupMap.delete(child as HTMLElement);
+            }
+          });
+        });
+      });
     });
+    observer.observe(phrasesRef.current, { childList: true, subtree: true });
 
     return () => {
-      cleanup.forEach((fn) => fn());
+      observer.disconnect();
+      cleanupMap.forEach((c) => c());
+      cleanupMap.clear();
     };
   }, [currentTab, selectedCategories, showAll, modeIndex, role, progress]);
 
@@ -306,9 +330,10 @@ export default function EditPage() {
     }
   };
 
-  // Reset showWaitingForRepeat when switching tabs or filters change
+  // Reset expandable sections when switching tabs or filters change
   useEffect(() => {
     setShowWaitingForRepeat(false);
+    setShowNotReady(false);
   }, [currentTab, selectedCategories]);
 
   const closeAllPanels = useCallback(() => {
@@ -351,13 +376,17 @@ export default function EditPage() {
   }, [normalizedWords, selectedCategories, progress]);
 
   // Group words by stage (memoized for performance) - must be before early return
-  const { groupedWords, groupedWordsWaiting } = useMemo(() => {
+  const { groupedWords, groupedWordsWaiting, notReadyCount } = useMemo(() => {
     const grouped = STAGES.map(() => [] as NormalizedWord[]);
     const groupedWaiting = STAGES.map(() => [] as NormalizedWord[]);
+    let notReady = 0;
 
     filteredWords.forEach((word) => {
       const prog = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
       const due = isDue(prog);
+      if (currentTab === 'all' && !due && prog.stageIndex > 0) {
+        notReady += 1;
+      }
       if (currentTab === 'ready' && !due) return;
       const sIdx = Math.max(0, Math.min(prog.stageIndex || 0, STAGES.length - 1));
 
@@ -368,42 +397,48 @@ export default function EditPage() {
       }
     });
 
-    return { groupedWords: grouped, groupedWordsWaiting: groupedWaiting };
+    return { groupedWords: grouped, groupedWordsWaiting: groupedWaiting, notReadyCount: notReady };
   }, [filteredWords, progress, currentTab]);
+
+  const groupedWordsForAll = useMemo(() => {
+    if (showNotReady) return groupedWords;
+    return groupedWords.map((words, stageIndex) => (stageIndex === 0 ? words : []));
+  }, [groupedWords, showNotReady]);
 
   const statsWords = useMemo(() => {
     return getProgressStatsWords(normalizedWords, selectedCategories);
   }, [normalizedWords, selectedCategories]);
 
-  // Memoized card renderer for EditableWordCard - must be before early return
-  const renderEditableCard = useCallback((word: NormalizedWord) => {
+  // Memoized card renderer for EditableWordCard (accepts stageIndex for VirtualizedWordList)
+  const renderEditableCard = useCallback((word: NormalizedWord, _stageIndex?: number) => {
     const prog = progress[word.id] || {
       stageIndex: 0,
       knownCount: 0,
       unknownCount: 0,
     };
     return (
-      <EditableWordCard
-        key={word.id}
-        word={word}
-        progress={prog}
-        role={role}
-        modeIndex={modeIndex}
-        showAll={showAll}
-        memoryHook={getMemoryHook(word.id)}
-        suggestedHook={getSuggestedMemoryHook(word)}
-        onKnown={() => markKnown(word.id)}
-        onReallyKnown={() => markReallyKnown(word.id)}
-        onUnknown={() => markUnknown(word.id)}
-        onMemoryHookChange={(hook) => setMemoryHook(word.id, hook)}
-        isMoved={lastMovedId === word.id}
-        onWordChange={(wordId, field, value) => handleWordFieldChange(wordId, field, value)}
-        onCategoryToggle={(cat) => handleCategoryToggle(word.id, cat)}
-        onCategoryAdd={(cat) => handleCategoryAdd(word.id, cat)}
-        onCategoryRemove={(cat) => handleCategoryRemove(word.id, cat)}
-        showEnglish={showEnglish}
-        showCategoryBadges={showCategoryBadges}
-      />
+      <div key={word.id} className="pt-1">
+        <EditableWordCard
+          word={word}
+          progress={prog}
+          role={role}
+          modeIndex={modeIndex}
+          showAll={showAll}
+          memoryHook={getMemoryHook(word.id)}
+          suggestedHook={getSuggestedMemoryHook(word)}
+          onKnown={() => markKnown(word.id)}
+          onReallyKnown={() => markReallyKnown(word.id)}
+          onUnknown={() => markUnknown(word.id)}
+          onMemoryHookChange={(hook) => setMemoryHook(word.id, hook)}
+          isMoved={lastMovedId === word.id}
+          onWordChange={(wordId, field, value) => handleWordFieldChange(wordId, field, value)}
+          onCategoryToggle={(cat) => handleCategoryToggle(word.id, cat)}
+          onCategoryAdd={(cat) => handleCategoryAdd(word.id, cat)}
+          onCategoryRemove={(cat) => handleCategoryRemove(word.id, cat)}
+          showEnglish={showEnglish}
+          showCategoryBadges={showCategoryBadges}
+        />
+      </div>
     );
   }, [progress, role, modeIndex, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, handleWordFieldChange, handleCategoryToggle, handleCategoryAdd, handleCategoryRemove, showEnglish, showCategoryBadges]);
 
@@ -487,7 +522,7 @@ export default function EditPage() {
 
       <main
         className="block flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden"
-        ref={phrasesRef}
+        ref={phrasesCallbackRef}
         aria-live="polite"
       >
         <div className="app-content-column flex flex-col gap-[18px] flex-1 min-h-0">
@@ -495,23 +530,39 @@ export default function EditPage() {
             <div className="p-8 text-center text-text-soft">
               {currentTab === 'ready' ? 'All caught up!' : 'No words match your current filters.'}
             </div>
+          ) : currentTab === 'ready' ? (
+            <VirtualizedWordList
+              key="ready"
+              dataTab="ready"
+              groupedWords={groupedWords}
+              renderCard={renderEditableCard}
+              emptyMessage="All caught up! No words ready for review."
+              scrollElement={phrasesScrollElement}
+            />
           ) : (
             <>
-              {/* Regular words (not waiting for repeat) */}
-              {STAGES.map((stage, stageIndex) => {
-                const items = groupedWords[stageIndex];
-                if (!items.length) return null;
-
-                return (
-                  <section key={stageIndex} className="mt-4 flex flex-col gap-4">
-                    <h2 className="text-[0.7rem] uppercase tracking-[0.12em] text-text-soft m-0 mb-1 mx-0.5 opacity-90">{stage.name}</h2>
-                    {items.map(renderEditableCard)}
-                  </section>
-                );
-              })}
-              
-              {/* Words waiting for repeat - hidden by default in "all" tab */}
-              {currentTab === 'all' && readyCount > 0 && (
+              <VirtualizedWordList
+                key="all"
+                dataTab="all"
+                groupedWords={groupedWordsForAll}
+                renderCard={renderEditableCard}
+                scrollElement={phrasesScrollElement}
+                stageFooter={(stageIndex) => {
+                  if (stageIndex !== 0 || notReadyCount === 0) return null;
+                  return (
+                    <div className="p-4 px-4 text-center border-t border-border-subtle mt-4">
+                      <button
+                        type="button"
+                        className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-background-elevated"
+                        onClick={() => setShowNotReady(!showNotReady)}
+                      >
+                        {showNotReady ? 'Hide' : 'Show'} {notReadyCount} word{notReadyCount !== 1 ? 's' : ''} settling in before repeat
+                      </button>
+                    </div>
+                  );
+                }}
+              />
+              {readyCount > 0 && (
                 <>
                   {!showWaitingForRepeat && (
                     <div className="p-4 text-center border-t border-b border-border-subtle mt-4 sticky top-0 bg-background backdrop-blur-xl z-10 shadow-soft">
@@ -538,23 +589,22 @@ export default function EditPage() {
                           Hide
                         </button>
                       </div>
-                    {STAGES.map((stage, stageIndex) => {
-                      const items = groupedWordsWaiting[stageIndex];
-                      if (!items.length) return null;
-
-                      return (
-                        <section key={`waiting-${stageIndex}`} className="mt-4 flex flex-col gap-4">
-                          <h2 className="text-[0.7rem] uppercase tracking-[0.12em] text-text-soft m-0 mb-1 mx-0.5 opacity-90">{stage.name}</h2>
-                          {items.map(renderEditableCard)}
-                        </section>
-                      );
-                    })}
-                  </>
-                )}
-              </>
-            )}
-          </>
-        )}
+                      {STAGES.map((stage, stageIndex) => {
+                        const items = groupedWordsWaiting[stageIndex];
+                        if (!items.length) return null;
+                        return (
+                          <section key={`waiting-${stageIndex}`} className="mt-4">
+                            <h2 className="text-[0.7rem] uppercase tracking-[0.12em] text-text-soft m-0 mb-1 mx-0.5 opacity-90">{stage.name}</h2>
+                            {items.map((word) => renderEditableCard(word, stageIndex))}
+                          </section>
+                        );
+                      })}
+                    </>
+                  )}
+                </>
+              )}
+            </>
+          )}
         </div>
       </main>
 
