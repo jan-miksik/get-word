@@ -24,7 +24,10 @@ pnpm db:backup            # Backup remote DB to backups/
 
 ## Environment Setup
 
-Requires `.env.local` with `DATABASE_URL` pointing to Supabase PostgreSQL connection string. Optional `NEXT_PUBLIC_REOWN_PROJECT_ID` for wallet auth (app works in anonymous mode without it).
+Requires `.env.local` with:
+- `DATABASE_URL` - Supabase PostgreSQL connection string
+- `WORDLINK_SESSION_SECRET` - Required in production for signing session cookies (auto-generated in dev)
+- `NEXT_PUBLIC_REOWN_PROJECT_ID` - Optional for wallet auth (app works in anonymous mode without it)
 
 For local development with Supabase (requires Docker):
 ```bash
@@ -54,7 +57,7 @@ Only `device_id` persisted in localStorage; all other state fetched from DB on l
 ### API Routes
 - **`app/api/sync/route.ts`** - GET fetches user data by deviceId/userId; POST syncs progress, hooks, filters, preferences. Includes retry logic for Postgres statement timeouts.
 - **`app/api/auth/link-wallet/route.ts`** - Wallet linking with cross-device merge logic (highest stageIndex wins for progress, union for filters)
-- **`app/api/words/route.ts`** - Word data fetching
+- **`app/api/words/route.ts`** - Word data fetching (GET public; POST/PUT/DELETE require editor role)
 
 ### State & Hooks
 - **`hooks/useAppState.ts`** - Central state management. Fetches from DB on mount, syncs changes via debounced POST. Hydration timeout (10s) prevents UI blocking.
@@ -70,6 +73,9 @@ Only `device_id` persisted in localStorage; all other state fetched from DB on l
 - **`components/EditableWordCard.tsx`** - Full edit mode word card
 - **`components/VirtualizedWordList.tsx`** - `@tanstack/react-virtual` for performance
 - **`components/SettingsPanel.tsx`** - Preferences: role, theme, toggles, account settings
+- **`components/MemoryHooksPanel.tsx`** - Custom note editor for words
+- **`components/BottomNav.tsx`** - Bottom navigation bar
+- **`components/ProgressSummary.tsx`** - Progress statistics display
 - **`components/AppKitProvider.tsx`** - Reown AppKit provider (email + Google social login, embedded wallets only)
 
 ### Database Layer (`lib/db/`)
@@ -79,6 +85,7 @@ Only `device_id` persisted in localStorage; all other state fetched from DB on l
 
 ### Core Utilities
 - **`lib/sync.ts`** - Client sync: fetchUserData, syncUserData, linkWallet, debouncedSync. Maintains in-memory `lastKnownUserId` for recovery.
+- **`lib/session.ts`** - Signs/verifies HMAC-SHA256 session tokens containing userId and userRole (30-day TTL)
 - **`lib/words.ts`** - Word normalization (infers word vs phrase from token count), `STAGES` array (11 intervals), `isDue()` check.
 - **`lib/device-id.ts`** - Device ID management. Falls back to in-memory ID if localStorage unavailable.
 - **`lib/wagmi-config.ts`** - WagmiAdapter with SSR support, cookie storage, multi-chain (mainnet, polygon, arbitrum, base, optimism)
@@ -112,8 +119,9 @@ Device-first with progressive wallet/email linking via Reown AppKit:
 
 Role-based authorization (`user_role` column: 'user' | 'editor'):
 - **`lib/auth.ts`** - `resolveUserFromRequest()` reads `x-device-id` header, `isEditor()` check
+- **`lib/session.ts`** - Signs/verifies HMAC-SHA256 session tokens containing userId and userRole (30-day TTL)
+- **`middleware.ts`** - Redirects non-editors from `/edit` via signed `wordlink_session` cookie
 - **`/api/words`** - GET is public; POST/PUT/DELETE require editor role (401/403)
-- **`middleware.ts`** - Redirects non-editors from `/edit` via `wordlink_user_role` cookie
 - **`/edit` page** - Client-side guard redirects non-editors; sends `x-device-id` header on save
 - Assign editor role: `UPDATE users SET user_role='editor' WHERE device_id='...'`
 

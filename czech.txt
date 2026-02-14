@@ -5,25 +5,25 @@ Děkuji
 Prosím
 
 to
-je
 láska
 milovat
+
+v
+s
+nad
+pod
+na
+vedle
+před
+za
 
 vlevo
 vpravo
 vepředu
 vzadu
-v
-s
 dole
 nahoře
-na
-nad
-pod
-u
-vedle
-před
-za
+
 
 rok
 měsíc
@@ -77,6 +77,18 @@ miliarda
 bilion
 trilion
 sto deset ticís pětset třicet šest
+
+tma
+světlo
+slunce
+
+dům
+obchod
+pokoj
+ulice
+mesto
+vesnice
+
 
 Jmenuji se
 Pracuji jako
@@ -303,12 +315,4 @@ Přibližně
 Opravdu
 
 //
-tma
-dole
-nahoře
-vpravo
-vlevo
-vpředu
-vzadu
-světlo
-slunce
+

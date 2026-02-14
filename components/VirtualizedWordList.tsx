@@ -71,6 +71,12 @@ export function VirtualizedWordList({
     count: items.length,
     getScrollElement: () => scrollElement ?? containerRef.current,
     scrollMargin,
+    getItemKey: useCallback((index: number) => {
+      const item = items[index];
+      if (item.type === 'header') return `header-${item.stageIndex}`;
+      if (item.type === 'footer') return `footer-${item.stageIndex}`;
+      return item.word.id;
+    }, [items]),
     estimateSize: useCallback((index: number) => {
       const item = items[index];
       // Header height - increased for more spacing between categories
@@ -87,30 +93,39 @@ export function VirtualizedWordList({
       }
       // Card height estimate (measured dynamically via measureElement).
       // Use a safe upper bound so cards with badges, memory hook, countdown don’t overlap before measurement.
-      return 340;
+      return 420;
     }, [items]),
     overscan: 5,
     horizontal: false,
   });
 
-  // Track which stage is currently at the top
+  // Track which stage is at the top of the viewport (so sticky header matches scroll position)
   const updateActiveStage = useCallback(() => {
-    const visibleItems = virtualizer.getVirtualItems();
-    if (visibleItems.length > 0) {
-      for (const virtualItem of visibleItems) {
-        const item = items[virtualItem.index];
-        if (item) {
-          setActiveStageIndex(item.stageIndex);
-          break;
-        }
-      }
-    }
-  }, [virtualizer, items]);
-
-  useEffect(() => {
-    // When using parent scroll, listen to that element's scroll (not window)
     const el = scrollElement ?? containerRef.current;
     if (!el) return;
+    const scrollTop = el.scrollTop;
+    const visibleItems = virtualizer.getVirtualItems();
+    if (visibleItems.length === 0) return;
+    // The virtual items' start values are container-relative (start from 0).
+    // The sticky header covers scrollMargin px of the viewport, so the visible
+    // content below it is at container position = scrollTop (scrollMargin and
+    // stickyHeaderHeight cancel out).  When there is no scrollElement,
+    // scrollMargin is 0 and this still holds.
+    const viewportTop = scrollTop;
+    const containing = visibleItems.find(
+      (v) => v.start <= viewportTop && v.end > viewportTop
+    );
+    const best = containing ?? visibleItems[visibleItems.length - 1];
+    const item = items[best.index];
+    if (item) {
+      setActiveStageIndex(item.stageIndex);
+    }
+  }, [virtualizer, items, scrollElement, scrollMargin]);
+
+  useEffect(() => {
+    const el = scrollElement ?? containerRef.current;
+    if (!el) return;
+    updateActiveStage();
     el.addEventListener('scroll', updateActiveStage, { passive: true });
     return () => el.removeEventListener('scroll', updateActiveStage);
   }, [updateActiveStage, scrollElement]);
