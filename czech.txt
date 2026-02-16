@@ -2,6 +2,7 @@
 
 Dobrý den
 Děkuji
+Promiň
 Prosím
 
 to
@@ -90,12 +91,10 @@ mesto
 vesnice
 
 
-Jmenuji se
 Pracuji jako
 Bydlím v 
 Jsem v Česku 1 rok
-
-
+Jmenuji se
 
 
 

@@ -32,10 +32,8 @@ export function VirtualizedWordList({
   dataTab,
 }: VirtualizedWordListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const stickyHeaderRef = useRef<HTMLDivElement>(null);
   const [activeStageIndex, setActiveStageIndex] = useState(0);
-
-  // Resolve scroll container: prefer explicit prop, fall back to own container
-  const resolvedScrollEl = scrollElement ?? containerRef.current;
 
   // Flatten items: headers + cards + optional footers
   const items = useMemo(() => {
@@ -64,8 +62,35 @@ export function VirtualizedWordList({
     }
   }, [groupedWords]);
 
-  // When scroll is the parent (main), the sticky header sits above the list; tell the virtualizer so it computes the visible range correctly.
-  const scrollMargin = scrollElement ? 56 : 0;
+  // Measure the actual offset of the container from the scroll element.
+  // In tanstack virtual v3, scrollMargin is added to item `start` values,
+  // so it must match the real DOM offset for correct positioning.
+  const [scrollMargin, setScrollMargin] = useState(0);
+
+  useEffect(() => {
+    if (!scrollElement || !containerRef.current) {
+      setScrollMargin(0);
+      return;
+    }
+    const measure = () => {
+      const container = containerRef.current;
+      if (!container) return;
+      // Walk up offsetParent chain to compute offset relative to scroll element
+      let offset = 0;
+      let el: HTMLElement | null = container;
+      while (el && el !== scrollElement) {
+        offset += el.offsetTop;
+        el = el.offsetParent as HTMLElement | null;
+      }
+      setScrollMargin(offset);
+    };
+    measure();
+    // Re-measure on resize (sticky header height could change)
+    const ro = new ResizeObserver(measure);
+    ro.observe(containerRef.current);
+    if (stickyHeaderRef.current) ro.observe(stickyHeaderRef.current);
+    return () => ro.disconnect();
+  }, [scrollElement]);
 
   const virtualizer = useVirtualizer({
     count: items.length,
@@ -79,20 +104,16 @@ export function VirtualizedWordList({
     }, [items]),
     estimateSize: useCallback((index: number) => {
       const item = items[index];
-      // Header height - increased for more spacing between categories
       if (item.type === 'header') {
-        // First header has less top spacing, subsequent headers have more
         const prevItem = index > 0 ? items[index - 1] : null;
         if (prevItem && prevItem.type === 'card') {
-          return 80; // More spacing for headers after cards
+          return 80;
         }
-        return 64; // Base header height
+        return 64;
       }
       if (item.type === 'footer') {
-        return 96; // Estimated control/footer block height
+        return 96;
       }
-      // Card height estimate (measured dynamically via measureElement).
-      // Use a safe upper bound so cards with badges, memory hook, countdown don’t overlap before measurement.
       return 420;
     }, [items]),
     overscan: 5,
@@ -106,21 +127,22 @@ export function VirtualizedWordList({
     const scrollTop = el.scrollTop;
     const visibleItems = virtualizer.getVirtualItems();
     if (visibleItems.length === 0) return;
-    // The virtual items' start values are container-relative (start from 0).
-    // The sticky header covers scrollMargin px of the viewport, so the visible
-    // content below it is at container position = scrollTop (scrollMargin and
-    // stickyHeaderHeight cancel out).  When there is no scrollElement,
-    // scrollMargin is 0 and this still holds.
-    const viewportTop = scrollTop;
-    const containing = visibleItems.find(
-      (v) => v.start <= viewportTop && v.end > viewportTop
-    );
-    const best = containing ?? visibleItems[visibleItems.length - 1];
-    const item = items[best.index];
-    if (item) {
-      setActiveStageIndex(item.stageIndex);
+
+    // Item `start`/`end` values include scrollMargin (they are scroll-element-relative).
+    // The sticky header covers some portion of the viewport — measure its actual height.
+    const stickyHeight = stickyHeaderRef.current?.offsetHeight ?? 0;
+    const stickyBottom = scrollTop + stickyHeight;
+
+    // Find the first visible item whose bottom extends past the sticky header.
+    // Its stageIndex determines which section label the sticky header should show.
+    const firstVisible = visibleItems.find(v => v.end > stickyBottom);
+    if (firstVisible) {
+      const item = items[firstVisible.index];
+      if (item) {
+        setActiveStageIndex(item.stageIndex);
+      }
     }
-  }, [virtualizer, items, scrollElement, scrollMargin]);
+  }, [virtualizer, items, scrollElement]);
 
   useEffect(() => {
     const el = scrollElement ?? containerRef.current;
@@ -237,6 +259,9 @@ export function VirtualizedWordList({
             </div>
           </div>
           <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: 4, paddingTop: 4 }}>
+            <div>scrollMargin: <span style={{ color: '#fff' }}>{scrollMargin}px</span></div>
+          </div>
+          <div style={{ borderTop: '1px solid rgba(255,255,255,0.1)', marginTop: 4, paddingTop: 4 }}>
             Saving:{' '}
             <span style={{ color: virtualItems.length < items.length ? '#0f0' : '#f80' }}>
               {items.length > 0
@@ -253,7 +278,7 @@ export function VirtualizedWordList({
       )}
       {/* Sticky header showing current stage - only shown when using parent scroll */}
       {scrollElement && (
-        <div className="sticky top-0 z-10 bg-background backdrop-blur-[12px] border-b border-border-subtle py-3 px-4 mb-2">
+        <div ref={stickyHeaderRef} className="sticky top-0 z-10 bg-background backdrop-blur-[12px] border-b border-border-subtle py-3 px-4 mb-2">
           <h2 className="m-0 text-base font-semibold text-accent">
             {activeStage?.name || 'Loading...'}
           </h2>
@@ -274,6 +299,9 @@ export function VirtualizedWordList({
         >
         {virtualItems.map(virtualRow => {
           const item = items[virtualRow.index];
+          // In tanstack virtual v3, `start` includes scrollMargin.
+          // Subtract it to get the container-relative position.
+          const offset = virtualRow.start - scrollMargin;
 
           // Render headers with more spacing
           if (item.type === 'header') {
@@ -283,7 +311,7 @@ export function VirtualizedWordList({
                 data-index={virtualRow.index}
                 ref={virtualizer.measureElement}
                 className="absolute top-0 left-0 right-0"
-                style={{ transform: `translateY(${virtualRow.start}px)` }}
+                style={{ transform: `translateY(${offset}px)` }}
               >
                 {/* Inline header for scroll position tracking - with more spacing */}
                 <h2
@@ -304,7 +332,7 @@ export function VirtualizedWordList({
                 ref={virtualizer.measureElement}
                 className="absolute top-0 left-0 right-0"
                 style={{
-                  transform: `translateY(${virtualRow.start}px)`,
+                  transform: `translateY(${offset}px)`,
                   width: '100%',
                   willChange: 'transform',
                 }}
@@ -320,8 +348,8 @@ export function VirtualizedWordList({
               data-index={virtualRow.index}
               ref={virtualizer.measureElement}
               className="absolute top-0 left-0 right-0"
-              style={{ 
-                transform: `translateY(${virtualRow.start}px)`,
+              style={{
+                transform: `translateY(${offset}px)`,
                 width: '100%',
                 willChange: 'transform'
               }}
