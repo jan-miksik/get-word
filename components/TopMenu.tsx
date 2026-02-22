@@ -3,7 +3,6 @@
 import { MouseEvent } from 'react';
 
 interface TopMenuProps {
-  onSwitch: (e: MouseEvent) => void;
   onShowAll: (e: MouseEvent) => void;
   onCategory: (e: MouseEvent) => void;
   onProgress: (e: MouseEvent) => void;
@@ -20,7 +19,6 @@ interface TopMenuProps {
 }
 
 export function TopMenu({
-  onSwitch,
   onShowAll,
   onCategory,
   onProgress,
@@ -34,9 +32,6 @@ export function TopMenu({
   return (
     <div className="top-menu" aria-label="Top menu">
       <div className="flex flex-wrap items-center gap-2">
-        <button className="mode-btn switch-btn" onClick={onSwitch} type="button" aria-label="Switch mode">
-          🔄
-        </button>
         <button className="mode-btn show-all-btn" onClick={onShowAll} type="button" aria-label={showAll ? "Hide completed items" : "Show all items"}>
           {showAll ? '🙉' : '🙈'}
         </button>

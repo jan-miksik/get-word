@@ -14,7 +14,6 @@ import type { ProgressStats } from '@/lib/progress-stats';
 interface AppLayoutProps {
   // TopMenu props
   topMenuHandlers: {
-    onSwitch: (e: React.MouseEvent) => void;
     onShowAll: (e: React.MouseEvent) => void;
     onCategory: (e: React.MouseEvent) => void;
     onProgress: (e: React.MouseEvent) => void;

@@ -56,13 +56,14 @@ export const WordCard = memo(function WordCard({
     setIsMounted(true);
   }, []);
 
-  // Determine which languages should be covered
+  // Determine which languages should be covered. Memory hook is always hidden (tap to reveal).
   const shouldCover = (lang: string): boolean => {
     if (showAll) return false;
-    
+    if (lang === 'memory-hook') return true;
+
     if (role === 'cz') {
       if (modeIndex === 0) {
-        return lang === 'vi' || lang === 'memory-hook';
+        return lang === 'vi';
       } else {
         return lang === 'cz' || lang === 'en';
       }
@@ -70,7 +71,7 @@ export const WordCard = memo(function WordCard({
       if (modeIndex === 0) {
         return lang === 'cz';
       } else {
-        return lang === 'vi' || lang === 'en' || lang === 'memory-hook';
+        return lang === 'vi' || lang === 'en';
       }
     }
   };

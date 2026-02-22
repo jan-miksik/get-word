@@ -13,7 +13,8 @@ export type Theme = 'default' | 'warm' | 'calm';
 export function useAppState(words: NormalizedWord[], walletAddress?: string | undefined) {
   // Defaults; overwritten by fetchUserData (DB-only, no localStorage)
   const [role, setRole] = useState<Role>('vi');
-  const [modeIndex, setModeIndex] = useState(0); // 0 or 1 depending on role
+  // Per-word display mode (0 or 1); flips on revisit (when user marks known/unknown)
+  const [wordDisplayMode, setWordDisplayMode] = useState<Record<string, 0 | 1>>({});
   const [showAll, setShowAll] = useState(false);
   const [currentTab, setCurrentTab] = useState<Tab>('all');
   const [progress, setProgress] = useState<Record<string, ProgressData>>({});
@@ -230,7 +231,7 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
     });
   }, []);
 
-  // Mark word as known by its stable ID
+  // Mark word as known by its stable ID; flip display mode for next revisit
   const markKnown = useCallback((wordId: string) => {
     setProgress((prev) => {
       const current = prev[wordId] || {
@@ -251,6 +252,7 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
         },
       };
     });
+    setWordDisplayMode((prev) => ({ ...prev, [wordId]: (1 - (prev[wordId] ?? 0)) as 0 | 1 }));
     setLastMovedId(wordId);
     // Clear any existing timeout before setting a new one
     if (lastMovedTimeoutRef.current) {
@@ -259,7 +261,7 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
     lastMovedTimeoutRef.current = setTimeout(() => setLastMovedId(null), 1000);
   }, []);
 
-  // Mark word as really known (skips one stage) by its stable ID
+  // Mark word as really known (skips one stage) by its stable ID; flip display mode for next revisit
   const markReallyKnown = useCallback((wordId: string) => {
     setProgress((prev) => {
       const current = prev[wordId] || {
@@ -281,6 +283,7 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
         },
       };
     });
+    setWordDisplayMode((prev) => ({ ...prev, [wordId]: (1 - (prev[wordId] ?? 0)) as 0 | 1 }));
     setLastMovedId(wordId);
     // Clear any existing timeout before setting a new one
     if (lastMovedTimeoutRef.current) {
@@ -289,8 +292,7 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
     lastMovedTimeoutRef.current = setTimeout(() => setLastMovedId(null), 1000);
   }, []);
 
-  // Mark word as unknown: regress -1 stage, next repeat uses the regressed stage's interval.
-  // e.g. 1 day -> unknown -> wait 8hr; 3 days -> unknown -> wait 1 day; 7 days -> unknown -> wait 3 days
+  // Mark word as unknown: regress -1 stage; flip display mode for next revisit
   const markUnknown = useCallback((wordId: string) => {
     setProgress((prev) => {
       const current = prev[wordId] || {
@@ -312,6 +314,7 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
         },
       };
     });
+    setWordDisplayMode((prev) => ({ ...prev, [wordId]: (1 - (prev[wordId] ?? 0)) as 0 | 1 }));
     setLastMovedId(wordId);
     // Clear any existing timeout before setting a new one
     if (lastMovedTimeoutRef.current) {
@@ -371,17 +374,20 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
     return '';
   }, [role]);
 
+  // Per-word display mode: 0 = show foreign / hide native, 1 = opposite; flips on mark (revisit)
+  const getWordDisplayMode = useCallback((wordId: string): 0 | 1 => {
+    return wordDisplayMode[wordId] ?? 0;
+  }, [wordDisplayMode]);
+
   // Handle role change
   const handleRoleChange = useCallback((newRole: 'cz' | 'vi') => {
     setRole(newRole);
-    setModeIndex(0); // Reset mode index when role changes
   }, []);
 
   return {
     role,
     setRole: handleRoleChange,
-    modeIndex,
-    setModeIndex,
+    getWordDisplayMode,
     showAll,
     setShowAll,
     currentTab,

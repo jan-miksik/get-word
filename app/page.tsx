@@ -29,8 +29,7 @@ export default function Home() {
   const {
     role,
     setRole,
-    modeIndex,
-    setModeIndex,
+    getWordDisplayMode,
     showAll,
     setShowAll,
     currentTab,
@@ -235,7 +234,7 @@ export default function Home() {
       cleanupMap.forEach((cleanup) => cleanup());
       cleanupMap.clear();
     };
-  }, [currentTab, selectedCategories, showAll, modeIndex, role]);
+  }, [currentTab, selectedCategories, showAll, role]);
 
   // Reset expandable sections when switching tabs or filters change
   useEffect(() => {
@@ -251,8 +250,6 @@ export default function Home() {
   }, [setSettingsOpen, setProgressOpen, setCategoryOpen, setMemoryHooksOpen]);
 
   const topMenuHandlers = useTopMenuHandlers({
-    modeIndex,
-    setModeIndex,
     showAll,
     setShowAll,
     categoryOpen,
@@ -335,7 +332,7 @@ export default function Home() {
           word={word}
           progress={prog}
           role={role}
-          modeIndex={modeIndex}
+          modeIndex={getWordDisplayMode(word.id)}
           showAll={showAll}
           memoryHook={getMemoryHook(word.id)}
           suggestedHook={getSuggestedMemoryHook(word)}
@@ -349,7 +346,7 @@ export default function Home() {
         />
       </div>
     );
-  }, [progress, role, modeIndex, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges]);
+  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges]);
 
   // Memoize progress stats (must be before early return to keep hook order stable)
   const progressStats = useMemo(

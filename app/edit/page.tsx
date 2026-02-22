@@ -32,8 +32,7 @@ export default function EditPage() {
   const {
     role,
     setRole,
-    modeIndex,
-    setModeIndex,
+    getWordDisplayMode,
     showAll,
     setShowAll,
     currentTab,
@@ -224,7 +223,7 @@ export default function EditPage() {
       cleanupMap.forEach((c) => c());
       cleanupMap.clear();
     };
-  }, [currentTab, selectedCategories, showAll, modeIndex, role, progress]);
+  }, [currentTab, selectedCategories, showAll, role, progress]);
 
   // Create a Map for O(1) word lookups by ID
   const wordIndexMap = useMemo(() => {
@@ -344,8 +343,6 @@ export default function EditPage() {
   }, [setSettingsOpen, setProgressOpen, setCategoryOpen, setMemoryHooksOpen]);
 
   const topMenuHandlers = useTopMenuHandlers({
-    modeIndex,
-    setModeIndex,
     showAll,
     setShowAll,
     categoryOpen,
@@ -422,7 +419,7 @@ export default function EditPage() {
           word={word}
           progress={prog}
           role={role}
-          modeIndex={modeIndex}
+          modeIndex={getWordDisplayMode(word.id)}
           showAll={showAll}
           memoryHook={getMemoryHook(word.id)}
           suggestedHook={getSuggestedMemoryHook(word)}
@@ -440,7 +437,7 @@ export default function EditPage() {
         />
       </div>
     );
-  }, [progress, role, modeIndex, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, handleWordFieldChange, handleCategoryToggle, handleCategoryAdd, handleCategoryRemove, showEnglish, showCategoryBadges]);
+  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, handleWordFieldChange, handleCategoryToggle, handleCategoryAdd, handleCategoryRemove, showEnglish, showCategoryBadges]);
 
   if (isLoading || !isHydrated) {
     return (

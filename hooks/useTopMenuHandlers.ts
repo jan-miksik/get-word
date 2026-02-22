@@ -4,8 +4,6 @@ import { useCallback } from 'react';
 import type { Role, Tab } from './useAppState';
 
 interface UseTopMenuHandlersProps {
-  modeIndex: number;
-  setModeIndex: (index: number) => void;
   showAll: boolean;
   setShowAll: (show: boolean) => void;
   categoryOpen: boolean;
@@ -21,8 +19,6 @@ interface UseTopMenuHandlersProps {
 }
 
 export function useTopMenuHandlers({
-  modeIndex,
-  setModeIndex,
   showAll,
   setShowAll,
   categoryOpen,
@@ -36,11 +32,6 @@ export function useTopMenuHandlers({
   closeAllPanels,
   selectedCategories,
 }: UseTopMenuHandlersProps) {
-  const handleSwitch = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setModeIndex(modeIndex === 0 ? 1 : 0);
-  }, [modeIndex, setModeIndex]);
-
   const handleShowAll = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
     setShowAll(!showAll);
@@ -75,7 +66,6 @@ export function useTopMenuHandlers({
   }, [settingsOpen, setSettingsOpen, closeAllPanels]);
 
   return {
-    onSwitch: handleSwitch,
     onShowAll: handleShowAll,
     onCategory: handleCategory,
     onProgress: handleProgress,
