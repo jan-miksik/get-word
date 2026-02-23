@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import {
   getUserByDeviceId,
+  getUserById,
   getUserByWalletAddress,
-  linkWalletToUser,
+  linkAccountToUser,
   mergeUserData,
   deleteUser,
   getUserProgress,
@@ -17,6 +18,8 @@ import {
 interface LinkWalletRequest {
   deviceId: string
   walletAddress: string
+  email?: string | null
+  authProvider?: string | null // e.g. "email" | "google" | "apple" | "wallet"
 }
 
 // Trust model: The client provides a wallet address obtained from Reown's
@@ -29,7 +32,7 @@ interface LinkWalletRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: LinkWalletRequest = await request.json()
-    const { deviceId, walletAddress } = body
+    const { deviceId, walletAddress, email, authProvider } = body
 
     if (!deviceId || !walletAddress) {
       return NextResponse.json(
@@ -56,19 +59,29 @@ export async function POST(request: NextRequest) {
 
     // Check if wallet is already linked to the same user (idempotent)
     if (currentUser.walletAddress === walletAddress) {
+      if (email != null || authProvider != null) {
+        await updateUserFields(currentUser.id, {
+          ...(email != null && String(email).trim() !== '' && { email: String(email).trim() }),
+          ...(authProvider != null && String(authProvider).trim() !== '' && { authProvider: String(authProvider).trim() }),
+        })
+      }
+      const updatedUser = await getUserByDeviceId(deviceId).then((u) => u ?? currentUser)
       const [progress, hooks, filters] = await Promise.all([
-        getUserProgress(currentUser.id),
-        getUserMemoryHooks(currentUser.id),
-        getUserCategoryFilters(currentUser.id),
+        getUserProgress(updatedUser.id),
+        getUserMemoryHooks(updatedUser.id),
+        getUserCategoryFilters(updatedUser.id),
       ])
 
       return NextResponse.json({
         success: true,
         user: {
-          id: currentUser.id,
-          role: currentUser.role,
-          show_english: currentUser.showEnglish ?? true,
-          show_category_badges: currentUser.showCategoryBadges ?? false,
+          id: updatedUser.id,
+          role: updatedUser.role,
+          show_english: updatedUser.showEnglish ?? true,
+          show_category_badges: updatedUser.showCategoryBadges ?? false,
+          wallet_address: updatedUser.walletAddress ?? walletAddress,
+          email: updatedUser.email ?? null,
+          auth_provider: updatedUser.authProvider ?? null,
         },
         progress,
         memory_hooks: hooks,
@@ -80,23 +93,30 @@ export async function POST(request: NextRequest) {
     const existingWalletUser = await getUserByWalletAddress(walletAddress)
 
     if (!existingWalletUser) {
-      // Case 1: Fresh link - just add wallet to current user
-      await linkWalletToUser(currentUser.id, walletAddress)
+      // Case 1: Fresh link - add wallet and optionally email/authProvider to current user
+      await linkAccountToUser(currentUser.id, {
+        walletAddress,
+        email: email ?? undefined,
+        authProvider: authProvider ?? undefined,
+      })
 
+      const linkedUser = await getUserByDeviceId(deviceId).then((u) => u ?? currentUser)
       const [progress, hooks, filters] = await Promise.all([
-        getUserProgress(currentUser.id),
-        getUserMemoryHooks(currentUser.id),
-        getUserCategoryFilters(currentUser.id),
+        getUserProgress(linkedUser.id),
+        getUserMemoryHooks(linkedUser.id),
+        getUserCategoryFilters(linkedUser.id),
       ])
 
       return NextResponse.json({
         success: true,
         user: {
-          id: currentUser.id,
-          role: currentUser.role,
-          show_english: currentUser.showEnglish ?? true,
-          show_category_badges: currentUser.showCategoryBadges ?? false,
-          wallet_address: walletAddress,
+          id: linkedUser.id,
+          role: linkedUser.role,
+          show_english: linkedUser.showEnglish ?? true,
+          show_category_badges: linkedUser.showCategoryBadges ?? false,
+          wallet_address: linkedUser.walletAddress ?? walletAddress,
+          email: linkedUser.email ?? null,
+          auth_provider: linkedUser.authProvider ?? null,
         },
         progress,
         memory_hooks: hooks,
@@ -155,33 +175,38 @@ export async function POST(request: NextRequest) {
     // Apply merged filters
     await setUserCategoryFilters(existingWalletUser.id, merged.mergedFilters)
 
-    // Preserve the current device's role (the user is actively using this setting)
+    // Preserve the current device's role and optionally update email/authProvider
     await updateUserFields(existingWalletUser.id, {
       deviceId,
       role: currentUser.role,
       showEnglish: currentUser.showEnglish,
       showCategoryBadges: currentUser.showCategoryBadges,
+      ...(email != null && String(email).trim() !== '' && { email: String(email).trim() }),
+      ...(authProvider != null && String(authProvider).trim() !== '' && { authProvider: String(authProvider).trim() }),
     })
 
     // Delete the source (anonymous) user - cascade will clean up related data
     await deleteUser(currentUser.id)
 
     // Return merged data
+    const mergedUser = await getUserById(existingWalletUser.id).then((u) => u ?? existingWalletUser)
     const [finalProgress, finalHooks, finalFilters] = await Promise.all([
-      getUserProgress(existingWalletUser.id),
-      getUserMemoryHooks(existingWalletUser.id),
-      getUserCategoryFilters(existingWalletUser.id),
+      getUserProgress(mergedUser.id),
+      getUserMemoryHooks(mergedUser.id),
+      getUserCategoryFilters(mergedUser.id),
     ])
 
     return NextResponse.json({
       success: true,
       merged: true,
       user: {
-        id: existingWalletUser.id,
+        id: mergedUser.id,
         role: currentUser.role,
         show_english: currentUser.showEnglish ?? true,
         show_category_badges: currentUser.showCategoryBadges ?? false,
-        wallet_address: existingWalletUser.walletAddress ?? walletAddress,
+        wallet_address: mergedUser.walletAddress ?? walletAddress,
+        email: mergedUser.email ?? null,
+        auth_provider: mergedUser.authProvider ?? null,
       },
       progress: finalProgress,
       memory_hooks: finalHooks,

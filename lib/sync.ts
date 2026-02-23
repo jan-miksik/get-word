@@ -34,6 +34,8 @@ export interface SyncResponse {
     show_english?: boolean;
     show_category_badges?: boolean;
     wallet_address?: string | null;
+    email?: string | null;
+    auth_provider?: string | null;
   };
   progress: Record<
     string,
@@ -92,14 +94,22 @@ export async function fetchUserData(): Promise<SyncResponse> {
   }
 }
 
-/** Link a wallet address to the current device user. */
-export async function linkWallet(walletAddress: string): Promise<SyncResponse> {
+/** Link a wallet (and optionally email/auth provider) to the current device user. */
+export async function linkWallet(
+  walletAddress: string,
+  opts?: { email?: string | null; authProvider?: string | null }
+): Promise<SyncResponse> {
   const deviceId = getDeviceId();
 
   const response = await fetch('/api/auth/link-wallet', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ deviceId, walletAddress }),
+    body: JSON.stringify({
+      deviceId,
+      walletAddress,
+      ...(opts?.email != null && { email: opts.email }),
+      ...(opts?.authProvider != null && { authProvider: opts.authProvider }),
+    }),
   });
 
   if (!response.ok) {

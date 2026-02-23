@@ -34,6 +34,7 @@ describe('useAuth', () => {
     expect(result.current.isConnected).toBe(false)
     expect(result.current.address).toBeUndefined()
     expect(result.current.email).toBeUndefined()
+    expect(result.current.authProvider).toBeUndefined()
   })
 
   it('returns connected state with address', () => {

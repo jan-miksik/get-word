@@ -15,6 +15,7 @@ interface SettingsPanelProps {
   onClose?: () => void;
   userId?: string | null;
   userWalletAddress?: string | null;
+  userEmail?: string | null;
   isAuthenticated?: boolean;
   authEmail?: string;
   authAddress?: string;
@@ -34,6 +35,7 @@ export function SettingsPanel({
   onClose,
   userId,
   userWalletAddress,
+  userEmail,
   isAuthenticated,
   authEmail,
   authAddress,
@@ -165,10 +167,19 @@ export function SettingsPanel({
           ) : (
             <div className="flex flex-col gap-2">
               <p className="text-xs text-text-soft">Not signed in</p>
-              {userWalletAddress && (
-                <code className="block text-xs text-text-soft break-all font-mono">
-                  {userWalletAddress}
-                </code>
+              {(userEmail || userWalletAddress) && (
+                <>
+                  {userEmail && (
+                    <code className="block text-xs text-text-soft break-all font-mono">
+                      {userEmail}
+                    </code>
+                  )}
+                  {userWalletAddress && (
+                    <code className="block text-xs text-text-soft break-all font-mono">
+                      {userWalletAddress}
+                    </code>
+                  )}
+                </>
               )}
             </div>
           )}

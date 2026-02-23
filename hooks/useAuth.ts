@@ -7,6 +7,8 @@ interface UseAuthReturn {
   isConnected: boolean
   address: string | undefined
   email: string | undefined
+  /** Auth provider when using embedded wallet, e.g. "google" | "email" */
+  authProvider: string | undefined
   signIn: () => void
   signOut: () => void
   /** Opens Reown wallet/account menu (when connected shows account view, otherwise connect flow) */
@@ -17,6 +19,12 @@ export function useAuth(): UseAuthReturn {
   const { open } = useAppKit()
   const { isConnected, address, embeddedWalletInfo } = useAppKitAccount()
   const { disconnect } = useDisconnect()
+
+  // Reown may expose loginMethod or type on embedded wallet user (e.g. "google" | "email")
+  const authProvider =
+    (embeddedWalletInfo as { user?: { type?: string; loginMethod?: string } } | undefined)?.user?.type ??
+    (embeddedWalletInfo as { user?: { type?: string; loginMethod?: string } } | undefined)?.user?.loginMethod ??
+    undefined
 
   const signIn = useCallback(() => {
     open()
@@ -38,6 +46,7 @@ export function useAuth(): UseAuthReturn {
     isConnected,
     address,
     email: embeddedWalletInfo?.user?.email ?? undefined,
+    authProvider,
     signIn,
     signOut,
     openAccountMenu,

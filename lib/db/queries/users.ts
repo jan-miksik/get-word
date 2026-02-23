@@ -122,6 +122,29 @@ export async function linkWalletToUser(
   return results[0] || null;
 }
 
+/** Link wallet and optionally email + auth provider (e.g. "google" | "email" | "wallet") to user. */
+export async function linkAccountToUser(
+  userId: string,
+  opts: { walletAddress: string; email?: string | null; authProvider?: string | null }
+): Promise<User | null> {
+  const updates: Partial<User> = {
+    walletAddress: opts.walletAddress,
+    updatedAt: new Date(),
+  };
+  if (opts.email != null && opts.email.trim() !== "") {
+    updates.email = opts.email.trim();
+  }
+  if (opts.authProvider != null && opts.authProvider.trim() !== "") {
+    updates.authProvider = opts.authProvider.trim();
+  }
+  const results = await db
+    .update(users)
+    .set(updates)
+    .where(eq(users.id, userId))
+    .returning();
+  return results[0] || null;
+}
+
 // --- Merge logic for wallet linking ---
 
 export interface ProgressMergeItem {

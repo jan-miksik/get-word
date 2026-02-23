@@ -35,6 +35,7 @@ interface AppLayoutProps {
   onThemeChange: (theme: Theme) => void;
   userId: string | null;
   userWalletAddress?: string | null;
+  userEmail?: string | null;
   // CategoryPanel props
   categories: Array<{ name: string; count: number }>;
   selectedCategories: Set<string>;
@@ -73,6 +74,7 @@ export function AppLayout({
   onThemeChange,
   userId,
   userWalletAddress,
+  userEmail,
   isAuthenticated,
   authEmail,
   authAddress,
@@ -95,7 +97,11 @@ export function AppLayout({
   return (
     <div className="app">
       <div className="auth-corner" aria-label="Sign in">
-        <AuthButton />
+        <AuthButton
+          isAuthenticated={isAuthenticated}
+          authEmail={authEmail}
+          authAddress={authAddress}
+        />
       </div>
       {header}
       <TopMenu {...topMenuHandlers} />
@@ -112,6 +118,7 @@ export function AppLayout({
         onClose={() => setSettingsOpen(false)}
         userId={userId}
         userWalletAddress={userWalletAddress}
+        userEmail={userEmail}
         isAuthenticated={isAuthenticated}
         authEmail={authEmail}
         authAddress={authAddress}

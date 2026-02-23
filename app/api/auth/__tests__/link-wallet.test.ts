@@ -3,8 +3,9 @@ import { NextRequest } from 'next/server'
 
 // Mock all DB functions used by the route
 const mockGetUserByDeviceId = vi.fn()
+const mockGetUserById = vi.fn()
 const mockGetUserByWalletAddress = vi.fn()
-const mockLinkWalletToUser = vi.fn()
+const mockLinkAccountToUser = vi.fn()
 const mockDeleteUser = vi.fn()
 const mockMergeUserData = vi.fn()
 const mockGetUserProgress = vi.fn()
@@ -17,8 +18,9 @@ const mockUpdateUserFields = vi.fn()
 
 vi.mock('@/lib/db', () => ({
   getUserByDeviceId: (...args: unknown[]) => mockGetUserByDeviceId(...args),
+  getUserById: (...args: unknown[]) => mockGetUserById(...args),
   getUserByWalletAddress: (...args: unknown[]) => mockGetUserByWalletAddress(...args),
-  linkWalletToUser: (...args: unknown[]) => mockLinkWalletToUser(...args),
+  linkAccountToUser: (...args: unknown[]) => mockLinkAccountToUser(...args),
   deleteUser: (...args: unknown[]) => mockDeleteUser(...args),
   mergeUserData: (...args: unknown[]) => mockMergeUserData(...args),
   getUserProgress: (...args: unknown[]) => mockGetUserProgress(...args),
@@ -83,10 +85,11 @@ describe('POST /api/auth/link-wallet', () => {
   })
 
   it('fresh link: adds wallet to current user', async () => {
-    const user = { id: 'uuid-A', deviceId: 'dev-123', walletAddress: null, role: 'vi', showEnglish: true, showCategoryBadges: false }
-    mockGetUserByDeviceId.mockResolvedValue(user)
+    const user = { id: 'uuid-A', deviceId: 'dev-123', walletAddress: null, email: null, authProvider: null, role: 'vi', showEnglish: true, showCategoryBadges: false }
+    const linkedUser = { ...user, walletAddress: VALID_WALLET }
+    mockGetUserByDeviceId.mockResolvedValueOnce(user).mockResolvedValueOnce(linkedUser)
     mockGetUserByWalletAddress.mockResolvedValue(null)
-    mockLinkWalletToUser.mockResolvedValue({ ...user, walletAddress: VALID_WALLET })
+    mockLinkAccountToUser.mockResolvedValue(linkedUser)
 
     const res = await POST(makeRequest({ deviceId: 'dev-123', walletAddress: VALID_WALLET }))
     const data = await res.json()
@@ -94,11 +97,11 @@ describe('POST /api/auth/link-wallet', () => {
     expect(res.status).toBe(200)
     expect(data.success).toBe(true)
     expect(data.user.id).toBe('uuid-A')
-    expect(mockLinkWalletToUser).toHaveBeenCalledWith('uuid-A', VALID_WALLET)
+    expect(mockLinkAccountToUser).toHaveBeenCalledWith('uuid-A', { walletAddress: VALID_WALLET, email: undefined, authProvider: undefined })
   })
 
   it('idempotent: returns data if wallet already linked to same user', async () => {
-    const user = { id: 'uuid-A', deviceId: 'dev-123', walletAddress: VALID_WALLET, role: 'vi', showEnglish: true, showCategoryBadges: false }
+    const user = { id: 'uuid-A', deviceId: 'dev-123', walletAddress: VALID_WALLET, email: null, authProvider: null, role: 'vi', showEnglish: true, showCategoryBadges: false }
     mockGetUserByDeviceId.mockResolvedValue(user)
 
     const res = await POST(makeRequest({ deviceId: 'dev-123', walletAddress: VALID_WALLET }))
@@ -106,15 +109,16 @@ describe('POST /api/auth/link-wallet', () => {
 
     expect(res.status).toBe(200)
     expect(data.success).toBe(true)
-    expect(mockLinkWalletToUser).not.toHaveBeenCalled()
+    expect(mockLinkAccountToUser).not.toHaveBeenCalled()
   })
 
   it('merge: merges users when wallet belongs to different user', async () => {
-    const currentUser = { id: 'uuid-A', deviceId: 'dev-123', walletAddress: null, role: 'vi', showEnglish: true, showCategoryBadges: false }
-    const existingUser = { id: 'uuid-B', deviceId: 'dev-456', walletAddress: VALID_WALLET, role: 'cz', showEnglish: false, showCategoryBadges: true }
+    const currentUser = { id: 'uuid-A', deviceId: 'dev-123', walletAddress: null, email: null, authProvider: null, role: 'vi', showEnglish: true, showCategoryBadges: false }
+    const existingUser = { id: 'uuid-B', deviceId: 'dev-456', walletAddress: VALID_WALLET, email: null, authProvider: null, role: 'cz', showEnglish: false, showCategoryBadges: true }
 
     mockGetUserByDeviceId.mockResolvedValue(currentUser)
     mockGetUserByWalletAddress.mockResolvedValue(existingUser)
+    mockGetUserById.mockResolvedValue(existingUser)
     mockMergeUserData.mockReturnValue({
       mergedProgress: {},
       mergedHooks: {},

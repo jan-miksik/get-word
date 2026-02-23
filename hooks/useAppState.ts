@@ -10,11 +10,18 @@ export type Role = 'cz' | 'vi';
 export type Tab = 'all' | 'ready';
 export type Theme = 'default' | 'warm' | 'calm';
 
-export function useAppState(words: NormalizedWord[], walletAddress?: string | undefined) {
+export interface LinkPayload {
+  email?: string | null;
+  authProvider?: string | null;
+}
+
+export function useAppState(
+  words: NormalizedWord[],
+  walletAddress?: string | undefined,
+  linkPayload?: LinkPayload
+) {
   // Defaults; overwritten by fetchUserData (DB-only, no localStorage)
   const [role, setRole] = useState<Role>('vi');
-  // Per-word display mode (0 or 1); flips on revisit (when user marks known/unknown)
-  const [wordDisplayMode, setWordDisplayMode] = useState<Record<string, 0 | 1>>({});
   const [showAll, setShowAll] = useState(false);
   const [currentTab, setCurrentTab] = useState<Tab>('all');
   const [progress, setProgress] = useState<Record<string, ProgressData>>({});
@@ -30,6 +37,7 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
   const [lastMovedId, setLastMovedId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [userWalletAddress, setUserWalletAddress] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<'user' | 'editor'>('user');
   const [isHydrated, setIsHydrated] = useState(false);
   const lastMovedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -61,6 +69,7 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
     setShowEnglish(serverData.user?.show_english ?? true);
     setShowCategoryBadges(serverData.user?.show_category_badges ?? false);
     setUserWalletAddress(serverData.user?.wallet_address ?? null);
+    setUserEmail(serverData.user?.email ?? null);
     if (serverData.user?.user_role) {
       setUserRole(serverData.user.user_role);
       document.cookie = `wordlink_user_role=${serverData.user.user_role};path=/;max-age=31536000;SameSite=Lax`;
@@ -157,12 +166,15 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
     debouncedSync({ show_category_badges: showCategoryBadges }).catch((e) => console.error('[useAppState] Sync show_category_badges:', e));
   }, [showCategoryBadges, isHydrated]);
 
-  // Link wallet when user connects
+  // Link wallet (and optionally email/authProvider) when user connects
   useEffect(() => {
     if (!isHydrated || !walletAddress || hasLinkedRef.current) return;
     hasLinkedRef.current = true;
 
-    linkWallet(walletAddress)
+    linkWallet(walletAddress, {
+      email: linkPayload?.email ?? undefined,
+      authProvider: linkPayload?.authProvider ?? undefined,
+    })
       .then((serverData) => {
         isUpdatingFromServerRef.current = true;
         applyServerData(serverData);
@@ -175,7 +187,7 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
         console.error('[useAppState] Failed to link wallet:', err);
         hasLinkedRef.current = false; // Allow retry
       });
-  }, [isHydrated, walletAddress]);
+  }, [isHydrated, walletAddress, linkPayload?.email, linkPayload?.authProvider]);
 
   // Reset linked state when wallet disconnects
   useEffect(() => {
@@ -252,7 +264,6 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
         },
       };
     });
-    setWordDisplayMode((prev) => ({ ...prev, [wordId]: (1 - (prev[wordId] ?? 0)) as 0 | 1 }));
     setLastMovedId(wordId);
     // Clear any existing timeout before setting a new one
     if (lastMovedTimeoutRef.current) {
@@ -283,7 +294,6 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
         },
       };
     });
-    setWordDisplayMode((prev) => ({ ...prev, [wordId]: (1 - (prev[wordId] ?? 0)) as 0 | 1 }));
     setLastMovedId(wordId);
     // Clear any existing timeout before setting a new one
     if (lastMovedTimeoutRef.current) {
@@ -314,7 +324,6 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
         },
       };
     });
-    setWordDisplayMode((prev) => ({ ...prev, [wordId]: (1 - (prev[wordId] ?? 0)) as 0 | 1 }));
     setLastMovedId(wordId);
     // Clear any existing timeout before setting a new one
     if (lastMovedTimeoutRef.current) {
@@ -374,10 +383,12 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
     return '';
   }, [role]);
 
-  // Per-word display mode: 0 = show foreign / hide native, 1 = opposite; flips on mark (revisit)
+  // Per-word display: 0 = show foreign only, 1 = show native. Rule: even (unknown+known) → foreign, odd → native.
   const getWordDisplayMode = useCallback((wordId: string): 0 | 1 => {
-    return wordDisplayMode[wordId] ?? 0;
-  }, [wordDisplayMode]);
+    const p = progress[wordId];
+    const total = (p?.unknownCount ?? 0) + (p?.knownCount ?? 0);
+    return total % 2 === 0 ? 0 : 1;
+  }, [progress]);
 
   // Handle role change
   const handleRoleChange = useCallback((newRole: 'cz' | 'vi') => {
@@ -421,6 +432,7 @@ export function useAppState(words: NormalizedWord[], walletAddress?: string | un
     lastMovedId,
     userId,
     userWalletAddress,
+    userEmail,
     userRole,
     isEditor: userRole === 'editor',
     isHydrated,

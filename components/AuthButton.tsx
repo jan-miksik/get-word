@@ -2,11 +2,26 @@
 
 import { useAuth } from '@/hooks/useAuth'
 
-export function AuthButton() {
+interface AuthButtonProps {
+  /** When true, show as logged in (from Reown or from server-linked account) */
+  isAuthenticated?: boolean
+  /** Email to show (from Reown or from server) */
+  authEmail?: string
+  /** Wallet address to show (from Reown or from server) */
+  authAddress?: string
+}
+
+export function AuthButton({ isAuthenticated: propAuthenticated, authEmail: propEmail, authAddress: propAddress }: AuthButtonProps = {}) {
   const { isConnected, email, address, signIn, openAccountMenu } = useAuth()
 
-  if (isConnected) {
-    const displayName = email || (address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Connected')
+  const isAuthenticated = propAuthenticated ?? isConnected
+  const displayEmail = propEmail ?? email
+  const displayAddress = propAddress ?? address
+
+  if (isAuthenticated) {
+    const displayName =
+      displayEmail ||
+      (displayAddress ? `${displayAddress.slice(0, 6)}...${displayAddress.slice(-4)}` : 'Account linked')
     return (
       <button
         onClick={openAccountMenu}

@@ -15,10 +15,11 @@ import { BottomNav } from '@/components/BottomNav';
 import { EditableWordCard, EDIT_ONLY_CATEGORIES } from '@/components/EditableWordCard';
 import { VirtualizedWordList } from '@/components/VirtualizedWordList';
 import { useDueTimer } from '@/hooks/useDueTimer';
-
+import { useAuth } from '@/hooks/useAuth';
 
 export default function EditPage() {
   const router = useRouter();
+  const { isConnected, email, address: walletAddress, signOut } = useAuth();
   const { words, setWords, isLoading } = useWordsLoader();
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -65,9 +66,14 @@ export default function EditPage() {
     lastMovedId,
     userId,
     userWalletAddress,
+    userEmail,
     userRole,
     isHydrated,
   } = useAppState(normalizedWords);
+
+  const isAuthenticated = isConnected || !!(userWalletAddress || userEmail);
+  const displayEmail = email ?? userEmail ?? undefined;
+  const displayAddress = walletAddress ?? userWalletAddress ?? undefined;
 
   // Client-side guard: redirect non-editors
   useEffect(() => {
@@ -502,6 +508,11 @@ export default function EditPage() {
       onThemeChange={setTheme}
       userId={userId}
       userWalletAddress={userWalletAddress}
+      userEmail={userEmail}
+      isAuthenticated={isAuthenticated}
+      authEmail={displayEmail}
+      authAddress={displayAddress}
+      onSignOut={signOut}
       categories={categories}
       selectedCategories={selectedCategories}
       onToggleCategory={toggleCategoryFilter}

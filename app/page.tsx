@@ -18,12 +18,17 @@ import { useAuth } from '@/hooks/useAuth';
 
 export default function Home() {
   const { words, isLoading: isLoadingWords } = useWordsLoader();
-  const { isConnected, email, address: walletAddress, signOut } = useAuth();
+  const { isConnected, email, authProvider, address: walletAddress, signOut } = useAuth();
 
   // Memoize normalized words so we don't recompute on every render
   const normalizedWords = useMemo(
     () => (words.length > 0 ? normalizeWords(words as Word[]) : []),
     [words]
+  );
+
+  const linkPayload = useMemo(
+    () => (walletAddress ? { email: email ?? null, authProvider: authProvider ?? null } : undefined),
+    [walletAddress, email, authProvider]
   );
 
   const {
@@ -62,8 +67,14 @@ export default function Home() {
     lastMovedId,
     userId,
     userWalletAddress,
+    userEmail,
     isHydrated,
-  } = useAppState(normalizedWords, walletAddress);
+  } = useAppState(normalizedWords, walletAddress, linkPayload);
+
+  // Logged in = Reown connected now OR account already linked on server (wallet/email saved)
+  const isAuthenticated = isConnected || !!(userWalletAddress || userEmail);
+  const displayEmail = email ?? userEmail ?? undefined;
+  const displayAddress = walletAddress ?? userWalletAddress ?? undefined;
 
   const [showWaitingForRepeat, setShowWaitingForRepeat] = useState(false);
   const [showNotReady, setShowNotReady] = useState(false);
@@ -376,9 +387,10 @@ export default function Home() {
       onThemeChange={setTheme}
       userId={userId}
       userWalletAddress={userWalletAddress}
-      isAuthenticated={isConnected}
-      authEmail={email}
-      authAddress={walletAddress}
+      userEmail={userEmail}
+      isAuthenticated={isAuthenticated}
+      authEmail={displayEmail}
+      authAddress={displayAddress}
       onSignOut={signOut}
       categories={categories}
       selectedCategories={selectedCategories}
