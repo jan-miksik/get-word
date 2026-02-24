@@ -3,11 +3,10 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { ProgressData, SyncResponse } from '@/lib/sync';
-import { NormalizedWord, STAGES, isDue, matchesCategoryFilter } from '@/lib/words';
+import { NormalizedWord, STAGES, matchesCategoryFilter } from '@/lib/words';
 import { fetchUserData, debouncedSync, linkWallet } from '@/lib/sync';
 
 export type Role = 'cz' | 'vi';
-export type Tab = 'all' | 'ready';
 export type Theme = 'default' | 'warm' | 'calm';
 
 export interface LinkPayload {
@@ -23,7 +22,6 @@ export function useAppState(
   // Defaults; overwritten by fetchUserData (DB-only, no localStorage)
   const [role, setRole] = useState<Role>('vi');
   const [showAll, setShowAll] = useState(false);
-  const [currentTab, setCurrentTab] = useState<Tab>('all');
   const [progress, setProgress] = useState<Record<string, ProgressData>>({});
   const [memoryHooks, setMemoryHooks] = useState<Record<string, string>>({});
   const [selectedCategories, setSelectedCategories] = useState<Set<string>>(new Set());
@@ -332,17 +330,10 @@ export function useAppState(
     lastMovedTimeoutRef.current = setTimeout(() => setLastMovedId(null), 1000);
   }, []);
 
-  // Memoized filtered words so downstream useMemo (e.g. groupedWords) gets stable reference when filters unchanged
+  // Memoized filtered words so downstream useMemo gets stable reference when filters unchanged
   const filteredWords = useMemo(() => {
-    let filtered = words.filter((word) => matchesCategoryFilter(word, selectedCategories));
-    if (currentTab === 'ready' && isHydrated) {
-      filtered = filtered.filter((word) => {
-        const prog = progress[word.id];
-        return prog && isDue(prog);
-      });
-    }
-    return filtered;
-  }, [words, selectedCategories, currentTab, progress, isHydrated]);
+    return words.filter((word) => matchesCategoryFilter(word, selectedCategories));
+  }, [words, selectedCategories]);
 
   // Toggle category filter
   const toggleCategory = useCallback((category: string) => {
@@ -401,8 +392,6 @@ export function useAppState(
     getWordDisplayMode,
     showAll,
     setShowAll,
-    currentTab,
-    setCurrentTab,
     progress,
     memoryHooks,
     selectedCategories,

@@ -8,7 +8,7 @@ import { CategoryPanel } from '@/components/CategoryPanel';
 import { MemoryHooksPanel } from '@/components/MemoryHooksPanel';
 import { ProgressPanel } from '@/components/ProgressPanel';
 import { ProgressSummary } from '@/components/ProgressSummary';
-import type { Role, Tab, Theme } from '@/hooks/useAppState';
+import type { Role, Theme } from '@/hooks/useAppState';
 import type { ProgressStats } from '@/lib/progress-stats';
 
 interface AppLayoutProps {

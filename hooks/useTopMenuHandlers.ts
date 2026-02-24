@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import type { Role, Tab } from './useAppState';
+import type { Role } from './useAppState';
 
 interface UseTopMenuHandlersProps {
   showAll: boolean;

@@ -36,8 +36,6 @@ export default function EditPage() {
     getWordDisplayMode,
     showAll,
     setShowAll,
-    currentTab,
-    setCurrentTab,
     progress,
     memoryHooks,
     selectedCategories,
@@ -229,7 +227,7 @@ export default function EditPage() {
       cleanupMap.forEach((c) => c());
       cleanupMap.clear();
     };
-  }, [currentTab, selectedCategories, showAll, role, progress]);
+  }, [selectedCategories, showAll, role, progress]);
 
   // Create a Map for O(1) word lookups by ID
   const wordIndexMap = useMemo(() => {
@@ -335,11 +333,11 @@ export default function EditPage() {
     }
   };
 
-  // Reset expandable sections when switching tabs or filters change
+  // Reset expandable sections when filters change
   useEffect(() => {
     setShowWaitingForRepeat(false);
     setShowNotReady(false);
-  }, [currentTab, selectedCategories]);
+  }, [selectedCategories]);
 
   const closeAllPanels = useCallback(() => {
     setSettingsOpen(false);
@@ -363,50 +361,42 @@ export default function EditPage() {
     selectedCategories,
   });
 
-  // Calculate readyCount from all words (with category filters) before tab filtering
-  const readyCount = useMemo(() => {
-    const categoryFiltered = normalizedWords.filter((word) => 
-      matchesCategoryFilter(word, selectedCategories)
-    );
-    let count = 0;
-    categoryFiltered.forEach((word) => {
-      const prog = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
-      if (isDue(prog)) {
-        count += 1;
-      }
-    });
-    return count;
-  }, [normalizedWords, selectedCategories, progress]);
-
-  // Group words by stage (memoized for performance) - must be before early return
-  const { groupedWords, groupedWordsWaiting, notReadyCount } = useMemo(() => {
-    const grouped = STAGES.map(() => [] as NormalizedWord[]);
-    const groupedWaiting = STAGES.map(() => [] as NormalizedWord[]);
-    let notReady = 0;
+  // Split filteredWords into three buckets for single-stream ordering
+  const { dueWords, newWords, settlingWords } = useMemo(() => {
+    const due: NormalizedWord[] = [];
+    const newW: NormalizedWord[] = [];
+    const settling: NormalizedWord[] = [];
 
     filteredWords.forEach((word) => {
-      const prog = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
-      const due = isDue(prog);
-      if (currentTab === 'all' && !due && prog.stageIndex > 0) {
-        notReady += 1;
-      }
-      if (currentTab === 'ready' && !due) return;
-      const sIdx = Math.max(0, Math.min(prog.stageIndex || 0, STAGES.length - 1));
-
-      if (currentTab === 'all' && due) {
-        groupedWaiting[sIdx].push(word);
+      const prog = progress[word.id];
+      if (!prog || prog.stageIndex === 0) {
+        newW.push(word);
+      } else if (isDue(prog)) {
+        due.push(word);
       } else {
-        grouped[sIdx].push(word);
+        settling.push(word);
       }
     });
 
-    return { groupedWords: grouped, groupedWordsWaiting: groupedWaiting, notReadyCount: notReady };
-  }, [filteredWords, progress, currentTab]);
+    due.sort((a, b) => (progress[a.id]?.nextDueAt ?? 0) - (progress[b.id]?.nextDueAt ?? 0));
 
-  const groupedWordsForAll = useMemo(() => {
-    if (showNotReady) return groupedWords;
-    return groupedWords.map((words, stageIndex) => (stageIndex === 0 ? words : []));
-  }, [groupedWords, showNotReady]);
+    return { dueWords: due, newWords: newW, settlingWords: settling };
+  }, [filteredWords, progress]);
+
+  const readyCount = dueWords.length;
+
+  const streamGroupedWords = useMemo((): NormalizedWord[][] => {
+    const groups: NormalizedWord[][] = STAGES.map(() => []);
+    groups[0] = dueWords;
+    groups[1] = newWords;
+    if (showNotReady) {
+      settlingWords.forEach((word) => {
+        const sIdx = Math.max(2, Math.min(progress[word.id]?.stageIndex ?? 2, STAGES.length - 1));
+        groups[sIdx].push(word);
+      });
+    }
+    return groups;
+  }, [dueWords, newWords, settlingWords, showNotReady, progress]);
 
   const statsWords = useMemo(() => {
     return getProgressStatsWords(normalizedWords, selectedCategories);
@@ -535,92 +525,39 @@ export default function EditPage() {
       >
         <div className="app-content-column flex flex-col gap-[18px] flex-1 min-h-0">
           {filteredWords.length === 0 ? (
-            <div className="p-8 text-center text-text-soft">
-              {currentTab === 'ready' ? 'All caught up!' : 'No words match your current filters.'}
-            </div>
-          ) : currentTab === 'ready' ? (
-            <VirtualizedWordList
-              key="ready"
-              dataTab="ready"
-              groupedWords={groupedWords}
-              renderCard={renderEditableCard}
-              emptyMessage="All caught up! No words ready for review."
-              scrollElement={phrasesScrollElement}
-            />
+            <div className="p-8 text-center text-text-soft">No words match your current filters.</div>
           ) : (
-            <>
-              <VirtualizedWordList
-                key="all"
-                dataTab="all"
-                groupedWords={groupedWordsForAll}
-                renderCard={renderEditableCard}
-                scrollElement={phrasesScrollElement}
-                stageFooter={(stageIndex) => {
-                  if (stageIndex !== 0 || notReadyCount === 0) return null;
-                  return (
-                    <div className="p-4 px-4 text-center border-t border-border-subtle mt-4">
-                      <button
-                        type="button"
-                        className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-background-elevated"
-                        onClick={() => setShowNotReady(!showNotReady)}
-                      >
-                        {showNotReady ? 'Hide' : 'Show'} {notReadyCount} word{notReadyCount !== 1 ? 's' : ''} settling in before repeat
-                      </button>
-                    </div>
-                  );
-                }}
-              />
-              {readyCount > 0 && (
-                <>
-                  {!showWaitingForRepeat && (
-                    <div className="p-4 text-center border-t border-b border-border-subtle mt-4 sticky top-0 bg-background backdrop-blur-xl z-10 shadow-soft">
-                      <button
-                        type="button"
-                        className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-background-elevated"
-                        onClick={() => setShowWaitingForRepeat(true)}
-                      >
-                        Show {readyCount} word{readyCount !== 1 ? 's' : ''} waiting for repeat
-                      </button>
-                    </div>
-                  )}
-                  {showWaitingForRepeat && (
-                    <>
-                      <div className="p-4 px-4 border-t border-border-subtle mt-4 flex justify-between items-center bg-background-elevated">
-                        <h2 className="m-0 text-base font-semibold text-text-soft">
-                          Waiting for repeat ({readyCount})
-                        </h2>
-                        <button
-                          type="button"
-                          className="bg-transparent border border-border-subtle rounded-lg px-4 py-2 text-sm text-text-soft cursor-pointer transition-all hover:bg-background-elevated hover:text-text"
-                          onClick={() => setShowWaitingForRepeat(false)}
-                        >
-                          Hide
-                        </button>
-                      </div>
-                      {STAGES.map((stage, stageIndex) => {
-                        const items = groupedWordsWaiting[stageIndex];
-                        if (!items.length) return null;
-                        return (
-                          <section key={`waiting-${stageIndex}`} className="mt-4">
-                            <h2 className="text-[0.7rem] uppercase tracking-[0.12em] text-text-soft m-0 mb-1 mx-0.5 opacity-90">{stage.name}</h2>
-                            {items.map((word) => renderEditableCard(word, stageIndex))}
-                          </section>
-                        );
-                      })}
-                    </>
-                  )}
-                </>
-              )}
-            </>
+            <VirtualizedWordList
+              key="stream"
+              dataTab="stream"
+              groupedWords={streamGroupedWords}
+              renderCard={renderEditableCard}
+              showHeaders={false}
+              scrollElement={phrasesScrollElement}
+              emptyMessage="No words to display."
+              stageFooter={(stageIndex) => {
+                const isLastMainSlot =
+                  (stageIndex === 1 && newWords.length > 0) ||
+                  (stageIndex === 0 && newWords.length === 0);
+                if (!isLastMainSlot || settlingWords.length === 0) return null;
+                return (
+                  <div className="p-4 px-4 text-center border-t border-border-subtle mt-4">
+                    <button
+                      type="button"
+                      className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-background-elevated"
+                      onClick={() => setShowNotReady(!showNotReady)}
+                    >
+                      {showNotReady ? 'Hide' : 'Show'} {settlingWords.length} word{settlingWords.length !== 1 ? 's' : ''} settling in before repeat
+                    </button>
+                  </div>
+                );
+              }}
+            />
           )}
         </div>
       </main>
 
-      <BottomNav
-        currentTab={currentTab}
-        readyCount={readyCount}
-        onTabChange={setCurrentTab}
-      />
+      <BottomNav readyCount={readyCount} />
     </AppLayout>
   );
 }
