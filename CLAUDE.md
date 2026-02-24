@@ -14,6 +14,7 @@ pnpm run build            # Production build
 pnpm lint                 # ESLint (Next.js defaults, no custom config)
 pnpm test                 # Run tests once (Vitest)
 pnpm test:watch           # Watch mode tests
+pnpm test -- <pattern>    # Run a single test file (e.g. pnpm test -- sync.test)
 pnpm db:push              # Push schema to database (fast, no migrations)
 pnpm db:generate          # Generate migration from schema changes
 pnpm db:migrate           # Apply migrations
@@ -25,7 +26,7 @@ pnpm db:backup            # Backup remote DB to backups/
 ## Environment Setup
 
 Requires `.env.local` with:
-- `DATABASE_URL` - Supabase PostgreSQL connection string
+- `DATABASE_URL` - Supabase PostgreSQL connection string. Use **Direct connection** for dev/admin ops (migrations, seed, dump/restore); use **Connection Pooler** for production (Vercel serverless).
 - `WORDLINK_SESSION_SECRET` - Required in production for signing session cookies (auto-generated in dev)
 - `NEXT_PUBLIC_REOWN_PROJECT_ID` - Optional for wallet auth (app works in anonymous mode without it)
 
