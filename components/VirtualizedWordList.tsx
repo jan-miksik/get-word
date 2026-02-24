@@ -20,6 +20,8 @@ interface VirtualizedWordListProps {
   scrollElement?: HTMLElement | null;
   /** For verification: identifies which tab this list serves (e.g. "ready" | "all") */
   dataTab?: string;
+  /** When false, suppress all stage headers and the sticky header bar */
+  showHeaders?: boolean;
 }
 
 export function VirtualizedWordList({
@@ -30,18 +32,21 @@ export function VirtualizedWordList({
   emptyMessage = 'No words to display.',
   scrollElement,
   dataTab,
+  showHeaders = true,
 }: VirtualizedWordListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const stickyHeaderRef = useRef<HTMLDivElement>(null);
   const [activeStageIndex, setActiveStageIndex] = useState(0);
 
-  // Flatten items: headers + cards + optional footers
+  // Flatten items: headers (optional) + cards + optional footers
   const items = useMemo(() => {
     const flat: VirtualItem[] = [];
     STAGES.forEach((stage, stageIndex) => {
       const words = groupedWords[stageIndex] || [];
       if (words.length > 0) {
-        flat.push({ type: 'header', stage, stageIndex });
+        if (showHeaders) {
+          flat.push({ type: 'header', stage, stageIndex });
+        }
         words.forEach(word => {
           flat.push({ type: 'card', word, stageIndex });
         });
@@ -52,7 +57,7 @@ export function VirtualizedWordList({
       }
     });
     return flat;
-  }, [groupedWords, stageFooter]);
+  }, [groupedWords, stageFooter, showHeaders]);
 
   // Find the first non-empty stage for initial active stage
   useEffect(() => {
@@ -276,8 +281,8 @@ export function VirtualizedWordList({
           </div>
         </div>
       )}
-      {/* Sticky header showing current stage - only shown when using parent scroll */}
-      {scrollElement && (
+      {/* Sticky header showing current stage - only shown when using parent scroll and headers enabled */}
+      {scrollElement && showHeaders && (
         <div ref={stickyHeaderRef} className="sticky top-0 z-10 bg-background backdrop-blur-[12px] border-b border-border-subtle py-3 px-4 mb-2">
           <h2 className="m-0 text-base font-semibold text-accent">
             {activeStage?.name || 'Loading...'}

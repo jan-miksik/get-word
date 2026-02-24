@@ -1,32 +1,18 @@
 'use client';
 
-import type { Tab } from '@/hooks/useAppState';
-
 interface BottomNavProps {
-  currentTab: Tab;
   readyCount: number;
-  onTabChange: (tab: Tab) => void;
 }
 
-export function BottomNav({ currentTab, readyCount, onTabChange }: BottomNavProps) {
+export function BottomNav({ readyCount }: BottomNavProps) {
+  if (readyCount === 0) return null;
+
   return (
-    <nav className="bottom-nav" aria-label="View selection">
-      <button
-        className={`bottom-nav-btn ${currentTab === 'all' ? 'is-active' : ''}`}
-        onClick={() => onTabChange('all')}
-        type="button"
-      >
-        All words
-      </button>
-      <button
-        className={`bottom-nav-btn ${currentTab === 'ready' ? 'is-active' : ''}`}
-        onClick={() => onTabChange('ready')}
-        type="button"
-        data-tab="ready"
-        data-count={readyCount > 0 ? readyCount : ''}
-      >
-        Ready to repeat
-      </button>
+    <nav className="bottom-nav" aria-label="Repeat status">
+      <div className="flex items-center justify-center gap-1.5 text-sm text-text-soft">
+        <span className="w-1.5 h-1.5 rounded-full bg-accent opacity-80 animate-[countdown-pulse_1.8s_ease-in-out_infinite]" />
+        <span>{readyCount} ready to repeat</span>
+      </div>
     </nav>
   );
 }

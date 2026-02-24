@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, memo } from 'react';
-import { NormalizedWord } from '@/lib/words';
+import { NormalizedWord, STAGES } from '@/lib/words';
 import { ProgressData } from '@/lib/sync';
 
 interface WordCardProps {
@@ -148,6 +148,7 @@ export const WordCard = memo(function WordCard({
   // Only calculate time-based values on client to avoid hydration mismatches
   const isDue = isMounted && progress.nextDueAt ? Date.now() >= progress.nextDueAt : false;
   const showCountdown = isMounted && progress.stageIndex > 0 && progress.nextDueAt && !isDue;
+  const stageName = progress.stageIndex > 0 ? STAGES[progress.stageIndex]?.name : null;
 
   // Get categories to display (exclude "to fix" unless in edit mode)
   const displayCategories = word.category?.filter(
@@ -265,13 +266,22 @@ export const WordCard = memo(function WordCard({
         />
       </div>
 
-      {/* Countdown */}
+      {/* Countdown / stage label */}
       {showCountdown && (
         <div className="mt-1 text-[0.7rem] text-text-soft flex justify-center gap-1 items-center" data-next-due-at={progress.nextDueAt}>
           <span className="w-1.5 h-1.5 rounded-full bg-accent opacity-80 animate-[countdown-pulse_1.8s_ease-in-out_infinite]"></span>
           <span className="opacity-90">
             {formatRemaining(progress.nextDueAt! - Date.now())}
           </span>
+          {stageName && (
+            <span className="opacity-50 ml-0.5">· {stageName}</span>
+          )}
+        </div>
+      )}
+      {isDue && stageName && (
+        <div className="mt-1 text-[0.7rem] text-text-soft flex justify-center gap-1 items-center">
+          <span className="w-1.5 h-1.5 rounded-full bg-accent opacity-80"></span>
+          <span className="opacity-90">{stageName}</span>
         </div>
       )}
 
