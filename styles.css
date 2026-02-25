@@ -5,6 +5,11 @@
   --accent: #38bdf8;
   --accent-soft: rgba(56, 189, 248, 0.12);
   --accent-strong: rgba(56, 189, 248, 0.32);
+  /* Single-hue amber/gold scale — clearly distinct tones on dark bg */
+  --stage-1: #FEF9C3;
+  --stage-2: #FCD34D;
+  --stage-3: #F59E0B;
+  --stage-4: #D97706;
   --text: #e5e7eb;
   --text-soft: #9ca3af;
   --border-subtle: rgba(148, 163, 184, 0.35);
@@ -599,6 +604,60 @@ body {
   background: radial-gradient(circle at top right, #020617 0, #020617 60%);
 }
 
+/* ── Stage-group borders: 7px, distinct styles + amber tonal scale ── */
+.phrase-card[data-stage-group="fresh"] {
+  border: 7px double var(--stage-1);
+  box-shadow: 0 0 20px rgba(254, 249, 195, 0.15), inset 0 0 24px rgba(254, 249, 195, 0.04);
+}
+.phrase-card[data-stage-group="learning"] {
+  border: 7px ridge var(--stage-2);
+  box-shadow: 0 0 20px rgba(252, 211, 77, 0.18), inset 0 0 24px rgba(252, 211, 77, 0.05);
+}
+.phrase-card[data-stage-group="seasoned"] {
+  border: 7px inset var(--stage-3);
+  box-shadow: 0 0 20px rgba(245, 158, 11, 0.2), inset 0 0 24px rgba(245, 158, 11, 0.06);
+}
+.phrase-card[data-stage-group="mastered"] {
+  border: 7px solid var(--stage-4);
+  box-shadow: 0 0 20px rgba(217, 119, 6, 0.22), inset 0 0 24px rgba(217, 119, 6, 0.07);
+}
+
+/* ── Time badge — top-right pill, always visible ── */
+.card-time-badge {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 5;
+  font-size: 0.65rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+  padding: 2px 8px;
+  border-radius: 20px;
+  pointer-events: none;
+  line-height: 1.6;
+}
+
+.phrase-card[data-stage-group="fresh"] .card-time-badge {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(254, 249, 195, 0.55);
+  color: var(--stage-1);
+}
+.phrase-card[data-stage-group="learning"] .card-time-badge {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(252, 211, 77, 0.55);
+  color: var(--stage-2);
+}
+.phrase-card[data-stage-group="seasoned"] .card-time-badge {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(245, 158, 11, 0.55);
+  color: var(--stage-3);
+}
+.phrase-card[data-stage-group="mastered"] .card-time-badge {
+  background: rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(217, 119, 6, 0.55);
+  color: var(--stage-4);
+}
 
 .audio-btn {
   margin-left: 8px;
@@ -1202,6 +1261,46 @@ html[data-theme="warm"] body {
   background-image: none !important;
 }
 
+/* Warm theme stage-group: amber tones on cream background */
+[data-theme="warm"] .phrase-card[data-stage-group="fresh"] {
+  border: 7px double #D97706;
+  box-shadow: 0 0 16px rgba(217, 119, 6, 0.12);
+}
+[data-theme="warm"] .phrase-card[data-stage-group="learning"] {
+  border: 7px ridge #B45309;
+  box-shadow: 0 0 16px rgba(180, 83, 9, 0.12);
+}
+[data-theme="warm"] .phrase-card[data-stage-group="seasoned"] {
+  border: 7px inset #92400E;
+  box-shadow: 0 0 16px rgba(146, 64, 14, 0.12);
+}
+[data-theme="warm"] .phrase-card[data-stage-group="mastered"] {
+  border: 7px solid #78350F;
+  box-shadow: 0 0 16px rgba(120, 53, 15, 0.12);
+}
+
+/* Warm theme time badges */
+[data-theme="warm"] .phrase-card[data-stage-group="fresh"] .card-time-badge {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(217, 119, 6, 0.6);
+  color: #D97706;
+}
+[data-theme="warm"] .phrase-card[data-stage-group="learning"] .card-time-badge {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(180, 83, 9, 0.6);
+  color: #B45309;
+}
+[data-theme="warm"] .phrase-card[data-stage-group="seasoned"] .card-time-badge {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(146, 64, 14, 0.6);
+  color: #92400E;
+}
+[data-theme="warm"] .phrase-card[data-stage-group="mastered"] .card-time-badge {
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(120, 53, 15, 0.6);
+  color: #78350F;
+}
+
 /* Warm theme English text color */
 [data-theme="warm"] .lang-text[data-lang="en"] {
   color: var(--text-secondary);
@@ -1443,6 +1542,46 @@ html[data-theme="calm"] body {
 [data-theme="calm"] .phrase-card:nth-child(odd) {
   background: #FFFFFF !important;
   background-image: none !important;
+}
+
+/* Calm theme stage-group: amber tones on white */
+[data-theme="calm"] .phrase-card[data-stage-group="fresh"] {
+  border: 7px double #D97706;
+  box-shadow: 0 0 16px rgba(217, 119, 6, 0.1);
+}
+[data-theme="calm"] .phrase-card[data-stage-group="learning"] {
+  border: 7px ridge #B45309;
+  box-shadow: 0 0 16px rgba(180, 83, 9, 0.1);
+}
+[data-theme="calm"] .phrase-card[data-stage-group="seasoned"] {
+  border: 7px inset #92400E;
+  box-shadow: 0 0 16px rgba(146, 64, 14, 0.1);
+}
+[data-theme="calm"] .phrase-card[data-stage-group="mastered"] {
+  border: 7px solid #78350F;
+  box-shadow: 0 0 16px rgba(120, 53, 15, 0.1);
+}
+
+/* Calm theme time badges */
+[data-theme="calm"] .phrase-card[data-stage-group="fresh"] .card-time-badge {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(217, 119, 6, 0.5);
+  color: #D97706;
+}
+[data-theme="calm"] .phrase-card[data-stage-group="learning"] .card-time-badge {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(180, 83, 9, 0.5);
+  color: #B45309;
+}
+[data-theme="calm"] .phrase-card[data-stage-group="seasoned"] .card-time-badge {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(146, 64, 14, 0.5);
+  color: #92400E;
+}
+[data-theme="calm"] .phrase-card[data-stage-group="mastered"] .card-time-badge {
+  background: rgba(255, 255, 255, 0.8);
+  border: 1px solid rgba(120, 53, 15, 0.5);
+  color: #78350F;
 }
 
 /* Calm theme English text color */

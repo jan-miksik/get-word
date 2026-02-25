@@ -131,24 +131,17 @@ export const WordCard = memo(function WordCard({
 
   const displayHook = memoryHook || (suggestedHook ? `💡 ${suggestedHook}` : '💭 Add memory hook...');
 
-  // Format remaining time
-  const formatRemaining = (ms: number) => {
-    if (ms <= 0) return 'ready now';
-    const totalSeconds = Math.round(ms / 1000);
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    if (minutes <= 0) return `${seconds}s`;
-    if (minutes < 60) return `${minutes}m`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h`;
-    const days = Math.floor(hours / 24);
-    return `${days}d`;
-  };
-
-  // Only calculate time-based values on client to avoid hydration mismatches
-  const isDue = isMounted && progress.nextDueAt ? Date.now() >= progress.nextDueAt : false;
-  const showCountdown = isMounted && progress.stageIndex > 0 && progress.nextDueAt && !isDue;
-  const stageName = progress.stageIndex > 0 ? STAGES[progress.stageIndex]?.name : null;
+  // Stage index / group
+  const stageIndex = progress.stageIndex || 0;
+  const clampedStageIndex = Math.max(0, Math.min(stageIndex, STAGES.length - 1));
+  const stageLabel =
+    clampedStageIndex > 0 ? STAGES[clampedStageIndex]?.name ?? null : null;
+  const stageGroup =
+    clampedStageIndex === 0 ? 'new' :
+    clampedStageIndex <= 3 ? 'fresh' :
+    clampedStageIndex <= 6 ? 'learning' :
+    clampedStageIndex <= 8 ? 'seasoned' :
+    'mastered';
 
   // Get categories to display (exclude "to fix" unless in edit mode)
   const displayCategories = word.category?.filter(
@@ -159,7 +152,7 @@ export const WordCard = memo(function WordCard({
   const shouldShowCategoryBadges = isEditMode || showCategoryBadges;
 
   return (
-    <article className={`phrase-card ${isMoved ? 'card-moved' : ''}`} data-word-id={word.id}>
+    <article className={`phrase-card ${isMoved ? 'card-moved' : ''}`} data-word-id={word.id} data-stage-group={stageGroup}>
       {/* Category badges */}
       {shouldShowCategoryBadges && displayCategories.length > 0 && (
         <div className="word-categories">
@@ -266,25 +259,6 @@ export const WordCard = memo(function WordCard({
         />
       </div>
 
-      {/* Countdown / stage label */}
-      {showCountdown && (
-        <div className="mt-1 text-[0.7rem] text-text-soft flex justify-center gap-1 items-center" data-next-due-at={progress.nextDueAt}>
-          <span className="w-1.5 h-1.5 rounded-full bg-accent opacity-80 animate-[countdown-pulse_1.8s_ease-in-out_infinite]"></span>
-          <span className="opacity-90">
-            {formatRemaining(progress.nextDueAt! - Date.now())}
-          </span>
-          {stageName && (
-            <span className="opacity-50 ml-0.5">· {stageName}</span>
-          )}
-        </div>
-      )}
-      {isDue && stageName && (
-        <div className="mt-1 text-[0.7rem] text-text-soft flex justify-center gap-1 items-center">
-          <span className="w-1.5 h-1.5 rounded-full bg-accent opacity-80"></span>
-          <span className="opacity-90">{stageName}</span>
-        </div>
-      )}
-
       {/* Actions */}
       <div className="mt-2 flex justify-center gap-[30px] items-center opacity-70">
         <button
@@ -322,6 +296,12 @@ export const WordCard = memo(function WordCard({
           </button>
         )}
       </div>
+      {/* Time badge — top-right: show stage interval (1 minute, 1 hour, 8 hours, etc.) */}
+      {clampedStageIndex > 0 && stageLabel && (
+        <div className="card-time-badge" data-next-due-at={progress.nextDueAt || undefined}>
+          {stageLabel}
+        </div>
+      )}
     </article>
   );
 });

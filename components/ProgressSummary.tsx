@@ -8,20 +8,13 @@ interface ProgressSummaryProps {
 
 export function ProgressSummary({ progressStats }: ProgressSummaryProps) {
   if (progressStats.total === 0) return null;
+  if (progressStats.readyCount === 0) return null;
 
   return (
     <div className="progress-summary">
-      <span className="inline-flex items-center gap-1 text-fresh">
-        <span className="text-[0.6875rem] font-medium lowercase">fresh</span>
-        <span className="text-[0.6875rem] font-semibold opacity-90">({progressStats.fresh})</span>
-      </span>
       <span className="inline-flex items-center gap-1 text-accent">
-        <span className="text-[0.6875rem] font-medium lowercase">learning</span>
-        <span className="text-[0.6875rem] font-semibold opacity-90">({progressStats.learning})</span>
-      </span>
-      <span className="inline-flex items-center gap-1 text-done">
-        <span className="text-[0.6875rem] font-medium lowercase">done</span>
-        <span className="text-[0.6875rem] font-semibold opacity-90">({progressStats.done})</span>
+        <span className="text-[0.6875rem] font-semibold opacity-90">({progressStats.readyCount})</span>
+        <span className="text-[0.6875rem] font-medium lowercase">to repeat</span>
       </span>
     </div>
   );

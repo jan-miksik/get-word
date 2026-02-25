@@ -9,7 +9,6 @@ import { useTopMenuHandlers } from '@/hooks/useTopMenuHandlers';
 import { getAvailableCategories, STAGES, isDue, NormalizedWord, normalizeWords } from '@/lib/words';
 import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-stats';
 import { AppLayout } from '@/components/AppLayout';
-import { BottomNav } from '@/components/BottomNav';
 import { WordCard } from '@/components/WordCard';
 import { VirtualizedWordList } from '@/components/VirtualizedWordList';
 import { useDueTimer } from '@/hooks/useDueTimer';
@@ -327,7 +326,7 @@ export default function Home() {
       unknownCount: 0,
     };
     return (
-      <div key={word.id} className="pt-1">
+      <div key={word.id} className="pt-8">
         <WordCard
           word={word}
           progress={prog}
@@ -435,7 +434,6 @@ export default function Home() {
         </div>
       </main>
 
-      <BottomNav readyCount={readyCount} />
     </AppLayout>
   );
 }
