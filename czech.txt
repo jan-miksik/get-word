@@ -315,3 +315,18 @@ Opravdu
 
 //
 
+jídlo
+snídaně
+oběd
+večeře
+svačina
+rýže
+ovoce
+zelenina
+
+dům
+
+město
+
+rodina
+
