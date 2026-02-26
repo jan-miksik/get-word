@@ -8,8 +8,10 @@ import { usePanelClose } from '@/hooks/usePanelClose';
 import { useTopMenuHandlers } from '@/hooks/useTopMenuHandlers';
 import { getAvailableCategories, STAGES, isDue, NormalizedWord, normalizeWords } from '@/lib/words';
 import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-stats';
+import { injectMinigames, MiniGameConfig } from '@/lib/minigames';
 import { AppLayout } from '@/components/AppLayout';
 import { WordCard } from '@/components/WordCard';
+import { MiniGameCard } from '@/components/MiniGameCard';
 import { VirtualizedWordList } from '@/components/VirtualizedWordList';
 import { useDueTimer } from '@/hooks/useDueTimer';
 import { useAuth } from '@/hooks/useAuth';
@@ -74,6 +76,7 @@ export default function Home() {
   const displayAddress = walletAddress ?? userWalletAddress ?? undefined;
 
   const [showNotReady, setShowNotReady] = useState(false);
+  const [dismissedGames, setDismissedGames] = useState<Set<string>>(new Set());
   const categories = useMemo(
     () => getAvailableCategories(normalizedWords),
     [normalizedWords]
@@ -301,12 +304,33 @@ export default function Home() {
 
   const readyCount = dueWords.length;
 
+  // Words with at least stageIndex 1 — used as the game word pool
+  const learnedPool = useMemo(
+    () => filteredWords.filter(w => (progress[w.id]?.stageIndex ?? 0) > 0),
+    [filteredWords, progress]
+  );
+
   // Build groupedWords for VirtualizedWordList:
-  // Slot 0 = due words, Slot 1 = new words, Slots 2-10 = settling-in (when expanded)
-  const streamGroupedWords = useMemo((): NormalizedWord[][] => {
-    const groups: NormalizedWord[][] = STAGES.map(() => []);
-    groups[0] = dueWords;
-    groups[1] = newWords;
+  // Slot 0 = due words (+ injected games), Slot 1 = new words (+ injected games),
+  // Slots 2-10 = settling-in (when expanded, no games injected)
+  const streamGroupedWords = useMemo((): (NormalizedWord | MiniGameConfig)[][] => {
+    const groups: (NormalizedWord | MiniGameConfig)[][] = STAGES.map(() => []);
+    if (!isHydrated) return groups;
+
+    // Inject games into the combined due+new stream then re-split by boundary
+    const combined = [...dueWords, ...newWords];
+    const injected = injectMinigames(combined, learnedPool, role);
+    const dueCount = dueWords.length;
+    let wordsSeen = 0;
+    injected.forEach(item => {
+      if (!('_isMinigame' in item)) wordsSeen++;
+      if (wordsSeen <= dueCount) {
+        groups[0].push(item);
+      } else {
+        groups[1].push(item);
+      }
+    });
+
     if (showNotReady) {
       settlingWords.forEach((word) => {
         const sIdx = Math.max(2, Math.min(progress[word.id]?.stageIndex ?? 2, STAGES.length - 1));
@@ -314,7 +338,7 @@ export default function Home() {
       });
     }
     return groups;
-  }, [dueWords, newWords, settlingWords, showNotReady, progress]);
+  }, [dueWords, newWords, settlingWords, showNotReady, progress, isHydrated, learnedPool, role]);
 
 
   // Memoized card renderer to avoid recreating functions on each render - must be before early return
@@ -346,6 +370,19 @@ export default function Home() {
       </div>
     );
   }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges]);
+
+  const renderMiniGame = useCallback((config: MiniGameConfig) => {
+    if (dismissedGames.has(config.id)) return null;
+    return (
+      <div key={config.id} className="pt-8">
+        <MiniGameCard
+          config={config}
+          role={role}
+          onDismiss={() => setDismissedGames(prev => new Set([...prev, config.id]))}
+        />
+      </div>
+    );
+  }, [dismissedGames, role]);
 
   // Memoize progress stats (must be before early return to keep hook order stable)
   const progressStats = useMemo(
@@ -408,6 +445,7 @@ export default function Home() {
               dataTab="stream"
               groupedWords={streamGroupedWords}
               renderCard={renderCard}
+              renderMiniGame={renderMiniGame}
               showHeaders={false}
               scrollElement={phrasesScrollElement}
               emptyMessage="No words to display."
