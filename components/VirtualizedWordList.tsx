@@ -3,17 +3,20 @@
 import { useRef, useMemo, useState, useEffect, useCallback, ReactNode } from 'react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { NormalizedWord, STAGES } from '@/lib/words';
+import type { MiniGameConfig } from '@/lib/minigames';
 
 export type Stage = (typeof STAGES)[number];
 
 export type VirtualItem =
   | { type: 'header'; stage: Stage; stageIndex: number }
   | { type: 'card'; word: NormalizedWord; stageIndex: number }
+  | { type: 'minigame'; config: MiniGameConfig; stageIndex: number }
   | { type: 'footer'; stageIndex: number; content: ReactNode };
 
 interface VirtualizedWordListProps {
-  groupedWords: NormalizedWord[][];
+  groupedWords: (NormalizedWord | MiniGameConfig)[][];
   renderCard: (word: NormalizedWord, stageIndex: number) => ReactNode;
+  renderMiniGame?: (config: MiniGameConfig) => ReactNode;
   stageFooter?: (stageIndex: number) => ReactNode | null;
   className?: string;
   emptyMessage?: string;
@@ -27,6 +30,7 @@ interface VirtualizedWordListProps {
 export function VirtualizedWordList({
   groupedWords,
   renderCard,
+  renderMiniGame,
   stageFooter,
   className = '',
   emptyMessage = 'No words to display.',
@@ -47,8 +51,12 @@ export function VirtualizedWordList({
         if (showHeaders) {
           flat.push({ type: 'header', stage, stageIndex });
         }
-        words.forEach(word => {
-          flat.push({ type: 'card', word, stageIndex });
+        words.forEach(item => {
+          if ('_isMinigame' in item) {
+            flat.push({ type: 'minigame', config: item, stageIndex });
+          } else {
+            flat.push({ type: 'card', word: item, stageIndex });
+          }
         });
         const footerContent = stageFooter?.(stageIndex);
         if (footerContent) {
@@ -105,6 +113,7 @@ export function VirtualizedWordList({
       const item = items[index];
       if (item.type === 'header') return `header-${item.stageIndex}`;
       if (item.type === 'footer') return `footer-${item.stageIndex}`;
+      if (item.type === 'minigame') return item.config.id;
       return item.word.id;
     }, [items]),
     estimateSize: useCallback((index: number) => {
@@ -116,9 +125,8 @@ export function VirtualizedWordList({
         }
         return 64;
       }
-      if (item.type === 'footer') {
-        return 96;
-      }
+      if (item.type === 'footer') return 96;
+      if (item.type === 'minigame') return 520;
       return 420;
     }, [items]),
     overscan: 5,
@@ -160,9 +168,12 @@ export function VirtualizedWordList({
   const activeStage = STAGES[activeStageIndex];
   const virtualItems = virtualizer.getVirtualItems();
 
-  // Total word count
+  // Total word count (excludes injected minigame items so empty-state check is unaffected)
   const totalWords = useMemo(() => {
-    return groupedWords.reduce((sum, words) => sum + (words?.length || 0), 0);
+    return groupedWords.reduce(
+      (sum, items) => sum + (items?.filter(i => !('_isMinigame' in i)).length || 0),
+      0
+    );
   }, [groupedWords]);
 
   // Debug: log virtualization stats
@@ -343,6 +354,20 @@ export function VirtualizedWordList({
                 }}
               >
                 {item.content}
+              </div>
+            );
+          }
+
+          if (item.type === 'minigame') {
+            return (
+              <div
+                key={item.config.id}
+                data-index={virtualRow.index}
+                ref={virtualizer.measureElement}
+                className="absolute top-0 left-0 right-0"
+                style={{ transform: `translateY(${offset}px)`, width: '100%', willChange: 'transform' }}
+              >
+                {renderMiniGame?.(item.config) ?? null}
               </div>
             );
           }
