@@ -91,6 +91,9 @@ export default function EditPage() {
   const [showWaitingForRepeat, setShowWaitingForRepeat] = useState(false);
   const [showNotReady, setShowNotReady] = useState(false);
 
+  type MinigameFrequency = 'off' | '2-5' | '3-7' | '5-10';
+  const [minigameFrequency, setMinigameFrequency] = useState<MinigameFrequency>('3-7');
+
   const phrasesCallbackRef = useCallback((node: HTMLElement | null) => {
     phrasesRef.current = node;
     setPhrasesScrollElement(node);
@@ -98,6 +101,21 @@ export default function EditPage() {
 
   // Trigger re-render when cards become due for review
   useDueTimer(progress);
+
+  // Load preferred minigame frequency from localStorage (same key as main page)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = window.localStorage.getItem('wordlink-minigame-frequency');
+    if (!stored) return;
+    if (stored === 'off' || stored === '2-5' || stored === '3-7' || stored === '5-10') {
+      setMinigameFrequency(stored);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('wordlink-minigame-frequency', minigameFrequency);
+  }, [minigameFrequency]);
 
   // Close panels when clicking outside
   usePanelClose(setSettingsOpen, setProgressOpen, setCategoryOpen, setMemoryHooksOpen);
@@ -515,6 +533,8 @@ export default function EditPage() {
       setCategoryOpen={setCategoryOpen}
       memoryHooksOpen={memoryHooksOpen}
       setMemoryHooksOpen={setMemoryHooksOpen}
+      minigameFrequency={minigameFrequency}
+      onMinigameFrequencyChange={(f) => setMinigameFrequency(f)}
       header={editHeader}
     >
 
