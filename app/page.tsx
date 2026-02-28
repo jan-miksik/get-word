@@ -8,10 +8,10 @@ import { usePanelClose } from '@/hooks/usePanelClose';
 import { useTopMenuHandlers } from '@/hooks/useTopMenuHandlers';
 import { getAvailableCategories, STAGES, isDue, NormalizedWord, normalizeWords } from '@/lib/words';
 import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-stats';
-import { injectMinigames, MiniGameConfig } from '@/lib/minigames';
+import { injectMinigames, type MiniGameConfig } from '@/lib/minigames';
 import { AppLayout } from '@/components/AppLayout';
 import { WordCard } from '@/components/WordCard';
-import { MiniGameCard } from '@/components/MiniGameCard';
+import { StickyMiniGameCard } from '@/components/StickyMiniGameCard';
 import { VirtualizedWordList } from '@/components/VirtualizedWordList';
 import { useDueTimer } from '@/hooks/useDueTimer';
 import { useAuth } from '@/hooks/useAuth';
@@ -68,6 +68,8 @@ export default function Home() {
     userWalletAddress,
     userEmail,
     isHydrated,
+    gameScore,
+    setGameScore,
   } = useAppState(normalizedWords, walletAddress, linkPayload);
 
   // Logged in = Reown connected now OR account already linked on server (wallet/email saved)
@@ -76,13 +78,38 @@ export default function Home() {
   const displayAddress = walletAddress ?? userWalletAddress ?? undefined;
 
   const [showNotReady, setShowNotReady] = useState(false);
+  type MinigameFrequency = 'off' | '2-5' | '3-7' | '5-10';
+  const [minigameFrequency, setMinigameFrequency] = useState<MinigameFrequency>('3-7');
   const [dismissedGames, setDismissedGames] = useState<Set<string>>(new Set());
+  // Configs of games that have been seen (rendered) but not yet dismissed.
+  // Keyed by game id. Stored so game words stay stable and anchor words
+  // can be pinned in the stream even after they leave due/new buckets.
+  const [seenGameConfigs, setSeenGameConfigs] = useState<Map<string, MiniGameConfig>>(new Map());
+  const [minigameSeed] = useState<number>(() => Math.floor(Math.random() * 1_000_000_000));
+  // Track last known stream position for each game so orphaned games stay in place
+  const gamePositionsRef = useRef<Map<string, number>>(new Map());
   const categories = useMemo(
     () => getAvailableCategories(normalizedWords),
     [normalizedWords]
   );
   const phrasesRef = useRef<HTMLElement>(null);
   const [phrasesScrollElement, setPhrasesScrollElement] = useState<HTMLElement | null>(null);
+
+  // Load preferred minigame frequency from localStorage (default 3–7)
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const stored = window.localStorage.getItem('wordlink-minigame-frequency');
+    if (!stored) return;
+    if (stored === 'off' || stored === '2-5' || stored === '3-7' || stored === '5-10') {
+      setMinigameFrequency(stored);
+    }
+  }, []);
+
+  // Persist minigame frequency preference
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    window.localStorage.setItem('wordlink-minigame-frequency', minigameFrequency);
+  }, [minigameFrequency]);
 
   // Callback ref: fires immediately when <main> mounts, guaranteeing scroll element is set
   const phrasesCallbackRef = useCallback((node: HTMLElement | null) => {
@@ -313,16 +340,52 @@ export default function Home() {
   // Build groupedWords for VirtualizedWordList:
   // Slot 0 = due words (+ injected games), Slot 1 = new words (+ injected games),
   // Slots 2-10 = settling-in (when expanded, no games injected)
-  const streamGroupedWords = useMemo((): (NormalizedWord | MiniGameConfig)[][] => {
+  const { streamGroupedWords, orphanedGameCount } = useMemo((): {
+    streamGroupedWords: (NormalizedWord | MiniGameConfig)[][];
+    orphanedGameCount: number;
+  } => {
     const groups: (NormalizedWord | MiniGameConfig)[][] = STAGES.map(() => []);
-    if (!isHydrated) return groups;
+    if (!isHydrated) return { streamGroupedWords: groups, orphanedGameCount: 0 };
 
-    // Inject games into the combined due+new stream then re-split by boundary
     const combined = [...dueWords, ...newWords];
-    const injected = injectMinigames(combined, learnedPool, role);
+
+    let wordStream: (NormalizedWord | MiniGameConfig)[];
+    if (minigameFrequency === 'off') {
+      wordStream = combined;
+    } else {
+      const intervalMap: Record<Exclude<MinigameFrequency, 'off'>, { min: number; max: number }> = {
+        '2-5': { min: 2, max: 5 },
+        '3-7': { min: 3, max: 7 },
+        '5-10': { min: 5, max: 10 },
+      };
+      const { min, max } = intervalMap[minigameFrequency];
+      wordStream = injectMinigames(combined, learnedPool, role, minigameSeed, {
+        minInterval: min,
+        maxInterval: max,
+      });
+    }
+
+    // If a seen game's anchor word was marked (left combined), the game would vanish.
+    // Rescue orphaned games by prepending them so they remain visible until dismissed.
+    const presentGameIds = new Set(
+      wordStream
+        .filter((item): item is MiniGameConfig => '_isMinigame' in item)
+        .map(item => item.id)
+    );
+    const orphanedGames: MiniGameConfig[] = [];
+    for (const [gameId, config] of seenGameConfigs) {
+      if (!dismissedGames.has(gameId) && !presentGameIds.has(gameId)) {
+        orphanedGames.push(config);
+      }
+    }
+    if (orphanedGames.length > 0) {
+      wordStream = [...orphanedGames, ...wordStream];
+    }
+
+    // Word stream: due words → slot 0, new words → slot 1.
     const dueCount = dueWords.length;
     let wordsSeen = 0;
-    injected.forEach(item => {
+    wordStream.forEach(item => {
       if (!('_isMinigame' in item)) wordsSeen++;
       if (wordsSeen <= dueCount) {
         groups[0].push(item);
@@ -337,8 +400,16 @@ export default function Home() {
         groups[sIdx].push(word);
       });
     }
-    return groups;
-  }, [dueWords, newWords, settlingWords, showNotReady, progress, isHydrated, learnedPool, role]);
+    return { streamGroupedWords: groups, orphanedGameCount: orphanedGames.length };
+  }, [dueWords, newWords, settlingWords, showNotReady, progress, isHydrated, learnedPool, role, minigameFrequency, minigameSeed, seenGameConfigs, dismissedGames]);
+
+  const prevOrphanedCountRef = useRef(0);
+  useEffect(() => {
+    if (orphanedGameCount > prevOrphanedCountRef.current && phrasesScrollElement) {
+      phrasesScrollElement.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+    prevOrphanedCountRef.current = orphanedGameCount;
+  }, [orphanedGameCount, phrasesScrollElement]);
 
 
   // Memoized card renderer to avoid recreating functions on each render - must be before early return
@@ -373,16 +444,27 @@ export default function Home() {
 
   const renderMiniGame = useCallback((config: MiniGameConfig) => {
     if (dismissedGames.has(config.id)) return null;
+    // Use the originally-seen config so game words stay stable even if the
+    // stream regenerates after the anchor word leaves due/new buckets.
+    const stableConfig = seenGameConfigs.get(config.id) ?? config;
     return (
       <div key={config.id} className="pt-8">
-        <MiniGameCard
-          config={config}
+        <StickyMiniGameCard
+          config={stableConfig}
           role={role}
-          onDismiss={() => setDismissedGames(prev => new Set([...prev, config.id]))}
+          onDismiss={() => {
+            setDismissedGames(prev => new Set([...prev, config.id]));
+            setSeenGameConfigs(prev => { const m = new Map(prev); m.delete(config.id); return m; });
+          }}
+          onResult={(won) => setGameScore(prev => Math.max(0, prev + (won ? 1 : -1)))}
+          onFirstSeen={(cfg) => setSeenGameConfigs(prev => {
+            if (prev.has(cfg.id)) return prev;
+            return new Map([...prev, [cfg.id, cfg]]);
+          })}
         />
       </div>
     );
-  }, [dismissedGames, role]);
+  }, [dismissedGames, role, seenGameConfigs]);
 
   // Memoize progress stats (must be before early return to keep hook order stable)
   const progressStats = useMemo(
@@ -410,6 +492,11 @@ export default function Home() {
       onShowCategoryBadgesChange={setShowCategoryBadges}
       theme={theme}
       onThemeChange={setTheme}
+      minigameFrequency={minigameFrequency}
+      onMinigameFrequencyChange={(f) => {
+          setMinigameFrequency(f);
+          setSeenGameConfigs(new Map());
+        }}
       userId={userId}
       userWalletAddress={userWalletAddress}
       userEmail={userEmail}
@@ -421,6 +508,7 @@ export default function Home() {
       selectedCategories={selectedCategories}
       onToggleCategory={toggleCategory}
       progressStats={progressStats}
+      score={gameScore}
       settingsOpen={settingsOpen}
       setSettingsOpen={setSettingsOpen}
       progressOpen={progressOpen}

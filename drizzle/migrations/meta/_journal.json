@@ -29,6 +29,13 @@
       "when": 1770600000000,
       "tag": "0003_add_auth_provider",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1772266994020,
+      "tag": "0004_amazing_iron_monger",
+      "breakpoints": true
     }
   ]
 }

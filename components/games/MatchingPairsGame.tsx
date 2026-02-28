@@ -7,11 +7,12 @@ interface Props {
   words: NormalizedWord[];
   role: 'cz' | 'vi';
   onDismiss: () => void;
+  onResult?: (won: boolean) => void;
 }
 
 type MatchState = 'idle' | 'selected' | 'matched' | 'wrong';
 
-export function MatchingPairsGame({ words, role, onDismiss }: Props) {
+export function MatchingPairsGame({ words, role, onDismiss, onResult }: Props) {
   const rightOrder = useMemo(
     () => [...words].sort(() => Math.random() - 0.5),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -107,7 +108,7 @@ export function MatchingPairsGame({ words, role, onDismiss }: Props) {
       {isComplete && (
         <div className="game-feedback game-feedback--exact">
           ✓ All matched!
-          <button type="button" className="game-dismiss" onClick={onDismiss}>
+          <button type="button" className="game-dismiss" onClick={() => { onResult?.(true); onDismiss(); }}>
             Next →
           </button>
         </div>

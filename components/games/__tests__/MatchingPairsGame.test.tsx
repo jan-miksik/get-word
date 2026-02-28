@@ -60,4 +60,15 @@ describe('MatchingPairsGame', () => {
     fireEvent.click(screen.getByText(/Next/i));
     expect(onDismiss).toHaveBeenCalled();
   });
+
+  it('calls onResult(true) when all pairs matched and Next is clicked', () => {
+    const onResult = vi.fn();
+    render(<MatchingPairsGame words={WORDS} role="cz" onDismiss={vi.fn()} onResult={onResult} />);
+    fireEvent.click(screen.getByText('pes'));      fireEvent.click(screen.getByText('con chó'));
+    fireEvent.click(screen.getByText('kočka'));   fireEvent.click(screen.getByText('con mèo'));
+    fireEvent.click(screen.getByText('auto'));    fireEvent.click(screen.getByText('xe hơi'));
+    fireEvent.click(screen.getByText('voda'));    fireEvent.click(screen.getByText('nước'));
+    fireEvent.click(screen.getByText(/Next/i));
+    expect(onResult).toHaveBeenCalledWith(true);
+  });
 });

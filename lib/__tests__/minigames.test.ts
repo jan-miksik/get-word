@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { matchAnswer, injectMinigames } from '../minigames';
-import type { NormalizedWord } from '../words';
+import type { NormalizedWord, } from '../words';
+import type { MiniGameConfig } from '../minigames';
 
 const makeWord = (id: string, cz: string, vi: string): NormalizedWord => ({
   id, cz, vi, en: '', category: ['word'],
@@ -74,5 +75,41 @@ describe('injectMinigames', () => {
       expect(games[1].gameType).toBe('typing');
       expect(games[2].gameType).toBe('matching');
     }
+  });
+
+  it('each injected game has anchorWordId set to the word immediately before it', () => {
+    const result = injectMinigames(words, words, 'cz', 42);
+    const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
+    expect(games.length).toBeGreaterThan(0);
+    games.forEach(game => {
+      expect(game.anchorWordId).toBeDefined();
+      const gameIdx = result.indexOf(game);
+      const wordBefore = result[gameIdx - 1] as NormalizedWord;
+      expect(wordBefore.id).toBe(game.anchorWordId);
+    });
+  });
+
+  it('game id equals game-{anchorWordId}', () => {
+    const result = injectMinigames(words, words, 'cz', 42);
+    const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
+    expect(games.length).toBeGreaterThan(0);
+    games.forEach(game => {
+      expect(game.id).toBe(`game-${game.anchorWordId}`);
+    });
+  });
+
+  it('same word triggers a game regardless of its position in stream', () => {
+    const result = injectMinigames(words, words, 'cz', 42);
+    const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
+    if (games.length === 0) return;
+
+    const anchorWord = words.find(w => w.id === games[0].anchorWordId)!;
+    // Place anchor word at position 0 so lastWasGame cannot block it
+    const reordered = [anchorWord, ...words.filter(w => w.id !== anchorWord.id)];
+    const result2 = injectMinigames(reordered, words, 'cz', 42);
+    // Game should appear immediately after the anchor at index 0
+    const itemAfterAnchor = result2[1];
+    expect(itemAfterAnchor && '_isMinigame' in itemAfterAnchor).toBe(true);
+    expect((itemAfterAnchor as MiniGameConfig).anchorWordId).toBe(anchorWord.id);
   });
 });

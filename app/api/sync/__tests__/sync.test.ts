@@ -84,6 +84,16 @@ describe('GET /api/sync', () => {
     expect(data.user.role).toBe('vi')
   })
 
+  it('returns game_score in user object', async () => {
+    mockGetOrCreateUserByDeviceId.mockResolvedValue({ ...baseUser, gameScore: 7 })
+    const req = new NextRequest('http://localhost:3000/api/sync?deviceId=dev-123')
+    const res = await GET(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.user.game_score).toBe(7)
+  })
+
   it('returns user data by userId fallback', async () => {
     mockGetUserById.mockResolvedValue(baseUser)
     const req = new NextRequest('http://localhost:3000/api/sync?userId=uuid-A')
@@ -176,5 +186,31 @@ describe('POST /api/sync', () => {
     expect(res.status).toBe(200)
     expect(data.success).toBe(true)
     expect(mockUpdateUserPreferences).toHaveBeenCalled()
+  })
+
+  it('saves game_score when provided', async () => {
+    mockUpdateUserPreferences.mockResolvedValue({ ...baseUser, gameScore: 5 })
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({ deviceId: 'dev-123', game_score: 5 }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    await POST(req)
+    expect(mockUpdateUserPreferences).toHaveBeenCalledWith(
+      'uuid-A',
+      expect.objectContaining({ game_score: 5 })
+    )
+  })
+
+  it('returns updated game_score in response', async () => {
+    mockUpdateUserPreferences.mockResolvedValue({ ...baseUser, gameScore: 5 })
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({ deviceId: 'dev-123', game_score: 5 }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await POST(req)
+    const data = await res.json()
+    expect(data.user.game_score).toBe(5)
   })
 })

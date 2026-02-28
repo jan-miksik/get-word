@@ -33,6 +33,8 @@ interface AppLayoutProps {
   onShowCategoryBadgesChange: (show: boolean) => void;
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
+  minigameFrequency: 'off' | '2-5' | '3-7' | '5-10';
+  onMinigameFrequencyChange: (value: 'off' | '2-5' | '3-7' | '5-10') => void;
   userId: string | null;
   userWalletAddress?: string | null;
   userEmail?: string | null;
@@ -42,6 +44,7 @@ interface AppLayoutProps {
   onToggleCategory: (category: string) => void;
   // ProgressPanel props
   progressStats: ProgressStats;
+  score?: number;
   // Auth props
   isAuthenticated?: boolean;
   authEmail?: string;
@@ -72,6 +75,8 @@ export function AppLayout({
   onShowCategoryBadgesChange,
   theme,
   onThemeChange,
+  minigameFrequency,
+  onMinigameFrequencyChange,
   userId,
   userWalletAddress,
   userEmail,
@@ -93,6 +98,7 @@ export function AppLayout({
   setMemoryHooksOpen,
   children,
   header,
+  score,
 }: AppLayoutProps) {
   return (
     <div className="app">
@@ -104,7 +110,7 @@ export function AppLayout({
         />
       </div>
       {header}
-      <TopMenu {...topMenuHandlers} />
+      <TopMenu {...topMenuHandlers} score={score} />
       <SettingsPanel
         role={role}
         onRoleChange={onRoleChange}
@@ -114,6 +120,8 @@ export function AppLayout({
         onShowCategoryBadgesChange={onShowCategoryBadgesChange}
         theme={theme}
         onThemeChange={onThemeChange}
+        minigameFrequency={minigameFrequency}
+        onMinigameFrequencyChange={onMinigameFrequencyChange}
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         userId={userId}

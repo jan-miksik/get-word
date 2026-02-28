@@ -37,7 +37,9 @@ export function useAppState(
   const [userWalletAddress, setUserWalletAddress] = useState<string | null>(null);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const [userRole, setUserRole] = useState<'user' | 'editor'>('user');
+  const [gameScore, setGameScore] = useState(0);
   const [isHydrated, setIsHydrated] = useState(false);
+  const gameScoreSyncedRef = useRef(false); // skip syncing the initial server-loaded value
   const lastMovedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const hasLoadedRef = useRef(false);
   const isUpdatingFromServerRef = useRef(false);
@@ -68,6 +70,7 @@ export function useAppState(
     setShowCategoryBadges(serverData.user?.show_category_badges ?? false);
     setUserWalletAddress(serverData.user?.wallet_address ?? null);
     setUserEmail(serverData.user?.email ?? null);
+    if (serverData.user?.game_score !== undefined) setGameScore(serverData.user.game_score);
     if (serverData.user?.user_role) {
       setUserRole(serverData.user.user_role);
       document.cookie = `wordlink_user_role=${serverData.user.user_role};path=/;max-age=31536000;SameSite=Lax`;
@@ -163,6 +166,16 @@ export function useAppState(
     if (!isHydrated || isUpdatingFromServerRef.current) return;
     debouncedSync({ show_category_badges: showCategoryBadges }).catch((e) => console.error('[useAppState] Sync show_category_badges:', e));
   }, [showCategoryBadges, isHydrated]);
+
+  useEffect(() => {
+    if (!isHydrated || isUpdatingFromServerRef.current) return;
+    // Skip the first run after hydration (that's the server value arriving)
+    if (!gameScoreSyncedRef.current) {
+      gameScoreSyncedRef.current = true;
+      return;
+    }
+    debouncedSync({ game_score: gameScore }).catch((e) => console.error('[useAppState] Sync game_score:', e));
+  }, [gameScore, isHydrated]);
 
   // Link wallet (and optionally email/authProvider) when user connects
   useEffect(() => {
@@ -425,5 +438,7 @@ export function useAppState(
     userRole,
     isEditor: userRole === 'editor',
     isHydrated,
+    gameScore,
+    setGameScore,
   };
 }

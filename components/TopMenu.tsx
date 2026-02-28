@@ -16,6 +16,7 @@ interface TopMenuProps {
   showWaitingForRepeat?: boolean;
   onToggleWaitingForRepeat?: (e: MouseEvent) => void;
   currentTab?: 'all' | 'ready';
+  score?: number;
 }
 
 export function TopMenu({
@@ -28,6 +29,7 @@ export function TopMenu({
   categoryCount,
   categoryActive,
   progressActive,
+  score,
 }: TopMenuProps) {
   return (
     <div className="top-menu" aria-label="Top menu">
@@ -35,6 +37,11 @@ export function TopMenu({
         <button className="mode-btn show-all-btn" onClick={onShowAll} type="button" aria-label={showAll ? "Hide completed items" : "Show all items"}>
           {showAll ? '🙉' : '🙈'}
         </button>
+        {score !== undefined && (
+          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-yellow-400/15 border border-yellow-400/30 text-yellow-600 dark:text-yellow-400 text-xs font-semibold tabular-nums" aria-label={`Game score: ${score}`}>
+            ⭐ {score}
+          </span>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-2 ml-auto">
         <button

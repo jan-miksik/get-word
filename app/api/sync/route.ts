@@ -71,6 +71,7 @@ interface SyncRequest {
   role?: "cz" | "vi";
   show_english?: boolean;
   show_category_badges?: boolean;
+  game_score?: number;
   progress?: Array<{
     word_id: string;
     stage_index: number;
@@ -87,7 +88,7 @@ interface SyncRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: SyncRequest = await request.json();
-    const { deviceId, role, show_english, show_category_badges, progress, memory_hooks, category_filters } = body;
+    const { deviceId, role, show_english, show_category_badges, game_score, progress, memory_hooks, category_filters } = body;
     const userId = body.userId as string | undefined; // Optional: fallback user ID from client
 
     if (!deviceId && !userId) {
@@ -112,9 +113,9 @@ export async function POST(request: NextRequest) {
       await updateUserRole(user.id, role);
     }
 
-    // Update display preferences if provided
-    if (show_english !== undefined || show_category_badges !== undefined) {
-      const updated = await updateUserPreferences(user.id, { show_english, show_category_badges });
+    // Update display preferences + game score if provided
+    if (show_english !== undefined || show_category_badges !== undefined || game_score !== undefined) {
+      const updated = await updateUserPreferences(user.id, { show_english, show_category_badges, game_score });
       if (updated) user = updated;
     }
 
@@ -170,6 +171,7 @@ export async function POST(request: NextRequest) {
         wallet_address: user.walletAddress ?? null,
         email: user.email ?? null,
         auth_provider: user.authProvider ?? null,
+        game_score: user.gameScore ?? 0,
       },
       progress: currentProgress,
       memory_hooks: currentHooks,
@@ -241,6 +243,7 @@ export async function GET(request: NextRequest) {
         wallet_address: user.walletAddress ?? null,
         email: user.email ?? null,
         auth_provider: user.authProvider ?? null,
+        game_score: user.gameScore ?? 0,
       },
       progress,
       memory_hooks: memoryHooks,

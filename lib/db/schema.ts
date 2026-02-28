@@ -36,6 +36,7 @@ export const users = pgTable("users", {
   userRole: text("user_role").notNull().default("user"), // "user" or "editor"
   showEnglish: boolean("show_english").default(true).notNull(),
   showCategoryBadges: boolean("show_category_badges").default(false).notNull(),
+  gameScore: integer("game_score").notNull().default(0),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, fireEvent } from '@testing-library/react';
 import { MiniGameCard } from '../MiniGameCard';
 import type { MiniGameConfig } from '@/lib/minigames';
 import type { NormalizedWord } from '@/lib/words';
@@ -42,5 +42,16 @@ describe('MiniGameCard', () => {
     render(<MiniGameCard config={config('multipleChoice')} role="vi" onDismiss={vi.fn()} />);
     // When role is 'vi', prompt shows Vietnamese word
     expect(screen.getByText('con chó')).toBeInTheDocument();
+  });
+
+  it('passes onResult to the game component and calls it on dismiss', () => {
+    const onResult = vi.fn();
+    render(
+      <MiniGameCard config={config('multipleChoice')} role="cz" onDismiss={vi.fn()} onResult={onResult} />
+    );
+    // role=cz: correct answer for words[0] (pes) is con chó
+    fireEvent.click(screen.getByText('con chó'));
+    fireEvent.click(screen.getByText(/Next/i));
+    expect(onResult).toHaveBeenCalledWith(true);
   });
 });

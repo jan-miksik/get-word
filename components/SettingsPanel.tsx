@@ -11,6 +11,8 @@ interface SettingsPanelProps {
   onShowCategoryBadgesChange: (show: boolean) => void;
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
+  minigameFrequency: 'off' | '2-5' | '3-7' | '5-10';
+  onMinigameFrequencyChange: (value: 'off' | '2-5' | '3-7' | '5-10') => void;
   isOpen: boolean;
   onClose?: () => void;
   userId?: string | null;
@@ -31,6 +33,8 @@ export function SettingsPanel({
   onShowCategoryBadgesChange,
   theme,
   onThemeChange,
+  minigameFrequency,
+  onMinigameFrequencyChange,
   isOpen,
   onClose,
   userId,
@@ -133,6 +137,60 @@ export function SettingsPanel({
             />
             <span>Show Category Badges</span>
           </label>
+        </div>
+
+        {/* Minigames Section */}
+        <div className="mt-6 pt-6 border-t border-border-subtle">
+          <p className="m-0 mb-1 text-[0.78rem] text-text-soft mb-3">Mini-games</p>
+          <div className="flex flex-col gap-2 text-xs text-text-soft">
+            <span>How often should mini-games appear in the stream?</span>
+            <div className="flex flex-col gap-1 mt-1">
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="minigame-frequency"
+                  value="off"
+                  checked={minigameFrequency === 'off'}
+                  onChange={() => onMinigameFrequencyChange('off')}
+                  className="accent-accent"
+                />
+                <span>Do not show mini-games</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="minigame-frequency"
+                  value="2-5"
+                  checked={minigameFrequency === '2-5'}
+                  onChange={() => onMinigameFrequencyChange('2-5')}
+                  className="accent-accent"
+                />
+                <span>Every 2–5 word cards</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="minigame-frequency"
+                  value="3-7"
+                  checked={minigameFrequency === '3-7'}
+                  onChange={() => onMinigameFrequencyChange('3-7')}
+                  className="accent-accent"
+                />
+                <span>Every 3–7 word cards</span>
+              </label>
+              <label className="flex items-center gap-1.5 cursor-pointer">
+                <input
+                  type="radio"
+                  name="minigame-frequency"
+                  value="5-10"
+                  checked={minigameFrequency === '5-10'}
+                  onChange={() => onMinigameFrequencyChange('5-10')}
+                  className="accent-accent"
+                />
+                <span>Every 5–10 word cards</span>
+              </label>
+            </div>
+          </div>
         </div>
 
         {/* Account Section */}

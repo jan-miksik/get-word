@@ -7,9 +7,10 @@ interface Props {
   words: NormalizedWord[];
   role: 'cz' | 'vi';
   onDismiss: () => void;
+  onResult?: (won: boolean) => void;
 }
 
-export function MultipleChoiceGame({ words, role, onDismiss }: Props) {
+export function MultipleChoiceGame({ words, role, onDismiss, onResult }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
 
   const questionWord = words[0];
@@ -64,7 +65,7 @@ export function MultipleChoiceGame({ words, role, onDismiss }: Props) {
           <span className={options.find(o => o.id === selected)?.isCorrect ? 'game-feedback--exact' : 'game-feedback--wrong'}>
             {options.find(o => o.id === selected)?.isCorrect ? '✓ Correct!' : `✗  ${correctAnswer}`}
           </span>
-          <button type="button" className="game-dismiss" onClick={onDismiss}>
+          <button type="button" className="game-dismiss" onClick={() => { onResult?.(options.find(o => o.id === selected)?.isCorrect ?? false); onDismiss(); }}>
             Next →
           </button>
         </div>

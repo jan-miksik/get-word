@@ -175,7 +175,14 @@ export async function POST(request: NextRequest) {
     // Apply merged filters
     await setUserCategoryFilters(existingWalletUser.id, merged.mergedFilters)
 
-    // Preserve the current device's role and optionally update email/authProvider
+    // Preserve the current device's role and optionally update email/authProvider.
+    // IMPORTANT: deviceId is UNIQUE, so we must clear it on the source user
+    // before assigning it to the target merged user to avoid a unique
+    // constraint violation when both rows temporarily share the same value.
+    if (currentUser.deviceId === deviceId) {
+      await updateUserFields(currentUser.id, { deviceId: null })
+    }
+
     await updateUserFields(existingWalletUser.id, {
       deviceId,
       role: currentUser.role,
