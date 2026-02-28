@@ -95,37 +95,40 @@ export function computeGameAnchors(
   }
 
   const pickGap = () => minInterval + Math.floor(rand() * (maxInterval - minInterval + 1));
-  let nextGap = pickGap();
 
-  const anchors: GameAnchor[] = [];
+  // Phase A — compute anchor positions using ONLY the gap PRNG.
+  //
+  // Critically, no learnedPool.sort() happens here. Array.sort() makes a
+  // non-deterministic number of comparisons depending on array length, which
+  // would consume an unpredictable number of rand() calls and silently shift
+  // every subsequent gap position whenever learnedPool grows. By computing all
+  // positions up-front in a tight loop, the gap sequence is perfectly stable
+  // regardless of learnedPool size or content.
+  const anchorIndices: number[] = [];
   let wordCount = 0;
-  let slotIndex = 0;
-
+  let nextGap = pickGap();
   for (let i = 0; i < originalWords.length; i++) {
     wordCount++;
-
     if (wordCount >= nextGap) {
       wordCount = 0;
-
-      const shuffled = [...learnedPool].sort(() => rand() - 0.5);
-      const gameWords = shuffled.slice(0, 4);
-
-      anchors.push({
-        id: `game-${originalWords[i].id}-s${baseSeed}`,
-        gameType: GAME_CYCLE[slotIndex % GAME_CYCLE.length],
-        words: gameWords,
-        // Anchor is pinned to the originalIndex of the word at position i.
-        // Even if this word is later removed, composeStream will insert
-        // the game after the nearest lower surviving word instead.
-        anchorOriginalIndex: i,
-      });
-
-      slotIndex++;
+      anchorIndices.push(i);
       nextGap = pickGap();
     }
   }
 
-  return anchors;
+  // Phase B — pick game words for each locked position.
+  //
+  // rand() is consumed by the shuffle here, but the positions above are
+  // already frozen so this cannot affect where games appear in the stream.
+  return anchorIndices.map((i, slotIndex) => {
+    const shuffled = [...learnedPool].sort(() => rand() - 0.5);
+    return {
+      id: `game-${originalWords[i].id}-s${baseSeed}`,
+      gameType: GAME_CYCLE[slotIndex % GAME_CYCLE.length],
+      words: shuffled.slice(0, 4),
+      anchorOriginalIndex: i,
+    };
+  });
 }
 
 /**

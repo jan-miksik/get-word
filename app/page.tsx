@@ -98,6 +98,9 @@ export default function Home() {
   const lastCategoriesKeyRef = useRef<string>('');
   // Always holds the most-recent combined value without causing effect re-runs.
   const latestCombinedRef = useRef<NormalizedWord[]>([]);
+  // Locks game words by game ID once first computed so they never change
+  // mid-session. Cleared when categories change (same time as the snapshot reset).
+  const lockedGameWordsRef = useRef<Map<string, NormalizedWord[]>>(new Map());
   const categories = useMemo(
     () => getAvailableCategories(normalizedWords),
     [normalizedWords]
@@ -355,31 +358,38 @@ export default function Home() {
   latestCombinedRef.current = combined;
 
   // Snapshot the combined list once per filter session.
-  // The snapshot is taken on first hydration and reset whenever selectedCategories
-  // changes. It does NOT reset when words are marked known/unknown — that's the
-  // whole point: originalIndexMap stays stable so anchor positions don't shift.
+  // The snapshot is taken when we first have both hydration and words, and
+  // is reset whenever selectedCategories changes.
+  // It does NOT reset when words are marked known/unknown — that's the whole
+  // point: originalIndexMap stays stable so anchor positions don't shift.
+  //
+  // hasWords is in the dep array to handle the race where isHydrated becomes
+  // true before the word list loads: the effect fires but skips the snapshot
+  // (latestCombinedRef is empty). When words then arrive, hasWords flips from
+  // false → true and the effect fires again, correctly taking the snapshot.
   const currentCategoriesKey = [...selectedCategories].sort().join(',');
+  const hasWords = combined.length > 0;
   useEffect(() => {
-    if (!isHydrated || latestCombinedRef.current.length === 0) return;
-    if (
-      currentCategoriesKey === lastCategoriesKeyRef.current &&
-      originalCombined.length > 0
-    ) return;
+    if (!isHydrated || !hasWords) return;
+    // Skip if we already have a snapshot for the current filter session.
+    if (currentCategoriesKey === lastCategoriesKeyRef.current) return;
 
     lastCategoriesKeyRef.current = currentCategoriesKey;
+    // New filter session: clear locked game words so fresh content is picked.
+    lockedGameWordsRef.current = new Map();
     const snapshot = [...latestCombinedRef.current];
     setOriginalCombined(snapshot);
     setOriginalIndexMap(new Map(snapshot.map((w, i) => [w.id, i])));
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHydrated, currentCategoriesKey]);
-  // latestCombinedRef and originalCombined.length are intentionally omitted:
-  // we only want this effect to fire on hydration or category change, not
-  // every time a word is marked.
+  }, [isHydrated, hasWords, currentCategoriesKey]);
+  // latestCombinedRef is a ref (always current) — intentionally not a dep.
 
   // Compute stable game anchors from the snapshot.
-  // These are recomputed only when the snapshot changes (category change / first load)
-  // or when frequency / seed / pool changes. The anchorOriginalIndex values inside
-  // each anchor are frozen and will never shift even as combined shrinks.
+  // Anchor positions come from Phase A of computeGameAnchors (pure gap PRNG,
+  // independent of learnedPool size) so they never shift when words are marked.
+  // Game content (the 4 words per game) is locked in lockedGameWordsRef on
+  // first generation and never overwritten, even when learnedPool changes.
+  // The lock is cleared only when categories change (new filter session).
   const gameAnchors = useMemo((): GameAnchor[] => {
     if (minigameFrequency === 'off' || originalCombined.length === 0 || learnedPool.length < 4) {
       return [];
@@ -390,9 +400,18 @@ export default function Home() {
       '5-10': { min: 5, max: 10 },
     };
     const { min, max } = intervalMap[minigameFrequency];
-    return computeGameAnchors(originalCombined, learnedPool, minigameSeed, {
+    const rawAnchors = computeGameAnchors(originalCombined, learnedPool, minigameSeed, {
       minInterval: min,
       maxInterval: max,
+    });
+
+    // Lock content: write words for this game ID exactly once.
+    // Subsequent recomputations (learnedPool grows, etc.) return the locked words.
+    return rawAnchors.map(anchor => {
+      if (!lockedGameWordsRef.current.has(anchor.id)) {
+        lockedGameWordsRef.current.set(anchor.id, anchor.words);
+      }
+      return { ...anchor, words: lockedGameWordsRef.current.get(anchor.id)! };
     });
   }, [originalCombined, learnedPool, minigameSeed, minigameFrequency]);
 
