@@ -8,7 +8,12 @@ import { usePanelClose } from '@/hooks/usePanelClose';
 import { useTopMenuHandlers } from '@/hooks/useTopMenuHandlers';
 import { getAvailableCategories, STAGES, isDue, NormalizedWord, normalizeWords } from '@/lib/words';
 import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-stats';
-import { injectMinigames, type MiniGameConfig } from '@/lib/minigames';
+import {
+  computeGameAnchors,
+  composeStream,
+  type MiniGameConfig,
+  type GameAnchor,
+} from '@/lib/minigames';
 import { AppLayout } from '@/components/AppLayout';
 import { WordCard } from '@/components/WordCard';
 import { StickyMiniGameCard } from '@/components/StickyMiniGameCard';
@@ -81,13 +86,18 @@ export default function Home() {
   type MinigameFrequency = 'off' | '2-5' | '3-7' | '5-10';
   const [minigameFrequency, setMinigameFrequency] = useState<MinigameFrequency>('3-7');
   const [dismissedGames, setDismissedGames] = useState<Set<string>>(new Set());
-  // Configs of games that have been seen (rendered) but not yet dismissed.
-  // Keyed by game id. Stored so game words stay stable and anchor words
-  // can be pinned in the stream even after they leave due/new buckets.
-  const [seenGameConfigs, setSeenGameConfigs] = useState<Map<string, MiniGameConfig>>(new Map());
   const [minigameSeed] = useState<number>(() => Math.floor(Math.random() * 1_000_000_000));
-  // Track last known stream position for each game so orphaned games stay in place
-  const gamePositionsRef = useRef<Map<string, number>>(new Map());
+
+  // originalCombined is the word list captured at the start of each filter session.
+  // It never changes when words are marked known/unknown — only when selectedCategories
+  // changes. Anchors computed from it therefore keep stable originalIndex values, which
+  // is what prevents minigames from disappearing as the stream shrinks.
+  const [originalCombined, setOriginalCombined] = useState<NormalizedWord[]>([]);
+  const [originalIndexMap, setOriginalIndexMap] = useState<Map<string, number>>(new Map());
+  // Tracks the categories key at the time originalCombined was last captured.
+  const lastCategoriesKeyRef = useRef<string>('');
+  // Always holds the most-recent combined value without causing effect re-runs.
+  const latestCombinedRef = useRef<NormalizedWord[]>([]);
   const categories = useMemo(
     () => getAvailableCategories(normalizedWords),
     [normalizedWords]
@@ -337,49 +347,71 @@ export default function Home() {
     [filteredWords, progress]
   );
 
+  // Active learning stream: due words first, then new words.
+  const combined = useMemo(() => [...dueWords, ...newWords], [dueWords, newWords]);
+
+  // Keep latestCombinedRef current so the snapshot effect can read it
+  // without needing combined in its dependency array.
+  latestCombinedRef.current = combined;
+
+  // Snapshot the combined list once per filter session.
+  // The snapshot is taken on first hydration and reset whenever selectedCategories
+  // changes. It does NOT reset when words are marked known/unknown — that's the
+  // whole point: originalIndexMap stays stable so anchor positions don't shift.
+  const currentCategoriesKey = [...selectedCategories].sort().join(',');
+  useEffect(() => {
+    if (!isHydrated || latestCombinedRef.current.length === 0) return;
+    if (
+      currentCategoriesKey === lastCategoriesKeyRef.current &&
+      originalCombined.length > 0
+    ) return;
+
+    lastCategoriesKeyRef.current = currentCategoriesKey;
+    const snapshot = [...latestCombinedRef.current];
+    setOriginalCombined(snapshot);
+    setOriginalIndexMap(new Map(snapshot.map((w, i) => [w.id, i])));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isHydrated, currentCategoriesKey]);
+  // latestCombinedRef and originalCombined.length are intentionally omitted:
+  // we only want this effect to fire on hydration or category change, not
+  // every time a word is marked.
+
+  // Compute stable game anchors from the snapshot.
+  // These are recomputed only when the snapshot changes (category change / first load)
+  // or when frequency / seed / pool changes. The anchorOriginalIndex values inside
+  // each anchor are frozen and will never shift even as combined shrinks.
+  const gameAnchors = useMemo((): GameAnchor[] => {
+    if (minigameFrequency === 'off' || originalCombined.length === 0 || learnedPool.length < 4) {
+      return [];
+    }
+    const intervalMap: Record<Exclude<MinigameFrequency, 'off'>, { min: number; max: number }> = {
+      '2-5': { min: 2, max: 5 },
+      '3-7': { min: 3, max: 7 },
+      '5-10': { min: 5, max: 10 },
+    };
+    const { min, max } = intervalMap[minigameFrequency];
+    return computeGameAnchors(originalCombined, learnedPool, minigameSeed, {
+      minInterval: min,
+      maxInterval: max,
+    });
+  }, [originalCombined, learnedPool, minigameSeed, minigameFrequency]);
+
   // Build groupedWords for VirtualizedWordList:
   // Slot 0 = due words (+ injected games), Slot 1 = new words (+ injected games),
   // Slots 2-10 = settling-in (when expanded, no games injected)
-  const { streamGroupedWords, orphanedGameCount } = useMemo((): {
-    streamGroupedWords: (NormalizedWord | MiniGameConfig)[][];
-    orphanedGameCount: number;
-  } => {
+  const streamGroupedWords = useMemo(() => {
     const groups: (NormalizedWord | MiniGameConfig)[][] = STAGES.map(() => []);
-    if (!isHydrated) return { streamGroupedWords: groups, orphanedGameCount: 0 };
+    if (!isHydrated) return groups;
 
-    const combined = [...dueWords, ...newWords];
-
+    // composeStream is a pure function: it re-inserts each game by scanning
+    // combined for the highest remaining word with origIdx <= anchor.anchorOriginalIndex.
+    // Because anchors are keyed to originalIndex (not array position or word ID),
+    // games stay in the stream even as words are removed around them.
     let wordStream: (NormalizedWord | MiniGameConfig)[];
-    if (minigameFrequency === 'off') {
+    if (minigameFrequency === 'off' || gameAnchors.length === 0) {
       wordStream = combined;
     } else {
-      const intervalMap: Record<Exclude<MinigameFrequency, 'off'>, { min: number; max: number }> = {
-        '2-5': { min: 2, max: 5 },
-        '3-7': { min: 3, max: 7 },
-        '5-10': { min: 5, max: 10 },
-      };
-      const { min, max } = intervalMap[minigameFrequency];
-      wordStream = injectMinigames(combined, learnedPool, role, minigameSeed, {
-        minInterval: min,
-        maxInterval: max,
-      });
-    }
-
-    // If a seen game's anchor word was marked (left combined), the game would vanish.
-    // Rescue orphaned games by prepending them so they remain visible until dismissed.
-    const presentGameIds = new Set(
-      wordStream
-        .filter((item): item is MiniGameConfig => '_isMinigame' in item)
-        .map(item => item.id)
-    );
-    const orphanedGames: MiniGameConfig[] = [];
-    for (const [gameId, config] of seenGameConfigs) {
-      if (!dismissedGames.has(gameId) && !presentGameIds.has(gameId)) {
-        orphanedGames.push(config);
-      }
-    }
-    if (orphanedGames.length > 0) {
-      wordStream = [...orphanedGames, ...wordStream];
+      wordStream = composeStream(combined, originalIndexMap, gameAnchors);
     }
 
     // Word stream: due words → slot 0, new words → slot 1.
@@ -400,16 +432,8 @@ export default function Home() {
         groups[sIdx].push(word);
       });
     }
-    return { streamGroupedWords: groups, orphanedGameCount: orphanedGames.length };
-  }, [dueWords, newWords, settlingWords, showNotReady, progress, isHydrated, learnedPool, role, minigameFrequency, minigameSeed, seenGameConfigs, dismissedGames]);
-
-  const prevOrphanedCountRef = useRef(0);
-  useEffect(() => {
-    if (orphanedGameCount > prevOrphanedCountRef.current && phrasesScrollElement) {
-      phrasesScrollElement.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-    prevOrphanedCountRef.current = orphanedGameCount;
-  }, [orphanedGameCount, phrasesScrollElement]);
+    return groups;
+  }, [combined, dueWords.length, settlingWords, showNotReady, progress, isHydrated, gameAnchors, originalIndexMap, minigameFrequency]);
 
 
   // Memoized card renderer to avoid recreating functions on each render - must be before early return
@@ -444,27 +468,17 @@ export default function Home() {
 
   const renderMiniGame = useCallback((config: MiniGameConfig) => {
     if (dismissedGames.has(config.id)) return null;
-    // Use the originally-seen config so game words stay stable even if the
-    // stream regenerates after the anchor word leaves due/new buckets.
-    const stableConfig = seenGameConfigs.get(config.id) ?? config;
     return (
       <div key={config.id} className="pt-8">
         <StickyMiniGameCard
-          config={stableConfig}
+          config={config}
           role={role}
-          onDismiss={() => {
-            setDismissedGames(prev => new Set([...prev, config.id]));
-            setSeenGameConfigs(prev => { const m = new Map(prev); m.delete(config.id); return m; });
-          }}
+          onDismiss={() => setDismissedGames(prev => new Set([...prev, config.id]))}
           onResult={(won) => setGameScore(prev => Math.max(0, prev + (won ? 1 : -1)))}
-          onFirstSeen={(cfg) => setSeenGameConfigs(prev => {
-            if (prev.has(cfg.id)) return prev;
-            return new Map([...prev, [cfg.id, cfg]]);
-          })}
         />
       </div>
     );
-  }, [dismissedGames, role, seenGameConfigs]);
+  }, [dismissedGames, role]);
 
   // Memoize progress stats (must be before early return to keep hook order stable)
   const progressStats = useMemo(
@@ -493,10 +507,7 @@ export default function Home() {
       theme={theme}
       onThemeChange={setTheme}
       minigameFrequency={minigameFrequency}
-      onMinigameFrequencyChange={(f) => {
-          setMinigameFrequency(f);
-          setSeenGameConfigs(new Map());
-        }}
+      onMinigameFrequencyChange={(f) => setMinigameFrequency(f)}
       userId={userId}
       userWalletAddress={userWalletAddress}
       userEmail={userEmail}

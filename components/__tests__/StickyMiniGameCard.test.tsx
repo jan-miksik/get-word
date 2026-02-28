@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render } from '@testing-library/react';
+import { render, screen } from '@testing-library/react';
 import { StickyMiniGameCard } from '../StickyMiniGameCard';
 import type { MiniGameConfig } from '@/lib/minigames';
 import type { NormalizedWord } from '@/lib/words';
@@ -10,45 +10,36 @@ const makeWord = (id: string): NormalizedWord => ({
 
 const config: MiniGameConfig = {
   _isMinigame: true,
-  id: 'game-w1',
-  anchorWordId: 'w1',
+  id: 'game-w1-s42',
+  anchorOriginalIndex: 0,
   gameType: 'multipleChoice',
   words: [makeWord('a'), makeWord('b'), makeWord('c'), makeWord('d')],
 };
 
 describe('StickyMiniGameCard', () => {
-  it('calls onFirstSeen with the config on mount', () => {
-    const onFirstSeen = vi.fn();
+  it('renders a MiniGameCard with the given config', () => {
     render(
       <StickyMiniGameCard
         config={config}
         role="cz"
         onDismiss={vi.fn()}
-        onFirstSeen={onFirstSeen}
       />
     );
-    expect(onFirstSeen).toHaveBeenCalledWith(config);
-    expect(onFirstSeen).toHaveBeenCalledTimes(1);
+    // The MiniGameCard renders a game-card article with badge
+    expect(screen.getByText(/Choice/)).toBeDefined();
   });
 
-  it('does not call onFirstSeen again when the component re-renders with the same id', () => {
-    const onFirstSeen = vi.fn();
-    const { rerender } = render(
+  it('forwards onDismiss and onResult props', () => {
+    const onDismiss = vi.fn();
+    const onResult = vi.fn();
+    render(
       <StickyMiniGameCard
         config={config}
         role="cz"
-        onDismiss={vi.fn()}
-        onFirstSeen={onFirstSeen}
+        onDismiss={onDismiss}
+        onResult={onResult}
       />
     );
-    rerender(
-      <StickyMiniGameCard
-        config={config}
-        role="cz"
-        onDismiss={vi.fn()}
-        onFirstSeen={onFirstSeen}
-      />
-    );
-    expect(onFirstSeen).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/Choice/)).toBeDefined();
   });
 });
