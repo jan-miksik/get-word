@@ -39,7 +39,10 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
       {game}
       {finished && (
         <div
-          className="absolute inset-0 z-10 flex flex-col justify-end cursor-pointer rounded-xl transition-opacity duration-300 bg-black/10"
+          className="absolute inset-0 z-10 flex flex-col justify-end cursor-pointer rounded-xl transition-opacity duration-300"
+          style={{
+            backgroundColor: finished.won ? '#2dd32d17' : '#dd333317',
+          }}
           onClick={onDismiss}
           role="button"
           tabIndex={0}

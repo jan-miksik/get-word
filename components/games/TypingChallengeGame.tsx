@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import React, { useState } from 'react';
 import type { NormalizedWord } from '@/lib/words';
 import { matchAnswer } from '@/lib/minigames';
 
@@ -25,10 +25,18 @@ export function TypingChallengeGame({ words, role, onResult }: Props) {
     onResult?.(r !== 'wrong');
   };
 
-  const resultLabels: Record<'exact' | 'close' | 'wrong', string> = {
+  const resultLabels: Record<'exact' | 'close' | 'wrong', React.ReactNode> = {
     exact: '✓ Perfect!',
-    close: '~ Close! Watch the diacritics',
-    wrong: `✗  ${correctAnswer}`,
+    close: (
+      <>
+        ~ Close! Correct: <strong>{correctAnswer}</strong>
+      </>
+    ),
+    wrong: (
+      <>
+        ✗ Correct: <strong>{correctAnswer}</strong>
+      </>
+    ),
   };
 
   return (
