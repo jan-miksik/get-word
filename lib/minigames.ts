@@ -2,6 +2,14 @@ import type { NormalizedWord } from './words';
 
 export type GameType = 'multipleChoice' | 'typing' | 'matching';
 
+/** Minigame frequency: 'off' or interval range (min/max word cards between games). */
+export type MinigameFrequencyRange = { min: number; max: number } | 'off';
+
+export const DEFAULT_MINIGAME_FREQUENCY: MinigameFrequencyRange = { min: 2, max: 4 };
+
+export const MINIGAME_FREQUENCY_MIN = 0;
+export const MINIGAME_FREQUENCY_MAX = 10;
+
 export interface MiniGameConfig {
   _isMinigame: true;
   id: string;
@@ -76,7 +84,7 @@ export function computeGameAnchors(
   seed: number,
   options?: InjectMinigamesOptions,
 ): GameAnchor[] {
-  if (originalWords.length === 0 || learnedPool.length < 4) return [];
+  if (originalWords.length === 0) return [];
 
   const baseSeed = seed;
   let s = baseSeed;
@@ -117,11 +125,17 @@ export function computeGameAnchors(
   }
 
   // Phase B — pick game words for each locked position.
-  //
-  // rand() is consumed by the shuffle here, but the positions above are
-  // already frozen so this cannot affect where games appear in the stream.
-  return anchorIndices.map((i, slotIndex) => {
-    const shuffled = [...learnedPool].sort(() => rand() - 0.5);
+  // When the user has at least 4 words in progress, use that pool.
+  // When they have none (new user), use the words in the stream above this
+  // anchor (originalWords[0..i]) so minigames still appear and feel contextual.
+  const useStreamAbove = learnedPool.length < 4;
+
+  const anchors: (GameAnchor | null)[] = anchorIndices.map((i, slotIndex) => {
+    const pool = useStreamAbove
+      ? originalWords.slice(0, i + 1)
+      : learnedPool;
+    if (pool.length < 4) return null;
+    const shuffled = [...pool].sort(() => rand() - 0.5);
     return {
       id: `game-${originalWords[i].id}-s${baseSeed}`,
       gameType: GAME_CYCLE[slotIndex % GAME_CYCLE.length],
@@ -129,6 +143,8 @@ export function computeGameAnchors(
       anchorOriginalIndex: i,
     };
   });
+
+  return anchors.filter((a): a is GameAnchor => a !== null);
 }
 
 /**
@@ -225,7 +241,6 @@ export function injectMinigames(
   options?: InjectMinigamesOptions,
 ): StreamItem[] {
   if (words.length === 0) return [];
-  if (learnedPool.length < 4) return [...words];
 
   const anchors = computeGameAnchors(words, learnedPool, seed ?? 1, options);
   if (anchors.length === 0) return [...words];

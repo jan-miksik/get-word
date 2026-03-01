@@ -1,6 +1,57 @@
 'use client';
 
+import { useCallback } from 'react';
 import type { Theme } from '@/hooks/useAppState';
+import type { MinigameFrequencyRange } from '@/lib/minigames';
+import { MINIGAME_FREQUENCY_MIN, MINIGAME_FREQUENCY_MAX } from '@/lib/minigames';
+
+function MinigameFrequencySlider({
+  min,
+  max,
+  onChange,
+}: {
+  min: number;
+  max: number;
+  onChange: (min: number, max: number) => void;
+}) {
+  const clamp = useCallback(
+    (v: number) => Math.max(MINIGAME_FREQUENCY_MIN, Math.min(MINIGAME_FREQUENCY_MAX, v)),
+    []
+  );
+  return (
+    <div className="minigame-frequency-slider relative flex items-center gap-2">
+      <div className="flex-1 relative h-6 flex items-center">
+        <input
+          type="range"
+          min={MINIGAME_FREQUENCY_MIN}
+          max={MINIGAME_FREQUENCY_MAX}
+          value={min}
+          onChange={(e) => {
+            const nextMin = clamp(parseInt(e.target.value, 10));
+            onChange(nextMin, Math.max(nextMin, max));
+          }}
+          className="absolute w-full h-2 appearance-none bg-border-subtle rounded-full accent-accent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-moz-range-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:cursor-grab [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-grab"
+          aria-label="Minimum cards between games"
+        />
+        <input
+          type="range"
+          min={MINIGAME_FREQUENCY_MIN}
+          max={MINIGAME_FREQUENCY_MAX}
+          value={max}
+          onChange={(e) => {
+            const nextMax = clamp(parseInt(e.target.value, 10));
+            onChange(Math.min(nextMax, min), nextMax);
+          }}
+          className="absolute w-full h-2 appearance-none bg-transparent rounded-full accent-accent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-moz-range-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:cursor-grab [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-grab z-10"
+          aria-label="Maximum cards between games"
+        />
+      </div>
+      <span className="tabular-nums text-text text-[0.75rem] w-8 shrink-0">
+        {min}–{max}
+      </span>
+    </div>
+  );
+}
 
 interface SettingsPanelProps {
   role: 'cz' | 'vi';
@@ -11,8 +62,8 @@ interface SettingsPanelProps {
   onShowCategoryBadgesChange: (show: boolean) => void;
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
-  minigameFrequency: 'off' | '2-5' | '3-7' | '5-10';
-  onMinigameFrequencyChange: (value: 'off' | '2-5' | '3-7' | '5-10') => void;
+  minigameFrequency: MinigameFrequencyRange;
+  onMinigameFrequencyChange: (value: MinigameFrequencyRange) => void;
   isOpen: boolean;
   onClose?: () => void;
   userId?: string | null;
@@ -142,54 +193,30 @@ export function SettingsPanel({
         {/* Minigames Section */}
         <div className="mt-6 pt-6 border-t border-border-subtle">
           <p className="m-0 mb-1 text-[0.78rem] text-text-soft mb-3">Mini-games</p>
-          <div className="flex flex-col gap-2 text-xs text-text-soft">
-            <span>How often should mini-games appear in the stream?</span>
-            <div className="flex flex-col gap-1 mt-1">
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name="minigame-frequency"
-                  value="off"
-                  checked={minigameFrequency === 'off'}
-                  onChange={() => onMinigameFrequencyChange('off')}
-                  className="accent-accent"
+          <div className="flex flex-col gap-3 text-xs text-text-soft">
+            <label className="flex items-center gap-1.5 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={minigameFrequency !== 'off'}
+                onChange={(e) =>
+                  onMinigameFrequencyChange(e.target.checked ? { min: 2, max: 4 } : 'off')
+                }
+                className="accent-accent rounded"
+              />
+              <span>Show mini-games in the stream</span>
+            </label>
+            {minigameFrequency !== 'off' && (
+              <div className="pl-0 flex flex-col gap-2">
+                <MinigameFrequencySlider
+                  min={minigameFrequency.min}
+                  max={minigameFrequency.max}
+                  onChange={(min, max) => onMinigameFrequencyChange({ min, max })}
                 />
-                <span>Do not show mini-games</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name="minigame-frequency"
-                  value="2-5"
-                  checked={minigameFrequency === '2-5'}
-                  onChange={() => onMinigameFrequencyChange('2-5')}
-                  className="accent-accent"
-                />
-                <span>Every 2–5 word cards</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name="minigame-frequency"
-                  value="3-7"
-                  checked={minigameFrequency === '3-7'}
-                  onChange={() => onMinigameFrequencyChange('3-7')}
-                  className="accent-accent"
-                />
-                <span>Every 3–7 word cards</span>
-              </label>
-              <label className="flex items-center gap-1.5 cursor-pointer">
-                <input
-                  type="radio"
-                  name="minigame-frequency"
-                  value="5-10"
-                  checked={minigameFrequency === '5-10'}
-                  onChange={() => onMinigameFrequencyChange('5-10')}
-                  className="accent-accent"
-                />
-                <span>Every 5–10 word cards</span>
-              </label>
-            </div>
+                <p className="m-0 text-[0.7rem] text-text-soft">
+                  {minigameFrequency.min} – {minigameFrequency.max} word cards between games
+                </p>
+              </div>
+            )}
           </div>
         </div>
 

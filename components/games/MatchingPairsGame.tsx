@@ -1,18 +1,17 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import type { NormalizedWord } from '@/lib/words';
 
 interface Props {
   words: NormalizedWord[];
   role: 'cz' | 'vi';
-  onDismiss: () => void;
   onResult?: (won: boolean) => void;
 }
 
 type MatchState = 'idle' | 'selected' | 'matched' | 'wrong';
 
-export function MatchingPairsGame({ words, role, onDismiss, onResult }: Props) {
+export function MatchingPairsGame({ words, role, onResult }: Props) {
   const rightOrder = useMemo(
     () => [...words].sort(() => Math.random() - 0.5),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -28,6 +27,14 @@ export function MatchingPairsGame({ words, role, onDismiss, onResult }: Props) {
   const getRight = (w: NormalizedWord) => role === 'cz' ? w.vi : w.cz;
 
   const isComplete = matched.size === words.length;
+  const resultFired = useRef(false);
+
+  useEffect(() => {
+    if (isComplete && !resultFired.current) {
+      resultFired.current = true;
+      onResult?.(true);
+    }
+  }, [isComplete, onResult]);
 
   const attempt = (lId: string, rId: string) => {
     if (lId === rId) {
@@ -108,9 +115,6 @@ export function MatchingPairsGame({ words, role, onDismiss, onResult }: Props) {
       {isComplete && (
         <div className="game-feedback game-feedback--exact">
           ✓ All matched!
-          <button type="button" className="game-dismiss" onClick={() => { onResult?.(true); onDismiss(); }}>
-            Next →
-          </button>
         </div>
       )}
     </article>

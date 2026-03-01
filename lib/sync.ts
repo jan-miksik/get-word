@@ -195,8 +195,8 @@ function executeSync(): void {
 export function debouncedSync(
   data: Parameters<typeof syncUserData>[0]
 ): Promise<void> {
-  // Store the latest data to sync
-  latestData = data;
+  // Merge into pending payload so we don't overwrite e.g. game_score when progress sync runs
+  latestData = latestData ? { ...latestData, ...data } : data;
 
   // If there's already a pending promise, return it (callers get the same promise)
   if (pendingPromise) {

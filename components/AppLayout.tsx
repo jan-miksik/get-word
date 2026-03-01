@@ -33,8 +33,8 @@ interface AppLayoutProps {
   onShowCategoryBadgesChange: (show: boolean) => void;
   theme: Theme;
   onThemeChange: (theme: Theme) => void;
-  minigameFrequency: 'off' | '2-5' | '3-7' | '5-10';
-  onMinigameFrequencyChange: (value: 'off' | '2-5' | '3-7' | '5-10') => void;
+  minigameFrequency: import('@/lib/minigames').MinigameFrequencyRange;
+  onMinigameFrequencyChange: (value: import('@/lib/minigames').MinigameFrequencyRange) => void;
   userId: string | null;
   userWalletAddress?: string | null;
   userEmail?: string | null;

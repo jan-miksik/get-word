@@ -16,7 +16,7 @@ const WORDS = [
 
 describe('MatchingPairsGame', () => {
   it('renders 4 left buttons (cz) and 4 right buttons (vi) when role is cz', () => {
-    render(<MatchingPairsGame words={WORDS} role="cz" onDismiss={vi.fn()} />);
+    render(<MatchingPairsGame words={WORDS} role="cz" />);
     expect(screen.getByText('pes')).toBeInTheDocument();
     expect(screen.getByText('kočka')).toBeInTheDocument();
     expect(screen.getByText('con chó')).toBeInTheDocument();
@@ -24,13 +24,13 @@ describe('MatchingPairsGame', () => {
   });
 
   it('renders vi on left and cz on right when role is vi', () => {
-    render(<MatchingPairsGame words={WORDS} role="vi" onDismiss={vi.fn()} />);
+    render(<MatchingPairsGame words={WORDS} role="vi" />);
     expect(screen.getByText('con chó')).toBeInTheDocument();
     expect(screen.getByText('pes')).toBeInTheDocument();
   });
 
   it('matching a correct pair marks both buttons with matched class', () => {
-    render(<MatchingPairsGame words={WORDS} role="cz" onDismiss={vi.fn()} />);
+    render(<MatchingPairsGame words={WORDS} role="cz" />);
     fireEvent.click(screen.getByText('pes'));
     fireEvent.click(screen.getByText('con chó'));
     expect(screen.getByText('pes').closest('button')).toHaveClass('game-match-btn--matched');
@@ -39,7 +39,7 @@ describe('MatchingPairsGame', () => {
 
   it('selecting a wrong pair flashes wrong class then resets after timeout', async () => {
     vi.useFakeTimers();
-    render(<MatchingPairsGame words={WORDS} role="cz" onDismiss={vi.fn()} />);
+    render(<MatchingPairsGame words={WORDS} role="cz" />);
     fireEvent.click(screen.getByText('pes'));
     fireEvent.click(screen.getByText('con mèo')); // wrong pair
     expect(screen.getByText('pes').closest('button')).toHaveClass('game-match-btn--wrong');
@@ -48,27 +48,23 @@ describe('MatchingPairsGame', () => {
     vi.useRealTimers();
   });
 
-  it('shows completion message and calls onDismiss when all pairs matched', () => {
-    const onDismiss = vi.fn();
-    render(<MatchingPairsGame words={WORDS} role="cz" onDismiss={onDismiss} />);
+  it('shows completion message when all pairs matched', () => {
+    render(<MatchingPairsGame words={WORDS} role="cz" />);
     // Match all 4 pairs (right column is shuffled but words are accessible by text)
     fireEvent.click(screen.getByText('pes'));      fireEvent.click(screen.getByText('con chó'));
     fireEvent.click(screen.getByText('kočka'));   fireEvent.click(screen.getByText('con mèo'));
     fireEvent.click(screen.getByText('auto'));    fireEvent.click(screen.getByText('xe hơi'));
     fireEvent.click(screen.getByText('voda'));    fireEvent.click(screen.getByText('nước'));
     expect(screen.getByText(/All matched/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByText(/Next/i));
-    expect(onDismiss).toHaveBeenCalled();
   });
 
-  it('calls onResult(true) when all pairs matched and Next is clicked', () => {
+  it('calls onResult(true) when all pairs matched', () => {
     const onResult = vi.fn();
-    render(<MatchingPairsGame words={WORDS} role="cz" onDismiss={vi.fn()} onResult={onResult} />);
+    render(<MatchingPairsGame words={WORDS} role="cz" onResult={onResult} />);
     fireEvent.click(screen.getByText('pes'));      fireEvent.click(screen.getByText('con chó'));
     fireEvent.click(screen.getByText('kočka'));   fireEvent.click(screen.getByText('con mèo'));
     fireEvent.click(screen.getByText('auto'));    fireEvent.click(screen.getByText('xe hơi'));
     fireEvent.click(screen.getByText('voda'));    fireEvent.click(screen.getByText('nước'));
-    fireEvent.click(screen.getByText(/Next/i));
     expect(onResult).toHaveBeenCalledWith(true);
   });
 });

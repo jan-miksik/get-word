@@ -83,7 +83,7 @@ export function useAppState(
     hasLoadedRef.current = true;
 
     // Set a timeout to ensure hydration completes even if fetch hangs
-    const HYDRATION_TIMEOUT = 10000; // 10 seconds
+    const HYDRATION_TIMEOUT = 15000; // 15 seconds
     const timeoutId = setTimeout(() => {
       if (!isHydratedRef.current) {
         console.warn('[useAppState] Hydration timeout - proceeding without server data');

@@ -526,9 +526,9 @@ body {
 }
 
 .phrase-card {
-  border-radius: 20px;
+  border-radius: 12px;
   background: radial-gradient(circle at top left, #020617 0, #020617 55%);
-  border: 1px solid rgba(148, 163, 184, 0.32);
+  border: 1px solid var(--border-subtle);
   padding: 12px 14px 11px;
   display: flex;
   flex-direction: column;
@@ -604,23 +604,19 @@ body {
   background: radial-gradient(circle at top right, #020617 0, #020617 60%);
 }
 
-/* ── Stage-group borders: 7px, distinct styles + amber tonal scale ── */
+/* ── Stage-group: subtle left accent, same 1px border ──
 .phrase-card[data-stage-group="fresh"] {
-  border: 7px double var(--stage-1);
-  box-shadow: 0 0 20px rgba(254, 249, 195, 0.15), inset 0 0 24px rgba(254, 249, 195, 0.04);
+  border-left: 3px solid var(--stage-1);
 }
 .phrase-card[data-stage-group="learning"] {
-  border: 7px ridge var(--stage-2);
-  box-shadow: 0 0 20px rgba(252, 211, 77, 0.18), inset 0 0 24px rgba(252, 211, 77, 0.05);
+  border-left: 3px solid var(--stage-2);
 }
 .phrase-card[data-stage-group="seasoned"] {
-  border: 7px inset var(--stage-3);
-  box-shadow: 0 0 20px rgba(245, 158, 11, 0.2), inset 0 0 24px rgba(245, 158, 11, 0.06);
+  border-left: 3px solid var(--stage-3);
 }
 .phrase-card[data-stage-group="mastered"] {
-  border: 7px solid var(--stage-4);
-  box-shadow: 0 0 20px rgba(217, 119, 6, 0.22), inset 0 0 24px rgba(217, 119, 6, 0.07);
-}
+  border-left: 3px solid var(--stage-4);
+} */
 
 /* ── Time badge — top-right pill, always visible ── */
 .card-time-badge {
@@ -633,7 +629,7 @@ body {
   letter-spacing: 0.04em;
   font-variant-numeric: tabular-nums;
   padding: 2px 8px;
-  border-radius: 20px;
+  border-radius: 8px;
   pointer-events: none;
   line-height: 1.6;
 }
@@ -1252,7 +1248,7 @@ html[data-theme="warm"] body {
 [data-theme="warm"] .phrase-card {
   background: #F4F2EE !important;
   background-image: none !important;
-  border: 2px solid #333333;
+  border: 1px solid rgba(51, 51, 51, 0.18);
   color: #333333;
 }
 
@@ -1261,23 +1257,19 @@ html[data-theme="warm"] body {
   background-image: none !important;
 }
 
-/* Warm theme stage-group: amber tones on cream background */
+/* Warm theme stage-group: amber left accent
 [data-theme="warm"] .phrase-card[data-stage-group="fresh"] {
-  border: 7px double #D97706;
-  box-shadow: 0 0 16px rgba(217, 119, 6, 0.12);
+  border-left: 3px solid #D97706;
 }
 [data-theme="warm"] .phrase-card[data-stage-group="learning"] {
-  border: 7px ridge #B45309;
-  box-shadow: 0 0 16px rgba(180, 83, 9, 0.12);
+  border-left: 3px solid #B45309;
 }
 [data-theme="warm"] .phrase-card[data-stage-group="seasoned"] {
-  border: 7px inset #92400E;
-  box-shadow: 0 0 16px rgba(146, 64, 14, 0.12);
+  border-left: 3px solid #92400E;
 }
 [data-theme="warm"] .phrase-card[data-stage-group="mastered"] {
-  border: 7px solid #78350F;
-  box-shadow: 0 0 16px rgba(120, 53, 15, 0.12);
-}
+  border-left: 3px solid #78350F;
+} */
 
 /* Warm theme time badges */
 [data-theme="warm"] .phrase-card[data-stage-group="fresh"] .card-time-badge {
@@ -1544,23 +1536,19 @@ html[data-theme="calm"] body {
   background-image: none !important;
 }
 
-/* Calm theme stage-group: amber tones on white */
-[data-theme="calm"] .phrase-card[data-stage-group="fresh"] {
-  border: 7px double #D97706;
-  box-shadow: 0 0 16px rgba(217, 119, 6, 0.1);
+/* Calm theme stage-group: amber left accent */
+/* [data-theme="calm"] .phrase-card[data-stage-group="fresh"] {
+  border-left: 3px solid #D97706;
 }
 [data-theme="calm"] .phrase-card[data-stage-group="learning"] {
-  border: 7px ridge #B45309;
-  box-shadow: 0 0 16px rgba(180, 83, 9, 0.1);
+  border-left: 3px solid #B45309;
 }
 [data-theme="calm"] .phrase-card[data-stage-group="seasoned"] {
-  border: 7px inset #92400E;
-  box-shadow: 0 0 16px rgba(146, 64, 14, 0.1);
+  border-left: 3px solid #92400E;
 }
 [data-theme="calm"] .phrase-card[data-stage-group="mastered"] {
-  border: 7px solid #78350F;
-  box-shadow: 0 0 16px rgba(120, 53, 15, 0.1);
-}
+  border-left: 3px solid #78350F;
+} */
 
 /* Calm theme time badges */
 [data-theme="calm"] .phrase-card[data-stage-group="fresh"] .card-time-badge {

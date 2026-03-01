@@ -32,14 +32,24 @@ describe('injectMinigames', () => {
     makeWord(`w${i}`, `cz${i}`, `vi${i}`)
   );
 
-  it('returns original words when pool is too small', () => {
-    const result = injectMinigames(words, [], 'cz');
-    expect(result.every(item => !('_isMinigame' in item))).toBe(true);
+  it('injects games using stream-above when pool is empty (new user)', () => {
+    const result = injectMinigames(words, [], 'cz', 42, { minInterval: 5, maxInterval: 5 });
+    const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
+    expect(games.length).toBeGreaterThan(0);
+    games.forEach(game => {
+      expect(game.words.length).toBe(4);
+      // Words should come from the stream above this anchor
+      const anchorIdx = game.anchorOriginalIndex ?? 0;
+      const prefixIds = new Set(words.slice(0, anchorIdx + 1).map(w => w.id));
+      game.words.forEach(w => expect(prefixIds.has(w.id)).toBe(true));
+    });
   });
 
-  it('returns original words when pool has fewer than 4', () => {
-    const result = injectMinigames(words, words.slice(0, 3), 'cz');
-    expect(result.every(item => !('_isMinigame' in item))).toBe(true);
+  it('injects games using stream-above when pool has fewer than 4', () => {
+    const result = injectMinigames(words, words.slice(0, 3), 'cz', 42, { minInterval: 5, maxInterval: 5 });
+    const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
+    expect(games.length).toBeGreaterThan(0);
+    games.forEach(game => expect(game.words.length).toBe(4));
   });
 
   it('returns empty array for empty words', () => {

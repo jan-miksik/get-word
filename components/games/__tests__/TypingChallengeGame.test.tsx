@@ -15,45 +15,41 @@ const WORDS = [
 ];
 
 describe('TypingChallengeGame', () => {
-  it('calls onResult(true) when exact match is submitted and Next is clicked', () => {
+  it('calls onResult(true) when exact match is submitted', () => {
     const onResult = vi.fn();
     render(
-      <TypingChallengeGame words={WORDS} role="cz" onDismiss={vi.fn()} onResult={onResult} />
+      <TypingChallengeGame words={WORDS} role="cz" onResult={onResult} />
     );
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'con chó' } });
     fireEvent.click(screen.getByText('Check'));
-    fireEvent.click(screen.getByText(/Next/i));
     expect(onResult).toHaveBeenCalledWith(true);
   });
 
-  it('calls onResult(true) when close match is submitted and Next is clicked', () => {
+  it('calls onResult(true) when close match is submitted', () => {
     const onResult = vi.fn();
     render(
-      <TypingChallengeGame words={WORDS} role="cz" onDismiss={vi.fn()} onResult={onResult} />
+      <TypingChallengeGame words={WORDS} role="cz" onResult={onResult} />
     );
     // 'con cho' is close to 'con chó' (missing diacritic)
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'con cho' } });
     fireEvent.click(screen.getByText('Check'));
-    fireEvent.click(screen.getByText(/Next/i));
     expect(onResult).toHaveBeenCalledWith(true);
   });
 
-  it('calls onResult(false) when wrong answer is submitted and Next is clicked', () => {
+  it('calls onResult(false) when wrong answer is submitted', () => {
     const onResult = vi.fn();
     render(
-      <TypingChallengeGame words={WORDS} role="cz" onDismiss={vi.fn()} onResult={onResult} />
+      <TypingChallengeGame words={WORDS} role="cz" onResult={onResult} />
     );
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'totally wrong' } });
     fireEvent.click(screen.getByText('Check'));
-    fireEvent.click(screen.getByText(/Next/i));
     expect(onResult).toHaveBeenCalledWith(false);
   });
 
   it('does not throw when onResult is not provided', () => {
-    render(<TypingChallengeGame words={WORDS} role="cz" onDismiss={vi.fn()} />);
+    render(<TypingChallengeGame words={WORDS} role="cz" />);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'con chó' } });
     fireEvent.click(screen.getByText('Check'));
-    fireEvent.click(screen.getByText(/Next/i));
     // no assertion needed - just must not throw
   });
 });

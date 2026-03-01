@@ -44,14 +44,17 @@ describe('MiniGameCard', () => {
     expect(screen.getByText('con chó')).toBeInTheDocument();
   });
 
-  it('passes onResult to the game component and calls it on dismiss', () => {
+  it('passes onResult to the game component and calls it on answer', () => {
     const onResult = vi.fn();
+    const onDismiss = vi.fn();
     render(
-      <MiniGameCard config={config('multipleChoice')} role="cz" onDismiss={vi.fn()} onResult={onResult} />
+      <MiniGameCard config={config('multipleChoice')} role="cz" onDismiss={onDismiss} onResult={onResult} />
     );
     // role=cz: correct answer for words[0] (pes) is con chó
     fireEvent.click(screen.getByText('con chó'));
-    fireEvent.click(screen.getByText(/Next/i));
     expect(onResult).toHaveBeenCalledWith(true);
+    // Overlay appears, clicking it dismisses the card
+    fireEvent.click(screen.getByText('Tap to continue'));
+    expect(onDismiss).toHaveBeenCalled();
   });
 });

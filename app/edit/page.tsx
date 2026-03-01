@@ -8,6 +8,7 @@ import { normalizeWords, getAllCategoriesWithCounts, STAGES, isDue, NormalizedWo
 import { useAppState } from '@/hooks/useAppState';
 import { useWordsLoader } from '@/hooks/useWordsLoader';
 import { usePanelClose } from '@/hooks/usePanelClose';
+import { LoadingScreen } from '@/components/LoadingScreen';
 import { useTopMenuHandlers } from '@/hooks/useTopMenuHandlers';
 import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-stats';
 import { AppLayout } from '@/components/AppLayout';
@@ -16,6 +17,8 @@ import { EditableWordCard, EDIT_ONLY_CATEGORIES } from '@/components/EditableWor
 import { VirtualizedWordList } from '@/components/VirtualizedWordList';
 import { useDueTimer } from '@/hooks/useDueTimer';
 import { useAuth } from '@/hooks/useAuth';
+import type { MinigameFrequencyRange } from '@/lib/minigames';
+import { DEFAULT_MINIGAME_FREQUENCY } from '@/lib/minigames';
 
 export default function EditPage() {
   const router = useRouter();
@@ -91,8 +94,25 @@ export default function EditPage() {
   const [showWaitingForRepeat, setShowWaitingForRepeat] = useState(false);
   const [showNotReady, setShowNotReady] = useState(false);
 
-  type MinigameFrequency = 'off' | '2-5' | '3-7' | '5-10';
-  const [minigameFrequency, setMinigameFrequency] = useState<MinigameFrequency>('3-7');
+  const [minigameFrequency, setMinigameFrequency] = useState<MinigameFrequencyRange>(() => {
+    if (typeof window === 'undefined') return DEFAULT_MINIGAME_FREQUENCY;
+    const stored = window.localStorage.getItem('wordlink-minigame-frequency');
+    if (!stored || stored === 'off') return stored === 'off' ? 'off' : DEFAULT_MINIGAME_FREQUENCY;
+    const legacy: Record<string, MinigameFrequencyRange> = {
+      '2-5': { min: 2, max: 5 },
+      '3-7': { min: 3, max: 7 },
+      '5-10': { min: 5, max: 10 },
+    };
+    if (legacy[stored]) return legacy[stored];
+    try {
+      const parsed = JSON.parse(stored) as MinigameFrequencyRange;
+      if (parsed === 'off' || (typeof parsed === 'object' && typeof parsed?.min === 'number' && typeof parsed?.max === 'number'))
+        return parsed;
+    } catch {
+      // ignore
+    }
+    return DEFAULT_MINIGAME_FREQUENCY;
+  });
 
   const phrasesCallbackRef = useCallback((node: HTMLElement | null) => {
     phrasesRef.current = node;
@@ -102,19 +122,11 @@ export default function EditPage() {
   // Trigger re-render when cards become due for review
   useDueTimer(progress);
 
-  // Load preferred minigame frequency from localStorage (same key as main page)
+  // Persist minigame frequency preference (same key as main page)
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const stored = window.localStorage.getItem('wordlink-minigame-frequency');
-    if (!stored) return;
-    if (stored === 'off' || stored === '2-5' || stored === '3-7' || stored === '5-10') {
-      setMinigameFrequency(stored);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem('wordlink-minigame-frequency', minigameFrequency);
+    const toStore = minigameFrequency === 'off' ? 'off' : JSON.stringify(minigameFrequency);
+    window.localStorage.setItem('wordlink-minigame-frequency', toStore);
   }, [minigameFrequency]);
 
   // Close panels when clicking outside
@@ -454,11 +466,7 @@ export default function EditPage() {
   }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, handleWordFieldChange, handleCategoryToggle, handleCategoryAdd, handleCategoryRemove, showEnglish, showCategoryBadges]);
 
   if (isLoading || !isHydrated) {
-    return (
-      <div className="app">
-        <div className="p-8 text-center">Loading...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   // Prevent rendering edit UI for non-editors (avoids flash before router.replace completes)

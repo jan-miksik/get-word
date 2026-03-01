@@ -13,10 +13,13 @@ import {
   composeStream,
   type MiniGameConfig,
   type GameAnchor,
+  type MinigameFrequencyRange,
+  DEFAULT_MINIGAME_FREQUENCY,
 } from '@/lib/minigames';
 import { AppLayout } from '@/components/AppLayout';
 import { WordCard } from '@/components/WordCard';
 import { StickyMiniGameCard } from '@/components/StickyMiniGameCard';
+import { LoadingScreen } from '@/components/LoadingScreen';
 import { VirtualizedWordList } from '@/components/VirtualizedWordList';
 import { useDueTimer } from '@/hooks/useDueTimer';
 import { useAuth } from '@/hooks/useAuth';
@@ -83,8 +86,9 @@ export default function Home() {
   const displayAddress = walletAddress ?? userWalletAddress ?? undefined;
 
   const [showNotReady, setShowNotReady] = useState(false);
-  type MinigameFrequency = 'off' | '2-5' | '3-7' | '5-10';
-  const [minigameFrequency, setMinigameFrequency] = useState<MinigameFrequency>('3-7');
+  const [minigameFrequency, setMinigameFrequency] = useState<MinigameFrequencyRange>(
+    DEFAULT_MINIGAME_FREQUENCY
+  );
   const [dismissedGames, setDismissedGames] = useState<Set<string>>(new Set());
   const [minigameSeed] = useState<number>(() => Math.floor(Math.random() * 1_000_000_000));
 
@@ -108,20 +112,39 @@ export default function Home() {
   const phrasesRef = useRef<HTMLElement>(null);
   const [phrasesScrollElement, setPhrasesScrollElement] = useState<HTMLElement | null>(null);
 
-  // Load preferred minigame frequency from localStorage (default 3–7)
+  // Load preferred minigame frequency from localStorage (default 2–4)
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const stored = window.localStorage.getItem('wordlink-minigame-frequency');
     if (!stored) return;
-    if (stored === 'off' || stored === '2-5' || stored === '3-7' || stored === '5-10') {
-      setMinigameFrequency(stored);
+    if (stored === 'off') {
+      setMinigameFrequency('off');
+      return;
+    }
+    const legacy: Record<string, MinigameFrequencyRange> = {
+      '2-5': { min: 2, max: 5 },
+      '3-7': { min: 3, max: 7 },
+      '5-10': { min: 5, max: 10 },
+    };
+    if (legacy[stored]) {
+      setMinigameFrequency(legacy[stored]);
+      return;
+    }
+    try {
+      const parsed = JSON.parse(stored) as MinigameFrequencyRange;
+      if (parsed === 'off' || (typeof parsed === 'object' && typeof parsed?.min === 'number' && typeof parsed?.max === 'number')) {
+        setMinigameFrequency(parsed);
+      }
+    } catch {
+      // ignore invalid JSON
     }
   }, []);
 
   // Persist minigame frequency preference
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    window.localStorage.setItem('wordlink-minigame-frequency', minigameFrequency);
+    const toStore = minigameFrequency === 'off' ? 'off' : JSON.stringify(minigameFrequency);
+    window.localStorage.setItem('wordlink-minigame-frequency', toStore);
   }, [minigameFrequency]);
 
   // Callback ref: fires immediately when <main> mounts, guaranteeing scroll element is set
@@ -391,15 +414,10 @@ export default function Home() {
   // first generation and never overwritten, even when learnedPool changes.
   // The lock is cleared only when categories change (new filter session).
   const gameAnchors = useMemo((): GameAnchor[] => {
-    if (minigameFrequency === 'off' || originalCombined.length === 0 || learnedPool.length < 4) {
+    if (minigameFrequency === 'off' || originalCombined.length === 0) {
       return [];
     }
-    const intervalMap: Record<Exclude<MinigameFrequency, 'off'>, { min: number; max: number }> = {
-      '2-5': { min: 2, max: 5 },
-      '3-7': { min: 3, max: 7 },
-      '5-10': { min: 5, max: 10 },
-    };
-    const { min, max } = intervalMap[minigameFrequency];
+    const { min, max } = minigameFrequency;
     const rawAnchors = computeGameAnchors(originalCombined, learnedPool, minigameSeed, {
       minInterval: min,
       maxInterval: max,
@@ -507,11 +525,7 @@ export default function Home() {
 
   // Don't render main content until hydrated and words are loaded to avoid hydration mismatches
   if (!isHydrated || isLoadingWords) {
-    return (
-      <div className="app">
-        <div className="p-8 text-center">Loading...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   return (

@@ -7,11 +7,10 @@ import { matchAnswer } from '@/lib/minigames';
 interface Props {
   words: NormalizedWord[];
   role: 'cz' | 'vi';
-  onDismiss: () => void;
   onResult?: (won: boolean) => void;
 }
 
-export function TypingChallengeGame({ words, role, onDismiss, onResult }: Props) {
+export function TypingChallengeGame({ words, role, onResult }: Props) {
   const [value, setValue] = useState('');
   const [result, setResult] = useState<'exact' | 'close' | 'wrong' | null>(null);
 
@@ -21,7 +20,9 @@ export function TypingChallengeGame({ words, role, onDismiss, onResult }: Props)
 
   const check = () => {
     if (result !== null || !value.trim()) return;
-    setResult(matchAnswer(value, correctAnswer));
+    const r = matchAnswer(value, correctAnswer);
+    setResult(r);
+    onResult?.(r !== 'wrong');
   };
 
   const resultLabels: Record<'exact' | 'close' | 'wrong', string> = {
@@ -57,9 +58,6 @@ export function TypingChallengeGame({ words, role, onDismiss, onResult }: Props)
       {result !== null && (
         <div className={`game-feedback game-feedback--${result}`}>
           {resultLabels[result]}
-          <button type="button" className="game-dismiss" onClick={() => { onResult?.(result !== 'wrong'); onDismiss(); }}>
-            Next →
-          </button>
         </div>
       )}
     </article>
