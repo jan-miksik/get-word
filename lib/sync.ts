@@ -162,34 +162,26 @@ let pendingPromise: Promise<void> | null = null;
 let resolvePending: (() => void) | null = null;
 let rejectPending: ((error: unknown) => void) | null = null;
 let latestData: Parameters<typeof syncUserData>[0] | null = null;
-const SYNC_DELAY = 1000; // 1 second
+const SYNC_DELAY = 2500; // 2.5 seconds
 
 function executeSync(): void {
-  if (latestData && resolvePending && rejectPending) {
-    try {
-      syncUserData(latestData)
-        .then(() => {
-          resolvePending!();
-        })
-        .catch((error) => {
-          rejectPending!(error);
-        })
-        .finally(() => {
-          pendingPromise = null;
-          resolvePending = null;
-          rejectPending = null;
-          syncTimeout = null;
-          latestData = null;
-        });
-    } catch (error) {
-      rejectPending!(error);
-      pendingPromise = null;
-      resolvePending = null;
-      rejectPending = null;
-      syncTimeout = null;
-      latestData = null;
-    }
-  }
+  if (!latestData || !resolvePending || !rejectPending) return;
+
+  // Capture locals and immediately reset module state so concurrent
+  // calls to debouncedSync get a fresh promise instead of sharing these handlers.
+  const data = latestData;
+  const resolve = resolvePending;
+  const reject = rejectPending;
+
+  pendingPromise = null;
+  resolvePending = null;
+  rejectPending = null;
+  syncTimeout = null;
+  latestData = null;
+
+  syncUserData(data)
+    .then(() => resolve())
+    .catch((error) => reject(error));
 }
 
 export function debouncedSync(
