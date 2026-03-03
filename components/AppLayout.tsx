@@ -36,6 +36,8 @@ interface AppLayoutProps {
   onThemeChange: (theme: Theme) => void;
   minigameFrequency: import('@/lib/minigames').MinigameFrequencyRange;
   onMinigameFrequencyChange: (value: import('@/lib/minigames').MinigameFrequencyRange) => void;
+  viewMode: 'card' | 'stream';
+  onViewModeChange: (mode: 'card' | 'stream') => void;
   userId: string | null;
   userWalletAddress?: string | null;
   userEmail?: string | null;
@@ -78,6 +80,8 @@ export function AppLayout({
   onThemeChange,
   minigameFrequency,
   onMinigameFrequencyChange,
+  viewMode,
+  onViewModeChange,
   userId,
   userWalletAddress,
   userEmail,
@@ -123,6 +127,8 @@ export function AppLayout({
         onThemeChange={onThemeChange}
         minigameFrequency={minigameFrequency}
         onMinigameFrequencyChange={onMinigameFrequencyChange}
+        viewMode={viewMode}
+        onViewModeChange={onViewModeChange}
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         userId={userId}

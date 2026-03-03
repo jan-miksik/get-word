@@ -2005,3 +2005,12 @@ html[data-theme="calm"] body {
   60%       { transform: translateX(-4px); }
   80%       { transform: translateX(4px); }
 }
+
+/* Card deck fullscreen mode */
+.word-card--fullscreen {
+  font-size: 1.6rem;
+  min-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}

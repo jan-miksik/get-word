@@ -64,6 +64,8 @@ interface SettingsPanelProps {
   onThemeChange: (theme: Theme) => void;
   minigameFrequency: MinigameFrequencyRange;
   onMinigameFrequencyChange: (value: MinigameFrequencyRange) => void;
+  viewMode: 'card' | 'stream';
+  onViewModeChange: (mode: 'card' | 'stream') => void;
   isOpen: boolean;
   onClose?: () => void;
   userId?: string | null;
@@ -86,6 +88,8 @@ export function SettingsPanel({
   onThemeChange,
   minigameFrequency,
   onMinigameFrequencyChange,
+  viewMode,
+  onViewModeChange,
   isOpen,
   onClose,
   userId,
@@ -217,6 +221,33 @@ export function SettingsPanel({
                 </p>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* View Mode */}
+        <div className="mt-6 pt-6 border-t border-border-subtle">
+          <div className="flex items-center justify-between py-2">
+            <span className="text-[0.78rem] text-text-soft">View mode</span>
+            <div className="flex items-center gap-2">
+              <span className="text-[0.78rem] text-text-soft">
+                {viewMode === 'card' ? 'Card' : 'Stream'}
+              </span>
+              <button
+                role="switch"
+                aria-checked={viewMode === 'stream'}
+                aria-label="view mode"
+                onClick={() => onViewModeChange(viewMode === 'card' ? 'stream' : 'card')}
+                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
+                  viewMode === 'stream' ? 'bg-accent' : 'bg-border-subtle'
+                }`}
+              >
+                <span
+                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
+                    viewMode === 'stream' ? 'translate-x-[18px]' : 'translate-x-[3px]'
+                  }`}
+                />
+              </button>
+            </div>
           </div>
         </div>
 

@@ -21,6 +21,7 @@ import { WordCard } from '@/components/WordCard';
 import { StickyMiniGameCard } from '@/components/StickyMiniGameCard';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { VirtualizedWordList } from '@/components/VirtualizedWordList';
+import { CardDeckView } from '@/components/CardDeckView';
 import { useDueTimer } from '@/hooks/useDueTimer';
 import { useAuth } from '@/hooks/useAuth';
 import { deleteDeviceId } from '@/lib/device-id';
@@ -113,6 +114,14 @@ export default function Home() {
   const [minigameFrequency, setMinigameFrequency] = useState<MinigameFrequencyRange>(
     DEFAULT_MINIGAME_FREQUENCY
   );
+  const [viewMode, setViewModeRaw] = useState<'card' | 'stream'>(() => {
+    if (typeof window === 'undefined') return 'card';
+    return (localStorage.getItem('wordlink-view-mode') as 'card' | 'stream') ?? 'card';
+  });
+  const setViewMode = (mode: 'card' | 'stream') => {
+    setViewModeRaw(mode);
+    localStorage.setItem('wordlink-view-mode', mode);
+  };
   const [dismissedGames, setDismissedGames] = useState<Set<string>>(new Set());
   const [minigameSeed] = useState<number>(() => Math.floor(Math.random() * 1_000_000_000));
 
@@ -542,6 +551,58 @@ export default function Home() {
     );
   }, [dismissedGames, role]);
 
+  const renderCardForDeck = useCallback(
+    (word: NormalizedWord, stageIndex: number, onComplete: () => void) => {
+      const prog = progress[word.id] || {
+        stageIndex: 0,
+        knownCount: 0,
+        unknownCount: 0,
+      };
+      return (
+        <div key={word.id} className="h-full">
+          <WordCard
+            word={word}
+            progress={prog}
+            role={role}
+            modeIndex={getWordDisplayMode(word.id)}
+            showAll={showAll}
+            memoryHook={getMemoryHook(word.id)}
+            suggestedHook={getSuggestedMemoryHook(word)}
+            onKnown={() => { markKnown(word.id); onComplete(); }}
+            onReallyKnown={() => { markReallyKnown(word.id); onComplete(); }}
+            onUnknown={() => { markUnknown(word.id); onComplete(); }}
+            onMemoryHookChange={(hook) => setMemoryHook(word.id, hook)}
+            isMoved={lastMovedId === word.id}
+            showEnglish={showEnglish}
+            showCategoryBadges={showCategoryBadges}
+            fullscreen
+          />
+        </div>
+      );
+    },
+    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges]
+  );
+
+  const renderMiniGameForDeck = useCallback(
+    (config: MiniGameConfig, onComplete: () => void) => (
+      <div key={config.id} className="h-full">
+        <StickyMiniGameCard
+          config={config}
+          role={role}
+          onDismiss={() => {
+            setDismissedGames(prev => new Set([...prev, config.id]));
+            onComplete();
+          }}
+          onResult={(won) => {
+            setGameScore(prev => Math.max(0, prev + (won ? 1 : -1)));
+            onComplete();
+          }}
+        />
+      </div>
+    ),
+    [dismissedGames, role, setGameScore]
+  );
+
   // Memoize progress stats (must be before early return to keep hook order stable)
   const progressStats = useMemo(
     () => calculateProgressStats(statsWords, progress, readyCount),
@@ -566,6 +627,8 @@ export default function Home() {
       onThemeChange={setTheme}
       minigameFrequency={minigameFrequency}
       onMinigameFrequencyChange={(f) => setMinigameFrequency(f)}
+      viewMode={viewMode}
+      onViewModeChange={setViewMode}
       userId={userId}
       userWalletAddress={userWalletAddress}
       userEmail={userEmail}
@@ -597,40 +660,50 @@ export default function Home() {
         ref={phrasesCallbackRef}
         aria-live="polite"
       >
-        <div className="app-content-column flex flex-col gap-[18px] flex-1 min-h-0">
-          {filteredWords.length === 0 ? (
-            <div className="p-8 text-center text-text-soft">No words match your current filters.</div>
-          ) : (
-            <VirtualizedWordList
-              key="stream"
-              dataTab="stream"
+        {viewMode === 'card' ? (
+          <div className="flex h-[calc(100dvh-4rem)] w-full flex-col">
+            <CardDeckView
               groupedWords={streamGroupedWords}
-              renderCard={renderCard}
-              renderMiniGame={renderMiniGame}
-              showHeaders={false}
-              scrollElement={phrasesScrollElement}
-              emptyMessage="No words to display."
-              stageFooter={(stageIndex) => {
-                // Show "settling in" button after slot 1 (new words), or slot 0 if no new words
-                const isLastMainSlot =
-                  (stageIndex === 1 && newWords.length > 0) ||
-                  (stageIndex === 0 && newWords.length === 0);
-                if (!isLastMainSlot || settlingWords.length === 0) return null;
-                return (
-                  <div className="p-4 px-4 text-center border-t border-border-subtle mt-4">
-                    <button
-                      type="button"
-                      className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-background-elevated"
-                      onClick={() => setShowNotReady(!showNotReady)}
-                    >
-                      {showNotReady ? 'Hide' : 'Show'} {settlingWords.length} word{settlingWords.length !== 1 ? 's' : ''} settling in before repeat
-                    </button>
-                  </div>
-                );
-              }}
+              renderCard={renderCardForDeck}
+              renderMiniGame={renderMiniGameForDeck}
             />
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="app-content-column flex flex-col gap-[18px] flex-1 min-h-0">
+            {filteredWords.length === 0 ? (
+              <div className="p-8 text-center text-text-soft">No words match your current filters.</div>
+            ) : (
+              <VirtualizedWordList
+                key="stream"
+                dataTab="stream"
+                groupedWords={streamGroupedWords}
+                renderCard={renderCard}
+                renderMiniGame={renderMiniGame}
+                showHeaders={false}
+                scrollElement={phrasesScrollElement}
+                emptyMessage="No words to display."
+                stageFooter={(stageIndex) => {
+                  // Show "settling in" button after slot 1 (new words), or slot 0 if no new words
+                  const isLastMainSlot =
+                    (stageIndex === 1 && newWords.length > 0) ||
+                    (stageIndex === 0 && newWords.length === 0);
+                  if (!isLastMainSlot || settlingWords.length === 0) return null;
+                  return (
+                    <div className="p-4 px-4 text-center border-t border-border-subtle mt-4">
+                      <button
+                        type="button"
+                        className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-background-elevated"
+                        onClick={() => setShowNotReady(!showNotReady)}
+                      >
+                        {showNotReady ? 'Hide' : 'Show'} {settlingWords.length} word{settlingWords.length !== 1 ? 's' : ''} settling in before repeat
+                      </button>
+                    </div>
+                  );
+                }}
+              />
+            )}
+          </div>
+        )}
       </main>
 
     </AppLayout>

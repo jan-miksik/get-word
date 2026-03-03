@@ -21,6 +21,7 @@ interface WordCardProps {
   onCategoryToggle?: (category: string) => void;
   showEnglish?: boolean;
   showCategoryBadges?: boolean;
+  fullscreen?: boolean;
 }
 
 export const WordCard = memo(function WordCard({
@@ -40,6 +41,7 @@ export const WordCard = memo(function WordCard({
   onCategoryToggle,
   showEnglish = true,
   showCategoryBadges = false,
+  fullscreen = false,
 }: WordCardProps) {
   const [editingHook, setEditingHook] = useState(false);
   const [hookValue, setHookValue] = useState(memoryHook);
@@ -152,7 +154,7 @@ export const WordCard = memo(function WordCard({
   const shouldShowCategoryBadges = isEditMode || showCategoryBadges;
 
   return (
-    <article className={`phrase-card ${isMoved ? 'card-moved' : ''}`} data-word-id={word.id} data-stage-group={stageGroup}>
+    <article className={`phrase-card ${isMoved ? 'card-moved' : ''} ${fullscreen ? 'word-card--fullscreen' : ''}`} data-word-id={word.id} data-stage-group={stageGroup}>
       {/* Category badges */}
       {shouldShowCategoryBadges && displayCategories.length > 0 && (
         <div className="word-categories">
