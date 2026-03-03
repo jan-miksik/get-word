@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import type { ProgressData, SyncResponse } from '@/lib/sync';
 import { NormalizedWord, STAGES, matchesCategoryFilter } from '@/lib/words';
-import { fetchUserData, debouncedSync, linkWallet } from '@/lib/sync';
+import { fetchUserData, debouncedSync, linkWallet, syncUserData } from '@/lib/sync';
 
 export type Role = 'cz' | 'vi';
 export type Theme = 'default' | 'warm' | 'calm';
@@ -174,7 +174,11 @@ export function useAppState(
       gameScoreSyncedRef.current = true;
       return;
     }
-    debouncedSync({ game_score: gameScore }).catch((e) => console.error('[useAppState] Sync game_score:', e));
+    // Score changes are low-frequency but user-visible; sync immediately so refreshes
+    // don't drop the last update behind the debounce window.
+    syncUserData({ game_score: gameScore }).catch((e) =>
+      console.error('[useAppState] Sync game_score:', e)
+    );
   }, [gameScore, isHydrated]);
 
   // Link wallet (and optionally email/authProvider) when user connects

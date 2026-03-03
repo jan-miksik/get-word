@@ -19,7 +19,7 @@ interface TopMenuProps {
   score?: number;
 }
 
-function ScoreBadge({ score }: { score: number }) {
+export function ScoreBadge({ score }: { score: number }) {
   const prevScore = useRef(score);
   const [delta, setDelta] = useState<{ value: number; key: number } | null>(null);
   const keyRef = useRef(0);
@@ -81,7 +81,11 @@ export function TopMenu({
         <button className="mode-btn show-all-btn" onClick={onShowAll} type="button" aria-label={showAll ? "Hide completed items" : "Show all items"}>
           {showAll ? '🙉' : '🙈'}
         </button>
-        {score !== undefined && <ScoreBadge score={score} />}
+        {score !== undefined && (
+          <span className="lg:hidden">
+            <ScoreBadge score={score} />
+          </span>
+        )}
       </div>
       <div className="flex flex-wrap items-center gap-2 ml-auto">
         <button
@@ -94,7 +98,7 @@ export function TopMenu({
           🏷️
         </button>
         <button
-          className={`mode-btn progress-btn ${progressActive ? 'is-active' : ''}`}
+          className={`mode-btn progress-btn lg:!hidden ${progressActive ? 'is-active' : ''}`}
           onClick={onProgress}
           type="button"
           aria-label="View progress"
@@ -102,7 +106,7 @@ export function TopMenu({
           📊
         </button>
         <button
-          className="mode-btn memory-hooks-btn"
+          className="mode-btn memory-hooks-btn lg:!hidden"
           onClick={onMemoryHooks}
           type="button"
           aria-label="Memory Hooks Info"

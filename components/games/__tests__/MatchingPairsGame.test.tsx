@@ -37,6 +37,30 @@ describe('MatchingPairsGame', () => {
     expect(screen.getByText('con chó').closest('button')).toHaveClass('game-match-btn--matched');
   });
 
+  it('assigns 4 different colors to matched pairs (in match order)', () => {
+    render(<MatchingPairsGame words={WORDS} role="cz" />);
+
+    fireEvent.click(screen.getByText('pes'));
+    fireEvent.click(screen.getByText('con chó'));
+    expect(screen.getByText('pes').closest('button')).toHaveClass('game-match-btn--c1');
+    expect(screen.getByText('con chó').closest('button')).toHaveClass('game-match-btn--c1');
+
+    fireEvent.click(screen.getByText('kočka'));
+    fireEvent.click(screen.getByText('con mèo'));
+    expect(screen.getByText('kočka').closest('button')).toHaveClass('game-match-btn--c2');
+    expect(screen.getByText('con mèo').closest('button')).toHaveClass('game-match-btn--c2');
+
+    fireEvent.click(screen.getByText('auto'));
+    fireEvent.click(screen.getByText('xe hơi'));
+    expect(screen.getByText('auto').closest('button')).toHaveClass('game-match-btn--c3');
+    expect(screen.getByText('xe hơi').closest('button')).toHaveClass('game-match-btn--c3');
+
+    fireEvent.click(screen.getByText('voda'));
+    fireEvent.click(screen.getByText('nước'));
+    expect(screen.getByText('voda').closest('button')).toHaveClass('game-match-btn--c4');
+    expect(screen.getByText('nước').closest('button')).toHaveClass('game-match-btn--c4');
+  });
+
   it('selecting a wrong pair flashes wrong class then resets after timeout', async () => {
     vi.useFakeTimers();
     render(<MatchingPairsGame words={WORDS} role="cz" />);

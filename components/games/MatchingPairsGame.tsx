@@ -10,6 +10,7 @@ interface Props {
 }
 
 type MatchState = 'idle' | 'selected' | 'matched' | 'wrong';
+type MatchColor = 1 | 2 | 3 | 4;
 
 export function MatchingPairsGame({ words, role, onResult }: Props) {
   const rightOrder = useMemo(
@@ -21,6 +22,7 @@ export function MatchingPairsGame({ words, role, onResult }: Props) {
   const [leftSelected, setLeftSelected] = useState<string | null>(null);
   const [rightSelected, setRightSelected] = useState<string | null>(null);
   const [matched, setMatched] = useState<Set<string>>(new Set());
+  const [matchColors, setMatchColors] = useState<Map<string, MatchColor>>(() => new Map());
   const [wrongPair, setWrongPair] = useState<[string, string] | null>(null);
 
   const getLeft = (w: NormalizedWord) => role === 'cz' ? w.cz : w.vi;
@@ -38,6 +40,13 @@ export function MatchingPairsGame({ words, role, onResult }: Props) {
 
   const attempt = (lId: string, rId: string) => {
     if (lId === rId) {
+      setMatchColors(prev => {
+        if (prev.has(lId)) return prev;
+        const next = new Map(prev);
+        const nextColor = ((prev.size % 4) + 1) as MatchColor;
+        next.set(lId, nextColor);
+        return next;
+      });
       setMatched(prev => new Set([...prev, lId]));
       setLeftSelected(null);
       setRightSelected(null);
@@ -79,36 +88,48 @@ export function MatchingPairsGame({ words, role, onResult }: Props) {
     return 'idle';
   };
 
+  const getMatchColorClass = (id: string, state: MatchState) => {
+    if (state !== 'matched') return '';
+    const color = matchColors.get(id);
+    return color ? ` game-match-btn--c${color}` : '';
+  };
+
   return (
     <article className="phrase-card game-card game-card--matching">
       <div className="game-badge">🔗 Match</div>
 
       <div className="game-match-grid">
         <div className="game-match-col">
-          {words.map(w => (
-            <button
-              key={w.id}
-              type="button"
-              className={`game-match-btn game-match-btn--${getLeftState(w.id)}`}
-              onClick={() => handleLeft(w.id)}
-              disabled={matched.has(w.id) || !!wrongPair}
-            >
-              {getLeft(w)}
-            </button>
-          ))}
+          {words.map(w => {
+            const state = getLeftState(w.id);
+            return (
+              <button
+                key={w.id}
+                type="button"
+                className={`game-match-btn game-match-btn--${state}${getMatchColorClass(w.id, state)}`}
+                onClick={() => handleLeft(w.id)}
+                disabled={matched.has(w.id) || !!wrongPair}
+              >
+                {getLeft(w)}
+              </button>
+            );
+          })}
         </div>
         <div className="game-match-col">
-          {rightOrder.map(w => (
-            <button
-              key={w.id}
-              type="button"
-              className={`game-match-btn game-match-btn--${getRightState(w.id)}`}
-              onClick={() => handleRight(w.id)}
-              disabled={matched.has(w.id) || !!wrongPair}
-            >
-              {getRight(w)}
-            </button>
-          ))}
+          {rightOrder.map(w => {
+            const state = getRightState(w.id);
+            return (
+              <button
+                key={w.id}
+                type="button"
+                className={`game-match-btn game-match-btn--${state}${getMatchColorClass(w.id, state)}`}
+                onClick={() => handleRight(w.id)}
+                disabled={matched.has(w.id) || !!wrongPair}
+              >
+                {getRight(w)}
+              </button>
+            );
+          })}
         </div>
       </div>
 

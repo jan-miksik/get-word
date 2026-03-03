@@ -129,10 +129,11 @@ export function computeGameAnchors(
   // When they have none (new user), use the words in the stream above this
   // anchor (originalWords[0..i]) so minigames still appear and feel contextual.
   const useStreamAbove = learnedPool.length < 4;
+  const STREAM_ABOVE_WINDOW = 14; // prefer nearby words above the minigame
 
   const anchors: (GameAnchor | null)[] = anchorIndices.map((i, slotIndex) => {
     const pool = useStreamAbove
-      ? originalWords.slice(0, i + 1)
+      ? originalWords.slice(Math.max(0, i + 1 - STREAM_ABOVE_WINDOW), i + 1)
       : learnedPool;
     if (pool.length < 4) return null;
     const shuffled = [...pool].sort(() => rand() - 0.5);

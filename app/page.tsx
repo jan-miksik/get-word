@@ -23,11 +23,24 @@ import { LoadingScreen } from '@/components/LoadingScreen';
 import { VirtualizedWordList } from '@/components/VirtualizedWordList';
 import { useDueTimer } from '@/hooks/useDueTimer';
 import { useAuth } from '@/hooks/useAuth';
+import { deleteDeviceId } from '@/lib/device-id';
+import { resetSyncIdentity } from '@/lib/sync';
 
 
 export default function Home() {
   const { words, isLoading: isLoadingWords } = useWordsLoader();
   const { isConnected, email, authProvider, address: walletAddress, signOut } = useAuth();
+  const didHardResetRef = useRef(false);
+
+  const hardResetToFreshUser = useCallback(() => {
+    if (didHardResetRef.current) return;
+    didHardResetRef.current = true;
+    // Clear local identity (deviceId) + in-memory sync hint, then reload
+    // so all React state (progress, score, stream, dismissed games) resets.
+    resetSyncIdentity();
+    deleteDeviceId();
+    window.location.reload();
+  }, []);
 
   // Memoize normalized words so we don't recompute on every render
   const normalizedWords = useMemo(
@@ -80,10 +93,21 @@ export default function Home() {
     setGameScore,
   } = useAppState(normalizedWords, walletAddress, linkPayload);
 
-  // Logged in = Reown connected now OR account already linked on server (wallet/email saved)
-  const isAuthenticated = isConnected || !!(userWalletAddress || userEmail);
-  const displayEmail = email ?? userEmail ?? undefined;
-  const displayAddress = walletAddress ?? userWalletAddress ?? undefined;
+  // Treat "authenticated" as an active Reown connection.
+  // Server-linked wallet/email may exist, but a disconnect should immediately show signed-out UI.
+  const isAuthenticated = isConnected;
+  const displayEmail = email ?? undefined;
+  const displayAddress = walletAddress ?? undefined;
+
+  // If the wallet disconnects via the Reown modal (not our "Sign out" button),
+  // still reset to a fresh-user state.
+  const wasConnectedRef = useRef(isConnected);
+  useEffect(() => {
+    if (wasConnectedRef.current && !isConnected) {
+      hardResetToFreshUser();
+    }
+    wasConnectedRef.current = isConnected;
+  }, [isConnected, hardResetToFreshUser]);
 
   const [showNotReady, setShowNotReady] = useState(false);
   const [minigameFrequency, setMinigameFrequency] = useState<MinigameFrequencyRange>(
@@ -99,7 +123,8 @@ export default function Home() {
   const [originalCombined, setOriginalCombined] = useState<NormalizedWord[]>([]);
   const [originalIndexMap, setOriginalIndexMap] = useState<Map<string, number>>(new Map());
   // Tracks the categories key at the time originalCombined was last captured.
-  const lastCategoriesKeyRef = useRef<string>('');
+  // null ensures the first session always captures a snapshot.
+  const lastCategoriesKeyRef = useRef<string | null>(null);
   // Always holds the most-recent combined value without causing effect re-runs.
   const latestCombinedRef = useRef<NormalizedWord[]>([]);
   // Locks game words by game ID once first computed so they never change
@@ -395,7 +420,7 @@ export default function Home() {
   useEffect(() => {
     if (!isHydrated || !hasWords) return;
     // Skip if we already have a snapshot for the current filter session.
-    if (currentCategoriesKey === lastCategoriesKeyRef.current) return;
+    if (currentCategoriesKey === lastCategoriesKeyRef.current && originalCombined.length > 0) return;
 
     lastCategoriesKeyRef.current = currentCategoriesKey;
     // New filter session: clear locked game words so fresh content is picked.
@@ -547,7 +572,11 @@ export default function Home() {
       isAuthenticated={isAuthenticated}
       authEmail={displayEmail}
       authAddress={displayAddress}
-      onSignOut={signOut}
+      onSignOut={() => {
+        signOut();
+        // Also reset app state to a fresh user immediately.
+        hardResetToFreshUser();
+      }}
       categories={categories}
       selectedCategories={selectedCategories}
       onToggleCategory={toggleCategory}

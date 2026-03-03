@@ -16,6 +16,11 @@
   --danger: #fb7185;
   --fresh: #fbbf24;
   --done: #22c55e;
+  /* Match-pairs colors (RGB triplets for easy alpha) */
+  --match-1: 56 189 248;   /* sky */
+  --match-2: 167 139 250;  /* violet */
+  --match-3: 251 191 36;   /* amber */
+  --match-4: 244 114 182;  /* pink */
   --radius-lg: 18px;
   --radius-pill: 999px;
   --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.75);
@@ -280,6 +285,14 @@ body {
   left: auto;
 }
 
+/* Hide progress, memory-hooks, and settings in top menu on desktop (same breakpoint as Tailwind lg: 1024px) */
+@media (min-width: 1024px) {
+  .top-menu .mode-btn.progress-btn,
+  .top-menu .mode-btn.memory-hooks-btn {
+    display: none !important;
+  }
+}
+
 .mode-btn.progress-btn:hover,
 .mode-btn.category-btn:hover {
   background: rgba(15, 23, 42, 1);
@@ -390,6 +403,13 @@ body {
   max-width: 720px;
   margin-left: auto;
   margin-right: auto;
+}
+
+@media (min-width: 1024px) {
+  .memory-hooks-panel.is-open {
+    top: 50%;
+    transform: translateY(-50%);
+  }
 }
 
 
@@ -1910,11 +1930,29 @@ html[data-theme="calm"] body {
 }
 
 .game-match-btn--matched {
-  background: rgba(34, 197, 94, 0.15);
-  border-color: var(--done);
-  color: var(--done);
   opacity: 0.7;
   cursor: default;
+}
+
+.game-match-btn--matched.game-match-btn--c1 {
+  background: rgb(var(--match-1) / 0.14);
+  border-color: rgb(var(--match-1) / 0.8);
+  color: rgb(var(--match-1) / 1);
+}
+.game-match-btn--matched.game-match-btn--c2 {
+  background: rgb(var(--match-2) / 0.14);
+  border-color: rgb(var(--match-2) / 0.8);
+  color: rgb(var(--match-2) / 1);
+}
+.game-match-btn--matched.game-match-btn--c3 {
+  background: rgb(var(--match-3) / 0.14);
+  border-color: rgb(var(--match-3) / 0.85);
+  color: rgb(var(--match-3) / 1);
+}
+.game-match-btn--matched.game-match-btn--c4 {
+  background: rgb(var(--match-4) / 0.14);
+  border-color: rgb(var(--match-4) / 0.8);
+  color: rgb(var(--match-4) / 1);
 }
 
 .game-match-btn--wrong {

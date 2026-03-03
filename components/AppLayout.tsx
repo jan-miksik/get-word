@@ -8,6 +8,7 @@ import { CategoryPanel } from '@/components/CategoryPanel';
 import { MemoryHooksPanel } from '@/components/MemoryHooksPanel';
 import { ProgressPanel } from '@/components/ProgressPanel';
 import { ProgressSummary } from '@/components/ProgressSummary';
+import { ScoreBadge } from '@/components/TopMenu';
 import type { Role, Theme } from '@/hooks/useAppState';
 import type { ProgressStats } from '@/lib/progress-stats';
 
@@ -149,6 +150,34 @@ export function AppLayout({
         onClose={() => setProgressOpen(false)}
       />
       <ProgressSummary progressStats={progressStats} />
+
+      {/* Desktop: score badge floating in left gutter */}
+      {score !== undefined && (
+        <div className="hidden lg:block z-[50]" style={{ position: 'fixed', left: '20px', top: '140px' }}>
+          <ScoreBadge score={score} />
+        </div>
+      )}
+      {/* Desktop: 📊 progress button in right gutter */}
+      <button
+        className="mode-btn hidden lg:flex z-[50]"
+        style={{ position: 'fixed', right: '100px', top: '355px' }}
+        onClick={topMenuHandlers.onProgress}
+        type="button"
+        aria-label="View progress"
+      >
+        📊
+      </button>
+      {/* Desktop: ℹ️ info button in right gutter */}
+      <button
+        className="mode-btn hidden lg:flex z-[50]"
+        style={{ position: 'fixed', right: '20px', top: '150px' }}
+        onClick={topMenuHandlers.onMemoryHooks}
+        type="button"
+        aria-label="Memory Hooks Info"
+      >
+        ℹ️
+      </button>
+
       {children}
     </div>
   );

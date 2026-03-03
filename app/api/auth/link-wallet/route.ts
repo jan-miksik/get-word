@@ -79,6 +79,7 @@ export async function POST(request: NextRequest) {
           role: updatedUser.role,
           show_english: updatedUser.showEnglish ?? true,
           show_category_badges: updatedUser.showCategoryBadges ?? false,
+          game_score: updatedUser.gameScore ?? 0,
           wallet_address: updatedUser.walletAddress ?? walletAddress,
           email: updatedUser.email ?? null,
           auth_provider: updatedUser.authProvider ?? null,
@@ -114,6 +115,7 @@ export async function POST(request: NextRequest) {
           role: linkedUser.role,
           show_english: linkedUser.showEnglish ?? true,
           show_category_badges: linkedUser.showCategoryBadges ?? false,
+          game_score: linkedUser.gameScore ?? 0,
           wallet_address: linkedUser.walletAddress ?? walletAddress,
           email: linkedUser.email ?? null,
           auth_provider: linkedUser.authProvider ?? null,
@@ -183,11 +185,17 @@ export async function POST(request: NextRequest) {
       await updateUserFields(currentUser.id, { deviceId: null })
     }
 
+    const mergedGameScore = Math.max(
+      0,
+      (existingWalletUser.gameScore ?? 0) + (currentUser.gameScore ?? 0)
+    )
+
     await updateUserFields(existingWalletUser.id, {
       deviceId,
       role: currentUser.role,
       showEnglish: currentUser.showEnglish,
       showCategoryBadges: currentUser.showCategoryBadges,
+      gameScore: mergedGameScore,
       ...(email != null && String(email).trim() !== '' && { email: String(email).trim() }),
       ...(authProvider != null && String(authProvider).trim() !== '' && { authProvider: String(authProvider).trim() }),
     })
@@ -211,6 +219,7 @@ export async function POST(request: NextRequest) {
         role: currentUser.role,
         show_english: currentUser.showEnglish ?? true,
         show_category_badges: currentUser.showCategoryBadges ?? false,
+        game_score: mergedUser.gameScore ?? mergedGameScore,
         wallet_address: mergedUser.walletAddress ?? walletAddress,
         email: mergedUser.email ?? null,
         auth_provider: mergedUser.authProvider ?? null,

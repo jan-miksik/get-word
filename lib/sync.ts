@@ -4,6 +4,11 @@ import { getDeviceId } from "./device-id";
 // In-memory only: set from API responses, passed as hint to API. No localStorage.
 let lastKnownUserId: string | null = null;
 
+/** Clears in-memory user hint so subsequent syncs don't attach to the previous user. */
+export function resetSyncIdentity(): void {
+  lastKnownUserId = null;
+}
+
 /** API request shape for progress items. */
 export interface SyncProgressItem {
   word_id: string;
