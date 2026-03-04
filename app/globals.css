@@ -1,4 +1,7 @@
-/* Import your existing styles */
+/* Global styles */
 @import url('../styles.css');
+@import url('../styles/ui.css');
+@import url('../styles/themes.css');
+@import url('../styles/minigames.css');
 
 

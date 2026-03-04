@@ -97,8 +97,10 @@ function MenuDropdown({
   }, [open]);
 
   const handleItem = (cb: (e: MouseEvent) => void) => (e: MouseEvent) => {
-    setOpen(false);
     cb(e);
+    setTimeout(() => {
+      setOpen(false);
+    }, 100);
   };
 
   const items = [
@@ -135,9 +137,9 @@ function MenuDropdown({
   const hasActiveItem = categoryActive || progressActive;
 
   return (
-    <div className="relative" ref={menuRef}>
+    <div className="relative top-menu-dropdown" ref={menuRef}>
       <button
-        className={`mode-btn menu-toggle-btn flex items-center gap-1.5 ${hasActiveItem ? 'is-active' : ''}`}
+        className={`mode-btn menu-toggle-btn flex-none flex items-center gap-1.5 ${hasActiveItem ? 'is-active' : ''}`}
         onClick={() => setOpen((v) => !v)}
         type="button"
         aria-label="Open menu"
@@ -156,7 +158,7 @@ function MenuDropdown({
           role="menu"
           className="absolute right-0 top-[calc(100%+8px)] w-56 rounded-2xl overflow-hidden z-[200]"
           style={{
-            background: 'var(--background-elevated)',
+            background: 'black',
             border: '1px solid var(--border-subtle)',
             boxShadow: '0 8px 32px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.2)',
             backdropFilter: 'blur(16px)',
@@ -217,7 +219,7 @@ export function TopMenu({
     <div className="top-menu" aria-label="Top menu">
       <div className="flex flex-wrap items-center gap-2">
         <button
-          className="mode-btn show-all-btn"
+          className="mode-btn show-all-btn flex-none"
           onClick={onShowAll}
           type="button"
           aria-label={showAll ? 'Hide completed items' : 'Show all items'}

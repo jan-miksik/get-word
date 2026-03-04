@@ -16,7 +16,8 @@ export function usePanelClose(
         !target.closest('.progress-panel') &&
         !target.closest('.category-panel') &&
         !target.closest('.memory-hooks-panel') &&
-        !target.closest('.mode-btn')
+        !target.closest('.mode-btn') &&
+        !target.closest('.top-menu-dropdown')
       ) {
         setSettingsOpen(false);
         setProgressOpen(false);
