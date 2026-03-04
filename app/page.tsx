@@ -656,12 +656,12 @@ export default function Home() {
     >
 
       <main
-        className="block flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden"
+        className={`block flex-1 min-h-0 min-w-0 w-full ${viewMode === 'card' ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'}`}
         ref={phrasesCallbackRef}
         aria-live="polite"
       >
         {viewMode === 'card' ? (
-          <div className="flex h-[calc(100dvh-4rem)] w-full flex-col">
+          <div className="flex h-full w-full flex-col max-w-[800px] mx-auto">
             <CardDeckView
               groupedWords={streamGroupedWords}
               renderCard={renderCardForDeck}

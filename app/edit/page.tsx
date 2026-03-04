@@ -522,6 +522,8 @@ export default function EditPage() {
       onShowCategoryBadgesChange={setShowCategoryBadges}
       theme={theme}
       onThemeChange={setTheme}
+      viewMode="stream"
+      onViewModeChange={() => {}}
       userId={userId}
       userWalletAddress={userWalletAddress}
       userEmail={userEmail}
