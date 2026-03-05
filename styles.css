@@ -12,7 +12,7 @@
   --stage-4: #D97706;
   --text: #e5e7eb;
   --text-soft: #9ca3af;
-  --border-subtle: rgba(148, 163, 184, 0.35);
+  --border-subtle: rgba(20, 20, 20, 0.35);
   --danger: #fb7185;
   --fresh: #fbbf24;
   --done: #22c55e;
@@ -41,7 +41,7 @@ body {
   margin: 0;
   min-height: 100vh;
   font-family: var(--font-sans);
-  background: radial-gradient(circle at top, #225c35 0, #205533 52%, #1e5332 100%);
+  background: rgb(21, 21, 21);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
 }

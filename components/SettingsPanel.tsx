@@ -152,7 +152,7 @@ export function SettingsPanel({
               aria-label="Default dark theme"
             >
               <span className="theme-preview theme-preview-default" />
-              <span className="theme-label">Dark</span>
+              <span className={`text-[0.7rem] font-medium ${theme === 'default' ? 'text-accent' : 'text-text-soft'}`}>Dark</span>
             </button>
             <button
               onClick={() => onThemeChange('warm')}
@@ -160,7 +160,7 @@ export function SettingsPanel({
               aria-label="Warm light theme"
             >
               <span className="theme-preview theme-preview-warm" />
-              <span className="theme-label">Warm</span>
+              <span className={`text-[0.7rem] font-medium ${theme === 'warm' ? 'text-accent' : 'text-text-soft'}`}>Warm</span>
             </button>
             <button
               onClick={() => onThemeChange('calm')}
@@ -168,7 +168,7 @@ export function SettingsPanel({
               aria-label="Calm blue theme"
             >
               <span className="theme-preview theme-preview-calm" />
-              <span className="theme-label">Calm</span>
+              <span className={`text-[0.7rem] font-medium ${theme === 'calm' ? 'text-accent' : 'text-text-soft'}`}>Calm</span>
             </button>
           </div>
         </div>

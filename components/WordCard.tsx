@@ -164,12 +164,11 @@ export const WordCard = memo(function WordCard({
             return (
               <span
                 key={cat}
-                className={`word-category-badge word-category-${cssClass} ${isEditMode && onCategoryToggle ? 'word-category-editable' : ''}`}
+                className={`word-category-badge word-category-${cssClass} ${isEditMode && onCategoryToggle ? 'cursor-pointer' : ''}`}
                 onClick={isEditMode && onCategoryToggle ? (e) => {
                   e.stopPropagation();
                   onCategoryToggle(cat);
                 } : undefined}
-                style={isEditMode && onCategoryToggle ? { cursor: 'pointer' } : undefined}
               >
                 {cat}
               </span>
@@ -189,7 +188,7 @@ export const WordCard = memo(function WordCard({
               <span className="lang-text inline-block relative min-h-[1.4em]">
                 <span>{word.cz}</span>
                 {word.czPron && shouldShowPron('cz') && (
-                  <span className="text-base text-inherit opacity-70 ml-1.5">{word.czPron}</span>
+                  <span className="text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.czPron}</span>
                 )}
               </span>
             </div>
@@ -222,7 +221,7 @@ export const WordCard = memo(function WordCard({
               <span className="lang-text inline-block relative min-h-[1.4em]">
                 <span>{word.vi}</span>
                 {word.viPron && shouldShowPron('vi') && (
-                  <span className="text-base text-inherit opacity-70 ml-1.5">{word.viPron}</span>
+                  <span className="text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.viPron}</span>
                 )}
               </span>
             </div>
@@ -262,7 +261,7 @@ export const WordCard = memo(function WordCard({
       </div>
 
       {/* Actions */}
-      <div className="mt-2 flex justify-center gap-[30px] items-center opacity-70">
+      <div className="mt-8 flex justify-center gap-[30px] items-center opacity-70">
         <button
           type="button"
           className="progress-btn unknown"

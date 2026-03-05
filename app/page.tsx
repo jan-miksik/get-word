@@ -572,7 +572,7 @@ export default function Home() {
             onReallyKnown={() => { markReallyKnown(word.id); onComplete(); }}
             onUnknown={() => { markUnknown(word.id); onComplete(); }}
             onMemoryHookChange={(hook) => setMemoryHook(word.id, hook)}
-            isMoved={lastMovedId === word.id}
+            isMoved={false}
             showEnglish={showEnglish}
             showCategoryBadges={showCategoryBadges}
             fullscreen
@@ -580,7 +580,7 @@ export default function Home() {
         </div>
       );
     },
-    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges]
+    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, showEnglish, showCategoryBadges]
   );
 
   const renderMiniGameForDeck = useCallback(
@@ -591,11 +591,9 @@ export default function Home() {
           role={role}
           onDismiss={() => {
             setDismissedGames(prev => new Set([...prev, config.id]));
-            onComplete();
           }}
           onResult={(won) => {
             setGameScore(prev => Math.max(0, prev + (won ? 1 : -1)));
-            onComplete();
           }}
         />
       </div>
