@@ -40,9 +40,6 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
       {finished && (
         <div
           className="absolute inset-0 z-10 flex flex-col justify-end cursor-pointer rounded-xl transition-opacity duration-300"
-          style={{
-            // backdropFilter: 'brightness(0.95)',
-          }}
           onClick={onDismiss}
           role="button"
           tabIndex={0}
@@ -52,7 +49,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
             className="flex items-center justify-center px-4 py-3 rounded-b-xl bg-black/15"
             style={{ animation: 'overlay-slide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
           >
-            <span className="text-sm text-white/70" style={{ color: '#a7a7a7' }}>Tap to continue</span>
+            <span className="text-sm text-white/70" style={{ color: '#a7a7a7' }} onClick={onDismiss}>Tap to continue</span>
           </div>
           <style>{`
             @keyframes overlay-slide {

@@ -18,7 +18,7 @@ import {
 } from '@/lib/minigames';
 import { AppLayout } from '@/components/AppLayout';
 import { WordCard } from '@/components/WordCard';
-import { StickyMiniGameCard } from '@/components/StickyMiniGameCard';
+import { MiniGameCard } from '@/components/MiniGameCard';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { VirtualizedWordList } from '@/components/VirtualizedWordList';
 import { CardDeckView } from '@/components/CardDeckView';
@@ -541,7 +541,7 @@ export default function Home() {
     if (dismissedGames.has(config.id)) return null;
     return (
       <div key={config.id} className="pt-8">
-        <StickyMiniGameCard
+        <MiniGameCard
           config={config}
           role={role}
           onDismiss={() => setDismissedGames(prev => new Set([...prev, config.id]))}
@@ -586,11 +586,12 @@ export default function Home() {
   const renderMiniGameForDeck = useCallback(
     (config: MiniGameConfig, onComplete: () => void) => (
       <div key={config.id} className="h-full">
-        <StickyMiniGameCard
+        <MiniGameCard
           config={config}
           role={role}
           onDismiss={() => {
             setDismissedGames(prev => new Set([...prev, config.id]));
+            onComplete();
           }}
           onResult={(won) => {
             setGameScore(prev => Math.max(0, prev + (won ? 1 : -1)));
