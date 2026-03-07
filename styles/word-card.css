@@ -1,15 +1,15 @@
 .phrase-card {
-  border-radius: 12px;
-  background: radial-gradient(circle at top left, #020617 0, #020617 55%);
-  border: 1px solid var(--border-subtle);
-  padding: 12px 14px 11px;
+  border-radius: 14px;
+  background: linear-gradient(160deg, #0f1a2e 0%, #0b1422 100%);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  padding: 14px 16px 13px;
   display: flex;
   flex-direction: column;
   gap: 4px;
   text-align: center;
   margin-top: 0;
   position: relative;
-  box-shadow: 0px 1px 3px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.025);
 }
 
 /* Category badges */
@@ -28,7 +28,7 @@
   padding: 2px 6px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--border-subtle);
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(13, 22, 38, 0.85);
   color: var(--text-soft);
   text-transform: lowercase;
   font-weight: 500;
@@ -71,7 +71,7 @@
 }
 
 .phrase-card:nth-child(odd) {
-  background: peru;
+  background: linear-gradient(160deg, #0d1826 0%, #091220 100%);
 }
 
 /* ── Stage-group: subtle left accent, same 1px border ──
@@ -150,7 +150,7 @@
 }
 
 .audio-btn:hover {
-  background: rgba(15, 23, 42, 0.8);
+  background: rgba(13, 22, 38, 0.85);
   transform: translateY(-0.5px);
 }
 
@@ -224,7 +224,7 @@
   padding: 6px 10px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--accent);
-  background: rgba(15, 23, 42, 0.95);
+  background: #0d1626;
   color: var(--text);
   /* Prevent iOS zoom on focus - use 16px minimum on mobile */
   font-size: 16px;

@@ -1,7 +1,7 @@
 :root {
   color-scheme: light dark;
-  --bg: #050816;
-  --bg-elevated: #0b1220;
+  --bg: #060a18;
+  --bg-elevated: #0d1626;
   --accent: #38bdf8;
   --accent-soft: rgba(56, 189, 248, 0.12);
   --accent-strong: rgba(56, 189, 248, 0.32);
@@ -12,7 +12,7 @@
   --stage-4: #D97706;
   --text: #e5e7eb;
   --text-soft: #9ca3af;
-  --border-subtle: rgba(20, 20, 20, 0.35);
+  --border-subtle: rgba(148, 163, 184, 0.1);
   --danger: #fb7185;
   --fresh: #fbbf24;
   --done: #22c55e;
@@ -41,7 +41,7 @@ body {
   margin: 0;
   min-height: 100vh;
   font-family: var(--font-sans);
-  background: rgb(21, 21, 21);
+  background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
 }

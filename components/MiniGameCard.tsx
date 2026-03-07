@@ -35,8 +35,10 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
   if (!game) return null;
 
   return (
-    <div className="relative">
-      {game}
+    <div className="relative flex items-center justify-center h-full w-full">
+      <div className="w-full">
+        {game}
+      </div>
       {finished && (
         <div
           className="absolute inset-0 z-10 flex flex-col justify-end cursor-pointer rounded-xl transition-opacity duration-300"
