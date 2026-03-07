@@ -5,7 +5,7 @@ export type GameType = 'multipleChoice' | 'typing' | 'matching';
 /** Minigame frequency: 'off' or interval range (min/max word cards between games). */
 export type MinigameFrequencyRange = { min: number; max: number } | 'off';
 
-export const DEFAULT_MINIGAME_FREQUENCY: MinigameFrequencyRange = { min: 2, max: 4 };
+export const DEFAULT_MINIGAME_FREQUENCY: MinigameFrequencyRange = { min: 1, max: 3 };
 
 export const MINIGAME_FREQUENCY_MIN = 0;
 export const MINIGAME_FREQUENCY_MAX = 10;
@@ -132,9 +132,15 @@ export function computeGameAnchors(
   const STREAM_ABOVE_WINDOW = 14; // prefer nearby words above the minigame
 
   const anchors: (GameAnchor | null)[] = anchorIndices.map((i, slotIndex) => {
-    const pool = useStreamAbove
+    let pool = useStreamAbove
       ? originalWords.slice(Math.max(0, i + 1 - STREAM_ABOVE_WINDOW), i + 1)
       : learnedPool;
+    // New user: if the window above the anchor has < 4 words, use all words up to
+    // this position, or the full list so every user sees minigames regardless of history.
+    if (useStreamAbove && pool.length < 4 && originalWords.length >= 4) {
+      pool = originalWords.slice(0, i + 1);
+      if (pool.length < 4) pool = originalWords;
+    }
     if (pool.length < 4) return null;
     const shuffled = [...pool].sort(() => rand() - 0.5);
     return {

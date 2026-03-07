@@ -203,7 +203,7 @@ export const WordCard = memo(function WordCard({
           <div className="hidden">CZ</div>
           <div className="flex-none w-full text-center text-[0.98rem] font-medium leading-[1.35] sm:text-[1.02rem]">
             <div
-              className={`cover-target relative cursor-pointer touch-manipulation select-none ${shouldCover('cz') ? 'is-covered' : ''}`}
+              className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${shouldCover('cz') ? 'is-covered' : ''}`}
               data-lang="cz"
             >
               <span className="lang-text inline-block relative min-h-[1.4em]">
@@ -222,10 +222,10 @@ export const WordCard = memo(function WordCard({
             <div className="hidden">EN</div>
             <div className="flex-none w-full text-center text-[0.98rem] font-medium leading-[1.35] sm:text-[1.02rem]">
               <div
-                className={`cover-target relative cursor-pointer touch-manipulation select-none ${shouldCover('en') ? 'is-covered' : ''}`}
-                data-lang="en"
-              >
-                <span className="lang-text inline-block relative min-h-[1.4em]">{word.en}</span>
+className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${shouldCover('en') ? 'is-covered' : ''}`}
+              data-lang="en"
+            >
+              <span className="lang-text inline-block relative min-h-[1.4em]">{word.en}</span>
               </div>
             </div>
           </div>
@@ -236,7 +236,7 @@ export const WordCard = memo(function WordCard({
           <div className="hidden">VI</div>
           <div className="flex-none w-full text-center text-[0.98rem] font-medium leading-[1.35] sm:text-[1.02rem]">
             <div
-              className={`cover-target relative cursor-pointer touch-manipulation select-none ${shouldCover('vi') ? 'is-covered' : ''}`}
+              className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${shouldCover('vi') ? 'is-covered' : ''}`}
               data-lang="vi"
             >
               <span className="lang-text inline-block relative min-h-[1.4em]">
@@ -253,7 +253,7 @@ export const WordCard = memo(function WordCard({
       <div className={`memory-hook-container mt-2 mb-1 ${editingHook ? 'editing' : ''}`}>
         <div
           ref={hookDisplayRef}
-          className={`memory-hook-display cover-target relative cursor-pointer touch-manipulation select-none ${shouldCover('memory-hook') ? 'is-covered' : ''}`}
+          className={`memory-hook-display cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${shouldCover('memory-hook') ? 'is-covered' : ''}`}
           data-lang="memory-hook"
           onDoubleClick={startEditing}
           onClick={() => !memoryHook && !shouldCover('memory-hook') && startEditing()}

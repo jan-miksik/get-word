@@ -336,76 +336,164 @@
 }
 
 /*
- * Hiding / reveal behavior
+ * ── Press-to-peek: Frost Lift ─────────────────────────────
+ *
+ * A frosted glass panel sits above the hidden text.
+ * Press: panel squishes + dissolves, text rises into view.
+ * Release: panel snaps back.
+ * No JS changes — rides the existing .is-pressed class.
  */
 
+/* Expand tap target */
 .cover-target::after {
   content: "";
   position: absolute;
   inset: -4px;
 }
 
-.is-covered .lang-text {
-  color: transparent;
-  text-shadow: none;
-}
-
-.is-covered .lang-text::before {
-  content: "••••••••";
-  letter-spacing: 0.14em;
-  color: #ffffff;
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  white-space: nowrap;
-}
-
-.is-covered .lang-text {
-  border-radius: 999px;
-  padding-inline: 8px;
-}
-
+/* ── Hidden text ── */
+.is-covered .lang-text,
 .is-covered .memory-hook-text {
   color: transparent;
   text-shadow: none;
+  transition: color 0.18s ease, transform 0.18s ease;
+  transform: translateY(3px);
 }
 
+/* Clear old dot pseudo-elements */
+.is-covered .lang-text::before,
 .is-covered .memory-hook-text::before {
-  content: "••••••••";
-  letter-spacing: 0.14em;
-  color: white;
+  content: none !important;
+  background: none !important;
+}
+
+/* ── Frosted glass panel ── */
+.cover-target.is-covered::before {
+  content: '';
   position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  white-space: nowrap;
+  inset: -3px -10px;
+  border-radius: 12px;
+  z-index: 2;
+  pointer-events: none;
+
+  /* Layers: top sheen → dot texture → base glass */
+  background:
+    linear-gradient(180deg,
+      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0.00) 40%
+    ),
+    radial-gradient(circle, rgba(148, 163, 184, 0.22) 1px, transparent 1px),
+    linear-gradient(150deg,
+      rgba(22, 38, 66, 0.90) 0%,
+      rgba(10, 18, 36, 0.94) 100%
+    );
+  background-size: auto, 0.55em 0.55em, auto;
+
+  border: 1px solid rgba(148, 163, 184, 0.11);
+  box-shadow:
+    0 0 0 0.5px rgba(255, 255, 255, 0.05) inset,
+    0 2px 6px rgba(0, 0, 0, 0.45);
+
+  transform-origin: center center;
+  transition:
+    opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Slow breathing glow — tells the user "something's here" */
+  animation: frost-breathe 4s ease-in-out infinite;
 }
 
-.is-covered .memory-hook-text {
-  border-radius: 999px;
-  padding-inline: 8px;
+@keyframes frost-breathe {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0.5px rgba(255, 255, 255, 0.05) inset,
+      0 2px 6px rgba(0, 0, 0, 0.45);
+  }
+  50% {
+    box-shadow:
+      0 0 0 0.5px rgba(255, 255, 255, 0.09) inset,
+      0 2px 6px rgba(0, 0, 0, 0.45),
+      0 0 20px rgba(56, 189, 248, 0.10);
+  }
 }
 
-.cover-target.is-pressed .lang-text {
-  color: var(--text);
+/* Stagger breathing so cards don't pulse in unison */
+.phrase-card:nth-child(2) .cover-target.is-covered::before { animation-delay: -1.3s; }
+.phrase-card:nth-child(3) .cover-target.is-covered::before { animation-delay: -2.6s; }
+.phrase-card:nth-child(4) .cover-target.is-covered::before { animation-delay: -0.8s; }
+.phrase-card:nth-child(5) .cover-target.is-covered::before { animation-delay: -2.1s; }
+.phrase-card:nth-child(6) .cover-target.is-covered::before { animation-delay: -3.4s; }
+
+/* ── Press: panel squishes + dissolves ── */
+.cover-target.is-pressed.is-covered::before {
+  opacity: 0;
+  transform: scaleY(0.7) scaleX(0.98);
 }
 
-.cover-target.is-pressed .lang-text::before {
-  content: "";
-}
-
+/* ── Press: text rises in ── */
+.cover-target.is-pressed .lang-text,
 .cover-target.is-pressed .memory-hook-text {
   color: var(--text);
+  transform: translateY(0);
+  transition: color 0.14s ease, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-.cover-target.is-pressed .memory-hook-text::before {
-  content: "";
-}
-
+/* Warm glow behind revealed text */
 .cover-target.is-pressed {
-  background: radial-gradient(circle at top, var(--accent-soft) 0, transparent 65%);
-  border-radius: 999px;
+  background: radial-gradient(ellipse at center,
+    rgba(56, 189, 248, 0.08) 0%,
+    transparent 72%
+  );
+  border-radius: 10px;
+}
+
+/* ── Warm theme overrides ── */
+[data-theme="warm"] .cover-target.is-covered::before {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.10) 0%, rgba(255, 255, 255, 0.00) 40%),
+    radial-gradient(circle, rgba(51, 51, 51, 0.18) 1px, transparent 1px),
+    linear-gradient(150deg, rgba(235, 228, 215, 0.92) 0%, rgba(220, 212, 198, 0.95) 100%);
+  background-size: auto, 0.55em 0.55em, auto;
+  border-color: rgba(51, 51, 51, 0.12);
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.04) inset,
+    0 2px 6px rgba(0, 0, 0, 0.12);
+}
+
+@keyframes frost-breathe-warm {
+  0%, 100% { box-shadow: 0 0 0 0.5px rgba(0,0,0,0.04) inset, 0 2px 6px rgba(0,0,0,0.12); }
+  50%       { box-shadow: 0 0 0 0.5px rgba(0,0,0,0.04) inset, 0 2px 6px rgba(0,0,0,0.12), 0 0 18px rgba(230, 111, 45, 0.12); }
+}
+
+[data-theme="warm"] .cover-target.is-covered::before {
+  animation-name: frost-breathe-warm;
+}
+
+[data-theme="warm"] .cover-target.is-pressed {
+  background: radial-gradient(ellipse at center, rgba(230, 111, 45, 0.08) 0%, transparent 72%);
+}
+
+/* ── Calm theme overrides ── */
+[data-theme="calm"] .cover-target.is-covered::before {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.12) 0%, rgba(255, 255, 255, 0.00) 40%),
+    radial-gradient(circle, rgba(91, 143, 185, 0.22) 1px, transparent 1px),
+    linear-gradient(150deg, rgba(224, 232, 240, 0.92) 0%, rgba(210, 222, 234, 0.95) 100%);
+  background-size: auto, 0.55em 0.55em, auto;
+  border-color: rgba(91, 143, 185, 0.18);
+}
+
+@keyframes frost-breathe-calm {
+  0%, 100% { box-shadow: 0 0 0 0.5px rgba(255,255,255,0.1) inset, 0 2px 6px rgba(0,0,0,0.08); }
+  50%       { box-shadow: 0 0 0 0.5px rgba(255,255,255,0.1) inset, 0 2px 6px rgba(0,0,0,0.08), 0 0 18px rgba(91, 143, 185, 0.15); }
+}
+
+[data-theme="calm"] .cover-target.is-covered::before {
+  animation-name: frost-breathe-calm;
+}
+
+[data-theme="calm"] .cover-target.is-pressed {
+  background: radial-gradient(ellipse at center, rgba(91, 143, 185, 0.10) 0%, transparent 72%);
 }
 
 /* On mobile: push known/unknown buttons to bottom of card */

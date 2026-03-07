@@ -202,10 +202,11 @@ export function TopMenu({
     <div className="top-menu" aria-label="Top menu">
       <div className="top-menu-left flex flex-wrap items-center gap-2">
         <button
-          className={`mode-btn show-all-btn flex-none deck-monkey-in-bar ${hideMonkeyOnMobile ? 'deck-monkey-in-bar--hide-on-mobile' : ''}`}
+          className={`mode-btn show-all-btn flex-none deck-monkey-in-bar hidden ${hideMonkeyOnMobile ? 'deck-monkey-in-bar--hide-on-mobile' : ''}`}
           onClick={onShowAll}
           type="button"
           aria-label={showAll ? 'Hide completed items' : 'Show all items'}
+          aria-hidden="true"
         >
           {showAll ? '🙉' : '🙈'}
         </button>

@@ -371,7 +371,7 @@
 }
 
 .word-card--fullscreen .lang-text {
-  font-size: clamp(1.25rem, 4.5vw, 2.6rem);
+  font-size: clamp(1.5rem, 4.5vw, 2.6rem);
   line-height: 1.25;
   overflow-wrap: break-word;
   word-break: break-word;
@@ -382,7 +382,7 @@
 /* Actions pinned to bottom of the card (desktop; mobile overridden above) */
 .word-card--fullscreen .card-actions {
   position: absolute;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 1.5rem);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 3.5rem);
   left: 1.25rem;
   right: 1.25rem;
   display: flex;

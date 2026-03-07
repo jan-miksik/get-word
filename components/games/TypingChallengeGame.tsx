@@ -63,10 +63,12 @@ export function TypingChallengeGame({ words, role, onResult }: Props) {
           </button>
         )}
       </div>
-      {result !== null && (
+      {result !== null ? (
         <div className={`game-feedback game-feedback--${result}`}>
           {resultLabels[result]}
         </div>
+      ) : (
+        <div aria-hidden="true" />
       )}
     </article>
   );

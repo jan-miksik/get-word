@@ -5,6 +5,9 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import { NormalizedWord, STAGES } from '@/lib/words';
 import type { MiniGameConfig } from '@/lib/minigames';
 
+/** Fixed height for minigame rows so completion state (feedback + overlay) doesn't cause layout jump. */
+export const MINIGAME_ROW_HEIGHT = 520;
+
 export type Stage = (typeof STAGES)[number];
 
 export type VirtualItem =
@@ -126,7 +129,7 @@ export function VirtualizedWordList({
         return 64;
       }
       if (item.type === 'footer') return 96;
-      if (item.type === 'minigame') return 520;
+      if (item.type === 'minigame') return MINIGAME_ROW_HEIGHT;
       return 420;
     }, [items]),
     overscan: 5,
@@ -363,9 +366,14 @@ export function VirtualizedWordList({
               <div
                 key={item.config.id}
                 data-index={virtualRow.index}
-                ref={virtualizer.measureElement}
                 className="absolute top-0 left-0 right-0"
-                style={{ transform: `translateY(${offset}px)`, width: '100%', willChange: 'transform' }}
+                style={{
+                  transform: `translateY(${offset}px)`,
+                  width: '100%',
+                  height: MINIGAME_ROW_HEIGHT,
+                  minHeight: MINIGAME_ROW_HEIGHT,
+                  willChange: 'transform',
+                }}
               >
                 {renderMiniGame?.(item.config) ?? null}
               </div>

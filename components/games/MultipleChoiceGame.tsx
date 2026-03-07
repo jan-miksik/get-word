@@ -61,12 +61,14 @@ export function MultipleChoiceGame({ words, role, onResult }: Props) {
           );
         })}
       </div>
-      {answered && (
+      {answered ? (
         <div className="game-feedback">
           <span className={options.find(o => o.id === selected)?.isCorrect ? 'game-feedback--exact' : 'game-feedback--wrong'}>
             {options.find(o => o.id === selected)?.isCorrect ? '✓ Correct!' : `✗  ${correctAnswer}`}
           </span>
         </div>
+      ) : (
+        <div className="min-h-[44px]" aria-hidden="true" />
       )}
     </article>
   );

@@ -52,6 +52,14 @@ describe('injectMinigames', () => {
     games.forEach(game => expect(game.words.length).toBe(4));
   });
 
+  it('injects at least one game for new user with short list (early anchors get full-list fallback)', () => {
+    const shortList = Array.from({ length: 6 }, (_, i) => makeWord(`w${i}`, `cz${i}`, `vi${i}`));
+    const result = injectMinigames(shortList, [], 'cz', 99, { minInterval: 1, maxInterval: 2 });
+    const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
+    expect(games.length).toBeGreaterThan(0);
+    games.forEach(game => expect(game.words.length).toBe(4));
+  });
+
   it('returns empty array for empty words', () => {
     const result = injectMinigames([], words, 'cz', 42);
     expect(result).toEqual([]);

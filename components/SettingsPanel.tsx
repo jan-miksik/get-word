@@ -211,7 +211,7 @@ export function SettingsPanel({
                 type="checkbox"
                 checked={minigameFrequency !== 'off'}
                 onChange={(e) =>
-                  onMinigameFrequencyChange(e.target.checked ? { min: 2, max: 4 } : 'off')
+                  onMinigameFrequencyChange(e.target.checked ? { min: 1, max: 3 } : 'off')
                 }
                 className="accent-accent rounded"
               />

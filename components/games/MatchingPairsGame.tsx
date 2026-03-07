@@ -133,10 +133,10 @@ export function MatchingPairsGame({ words, role, onResult }: Props) {
         </div>
       </div>
 
-      {isComplete && (
-        <div className="game-feedback game-feedback--exact">
-          ✓ All matched!
-        </div>
+      {isComplete ? (
+        <div className="game-feedback game-feedback--exact">✓ All matched!</div>
+      ) : (
+        <div className="min-h-[44px]" aria-hidden="true" />
       )}
     </article>
   );

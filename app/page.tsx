@@ -505,13 +505,15 @@ export default function Home() {
   const renderMiniGame = useCallback((config: MiniGameConfig) => {
     if (dismissedGames.has(config.id)) return null;
     return (
-      <div key={config.id} className="pt-8">
-        <MiniGameCard
-          config={config}
-          role={role}
-          onDismiss={() => setDismissedGames(prev => new Set([...prev, config.id]))}
-          onResult={(won) => setGameScore(prev => Math.max(0, prev + (won ? 1 : -1)))}
-        />
+      <div key={config.id} className="pt-8 h-full min-h-0 flex flex-col">
+        <div className="flex-1 min-h-0">
+          <MiniGameCard
+            config={config}
+            role={role}
+            onDismiss={() => setDismissedGames(prev => new Set([...prev, config.id]))}
+            onResult={(won) => setGameScore(prev => Math.max(0, prev + (won ? 1 : -1)))}
+          />
+        </div>
       </div>
     );
   }, [dismissedGames, role]);
@@ -542,7 +544,7 @@ export default function Home() {
             showCategoryBadges={showCategoryBadges}
             fullscreen
           />
-          <div className="deck-monkey-on-card absolute left-3 z-10 md:hidden">
+          <div className="deck-monkey-on-card absolute left-3 z-10 md:hidden hidden" aria-hidden="true">
             <button
               type="button"
               className="mode-btn show-all-btn flex-none text-2xl p-2 rounded-full border border-[var(--border-subtle)] bg-[rgba(15,23,42,0.9)] text-[var(--text-soft)] hover:bg-[rgba(15,23,42,1)] transition-colors"
