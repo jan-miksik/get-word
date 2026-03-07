@@ -1,13 +1,6 @@
 /* Minigames, auth button, and fullscreen word card styles */
 
-/* Auth button - fixed top-right corner of the page */
-.auth-corner {
-  position: fixed;
-  top: 0;
-  right: 0;
-  z-index: 200;
-  padding: 0.5rem 0.75rem;
-}
+/* Auth is now in .auth-row under the menu (see layout.css) */
 
 .auth-button {
   display: inline-flex;
@@ -27,6 +20,13 @@
 .auth-button:hover {
   border-color: var(--accent);
   opacity: 0.85;
+}
+
+.auth-button--large {
+  padding: 0.625rem 1.25rem;
+  font-size: 1rem;
+  font-weight: 600;
+  border-radius: 0.5rem;
 }
 
 .auth-button.is-connected {
@@ -332,8 +332,36 @@
   justify-content: center;
   padding: 2rem 1.25rem;
   /* Reserve space for absolutely-positioned actions + bottom menu */
-  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8rem);
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 2rem);
   height: 100%;
+}
+
+/* Mobile fullscreen: card at bottom, no padding/margin, text centered vertically */
+@media (max-width: 767px) {
+  .word-card--fullscreen.phrase-card {
+    padding: 0;
+    margin: 0;
+    justify-content: flex-end;
+    min-height: 100%;
+  }
+
+  .word-card--fullscreen .word-card-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 0;
+  }
+
+  .word-card--fullscreen .card-actions {
+    position: absolute;
+    bottom: env(safe-area-inset-bottom, 0);
+    left: 0;
+    right: 0;
+    margin: 0;
+    padding: 0.5rem;
+    gap: 14px;
+  }
 }
 
 @media (min-width: 768px) {
@@ -351,10 +379,10 @@
   max-width: 100%;
 }
 
-/* Actions pinned to bottom of the card */
+/* Actions pinned to bottom of the card (desktop; mobile overridden above) */
 .word-card--fullscreen .card-actions {
   position: absolute;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 6.5rem);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 1.5rem);
   left: 1.25rem;
   right: 1.25rem;
   display: flex;
@@ -371,16 +399,15 @@
 
 @media (min-width: 768px) {
   .word-card--fullscreen .card-actions {
-    position: static;
+    position: absolute;
     margin-top: 2rem;
     gap: 30px;
   }
 }
 
-/* Move time badge to bottom in fullscreen */
+/* Time badge stays top-right in fullscreen */
 .word-card--fullscreen .card-time-badge {
-  top: auto;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 1.5rem);
+  top: 10px;
   right: 12px;
 }
 

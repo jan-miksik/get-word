@@ -9,9 +9,11 @@ interface AuthButtonProps {
   authEmail?: string
   /** Wallet address to show (from Reown or from server) */
   authAddress?: string
+  /** Larger sign-in button (e.g. for top center when not logged in) */
+  size?: 'default' | 'large'
 }
 
-export function AuthButton({ isAuthenticated: propAuthenticated, authEmail: propEmail, authAddress: propAddress }: AuthButtonProps = {}) {
+export function AuthButton({ isAuthenticated: propAuthenticated, authEmail: propEmail, authAddress: propAddress, size = 'default' }: AuthButtonProps = {}) {
   const { isConnected, email, address, signIn, openAccountMenu } = useAuth()
 
   const isAuthenticated = propAuthenticated ?? isConnected
@@ -37,7 +39,7 @@ export function AuthButton({ isAuthenticated: propAuthenticated, authEmail: prop
   return (
     <button
       onClick={signIn}
-      className="auth-button"
+      className={size === 'large' ? 'auth-button auth-button--large' : 'auth-button'}
       title="Sign in to sync across devices"
     >
       Sign in

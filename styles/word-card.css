@@ -408,6 +408,13 @@
   border-radius: 999px;
 }
 
+/* On mobile: push known/unknown buttons to bottom of card */
+@media (max-width: 767px) {
+  .phrase-card .card-actions {
+    margin-top: auto;
+  }
+}
+
 @media (min-width: 640px) {
   .phrase-card {
     padding-inline: 16px;
@@ -422,5 +429,17 @@
     border: none;
     box-shadow: none;
     border-radius: 0;
+  }
+}
+
+/* Monkey on card (mobile deck view): left bottom, above known/unknown buttons */
+.deck-monkey-on-card {
+  bottom: calc(12.5rem + env(safe-area-inset-bottom, 0px));
+  left: -3rem;
+}
+
+@media (min-width: 767px) {
+  .deck-monkey-on-card {
+    display: none;
   }
 }

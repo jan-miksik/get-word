@@ -9,9 +9,35 @@
   overflow: hidden;
 }
 
+/* Header: top menu bar + auth row under it (desktop and mobile) */
+.app-header-bar {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 250;
+  width: 100%;
+}
+
+.auth-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0 16px 6px;
+}
+
 @media (min-width: 768px) {
   .app {
     padding-top: 32px;
+  }
+
+  .app-header-bar {
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .auth-row {
+    padding: 0 16px 8px;
   }
 }
 
@@ -19,13 +45,11 @@
 .app > main {
   width: 100%;
   min-width: 0;
-  padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 10rem);
 }
 
-/* On mobile the menu is fixed at bottom — give the top some breathing room */
-@media (max-width: 767px) {
-  .app {
-    padding-top: 1rem;
+@media (min-width: 767px) {
+  .app > main {
+    padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 10rem);
   }
 }
 

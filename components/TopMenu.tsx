@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { ReactNode, useEffect, useRef, useState } from 'react';
 import type { MenuPanel } from '@/hooks/useMenuPanels';
 
 interface TopMenuProps {
@@ -11,6 +11,12 @@ interface TopMenuProps {
   categoryActive: boolean;
   progressActive: boolean;
   score?: number;
+  /** Rendered in center of bar (e.g. "to repeat" count or Sign in button) */
+  centerContent?: ReactNode;
+  /** When logged in, rendered at top of menu dropdown */
+  accountSlot?: ReactNode;
+  /** When true, hide monkey+score (e.g. on mobile card view when monkey is on card) */
+  hideMonkeyOnMobile?: boolean;
 }
 
 export function ScoreBadge({ score }: { score: number }) {
@@ -62,6 +68,8 @@ interface MenuDropdownProps {
   categoryActive: boolean;
   categoryCount: number;
   progressActive: boolean;
+  /** When logged in, render account button at top of dropdown */
+  accountSlot?: ReactNode;
 }
 
 function MenuDropdown({
@@ -69,6 +77,7 @@ function MenuDropdown({
   categoryActive,
   categoryCount,
   progressActive,
+  accountSlot,
 }: MenuDropdownProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -134,7 +143,7 @@ function MenuDropdown({
         aria-haspopup="menu"
       >
         <span className="text-base leading-none">☰</span>
-        <span className="text-sm font-medium">Menu</span>
+        <span className="menu-toggle-label text-sm font-medium">Menu</span>
         {hasActiveItem && (
           <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-accent" />
         )}
@@ -143,47 +152,31 @@ function MenuDropdown({
       {open && (
         <div
           role="menu"
-          className="menu-dropdown-popup absolute right-0 w-56 rounded-2xl overflow-hidden z-[200]"
-          style={{
-            background: 'black',
-            border: '1px solid var(--border-subtle)',
-            boxShadow: '0 8px 32px rgba(0,0,0,0.35), 0 2px 8px rgba(0,0,0,0.2)',
-            backdropFilter: 'blur(16px)',
-          }}
+          className="menu-dropdown-popup absolute right-0 z-[200]"
         >
+          {accountSlot != null && (
+            <div className="menu-dropdown-account">
+              {accountSlot}
+            </div>
+          )}
           {items.map((item) => (
             <button
               key={item.label}
               role="menuitem"
               type="button"
-              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-colors"
-              style={{ color: 'var(--text)' }}
+              className="menu-item"
               onClick={() => {
                 onMenuAction(item.panel);
                 setOpen(false);
               }}
-              onMouseEnter={(e) => {
-                (e.currentTarget as HTMLElement).style.background = 'var(--accent-soft)';
-              }}
-              onMouseLeave={(e) => {
-                (e.currentTarget as HTMLElement).style.background = '';
-              }}
             >
-              <span className="text-base leading-none">{item.icon}</span>
-              <span className="flex-1">{item.label}</span>
+              <span className="menu-item-icon">{item.icon}</span>
+              <span className="menu-item-label">{item.label}</span>
               {item.badge && (
-                <span
-                  className="text-xs px-1.5 py-0.5 rounded-full"
-                  style={{
-                    background: 'var(--accent-soft)',
-                    color: 'var(--accent)',
-                  }}
-                >
-                  {item.badge}
-                </span>
+                <span className="menu-item-badge">{item.badge}</span>
               )}
               {item.active && !item.badge && (
-                <span className="w-2 h-2 rounded-full bg-accent flex-shrink-0" />
+                <span className="menu-item-active-dot" />
               )}
             </button>
           ))}
@@ -201,12 +194,15 @@ export function TopMenu({
   categoryActive,
   progressActive,
   score,
+  centerContent,
+  accountSlot,
+  hideMonkeyOnMobile,
 }: TopMenuProps) {
   return (
     <div className="top-menu" aria-label="Top menu">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="top-menu-left flex flex-wrap items-center gap-2">
         <button
-          className="mode-btn show-all-btn flex-none"
+          className={`mode-btn show-all-btn flex-none deck-monkey-in-bar ${hideMonkeyOnMobile ? 'deck-monkey-in-bar--hide-on-mobile' : ''}`}
           onClick={onShowAll}
           type="button"
           aria-label={showAll ? 'Hide completed items' : 'Show all items'}
@@ -217,12 +213,23 @@ export function TopMenu({
           <ScoreBadge score={score} />
         )}
       </div>
-      <div className="flex items-center gap-2 ml-auto">
+      {centerContent != null && (
+        <div className="top-menu-center flex items-center justify-center min-w-0 flex-1">
+          {centerContent}
+        </div>
+      )}
+      <div className="top-menu-right flex items-center gap-2 ml-auto">
+        {accountSlot != null && (
+          <div className="hidden sm:block flex-shrink-0">
+            {accountSlot}
+          </div>
+        )}
         <MenuDropdown
           onMenuAction={onMenuAction}
           categoryActive={categoryActive}
           categoryCount={categoryCount}
           progressActive={progressActive}
+          accountSlot={accountSlot}
         />
       </div>
     </div>

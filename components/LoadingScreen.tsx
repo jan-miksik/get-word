@@ -90,7 +90,7 @@ export function LoadingScreen() {
         className="text-white/20 text-[0.65rem] tracking-[0.45em] uppercase mb-14"
         style={{ fontVariant: 'small-caps' }}
       >
-        wordlink
+        {/* wordlink */}
       </p>
 
       {/* Typing area */}

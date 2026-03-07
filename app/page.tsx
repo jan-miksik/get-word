@@ -524,7 +524,7 @@ export default function Home() {
         unknownCount: 0,
       };
       return (
-        <div key={word.id} className="h-full">
+        <div key={word.id} className="h-full flex flex-col justify-end md:justify-start relative">
           <WordCard
             word={word}
             progress={prog}
@@ -542,6 +542,16 @@ export default function Home() {
             showCategoryBadges={showCategoryBadges}
             fullscreen
           />
+          <div className="deck-monkey-on-card absolute left-3 z-10 md:hidden">
+            <button
+              type="button"
+              className="mode-btn show-all-btn flex-none text-2xl p-2 rounded-full border border-[var(--border-subtle)] bg-[rgba(15,23,42,0.9)] text-[var(--text-soft)] hover:bg-[rgba(15,23,42,1)] transition-colors"
+              onClick={() => setShowAll(!showAll)}
+              aria-label={showAll ? 'Hide completed items' : 'Show all items'}
+            >
+              {showAll ? '🙉' : '🙈'}
+            </button>
+          </div>
         </div>
       );
     },
@@ -617,7 +627,7 @@ export default function Home() {
         aria-live="polite"
       >
         {viewMode === 'card' ? (
-          <div className="flex h-full w-full flex-col max-w-[800px] mx-auto">
+          <div className="relative flex h-full w-full flex-col max-w-[800px] mx-auto">
             <CardDeckView
               groupedWords={streamGroupedWords}
               renderCard={renderCardForDeck}

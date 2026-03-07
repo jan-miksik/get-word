@@ -85,24 +85,45 @@ export function AppLayout({
     useMenuPanels();
 
   return (
-    <div className="app">
-      <div className="auth-corner" aria-label="Sign in">
-        <AuthButton
-          isAuthenticated={isAuthenticated}
-          authEmail={authEmail}
-          authAddress={authAddress}
-        />
-      </div>
+    <div className="app" data-view-mode={viewMode}>
       {header}
-      <TopMenu
-        showAll={showAll}
-        onShowAll={onShowAll}
-        onMenuAction={toggle}
-        categoryCount={selectedCategories.size}
-        categoryActive={selectedCategories.size > 0}
-        progressActive={progressOpen}
-        score={score}
-      />
+      <header className="app-header-bar" aria-label="App header">
+        <TopMenu
+          showAll={showAll}
+          onShowAll={onShowAll}
+          onMenuAction={toggle}
+          categoryCount={selectedCategories.size}
+          categoryActive={selectedCategories.size > 0}
+          progressActive={progressOpen}
+          score={score}
+          centerContent={
+            isAuthenticated
+              ? <ProgressSummary progressStats={progressStats} />
+              : (
+                  <div className="flex justify-center">
+                    <AuthButton
+                      size="large"
+                      isAuthenticated={false}
+                      authEmail={authEmail}
+                      authAddress={authAddress}
+                    />
+                  </div>
+                )
+          }
+          accountSlot={
+            isAuthenticated
+              ? (
+                  <AuthButton
+                    isAuthenticated
+                    authEmail={authEmail}
+                    authAddress={authAddress}
+                  />
+                )
+              : undefined
+          }
+          hideMonkeyOnMobile={viewMode === 'card'}
+        />
+      </header>
       <SettingsPanel
         role={role}
         onRoleChange={onRoleChange}
@@ -142,7 +163,6 @@ export function AppLayout({
         progressStats={progressStats}
         onClose={closeAll}
       />
-      <ProgressSummary progressStats={progressStats} />
 
       {children}
     </div>

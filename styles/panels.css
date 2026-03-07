@@ -245,7 +245,6 @@
 @media (min-width: 1024px) {
   .memory-hooks-panel.is-open {
     top: 50%;
-    transform: translateY(-50%);
   }
 }
 
@@ -301,6 +300,7 @@
 
 @media (min-width: 768px) {
   .category-panel.is-open {
+    position: fixed;
     inset: auto;
     bottom: auto;
     top: 60px;

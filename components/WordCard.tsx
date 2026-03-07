@@ -115,6 +115,27 @@ export const WordCard = memo(function WordCard({
 
   const audioSrc = getAudioSrc();
 
+  // Scroll the focused input into view after the keyboard finishes opening
+  useEffect(() => {
+    if (!editingHook || typeof window === 'undefined') return;
+    const el = hookInputRef.current;
+    if (!el) return;
+
+    const scrollIntoCenter = () => {
+      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
+    // visualViewport fires when the keyboard opens/resizes on mobile
+    const vv = window.visualViewport;
+    if (vv) {
+      vv.addEventListener('resize', scrollIntoCenter);
+      return () => vv.removeEventListener('resize', scrollIntoCenter);
+    }
+    // Fallback: scroll after a short delay on browsers without visualViewport
+    const t = setTimeout(scrollIntoCenter, 350);
+    return () => clearTimeout(t);
+  }, [editingHook]);
+
   // Memory hook editing
   const startEditing = () => {
     setEditingHook(true);
@@ -176,7 +197,7 @@ export const WordCard = memo(function WordCard({
           })}
         </div>
       )}
-      <div className="flex flex-col gap-1">
+      <div className="word-card-content flex flex-col gap-1">
         {/* Czech */}
         <div className="flex justify-center items-center gap-1.5">
           <div className="hidden">CZ</div>
@@ -188,7 +209,7 @@ export const WordCard = memo(function WordCard({
               <span className="lang-text inline-block relative min-h-[1.4em]">
                 <span>{word.cz}</span>
                 {word.czPron && shouldShowPron('cz') && (
-                  <span className="text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.czPron}</span>
+                  <span className="text-[1.1rem] sm:text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.czPron}</span>
                 )}
               </span>
             </div>
@@ -221,13 +242,12 @@ export const WordCard = memo(function WordCard({
               <span className="lang-text inline-block relative min-h-[1.4em]">
                 <span>{word.vi}</span>
                 {word.viPron && shouldShowPron('vi') && (
-                  <span className="text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.viPron}</span>
+                  <span className="text-[1.1rem] sm:text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.viPron}</span>
                 )}
               </span>
             </div>
           </div>
         </div>
-      </div>
 
       {/* Memory Hook */}
       <div className={`memory-hook-container mt-2 mb-1 ${editingHook ? 'editing' : ''}`}>
@@ -258,6 +278,7 @@ export const WordCard = memo(function WordCard({
             }
           }}
         />
+      </div>
       </div>
 
       {/* Actions */}

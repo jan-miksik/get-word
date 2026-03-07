@@ -1,20 +1,17 @@
-.progress-summary {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  display: flex;
-  justify-content: flex-start;
-  gap: 12px;
-  padding: 6px 14px;
-  backdrop-filter: blur(8px);
-  width: 100%;
-  z-index: 30;
+/* When inside top bar (center slot): inline, no absolute positioning */
+.top-menu-center .progress-summary {
+  position: static;
+  width: auto;
+  padding: 0;
+  backdrop-filter: none;
+  justify-content: center;
   font-size: 0.6875rem;
 }
 
-@media (min-width: 768px) {
-  .progress-summary {
-    justify-content: center;
-  }
+.progress-summary {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 12px;
+  font-size: 0.6875rem;
 }
