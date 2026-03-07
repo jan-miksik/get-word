@@ -28,10 +28,6 @@ export function useAppState(
   const [showEnglish, setShowEnglish] = useState(true);
   const [showCategoryBadges, setShowCategoryBadges] = useState(false);
   const [theme, setThemeState] = useState<Theme>('default');
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [progressOpen, setProgressOpen] = useState(false);
-  const [categoryOpen, setCategoryOpen] = useState(false);
-  const [memoryHooksOpen, setMemoryHooksOpen] = useState(false);
   const [lastMovedId, setLastMovedId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [userWalletAddress, setUserWalletAddress] = useState<string | null>(null);
@@ -418,14 +414,6 @@ export function useAppState(
     setShowCategoryBadges,
     theme,
     setTheme,
-    settingsOpen,
-    setSettingsOpen,
-    progressOpen,
-    setProgressOpen,
-    categoryOpen,
-    setCategoryOpen,
-    memoryHooksOpen,
-    setMemoryHooksOpen,
     updateProgress,
     markKnown,
     markReallyKnown,

@@ -106,6 +106,14 @@ export function SettingsPanel({
       aria-label="Settings"
       onClick={(e) => e.stopPropagation()}
     >
+      {isOpen && onClose && (
+        <div
+          className="panel-backdrop"
+          onClick={onClose}
+          aria-hidden
+        />
+      )}
+      <div className="panel-content">
       <div className="flex flex-col gap-1 text-[0.8rem]">
         <div className="relative">
           {onClose && (
@@ -308,6 +316,7 @@ export function SettingsPanel({
             {userId || '—'}
           </code>
         </div>
+      </div>
       </div>
     </section>
   );

@@ -1,21 +1,15 @@
 'use client';
 
-import { MouseEvent, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { MenuPanel } from '@/hooks/useMenuPanels';
 
 interface TopMenuProps {
-  onShowAll: (e: MouseEvent) => void;
-  onCategory: (e: MouseEvent) => void;
-  onProgress: (e: MouseEvent) => void;
-  onMemoryHooks: (e: MouseEvent) => void;
-  onSettings: (e: MouseEvent) => void;
+  onShowAll: () => void;
+  onMenuAction: (panel: MenuPanel) => void;
   showAll: boolean;
   categoryCount: number;
   categoryActive: boolean;
   progressActive: boolean;
-  readyCount?: number;
-  showWaitingForRepeat?: boolean;
-  onToggleWaitingForRepeat?: (e: MouseEvent) => void;
-  currentTab?: 'all' | 'ready';
   score?: number;
 }
 
@@ -64,20 +58,14 @@ export function ScoreBadge({ score }: { score: number }) {
 }
 
 interface MenuDropdownProps {
-  onCategory: (e: MouseEvent) => void;
-  onProgress: (e: MouseEvent) => void;
-  onMemoryHooks: (e: MouseEvent) => void;
-  onSettings: (e: MouseEvent) => void;
+  onMenuAction: (panel: MenuPanel) => void;
   categoryActive: boolean;
   categoryCount: number;
   progressActive: boolean;
 }
 
 function MenuDropdown({
-  onCategory,
-  onProgress,
-  onMemoryHooks,
-  onSettings,
+  onMenuAction,
   categoryActive,
   categoryCount,
   progressActive,
@@ -92,43 +80,42 @@ function MenuDropdown({
         setOpen(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
   }, [open]);
 
-  const handleItem = (cb: (e: MouseEvent) => void) => (e: MouseEvent) => {
-    cb(e);
-    setTimeout(() => {
-      setOpen(false);
-    }, 100);
-  };
-
-  const items = [
+  const items: Array<{
+    icon: string;
+    label: string;
+    panel: MenuPanel;
+    active: boolean;
+    badge: string | null;
+  }> = [
     {
       icon: '🏷️',
       label: 'Filter by Category',
-      onClick: handleItem(onCategory),
+      panel: 'category',
       active: categoryActive,
       badge: categoryCount > 0 ? String(categoryCount) : null,
     },
     {
       icon: '📊',
       label: 'Learning Progress',
-      onClick: handleItem(onProgress),
+      panel: 'progress',
       active: progressActive,
       badge: null,
     },
     {
       icon: 'ℹ️',
       label: 'Memory Hooks',
-      onClick: handleItem(onMemoryHooks),
+      panel: 'memoryHooks',
       active: false,
       badge: null,
     },
     {
       icon: '⚙️',
       label: 'Settings',
-      onClick: handleItem(onSettings),
+      panel: 'settings',
       active: false,
       badge: null,
     },
@@ -156,7 +143,7 @@ function MenuDropdown({
       {open && (
         <div
           role="menu"
-          className="absolute right-0 top-[calc(100%+8px)] w-56 rounded-2xl overflow-hidden z-[200]"
+          className="menu-dropdown-popup absolute right-0 w-56 rounded-2xl overflow-hidden z-[200]"
           style={{
             background: 'black',
             border: '1px solid var(--border-subtle)',
@@ -168,10 +155,13 @@ function MenuDropdown({
             <button
               key={item.label}
               role="menuitem"
+              type="button"
               className="w-full flex items-center gap-3 px-4 py-3 text-sm text-left transition-colors"
               style={{ color: 'var(--text)' }}
-              onClick={item.onClick}
-              type="button"
+              onClick={() => {
+                onMenuAction(item.panel);
+                setOpen(false);
+              }}
               onMouseEnter={(e) => {
                 (e.currentTarget as HTMLElement).style.background = 'var(--accent-soft)';
               }}
@@ -205,10 +195,7 @@ function MenuDropdown({
 
 export function TopMenu({
   onShowAll,
-  onCategory,
-  onProgress,
-  onMemoryHooks,
-  onSettings,
+  onMenuAction,
   showAll,
   categoryCount,
   categoryActive,
@@ -232,10 +219,7 @@ export function TopMenu({
       </div>
       <div className="flex items-center gap-2 ml-auto">
         <MenuDropdown
-          onCategory={onCategory}
-          onProgress={onProgress}
-          onMemoryHooks={onMemoryHooks}
-          onSettings={onSettings}
+          onMenuAction={onMenuAction}
           categoryActive={categoryActive}
           categoryCount={categoryCount}
           progressActive={progressActive}

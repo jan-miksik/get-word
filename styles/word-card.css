@@ -413,3 +413,14 @@
     padding-inline: 16px;
   }
 }
+
+/* Fullscreen (card deck) mode on mobile: no card chrome */
+@media (max-width: 767px) {
+  .word-card--fullscreen.phrase-card,
+  .word-card--fullscreen.phrase-card:nth-child(odd) {
+    background: none;
+    border: none;
+    box-shadow: none;
+    border-radius: 0;
+  }
+}

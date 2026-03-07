@@ -35,9 +35,18 @@ For details (direct vs pooler, URL-encoding passwords, dump/restore), see `SUPAB
 
 ### Database (Drizzle + Supabase)
 
+**Wallet linking and auth require all migrations to be applied.** If you see a 500 when linking a wallet, run migrations first:
+
+```bash
+pnpm run db:migrate    # apply migrations (uses drizzle.config.ts + .env.local)
+# or
+pnpm run db:migrate:run # run migrations via script (same DATABASE_URL)
+```
+
+Ensure `DATABASE_URL` is set in `.env.local` before running.
+
 ```bash
 pnpm run db:push       # push schema (fast, no migrations)
-pnpm run db:migrate    # apply migrations (if you use migrations)
 pnpm run db:seed       # seed words
 pnpm run db:studio     # open Drizzle Studio
 ```

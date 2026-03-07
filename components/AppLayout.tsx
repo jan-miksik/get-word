@@ -8,22 +8,16 @@ import { CategoryPanel } from '@/components/CategoryPanel';
 import { MemoryHooksPanel } from '@/components/MemoryHooksPanel';
 import { ProgressPanel } from '@/components/ProgressPanel';
 import { ProgressSummary } from '@/components/ProgressSummary';
+import { useMenuPanels } from '@/hooks/useMenuPanels';
 import type { Role, Theme } from '@/hooks/useAppState';
 import type { ProgressStats } from '@/lib/progress-stats';
 
 interface AppLayoutProps {
-  // TopMenu props
-  topMenuHandlers: {
-    onShowAll: (e: React.MouseEvent) => void;
-    onCategory: (e: React.MouseEvent) => void;
-    onProgress: (e: React.MouseEvent) => void;
-    onMemoryHooks: (e: React.MouseEvent) => void;
-    onSettings: (e: React.MouseEvent) => void;
-    showAll: boolean;
-    categoryCount: number;
-    categoryActive: boolean;
-    progressActive: boolean;
-  };
+  // TopMenu show-all state
+  showAll: boolean;
+  onShowAll: () => void;
+  // For TopMenu category badge
+  selectedCategories: Set<string>;
   // SettingsPanel props
   role: Role;
   onRoleChange: (role: Role) => void;
@@ -42,7 +36,6 @@ interface AppLayoutProps {
   userEmail?: string | null;
   // CategoryPanel props
   categories: Array<{ name: string; count: number }>;
-  selectedCategories: Set<string>;
   onToggleCategory: (category: string) => void;
   // ProgressPanel props
   progressStats: ProgressStats;
@@ -52,15 +45,6 @@ interface AppLayoutProps {
   authEmail?: string;
   authAddress?: string;
   onSignOut?: () => void;
-  // Panel states
-  settingsOpen: boolean;
-  setSettingsOpen: (open: boolean) => void;
-  progressOpen: boolean;
-  setProgressOpen: (open: boolean) => void;
-  categoryOpen: boolean;
-  setCategoryOpen: (open: boolean) => void;
-  memoryHooksOpen: boolean;
-  setMemoryHooksOpen: (open: boolean) => void;
   // Children (main content)
   children: ReactNode;
   // Optional header (for edit mode)
@@ -68,7 +52,9 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({
-  topMenuHandlers,
+  showAll,
+  onShowAll,
+  selectedCategories,
   role,
   onRoleChange,
   showEnglish,
@@ -89,21 +75,15 @@ export function AppLayout({
   authAddress,
   onSignOut,
   categories,
-  selectedCategories,
   onToggleCategory,
   progressStats,
-  settingsOpen,
-  setSettingsOpen,
-  progressOpen,
-  setProgressOpen,
-  categoryOpen,
-  setCategoryOpen,
-  memoryHooksOpen,
-  setMemoryHooksOpen,
   children,
   header,
   score,
 }: AppLayoutProps) {
+  const { settingsOpen, progressOpen, categoryOpen, memoryHooksOpen, toggle, closeAll } =
+    useMenuPanels();
+
   return (
     <div className="app">
       <div className="auth-corner" aria-label="Sign in">
@@ -114,7 +94,15 @@ export function AppLayout({
         />
       </div>
       {header}
-      <TopMenu {...topMenuHandlers} score={score} />
+      <TopMenu
+        showAll={showAll}
+        onShowAll={onShowAll}
+        onMenuAction={toggle}
+        categoryCount={selectedCategories.size}
+        categoryActive={selectedCategories.size > 0}
+        progressActive={progressOpen}
+        score={score}
+      />
       <SettingsPanel
         role={role}
         onRoleChange={onRoleChange}
@@ -129,7 +117,7 @@ export function AppLayout({
         viewMode={viewMode}
         onViewModeChange={onViewModeChange}
         isOpen={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
+        onClose={closeAll}
         userId={userId}
         userWalletAddress={userWalletAddress}
         userEmail={userEmail}
@@ -143,16 +131,16 @@ export function AppLayout({
         categories={categories}
         selectedCategories={selectedCategories}
         onToggleCategory={onToggleCategory}
-        onClose={() => setCategoryOpen(false)}
+        onClose={closeAll}
       />
-      <MemoryHooksPanel 
-        isOpen={memoryHooksOpen} 
-        onClose={() => setMemoryHooksOpen(false)}
+      <MemoryHooksPanel
+        isOpen={memoryHooksOpen}
+        onClose={closeAll}
       />
       <ProgressPanel
         isOpen={progressOpen}
         progressStats={progressStats}
-        onClose={() => setProgressOpen(false)}
+        onClose={closeAll}
       />
       <ProgressSummary progressStats={progressStats} />
 

@@ -4,6 +4,7 @@ import { NextRequest } from 'next/server'
 // Mock all DB functions used by the route
 const mockGetUserByDeviceId = vi.fn()
 const mockGetUserById = vi.fn()
+const mockGetUserByEmail = vi.fn()
 const mockGetUserByWalletAddress = vi.fn()
 const mockLinkAccountToUser = vi.fn()
 const mockDeleteUser = vi.fn()
@@ -19,6 +20,7 @@ const mockUpdateUserFields = vi.fn()
 vi.mock('@/lib/db', () => ({
   getUserByDeviceId: (...args: unknown[]) => mockGetUserByDeviceId(...args),
   getUserById: (...args: unknown[]) => mockGetUserById(...args),
+  getUserByEmail: (...args: unknown[]) => mockGetUserByEmail(...args),
   getUserByWalletAddress: (...args: unknown[]) => mockGetUserByWalletAddress(...args),
   linkAccountToUser: (...args: unknown[]) => mockLinkAccountToUser(...args),
   deleteUser: (...args: unknown[]) => mockDeleteUser(...args),
@@ -87,9 +89,9 @@ describe('POST /api/auth/link-wallet', () => {
   it('fresh link: adds wallet to current user', async () => {
     const user = { id: 'uuid-A', deviceId: 'dev-123', walletAddress: null, email: null, authProvider: null, role: 'vi', showEnglish: true, showCategoryBadges: false }
     const linkedUser = { ...user, walletAddress: VALID_WALLET }
-    mockGetUserByDeviceId.mockResolvedValueOnce(user).mockResolvedValueOnce(linkedUser)
+    mockGetUserByDeviceId.mockResolvedValue(user)
+    mockGetUserById.mockResolvedValue(linkedUser)
     mockGetUserByWalletAddress.mockResolvedValue(null)
-    mockLinkAccountToUser.mockResolvedValue(linkedUser)
 
     const res = await POST(makeRequest({ deviceId: 'dev-123', walletAddress: VALID_WALLET }))
     const data = await res.json()
@@ -97,7 +99,10 @@ describe('POST /api/auth/link-wallet', () => {
     expect(res.status).toBe(200)
     expect(data.success).toBe(true)
     expect(data.user.id).toBe('uuid-A')
-    expect(mockLinkAccountToUser).toHaveBeenCalledWith('uuid-A', { walletAddress: VALID_WALLET, email: undefined, authProvider: undefined })
+    expect(mockUpdateUserFields).toHaveBeenCalledWith('uuid-A', {
+      deviceId: 'dev-123',
+      walletAddress: VALID_WALLET,
+    })
   })
 
   it('idempotent: returns data if wallet already linked to same user', async () => {
@@ -147,6 +152,100 @@ describe('POST /api/auth/link-wallet', () => {
     }))
   })
 
+  it('email-first: clears wallet from source user before moving it to email user', async () => {
+    const deviceUser = {
+      id: 'uuid-A',
+      deviceId: 'dev-123',
+      walletAddress: VALID_WALLET,
+      email: null,
+      authProvider: null,
+      role: 'vi',
+      showEnglish: true,
+      showCategoryBadges: false,
+      gameScore: 3,
+    }
+    const emailUser = {
+      id: 'uuid-B',
+      deviceId: 'dev-999',
+      walletAddress: null,
+      email: 'user@example.com',
+      authProvider: 'email',
+      role: 'cz',
+      showEnglish: false,
+      showCategoryBadges: true,
+      gameScore: 5,
+    }
+    const mergedUser = {
+      ...emailUser,
+      deviceId: 'dev-123',
+      walletAddress: VALID_WALLET,
+      gameScore: 8,
+    }
+
+    mockGetUserByDeviceId.mockResolvedValue(deviceUser)
+    mockGetUserByEmail.mockResolvedValue(emailUser)
+    mockGetUserByWalletAddress.mockResolvedValue(deviceUser)
+    mockGetUserById.mockResolvedValue(mergedUser)
+
+    const res = await POST(makeRequest({
+      deviceId: 'dev-123',
+      walletAddress: VALID_WALLET,
+      email: 'user@example.com',
+      authProvider: 'email',
+    }))
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(data.user.id).toBe('uuid-B')
+    expect(mockUpdateUserFields).toHaveBeenCalledWith(
+      'uuid-A',
+      expect.objectContaining({
+        deviceId: null,
+        walletAddress: null,
+      })
+    )
+    expect(mockDeleteUser).toHaveBeenCalledTimes(1)
+    expect(mockDeleteUser).toHaveBeenCalledWith('uuid-A')
+  })
+
+  it('email-first: resolves by email even when device id is new', async () => {
+    const emailUser = {
+      id: 'uuid-B',
+      deviceId: 'dev-old',
+      walletAddress: null,
+      email: 'user@example.com',
+      authProvider: 'email',
+      role: 'cz',
+      showEnglish: false,
+      showCategoryBadges: true,
+      gameScore: 5,
+    }
+    const linkedUser = {
+      ...emailUser,
+      deviceId: 'dev-new',
+      walletAddress: VALID_WALLET,
+    }
+
+    mockGetUserByDeviceId.mockResolvedValue(null)
+    mockGetUserByEmail.mockResolvedValue(emailUser)
+    mockGetUserByWalletAddress.mockResolvedValue(null)
+    mockGetUserById.mockResolvedValue(linkedUser)
+
+    const res = await POST(makeRequest({
+      deviceId: 'dev-new',
+      walletAddress: VALID_WALLET,
+      email: 'user@example.com',
+      authProvider: 'email',
+    }))
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(data.user.id).toBe('uuid-B')
+    expect(mockGetUserByEmail).toHaveBeenCalledWith('user@example.com')
+  })
+
   it('returns 500 if body is malformed JSON', async () => {
     const req = new NextRequest('http://localhost:3000/api/auth/link-wallet', {
       method: 'POST',
@@ -155,5 +254,62 @@ describe('POST /api/auth/link-wallet', () => {
     })
     const res = await POST(req)
     expect(res.status).toBe(500)
+  })
+
+  it('email-first: when email matches existing user, merges device user into email user', async () => {
+    const deviceUser = { id: 'uuid-A', deviceId: 'dev-123', walletAddress: null, email: null, authProvider: null, role: 'vi', showEnglish: true, showCategoryBadges: false, gameScore: 0 }
+    const emailUser = { id: 'uuid-B', deviceId: 'dev-456', walletAddress: null, email: 'user@example.com', authProvider: 'google', role: 'cz', showEnglish: false, showCategoryBadges: true, gameScore: 10 }
+
+    mockGetUserByDeviceId.mockResolvedValue(deviceUser)
+    mockGetUserByEmail.mockResolvedValue(emailUser)
+    mockGetUserByWalletAddress.mockResolvedValue(null)
+    mockGetUserById.mockResolvedValue(emailUser)
+
+    const res = await POST(makeRequest({
+      deviceId: 'dev-123',
+      walletAddress: VALID_WALLET,
+      email: 'user@example.com',
+      authProvider: 'google',
+    }))
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(data.merged).toBe(true)
+    expect(data.user.id).toBe('uuid-B')
+    expect(data.user.email).toBe('user@example.com')
+    expect(mockGetUserByEmail).toHaveBeenCalledWith('user@example.com')
+    expect(mockDeleteUser).toHaveBeenCalledWith('uuid-A')
+    expect(mockLinkAccountToUser).not.toHaveBeenCalled()
+  })
+
+  it('when email has no matching user, falls back to wallet then device (fresh link to device user)', async () => {
+    const user = { id: 'uuid-A', deviceId: 'dev-123', walletAddress: null, email: null, authProvider: null, role: 'vi', showEnglish: true, showCategoryBadges: false }
+    const linkedUser = { ...user, walletAddress: VALID_WALLET, email: 'new@example.com' }
+
+    mockGetUserByDeviceId.mockResolvedValue(user)
+    mockGetUserByEmail.mockResolvedValue(null)
+    mockGetUserByWalletAddress.mockResolvedValue(null)
+    mockGetUserById.mockResolvedValue(linkedUser)
+
+    const res = await POST(makeRequest({
+      deviceId: 'dev-123',
+      walletAddress: VALID_WALLET,
+      email: 'new@example.com',
+      authProvider: 'email',
+    }))
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(data.merged).toBeFalsy()
+    expect(data.user.id).toBe('uuid-A')
+    expect(mockGetUserByEmail).toHaveBeenCalledWith('new@example.com')
+    expect(mockUpdateUserFields).toHaveBeenCalledWith('uuid-A', {
+      deviceId: 'dev-123',
+      walletAddress: VALID_WALLET,
+      email: 'new@example.com',
+      authProvider: 'email',
+    })
   })
 })

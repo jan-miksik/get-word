@@ -12,6 +12,14 @@ export function MemoryHooksPanel({ isOpen, onClose }: MemoryHooksPanelProps) {
       aria-label="Memory Hooks Info"
       onClick={(e) => e.stopPropagation()}
     >
+      {isOpen && onClose && (
+        <div
+          className="panel-backdrop"
+          onClick={onClose}
+          aria-hidden
+        />
+      )}
+      <div className="panel-content">
       <div className="p-5">
         <div className="relative">
           {onClose && (
@@ -62,6 +70,7 @@ export function MemoryHooksPanel({ isOpen, onClose }: MemoryHooksPanelProps) {
             <strong className="text-text font-semibold">The goal is not to remember the hook — but to forget it once the word sticks.</strong>
           </p>
         </div>
+      </div>
       </div>
     </section>
   );

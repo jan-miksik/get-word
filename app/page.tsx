@@ -4,8 +4,6 @@ import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
 import { Word } from '@/data/words';
 import { useAppState } from '@/hooks/useAppState';
 import { useWordsLoader } from '@/hooks/useWordsLoader';
-import { usePanelClose } from '@/hooks/usePanelClose';
-import { useTopMenuHandlers } from '@/hooks/useTopMenuHandlers';
 import { getAvailableCategories, STAGES, isDue, NormalizedWord, normalizeWords } from '@/lib/words';
 import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-stats';
 import {
@@ -69,14 +67,6 @@ export default function Home() {
     setShowCategoryBadges,
     theme,
     setTheme,
-    settingsOpen,
-    setSettingsOpen,
-    progressOpen,
-    setProgressOpen,
-    categoryOpen,
-    setCategoryOpen,
-    memoryHooksOpen,
-    setMemoryHooksOpen,
     markKnown,
     markReallyKnown,
     markUnknown,
@@ -189,9 +179,6 @@ export default function Home() {
 
   // Trigger re-render when cards become due for review
   useDueTimer(progress);
-
-  // Close panels when clicking outside
-  usePanelClose(setSettingsOpen, setProgressOpen, setCategoryOpen, setMemoryHooksOpen);
 
   // Attach press handlers to cover targets (supports virtualized mounts)
   useEffect(() => {
@@ -347,28 +334,6 @@ export default function Home() {
   useEffect(() => {
     setShowNotReady(false);
   }, [selectedCategories]);
-
-  const closeAllPanels = useCallback(() => {
-    setSettingsOpen(false);
-    setProgressOpen(false);
-    setCategoryOpen(false);
-    setMemoryHooksOpen(false);
-  }, [setSettingsOpen, setProgressOpen, setCategoryOpen, setMemoryHooksOpen]);
-
-  const topMenuHandlers = useTopMenuHandlers({
-    showAll,
-    setShowAll,
-    categoryOpen,
-    setCategoryOpen,
-    progressOpen,
-    setProgressOpen,
-    memoryHooksOpen,
-    setMemoryHooksOpen,
-    settingsOpen,
-    setSettingsOpen,
-    closeAllPanels,
-    selectedCategories,
-  });
 
   const statsWords = useMemo(() => {
     return getProgressStatsWords(normalizedWords, selectedCategories);
@@ -615,7 +580,9 @@ export default function Home() {
 
   return (
     <AppLayout
-      topMenuHandlers={topMenuHandlers}
+      showAll={showAll}
+      onShowAll={() => setShowAll(!showAll)}
+      selectedCategories={selectedCategories}
       role={role}
       onRoleChange={setRole}
       showEnglish={showEnglish}
@@ -636,22 +603,12 @@ export default function Home() {
       authAddress={displayAddress}
       onSignOut={() => {
         signOut();
-        // Also reset app state to a fresh user immediately.
         hardResetToFreshUser();
       }}
       categories={categories}
-      selectedCategories={selectedCategories}
       onToggleCategory={toggleCategory}
       progressStats={progressStats}
       score={gameScore}
-      settingsOpen={settingsOpen}
-      setSettingsOpen={setSettingsOpen}
-      progressOpen={progressOpen}
-      setProgressOpen={setProgressOpen}
-      categoryOpen={categoryOpen}
-      setCategoryOpen={setCategoryOpen}
-      memoryHooksOpen={memoryHooksOpen}
-      setMemoryHooksOpen={setMemoryHooksOpen}
     >
 
       <main

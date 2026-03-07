@@ -330,20 +330,72 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
-  padding: 2rem 2rem 1.5rem;
+  padding: 2rem 1.25rem;
+  /* Reserve space for absolutely-positioned actions + bottom menu */
+  padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8rem);
   height: 100%;
 }
 
+@media (min-width: 768px) {
+  .word-card--fullscreen {
+    padding: 2rem 2rem 1.5rem;
+  }
+}
+
 .word-card--fullscreen .lang-text {
-  font-size: clamp(1.6rem, 5vw, 2.6rem);
+  font-size: clamp(1.25rem, 4.5vw, 2.6rem);
   line-height: 1.25;
+  overflow-wrap: break-word;
+  word-break: break-word;
+  display: block;
+  max-width: 100%;
+}
+
+/* Actions pinned to bottom of the card */
+.word-card--fullscreen .card-actions {
+  position: absolute;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 6.5rem);
+  left: 1.25rem;
+  right: 1.25rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 14px;
+}
+
+@media (min-width: 480px) {
+  .word-card--fullscreen .card-actions {
+    gap: 22px;
+  }
+}
+
+@media (min-width: 768px) {
+  .word-card--fullscreen .card-actions {
+    position: static;
+    margin-top: 2rem;
+    gap: 30px;
+  }
+}
+
+/* Move time badge to bottom in fullscreen */
+.word-card--fullscreen .card-time-badge {
+  top: auto;
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 1.5rem);
+  right: 12px;
 }
 
 .word-card--fullscreen .progress-btn {
-  font-size: 1.4rem;
-  padding: 8px 20px;
+  font-size: 1.2rem;
+  padding: 8px 10px;
   min-width: 64px;
   min-height: 52px;
+
+  @media (min-width: 640px) {
+    font-size: 1.4rem;
+    padding: 8px 20px;
+    min-width: 64px;
+    min-height: 52px;
+  }
 }
 
 .word-card--fullscreen .audio-btn {

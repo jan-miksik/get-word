@@ -261,7 +261,7 @@ export const WordCard = memo(function WordCard({
       </div>
 
       {/* Actions */}
-      <div className="mt-8 flex justify-center gap-[30px] items-center opacity-70">
+      <div className="card-actions mt-8 flex justify-center gap-[30px] items-center opacity-70">
         <button
           type="button"
           className="progress-btn unknown"

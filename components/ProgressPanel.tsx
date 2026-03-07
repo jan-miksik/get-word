@@ -24,6 +24,14 @@ export function ProgressPanel({ isOpen, progressStats, onClose }: ProgressPanelP
       aria-label="Progress"
       onClick={(e) => e.stopPropagation()}
     >
+      {isOpen && (
+        <div
+          className="panel-backdrop"
+          onClick={onClose}
+          aria-hidden
+        />
+      )}
+      <div className="panel-content">
       <div className="p-4" id="progress-panel-content">
         <div className="py-3 max-w-full sm:py-6">
           <div className="mb-4 relative">
@@ -133,6 +141,7 @@ export function ProgressPanel({ isOpen, progressStats, onClose }: ProgressPanelP
             </div>
           </div>
         </div>
+      </div>
       </div>
     </section>
   );

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import {
   getUserByDeviceId,
   getUserById,
+  getUserByEmail,
   getUserByWalletAddress,
-  linkAccountToUser,
   mergeUserData,
   deleteUser,
   getUserProgress,
@@ -29,6 +29,41 @@ interface LinkWalletRequest {
 // app this is an acceptable trust level. For higher-stakes data, consider
 // server-side wallet ownership verification (e.g., SIWE).
 
+type UserShape = {
+  id: string
+  role: string
+  showEnglish: boolean | null
+  showCategoryBadges: boolean | null
+  gameScore: number | null
+  walletAddress: string | null
+  email: string | null
+  authProvider: string | null
+}
+
+function buildSuccessResponse(
+  user: UserShape,
+  progress: Record<string, unknown>,
+  memoryHooks: Record<string, string>,
+  categoryFilters: string[]
+) {
+  return {
+    success: true,
+    user: {
+      id: user.id,
+      role: user.role,
+      show_english: user.showEnglish ?? true,
+      show_category_badges: user.showCategoryBadges ?? false,
+      game_score: user.gameScore ?? 0,
+      wallet_address: user.walletAddress ?? null,
+      email: user.email ?? null,
+      auth_provider: user.authProvider ?? null,
+    },
+    progress,
+    memory_hooks: memoryHooks,
+    category_filters: categoryFilters,
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body: LinkWalletRequest = await request.json()
@@ -48,163 +83,140 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Find the current anonymous user by device ID
-    const currentUser = await getUserByDeviceId(deviceId)
-    if (!currentUser) {
+    const trimmedEmail =
+      email != null && String(email).trim() !== '' ? String(email).trim() : null
+
+    // Resolve account in strict priority order: email → wallet → device.
+    const [emailUser, walletUser, deviceUser] = await Promise.all([
+      trimmedEmail ? getUserByEmail(trimmedEmail) : Promise.resolve(null),
+      getUserByWalletAddress(walletAddress),
+      getUserByDeviceId(deviceId),
+    ])
+    const targetUser = emailUser ?? walletUser ?? deviceUser
+
+    if (!targetUser) {
       return NextResponse.json(
-        { success: false, error: 'No user found for this device' },
+        { success: false, error: 'No user found for this email, wallet, or device' },
         { status: 404 }
       )
     }
 
-    // Check if wallet is already linked to the same user (idempotent)
-    if (currentUser.walletAddress === walletAddress) {
-      if (email != null || authProvider != null) {
-        await updateUserFields(currentUser.id, {
-          ...(email != null && String(email).trim() !== '' && { email: String(email).trim() }),
-          ...(authProvider != null && String(authProvider).trim() !== '' && { authProvider: String(authProvider).trim() }),
-        })
-      }
-      const updatedUser = await getUserByDeviceId(deviceId).then((u) => u ?? currentUser)
-      const [progress, hooks, filters] = await Promise.all([
-        getUserProgress(updatedUser.id),
-        getUserMemoryHooks(updatedUser.id),
-        getUserCategoryFilters(updatedUser.id),
-      ])
+    const sourceUsers = [deviceUser, walletUser].filter(
+      (user, index, users): user is NonNullable<typeof user> =>
+        user != null &&
+        user.id !== targetUser.id &&
+        users.findIndex((candidate) => candidate?.id === user.id) === index
+    )
 
-      return NextResponse.json({
-        success: true,
-        user: {
-          id: updatedUser.id,
-          role: updatedUser.role,
-          show_english: updatedUser.showEnglish ?? true,
-          show_category_badges: updatedUser.showCategoryBadges ?? false,
-          game_score: updatedUser.gameScore ?? 0,
-          wallet_address: updatedUser.walletAddress ?? walletAddress,
-          email: updatedUser.email ?? null,
-          auth_provider: updatedUser.authProvider ?? null,
-        },
-        progress,
-        memory_hooks: hooks,
-        category_filters: filters,
-      })
-    }
-
-    // Check if wallet is linked to a different user (cross-device merge case)
-    const existingWalletUser = await getUserByWalletAddress(walletAddress)
-
-    if (!existingWalletUser) {
-      // Case 1: Fresh link - add wallet and optionally email/authProvider to current user
-      await linkAccountToUser(currentUser.id, {
+    // No merge needed: target already wins by priority, so just attach current identifiers.
+    if (sourceUsers.length === 0) {
+      await updateUserFields(targetUser.id, {
+        deviceId,
         walletAddress,
-        email: email ?? undefined,
-        authProvider: authProvider ?? undefined,
+        ...(trimmedEmail && { email: trimmedEmail }),
+        ...(authProvider != null &&
+          String(authProvider).trim() !== '' && { authProvider: String(authProvider).trim() }),
       })
 
-      const linkedUser = await getUserByDeviceId(deviceId).then((u) => u ?? currentUser)
+      const linkedUser = (await getUserById(targetUser.id)) ?? targetUser
       const [progress, hooks, filters] = await Promise.all([
         getUserProgress(linkedUser.id),
         getUserMemoryHooks(linkedUser.id),
         getUserCategoryFilters(linkedUser.id),
       ])
+      return NextResponse.json(buildSuccessResponse(linkedUser, progress, hooks, filters))
+    }
 
-      return NextResponse.json({
-        success: true,
-        user: {
-          id: linkedUser.id,
-          role: linkedUser.role,
-          show_english: linkedUser.showEnglish ?? true,
-          show_category_badges: linkedUser.showCategoryBadges ?? false,
-          game_score: linkedUser.gameScore ?? 0,
-          wallet_address: linkedUser.walletAddress ?? walletAddress,
-          email: linkedUser.email ?? null,
-          auth_provider: linkedUser.authProvider ?? null,
-        },
-        progress,
-        memory_hooks: hooks,
-        category_filters: filters,
+    const [targetProgress, targetHooksRaw, targetFilters, ...sourceData] = await Promise.all([
+      getUserProgress(targetUser.id),
+      getUserMemoryHooks(targetUser.id),
+      getUserCategoryFilters(targetUser.id),
+      ...sourceUsers.flatMap((user) => [
+        getUserProgress(user.id),
+        getUserMemoryHooks(user.id),
+        getUserCategoryFilters(user.id),
+      ]),
+    ])
+
+    let mergedProgress: Record<string, { stageIndex: number; knownCount: number; unknownCount: number; lastKnownAt: Date | null; lastUnknownAt: Date | null; nextDueAt: Date | null }> = targetProgress
+    let mergedHooks: Record<string, string> = { ...targetHooksRaw }
+    let mergedFilters: string[] = targetFilters
+
+    for (let i = 0; i < sourceUsers.length; i++) {
+      const base = i * 3
+      const sp = sourceData[base] as Record<string, { stageIndex: number; knownCount: number; unknownCount: number; lastKnownAt: Date | null; lastUnknownAt: Date | null; nextDueAt: Date | null }>
+      const sh = sourceData[base + 1] as Record<string, string>
+      const sf = sourceData[base + 2] as string[]
+      const merged = mergeUserData({
+        sourceProgress: sp,
+        targetProgress: mergedProgress,
+        sourceHooks: sh,
+        targetHooks: mergedHooks,
+        sourceFilters: sf,
+        targetFilters: mergedFilters,
       })
+      mergedProgress = merged.mergedProgress
+      mergedHooks = merged.mergedHooks
+      mergedFilters = merged.mergedFilters
     }
 
-    // Case 2: Wallet already linked to another user - merge data
-    // Fetch all data from both users
-    const [sourceProgress, targetProgress, sourceHooksRaw, targetHooksRaw, sourceFilters, targetFilters] =
-      await Promise.all([
-        getUserProgress(currentUser.id),
-        getUserProgress(existingWalletUser.id),
-        getUserMemoryHooks(currentUser.id),
-        getUserMemoryHooks(existingWalletUser.id),
-        getUserCategoryFilters(currentUser.id),
-        getUserCategoryFilters(existingWalletUser.id),
-      ])
+    const progressToUpsert = Object.entries(mergedProgress).map(([wordId, item]) => ({
+      userId: targetUser.id,
+      wordId,
+      stageIndex: item.stageIndex,
+      knownCount: item.knownCount,
+      unknownCount: item.unknownCount,
+      lastKnownAt: item.lastKnownAt,
+      lastUnknownAt: item.lastUnknownAt,
+      nextDueAt: item.nextDueAt,
+    }))
+    if (progressToUpsert.length > 0) await batchUpsertProgress(progressToUpsert)
+    if (Object.keys(mergedHooks).length > 0) await batchUpsertMemoryHooks(targetUser.id, mergedHooks)
+    await setUserCategoryFilters(targetUser.id, mergedFilters)
 
-    const merged = mergeUserData({
-      sourceProgress,
-      targetProgress,
-      sourceHooks: sourceHooksRaw,
-      targetHooks: targetHooksRaw,
-      sourceFilters,
-      targetFilters,
-    })
-
-    // Apply merge operations sequentially. These use independent DB calls
-    // (not wrapped in a transaction) which is acceptable for a language
-    // learning app — worst case on partial failure is duplicated progress
-    // that can be re-merged on next sign-in.
-
-    // Apply merged progress to target user
-    const progressToUpsert = Object.entries(merged.mergedProgress).map(
-      ([wordId, item]) => ({
-        userId: existingWalletUser.id,
-        wordId,
-        stageIndex: item.stageIndex,
-        knownCount: item.knownCount,
-        unknownCount: item.unknownCount,
-        lastKnownAt: item.lastKnownAt,
-        lastUnknownAt: item.lastUnknownAt,
-        nextDueAt: item.nextDueAt,
-      })
-    )
-    if (progressToUpsert.length > 0) {
-      await batchUpsertProgress(progressToUpsert)
+    for (const sourceUser of sourceUsers) {
+      const uniqueFieldResets: {
+        deviceId?: string | null
+        walletAddress?: string | null
+        email?: string | null
+      } = {}
+      if (sourceUser.deviceId === deviceId) {
+        uniqueFieldResets.deviceId = null
+      }
+      if (sourceUser.walletAddress === walletAddress) {
+        uniqueFieldResets.walletAddress = null
+      }
+      if (trimmedEmail && sourceUser.email === trimmedEmail) {
+        uniqueFieldResets.email = null
+      }
+      if (Object.keys(uniqueFieldResets).length > 0) {
+        await updateUserFields(sourceUser.id, uniqueFieldResets)
+      }
     }
 
-    // Apply merged hooks
-    if (Object.keys(merged.mergedHooks).length > 0) {
-      await batchUpsertMemoryHooks(existingWalletUser.id, merged.mergedHooks)
-    }
-
-    // Apply merged filters
-    await setUserCategoryFilters(existingWalletUser.id, merged.mergedFilters)
-
-    // Preserve the current device's role and optionally update email/authProvider.
-    // IMPORTANT: deviceId is UNIQUE, so we must clear it on the source user
-    // before assigning it to the target merged user to avoid a unique
-    // constraint violation when both rows temporarily share the same value.
-    if (currentUser.deviceId === deviceId) {
-      await updateUserFields(currentUser.id, { deviceId: null })
-    }
-
+    const preferredSourceUser = deviceUser ?? walletUser ?? targetUser
     const mergedGameScore = Math.max(
       0,
-      (existingWalletUser.gameScore ?? 0) + (currentUser.gameScore ?? 0)
+      sourceUsers.reduce((sum, user) => sum + (user.gameScore ?? 0), 0) +
+        (targetUser.gameScore ?? 0)
     )
 
-    await updateUserFields(existingWalletUser.id, {
+    await updateUserFields(targetUser.id, {
       deviceId,
-      role: currentUser.role,
-      showEnglish: currentUser.showEnglish,
-      showCategoryBadges: currentUser.showCategoryBadges,
+      walletAddress,
+      role: preferredSourceUser.role,
+      showEnglish: preferredSourceUser.showEnglish,
+      showCategoryBadges: preferredSourceUser.showCategoryBadges,
       gameScore: mergedGameScore,
-      ...(email != null && String(email).trim() !== '' && { email: String(email).trim() }),
+      ...(trimmedEmail && { email: trimmedEmail }),
       ...(authProvider != null && String(authProvider).trim() !== '' && { authProvider: String(authProvider).trim() }),
     })
 
-    // Delete the source (anonymous) user - cascade will clean up related data
-    await deleteUser(currentUser.id)
+    for (const sourceUser of sourceUsers) {
+      await deleteUser(sourceUser.id)
+    }
 
-    // Return merged data
-    const mergedUser = await getUserById(existingWalletUser.id).then((u) => u ?? existingWalletUser)
+    const mergedUser = (await getUserById(targetUser.id)) ?? targetUser
     const [finalProgress, finalHooks, finalFilters] = await Promise.all([
       getUserProgress(mergedUser.id),
       getUserMemoryHooks(mergedUser.id),
@@ -216,9 +228,9 @@ export async function POST(request: NextRequest) {
       merged: true,
       user: {
         id: mergedUser.id,
-        role: currentUser.role,
-        show_english: currentUser.showEnglish ?? true,
-        show_category_badges: currentUser.showCategoryBadges ?? false,
+        role: preferredSourceUser.role,
+        show_english: preferredSourceUser.showEnglish ?? true,
+        show_category_badges: preferredSourceUser.showCategoryBadges ?? false,
         game_score: mergedUser.gameScore ?? mergedGameScore,
         wallet_address: mergedUser.walletAddress ?? walletAddress,
         email: mergedUser.email ?? null,
@@ -229,9 +241,11 @@ export async function POST(request: NextRequest) {
       category_filters: finalFilters,
     })
   } catch (error) {
-    console.error('Link wallet error:', error)
-    const errorMessage =
-      error instanceof Error ? error.message : 'Failed to link wallet'
+    const err = error instanceof Error ? error : new Error(String(error))
+    console.error('Link wallet error:', err.message)
+    console.error(err.stack)
+    // Return generic message to client; server logs hold the real cause (e.g. missing column → run db:migrate)
+    const errorMessage = 'Failed to link wallet. If this persists, ensure database migrations are applied (pnpm run db:migrate).'
     return NextResponse.json(
       { success: false, error: errorMessage },
       { status: 500 }

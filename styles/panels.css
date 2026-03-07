@@ -1,3 +1,8 @@
+/* Backdrop for mobile modals */
+.panel-backdrop {
+  display: none;
+}
+
 .settings-panel {
   margin-top: 4px;
   border-radius: 18px;
@@ -8,16 +13,71 @@
   align-self: end;
 }
 
+/* Mobile: full-viewport overlay, modal card at least 4rem from top, scrollable */
 .settings-panel.is-open {
   display: block;
-  position: fixed;
-  top: 60px;
-  right: 14px;
-  left: 14px;
-  max-width: 500px;
-  margin-left: auto;
-  margin-right: auto;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
   z-index: 550;
+}
+
+.settings-panel.is-open .panel-backdrop {
+  display: block;
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 10, 24, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.settings-panel.is-open .panel-content {
+  position: absolute;
+  top: 4rem;
+  left: 14px;
+  right: 14px;
+  max-height: calc(100dvh - 5rem);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 18px;
+  padding: 8px 10px 10px;
+  z-index: 1;
+}
+
+@media (min-width: 768px) {
+  .settings-panel.is-open {
+    inset: auto;
+    bottom: auto;
+    top: 60px;
+    right: 14px;
+    left: 14px;
+    max-width: 500px;
+    margin-left: auto;
+    margin-right: auto;
+    background: rgba(15, 23, 42, 0.96);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+    padding: 8px 10px 10px;
+  }
+
+  .settings-panel.is-open .panel-backdrop {
+    display: none;
+  }
+
+  .settings-panel.is-open .panel-content {
+    position: static;
+    max-height: 80vh;
+    overflow-y: auto;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    padding: 0;
+    left: auto;
+    right: auto;
+  }
 }
 
 .progress-panel {
@@ -36,13 +96,69 @@
 
 .progress-panel.is-open {
   display: block;
-  position: fixed;
-  top: 60px;
-  right: 14px;
+  inset: 0;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  z-index: 550;
+}
+
+.progress-panel.is-open .panel-backdrop {
+  display: block;
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 10, 24, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.progress-panel.is-open .panel-content {
+  position: absolute;
+  top: 4rem;
   left: 14px;
-  max-width: 720px;
-  margin-left: auto;
-  margin-right: auto;
+  right: 14px;
+  max-height: calc(100dvh - 5rem);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 18px;
+  padding: 0;
+  z-index: 1;
+  box-shadow: var(--shadow-soft);
+}
+
+@media (min-width: 768px) {
+  .progress-panel.is-open {
+    inset: auto;
+    bottom: auto;
+    top: 60px;
+    right: 14px;
+    left: 14px;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+    background: rgba(15, 23, 42, 0.96);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+  }
+
+  .progress-panel.is-open .panel-backdrop {
+    display: none;
+  }
+
+  .progress-panel.is-open .panel-content {
+    position: static;
+    max-height: 80vh;
+    overflow-y: auto;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    left: auto;
+    right: auto;
+    top: auto;
+  }
 }
 
 .memory-hooks-panel {
@@ -61,13 +177,69 @@
 
 .memory-hooks-panel.is-open {
   display: block;
-  position: fixed;
-  top: 60px;
-  right: 14px;
+  inset: 0;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  z-index: 550;
+}
+
+.memory-hooks-panel.is-open .panel-backdrop {
+  display: block;
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 10, 24, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.memory-hooks-panel.is-open .panel-content {
+  position: absolute;
+  top: 4rem;
   left: 14px;
-  max-width: 720px;
-  margin-left: auto;
-  margin-right: auto;
+  right: 14px;
+  max-height: calc(100dvh - 5rem);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 18px;
+  padding: 0;
+  z-index: 1;
+  box-shadow: var(--shadow-soft);
+}
+
+@media (min-width: 768px) {
+  .memory-hooks-panel.is-open {
+    inset: auto;
+    bottom: auto;
+    top: 60px;
+    right: 14px;
+    left: 14px;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+    background: rgba(15, 23, 42, 0.96);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+  }
+
+  .memory-hooks-panel.is-open .panel-backdrop {
+    display: none;
+  }
+
+  .memory-hooks-panel.is-open .panel-content {
+    position: static;
+    max-height: 80vh;
+    overflow-y: auto;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    left: auto;
+    right: auto;
+    top: auto;
+  }
 }
 
 @media (min-width: 1024px) {
@@ -93,13 +265,69 @@
 
 .category-panel.is-open {
   display: block;
-  position: fixed;
-  top: 60px;
-  right: 14px;
+  inset: 0;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  z-index: 550;
+}
+
+.category-panel.is-open .panel-backdrop {
+  display: block;
+  position: absolute;
+  inset: 0;
+  background: rgba(6, 10, 24, 0.5);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+.category-panel.is-open .panel-content {
+  position: absolute;
+  top: 4rem;
   left: 14px;
-  max-width: 720px;
-  margin-left: auto;
-  margin-right: auto;
+  right: 14px;
+  max-height: calc(100dvh - 5rem);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  background: rgba(15, 23, 42, 0.96);
+  border: 1px solid rgba(148, 163, 184, 0.35);
+  border-radius: 18px;
+  padding: 0;
+  z-index: 1;
+  box-shadow: var(--shadow-soft);
+}
+
+@media (min-width: 768px) {
+  .category-panel.is-open {
+    inset: auto;
+    bottom: auto;
+    top: 60px;
+    right: 14px;
+    left: 14px;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+    background: rgba(15, 23, 42, 0.96);
+    border: 1px solid rgba(148, 163, 184, 0.35);
+  }
+
+  .category-panel.is-open .panel-backdrop {
+    display: none;
+  }
+
+  .category-panel.is-open .panel-content {
+    position: static;
+    max-height: 70vh;
+    overflow-y: auto;
+    background: transparent;
+    border: none;
+    border-radius: 0;
+    left: auto;
+    right: auto;
+    top: auto;
+  }
 }
 
 .category-clear-btn {

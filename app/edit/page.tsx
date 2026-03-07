@@ -7,9 +7,7 @@ import { getDeviceId } from '@/lib/device-id';
 import { normalizeWords, getAllCategoriesWithCounts, STAGES, isDue, NormalizedWord, matchesCategoryFilter } from '@/lib/words';
 import { useAppState } from '@/hooks/useAppState';
 import { useWordsLoader } from '@/hooks/useWordsLoader';
-import { usePanelClose } from '@/hooks/usePanelClose';
 import { LoadingScreen } from '@/components/LoadingScreen';
-import { useTopMenuHandlers } from '@/hooks/useTopMenuHandlers';
 import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-stats';
 import { AppLayout } from '@/components/AppLayout';
 import { BottomNav } from '@/components/BottomNav';
@@ -48,14 +46,6 @@ export default function EditPage() {
     setShowCategoryBadges,
     theme,
     setTheme,
-    settingsOpen,
-    setSettingsOpen,
-    progressOpen,
-    setProgressOpen,
-    categoryOpen,
-    setCategoryOpen,
-    memoryHooksOpen,
-    setMemoryHooksOpen,
     markKnown,
     markReallyKnown,
     markUnknown,
@@ -128,9 +118,6 @@ export default function EditPage() {
     const toStore = minigameFrequency === 'off' ? 'off' : JSON.stringify(minigameFrequency);
     window.localStorage.setItem('wordlink-minigame-frequency', toStore);
   }, [minigameFrequency]);
-
-  // Close panels when clicking outside
-  usePanelClose(setSettingsOpen, setProgressOpen, setCategoryOpen, setMemoryHooksOpen);
 
   // Attach press handlers to cover targets (supports virtualized mounts)
   useEffect(() => {
@@ -369,28 +356,6 @@ export default function EditPage() {
     setShowNotReady(false);
   }, [selectedCategories]);
 
-  const closeAllPanels = useCallback(() => {
-    setSettingsOpen(false);
-    setProgressOpen(false);
-    setCategoryOpen(false);
-    setMemoryHooksOpen(false);
-  }, [setSettingsOpen, setProgressOpen, setCategoryOpen, setMemoryHooksOpen]);
-
-  const topMenuHandlers = useTopMenuHandlers({
-    showAll,
-    setShowAll,
-    categoryOpen,
-    setCategoryOpen,
-    progressOpen,
-    setProgressOpen,
-    memoryHooksOpen,
-    setMemoryHooksOpen,
-    settingsOpen,
-    setSettingsOpen,
-    closeAllPanels,
-    selectedCategories,
-  });
-
   // Split filteredWords into three buckets for single-stream ordering
   const { dueWords, newWords, settlingWords } = useMemo(() => {
     const due: NormalizedWord[] = [];
@@ -513,7 +478,9 @@ export default function EditPage() {
 
   return (
     <AppLayout
-      topMenuHandlers={topMenuHandlers}
+      showAll={showAll}
+      onShowAll={() => setShowAll(!showAll)}
+      selectedCategories={selectedCategories}
       role={role}
       onRoleChange={setRole}
       showEnglish={showEnglish}
@@ -532,17 +499,8 @@ export default function EditPage() {
       authAddress={displayAddress}
       onSignOut={signOut}
       categories={categories}
-      selectedCategories={selectedCategories}
       onToggleCategory={toggleCategoryFilter}
       progressStats={progressStats}
-      settingsOpen={settingsOpen}
-      setSettingsOpen={setSettingsOpen}
-      progressOpen={progressOpen}
-      setProgressOpen={setProgressOpen}
-      categoryOpen={categoryOpen}
-      setCategoryOpen={setCategoryOpen}
-      memoryHooksOpen={memoryHooksOpen}
-      setMemoryHooksOpen={setMemoryHooksOpen}
       minigameFrequency={minigameFrequency}
       onMinigameFrequencyChange={(f) => setMinigameFrequency(f)}
       header={editHeader}

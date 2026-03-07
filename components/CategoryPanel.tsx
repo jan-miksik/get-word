@@ -21,6 +21,14 @@ export function CategoryPanel({
       aria-label="Category filter"
       onClick={(e) => e.stopPropagation()}
     >
+      {isOpen && onClose && (
+        <div
+          className="panel-backdrop"
+          onClick={onClose}
+          aria-hidden
+        />
+      )}
+      <div className="panel-content">
       <div className="px-3.5 pt-3.5 pb-4">
         <div className="flex items-center justify-between gap-3 mb-3 relative">
           <h2 className="m-0 text-[1.05rem]">Filter by Category</h2>
@@ -55,6 +63,7 @@ export function CategoryPanel({
             ))
           )}
         </div>
+      </div>
       </div>
     </section>
   );
