@@ -1,9 +1,9 @@
 'use client';
 
 import { useCallback } from 'react';
-import type { Theme } from '@/hooks/useAppState';
 import type { MinigameFrequencyRange } from '@/lib/minigames';
 import { MINIGAME_FREQUENCY_MIN, MINIGAME_FREQUENCY_MAX } from '@/lib/minigames';
+import { useAppStateContext } from '@/context/AppStateContext';
 
 function MinigameFrequencySlider({
   min,
@@ -54,23 +54,14 @@ function MinigameFrequencySlider({
 }
 
 interface SettingsPanelProps {
-  role: 'cz' | 'vi';
-  onRoleChange: (role: 'cz' | 'vi') => void;
-  showEnglish: boolean;
-  onShowEnglishChange: (show: boolean) => void;
-  showCategoryBadges: boolean;
-  onShowCategoryBadgesChange: (show: boolean) => void;
-  theme: Theme;
-  onThemeChange: (theme: Theme) => void;
+  // Page-level concerns (not in context)
   minigameFrequency: MinigameFrequencyRange;
   onMinigameFrequencyChange: (value: MinigameFrequencyRange) => void;
   viewMode: 'card' | 'stream';
   onViewModeChange: (mode: 'card' | 'stream') => void;
   isOpen: boolean;
   onClose?: () => void;
-  userId?: string | null;
-  userWalletAddress?: string | null;
-  userEmail?: string | null;
+  // Auth (from useAuth, not useAppState)
   isAuthenticated?: boolean;
   authEmail?: string;
   authAddress?: string;
@@ -78,28 +69,31 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({
-  role,
-  onRoleChange,
-  showEnglish,
-  onShowEnglishChange,
-  showCategoryBadges,
-  onShowCategoryBadgesChange,
-  theme,
-  onThemeChange,
   minigameFrequency,
   onMinigameFrequencyChange,
   viewMode,
   onViewModeChange,
   isOpen,
   onClose,
-  userId,
-  userWalletAddress,
-  userEmail,
   isAuthenticated,
   authEmail,
   authAddress,
   onSignOut,
 }: SettingsPanelProps) {
+  const {
+    role,
+    setRole: onRoleChange,
+    showEnglish,
+    setShowEnglish: onShowEnglishChange,
+    showCategoryBadges,
+    setShowCategoryBadges: onShowCategoryBadgesChange,
+    theme,
+    setTheme: onThemeChange,
+    userId,
+    userWalletAddress,
+    userEmail,
+  } = useAppStateContext();
+
   return (
     <section
       className={`settings-panel ${isOpen ? 'is-open' : ''}`}

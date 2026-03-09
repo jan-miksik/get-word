@@ -220,11 +220,11 @@ export function TopMenu({
         </div>
       )}
       <div className="top-menu-right flex items-center gap-2 ml-auto">
-        {accountSlot != null && (
+        {/* {accountSlot != null && (
           <div className="hidden sm:block flex-shrink-0">
             {accountSlot}
           </div>
-        )}
+        )} */}
         <MenuDropdown
           onMenuAction={onMenuAction}
           categoryActive={categoryActive}

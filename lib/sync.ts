@@ -169,6 +169,21 @@ let rejectPending: ((error: unknown) => void) | null = null;
 let latestData: Parameters<typeof syncUserData>[0] | null = null;
 const SYNC_DELAY = 2500; // 2.5 seconds
 
+/** Clears any pending debounced sync so the next sync uses fresh state (e.g. after user switch). */
+export function clearPendingSync(): void {
+  if (syncTimeout !== null) {
+    clearTimeout(syncTimeout);
+    syncTimeout = null;
+  }
+  latestData = null;
+  if (resolvePending) {
+    resolvePending();
+    resolvePending = null;
+    rejectPending = null;
+    pendingPromise = null;
+  }
+}
+
 function executeSync(): void {
   if (!latestData || !resolvePending || !rejectPending) return;
 

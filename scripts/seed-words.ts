@@ -3,7 +3,7 @@ dotenv.config({ path: ".env.local" });
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import { words } from "../lib/db/schema";
-import { WORDS } from "../slova.js";
+import { WORDS } from "../wordbook/slova.js";
 
 // Type for the raw word data from slova.js
 interface RawWord {

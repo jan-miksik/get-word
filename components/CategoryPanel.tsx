@@ -1,20 +1,16 @@
 'use client';
 
+import { useAppStateContext } from '@/context/AppStateContext';
+
 interface CategoryPanelProps {
   isOpen: boolean;
   categories: Array<{ name: string; count: number }>;
-  selectedCategories: Set<string>;
-  onToggleCategory: (category: string) => void;
   onClose?: () => void;
 }
 
-export function CategoryPanel({
-  isOpen,
-  categories,
-  selectedCategories,
-  onToggleCategory,
-  onClose,
-}: CategoryPanelProps) {
+export function CategoryPanel({ isOpen, categories, onClose }: CategoryPanelProps) {
+  const { selectedCategories, toggleCategory: onToggleCategory } = useAppStateContext();
+
   return (
     <section
       className={`category-panel ${isOpen ? 'is-open' : ''}`}

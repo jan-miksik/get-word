@@ -15,7 +15,7 @@ export interface Word {
 
 // Import the original data from slova.js
 // Note: slova.js uses .js extension but exports ES modules
-import { WORDS as RAW_WORDS } from '../slova.js';
+import { WORDS as RAW_WORDS } from '../wordbook/slova.js';
 
 // Validate at least one word to ensure structure matches
 if (RAW_WORDS.length > 0) {
