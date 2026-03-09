@@ -509,7 +509,7 @@
   }
 }
 
-/* Fullscreen (card deck) mode on mobile: no card chrome */
+/* Fullscreen (card deck) mode on mobile: no card chrome, fill height */
 @media (max-width: 767px) {
   .word-card--fullscreen.phrase-card,
   .word-card--fullscreen.phrase-card:nth-child(odd) {
@@ -517,6 +517,14 @@
     border: none;
     box-shadow: none;
     border-radius: 0;
+    /* Fill the full available height so actions land at the bottom */
+    flex: 1;
+    min-height: 0;
+  }
+
+  /* Keep action buttons above the home indicator bar */
+  .word-card--fullscreen.phrase-card .card-actions {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
   }
 }
 
