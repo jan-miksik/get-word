@@ -310,16 +310,6 @@ export default function Home() {
             showCategoryBadges={showCategoryBadges}
             fullscreen
           />
-          <div className="deck-monkey-on-card absolute left-3 z-10 md:hidden hidden" aria-hidden="true">
-            <button
-              type="button"
-              className="mode-btn show-all-btn flex-none text-2xl p-2 rounded-full border border-[var(--border-subtle)] bg-[rgba(15,23,42,0.9)] text-[var(--text-soft)] hover:bg-[rgba(15,23,42,1)] transition-colors"
-              onClick={() => setShowAll(!showAll)}
-              aria-label={showAll ? 'Hide completed items' : 'Show all items'}
-            >
-              {showAll ? '🙉' : '🙈'}
-            </button>
-          </div>
         </div>
       );
     },

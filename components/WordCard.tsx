@@ -58,10 +58,26 @@ export const WordCard = memo(function WordCard({
     setIsMounted(true);
   }, []);
 
-  // Determine which languages should be covered. Memory hook is always hidden (tap to reveal).
+  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+  const totalInteractions = (progress.knownCount ?? 0) + (progress.unknownCount ?? 0);
+  const isFirstSeen = totalInteractions === 0;
+  const lastTouchTimestamp = Math.max(
+    progress.lastKnownAt ?? 0,
+    progress.lastUnknownAt ?? 0
+  );
+  const seenWithinOneDay =
+    lastTouchTimestamp > 0 && Date.now() - lastTouchTimestamp <= ONE_DAY_MS;
+
+  // Determine which languages should be covered.
   const shouldCover = (lang: string): boolean => {
     if (showAll) return false;
-    if (lang === 'memory-hook') return true;
+    // First time seeing this word: show everything without cover.
+    if (isFirstSeen) return false;
+    if (lang === 'memory-hook') {
+      // For words seen within the last day, always show the memory hook without cover.
+      if (seenWithinOneDay) return false;
+      return true;
+    }
 
     if (role === 'cz') {
       if (modeIndex === 0) {

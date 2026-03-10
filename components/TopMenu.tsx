@@ -15,8 +15,6 @@ interface TopMenuProps {
   centerContent?: ReactNode;
   /** When logged in, rendered at top of menu dropdown */
   accountSlot?: ReactNode;
-  /** When true, hide monkey+score (e.g. on mobile card view when monkey is on card) */
-  hideMonkeyOnMobile?: boolean;
 }
 
 export function ScoreBadge({ score }: { score: number }) {
@@ -196,23 +194,11 @@ export function TopMenu({
   score,
   centerContent,
   accountSlot,
-  hideMonkeyOnMobile,
 }: TopMenuProps) {
   return (
     <div className="top-menu" aria-label="Top menu">
       <div className="top-menu-left flex flex-wrap items-center gap-2">
-        <button
-          className={`mode-btn show-all-btn flex-none deck-monkey-in-bar hidden ${hideMonkeyOnMobile ? 'deck-monkey-in-bar--hide-on-mobile' : ''}`}
-          onClick={onShowAll}
-          type="button"
-          aria-label={showAll ? 'Hide completed items' : 'Show all items'}
-          aria-hidden="true"
-        >
-          {showAll ? '🙉' : '🙈'}
-        </button>
-        {score !== undefined && (
-          <ScoreBadge score={score} />
-        )}
+        {score !== undefined && <ScoreBadge score={score} />}
       </div>
       {centerContent != null && (
         <div className="top-menu-center flex items-center justify-center min-w-0 flex-1">
