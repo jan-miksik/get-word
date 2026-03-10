@@ -58,15 +58,8 @@ export const WordCard = memo(function WordCard({
     setIsMounted(true);
   }, []);
 
-  const ONE_DAY_MS = 24 * 60 * 60 * 1000;
   const totalInteractions = (progress.knownCount ?? 0) + (progress.unknownCount ?? 0);
   const isFirstSeen = totalInteractions === 0;
-  const lastTouchTimestamp = Math.max(
-    progress.lastKnownAt ?? 0,
-    progress.lastUnknownAt ?? 0
-  );
-  const seenWithinOneDay =
-    lastTouchTimestamp > 0 && Date.now() - lastTouchTimestamp <= ONE_DAY_MS;
 
   // Determine which languages should be covered.
   const shouldCover = (lang: string): boolean => {
@@ -74,8 +67,7 @@ export const WordCard = memo(function WordCard({
     // First time seeing this word: show everything without cover.
     if (isFirstSeen) return false;
     if (lang === 'memory-hook') {
-      // For words seen within the last day, always show the memory hook without cover.
-      if (seenWithinOneDay) return false;
+      if ((progress.knownCount - progress.unknownCount) <= 4) return false;
       return true;
     }
 
@@ -213,7 +205,7 @@ export const WordCard = memo(function WordCard({
           })}
         </div>
       )}
-      <div className="word-card-content flex flex-col gap-1">
+      <div className="word-card-content flex flex-col gap-4">
         {/* Czech */}
         <div className="flex justify-center items-center gap-1.5">
           <div className="hidden">CZ</div>

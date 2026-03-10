@@ -14,6 +14,7 @@ const EXIT_ANIMATIONS = [
   'animate-deck-exit-scale',
   'animate-deck-exit-rotate',
   'animate-deck-exit-dissolve',
+  'animate-deck-exit-beam',
 ] as const;
 
 const ENTER_ANIMATIONS = [
@@ -21,6 +22,7 @@ const ENTER_ANIMATIONS = [
   'animate-deck-enter-rise',
   'animate-deck-enter-pop',
   'animate-deck-enter-drop',
+  'animate-deck-enter-unfurl',
 ] as const;
 
 function randomExitAnim(): string {
@@ -139,7 +141,7 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
         onAnimationEnd={exitAnim ? handleAnimationEnd : enterAnim ? handleEnterAnimationEnd : undefined}
       >
         {isMinigame
-          ? renderMiniGame(item as MiniGameConfig, () => advance({ skipAnimation: true }))
+          ? renderMiniGame(item as MiniGameConfig, () => advance())
           : renderCard(item as NormalizedWord, stageIndex, advance)}
       </div>
 

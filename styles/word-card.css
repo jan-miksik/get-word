@@ -2,10 +2,10 @@
   border-radius: 14px;
   background: linear-gradient(160deg, #0f1a2e 0%, #0b1422 100%);
   border: 1px solid rgba(148, 163, 184, 0.1);
-  padding: 14px 16px 13px;
+  padding: 16px 18px 15px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 6px;
   text-align: center;
   margin-top: 0;
   position: relative;
@@ -131,13 +131,13 @@
   background: transparent;
   color: var(--accent);
   cursor: pointer;
-  font-size: 0.95rem;
+  font-size: 1rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 6px 8px;
-  min-width: 36px;
-  min-height: 36px;
+  padding: 7px 10px;
+  min-width: 40px;
+  min-height: 40px;
   border-radius: 999px;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -181,7 +181,7 @@
 
 .memory-hook-display {
   text-align: center;
-  font-size: 0.85rem;
+  font-size: 0.9rem;
   color: white;
   border-radius: var(--radius-pill);
   cursor: pointer;
@@ -221,7 +221,7 @@
   top: 0;
   bottom: 0;
   width: 100%;
-  padding: 6px 10px;
+  padding: 7px 12px;
   border-radius: var(--radius-pill);
   border: 1px solid var(--accent);
   background: #0d1626;
@@ -258,8 +258,8 @@
   border: 1px solid rgba(148, 163, 184, 0.4);
   background: rgba(15, 23, 42, 0.9);
   color: var(--text-soft);
-  font-size: 0.7rem;
-  padding: 4px 8px;
+  font-size: 1rem;
+  padding: 6px 11px;
   display: inline-flex;
   align-items: center;
   gap: 4px;
@@ -321,7 +321,14 @@
 }
 
 .card-moved {
-  animation: card-move 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+  animation: card-move 0.5s cubic-bezier(0.18, 0.89, 0.32, 1.28) both;
+}
+
+/* ── Suppress phrase-card transitions while deck animations are running ──
+   Animation classes sit on the parent wrapper div; suppress the phrase-card's
+   own transitions so they don't fight the wrapper's keyframe animations. */
+[class*="animate-deck"] .phrase-card {
+  transition: none;
 }
 
 @keyframes card-move {
@@ -332,6 +339,224 @@
   to {
     opacity: 1;
     transform: translateY(0) scale(1);
+  }
+}
+
+/* ─── Card deck enter/exit animations ───────────────────────── */
+
+.animate-deck-exit-slide {
+  animation: deck-exit-slide 0.35s ease both;
+}
+
+@keyframes deck-exit-slide {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(12px) scale(0.96);
+    opacity: 0;
+  }
+}
+
+.animate-deck-exit-swipe-up {
+  animation: deck-exit-swipe-up 0.35s ease both;
+}
+
+@keyframes deck-exit-swipe-up {
+  0% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(-32px) scale(0.96);
+    opacity: 0;
+  }
+}
+
+.animate-deck-exit-flip {
+  animation: deck-exit-flip 0.45s cubic-bezier(0.4, 0, 0.2, 1) both;
+  transform-origin: center bottom;
+}
+
+@keyframes deck-exit-flip {
+  0% {
+    transform: rotateX(0deg) translateY(0);
+    opacity: 1;
+  }
+  100% {
+    transform: rotateX(-75deg) translateY(16px);
+    opacity: 0;
+  }
+}
+
+.animate-deck-exit-scale {
+  animation: deck-exit-scale 0.35s ease both;
+}
+
+@keyframes deck-exit-scale {
+  0% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+}
+
+.animate-deck-exit-rotate {
+  animation: deck-exit-rotate 0.4s ease both;
+  transform-origin: center center;
+}
+
+@keyframes deck-exit-rotate {
+  0% {
+    transform: rotate(0deg) translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: rotate(-12deg) translateX(-18px);
+    opacity: 0;
+  }
+}
+
+.animate-deck-exit-dissolve {
+  animation: deck-exit-dissolve 0.45s ease both;
+}
+
+@keyframes deck-exit-dissolve {
+  0% {
+    transform: scale(1);
+    filter: blur(0) brightness(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.015);
+    filter: blur(2px) brightness(1.4);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.04);
+    filter: blur(8px) brightness(1.9);
+    opacity: 0;
+  }
+}
+
+.animate-deck-enter-slide {
+  animation: deck-enter-slide 0.38s cubic-bezier(0.18, 0.89, 0.32, 1.28) both;
+}
+
+@keyframes deck-enter-slide {
+  0% {
+    transform: translateY(16px) scale(0.96);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-deck-enter-rise {
+  animation: deck-enter-rise 0.4s ease-out both;
+}
+
+@keyframes deck-enter-rise {
+  0% {
+    transform: translateY(32px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.animate-deck-enter-pop {
+  animation: deck-enter-pop 0.32s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes deck-enter-pop {
+  0% {
+    transform: scale(0.9);
+    opacity: 0;
+  }
+  60% {
+    transform: scale(1.03);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.animate-deck-enter-drop {
+  animation: deck-enter-drop 0.38s cubic-bezier(0.18, 0.89, 0.32, 1.28) both;
+}
+
+@keyframes deck-enter-drop {
+  0% {
+    transform: translateY(-24px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* ── Beam: card collapses to a glowing horizontal line, then vanishes ── */
+.animate-deck-exit-beam {
+  animation: deck-exit-beam 0.4s cubic-bezier(0.4, 0, 0.8, 1) both;
+  transform-origin: center center;
+}
+
+@keyframes deck-exit-beam {
+  0% {
+    transform: scaleY(1) scaleX(1);
+    filter: brightness(1) blur(0);
+    opacity: 1;
+  }
+  45% {
+    transform: scaleY(0.025) scaleX(1.04);
+    filter: brightness(2.5) blur(0px);
+    opacity: 1;
+  }
+  65% {
+    transform: scaleY(0.025) scaleX(1.01);
+    filter: brightness(4) blur(1px);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scaleY(0) scaleX(0.6);
+    filter: brightness(3) blur(6px);
+    opacity: 0;
+  }
+}
+
+/* ── Unfurl: card unrolls from the top edge downward ── */
+.animate-deck-enter-unfurl {
+  animation: deck-enter-unfurl 0.42s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: center top;
+}
+
+@keyframes deck-enter-unfurl {
+  0% {
+    transform: scaleY(0) scaleX(0.96);
+    filter: brightness(2) blur(2px);
+    opacity: 0;
+  }
+  55% {
+    transform: scaleY(1.04) scaleX(1);
+    filter: brightness(1.1) blur(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scaleY(1) scaleX(1);
+    filter: brightness(1) blur(0);
+    opacity: 1;
   }
 }
 
