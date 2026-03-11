@@ -35,7 +35,12 @@ function randomEnterAnim(): string {
 
 interface CardDeckViewProps {
   groupedWords: (NormalizedWord | MiniGameConfig)[][];
-  renderCard: (word: NormalizedWord, stageIndex: number, onComplete: () => void) => ReactNode;
+  renderCard: (
+    word: NormalizedWord,
+    stageIndex: number,
+    onComplete: (afterExit?: () => void) => void,
+    opts?: { isExiting: boolean }
+  ) => ReactNode;
   renderMiniGame: (config: MiniGameConfig, onComplete: () => void) => ReactNode;
 }
 
@@ -52,6 +57,11 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
   // Keep a snapshot of the last successfully rendered item so we can still
   // show it after items[] shrinks (words are removed from the queue once marked).
   const lastItemRef = useRef<StreamItem | null>(null);
+  // Lock the card being animated out so its content doesn't swap mid-animation
+  // if the underlying item list changes after the word is marked.
+  const lockedItemRef = useRef<StreamItem | null>(null);
+  const lockedStageIndexRef = useRef<number>(0);
+  const pendingAfterExitRef = useRef<(() => void) | null>(null);
 
   // Store latest values in refs so the advance callback always reads fresh state,
   // even when called from a stale closure captured during an earlier render.
@@ -59,15 +69,22 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
   currentIndexRef.current = currentIndex;
   const itemsRef = useRef(items);
   itemsRef.current = items;
+  const groupedWordsRef = useRef(groupedWords);
+  groupedWordsRef.current = groupedWords;
 
-  const advance = useCallback((opts?: { skipAnimation?: boolean }) => {
+  const advance = useCallback((opts?: { skipAnimation?: boolean; afterExit?: () => void }) => {
     const idx = currentIndexRef.current;
     const currentItems = itemsRef.current;
     const last = currentItems.length > 0 ? currentItems.length - 1 : -1;
     const skip = opts?.skipAnimation ?? false;
+    if (opts?.afterExit) pendingAfterExitRef.current = opts.afterExit;
 
     if (process.env.NODE_ENV === 'test' || skip) {
       setCurrentIndex((i) => i + 1);
+      if (pendingAfterExitRef.current) {
+        pendingAfterExitRef.current();
+        pendingAfterExitRef.current = null;
+      }
       return;
     }
 
@@ -76,23 +93,54 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
       const isMinigame = currentItem && '_isMinigame' in currentItem;
       if (!isMinigame) {
         setShowDoneOverlay(true);
+        if (pendingAfterExitRef.current) {
+          pendingAfterExitRef.current();
+          pendingAfterExitRef.current = null;
+        }
         return;
       }
     }
 
+    const currentItem = currentItems[idx] ?? lastItemRef.current;
+    if (currentItem) {
+      lockedItemRef.current = currentItem;
+      let lockedStage = 0;
+      let count = 0;
+      const grouped = groupedWordsRef.current;
+      for (let g = 0; g < grouped.length; g++) {
+        count += grouped[g].length;
+        if (idx < count) { lockedStage = g; break; }
+      }
+      lockedStageIndexRef.current = lockedStage;
+    }
     setExitAnim(randomExitAnim());
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleAnimationEnd = useCallback((e: AnimationEvent<HTMLDivElement>) => {
     if (!e.animationName.startsWith('deck-exit-')) return;
+    if (process.env.NODE_ENV !== 'production') {
+      // Debug: identify which exit animation fired
+      // eslint-disable-next-line no-console
+      console.log('[CardDeck] exit animation end:', e.animationName);
+    }
     setExitAnim(null);
+    lockedItemRef.current = null;
+    if (pendingAfterExitRef.current) {
+      pendingAfterExitRef.current();
+      pendingAfterExitRef.current = null;
+    }
     setCurrentIndex((i) => i + 1);
     setEnterAnim(randomEnterAnim());
   }, []);
 
   const handleEnterAnimationEnd = useCallback((e: AnimationEvent<HTMLDivElement>) => {
     if (!e.animationName.startsWith('deck-enter-')) return;
+    if (process.env.NODE_ENV !== 'production') {
+      // Debug: identify which enter animation fired
+      // eslint-disable-next-line no-console
+      console.log('[CardDeck] enter animation end:', e.animationName);
+    }
     setEnterAnim(null);
   }, []);
 
@@ -107,7 +155,9 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
   }
 
   // Use the current item if available, otherwise fall back to the last known item.
-  const item = items[currentIndex] ?? lastItemRef.current;
+  const item = exitAnim
+    ? lockedItemRef.current
+    : items[currentIndex] ?? lastItemRef.current;
 
   if (!item) {
     return (
@@ -122,17 +172,26 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
 
   // Determine stageIndex from which group currentIndex falls into
   let stageIndex = 0;
-  let count = 0;
-  for (let g = 0; g < groupedWords.length; g++) {
-    count += groupedWords[g].length;
-    if (currentIndex < count) { stageIndex = g; break; }
+  if (exitAnim && lockedItemRef.current) {
+    stageIndex = lockedStageIndexRef.current;
+  } else {
+    let count = 0;
+    for (let g = 0; g < groupedWords.length; g++) {
+      count += groupedWords[g].length;
+      if (currentIndex < count) { stageIndex = g; break; }
+    }
   }
 
   const isMinigame = '_isMinigame' in item;
+  const itemKey = isMinigame
+    ? `minigame-${(item as MiniGameConfig).id}`
+    : `word-${(item as NormalizedWord).id}`;
+  const isExiting = Boolean(exitAnim);
 
   return (
     <div className="relative flex h-full w-full flex-col overflow-hidden">
       <div
+        key={itemKey}
         className={[
           'flex h-full w-full flex-col',
           exitAnim ?? '',
@@ -142,7 +201,7 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
       >
         {isMinigame
           ? renderMiniGame(item as MiniGameConfig, () => advance())
-          : renderCard(item as NormalizedWord, stageIndex, advance)}
+          : renderCard(item as NormalizedWord, stageIndex, (afterExit) => advance({ afterExit }), { isExiting })}
       </div>
 
       {/* Overlay shown after the last card completes — waits for an explicit tap */}

@@ -19,7 +19,7 @@ const makeGame = (id: string): MiniGameConfig => ({
 describe('CardDeckView', () => {
   it('renders the first item from the flattened stream', () => {
     const groupedWords = [[makeWord('w1'), makeWord('w2')]];
-    const renderCard = (word: NormalizedWord, _: number, onComplete: () => void) => (
+    const renderCard = (word: NormalizedWord, _: number, onComplete: (afterExit?: () => void) => void) => (
       <div>
         <span data-testid={`card-${word.id}`}>{word.id}</span>
         <button onClick={onComplete}>Complete</button>
@@ -38,7 +38,7 @@ describe('CardDeckView', () => {
 
   it('advances to next item after onComplete is called', async () => {
     const groupedWords = [[makeWord('w1'), makeWord('w2')]];
-    const renderCard = (word: NormalizedWord, _: number, onComplete: () => void) => (
+    const renderCard = (word: NormalizedWord, _: number, onComplete: (afterExit?: () => void) => void) => (
       <div>
         <span data-testid={`card-${word.id}`}>{word.id}</span>
         <button onClick={onComplete}>Complete</button>
@@ -89,7 +89,7 @@ describe('CardDeckView', () => {
 
   it('shows all-done state when past the last card', async () => {
     const groupedWords = [[makeWord('w1')]];
-    const renderCard = (word: NormalizedWord, _: number, onComplete: () => void) => (
+    const renderCard = (word: NormalizedWord, _: number, onComplete: (afterExit?: () => void) => void) => (
       <div>
         <span>{word.id}</span>
         <button onClick={onComplete}>Complete</button>

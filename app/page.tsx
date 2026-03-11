@@ -26,6 +26,7 @@ import { useDueTimer } from '@/hooks/useDueTimer';
 import { useAuth } from '@/hooks/useAuth';
 import { deleteDeviceId } from '@/lib/device-id';
 import { resetSyncIdentity } from '@/lib/sync';
+import type { ProgressData } from '@/lib/sync';
 import { AppStateProvider } from '@/context/AppStateContext';
 
 
@@ -102,6 +103,9 @@ export default function Home() {
   };
   const [dismissedGames, setDismissedGames] = useState<Set<string>>(new Set());
   const [minigameSeed] = useState<number>(() => Math.floor(Math.random() * 1_000_000_000));
+  const lockedDeckCardStateRef = useRef<Map<string, { modeIndex: number; progress: ProgressData }>>(
+    new Map()
+  );
 
   // originalCombined is the word list captured at the start of each filter session.
   const [originalCombined, setOriginalCombined] = useState<NormalizedWord[]>([]);
@@ -162,6 +166,7 @@ export default function Home() {
   // Reset expandable sections when filters change
   useEffect(() => {
     setShowNotReady(false);
+    setDismissedGames(new Set());
   }, [selectedCategories]);
 
   const statsWords = useMemo(() => {
@@ -226,6 +231,11 @@ export default function Home() {
     } else {
       wordStream = composeStream(combined, originalIndexMap, gameAnchors);
     }
+    if (dismissedGames.size > 0) {
+      wordStream = wordStream.filter(
+        (item) => !('_isMinigame' in item) || !dismissedGames.has(item.id)
+      );
+    }
 
     const dueCount = dueWords.length;
     let wordsSeen = 0;
@@ -245,7 +255,7 @@ export default function Home() {
       });
     }
     return groups;
-  }, [combined, dueWords.length, settlingWords, showNotReady, progress, isHydrated, gameAnchors, originalIndexMap, minigameFrequency]);
+  }, [combined, dueWords.length, settlingWords, showNotReady, progress, isHydrated, gameAnchors, originalIndexMap, minigameFrequency, dismissedGames]);
 
   // Memoized card renderer — must be before early return
   const renderCard = useCallback((word: NormalizedWord, _stageIndex?: number) => {
@@ -289,21 +299,44 @@ export default function Home() {
   }, [dismissedGames, role]);
 
   const renderCardForDeck = useCallback(
-    (word: NormalizedWord, _stageIndex: number, onComplete: () => void) => {
-      const prog = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
+    (
+      word: NormalizedWord,
+      _stageIndex: number,
+      onComplete: () => void,
+      opts?: { isExiting: boolean }
+    ) => {
+      const liveProg = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
+      const liveModeIndex = getWordDisplayMode(word.id);
+      const isExiting = opts?.isExiting ?? false;
+      const locked = lockedDeckCardStateRef.current.get(word.id);
+      if (isExiting) {
+        if (!locked) {
+          lockedDeckCardStateRef.current.set(word.id, {
+            modeIndex: liveModeIndex,
+            progress: liveProg,
+          });
+        }
+      } else if (locked) {
+        lockedDeckCardStateRef.current.delete(word.id);
+      }
+      const cardState = isExiting
+        ? lockedDeckCardStateRef.current.get(word.id)
+        : null;
+      const prog = cardState?.progress ?? liveProg;
+      const modeIndex = cardState?.modeIndex ?? liveModeIndex;
       return (
         <div key={word.id} className="h-full flex flex-col justify-end md:justify-start relative">
           <WordCard
             word={word}
             progress={prog}
             role={role}
-            modeIndex={getWordDisplayMode(word.id)}
+            modeIndex={modeIndex}
             showAll={showAll}
             memoryHook={getMemoryHook(word.id)}
             suggestedHook={getSuggestedMemoryHook(word)}
-            onKnown={() => { markKnown(word.id); onComplete(); }}
-            onReallyKnown={() => { markReallyKnown(word.id); onComplete(); }}
-            onUnknown={() => { markUnknown(word.id); onComplete(); }}
+            onKnown={() => { onComplete(() => markKnown(word.id)); }}
+            onReallyKnown={() => { onComplete(() => markReallyKnown(word.id)); }}
+            onUnknown={() => { onComplete(() => markUnknown(word.id)); }}
             onMemoryHookChange={(hook) => setMemoryHook(word.id, hook)}
             isMoved={false}
             showEnglish={showEnglish}
