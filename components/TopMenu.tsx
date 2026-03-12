@@ -15,6 +15,8 @@ interface TopMenuProps {
   centerContent?: ReactNode;
   /** When logged in, rendered at top of menu dropdown */
   accountSlot?: ReactNode;
+  /** Hide the monkey button in the top bar on mobile (card view shows it on the card) */
+  hideMonkeyOnMobile?: boolean;
 }
 
 export function ScoreBadge({ score }: { score: number }) {

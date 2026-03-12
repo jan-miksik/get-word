@@ -276,7 +276,7 @@ export default function Home() {
     (
       word: NormalizedWord,
       _stageIndex: number,
-      onComplete: () => void,
+      onComplete: (afterExit?: () => void) => void,
       opts?: { isExiting: boolean }
     ) => {
       const liveProg = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
