@@ -194,7 +194,6 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const preferredSourceUser = deviceUser ?? walletUser ?? targetUser
     const mergedGameScore = Math.max(
       0,
       sourceUsers.reduce((sum, user) => sum + (user.gameScore ?? 0), 0) +
@@ -204,9 +203,9 @@ export async function POST(request: NextRequest) {
     await updateUserFields(targetUser.id, {
       deviceId,
       walletAddress,
-      role: preferredSourceUser.role,
-      showEnglish: preferredSourceUser.showEnglish,
-      showCategoryBadges: preferredSourceUser.showCategoryBadges,
+      role: targetUser.role,
+      showEnglish: targetUser.showEnglish,
+      showCategoryBadges: targetUser.showCategoryBadges,
       gameScore: mergedGameScore,
       ...(trimmedEmail && { email: trimmedEmail }),
       ...(authProvider != null && String(authProvider).trim() !== '' && { authProvider: String(authProvider).trim() }),
@@ -228,9 +227,9 @@ export async function POST(request: NextRequest) {
       merged: true,
       user: {
         id: mergedUser.id,
-        role: preferredSourceUser.role,
-        show_english: preferredSourceUser.showEnglish ?? true,
-        show_category_badges: preferredSourceUser.showCategoryBadges ?? false,
+        role: targetUser.role,
+        show_english: targetUser.showEnglish ?? true,
+        show_category_badges: targetUser.showCategoryBadges ?? false,
         game_score: mergedUser.gameScore ?? mergedGameScore,
         wallet_address: mergedUser.walletAddress ?? walletAddress,
         email: mergedUser.email ?? null,

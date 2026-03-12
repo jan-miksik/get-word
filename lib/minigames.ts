@@ -131,7 +131,23 @@ export function computeGameAnchors(
   const useStreamAbove = learnedPool.length < 4;
   const STREAM_ABOVE_WINDOW = 14; // prefer nearby words above the minigame
 
-  const anchors: (GameAnchor | null)[] = anchorIndices.map((i, slotIndex) => {
+  let lastSignature: string | null = null;
+  const anchors: (GameAnchor | null)[] = [];
+
+  const shuffleWithRand = <T,>(arr: T[]) => {
+    const a = [...arr];
+    for (let j = a.length - 1; j > 0; j--) {
+      const k = Math.floor(rand() * (j + 1));
+      [a[j], a[k]] = [a[k], a[j]];
+    }
+    return a;
+  };
+
+  const signatureOf = (words: NormalizedWord[]) =>
+    words.map(w => w.id).sort().join('|');
+
+  for (let slotIndex = 0; slotIndex < anchorIndices.length; slotIndex++) {
+    const i = anchorIndices[slotIndex];
     let pool = useStreamAbove
       ? originalWords.slice(Math.max(0, i + 1 - STREAM_ABOVE_WINDOW), i + 1)
       : learnedPool;
@@ -141,15 +157,38 @@ export function computeGameAnchors(
       pool = originalWords.slice(0, i + 1);
       if (pool.length < 4) pool = originalWords;
     }
-    if (pool.length < 4) return null;
-    const shuffled = [...pool].sort(() => rand() - 0.5);
-    return {
+    if (pool.length < 4) {
+      anchors.push(null);
+      continue;
+    }
+
+    let attempt = 0;
+    let chosen: NormalizedWord[] | null = null;
+    let sig = '';
+    while (attempt < 4) {
+      const shuffled = shuffleWithRand(pool);
+      const candidate = shuffled.slice(0, 4);
+      sig = signatureOf(candidate);
+      if (sig !== lastSignature) {
+        chosen = candidate;
+        break;
+      }
+      attempt += 1;
+    }
+    if (!chosen) {
+      const fallback = shuffleWithRand(pool).slice(0, 4);
+      chosen = fallback;
+      sig = signatureOf(fallback);
+    }
+
+    lastSignature = sig;
+    anchors.push({
       id: `game-${originalWords[i].id}-s${baseSeed}`,
       gameType: GAME_CYCLE[slotIndex % GAME_CYCLE.length],
-      words: shuffled.slice(0, 4),
+      words: chosen,
       anchorOriginalIndex: i,
-    };
-  });
+    });
+  }
 
   return anchors.filter((a): a is GameAnchor => a !== null);
 }
@@ -189,6 +228,8 @@ export function composeStream(
   // insertAfter = -1  →  insert before all words (game floats to top when
   //                       every word with origIdx ≤ anchor has been removed).
   const insertions = new Map<number, GameAnchor[]>();
+  const usedSlots = new Set<number>();
+  const maxIndex = wordsWithOrigIdx.length - 1;
 
   for (const anchor of sortedAnchors) {
     let insertAfter = -1;
@@ -200,9 +241,16 @@ export function composeStream(
       }
     }
 
-    const list = insertions.get(insertAfter) ?? [];
+    let target = insertAfter;
+    if (maxIndex >= 0) {
+      while (usedSlots.has(target) && target < maxIndex) {
+        target += 1;
+      }
+    }
+    usedSlots.add(target);
+    const list = insertions.get(target) ?? [];
     list.push(anchor);
-    insertions.set(insertAfter, list);
+    insertions.set(target, list);
   }
 
   const result: StreamItem[] = [];

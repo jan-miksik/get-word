@@ -6,7 +6,7 @@ import type { NormalizedWord } from '@/lib/words';
 interface Props {
   words: NormalizedWord[];
   role: 'cz' | 'vi';
-  onResult?: (won: boolean) => void;
+  onResult?: (delta: number) => void;
 }
 
 type MatchState = 'idle' | 'selected' | 'matched' | 'wrong';
@@ -34,7 +34,7 @@ export function MatchingPairsGame({ words, role, onResult }: Props) {
   useEffect(() => {
     if (isComplete && !resultFired.current) {
       resultFired.current = true;
-      onResult?.(true);
+      onResult?.(1);
     }
   }, [isComplete, onResult]);
 

@@ -405,22 +405,6 @@
   }
 }
 
-.animate-deck-exit-rotate {
-  animation: deck-exit-rotate 0.4s ease both;
-  transform-origin: center center;
-}
-
-@keyframes deck-exit-rotate {
-  0% {
-    transform: rotate(0deg) translateX(0);
-    opacity: 1;
-  }
-  100% {
-    transform: rotate(-12deg) translateX(-18px);
-    opacity: 0;
-  }
-}
-
 .animate-deck-exit-dissolve {
   animation: deck-exit-dissolve 0.45s ease both;
 }

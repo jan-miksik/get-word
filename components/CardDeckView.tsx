@@ -12,7 +12,6 @@ const EXIT_ANIMATIONS = [
   'animate-deck-exit-swipe-up',
   'animate-deck-exit-flip',
   'animate-deck-exit-scale',
-  'animate-deck-exit-rotate',
   'animate-deck-exit-dissolve',
   'animate-deck-exit-beam',
 ] as const;

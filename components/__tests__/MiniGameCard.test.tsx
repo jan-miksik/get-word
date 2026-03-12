@@ -52,7 +52,7 @@ describe('MiniGameCard', () => {
     );
     // role=cz: correct answer for words[0] (pes) is con chó
     fireEvent.click(screen.getByText('con chó'));
-    expect(onResult).toHaveBeenCalledWith(true);
+    expect(onResult).toHaveBeenCalledWith(1);
     // Overlay appears, clicking it dismisses the card
     fireEvent.click(screen.getByText('Tap to continue'));
     expect(onDismiss).toHaveBeenCalled();

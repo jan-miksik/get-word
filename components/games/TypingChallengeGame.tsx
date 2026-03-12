@@ -1,28 +1,48 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { NormalizedWord } from '@/lib/words';
 import { matchAnswer } from '@/lib/minigames';
 
 interface Props {
   words: NormalizedWord[];
   role: 'cz' | 'vi';
-  onResult?: (won: boolean) => void;
+  onResult?: (delta: number) => void;
 }
 
 export function TypingChallengeGame({ words, role, onResult }: Props) {
   const [value, setValue] = useState('');
   const [result, setResult] = useState<'exact' | 'close' | 'wrong' | null>(null);
+  const [hintUsed, setHintUsed] = useState(false);
+  const [caretIndex, setCaretIndex] = useState(0);
+  const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
 
   const questionWord = words[0];
   const prompt = role === 'cz' ? questionWord.cz : questionWord.vi;
   const correctAnswer = role === 'cz' ? questionWord.vi : questionWord.cz;
+  const normalizedAnswer = correctAnswer.trim();
+  const letterCount = [...normalizedAnswer.replace(/\s+/g, '')].length;
+  const firstLetterMatch = normalizedAnswer.match(/\S/);
+  const firstLetter = firstLetterMatch ? firstLetterMatch[0] : '';
+  const answerChars = normalizedAnswer.split('');
 
   const check = () => {
     if (result !== null || !value.trim()) return;
     const r = matchAnswer(value, correctAnswer);
     setResult(r);
-    onResult?.(r !== 'wrong');
+    const delta = r === 'exact' ? 2 : r === 'close' ? 1 : 0;
+    onResult?.(delta);
+  };
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    setIsFocused(true);
+  }, []);
+
+  const updateCaret = (target: HTMLInputElement) => {
+    const next = target.selectionStart ?? value.length;
+    setCaretIndex(next);
   };
 
   const resultLabels: Record<'exact' | 'close' | 'wrong', React.ReactNode> = {
@@ -44,23 +64,88 @@ export function TypingChallengeGame({ words, role, onResult }: Props) {
       <div className="game-badge">⌨️ Type it</div>
       <div className="game-prompt">{prompt}</div>
       <div className="game-typing-area">
-        <input
-          type="text"
-          className={`game-input${result ? ` game-input--${result}` : ''}`}
-          placeholder="Type translation…"
-          value={value}
-          onChange={e => setValue(e.target.value)}
-          onKeyDown={e => { if (e.key === 'Enter') check(); }}
-          disabled={result !== null}
-          autoComplete="off"
-          autoCorrect="off"
-          autoCapitalize="off"
-          spellCheck={false}
-        />
+        <div
+          className={[
+            'game-typing-input-wrap',
+            result ? `game-typing-input-wrap--${result}` : '',
+            isFocused ? 'is-focused' : '',
+          ].filter(Boolean).join(' ')}
+        >
+          <div className="game-typing-mask" aria-hidden="true">
+            {answerChars.map((ch, idx) => {
+              const typedChar = value[idx] ?? '';
+              const isSpace = ch === ' ';
+              const isActive = idx === caretIndex;
+              return (
+                <span
+                  key={`ch-${idx}`}
+                  className={[
+                    'game-typing-slot',
+                    isSpace ? 'game-typing-slot--space' : '',
+                    isActive ? 'is-active' : '',
+                  ].join(' ')}
+                >
+                  {typedChar ? typedChar : '_'}
+                </span>
+              );
+            })}
+          </div>
+          <input
+            ref={inputRef}
+            type="text"
+            className={`game-input game-input--masked${result ? ` game-input--${result}` : ''}`}
+            placeholder="Type translation…"
+            value={value}
+            onChange={e => {
+              setValue(e.target.value);
+              updateCaret(e.target);
+            }}
+            onKeyDown={e => { if (e.key === 'Enter') check(); }}
+            onClick={e => updateCaret(e.currentTarget)}
+            onKeyUp={e => updateCaret(e.currentTarget)}
+            onSelect={e => updateCaret(e.currentTarget)}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            disabled={result !== null}
+            autoComplete="off"
+            autoCorrect="off"
+            autoCapitalize="off"
+            spellCheck={false}
+          />
+        </div>
         {result === null && (
-          <button type="button" className="game-check-btn" onClick={check}>
-            Check
-          </button>
+          <div className="game-typing-actions">
+            <button type="button" className="game-check-btn" onClick={check}>
+              Check
+            </button>
+            <button
+              type="button"
+              className="game-hint-btn"
+              onClick={() => {
+                if (hintUsed) return;
+                if (!firstLetter) { setHintUsed(true); return; }
+                const idx = answerChars.findIndex((ch) => ch !== ' ');
+                if (idx < 0) { setHintUsed(true); return; }
+                const next = value.split('');
+                while (next.length < idx) next.push('');
+                next[idx] = firstLetter;
+                const nextValue = next.join('');
+                setValue(nextValue);
+                setHintUsed(true);
+                requestAnimationFrame(() => {
+                  const input = inputRef.current;
+                  if (input) {
+                    const pos = Math.min(idx + 1, nextValue.length);
+                    input.setSelectionRange(pos, pos);
+                    updateCaret(input);
+                  }
+                });
+              }}
+              disabled={hintUsed}
+            >
+              Hint
+            </button>
+          </div>
         )}
       </div>
       {result !== null ? (

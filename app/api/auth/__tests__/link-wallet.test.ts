@@ -148,7 +148,7 @@ describe('POST /api/auth/link-wallet', () => {
     )
     expect(mockUpdateUserFields).toHaveBeenCalledWith('uuid-B', expect.objectContaining({
       deviceId: 'dev-123',
-      role: 'vi',
+      role: 'cz',
     }))
   })
 

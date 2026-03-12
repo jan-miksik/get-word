@@ -101,13 +101,14 @@ export function useAppState(
   useEffect(() => {
     if (!isHydrated || !walletAddress || hasLinkedRef.current) return;
     hasLinkedRef.current = true;
+    isUpdatingFromServerRef.current = true;
+    clearPendingSync();
 
     linkWallet(walletAddress, {
       email: linkPayload?.email ?? undefined,
       authProvider: linkPayload?.authProvider ?? undefined,
     })
       .then((serverData) => {
-        isUpdatingFromServerRef.current = true;
         applyServerData(serverData);
         requestAnimationFrame(() => {
           isUpdatingFromServerRef.current = false;
@@ -115,6 +116,7 @@ export function useAppState(
       })
       .catch((err) => {
         console.error('[useAppState] Failed to link wallet:', err);
+        isUpdatingFromServerRef.current = false;
         hasLinkedRef.current = false;
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -9,10 +9,8 @@ import { usePressHandlers } from '@/hooks/usePressHandlers';
 import { getAvailableCategories, STAGES, NormalizedWord, normalizeWords } from '@/lib/words';
 import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-stats';
 import {
-  computeGameAnchors,
-  composeStream,
+  injectMinigames,
   type MiniGameConfig,
-  type GameAnchor,
   type MinigameFrequencyRange,
   DEFAULT_MINIGAME_FREQUENCY,
 } from '@/lib/minigames';
@@ -102,17 +100,22 @@ export default function Home() {
     localStorage.setItem('wordlink-view-mode', mode);
   };
   const [dismissedGames, setDismissedGames] = useState<Set<string>>(new Set());
-  const [minigameSeed] = useState<number>(() => Math.floor(Math.random() * 1_000_000_000));
+  const [minigameSeed] = useState<number>(() => {
+    if (typeof window === 'undefined') {
+      return Math.floor(Math.random() * 1_000_000_000);
+    }
+    const stored = window.localStorage.getItem('wordlink-minigame-seed');
+    const parsed = stored ? Number(stored) : NaN;
+    if (Number.isFinite(parsed)) return parsed;
+    const seed = Math.floor(Math.random() * 1_000_000_000);
+    window.localStorage.setItem('wordlink-minigame-seed', String(seed));
+    return seed;
+  });
   const lockedDeckCardStateRef = useRef<Map<string, { modeIndex: number; progress: ProgressData }>>(
     new Map()
   );
 
-  // originalCombined is the word list captured at the start of each filter session.
-  const [originalCombined, setOriginalCombined] = useState<NormalizedWord[]>([]);
-  const [originalIndexMap, setOriginalIndexMap] = useState<Map<string, number>>(new Map());
-  const lastCategoriesKeyRef = useRef<string | null>(null);
-  const latestCombinedRef = useRef<NormalizedWord[]>([]);
-  const lockedGameWordsRef = useRef<Map<string, NormalizedWord[]>>(new Map());
+  // Minigame seed persisted per device to keep injections stable across refreshes.
 
   const categories = useMemo(
     () => getAvailableCategories(normalizedWords),
@@ -187,49 +190,20 @@ export default function Home() {
   // Active learning stream: due words first, then new words
   const combined = useMemo(() => [...dueWords, ...newWords], [dueWords, newWords]);
 
-  latestCombinedRef.current = combined;
-
-  // Snapshot the combined list once per filter session
-  const currentCategoriesKey = [...selectedCategories].sort().join(',');
-  const hasWords = combined.length > 0;
-  useEffect(() => {
-    if (!isHydrated || !hasWords) return;
-    if (currentCategoriesKey === lastCategoriesKeyRef.current && originalCombined.length > 0) return;
-
-    lastCategoriesKeyRef.current = currentCategoriesKey;
-    lockedGameWordsRef.current = new Map();
-    const snapshot = [...latestCombinedRef.current];
-    setOriginalCombined(snapshot);
-    setOriginalIndexMap(new Map(snapshot.map((w, i) => [w.id, i])));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isHydrated, hasWords, currentCategoriesKey]);
-
-  // Compute stable game anchors from the snapshot
-  const gameAnchors = useMemo((): GameAnchor[] => {
-    if (minigameFrequency === 'off' || originalCombined.length === 0) return [];
-    const { min, max } = minigameFrequency;
-    const rawAnchors = computeGameAnchors(originalCombined, learnedPool, minigameSeed, {
-      minInterval: min,
-      maxInterval: max,
-    });
-    return rawAnchors.map(anchor => {
-      if (!lockedGameWordsRef.current.has(anchor.id)) {
-        lockedGameWordsRef.current.set(anchor.id, anchor.words);
-      }
-      return { ...anchor, words: lockedGameWordsRef.current.get(anchor.id)! };
-    });
-  }, [originalCombined, learnedPool, minigameSeed, minigameFrequency]);
-
   // Build groupedWords for VirtualizedWordList
   const streamGroupedWords = useMemo(() => {
     const groups: (NormalizedWord | MiniGameConfig)[][] = STAGES.map(() => []);
     if (!isHydrated) return groups;
 
     let wordStream: (NormalizedWord | MiniGameConfig)[];
-    if (minigameFrequency === 'off' || gameAnchors.length === 0) {
+    if (minigameFrequency === 'off') {
       wordStream = combined;
     } else {
-      wordStream = composeStream(combined, originalIndexMap, gameAnchors);
+      const { min, max } = minigameFrequency;
+      wordStream = injectMinigames(combined, learnedPool, role, minigameSeed, {
+        minInterval: min,
+        maxInterval: max,
+      });
     }
     if (dismissedGames.size > 0) {
       wordStream = wordStream.filter(
@@ -255,7 +229,7 @@ export default function Home() {
       });
     }
     return groups;
-  }, [combined, dueWords.length, settlingWords, showNotReady, progress, isHydrated, gameAnchors, originalIndexMap, minigameFrequency, dismissedGames]);
+  }, [combined, learnedPool, role, minigameSeed, dueWords.length, settlingWords, showNotReady, progress, isHydrated, minigameFrequency, dismissedGames]);
 
   // Memoized card renderer — must be before early return
   const renderCard = useCallback((word: NormalizedWord, _stageIndex?: number) => {
@@ -291,7 +265,7 @@ export default function Home() {
             config={config}
             role={role}
             onDismiss={() => setDismissedGames(prev => new Set([...prev, config.id]))}
-            onResult={(won) => setGameScore(prev => Math.max(0, prev + (won ? 1 : -1)))}
+            onResult={(delta) => setGameScore(prev => Math.max(0, prev + delta))}
           />
         </div>
       </div>
@@ -359,8 +333,8 @@ export default function Home() {
             setDismissedGames(prev => new Set([...prev, config.id]));
             onComplete();
           }}
-          onResult={(won) => {
-            setGameScore(prev => Math.max(0, prev + (won ? 1 : -1)));
+          onResult={(delta) => {
+            setGameScore(prev => Math.max(0, prev + delta));
           }}
         />
       </div>

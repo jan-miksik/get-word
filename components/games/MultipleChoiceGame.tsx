@@ -6,7 +6,7 @@ import type { NormalizedWord } from '@/lib/words';
 interface Props {
   words: NormalizedWord[];
   role: 'cz' | 'vi';
-  onResult?: (won: boolean) => void;
+  onResult?: (delta: number) => void;
 }
 
 export function MultipleChoiceGame({ words, role, onResult }: Props) {
@@ -33,7 +33,7 @@ export function MultipleChoiceGame({ words, role, onResult }: Props) {
     if (answered) return;
     setSelected(optionId);
     const isCorrect = options.find(o => o.id === optionId)?.isCorrect ?? false;
-    onResult?.(isCorrect);
+    onResult?.(isCorrect ? 1 : -1);
   };
 
   return (

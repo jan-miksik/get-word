@@ -15,17 +15,17 @@ const WORDS = [
 ];
 
 describe('TypingChallengeGame', () => {
-  it('calls onResult(true) when exact match is submitted', () => {
+  it('calls onResult(2) when exact match is submitted', () => {
     const onResult = vi.fn();
     render(
       <TypingChallengeGame words={WORDS} role="cz" onResult={onResult} />
     );
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'con chó' } });
     fireEvent.click(screen.getByText('Check'));
-    expect(onResult).toHaveBeenCalledWith(true);
+    expect(onResult).toHaveBeenCalledWith(2);
   });
 
-  it('calls onResult(true) when close match is submitted', () => {
+  it('calls onResult(1) when close match is submitted', () => {
     const onResult = vi.fn();
     render(
       <TypingChallengeGame words={WORDS} role="cz" onResult={onResult} />
@@ -33,17 +33,17 @@ describe('TypingChallengeGame', () => {
     // 'con cho' is close to 'con chó' (missing diacritic)
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'con cho' } });
     fireEvent.click(screen.getByText('Check'));
-    expect(onResult).toHaveBeenCalledWith(true);
+    expect(onResult).toHaveBeenCalledWith(1);
   });
 
-  it('calls onResult(false) when wrong answer is submitted', () => {
+  it('calls onResult(0) when wrong answer is submitted', () => {
     const onResult = vi.fn();
     render(
       <TypingChallengeGame words={WORDS} role="cz" onResult={onResult} />
     );
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'totally wrong' } });
     fireEvent.click(screen.getByText('Check'));
-    expect(onResult).toHaveBeenCalledWith(false);
+    expect(onResult).toHaveBeenCalledWith(0);
   });
 
   it('does not throw when onResult is not provided', () => {

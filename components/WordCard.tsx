@@ -67,8 +67,8 @@ export const WordCard = memo(function WordCard({
     // First time seeing this word: show everything without cover.
     if (isFirstSeen) return false;
     if (lang === 'memory-hook') {
-      if ((progress.knownCount - progress.unknownCount) <= 4) return false;
-      return true;
+      const diff = (progress.knownCount ?? 0) - (progress.unknownCount ?? 0);
+      return diff >= 5;
     }
 
     if (role === 'cz') {

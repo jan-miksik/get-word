@@ -10,15 +10,15 @@ interface Props {
   config: MiniGameConfig;
   role: 'cz' | 'vi';
   onDismiss: () => void;
-  onResult?: (won: boolean) => void;
+  onResult?: (delta: number) => void;
 }
 
 export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
-  const [finished, setFinished] = useState<{ won: boolean } | null>(null);
+  const [finished, setFinished] = useState<{ delta: number } | null>(null);
 
-  const handleResult = (won: boolean) => {
-    onResult?.(won);
-    setFinished({ won });
+  const handleResult = (delta: number) => {
+    onResult?.(delta);
+    setFinished({ delta });
   };
 
   const gameProps = { words: config.words, role, onResult: handleResult };
