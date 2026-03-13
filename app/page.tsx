@@ -9,9 +9,11 @@ import { usePressHandlers } from '@/hooks/usePressHandlers';
 import { getAvailableCategories, STAGES, NormalizedWord, normalizeWords } from '@/lib/words';
 import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-stats';
 import {
-  injectMinigames,
+  computeGameAnchors,
+  composeStream,
   type MiniGameConfig,
   type MinigameFrequencyRange,
+  type GameAnchor,
   DEFAULT_MINIGAME_FREQUENCY,
 } from '@/lib/minigames';
 import { AppLayout } from '@/components/AppLayout';
@@ -100,6 +102,13 @@ export default function Home() {
     localStorage.setItem('wordlink-view-mode', mode);
   };
   const [dismissedGames, setDismissedGames] = useState<Set<string>>(new Set());
+  const stableMinigamePlanRef = useRef<{
+    resetKey: string;
+    configKey: string;
+    originalWords: NormalizedWord[];
+    originalIndexMap: Map<string, number>;
+    anchors: GameAnchor[];
+  } | null>(null);
   const [minigameSeed] = useState<number>(() => {
     if (typeof window === 'undefined') {
       return Math.floor(Math.random() * 1_000_000_000);
@@ -172,6 +181,18 @@ export default function Home() {
     setDismissedGames(new Set());
   }, [selectedCategories]);
 
+  const selectedCategoriesKey = useMemo(() => {
+    return Array.from(selectedCategories).sort().join('|');
+  }, [selectedCategories]);
+
+  const minigamePlanResetKey = useMemo(() => {
+    return `${selectedCategoriesKey}|showNotReady:${showNotReady ? '1' : '0'}`;
+  }, [selectedCategoriesKey, showNotReady]);
+
+  useEffect(() => {
+    stableMinigamePlanRef.current = null;
+  }, [minigamePlanResetKey]);
+
   const statsWords = useMemo(() => {
     return getProgressStatsWords(normalizedWords, selectedCategories);
   }, [normalizedWords, selectedCategories]);
@@ -187,8 +208,13 @@ export default function Home() {
     [filteredWords, progress]
   );
 
-  // Active learning stream: due words first, then new words
-  const combined = useMemo(() => [...dueWords, ...newWords], [dueWords, newWords]);
+  // Active learning stream:
+  // - repeats first (due, optionally "settling in")
+  // - then new words
+  const combined = useMemo(
+    () => [...dueWords, ...(showNotReady ? settlingWords : []), ...newWords],
+    [dueWords, settlingWords, newWords, showNotReady]
+  );
 
   // Build groupedWords for VirtualizedWordList
   const streamGroupedWords = useMemo(() => {
@@ -200,36 +226,67 @@ export default function Home() {
       wordStream = combined;
     } else {
       const { min, max } = minigameFrequency;
-      wordStream = injectMinigames(combined, learnedPool, role, minigameSeed, {
-        minInterval: min,
-        maxInterval: max,
-      });
+      if (combined.length === 0) {
+        wordStream = [];
+      } else {
+        const resetKey = minigamePlanResetKey;
+        const configKey = `${minigameSeed}|${min}|${max}`;
+        const existing = stableMinigamePlanRef.current;
+
+        let plan =
+          existing && existing.resetKey === resetKey
+            ? existing
+            : {
+                resetKey,
+                configKey,
+                originalWords: [...combined],
+                originalIndexMap: new Map(combined.map((w, i) => [w.id, i])),
+                anchors: [] as GameAnchor[],
+              };
+
+        if (plan.configKey !== configKey) {
+          plan.configKey = configKey;
+        }
+
+        for (const w of combined) {
+          if (!plan.originalIndexMap.has(w.id)) {
+            plan.originalIndexMap.set(w.id, plan.originalWords.length);
+            plan.originalWords.push(w);
+          }
+        }
+
+        const anchors = computeGameAnchors(plan.originalWords, learnedPool, minigameSeed, {
+          minInterval: min,
+          maxInterval: max,
+        });
+        plan.anchors = anchors;
+        stableMinigamePlanRef.current = plan;
+
+        const anchorsForCompose =
+          dismissedGames.size > 0 ? anchors.filter((a) => !dismissedGames.has(a.id)) : anchors;
+        wordStream = composeStream(combined, plan.originalIndexMap, anchorsForCompose);
+      }
     }
+    // Note: dismissed games are filtered before composeStream to avoid them
+    // consuming limited insertion slots, but we keep this as a safety net.
     if (dismissedGames.size > 0) {
       wordStream = wordStream.filter(
         (item) => !('_isMinigame' in item) || !dismissedGames.has(item.id)
       );
     }
 
-    const dueCount = dueWords.length;
+    const repeatCount = dueWords.length + (showNotReady ? settlingWords.length : 0);
     let wordsSeen = 0;
     wordStream.forEach(item => {
       if (!('_isMinigame' in item)) wordsSeen++;
-      if (wordsSeen <= dueCount) {
+      if (wordsSeen <= repeatCount) {
         groups[0].push(item);
       } else {
         groups[1].push(item);
       }
     });
-
-    if (showNotReady) {
-      settlingWords.forEach((word) => {
-        const sIdx = Math.max(2, Math.min(progress[word.id]?.stageIndex ?? 2, STAGES.length - 1));
-        groups[sIdx].push(word);
-      });
-    }
     return groups;
-  }, [combined, learnedPool, role, minigameSeed, dueWords.length, settlingWords, showNotReady, progress, isHydrated, minigameFrequency, dismissedGames]);
+  }, [combined, learnedPool, role, minigameSeed, dueWords.length, settlingWords, showNotReady, progress, isHydrated, minigameFrequency, dismissedGames, minigamePlanResetKey]);
 
   // Memoized card renderer — must be before early return
   const renderCard = useCallback((word: NormalizedWord, _stageIndex?: number) => {
@@ -396,10 +453,10 @@ export default function Home() {
                   scrollElement={phrasesScrollElement}
                   emptyMessage="No words to display."
                   stageFooter={(stageIndex) => {
-                    const isLastMainSlot =
-                      (stageIndex === 1 && newWords.length > 0) ||
-                      (stageIndex === 0 && newWords.length === 0);
-                    if (!isLastMainSlot || settlingWords.length === 0) return null;
+                    const repeatsInStream =
+                      dueWords.length + (showNotReady ? settlingWords.length : 0);
+                    const footerStageIndex = repeatsInStream > 0 ? 0 : 1;
+                    if (stageIndex !== footerStageIndex || settlingWords.length === 0) return null;
                     return (
                       <div className="p-4 px-4 text-center border-t border-border-subtle mt-4">
                         <button

@@ -87,11 +87,32 @@ export function computeGameAnchors(
   if (originalWords.length === 0) return [];
 
   const baseSeed = seed;
-  let s = baseSeed;
-  const rand = () => {
-    s = (s * 16807 + 0) % 2147483647;
-    return (s - 1) / 2147483646;
+  const normalizeSeed = (raw: number) => {
+    const mod = 2147483647;
+    const s = Math.floor(raw) % mod;
+    return s <= 0 ? s + (mod - 1) : s;
   };
+
+  const createRng = (rawSeed: number) => {
+    let s = normalizeSeed(rawSeed);
+    return () => {
+      s = (s * 16807) % 2147483647;
+      return (s - 1) / 2147483646;
+    };
+  };
+
+  // Deterministic 32-bit mix to derive independent per-anchor RNG seeds.
+  const mixSeed = (seedA: number, seedB: number) => {
+    let x = (normalizeSeed(seedA) ^ normalizeSeed(seedB)) >>> 0;
+    x ^= x >>> 16;
+    x = Math.imul(x, 0x7feb352d);
+    x ^= x >>> 15;
+    x = Math.imul(x, 0x846ca68b);
+    x ^= x >>> 16;
+    return normalizeSeed(x);
+  };
+
+  const randGap = createRng(baseSeed);
 
   let minInterval = 5;
   let maxInterval = 10;
@@ -102,7 +123,8 @@ export function computeGameAnchors(
     maxInterval = Math.max(minInterval, Math.min(100, Math.floor(maxRaw)));
   }
 
-  const pickGap = () => minInterval + Math.floor(rand() * (maxInterval - minInterval + 1));
+  const pickGap = () =>
+    minInterval + Math.floor(randGap() * (maxInterval - minInterval + 1));
 
   // Phase A — compute anchor positions using ONLY the gap PRNG.
   //
@@ -134,7 +156,7 @@ export function computeGameAnchors(
   let lastSignature: string | null = null;
   const anchors: (GameAnchor | null)[] = [];
 
-  const shuffleWithRand = <T,>(arr: T[]) => {
+  const shuffleWithRand = <T,>(arr: T[], rand: () => number) => {
     const a = [...arr];
     for (let j = a.length - 1; j > 0; j--) {
       const k = Math.floor(rand() * (j + 1));
@@ -162,11 +184,14 @@ export function computeGameAnchors(
       continue;
     }
 
+    const anchorId = `game-${originalWords[i].id}-s${baseSeed}`;
+
     let attempt = 0;
     let chosen: NormalizedWord[] | null = null;
     let sig = '';
     while (attempt < 4) {
-      const shuffled = shuffleWithRand(pool);
+      const randPick = createRng(mixSeed(baseSeed, mixSeed(i + 1, attempt + 1)));
+      const shuffled = shuffleWithRand(pool, randPick);
       const candidate = shuffled.slice(0, 4);
       sig = signatureOf(candidate);
       if (sig !== lastSignature) {
@@ -176,14 +201,15 @@ export function computeGameAnchors(
       attempt += 1;
     }
     if (!chosen) {
-      const fallback = shuffleWithRand(pool).slice(0, 4);
+      const randPick = createRng(mixSeed(baseSeed, mixSeed(i + 1, 999)));
+      const fallback = shuffleWithRand(pool, randPick).slice(0, 4);
       chosen = fallback;
       sig = signatureOf(fallback);
     }
 
     lastSignature = sig;
     anchors.push({
-      id: `game-${originalWords[i].id}-s${baseSeed}`,
+      id: anchorId,
       gameType: GAME_CYCLE[slotIndex % GAME_CYCLE.length],
       words: chosen,
       anchorOriginalIndex: i,
@@ -202,6 +228,7 @@ export function computeGameAnchors(
  * originalIndex ≤ anchor.anchorOriginalIndex and insert the game after it.
  * If no such word exists (all preceding words were removed), the game floats
  * to the top of the stream. This guarantees games never silently disappear.
+ * If currentWords is empty, returns an empty stream (no context to show games).
  *
  * @param currentWords   The currently visible word list (already filtered).
  * @param originalIndexMap  Maps word id → its originalIndex (assigned once, never changes).
@@ -212,6 +239,7 @@ export function composeStream(
   originalIndexMap: Map<string, number>,
   anchors: GameAnchor[],
 ): StreamItem[] {
+  if (currentWords.length === 0) return [];
   if (anchors.length === 0) return [...currentWords];
 
   // Process anchors in ascending position order so multiple games on the
@@ -230,23 +258,48 @@ export function composeStream(
   const insertions = new Map<number, GameAnchor[]>();
   const usedSlots = new Set<number>();
   const maxIndex = wordsWithOrigIdx.length - 1;
+  const totalSlots = currentWords.length + 1; // -1 plus 0..maxIndex
 
   for (const anchor of sortedAnchors) {
+    if (usedSlots.size >= totalSlots) break;
     let insertAfter = -1;
-    // Scan from the right to find the highest remaining word ≤ anchor position.
-    for (let i = wordsWithOrigIdx.length - 1; i >= 0; i--) {
-      if (wordsWithOrigIdx[i].origIdx <= anchor.anchorOriginalIndex) {
-        insertAfter = i;
-        break;
+    // Find the remaining word with the maximum originalIndex that is still ≤
+    // the anchor position ("nearest lower surviving word"), independent of the
+    // currentWords ordering.
+    let bestOrigIdx = Number.NEGATIVE_INFINITY;
+    let bestIdx = -1;
+    for (let i = 0; i < wordsWithOrigIdx.length; i++) {
+      const origIdx = wordsWithOrigIdx[i].origIdx;
+      if (origIdx < 0) continue;
+      if (origIdx <= anchor.anchorOriginalIndex && origIdx >= bestOrigIdx) {
+        bestOrigIdx = origIdx;
+        bestIdx = i;
       }
+    }
+    insertAfter = bestIdx;
+
+    let target = Math.max(-1, Math.min(maxIndex, insertAfter));
+    if (usedSlots.has(target)) {
+      let found = false;
+      for (let t = target + 1; t <= maxIndex; t++) {
+        if (!usedSlots.has(t)) {
+          target = t;
+          found = true;
+          break;
+        }
+      }
+      if (!found) {
+        for (let t = target - 1; t >= -1; t--) {
+          if (!usedSlots.has(t)) {
+            target = t;
+            found = true;
+            break;
+          }
+        }
+      }
+      if (!found) continue;
     }
 
-    let target = insertAfter;
-    if (maxIndex >= 0) {
-      while (usedSlots.has(target) && target < maxIndex) {
-        target += 1;
-      }
-    }
     usedSlots.add(target);
     const list = insertions.get(target) ?? [];
     list.push(anchor);
