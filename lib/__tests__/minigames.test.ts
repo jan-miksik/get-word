@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { matchAnswer, injectMinigames, computeGameAnchors, composeStream } from '../minigames';
+import { matchAnswer, injectMinigames, computeGameAnchors, composeStream, enforceMinigameMinGap } from '../minigames';
 import type { NormalizedWord, } from '../words';
 import type { MiniGameConfig } from '../minigames';
 
@@ -206,5 +206,17 @@ describe('composeStream', () => {
       const gameCount = stream.filter(item => '_isMinigame' in item).length;
       expect(gameCount).toBe(fullGameCount);
     }
+  });
+});
+
+describe('enforceMinigameMinGap', () => {
+  it('never allows back-to-back games and drops trailing games without room', () => {
+    const w = makeWord('w', 'cz', 'vi');
+    const g1: MiniGameConfig = { _isMinigame: true, id: 'g1', gameType: 'typing', words: [w, w, w, w], anchorOriginalIndex: 0 };
+    const g2: MiniGameConfig = { _isMinigame: true, id: 'g2', gameType: 'typing', words: [w, w, w, w], anchorOriginalIndex: 0 };
+    const g3: MiniGameConfig = { _isMinigame: true, id: 'g3', gameType: 'typing', words: [w, w, w, w], anchorOriginalIndex: 0 };
+    const stream = [g1, g2, w, g3];
+    const out = enforceMinigameMinGap(stream, 1);
+    expect(out.map(i => ('_isMinigame' in i ? i.id : i.id))).toEqual(['g1', 'w', 'g2']);
   });
 });

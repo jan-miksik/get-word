@@ -18,7 +18,7 @@ import { VirtualizedWordList } from '@/components/VirtualizedWordList';
 import { useDueTimer } from '@/hooks/useDueTimer';
 import { useAuth } from '@/hooks/useAuth';
 import type { MinigameFrequencyRange } from '@/lib/minigames';
-import { DEFAULT_MINIGAME_FREQUENCY } from '@/lib/minigames';
+import { DEFAULT_MINIGAME_FREQUENCY, sanitizeMinigameFrequency } from '@/lib/minigames';
 import { AppStateProvider } from '@/context/AppStateContext';
 
 export default function EditPage() {
@@ -88,11 +88,11 @@ export default function EditPage() {
       '3-7': { min: 3, max: 7 },
       '5-10': { min: 5, max: 10 },
     };
-    if (legacy[stored]) return legacy[stored];
+    if (legacy[stored]) return sanitizeMinigameFrequency(legacy[stored]);
     try {
       const parsed = JSON.parse(stored) as MinigameFrequencyRange;
       if (parsed === 'off' || (typeof parsed === 'object' && typeof parsed?.min === 'number' && typeof parsed?.max === 'number'))
-        return parsed;
+        return sanitizeMinigameFrequency(parsed);
     } catch {
       // ignore
     }
@@ -109,7 +109,8 @@ export default function EditPage() {
   // Persist minigame frequency preference
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const toStore = minigameFrequency === 'off' ? 'off' : JSON.stringify(minigameFrequency);
+    const safe = sanitizeMinigameFrequency(minigameFrequency);
+    const toStore = safe === 'off' ? 'off' : JSON.stringify(safe);
     window.localStorage.setItem('wordlink-minigame-frequency', toStore);
   }, [minigameFrequency]);
 

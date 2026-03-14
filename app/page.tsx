@@ -12,6 +12,7 @@ import {
   computeGameAnchors,
   composeStream,
   enforceMinigameMinGap,
+  sanitizeMinigameFrequency,
   type MiniGameConfig,
   type MinigameFrequencyRange,
   type GameAnchor,
@@ -153,11 +154,11 @@ export default function Home() {
       '3-7': { min: 3, max: 7 },
       '5-10': { min: 5, max: 10 },
     };
-    if (legacy[stored]) { setMinigameFrequency(legacy[stored]); return; }
+    if (legacy[stored]) { setMinigameFrequency(sanitizeMinigameFrequency(legacy[stored])); return; }
     try {
       const parsed = JSON.parse(stored) as MinigameFrequencyRange;
       if (parsed === 'off' || (typeof parsed === 'object' && typeof parsed?.min === 'number' && typeof parsed?.max === 'number')) {
-        setMinigameFrequency(parsed);
+        setMinigameFrequency(sanitizeMinigameFrequency(parsed));
       }
     } catch {
       // ignore invalid JSON
@@ -167,7 +168,8 @@ export default function Home() {
   // Persist minigame frequency preference
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const toStore = minigameFrequency === 'off' ? 'off' : JSON.stringify(minigameFrequency);
+    const safe = sanitizeMinigameFrequency(minigameFrequency);
+    const toStore = safe === 'off' ? 'off' : JSON.stringify(safe);
     window.localStorage.setItem('wordlink-minigame-frequency', toStore);
   }, [minigameFrequency]);
 

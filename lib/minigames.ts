@@ -7,7 +7,8 @@ export type MinigameFrequencyRange = { min: number; max: number } | 'off';
 
 export const DEFAULT_MINIGAME_FREQUENCY: MinigameFrequencyRange = { min: 1, max: 3 };
 
-export const MINIGAME_FREQUENCY_MIN = 0;
+// Minimum interval of 1 ensures users never see back-to-back minigames.
+export const MINIGAME_FREQUENCY_MIN = 1;
 export const MINIGAME_FREQUENCY_MAX = 10;
 
 export interface MiniGameConfig {
@@ -52,6 +53,17 @@ export interface InjectMinigamesOptions {
    * Must be >= minInterval when provided.
    */
   maxInterval?: number;
+}
+
+export function sanitizeMinigameFrequency(
+  range: MinigameFrequencyRange,
+): MinigameFrequencyRange {
+  if (range === 'off') return 'off';
+  const min = Number.isFinite(range.min) ? Math.floor(range.min) : DEFAULT_MINIGAME_FREQUENCY.min;
+  const max = Number.isFinite(range.max) ? Math.floor(range.max) : DEFAULT_MINIGAME_FREQUENCY.max;
+  const clampedMin = Math.max(MINIGAME_FREQUENCY_MIN, Math.min(MINIGAME_FREQUENCY_MAX, min));
+  const clampedMax = Math.max(clampedMin, Math.min(MINIGAME_FREQUENCY_MAX, max));
+  return { min: clampedMin, max: clampedMax };
 }
 
 /**
@@ -352,8 +364,9 @@ export function composeStream(
  * compress.
  */
 export function enforceMinigameMinGap(stream: StreamItem[], minWordsBetweenGames: number): StreamItem[] {
-  const minGap = Math.max(0, Math.floor(minWordsBetweenGames));
-  if (minGap <= 0) return stream;
+  // Always enforce at least 1 word between games (no back-to-back minigames).
+  const raw = Number.isFinite(minWordsBetweenGames) ? Math.floor(minWordsBetweenGames) : 1;
+  const minGap = Math.max(1, raw);
 
   const out: StreamItem[] = [];
   const pending: MiniGameConfig[] = [];
