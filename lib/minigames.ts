@@ -156,13 +156,20 @@ export function computeGameAnchors(
   let lastSignature: string | null = null;
   const anchors: (GameAnchor | null)[] = [];
 
-  const shuffleWithRand = <T,>(arr: T[], rand: () => number) => {
-    const a = [...arr];
-    for (let j = a.length - 1; j > 0; j--) {
-      const k = Math.floor(rand() * (j + 1));
-      [a[j], a[k]] = [a[k], a[j]];
+  const pickDistinctWords = (pool: NormalizedWord[], rand: () => number): NormalizedWord[] => {
+    // Deterministically pick 4 distinct items without shuffling the whole pool.
+    // This keeps computeGameAnchors O(#anchors) even for large pools (1k–5k words).
+    const n = pool.length;
+    if (n <= 4) return pool.slice(0, 4);
+    const picked = new Set<number>();
+    const out: NormalizedWord[] = [];
+    while (out.length < 4) {
+      const idx = Math.floor(rand() * n);
+      if (picked.has(idx)) continue;
+      picked.add(idx);
+      out.push(pool[idx]);
     }
-    return a;
+    return out;
   };
 
   const signatureOf = (words: NormalizedWord[]) =>
@@ -191,8 +198,7 @@ export function computeGameAnchors(
     let sig = '';
     while (attempt < 4) {
       const randPick = createRng(mixSeed(baseSeed, mixSeed(i + 1, attempt + 1)));
-      const shuffled = shuffleWithRand(pool, randPick);
-      const candidate = shuffled.slice(0, 4);
+      const candidate = pickDistinctWords(pool, randPick);
       sig = signatureOf(candidate);
       if (sig !== lastSignature) {
         chosen = candidate;
@@ -202,7 +208,7 @@ export function computeGameAnchors(
     }
     if (!chosen) {
       const randPick = createRng(mixSeed(baseSeed, mixSeed(i + 1, 999)));
-      const fallback = shuffleWithRand(pool, randPick).slice(0, 4);
+      const fallback = pickDistinctWords(pool, randPick);
       chosen = fallback;
       sig = signatureOf(fallback);
     }
@@ -334,6 +340,54 @@ export function composeStream(
   }
 
   return result;
+}
+
+/**
+ * Enforces a minimum number of word cards between minigames by delaying
+ * too-early games until enough words have been emitted. Any games that cannot
+ * be placed without violating the minimum are dropped.
+ *
+ * This is intended as a UI-level safety net for dynamic queues where words
+ * can disappear (answered) and cause previously well-spaced anchors to
+ * compress.
+ */
+export function enforceMinigameMinGap(stream: StreamItem[], minWordsBetweenGames: number): StreamItem[] {
+  const minGap = Math.max(0, Math.floor(minWordsBetweenGames));
+  if (minGap <= 0) return stream;
+
+  const out: StreamItem[] = [];
+  const pending: MiniGameConfig[] = [];
+
+  // Allow a leading game (no gap requirement before the first game), but enforce
+  // gaps between games thereafter.
+  let wordsSinceLastGame = minGap;
+
+  const flushPendingIfPossible = () => {
+    while (pending.length > 0 && wordsSinceLastGame >= minGap) {
+      const g = pending.shift()!;
+      out.push(g);
+      wordsSinceLastGame = 0;
+    }
+  };
+
+  for (const item of stream) {
+    if ('_isMinigame' in item) {
+      if (wordsSinceLastGame < minGap) {
+        pending.push(item);
+      } else {
+        out.push(item);
+        wordsSinceLastGame = 0;
+      }
+      continue;
+    }
+
+    out.push(item);
+    wordsSinceLastGame += 1;
+    flushPendingIfPossible();
+  }
+
+  // Drop any remaining pending games (would violate min gap at end of stream).
+  return out;
 }
 
 /**

@@ -11,6 +11,7 @@ import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-st
 import {
   computeGameAnchors,
   composeStream,
+  enforceMinigameMinGap,
   type MiniGameConfig,
   type MinigameFrequencyRange,
   type GameAnchor,
@@ -102,13 +103,20 @@ export default function Home() {
     localStorage.setItem('wordlink-view-mode', mode);
   };
   const [dismissedGames, setDismissedGames] = useState<Set<string>>(new Set());
-  const stableMinigamePlanRef = useRef<{
+  type SegmentKind = 'repeat' | 'settling' | 'new';
+  type SegmentPlan = {
     resetKey: string;
     configKey: string;
+    learnedPoolSig: string;
     originalWords: NormalizedWord[];
     originalIndexMap: Map<string, number>;
     anchors: GameAnchor[];
-  } | null>(null);
+  };
+  const stableMinigamePlansRef = useRef<Record<SegmentKind, SegmentPlan | null>>({
+    repeat: null,
+    settling: null,
+    new: null,
+  });
   const [minigameSeed] = useState<number>(() => {
     if (typeof window === 'undefined') {
       return Math.floor(Math.random() * 1_000_000_000);
@@ -185,13 +193,9 @@ export default function Home() {
     return Array.from(selectedCategories).sort().join('|');
   }, [selectedCategories]);
 
-  const minigamePlanResetKey = useMemo(() => {
-    return `${selectedCategoriesKey}|showNotReady:${showNotReady ? '1' : '0'}`;
-  }, [selectedCategoriesKey, showNotReady]);
-
   useEffect(() => {
-    stableMinigamePlanRef.current = null;
-  }, [minigamePlanResetKey]);
+    stableMinigamePlansRef.current = { repeat: null, settling: null, new: null };
+  }, [selectedCategoriesKey]);
 
   const statsWords = useMemo(() => {
     return getProgressStatsWords(normalizedWords, selectedCategories);
@@ -229,42 +233,77 @@ export default function Home() {
       if (combined.length === 0) {
         wordStream = [];
       } else {
-        const resetKey = minigamePlanResetKey;
-        const configKey = `${minigameSeed}|${min}|${max}`;
-        const existing = stableMinigamePlanRef.current;
+        const baseResetKey = selectedCategoriesKey;
+        const learnedPoolSig = `${learnedPool.length}:${learnedPool
+          .slice(0, 12)
+          .map((w) => w.id)
+          .join(',')}`;
 
-        let plan =
-          existing && existing.resetKey === resetKey
-            ? existing
-            : {
-                resetKey,
-                configKey,
-                originalWords: [...combined],
-                originalIndexMap: new Map(combined.map((w, i) => [w.id, i])),
-                anchors: [] as GameAnchor[],
-              };
+        const segmentSeed = (kind: SegmentKind) => {
+          if (kind === 'repeat') return minigameSeed + 0;
+          if (kind === 'settling') return minigameSeed + 10007;
+          return minigameSeed + 20011; // new
+        };
 
-        if (plan.configKey !== configKey) {
-          plan.configKey = configKey;
-        }
+        const injectSegment = (kind: SegmentKind, words: NormalizedWord[]) => {
+          if (words.length === 0) return [] as (NormalizedWord | MiniGameConfig)[];
 
-        for (const w of combined) {
-          if (!plan.originalIndexMap.has(w.id)) {
-            plan.originalIndexMap.set(w.id, plan.originalWords.length);
-            plan.originalWords.push(w);
+          const seed = segmentSeed(kind);
+          const configKey = `${seed}|${min}|${max}`;
+          const resetKey = `${baseResetKey}|${kind}`;
+          const existing = stableMinigamePlansRef.current[kind];
+
+          let plan =
+            existing &&
+            existing.resetKey === resetKey &&
+            existing.configKey === configKey
+              ? existing
+              : {
+                  resetKey,
+                  configKey,
+                  learnedPoolSig,
+                  originalWords: [...words],
+                  originalIndexMap: new Map(words.map((w, i) => [w.id, i])),
+                  anchors: [] as GameAnchor[],
+                };
+
+          let appended = false;
+          for (const w of words) {
+            if (!plan.originalIndexMap.has(w.id)) {
+              plan.originalIndexMap.set(w.id, plan.originalWords.length);
+              plan.originalWords.push(w);
+              appended = true;
+            }
           }
-        }
 
-        const anchors = computeGameAnchors(plan.originalWords, learnedPool, minigameSeed, {
-          minInterval: min,
-          maxInterval: max,
-        });
-        plan.anchors = anchors;
-        stableMinigamePlanRef.current = plan;
+          // Recompute anchors only when needed (segment membership/config/pool changes).
+          if (!existing || plan !== existing || appended || plan.learnedPoolSig !== learnedPoolSig) {
+            plan.learnedPoolSig = learnedPoolSig;
+            plan.anchors = computeGameAnchors(plan.originalWords, learnedPool, seed, {
+              minInterval: min,
+              maxInterval: max,
+            });
+          }
 
-        const anchorsForCompose =
-          dismissedGames.size > 0 ? anchors.filter((a) => !dismissedGames.has(a.id)) : anchors;
-        wordStream = composeStream(combined, plan.originalIndexMap, anchorsForCompose);
+          stableMinigamePlansRef.current[kind] = plan;
+
+          const anchorsForCompose =
+            dismissedGames.size > 0
+              ? plan.anchors.filter((a) => !dismissedGames.has(a.id))
+              : plan.anchors;
+
+          return composeStream(words, plan.originalIndexMap, anchorsForCompose);
+        };
+
+        const repeatWords = dueWords;
+        const settlingVisible = showNotReady ? settlingWords : [];
+        const newOnly = newWords;
+
+        wordStream = [
+          ...injectSegment('repeat', repeatWords),
+          ...injectSegment('settling', settlingVisible),
+          ...injectSegment('new', newOnly),
+        ];
       }
     }
     // Note: dismissed games are filtered before composeStream to avoid them
@@ -273,6 +312,9 @@ export default function Home() {
       wordStream = wordStream.filter(
         (item) => !('_isMinigame' in item) || !dismissedGames.has(item.id)
       );
+    }
+    if (minigameFrequency !== 'off') {
+      wordStream = enforceMinigameMinGap(wordStream, minigameFrequency.min);
     }
 
     const repeatCount = dueWords.length + (showNotReady ? settlingWords.length : 0);
@@ -286,7 +328,7 @@ export default function Home() {
       }
     });
     return groups;
-  }, [combined, learnedPool, role, minigameSeed, dueWords.length, settlingWords, showNotReady, progress, isHydrated, minigameFrequency, dismissedGames, minigamePlanResetKey]);
+  }, [combined, learnedPool, role, minigameSeed, dueWords, settlingWords, newWords, showNotReady, progress, isHydrated, minigameFrequency, dismissedGames, selectedCategoriesKey]);
 
   // Memoized card renderer — must be before early return
   const renderCard = useCallback((word: NormalizedWord, _stageIndex?: number) => {
