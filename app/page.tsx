@@ -12,6 +12,7 @@ import {
   computeGameAnchors,
   composeStream,
   enforceMinigameMinGap,
+  pruneAnchorsForCurrentSize,
   sanitizeMinigameFrequency,
   type MiniGameConfig,
   type MinigameFrequencyRange,
@@ -132,6 +133,10 @@ export default function Home() {
   const lockedDeckCardStateRef = useRef<Map<string, { modeIndex: number; progress: ProgressData }>>(
     new Map()
   );
+  const frozenDeckRef = useRef<{
+    key: string;
+    groups: (NormalizedWord | MiniGameConfig)[][];
+  } | null>(null);
 
   // Minigame seed persisted per device to keep injections stable across refreshes.
 
@@ -294,7 +299,8 @@ export default function Home() {
               ? plan.anchors.filter((a) => !dismissedGames.has(a.id))
               : plan.anchors;
 
-          return composeStream(words, plan.originalIndexMap, anchorsForCompose);
+          const prunedAnchors = pruneAnchorsForCurrentSize(anchorsForCompose, words.length, min);
+          return composeStream(words, plan.originalIndexMap, prunedAnchors);
         };
 
         const repeatWords = dueWords;
@@ -331,6 +337,19 @@ export default function Home() {
     });
     return groups;
   }, [combined, learnedPool, role, minigameSeed, dueWords, settlingWords, newWords, showNotReady, progress, isHydrated, minigameFrequency, dismissedGames, selectedCategoriesKey]);
+
+  // Frozen deck for card mode: snapshot stream once, refresh only on category/view-mode change
+  const deckResetKey = `${selectedCategoriesKey}|${viewMode}`;
+  if (
+    viewMode === 'card' &&
+    (!frozenDeckRef.current || frozenDeckRef.current.key !== deckResetKey)
+  ) {
+    const hasContent = streamGroupedWords.some(g => g.length > 0);
+    if (hasContent) {
+      frozenDeckRef.current = { key: deckResetKey, groups: streamGroupedWords };
+    }
+  }
+  const cardDeckGroups = frozenDeckRef.current?.groups ?? streamGroupedWords;
 
   // Memoized card renderer — must be before early return
   const renderCard = useCallback((word: NormalizedWord, _stageIndex?: number) => {
@@ -477,7 +496,7 @@ export default function Home() {
           {viewMode === 'card' ? (
             <div className="relative flex h-full w-full flex-col max-w-[800px] mx-auto">
               <CardDeckView
-                groupedWords={streamGroupedWords}
+                groupedWords={cardDeckGroups}
                 renderCard={renderCardForDeck}
                 renderMiniGame={renderMiniGameForDeck}
               />

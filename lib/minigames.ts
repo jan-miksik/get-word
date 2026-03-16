@@ -403,6 +403,30 @@ export function enforceMinigameMinGap(stream: StreamItem[], minWordsBetweenGames
 }
 
 /**
+ * Prunes the anchor list so the number of games never exceeds what the
+ * current word count can accommodate at the configured minimum gap.
+ *
+ *   maxGames = floor(currentWordCount / (minGap + 1))
+ *
+ * This prevents anchor over-density when words shrink (e.g. user marks
+ * 7 of 10 due words known — original 6 anchors would pile into 3 words).
+ *
+ * When minGap <= 0, games may be adjacent, so no cap is applied.
+ * When currentWordCount is 0, there is no room for any game.
+ */
+export function pruneAnchorsForCurrentSize(
+  anchors: GameAnchor[],
+  currentWordCount: number,
+  minGap: number,
+): GameAnchor[] {
+  if (currentWordCount === 0) return [];
+  if (minGap <= 0) return anchors;
+  const maxGames = Math.floor(currentWordCount / (minGap + 1));
+  if (anchors.length <= maxGames) return anchors;
+  return anchors.slice(0, Math.max(0, maxGames));
+}
+
+/**
  * Convenience wrapper that combines Phase 1 + Phase 2 for callers that
  * already have the full word list and don't need incremental composition.
  * Kept for backward compatibility with tests.
