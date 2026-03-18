@@ -14,6 +14,7 @@ export function usePreferences(
   const [showAll, setShowAll] = useState(false);
   const [showEnglish, setShowEnglish] = useState(true);
   const [showCategoryBadges, setShowCategoryBadges] = useState(false);
+  const [showPronunciation, setShowPronunciation] = useState(false);
 
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
@@ -34,12 +35,20 @@ export function usePreferences(
     );
   }, [showCategoryBadges, isHydrated]);
 
+  useEffect(() => {
+    if (!isHydrated || isUpdatingFromServerRef.current) return;
+    debouncedSync({ show_pronunciation: showPronunciation }).catch((e) =>
+      console.error('[usePreferences] sync show_pronunciation:', e)
+    );
+  }, [showPronunciation, isHydrated]);
+
   const setRole = useCallback((newRole: Role) => setRoleState(newRole), []);
 
   const applyServerPreferences = useCallback((user: SyncResponse['user']) => {
     if (user.role) setRoleState(user.role);
     setShowEnglish(user.show_english ?? true);
     setShowCategoryBadges(user.show_category_badges ?? false);
+    setShowPronunciation(user.show_pronunciation ?? false);
   }, []);
 
   return {
@@ -51,6 +60,8 @@ export function usePreferences(
     setShowEnglish,
     showCategoryBadges,
     setShowCategoryBadges,
+    showPronunciation,
+    setShowPronunciation,
     applyServerPreferences,
   };
 }

@@ -3,15 +3,25 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SettingsPanel } from '../SettingsPanel';
 
+vi.mock('@/context/AppStateContext', () => ({
+  useAppStateContext: () => ({
+    role: 'cz',
+    setRole: vi.fn(),
+    showEnglish: true,
+    setShowEnglish: vi.fn(),
+    showCategoryBadges: false,
+    setShowCategoryBadges: vi.fn(),
+    showPronunciation: false,
+    setShowPronunciation: vi.fn(),
+    theme: 'default',
+    setTheme: vi.fn(),
+    userId: null,
+    userWalletAddress: null,
+    userEmail: null,
+  }),
+}));
+
 const baseProps = {
-  role: 'cz' as const,
-  onRoleChange: vi.fn(),
-  showEnglish: true,
-  onShowEnglishChange: vi.fn(),
-  showCategoryBadges: false,
-  onShowCategoryBadgesChange: vi.fn(),
-  theme: 'default' as const,
-  onThemeChange: vi.fn(),
   minigameFrequency: { min: 2, max: 4 } as const,
   onMinigameFrequencyChange: vi.fn(),
   isOpen: true,

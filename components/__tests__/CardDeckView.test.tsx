@@ -22,7 +22,7 @@ describe('CardDeckView', () => {
     const renderCard = (word: NormalizedWord, _: number, onComplete: (afterExit?: () => void) => void) => (
       <div>
         <span data-testid={`card-${word.id}`}>{word.id}</span>
-        <button onClick={onComplete}>Complete</button>
+        <button onClick={() => onComplete()}>Complete</button>
       </div>
     );
     render(
@@ -41,7 +41,7 @@ describe('CardDeckView', () => {
     const renderCard = (word: NormalizedWord, _: number, onComplete: (afterExit?: () => void) => void) => (
       <div>
         <span data-testid={`card-${word.id}`}>{word.id}</span>
-        <button onClick={onComplete}>Complete</button>
+        <button onClick={() => onComplete()}>Complete</button>
       </div>
     );
     render(
@@ -92,7 +92,7 @@ describe('CardDeckView', () => {
     const renderCard = (word: NormalizedWord, _: number, onComplete: (afterExit?: () => void) => void) => (
       <div>
         <span>{word.id}</span>
-        <button onClick={onComplete}>Complete</button>
+        <button onClick={() => onComplete()}>Complete</button>
       </div>
     );
     render(

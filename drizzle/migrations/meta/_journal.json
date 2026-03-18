@@ -36,6 +36,13 @@
       "when": 1772266994020,
       "tag": "0004_amazing_iron_monger",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1773878400000,
+      "tag": "0005_add_show_pronunciation",
+      "breakpoints": true
     }
   ]
 }

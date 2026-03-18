@@ -82,13 +82,13 @@ describe('MatchingPairsGame', () => {
     expect(screen.getByText(/All matched/i)).toBeInTheDocument();
   });
 
-  it('calls onResult(true) when all pairs matched', () => {
+  it('calls onResult(+1) when all pairs matched', () => {
     const onResult = vi.fn();
     render(<MatchingPairsGame words={WORDS} role="cz" onResult={onResult} />);
     fireEvent.click(screen.getByText('pes'));      fireEvent.click(screen.getByText('con chó'));
     fireEvent.click(screen.getByText('kočka'));   fireEvent.click(screen.getByText('con mèo'));
     fireEvent.click(screen.getByText('auto'));    fireEvent.click(screen.getByText('xe hơi'));
     fireEvent.click(screen.getByText('voda'));    fireEvent.click(screen.getByText('nước'));
-    expect(onResult).toHaveBeenCalledWith(true);
+    expect(onResult).toHaveBeenCalledWith(1);
   });
 });

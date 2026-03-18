@@ -64,6 +64,7 @@ export default function Home() {
     selectedCategories,
     showEnglish,
     showCategoryBadges,
+    showPronunciation,
     markKnown,
     markReallyKnown,
     markUnknown,
@@ -350,10 +351,11 @@ export default function Home() {
           isMoved={lastMovedId === word.id}
           showEnglish={showEnglish}
           showCategoryBadges={showCategoryBadges}
+          showPronunciation={showPronunciation}
         />
       </div>
     );
-  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges]);
+  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation]);
 
   const renderMiniGame = useCallback((config: MiniGameConfig) => {
     if (dismissedGames.has(config.id)) return null;
@@ -414,12 +416,13 @@ export default function Home() {
             isMoved={false}
             showEnglish={showEnglish}
             showCategoryBadges={showCategoryBadges}
+            showPronunciation={showPronunciation}
             fullscreen
           />
         </div>
       );
     },
-    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, showEnglish, showCategoryBadges]
+    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation]
   );
 
   const renderMiniGameForDeck = useCallback(

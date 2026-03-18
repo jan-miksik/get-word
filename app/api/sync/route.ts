@@ -71,6 +71,7 @@ interface SyncRequest {
   role?: "cz" | "vi";
   show_english?: boolean;
   show_category_badges?: boolean;
+  show_pronunciation?: boolean;
   game_score?: number;
   progress?: Array<{
     word_id: string;
@@ -88,7 +89,17 @@ interface SyncRequest {
 export async function POST(request: NextRequest) {
   try {
     const body: SyncRequest = await request.json();
-    const { deviceId, role, show_english, show_category_badges, game_score, progress, memory_hooks, category_filters } = body;
+    const {
+      deviceId,
+      role,
+      show_english,
+      show_category_badges,
+      show_pronunciation,
+      game_score,
+      progress,
+      memory_hooks,
+      category_filters,
+    } = body;
     const userId = body.userId as string | undefined; // Optional: fallback user ID from client
 
     if (!deviceId && !userId) {
@@ -114,8 +125,18 @@ export async function POST(request: NextRequest) {
     }
 
     // Update display preferences + game score if provided
-    if (show_english !== undefined || show_category_badges !== undefined || game_score !== undefined) {
-      const updated = await updateUserPreferences(user.id, { show_english, show_category_badges, game_score });
+    if (
+      show_english !== undefined ||
+      show_category_badges !== undefined ||
+      show_pronunciation !== undefined ||
+      game_score !== undefined
+    ) {
+      const updated = await updateUserPreferences(user.id, {
+        show_english,
+        show_category_badges,
+        show_pronunciation,
+        game_score,
+      });
       if (updated) user = updated;
     }
 
@@ -168,6 +189,7 @@ export async function POST(request: NextRequest) {
         user_role: user.userRole,
         show_english: user.showEnglish ?? true,
         show_category_badges: user.showCategoryBadges ?? false,
+        show_pronunciation: user.showPronunciation ?? false,
         wallet_address: user.walletAddress ?? null,
         email: user.email ?? null,
         auth_provider: user.authProvider ?? null,
@@ -240,6 +262,7 @@ export async function GET(request: NextRequest) {
         user_role: user.userRole,
         show_english: user.showEnglish ?? true,
         show_category_badges: user.showCategoryBadges ?? false,
+        show_pronunciation: user.showPronunciation ?? false,
         wallet_address: user.walletAddress ?? null,
         email: user.email ?? null,
         auth_provider: user.authProvider ?? null,

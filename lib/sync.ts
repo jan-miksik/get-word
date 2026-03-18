@@ -38,6 +38,7 @@ export interface SyncResponse {
     user_role?: "user" | "editor";
     show_english?: boolean;
     show_category_badges?: boolean;
+    show_pronunciation?: boolean;
     wallet_address?: string | null;
     email?: string | null;
     auth_provider?: string | null;
@@ -135,6 +136,7 @@ export async function syncUserData(data: {
   role?: "cz" | "vi";
   show_english?: boolean;
   show_category_badges?: boolean;
+  show_pronunciation?: boolean;
   game_score?: number;
   progress?: SyncProgressItem[];
   memory_hooks?: Record<string, string | null>;

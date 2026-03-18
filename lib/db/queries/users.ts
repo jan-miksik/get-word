@@ -80,13 +80,25 @@ export async function updateUserRole(
 // Update user display preferences (show_english, show_category_badges, game_score)
 export async function updateUserPreferences(
   userId: string,
-  prefs: { show_english?: boolean; show_category_badges?: boolean; game_score?: number }
+  prefs: {
+    show_english?: boolean;
+    show_category_badges?: boolean;
+    show_pronunciation?: boolean;
+    game_score?: number;
+  }
 ): Promise<User | null> {
-  const updates: { showEnglish?: boolean; showCategoryBadges?: boolean; gameScore?: number; updatedAt: Date } = {
+  const updates: {
+    showEnglish?: boolean;
+    showCategoryBadges?: boolean;
+    showPronunciation?: boolean;
+    gameScore?: number;
+    updatedAt: Date;
+  } = {
     updatedAt: new Date(),
   };
   if (prefs.show_english !== undefined) updates.showEnglish = prefs.show_english;
   if (prefs.show_category_badges !== undefined) updates.showCategoryBadges = prefs.show_category_badges;
+  if (prefs.show_pronunciation !== undefined) updates.showPronunciation = prefs.show_pronunciation;
   if (prefs.game_score !== undefined) updates.gameScore = Math.max(0, Math.floor(prefs.game_score));
   if (Object.keys(updates).length === 1) return getUserById(userId);
   const results = await db

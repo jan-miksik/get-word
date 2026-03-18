@@ -21,6 +21,7 @@ interface WordCardProps {
   onCategoryToggle?: (category: string) => void;
   showEnglish?: boolean;
   showCategoryBadges?: boolean;
+  showPronunciation?: boolean;
   fullscreen?: boolean;
 }
 
@@ -41,6 +42,7 @@ export const WordCard = memo(function WordCard({
   onCategoryToggle,
   showEnglish = true,
   showCategoryBadges = false,
+  showPronunciation = false,
   fullscreen = false,
 }: WordCardProps) {
   const [editingHook, setEditingHook] = useState(false);
@@ -216,7 +218,7 @@ export const WordCard = memo(function WordCard({
             >
               <span className="lang-text inline-block relative min-h-[1.4em]">
                 <span>{word.cz}</span>
-                {word.czPron && shouldShowPron('cz') && (
+                {showPronunciation && word.czPron && shouldShowPron('cz') && (
                   <span className="text-[1.1rem] sm:text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.czPron}</span>
                 )}
               </span>
@@ -249,7 +251,7 @@ className={`cover-target relative cursor-pointer touch-manipulation select-none 
             >
               <span className="lang-text inline-block relative min-h-[1.4em]">
                 <span>{word.vi}</span>
-                {word.viPron && shouldShowPron('vi') && (
+                {showPronunciation && word.viPron && shouldShowPron('vi') && (
                   <span className="text-[1.1rem] sm:text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.viPron}</span>
                 )}
               </span>

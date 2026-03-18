@@ -16,24 +16,24 @@ const WORDS = [
 ];
 
 describe('MultipleChoiceGame', () => {
-  it('calls onResult(true) when the correct option is selected', () => {
+  it('calls onResult(+1) when the correct option is selected', () => {
     const onResult = vi.fn();
     render(
       <MultipleChoiceGame words={WORDS} role="cz" onResult={onResult} />
     );
     // role=cz: prompt=pes, correct answer=con chó
     fireEvent.click(screen.getByText('con chó'));
-    expect(onResult).toHaveBeenCalledWith(true);
+    expect(onResult).toHaveBeenCalledWith(1);
   });
 
-  it('calls onResult(false) when a wrong option is selected', () => {
+  it('calls onResult(-1) when a wrong option is selected', () => {
     const onResult = vi.fn();
     render(
       <MultipleChoiceGame words={WORDS} role="cz" onResult={onResult} />
     );
     // role=cz: prompt=pes, wrong answer=con mèo
     fireEvent.click(screen.getByText('con mèo'));
-    expect(onResult).toHaveBeenCalledWith(false);
+    expect(onResult).toHaveBeenCalledWith(-1);
   });
 
   it('does not throw when onResult is not provided', () => {

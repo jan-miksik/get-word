@@ -1,67 +1,66 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, type ReactNode } from 'react';
 import type { MinigameFrequencyRange } from '@/lib/minigames';
 import { MINIGAME_FREQUENCY_MIN, MINIGAME_FREQUENCY_MAX } from '@/lib/minigames';
 import { useAppStateContext } from '@/context/AppStateContext';
 
-function MinigameFrequencySlider({
-  min,
-  max,
+function ToggleSwitch({
+  checked,
   onChange,
+  ariaLabel,
 }: {
-  min: number;
-  max: number;
-  onChange: (min: number, max: number) => void;
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  ariaLabel: string;
 }) {
-  const clamp = useCallback(
-    (v: number) => Math.max(MINIGAME_FREQUENCY_MIN, Math.min(MINIGAME_FREQUENCY_MAX, v)),
-    []
-  );
   return (
-    <div className="minigame-frequency-slider relative flex items-center gap-2">
-      <div className="flex-1 relative h-6 flex items-center">
-        <input
-          type="range"
-          min={MINIGAME_FREQUENCY_MIN}
-          max={MINIGAME_FREQUENCY_MAX}
-          value={min}
-          onChange={(e) => {
-            const nextMin = clamp(parseInt(e.target.value, 10));
-            onChange(nextMin, Math.max(nextMin, max));
-          }}
-          className="absolute w-full h-2 appearance-none bg-border-subtle rounded-full accent-accent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-moz-range-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:cursor-grab [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-grab"
-          aria-label="Minimum cards between games"
-        />
-        <input
-          type="range"
-          min={MINIGAME_FREQUENCY_MIN}
-          max={MINIGAME_FREQUENCY_MAX}
-          value={max}
-          onChange={(e) => {
-            const nextMax = clamp(parseInt(e.target.value, 10));
-            onChange(Math.min(nextMax, min), nextMax);
-          }}
-          className="absolute w-full h-2 appearance-none bg-transparent rounded-full accent-accent pointer-events-none [&::-webkit-slider-thumb]:pointer-events-auto [&::-moz-range-thumb]:pointer-events-auto [&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:cursor-grab [&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:border-0 [&::-moz-range-thumb]:cursor-grab z-10"
-          aria-label="Maximum cards between games"
-        />
-      </div>
-      <span className="tabular-nums text-text text-[0.75rem] w-8 shrink-0">
-        {min}–{max}
-      </span>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={ariaLabel}
+      onClick={() => onChange(!checked)}
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${
+        checked ? 'bg-accent' : 'bg-white/20'
+      }`}
+    >
+      <span
+        className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform duration-200 ${
+          checked ? 'translate-x-[22px]' : 'translate-x-[2px]'
+        }`}
+      />
+    </button>
+  );
+}
+
+function Section({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="rounded-xl border border-border-subtle bg-background-elevated/50 p-4 flex flex-col gap-3">
+      <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft/70">
+        {label}
+      </p>
+      {children}
     </div>
   );
 }
 
+const sliderClass = [
+  'w-full appearance-none cursor-pointer outline-none bg-transparent',
+  '[&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-white/20',
+  '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:border-none [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:-mt-[5px] [&::-webkit-slider-thumb]:shadow',
+  '[&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-white/20',
+  '[&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:cursor-pointer',
+  'focus-visible:outline-none',
+].join(' ');
+
 interface SettingsPanelProps {
-  // Page-level concerns (not in context)
   minigameFrequency: MinigameFrequencyRange;
   onMinigameFrequencyChange: (value: MinigameFrequencyRange) => void;
   viewMode: 'card' | 'stream';
   onViewModeChange: (mode: 'card' | 'stream') => void;
   isOpen: boolean;
   onClose?: () => void;
-  // Auth (from useAuth, not useAppState)
   isAuthenticated?: boolean;
   authEmail?: string;
   authAddress?: string;
@@ -82,17 +81,42 @@ export function SettingsPanel({
 }: SettingsPanelProps) {
   const {
     role,
-    setRole: onRoleChange,
+    setRole,
     showEnglish,
-    setShowEnglish: onShowEnglishChange,
+    setShowEnglish,
     showCategoryBadges,
-    setShowCategoryBadges: onShowCategoryBadgesChange,
+    setShowCategoryBadges,
+    showPronunciation,
+    setShowPronunciation,
     theme,
-    setTheme: onThemeChange,
+    setTheme,
     userId,
     userWalletAddress,
     userEmail,
   } = useAppStateContext();
+
+  const minFreq = minigameFrequency !== 'off' ? minigameFrequency.min : 1;
+  const maxFreq = minigameFrequency !== 'off' ? minigameFrequency.max : 3;
+
+  const handleMinChange = useCallback(
+    (value: number) => {
+      if (minigameFrequency === 'off') return;
+      const next = Math.max(MINIGAME_FREQUENCY_MIN, Math.min(minigameFrequency.max, value));
+      onMinigameFrequencyChange({ min: next, max: minigameFrequency.max });
+    },
+    [minigameFrequency, onMinigameFrequencyChange]
+  );
+
+  const handleMaxChange = useCallback(
+    (value: number) => {
+      if (minigameFrequency === 'off') return;
+      const next = Math.max(minigameFrequency.min, Math.min(MINIGAME_FREQUENCY_MAX, value));
+      onMinigameFrequencyChange({ min: minigameFrequency.min, max: next });
+    },
+    [minigameFrequency, onMinigameFrequencyChange]
+  );
+
+  const displayAddress = authAddress || userWalletAddress;
 
   return (
     <section
@@ -101,216 +125,251 @@ export function SettingsPanel({
       onClick={(e) => e.stopPropagation()}
     >
       {isOpen && onClose && (
-        <div
-          className="panel-backdrop"
-          onClick={onClose}
-          aria-hidden
-        />
+        <div className="panel-backdrop" onClick={onClose} aria-hidden />
       )}
       <div className="panel-content">
-      <div className="flex flex-col gap-1 text-[0.8rem]">
-        <div className="relative">
-          {onClose && (
-            <button
-              onClick={onClose}
-              className="absolute top-0 right-0 bg-transparent border-none text-xl text-text-soft cursor-pointer p-1 leading-none flex items-center justify-center w-6 h-6 rounded-md transition-all hover:bg-background-elevated hover:text-text"
-              aria-label="Close settings"
-            >
-              ×
-            </button>
-          )}
-          <p className="m-0 mb-1 text-[0.78rem] text-text-soft">Who are you?</p>
-        </div>
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <input
-            type="radio"
-            className="accent-accent"
-            name="learner-role"
-            value="cz"
-            checked={role === 'cz'}
-            onChange={() => onRoleChange('cz')}
-          />
-          <span>I am Czech</span>
-        </label>
-        <label className="flex items-center gap-1.5 cursor-pointer">
-          <input
-            type="radio"
-            className="accent-accent"
-            name="learner-role"
-            value="vi"
-            checked={role === 'vi'}
-            onChange={() => onRoleChange('vi')}
-          />
-          <span>I am Vietnamese</span>
-        </label>
+        <div className="p-5 sm:p-6 flex flex-col gap-4">
 
-        {/* Theme Section */}
-        <div className="mt-6 pt-6 border-t border-border-subtle">
-          <p className="m-0 mb-1 text-[0.78rem] text-text-soft mb-3">Theme</p>
-          <div className="flex gap-2">
-            <button
-              onClick={() => onThemeChange('default')}
-              className={`theme-option ${theme === 'default' ? 'is-selected' : ''}`}
-              aria-label="Default dark theme"
-            >
-              <span className="theme-preview theme-preview-default" />
-              <span className={`text-[0.7rem] font-medium ${theme === 'default' ? 'text-accent' : 'text-text-soft'}`}>Dark</span>
-            </button>
-            <button
-              onClick={() => onThemeChange('warm')}
-              className={`theme-option ${theme === 'warm' ? 'is-selected' : ''}`}
-              aria-label="Warm light theme"
-            >
-              <span className="theme-preview theme-preview-warm" />
-              <span className={`text-[0.7rem] font-medium ${theme === 'warm' ? 'text-accent' : 'text-text-soft'}`}>Warm</span>
-            </button>
-            <button
-              onClick={() => onThemeChange('calm')}
-              className={`theme-option ${theme === 'calm' ? 'is-selected' : ''}`}
-              aria-label="Calm blue theme"
-            >
-              <span className="theme-preview theme-preview-calm" />
-              <span className={`text-[0.7rem] font-medium ${theme === 'calm' ? 'text-accent' : 'text-text-soft'}`}>Calm</span>
-            </button>
-          </div>
-        </div>
-
-        {/* Display Options Section */}
-        <div className="mt-6 pt-6 border-t border-border-subtle">
-          <p className="m-0 mb-1 text-[0.78rem] text-text-soft mb-3">Display Options</p>
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showEnglish}
-              onChange={(e) => onShowEnglishChange(e.target.checked)}
-            />
-            <span>Show English</span>
-          </label>
-          <label className="flex items-center gap-1.5 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={showCategoryBadges}
-              onChange={(e) => onShowCategoryBadgesChange(e.target.checked)}
-            />
-            <span>Show Category Badges</span>
-          </label>
-        </div>
-
-        {/* Minigames Section */}
-        <div className="mt-6 pt-6 border-t border-border-subtle">
-          <p className="m-0 mb-1 text-[0.78rem] text-text-soft mb-3">Mini-games</p>
-          <div className="flex flex-col gap-3 text-xs text-text-soft">
-            <label className="flex items-center gap-1.5 cursor-pointer">
-              <input
-                type="checkbox"
-                checked={minigameFrequency !== 'off'}
-                onChange={(e) =>
-                  onMinigameFrequencyChange(e.target.checked ? { min: 1, max: 3 } : 'off')
-                }
-                className="accent-accent rounded"
-              />
-              <span>Show mini-games in the stream</span>
-            </label>
-            {minigameFrequency !== 'off' && (
-              <div className="pl-0 flex flex-col gap-2">
-                <MinigameFrequencySlider
-                  min={minigameFrequency.min}
-                  max={minigameFrequency.max}
-                  onChange={(min, max) => onMinigameFrequencyChange({ min, max })}
-                />
-                <p className="m-0 text-[0.7rem] text-text-soft">
-                  {minigameFrequency.min} – {minigameFrequency.max} word cards between games
-                </p>
-              </div>
+          {/* Header */}
+          <div className="relative flex items-center min-h-8">
+            <h2 className="m-0 text-base font-semibold text-text">Settings</h2>
+            {onClose && (
+              <button
+                type="button"
+                onClick={onClose}
+                className="absolute right-0 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-lg bg-transparent border-none text-xl text-text-soft cursor-pointer leading-none transition-all hover:bg-background-elevated hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+                aria-label="Close settings"
+              >
+                ×
+              </button>
             )}
           </div>
-        </div>
 
-        {/* View Mode */}
-        <div className="mt-6 pt-6 border-t border-border-subtle">
-          <div className="flex items-center justify-between py-2">
-            <span className="text-[0.78rem] text-text-soft">View mode</span>
-            <div className="flex items-center gap-2">
-              <span className="text-[0.78rem] text-text-soft">
-                {viewMode === 'card' ? 'Card' : 'Stream'}
-              </span>
+          {/* Display */}
+          <Section label="Display">
+            <div className="flex items-center justify-between py-0.5">
+              <span className="text-sm text-text">Show English</span>
+              <ToggleSwitch
+                checked={showEnglish}
+                onChange={setShowEnglish}
+                ariaLabel="Show English"
+              />
+            </div>
+            <div className="flex items-center justify-between py-0.5">
+              <span className="text-sm text-text">Category badges</span>
+              <ToggleSwitch
+                checked={showCategoryBadges}
+                onChange={setShowCategoryBadges}
+                ariaLabel="Show category badges"
+              />
+            </div>
+            <div className="flex items-center justify-between py-0.5">
+              <span className="text-sm text-text">Show pronunciation</span>
+              <ToggleSwitch
+                checked={showPronunciation}
+                onChange={setShowPronunciation}
+                ariaLabel="Show pronunciation"
+              />
+            </div>
+          </Section>
+
+          {/* Language */}
+          <Section label="I want to learn">
+            <div className="flex gap-2">
               <button
+                type="button"
+                onClick={() => setRole('cz')}
+                className={`flex-1 py-2.5 text-sm font-medium rounded-xl border-2 bg-transparent cursor-pointer transition-all duration-150 ${
+                  role === 'cz'
+                    ? 'border-accent bg-accent-soft text-accent'
+                    : 'border-border-subtle text-text-soft hover:border-accent/50 hover:text-text'
+                }`}
+              >
+                🇻🇳 Vietnamese
+              </button>
+              <button
+                type="button"
+                onClick={() => setRole('vi')}
+                className={`flex-1 py-2.5 text-sm font-medium rounded-xl border-2 bg-transparent cursor-pointer transition-all duration-150 ${
+                  role === 'vi'
+                    ? 'border-accent bg-accent-soft text-accent'
+                    : 'border-border-subtle text-text-soft hover:border-accent/50 hover:text-text'
+                }`}
+              >
+                🇨🇿 Czech
+              </button>
+            </div>
+          </Section>
+
+          {/* Mini-games */}
+          <Section label="Mini-games">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-text">Show in stream</span>
+              <ToggleSwitch
+                checked={minigameFrequency !== 'off'}
+                onChange={(on) => onMinigameFrequencyChange(on ? { min: 1, max: 3 } : 'off')}
+                ariaLabel="Enable mini-games"
+              />
+            </div>
+            {minigameFrequency !== 'off' && (
+              <div className="flex flex-col gap-3 pt-1">
+                <p className="m-0 text-xs text-text-soft">Cards between games</p>
+                <div className="flex flex-col gap-2">
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-text-soft w-6 shrink-0">Min</span>
+                    <input
+                      type="range"
+                      min={MINIGAME_FREQUENCY_MIN}
+                      max={MINIGAME_FREQUENCY_MAX}
+                      value={minFreq}
+                      onChange={(e) => handleMinChange(Number(e.target.value))}
+                      className={sliderClass}
+                      aria-label="Minimum cards between games"
+                    />
+                    <span className="w-5 text-center text-sm font-medium tabular-nums text-text shrink-0">
+                      {minFreq}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-text-soft w-6 shrink-0">Max</span>
+                    <input
+                      type="range"
+                      min={MINIGAME_FREQUENCY_MIN}
+                      max={MINIGAME_FREQUENCY_MAX}
+                      value={maxFreq}
+                      onChange={(e) => handleMaxChange(Number(e.target.value))}
+                      className={sliderClass}
+                      aria-label="Maximum cards between games"
+                    />
+                    <span className="w-5 text-center text-sm font-medium tabular-nums text-text shrink-0">
+                      {maxFreq}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </Section>
+
+          {/* View Mode */}
+          <Section label="View">
+            <div className="flex items-center justify-between">
+              <span className="text-sm text-text">View mode</span>
+              <button
+                type="button"
                 role="switch"
                 aria-checked={viewMode === 'stream'}
                 aria-label="view mode"
                 onClick={() => onViewModeChange(viewMode === 'card' ? 'stream' : 'card')}
-                className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors ${
-                  viewMode === 'stream' ? 'bg-accent' : 'bg-border-subtle'
-                }`}
+                className="flex items-center rounded-xl bg-background border border-border-subtle p-1 gap-0.5 cursor-pointer"
               >
                 <span
-                  className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                    viewMode === 'stream' ? 'translate-x-[18px]' : 'translate-x-[3px]'
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 ${
+                    viewMode === 'card' ? 'bg-accent text-white shadow-sm' : 'text-text-soft'
                   }`}
-                />
+                >
+                  Card
+                </span>
+                <span
+                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 ${
+                    viewMode === 'stream' ? 'bg-accent text-white shadow-sm' : 'text-text-soft'
+                  }`}
+                >
+                  Stream
+                </span>
               </button>
             </div>
-          </div>
-        </div>
+          </Section>
 
-        {/* Account Section */}
-        <div className="mt-6 pt-6 border-t border-border-subtle">
-          <p className="m-0 text-[0.78rem] text-text-soft mb-2">Account</p>
-          {isAuthenticated ? (
-            <div className="flex flex-col gap-2">
-              {authEmail && (
-                <code className="block text-xs text-text-soft break-all font-mono">
-                  {authEmail}
-                </code>
-              )}
-              {(authAddress || userWalletAddress) && (
-                <code className="block text-xs text-text-soft break-all font-mono">
-                  {authAddress || userWalletAddress}
-                </code>
-              )}
-              {!authEmail && !authAddress && !userWalletAddress && (
-                <code className="block text-xs text-text-soft break-all font-mono">
-                  Connected
-                </code>
-              )}
-              {onSignOut && (
+          {/* Theme */}
+          <Section label="Theme">
+            <div className="flex gap-2">
+              {([
+                { id: 'default', label: 'Dark', bg: 'linear-gradient(135deg, #060a18 60%, #0d1626)', dot: '#38bdf8' },
+                { id: 'warm', label: 'Warm', bg: 'linear-gradient(135deg, #FBF8F2 60%, #F0EBE1)', dot: '#E66F2D' },
+                { id: 'calm', label: 'Calm', bg: 'linear-gradient(135deg, #F0F4F8 60%, #E2EBF4)', dot: '#5B8FB9' },
+              ] as const).map(({ id, label, bg, dot }) => (
                 <button
-                  onClick={onSignOut}
-                  className="text-xs text-text-soft underline cursor-pointer bg-transparent border-none p-0 text-left hover:text-text"
+                  key={id}
+                  type="button"
+                  onClick={() => setTheme(id)}
+                  aria-label={`${label} theme`}
+                  className={`flex-1 flex flex-col items-center gap-1.5 p-2 rounded-xl border-2 bg-transparent cursor-pointer transition-all duration-150 ${
+                    theme === id ? 'border-accent' : 'border-border-subtle hover:border-accent/40'
+                  }`}
                 >
-                  Sign out
+                  <div
+                    className="w-full rounded-lg overflow-hidden flex items-end p-1.5"
+                    style={{ background: bg, aspectRatio: '4/3' }}
+                  >
+                    <div className="h-1 rounded-full w-1/2" style={{ background: dot }} />
+                  </div>
+                  <span
+                    className={`text-[0.7rem] font-semibold ${
+                      theme === id ? 'text-accent' : 'text-text-soft'
+                    }`}
+                  >
+                    {label}
+                  </span>
                 </button>
-              )}
+              ))}
             </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              <p className="text-xs text-text-soft">Not signed in</p>
-              {(userEmail || userWalletAddress) && (
-                <>
-                  {userEmail && (
-                    <code className="block text-xs text-text-soft break-all font-mono">
-                      {userEmail}
-                    </code>
-                  )}
-                  {userWalletAddress && (
-                    <code className="block text-xs text-text-soft break-all font-mono">
-                      {userWalletAddress}
-                    </code>
-                  )}
-                </>
-              )}
-            </div>
-          )}
-        </div>
+          </Section>
 
-        {/* User ID */}
-        <div className="mt-6 pt-6 border-t border-border-subtle">
-          <p className="m-0 mb-1 text-[0.78rem] text-text-soft mb-2">User ID</p>
-          <code className="block text-xs text-text-soft break-all font-mono">
-            {userId || '—'}
-          </code>
+          {/* Account */}
+          <div className="border-t border-border-subtle pt-4 flex flex-col gap-2">
+            <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft/70">
+              Account
+            </p>
+            {isAuthenticated ? (
+              <div className="flex flex-col gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="w-2 h-2 rounded-full bg-done shrink-0" />
+                  {authEmail ? (
+                    <code className="text-xs text-text-soft truncate font-mono">{authEmail}</code>
+                  ) : displayAddress ? (
+                    <code className="text-xs text-text-soft font-mono">
+                      {displayAddress.slice(0, 8)}…{displayAddress.slice(-6)}
+                    </code>
+                  ) : (
+                    <span className="text-xs text-text-soft">Connected</span>
+                  )}
+                </div>
+                {authEmail && displayAddress && (
+                  <code className="text-xs text-text-soft/60 font-mono">
+                    {displayAddress.slice(0, 8)}…{displayAddress.slice(-6)}
+                  </code>
+                )}
+                {onSignOut && (
+                  <button
+                    type="button"
+                    onClick={onSignOut}
+                    className="self-start text-xs text-text-soft/70 underline cursor-pointer bg-transparent border-none p-0 text-left hover:text-text"
+                  >
+                    Sign out
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1">
+                <span className="text-xs text-text-soft">Not signed in</span>
+                {userEmail && (
+                  <code className="text-xs text-text-soft/60 font-mono break-all">{userEmail}</code>
+                )}
+                {userWalletAddress && (
+                  <code className="text-xs text-text-soft/60 font-mono">
+                    {userWalletAddress.slice(0, 8)}…{userWalletAddress.slice(-6)}
+                  </code>
+                )}
+              </div>
+            )}
+            {userId && (
+              <code className="text-[0.6rem] text-text-soft/40 font-mono break-all mt-1">
+                {userId}
+              </code>
+            )}
+          </div>
+
         </div>
-      </div>
       </div>
     </section>
   );
