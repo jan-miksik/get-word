@@ -12,6 +12,8 @@ import {
   computeGameAnchors,
   composeStream,
   enforceMinigameMinGap,
+  pruneAnchorsForCurrentSize,
+  sanitizeMinigameFrequency,
   type MiniGameConfig,
   type MinigameFrequencyRange,
   type GameAnchor,
@@ -132,6 +134,10 @@ export default function Home() {
   const lockedDeckCardStateRef = useRef<Map<string, { modeIndex: number; progress: ProgressData }>>(
     new Map()
   );
+  const frozenDeckRef = useRef<{
+    key: string;
+    groups: (NormalizedWord | MiniGameConfig)[][];
+  } | null>(null);
 
   // Minigame seed persisted per device to keep injections stable across refreshes.
 
@@ -154,11 +160,11 @@ export default function Home() {
       '3-7': { min: 3, max: 7 },
       '5-10': { min: 5, max: 10 },
     };
-    if (legacy[stored]) { setMinigameFrequency(legacy[stored]); return; }
+    if (legacy[stored]) { setMinigameFrequency(sanitizeMinigameFrequency(legacy[stored])); return; }
     try {
       const parsed = JSON.parse(stored) as MinigameFrequencyRange;
       if (parsed === 'off' || (typeof parsed === 'object' && typeof parsed?.min === 'number' && typeof parsed?.max === 'number')) {
-        setMinigameFrequency(parsed);
+        setMinigameFrequency(sanitizeMinigameFrequency(parsed));
       }
     } catch {
       // ignore invalid JSON
@@ -168,7 +174,8 @@ export default function Home() {
   // Persist minigame frequency preference
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const toStore = minigameFrequency === 'off' ? 'off' : JSON.stringify(minigameFrequency);
+    const safe = sanitizeMinigameFrequency(minigameFrequency);
+    const toStore = safe === 'off' ? 'off' : JSON.stringify(safe);
     window.localStorage.setItem('wordlink-minigame-frequency', toStore);
   }, [minigameFrequency]);
 
@@ -311,7 +318,8 @@ export default function Home() {
               ? windowedAnchors.filter((a) => !dismissedGames.has(a.id))
               : windowedAnchors;
 
-          return composeStream(words, plan.originalIndexMap, anchorsForCompose);
+          const prunedAnchors = pruneAnchorsForCurrentSize(anchorsForCompose, words.length, min);
+          return composeStream(words, plan.originalIndexMap, prunedAnchors);
         };
 
         const repeatWords = dueWords;
@@ -348,6 +356,19 @@ export default function Home() {
     });
     return groups;
   }, [combined, learnedPool, role, minigameSeed, dueWords, settlingWords, newWords, showNotReady, progress, isHydrated, minigameFrequency, dismissedGames, selectedCategoriesKey]);
+
+  // Frozen deck for card mode: snapshot stream once, refresh only on category/view-mode change
+  const deckResetKey = `${selectedCategoriesKey}|${viewMode}`;
+  if (
+    viewMode === 'card' &&
+    (!frozenDeckRef.current || frozenDeckRef.current.key !== deckResetKey)
+  ) {
+    const hasContent = streamGroupedWords.some(g => g.length > 0);
+    if (hasContent) {
+      frozenDeckRef.current = { key: deckResetKey, groups: streamGroupedWords };
+    }
+  }
+  const cardDeckGroups = frozenDeckRef.current?.groups ?? streamGroupedWords;
 
   // Memoized card renderer — must be before early return
   const renderCard = useCallback((word: NormalizedWord, _stageIndex?: number) => {
@@ -496,7 +517,7 @@ export default function Home() {
           {viewMode === 'card' ? (
             <div className="relative flex h-full w-full flex-col max-w-[800px] mx-auto">
               <CardDeckView
-                groupedWords={streamGroupedWords}
+                groupedWords={cardDeckGroups}
                 renderCard={renderCardForDeck}
                 renderMiniGame={renderMiniGameForDeck}
               />

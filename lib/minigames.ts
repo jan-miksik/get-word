@@ -54,6 +54,17 @@ export interface InjectMinigamesOptions {
   maxInterval?: number;
 }
 
+export function sanitizeMinigameFrequency(
+  range: MinigameFrequencyRange,
+): MinigameFrequencyRange {
+  if (range === 'off') return 'off';
+  const min = Number.isFinite(range.min) ? Math.floor(range.min) : DEFAULT_MINIGAME_FREQUENCY.min;
+  const max = Number.isFinite(range.max) ? Math.floor(range.max) : DEFAULT_MINIGAME_FREQUENCY.max;
+  const clampedMin = Math.max(MINIGAME_FREQUENCY_MIN, Math.min(MINIGAME_FREQUENCY_MAX, min));
+  const clampedMax = Math.max(clampedMin, Math.min(MINIGAME_FREQUENCY_MAX, max));
+  return { min: clampedMin, max: clampedMax };
+}
+
 /**
  * A stable game anchor computed from the original word list.
  * anchorOriginalIndex never changes, so the game can always find
@@ -352,7 +363,8 @@ export function composeStream(
  * compress.
  */
 export function enforceMinigameMinGap(stream: StreamItem[], minWordsBetweenGames: number): StreamItem[] {
-  const minGap = Math.max(0, Math.floor(minWordsBetweenGames));
+  const raw = Number.isFinite(minWordsBetweenGames) ? Math.floor(minWordsBetweenGames) : 0;
+  const minGap = Math.max(0, raw);
   if (minGap <= 0) return stream;
 
   const out: StreamItem[] = [];
@@ -388,6 +400,30 @@ export function enforceMinigameMinGap(stream: StreamItem[], minWordsBetweenGames
 
   // Drop any remaining pending games (would violate min gap at end of stream).
   return out;
+}
+
+/**
+ * Prunes the anchor list so the number of games never exceeds what the
+ * current word count can accommodate at the configured minimum gap.
+ *
+ *   maxGames = floor(currentWordCount / (minGap + 1))
+ *
+ * This prevents anchor over-density when words shrink (e.g. user marks
+ * 7 of 10 due words known — original 6 anchors would pile into 3 words).
+ *
+ * When minGap <= 0, games may be adjacent, so no cap is applied.
+ * When currentWordCount is 0, there is no room for any game.
+ */
+export function pruneAnchorsForCurrentSize(
+  anchors: GameAnchor[],
+  currentWordCount: number,
+  minGap: number,
+): GameAnchor[] {
+  if (currentWordCount === 0) return [];
+  if (minGap <= 0) return anchors;
+  const maxGames = Math.floor(currentWordCount / (minGap + 1));
+  if (anchors.length <= maxGames) return anchors;
+  return anchors.slice(0, Math.max(0, maxGames));
 }
 
 /**
