@@ -5,7 +5,10 @@ export type GameType = 'multipleChoice' | 'typing' | 'matching';
 /** Minigame frequency: 'off' or interval range (min/max word cards between games). */
 export type MinigameFrequencyRange = { min: number; max: number } | 'off';
 
-export const DEFAULT_MINIGAME_FREQUENCY: MinigameFrequencyRange = { min: 1, max: 3 };
+export const DEFAULT_MINIGAME_FREQUENCY = { min: 1, max: 3 } satisfies Exclude<
+  MinigameFrequencyRange,
+  'off'
+>;
 
 export const MINIGAME_FREQUENCY_MIN = 0;
 export const MINIGAME_FREQUENCY_MAX = 10;
