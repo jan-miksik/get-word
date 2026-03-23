@@ -118,11 +118,6 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
 
   const handleAnimationEnd = useCallback((e: AnimationEvent<HTMLDivElement>) => {
     if (!e.animationName.startsWith('deck-exit-')) return;
-    if (process.env.NODE_ENV !== 'production') {
-      // Debug: identify which exit animation fired
-      // eslint-disable-next-line no-console
-      console.log('[CardDeck] exit animation end:', e.animationName);
-    }
     setExitAnim(null);
     lockedItemRef.current = null;
     if (pendingAfterExitRef.current) {
@@ -135,11 +130,6 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
 
   const handleEnterAnimationEnd = useCallback((e: AnimationEvent<HTMLDivElement>) => {
     if (!e.animationName.startsWith('deck-enter-')) return;
-    if (process.env.NODE_ENV !== 'production') {
-      // Debug: identify which enter animation fired
-      // eslint-disable-next-line no-console
-      console.log('[CardDeck] enter animation end:', e.animationName);
-    }
     setEnterAnim(null);
   }, []);
 
