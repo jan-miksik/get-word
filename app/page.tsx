@@ -288,10 +288,28 @@ export default function Home() {
 
           stableMinigamePlansRef.current[kind] = plan;
 
+          let minOrigIdx = Number.POSITIVE_INFINITY;
+          let maxOrigIdx = Number.NEGATIVE_INFINITY;
+          for (const w of words) {
+            const v = plan.originalIndexMap.get(w.id);
+            if (typeof v !== 'number' || !Number.isFinite(v)) continue;
+            if (v < minOrigIdx) minOrigIdx = v;
+            if (v > maxOrigIdx) maxOrigIdx = v;
+          }
+          if (!Number.isFinite(minOrigIdx)) minOrigIdx = 0;
+          if (!Number.isFinite(maxOrigIdx)) maxOrigIdx = 0;
+
+          // Only keep anchors that are relevant for the currently visible slice
+          // of this segment. Without this, anchors tied to words already removed
+          // from the segment can "float" to the top and create clusters of games.
+          const windowedAnchors = plan.anchors.filter(
+            (a) => a.anchorOriginalIndex >= minOrigIdx && a.anchorOriginalIndex <= maxOrigIdx,
+          );
+
           const anchorsForCompose =
             dismissedGames.size > 0
-              ? plan.anchors.filter((a) => !dismissedGames.has(a.id))
-              : plan.anchors;
+              ? windowedAnchors.filter((a) => !dismissedGames.has(a.id))
+              : windowedAnchors;
 
           return composeStream(words, plan.originalIndexMap, anchorsForCompose);
         };
