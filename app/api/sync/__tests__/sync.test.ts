@@ -56,6 +56,7 @@ const baseUser = {
   role: 'vi',
   showEnglish: true,
   showCategoryBadges: false,
+  categoryOrder: [],
 }
 
 describe('GET /api/sync', () => {
@@ -212,5 +213,22 @@ describe('POST /api/sync', () => {
     const res = await POST(req)
     const data = await res.json()
     expect(data.user.game_score).toBe(5)
+  })
+
+  it('saves category_order when provided and returns it', async () => {
+    mockUpdateUserPreferences.mockResolvedValue({ ...baseUser, categoryOrder: ['basic', 'cz ≈ en'] })
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({ deviceId: 'dev-123', category_order: ['basic', 'cz ≈ en'] }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(mockUpdateUserPreferences).toHaveBeenCalledWith(
+      'uuid-A',
+      expect.objectContaining({ category_order: ['basic', 'cz ≈ en'] })
+    )
+    expect(data.user.category_order).toEqual(['basic', 'cz ≈ en'])
   })
 })

@@ -51,6 +51,7 @@ export default function EditPage() {
     setMemoryHook,
     getSuggestedMemoryHook,
     lastMovedId,
+    categoryOrder,
     userWalletAddress,
     userEmail,
     userRole,
@@ -261,10 +262,11 @@ export default function EditPage() {
           onCategoryRemove={(cat) => handleCategoryRemove(word.id, cat)}
           showEnglish={showEnglish}
           showCategoryBadges={showCategoryBadges}
+          categoryOrder={categoryOrder}
         />
       </div>
     );
-  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, handleWordFieldChange, handleCategoryToggle, handleCategoryAdd, handleCategoryRemove, showEnglish, showCategoryBadges]);
+  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, handleWordFieldChange, handleCategoryToggle, handleCategoryAdd, handleCategoryRemove, showEnglish, showCategoryBadges, categoryOrder]);
 
   if (isLoading || !isHydrated) {
     return <LoadingScreen />;

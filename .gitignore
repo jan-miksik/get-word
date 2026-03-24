@@ -3,6 +3,7 @@ app/.generated/
 /node_modules
 /.pnp
 .pnp.js
+.pnpm-store/
 
 # testing
 /coverage
@@ -43,4 +44,3 @@ next-env.d.ts
 
 # DB backups
 /backups/
-

@@ -4,9 +4,9 @@
   "private": true,
   "packageManager": "pnpm@8.15.1",
   "scripts": {
-    "dev:css": "pnpm dlx @tailwindcss/cli -c tailwind.config.js -i ./app/tailwind.css -o ./app/.generated/tailwind.css --watch",
+    "dev:css": "tailwindcss -c tailwind.config.js -i ./app/tailwind.css -o ./app/.generated/tailwind.css --watch",
     "dev": "pnpm run build:css && pnpm run dev:css & next dev",
-    "build:css": "pnpm dlx @tailwindcss/cli -c tailwind.config.js -i ./app/tailwind.css -o ./app/.generated/tailwind.css",
+    "build:css": "tailwindcss -c tailwind.config.js -i ./app/tailwind.css -o ./app/.generated/tailwind.css",
     "build": "pnpm run build:css && next build",
     "start": "next start",
     "lint": "eslint .",

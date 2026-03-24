@@ -1,17 +1,33 @@
 import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
 import { AppKitProvider } from '@/components/AppKitProvider';
+import { PWARegister } from '@/components/PWARegister';
 import './globals.css';
 import './.generated/tailwind.css';
 
 export const metadata: Metadata = {
   title: 'Language Helper',
   description: 'Learn Czech and Vietnamese with spaced repetition',
+  applicationName: 'Language Helper',
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Language Helper',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: [{ url: '/favicon.ico' }],
+    apple: [{ url: '/icons/apple-touch-icon.png' }],
+  },
 };
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  themeColor: '#0b1220',
   // Allow content to fill under the notch/home-indicator so env(safe-area-inset-*)
   // give the real inset values instead of 0.
   viewportFit: 'cover',
@@ -29,11 +45,11 @@ export default async function RootLayout({
     <html lang="en">
       <body>
         <AppKitProvider cookies={cookies}>
+          <PWARegister />
           {children}
         </AppKitProvider>
       </body>
     </html>
   );
 }
-
 

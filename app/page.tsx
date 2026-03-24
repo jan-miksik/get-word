@@ -75,6 +75,7 @@ export default function Home() {
     setMemoryHook,
     getSuggestedMemoryHook,
     lastMovedId,
+    categoryOrder,
     isHydrated,
     setGameScore,
   } = appState;
@@ -391,10 +392,11 @@ export default function Home() {
           showEnglish={showEnglish}
           showCategoryBadges={showCategoryBadges}
           showPronunciation={showPronunciation}
+          categoryOrder={categoryOrder}
         />
       </div>
     );
-  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation]);
+  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder]);
 
   const renderMiniGame = useCallback((config: MiniGameConfig) => {
     if (dismissedGames.has(config.id)) return null;
@@ -456,12 +458,13 @@ export default function Home() {
             showEnglish={showEnglish}
             showCategoryBadges={showCategoryBadges}
             showPronunciation={showPronunciation}
+            categoryOrder={categoryOrder}
             fullscreen
           />
         </div>
       );
     },
-    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation]
+    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder]
   );
 
   const renderMiniGameForDeck = useCallback(

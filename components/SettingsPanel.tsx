@@ -4,6 +4,7 @@ import { useCallback, type ReactNode } from 'react';
 import type { MinigameFrequencyRange } from '@/lib/minigames';
 import { MINIGAME_FREQUENCY_MIN, MINIGAME_FREQUENCY_MAX } from '@/lib/minigames';
 import { useAppStateContext } from '@/context/AppStateContext';
+import { PWAInstallSection } from '@/components/PWAInstallSection';
 
 function ToggleSwitch({
   checked,
@@ -313,6 +314,11 @@ export function SettingsPanel({
                 </button>
               ))}
             </div>
+          </Section>
+
+          {/* App */}
+          <Section label="App">
+            <PWAInstallSection />
           </Section>
 
           {/* Account */}

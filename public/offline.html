@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#0b1220" />
+    <title>Offline • Language Helper</title>
+    <style>
+      :root { color-scheme: dark; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        background: #0b1220;
+        color: #e5e7eb;
+        font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
+      }
+      .card {
+        width: min(520px, calc(100vw - 32px));
+        background: rgba(255,255,255,0.04);
+        border: 1px solid rgba(255,255,255,0.10);
+        border-radius: 16px;
+        padding: 20px;
+      }
+      h1 { margin: 0 0 8px; font-size: 18px; }
+      p { margin: 0 0 14px; opacity: 0.85; line-height: 1.35; }
+      button {
+        appearance: none;
+        border: 1px solid rgba(56,189,248,0.35);
+        background: rgba(56,189,248,0.12);
+        color: #38bdf8;
+        padding: 10px 12px;
+        border-radius: 12px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>You’re offline</h1>
+      <p>Reconnect to continue syncing and loading new content. Previously cached pages may still work.</p>
+      <button onclick="location.reload()">Try again</button>
+    </div>
+  </body>
+</html>

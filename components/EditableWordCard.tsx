@@ -27,6 +27,7 @@ interface EditableWordCardProps {
   showEnglish?: boolean;
   showCategoryBadges?: boolean;
   showPronunciation?: boolean;
+  categoryOrder?: string[];
 }
 
 export const STANDARD_CATEGORIES = ['basic', 'basic 2', 'cz ≈ en', 'phrase', 'nails', 'word'];
@@ -66,6 +67,7 @@ export const EditableWordCard = memo(function EditableWordCard({
   showEnglish = true,
   showCategoryBadges = false,
   showPronunciation = true,
+  categoryOrder,
 }: EditableWordCardProps) {
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -541,8 +543,8 @@ export const EditableWordCard = memo(function EditableWordCard({
         showEnglish={showEnglish}
         showCategoryBadges={showCategoryBadges}
         showPronunciation={showPronunciation}
+        categoryOrder={categoryOrder}
       />
     </div>
   );
 });
-

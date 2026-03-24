@@ -32,9 +32,12 @@ interface LinkWalletRequest {
 type UserShape = {
   id: string
   role: string
+  userRole?: string | null
   showEnglish: boolean | null
   showCategoryBadges: boolean | null
+  showPronunciation?: boolean | null
   gameScore: number | null
+  categoryOrder?: string[] | null
   walletAddress: string | null
   email: string | null
   authProvider: string | null
@@ -51,9 +54,12 @@ function buildSuccessResponse(
     user: {
       id: user.id,
       role: user.role,
+      user_role: user.userRole ?? 'user',
       show_english: user.showEnglish ?? true,
       show_category_badges: user.showCategoryBadges ?? false,
+      show_pronunciation: user.showPronunciation ?? false,
       game_score: user.gameScore ?? 0,
+      category_order: user.categoryOrder ?? [],
       wallet_address: user.walletAddress ?? null,
       email: user.email ?? null,
       auth_provider: user.authProvider ?? null,
@@ -62,6 +68,24 @@ function buildSuccessResponse(
     memory_hooks: memoryHooks,
     category_filters: categoryFilters,
   }
+}
+
+function mergeCategoryOrder(
+  targetOrder: string[] | null | undefined,
+  sourceOrders: Array<string[] | null | undefined>
+): string[] {
+  const merged: string[] = []
+  const pushUnique = (items: string[] | null | undefined) => {
+    if (!Array.isArray(items)) return
+    for (const raw of items) {
+      const item = String(raw).trim()
+      if (!item) continue
+      if (!merged.includes(item)) merged.push(item)
+    }
+  }
+  pushUnique(targetOrder)
+  for (const s of sourceOrders) pushUnique(s)
+  return merged.slice(0, 500)
 }
 
 export async function POST(request: NextRequest) {
@@ -200,13 +224,21 @@ export async function POST(request: NextRequest) {
         (targetUser.gameScore ?? 0)
     )
 
+    const mergedCategoryOrder = mergeCategoryOrder(
+      targetUser.categoryOrder,
+      sourceUsers.map((u) => u.categoryOrder)
+    )
+
     await updateUserFields(targetUser.id, {
       deviceId,
       walletAddress,
       role: targetUser.role,
+      userRole: targetUser.userRole,
       showEnglish: targetUser.showEnglish,
       showCategoryBadges: targetUser.showCategoryBadges,
+      showPronunciation: targetUser.showPronunciation,
       gameScore: mergedGameScore,
+      categoryOrder: mergedCategoryOrder,
       ...(trimmedEmail && { email: trimmedEmail }),
       ...(authProvider != null && String(authProvider).trim() !== '' && { authProvider: String(authProvider).trim() }),
     })
@@ -228,9 +260,12 @@ export async function POST(request: NextRequest) {
       user: {
         id: mergedUser.id,
         role: targetUser.role,
+        user_role: targetUser.userRole ?? 'user',
         show_english: targetUser.showEnglish ?? true,
         show_category_badges: targetUser.showCategoryBadges ?? false,
+        show_pronunciation: targetUser.showPronunciation ?? false,
         game_score: mergedUser.gameScore ?? mergedGameScore,
+        category_order: mergedUser.categoryOrder ?? mergedCategoryOrder,
         wallet_address: mergedUser.walletAddress ?? walletAddress,
         email: mergedUser.email ?? null,
         auth_provider: mergedUser.authProvider ?? null,

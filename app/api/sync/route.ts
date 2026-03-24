@@ -73,6 +73,7 @@ interface SyncRequest {
   show_category_badges?: boolean;
   show_pronunciation?: boolean;
   game_score?: number;
+  category_order?: string[];
   progress?: Array<{
     word_id: string;
     stage_index: number;
@@ -96,6 +97,7 @@ export async function POST(request: NextRequest) {
       show_category_badges,
       show_pronunciation,
       game_score,
+      category_order,
       progress,
       memory_hooks,
       category_filters,
@@ -129,13 +131,15 @@ export async function POST(request: NextRequest) {
       show_english !== undefined ||
       show_category_badges !== undefined ||
       show_pronunciation !== undefined ||
-      game_score !== undefined
+      game_score !== undefined ||
+      category_order !== undefined
     ) {
       const updated = await updateUserPreferences(user.id, {
         show_english,
         show_category_badges,
         show_pronunciation,
         game_score,
+        category_order,
       });
       if (updated) user = updated;
     }
@@ -194,6 +198,7 @@ export async function POST(request: NextRequest) {
         email: user.email ?? null,
         auth_provider: user.authProvider ?? null,
         game_score: user.gameScore ?? 0,
+        category_order: user.categoryOrder ?? [],
       },
       progress: currentProgress,
       memory_hooks: currentHooks,
@@ -267,6 +272,7 @@ export async function GET(request: NextRequest) {
         email: user.email ?? null,
         auth_provider: user.authProvider ?? null,
         game_score: user.gameScore ?? 0,
+        category_order: user.categoryOrder ?? [],
       },
       progress,
       memory_hooks: memoryHooks,

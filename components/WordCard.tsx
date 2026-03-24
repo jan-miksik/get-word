@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, memo } from 'react';
+import { useState, useRef, useEffect, useMemo, memo } from 'react';
 import { NormalizedWord, STAGES } from '@/lib/words';
 import { ProgressData } from '@/lib/sync';
 
@@ -22,6 +22,7 @@ interface WordCardProps {
   showEnglish?: boolean;
   showCategoryBadges?: boolean;
   showPronunciation?: boolean;
+  categoryOrder?: string[];
   fullscreen?: boolean;
 }
 
@@ -43,6 +44,7 @@ export const WordCard = memo(function WordCard({
   showEnglish = true,
   showCategoryBadges = false,
   showPronunciation = false,
+  categoryOrder,
   fullscreen = false,
 }: WordCardProps) {
   const [editingHook, setEditingHook] = useState(false);
@@ -181,15 +183,34 @@ export const WordCard = memo(function WordCard({
     (cat) => cat !== 'to fix' || isEditMode
   ) || [];
 
+  const orderedDisplayCategories = useMemo(() => {
+    if (!Array.isArray(displayCategories) || displayCategories.length === 0) return [];
+    const order = Array.isArray(categoryOrder) ? categoryOrder : [];
+    if (order.length === 0) return displayCategories;
+    const orderIndex = new Map<string, number>();
+    order.forEach((name, i) => orderIndex.set(name, i));
+    const originalIndex = new Map<string, number>();
+    displayCategories.forEach((name, i) => originalIndex.set(name, i));
+
+    return [...displayCategories].sort((a, b) => {
+      const ai = orderIndex.get(a);
+      const bi = orderIndex.get(b);
+      if (ai !== undefined && bi !== undefined) return ai - bi;
+      if (ai !== undefined) return -1;
+      if (bi !== undefined) return 1;
+      return (originalIndex.get(a) ?? 0) - (originalIndex.get(b) ?? 0);
+    });
+  }, [displayCategories, categoryOrder]);
+
   // In edit mode, always show category badges; otherwise use the setting
   const shouldShowCategoryBadges = isEditMode || showCategoryBadges;
 
   return (
     <article className={`phrase-card ${isMoved ? 'card-moved' : ''} ${fullscreen ? 'word-card--fullscreen' : ''}`} data-word-id={word.id} data-stage-group={stageGroup}>
       {/* Category badges */}
-      {shouldShowCategoryBadges && displayCategories.length > 0 && (
+      {shouldShowCategoryBadges && orderedDisplayCategories.length > 0 && (
         <div className="word-categories">
-          {displayCategories.map((cat) => {
+          {orderedDisplayCategories.map((cat) => {
             // Convert category name to valid CSS class (replace spaces with hyphens)
             const cssClass = cat.replace(/\s+/g, '-');
             return (

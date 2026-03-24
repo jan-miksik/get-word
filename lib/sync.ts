@@ -43,6 +43,7 @@ export interface SyncResponse {
     email?: string | null;
     auth_provider?: string | null;
     game_score?: number;
+    category_order?: string[];
   };
   progress: Record<
     string,
@@ -138,6 +139,7 @@ export async function syncUserData(data: {
   show_category_badges?: boolean;
   show_pronunciation?: boolean;
   game_score?: number;
+  category_order?: string[];
   progress?: SyncProgressItem[];
   memory_hooks?: Record<string, string | null>;
   category_filters?: string[];

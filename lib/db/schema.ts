@@ -7,6 +7,7 @@ import {
   boolean,
   unique,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 // Words table - stores all vocabulary
 export const words = pgTable("words", {
@@ -38,6 +39,7 @@ export const users = pgTable("users", {
   showCategoryBadges: boolean("show_category_badges").default(false).notNull(),
   showPronunciation: boolean("show_pronunciation").default(false).notNull(),
   gameScore: integer("game_score").notNull().default(0),
+  categoryOrder: text("category_order").array().notNull().default(sql`'{}'::text[]`),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

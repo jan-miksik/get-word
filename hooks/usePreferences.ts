@@ -15,6 +15,7 @@ export function usePreferences(
   const [showEnglish, setShowEnglish] = useState(true);
   const [showCategoryBadges, setShowCategoryBadges] = useState(false);
   const [showPronunciation, setShowPronunciation] = useState(false);
+  const [categoryOrder, setCategoryOrderState] = useState<string[]>([]);
 
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
@@ -42,13 +43,24 @@ export function usePreferences(
     );
   }, [showPronunciation, isHydrated]);
 
+  useEffect(() => {
+    if (!isHydrated || isUpdatingFromServerRef.current) return;
+    debouncedSync({ category_order: categoryOrder }).catch((e) =>
+      console.error('[usePreferences] sync category_order:', e)
+    );
+  }, [categoryOrder, isHydrated]);
+
   const setRole = useCallback((newRole: Role) => setRoleState(newRole), []);
+  const setCategoryOrder = useCallback((order: string[] | ((prev: string[]) => string[])) => {
+    setCategoryOrderState(order);
+  }, []);
 
   const applyServerPreferences = useCallback((user: SyncResponse['user']) => {
     if (user.role) setRoleState(user.role);
     setShowEnglish(user.show_english ?? true);
     setShowCategoryBadges(user.show_category_badges ?? false);
     setShowPronunciation(user.show_pronunciation ?? false);
+    setCategoryOrderState(Array.isArray(user.category_order) ? user.category_order : []);
   }, []);
 
   return {
@@ -62,6 +74,8 @@ export function usePreferences(
     setShowCategoryBadges,
     showPronunciation,
     setShowPronunciation,
+    categoryOrder,
+    setCategoryOrder,
     applyServerPreferences,
   };
 }

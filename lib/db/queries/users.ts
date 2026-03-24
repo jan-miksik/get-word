@@ -85,6 +85,7 @@ export async function updateUserPreferences(
     show_category_badges?: boolean;
     show_pronunciation?: boolean;
     game_score?: number;
+    category_order?: string[];
   }
 ): Promise<User | null> {
   const updates: {
@@ -92,6 +93,7 @@ export async function updateUserPreferences(
     showCategoryBadges?: boolean;
     showPronunciation?: boolean;
     gameScore?: number;
+    categoryOrder?: string[];
     updatedAt: Date;
   } = {
     updatedAt: new Date(),
@@ -100,6 +102,14 @@ export async function updateUserPreferences(
   if (prefs.show_category_badges !== undefined) updates.showCategoryBadges = prefs.show_category_badges;
   if (prefs.show_pronunciation !== undefined) updates.showPronunciation = prefs.show_pronunciation;
   if (prefs.game_score !== undefined) updates.gameScore = Math.max(0, Math.floor(prefs.game_score));
+  if (prefs.category_order !== undefined) {
+    const normalized = Array.isArray(prefs.category_order)
+      ? prefs.category_order
+          .map((c) => String(c).trim())
+          .filter((c) => c.length > 0)
+      : [];
+    updates.categoryOrder = Array.from(new Set(normalized)).slice(0, 500);
+  }
   if (Object.keys(updates).length === 1) return getUserById(userId);
   const results = await db
     .update(users)

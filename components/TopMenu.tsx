@@ -102,7 +102,7 @@ function MenuDropdown({
   }> = [
     {
       icon: '🏷️',
-      label: 'Filter by Category',
+      label: 'Categories',
       panel: 'category',
       active: categoryActive,
       badge: categoryCount > 0 ? String(categoryCount) : null,
