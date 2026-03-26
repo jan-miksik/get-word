@@ -1,5 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import Script from 'next/script';
 import { headers } from 'next/headers';
 import { AppKitProvider } from '@/components/AppKitProvider';
 import { PWARegister } from '@/components/PWARegister';
@@ -44,18 +43,6 @@ export default async function RootLayout({
 
   return (
     <html lang="en">
-      <head>
-        {/* Privacy-friendly analytics by Plausible */}
-        <Script
-          async
-          strategy="beforeInteractive"
-          src="https://plausible.io/js/pa-xFN0TxunpPMudN4mQmPvT.js"
-        />
-        <Script id="plausible-init" strategy="beforeInteractive">
-          {`window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)},plausible.init=window.plausible.init||function(i){plausible.o=i||{}};
-plausible.init()`}
-        </Script>
-      </head>
       <body>
         <AppKitProvider cookies={cookies}>
           <PWARegister />

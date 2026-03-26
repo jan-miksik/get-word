@@ -1,0 +1,12 @@
+# Agent Progress Log
+
+This file tracks the progress of features implemented by the autonomous coding agent.
+
+## Format
+Each entry should include:
+- Date/time
+- Feature completed
+- Any notable decisions or challenges
+- Next recommended steps
+
+---
