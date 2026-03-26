@@ -115,3 +115,28 @@ Each entry should include:
 - Translation confirm endpoint at `/api/lists/[id]/items/translations` (list-scoped for auth) rather than a global endpoint
 
 **Next:** Choose next task from remaining passes=false items (audio-step, editing-ui, audio-infrastructure, list-subscription, implementation-order)
+
+## 2026-03-26 — editing-ui: Desktop editing page with list browser, category manager, textarea editor, wizard steps
+
+**Completed:**
+- Created `app/lists/page.tsx` — main /lists page with full wizard state machine (browse → edit → preview → translate → audio). Fetches lists via GET /api/lists, list details via GET /api/lists/[id]. Manages sidebar open/close, wizard step transitions, category CRUD
+- Created `app/lists/ListSidebar.tsx` — left sidebar with user's own lists and curated/public lists. Supports creating new lists with language pair selection
+- Created `app/lists/CategoryBrowser.tsx` — main content area showing collapsible category sections ordered by position. Drag-and-drop reorder on category headers. Expand to see word list (textKnown + textTarget columns, audio indicator). Edit/delete buttons (desktop only, owner only). "Add category" button. Mobile read-only banner
+- Created `app/lists/TextareaEditor.tsx` — textarea editing panel pre-filled with one word per line. Input language toggle (known/target). Line count display. Calls PUT preview endpoint on "Preview changes"
+- Created `app/lists/DiffPreview.tsx` — diff visualization: added (green), removed (red), reordered (with position arrows), unchanged count. Summary line. Calls POST confirm endpoint
+- Created `app/lists/TranslationStep.tsx` — two-column editable table (source | translation). Provider selector (Google/OpenRouter). Auto-translate button with DB dedup. Per-row editing. Shows reuse count from dedup. Confirm/skip buttons
+- Created `app/lists/AudioStepStub.tsx` — placeholder for audio step (not yet implemented, depends on audio-infrastructure). Shows "coming soon" message with Finish button
+- Created `app/lists/ApiKeySettings.tsx` — modal dialog for BYOK API key management (OpenRouter, ElevenLabs). Add/remove keys, masked display (last 4 chars). Accessible from settings button on /lists page
+- Mobile viewport shows read-only category/word view with "Edit on desktop" banner; edit buttons hidden via md: responsive classes
+- All 170 tests pass, build succeeds
+
+**Decisions:**
+- Single-page wizard pattern: all steps (browse/edit/preview/translate/audio) managed as state in the page component, not separate routes
+- Audio step is a stub that just shows "coming soon" and a Finish button — full implementation deferred to audio-infrastructure + audio-step tasks
+- API key settings UI calls `/api/keys` endpoints (not yet implemented server-side — will be built when needed)
+- Owner detection uses `ownerId !== null` (system lists have null owner)
+- Category drag-and-drop uses native HTML5 drag events for simplicity
+- Sidebar is responsive: fixed overlay on mobile, static on desktop
+- `apiFetch` helper wraps all API calls with device-id header
+
+**Next:** Choose next task from remaining passes=false items (audio-step, audio-infrastructure, list-subscription, implementation-order)

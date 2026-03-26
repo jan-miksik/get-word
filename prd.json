@@ -117,7 +117,7 @@
       "Mobile viewport: show read-only list view — categories and word counts, expandable to see words. No editing capability. Banner: 'Edit your word list on desktop'",
       "On wizard completion: invalidate AppStateContext cached word data, trigger useWordStream refresh. Learning view immediately reflects changes"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "audio-infrastructure",
