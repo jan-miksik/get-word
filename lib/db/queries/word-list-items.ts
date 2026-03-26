@@ -1,4 +1,4 @@
-import { eq, and, sql, asc } from "drizzle-orm";
+import { eq, and, sql, asc, max } from "drizzle-orm";
 import { db } from "../client";
 import {
   wordLists,
@@ -6,7 +6,9 @@ import {
   wordListItems,
   userListSubscriptions,
   type WordList,
+  type NewWordList,
   type WordCategory,
+  type NewWordCategory,
   type WordListItem,
 } from "../schema";
 
@@ -81,6 +83,98 @@ export async function getSystemDefaultList(): Promise<WordList | null> {
     )
     .limit(1);
   return results[0] ?? null;
+}
+
+/** Create a new word list. */
+export async function createList(data: NewWordList): Promise<WordList> {
+  const [list] = await db.insert(wordLists).values(data).returning();
+  return list;
+}
+
+/** Update a word list (name, description, isPublic). Owner only — caller must verify. */
+export async function updateList(
+  listId: string,
+  data: Partial<Pick<WordList, "name" | "description" | "isPublic">>
+): Promise<WordList | null> {
+  const [updated] = await db
+    .update(wordLists)
+    .set({ ...data, updatedAt: new Date() })
+    .where(eq(wordLists.id, listId))
+    .returning();
+  return updated ?? null;
+}
+
+/** Delete a word list. Cascades to categories and items via FK. */
+export async function deleteList(listId: string): Promise<boolean> {
+  const result = await db
+    .delete(wordLists)
+    .where(eq(wordLists.id, listId))
+    .returning({ id: wordLists.id });
+  return result.length > 0;
+}
+
+/** Get a word list by ID. */
+export async function getListById(listId: string): Promise<WordList | null> {
+  const [list] = await db
+    .select()
+    .from(wordLists)
+    .where(eq(wordLists.id, listId))
+    .limit(1);
+  return list ?? null;
+}
+
+/** Create a new category in a list. Position defaults to max+1. */
+export async function createCategory(
+  listId: string,
+  name: string,
+  isSystem = false
+): Promise<WordCategory> {
+  const [maxPos] = await db
+    .select({ maxPosition: max(wordCategories.position) })
+    .from(wordCategories)
+    .where(eq(wordCategories.listId, listId));
+  const position = (maxPos?.maxPosition ?? -1) + 1;
+
+  const [cat] = await db
+    .insert(wordCategories)
+    .values({ listId, name, position, isSystem })
+    .returning();
+  return cat;
+}
+
+/** Reorder categories by updating positions from an ordered array of IDs. */
+export async function reorderCategories(
+  listId: string,
+  orderedIds: string[]
+): Promise<void> {
+  for (let i = 0; i < orderedIds.length; i++) {
+    await db
+      .update(wordCategories)
+      .set({ position: i })
+      .where(
+        and(
+          eq(wordCategories.id, orderedIds[i]),
+          eq(wordCategories.listId, listId)
+        )
+      );
+  }
+}
+
+/** Delete a category. Items with this categoryId get categoryId set to null (FK onDelete: set null). */
+export async function deleteCategory(
+  listId: string,
+  categoryId: string
+): Promise<boolean> {
+  const result = await db
+    .delete(wordCategories)
+    .where(
+      and(
+        eq(wordCategories.id, categoryId),
+        eq(wordCategories.listId, listId)
+      )
+    )
+    .returning({ id: wordCategories.id });
+  return result.length > 0;
 }
 
 /**

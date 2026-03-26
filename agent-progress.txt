@@ -57,3 +57,22 @@ Each entry should include:
 - Old /api/words POST/PUT/DELETE returns 410 Gone; GET remains functional for backward compatibility
 
 **Next:** api-lists task (API routes for list and category management)
+
+## 2026-03-26 — api-lists: API routes for list and category management
+
+**Completed:**
+- Added CRUD query functions in `lib/db/queries/word-list-items.ts`: `createList`, `updateList`, `deleteList`, `getListById`, `createCategory`, `reorderCategories`, `deleteCategory`
+- Created `app/api/lists/route.ts` — GET (user's own + public lists), POST (create new list)
+- Created `app/api/lists/[id]/route.ts` — GET (list with categories + items, auth: owner or public), PUT (update metadata, owner only), DELETE (delete list, owner only)
+- Created `app/api/lists/[id]/categories/route.ts` — GET (categories ordered by position), POST (create category, owner only), PUT (reorder categories via ordered ID array, owner only)
+- Created `app/api/lists/[id]/categories/[catId]/route.ts` — DELETE (delete category, owner only, items get categoryId=null via FK)
+- Created `app/api/lists/__tests__/lists.test.ts` — 23 tests covering auth, CRUD, ownership checks, public access
+- All 132 tests pass, build succeeds
+
+**Decisions:**
+- Category deletion sets items' categoryId to null (FK onDelete: set null) rather than moving to an "Uncategorized" bucket — simpler, items remain in list
+- `createCategory` auto-assigns position as max+1 for the list
+- `reorderCategories` takes ordered array of IDs and sets positions 0..N
+- Public lists readable by any authenticated user; mutations owner-only
+
+**Next:** api-editing task (textarea word editing wizard: diff, preview, confirm)

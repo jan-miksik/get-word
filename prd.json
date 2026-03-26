@@ -50,7 +50,7 @@
       "PUT /api/lists/[id]/categories — update category order (array of { id, position }). Supports drag-and-drop reorder. Owner only",
       "DELETE /api/lists/[id]/categories/[catId] — delete category. Move contained words to an 'Uncategorized' default category, or reject if category not empty (decide in implementation)"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "api-editing",
