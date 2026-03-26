@@ -76,3 +76,21 @@ Each entry should include:
 - Public lists readable by any authenticated user; mutations owner-only
 
 **Next:** api-editing task (textarea word editing wizard: diff, preview, confirm)
+
+## 2026-03-26 — api-editing: API routes for textarea word editing wizard (diff, preview, confirm)
+
+**Completed:**
+- Added 5 new query functions in `lib/db/queries/word-list-items.ts`: `getCategoryItems`, `createItems`, `deleteItems`, `updateItemPositions`, `archiveProgressForItems`
+- Created `app/api/lists/[id]/categories/[catId]/items/preview/route.ts` — PUT endpoint that diffs textarea lines against current category items. Returns `{ added, removed, reordered, unchanged }`. Normalizes text (trim, collapse spaces, case-insensitive). Rejects duplicate lines with line numbers. Strips empty lines. Warns if >500 items
+- Created `app/api/lists/[id]/categories/[catId]/items/confirm/route.ts` — POST endpoint that applies the previewed diff. Archives progress for removed items, deletes items, updates positions, creates new items. Returns `{ completed: true }` for order/removal-only changes, `{ completed: false, needs_translation: true, pending_items }` when new words are added
+- Created `app/api/lists/__tests__/items-editing.test.ts` — 21 tests covering auth, validation, diff algorithm, edge cases, confirm flows
+- All 153 tests pass, build succeeds
+
+**Decisions:**
+- Diff matches by normalized text in the specified `input_language` field (`textKnown` or `textTarget`)
+- Duplicate detection uses 1-based line numbers (after empty line stripping) for user-friendly error messages
+- On confirm with additions: `translationStatus` set to `'pending'` for new items; `textTarget=null` when `input_language='known'`, `textKnown=''` when `input_language='target'`
+- `archiveProgressForItems` uses `inArray` on `wordListItemId` to batch-archive progress entries
+- Preview route supports both `input_language='known'` and `input_language='target'` for matching
+
+**Next:** Choose next task from remaining passes=false items (translation-step, audio-step, editing-ui, audio-infrastructure, list-subscription, implementation-order)

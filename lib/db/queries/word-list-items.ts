@@ -1,10 +1,11 @@
-import { eq, and, sql, asc, max } from "drizzle-orm";
+import { eq, and, sql, asc, max, inArray } from "drizzle-orm";
 import { db } from "../client";
 import {
   wordLists,
   wordCategories,
   wordListItems,
   userListSubscriptions,
+  userProgress,
   type WordList,
   type NewWordList,
   type WordCategory,
@@ -175,6 +176,81 @@ export async function deleteCategory(
     )
     .returning({ id: wordCategories.id });
   return result.length > 0;
+}
+
+/** Get items in a specific category, ordered by position. */
+export async function getCategoryItems(
+  listId: string,
+  categoryId: string,
+): Promise<WordListItem[]> {
+  return db
+    .select()
+    .from(wordListItems)
+    .where(
+      and(
+        eq(wordListItems.listId, listId),
+        eq(wordListItems.categoryId, categoryId),
+      ),
+    )
+    .orderBy(asc(wordListItems.position));
+}
+
+/** Create multiple word_list_items in a category. Returns created items. */
+export async function createItems(
+  items: {
+    listId: string;
+    categoryId: string;
+    textKnown: string;
+    textTarget: string | null;
+    position: number;
+    translationStatus?: "manual" | "pending" | "translated" | "failed";
+  }[],
+): Promise<WordListItem[]> {
+  if (items.length === 0) return [];
+  return db
+    .insert(wordListItems)
+    .values(
+      items.map((item) => ({
+        listId: item.listId,
+        categoryId: item.categoryId,
+        textKnown: item.textKnown,
+        textTarget: item.textTarget,
+        position: item.position,
+        translationStatus: item.translationStatus ?? "manual",
+      })),
+    )
+    .returning();
+}
+
+/** Delete word_list_items by IDs. */
+export async function deleteItems(itemIds: string[]): Promise<void> {
+  if (itemIds.length === 0) return;
+  await db
+    .delete(wordListItems)
+    .where(inArray(wordListItems.id, itemIds));
+}
+
+/** Update positions for multiple items. */
+export async function updateItemPositions(
+  updates: { id: string; position: number }[],
+): Promise<void> {
+  for (const { id, position } of updates) {
+    await db
+      .update(wordListItems)
+      .set({ position, updatedAt: new Date() })
+      .where(eq(wordListItems.id, id));
+  }
+}
+
+/** Archive user_progress entries for given word_list_item IDs (set archived_at). */
+export async function archiveProgressForItems(
+  itemIds: string[],
+): Promise<void> {
+  if (itemIds.length === 0) return;
+  await db
+    .update(userProgress)
+    .set({ archivedAt: new Date() })
+    .where(inArray(userProgress.wordListItemId, itemIds));
 }
 
 /**

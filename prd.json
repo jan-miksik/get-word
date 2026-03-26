@@ -63,7 +63,7 @@
       "For order-only or removal-only changes (no new words): confirm completes the wizard immediately, no further steps needed. Return { completed: true, needs_translation: false }",
       "For changes with new words: return { completed: false, needs_translation: true, pending_items: [...] } — client proceeds to translation step"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "translation-step",
