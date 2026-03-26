@@ -10,3 +10,22 @@ Each entry should include:
 - Next recommended steps
 
 ---
+
+## 2026-03-26 — data-model: Schema for word lists, categories, items, media, API keys, subscriptions
+
+**Completed:**
+- Added 6 new tables to `lib/db/schema.ts`: `word_lists`, `word_categories`, `word_list_items`, `media_assets`, `user_api_keys`, `user_list_subscriptions`
+- Added 6 pg enums: `translation_status`, `audio_status`, `storage_type`, `media_type`, `tts_provider`, `api_key_provider`
+- Updated `user_progress` with nullable `word_id` (was required), new `word_list_item_id` FK, and `archived_at` timestamp
+- Added composite indexes: `(list_id, category_id, position)` on word_list_items, `(user_id, word_list_item_id)` on user_progress
+- Added unique constraints: `content_hash` on media_assets, `(user_id, provider)` on user_api_keys, `(user_id, list_id)` on user_list_subscriptions
+- Generated Drizzle migration `0007_demonic_serpent_society.sql` (removed duplicate `category_order` ALTER from migration since 0006 already added it manually)
+- Fixed type error in `lib/db/queries/progress.ts` — `wordId` now nullable, added null guard in `getUserProgress()`
+- All 96 tests pass, build succeeds
+
+**Decisions:**
+- `wordId` on `user_progress` made nullable (not removed) for backward compatibility during migration phase
+- `canonicalWordId` on `word_list_items` typed as plain uuid (no FK to word_list_items) since it may reference items across lists
+- Forward reference from `wordLists.ownerId → users.id` works via Drizzle's lazy arrow function pattern
+
+**Next:** migration task (convert existing data to list-based schema)

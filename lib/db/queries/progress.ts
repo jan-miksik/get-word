@@ -17,7 +17,9 @@ export async function getUserProgress(
 
   const progressMap: Record<string, UserProgress> = {};
   for (const row of results) {
-    progressMap[row.wordId] = row;
+    if (row.wordId) {
+      progressMap[row.wordId] = row;
+    }
   }
   return progressMap;
 }

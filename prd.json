@@ -15,7 +15,7 @@
       "Add indexes: (list_id, category_id, position) on word_list_items, (content_hash) unique on media_assets, (user_id, provider) unique on user_api_keys, (user_id, word_list_item_id) on user_progress, (user_id, list_id) unique on user_list_subscriptions",
       "Write Drizzle migration, run pnpm db:generate && pnpm db:migrate"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "migration",
