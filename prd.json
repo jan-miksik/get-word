@@ -79,7 +79,7 @@
       "Confirm translations: update word_list_items with final text_target values. Set translation_status='translated' or 'manual'. Items now meet minimum viable card requirement (both texts present)",
       "Skip entirely: user can skip this step and return later. Items remain with text_target=null, excluded from learning view until translated"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "audio-step",

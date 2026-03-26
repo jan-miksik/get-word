@@ -253,6 +253,73 @@ export async function archiveProgressForItems(
     .where(inArray(userProgress.wordListItemId, itemIds));
 }
 
+/** Batch-update translations on word_list_items. Sets textTarget/textKnown and translationStatus. */
+export async function updateItemTranslations(
+  updates: {
+    id: string;
+    textKnown?: string;
+    textTarget?: string;
+    translationStatus: "manual" | "translated" | "failed";
+  }[],
+): Promise<void> {
+  for (const { id, textKnown, textTarget, translationStatus } of updates) {
+    const set: Record<string, unknown> = {
+      translationStatus,
+      updatedAt: new Date(),
+    };
+    if (textTarget !== undefined) set.textTarget = textTarget;
+    if (textKnown !== undefined) set.textKnown = textKnown;
+    await db
+      .update(wordListItems)
+      .set(set)
+      .where(eq(wordListItems.id, id));
+  }
+}
+
+/**
+ * Find existing translations in word_list_items by matching text in the same language pair.
+ * Used for DB dedup before calling external translation APIs.
+ */
+export async function findExistingTranslations(
+  texts: string[],
+  field: "textKnown" | "textTarget",
+  languageFrom: string,
+  languageTo: string,
+): Promise<{ text: string; translatedText: string }[]> {
+  if (texts.length === 0) return [];
+
+  // Search across all word_list_items in lists with matching language pair
+  const col = field === "textKnown" ? wordListItems.textKnown : wordListItems.textTarget;
+  const otherCol = field === "textKnown" ? wordListItems.textTarget : wordListItems.textKnown;
+
+  const results = await db
+    .select({
+      text: col,
+      translatedText: otherCol,
+    })
+    .from(wordListItems)
+    .innerJoin(wordLists, eq(wordListItems.listId, wordLists.id))
+    .where(
+      and(
+        inArray(col, texts),
+        sql`${otherCol} IS NOT NULL`,
+        eq(wordLists.languageFrom, languageFrom),
+        eq(wordLists.languageTo, languageTo),
+      ),
+    );
+
+  // Deduplicate — keep first match per text
+  const seen = new Set<string>();
+  const deduped: { text: string; translatedText: string }[] = [];
+  for (const r of results) {
+    if (r.text && r.translatedText && !seen.has(r.text)) {
+      seen.add(r.text);
+      deduped.push({ text: r.text, translatedText: r.translatedText });
+    }
+  }
+  return deduped;
+}
+
 /**
  * Build a mapping from old word.id (e.g. "w000") to word_list_item.id (UUID).
  * Uses the words table + word_list_items to match by textKnown (cz text).

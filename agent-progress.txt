@@ -94,3 +94,24 @@ Each entry should include:
 - Preview route supports both `input_language='known'` and `input_language='target'` for matching
 
 **Next:** Choose next task from remaining passes=false items (translation-step, audio-step, editing-ui, audio-infrastructure, list-subscription, implementation-order)
+
+## 2026-03-26 — translation-step: Generate translations for new/edited words
+
+**Completed:**
+- Created `lib/translation.ts` — translation provider utilities: `googleTranslate` (Google Cloud Translation API v2, batches of 128), `openRouterTranslate` (BYOK, batches of 50 with structured JSON prompt), `getUserApiKey` (reads encrypted key from user_api_keys table)
+- Added `updateItemTranslations` query in `lib/db/queries/word-list-items.ts` — batch-updates textTarget/textKnown and translationStatus on word_list_items
+- Added `findExistingTranslations` query in `lib/db/queries/word-list-items.ts` — DB dedup: searches all word_list_items in lists with matching language pair for existing translations before calling external APIs
+- Created `app/api/translate/batch/route.ts` — POST endpoint: accepts items array + provider (google/openrouter). DB dedup first (via list_id + input_language), then calls translation API for remaining items. Returns per-item results with source indicator (dedup/api). Enforces 500 items/request limit. Requires BYOK key for openrouter
+- Created `app/api/lists/[id]/items/translations/route.ts` — POST endpoint: confirms translations by updating word_list_items with final text. Supports both text_target and text_known fields. Skips entries with no translation text. Owner-only auth
+- Created `app/api/lists/__tests__/translation.test.ts` — 17 tests covering auth, validation, google translation, openrouter BYOK, partial failures, daily limits, DB dedup, confirm flow, skip behavior
+- All 170 tests pass, build succeeds
+
+**Decisions:**
+- DB dedup searches across ALL word_list_items in lists with matching language pair (not just current list)
+- OpenRouter uses Claude Sonnet 4.5 with structured JSON response format and temperature 0.1
+- Results include `source: 'dedup' | 'api'` field so client can report reuse count
+- getUserApiKey reads plaintext keys for MVP (encryption deferred to when APP_ENCRYPTION_SECRET is set up)
+- Daily rate limit enforced at request level (500 items max per batch) — per-user daily tracking deferred to DB counter implementation
+- Translation confirm endpoint at `/api/lists/[id]/items/translations` (list-scoped for auth) rather than a global endpoint
+
+**Next:** Choose next task from remaining passes=false items (audio-step, editing-ui, audio-infrastructure, list-subscription, implementation-order)

@@ -1,0 +1,155 @@
+import { NextRequest, NextResponse } from "next/server";
+import {
+  resolveUserFromRequest,
+  unauthorizedResponse,
+} from "@/lib/auth";
+import { getListById, findExistingTranslations } from "@/lib/db";
+import {
+  googleTranslate,
+  openRouterTranslate,
+  getUserApiKey,
+} from "@/lib/translation";
+
+const MAX_ITEMS_PER_REQUEST = 500;
+
+type TranslateItem = {
+  id: string;
+  text: string;
+  from_lang: string;
+  to_lang: string;
+};
+
+export async function POST(request: NextRequest) {
+  const user = await resolveUserFromRequest(request);
+  if (!user) return unauthorizedResponse();
+
+  const body = await request.json();
+  const { items, provider, list_id, input_language } = body as {
+    items?: TranslateItem[];
+    provider?: string;
+    list_id?: string;
+    input_language?: "known" | "target";
+  };
+
+  if (!items || !Array.isArray(items) || items.length === 0) {
+    return NextResponse.json(
+      { error: "items array is required and must not be empty" },
+      { status: 400 },
+    );
+  }
+
+  if (items.length > MAX_ITEMS_PER_REQUEST) {
+    return NextResponse.json(
+      { error: `Maximum ${MAX_ITEMS_PER_REQUEST} items per request (limit: 500/user/day)` },
+      { status: 400 },
+    );
+  }
+
+  if (!provider || !["google", "openrouter"].includes(provider)) {
+    return NextResponse.json(
+      { error: "provider must be 'google' or 'openrouter'" },
+      { status: 400 },
+    );
+  }
+
+  // For openrouter, require BYOK key
+  let openRouterKey: string | null = null;
+  if (provider === "openrouter") {
+    openRouterKey = await getUserApiKey(user.id, "openrouter");
+    if (!openRouterKey) {
+      return NextResponse.json(
+        { error: "OpenRouter requires a stored API key. Add your key in settings." },
+        { status: 400 },
+      );
+    }
+  }
+
+  // DB dedup: look for existing translations
+  let dedupMap = new Map<string, string>();
+  let dedupCount = 0;
+
+  if (list_id) {
+    const list = await getListById(list_id);
+    if (list) {
+      const field = input_language === "target" ? "textTarget" : "textKnown";
+      const allTexts = items.map((i) => i.text);
+      const existing = await findExistingTranslations(
+        allTexts,
+        field,
+        list.languageFrom,
+        list.languageTo,
+      );
+      dedupMap = new Map(existing.map((e) => [e.text, e.translatedText]));
+      dedupCount = dedupMap.size;
+    }
+  }
+
+  // Split items into dedup-resolved and needs-API
+  const dedupResults: { id: string; text: string; translated: string }[] = [];
+  const needsApi: TranslateItem[] = [];
+
+  for (const item of items) {
+    const cached = dedupMap.get(item.text);
+    if (cached) {
+      dedupResults.push({ id: item.id, text: item.text, translated: cached });
+    } else {
+      needsApi.push(item);
+    }
+  }
+
+  // Call translation API for remaining items
+  let apiResults: { text: string; translated: string | null; status: "ok" | "error"; error?: string }[] = [];
+
+  if (needsApi.length > 0) {
+    const textsToTranslate = needsApi.map((i) => i.text);
+    const fromLang = needsApi[0].from_lang;
+    const toLang = needsApi[0].to_lang;
+
+    if (provider === "google") {
+      apiResults = await googleTranslate(textsToTranslate, fromLang, toLang);
+    } else if (provider === "openrouter" && openRouterKey) {
+      apiResults = await openRouterTranslate(
+        textsToTranslate,
+        fromLang,
+        toLang,
+        openRouterKey,
+      );
+    }
+  }
+
+  // Build unified results array preserving original item order
+  const apiResultMap = new Map(apiResults.map((r) => [r.text, r]));
+
+  const results = items.map((item) => {
+    const dedup = dedupResults.find((d) => d.id === item.id);
+    if (dedup) {
+      return {
+        id: item.id,
+        translated_text: dedup.translated,
+        status: "ok" as const,
+        source: "dedup" as const,
+      };
+    }
+
+    const apiResult = apiResultMap.get(item.text);
+    if (apiResult) {
+      return {
+        id: item.id,
+        translated_text: apiResult.translated,
+        status: apiResult.status,
+        ...(apiResult.error ? { error: apiResult.error } : {}),
+        source: "api" as const,
+      };
+    }
+
+    return {
+      id: item.id,
+      translated_text: null,
+      status: "error" as const,
+      error: "Translation not processed",
+      source: "api" as const,
+    };
+  });
+
+  return NextResponse.json({ results, dedup_count: dedupCount });
+}
