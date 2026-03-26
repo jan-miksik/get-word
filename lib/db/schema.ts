@@ -181,7 +181,7 @@ export const userProgress = pgTable(
   },
   (table) => [
     unique().on(table.userId, table.wordId),
-    index("user_progress_user_item_idx").on(
+    unique("user_progress_user_word_list_item_unique").on(
       table.userId,
       table.wordListItemId,
     ),

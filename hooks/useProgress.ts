@@ -16,15 +16,20 @@ export function useProgress(
   // Sync to server
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
-    const progressArray = Object.entries(progress).map(([word_id, data]) => ({
-      word_id,
-      stage_index: data.stageIndex,
-      known_count: data.knownCount,
-      unknown_count: data.unknownCount,
-      last_known_at: data.lastKnownAt ?? null,
-      last_unknown_at: data.lastUnknownAt ?? null,
-      next_due_at: data.nextDueAt ?? null,
-    }));
+    // UUID pattern: 8-4-4-4-12 hex digits
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const progressArray = Object.entries(progress).map(([id, data]) => {
+      const isUuid = uuidRe.test(id);
+      return {
+        ...(isUuid ? { word_list_item_id: id } : { word_id: id }),
+        stage_index: data.stageIndex,
+        known_count: data.knownCount,
+        unknown_count: data.unknownCount,
+        last_known_at: data.lastKnownAt ?? null,
+        last_unknown_at: data.lastUnknownAt ?? null,
+        next_due_at: data.nextDueAt ?? null,
+      };
+    });
     debouncedSync({ progress: progressArray }).catch((e) =>
       console.error('[useProgress] sync:', e)
     );

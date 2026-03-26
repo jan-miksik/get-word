@@ -42,140 +42,22 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST: Create a new word or bulk upsert words
-export async function POST(request: NextRequest) {
-  try {
-    const user = await resolveUserFromRequest(request);
-    if (!user) return unauthorizedResponse();
-    if (!isEditor(user)) return forbiddenResponse();
+// POST, PUT, DELETE: Read-only during transition to list-based schema.
+// Word editing now happens through /api/lists endpoints.
+const readOnlyResponse = () =>
+  NextResponse.json(
+    { error: "Word editing via /api/words is disabled. Use list-based editing instead." },
+    { status: 410 }
+  );
 
-    const body = await request.json();
-
-    // Check if this is a bulk operation (array of words)
-    if (Array.isArray(body.words)) {
-      // Validate all words have required fields
-      for (const word of body.words) {
-        if (!word.id || !word.cz || !word.en || !word.vi) {
-          return NextResponse.json(
-            { error: `Missing required fields (id, cz, en, vi) in word: ${word.id || 'unknown'}` },
-            { status: 400 }
-          );
-        }
-      }
-
-      // Prepare words for upsert
-      const wordsToUpsert: NewWord[] = body.words.map((word: any) => ({
-        id: word.id,
-        category: word.category || [],
-        cz: word.cz,
-        en: word.en,
-        vi: word.vi,
-        czPron: word.czPron || null,
-        viPron: word.viPron || null,
-        czAudio: word.czAudio || null,
-        viAudio: word.viAudio || null,
-        czHint: word.czHint || null,
-        viHint: word.viHint || null,
-      }));
-
-      await upsertWords(wordsToUpsert);
-      return NextResponse.json({ success: true, count: wordsToUpsert.length }, { status: 200 });
-    }
-
-    // Single word creation (existing behavior)
-    if (!body.id || !body.cz || !body.en || !body.vi) {
-      return NextResponse.json(
-        { error: "Missing required fields: id, cz, en, vi" },
-        { status: 400 }
-      );
-    }
-
-    const newWord: NewWord = {
-      id: body.id,
-      category: body.category || [],
-      cz: body.cz,
-      en: body.en,
-      vi: body.vi,
-      czPron: body.czPron || null,
-      viPron: body.viPron || null,
-      czAudio: body.czAudio || null,
-      viAudio: body.viAudio || null,
-      czHint: body.czHint || null,
-      viHint: body.viHint || null,
-    };
-
-    const word = await createWord(newWord);
-    return NextResponse.json({ word }, { status: 201 });
-  } catch (error) {
-    console.error("Error creating/updating words:", error);
-    return NextResponse.json(
-      { error: "Failed to create/update words" },
-      { status: 500 }
-    );
-  }
+export async function POST() {
+  return readOnlyResponse();
 }
 
-// PUT: Update an existing word
-export async function PUT(request: NextRequest) {
-  try {
-    const user = await resolveUserFromRequest(request);
-    if (!user) return unauthorizedResponse();
-    if (!isEditor(user)) return forbiddenResponse();
-
-    const body = await request.json();
-
-    if (!body.id) {
-      return NextResponse.json(
-        { error: "Word ID is required" },
-        { status: 400 }
-      );
-    }
-
-    const { id, ...updates } = body;
-    const word = await updateWord(id, updates);
-
-    if (!word) {
-      return NextResponse.json({ error: "Word not found" }, { status: 404 });
-    }
-
-    return NextResponse.json({ word });
-  } catch (error) {
-    console.error("Error updating word:", error);
-    return NextResponse.json(
-      { error: "Failed to update word" },
-      { status: 500 }
-    );
-  }
+export async function PUT() {
+  return readOnlyResponse();
 }
 
-// DELETE: Delete a word
-export async function DELETE(request: NextRequest) {
-  try {
-    const user = await resolveUserFromRequest(request);
-    if (!user) return unauthorizedResponse();
-    if (!isEditor(user)) return forbiddenResponse();
-
-    const searchParams = request.nextUrl.searchParams;
-    const wordId = searchParams.get("id");
-
-    if (!wordId) {
-      return NextResponse.json(
-        { error: "Word ID is required" },
-        { status: 400 }
-      );
-    }
-
-    const deleted = await deleteWord(wordId);
-    if (!deleted) {
-      return NextResponse.json({ error: "Word not found" }, { status: 404 });
-    }
-
-    return NextResponse.json({ success: true });
-  } catch (error) {
-    console.error("Error deleting word:", error);
-    return NextResponse.json(
-      { error: "Failed to delete word" },
-      { status: 500 }
-    );
-  }
+export async function DELETE() {
+  return readOnlyResponse();
 }

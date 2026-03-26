@@ -4,6 +4,7 @@
 import { useState, useEffect, useRef } from 'react';
 import type { SyncResponse } from '@/lib/sync';
 import type { NormalizedWord } from '@/lib/words';
+import { wordListItemsToNormalizedWords } from '@/lib/words';
 import { fetchUserData, linkWallet, clearPendingSync } from '@/lib/sync';
 import { useTheme } from './useTheme';
 import { useUserProfile } from './useUserProfile';
@@ -27,6 +28,7 @@ export function useAppState(
   linkPayload?: LinkPayload
 ) {
   const [isHydrated, setIsHydrated] = useState(false);
+  const [syncedWords, setSyncedWords] = useState<NormalizedWord[] | null>(null);
   const isHydratedRef = useRef(false);
   const isUpdatingFromServerRef = useRef(false);
   const hasLoadedRef = useRef(false);
@@ -37,7 +39,8 @@ export function useAppState(
   const progress = useProgress(isHydrated, isUpdatingFromServerRef);
   const preferences = usePreferences(isHydrated, isUpdatingFromServerRef);
   const memoryHooks = useMemoryHooks(isHydrated, isUpdatingFromServerRef, preferences.role);
-  const categories = useCategoryFilter(words, isHydrated, isUpdatingFromServerRef);
+  const activeWords = syncedWords ?? words;
+  const categories = useCategoryFilter(activeWords, isHydrated, isUpdatingFromServerRef);
   const gameScore = useGameScore(isHydrated, isUpdatingFromServerRef);
 
   function applyServerData(serverData: SyncResponse) {
@@ -52,6 +55,18 @@ export function useAppState(
     }
     if (serverData.user?.game_score !== undefined) {
       gameScore.applyServerGameScore(serverData.user.game_score);
+    }
+    // If sync returns word_list_items, convert to NormalizedWord[] for the app
+    if (serverData.word_list_items && serverData.word_list_items.length > 0 && serverData.categories) {
+      const role = serverData.user?.role ?? 'vi';
+      const converted = wordListItemsToNormalizedWords(
+        serverData.word_list_items,
+        serverData.categories,
+        role as 'cz' | 'vi'
+      );
+      if (converted.length > 0) {
+        setSyncedWords(converted);
+      }
     }
   }
 
@@ -136,5 +151,6 @@ export function useAppState(
     ...categories,
     ...gameScore,
     isHydrated,
+    syncedWords,
   };
 }

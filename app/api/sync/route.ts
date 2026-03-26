@@ -4,6 +4,7 @@ import {
   getUserById,
   getUserProgress,
   batchUpsertProgress,
+  batchUpsertProgressByItemId,
   getUserMemoryHooks,
   upsertMemoryHook,
   deleteMemoryHook,
@@ -11,6 +12,10 @@ import {
   setUserCategoryFilters,
   updateUserRole,
   updateUserPreferences,
+  getUserSubscribedItems,
+  getListCategories,
+  getSystemDefaultList,
+  getWordIdToItemIdMapping,
 } from "@/lib/db";
 import { db } from "@/lib/db/client";
 import { users, type User } from "@/lib/db/schema";
@@ -44,6 +49,22 @@ async function withRetryOnTimeout<T>(fn: () => Promise<T>): Promise<T> {
   }
 }
 
+/**
+ * Re-key a Record<oldWordId, V> → Record<wordListItemId, V> using a mapping.
+ * Entries without a mapping are preserved with their original key.
+ */
+function rekeyByItemId<V>(
+  data: Record<string, V>,
+  mapping: Map<string, string>
+): Record<string, V> {
+  const result: Record<string, V> = {};
+  for (const [key, value] of Object.entries(data)) {
+    const newKey = mapping.get(key) ?? key;
+    result[newKey] = value;
+  }
+  return result;
+}
+
 /** Prefers userId (PK lookup) when provided; falls back to deviceId get-or-create. */
 async function resolveUser(
   deviceId: string | null,
@@ -75,7 +96,8 @@ interface SyncRequest {
   game_score?: number;
   category_order?: string[];
   progress?: Array<{
-    word_id: string;
+    word_id?: string; // legacy: old word ID like "w000"
+    word_list_item_id?: string; // new: UUID from word_list_items
     stage_index: number;
     known_count: number;
     unknown_count: number;
@@ -144,19 +166,38 @@ export async function POST(request: NextRequest) {
       if (updated) user = updated;
     }
 
-    // Sync progress
+    // Sync progress — route to legacy (wordId) or new (wordListItemId) upsert
     if (progress && progress.length > 0) {
-      const progressData = progress.map((p) => ({
-        userId: user.id,
-        wordId: p.word_id,
-        stageIndex: p.stage_index,
-        knownCount: p.known_count,
-        unknownCount: p.unknown_count,
-        lastKnownAt: p.last_known_at ? new Date(p.last_known_at) : null,
-        lastUnknownAt: p.last_unknown_at ? new Date(p.last_unknown_at) : null,
-        nextDueAt: p.next_due_at ? new Date(p.next_due_at) : null,
-      }));
-      await batchUpsertProgress(progressData);
+      const legacyProgress = progress.filter((p) => p.word_id && !p.word_list_item_id);
+      const newProgress = progress.filter((p) => p.word_list_item_id);
+
+      if (legacyProgress.length > 0) {
+        const progressData = legacyProgress.map((p) => ({
+          userId: user.id,
+          wordId: p.word_id!,
+          stageIndex: p.stage_index,
+          knownCount: p.known_count,
+          unknownCount: p.unknown_count,
+          lastKnownAt: p.last_known_at ? new Date(p.last_known_at) : null,
+          lastUnknownAt: p.last_unknown_at ? new Date(p.last_unknown_at) : null,
+          nextDueAt: p.next_due_at ? new Date(p.next_due_at) : null,
+        }));
+        await batchUpsertProgress(progressData);
+      }
+
+      if (newProgress.length > 0) {
+        const progressData = newProgress.map((p) => ({
+          userId: user.id,
+          wordListItemId: p.word_list_item_id!,
+          stageIndex: p.stage_index,
+          knownCount: p.known_count,
+          unknownCount: p.unknown_count,
+          lastKnownAt: p.last_known_at ? new Date(p.last_known_at) : null,
+          lastUnknownAt: p.last_unknown_at ? new Date(p.last_unknown_at) : null,
+          nextDueAt: p.next_due_at ? new Date(p.next_due_at) : null,
+        }));
+        await batchUpsertProgressByItemId(progressData);
+      }
     }
 
     // Sync memory hooks
@@ -179,11 +220,38 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch all current data to return
-    const [currentProgress, currentHooks, currentFilters] = await Promise.all([
-      getUserProgress(user.id),
-      getUserMemoryHooks(user.id),
-      getUserCategoryFilters(user.id),
+    const [currentProgress, currentHooks, currentFilters, currentItems] =
+      await Promise.all([
+        getUserProgress(user.id),
+        getUserMemoryHooks(user.id),
+        getUserCategoryFilters(user.id),
+        getUserSubscribedItems(user.id),
+      ]);
+
+    // Build category lookup and word ID mapping for re-keying
+    const postListIds = [...new Set(currentItems.map((i) => i.listId))];
+    const postSystemList = await getSystemDefaultList();
+    const [postCategoryResults, postWordIdMapping] = await Promise.all([
+      Promise.all(postListIds.map((id) => getListCategories(id))),
+      postSystemList
+        ? getWordIdToItemIdMapping(postSystemList.id)
+        : Promise.resolve(new Map<string, string>()),
     ]);
+
+    const postCategoryLookup: Record<
+      string,
+      { name: string; position: number }
+    > = {};
+    for (const cats of postCategoryResults) {
+      for (const cat of cats) {
+        postCategoryLookup[cat.id] = {
+          name: cat.name,
+          position: cat.position,
+        };
+      }
+    }
+
+    const postRekeyedHooks = rekeyByItemId(currentHooks, postWordIdMapping);
 
     const response = NextResponse.json({
       success: true,
@@ -201,8 +269,10 @@ export async function POST(request: NextRequest) {
         category_order: user.categoryOrder ?? [],
       },
       progress: currentProgress,
-      memory_hooks: currentHooks,
+      memory_hooks: postRekeyedHooks,
       category_filters: currentFilters,
+      word_list_items: currentItems,
+      categories: postCategoryLookup,
     });
     const safeUserRole = user.userRole === "editor" ? "editor" : "user";
     const token = await signSession({
@@ -253,11 +323,34 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
-    const [progress, memoryHooks, categoryFilters] = await Promise.all([
-      getUserProgress(user.id),
-      getUserMemoryHooks(user.id),
-      getUserCategoryFilters(user.id),
+    const [progress, memoryHooks, categoryFilters, wordListItems] =
+      await Promise.all([
+        getUserProgress(user.id),
+        getUserMemoryHooks(user.id),
+        getUserCategoryFilters(user.id),
+        getUserSubscribedItems(user.id),
+      ]);
+
+    // Build category lookup and word ID mapping
+    const listIds = [...new Set(wordListItems.map((i) => i.listId))];
+    const systemList = await getSystemDefaultList();
+    const [categoryResults, wordIdMapping] = await Promise.all([
+      Promise.all(listIds.map((id) => getListCategories(id))),
+      systemList
+        ? getWordIdToItemIdMapping(systemList.id)
+        : Promise.resolve(new Map<string, string>()),
     ]);
+
+    const categoryLookup: Record<string, { name: string; position: number }> =
+      {};
+    for (const cats of categoryResults) {
+      for (const cat of cats) {
+        categoryLookup[cat.id] = { name: cat.name, position: cat.position };
+      }
+    }
+
+    // Re-key memory hooks from old wordId to wordListItemId
+    const rekeyedHooks = rekeyByItemId(memoryHooks, wordIdMapping);
 
     const response = NextResponse.json({
       success: true,
@@ -275,8 +368,10 @@ export async function GET(request: NextRequest) {
         category_order: user.categoryOrder ?? [],
       },
       progress,
-      memory_hooks: memoryHooks,
+      memory_hooks: rekeyedHooks,
       category_filters: categoryFilters,
+      word_list_items: wordListItems,
+      categories: categoryLookup,
     });
     const safeUserRole = user.userRole === "editor" ? "editor" : "user";
     const token = await signSession({

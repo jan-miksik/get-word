@@ -78,7 +78,11 @@ export default function Home() {
     categoryOrder,
     isHydrated,
     setGameScore,
+    syncedWords,
   } = appState;
+
+  // Use synced words (from word_list_items) when available, fall back to static
+  const activeWords = syncedWords ?? normalizedWords;
 
   const isAuthenticated = isConnected;
   const displayEmail = email ?? undefined;
@@ -143,8 +147,8 @@ export default function Home() {
   // Minigame seed persisted per device to keep injections stable across refreshes.
 
   const categories = useMemo(
-    () => getAvailableCategories(normalizedWords),
-    [normalizedWords]
+    () => getAvailableCategories(activeWords),
+    [activeWords]
   );
 
   const phrasesRef = useRef<HTMLElement>(null);
@@ -207,8 +211,8 @@ export default function Home() {
   }, [selectedCategoriesKey]);
 
   const statsWords = useMemo(() => {
-    return getProgressStatsWords(normalizedWords, selectedCategories);
-  }, [normalizedWords, selectedCategories]);
+    return getProgressStatsWords(activeWords, selectedCategories);
+  }, [activeWords, selectedCategories]);
 
   // Split filteredWords into due / new / settling
   const { dueWords, newWords, settlingWords } = useWordStream(filteredWords, progress, isHydrated);

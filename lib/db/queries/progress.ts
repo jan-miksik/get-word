@@ -1,4 +1,4 @@
-import { eq, and, lte, or, sql } from "drizzle-orm";
+import { eq, and, lte, or, sql, isNull } from "drizzle-orm";
 import { db } from "../client";
 import {
   userProgress,
@@ -6,19 +6,24 @@ import {
   type NewUserProgress,
 } from "../schema";
 
-// Get all progress for a user
+/**
+ * Get all progress for a user, keyed by wordListItemId (preferred) or wordId (legacy).
+ * Excludes archived entries.
+ */
 export async function getUserProgress(
   userId: string
 ): Promise<Record<string, UserProgress>> {
   const results = await db
     .select()
     .from(userProgress)
-    .where(eq(userProgress.userId, userId));
+    .where(and(eq(userProgress.userId, userId), isNull(userProgress.archivedAt)));
 
   const progressMap: Record<string, UserProgress> = {};
   for (const row of results) {
-    if (row.wordId) {
-      progressMap[row.wordId] = row;
+    // Key by wordListItemId (new) with wordId fallback (legacy)
+    const key = row.wordListItemId ?? row.wordId;
+    if (key) {
+      progressMap[key] = row;
     }
   }
   return progressMap;
@@ -79,13 +84,12 @@ export async function upsertProgress(
   return results[0];
 }
 
-// Batch upsert progress
+// Batch upsert progress (legacy: conflicts on userId + wordId)
 export async function batchUpsertProgress(
   progressList: Omit<NewUserProgress, "id" | "createdAt" | "updatedAt">[]
 ): Promise<void> {
   if (progressList.length === 0) return;
 
-  // Insert in batches to avoid hitting limits
   const BATCH_SIZE = 100;
 
   for (let i = 0; i < progressList.length; i += BATCH_SIZE) {
@@ -96,6 +100,35 @@ export async function batchUpsertProgress(
       .values(batch)
       .onConflictDoUpdate({
         target: [userProgress.userId, userProgress.wordId],
+        set: {
+          stageIndex: sql`excluded.stage_index`,
+          knownCount: sql`excluded.known_count`,
+          unknownCount: sql`excluded.unknown_count`,
+          lastKnownAt: sql`excluded.last_known_at`,
+          lastUnknownAt: sql`excluded.last_unknown_at`,
+          nextDueAt: sql`excluded.next_due_at`,
+          updatedAt: new Date(),
+        },
+      });
+  }
+}
+
+// Batch upsert progress by wordListItemId (new path)
+export async function batchUpsertProgressByItemId(
+  progressList: Omit<NewUserProgress, "id" | "createdAt" | "updatedAt">[]
+): Promise<void> {
+  if (progressList.length === 0) return;
+
+  const BATCH_SIZE = 100;
+
+  for (let i = 0; i < progressList.length; i += BATCH_SIZE) {
+    const batch = progressList.slice(i, i + BATCH_SIZE);
+
+    await db
+      .insert(userProgress)
+      .values(batch)
+      .onConflictDoUpdate({
+        target: [userProgress.userId, userProgress.wordListItemId],
         set: {
           stageIndex: sql`excluded.stage_index`,
           knownCount: sql`excluded.known_count`,

@@ -108,3 +108,58 @@ export function isDue(progress: { stageIndex: number; nextDueAt?: number }): boo
   return Date.now() >= progress.nextDueAt;
 }
 
+/**
+ * Convert word_list_items (from sync API) into NormalizedWord[].
+ * Maps the new schema to the existing NormalizedWord shape so the rest of
+ * the app (WordCard, minigames, useWordStream) works unchanged.
+ */
+export function wordListItemsToNormalizedWords(
+  items: Array<{
+    id: string;
+    categoryId: string | null;
+    textKnown: string;
+    textTarget: string | null;
+    notes: string | null;
+    position: number;
+  }>,
+  categories: Record<string, { name: string; position: number }>,
+  userRole: 'cz' | 'vi'
+): NormalizedWord[] {
+  return items
+    .filter((item) => item.textKnown && item.textTarget) // minimum viable card
+    .map((item) => {
+      // Resolve category name(s)
+      const catName = item.categoryId
+        ? categories[item.categoryId]?.name
+        : undefined;
+      const baseTags = catName ? [catName] : [];
+
+      // Infer word/phrase from textKnown
+      const normalized = item.textKnown
+        .replace(/[^\p{L}\p{N}]+/gu, ' ')
+        .trim();
+      const tokenCount = normalized
+        ? normalized.split(/\s+/).filter(Boolean).length
+        : 1;
+      const typeTag = tokenCount > 1 ? 'phrase' : 'word';
+      const category = [...new Set([...baseTags, typeTag])];
+
+      // Extract English from notes if stored as "en: ..."
+      const enMatch = item.notes?.match(/^en:\s*(.+)$/);
+      const en = enMatch ? enMatch[1] : '';
+
+      // Map textKnown/textTarget to cz/vi based on user role
+      // The system list has languageFrom=cz, languageTo=vi
+      const cz = item.textKnown;
+      const vi = item.textTarget!;
+
+      return {
+        id: item.id, // UUID from word_list_items
+        category,
+        cz,
+        en,
+        vi,
+      } as NormalizedWord;
+    });
+}
+

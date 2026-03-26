@@ -29,3 +29,31 @@ Each entry should include:
 - Forward reference from `wordLists.ownerId → users.id` works via Drizzle's lazy arrow function pattern
 
 **Next:** migration task (convert existing data to list-based schema)
+
+## 2026-03-26 — migration: Migrate existing data to list-based schema
+
+**Completed:**
+- Created `scripts/migrate-to-lists.ts` — one-time migration script that populates word_lists, word_categories, word_list_items from existing data, maps user_progress to new item IDs, and auto-subscribes all users to the default list
+- Created `lib/db/queries/word-list-items.ts` — query functions: `getUserSubscribedItems`, `getSystemDefaultList`, `getWordIdToItemIdMapping`, `getListCategories`, `getListItems`
+- Updated `lib/db/queries/progress.ts` — `getUserProgress` now keys by `wordListItemId ?? wordId`, added `batchUpsertProgressByItemId` for UUID-based progress upsert, filters archived entries
+- Updated `lib/db/schema.ts` — changed user_progress (userId, wordListItemId) index to unique constraint for upsert support
+- Extensively updated `app/api/sync/route.ts` — dual-key progress routing (legacy wordId vs new wordListItemId), re-keying memory hooks via `rekeyByItemId`, responses now include `word_list_items` and `categories`
+- Updated `lib/sync.ts` — added `SyncWordListItem`, `SyncCategory` interfaces, `word_id` now optional with new `word_list_item_id` field
+- Added `wordListItemsToNormalizedWords` in `lib/words.ts` — converts word_list_items + categories to NormalizedWord[] for backward compatibility
+- Updated `hooks/useAppState.ts` — produces `syncedWords` from server word_list_items, used as `activeWords` fallback
+- Updated `hooks/useProgress.ts` — UUID detection to route progress sync to correct API field
+- Updated `app/page.tsx` — uses `activeWords = syncedWords ?? normalizedWords` for categories and stats
+- Made `app/api/words/route.ts` POST/PUT/DELETE read-only (410 Gone) during transition
+- Created `lib/__tests__/migration.test.ts` — 13 tests covering word preservation, category assignment, ID mapping, progress re-keying, stream equivalence
+- Updated `app/api/sync/__tests__/sync.test.ts` — mocked all new query functions
+- Generated Drizzle migration `0008_nappy_boomer.sql`
+- All 109 tests pass, build succeeds
+
+**Decisions:**
+- Dual-key approach: progress keyed by `wordListItemId` when available, falls back to legacy `wordId`
+- Memory hooks re-keyed from old wordId to new wordListItemId via SQL join mapping (textKnown match)
+- Client detects UUID format in word IDs to route progress sync to correct field
+- Single categoryId per word_list_item (primary category only) — intentional simplification from old multi-category model
+- Old /api/words POST/PUT/DELETE returns 410 Gone; GET remains functional for backward compatibility
+
+**Next:** api-lists task (API routes for list and category management)

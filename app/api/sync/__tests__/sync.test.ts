@@ -7,17 +7,23 @@ const mockGetUserProgress = vi.fn()
 const mockGetUserMemoryHooks = vi.fn()
 const mockGetUserCategoryFilters = vi.fn()
 const mockBatchUpsertProgress = vi.fn()
+const mockBatchUpsertProgressByItemId = vi.fn()
 const mockUpdateUserRole = vi.fn()
 const mockUpdateUserPreferences = vi.fn()
 const mockUpsertMemoryHook = vi.fn()
 const mockDeleteMemoryHook = vi.fn()
 const mockSetUserCategoryFilters = vi.fn()
+const mockGetUserSubscribedItems = vi.fn()
+const mockGetListCategories = vi.fn()
+const mockGetSystemDefaultList = vi.fn()
+const mockGetWordIdToItemIdMapping = vi.fn()
 
 vi.mock('@/lib/db', () => ({
   getOrCreateUserByDeviceId: (...args: unknown[]) => mockGetOrCreateUserByDeviceId(...args),
   getUserById: (...args: unknown[]) => mockGetUserById(...args),
   getUserProgress: (...args: unknown[]) => mockGetUserProgress(...args),
   batchUpsertProgress: (...args: unknown[]) => mockBatchUpsertProgress(...args),
+  batchUpsertProgressByItemId: (...args: unknown[]) => mockBatchUpsertProgressByItemId(...args),
   getUserMemoryHooks: (...args: unknown[]) => mockGetUserMemoryHooks(...args),
   upsertMemoryHook: (...args: unknown[]) => mockUpsertMemoryHook(...args),
   deleteMemoryHook: (...args: unknown[]) => mockDeleteMemoryHook(...args),
@@ -25,6 +31,10 @@ vi.mock('@/lib/db', () => ({
   setUserCategoryFilters: (...args: unknown[]) => mockSetUserCategoryFilters(...args),
   updateUserRole: (...args: unknown[]) => mockUpdateUserRole(...args),
   updateUserPreferences: (...args: unknown[]) => mockUpdateUserPreferences(...args),
+  getUserSubscribedItems: (...args: unknown[]) => mockGetUserSubscribedItems(...args),
+  getListCategories: (...args: unknown[]) => mockGetListCategories(...args),
+  getSystemDefaultList: (...args: unknown[]) => mockGetSystemDefaultList(...args),
+  getWordIdToItemIdMapping: (...args: unknown[]) => mockGetWordIdToItemIdMapping(...args),
 }))
 
 vi.mock('@/lib/db/client', () => ({
@@ -65,6 +75,9 @@ describe('GET /api/sync', () => {
     mockGetUserProgress.mockResolvedValue({})
     mockGetUserMemoryHooks.mockResolvedValue({})
     mockGetUserCategoryFilters.mockResolvedValue([])
+    mockGetUserSubscribedItems.mockResolvedValue([])
+    mockGetSystemDefaultList.mockResolvedValue(null)
+    mockGetWordIdToItemIdMapping.mockResolvedValue(new Map())
   })
 
   it('returns 400 if no deviceId or userId', async () => {
@@ -114,6 +127,9 @@ describe('POST /api/sync', () => {
     mockGetUserProgress.mockResolvedValue({})
     mockGetUserMemoryHooks.mockResolvedValue({})
     mockGetUserCategoryFilters.mockResolvedValue([])
+    mockGetUserSubscribedItems.mockResolvedValue([])
+    mockGetSystemDefaultList.mockResolvedValue(null)
+    mockGetWordIdToItemIdMapping.mockResolvedValue(new Map())
   })
 
   it('returns 400 if no deviceId or userId', async () => {

@@ -11,13 +11,34 @@ export function resetSyncIdentity(): void {
 
 /** API request shape for progress items. */
 export interface SyncProgressItem {
-  word_id: string;
+  word_id?: string; // legacy: old word ID like "w000"
+  word_list_item_id?: string; // new: UUID from word_list_items
   stage_index: number;
   known_count: number;
   unknown_count: number;
   last_known_at: number | null;
   last_unknown_at: number | null;
   next_due_at: number | null;
+}
+
+/** Word list item from the API (matches DB word_list_items table). */
+export interface SyncWordListItem {
+  id: string;
+  listId: string;
+  categoryId: string | null;
+  position: number;
+  textKnown: string;
+  textTarget: string | null;
+  translationStatus: string;
+  audioAssetId: string | null;
+  audioStatus: string;
+  notes: string | null;
+}
+
+/** Category info returned alongside word_list_items. */
+export interface SyncCategory {
+  name: string;
+  position: number;
 }
 
 /** App-side progress shape (stageIndex, camelCase). Used by useAppState, WordCard, etc. */
@@ -50,7 +71,8 @@ export interface SyncResponse {
     {
       id: string;
       userId: string;
-      wordId: string;
+      wordId: string | null;
+      wordListItemId: string | null;
       stageIndex: number;
       knownCount: number;
       unknownCount: number;
@@ -63,6 +85,8 @@ export interface SyncResponse {
   >;
   memory_hooks: Record<string, string>;
   category_filters: string[];
+  word_list_items?: SyncWordListItem[];
+  categories?: Record<string, SyncCategory>;
 }
 
 // Fetch data from server (DB-only; no localStorage).

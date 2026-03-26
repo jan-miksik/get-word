@@ -34,7 +34,7 @@
       "Write assertion tests: for each existing user, verify word stream output is identical pre/post migration (same words, same order, same SR state)",
       "Keep old /api/words endpoint as read-only during transition, remove after verification"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "api-lists",
