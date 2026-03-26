@@ -11,6 +11,8 @@ const PROGRESS_JSON = 'ralph.progress.json';
  * @typedef {Object} RalphRun
  * @property {string} startedAt
  * @property {string | null} completedAt
+ * @property {number | null} durationMs - elapsed time in milliseconds
+ * @property {string | null} durationHuman - human-readable duration (e.g. "2m 34s")
  * @property {number} iteration
  * @property {string} taskCategory
  * @property {string} taskDescription
@@ -23,8 +25,26 @@ const PROGRESS_JSON = 'ralph.progress.json';
  * @typedef {Object} RalphProgress
  * @property {string} lastUpdated
  * @property {number} totalIterations
+ * @property {number} totalDurationMs - cumulative time across all runs
+ * @property {string} totalDurationHuman - human-readable cumulative time
+ * @property {string | null} sessionStartedAt - when the current ralph session began
  * @property {RalphRun[]} runs
  */
+
+/**
+ * Format milliseconds as human-readable duration.
+ * @param {number} ms
+ * @returns {string}
+ */
+export function formatDuration(ms) {
+  if (ms < 1000) return `${ms}ms`;
+  const seconds = Math.floor(ms / 1000) % 60;
+  const minutes = Math.floor(ms / 60000) % 60;
+  const hours = Math.floor(ms / 3600000);
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`;
+  if (minutes > 0) return `${minutes}m ${seconds}s`;
+  return `${seconds}s`;
+}
 
 /**
  * Load progress from ralph.progress.json.
@@ -34,7 +54,14 @@ const PROGRESS_JSON = 'ralph.progress.json';
 export function loadProgress(rootDir) {
   const path = join(rootDir, PROGRESS_JSON);
   if (!existsSync(path)) {
-    return { lastUpdated: new Date().toISOString(), totalIterations: 0, runs: [] };
+    return {
+      lastUpdated: new Date().toISOString(),
+      totalIterations: 0,
+      totalDurationMs: 0,
+      totalDurationHuman: '0s',
+      sessionStartedAt: null,
+      runs: [],
+    };
   }
   return JSON.parse(readFileSync(path, 'utf-8'));
 }
@@ -51,14 +78,20 @@ export function saveProgress(rootDir, progress) {
 }
 
 /**
- * Append a completed run to the progress log.
+ * Append a completed run to the progress log with timing data.
  * @param {string} rootDir
- * @param {Omit<RalphRun, 'completedAt'>} run
+ * @param {Omit<RalphRun, 'completedAt' | 'durationMs' | 'durationHuman'>} run
  */
 export function recordRun(rootDir, run) {
+  const completedAt = new Date().toISOString();
+  const durationMs = new Date(completedAt).getTime() - new Date(run.startedAt).getTime();
+  const durationHuman = formatDuration(durationMs);
+
   const progress = loadProgress(rootDir);
   progress.totalIterations++;
-  progress.runs.push({ ...run, completedAt: new Date().toISOString() });
+  progress.totalDurationMs = (progress.totalDurationMs || 0) + durationMs;
+  progress.totalDurationHuman = formatDuration(progress.totalDurationMs);
+  progress.runs.push({ ...run, completedAt, durationMs, durationHuman });
   // Keep last 100 runs to avoid unbounded growth
   if (progress.runs.length > 100) {
     progress.runs = progress.runs.slice(-100);
@@ -79,7 +112,7 @@ export function getRecentSummary(rootDir, n = 3) {
   return recent
     .map(
       (r) =>
-        `[${r.taskCategory}] ${r.taskDescription} — ${r.success ? '✓ done' : `✗ ${r.error ?? 'failed'}`} (iter ${r.iteration})`
+        `[${r.taskCategory}] ${r.taskDescription} — ${r.success ? '✓ done' : `✗ ${r.error ?? 'failed'}`} (iter ${r.iteration}, ${r.durationHuman ?? '?'})`
     )
     .join('\n');
 }

@@ -5,22 +5,19 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 
+// Priority matches prd.json categories — follows the phased build sequence
+// from implementation-order: schema first, then APIs, then UI, then infrastructure
 const PRIORITY_ORDER = [
-  'architecture',
-  'migration',
-  'stability',
-  'security',
-  'performance',
-  'caching',
-  'rate-limiting',
-  'orchestration',
-  'realtime',
-  'queues',
-  'testing',
-  'observability',
-  // meta tasks last
-  'meta:orchestrator',
-  'meta:experimental',
+  'data-model',           // Phase 1: schema foundation
+  'migration',            // Phase 1: migrate existing data
+  'api-lists',            // Phase 1: list/category CRUD
+  'api-editing',          // Phase 1: textarea diff/confirm wizard
+  'editing-ui',           // Phase 1: desktop editing page
+  'translation-step',     // Phase 2: translation pipeline
+  'audio-step',           // Phase 3: audio generation
+  'audio-infrastructure', // Phase 3: Arweave/R2/CF Worker
+  'list-subscription',    // Phase 4: subscribe/unsubscribe curated lists
+  'implementation-order', // Meta: build sequence (skip if all phases done)
 ];
 
 /**

@@ -11,7 +11,8 @@
       "Create `user_api_keys` table: id, user_id, provider ('openrouter' | 'elevenlabs'), encrypted_key (AES-256 with APP_ENCRYPTION_SECRET), created_at. Never return key to client after storage. Show last 4 chars only in UI",
       "Update `user_progress`: add word_list_item_id FK. Progress is per (user, word_list_item). On word removal: set archived_at timestamp, preserve all SR state, hide from stats. On re-add: match by text_known — if archived entry exists, restore it (clear archived_at, keep stage/nextDueAt)",
       "Minimum viable card rule: word_list_item appears in learning view only if both text_known AND text_target are present. Items with null text_target are shown in editor as 'needs translation' but excluded from word stream",
-      "Add indexes: (list_id, category_id, position) on word_list_items, (content_hash) unique on media_assets, (user_id, provider) unique on user_api_keys, (user_id, word_list_item_id) on user_progress",
+      "Create `user_list_subscriptions` table: id, user_id (FK users), list_id (FK word_lists), subscribed_at. Unique on (user_id, list_id). Tracks which curated/public lists a user is subscribed to. Subscription triggers copy-on-write of items into user's own list",
+      "Add indexes: (list_id, category_id, position) on word_list_items, (content_hash) unique on media_assets, (user_id, provider) unique on user_api_keys, (user_id, word_list_item_id) on user_progress, (user_id, list_id) unique on user_list_subscriptions",
       "Write Drizzle migration, run pnpm db:generate && pnpm db:migrate"
     ],
     "passes": false
@@ -27,7 +28,7 @@
       "Map existing user_progress entries to new word_list_item_ids via (text_known + text_target) matching. Preserve stage, nextDueAt, all SR state. Log any unmatched entries for manual review",
       "Map existing user_memory_hooks to new word_list_item references",
       "Map existing user_category_filters to category_id references on new schema",
-      "Auto-subscribe all existing users to the default system list via user_list_subscriptions. Copy all default list word_list_items into each user's own list (copy-on-write for text/position — gives every user full edit capability from day one). Copied items inherit the SAME audio_asset_id as the original — no audio duplication. Many user items → one shared media_asset row",
+      "Auto-subscribe all existing users to the default system list via user_list_subscriptions (see user_list_subscriptions table in data-model). Copy all default list word_list_items into each user's own list (copy-on-write for text/position — gives every user full edit capability from day one). Copied items inherit the SAME audio_asset_id as the original — no audio duplication. Many user items → one shared media_asset row",
       "Update useWordStream: source words from user's own word_list_items (where text_known AND text_target are both present). Same due/new/settling bucket logic",
       "Update minigames: replace anchorOriginalIndex with word_list_item.id as stable anchor",
       "Write assertion tests: for each existing user, verify word stream output is identical pre/post migration (same words, same order, same SR state)",

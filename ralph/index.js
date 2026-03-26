@@ -13,7 +13,7 @@ import { fileURLToPath } from 'url';
 
 import { readTasks, selectNextTask, getTaskStats } from './planner.js';
 import { executeTask } from './executor.js';
-import { recordRun, getRecentSummary } from './progress.js';
+import { recordRun, getRecentSummary, loadProgress, saveProgress, formatDuration } from './progress.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT_DIR = resolve(__dirname, '..');
@@ -24,11 +24,22 @@ if (isNaN(maxIterations) || maxIterations < 1) {
   process.exit(1);
 }
 
+const sessionStartedAt = new Date().toISOString();
+
+// Record session start
+const initialProgress = loadProgress(ROOT_DIR);
+initialProgress.sessionStartedAt = sessionStartedAt;
+saveProgress(ROOT_DIR, initialProgress);
+
 console.log('╔══════════════════════════════════════╗');
 console.log('║  Ralph — Autonomous Coding Agent      ║');
 console.log('╚══════════════════════════════════════╝');
 console.log(`Max iterations: ${maxIterations}`);
 console.log(`Root: ${ROOT_DIR}`);
+console.log(`Session started: ${sessionStartedAt}`);
+if (initialProgress.totalDurationMs > 0) {
+  console.log(`Prior total time: ${initialProgress.totalDurationHuman}`);
+}
 console.log('');
 
 for (let iteration = 1; iteration <= maxIterations; iteration++) {
@@ -43,7 +54,11 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
 
   const task = selectNextTask(tasks);
   if (!task) {
-    console.log('\n✅ All tasks complete!');
+    const elapsed = Date.now() - new Date(sessionStartedAt).getTime();
+    const prog = loadProgress(ROOT_DIR);
+    console.log(`\n✅ All tasks complete!`);
+    console.log(`⏱  Session time:   ${formatDuration(elapsed)}`);
+    console.log(`⏱  All-time total: ${prog.totalDurationHuman}`);
     process.exit(0);
   }
 
@@ -66,11 +81,23 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
   });
 
   if (complete) {
+    const elapsed = Date.now() - new Date(sessionStartedAt).getTime();
+    const prog = loadProgress(ROOT_DIR);
     console.log('\n╔══════════════════════════════════════╗');
     console.log('║  ✅ ALL_TASKS_DONE                    ║');
     console.log('╚══════════════════════════════════════╝');
+    console.log(`⏱  Session time:   ${formatDuration(elapsed)}`);
+    console.log(`⏱  All-time total: ${prog.totalDurationHuman}`);
     process.exit(0);
   }
+
+  // Show timing for this iteration
+  const iterDuration = Date.now() - new Date(startedAt).getTime();
+  console.log(`\n⏱  Iteration time: ${formatDuration(iterDuration)}`);
+
+  // Show cumulative session time
+  const sessionElapsed = Date.now() - new Date(sessionStartedAt).getTime();
+  console.log(`⏱  Session total:  ${formatDuration(sessionElapsed)}`);
 
   if (!success) {
     console.error(`\n⚠️  Task failed: ${error}`);
@@ -83,8 +110,13 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
   }
 }
 
+const finalSessionElapsed = Date.now() - new Date(sessionStartedAt).getTime();
+const finalProgress = loadProgress(ROOT_DIR);
+
 console.log('\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 console.log(`🏁 Reached ${maxIterations} iterations`);
+console.log(`⏱  Session time:   ${formatDuration(finalSessionElapsed)}`);
+console.log(`⏱  All-time total: ${finalProgress.totalDurationHuman}`);
 console.log('📊 Review: git log');
 console.log('📝 Progress: cat ralph.progress.json');
 console.log('⏭️  Run again if more work remains');

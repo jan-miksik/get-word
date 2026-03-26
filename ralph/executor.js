@@ -44,8 +44,8 @@ export function runClaude(prompt, rootDir) {
  */
 export function runVerification(rootDir) {
   try {
-    const buildOutput = execSync('npm run build 2>&1', { cwd: rootDir, encoding: 'utf-8', timeout: 120_000 });
-    const testOutput = execSync('cd apps/api && npx vitest run 2>&1', { cwd: rootDir, encoding: 'utf-8', timeout: 120_000 });
+    const buildOutput = execSync('pnpm run build 2>&1', { cwd: rootDir, encoding: 'utf-8', timeout: 120_000 });
+    const testOutput = execSync('pnpm test 2>&1', { cwd: rootDir, encoding: 'utf-8', timeout: 120_000 });
     return { ok: true, output: buildOutput + '\n' + testOutput };
   } catch (err) {
     return { ok: false, output: err.stdout ?? err.message ?? String(err) };

@@ -10,7 +10,7 @@
  * @param {string} progressSummary
  */
 export function buildPlanningPrompt(task, progressSummary) {
-  return `You are implementing a feature for the Heppy Market codebase (Cloudflare Workers + Nuxt 4).
+  return `You are implementing a feature for the Wordlink codebase (Next.js + Drizzle ORM + Postgres).
 
 TASK: ${task.description} (category: ${task.category})
 
@@ -38,7 +38,7 @@ Output the plan in <plan> tags. Do NOT write code yet.`;
  * @param {string} progressSummary
  */
 export function buildImplementationPrompt(task, plan, progressSummary) {
-  return `You are implementing a feature for the Heppy Market codebase (Cloudflare Workers + Nuxt 4).
+  return `You are implementing a feature for the Wordlink codebase (Next.js + Drizzle ORM + Postgres).
 
 TASK: ${task.description} (category: ${task.category})
 
@@ -53,8 +53,8 @@ Follow the plan above. Implement each step using targeted edits (not full file r
 
 Rules:
 - Use Edit tool for targeted changes, Write only for new files
-- Run npm run build to verify TypeScript after changes
-- Run npm run test (API tests only) to verify correctness
+- Run pnpm run build to verify TypeScript after changes
+- Run pnpm test to verify correctness
 - After completing all steps: mark passes=true in prd.json, update agent-progress.txt, git commit
 
 When ALL tasks in prd.json have passes=true, output: <complete>ALL_TASKS_DONE</complete>`;
@@ -66,7 +66,7 @@ When ALL tasks in prd.json have passes=true, output: <complete>ALL_TASKS_DONE</c
  * @param {string} errorOutput - output from failed build/test
  */
 export function buildFixPrompt(task, errorOutput) {
-  return `You are fixing a failed build or test in the Heppy Market codebase.
+  return `You are fixing a failed build or test in the Wordlink codebase (Next.js + Drizzle ORM + Postgres).
 
 TASK: ${task.description} (category: ${task.category})
 
@@ -78,7 +78,7 @@ ${errorOutput.slice(0, 3000)}
 \`\`\`
 
 Diagnose the root cause and fix it. Do NOT rewrite everything — make targeted edits.
-After fixing, re-run npm run build and npm run test to confirm the fix works.`;
+After fixing, re-run pnpm run build and pnpm test to confirm the fix works.`;
 }
 
 /**
@@ -87,7 +87,7 @@ After fixing, re-run npm run build and npm run test to confirm the fix works.`;
  * @param {string} progressSummary
  */
 export function buildSimplePrompt(task, progressSummary) {
-  return `You are working on the Heppy Market codebase (Cloudflare Workers + Nuxt 4).
+  return `You are working on the Wordlink codebase (Next.js + Drizzle ORM + Postgres).
 
 Pick this task and implement it:
 TASK: ${task.description} (category: ${task.category})
@@ -98,7 +98,7 @@ RECENT PROGRESS:
 ${progressSummary || 'No prior context.'}
 
 Follow @CLAUDE.md guidelines.
-Run: npm run build && npx vitest run --project api
+Run: pnpm run build && pnpm test
 After completion: mark passes=true in prd.json, update agent-progress.txt, git commit.
 
 When ALL tasks in prd.json have passes=true, output: <complete>ALL_TASKS_DONE</complete>`;
