@@ -98,7 +98,7 @@
       "Skip: 'Skip audio' button available at all times. Cards work without audio. User can return to generate audio later from list/category settings",
       "Confirm & finish: wizard complete. All changes live. Trigger word stream invalidation in AppStateContext"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "editing-ui",
@@ -132,7 +132,7 @@
       "Prefetch in learning view: on page load, identify next 10 due words with audio. Inject <link rel='prefetch'> tags for their audio URLs pointing at the Worker GET endpoint",
       "Fallback chain: browser cache → R2 via Worker → Arweave gateway. If all fail, card renders without audio (graceful degradation, no error shown to user)"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "list-subscription",
@@ -158,6 +158,6 @@
       "Phase 4 — List Subscription: list-subscription. Toggle curated lists. Copy-on-write on subscribe. Multi-list dedup in word stream. Progress archival on unsubscribe. Update notifications",
       "Phase 5 — Scale + Polish: rate limiting hardening, batch job queue for large translation/audio jobs, fork/combine lists, mobile read-only improvements, Arweave BYOK wallet support"
     ],
-    "passes": false
+    "passes": true
   }
 ]

@@ -7,7 +7,7 @@ import { CategoryBrowser } from './CategoryBrowser';
 import { TextareaEditor } from './TextareaEditor';
 import { DiffPreview } from './DiffPreview';
 import { TranslationStep } from './TranslationStep';
-import { AudioStepStub } from './AudioStepStub';
+import { AudioStep } from './AudioStep';
 import { ApiKeySettings } from './ApiKeySettings';
 
 export type WordList = {
@@ -451,7 +451,12 @@ export default function ListsPage() {
             onSkip={handleSkipTranslation}
           />
         ) : wizardStep === 'audio' ? (
-          <AudioStepStub onComplete={handleAudioComplete} />
+          <AudioStep
+            list={selectedList}
+            items={editingCategoryId ? itemsByCategory.get(editingCategoryId) ?? [] : items}
+            onComplete={handleAudioComplete}
+            onSkip={handleAudioComplete}
+          />
         ) : null}
       </div>
     </div>

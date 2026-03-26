@@ -5,3 +5,4 @@ export * from "./progress";
 export * from "./memory-hooks";
 export * from "./category-filters";
 export * from "./word-list-items";
+export * from "./media-assets";

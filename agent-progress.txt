@@ -164,3 +164,55 @@ Each entry should include:
 - Personal list auto-created with default cs→vi language pair on first subscription
 
 **Next:** Choose next task from remaining passes=false items (audio-step, audio-infrastructure, implementation-order)
+
+## 2026-03-26 — audio-infrastructure: Arweave storage, R2 CDN cache, Cloudflare Worker proxy for media and BYOK key safety
+
+**Completed:**
+- Created `lib/audio.ts` — audio generation and storage abstraction:
+  - `computeContentHash(text, language, provider)` — SHA-256 content-addressed hash for dedup
+  - `googleTTS(text, language)` — Google Cloud TTS API (MP3, language code mapping)
+  - `elevenLabsTTS(text, language, encryptedKey, voiceId)` — ElevenLabs BYOK via Cloudflare Worker proxy
+  - `uploadAudio(audio, contentHash, metadata)` — uploads to Worker endpoint (Arweave primary, R2 fallback), falls back to local dev stub
+  - `getAudioUrl(contentHash)` — returns Worker URL or local API URL for dev
+- Created `lib/db/queries/media-assets.ts` — CRUD for media_assets table:
+  - `findMediaByHash` / `findMediaByHashes` (single + batch lookup by content_hash)
+  - `createMediaAsset` — inserts with dedup-safe onConflictDoNothing
+  - `linkAudioToItem` / `batchLinkAudioToItems` — sets audio_asset_id + audio_status on word_list_items
+  - `getMediaAsset` — by ID lookup
+- Created `app/api/audio/generate/batch/route.ts` — POST endpoint: DB dedup first (findMediaByHashes), generates remaining in parallel batches of 3, returns per-item results with source (dedup/generated)
+- Created `app/api/audio/[hash]/route.ts` — GET endpoint: redirects to Worker URL if configured, otherwise returns metadata JSON for local dev
+- Created `lib/audio-prefetch.ts` — client-side prefetch utility injecting `<link rel="prefetch">` tags for upcoming audio URLs (max 10)
+- Added audio tests in `app/api/audio/__tests__/audio.test.ts` — 12 tests covering auth, validation, dedup, generation, failure handling, mixed results, max items limit, audio serving
+- Exported media-assets queries from `lib/db/queries/index.ts`
+- All 195 tests pass, build succeeds
+
+**Decisions:**
+- Content-hash = SHA-256 of `${text}|${language}|${provider}` — deterministic, enables cross-user dedup
+- Worker URL configured via `AUDIO_WORKER_URL` env var; when absent, local dev fallback returns metadata JSON
+- ElevenLabs calls route through Cloudflare Worker proxy so BYOK keys never touch Next.js server
+- Upload fallback chain: Worker (Arweave → R2) → local dev stub (no-op)
+- Batch generation uses parallel windows of 3 to avoid rate limiting
+- Max 200 items per batch request
+
+**Next:** audio-step (UI consuming these APIs)
+
+## 2026-03-26 — audio-step: Wizard step for pronunciation audio generation
+
+**Completed:**
+- Created `app/lists/AudioStep.tsx` — full audio step replacing the stub:
+  - Per-word play buttons with visual highlight (accent border + background on playing word)
+  - "Play all" with 1.5s gap between words, pause button
+  - "Generate audio" button with progress bar and item count
+  - Status indicators per word: ready (green), pending (yellow), failed (red), none (gray)
+  - Dedup count display ("N reused")
+  - "Skip audio" and "Confirm & finish" buttons
+- Updated `app/lists/page.tsx` — replaced AudioStepStub import with AudioStep, wired up proper props (list, items, onComplete, onSkip)
+- All 195 tests pass, build succeeds
+
+**Decisions:**
+- Audio playback uses native `new Audio()` API with ref tracking for cleanup on unmount
+- Play queue managed via ref (not state) for sequential playback without re-renders
+- Row state derived from word_list_items audio_status field, updated in bulk after batch generation
+- No per-word regenerate button in MVP — batch generation covers all words at once
+
+**Next:** implementation-order (meta-task, all phases complete)
