@@ -6,16 +6,28 @@ import type { WordList } from './page';
 interface ListSidebarProps {
   lists: WordList[];
   selectedListId: string | null;
+  subscribedListIds: Set<string>;
   onSelectList: (id: string) => void;
   onCreateList: (name: string, langFrom: string, langTo: string) => Promise<void>;
+  onSubscribe: (listId: string) => Promise<void>;
+  onUnsubscribe: (listId: string) => Promise<void>;
 }
 
-export function ListSidebar({ lists, selectedListId, onSelectList, onCreateList }: ListSidebarProps) {
+export function ListSidebar({
+  lists,
+  selectedListId,
+  subscribedListIds,
+  onSelectList,
+  onCreateList,
+  onSubscribe,
+  onUnsubscribe,
+}: ListSidebarProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [newLangFrom, setNewLangFrom] = useState('cs');
   const [newLangTo, setNewLangTo] = useState('vi');
   const [creating, setCreating] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const ownLists = lists.filter((l) => l.ownerId !== null);
   const publicLists = lists.filter((l) => l.ownerId === null && l.isPublic);
@@ -29,6 +41,19 @@ export function ListSidebar({ lists, selectedListId, onSelectList, onCreateList 
       setShowCreate(false);
     } finally {
       setCreating(false);
+    }
+  }
+
+  async function handleToggleSubscription(listId: string) {
+    setTogglingId(listId);
+    try {
+      if (subscribedListIds.has(listId)) {
+        await onUnsubscribe(listId);
+      } else {
+        await onSubscribe(listId);
+      }
+    } finally {
+      setTogglingId(null);
     }
   }
 
@@ -69,23 +94,55 @@ export function ListSidebar({ lists, selectedListId, onSelectList, onCreateList 
             <h3 className="px-2 py-1 text-xs font-medium text-text-soft uppercase tracking-wide">
               Curated Lists
             </h3>
-            {publicLists.map((list) => (
-              <button
-                key={list.id}
-                type="button"
-                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
-                  selectedListId === list.id
-                    ? 'bg-accent/15 text-accent'
-                    : 'text-text hover:bg-background/50'
-                }`}
-                onClick={() => onSelectList(list.id)}
-              >
-                <div className="font-medium truncate">{list.name}</div>
-                <div className="text-xs text-text-soft mt-0.5">
-                  {list.languageFrom} → {list.languageTo}
+            {publicLists.map((list) => {
+              const isSubscribed = subscribedListIds.has(list.id);
+              const isToggling = togglingId === list.id;
+
+              return (
+                <div
+                  key={list.id}
+                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                    selectedListId === list.id
+                      ? 'bg-accent/15'
+                      : 'hover:bg-background/50'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    className={`flex-1 text-left min-w-0 ${
+                      selectedListId === list.id ? 'text-accent' : 'text-text'
+                    }`}
+                    onClick={() => onSelectList(list.id)}
+                  >
+                    <div className="font-medium truncate">{list.name}</div>
+                    <div className="text-xs text-text-soft mt-0.5">
+                      {list.languageFrom} → {list.languageTo}
+                    </div>
+                  </button>
+
+                  {/* Subscription toggle */}
+                  <button
+                    type="button"
+                    disabled={isToggling}
+                    className={`shrink-0 w-10 h-5 rounded-full transition-colors relative ${
+                      isSubscribed ? 'bg-accent' : 'bg-border-subtle'
+                    } ${isToggling ? 'opacity-50' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleToggleSubscription(list.id);
+                    }}
+                    title={isSubscribed ? 'Unsubscribe' : 'Subscribe'}
+                    aria-label={isSubscribed ? `Unsubscribe from ${list.name}` : `Subscribe to ${list.name}`}
+                  >
+                    <div
+                      className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
+                        isSubscribed ? 'translate-x-5' : 'translate-x-0.5'
+                      }`}
+                    />
+                  </button>
                 </div>
-              </button>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

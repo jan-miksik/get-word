@@ -146,7 +146,7 @@
       "Future: fork list (explicit full copy with editing UI). Defer to post-MVP",
       "Future: smart merge (dedup across lists, resolve order). Defer to post-MVP"
     ],
-    "passes": false
+    "passes": true
   },
   {
     "category": "implementation-order",

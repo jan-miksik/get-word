@@ -140,3 +140,27 @@ Each entry should include:
 - `apiFetch` helper wraps all API calls with device-id header
 
 **Next:** Choose next task from remaining passes=false items (audio-step, audio-infrastructure, list-subscription, implementation-order)
+
+## 2026-03-26 — list-subscription: Subscribe to curated lists, toggle on/off, multi-list learning
+
+**Completed:**
+- Added 4 new query functions in `lib/db/queries/word-list-items.ts`: `isUserSubscribed`, `subscribeToList`, `unsubscribeFromList`, `getOrCreateUserList`
+- `subscribeToList`: creates subscription record, copies source list items into user's personal list (copy-on-write for text/position, shared audio_asset_id reference), creates matching categories, creates initial user_progress entries for all copied items. Sets canonicalWordId to source item ID for traceability
+- `unsubscribeFromList`: finds copied items via canonicalWordId matching, archives progress entries (sets archived_at), deletes copied items from user's list, removes subscription record
+- `getOrCreateUserList`: ensures each user has a personal list for receiving copied items
+- Created `app/api/lists/[id]/subscribe/route.ts` — GET (check subscription status), POST (subscribe with copy-on-write), DELETE (unsubscribe with archive)
+- POST validates: list exists, list is public, not own list, not already subscribed. Returns { subscribed: true, copied: N }
+- DELETE validates: currently subscribed. Returns { subscribed: false, archived: N }
+- Updated `app/lists/ListSidebar.tsx` — curated lists now show toggle switches for subscribe/unsubscribe. Toggle state tracked via subscribedListIds Set. Toggling disabled during in-flight request
+- Updated `app/lists/page.tsx` — loads subscription status for all public lists on mount, passes subscribe/unsubscribe handlers to sidebar
+- Created `app/api/lists/__tests__/subscription.test.ts` — 13 tests covering auth, validation (404, 403, 400, 409), subscribe flow, unsubscribe flow, user list creation
+- All 183 tests pass, build succeeds
+
+**Decisions:**
+- Copy-on-write creates categories in user's list matching source list categories (not reusing source category IDs)
+- Items copied in batch (100 per insert) with initial progress entries (stageIndex=0) for immediate availability in word stream
+- Subscription status loaded per-list via individual GET calls (simple, scales fine for small number of public lists)
+- Unsubscribe matches copied items by canonicalWordId → source item IDs (robust even if user has edited the text)
+- Personal list auto-created with default cs→vi language pair on first subscription
+
+**Next:** Choose next task from remaining passes=false items (audio-step, audio-infrastructure, implementation-order)

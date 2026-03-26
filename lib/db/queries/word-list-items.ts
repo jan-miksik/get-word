@@ -320,6 +320,171 @@ export async function findExistingTranslations(
   return deduped;
 }
 
+/** Check if a user is subscribed to a list. */
+export async function isUserSubscribed(
+  userId: string,
+  listId: string,
+): Promise<boolean> {
+  const [row] = await db
+    .select({ id: userListSubscriptions.id })
+    .from(userListSubscriptions)
+    .where(
+      and(
+        eq(userListSubscriptions.userId, userId),
+        eq(userListSubscriptions.listId, listId),
+      ),
+    )
+    .limit(1);
+  return !!row;
+}
+
+/**
+ * Subscribe a user to a list. Creates subscription record and copies items
+ * into user's own list (copy-on-write).
+ * Returns the number of items copied.
+ */
+export async function subscribeToList(
+  userId: string,
+  sourceListId: string,
+  userListId: string,
+): Promise<{ copied: number }> {
+  // Create subscription record
+  await db.insert(userListSubscriptions).values({
+    userId,
+    listId: sourceListId,
+  });
+
+  // Get source list items and categories
+  const sourceItems = await getListItems(sourceListId);
+  const sourceCategories = await getListCategories(sourceListId);
+
+  if (sourceItems.length === 0) return { copied: 0 };
+
+  // Map source category IDs to user list categories
+  // Create matching categories in user's list if they don't exist
+  const catMap = new Map<string, string>();
+  for (const srcCat of sourceCategories) {
+    const userCat = await createCategory(userListId, srcCat.name, false);
+    catMap.set(srcCat.id, userCat.id);
+  }
+
+  // Copy items into user's list
+  const itemsToCopy = sourceItems.map((item, i) => ({
+    listId: userListId,
+    categoryId: item.categoryId ? catMap.get(item.categoryId) ?? null : null,
+    textKnown: item.textKnown,
+    textTarget: item.textTarget,
+    position: i,
+    translationStatus: item.translationStatus as "manual" | "pending" | "translated" | "failed",
+    canonicalWordId: item.id, // Reference back to source item
+    audioAssetId: item.audioAssetId, // Shared reference — no duplication
+  }));
+
+  // Insert in batches
+  const BATCH_SIZE = 100;
+  const created: WordListItem[] = [];
+  for (let i = 0; i < itemsToCopy.length; i += BATCH_SIZE) {
+    const batch = itemsToCopy.slice(i, i + BATCH_SIZE);
+    const rows = await db
+      .insert(wordListItems)
+      .values(batch.map((item) => ({
+        listId: item.listId,
+        categoryId: item.categoryId,
+        canonicalWordId: item.canonicalWordId,
+        textKnown: item.textKnown,
+        textTarget: item.textTarget,
+        position: item.position,
+        translationStatus: item.translationStatus,
+        audioAssetId: item.audioAssetId,
+      })))
+      .returning();
+    created.push(...rows);
+  }
+
+  // Create initial progress entries for copied items
+  if (created.length > 0) {
+    const progressBatch = created.map((item) => ({
+      userId,
+      wordListItemId: item.id,
+      stageIndex: 0,
+      knownCount: 0,
+      unknownCount: 0,
+    }));
+
+    for (let i = 0; i < progressBatch.length; i += BATCH_SIZE) {
+      const batch = progressBatch.slice(i, i + BATCH_SIZE);
+      await db.insert(userProgress).values(batch);
+    }
+  }
+
+  return { copied: created.length };
+}
+
+/**
+ * Unsubscribe a user from a list. Archives progress for items that came
+ * from this subscription, deletes copied items, removes subscription record.
+ * Returns the number of items archived.
+ */
+export async function unsubscribeFromList(
+  userId: string,
+  sourceListId: string,
+  userListId: string,
+): Promise<{ archived: number }> {
+  // Find items in user's list that came from this source (by canonicalWordId matching source items)
+  const sourceItems = await getListItems(sourceListId);
+  const sourceItemIds = new Set(sourceItems.map((i) => i.id));
+
+  const userItems = await getListItems(userListId);
+  const copiedItems = userItems.filter(
+    (item) => item.canonicalWordId && sourceItemIds.has(item.canonicalWordId),
+  );
+
+  const copiedItemIds = copiedItems.map((i) => i.id);
+
+  if (copiedItemIds.length > 0) {
+    // Archive progress
+    await archiveProgressForItems(copiedItemIds);
+    // Delete copied items
+    await deleteItems(copiedItemIds);
+  }
+
+  // Remove subscription record
+  await db
+    .delete(userListSubscriptions)
+    .where(
+      and(
+        eq(userListSubscriptions.userId, userId),
+        eq(userListSubscriptions.listId, sourceListId),
+      ),
+    );
+
+  return { archived: copiedItemIds.length };
+}
+
+/** Get or create a user's personal list. Each user has exactly one personal list. */
+export async function getOrCreateUserList(
+  userId: string,
+): Promise<WordList> {
+  // Check if user already has a personal list
+  const [existing] = await db
+    .select()
+    .from(wordLists)
+    .where(eq(wordLists.ownerId, userId))
+    .limit(1);
+
+  if (existing) return existing;
+
+  // Create a personal list for the user
+  return createList({
+    ownerId: userId,
+    name: "My Words",
+    description: null,
+    languageFrom: "cs",
+    languageTo: "vi",
+    isPublic: false,
+  });
+}
+
 /**
  * Build a mapping from old word.id (e.g. "w000") to word_list_item.id (UUID).
  * Uses the words table + word_list_items to match by textKnown (cz text).

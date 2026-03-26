@@ -83,6 +83,7 @@ export default function ListsPage() {
   const [pendingItems, setPendingItems] = useState<ConfirmResult['pending_items']>([]);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [subscribedListIds, setSubscribedListIds] = useState<Set<string>>(new Set());
 
   const selectedList = useMemo(
     () => lists.find((l) => l.id === selectedListId) ?? null,
@@ -94,7 +95,7 @@ export default function ListsPage() {
     return selectedList.ownerId !== null;
   }, [selectedList]);
 
-  // Fetch lists on mount
+  // Fetch lists and subscription status on mount
   useEffect(() => {
     async function loadLists() {
       try {
@@ -103,10 +104,22 @@ export default function ListsPage() {
         const data = await res.json();
         setLists(data.lists);
         if (data.lists.length > 0 && !selectedListId) {
-          // Select first user-owned list, or first list
           const owned = data.lists.find((l: WordList) => l.ownerId !== null);
           setSelectedListId(owned?.id ?? data.lists[0].id);
         }
+        // Check subscription status for public lists
+        const publicLists = data.lists.filter((l: WordList) => l.ownerId === null && l.isPublic);
+        const subIds = new Set<string>();
+        await Promise.all(
+          publicLists.map(async (l: WordList) => {
+            const subRes = await apiFetch(`/api/lists/${l.id}/subscribe`);
+            if (subRes.ok) {
+              const subData = await subRes.json();
+              if (subData.subscribed) subIds.add(l.id);
+            }
+          })
+        );
+        setSubscribedListIds(subIds);
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load lists');
       } finally {
@@ -160,6 +173,36 @@ export default function ListsPage() {
     const data = await res.json();
     setLists((prev) => [...prev, data.list]);
     setSelectedListId(data.list.id);
+  }, []);
+
+  const handleSubscribe = useCallback(async (listId: string) => {
+    try {
+      const res = await apiFetch(`/api/lists/${listId}/subscribe`, { method: 'POST' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? 'Subscribe failed');
+      }
+      setSubscribedListIds((prev) => new Set([...prev, listId]));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Subscribe failed');
+    }
+  }, []);
+
+  const handleUnsubscribe = useCallback(async (listId: string) => {
+    try {
+      const res = await apiFetch(`/api/lists/${listId}/subscribe`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? 'Unsubscribe failed');
+      }
+      setSubscribedListIds((prev) => {
+        const next = new Set(prev);
+        next.delete(listId);
+        return next;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Unsubscribe failed');
+    }
   }, []);
 
   const handleEditCategory = useCallback((categoryId: string, inputLang: 'known' | 'target') => {
@@ -338,8 +381,11 @@ export default function ListsPage() {
         <ListSidebar
           lists={lists}
           selectedListId={selectedListId}
+          subscribedListIds={subscribedListIds}
           onSelectList={handleSelectList}
           onCreateList={handleCreateList}
+          onSubscribe={handleSubscribe}
+          onUnsubscribe={handleUnsubscribe}
         />
       </div>
 
