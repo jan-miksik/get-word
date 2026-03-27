@@ -1,21 +1,42 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { NormalizedWord } from '@/lib/words';
+import {
+  getTargetLang,
+  getWordAudioSrcByLang,
+  getWordTextByLang,
+  resolveSourceLangFromRole,
+  type PromptMode,
+  type SourceLang,
+} from './types';
 
 interface Props {
   words: NormalizedWord[];
   role: 'cz' | 'vi';
+  sourceLang?: SourceLang;
+  promptMode?: PromptMode;
   onResult?: (delta: number) => void;
 }
 
-export function MultipleChoiceGame({ words, role, onResult }: Props) {
+export function MultipleChoiceGame({
+  words,
+  role,
+  sourceLang,
+  promptMode = 'text',
+  onResult,
+}: Props) {
   const [selected, setSelected] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const questionWord = words[0];
-  const getOption = (w: NormalizedWord) => role === 'cz' ? w.vi : w.cz;
-  const prompt = role === 'cz' ? questionWord.cz : questionWord.vi;
+  const resolvedSourceLang = sourceLang ?? resolveSourceLangFromRole(role);
+  const targetLang = getTargetLang(resolvedSourceLang);
+  const getOption = (w: NormalizedWord) => getWordTextByLang(w, targetLang);
+  const prompt = getWordTextByLang(questionWord, resolvedSourceLang);
   const correctAnswer = getOption(questionWord);
+  const promptAudioSrc = getWordAudioSrcByLang(questionWord, resolvedSourceLang);
+  const effectivePromptMode: PromptMode = promptMode === 'audio' && promptAudioSrc ? 'audio' : 'text';
 
   const options = useMemo(
     () => [...words].sort(() => Math.random() - 0.5).map(w => ({
@@ -29,6 +50,15 @@ export function MultipleChoiceGame({ words, role, onResult }: Props) {
 
   const answered = selected !== null;
 
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
   const handleSelect = (optionId: string) => {
     if (answered) return;
     setSelected(optionId);
@@ -36,10 +66,38 @@ export function MultipleChoiceGame({ words, role, onResult }: Props) {
     onResult?.(isCorrect ? 1 : -1);
   };
 
+  const replayPrompt = () => {
+    if (!promptAudioSrc) return;
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      const audio = new Audio(promptAudioSrc);
+      audioRef.current = audio;
+      audio.play().catch(() => {});
+    } catch {
+      // no-op: fail silently when audio playback is unavailable
+    }
+  };
+
   return (
     <article className="phrase-card game-card game-card--choice">
       <div className="game-badge">🎯 Choice</div>
-      <div className="game-prompt">{prompt}</div>
+      {effectivePromptMode === 'audio' ? (
+        <div className="game-audio-prompt">
+          <button
+            type="button"
+            className="game-audio-btn"
+            onClick={replayPrompt}
+            aria-label="Replay prompt audio"
+          >
+            🔊 Replay prompt
+          </button>
+        </div>
+      ) : (
+        <div className="game-prompt">{prompt}</div>
+      )}
       <div className="game-options-grid">
         {options.map(opt => {
           let state: 'idle' | 'correct' | 'wrong' | 'reveal' = 'idle';

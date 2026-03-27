@@ -13,9 +13,11 @@ import {
   updateUserRole,
   updateUserPreferences,
   getUserSubscribedItems,
+  getUserOwnListItems,
   getListCategories,
   getSystemDefaultList,
   getWordIdToItemIdMapping,
+  getWordListsByIds,
 } from "@/lib/db";
 import { db } from "@/lib/db/client";
 import { users, type User } from "@/lib/db/schema";
@@ -220,22 +222,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch all current data to return
-    const [currentProgress, currentHooks, currentFilters, currentItems] =
+    const [currentProgress, currentHooks, currentFilters, currentSubscribedItems, currentOwnItems] =
       await Promise.all([
         getUserProgress(user.id),
         getUserMemoryHooks(user.id),
         getUserCategoryFilters(user.id),
         getUserSubscribedItems(user.id),
+        getUserOwnListItems(user.id),
       ]);
+
+    const currentItems = [...currentSubscribedItems, ...currentOwnItems];
 
     // Build category lookup and word ID mapping for re-keying
     const postListIds = [...new Set(currentItems.map((i) => i.listId))];
     const postSystemList = await getSystemDefaultList();
-    const [postCategoryResults, postWordIdMapping] = await Promise.all([
+    const [postCategoryResults, postWordIdMapping, postListNameRows] = await Promise.all([
       Promise.all(postListIds.map((id) => getListCategories(id))),
       postSystemList
         ? getWordIdToItemIdMapping(postSystemList.id)
         : Promise.resolve(new Map<string, string>()),
+      getWordListsByIds(postListIds),
     ]);
 
     const postCategoryLookup: Record<
@@ -273,6 +279,7 @@ export async function POST(request: NextRequest) {
       category_filters: currentFilters,
       word_list_items: currentItems,
       categories: postCategoryLookup,
+      lists: postListNameRows,
     });
     const safeUserRole = user.userRole === "editor" ? "editor" : "user";
     const token = await signSession({
@@ -323,22 +330,26 @@ export async function GET(request: NextRequest) {
         { status: 500 }
       );
     }
-    const [progress, memoryHooks, categoryFilters, wordListItems] =
+    const [progress, memoryHooks, categoryFilters, subscribedItems, ownItems] =
       await Promise.all([
         getUserProgress(user.id),
         getUserMemoryHooks(user.id),
         getUserCategoryFilters(user.id),
         getUserSubscribedItems(user.id),
+        getUserOwnListItems(user.id),
       ]);
+
+    const wordListItems = [...subscribedItems, ...ownItems];
 
     // Build category lookup and word ID mapping
     const listIds = [...new Set(wordListItems.map((i) => i.listId))];
     const systemList = await getSystemDefaultList();
-    const [categoryResults, wordIdMapping] = await Promise.all([
+    const [categoryResults, wordIdMapping, listNameRows] = await Promise.all([
       Promise.all(listIds.map((id) => getListCategories(id))),
       systemList
         ? getWordIdToItemIdMapping(systemList.id)
         : Promise.resolve(new Map<string, string>()),
+      getWordListsByIds(listIds),
     ]);
 
     const categoryLookup: Record<string, { name: string; position: number }> =
@@ -372,6 +383,7 @@ export async function GET(request: NextRequest) {
       category_filters: categoryFilters,
       word_list_items: wordListItems,
       categories: categoryLookup,
+      lists: listNameRows,
     });
     const safeUserRole = user.userRole === "editor" ? "editor" : "user";
     const token = await signSession({

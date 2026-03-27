@@ -2,17 +2,33 @@
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import type { NormalizedWord } from '@/lib/words';
+import {
+  getTargetLang,
+  getWordAudioSrcByLang,
+  getWordTextByLang,
+  resolveSourceLangFromRole,
+  type PromptMode,
+  type SourceLang,
+} from './types';
 
 interface Props {
   words: NormalizedWord[];
   role: 'cz' | 'vi';
+  sourceLang?: SourceLang;
+  promptMode?: PromptMode;
   onResult?: (delta: number) => void;
 }
 
 type MatchState = 'idle' | 'selected' | 'matched' | 'wrong';
 type MatchColor = 1 | 2 | 3 | 4;
 
-export function MatchingPairsGame({ words, role, onResult }: Props) {
+export function MatchingPairsGame({
+  words,
+  role,
+  sourceLang,
+  promptMode = 'text',
+  onResult,
+}: Props) {
   const rightOrder = useMemo(
     () => [...words].sort(() => Math.random() - 0.5),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -24,9 +40,28 @@ export function MatchingPairsGame({ words, role, onResult }: Props) {
   const [matched, setMatched] = useState<Set<string>>(new Set());
   const [matchColors, setMatchColors] = useState<Map<string, MatchColor>>(() => new Map());
   const [wrongPair, setWrongPair] = useState<[string, string] | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const getLeft = (w: NormalizedWord) => role === 'cz' ? w.cz : w.vi;
-  const getRight = (w: NormalizedWord) => role === 'cz' ? w.vi : w.cz;
+  const requestedSourceLang = sourceLang ?? resolveSourceLangFromRole(role);
+  const audioByWordId = useMemo(
+    () => new Map(words.map((word) => [word.id, getWordAudioSrcByLang(word, requestedSourceLang)])),
+    [words, requestedSourceLang],
+  );
+  const hasCompleteAudio = useMemo(
+    () => words.every((word) => Boolean(audioByWordId.get(word.id))),
+    [words, audioByWordId],
+  );
+  const effectivePromptMode: PromptMode =
+    promptMode === 'audio' && hasCompleteAudio ? 'audio' : 'text';
+  const textModeSourceLang =
+    promptMode === 'audio' && !hasCompleteAudio
+      ? resolveSourceLangFromRole(role)
+      : requestedSourceLang;
+  const targetLang = getTargetLang(textModeSourceLang);
+  const promptNumberById = useMemo(
+    () => new Map(words.map((word, index) => [word.id, index + 1])),
+    [words],
+  );
 
   const isComplete = matched.size === words.length;
   const resultFired = useRef(false);
@@ -37,6 +72,15 @@ export function MatchingPairsGame({ words, role, onResult }: Props) {
       onResult?.(1);
     }
   }, [isComplete, onResult]);
+
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
 
   const attempt = (lId: string, rId: string) => {
     if (lId === rId) {
@@ -60,8 +104,27 @@ export function MatchingPairsGame({ words, role, onResult }: Props) {
     }
   };
 
+  const playPrompt = (id: string) => {
+    const audioSrc = audioByWordId.get(id);
+    if (!audioSrc) return;
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      const audio = new Audio(audioSrc);
+      audioRef.current = audio;
+      audio.play().catch(() => {});
+    } catch {
+      // no-op: fail silently when audio playback is unavailable
+    }
+  };
+
   const handleLeft = (id: string) => {
     if (matched.has(id) || wrongPair) return;
+    if (effectivePromptMode === 'audio') {
+      playPrompt(id);
+    }
     const next = id === leftSelected ? null : id;
     setLeftSelected(next);
     if (next && rightSelected) attempt(next, rightSelected);
@@ -109,8 +172,15 @@ export function MatchingPairsGame({ words, role, onResult }: Props) {
                 className={`game-match-btn game-match-btn--${state}${getMatchColorClass(w.id, state)}`}
                 onClick={() => handleLeft(w.id)}
                 disabled={matched.has(w.id) || !!wrongPair}
+                aria-label={
+                  effectivePromptMode === 'audio'
+                    ? `Play prompt ${promptNumberById.get(w.id) ?? ''}`.trim()
+                    : undefined
+                }
               >
-                {getLeft(w)}
+                {effectivePromptMode === 'audio'
+                  ? `🔊 Prompt ${promptNumberById.get(w.id) ?? ''}`
+                  : getWordTextByLang(w, textModeSourceLang)}
               </button>
             );
           })}
@@ -126,7 +196,7 @@ export function MatchingPairsGame({ words, role, onResult }: Props) {
                 onClick={() => handleRight(w.id)}
                 disabled={matched.has(w.id) || !!wrongPair}
               >
-                {getRight(w)}
+                {getWordTextByLang(w, targetLang)}
               </button>
             );
           })}

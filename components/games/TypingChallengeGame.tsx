@@ -3,24 +3,45 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { NormalizedWord } from '@/lib/words';
 import { matchAnswer } from '@/lib/minigames';
+import {
+  getTargetLang,
+  getWordAudioSrcByLang,
+  getWordTextByLang,
+  resolveSourceLangFromRole,
+  type PromptMode,
+  type SourceLang,
+} from './types';
 
 interface Props {
   words: NormalizedWord[];
   role: 'cz' | 'vi';
+  sourceLang?: SourceLang;
+  promptMode?: PromptMode;
   onResult?: (delta: number) => void;
 }
 
-export function TypingChallengeGame({ words, role, onResult }: Props) {
+export function TypingChallengeGame({
+  words,
+  role,
+  sourceLang,
+  promptMode = 'text',
+  onResult,
+}: Props) {
   const [value, setValue] = useState('');
   const [result, setResult] = useState<'exact' | 'close' | 'wrong' | null>(null);
   const [hintUsed, setHintUsed] = useState(false);
   const [caretIndex, setCaretIndex] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const questionWord = words[0];
-  const prompt = role === 'cz' ? questionWord.cz : questionWord.vi;
-  const correctAnswer = role === 'cz' ? questionWord.vi : questionWord.cz;
+  const resolvedSourceLang = sourceLang ?? resolveSourceLangFromRole(role);
+  const targetLang = getTargetLang(resolvedSourceLang);
+  const prompt = getWordTextByLang(questionWord, resolvedSourceLang);
+  const correctAnswer = getWordTextByLang(questionWord, targetLang);
+  const promptAudioSrc = getWordAudioSrcByLang(questionWord, resolvedSourceLang);
+  const effectivePromptMode: PromptMode = promptMode === 'audio' && promptAudioSrc ? 'audio' : 'text';
   const normalizedAnswer = correctAnswer.trim();
   const letterCount = [...normalizedAnswer.replace(/\s+/g, '')].length;
   const firstLetterMatch = normalizedAnswer.match(/\S/);
@@ -40,9 +61,33 @@ export function TypingChallengeGame({ words, role, onResult }: Props) {
     setIsFocused(true);
   }, []);
 
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
   const updateCaret = (target: HTMLInputElement) => {
     const next = target.selectionStart ?? value.length;
     setCaretIndex(next);
+  };
+
+  const replayPrompt = () => {
+    if (!promptAudioSrc) return;
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      const audio = new Audio(promptAudioSrc);
+      audioRef.current = audio;
+      audio.play().catch(() => {});
+    } catch {
+      // no-op: fail silently when audio playback is unavailable
+    }
   };
 
   const resultLabels: Record<'exact' | 'close' | 'wrong', React.ReactNode> = {
@@ -62,7 +107,20 @@ export function TypingChallengeGame({ words, role, onResult }: Props) {
   return (
     <article className="phrase-card game-card game-card--typing">
       <div className="game-badge">⌨️ Type it</div>
-      <div className="game-prompt">{prompt}</div>
+      {effectivePromptMode === 'audio' ? (
+        <div className="game-audio-prompt">
+          <button
+            type="button"
+            className="game-audio-btn"
+            onClick={replayPrompt}
+            aria-label="Replay prompt audio"
+          >
+            🔊 Replay prompt
+          </button>
+        </div>
+      ) : (
+        <div className="game-prompt">{prompt}</div>
+      )}
       <div className="game-typing-area">
         <div
           className={[

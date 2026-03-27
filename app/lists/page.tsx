@@ -81,6 +81,7 @@ export default function ListsPage() {
   const [editInputLanguage, setEditInputLanguage] = useState<'known' | 'target'>('known');
   const [diffResult, setDiffResult] = useState<DiffResult | null>(null);
   const [pendingItems, setPendingItems] = useState<ConfirmResult['pending_items']>([]);
+  const [translateHeading, setTranslateHeading] = useState('Translate Words');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [subscribedListIds, setSubscribedListIds] = useState<Set<string>>(new Set());
@@ -250,14 +251,29 @@ export default function ListsPage() {
     const result: ConfirmResult = await res.json();
 
     if (result.needs_translation && result.pending_items) {
+      setTranslateHeading('Translate Words');
       setPendingItems(result.pending_items);
       setWizardStep('translate');
     } else {
-      // Reload list details
-      await reloadListDetails();
-      setWizardStep('browse');
+      // No new items — offer editing existing translations and audio for this category
+      const categoryItems = editingCategoryId ? itemsByCategory.get(editingCategoryId) ?? [] : [];
+      if (categoryItems.length > 0) {
+        setTranslateHeading('Review Translations & Audio');
+        setPendingItems(
+          categoryItems.map((item) => ({
+            id: item.id,
+            text_known: item.textKnown,
+            text_target: item.textTarget ?? null,
+            position: item.position,
+          }))
+        );
+        setWizardStep('translate');
+      } else {
+        await reloadListDetails();
+        setWizardStep('browse');
+      }
     }
-  }, [selectedListId, editingCategoryId, diffResult, editInputLanguage]);
+  }, [selectedListId, editingCategoryId, diffResult, editInputLanguage, itemsByCategory]);
 
   const handleTranslationComplete = useCallback(async () => {
     // Audio step is stubbed for now — go to audio stub then back to browse
@@ -293,6 +309,7 @@ export default function ListsPage() {
     setEditingCategoryId(null);
     setDiffResult(null);
     setPendingItems([]);
+    setTranslateHeading('Translate Words');
   }, []);
 
   const handleCreateCategory = useCallback(async (name: string) => {
@@ -439,6 +456,7 @@ export default function ListsPage() {
         ) : wizardStep === 'preview' ? (
           <DiffPreview
             diff={diffResult!}
+            existingItems={editingItems}
             onConfirm={handleConfirm}
             onCancel={handleCancelWizard}
           />
@@ -447,6 +465,7 @@ export default function ListsPage() {
             list={selectedList}
             pendingItems={pendingItems ?? []}
             inputLanguage={editInputLanguage}
+            heading={translateHeading}
             onComplete={handleTranslationComplete}
             onSkip={handleSkipTranslation}
           />

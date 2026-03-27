@@ -421,31 +421,45 @@ export async function subscribeToList(
 }
 
 /**
- * Unsubscribe a user from a list. Archives progress for items that came
- * from this subscription, deletes copied items, removes subscription record.
+ * Unsubscribe a user from a list. Archives progress for any items copied
+ * from this subscription into the user's own lists, deletes those copies,
+ * and removes the subscription record.
  * Returns the number of items archived.
  */
 export async function unsubscribeFromList(
   userId: string,
   sourceListId: string,
-  userListId: string,
 ): Promise<{ archived: number }> {
-  // Find items in user's list that came from this source (by canonicalWordId matching source items)
-  const sourceItems = await getListItems(sourceListId);
-  const sourceItemIds = new Set(sourceItems.map((i) => i.id));
+  // Find user's own lists and look for items that were copied from this source
+  const ownListRows = await db
+    .select({ id: wordLists.id })
+    .from(wordLists)
+    .where(eq(wordLists.ownerId, userId));
 
-  const userItems = await getListItems(userListId);
-  const copiedItems = userItems.filter(
-    (item) => item.canonicalWordId && sourceItemIds.has(item.canonicalWordId),
-  );
+  let archivedCount = 0;
+  if (ownListRows.length > 0) {
+    const ownListIds = ownListRows.map((r) => r.id);
+    const sourceItems = await getListItems(sourceListId);
+    const sourceItemIds = sourceItems.map((i) => i.id);
 
-  const copiedItemIds = copiedItems.map((i) => i.id);
+    if (sourceItemIds.length > 0) {
+      const copiedItems = await db
+        .select()
+        .from(wordListItems)
+        .where(
+          and(
+            inArray(wordListItems.listId, ownListIds),
+            inArray(wordListItems.canonicalWordId, sourceItemIds),
+          ),
+        );
 
-  if (copiedItemIds.length > 0) {
-    // Archive progress
-    await archiveProgressForItems(copiedItemIds);
-    // Delete copied items
-    await deleteItems(copiedItemIds);
+      const copiedItemIds = copiedItems.map((i) => i.id);
+      if (copiedItemIds.length > 0) {
+        await archiveProgressForItems(copiedItemIds);
+        await deleteItems(copiedItemIds);
+        archivedCount = copiedItemIds.length;
+      }
+    }
   }
 
   // Remove subscription record
@@ -458,7 +472,53 @@ export async function unsubscribeFromList(
       ),
     );
 
-  return { archived: copiedItemIds.length };
+  return { archived: archivedCount };
+}
+
+/** Create a subscription record only (no copy-on-write). */
+export async function createUserSubscription(
+  userId: string,
+  listId: string,
+): Promise<void> {
+  await db.insert(userListSubscriptions).values({ userId, listId });
+}
+
+/**
+ * Get all word_list_items from lists owned by the user.
+ * Only returns items where both textKnown AND textTarget are present.
+ */
+export async function getUserOwnListItems(
+  userId: string,
+): Promise<WordListItem[]> {
+  const ownListRows = await db
+    .select({ id: wordLists.id })
+    .from(wordLists)
+    .where(eq(wordLists.ownerId, userId));
+
+  if (ownListRows.length === 0) return [];
+  const ownListIds = ownListRows.map((r) => r.id);
+
+  return db
+    .select()
+    .from(wordListItems)
+    .where(
+      and(
+        inArray(wordListItems.listId, ownListIds),
+        sql`${wordListItems.textKnown} IS NOT NULL AND ${wordListItems.textTarget} IS NOT NULL`,
+      ),
+    )
+    .orderBy(asc(wordListItems.position));
+}
+
+/** Get minimal list info (id + name) for the given list IDs. */
+export async function getWordListsByIds(
+  ids: string[],
+): Promise<{ id: string; name: string }[]> {
+  if (ids.length === 0) return [];
+  return db
+    .select({ id: wordLists.id, name: wordLists.name })
+    .from(wordLists)
+    .where(inArray(wordLists.id, ids));
 }
 
 /** Get or create a user's personal list. Each user has exactly one personal list. */

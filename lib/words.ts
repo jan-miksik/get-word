@@ -4,6 +4,7 @@ import { Word } from '@/data/words';
 export interface NormalizedWord extends Word {
   id: string;
   category: string[];
+  listId?: string;
 }
 
 // Spaced-repetition stages
@@ -116,6 +117,7 @@ export function isDue(progress: { stageIndex: number; nextDueAt?: number }): boo
 export function wordListItemsToNormalizedWords(
   items: Array<{
     id: string;
+    listId?: string;
     categoryId: string | null;
     textKnown: string;
     textTarget: string | null;
@@ -123,8 +125,37 @@ export function wordListItemsToNormalizedWords(
     position: number;
   }>,
   categories: Record<string, { name: string; position: number }>,
-  userRole: 'cz' | 'vi'
+  _userRole: 'cz' | 'vi',
+  opts?: {
+    mediaFallbackWords?: Array<
+      Pick<NormalizedWord, 'cz' | 'vi' | 'czPron' | 'viPron' | 'czAudio' | 'viAudio'>
+    >;
+  },
 ): NormalizedWord[] {
+  const normalizePairKeyPart = (value: string) =>
+    value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^\p{L}\p{N}]+/gu, ' ')
+      .trim()
+      .toLowerCase();
+
+  const pairKey = (left: string, right: string) =>
+    `${normalizePairKeyPart(left)}|${normalizePairKeyPart(right)}`;
+
+  const mediaByPair = new Map<
+    string,
+    Pick<NormalizedWord, 'czPron' | 'viPron' | 'czAudio' | 'viAudio'>
+  >();
+  for (const word of opts?.mediaFallbackWords ?? []) {
+    mediaByPair.set(pairKey(word.cz, word.vi), {
+      czPron: word.czPron,
+      viPron: word.viPron,
+      czAudio: word.czAudio,
+      viAudio: word.viAudio,
+    });
+  }
+
   return items
     .filter((item) => item.textKnown && item.textTarget) // minimum viable card
     .map((item) => {
@@ -152,6 +183,9 @@ export function wordListItemsToNormalizedWords(
       // The system list has languageFrom=cz, languageTo=vi
       const cz = item.textKnown;
       const vi = item.textTarget!;
+      const media =
+        mediaByPair.get(pairKey(cz, vi)) ??
+        mediaByPair.get(pairKey(vi, cz));
 
       return {
         id: item.id, // UUID from word_list_items
@@ -159,7 +193,11 @@ export function wordListItemsToNormalizedWords(
         cz,
         en,
         vi,
+        czPron: media?.czPron,
+        viPron: media?.viPron,
+        czAudio: media?.czAudio,
+        viAudio: media?.viAudio,
+        listId: item.listId,
       } as NormalizedWord;
     });
 }
-

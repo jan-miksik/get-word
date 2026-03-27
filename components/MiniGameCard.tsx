@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import type { MiniGameConfig } from '@/lib/minigames';
 import { MultipleChoiceGame } from './games/MultipleChoiceGame';
 import { TypingChallengeGame } from './games/TypingChallengeGame';
 import { MatchingPairsGame } from './games/MatchingPairsGame';
+import { getWordAudioSrcByLang, type PromptMode, type SourceLang } from './games/types';
 
 interface Props {
   config: MiniGameConfig;
@@ -13,8 +14,24 @@ interface Props {
   onResult?: (delta: number) => void;
 }
 
+function hashString(input: string): number {
+  let hash = 0;
+  for (let i = 0; i < input.length; i++) {
+    hash = ((hash << 5) - hash + input.charCodeAt(i)) | 0;
+  }
+  return hash;
+}
+
+export function getDeterministicSourceLangForGameId(gameId: string): SourceLang {
+  return (hashString(gameId) & 1) === 0 ? 'cz' : 'vi';
+}
+
 export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
   const [finished, setFinished] = useState<{ delta: number } | null>(null);
+  const randomSourceLang = useMemo(
+    () => getDeterministicSourceLangForGameId(config.id),
+    [config.id],
+  );
 
   const handleResult = (delta: number) => {
     onResult?.(delta);
@@ -22,14 +39,43 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
   };
 
   const gameProps = { words: config.words, role, onResult: handleResult };
+  const questionWord = config.words[0];
+  const questionHasAudio = questionWord
+    ? Boolean(getWordAudioSrcByLang(questionWord, randomSourceLang))
+    : false;
+  const typingAndChoicePromptMode: PromptMode = questionHasAudio ? 'audio' : 'text';
+
+  const listeningMatchHasCompleteAudio = config.words.every((word) =>
+    Boolean(getWordAudioSrcByLang(word, randomSourceLang)),
+  );
+  const matchingPromptMode: PromptMode = listeningMatchHasCompleteAudio ? 'audio' : 'text';
 
   let game = null;
   if (config.gameType === 'multipleChoice') {
-    game = <MultipleChoiceGame {...gameProps} />;
+    game = (
+      <MultipleChoiceGame
+        {...gameProps}
+        sourceLang={randomSourceLang}
+        promptMode={typingAndChoicePromptMode}
+      />
+    );
   } else if (config.gameType === 'typing') {
-    game = <TypingChallengeGame {...gameProps} />;
+    game = (
+      <TypingChallengeGame
+        {...gameProps}
+        sourceLang={randomSourceLang}
+        promptMode={typingAndChoicePromptMode}
+      />
+    );
   } else if (config.gameType === 'matching') {
-    game = <MatchingPairsGame {...gameProps} />;
+    game = (
+      <MatchingPairsGame
+        {...gameProps}
+        {...(matchingPromptMode === 'audio'
+          ? { sourceLang: randomSourceLang, promptMode: 'audio' as const }
+          : { promptMode: 'text' as const })}
+      />
+    );
   }
 
   if (!game) return null;

@@ -205,3 +205,71 @@ describe('Migration: word stream equivalence', () => {
     }
   });
 });
+
+describe('Migration: media fallback enrichment', () => {
+  it('enriches converted items with audio and pronunciation when pair matches static words', () => {
+    const items = [
+      {
+        id: 'item-1',
+        categoryId: null,
+        textKnown: 'pes',
+        textTarget: 'con chó',
+        notes: null,
+        position: 0,
+      },
+    ];
+    const fallbackWords: NormalizedWord[] = [
+      {
+        id: 'w1',
+        cz: 'pes',
+        vi: 'con chó',
+        en: 'dog',
+        category: ['word'],
+        czPron: '/pɛs/',
+        viPron: '/kɔn cʰo˧˥/',
+        czAudio: 'speech/cz/pes.mp3',
+        viAudio: 'speech/vi/con-cho.mp3',
+      },
+    ];
+
+    const converted = wordListItemsToNormalizedWords(items, {}, 'vi', {
+      mediaFallbackWords: fallbackWords,
+    });
+
+    expect(converted[0].czAudio).toBe('speech/cz/pes.mp3');
+    expect(converted[0].viAudio).toBe('speech/vi/con-cho.mp3');
+    expect(converted[0].czPron).toBe('/pɛs/');
+    expect(converted[0].viPron).toBe('/kɔn cʰo˧˥/');
+  });
+
+  it('does not inject media when there is no matching pair', () => {
+    const items = [
+      {
+        id: 'item-1',
+        categoryId: null,
+        textKnown: 'pes',
+        textTarget: 'con chó',
+        notes: null,
+        position: 0,
+      },
+    ];
+    const fallbackWords: NormalizedWord[] = [
+      {
+        id: 'w1',
+        cz: 'kočka',
+        vi: 'con mèo',
+        en: 'cat',
+        category: ['word'],
+        czAudio: 'speech/cz/kocka.mp3',
+        viAudio: 'speech/vi/con-meo.mp3',
+      },
+    ];
+
+    const converted = wordListItemsToNormalizedWords(items, {}, 'vi', {
+      mediaFallbackWords: fallbackWords,
+    });
+
+    expect(converted[0].czAudio).toBeUndefined();
+    expect(converted[0].viAudio).toBeUndefined();
+  });
+});

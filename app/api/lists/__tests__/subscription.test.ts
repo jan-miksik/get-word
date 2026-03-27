@@ -3,19 +3,15 @@ import { NextRequest } from 'next/server'
 
 const mockGetListById = vi.fn()
 const mockIsUserSubscribed = vi.fn()
-const mockSubscribeToList = vi.fn()
+const mockCreateUserSubscription = vi.fn()
 const mockUnsubscribeFromList = vi.fn()
-const mockGetOrCreateUserList = vi.fn()
-const mockGetUserSubscribedListIds = vi.fn()
 const mockResolveUserFromRequest = vi.fn()
 
 vi.mock('@/lib/db', () => ({
   getListById: (...args: unknown[]) => mockGetListById(...args),
   isUserSubscribed: (...args: unknown[]) => mockIsUserSubscribed(...args),
-  subscribeToList: (...args: unknown[]) => mockSubscribeToList(...args),
+  createUserSubscription: (...args: unknown[]) => mockCreateUserSubscription(...args),
   unsubscribeFromList: (...args: unknown[]) => mockUnsubscribeFromList(...args),
-  getOrCreateUserList: (...args: unknown[]) => mockGetOrCreateUserList(...args),
-  getUserSubscribedListIds: (...args: unknown[]) => mockGetUserSubscribedListIds(...args),
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -45,16 +41,6 @@ const publicList = {
   updatedAt: new Date(),
 }
 
-const userList = {
-  id: 'user-list-1',
-  ownerId: 'user-1',
-  name: 'My Words',
-  languageFrom: 'cs',
-  languageTo: 'vi',
-  isPublic: false,
-  createdAt: new Date(),
-  updatedAt: new Date(),
-}
 
 function makeParams(id: string) {
   return { params: Promise.resolve({ id }) }
@@ -135,12 +121,11 @@ describe('POST /api/lists/[id]/subscribe', () => {
     expect(res.status).toBe(409)
   })
 
-  it('subscribes successfully and copies items', async () => {
+  it('subscribes successfully without copy-on-write', async () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
     mockGetListById.mockResolvedValue(publicList)
     mockIsUserSubscribed.mockResolvedValue(false)
-    mockGetOrCreateUserList.mockResolvedValue(userList)
-    mockSubscribeToList.mockResolvedValue({ copied: 15 })
+    mockCreateUserSubscription.mockResolvedValue(undefined)
 
     const req = new NextRequest('http://localhost:3000/api/lists/list-pub/subscribe', { method: 'POST' })
     const res = await POST(req, makeParams('list-pub'))
@@ -148,22 +133,22 @@ describe('POST /api/lists/[id]/subscribe', () => {
 
     const data = await res.json()
     expect(data.subscribed).toBe(true)
-    expect(data.copied).toBe(15)
+    expect(data.copied).toBeUndefined()
 
-    expect(mockSubscribeToList).toHaveBeenCalledWith('user-1', 'list-pub', 'user-list-1')
+    expect(mockCreateUserSubscription).toHaveBeenCalledWith('user-1', 'list-pub')
   })
 
-  it('creates user personal list if needed', async () => {
+  it('does not create a personal list on subscribe', async () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
     mockGetListById.mockResolvedValue(publicList)
     mockIsUserSubscribed.mockResolvedValue(false)
-    mockGetOrCreateUserList.mockResolvedValue(userList)
-    mockSubscribeToList.mockResolvedValue({ copied: 0 })
+    mockCreateUserSubscription.mockResolvedValue(undefined)
 
     const req = new NextRequest('http://localhost:3000/api/lists/list-pub/subscribe', { method: 'POST' })
     await POST(req, makeParams('list-pub'))
 
-    expect(mockGetOrCreateUserList).toHaveBeenCalledWith('user-1')
+    // createUserSubscription called, no copy-on-write functions
+    expect(mockCreateUserSubscription).toHaveBeenCalledOnce()
   })
 })
 
@@ -185,10 +170,9 @@ describe('DELETE /api/lists/[id]/subscribe', () => {
     expect(res.status).toBe(404)
   })
 
-  it('unsubscribes and archives items', async () => {
+  it('unsubscribes and archives any copied items', async () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
     mockIsUserSubscribed.mockResolvedValue(true)
-    mockGetOrCreateUserList.mockResolvedValue(userList)
     mockUnsubscribeFromList.mockResolvedValue({ archived: 12 })
 
     const req = new NextRequest('http://localhost:3000/api/lists/list-pub/subscribe', { method: 'DELETE' })
@@ -199,6 +183,6 @@ describe('DELETE /api/lists/[id]/subscribe', () => {
     expect(data.subscribed).toBe(false)
     expect(data.archived).toBe(12)
 
-    expect(mockUnsubscribeFromList).toHaveBeenCalledWith('user-1', 'list-pub', 'user-list-1')
+    expect(mockUnsubscribeFromList).toHaveBeenCalledWith('user-1', 'list-pub')
   })
 })

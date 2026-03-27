@@ -3,17 +3,26 @@
 import { useState } from 'react';
 import type { DiffResult } from './page';
 
+type ExistingItem = {
+  id: string;
+  position: number;
+  textKnown: string;
+  textTarget: string | null;
+};
+
 interface DiffPreviewProps {
   diff: DiffResult;
+  existingItems: ExistingItem[];
   onConfirm: () => Promise<void>;
   onCancel: () => void;
 }
 
-export function DiffPreview({ diff, onConfirm, onCancel }: DiffPreviewProps) {
+export function DiffPreview({ diff, existingItems, onConfirm, onCancel }: DiffPreviewProps) {
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const hasChanges = diff.added.length > 0 || diff.removed.length > 0 || diff.reordered.length > 0;
+  const orderedExistingItems = [...existingItems].sort((a, b) => a.position - b.position);
 
   async function handleConfirm() {
     setConfirming(true);
@@ -58,7 +67,29 @@ export function DiffPreview({ diff, onConfirm, onCancel }: DiffPreviewProps) {
       )}
 
       {!hasChanges ? (
-        <p className="text-text-soft text-sm py-8 text-center">No changes detected</p>
+        <div className="space-y-3">
+          <p className="text-text-soft text-sm">No changes detected. Current items:</p>
+          {orderedExistingItems.length === 0 ? (
+            <p className="text-text-soft text-sm py-6 text-center">This category is empty.</p>
+          ) : (
+            <div className="rounded-lg border border-border-subtle overflow-hidden">
+              {orderedExistingItems.map((item, index) => (
+                <div
+                  key={item.id}
+                  className="px-3 py-2 border-b border-border-subtle last:border-0 bg-background-elevated"
+                >
+                  <div className="text-sm text-text">
+                    <span className="text-text-soft mr-2">{index + 1}.</span>
+                    {item.textKnown}
+                  </div>
+                  <div className="text-xs text-text-soft mt-0.5">
+                    {item.textTarget || 'No translation yet'}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
       ) : (
         <div className="space-y-3">
           {/* Added */}
@@ -141,11 +172,11 @@ export function DiffPreview({ diff, onConfirm, onCancel }: DiffPreviewProps) {
         </button>
         <button
           type="button"
-          disabled={confirming || !hasChanges}
+          disabled={confirming}
           className="px-4 py-2 rounded-lg bg-accent text-background text-sm font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
           onClick={handleConfirm}
         >
-          {confirming ? 'Confirming...' : 'Confirm changes'}
+          {confirming ? 'Confirming...' : hasChanges ? 'Confirm changes' : 'Continue'}
         </button>
       </div>
     </div>

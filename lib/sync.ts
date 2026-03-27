@@ -87,6 +87,7 @@ export interface SyncResponse {
   category_filters: string[];
   word_list_items?: SyncWordListItem[];
   categories?: Record<string, SyncCategory>;
+  lists?: { id: string; name: string }[];
 }
 
 // Fetch data from server (DB-only; no localStorage).

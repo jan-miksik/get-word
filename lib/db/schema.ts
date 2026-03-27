@@ -230,9 +230,33 @@ export const userApiKeys = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     provider: apiKeyProviderEnum("provider").notNull(),
     encryptedKey: text("encrypted_key").notNull(),
+    keyLabel: text("key_label"),
+    status: text("status").notNull().default("connected"),
+    lastValidatedAt: timestamp("last_validated_at"),
+    connectedAt: timestamp("connected_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    keyLast4: text("key_last4"),
+    connectionMethod: text("connection_method").notNull().default("manual"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [unique("user_api_keys_user_provider_unique").on(table.userId, table.provider)],
+);
+
+// OAuth endpoint rate limiting buckets.
+export const oauthRateLimits = pgTable(
+  "oauth_rate_limits",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    bucketKey: text("bucket_key").notNull(),
+    bucketStart: timestamp("bucket_start").notNull(),
+    requestCount: integer("request_count").notNull().default(1),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    unique("oauth_rate_limits_bucket_unique").on(table.bucketKey, table.bucketStart),
+    index("oauth_rate_limits_bucket_key_idx").on(table.bucketKey, table.bucketStart),
+  ],
 );
 
 // User list subscriptions - tracks which curated lists a user follows
@@ -277,5 +301,7 @@ export type MediaAsset = typeof mediaAssets.$inferSelect;
 export type NewMediaAsset = typeof mediaAssets.$inferInsert;
 export type UserApiKey = typeof userApiKeys.$inferSelect;
 export type NewUserApiKey = typeof userApiKeys.$inferInsert;
+export type OAuthRateLimit = typeof oauthRateLimits.$inferSelect;
+export type NewOAuthRateLimit = typeof oauthRateLimits.$inferInsert;
 export type UserListSubscription = typeof userListSubscriptions.$inferSelect;
 export type NewUserListSubscription = typeof userListSubscriptions.$inferInsert;

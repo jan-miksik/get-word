@@ -2,10 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getListById,
   isUserSubscribed,
-  subscribeToList,
+  createUserSubscription,
   unsubscribeFromList,
-  getOrCreateUserList,
-  getUserSubscribedListIds,
 } from "@/lib/db";
 import {
   resolveUserFromRequest,
@@ -59,13 +57,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  // Get or create user's personal list
-  const userList = await getOrCreateUserList(user.id);
+  // Create subscription record (items served directly from curated list)
+  await createUserSubscription(user.id, sourceListId);
 
-  // Copy-on-write items from source to user's list
-  const { copied } = await subscribeToList(user.id, sourceListId, userList.id);
-
-  return NextResponse.json({ subscribed: true, copied }, { status: 201 });
+  return NextResponse.json({ subscribed: true }, { status: 201 });
 }
 
 /** DELETE /api/lists/[id]/subscribe — unsubscribe from a list */
@@ -84,11 +79,8 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     );
   }
 
-  // Get user's personal list
-  const userList = await getOrCreateUserList(user.id);
-
-  // Unsubscribe: archive progress, delete copied items, remove subscription
-  const { archived } = await unsubscribeFromList(user.id, sourceListId, userList.id);
+  // Unsubscribe: archive any copied items, remove subscription record
+  const { archived } = await unsubscribeFromList(user.id, sourceListId);
 
   return NextResponse.json({ subscribed: false, archived });
 }

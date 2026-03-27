@@ -48,7 +48,7 @@ export function AppLayout({
   const { settingsOpen, progressOpen, categoryOpen, memoryHooksOpen, toggle, closeAll } =
     useMenuPanels();
 
-  const { showAll, setShowAll, selectedCategories, gameScore } = useAppStateContext();
+  const { showAll, setShowAll, selectedCategories, gameScore, subscribedLists, activeListId, setActiveListId } = useAppStateContext();
 
   return (
     <div className="app" data-view-mode={viewMode}>
@@ -62,6 +62,9 @@ export function AppLayout({
           categoryActive={selectedCategories.size > 0}
           progressActive={progressOpen}
           score={gameScore}
+          lists={subscribedLists.length > 1 ? subscribedLists : undefined}
+          activeListId={activeListId}
+          onListChange={setActiveListId}
           centerContent={
             isAuthenticated
               ? <ProgressSummary progressStats={progressStats} />

@@ -1,11 +1,17 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { MiniGameCard } from '../MiniGameCard';
+import { MiniGameCard, getDeterministicSourceLangForGameId } from '../MiniGameCard';
 import type { MiniGameConfig } from '@/lib/minigames';
 import type { NormalizedWord } from '@/lib/words';
 
 const makeWord = (id: string, cz: string, vi: string): NormalizedWord => ({
-  id, cz, vi, en: '', category: ['word'],
+  id,
+  cz,
+  vi,
+  en: '',
+  category: ['word'],
+  czAudio: 'speech/cz/sample.mp3',
+  viAudio: 'speech/vi/sample.mp3',
 });
 
 const WORDS = [
@@ -23,6 +29,17 @@ const config = (gameType: MiniGameConfig['gameType']): MiniGameConfig => ({
 });
 
 describe('MiniGameCard', () => {
+  it('source language selection is deterministic per game id', () => {
+    const a1 = getDeterministicSourceLangForGameId('game-a');
+    const a2 = getDeterministicSourceLangForGameId('game-a');
+    expect(a1).toBe(a2);
+
+    const differentId = Array.from({ length: 20 }, (_, idx) => `game-b-${idx}`).find(
+      (id) => getDeterministicSourceLangForGameId(id) !== a1,
+    );
+    expect(differentId).toBeDefined();
+  });
+
   it('renders MultipleChoiceGame for multipleChoice type', () => {
     render(<MiniGameCard config={config('multipleChoice')} role="cz" onDismiss={vi.fn()} />);
     expect(screen.getByText('🎯 Choice')).toBeInTheDocument();
@@ -40,8 +57,9 @@ describe('MiniGameCard', () => {
 
   it('passes role to the game component', () => {
     render(<MiniGameCard config={config('multipleChoice')} role="vi" onDismiss={vi.fn()} />);
-    // When role is 'vi', prompt shows Vietnamese word
-    expect(screen.getByText('con chó')).toBeInTheDocument();
+    const sourceLang = getDeterministicSourceLangForGameId('test-multipleChoice');
+    const expectedOption = sourceLang === 'cz' ? 'con chó' : 'pes';
+    expect(screen.getByText(expectedOption)).toBeInTheDocument();
   });
 
   it('passes onResult to the game component and calls it on answer', () => {
@@ -50,8 +68,9 @@ describe('MiniGameCard', () => {
     render(
       <MiniGameCard config={config('multipleChoice')} role="cz" onDismiss={onDismiss} onResult={onResult} />
     );
-    // role=cz: correct answer for words[0] (pes) is con chó
-    fireEvent.click(screen.getByText('con chó'));
+    const sourceLang = getDeterministicSourceLangForGameId('test-multipleChoice');
+    const correctAnswer = sourceLang === 'cz' ? 'con chó' : 'pes';
+    fireEvent.click(screen.getByText(correctAnswer));
     expect(onResult).toHaveBeenCalledWith(1);
     // Overlay appears, clicking it dismisses the card
     fireEvent.click(screen.getByText('Tap to continue'));

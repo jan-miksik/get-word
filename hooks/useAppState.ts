@@ -29,6 +29,11 @@ export function useAppState(
 ) {
   const [isHydrated, setIsHydrated] = useState(false);
   const [syncedWords, setSyncedWords] = useState<NormalizedWord[] | null>(null);
+  const [subscribedLists, setSubscribedLists] = useState<{ id: string; name: string }[]>([]);
+  const [activeListId, setActiveListIdState] = useState<string | null>(() => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('wordlink-active-list') ?? null;
+  });
   const isHydratedRef = useRef(false);
   const isUpdatingFromServerRef = useRef(false);
   const hasLoadedRef = useRef(false);
@@ -62,11 +67,24 @@ export function useAppState(
       const converted = wordListItemsToNormalizedWords(
         serverData.word_list_items,
         serverData.categories,
-        role as 'cz' | 'vi'
+        role as 'cz' | 'vi',
+        { mediaFallbackWords: words }
       );
       if (converted.length > 0) {
         setSyncedWords(converted);
       }
+    }
+    if (serverData.lists) {
+      setSubscribedLists(serverData.lists);
+    }
+  }
+
+  function setActiveListId(id: string | null) {
+    setActiveListIdState(id);
+    if (id) {
+      localStorage.setItem('wordlink-active-list', id);
+    } else {
+      localStorage.removeItem('wordlink-active-list');
     }
   }
 
@@ -142,6 +160,11 @@ export function useAppState(
     if (!walletAddress) hasLinkedRef.current = false;
   }, [walletAddress]);
 
+  const filteredSyncedWords =
+    activeListId && syncedWords
+      ? syncedWords.filter((w) => w.listId === activeListId)
+      : syncedWords;
+
   return {
     ...theme,
     ...userProfile,
@@ -151,6 +174,9 @@ export function useAppState(
     ...categories,
     ...gameScore,
     isHydrated,
-    syncedWords,
+    syncedWords: filteredSyncedWords,
+    subscribedLists,
+    activeListId,
+    setActiveListId,
   };
 }

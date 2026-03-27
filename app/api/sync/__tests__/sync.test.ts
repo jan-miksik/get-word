@@ -14,9 +14,11 @@ const mockUpsertMemoryHook = vi.fn()
 const mockDeleteMemoryHook = vi.fn()
 const mockSetUserCategoryFilters = vi.fn()
 const mockGetUserSubscribedItems = vi.fn()
+const mockGetUserOwnListItems = vi.fn()
 const mockGetListCategories = vi.fn()
 const mockGetSystemDefaultList = vi.fn()
 const mockGetWordIdToItemIdMapping = vi.fn()
+const mockGetWordListsByIds = vi.fn()
 
 vi.mock('@/lib/db', () => ({
   getOrCreateUserByDeviceId: (...args: unknown[]) => mockGetOrCreateUserByDeviceId(...args),
@@ -32,9 +34,11 @@ vi.mock('@/lib/db', () => ({
   updateUserRole: (...args: unknown[]) => mockUpdateUserRole(...args),
   updateUserPreferences: (...args: unknown[]) => mockUpdateUserPreferences(...args),
   getUserSubscribedItems: (...args: unknown[]) => mockGetUserSubscribedItems(...args),
+  getUserOwnListItems: (...args: unknown[]) => mockGetUserOwnListItems(...args),
   getListCategories: (...args: unknown[]) => mockGetListCategories(...args),
   getSystemDefaultList: (...args: unknown[]) => mockGetSystemDefaultList(...args),
   getWordIdToItemIdMapping: (...args: unknown[]) => mockGetWordIdToItemIdMapping(...args),
+  getWordListsByIds: (...args: unknown[]) => mockGetWordListsByIds(...args),
 }))
 
 vi.mock('@/lib/db/client', () => ({
@@ -76,8 +80,10 @@ describe('GET /api/sync', () => {
     mockGetUserMemoryHooks.mockResolvedValue({})
     mockGetUserCategoryFilters.mockResolvedValue([])
     mockGetUserSubscribedItems.mockResolvedValue([])
+    mockGetUserOwnListItems.mockResolvedValue([])
     mockGetSystemDefaultList.mockResolvedValue(null)
     mockGetWordIdToItemIdMapping.mockResolvedValue(new Map())
+    mockGetWordListsByIds.mockResolvedValue([])
   })
 
   it('returns 400 if no deviceId or userId', async () => {
@@ -128,8 +134,10 @@ describe('POST /api/sync', () => {
     mockGetUserMemoryHooks.mockResolvedValue({})
     mockGetUserCategoryFilters.mockResolvedValue([])
     mockGetUserSubscribedItems.mockResolvedValue([])
+    mockGetUserOwnListItems.mockResolvedValue([])
     mockGetSystemDefaultList.mockResolvedValue(null)
     mockGetWordIdToItemIdMapping.mockResolvedValue(new Map())
+    mockGetWordListsByIds.mockResolvedValue([])
   })
 
   it('returns 400 if no deviceId or userId', async () => {

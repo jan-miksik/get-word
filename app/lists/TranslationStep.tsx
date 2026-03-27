@@ -10,6 +10,7 @@ interface TranslationStepProps {
   list: WordList;
   pendingItems: PendingItem[];
   inputLanguage: 'known' | 'target';
+  heading?: string;
   onComplete: () => Promise<void>;
   onSkip: () => Promise<void>;
 }
@@ -38,6 +39,7 @@ export function TranslationStep({
   list,
   pendingItems,
   inputLanguage,
+  heading = 'Translate Words',
   onComplete,
   onSkip,
 }: TranslationStepProps) {
@@ -46,7 +48,8 @@ export function TranslationStep({
       id: item.id,
       textKnown: item.text_known ?? '',
       textTarget: item.text_target ?? '',
-      status: 'pending' as const,
+      // Items that already have both fields are considered translated
+      status: (item.text_known && item.text_target ? 'ok' : 'pending') as TranslationRow['status'],
     }))
   );
   const [translating, setTranslating] = useState(false);
@@ -117,6 +120,12 @@ export function TranslationStep({
           return updated;
         })
       );
+
+      // Surface a top-level error if every item failed
+      if (data.results.length > 0 && data.results.every((r: { status: string }) => r.status === 'error')) {
+        const firstError = data.results[0]?.error ?? 'Translation failed';
+        setError(`Auto-translate failed: ${firstError}`);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Translation failed');
     } finally {
@@ -167,7 +176,7 @@ export function TranslationStep({
     <div className="max-w-4xl mx-auto p-4 md:p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-lg font-semibold text-text">Translate Words</h2>
+          <h2 className="text-lg font-semibold text-text">{heading}</h2>
           <p className="text-sm text-text-soft mt-0.5">
             {readyCount} of {rows.length} translated
             {dedupCount > 0 && (

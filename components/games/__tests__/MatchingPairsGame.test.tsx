@@ -1,18 +1,44 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, act } from '@testing-library/react';
 import { MatchingPairsGame } from '../MatchingPairsGame';
 import type { NormalizedWord } from '@/lib/words';
 
-const makeWord = (id: string, cz: string, vi: string): NormalizedWord => ({
-  id, cz, vi, en: '', category: ['word'],
+const makeWord = (
+  id: string,
+  cz: string,
+  vi: string,
+  extras?: Partial<NormalizedWord>,
+): NormalizedWord => ({
+  id,
+  cz,
+  vi,
+  en: '',
+  category: ['word'],
+  ...extras,
 });
 
 const WORDS = [
-  makeWord('a', 'pes', 'con chó'),
-  makeWord('b', 'kočka', 'con mèo'),
-  makeWord('c', 'auto', 'xe hơi'),
-  makeWord('d', 'voda', 'nước'),
+  makeWord('a', 'pes', 'con chó', { czAudio: 'speech/cz/pes.mp3' }),
+  makeWord('b', 'kočka', 'con mèo', { czAudio: 'speech/cz/kocka.mp3' }),
+  makeWord('c', 'auto', 'xe hơi', { czAudio: 'speech/cz/auto.mp3' }),
+  makeWord('d', 'voda', 'nước', { czAudio: 'speech/cz/voda.mp3' }),
 ];
+
+let playCalls = 0;
+
+beforeEach(() => {
+  playCalls = 0;
+  vi.stubGlobal(
+    'Audio',
+    vi.fn().mockImplementation(function FakeAudio(this: { play: () => Promise<void>; pause: () => void }, _src: string) {
+      this.play = () => {
+        playCalls += 1;
+        return Promise.resolve();
+      };
+      this.pause = () => {};
+    }),
+  );
+});
 
 describe('MatchingPairsGame', () => {
   it('renders 4 left buttons (cz) and 4 right buttons (vi) when role is cz', () => {
@@ -90,5 +116,29 @@ describe('MatchingPairsGame', () => {
     fireEvent.click(screen.getByText('auto'));    fireEvent.click(screen.getByText('xe hơi'));
     fireEvent.click(screen.getByText('voda'));    fireEvent.click(screen.getByText('nước'));
     expect(onResult).toHaveBeenCalledWith(1);
+  });
+
+  it('uses listening mode with hidden source text when complete audio is available', () => {
+    render(
+      <MatchingPairsGame words={WORDS} role="cz" sourceLang="cz" promptMode="audio" />
+    );
+    expect(screen.queryByText('pes')).not.toBeInTheDocument();
+    expect(screen.getByText('🔊 Prompt 1')).toBeInTheDocument();
+    fireEvent.click(screen.getByText('🔊 Prompt 1'));
+    expect(playCalls).toBe(1);
+  });
+
+  it('falls back to full text mode when any source audio is missing', () => {
+    const mixedAudio = [
+      makeWord('a', 'pes', 'con chó', { czAudio: 'speech/cz/pes.mp3' }),
+      makeWord('b', 'kočka', 'con mèo'), // missing audio triggers whole-card fallback
+      makeWord('c', 'auto', 'xe hơi', { czAudio: 'speech/cz/auto.mp3' }),
+      makeWord('d', 'voda', 'nước', { czAudio: 'speech/cz/voda.mp3' }),
+    ];
+    render(
+      <MatchingPairsGame words={mixedAudio} role="cz" sourceLang="cz" promptMode="audio" />
+    );
+    expect(screen.getByText('pes')).toBeInTheDocument();
+    expect(screen.queryByText('🔊 Prompt 1')).not.toBeInTheDocument();
   });
 });

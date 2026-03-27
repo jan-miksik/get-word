@@ -17,6 +17,9 @@ interface TopMenuProps {
   accountSlot?: ReactNode;
   /** Hide the monkey button in the top bar on mobile (card view shows it on the card) */
   hideMonkeyOnMobile?: boolean;
+  lists?: { id: string; name: string }[];
+  activeListId?: string | null;
+  onListChange?: (id: string | null) => void;
 }
 
 export function ScoreBadge({ score }: { score: number }) {
@@ -70,6 +73,9 @@ interface MenuDropdownProps {
   progressActive: boolean;
   /** When logged in, render account button at top of dropdown */
   accountSlot?: ReactNode;
+  lists?: { id: string; name: string }[];
+  activeListId?: string | null;
+  onListChange?: (id: string | null) => void;
 }
 
 function MenuDropdown({
@@ -78,6 +84,9 @@ function MenuDropdown({
   categoryCount,
   progressActive,
   accountSlot,
+  lists,
+  activeListId,
+  onListChange,
 }: MenuDropdownProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -93,14 +102,13 @@ function MenuDropdown({
     return () => document.removeEventListener('click', handler);
   }, [open]);
 
-  const items: Array<{
-    icon: string;
-    label: string;
-    panel: MenuPanel;
-    active: boolean;
-    badge: string | null;
-  }> = [
+  type PanelItem = { kind: 'panel'; icon: string; label: string; panel: MenuPanel; active: boolean; badge: string | null };
+  type LinkItem = { kind: 'link'; icon: string; label: string; href: string };
+  type MenuItem = PanelItem | LinkItem;
+
+  const items: MenuItem[] = [
     {
+      kind: 'panel',
       icon: '🏷️',
       label: 'Categories',
       panel: 'category',
@@ -108,6 +116,7 @@ function MenuDropdown({
       badge: categoryCount > 0 ? String(categoryCount) : null,
     },
     {
+      kind: 'panel',
       icon: '📊',
       label: 'Learning Progress',
       panel: 'progress',
@@ -115,6 +124,7 @@ function MenuDropdown({
       badge: null,
     },
     {
+      kind: 'panel',
       icon: 'ℹ️',
       label: 'Memory Hooks',
       panel: 'memoryHooks',
@@ -122,6 +132,13 @@ function MenuDropdown({
       badge: null,
     },
     {
+      kind: 'link',
+      icon: '📚',
+      label: 'Manage Lists',
+      href: '/lists',
+    },
+    {
+      kind: 'panel',
       icon: '⚙️',
       label: 'Settings',
       panel: 'settings',
@@ -159,27 +176,68 @@ function MenuDropdown({
               {accountSlot}
             </div>
           )}
-          {items.map((item) => (
-            <button
-              key={item.label}
-              role="menuitem"
-              type="button"
-              className="menu-item"
-              onClick={() => {
-                onMenuAction(item.panel);
-                setOpen(false);
-              }}
-            >
-              <span className="menu-item-icon">{item.icon}</span>
-              <span className="menu-item-label">{item.label}</span>
-              {item.badge && (
-                <span className="menu-item-badge">{item.badge}</span>
-              )}
-              {item.active && !item.badge && (
-                <span className="menu-item-active-dot" />
-              )}
-            </button>
-          ))}
+          {lists && lists.length > 1 && onListChange && (
+            <div className="px-3 py-2 border-b border-border-subtle">
+              <p className="text-xs font-medium text-text-soft uppercase tracking-wide mb-1.5">Study from</p>
+              <div className="flex flex-col gap-0.5">
+                <button
+                  type="button"
+                  role="menuitemradio"
+                  aria-checked={activeListId == null}
+                  className={`w-full text-left px-2 py-1.5 rounded text-sm transition-colors ${activeListId == null ? 'bg-accent/15 text-accent font-medium' : 'text-text hover:bg-background/50'}`}
+                  onClick={() => { onListChange(null); setOpen(false); }}
+                >
+                  All lists
+                </button>
+                {lists.map((list) => (
+                  <button
+                    key={list.id}
+                    type="button"
+                    role="menuitemradio"
+                    aria-checked={activeListId === list.id}
+                    className={`w-full text-left px-2 py-1.5 rounded text-sm transition-colors ${activeListId === list.id ? 'bg-accent/15 text-accent font-medium' : 'text-text hover:bg-background/50'}`}
+                    onClick={() => { onListChange(list.id); setOpen(false); }}
+                  >
+                    {list.name}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          {items.map((item) =>
+            item.kind === 'link' ? (
+              <a
+                key={item.label}
+                href={item.href}
+                role="menuitem"
+                className="menu-item"
+                onClick={() => setOpen(false)}
+              >
+                <span className="menu-item-icon">{item.icon}</span>
+                <span className="menu-item-label">{item.label}</span>
+              </a>
+            ) : (
+              <button
+                key={item.label}
+                role="menuitem"
+                type="button"
+                className="menu-item"
+                onClick={() => {
+                  onMenuAction(item.panel);
+                  setOpen(false);
+                }}
+              >
+                <span className="menu-item-icon">{item.icon}</span>
+                <span className="menu-item-label">{item.label}</span>
+                {item.badge && (
+                  <span className="menu-item-badge">{item.badge}</span>
+                )}
+                {item.active && !item.badge && (
+                  <span className="menu-item-active-dot" />
+                )}
+              </button>
+            )
+          )}
         </div>
       )}
     </div>
@@ -196,6 +254,9 @@ export function TopMenu({
   score,
   centerContent,
   accountSlot,
+  lists,
+  activeListId,
+  onListChange,
 }: TopMenuProps) {
   return (
     <div className="top-menu" aria-label="Top menu">
@@ -219,6 +280,9 @@ export function TopMenu({
           categoryCount={categoryCount}
           progressActive={progressActive}
           accountSlot={accountSlot}
+          lists={lists}
+          activeListId={activeListId}
+          onListChange={onListChange}
         />
       </div>
     </div>

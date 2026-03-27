@@ -95,6 +95,29 @@
   line-height: 1.2;
 }
 
+.game-audio-prompt {
+  display: flex;
+  justify-content: center;
+  padding: 2px 0 6px;
+}
+
+.game-audio-btn {
+  padding: 10px 16px;
+  border-radius: var(--radius-pill);
+  border: 1.5px solid var(--accent);
+  background: rgba(56, 189, 248, 0.1);
+  color: var(--accent);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast), transform var(--transition-fast);
+}
+
+.game-audio-btn:hover {
+  background: rgba(56, 189, 248, 0.18);
+  transform: translateY(-1px);
+}
+
 /* Multiple choice */
 .game-options-grid {
   display: grid;

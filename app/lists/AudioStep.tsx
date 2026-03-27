@@ -107,6 +107,15 @@ export function AudioStep({ list, items, onComplete, onSkip }: AudioStepProps) {
         }),
       );
 
+      // Surface a top-level error if every attempted item failed
+      const attempted = data.results.filter((r: { id: string }) =>
+        toGenerate.some((t) => t.id === r.id)
+      );
+      if (attempted.length > 0 && attempted.every((r: { status: string }) => r.status === 'error')) {
+        const firstError = attempted[0]?.error ?? 'Generation failed';
+        setError(`Audio generation failed: ${firstError}`);
+      }
+
       setProgress(100);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Generation failed');
@@ -161,6 +170,35 @@ export function AudioStep({ list, items, onComplete, onSkip }: AudioStepProps) {
     if (audioRef.current) audioRef.current.pause();
     playQueueRef.current = [];
     setPlayingId(null);
+  }, []);
+
+  // Load audio URLs for items that are already 'ready' (dedup lookup — no re-generation)
+  useEffect(() => {
+    const readyWithoutUrl = rows.filter((r) => r.audioStatus === 'ready' && !r.audioUrl);
+    if (readyWithoutUrl.length === 0) return;
+
+    apiFetch('/api/audio/generate/batch', {
+      method: 'POST',
+      body: JSON.stringify({
+        items: readyWithoutUrl.map((r) => ({ id: r.id, text: r.textTarget, language: r.language })),
+        provider: 'google_tts',
+      }),
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!data?.results) return;
+        const urlMap = new Map<string, string | null>(
+          data.results.map((r: { id: string; audio_url: string | null }) => [r.id, r.audio_url])
+        );
+        setRows((prev) =>
+          prev.map((row) => {
+            const url = urlMap.get(row.id);
+            return url ? { ...row, audioUrl: url } : row;
+          })
+        );
+      })
+      .catch(() => {/* non-critical — play buttons stay disabled */});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Cleanup audio on unmount
