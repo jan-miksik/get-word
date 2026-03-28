@@ -26,12 +26,43 @@ Create `.env.local` with:
 
 ```env
 DATABASE_URL=postgresql://...
+WORDLINK_SESSION_SECRET=...
+APP_ENCRYPTION_SECRET=...
+WORDLINK_APP_URL=http://localhost:3000
+OPENROUTER_OAUTH_APP_ID=...
+# optional overrides:
+# OPENROUTER_AUTH_URL=https://openrouter.ai/auth
+# OPENROUTER_API_BASE_URL=https://openrouter.ai/api/v1
+# OPENROUTER_OAUTH_EXCHANGE_URL=https://openrouter.ai/api/v1/auth/keys
 ```
 
 - **Development / admin operations**: prefer **Supabase “Direct connection”** string.
 - **Production (Vercel)**: prefer **Supabase “Connection Pooler”** string (better for serverless).
 
 For details (direct vs pooler, URL-encoding passwords, dump/restore), see `SUPABASE_SETUP.md`.
+
+### OpenRouter OAuth (PKCE)
+
+- Provider endpoints are implemented in Next.js route handlers (`/api/providers/openrouter/...`).
+- Sensitive OAuth/key operations are server-side only.
+- Stored provider keys are encrypted at rest with `APP_ENCRYPTION_SECRET`.
+- OpenRouter callback route:
+  - local: `http://localhost:3000/api/providers/openrouter/callback`
+  - production: `https://<your-domain>/api/providers/openrouter/callback`
+- Register the callback URL in your OpenRouter app settings and set `OPENROUTER_OAUTH_APP_ID`.
+
+#### Local dev flow
+
+1. Set env vars above in `.env.local`.
+2. Run DB migrations (`pnpm run db:migrate`).
+3. Start app (`pnpm run dev`).
+4. Open `/lists` and use API key settings or translation provider CTA to connect OpenRouter.
+
+#### Security assumptions
+
+- OAuth state + PKCE verifier are stored in signed `httpOnly` cookies with short TTL.
+- OAuth start/callback endpoints are rate-limited with DB-backed buckets.
+- Raw API keys, auth codes, and PKCE verifier values are never returned to client responses.
 
 ### Database (Drizzle + Supabase)
 

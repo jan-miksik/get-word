@@ -174,12 +174,12 @@ export function MatchingPairsGame({
                 disabled={matched.has(w.id) || !!wrongPair}
                 aria-label={
                   effectivePromptMode === 'audio'
-                    ? `Play prompt ${promptNumberById.get(w.id) ?? ''}`.trim()
+                    ? `Play ${promptNumberById.get(w.id) ?? ''}`.trim()
                     : undefined
                 }
               >
                 {effectivePromptMode === 'audio'
-                  ? `🔊 Prompt ${promptNumberById.get(w.id) ?? ''}`
+                  ? `🔊`
                   : getWordTextByLang(w, textModeSourceLang)}
               </button>
             );

@@ -255,4 +255,47 @@ describe('POST /api/sync', () => {
     )
     expect(data.user.category_order).toEqual(['basic', 'cz ≈ en'])
   })
+
+  it('maps UUID memory hook keys to legacy word IDs before upsert', async () => {
+    const itemId = '11111111-1111-1111-1111-111111111111'
+    mockGetSystemDefaultList.mockResolvedValue({ id: 'list-system' })
+    mockGetWordIdToItemIdMapping.mockResolvedValue(new Map([['w001', itemId]]))
+
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: 'dev-123',
+        memory_hooks: { [itemId]: 'hook text' },
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(mockUpsertMemoryHook).toHaveBeenCalledWith('uuid-A', 'w001', 'hook text')
+  })
+
+  it('ignores unknown UUID memory hook keys instead of failing sync', async () => {
+    mockGetSystemDefaultList.mockResolvedValue({ id: 'list-system' })
+    mockGetWordIdToItemIdMapping.mockResolvedValue(new Map())
+
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: 'dev-123',
+        memory_hooks: { '11111111-1111-1111-1111-111111111111': 'hook text' },
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(mockUpsertMemoryHook).not.toHaveBeenCalled()
+  })
 })

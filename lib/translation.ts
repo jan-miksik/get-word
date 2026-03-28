@@ -3,9 +3,7 @@
  * Google Translate API v2 (server-side key) and OpenRouter (BYOK).
  */
 
-import { db } from "@/lib/db/client";
-import { userApiKeys } from "@/lib/db/schema";
-import { eq, and } from "drizzle-orm";
+import { getProviderSecret } from "@/lib/providers/store";
 
 export type TranslationResult = {
   text: string;
@@ -208,22 +206,10 @@ export async function openRouterTranslate(
 
 /**
  * Get a decrypted user API key for a provider.
- * MVP: keys stored as plaintext (encryption deferred to when APP_ENCRYPTION_SECRET is set up).
  */
 export async function getUserApiKey(
   userId: string,
   provider: "openrouter" | "elevenlabs",
 ): Promise<string | null> {
-  const [row] = await db
-    .select({ encryptedKey: userApiKeys.encryptedKey })
-    .from(userApiKeys)
-    .where(
-      and(
-        eq(userApiKeys.userId, userId),
-        eq(userApiKeys.provider, provider),
-      ),
-    )
-    .limit(1);
-
-  return row?.encryptedKey ?? null;
+  return getProviderSecret(userId, provider);
 }

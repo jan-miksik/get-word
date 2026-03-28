@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { getDeviceId } from '@/lib/device-id';
 import type { WordList, ConfirmResult } from './page';
 
@@ -23,6 +23,12 @@ type TranslationRow = {
   error?: string;
   source?: 'dedup' | 'api';
 };
+
+type OpenRouterUiState =
+  | 'not_connected'
+  | 'connecting'
+  | 'connected'
+  | 'failed_retryable';
 
 function apiFetch(path: string, options: RequestInit = {}) {
   return fetch(path, {
@@ -56,6 +62,8 @@ export function TranslationStep({
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [provider, setProvider] = useState<'google' | 'openrouter'>('google');
+  const [openRouterState, setOpenRouterState] = useState<OpenRouterUiState>('not_connected');
+  const [openRouterLoading, setOpenRouterLoading] = useState(false);
 
   const needsTranslation = inputLanguage === 'known' ? 'textTarget' : 'textKnown';
   const hasSource = inputLanguage === 'known' ? 'textKnown' : 'textTarget';
@@ -64,7 +72,60 @@ export function TranslationStep({
   const readyCount = rows.filter((r) => r[needsTranslation] && r.status !== 'pending').length;
   const dedupCount = rows.filter((r) => r.source === 'dedup').length;
 
+  const loadOpenRouterStatus = useCallback(async () => {
+    setOpenRouterLoading(true);
+    try {
+      const res = await apiFetch('/api/providers/openrouter/status');
+      if (!res.ok) {
+        setOpenRouterState('not_connected');
+        return;
+      }
+      const data = await res.json();
+      setOpenRouterState((data.state as OpenRouterUiState) ?? 'not_connected');
+    } catch {
+      setOpenRouterState('not_connected');
+    } finally {
+      setOpenRouterLoading(false);
+    }
+  }, []);
+
+  const handleConnectOpenRouter = useCallback(async () => {
+    setError(null);
+    setOpenRouterLoading(true);
+    try {
+      const returnTo =
+        typeof window !== 'undefined'
+          ? `${window.location.pathname}${window.location.search}`
+          : '/lists';
+      const res = await apiFetch('/api/providers/openrouter/connect/start', {
+        method: 'POST',
+        body: JSON.stringify({ returnTo }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error ?? 'Failed to start OpenRouter connection');
+      }
+      if (!data.authorizeUrl || typeof data.authorizeUrl !== 'string') {
+        throw new Error('OpenRouter authorization URL missing');
+      }
+      setOpenRouterState('connecting');
+      window.location.assign(data.authorizeUrl);
+    } catch (err) {
+      setOpenRouterState('failed_retryable');
+      setError(err instanceof Error ? err.message : 'Failed to start OpenRouter connection');
+      setOpenRouterLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadOpenRouterStatus();
+  }, [loadOpenRouterStatus]);
+
   const handleAutoTranslate = useCallback(async () => {
+    if (provider === 'openrouter' && openRouterState !== 'connected') {
+      setError('Connect OpenRouter before using this provider.');
+      return;
+    }
     setTranslating(true);
     setError(null);
     try {
@@ -131,7 +192,7 @@ export function TranslationStep({
     } finally {
       setTranslating(false);
     }
-  }, [rows, needsTranslation, hasSource, provider, list, inputLanguage]);
+  }, [rows, needsTranslation, hasSource, provider, list, inputLanguage, openRouterState]);
 
   const handleCellEdit = useCallback((id: string, field: 'textKnown' | 'textTarget', value: string) => {
     setRows((prev) =>
@@ -197,7 +258,13 @@ export function TranslationStep({
       <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-background-elevated border border-border-subtle">
         <select
           value={provider}
-          onChange={(e) => setProvider(e.target.value as 'google' | 'openrouter')}
+          onChange={(e) => {
+            const next = e.target.value as 'google' | 'openrouter';
+            setProvider(next);
+            if (next === 'openrouter') {
+              void loadOpenRouterStatus();
+            }
+          }}
           className="px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs"
         >
           <option value="google">Google Translate</option>
@@ -205,13 +272,37 @@ export function TranslationStep({
         </select>
         <button
           type="button"
-          disabled={translating || pendingCount === 0}
+          disabled={translating || pendingCount === 0 || (provider === 'openrouter' && openRouterState !== 'connected')}
           className="px-4 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
           onClick={handleAutoTranslate}
         >
           {translating ? 'Translating...' : `Auto-translate (${pendingCount})`}
         </button>
       </div>
+
+      {provider === 'openrouter' && openRouterState !== 'connected' && (
+        <div className="mb-4 p-3 rounded-lg border border-border-subtle bg-background-elevated flex items-center justify-between gap-3">
+          <div className="text-xs text-text-soft">
+            {openRouterState === 'connecting'
+              ? 'OpenRouter connection is in progress.'
+              : openRouterState === 'failed_retryable'
+              ? 'OpenRouter connection failed. Retry to continue.'
+              : 'OpenRouter is not connected for this account.'}
+          </div>
+          <button
+            type="button"
+            className="px-3 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-60"
+            onClick={handleConnectOpenRouter}
+            disabled={openRouterLoading || openRouterState === 'connecting'}
+          >
+            {openRouterState === 'failed_retryable'
+              ? 'Retry connect'
+              : openRouterState === 'connecting'
+              ? 'Connecting...'
+              : 'Connect OpenRouter'}
+          </button>
+        </div>
+      )}
 
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-danger/10 text-danger text-sm">{error}</div>

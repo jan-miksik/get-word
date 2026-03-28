@@ -106,7 +106,11 @@ export function TypingChallengeGame({
 
   return (
     <article className="phrase-card game-card game-card--typing">
-      <div className="game-badge">⌨️ Type it</div>
+      <div className="game-badge">
+        {effectivePromptMode === 'audio'
+          ? `⌨️ Type in ${targetLang === 'cz' ? 'Czech' : 'Vietnamese'}`
+          : '⌨️ Type it'}
+      </div>
       {effectivePromptMode === 'audio' ? (
         <div className="game-audio-prompt">
           <button
@@ -115,7 +119,7 @@ export function TypingChallengeGame({
             onClick={replayPrompt}
             aria-label="Replay prompt audio"
           >
-            🔊 Replay prompt
+            🔊
           </button>
         </div>
       ) : (

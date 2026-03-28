@@ -83,7 +83,11 @@ export function MultipleChoiceGame({
 
   return (
     <article className="phrase-card game-card game-card--choice">
-      <div className="game-badge">🎯 Choice</div>
+      <div className="game-badge">
+        {effectivePromptMode === 'audio'
+          ? `🎯 Choose in ${targetLang === 'cz' ? 'Czech' : 'Vietnamese'}`
+          : '🎯 Choice'}
+      </div>
       {effectivePromptMode === 'audio' ? (
         <div className="game-audio-prompt">
           <button
@@ -92,7 +96,7 @@ export function MultipleChoiceGame({
             onClick={replayPrompt}
             aria-label="Replay prompt audio"
           >
-            🔊 Replay prompt
+            🔊
           </button>
         </div>
       ) : (

@@ -67,6 +67,12 @@ function rekeyByItemId<V>(
   return result;
 }
 
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
 /** Prefers userId (PK lookup) when provided; falls back to deviceId get-or-create. */
 async function resolveUser(
   deviceId: string | null,
@@ -204,7 +210,26 @@ export async function POST(request: NextRequest) {
 
     // Sync memory hooks
     if (memory_hooks) {
-      for (const [wordId, hookText] of Object.entries(memory_hooks)) {
+      const hasItemIdKeys = Object.keys(memory_hooks).some((k) => isUuid(k));
+      let itemIdToWordId = new Map<string, string>();
+
+      if (hasItemIdKeys) {
+        const systemList = await getSystemDefaultList();
+        if (systemList) {
+          const wordIdToItemId = await getWordIdToItemIdMapping(systemList.id);
+          itemIdToWordId = new Map(
+            [...wordIdToItemId.entries()].map(([wordId, itemId]) => [itemId, wordId])
+          );
+        }
+      }
+
+      for (const [key, hookText] of Object.entries(memory_hooks)) {
+        const wordId = isUuid(key) ? itemIdToWordId.get(key) : key;
+        if (!wordId) {
+          // Ignore unknown item IDs so one bad key doesn't fail the whole sync payload.
+          continue;
+        }
+
         // Normalize hookText: treat non-null values as strings and trim
         const trimmed = hookText === null ? null : String(hookText).trim();
 

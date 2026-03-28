@@ -182,7 +182,16 @@ export async function syncUserData(data: {
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to sync data: ${response.statusText}`);
+    let errorMessage = `Failed to sync data: ${response.status} ${response.statusText}`;
+    try {
+      const errorData = await response.json();
+      if (errorData.error) {
+        errorMessage = `Failed to sync data: ${errorData.error}`;
+      }
+    } catch {
+      // Ignore JSON parse failures and keep status-based message
+    }
+    throw new Error(errorMessage);
   }
 
   const result = await response.json();
