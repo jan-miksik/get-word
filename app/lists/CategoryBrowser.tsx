@@ -135,29 +135,9 @@ export function CategoryBrowser({
               {/* Expanded word list */}
               {isExpanded && (
                 <div className="px-4 pb-3 border-t border-border-subtle">
-                  {catItems.length === 0 ? (
-                    <p className="py-3 text-sm text-text-soft">No words in this category</p>
-                  ) : (
-                    <div className="divide-y divide-border-subtle">
-                      {catItems.map((item) => (
-                        <div key={item.id} className="flex items-center gap-3 py-2 text-sm">
-                          <span className="flex-1 text-text truncate">{item.textKnown}</span>
-                          <span className="flex-1 text-text-soft truncate">
-                            {item.textTarget ?? (
-                              <span className="italic text-fresh/70">needs translation</span>
-                            )}
-                          </span>
-                          {item.audioStatus === 'ready' && (
-                            <span className="text-xs text-done" title="Has audio">♪</span>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Edit button - desktop only, owner only */}
+                  {/* Edit/Delete buttons - desktop only, owner only */}
                   {isOwner && (
-                    <div className="mt-3 pt-3 border-t border-border-subtle hidden md:flex gap-2">
+                    <div className="py-2 hidden md:flex gap-2">
                       <button
                         type="button"
                         className="px-3 py-1.5 rounded-lg bg-accent/10 text-accent text-xs font-medium hover:bg-accent/20 transition-colors"
@@ -180,6 +160,26 @@ export function CategoryBrowser({
                       >
                         Delete
                       </button>
+                    </div>
+                  )}
+
+                  {catItems.length === 0 ? (
+                    <p className="py-3 text-sm text-text-soft">No words in this category</p>
+                  ) : (
+                    <div className="divide-y divide-border-subtle">
+                      {catItems.map((item) => (
+                        <div key={item.id} className="flex items-center gap-3 py-2 text-sm">
+                          <span className="flex-1 text-text truncate">{item.textKnown}</span>
+                          <span className="flex-1 text-text-soft truncate">
+                            {item.textTarget ?? (
+                              <span className="italic text-fresh/70">needs translation</span>
+                            )}
+                          </span>
+                          {item.audioStatus === 'ready' && (
+                            <span className="text-xs text-done" title="Has audio">♪</span>
+                          )}
+                        </div>
+                      ))}
                     </div>
                   )}
                 </div>

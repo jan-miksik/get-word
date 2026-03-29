@@ -62,7 +62,7 @@ export function AppLayout({
           categoryActive={selectedCategories.size > 0}
           progressActive={progressOpen}
           score={gameScore}
-          lists={subscribedLists.length > 1 ? subscribedLists : undefined}
+          lists={subscribedLists.length > 0 ? subscribedLists : undefined}
           activeListId={activeListId}
           onListChange={setActiveListId}
           centerContent={

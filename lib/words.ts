@@ -136,6 +136,7 @@ export function wordListItemsToNormalizedWords(
     value
       .normalize('NFD')
       .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/gi, 'd')
       .replace(/[^\p{L}\p{N}]+/gu, ' ')
       .trim()
       .toLowerCase();

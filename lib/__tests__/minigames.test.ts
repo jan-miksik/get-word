@@ -19,6 +19,10 @@ describe('matchAnswer', () => {
     expect(matchAnswer('con meo', 'con mèo')).toBe('close');
     expect(matchAnswer('pes', 'pěs')).toBe('close');
   });
+  it('treats đ as d (stroke, not decomposable diacritic)', () => {
+    expect(matchAnswer('d', 'đ')).toBe('close');
+    expect(matchAnswer('dong', 'đồng')).toBe('close');
+  });
   it('returns wrong for different base letters', () => {
     expect(matchAnswer('cat', 'pes')).toBe('wrong');
   });

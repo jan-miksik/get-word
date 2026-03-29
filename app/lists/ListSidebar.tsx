@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import type { WordList } from './page';
 
 interface ListSidebarProps {
@@ -9,8 +9,10 @@ interface ListSidebarProps {
   subscribedListIds: Set<string>;
   onSelectList: (id: string) => void;
   onCreateList: (name: string, langFrom: string, langTo: string) => Promise<void>;
+  onDeleteList: (listId: string) => Promise<void>;
   onSubscribe: (listId: string) => Promise<void>;
   onUnsubscribe: (listId: string) => Promise<void>;
+  openCreateSignal?: number;
 }
 
 export function ListSidebar({
@@ -19,8 +21,10 @@ export function ListSidebar({
   subscribedListIds,
   onSelectList,
   onCreateList,
+  onDeleteList,
   onSubscribe,
   onUnsubscribe,
+  openCreateSignal = 0,
 }: ListSidebarProps) {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
@@ -28,9 +32,16 @@ export function ListSidebar({
   const [newLangTo, setNewLangTo] = useState('vi');
   const [creating, setCreating] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const ownLists = lists.filter((l) => l.ownerId !== null);
   const publicLists = lists.filter((l) => l.ownerId === null && l.isPublic);
+
+  useEffect(() => {
+    if (openCreateSignal > 0) {
+      setShowCreate(true);
+    }
+  }, [openCreateSignal]);
 
   async function handleCreate() {
     if (!newName.trim()) return;
@@ -57,9 +68,30 @@ export function ListSidebar({
     }
   }
 
+  async function handleDelete(list: WordList) {
+    const shouldDelete = window.confirm(`Delete "${list.name}"? This cannot be undone.`);
+    if (!shouldDelete) return;
+
+    setDeletingId(list.id);
+    try {
+      await onDeleteList(list.id);
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-border-subtle">
+        <a
+          href="/"
+          className="inline-flex items-center gap-1 text-xs text-text-soft hover:text-accent transition-colors mb-2"
+        >
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+            <path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+          Back to app
+        </a>
         <h2 className="text-lg font-semibold text-text">Word Lists</h2>
       </div>
 
@@ -70,21 +102,45 @@ export function ListSidebar({
               Your Lists
             </h3>
             {ownLists.map((list) => (
-              <button
+              <div
                 key={list.id}
-                type="button"
-                className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-colors ${
+                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
                   selectedListId === list.id
-                    ? 'bg-accent/15 text-accent'
-                    : 'text-text hover:bg-background/50'
+                    ? 'bg-accent/15'
+                    : 'hover:bg-background/50'
                 }`}
-                onClick={() => onSelectList(list.id)}
               >
-                <div className="font-medium truncate">{list.name}</div>
-                <div className="text-xs text-text-soft mt-0.5">
-                  {list.languageFrom} → {list.languageTo}
-                </div>
-              </button>
+                <button
+                  type="button"
+                  className={`flex-1 min-w-0 text-left ${
+                    selectedListId === list.id
+                      ? 'text-accent'
+                      : 'text-text'
+                  }`}
+                  onClick={() => onSelectList(list.id)}
+                >
+                  <div className="font-medium truncate">{list.name}</div>
+                  <div className="text-xs text-text-soft mt-0.5">
+                    {list.languageFrom} → {list.languageTo}
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  className="shrink-0 p-1.5 rounded-md text-text-soft hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-40"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleDelete(list);
+                  }}
+                  disabled={deletingId === list.id}
+                  title="Delete list"
+                  aria-label={`Delete ${list.name}`}
+                >
+                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" className="text-current">
+                    <path d="M4 6h12M8 3h4M7 6v10m6-10v10M6 6l.6 10.2A1 1 0 007.6 17h4.8a1 1 0 001-.8L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </button>
+              </div>
             ))}
           </div>
         )}

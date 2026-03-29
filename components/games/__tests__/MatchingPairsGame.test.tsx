@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent, act } from '@testing-library/react';
+import { render, screen, fireEvent, act, waitFor } from '@testing-library/react';
 import { MatchingPairsGame } from '../MatchingPairsGame';
 import type { NormalizedWord } from '@/lib/words';
 
@@ -123,9 +123,27 @@ describe('MatchingPairsGame', () => {
       <MatchingPairsGame words={WORDS} role="cz" sourceLang="cz" promptMode="audio" />
     );
     expect(screen.queryByText('pes')).not.toBeInTheDocument();
-    expect(screen.getByText('🔊 Prompt 1')).toBeInTheDocument();
-    fireEvent.click(screen.getByText('🔊 Prompt 1'));
+    const promptButton = screen.getByRole('button', { name: /play 1/i });
+    expect(promptButton).toBeInTheDocument();
+    fireEvent.click(promptButton);
     expect(playCalls).toBe(1);
+  });
+
+  it('falls back to text prompts when audio playback fails at runtime', async () => {
+    vi.stubGlobal(
+      'Audio',
+      vi.fn().mockImplementation(function FakeAudio(this: { play: () => Promise<void>; pause: () => void }, _src: string) {
+        this.play = () => Promise.reject(new Error('playback failed'));
+        this.pause = () => {};
+      }),
+    );
+    render(
+      <MatchingPairsGame words={WORDS} role="cz" sourceLang="cz" promptMode="audio" />
+    );
+    fireEvent.click(screen.getByRole('button', { name: /play 1/i }));
+    await waitFor(() => {
+      expect(screen.getByText('pes')).toBeInTheDocument();
+    });
   });
 
   it('falls back to full text mode when any source audio is missing', () => {
@@ -139,6 +157,6 @@ describe('MatchingPairsGame', () => {
       <MatchingPairsGame words={mixedAudio} role="cz" sourceLang="cz" promptMode="audio" />
     );
     expect(screen.getByText('pes')).toBeInTheDocument();
-    expect(screen.queryByText('🔊 Prompt 1')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /play 1/i })).not.toBeInTheDocument();
   });
 });

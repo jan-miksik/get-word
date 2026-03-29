@@ -17,6 +17,67 @@
     box-shadow var(--transition-fast);
 }
 
+/* ─── Floating list selector ────────────────────────────── */
+.list-selector-float {
+  position: absolute;
+  top: max(2px, env(safe-area-inset-top, 2px));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 300;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  opacity: 0.45;
+  transition: opacity 0.2s ease;
+}
+
+.list-selector-float:hover,
+.list-selector-float:focus-within {
+  opacity: 0.85;
+}
+
+.list-selector-float select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: var(--text-soft);
+  font-size: 0.625rem;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  padding: 2px 0;
+  padding-right: 1px;
+}
+
+.list-selector-float select option {
+  background: rgba(6, 10, 24, 0.95);
+  color: var(--text);
+  font-size: 0.75rem;
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.list-selector-chevron {
+  color: var(--text-soft);
+  flex-shrink: 0;
+  pointer-events: none;
+  width: 8px;
+  height: 5px;
+}
+
+/* Light themes */
+[data-theme="warm"] .list-selector-float select,
+[data-theme="calm"] .list-selector-float select {
+  color: var(--text-soft);
+}
+[data-theme="warm"] .list-selector-float select option,
+[data-theme="calm"] .list-selector-float select option {
+  background: var(--bg);
+}
+
 .top-menu {
   display: flex;
   flex-wrap: nowrap;

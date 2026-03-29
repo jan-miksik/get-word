@@ -17,8 +17,11 @@ export function getWordTextByLang(word: NormalizedWord, lang: SourceLang): strin
   return lang === 'cz' ? word.cz : word.vi;
 }
 
-export function normalizeAudioPath(path: string | string[]): string {
-  const pathStr = Array.isArray(path) ? path[0] : path;
+export function normalizeAudioPath(path: string): string {
+  const pathStr = path.trim();
+  if (/^(https?:)?\/\//i.test(pathStr) || /^(data|blob):/i.test(pathStr)) {
+    return pathStr;
+  }
   return pathStr.startsWith('/') ? pathStr : `/${pathStr}`;
 }
 
@@ -28,5 +31,11 @@ export function getWordAudioSrcByLang(
 ): string | null {
   const raw = sourceLang === 'cz' ? word.czAudio : word.viAudio;
   if (!raw) return null;
-  return normalizeAudioPath(raw);
+  const candidates = Array.isArray(raw) ? raw : [raw];
+  const firstUsablePath = candidates.find(
+    (candidate): candidate is string =>
+      typeof candidate === 'string' && candidate.trim().length > 0,
+  );
+  if (!firstUsablePath) return null;
+  return normalizeAudioPath(firstUsablePath);
 }

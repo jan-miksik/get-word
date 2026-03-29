@@ -37,7 +37,7 @@ export function matchAnswer(input: string, correct: string): 'exact' | 'close' |
   const trim = (s: string) => s.trim().toLowerCase();
   if (trim(input) === trim(correct)) return 'exact';
   const strip = (s: string) =>
-    s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').trim().toLowerCase();
+    s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').trim().toLowerCase();
   if (strip(input) === strip(correct)) return 'close';
   return 'wrong';
 }

@@ -85,6 +85,7 @@ export default function ListsPage() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [subscribedListIds, setSubscribedListIds] = useState<Set<string>>(new Set());
+  const [openCreateSignal, setOpenCreateSignal] = useState(0);
 
   const selectedList = useMemo(
     () => lists.find((l) => l.id === selectedListId) ?? null,
@@ -174,6 +175,35 @@ export default function ListsPage() {
     const data = await res.json();
     setLists((prev) => [...prev, data.list]);
     setSelectedListId(data.list.id);
+  }, []);
+
+  const handleDeleteList = useCallback(async (listId: string) => {
+    try {
+      const res = await apiFetch(`/api/lists/${listId}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error ?? 'Delete failed');
+      }
+
+      setLists((prev) => {
+        const next = prev.filter((l) => l.id !== listId);
+        const nextOwned = next.find((l) => l.ownerId !== null);
+        setSelectedListId((current) => (
+          current === listId
+            ? (nextOwned?.id ?? next[0]?.id ?? null)
+            : current
+        ));
+        return next;
+      });
+
+      setSubscribedListIds((prev) => {
+        const next = new Set(prev);
+        next.delete(listId);
+        return next;
+      });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Delete failed');
+    }
   }, []);
 
   const handleSubscribe = useCallback(async (listId: string) => {
@@ -360,7 +390,7 @@ export default function ListsPage() {
   const editingItems = editingCategoryId ? itemsByCategory.get(editingCategoryId) ?? [] : [];
 
   return (
-    <div className="flex min-h-screen bg-background text-text">
+    <div className="flex h-screen bg-background text-text overflow-hidden">
       {/* Mobile sidebar toggle */}
       <button
         type="button"
@@ -401,8 +431,10 @@ export default function ListsPage() {
           subscribedListIds={subscribedListIds}
           onSelectList={handleSelectList}
           onCreateList={handleCreateList}
+          onDeleteList={handleDeleteList}
           onSubscribe={handleSubscribe}
           onUnsubscribe={handleUnsubscribe}
+          openCreateSignal={openCreateSignal}
         />
       </div>
 
@@ -478,6 +510,19 @@ export default function ListsPage() {
           />
         ) : null}
       </div>
+
+      {!sidebarOpen && (
+        <button
+          type="button"
+          className="fixed bottom-4 right-4 z-20 rounded-full bg-accent text-background px-4 py-2.5 text-sm font-medium shadow-lg md:hidden"
+          onClick={() => {
+            setOpenCreateSignal((prev) => prev + 1);
+            setSidebarOpen(true);
+          }}
+        >
+          + New List
+        </button>
+      )}
     </div>
   );
 }

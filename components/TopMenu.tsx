@@ -22,6 +22,13 @@ interface TopMenuProps {
   onListChange?: (id: string | null) => void;
 }
 
+function shortenListName(name: string): string {
+  return name
+    .replace(/^Default\s+/i, '')
+    .replace(/Vietnamese[–\-\s]*Czech/i, 'vi - cz')
+    .replace(/Czech[–\-\s]*Vietnamese/i, 'cz - vi');
+}
+
 export function ScoreBadge({ score }: { score: number }) {
   const prevScore = useRef(score);
   const [delta, setDelta] = useState<{ value: number; key: number } | null>(null);
@@ -73,9 +80,6 @@ interface MenuDropdownProps {
   progressActive: boolean;
   /** When logged in, render account button at top of dropdown */
   accountSlot?: ReactNode;
-  lists?: { id: string; name: string }[];
-  activeListId?: string | null;
-  onListChange?: (id: string | null) => void;
 }
 
 function MenuDropdown({
@@ -84,9 +88,6 @@ function MenuDropdown({
   categoryCount,
   progressActive,
   accountSlot,
-  lists,
-  activeListId,
-  onListChange,
 }: MenuDropdownProps) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -176,34 +177,6 @@ function MenuDropdown({
               {accountSlot}
             </div>
           )}
-          {lists && lists.length > 1 && onListChange && (
-            <div className="px-3 py-2 border-b border-border-subtle">
-              <p className="text-xs font-medium text-text-soft uppercase tracking-wide mb-1.5">Study from</p>
-              <div className="flex flex-col gap-0.5">
-                <button
-                  type="button"
-                  role="menuitemradio"
-                  aria-checked={activeListId == null}
-                  className={`w-full text-left px-2 py-1.5 rounded text-sm transition-colors ${activeListId == null ? 'bg-accent/15 text-accent font-medium' : 'text-text hover:bg-background/50'}`}
-                  onClick={() => { onListChange(null); setOpen(false); }}
-                >
-                  All lists
-                </button>
-                {lists.map((list) => (
-                  <button
-                    key={list.id}
-                    type="button"
-                    role="menuitemradio"
-                    aria-checked={activeListId === list.id}
-                    className={`w-full text-left px-2 py-1.5 rounded text-sm transition-colors ${activeListId === list.id ? 'bg-accent/15 text-accent font-medium' : 'text-text hover:bg-background/50'}`}
-                    onClick={() => { onListChange(list.id); setOpen(false); }}
-                  >
-                    {list.name}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
           {items.map((item) =>
             item.kind === 'link' ? (
               <a
@@ -244,6 +217,43 @@ function MenuDropdown({
   );
 }
 
+function ListSelector({
+  lists,
+  activeListId,
+  onListChange,
+}: {
+  lists: { id: string; name: string }[];
+  activeListId: string | null | undefined;
+  onListChange: (id: string | null) => void;
+}) {
+  return (
+    <div className="list-selector-float">
+      <select
+        value={activeListId ?? ''}
+        onChange={(e) => onListChange(e.target.value || null)}
+        aria-label="Select word list"
+      >
+        {lists.length > 1 && <option value="">All lists</option>}
+        {lists.map((list) => (
+          <option key={list.id} value={list.id}>
+            {shortenListName(list.name)}
+          </option>
+        ))}
+      </select>
+      <svg
+        className="list-selector-chevron"
+        width="10"
+        height="6"
+        viewBox="0 0 10 6"
+        fill="none"
+        aria-hidden="true"
+      >
+        <path d="M1 1L5 5L9 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    </div>
+  );
+}
+
 export function TopMenu({
   onShowAll,
   onMenuAction,
@@ -258,33 +268,36 @@ export function TopMenu({
   activeListId,
   onListChange,
 }: TopMenuProps) {
+  const showListSelector = lists && lists.length > 0 && onListChange;
+
   return (
-    <div className="top-menu" aria-label="Top menu">
-      <div className="top-menu-left flex flex-wrap items-center gap-2">
-        {score !== undefined && <ScoreBadge score={score} />}
-      </div>
-      {centerContent != null && (
-        <div className="top-menu-center flex items-center justify-center min-w-0 flex-1">
-          {centerContent}
-        </div>
-      )}
-      <div className="top-menu-right flex items-center gap-2 ml-auto">
-        {/* {accountSlot != null && (
-          <div className="hidden sm:block flex-shrink-0">
-            {accountSlot}
-          </div>
-        )} */}
-        <MenuDropdown
-          onMenuAction={onMenuAction}
-          categoryActive={categoryActive}
-          categoryCount={categoryCount}
-          progressActive={progressActive}
-          accountSlot={accountSlot}
+    <>
+      {showListSelector && (
+        <ListSelector
           lists={lists}
           activeListId={activeListId}
           onListChange={onListChange}
         />
+      )}
+      <div className="top-menu" aria-label="Top menu">
+        <div className="top-menu-left flex flex-wrap items-center gap-2">
+          {score !== undefined && <ScoreBadge score={score} />}
+        </div>
+        {centerContent != null && (
+          <div className="top-menu-center flex items-center justify-center min-w-0 flex-1">
+            {centerContent}
+          </div>
+        )}
+        <div className="top-menu-right flex items-center gap-2 ml-auto">
+          <MenuDropdown
+            onMenuAction={onMenuAction}
+            categoryActive={categoryActive}
+            categoryCount={categoryCount}
+            progressActive={progressActive}
+            accountSlot={accountSlot}
+          />
+        </div>
       </div>
-    </div>
+    </>
   );
 }

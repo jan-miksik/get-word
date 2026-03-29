@@ -1,7 +1,8 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { MiniGameConfig } from '@/lib/minigames';
+import type { NormalizedWord } from '@/lib/words';
 import { MultipleChoiceGame } from './games/MultipleChoiceGame';
 import { TypingChallengeGame } from './games/TypingChallengeGame';
 import { MatchingPairsGame } from './games/MatchingPairsGame';
@@ -26,10 +27,33 @@ export function getDeterministicSourceLangForGameId(gameId: string): SourceLang 
   return (hashString(gameId) & 1) === 0 ? 'cz' : 'vi';
 }
 
+export function shouldUseDeterministicAudioPromptForGameId(gameId: string): boolean {
+  return ((hashString(gameId) >> 1) & 1) === 0;
+}
+
+function pickAudioSourceLangForQuestion(word: NormalizedWord | undefined): SourceLang | null {
+  if (!word) return null;
+  if (getWordAudioSrcByLang(word, 'cz')) return 'cz';
+  if (getWordAudioSrcByLang(word, 'vi')) return 'vi';
+  return null;
+}
+
+function pickAudioSourceLangForMatching(words: NormalizedWord[]): SourceLang | null {
+  const hasAllCzAudio = words.every((word) => Boolean(getWordAudioSrcByLang(word, 'cz')));
+  if (hasAllCzAudio) return 'cz';
+  const hasAllViAudio = words.every((word) => Boolean(getWordAudioSrcByLang(word, 'vi')));
+  if (hasAllViAudio) return 'vi';
+  return null;
+}
+
 export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
   const [finished, setFinished] = useState<{ delta: number } | null>(null);
   const randomSourceLang = useMemo(
     () => getDeterministicSourceLangForGameId(config.id),
+    [config.id],
+  );
+  const shouldUseAudioPrompt = useMemo(
+    () => shouldUseDeterministicAudioPromptForGameId(config.id),
     [config.id],
   );
 
@@ -40,22 +64,56 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
 
   const gameProps = { words: config.words, role, onResult: handleResult };
   const questionWord = config.words[0];
-  const questionHasAudio = questionWord
-    ? Boolean(getWordAudioSrcByLang(questionWord, randomSourceLang))
-    : false;
-  const typingAndChoicePromptMode: PromptMode = questionHasAudio ? 'audio' : 'text';
-
-  const listeningMatchHasCompleteAudio = config.words.every((word) =>
-    Boolean(getWordAudioSrcByLang(word, randomSourceLang)),
+  const questionAudioSourceLang = useMemo(
+    () => (shouldUseAudioPrompt ? pickAudioSourceLangForQuestion(questionWord) : null),
+    [shouldUseAudioPrompt, questionWord],
   );
-  const matchingPromptMode: PromptMode = listeningMatchHasCompleteAudio ? 'audio' : 'text';
+  const typingAndChoiceSourceLang = questionAudioSourceLang ?? randomSourceLang;
+  const typingAndChoicePromptMode: PromptMode =
+    questionAudioSourceLang ? 'audio' : 'text';
+
+  const matchingAudioSourceLang = useMemo(
+    () => (shouldUseAudioPrompt ? pickAudioSourceLangForMatching(config.words) : null),
+    [config.words, shouldUseAudioPrompt],
+  );
+  const matchingPromptMode: PromptMode =
+    matchingAudioSourceLang ? 'audio' : 'text';
+
+  useEffect(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+    console.info('[AudioDebug][MiniGameCard]', {
+      gameId: config.id,
+      gameType: config.gameType,
+      shouldUseAudioPrompt,
+      randomSourceLang,
+      typingAndChoicePromptMode,
+      typingAndChoiceSourceLang,
+      matchingPromptMode,
+      matchingAudioSourceLang,
+      questionWordId: questionWord?.id,
+      questionCzAudio: questionWord?.czAudio ?? null,
+      questionViAudio: questionWord?.viAudio ?? null,
+    });
+  }, [
+    config.id,
+    config.gameType,
+    shouldUseAudioPrompt,
+    randomSourceLang,
+    typingAndChoicePromptMode,
+    typingAndChoiceSourceLang,
+    matchingPromptMode,
+    matchingAudioSourceLang,
+    questionWord?.id,
+    questionWord?.czAudio,
+    questionWord?.viAudio,
+  ]);
 
   let game = null;
   if (config.gameType === 'multipleChoice') {
     game = (
       <MultipleChoiceGame
         {...gameProps}
-        sourceLang={randomSourceLang}
+        sourceLang={typingAndChoiceSourceLang}
         promptMode={typingAndChoicePromptMode}
       />
     );
@@ -63,7 +121,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
     game = (
       <TypingChallengeGame
         {...gameProps}
-        sourceLang={randomSourceLang}
+        sourceLang={typingAndChoiceSourceLang}
         promptMode={typingAndChoicePromptMode}
       />
     );
@@ -72,7 +130,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
       <MatchingPairsGame
         {...gameProps}
         {...(matchingPromptMode === 'audio'
-          ? { sourceLang: randomSourceLang, promptMode: 'audio' as const }
+          ? { sourceLang: matchingAudioSourceLang!, promptMode: 'audio' as const }
           : { promptMode: 'text' as const })}
       />
     );

@@ -40,19 +40,25 @@ export function MatchingPairsGame({
   const [matched, setMatched] = useState<Set<string>>(new Set());
   const [matchColors, setMatchColors] = useState<Map<string, MatchColor>>(() => new Map());
   const [wrongPair, setWrongPair] = useState<[string, string] | null>(null);
+  const [hasAudioPlaybackError, setHasAudioPlaybackError] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const requestedSourceLang = sourceLang ?? resolveSourceLangFromRole(role);
+  const fallbackSourceLang = getTargetLang(requestedSourceLang);
   const audioByWordId = useMemo(
     () => new Map(words.map((word) => [word.id, getWordAudioSrcByLang(word, requestedSourceLang)])),
     [words, requestedSourceLang],
+  );
+  const fallbackAudioByWordId = useMemo(
+    () => new Map(words.map((word) => [word.id, getWordAudioSrcByLang(word, fallbackSourceLang)])),
+    [words, fallbackSourceLang],
   );
   const hasCompleteAudio = useMemo(
     () => words.every((word) => Boolean(audioByWordId.get(word.id))),
     [words, audioByWordId],
   );
   const effectivePromptMode: PromptMode =
-    promptMode === 'audio' && hasCompleteAudio ? 'audio' : 'text';
+    promptMode === 'audio' && hasCompleteAudio && !hasAudioPlaybackError ? 'audio' : 'text';
   const textModeSourceLang =
     promptMode === 'audio' && !hasCompleteAudio
       ? resolveSourceLangFromRole(role)
@@ -104,26 +110,57 @@ export function MatchingPairsGame({
     }
   };
 
-  const playPrompt = (id: string) => {
-    const audioSrc = audioByWordId.get(id);
-    if (!audioSrc) return;
-    try {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      }
-      const audio = new Audio(audioSrc);
-      audioRef.current = audio;
-      audio.play().catch(() => {});
-    } catch {
-      // no-op: fail silently when audio playback is unavailable
+  const playPrompt = async (id: string) => {
+    const candidateAudioSrcs = [audioByWordId.get(id), fallbackAudioByWordId.get(id)]
+      .filter((src): src is string => Boolean(src))
+      .filter((src, idx, arr) => arr.indexOf(src) === idx);
+    if (!candidateAudioSrcs.length) {
+      setHasAudioPlaybackError(true);
+      return;
     }
+
+    const playAudioSrc = async (audioSrc: string): Promise<{ ok: boolean; reason?: string }> =>
+      new Promise((resolve) => {
+        let settled = false;
+        const done = (result: { ok: boolean; reason?: string }) => {
+          if (settled) return;
+          settled = true;
+          resolve(result);
+        };
+        try {
+          if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+          }
+          const audio = new Audio(audioSrc);
+          audio.onerror = () => done({ ok: false, reason: 'audio-error' });
+          audioRef.current = audio;
+          audio.play()
+            .then(() => done({ ok: true }))
+            .catch((err) => {
+              const message = err instanceof Error ? err.message : String(err);
+              const interrupted = /interrupted by a call to pause/i.test(message);
+              done({ ok: false, reason: interrupted ? 'interrupted' : message });
+            });
+        } catch {
+          done({ ok: false, reason: 'exception' });
+        }
+      });
+
+    for (let i = 0; i < candidateAudioSrcs.length; i += 1) {
+      const src = candidateAudioSrcs[i];
+      const result = await playAudioSrc(src);
+      if (result.ok) return;
+      if (result.reason === 'interrupted') return;
+    }
+
+    setHasAudioPlaybackError(true);
   };
 
   const handleLeft = (id: string) => {
     if (matched.has(id) || wrongPair) return;
     if (effectivePromptMode === 'audio') {
-      playPrompt(id);
+      void playPrompt(id);
     }
     const next = id === leftSelected ? null : id;
     setLeftSelected(next);

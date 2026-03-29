@@ -89,6 +89,14 @@ describe('MultipleChoiceGame', () => {
     expect(playCalls).toBe(1);
   });
 
+  it('plays selected option audio on answer in audio mode', () => {
+    render(
+      <MultipleChoiceGame words={WORDS} role="cz" sourceLang="cz" promptMode="audio" />
+    );
+    fireEvent.click(screen.getByText('con chó'));
+    expect(playCalls).toBe(1);
+  });
+
   it('falls back to text prompt when requested audio is missing', () => {
     const noAudioWords = [
       makeWord('a', 'pes', 'con chó'),

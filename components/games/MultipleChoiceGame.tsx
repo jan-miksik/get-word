@@ -42,10 +42,11 @@ export function MultipleChoiceGame({
     () => [...words].sort(() => Math.random() - 0.5).map(w => ({
       id: w.id,
       label: getOption(w),
+      audioSrc: getWordAudioSrcByLang(w, targetLang),
       isCorrect: w.id === questionWord.id,
     })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [words, role]
+    [words, targetLang, questionWord.id]
   );
 
   const answered = selected !== null;
@@ -61,19 +62,23 @@ export function MultipleChoiceGame({
 
   const handleSelect = (optionId: string) => {
     if (answered) return;
+    const selectedOption = options.find(o => o.id === optionId);
+    if (effectivePromptMode === 'audio') {
+      playAudio(selectedOption?.audioSrc ?? null);
+    }
     setSelected(optionId);
-    const isCorrect = options.find(o => o.id === optionId)?.isCorrect ?? false;
+    const isCorrect = selectedOption?.isCorrect ?? false;
     onResult?.(isCorrect ? 1 : -1);
   };
 
-  const replayPrompt = () => {
-    if (!promptAudioSrc) return;
+  const playAudio = (audioSrc: string | null) => {
+    if (!audioSrc) return;
     try {
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
       }
-      const audio = new Audio(promptAudioSrc);
+      const audio = new Audio(audioSrc);
       audioRef.current = audio;
       audio.play().catch(() => {});
     } catch {
@@ -81,11 +86,15 @@ export function MultipleChoiceGame({
     }
   };
 
+  const replayPrompt = () => {
+    playAudio(promptAudioSrc);
+  };
+
   return (
     <article className="phrase-card game-card game-card--choice">
       <div className="game-badge">
         {effectivePromptMode === 'audio'
-          ? `🎯 Choose in ${targetLang === 'cz' ? 'Czech' : 'Vietnamese'}`
+          ? '🎯 Choose'
           : '🎯 Choice'}
       </div>
       {effectivePromptMode === 'audio' ? (
