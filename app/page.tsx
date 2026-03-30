@@ -6,7 +6,13 @@ import { useAppState } from '@/hooks/useAppState';
 import { useWordsLoader } from '@/hooks/useWordsLoader';
 import { useWordStream } from '@/hooks/useWordStream';
 import { usePressHandlers } from '@/hooks/usePressHandlers';
-import { getAvailableCategories, STAGES, NormalizedWord, normalizeWords } from '@/lib/words';
+import {
+  getAvailableCategories,
+  STAGES,
+  NormalizedWord,
+  normalizeWords,
+  shouldShowMemoryHookForStage,
+} from '@/lib/words';
 import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-stats';
 import {
   computeGameAnchors,
@@ -67,6 +73,8 @@ export default function Home() {
     showEnglish,
     showCategoryBadges,
     showPronunciation,
+    memoryHooksEnabled,
+    memoryHookDisableFromStage,
     markKnown,
     markReallyKnown,
     markUnknown,
@@ -218,6 +226,18 @@ export default function Home() {
   const { dueWords, newWords, settlingWords } = useWordStream(filteredWords, progress, isHydrated);
 
   const readyCount = dueWords.length;
+
+  const shouldRenderMemoryHook = useCallback(
+    (wordId: string) => {
+      const stageIndex = progress[wordId]?.stageIndex ?? 0;
+      return shouldShowMemoryHookForStage(
+        stageIndex,
+        memoryHooksEnabled,
+        memoryHookDisableFromStage
+      );
+    },
+    [progress, memoryHooksEnabled, memoryHookDisableFromStage]
+  );
 
   // Words with at least stageIndex 1 — used as the game word pool
   const learnedPool = useMemo(
@@ -397,10 +417,11 @@ export default function Home() {
           showCategoryBadges={showCategoryBadges}
           showPronunciation={showPronunciation}
           categoryOrder={categoryOrder}
+          showMemoryHook={shouldRenderMemoryHook(word.id)}
         />
       </div>
     );
-  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder]);
+  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook]);
 
   const renderMiniGame = useCallback((config: MiniGameConfig) => {
     if (dismissedGames.has(config.id)) return null;
@@ -463,12 +484,13 @@ export default function Home() {
             showCategoryBadges={showCategoryBadges}
             showPronunciation={showPronunciation}
             categoryOrder={categoryOrder}
+            showMemoryHook={shouldRenderMemoryHook(word.id)}
             fullscreen
           />
         </div>
       );
     },
-    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder]
+    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook]
   );
 
   const renderMiniGameForDeck = useCallback(

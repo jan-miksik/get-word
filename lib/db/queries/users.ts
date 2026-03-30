@@ -2,6 +2,18 @@ import { eq } from "drizzle-orm";
 import { db } from "../client";
 import { users, type User, type NewUser } from "../schema";
 
+const MEMORY_HOOK_DISABLE_STAGE_VALUES = new Set([5, 6, 7, 8, 9, 10]);
+const DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE = 8;
+
+function normalizeMemoryHookDisableFromStage(value: unknown): number {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE;
+  const normalized = Math.floor(parsed);
+  return MEMORY_HOOK_DISABLE_STAGE_VALUES.has(normalized)
+    ? normalized
+    : DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE;
+}
+
 // Get user by ID
 export async function getUserById(id: string): Promise<User | null> {
   const results = await db
@@ -84,6 +96,8 @@ export async function updateUserPreferences(
     show_english?: boolean;
     show_category_badges?: boolean;
     show_pronunciation?: boolean;
+    memory_hooks_enabled?: boolean;
+    memory_hook_disable_from_stage?: number;
     game_score?: number;
     category_order?: string[];
   }
@@ -92,6 +106,8 @@ export async function updateUserPreferences(
     showEnglish?: boolean;
     showCategoryBadges?: boolean;
     showPronunciation?: boolean;
+    memoryHooksEnabled?: boolean;
+    memoryHookDisableFromStage?: number;
     gameScore?: number;
     categoryOrder?: string[];
     updatedAt: Date;
@@ -101,6 +117,12 @@ export async function updateUserPreferences(
   if (prefs.show_english !== undefined) updates.showEnglish = prefs.show_english;
   if (prefs.show_category_badges !== undefined) updates.showCategoryBadges = prefs.show_category_badges;
   if (prefs.show_pronunciation !== undefined) updates.showPronunciation = prefs.show_pronunciation;
+  if (prefs.memory_hooks_enabled !== undefined) updates.memoryHooksEnabled = prefs.memory_hooks_enabled;
+  if (prefs.memory_hook_disable_from_stage !== undefined) {
+    updates.memoryHookDisableFromStage = normalizeMemoryHookDisableFromStage(
+      prefs.memory_hook_disable_from_stage
+    );
+  }
   if (prefs.game_score !== undefined) updates.gameScore = Math.max(0, Math.floor(prefs.game_score));
   if (prefs.category_order !== undefined) {
     const normalized = Array.isArray(prefs.category_order)

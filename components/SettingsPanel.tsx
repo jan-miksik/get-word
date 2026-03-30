@@ -3,6 +3,7 @@
 import { useCallback, type ReactNode } from 'react';
 import type { MinigameFrequencyRange } from '@/lib/minigames';
 import { MINIGAME_FREQUENCY_MIN, MINIGAME_FREQUENCY_MAX } from '@/lib/minigames';
+import { MEMORY_HOOK_DISABLE_STAGE_OPTIONS, STAGES } from '@/lib/words';
 import { useAppStateContext } from '@/context/AppStateContext';
 import { PWAInstallSection } from '@/components/PWAInstallSection';
 
@@ -89,6 +90,10 @@ export function SettingsPanel({
     setShowCategoryBadges,
     showPronunciation,
     setShowPronunciation,
+    memoryHooksEnabled,
+    setMemoryHooksEnabled,
+    memoryHookDisableFromStage,
+    setMemoryHookDisableFromStage,
     theme,
     setTheme,
     userId,
@@ -172,6 +177,35 @@ export function SettingsPanel({
                 ariaLabel="Show pronunciation"
               />
             </div>
+          </Section>
+
+          {/* Memory Hooks */}
+          <Section label="Memory Hooks">
+            <div className="flex items-center justify-between py-0.5">
+              <span className="text-sm text-text">Enable memory hooks</span>
+              <ToggleSwitch
+                checked={memoryHooksEnabled}
+                onChange={setMemoryHooksEnabled}
+                ariaLabel="Enable memory hooks"
+              />
+            </div>
+            {memoryHooksEnabled && (
+              <label className="flex items-center justify-between gap-3 py-0.5">
+                <span className="text-sm text-text">Hide from interval</span>
+                <select
+                  value={memoryHookDisableFromStage}
+                  onChange={(e) => setMemoryHookDisableFromStage(Number(e.target.value))}
+                  aria-label="Hide memory hooks from interval"
+                  className="rounded-lg border border-border-subtle bg-background px-2 py-1 text-xs text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+                >
+                  {MEMORY_HOOK_DISABLE_STAGE_OPTIONS.map((stage) => (
+                    <option key={stage} value={stage}>
+                      {STAGES[stage]?.name ?? `${stage}`}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
           </Section>
 
           {/* Language */}

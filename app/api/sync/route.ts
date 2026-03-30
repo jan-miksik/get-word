@@ -101,6 +101,8 @@ interface SyncRequest {
   show_english?: boolean;
   show_category_badges?: boolean;
   show_pronunciation?: boolean;
+  memory_hooks_enabled?: boolean;
+  memory_hook_disable_from_stage?: number;
   game_score?: number;
   category_order?: string[];
   progress?: Array<{
@@ -126,6 +128,8 @@ export async function POST(request: NextRequest) {
       show_english,
       show_category_badges,
       show_pronunciation,
+      memory_hooks_enabled,
+      memory_hook_disable_from_stage,
       game_score,
       category_order,
       progress,
@@ -161,6 +165,8 @@ export async function POST(request: NextRequest) {
       show_english !== undefined ||
       show_category_badges !== undefined ||
       show_pronunciation !== undefined ||
+      memory_hooks_enabled !== undefined ||
+      memory_hook_disable_from_stage !== undefined ||
       game_score !== undefined ||
       category_order !== undefined
     ) {
@@ -168,6 +174,8 @@ export async function POST(request: NextRequest) {
         show_english,
         show_category_badges,
         show_pronunciation,
+        memory_hooks_enabled,
+        memory_hook_disable_from_stage,
         game_score,
         category_order,
       });
@@ -293,6 +301,8 @@ export async function POST(request: NextRequest) {
         show_english: user.showEnglish ?? true,
         show_category_badges: user.showCategoryBadges ?? false,
         show_pronunciation: user.showPronunciation ?? false,
+        memory_hooks_enabled: user.memoryHooksEnabled ?? true,
+        memory_hook_disable_from_stage: user.memoryHookDisableFromStage ?? 8,
         wallet_address: user.walletAddress ?? null,
         email: user.email ?? null,
         auth_provider: user.authProvider ?? null,
@@ -397,6 +407,8 @@ export async function GET(request: NextRequest) {
         show_english: user.showEnglish ?? true,
         show_category_badges: user.showCategoryBadges ?? false,
         show_pronunciation: user.showPronunciation ?? false,
+        memory_hooks_enabled: user.memoryHooksEnabled ?? true,
+        memory_hook_disable_from_stage: user.memoryHookDisableFromStage ?? 8,
         wallet_address: user.walletAddress ?? null,
         email: user.email ?? null,
         auth_provider: user.authProvider ?? null,

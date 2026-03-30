@@ -13,7 +13,7 @@ const word: NormalizedWord = {
 
 const baseProps = {
   word,
-  progress: { stageIndex: 1, repeatCount: 0, nextDueAt: null, lastSeenAt: null },
+  progress: { stageIndex: 1, knownCount: 0, unknownCount: 0, nextDueAt: undefined },
   role: 'cz' as const,
   modeIndex: 0,
   showAll: true,

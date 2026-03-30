@@ -22,6 +22,32 @@ export const STAGES = [
   { id: 10, name: "60 days", intervalMs: 60 * 24 * 60 * 60 * 1000 },
 ];
 
+export const MEMORY_HOOK_DISABLE_STAGE_OPTIONS = [5, 6, 7, 8, 9, 10] as const;
+export type MemoryHookDisableFromStage = (typeof MEMORY_HOOK_DISABLE_STAGE_OPTIONS)[number];
+export const DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE: MemoryHookDisableFromStage = 8; // 14 days
+
+export function normalizeMemoryHookDisableFromStage(
+  value: unknown
+): MemoryHookDisableFromStage {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE;
+  const normalized = Math.floor(parsed) as MemoryHookDisableFromStage;
+  return MEMORY_HOOK_DISABLE_STAGE_OPTIONS.includes(normalized)
+    ? normalized
+    : DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE;
+}
+
+export function shouldShowMemoryHookForStage(
+  stageIndex: number,
+  memoryHooksEnabled: boolean,
+  memoryHookDisableFromStage: number
+): boolean {
+  if (!memoryHooksEnabled) return false;
+  const normalizedStage = Number.isFinite(stageIndex) ? Math.max(0, Math.floor(stageIndex)) : 0;
+  const cutoff = normalizeMemoryHookDisableFromStage(memoryHookDisableFromStage);
+  return normalizedStage < cutoff;
+}
+
 function inferWordType(entry: Word): 'word' | 'phrase' {
   const explicit = Array.isArray(entry.category)
     ? entry.category.find((tag) => tag === "word" || tag === "phrase")

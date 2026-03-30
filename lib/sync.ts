@@ -60,6 +60,8 @@ export interface SyncResponse {
     show_english?: boolean;
     show_category_badges?: boolean;
     show_pronunciation?: boolean;
+    memory_hooks_enabled?: boolean;
+    memory_hook_disable_from_stage?: number;
     wallet_address?: string | null;
     email?: string | null;
     auth_provider?: string | null;
@@ -163,6 +165,8 @@ export async function syncUserData(data: {
   show_english?: boolean;
   show_category_badges?: boolean;
   show_pronunciation?: boolean;
+  memory_hooks_enabled?: boolean;
+  memory_hook_disable_from_stage?: number;
   game_score?: number;
   category_order?: string[];
   progress?: SyncProgressItem[];

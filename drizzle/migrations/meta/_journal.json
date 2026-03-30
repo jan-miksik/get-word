@@ -71,6 +71,13 @@
       "when": 1775000000000,
       "tag": "0009_openrouter_oauth",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1775001000000,
+      "tag": "0010_memory_hook_preferences",
+      "breakpoints": true
     }
   ]
 }

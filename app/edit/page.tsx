@@ -4,7 +4,13 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Word } from '@/data/words';
 import { getDeviceId } from '@/lib/device-id';
-import { normalizeWords, getAllCategoriesWithCounts, STAGES, NormalizedWord } from '@/lib/words';
+import {
+  normalizeWords,
+  getAllCategoriesWithCounts,
+  STAGES,
+  NormalizedWord,
+  shouldShowMemoryHookForStage,
+} from '@/lib/words';
 import { useAppState } from '@/hooks/useAppState';
 import { useWordsLoader } from '@/hooks/useWordsLoader';
 import { useWordStream } from '@/hooks/useWordStream';
@@ -43,6 +49,8 @@ export default function EditPage() {
     selectedCategories,
     showEnglish,
     showCategoryBadges,
+    memoryHooksEnabled,
+    memoryHookDisableFromStage,
     markKnown,
     markReallyKnown,
     markUnknown,
@@ -222,6 +230,18 @@ export default function EditPage() {
 
   const readyCount = dueWords.length;
 
+  const shouldRenderMemoryHook = useCallback(
+    (wordId: string) => {
+      const stageIndex = progress[wordId]?.stageIndex ?? 0;
+      return shouldShowMemoryHookForStage(
+        stageIndex,
+        memoryHooksEnabled,
+        memoryHookDisableFromStage
+      );
+    },
+    [progress, memoryHooksEnabled, memoryHookDisableFromStage]
+  );
+
   const streamGroupedWords = useMemo((): NormalizedWord[][] => {
     const groups: NormalizedWord[][] = STAGES.map(() => []);
     groups[0] = dueWords;
@@ -263,10 +283,11 @@ export default function EditPage() {
           showEnglish={showEnglish}
           showCategoryBadges={showCategoryBadges}
           categoryOrder={categoryOrder}
+          showMemoryHook={shouldRenderMemoryHook(word.id)}
         />
       </div>
     );
-  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, handleWordFieldChange, handleCategoryToggle, handleCategoryAdd, handleCategoryRemove, showEnglish, showCategoryBadges, categoryOrder]);
+  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, handleWordFieldChange, handleCategoryToggle, handleCategoryAdd, handleCategoryRemove, showEnglish, showCategoryBadges, categoryOrder, shouldRenderMemoryHook]);
 
   if (isLoading || !isHydrated) {
     return <LoadingScreen />;

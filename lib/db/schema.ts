@@ -149,6 +149,8 @@ export const users = pgTable("users", {
   showEnglish: boolean("show_english").default(true).notNull(),
   showCategoryBadges: boolean("show_category_badges").default(false).notNull(),
   showPronunciation: boolean("show_pronunciation").default(false).notNull(),
+  memoryHooksEnabled: boolean("memory_hooks_enabled").default(true).notNull(),
+  memoryHookDisableFromStage: integer("memory_hook_disable_from_stage").default(8).notNull(),
   gameScore: integer("game_score").notNull().default(0),
   categoryOrder: text("category_order").array().notNull().default(sql`'{}'::text[]`),
   createdAt: timestamp("created_at").defaultNow().notNull(),

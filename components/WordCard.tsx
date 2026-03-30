@@ -23,6 +23,7 @@ interface WordCardProps {
   showCategoryBadges?: boolean;
   showPronunciation?: boolean;
   categoryOrder?: string[];
+  showMemoryHook?: boolean;
   fullscreen?: boolean;
 }
 
@@ -45,6 +46,7 @@ export const WordCard = memo(function WordCard({
   showCategoryBadges = false,
   showPronunciation = false,
   categoryOrder,
+  showMemoryHook = true,
   fullscreen = false,
 }: WordCardProps) {
   const [editingHook, setEditingHook] = useState(false);
@@ -59,6 +61,10 @@ export const WordCard = memo(function WordCard({
   }, [memoryHook]);
 
   useEffect(() => {
+    if (!showMemoryHook) setEditingHook(false);
+  }, [showMemoryHook]);
+
+  useEffect(() => {
     setIsMounted(true);
   }, []);
 
@@ -71,6 +77,7 @@ export const WordCard = memo(function WordCard({
     // First time seeing this word: show everything without cover.
     if (isFirstSeen) return false;
     if (lang === 'memory-hook') {
+      if (!showMemoryHook) return false;
       const diff = (progress.knownCount ?? 0) - (progress.unknownCount ?? 0);
       return diff >= 5;
     }
@@ -281,35 +288,37 @@ className={`cover-target relative cursor-pointer touch-manipulation select-none 
         </div>
 
       {/* Memory Hook */}
-      <div className={`memory-hook-container mt-2 mb-1 ${editingHook ? 'editing' : ''}`}>
-        <div
-          ref={hookDisplayRef}
-          className={`memory-hook-display cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${shouldCover('memory-hook') ? 'is-covered' : ''}`}
-          data-lang="memory-hook"
-          onDoubleClick={startEditing}
-          onClick={() => !memoryHook && !shouldCover('memory-hook') && startEditing()}
-        >
-          <span className={`memory-hook-text relative inline-block min-h-[1.4em] ${!memoryHook ? 'opacity-60 italic' : ''}`}>
-            {displayHook}
-          </span>
+      {showMemoryHook && (
+        <div className={`memory-hook-container mt-2 mb-1 ${editingHook ? 'editing' : ''}`}>
+          <div
+            ref={hookDisplayRef}
+            className={`memory-hook-display cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${shouldCover('memory-hook') ? 'is-covered' : ''}`}
+            data-lang="memory-hook"
+            onDoubleClick={startEditing}
+            onClick={() => !memoryHook && !shouldCover('memory-hook') && startEditing()}
+          >
+            <span className={`memory-hook-text relative inline-block min-h-[1.4em] ${!memoryHook ? 'opacity-60 italic' : ''}`}>
+              {displayHook}
+            </span>
+          </div>
+          <input
+            ref={hookInputRef}
+            type="text"
+            className={`memory-hook-input ${editingHook ? 'block' : 'hidden'}`}
+            placeholder="Enter memory hook..."
+            value={hookValue}
+            onChange={(e) => setHookValue(e.target.value)}
+            onBlur={finishEditing}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                finishEditing();
+              } else if (e.key === 'Escape') {
+                cancelEditing();
+              }
+            }}
+          />
         </div>
-        <input
-          ref={hookInputRef}
-          type="text"
-          className={`memory-hook-input ${editingHook ? 'block' : 'hidden'}`}
-          placeholder="Enter memory hook..."
-          value={hookValue}
-          onChange={(e) => setHookValue(e.target.value)}
-          onBlur={finishEditing}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              finishEditing();
-            } else if (e.key === 'Escape') {
-              cancelEditing();
-            }
-          }}
-        />
-      </div>
+      )}
       </div>
 
       {/* Actions */}

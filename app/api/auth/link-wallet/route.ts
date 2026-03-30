@@ -36,6 +36,8 @@ type UserShape = {
   showEnglish: boolean | null
   showCategoryBadges: boolean | null
   showPronunciation?: boolean | null
+  memoryHooksEnabled?: boolean | null
+  memoryHookDisableFromStage?: number | null
   gameScore: number | null
   categoryOrder?: string[] | null
   walletAddress: string | null
@@ -58,6 +60,8 @@ function buildSuccessResponse(
       show_english: user.showEnglish ?? true,
       show_category_badges: user.showCategoryBadges ?? false,
       show_pronunciation: user.showPronunciation ?? false,
+      memory_hooks_enabled: user.memoryHooksEnabled ?? true,
+      memory_hook_disable_from_stage: user.memoryHookDisableFromStage ?? 8,
       game_score: user.gameScore ?? 0,
       category_order: user.categoryOrder ?? [],
       wallet_address: user.walletAddress ?? null,
@@ -237,6 +241,8 @@ export async function POST(request: NextRequest) {
       showEnglish: targetUser.showEnglish,
       showCategoryBadges: targetUser.showCategoryBadges,
       showPronunciation: targetUser.showPronunciation,
+      memoryHooksEnabled: targetUser.memoryHooksEnabled,
+      memoryHookDisableFromStage: targetUser.memoryHookDisableFromStage,
       gameScore: mergedGameScore,
       categoryOrder: mergedCategoryOrder,
       ...(trimmedEmail && { email: trimmedEmail }),
@@ -264,6 +270,8 @@ export async function POST(request: NextRequest) {
         show_english: targetUser.showEnglish ?? true,
         show_category_badges: targetUser.showCategoryBadges ?? false,
         show_pronunciation: targetUser.showPronunciation ?? false,
+        memory_hooks_enabled: targetUser.memoryHooksEnabled ?? true,
+        memory_hook_disable_from_stage: targetUser.memoryHookDisableFromStage ?? 8,
         game_score: mergedUser.gameScore ?? mergedGameScore,
         category_order: mergedUser.categoryOrder ?? mergedCategoryOrder,
         wallet_address: mergedUser.walletAddress ?? walletAddress,

@@ -70,6 +70,8 @@ const baseUser = {
   role: 'vi',
   showEnglish: true,
   showCategoryBadges: false,
+  memoryHooksEnabled: true,
+  memoryHookDisableFromStage: 8,
   categoryOrder: [],
 }
 
@@ -211,6 +213,37 @@ describe('POST /api/sync', () => {
     expect(res.status).toBe(200)
     expect(data.success).toBe(true)
     expect(mockUpdateUserPreferences).toHaveBeenCalled()
+  })
+
+  it('syncs memory hook preference settings', async () => {
+    mockUpdateUserPreferences.mockResolvedValue({
+      ...baseUser,
+      memoryHooksEnabled: false,
+      memoryHookDisableFromStage: 6,
+    })
+
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: 'dev-123',
+        memory_hooks_enabled: false,
+        memory_hook_disable_from_stage: 6,
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockUpdateUserPreferences).toHaveBeenCalledWith(
+      'uuid-A',
+      expect.objectContaining({
+        memory_hooks_enabled: false,
+        memory_hook_disable_from_stage: 6,
+      })
+    )
+    expect(data.user.memory_hooks_enabled).toBe(false)
+    expect(data.user.memory_hook_disable_from_stage).toBe(6)
   })
 
   it('saves game_score when provided', async () => {
