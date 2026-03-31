@@ -1,5 +1,13 @@
 import { describe, it, expect } from 'vitest';
-import { matchAnswer, injectMinigames, computeGameAnchors, composeStream, enforceMinigameMinGap, pruneAnchorsForCurrentSize } from '../minigames';
+import {
+  matchAnswer,
+  injectMinigames,
+  computeGameAnchors,
+  composeStream,
+  enforceMinigameMinGap,
+  pruneAnchorsForCurrentSize,
+  hasAtLeastOneSimilarPair,
+} from '../minigames';
 import type { NormalizedWord, } from '../words';
 import type { MiniGameConfig } from '../minigames';
 
@@ -148,6 +156,65 @@ describe('injectMinigames', () => {
 
     const resultB = injectMinigames(words, words, 'cz', 321, { minInterval: 2, maxInterval: 5 });
     expect(resultB).not.toEqual(resultA1);
+  });
+
+  it('uses level 2 for choice/match only when a similar pair exists in the selected words', () => {
+    const similarPool = [
+      makeWord('s0', 'muon-a', 'muốn'),
+      makeWord('s1', 'muon-b', 'muộn'),
+      makeWord('s2', 'muoi-a', 'mười'),
+      makeWord('s3', 'mua', 'mùa'),
+      makeWord('s4', 'ban', 'bạn'),
+      makeWord('s5', 'bao', 'bão'),
+      makeWord('s6', 'hoa', 'hóa'),
+      makeWord('s7', 'hoc', 'học'),
+      makeWord('s8', 'doi', 'đợi'),
+      makeWord('s9', 'dom', 'đồm'),
+      makeWord('s10', 'cat', 'cát'),
+      makeWord('s11', 'cam', 'cám'),
+    ];
+
+    let level2Games: MiniGameConfig[] = [];
+    for (let seed = 1; seed <= 80; seed++) {
+      const result = injectMinigames(similarPool, similarPool, 'cz', seed, {
+        minInterval: 1,
+        maxInterval: 1,
+      });
+      const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
+      const eligible = games.filter((g) => g.gameType === 'multipleChoice' || g.gameType === 'matching');
+      level2Games = eligible.filter((g) => g.level === 2);
+      if (level2Games.length > 0) break;
+    }
+
+    expect(level2Games.length).toBeGreaterThan(0);
+    level2Games.forEach((game) => {
+      expect(hasAtLeastOneSimilarPair(game.words)).toBe(true);
+    });
+  });
+
+  it('skips level 2 when there are no similar words in the pool', () => {
+    const distinctPool = [
+      makeWord('d0', 'alpha', 'xehoi'),
+      makeWord('d1', 'bravo', 'concho'),
+      makeWord('d2', 'charlie', 'nuoctrong'),
+      makeWord('d3', 'delta', 'banbe'),
+      makeWord('d4', 'echo', 'hoanghon'),
+      makeWord('d5', 'foxtrot', 'mattroi'),
+      makeWord('d6', 'golf', 'dongho'),
+      makeWord('d7', 'hotel', 'thuyenbuom'),
+      makeWord('d8', 'india', 'xedap'),
+      makeWord('d9', 'juliet', 'khoailang'),
+      makeWord('d10', 'kilo', 'tranguyen'),
+      makeWord('d11', 'lima', 'phongtam'),
+    ];
+
+    const result = injectMinigames(distinctPool, distinctPool, 'cz', 17, {
+      minInterval: 1,
+      maxInterval: 1,
+    });
+    const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
+    const eligible = games.filter((g) => g.gameType === 'multipleChoice' || g.gameType === 'matching');
+    expect(eligible.some((g) => g.level === 2)).toBe(false);
   });
 });
 

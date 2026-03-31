@@ -16,6 +16,7 @@ interface Props {
   role: 'cz' | 'vi';
   sourceLang?: SourceLang;
   promptMode?: PromptMode;
+  level?: 1 | 2;
   onResult?: (delta: number) => void;
 }
 
@@ -27,6 +28,7 @@ export function MatchingPairsGame({
   role,
   sourceLang,
   promptMode = 'text',
+  level = 1,
   onResult,
 }: Props) {
   const rightOrder = useMemo(
@@ -75,9 +77,9 @@ export function MatchingPairsGame({
   useEffect(() => {
     if (isComplete && !resultFired.current) {
       resultFired.current = true;
-      onResult?.(1);
+      onResult?.(level === 2 ? 2 : 1);
     }
-  }, [isComplete, onResult]);
+  }, [isComplete, level, onResult]);
 
   useEffect(() => {
     return () => {

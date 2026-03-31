@@ -16,6 +16,7 @@ interface Props {
   role: 'cz' | 'vi';
   sourceLang?: SourceLang;
   promptMode?: PromptMode;
+  level?: 1 | 2;
   onResult?: (delta: number) => void;
 }
 
@@ -24,6 +25,7 @@ export function MultipleChoiceGame({
   role,
   sourceLang,
   promptMode = 'text',
+  level = 1,
   onResult,
 }: Props) {
   const [selected, setSelected] = useState<string | null>(null);
@@ -68,7 +70,7 @@ export function MultipleChoiceGame({
     }
     setSelected(optionId);
     const isCorrect = selectedOption?.isCorrect ?? false;
-    onResult?.(isCorrect ? 1 : -1);
+    onResult?.(isCorrect ? (level === 2 ? 2 : 1) : -1);
   };
 
   const playAudio = (audioSrc: string | null) => {

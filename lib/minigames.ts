@@ -1,6 +1,7 @@
 import type { NormalizedWord } from './words';
 
 export type GameType = 'multipleChoice' | 'typing' | 'matching';
+export type GameDifficultyLevel = 1 | 2;
 
 /** Minigame frequency: 'off' or interval range (min/max word cards between games). */
 export type MinigameFrequencyRange = { min: number; max: number } | 'off';
@@ -17,6 +18,8 @@ export interface MiniGameConfig {
   _isMinigame: true;
   id: string;
   gameType: GameType;
+  /** Level 1 = any mix, Level 2 = contains similar-word distractors. */
+  level?: GameDifficultyLevel;
   /** 4 words used in the game */
   words: NormalizedWord[];
   /**
@@ -40,6 +43,88 @@ export function matchAnswer(input: string, correct: string): 'exact' | 'close' |
     s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').trim().toLowerCase();
   if (strip(input) === strip(correct)) return 'close';
   return 'wrong';
+}
+
+function normalizeForSimilarity(input: string): string {
+  return input
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/đ/gi, 'd')
+    .replace(/[^\p{L}\p{N}]+/gu, '');
+}
+
+function isOneEditAway(a: string, b: string): boolean {
+  if (a === b) return true;
+  const lenA = a.length;
+  const lenB = b.length;
+  if (Math.abs(lenA - lenB) > 1) return false;
+
+  let i = 0;
+  let j = 0;
+  let edits = 0;
+  while (i < lenA && j < lenB) {
+    if (a[i] === b[j]) {
+      i += 1;
+      j += 1;
+      continue;
+    }
+    edits += 1;
+    if (edits > 1) return false;
+    if (lenA > lenB) i += 1;
+    else if (lenB > lenA) j += 1;
+    else {
+      i += 1;
+      j += 1;
+    }
+  }
+
+  if (i < lenA || j < lenB) edits += 1;
+  return edits <= 1;
+}
+
+function commonPrefixLength(a: string, b: string): number {
+  const max = Math.min(a.length, b.length);
+  let i = 0;
+  while (i < max && a[i] === b[i]) i += 1;
+  return i;
+}
+
+function isSimilarTerm(a: string, b: string): boolean {
+  const aTrim = a.trim();
+  const bTrim = b.trim();
+  if (!aTrim || !bTrim) return false;
+  if (aTrim.split(/\s+/).length !== 1 || bTrim.split(/\s+/).length !== 1) return false;
+
+  const normA = normalizeForSimilarity(aTrim);
+  const normB = normalizeForSimilarity(bTrim);
+  if (normA.length < 3 || normB.length < 3) return false;
+  if (normA === normB) return true;
+  if (Math.abs(normA.length - normB.length) <= 2 && commonPrefixLength(normA, normB) >= 3) {
+    return true;
+  }
+  return isOneEditAway(normA, normB);
+}
+
+function areWordsSimilarForLevel2(a: NormalizedWord, b: NormalizedWord): boolean {
+  return isSimilarTerm(a.cz, b.cz) || isSimilarTerm(a.vi, b.vi);
+}
+
+function buildSimilarPairs(pool: NormalizedWord[]): Array<[number, number]> {
+  const pairs: Array<[number, number]> = [];
+  for (let i = 0; i < pool.length; i++) {
+    for (let j = i + 1; j < pool.length; j++) {
+      if (areWordsSimilarForLevel2(pool[i], pool[j])) {
+        pairs.push([i, j]);
+      }
+    }
+  }
+  return pairs;
+}
+
+export function hasAtLeastOneSimilarPair(words: NormalizedWord[]): boolean {
+  return buildSimilarPairs(words).length > 0;
 }
 
 const GAME_CYCLE: GameType[] = ['multipleChoice', 'typing', 'matching'];
@@ -76,6 +161,7 @@ export function sanitizeMinigameFrequency(
 export interface GameAnchor {
   id: string;
   gameType: GameType;
+  level?: GameDifficultyLevel;
   words: NormalizedWord[];
   /**
    * The originalIndex of the word after which this game is inserted.
@@ -166,6 +252,7 @@ export function computeGameAnchors(
   // anchor (originalWords[0..i]) so minigames still appear and feel contextual.
   const useStreamAbove = learnedPool.length < 4;
   const STREAM_ABOVE_WINDOW = 14; // prefer nearby words above the minigame
+  const learnedPoolSimilarPairs = useStreamAbove ? [] : buildSimilarPairs(learnedPool);
 
   let lastSignature: string | null = null;
   const anchors: (GameAnchor | null)[] = [];
@@ -189,8 +276,37 @@ export function computeGameAnchors(
   const signatureOf = (words: NormalizedWord[]) =>
     words.map(w => w.id).sort().join('|');
 
+  const pickLevel2DistinctWords = (
+    pool: NormalizedWord[],
+    similarPairs: Array<[number, number]>,
+    rand: () => number
+  ): NormalizedWord[] | null => {
+    if (pool.length < 4 || similarPairs.length === 0) return null;
+    const pair = similarPairs[Math.floor(rand() * similarPairs.length)];
+    if (!pair) return null;
+
+    const picked = new Set<number>(pair);
+    const out: NormalizedWord[] = [pool[pair[0]], pool[pair[1]]];
+    const n = pool.length;
+    let guard = 0;
+    while (out.length < 4 && guard < n * 6) {
+      const idx = Math.floor(rand() * n);
+      guard += 1;
+      if (picked.has(idx)) continue;
+      picked.add(idx);
+      out.push(pool[idx]);
+    }
+    if (out.length < 4) return null;
+    for (let i = out.length - 1; i > 0; i--) {
+      const j = Math.floor(rand() * (i + 1));
+      [out[i], out[j]] = [out[j], out[i]];
+    }
+    return hasAtLeastOneSimilarPair(out) ? out : null;
+  };
+
   for (let slotIndex = 0; slotIndex < anchorIndices.length; slotIndex++) {
     const i = anchorIndices[slotIndex];
+    const gameType = GAME_CYCLE[slotIndex % GAME_CYCLE.length];
     let pool = useStreamAbove
       ? originalWords.slice(Math.max(0, i + 1 - STREAM_ABOVE_WINDOW), i + 1)
       : learnedPool;
@@ -206,16 +322,28 @@ export function computeGameAnchors(
     }
 
     const anchorId = `game-${originalWords[i].id}-s${baseSeed}`;
+    const level2Eligible =
+      !useStreamAbove &&
+      (gameType === 'multipleChoice' || gameType === 'matching') &&
+      learnedPoolSimilarPairs.length > 0;
 
     let attempt = 0;
     let chosen: NormalizedWord[] | null = null;
+    let chosenLevel: GameDifficultyLevel = 1;
     let sig = '';
     while (attempt < 4) {
       const randPick = createRng(mixSeed(baseSeed, mixSeed(i + 1, attempt + 1)));
-      const candidate = pickDistinctWords(pool, randPick);
+      const randLevel = createRng(mixSeed(baseSeed, mixSeed(i + 1, 5000 + attempt)));
+      const shouldAttemptLevel2 = level2Eligible && randLevel() < 0.5;
+      const level2Candidate = shouldAttemptLevel2
+        ? pickLevel2DistinctWords(pool, learnedPoolSimilarPairs, randPick)
+        : null;
+      const candidate = level2Candidate ?? pickDistinctWords(pool, randPick);
+      const candidateLevel: GameDifficultyLevel = level2Candidate ? 2 : 1;
       sig = signatureOf(candidate);
       if (sig !== lastSignature) {
         chosen = candidate;
+        chosenLevel = candidateLevel;
         break;
       }
       attempt += 1;
@@ -225,12 +353,14 @@ export function computeGameAnchors(
       const fallback = pickDistinctWords(pool, randPick);
       chosen = fallback;
       sig = signatureOf(fallback);
+      chosenLevel = 1;
     }
 
     lastSignature = sig;
     anchors.push({
       id: anchorId,
-      gameType: GAME_CYCLE[slotIndex % GAME_CYCLE.length],
+      gameType,
+      level: chosenLevel,
       words: chosen,
       anchorOriginalIndex: i,
     });
@@ -334,6 +464,7 @@ export function composeStream(
       _isMinigame: true,
       id: anchor.id,
       gameType: anchor.gameType,
+      level: anchor.level,
       words: anchor.words,
       anchorOriginalIndex: anchor.anchorOriginalIndex,
     });
@@ -347,6 +478,7 @@ export function composeStream(
         _isMinigame: true,
         id: anchor.id,
         gameType: anchor.gameType,
+        level: anchor.level,
         words: anchor.words,
         anchorOriginalIndex: anchor.anchorOriginalIndex,
       });

@@ -118,6 +118,16 @@ describe('MatchingPairsGame', () => {
     expect(onResult).toHaveBeenCalledWith(1);
   });
 
+  it('calls onResult(+2) when level 2 is completed', () => {
+    const onResult = vi.fn();
+    render(<MatchingPairsGame words={WORDS} role="cz" level={2} onResult={onResult} />);
+    fireEvent.click(screen.getByText('pes'));      fireEvent.click(screen.getByText('con chó'));
+    fireEvent.click(screen.getByText('kočka'));   fireEvent.click(screen.getByText('con mèo'));
+    fireEvent.click(screen.getByText('auto'));    fireEvent.click(screen.getByText('xe hơi'));
+    fireEvent.click(screen.getByText('voda'));    fireEvent.click(screen.getByText('nước'));
+    expect(onResult).toHaveBeenCalledWith(2);
+  });
+
   it('uses listening mode with hidden source text when complete audio is available', () => {
     render(
       <MatchingPairsGame words={WORDS} role="cz" sourceLang="cz" promptMode="audio" />

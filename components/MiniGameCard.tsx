@@ -48,6 +48,7 @@ function pickAudioSourceLangForMatching(words: NormalizedWord[]): SourceLang | n
 
 export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
   const [finished, setFinished] = useState<{ delta: number } | null>(null);
+  const level = config.level ?? 1;
   const randomSourceLang = useMemo(
     () => getDeterministicSourceLangForGameId(config.id),
     [config.id],
@@ -62,7 +63,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
     setFinished({ delta });
   };
 
-  const gameProps = { words: config.words, role, onResult: handleResult };
+  const gameProps = { words: config.words, role, level, onResult: handleResult };
   const questionWord = config.words[0];
   const questionAudioSourceLang = useMemo(
     () => (shouldUseAudioPrompt ? pickAudioSourceLangForQuestion(questionWord) : null),
@@ -90,6 +91,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
       typingAndChoiceSourceLang,
       matchingPromptMode,
       matchingAudioSourceLang,
+      level,
       questionWordId: questionWord?.id,
       questionCzAudio: questionWord?.czAudio ?? null,
       questionViAudio: questionWord?.viAudio ?? null,
@@ -103,6 +105,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
     typingAndChoiceSourceLang,
     matchingPromptMode,
     matchingAudioSourceLang,
+    level,
     questionWord?.id,
     questionWord?.czAudio,
     questionWord?.viAudio,

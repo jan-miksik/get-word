@@ -148,4 +148,21 @@ describe('MiniGameCard', () => {
     fireEvent.click(screen.getByText('Tap to continue'));
     expect(onDismiss).toHaveBeenCalled();
   });
+
+  it('passes level to choice game scoring (+2 for level 2 correct answer)', () => {
+    const onResult = vi.fn();
+    render(
+      <MiniGameCard
+        config={{ ...config('multipleChoice'), id: 'test-multipleChoice-l2', level: 2 }}
+        role="cz"
+        onDismiss={vi.fn()}
+        onResult={onResult}
+      />
+    );
+    const shouldUseAudio = shouldUseDeterministicAudioPromptForGameId('test-multipleChoice-l2');
+    const sourceLang = shouldUseAudio ? 'cz' : getDeterministicSourceLangForGameId('test-multipleChoice-l2');
+    const correctAnswer = sourceLang === 'cz' ? 'con chó' : 'pes';
+    fireEvent.click(screen.getByText(correctAnswer));
+    expect(onResult).toHaveBeenCalledWith(2);
+  });
 });

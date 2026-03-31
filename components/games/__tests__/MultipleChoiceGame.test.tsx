@@ -62,6 +62,15 @@ describe('MultipleChoiceGame', () => {
     expect(onResult).toHaveBeenCalledWith(-1);
   });
 
+  it('awards +2 for a correct answer in level 2', () => {
+    const onResult = vi.fn();
+    render(
+      <MultipleChoiceGame words={WORDS} role="cz" level={2} onResult={onResult} />
+    );
+    fireEvent.click(screen.getByText('con chó'));
+    expect(onResult).toHaveBeenCalledWith(2);
+  });
+
   it('does not throw when onResult is not provided', () => {
     render(<MultipleChoiceGame words={WORDS} role="cz" />);
     fireEvent.click(screen.getByText('con chó'));
