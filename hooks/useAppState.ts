@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import type { SyncResponse } from '@/lib/sync';
 import type { NormalizedWord } from '@/lib/words';
 import { wordListItemsToNormalizedWords } from '@/lib/words';
-import { fetchUserData, linkWallet, clearPendingSync } from '@/lib/sync';
+import { fetchUserData, linkWallet, clearPendingSync, isAuthRequiredError } from '@/lib/sync';
 import { useTheme } from './useTheme';
 import { useUserProfile } from './useUserProfile';
 import { useProgress } from './useProgress';
@@ -116,10 +116,12 @@ export function useAppState(
       })
       .catch((err) => {
         clearTimeout(timeoutId);
-        console.error('[useAppState] Failed to fetch:', err);
-        if (err instanceof Error) {
-          console.error('[useAppState] Error message:', err.message);
-          console.error('[useAppState] Error stack:', err.stack);
+        if (!isAuthRequiredError(err)) {
+          console.error('[useAppState] Failed to fetch:', err);
+          if (err instanceof Error) {
+            console.error('[useAppState] Error message:', err.message);
+            console.error('[useAppState] Error stack:', err.stack);
+          }
         }
         isHydratedRef.current = true;
         setIsHydrated(true);

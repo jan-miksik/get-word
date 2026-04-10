@@ -22,7 +22,9 @@ createAppKit({
   features: {
     email: true,
     socials: ['google'],
-    emailShowWallets: false,
+    emailShowWallets: true,
+    connectMethodsOrder: ['email', 'social', 'wallet'],
+    collapseWallets: true,
   },
   allWallets: 'HIDE',
 })

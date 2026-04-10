@@ -40,9 +40,9 @@ export function AuthButton({ isAuthenticated: propAuthenticated, authEmail: prop
     <button
       onClick={signIn}
       className={size === 'large' ? 'auth-button auth-button--large' : 'auth-button'}
-      title="Sign in to sync across devices"
+      title="Connect to sync across devices"
     >
-      Sign in
+      Connect
     </button>
   )
 }

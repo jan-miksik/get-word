@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // Mock the Reown/wagmi hooks before importing useAuth
 const mockOpen = vi.fn()
 const mockDisconnect = vi.fn()
+const mockFetch = vi.fn()
 let mockIsConnected = false
 let mockAddress: string | undefined = undefined
 let mockEmbeddedWalletInfo: { user?: { email?: string } } | undefined = undefined
@@ -27,6 +28,8 @@ describe('useAuth', () => {
     mockAddress = undefined
     mockEmbeddedWalletInfo = undefined
     vi.clearAllMocks()
+    vi.stubGlobal('fetch', mockFetch)
+    mockFetch.mockResolvedValue({ ok: true })
   })
 
   it('returns disconnected state by default', () => {
@@ -59,9 +62,10 @@ describe('useAuth', () => {
     expect(mockOpen).toHaveBeenCalled()
   })
 
-  it('signOut calls disconnect', () => {
+  it('signOut calls disconnect', async () => {
     const { result } = renderHook(() => useAuth())
-    result.current.signOut()
+    await result.current.signOut()
+    expect(mockFetch).toHaveBeenCalledWith('/api/auth/logout', { method: 'POST' })
     expect(mockDisconnect).toHaveBeenCalled()
   })
 

@@ -22,7 +22,7 @@ interface AppLayoutProps {
   isAuthenticated?: boolean;
   authEmail?: string;
   authAddress?: string;
-  onSignOut?: () => void;
+  onSignOut?: () => void | Promise<void>;
   // Page-computed values (differ between main and edit page)
   categories: Array<{ name: string; count: number }>;
   progressStats: ProgressStats;

@@ -2,6 +2,7 @@
 
 import { useCallback } from 'react'
 import { useAppKit, useAppKitAccount, useDisconnect } from '@reown/appkit/react'
+import { clearPendingSync, resetSyncIdentity } from '@/lib/sync'
 
 interface UseAuthReturn {
   isConnected: boolean
@@ -10,7 +11,7 @@ interface UseAuthReturn {
   /** Auth provider when using embedded wallet, e.g. "google" | "email" */
   authProvider: string | undefined
   signIn: () => void
-  signOut: () => void
+  signOut: () => Promise<void>
   /** Opens Reown wallet/account menu (when connected shows account view, otherwise connect flow) */
   openAccountMenu: () => void
 }
@@ -30,8 +31,15 @@ export function useAuth(): UseAuthReturn {
     open()
   }, [open])
 
-  const signOut = useCallback(() => {
-    disconnect()
+  const signOut = useCallback(async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch (error) {
+      console.error('[useAuth] Failed to clear server session cookie:', error)
+    }
+    clearPendingSync()
+    resetSyncIdentity()
+    await Promise.resolve(disconnect())
   }, [disconnect])
 
   const openAccountMenu = useCallback(() => {

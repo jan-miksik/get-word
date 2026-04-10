@@ -3,10 +3,26 @@ import { getDeviceId } from "./device-id";
 
 // In-memory only: set from API responses, passed as hint to API. No localStorage.
 let lastKnownUserId: string | null = null;
+let authRequired = false;
+
+const AUTH_REQUIRED_TEXT = "Authentication required";
+
+export class AuthRequiredError extends Error {
+  constructor(context: string) {
+    super(`${context}: ${AUTH_REQUIRED_TEXT}`);
+    this.name = "AuthRequiredError";
+  }
+}
+
+export function isAuthRequiredError(error: unknown): boolean {
+  if (error instanceof AuthRequiredError) return true;
+  return error instanceof Error && error.message.includes(AUTH_REQUIRED_TEXT);
+}
 
 /** Clears in-memory user hint so subsequent syncs don't attach to the previous user. */
 export function resetSyncIdentity(): void {
   lastKnownUserId = null;
+  authRequired = false;
 }
 
 /** API request shape for progress items. */
@@ -103,6 +119,10 @@ export async function fetchUserData(): Promise<SyncResponse> {
     const response = await fetch(`/api/sync?${params.toString()}`);
 
     if (!response.ok) {
+      if (response.status === 401) {
+        authRequired = true;
+        throw new AuthRequiredError("Failed to fetch user data");
+      }
       let errorMessage = `Failed to fetch user data: ${response.status} ${response.statusText}`;
       try {
         const errorData = await response.json();
@@ -119,7 +139,10 @@ export async function fetchUserData(): Promise<SyncResponse> {
     if (!data.success) {
       throw new Error(data.error || 'Failed to fetch user data: Unknown error');
     }
-    if (data.user?.id) lastKnownUserId = data.user.id;
+    if (data.user?.id) {
+      lastKnownUserId = data.user.id;
+      authRequired = false;
+    }
     return data;
   } catch (error) {
     if (error instanceof Error) {
@@ -155,7 +178,10 @@ export async function linkWallet(
   if (!result.success) {
     throw new Error(result.error || 'Failed to link wallet: Unknown error');
   }
-  if (result.user?.id) lastKnownUserId = result.user.id;
+  if (result.user?.id) {
+    lastKnownUserId = result.user.id;
+    authRequired = false;
+  }
   return result;
 }
 
@@ -173,6 +199,9 @@ export async function syncUserData(data: {
   memory_hooks?: Record<string, string | null>;
   category_filters?: string[];
 }): Promise<SyncResponse> {
+  if (authRequired) {
+    throw new AuthRequiredError("Failed to sync data");
+  }
   const deviceId = getDeviceId();
 
   const response = await fetch("/api/sync", {
@@ -186,6 +215,10 @@ export async function syncUserData(data: {
   });
 
   if (!response.ok) {
+    if (response.status === 401) {
+      authRequired = true;
+      throw new AuthRequiredError("Failed to sync data");
+    }
     let errorMessage = `Failed to sync data: ${response.status} ${response.statusText}`;
     try {
       const errorData = await response.json();
@@ -199,7 +232,10 @@ export async function syncUserData(data: {
   }
 
   const result = await response.json();
-  if (result.user?.id) lastKnownUserId = result.user.id;
+  if (result.user?.id) {
+    lastKnownUserId = result.user.id;
+    authRequired = false;
+  }
   return result;
 }
 
@@ -243,7 +279,13 @@ function executeSync(): void {
 
   syncUserData(data)
     .then(() => resolve())
-    .catch((error) => reject(error));
+    .catch((error) => {
+      if (isAuthRequiredError(error)) {
+        resolve();
+        return;
+      }
+      reject(error);
+    });
 }
 
 export function debouncedSync(

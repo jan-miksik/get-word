@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getOrCreateUserByDeviceId, type User } from "@/lib/db";
+import { getOrCreateUserByDeviceId, getUserById, type User } from "@/lib/db";
+import { verifySession, WORDLINK_SESSION_COOKIE_NAME } from "@/lib/session";
 
 /**
  * Resolve the user from a request.
@@ -8,6 +9,13 @@ import { getOrCreateUserByDeviceId, type User } from "@/lib/db";
 export async function resolveUserFromRequest(
   request: NextRequest
 ): Promise<User | null> {
+  const sessionToken = request.cookies.get(WORDLINK_SESSION_COOKIE_NAME)?.value;
+  const session = await verifySession(sessionToken);
+  if (session?.userId) {
+    const sessionUser = await getUserById(session.userId);
+    if (sessionUser) return sessionUser;
+  }
+
   const deviceId =
     request.headers.get("x-device-id") ||
     request.nextUrl.searchParams.get("deviceId");
@@ -15,6 +23,16 @@ export async function resolveUserFromRequest(
   if (!deviceId) return null;
 
   return getOrCreateUserByDeviceId(deviceId);
+}
+
+/** Strict auth resolver: only accepts a valid signed session cookie. */
+export async function resolveAuthenticatedUser(
+  request: NextRequest
+): Promise<User | null> {
+  const sessionToken = request.cookies.get(WORDLINK_SESSION_COOKIE_NAME)?.value;
+  const session = await verifySession(sessionToken);
+  if (!session?.userId) return null;
+  return getUserById(session.userId);
 }
 
 export function isEditor(user: User): boolean {

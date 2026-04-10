@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getOrCreateUserByDeviceId,
+  getUserByDeviceId,
   getUserById,
   getUserProgress,
   batchUpsertProgress,
@@ -24,6 +24,7 @@ import { users, type User } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import {
   signSession,
+  verifySession,
   WORDLINK_SESSION_COOKIE_NAME,
   WORDLINK_SESSION_TTL_SECONDS,
 } from "@/lib/session";
@@ -76,8 +77,22 @@ function isUuid(value: string): boolean {
 /** Prefers userId (PK lookup) when provided; falls back to deviceId get-or-create. */
 async function resolveUser(
   deviceId: string | null,
-  userId: string | null
+  userId: string | null,
+  sessionUserId: string | null
 ): Promise<User | null> {
+  if (sessionUserId) {
+    let sessionUser = await getUserById(sessionUserId);
+    if (sessionUser && deviceId && sessionUser.deviceId !== deviceId) {
+      const updated = await db
+        .update(users)
+        .set({ deviceId, updatedAt: new Date() })
+        .where(eq(users.id, sessionUser.id))
+        .returning();
+      sessionUser = updated[0] ?? sessionUser;
+    }
+    if (sessionUser) return sessionUser;
+  }
+
   if (userId) {
     let user = await getUserById(userId);
     if (user && deviceId && user.deviceId !== deviceId) {
@@ -90,7 +105,7 @@ async function resolveUser(
     }
     if (user) return user;
   }
-  if (deviceId) return await getOrCreateUserByDeviceId(deviceId);
+  if (deviceId) return await getUserByDeviceId(deviceId);
   return null;
 }
 
@@ -121,6 +136,14 @@ interface SyncRequest {
 
 export async function POST(request: NextRequest) {
   try {
+    const sessionToken = request.cookies.get(WORDLINK_SESSION_COOKIE_NAME)?.value;
+    const session = await verifySession(sessionToken);
+    if (!session?.userId) {
+      return NextResponse.json(
+        { success: false, error: "Authentication required" },
+        { status: 401 }
+      );
+    }
     const body: SyncRequest = await request.json();
     const {
       deviceId,
@@ -136,7 +159,7 @@ export async function POST(request: NextRequest) {
       memory_hooks,
       category_filters,
     } = body;
-    const userId = body.userId as string | undefined; // Optional: fallback user ID from client
+    const userId = body.userId as string | undefined; // Optional compatibility hint from client
 
     if (!deviceId && !userId) {
       return NextResponse.json(
@@ -146,7 +169,7 @@ export async function POST(request: NextRequest) {
     }
 
     let user = await withRetryOnTimeout(() =>
-      resolveUser(deviceId || null, userId || null)
+      resolveUser(deviceId || null, userId || null, session.userId)
     );
     if (!user) {
       return NextResponse.json(
@@ -344,6 +367,14 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
+    const sessionToken = request.cookies.get(WORDLINK_SESSION_COOKIE_NAME)?.value;
+    const session = await verifySession(sessionToken);
+    if (!session?.userId) {
+      return NextResponse.json(
+        { success: false, error: "Authentication required" },
+        { status: 401 }
+      );
+    }
     const searchParams = request.nextUrl.searchParams;
     const deviceId = searchParams.get("deviceId");
     const userId = searchParams.get("userId"); // Optional: fallback user ID
@@ -356,7 +387,7 @@ export async function GET(request: NextRequest) {
     }
 
     const user = await withRetryOnTimeout(() =>
-      resolveUser(deviceId || null, userId || null)
+      resolveUser(deviceId || null, userId || null, session.userId)
     );
     if (!user) {
       console.error("Failed to resolve user", { deviceId, userId });

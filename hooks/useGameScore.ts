@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { syncUserData } from '@/lib/sync';
+import { debouncedSync } from '@/lib/sync';
 
 export function useGameScore(
   isHydrated: boolean,
@@ -16,7 +16,7 @@ export function useGameScore(
       gameScoreSyncedRef.current = true;
       return;
     }
-    syncUserData({ game_score: gameScore }).catch((e) =>
+    debouncedSync({ game_score: gameScore }).catch((e) =>
       console.error('[useGameScore] sync:', e)
     );
   }, [gameScore, isHydrated]);

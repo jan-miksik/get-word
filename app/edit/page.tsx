@@ -66,7 +66,7 @@ export default function EditPage() {
     isHydrated,
   } = appState;
 
-  const isAuthenticated = isConnected || !!(userWalletAddress || userEmail);
+  const isAuthenticated = Boolean(appState.userId || isConnected);
   const displayEmail = email ?? userEmail ?? undefined;
   const displayAddress = walletAddress ?? userWalletAddress ?? undefined;
 
@@ -343,7 +343,10 @@ export default function EditPage() {
         isAuthenticated={isAuthenticated}
         authEmail={displayEmail}
         authAddress={displayAddress}
-        onSignOut={signOut}
+        onSignOut={async () => {
+          await signOut();
+          window.location.assign('/');
+        }}
         categories={categories}
         progressStats={progressStats}
         header={editHeader}

@@ -66,7 +66,7 @@ interface SettingsPanelProps {
   isAuthenticated?: boolean;
   authEmail?: string;
   authAddress?: string;
-  onSignOut?: () => void;
+  onSignOut?: () => void | Promise<void>;
 }
 
 export function SettingsPanel({

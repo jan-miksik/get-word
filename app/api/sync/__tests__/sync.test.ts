@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
-const mockGetOrCreateUserByDeviceId = vi.fn()
+const mockGetUserByDeviceId = vi.fn()
 const mockGetUserById = vi.fn()
 const mockGetUserProgress = vi.fn()
 const mockGetUserMemoryHooks = vi.fn()
@@ -19,9 +19,11 @@ const mockGetListCategories = vi.fn()
 const mockGetSystemDefaultList = vi.fn()
 const mockGetWordIdToItemIdMapping = vi.fn()
 const mockGetWordListsByIds = vi.fn()
+const mockVerifySession = vi.fn()
+const mockSignSession = vi.fn()
 
 vi.mock('@/lib/db', () => ({
-  getOrCreateUserByDeviceId: (...args: unknown[]) => mockGetOrCreateUserByDeviceId(...args),
+  getUserByDeviceId: (...args: unknown[]) => mockGetUserByDeviceId(...args),
   getUserById: (...args: unknown[]) => mockGetUserById(...args),
   getUserProgress: (...args: unknown[]) => mockGetUserProgress(...args),
   batchUpsertProgress: (...args: unknown[]) => mockBatchUpsertProgress(...args),
@@ -39,6 +41,13 @@ vi.mock('@/lib/db', () => ({
   getSystemDefaultList: (...args: unknown[]) => mockGetSystemDefaultList(...args),
   getWordIdToItemIdMapping: (...args: unknown[]) => mockGetWordIdToItemIdMapping(...args),
   getWordListsByIds: (...args: unknown[]) => mockGetWordListsByIds(...args),
+}))
+
+vi.mock('@/lib/session', () => ({
+  verifySession: (...args: unknown[]) => mockVerifySession(...args),
+  signSession: (...args: unknown[]) => mockSignSession(...args),
+  WORDLINK_SESSION_COOKIE_NAME: 'wordlink_session',
+  WORDLINK_SESSION_TTL_SECONDS: 60 * 60 * 24 * 30,
 }))
 
 vi.mock('@/lib/db/client', () => ({
@@ -78,6 +87,9 @@ const baseUser = {
 describe('GET /api/sync', () => {
   beforeEach(() => {
     vi.clearAllMocks()
+    mockVerifySession.mockResolvedValue({ userId: 'uuid-A', userRole: 'user' })
+    mockSignSession.mockResolvedValue('signed-token')
+    mockGetUserById.mockResolvedValue(baseUser)
     mockGetUserProgress.mockResolvedValue({})
     mockGetUserMemoryHooks.mockResolvedValue({})
     mockGetUserCategoryFilters.mockResolvedValue([])
@@ -94,8 +106,7 @@ describe('GET /api/sync', () => {
     expect(res.status).toBe(400)
   })
 
-  it('returns user data for anonymous user', async () => {
-    mockGetOrCreateUserByDeviceId.mockResolvedValue(baseUser)
+  it('returns user data for authenticated user', async () => {
     const req = new NextRequest('http://localhost:3000/api/sync?deviceId=dev-123')
     const res = await GET(req)
     const data = await res.json()
@@ -107,7 +118,7 @@ describe('GET /api/sync', () => {
   })
 
   it('returns game_score in user object', async () => {
-    mockGetOrCreateUserByDeviceId.mockResolvedValue({ ...baseUser, gameScore: 7 })
+    mockGetUserById.mockResolvedValue({ ...baseUser, gameScore: 7 })
     const req = new NextRequest('http://localhost:3000/api/sync?deviceId=dev-123')
     const res = await GET(req)
     const data = await res.json()
@@ -126,12 +137,20 @@ describe('GET /api/sync', () => {
     expect(data.success).toBe(true)
     expect(data.user.id).toBe('uuid-A')
   })
+  it('returns 401 without session', async () => {
+    mockVerifySession.mockResolvedValue(null)
+    const req = new NextRequest('http://localhost:3000/api/sync?deviceId=dev-123')
+    const res = await GET(req)
+    expect(res.status).toBe(401)
+  })
 })
 
 describe('POST /api/sync', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetOrCreateUserByDeviceId.mockResolvedValue(baseUser)
+    mockVerifySession.mockResolvedValue({ userId: 'uuid-A', userRole: 'user' })
+    mockSignSession.mockResolvedValue('signed-token')
+    mockGetUserById.mockResolvedValue(baseUser)
     mockGetUserProgress.mockResolvedValue({})
     mockGetUserMemoryHooks.mockResolvedValue({})
     mockGetUserCategoryFilters.mockResolvedValue([])
@@ -152,7 +171,7 @@ describe('POST /api/sync', () => {
     expect(res.status).toBe(400)
   })
 
-  it('syncs progress for anonymous user', async () => {
+  it('syncs progress for authenticated user', async () => {
     const req = new NextRequest('http://localhost:3000/api/sync', {
       method: 'POST',
       body: JSON.stringify({
@@ -177,7 +196,7 @@ describe('POST /api/sync', () => {
     expect(mockBatchUpsertProgress).toHaveBeenCalled()
   })
 
-  it('syncs role change for anonymous user', async () => {
+  it('syncs role change for authenticated user', async () => {
     const req = new NextRequest('http://localhost:3000/api/sync', {
       method: 'POST',
       body: JSON.stringify({
@@ -194,7 +213,7 @@ describe('POST /api/sync', () => {
     expect(mockUpdateUserRole).toHaveBeenCalledWith('uuid-A', 'cz')
   })
 
-  it('syncs preferences for anonymous user', async () => {
+  it('syncs preferences for authenticated user', async () => {
     const req = new NextRequest('http://localhost:3000/api/sync', {
       method: 'POST',
       body: JSON.stringify({
@@ -330,5 +349,16 @@ describe('POST /api/sync', () => {
     expect(res.status).toBe(200)
     expect(data.success).toBe(true)
     expect(mockUpsertMemoryHook).not.toHaveBeenCalled()
+  })
+
+  it('returns 401 without session', async () => {
+    mockVerifySession.mockResolvedValue(null)
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({ deviceId: 'dev-123' }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(401)
   })
 })

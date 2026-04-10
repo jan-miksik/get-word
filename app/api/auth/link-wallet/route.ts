@@ -4,6 +4,7 @@ import {
   getUserById,
   getUserByEmail,
   getUserByWalletAddress,
+  createUser,
   mergeUserData,
   deleteUser,
   getUserProgress,
@@ -11,9 +12,15 @@ import {
   getUserCategoryFilters,
   setUserCategoryFilters,
   batchUpsertProgress,
+  batchUpsertProgressByItemId,
   batchUpsertMemoryHooks,
   updateUserFields,
 } from '@/lib/db'
+import {
+  signSession,
+  WORDLINK_SESSION_COOKIE_NAME,
+  WORDLINK_SESSION_TTL_SECONDS,
+} from '@/lib/session'
 
 interface LinkWalletRequest {
   deviceId: string
@@ -74,6 +81,26 @@ function buildSuccessResponse(
   }
 }
 
+async function withSessionCookie(payload: Record<string, unknown>, userId: string, userRole?: string | null) {
+  const safeUserRole = userRole === 'editor' ? 'editor' : 'user'
+  const token = await signSession({
+    userId,
+    userRole: safeUserRole,
+    ttlSeconds: WORDLINK_SESSION_TTL_SECONDS,
+  })
+  const response = NextResponse.json(payload)
+  response.cookies.set({
+    name: WORDLINK_SESSION_COOKIE_NAME,
+    value: token,
+    httpOnly: true,
+    sameSite: 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    path: '/',
+    maxAge: WORDLINK_SESSION_TTL_SECONDS,
+  })
+  return response
+}
+
 function mergeCategoryOrder(
   targetOrder: string[] | null | undefined,
   sourceOrders: Array<string[] | null | undefined>
@@ -90,6 +117,10 @@ function mergeCategoryOrder(
   pushUnique(targetOrder)
   for (const s of sourceOrders) pushUnique(s)
   return merged.slice(0, 500)
+}
+
+function isUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
 }
 
 export async function POST(request: NextRequest) {
@@ -123,9 +154,17 @@ export async function POST(request: NextRequest) {
     const targetUser = emailUser ?? walletUser ?? deviceUser
 
     if (!targetUser) {
-      return NextResponse.json(
-        { success: false, error: 'No user found for this email, wallet, or device' },
-        { status: 404 }
+      const createdUser = await createUser({
+        deviceId,
+        walletAddress,
+        ...(trimmedEmail && { email: trimmedEmail }),
+        ...(authProvider != null &&
+          String(authProvider).trim() !== '' && { authProvider: String(authProvider).trim() }),
+      })
+      return withSessionCookie(
+        buildSuccessResponse(createdUser, {}, {}, []),
+        createdUser.id,
+        createdUser.userRole
       )
     }
 
@@ -152,7 +191,11 @@ export async function POST(request: NextRequest) {
         getUserMemoryHooks(linkedUser.id),
         getUserCategoryFilters(linkedUser.id),
       ])
-      return NextResponse.json(buildSuccessResponse(linkedUser, progress, hooks, filters))
+      return withSessionCookie(
+        buildSuccessResponse(linkedUser, progress, hooks, filters),
+        linkedUser.id,
+        linkedUser.userRole
+      )
     }
 
     const [targetProgress, targetHooksRaw, targetFilters, ...sourceData] = await Promise.all([
@@ -188,17 +231,45 @@ export async function POST(request: NextRequest) {
       mergedFilters = merged.mergedFilters
     }
 
-    const progressToUpsert = Object.entries(mergedProgress).map(([wordId, item]) => ({
-      userId: targetUser.id,
-      wordId,
-      stageIndex: item.stageIndex,
-      knownCount: item.knownCount,
-      unknownCount: item.unknownCount,
-      lastKnownAt: item.lastKnownAt,
-      lastUnknownAt: item.lastUnknownAt,
-      nextDueAt: item.nextDueAt,
-    }))
-    if (progressToUpsert.length > 0) await batchUpsertProgress(progressToUpsert)
+    const progressToUpsertByWordId: Array<{
+      userId: string
+      wordId: string
+      stageIndex: number
+      knownCount: number
+      unknownCount: number
+      lastKnownAt: Date | null
+      lastUnknownAt: Date | null
+      nextDueAt: Date | null
+    }> = []
+    const progressToUpsertByItemId: Array<{
+      userId: string
+      wordListItemId: string
+      stageIndex: number
+      knownCount: number
+      unknownCount: number
+      lastKnownAt: Date | null
+      lastUnknownAt: Date | null
+      nextDueAt: Date | null
+    }> = []
+
+    for (const [progressKey, item] of Object.entries(mergedProgress)) {
+      const base = {
+        userId: targetUser.id,
+        stageIndex: item.stageIndex,
+        knownCount: item.knownCount,
+        unknownCount: item.unknownCount,
+        lastKnownAt: item.lastKnownAt,
+        lastUnknownAt: item.lastUnknownAt,
+        nextDueAt: item.nextDueAt,
+      }
+      if (isUuid(progressKey)) {
+        progressToUpsertByItemId.push({ ...base, wordListItemId: progressKey })
+      } else {
+        progressToUpsertByWordId.push({ ...base, wordId: progressKey })
+      }
+    }
+    if (progressToUpsertByWordId.length > 0) await batchUpsertProgress(progressToUpsertByWordId)
+    if (progressToUpsertByItemId.length > 0) await batchUpsertProgressByItemId(progressToUpsertByItemId)
     if (Object.keys(mergedHooks).length > 0) await batchUpsertMemoryHooks(targetUser.id, mergedHooks)
     await setUserCategoryFilters(targetUser.id, mergedFilters)
 
@@ -260,7 +331,7 @@ export async function POST(request: NextRequest) {
       getUserCategoryFilters(mergedUser.id),
     ])
 
-    return NextResponse.json({
+    return withSessionCookie({
       success: true,
       merged: true,
       user: {
@@ -281,7 +352,7 @@ export async function POST(request: NextRequest) {
       progress: finalProgress,
       memory_hooks: finalHooks,
       category_filters: finalFilters,
-    })
+    }, mergedUser.id, mergedUser.userRole)
   } catch (error) {
     const err = error instanceof Error ? error : new Error(String(error))
     console.error('Link wallet error:', err.message)

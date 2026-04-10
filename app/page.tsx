@@ -33,24 +33,13 @@ import { VirtualizedWordList } from '@/components/VirtualizedWordList';
 import { CardDeckView } from '@/components/CardDeckView';
 import { useDueTimer } from '@/hooks/useDueTimer';
 import { useAuth } from '@/hooks/useAuth';
-import { deleteDeviceId } from '@/lib/device-id';
-import { resetSyncIdentity } from '@/lib/sync';
 import type { ProgressData } from '@/lib/sync';
 import { AppStateProvider } from '@/context/AppStateContext';
 
 
 export default function Home() {
   const { words, isLoading: isLoadingWords } = useWordsLoader();
-  const { isConnected, email, authProvider, address: walletAddress, signOut } = useAuth();
-  const didHardResetRef = useRef(false);
-
-  const hardResetToFreshUser = useCallback(() => {
-    if (didHardResetRef.current) return;
-    didHardResetRef.current = true;
-    resetSyncIdentity();
-    deleteDeviceId();
-    window.location.reload();
-  }, []);
+  const { isConnected, email, authProvider, address: walletAddress, signOut, signIn } = useAuth();
 
   const normalizedWords = useMemo(
     () => (words.length > 0 ? normalizeWords(words as Word[]) : []),
@@ -87,24 +76,17 @@ export default function Home() {
     isHydrated,
     setGameScore,
     syncedWords,
+    userId,
+    userEmail,
+    userWalletAddress,
   } = appState;
 
   // Use synced words (from word_list_items) when available, fall back to static
   const activeWords = syncedWords ?? normalizedWords;
 
-  const isAuthenticated = isConnected;
-  const displayEmail = email ?? undefined;
-  const displayAddress = walletAddress ?? undefined;
-
-  // If the wallet disconnects via the Reown modal (not our "Sign out" button),
-  // still reset to a fresh-user state.
-  const wasConnectedRef = useRef(isConnected);
-  useEffect(() => {
-    if (wasConnectedRef.current && !isConnected) {
-      hardResetToFreshUser();
-    }
-    wasConnectedRef.current = isConnected;
-  }, [isConnected, hardResetToFreshUser]);
+  const isAuthenticated = Boolean(userId || isConnected);
+  const displayEmail = userEmail ?? email ?? undefined;
+  const displayAddress = userWalletAddress ?? walletAddress ?? undefined;
 
   const [showNotReady, setShowNotReady] = useState(false);
   const [minigameFrequency, setMinigameFrequency] = useState<MinigameFrequencyRange>(
@@ -151,6 +133,7 @@ export default function Home() {
     key: string;
     groups: (NormalizedWord | MiniGameConfig)[][];
   } | null>(null);
+  const hasAutoPromptedRef = useRef(false);
 
   // Minigame seed persisted per device to keep injections stable across refreshes.
 
@@ -517,8 +500,34 @@ export default function Home() {
     [statsWords, progress, readyCount]
   );
 
+  useEffect(() => {
+    if (!isHydrated || isLoadingWords || isAuthenticated || hasAutoPromptedRef.current) return;
+    hasAutoPromptedRef.current = true;
+    signIn();
+  }, [isHydrated, isLoadingWords, isAuthenticated, signIn]);
+
   if (!isHydrated || isLoadingWords) {
     return <LoadingScreen />;
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <main className="min-h-screen flex items-center justify-center px-6 py-10">
+        <div className="w-full max-w-md rounded-2xl border border-border-subtle bg-background-elevated p-7 flex flex-col gap-4">
+          <h1 className="m-0 text-2xl font-semibold text-text">Connect</h1>
+          <p className="m-0 text-sm text-text-soft">
+            Continue with email or Google to access WordLink. Wallet connection is optional and available in the same modal.
+          </p>
+          <button
+            type="button"
+            onClick={signIn}
+            className="auth-button auth-button--large"
+          >
+            Connect
+          </button>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -531,9 +540,9 @@ export default function Home() {
         isAuthenticated={isAuthenticated}
         authEmail={displayEmail}
         authAddress={displayAddress}
-        onSignOut={() => {
-          signOut();
-          hardResetToFreshUser();
+        onSignOut={async () => {
+          await signOut();
+          window.location.assign('/');
         }}
         categories={categories}
         progressStats={progressStats}

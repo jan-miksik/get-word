@@ -6,6 +6,7 @@ const mockGetUserByDeviceId = vi.fn()
 const mockGetUserById = vi.fn()
 const mockGetUserByEmail = vi.fn()
 const mockGetUserByWalletAddress = vi.fn()
+const mockCreateUser = vi.fn()
 const mockLinkAccountToUser = vi.fn()
 const mockDeleteUser = vi.fn()
 const mockMergeUserData = vi.fn()
@@ -13,6 +14,7 @@ const mockGetUserProgress = vi.fn()
 const mockGetUserMemoryHooks = vi.fn()
 const mockGetUserCategoryFilters = vi.fn()
 const mockBatchUpsertProgress = vi.fn()
+const mockBatchUpsertProgressByItemId = vi.fn()
 const mockBatchUpsertMemoryHooks = vi.fn()
 const mockSetUserCategoryFilters = vi.fn()
 const mockUpdateUserFields = vi.fn()
@@ -22,6 +24,7 @@ vi.mock('@/lib/db', () => ({
   getUserById: (...args: unknown[]) => mockGetUserById(...args),
   getUserByEmail: (...args: unknown[]) => mockGetUserByEmail(...args),
   getUserByWalletAddress: (...args: unknown[]) => mockGetUserByWalletAddress(...args),
+  createUser: (...args: unknown[]) => mockCreateUser(...args),
   linkAccountToUser: (...args: unknown[]) => mockLinkAccountToUser(...args),
   deleteUser: (...args: unknown[]) => mockDeleteUser(...args),
   mergeUserData: (...args: unknown[]) => mockMergeUserData(...args),
@@ -29,6 +32,7 @@ vi.mock('@/lib/db', () => ({
   getUserMemoryHooks: (...args: unknown[]) => mockGetUserMemoryHooks(...args),
   getUserCategoryFilters: (...args: unknown[]) => mockGetUserCategoryFilters(...args),
   batchUpsertProgress: (...args: unknown[]) => mockBatchUpsertProgress(...args),
+  batchUpsertProgressByItemId: (...args: unknown[]) => mockBatchUpsertProgressByItemId(...args),
   batchUpsertMemoryHooks: (...args: unknown[]) => mockBatchUpsertMemoryHooks(...args),
   setUserCategoryFilters: (...args: unknown[]) => mockSetUserCategoryFilters(...args),
   updateUserFields: (...args: unknown[]) => mockUpdateUserFields(...args),
@@ -78,12 +82,39 @@ describe('POST /api/auth/link-wallet', () => {
     expect(data.error).toMatch(/Invalid wallet address/)
   })
 
-  it('returns 404 if device has no user', async () => {
+  it('creates a new user when email, wallet, and device have no match', async () => {
+    const createdUser = {
+      id: 'uuid-new',
+      deviceId: 'dev-123',
+      walletAddress: VALID_WALLET,
+      email: null,
+      authProvider: null,
+      role: 'vi',
+      userRole: 'user',
+      showEnglish: true,
+      showCategoryBadges: false,
+      gameScore: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      showPronunciation: false,
+      memoryHooksEnabled: true,
+      memoryHookDisableFromStage: 8,
+      categoryOrder: [],
+    }
     mockGetUserByDeviceId.mockResolvedValue(null)
+    mockGetUserByEmail.mockResolvedValue(null)
+    mockGetUserByWalletAddress.mockResolvedValue(null)
+    mockCreateUser.mockResolvedValue(createdUser)
+
     const res = await POST(makeRequest({ deviceId: 'dev-123', walletAddress: VALID_WALLET }))
     const data = await res.json()
-    expect(res.status).toBe(404)
-    expect(data.success).toBe(false)
+    expect(res.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(data.user.id).toBe('uuid-new')
+    expect(mockCreateUser).toHaveBeenCalledWith({
+      deviceId: 'dev-123',
+      walletAddress: VALID_WALLET,
+    })
   })
 
   it('fresh link: adds wallet to current user', async () => {
@@ -150,6 +181,44 @@ describe('POST /api/auth/link-wallet', () => {
       deviceId: 'dev-123',
       role: 'cz',
     }))
+  })
+
+  it('merge: uses item-id upsert for UUID progress keys', async () => {
+    const currentUser = { id: 'uuid-A', deviceId: 'dev-123', walletAddress: null, email: null, authProvider: null, role: 'vi', showEnglish: true, showCategoryBadges: false }
+    const existingUser = { id: 'uuid-B', deviceId: 'dev-456', walletAddress: VALID_WALLET, email: null, authProvider: null, role: 'cz', showEnglish: false, showCategoryBadges: true }
+    const progressKeyUuid = '11111111-1111-1111-1111-111111111111'
+
+    mockGetUserByDeviceId.mockResolvedValue(currentUser)
+    mockGetUserByWalletAddress.mockResolvedValue(existingUser)
+    mockGetUserById.mockResolvedValue(existingUser)
+    mockGetUserProgress
+      .mockResolvedValueOnce({ [progressKeyUuid]: { stageIndex: 2, knownCount: 1, unknownCount: 0, lastKnownAt: null, lastUnknownAt: null, nextDueAt: null } })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({})
+    mockMergeUserData.mockReturnValue({
+      mergedProgress: {
+        [progressKeyUuid]: {
+          stageIndex: 2,
+          knownCount: 1,
+          unknownCount: 0,
+          lastKnownAt: null,
+          lastUnknownAt: null,
+          nextDueAt: null,
+        },
+      },
+      mergedHooks: {},
+      mergedFilters: [],
+    })
+
+    const res = await POST(makeRequest({ deviceId: 'dev-123', walletAddress: VALID_WALLET }))
+    expect(res.status).toBe(200)
+    expect(mockBatchUpsertProgressByItemId).toHaveBeenCalledTimes(1)
+    expect(mockBatchUpsertProgressByItemId).toHaveBeenCalledWith([
+      expect.objectContaining({
+        userId: 'uuid-B',
+        wordListItemId: progressKeyUuid,
+      }),
+    ])
   })
 
   it('email-first: clears wallet from source user before moving it to email user', async () => {
