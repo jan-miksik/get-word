@@ -74,6 +74,8 @@ export default function Home() {
     lastMovedId,
     categoryOrder,
     isHydrated,
+    isLinkingWallet,
+    hasLinkWalletError,
     setGameScore,
     syncedWords,
     userId,
@@ -85,6 +87,12 @@ export default function Home() {
   const activeWords = syncedWords ?? normalizedWords;
 
   const isAuthenticated = Boolean(userId || isConnected);
+  const isWaitingForLinkedProfile = Boolean(
+    isConnected &&
+      walletAddress &&
+      !userId &&
+      (!hasLinkWalletError || isLinkingWallet)
+  );
   const displayEmail = userEmail ?? email ?? undefined;
   const displayAddress = userWalletAddress ?? walletAddress ?? undefined;
 
@@ -506,7 +514,7 @@ export default function Home() {
     signIn();
   }, [isHydrated, isLoadingWords, isAuthenticated, signIn]);
 
-  if (!isHydrated || isLoadingWords) {
+  if (!isHydrated || isLoadingWords || isLinkingWallet || isWaitingForLinkedProfile) {
     return <LoadingScreen />;
   }
 

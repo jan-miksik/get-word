@@ -18,6 +18,12 @@ const mockBatchUpsertProgressByItemId = vi.fn()
 const mockBatchUpsertMemoryHooks = vi.fn()
 const mockSetUserCategoryFilters = vi.fn()
 const mockUpdateUserFields = vi.fn()
+const mockGetUserSubscribedItems = vi.fn()
+const mockGetUserOwnListItems = vi.fn()
+const mockGetListCategories = vi.fn()
+const mockGetSystemDefaultList = vi.fn()
+const mockGetWordIdToItemIdMapping = vi.fn()
+const mockGetWordListsByIds = vi.fn()
 
 vi.mock('@/lib/db', () => ({
   getUserByDeviceId: (...args: unknown[]) => mockGetUserByDeviceId(...args),
@@ -36,6 +42,12 @@ vi.mock('@/lib/db', () => ({
   batchUpsertMemoryHooks: (...args: unknown[]) => mockBatchUpsertMemoryHooks(...args),
   setUserCategoryFilters: (...args: unknown[]) => mockSetUserCategoryFilters(...args),
   updateUserFields: (...args: unknown[]) => mockUpdateUserFields(...args),
+  getUserSubscribedItems: (...args: unknown[]) => mockGetUserSubscribedItems(...args),
+  getUserOwnListItems: (...args: unknown[]) => mockGetUserOwnListItems(...args),
+  getListCategories: (...args: unknown[]) => mockGetListCategories(...args),
+  getSystemDefaultList: (...args: unknown[]) => mockGetSystemDefaultList(...args),
+  getWordIdToItemIdMapping: (...args: unknown[]) => mockGetWordIdToItemIdMapping(...args),
+  getWordListsByIds: (...args: unknown[]) => mockGetWordListsByIds(...args),
 }))
 
 import { POST } from '../../auth/link-wallet/route'
@@ -58,6 +70,12 @@ describe('POST /api/auth/link-wallet', () => {
     mockGetUserMemoryHooks.mockResolvedValue({})
     mockGetUserCategoryFilters.mockResolvedValue([])
     mockUpdateUserFields.mockResolvedValue(null)
+    mockGetUserSubscribedItems.mockResolvedValue([])
+    mockGetUserOwnListItems.mockResolvedValue([])
+    mockGetListCategories.mockResolvedValue([])
+    mockGetSystemDefaultList.mockResolvedValue(null)
+    mockGetWordIdToItemIdMapping.mockResolvedValue(new Map())
+    mockGetWordListsByIds.mockResolvedValue([])
   })
 
   it('returns 400 if deviceId missing', async () => {

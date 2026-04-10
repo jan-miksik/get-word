@@ -15,6 +15,12 @@ import {
   batchUpsertProgressByItemId,
   batchUpsertMemoryHooks,
   updateUserFields,
+  getUserSubscribedItems,
+  getUserOwnListItems,
+  getListCategories,
+  getSystemDefaultList,
+  getWordIdToItemIdMapping,
+  getWordListsByIds,
 } from '@/lib/db'
 import {
   signSession,
@@ -52,11 +58,43 @@ type UserShape = {
   authProvider: string | null
 }
 
+function createServerTimer() {
+  const start = performance.now()
+  const marks: Array<{ name: string; dur: number }> = []
+  let last = start
+  return {
+    mark(name: string) {
+      const now = performance.now()
+      const safeName = name.replace(/[^a-zA-Z0-9_-]/g, "_")
+      marks.push({ name: safeName, dur: now - last })
+      last = now
+    },
+    totalMs() {
+      return performance.now() - start
+    },
+    applyHeaders(response: NextResponse) {
+      if (marks.length > 0) {
+        response.headers.set(
+          "Server-Timing",
+          marks.map((m) => `${m.name};dur=${m.dur.toFixed(1)}`).join(", ")
+        )
+      }
+      response.headers.set("x-wordlink-total-ms", this.totalMs().toFixed(1))
+      return response
+    },
+  }
+}
+
 function buildSuccessResponse(
   user: UserShape,
   progress: Record<string, unknown>,
-  memoryHooks: Record<string, string>,
-  categoryFilters: string[]
+  categoryFilters: string[],
+  hydratedLists: {
+    rekeyedHooks: Record<string, string>
+    wordListItems: Awaited<ReturnType<typeof getUserSubscribedItems>>
+    categoryLookup: Record<string, { name: string; position: number }>
+    listNameRows: Awaited<ReturnType<typeof getWordListsByIds>>
+  }
 ) {
   return {
     success: true,
@@ -76,8 +114,11 @@ function buildSuccessResponse(
       auth_provider: user.authProvider ?? null,
     },
     progress,
-    memory_hooks: memoryHooks,
+    memory_hooks: hydratedLists.rekeyedHooks,
     category_filters: categoryFilters,
+    word_list_items: hydratedLists.wordListItems,
+    categories: hydratedLists.categoryLookup,
+    lists: hydratedLists.listNameRows,
   }
 }
 
@@ -123,9 +164,65 @@ function isUuid(value: string): boolean {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
 }
 
+function rekeyByItemId<V>(
+  data: Record<string, V>,
+  mapping: Map<string, string>
+): Record<string, V> {
+  const result: Record<string, V> = {}
+  for (const [key, value] of Object.entries(data)) {
+    const newKey = mapping.get(key) ?? key
+    result[newKey] = value
+  }
+  return result
+}
+
+async function getHydratedWordListData(
+  userId: string,
+  memoryHooks: Record<string, string>
+): Promise<{
+  rekeyedHooks: Record<string, string>
+  wordListItems: Awaited<ReturnType<typeof getUserSubscribedItems>>
+  categoryLookup: Record<string, { name: string; position: number }>
+  listNameRows: Awaited<ReturnType<typeof getWordListsByIds>>
+}> {
+  const [subscribedItems, ownItems] = await Promise.all([
+    getUserSubscribedItems(userId),
+    getUserOwnListItems(userId),
+  ])
+  const wordListItems = [...subscribedItems, ...ownItems]
+  const listIds = [...new Set(wordListItems.map((i) => i.listId))]
+
+  const systemList = await getSystemDefaultList()
+  const [categoryResults, wordIdMapping, listNameRows] = await Promise.all([
+    Promise.all(listIds.map((id) => getListCategories(id))),
+    systemList
+      ? getWordIdToItemIdMapping(systemList.id)
+      : Promise.resolve(new Map<string, string>()),
+    getWordListsByIds(listIds),
+  ])
+
+  const categoryLookup: Record<string, { name: string; position: number }> = {}
+  for (const cats of categoryResults) {
+    for (const cat of cats) {
+      categoryLookup[cat.id] = { name: cat.name, position: cat.position }
+    }
+  }
+
+  const rekeyedHooks = rekeyByItemId(memoryHooks, wordIdMapping)
+
+  return {
+    rekeyedHooks,
+    wordListItems,
+    categoryLookup,
+    listNameRows,
+  }
+}
+
 export async function POST(request: NextRequest) {
+  const timer = createServerTimer()
   try {
     const body: LinkWalletRequest = await request.json()
+    timer.mark("parse_body")
     const { deviceId, walletAddress, email, authProvider } = body
 
     if (!deviceId || !walletAddress) {
@@ -151,6 +248,7 @@ export async function POST(request: NextRequest) {
       getUserByWalletAddress(walletAddress),
       getUserByDeviceId(deviceId),
     ])
+    timer.mark("resolve_users")
     const targetUser = emailUser ?? walletUser ?? deviceUser
 
     if (!targetUser) {
@@ -161,11 +259,16 @@ export async function POST(request: NextRequest) {
         ...(authProvider != null &&
           String(authProvider).trim() !== '' && { authProvider: String(authProvider).trim() }),
       })
-      return withSessionCookie(
-        buildSuccessResponse(createdUser, {}, {}, []),
+      timer.mark("create_user")
+      const hydratedLists = await getHydratedWordListData(createdUser.id, {})
+      timer.mark("hydrate_word_lists")
+      const response = await withSessionCookie(
+        buildSuccessResponse(createdUser, {}, [], hydratedLists),
         createdUser.id,
         createdUser.userRole
       )
+      timer.mark("build_response")
+      return timer.applyHeaders(response)
     }
 
     const sourceUsers = [deviceUser, walletUser].filter(
@@ -184,6 +287,7 @@ export async function POST(request: NextRequest) {
         ...(authProvider != null &&
           String(authProvider).trim() !== '' && { authProvider: String(authProvider).trim() }),
       })
+      timer.mark("update_user_fields")
 
       const linkedUser = (await getUserById(targetUser.id)) ?? targetUser
       const [progress, hooks, filters] = await Promise.all([
@@ -191,11 +295,16 @@ export async function POST(request: NextRequest) {
         getUserMemoryHooks(linkedUser.id),
         getUserCategoryFilters(linkedUser.id),
       ])
-      return withSessionCookie(
-        buildSuccessResponse(linkedUser, progress, hooks, filters),
+      timer.mark("fetch_user_data")
+      const hydratedLists = await getHydratedWordListData(linkedUser.id, hooks)
+      timer.mark("hydrate_word_lists")
+      const response = await withSessionCookie(
+        buildSuccessResponse(linkedUser, progress, filters, hydratedLists),
         linkedUser.id,
         linkedUser.userRole
       )
+      timer.mark("build_response")
+      return timer.applyHeaders(response)
     }
 
     const [targetProgress, targetHooksRaw, targetFilters, ...sourceData] = await Promise.all([
@@ -208,6 +317,7 @@ export async function POST(request: NextRequest) {
         getUserCategoryFilters(user.id),
       ]),
     ])
+    timer.mark("fetch_merge_sources")
 
     let mergedProgress: Record<string, { stageIndex: number; knownCount: number; unknownCount: number; lastKnownAt: Date | null; lastUnknownAt: Date | null; nextDueAt: Date | null }> = targetProgress
     let mergedHooks: Record<string, string> = { ...targetHooksRaw }
@@ -272,6 +382,7 @@ export async function POST(request: NextRequest) {
     if (progressToUpsertByItemId.length > 0) await batchUpsertProgressByItemId(progressToUpsertByItemId)
     if (Object.keys(mergedHooks).length > 0) await batchUpsertMemoryHooks(targetUser.id, mergedHooks)
     await setUserCategoryFilters(targetUser.id, mergedFilters)
+    timer.mark("apply_merged_data")
 
     for (const sourceUser of sourceUsers) {
       const uniqueFieldResets: {
@@ -319,10 +430,12 @@ export async function POST(request: NextRequest) {
       ...(trimmedEmail && { email: trimmedEmail }),
       ...(authProvider != null && String(authProvider).trim() !== '' && { authProvider: String(authProvider).trim() }),
     })
+    timer.mark("update_target_user")
 
     for (const sourceUser of sourceUsers) {
       await deleteUser(sourceUser.id)
     }
+    timer.mark("delete_source_users")
 
     const mergedUser = (await getUserById(targetUser.id)) ?? targetUser
     const [finalProgress, finalHooks, finalFilters] = await Promise.all([
@@ -330,8 +443,11 @@ export async function POST(request: NextRequest) {
       getUserMemoryHooks(mergedUser.id),
       getUserCategoryFilters(mergedUser.id),
     ])
+    timer.mark("fetch_final_data")
+    const hydratedLists = await getHydratedWordListData(mergedUser.id, finalHooks)
+    timer.mark("hydrate_word_lists")
 
-    return withSessionCookie({
+    const response = await withSessionCookie({
       success: true,
       merged: true,
       user: {
@@ -350,18 +466,25 @@ export async function POST(request: NextRequest) {
         auth_provider: mergedUser.authProvider ?? null,
       },
       progress: finalProgress,
-      memory_hooks: finalHooks,
+      memory_hooks: hydratedLists.rekeyedHooks,
       category_filters: finalFilters,
+      word_list_items: hydratedLists.wordListItems,
+      categories: hydratedLists.categoryLookup,
+      lists: hydratedLists.listNameRows,
     }, mergedUser.id, mergedUser.userRole)
+    timer.mark("build_response")
+    return timer.applyHeaders(response)
   } catch (error) {
+    timer.mark("error")
     const err = error instanceof Error ? error : new Error(String(error))
     console.error('Link wallet error:', err.message)
     console.error(err.stack)
     // Return generic message to client; server logs hold the real cause (e.g. missing column → run db:migrate)
     const errorMessage = 'Failed to link wallet. If this persists, ensure database migrations are applied (pnpm run db:migrate).'
-    return NextResponse.json(
+    const failed = NextResponse.json(
       { success: false, error: errorMessage },
       { status: 500 }
     )
+    return timer.applyHeaders(failed)
   }
 }

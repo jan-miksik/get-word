@@ -82,11 +82,50 @@ export function AppLayout({
           accountSlot={
             isAuthenticated
               ? (
-                  <AuthButton
-                    isAuthenticated
-                    authEmail={authEmail}
-                    authAddress={authAddress}
-                  />
+                  <div className="flex items-center gap-2">
+                    <AuthButton
+                      isAuthenticated
+                      authEmail={authEmail}
+                      authAddress={authAddress}
+                    />
+                    {onSignOut && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          void onSignOut();
+                        }}
+                        className="h-9 w-9 inline-flex items-center justify-center rounded-lg bg-background-elevated border border-border-subtle text-text-soft hover:text-text hover:bg-background transition-colors"
+                        aria-label="Sign out"
+                        title="Sign out"
+                      >
+                        <svg
+                          width="18"
+                          height="18"
+                          viewBox="0 0 24 24"
+                          fill="none"
+                          xmlns="http://www.w3.org/2000/svg"
+                          aria-hidden="true"
+                        >
+                          <path
+                            d="M10 7V6a2 2 0 0 1 2-2h7a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-7a2 2 0 0 1-2-2v-1"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                          <path
+                            d="M15 12H3m0 0 3-3m-3 3 3 3"
+                            stroke="currentColor"
+                            strokeWidth="1.8"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 )
               : undefined
           }

@@ -191,7 +191,7 @@ export function SettingsPanel({
             </div>
             {memoryHooksEnabled && (
               <label className="flex items-center justify-between gap-3 py-0.5">
-                <span className="text-sm text-text">Hide from interval</span>
+                <span className="text-sm text-text">Hide after interval</span>
                 <select
                   value={memoryHookDisableFromStage}
                   onChange={(e) => setMemoryHookDisableFromStage(Number(e.target.value))}

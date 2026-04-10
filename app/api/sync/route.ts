@@ -40,6 +40,33 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+function createServerTimer() {
+  const start = performance.now();
+  const marks: Array<{ name: string; dur: number }> = [];
+  let last = start;
+  return {
+    mark(name: string) {
+      const now = performance.now();
+      const safeName = name.replace(/[^a-zA-Z0-9_-]/g, "_");
+      marks.push({ name: safeName, dur: now - last });
+      last = now;
+    },
+    totalMs() {
+      return performance.now() - start;
+    },
+    applyHeaders(response: NextResponse) {
+      if (marks.length > 0) {
+        response.headers.set(
+          "Server-Timing",
+          marks.map((m) => `${m.name};dur=${m.dur.toFixed(1)}`).join(", ")
+        );
+      }
+      response.headers.set("x-wordlink-total-ms", this.totalMs().toFixed(1));
+      return response;
+    },
+  };
+}
+
 async function withRetryOnTimeout<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
@@ -135,16 +162,21 @@ interface SyncRequest {
 }
 
 export async function POST(request: NextRequest) {
+  const timer = createServerTimer();
   try {
     const sessionToken = request.cookies.get(WORDLINK_SESSION_COOKIE_NAME)?.value;
     const session = await verifySession(sessionToken);
+    timer.mark("verify_session");
     if (!session?.userId) {
-      return NextResponse.json(
+      const unauthorized = NextResponse.json(
         { success: false, error: "Authentication required" },
         { status: 401 }
       );
+      timer.mark("return_unauthorized");
+      return timer.applyHeaders(unauthorized);
     }
     const body: SyncRequest = await request.json();
+    timer.mark("parse_body");
     const {
       deviceId,
       role,
@@ -171,11 +203,14 @@ export async function POST(request: NextRequest) {
     let user = await withRetryOnTimeout(() =>
       resolveUser(deviceId || null, userId || null, session.userId)
     );
+    timer.mark("resolve_user");
     if (!user) {
-      return NextResponse.json(
+      const failed = NextResponse.json(
         { error: "Failed to get or create user" },
         { status: 500 }
       );
+      timer.mark("return_user_error");
+      return timer.applyHeaders(failed);
     }
 
     // Update role if provided
@@ -276,6 +311,7 @@ export async function POST(request: NextRequest) {
     if (category_filters !== undefined) {
       await setUserCategoryFilters(user.id, category_filters);
     }
+    timer.mark("apply_mutations");
 
     // Fetch all current data to return
     const [currentProgress, currentHooks, currentFilters, currentSubscribedItems, currentOwnItems] =
@@ -286,6 +322,7 @@ export async function POST(request: NextRequest) {
         getUserSubscribedItems(user.id),
         getUserOwnListItems(user.id),
       ]);
+    timer.mark("fetch_user_data");
 
     const currentItems = [...currentSubscribedItems, ...currentOwnItems];
 
@@ -299,6 +336,7 @@ export async function POST(request: NextRequest) {
         : Promise.resolve(new Map<string, string>()),
       getWordListsByIds(postListIds),
     ]);
+    timer.mark("fetch_list_metadata");
 
     const postCategoryLookup: Record<
       string,
@@ -354,26 +392,33 @@ export async function POST(request: NextRequest) {
       path: "/",
       maxAge: WORDLINK_SESSION_TTL_SECONDS,
     });
-    return response;
+    timer.mark("build_response");
+    return timer.applyHeaders(response);
   } catch (error) {
+    timer.mark("error");
     console.error("Sync error:", error);
     const errorMessage = error instanceof Error ? error.message : "Failed to sync data";
-    return NextResponse.json(
+    const failed = NextResponse.json(
       { success: false, error: errorMessage },
       { status: 500 }
     );
+    return timer.applyHeaders(failed);
   }
 }
 
 export async function GET(request: NextRequest) {
+  const timer = createServerTimer();
   try {
     const sessionToken = request.cookies.get(WORDLINK_SESSION_COOKIE_NAME)?.value;
     const session = await verifySession(sessionToken);
+    timer.mark("verify_session");
     if (!session?.userId) {
-      return NextResponse.json(
+      const unauthorized = NextResponse.json(
         { success: false, error: "Authentication required" },
         { status: 401 }
       );
+      timer.mark("return_unauthorized");
+      return timer.applyHeaders(unauthorized);
     }
     const searchParams = request.nextUrl.searchParams;
     const deviceId = searchParams.get("deviceId");
@@ -389,12 +434,15 @@ export async function GET(request: NextRequest) {
     const user = await withRetryOnTimeout(() =>
       resolveUser(deviceId || null, userId || null, session.userId)
     );
+    timer.mark("resolve_user");
     if (!user) {
       console.error("Failed to resolve user", { deviceId, userId });
-      return NextResponse.json(
+      const failed = NextResponse.json(
         { success: false, error: "Failed to get or create user" },
         { status: 500 }
       );
+      timer.mark("return_user_error");
+      return timer.applyHeaders(failed);
     }
     const [progress, memoryHooks, categoryFilters, subscribedItems, ownItems] =
       await Promise.all([
@@ -404,6 +452,7 @@ export async function GET(request: NextRequest) {
         getUserSubscribedItems(user.id),
         getUserOwnListItems(user.id),
       ]);
+    timer.mark("fetch_user_data");
 
     const wordListItems = [...subscribedItems, ...ownItems];
 
@@ -417,6 +466,7 @@ export async function GET(request: NextRequest) {
         : Promise.resolve(new Map<string, string>()),
       getWordListsByIds(listIds),
     ]);
+    timer.mark("fetch_list_metadata");
 
     const categoryLookup: Record<string, { name: string; position: number }> =
       {};
@@ -468,13 +518,16 @@ export async function GET(request: NextRequest) {
       path: "/",
       maxAge: WORDLINK_SESSION_TTL_SECONDS,
     });
-    return response;
+    timer.mark("build_response");
+    return timer.applyHeaders(response);
   } catch (error) {
+    timer.mark("error");
     console.error("Fetch error:", error);
     const errorMessage = error instanceof Error ? error.message : "Failed to fetch data";
-    return NextResponse.json(
+    const failed = NextResponse.json(
       { success: false, error: errorMessage },
       { status: 500 }
     );
+    return timer.applyHeaders(failed);
   }
 }

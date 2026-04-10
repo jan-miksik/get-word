@@ -27,7 +27,10 @@ export function useAppState(
   walletAddress?: string | undefined,
   linkPayload?: LinkPayload
 ) {
+  const shouldLogPerf = process.env.NEXT_PUBLIC_DEBUG_TIMING === '1';
   const [isHydrated, setIsHydrated] = useState(false);
+  const [isLinkingWallet, setIsLinkingWallet] = useState(false);
+  const [hasLinkWalletError, setHasLinkWalletError] = useState(false);
   const [syncedWords, setSyncedWords] = useState<NormalizedWord[] | null>(null);
   const [subscribedLists, setSubscribedLists] = useState<{ id: string; name: string }[]>([]);
   const [activeListId, setActiveListIdState] = useState<string | null>(() => {
@@ -49,6 +52,7 @@ export function useAppState(
   const gameScore = useGameScore(isHydrated, isUpdatingFromServerRef);
 
   function applyServerData(serverData: SyncResponse) {
+    const applyStart = performance.now();
     // Discard any pending sync so previous user's data (e.g. game_score) is not sent for the new user
     clearPendingSync();
     if (serverData.progress) progress.applyServerProgress(serverData.progress);
@@ -63,6 +67,7 @@ export function useAppState(
     }
     // If sync returns word_list_items, convert to NormalizedWord[] for the app
     if (serverData.word_list_items && serverData.word_list_items.length > 0 && serverData.categories) {
+      const convertStart = performance.now();
       const role = serverData.user?.role ?? 'vi';
       const converted = wordListItemsToNormalizedWords(
         serverData.word_list_items,
@@ -73,9 +78,17 @@ export function useAppState(
       if (converted.length > 0) {
         setSyncedWords(converted);
       }
+      if (shouldLogPerf) {
+        console.info(
+          `[timing] useAppState.wordListItemsToNormalizedWords ${(performance.now() - convertStart).toFixed(1)}ms (${serverData.word_list_items.length} items)`
+        );
+      }
     }
     if (serverData.lists) {
       setSubscribedLists(serverData.lists);
+    }
+    if (shouldLogPerf) {
+      console.info(`[timing] useAppState.applyServerData ${(performance.now() - applyStart).toFixed(1)}ms`);
     }
   }
 
@@ -92,6 +105,7 @@ export function useAppState(
   useEffect(() => {
     if (hasLoadedRef.current || words.length === 0) return;
     hasLoadedRef.current = true;
+    const hydrationStart = performance.now();
 
     const HYDRATION_TIMEOUT = 15000;
     const timeoutId = setTimeout(() => {
@@ -112,6 +126,9 @@ export function useAppState(
         setIsHydrated(true);
         requestAnimationFrame(() => {
           isUpdatingFromServerRef.current = false;
+          if (shouldLogPerf) {
+            console.info(`[timing] useAppState.initialHydration ${(performance.now() - hydrationStart).toFixed(1)}ms`);
+          }
         });
       })
       .catch((err) => {
@@ -126,6 +143,9 @@ export function useAppState(
         isHydratedRef.current = true;
         setIsHydrated(true);
         isUpdatingFromServerRef.current = false;
+        if (shouldLogPerf) {
+          console.info(`[timing] useAppState.initialHydrationFailed ${(performance.now() - hydrationStart).toFixed(1)}ms`);
+        }
       });
 
     return () => clearTimeout(timeoutId);
@@ -135,7 +155,10 @@ export function useAppState(
   // Link wallet when user connects
   useEffect(() => {
     if (!isHydrated || !walletAddress || hasLinkedRef.current) return;
+    const linkStart = performance.now();
     hasLinkedRef.current = true;
+    setHasLinkWalletError(false);
+    setIsLinkingWallet(true);
     isUpdatingFromServerRef.current = true;
     clearPendingSync();
 
@@ -147,19 +170,29 @@ export function useAppState(
         applyServerData(serverData);
         requestAnimationFrame(() => {
           isUpdatingFromServerRef.current = false;
+          setIsLinkingWallet(false);
+          if (shouldLogPerf) {
+            console.info(`[timing] useAppState.linkWalletHydration ${(performance.now() - linkStart).toFixed(1)}ms`);
+          }
         });
       })
       .catch((err) => {
         console.error('[useAppState] Failed to link wallet:', err);
         isUpdatingFromServerRef.current = false;
         hasLinkedRef.current = false;
+        setIsLinkingWallet(false);
+        setHasLinkWalletError(true);
       });
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isHydrated, walletAddress, linkPayload?.email, linkPayload?.authProvider]);
 
   // Reset linked state when wallet disconnects
   useEffect(() => {
-    if (!walletAddress) hasLinkedRef.current = false;
+    if (!walletAddress) {
+      hasLinkedRef.current = false;
+      setIsLinkingWallet(false);
+      setHasLinkWalletError(false);
+    }
   }, [walletAddress]);
 
   const filteredSyncedWords =
@@ -176,6 +209,8 @@ export function useAppState(
     ...categories,
     ...gameScore,
     isHydrated,
+    isLinkingWallet,
+    hasLinkWalletError,
     syncedWords: filteredSyncedWords,
     subscribedLists,
     activeListId,

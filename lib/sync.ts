@@ -6,6 +6,20 @@ let lastKnownUserId: string | null = null;
 let authRequired = false;
 
 const AUTH_REQUIRED_TEXT = "Authentication required";
+const SHOULD_LOG_TIMING = process.env.NEXT_PUBLIC_DEBUG_TIMING === "1";
+
+function logClientTiming(label: string, startMs: number): void {
+  if (!SHOULD_LOG_TIMING) return;
+  console.info(`[timing] ${label} ${(performance.now() - startMs).toFixed(1)}ms`);
+}
+
+function logServerTimingHeader(response: Response, endpoint: string): void {
+  if (!SHOULD_LOG_TIMING) return;
+  const header = response.headers.get("server-timing");
+  if (header) {
+    console.info(`[timing] ${endpoint} server-timing: ${header}`);
+  }
+}
 
 export class AuthRequiredError extends Error {
   constructor(context: string) {
@@ -110,13 +124,17 @@ export interface SyncResponse {
 
 // Fetch data from server (DB-only; no localStorage).
 export async function fetchUserData(): Promise<SyncResponse> {
+  const startedAt = performance.now();
   const deviceId = getDeviceId();
   const params = new URLSearchParams();
   if (deviceId) params.set('deviceId', deviceId);
   if (lastKnownUserId) params.set('userId', lastKnownUserId);
 
   try {
+    const fetchStart = performance.now();
     const response = await fetch(`/api/sync?${params.toString()}`);
+    logClientTiming("fetchUserData.fetch", fetchStart);
+    logServerTimingHeader(response, "/api/sync GET");
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -135,7 +153,9 @@ export async function fetchUserData(): Promise<SyncResponse> {
       throw new Error(errorMessage);
     }
 
+    const parseStart = performance.now();
     const data = await response.json();
+    logClientTiming("fetchUserData.parseJson", parseStart);
     if (!data.success) {
       throw new Error(data.error || 'Failed to fetch user data: Unknown error');
     }
@@ -143,8 +163,10 @@ export async function fetchUserData(): Promise<SyncResponse> {
       lastKnownUserId = data.user.id;
       authRequired = false;
     }
+    logClientTiming("fetchUserData.total", startedAt);
     return data;
   } catch (error) {
+    logClientTiming("fetchUserData.totalFailed", startedAt);
     if (error instanceof Error) {
       throw error;
     }
@@ -157,8 +179,10 @@ export async function linkWallet(
   walletAddress: string,
   opts?: { email?: string | null; authProvider?: string | null }
 ): Promise<SyncResponse> {
+  const startedAt = performance.now();
   const deviceId = getDeviceId();
 
+  const fetchStart = performance.now();
   const response = await fetch('/api/auth/link-wallet', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -169,19 +193,26 @@ export async function linkWallet(
       ...(opts?.authProvider != null && { authProvider: opts.authProvider }),
     }),
   });
+  logClientTiming("linkWallet.fetch", fetchStart);
+  logServerTimingHeader(response, "/api/auth/link-wallet POST");
 
   if (!response.ok) {
+    logClientTiming("linkWallet.totalFailed", startedAt);
     throw new Error(`Failed to link wallet: ${response.statusText}`);
   }
 
+  const parseStart = performance.now();
   const result = await response.json();
+  logClientTiming("linkWallet.parseJson", parseStart);
   if (!result.success) {
+    logClientTiming("linkWallet.totalFailed", startedAt);
     throw new Error(result.error || 'Failed to link wallet: Unknown error');
   }
   if (result.user?.id) {
     lastKnownUserId = result.user.id;
     authRequired = false;
   }
+  logClientTiming("linkWallet.total", startedAt);
   return result;
 }
 
