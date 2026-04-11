@@ -124,15 +124,7 @@ export default function Home() {
     new: null,
   });
   const [minigameSeed] = useState<number>(() => {
-    if (typeof window === 'undefined') {
-      return Math.floor(Math.random() * 1_000_000_000);
-    }
-    const stored = window.localStorage.getItem('wordlink-minigame-seed');
-    const parsed = stored ? Number(stored) : NaN;
-    if (Number.isFinite(parsed)) return parsed;
-    const seed = Math.floor(Math.random() * 1_000_000_000);
-    window.localStorage.setItem('wordlink-minigame-seed', String(seed));
-    return seed;
+    return Math.floor(Math.random() * 1_000_000_000);
   });
   const lockedDeckCardStateRef = useRef<Map<string, { modeIndex: number; progress: ProgressData }>>(
     new Map()
@@ -143,7 +135,8 @@ export default function Home() {
   } | null>(null);
   const hasAutoPromptedRef = useRef(false);
 
-  // Minigame seed persisted per device to keep injections stable across refreshes.
+  // Minigame seed is per run so repeated visits feel less predictable, while
+  // the generated plans remain stable for the current session.
 
   const categories = useMemo(
     () => getAvailableCategories(activeWords),

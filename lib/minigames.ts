@@ -127,7 +127,7 @@ export function hasAtLeastOneSimilarPair(words: NormalizedWord[]): boolean {
   return buildSimilarPairs(words).length > 0;
 }
 
-const GAME_CYCLE: GameType[] = ['multipleChoice', 'typing', 'matching'];
+const GAME_TYPES: GameType[] = ['multipleChoice', 'typing', 'matching'];
 
 export interface InjectMinigamesOptions {
   /**
@@ -226,6 +226,17 @@ export function computeGameAnchors(
   const pickGap = () =>
     minInterval + Math.floor(randGap() * (maxInterval - minInterval + 1));
 
+  const pickGameType = (
+    slotIndex: number,
+    previousType: GameType | null,
+    rand: () => number,
+  ): GameType => {
+    const options = previousType
+      ? GAME_TYPES.filter((type) => type !== previousType)
+      : GAME_TYPES;
+    return options[Math.floor(rand() * options.length)] ?? GAME_TYPES[slotIndex % GAME_TYPES.length];
+  };
+
   // Phase A — compute anchor positions using ONLY the gap PRNG.
   //
   // Critically, no learnedPool.sort() happens here. Array.sort() makes a
@@ -255,6 +266,7 @@ export function computeGameAnchors(
   const learnedPoolSimilarPairs = useStreamAbove ? [] : buildSimilarPairs(learnedPool);
 
   let lastSignature: string | null = null;
+  let lastGameType: GameType | null = null;
   const anchors: (GameAnchor | null)[] = [];
 
   const pickDistinctWords = (pool: NormalizedWord[], rand: () => number): NormalizedWord[] => {
@@ -306,7 +318,8 @@ export function computeGameAnchors(
 
   for (let slotIndex = 0; slotIndex < anchorIndices.length; slotIndex++) {
     const i = anchorIndices[slotIndex];
-    const gameType = GAME_CYCLE[slotIndex % GAME_CYCLE.length];
+    const randType = createRng(mixSeed(baseSeed, mixSeed(i + 1, 8000 + slotIndex)));
+    const gameType = pickGameType(slotIndex, lastGameType, randType);
     let pool = useStreamAbove
       ? originalWords.slice(Math.max(0, i + 1 - STREAM_ABOVE_WINDOW), i + 1)
       : learnedPool;
@@ -357,6 +370,7 @@ export function computeGameAnchors(
     }
 
     lastSignature = sig;
+    lastGameType = gameType;
     anchors.push({
       id: anchorId,
       gameType,

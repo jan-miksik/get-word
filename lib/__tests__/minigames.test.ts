@@ -124,15 +124,16 @@ describe('injectMinigames', () => {
     });
   });
 
-  it('game types cycle multipleChoice -> typing -> matching', () => {
+  it('uses varied game types without repeating the same type back-to-back', () => {
     const manyWords = Array.from({ length: 50 }, (_, i) => makeWord(`w${i}`, `cz${i}`, `vi${i}`));
     const result = injectMinigames(manyWords, manyWords, 'cz', 1);
     const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
-    if (games.length >= 3) {
-      expect(games[0].gameType).toBe('multipleChoice');
-      expect(games[1].gameType).toBe('typing');
-      expect(games[2].gameType).toBe('matching');
+    if (games.length >= 2) {
+      for (let i = 1; i < games.length; i++) {
+        expect(games[i].gameType).not.toBe(games[i - 1].gameType);
+      }
     }
+    expect(new Set(games.map((game) => game.gameType)).size).toBeGreaterThan(1);
   });
 
   it('anchors ID and anchorOriginalIndex to the preceding word position and seed', () => {
