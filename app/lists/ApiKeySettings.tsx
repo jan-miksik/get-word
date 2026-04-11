@@ -1,18 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { getDeviceId } from '@/lib/device-id';
-
-function apiFetch(path: string, options: RequestInit = {}) {
-  return fetch(path, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'x-device-id': getDeviceId(),
-      ...options.headers,
-    },
-  });
-}
+import { listsApiFetch } from '@/features/lists/api';
 
 type StoredKey = {
   provider: string;
@@ -60,7 +49,7 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
 
   const loadOpenRouterStatus = useCallback(async () => {
     try {
-      const res = await apiFetch('/api/providers/openrouter/status');
+      const res = await listsApiFetch('/api/providers/openrouter/status');
       if (!res.ok) return;
       const data = await res.json();
       setOpenRouterState((data.state as OpenRouterUiState) ?? 'not_connected');
@@ -72,7 +61,7 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
   const loadKeys = useCallback(async () => {
     setLoading(true);
     try {
-      const res = await apiFetch('/api/keys');
+      const res = await listsApiFetch('/api/keys');
       if (res.ok) {
         const data = await res.json();
         setKeys(data.keys ?? []);
@@ -125,7 +114,7 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
     setError(null);
     setBusyAction(`save:${provider}`);
     try {
-      const res = await apiFetch('/api/keys', {
+      const res = await listsApiFetch('/api/keys', {
         method: 'POST',
         body: JSON.stringify({ provider, key: newKey.trim() }),
       });
@@ -153,10 +142,10 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
     setBusyAction(`delete:${provider}`);
     try {
       if (provider === 'openrouter') {
-        await apiFetch('/api/providers/openrouter', { method: 'DELETE' });
+        await listsApiFetch('/api/providers/openrouter', { method: 'DELETE' });
         setOpenRouterState('not_connected');
       } else {
-        await apiFetch(`/api/keys/${provider}`, { method: 'DELETE' });
+        await listsApiFetch(`/api/keys/${provider}`, { method: 'DELETE' });
       }
       await loadKeys();
     } catch {
@@ -175,7 +164,7 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
         typeof window !== 'undefined'
           ? `${window.location.pathname}${window.location.search}`
           : '/lists';
-      const res = await apiFetch('/api/providers/openrouter/connect/start', {
+      const res = await listsApiFetch('/api/providers/openrouter/connect/start', {
         method: 'POST',
         body: JSON.stringify({ returnTo }),
       });
@@ -200,7 +189,7 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
     setError(null);
     setBusyAction('openrouter:test');
     try {
-      const res = await apiFetch('/api/providers/openrouter/test', { method: 'POST' });
+      const res = await listsApiFetch('/api/providers/openrouter/test', { method: 'POST' });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.error ?? 'OpenRouter test failed');

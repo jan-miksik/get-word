@@ -2,49 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getAllWords,
   getWordById,
-  createWord,
-  updateWord,
-  deleteWord,
-  upsertWords,
-  type NewWord,
 } from "@/lib/db";
-import {
-  resolveUserFromRequest,
-  isEditor,
-  unauthorizedResponse,
-  forbiddenResponse,
-} from "@/lib/auth";
-
-function createServerTimer() {
-  const start = performance.now();
-  const marks: Array<{ name: string; dur: number }> = [];
-  let last = start;
-  return {
-    mark(name: string) {
-      const now = performance.now();
-      const safeName = name.replace(/[^a-zA-Z0-9_-]/g, "_");
-      marks.push({ name: safeName, dur: now - last });
-      last = now;
-    },
-    applyHeaders(response: NextResponse) {
-      if (marks.length > 0) {
-        response.headers.set(
-          "Server-Timing",
-          marks.map((m) => `${m.name};dur=${m.dur.toFixed(1)}`).join(", ")
-        );
-      }
-      response.headers.set(
-        "x-wordlink-total-ms",
-        (performance.now() - start).toFixed(1)
-      );
-      return response;
-    },
-  };
-}
+import { createRouteTimer } from "@/features/shared/routes/timing";
 
 // GET: Fetch all words or a specific word by ID
 export async function GET(request: NextRequest) {
-  const timer = createServerTimer();
+  const timer = createRouteTimer();
   try {
     const searchParams = request.nextUrl.searchParams;
     const wordId = searchParams.get("id");

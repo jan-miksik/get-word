@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import {
   MiniGameCard,
   getDeterministicSourceLangForGameId,
   shouldUseDeterministicAudioPromptForGameId,
 } from '../MiniGameCard';
+import { clearAudioAvailabilityCache } from '@/lib/audio-availability';
 import type { MiniGameConfig } from '@/lib/minigames';
 import type { NormalizedWord } from '@/lib/words';
 
@@ -33,6 +34,7 @@ const config = (gameType: MiniGameConfig['gameType']): MiniGameConfig => ({
 });
 
 beforeEach(() => {
+  clearAudioAvailabilityCache();
   vi.stubGlobal(
     'Audio',
     vi.fn().mockImplementation(function FakeAudio(this: { play: () => Promise<void>; pause: () => void }, _src: string) {
@@ -40,6 +42,7 @@ beforeEach(() => {
       this.pause = () => {};
     }),
   );
+  global.fetch = vi.fn(async () => ({ ok: true, status: 200 } as Response));
 });
 
 describe('MiniGameCard', () => {
@@ -54,47 +57,47 @@ describe('MiniGameCard', () => {
     expect(differentId).toBeDefined();
   });
 
-  it('renders MultipleChoiceGame for multipleChoice type', () => {
+  it('renders MultipleChoiceGame for multipleChoice type', async () => {
     render(<MiniGameCard config={config('multipleChoice')} role="cz" onDismiss={vi.fn()} />);
     const shouldUseAudio = shouldUseDeterministicAudioPromptForGameId('test-multipleChoice');
-    expect(screen.getByText(shouldUseAudio ? '🎯 Choose' : '🎯 Choice')).toBeInTheDocument();
+    expect(await screen.findByText(shouldUseAudio ? '🎯 Choose' : '🎯 Choice')).toBeInTheDocument();
   });
 
-  it('renders TypingChallengeGame for typing type', () => {
+  it('renders TypingChallengeGame for typing type', async () => {
     render(<MiniGameCard config={config('typing')} role="cz" onDismiss={vi.fn()} />);
     const shouldUseAudio = shouldUseDeterministicAudioPromptForGameId('test-typing');
     const expectedBadge = shouldUseAudio
       ? '⌨️ Type in Vietnamese'
       : '⌨️ Type it';
-    expect(screen.getByText(expectedBadge)).toBeInTheDocument();
+    expect(await screen.findByText(expectedBadge)).toBeInTheDocument();
   });
 
-  it('renders MatchingPairsGame for matching type', () => {
+  it('renders MatchingPairsGame for matching type', async () => {
     render(<MiniGameCard config={config('matching')} role="cz" onDismiss={vi.fn()} />);
-    expect(screen.getByText('🔗 Match')).toBeInTheDocument();
+    expect(await screen.findByText('🔗 Match')).toBeInTheDocument();
   });
 
-  it('passes role to the game component', () => {
+  it('passes role to the game component', async () => {
     render(<MiniGameCard config={config('multipleChoice')} role="vi" onDismiss={vi.fn()} />);
     const shouldUseAudio = shouldUseDeterministicAudioPromptForGameId('test-multipleChoice');
     const sourceLang = shouldUseAudio ? 'cz' : getDeterministicSourceLangForGameId('test-multipleChoice');
     const expectedOption = sourceLang === 'cz' ? 'con chó' : 'pes';
-    expect(screen.getByText(expectedOption)).toBeInTheDocument();
+    expect(await screen.findByText(expectedOption)).toBeInTheDocument();
   });
 
-  it('uses deterministic prompt mode for matching cards', () => {
+  it('uses deterministic prompt mode for matching cards', async () => {
     render(<MiniGameCard config={config('matching')} role="cz" onDismiss={vi.fn()} />);
     const shouldUseAudio = shouldUseDeterministicAudioPromptForGameId('test-matching');
     if (shouldUseAudio) {
-      expect(screen.getByRole('button', { name: /play 1/i })).toBeInTheDocument();
+      expect(await screen.findByRole('button', { name: /play 1/i })).toBeInTheDocument();
       expect(screen.queryByText('pes')).not.toBeInTheDocument();
     } else {
-      expect(screen.getByText('pes')).toBeInTheDocument();
+      expect(await screen.findByText('pes')).toBeInTheDocument();
       expect(screen.queryByRole('button', { name: /play 1/i })).not.toBeInTheDocument();
     }
   });
 
-  it('in sound mode, falls back to Vietnamese audio when Czech audio is missing', () => {
+  it('in sound mode, falls back to Vietnamese audio when Czech audio is missing', async () => {
     expect(shouldUseDeterministicAudioPromptForGameId('audio-c')).toBe(true);
 
     const fallbackWords: NormalizedWord[] = WORDS.map((word) => ({
@@ -109,11 +112,11 @@ describe('MiniGameCard', () => {
         onDismiss={vi.fn()}
       />
     );
-    expect(screen.getByText('🎯 Choose')).toBeInTheDocument();
+    expect(await screen.findByText('🎯 Choose')).toBeInTheDocument();
     expect(screen.getByText('pes')).toBeInTheDocument();
   });
 
-  it('in sound mode for matching, tries Vietnamese audio when Czech audio set is incomplete', () => {
+  it('in sound mode for matching, tries Vietnamese audio when Czech audio set is incomplete', async () => {
     expect(shouldUseDeterministicAudioPromptForGameId('audio-c')).toBe(true);
 
     const fallbackWords: NormalizedWord[] = WORDS.map((word) => ({
@@ -128,12 +131,12 @@ describe('MiniGameCard', () => {
         onDismiss={vi.fn()}
       />
     );
-    expect(screen.getByRole('button', { name: /play 1/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /play 1/i })).toBeInTheDocument();
     expect(screen.getByText('pes')).toBeInTheDocument();
     expect(screen.queryByText('con chó')).not.toBeInTheDocument();
   });
 
-  it('passes onResult to the game component and calls it on answer', () => {
+  it('passes onResult to the game component and calls it on answer', async () => {
     const onResult = vi.fn();
     const onDismiss = vi.fn();
     render(
@@ -142,14 +145,14 @@ describe('MiniGameCard', () => {
     const shouldUseAudio = shouldUseDeterministicAudioPromptForGameId('test-multipleChoice');
     const sourceLang = shouldUseAudio ? 'cz' : getDeterministicSourceLangForGameId('test-multipleChoice');
     const correctAnswer = sourceLang === 'cz' ? 'con chó' : 'pes';
-    fireEvent.click(screen.getByText(correctAnswer));
+    fireEvent.click(await screen.findByText(correctAnswer));
     expect(onResult).toHaveBeenCalledWith(1);
     // Overlay appears, clicking it dismisses the card
     fireEvent.click(screen.getByText('Tap to continue'));
     expect(onDismiss).toHaveBeenCalled();
   });
 
-  it('passes level to choice game scoring (+2 for level 2 correct answer)', () => {
+  it('passes level to choice game scoring (+2 for level 2 correct answer)', async () => {
     const onResult = vi.fn();
     render(
       <MiniGameCard
@@ -162,7 +165,35 @@ describe('MiniGameCard', () => {
     const shouldUseAudio = shouldUseDeterministicAudioPromptForGameId('test-multipleChoice-l2');
     const sourceLang = shouldUseAudio ? 'cz' : getDeterministicSourceLangForGameId('test-multipleChoice-l2');
     const correctAnswer = sourceLang === 'cz' ? 'con chó' : 'pes';
-    fireEvent.click(screen.getByText(correctAnswer));
+    fireEvent.click(await screen.findByText(correctAnswer));
     expect(onResult).toHaveBeenCalledWith(2);
+  });
+
+  it('keeps multiple choice in text mode when the prompt audio file does not exist', async () => {
+    expect(shouldUseDeterministicAudioPromptForGameId('audio-c')).toBe(true);
+
+    global.fetch = vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      const ok = url.includes('/speech/vi/sample.mp3');
+      return { ok, status: ok ? 200 : 404 } as Response;
+    });
+
+    const brokenPromptWords: NormalizedWord[] = WORDS.map((word, index) => ({
+      ...word,
+      czAudio: index === 0 ? 'speech/cz/missing.mp3' : word.czAudio,
+      viAudio: undefined,
+    }));
+
+    render(
+      <MiniGameCard
+        config={{ ...config('multipleChoice'), id: 'audio-c', words: brokenPromptWords }}
+        role="cz"
+        onDismiss={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('🎯 Choice')).toBeInTheDocument();
+    });
   });
 });

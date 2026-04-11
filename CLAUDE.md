@@ -18,7 +18,7 @@ CSS custom properties are the design system (defined in `styles/themes.css` and 
 ### Data flow
 
 ```
-data/words       →  useWordsLoader  →  page.tsx
+data/words       →  features/learning/hooks/useWordsLoader  →  page.tsx
                                            ↓
                                       useAppState   ←→   lib/sync.ts  ←→  /api/sync
                                            ↓
@@ -27,7 +27,12 @@ data/words       →  useWordsLoader  →  page.tsx
                                       WordCard / MiniGameCard / CardDeckView
 ```
 
-**`useAppState`** (`hooks/useAppState.ts`) owns all app state: progress, memory hooks, selected categories, preferences, game score, user identity. It hydrates from the server on mount via `fetchUserData()` and debounces all mutations back via `debouncedSync()`. No localStorage — everything lives in Postgres.
+**`useAppState`** (`hooks/useAppState.ts`) is now a thin orchestrator over feature-owned state:
+- `features/learning/app-state/*` for hydration, wallet-link sync, and local UI persistence
+- `features/learning/state/*` for progress, preferences, memory hooks, category filters, and game score
+- `features/auth/state/userProfile.ts` for synced identity fields
+
+Top-level `hooks/useProgress.ts`, `hooks/usePreferences.ts`, `hooks/useMemoryHooks.ts`, `hooks/useCategoryFilter.ts`, `hooks/useGameScore.ts`, `hooks/useUserProfile.ts`, `hooks/useWordsLoader.ts`, `hooks/useWordStream.ts`, and `hooks/usePressHandlers.ts` are compatibility barrels. Prefer feature-local imports for new work.
 
 **`useMenuPanels`** (`hooks/useMenuPanels.ts`) owns panel open/close state (`settings`, `progress`, `category`, `memoryHooks`) as a single enum, inside `AppLayout`. Panel state is NOT passed from pages — `AppLayout` manages it internally.
 
@@ -37,7 +42,7 @@ data/words       →  useWordsLoader  →  page.tsx
 
 ### Minigames
 
-`lib/minigames.ts` — three game types: `multipleChoice`, `typing`, `matching`. Games are anchored by `anchorOriginalIndex` in the original word snapshot so they stay stable as words are removed from the active stream. Game word sets are locked in a ref on first generation and only reset when category filters change.
+`lib/minigames.ts` is a compatibility barrel. New minigame work should start in `features/learning/minigames/*`. Games are anchored by `anchorOriginalIndex` in the original word snapshot so they stay stable as words are removed from the active stream. Game word sets are locked in a ref on first generation and only reset when category filters change.
 
 ### Auth
 
@@ -62,8 +67,12 @@ View mode stored in `localStorage` under `wordlink-view-mode`.
 
 ### Pages
 
-- `app/page.tsx` — main learning view (card + stream)
-- `app/edit/page.tsx` — editor-only word editing (redirects non-editors)
+- `app/page.tsx` — thin learning-page composition shell
+  - behavior lives in `features/learning/components/LearningStudyContent.tsx`
+  - page state lives in `features/learning/hooks/useLearningPageState.ts`
+- `app/edit/page.tsx` — thin editor-page composition shell
+  - behavior lives in `features/edit/components/EditStudyContent.tsx`
+  - page state lives in `features/edit/hooks/useEditPageState.ts`
 - `app/api/sync/route.ts` — GET (hydrate) / POST (save) for all user state
 - `app/api/words/route.ts` — GET / POST for word data (editor only)
 - `app/api/auth/link-wallet/route.ts` — POST to link wallet to existing user

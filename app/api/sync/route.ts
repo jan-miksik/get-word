@@ -12,21 +12,19 @@ import {
   setUserCategoryFilters,
   updateUserRole,
   updateUserPreferences,
-  getUserSubscribedItems,
-  getUserOwnListItems,
-  getListCategories,
   getSystemDefaultList,
   getWordIdToItemIdMapping,
-  getWordListsByIds,
 } from "@/lib/db";
 import { db } from "@/lib/db/client";
 import { users, type User } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
+import { withSessionCookie } from "@/features/shared/routes/session";
+import { createRouteTimer } from "@/features/shared/routes/timing";
+import { buildSyncSuccessPayload, getHydratedWordListData } from "@/features/shared/sync/response";
+import { isUuid } from "@/features/shared/sync/identity";
 import {
-  signSession,
   verifySession,
   WORDLINK_SESSION_COOKIE_NAME,
-  WORDLINK_SESSION_TTL_SECONDS,
 } from "@/lib/session";
 
 const PG_STATEMENT_TIMEOUT = "57014";
@@ -40,33 +38,6 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-function createServerTimer() {
-  const start = performance.now();
-  const marks: Array<{ name: string; dur: number }> = [];
-  let last = start;
-  return {
-    mark(name: string) {
-      const now = performance.now();
-      const safeName = name.replace(/[^a-zA-Z0-9_-]/g, "_");
-      marks.push({ name: safeName, dur: now - last });
-      last = now;
-    },
-    totalMs() {
-      return performance.now() - start;
-    },
-    applyHeaders(response: NextResponse) {
-      if (marks.length > 0) {
-        response.headers.set(
-          "Server-Timing",
-          marks.map((m) => `${m.name};dur=${m.dur.toFixed(1)}`).join(", ")
-        );
-      }
-      response.headers.set("x-wordlink-total-ms", this.totalMs().toFixed(1));
-      return response;
-    },
-  };
-}
-
 async function withRetryOnTimeout<T>(fn: () => Promise<T>): Promise<T> {
   try {
     return await fn();
@@ -77,28 +48,6 @@ async function withRetryOnTimeout<T>(fn: () => Promise<T>): Promise<T> {
     }
     throw e;
   }
-}
-
-/**
- * Re-key a Record<oldWordId, V> → Record<wordListItemId, V> using a mapping.
- * Entries without a mapping are preserved with their original key.
- */
-function rekeyByItemId<V>(
-  data: Record<string, V>,
-  mapping: Map<string, string>
-): Record<string, V> {
-  const result: Record<string, V> = {};
-  for (const [key, value] of Object.entries(data)) {
-    const newKey = mapping.get(key) ?? key;
-    result[newKey] = value;
-  }
-  return result;
-}
-
-function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-    value
-  );
 }
 
 /** Prefers userId (PK lookup) when provided; falls back to deviceId get-or-create. */
@@ -162,7 +111,7 @@ interface SyncRequest {
 }
 
 export async function POST(request: NextRequest) {
-  const timer = createServerTimer();
+  const timer = createRouteTimer();
   try {
     const sessionToken = request.cookies.get(WORDLINK_SESSION_COOKIE_NAME)?.value;
     const session = await verifySession(sessionToken);
@@ -314,84 +263,25 @@ export async function POST(request: NextRequest) {
     timer.mark("apply_mutations");
 
     // Fetch all current data to return
-    const [currentProgress, currentHooks, currentFilters, currentSubscribedItems, currentOwnItems] =
-      await Promise.all([
-        getUserProgress(user.id),
-        getUserMemoryHooks(user.id),
-        getUserCategoryFilters(user.id),
-        getUserSubscribedItems(user.id),
-        getUserOwnListItems(user.id),
-      ]);
-    timer.mark("fetch_user_data");
-
-    const currentItems = [...currentSubscribedItems, ...currentOwnItems];
-
-    // Build category lookup and word ID mapping for re-keying
-    const postListIds = [...new Set(currentItems.map((i) => i.listId))];
-    const postSystemList = await getSystemDefaultList();
-    const [postCategoryResults, postWordIdMapping, postListNameRows] = await Promise.all([
-      Promise.all(postListIds.map((id) => getListCategories(id))),
-      postSystemList
-        ? getWordIdToItemIdMapping(postSystemList.id)
-        : Promise.resolve(new Map<string, string>()),
-      getWordListsByIds(postListIds),
+    const [currentProgress, currentHooks, currentFilters] = await Promise.all([
+      getUserProgress(user.id),
+      getUserMemoryHooks(user.id),
+      getUserCategoryFilters(user.id),
     ]);
+    timer.mark("fetch_user_data");
+    const hydratedLists = await getHydratedWordListData(user.id, currentHooks);
     timer.mark("fetch_list_metadata");
-
-    const postCategoryLookup: Record<
-      string,
-      { name: string; position: number }
-    > = {};
-    for (const cats of postCategoryResults) {
-      for (const cat of cats) {
-        postCategoryLookup[cat.id] = {
-          name: cat.name,
-          position: cat.position,
-        };
-      }
-    }
-
-    const postRekeyedHooks = rekeyByItemId(currentHooks, postWordIdMapping);
-
-    const response = NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        role: role ?? user.role,
-        user_role: user.userRole,
-        show_english: user.showEnglish ?? true,
-        show_category_badges: user.showCategoryBadges ?? false,
-        show_pronunciation: user.showPronunciation ?? false,
-        memory_hooks_enabled: user.memoryHooksEnabled ?? true,
-        memory_hook_disable_from_stage: user.memoryHookDisableFromStage ?? 8,
-        wallet_address: user.walletAddress ?? null,
-        email: user.email ?? null,
-        auth_provider: user.authProvider ?? null,
-        game_score: user.gameScore ?? 0,
-        category_order: user.categoryOrder ?? [],
-      },
-      progress: currentProgress,
-      memory_hooks: postRekeyedHooks,
-      category_filters: currentFilters,
-      word_list_items: currentItems,
-      categories: postCategoryLookup,
-      lists: postListNameRows,
-    });
-    const safeUserRole = user.userRole === "editor" ? "editor" : "user";
-    const token = await signSession({
-      userId: user.id,
-      userRole: safeUserRole,
-      ttlSeconds: WORDLINK_SESSION_TTL_SECONDS,
-    });
-    response.cookies.set({
-      name: WORDLINK_SESSION_COOKIE_NAME,
-      value: token,
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: WORDLINK_SESSION_TTL_SECONDS,
-    });
+    const response = await withSessionCookie(
+      buildSyncSuccessPayload(
+        { ...user, role: role ?? user.role },
+        currentProgress,
+        currentHooks,
+        currentFilters,
+        hydratedLists
+      ),
+      user.id,
+      user.userRole
+    );
     timer.mark("build_response");
     return timer.applyHeaders(response);
   } catch (error) {
@@ -407,7 +297,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
-  const timer = createServerTimer();
+  const timer = createRouteTimer();
   try {
     const sessionToken = request.cookies.get(WORDLINK_SESSION_COOKIE_NAME)?.value;
     const session = await verifySession(sessionToken);
@@ -444,80 +334,19 @@ export async function GET(request: NextRequest) {
       timer.mark("return_user_error");
       return timer.applyHeaders(failed);
     }
-    const [progress, memoryHooks, categoryFilters, subscribedItems, ownItems] =
-      await Promise.all([
-        getUserProgress(user.id),
-        getUserMemoryHooks(user.id),
-        getUserCategoryFilters(user.id),
-        getUserSubscribedItems(user.id),
-        getUserOwnListItems(user.id),
-      ]);
-    timer.mark("fetch_user_data");
-
-    const wordListItems = [...subscribedItems, ...ownItems];
-
-    // Build category lookup and word ID mapping
-    const listIds = [...new Set(wordListItems.map((i) => i.listId))];
-    const systemList = await getSystemDefaultList();
-    const [categoryResults, wordIdMapping, listNameRows] = await Promise.all([
-      Promise.all(listIds.map((id) => getListCategories(id))),
-      systemList
-        ? getWordIdToItemIdMapping(systemList.id)
-        : Promise.resolve(new Map<string, string>()),
-      getWordListsByIds(listIds),
+    const [progress, memoryHooks, categoryFilters] = await Promise.all([
+      getUserProgress(user.id),
+      getUserMemoryHooks(user.id),
+      getUserCategoryFilters(user.id),
     ]);
+    timer.mark("fetch_user_data");
+    const hydratedLists = await getHydratedWordListData(user.id, memoryHooks);
     timer.mark("fetch_list_metadata");
-
-    const categoryLookup: Record<string, { name: string; position: number }> =
-      {};
-    for (const cats of categoryResults) {
-      for (const cat of cats) {
-        categoryLookup[cat.id] = { name: cat.name, position: cat.position };
-      }
-    }
-
-    // Re-key memory hooks from old wordId to wordListItemId
-    const rekeyedHooks = rekeyByItemId(memoryHooks, wordIdMapping);
-
-    const response = NextResponse.json({
-      success: true,
-      user: {
-        id: user.id,
-        role: user.role,
-        user_role: user.userRole,
-        show_english: user.showEnglish ?? true,
-        show_category_badges: user.showCategoryBadges ?? false,
-        show_pronunciation: user.showPronunciation ?? false,
-        memory_hooks_enabled: user.memoryHooksEnabled ?? true,
-        memory_hook_disable_from_stage: user.memoryHookDisableFromStage ?? 8,
-        wallet_address: user.walletAddress ?? null,
-        email: user.email ?? null,
-        auth_provider: user.authProvider ?? null,
-        game_score: user.gameScore ?? 0,
-        category_order: user.categoryOrder ?? [],
-      },
-      progress,
-      memory_hooks: rekeyedHooks,
-      category_filters: categoryFilters,
-      word_list_items: wordListItems,
-      categories: categoryLookup,
-      lists: listNameRows,
-    });
-    const safeUserRole = user.userRole === "editor" ? "editor" : "user";
-    const token = await signSession({
-      userId: user.id,
-      userRole: safeUserRole,
-      ttlSeconds: WORDLINK_SESSION_TTL_SECONDS,
-    });
-    response.cookies.set({
-      name: WORDLINK_SESSION_COOKIE_NAME,
-      value: token,
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-      maxAge: WORDLINK_SESSION_TTL_SECONDS,
-    });
+    const response = await withSessionCookie(
+      buildSyncSuccessPayload(user, progress, memoryHooks, categoryFilters, hydratedLists),
+      user.id,
+      user.userRole
+    );
     timer.mark("build_response");
     return timer.applyHeaders(response);
   } catch (error) {

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef } from 'react';
-import type { WordList, WordCategory, WordListItem } from './page';
+import type { WordCategory, WordList, WordListItem } from '@/features/lists/types';
 
 interface CategoryBrowserProps {
   list: WordList;

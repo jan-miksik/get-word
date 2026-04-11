@@ -15,18 +15,11 @@ import {
   batchUpsertProgressByItemId,
   batchUpsertMemoryHooks,
   updateUserFields,
-  getUserSubscribedItems,
-  getUserOwnListItems,
-  getListCategories,
-  getSystemDefaultList,
-  getWordIdToItemIdMapping,
-  getWordListsByIds,
 } from '@/lib/db'
-import {
-  signSession,
-  WORDLINK_SESSION_COOKIE_NAME,
-  WORDLINK_SESSION_TTL_SECONDS,
-} from '@/lib/session'
+import { withSessionCookie } from '@/features/shared/routes/session'
+import { createRouteTimer } from '@/features/shared/routes/timing'
+import { buildSyncSuccessPayload, getHydratedWordListData } from '@/features/shared/sync/response'
+import { isUuid } from '@/features/shared/sync/identity'
 
 interface LinkWalletRequest {
   deviceId: string
@@ -41,106 +34,6 @@ interface LinkWalletRequest {
 // provides. Device IDs are UUIDs (hard to guess). For a language learning
 // app this is an acceptable trust level. For higher-stakes data, consider
 // server-side wallet ownership verification (e.g., SIWE).
-
-type UserShape = {
-  id: string
-  role: string
-  userRole?: string | null
-  showEnglish: boolean | null
-  showCategoryBadges: boolean | null
-  showPronunciation?: boolean | null
-  memoryHooksEnabled?: boolean | null
-  memoryHookDisableFromStage?: number | null
-  gameScore: number | null
-  categoryOrder?: string[] | null
-  walletAddress: string | null
-  email: string | null
-  authProvider: string | null
-}
-
-function createServerTimer() {
-  const start = performance.now()
-  const marks: Array<{ name: string; dur: number }> = []
-  let last = start
-  return {
-    mark(name: string) {
-      const now = performance.now()
-      const safeName = name.replace(/[^a-zA-Z0-9_-]/g, "_")
-      marks.push({ name: safeName, dur: now - last })
-      last = now
-    },
-    totalMs() {
-      return performance.now() - start
-    },
-    applyHeaders(response: NextResponse) {
-      if (marks.length > 0) {
-        response.headers.set(
-          "Server-Timing",
-          marks.map((m) => `${m.name};dur=${m.dur.toFixed(1)}`).join(", ")
-        )
-      }
-      response.headers.set("x-wordlink-total-ms", this.totalMs().toFixed(1))
-      return response
-    },
-  }
-}
-
-function buildSuccessResponse(
-  user: UserShape,
-  progress: Record<string, unknown>,
-  categoryFilters: string[],
-  hydratedLists: {
-    rekeyedHooks: Record<string, string>
-    wordListItems: Awaited<ReturnType<typeof getUserSubscribedItems>>
-    categoryLookup: Record<string, { name: string; position: number }>
-    listNameRows: Awaited<ReturnType<typeof getWordListsByIds>>
-  }
-) {
-  return {
-    success: true,
-    user: {
-      id: user.id,
-      role: user.role,
-      user_role: user.userRole ?? 'user',
-      show_english: user.showEnglish ?? true,
-      show_category_badges: user.showCategoryBadges ?? false,
-      show_pronunciation: user.showPronunciation ?? false,
-      memory_hooks_enabled: user.memoryHooksEnabled ?? true,
-      memory_hook_disable_from_stage: user.memoryHookDisableFromStage ?? 8,
-      game_score: user.gameScore ?? 0,
-      category_order: user.categoryOrder ?? [],
-      wallet_address: user.walletAddress ?? null,
-      email: user.email ?? null,
-      auth_provider: user.authProvider ?? null,
-    },
-    progress,
-    memory_hooks: hydratedLists.rekeyedHooks,
-    category_filters: categoryFilters,
-    word_list_items: hydratedLists.wordListItems,
-    categories: hydratedLists.categoryLookup,
-    lists: hydratedLists.listNameRows,
-  }
-}
-
-async function withSessionCookie(payload: Record<string, unknown>, userId: string, userRole?: string | null) {
-  const safeUserRole = userRole === 'editor' ? 'editor' : 'user'
-  const token = await signSession({
-    userId,
-    userRole: safeUserRole,
-    ttlSeconds: WORDLINK_SESSION_TTL_SECONDS,
-  })
-  const response = NextResponse.json(payload)
-  response.cookies.set({
-    name: WORDLINK_SESSION_COOKIE_NAME,
-    value: token,
-    httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
-    path: '/',
-    maxAge: WORDLINK_SESSION_TTL_SECONDS,
-  })
-  return response
-}
 
 function mergeCategoryOrder(
   targetOrder: string[] | null | undefined,
@@ -160,66 +53,8 @@ function mergeCategoryOrder(
   return merged.slice(0, 500)
 }
 
-function isUuid(value: string): boolean {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
-}
-
-function rekeyByItemId<V>(
-  data: Record<string, V>,
-  mapping: Map<string, string>
-): Record<string, V> {
-  const result: Record<string, V> = {}
-  for (const [key, value] of Object.entries(data)) {
-    const newKey = mapping.get(key) ?? key
-    result[newKey] = value
-  }
-  return result
-}
-
-async function getHydratedWordListData(
-  userId: string,
-  memoryHooks: Record<string, string>
-): Promise<{
-  rekeyedHooks: Record<string, string>
-  wordListItems: Awaited<ReturnType<typeof getUserSubscribedItems>>
-  categoryLookup: Record<string, { name: string; position: number }>
-  listNameRows: Awaited<ReturnType<typeof getWordListsByIds>>
-}> {
-  const [subscribedItems, ownItems] = await Promise.all([
-    getUserSubscribedItems(userId),
-    getUserOwnListItems(userId),
-  ])
-  const wordListItems = [...subscribedItems, ...ownItems]
-  const listIds = [...new Set(wordListItems.map((i) => i.listId))]
-
-  const systemList = await getSystemDefaultList()
-  const [categoryResults, wordIdMapping, listNameRows] = await Promise.all([
-    Promise.all(listIds.map((id) => getListCategories(id))),
-    systemList
-      ? getWordIdToItemIdMapping(systemList.id)
-      : Promise.resolve(new Map<string, string>()),
-    getWordListsByIds(listIds),
-  ])
-
-  const categoryLookup: Record<string, { name: string; position: number }> = {}
-  for (const cats of categoryResults) {
-    for (const cat of cats) {
-      categoryLookup[cat.id] = { name: cat.name, position: cat.position }
-    }
-  }
-
-  const rekeyedHooks = rekeyByItemId(memoryHooks, wordIdMapping)
-
-  return {
-    rekeyedHooks,
-    wordListItems,
-    categoryLookup,
-    listNameRows,
-  }
-}
-
 export async function POST(request: NextRequest) {
-  const timer = createServerTimer()
+  const timer = createRouteTimer()
   try {
     const body: LinkWalletRequest = await request.json()
     timer.mark("parse_body")
@@ -263,7 +98,7 @@ export async function POST(request: NextRequest) {
       const hydratedLists = await getHydratedWordListData(createdUser.id, {})
       timer.mark("hydrate_word_lists")
       const response = await withSessionCookie(
-        buildSuccessResponse(createdUser, {}, [], hydratedLists),
+        buildSyncSuccessPayload(createdUser, {}, {}, [], hydratedLists),
         createdUser.id,
         createdUser.userRole
       )
@@ -299,7 +134,7 @@ export async function POST(request: NextRequest) {
       const hydratedLists = await getHydratedWordListData(linkedUser.id, hooks)
       timer.mark("hydrate_word_lists")
       const response = await withSessionCookie(
-        buildSuccessResponse(linkedUser, progress, filters, hydratedLists),
+        buildSyncSuccessPayload(linkedUser, progress, hooks, filters, hydratedLists),
         linkedUser.id,
         linkedUser.userRole
       )
@@ -447,31 +282,32 @@ export async function POST(request: NextRequest) {
     const hydratedLists = await getHydratedWordListData(mergedUser.id, finalHooks)
     timer.mark("hydrate_word_lists")
 
-    const response = await withSessionCookie({
-      success: true,
-      merged: true,
-      user: {
-        id: mergedUser.id,
-        role: targetUser.role,
-        user_role: targetUser.userRole ?? 'user',
-        show_english: targetUser.showEnglish ?? true,
-        show_category_badges: targetUser.showCategoryBadges ?? false,
-        show_pronunciation: targetUser.showPronunciation ?? false,
-        memory_hooks_enabled: targetUser.memoryHooksEnabled ?? true,
-        memory_hook_disable_from_stage: targetUser.memoryHookDisableFromStage ?? 8,
-        game_score: mergedUser.gameScore ?? mergedGameScore,
-        category_order: mergedUser.categoryOrder ?? mergedCategoryOrder,
-        wallet_address: mergedUser.walletAddress ?? walletAddress,
-        email: mergedUser.email ?? null,
-        auth_provider: mergedUser.authProvider ?? null,
-      },
-      progress: finalProgress,
-      memory_hooks: hydratedLists.rekeyedHooks,
-      category_filters: finalFilters,
-      word_list_items: hydratedLists.wordListItems,
-      categories: hydratedLists.categoryLookup,
-      lists: hydratedLists.listNameRows,
-    }, mergedUser.id, mergedUser.userRole)
+    const response = await withSessionCookie(
+      buildSyncSuccessPayload(
+        {
+          ...mergedUser,
+          role: targetUser.role,
+          userRole: targetUser.userRole ?? mergedUser.userRole,
+          showEnglish: targetUser.showEnglish,
+          showCategoryBadges: targetUser.showCategoryBadges,
+          showPronunciation: targetUser.showPronunciation,
+          memoryHooksEnabled: targetUser.memoryHooksEnabled,
+          memoryHookDisableFromStage: targetUser.memoryHookDisableFromStage,
+          gameScore: mergedUser.gameScore ?? mergedGameScore,
+          categoryOrder: mergedUser.categoryOrder ?? mergedCategoryOrder,
+          walletAddress: mergedUser.walletAddress ?? walletAddress,
+          email: mergedUser.email ?? null,
+          authProvider: mergedUser.authProvider ?? null,
+        },
+        finalProgress,
+        finalHooks,
+        finalFilters,
+        hydratedLists,
+        { merged: true }
+      ),
+      mergedUser.id,
+      mergedUser.userRole
+    )
     timer.mark("build_response")
     return timer.applyHeaders(response)
   } catch (error) {

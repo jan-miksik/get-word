@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { getDeviceId } from '@/lib/device-id';
-import type { WordList, ConfirmResult } from './page';
+import { listsApiFetch } from '@/features/lists/api';
+import type { ConfirmResult, WordList } from '@/features/lists/types';
 
 type PendingItem = NonNullable<ConfirmResult['pending_items']>[number];
 
@@ -29,17 +29,6 @@ type OpenRouterUiState =
   | 'connecting'
   | 'connected'
   | 'failed_retryable';
-
-function apiFetch(path: string, options: RequestInit = {}) {
-  return fetch(path, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'x-device-id': getDeviceId(),
-      ...options.headers,
-    },
-  });
-}
 
 export function TranslationStep({
   list,
@@ -75,7 +64,7 @@ export function TranslationStep({
   const loadOpenRouterStatus = useCallback(async () => {
     setOpenRouterLoading(true);
     try {
-      const res = await apiFetch('/api/providers/openrouter/status');
+      const res = await listsApiFetch('/api/providers/openrouter/status');
       if (!res.ok) {
         setOpenRouterState('not_connected');
         return;
@@ -97,7 +86,7 @@ export function TranslationStep({
         typeof window !== 'undefined'
           ? `${window.location.pathname}${window.location.search}`
           : '/lists';
-      const res = await apiFetch('/api/providers/openrouter/connect/start', {
+      const res = await listsApiFetch('/api/providers/openrouter/connect/start', {
         method: 'POST',
         body: JSON.stringify({ returnTo }),
       });
@@ -140,7 +129,7 @@ export function TranslationStep({
 
       if (itemsToTranslate.length === 0) return;
 
-      const res = await apiFetch('/api/translate/batch', {
+      const res = await listsApiFetch('/api/translate/batch', {
         method: 'POST',
         body: JSON.stringify({
           items: itemsToTranslate,
@@ -215,7 +204,7 @@ export function TranslationStep({
           status: (r.status === 'ok' ? 'translated' : 'manual') as 'translated' | 'manual',
         }));
 
-      const res = await apiFetch(`/api/lists/${list.id}/items/translations`, {
+      const res = await listsApiFetch(`/api/lists/${list.id}/items/translations`, {
         method: 'POST',
         body: JSON.stringify({ translations }),
       });

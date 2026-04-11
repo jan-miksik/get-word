@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { checkAudioUrlAvailable } from '@/lib/audio-availability';
 import type { MiniGameConfig } from '@/lib/minigames';
 import type { NormalizedWord } from '@/lib/words';
 import { MultipleChoiceGame } from './games/MultipleChoiceGame';
@@ -46,8 +47,44 @@ function pickAudioSourceLangForMatching(words: NormalizedWord[]): SourceLang | n
   return null;
 }
 
+async function pickVerifiedAudioSourceLangForQuestion(
+  word: NormalizedWord | undefined,
+): Promise<SourceLang | null> {
+  if (!word) return null;
+
+  for (const lang of ['cz', 'vi'] as const) {
+    const audioSrc = getWordAudioSrcByLang(word, lang);
+    if (!audioSrc) continue;
+    if (await checkAudioUrlAvailable(audioSrc)) {
+      return lang;
+    }
+  }
+
+  return null;
+}
+
+async function pickVerifiedAudioSourceLangForMatching(
+  words: NormalizedWord[],
+): Promise<SourceLang | null> {
+  for (const lang of ['cz', 'vi'] as const) {
+    const audioSources = words.map((word) => getWordAudioSrcByLang(word, lang));
+    if (audioSources.some((src) => !src)) continue;
+
+    const availability = await Promise.all(
+      audioSources.map((src) => checkAudioUrlAvailable(src)),
+    );
+    if (availability.every(Boolean)) {
+      return lang;
+    }
+  }
+
+  return null;
+}
+
 export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
   const [finished, setFinished] = useState<{ delta: number } | null>(null);
+  const [verifiedQuestionAudioSourceLang, setVerifiedQuestionAudioSourceLang] = useState<SourceLang | null>(null);
+  const [verifiedMatchingAudioSourceLang, setVerifiedMatchingAudioSourceLang] = useState<SourceLang | null>(null);
   const level = config.level ?? 1;
   const randomSourceLang = useMemo(
     () => getDeterministicSourceLangForGameId(config.id),
@@ -65,20 +102,64 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
 
   const gameProps = { words: config.words, role, level, onResult: handleResult };
   const questionWord = config.words[0];
-  const questionAudioSourceLang = useMemo(
+  const requestedQuestionAudioSourceLang = useMemo(
     () => (shouldUseAudioPrompt ? pickAudioSourceLangForQuestion(questionWord) : null),
     [shouldUseAudioPrompt, questionWord],
   );
-  const typingAndChoiceSourceLang = questionAudioSourceLang ?? randomSourceLang;
+  const typingAndChoiceSourceLang = verifiedQuestionAudioSourceLang ?? randomSourceLang;
   const typingAndChoicePromptMode: PromptMode =
-    questionAudioSourceLang ? 'audio' : 'text';
+    verifiedQuestionAudioSourceLang ? 'audio' : 'text';
 
-  const matchingAudioSourceLang = useMemo(
+  const requestedMatchingAudioSourceLang = useMemo(
     () => (shouldUseAudioPrompt ? pickAudioSourceLangForMatching(config.words) : null),
     [config.words, shouldUseAudioPrompt],
   );
   const matchingPromptMode: PromptMode =
-    matchingAudioSourceLang ? 'audio' : 'text';
+    verifiedMatchingAudioSourceLang ? 'audio' : 'text';
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!requestedQuestionAudioSourceLang) {
+      setVerifiedQuestionAudioSourceLang(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setVerifiedQuestionAudioSourceLang(null);
+    void pickVerifiedAudioSourceLangForQuestion(questionWord).then((lang) => {
+      if (!cancelled) {
+        setVerifiedQuestionAudioSourceLang(lang);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [questionWord, requestedQuestionAudioSourceLang]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!requestedMatchingAudioSourceLang) {
+      setVerifiedMatchingAudioSourceLang(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    setVerifiedMatchingAudioSourceLang(null);
+    void pickVerifiedAudioSourceLangForMatching(config.words).then((lang) => {
+      if (!cancelled) {
+        setVerifiedMatchingAudioSourceLang(lang);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [config.words, requestedMatchingAudioSourceLang]);
 
   useEffect(() => {
     if (process.env.NODE_ENV !== 'development') return;
@@ -90,7 +171,10 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
       typingAndChoicePromptMode,
       typingAndChoiceSourceLang,
       matchingPromptMode,
-      matchingAudioSourceLang,
+      requestedQuestionAudioSourceLang,
+      verifiedQuestionAudioSourceLang,
+      requestedMatchingAudioSourceLang,
+      verifiedMatchingAudioSourceLang,
       level,
       questionWordId: questionWord?.id,
       questionCzAudio: questionWord?.czAudio ?? null,
@@ -104,7 +188,10 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
     typingAndChoicePromptMode,
     typingAndChoiceSourceLang,
     matchingPromptMode,
-    matchingAudioSourceLang,
+    requestedQuestionAudioSourceLang,
+    verifiedQuestionAudioSourceLang,
+    requestedMatchingAudioSourceLang,
+    verifiedMatchingAudioSourceLang,
     level,
     questionWord?.id,
     questionWord?.czAudio,
@@ -133,7 +220,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
       <MatchingPairsGame
         {...gameProps}
         {...(matchingPromptMode === 'audio'
-          ? { sourceLang: matchingAudioSourceLang!, promptMode: 'audio' as const }
+          ? { sourceLang: verifiedMatchingAudioSourceLang!, promptMode: 'audio' as const }
           : { promptMode: 'text' as const })}
       />
     );

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { WordList } from './page';
+import type { WordList } from '@/features/lists/types';
 
 interface ListSidebarProps {
   lists: WordList[];

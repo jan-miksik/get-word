@@ -229,11 +229,10 @@ function ListSelector({
   return (
     <div className="list-selector-float">
       <select
-        value={activeListId ?? ''}
+        value={activeListId ?? lists[0]?.id ?? ''}
         onChange={(e) => onListChange(e.target.value || null)}
         aria-label="Select word list"
       >
-        {lists.length > 1 && <option value="">All lists</option>}
         {lists.map((list) => (
           <option key={list.id} value={list.id}>
             {shortenListName(list.name)}

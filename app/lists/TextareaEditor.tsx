@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
-import type { WordCategory, WordListItem } from './page';
+import type { WordCategory, WordListItem } from '@/features/lists/types';
 
 interface TextareaEditorProps {
   category: WordCategory;

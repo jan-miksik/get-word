@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { DiffResult } from './page';
+import type { DiffResult } from '@/features/lists/types';
 
 type ExistingItem = {
   id: string;

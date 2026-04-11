@@ -64,8 +64,11 @@ scripts/            — DB migration/seed/backup scripts
 
 ## Shared utility hooks
 
-- `usePressHandlers(containerRef, deps)` — MutationObserver press state (deduped from both pages)
-- `useWordStream(filteredWords, progress, isHydrated)` — due/new/settling word bucketing (deduped)
+- `features/learning/hooks/usePressHandlers.ts` — MutationObserver press state shared by both learning pages
+- `features/learning/hooks/useWordStream.ts` — due/new/settling word bucketing shared by both learning pages
+- `features/learning/hooks/useWordsLoader.ts` — `/api/words` loader with static fallback for both learning pages
+
+Legacy top-level `hooks/usePressHandlers.ts`, `hooks/useWordStream.ts`, and `hooks/useWordsLoader.ts` are compatibility barrels.
 
 ## Spaced repetition
 

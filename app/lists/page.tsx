@@ -1,7 +1,14 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { getDeviceId } from '@/lib/device-id';
+import { listsApiFetch } from '@/features/lists/api';
+import type {
+  ConfirmResult,
+  DiffResult,
+  WordCategory,
+  WordList,
+  WordListItem,
+} from '@/features/lists/types';
 import { ListSidebar } from './ListSidebar';
 import { CategoryBrowser } from './CategoryBrowser';
 import { TextareaEditor } from './TextareaEditor';
@@ -10,62 +17,7 @@ import { TranslationStep } from './TranslationStep';
 import { AudioStep } from './AudioStep';
 import { ApiKeySettings } from './ApiKeySettings';
 
-export type WordList = {
-  id: string;
-  ownerId: string | null;
-  name: string;
-  description: string | null;
-  languageFrom: string;
-  languageTo: string;
-  isPublic: boolean;
-};
-
-export type WordCategory = {
-  id: string;
-  listId: string;
-  name: string;
-  position: number;
-  isSystem: boolean;
-};
-
-export type WordListItem = {
-  id: string;
-  listId: string;
-  categoryId: string | null;
-  position: number;
-  textKnown: string;
-  textTarget: string | null;
-  translationStatus: string;
-  audioStatus: string;
-  notes: string | null;
-};
-
-export type DiffResult = {
-  added: string[];
-  removed: { id: string; text_known: string; text_target: string | null }[];
-  reordered: { id: string; text: string; from_pos: number; to_pos: number }[];
-  unchanged: number;
-  warning?: string;
-};
-
-export type ConfirmResult = {
-  completed: boolean;
-  needs_translation: boolean;
-  pending_items?: { id: string; text_known: string; text_target: string | null; position: number }[];
-};
-
 type WizardStep = 'browse' | 'edit' | 'preview' | 'translate' | 'audio';
-
-function apiFetch(path: string, options: RequestInit = {}) {
-  return fetch(path, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'x-device-id': getDeviceId(),
-      ...options.headers,
-    },
-  });
-}
 
 export default function ListsPage() {
   const [lists, setLists] = useState<WordList[]>([]);
@@ -101,7 +53,7 @@ export default function ListsPage() {
   useEffect(() => {
     async function loadLists() {
       try {
-        const res = await apiFetch('/api/lists');
+        const res = await listsApiFetch('/api/lists');
         if (!res.ok) throw new Error('Failed to load lists');
         const data = await res.json();
         setLists(data.lists);
@@ -114,7 +66,7 @@ export default function ListsPage() {
         const subIds = new Set<string>();
         await Promise.all(
           publicLists.map(async (l: WordList) => {
-            const subRes = await apiFetch(`/api/lists/${l.id}/subscribe`);
+            const subRes = await listsApiFetch(`/api/lists/${l.id}/subscribe`);
             if (subRes.ok) {
               const subData = await subRes.json();
               if (subData.subscribed) subIds.add(l.id);
@@ -136,7 +88,7 @@ export default function ListsPage() {
     if (!selectedListId) return;
     async function loadListDetails() {
       try {
-        const res = await apiFetch(`/api/lists/${selectedListId}`);
+        const res = await listsApiFetch(`/api/lists/${selectedListId}`);
         if (!res.ok) throw new Error('Failed to load list details');
         const data = await res.json();
         setCategories(data.categories ?? []);
@@ -167,7 +119,7 @@ export default function ListsPage() {
   }, []);
 
   const handleCreateList = useCallback(async (name: string, langFrom: string, langTo: string) => {
-    const res = await apiFetch('/api/lists', {
+    const res = await listsApiFetch('/api/lists', {
       method: 'POST',
       body: JSON.stringify({ name, language_from: langFrom, language_to: langTo }),
     });
@@ -179,7 +131,7 @@ export default function ListsPage() {
 
   const handleDeleteList = useCallback(async (listId: string) => {
     try {
-      const res = await apiFetch(`/api/lists/${listId}`, { method: 'DELETE' });
+      const res = await listsApiFetch(`/api/lists/${listId}`, { method: 'DELETE' });
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error ?? 'Delete failed');
@@ -208,7 +160,7 @@ export default function ListsPage() {
 
   const handleSubscribe = useCallback(async (listId: string) => {
     try {
-      const res = await apiFetch(`/api/lists/${listId}/subscribe`, { method: 'POST' });
+      const res = await listsApiFetch(`/api/lists/${listId}/subscribe`, { method: 'POST' });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error ?? 'Subscribe failed');
@@ -221,7 +173,7 @@ export default function ListsPage() {
 
   const handleUnsubscribe = useCallback(async (listId: string) => {
     try {
-      const res = await apiFetch(`/api/lists/${listId}/subscribe`, { method: 'DELETE' });
+      const res = await listsApiFetch(`/api/lists/${listId}/subscribe`, { method: 'DELETE' });
       if (!res.ok) {
         const data = await res.json();
         throw new Error(data.error ?? 'Unsubscribe failed');
@@ -244,7 +196,7 @@ export default function ListsPage() {
 
   const handlePreview = useCallback(async (lines: string[]) => {
     if (!selectedListId || !editingCategoryId) return;
-    const res = await apiFetch(
+    const res = await listsApiFetch(
       `/api/lists/${selectedListId}/categories/${editingCategoryId}/items/preview`,
       {
         method: 'PUT',
@@ -262,7 +214,7 @@ export default function ListsPage() {
 
   const handleConfirm = useCallback(async () => {
     if (!selectedListId || !editingCategoryId || !diffResult) return;
-    const res = await apiFetch(
+    const res = await listsApiFetch(
       `/api/lists/${selectedListId}/categories/${editingCategoryId}/items/confirm`,
       {
         method: 'POST',
@@ -326,7 +278,7 @@ export default function ListsPage() {
 
   async function reloadListDetails() {
     if (!selectedListId) return;
-    const res = await apiFetch(`/api/lists/${selectedListId}`);
+    const res = await listsApiFetch(`/api/lists/${selectedListId}`);
     if (res.ok) {
       const data = await res.json();
       setCategories(data.categories ?? []);
@@ -344,7 +296,7 @@ export default function ListsPage() {
 
   const handleCreateCategory = useCallback(async (name: string) => {
     if (!selectedListId) return;
-    const res = await apiFetch(`/api/lists/${selectedListId}/categories`, {
+    const res = await listsApiFetch(`/api/lists/${selectedListId}/categories`, {
       method: 'POST',
       body: JSON.stringify({ name }),
     });
@@ -354,7 +306,7 @@ export default function ListsPage() {
 
   const handleReorderCategories = useCallback(async (orderedIds: string[]) => {
     if (!selectedListId) return;
-    await apiFetch(`/api/lists/${selectedListId}/categories`, {
+    await listsApiFetch(`/api/lists/${selectedListId}/categories`, {
       method: 'PUT',
       body: JSON.stringify({ ordered_ids: orderedIds }),
     });
@@ -372,7 +324,7 @@ export default function ListsPage() {
 
   const handleDeleteCategory = useCallback(async (categoryId: string) => {
     if (!selectedListId) return;
-    await apiFetch(`/api/lists/${selectedListId}/categories/${categoryId}`, {
+    await listsApiFetch(`/api/lists/${selectedListId}/categories/${categoryId}`, {
       method: 'DELETE',
     });
     await reloadListDetails();

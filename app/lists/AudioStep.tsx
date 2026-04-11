@@ -1,19 +1,8 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
-import { getDeviceId } from '@/lib/device-id';
-import type { WordList, WordListItem } from './page';
-
-function apiFetch(path: string, options: RequestInit = {}) {
-  return fetch(path, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'x-device-id': getDeviceId(),
-      ...options.headers,
-    },
-  });
-}
+import { listsApiFetch } from '@/features/lists/api';
+import type { WordList, WordListItem } from '@/features/lists/types';
 
 type AudioRow = {
   id: string;
@@ -69,7 +58,7 @@ export function AudioStep({ list, items, onComplete, onSkip }: AudioStepProps) {
     }
 
     try {
-      const res = await apiFetch('/api/audio/generate/batch', {
+      const res = await listsApiFetch('/api/audio/generate/batch', {
         method: 'POST',
         body: JSON.stringify({
           items: toGenerate.map((r) => ({
@@ -177,7 +166,7 @@ export function AudioStep({ list, items, onComplete, onSkip }: AudioStepProps) {
     const readyWithoutUrl = rows.filter((r) => r.audioStatus === 'ready' && !r.audioUrl);
     if (readyWithoutUrl.length === 0) return;
 
-    apiFetch('/api/audio/generate/batch', {
+    listsApiFetch('/api/audio/generate/batch', {
       method: 'POST',
       body: JSON.stringify({
         items: readyWithoutUrl.map((r) => ({ id: r.id, text: r.textTarget, language: r.language })),
