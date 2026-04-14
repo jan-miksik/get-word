@@ -7,6 +7,82 @@ import { debouncedSync } from '@/lib/sync';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+function padTimePart(value: number) {
+  return String(value).padStart(2, '0');
+}
+
+function formatLogDateTime(timestamp?: number) {
+  if (!timestamp) return null;
+
+  const date = new Date(timestamp);
+  return [
+    date.getFullYear(),
+    padTimePart(date.getMonth() + 1),
+    padTimePart(date.getDate()),
+    padTimePart(date.getHours()),
+    padTimePart(date.getMinutes()),
+  ].join('-');
+}
+
+function formatRelativeFromNow(timestamp?: number, now = Date.now()) {
+  if (!timestamp) return null;
+
+  const diffMs = timestamp - now;
+  const absDiffMs = Math.abs(diffMs);
+  const minuteMs = 60 * 1000;
+  const hourMs = 60 * minuteMs;
+  const dayMs = 24 * hourMs;
+
+  let value: number;
+  let unit: string;
+
+  if (absDiffMs >= dayMs) {
+    value = Math.round(absDiffMs / dayMs);
+    unit = value === 1 ? 'day' : 'days';
+  } else if (absDiffMs >= hourMs) {
+    value = Math.round(absDiffMs / hourMs);
+    unit = value === 1 ? 'hour' : 'hours';
+  } else if (absDiffMs >= minuteMs) {
+    value = Math.round(absDiffMs / minuteMs);
+    unit = value === 1 ? 'min' : 'mins';
+  } else {
+    value = Math.max(0, Math.round(absDiffMs / 1000));
+    unit = value === 1 ? 'sec' : 'secs';
+  }
+
+  if (value === 0) return 'now';
+  return diffMs >= 0 ? `in ${value}${unit}` : `${value}${unit} ago`;
+}
+
+function logNextDueAtCalculation(args: {
+  action: 'known' | 'really-known' | 'unknown';
+  wordId: string;
+  previousStageIndex: number;
+  nextStageIndex: number;
+  intervalMs?: number;
+  nextDueAt?: number;
+}) {
+  if (process.env.NODE_ENV === 'production') return;
+
+  const { action, wordId, previousStageIndex, nextStageIndex, intervalMs, nextDueAt } = args;
+  const now = Date.now();
+  const nextDueAtIso = nextDueAt ? new Date(nextDueAt).toISOString() : null;
+  const nextDueAtHuman = formatLogDateTime(nextDueAt);
+  const nextDueAtFromNow = formatRelativeFromNow(nextDueAt, now);
+
+  console.info('[progress] nextDueAt calculated', {
+    action,
+    wordId,
+    previousStageIndex,
+    nextStageIndex,
+    intervalMs: intervalMs ?? null,
+    nextDueAt: nextDueAt ?? null,
+    nextDueAtIso,
+    nextDueAtHuman,
+    nextDueAtFromNow,
+  });
+}
+
 export function serializeProgressForSync(progress: Record<string, ProgressData>) {
   return Object.entries(progress).map(([id, data]) => {
     const isUuid = UUID_RE.test(id);
@@ -79,6 +155,15 @@ export function useProgress(
         const current = prev[wordId] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
         const newStageIndex = Math.min(current.stageIndex + 1, STAGES.length - 1);
         const stage = STAGES[newStageIndex];
+        const nextDueAt = stage.intervalMs > 0 ? Date.now() + stage.intervalMs : undefined;
+        logNextDueAtCalculation({
+          action: 'known',
+          wordId,
+          previousStageIndex: current.stageIndex,
+          nextStageIndex: newStageIndex,
+          intervalMs: stage.intervalMs,
+          nextDueAt,
+        });
         return {
           ...prev,
           [wordId]: {
@@ -86,7 +171,7 @@ export function useProgress(
             stageIndex: newStageIndex,
             knownCount: current.knownCount + 1,
             lastKnownAt: Date.now(),
-            nextDueAt: stage.intervalMs > 0 ? Date.now() + stage.intervalMs : undefined,
+            nextDueAt,
           },
         };
       });
@@ -101,6 +186,15 @@ export function useProgress(
         const current = prev[wordId] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
         const newStageIndex = Math.min(current.stageIndex + 2, STAGES.length - 1);
         const stage = STAGES[newStageIndex];
+        const nextDueAt = stage.intervalMs > 0 ? Date.now() + stage.intervalMs : undefined;
+        logNextDueAtCalculation({
+          action: 'really-known',
+          wordId,
+          previousStageIndex: current.stageIndex,
+          nextStageIndex: newStageIndex,
+          intervalMs: stage.intervalMs,
+          nextDueAt,
+        });
         return {
           ...prev,
           [wordId]: {
@@ -108,7 +202,7 @@ export function useProgress(
             stageIndex: newStageIndex,
             knownCount: current.knownCount + 1,
             lastKnownAt: Date.now(),
-            nextDueAt: stage.intervalMs > 0 ? Date.now() + stage.intervalMs : undefined,
+            nextDueAt,
           },
         };
       });
@@ -124,6 +218,15 @@ export function useProgress(
         const regressedStageIndex = Math.max(current.stageIndex - 1, 0);
         const regressedStage = STAGES[regressedStageIndex];
         const nextRepeatMs = regressedStage.intervalMs > 0 ? regressedStage.intervalMs : undefined;
+        const nextDueAt = nextRepeatMs != null ? Date.now() + nextRepeatMs : undefined;
+        logNextDueAtCalculation({
+          action: 'unknown',
+          wordId,
+          previousStageIndex: current.stageIndex,
+          nextStageIndex: regressedStageIndex,
+          intervalMs: nextRepeatMs,
+          nextDueAt,
+        });
         return {
           ...prev,
           [wordId]: {
@@ -131,7 +234,7 @@ export function useProgress(
             stageIndex: regressedStageIndex,
             unknownCount: current.unknownCount + 1,
             lastUnknownAt: Date.now(),
-            nextDueAt: nextRepeatMs != null ? Date.now() + nextRepeatMs : undefined,
+            nextDueAt,
           },
         };
       });

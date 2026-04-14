@@ -52,7 +52,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md rounded-2xl border border-border-subtle bg-background-elevated p-7 flex flex-col gap-4">
         <h1 className="m-0 text-2xl font-semibold text-text">Sign in</h1>
         <p className="m-0 text-sm text-text-soft">
-          Sign in to access Wordlink and continue your learning progress across devices.
+          Sign in to access Get Word and continue your learning progress across devices.
         </p>
 
         <button

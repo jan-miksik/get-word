@@ -6,14 +6,14 @@ import './globals.css';
 import './.generated/tailwind.css';
 
 export const metadata: Metadata = {
-  title: 'Language Helper',
+  title: 'Get Word',
   description: 'Learn Czech and Vietnamese with spaced repetition',
-  applicationName: 'Language Helper',
+  applicationName: 'Get Word',
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'Language Helper',
+    title: 'Get Word',
   },
   formatDetection: {
     telephone: false,

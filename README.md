@@ -1,4 +1,4 @@
-## WordLink
+## Get Word
 
 Language learning app (Czech ↔ Vietnamese) built with **Next.js** + **Supabase Postgres** (via **Drizzle ORM**). Designed for **Vercel** deployment.
 

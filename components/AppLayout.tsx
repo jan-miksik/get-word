@@ -10,6 +10,7 @@ import { ProgressPanel } from '@/components/ProgressPanel';
 import { ProgressSummary } from '@/components/ProgressSummary';
 import { useMenuPanels } from '@/hooks/useMenuPanels';
 import { useAppStateContext } from '@/context/AppStateContext';
+import { PWAInstallBanner } from '@/components/PWAInstallBanner';
 import type { ProgressStats } from '@/lib/progress-stats';
 
 interface AppLayoutProps {
@@ -159,6 +160,7 @@ export function AppLayout({
         onClose={closeAll}
       />
 
+      <PWAInstallBanner />
       {children}
     </div>
   );

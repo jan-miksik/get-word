@@ -1,6 +1,6 @@
 {
-  "name": "Language Helper",
-  "short_name": "Wordlink",
+  "name": "Get Word",
+  "short_name": "Get Word",
   "description": "Learn Czech and Vietnamese with spaced repetition",
   "start_url": "/?source=pwa",
   "scope": "/",
