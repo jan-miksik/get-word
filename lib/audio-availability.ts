@@ -1,6 +1,12 @@
 'use client';
 
-const audioAvailabilityCache = new Map<string, Promise<boolean>>();
+type AudioAvailabilityCacheEntry = {
+  promise: Promise<boolean>;
+  settled: boolean;
+  value: boolean | null;
+};
+
+const audioAvailabilityCache = new Map<string, AudioAvailabilityCacheEntry>();
 
 async function probeAudioUrl(url: string): Promise<boolean> {
   try {
@@ -25,11 +31,29 @@ export function checkAudioUrlAvailable(url: string | null): Promise<boolean> {
   if (!url) return Promise.resolve(false);
 
   const cached = audioAvailabilityCache.get(url);
-  if (cached) return cached;
+  if (cached) return cached.promise;
 
-  const probe = probeAudioUrl(url);
-  audioAvailabilityCache.set(url, probe);
-  return probe;
+  const entry: AudioAvailabilityCacheEntry = {
+    promise: Promise.resolve(false),
+    settled: false,
+    value: null,
+  };
+
+  entry.promise = probeAudioUrl(url).then((result) => {
+    entry.settled = true;
+    entry.value = result;
+    return result;
+  });
+
+  audioAvailabilityCache.set(url, entry);
+  return entry.promise;
+}
+
+export function getCachedAudioUrlAvailability(url: string | null): boolean | null {
+  if (!url) return false;
+  const cached = audioAvailabilityCache.get(url);
+  if (!cached || !cached.settled) return null;
+  return cached.value;
 }
 
 export function clearAudioAvailabilityCache(): void {

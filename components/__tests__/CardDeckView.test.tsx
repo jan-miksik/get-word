@@ -1,12 +1,34 @@
-import { describe, it, expect, vi } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CardDeckView } from '../CardDeckView';
 import type { NormalizedWord } from '@/lib/words';
 import type { MiniGameConfig } from '@/lib/minigames';
 
+const {
+  checkAudioUrlAvailableMock,
+  prefetchAudioMock,
+} = vi.hoisted(() => ({
+  checkAudioUrlAvailableMock: vi.fn(() => Promise.resolve(true)),
+  prefetchAudioMock: vi.fn(),
+}));
+
+vi.mock('@/lib/audio-availability', () => ({
+  checkAudioUrlAvailable: checkAudioUrlAvailableMock,
+}));
+
+vi.mock('@/lib/audio-prefetch', () => ({
+  prefetchAudio: prefetchAudioMock,
+}));
+
 const makeWord = (id: string): NormalizedWord => ({
-  id, cz: `cz-${id}`, vi: `vi-${id}`, en: '', category: [],
+  id,
+  cz: `cz-${id}`,
+  vi: `vi-${id}`,
+  en: '',
+  category: [],
+  czAudio: 'speech/cz/sample.mp3',
+  viAudio: 'speech/vi/sample.mp3',
 });
 
 const makeGame = (id: string): MiniGameConfig => ({
@@ -17,6 +39,36 @@ const makeGame = (id: string): MiniGameConfig => ({
 });
 
 describe('CardDeckView', () => {
+  beforeEach(() => {
+    checkAudioUrlAvailableMock.mockClear();
+    prefetchAudioMock.mockClear();
+  });
+
+  it('warms audio availability and prefetches for the current and next 2 items', () => {
+    const groupedWords = [[
+      makeWord('w1'),
+      makeGame('g1'),
+      makeWord('w2'),
+      makeWord('w3'),
+    ]];
+
+    render(
+      <CardDeckView
+        groupedWords={groupedWords}
+        renderCard={(word) => <span data-testid={`card-${word.id}`}>{word.id}</span>}
+        renderMiniGame={vi.fn()}
+      />
+    );
+
+    expect(prefetchAudioMock).toHaveBeenCalledWith([
+      '/speech/cz/sample.mp3',
+      '/speech/vi/sample.mp3',
+    ]);
+    expect(checkAudioUrlAvailableMock).toHaveBeenCalledTimes(2);
+    expect(checkAudioUrlAvailableMock).toHaveBeenNthCalledWith(1, '/speech/cz/sample.mp3');
+    expect(checkAudioUrlAvailableMock).toHaveBeenNthCalledWith(2, '/speech/vi/sample.mp3');
+  });
+
   it('renders the first item from the flattened stream', () => {
     const groupedWords = [[makeWord('w1'), makeWord('w2')]];
     const renderCard = (word: NormalizedWord, _: number, onComplete: (afterExit?: () => void) => void) => (

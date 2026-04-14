@@ -1,9 +1,12 @@
 'use client';
 
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type { AnimationEvent, ReactNode } from 'react';
 import type { NormalizedWord } from '@/lib/words';
 import type { MiniGameConfig } from '@/lib/minigames';
+import { checkAudioUrlAvailable } from '@/lib/audio-availability';
+import { prefetchAudio } from '@/lib/audio-prefetch';
+import { getWordAudioSrcByLang } from './games/types';
 
 type StreamItem = NormalizedWord | MiniGameConfig;
 
@@ -24,12 +27,25 @@ const ENTER_ANIMATIONS = [
   'animate-deck-enter-unfurl',
 ] as const;
 
+const AUDIO_LOOKAHEAD_CARDS = 2;
+
 function randomExitAnim(): string {
   return EXIT_ANIMATIONS[Math.floor(Math.random() * EXIT_ANIMATIONS.length)];
 }
 
 function randomEnterAnim(): string {
   return ENTER_ANIMATIONS[Math.floor(Math.random() * ENTER_ANIMATIONS.length)];
+}
+
+function getAudioUrlsForWord(word: NormalizedWord): string[] {
+  return ['cz', 'vi']
+    .map((lang) => getWordAudioSrcByLang(word, lang))
+    .filter((url): url is string => Boolean(url));
+}
+
+function getAudioUrlsForItem(item: StreamItem): string[] {
+  const words = '_isMinigame' in item ? item.words : [item];
+  return Array.from(new Set(words.flatMap(getAudioUrlsForWord)));
 }
 
 interface CardDeckViewProps {
@@ -70,6 +86,15 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
   itemsRef.current = items;
   const groupedWordsRef = useRef(groupedWords);
   groupedWordsRef.current = groupedWords;
+
+  useEffect(() => {
+    const lookaheadItems = items.slice(currentIndex, currentIndex + AUDIO_LOOKAHEAD_CARDS + 1);
+    const audioUrls = Array.from(new Set(lookaheadItems.flatMap(getAudioUrlsForItem)));
+    if (audioUrls.length === 0) return;
+
+    prefetchAudio(audioUrls);
+    void Promise.allSettled(audioUrls.map((url) => checkAudioUrlAvailable(url)));
+  }, [items, currentIndex]);
 
   const advance = useCallback((opts?: { skipAnimation?: boolean; afterExit?: () => void }) => {
     const idx = currentIndexRef.current;

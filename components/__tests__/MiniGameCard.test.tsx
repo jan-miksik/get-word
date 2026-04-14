@@ -5,7 +5,10 @@ import {
   getDeterministicSourceLangForGameId,
   shouldUseDeterministicAudioPromptForGameId,
 } from '../MiniGameCard';
-import { clearAudioAvailabilityCache } from '@/lib/audio-availability';
+import {
+  checkAudioUrlAvailable,
+  clearAudioAvailabilityCache,
+} from '@/lib/audio-availability';
 import type { MiniGameConfig } from '@/lib/minigames';
 import type { NormalizedWord } from '@/lib/words';
 
@@ -195,5 +198,23 @@ describe('MiniGameCard', () => {
     await waitFor(() => {
       expect(screen.getByText('🎯 Choice')).toBeInTheDocument();
     });
+  });
+
+  it('renders directly in audio mode when availability was prewarmed in cache', async () => {
+    expect(shouldUseDeterministicAudioPromptForGameId('audio-c')).toBe(true);
+
+    await checkAudioUrlAvailable('/speech/cz/sample.mp3');
+
+    render(
+      <MiniGameCard
+        config={{ ...config('multipleChoice'), id: 'audio-c' }}
+        role="cz"
+        onDismiss={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText('🎯 Choose')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /replay prompt audio/i })).toBeInTheDocument();
+    expect(screen.queryByText('pes')).not.toBeInTheDocument();
   });
 });
