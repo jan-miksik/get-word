@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   checkAudioUrlAvailable,
   getCachedAudioUrlAvailability,
@@ -11,6 +11,54 @@ import { MultipleChoiceGame } from './games/MultipleChoiceGame';
 import { TypingChallengeGame } from './games/TypingChallengeGame';
 import { MatchingPairsGame } from './games/MatchingPairsGame';
 import { getWordAudioSrcByLang, type PromptMode, type SourceLang } from './games/types';
+
+const SKIP_SOUND_KEY = 'wordlink-skip-sound';
+
+function readSkipSound(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(SKIP_SOUND_KEY) === 'true';
+}
+
+function SoundToggle({ skipSound, onToggle }: { skipSound: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => { e.stopPropagation(); onToggle(); }}
+      aria-label={skipSound ? 'Sound off — click to enable' : 'Sound on — click to disable'}
+      title={skipSound ? 'Enable audio prompts' : 'Disable audio prompts'}
+      className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1.5 px-2 py-1 rounded-full transition-all duration-200 select-none hover:scale-110 hover:brightness-125 active:scale-95"
+      style={{
+        background: skipSound
+          ? 'color-mix(in srgb, var(--text-soft) 14%, transparent)'
+          : 'color-mix(in srgb, var(--accent) 12%, transparent)',
+        border: `1px solid ${skipSound
+          ? 'color-mix(in srgb, var(--text-soft) 28%, transparent)'
+          : 'color-mix(in srgb, var(--accent) 28%, transparent)'}`,
+        color: skipSound ? 'var(--text-soft)' : 'var(--accent)',
+        fontSize: '0.65rem',
+        letterSpacing: '0.03em',
+        fontWeight: 500,
+        right: '1rem',
+        top: '1rem',
+      }}
+    >
+      {skipSound ? (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+          <line x1="23" y1="9" x2="17" y2="15" />
+          <line x1="17" y1="9" x2="23" y2="15" />
+        </svg>
+      ) : (
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
+        </svg>
+      )}
+      <span>{skipSound ? 'text only' : 'sound'}</span>
+    </button>
+  );
+}
 
 interface Props {
   config: MiniGameConfig;
@@ -120,6 +168,7 @@ function pickCachedVerifiedAudioSourceLangForMatching(
 
 export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
   const [finished, setFinished] = useState<{ delta: number } | null>(null);
+  const [skipSound, setSkipSound] = useState<boolean>(() => readSkipSound());
   const [verifiedQuestionAudioSourceLang, setVerifiedQuestionAudioSourceLang] = useState<SourceLang | null>(() =>
     pickCachedVerifiedAudioSourceLangForQuestion(config.words[0]),
   );
@@ -127,6 +176,14 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
     pickCachedVerifiedAudioSourceLangForMatching(config.words),
   );
   const level = config.level ?? 1;
+
+  const toggleSkipSound = useCallback(() => {
+    setSkipSound((prev) => {
+      const next = !prev;
+      localStorage.setItem(SKIP_SOUND_KEY, String(next));
+      return next;
+    });
+  }, []);
   const randomSourceLang = useMemo(
     () => getDeterministicSourceLangForGameId(config.id),
     [config.id],
@@ -149,14 +206,14 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
   );
   const typingAndChoiceSourceLang = verifiedQuestionAudioSourceLang ?? randomSourceLang;
   const typingAndChoicePromptMode: PromptMode =
-    verifiedQuestionAudioSourceLang ? 'audio' : 'text';
+    !skipSound && verifiedQuestionAudioSourceLang ? 'audio' : 'text';
 
   const requestedMatchingAudioSourceLang = useMemo(
     () => (shouldUseAudioPrompt ? pickAudioSourceLangForMatching(config.words) : null),
     [config.words, shouldUseAudioPrompt],
   );
   const matchingPromptMode: PromptMode =
-    verifiedMatchingAudioSourceLang ? 'audio' : 'text';
+    !skipSound && verifiedMatchingAudioSourceLang ? 'audio' : 'text';
 
   useEffect(() => {
     let cancelled = false;
@@ -273,7 +330,8 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
 
   return (
     <div className="relative flex items-center justify-center h-full w-full">
-      <div className="w-full">
+      <div className="relative w-full">
+        <SoundToggle skipSound={skipSound} onToggle={toggleSkipSound} />
         {game}
       </div>
       {finished && (

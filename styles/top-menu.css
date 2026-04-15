@@ -79,6 +79,7 @@
 [data-theme="calm"] .list-selector-float select {
   color: var(--text-soft);
 }
+
 [data-theme="warm"] .list-selector-float select option,
 [data-theme="calm"] .list-selector-float select option {
   background: var(--bg);
@@ -185,6 +186,7 @@
     opacity: 0;
     transform: scale(0.92) translateY(-8px);
   }
+
   to {
     opacity: 1;
     transform: scale(1) translateY(0);
@@ -304,8 +306,17 @@
 }
 
 @keyframes dot-pulse {
-  0%, 100% { opacity: 1; box-shadow: 0 0 8px var(--accent); }
-  50%       { opacity: 0.55; box-shadow: 0 0 3px var(--accent); }
+
+  0%,
+  100% {
+    opacity: 1;
+    box-shadow: 0 0 8px var(--accent);
+  }
+
+  50% {
+    opacity: 0.55;
+    box-shadow: 0 0 3px var(--accent);
+  }
 }
 
 .mode-btn.menu-toggle-btn {
@@ -491,6 +502,7 @@
 
 /* Hide progress, memory-hooks, and settings in top menu on desktop (same breakpoint as Tailwind lg: 1024px) */
 @media (min-width: 1024px) {
+
   .top-menu .mode-btn.progress-btn,
   .top-menu .mode-btn.memory-hooks-btn {
     display: none !important;

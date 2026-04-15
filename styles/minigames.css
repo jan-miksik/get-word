@@ -465,6 +465,11 @@
     min-height: 0;
   }
 
+  .word-card--fullscreen .word-card-content.word-card-content--editing-hook {
+    justify-content: flex-start;
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
+  }
+
   .word-card--fullscreen .card-actions {
     position: absolute;
     bottom: env(safe-area-inset-bottom, 0);

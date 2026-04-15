@@ -89,6 +89,7 @@ describe('TypingChallengeGame', () => {
       <TypingChallengeGame words={WORDS} role="cz" sourceLang="vi" />
     );
     // sourceLang=vi means prompt is Vietnamese and expected answer is Czech
+    expect(screen.getByText('⌨️ Type in Czech')).toBeInTheDocument();
     expect(screen.getByText('con chó')).toBeInTheDocument();
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'pes' } });
     fireEvent.click(screen.getByText('Check'));
@@ -113,6 +114,7 @@ describe('TypingChallengeGame', () => {
     render(
       <TypingChallengeGame words={noAudioWords} role="cz" sourceLang="cz" promptMode="audio" />
     );
+    expect(screen.getByText('⌨️ Type in Vietnamese')).toBeInTheDocument();
     expect(screen.getByText('pes')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /replay prompt audio/i })).not.toBeInTheDocument();
   });

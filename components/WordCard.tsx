@@ -235,7 +235,7 @@ export const WordCard = memo(function WordCard({
           })}
         </div>
       )}
-      <div className="word-card-content flex flex-col gap-4">
+      <div className={`word-card-content flex flex-col gap-4 ${editingHook ? 'word-card-content--editing-hook' : ''}`}>
         {/* Czech */}
         <div className="flex justify-center items-center gap-1.5">
           <div className="hidden">CZ</div>

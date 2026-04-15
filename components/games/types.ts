@@ -13,6 +13,10 @@ export function getTargetLang(sourceLang: SourceLang): SourceLang {
   return sourceLang === 'cz' ? 'vi' : 'cz';
 }
 
+export function getLanguageLabel(lang: SourceLang): string {
+  return lang === 'cz' ? 'Czech' : 'Vietnamese';
+}
+
 export function getWordTextByLang(word: NormalizedWord, lang: SourceLang): string {
   return lang === 'cz' ? word.cz : word.vi;
 }

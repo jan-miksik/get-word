@@ -68,11 +68,7 @@ describe('MiniGameCard', () => {
 
   it('renders TypingChallengeGame for typing type', async () => {
     render(<MiniGameCard config={config('typing')} role="cz" onDismiss={vi.fn()} />);
-    const shouldUseAudio = shouldUseDeterministicAudioPromptForGameId('test-typing');
-    const expectedBadge = shouldUseAudio
-      ? '⌨️ Type in Vietnamese'
-      : '⌨️ Type it';
-    expect(await screen.findByText(expectedBadge)).toBeInTheDocument();
+    expect(await screen.findByText('⌨️ Type in Vietnamese')).toBeInTheDocument();
   });
 
   it('renders MatchingPairsGame for matching type', async () => {

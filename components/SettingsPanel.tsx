@@ -409,6 +409,12 @@ export function SettingsPanel({
             )}
           </div>
 
+          {process.env.NEXT_PUBLIC_APP_VERSION && (
+            <p className="m-0 text-center text-[0.6rem] text-text-soft/30 font-mono">
+              v{process.env.NEXT_PUBLIC_APP_VERSION}
+            </p>
+          )}
+
         </div>
       </div>
     </section>

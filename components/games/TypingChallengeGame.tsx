@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { NormalizedWord } from '@/lib/words';
 import { matchAnswer } from '@/lib/minigames';
 import {
+  getLanguageLabel,
   getTargetLang,
   getWordAudioSrcByLang,
   getWordTextByLang,
@@ -238,11 +239,7 @@ export function TypingChallengeGame({
 
   return (
     <article className="phrase-card game-card game-card--typing">
-      <div className="game-badge">
-        {effectivePromptMode === 'audio'
-          ? `⌨️ Type in ${targetLang === 'cz' ? 'Czech' : 'Vietnamese'}`
-          : '⌨️ Type it'}
-      </div>
+      <div className="game-badge">{`⌨️ Type in ${getLanguageLabel(targetLang)}`}</div>
       {effectivePromptMode === 'audio' ? (
         <div className="game-audio-prompt">
           <button

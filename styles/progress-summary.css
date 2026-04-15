@@ -6,6 +6,7 @@
   backdrop-filter: none;
   justify-content: center;
   font-size: 0.6875rem;
+  margin-top: 25px;
 }
 
 .progress-summary {
