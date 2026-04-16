@@ -15,9 +15,10 @@ interface DiffPreviewProps {
   existingItems: ExistingItem[];
   onConfirm: () => Promise<void>;
   onCancel: () => void;
+  onBack?: () => void;
 }
 
-export function DiffPreview({ diff, existingItems, onConfirm, onCancel }: DiffPreviewProps) {
+export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }: DiffPreviewProps) {
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -162,14 +163,15 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel }: DiffPr
       )}
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-border-subtle">
+      <div className="flex justify-between gap-2 mt-6 pt-4 border-t border-border-subtle">
         <button
           type="button"
           className="px-4 py-2 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
-          onClick={onCancel}
+          onClick={onBack ?? onCancel}
         >
-          Go back
+          ← Back
         </button>
+        <div className="flex gap-2">
         <button
           type="button"
           disabled={confirming}
@@ -178,6 +180,7 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel }: DiffPr
         >
           {confirming ? 'Confirming...' : hasChanges ? 'Confirm changes' : 'Continue'}
         </button>
+        </div>
       </div>
     </div>
   );

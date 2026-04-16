@@ -42,6 +42,8 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
     invalid_code: 'OpenRouter authorization code was invalid. Please retry.',
     exchange_rejected: 'OpenRouter rejected the authorization request.',
     exchange_failed: 'OpenRouter key exchange failed. Please retry.',
+    oauth_not_configured: 'OpenRouter OAuth exchange is not configured on the server.',
+    provider_error: 'OpenRouter returned an OAuth error before key exchange completed.',
     test_failed: 'OpenRouter key test failed after exchange.',
     unauthorized: 'OpenRouter key test failed with unauthorized response.',
     rate_limited: 'Too many OpenRouter requests. Please wait and retry.',

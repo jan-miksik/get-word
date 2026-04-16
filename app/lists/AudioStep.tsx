@@ -18,9 +18,10 @@ interface AudioStepProps {
   items: WordListItem[];
   onComplete: () => Promise<void>;
   onSkip: () => Promise<void>;
+  onBack?: () => void;
 }
 
-export function AudioStep({ list, items, onComplete, onSkip }: AudioStepProps) {
+export function AudioStep({ list, items, onComplete, onSkip, onBack }: AudioStepProps) {
   const [rows, setRows] = useState<AudioRow[]>(() =>
     items
       .filter((item) => item.textTarget)
@@ -318,21 +319,32 @@ export function AudioStep({ list, items, onComplete, onSkip }: AudioStepProps) {
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-border-subtle">
-        <button
-          type="button"
-          className="px-4 py-2 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
-          onClick={onSkip}
-        >
-          Skip audio
-        </button>
-        <button
-          type="button"
-          className="px-4 py-2 rounded-lg bg-accent text-background text-sm font-medium hover:bg-accent-strong transition-colors"
-          onClick={onComplete}
-        >
-          Confirm & finish
-        </button>
+      <div className="flex justify-between gap-2 mt-6 pt-4 border-t border-border-subtle">
+        {onBack ? (
+          <button
+            type="button"
+            className="px-4 py-2 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
+            onClick={onBack}
+          >
+            ← Back
+          </button>
+        ) : <div />}
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className="px-4 py-2 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
+            onClick={onSkip}
+          >
+            Skip audio
+          </button>
+          <button
+            type="button"
+            className="px-4 py-2 rounded-lg bg-accent text-background text-sm font-medium hover:bg-accent-strong transition-colors"
+            onClick={onComplete}
+          >
+            Confirm & finish
+          </button>
+        </div>
       </div>
     </div>
   );

@@ -11,6 +11,7 @@ import { upsertProviderSecret } from "@/lib/providers/store";
 type CallbackStatus = "connected" | "failed";
 
 function getAppBaseUrl(request: NextRequest): string {
+  if (process.env.NODE_ENV !== "production") return request.nextUrl.origin;
   return process.env.WORDLINK_APP_URL?.trim() || request.nextUrl.origin;
 }
 
@@ -34,9 +35,11 @@ function buildRedirectUrl(input: {
 }
 
 function toReason(message: string): string {
-  if (message.includes("expired")) return "code_expired";
-  if (message.includes("invalid")) return "invalid_code";
-  if (message.includes("rejected")) return "exchange_rejected";
+  const normalized = message.toLowerCase();
+  if (normalized.includes("not configured")) return "oauth_not_configured";
+  if (normalized.includes("expired")) return "code_expired";
+  if (normalized.includes("invalid")) return "invalid_code";
+  if (normalized.includes("rejected")) return "exchange_rejected";
   return "exchange_failed";
 }
 
@@ -67,6 +70,8 @@ export async function GET(request: NextRequest) {
 
   const stateFromQuery = request.nextUrl.searchParams.get("state");
   const code = request.nextUrl.searchParams.get("code");
+  const providerError = request.nextUrl.searchParams.get("error");
+  const providerErrorDescription = request.nextUrl.searchParams.get("error_description");
 
   if (!parsedState || !stateFromQuery || stateFromQuery !== parsedState.state) {
     auditWarn({
@@ -107,6 +112,31 @@ export async function GET(request: NextRequest) {
   }
 
   if (!code) {
+    if (providerError) {
+      const details = providerErrorDescription
+        ? `${providerError}: ${providerErrorDescription}`
+        : providerError;
+      auditWarn({
+        provider: "openrouter",
+        step: "callback_provider_error",
+        requestId,
+        userId: parsedState.userId,
+        errorCode: providerError,
+        details,
+        statusCode: 400,
+      });
+      const redirect = NextResponse.redirect(
+        buildRedirectUrl({
+          request,
+          returnTo: parsedState.returnTo,
+          status: "failed",
+          reason: "provider_error",
+        }),
+      );
+      redirect.cookies.delete(OPENROUTER_OAUTH_COOKIE_NAME);
+      return redirect;
+    }
+
     auditWarn({
       provider: "openrouter",
       step: "callback_missing_code",

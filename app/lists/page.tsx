@@ -16,8 +16,10 @@ import { DiffPreview } from './DiffPreview';
 import { TranslationStep } from './TranslationStep';
 import { AudioStep } from './AudioStep';
 import { ApiKeySettings } from './ApiKeySettings';
+import { WizardProgressBar } from './WizardProgressBar';
 
 type WizardStep = 'browse' | 'edit' | 'preview' | 'translate' | 'audio';
+type WizardActiveStep = 'edit' | 'preview' | 'translate' | 'audio';
 
 export default function ListsPage() {
   const [lists, setLists] = useState<WordList[]>([]);
@@ -50,6 +52,14 @@ export default function ListsPage() {
   }, [selectedList]);
 
   // Fetch lists and subscription status on mount
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('openrouter')) {
+      setSettingsOpen(true);
+    }
+  }, []);
+
   useEffect(() => {
     async function loadLists() {
       try {
@@ -294,6 +304,20 @@ export default function ListsPage() {
     setTranslateHeading('Translate Words');
   }, []);
 
+  const handleGoBack = useCallback(() => {
+    if (wizardStep === 'preview') setWizardStep('edit');
+    else if (wizardStep === 'translate') setWizardStep('preview');
+    else if (wizardStep === 'audio') setWizardStep('translate');
+    else handleCancelWizard();
+  }, [wizardStep, handleCancelWizard]);
+
+  const handleGoToStep = useCallback((step: WizardActiveStep) => {
+    const order: WizardActiveStep[] = ['edit', 'preview', 'translate', 'audio'];
+    const currentIdx = order.indexOf(wizardStep as WizardActiveStep);
+    const targetIdx = order.indexOf(step);
+    if (targetIdx <= currentIdx) setWizardStep(step);
+  }, [wizardStep]);
+
   const handleCreateCategory = useCallback(async (name: string) => {
     if (!selectedListId) return;
     const res = await listsApiFetch(`/api/lists/${selectedListId}/categories`, {
@@ -399,68 +423,80 @@ export default function ListsPage() {
       )}
 
       {/* Main content */}
-      <div className="flex-1 min-w-0 overflow-y-auto">
-        {error && (
-          <div className="p-4 m-4 rounded-lg bg-danger/10 text-danger text-sm">
-            {error}
-            <button
-              type="button"
-              className="ml-2 underline"
-              onClick={() => setError(null)}
-            >
-              Dismiss
-            </button>
-          </div>
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        {wizardStep !== 'browse' && selectedList && (
+          <WizardProgressBar
+            currentStep={wizardStep as WizardActiveStep}
+            onGoToStep={handleGoToStep}
+          />
         )}
 
-        {!selectedList ? (
-          <div className="flex items-center justify-center h-full">
-            <p className="text-text-soft">Select a list to get started</p>
-          </div>
-        ) : wizardStep === 'browse' ? (
-          <CategoryBrowser
-            list={selectedList}
-            categories={categories}
-            itemsByCategory={itemsByCategory}
-            isOwner={isOwner}
-            onEditCategory={handleEditCategory}
-            onCreateCategory={handleCreateCategory}
-            onReorderCategories={handleReorderCategories}
-            onDeleteCategory={handleDeleteCategory}
-          />
-        ) : wizardStep === 'edit' ? (
-          <TextareaEditor
-            category={editingCategory!}
-            items={editingItems}
-            inputLanguage={editInputLanguage}
-            onInputLanguageChange={setEditInputLanguage}
-            onPreview={handlePreview}
-            onCancel={handleCancelWizard}
-          />
-        ) : wizardStep === 'preview' ? (
-          <DiffPreview
-            diff={diffResult!}
-            existingItems={editingItems}
-            onConfirm={handleConfirm}
-            onCancel={handleCancelWizard}
-          />
-        ) : wizardStep === 'translate' ? (
-          <TranslationStep
-            list={selectedList}
-            pendingItems={pendingItems ?? []}
-            inputLanguage={editInputLanguage}
-            heading={translateHeading}
-            onComplete={handleTranslationComplete}
-            onSkip={handleSkipTranslation}
-          />
-        ) : wizardStep === 'audio' ? (
-          <AudioStep
-            list={selectedList}
-            items={editingCategoryId ? itemsByCategory.get(editingCategoryId) ?? [] : items}
-            onComplete={handleAudioComplete}
-            onSkip={handleAudioComplete}
-          />
-        ) : null}
+        <div className="flex-1 overflow-y-auto">
+          {error && (
+            <div className="p-4 m-4 rounded-lg bg-danger/10 text-danger text-sm">
+              {error}
+              <button
+                type="button"
+                className="ml-2 underline"
+                onClick={() => setError(null)}
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
+          {!selectedList ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-text-soft">Select a list to get started</p>
+            </div>
+          ) : wizardStep === 'browse' ? (
+            <CategoryBrowser
+              list={selectedList}
+              categories={categories}
+              itemsByCategory={itemsByCategory}
+              isOwner={isOwner}
+              onEditCategory={handleEditCategory}
+              onCreateCategory={handleCreateCategory}
+              onReorderCategories={handleReorderCategories}
+              onDeleteCategory={handleDeleteCategory}
+            />
+          ) : wizardStep === 'edit' ? (
+            <TextareaEditor
+              category={editingCategory!}
+              items={editingItems}
+              inputLanguage={editInputLanguage}
+              onInputLanguageChange={setEditInputLanguage}
+              onPreview={handlePreview}
+              onCancel={handleCancelWizard}
+            />
+          ) : wizardStep === 'preview' ? (
+            <DiffPreview
+              diff={diffResult!}
+              existingItems={editingItems}
+              onConfirm={handleConfirm}
+              onCancel={handleCancelWizard}
+              onBack={handleGoBack}
+            />
+          ) : wizardStep === 'translate' ? (
+            <TranslationStep
+              list={selectedList}
+              pendingItems={pendingItems ?? []}
+              inputLanguage={editInputLanguage}
+              heading={translateHeading}
+              onComplete={handleTranslationComplete}
+              onSkip={handleSkipTranslation}
+              onBack={handleGoBack}
+            />
+          ) : wizardStep === 'audio' ? (
+            <AudioStep
+              list={selectedList}
+              items={editingCategoryId ? itemsByCategory.get(editingCategoryId) ?? [] : items}
+              onComplete={handleAudioComplete}
+              onSkip={handleAudioComplete}
+              onBack={handleGoBack}
+            />
+          ) : null}
+        </div>
       </div>
 
       {!sidebarOpen && (

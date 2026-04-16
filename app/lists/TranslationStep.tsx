@@ -13,6 +13,7 @@ interface TranslationStepProps {
   heading?: string;
   onComplete: () => Promise<void>;
   onSkip: () => Promise<void>;
+  onBack?: () => void;
 }
 
 type TranslationRow = {
@@ -37,6 +38,7 @@ export function TranslationStep({
   heading = 'Translate Words',
   onComplete,
   onSkip,
+  onBack,
 }: TranslationStepProps) {
   const [rows, setRows] = useState<TranslationRow[]>(() =>
     pendingItems.map((item) => ({
@@ -344,7 +346,17 @@ export function TranslationStep({
       </div>
 
       {/* Actions */}
-      <div className="flex justify-end gap-2 mt-6 pt-4 border-t border-border-subtle">
+      <div className="flex justify-between gap-2 mt-6 pt-4 border-t border-border-subtle">
+        {onBack ? (
+          <button
+            type="button"
+            className="px-4 py-2 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
+            onClick={onBack}
+          >
+            ← Back
+          </button>
+        ) : <div />}
+        <div className="flex gap-2">
         <button
           type="button"
           className="px-4 py-2 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
@@ -360,6 +372,7 @@ export function TranslationStep({
         >
           {confirming ? 'Saving...' : 'Confirm translations'}
         </button>
+        </div>
       </div>
     </div>
   );

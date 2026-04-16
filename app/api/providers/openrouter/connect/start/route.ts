@@ -17,6 +17,7 @@ import { consumeRateLimit, getClientIp } from "@/lib/providers/rate-limit";
 import { isLinkedAccountUser } from "@/lib/providers/user";
 
 function getAppBaseUrl(request: NextRequest): string {
+  if (process.env.NODE_ENV !== "production") return request.nextUrl.origin;
   return process.env.WORDLINK_APP_URL?.trim() || request.nextUrl.origin;
 }
 

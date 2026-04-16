@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import type { MenuPanel } from '@/hooks/useMenuPanels';
+import { PWAInstallMenuItem } from '@/components/PWAInstallMenuItem';
 
 interface TopMenuProps {
   onShowAll: () => void;
@@ -211,6 +212,7 @@ function MenuDropdown({
               </button>
             )
           )}
+          <PWAInstallMenuItem onClick={() => setOpen(false)} />
         </div>
       )}
     </div>

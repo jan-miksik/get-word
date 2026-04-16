@@ -10,6 +10,10 @@ export function getOpenRouterConfig() {
     apiBaseUrl: process.env.OPENROUTER_API_BASE_URL ?? DEFAULT_API_BASE,
     exchangeUrl: process.env.OPENROUTER_OAUTH_EXCHANGE_URL ?? DEFAULT_EXCHANGE_URL,
     appId: process.env.OPENROUTER_OAUTH_APP_ID ?? null,
+    exchangeBearerToken:
+      process.env.OPENROUTER_OAUTH_BEARER_TOKEN ??
+      process.env.OPENROUTER_API_KEY ??
+      null,
   };
 }
 
@@ -48,9 +52,16 @@ export const openRouterAdapter: OAuthPkceAdapter = {
 
   async exchangeCode(input): Promise<ProviderAdapterExchangeResult> {
     const config = getOpenRouterConfig();
+    if (!config.exchangeBearerToken) {
+      throw new Error(
+        "OpenRouter OAuth exchange token is not configured (set OPENROUTER_OAUTH_BEARER_TOKEN or OPENROUTER_API_KEY)",
+      );
+    }
+
     const response = await fetch(config.exchangeUrl, {
       method: "POST",
       headers: {
+        Authorization: `Bearer ${config.exchangeBearerToken}`,
         "content-type": "application/json",
       },
       body: JSON.stringify({
@@ -110,7 +121,7 @@ export const openRouterAdapter: OAuthPkceAdapter = {
       return "OpenRouter authorization code is missing, invalid, or expired";
     }
     if (status === 401 || status === 403) {
-      return "OpenRouter rejected this OAuth request";
+      return "OpenRouter rejected this OAuth exchange; check OPENROUTER_OAUTH_BEARER_TOKEN or OPENROUTER_API_KEY and app configuration";
     }
     return `OpenRouter key exchange failed (${status})`;
   },
