@@ -11,9 +11,9 @@ export const WORDLINK_SESSION_COOKIE_NAME = "wordlink_session";
 export const WORDLINK_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 function getSessionSecret(): string | null {
-  const configured = process.env.WORDLINK_SESSION_SECRET;
+  const configured = process.env.APP_SESSION_SECRET;
   if (configured && configured.length > 0) return configured;
-  // Local dev convenience; production should always set WORDLINK_SESSION_SECRET.
+  // Local dev convenience; production should always set APP_SESSION_SECRET.
   if (process.env.NODE_ENV !== "production") return "dev-only-insecure-secret";
   return null;
 }
@@ -79,7 +79,7 @@ export async function signSession(input: {
   ttlSeconds?: number;
 }): Promise<string> {
   const secret = getSessionSecret();
-  if (!secret) throw new Error("WORDLINK_SESSION_SECRET is not configured");
+  if (!secret) throw new Error("APP_SESSION_SECRET is not configured");
 
   const now = input.now ?? Math.floor(Date.now() / 1000);
   const ttlSeconds = input.ttlSeconds ?? WORDLINK_SESSION_TTL_SECONDS;
@@ -102,7 +102,7 @@ export async function verifySession(token: string | null | undefined): Promise<W
   const secret = getSessionSecret();
   if (!secret) {
     if (process.env.NODE_ENV === "production") {
-      console.error("WORDLINK_SESSION_SECRET is not configured; all sessions will be rejected");
+      console.error("APP_SESSION_SECRET is not configured; all sessions will be rejected");
     }
     return null;
   }

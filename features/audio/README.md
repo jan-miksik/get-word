@@ -10,3 +10,4 @@ Owns generated/reused pronunciation audio across the list workflow and learning 
 - `app/api/audio/generate/batch/route.ts`
 - `lib/audio.ts`
 - `lib/audio-availability.ts`
+- `docs/architecture/audio-arweave-service.md`

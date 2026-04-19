@@ -52,18 +52,16 @@ export const openRouterAdapter: OAuthPkceAdapter = {
 
   async exchangeCode(input): Promise<ProviderAdapterExchangeResult> {
     const config = getOpenRouterConfig();
-    if (!config.exchangeBearerToken) {
-      throw new Error(
-        "OpenRouter OAuth exchange token is not configured (set OPENROUTER_OAUTH_BEARER_TOKEN or OPENROUTER_API_KEY)",
-      );
+    const headers: Record<string, string> = {
+      "content-type": "application/json",
+    };
+    if (config.exchangeBearerToken) {
+      headers.Authorization = `Bearer ${config.exchangeBearerToken}`;
     }
 
     const response = await fetch(config.exchangeUrl, {
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${config.exchangeBearerToken}`,
-        "content-type": "application/json",
-      },
+      headers,
       body: JSON.stringify({
         code: input.code,
         code_verifier: input.codeVerifier,
@@ -117,11 +115,19 @@ export const openRouterAdapter: OAuthPkceAdapter = {
 
   normalizeExchangeError(status, body): string {
     const normalizedBody = body.toLowerCase();
+    const usingBearerAuth = Boolean(getOpenRouterConfig().exchangeBearerToken);
     if (status === 400 && normalizedBody.includes("code")) {
       return "OpenRouter authorization code is missing, invalid, or expired";
     }
-    if (status === 401 || status === 403) {
-      return "OpenRouter rejected this OAuth exchange; check OPENROUTER_OAUTH_BEARER_TOKEN or OPENROUTER_API_KEY and app configuration";
+    if (status === 401) {
+      return usingBearerAuth
+        ? "OpenRouter rejected the OAuth exchange credentials"
+        : "OpenRouter rejected the OAuth exchange without bearer authentication";
+    }
+    if (status === 403) {
+      return usingBearerAuth
+        ? "OpenRouter rejected the authorization code or PKCE verifier"
+        : "OpenRouter rejected the OAuth exchange; configure OPENROUTER_OAUTH_BEARER_TOKEN or OPENROUTER_API_KEY if your tenant requires bearer-auth exchange";
     }
     return `OpenRouter key exchange failed (${status})`;
   },

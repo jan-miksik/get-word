@@ -26,10 +26,18 @@ Create `.env.local` with:
 
 ```env
 DATABASE_URL=postgresql://...
-WORDLINK_SESSION_SECRET=...
+# Used to sign login/session cookies and OAuth state cookies.
+# Generate with: openssl rand -base64 32
+APP_SESSION_SECRET=...
+# Used to encrypt stored BYOK provider API keys at rest.
+# Generate with: openssl rand -hex 32
 APP_ENCRYPTION_SECRET=...
 WORDLINK_APP_URL=http://localhost:3000
+# Optional app identifier sent to OpenRouter during OAuth.
 OPENROUTER_OAUTH_APP_ID=...
+# optional, for bearer-auth exchange compatibility:
+# OPENROUTER_OAUTH_BEARER_TOKEN=...
+# OPENROUTER_API_KEY=...
 # optional overrides:
 # OPENROUTER_AUTH_URL=https://openrouter.ai/auth
 # OPENROUTER_API_BASE_URL=https://openrouter.ai/api/v1
@@ -38,6 +46,8 @@ OPENROUTER_OAUTH_APP_ID=...
 
 - **Development / admin operations**: prefer **Supabase “Direct connection”** string.
 - **Production (Vercel)**: prefer **Supabase “Connection Pooler”** string (better for serverless).
+- `APP_SESSION_SECRET` signs session cookies and OpenRouter OAuth state cookies.
+- `APP_ENCRYPTION_SECRET` encrypts stored provider API keys in the database.
 
 For details (direct vs pooler, URL-encoding passwords, dump/restore), see `SUPABASE_SETUP.md`.
 
@@ -50,6 +60,7 @@ For details (direct vs pooler, URL-encoding passwords, dump/restore), see `SUPAB
   - local: `http://localhost:3000/api/providers/openrouter/callback`
   - production: `https://<your-domain>/api/providers/openrouter/callback`
 - Register the callback URL in your OpenRouter app settings and set `OPENROUTER_OAUTH_APP_ID`.
+- OpenRouter’s OAuth guide shows `POST /api/v1/auth/keys` without an auth header, while the API reference documents Bearer auth for that endpoint. This app supports both and will attach `OPENROUTER_OAUTH_BEARER_TOKEN` or `OPENROUTER_API_KEY` if configured.
 
 #### Local dev flow
 

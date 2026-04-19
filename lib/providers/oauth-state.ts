@@ -14,10 +14,10 @@ export type OpenRouterOAuthState = {
 };
 
 function getSigningSecret(): string {
-  const configured = process.env.WORDLINK_SESSION_SECRET;
+  const configured = process.env.APP_SESSION_SECRET;
   if (configured && configured.length > 0) return configured;
   if (process.env.NODE_ENV !== "production") return "dev-only-insecure-secret";
-  throw new Error("WORDLINK_SESSION_SECRET is required in production");
+  throw new Error("APP_SESSION_SECRET is required in production");
 }
 
 function base64Url(input: Buffer): string {
