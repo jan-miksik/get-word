@@ -2,16 +2,22 @@ import crypto from "crypto";
 
 /**
  * Compute content hash for audio dedup.
- * Hash = sha256(text + language + provider)
+ * Hash = sha256(text + language + provider + output-affecting options)
  */
 export function computeContentHash(
   text: string,
   language: string,
   provider: string,
+  options?: {
+    voiceId?: string | null;
+    audioFormat?: string | null;
+  },
 ): string {
+  const voiceId = options?.voiceId?.trim() || "default";
+  const audioFormat = options?.audioFormat?.trim() || "mp3";
   return crypto
     .createHash("sha256")
-    .update(`${text}|${language}|${provider}`)
+    .update(`${text}|${language}|${provider}|${voiceId}|${audioFormat}`)
     .digest("hex");
 }
 
@@ -100,54 +106,8 @@ export async function elevenLabsTTS(
 }
 
 /**
- * Upload audio to storage (Arweave via Worker, with R2 fallback).
- * Returns { storageType, storageRef }.
- */
-export async function uploadAudio(
-  audio: Buffer,
-  contentHash: string,
-  metadata: { language: string; textReference: string; provider: string },
-): Promise<{ storageType: "arweave" | "r2"; storageRef: string } | null> {
-  const workerUrl = process.env.MEDIA_PROXY_WORKER_URL;
-  if (!workerUrl) {
-    // No worker configured — store locally for dev (base64 in storage_ref)
-    return {
-      storageType: "r2" as const,
-      storageRef: `local:${contentHash}`,
-    };
-  }
-
-  try {
-    const res = await fetch(`${workerUrl}/upload`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        audio: audio.toString("base64"),
-        content_hash: contentHash,
-        ...metadata,
-      }),
-    });
-
-    if (!res.ok) return null;
-
-    const data = await res.json();
-    return {
-      storageType: data.storage_type ?? "r2",
-      storageRef: data.storage_ref ?? data.arweave_tx_id ?? data.r2_key,
-    };
-  } catch {
-    return null;
-  }
-}
-
-/**
  * Get audio serving URL for a content hash.
  */
 export function getAudioUrl(contentHash: string): string {
-  const workerUrl = process.env.MEDIA_PROXY_WORKER_URL;
-  if (workerUrl) {
-    return `${workerUrl}/audio/${contentHash}`;
-  }
-  // Fallback to local API route
   return `/api/audio/${contentHash}`;
 }

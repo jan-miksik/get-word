@@ -21,7 +21,7 @@ createAppKit({
   metadata,
   features: {
     email: true,
-    socials: ['google'],
+    socials: ['google', 'apple'],
     emailShowWallets: true,
     connectMethodsOrder: ['email', 'social', 'wallet'],
     collapseWallets: true,

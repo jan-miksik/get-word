@@ -44,3 +44,5 @@ next-env.d.ts
 
 # DB backups
 /backups/
+
+.arweave-wallet.json

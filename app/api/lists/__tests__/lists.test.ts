@@ -8,6 +8,7 @@ const mockUpdateList = vi.fn()
 const mockDeleteList = vi.fn()
 const mockGetListCategories = vi.fn()
 const mockGetListItems = vi.fn()
+const mockGetMediaAssetsByIds = vi.fn()
 const mockCreateCategory = vi.fn()
 const mockReorderCategories = vi.fn()
 const mockDeleteCategory = vi.fn()
@@ -21,6 +22,7 @@ vi.mock('@/lib/db', () => ({
   deleteList: (...args: unknown[]) => mockDeleteList(...args),
   getListCategories: (...args: unknown[]) => mockGetListCategories(...args),
   getListItems: (...args: unknown[]) => mockGetListItems(...args),
+  getMediaAssetsByIds: (...args: unknown[]) => mockGetMediaAssetsByIds(...args),
   createCategory: (...args: unknown[]) => mockCreateCategory(...args),
   reorderCategories: (...args: unknown[]) => mockReorderCategories(...args),
   deleteCategory: (...args: unknown[]) => mockDeleteCategory(...args),
@@ -165,6 +167,7 @@ describe('GET /api/lists/[id]', () => {
     mockGetListById.mockResolvedValue(testList)
     mockGetListCategories.mockResolvedValue([{ id: 'cat-1', name: 'Basic', position: 0 }])
     mockGetListItems.mockResolvedValue([{ id: 'item-1', textKnown: 'ahoj', textTarget: 'xin chao' }])
+    mockGetMediaAssetsByIds.mockResolvedValue(new Map())
     const req = new NextRequest('http://localhost:3000/api/lists/list-1')
     const res = await GET_DETAIL(req, { params: Promise.resolve({ id: 'list-1' }) })
     const data = await res.json()
@@ -179,6 +182,7 @@ describe('GET /api/lists/[id]', () => {
     mockGetListById.mockResolvedValue(publicList)
     mockGetListCategories.mockResolvedValue([])
     mockGetListItems.mockResolvedValue([])
+    mockGetMediaAssetsByIds.mockResolvedValue(new Map())
     const req = new NextRequest('http://localhost:3000/api/lists/list-2')
     const res = await GET_DETAIL(req, { params: Promise.resolve({ id: 'list-2' }) })
     expect(res.status).toBe(200)

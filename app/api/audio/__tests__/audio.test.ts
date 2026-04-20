@@ -33,8 +33,12 @@ vi.mock('@/lib/audio', () => ({
   computeContentHash: (...args: unknown[]) => mockComputeContentHash(...args),
   googleTTS: (...args: unknown[]) => mockGoogleTTS(...args),
   elevenLabsTTS: (...args: unknown[]) => mockElevenLabsTTS(...args),
-  uploadAudio: (...args: unknown[]) => mockUploadAudio(...args),
   getAudioUrl: (...args: unknown[]) => mockGetAudioUrl(...args),
+}))
+
+vi.mock('@/lib/audio-storage', () => ({
+  uploadAudio: (...args: unknown[]) => mockUploadAudio(...args),
+  getArweaveGatewayUrl: (ref: string) => `https://arweave.net/${ref}`,
 }))
 
 import { POST } from '../generate/batch/route'
@@ -118,7 +122,7 @@ describe('POST /api/audio/generate/batch', () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
     mockFindMediaByHashes.mockResolvedValue(new Map())
     mockGoogleTTS.mockResolvedValue({ audio: Buffer.from('audio-data'), sizeBytes: 10 })
-    mockUploadAudio.mockResolvedValue({ storageType: 'r2', storageRef: 'r2:hash123' })
+    mockUploadAudio.mockResolvedValue({ storageType: 'arweave', storageRef: 'tx123' })
     mockCreateMediaAsset.mockResolvedValue({ id: 'asset-new', contentHash: 'hash_hello_vi_google_tts' })
     mockBatchLinkAudioToItems.mockResolvedValue(undefined)
 
@@ -159,7 +163,7 @@ describe('POST /api/audio/generate/batch', () => {
     const existingAsset = { id: 'asset-existing', contentHash: 'hash_hello_vi_google_tts' }
     mockFindMediaByHashes.mockResolvedValue(new Map([['hash_hello_vi_google_tts', existingAsset]]))
     mockGoogleTTS.mockResolvedValue({ audio: Buffer.from('audio'), sizeBytes: 5 })
-    mockUploadAudio.mockResolvedValue({ storageType: 'r2', storageRef: 'r2:new' })
+    mockUploadAudio.mockResolvedValue({ storageType: 'arweave', storageRef: 'tx-new' })
     mockCreateMediaAsset.mockResolvedValue({ id: 'asset-new', contentHash: 'hash_world_vi_google_tts' })
     mockBatchLinkAudioToItems.mockResolvedValue(undefined)
 

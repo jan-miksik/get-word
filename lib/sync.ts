@@ -21,6 +21,41 @@ function logServerTimingHeader(response: Response, endpoint: string): void {
   }
 }
 
+async function readResponseError(
+  response: Response,
+  fallback: string
+): Promise<string> {
+  const contentType = response.headers.get("content-type") ?? "";
+
+  try {
+    if (contentType.includes("application/json")) {
+      const data = await response.json();
+      if (typeof data?.error === "string" && data.error.trim()) {
+        return data.error.trim();
+      }
+      if (typeof data?.message === "string" && data.message.trim()) {
+        return data.message.trim();
+      }
+    } else {
+      const text = (await response.text()).trim();
+      if (text) {
+        return text;
+      }
+    }
+  } catch {
+    // Fall back to status-based message below.
+  }
+
+  return fallback;
+}
+
+function toNetworkErrorMessage(context: string, error: unknown): string {
+  if (error instanceof Error) {
+    return `${context}: ${error.message}`;
+  }
+  return `${context}: ${String(error)}`;
+}
+
 export class AuthRequiredError extends Error {
   constructor(context: string) {
     super(`${context}: ${AUTH_REQUIRED_TEXT}`);
@@ -141,15 +176,10 @@ export async function fetchUserData(): Promise<SyncResponse> {
         authRequired = true;
         throw new AuthRequiredError("Failed to fetch user data");
       }
-      let errorMessage = `Failed to fetch user data: ${response.status} ${response.statusText}`;
-      try {
-        const errorData = await response.json();
-        if (errorData.error) {
-          errorMessage = `Failed to fetch user data: ${errorData.error}`;
-        }
-      } catch {
-        // If JSON parsing fails, use the status text
-      }
+      const errorMessage = await readResponseError(
+        response,
+        `Failed to fetch user data: ${response.status} ${response.statusText}`
+      );
       throw new Error(errorMessage);
     }
 
@@ -170,7 +200,7 @@ export async function fetchUserData(): Promise<SyncResponse> {
     if (error instanceof Error) {
       throw error;
     }
-    throw new Error(`Failed to fetch user data: ${String(error)}`);
+    throw new Error(toNetworkErrorMessage("Failed to fetch user data", error));
   }
 }
 
@@ -182,38 +212,50 @@ export async function linkWallet(
   const startedAt = performance.now();
   const deviceId = getDeviceId();
 
-  const fetchStart = performance.now();
-  const response = await fetch('/api/auth/link-wallet', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      deviceId,
-      walletAddress,
-      ...(opts?.email != null && { email: opts.email }),
-      ...(opts?.authProvider != null && { authProvider: opts.authProvider }),
-    }),
-  });
-  logClientTiming("linkWallet.fetch", fetchStart);
-  logServerTimingHeader(response, "/api/auth/link-wallet POST");
+  try {
+    const fetchStart = performance.now();
+    const response = await fetch('/api/auth/link-wallet', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        deviceId,
+        walletAddress,
+        ...(opts?.email != null && { email: opts.email }),
+        ...(opts?.authProvider != null && { authProvider: opts.authProvider }),
+      }),
+    });
+    logClientTiming("linkWallet.fetch", fetchStart);
+    logServerTimingHeader(response, "/api/auth/link-wallet POST");
 
-  if (!response.ok) {
-    logClientTiming("linkWallet.totalFailed", startedAt);
-    throw new Error(`Failed to link wallet: ${response.statusText}`);
-  }
+    if (!response.ok) {
+      logClientTiming("linkWallet.totalFailed", startedAt);
+      const errorMessage = await readResponseError(
+        response,
+        `Failed to link wallet: ${response.status} ${response.statusText}`
+      );
+      throw new Error(errorMessage);
+    }
 
-  const parseStart = performance.now();
-  const result = await response.json();
-  logClientTiming("linkWallet.parseJson", parseStart);
-  if (!result.success) {
+    const parseStart = performance.now();
+    const result = await response.json();
+    logClientTiming("linkWallet.parseJson", parseStart);
+    if (!result.success) {
+      logClientTiming("linkWallet.totalFailed", startedAt);
+      throw new Error(result.error || 'Failed to link wallet: Unknown error');
+    }
+    if (result.user?.id) {
+      lastKnownUserId = result.user.id;
+      authRequired = false;
+    }
+    logClientTiming("linkWallet.total", startedAt);
+    return result;
+  } catch (error) {
     logClientTiming("linkWallet.totalFailed", startedAt);
-    throw new Error(result.error || 'Failed to link wallet: Unknown error');
+    if (error instanceof Error) {
+      throw error;
+    }
+    throw new Error(toNetworkErrorMessage("Failed to link wallet", error));
   }
-  if (result.user?.id) {
-    lastKnownUserId = result.user.id;
-    authRequired = false;
-  }
-  logClientTiming("linkWallet.total", startedAt);
-  return result;
 }
 
 // Sync data to server (DB-only; no localStorage).

@@ -25,6 +25,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@ardrive/turbo-sdk": "^1.30.0",
     "@reown/appkit": "^1.8.17",
     "@reown/appkit-adapter-wagmi": "^1.8.17",
     "@supabase/supabase-js": "^2.90.1",

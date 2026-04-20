@@ -5,12 +5,14 @@ import {
   getListItems,
   updateList,
   deleteList,
+  getMediaAssetsByIds,
 } from "@/lib/db";
 import {
   resolveUserFromRequest,
   unauthorizedResponse,
   forbiddenResponse,
 } from "@/lib/auth";
+import { getAudioUrl } from "@/lib/audio";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -33,7 +35,25 @@ export async function GET(request: NextRequest, context: RouteContext) {
     getListItems(id),
   ]);
 
-  return NextResponse.json({ list, categories, items });
+  const mediaAssets = await getMediaAssetsByIds(
+    items
+      .map((item) => item.audioAssetId)
+      .filter((id): id is string => Boolean(id)),
+  );
+
+  return NextResponse.json({
+    list,
+    categories,
+    items: items.map((item) => ({
+      ...item,
+      audioUrl: item.audioAssetId
+        ? (() => {
+            const asset = mediaAssets.get(item.audioAssetId);
+            return asset ? getAudioUrl(asset.contentHash) : null;
+          })()
+        : null,
+    })),
+  });
 }
 
 export async function PUT(request: NextRequest, context: RouteContext) {

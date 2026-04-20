@@ -29,7 +29,7 @@ export function AudioStep({ list, items, onComplete, onSkip, onBack }: AudioStep
         id: item.id,
         textTarget: item.textTarget!,
         language: list.languageTo,
-        audioUrl: null,
+        audioUrl: item.audioUrl ?? null,
         audioStatus: item.audioStatus as AudioRow['audioStatus'],
       }))
   );
@@ -160,35 +160,6 @@ export function AudioStep({ list, items, onComplete, onSkip, onBack }: AudioStep
     if (audioRef.current) audioRef.current.pause();
     playQueueRef.current = [];
     setPlayingId(null);
-  }, []);
-
-  // Load audio URLs for items that are already 'ready' (dedup lookup — no re-generation)
-  useEffect(() => {
-    const readyWithoutUrl = rows.filter((r) => r.audioStatus === 'ready' && !r.audioUrl);
-    if (readyWithoutUrl.length === 0) return;
-
-    listsApiFetch('/api/audio/generate/batch', {
-      method: 'POST',
-      body: JSON.stringify({
-        items: readyWithoutUrl.map((r) => ({ id: r.id, text: r.textTarget, language: r.language })),
-        provider: 'google_tts',
-      }),
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (!data?.results) return;
-        const urlMap = new Map<string, string | null>(
-          data.results.map((r: { id: string; audio_url: string | null }) => [r.id, r.audio_url])
-        );
-        setRows((prev) =>
-          prev.map((row) => {
-            const url = urlMap.get(row.id);
-            return url ? { ...row, audioUrl: url } : row;
-          })
-        );
-      })
-      .catch(() => {/* non-critical — play buttons stay disabled */});
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Cleanup audio on unmount

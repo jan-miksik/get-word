@@ -33,11 +33,23 @@ APP_SESSION_SECRET=...
 # Generate with: openssl rand -hex 32
 APP_ENCRYPTION_SECRET=...
 WORDLINK_APP_URL=http://localhost:3000
+GOOGLE_TRANSLATE_API_KEY=...
+GOOGLE_TTS_API_KEY=...
+# Single-line Arweave JWK JSON or base64-encoded JWK JSON for ArDrive Turbo uploads
+ARDRIVE_TURBO_WALLET_JWK=...
+
+# Optional overrides
+# ARDRIVE_TURBO_UPLOAD_URL=https://upload.ardrive.io
+# ARDRIVE_TURBO_PAYMENT_URL=https://payment.ardrive.io
+# ARWEAVE_GATEWAY_URL=https://arweave.net
+
 # Optional app identifier sent to OpenRouter during OAuth.
 OPENROUTER_OAUTH_APP_ID=...
+
 # optional, for bearer-auth exchange compatibility:
 # OPENROUTER_OAUTH_BEARER_TOKEN=...
 # OPENROUTER_API_KEY=...
+
 # optional overrides:
 # OPENROUTER_AUTH_URL=https://openrouter.ai/auth
 # OPENROUTER_API_BASE_URL=https://openrouter.ai/api/v1
@@ -48,6 +60,8 @@ OPENROUTER_OAUTH_APP_ID=...
 - **Production (Vercel)**: prefer **Supabase “Connection Pooler”** string (better for serverless).
 - `APP_SESSION_SECRET` signs session cookies and OpenRouter OAuth state cookies.
 - `APP_ENCRYPTION_SECRET` encrypts stored provider API keys in the database.
+- `ARDRIVE_TURBO_WALLET_JWK` funds and signs ArDrive Turbo uploads for generated audio.
+- `ARWEAVE_GATEWAY_URL` controls the public gateway used by `/api/audio/[hash]` redirects.
 
 For details (direct vs pooler, URL-encoding passwords, dump/restore), see `SUPABASE_SETUP.md`.
 

@@ -22,6 +22,17 @@ const nextConfig = {
   },
   reactStrictMode: true,
   output: 'standalone', // Required for OpenNext/Cloudflare
+  async headers() {
+    return [
+      {
+        source: '/:path*',
+        headers: [
+          // Popup-based social auth flows may need access to the opener window.
+          { key: 'Cross-Origin-Opener-Policy', value: 'same-origin-allow-popups' },
+        ],
+      },
+    ];
+  },
   webpack: (config) => {
     // Stub optional @wagmi/connectors peer deps (Coinbase, MetaMask, Gemini, Porto, WalletConnect).
     // See: https://github.com/wevm/wagmi/issues/4906

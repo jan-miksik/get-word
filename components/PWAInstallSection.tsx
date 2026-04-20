@@ -1,32 +1,12 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
-}
-
-function isStandalone() {
-  if (typeof window === 'undefined') return false;
-  // iOS Safari
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const nav: any = navigator;
-  return (
-    window.matchMedia?.('(display-mode: standalone)')?.matches === true ||
-    nav.standalone === true
-  );
-}
-
-function getInstallHelp() {
-  const ua = typeof navigator !== 'undefined' ? navigator.userAgent : '';
-  const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as unknown as { MSStream?: unknown }).MSStream;
-  const isIOSChrome = /CriOS/.test(ua);
-  const isIOSFirefox = /FxiOS/.test(ua);
-  const isIOSSafari = isIOS && !isIOSChrome && !isIOSFirefox;
-
-  return { isIOS, isIOSSafari };
-}
+import {
+  BeforeInstallPromptEvent,
+  getInstallPlatform,
+  isStandalone,
+  openPWAInstallHelp,
+} from '@/lib/pwa-install';
 
 export function PWAInstallSection() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
@@ -49,7 +29,7 @@ export function PWAInstallSection() {
     };
   }, []);
 
-  const { isIOS, isIOSSafari } = useMemo(getInstallHelp, []);
+  const { isIOS, isIOSSafari } = useMemo(getInstallPlatform, []);
 
   if (installed) {
     return (
@@ -90,22 +70,40 @@ export function PWAInstallSection() {
 
   if (isIOSSafari) {
     return (
-      <div className="flex flex-col gap-1">
-        <div className="text-sm text-text">Add to Home Screen (iPhone/iPad)</div>
-        <div className="text-xs text-text-soft/70">
-          In Safari: tap Share → <span className="font-semibold">Add to Home Screen</span>.
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm text-text">Add to Home Screen (iPhone/iPad)</div>
+          <div className="text-xs text-text-soft/70">
+            Safari still requires Share → <span className="font-semibold">Add to Home Screen</span>.
+          </div>
         </div>
+        <button
+          type="button"
+          className="px-3 py-2 text-xs font-semibold rounded-xl border border-accent/40 bg-accent/10 text-accent cursor-pointer hover:bg-accent/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+          onClick={openPWAInstallHelp}
+        >
+          Install
+        </button>
       </div>
     );
   }
 
   if (isIOS) {
     return (
-      <div className="flex flex-col gap-1">
-        <div className="text-sm text-text">Install on iPhone/iPad</div>
-        <div className="text-xs text-text-soft/70">
-          Open this page in Safari to use Share → <span className="font-semibold">Add to Home Screen</span>.
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-sm text-text">Install on iPhone/iPad</div>
+          <div className="text-xs text-text-soft/70">
+            Use your browser&apos;s Share menu. If needed, Safari will always support the install flow.
+          </div>
         </div>
+        <button
+          type="button"
+          className="px-3 py-2 text-xs font-semibold rounded-xl border border-accent/40 bg-accent/10 text-accent cursor-pointer hover:bg-accent/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+          onClick={openPWAInstallHelp}
+        >
+          Install
+        </button>
       </div>
     );
   }
@@ -119,4 +117,3 @@ export function PWAInstallSection() {
     </div>
   );
 }
-

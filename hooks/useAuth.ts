@@ -28,7 +28,9 @@ export function useAuth(): UseAuthReturn {
     undefined
 
   const signIn = useCallback(() => {
-    open()
+    void open({ view: 'Connect' }).catch((error) => {
+      console.error('[useAuth] Failed to open AppKit connect modal:', error)
+    })
   }, [open])
 
   const signOut = useCallback(async () => {
@@ -44,9 +46,13 @@ export function useAuth(): UseAuthReturn {
 
   const openAccountMenu = useCallback(() => {
     if (isConnected) {
-      open({ view: 'Account' })
+      void open({ view: 'Account' }).catch((error) => {
+        console.error('[useAuth] Failed to open AppKit account modal:', error)
+      })
     } else {
-      open({ view: 'Connect' })
+      void open({ view: 'Connect' }).catch((error) => {
+        console.error('[useAuth] Failed to open AppKit connect modal:', error)
+      })
     }
   }, [open, isConnected])
 

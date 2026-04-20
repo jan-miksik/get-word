@@ -12,9 +12,9 @@ import {
   computeContentHash,
   googleTTS,
   elevenLabsTTS,
-  uploadAudio,
   getAudioUrl,
 } from "@/lib/audio";
+import { uploadAudio } from "@/lib/audio-storage";
 import { getUserApiKey } from "@/lib/translation";
 
 type AudioItem = {
@@ -25,6 +25,9 @@ type AudioItem = {
 
 const MAX_ITEMS = 200;
 const CONCURRENCY = 3;
+const AUDIO_FORMAT = "mp3";
+
+export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   const user = await resolveUserFromRequest(request);
@@ -72,7 +75,10 @@ export async function POST(request: NextRequest) {
 
   // Step 1: DB dedup — check for existing media assets by content hash
   const hashes = items.map((item) =>
-    computeContentHash(item.text, item.language, provider),
+    computeContentHash(item.text, item.language, provider, {
+      voiceId: voice_id ?? "default",
+      audioFormat: AUDIO_FORMAT,
+    }),
   );
   const existingMedia = await findMediaByHashes(hashes);
 
@@ -134,19 +140,20 @@ export async function POST(request: NextRequest) {
           }
 
           if (!result) {
+            await batchLinkAudioToItems([
+              { itemId: item.id, audioAssetId: null, audioStatus: "failed" },
+            ]);
             return { itemId: item.id, hash, status: "error" as const, error: "Generation failed" };
           }
 
-          // Upload to storage
-          const storage = await uploadAudio(result.audio, hash, {
+          // Upload to Arweave via ArDrive Turbo
+          const storage = await uploadAudio(result.audio, {
+            contentHash: hash,
             language: item.language,
             textReference: item.text,
             provider,
+            voiceId: voice_id ?? "default",
           });
-
-          if (!storage) {
-            return { itemId: item.id, hash, status: "error" as const, error: "Upload failed" };
-          }
 
           // Create media asset record
           const asset = await createMediaAsset({
@@ -172,6 +179,9 @@ export async function POST(request: NextRequest) {
             audioUrl: getAudioUrl(hash),
           };
         } catch (err) {
+          await batchLinkAudioToItems([
+            { itemId: item.id, audioAssetId: null, audioStatus: "failed" },
+          ]);
           return {
             itemId: item.id,
             hash,

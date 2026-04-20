@@ -6,7 +6,9 @@ const mockDisconnect = vi.fn()
 const mockFetch = vi.fn()
 let mockIsConnected = false
 let mockAddress: string | undefined = undefined
-let mockEmbeddedWalletInfo: { user?: { email?: string } } | undefined = undefined
+let mockEmbeddedWalletInfo:
+  | { user?: { email?: string; type?: string; loginMethod?: string } }
+  | undefined = undefined
 
 vi.mock('@reown/appkit/react', () => ({
   useAppKit: () => ({ open: mockOpen }),
@@ -56,10 +58,19 @@ describe('useAuth', () => {
     expect(result.current.email).toBe('user@example.com')
   })
 
+  it('returns auth provider from embedded wallet info', () => {
+    mockIsConnected = true
+    mockAddress = '0xABC123'
+    mockEmbeddedWalletInfo = { user: { email: 'user@example.com', type: 'apple' } }
+    const { result } = renderHook(() => useAuth())
+    expect(result.current.authProvider).toBe('apple')
+  })
+
   it('signIn calls appKit.open', () => {
+    mockOpen.mockResolvedValue(undefined)
     const { result } = renderHook(() => useAuth())
     result.current.signIn()
-    expect(mockOpen).toHaveBeenCalled()
+    expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
   })
 
   it('signOut calls disconnect', async () => {
@@ -70,8 +81,33 @@ describe('useAuth', () => {
   })
 
   it('openAccountMenu calls appKit.open', () => {
+    mockOpen.mockResolvedValue(undefined)
     const { result } = renderHook(() => useAuth())
     result.current.openAccountMenu()
-    expect(mockOpen).toHaveBeenCalled()
+    expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
+  })
+
+  it('openAccountMenu opens account view when connected', () => {
+    mockIsConnected = true
+    mockOpen.mockResolvedValue(undefined)
+    const { result } = renderHook(() => useAuth())
+    result.current.openAccountMenu()
+    expect(mockOpen).toHaveBeenCalledWith({ view: 'Account' })
+  })
+
+  it('catches modal open errors', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockOpen.mockRejectedValue(new Error('popup blocked'))
+    const { result } = renderHook(() => useAuth())
+
+    result.current.signIn()
+    await Promise.resolve()
+
+    expect(consoleError).toHaveBeenCalledWith(
+      '[useAuth] Failed to open AppKit connect modal:',
+      expect.any(Error)
+    )
+
+    consoleError.mockRestore()
   })
 })

@@ -1,271 +1,114 @@
-# Audio Arweave Service
+# Audio Arweave Storage
 
-## Goal
+## Current decision
 
-Replace local audio file storage with an upload flow that:
+The first implementation keeps ArDrive Turbo upload logic inside the Next.js app.
 
-1. uploads audio to Arweave,
-2. returns a stable path/URL for playback,
-3. saves the uploaded asset in the database,
-4. keeps the existing dedup model based on `content_hash`.
+Why this won:
 
-## Recommendation
+- auth, DB writes, and list ownership rules already live in Next.js,
+- the broken path was the editing flow itself, so the shortest safe fix is to complete that path in one place,
+- a Worker would add another deployable service before we have proven volume or caching needs.
 
-Use a two-part service in this repo:
+The Cloudflare Worker option is still valid later for caching, proxying, or isolating upload credentials, but it is deferred.
 
-- `Next.js API route` as the authenticated orchestrator
-- `Cloudflare Worker` as the media edge service
+## Implemented flow
 
-This is the best fit for the current app because:
+### Generate and persist
 
-- the app already runs as a standard Next.js backend and owns auth, list updates, and DB writes,
-- the code already expects a media worker boundary via `MEDIA_PROXY_WORKER_URL`,
-- Arweave upload and audio delivery fit well behind a Worker,
-- keeping it in this repo avoids contract drift between the app and the media service.
+`POST /api/audio/generate/batch` now does all of the following:
 
-## Recommended Ownership
-
-### Next.js route
-
-Own this in the app:
-
-- validate session and permissions,
-- compute `content_hash`,
-- check DB dedup in `media_assets`,
-- call the Worker only when upload is needed,
-- save the returned Arweave reference in Postgres,
-- link the saved asset to `word_list_items`,
-- return the final audio URL to the client.
-
-### Cloudflare Worker
-
-Own this in the Worker:
-
-- receive audio bytes,
-- upload bytes to Arweave,
-- optionally cache bytes in R2,
-- return normalized storage metadata,
-- serve audio by `content_hash` or stored reference.
-
-## Why Not Let the Worker Write Directly to Postgres
-
-You can do it, but I would not make that the first version.
-
-Problems:
-
-- the Worker then needs direct database credentials,
-- auth and business rules become split between Next.js and the Worker,
-- upload errors and DB errors become harder to reconcile,
-- local development gets more complicated.
-
-Better split:
-
-- Worker handles storage,
-- Next.js handles application state and database writes.
-
-From the product perspective this is still one "service": the app endpoint uploads, saves in DB, and returns the path.
-
-## Proposed Flow
-
-### Happy path
-
-1. Client calls `POST /api/audio/upload`.
-2. Next.js authenticates the user.
-3. Next.js computes `content_hash` from:
+1. authenticates the user,
+2. computes a content hash from:
    - `text`
    - `language`
    - `provider`
    - `voice_id`
-   - any TTS settings that affect output
-4. Next.js checks `media_assets` for existing `content_hash`.
-5. If found:
-   - return the existing path,
-   - link it to the word if needed,
-   - skip Arweave upload.
-6. If not found:
-   - Next.js sends the audio bytes to the Worker,
-   - Worker uploads to Arweave,
-   - Worker returns `storage_type`, `storage_ref`, and a public path,
-   - Next.js inserts a `media_assets` row,
-   - Next.js links `word_list_items.audio_asset_id`,
-   - Next.js returns the final path.
+   - output format
+3. checks `media_assets` for an existing matching hash,
+4. reuses the existing asset when found,
+5. otherwise generates TTS bytes,
+6. uploads the bytes to Arweave with `@ardrive/turbo-sdk`,
+7. writes `media_assets.storage_type='arweave'` and `storage_ref=<tx id>`,
+8. links `word_list_items.audio_asset_id`,
+9. returns `/api/audio/[hash]` as the playback URL.
 
-### Playback path
+### Playback
 
-1. Client requests the app-provided audio URL.
-2. URL resolves to Worker media endpoint.
-3. Worker serves from cache if available.
-4. On cache miss, Worker fetches from Arweave and can repopulate cache.
+Playback always starts from the app URL:
 
-## API Contract
-
-### App route
-
-`POST /api/audio/upload`
-
-Request:
-
-```json
-{
-  "itemId": "uuid",
-  "text": "xin chao",
-  "language": "vi",
-  "provider": "google_tts",
-  "voice_id": "default",
-  "audio_base64": "..."
-}
+```txt
+/api/audio/:contentHash
 ```
 
-Response:
+The route looks up `media_assets` by `content_hash` and:
 
-```json
-{
-  "status": "ok",
-  "content_hash": "sha256...",
-  "storage_type": "arweave",
-  "storage_ref": "arweave_tx_id",
-  "audio_url": "https://media.example.com/audio/sha256..."
-}
-```
+- redirects Arweave-backed assets to `${ARWEAVE_GATEWAY_URL}/${storage_ref}`,
+- keeps legacy non-Arweave entries on the metadata fallback path.
 
-### Worker route
+This keeps the app URL stable even if the public gateway changes later.
 
-`POST /upload`
+## Data model
 
-Request body:
+No schema change was required. The existing tables already support the final shape:
 
-- prefer raw bytes or multipart upload,
-- avoid JSON base64 for the long-term implementation,
-- include metadata in headers or form fields.
-
-Response:
-
-```json
-{
-  "storage_type": "arweave",
-  "storage_ref": "arweave_tx_id",
-  "audio_url": "https://media.example.com/audio/sha256..."
-}
-```
-
-### Worker serve route
-
-`GET /audio/:hash`
-
-Behavior:
-
-- resolve DB-independent media path by `content_hash`,
-- serve cached bytes when possible,
-- fall back to Arweave object fetch,
-- return correct `Content-Type` and cache headers.
-
-## Database Model
-
-The existing schema already supports this shape through `media_assets` and `word_list_items`.
-
-Recommended stored values:
-
-- `media_assets.content_hash`: app-level dedup key
+- `media_assets.content_hash`: dedup key
 - `media_assets.storage_type`: `arweave`
 - `media_assets.storage_ref`: Arweave transaction id
-- `media_assets.media_type`: `audio`
-- `media_assets.language`: source language
-- `media_assets.text_reference`: text used to generate the file
-- `media_assets.provider`: `google_tts` or `elevenlabs`
-- `media_assets.size_bytes`: uploaded byte size
+- `word_list_items.audio_asset_id`: link from word to stored media
+- `word_list_items.audio_status`: `ready` or `failed` after processing
 
-The user-facing playback URL should be derived, not stored as the primary source of truth.
+`content_hash` remains unique, and the insert path is idempotent so concurrent uploads for the same audio do not break on the unique constraint.
 
-Recommended derived URL:
+## Environment
 
-```txt
-${MEDIA_PROXY_WORKER_URL}/audio/${content_hash}
-```
+Required for real uploads:
 
-This keeps playback stable even if the underlying Arweave gateway strategy changes.
+- `ARDRIVE_TURBO_WALLET_JWK`
 
-## Important Changes To Make
+Optional:
 
-### 1. Include voice settings in the hash
+- `ARDRIVE_TURBO_UPLOAD_URL`
+- `ARDRIVE_TURBO_PAYMENT_URL`
+- `ARWEAVE_GATEWAY_URL`
 
-Current hashing only uses `text`, `language`, and `provider`. That is not enough if different voices can generate different files for the same text.
+`ARDRIVE_TURBO_WALLET_JWK` may be either:
 
-The hash input should include:
+- a single-line JWK JSON string, or
+- a base64-encoded JWK JSON blob.
 
-- `text`
-- `language`
-- `provider`
-- `voice_id`
-- codec or format
-- any generation options that affect audio bytes
+## Comparison with a Cloudflare Worker
 
-### 2. Do not use local fake storage in production paths
+### Next.js app
 
-Current fallback behavior returns a local marker such as `local:${contentHash}`. That is fine only for local development.
+Pros:
 
-For production:
+- one deploy target,
+- no duplicated auth/business logic,
+- simplest local development,
+- easiest path to save DB rows and link list items transactionally.
 
-- upload must succeed to Arweave,
-- or fail clearly,
-- or intentionally fall back to R2 if you still want a backup path.
+Cons:
 
-### 3. Make insert idempotent
+- upload credentials live in the app runtime,
+- no dedicated media edge/cache layer yet.
 
-`content_hash` is unique. Use an upsert or "insert, then select on conflict" pattern so concurrent uploads of the same content do not fail unpredictably.
+### Cloudflare Worker
 
-### 4. Authenticate calls from Next.js to the Worker
+Pros:
 
-Do not expose unauthenticated upload endpoints publicly.
+- better place for edge caching and gateway shielding,
+- cleaner separation if we later add R2 cache or retry queues.
 
-Use one of:
+Cons:
 
-- shared secret header,
-- signed HMAC request,
-- Cloudflare Access or service-to-service auth.
+- another service to deploy and monitor,
+- more service-to-service auth,
+- more surface area before the current feature is fully working.
 
-### 5. Prefer binary upload over base64
+## Deferred work
 
-Base64 adds size overhead and unnecessary CPU work. Use:
-
-- `multipart/form-data`, or
-- raw `application/octet-stream`.
-
-## Suggested Folder Structure
-
-```txt
-app/api/audio/upload/route.ts
-lib/audio.ts
-lib/audio-storage.ts
-workers/media-proxy/src/index.ts
-workers/media-proxy/wrangler.toml
-docs/architecture/audio-arweave-service.md
-```
-
-## Suggested Implementation Plan
-
-1. Create `workers/media-proxy`.
-2. Implement `POST /upload` in the Worker.
-3. Implement `GET /audio/:hash` in the Worker.
-4. Add `MEDIA_PROXY_WORKER_URL` to env docs.
-5. Add a new app route `POST /api/audio/upload`.
-6. Move DB write logic into a small service module such as `lib/audio-storage.ts`.
-7. Update existing batch generation flow to call the new storage module.
-8. Add tests for:
-   - dedup hit,
-   - new upload,
-   - duplicate concurrent upload,
-   - Worker upload failure,
-   - DB insert conflict,
-   - playback URL generation.
-
-## Final Recommendation
-
-For this repo, the best version is:
-
-- keep the media service in this repo,
-- deploy the upload/serve layer as a Cloudflare Worker,
-- keep DB writes in Next.js,
-- return a Worker URL as the stable playback path,
-- store only normalized Arweave metadata in `media_assets`.
-
-That gives you the behavior you want without pushing app-state responsibilities into a separate infrastructure service too early.
+- optional Worker extraction for playback caching or upload isolation,
+- optional R2 fallback or retry queue,
+- migration of legacy `public/speech/*` assets into `media_assets`,
+- per-word regenerate/provider switching beyond the current batch flow.

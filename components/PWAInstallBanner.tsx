@@ -1,25 +1,16 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-
-interface BeforeInstallPromptEvent extends Event {
-  prompt: () => Promise<void>;
-  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
-}
+import {
+  BeforeInstallPromptEvent,
+  getInstallPlatform,
+  isStandalone,
+  PWA_INSTALL_HELP_EVENT,
+} from '@/lib/pwa-install';
 
 const DISMISS_KEY = 'pwa-install-dismissed-until';
 const DISMISS_DURATION_MS = 14 * 24 * 60 * 60 * 1000; // 14 days
 const MOBILE_BANNER_OFFSET = 'calc(96px + env(safe-area-inset-bottom, 0px))';
-
-function isStandalone() {
-  if (typeof window === 'undefined') return false;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const nav: any = navigator;
-  return (
-    window.matchMedia?.('(display-mode: standalone)')?.matches === true ||
-    nav.standalone === true
-  );
-}
 
 function isDismissed() {
   try {
@@ -39,23 +30,14 @@ function dismiss() {
   }
 }
 
-function getPlatform() {
-  if (typeof navigator === 'undefined') return { isIOS: false, isIOSSafari: false };
-  const ua = navigator.userAgent;
-  const isIOS = /iPad|iPhone|iPod/.test(ua) && !(window as unknown as { MSStream?: unknown }).MSStream;
-  const isIOSChrome = /CriOS/.test(ua);
-  const isIOSFirefox = /FxiOS/.test(ua);
-  const isIOSSafari = isIOS && !isIOSChrome && !isIOSFirefox;
-  return { isIOS, isIOSSafari };
-}
-
 export function PWAInstallBanner() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [installed, setInstalled] = useState(false);
   const [dismissed, setDismissed] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
 
-  const { isIOSSafari } = useMemo(getPlatform, []);
+  const { isIOS, isIOSSafari } = useMemo(getInstallPlatform, []);
 
   useEffect(() => {
     setInstalled(isStandalone());
@@ -80,9 +62,18 @@ export function PWAInstallBanner() {
   }, []);
 
   useEffect(() => {
+    const openHelp = () => setHelpOpen(true);
+
+    window.addEventListener(PWA_INSTALL_HELP_EVENT, openHelp);
+    return () => {
+      window.removeEventListener(PWA_INSTALL_HELP_EVENT, openHelp);
+    };
+  }, []);
+
+  useEffect(() => {
     const root = document.documentElement;
     const shouldReserveMobileOffset =
-      hydrated && !installed && !dismissed && (deferredPrompt != null || isIOSSafari);
+      hydrated && !installed && !dismissed && (deferredPrompt != null || isIOS);
 
     root.style.setProperty(
       '--pwa-install-banner-offset',
@@ -92,7 +83,7 @@ export function PWAInstallBanner() {
     return () => {
       root.style.setProperty('--pwa-install-banner-offset', '0px');
     };
-  }, [deferredPrompt, dismissed, hydrated, installed, isIOSSafari]);
+  }, [deferredPrompt, dismissed, hydrated, installed, isIOS]);
 
   // Don't render until hydrated (avoid SSR mismatch)
   if (!hydrated) return null;
@@ -101,15 +92,20 @@ export function PWAInstallBanner() {
   // User dismissed recently
   if (dismissed) return null;
   // No install path available
-  if (!deferredPrompt && !isIOSSafari) return null;
+  if (!deferredPrompt && !isIOS) return null;
 
   const handleDismiss = () => {
     dismiss();
     setDismissed(true);
+    setHelpOpen(false);
   };
 
   const handleInstall = async () => {
-    if (!deferredPrompt) return;
+    if (!deferredPrompt) {
+      setHelpOpen(true);
+      return;
+    }
+
     try {
       await deferredPrompt.prompt();
       await deferredPrompt.userChoice;
@@ -129,12 +125,11 @@ export function PWAInstallBanner() {
         aria-label="Install app"
       >
         <div className="flex-1 min-w-0">
-          {isIOSSafari ? (
+          {isIOS ? (
             <>
               <p className="m-0 text-sm font-semibold text-[var(--text,#f1f5f9)]">Add to Home Screen</p>
               <p className="m-0 text-xs text-[var(--text-soft,#94a3b8)] mt-0.5">
-                Tap <ShareIcon className="inline align-middle mb-0.5 mx-0.5" /> then{' '}
-                <span className="font-semibold text-[var(--text,#f1f5f9)]">Add to Home Screen</span>
+                One more step in your browser menu to install Get Word.
               </p>
             </>
           ) : (
@@ -145,15 +140,13 @@ export function PWAInstallBanner() {
           )}
         </div>
 
-        {!isIOSSafari && (
-          <button
-            type="button"
-            onClick={() => void handleInstall()}
-            className="shrink-0 px-4 py-2.5 text-sm font-semibold rounded-xl bg-accent text-white border-none cursor-pointer hover:opacity-90 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-          >
-            Install
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => void handleInstall()}
+          className="shrink-0 px-4 py-2.5 text-sm font-semibold rounded-xl bg-accent text-white border-none cursor-pointer hover:opacity-90 active:scale-95 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+        >
+          Install
+        </button>
 
         <button
           type="button"
@@ -192,6 +185,76 @@ export function PWAInstallBanner() {
               <path d="M1 1l10 10M11 1L1 11" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
             </svg>
           </button>
+        </div>
+      )}
+
+      {isIOS && helpOpen && (
+        <div
+          className="fixed inset-0 z-[320] flex items-end justify-center bg-black/60 px-4 pb-4 pt-10 md:items-center"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="pwa-install-help-title"
+        >
+          <div className="w-full max-w-md rounded-[28px] border border-[var(--border-subtle,rgba(255,255,255,0.08))] bg-[var(--bg-elevated,#0d1626)] p-5 shadow-2xl">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p
+                  id="pwa-install-help-title"
+                  className="m-0 text-base font-semibold text-[var(--text,#f1f5f9)]"
+                >
+                  Add Get Word to your Home Screen
+                </p>
+                <p className="m-0 mt-1 text-sm text-[var(--text-soft,#94a3b8)]">
+                  iPhone and iPad still require the browser&apos;s own install flow.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setHelpOpen(false)}
+                aria-label="Close install help"
+                className="shrink-0 h-9 w-9 flex items-center justify-center rounded-xl text-[var(--text-soft,#94a3b8)] hover:text-[var(--text,#f1f5f9)] hover:bg-white/10 border-none bg-transparent cursor-pointer transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+              >
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+                  <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+
+            <ol className="m-0 mt-4 list-decimal space-y-3 pl-5 text-sm text-[var(--text,#f1f5f9)]">
+              <li>
+                Tap the browser&apos;s <span className="font-semibold">Share</span> button
+                {isIOSSafari ? (
+                  <>
+                    {' '}
+                    <ShareIcon className="inline align-middle mb-0.5 mx-0.5" /> in Safari.
+                  </>
+                ) : (
+                  <> or the browser menu.</>
+                )}
+              </li>
+              <li>
+                Choose <span className="font-semibold">Add to Home Screen</span>.
+              </li>
+              <li>
+                Tap <span className="font-semibold">Add</span> in the top-right corner.
+              </li>
+            </ol>
+
+            {!isIOSSafari && (
+              <p className="m-0 mt-4 rounded-2xl bg-white/5 px-3 py-2 text-xs text-[var(--text-soft,#94a3b8)]">
+                If your current browser doesn&apos;t show <span className="font-semibold text-[var(--text,#f1f5f9)]">Add to Home Screen</span>,
+                open this page in Safari and repeat the same steps there.
+              </p>
+            )}
+
+            <button
+              type="button"
+              onClick={() => setHelpOpen(false)}
+              className="mt-4 w-full rounded-2xl bg-accent px-4 py-3 text-sm font-semibold text-white border-none cursor-pointer hover:opacity-90 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+            >
+              Close
+            </button>
+          </div>
         </div>
       )}
     </>

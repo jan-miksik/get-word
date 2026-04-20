@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findMediaByHash } from "@/lib/db";
+import { getArweaveGatewayUrl } from "@/lib/audio-storage";
 
 type RouteContext = { params: Promise<{ hash: string }> };
 
@@ -16,10 +17,8 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: "Audio not found" }, { status: 404 });
   }
 
-  // If storage is via Worker (arweave or r2), redirect to Worker URL
-  const workerUrl = process.env.MEDIA_PROXY_WORKER_URL;
-  if (workerUrl) {
-    return NextResponse.redirect(`${workerUrl}/audio/${hash}`, {
+  if (asset.storageType === "arweave") {
+    return NextResponse.redirect(getArweaveGatewayUrl(asset.storageRef), {
       status: 302,
       headers: {
         "Cache-Control": "public, max-age=86400, immutable",
@@ -27,7 +26,16 @@ export async function GET(_request: NextRequest, context: RouteContext) {
     });
   }
 
-  // Local dev fallback: return metadata only (no actual audio bytes stored locally)
+  if (/^https?:\/\//.test(asset.storageRef)) {
+    return NextResponse.redirect(asset.storageRef, {
+      status: 302,
+      headers: {
+        "Cache-Control": "public, max-age=86400, immutable",
+      },
+    });
+  }
+
+  // Legacy/local-dev fallback: return metadata only when no real remote object exists.
   return NextResponse.json(
     {
       content_hash: asset.contentHash,
