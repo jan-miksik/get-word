@@ -11,8 +11,10 @@ import {
 import {
   deleteProviderConnection,
   getProviderConnection,
+  updateProviderTranslationModel,
 } from "@/lib/providers/store";
 import { isLinkedAccountUser } from "@/lib/providers/user";
+import { normalizeOpenRouterModel } from "@/lib/openrouter-models";
 
 type UiState = "not_connected" | "connecting" | "connected" | "failed_retryable";
 
@@ -57,4 +59,29 @@ export async function DELETE(request: NextRequest) {
 
   const removed = await deleteProviderConnection(user.id, "openrouter");
   return NextResponse.json({ success: true, removed });
+}
+
+export async function PATCH(request: NextRequest) {
+  const user = await resolveUserFromRequest(request);
+  if (!user) return unauthorizedResponse();
+  if (!isLinkedAccountUser(user)) {
+    return forbiddenResponse("Link your wallet or email account before connecting OpenRouter");
+  }
+
+  const body = await request.json().catch(() => ({}));
+  const translationModel = normalizeOpenRouterModel(body.translation_model);
+  const connection = await updateProviderTranslationModel({
+    userId: user.id,
+    provider: "openrouter",
+    translationModel,
+  });
+
+  if (!connection) {
+    return NextResponse.json(
+      { error: "OpenRouter is not connected for this account" },
+      { status: 404 },
+    );
+  }
+
+  return NextResponse.json({ success: true, connection });
 }

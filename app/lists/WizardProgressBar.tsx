@@ -5,6 +5,7 @@ type WizardActiveStep = 'edit' | 'preview' | 'translate' | 'audio';
 interface WizardProgressBarProps {
   currentStep: WizardActiveStep;
   onGoToStep: (step: WizardActiveStep) => void;
+  canJumpForward?: boolean;
 }
 
 const STEPS: { id: WizardActiveStep; label: string }[] = [
@@ -14,7 +15,11 @@ const STEPS: { id: WizardActiveStep; label: string }[] = [
   { id: 'audio', label: 'Audio' },
 ];
 
-export function WizardProgressBar({ currentStep, onGoToStep }: WizardProgressBarProps) {
+export function WizardProgressBar({
+  currentStep,
+  onGoToStep,
+  canJumpForward = false,
+}: WizardProgressBarProps) {
   const currentIndex = STEPS.findIndex((s) => s.id === currentStep);
 
   return (
@@ -24,6 +29,7 @@ export function WizardProgressBar({ currentStep, onGoToStep }: WizardProgressBar
           const isPast = index < currentIndex;
           const isCurrent = index === currentIndex;
           const isFuture = index > currentIndex;
+          const isClickable = isPast || (isFuture && canJumpForward);
 
           return (
             <div key={step.id} className="flex items-center gap-1.5">
@@ -32,13 +38,13 @@ export function WizardProgressBar({ currentStep, onGoToStep }: WizardProgressBar
               )}
               <button
                 type="button"
-                disabled={isFuture}
-                onClick={() => isPast && onGoToStep(step.id)}
+                disabled={!isClickable && !isCurrent}
+                onClick={() => isClickable && onGoToStep(step.id)}
                 className={[
                   'px-2.5 py-1 rounded-md text-xs transition-colors',
                   isCurrent
                     ? 'bg-accent/15 text-accent font-semibold'
-                    : isPast
+                    : isClickable
                     ? 'text-accent hover:bg-accent/10 cursor-pointer'
                     : 'text-text-soft cursor-default',
                 ].join(' ')}

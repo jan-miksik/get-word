@@ -3,6 +3,12 @@
 import { useState, useCallback, useEffect } from 'react';
 import { listsApiFetch } from '@/features/lists/api';
 import type { ConfirmResult, WordList } from '@/features/lists/types';
+import {
+  DEFAULT_OPENROUTER_TRANSLATION_MODEL,
+  OPENROUTER_MODELS_URL,
+  OPENROUTER_TRANSLATION_MODELS,
+  normalizeOpenRouterModel,
+} from '@/lib/openrouter-models';
 
 type PendingItem = NonNullable<ConfirmResult['pending_items']>[number];
 
@@ -55,6 +61,7 @@ export function TranslationStep({
   const [provider, setProvider] = useState<'google' | 'openrouter'>('google');
   const [openRouterState, setOpenRouterState] = useState<OpenRouterUiState>('not_connected');
   const [openRouterLoading, setOpenRouterLoading] = useState(false);
+  const [openRouterModel, setOpenRouterModel] = useState(DEFAULT_OPENROUTER_TRANSLATION_MODEL);
 
   const needsTranslation = inputLanguage === 'known' ? 'textTarget' : 'textKnown';
   const hasSource = inputLanguage === 'known' ? 'textKnown' : 'textTarget';
@@ -73,6 +80,7 @@ export function TranslationStep({
       }
       const data = await res.json();
       setOpenRouterState((data.state as OpenRouterUiState) ?? 'not_connected');
+      setOpenRouterModel(normalizeOpenRouterModel(data.connection?.translationModel));
     } catch {
       setOpenRouterState('not_connected');
     } finally {
@@ -136,6 +144,7 @@ export function TranslationStep({
         body: JSON.stringify({
           items: itemsToTranslate,
           provider,
+          ...(provider === 'openrouter' ? { translation_model: openRouterModel } : {}),
           list_id: list.id,
           input_language: inputLanguage,
         }),
@@ -183,7 +192,29 @@ export function TranslationStep({
     } finally {
       setTranslating(false);
     }
-  }, [rows, needsTranslation, hasSource, provider, list, inputLanguage, openRouterState]);
+  }, [rows, needsTranslation, hasSource, provider, openRouterModel, list, inputLanguage, openRouterState]);
+
+  const handleOpenRouterModelSave = useCallback(async () => {
+    const model = normalizeOpenRouterModel(openRouterModel);
+    setOpenRouterModel(model);
+    setError(null);
+    setOpenRouterLoading(true);
+    try {
+      const res = await listsApiFetch('/api/providers/openrouter', {
+        method: 'PATCH',
+        body: JSON.stringify({ translation_model: model }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error ?? 'Failed to save OpenRouter model');
+      }
+      setOpenRouterModel(normalizeOpenRouterModel(data.connection?.translationModel));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save OpenRouter model');
+    } finally {
+      setOpenRouterLoading(false);
+    }
+  }, [openRouterModel]);
 
   const handleCellEdit = useCallback((id: string, field: 'textKnown' | 'textTarget', value: string) => {
     setRows((prev) =>
@@ -292,6 +323,62 @@ export function TranslationStep({
               ? 'Connecting...'
               : 'Connect OpenRouter'}
           </button>
+        </div>
+      )}
+
+      {provider === 'openrouter' && openRouterState === 'connected' && (
+        <div className="mb-4 p-3 rounded-lg border border-border-subtle bg-background-elevated">
+          <div className="flex items-center justify-between gap-3 mb-2">
+            <label className="text-xs font-medium text-text" htmlFor="translation-openrouter-model">
+              OpenRouter model
+            </label>
+            <a
+              className="text-[11px] text-accent hover:text-accent-strong"
+              href={OPENROUTER_MODELS_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              Browse models
+            </a>
+          </div>
+          <div className="flex flex-col md:flex-row gap-2">
+            <select
+              id="translation-openrouter-model"
+              value={
+                OPENROUTER_TRANSLATION_MODELS.some((model) => model.id === openRouterModel)
+                  ? openRouterModel
+                  : 'custom'
+              }
+              onChange={(e) => {
+                const next = e.target.value;
+                if (next !== 'custom') setOpenRouterModel(next);
+              }}
+              className="min-w-0 flex-1 px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs"
+            >
+              {OPENROUTER_TRANSLATION_MODELS.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name} - {model.price}
+                </option>
+              ))}
+              <option value="custom">Custom model name</option>
+            </select>
+            <input
+              type="text"
+              value={openRouterModel}
+              onChange={(e) => setOpenRouterModel(e.target.value)}
+              placeholder="provider/model-name"
+              className="min-w-0 flex-1 px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs focus:outline-none focus:border-accent"
+              spellCheck={false}
+            />
+            <button
+              type="button"
+              className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-xs hover:bg-background disabled:opacity-60"
+              onClick={handleOpenRouterModelSave}
+              disabled={openRouterLoading}
+            >
+              {openRouterLoading ? 'Saving...' : 'Save'}
+            </button>
+          </div>
         </div>
       )}
 

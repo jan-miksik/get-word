@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { NormalizedWord } from '@/lib/words';
 import { matchesCategoryFilter } from '@/lib/words';
 import { debouncedSync } from '@/lib/sync';
+import { postTabMessage, subscribeTabMessages } from '@/lib/tab-sync';
 
 export function useCategoryFilter(
   words: NormalizedWord[],
@@ -28,7 +29,18 @@ export function useCategoryFilter(
       const next = new Set(prev);
       if (next.has(category)) next.delete(category);
       else next.add(category);
+      postTabMessage({
+        type: 'category_filters_changed',
+        categories: Array.from(next),
+      });
       return next;
+    });
+  }, []);
+
+  useEffect(() => {
+    return subscribeTabMessages((message) => {
+      if (message.type !== 'category_filters_changed') return;
+      setSelectedCategories(new Set(message.categories));
     });
   }, []);
 

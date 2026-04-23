@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import type { WordCategory, WordListItem } from '@/features/lists/types';
 
 interface TextareaEditorProps {
@@ -10,6 +10,7 @@ interface TextareaEditorProps {
   onInputLanguageChange: (lang: 'known' | 'target') => void;
   onPreview: (lines: string[]) => Promise<void>;
   onCancel: () => void;
+  onDirtyChange?: (isDirty: boolean) => void;
 }
 
 export function TextareaEditor({
@@ -19,6 +20,7 @@ export function TextareaEditor({
   onInputLanguageChange,
   onPreview,
   onCancel,
+  onDirtyChange,
 }: TextareaEditorProps) {
   const initialText = useMemo(() => {
     return items
@@ -33,6 +35,14 @@ export function TextareaEditor({
   const [previewing, setPreviewing] = useState(false);
 
   const lineCount = text.split('\n').filter((l) => l.trim().length > 0).length;
+
+  useEffect(() => {
+    setText(initialText);
+  }, [initialText]);
+
+  useEffect(() => {
+    onDirtyChange?.(text !== initialText);
+  }, [initialText, onDirtyChange, text]);
 
   async function handlePreview() {
     setPreviewing(true);

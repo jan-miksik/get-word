@@ -40,6 +40,11 @@ export const apiKeyProviderEnum = pgEnum("api_key_provider", [
   "elevenlabs",
 ]);
 
+export const googleApiScopeEnum = pgEnum("google_api_scope", [
+  "translate",
+  "tts",
+]);
+
 // Words table - stores all vocabulary
 export const words = pgTable("words", {
   id: text("id").primaryKey(), // e.g., "w000", "w001"
@@ -190,6 +195,57 @@ export const userProgress = pgTable(
   ],
 );
 
+export const userDevices = pgTable(
+  "user_devices",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    deviceId: text("device_id").notNull(),
+    firstSeenAt: timestamp("first_seen_at").defaultNow().notNull(),
+    lastSeenAt: timestamp("last_seen_at").defaultNow().notNull(),
+  },
+  (table) => [unique("user_devices_user_device_unique").on(table.userId, table.deviceId)]
+);
+
+export const reviewActionEnum = pgEnum("review_action", [
+  "known",
+  "really_known",
+  "unknown",
+]);
+
+export const reviewEvents = pgTable(
+  "review_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    clientEventId: text("client_event_id").notNull(),
+    deviceId: text("device_id"),
+    sessionId: text("session_id"),
+    wordId: text("word_id").references(() => words.id, { onDelete: "cascade" }),
+    wordListItemId: uuid("word_list_item_id").references(
+      () => wordListItems.id,
+      { onDelete: "set null" },
+    ),
+    action: reviewActionEnum("action").notNull(),
+    clientCreatedAt: timestamp("client_created_at").notNull(),
+    serverCreatedAt: timestamp("server_created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    unique("review_events_user_client_event_unique").on(
+      table.userId,
+      table.clientEventId,
+    ),
+    index("review_events_user_server_created_idx").on(
+      table.userId,
+      table.serverCreatedAt,
+    ),
+  ],
+);
+
 // User memory hooks - custom notes for words
 export const userMemoryHooks = pgTable(
   "user_memory_hooks",
@@ -239,6 +295,7 @@ export const userApiKeys = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
     keyLast4: text("key_last4"),
     connectionMethod: text("connection_method").notNull().default("manual"),
+    translationModel: text("translation_model"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [unique("user_api_keys_user_provider_unique").on(table.userId, table.provider)],
@@ -258,6 +315,32 @@ export const oauthRateLimits = pgTable(
   (table) => [
     unique("oauth_rate_limits_bucket_unique").on(table.bucketKey, table.bucketStart),
     index("oauth_rate_limits_bucket_key_idx").on(table.bucketKey, table.bucketStart),
+  ],
+);
+
+// Google API usage ledger. Units are source text characters for each scope.
+export const googleApiUsage = pgTable(
+  "google_api_usage",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    scope: googleApiScopeEnum("scope").notNull(),
+    periodStart: timestamp("period_start").notNull(),
+    units: integer("units").notNull().default(0),
+    requestCount: integer("request_count").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    unique("google_api_usage_user_scope_period_unique").on(
+      table.userId,
+      table.scope,
+      table.periodStart,
+    ),
+    index("google_api_usage_scope_period_idx").on(table.scope, table.periodStart),
+    index("google_api_usage_user_period_idx").on(table.userId, table.periodStart),
   ],
 );
 
@@ -289,6 +372,10 @@ export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type UserProgress = typeof userProgress.$inferSelect;
 export type NewUserProgress = typeof userProgress.$inferInsert;
+export type ReviewEvent = typeof reviewEvents.$inferSelect;
+export type NewReviewEvent = typeof reviewEvents.$inferInsert;
+export type UserDevice = typeof userDevices.$inferSelect;
+export type NewUserDevice = typeof userDevices.$inferInsert;
 export type UserMemoryHook = typeof userMemoryHooks.$inferSelect;
 export type NewUserMemoryHook = typeof userMemoryHooks.$inferInsert;
 export type UserCategoryFilter = typeof userCategoryFilters.$inferSelect;
@@ -305,5 +392,7 @@ export type UserApiKey = typeof userApiKeys.$inferSelect;
 export type NewUserApiKey = typeof userApiKeys.$inferInsert;
 export type OAuthRateLimit = typeof oauthRateLimits.$inferSelect;
 export type NewOAuthRateLimit = typeof oauthRateLimits.$inferInsert;
+export type GoogleApiUsage = typeof googleApiUsage.$inferSelect;
+export type NewGoogleApiUsage = typeof googleApiUsage.$inferInsert;
 export type UserListSubscription = typeof userListSubscriptions.$inferSelect;
 export type NewUserListSubscription = typeof userListSubscriptions.$inferInsert;

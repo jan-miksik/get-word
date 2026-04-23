@@ -54,6 +54,34 @@ export async function createMediaAsset(
   return existing;
 }
 
+/** Create a media asset or replace the stored object for the same content hash. */
+export async function upsertMediaAsset(
+  data: Omit<NewMediaAsset, "id" | "createdAt">,
+): Promise<MediaAsset> {
+  const [asset] = await db
+    .insert(mediaAssets)
+    .values(data)
+    .onConflictDoUpdate({
+      target: mediaAssets.contentHash,
+      set: {
+        storageType: data.storageType,
+        storageRef: data.storageRef,
+        mediaType: data.mediaType,
+        language: data.language,
+        textReference: data.textReference,
+        provider: data.provider,
+        sizeBytes: data.sizeBytes,
+      },
+    })
+    .returning();
+
+  if (!asset) {
+    throw new Error("Failed to create or replace media asset");
+  }
+
+  return asset;
+}
+
 /** Link a media asset to a word_list_item and update audio status. */
 export async function linkAudioToItem(
   itemId: string,

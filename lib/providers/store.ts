@@ -30,6 +30,7 @@ function toPublicConnection(row: {
   connectedAt: Date;
   lastValidatedAt: Date | null;
   connectionMethod: string;
+  translationModel: string | null;
   createdAt: Date;
   updatedAt: Date;
 }): PublicProviderConnection {
@@ -41,6 +42,7 @@ function toPublicConnection(row: {
     connectedAt: row.connectedAt.toISOString(),
     lastValidatedAt: toIso(row.lastValidatedAt),
     connectionMethod: normalizeMethod(row.connectionMethod),
+    translationModel: row.translationModel,
     createdAt: row.createdAt.toISOString(),
     updatedAt: row.updatedAt.toISOString(),
   };
@@ -59,6 +61,7 @@ export async function getProviderConnection(
       connectedAt: userApiKeys.connectedAt,
       lastValidatedAt: userApiKeys.lastValidatedAt,
       connectionMethod: userApiKeys.connectionMethod,
+      translationModel: userApiKeys.translationModel,
       createdAt: userApiKeys.createdAt,
       updatedAt: userApiKeys.updatedAt,
     })
@@ -81,6 +84,7 @@ export async function listProviderConnections(
       connectedAt: userApiKeys.connectedAt,
       lastValidatedAt: userApiKeys.lastValidatedAt,
       connectionMethod: userApiKeys.connectionMethod,
+      translationModel: userApiKeys.translationModel,
       createdAt: userApiKeys.createdAt,
       updatedAt: userApiKeys.updatedAt,
     })
@@ -109,6 +113,7 @@ export async function upsertProviderSecret(
       updatedAt: now,
       keyLast4: input.plainSecret.slice(-4),
       connectionMethod: input.connectionMethod ?? "manual",
+      translationModel: input.translationModel ?? null,
     })
     .onConflictDoUpdate({
       target: [userApiKeys.userId, userApiKeys.provider],
@@ -121,6 +126,7 @@ export async function upsertProviderSecret(
         updatedAt: now,
         keyLast4: input.plainSecret.slice(-4),
         connectionMethod: input.connectionMethod ?? "manual",
+        translationModel: input.translationModel ?? null,
       },
     })
     .returning({
@@ -131,6 +137,7 @@ export async function upsertProviderSecret(
       connectedAt: userApiKeys.connectedAt,
       lastValidatedAt: userApiKeys.lastValidatedAt,
       connectionMethod: userApiKeys.connectionMethod,
+      translationModel: userApiKeys.translationModel,
       createdAt: userApiKeys.createdAt,
       updatedAt: userApiKeys.updatedAt,
     });
@@ -210,6 +217,35 @@ export async function markProviderConnectionStatus(input: {
       connectedAt: userApiKeys.connectedAt,
       lastValidatedAt: userApiKeys.lastValidatedAt,
       connectionMethod: userApiKeys.connectionMethod,
+      translationModel: userApiKeys.translationModel,
+      createdAt: userApiKeys.createdAt,
+      updatedAt: userApiKeys.updatedAt,
+    });
+
+  return row ? toPublicConnection(row) : null;
+}
+
+export async function updateProviderTranslationModel(input: {
+  userId: string;
+  provider: ProviderId;
+  translationModel: string;
+}): Promise<PublicProviderConnection | null> {
+  const [row] = await db
+    .update(userApiKeys)
+    .set({
+      translationModel: input.translationModel,
+      updatedAt: new Date(),
+    })
+    .where(and(eq(userApiKeys.userId, input.userId), eq(userApiKeys.provider, input.provider)))
+    .returning({
+      provider: userApiKeys.provider,
+      status: userApiKeys.status,
+      keyLabel: userApiKeys.keyLabel,
+      keyLast4: userApiKeys.keyLast4,
+      connectedAt: userApiKeys.connectedAt,
+      lastValidatedAt: userApiKeys.lastValidatedAt,
+      connectionMethod: userApiKeys.connectionMethod,
+      translationModel: userApiKeys.translationModel,
       createdAt: userApiKeys.createdAt,
       updatedAt: userApiKeys.updatedAt,
     });

@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { NormalizedWord } from '@/lib/words';
 import { debouncedSync } from '@/lib/sync';
+import { postTabMessage, subscribeTabMessages } from '@/lib/tab-sync';
 import type { Role } from './preferences';
 
 export function useMemoryHooks(
@@ -11,17 +12,6 @@ export function useMemoryHooks(
   role: Role
 ) {
   const [memoryHooks, setMemoryHooks] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    if (!isHydrated || isUpdatingFromServerRef.current) return;
-    const hooksForSync: Record<string, string | null> = {};
-    for (const [wordId, hook] of Object.entries(memoryHooks)) {
-      hooksForSync[wordId] = hook || null;
-    }
-    debouncedSync({ memory_hooks: hooksForSync }).catch((e) =>
-      console.error('[useMemoryHooks] sync:', e)
-    );
-  }, [memoryHooks, isHydrated, isUpdatingFromServerRef]);
 
   const applyServerMemoryHooks = useCallback((hooks: Record<string, string>) => {
     setMemoryHooks(hooks);
@@ -33,14 +23,33 @@ export function useMemoryHooks(
   );
 
   const setMemoryHook = useCallback((wordId: string, hook: string) => {
+    const trimmed = hook.trim();
     setMemoryHooks((prev) => {
       const next = { ...prev };
-      if (hook.trim()) {
-        next[wordId] = hook.trim();
+      if (trimmed) {
+        next[wordId] = trimmed;
       } else {
         delete next[wordId];
       }
       return next;
+    });
+    if (isHydrated && !isUpdatingFromServerRef.current) {
+      debouncedSync({ memory_hooks: { [wordId]: trimmed || null } }).catch((e) =>
+        console.error('[useMemoryHooks] sync:', e)
+      );
+      postTabMessage({ type: 'memory_hook_changed', wordId, hook: trimmed });
+    }
+  }, [isHydrated, isUpdatingFromServerRef]);
+
+  useEffect(() => {
+    return subscribeTabMessages((message) => {
+      if (message.type !== 'memory_hook_changed') return;
+      setMemoryHooks((prev) => {
+        const next = { ...prev };
+        if (message.hook) next[message.wordId] = message.hook;
+        else delete next[message.wordId];
+        return next;
+      });
     });
   }, []);
 

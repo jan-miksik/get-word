@@ -14,10 +14,10 @@ import {
   updateUserPreferences,
   getSystemDefaultList,
   getWordIdToItemIdMapping,
+  touchUserDevice,
+  applyNewReviewEvents,
 } from "@/lib/db";
-import { db } from "@/lib/db/client";
-import { users, type User } from "@/lib/db/schema";
-import { eq } from "drizzle-orm";
+import { type User } from "@/lib/db/schema";
 import { withSessionCookie } from "@/features/shared/routes/session";
 import { createRouteTimer } from "@/features/shared/routes/timing";
 import { buildSyncSuccessPayload, getHydratedWordListData } from "@/features/shared/sync/response";
@@ -57,28 +57,12 @@ async function resolveUser(
   sessionUserId: string | null
 ): Promise<User | null> {
   if (sessionUserId) {
-    let sessionUser = await getUserById(sessionUserId);
-    if (sessionUser && deviceId && sessionUser.deviceId !== deviceId) {
-      const updated = await db
-        .update(users)
-        .set({ deviceId, updatedAt: new Date() })
-        .where(eq(users.id, sessionUser.id))
-        .returning();
-      sessionUser = updated[0] ?? sessionUser;
-    }
+    const sessionUser = await getUserById(sessionUserId);
     if (sessionUser) return sessionUser;
   }
 
   if (userId) {
-    let user = await getUserById(userId);
-    if (user && deviceId && user.deviceId !== deviceId) {
-      const updated = await db
-        .update(users)
-        .set({ deviceId, updatedAt: new Date() })
-        .where(eq(users.id, user.id))
-        .returning();
-      user = updated[0] ?? user;
-    }
+    const user = await getUserById(userId);
     if (user) return user;
   }
   if (deviceId) return await getUserByDeviceId(deviceId);
@@ -87,6 +71,7 @@ async function resolveUser(
 
 interface SyncRequest {
   deviceId?: string;
+  sessionId?: string;
   userId?: string; // Optional: fallback user ID for recovery
   role?: "cz" | "vi";
   show_english?: boolean;
@@ -105,6 +90,13 @@ interface SyncRequest {
     last_known_at: number | null;
     last_unknown_at: number | null;
     next_due_at: number | null;
+  }>;
+  review_events?: Array<{
+    client_event_id: string;
+    word_id?: string;
+    word_list_item_id?: string;
+    action: "known" | "really_known" | "unknown";
+    client_created_at: number;
   }>;
   memory_hooks?: Record<string, string | null>; // null means delete
   category_filters?: string[];
@@ -128,6 +120,7 @@ export async function POST(request: NextRequest) {
     timer.mark("parse_body");
     const {
       deviceId,
+      sessionId,
       role,
       show_english,
       show_category_badges,
@@ -137,6 +130,7 @@ export async function POST(request: NextRequest) {
       game_score,
       category_order,
       progress,
+      review_events,
       memory_hooks,
       category_filters,
     } = body;
@@ -161,6 +155,8 @@ export async function POST(request: NextRequest) {
       timer.mark("return_user_error");
       return timer.applyHeaders(failed);
     }
+    await touchUserDevice(user.id, deviceId);
+    let appliedReviewEventIds: string[] = [];
 
     // Update role if provided
     if (role && role !== user.role) {
@@ -183,10 +179,21 @@ export async function POST(request: NextRequest) {
         show_pronunciation,
         memory_hooks_enabled,
         memory_hook_disable_from_stage,
-        game_score,
+        game_score: game_score === undefined
+          ? undefined
+          : Math.max(user.gameScore ?? 0, game_score),
         category_order,
       });
       if (updated) user = updated;
+    }
+
+    if (review_events && review_events.length > 0) {
+      appliedReviewEventIds = await applyNewReviewEvents({
+        userId: user.id,
+        deviceId,
+        sessionId,
+        events: review_events,
+      });
     }
 
     // Sync progress — route to legacy (wordId) or new (wordListItemId) upsert
@@ -277,7 +284,11 @@ export async function POST(request: NextRequest) {
         currentProgress,
         currentHooks,
         currentFilters,
-        hydratedLists
+        hydratedLists,
+        {
+          applied_review_event_ids: appliedReviewEventIds,
+          sync_revision: Date.now(),
+        }
       ),
       user.id,
       user.userRole
@@ -334,6 +345,7 @@ export async function GET(request: NextRequest) {
       timer.mark("return_user_error");
       return timer.applyHeaders(failed);
     }
+    await touchUserDevice(user.id, deviceId);
     const [progress, memoryHooks, categoryFilters] = await Promise.all([
       getUserProgress(user.id),
       getUserMemoryHooks(user.id),
@@ -343,7 +355,14 @@ export async function GET(request: NextRequest) {
     const hydratedLists = await getHydratedWordListData(user.id, memoryHooks);
     timer.mark("fetch_list_metadata");
     const response = await withSessionCookie(
-      buildSyncSuccessPayload(user, progress, memoryHooks, categoryFilters, hydratedLists),
+      buildSyncSuccessPayload(
+        user,
+        progress,
+        memoryHooks,
+        categoryFilters,
+        hydratedLists,
+        { sync_revision: Date.now() }
+      ),
       user.id,
       user.userRole
     );

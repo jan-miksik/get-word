@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { SyncResponse } from '@/lib/sync';
 import { debouncedSync } from '@/lib/sync';
+import { postTabMessage, subscribeTabMessages } from '@/lib/tab-sync';
 import {
   DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
   normalizeMemoryHookDisableFromStage,
@@ -74,12 +75,40 @@ export function usePreferences(
     );
   }, [categoryOrder, isHydrated, isUpdatingFromServerRef]);
 
-  const setRole = useCallback((newRole: Role) => setRoleState(newRole), []);
+  const setRole = useCallback((newRole: Role) => {
+    setRoleState(newRole);
+    postTabMessage({ type: 'preferences_changed', patch: { role: newRole } });
+  }, []);
+  const setShowEnglishPreference = useCallback((value: boolean) => {
+    setShowEnglish(value);
+    postTabMessage({ type: 'preferences_changed', patch: { showEnglish: value } });
+  }, []);
+  const setShowCategoryBadgesPreference = useCallback((value: boolean) => {
+    setShowCategoryBadges(value);
+    postTabMessage({ type: 'preferences_changed', patch: { showCategoryBadges: value } });
+  }, []);
+  const setShowPronunciationPreference = useCallback((value: boolean) => {
+    setShowPronunciation(value);
+    postTabMessage({ type: 'preferences_changed', patch: { showPronunciation: value } });
+  }, []);
+  const setMemoryHooksEnabledPreference = useCallback((value: boolean) => {
+    setMemoryHooksEnabled(value);
+    postTabMessage({ type: 'preferences_changed', patch: { memoryHooksEnabled: value } });
+  }, []);
   const setMemoryHookDisableFromStage = useCallback((stage: number) => {
-    setMemoryHookDisableFromStageState(normalizeMemoryHookDisableFromStage(stage));
+    const normalized = normalizeMemoryHookDisableFromStage(stage);
+    setMemoryHookDisableFromStageState(normalized);
+    postTabMessage({
+      type: 'preferences_changed',
+      patch: { memoryHookDisableFromStage: normalized },
+    });
   }, []);
   const setCategoryOrder = useCallback((order: string[] | ((prev: string[]) => string[])) => {
-    setCategoryOrderState(order);
+    setCategoryOrderState((prev) => {
+      const next = typeof order === 'function' ? order(prev) : order;
+      postTabMessage({ type: 'preferences_changed', patch: { categoryOrder: next } });
+      return next;
+    });
   }, []);
 
   const applyServerPreferences = useCallback((user: SyncResponse['user']) => {
@@ -94,19 +123,45 @@ export function usePreferences(
     setCategoryOrderState(Array.isArray(user.category_order) ? user.category_order : []);
   }, []);
 
+  useEffect(() => {
+    return subscribeTabMessages((message) => {
+      if (message.type !== 'preferences_changed') return;
+      const patch = message.patch;
+      if (patch.role === 'cz' || patch.role === 'vi') setRoleState(patch.role);
+      if (typeof patch.showEnglish === 'boolean') setShowEnglish(patch.showEnglish);
+      if (typeof patch.showCategoryBadges === 'boolean') {
+        setShowCategoryBadges(patch.showCategoryBadges);
+      }
+      if (typeof patch.showPronunciation === 'boolean') {
+        setShowPronunciation(patch.showPronunciation);
+      }
+      if (typeof patch.memoryHooksEnabled === 'boolean') {
+        setMemoryHooksEnabled(patch.memoryHooksEnabled);
+      }
+      if (typeof patch.memoryHookDisableFromStage === 'number') {
+        setMemoryHookDisableFromStageState(
+          normalizeMemoryHookDisableFromStage(patch.memoryHookDisableFromStage)
+        );
+      }
+      if (Array.isArray(patch.categoryOrder)) {
+        setCategoryOrderState(patch.categoryOrder.map(String));
+      }
+    });
+  }, []);
+
   return {
     role,
     setRole,
     showAll,
     setShowAll,
     showEnglish,
-    setShowEnglish,
+    setShowEnglish: setShowEnglishPreference,
     showCategoryBadges,
-    setShowCategoryBadges,
+    setShowCategoryBadges: setShowCategoryBadgesPreference,
     showPronunciation,
-    setShowPronunciation,
+    setShowPronunciation: setShowPronunciationPreference,
     memoryHooksEnabled,
-    setMemoryHooksEnabled,
+    setMemoryHooksEnabled: setMemoryHooksEnabledPreference,
     memoryHookDisableFromStage,
     setMemoryHookDisableFromStage,
     categoryOrder,

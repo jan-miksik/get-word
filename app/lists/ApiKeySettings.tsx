@@ -2,6 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { listsApiFetch } from '@/features/lists/api';
+import {
+  DEFAULT_OPENROUTER_TRANSLATION_MODEL,
+  OPENROUTER_MODELS_URL,
+  OPENROUTER_TRANSLATION_MODELS,
+  normalizeOpenRouterModel,
+} from '@/lib/openrouter-models';
 
 type StoredKey = {
   provider: string;
@@ -12,6 +18,7 @@ type StoredKey = {
   connectedAt?: string;
   lastValidatedAt?: string | null;
   connectionMethod?: 'oauth' | 'manual';
+  translationModel?: string | null;
 };
 
 type OpenRouterUiState =
@@ -34,6 +41,8 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
   const [busyAction, setBusyAction] = useState<string | null>(null);
   const [openRouterState, setOpenRouterState] = useState<OpenRouterUiState>('not_connected');
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
+  const [openRouterModel, setOpenRouterModel] = useState(DEFAULT_OPENROUTER_TRANSLATION_MODEL);
+  const [openRouterModelSaved, setOpenRouterModelSaved] = useState(DEFAULT_OPENROUTER_TRANSLATION_MODEL);
 
   const reasonMessages: Record<string, string> = {
     invalid_state: 'OpenRouter callback state was invalid. Please retry.',
@@ -55,6 +64,9 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
       if (!res.ok) return;
       const data = await res.json();
       setOpenRouterState((data.state as OpenRouterUiState) ?? 'not_connected');
+      const model = normalizeOpenRouterModel(data.connection?.translationModel);
+      setOpenRouterModel(model);
+      setOpenRouterModelSaved(model);
     } catch {
       // no-op
     }
@@ -74,6 +86,11 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
           setOpenRouterState('failed_retryable');
         } else {
           setOpenRouterState((prev) => (prev === 'connecting' ? prev : 'connected'));
+        }
+        if (openrouter?.translationModel) {
+          const model = normalizeOpenRouterModel(openrouter.translationModel);
+          setOpenRouterModel(model);
+          setOpenRouterModelSaved(model);
         }
       }
     } catch {
@@ -118,7 +135,11 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
     try {
       const res = await listsApiFetch('/api/keys', {
         method: 'POST',
-        body: JSON.stringify({ provider, key: newKey.trim() }),
+        body: JSON.stringify({
+          provider,
+          key: newKey.trim(),
+          ...(provider === 'openrouter' ? { translation_model: openRouterModel } : {}),
+        }),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -208,163 +229,337 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
     }
   }
 
+  async function handleOpenRouterModelSave() {
+    const model = normalizeOpenRouterModel(openRouterModel);
+    setOpenRouterModel(model);
+    setError(null);
+    setBusyAction('openrouter:model');
+    try {
+      const res = await listsApiFetch('/api/providers/openrouter', {
+        method: 'PATCH',
+        body: JSON.stringify({ translation_model: model }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error ?? 'Failed to save OpenRouter model');
+      }
+      setOpenRouterModelSaved(model);
+      setStatusNotice('OpenRouter translation model saved.');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save OpenRouter model');
+    } finally {
+      setBusyAction(null);
+    }
+  }
+
   if (!isOpen) return null;
 
   const providers = [
-    { id: 'openrouter', name: 'OpenRouter', description: 'For AI-powered translations' },
-    { id: 'elevenlabs', name: 'ElevenLabs', description: 'For premium TTS audio' },
+    { id: 'openrouter', name: 'OpenRouter', description: 'AI-powered translations' },
+    { id: 'elevenlabs', name: 'ElevenLabs', description: 'Premium text-to-speech audio' },
   ];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
       <div
-        className="bg-background-elevated rounded-xl border border-border-subtle w-full max-w-md mx-4 p-5"
+        className="bg-background-elevated rounded-2xl border border-border-subtle w-full max-w-md shadow-soft max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-4">
-          <h3 className="text-base font-semibold text-text">API Keys</h3>
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3 px-6 pt-6 pb-1">
+          <div className="min-w-0">
+            <h3 className="text-lg font-semibold text-text leading-tight">API Keys</h3>
+            <p className="text-sm text-text-soft mt-1.5 leading-relaxed">
+              Connect your own keys to unlock additional providers. Keys are encrypted and never shown again.
+            </p>
+          </div>
           <button
             type="button"
-            className="text-text-soft hover:text-text text-lg"
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-text-soft hover:text-text hover:bg-background transition-colors flex-shrink-0 -mt-1 -mr-2"
             onClick={onClose}
+            aria-label="Close"
           >
-            x
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
+              <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+            </svg>
           </button>
         </div>
 
-        <p className="text-xs text-text-soft mb-4">
-          Add your own API keys to unlock additional translation and audio providers. Keys are encrypted and never shown again.
-        </p>
-
-        {error && (
-          <div className="mb-3 p-2 rounded-lg bg-danger/10 text-danger text-xs">{error}</div>
+        {/* Notifications */}
+        {(error || statusNotice) && (
+          <div className="px-6 pt-4 space-y-2">
+            {error && (
+              <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-danger/10 text-danger text-sm">
+                <span aria-hidden="true" className="mt-0.5">⚠</span>
+                <span className="leading-snug">{error}</span>
+              </div>
+            )}
+            {statusNotice && (
+              <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-done/10 text-done text-sm">
+                <span aria-hidden="true" className="mt-0.5">✓</span>
+                <span className="leading-snug">{statusNotice}</span>
+              </div>
+            )}
+          </div>
         )}
-        {statusNotice && (
-          <div className="mb-3 p-2 rounded-lg bg-done/10 text-done text-xs">{statusNotice}</div>
-        )}
 
-        <div className="space-y-3">
+        {/* Provider cards */}
+        <div className="px-6 pb-6 pt-5 space-y-3">
           {providers.map((p) => {
             const stored = keys.find((k) => k.provider === p.id);
             const isAdding = addingProvider === p.id;
             const isBusy = busyAction !== null;
             const isOpenRouter = p.id === 'openrouter';
+            const modelIsKnown = OPENROUTER_TRANSLATION_MODELS.some((m) => m.id === openRouterModel);
+            const modelDirty = normalizeOpenRouterModel(openRouterModel) !== openRouterModelSaved;
+            const selectedModelInfo = OPENROUTER_TRANSLATION_MODELS.find((m) => m.id === openRouterModel);
+            const openRouterConnected = isOpenRouter && openRouterState === 'connected';
+
+            let statusDotClass = 'bg-text-soft/40';
+            let statusText = 'Not connected';
+            if (isOpenRouter) {
+              if (openRouterState === 'connected') { statusDotClass = 'bg-done'; statusText = 'Connected'; }
+              else if (openRouterState === 'connecting') { statusDotClass = 'bg-fresh animate-pulse'; statusText = 'Connecting…'; }
+              else if (openRouterState === 'failed_retryable') { statusDotClass = 'bg-danger'; statusText = 'Connection failed'; }
+            } else if (stored) {
+              statusDotClass = stored.status === 'failed' ? 'bg-danger' : 'bg-done';
+              statusText = stored.status === 'failed' ? 'Connection failed' : 'Connected';
+            }
 
             return (
-              <div key={p.id} className="p-3 rounded-lg border border-border-subtle">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <div className="text-sm font-medium text-text">{p.name}</div>
-                    <div className="text-xs text-text-soft">{p.description}</div>
+              <section
+                key={p.id}
+                className="rounded-xl border border-border-subtle bg-background/30"
+              >
+                {/* Provider header */}
+                <header className="flex items-start justify-between gap-3 px-5 pt-4 pb-3">
+                  <div className="min-w-0">
+                    <h4 className="text-base font-semibold text-text">{p.name}</h4>
+                    <p className="text-xs text-text-soft mt-0.5">{p.description}</p>
                   </div>
-                  {isOpenRouter && openRouterState !== 'connected' ? (
-                    <button
-                      type="button"
-                      className="text-xs text-accent hover:text-accent-strong disabled:opacity-60"
-                      onClick={handleOpenRouterConnect}
-                      disabled={isBusy || openRouterState === 'connecting'}
-                    >
-                      {openRouterState === 'connecting'
-                        ? 'Connecting...'
-                        : openRouterState === 'failed_retryable'
-                        ? 'Retry connect'
-                        : 'Connect'}
-                    </button>
-                  ) : stored ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs text-text-soft font-mono">****{stored.lastFour}</span>
+                  <div className="flex items-center gap-1.5 flex-shrink-0 mt-1">
+                    <span className={`w-2 h-2 rounded-full ${statusDotClass}`} aria-hidden="true" />
+                    <span className="text-xs text-text-soft font-medium">{statusText}</span>
+                  </div>
+                </header>
+
+                {/* Connected: show key + actions */}
+                {stored && !isAdding && (
+                  <div className="px-5 pb-4 space-y-3">
+                    <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-background border border-border-subtle">
+                      <span className="text-[11px] text-text-soft uppercase tracking-wider font-medium">
+                        API key
+                      </span>
+                      <span className="text-sm font-mono text-text tracking-wide">
+                        ••••&nbsp;{stored.lastFour}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 flex-wrap">
                       {isOpenRouter && (
-                        <button
-                          type="button"
-                          className="text-xs text-accent hover:text-accent-strong disabled:opacity-60"
-                          onClick={handleOpenRouterTest}
-                          disabled={isBusy}
-                        >
-                          Test
-                        </button>
-                      )}
-                      {isOpenRouter && (
-                        <button
-                          type="button"
-                          className="text-xs text-accent hover:text-accent-strong disabled:opacity-60"
-                          onClick={handleOpenRouterConnect}
-                          disabled={isBusy}
-                        >
-                          Reconnect
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-sm hover:bg-background hover:border-accent transition-colors disabled:opacity-60"
+                            onClick={handleOpenRouterTest}
+                            disabled={isBusy}
+                          >
+                            {busyAction === 'openrouter:test' ? 'Testing…' : 'Test'}
+                          </button>
+                          <button
+                            type="button"
+                            className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-sm hover:bg-background hover:border-accent transition-colors disabled:opacity-60"
+                            onClick={handleOpenRouterConnect}
+                            disabled={isBusy}
+                          >
+                            Reconnect
+                          </button>
+                        </>
                       )}
                       <button
                         type="button"
-                        className="text-xs text-danger hover:text-danger/80"
+                        className="ml-auto px-3 py-1.5 rounded-lg text-danger text-sm hover:bg-danger/10 transition-colors disabled:opacity-60"
                         onClick={() => handleDeleteKey(p.id)}
                         disabled={isBusy}
                       >
                         Remove
                       </button>
                     </div>
-                  ) : !isAdding ? (
+                  </div>
+                )}
+
+                {/* Not connected OpenRouter: primary CTA */}
+                {isOpenRouter && !openRouterConnected && !stored && (
+                  <div className="px-5 pb-5">
                     <button
                       type="button"
-                      className="text-xs text-accent hover:text-accent-strong"
+                      className="w-full px-4 py-2.5 rounded-lg bg-accent text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
+                      onClick={handleOpenRouterConnect}
+                      disabled={isBusy || openRouterState === 'connecting'}
+                    >
+                      {openRouterState === 'connecting'
+                        ? 'Connecting…'
+                        : openRouterState === 'failed_retryable'
+                        ? 'Retry — Connect with OpenRouter'
+                        : 'Connect with OpenRouter'}
+                    </button>
+                    <p className="text-[11px] text-text-soft text-center mt-2">
+                      You'll be redirected to OpenRouter to authorize.
+                    </p>
+                  </div>
+                )}
+
+                {/* Non-OpenRouter: Add key CTA */}
+                {!isOpenRouter && !stored && !isAdding && (
+                  <div className="px-5 pb-5">
+                    <button
+                      type="button"
+                      className="w-full px-4 py-2.5 rounded-lg border border-border-subtle text-text text-sm font-medium hover:bg-background hover:border-accent transition-colors disabled:opacity-60"
                       onClick={() => setAddingProvider(p.id)}
                       disabled={isBusy}
                     >
-                      Add key
+                      Add {p.name} API key
                     </button>
-                  ) : null}
-                </div>
-
-                {isOpenRouter && (
-                  <div className="mt-1 text-[11px] text-text-soft">
-                    {openRouterState === 'connected'
-                      ? 'Connected'
-                      : openRouterState === 'connecting'
-                      ? 'Connection in progress'
-                      : openRouterState === 'failed_retryable'
-                      ? 'Connection failed. Retry recommended.'
-                      : 'Not connected'}
                   </div>
                 )}
 
+                {/* Manual key input */}
                 {isAdding && (
-                  <div className="mt-2 flex gap-2">
-                    <input
-                      type="password"
-                      placeholder={`Enter ${p.name} API key`}
-                      value={newKey}
-                      onChange={(e) => setNewKey(e.target.value)}
-                      className="flex-1 px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs focus:outline-none focus:border-accent"
-                      autoFocus
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleSaveKey(p.id);
-                        if (e.key === 'Escape') setAddingProvider(null);
-                      }}
-                    />
-                    <button
-                      type="button"
-                      className="px-3 py-1.5 rounded-lg bg-accent text-background text-xs font-medium"
-                      onClick={() => handleSaveKey(p.id)}
-                      disabled={isBusy}
-                    >
-                      Save
-                    </button>
-                    <button
-                      type="button"
-                      className="px-2 py-1.5 rounded-lg border border-border-subtle text-text text-xs"
-                      onClick={() => { setAddingProvider(null); setNewKey(''); }}
-                      disabled={isBusy}
-                    >
-                      Cancel
-                    </button>
+                  <div className="border-t border-border-subtle px-5 py-4 space-y-3">
+                    <div>
+                      <label
+                        htmlFor={`${p.id}-key-input`}
+                        className="text-[11px] text-text-soft uppercase tracking-wider font-medium"
+                      >
+                        {p.name} API key
+                      </label>
+                      <input
+                        id={`${p.id}-key-input`}
+                        type="password"
+                        placeholder={p.id === 'elevenlabs' ? 'sk_...' : 'Paste your API key'}
+                        value={newKey}
+                        onChange={(e) => setNewKey(e.target.value)}
+                        className="mt-1.5 w-full px-3 py-2.5 rounded-lg bg-background border border-border-subtle text-text text-sm font-mono focus:outline-none focus:border-accent transition-colors"
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') handleSaveKey(p.id);
+                          if (e.key === 'Escape') { setAddingProvider(null); setNewKey(''); }
+                        }}
+                      />
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="flex-1 px-4 py-2 rounded-lg bg-accent text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
+                        onClick={() => handleSaveKey(p.id)}
+                        disabled={isBusy || !newKey.trim()}
+                      >
+                        {busyAction === `save:${p.id}` ? 'Saving…' : 'Save key'}
+                      </button>
+                      <button
+                        type="button"
+                        className="px-4 py-2 rounded-lg border border-border-subtle text-text text-sm hover:bg-background transition-colors disabled:opacity-60"
+                        onClick={() => { setAddingProvider(null); setNewKey(''); }}
+                        disabled={isBusy}
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 )}
-              </div>
+
+                {/* OpenRouter model configuration — only when connected */}
+                {openRouterConnected && (
+                  <div className="border-t border-border-subtle px-5 py-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <label
+                        htmlFor="openrouter-model-select"
+                        className="text-[11px] text-text-soft uppercase tracking-wider font-medium"
+                      >
+                        Translation model
+                      </label>
+                      <a
+                        className="text-xs text-accent hover:text-accent-strong"
+                        href={OPENROUTER_MODELS_URL}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        Browse all ↗
+                      </a>
+                    </div>
+
+                    <select
+                      id="openrouter-model-select"
+                      value={modelIsKnown ? openRouterModel : 'custom'}
+                      onChange={(e) => {
+                        const next = e.target.value;
+                        if (next !== 'custom') setOpenRouterModel(next);
+                      }}
+                      className="w-full px-3 py-2.5 rounded-lg bg-background border border-border-subtle text-text text-sm hover:border-accent focus:outline-none focus:border-accent transition-colors"
+                    >
+                      {OPENROUTER_TRANSLATION_MODELS.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.name}
+                        </option>
+                      ))}
+                      <option value="custom">Custom model…</option>
+                    </select>
+
+                    {/* Selected model detail */}
+                    {selectedModelInfo && (
+                      <div className="flex items-baseline justify-between gap-3 px-0.5">
+                        <span className="text-xs text-text-soft leading-relaxed">
+                          {selectedModelInfo.note}
+                        </span>
+                        <span className="text-[11px] font-mono text-text-soft whitespace-nowrap flex-shrink-0">
+                          {selectedModelInfo.price}
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Custom model ID */}
+                    <div>
+                      <label htmlFor="openrouter-model-custom" className="text-[11px] text-text-soft">
+                        Or enter a custom model ID
+                      </label>
+                      <input
+                        id="openrouter-model-custom"
+                        type="text"
+                        value={openRouterModel}
+                        onChange={(e) => setOpenRouterModel(e.target.value)}
+                        placeholder="provider/model-name"
+                        className="mt-1.5 w-full px-3 py-2 rounded-lg bg-background border border-border-subtle text-text text-sm font-mono focus:outline-none focus:border-accent transition-colors"
+                        spellCheck={false}
+                      />
+                    </div>
+
+                    {modelDirty ? (
+                      <button
+                        type="button"
+                        className="w-full px-4 py-2 rounded-lg bg-accent text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
+                        onClick={handleOpenRouterModelSave}
+                        disabled={isBusy}
+                      >
+                        {busyAction === 'openrouter:model' ? 'Saving…' : 'Save model'}
+                      </button>
+                    ) : (
+                      <div className="flex items-center gap-1.5 text-xs text-done">
+                        <span aria-hidden="true">✓</span>
+                        <span>Model saved</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </section>
             );
           })}
         </div>
 
         {loading && (
-          <p className="text-xs text-text-soft mt-3 text-center">Loading...</p>
+          <p className="text-sm text-text-soft pb-5 text-center">Loading…</p>
         )}
       </div>
     </div>

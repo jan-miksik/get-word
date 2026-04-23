@@ -7,11 +7,14 @@ const mockGetListById = vi.fn()
 const mockFindExistingTranslations = vi.fn()
 const mockUpdateItemTranslations = vi.fn()
 const mockGetUserApiKey = vi.fn()
+const mockReserveGoogleApiUsage = vi.fn()
 
 vi.mock('@/lib/db', () => ({
+  countGoogleApiTextUnits: (texts: string[]) => texts.join('').length,
   getListById: (...args: unknown[]) => mockGetListById(...args),
   findExistingTranslations: (...args: unknown[]) => mockFindExistingTranslations(...args),
   updateItemTranslations: (...args: unknown[]) => mockUpdateItemTranslations(...args),
+  reserveGoogleApiUsage: (...args: unknown[]) => mockReserveGoogleApiUsage(...args),
 }))
 
 vi.mock('@/lib/auth', () => ({
@@ -62,7 +65,18 @@ function makeListCtx(id = 'list-1'): ListRouteContext {
 // ── POST /api/translate/batch tests ─────────────────────────────────
 
 describe('POST /api/translate/batch', () => {
-  beforeEach(() => vi.clearAllMocks())
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockReserveGoogleApiUsage.mockResolvedValue({
+      allowed: true,
+      scope: 'translate',
+      periodStart: new Date('2026-04-01T00:00:00.000Z'),
+      requestedUnits: 5,
+      usedUnits: 5,
+      accountLimit: 25000,
+      freeMonthlyUnits: 500000,
+    })
+  })
 
   it('returns 401 if no user', async () => {
     mockResolveUserFromRequest.mockResolvedValue(null)
@@ -132,6 +146,41 @@ describe('POST /api/translate/batch', () => {
       status: 'ok',
       source: 'api',
     })
+    expect(mockReserveGoogleApiUsage).toHaveBeenCalledWith({
+      userId: 'user-1',
+      scope: 'translate',
+      units: 5,
+      requestCount: 1,
+    })
+  })
+
+  it('pauses google translation when account reaches the free quota share', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockReserveGoogleApiUsage.mockResolvedValue({
+      allowed: false,
+      scope: 'translate',
+      periodStart: new Date('2026-04-01T00:00:00.000Z'),
+      requestedUnits: 5,
+      usedUnits: 25000,
+      accountLimit: 25000,
+      freeMonthlyUnits: 500000,
+      message: 'This account has reached the free Google API usage limit. Reach out to us for more usage, or use your own API keys.',
+    })
+    const req = new NextRequest('http://localhost/api/translate/batch', {
+      method: 'POST',
+      body: JSON.stringify({
+        items: [{ id: 'i1', text: 'hello', from_lang: 'cz', to_lang: 'vi' }],
+        provider: 'google',
+      }),
+    })
+
+    const res = await translateBatch(req)
+    const body = await res.json()
+
+    expect(res.status).toBe(429)
+    expect(body.code).toBe('GOOGLE_API_ACCOUNT_LIMIT_REACHED')
+    expect(body.error).toMatch(/Reach out to us/)
+    expect(mockGoogleTranslate).not.toHaveBeenCalled()
   })
 
   it('returns 400 for openrouter without BYOK key', async () => {
@@ -168,6 +217,38 @@ describe('POST /api/translate/batch', () => {
     const body = await res.json()
     expect(body.results).toHaveLength(1)
     expect(body.results[0].status).toBe('ok')
+    expect(mockOpenRouterTranslate).toHaveBeenCalledWith(
+      ['hello'],
+      'cz',
+      'vi',
+      'sk-test-key',
+      'google/gemini-2.5-flash-lite',
+    )
+  })
+
+  it('passes requested OpenRouter model to translation provider', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetUserApiKey.mockResolvedValue('sk-test-key')
+    mockOpenRouterTranslate.mockResolvedValue([
+      { text: 'hello', translated: 'xin chào', status: 'ok' },
+    ])
+    const req = new NextRequest('http://localhost/api/translate/batch', {
+      method: 'POST',
+      body: JSON.stringify({
+        items: [{ id: 'i1', text: 'hello', from_lang: 'cz', to_lang: 'vi' }],
+        provider: 'openrouter',
+        translation_model: 'openai/gpt-4.1-mini',
+      }),
+    })
+    const res = await translateBatch(req)
+    expect(res.status).toBe(200)
+    expect(mockOpenRouterTranslate).toHaveBeenCalledWith(
+      ['hello'],
+      'cz',
+      'vi',
+      'sk-test-key',
+      'openai/gpt-4.1-mini',
+    )
   })
 
   it('handles partial failures in translation', async () => {

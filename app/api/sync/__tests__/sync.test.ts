@@ -19,6 +19,8 @@ const mockGetListCategories = vi.fn()
 const mockGetSystemDefaultList = vi.fn()
 const mockGetWordIdToItemIdMapping = vi.fn()
 const mockGetWordListsByIds = vi.fn()
+const mockTouchUserDevice = vi.fn()
+const mockApplyNewReviewEvents = vi.fn()
 const mockVerifySession = vi.fn()
 const mockSignSession = vi.fn()
 
@@ -41,6 +43,8 @@ vi.mock('@/lib/db', () => ({
   getSystemDefaultList: (...args: unknown[]) => mockGetSystemDefaultList(...args),
   getWordIdToItemIdMapping: (...args: unknown[]) => mockGetWordIdToItemIdMapping(...args),
   getWordListsByIds: (...args: unknown[]) => mockGetWordListsByIds(...args),
+  touchUserDevice: (...args: unknown[]) => mockTouchUserDevice(...args),
+  applyNewReviewEvents: (...args: unknown[]) => mockApplyNewReviewEvents(...args),
 }))
 
 vi.mock('@/lib/session', () => ({
@@ -98,6 +102,8 @@ describe('GET /api/sync', () => {
     mockGetSystemDefaultList.mockResolvedValue(null)
     mockGetWordIdToItemIdMapping.mockResolvedValue(new Map())
     mockGetWordListsByIds.mockResolvedValue([])
+    mockTouchUserDevice.mockResolvedValue(undefined)
+    mockApplyNewReviewEvents.mockResolvedValue([])
   })
 
   it('returns 400 if no deviceId or userId', async () => {
@@ -159,6 +165,8 @@ describe('POST /api/sync', () => {
     mockGetSystemDefaultList.mockResolvedValue(null)
     mockGetWordIdToItemIdMapping.mockResolvedValue(new Map())
     mockGetWordListsByIds.mockResolvedValue([])
+    mockTouchUserDevice.mockResolvedValue(undefined)
+    mockApplyNewReviewEvents.mockResolvedValue([])
   })
 
   it('returns 400 if no deviceId or userId', async () => {
@@ -265,7 +273,8 @@ describe('POST /api/sync', () => {
     expect(data.user.memory_hook_disable_from_stage).toBe(6)
   })
 
-  it('saves game_score when provided', async () => {
+  it('saves game_score without lowering existing score', async () => {
+    mockGetUserById.mockResolvedValue({ ...baseUser, gameScore: 9 })
     mockUpdateUserPreferences.mockResolvedValue({ ...baseUser, gameScore: 5 })
     const req = new NextRequest('http://localhost:3000/api/sync', {
       method: 'POST',
@@ -275,8 +284,53 @@ describe('POST /api/sync', () => {
     await POST(req)
     expect(mockUpdateUserPreferences).toHaveBeenCalledWith(
       'uuid-A',
-      expect.objectContaining({ game_score: 5 })
+      expect.objectContaining({ game_score: 9 })
     )
+  })
+
+  it('applies review events and returns applied ids', async () => {
+    mockApplyNewReviewEvents.mockResolvedValue(['event-1'])
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: 'dev-123',
+        sessionId: 'session-1',
+        review_events: [{
+          client_event_id: 'event-1',
+          word_id: 'w001',
+          action: 'known',
+          client_created_at: 1776944510000,
+        }],
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockApplyNewReviewEvents).toHaveBeenCalledWith({
+      userId: 'uuid-A',
+      deviceId: 'dev-123',
+      sessionId: 'session-1',
+      events: expect.arrayContaining([
+        expect.objectContaining({ client_event_id: 'event-1', action: 'known' }),
+      ]),
+    })
+    expect(data.applied_review_event_ids).toEqual(['event-1'])
+    expect(typeof data.sync_revision).toBe('number')
+  })
+
+  it('tracks user device without rewriting the user device id', async () => {
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({ deviceId: 'dev-new' }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    await POST(req)
+
+    expect(mockTouchUserDevice).toHaveBeenCalledWith('uuid-A', 'dev-new')
   })
 
   it('returns updated game_score in response', async () => {

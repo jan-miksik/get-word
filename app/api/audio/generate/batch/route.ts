@@ -4,9 +4,12 @@ import {
   unauthorizedResponse,
 } from "@/lib/auth";
 import {
+  countGoogleApiTextUnits,
   findMediaByHashes,
   createMediaAsset,
+  upsertMediaAsset,
   batchLinkAudioToItems,
+  reserveGoogleApiUsage,
 } from "@/lib/db";
 import {
   computeContentHash,
@@ -14,7 +17,7 @@ import {
   elevenLabsTTS,
   getAudioUrl,
 } from "@/lib/audio";
-import { uploadAudio } from "@/lib/audio-storage";
+import { getArweaveGatewayUrls, uploadAudio } from "@/lib/audio-storage";
 import { getUserApiKey } from "@/lib/translation";
 
 type AudioItem = {
@@ -29,7 +32,24 @@ const AUDIO_FORMAT = "mp3";
 
 export const runtime = "nodejs";
 
-export async function POST(request: NextRequest) {
+function getErrorDetail(err: unknown): string {
+  if (!(err instanceof Error)) return "Unknown error";
+  const cause = err.cause;
+  if (cause instanceof Error && cause.message) {
+    return cause.message;
+  }
+  if (
+    cause &&
+    typeof cause === "object" &&
+    "message" in cause &&
+    typeof cause.message === "string"
+  ) {
+    return cause.message;
+  }
+  return err.message;
+}
+
+async function handlePost(request: NextRequest) {
   const user = await resolveUserFromRequest(request);
   if (!user) return unauthorizedResponse();
 
@@ -38,7 +58,9 @@ export async function POST(request: NextRequest) {
     items?: AudioItem[];
     provider?: string;
     voice_id?: string;
+    force?: boolean;
   };
+  const force = body.force === true;
 
   if (!items || !Array.isArray(items) || items.length === 0) {
     return NextResponse.json(
@@ -80,10 +102,25 @@ export async function POST(request: NextRequest) {
       audioFormat: AUDIO_FORMAT,
     }),
   );
-  const existingMedia = await findMediaByHashes(hashes);
+  const existingMedia = force ? new Map() : await findMediaByHashes(hashes);
+  let quotaWarning:
+    | {
+        code: string;
+        detail: string;
+        hint?: string;
+      }
+    | undefined;
 
   // Split into dedup-resolved and needs-generation
-  const dedupLinks: { itemId: string; audioAssetId: string; audioUrl: string }[] = [];
+  const dedupLinks: {
+    itemId: string;
+    hash: string;
+    audioAssetId: string;
+    audioUrl: string;
+    arweaveUrl?: string;
+    arweaveUrls?: string[];
+    storageRef?: string;
+  }[] = [];
   const needsGeneration: { item: AudioItem; hash: string }[] = [];
 
   for (let i = 0; i < items.length; i++) {
@@ -92,11 +129,64 @@ export async function POST(request: NextRequest) {
     if (existing) {
       dedupLinks.push({
         itemId: items[i].id,
+        hash,
         audioAssetId: existing.id,
         audioUrl: getAudioUrl(hash),
+        arweaveUrl:
+          existing.storageType === "arweave"
+            ? getArweaveGatewayUrls(existing.storageRef)[0]
+            : undefined,
+        arweaveUrls:
+          existing.storageType === "arweave"
+            ? getArweaveGatewayUrls(existing.storageRef)
+            : undefined,
+        storageRef: existing.storageRef,
       });
     } else {
       needsGeneration.push({ item: items[i], hash });
+    }
+  }
+
+  if (provider === "google_tts" && needsGeneration.length > 0) {
+    let quota: Awaited<ReturnType<typeof reserveGoogleApiUsage>> | undefined;
+    try {
+      quota = await reserveGoogleApiUsage({
+        userId: user.id,
+        scope: "tts",
+        units: countGoogleApiTextUnits(needsGeneration.map(({ item }) => item.text)),
+        requestCount: needsGeneration.length,
+      });
+    } catch (err) {
+      const detail = getErrorDetail(err);
+      console.error("[Wordlink audio] Google TTS quota check failed", {
+        detail,
+        error: err instanceof Error ? err.message : err,
+        stack: err instanceof Error ? err.stack : undefined,
+      });
+      quotaWarning = {
+        code: "GOOGLE_TTS_QUOTA_TRACKING_FAILED",
+        detail,
+        hint: detail.includes("google_api_usage")
+          ? "The google_api_usage table or its constraints may be missing. Run the latest database migrations."
+          : undefined,
+      };
+    }
+    if (quota && !quota.allowed) {
+      return NextResponse.json(
+        {
+          error: quota.message,
+          code: "GOOGLE_API_ACCOUNT_LIMIT_REACHED",
+          scope: quota.scope,
+          usage: {
+            used_units: quota.usedUnits,
+            requested_units: quota.requestedUnits,
+            account_limit: quota.accountLimit,
+            free_monthly_units: quota.freeMonthlyUnits,
+            period_start: quota.periodStart.toISOString(),
+          },
+        },
+        { status: 429 },
+      );
     }
   }
 
@@ -117,6 +207,10 @@ export async function POST(request: NextRequest) {
     hash: string;
     status: "ok" | "error";
     audioUrl?: string;
+    arweaveUrl?: string;
+    arweaveUrls?: string[];
+    storageRef?: string;
+    sizeBytes?: number;
     error?: string;
   }[] = [];
 
@@ -155,17 +249,21 @@ export async function POST(request: NextRequest) {
             voiceId: voice_id ?? "default",
           });
 
-          // Create media asset record
-          const asset = await createMediaAsset({
+          const mediaAssetData = {
             contentHash: hash,
             storageType: storage.storageType,
             storageRef: storage.storageRef,
-            mediaType: "audio",
+            mediaType: "audio" as const,
             language: item.language,
             textReference: item.text,
             provider: provider as "google_tts" | "elevenlabs",
             sizeBytes: result.sizeBytes,
-          });
+          };
+
+          // Create media asset record. Regeneration replaces stale/broken refs for the same hash.
+          const asset = force
+            ? await upsertMediaAsset(mediaAssetData)
+            : await createMediaAsset(mediaAssetData);
 
           // Link to word_list_item
           await batchLinkAudioToItems([
@@ -177,6 +275,10 @@ export async function POST(request: NextRequest) {
             hash,
             status: "ok" as const,
             audioUrl: getAudioUrl(hash),
+            arweaveUrl: storage.gatewayUrl,
+            arweaveUrls: storage.gatewayUrls,
+            storageRef: storage.storageRef,
+            sizeBytes: result.sizeBytes,
           };
         } catch (err) {
           await batchLinkAudioToItems([
@@ -200,7 +302,11 @@ export async function POST(request: NextRequest) {
     if (dedup) {
       return {
         id: item.id,
+        content_hash: dedup.hash,
         audio_url: dedup.audioUrl,
+        arweave_url: dedup.arweaveUrl,
+        arweave_urls: dedup.arweaveUrls,
+        storage_ref: dedup.storageRef,
         status: "ok" as const,
         source: "dedup" as const,
       };
@@ -209,7 +315,12 @@ export async function POST(request: NextRequest) {
     if (gen) {
       return {
         id: item.id,
+        content_hash: gen.hash,
         audio_url: gen.audioUrl ?? null,
+        arweave_url: gen.arweaveUrl,
+        arweave_urls: gen.arweaveUrls,
+        storage_ref: gen.storageRef,
+        size_bytes: gen.sizeBytes,
         status: gen.status,
         ...(gen.error ? { error: gen.error } : {}),
         source: "generated" as const,
@@ -228,5 +339,31 @@ export async function POST(request: NextRequest) {
     results,
     dedup_count: dedupLinks.length,
     generated_count: generatedResults.filter((r) => r.status === "ok").length,
+    ...(quotaWarning ? { quota_warning: quotaWarning } : {}),
   });
+}
+
+export async function POST(request: NextRequest) {
+  const requestId =
+    globalThis.crypto?.randomUUID?.() ??
+    `audio-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+
+  try {
+    return await handlePost(request);
+  } catch (err) {
+    console.error("[Wordlink audio] batch generation crashed", {
+      requestId,
+      error: err instanceof Error ? err.message : err,
+      stack: err instanceof Error ? err.stack : undefined,
+    });
+
+    return NextResponse.json(
+      {
+        error: "Audio generation crashed before it could finish.",
+        request_id: requestId,
+        detail: err instanceof Error ? err.message : "Unknown error",
+      },
+      { status: 500 },
+    );
+  }
 }

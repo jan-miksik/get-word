@@ -4,6 +4,14 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ProgressData, SyncResponse } from '@/lib/sync';
 import { STAGES } from '@/lib/words';
 import { debouncedSync } from '@/lib/sync';
+import {
+  createReviewEvent,
+  enqueueReviewEvent,
+  getPendingReviewEvents,
+  getReviewEventTargetId,
+  type ReviewEventPayload,
+} from '@/lib/review-events';
+import { postTabMessage, subscribeTabMessages } from '@/lib/tab-sync';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -106,13 +114,6 @@ export function useProgress(
   const [lastMovedId, setLastMovedId] = useState<string | null>(null);
   const lastMovedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  useEffect(() => {
-    if (!isHydrated || isUpdatingFromServerRef.current) return;
-    debouncedSync({ progress: serializeProgressForSync(progress) }).catch((e) =>
-      console.error('[useProgress] sync:', e)
-    );
-  }, [progress, isHydrated, isUpdatingFromServerRef]);
-
   useEffect(() => () => {
     if (lastMovedTimeoutRef.current) clearTimeout(lastMovedTimeoutRef.current);
   }, []);
@@ -149,28 +150,51 @@ export function useProgress(
     });
   }, []);
 
-  const markKnown = useCallback(
-    (wordId: string) => {
+  const syncReviewOutbox = useCallback(() => {
+    if (!isHydrated || isUpdatingFromServerRef.current) return;
+    const pending = getPendingReviewEvents();
+    if (pending.length === 0) return;
+    debouncedSync({ review_events: pending }).catch((e) =>
+      console.error('[useProgress] sync review events:', e)
+    );
+  }, [isHydrated, isUpdatingFromServerRef]);
+
+  const applyLocalReviewEvent = useCallback(
+    (event: ReviewEventPayload) => {
+      const wordId = getReviewEventTargetId(event);
+      if (!wordId) return;
+      const now = event.client_created_at;
+
       setProgress((prev) => {
         const current = prev[wordId] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
-        const newStageIndex = Math.min(current.stageIndex + 1, STAGES.length - 1);
-        const stage = STAGES[newStageIndex];
-        const nextDueAt = stage.intervalMs > 0 ? Date.now() + stage.intervalMs : undefined;
+        const nextStageIndex =
+          event.action === 'known'
+            ? Math.min(current.stageIndex + 1, STAGES.length - 1)
+            : event.action === 'really_known'
+              ? Math.min(current.stageIndex + 2, STAGES.length - 1)
+              : Math.max(current.stageIndex - 1, 0);
+        const stage = STAGES[nextStageIndex];
+        const nextDueAt = stage.intervalMs > 0 ? now + stage.intervalMs : undefined;
         logNextDueAtCalculation({
-          action: 'known',
+          action: event.action === 'really_known' ? 'really-known' : event.action,
           wordId,
           previousStageIndex: current.stageIndex,
-          nextStageIndex: newStageIndex,
+          nextStageIndex,
           intervalMs: stage.intervalMs,
           nextDueAt,
         });
+
         return {
           ...prev,
           [wordId]: {
             ...current,
-            stageIndex: newStageIndex,
-            knownCount: current.knownCount + 1,
-            lastKnownAt: Date.now(),
+            stageIndex: nextStageIndex,
+            knownCount:
+              event.action === 'unknown' ? current.knownCount : current.knownCount + 1,
+            unknownCount:
+              event.action === 'unknown' ? current.unknownCount + 1 : current.unknownCount,
+            lastKnownAt: event.action === 'unknown' ? current.lastKnownAt : now,
+            lastUnknownAt: event.action === 'unknown' ? now : current.lastUnknownAt,
             nextDueAt,
           },
         };
@@ -178,69 +202,45 @@ export function useProgress(
       setLastMoved(wordId);
     },
     [setLastMoved]
+  );
+
+  const recordReviewEvent = useCallback(
+    (wordId: string, action: ReviewEventPayload['action']) => {
+      const event = createReviewEvent(wordId, action);
+      applyLocalReviewEvent(event);
+      enqueueReviewEvent(event);
+      postTabMessage({ type: 'review_event', event });
+      syncReviewOutbox();
+    },
+    [applyLocalReviewEvent, syncReviewOutbox]
+  );
+
+  useEffect(() => {
+    syncReviewOutbox();
+  }, [syncReviewOutbox]);
+
+  useEffect(() => {
+    return subscribeTabMessages((message) => {
+      if (message.type !== 'review_event') return;
+      applyLocalReviewEvent(message.event);
+      enqueueReviewEvent(message.event);
+      syncReviewOutbox();
+    });
+  }, [applyLocalReviewEvent, syncReviewOutbox]);
+
+  const markKnown = useCallback(
+    (wordId: string) => recordReviewEvent(wordId, 'known'),
+    [recordReviewEvent]
   );
 
   const markReallyKnown = useCallback(
-    (wordId: string) => {
-      setProgress((prev) => {
-        const current = prev[wordId] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
-        const newStageIndex = Math.min(current.stageIndex + 2, STAGES.length - 1);
-        const stage = STAGES[newStageIndex];
-        const nextDueAt = stage.intervalMs > 0 ? Date.now() + stage.intervalMs : undefined;
-        logNextDueAtCalculation({
-          action: 'really-known',
-          wordId,
-          previousStageIndex: current.stageIndex,
-          nextStageIndex: newStageIndex,
-          intervalMs: stage.intervalMs,
-          nextDueAt,
-        });
-        return {
-          ...prev,
-          [wordId]: {
-            ...current,
-            stageIndex: newStageIndex,
-            knownCount: current.knownCount + 1,
-            lastKnownAt: Date.now(),
-            nextDueAt,
-          },
-        };
-      });
-      setLastMoved(wordId);
-    },
-    [setLastMoved]
+    (wordId: string) => recordReviewEvent(wordId, 'really_known'),
+    [recordReviewEvent]
   );
 
   const markUnknown = useCallback(
-    (wordId: string) => {
-      setProgress((prev) => {
-        const current = prev[wordId] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
-        const regressedStageIndex = Math.max(current.stageIndex - 1, 0);
-        const regressedStage = STAGES[regressedStageIndex];
-        const nextRepeatMs = regressedStage.intervalMs > 0 ? regressedStage.intervalMs : undefined;
-        const nextDueAt = nextRepeatMs != null ? Date.now() + nextRepeatMs : undefined;
-        logNextDueAtCalculation({
-          action: 'unknown',
-          wordId,
-          previousStageIndex: current.stageIndex,
-          nextStageIndex: regressedStageIndex,
-          intervalMs: nextRepeatMs,
-          nextDueAt,
-        });
-        return {
-          ...prev,
-          [wordId]: {
-            ...current,
-            stageIndex: regressedStageIndex,
-            unknownCount: current.unknownCount + 1,
-            lastUnknownAt: Date.now(),
-            nextDueAt,
-          },
-        };
-      });
-      setLastMoved(wordId);
-    },
-    [setLastMoved]
+    (wordId: string) => recordReviewEvent(wordId, 'unknown'),
+    [recordReviewEvent]
   );
 
   const getWordDisplayMode = useCallback(

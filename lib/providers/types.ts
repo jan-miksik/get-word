@@ -12,6 +12,7 @@ export type PublicProviderConnection = {
   connectedAt: string;
   lastValidatedAt: string | null;
   connectionMethod: ProviderConnectionMethod;
+  translationModel: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -24,6 +25,7 @@ export type ProviderConnectionUpsertInput = {
   status?: ProviderConnectionStatus;
   connectionMethod?: ProviderConnectionMethod;
   lastValidatedAt?: Date | null;
+  translationModel?: string | null;
 };
 
 export type ProviderAdapterExchangeResult = {

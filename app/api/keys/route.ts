@@ -5,6 +5,7 @@ import {
   unauthorizedResponse,
 } from "@/lib/auth";
 import { openRouterAdapter } from "@/lib/providers/openrouter";
+import { normalizeOpenRouterModel } from "@/lib/openrouter-models";
 import {
   listProviderConnections,
   upsertProviderSecret,
@@ -36,6 +37,7 @@ export async function GET(request: NextRequest) {
       connectedAt: k.connectedAt,
       lastValidatedAt: k.lastValidatedAt,
       connectionMethod: k.connectionMethod,
+      translationModel: k.translationModel,
     })),
   });
 }
@@ -51,6 +53,7 @@ export async function POST(request: NextRequest) {
   const provider = typeof body.provider === "string" ? body.provider : "";
   const key = typeof body.key === "string" ? body.key.trim() : "";
   const keyLabelInput = typeof body.key_label === "string" ? body.key_label.trim() : null;
+  const translationModel = normalizeOpenRouterModel(body.translation_model);
 
   if (!isSupportedProvider(provider)) {
     return NextResponse.json(
@@ -93,6 +96,7 @@ export async function POST(request: NextRequest) {
     status,
     connectionMethod: "manual",
     lastValidatedAt,
+    translationModel: provider === "openrouter" ? translationModel : null,
   });
 
   return NextResponse.json({
@@ -106,6 +110,7 @@ export async function POST(request: NextRequest) {
       connectedAt: connection.connectedAt,
       lastValidatedAt: connection.lastValidatedAt,
       connectionMethod: connection.connectionMethod,
+      translationModel: connection.translationModel,
     },
   });
 }

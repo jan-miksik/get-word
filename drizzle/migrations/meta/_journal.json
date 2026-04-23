@@ -78,6 +78,27 @@
       "when": 1775001000000,
       "tag": "0010_memory_hook_preferences",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1776944510000,
+      "tag": "0011_multisession_review_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1776944520000,
+      "tag": "0012_openrouter_translation_model",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1776944530000,
+      "tag": "0013_google_api_usage",
+      "breakpoints": true
     }
   ]
 }

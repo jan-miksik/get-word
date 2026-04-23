@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { fetchUserData, linkWallet, clearPendingSync, isAuthRequiredError } from '@/lib/sync';
 import type { SyncResponse } from '@/lib/sync';
 import type { NormalizedWord } from '@/lib/words';
@@ -50,9 +50,14 @@ export function useServerSync({
   const hasLoadedRef = useRef(false);
   const hasLinkedRef = useRef(false);
 
-  function applyServerData(serverData: SyncResponse) {
+  const applyServerData = useCallback((
+    serverData: SyncResponse,
+    options: { clearPending?: boolean } = {}
+  ) => {
     const applyStart = performance.now();
-    clearPendingSync();
+    if (options.clearPending ?? true) {
+      clearPendingSync();
+    }
     if (serverData.progress) applyServerProgress(serverData.progress);
     if (serverData.memory_hooks) applyServerMemoryHooks(serverData.memory_hooks);
     if (serverData.category_filters) applyServerCategories(serverData.category_filters);
@@ -94,7 +99,38 @@ export function useServerSync({
     if (shouldLogPerf) {
       console.info(`[timing] useServerSync.applyServerData ${(performance.now() - applyStart).toFixed(1)}ms`);
     }
-  }
+  }, [
+    applyServerCategories,
+    applyServerGameScore,
+    applyServerMemoryHooks,
+    applyServerPreferences,
+    applyServerProfile,
+    applyServerProgress,
+    setActiveListId,
+    setSubscribedLists,
+    setSyncedWords,
+    shouldLogPerf,
+    words,
+  ]);
+
+  const applyFreshServerData = useCallback((serverData: SyncResponse) => {
+    isUpdatingFromServerRef.current = true;
+    applyServerData(serverData, { clearPending: false });
+    requestAnimationFrame(() => {
+      isUpdatingFromServerRef.current = false;
+    });
+  }, [applyServerData, isUpdatingFromServerRef]);
+
+  const refetchServerData = useCallback(() => {
+    if (!isHydratedRef.current) return;
+    fetchUserData()
+      .then(applyFreshServerData)
+      .catch((error) => {
+        if (!isAuthRequiredError(error)) {
+          console.error('[useServerSync] Failed to refresh:', error);
+        }
+      });
+  }, [applyFreshServerData]);
 
   useEffect(() => {
     if (hasLoadedRef.current || words.length === 0) return;
@@ -142,7 +178,27 @@ export function useServerSync({
       });
 
     return () => clearTimeout(hydrationTimeout);
-  }, [applyServerCategories, applyServerGameScore, applyServerMemoryHooks, applyServerPreferences, applyServerProfile, applyServerProgress, isUpdatingFromServerRef, setActiveListId, words]);
+  }, [applyServerData, isUpdatingFromServerRef, setIsHydrated, shouldLogPerf, words.length]);
+
+  useEffect(() => {
+    const onServerSync = (event: Event) => {
+      const detail = (event as CustomEvent<SyncResponse>).detail;
+      if (detail?.success) applyFreshServerData(detail);
+    };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') refetchServerData();
+    };
+    const onOnline = () => refetchServerData();
+
+    window.addEventListener('wordlink:server-sync', onServerSync);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('online', onOnline);
+    return () => {
+      window.removeEventListener('wordlink:server-sync', onServerSync);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('online', onOnline);
+    };
+  }, [applyFreshServerData, refetchServerData]);
 
   useEffect(() => {
     if (!isHydrated || !walletAddress || hasLinkedRef.current) return;
@@ -174,7 +230,7 @@ export function useServerSync({
         setIsLinkingWallet(false);
         setHasLinkWalletError(true);
       });
-  }, [applyServerCategories, applyServerGameScore, applyServerMemoryHooks, applyServerPreferences, applyServerProfile, applyServerProgress, isHydrated, isUpdatingFromServerRef, linkPayload?.authProvider, linkPayload?.email, setActiveListId, walletAddress, words]);
+  }, [applyServerData, isHydrated, isUpdatingFromServerRef, linkPayload?.authProvider, linkPayload?.email, shouldLogPerf, walletAddress]);
 
   useEffect(() => {
     if (!walletAddress) {

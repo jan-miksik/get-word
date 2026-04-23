@@ -4,6 +4,7 @@
  */
 
 import { getProviderSecret } from "@/lib/providers/store";
+import { DEFAULT_OPENROUTER_TRANSLATION_MODEL } from "@/lib/openrouter-models";
 
 export type TranslationResult = {
   text: string;
@@ -108,6 +109,7 @@ export async function openRouterTranslate(
   fromLang: string,
   toLang: string,
   apiKey: string,
+  model = DEFAULT_OPENROUTER_TRANSLATION_MODEL,
 ): Promise<TranslationResult[]> {
   const results: TranslationResult[] = [];
   const BATCH_SIZE = 50;
@@ -124,7 +126,7 @@ export async function openRouterTranslate(
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          model: "anthropic/claude-sonnet-4-5",
+          model,
           messages: [
             {
               role: "system",

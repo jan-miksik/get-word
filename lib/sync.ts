@@ -1,5 +1,10 @@
 // Client-side sync utilities
 import { getDeviceId } from "./device-id";
+import { getSessionId } from "./session-id";
+import {
+  clearAppliedReviewEvents,
+  type ReviewEventPayload,
+} from "./review-events";
 
 // In-memory only: set from API responses, passed as hint to API. No localStorage.
 let lastKnownUserId: string | null = null;
@@ -118,6 +123,8 @@ export interface ProgressData {
 
 export interface SyncResponse {
   success: boolean;
+  applied_review_event_ids?: string[];
+  sync_revision?: number;
   user: {
     id: string;
     role: "cz" | "vi";
@@ -161,8 +168,10 @@ export interface SyncResponse {
 export async function fetchUserData(): Promise<SyncResponse> {
   const startedAt = performance.now();
   const deviceId = getDeviceId();
+  const sessionId = getSessionId();
   const params = new URLSearchParams();
   if (deviceId) params.set('deviceId', deviceId);
+  if (sessionId) params.set('sessionId', sessionId);
   if (lastKnownUserId) params.set('userId', lastKnownUserId);
 
   try {
@@ -269,6 +278,7 @@ export async function syncUserData(data: {
   game_score?: number;
   category_order?: string[];
   progress?: SyncProgressItem[];
+  review_events?: ReviewEventPayload[];
   memory_hooks?: Record<string, string | null>;
   category_filters?: string[];
 }): Promise<SyncResponse> {
@@ -276,12 +286,14 @@ export async function syncUserData(data: {
     throw new AuthRequiredError("Failed to sync data");
   }
   const deviceId = getDeviceId();
+  const sessionId = getSessionId();
 
   const response = await fetch("/api/sync", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
       deviceId,
+      sessionId,
       userId: lastKnownUserId,
       ...data,
     }),
@@ -308,6 +320,12 @@ export async function syncUserData(data: {
   if (result.user?.id) {
     lastKnownUserId = result.user.id;
     authRequired = false;
+  }
+  clearAppliedReviewEvents(result.applied_review_event_ids);
+  if (typeof window !== "undefined") {
+    window.dispatchEvent(
+      new CustomEvent("wordlink:server-sync", { detail: result })
+    );
   }
   return result;
 }

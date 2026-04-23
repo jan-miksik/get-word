@@ -40,6 +40,7 @@ export default function ListsPage() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [subscribedListIds, setSubscribedListIds] = useState<Set<string>>(new Set());
   const [openCreateSignal, setOpenCreateSignal] = useState(0);
+  const [isEditDirty, setIsEditDirty] = useState(false);
 
   const selectedList = useMemo(
     () => lists.find((l) => l.id === selectedListId) ?? null,
@@ -201,6 +202,7 @@ export default function ListsPage() {
   const handleEditCategory = useCallback((categoryId: string, inputLang: 'known' | 'target') => {
     setEditingCategoryId(categoryId);
     setEditInputLanguage(inputLang);
+    setIsEditDirty(false);
     setWizardStep('edit');
   }, []);
 
@@ -268,7 +270,7 @@ export default function ListsPage() {
   }, [selectedListId, editingCategoryId, diffResult, editInputLanguage, itemsByCategory]);
 
   const handleTranslationComplete = useCallback(async () => {
-    // Audio step is stubbed for now — go to audio stub then back to browse
+    await reloadListDetails();
     setWizardStep('audio');
   }, []);
 
@@ -302,6 +304,7 @@ export default function ListsPage() {
     setDiffResult(null);
     setPendingItems([]);
     setTranslateHeading('Translate Words');
+    setIsEditDirty(false);
   }, []);
 
   const handleGoBack = useCallback(() => {
@@ -315,8 +318,31 @@ export default function ListsPage() {
     const order: WizardActiveStep[] = ['edit', 'preview', 'translate', 'audio'];
     const currentIdx = order.indexOf(wizardStep as WizardActiveStep);
     const targetIdx = order.indexOf(step);
-    if (targetIdx <= currentIdx) setWizardStep(step);
-  }, [wizardStep]);
+    if (targetIdx <= currentIdx) {
+      setWizardStep(step);
+      return;
+    }
+
+    if (wizardStep !== 'edit' || isEditDirty || !editingCategoryId) return;
+
+    const categoryItems = itemsByCategory.get(editingCategoryId) ?? [];
+    setDiffResult({
+      added: [],
+      removed: [],
+      reordered: [],
+      unchanged: categoryItems.length,
+    });
+    setTranslateHeading('Review Translations & Audio');
+    setPendingItems(
+      categoryItems.map((item) => ({
+        id: item.id,
+        text_known: item.textKnown,
+        text_target: item.textTarget ?? null,
+        position: item.position,
+      })),
+    );
+    setWizardStep(step);
+  }, [editingCategoryId, isEditDirty, itemsByCategory, wizardStep]);
 
   const handleCreateCategory = useCallback(async (name: string) => {
     if (!selectedListId) return;
@@ -428,6 +454,7 @@ export default function ListsPage() {
           <WizardProgressBar
             currentStep={wizardStep as WizardActiveStep}
             onGoToStep={handleGoToStep}
+            canJumpForward={wizardStep === 'edit' && !isEditDirty}
           />
         )}
 
@@ -468,6 +495,7 @@ export default function ListsPage() {
               onInputLanguageChange={setEditInputLanguage}
               onPreview={handlePreview}
               onCancel={handleCancelWizard}
+              onDirtyChange={setIsEditDirty}
             />
           ) : wizardStep === 'preview' ? (
             <DiffPreview

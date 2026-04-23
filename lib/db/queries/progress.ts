@@ -5,6 +5,7 @@ import {
   type UserProgress,
   type NewUserProgress,
 } from "../schema";
+import { STAGES } from "@/lib/words";
 
 /**
  * Get all progress for a user, keyed by wordListItemId (preferred) or wordId (legacy).
@@ -39,6 +40,23 @@ export async function getWordProgress(
     .from(userProgress)
     .where(
       and(eq(userProgress.userId, userId), eq(userProgress.wordId, wordId))
+    )
+    .limit(1);
+  return results[0] || null;
+}
+
+export async function getWordProgressByItemId(
+  userId: string,
+  wordListItemId: string
+): Promise<UserProgress | null> {
+  const results = await db
+    .select()
+    .from(userProgress)
+    .where(
+      and(
+        eq(userProgress.userId, userId),
+        eq(userProgress.wordListItemId, wordListItemId)
+      )
     )
     .limit(1);
   return results[0] || null;
@@ -139,6 +157,70 @@ export async function batchUpsertProgressByItemId(
           updatedAt: new Date(),
         },
       });
+  }
+}
+
+export type ReviewProgressAction = "known" | "really_known" | "unknown";
+
+export async function applyReviewEventToProgress(args: {
+  userId: string;
+  wordId?: string | null;
+  wordListItemId?: string | null;
+  action: ReviewProgressAction;
+  occurredAt: Date;
+}): Promise<void> {
+  const { userId, wordId, wordListItemId, action, occurredAt } = args;
+  if (!wordId && !wordListItemId) return;
+
+  const current = wordListItemId
+    ? await getWordProgressByItemId(userId, wordListItemId)
+    : await getWordProgress(userId, wordId!);
+
+  const currentStageIndex = current?.stageIndex ?? 0;
+  const knownCount = current?.knownCount ?? 0;
+  const unknownCount = current?.unknownCount ?? 0;
+
+  let stageIndex = currentStageIndex;
+  let nextKnownCount = knownCount;
+  let nextUnknownCount = unknownCount;
+  let lastKnownAt = current?.lastKnownAt ?? null;
+  let lastUnknownAt = current?.lastUnknownAt ?? null;
+
+  if (action === "known") {
+    stageIndex = Math.min(currentStageIndex + 1, STAGES.length - 1);
+    nextKnownCount += 1;
+    lastKnownAt = occurredAt;
+  } else if (action === "really_known") {
+    stageIndex = Math.min(currentStageIndex + 2, STAGES.length - 1);
+    nextKnownCount += 1;
+    lastKnownAt = occurredAt;
+  } else {
+    stageIndex = Math.max(currentStageIndex - 1, 0);
+    nextUnknownCount += 1;
+    lastUnknownAt = occurredAt;
+  }
+
+  const intervalMs = STAGES[stageIndex]?.intervalMs ?? 0;
+  const nextDueAt = intervalMs > 0
+    ? new Date(occurredAt.getTime() + intervalMs)
+    : null;
+
+  const values = {
+    userId,
+    wordId: wordListItemId ? null : wordId!,
+    wordListItemId: wordListItemId ?? null,
+    stageIndex,
+    knownCount: nextKnownCount,
+    unknownCount: nextUnknownCount,
+    lastKnownAt,
+    lastUnknownAt,
+    nextDueAt,
+  };
+
+  if (wordListItemId) {
+    await batchUpsertProgressByItemId([values]);
+  } else {
+    await batchUpsertProgress([values]);
   }
 }
 

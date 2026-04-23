@@ -3,12 +3,18 @@ import {
   resolveUserFromRequest,
   unauthorizedResponse,
 } from "@/lib/auth";
-import { getListById, findExistingTranslations } from "@/lib/db";
+import {
+  countGoogleApiTextUnits,
+  getListById,
+  findExistingTranslations,
+  reserveGoogleApiUsage,
+} from "@/lib/db";
 import {
   googleTranslate,
   openRouterTranslate,
   getUserApiKey,
 } from "@/lib/translation";
+import { normalizeOpenRouterModel } from "@/lib/openrouter-models";
 
 const MAX_ITEMS_PER_REQUEST = 500;
 
@@ -29,7 +35,9 @@ export async function POST(request: NextRequest) {
     provider?: string;
     list_id?: string;
     input_language?: "known" | "target";
+    translation_model?: string;
   };
+  const translationModel = normalizeOpenRouterModel(body.translation_model);
 
   if (!items || !Array.isArray(items) || items.length === 0) {
     return NextResponse.json(
@@ -106,6 +114,29 @@ export async function POST(request: NextRequest) {
     const toLang = needsApi[0].to_lang;
 
     if (provider === "google") {
+      const quota = await reserveGoogleApiUsage({
+        userId: user.id,
+        scope: "translate",
+        units: countGoogleApiTextUnits(textsToTranslate),
+        requestCount: textsToTranslate.length,
+      });
+      if (!quota.allowed) {
+        return NextResponse.json(
+          {
+            error: quota.message,
+            code: "GOOGLE_API_ACCOUNT_LIMIT_REACHED",
+            scope: quota.scope,
+            usage: {
+              used_units: quota.usedUnits,
+              requested_units: quota.requestedUnits,
+              account_limit: quota.accountLimit,
+              free_monthly_units: quota.freeMonthlyUnits,
+              period_start: quota.periodStart.toISOString(),
+            },
+          },
+          { status: 429 },
+        );
+      }
       apiResults = await googleTranslate(textsToTranslate, fromLang, toLang);
     } else if (provider === "openrouter" && openRouterKey) {
       apiResults = await openRouterTranslate(
@@ -113,6 +144,7 @@ export async function POST(request: NextRequest) {
         fromLang,
         toLang,
         openRouterKey,
+        translationModel,
       );
     }
   }
