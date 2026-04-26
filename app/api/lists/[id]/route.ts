@@ -13,6 +13,7 @@ import {
   forbiddenResponse,
 } from "@/lib/auth";
 import { getAudioUrl } from "@/lib/audio";
+import { getArweaveGatewayUrls } from "@/lib/audio-storage";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -46,12 +47,34 @@ export async function GET(request: NextRequest, context: RouteContext) {
     categories,
     items: items.map((item) => ({
       ...item,
-      audioUrl: item.audioAssetId
+      ...(item.audioAssetId
         ? (() => {
             const asset = mediaAssets.get(item.audioAssetId);
-            return asset ? getAudioUrl(asset.contentHash) : null;
+            if (!asset) {
+              return {
+                audioUrl: null,
+                audioArweaveUrl: null,
+                audioArweaveUrls: [],
+                audioStorageRef: null,
+              };
+            }
+            const arweaveUrls =
+              asset.storageType === "arweave"
+                ? getArweaveGatewayUrls(asset.storageRef)
+                : [];
+            return {
+              audioUrl: getAudioUrl(asset.contentHash),
+              audioArweaveUrl: arweaveUrls[0] ?? null,
+              audioArweaveUrls: arweaveUrls,
+              audioStorageRef: asset.storageRef,
+            };
           })()
-        : null,
+        : {
+            audioUrl: null,
+            audioArweaveUrl: null,
+            audioArweaveUrls: [],
+            audioStorageRef: null,
+          }),
     })),
   });
 }

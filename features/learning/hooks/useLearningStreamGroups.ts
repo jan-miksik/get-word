@@ -24,6 +24,19 @@ type SegmentPlan = {
   anchors: GameAnchor[];
 };
 
+function emptySegmentPlans(): Record<SegmentKind, SegmentPlan | null> {
+  return {
+    repeat: null,
+    settling: null,
+    new: null,
+  };
+}
+
+function isSegmentPlans(value: unknown): value is Record<SegmentKind, SegmentPlan | null> {
+  if (!value || typeof value !== 'object') return false;
+  return 'repeat' in value && 'settling' in value && 'new' in value;
+}
+
 type UseLearningStreamGroupsArgs = {
   dueWords: NormalizedWord[];
   newWords: NormalizedWord[];
@@ -35,6 +48,7 @@ type UseLearningStreamGroupsArgs = {
   dismissedGames: Set<string>;
   minigameSeed: number;
   selectedCategoriesKey: string;
+  wordsResetKey: string;
 };
 
 export function useLearningStreamGroups({
@@ -48,12 +62,11 @@ export function useLearningStreamGroups({
   dismissedGames,
   minigameSeed,
   selectedCategoriesKey,
+  wordsResetKey,
 }: UseLearningStreamGroupsArgs) {
-  const stableMinigamePlansRef = useRef<Record<SegmentKind, SegmentPlan | null>>({
-    repeat: null,
-    settling: null,
-    new: null,
-  });
+  const stableMinigamePlansRef = useRef<Record<SegmentKind, SegmentPlan | null>>(
+    emptySegmentPlans()
+  );
 
   const combined = useMemo(
     () => [...dueWords, ...(showNotReady ? settlingWords : []), ...newWords],
@@ -72,7 +85,7 @@ export function useLearningStreamGroups({
       if (combined.length === 0) {
         wordStream = [];
       } else {
-        const baseResetKey = selectedCategoriesKey;
+        const baseResetKey = `${selectedCategoriesKey}|${wordsResetKey}`;
         const learnedPoolSig = `${learnedPool.length}:${learnedPool
           .slice(0, 12)
           .map((word) => word.id)
@@ -90,6 +103,9 @@ export function useLearningStreamGroups({
           const seed = segmentSeed(kind);
           const configKey = `${seed}|${min}|${max}`;
           const resetKey = `${baseResetKey}|${kind}`;
+          if (!isSegmentPlans(stableMinigamePlansRef.current)) {
+            stableMinigamePlansRef.current = emptySegmentPlans();
+          }
           const existing = stableMinigamePlansRef.current[kind];
 
           let plan =
@@ -190,11 +206,12 @@ export function useLearningStreamGroups({
     selectedCategoriesKey,
     settlingWords,
     showNotReady,
+    wordsResetKey,
   ]);
 
   return {
     resetStablePlans() {
-      stableMinigamePlansRef.current = { repeat: null, settling: null, new: null };
+      stableMinigamePlansRef.current = emptySegmentPlans();
     },
     streamGroupedWords,
   };

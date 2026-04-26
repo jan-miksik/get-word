@@ -157,4 +157,35 @@ describe('CardDeckView', () => {
     await userEvent.click(screen.getByText('Complete'));
     expect(screen.getByText(/all done/i)).toBeInTheDocument();
   });
+
+  it('resets the deck cursor when switching to a different grouped word set', async () => {
+    const renderCard = (word: NormalizedWord, _: number, onComplete: (afterExit?: () => void) => void) => (
+      <div>
+        <span data-testid={`card-${word.id}`}>{word.id}</span>
+        <button onClick={() => onComplete()}>Complete</button>
+      </div>
+    );
+
+    const { rerender } = render(
+      <CardDeckView
+        groupedWords={[[makeWord('w1')]]}
+        renderCard={renderCard}
+        renderMiniGame={vi.fn()}
+      />
+    );
+
+    await userEvent.click(screen.getByText('Complete'));
+    expect(screen.getByText(/all done/i)).toBeInTheDocument();
+
+    rerender(
+      <CardDeckView
+        groupedWords={[[makeWord('w2')]]}
+        renderCard={renderCard}
+        renderMiniGame={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('card-w2')).toBeInTheDocument();
+    expect(screen.queryByText(/all done/i)).not.toBeInTheDocument();
+  });
 });

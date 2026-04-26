@@ -7,7 +7,7 @@ export type WordlinkTabMessage =
   | { type: "review_event"; sessionId: string; event: ReviewEventPayload }
   | { type: "memory_hook_changed"; sessionId: string; wordId: string; hook: string }
   | { type: "preferences_changed"; sessionId: string; patch: Record<string, unknown> }
-  | { type: "category_filters_changed"; sessionId: string; categories: string[] }
+  | { type: "category_filters_changed"; sessionId: string; scopeKey: string; categories: string[] }
   | { type: "game_score_changed"; sessionId: string; score: number };
 
 type OutboundWordlinkTabMessage = WordlinkTabMessage extends infer Message

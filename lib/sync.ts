@@ -96,6 +96,7 @@ export interface SyncWordListItem {
   id: string;
   listId: string;
   categoryId: string | null;
+  canonicalWordId?: string | null;
   position: number;
   textKnown: string;
   textTarget: string | null;

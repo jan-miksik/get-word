@@ -60,7 +60,7 @@ export function AppLayout({
           onShowAll={() => setShowAll(!showAll)}
           onMenuAction={toggle}
           categoryCount={selectedCategories.size}
-          categoryActive={selectedCategories.size > 0}
+          categoryActive={categories.length > 0 && selectedCategories.size < categories.length}
           progressActive={progressOpen}
           score={gameScore}
           lists={subscribedLists.length > 0 ? subscribedLists : undefined}

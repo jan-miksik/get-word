@@ -11,6 +11,26 @@ import {
 
 export type Role = 'cz' | 'vi';
 
+function normalizeCategoryOrderValue(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return Array.from(
+    new Set(
+      value
+        .map((item) => String(item).trim())
+        .filter(Boolean)
+    )
+  );
+}
+
+function areStringArraysEqual(left: string[], right: string[]): boolean {
+  if (left === right) return true;
+  if (left.length !== right.length) return false;
+  for (let i = 0; i < left.length; i += 1) {
+    if (left[i] !== right[i]) return false;
+  }
+  return true;
+}
+
 export function usePreferences(
   isHydrated: boolean,
   isUpdatingFromServerRef: React.MutableRefObject<boolean>
@@ -105,7 +125,9 @@ export function usePreferences(
   }, []);
   const setCategoryOrder = useCallback((order: string[] | ((prev: string[]) => string[])) => {
     setCategoryOrderState((prev) => {
-      const next = typeof order === 'function' ? order(prev) : order;
+      const rawNext = typeof order === 'function' ? order(prev) : order;
+      const next = normalizeCategoryOrderValue(rawNext);
+      if (areStringArraysEqual(prev, next)) return prev;
       postTabMessage({ type: 'preferences_changed', patch: { categoryOrder: next } });
       return next;
     });
@@ -120,7 +142,10 @@ export function usePreferences(
     setMemoryHookDisableFromStageState(
       normalizeMemoryHookDisableFromStage(user.memory_hook_disable_from_stage)
     );
-    setCategoryOrderState(Array.isArray(user.category_order) ? user.category_order : []);
+    const nextCategoryOrder = normalizeCategoryOrderValue(user.category_order);
+    setCategoryOrderState((prev) =>
+      areStringArraysEqual(prev, nextCategoryOrder) ? prev : nextCategoryOrder
+    );
   }, []);
 
   useEffect(() => {
@@ -144,7 +169,10 @@ export function usePreferences(
         );
       }
       if (Array.isArray(patch.categoryOrder)) {
-        setCategoryOrderState(patch.categoryOrder.map(String));
+        const nextCategoryOrder = normalizeCategoryOrderValue(patch.categoryOrder);
+        setCategoryOrderState((prev) =>
+          areStringArraysEqual(prev, nextCategoryOrder) ? prev : nextCategoryOrder
+        );
       }
     });
   }, []);

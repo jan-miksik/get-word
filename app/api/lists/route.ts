@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserLists, createList } from "@/lib/db";
+import { getUserLists, getUserSubscribedListIds, createList } from "@/lib/db";
 import {
   resolveUserFromRequest,
   unauthorizedResponse,
@@ -9,8 +9,11 @@ export async function GET(request: NextRequest) {
   const user = await resolveUserFromRequest(request);
   if (!user) return unauthorizedResponse();
 
-  const lists = await getUserLists(user.id);
-  return NextResponse.json({ lists });
+  const [lists, subscribedListIds] = await Promise.all([
+    getUserLists(user.id),
+    getUserSubscribedListIds(user.id),
+  ]);
+  return NextResponse.json({ lists, subscribedListIds });
 }
 
 export async function POST(request: NextRequest) {

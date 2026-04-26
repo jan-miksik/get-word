@@ -103,7 +103,7 @@ export function CategoryPanel({ isOpen, categories, onClose }: CategoryPanelProp
         </div>
         <div className="flex items-center justify-between gap-2 mb-2">
           <p className="m-0 text-[0.92rem] text-text-soft">
-            Drag to reorder. Check to filter.
+            Drag to reorder. Checked categories stay visible.
           </p>
           <button
             type="button"

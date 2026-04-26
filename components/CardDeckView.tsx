@@ -88,6 +88,17 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
   groupedWordsRef.current = groupedWords;
 
   useEffect(() => {
+    setCurrentIndex(0);
+    setExitAnim(null);
+    setEnterAnim(null);
+    setShowDoneOverlay(false);
+    lastItemRef.current = null;
+    lockedItemRef.current = null;
+    lockedStageIndexRef.current = 0;
+    pendingAfterExitRef.current = null;
+  }, [groupedWords]);
+
+  useEffect(() => {
     const lookaheadItems = items.slice(currentIndex, currentIndex + AUDIO_LOOKAHEAD_CARDS + 1);
     const audioUrls = Array.from(new Set(lookaheadItems.flatMap(getAudioUrlsForItem)));
     if (audioUrls.length === 0) return;

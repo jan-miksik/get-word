@@ -27,6 +27,9 @@ export type WordListItem = {
   audioAssetId?: string | null;
   audioStatus: string;
   audioUrl?: string | null;
+  audioArweaveUrl?: string | null;
+  audioArweaveUrls?: string[];
+  audioStorageRef?: string | null;
   notes: string | null;
 };
 
@@ -47,4 +50,31 @@ export type ConfirmResult = {
     text_target: string | null;
     position: number;
   }[];
+};
+
+export type GoogleUsageScope = 'translate' | 'tts';
+
+export type GoogleUsageAccountScope = {
+  scope: GoogleUsageScope;
+  used_units: number;
+  request_count: number;
+  account_limit: number;
+  free_monthly_units: number;
+  paused: boolean;
+  limit_message?: string | null;
+};
+
+export type GoogleUsageGlobalScope = {
+  scope: GoogleUsageScope;
+  used_units: number;
+  request_count: number;
+  account_count: number;
+  free_monthly_units: number;
+};
+
+export type GoogleUsageResponse = {
+  period_start: string;
+  inspected_user_id: string;
+  account: GoogleUsageAccountScope[];
+  global?: GoogleUsageGlobalScope[];
 };

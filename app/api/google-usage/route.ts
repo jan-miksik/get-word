@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
+  GOOGLE_API_ACCOUNT_LIMIT_MESSAGE,
   getCurrentGoogleApiPeriodStart,
   getGoogleApiAccountMonthlyLimit,
   getGoogleApiFreeMonthlyUnits,
@@ -45,6 +46,7 @@ export async function GET(request: NextRequest) {
         used_units: row?.units ?? 0,
         request_count: row?.requestCount ?? 0,
         paused: (row?.units ?? 0) >= getGoogleApiAccountMonthlyLimit(scope),
+        limit_message: GOOGLE_API_ACCOUNT_LIMIT_MESSAGE,
       };
     }),
     ...(globalRows

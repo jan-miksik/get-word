@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { listsApiFetch } from '@/features/lists/api';
-import type { ConfirmResult, WordList } from '@/features/lists/types';
+import type { ConfirmResult, GoogleUsageResponse, WordList } from '@/features/lists/types';
 import {
   DEFAULT_OPENROUTER_TRANSLATION_MODEL,
   OPENROUTER_MODELS_URL,
@@ -17,8 +17,10 @@ interface TranslationStepProps {
   pendingItems: PendingItem[];
   inputLanguage: 'known' | 'target';
   heading?: string;
+  googleUsage?: GoogleUsageResponse | null;
   onComplete: () => Promise<void>;
   onSkip: () => Promise<void>;
+  onUsageRefresh?: () => Promise<void>;
   onBack?: () => void;
 }
 
@@ -42,8 +44,10 @@ export function TranslationStep({
   pendingItems,
   inputLanguage,
   heading = 'Translate Words',
+  googleUsage,
   onComplete,
   onSkip,
+  onUsageRefresh,
   onBack,
 }: TranslationStepProps) {
   const [rows, setRows] = useState<TranslationRow[]>(() =>
@@ -69,6 +73,10 @@ export function TranslationStep({
   const pendingCount = rows.filter((r) => !r[needsTranslation] || r.status === 'pending').length;
   const readyCount = rows.filter((r) => r[needsTranslation] && r.status !== 'pending').length;
   const dedupCount = rows.filter((r) => r.source === 'dedup').length;
+  const googleTranslateUsage = googleUsage?.account.find((scope) => scope.scope === 'translate');
+  const isGooglePaused = Boolean(googleTranslateUsage?.paused);
+  const googlePausedMessage = googleTranslateUsage?.limit_message
+    ?? 'This account has reached the free Google API usage limit. Reach out to us for more usage, or use your own API keys.';
 
   const loadOpenRouterStatus = useCallback(async () => {
     setOpenRouterLoading(true);
@@ -121,6 +129,10 @@ export function TranslationStep({
   }, [loadOpenRouterStatus]);
 
   const handleAutoTranslate = useCallback(async () => {
+    if (provider === 'google' && isGooglePaused) {
+      setError(googlePausedMessage);
+      return;
+    }
     if (provider === 'openrouter' && openRouterState !== 'connected') {
       setError('Connect OpenRouter before using this provider.');
       return;
@@ -191,8 +203,23 @@ export function TranslationStep({
       setError(err instanceof Error ? err.message : 'Translation failed');
     } finally {
       setTranslating(false);
+      if (provider === 'google') {
+        void onUsageRefresh?.();
+      }
     }
-  }, [rows, needsTranslation, hasSource, provider, openRouterModel, list, inputLanguage, openRouterState]);
+  }, [
+    rows,
+    needsTranslation,
+    hasSource,
+    provider,
+    openRouterModel,
+    list,
+    inputLanguage,
+    openRouterState,
+    isGooglePaused,
+    googlePausedMessage,
+    onUsageRefresh,
+  ]);
 
   const handleOpenRouterModelSave = useCallback(async () => {
     const model = normalizeOpenRouterModel(openRouterModel);
@@ -294,13 +321,24 @@ export function TranslationStep({
         </select>
         <button
           type="button"
-          disabled={translating || pendingCount === 0 || (provider === 'openrouter' && openRouterState !== 'connected')}
+          disabled={
+            translating ||
+            pendingCount === 0 ||
+            (provider === 'openrouter' && openRouterState !== 'connected') ||
+            (provider === 'google' && isGooglePaused)
+          }
           className="px-4 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
           onClick={handleAutoTranslate}
         >
           {translating ? 'Translating...' : `Auto-translate (${pendingCount})`}
         </button>
       </div>
+
+      {provider === 'google' && isGooglePaused && (
+        <div className="mb-4 rounded-lg border border-danger/30 bg-danger/10 p-3 text-xs text-danger">
+          {googlePausedMessage}
+        </div>
+      )}
 
       {provider === 'openrouter' && openRouterState !== 'connected' && (
         <div className="mb-4 p-3 rounded-lg border border-border-subtle bg-background-elevated flex items-center justify-between gap-3">

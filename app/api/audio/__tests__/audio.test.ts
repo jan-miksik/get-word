@@ -51,6 +51,7 @@ vi.mock('@/lib/audio-storage', () => ({
 }))
 
 import { POST } from '../generate/batch/route'
+import { POST as POST_REUSE } from '../reuse/batch/route'
 import { GET } from '../[hash]/route'
 
 const testUser = {
@@ -62,6 +63,14 @@ const testUser = {
 
 function makeRequest(body: object) {
   return new NextRequest('http://localhost:3000/api/audio/generate/batch', {
+    method: 'POST',
+    body: JSON.stringify(body),
+    headers: { 'content-type': 'application/json' },
+  })
+}
+
+function makeReuseRequest(body: object) {
+  return new NextRequest('http://localhost:3000/api/audio/reuse/batch', {
     method: 'POST',
     body: JSON.stringify(body),
     headers: { 'content-type': 'application/json' },
@@ -315,6 +324,74 @@ describe('POST /api/audio/generate/batch', () => {
     expect(res.status).toBe(400)
     const data = await res.json()
     expect(data.error).toContain('200')
+  })
+})
+
+describe('POST /api/audio/reuse/batch', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockComputeContentHash.mockImplementation((text: string, lang: string, provider: string) => `hash_${text}_${lang}_${provider}`)
+    mockGetAudioUrl.mockImplementation((hash: string) => `/api/audio/${hash}`)
+  })
+
+  it('returns reusable audio candidates without linking by default', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockFindMediaByHashes.mockResolvedValue(new Map([
+      ['hash_hello_vi_google_tts', {
+        id: 'asset-existing',
+        contentHash: 'hash_hello_vi_google_tts',
+        storageType: 'arweave',
+        storageRef: 'tx-existing',
+        provider: 'google_tts',
+        sizeBytes: 123,
+      }],
+    ]))
+
+    const res = await POST_REUSE(makeReuseRequest({
+      items: [{ id: 'item-1', text: 'hello', language: 'vi' }],
+      provider: 'google_tts',
+    }))
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.found_count).toBe(1)
+    expect(data.linked_count).toBe(0)
+    expect(data.results[0].status).toBe('found')
+    expect(data.results[0].audio_url).toBe('/api/audio/hash_hello_vi_google_tts')
+    expect(data.results[0].arweave_urls).toEqual([
+      'https://turbo-gateway.com/tx-existing',
+      'https://arweave.net/tx-existing',
+    ])
+    expect(mockBatchLinkAudioToItems).not.toHaveBeenCalled()
+  })
+
+  it('links reusable audio when requested', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockFindMediaByHashes.mockResolvedValue(new Map([
+      ['hash_hello_vi_google_tts', {
+        id: 'asset-existing',
+        contentHash: 'hash_hello_vi_google_tts',
+        storageType: 'arweave',
+        storageRef: 'tx-existing',
+        provider: 'google_tts',
+        sizeBytes: 123,
+      }],
+    ]))
+    mockBatchLinkAudioToItems.mockResolvedValue(undefined)
+
+    const res = await POST_REUSE(makeReuseRequest({
+      items: [{ id: 'item-1', text: 'hello', language: 'vi' }],
+      provider: 'google_tts',
+      link: true,
+    }))
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.linked_count).toBe(1)
+    expect(data.results[0].linked).toBe(true)
+    expect(mockBatchLinkAudioToItems).toHaveBeenCalledWith([
+      { itemId: 'item-1', audioAssetId: 'asset-existing', audioStatus: 'ready' },
+    ])
   })
 })
 

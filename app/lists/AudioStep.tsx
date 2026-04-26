@@ -2,16 +2,22 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { listsApiFetch } from '@/features/lists/api';
-import type { WordList, WordListItem } from '@/features/lists/types';
+import type { GoogleUsageResponse, WordList, WordListItem } from '@/features/lists/types';
 
 type AudioRow = {
   id: string;
+  textKnown: string;
   textTarget: string;
   language: string;
   audioUrl: string | null;
   arweaveUrl?: string | null;
   arweaveUrls?: string[];
   storageRef?: string | null;
+  reusableAudioUrl?: string | null;
+  reusableArweaveUrl?: string | null;
+  reusableArweaveUrls?: string[];
+  reusableStorageRef?: string | null;
+  reuseStatus?: 'unchecked' | 'checking' | 'found' | 'missing' | 'error';
   audioStatus: 'none' | 'pending' | 'ready' | 'failed';
   source?: 'dedup' | 'generated';
 };
@@ -29,11 +35,30 @@ type AudioGenerationResult = {
   error?: string;
 };
 
+type AudioReuseResult = {
+  id: string;
+  content_hash?: string;
+  audio_url: string | null;
+  arweave_url?: string | null;
+  arweave_urls?: string[];
+  storage_ref?: string | null;
+  size_bytes?: number;
+  status: 'found' | 'missing' | 'error';
+  linked?: boolean;
+  error?: string;
+};
+
 type CachedAudio = {
   objectUrl: string;
   contentType: string;
   finalUrl: string;
   sizeBytes: number;
+};
+
+type AudioCheckResult = {
+  status: 'ok' | 'failed';
+  message: string;
+  url?: string;
 };
 
 type DebugResponsePayload = {
@@ -46,6 +71,25 @@ type DebugResponsePayload = {
 };
 
 const AUDIO_LOG_PREFIX = '[Wordlink audio]';
+
+class AudioLoadError extends Error {
+  constructor(
+    message: string,
+    readonly attempts: {
+      requestedUrl: string;
+      finalUrl?: string;
+      status?: number;
+      ok?: boolean;
+      contentType?: string;
+      contentLength?: string | null;
+      bodyPreview?: string;
+      error?: string;
+    }[],
+  ) {
+    super(message);
+    this.name = 'AudioLoadError';
+  }
+}
 
 function logAudioStep(message: string, details?: unknown) {
   if (details === undefined) {
@@ -140,23 +184,84 @@ function getErrorFromPayload(payload: DebugResponsePayload): string {
     : `Generation failed (${payload.status} ${payload.statusText})`;
 }
 
+function formatLanguage(code: string): string {
+  const names: Record<string, string> = {
+    cs: 'Czech',
+    cz: 'Czech',
+    vi: 'Vietnamese',
+    en: 'English',
+  };
+  return names[code] ?? code.toUpperCase();
+}
+
+function getLoadErrorMessage(error: unknown, fallbackUrl: string | null): AudioCheckResult {
+  if (error instanceof AudioLoadError) {
+    const firstAttempt = error.attempts[0];
+    const failedUrl = firstAttempt?.requestedUrl ?? fallbackUrl ?? undefined;
+    const reason =
+      firstAttempt?.status
+        ? `HTTP ${firstAttempt.status}`
+        : firstAttempt?.error ?? error.message;
+    return {
+      status: 'failed',
+      message: `Could not load ${failedUrl ?? 'audio file'} (${reason}).`,
+      url: failedUrl,
+    };
+  }
+
+  if (error && typeof error === 'object' && 'playbackUrl' in error) {
+    const playbackUrl =
+      typeof error.playbackUrl === 'string' ? error.playbackUrl : fallbackUrl ?? undefined;
+    const reason =
+      'mediaError' in error && typeof error.mediaError === 'string'
+        ? error.mediaError
+        : 'playback failed';
+    return {
+      status: 'failed',
+      message: `Could not play ${playbackUrl ?? 'audio file'} (${reason}).`,
+      url: playbackUrl,
+    };
+  }
+
+  return {
+    status: 'failed',
+    message: error instanceof Error ? error.message : 'Audio file could not be loaded.',
+    url: fallbackUrl ?? undefined,
+  };
+}
+
 interface AudioStepProps {
   list: WordList;
   items: WordListItem[];
+  googleUsage?: GoogleUsageResponse | null;
   onComplete: () => Promise<void>;
   onSkip: () => Promise<void>;
+  onUsageRefresh?: () => Promise<void>;
   onBack?: () => void;
 }
 
-export function AudioStep({ list, items, onComplete, onSkip, onBack }: AudioStepProps) {
+export function AudioStep({
+  list,
+  items,
+  googleUsage,
+  onComplete,
+  onSkip,
+  onUsageRefresh,
+  onBack,
+}: AudioStepProps) {
   const [rows, setRows] = useState<AudioRow[]>(() =>
     items
       .filter((item) => item.textTarget)
       .map((item) => ({
         id: item.id,
+        textKnown: item.textKnown,
         textTarget: item.textTarget!,
         language: list.languageTo,
         audioUrl: item.audioUrl ?? null,
+        arweaveUrl: item.audioArweaveUrl ?? null,
+        arweaveUrls: item.audioArweaveUrls ?? [],
+        storageRef: item.audioStorageRef ?? null,
+        reuseStatus: item.audioUrl ? 'found' : 'unchecked',
         audioStatus: item.audioStatus as AudioRow['audioStatus'],
       }))
   );
@@ -165,6 +270,8 @@ export function AudioStep({ list, items, onComplete, onSkip, onBack }: AudioStep
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(() => new Set());
   const [playbackErrors, setPlaybackErrors] = useState<Record<string, string>>({});
+  const [checkingIds, setCheckingIds] = useState<Set<string>>(() => new Set());
+  const [audioChecks, setAudioChecks] = useState<Record<string, AudioCheckResult>>({});
   const [progress, setProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioCacheRef = useRef<Map<string, CachedAudio>>(new Map());
@@ -173,6 +280,14 @@ export function AudioStep({ list, items, onComplete, onSkip, onBack }: AudioStep
   const readyCount = rows.filter((r) => r.audioStatus === 'ready').length;
   const needsGenCount = rows.filter((r) => r.audioStatus === 'none' || r.audioStatus === 'failed').length;
   const dedupCount = rows.filter((r) => r.source === 'dedup').length;
+  const reusableCount = rows.filter((r) => r.reuseStatus === 'found' && r.audioStatus !== 'ready').length;
+  const checkedFailureCount = Object.values(audioChecks).filter((check) => check.status === 'failed').length;
+  const sourceLanguageLabel = formatLanguage(list.languageFrom);
+  const targetLanguageLabel = formatLanguage(list.languageTo);
+  const googleTtsUsage = googleUsage?.account.find((scope) => scope.scope === 'tts');
+  const isGoogleTtsPaused = Boolean(googleTtsUsage?.paused);
+  const googlePausedMessage = googleTtsUsage?.limit_message
+    ?? 'This account has reached the free Google API usage limit. Reach out to us for more usage, or use your own API keys.';
 
   const clearCachedAudio = useCallback((audioUrl: string | null | undefined) => {
     if (!audioUrl) return;
@@ -181,6 +296,93 @@ export function AudioStep({ list, items, onComplete, onSkip, onBack }: AudioStep
     URL.revokeObjectURL(cached.objectUrl);
     audioCacheRef.current.delete(audioUrl);
     logAudioStep('cleared cached audio blob', { audioUrl, finalUrl: cached.finalUrl });
+  }, []);
+
+  const lookupReusableAudio = useCallback(async (targetRows: AudioRow[], link = false) => {
+    if (targetRows.length === 0) return;
+
+    setRows((prev) =>
+      prev.map((row) =>
+        targetRows.some((target) => target.id === row.id)
+          ? { ...row, reuseStatus: 'checking' as const }
+          : row,
+      ),
+    );
+
+    try {
+      const res = await listsApiFetch('/api/audio/reuse/batch', {
+        method: 'POST',
+        body: JSON.stringify({
+          items: targetRows.map((r) => ({
+            id: r.id,
+            text: r.textTarget,
+            language: r.language,
+          })),
+          provider: 'google_tts',
+          link,
+        }),
+      });
+
+      const payload = await readDebugResponse(res);
+      if (!res.ok) {
+        throw new Error(getErrorFromPayload(payload));
+      }
+      if (!payload.json || typeof payload.json !== 'object') {
+        throw new Error('Audio reuse lookup returned a non-JSON response');
+      }
+
+      const data = payload.json as { results?: unknown };
+      const results = (Array.isArray(data.results) ? data.results : []) as AudioReuseResult[];
+      const resultMap = new Map<string, AudioReuseResult>();
+      for (const result of results) resultMap.set(result.id, result);
+
+      setRows((prev) =>
+        prev.map((row) => {
+          const result = resultMap.get(row.id);
+          if (!result) return row;
+
+          if (result.status !== 'found') {
+            return {
+              ...row,
+              reuseStatus: result.status === 'missing' ? 'missing' : 'error',
+            };
+          }
+
+          const next = {
+            ...row,
+            reusableAudioUrl: result.audio_url ?? row.reusableAudioUrl ?? null,
+            reusableArweaveUrl: result.arweave_url ?? row.reusableArweaveUrl ?? null,
+            reusableArweaveUrls: result.arweave_urls ?? row.reusableArweaveUrls ?? [],
+            reusableStorageRef: result.storage_ref ?? row.reusableStorageRef ?? null,
+            reuseStatus: 'found' as const,
+          };
+
+          if (!link || !result.audio_url) return next;
+
+          return {
+            ...next,
+            audioUrl: result.audio_url,
+            arweaveUrl: result.arweave_url ?? next.arweaveUrl ?? null,
+            arweaveUrls: result.arweave_urls ?? next.arweaveUrls ?? [],
+            storageRef: result.storage_ref ?? next.storageRef ?? null,
+            audioStatus: 'ready' as const,
+            source: 'dedup' as const,
+          };
+        }),
+      );
+    } catch (err) {
+      console.error(AUDIO_LOG_PREFIX, 'audio reuse lookup failed', err);
+      setRows((prev) =>
+        prev.map((row) =>
+          targetRows.some((target) => target.id === row.id)
+            ? { ...row, reuseStatus: 'error' as const }
+            : row,
+        ),
+      );
+      if (link) {
+        setError(err instanceof Error ? err.message : 'Could not reuse existing audio');
+      }
+    }
   }, []);
 
   const preloadAudio = useCallback(async (row: AudioRow): Promise<string> => {
@@ -223,15 +425,29 @@ export function AudioStep({ list, items, onComplete, onSkip, onBack }: AudioStep
       contentType: string;
       contentLength: string | null;
     } | null = null;
-    const failedAttempts: unknown[] = [];
+    const failedAttempts: AudioLoadError['attempts'] = [];
 
     for (const candidateUrl of candidateUrls) {
-      const response = await fetch(candidateUrl, {
-        cache: 'force-cache',
-        headers: {
-          Accept: 'audio/mpeg,audio/*;q=0.9,*/*;q=0.1',
-        },
-      });
+      let response: Response;
+      try {
+        response = await fetch(candidateUrl, {
+          cache: 'force-cache',
+          headers: {
+            Accept: 'audio/mpeg,audio/*;q=0.9,*/*;q=0.1',
+          },
+        });
+      } catch (err) {
+        failedAttempts.push({
+          requestedUrl: candidateUrl,
+          error: err instanceof Error ? err.message : 'Network error',
+        });
+        console.warn(AUDIO_LOG_PREFIX, 'audio preload failed with network error', {
+          itemId: row.id,
+          requestedUrl: candidateUrl,
+          error: err instanceof Error ? err.message : err,
+        });
+        continue;
+      }
       const contentType = response.headers.get('content-type') ?? '';
       const contentLength = response.headers.get('content-length');
       const attemptDetails = {
@@ -300,7 +516,7 @@ export function AudioStep({ list, items, onComplete, onSkip, onBack }: AudioStep
         arweaveUrls: row.arweaveUrls ?? [],
         failedAttempts,
       });
-      throw new Error('Audio could not be loaded from any gateway');
+      throw new AudioLoadError('Audio could not be loaded from any gateway', failedAttempts);
     }
 
     const objectUrl = URL.createObjectURL(blob);
@@ -319,7 +535,16 @@ export function AudioStep({ list, items, onComplete, onSkip, onBack }: AudioStep
     return objectUrl;
   }, []);
 
+  useEffect(() => {
+    const unchecked = rows.filter(
+      (row) => !row.audioUrl && row.textTarget && row.reuseStatus === 'unchecked',
+    );
+    if (unchecked.length === 0) return;
+    void lookupReusableAudio(unchecked, false);
+  }, [lookupReusableAudio, rows]);
+
   const markPlaybackFailed = useCallback((failedRow: AudioRow, details?: unknown) => {
+    const checkResult = getLoadErrorMessage(details, failedRow.audioUrl);
     console.error(AUDIO_LOG_PREFIX, 'audio playback failed', {
       itemId: failedRow.id,
       text: failedRow.textTarget,
@@ -332,7 +557,11 @@ export function AudioStep({ list, items, onComplete, onSkip, onBack }: AudioStep
     setPlayingId(null);
     setPlaybackErrors((prev) => ({
       ...prev,
-      [failedRow.id]: 'This audio source could not be played. Regenerate it to replace the stored file.',
+      [failedRow.id]: `${checkResult.message} Regenerate it to replace the stored file.`,
+    }));
+    setAudioChecks((prev) => ({
+      ...prev,
+      [failedRow.id]: checkResult,
     }));
     setRows((prev) =>
       prev.map((row) =>
@@ -466,6 +695,13 @@ export function AudioStep({ list, items, onComplete, onSkip, onBack }: AudioStep
           };
         }),
       );
+      setAudioChecks((prev) => {
+        const next = { ...prev };
+        for (const result of results) {
+          if (result.status === 'ok') delete next[result.id];
+        }
+        return next;
+      });
 
       // Surface a top-level error if every attempted item failed
       const attempted = results.filter((r) =>
@@ -514,6 +750,7 @@ export function AudioStep({ list, items, onComplete, onSkip, onBack }: AudioStep
         ),
       );
     } finally {
+      void onUsageRefresh?.();
       if (force) {
         setRegeneratingIds((prev) => {
           const next = new Set(prev);
@@ -525,28 +762,110 @@ export function AudioStep({ list, items, onComplete, onSkip, onBack }: AudioStep
       }
       console.groupEnd();
     }
-  }, [clearCachedAudio, preloadAudio]);
+  }, [clearCachedAudio, onUsageRefresh, preloadAudio]);
 
   const handleGenerateAll = useCallback(async () => {
+    if (isGoogleTtsPaused) {
+      setError(googlePausedMessage);
+      return;
+    }
     const toGenerate = rows.filter(
       (r) => r.audioStatus === 'none' || r.audioStatus === 'failed',
     );
     await generateRows(toGenerate, toGenerate.some((row) => row.audioUrl));
-  }, [generateRows, rows]);
+  }, [generateRows, googlePausedMessage, isGoogleTtsPaused, rows]);
+
+  const checkRows = useCallback(async (targetRows: AudioRow[]) => {
+    const checkableRows = targetRows.filter((row) => row.audioStatus === 'ready' && row.audioUrl);
+    if (checkableRows.length === 0) return;
+
+    setCheckingIds((prev) => new Set([...prev, ...checkableRows.map((row) => row.id)]));
+    setPlaybackErrors((prev) => {
+      const next = { ...prev };
+      for (const row of checkableRows) delete next[row.id];
+      return next;
+    });
+
+    const results = await Promise.all(
+      checkableRows.map(async (row) => {
+        try {
+          await preloadAudio(row);
+          return [
+            row.id,
+            {
+              status: 'ok' as const,
+              message: 'Audio file loaded successfully.',
+              url: row.audioUrl ?? undefined,
+            },
+          ] as const;
+        } catch (err) {
+          return [row.id, getLoadErrorMessage(err, row.audioUrl)] as const;
+        }
+      }),
+    );
+
+    setAudioChecks((prev) => {
+      const next = { ...prev };
+      for (const [id, result] of results) {
+        next[id] = result;
+      }
+      return next;
+    });
+    setRows((prev) =>
+      prev.map((row) => {
+        const result = results.find(([id]) => id === row.id)?.[1];
+        return result?.status === 'failed'
+          ? { ...row, audioStatus: 'failed' as const }
+          : row;
+      }),
+    );
+    setCheckingIds((prev) => {
+      const next = new Set(prev);
+      for (const row of checkableRows) next.delete(row.id);
+      return next;
+    });
+  }, [preloadAudio]);
+
+  const handleCheckAll = useCallback(async () => {
+    await checkRows(rows);
+  }, [checkRows, rows]);
+
+  const handleCheckRow = useCallback(async (row: AudioRow) => {
+    await checkRows([row]);
+  }, [checkRows]);
+
+  const handleUseExistingRow = useCallback(async (row: AudioRow) => {
+    await lookupReusableAudio([row], true);
+  }, [lookupReusableAudio]);
+
+  const handleUseAllExisting = useCallback(async () => {
+    await lookupReusableAudio(
+      rows.filter((row) => row.reuseStatus === 'found' && row.audioStatus !== 'ready'),
+      true,
+    );
+  }, [lookupReusableAudio, rows]);
 
   const handleRegenerateRow = useCallback(async (row: AudioRow) => {
+    if (isGoogleTtsPaused) {
+      setError(googlePausedMessage);
+      return;
+    }
     if (audioRef.current) audioRef.current.pause();
     playQueueRef.current = [];
     setPlayingId(null);
     await generateRows([row], true);
-  }, [generateRows]);
+  }, [generateRows, googlePausedMessage, isGoogleTtsPaused]);
 
   const handleRegenerateAll = useCallback(async () => {
+    if (isGoogleTtsPaused) {
+      setError(googlePausedMessage);
+      return;
+    }
     if (audioRef.current) audioRef.current.pause();
     playQueueRef.current = [];
     setPlayingId(null);
     await generateRows(rows, true);
-  }, [generateRows, rows]);
+  }, [generateRows, googlePausedMessage, isGoogleTtsPaused, rows]);
 
   const handlePlaySingle = useCallback(async (row: AudioRow) => {
     if (!row.audioUrl) return;
@@ -682,6 +1001,12 @@ export function AudioStep({ list, items, onComplete, onSkip, onBack }: AudioStep
             {dedupCount > 0 && (
               <span className="text-done ml-1">({dedupCount} reused)</span>
             )}
+            {reusableCount > 0 && (
+              <span className="text-accent ml-1">({reusableCount} existing available)</span>
+            )}
+            {checkedFailureCount > 0 && (
+              <span className="text-danger ml-1">({checkedFailureCount} load issue{checkedFailureCount === 1 ? '' : 's'})</span>
+            )}
           </p>
         </div>
         <button
@@ -695,28 +1020,48 @@ export function AudioStep({ list, items, onComplete, onSkip, onBack }: AudioStep
 
       {/* Controls */}
       <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-background-elevated border border-border-subtle">
+        {reusableCount > 0 && (
+          <button
+            type="button"
+            disabled={generating || regeneratingIds.size > 0}
+            className="px-4 py-1.5 rounded-lg bg-done text-background text-xs font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
+            onClick={handleUseAllExisting}
+          >
+            Use existing ({reusableCount})
+          </button>
+        )}
+
         <button
           type="button"
-          disabled={generating || needsGenCount === 0}
+          disabled={generating || needsGenCount === 0 || isGoogleTtsPaused}
           className="px-4 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
           onClick={handleGenerateAll}
         >
           {generating ? 'Generating...' : `Generate audio (${needsGenCount})`}
         </button>
 
-        {readyCount > 0 && (
+        {rows.length > 0 && (
           <button
             type="button"
-            disabled={generating || regeneratingIds.size > 0 || rows.length === 0}
+            disabled={generating || regeneratingIds.size > 0 || rows.length === 0 || isGoogleTtsPaused}
             className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-xs hover:bg-background/50 transition-colors disabled:opacity-50"
             onClick={handleRegenerateAll}
           >
-            Regenerate all
+            {readyCount > 0 ? 'Generate new all' : 'Generate all new'}
           </button>
         )}
 
         {readyCount > 0 && (
           <>
+            <button
+              type="button"
+              disabled={checkingIds.size > 0}
+              className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-xs hover:bg-background/50 transition-colors disabled:opacity-50"
+              onClick={handleCheckAll}
+            >
+              {checkingIds.size > 0 ? 'Checking...' : 'Check audio'}
+            </button>
+
             <button
               type="button"
               className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-xs hover:bg-background/50 transition-colors"
@@ -727,6 +1072,12 @@ export function AudioStep({ list, items, onComplete, onSkip, onBack }: AudioStep
           </>
         )}
       </div>
+
+      {isGoogleTtsPaused && (
+        <div className="mb-4 rounded-lg border border-danger/30 bg-danger/10 p-3 text-xs text-danger">
+          {googlePausedMessage}
+        </div>
+      )}
 
       {/* Progress bar */}
       {generating && (
@@ -748,72 +1099,126 @@ export function AudioStep({ list, items, onComplete, onSkip, onBack }: AudioStep
           {rows.map((row) => {
             const isPlaying = playingId === row.id;
             const isRegenerating = regeneratingIds.has(row.id);
+            const isChecking = checkingIds.has(row.id);
             const playbackError = playbackErrors[row.id];
+            const audioCheck = audioChecks[row.id];
             const canPlay = row.audioStatus === 'ready' && Boolean(row.audioUrl);
+            const canUseExisting = row.reuseStatus === 'found' && row.audioStatus !== 'ready';
             return (
               <div
                 key={row.id}
-                className={`flex items-center gap-3 px-4 py-2.5 transition-colors ${
+                className={`flex flex-col gap-3 px-4 py-3 transition-colors sm:flex-row sm:items-center ${
                   isPlaying ? 'bg-accent/10 border-l-2 border-l-accent' : ''
                 }`}
               >
-                {/* Play button */}
-                <button
-                  type="button"
-                  disabled={!canPlay}
-                  className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
-                    canPlay
-                      ? isPlaying
-                        ? 'bg-accent text-background'
-                        : 'bg-accent/10 text-accent hover:bg-accent/20'
-                      : 'bg-border-subtle text-text-soft'
-                  }`}
-                  onClick={() => handlePlaySingle(row)}
-                >
-                  {isPlaying ? (
-                    <svg width="12" height="12" viewBox="0 0 12 12">
-                      <rect x="2" y="2" width="3" height="8" fill="currentColor" rx="0.5" />
-                      <rect x="7" y="2" width="3" height="8" fill="currentColor" rx="0.5" />
-                    </svg>
-                  ) : (
-                    <svg width="12" height="12" viewBox="0 0 12 12">
-                      <path d="M3 1.5v9l7.5-4.5L3 1.5z" fill="currentColor" />
-                    </svg>
-                  )}
-                </button>
+                <div className="flex min-w-0 flex-1 items-start gap-3">
+                  {/* Play button */}
+                  <button
+                    type="button"
+                    disabled={!canPlay}
+                    className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                      canPlay
+                        ? isPlaying
+                          ? 'bg-accent text-background'
+                          : 'bg-accent/10 text-accent hover:bg-accent/20'
+                        : 'bg-border-subtle text-text-soft'
+                    }`}
+                    onClick={() => handlePlaySingle(row)}
+                    title="Play audio"
+                  >
+                    {isPlaying ? (
+                      <svg width="12" height="12" viewBox="0 0 12 12">
+                        <rect x="2" y="2" width="3" height="8" fill="currentColor" rx="0.5" />
+                        <rect x="7" y="2" width="3" height="8" fill="currentColor" rx="0.5" />
+                      </svg>
+                    ) : (
+                      <svg width="12" height="12" viewBox="0 0 12 12">
+                        <path d="M3 1.5v9l7.5-4.5L3 1.5z" fill="currentColor" />
+                      </svg>
+                    )}
+                  </button>
 
-                {/* Word text */}
-                <div className="flex-1 min-w-0">
-                  <span className="block text-sm text-text truncate">{row.textTarget}</span>
-                  {playbackError && (
-                    <span className="block text-xs text-danger truncate">{playbackError}</span>
-                  )}
+                  {/* Word text */}
+                  <div className="min-w-0 flex-1">
+                    <span className="block text-[11px] uppercase tracking-wide text-text-soft">
+                      {sourceLanguageLabel} → {targetLanguageLabel}
+                    </span>
+                    <span className="block text-sm text-text break-words">
+                      <span className="text-text">{row.textKnown}</span>
+                      <span className="mx-1.5 text-text-soft">-</span>
+                      <span className="text-accent">{row.textTarget}</span>
+                    </span>
+                    {canUseExisting && (
+                      <span className="mt-1 block text-xs text-done">
+                        Existing audio is available for this text.
+                      </span>
+                    )}
+                    {row.reuseStatus === 'checking' && (
+                      <span className="mt-1 block text-xs text-text-soft">
+                        Looking for reusable audio...
+                      </span>
+                    )}
+                    {audioCheck?.status === 'ok' && (
+                      <span className="mt-1 block text-xs text-done truncate">
+                        Loaded OK: {audioCheck.url}
+                      </span>
+                    )}
+                    {(playbackError || audioCheck?.status === 'failed') && (
+                      <span className="mt-1 block text-xs text-danger break-words">
+                        {playbackError ?? audioCheck?.message}
+                      </span>
+                    )}
+                  </div>
                 </div>
 
-                <button
-                  type="button"
-                  disabled={generating || isRegenerating || !row.textTarget}
-                  className="shrink-0 px-2.5 py-1 rounded-md border border-border-subtle text-xs text-text-soft hover:text-text hover:bg-background/50 transition-colors disabled:opacity-50"
-                  onClick={() => handleRegenerateRow(row)}
-                >
-                  {isRegenerating ? 'Regenerating...' : 'Regenerate'}
-                </button>
+                <div className="flex shrink-0 flex-wrap items-center gap-2 pl-11 sm:pl-0 sm:justify-end">
+                  {canUseExisting && (
+                    <button
+                      type="button"
+                      disabled={generating || row.reuseStatus === 'checking'}
+                      className="shrink-0 px-2.5 py-1 rounded-md border border-done/40 bg-done/10 text-xs text-done hover:bg-done/20 transition-colors disabled:opacity-50"
+                      onClick={() => handleUseExistingRow(row)}
+                    >
+                      Use existing
+                    </button>
+                  )}
 
-                {/* Status indicator */}
-                <span className="shrink-0 text-xs">
-                  {row.audioStatus === 'ready' && (
-                    <span className="text-done">ready</span>
+                  {canPlay && (
+                    <button
+                      type="button"
+                      disabled={isChecking}
+                      className="shrink-0 px-2.5 py-1 rounded-md border border-border-subtle text-xs text-text-soft hover:text-text hover:bg-background/50 transition-colors disabled:opacity-50"
+                      onClick={() => handleCheckRow(row)}
+                    >
+                      {isChecking ? 'Checking...' : 'Check'}
+                    </button>
                   )}
-                  {row.audioStatus === 'pending' && (
-                    <span className="text-fresh">pending</span>
-                  )}
-                  {row.audioStatus === 'failed' && (
-                    <span className="text-danger">failed</span>
-                  )}
-                  {row.audioStatus === 'none' && (
-                    <span className="text-text-soft">no audio</span>
-                  )}
-                </span>
+
+                  <button
+                    type="button"
+                    disabled={generating || isRegenerating || !row.textTarget || isGoogleTtsPaused}
+                    className="shrink-0 px-2.5 py-1 rounded-md border border-border-subtle text-xs text-text-soft hover:text-text hover:bg-background/50 transition-colors disabled:opacity-50"
+                    onClick={() => handleRegenerateRow(row)}
+                  >
+                    {isRegenerating ? 'Generating...' : canPlay ? 'Generate new' : 'Generate'}
+                  </button>
+
+                  {/* Status indicator */}
+                  <span className="shrink-0 text-xs">
+                    {row.audioStatus === 'ready' && (
+                      <span className="text-done">{row.source === 'dedup' ? 'reused' : 'ready'}</span>
+                    )}
+                    {row.audioStatus === 'pending' && (
+                      <span className="text-fresh">pending</span>
+                    )}
+                    {row.audioStatus === 'failed' && (
+                      <span className="text-danger">failed</span>
+                    )}
+                    {row.audioStatus === 'none' && (
+                      <span className="text-text-soft">no audio</span>
+                    )}
+                  </span>
+                </div>
               </div>
             );
           })}

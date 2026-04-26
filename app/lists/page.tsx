@@ -5,6 +5,7 @@ import { listsApiFetch } from '@/features/lists/api';
 import type {
   ConfirmResult,
   DiffResult,
+  GoogleUsageResponse,
   WordCategory,
   WordList,
   WordListItem,
@@ -16,6 +17,7 @@ import { DiffPreview } from './DiffPreview';
 import { TranslationStep } from './TranslationStep';
 import { AudioStep } from './AudioStep';
 import { ApiKeySettings } from './ApiKeySettings';
+import { GoogleUsagePanel } from './GoogleUsagePanel';
 import { WizardProgressBar } from './WizardProgressBar';
 
 type WizardStep = 'browse' | 'edit' | 'preview' | 'translate' | 'audio';
@@ -41,6 +43,7 @@ export default function ListsPage() {
   const [subscribedListIds, setSubscribedListIds] = useState<Set<string>>(new Set());
   const [openCreateSignal, setOpenCreateSignal] = useState(0);
   const [isEditDirty, setIsEditDirty] = useState(false);
+  const [googleUsage, setGoogleUsage] = useState<GoogleUsageResponse | null>(null);
 
   const selectedList = useMemo(
     () => lists.find((l) => l.id === selectedListId) ?? null,
@@ -51,6 +54,20 @@ export default function ListsPage() {
     if (!selectedList) return false;
     return selectedList.ownerId !== null;
   }, [selectedList]);
+
+  const loadGoogleUsage = useCallback(async () => {
+    try {
+      const res = await listsApiFetch('/api/google-usage');
+      if (!res.ok) {
+        if (res.status === 401) return;
+        throw new Error('Failed to load Google API usage');
+      }
+      const data = await res.json();
+      setGoogleUsage(data);
+    } catch (err) {
+      console.warn('[Wordlink lists] Could not load Google API usage', err);
+    }
+  }, []);
 
   // Fetch lists and subscription status on mount
   useEffect(() => {
@@ -64,27 +81,19 @@ export default function ListsPage() {
   useEffect(() => {
     async function loadLists() {
       try {
-        const res = await listsApiFetch('/api/lists');
+        const [res] = await Promise.all([
+          listsApiFetch('/api/lists'),
+          loadGoogleUsage(),
+        ]);
         if (!res.ok) throw new Error('Failed to load lists');
         const data = await res.json();
         setLists(data.lists);
-        if (data.lists.length > 0 && !selectedListId) {
+        setSelectedListId((current) => {
+          if (current || data.lists.length === 0) return current;
           const owned = data.lists.find((l: WordList) => l.ownerId !== null);
-          setSelectedListId(owned?.id ?? data.lists[0].id);
-        }
-        // Check subscription status for public lists
-        const publicLists = data.lists.filter((l: WordList) => l.ownerId === null && l.isPublic);
-        const subIds = new Set<string>();
-        await Promise.all(
-          publicLists.map(async (l: WordList) => {
-            const subRes = await listsApiFetch(`/api/lists/${l.id}/subscribe`);
-            if (subRes.ok) {
-              const subData = await subRes.json();
-              if (subData.subscribed) subIds.add(l.id);
-            }
-          })
-        );
-        setSubscribedListIds(subIds);
+          return owned?.id ?? data.lists[0].id;
+        });
+        setSubscribedListIds(new Set<string>(data.subscribedListIds ?? []));
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load lists');
       } finally {
@@ -92,7 +101,7 @@ export default function ListsPage() {
       }
     }
     loadLists();
-  }, []);
+  }, [loadGoogleUsage]);
 
   // Fetch list details when selected list changes
   useEffect(() => {
@@ -270,23 +279,23 @@ export default function ListsPage() {
   }, [selectedListId, editingCategoryId, diffResult, editInputLanguage, itemsByCategory]);
 
   const handleTranslationComplete = useCallback(async () => {
-    await reloadListDetails();
+    await Promise.all([reloadListDetails(), loadGoogleUsage()]);
     setWizardStep('audio');
-  }, []);
+  }, [loadGoogleUsage]);
 
   const handleAudioComplete = useCallback(async () => {
-    await reloadListDetails();
+    await Promise.all([reloadListDetails(), loadGoogleUsage()]);
     setWizardStep('browse');
     setEditingCategoryId(null);
     setPendingItems([]);
     setDiffResult(null);
-  }, [selectedListId]);
+  }, [loadGoogleUsage, selectedListId]);
 
   const handleSkipTranslation = useCallback(async () => {
-    await reloadListDetails();
+    await Promise.all([reloadListDetails(), loadGoogleUsage()]);
     setWizardStep('browse');
     setEditingCategoryId(null);
-  }, [selectedListId]);
+  }, [loadGoogleUsage, selectedListId]);
 
   async function reloadListDetails() {
     if (!selectedListId) return;
@@ -459,6 +468,8 @@ export default function ListsPage() {
         )}
 
         <div className="flex-1 overflow-y-auto">
+          {googleUsage && <GoogleUsagePanel usage={googleUsage} />}
+
           {error && (
             <div className="p-4 m-4 rounded-lg bg-danger/10 text-danger text-sm">
               {error}
@@ -511,16 +522,20 @@ export default function ListsPage() {
               pendingItems={pendingItems ?? []}
               inputLanguage={editInputLanguage}
               heading={translateHeading}
+              googleUsage={googleUsage}
               onComplete={handleTranslationComplete}
               onSkip={handleSkipTranslation}
+              onUsageRefresh={loadGoogleUsage}
               onBack={handleGoBack}
             />
           ) : wizardStep === 'audio' ? (
             <AudioStep
               list={selectedList}
               items={editingCategoryId ? itemsByCategory.get(editingCategoryId) ?? [] : items}
+              googleUsage={googleUsage}
               onComplete={handleAudioComplete}
               onSkip={handleAudioComplete}
+              onUsageRefresh={loadGoogleUsage}
               onBack={handleGoBack}
             />
           ) : null}

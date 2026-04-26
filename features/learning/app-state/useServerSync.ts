@@ -68,7 +68,7 @@ export function useServerSync({
     if (serverData.user?.game_score !== undefined) {
       applyServerGameScore(serverData.user.game_score);
     }
-    if (serverData.word_list_items && serverData.word_list_items.length > 0 && serverData.categories) {
+    if (serverData.word_list_items && serverData.categories) {
       const convertStart = performance.now();
       const role = serverData.user?.role ?? 'vi';
       const converted = wordListItemsToNormalizedWords(
@@ -77,9 +77,7 @@ export function useServerSync({
         role as 'cz' | 'vi',
         { mediaFallbackWords: words }
       );
-      if (converted.length > 0) {
-        setSyncedWords(converted);
-      }
+      setSyncedWords(converted);
       if (shouldLogPerf) {
         console.info(
           `[timing] useServerSync.wordListItemsToNormalizedWords ${(performance.now() - convertStart).toFixed(1)}ms (${serverData.word_list_items.length} items)`

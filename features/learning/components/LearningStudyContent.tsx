@@ -65,6 +65,8 @@ export function LearningStudyContent({
   settlingCount,
   onToggleShowNotReady,
 }: LearningStudyContentProps) {
+  const contentResetKey = `${filteredWords.length}:${filteredWords.map((word) => word.id).join('|')}`;
+
   return (
     <AppLayout
       viewMode={viewMode}
@@ -86,6 +88,7 @@ export function LearningStudyContent({
         {viewMode === 'card' ? (
           <div className="relative flex h-full w-full flex-col max-w-[800px] mx-auto">
             <CardDeckView
+              key={`card-${contentResetKey}`}
               groupedWords={cardDeckGroups}
               renderCard={renderCardForDeck}
               renderMiniGame={renderMiniGameForDeck}
@@ -97,7 +100,7 @@ export function LearningStudyContent({
               <div className="p-8 text-center text-text-soft">No words match your current filters.</div>
             ) : (
               <VirtualizedWordList
-                key="stream"
+                key={`stream-${contentResetKey}`}
                 dataTab="stream"
                 groupedWords={streamGroupedWords}
                 renderCard={renderCard}

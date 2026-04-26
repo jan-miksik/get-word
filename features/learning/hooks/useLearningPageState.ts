@@ -36,15 +36,13 @@ export function useLearningPageState({
     groups: (NormalizedWord | MiniGameConfig)[][];
   } | null>(null);
 
+  const selectedCategoriesKey = Array.from(selectedCategories).sort().join('|');
+  const wordsResetKey = `${filteredWords.length}:${filteredWords.map((word) => word.id).join('|')}`;
+
   useEffect(() => {
     setShowNotReady(false);
     setDismissedGames(new Set());
-  }, [selectedCategories]);
-
-  const selectedCategoriesKey = useMemo(
-    () => Array.from(selectedCategories).sort().join('|'),
-    [selectedCategories]
-  );
+  }, [selectedCategoriesKey, wordsResetKey]);
 
   const statsWords = useMemo(
     () => getProgressStatsWords(activeWords, selectedCategories),
@@ -70,21 +68,19 @@ export function useLearningPageState({
     dismissedGames,
     minigameSeed,
     selectedCategoriesKey,
+    wordsResetKey,
   });
 
   useEffect(() => {
     resetStablePlans();
-  }, [resetStablePlans, selectedCategoriesKey]);
+  }, [selectedCategoriesKey, wordsResetKey]);
 
-  const deckResetKey = `${selectedCategoriesKey}|${viewMode}`;
+  const deckResetKey = `${selectedCategoriesKey}|${wordsResetKey}|${viewMode}`;
   if (
     viewMode === 'card' &&
     (!frozenDeckRef.current || frozenDeckRef.current.key !== deckResetKey)
   ) {
-    const hasContent = streamGroupedWords.some((group) => group.length > 0);
-    if (hasContent) {
-      frozenDeckRef.current = { key: deckResetKey, groups: streamGroupedWords };
-    }
+    frozenDeckRef.current = { key: deckResetKey, groups: streamGroupedWords };
   }
 
   const cardDeckGroups = frozenDeckRef.current?.groups ?? streamGroupedWords;

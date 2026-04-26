@@ -5,6 +5,7 @@ export interface NormalizedWord extends Word {
   id: string;
   category: string[];
   listId?: string;
+  canonicalWordId?: string | null;
 }
 
 // Spaced-repetition stages
@@ -125,8 +126,12 @@ export function getAllCategoriesWithCounts(
 }
 
 export function matchesCategoryFilter(word: NormalizedWord, selectedCategories: Set<string>): boolean {
-  if (!selectedCategories.size) return true;
-  return word.category.some((cat) => selectedCategories.has(cat));
+  const filterableCategories = word.category.filter((cat) => cat !== "word" && cat !== "phrase");
+  if (filterableCategories.length === 0) {
+    return selectedCategories.size === 0;
+  }
+  if (!selectedCategories.size) return false;
+  return filterableCategories.some((cat) => selectedCategories.has(cat));
 }
 
 export function isDue(progress: { stageIndex: number; nextDueAt?: number }): boolean {
@@ -144,6 +149,7 @@ export function wordListItemsToNormalizedWords(
   items: Array<{
     id: string;
     listId?: string;
+    canonicalWordId?: string | null;
     categoryId: string | null;
     textKnown: string;
     textTarget: string | null;
@@ -225,6 +231,7 @@ export function wordListItemsToNormalizedWords(
         czAudio: media?.czAudio,
         viAudio: media?.viAudio,
         listId: item.listId,
+        canonicalWordId: item.canonicalWordId ?? null,
       } as NormalizedWord;
     });
 }

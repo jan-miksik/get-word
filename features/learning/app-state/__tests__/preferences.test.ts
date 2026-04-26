@@ -2,6 +2,10 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useActiveListState } from '../useActiveListState';
 import { useViewModePreference } from '../useViewModePreference';
+import {
+  persistCategoryFiltersByList,
+  readStoredCategoryFiltersByList,
+} from '../storage';
 
 describe('learning app-state preferences', () => {
   beforeEach(() => {
@@ -47,5 +51,17 @@ describe('learning app-state preferences', () => {
 
     expect(result.current.viewMode).toBe('card');
     expect(localStorage.getItem('wordlink-view-mode')).toBe('card');
+  });
+
+  it('persists category filters by list in localStorage', () => {
+    persistCategoryFiltersByList({
+      'list-1': ['Basic', 'Travel'],
+      'list-2': ['Food'],
+    });
+
+    expect(readStoredCategoryFiltersByList()).toEqual({
+      'list-1': ['Basic', 'Travel'],
+      'list-2': ['Food'],
+    });
   });
 });
