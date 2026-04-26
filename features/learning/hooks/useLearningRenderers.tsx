@@ -12,12 +12,12 @@ interface UseLearningRenderersOptions {
   role: 'cz' | 'vi';
   getWordDisplayMode: (wordId: string) => 0 | 1;
   showAll: boolean;
-  getMemoryHook: (wordId: string) => string;
+  getMemoryHook: (word: Pick<NormalizedWord, 'id' | 'canonicalWordId'>) => string;
   getSuggestedMemoryHook: (word: NormalizedWord) => string;
   markKnown: (wordId: string) => void;
   markReallyKnown: (wordId: string) => void;
   markUnknown: (wordId: string) => void;
-  setMemoryHook: (wordId: string, hook: string) => void;
+  setMemoryHook: (word: Pick<NormalizedWord, 'id' | 'canonicalWordId'>, hook: string) => void;
   lastMovedId: string | null;
   showEnglish: boolean;
   showCategoryBadges: boolean;
@@ -64,12 +64,12 @@ export function useLearningRenderers({
           role={role}
           modeIndex={getWordDisplayMode(word.id)}
           showAll={showAll}
-          memoryHook={getMemoryHook(word.id)}
+          memoryHook={getMemoryHook(word)}
           suggestedHook={getSuggestedMemoryHook(word)}
           onKnown={() => markKnown(word.id)}
           onReallyKnown={() => markReallyKnown(word.id)}
           onUnknown={() => markUnknown(word.id)}
-          onMemoryHookChange={(hook) => setMemoryHook(word.id, hook)}
+          onMemoryHookChange={(hook) => setMemoryHook(word, hook)}
           isMoved={lastMovedId === word.id}
           showEnglish={showEnglish}
           showCategoryBadges={showCategoryBadges}
@@ -131,12 +131,12 @@ export function useLearningRenderers({
             role={role}
             modeIndex={modeIndex}
             showAll={showAll}
-            memoryHook={getMemoryHook(word.id)}
+            memoryHook={getMemoryHook(word)}
             suggestedHook={getSuggestedMemoryHook(word)}
             onKnown={() => { onComplete(() => markKnown(word.id)); }}
             onReallyKnown={() => { onComplete(() => markReallyKnown(word.id)); }}
             onUnknown={() => { onComplete(() => markUnknown(word.id)); }}
-            onMemoryHookChange={(hook) => setMemoryHook(word.id, hook)}
+            onMemoryHookChange={(hook) => setMemoryHook(word, hook)}
             isMoved={false}
             showEnglish={showEnglish}
             showCategoryBadges={showCategoryBadges}

@@ -99,6 +99,13 @@
       "when": 1776944530000,
       "tag": "0013_google_api_usage",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1777201440000,
+      "tag": "0014_memory_hooks_word_list_items",
+      "breakpoints": true
     }
   ]
 }

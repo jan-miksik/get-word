@@ -290,12 +290,6 @@ export function TopMenu({
           </div>
         )}
         <div className="top-menu-right flex items-center gap-2 ml-auto">
-          <span
-            className="text-[11px] font-semibold uppercase tracking-[0.08em] text-emerald-500"
-            aria-label="Build check marker"
-          >
-            check
-          </span>
           <MenuDropdown
             onMenuAction={onMenuAction}
             categoryActive={categoryActive}

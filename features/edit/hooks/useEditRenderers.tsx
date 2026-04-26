@@ -11,12 +11,12 @@ interface UseEditRenderersOptions {
   role: 'cz' | 'vi';
   getWordDisplayMode: (wordId: string) => 0 | 1;
   showAll: boolean;
-  getMemoryHook: (wordId: string) => string;
+  getMemoryHook: (word: Pick<NormalizedWord, 'id' | 'canonicalWordId'>) => string;
   getSuggestedMemoryHook: (word: NormalizedWord) => string;
   markKnown: (wordId: string) => void;
   markReallyKnown: (wordId: string) => void;
   markUnknown: (wordId: string) => void;
-  setMemoryHook: (wordId: string, hook: string) => void;
+  setMemoryHook: (word: Pick<NormalizedWord, 'id' | 'canonicalWordId'>, hook: string) => void;
   lastMovedId: string | null;
   handleWordFieldChange: (wordId: string, field: keyof Word, value: string | string[]) => void;
   handleCategoryToggle: (wordId: string, category: string) => void;
@@ -59,12 +59,12 @@ export function useEditRenderers({
           role={role}
           modeIndex={getWordDisplayMode(word.id)}
           showAll={showAll}
-          memoryHook={getMemoryHook(word.id)}
+          memoryHook={getMemoryHook(word)}
           suggestedHook={getSuggestedMemoryHook(word)}
           onKnown={() => markKnown(word.id)}
           onReallyKnown={() => markReallyKnown(word.id)}
           onUnknown={() => markUnknown(word.id)}
-          onMemoryHookChange={(hook) => setMemoryHook(word.id, hook)}
+          onMemoryHookChange={(hook) => setMemoryHook(word, hook)}
           isMoved={lastMovedId === word.id}
           onWordChange={(wordId, field, value) => handleWordFieldChange(wordId, field, value)}
           onCategoryToggle={(category) => handleCategoryToggle(word.id, category)}

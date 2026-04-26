@@ -7,7 +7,9 @@ import {
   batchUpsertProgressByItemId,
   getUserMemoryHooks,
   upsertMemoryHook,
+  upsertMemoryHookByItemId,
   deleteMemoryHook,
+  deleteMemoryHookByItemId,
   getUserCategoryFilters,
   setUserCategoryFilters,
   updateUserRole,
@@ -233,32 +235,38 @@ export async function POST(request: NextRequest) {
     // Sync memory hooks
     if (memory_hooks) {
       const hasItemIdKeys = Object.keys(memory_hooks).some((k) => isUuid(k));
-      let itemIdToWordId = new Map<string, string>();
+      let systemItemIdToWordId = new Map<string, string>();
 
       if (hasItemIdKeys) {
         const systemList = await getSystemDefaultList();
         if (systemList) {
           const wordIdToItemId = await getWordIdToItemIdMapping(systemList.id);
-          itemIdToWordId = new Map(
+          systemItemIdToWordId = new Map(
             [...wordIdToItemId.entries()].map(([wordId, itemId]) => [itemId, wordId])
           );
         }
       }
 
       for (const [key, hookText] of Object.entries(memory_hooks)) {
-        const wordId = isUuid(key) ? itemIdToWordId.get(key) : key;
-        if (!wordId) {
-          // Ignore unknown item IDs so one bad key doesn't fail the whole sync payload.
-          continue;
-        }
-
         // Normalize hookText: treat non-null values as strings and trim
         const trimmed = hookText === null ? null : String(hookText).trim();
+        const legacyWordId = isUuid(key) ? systemItemIdToWordId.get(key) : key;
 
-        if (trimmed === null || trimmed === "") {
-          await deleteMemoryHook(user.id, wordId);
+        if (isUuid(key) && !legacyWordId) {
+          if (trimmed === null || trimmed === "") {
+            await deleteMemoryHookByItemId(user.id, key);
+          } else {
+            await upsertMemoryHookByItemId(user.id, key, trimmed);
+          }
+        } else if (legacyWordId) {
+          if (trimmed === null || trimmed === "") {
+            await deleteMemoryHook(user.id, legacyWordId);
+          } else {
+            await upsertMemoryHook(user.id, legacyWordId, trimmed);
+          }
         } else {
-          await upsertMemoryHook(user.id, wordId, trimmed);
+          // Ignore malformed empty keys so one bad payload entry does not fail the sync.
+          continue;
         }
       }
     }

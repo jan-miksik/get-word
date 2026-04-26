@@ -6,6 +6,21 @@ import { debouncedSync } from '@/lib/sync';
 import { postTabMessage, subscribeTabMessages } from '@/lib/tab-sync';
 import type { Role } from './preferences';
 
+type MemoryHookTarget = string | Pick<NormalizedWord, 'id' | 'canonicalWordId'>;
+
+function getMemoryHookAliases(target: MemoryHookTarget): string[] {
+  if (typeof target === 'string') return [target];
+
+  return Array.from(
+    new Set([target.id, target.canonicalWordId].filter((value): value is string => Boolean(value)))
+  );
+}
+
+function getPrimaryMemoryHookKey(target: MemoryHookTarget): string {
+  if (typeof target === 'string') return target;
+  return target.canonicalWordId ?? target.id;
+}
+
 export function useMemoryHooks(
   isHydrated: boolean,
   isUpdatingFromServerRef: React.MutableRefObject<boolean>,
@@ -17,27 +32,34 @@ export function useMemoryHooks(
     setMemoryHooks(hooks);
   }, []);
 
-  const getMemoryHook = useCallback(
-    (wordId: string) => memoryHooks[wordId] || '',
-    [memoryHooks]
-  );
+  const getMemoryHook = useCallback((target: MemoryHookTarget) => {
+    for (const key of getMemoryHookAliases(target)) {
+      if (memoryHooks[key]) return memoryHooks[key];
+    }
+    return '';
+  }, [memoryHooks]);
 
-  const setMemoryHook = useCallback((wordId: string, hook: string) => {
+  const setMemoryHook = useCallback((target: MemoryHookTarget, hook: string) => {
     const trimmed = hook.trim();
+    const aliases = getMemoryHookAliases(target);
+    const syncKey = getPrimaryMemoryHookKey(target);
+
     setMemoryHooks((prev) => {
       const next = { ...prev };
-      if (trimmed) {
-        next[wordId] = trimmed;
-      } else {
-        delete next[wordId];
+      for (const key of aliases) {
+        if (trimmed) {
+          next[key] = trimmed;
+        } else {
+          delete next[key];
+        }
       }
       return next;
     });
     if (isHydrated && !isUpdatingFromServerRef.current) {
-      debouncedSync({ memory_hooks: { [wordId]: trimmed || null } }).catch((e) =>
+      debouncedSync({ memory_hooks: { [syncKey]: trimmed || null } }).catch((e) =>
         console.error('[useMemoryHooks] sync:', e)
       );
-      postTabMessage({ type: 'memory_hook_changed', wordId, hook: trimmed });
+      postTabMessage({ type: 'memory_hook_changed', wordId: syncKey, hook: trimmed });
     }
   }, [isHydrated, isUpdatingFromServerRef]);
 

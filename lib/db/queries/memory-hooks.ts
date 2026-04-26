@@ -17,7 +17,8 @@ export async function getUserMemoryHooks(
 
   const hooksMap: Record<string, string> = {};
   for (const row of results) {
-    hooksMap[row.wordId] = row.hookText;
+    const key = row.wordListItemId ?? row.wordId;
+    if (key) hooksMap[key] = row.hookText;
   }
   return hooksMap;
 }
@@ -60,6 +61,26 @@ export async function upsertMemoryHook(
   return results[0];
 }
 
+// Upsert memory hook for a list item
+export async function upsertMemoryHookByItemId(
+  userId: string,
+  wordListItemId: string,
+  hookText: string
+): Promise<UserMemoryHook> {
+  const results = await db
+    .insert(userMemoryHooks)
+    .values({ userId, wordListItemId, hookText })
+    .onConflictDoUpdate({
+      target: [userMemoryHooks.userId, userMemoryHooks.wordListItemId],
+      set: {
+        hookText,
+        updatedAt: new Date(),
+      },
+    })
+    .returning();
+  return results[0];
+}
+
 // Delete memory hook
 export async function deleteMemoryHook(
   userId: string,
@@ -71,6 +92,23 @@ export async function deleteMemoryHook(
       and(
         eq(userMemoryHooks.userId, userId),
         eq(userMemoryHooks.wordId, wordId)
+      )
+    )
+    .returning();
+  return results.length > 0;
+}
+
+// Delete memory hook for a list item
+export async function deleteMemoryHookByItemId(
+  userId: string,
+  wordListItemId: string
+): Promise<boolean> {
+  const results = await db
+    .delete(userMemoryHooks)
+    .where(
+      and(
+        eq(userMemoryHooks.userId, userId),
+        eq(userMemoryHooks.wordListItemId, wordListItemId)
       )
     )
     .returning();

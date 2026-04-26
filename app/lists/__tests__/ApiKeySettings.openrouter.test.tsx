@@ -44,7 +44,7 @@ describe("ApiKeySettings OpenRouter UX", () => {
     });
   });
 
-  it("shows connected OpenRouter actions when key exists", async () => {
+  it("shows Disconnect button and model selector when OpenRouter is connected", async () => {
     global.fetch = vi.fn((input: RequestInfo | URL) => {
       const url = String(input);
       if (url.includes("/api/keys")) {
@@ -70,8 +70,10 @@ describe("ApiKeySettings OpenRouter UX", () => {
     render(<ApiKeySettings isOpen onClose={() => {}} />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: "Test" })).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "Reconnect" })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /disconnect/i })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /^test$/i })).not.toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /reconnect/i })).not.toBeInTheDocument();
+      expect(screen.getByLabelText(/translation model/i)).toBeInTheDocument();
     });
   });
 });

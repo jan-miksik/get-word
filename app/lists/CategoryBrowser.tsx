@@ -10,6 +10,7 @@ interface CategoryBrowserProps {
   isOwner: boolean;
   onEditCategory: (categoryId: string, inputLang: 'known' | 'target') => void;
   onCreateCategory: (name: string) => Promise<void>;
+  onRenameCategory: (categoryId: string, name: string) => Promise<void>;
   onReorderCategories: (orderedIds: string[]) => Promise<void>;
   onDeleteCategory: (categoryId: string) => Promise<void>;
 }
@@ -21,6 +22,7 @@ export function CategoryBrowser({
   isOwner,
   onEditCategory,
   onCreateCategory,
+  onRenameCategory,
   onReorderCategories,
   onDeleteCategory,
 }: CategoryBrowserProps) {
@@ -28,7 +30,18 @@ export function CategoryBrowser({
   const [newCategoryName, setNewCategoryName] = useState('');
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState('');
   const dragItemRef = useRef<string | null>(null);
+
+  async function handleRenameSubmit(categoryId: string) {
+    const trimmed = renameValue.trim();
+    if (trimmed) {
+      await onRenameCategory(categoryId, trimmed);
+    }
+    setRenamingId(null);
+    setRenameValue('');
+  }
 
   const toggleExpand = useCallback((id: string) => {
     setExpandedIds((prev) => {
@@ -112,25 +125,56 @@ export function CategoryBrowser({
               onDrop={() => handleDrop(category.id)}
             >
               {/* Category header */}
-              <button
-                type="button"
-                className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-background-elevated/50 rounded-lg transition-colors"
-                onClick={() => toggleExpand(category.id)}
-              >
-                {isOwner && (
-                  <span className="cursor-grab text-text-soft text-xs select-none hidden md:inline">⠿</span>
-                )}
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 16 16"
-                  className={`text-text-soft transition-transform shrink-0 ${isExpanded ? 'rotate-90' : ''}`}
+              {renamingId === category.id ? (
+                <div className="flex items-center gap-2 px-4 py-2.5">
+                  <input
+                    type="text"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    className="flex-1 px-2 py-1 rounded-md bg-background border border-accent text-text text-sm focus:outline-none"
+                    autoFocus
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') void handleRenameSubmit(category.id);
+                      if (e.key === 'Escape') { setRenamingId(null); setRenameValue(''); }
+                    }}
+                    onBlur={() => void handleRenameSubmit(category.id)}
+                  />
+                  <button
+                    type="button"
+                    className="px-2.5 py-1 rounded-md bg-accent text-background text-xs font-medium"
+                    onMouseDown={(e) => { e.preventDefault(); void handleRenameSubmit(category.id); }}
+                  >
+                    Save
+                  </button>
+                  <button
+                    type="button"
+                    className="px-2.5 py-1 rounded-md border border-border-subtle text-text-soft text-xs"
+                    onMouseDown={(e) => { e.preventDefault(); setRenamingId(null); setRenameValue(''); }}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-background-elevated/50 rounded-lg transition-colors"
+                  onClick={() => toggleExpand(category.id)}
                 >
-                  <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
-                </svg>
-                <span className="font-medium text-text text-sm flex-1 truncate">{category.name}</span>
-                <span className="text-xs text-text-soft">{catItems.length} words</span>
-              </button>
+                  {isOwner && (
+                    <span className="cursor-grab text-text-soft text-xs select-none hidden md:inline">⠿</span>
+                  )}
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    className={`text-text-soft transition-transform shrink-0 ${isExpanded ? 'rotate-90' : ''}`}
+                  >
+                    <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+                  </svg>
+                  <span className="font-medium text-text text-sm flex-1 truncate">{category.name}</span>
+                  <span className="text-xs text-text-soft">{catItems.length} words</span>
+                </button>
+              )}
 
               {/* Expanded word list */}
               {isExpanded && (
@@ -147,6 +191,17 @@ export function CategoryBrowser({
                         }}
                       >
                         Edit words
+                      </button>
+                      <button
+                        type="button"
+                        className="px-3 py-1.5 rounded-lg border border-border-subtle text-text-soft text-xs hover:bg-background transition-colors"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRenamingId(category.id);
+                          setRenameValue(category.name);
+                        }}
+                      >
+                        Rename
                       </button>
                       <button
                         type="button"

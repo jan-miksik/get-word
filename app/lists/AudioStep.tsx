@@ -1140,13 +1140,11 @@ export function AudioStep({
 
                   {/* Word text */}
                   <div className="min-w-0 flex-1">
-                    <span className="block text-[11px] uppercase tracking-wide text-text-soft">
-                      {sourceLanguageLabel} → {targetLanguageLabel}
+                    <span className="block text-sm font-medium text-text break-words">
+                      {row.textTarget}
                     </span>
-                    <span className="block text-sm text-text break-words">
-                      <span className="text-text">{row.textKnown}</span>
-                      <span className="mx-1.5 text-text-soft">-</span>
-                      <span className="text-accent">{row.textTarget}</span>
+                    <span className="block text-xs text-text-soft break-words">
+                      {row.textKnown}
                     </span>
                     {canUseExisting && (
                       <span className="mt-1 block text-xs text-done">

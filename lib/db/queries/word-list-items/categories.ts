@@ -50,6 +50,24 @@ export async function reorderCategories(
   }
 }
 
+export async function renameCategory(
+  listId: string,
+  categoryId: string,
+  name: string
+): Promise<WordCategory | null> {
+  const [updated] = await db
+    .update(wordCategories)
+    .set({ name })
+    .where(
+      and(
+        eq(wordCategories.id, categoryId),
+        eq(wordCategories.listId, listId)
+      )
+    )
+    .returning();
+  return updated ?? null;
+}
+
 export async function deleteCategory(
   listId: string,
   categoryId: string

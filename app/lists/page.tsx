@@ -258,8 +258,11 @@ export default function ListsPage() {
       setPendingItems(result.pending_items);
       setWizardStep('translate');
     } else {
-      // No new items — offer editing existing translations and audio for this category
-      const categoryItems = editingCategoryId ? itemsByCategory.get(editingCategoryId) ?? [] : [];
+      // Reload first so freshItems includes any just-confirmed new words
+      const freshItems = await reloadListDetails();
+      const categoryItems = editingCategoryId
+        ? freshItems.filter((i) => i.categoryId === editingCategoryId)
+        : [];
       if (categoryItems.length > 0) {
         setTranslateHeading('Review Translations & Audio');
         setPendingItems(
@@ -272,7 +275,6 @@ export default function ListsPage() {
         );
         setWizardStep('translate');
       } else {
-        await reloadListDetails();
         setWizardStep('browse');
       }
     }
@@ -297,14 +299,16 @@ export default function ListsPage() {
     setEditingCategoryId(null);
   }, [loadGoogleUsage, selectedListId]);
 
-  async function reloadListDetails() {
-    if (!selectedListId) return;
+  async function reloadListDetails(): Promise<WordListItem[]> {
+    if (!selectedListId) return [];
     const res = await listsApiFetch(`/api/lists/${selectedListId}`);
     if (res.ok) {
       const data = await res.json();
       setCategories(data.categories ?? []);
       setItems(data.items ?? []);
+      return data.items ?? [];
     }
+    return [];
   }
 
   const handleCancelWizard = useCallback(() => {
@@ -327,29 +331,37 @@ export default function ListsPage() {
     const order: WizardActiveStep[] = ['edit', 'preview', 'translate', 'audio'];
     const currentIdx = order.indexOf(wizardStep as WizardActiveStep);
     const targetIdx = order.indexOf(step);
+
+    // Always allow going back
     if (targetIdx <= currentIdx) {
       setWizardStep(step);
       return;
     }
 
-    if (wizardStep !== 'edit' || isEditDirty || !editingCategoryId) return;
+    // Blocked if currently editing with unsaved changes
+    if (isEditDirty) return;
 
-    const categoryItems = itemsByCategory.get(editingCategoryId) ?? [];
-    setDiffResult({
-      added: [],
-      removed: [],
-      reordered: [],
-      unchanged: categoryItems.length,
-    });
-    setTranslateHeading('Review Translations & Audio');
-    setPendingItems(
-      categoryItems.map((item) => ({
-        id: item.id,
-        text_known: item.textKnown,
-        text_target: item.textTarget ?? null,
-        position: item.position,
-      })),
-    );
+    // From edit step: set up diff/pending so later steps have data
+    if (wizardStep === 'edit' && editingCategoryId) {
+      const categoryItems = itemsByCategory.get(editingCategoryId) ?? [];
+      setDiffResult({
+        added: [],
+        removed: [],
+        reordered: [],
+        unchanged: categoryItems.length,
+      });
+      setTranslateHeading('Review Translations & Audio');
+      setPendingItems(
+        categoryItems.map((item) => ({
+          id: item.id,
+          text_known: item.textKnown,
+          text_target: item.textTarget ?? null,
+          position: item.position,
+        })),
+      );
+    }
+
+    // From any non-edit step: allow jumping forward freely
     setWizardStep(step);
   }, [editingCategoryId, isEditDirty, itemsByCategory, wizardStep]);
 
@@ -379,6 +391,21 @@ export default function ListsPage() {
         })
         .filter((c): c is WordCategory => c !== null);
     });
+  }, [selectedListId]);
+
+  const handleRenameCategory = useCallback(async (categoryId: string, name: string) => {
+    if (!selectedListId) return;
+    const res = await listsApiFetch(`/api/lists/${selectedListId}/categories/${categoryId}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ name }),
+    });
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      throw new Error(data.error ?? 'Rename failed');
+    }
+    setCategories((prev) =>
+      prev.map((c) => (c.id === categoryId ? { ...c, name } : c))
+    );
   }, [selectedListId]);
 
   const handleDeleteCategory = useCallback(async (categoryId: string) => {
@@ -422,8 +449,11 @@ export default function ListsPage() {
         aria-label="API key settings"
         title="API Keys"
       >
+        {/* Key icon */}
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-current">
-          <path d="M10 12a2 2 0 100-4 2 2 0 000 4zM3 10a7 7 0 1114 0 7 7 0 01-14 0z" stroke="currentColor" strokeWidth="1.5" fill="none" />
+          <circle cx="8" cy="8" r="4" stroke="currentColor" strokeWidth="1.5" />
+          <path d="M11.5 11.5L17 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+          <path d="M14.5 14.5L16 13l1 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
 
@@ -463,7 +493,7 @@ export default function ListsPage() {
           <WizardProgressBar
             currentStep={wizardStep as WizardActiveStep}
             onGoToStep={handleGoToStep}
-            canJumpForward={wizardStep === 'edit' && !isEditDirty}
+            canJumpForward={!isEditDirty}
           />
         )}
 
@@ -495,6 +525,7 @@ export default function ListsPage() {
               isOwner={isOwner}
               onEditCategory={handleEditCategory}
               onCreateCategory={handleCreateCategory}
+              onRenameCategory={handleRenameCategory}
               onReorderCategories={handleReorderCategories}
               onDeleteCategory={handleDeleteCategory}
             />

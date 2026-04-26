@@ -11,7 +11,9 @@ const mockBatchUpsertProgressByItemId = vi.fn()
 const mockUpdateUserRole = vi.fn()
 const mockUpdateUserPreferences = vi.fn()
 const mockUpsertMemoryHook = vi.fn()
+const mockUpsertMemoryHookByItemId = vi.fn()
 const mockDeleteMemoryHook = vi.fn()
+const mockDeleteMemoryHookByItemId = vi.fn()
 const mockSetUserCategoryFilters = vi.fn()
 const mockGetUserSubscribedItems = vi.fn()
 const mockGetUserOwnListItems = vi.fn()
@@ -32,7 +34,9 @@ vi.mock('@/lib/db', () => ({
   batchUpsertProgressByItemId: (...args: unknown[]) => mockBatchUpsertProgressByItemId(...args),
   getUserMemoryHooks: (...args: unknown[]) => mockGetUserMemoryHooks(...args),
   upsertMemoryHook: (...args: unknown[]) => mockUpsertMemoryHook(...args),
+  upsertMemoryHookByItemId: (...args: unknown[]) => mockUpsertMemoryHookByItemId(...args),
   deleteMemoryHook: (...args: unknown[]) => mockDeleteMemoryHook(...args),
+  deleteMemoryHookByItemId: (...args: unknown[]) => mockDeleteMemoryHookByItemId(...args),
   getUserCategoryFilters: (...args: unknown[]) => mockGetUserCategoryFilters(...args),
   setUserCategoryFilters: (...args: unknown[]) => mockSetUserCategoryFilters(...args),
   updateUserRole: (...args: unknown[]) => mockUpdateUserRole(...args),
@@ -384,7 +388,8 @@ describe('POST /api/sync', () => {
     expect(mockUpsertMemoryHook).toHaveBeenCalledWith('uuid-A', 'w001', 'hook text')
   })
 
-  it('ignores unknown UUID memory hook keys instead of failing sync', async () => {
+  it('saves UUID memory hook keys as list item hooks when no legacy mapping exists', async () => {
+    const itemId = '11111111-1111-1111-1111-111111111111'
     mockGetSystemDefaultList.mockResolvedValue({ id: 'list-system' })
     mockGetWordIdToItemIdMapping.mockResolvedValue(new Map())
 
@@ -392,7 +397,7 @@ describe('POST /api/sync', () => {
       method: 'POST',
       body: JSON.stringify({
         deviceId: 'dev-123',
-        memory_hooks: { '11111111-1111-1111-1111-111111111111': 'hook text' },
+        memory_hooks: { [itemId]: 'hook text' },
       }),
       headers: { 'Content-Type': 'application/json' },
     })
@@ -403,6 +408,7 @@ describe('POST /api/sync', () => {
     expect(res.status).toBe(200)
     expect(data.success).toBe(true)
     expect(mockUpsertMemoryHook).not.toHaveBeenCalled()
+    expect(mockUpsertMemoryHookByItemId).toHaveBeenCalledWith('uuid-A', itemId, 'hook text')
   })
 
   it('returns 401 without session', async () => {

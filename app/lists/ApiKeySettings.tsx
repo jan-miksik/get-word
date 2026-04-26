@@ -22,6 +22,7 @@ type StoredKey = {
 };
 
 type OpenRouterUiState =
+  | 'checking'
   | 'not_connected'
   | 'connecting'
   | 'connected'
@@ -39,10 +40,13 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
   const [newKey, setNewKey] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busyAction, setBusyAction] = useState<string | null>(null);
-  const [openRouterState, setOpenRouterState] = useState<OpenRouterUiState>('not_connected');
+  // Start as 'checking' to avoid flash of "Not connected" before data loads
+  const [openRouterState, setOpenRouterState] = useState<OpenRouterUiState>('checking');
   const [statusNotice, setStatusNotice] = useState<string | null>(null);
   const [openRouterModel, setOpenRouterModel] = useState(DEFAULT_OPENROUTER_TRANSLATION_MODEL);
-  const [openRouterModelSaved, setOpenRouterModelSaved] = useState(DEFAULT_OPENROUTER_TRANSLATION_MODEL);
+  // Custom model: separate from the dropdown selection
+  const [customModelInput, setCustomModelInput] = useState('');
+  const [customModelSaved, setCustomModelSaved] = useState('');
 
   const reasonMessages: Record<string, string> = {
     invalid_state: 'OpenRouter callback state was invalid. Please retry.',
@@ -58,17 +62,54 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
     rate_limited: 'Too many OpenRouter requests. Please wait and retry.',
   };
 
+  function applyModelState(model: string) {
+    const normalized = normalizeOpenRouterModel(model);
+    const isKnown = OPENROUTER_TRANSLATION_MODELS.some((m) => m.id === normalized);
+    setOpenRouterModel(normalized);
+    if (!isKnown) {
+      setCustomModelInput(normalized);
+      setCustomModelSaved(normalized);
+    } else {
+      setCustomModelInput('');
+      setCustomModelSaved('');
+    }
+  }
+
+  const saveModel = useCallback(async (model: string) => {
+    const normalized = normalizeOpenRouterModel(model);
+    setError(null);
+    setBusyAction('openrouter:model');
+    try {
+      const res = await listsApiFetch('/api/providers/openrouter', {
+        method: 'PATCH',
+        body: JSON.stringify({ translation_model: normalized }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error ?? 'Failed to save OpenRouter model');
+      }
+      applyModelState(normalized);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save OpenRouter model');
+    } finally {
+      setBusyAction(null);
+    }
+  }, []);
+
   const loadOpenRouterStatus = useCallback(async () => {
     try {
       const res = await listsApiFetch('/api/providers/openrouter/status');
-      if (!res.ok) return;
+      if (!res.ok) {
+        setOpenRouterState('not_connected');
+        return;
+      }
       const data = await res.json();
       setOpenRouterState((data.state as OpenRouterUiState) ?? 'not_connected');
-      const model = normalizeOpenRouterModel(data.connection?.translationModel);
-      setOpenRouterModel(model);
-      setOpenRouterModelSaved(model);
+      if (data.connection?.translationModel) {
+        applyModelState(data.connection.translationModel);
+      }
     } catch {
-      // no-op
+      setOpenRouterState('not_connected');
     }
   }, []);
 
@@ -88,9 +129,7 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
           setOpenRouterState((prev) => (prev === 'connecting' ? prev : 'connected'));
         }
         if (openrouter?.translationModel) {
-          const model = normalizeOpenRouterModel(openrouter.translationModel);
-          setOpenRouterModel(model);
-          setOpenRouterModelSaved(model);
+          applyModelState(openrouter.translationModel);
         }
       }
     } catch {
@@ -208,50 +247,6 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
     }
   }
 
-  async function handleOpenRouterTest() {
-    setError(null);
-    setBusyAction('openrouter:test');
-    try {
-      const res = await listsApiFetch('/api/providers/openrouter/test', { method: 'POST' });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error ?? 'OpenRouter test failed');
-      }
-      setStatusNotice('OpenRouter connection is valid.');
-      setOpenRouterState('connected');
-      await loadKeys();
-      await loadOpenRouterStatus();
-    } catch (err) {
-      setOpenRouterState('failed_retryable');
-      setError(err instanceof Error ? err.message : 'OpenRouter test failed');
-    } finally {
-      setBusyAction(null);
-    }
-  }
-
-  async function handleOpenRouterModelSave() {
-    const model = normalizeOpenRouterModel(openRouterModel);
-    setOpenRouterModel(model);
-    setError(null);
-    setBusyAction('openrouter:model');
-    try {
-      const res = await listsApiFetch('/api/providers/openrouter', {
-        method: 'PATCH',
-        body: JSON.stringify({ translation_model: model }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error ?? 'Failed to save OpenRouter model');
-      }
-      setOpenRouterModelSaved(model);
-      setStatusNotice('OpenRouter translation model saved.');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save OpenRouter model');
-    } finally {
-      setBusyAction(null);
-    }
-  }
-
   if (!isOpen) return null;
 
   const providers = [
@@ -313,15 +308,15 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
             const isAdding = addingProvider === p.id;
             const isBusy = busyAction !== null;
             const isOpenRouter = p.id === 'openrouter';
-            const modelIsKnown = OPENROUTER_TRANSLATION_MODELS.some((m) => m.id === openRouterModel);
-            const modelDirty = normalizeOpenRouterModel(openRouterModel) !== openRouterModelSaved;
-            const selectedModelInfo = OPENROUTER_TRANSLATION_MODELS.find((m) => m.id === openRouterModel);
             const openRouterConnected = isOpenRouter && openRouterState === 'connected';
+            const modelIsKnown = OPENROUTER_TRANSLATION_MODELS.some((m) => m.id === openRouterModel);
+            const customInputDirty = customModelInput.trim() !== customModelSaved;
 
             let statusDotClass = 'bg-text-soft/40';
             let statusText = 'Not connected';
             if (isOpenRouter) {
-              if (openRouterState === 'connected') { statusDotClass = 'bg-done'; statusText = 'Connected'; }
+              if (openRouterState === 'checking') { statusDotClass = 'bg-text-soft/40 animate-pulse'; statusText = 'Checking…'; }
+              else if (openRouterState === 'connected') { statusDotClass = 'bg-done'; statusText = 'Connected'; }
               else if (openRouterState === 'connecting') { statusDotClass = 'bg-fresh animate-pulse'; statusText = 'Connecting…'; }
               else if (openRouterState === 'failed_retryable') { statusDotClass = 'bg-danger'; statusText = 'Connection failed'; }
             } else if (stored) {
@@ -346,7 +341,7 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
                   </div>
                 </header>
 
-                {/* Connected: show key + actions */}
+                {/* Connected: show key + disconnect */}
                 {stored && !isAdding && (
                   <div className="px-5 pb-4 space-y-3">
                     <div className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-background border border-border-subtle">
@@ -358,41 +353,19 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
                       </span>
                     </div>
 
-                    <div className="flex items-center gap-2 flex-wrap">
-                      {isOpenRouter && (
-                        <>
-                          <button
-                            type="button"
-                            className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-sm hover:bg-background hover:border-accent transition-colors disabled:opacity-60"
-                            onClick={handleOpenRouterTest}
-                            disabled={isBusy}
-                          >
-                            {busyAction === 'openrouter:test' ? 'Testing…' : 'Test'}
-                          </button>
-                          <button
-                            type="button"
-                            className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-sm hover:bg-background hover:border-accent transition-colors disabled:opacity-60"
-                            onClick={handleOpenRouterConnect}
-                            disabled={isBusy}
-                          >
-                            Reconnect
-                          </button>
-                        </>
-                      )}
-                      <button
-                        type="button"
-                        className="ml-auto px-3 py-1.5 rounded-lg text-danger text-sm hover:bg-danger/10 transition-colors disabled:opacity-60"
-                        onClick={() => handleDeleteKey(p.id)}
-                        disabled={isBusy}
-                      >
-                        Remove
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 rounded-lg text-danger/80 text-sm hover:bg-danger/10 transition-colors disabled:opacity-60"
+                      onClick={() => handleDeleteKey(p.id)}
+                      disabled={isBusy}
+                    >
+                      {busyAction === `delete:${p.id}` ? 'Disconnecting…' : 'Disconnect'}
+                    </button>
                   </div>
                 )}
 
-                {/* Not connected OpenRouter: primary CTA */}
-                {isOpenRouter && !openRouterConnected && !stored && (
+                {/* OpenRouter not connected: Connect CTA */}
+                {isOpenRouter && !openRouterConnected && !stored && openRouterState !== 'checking' && (
                   <div className="px-5 pb-5">
                     <button
                       type="button"
@@ -491,14 +464,20 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
                       </a>
                     </div>
 
+                    {/* Model dropdown — auto-saves on change */}
                     <select
                       id="openrouter-model-select"
                       value={modelIsKnown ? openRouterModel : 'custom'}
                       onChange={(e) => {
                         const next = e.target.value;
-                        if (next !== 'custom') setOpenRouterModel(next);
+                        if (next === 'custom') return;
+                        setOpenRouterModel(next);
+                        setCustomModelInput('');
+                        setCustomModelSaved('');
+                        void saveModel(next);
                       }}
-                      className="w-full px-3 py-2.5 rounded-lg bg-background border border-border-subtle text-text text-sm hover:border-accent focus:outline-none focus:border-accent transition-colors"
+                      disabled={isBusy}
+                      className="w-full px-3 py-2.5 rounded-lg bg-background border border-border-subtle text-text text-sm hover:border-accent focus:outline-none focus:border-accent transition-colors disabled:opacity-60"
                     >
                       {OPENROUTER_TRANSLATION_MODELS.map((model) => (
                         <option key={model.id} value={model.id}>
@@ -508,49 +487,38 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
                       <option value="custom">Custom model…</option>
                     </select>
 
-                    {/* Selected model detail */}
-                    {selectedModelInfo && (
-                      <div className="flex items-baseline justify-between gap-3 px-0.5">
-                        <span className="text-xs text-text-soft leading-relaxed">
-                          {selectedModelInfo.note}
-                        </span>
-                        <span className="text-[11px] font-mono text-text-soft whitespace-nowrap flex-shrink-0">
-                          {selectedModelInfo.price}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Custom model ID */}
-                    <div>
+                    {/* Custom model input — only show save button when dirty */}
+                    <div className="relative">
                       <label htmlFor="openrouter-model-custom" className="text-[11px] text-text-soft">
-                        Or enter a custom model ID
+                        Custom model ID
                       </label>
-                      <input
-                        id="openrouter-model-custom"
-                        type="text"
-                        value={openRouterModel}
-                        onChange={(e) => setOpenRouterModel(e.target.value)}
-                        placeholder="provider/model-name"
-                        className="mt-1.5 w-full px-3 py-2 rounded-lg bg-background border border-border-subtle text-text text-sm font-mono focus:outline-none focus:border-accent transition-colors"
-                        spellCheck={false}
-                      />
-                    </div>
-
-                    {modelDirty ? (
-                      <button
-                        type="button"
-                        className="w-full px-4 py-2 rounded-lg bg-accent text-background text-sm font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
-                        onClick={handleOpenRouterModelSave}
-                        disabled={isBusy}
-                      >
-                        {busyAction === 'openrouter:model' ? 'Saving…' : 'Save model'}
-                      </button>
-                    ) : (
-                      <div className="flex items-center gap-1.5 text-xs text-done">
-                        <span aria-hidden="true">✓</span>
-                        <span>Model saved</span>
+                      <div className="relative mt-1.5">
+                        <input
+                          id="openrouter-model-custom"
+                          type="text"
+                          value={customModelInput}
+                          onChange={(e) => setCustomModelInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && customInputDirty && customModelInput.trim()) {
+                              void saveModel(customModelInput.trim());
+                            }
+                          }}
+                          placeholder="provider/model-name"
+                          className="w-full px-3 py-2 rounded-lg bg-background border border-border-subtle text-text text-sm font-mono focus:outline-none focus:border-accent transition-colors pr-16"
+                          spellCheck={false}
+                        />
+                        {customInputDirty && customModelInput.trim() && (
+                          <button
+                            type="button"
+                            className="absolute right-1.5 top-1/2 -translate-y-1/2 px-2.5 py-1 rounded-md bg-accent text-background text-xs font-medium hover:opacity-90 transition-opacity disabled:opacity-60"
+                            onClick={() => void saveModel(customModelInput.trim())}
+                            disabled={isBusy}
+                          >
+                            {busyAction === 'openrouter:model' ? '…' : 'Save'}
+                          </button>
+                        )}
                       </div>
-                    )}
+                    </div>
                   </div>
                 )}
               </section>

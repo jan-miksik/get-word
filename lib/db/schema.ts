@@ -254,14 +254,22 @@ export const userMemoryHooks = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    wordId: text("word_id")
-      .notNull()
-      .references(() => words.id, { onDelete: "cascade" }),
+    wordId: text("word_id").references(() => words.id, { onDelete: "cascade" }),
+    wordListItemId: uuid("word_list_item_id").references(
+      () => wordListItems.id,
+      { onDelete: "cascade" },
+    ),
     hookText: text("hook_text").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
-  (table) => [unique().on(table.userId, table.wordId)]
+  (table) => [
+    unique("user_memory_hooks_user_id_word_id_unique").on(table.userId, table.wordId),
+    unique("user_memory_hooks_user_id_word_list_item_id_unique").on(
+      table.userId,
+      table.wordListItemId,
+    ),
+  ],
 );
 
 // User category filters - selected categories for learning

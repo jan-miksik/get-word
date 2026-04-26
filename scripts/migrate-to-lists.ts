@@ -240,7 +240,7 @@ async function migrate() {
   let hooksMapped = 0;
   let hooksUnmapped = 0;
   for (const hook of allHooks) {
-    if (wordIdToItemId.has(hook.wordId)) {
+    if (hook.wordListItemId || (hook.wordId && wordIdToItemId.has(hook.wordId))) {
       hooksMapped++;
     } else {
       console.warn(`  WARNING: No item found for hook wordId=${hook.wordId}`);

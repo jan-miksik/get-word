@@ -111,23 +111,6 @@ export function useAppState(
     setActiveListId,
   });
 
-  useEffect(() => {
-    if (process.env.NODE_ENV === 'production' || !activeListId || !filteredSyncedWords) return;
-    const listName = subscribedLists.find((list) => list.id === activeListId)?.name ?? null;
-    console.log('[wordlink] selected list words', {
-      activeListId,
-      listName,
-      count: filteredSyncedWords.length,
-      words: filteredSyncedWords.map((word) => ({
-        id: word.id,
-        progressId: progressBindings.get(word.id) ?? word.id,
-        cz: word.cz,
-        vi: word.vi,
-        category: word.category,
-      })),
-    });
-  }, [activeListId, filteredSyncedWords, progressBindings, subscribedLists]);
-
   return {
     ...theme,
     ...userProfile,
