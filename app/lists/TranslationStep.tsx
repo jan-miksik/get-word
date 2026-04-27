@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { listsApiFetch } from '@/features/lists/api';
 import type { ConfirmResult, GoogleUsageResponse, WordList } from '@/features/lists/types';
+import { GoogleUsageHint } from './GoogleUsageHint';
 import {
   DEFAULT_OPENROUTER_TRANSLATION_MODEL,
   OPENROUTER_MODELS_URL,
@@ -304,34 +305,39 @@ export function TranslationStep({
       </div>
 
       {/* Provider selector + auto-translate */}
-      <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-background-elevated border border-border-subtle">
-        <select
-          value={provider}
-          onChange={(e) => {
-            const next = e.target.value as 'google' | 'openrouter';
-            setProvider(next);
-            if (next === 'openrouter') {
-              void loadOpenRouterStatus();
+      <div className="mb-4 p-3 rounded-lg bg-background-elevated border border-border-subtle">
+        <div className="flex items-center gap-3">
+          <select
+            value={provider}
+            onChange={(e) => {
+              const next = e.target.value as 'google' | 'openrouter';
+              setProvider(next);
+              if (next === 'openrouter') {
+                void loadOpenRouterStatus();
+              }
+            }}
+            className="px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs"
+          >
+            <option value="google">Google Translate</option>
+            <option value="openrouter">OpenRouter (BYOK)</option>
+          </select>
+          <button
+            type="button"
+            disabled={
+              translating ||
+              pendingCount === 0 ||
+              (provider === 'openrouter' && openRouterState !== 'connected') ||
+              (provider === 'google' && isGooglePaused)
             }
-          }}
-          className="px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs"
-        >
-          <option value="google">Google Translate</option>
-          <option value="openrouter">OpenRouter (BYOK)</option>
-        </select>
-        <button
-          type="button"
-          disabled={
-            translating ||
-            pendingCount === 0 ||
-            (provider === 'openrouter' && openRouterState !== 'connected') ||
-            (provider === 'google' && isGooglePaused)
-          }
-          className="px-4 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
-          onClick={handleAutoTranslate}
-        >
-          {translating ? 'Translating...' : `Auto-translate (${pendingCount})`}
-        </button>
+            className="px-4 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
+            onClick={handleAutoTranslate}
+          >
+            {translating ? 'Translating...' : `Auto-translate (${pendingCount})`}
+          </button>
+        </div>
+        {provider === 'google' && googleTranslateUsage && (
+          <GoogleUsageHint scope={googleTranslateUsage} />
+        )}
       </div>
 
       {provider === 'google' && isGooglePaused && (
@@ -423,6 +429,12 @@ export function TranslationStep({
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-danger/10 text-danger text-sm">{error}</div>
       )}
+
+      <div className="mb-4 rounded-lg border border-border-subtle bg-background-elevated p-3 text-xs text-text-soft">
+        {inputLanguage === 'target'
+          ? `You entered ${list.languageTo.toUpperCase()} text, so new rows will get their ${list.languageFrom.toUpperCase()} side filled here. That can make new Czech-side entries appear when you add target-language lines.`
+          : `You entered ${list.languageFrom.toUpperCase()} text, so new rows will get their ${list.languageTo.toUpperCase()} side filled here.`}
+      </div>
 
       {/* Two-column table */}
       <div className="rounded-lg border border-border-subtle overflow-hidden">

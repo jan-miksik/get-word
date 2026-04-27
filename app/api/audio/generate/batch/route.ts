@@ -59,8 +59,10 @@ async function handlePost(request: NextRequest) {
     provider?: string;
     voice_id?: string;
     force?: boolean;
+    audio_field?: "known" | "target";
   };
   const force = body.force === true;
+  const audioField = body.audio_field === "known" ? "known" : "target";
 
   if (!items || !Array.isArray(items) || items.length === 0) {
     return NextResponse.json(
@@ -197,6 +199,7 @@ async function handlePost(request: NextRequest) {
         itemId: d.itemId,
         audioAssetId: d.audioAssetId,
         audioStatus: "ready" as const,
+        ...(audioField === "known" ? { audioField } : {}),
       })),
     );
   }
@@ -235,7 +238,12 @@ async function handlePost(request: NextRequest) {
 
           if (!result) {
             await batchLinkAudioToItems([
-              { itemId: item.id, audioAssetId: null, audioStatus: "failed" },
+              {
+                itemId: item.id,
+                audioAssetId: null,
+                audioStatus: "failed",
+                ...(audioField === "known" ? { audioField } : {}),
+              },
             ]);
             return { itemId: item.id, hash, status: "error" as const, error: "Generation failed" };
           }
@@ -267,7 +275,12 @@ async function handlePost(request: NextRequest) {
 
           // Link to word_list_item
           await batchLinkAudioToItems([
-            { itemId: item.id, audioAssetId: asset.id, audioStatus: "ready" },
+            {
+              itemId: item.id,
+              audioAssetId: asset.id,
+              audioStatus: "ready",
+              ...(audioField === "known" ? { audioField } : {}),
+            },
           ]);
 
           return {
@@ -282,7 +295,12 @@ async function handlePost(request: NextRequest) {
           };
         } catch (err) {
           await batchLinkAudioToItems([
-            { itemId: item.id, audioAssetId: null, audioStatus: "failed" },
+            {
+              itemId: item.id,
+              audioAssetId: null,
+              audioStatus: "failed",
+              ...(audioField === "known" ? { audioField } : {}),
+            },
           ]);
           return {
             itemId: item.id,

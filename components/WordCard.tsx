@@ -104,6 +104,9 @@ export const WordCard = memo(function WordCard({
   // Audio playback
   const playAudio = (src: string | string[]) => {
     try {
+      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
@@ -114,9 +117,25 @@ export const WordCard = memo(function WordCard({
     } catch {}
   };
 
+  const speakText = (text: string, lang: string) => {
+    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+    if (typeof SpeechSynthesisUtterance === 'undefined') return;
+    try {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current.currentTime = 0;
+      }
+      window.speechSynthesis.cancel();
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = lang;
+      window.speechSynthesis.speak(utterance);
+    } catch {}
+  };
+
   // Helper to normalize audio paths for Next.js (add leading slash if needed)
   const normalizeAudioPath = (path: string | string[]): string => {
     const pathStr = Array.isArray(path) ? path[0] : path;
+    if (/^(?:https?:|blob:|data:)/i.test(pathStr)) return pathStr;
     // Ensure path starts with / for Next.js public directory
     // Paths in data are like "speech/cz/file.mp3", need to be "/speech/cz/file.mp3"
     return pathStr.startsWith('/') ? pathStr : `/${pathStr}`;
@@ -133,6 +152,12 @@ export const WordCard = memo(function WordCard({
   };
 
   const audioSrc = getAudioSrc();
+  const speechFallback = isMounted && !audioSrc
+    ? role === 'vi'
+      ? (word.cz ? { text: word.cz, lang: 'cs-CZ', title: 'Play Czech audio' } : null)
+      : (word.vi ? { text: word.vi, lang: 'vi-VN', title: 'Play Vietnamese audio' } : null)
+    : null;
+  const shouldRenderMemoryHook = showMemoryHook;
 
   // Scroll the focused input into view after the keyboard finishes opening
   useEffect(() => {
@@ -288,7 +313,7 @@ className={`cover-target relative cursor-pointer touch-manipulation select-none 
         </div>
 
       {/* Memory Hook */}
-      {showMemoryHook && (
+      {shouldRenderMemoryHook && (
         <div className={`memory-hook-container mt-2 mb-1 ${editingHook ? 'editing' : ''}`}>
           <div
             ref={hookDisplayRef}
@@ -347,12 +372,15 @@ className={`cover-target relative cursor-pointer touch-manipulation select-none 
             ✔✔
           </button>
         )}
-                {audioSrc && (
+                {(audioSrc || speechFallback) && (
           <button
             type="button"
             className="audio-btn"
-            onClick={() => playAudio(audioSrc)}
-            title={role === 'vi' ? 'Play Czech audio' : 'Play Vietnamese audio'}
+            onClick={() => {
+              if (audioSrc) playAudio(audioSrc);
+              else if (speechFallback) speakText(speechFallback.text, speechFallback.lang);
+            }}
+            title={speechFallback?.title ?? (role === 'vi' ? 'Play Czech audio' : 'Play Vietnamese audio')}
           >
             🔊
           </button>

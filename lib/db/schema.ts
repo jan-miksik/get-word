@@ -63,17 +63,24 @@ export const words = pgTable("words", {
 });
 
 // Word lists - container for vocabulary sets
-export const wordLists = pgTable("word_lists", {
-  id: uuid("id").primaryKey().defaultRandom(),
-  ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
-  name: text("name").notNull(),
-  description: text("description"),
-  languageFrom: text("language_from").notNull(),
-  languageTo: text("language_to").notNull(),
-  isPublic: boolean("is_public").notNull().default(false),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
+export const wordLists = pgTable(
+  "word_lists",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    ownerId: uuid("owner_id").references(() => users.id, { onDelete: "set null" }),
+    name: text("name").notNull(),
+    description: text("description"),
+    languageFrom: text("language_from").notNull(),
+    languageTo: text("language_to").notNull(),
+    isPublic: boolean("is_public").notNull().default(false),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("word_lists_owner_idx").on(table.ownerId),
+    index("word_lists_public_idx").on(table.isPublic),
+  ],
+);
 
 // Word categories - sections within a list
 export const wordCategories = pgTable(
@@ -88,6 +95,9 @@ export const wordCategories = pgTable(
     isSystem: boolean("is_system").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
+  (table) => [
+    index("word_categories_list_pos_idx").on(table.listId, table.position),
+  ],
 );
 
 // Media assets - shared audio pool (content-addressed)
@@ -125,6 +135,10 @@ export const wordListItems = pgTable(
     translationStatus: translationStatusEnum("translation_status")
       .notNull()
       .default("manual"),
+    knownAudioAssetId: uuid("known_audio_asset_id").references(() => mediaAssets.id, {
+      onDelete: "set null",
+    }),
+    knownAudioStatus: audioStatusEnum("known_audio_status").notNull().default("none"),
     audioAssetId: uuid("audio_asset_id").references(() => mediaAssets.id, {
       onDelete: "set null",
     }),
@@ -134,6 +148,7 @@ export const wordListItems = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
+    index("word_list_items_list_pos_idx").on(table.listId, table.position),
     index("word_list_items_list_cat_pos_idx").on(
       table.listId,
       table.categoryId,

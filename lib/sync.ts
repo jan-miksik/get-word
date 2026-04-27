@@ -9,6 +9,10 @@ import {
 // In-memory only: set from API responses, passed as hint to API. No localStorage.
 let lastKnownUserId: string | null = null;
 let authRequired = false;
+// True once we've successfully applied a server snapshot at least once this
+// session. Used to gate preference syncs so failed-hydration defaults can't
+// overwrite remote state.
+let hasServerSnapshot = false;
 
 const AUTH_REQUIRED_TEXT = "Authentication required";
 const SHOULD_LOG_TIMING = process.env.NEXT_PUBLIC_DEBUG_TIMING === "1";
@@ -77,6 +81,17 @@ export function isAuthRequiredError(error: unknown): boolean {
 export function resetSyncIdentity(): void {
   lastKnownUserId = null;
   authRequired = false;
+  hasServerSnapshot = false;
+}
+
+/** True once a server snapshot has been applied this session. */
+export function hasReceivedServerSnapshot(): boolean {
+  return hasServerSnapshot;
+}
+
+/** Called by the hydration layer after a server payload is successfully applied. */
+export function markServerSnapshotApplied(): void {
+  hasServerSnapshot = true;
 }
 
 /** API request shape for progress items. */
@@ -101,8 +116,18 @@ export interface SyncWordListItem {
   textKnown: string;
   textTarget: string | null;
   translationStatus: string;
+  knownAudioAssetId: string | null;
+  knownAudioStatus: string;
+  knownAudioUrl?: string | null;
+  knownAudioArweaveUrl?: string | null;
+  knownAudioArweaveUrls?: string[];
+  knownAudioStorageRef?: string | null;
   audioAssetId: string | null;
   audioStatus: string;
+  audioUrl?: string | null;
+  audioArweaveUrl?: string | null;
+  audioArweaveUrls?: string[];
+  audioStorageRef?: string | null;
   notes: string | null;
 }
 

@@ -17,7 +17,6 @@ import { DiffPreview } from './DiffPreview';
 import { TranslationStep } from './TranslationStep';
 import { AudioStep } from './AudioStep';
 import { ApiKeySettings } from './ApiKeySettings';
-import { GoogleUsagePanel } from './GoogleUsagePanel';
 import { WizardProgressBar } from './WizardProgressBar';
 
 type WizardStep = 'browse' | 'edit' | 'preview' | 'translate' | 'audio';
@@ -81,10 +80,8 @@ export default function ListsPage() {
   useEffect(() => {
     async function loadLists() {
       try {
-        const [res] = await Promise.all([
-          listsApiFetch('/api/lists'),
-          loadGoogleUsage(),
-        ]);
+        void loadGoogleUsage();
+        const res = await listsApiFetch('/api/lists');
         if (!res.ok) throw new Error('Failed to load lists');
         const data = await res.json();
         setLists(data.lists);
@@ -106,20 +103,25 @@ export default function ListsPage() {
   // Fetch list details when selected list changes
   useEffect(() => {
     if (!selectedListId) return;
+    const controller = new AbortController();
     async function loadListDetails() {
       try {
-        const res = await listsApiFetch(`/api/lists/${selectedListId}`);
+        const res = await listsApiFetch(`/api/lists/${selectedListId}?include_media=false`, {
+          signal: controller.signal,
+        });
         if (!res.ok) throw new Error('Failed to load list details');
         const data = await res.json();
         setCategories(data.categories ?? []);
         setItems(data.items ?? []);
       } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         setError(err instanceof Error ? err.message : 'Failed to load list');
       }
     }
     loadListDetails();
     setWizardStep('browse');
     setEditingCategoryId(null);
+    return () => controller.abort();
   }, [selectedListId]);
 
   const itemsByCategory = useMemo(() => {
@@ -281,7 +283,7 @@ export default function ListsPage() {
   }, [selectedListId, editingCategoryId, diffResult, editInputLanguage, itemsByCategory]);
 
   const handleTranslationComplete = useCallback(async () => {
-    await Promise.all([reloadListDetails(), loadGoogleUsage()]);
+    await Promise.all([reloadListDetails({ includeMedia: true }), loadGoogleUsage()]);
     setWizardStep('audio');
   }, [loadGoogleUsage]);
 
@@ -299,9 +301,12 @@ export default function ListsPage() {
     setEditingCategoryId(null);
   }, [loadGoogleUsage, selectedListId]);
 
-  async function reloadListDetails(): Promise<WordListItem[]> {
+  async function reloadListDetails(options: { includeMedia?: boolean } = {}): Promise<WordListItem[]> {
     if (!selectedListId) return [];
-    const res = await listsApiFetch(`/api/lists/${selectedListId}`);
+    const includeMedia = options.includeMedia ?? false;
+    const res = await listsApiFetch(
+      `/api/lists/${selectedListId}?include_media=${includeMedia ? 'true' : 'false'}`
+    );
     if (res.ok) {
       const data = await res.json();
       setCategories(data.categories ?? []);
@@ -327,7 +332,7 @@ export default function ListsPage() {
     else handleCancelWizard();
   }, [wizardStep, handleCancelWizard]);
 
-  const handleGoToStep = useCallback((step: WizardActiveStep) => {
+  const handleGoToStep = useCallback(async (step: WizardActiveStep) => {
     const order: WizardActiveStep[] = ['edit', 'preview', 'translate', 'audio'];
     const currentIdx = order.indexOf(wizardStep as WizardActiveStep);
     const targetIdx = order.indexOf(step);
@@ -359,6 +364,10 @@ export default function ListsPage() {
           position: item.position,
         })),
       );
+    }
+
+    if (step === 'audio') {
+      await reloadListDetails({ includeMedia: true });
     }
 
     // From any non-edit step: allow jumping forward freely
@@ -470,6 +479,7 @@ export default function ListsPage() {
           lists={lists}
           selectedListId={selectedListId}
           subscribedListIds={subscribedListIds}
+          googleUsage={googleUsage}
           onSelectList={handleSelectList}
           onCreateList={handleCreateList}
           onDeleteList={handleDeleteList}
@@ -498,8 +508,6 @@ export default function ListsPage() {
         )}
 
         <div className="flex-1 overflow-y-auto">
-          {googleUsage && <GoogleUsagePanel usage={googleUsage} />}
-
           {error && (
             <div className="p-4 m-4 rounded-lg bg-danger/10 text-danger text-sm">
               {error}

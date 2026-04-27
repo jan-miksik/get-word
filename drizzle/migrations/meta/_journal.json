@@ -106,6 +106,20 @@
       "when": 1777201440000,
       "tag": "0014_memory_hooks_word_list_items",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1777298400000,
+      "tag": "0015_speed_up_list_loading",
+      "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1777298460000,
+      "tag": "0016_known_audio_for_word_list_items",
+      "breakpoints": true
     }
   ]
 }

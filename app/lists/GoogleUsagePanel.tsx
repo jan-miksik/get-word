@@ -109,40 +109,49 @@ function GlobalScopeRow({ scope }: { scope: GoogleUsageGlobalScope }) {
 
 type GoogleUsagePanelProps = {
   usage: GoogleUsageResponse;
+  compact?: boolean;
 };
 
-export function GoogleUsagePanel({ usage }: GoogleUsagePanelProps) {
+export function GoogleUsagePanel({ usage, compact = false }: GoogleUsagePanelProps) {
   const monthLabel = monthFormatter.format(new Date(usage.period_start));
+
+  const inner = (
+    <>
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-semibold text-text">Google API Usage</h2>
+          <p className="text-xs text-text-soft">Free-tier usage for {monthLabel}</p>
+        </div>
+        <p className="text-[11px] text-text-soft">Limits reset on the first day of each month.</p>
+      </div>
+
+      <div className="grid gap-3 lg:grid-cols-2">
+        <div className="space-y-3">
+          <h3 className="text-xs font-medium uppercase tracking-wide text-text-soft">This account</h3>
+          {usage.account.map((scope) => (
+            <AccountScopeRow key={scope.scope} scope={scope} />
+          ))}
+        </div>
+
+        {usage.global && usage.global.length > 0 ? (
+          <div className="space-y-3">
+            <h3 className="text-xs font-medium uppercase tracking-wide text-text-soft">All accounts</h3>
+            {usage.global.map((scope) => (
+              <GlobalScopeRow key={scope.scope} scope={scope} />
+            ))}
+          </div>
+        ) : null}
+      </div>
+    </>
+  );
+
+  if (compact) {
+    return <div>{inner}</div>;
+  }
 
   return (
     <section className="border-b border-border-subtle bg-background/70 px-4 py-4 md:px-6">
-      <div className="mx-auto max-w-5xl">
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h2 className="text-sm font-semibold text-text">Google API Usage</h2>
-            <p className="text-xs text-text-soft">Free-tier usage for {monthLabel}</p>
-          </div>
-          <p className="text-[11px] text-text-soft">Limits reset on the first day of each month.</p>
-        </div>
-
-        <div className="grid gap-3 lg:grid-cols-2">
-          <div className="space-y-3">
-            <h3 className="text-xs font-medium uppercase tracking-wide text-text-soft">This account</h3>
-            {usage.account.map((scope) => (
-              <AccountScopeRow key={scope.scope} scope={scope} />
-            ))}
-          </div>
-
-          {usage.global && usage.global.length > 0 ? (
-            <div className="space-y-3">
-              <h3 className="text-xs font-medium uppercase tracking-wide text-text-soft">All accounts</h3>
-              {usage.global.map((scope) => (
-                <GlobalScopeRow key={scope.scope} scope={scope} />
-              ))}
-            </div>
-          ) : null}
-        </div>
-      </div>
+      <div className="mx-auto max-w-5xl">{inner}</div>
     </section>
   );
 }

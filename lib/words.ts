@@ -153,6 +153,12 @@ export function wordListItemsToNormalizedWords(
     categoryId: string | null;
     textKnown: string;
     textTarget: string | null;
+    knownAudioUrl?: string | null;
+    knownAudioArweaveUrl?: string | null;
+    knownAudioArweaveUrls?: string[];
+    audioUrl?: string | null;
+    audioArweaveUrl?: string | null;
+    audioArweaveUrls?: string[];
     notes: string | null;
     position: number;
   }>,
@@ -219,6 +225,10 @@ export function wordListItemsToNormalizedWords(
       const media =
         mediaByPair.get(pairKey(cz, vi)) ??
         mediaByPair.get(pairKey(vi, cz));
+      const generatedKnownAudio = [item.knownAudioUrl, ...(item.knownAudioArweaveUrls ?? [])]
+        .filter((url): url is string => Boolean(url));
+      const generatedTargetAudio = [item.audioUrl, ...(item.audioArweaveUrls ?? [])]
+        .filter((url): url is string => Boolean(url));
 
       return {
         id: item.id, // UUID from word_list_items
@@ -228,8 +238,14 @@ export function wordListItemsToNormalizedWords(
         vi,
         czPron: media?.czPron,
         viPron: media?.viPron,
-        czAudio: media?.czAudio,
-        viAudio: media?.viAudio,
+        czAudio:
+          generatedKnownAudio.length > 0
+            ? generatedKnownAudio
+            : media?.czAudio,
+        viAudio:
+          generatedTargetAudio.length > 0
+            ? generatedTargetAudio
+            : media?.viAudio,
         listId: item.listId,
         canonicalWordId: item.canonicalWordId ?? null,
       } as NormalizedWord;

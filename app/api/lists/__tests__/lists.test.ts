@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const mockGetUserLists = vi.fn()
+const mockGetUserSubscribedListIds = vi.fn()
 const mockCreateList = vi.fn()
 const mockGetListById = vi.fn()
 const mockUpdateList = vi.fn()
@@ -16,6 +17,7 @@ const mockResolveUserFromRequest = vi.fn()
 
 vi.mock('@/lib/db', () => ({
   getUserLists: (...args: unknown[]) => mockGetUserLists(...args),
+  getUserSubscribedListIds: (...args: unknown[]) => mockGetUserSubscribedListIds(...args),
   createList: (...args: unknown[]) => mockCreateList(...args),
   getListById: (...args: unknown[]) => mockGetListById(...args),
   updateList: (...args: unknown[]) => mockUpdateList(...args),
@@ -79,12 +81,14 @@ describe('GET /api/lists', () => {
   it('returns lists for authenticated user', async () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
     mockGetUserLists.mockResolvedValue([testList, publicList])
+    mockGetUserSubscribedListIds.mockResolvedValue(['list-2'])
     const req = new NextRequest('http://localhost:3000/api/lists')
     const res = await GET(req)
     const data = await res.json()
     expect(res.status).toBe(200)
     expect(data.lists).toHaveLength(2)
     expect(data.lists[0].name).toBe('My List')
+    expect(data.subscribedListIds).toEqual(['list-2'])
   })
 })
 
@@ -186,6 +190,26 @@ describe('GET /api/lists/[id]', () => {
     const req = new NextRequest('http://localhost:3000/api/lists/list-2')
     const res = await GET_DETAIL(req, { params: Promise.resolve({ id: 'list-2' }) })
     expect(res.status).toBe(200)
+  })
+
+  it('skips media lookups for lightweight list detail requests', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetListById.mockResolvedValue(testList)
+    mockGetListCategories.mockResolvedValue([])
+    mockGetListItems.mockResolvedValue([
+      {
+        id: 'item-1',
+        audioAssetId: 'asset-1',
+        textKnown: 'ahoj',
+        textTarget: 'xin chao',
+      },
+    ])
+    const req = new NextRequest('http://localhost:3000/api/lists/list-1?include_media=false')
+    const res = await GET_DETAIL(req, { params: Promise.resolve({ id: 'list-1' }) })
+    const data = await res.json()
+    expect(res.status).toBe(200)
+    expect(data.items[0].audioUrl).toBeNull()
+    expect(mockGetMediaAssetsByIds).not.toHaveBeenCalled()
   })
 })
 

@@ -3,11 +3,14 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import { listsApiFetch } from '@/features/lists/api';
 import type { GoogleUsageResponse, WordList, WordListItem } from '@/features/lists/types';
+import { GoogleUsageHint } from './GoogleUsageHint';
 
 type AudioRow = {
   id: string;
-  textKnown: string;
-  textTarget: string;
+  knownText: string;
+  targetText: string;
+  audioText: string;
+  supportingText: string;
   language: string;
   audioUrl: string | null;
   arweaveUrl?: string | null;
@@ -21,6 +24,8 @@ type AudioRow = {
   audioStatus: 'none' | 'pending' | 'ready' | 'failed';
   source?: 'dedup' | 'generated';
 };
+
+type AudioSide = 'target' | 'known';
 
 type AudioGenerationResult = {
   id: string;
@@ -230,6 +235,27 @@ function getLoadErrorMessage(error: unknown, fallbackUrl: string | null): AudioC
   };
 }
 
+function buildAudioRows(items: WordListItem[], list: WordList, audioSide: AudioSide): AudioRow[] {
+  const isKnownSide = audioSide === 'known';
+
+  return items
+    .filter((item) => Boolean(isKnownSide ? item.textKnown : item.textTarget))
+    .map((item) => ({
+      id: item.id,
+      knownText: item.textKnown,
+      targetText: item.textTarget ?? '',
+      audioText: isKnownSide ? item.textKnown : item.textTarget ?? '',
+      supportingText: isKnownSide ? item.textTarget ?? '' : item.textKnown,
+      language: isKnownSide ? list.languageFrom : list.languageTo,
+      audioUrl: isKnownSide ? item.knownAudioUrl ?? null : item.audioUrl ?? null,
+      arweaveUrl: isKnownSide ? item.knownAudioArweaveUrl ?? null : item.audioArweaveUrl ?? null,
+      arweaveUrls: isKnownSide ? item.knownAudioArweaveUrls ?? [] : item.audioArweaveUrls ?? [],
+      storageRef: isKnownSide ? item.knownAudioStorageRef ?? null : item.audioStorageRef ?? null,
+      reuseStatus: (isKnownSide ? item.knownAudioUrl : item.audioUrl) ? 'found' : 'unchecked',
+      audioStatus: (isKnownSide ? item.knownAudioStatus : item.audioStatus ?? 'none') as AudioRow['audioStatus'],
+    }));
+}
+
 interface AudioStepProps {
   list: WordList;
   items: WordListItem[];
@@ -249,22 +275,8 @@ export function AudioStep({
   onUsageRefresh,
   onBack,
 }: AudioStepProps) {
-  const [rows, setRows] = useState<AudioRow[]>(() =>
-    items
-      .filter((item) => item.textTarget)
-      .map((item) => ({
-        id: item.id,
-        textKnown: item.textKnown,
-        textTarget: item.textTarget!,
-        language: list.languageTo,
-        audioUrl: item.audioUrl ?? null,
-        arweaveUrl: item.audioArweaveUrl ?? null,
-        arweaveUrls: item.audioArweaveUrls ?? [],
-        storageRef: item.audioStorageRef ?? null,
-        reuseStatus: item.audioUrl ? 'found' : 'unchecked',
-        audioStatus: item.audioStatus as AudioRow['audioStatus'],
-      }))
-  );
+  const [audioSide, setAudioSide] = useState<AudioSide>('target');
+  const [rows, setRows] = useState<AudioRow[]>(() => buildAudioRows(items, list, 'target'));
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
@@ -284,10 +296,36 @@ export function AudioStep({
   const checkedFailureCount = Object.values(audioChecks).filter((check) => check.status === 'failed').length;
   const sourceLanguageLabel = formatLanguage(list.languageFrom);
   const targetLanguageLabel = formatLanguage(list.languageTo);
+  const activeLanguageLabel = audioSide === 'known' ? sourceLanguageLabel : targetLanguageLabel;
   const googleTtsUsage = googleUsage?.account.find((scope) => scope.scope === 'tts');
   const isGoogleTtsPaused = Boolean(googleTtsUsage?.paused);
   const googlePausedMessage = googleTtsUsage?.limit_message
     ?? 'This account has reached the free Google API usage limit. Reach out to us for more usage, or use your own API keys.';
+
+  useEffect(() => {
+    const nextRows = buildAudioRows(items, list, audioSide);
+    setRows(nextRows);
+    setPlaybackErrors({});
+    setAudioChecks({});
+    setError(null);
+    if (audioRef.current) audioRef.current.pause();
+    setPlayingId(null);
+    playQueueRef.current = [];
+
+    console.groupCollapsed(`${AUDIO_LOG_PREFIX} hydrated ${audioSide} audio rows`);
+    console.table(items.map((item) => ({
+      itemId: item.id,
+      side: audioSide,
+      audioText: audioSide === 'known' ? item.textKnown : item.textTarget ?? '',
+      supportingText: audioSide === 'known' ? item.textTarget ?? '' : item.textKnown,
+      language: audioSide === 'known' ? list.languageFrom : list.languageTo,
+      audioAssetId: audioSide === 'known' ? item.knownAudioAssetId ?? null : item.audioAssetId ?? null,
+      audioStatus: audioSide === 'known' ? item.knownAudioStatus ?? 'none' : item.audioStatus,
+      audioUrl: audioSide === 'known' ? item.knownAudioUrl ?? null : item.audioUrl ?? null,
+      arweaveUrls: audioSide === 'known' ? item.knownAudioArweaveUrls ?? [] : item.audioArweaveUrls ?? [],
+    })));
+    console.groupEnd();
+  }, [audioSide, items, list]);
 
   const clearCachedAudio = useCallback((audioUrl: string | null | undefined) => {
     if (!audioUrl) return;
@@ -315,10 +353,11 @@ export function AudioStep({
         body: JSON.stringify({
           items: targetRows.map((r) => ({
             id: r.id,
-            text: r.textTarget,
+            text: r.audioText,
             language: r.language,
           })),
           provider: 'google_tts',
+          audio_field: audioSide,
           link,
         }),
       });
@@ -383,7 +422,7 @@ export function AudioStep({
         setError(err instanceof Error ? err.message : 'Could not reuse existing audio');
       }
     }
-  }, []);
+  }, [audioSide]);
 
   const preloadAudio = useCallback(async (row: AudioRow): Promise<string> => {
     if (!row.audioUrl) throw new Error('Audio URL is missing');
@@ -402,7 +441,7 @@ export function AudioStep({
 
     logAudioStep('preloading audio before playback', {
       itemId: row.id,
-      text: row.textTarget,
+      text: row.audioText,
       proxyUrl: row.audioUrl,
       arweaveUrl: row.arweaveUrl ?? null,
       arweaveUrls: row.arweaveUrls ?? [],
@@ -537,7 +576,7 @@ export function AudioStep({
 
   useEffect(() => {
     const unchecked = rows.filter(
-      (row) => !row.audioUrl && row.textTarget && row.reuseStatus === 'unchecked',
+      (row) => !row.audioUrl && row.audioText && row.reuseStatus === 'unchecked',
     );
     if (unchecked.length === 0) return;
     void lookupReusableAudio(unchecked, false);
@@ -547,7 +586,7 @@ export function AudioStep({
     const checkResult = getLoadErrorMessage(details, failedRow.audioUrl);
     console.error(AUDIO_LOG_PREFIX, 'audio playback failed', {
       itemId: failedRow.id,
-      text: failedRow.textTarget,
+      text: failedRow.audioText,
       proxyUrl: failedRow.audioUrl,
       arweaveUrl: failedRow.arweaveUrl ?? null,
       arweaveUrls: failedRow.arweaveUrls ?? [],
@@ -578,7 +617,7 @@ export function AudioStep({
     );
     console.table(targetRows.map((row) => ({
       itemId: row.id,
-      text: row.textTarget,
+      text: row.audioText,
       language: row.language,
       existingProxyUrl: row.audioUrl,
       existingArweaveUrl: row.arweaveUrl ?? null,
@@ -613,10 +652,11 @@ export function AudioStep({
         body: JSON.stringify({
           items: targetRows.map((r) => ({
             id: r.id,
-            text: r.textTarget,
+            text: r.audioText,
             language: r.language,
           })),
           provider: 'google_tts',
+          audio_field: audioSide,
           force,
         }),
       });
@@ -762,7 +802,7 @@ export function AudioStep({
       }
       console.groupEnd();
     }
-  }, [clearCachedAudio, onUsageRefresh, preloadAudio]);
+  }, [audioSide, clearCachedAudio, onUsageRefresh, preloadAudio]);
 
   const handleGenerateAll = useCallback(async () => {
     if (isGoogleTtsPaused) {
@@ -997,7 +1037,7 @@ export function AudioStep({
         <div>
           <h2 className="text-lg font-semibold text-text">Audio Generation</h2>
           <p className="text-sm text-text-soft mt-0.5">
-            {readyCount} of {rows.length} have audio
+            {readyCount} of {rows.length} have {activeLanguageLabel} audio
             {dedupCount > 0 && (
               <span className="text-done ml-1">({dedupCount} reused)</span>
             )}
@@ -1019,58 +1059,88 @@ export function AudioStep({
       </div>
 
       {/* Controls */}
-      <div className="flex items-center gap-3 mb-4 p-3 rounded-lg bg-background-elevated border border-border-subtle">
-        {reusableCount > 0 && (
-          <button
-            type="button"
-            disabled={generating || regeneratingIds.size > 0}
-            className="px-4 py-1.5 rounded-lg bg-done text-background text-xs font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
-            onClick={handleUseAllExisting}
-          >
-            Use existing ({reusableCount})
-          </button>
-        )}
-
-        <button
-          type="button"
-          disabled={generating || needsGenCount === 0 || isGoogleTtsPaused}
-          className="px-4 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
-          onClick={handleGenerateAll}
-        >
-          {generating ? 'Generating...' : `Generate audio (${needsGenCount})`}
-        </button>
-
-        {rows.length > 0 && (
-          <button
-            type="button"
-            disabled={generating || regeneratingIds.size > 0 || rows.length === 0 || isGoogleTtsPaused}
-            className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-xs hover:bg-background/50 transition-colors disabled:opacity-50"
-            onClick={handleRegenerateAll}
-          >
-            {readyCount > 0 ? 'Generate new all' : 'Generate all new'}
-          </button>
-        )}
-
-        {readyCount > 0 && (
-          <>
+      <div className="mb-4 p-3 rounded-lg bg-background-elevated border border-border-subtle">
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-text-soft">
+          <span>Manage audio for:</span>
+          <div className="flex rounded-lg border border-border-subtle overflow-hidden">
             <button
               type="button"
-              disabled={checkingIds.size > 0}
+              className={`px-3 py-1 transition-colors ${
+                audioSide === 'target'
+                  ? 'bg-accent text-background'
+                  : 'text-text-soft hover:text-text'
+              }`}
+              onClick={() => setAudioSide('target')}
+            >
+              Target ({targetLanguageLabel})
+            </button>
+            <button
+              type="button"
+              className={`px-3 py-1 transition-colors ${
+                audioSide === 'known'
+                  ? 'bg-accent text-background'
+                  : 'text-text-soft hover:text-text'
+              }`}
+              onClick={() => setAudioSide('known')}
+            >
+              Native ({sourceLanguageLabel})
+            </button>
+          </div>
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          {reusableCount > 0 && (
+            <button
+              type="button"
+              disabled={generating || regeneratingIds.size > 0}
+              className="px-4 py-1.5 rounded-lg bg-done text-background text-xs font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
+              onClick={handleUseAllExisting}
+            >
+              Use existing ({reusableCount})
+            </button>
+          )}
+
+          <button
+            type="button"
+            disabled={generating || needsGenCount === 0 || isGoogleTtsPaused}
+            className="px-4 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
+            onClick={handleGenerateAll}
+          >
+            {generating ? 'Generating...' : `Generate audio (${needsGenCount})`}
+          </button>
+
+          {rows.length > 0 && (
+            <button
+              type="button"
+              disabled={generating || regeneratingIds.size > 0 || rows.length === 0 || isGoogleTtsPaused}
               className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-xs hover:bg-background/50 transition-colors disabled:opacity-50"
-              onClick={handleCheckAll}
+              onClick={handleRegenerateAll}
             >
-              {checkingIds.size > 0 ? 'Checking...' : 'Check audio'}
+              {readyCount > 0 ? 'Generate new all' : 'Generate all new'}
             </button>
+          )}
 
-            <button
-              type="button"
-              className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-xs hover:bg-background/50 transition-colors"
-              onClick={playingId ? handlePause : handlePlayAll}
-            >
-              {playingId ? 'Pause' : 'Play all'}
-            </button>
-          </>
-        )}
+          {readyCount > 0 && (
+            <>
+              <button
+                type="button"
+                disabled={checkingIds.size > 0}
+                className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-xs hover:bg-background/50 transition-colors disabled:opacity-50"
+                onClick={handleCheckAll}
+              >
+                {checkingIds.size > 0 ? 'Checking...' : 'Check audio'}
+              </button>
+
+              <button
+                type="button"
+                className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-xs hover:bg-background/50 transition-colors"
+                onClick={playingId ? handlePause : handlePlayAll}
+              >
+                {playingId ? 'Pause' : 'Play all'}
+              </button>
+            </>
+          )}
+        </div>
+        {googleTtsUsage && <GoogleUsageHint scope={googleTtsUsage} />}
       </div>
 
       {isGoogleTtsPaused && (
@@ -1139,16 +1209,16 @@ export function AudioStep({
                   </button>
 
                   {/* Word text */}
-                  <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1">
                     <span className="block text-sm font-medium text-text break-words">
-                      {row.textTarget}
+                      {row.audioText}
                     </span>
                     <span className="block text-xs text-text-soft break-words">
-                      {row.textKnown}
+                      {row.supportingText}
                     </span>
                     {canUseExisting && (
                       <span className="mt-1 block text-xs text-done">
-                        Existing audio is available for this text.
+                        Existing {activeLanguageLabel.toLowerCase()} audio is available for this text.
                       </span>
                     )}
                     {row.reuseStatus === 'checking' && (
@@ -1194,7 +1264,7 @@ export function AudioStep({
 
                   <button
                     type="button"
-                    disabled={generating || isRegenerating || !row.textTarget || isGoogleTtsPaused}
+                    disabled={generating || isRegenerating || !row.audioText || isGoogleTtsPaused}
                     className="shrink-0 px-2.5 py-1 rounded-md border border-border-subtle text-xs text-text-soft hover:text-text hover:bg-background/50 transition-colors disabled:opacity-50"
                     onClick={() => handleRegenerateRow(row)}
                   >

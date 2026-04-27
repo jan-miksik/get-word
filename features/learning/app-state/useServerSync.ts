@@ -1,7 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { fetchUserData, linkWallet, clearPendingSync, isAuthRequiredError } from '@/lib/sync';
+import {
+  fetchUserData,
+  linkWallet,
+  clearPendingSync,
+  isAuthRequiredError,
+  markServerSnapshotApplied,
+} from '@/lib/sync';
 import type { SyncResponse } from '@/lib/sync';
 import type { NormalizedWord } from '@/lib/words';
 import { wordListItemsToNormalizedWords } from '@/lib/words';
@@ -94,6 +100,7 @@ export function useServerSync({
         }
       }
     }
+    markServerSnapshotApplied();
     if (shouldLogPerf) {
       console.info(`[timing] useServerSync.applyServerData ${(performance.now() - applyStart).toFixed(1)}ms`);
     }

@@ -17,6 +17,7 @@ const mockDeleteMemoryHookByItemId = vi.fn()
 const mockSetUserCategoryFilters = vi.fn()
 const mockGetUserSubscribedItems = vi.fn()
 const mockGetUserOwnListItems = vi.fn()
+const mockGetMediaAssetsByIds = vi.fn()
 const mockGetListCategories = vi.fn()
 const mockGetSystemDefaultList = vi.fn()
 const mockGetWordIdToItemIdMapping = vi.fn()
@@ -43,6 +44,7 @@ vi.mock('@/lib/db', () => ({
   updateUserPreferences: (...args: unknown[]) => mockUpdateUserPreferences(...args),
   getUserSubscribedItems: (...args: unknown[]) => mockGetUserSubscribedItems(...args),
   getUserOwnListItems: (...args: unknown[]) => mockGetUserOwnListItems(...args),
+  getMediaAssetsByIds: (...args: unknown[]) => mockGetMediaAssetsByIds(...args),
   getListCategories: (...args: unknown[]) => mockGetListCategories(...args),
   getSystemDefaultList: (...args: unknown[]) => mockGetSystemDefaultList(...args),
   getWordIdToItemIdMapping: (...args: unknown[]) => mockGetWordIdToItemIdMapping(...args),
@@ -103,6 +105,8 @@ describe('GET /api/sync', () => {
     mockGetUserCategoryFilters.mockResolvedValue([])
     mockGetUserSubscribedItems.mockResolvedValue([])
     mockGetUserOwnListItems.mockResolvedValue([])
+    mockGetMediaAssetsByIds.mockResolvedValue(new Map())
+    mockGetListCategories.mockResolvedValue([])
     mockGetSystemDefaultList.mockResolvedValue(null)
     mockGetWordIdToItemIdMapping.mockResolvedValue(new Map())
     mockGetWordListsByIds.mockResolvedValue([])
@@ -147,6 +151,48 @@ describe('GET /api/sync', () => {
     expect(data.success).toBe(true)
     expect(data.user.id).toBe('uuid-A')
   })
+
+  it('includes hydrated audio URLs for word list items with audio assets', async () => {
+    mockGetUserOwnListItems.mockResolvedValue([
+      {
+        id: 'item-1',
+        listId: 'list-1',
+        categoryId: null,
+        canonicalWordId: null,
+        position: 0,
+        textKnown: 'ahoj',
+        textTarget: 'xin chao',
+        translationStatus: 'translated',
+        audioAssetId: 'asset-1',
+        audioStatus: 'ready',
+        notes: null,
+      },
+    ])
+    mockGetMediaAssetsByIds.mockResolvedValue(new Map([
+      ['asset-1', {
+        id: 'asset-1',
+        contentHash: 'hash-123',
+        storageType: 'r2',
+        storageRef: 'r2/key',
+      }],
+    ]))
+
+    const req = new NextRequest('http://localhost:3000/api/sync?deviceId=dev-123')
+    const res = await GET(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.word_list_items).toEqual([
+      expect.objectContaining({
+        id: 'item-1',
+        audioUrl: '/api/audio/hash-123',
+        audioArweaveUrl: null,
+        audioArweaveUrls: [],
+        audioStorageRef: 'r2/key',
+      }),
+    ])
+  })
+
   it('returns 401 without session', async () => {
     mockVerifySession.mockResolvedValue(null)
     const req = new NextRequest('http://localhost:3000/api/sync?deviceId=dev-123')
@@ -166,6 +212,8 @@ describe('POST /api/sync', () => {
     mockGetUserCategoryFilters.mockResolvedValue([])
     mockGetUserSubscribedItems.mockResolvedValue([])
     mockGetUserOwnListItems.mockResolvedValue([])
+    mockGetMediaAssetsByIds.mockResolvedValue(new Map())
+    mockGetListCategories.mockResolvedValue([])
     mockGetSystemDefaultList.mockResolvedValue(null)
     mockGetWordIdToItemIdMapping.mockResolvedValue(new Map())
     mockGetWordListsByIds.mockResolvedValue([])

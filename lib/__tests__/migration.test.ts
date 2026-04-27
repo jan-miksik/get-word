@@ -272,4 +272,32 @@ describe('Migration: media fallback enrichment', () => {
     expect(converted[0].czAudio).toBeUndefined();
     expect(converted[0].viAudio).toBeUndefined();
   });
+
+  it('prefers generated list-item audio when synced media URLs are available', () => {
+    const items = [
+      {
+        id: 'item-1',
+        categoryId: null,
+        textKnown: 'ahoj',
+        textTarget: 'xin chao',
+        knownAudioUrl: '/api/audio/hash-known-123',
+        knownAudioArweaveUrls: ['https://arweave.net/hash-known-123'],
+        audioUrl: '/api/audio/hash-123',
+        audioArweaveUrls: ['https://arweave.net/hash-123'],
+        notes: null,
+        position: 0,
+      },
+    ];
+
+    const converted = wordListItemsToNormalizedWords(items, {}, 'vi');
+
+    expect(converted[0].czAudio).toEqual([
+      '/api/audio/hash-known-123',
+      'https://arweave.net/hash-known-123',
+    ]);
+    expect(converted[0].viAudio).toEqual([
+      '/api/audio/hash-123',
+      'https://arweave.net/hash-123',
+    ]);
+  });
 });

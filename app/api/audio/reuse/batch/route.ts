@@ -31,8 +31,10 @@ export async function POST(request: NextRequest) {
     provider?: string;
     voice_id?: string;
     link?: boolean;
+    audio_field?: "known" | "target";
   };
   const shouldLink = body.link === true;
+  const audioField = body.audio_field === "known" ? "known" : "target";
 
   if (!items || !Array.isArray(items) || items.length === 0) {
     return NextResponse.json(
@@ -86,6 +88,7 @@ export async function POST(request: NextRequest) {
         itemId: item.id,
         audioAssetId: asset.id,
         audioStatus: "ready",
+        ...(audioField === "known" ? { audioField } : {}),
       });
     }
 

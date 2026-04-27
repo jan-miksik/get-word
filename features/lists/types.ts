@@ -24,6 +24,12 @@ export type WordListItem = {
   textKnown: string;
   textTarget: string | null;
   translationStatus: string;
+  knownAudioAssetId?: string | null;
+  knownAudioStatus?: string;
+  knownAudioUrl?: string | null;
+  knownAudioArweaveUrl?: string | null;
+  knownAudioArweaveUrls?: string[];
+  knownAudioStorageRef?: string | null;
   audioAssetId?: string | null;
   audioStatus: string;
   audioUrl?: string | null;

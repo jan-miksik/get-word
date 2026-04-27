@@ -60,6 +60,7 @@ export async function subscribeToList(
     position: index,
     translationStatus: item.translationStatus as 'manual' | 'pending' | 'translated' | 'failed',
     canonicalWordId: item.id,
+    knownAudioAssetId: item.knownAudioAssetId,
     audioAssetId: item.audioAssetId,
   }));
 
@@ -78,6 +79,7 @@ export async function subscribeToList(
           textTarget: item.textTarget,
           position: item.position,
           translationStatus: item.translationStatus,
+          knownAudioAssetId: item.knownAudioAssetId,
           audioAssetId: item.audioAssetId,
         })),
       )

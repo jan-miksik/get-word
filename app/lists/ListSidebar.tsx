@@ -1,12 +1,15 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import type { WordList } from '@/features/lists/types';
+import { createPortal } from 'react-dom';
+import type { GoogleUsageResponse, WordList } from '@/features/lists/types';
+import { GoogleUsagePanel } from './GoogleUsagePanel';
 
 interface ListSidebarProps {
   lists: WordList[];
   selectedListId: string | null;
   subscribedListIds: Set<string>;
+  googleUsage?: GoogleUsageResponse | null;
   onSelectList: (id: string) => void;
   onCreateList: (name: string, langFrom: string, langTo: string) => Promise<void>;
   onDeleteList: (listId: string) => Promise<void>;
@@ -19,6 +22,7 @@ export function ListSidebar({
   lists,
   selectedListId,
   subscribedListIds,
+  googleUsage,
   onSelectList,
   onCreateList,
   onDeleteList,
@@ -27,6 +31,7 @@ export function ListSidebar({
   openCreateSignal = 0,
 }: ListSidebarProps) {
   const [showCreate, setShowCreate] = useState(false);
+  const [usageModalOpen, setUsageModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
   const [newLangFrom, setNewLangFrom] = useState('cs');
   const [newLangTo, setNewLangTo] = useState('vi');
@@ -203,6 +208,32 @@ export function ListSidebar({
         )}
       </div>
 
+      {/* Editor-only: global Google API usage — the 'global' field is only included in the response for editor accounts */}
+      {googleUsage?.global && googleUsage.global.length > 0 && (
+        <div className="border-t border-border-subtle px-3 py-2">
+          <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-text-soft">
+            Google API
+          </p>
+          {googleUsage.global.map((scope) => {
+            const percent =
+              scope.free_monthly_units > 0
+                ? Math.round((scope.used_units / scope.free_monthly_units) * 100)
+                : 0;
+            return (
+              <button
+                key={scope.scope}
+                type="button"
+                className="flex w-full items-center justify-between py-0.5 text-[11px] text-text-soft hover:text-text transition-colors"
+                onClick={() => setUsageModalOpen(true)}
+              >
+                <span>{scope.scope === 'translate' ? 'Google Translate' : 'Google TTS'}</span>
+                <span>{percent}% used</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <div className="p-3 border-t border-border-subtle">
         {showCreate ? (
           <div className="space-y-2">
@@ -264,6 +295,35 @@ export function ListSidebar({
           </button>
         )}
       </div>
+      {usageModalOpen && googleUsage
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4 sm:p-6"
+              onClick={() => setUsageModalOpen(false)}
+            >
+              <div
+                className="relative max-h-[85vh] w-full max-w-4xl overflow-y-auto rounded-2xl border border-border-subtle bg-background shadow-xl"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4 sm:px-6">
+                  <h2 className="text-sm font-semibold text-text">Google API Usage</h2>
+                  <button
+                    type="button"
+                    className="text-lg leading-none text-text-soft transition-colors hover:text-text"
+                    onClick={() => setUsageModalOpen(false)}
+                    aria-label="Close"
+                  >
+                    ✕
+                  </button>
+                </div>
+                <div className="px-5 py-5 sm:px-6">
+                  <GoogleUsagePanel usage={googleUsage} compact />
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
     </div>
   );
 }

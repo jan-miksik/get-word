@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { SyncResponse } from '@/lib/sync';
-import { debouncedSync } from '@/lib/sync';
+import { debouncedSync, hasReceivedServerSnapshot } from '@/lib/sync';
 import { postTabMessage, subscribeTabMessages } from '@/lib/tab-sync';
 import {
   DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
@@ -46,13 +46,21 @@ export function usePreferences(
   );
   const [categoryOrder, setCategoryOrderState] = useState<string[]>([]);
 
+  // Gate sync on hasReceivedServerSnapshot(): without it, a failed initial GET
+  // (no session, offline) leaves the local defaults in place, and the next
+  // authenticated request would overwrite the user's remote settings with
+  // those defaults. The flag flips inside applyServerData once the server
+  // payload has been applied, so by the time the user actually changes a
+  // preference and re-runs the effect, the gate is open.
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
+    if (!hasReceivedServerSnapshot()) return;
     debouncedSync({ role }).catch((e) => console.error('[usePreferences] sync role:', e));
   }, [role, isHydrated, isUpdatingFromServerRef]);
 
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
+    if (!hasReceivedServerSnapshot()) return;
     debouncedSync({ show_english: showEnglish }).catch((e) =>
       console.error('[usePreferences] sync show_english:', e)
     );
@@ -60,6 +68,7 @@ export function usePreferences(
 
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
+    if (!hasReceivedServerSnapshot()) return;
     debouncedSync({ show_category_badges: showCategoryBadges }).catch((e) =>
       console.error('[usePreferences] sync show_category_badges:', e)
     );
@@ -67,6 +76,7 @@ export function usePreferences(
 
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
+    if (!hasReceivedServerSnapshot()) return;
     debouncedSync({ show_pronunciation: showPronunciation }).catch((e) =>
       console.error('[usePreferences] sync show_pronunciation:', e)
     );
@@ -74,6 +84,7 @@ export function usePreferences(
 
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
+    if (!hasReceivedServerSnapshot()) return;
     debouncedSync({ memory_hooks_enabled: memoryHooksEnabled }).catch((e) =>
       console.error('[usePreferences] sync memory_hooks_enabled:', e)
     );
@@ -81,6 +92,7 @@ export function usePreferences(
 
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
+    if (!hasReceivedServerSnapshot()) return;
     debouncedSync({
       memory_hook_disable_from_stage: normalizeMemoryHookDisableFromStage(memoryHookDisableFromStage),
     }).catch((e) =>
@@ -90,6 +102,7 @@ export function usePreferences(
 
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
+    if (!hasReceivedServerSnapshot()) return;
     debouncedSync({ category_order: categoryOrder }).catch((e) =>
       console.error('[usePreferences] sync category_order:', e)
     );

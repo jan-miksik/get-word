@@ -1,15 +1,16 @@
 /* eslint-disable no-restricted-globals */
 
-const VERSION = 'v1';
+const VERSION = new URL(self.location.href).searchParams.get('build') || 'v1';
 const STATIC_CACHE = `wordlink-static-${VERSION}`;
 const PAGES_CACHE = `wordlink-pages-${VERSION}`;
 const RUNTIME_CACHE = `wordlink-runtime-${VERSION}`;
 
 const PRECACHE_URLS = [
-  '/',
   '/offline.html',
   '/manifest.webmanifest',
   '/favicon.ico',
+  '/favicon-16x16.png',
+  '/favicon-32x32.png',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/maskable-192.png',
@@ -38,9 +39,16 @@ self.addEventListener('activate', (event) => {
       const keys = await caches.keys();
       await Promise.all(
         keys
-          .filter((k) => k.startsWith('wordlink-') && ![STATIC_CACHE, PAGES_CACHE, RUNTIME_CACHE].includes(k))
+          .filter((k) => k.startsWith('wordlink-'))
           .map((k) => caches.delete(k))
       );
+      const cache = await caches.open(STATIC_CACHE);
+      try {
+        await cache.addAll(PRECACHE_URLS);
+      } catch {
+        // Some requests may fail during activation depending on deploy/runtime.
+        // This should never block the new worker from taking control.
+      }
       await self.clients.claim();
     })()
   );
@@ -65,8 +73,10 @@ function isStaticAsset(pathname) {
     pathname.startsWith('/_next/static/') ||
     pathname.startsWith('/icons/') ||
     pathname.startsWith('/speech/') ||
+    pathname === '/manifest.webmanifest' ||
     pathname === '/favicon.ico' ||
-    /\.(?:png|jpg|jpeg|webp|avif|gif|svg|ico|css|js|map|woff2?)$/.test(pathname)
+    pathname.startsWith('/favicon-') ||
+    /\.(?:png|jpg|jpeg|webp|avif|gif|svg|ico|woff2?)$/.test(pathname)
   );
 }
 

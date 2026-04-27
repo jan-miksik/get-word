@@ -7,6 +7,28 @@ import {
   type NewMediaAsset,
 } from "../schema";
 
+export type AudioLinkField = "target" | "known";
+
+function getAudioLinkUpdate(
+  audioAssetId: string | null,
+  audioStatus: "none" | "pending" | "ready" | "failed",
+  audioField: AudioLinkField = "target",
+) {
+  if (audioField === "known") {
+    return {
+      knownAudioAssetId: audioAssetId,
+      knownAudioStatus: audioStatus,
+      updatedAt: new Date(),
+    };
+  }
+
+  return {
+    audioAssetId,
+    audioStatus,
+    updatedAt: new Date(),
+  };
+}
+
 /** Find a media asset by content hash (for dedup). */
 export async function findMediaByHash(
   contentHash: string,
@@ -87,10 +109,11 @@ export async function linkAudioToItem(
   itemId: string,
   audioAssetId: string | null,
   audioStatus: "none" | "pending" | "ready" | "failed" = "ready",
+  audioField: AudioLinkField = "target",
 ): Promise<void> {
   await db
     .update(wordListItems)
-    .set({ audioAssetId, audioStatus, updatedAt: new Date() })
+    .set(getAudioLinkUpdate(audioAssetId, audioStatus, audioField))
     .where(eq(wordListItems.id, itemId));
 }
 
@@ -100,12 +123,13 @@ export async function batchLinkAudioToItems(
     itemId: string;
     audioAssetId: string | null;
     audioStatus: "none" | "pending" | "ready" | "failed";
+    audioField?: AudioLinkField;
   }[],
 ): Promise<void> {
-  for (const { itemId, audioAssetId, audioStatus } of updates) {
+  for (const { itemId, audioAssetId, audioStatus, audioField } of updates) {
     await db
       .update(wordListItems)
-      .set({ audioAssetId, audioStatus, updatedAt: new Date() })
+      .set(getAudioLinkUpdate(audioAssetId, audioStatus, audioField))
       .where(eq(wordListItems.id, itemId));
   }
 }
