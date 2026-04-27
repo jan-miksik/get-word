@@ -17,10 +17,9 @@ import { DiffPreview } from './DiffPreview';
 import { TranslationStep } from './TranslationStep';
 import { AudioStep } from './AudioStep';
 import { ApiKeySettings } from './ApiKeySettings';
-import { WizardProgressBar } from './WizardProgressBar';
+import { WizardProgressBar, type WizardActiveStep } from './WizardProgressBar';
 
-type WizardStep = 'browse' | 'edit' | 'preview' | 'translate' | 'audio';
-type WizardActiveStep = 'edit' | 'preview' | 'translate' | 'audio';
+type WizardStep = 'browse' | WizardActiveStep;
 
 export default function ListsPage() {
   const [lists, setLists] = useState<WordList[]>([]);
@@ -284,10 +283,15 @@ export default function ListsPage() {
 
   const handleTranslationComplete = useCallback(async () => {
     await Promise.all([reloadListDetails({ includeMedia: true }), loadGoogleUsage()]);
-    setWizardStep('audio');
+    setWizardStep('audio-target');
   }, [loadGoogleUsage]);
 
-  const handleAudioComplete = useCallback(async () => {
+  const handleTargetAudioComplete = useCallback(async () => {
+    await Promise.all([reloadListDetails({ includeMedia: true }), loadGoogleUsage()]);
+    setWizardStep('audio-known');
+  }, [loadGoogleUsage]);
+
+  const handleKnownAudioComplete = useCallback(async () => {
     await Promise.all([reloadListDetails(), loadGoogleUsage()]);
     setWizardStep('browse');
     setEditingCategoryId(null);
@@ -328,12 +332,13 @@ export default function ListsPage() {
   const handleGoBack = useCallback(() => {
     if (wizardStep === 'preview') setWizardStep('edit');
     else if (wizardStep === 'translate') setWizardStep('preview');
-    else if (wizardStep === 'audio') setWizardStep('translate');
+    else if (wizardStep === 'audio-target') setWizardStep('translate');
+    else if (wizardStep === 'audio-known') setWizardStep('audio-target');
     else handleCancelWizard();
   }, [wizardStep, handleCancelWizard]);
 
   const handleGoToStep = useCallback(async (step: WizardActiveStep) => {
-    const order: WizardActiveStep[] = ['edit', 'preview', 'translate', 'audio'];
+    const order: WizardActiveStep[] = ['edit', 'preview', 'translate', 'audio-target', 'audio-known'];
     const currentIdx = order.indexOf(wizardStep as WizardActiveStep);
     const targetIdx = order.indexOf(step);
 
@@ -366,7 +371,7 @@ export default function ListsPage() {
       );
     }
 
-    if (step === 'audio') {
+    if (step === 'audio-target' || step === 'audio-known') {
       await reloadListDetails({ includeMedia: true });
     }
 
@@ -567,13 +572,27 @@ export default function ListsPage() {
               onUsageRefresh={loadGoogleUsage}
               onBack={handleGoBack}
             />
-          ) : wizardStep === 'audio' ? (
+          ) : wizardStep === 'audio-target' ? (
             <AudioStep
               list={selectedList}
               items={editingCategoryId ? itemsByCategory.get(editingCategoryId) ?? [] : items}
+              audioSide="target"
+              title="Audio - to learn"
               googleUsage={googleUsage}
-              onComplete={handleAudioComplete}
-              onSkip={handleAudioComplete}
+              onComplete={handleTargetAudioComplete}
+              onSkip={handleTargetAudioComplete}
+              onUsageRefresh={loadGoogleUsage}
+              onBack={handleGoBack}
+            />
+          ) : wizardStep === 'audio-known' ? (
+            <AudioStep
+              list={selectedList}
+              items={editingCategoryId ? itemsByCategory.get(editingCategoryId) ?? [] : items}
+              audioSide="known"
+              title="Audio - known"
+              googleUsage={googleUsage}
+              onComplete={handleKnownAudioComplete}
+              onSkip={handleKnownAudioComplete}
               onUsageRefresh={loadGoogleUsage}
               onBack={handleGoBack}
             />

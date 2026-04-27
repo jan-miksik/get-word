@@ -1,6 +1,11 @@
 'use client';
 
-type WizardActiveStep = 'edit' | 'preview' | 'translate' | 'audio';
+export type WizardActiveStep =
+  | 'edit'
+  | 'preview'
+  | 'translate'
+  | 'audio-target'
+  | 'audio-known';
 
 interface WizardProgressBarProps {
   currentStep: WizardActiveStep;
@@ -12,7 +17,8 @@ const STEPS: { id: WizardActiveStep; label: string }[] = [
   { id: 'edit', label: 'Edit' },
   { id: 'preview', label: 'Preview' },
   { id: 'translate', label: 'Translate' },
-  { id: 'audio', label: 'Audio' },
+  { id: 'audio-target', label: 'Audio - to learn' },
+  { id: 'audio-known', label: 'Audio - known' },
 ];
 
 export function WizardProgressBar({

@@ -1,4 +1,4 @@
-import { eq, inArray } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { db } from "../client";
 import {
   mediaAssets,
@@ -55,6 +55,45 @@ export async function findMediaByHashes(
     map.set(row.contentHash, row);
   }
   return map;
+}
+
+function getVariantLookupKey(textReference: string, language: string) {
+  return `${language}\u0000${textReference}`;
+}
+
+/** Find all saved audio variants for each requested text/language pair. */
+export async function findMediaVariantsByText(
+  entries: { text: string; language: string }[],
+): Promise<Map<string, MediaAsset[]>> {
+  if (entries.length === 0) return new Map();
+
+  const textReferences = Array.from(new Set(entries.map((entry) => entry.text)));
+  const languages = Array.from(new Set(entries.map((entry) => entry.language)));
+  const requestedKeys = new Set(
+    entries.map((entry) => getVariantLookupKey(entry.text, entry.language)),
+  );
+
+  const rows = await db
+    .select()
+    .from(mediaAssets)
+    .where(
+      and(
+        inArray(mediaAssets.textReference, textReferences),
+        inArray(mediaAssets.language, languages),
+      ),
+    )
+    .orderBy(desc(mediaAssets.createdAt));
+
+  const grouped = new Map<string, MediaAsset[]>();
+  for (const row of rows) {
+    const key = getVariantLookupKey(row.textReference, row.language);
+    if (!requestedKeys.has(key)) continue;
+    const existing = grouped.get(key) ?? [];
+    existing.push(row);
+    grouped.set(key, existing);
+  }
+
+  return grouped;
 }
 
 /** Create a new media asset. */

@@ -1,12 +1,26 @@
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { listsApiFetch } from '@/features/lists/api';
 import type { GoogleUsageResponse, WordList, WordListItem } from '@/features/lists/types';
 import { GoogleUsageHint } from './GoogleUsageHint';
 
+type AudioSide = 'target' | 'known';
+
+type AudioVariant = {
+  assetId: string;
+  contentHash?: string;
+  audioUrl: string | null;
+  arweaveUrl?: string | null;
+  arweaveUrls: string[];
+  storageRef?: string | null;
+  provider?: string | null;
+  sizeBytes?: number;
+};
+
 type AudioRow = {
   id: string;
+  audioAssetId: string | null;
   knownText: string;
   targetText: string;
   audioText: string;
@@ -14,18 +28,14 @@ type AudioRow = {
   language: string;
   audioUrl: string | null;
   arweaveUrl?: string | null;
-  arweaveUrls?: string[];
+  arweaveUrls: string[];
   storageRef?: string | null;
-  reusableAudioUrl?: string | null;
-  reusableArweaveUrl?: string | null;
-  reusableArweaveUrls?: string[];
-  reusableStorageRef?: string | null;
-  reuseStatus?: 'unchecked' | 'checking' | 'found' | 'missing' | 'error';
+  reusableOptions: AudioVariant[];
+  selectedReusableAssetId: string | null;
+  reuseStatus: 'unchecked' | 'checking' | 'found' | 'missing' | 'error';
   audioStatus: 'none' | 'pending' | 'ready' | 'failed';
   source?: 'dedup' | 'generated';
 };
-
-type AudioSide = 'target' | 'known';
 
 type AudioGenerationResult = {
   id: string;
@@ -40,9 +50,22 @@ type AudioGenerationResult = {
   error?: string;
 };
 
+type AudioReuseMatch = {
+  asset_id: string;
+  content_hash?: string;
+  audio_url: string | null;
+  arweave_url?: string | null;
+  arweave_urls?: string[];
+  storage_ref?: string | null;
+  provider?: string | null;
+  size_bytes?: number;
+};
+
 type AudioReuseResult = {
   id: string;
   content_hash?: string;
+  asset_id?: string;
+  selected_asset_id?: string;
   audio_url: string | null;
   arweave_url?: string | null;
   arweave_urls?: string[];
@@ -51,6 +74,7 @@ type AudioReuseResult = {
   status: 'found' | 'missing' | 'error';
   linked?: boolean;
   error?: string;
+  matches?: AudioReuseMatch[];
 };
 
 type CachedAudio = {
@@ -60,12 +84,6 @@ type CachedAudio = {
   sizeBytes: number;
 };
 
-type AudioCheckResult = {
-  status: 'ok' | 'failed';
-  message: string;
-  url?: string;
-};
-
 type DebugResponsePayload = {
   status: number;
   statusText: string;
@@ -73,6 +91,19 @@ type DebugResponsePayload = {
   contentType: string;
   rawText: string;
   json: unknown;
+};
+
+type AudioSourceCandidate = {
+  kind: 'linked' | 'reusable';
+  audioUrl: string;
+  arweaveUrl?: string | null;
+  arweaveUrls: string[];
+  storageRef?: string | null;
+};
+
+type QueuedAudio = {
+  rowId: string;
+  source: AudioSourceCandidate;
 };
 
 const AUDIO_LOG_PREFIX = '[Wordlink audio]';
@@ -199,7 +230,7 @@ function formatLanguage(code: string): string {
   return names[code] ?? code.toUpperCase();
 }
 
-function getLoadErrorMessage(error: unknown, fallbackUrl: string | null): AudioCheckResult {
+function getLoadErrorMessage(error: unknown, fallbackUrl: string | null): string {
   if (error instanceof AudioLoadError) {
     const firstAttempt = error.attempts[0];
     const failedUrl = firstAttempt?.requestedUrl ?? fallbackUrl ?? undefined;
@@ -207,11 +238,7 @@ function getLoadErrorMessage(error: unknown, fallbackUrl: string | null): AudioC
       firstAttempt?.status
         ? `HTTP ${firstAttempt.status}`
         : firstAttempt?.error ?? error.message;
-    return {
-      status: 'failed',
-      message: `Could not load ${failedUrl ?? 'audio file'} (${reason}).`,
-      url: failedUrl,
-    };
+    return `Could not load ${failedUrl ?? 'audio file'} (${reason}).`;
   }
 
   if (error && typeof error === 'object' && 'playbackUrl' in error) {
@@ -221,17 +248,22 @@ function getLoadErrorMessage(error: unknown, fallbackUrl: string | null): AudioC
       'mediaError' in error && typeof error.mediaError === 'string'
         ? error.mediaError
         : 'playback failed';
-    return {
-      status: 'failed',
-      message: `Could not play ${playbackUrl ?? 'audio file'} (${reason}).`,
-      url: playbackUrl,
-    };
+    return `Could not play ${playbackUrl ?? 'audio file'} (${reason}).`;
   }
 
+  return error instanceof Error ? error.message : 'Audio file could not be loaded.';
+}
+
+function toAudioVariant(match: AudioReuseMatch): AudioVariant {
   return {
-    status: 'failed',
-    message: error instanceof Error ? error.message : 'Audio file could not be loaded.',
-    url: fallbackUrl ?? undefined,
+    assetId: match.asset_id,
+    contentHash: match.content_hash,
+    audioUrl: match.audio_url,
+    arweaveUrl: match.arweave_url ?? null,
+    arweaveUrls: match.arweave_urls ?? [],
+    storageRef: match.storage_ref ?? null,
+    provider: match.provider ?? null,
+    sizeBytes: match.size_bytes,
   };
 }
 
@@ -242,6 +274,7 @@ function buildAudioRows(items: WordListItem[], list: WordList, audioSide: AudioS
     .filter((item) => Boolean(isKnownSide ? item.textKnown : item.textTarget))
     .map((item) => ({
       id: item.id,
+      audioAssetId: isKnownSide ? item.knownAudioAssetId ?? null : item.audioAssetId ?? null,
       knownText: item.textKnown,
       targetText: item.textTarget ?? '',
       audioText: isKnownSide ? item.textKnown : item.textTarget ?? '',
@@ -251,14 +284,51 @@ function buildAudioRows(items: WordListItem[], list: WordList, audioSide: AudioS
       arweaveUrl: isKnownSide ? item.knownAudioArweaveUrl ?? null : item.audioArweaveUrl ?? null,
       arweaveUrls: isKnownSide ? item.knownAudioArweaveUrls ?? [] : item.audioArweaveUrls ?? [],
       storageRef: isKnownSide ? item.knownAudioStorageRef ?? null : item.audioStorageRef ?? null,
-      reuseStatus: (isKnownSide ? item.knownAudioUrl : item.audioUrl) ? 'found' : 'unchecked',
+      reusableOptions: [],
+      selectedReusableAssetId: isKnownSide ? item.knownAudioAssetId ?? null : item.audioAssetId ?? null,
+      reuseStatus: 'unchecked',
       audioStatus: (isKnownSide ? item.knownAudioStatus : item.audioStatus ?? 'none') as AudioRow['audioStatus'],
     }));
+}
+
+function getSelectedReusableOption(row: AudioRow): AudioVariant | null {
+  if (row.reusableOptions.length === 0) return null;
+  if (!row.selectedReusableAssetId) return row.reusableOptions[0] ?? null;
+  return (
+    row.reusableOptions.find((option) => option.assetId === row.selectedReusableAssetId)
+    ?? row.reusableOptions[0]
+    ?? null
+  );
+}
+
+function getPreviewSource(row: AudioRow): AudioSourceCandidate | null {
+  if (row.audioStatus === 'ready' && row.audioUrl) {
+    return {
+      kind: 'linked',
+      audioUrl: row.audioUrl,
+      arweaveUrl: row.arweaveUrl ?? null,
+      arweaveUrls: row.arweaveUrls ?? [],
+      storageRef: row.storageRef ?? null,
+    };
+  }
+
+  const selectedOption = getSelectedReusableOption(row);
+  if (!selectedOption?.audioUrl) return null;
+
+  return {
+    kind: 'reusable',
+    audioUrl: selectedOption.audioUrl,
+    arweaveUrl: selectedOption.arweaveUrl ?? null,
+    arweaveUrls: selectedOption.arweaveUrls,
+    storageRef: selectedOption.storageRef ?? null,
+  };
 }
 
 interface AudioStepProps {
   list: WordList;
   items: WordListItem[];
+  audioSide: AudioSide;
+  title: string;
   googleUsage?: GoogleUsageResponse | null;
   onComplete: () => Promise<void>;
   onSkip: () => Promise<void>;
@@ -269,62 +339,50 @@ interface AudioStepProps {
 export function AudioStep({
   list,
   items,
+  audioSide,
+  title,
   googleUsage,
   onComplete,
   onSkip,
   onUsageRefresh,
   onBack,
 }: AudioStepProps) {
-  const [audioSide, setAudioSide] = useState<AudioSide>('target');
-  const [rows, setRows] = useState<AudioRow[]>(() => buildAudioRows(items, list, 'target'));
+  const [rows, setRows] = useState<AudioRow[]>(() => buildAudioRows(items, list, audioSide));
   const [generating, setGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(() => new Set());
   const [playbackErrors, setPlaybackErrors] = useState<Record<string, string>>({});
-  const [checkingIds, setCheckingIds] = useState<Set<string>>(() => new Set());
-  const [audioChecks, setAudioChecks] = useState<Record<string, AudioCheckResult>>({});
   const [progress, setProgress] = useState(0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioCacheRef = useRef<Map<string, CachedAudio>>(new Map());
-  const playQueueRef = useRef<string[]>([]);
+  const playQueueRef = useRef<QueuedAudio[]>([]);
 
-  const readyCount = rows.filter((r) => r.audioStatus === 'ready').length;
-  const needsGenCount = rows.filter((r) => r.audioStatus === 'none' || r.audioStatus === 'failed').length;
-  const dedupCount = rows.filter((r) => r.source === 'dedup').length;
-  const reusableCount = rows.filter((r) => r.reuseStatus === 'found' && r.audioStatus !== 'ready').length;
-  const checkedFailureCount = Object.values(audioChecks).filter((check) => check.status === 'failed').length;
-  const sourceLanguageLabel = formatLanguage(list.languageFrom);
-  const targetLanguageLabel = formatLanguage(list.languageTo);
-  const activeLanguageLabel = audioSide === 'known' ? sourceLanguageLabel : targetLanguageLabel;
+  const readyCount = rows.filter((row) => row.audioStatus === 'ready').length;
+  const needsGenCount = rows.filter((row) => row.audioStatus === 'none' || row.audioStatus === 'failed').length;
+  const dedupCount = rows.filter((row) => row.source === 'dedup').length;
+  const reusableCount = rows.filter(
+    (row) => row.reusableOptions.length > 0 && row.audioStatus !== 'ready',
+  ).length;
+  const selectedReusableCount = rows.filter((row) => {
+    const selected = getSelectedReusableOption(row);
+    return Boolean(selected?.audioUrl) && row.audioStatus !== 'ready';
+  }).length;
+  const activeLanguageLabel = audioSide === 'known'
+    ? formatLanguage(list.languageFrom)
+    : formatLanguage(list.languageTo);
   const googleTtsUsage = googleUsage?.account.find((scope) => scope.scope === 'tts');
   const isGoogleTtsPaused = Boolean(googleTtsUsage?.paused);
   const googlePausedMessage = googleTtsUsage?.limit_message
     ?? 'This account has reached the free Google API usage limit. Reach out to us for more usage, or use your own API keys.';
 
   useEffect(() => {
-    const nextRows = buildAudioRows(items, list, audioSide);
-    setRows(nextRows);
+    setRows(buildAudioRows(items, list, audioSide));
     setPlaybackErrors({});
-    setAudioChecks({});
     setError(null);
     if (audioRef.current) audioRef.current.pause();
     setPlayingId(null);
     playQueueRef.current = [];
-
-    console.groupCollapsed(`${AUDIO_LOG_PREFIX} hydrated ${audioSide} audio rows`);
-    console.table(items.map((item) => ({
-      itemId: item.id,
-      side: audioSide,
-      audioText: audioSide === 'known' ? item.textKnown : item.textTarget ?? '',
-      supportingText: audioSide === 'known' ? item.textTarget ?? '' : item.textKnown,
-      language: audioSide === 'known' ? list.languageFrom : list.languageTo,
-      audioAssetId: audioSide === 'known' ? item.knownAudioAssetId ?? null : item.audioAssetId ?? null,
-      audioStatus: audioSide === 'known' ? item.knownAudioStatus ?? 'none' : item.audioStatus,
-      audioUrl: audioSide === 'known' ? item.knownAudioUrl ?? null : item.audioUrl ?? null,
-      arweaveUrls: audioSide === 'known' ? item.knownAudioArweaveUrls ?? [] : item.audioArweaveUrls ?? [],
-    })));
-    console.groupEnd();
   }, [audioSide, items, list]);
 
   const clearCachedAudio = useCallback((audioUrl: string | null | undefined) => {
@@ -334,6 +392,119 @@ export function AudioStep({
     URL.revokeObjectURL(cached.objectUrl);
     audioCacheRef.current.delete(audioUrl);
     logAudioStep('cleared cached audio blob', { audioUrl, finalUrl: cached.finalUrl });
+  }, []);
+
+  const preloadAudio = useCallback(async (rowId: string, source: AudioSourceCandidate): Promise<string> => {
+    const cached = audioCacheRef.current.get(source.audioUrl);
+    if (cached) {
+      logAudioStep('using cached audio blob', {
+        itemId: rowId,
+        audioUrl: source.audioUrl,
+        finalUrl: cached.finalUrl,
+        contentType: cached.contentType,
+        sizeBytes: cached.sizeBytes,
+      });
+      return cached.objectUrl;
+    }
+
+    const candidateUrls = Array.from(new Set([
+      source.audioUrl,
+      ...source.arweaveUrls,
+      ...(source.arweaveUrl ? [source.arweaveUrl] : []),
+    ]));
+
+    let blob: Blob | null = null;
+    let responseDetails: {
+      requestedUrl: string;
+      finalUrl: string;
+      status: number;
+      ok: boolean;
+      contentType: string;
+      contentLength: string | null;
+    } | null = null;
+    const failedAttempts: AudioLoadError['attempts'] = [];
+
+    for (const candidateUrl of candidateUrls) {
+      let response: Response;
+      try {
+        response = await fetch(candidateUrl, {
+          cache: 'force-cache',
+          headers: {
+            Accept: 'audio/mpeg,audio/*;q=0.9,*/*;q=0.1',
+          },
+        });
+      } catch (err) {
+        failedAttempts.push({
+          requestedUrl: candidateUrl,
+          error: err instanceof Error ? err.message : 'Network error',
+        });
+        continue;
+      }
+
+      const contentType = response.headers.get('content-type') ?? '';
+      const contentLength = response.headers.get('content-length');
+      const attemptDetails = {
+        requestedUrl: candidateUrl,
+        finalUrl: response.url,
+        status: response.status,
+        ok: response.ok,
+        contentType,
+        contentLength,
+      };
+
+      if (!response.ok) {
+        let bodyPreview = '';
+        try {
+          bodyPreview = (await response.clone().text()).slice(0, 240);
+        } catch {
+          bodyPreview = '[could not read response body]';
+        }
+        failedAttempts.push({ ...attemptDetails, bodyPreview });
+        continue;
+      }
+
+      const normalizedContentType = contentType.toLowerCase();
+      const looksLikeAudio =
+        normalizedContentType.startsWith('audio/')
+        || normalizedContentType.includes('mpeg')
+        || normalizedContentType.includes('octet-stream')
+        || normalizedContentType === '';
+
+      if (!looksLikeAudio) {
+        let bodyPreview = '';
+        try {
+          bodyPreview = (await response.clone().text()).slice(0, 240);
+        } catch {
+          bodyPreview = '[could not read response body]';
+        }
+        failedAttempts.push({ ...attemptDetails, bodyPreview });
+        continue;
+      }
+
+      const candidateBlob = await response.blob();
+      if (candidateBlob.size === 0) {
+        failedAttempts.push({ ...attemptDetails, bodyPreview: '[empty audio response]' });
+        continue;
+      }
+
+      blob = candidateBlob;
+      responseDetails = attemptDetails;
+      break;
+    }
+
+    if (!blob || !responseDetails) {
+      throw new AudioLoadError('Audio could not be loaded from any gateway', failedAttempts);
+    }
+
+    const objectUrl = URL.createObjectURL(blob);
+    audioCacheRef.current.set(source.audioUrl, {
+      objectUrl,
+      contentType: blob.type || responseDetails.contentType || 'unknown',
+      finalUrl: responseDetails.finalUrl,
+      sizeBytes: blob.size,
+    });
+
+    return objectUrl;
   }, []);
 
   const lookupReusableAudio = useCallback(async (targetRows: AudioRow[], link = false) => {
@@ -351,10 +522,11 @@ export function AudioStep({
       const res = await listsApiFetch('/api/audio/reuse/batch', {
         method: 'POST',
         body: JSON.stringify({
-          items: targetRows.map((r) => ({
-            id: r.id,
-            text: r.audioText,
-            language: r.language,
+          items: targetRows.map((row) => ({
+            id: row.id,
+            text: row.audioText,
+            language: row.language,
+            selected_asset_id: row.selectedReusableAssetId ?? undefined,
           })),
           provider: 'google_tts',
           audio_field: audioSide,
@@ -383,29 +555,45 @@ export function AudioStep({
           if (result.status !== 'found') {
             return {
               ...row,
+              reusableOptions: [],
               reuseStatus: result.status === 'missing' ? 'missing' : 'error',
             };
           }
 
-          const next = {
+          const reusableOptions = (result.matches ?? [])
+            .map(toAudioVariant)
+            .filter((option) => Boolean(option.audioUrl));
+          const selectedReusableAssetId =
+            result.selected_asset_id
+            ?? row.audioAssetId
+            ?? row.selectedReusableAssetId
+            ?? reusableOptions[0]?.assetId
+            ?? null;
+          const selectedOption =
+            reusableOptions.find((option) => option.assetId === selectedReusableAssetId)
+            ?? reusableOptions[0]
+            ?? null;
+
+          const nextRow: AudioRow = {
             ...row,
-            reusableAudioUrl: result.audio_url ?? row.reusableAudioUrl ?? null,
-            reusableArweaveUrl: result.arweave_url ?? row.reusableArweaveUrl ?? null,
-            reusableArweaveUrls: result.arweave_urls ?? row.reusableArweaveUrls ?? [],
-            reusableStorageRef: result.storage_ref ?? row.reusableStorageRef ?? null,
-            reuseStatus: 'found' as const,
+            reusableOptions,
+            selectedReusableAssetId,
+            reuseStatus: reusableOptions.length > 0 ? 'found' : 'missing',
           };
 
-          if (!link || !result.audio_url) return next;
+          if (!link || !selectedOption?.audioUrl) {
+            return nextRow;
+          }
 
           return {
-            ...next,
-            audioUrl: result.audio_url,
-            arweaveUrl: result.arweave_url ?? next.arweaveUrl ?? null,
-            arweaveUrls: result.arweave_urls ?? next.arweaveUrls ?? [],
-            storageRef: result.storage_ref ?? next.storageRef ?? null,
-            audioStatus: 'ready' as const,
-            source: 'dedup' as const,
+            ...nextRow,
+            audioAssetId: selectedOption.assetId,
+            audioUrl: selectedOption.audioUrl,
+            arweaveUrl: selectedOption.arweaveUrl ?? null,
+            arweaveUrls: selectedOption.arweaveUrls,
+            storageRef: selectedOption.storageRef ?? null,
+            audioStatus: 'ready',
+            source: 'dedup',
           };
         }),
       );
@@ -424,212 +612,57 @@ export function AudioStep({
     }
   }, [audioSide]);
 
-  const preloadAudio = useCallback(async (row: AudioRow): Promise<string> => {
-    if (!row.audioUrl) throw new Error('Audio URL is missing');
-
-    const cached = audioCacheRef.current.get(row.audioUrl);
-    if (cached) {
-      logAudioStep('using cached audio blob', {
-        itemId: row.id,
-        audioUrl: row.audioUrl,
-        finalUrl: cached.finalUrl,
-        contentType: cached.contentType,
-        sizeBytes: cached.sizeBytes,
-      });
-      return cached.objectUrl;
-    }
-
-    logAudioStep('preloading audio before playback', {
-      itemId: row.id,
-      text: row.audioText,
-      proxyUrl: row.audioUrl,
-      arweaveUrl: row.arweaveUrl ?? null,
-      arweaveUrls: row.arweaveUrls ?? [],
-      storageRef: row.storageRef ?? null,
-    });
-
-    const candidateUrls = Array.from(new Set([
-      row.audioUrl,
-      ...(row.arweaveUrls ?? []),
-      ...(row.arweaveUrl ? [row.arweaveUrl] : []),
-    ].filter((url): url is string => Boolean(url))));
-
-    let blob: Blob | null = null;
-    let responseDetails: {
-      itemId: string;
-      requestedUrl: string;
-      finalUrl: string;
-      status: number;
-      ok: boolean;
-      contentType: string;
-      contentLength: string | null;
-    } | null = null;
-    const failedAttempts: AudioLoadError['attempts'] = [];
-
-    for (const candidateUrl of candidateUrls) {
-      let response: Response;
-      try {
-        response = await fetch(candidateUrl, {
-          cache: 'force-cache',
-          headers: {
-            Accept: 'audio/mpeg,audio/*;q=0.9,*/*;q=0.1',
-          },
-        });
-      } catch (err) {
-        failedAttempts.push({
-          requestedUrl: candidateUrl,
-          error: err instanceof Error ? err.message : 'Network error',
-        });
-        console.warn(AUDIO_LOG_PREFIX, 'audio preload failed with network error', {
-          itemId: row.id,
-          requestedUrl: candidateUrl,
-          error: err instanceof Error ? err.message : err,
-        });
-        continue;
-      }
-      const contentType = response.headers.get('content-type') ?? '';
-      const contentLength = response.headers.get('content-length');
-      const attemptDetails = {
-        itemId: row.id,
-        requestedUrl: candidateUrl,
-        finalUrl: response.url,
-        status: response.status,
-        ok: response.ok,
-        contentType,
-        contentLength,
-      };
-
-      if (!response.ok) {
-        let bodyPreview = '';
-        try {
-          bodyPreview = (await response.clone().text()).slice(0, 240);
-        } catch {
-          bodyPreview = '[could not read response body]';
-        }
-        failedAttempts.push({ ...attemptDetails, bodyPreview });
-        console.warn(AUDIO_LOG_PREFIX, 'audio preload failed with HTTP response', {
-          ...attemptDetails,
-          bodyPreview,
-        });
-        continue;
-      }
-
-      const lowerContentType = contentType.toLowerCase();
-      const looksLikeAudio =
-        lowerContentType.startsWith('audio/') ||
-        lowerContentType.includes('mpeg') ||
-        lowerContentType.includes('octet-stream') ||
-        lowerContentType === '';
-
-      if (!looksLikeAudio) {
-        let bodyPreview = '';
-        try {
-          bodyPreview = (await response.clone().text()).slice(0, 240);
-        } catch {
-          bodyPreview = '[could not read response body]';
-        }
-        failedAttempts.push({ ...attemptDetails, bodyPreview });
-        console.warn(AUDIO_LOG_PREFIX, 'audio preload returned a non-audio response', {
-          ...attemptDetails,
-          bodyPreview,
-        });
-        continue;
-      }
-
-      const candidateBlob = await response.blob();
-      if (candidateBlob.size === 0) {
-        failedAttempts.push({ ...attemptDetails, bodyPreview: '[empty audio response]' });
-        console.warn(AUDIO_LOG_PREFIX, 'audio preload returned an empty file', attemptDetails);
-        continue;
-      }
-
-      blob = candidateBlob;
-      responseDetails = attemptDetails;
-      break;
-    }
-
-    if (!blob || !responseDetails) {
-      console.warn(AUDIO_LOG_PREFIX, 'all audio preload candidates failed', {
-        itemId: row.id,
-        proxyUrl: row.audioUrl,
-        arweaveUrls: row.arweaveUrls ?? [],
-        failedAttempts,
-      });
-      throw new AudioLoadError('Audio could not be loaded from any gateway', failedAttempts);
-    }
-
-    const objectUrl = URL.createObjectURL(blob);
-    audioCacheRef.current.set(row.audioUrl, {
-      objectUrl,
-      contentType: blob.type || responseDetails.contentType || 'unknown',
-      finalUrl: responseDetails.finalUrl,
-      sizeBytes: blob.size,
-    });
-    logAudioStep('audio preloaded and cached', {
-      ...responseDetails,
-      blobType: blob.type,
-      sizeBytes: blob.size,
-    });
-
-    return objectUrl;
-  }, []);
-
   useEffect(() => {
-    const unchecked = rows.filter(
-      (row) => !row.audioUrl && row.audioText && row.reuseStatus === 'unchecked',
-    );
-    if (unchecked.length === 0) return;
-    void lookupReusableAudio(unchecked, false);
+    const uncheckedRows = rows.filter((row) => row.audioText && row.reuseStatus === 'unchecked');
+    if (uncheckedRows.length === 0) return;
+    void lookupReusableAudio(uncheckedRows, false);
   }, [lookupReusableAudio, rows]);
 
-  const markPlaybackFailed = useCallback((failedRow: AudioRow, details?: unknown) => {
-    const checkResult = getLoadErrorMessage(details, failedRow.audioUrl);
+  const markPlaybackFailed = useCallback((
+    row: AudioRow,
+    source: AudioSourceCandidate,
+    details?: unknown,
+  ) => {
+    const baseMessage = getLoadErrorMessage(details, source.audioUrl);
+    const message = source.kind === 'linked'
+      ? `${baseMessage} Generate a new file to replace it.`
+      : `${baseMessage} Try another saved version or generate a new one.`;
+
     console.error(AUDIO_LOG_PREFIX, 'audio playback failed', {
-      itemId: failedRow.id,
-      text: failedRow.audioText,
-      proxyUrl: failedRow.audioUrl,
-      arweaveUrl: failedRow.arweaveUrl ?? null,
-      arweaveUrls: failedRow.arweaveUrls ?? [],
-      storageRef: failedRow.storageRef ?? null,
+      itemId: row.id,
+      text: row.audioText,
+      sourceKind: source.kind,
+      audioUrl: source.audioUrl,
+      arweaveUrl: source.arweaveUrl ?? null,
+      arweaveUrls: source.arweaveUrls,
+      storageRef: source.storageRef ?? null,
       details,
     });
+
     setPlayingId(null);
     setPlaybackErrors((prev) => ({
       ...prev,
-      [failedRow.id]: `${checkResult.message} Regenerate it to replace the stored file.`,
+      [row.id]: message,
     }));
-    setAudioChecks((prev) => ({
-      ...prev,
-      [failedRow.id]: checkResult,
-    }));
-    setRows((prev) =>
-      prev.map((row) =>
-        row.id === failedRow.id ? { ...row, audioStatus: 'failed' as const } : row,
-      ),
-    );
+
+    if (source.kind === 'linked') {
+      setRows((prev) =>
+        prev.map((candidate) =>
+          candidate.id === row.id ? { ...candidate, audioStatus: 'failed' as const } : candidate,
+        ),
+      );
+    }
   }, []);
 
   const generateRows = useCallback(async (targetRows: AudioRow[], force = false) => {
     if (targetRows.length === 0) return;
-
-    console.groupCollapsed(
-      `${AUDIO_LOG_PREFIX} ${force ? 'regenerating' : 'generating'} ${targetRows.length} audio file(s)`,
-    );
-    console.table(targetRows.map((row) => ({
-      itemId: row.id,
-      text: row.audioText,
-      language: row.language,
-      existingProxyUrl: row.audioUrl,
-      existingArweaveUrl: row.arweaveUrl ?? null,
-      existingArweaveUrls: row.arweaveUrls ?? [],
-      existingStorageRef: row.storageRef ?? null,
-    })));
 
     if (force) {
       setRegeneratingIds((prev) => new Set([...prev, ...targetRows.map((row) => row.id)]));
     } else {
       setGenerating(true);
     }
+
     setError(null);
     setProgress(0);
     setPlaybackErrors((prev) => {
@@ -637,7 +670,9 @@ export function AudioStep({
       for (const row of targetRows) delete next[row.id];
       return next;
     });
+
     for (const row of targetRows) clearCachedAudio(row.audioUrl);
+
     setRows((prev) =>
       prev.map((row) =>
         targetRows.some((target) => target.id === row.id)
@@ -650,10 +685,10 @@ export function AudioStep({
       const res = await listsApiFetch('/api/audio/generate/batch', {
         method: 'POST',
         body: JSON.stringify({
-          items: targetRows.map((r) => ({
-            id: r.id,
-            text: r.audioText,
-            language: r.language,
+          items: targetRows.map((row) => ({
+            id: row.id,
+            text: row.audioText,
+            language: row.language,
           })),
           provider: 'google_tts',
           audio_field: audioSide,
@@ -663,70 +698,31 @@ export function AudioStep({
 
       const payload = await readDebugResponse(res);
       if (!res.ok) {
-        console.error(AUDIO_LOG_PREFIX, 'audio generation request failed', {
-          status: payload.status,
-          statusText: payload.statusText,
-          url: payload.url,
-          contentType: payload.contentType,
-          json: payload.json,
-          bodyPreview: payload.rawText.slice(0, 500),
-        });
         throw new Error(getErrorFromPayload(payload));
       }
-
       if (!payload.json || typeof payload.json !== 'object') {
-        console.error(AUDIO_LOG_PREFIX, 'audio generation returned a non-JSON success response', {
-          status: payload.status,
-          statusText: payload.statusText,
-          url: payload.url,
-          contentType: payload.contentType,
-          bodyPreview: payload.rawText.slice(0, 500),
-        });
         throw new Error('Audio generation returned a non-JSON response');
       }
 
       const data = payload.json as {
         results?: unknown;
-        dedup_count?: number;
-        generated_count?: number;
         quota_warning?: unknown;
       };
       const results = (Array.isArray(data.results) ? data.results : []) as AudioGenerationResult[];
-      logAudioStep('audio generation response received', {
-        dedupCount: data.dedup_count,
-        generatedCount: data.generated_count,
-        force,
-        quotaWarning: data.quota_warning,
-      });
-      if (data.quota_warning) {
-        console.warn(AUDIO_LOG_PREFIX, 'audio generated while quota tracking failed', data.quota_warning);
-      }
-      console.table(results.map((result) => ({
-        itemId: result.id,
-        status: result.status,
-        source: result.source,
-        proxyUrl: result.audio_url,
-        arweaveUrl: result.arweave_url ?? null,
-        arweaveUrls: result.arweave_urls ?? [],
-        storageRef: result.storage_ref ?? null,
-        sizeBytes: result.size_bytes ?? null,
-        error: result.error ?? null,
-      })));
-
       const resultMap = new Map<string, AudioGenerationResult>();
-      for (const r of results) {
-        resultMap.set(r.id, r);
-      }
+      for (const result of results) resultMap.set(result.id, result);
 
       setRows((prev) =>
         prev.map((row) => {
           const result = resultMap.get(row.id);
           if (!result) return row;
+
           return {
             ...row,
+            audioAssetId: result.status === 'ok' ? row.audioAssetId : row.audioAssetId,
             audioUrl: result.audio_url ?? row.audioUrl,
             arweaveUrl: result.arweave_url ?? row.arweaveUrl ?? null,
-            arweaveUrls: result.arweave_urls ?? row.arweaveUrls ?? [],
+            arweaveUrls: result.arweave_urls ?? row.arweaveUrls,
             storageRef: result.storage_ref ?? row.storageRef ?? null,
             audioStatus: result.status === 'ok' ? 'ready' : 'failed',
             source: result.source === 'dedup' || result.source === 'generated'
@@ -735,47 +731,29 @@ export function AudioStep({
           };
         }),
       );
-      setAudioChecks((prev) => {
-        const next = { ...prev };
-        for (const result of results) {
-          if (result.status === 'ok') delete next[result.id];
-        }
-        return next;
-      });
 
-      // Surface a top-level error if every attempted item failed
-      const attempted = results.filter((r) =>
-        targetRows.some((t) => t.id === r.id)
+      const attempted = results.filter((result) =>
+        targetRows.some((target) => target.id === result.id),
       );
-      if (attempted.length > 0 && attempted.every((r) => r.status === 'error')) {
-        const firstError = attempted[0]?.error ?? 'Generation failed';
-        setError(`Audio generation failed: ${firstError}`);
+      if (attempted.length > 0 && attempted.every((result) => result.status === 'error')) {
+        setError(`Audio generation failed: ${attempted[0]?.error ?? 'Generation failed'}`);
       }
 
       for (const result of attempted) {
         if (result.status !== 'ok' || !result.audio_url) continue;
         const sourceRow = targetRows.find((row) => row.id === result.id);
         if (!sourceRow) continue;
-        void preloadAudio({
-          ...sourceRow,
+        void preloadAudio(result.id, {
+          kind: 'linked',
           audioUrl: result.audio_url,
-          arweaveUrl: result.arweave_url ?? sourceRow.arweaveUrl ?? null,
-          arweaveUrls: result.arweave_urls ?? sourceRow.arweaveUrls ?? [],
-          storageRef: result.storage_ref ?? sourceRow.storageRef ?? null,
-          audioStatus: 'ready',
-          source: result.source === 'dedup' || result.source === 'generated'
-            ? result.source
-            : sourceRow.source,
-        }).catch((err) => {
-          console.warn(AUDIO_LOG_PREFIX, 'audio warm-cache failed after generation', {
-            itemId: result.id,
-            proxyUrl: result.audio_url,
-            arweaveUrl: result.arweave_url ?? null,
-            arweaveUrls: result.arweave_urls ?? [],
-            storageRef: result.storage_ref ?? null,
-            error: err instanceof Error ? err.message : err,
-          });
-        });
+          arweaveUrl: result.arweave_url ?? null,
+          arweaveUrls: result.arweave_urls ?? [],
+          storageRef: result.storage_ref ?? null,
+        }).catch(() => {});
+      }
+
+      if (data.quota_warning) {
+        console.warn(AUDIO_LOG_PREFIX, 'audio generated while quota tracking failed', data.quota_warning);
       }
 
       setProgress(100);
@@ -800,7 +778,6 @@ export function AudioStep({
       } else {
         setGenerating(false);
       }
-      console.groupEnd();
     }
   }, [audioSide, clearCachedAudio, onUsageRefresh, preloadAudio]);
 
@@ -809,80 +786,21 @@ export function AudioStep({
       setError(googlePausedMessage);
       return;
     }
-    const toGenerate = rows.filter(
-      (r) => r.audioStatus === 'none' || r.audioStatus === 'failed',
-    );
-    await generateRows(toGenerate, toGenerate.some((row) => row.audioUrl));
+    const toGenerate = rows.filter((row) => row.audioStatus === 'none' || row.audioStatus === 'failed');
+    await generateRows(toGenerate, toGenerate.some((row) => Boolean(row.audioUrl)));
   }, [generateRows, googlePausedMessage, isGoogleTtsPaused, rows]);
 
-  const checkRows = useCallback(async (targetRows: AudioRow[]) => {
-    const checkableRows = targetRows.filter((row) => row.audioStatus === 'ready' && row.audioUrl);
-    if (checkableRows.length === 0) return;
-
-    setCheckingIds((prev) => new Set([...prev, ...checkableRows.map((row) => row.id)]));
-    setPlaybackErrors((prev) => {
-      const next = { ...prev };
-      for (const row of checkableRows) delete next[row.id];
-      return next;
-    });
-
-    const results = await Promise.all(
-      checkableRows.map(async (row) => {
-        try {
-          await preloadAudio(row);
-          return [
-            row.id,
-            {
-              status: 'ok' as const,
-              message: 'Audio file loaded successfully.',
-              url: row.audioUrl ?? undefined,
-            },
-          ] as const;
-        } catch (err) {
-          return [row.id, getLoadErrorMessage(err, row.audioUrl)] as const;
-        }
-      }),
-    );
-
-    setAudioChecks((prev) => {
-      const next = { ...prev };
-      for (const [id, result] of results) {
-        next[id] = result;
-      }
-      return next;
-    });
-    setRows((prev) =>
-      prev.map((row) => {
-        const result = results.find(([id]) => id === row.id)?.[1];
-        return result?.status === 'failed'
-          ? { ...row, audioStatus: 'failed' as const }
-          : row;
-      }),
-    );
-    setCheckingIds((prev) => {
-      const next = new Set(prev);
-      for (const row of checkableRows) next.delete(row.id);
-      return next;
-    });
-  }, [preloadAudio]);
-
-  const handleCheckAll = useCallback(async () => {
-    await checkRows(rows);
-  }, [checkRows, rows]);
-
-  const handleCheckRow = useCallback(async (row: AudioRow) => {
-    await checkRows([row]);
-  }, [checkRows]);
-
   const handleUseExistingRow = useCallback(async (row: AudioRow) => {
+    if (!getSelectedReusableOption(row)?.audioUrl) return;
     await lookupReusableAudio([row], true);
   }, [lookupReusableAudio]);
 
   const handleUseAllExisting = useCallback(async () => {
-    await lookupReusableAudio(
-      rows.filter((row) => row.reuseStatus === 'found' && row.audioStatus !== 'ready'),
-      true,
-    );
+    const reusableRows = rows.filter((row) => {
+      const selected = getSelectedReusableOption(row);
+      return Boolean(selected?.audioUrl) && row.audioStatus !== 'ready';
+    });
+    await lookupReusableAudio(reusableRows, true);
   }, [lookupReusableAudio, rows]);
 
   const handleRegenerateRow = useCallback(async (row: AudioRow) => {
@@ -907,21 +825,20 @@ export function AudioStep({
     await generateRows(rows, true);
   }, [generateRows, googlePausedMessage, isGoogleTtsPaused, rows]);
 
-  const handlePlaySingle = useCallback(async (row: AudioRow) => {
-    if (!row.audioUrl) return;
+  const playRow = useCallback(async (row: AudioRow, source: AudioSourceCandidate) => {
     if (audioRef.current) {
       audioRef.current.pause();
     }
+
     setPlayingId(row.id);
-    let playbackUrl = row.audioUrl;
+    let playbackUrl = source.audioUrl;
     try {
-      playbackUrl = await preloadAudio(row);
+      playbackUrl = await preloadAudio(row.id, source);
     } catch (err) {
-      console.warn(AUDIO_LOG_PREFIX, 'preload failed; trying original media URL in audio element', {
+      console.warn(AUDIO_LOG_PREFIX, 'preload failed; trying direct media URL', {
         itemId: row.id,
-        proxyUrl: row.audioUrl,
-        arweaveUrl: row.arweaveUrl ?? null,
-        arweaveUrls: row.arweaveUrls ?? [],
+        sourceKind: source.kind,
+        audioUrl: source.audioUrl,
         error: err instanceof Error ? err.message : err,
       });
     }
@@ -930,69 +847,63 @@ export function AudioStep({
     audio.preload = 'auto';
     audioRef.current = audio;
     audio.onended = () => setPlayingId(null);
-    audio.onerror = () => markPlaybackFailed(row, {
+    audio.onerror = () => markPlaybackFailed(row, source, {
       playbackUrl,
       mediaError: getMediaErrorLabel(audio.error),
       mediaMessage: audio.error?.message ?? null,
       networkState: audio.networkState,
       readyState: audio.readyState,
     });
-    audio.oncanplaythrough = () => logAudioStep('audio can play through', {
-      itemId: row.id,
-      playbackUrl,
-      duration: Number.isFinite(audio.duration) ? audio.duration : null,
-      readyState: audio.readyState,
+    audio.play().catch((err) => {
+      markPlaybackFailed(row, source, {
+        playbackUrl,
+        playError: err instanceof Error ? err.message : err,
+        mediaError: getMediaErrorLabel(audio.error),
+        mediaMessage: audio.error?.message ?? null,
+        networkState: audio.networkState,
+        readyState: audio.readyState,
+      });
     });
-    audio.play().catch((err) => markPlaybackFailed(row, {
-      playbackUrl,
-      playError: err instanceof Error ? err.message : err,
-      mediaError: getMediaErrorLabel(audio.error),
-      mediaMessage: audio.error?.message ?? null,
-      networkState: audio.networkState,
-      readyState: audio.readyState,
-    }));
   }, [markPlaybackFailed, preloadAudio]);
 
-  const handlePlayAll = useCallback(() => {
-    const ready = rows.filter((r) => r.audioStatus === 'ready' && r.audioUrl);
-    if (ready.length === 0) return;
-    playQueueRef.current = ready.map((r) => r.id);
-    void playNext();
-  }, [rows]);
-
-  async function playNext() {
-    const nextId = playQueueRef.current.shift();
-    if (!nextId) {
+  const playNext = useCallback(async () => {
+    const next = playQueueRef.current.shift();
+    if (!next) {
       setPlayingId(null);
       return;
     }
-    const row = rows.find((r) => r.id === nextId);
-    if (!row?.audioUrl) {
-      playNext();
+
+    const row = rows.find((candidate) => candidate.id === next.rowId);
+    if (!row) {
+      void playNext();
       return;
     }
-    if (audioRef.current) audioRef.current.pause();
+
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+
     setPlayingId(row.id);
-    let playbackUrl = row.audioUrl;
+    let playbackUrl = next.source.audioUrl;
     try {
-      playbackUrl = await preloadAudio(row);
+      playbackUrl = await preloadAudio(row.id, next.source);
     } catch (err) {
-      console.warn(AUDIO_LOG_PREFIX, 'preload failed during play all; trying original media URL', {
+      console.warn(AUDIO_LOG_PREFIX, 'preload failed during play all; trying direct media URL', {
         itemId: row.id,
-        proxyUrl: row.audioUrl,
-        arweaveUrl: row.arweaveUrl ?? null,
-        arweaveUrls: row.arweaveUrls ?? [],
+        sourceKind: next.source.kind,
+        audioUrl: next.source.audioUrl,
         error: err instanceof Error ? err.message : err,
       });
     }
+
     const audio = new Audio(playbackUrl);
     audio.preload = 'auto';
     audioRef.current = audio;
     audio.onended = () => {
-      setTimeout(() => void playNext(), 1500);
+      setTimeout(() => void playNext(), 1200);
     };
     audio.onerror = () => {
-      markPlaybackFailed(row, {
+      markPlaybackFailed(row, next.source, {
         playbackUrl,
         mediaError: getMediaErrorLabel(audio.error),
         mediaMessage: audio.error?.message ?? null,
@@ -1002,7 +913,7 @@ export function AudioStep({
       void playNext();
     };
     audio.play().catch((err) => {
-      markPlaybackFailed(row, {
+      markPlaybackFailed(row, next.source, {
         playbackUrl,
         playError: err instanceof Error ? err.message : err,
         mediaError: getMediaErrorLabel(audio.error),
@@ -1012,7 +923,23 @@ export function AudioStep({
       });
       void playNext();
     });
-  }
+  }, [markPlaybackFailed, preloadAudio, rows]);
+
+  const handlePlaySingle = useCallback(async (row: AudioRow) => {
+    const source = getPreviewSource(row);
+    if (!source) return;
+    await playRow(row, source);
+  }, [playRow]);
+
+  const handlePlayAll = useCallback(() => {
+    const queue = rows.flatMap((row) => {
+      const source = getPreviewSource(row);
+      return source ? [{ rowId: row.id, source }] : [];
+    });
+    if (queue.length === 0) return;
+    playQueueRef.current = queue;
+    void playNext();
+  }, [playNext, rows]);
 
   const handlePause = useCallback(() => {
     if (audioRef.current) audioRef.current.pause();
@@ -1020,7 +947,14 @@ export function AudioStep({
     setPlayingId(null);
   }, []);
 
-  // Cleanup audio on unmount
+  const handleReusableSelectionChange = useCallback((rowId: string, assetId: string) => {
+    setRows((prev) =>
+      prev.map((row) =>
+        row.id === rowId ? { ...row, selectedReusableAssetId: assetId } : row,
+      ),
+    );
+  }, []);
+
   useEffect(() => {
     return () => {
       if (audioRef.current) audioRef.current.pause();
@@ -1031,78 +965,48 @@ export function AudioStep({
     };
   }, []);
 
+  const subtitle = useMemo(() => {
+    const parts = [`${readyCount} of ${rows.length} ready`];
+    if (dedupCount > 0) parts.push(`${dedupCount} reused`);
+    if (reusableCount > 0) parts.push(`${reusableCount} with saved versions`);
+    return parts.join(' • ');
+  }, [dedupCount, readyCount, reusableCount, rows.length]);
+
   return (
     <div className="max-w-3xl mx-auto p-4 md:p-6">
-      <div className="flex items-center justify-between mb-4">
+      <div className="mb-4 flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-text">Audio Generation</h2>
-          <p className="text-sm text-text-soft mt-0.5">
-            {readyCount} of {rows.length} have {activeLanguageLabel} audio
-            {dedupCount > 0 && (
-              <span className="text-done ml-1">({dedupCount} reused)</span>
-            )}
-            {reusableCount > 0 && (
-              <span className="text-accent ml-1">({reusableCount} existing available)</span>
-            )}
-            {checkedFailureCount > 0 && (
-              <span className="text-danger ml-1">({checkedFailureCount} load issue{checkedFailureCount === 1 ? '' : 's'})</span>
-            )}
+          <h2 className="text-lg font-semibold text-text">{title}</h2>
+          <p className="mt-0.5 text-sm text-text-soft">
+            {subtitle} for {activeLanguageLabel}
           </p>
         </div>
         <button
           type="button"
-          className="px-3 py-1.5 rounded-lg border border-border-subtle text-text-soft text-sm hover:text-text transition-colors"
+          className="rounded-lg border border-border-subtle px-3 py-1.5 text-sm text-text-soft transition-colors hover:text-text"
           onClick={onSkip}
         >
-          Skip audio
+          Skip
         </button>
       </div>
 
-      {/* Controls */}
-      <div className="mb-4 p-3 rounded-lg bg-background-elevated border border-border-subtle">
-        <div className="mb-3 flex flex-wrap items-center gap-2 text-xs text-text-soft">
-          <span>Manage audio for:</span>
-          <div className="flex rounded-lg border border-border-subtle overflow-hidden">
-            <button
-              type="button"
-              className={`px-3 py-1 transition-colors ${
-                audioSide === 'target'
-                  ? 'bg-accent text-background'
-                  : 'text-text-soft hover:text-text'
-              }`}
-              onClick={() => setAudioSide('target')}
-            >
-              Target ({targetLanguageLabel})
-            </button>
-            <button
-              type="button"
-              className={`px-3 py-1 transition-colors ${
-                audioSide === 'known'
-                  ? 'bg-accent text-background'
-                  : 'text-text-soft hover:text-text'
-              }`}
-              onClick={() => setAudioSide('known')}
-            >
-              Native ({sourceLanguageLabel})
-            </button>
-          </div>
-        </div>
+      <div className="mb-4 rounded-lg border border-border-subtle bg-background-elevated p-3">
         <div className="flex flex-wrap items-center gap-3">
-          {reusableCount > 0 && (
+          {selectedReusableCount > 0 && (
             <button
               type="button"
               disabled={generating || regeneratingIds.size > 0}
-              className="px-4 py-1.5 rounded-lg bg-done text-background text-xs font-medium disabled:opacity-50 hover:opacity-90 transition-opacity"
+              className="rounded-lg bg-done px-4 py-1.5 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
               onClick={handleUseAllExisting}
             >
-              Use existing ({reusableCount})
+              Use selected existing ({selectedReusableCount})
             </button>
           )}
 
           <button
             type="button"
             disabled={generating || needsGenCount === 0 || isGoogleTtsPaused}
-            className="px-4 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
+            className="rounded-lg bg-accent px-4 py-1.5 text-xs font-medium text-background transition-colors hover:bg-accent-strong disabled:opacity-50"
             onClick={handleGenerateAll}
           >
             {generating ? 'Generating...' : `Generate audio (${needsGenCount})`}
@@ -1111,33 +1015,22 @@ export function AudioStep({
           {rows.length > 0 && (
             <button
               type="button"
-              disabled={generating || regeneratingIds.size > 0 || rows.length === 0 || isGoogleTtsPaused}
-              className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-xs hover:bg-background/50 transition-colors disabled:opacity-50"
+              disabled={generating || regeneratingIds.size > 0 || isGoogleTtsPaused}
+              className="rounded-lg border border-border-subtle px-3 py-1.5 text-xs text-text transition-colors hover:bg-background/50 disabled:opacity-50"
               onClick={handleRegenerateAll}
             >
-              {readyCount > 0 ? 'Generate new all' : 'Generate all new'}
+              {readyCount > 0 ? 'Generate all new' : 'Generate new'}
             </button>
           )}
 
-          {readyCount > 0 && (
-            <>
-              <button
-                type="button"
-                disabled={checkingIds.size > 0}
-                className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-xs hover:bg-background/50 transition-colors disabled:opacity-50"
-                onClick={handleCheckAll}
-              >
-                {checkingIds.size > 0 ? 'Checking...' : 'Check audio'}
-              </button>
-
-              <button
-                type="button"
-                className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-xs hover:bg-background/50 transition-colors"
-                onClick={playingId ? handlePause : handlePlayAll}
-              >
-                {playingId ? 'Pause' : 'Play all'}
-              </button>
-            </>
+          {rows.some((row) => Boolean(getPreviewSource(row))) && (
+            <button
+              type="button"
+              className="rounded-lg border border-border-subtle px-3 py-1.5 text-xs text-text transition-colors hover:bg-background/50"
+              onClick={playingId ? handlePause : handlePlayAll}
+            >
+              {playingId ? 'Pause' : 'Play all'}
+            </button>
           )}
         </div>
         {googleTtsUsage && <GoogleUsageHint scope={googleTtsUsage} />}
@@ -1149,51 +1042,53 @@ export function AudioStep({
         </div>
       )}
 
-      {/* Progress bar */}
       {generating && (
-        <div className="mb-4 h-1.5 rounded-full bg-border-subtle overflow-hidden">
+        <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-border-subtle">
           <div
-            className="h-full bg-accent transition-all duration-300 rounded-full"
+            className="h-full rounded-full bg-accent transition-all duration-300"
             style={{ width: `${progress}%` }}
           />
         </div>
       )}
 
       {error && (
-        <div className="mb-4 p-3 rounded-lg bg-danger/10 text-danger text-sm">{error}</div>
+        <div className="mb-4 rounded-lg bg-danger/10 p-3 text-sm text-danger">{error}</div>
       )}
 
-      {/* Word list with audio controls */}
-      <div className="rounded-lg border border-border-subtle overflow-hidden">
-        <div className="divide-y divide-border-subtle max-h-[60vh] overflow-y-auto">
+      <div className="overflow-hidden rounded-lg border border-border-subtle">
+        <div className="max-h-[60vh] divide-y divide-border-subtle overflow-y-auto">
           {rows.map((row) => {
             const isPlaying = playingId === row.id;
             const isRegenerating = regeneratingIds.has(row.id);
-            const isChecking = checkingIds.has(row.id);
             const playbackError = playbackErrors[row.id];
-            const audioCheck = audioChecks[row.id];
-            const canPlay = row.audioStatus === 'ready' && Boolean(row.audioUrl);
-            const canUseExisting = row.reuseStatus === 'found' && row.audioStatus !== 'ready';
+            const previewSource = getPreviewSource(row);
+            const canPlay = Boolean(previewSource);
+            const selectedReusable = getSelectedReusableOption(row);
+            const selectedMatchesCurrent = Boolean(
+              row.audioAssetId
+              && row.audioStatus === 'ready'
+              && row.selectedReusableAssetId === row.audioAssetId,
+            );
+
             return (
               <div
                 key={row.id}
                 className={`flex flex-col gap-3 px-4 py-3 transition-colors sm:flex-row sm:items-center ${
-                  isPlaying ? 'bg-accent/10 border-l-2 border-l-accent' : ''
+                  isPlaying ? 'border-l-2 border-l-accent bg-accent/10' : ''
                 }`}
               >
                 <div className="flex min-w-0 flex-1 items-start gap-3">
-                  {/* Play button */}
                   <button
                     type="button"
                     disabled={!canPlay}
-                    className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
                       canPlay
                         ? isPlaying
                           ? 'bg-accent text-background'
                           : 'bg-accent/10 text-accent hover:bg-accent/20'
                         : 'bg-border-subtle text-text-soft'
                     }`}
-                    onClick={() => handlePlaySingle(row)}
+                    onClick={() => void handlePlaySingle(row)}
                     title="Play audio"
                   >
                     {isPlaying ? (
@@ -1208,70 +1103,61 @@ export function AudioStep({
                     )}
                   </button>
 
-                  {/* Word text */}
-                    <div className="min-w-0 flex-1">
-                    <span className="block text-sm font-medium text-text break-words">
+                  <div className="min-w-0 flex-1">
+                    <span className="block break-words text-sm font-medium text-text">
                       {row.audioText}
                     </span>
-                    <span className="block text-xs text-text-soft break-words">
+                    <span className="block break-words text-xs text-text-soft">
                       {row.supportingText}
                     </span>
-                    {canUseExisting && (
+                    {row.reusableOptions.length > 0 && (
                       <span className="mt-1 block text-xs text-done">
-                        Existing {activeLanguageLabel.toLowerCase()} audio is available for this text.
+                        {row.reusableOptions.length} saved version{row.reusableOptions.length === 1 ? '' : 's'} available.
                       </span>
                     )}
-                    {row.reuseStatus === 'checking' && (
-                      <span className="mt-1 block text-xs text-text-soft">
-                        Looking for reusable audio...
-                      </span>
-                    )}
-                    {audioCheck?.status === 'ok' && (
-                      <span className="mt-1 block text-xs text-done truncate">
-                        Loaded OK: {audioCheck.url}
-                      </span>
-                    )}
-                    {(playbackError || audioCheck?.status === 'failed') && (
-                      <span className="mt-1 block text-xs text-danger break-words">
-                        {playbackError ?? audioCheck?.message}
+                    {playbackError && (
+                      <span className="mt-1 block break-words text-xs text-danger">
+                        {playbackError}
                       </span>
                     )}
                   </div>
                 </div>
 
                 <div className="flex shrink-0 flex-wrap items-center gap-2 pl-11 sm:pl-0 sm:justify-end">
-                  {canUseExisting && (
-                    <button
-                      type="button"
-                      disabled={generating || row.reuseStatus === 'checking'}
-                      className="shrink-0 px-2.5 py-1 rounded-md border border-done/40 bg-done/10 text-xs text-done hover:bg-done/20 transition-colors disabled:opacity-50"
-                      onClick={() => handleUseExistingRow(row)}
+                  {row.reusableOptions.length > 0 && (
+                    <select
+                      value={row.selectedReusableAssetId ?? selectedReusable?.assetId ?? ''}
+                      onChange={(event) => handleReusableSelectionChange(row.id, event.target.value)}
+                      className="max-w-[10rem] rounded-md border border-border-subtle bg-background px-2.5 py-1 text-xs text-text"
                     >
-                      Use existing
-                    </button>
+                      {row.reusableOptions.map((option, index) => (
+                        <option key={option.assetId} value={option.assetId}>
+                          {`Version ${index + 1}`}
+                        </option>
+                      ))}
+                    </select>
                   )}
 
-                  {canPlay && (
+                  {row.reusableOptions.length > 0 && (
                     <button
                       type="button"
-                      disabled={isChecking}
-                      className="shrink-0 px-2.5 py-1 rounded-md border border-border-subtle text-xs text-text-soft hover:text-text hover:bg-background/50 transition-colors disabled:opacity-50"
-                      onClick={() => handleCheckRow(row)}
+                      disabled={generating || row.reuseStatus === 'checking' || selectedMatchesCurrent || !selectedReusable?.audioUrl}
+                      className="shrink-0 rounded-md border border-done/40 bg-done/10 px-2.5 py-1 text-xs text-done transition-colors hover:bg-done/20 disabled:opacity-50"
+                      onClick={() => void handleUseExistingRow(row)}
                     >
-                      {isChecking ? 'Checking...' : 'Check'}
+                      {selectedMatchesCurrent ? 'Current' : 'Use selected'}
                     </button>
                   )}
 
                   <button
                     type="button"
                     disabled={generating || isRegenerating || !row.audioText || isGoogleTtsPaused}
-                    className="shrink-0 px-2.5 py-1 rounded-md border border-border-subtle text-xs text-text-soft hover:text-text hover:bg-background/50 transition-colors disabled:opacity-50"
-                    onClick={() => handleRegenerateRow(row)}
+                    className="shrink-0 rounded-md border border-border-subtle px-2.5 py-1 text-xs text-text-soft transition-colors hover:bg-background/50 hover:text-text disabled:opacity-50"
+                    onClick={() => void handleRegenerateRow(row)}
                   >
-                    {isRegenerating ? 'Generating...' : canPlay ? 'Generate new' : 'Generate'}
+                    {isRegenerating ? 'Generating...' : row.audioStatus === 'ready' ? 'Generate new' : 'Generate'}
                   </button>
 
-                  {/* Status indicator */}
                   <span className="shrink-0 text-xs">
                     {row.audioStatus === 'ready' && (
                       <span className="text-done">{row.source === 'dedup' ? 'reused' : 'ready'}</span>
@@ -1293,12 +1179,11 @@ export function AudioStep({
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="flex justify-between gap-2 mt-6 pt-4 border-t border-border-subtle">
+      <div className="mt-6 flex justify-between gap-2 border-t border-border-subtle pt-4">
         {onBack ? (
           <button
             type="button"
-            className="px-4 py-2 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
+            className="rounded-lg border border-border-subtle px-4 py-2 text-sm text-text transition-colors hover:bg-background-elevated"
             onClick={onBack}
           >
             ← Back
@@ -1307,17 +1192,17 @@ export function AudioStep({
         <div className="flex gap-2">
           <button
             type="button"
-            className="px-4 py-2 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
+            className="rounded-lg border border-border-subtle px-4 py-2 text-sm text-text transition-colors hover:bg-background-elevated"
             onClick={onSkip}
           >
-            Skip audio
+            Skip
           </button>
           <button
             type="button"
-            className="px-4 py-2 rounded-lg bg-accent text-background text-sm font-medium hover:bg-accent-strong transition-colors"
+            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-accent-strong"
             onClick={onComplete}
           >
-            Confirm & finish
+            Continue
           </button>
         </div>
       </div>

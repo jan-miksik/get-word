@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   batchLinkAudioToItems,
   findMediaByHashes,
+  findMediaVariantsByText,
 } from "@/lib/db";
 import {
   resolveUserFromRequest,
@@ -14,6 +15,7 @@ type AudioReuseItem = {
   id: string;
   text: string;
   language: string;
+  selected_asset_id?: string;
 };
 
 const MAX_ITEMS = 200;
@@ -63,7 +65,13 @@ export async function POST(request: NextRequest) {
       audioFormat: AUDIO_FORMAT,
     }),
   );
-  const existingMedia = await findMediaByHashes(hashes);
+  const [existingMedia, reusableVariants] = await Promise.all([
+    findMediaByHashes(hashes),
+    findMediaVariantsByText(items.map((item) => ({
+      text: item.text,
+      language: item.language,
+    }))),
+  ]);
 
   const linkUpdates: {
     itemId: string;
@@ -73,40 +81,72 @@ export async function POST(request: NextRequest) {
 
   const results = items.map((item, index) => {
     const hash = hashes[index];
-    const asset = existingMedia.get(hash);
-    if (!asset) {
+    const exactAsset = existingMedia.get(hash);
+    const variants =
+      reusableVariants.get(`${item.language}\u0000${item.text}`) ?? [];
+    const selectedAsset =
+      variants.find((asset) => asset.id === item.selected_asset_id)
+      ?? exactAsset
+      ?? variants[0];
+
+    if (!selectedAsset) {
       return {
         id: item.id,
         content_hash: hash,
         status: "missing" as const,
         audio_url: null,
+        matches: [],
       };
     }
 
     if (shouldLink) {
       linkUpdates.push({
         itemId: item.id,
-        audioAssetId: asset.id,
+        audioAssetId: selectedAsset.id,
         audioStatus: "ready",
         ...(audioField === "known" ? { audioField } : {}),
       });
     }
 
-    const arweaveUrls =
-      asset.storageType === "arweave"
-        ? getArweaveGatewayUrls(asset.storageRef)
-        : [];
+    const rawVariants = variants.some((asset) => asset.id === selectedAsset.id)
+      ? variants
+      : [selectedAsset, ...variants];
+
+    const matches = rawVariants.map((asset) => {
+      const arweaveUrls =
+        asset.storageType === "arweave"
+          ? getArweaveGatewayUrls(asset.storageRef)
+          : [];
+
+      return {
+        asset_id: asset.id,
+        content_hash: asset.contentHash,
+        audio_url: getAudioUrl(asset.contentHash),
+        arweave_url: arweaveUrls[0] ?? null,
+        arweave_urls: arweaveUrls,
+        storage_ref: asset.storageRef,
+        provider: asset.provider,
+        size_bytes: asset.sizeBytes,
+      };
+    });
+
+    const selectedMatch =
+      matches.find((match) => match.asset_id === selectedAsset.id)
+      ?? matches[0];
 
     return {
       id: item.id,
-      content_hash: hash,
+      content_hash: selectedAsset.contentHash,
       status: "found" as const,
-      audio_url: getAudioUrl(hash),
-      arweave_url: arweaveUrls[0] ?? null,
-      arweave_urls: arweaveUrls,
-      storage_ref: asset.storageRef,
-      provider: asset.provider,
-      size_bytes: asset.sizeBytes,
+      audio_url: selectedMatch?.audio_url ?? null,
+      arweave_url: selectedMatch?.arweave_url ?? null,
+      arweave_urls: selectedMatch?.arweave_urls ?? [],
+      storage_ref: selectedMatch?.storage_ref ?? null,
+      provider: selectedMatch?.provider ?? null,
+      size_bytes: selectedMatch?.size_bytes,
+      asset_id: selectedAsset.id,
+      selected_asset_id: selectedAsset.id,
+      matches,
       linked: shouldLink,
     };
   });

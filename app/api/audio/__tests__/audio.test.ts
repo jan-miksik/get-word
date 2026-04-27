@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 
 const mockResolveUserFromRequest = vi.fn()
 const mockFindMediaByHashes = vi.fn()
+const mockFindMediaVariantsByText = vi.fn()
 const mockFindMediaByHash = vi.fn()
 const mockCreateMediaAsset = vi.fn()
 const mockUpsertMediaAsset = vi.fn()
@@ -23,6 +24,7 @@ vi.mock('@/lib/auth', () => ({
 vi.mock('@/lib/db', () => ({
   countGoogleApiTextUnits: (texts: string[]) => texts.join('').length,
   findMediaByHashes: (...args: unknown[]) => mockFindMediaByHashes(...args),
+  findMediaVariantsByText: (...args: unknown[]) => mockFindMediaVariantsByText(...args),
   findMediaByHash: (...args: unknown[]) => mockFindMediaByHash(...args),
   createMediaAsset: (...args: unknown[]) => mockCreateMediaAsset(...args),
   upsertMediaAsset: (...args: unknown[]) => mockUpsertMediaAsset(...args),
@@ -332,20 +334,21 @@ describe('POST /api/audio/reuse/batch', () => {
     vi.clearAllMocks()
     mockComputeContentHash.mockImplementation((text: string, lang: string, provider: string) => `hash_${text}_${lang}_${provider}`)
     mockGetAudioUrl.mockImplementation((hash: string) => `/api/audio/${hash}`)
+    mockFindMediaVariantsByText.mockResolvedValue(new Map())
   })
 
   it('returns reusable audio candidates without linking by default', async () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
-    mockFindMediaByHashes.mockResolvedValue(new Map([
-      ['hash_hello_vi_google_tts', {
-        id: 'asset-existing',
-        contentHash: 'hash_hello_vi_google_tts',
-        storageType: 'arweave',
-        storageRef: 'tx-existing',
-        provider: 'google_tts',
-        sizeBytes: 123,
-      }],
-    ]))
+    const asset = {
+      id: 'asset-existing',
+      contentHash: 'hash_hello_vi_google_tts',
+      storageType: 'arweave',
+      storageRef: 'tx-existing',
+      provider: 'google_tts',
+      sizeBytes: 123,
+    }
+    mockFindMediaByHashes.mockResolvedValue(new Map([['hash_hello_vi_google_tts', asset]]))
+    mockFindMediaVariantsByText.mockResolvedValue(new Map([['vi\u0000hello', [asset]]]))
 
     const res = await POST_REUSE(makeReuseRequest({
       items: [{ id: 'item-1', text: 'hello', language: 'vi' }],
@@ -358,6 +361,8 @@ describe('POST /api/audio/reuse/batch', () => {
     expect(data.linked_count).toBe(0)
     expect(data.results[0].status).toBe('found')
     expect(data.results[0].audio_url).toBe('/api/audio/hash_hello_vi_google_tts')
+    expect(data.results[0].matches).toHaveLength(1)
+    expect(data.results[0].matches[0].asset_id).toBe('asset-existing')
     expect(data.results[0].arweave_urls).toEqual([
       'https://turbo-gateway.com/tx-existing',
       'https://arweave.net/tx-existing',
@@ -367,16 +372,16 @@ describe('POST /api/audio/reuse/batch', () => {
 
   it('links reusable audio when requested', async () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
-    mockFindMediaByHashes.mockResolvedValue(new Map([
-      ['hash_hello_vi_google_tts', {
-        id: 'asset-existing',
-        contentHash: 'hash_hello_vi_google_tts',
-        storageType: 'arweave',
-        storageRef: 'tx-existing',
-        provider: 'google_tts',
-        sizeBytes: 123,
-      }],
-    ]))
+    const asset = {
+      id: 'asset-existing',
+      contentHash: 'hash_hello_vi_google_tts',
+      storageType: 'arweave',
+      storageRef: 'tx-existing',
+      provider: 'google_tts',
+      sizeBytes: 123,
+    }
+    mockFindMediaByHashes.mockResolvedValue(new Map([['hash_hello_vi_google_tts', asset]]))
+    mockFindMediaVariantsByText.mockResolvedValue(new Map([['vi\u0000hello', [asset]]]))
     mockBatchLinkAudioToItems.mockResolvedValue(undefined)
 
     const res = await POST_REUSE(makeReuseRequest({
@@ -391,6 +396,44 @@ describe('POST /api/audio/reuse/batch', () => {
     expect(data.results[0].linked).toBe(true)
     expect(mockBatchLinkAudioToItems).toHaveBeenCalledWith([
       { itemId: 'item-1', audioAssetId: 'asset-existing', audioStatus: 'ready' },
+    ])
+  })
+
+  it('links the selected reusable version when multiple matches exist', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    const olderAsset = {
+      id: 'asset-1',
+      contentHash: 'hash_hello_vi_google_tts',
+      storageType: 'arweave',
+      storageRef: 'tx-1',
+      provider: 'google_tts',
+      sizeBytes: 111,
+    }
+    const newerAsset = {
+      id: 'asset-2',
+      contentHash: 'hash_hello_vi_elevenlabs',
+      storageType: 'arweave',
+      storageRef: 'tx-2',
+      provider: 'elevenlabs',
+      sizeBytes: 222,
+    }
+    mockFindMediaByHashes.mockResolvedValue(new Map([['hash_hello_vi_google_tts', olderAsset]]))
+    mockFindMediaVariantsByText.mockResolvedValue(new Map([['vi\u0000hello', [newerAsset, olderAsset]]]))
+    mockBatchLinkAudioToItems.mockResolvedValue(undefined)
+
+    const res = await POST_REUSE(makeReuseRequest({
+      items: [{ id: 'item-1', text: 'hello', language: 'vi', selected_asset_id: 'asset-2' }],
+      provider: 'google_tts',
+      link: true,
+    }))
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.results[0].selected_asset_id).toBe('asset-2')
+    expect(data.results[0].matches).toHaveLength(2)
+    expect(data.results[0].audio_url).toBe('/api/audio/hash_hello_vi_elevenlabs')
+    expect(mockBatchLinkAudioToItems).toHaveBeenCalledWith([
+      { itemId: 'item-1', audioAssetId: 'asset-2', audioStatus: 'ready' },
     ])
   })
 })
