@@ -109,7 +109,7 @@ export function ListSidebar({
             {ownLists.map((list) => (
               <div
                 key={list.id}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                className={`group flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
                   selectedListId === list.id
                     ? 'bg-accent/15'
                     : 'hover:bg-background/50'
@@ -132,7 +132,7 @@ export function ListSidebar({
 
                 <button
                   type="button"
-                  className="shrink-0 p-1.5 rounded-md text-text-soft hover:text-danger hover:bg-danger/10 transition-colors disabled:opacity-40"
+                  className="shrink-0 p-1.5 rounded-md text-text-soft opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 group-focus-within:opacity-100 hover:text-danger hover:bg-danger/10 focus-visible:opacity-100 disabled:opacity-40"
                   onClick={(e) => {
                     e.stopPropagation();
                     handleDelete(list);

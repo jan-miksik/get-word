@@ -7,6 +7,7 @@ const mockSubscribeTabMessages = vi.fn<(listener: unknown) => () => void>(() => 
 
 vi.mock('@/lib/sync', () => ({
   debouncedSync: (data: unknown) => mockDebouncedSync(data),
+  hasReceivedServerSnapshot: () => true,
 }));
 
 vi.mock('@/lib/tab-sync', () => ({
