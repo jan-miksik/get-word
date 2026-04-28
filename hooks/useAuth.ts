@@ -4,12 +4,16 @@ import { useCallback } from 'react'
 import { useAppKit, useAppKitAccount, useDisconnect } from '@reown/appkit/react'
 import { clearPendingSync, resetSyncIdentity } from '@/lib/sync'
 
+type AuthStatus = 'connected' | 'disconnected' | 'connecting' | 'reconnecting'
+
 interface UseAuthReturn {
   isConnected: boolean
   address: string | undefined
   email: string | undefined
   /** Auth provider when using embedded wallet, e.g. "google" | "email" */
   authProvider: string | undefined
+  status: AuthStatus
+  isAuthLoading: boolean
   signIn: () => void
   signOut: () => Promise<void>
   /** Opens Reown wallet/account menu (when connected shows account view, otherwise connect flow) */
@@ -18,8 +22,10 @@ interface UseAuthReturn {
 
 export function useAuth(): UseAuthReturn {
   const { open } = useAppKit()
-  const { isConnected, address, embeddedWalletInfo } = useAppKitAccount()
+  const { isConnected, address, embeddedWalletInfo, status: accountStatus } = useAppKitAccount()
   const { disconnect } = useDisconnect()
+  const status = accountStatus ?? 'reconnecting'
+  const isAuthLoading = status === 'connecting' || status === 'reconnecting'
 
   // Reown may expose loginMethod or type on embedded wallet user (e.g. "google" | "email")
   const authProvider =
@@ -61,6 +67,8 @@ export function useAuth(): UseAuthReturn {
     address,
     email: embeddedWalletInfo?.user?.email ?? undefined,
     authProvider,
+    status,
+    isAuthLoading,
     signIn,
     signOut,
     openAccountMenu,

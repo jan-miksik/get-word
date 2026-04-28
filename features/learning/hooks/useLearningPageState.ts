@@ -37,7 +37,16 @@ export function useLearningPageState({
   } | null>(null);
 
   const selectedCategoriesKey = Array.from(selectedCategories).sort().join('|');
-  const wordsResetKey = `${filteredWords.length}:${filteredWords.map((word) => word.id).join('|')}`;
+  const wordsResetKey = useMemo(() => {
+    let hash = 5381;
+    for (const word of filteredWords) {
+      const id = word.id;
+      for (let i = 0; i < id.length; i += 1) {
+        hash = ((hash << 5) + hash + id.charCodeAt(i)) | 0;
+      }
+    }
+    return `${filteredWords.length}:${hash}`;
+  }, [filteredWords]);
 
   useEffect(() => {
     setShowNotReady(false);

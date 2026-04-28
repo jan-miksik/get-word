@@ -37,7 +37,7 @@ export function usePreferences(
 ) {
   const [role, setRoleState] = useState<Role>('vi');
   const [showAll, setShowAll] = useState(false);
-  const [showEnglish, setShowEnglish] = useState(true);
+  const [showEnglish, setShowEnglish] = useState(false);
   const [showCategoryBadges, setShowCategoryBadges] = useState(false);
   const [showPronunciation, setShowPronunciation] = useState(false);
   const [memoryHooksEnabled, setMemoryHooksEnabled] = useState(true);
@@ -112,17 +112,17 @@ export function usePreferences(
     setRoleState(newRole);
     postTabMessage({ type: 'preferences_changed', patch: { role: newRole } });
   }, []);
-  const setShowEnglishPreference = useCallback((value: boolean) => {
-    setShowEnglish(value);
-    postTabMessage({ type: 'preferences_changed', patch: { showEnglish: value } });
+  const setShowEnglishPreference = useCallback(() => {
+    setShowEnglish(false);
+    postTabMessage({ type: 'preferences_changed', patch: { showEnglish: false } });
   }, []);
-  const setShowCategoryBadgesPreference = useCallback((value: boolean) => {
-    setShowCategoryBadges(value);
-    postTabMessage({ type: 'preferences_changed', patch: { showCategoryBadges: value } });
+  const setShowCategoryBadgesPreference = useCallback(() => {
+    setShowCategoryBadges(false);
+    postTabMessage({ type: 'preferences_changed', patch: { showCategoryBadges: false } });
   }, []);
-  const setShowPronunciationPreference = useCallback((value: boolean) => {
-    setShowPronunciation(value);
-    postTabMessage({ type: 'preferences_changed', patch: { showPronunciation: value } });
+  const setShowPronunciationPreference = useCallback(() => {
+    setShowPronunciation(false);
+    postTabMessage({ type: 'preferences_changed', patch: { showPronunciation: false } });
   }, []);
   const setMemoryHooksEnabledPreference = useCallback((value: boolean) => {
     setMemoryHooksEnabled(value);
@@ -148,9 +148,9 @@ export function usePreferences(
 
   const applyServerPreferences = useCallback((user: SyncResponse['user']) => {
     if (user.role) setRoleState(user.role);
-    setShowEnglish(user.show_english ?? true);
-    setShowCategoryBadges(user.show_category_badges ?? false);
-    setShowPronunciation(user.show_pronunciation ?? false);
+    setShowEnglish(false);
+    setShowCategoryBadges(false);
+    setShowPronunciation(false);
     setMemoryHooksEnabled(user.memory_hooks_enabled ?? true);
     setMemoryHookDisableFromStageState(
       normalizeMemoryHookDisableFromStage(user.memory_hook_disable_from_stage)
@@ -166,12 +166,12 @@ export function usePreferences(
       if (message.type !== 'preferences_changed') return;
       const patch = message.patch;
       if (patch.role === 'cz' || patch.role === 'vi') setRoleState(patch.role);
-      if (typeof patch.showEnglish === 'boolean') setShowEnglish(patch.showEnglish);
+      if (typeof patch.showEnglish === 'boolean') setShowEnglish(false);
       if (typeof patch.showCategoryBadges === 'boolean') {
-        setShowCategoryBadges(patch.showCategoryBadges);
+        setShowCategoryBadges(false);
       }
       if (typeof patch.showPronunciation === 'boolean') {
-        setShowPronunciation(patch.showPronunciation);
+        setShowPronunciation(false);
       }
       if (typeof patch.memoryHooksEnabled === 'boolean') {
         setMemoryHooksEnabled(patch.memoryHooksEnabled);

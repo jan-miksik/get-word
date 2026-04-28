@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import Link from 'next/link';
 import type { GoogleUsageResponse, WordList } from '@/features/lists/types';
 import { GoogleUsagePanel } from './GoogleUsagePanel';
 
@@ -38,6 +39,7 @@ export function ListSidebar({
   const [creating, setCreating] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [returningToApp, setReturningToApp] = useState(false);
 
   const ownLists = lists.filter((l) => l.ownerId !== null);
   const publicLists = lists.filter((l) => l.ownerId === null && l.isPublic);
@@ -88,15 +90,28 @@ export function ListSidebar({
   return (
     <div className="flex flex-col h-full">
       <div className="p-4 border-b border-border-subtle">
-        <a
+        <Link
           href="/"
           className="inline-flex items-center gap-1 text-xs text-text-soft hover:text-accent transition-colors mb-2"
+          onClick={(event) => {
+            if (
+              event.defaultPrevented ||
+              event.button !== 0 ||
+              event.metaKey ||
+              event.altKey ||
+              event.ctrlKey ||
+              event.shiftKey
+            ) {
+              return;
+            }
+            setReturningToApp(true);
+          }}
         >
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
             <path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           Back to app
-        </a>
+        </Link>
         <h2 className="text-lg font-semibold text-text">Word Lists</h2>
       </div>
 
@@ -320,6 +335,14 @@ export function ListSidebar({
                   <GoogleUsagePanel usage={googleUsage} compact />
                 </div>
               </div>
+            </div>,
+            document.body,
+          )
+        : null}
+      {returningToApp
+        ? createPortal(
+            <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background text-text">
+              <div className="text-text-soft">Loading app...</div>
             </div>,
             document.body,
           )

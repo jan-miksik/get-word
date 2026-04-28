@@ -546,6 +546,119 @@
   background: rgba(148, 163, 184, 0.5);
 }
 
+/* Dual-handle mini-game frequency slider */
+.minigame-range-control {
+  position: relative;
+  height: 48px;
+  overflow: visible;
+}
+
+.minigame-range-track,
+.minigame-range-track-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 6px;
+  transform: translateY(-50%);
+  border-radius: 999px;
+}
+
+.minigame-range-track {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.minigame-range-track-fill {
+  background: var(--accent);
+}
+
+.minigame-range-handle {
+  position: absolute;
+  top: 50%;
+  z-index: 3;
+  display: inline-flex;
+  width: 30px;
+  height: 30px;
+  align-items: center;
+  justify-content: center;
+  transform: translate(-50%, -50%);
+  border: 2px solid var(--bg);
+  border-radius: 999px;
+  background: var(--accent);
+  color: white;
+  font-size: 0.72rem;
+  font-weight: 800;
+  line-height: 1;
+  pointer-events: none;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.22);
+}
+
+.minigame-range-input {
+  position: absolute;
+  inset: 8px 0 0;
+  z-index: 4;
+  width: 100%;
+  height: 32px;
+  margin: 0;
+  appearance: none;
+  background: transparent;
+  outline: none;
+  pointer-events: none;
+}
+
+.minigame-range-input.is-upper {
+  z-index: 5;
+}
+
+.minigame-range-input.is-front {
+  z-index: 6;
+}
+
+.minigame-range-input::-webkit-slider-runnable-track {
+  height: 32px;
+  background: transparent;
+}
+
+.minigame-range-input::-webkit-slider-thumb {
+  width: 34px;
+  height: 34px;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.minigame-range-input:active::-webkit-slider-thumb {
+  cursor: grabbing;
+}
+
+.minigame-range-input::-moz-range-track {
+  height: 32px;
+  background: transparent;
+}
+
+.minigame-range-input::-moz-range-thumb {
+  width: 34px;
+  height: 34px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  cursor: grab;
+  pointer-events: auto;
+}
+
+.minigame-range-input:active::-moz-range-thumb {
+  cursor: grabbing;
+}
+
+.minigame-range-control:focus-within .minigame-range-handle {
+  box-shadow:
+    0 0 0 3px rgba(56, 189, 248, 0.28),
+    0 8px 18px rgba(0, 0, 0, 0.22);
+}
+
 /* Theme option buttons in settings */
 .theme-option {
   display: flex;

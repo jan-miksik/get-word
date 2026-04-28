@@ -20,7 +20,7 @@ const mockSetUserCategoryFilters = vi.fn()
 const mockUpdateUserFields = vi.fn()
 const mockGetUserSubscribedItems = vi.fn()
 const mockGetUserOwnListItems = vi.fn()
-const mockGetListCategories = vi.fn()
+const mockGetCategoriesForLists = vi.fn()
 const mockGetSystemDefaultList = vi.fn()
 const mockGetWordIdToItemIdMapping = vi.fn()
 const mockGetWordListsByIds = vi.fn()
@@ -44,7 +44,7 @@ vi.mock('@/lib/db', () => ({
   updateUserFields: (...args: unknown[]) => mockUpdateUserFields(...args),
   getUserSubscribedItems: (...args: unknown[]) => mockGetUserSubscribedItems(...args),
   getUserOwnListItems: (...args: unknown[]) => mockGetUserOwnListItems(...args),
-  getListCategories: (...args: unknown[]) => mockGetListCategories(...args),
+  getCategoriesForLists: (...args: unknown[]) => mockGetCategoriesForLists(...args),
   getSystemDefaultList: (...args: unknown[]) => mockGetSystemDefaultList(...args),
   getWordIdToItemIdMapping: (...args: unknown[]) => mockGetWordIdToItemIdMapping(...args),
   getWordListsByIds: (...args: unknown[]) => mockGetWordListsByIds(...args),
@@ -72,7 +72,7 @@ describe('POST /api/auth/link-wallet', () => {
     mockUpdateUserFields.mockResolvedValue(null)
     mockGetUserSubscribedItems.mockResolvedValue([])
     mockGetUserOwnListItems.mockResolvedValue([])
-    mockGetListCategories.mockResolvedValue([])
+    mockGetCategoriesForLists.mockResolvedValue([])
     mockGetSystemDefaultList.mockResolvedValue(null)
     mockGetWordIdToItemIdMapping.mockResolvedValue(new Map())
     mockGetWordListsByIds.mockResolvedValue([])

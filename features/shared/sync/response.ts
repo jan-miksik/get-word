@@ -1,6 +1,6 @@
 import {
   getMediaAssetsByIds,
-  getListCategories,
+  getCategoriesForLists,
   getSystemDefaultList,
   getUserOwnListItems,
   getUserSubscribedItems,
@@ -105,21 +105,20 @@ export async function getHydratedWordListData(
   categoryLookup: Record<string, { name: string; position: number }>;
   listNameRows: HydratedListNames;
 }> {
-  const [subscribedItems, ownItems] = await Promise.all([
+  const [subscribedItems, ownItems, systemList] = await Promise.all([
     getUserSubscribedItems(userId),
     getUserOwnListItems(userId),
+    getSystemDefaultList(),
   ]);
   const wordListItems = [...subscribedItems, ...ownItems];
   const listIds = [...new Set(wordListItems.map((item) => item.listId))];
-  const mediaAssets = await getMediaAssetsByIds(
-    wordListItems
-      .flatMap((item) => [item.knownAudioAssetId, item.audioAssetId])
-      .filter((id): id is string => Boolean(id)),
-  );
+  const mediaAssetIds = wordListItems
+    .flatMap((item) => [item.knownAudioAssetId, item.audioAssetId])
+    .filter((id): id is string => Boolean(id));
 
-  const systemList = await getSystemDefaultList();
-  const [categoryResults, wordIdMapping, listNameRows] = await Promise.all([
-    Promise.all(listIds.map((id) => getListCategories(id))),
+  const [mediaAssets, allCategories, wordIdMapping, listNameRows] = await Promise.all([
+    getMediaAssetsByIds(mediaAssetIds),
+    getCategoriesForLists(listIds),
     systemList
       ? getWordIdToItemIdMapping(systemList.id)
       : Promise.resolve(new Map<string, string>()),
@@ -127,10 +126,8 @@ export async function getHydratedWordListData(
   ]);
 
   const categoryLookup: Record<string, { name: string; position: number }> = {};
-  for (const categories of categoryResults) {
-    for (const category of categories) {
-      categoryLookup[category.id] = { name: category.name, position: category.position };
-    }
+  for (const category of allCategories) {
+    categoryLookup[category.id] = { name: category.name, position: category.position };
   }
 
   const hydratedWordListItems = wordListItems.map((item) => {

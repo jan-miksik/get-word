@@ -9,17 +9,14 @@ export function useTheme() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const saved = localStorage.getItem('wordlink-theme') as Theme | null;
-    if (saved && ['default', 'warm', 'calm'].includes(saved)) setThemeState(saved);
-  }, []);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('wordlink-theme', theme);
+    document.documentElement.setAttribute('data-theme', 'default');
+    localStorage.setItem('wordlink-theme', 'default');
+    if (theme !== 'default') {
+      setThemeState('default');
+    }
   }, [theme]);
 
-  const setTheme = useCallback((newTheme: Theme) => setThemeState(newTheme), []);
+  const setTheme = useCallback((_newTheme: Theme) => setThemeState('default'), []);
 
   return { theme, setTheme };
 }

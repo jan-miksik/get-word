@@ -9,7 +9,28 @@ import {
 
 describe('learning app-state preferences', () => {
   beforeEach(() => {
-    localStorage.clear();
+    const store = new Map<string, string>();
+    Object.defineProperty(globalThis, 'localStorage', {
+      configurable: true,
+      value: {
+        getItem: (key: string) => store.get(key) ?? null,
+        setItem: (key: string, value: string) => {
+          store.set(key, String(value));
+        },
+        removeItem: (key: string) => {
+          store.delete(key);
+        },
+        clear: () => {
+          store.clear();
+        },
+      },
+    });
+  });
+
+  beforeEach(() => {
+    localStorage.removeItem('wordlink-active-list');
+    localStorage.removeItem('wordlink-view-mode');
+    localStorage.removeItem('wordlink-category-filters-by-list');
   });
 
   it('hydrates active list from localStorage and persists updates', () => {
@@ -39,14 +60,14 @@ describe('learning app-state preferences', () => {
     expect(localStorage.getItem('wordlink-active-list')).toBeNull();
   });
 
-  it('hydrates view mode from localStorage and persists updates', () => {
+  it('keeps view mode pinned to card and persists card mode', () => {
     localStorage.setItem('wordlink-view-mode', 'stream');
 
     const { result } = renderHook(() => useViewModePreference());
-    expect(result.current.viewMode).toBe('stream');
+    expect(result.current.viewMode).toBe('card');
 
     act(() => {
-      result.current.setViewMode('card');
+      result.current.setViewMode('stream');
     });
 
     expect(result.current.viewMode).toBe('card');

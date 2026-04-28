@@ -8,8 +8,13 @@ export function PWAInstallMenuItem({ onClick }: { onClick?: () => void }) {
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [installed, setInstalled] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   useEffect(() => {
+    const mobileQuery = window.matchMedia?.('(max-width: 767px)');
+    const syncMobileViewport = () => setIsMobileViewport(mobileQuery?.matches === true);
+
+    syncMobileViewport();
     setInstalled(isStandalone());
     setHydrated(true);
 
@@ -22,9 +27,11 @@ export function PWAInstallMenuItem({ onClick }: { onClick?: () => void }) {
       setDeferredPrompt(null);
     };
 
+    mobileQuery?.addEventListener('change', syncMobileViewport);
     window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
     window.addEventListener('appinstalled', onAppInstalled);
     return () => {
+      mobileQuery?.removeEventListener('change', syncMobileViewport);
       window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
       window.removeEventListener('appinstalled', onAppInstalled);
     };
@@ -32,7 +39,7 @@ export function PWAInstallMenuItem({ onClick }: { onClick?: () => void }) {
 
   const { isIOS } = useMemo(getInstallPlatform, []);
 
-  if (!hydrated || installed) return null;
+  if (!hydrated || !isMobileViewport || installed) return null;
   if (!deferredPrompt && !isIOS) return null;
 
   const handleInstall = async () => {

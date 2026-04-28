@@ -1,6 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
 import { SettingsPanel } from '../SettingsPanel';
 
 vi.mock('@/context/AppStateContext', () => ({
@@ -33,33 +32,45 @@ const baseProps = {
   onViewModeChange: vi.fn(),
 };
 
-describe('SettingsPanel viewMode toggle', () => {
-  it('renders a View Mode toggle', () => {
+describe('SettingsPanel settings visibility', () => {
+  it('does not render a View section', () => {
     render(<SettingsPanel {...baseProps} />);
-    expect(screen.getByText(/view mode/i)).toBeInTheDocument();
+    expect(screen.queryByText(/^view$/i)).not.toBeInTheDocument();
   });
 
-  it('shows "Card" label when viewMode is card', () => {
+  it('does not render display toggles', () => {
     render(<SettingsPanel {...baseProps} viewMode="card" />);
-    expect(screen.getByText('Card')).toBeInTheDocument();
+    expect(screen.queryByText(/show english/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/category badges/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/show pronunciation/i)).not.toBeInTheDocument();
   });
 
-  it('shows "Stream" label when viewMode is stream', () => {
-    render(<SettingsPanel {...baseProps} viewMode="stream" />);
-    expect(screen.getByText('Stream')).toBeInTheDocument();
+  it('does not render theme settings', () => {
+    render(<SettingsPanel {...baseProps} />);
+    expect(screen.queryByText(/^theme$/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /default theme/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /warm theme/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /calm theme/i })).not.toBeInTheDocument();
   });
 
-  it('calls onViewModeChange with "stream" when toggled from card', async () => {
-    const onChange = vi.fn();
-    render(<SettingsPanel {...baseProps} viewMode="card" onViewModeChange={onChange} />);
-    await userEvent.click(screen.getByRole('switch', { name: /view mode/i }));
-    expect(onChange).toHaveBeenCalledWith('stream');
+  it('keeps the mini-games switch on the section label without the old stream text', () => {
+    render(<SettingsPanel {...baseProps} />);
+    expect(screen.getByText(/mini-games/i)).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: /show mini-games in stream/i })).toBeInTheDocument();
+    expect(screen.queryByText(/show in stream/i)).not.toBeInTheDocument();
   });
 
-  it('calls onViewModeChange with "card" when toggled from stream', async () => {
-    const onChange = vi.fn();
-    render(<SettingsPanel {...baseProps} viewMode="stream" onViewModeChange={onChange} />);
-    await userEvent.click(screen.getByRole('switch', { name: /view mode/i }));
-    expect(onChange).toHaveBeenCalledWith('card');
+  it('shows the full wallet address with a copy button', () => {
+    const address = '0x1234567890abcdef1234567890abcdef12345678';
+    render(<SettingsPanel {...baseProps} isAuthenticated authAddress={address} />);
+    expect(screen.getByText(address)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /copy wallet address/i })).toBeInTheDocument();
+  });
+
+  it('does not render the install app section on desktop', () => {
+    render(<SettingsPanel {...baseProps} />);
+    expect(screen.queryByText(/^app$/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/install app/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/add to home screen/i)).not.toBeInTheDocument();
   });
 });

@@ -603,7 +603,7 @@ export default function ListsPage() {
       {!sidebarOpen && (
         <button
           type="button"
-          className="fixed right-4 z-20 rounded-full bg-accent text-background px-4 py-2.5 text-sm font-medium shadow-lg md:hidden bottom-[calc(1rem+var(--pwa-install-banner-offset,0px))]"
+          className="fixed right-4 bottom-4 z-20 rounded-full bg-accent text-background px-4 py-2.5 text-sm font-medium shadow-lg md:hidden"
           onClick={() => {
             setOpenCreateSignal((prev) => prev + 1);
             setSidebarOpen(true);

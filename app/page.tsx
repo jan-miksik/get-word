@@ -23,7 +23,15 @@ import { AppStateProvider } from '@/context/AppStateContext';
 
 export default function Home() {
   const { words, isLoading: isLoadingWords } = useWordsLoader();
-  const { isConnected, email, authProvider, address: walletAddress, signOut, signIn } = useAuth();
+  const {
+    isConnected,
+    isAuthLoading,
+    email,
+    authProvider,
+    address: walletAddress,
+    signOut,
+    signIn,
+  } = useAuth();
 
   const normalizedWords = useMemo(
     () => (words.length > 0 ? normalizeWords(words as Word[]) : []),
@@ -164,12 +172,12 @@ export default function Home() {
   });
 
   useEffect(() => {
-    if (!isHydrated || isLoadingWords || isAuthenticated || hasAutoPromptedRef.current) return;
+    if (!isHydrated || isLoadingWords || isAuthLoading || isAuthenticated || hasAutoPromptedRef.current) return;
     hasAutoPromptedRef.current = true;
     signIn();
-  }, [isHydrated, isLoadingWords, isAuthenticated, signIn]);
+  }, [isHydrated, isLoadingWords, isAuthLoading, isAuthenticated, signIn]);
 
-  if (!isHydrated || isLoadingWords || isLinkingWallet || isWaitingForLinkedProfile) {
+  if (!isHydrated || isLoadingWords || isAuthLoading || isLinkingWallet || isWaitingForLinkedProfile) {
     return <LoadingScreen />;
   }
 

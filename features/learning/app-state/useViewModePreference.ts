@@ -7,9 +7,9 @@ import type { ViewMode } from './types';
 export function useViewModePreference() {
   const [viewMode, setViewModeState] = useState<ViewMode>(() => readStoredViewMode());
 
-  const setViewMode = useCallback((mode: ViewMode) => {
-    setViewModeState(mode);
-    persistViewMode(mode);
+  const setViewMode = useCallback((_mode: ViewMode) => {
+    setViewModeState('card');
+    persistViewMode('card');
   }, []);
 
   return {

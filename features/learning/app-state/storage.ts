@@ -21,13 +21,12 @@ export function persistActiveListId(id: string | null): void {
 }
 
 export function readStoredViewMode(): ViewMode {
-  if (typeof window === 'undefined') return 'card';
-  return (localStorage.getItem(VIEW_MODE_STORAGE_KEY) as ViewMode) ?? 'card';
+  return 'card';
 }
 
 export function persistViewMode(mode: ViewMode): void {
   if (typeof window === 'undefined') return;
-  localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
+  localStorage.setItem(VIEW_MODE_STORAGE_KEY, 'card');
 }
 
 export function readStoredCategoryFiltersByList(): Record<string, string[]> {

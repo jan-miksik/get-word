@@ -6,6 +6,7 @@ const mockDisconnect = vi.fn()
 const mockFetch = vi.fn()
 let mockIsConnected = false
 let mockAddress: string | undefined = undefined
+let mockStatus: 'connected' | 'disconnected' | 'connecting' | 'reconnecting' | undefined = 'disconnected'
 let mockEmbeddedWalletInfo:
   | { user?: { email?: string; type?: string; loginMethod?: string } }
   | undefined = undefined
@@ -16,6 +17,7 @@ vi.mock('@reown/appkit/react', () => ({
     isConnected: mockIsConnected,
     address: mockAddress,
     embeddedWalletInfo: mockEmbeddedWalletInfo,
+    status: mockStatus,
   }),
   useDisconnect: () => ({ disconnect: mockDisconnect }),
 }))
@@ -28,6 +30,7 @@ describe('useAuth', () => {
   beforeEach(() => {
     mockIsConnected = false
     mockAddress = undefined
+    mockStatus = 'disconnected'
     mockEmbeddedWalletInfo = undefined
     vi.clearAllMocks()
     vi.stubGlobal('fetch', mockFetch)
@@ -40,19 +43,37 @@ describe('useAuth', () => {
     expect(result.current.address).toBeUndefined()
     expect(result.current.email).toBeUndefined()
     expect(result.current.authProvider).toBeUndefined()
+    expect(result.current.status).toBe('disconnected')
+    expect(result.current.isAuthLoading).toBe(false)
   })
 
   it('returns connected state with address', () => {
     mockIsConnected = true
     mockAddress = '0xABC123'
+    mockStatus = 'connected'
     const { result } = renderHook(() => useAuth())
     expect(result.current.isConnected).toBe(true)
     expect(result.current.address).toBe('0xABC123')
+    expect(result.current.status).toBe('connected')
+  })
+
+  it('reports loading while reconnecting a persisted wallet session', () => {
+    mockStatus = 'reconnecting'
+    const { result } = renderHook(() => useAuth())
+    expect(result.current.isAuthLoading).toBe(true)
+  })
+
+  it('treats an unknown initial status as loading', () => {
+    mockStatus = undefined
+    const { result } = renderHook(() => useAuth())
+    expect(result.current.status).toBe('reconnecting')
+    expect(result.current.isAuthLoading).toBe(true)
   })
 
   it('returns email from embedded wallet info', () => {
     mockIsConnected = true
     mockAddress = '0xABC123'
+    mockStatus = 'connected'
     mockEmbeddedWalletInfo = { user: { email: 'user@example.com' } }
     const { result } = renderHook(() => useAuth())
     expect(result.current.email).toBe('user@example.com')
@@ -61,6 +82,7 @@ describe('useAuth', () => {
   it('returns auth provider from embedded wallet info', () => {
     mockIsConnected = true
     mockAddress = '0xABC123'
+    mockStatus = 'connected'
     mockEmbeddedWalletInfo = { user: { email: 'user@example.com', type: 'apple' } }
     const { result } = renderHook(() => useAuth())
     expect(result.current.authProvider).toBe('apple')
@@ -89,6 +111,7 @@ describe('useAuth', () => {
 
   it('openAccountMenu opens account view when connected', () => {
     mockIsConnected = true
+    mockStatus = 'connected'
     mockOpen.mockResolvedValue(undefined)
     const { result } = renderHook(() => useAuth())
     result.current.openAccountMenu()

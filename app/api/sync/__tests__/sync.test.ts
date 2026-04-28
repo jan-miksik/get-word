@@ -18,7 +18,7 @@ const mockSetUserCategoryFilters = vi.fn()
 const mockGetUserSubscribedItems = vi.fn()
 const mockGetUserOwnListItems = vi.fn()
 const mockGetMediaAssetsByIds = vi.fn()
-const mockGetListCategories = vi.fn()
+const mockGetCategoriesForLists = vi.fn()
 const mockGetSystemDefaultList = vi.fn()
 const mockGetWordIdToItemIdMapping = vi.fn()
 const mockGetWordListsByIds = vi.fn()
@@ -45,7 +45,7 @@ vi.mock('@/lib/db', () => ({
   getUserSubscribedItems: (...args: unknown[]) => mockGetUserSubscribedItems(...args),
   getUserOwnListItems: (...args: unknown[]) => mockGetUserOwnListItems(...args),
   getMediaAssetsByIds: (...args: unknown[]) => mockGetMediaAssetsByIds(...args),
-  getListCategories: (...args: unknown[]) => mockGetListCategories(...args),
+  getCategoriesForLists: (...args: unknown[]) => mockGetCategoriesForLists(...args),
   getSystemDefaultList: (...args: unknown[]) => mockGetSystemDefaultList(...args),
   getWordIdToItemIdMapping: (...args: unknown[]) => mockGetWordIdToItemIdMapping(...args),
   getWordListsByIds: (...args: unknown[]) => mockGetWordListsByIds(...args),
@@ -106,7 +106,7 @@ describe('GET /api/sync', () => {
     mockGetUserSubscribedItems.mockResolvedValue([])
     mockGetUserOwnListItems.mockResolvedValue([])
     mockGetMediaAssetsByIds.mockResolvedValue(new Map())
-    mockGetListCategories.mockResolvedValue([])
+    mockGetCategoriesForLists.mockResolvedValue([])
     mockGetSystemDefaultList.mockResolvedValue(null)
     mockGetWordIdToItemIdMapping.mockResolvedValue(new Map())
     mockGetWordListsByIds.mockResolvedValue([])
@@ -213,7 +213,7 @@ describe('POST /api/sync', () => {
     mockGetUserSubscribedItems.mockResolvedValue([])
     mockGetUserOwnListItems.mockResolvedValue([])
     mockGetMediaAssetsByIds.mockResolvedValue(new Map())
-    mockGetListCategories.mockResolvedValue([])
+    mockGetCategoriesForLists.mockResolvedValue([])
     mockGetSystemDefaultList.mockResolvedValue(null)
     mockGetWordIdToItemIdMapping.mockResolvedValue(new Map())
     mockGetWordListsByIds.mockResolvedValue([])

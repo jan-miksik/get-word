@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import type { MinigameFrequencyRange } from '@/lib/minigames';
 import { MINIGAME_FREQUENCY_MIN, MINIGAME_FREQUENCY_MAX } from '@/lib/minigames';
 import { MEMORY_HOOK_DISABLE_STAGE_OPTIONS, STAGES } from '@/lib/words';
@@ -36,25 +36,74 @@ function ToggleSwitch({
   );
 }
 
-function Section({ label, children }: { label: string; children: ReactNode }) {
+function Section({
+  label,
+  action,
+  children,
+}: {
+  label: string;
+  action?: ReactNode;
+  children: ReactNode;
+}) {
   return (
     <div className="rounded-xl border border-border-subtle bg-background-elevated/50 p-4 flex flex-col gap-3">
-      <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft/70">
-        {label}
-      </p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft/70">
+          {label}
+        </p>
+        {action}
+      </div>
       {children}
     </div>
   );
 }
 
-const sliderClass = [
-  'w-full appearance-none cursor-pointer outline-none bg-transparent',
-  '[&::-webkit-slider-runnable-track]:h-1.5 [&::-webkit-slider-runnable-track]:rounded-full [&::-webkit-slider-runnable-track]:bg-white/20',
-  '[&::-webkit-slider-thumb]:appearance-none [&::-webkit-slider-thumb]:w-4 [&::-webkit-slider-thumb]:h-4 [&::-webkit-slider-thumb]:rounded-full [&::-webkit-slider-thumb]:bg-accent [&::-webkit-slider-thumb]:border-none [&::-webkit-slider-thumb]:cursor-pointer [&::-webkit-slider-thumb]:-mt-[5px] [&::-webkit-slider-thumb]:shadow',
-  '[&::-moz-range-track]:h-1.5 [&::-moz-range-track]:rounded-full [&::-moz-range-track]:bg-white/20',
-  '[&::-moz-range-thumb]:w-4 [&::-moz-range-thumb]:h-4 [&::-moz-range-thumb]:rounded-full [&::-moz-range-thumb]:bg-accent [&::-moz-range-thumb]:border-none [&::-moz-range-thumb]:cursor-pointer',
-  'focus-visible:outline-none',
-].join(' ');
+function AddressWithCopy({
+  address,
+  copied,
+  onCopy,
+}: {
+  address: string;
+  copied: boolean;
+  onCopy: (address: string) => void | Promise<void>;
+}) {
+  return (
+    <div className="flex items-start gap-2">
+      <code className="min-w-0 flex-1 break-all rounded-lg bg-background/70 px-2.5 py-2 font-mono text-[0.68rem] leading-relaxed text-text-soft">
+        {address}
+      </code>
+      <button
+        type="button"
+        onClick={() => void onCopy(address)}
+        className="shrink-0 rounded-lg border border-border-subtle bg-background px-2.5 py-2 text-xs font-semibold text-text-soft transition-colors hover:border-accent/50 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+        aria-label="Copy wallet address"
+      >
+        {copied ? 'Copied' : 'Copy'}
+      </button>
+    </div>
+  );
+}
+
+async function copyTextToClipboard(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  try {
+    document.execCommand('copy');
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
 
 interface SettingsPanelProps {
   minigameFrequency: MinigameFrequencyRange;
@@ -72,8 +121,6 @@ interface SettingsPanelProps {
 export function SettingsPanel({
   minigameFrequency,
   onMinigameFrequencyChange,
-  viewMode,
-  onViewModeChange,
   isOpen,
   onClose,
   isAuthenticated,
@@ -84,18 +131,10 @@ export function SettingsPanel({
   const {
     role,
     setRole,
-    showEnglish,
-    setShowEnglish,
-    showCategoryBadges,
-    setShowCategoryBadges,
-    showPronunciation,
-    setShowPronunciation,
     memoryHooksEnabled,
     setMemoryHooksEnabled,
     memoryHookDisableFromStage,
     setMemoryHookDisableFromStage,
-    theme,
-    setTheme,
     userId,
     userWalletAddress,
     userEmail,
@@ -103,6 +142,14 @@ export function SettingsPanel({
 
   const minFreq = minigameFrequency !== 'off' ? minigameFrequency.min : 1;
   const maxFreq = minigameFrequency !== 'off' ? minigameFrequency.max : 3;
+  const minFreqPercent =
+    ((minFreq - MINIGAME_FREQUENCY_MIN) / (MINIGAME_FREQUENCY_MAX - MINIGAME_FREQUENCY_MIN)) *
+    100;
+  const maxFreqPercent =
+    ((maxFreq - MINIGAME_FREQUENCY_MIN) / (MINIGAME_FREQUENCY_MAX - MINIGAME_FREQUENCY_MIN)) *
+    100;
+  const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
 
   const handleMinChange = useCallback(
     (value: number) => {
@@ -121,6 +168,30 @@ export function SettingsPanel({
     },
     [minigameFrequency, onMinigameFrequencyChange]
   );
+
+  const handleCopyAddress = useCallback(async (address: string) => {
+    try {
+      await copyTextToClipboard(address);
+      setCopiedAddress(address);
+    } catch {
+      // If the browser blocks clipboard access, keep the address visible for manual copy.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!copiedAddress) return;
+    const timeout = window.setTimeout(() => setCopiedAddress(null), 1800);
+    return () => window.clearTimeout(timeout);
+  }, [copiedAddress]);
+
+  useEffect(() => {
+    const mobileQuery = window.matchMedia?.('(max-width: 767px)');
+    const syncMobileViewport = () => setIsMobileViewport(mobileQuery?.matches === true);
+
+    syncMobileViewport();
+    mobileQuery?.addEventListener('change', syncMobileViewport);
+    return () => mobileQuery?.removeEventListener('change', syncMobileViewport);
+  }, []);
 
   const displayAddress = authAddress || userWalletAddress;
 
@@ -150,34 +221,6 @@ export function SettingsPanel({
               </button>
             )}
           </div>
-
-          {/* Display */}
-          <Section label="Display">
-            <div className="flex items-center justify-between py-0.5">
-              <span className="text-sm text-text">Show English</span>
-              <ToggleSwitch
-                checked={showEnglish}
-                onChange={setShowEnglish}
-                ariaLabel="Show English"
-              />
-            </div>
-            <div className="flex items-center justify-between py-0.5">
-              <span className="text-sm text-text">Category badges</span>
-              <ToggleSwitch
-                checked={showCategoryBadges}
-                onChange={setShowCategoryBadges}
-                ariaLabel="Show category badges"
-              />
-            </div>
-            <div className="flex items-center justify-between py-0.5">
-              <span className="text-sm text-text">Show pronunciation</span>
-              <ToggleSwitch
-                checked={showPronunciation}
-                onChange={setShowPronunciation}
-                ariaLabel="Show pronunciation"
-              />
-            </div>
-          </Section>
 
           {/* Memory Hooks */}
           <Section label="Memory Hooks">
@@ -237,123 +280,80 @@ export function SettingsPanel({
           </Section>
 
           {/* Mini-games */}
-          <Section label="Mini-games">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-text">Show in stream</span>
+          <Section
+            label="Mini-games"
+            action={
               <ToggleSwitch
                 checked={minigameFrequency !== 'off'}
                 onChange={(on) => onMinigameFrequencyChange(on ? { min: 1, max: 3 } : 'off')}
-                ariaLabel="Enable mini-games"
+                ariaLabel="Show mini-games in stream"
               />
-            </div>
+            }
+          >
             {minigameFrequency !== 'off' && (
               <div className="flex flex-col gap-3 pt-1">
-                <p className="m-0 text-xs text-text-soft">Cards between games</p>
-                <div className="flex flex-col gap-2">
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-text-soft w-6 shrink-0">Min</span>
-                    <input
-                      type="range"
-                      min={MINIGAME_FREQUENCY_MIN}
-                      max={MINIGAME_FREQUENCY_MAX}
-                      value={minFreq}
-                      onChange={(e) => handleMinChange(Number(e.target.value))}
-                      className={sliderClass}
-                      aria-label="Minimum cards between games"
-                    />
-                    <span className="w-5 text-center text-sm font-medium tabular-nums text-text shrink-0">
-                      {minFreq}
-                    </span>
+                <div className="flex items-center justify-between gap-3">
+                  <p className="m-0 text-xs text-text-soft">Cards between games</p>
+                  <div className="rounded-full bg-background/80 px-2.5 py-1 text-xs font-semibold tabular-nums text-text">
+                    {minFreq}–{maxFreq}
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-text-soft w-6 shrink-0">Max</span>
-                    <input
-                      type="range"
-                      min={MINIGAME_FREQUENCY_MIN}
-                      max={MINIGAME_FREQUENCY_MAX}
-                      value={maxFreq}
-                      onChange={(e) => handleMaxChange(Number(e.target.value))}
-                      className={sliderClass}
-                      aria-label="Maximum cards between games"
-                    />
-                    <span className="w-5 text-center text-sm font-medium tabular-nums text-text shrink-0">
-                      {maxFreq}
-                    </span>
+                </div>
+                <div className="minigame-range-control">
+                  <div className="minigame-range-track" />
+                  <div
+                    className="minigame-range-track-fill"
+                    style={{
+                      left: `${minFreqPercent}%`,
+                      right: `${100 - maxFreqPercent}%`,
+                    }}
+                  />
+                  <div
+                    className="minigame-range-handle"
+                    style={{ left: `${minFreqPercent}%` }}
+                    aria-hidden
+                  >
+                    {minFreq}
                   </div>
+                  <div
+                    className="minigame-range-handle"
+                    style={{ left: `${maxFreqPercent}%` }}
+                    aria-hidden
+                  >
+                    {maxFreq}
+                  </div>
+                  <input
+                    type="range"
+                    min={MINIGAME_FREQUENCY_MIN}
+                    max={MINIGAME_FREQUENCY_MAX}
+                    value={minFreq}
+                    onChange={(e) => handleMinChange(Number(e.target.value))}
+                    className={`minigame-range-input ${minFreq >= maxFreq ? 'is-front' : ''}`}
+                    aria-label="Minimum cards between games"
+                  />
+                  <input
+                    type="range"
+                    min={MINIGAME_FREQUENCY_MIN}
+                    max={MINIGAME_FREQUENCY_MAX}
+                    value={maxFreq}
+                    onChange={(e) => handleMaxChange(Number(e.target.value))}
+                    className="minigame-range-input is-upper"
+                    aria-label="Maximum cards between games"
+                  />
+                </div>
+                <div className="flex items-center justify-between text-[0.65rem] font-medium uppercase tracking-wide text-text-soft/60">
+                  <span>{MINIGAME_FREQUENCY_MIN}</span>
+                  <span>{MINIGAME_FREQUENCY_MAX}</span>
                 </div>
               </div>
             )}
           </Section>
 
-          {/* View Mode */}
-          <Section label="View">
-            <div className="flex items-center justify-between">
-              <span className="text-sm text-text">View mode</span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={viewMode === 'stream'}
-                aria-label="view mode"
-                onClick={() => onViewModeChange(viewMode === 'card' ? 'stream' : 'card')}
-                className="flex items-center rounded-xl bg-background border border-border-subtle p-1 gap-0.5 cursor-pointer"
-              >
-                <span
-                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 ${
-                    viewMode === 'card' ? 'bg-accent text-white shadow-sm' : 'text-text-soft'
-                  }`}
-                >
-                  Card
-                </span>
-                <span
-                  className={`px-3 py-1.5 text-xs font-medium rounded-lg transition-all duration-150 ${
-                    viewMode === 'stream' ? 'bg-accent text-white shadow-sm' : 'text-text-soft'
-                  }`}
-                >
-                  Stream
-                </span>
-              </button>
-            </div>
-          </Section>
-
-          {/* Theme */}
-          <Section label="Theme">
-            <div className="flex gap-2">
-              {([
-                { id: 'default', label: 'Dark', bg: 'linear-gradient(135deg, #060a18 60%, #0d1626)', dot: '#38bdf8' },
-                { id: 'warm', label: 'Warm', bg: 'linear-gradient(135deg, #FBF8F2 60%, #F0EBE1)', dot: '#E66F2D' },
-                { id: 'calm', label: 'Calm', bg: 'linear-gradient(135deg, #F0F4F8 60%, #E2EBF4)', dot: '#5B8FB9' },
-              ] as const).map(({ id, label, bg, dot }) => (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => setTheme(id)}
-                  aria-label={`${label} theme`}
-                  className={`flex-1 flex flex-col items-center gap-1.5 p-2 rounded-xl border-2 bg-transparent cursor-pointer transition-all duration-150 ${
-                    theme === id ? 'border-accent' : 'border-border-subtle hover:border-accent/40'
-                  }`}
-                >
-                  <div
-                    className="w-full rounded-lg overflow-hidden flex items-end p-1.5"
-                    style={{ background: bg, aspectRatio: '4/3' }}
-                  >
-                    <div className="h-1 rounded-full w-1/2" style={{ background: dot }} />
-                  </div>
-                  <span
-                    className={`text-[0.7rem] font-semibold ${
-                      theme === id ? 'text-accent' : 'text-text-soft'
-                    }`}
-                  >
-                    {label}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </Section>
-
           {/* App */}
-          <Section label="App">
-            <PWAInstallSection />
-          </Section>
+          {isMobileViewport && (
+            <Section label="App">
+              <PWAInstallSection />
+            </Section>
+          )}
 
           {/* Account */}
           <div className="border-t border-border-subtle pt-4 flex flex-col gap-2">
@@ -367,17 +367,17 @@ export function SettingsPanel({
                   {authEmail ? (
                     <code className="text-xs text-text-soft truncate font-mono">{authEmail}</code>
                   ) : displayAddress ? (
-                    <code className="text-xs text-text-soft font-mono">
-                      {displayAddress.slice(0, 8)}…{displayAddress.slice(-6)}
-                    </code>
+                    <span className="text-xs text-text-soft">Wallet connected</span>
                   ) : (
                     <span className="text-xs text-text-soft">Connected</span>
                   )}
                 </div>
-                {authEmail && displayAddress && (
-                  <code className="text-xs text-text-soft/60 font-mono">
-                    {displayAddress.slice(0, 8)}…{displayAddress.slice(-6)}
-                  </code>
+                {displayAddress && (
+                  <AddressWithCopy
+                    address={displayAddress}
+                    copied={copiedAddress === displayAddress}
+                    onCopy={handleCopyAddress}
+                  />
                 )}
                 {onSignOut && (
                   <button
@@ -396,9 +396,11 @@ export function SettingsPanel({
                   <code className="text-xs text-text-soft/60 font-mono break-all">{userEmail}</code>
                 )}
                 {userWalletAddress && (
-                  <code className="text-xs text-text-soft/60 font-mono">
-                    {userWalletAddress.slice(0, 8)}…{userWalletAddress.slice(-6)}
-                  </code>
+                  <AddressWithCopy
+                    address={userWalletAddress}
+                    copied={copiedAddress === userWalletAddress}
+                    onCopy={handleCopyAddress}
+                  />
                 )}
               </div>
             )}

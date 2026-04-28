@@ -1,4 +1,4 @@
-import { and, asc, eq, max } from 'drizzle-orm';
+import { and, asc, eq, inArray, max } from 'drizzle-orm';
 import { db } from '../../client';
 import {
   wordCategories,
@@ -12,6 +12,17 @@ export async function getListCategories(listId: string): Promise<WordCategory[]>
     .select()
     .from(wordCategories)
     .where(eq(wordCategories.listId, listId))
+    .orderBy(asc(wordCategories.position));
+}
+
+export async function getCategoriesForLists(
+  listIds: string[],
+): Promise<WordCategory[]> {
+  if (listIds.length === 0) return [];
+  return db
+    .select()
+    .from(wordCategories)
+    .where(inArray(wordCategories.listId, listIds))
     .orderBy(asc(wordCategories.position));
 }
 
