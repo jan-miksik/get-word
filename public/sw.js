@@ -8,6 +8,7 @@ const RUNTIME_CACHE = `wordlink-runtime-${VERSION}`;
 const PRECACHE_URLS = [
   '/offline.html',
   '/manifest.webmanifest',
+  '/get-word-logo.svg',
   '/favicon.ico',
   '/favicon-16x16.png',
   '/favicon-32x32.png',

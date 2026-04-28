@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { AppLogo } from '@/components/AppLogo';
 
 const WORDS = [
   'ahoj',
@@ -85,13 +86,12 @@ export function LoadingScreen() {
         </span>
       ))}
 
-      {/* App name */}
-      <p
-        className="text-white/20 text-[0.65rem] tracking-[0.45em] uppercase mb-14"
-        style={{ fontVariant: 'small-caps' }}
-      >
-        {/* wordlink */}
-      </p>
+      <AppLogo
+        size={78}
+        showLabel
+        className="mb-10 flex-col gap-4"
+        labelClassName="text-white/55 text-[0.68rem] tracking-[0.42em]"
+      />
 
       {/* Typing area */}
       <div className="flex items-center justify-center min-h-[3.5rem]">

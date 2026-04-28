@@ -349,6 +349,7 @@ export function AudioStep({
 }: AudioStepProps) {
   const [rows, setRows] = useState<AudioRow[]>(() => buildAudioRows(items, list, audioSide));
   const [generating, setGenerating] = useState(false);
+  const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(() => new Set());
@@ -790,11 +791,6 @@ export function AudioStep({
     await generateRows(toGenerate, toGenerate.some((row) => Boolean(row.audioUrl)));
   }, [generateRows, googlePausedMessage, isGoogleTtsPaused, rows]);
 
-  const handleUseExistingRow = useCallback(async (row: AudioRow) => {
-    if (!getSelectedReusableOption(row)?.audioUrl) return;
-    await lookupReusableAudio([row], true);
-  }, [lookupReusableAudio]);
-
   const handleUseAllExisting = useCallback(async () => {
     const reusableRows = rows.filter((row) => {
       const selected = getSelectedReusableOption(row);
@@ -814,16 +810,6 @@ export function AudioStep({
     await generateRows([row], true);
   }, [generateRows, googlePausedMessage, isGoogleTtsPaused]);
 
-  const handleRegenerateAll = useCallback(async () => {
-    if (isGoogleTtsPaused) {
-      setError(googlePausedMessage);
-      return;
-    }
-    if (audioRef.current) audioRef.current.pause();
-    playQueueRef.current = [];
-    setPlayingId(null);
-    await generateRows(rows, true);
-  }, [generateRows, googlePausedMessage, isGoogleTtsPaused, rows]);
 
   const playRow = useCallback(async (row: AudioRow, source: AudioSourceCandidate) => {
     if (audioRef.current) {
@@ -947,13 +933,24 @@ export function AudioStep({
     setPlayingId(null);
   }, []);
 
-  const handleReusableSelectionChange = useCallback((rowId: string, assetId: string) => {
+  const handleReusableSelectionChange = useCallback(async (row: AudioRow, assetId: string) => {
+    const updatedRow = { ...row, selectedReusableAssetId: assetId };
     setRows((prev) =>
-      prev.map((row) =>
-        row.id === rowId ? { ...row, selectedReusableAssetId: assetId } : row,
-      ),
+      prev.map((r) => r.id === row.id ? updatedRow : r),
     );
-  }, []);
+    if (getSelectedReusableOption(updatedRow)?.audioUrl) {
+      await lookupReusableAudio([updatedRow], true);
+    }
+  }, [lookupReusableAudio]);
+
+  const handleComplete = useCallback(async () => {
+    setCompleting(true);
+    try {
+      await onComplete();
+    } finally {
+      setCompleting(false);
+    }
+  }, [onComplete]);
 
   useEffect(() => {
     return () => {
@@ -1012,17 +1009,6 @@ export function AudioStep({
             {generating ? 'Generating...' : `Generate audio (${needsGenCount})`}
           </button>
 
-          {rows.length > 0 && (
-            <button
-              type="button"
-              disabled={generating || regeneratingIds.size > 0 || isGoogleTtsPaused}
-              className="rounded-lg border border-border-subtle px-3 py-1.5 text-xs text-text transition-colors hover:bg-background/50 disabled:opacity-50"
-              onClick={handleRegenerateAll}
-            >
-              {readyCount > 0 ? 'Generate all new' : 'Generate new'}
-            </button>
-          )}
-
           {rows.some((row) => Boolean(getPreviewSource(row))) && (
             <button
               type="button"
@@ -1064,11 +1050,6 @@ export function AudioStep({
             const previewSource = getPreviewSource(row);
             const canPlay = Boolean(previewSource);
             const selectedReusable = getSelectedReusableOption(row);
-            const selectedMatchesCurrent = Boolean(
-              row.audioAssetId
-              && row.audioStatus === 'ready'
-              && row.selectedReusableAssetId === row.audioAssetId,
-            );
 
             return (
               <div
@@ -1110,11 +1091,6 @@ export function AudioStep({
                     <span className="block break-words text-xs text-text-soft">
                       {row.supportingText}
                     </span>
-                    {row.reusableOptions.length > 0 && (
-                      <span className="mt-1 block text-xs text-done">
-                        {row.reusableOptions.length} saved version{row.reusableOptions.length === 1 ? '' : 's'} available.
-                      </span>
-                    )}
                     {playbackError && (
                       <span className="mt-1 block break-words text-xs text-danger">
                         {playbackError}
@@ -1124,29 +1100,19 @@ export function AudioStep({
                 </div>
 
                 <div className="flex shrink-0 flex-wrap items-center gap-2 pl-11 sm:pl-0 sm:justify-end">
-                  {row.reusableOptions.length > 0 && (
+                  {row.reusableOptions.length > 1 && (
                     <select
                       value={row.selectedReusableAssetId ?? selectedReusable?.assetId ?? ''}
-                      onChange={(event) => handleReusableSelectionChange(row.id, event.target.value)}
-                      className="max-w-[10rem] rounded-md border border-border-subtle bg-background px-2.5 py-1 text-xs text-text"
+                      onChange={(event) => void handleReusableSelectionChange(row, event.target.value)}
+                      disabled={generating || row.reuseStatus === 'checking'}
+                      className="max-w-[10rem] rounded-md border border-border-subtle bg-background px-2.5 py-1 text-xs text-text disabled:opacity-50"
                     >
                       {row.reusableOptions.map((option, index) => (
                         <option key={option.assetId} value={option.assetId}>
-                          {`Version ${index + 1}`}
+                          {`Version ${index + 1} (${row.reusableOptions.length})`}
                         </option>
                       ))}
                     </select>
-                  )}
-
-                  {row.reusableOptions.length > 0 && (
-                    <button
-                      type="button"
-                      disabled={generating || row.reuseStatus === 'checking' || selectedMatchesCurrent || !selectedReusable?.audioUrl}
-                      className="shrink-0 rounded-md border border-done/40 bg-done/10 px-2.5 py-1 text-xs text-done transition-colors hover:bg-done/20 disabled:opacity-50"
-                      onClick={() => void handleUseExistingRow(row)}
-                    >
-                      {selectedMatchesCurrent ? 'Current' : 'Use selected'}
-                    </button>
                   )}
 
                   <button
@@ -1199,10 +1165,17 @@ export function AudioStep({
           </button>
           <button
             type="button"
-            className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-accent-strong"
-            onClick={onComplete}
+            disabled={completing}
+            className="flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-accent-strong disabled:opacity-70"
+            onClick={() => void handleComplete()}
           >
-            Continue
+            {completing && (
+              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            )}
+            {audioSide === 'known' ? 'Confirm' : 'Continue'}
           </button>
         </div>
       </div>

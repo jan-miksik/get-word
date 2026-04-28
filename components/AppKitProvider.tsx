@@ -11,7 +11,7 @@ const metadata = {
   name: 'WordLink',
   description: 'Learn Czech and Vietnamese with spaced repetition',
   url: typeof window !== 'undefined' ? window.location.origin : 'https://wordlink.app',
-  icons: [],
+  icons: ['/get-word-logo.svg'],
 }
 
 createAppKit({

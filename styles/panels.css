@@ -16,6 +16,7 @@
 /* Mobile: full-viewport overlay, modal card at least 4rem from top, scrollable */
 .settings-panel.is-open {
   display: block;
+  position: fixed;
   max-width: none;
   margin: 0;
   padding: 0;
@@ -97,6 +98,7 @@
 
 .progress-panel.is-open {
   display: block;
+  position: fixed;
   inset: 0;
   max-width: none;
   margin: 0;
@@ -178,6 +180,7 @@
 
 .memory-hooks-panel.is-open {
   display: block;
+  position: fixed;
   inset: 0;
   max-width: none;
   margin: 0;
@@ -265,6 +268,7 @@
 
 .category-panel.is-open {
   display: block;
+  position: fixed;
   inset: 0;
   max-width: none;
   margin: 0;
