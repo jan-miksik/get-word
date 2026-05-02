@@ -7,7 +7,7 @@ Language learning app (Czech ↔ Vietnamese) built with **Next.js** + **Supabase
 - **Next.js 15** (React 19)
 - **Supabase PostgreSQL**
 - **Drizzle ORM** (`drizzle-orm`, `drizzle-kit`)
-- **Tailwind v4** (CLI build to `app/.generated/tailwind.css`)
+- **Tailwind v4** (compiled by Next/PostCSS from `app/tailwind.css`)
 - **@tanstack/react-virtual** for performant lists
 
 ### Local development
@@ -18,7 +18,8 @@ cp .env.example .env.local
 pnpm run dev
 ```
 
-App runs on `http://localhost:3000`.
+App runs on `http://localhost:3000` with Turbopack. Use `pnpm run dev:fast`
+to disable dev source maps during tight UI/state iteration.
 
 ### Environment variables
 

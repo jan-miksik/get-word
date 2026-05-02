@@ -20,6 +20,8 @@ import { LoadingScreen } from '@/components/LoadingScreen';
 import { useDueTimer } from '@/hooks/useDueTimer';
 import { useAuth } from '@/hooks/useAuth';
 import { AppStateProvider } from '@/context/AppStateContext';
+import { I18nProvider } from '@/components/I18nProvider';
+import { LearningLanguageOnboarding } from '@/components/LearningLanguageOnboarding';
 
 export default function Home() {
   const { words, isLoading: isLoadingWords } = useWordsLoader();
@@ -73,6 +75,11 @@ export default function Home() {
     userId,
     userEmail,
     userWalletAddress,
+    learningLanguageFrom,
+    learningLanguageTo,
+    onboardingCompletedAt,
+    setLearningLanguages,
+    setActiveListId,
   } = appState;
 
   // Use synced words (from word_list_items) when available, fall back to static
@@ -177,44 +184,51 @@ export default function Home() {
     signIn();
   }, [isHydrated, isLoadingWords, isAuthLoading, isAuthenticated, signIn]);
 
-  if (!isHydrated || isLoadingWords || isAuthLoading || isLinkingWallet || isWaitingForLinkedProfile) {
-    return <LoadingScreen />;
-  }
-
-  if (!isAuthenticated) {
-    return <AuthRequiredCard onSignIn={signIn} />;
-  }
-
   return (
     <AppStateProvider value={appState}>
-      <LearningStudyContent
-        viewMode={viewMode}
-        onViewModeChange={setViewMode}
-        minigameFrequency={minigameFrequency}
-        onMinigameFrequencyChange={(f) => setMinigameFrequency(f)}
-        isAuthenticated={isAuthenticated}
-        authEmail={displayEmail}
-        authAddress={displayAddress}
-        onSignOut={async () => {
-          await signOut();
-          window.location.assign('/');
-        }}
-        categories={categories}
-        progressStats={progressStats}
-        phrasesCallbackRef={phrasesCallbackRef}
-        phrasesScrollElement={phrasesScrollElement}
-        filteredWords={filteredWords}
-        cardDeckGroups={cardDeckGroups}
-        streamGroupedWords={streamGroupedWords}
-        renderCardForDeck={renderCardForDeck}
-        renderMiniGameForDeck={renderMiniGameForDeck}
-        renderCard={renderCard}
-        renderMiniGame={renderMiniGame}
-        dueWordsCount={dueWords.length}
-        showNotReady={showNotReady}
-        settlingCount={settlingWords.length}
-        onToggleShowNotReady={() => setShowNotReady(!showNotReady)}
-      />
+      <I18nProvider language={appState.settingsLanguage}>
+        {!isHydrated || isLoadingWords || isAuthLoading || isLinkingWallet || isWaitingForLinkedProfile ? (
+          <LoadingScreen />
+        ) : !isAuthenticated ? (
+          <AuthRequiredCard onSignIn={signIn} />
+        ) : !onboardingCompletedAt || !learningLanguageFrom || !learningLanguageTo ? (
+          <LearningLanguageOnboarding
+            initialFrom={learningLanguageFrom}
+            initialTo={learningLanguageTo}
+            onComplete={setLearningLanguages}
+            onSelectList={setActiveListId}
+          />
+        ) : (
+          <LearningStudyContent
+            viewMode={viewMode}
+            onViewModeChange={setViewMode}
+            minigameFrequency={minigameFrequency}
+            onMinigameFrequencyChange={(f) => setMinigameFrequency(f)}
+            isAuthenticated={isAuthenticated}
+            authEmail={displayEmail}
+            authAddress={displayAddress}
+            onSignOut={async () => {
+              await signOut();
+              window.location.assign('/');
+            }}
+            categories={categories}
+            progressStats={progressStats}
+            phrasesCallbackRef={phrasesCallbackRef}
+            phrasesScrollElement={phrasesScrollElement}
+            filteredWords={filteredWords}
+            cardDeckGroups={cardDeckGroups}
+            streamGroupedWords={streamGroupedWords}
+            renderCardForDeck={renderCardForDeck}
+            renderMiniGameForDeck={renderMiniGameForDeck}
+            renderCard={renderCard}
+            renderMiniGame={renderMiniGame}
+            dueWordsCount={dueWords.length}
+            showNotReady={showNotReady}
+            settlingCount={settlingWords.length}
+            onToggleShowNotReady={() => setShowNotReady(!showNotReady)}
+          />
+        )}
+      </I18nProvider>
     </AppStateProvider>
   );
 }

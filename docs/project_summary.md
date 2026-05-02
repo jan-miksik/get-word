@@ -1,103 +1,62 @@
 ---
-name: Project Summary — Wordlink
-description: High-level overview of the Wordlink language-learning app — stack, architecture, key files, and conventions
+name: Project Summary - Get Word
+description: AI-friendly high-level overview of the Get Word language-learning app, product idea, stack, and architecture
 type: project
 ---
 
-## What it is
+# Get Word Project Summary
 
-**Wordlink** is a personal language-learning web app (Next.js 15 / React 19). It presents vocabulary cards with spaced repetition, inline minigames, and wallet-based identity. Deployed on Vercel, backed by Supabase Postgres.
+Use this as compact context when starting a new AI chat about the project.
 
-**Why:** Self-hosted alternative to Anki / Duolingo, with wallet auth so progress is tied to a crypto wallet rather than an account.
+## Copy-Paste Overview
 
-## Tech stack
+Get Word is a personal language-learning web app for building, translating, listening to, and studying vocabulary lists. The product idea is a self-owned alternative to tools like Anki or Duolingo: users can create language pairs, import or edit word lists, generate translations and pronunciation audio, then study with spaced repetition, card/stream views, memory hooks, category filters, and inline minigames.
 
-| Layer | Choice |
-|---|---|
-| Framework | Next.js 15 (App Router), React 19 |
-| Styling | Tailwind v4 via `@tailwindcss/cli` (not PostCSS). Input: `app/tailwind.css`, output: `app/.generated/tailwind.css` (gitignored). **Always run `pnpm dev`**, not `next dev` directly. |
-| Database | Postgres via Supabase, Drizzle ORM |
-| Auth | Device auth (cookie UUID) + optional wallet auth (Reown/WalletConnect + wagmi) |
-| Package manager | pnpm |
-| Tests | Vitest (`pnpm test`) |
-| Deployment | Vercel |
+The app started around Czech/Vietnamese learning but is evolving into a broader multilingual vocabulary system. It supports configurable learning languages, app UI localization, Google-supported language discovery, and TTS availability checks. The learning experience is centered around "known language" and "target language" word pairs rather than one hard-coded language pair.
 
-## Repository layout
+Core user flows:
 
-```
-app/
-  page.tsx          — main learning view
-  edit/page.tsx     — editor-only word editing
-  layout.tsx        — root layout
-  api/
-    sync/           — GET/POST user state hydration & persistence
-    words/          — GET/POST word data (editor only)
-    auth/           — link-wallet endpoint
-    users/
-components/         — all React components (AppLayout, WordCard, MiniGameCard, CardDeckView, …)
-context/
-  AppStateContext.tsx — React context wrapping appState for panels/layout
-hooks/              — all custom hooks
-lib/
-  words.ts          — STAGES (0–10 spaced repetition), isDue(), word stream logic
-  minigames.ts      — multipleChoice, typing, matching game types
-  db/
-    schema.ts       — Drizzle schema (users, words, user_progress, user_memory_hooks, user_category_filters)
-    client.ts       — DB client
-    queries/        — entity-level query files
-  sync.ts           — client-side sync helpers
-  auth.ts           — JWT session helpers
-  device-id.ts      — deviceId cookie generation
-  wagmi-config.ts   — WalletConnect config
-styles/             — plain CSS per concern (layout.css, word-card.css, themes.css, …)
-data/words          — raw word data
-scripts/            — DB migration/seed/backup scripts
-```
+- Study vocabulary through a fullscreen card deck or a virtualized scrolling stream.
+- Track spaced-repetition progress, due words, forgotten words, and settling words.
+- Practice with minigames such as multiple choice, typing, matching, and listening-oriented prompts when audio exists.
+- Add personal memory hooks and category filters.
+- Create and manage word lists, categories, imported text, translations, and audio.
+- Generate or reuse translation results and pronunciation audio with quota-aware provider flows.
+- Sync learning state across sessions/devices using a backend database.
+- Sign in through device identity, email/social auth, or optional wallet linking.
 
-## State architecture (post 2026-03-08 refactor)
+Tech stack:
 
-- **`useAppState`** is a thin orchestrator (~137 lines) composing 7 domain hooks:
-  `useTheme`, `useUserProfile`, `useProgress`, `usePreferences`, `useMemoryHooks`, `useCategoryFilter`, `useGameScore`
-- Each domain hook accepts `(isHydrated, isUpdatingFromServerRef)` and owns its own server sync
-- **`AppStateContext`** — pages wrap with `<AppStateProvider>` so components/panels read state directly
-- **`useMenuPanels`** — panel open/close state (enum: `settings | progress | category | memoryHooks`), lives inside `AppLayout`, NOT passed from pages
+- Framework: Next.js 15 with the App Router and React 19.
+- Language: TypeScript.
+- Styling: Tailwind CSS v4 compiled with `@tailwindcss/cli`, plus existing plain CSS modules and CSS custom properties for themes.
+- Database: Supabase Postgres accessed through Drizzle ORM and Drizzle Kit migrations.
+- Deployment target: Vercel.
+- Package manager: pnpm.
+- Testing: Vitest, Testing Library, jsdom.
+- Virtualized UI: `@tanstack/react-virtual`.
+- Data fetching/state helpers: React hooks plus `@tanstack/react-query` where useful.
+- Auth/web3: Reown AppKit, WalletConnect, wagmi, viem; wallet auth is optional.
+- External providers: Google Translate, Google Cloud TTS, OpenRouter BYOK/OAuth for AI translation, ArDrive Turbo/Arweave for persistent generated audio storage.
 
-## Shared utility hooks
+Architecture at a high level:
 
-- `features/learning/hooks/usePressHandlers.ts` — MutationObserver press state shared by both learning pages
-- `features/learning/hooks/useWordStream.ts` — due/new/settling word bucketing shared by both learning pages
-- `features/learning/hooks/useWordsLoader.ts` — `/api/words` loader with static fallback for both learning pages
+- The app is organized by feature areas: learning, lists, auth, audio, external providers, shared route utilities, and shared state/sync.
+- Client learning state is composed from domain hooks for progress, preferences, memory hooks, category filters, game score, user profile, active list, language settings, and server sync.
+- Supabase Postgres is the source of truth for users, word lists, list items, progress, preferences, memory hooks, filters, provider keys, API usage, media assets, and review events.
+- The sync API hydrates and persists user learning state. Device identity lets first-time users start without a full account; stronger identity can be linked later.
+- Generated audio is content-hashed and deduplicated. The stable app playback URL can redirect to Arweave-backed media.
+- Translation and TTS flows are designed to manage cost: dedupe existing content, track Google usage quotas, and support user-provided OpenRouter keys.
 
-Legacy top-level `hooks/usePressHandlers.ts`, `hooks/useWordStream.ts`, and `hooks/useWordsLoader.ts` are compatibility barrels.
+Important implementation conventions:
 
-## Spaced repetition
+- Run the app with `pnpm dev`, not plain `next dev`, because Tailwind output is generated first.
+- Prefer feature-local modules and hooks for new work instead of adding more logic to top-level pages.
+- Keep route handlers thin; put shared behavior in feature modules or shared route utilities.
+- Use Drizzle migrations for database shape changes.
+- Preserve the existing theme system and CSS variables when adding UI.
+- Treat provider credentials, OAuth state, API keys, and session secrets as server-only concerns.
 
-11 stages (0–10) in `lib/words.ts:STAGES`. Stage 0 = new/forgotten, stage 10 = 60 days. Progress per `(userId, wordId)` in `user_progress`. `isDue()` checks `nextDueAt`. Word stream: due words first → new words; settling words on demand.
+Current product direction:
 
-## Minigames (`lib/minigames.ts`)
-
-Three types: `multipleChoice`, `typing`, `matching`. Anchored by `anchorOriginalIndex` from the original word snapshot — stable as words leave the active stream. Game word sets locked in a ref on first generation; reset only when category filters change.
-
-## Auth
-
-- **Device auth**: `deviceId` cookie (UUID), `x-device-id` header on every request, API creates user on first contact
-- **Wallet auth**: Reown/WalletConnect via wagmi, `/api/auth/link-wallet` associates wallet with device user
-- Session: signed JWT cookie (`WORDLINK_SESSION_COOKIE_NAME`). `userRole: 'user' | 'editor'` gates `/edit`
-
-## CSS conventions
-
-- Tailwind for all new styling
-- Do NOT refactor existing `styles/*.css` — separate future task
-- CSS custom properties are the design system (`--accent`, `--bg`, `--text`, `--text-soft`, `--border-subtle`, etc.) in `styles/themes.css` and `app/globals.css`
-- Three themes: `default` (dark navy), `warm` (light), `calm` (light) — stored in `localStorage`, applied via `data-theme` on `<html>`
-
-## DB scripts
-
-```
-pnpm db:generate   — Drizzle generate migrations
-pnpm db:migrate    — run migrations
-pnpm db:push       — push schema
-pnpm db:studio     — Drizzle Studio
-pnpm db:seed       — seed word data
-pnpm db:backup     — backup remote DB
-```
+Get Word is moving from a single personal Czech/Vietnamese trainer into a configurable multilingual learning platform. The most important themes are better onboarding for language pairs, durable list ownership/subscription/forking flows, reliable translation and audio generation, quota-aware provider integrations, and a polished study loop that makes repeated practice feel lightweight.

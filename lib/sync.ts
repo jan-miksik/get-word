@@ -160,6 +160,11 @@ export interface SyncResponse {
     show_pronunciation?: boolean;
     memory_hooks_enabled?: boolean;
     memory_hook_disable_from_stage?: number;
+    settings_language?: string | null;
+    settings_language_selected_at?: string | null;
+    language_from?: string | null;
+    language_to?: string | null;
+    onboarding_completed_at?: string | null;
     wallet_address?: string | null;
     email?: string | null;
     auth_provider?: string | null;
@@ -301,6 +306,10 @@ export async function syncUserData(data: {
   show_pronunciation?: boolean;
   memory_hooks_enabled?: boolean;
   memory_hook_disable_from_stage?: number;
+  settings_language?: string;
+  language_from?: string | null;
+  language_to?: string | null;
+  onboarding_completed?: boolean;
   game_score?: number;
   category_order?: string[];
   progress?: SyncProgressItem[];

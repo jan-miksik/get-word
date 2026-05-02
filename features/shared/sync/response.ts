@@ -89,6 +89,11 @@ type SyncUserShape = {
   showPronunciation?: boolean | null;
   memoryHooksEnabled?: boolean | null;
   memoryHookDisableFromStage?: number | null;
+  settingsLanguage?: string | null;
+  settingsLanguageSelectedAt?: Date | string | null;
+  languageFrom?: string | null;
+  languageTo?: string | null;
+  onboardingCompletedAt?: Date | string | null;
   gameScore: number | null;
   categoryOrder?: string[] | null;
   walletAddress: string | null;
@@ -170,6 +175,15 @@ export function buildSyncSuccessPayload(
       show_pronunciation: user.showPronunciation ?? false,
       memory_hooks_enabled: user.memoryHooksEnabled ?? true,
       memory_hook_disable_from_stage: user.memoryHookDisableFromStage ?? 8,
+      settings_language: user.settingsLanguage ?? null,
+      settings_language_selected_at: user.settingsLanguageSelectedAt
+        ? new Date(user.settingsLanguageSelectedAt).toISOString()
+        : null,
+      language_from: user.languageFrom ?? null,
+      language_to: user.languageTo ?? null,
+      onboarding_completed_at: user.onboardingCompletedAt
+        ? new Date(user.onboardingCompletedAt).toISOString()
+        : null,
       game_score: user.gameScore ?? 0,
       category_order: user.categoryOrder ?? [],
       wallet_address: user.walletAddress ?? null,

@@ -26,6 +26,7 @@ const mockTouchUserDevice = vi.fn()
 const mockApplyNewReviewEvents = vi.fn()
 const mockVerifySession = vi.fn()
 const mockSignSession = vi.fn()
+const mockIsGoogleSupportedLanguage = vi.fn()
 
 vi.mock('@/lib/db', () => ({
   getUserByDeviceId: (...args: unknown[]) => mockGetUserByDeviceId(...args),
@@ -60,6 +61,10 @@ vi.mock('@/lib/session', () => ({
   WORDLINK_SESSION_TTL_SECONDS: 60 * 60 * 24 * 30,
 }))
 
+vi.mock('@/lib/i18n/server', () => ({
+  isGoogleSupportedLanguage: (...args: unknown[]) => mockIsGoogleSupportedLanguage(...args),
+}))
+
 vi.mock('@/lib/db/client', () => ({
   db: {
     update: vi.fn().mockReturnValue({
@@ -91,6 +96,8 @@ const baseUser = {
   showCategoryBadges: false,
   memoryHooksEnabled: true,
   memoryHookDisableFromStage: 8,
+  settingsLanguage: 'en',
+  settingsLanguageSelectedAt: new Date('2026-05-01T00:00:00.000Z'),
   categoryOrder: [],
 }
 
@@ -112,6 +119,7 @@ describe('GET /api/sync', () => {
     mockGetWordListsByIds.mockResolvedValue([])
     mockTouchUserDevice.mockResolvedValue(undefined)
     mockApplyNewReviewEvents.mockResolvedValue([])
+    mockIsGoogleSupportedLanguage.mockResolvedValue(true)
   })
 
   it('returns 400 if no deviceId or userId', async () => {
@@ -219,6 +227,7 @@ describe('POST /api/sync', () => {
     mockGetWordListsByIds.mockResolvedValue([])
     mockTouchUserDevice.mockResolvedValue(undefined)
     mockApplyNewReviewEvents.mockResolvedValue([])
+    mockIsGoogleSupportedLanguage.mockResolvedValue(true)
   })
 
   it('returns 400 if no deviceId or userId', async () => {
@@ -323,6 +332,34 @@ describe('POST /api/sync', () => {
     )
     expect(data.user.memory_hooks_enabled).toBe(false)
     expect(data.user.memory_hook_disable_from_stage).toBe(6)
+  })
+
+  it('syncs settings language when supported', async () => {
+    mockUpdateUserPreferences.mockResolvedValue({
+      ...baseUser,
+      settingsLanguage: 'de',
+      settingsLanguageSelectedAt: new Date('2026-05-01T12:00:00.000Z'),
+    })
+
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: 'dev-123',
+        settings_language: 'de',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockIsGoogleSupportedLanguage).toHaveBeenCalledWith('de')
+    expect(mockUpdateUserPreferences).toHaveBeenCalledWith(
+      'uuid-A',
+      expect.objectContaining({ settings_language: 'de' })
+    )
+    expect(data.user.settings_language).toBe('de')
+    expect(data.user.settings_language_selected_at).toBe('2026-05-01T12:00:00.000Z')
   })
 
   it('saves game_score without lowering existing score', async () => {

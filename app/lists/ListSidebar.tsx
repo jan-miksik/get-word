@@ -5,17 +5,22 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import type { GoogleUsageResponse, WordList } from '@/features/lists/types';
 import { GoogleUsagePanel } from './GoogleUsagePanel';
+import { useI18n } from '@/components/I18nProvider';
 
 interface ListSidebarProps {
   lists: WordList[];
   selectedListId: string | null;
   subscribedListIds: Set<string>;
   googleUsage?: GoogleUsageResponse | null;
+  languages?: { code: string; name: string; ttsAvailable?: boolean }[];
+  initialCreateLanguageFrom?: string | null;
+  initialCreateLanguageTo?: string | null;
   onSelectList: (id: string) => void;
   onCreateList: (name: string, langFrom: string, langTo: string) => Promise<void>;
   onDeleteList: (listId: string) => Promise<void>;
   onSubscribe: (listId: string) => Promise<void>;
   onUnsubscribe: (listId: string) => Promise<void>;
+  onFork?: (listId: string) => Promise<void>;
   openCreateSignal?: number;
 }
 
@@ -24,13 +29,18 @@ export function ListSidebar({
   selectedListId,
   subscribedListIds,
   googleUsage,
+  languages = [],
+  initialCreateLanguageFrom,
+  initialCreateLanguageTo,
   onSelectList,
   onCreateList,
   onDeleteList,
   onSubscribe,
   onUnsubscribe,
+  onFork,
   openCreateSignal = 0,
 }: ListSidebarProps) {
+  const { t } = useI18n();
   const [showCreate, setShowCreate] = useState(false);
   const [usageModalOpen, setUsageModalOpen] = useState(false);
   const [newName, setNewName] = useState('');
@@ -41,14 +51,19 @@ export function ListSidebar({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [returningToApp, setReturningToApp] = useState(false);
 
-  const ownLists = lists.filter((l) => l.ownerId !== null);
-  const publicLists = lists.filter((l) => l.ownerId === null && l.isPublic);
+  const ownLists = lists.filter((l) => l.isOwner ?? l.ownerId !== null);
+  const publicLists = lists.filter((l) => !(l.isOwner ?? l.ownerId !== null) && l.isPublic);
 
   useEffect(() => {
     if (openCreateSignal > 0) {
       setShowCreate(true);
     }
   }, [openCreateSignal]);
+
+  useEffect(() => {
+    if (initialCreateLanguageFrom) setNewLangFrom(initialCreateLanguageFrom);
+    if (initialCreateLanguageTo) setNewLangTo(initialCreateLanguageTo);
+  }, [initialCreateLanguageFrom, initialCreateLanguageTo]);
 
   async function handleCreate() {
     if (!newName.trim()) return;
@@ -76,7 +91,7 @@ export function ListSidebar({
   }
 
   async function handleDelete(list: WordList) {
-    const shouldDelete = window.confirm(`Delete "${list.name}"? This cannot be undone.`);
+    const shouldDelete = window.confirm(t('lists.deleteConfirm', { name: list.name }));
     if (!shouldDelete) return;
 
     setDeletingId(list.id);
@@ -84,6 +99,16 @@ export function ListSidebar({
       await onDeleteList(list.id);
     } finally {
       setDeletingId(null);
+    }
+  }
+
+  async function handleFork(listId: string) {
+    if (!onFork) return;
+    setTogglingId(`fork:${listId}`);
+    try {
+      await onFork(listId);
+    } finally {
+      setTogglingId(null);
     }
   }
 
@@ -110,16 +135,16 @@ export function ListSidebar({
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
             <path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
-          Back to app
+          {t('lists.backToApp')}
         </Link>
-        <h2 className="text-lg font-semibold text-text">Word Lists</h2>
+        <h2 className="text-lg font-semibold text-text">{t('lists.wordLists')}</h2>
       </div>
 
       <div className="flex-1 overflow-y-auto p-2">
         {ownLists.length > 0 && (
           <div className="mb-4">
             <h3 className="px-2 py-1 text-xs font-medium text-text-soft uppercase tracking-wide">
-              Your Lists
+              {t('lists.yourLists')}
             </h3>
             {ownLists.map((list) => (
               <div
@@ -153,8 +178,8 @@ export function ListSidebar({
                     handleDelete(list);
                   }}
                   disabled={deletingId === list.id}
-                  title="Delete list"
-                  aria-label={`Delete ${list.name}`}
+                  title={t('lists.delete')}
+                  aria-label={`${t('lists.delete')} ${list.name}`}
                 >
                   <svg width="14" height="14" viewBox="0 0 20 20" fill="none" className="text-current">
                     <path d="M4 6h12M8 3h4M7 6v10m6-10v10M6 6l.6 10.2A1 1 0 007.6 17h4.8a1 1 0 001-.8L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -168,11 +193,12 @@ export function ListSidebar({
         {publicLists.length > 0 && (
           <div className="mb-4">
             <h3 className="px-2 py-1 text-xs font-medium text-text-soft uppercase tracking-wide">
-              Curated Lists
+              {t('lists.curatedLists')}
             </h3>
             {publicLists.map((list) => {
               const isSubscribed = subscribedListIds.has(list.id);
               const isToggling = togglingId === list.id;
+              const isForking = togglingId === `fork:${list.id}`;
 
               return (
                 <div
@@ -207,8 +233,8 @@ export function ListSidebar({
                       e.stopPropagation();
                       handleToggleSubscription(list.id);
                     }}
-                    title={isSubscribed ? 'Unsubscribe' : 'Subscribe'}
-                    aria-label={isSubscribed ? `Unsubscribe from ${list.name}` : `Subscribe to ${list.name}`}
+                    title={isSubscribed ? t('lists.unsubscribe') : t('lists.subscribe')}
+                    aria-label={`${isSubscribed ? t('lists.unsubscribe') : t('lists.subscribe')} ${list.name}`}
                   >
                     <div
                       className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
@@ -216,6 +242,21 @@ export function ListSidebar({
                       }`}
                     />
                   </button>
+
+                  {onFork ? (
+                    <button
+                      type="button"
+                      disabled={isForking}
+                      className="shrink-0 rounded-md border border-border-subtle px-2 py-1 text-[11px] text-text-soft transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleFork(list.id);
+                      }}
+                      title="Fork this list"
+                    >
+                      {isForking ? 'Forking...' : 'Fork'}
+                    </button>
+                  ) : null}
                 </div>
               );
             })}
@@ -227,7 +268,7 @@ export function ListSidebar({
       {googleUsage?.global && googleUsage.global.length > 0 && (
         <div className="border-t border-border-subtle px-3 py-2">
           <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-text-soft">
-            Google API
+            {t('lists.googleApi')}
           </p>
           {googleUsage.global.map((scope) => {
             const percent =
@@ -241,7 +282,7 @@ export function ListSidebar({
                 className="flex w-full items-center justify-between py-0.5 text-[11px] text-text-soft hover:text-text transition-colors"
                 onClick={() => setUsageModalOpen(true)}
               >
-                <span>{scope.scope === 'translate' ? 'Google Translate' : 'Google TTS'}</span>
+                <span>{scope.scope === 'translate' ? t('lists.googleTranslate') : t('lists.googleTts')}</span>
                 <span>{percent}% used</span>
               </button>
             );
@@ -254,7 +295,7 @@ export function ListSidebar({
           <div className="space-y-2">
             <input
               type="text"
-              placeholder="List name"
+              placeholder={t('lists.listName')}
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               className="w-full px-3 py-2 rounded-lg bg-background border border-border-subtle text-text text-sm focus:outline-none focus:border-accent"
@@ -267,9 +308,15 @@ export function ListSidebar({
                 onChange={(e) => setNewLangFrom(e.target.value)}
                 className="flex-1 px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs"
               >
-                <option value="cs">Czech</option>
-                <option value="vi">Vietnamese</option>
-                <option value="en">English</option>
+                {(languages.length > 0 ? languages : [
+                  { code: 'cs', name: 'Czech' },
+                  { code: 'vi', name: 'Vietnamese' },
+                  { code: 'en', name: 'English' },
+                ]).map((language) => (
+                  <option key={language.code} value={language.code}>
+                    {language.name}
+                  </option>
+                ))}
               </select>
               <span className="text-text-soft self-center text-xs">→</span>
               <select
@@ -277,9 +324,15 @@ export function ListSidebar({
                 onChange={(e) => setNewLangTo(e.target.value)}
                 className="flex-1 px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs"
               >
-                <option value="vi">Vietnamese</option>
-                <option value="cs">Czech</option>
-                <option value="en">English</option>
+                {(languages.length > 0 ? languages : [
+                  { code: 'vi', name: 'Vietnamese' },
+                  { code: 'cs', name: 'Czech' },
+                  { code: 'en', name: 'English' },
+                ]).map((language) => (
+                  <option key={language.code} value={language.code}>
+                    {language.name}
+                  </option>
+                ))}
               </select>
             </div>
             <div className="flex gap-2">
@@ -288,7 +341,7 @@ export function ListSidebar({
                 className="flex-1 py-1.5 rounded-lg border border-border-subtle text-text text-xs hover:bg-background/50"
                 onClick={() => setShowCreate(false)}
               >
-                Cancel
+                {t('lists.cancelCreate')}
               </button>
               <button
                 type="button"
@@ -296,7 +349,7 @@ export function ListSidebar({
                 className="flex-1 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-50"
                 onClick={handleCreate}
               >
-                {creating ? 'Creating...' : 'Create'}
+                {creating ? t('lists.creating') : t('lists.create')}
               </button>
             </div>
           </div>
@@ -306,7 +359,7 @@ export function ListSidebar({
             className="w-full py-2 rounded-lg border border-dashed border-border-subtle text-text-soft text-sm hover:border-accent hover:text-accent transition-colors"
             onClick={() => setShowCreate(true)}
           >
-            + New List
+            + {t('lists.newList')}
           </button>
         )}
       </div>

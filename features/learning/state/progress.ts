@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ProgressData, SyncResponse } from '@/lib/sync';
 import { STAGES } from '@/lib/words';
-import { debouncedSync } from '@/lib/sync';
+import { requestSync } from '@/lib/sync-coordinator';
 import {
   createReviewEvent,
   enqueueReviewEvent,
@@ -154,9 +154,7 @@ export function useProgress(
     if (!isHydrated || isUpdatingFromServerRef.current) return;
     const pending = getPendingReviewEvents();
     if (pending.length === 0) return;
-    debouncedSync({ review_events: pending }).catch((e) =>
-      console.error('[useProgress] sync review events:', e)
-    );
+    requestSync('review_event');
   }, [isHydrated, isUpdatingFromServerRef]);
 
   const applyLocalReviewEvent = useCallback(

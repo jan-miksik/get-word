@@ -20,6 +20,7 @@ const mockSetUserCategoryFilters = vi.fn()
 const mockUpdateUserFields = vi.fn()
 const mockGetUserSubscribedItems = vi.fn()
 const mockGetUserOwnListItems = vi.fn()
+const mockGetMediaAssetsByIds = vi.fn()
 const mockGetCategoriesForLists = vi.fn()
 const mockGetSystemDefaultList = vi.fn()
 const mockGetWordIdToItemIdMapping = vi.fn()
@@ -44,6 +45,7 @@ vi.mock('@/lib/db', () => ({
   updateUserFields: (...args: unknown[]) => mockUpdateUserFields(...args),
   getUserSubscribedItems: (...args: unknown[]) => mockGetUserSubscribedItems(...args),
   getUserOwnListItems: (...args: unknown[]) => mockGetUserOwnListItems(...args),
+  getMediaAssetsByIds: (...args: unknown[]) => mockGetMediaAssetsByIds(...args),
   getCategoriesForLists: (...args: unknown[]) => mockGetCategoriesForLists(...args),
   getSystemDefaultList: (...args: unknown[]) => mockGetSystemDefaultList(...args),
   getWordIdToItemIdMapping: (...args: unknown[]) => mockGetWordIdToItemIdMapping(...args),
@@ -72,6 +74,7 @@ describe('POST /api/auth/link-wallet', () => {
     mockUpdateUserFields.mockResolvedValue(null)
     mockGetUserSubscribedItems.mockResolvedValue([])
     mockGetUserOwnListItems.mockResolvedValue([])
+    mockGetMediaAssetsByIds.mockResolvedValue(new Map())
     mockGetCategoriesForLists.mockResolvedValue([])
     mockGetSystemDefaultList.mockResolvedValue(null)
     mockGetWordIdToItemIdMapping.mockResolvedValue(new Map())

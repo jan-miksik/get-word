@@ -4,6 +4,7 @@ const VERSION = new URL(self.location.href).searchParams.get('build') || 'v1';
 const STATIC_CACHE = `wordlink-static-${VERSION}`;
 const PAGES_CACHE = `wordlink-pages-${VERSION}`;
 const RUNTIME_CACHE = `wordlink-runtime-${VERSION}`;
+const ACTIVE_LIST_AUDIO_CACHE = 'wordlink-active-list-audio-v1';
 
 const PRECACHE_URLS = [
   '/offline.html',
@@ -41,6 +42,7 @@ self.addEventListener('activate', (event) => {
       await Promise.all(
         keys
           .filter((k) => k.startsWith('wordlink-'))
+          .filter((k) => k !== ACTIVE_LIST_AUDIO_CACHE)
           .map((k) => caches.delete(k))
       );
       const cache = await caches.open(STATIC_CACHE);
@@ -69,6 +71,10 @@ function isApiPath(pathname) {
   return pathname.startsWith('/api/') || pathname.startsWith('/api');
 }
 
+function isAudioApiPath(pathname) {
+  return pathname.startsWith('/api/audio/');
+}
+
 function isStaticAsset(pathname) {
   return (
     pathname.startsWith('/_next/static/') ||
@@ -87,6 +93,19 @@ self.addEventListener('fetch', (event) => {
 
   const url = new URL(request.url);
   if (!isSameOrigin(url)) return;
+  if (isAudioApiPath(url.pathname)) {
+    event.respondWith(
+      (async () => {
+        const cache = await caches.open(ACTIVE_LIST_AUDIO_CACHE);
+        const cached = await cache.match(request);
+        if (cached) return cached;
+        const response = await fetch(request);
+        cache.put(request, response.clone());
+        return response;
+      })()
+    );
+    return;
+  }
   if (isApiPath(url.pathname)) return;
 
   // Navigations: network-first, then cached page, then offline.

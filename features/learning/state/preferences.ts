@@ -2,14 +2,50 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { SyncResponse } from '@/lib/sync';
-import { debouncedSync, hasReceivedServerSnapshot } from '@/lib/sync';
+import { debouncedSync, hasReceivedServerSnapshot, syncUserData } from '@/lib/sync';
 import { postTabMessage, subscribeTabMessages } from '@/lib/tab-sync';
+import {
+  getDetectedSettingsLanguage,
+  isSimulatedFirstOpenEnabled,
+} from '@/lib/i18n/languages';
 import {
   DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
   normalizeMemoryHookDisableFromStage,
 } from '@/lib/words';
 
 export type Role = 'cz' | 'vi';
+export type SettingsLanguage = string;
+
+const DEFAULT_SETTINGS_LANGUAGE = 'en';
+const LEARNING_ONBOARDING_COMPLETED_SESSION_KEY = 'wordlink-learning-onboarding-completed';
+
+function normalizeSettingsLanguage(value: unknown): SettingsLanguage {
+  if (typeof value !== 'string') return DEFAULT_SETTINGS_LANGUAGE;
+  const trimmed = value.trim();
+  if (!/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/.test(trimmed)) {
+    return DEFAULT_SETTINGS_LANGUAGE;
+  }
+  const [base, region] = trimmed.split('-');
+  return region ? `${base.toLowerCase()}-${region.toUpperCase()}` : base.toLowerCase();
+}
+
+function hasCompletedLearningOnboardingInSession(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.sessionStorage.getItem(LEARNING_ONBOARDING_COMPLETED_SESSION_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markLearningOnboardingCompletedInSession(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.setItem(LEARNING_ONBOARDING_COMPLETED_SESSION_KEY, '1');
+  } catch {
+    // Storage can be unavailable in privacy modes; server state still persists.
+  }
+}
 
 function normalizeCategoryOrderValue(value: unknown): string[] {
   if (!Array.isArray(value)) return [];
@@ -44,7 +80,19 @@ export function usePreferences(
   const [memoryHookDisableFromStage, setMemoryHookDisableFromStageState] = useState<number>(
     DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE
   );
+  const [settingsLanguage, setSettingsLanguageState] =
+    useState<SettingsLanguage>(DEFAULT_SETTINGS_LANGUAGE);
+  const [settingsLanguageSelectedAt, setSettingsLanguageSelectedAt] = useState<string | null>(null);
+  const [learningLanguageFrom, setLearningLanguageFrom] = useState<string | null>(null);
+  const [learningLanguageTo, setLearningLanguageTo] = useState<string | null>(null);
+  const [onboardingCompletedAt, setOnboardingCompletedAt] = useState<string | null>(null);
   const [categoryOrder, setCategoryOrderState] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (settingsLanguageSelectedAt) return;
+    const detectedLanguage = normalizeSettingsLanguage(getDetectedSettingsLanguage());
+    setSettingsLanguageState((current) => (current === detectedLanguage ? current : detectedLanguage));
+  }, [settingsLanguageSelectedAt]);
 
   // Gate sync on hasReceivedServerSnapshot(): without it, a failed initial GET
   // (no session, offline) leaves the local defaults in place, and the next
@@ -108,6 +156,14 @@ export function usePreferences(
     );
   }, [categoryOrder, isHydrated, isUpdatingFromServerRef]);
 
+  useEffect(() => {
+    if (!isHydrated || isUpdatingFromServerRef.current) return;
+    if (!hasReceivedServerSnapshot()) return;
+    debouncedSync({ settings_language: settingsLanguage }).catch((e) =>
+      console.error('[usePreferences] sync settings_language:', e)
+    );
+  }, [settingsLanguage, isHydrated, isUpdatingFromServerRef]);
+
   const setRole = useCallback((newRole: Role) => {
     setRoleState(newRole);
     postTabMessage({ type: 'preferences_changed', patch: { role: newRole } });
@@ -145,8 +201,50 @@ export function usePreferences(
       return next;
     });
   }, []);
+  const setSettingsLanguage = useCallback((language: string) => {
+    const normalized = normalizeSettingsLanguage(language);
+    setSettingsLanguageState(normalized);
+    setSettingsLanguageSelectedAt(new Date().toISOString());
+    postTabMessage({
+      type: 'preferences_changed',
+      patch: {
+        settingsLanguage: normalized,
+        settingsLanguageSelectedAt: new Date().toISOString(),
+      },
+    });
+  }, []);
+
+  const setLearningLanguages = useCallback(async (languageFrom: string, languageTo: string) => {
+    const normalizedFrom = normalizeSettingsLanguage(languageFrom);
+    const normalizedTo = normalizeSettingsLanguage(languageTo);
+    const completedAt = new Date().toISOString();
+    if (hasReceivedServerSnapshot()) {
+      await syncUserData({
+        language_from: normalizedFrom,
+        language_to: normalizedTo,
+        onboarding_completed: true,
+      });
+    }
+
+    setLearningLanguageFrom(normalizedFrom);
+    setLearningLanguageTo(normalizedTo);
+    setOnboardingCompletedAt(completedAt);
+    markLearningOnboardingCompletedInSession();
+    postTabMessage({
+      type: 'preferences_changed',
+      patch: {
+        learningLanguageFrom: normalizedFrom,
+        learningLanguageTo: normalizedTo,
+        onboardingCompletedAt: completedAt,
+      },
+    });
+  }, []);
 
   const applyServerPreferences = useCallback((user: SyncResponse['user']) => {
+    const simulateFirstOpen = isSimulatedFirstOpenEnabled();
+    const simulateLearningOnboarding =
+      simulateFirstOpen && !hasCompletedLearningOnboardingInSession();
+    const detectedLanguage = normalizeSettingsLanguage(getDetectedSettingsLanguage());
     if (user.role) setRoleState(user.role);
     setShowEnglish(false);
     setShowCategoryBadges(false);
@@ -155,6 +253,13 @@ export function usePreferences(
     setMemoryHookDisableFromStageState(
       normalizeMemoryHookDisableFromStage(user.memory_hook_disable_from_stage)
     );
+    setSettingsLanguageState(
+      user.settings_language ? normalizeSettingsLanguage(user.settings_language) : detectedLanguage
+    );
+    setSettingsLanguageSelectedAt(simulateFirstOpen ? null : user.settings_language_selected_at ?? null);
+    setLearningLanguageFrom(simulateLearningOnboarding ? null : user.language_from ?? null);
+    setLearningLanguageTo(simulateLearningOnboarding ? null : user.language_to ?? null);
+    setOnboardingCompletedAt(simulateLearningOnboarding ? null : user.onboarding_completed_at ?? null);
     const nextCategoryOrder = normalizeCategoryOrderValue(user.category_order);
     setCategoryOrderState((prev) =>
       areStringArraysEqual(prev, nextCategoryOrder) ? prev : nextCategoryOrder
@@ -187,6 +292,21 @@ export function usePreferences(
           areStringArraysEqual(prev, nextCategoryOrder) ? prev : nextCategoryOrder
         );
       }
+      if (typeof patch.settingsLanguage === 'string') {
+        setSettingsLanguageState(normalizeSettingsLanguage(patch.settingsLanguage));
+      }
+      if (typeof patch.settingsLanguageSelectedAt === 'string' || patch.settingsLanguageSelectedAt === null) {
+        setSettingsLanguageSelectedAt(patch.settingsLanguageSelectedAt);
+      }
+      if (typeof patch.learningLanguageFrom === 'string' || patch.learningLanguageFrom === null) {
+        setLearningLanguageFrom(patch.learningLanguageFrom);
+      }
+      if (typeof patch.learningLanguageTo === 'string' || patch.learningLanguageTo === null) {
+        setLearningLanguageTo(patch.learningLanguageTo);
+      }
+      if (typeof patch.onboardingCompletedAt === 'string' || patch.onboardingCompletedAt === null) {
+        setOnboardingCompletedAt(patch.onboardingCompletedAt);
+      }
     });
   }, []);
 
@@ -207,6 +327,13 @@ export function usePreferences(
     setMemoryHookDisableFromStage,
     categoryOrder,
     setCategoryOrder,
+    settingsLanguage,
+    settingsLanguageSelectedAt,
+    setSettingsLanguage,
+    learningLanguageFrom,
+    learningLanguageTo,
+    onboardingCompletedAt,
+    setLearningLanguages,
     applyServerPreferences,
   };
 }

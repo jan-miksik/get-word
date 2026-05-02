@@ -9,7 +9,7 @@ Use Tailwind for all new styling. Do not refactor existing CSS in `styles/*.css`
 
 ### CSS / Tailwind
 
-Tailwind v4 is compiled by `@tailwindcss/cli` (not PostCSS). The input is `app/tailwind.css` and the output is `app/.generated/tailwind.css` (gitignored). **Always run `pnpm dev` not `next dev` directly** — otherwise Tailwind output won't exist.
+Tailwind v4 is compiled by Next/PostCSS from `app/tailwind.css`. Development runs through Turbopack with `pnpm run dev`; use `pnpm run dev:fast` to disable dev source maps during tight UI/state iteration.
 
 Plain CSS lives in `styles/*.css` (one file per concern: `layout.css`, `word-card.css`, `panels.css`, `top-menu.css`, `minigames.css`, `themes.css`, etc.). These are imported in `app/globals.css`.
 

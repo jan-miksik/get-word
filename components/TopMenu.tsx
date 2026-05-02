@@ -3,6 +3,7 @@
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import type { MenuPanel } from '@/hooks/useMenuPanels';
 import { PWAInstallMenuItem } from '@/components/PWAInstallMenuItem';
+import { useI18n } from '@/components/I18nProvider';
 
 interface TopMenuProps {
   onShowAll: () => void;
@@ -90,6 +91,7 @@ function MenuDropdown({
   progressActive,
   accountSlot,
 }: MenuDropdownProps) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -112,7 +114,7 @@ function MenuDropdown({
     {
       kind: 'panel',
       icon: '🏷️',
-      label: 'Categories',
+      label: t('top.categories'),
       panel: 'category',
       active: categoryActive,
       badge: categoryCount > 0 ? String(categoryCount) : null,
@@ -120,7 +122,7 @@ function MenuDropdown({
     {
       kind: 'panel',
       icon: '📊',
-      label: 'Learning Progress',
+      label: t('top.progress'),
       panel: 'progress',
       active: progressActive,
       badge: null,
@@ -128,7 +130,7 @@ function MenuDropdown({
     {
       kind: 'panel',
       icon: 'ℹ️',
-      label: 'Memory Hooks',
+      label: t('top.memory'),
       panel: 'memoryHooks',
       active: false,
       badge: null,
@@ -136,13 +138,13 @@ function MenuDropdown({
     {
       kind: 'link',
       icon: '📚',
-      label: 'Manage Lists',
+      label: t('lists.wordLists'),
       href: '/lists',
     },
     {
       kind: 'panel',
       icon: '⚙️',
-      label: 'Settings',
+      label: t('top.settings'),
       panel: 'settings',
       active: false,
       badge: null,

@@ -3,7 +3,7 @@ import { headers } from 'next/headers';
 import { AppKitProvider } from '@/components/AppKitProvider';
 import { PWARegister } from '@/components/PWARegister';
 import './globals.css';
-import './.generated/tailwind.css';
+import './tailwind.css';
 
 export const metadata: Metadata = {
   title: 'Get Word',

@@ -260,6 +260,8 @@ export async function POST(request: NextRequest) {
       showPronunciation: targetUser.showPronunciation,
       memoryHooksEnabled: targetUser.memoryHooksEnabled,
       memoryHookDisableFromStage: targetUser.memoryHookDisableFromStage,
+      settingsLanguage: targetUser.settingsLanguage,
+      settingsLanguageSelectedAt: targetUser.settingsLanguageSelectedAt,
       gameScore: mergedGameScore,
       categoryOrder: mergedCategoryOrder,
       ...(trimmedEmail && { email: trimmedEmail }),
@@ -293,6 +295,9 @@ export async function POST(request: NextRequest) {
           showPronunciation: targetUser.showPronunciation,
           memoryHooksEnabled: targetUser.memoryHooksEnabled,
           memoryHookDisableFromStage: targetUser.memoryHookDisableFromStage,
+          settingsLanguage: mergedUser.settingsLanguage ?? targetUser.settingsLanguage,
+          settingsLanguageSelectedAt:
+            mergedUser.settingsLanguageSelectedAt ?? targetUser.settingsLanguageSelectedAt,
           gameScore: mergedUser.gameScore ?? mergedGameScore,
           categoryOrder: mergedUser.categoryOrder ?? mergedCategoryOrder,
           walletAddress: mergedUser.walletAddress ?? walletAddress,

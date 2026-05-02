@@ -6,6 +6,7 @@ export type WordList = {
   languageFrom: string;
   languageTo: string;
   isPublic: boolean;
+  isOwner?: boolean;
 };
 
 export type WordCategory = {

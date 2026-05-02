@@ -1,7 +1,8 @@
-import { eq, sql, inArray } from 'drizzle-orm';
+import { and, eq, or, sql, inArray } from 'drizzle-orm';
 import { db } from '../../client';
 import {
   wordLists,
+  wordListItems,
   userListSubscriptions,
   type WordList,
   type NewWordList,
@@ -12,6 +13,23 @@ export async function getUserLists(userId: string): Promise<WordList[]> {
     .select()
     .from(wordLists)
     .where(sql`${wordLists.ownerId} = ${userId} OR ${wordLists.isPublic} = true`);
+}
+
+export async function getUserListsByLanguagePair(
+  userId: string,
+  languageFrom: string,
+  languageTo: string,
+): Promise<WordList[]> {
+  return db
+    .select()
+    .from(wordLists)
+    .where(
+      and(
+        eq(wordLists.languageFrom, languageFrom),
+        eq(wordLists.languageTo, languageTo),
+        or(eq(wordLists.ownerId, userId), eq(wordLists.isPublic, true)),
+      ),
+    );
 }
 
 export async function getUserSubscribedListIds(userId: string): Promise<string[]> {
@@ -75,11 +93,38 @@ export async function getWordListsByIds(
     .where(inArray(wordLists.id, ids));
 }
 
-export async function getOrCreateUserList(userId: string): Promise<WordList> {
+export async function getWordListItemCountsByListIds(
+  ids: string[],
+): Promise<Map<string, number>> {
+  if (ids.length === 0) return new Map();
+
+  const rows = await db
+    .select({
+      listId: wordListItems.listId,
+      itemCount: sql<number>`count(*)::int`,
+    })
+    .from(wordListItems)
+    .where(inArray(wordListItems.listId, ids))
+    .groupBy(wordListItems.listId);
+
+  return new Map(rows.map((row) => [row.listId, row.itemCount]));
+}
+
+export async function getOrCreateUserList(
+  userId: string,
+  languageFrom = 'cs',
+  languageTo = 'vi',
+): Promise<WordList> {
   const [existing] = await db
     .select()
     .from(wordLists)
-    .where(eq(wordLists.ownerId, userId))
+    .where(
+      and(
+        eq(wordLists.ownerId, userId),
+        eq(wordLists.languageFrom, languageFrom),
+        eq(wordLists.languageTo, languageTo),
+      ),
+    )
     .limit(1);
 
   if (existing) return existing;
@@ -88,8 +133,8 @@ export async function getOrCreateUserList(userId: string): Promise<WordList> {
     ownerId: userId,
     name: 'My Words',
     description: null,
-    languageFrom: 'cs',
-    languageTo: 'vi',
+    languageFrom,
+    languageTo,
     isPublic: false,
   });
 }

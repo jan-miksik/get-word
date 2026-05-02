@@ -120,6 +120,20 @@
       "when": 1777298460000,
       "tag": "0016_known_audio_for_word_list_items",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1777593600000,
+      "tag": "0017_settings_language",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1777593600000,
+      "tag": "0018_user_learning_languages",
+      "breakpoints": true
     }
   ]
 }

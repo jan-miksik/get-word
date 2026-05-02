@@ -4,6 +4,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { CardDeckView } from '@/components/CardDeckView';
 import { VirtualizedWordList } from '@/components/VirtualizedWordList';
 import { SettlingWordsFooter } from './SettlingWordsFooter';
+import { useI18n } from '@/components/I18nProvider';
 import type { MinigameFrequencyRange, MiniGameConfig } from '@/lib/minigames';
 import type { NormalizedWord } from '@/lib/words';
 import type { ProgressStats } from '@/lib/progress-stats';
@@ -65,6 +66,7 @@ export function LearningStudyContent({
   settlingCount,
   onToggleShowNotReady,
 }: LearningStudyContentProps) {
+  const { t } = useI18n();
   const contentResetKey = `${filteredWords.length}:${filteredWords.map((word) => word.id).join('|')}`;
 
   return (
@@ -97,7 +99,7 @@ export function LearningStudyContent({
         ) : (
           <div className="app-content-column flex flex-col gap-[18px] flex-1 min-h-0">
             {filteredWords.length === 0 ? (
-              <div className="p-8 text-center text-text-soft">No words match your current filters.</div>
+              <div className="p-8 text-center text-text-soft">{t('learning.noFilterMatches')}</div>
             ) : (
               <VirtualizedWordList
                 key={`stream-${contentResetKey}`}
@@ -107,7 +109,7 @@ export function LearningStudyContent({
                 renderMiniGame={renderMiniGame}
                 showHeaders={false}
                 scrollElement={phrasesScrollElement}
-                emptyMessage="No words to display."
+                emptyMessage={t('learning.noWords')}
                 stageFooter={(stageIndex) => {
                   const repeatsInStream = dueWordsCount + (showNotReady ? settlingCount : 0);
                   const footerStageIndex = repeatsInStream > 0 ? 0 : 1;

@@ -9,3 +9,4 @@ export * from "./media-assets";
 export * from "./user-devices";
 export * from "./review-events";
 export * from "./google-api-usage";
+export * from "./multi-device-insights";

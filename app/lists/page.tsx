@@ -14,12 +14,13 @@ import { ListSidebar } from './ListSidebar';
 import { CategoryBrowser } from './CategoryBrowser';
 import { TextareaEditor } from './TextareaEditor';
 import { DiffPreview } from './DiffPreview';
-import { TranslationStep } from './TranslationStep';
+import { TranslationStep, type CompletedTranslationRow } from './TranslationStep';
 import { AudioStep } from './AudioStep';
 import { ApiKeySettings } from './ApiKeySettings';
 import { WizardProgressBar, type WizardActiveStep } from './WizardProgressBar';
 
 type WizardStep = 'browse' | WizardActiveStep;
+type LearningLanguage = { code: string; name: string; ttsAvailable?: boolean };
 
 export default function ListsPage() {
   const [lists, setLists] = useState<WordList[]>([]);
@@ -35,11 +36,16 @@ export default function ListsPage() {
   const [editInputLanguage, setEditInputLanguage] = useState<'known' | 'target'>('known');
   const [diffResult, setDiffResult] = useState<DiffResult | null>(null);
   const [pendingItems, setPendingItems] = useState<ConfirmResult['pending_items']>([]);
+  const [audioStepItems, setAudioStepItems] = useState<WordListItem[] | null>(null);
   const [translateHeading, setTranslateHeading] = useState('Translate Words');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [subscribedListIds, setSubscribedListIds] = useState<Set<string>>(new Set());
   const [openCreateSignal, setOpenCreateSignal] = useState(0);
+  const [initialCreateLanguageFrom, setInitialCreateLanguageFrom] = useState<string | null>(null);
+  const [initialCreateLanguageTo, setInitialCreateLanguageTo] = useState<string | null>(null);
+  const [existingListsHint, setExistingListsHint] = useState(false);
+  const [languages, setLanguages] = useState<LearningLanguage[]>([]);
   const [isEditDirty, setIsEditDirty] = useState(false);
   const [googleUsage, setGoogleUsage] = useState<GoogleUsageResponse | null>(null);
 
@@ -50,7 +56,7 @@ export default function ListsPage() {
 
   const isOwner = useMemo(() => {
     if (!selectedList) return false;
-    return selectedList.ownerId !== null;
+    return selectedList.isOwner ?? selectedList.ownerId !== null;
   }, [selectedList]);
 
   const loadGoogleUsage = useCallback(async () => {
@@ -74,6 +80,33 @@ export default function ListsPage() {
     if (params.get('openrouter')) {
       setSettingsOpen(true);
     }
+    const languageFrom = params.get('languageFrom') ?? params.get('targetFrom');
+    const languageTo = params.get('languageTo') ?? params.get('targetTo');
+    if (languageFrom) setInitialCreateLanguageFrom(languageFrom);
+    if (languageTo) setInitialCreateLanguageTo(languageTo);
+    if (params.get('create') === '1') {
+      setOpenCreateSignal((value) => value + 1);
+    }
+    if (params.get('sourcePair') === 'any') {
+      setExistingListsHint(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/languages')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) {
+          setLanguages(Array.isArray(data.languages) ? data.languages : []);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setLanguages([]);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
@@ -86,6 +119,10 @@ export default function ListsPage() {
         setLists(data.lists);
         setSelectedListId((current) => {
           if (current || data.lists.length === 0) return current;
+          if (typeof window !== 'undefined') {
+            const selected = new URLSearchParams(window.location.search).get('selected');
+            if (selected && data.lists.some((l: WordList) => l.id === selected)) return selected;
+          }
           const owned = data.lists.find((l: WordList) => l.ownerId !== null);
           return owned?.id ?? data.lists[0].id;
         });
@@ -134,6 +171,54 @@ export default function ListsPage() {
     return map;
   }, [items]);
 
+  const buildAudioStepItems = useCallback((
+    sourceItems: WordListItem[],
+    translationRows: CompletedTranslationRow[] = [],
+  ): WordListItem[] => {
+    const rowById = new Map(translationRows.map((row) => [row.id, row]));
+    const categoryItems = editingCategoryId
+      ? sourceItems.filter((item) => item.categoryId === editingCategoryId)
+      : sourceItems;
+    const mergedItems = categoryItems.map((item) => {
+      const row = rowById.get(item.id);
+      if (!row) return item;
+      return {
+        ...item,
+        textKnown: row.textKnown,
+        textTarget: row.textTarget || null,
+        translationStatus: row.status === 'error' ? 'failed' : item.translationStatus,
+      };
+    });
+
+    const includedIds = new Set(mergedItems.map((item) => item.id));
+    const fallbackItems = translationRows
+      .filter((row) => !includedIds.has(row.id))
+      .map((row, index) => ({
+        id: row.id,
+        listId: selectedListId ?? '',
+        categoryId: editingCategoryId,
+        position: pendingItems?.find((item) => item.id === row.id)?.position ?? index,
+        textKnown: row.textKnown,
+        textTarget: row.textTarget || null,
+        translationStatus: row.status === 'error' ? 'failed' : 'translated',
+        knownAudioAssetId: null,
+        knownAudioStatus: 'none',
+        knownAudioUrl: null,
+        knownAudioArweaveUrl: null,
+        knownAudioArweaveUrls: [],
+        knownAudioStorageRef: null,
+        audioAssetId: null,
+        audioStatus: 'none',
+        audioUrl: null,
+        audioArweaveUrl: null,
+        audioArweaveUrls: [],
+        audioStorageRef: null,
+        notes: null,
+      }));
+
+    return [...mergedItems, ...fallbackItems].sort((a, b) => a.position - b.position);
+  }, [editingCategoryId, pendingItems, selectedListId]);
+
   const handleSelectList = useCallback((listId: string) => {
     setSelectedListId(listId);
     setSidebarOpen(false);
@@ -149,6 +234,46 @@ export default function ListsPage() {
     setLists((prev) => [...prev, data.list]);
     setSelectedListId(data.list.id);
   }, []);
+
+  const handleUpdateList = useCallback(async (
+    listId: string,
+    data: Pick<WordList, 'name' | 'description' | 'isPublic'>,
+  ) => {
+    const res = await listsApiFetch(`/api/lists/${listId}`, {
+      method: 'PUT',
+      body: JSON.stringify({
+        name: data.name,
+        description: data.description,
+        is_public: data.isPublic,
+      }),
+    });
+    const responseData = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(responseData.error ?? 'Failed to update list');
+
+    const updatedList: WordList = responseData.list;
+    setLists((prev) =>
+      prev.map((list) => (list.id === listId ? { ...list, ...updatedList } : list))
+    );
+  }, []);
+
+  const handleForkList = useCallback(async (listId: string) => {
+    const sourceList = lists.find((list) => list.id === listId);
+    const languageFrom = initialCreateLanguageFrom ?? sourceList?.languageFrom;
+    const languageTo = initialCreateLanguageTo ?? sourceList?.languageTo;
+    if (!languageFrom || !languageTo) return;
+
+    const res = await listsApiFetch(`/api/lists/${listId}/fork`, {
+      method: 'POST',
+      body: JSON.stringify({
+        language_from: languageFrom,
+        language_to: languageTo,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error ?? 'Fork failed');
+    setLists((prev) => [...prev, data.list]);
+    setSelectedListId(data.list.id);
+  }, [initialCreateLanguageFrom, initialCreateLanguageTo, lists]);
 
   const handleDeleteList = useCallback(async (listId: string) => {
     try {
@@ -212,6 +337,7 @@ export default function ListsPage() {
   const handleEditCategory = useCallback((categoryId: string, inputLang: 'known' | 'target') => {
     setEditingCategoryId(categoryId);
     setEditInputLanguage(inputLang);
+    setAudioStepItems(null);
     setIsEditDirty(false);
     setWizardStep('edit');
   }, []);
@@ -236,6 +362,7 @@ export default function ListsPage() {
 
   const handleConfirm = useCallback(async () => {
     if (!selectedListId || !editingCategoryId || !diffResult) return;
+    setAudioStepItems(null);
     const res = await listsApiFetch(
       `/api/lists/${selectedListId}/categories/${editingCategoryId}/items/confirm`,
       {
@@ -279,31 +406,47 @@ export default function ListsPage() {
         setWizardStep('browse');
       }
     }
-  }, [selectedListId, editingCategoryId, diffResult, editInputLanguage, itemsByCategory]);
+  }, [selectedListId, editingCategoryId, diffResult, editInputLanguage]);
 
-  const handleTranslationComplete = useCallback(async () => {
-    await Promise.all([reloadListDetails({ includeMedia: true }), loadGoogleUsage()]);
+  const handleTranslationComplete = useCallback(async (translationRows: CompletedTranslationRow[]) => {
+    const [freshItems] = await Promise.all([
+      reloadListDetails({ includeMedia: true }),
+      loadGoogleUsage(),
+    ]);
+    setPendingItems(translationRows.map((row, index) => ({
+      id: row.id,
+      text_known: row.textKnown,
+      text_target: row.textTarget || null,
+      position: pendingItems?.find((item) => item.id === row.id)?.position ?? index,
+    })));
+    setAudioStepItems(buildAudioStepItems(freshItems, translationRows));
     setWizardStep('audio-target');
-  }, [loadGoogleUsage]);
+  }, [buildAudioStepItems, loadGoogleUsage, pendingItems]);
 
   const handleTargetAudioComplete = useCallback(async () => {
-    await Promise.all([reloadListDetails({ includeMedia: true }), loadGoogleUsage()]);
+    const [freshItems] = await Promise.all([
+      reloadListDetails({ includeMedia: true }),
+      loadGoogleUsage(),
+    ]);
+    setAudioStepItems(buildAudioStepItems(freshItems));
     setWizardStep('audio-known');
-  }, [loadGoogleUsage]);
+  }, [buildAudioStepItems, loadGoogleUsage]);
 
   const handleKnownAudioComplete = useCallback(async () => {
     await Promise.all([reloadListDetails(), loadGoogleUsage()]);
     setWizardStep('browse');
     setEditingCategoryId(null);
     setPendingItems([]);
+    setAudioStepItems(null);
     setDiffResult(null);
-  }, [loadGoogleUsage, selectedListId]);
+  }, [loadGoogleUsage]);
 
   const handleSkipTranslation = useCallback(async () => {
     await Promise.all([reloadListDetails(), loadGoogleUsage()]);
     setWizardStep('browse');
     setEditingCategoryId(null);
-  }, [loadGoogleUsage, selectedListId]);
+    setAudioStepItems(null);
+  }, [loadGoogleUsage]);
 
   async function reloadListDetails(options: { includeMedia?: boolean } = {}): Promise<WordListItem[]> {
     if (!selectedListId) return [];
@@ -325,6 +468,7 @@ export default function ListsPage() {
     setEditingCategoryId(null);
     setDiffResult(null);
     setPendingItems([]);
+    setAudioStepItems(null);
     setTranslateHeading('Translate Words');
     setIsEditDirty(false);
   }, []);
@@ -372,12 +516,13 @@ export default function ListsPage() {
     }
 
     if (step === 'audio-target' || step === 'audio-known') {
-      await reloadListDetails({ includeMedia: true });
+      const freshItems = await reloadListDetails({ includeMedia: true });
+      setAudioStepItems(buildAudioStepItems(freshItems));
     }
 
     // From any non-edit step: allow jumping forward freely
     setWizardStep(step);
-  }, [editingCategoryId, isEditDirty, itemsByCategory, wizardStep]);
+  }, [buildAudioStepItems, editingCategoryId, isEditDirty, itemsByCategory, wizardStep]);
 
   const handleCreateCategory = useCallback(async (name: string) => {
     if (!selectedListId) return;
@@ -440,6 +585,7 @@ export default function ListsPage() {
 
   const editingCategory = categories.find((c) => c.id === editingCategoryId);
   const editingItems = editingCategoryId ? itemsByCategory.get(editingCategoryId) ?? [] : [];
+  const currentAudioItems = audioStepItems ?? (editingCategoryId ? editingItems : items);
 
   return (
     <div className="flex h-screen bg-background text-text overflow-hidden">
@@ -485,11 +631,15 @@ export default function ListsPage() {
           selectedListId={selectedListId}
           subscribedListIds={subscribedListIds}
           googleUsage={googleUsage}
+          languages={languages}
+          initialCreateLanguageFrom={initialCreateLanguageFrom}
+          initialCreateLanguageTo={initialCreateLanguageTo}
           onSelectList={handleSelectList}
           onCreateList={handleCreateList}
           onDeleteList={handleDeleteList}
           onSubscribe={handleSubscribe}
           onUnsubscribe={handleUnsubscribe}
+          onFork={handleForkList}
           openCreateSignal={openCreateSignal}
         />
       </div>
@@ -526,6 +676,19 @@ export default function ListsPage() {
             </div>
           )}
 
+          {existingListsHint && (
+            <div className="p-4 m-4 rounded-lg border border-border-subtle bg-background-elevated text-sm text-text-soft">
+              Create a new word list from existing lists by choosing a curated list and using Fork. The fork creates fresh learning progress while reusing translations and audio where possible.
+              <button
+                type="button"
+                className="ml-2 text-accent underline"
+                onClick={() => setExistingListsHint(false)}
+              >
+                Dismiss
+              </button>
+            </div>
+          )}
+
           {!selectedList ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-text-soft">Select a list to get started</p>
@@ -538,6 +701,7 @@ export default function ListsPage() {
               isOwner={isOwner}
               onEditCategory={handleEditCategory}
               onCreateCategory={handleCreateCategory}
+              onUpdateList={handleUpdateList}
               onRenameCategory={handleRenameCategory}
               onReorderCategories={handleReorderCategories}
               onDeleteCategory={handleDeleteCategory}
@@ -575,7 +739,7 @@ export default function ListsPage() {
           ) : wizardStep === 'audio-target' ? (
             <AudioStep
               list={selectedList}
-              items={editingCategoryId ? itemsByCategory.get(editingCategoryId) ?? [] : items}
+              items={currentAudioItems}
               audioSide="target"
               title="Audio - to learn"
               googleUsage={googleUsage}
@@ -587,7 +751,7 @@ export default function ListsPage() {
           ) : wizardStep === 'audio-known' ? (
             <AudioStep
               list={selectedList}
-              items={editingCategoryId ? itemsByCategory.get(editingCategoryId) ?? [] : items}
+              items={currentAudioItems}
               audioSide="known"
               title="Audio - known"
               googleUsage={googleUsage}

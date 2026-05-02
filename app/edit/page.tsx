@@ -22,6 +22,7 @@ import { EDIT_ONLY_CATEGORIES } from '@/components/EditableWordCard';
 import { useDueTimer } from '@/hooks/useDueTimer';
 import { useAuth } from '@/hooks/useAuth';
 import { AppStateProvider } from '@/context/AppStateContext';
+import { I18nProvider } from '@/components/I18nProvider';
 
 export default function EditPage() {
   const router = useRouter();
@@ -151,51 +152,49 @@ export default function EditPage() {
     shouldRenderMemoryHook,
   });
 
-  if (isLoading || !isHydrated) {
-    return <LoadingScreen />;
-  }
-
-  if (isRedirecting || userRole !== 'editor') {
-    return (
-      <div className="app">
-        <div className="p-8 text-center">Redirecting...</div>
-      </div>
-    );
-  }
-
   return (
     <AppStateProvider value={appState}>
-      <EditStudyContent
-        minigameFrequency={minigameFrequency}
-        onMinigameFrequencyChange={(f) => setMinigameFrequency(f)}
-        isAuthenticated={isAuthenticated}
-        authEmail={displayEmail}
-        authAddress={displayAddress}
-        onSignOut={async () => {
-          await signOut();
-          window.location.assign('/');
-        }}
-        categories={categories}
-        progressStats={progressStats}
-        header={
-          <EditHeader
-            isSaving={isSaving}
-            saveMessage={saveMessage}
-            onCancel={() => router.push('/')}
-            onSave={handleSave}
+      <I18nProvider language={appState.settingsLanguage}>
+        {isLoading || !isHydrated ? (
+          <LoadingScreen />
+        ) : isRedirecting || userRole !== 'editor' ? (
+          <div className="app">
+            <div className="p-8 text-center">Redirecting...</div>
+          </div>
+        ) : (
+          <EditStudyContent
+            minigameFrequency={minigameFrequency}
+            onMinigameFrequencyChange={(f) => setMinigameFrequency(f)}
+            isAuthenticated={isAuthenticated}
+            authEmail={displayEmail}
+            authAddress={displayAddress}
+            onSignOut={async () => {
+              await signOut();
+              window.location.assign('/');
+            }}
+            categories={categories}
+            progressStats={progressStats}
+            header={
+              <EditHeader
+                isSaving={isSaving}
+                saveMessage={saveMessage}
+                onCancel={() => router.push('/')}
+                onSave={handleSave}
+              />
+            }
+            phrasesCallbackRef={phrasesCallbackRef}
+            phrasesScrollElement={phrasesScrollElement}
+            filteredWords={filteredWords}
+            streamGroupedWords={streamGroupedWords}
+            renderEditableCard={renderEditableCard}
+            newWordsCount={newWords.length}
+            settlingCount={settlingWords.length}
+            showNotReady={showNotReady}
+            onToggleShowNotReady={() => setShowNotReady(!showNotReady)}
+            readyCount={readyCount}
           />
-        }
-        phrasesCallbackRef={phrasesCallbackRef}
-        phrasesScrollElement={phrasesScrollElement}
-        filteredWords={filteredWords}
-        streamGroupedWords={streamGroupedWords}
-        renderEditableCard={renderEditableCard}
-        newWordsCount={newWords.length}
-        settlingCount={settlingWords.length}
-        showNotReady={showNotReady}
-        onToggleShowNotReady={() => setShowNotReady(!showNotReady)}
-        readyCount={readyCount}
-      />
+        )}
+      </I18nProvider>
     </AppStateProvider>
   );
 }

@@ -13,7 +13,13 @@ export async function GET(request: NextRequest) {
     getUserLists(user.id),
     getUserSubscribedListIds(user.id),
   ]);
-  return NextResponse.json({ lists, subscribedListIds });
+  return NextResponse.json({
+    lists: lists.map((list) => ({
+      ...list,
+      isOwner: list.ownerId === user.id,
+    })),
+    subscribedListIds,
+  });
 }
 
 export async function POST(request: NextRequest) {

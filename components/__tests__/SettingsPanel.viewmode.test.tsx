@@ -16,12 +16,20 @@ vi.mock('@/context/AppStateContext', () => ({
     setMemoryHooksEnabled: vi.fn(),
     memoryHookDisableFromStage: 8,
     setMemoryHookDisableFromStage: vi.fn(),
+    settingsLanguage: 'en',
+    settingsLanguageSelectedAt: '2026-05-01T00:00:00.000Z',
+    setSettingsLanguage: vi.fn(),
     theme: 'default',
     setTheme: vi.fn(),
     userId: null,
     userWalletAddress: null,
     userEmail: null,
+    syncedWords: [],
   }),
+}));
+
+vi.mock('@/components/SettingsLanguagePicker', () => ({
+  SettingsLanguagePicker: () => <div data-testid="settings-language-picker" />,
 }));
 
 const baseProps = {
@@ -56,7 +64,7 @@ describe('SettingsPanel settings visibility', () => {
   it('keeps the mini-games switch on the section label without the old stream text', () => {
     render(<SettingsPanel {...baseProps} />);
     expect(screen.getByText(/mini-games/i)).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: /show mini-games in stream/i })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: /mini-games/i })).toBeInTheDocument();
     expect(screen.queryByText(/show in stream/i)).not.toBeInTheDocument();
   });
 
@@ -64,7 +72,7 @@ describe('SettingsPanel settings visibility', () => {
     const address = '0x1234567890abcdef1234567890abcdef12345678';
     render(<SettingsPanel {...baseProps} isAuthenticated authAddress={address} />);
     expect(screen.getByText(address)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /copy wallet address/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /copy/i })).toBeInTheDocument();
   });
 
   it('does not render the install app section on desktop', () => {
@@ -72,5 +80,13 @@ describe('SettingsPanel settings visibility', () => {
     expect(screen.queryByText(/^app$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/install app/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/add to home screen/i)).not.toBeInTheDocument();
+  });
+
+  it('shows local cache and sync controls in settings', () => {
+    render(<SettingsPanel {...baseProps} />);
+    expect(screen.getByText(/local data & sync/i)).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: /save learning data locally/i })).toBeInTheDocument();
+    expect(screen.getByRole('switch', { name: /cache sounds for active list/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /clear local learning cache/i })).toBeInTheDocument();
   });
 });

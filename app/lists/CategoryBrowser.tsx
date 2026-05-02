@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useRef } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import type { WordCategory, WordList, WordListItem } from '@/features/lists/types';
 
 interface CategoryBrowserProps {
@@ -10,6 +10,7 @@ interface CategoryBrowserProps {
   isOwner: boolean;
   onEditCategory: (categoryId: string, inputLang: 'known' | 'target') => void;
   onCreateCategory: (name: string) => Promise<void>;
+  onUpdateList: (listId: string, data: Pick<WordList, 'name' | 'description' | 'isPublic'>) => Promise<void>;
   onRenameCategory: (categoryId: string, name: string) => Promise<void>;
   onReorderCategories: (orderedIds: string[]) => Promise<void>;
   onDeleteCategory: (categoryId: string) => Promise<void>;
@@ -22,6 +23,7 @@ export function CategoryBrowser({
   isOwner,
   onEditCategory,
   onCreateCategory,
+  onUpdateList,
   onRenameCategory,
   onReorderCategories,
   onDeleteCategory,
@@ -32,7 +34,20 @@ export function CategoryBrowser({
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState('');
+  const [editingList, setEditingList] = useState(false);
+  const [listName, setListName] = useState(list.name);
+  const [listDescription, setListDescription] = useState(list.description ?? '');
+  const [listIsPublic, setListIsPublic] = useState(list.isPublic);
+  const [savingList, setSavingList] = useState(false);
   const dragItemRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setEditingList(false);
+    setListName(list.name);
+    setListDescription(list.description ?? '');
+    setListIsPublic(list.isPublic);
+    setSavingList(false);
+  }, [list.id, list.name, list.description, list.isPublic]);
 
   async function handleRenameSubmit(categoryId: string) {
     const trimmed = renameValue.trim();
@@ -57,6 +72,30 @@ export function CategoryBrowser({
     await onCreateCategory(newCategoryName.trim());
     setNewCategoryName('');
     setShowAddCategory(false);
+  }
+
+  async function handleListMetadataSubmit() {
+    const trimmedName = listName.trim();
+    if (!trimmedName) return;
+
+    setSavingList(true);
+    try {
+      await onUpdateList(list.id, {
+        name: trimmedName,
+        description: listDescription.trim() || null,
+        isPublic: listIsPublic,
+      });
+      setEditingList(false);
+    } finally {
+      setSavingList(false);
+    }
+  }
+
+  function cancelListMetadataEdit() {
+    setListName(list.name);
+    setListDescription(list.description ?? '');
+    setListIsPublic(list.isPublic);
+    setEditingList(false);
   }
 
   function handleDragStart(categoryId: string) {
@@ -91,12 +130,78 @@ export function CategoryBrowser({
     <div className="max-w-3xl mx-auto p-4 md:p-6">
       {/* List header */}
       <div className="mb-6">
-        <h1 className="text-xl font-semibold text-text">{list.name}</h1>
-        <p className="text-sm text-text-soft mt-1">
-          {list.languageFrom} → {list.languageTo} · {totalItems} words · {categories.length} categories
-        </p>
-        {list.description && (
-          <p className="text-sm text-text-soft mt-1">{list.description}</p>
+        {editingList ? (
+          <div className="rounded-lg border border-border-subtle bg-background-elevated p-3">
+            <div className="grid gap-3">
+              <label className="grid gap-1">
+                <span className="text-xs font-medium text-text-soft">List name</span>
+                <input
+                  type="text"
+                  value={listName}
+                  onChange={(e) => setListName(e.target.value)}
+                  className="rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text outline-none focus:border-accent"
+                  autoFocus
+                />
+              </label>
+              <label className="grid gap-1">
+                <span className="text-xs font-medium text-text-soft">Description</span>
+                <textarea
+                  value={listDescription}
+                  onChange={(e) => setListDescription(e.target.value)}
+                  rows={3}
+                  className="resize-none rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text outline-none focus:border-accent"
+                  placeholder="What this list is good for"
+                />
+              </label>
+              <label className="flex items-center gap-2 text-sm text-text-soft">
+                <input
+                  type="checkbox"
+                  checked={listIsPublic}
+                  onChange={(e) => setListIsPublic(e.target.checked)}
+                  className="size-4 accent-accent"
+                />
+                Public list
+              </label>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-background disabled:opacity-50"
+                  disabled={savingList || !listName.trim()}
+                  onClick={handleListMetadataSubmit}
+                >
+                  {savingList ? 'Saving...' : 'Save list'}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-border-subtle px-3 py-1.5 text-xs font-medium text-text-soft"
+                  onClick={cancelListMetadataEdit}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-xl font-semibold text-text">{list.name}</h1>
+              <p className="text-sm text-text-soft mt-1">
+                {list.languageFrom} → {list.languageTo} · {totalItems} words · {categories.length} categories
+              </p>
+              {list.description && (
+                <p className="text-sm text-text-soft mt-1">{list.description}</p>
+              )}
+            </div>
+            {isOwner ? (
+              <button
+                type="button"
+                className="hidden shrink-0 rounded-lg border border-border-subtle px-3 py-1.5 text-xs font-medium text-text-soft transition-colors hover:border-accent hover:text-accent md:inline-flex"
+                onClick={() => setEditingList(true)}
+              >
+                Edit list
+              </button>
+            ) : null}
+          </div>
         )}
       </div>
 

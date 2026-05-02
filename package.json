@@ -4,10 +4,9 @@
   "private": true,
   "packageManager": "pnpm@8.15.1",
   "scripts": {
-    "dev:css": "tailwindcss -c tailwind.config.js -i ./app/tailwind.css -o ./app/.generated/tailwind.css --watch",
-    "dev": "pnpm run build:css && pnpm run dev:css & next dev",
-    "build:css": "tailwindcss -c tailwind.config.js -i ./app/tailwind.css -o ./app/.generated/tailwind.css",
-    "build": "pnpm run build:css && next build",
+    "dev": "next dev --turbo",
+    "dev:fast": "next dev --turbo --disable-source-maps",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
@@ -41,7 +40,7 @@
     "wagmi": "^3.4.2"
   },
   "devDependencies": {
-    "@tailwindcss/cli": "^4.1.0",
+    "@tailwindcss/postcss": "^4.1.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.1",

@@ -28,6 +28,7 @@ import {
   verifySession,
   WORDLINK_SESSION_COOKIE_NAME,
 } from "@/lib/session";
+import { isGoogleSupportedLanguage } from "@/lib/i18n/server";
 
 const PG_STATEMENT_TIMEOUT = "57014";
 
@@ -81,6 +82,10 @@ interface SyncRequest {
   show_pronunciation?: boolean;
   memory_hooks_enabled?: boolean;
   memory_hook_disable_from_stage?: number;
+  settings_language?: string;
+  language_from?: string | null;
+  language_to?: string | null;
+  onboarding_completed?: boolean;
   game_score?: number;
   category_order?: string[];
   progress?: Array<{
@@ -129,6 +134,10 @@ export async function POST(request: NextRequest) {
       show_pronunciation,
       memory_hooks_enabled,
       memory_hook_disable_from_stage,
+      settings_language,
+      language_from,
+      language_to,
+      onboarding_completed,
       game_score,
       category_order,
       progress,
@@ -143,6 +152,29 @@ export async function POST(request: NextRequest) {
         { error: "deviceId or userId is required" },
         { status: 400 }
       );
+    }
+
+    if (settings_language !== undefined) {
+      const supported = await isGoogleSupportedLanguage(settings_language).catch(() => false);
+      if (!supported) {
+        return NextResponse.json(
+          { error: "settings_language must be supported by Google Translate" },
+          { status: 400 }
+        );
+      }
+    }
+    for (const [field, value] of [
+      ["language_from", language_from],
+      ["language_to", language_to],
+    ] as const) {
+      if (value === undefined || value === null) continue;
+      const supported = await isGoogleSupportedLanguage(value).catch(() => false);
+      if (!supported) {
+        return NextResponse.json(
+          { error: `${field} must be supported by Google Translate` },
+          { status: 400 }
+        );
+      }
     }
 
     let user = await withRetryOnTimeout(() =>
@@ -172,6 +204,10 @@ export async function POST(request: NextRequest) {
       show_pronunciation !== undefined ||
       memory_hooks_enabled !== undefined ||
       memory_hook_disable_from_stage !== undefined ||
+      settings_language !== undefined ||
+      language_from !== undefined ||
+      language_to !== undefined ||
+      onboarding_completed !== undefined ||
       game_score !== undefined ||
       category_order !== undefined
     ) {
@@ -181,6 +217,10 @@ export async function POST(request: NextRequest) {
         show_pronunciation,
         memory_hooks_enabled,
         memory_hook_disable_from_stage,
+        settings_language,
+        language_from,
+        language_to,
+        onboarding_completed,
         game_score: game_score === undefined
           ? undefined
           : Math.max(user.gameScore ?? 0, game_score),

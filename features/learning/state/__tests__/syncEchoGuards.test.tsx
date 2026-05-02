@@ -2,11 +2,13 @@ import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockDebouncedSync = vi.fn<(data: unknown) => Promise<void>>(() => Promise.resolve());
+const mockSyncUserData = vi.fn<(data: unknown) => Promise<void>>(() => Promise.resolve());
 const mockPostTabMessage = vi.fn<(message: unknown) => void>();
 const mockSubscribeTabMessages = vi.fn<(listener: unknown) => () => void>(() => () => {});
 
 vi.mock('@/lib/sync', () => ({
   debouncedSync: (data: unknown) => mockDebouncedSync(data),
+  syncUserData: (data: unknown) => mockSyncUserData(data),
   hasReceivedServerSnapshot: () => true,
 }));
 
@@ -28,6 +30,8 @@ const baseUser = {
   show_pronunciation: false,
   memory_hooks_enabled: true,
   memory_hook_disable_from_stage: 8,
+  settings_language: 'en',
+  settings_language_selected_at: '2026-05-01T00:00:00.000Z',
   category_order: ['animals', 'travel'],
 } as SyncResponse['user'];
 
@@ -52,8 +56,11 @@ describe('server sync echo guards', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    sessionStorage.clear();
+    delete process.env.NEXT_PUBLIC_GET_WORD_SIMULATE_FIRST_OPEN;
     mockSubscribeTabMessages.mockReturnValue(() => {});
     mockDebouncedSync.mockResolvedValue(undefined);
+    mockSyncUserData.mockResolvedValue(undefined);
   });
 
   it('does not re-sync unchanged server category order payloads', () => {
@@ -77,6 +84,87 @@ describe('server sync echo guards', () => {
     rerender({ isHydrated: true });
 
     expect(mockDebouncedSync).not.toHaveBeenCalled();
+  });
+
+  it('syncs settings language changes and marks the selection time locally', () => {
+    const isUpdatingFromServerRef = { current: false };
+    const { result } = renderHook(() => usePreferences(true, isUpdatingFromServerRef));
+
+    act(() => {
+      result.current.setSettingsLanguage('de');
+    });
+
+    expect(result.current.settingsLanguage).toBe('de');
+    expect(result.current.settingsLanguageSelectedAt).toEqual(expect.any(String));
+    expect(mockPostTabMessage).toHaveBeenCalledWith({
+      type: 'preferences_changed',
+      patch: expect.objectContaining({ settingsLanguage: 'de' }),
+    });
+  });
+
+  it('persists learning language onboarding immediately', async () => {
+    const isUpdatingFromServerRef = { current: false };
+    const { result } = renderHook(() => usePreferences(true, isUpdatingFromServerRef));
+
+    await act(async () => {
+      await result.current.setLearningLanguages('en', 'cs');
+    });
+
+    expect(result.current.learningLanguageFrom).toBe('en');
+    expect(result.current.learningLanguageTo).toBe('cs');
+    expect(result.current.onboardingCompletedAt).toEqual(expect.any(String));
+    expect(mockSyncUserData).toHaveBeenCalledWith({
+      language_from: 'en',
+      language_to: 'cs',
+      onboarding_completed: true,
+    });
+    expect(mockDebouncedSync).not.toHaveBeenCalledWith(
+      expect.objectContaining({ onboarding_completed: true })
+    );
+  });
+
+  it('ignores saved onboarding markers when simulate first open is enabled', () => {
+    process.env.NEXT_PUBLIC_GET_WORD_SIMULATE_FIRST_OPEN = 'true';
+    const isUpdatingFromServerRef = { current: false };
+    const { result } = renderHook(() => usePreferences(true, isUpdatingFromServerRef));
+
+    act(() => {
+      result.current.applyServerPreferences({
+        ...baseUser,
+        settings_language_selected_at: '2026-05-01T00:00:00.000Z',
+        language_from: 'en',
+        language_to: 'cs',
+        onboarding_completed_at: '2026-05-01T00:00:00.000Z',
+      });
+    });
+
+    expect(result.current.settingsLanguageSelectedAt).toBeNull();
+    expect(result.current.learningLanguageFrom).toBeNull();
+    expect(result.current.learningLanguageTo).toBeNull();
+    expect(result.current.onboardingCompletedAt).toBeNull();
+  });
+
+  it('keeps learning onboarding after completing it in a simulated first-open session', async () => {
+    process.env.NEXT_PUBLIC_GET_WORD_SIMULATE_FIRST_OPEN = 'true';
+    const isUpdatingFromServerRef = { current: false };
+    const { result } = renderHook(() => usePreferences(true, isUpdatingFromServerRef));
+
+    await act(async () => {
+      await result.current.setLearningLanguages('en', 'cs');
+    });
+
+    act(() => {
+      result.current.applyServerPreferences({
+        ...baseUser,
+        language_from: 'en',
+        language_to: 'cs',
+        onboarding_completed_at: '2026-05-01T00:00:00.000Z',
+      });
+    });
+
+    expect(result.current.learningLanguageFrom).toBe('en');
+    expect(result.current.learningLanguageTo).toBe('cs');
+    expect(result.current.onboardingCompletedAt).toBe('2026-05-01T00:00:00.000Z');
   });
 
   it('does not re-sync unchanged server category filters', () => {

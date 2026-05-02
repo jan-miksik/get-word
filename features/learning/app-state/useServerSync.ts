@@ -8,6 +8,8 @@ import {
   isAuthRequiredError,
   markServerSnapshotApplied,
 } from '@/lib/sync';
+import { installSyncLifecycle } from '@/lib/sync-coordinator';
+import { getSnapshot, getStoragePreference, saveSnapshot } from '@/lib/local-learning-cache';
 import type { SyncResponse } from '@/lib/sync';
 import type { NormalizedWord } from '@/lib/words';
 import { wordListItemsToNormalizedWords } from '@/lib/words';
@@ -58,7 +60,7 @@ export function useServerSync({
 
   const applyServerData = useCallback((
     serverData: SyncResponse,
-    options: { clearPending?: boolean } = {}
+    options: { clearPending?: boolean; persistSnapshot?: boolean; markServerSnapshot?: boolean } = {}
   ) => {
     const applyStart = performance.now();
     if (options.clearPending ?? true) {
@@ -100,7 +102,12 @@ export function useServerSync({
         }
       }
     }
-    markServerSnapshotApplied();
+    if (options.markServerSnapshot ?? true) {
+      markServerSnapshotApplied();
+    }
+    if (options.persistSnapshot ?? true) {
+      void saveSnapshot(serverData, readStoredActiveListId()).catch(() => undefined);
+    }
     if (shouldLogPerf) {
       console.info(`[timing] useServerSync.applyServerData ${(performance.now() - applyStart).toFixed(1)}ms`);
     }
@@ -151,6 +158,28 @@ export function useServerSync({
       }
     }, 15000);
 
+    let cancelled = false;
+    if (getStoragePreference()) {
+      getSnapshot()
+        .then((snapshot) => {
+          if (cancelled || !snapshot || isHydratedRef.current) return;
+          isUpdatingFromServerRef.current = true;
+          applyServerData(
+            { success: true, ...snapshot.data } as SyncResponse,
+            { clearPending: false, persistSnapshot: false, markServerSnapshot: false }
+          );
+          if (snapshot.activeListId) {
+            setActiveListId(snapshot.activeListId);
+          }
+          isHydratedRef.current = true;
+          setIsHydrated(true);
+          requestAnimationFrame(() => {
+            isUpdatingFromServerRef.current = false;
+          });
+        })
+        .catch(() => undefined);
+    }
+
     fetchUserData()
       .then((serverData) => {
         clearTimeout(hydrationTimeout);
@@ -182,8 +211,16 @@ export function useServerSync({
         }
       });
 
-    return () => clearTimeout(hydrationTimeout);
-  }, [applyServerData, isUpdatingFromServerRef, setIsHydrated, shouldLogPerf, words.length]);
+    return () => {
+      cancelled = true;
+      clearTimeout(hydrationTimeout);
+    };
+  }, [applyServerData, isUpdatingFromServerRef, setActiveListId, setIsHydrated, shouldLogPerf, words.length]);
+
+  useEffect(() => {
+    if (!isHydrated) return;
+    return installSyncLifecycle();
+  }, [isHydrated]);
 
   useEffect(() => {
     const onServerSync = (event: Event) => {

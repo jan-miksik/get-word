@@ -19,13 +19,13 @@ interface TranslationStepProps {
   inputLanguage: 'known' | 'target';
   heading?: string;
   googleUsage?: GoogleUsageResponse | null;
-  onComplete: () => Promise<void>;
+  onComplete: (rows: CompletedTranslationRow[]) => Promise<void>;
   onSkip: () => Promise<void>;
   onUsageRefresh?: () => Promise<void>;
   onBack?: () => void;
 }
 
-type TranslationRow = {
+export type CompletedTranslationRow = {
   id: string;
   textKnown: string;
   textTarget: string;
@@ -33,6 +33,8 @@ type TranslationRow = {
   error?: string;
   source?: 'dedup' | 'api';
 };
+
+type TranslationRow = CompletedTranslationRow;
 
 type OpenRouterUiState =
   | 'not_connected'
@@ -275,7 +277,7 @@ export function TranslationStep({
         throw new Error(data.error ?? 'Failed to save translations');
       }
 
-      await onComplete();
+      await onComplete(rows);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save');
     } finally {

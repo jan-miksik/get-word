@@ -4,6 +4,7 @@ import { users, type User, type NewUser } from "../schema";
 
 const MEMORY_HOOK_DISABLE_STAGE_VALUES = new Set([5, 6, 7, 8, 9, 10]);
 const DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE = 8;
+const LANGUAGE_CODE_PATTERN = /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/;
 
 function normalizeMemoryHookDisableFromStage(value: unknown): number {
   const parsed = Number(value);
@@ -12,6 +13,14 @@ function normalizeMemoryHookDisableFromStage(value: unknown): number {
   return MEMORY_HOOK_DISABLE_STAGE_VALUES.has(normalized)
     ? normalized
     : DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE;
+}
+
+function normalizeSettingsLanguage(value: unknown): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const trimmed = value.trim();
+  if (!LANGUAGE_CODE_PATTERN.test(trimmed)) return undefined;
+  const [base, region] = trimmed.split("-");
+  return region ? `${base.toLowerCase()}-${region.toUpperCase()}` : base.toLowerCase();
 }
 
 // Get user by ID
@@ -98,6 +107,10 @@ export async function updateUserPreferences(
     show_pronunciation?: boolean;
     memory_hooks_enabled?: boolean;
     memory_hook_disable_from_stage?: number;
+    settings_language?: string;
+    language_from?: string | null;
+    language_to?: string | null;
+    onboarding_completed?: boolean;
     game_score?: number;
     category_order?: string[];
   }
@@ -108,6 +121,11 @@ export async function updateUserPreferences(
     showPronunciation?: boolean;
     memoryHooksEnabled?: boolean;
     memoryHookDisableFromStage?: number;
+    settingsLanguage?: string;
+    settingsLanguageSelectedAt?: Date;
+    languageFrom?: string | null;
+    languageTo?: string | null;
+    onboardingCompletedAt?: Date | null;
     gameScore?: number;
     categoryOrder?: string[];
     updatedAt: Date;
@@ -122,6 +140,24 @@ export async function updateUserPreferences(
     updates.memoryHookDisableFromStage = normalizeMemoryHookDisableFromStage(
       prefs.memory_hook_disable_from_stage
     );
+  }
+  if (prefs.settings_language !== undefined) {
+    const normalized = normalizeSettingsLanguage(prefs.settings_language);
+    if (normalized) {
+      updates.settingsLanguage = normalized;
+      updates.settingsLanguageSelectedAt = new Date();
+    }
+  }
+  if (prefs.language_from !== undefined) {
+    const normalized = normalizeSettingsLanguage(prefs.language_from);
+    updates.languageFrom = normalized || null;
+  }
+  if (prefs.language_to !== undefined) {
+    const normalized = normalizeSettingsLanguage(prefs.language_to);
+    updates.languageTo = normalized || null;
+  }
+  if (prefs.onboarding_completed !== undefined) {
+    updates.onboardingCompletedAt = prefs.onboarding_completed ? new Date() : null;
   }
   if (prefs.game_score !== undefined) updates.gameScore = Math.max(0, Math.floor(prefs.game_score));
   if (prefs.category_order !== undefined) {
