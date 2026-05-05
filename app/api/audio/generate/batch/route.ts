@@ -16,6 +16,7 @@ import {
   googleTTS,
   elevenLabsTTS,
   getAudioUrl,
+  GoogleTTSQuotaExhaustedError,
 } from "@/lib/audio";
 import { getArweaveGatewayUrls, uploadAudio } from "@/lib/audio-storage";
 import { getUserApiKey } from "@/lib/translation";
@@ -330,10 +331,23 @@ async function handlePost(request: NextRequest) {
     error?: string;
   }[] = [];
 
+  let quotaExhaustedMessage: string | null = null;
+
   for (let i = 0; i < needsGeneration.length; i += CONCURRENCY) {
+    if (quotaExhaustedMessage) break;
+
     const batch = needsGeneration.slice(i, i + CONCURRENCY);
     const batchResults = await Promise.all(
       batch.map(async ({ item, hash }) => {
+        if (quotaExhaustedMessage) {
+          await batchLinkAudioToItems([{
+            itemId: item.id,
+            audioAssetId: null,
+            audioStatus: "failed",
+            ...(audioField === "known" ? { audioField } : {}),
+          }]);
+          return { itemId: item.id, hash, status: "error" as const, error: quotaExhaustedMessage };
+        }
         try {
           // Generate audio
           let result: { audio: Buffer; sizeBytes: number } | null = null;
@@ -412,6 +426,9 @@ async function handlePost(request: NextRequest) {
             sizeBytes: result.sizeBytes,
           };
         } catch (err) {
+          if (err instanceof GoogleTTSQuotaExhaustedError) {
+            quotaExhaustedMessage = err.message;
+          }
           const detail = getErrorDetail(err);
           console.error("[Wordlink audio] item generation failed", {
             itemId: item.id,
@@ -438,6 +455,21 @@ async function handlePost(request: NextRequest) {
       }),
     );
     generatedResults.push(...batchResults);
+  }
+
+  // If quota was exhausted and nothing was generated, return 429
+  if (
+    quotaExhaustedMessage
+    && dedupLinks.length === 0
+    && generatedResults.every((r) => r.status === "error")
+  ) {
+    return NextResponse.json(
+      {
+        error: quotaExhaustedMessage,
+        code: "GOOGLE_TTS_QUOTA_EXHAUSTED",
+      },
+      { status: 429 },
+    );
   }
 
   // Build unified results

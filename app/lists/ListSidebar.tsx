@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import type { GoogleUsageResponse, WordList } from '@/features/lists/types';
 import { GoogleUsagePanel } from './GoogleUsagePanel';
 import { useI18n } from '@/components/I18nProvider';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 interface ListSidebarProps {
   lists: WordList[];
@@ -18,6 +19,7 @@ interface ListSidebarProps {
   onSelectList: (id: string) => void;
   onCreateList: (name: string, langFrom: string, langTo: string) => Promise<void>;
   onDeleteList: (listId: string) => Promise<void>;
+  onEditList?: (listId: string) => void;
   onSubscribe: (listId: string) => Promise<void>;
   onUnsubscribe: (listId: string) => Promise<void>;
   onFork?: (listId: string) => Promise<void>;
@@ -35,6 +37,7 @@ export function ListSidebar({
   onSelectList,
   onCreateList,
   onDeleteList,
+  onEditList,
   onSubscribe,
   onUnsubscribe,
   onFork,
@@ -50,6 +53,9 @@ export function ListSidebar({
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [returningToApp, setReturningToApp] = useState(false);
+  const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<WordList | null>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   const ownLists = lists.filter((l) => l.isOwner ?? l.ownerId !== null);
   const publicLists = lists.filter((l) => !(l.isOwner ?? l.ownerId !== null) && l.isPublic);
@@ -64,6 +70,24 @@ export function ListSidebar({
     if (initialCreateLanguageFrom) setNewLangFrom(initialCreateLanguageFrom);
     if (initialCreateLanguageTo) setNewLangTo(initialCreateLanguageTo);
   }, [initialCreateLanguageFrom, initialCreateLanguageTo]);
+
+  useEffect(() => {
+    if (!openDropdownId) return;
+    function handlePointerDown(e: PointerEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setOpenDropdownId(null);
+      }
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpenDropdownId(null);
+    }
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [openDropdownId]);
 
   async function handleCreate() {
     if (!newName.trim()) return;
@@ -90,10 +114,15 @@ export function ListSidebar({
     }
   }
 
-  async function handleDelete(list: WordList) {
-    const shouldDelete = window.confirm(t('lists.deleteConfirm', { name: list.name }));
-    if (!shouldDelete) return;
+  function handleDeleteClick(list: WordList) {
+    setOpenDropdownId(null);
+    setDeleteConfirm(list);
+  }
 
+  async function handleDeleteConfirmed() {
+    if (!deleteConfirm) return;
+    const list = deleteConfirm;
+    setDeleteConfirm(null);
     setDeletingId(list.id);
     try {
       await onDeleteList(list.id);
@@ -104,12 +133,24 @@ export function ListSidebar({
 
   async function handleFork(listId: string) {
     if (!onFork) return;
+    setOpenDropdownId(null);
     setTogglingId(`fork:${listId}`);
     try {
       await onFork(listId);
     } finally {
       setTogglingId(null);
     }
+  }
+
+  function handleEditClick(listId: string) {
+    setOpenDropdownId(null);
+    onSelectList(listId);
+    onEditList?.(listId);
+  }
+
+  function toggleDropdown(e: React.MouseEvent, listId: string) {
+    e.stopPropagation();
+    setOpenDropdownId((prev) => (prev === listId ? null : listId));
   }
 
   return (
@@ -146,30 +187,33 @@ export function ListSidebar({
             <h3 className="px-2 py-1 text-xs font-medium text-text-soft uppercase tracking-wide">
               {t('lists.yourLists')}
             </h3>
-            {ownLists.map((list) => (
-              <div
-                key={list.id}
-                className={`group flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
-                  selectedListId === list.id
-                    ? 'bg-accent/15'
-                    : 'hover:bg-background/50'
-                }`}
-              >
-                <button
-                  type="button"
-                  className={`flex-1 min-w-0 text-left ${
+            {ownLists.map((list) => {
+              const isForking = togglingId === `fork:${list.id}`;
+              const isDropdownOpen = openDropdownId === list.id;
+
+              return (
+                <div
+                  key={list.id}
+                  className={`group flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
                     selectedListId === list.id
-                      ? 'text-accent'
-                      : 'text-text'
+                      ? 'bg-accent/15'
+                      : 'hover:bg-background/50'
                   }`}
-                  onClick={() => onSelectList(list.id)}
                 >
-                  <div className="font-medium truncate">{list.name}</div>
-                  <div className="text-xs text-text-soft mt-0.5">
-                    {list.languageFrom} → {list.languageTo}
-                  </div>
-                  {(list.isCommon || list.isPublic) && (
-                    <div className="flex gap-1 mt-1">
+                  <button
+                    type="button"
+                    className={`flex-1 min-w-0 text-left ${
+                      selectedListId === list.id
+                        ? 'text-accent'
+                        : 'text-text'
+                    }`}
+                    onClick={() => onSelectList(list.id)}
+                  >
+                    <div className="font-medium truncate">{list.name}</div>
+                    <div className="text-xs text-text-soft mt-0.5">
+                      {list.languageFrom} → {list.languageTo}
+                    </div>
+                    <div className="flex gap-1 mt-1 flex-wrap">
                       {list.isCommon && (
                         <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-fresh/10 text-fresh">
                           Seed
@@ -180,27 +224,72 @@ export function ListSidebar({
                           Public
                         </span>
                       )}
+                      {!list.isPublic && !list.isCommon && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-text-soft/10 text-text-soft">
+                          Private
+                        </span>
+                      )}
                     </div>
-                  )}
-                </button>
+                  </button>
 
-                <button
-                  type="button"
-                  className="shrink-0 p-1.5 rounded-md text-text-soft opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 group-focus-within:opacity-100 hover:text-danger hover:bg-danger/10 focus-visible:opacity-100 disabled:opacity-40"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(list);
-                  }}
-                  disabled={deletingId === list.id}
-                  title={t('lists.delete')}
-                  aria-label={`${t('lists.delete')} ${list.name}`}
-                >
-                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" className="text-current">
-                    <path d="M4 6h12M8 3h4M7 6v10m6-10v10M6 6l.6 10.2A1 1 0 007.6 17h4.8a1 1 0 001-.8L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                  </svg>
-                </button>
-              </div>
-            ))}
+                  {/* Three-dots menu */}
+                  <div className="relative shrink-0" ref={isDropdownOpen ? dropdownRef : undefined}>
+                    <button
+                      type="button"
+                      className="p-1.5 rounded-md text-text-soft opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 group-focus-within:opacity-100 hover:text-text hover:bg-background/80 focus-visible:opacity-100 disabled:opacity-40 data-[open=true]:opacity-100"
+                      data-open={isDropdownOpen}
+                      onClick={(e) => toggleDropdown(e, list.id)}
+                      disabled={deletingId === list.id || isForking}
+                      aria-label={`Options for ${list.name}`}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                        <circle cx="10" cy="4" r="1.5" />
+                        <circle cx="10" cy="10" r="1.5" />
+                        <circle cx="10" cy="16" r="1.5" />
+                      </svg>
+                    </button>
+
+                    {isDropdownOpen && (
+                      <div className="absolute right-0 top-full mt-1 z-50 min-w-[130px] rounded-lg border border-border-subtle bg-background shadow-lg py-1">
+                        {onFork && (
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-background-elevated transition-colors"
+                            onClick={() => handleFork(list.id)}
+                          >
+                            <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+                              <path d="M6 3v4m0 0a3 3 0 100 6 3 3 0 000-6zm8-4v4m0 0a3 3 0 100 6 3 3 0 000-6zM6 7h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                            </svg>
+                            Fork
+                          </button>
+                        )}
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-background-elevated transition-colors"
+                          onClick={() => handleEditClick(list.id)}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+                            <path d="M11.5 4.5l4 4L7 17H3v-4L11.5 4.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          Edit
+                        </button>
+                        <div className="my-1 border-t border-border-subtle" />
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-danger hover:bg-danger/10 transition-colors"
+                          onClick={() => handleDeleteClick(list)}
+                        >
+                          <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+                            <path d="M4 6h12M8 3h4M7 6v10m6-10v10M6 6l.6 10.2A1 1 0 007.6 17h4.8a1 1 0 001-.8L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                          </svg>
+                          Delete
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -213,11 +302,12 @@ export function ListSidebar({
               const isSubscribed = subscribedListIds.has(list.id);
               const isToggling = togglingId === list.id;
               const isForking = togglingId === `fork:${list.id}`;
+              const isDropdownOpen = openDropdownId === `pub:${list.id}`;
 
               return (
                 <div
                   key={list.id}
-                  className={`flex items-stretch gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                  className={`group flex items-stretch gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
                     selectedListId === list.id
                       ? 'bg-accent/15'
                       : 'hover:bg-background/50'
@@ -261,21 +351,44 @@ export function ListSidebar({
                       />
                     </button>
 
-                    {onFork ? (
-                      <button
-                        type="button"
-                        disabled={isForking}
-                        className="shrink-0 rounded-md border border-border-subtle bg-background px-2.5 py-1.5 text-[11px] font-medium text-text-soft transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleFork(list.id);
-                        }}
-                        onPointerDown={(e) => e.stopPropagation()}
-                        title="Fork this list"
-                      >
-                        {isForking ? 'Forking...' : 'Fork'}
-                      </button>
-                    ) : null}
+                    {/* Three-dots for public lists */}
+                    {onFork && (
+                      <div className="relative shrink-0" ref={isDropdownOpen ? dropdownRef : undefined}>
+                        <button
+                          type="button"
+                          className="p-1.5 rounded-md text-text-soft opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 group-focus-within:opacity-100 hover:text-text hover:bg-background/80 focus-visible:opacity-100 data-[open=true]:opacity-100"
+                          data-open={isDropdownOpen}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenDropdownId((prev) => (prev === `pub:${list.id}` ? null : `pub:${list.id}`));
+                          }}
+                          disabled={isForking}
+                          aria-label={`Options for ${list.name}`}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                            <circle cx="10" cy="4" r="1.5" />
+                            <circle cx="10" cy="10" r="1.5" />
+                            <circle cx="10" cy="16" r="1.5" />
+                          </svg>
+                        </button>
+
+                        {isDropdownOpen && (
+                          <div className="absolute right-0 top-full mt-1 z-50 min-w-[130px] rounded-lg border border-border-subtle bg-background shadow-lg py-1">
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-background-elevated transition-colors"
+                              onClick={() => handleFork(list.id)}
+                              disabled={isForking}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+                                <path d="M6 3v4m0 0a3 3 0 100 6 3 3 0 000-6zm8-4v4m0 0a3 3 0 100 6 3 3 0 000-6zM6 7h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                              </svg>
+                              {isForking ? 'Forking...' : 'Fork'}
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               );
@@ -284,7 +397,7 @@ export function ListSidebar({
         )}
       </div>
 
-      {/* Editor-only: global Google API usage — the 'global' field is only included in the response for editor accounts */}
+      {/* Editor-only: global Google API usage */}
       {googleUsage?.global && googleUsage.global.length > 0 && (
         <div className="border-t border-border-subtle px-3 py-2">
           <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-text-soft">
@@ -383,6 +496,16 @@ export function ListSidebar({
           </button>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={Boolean(deleteConfirm)}
+        title={t('lists.deleteConfirm', { name: deleteConfirm?.name ?? '' })}
+        message={`This will permanently delete "${deleteConfirm?.name ?? ''}". This action cannot be undone.`}
+        confirmLabel="Delete"
+        onConfirm={handleDeleteConfirmed}
+        onCancel={() => setDeleteConfirm(null)}
+      />
+
       {usageModalOpen && googleUsage
         ? createPortal(
             <div

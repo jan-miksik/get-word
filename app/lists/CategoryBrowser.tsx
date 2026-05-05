@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
 import type { WordCategory, WordList, WordListItem } from '@/features/lists/types';
+import { ConfirmModal } from '@/components/ConfirmModal';
 
 interface CategoryBrowserProps {
   list: WordList;
@@ -10,6 +11,7 @@ interface CategoryBrowserProps {
   isOwner: boolean;
   isEditor: boolean;
   forkedFromListName?: string | null;
+  triggerEditSignal?: number;
   onEditCategory: (categoryId: string, inputLang: 'known' | 'target') => void;
   onCreateCategory: (name: string) => Promise<void>;
   onUpdateList: (listId: string, data: Pick<WordList, 'name' | 'description' | 'isPublic'> & { isCommon?: boolean }) => Promise<void>;
@@ -17,6 +19,8 @@ interface CategoryBrowserProps {
   onRenameCategory: (categoryId: string, name: string) => Promise<void>;
   onReorderCategories: (orderedIds: string[]) => Promise<void>;
   onDeleteCategory: (categoryId: string) => Promise<void>;
+  onFork?: (listId: string) => Promise<void>;
+  onDeleteList?: (listId: string) => Promise<void>;
 }
 
 export function CategoryBrowser({
@@ -26,6 +30,7 @@ export function CategoryBrowser({
   isOwner,
   isEditor,
   forkedFromListName,
+  triggerEditSignal,
   onEditCategory,
   onCreateCategory,
   onUpdateList,
@@ -33,6 +38,8 @@ export function CategoryBrowser({
   onRenameCategory,
   onReorderCategories,
   onDeleteCategory,
+  onFork,
+  onDeleteList,
 }: CategoryBrowserProps) {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [newCategoryName, setNewCategoryName] = useState('');
@@ -46,7 +53,12 @@ export function CategoryBrowser({
   const [listIsPublic, setListIsPublic] = useState(list.isPublic);
   const [listIsCommon, setListIsCommon] = useState(Boolean(list.isCommon));
   const [savingList, setSavingList] = useState(false);
+  const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
+  const [deleteCategoryConfirm, setDeleteCategoryConfirm] = useState<WordCategory | null>(null);
+  const [deleteListConfirm, setDeleteListConfirm] = useState(false);
+  const [forkingList, setForkingList] = useState(false);
   const dragItemRef = useRef<string | null>(null);
+  const headerMenuRef = useRef<HTMLDivElement>(null);
   const canEditListMetadata = isOwner || isEditor;
 
   useEffect(() => {
@@ -57,6 +69,30 @@ export function CategoryBrowser({
     setListIsCommon(Boolean(list.isCommon));
     setSavingList(false);
   }, [forkedFromListName, list.id, list.name, list.description, list.isPublic, list.isCommon]);
+
+  useEffect(() => {
+    if (triggerEditSignal && triggerEditSignal > 0) {
+      setEditingList(true);
+    }
+  }, [triggerEditSignal]);
+
+  useEffect(() => {
+    if (!headerMenuOpen) return;
+    function handlePointerDown(e: PointerEvent) {
+      if (headerMenuRef.current && !headerMenuRef.current.contains(e.target as Node)) {
+        setHeaderMenuOpen(false);
+      }
+    }
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setHeaderMenuOpen(false);
+    }
+    document.addEventListener('pointerdown', handlePointerDown);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [headerMenuOpen]);
 
   async function handleRenameSubmit(categoryId: string) {
     const trimmed = renameValue.trim();
@@ -135,6 +171,23 @@ export function CategoryBrowser({
     onReorderCategories(ordered);
     setDragOverId(null);
     dragItemRef.current = null;
+  }
+
+  async function handleForkList() {
+    if (!onFork) return;
+    setHeaderMenuOpen(false);
+    setForkingList(true);
+    try {
+      await onFork(list.id);
+    } finally {
+      setForkingList(false);
+    }
+  }
+
+  async function handleDeleteListConfirmed() {
+    if (!onDeleteList) return;
+    setDeleteListConfirm(false);
+    await onDeleteList(list.id);
   }
 
   const totalItems = items_count(itemsByCategory);
@@ -250,19 +303,74 @@ export function CategoryBrowser({
                 </div>
               )}
             </div>
-            {canEditListMetadata ? (
-              <button
-                type="button"
-                className="hidden shrink-0 items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-background shadow-sm transition-colors hover:bg-accent/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 md:inline-flex"
-                onClick={() => setEditingList(true)}
-              >
-                <svg width="15" height="15" viewBox="0 0 20 20" fill="none" className="text-current">
-                  <path d="M11.5 4.5l4 4L7 17H3v-4L11.5 4.5z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
-                  <path d="M10 6l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                </svg>
-                Edit list
-              </button>
-            ) : null}
+
+            <div className="hidden md:flex shrink-0 items-center gap-2">
+              {canEditListMetadata ? (
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-background shadow-sm transition-colors hover:bg-accent/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                  onClick={() => setEditingList(true)}
+                >
+                  <svg width="15" height="15" viewBox="0 0 20 20" fill="none" className="text-current">
+                    <path d="M11.5 4.5l4 4L7 17H3v-4L11.5 4.5z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                    <path d="M10 6l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                  </svg>
+                  Edit list
+                </button>
+              ) : null}
+
+              {/* Three-dots menu next to Edit list */}
+              {(onFork || onDeleteList) && (
+                <div className="relative" ref={headerMenuRef}>
+                  <button
+                    type="button"
+                    className="p-2 rounded-lg border border-border-subtle text-text-soft hover:text-text hover:bg-background-elevated transition-colors"
+                    onClick={() => setHeaderMenuOpen((prev) => !prev)}
+                    disabled={forkingList}
+                    aria-label="More options"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
+                      <circle cx="10" cy="4" r="1.5" />
+                      <circle cx="10" cy="10" r="1.5" />
+                      <circle cx="10" cy="16" r="1.5" />
+                    </svg>
+                  </button>
+
+                  {headerMenuOpen && (
+                    <div className="absolute right-0 top-full mt-1 z-50 min-w-[140px] rounded-lg border border-border-subtle bg-background shadow-lg py-1">
+                      {onFork && (
+                        <button
+                          type="button"
+                          className="flex w-full items-center gap-2 px-3 py-2 text-sm text-text hover:bg-background-elevated transition-colors"
+                          onClick={handleForkList}
+                          disabled={forkingList}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                            <path d="M6 3v4m0 0a3 3 0 100 6 3 3 0 000-6zm8-4v4m0 0a3 3 0 100 6 3 3 0 000-6zM6 7h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                          </svg>
+                          {forkingList ? 'Forking...' : 'Fork list'}
+                        </button>
+                      )}
+                      {onDeleteList && (
+                        <>
+                          {onFork && <div className="my-1 border-t border-border-subtle" />}
+                          <button
+                            type="button"
+                            className="flex w-full items-center gap-2 px-3 py-2 text-sm text-danger hover:bg-danger/10 transition-colors"
+                            onClick={() => { setHeaderMenuOpen(false); setDeleteListConfirm(true); }}
+                          >
+                            <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
+                              <path d="M4 6h12M8 3h4M7 6v10m6-10v10M6 6l.6 10.2A1 1 0 007.6 17h4.8a1 1 0 001-.8L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                            </svg>
+                            Delete list
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -375,9 +483,7 @@ export function CategoryBrowser({
                         className="px-3 py-1.5 rounded-lg text-danger/70 text-xs hover:bg-danger/10 transition-colors"
                         onClick={(e) => {
                           e.stopPropagation();
-                          if (confirm(`Delete category "${category.name}"?`)) {
-                            onDeleteCategory(category.id);
-                          }
+                          setDeleteCategoryConfirm(category);
                         }}
                       >
                         Delete
@@ -409,7 +515,6 @@ export function CategoryBrowser({
             </div>
           );
         })}
-
       </div>
 
       {/* Add category - desktop only, owner only */}
@@ -455,6 +560,28 @@ export function CategoryBrowser({
           )}
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={Boolean(deleteCategoryConfirm)}
+        title={`Delete category "${deleteCategoryConfirm?.name ?? ''}"?`}
+        message="All words in this category will be permanently deleted."
+        confirmLabel="Delete"
+        onConfirm={() => {
+          const id = deleteCategoryConfirm?.id;
+          setDeleteCategoryConfirm(null);
+          if (id) onDeleteCategory(id);
+        }}
+        onCancel={() => setDeleteCategoryConfirm(null)}
+      />
+
+      <ConfirmModal
+        isOpen={deleteListConfirm}
+        title={`Delete list "${list.name}"?`}
+        message="This will permanently delete the list and all its words. This action cannot be undone."
+        confirmLabel="Delete"
+        onConfirm={handleDeleteListConfirmed}
+        onCancel={() => setDeleteListConfirm(false)}
+      />
     </div>
   );
 }

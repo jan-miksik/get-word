@@ -1,5 +1,16 @@
 import crypto from "crypto";
 
+export class GoogleTTSQuotaExhaustedError extends Error {
+  readonly code = "RESOURCE_EXHAUSTED" as const;
+  constructor(detail: string) {
+    super(
+      "Google TTS quota has been exhausted. Please try again later or contact support.",
+    );
+    this.name = "GoogleTTSQuotaExhaustedError";
+    this.cause = new Error(detail);
+  }
+}
+
 /**
  * Compute content hash for audio dedup.
  * Hash = sha256(text + language + provider + output-affecting options)
@@ -63,11 +74,25 @@ export async function googleTTS(
 
     if (!res.ok) {
       const body = await res.json().catch(() => null) as {
-        error?: { message?: string; status?: string };
+        error?: { code?: number; message?: string; status?: string; details?: unknown[] };
       } | null;
       const detail = body?.error?.message ?? `${res.status} ${res.statusText}`;
-      const status = body?.error?.status ? ` (${body.error.status})` : "";
-      throw new Error(`Google TTS request failed${status}: ${detail}`);
+      const errorStatus = body?.error?.status;
+      console.error("[Google TTS] API error response", {
+        httpStatus: res.status,
+        httpStatusText: res.statusText,
+        language,
+        errorCode: body?.error?.code,
+        errorStatus,
+        errorMessage: body?.error?.message,
+        errorDetails: body?.error?.details,
+        rawBody: body,
+      });
+      if (errorStatus === "RESOURCE_EXHAUSTED") {
+        throw new GoogleTTSQuotaExhaustedError(detail);
+      }
+      const statusLabel = errorStatus ? ` (${errorStatus})` : "";
+      throw new Error(`Google TTS request failed${statusLabel}: ${detail}`);
     }
 
     const data = await res.json();

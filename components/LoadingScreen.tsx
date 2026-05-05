@@ -11,71 +11,35 @@ const GLYPHS = [
   'Д', 'Σ', '語', 'अ', 'ع', 'ก', 'א', 'ა', 'ㅎ', 'Ω',
 ];
 
-const LOADING_WORDS = [
-  'loading',
-  'cargando',
-  'chargement',
-  'laden',
-  'caricando',
-  'načítání',
-  'ładowanie',
-  '加载中',
-  '読み込み中',
-  '로딩 중',
-  'загрузка',
-  'تحميل',
-  'cargando',
-  'yükleniyor',
-  'memuat',
-  'đang tải',
-  'กำลังโหลด',
-  'लोड हो रहा है',
+const PARTICLE_COUNT = 34;
+
+function makeParticles() {
+  return Array.from({ length: PARTICLE_COUNT }, (_, i) => {
+    const r1 = Math.random();
+    const r2 = Math.random();
+    const r3 = Math.random();
+    return {
+      char: GLYPHS[Math.floor(r3 * GLYPHS.length)],
+      left: r1 * 92 + 4,
+      top: r2 * 90 + 5,
+      delay: `${-(r1 * 10).toFixed(2)}s`,
+      duration: `${(12 + r2 * 14).toFixed(3)}s`,
+      size: `${(0.58 + r3 * 1.45).toFixed(3)}rem`,
+      opacity: (0.06 + r2 * 0.14).toFixed(3),
+      animType: i % 3,
+      rotate: Math.floor(r1 * 32 - 16),
+    };
+  });
+}
+
+const FOG_LAYERS = [
+  { inset: '-10px', bg: 'rgba(56, 189, 248, 0.18)', freq: 0.31, txS: 14, tyS: 12 },
+  { inset: '5px',   bg: 'rgba(99, 102, 241, 0.12)', freq: 0.19, txS: 11, tyS: 9  },
+  { inset: '-20px', bg: 'rgba(56, 189, 248, 0.09)', freq: 0.23, txS: 18, tyS: 15 },
+  { inset: '15px',  bg: 'rgba(167, 139, 250, 0.08)',freq: 0.41, txS: 10, tyS: 8  },
 ];
 
-const PARTICLE_COUNT = 34;
-const PARTICLES = Array.from({ length: PARTICLE_COUNT }, (_, i) => {
-  const s1 = Math.sin(i * 127.1 + 311.7) * 43758.5453;
-  const s2 = Math.sin(i * 269.5 + 183.3) * 28461.2731;
-  const s3 = Math.sin(i * 421.7 + 91.9) * 14687.229;
-  const p1 = s1 - Math.floor(s1);
-  const p2 = s2 - Math.floor(s2);
-  const p3 = s3 - Math.floor(s3);
-
-  const animType = i % 3;
-
-  return {
-    word: LOADING_WORDS[Math.floor(p3 * LOADING_WORDS.length)],
-    left: p1 * 92 + 4,
-    top: p2 * 90 + 5,
-    delay: `${-(p1 * 10).toFixed(2)}s`,
-    duration: `${(12 + p2 * 14).toFixed(3)}s`,
-    size: `${(0.58 + p3 * 1.45).toFixed(3)}rem`,
-    opacity: (0.06 + p2 * 0.14).toFixed(3),
-    animType,
-    rotate: Math.floor(p1 * 32 - 16),
-  };
-});
-
-const CONSTELLATION_COUNT = 28;
-const CONSTELLATION = Array.from({ length: CONSTELLATION_COUNT }, (_, i) => {
-  const angle = i * 0.85 + 0.2;
-  const radius = 20 + i * 4.2;
-  const x = Math.cos(angle) * radius;
-  const y = Math.sin(angle) * radius;
-  const s = Math.sin(i * 73.1 + 17.3) * 9827.31;
-  const p = s - Math.floor(s);
-  const glyphIdx = Math.floor(p * GLYPHS.length);
-
-  return {
-    char: GLYPHS[glyphIdx],
-    x,
-    y,
-    delay: `${(i * 0.12).toFixed(2)}s`,
-    size: `${0.65 + p * 0.55}rem`,
-  };
-});
-
-type LoaderVariant = 'A' | 'B' | 'C';
+type LoaderVariant = 'A' | 'B' | 'C' | 'D';
 
 interface LoadingScreenProps {
   ready?: boolean;
@@ -84,69 +48,57 @@ interface LoadingScreenProps {
 
 const SNAP_RADIUS = 120;
 const FOLLOW_EASE = 0.18;
-const BURST_FORCE = 280;
+const BURST_FORCE = 420;
 const BURST_DECAY = 0.9;
 const IDLE_MOUSE = -10000;
 
-type ParticleMotion = {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  following: boolean;
-};
+type ParticleMotion = { x: number; y: number; vx: number; vy: number; following: boolean };
 
 export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
   const [variant, setVariant] = useState<LoaderVariant>('A');
   const containerRef = useRef<HTMLDivElement>(null);
   const particleRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const mouseRef = useRef({ x: IDLE_MOUSE, y: IDLE_MOUSE });
+  const [particles] = useState<ReturnType<typeof makeParticles>>(makeParticles);
   const motionRef = useRef<ParticleMotion[]>(
-    PARTICLES.map(() => ({ x: 0, y: 0, vx: 0, vy: 0, following: false }))
+    particles.map(() => ({ x: 0, y: 0, vx: 0, vy: 0, following: false }))
   );
   const rafRef = useRef<number>(0);
+  const lastWasTouchRef = useRef(false);
 
   const animate = useCallback(() => {
     const mx = mouseRef.current.x;
     const my = mouseRef.current.y;
     const container = containerRef.current;
-    if (!container) {
-      rafRef.current = requestAnimationFrame(animate);
-      return;
-    }
+    if (!container) { rafRef.current = requestAnimationFrame(animate); return; }
 
     const rect = container.getBoundingClientRect();
 
-    for (let i = 0; i < PARTICLES.length; i++) {
+    for (let i = 0; i < particles.length; i++) {
       const el = particleRefs.current[i];
       if (!el) continue;
 
-      const p = PARTICLES[i];
+      const p = particles[i];
       const px = rect.left + (p.left / 100) * rect.width;
       const py = rect.top + (p.top / 100) * rect.height;
-
       const motion = motionRef.current[i];
+
       const dx = mx - px - motion.x;
       const dy = my - py - motion.y;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (dist < SNAP_RADIUS) {
-        motion.following = true;
-      }
+      if (dist < SNAP_RADIUS) motion.following = true;
 
       if (motion.following && mx !== IDLE_MOUSE) {
-        const targetX = mx - px;
-        const targetY = my - py;
         motion.vx = 0;
         motion.vy = 0;
-        motion.x += (targetX - motion.x) * FOLLOW_EASE;
-        motion.y += (targetY - motion.y) * FOLLOW_EASE;
+        motion.x += (mx - px - motion.x) * FOLLOW_EASE;
+        motion.y += (my - py - motion.y) * FOLLOW_EASE;
       } else {
         motion.vx *= BURST_DECAY;
         motion.vy *= BURST_DECAY;
         motion.x += motion.vx;
         motion.y += motion.vy;
-
         if (Math.abs(motion.vx) < 0.1) motion.vx = 0;
         if (Math.abs(motion.vy) < 0.1) motion.vy = 0;
         if (motion.vx === 0 && motion.vy === 0) {
@@ -165,7 +117,7 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
     }
 
     rafRef.current = requestAnimationFrame(animate);
-  }, []);
+  }, [particles]);
 
   useEffect(() => {
     rafRef.current = requestAnimationFrame(animate);
@@ -178,35 +130,47 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
 
   const handleMouseLeave = useCallback(() => {
     mouseRef.current = { x: IDLE_MOUSE, y: IDLE_MOUSE };
-    motionRef.current.forEach((motion) => {
-      motion.following = false;
-    });
+    motionRef.current.forEach(m => { m.following = false; });
   }, []);
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
+  const triggerBurst = useCallback((clientX: number, clientY: number) => {
     const container = containerRef.current;
     if (!container) return;
     const rect = container.getBoundingClientRect();
 
-    for (let i = 0; i < PARTICLES.length; i++) {
-      const p = PARTICLES[i];
+    for (let i = 0; i < particles.length; i++) {
+      const p = particles[i];
       const px = rect.left + (p.left / 100) * rect.width;
       const py = rect.top + (p.top / 100) * rect.height;
       const motion = motionRef.current[i];
 
-      const dx = px + motion.x - e.clientX;
-      const dy = py + motion.y - e.clientY;
+      const dx = px + motion.x - clientX;
+      const dy = py + motion.y - clientY;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       if (motion.following || dist < SNAP_RADIUS * 1.5) {
-        const force = (1 - Math.min(dist, SNAP_RADIUS * 1.5) / (SNAP_RADIUS * 1.5)) * BURST_FORCE;
-        const angle = dist > 0 ? Math.atan2(dy, dx) : Math.sin(i * 12.9898) * Math.PI * 2;
+        const effectiveDist = motion.following ? 0 : dist;
+        const t = 1 - Math.min(effectiveDist, SNAP_RADIUS * 1.5) / (SNAP_RADIUS * 1.5);
+        const force = t * BURST_FORCE;
+        const angle = dist > 1 ? Math.atan2(dy, dx) : Math.random() * Math.PI * 2;
         motion.following = false;
         motion.vx += Math.cos(angle) * force * 0.07;
         motion.vy += Math.sin(angle) * force * 0.07;
       }
     }
-  }, []);
+  }, [particles]);
+
+  const handleTouchStart = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    lastWasTouchRef.current = true;
+    triggerBurst(touch.clientX, touch.clientY);
+  }, [triggerBurst]);
+
+  const handleClick = useCallback((e: React.MouseEvent) => {
+    if (lastWasTouchRef.current) { lastWasTouchRef.current = false; return; }
+    triggerBurst(e.clientX, e.clientY);
+  }, [triggerBurst]);
 
   return (
     <div
@@ -214,10 +178,10 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       onClick={handleClick}
+      onTouchStart={handleTouchStart}
       className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden ls-root"
     >
-      {/* Floating loading words scattered across the viewport */}
-      {PARTICLES.map((p, i) => (
+      {particles.map((p, i) => (
         <span
           key={i}
           ref={el => { particleRefs.current[i] = el; }}
@@ -234,18 +198,17 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
             '--iy': '0px',
           } as React.CSSProperties}
         >
-          {p.word}
+          {p.char}
         </span>
       ))}
 
-      {/* Center content */}
       <div className="relative z-10 flex flex-col items-center">
         {variant === 'A' && <LoaderA />}
         {variant === 'B' && <LoaderB />}
         {variant === 'C' && <LoaderC />}
+        {variant === 'D' && <LoaderD />}
       </div>
 
-      {/* Continue button */}
       <button
         disabled={!ready}
         onClick={onContinue}
@@ -261,9 +224,8 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
         {ready ? 'Continue' : 'Loading…'}
       </button>
 
-      {/* Variant switcher — temporary */}
       <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 flex gap-2">
-        {(['A', 'B', 'C'] as const).map(v => (
+        {(['A', 'B', 'C', 'D'] as const).map(v => (
           <button
             key={v}
             onClick={() => setVariant(v)}
@@ -294,45 +256,35 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
           font-weight: 650;
           letter-spacing: 0.02em;
           white-space: nowrap;
-          text-transform: lowercase;
           will-change: transform;
           transition: none;
         }
-
-        .ls-word-0 {
-          animation: ls-float-drift linear infinite;
-        }
-        .ls-word-1 {
-          animation: ls-float-wander linear infinite;
-        }
-        .ls-word-2 {
-          animation: ls-float-orbit linear infinite;
-        }
+        .ls-word-0 { animation: ls-float-drift linear infinite; }
+        .ls-word-1 { animation: ls-float-wander linear infinite; }
+        .ls-word-2 { animation: ls-float-orbit linear infinite; }
 
         @keyframes ls-float-drift {
-          0% { transform: translate(calc(0px + var(--ix)), calc(0px + var(--iy))) rotate(var(--rotate)); }
-          25% { transform: translate(calc(12px + var(--ix)), calc(-30px + var(--iy))) rotate(calc(var(--rotate) + 5deg)); }
-          50% { transform: translate(calc(-8px + var(--ix)), calc(-15px + var(--iy))) rotate(calc(var(--rotate) - 3deg)); }
-          75% { transform: translate(calc(5px + var(--ix)), calc(10px + var(--iy))) rotate(calc(var(--rotate) + 2deg)); }
-          100% { transform: translate(calc(0px + var(--ix)), calc(0px + var(--iy))) rotate(var(--rotate)); }
+          0%   { transform: translate(calc(0px  + var(--ix)), calc(0px  + var(--iy))) rotate(var(--rotate)); }
+          25%  { transform: translate(calc(12px + var(--ix)), calc(-30px + var(--iy))) rotate(calc(var(--rotate) + 5deg)); }
+          50%  { transform: translate(calc(-8px + var(--ix)), calc(-15px + var(--iy))) rotate(calc(var(--rotate) - 3deg)); }
+          75%  { transform: translate(calc(5px  + var(--ix)), calc(10px  + var(--iy))) rotate(calc(var(--rotate) + 2deg)); }
+          100% { transform: translate(calc(0px  + var(--ix)), calc(0px  + var(--iy))) rotate(var(--rotate)); }
         }
-
         @keyframes ls-float-wander {
-          0% { transform: translate(calc(0px + var(--ix)), calc(0px + var(--iy))) rotate(var(--rotate)); }
-          33% { transform: translate(calc(-18px + var(--ix)), calc(8px + var(--iy))) rotate(calc(var(--rotate) - 6deg)); }
-          66% { transform: translate(calc(10px + var(--ix)), calc(-20px + var(--iy))) rotate(calc(var(--rotate) + 4deg)); }
-          100% { transform: translate(calc(0px + var(--ix)), calc(0px + var(--iy))) rotate(var(--rotate)); }
+          0%   { transform: translate(calc(0px   + var(--ix)), calc(0px  + var(--iy))) rotate(var(--rotate)); }
+          33%  { transform: translate(calc(-18px + var(--ix)), calc(8px  + var(--iy))) rotate(calc(var(--rotate) - 6deg)); }
+          66%  { transform: translate(calc(10px  + var(--ix)), calc(-20px + var(--iy))) rotate(calc(var(--rotate) + 4deg)); }
+          100% { transform: translate(calc(0px   + var(--ix)), calc(0px  + var(--iy))) rotate(var(--rotate)); }
         }
-
         @keyframes ls-float-orbit {
-          0% { transform: translate(calc(0px + var(--ix)), calc(0px + var(--iy))) rotate(var(--rotate)); }
-          25% { transform: translate(calc(15px + var(--ix)), calc(15px + var(--iy))) rotate(calc(var(--rotate) + 8deg)); }
-          50% { transform: translate(calc(-5px + var(--ix)), calc(25px + var(--iy))) rotate(calc(var(--rotate) - 4deg)); }
-          75% { transform: translate(calc(-15px + var(--ix)), calc(5px + var(--iy))) rotate(calc(var(--rotate) + 3deg)); }
-          100% { transform: translate(calc(0px + var(--ix)), calc(0px + var(--iy))) rotate(var(--rotate)); }
+          0%   { transform: translate(calc(0px   + var(--ix)), calc(0px  + var(--iy))) rotate(var(--rotate)); }
+          25%  { transform: translate(calc(15px  + var(--ix)), calc(15px + var(--iy))) rotate(calc(var(--rotate) + 8deg)); }
+          50%  { transform: translate(calc(-5px  + var(--ix)), calc(25px + var(--iy))) rotate(calc(var(--rotate) - 4deg)); }
+          75%  { transform: translate(calc(-15px + var(--ix)), calc(5px  + var(--iy))) rotate(calc(var(--rotate) + 3deg)); }
+          100% { transform: translate(calc(0px   + var(--ix)), calc(0px  + var(--iy))) rotate(var(--rotate)); }
         }
 
-        /* === Loader A: Dynamic fog with logo centered === */
+        /* === Loader A === */
         .ls-fog-wrap {
           position: relative;
           width: 220px;
@@ -343,66 +295,12 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
         }
         .ls-fog {
           position: absolute;
-          border-radius: 50%;
           filter: blur(30px);
           will-change: transform, border-radius;
         }
-        .ls-fog-1 {
-          inset: -10px;
-          background: rgba(56, 189, 248, 0.18);
-          animation: ls-squeeze-1 4.7s cubic-bezier(.45, 0, .35, 1) infinite;
-        }
-        .ls-fog-2 {
-          inset: 5px;
-          background: rgba(99, 102, 241, 0.12);
-          animation: ls-squeeze-2 6.4s cubic-bezier(.42, 0, .32, 1) infinite;
-        }
-        .ls-fog-3 {
-          inset: -20px;
-          background: rgba(56, 189, 248, 0.09);
-          animation: ls-squeeze-3 8.1s cubic-bezier(.4, 0, .3, 1) infinite;
-        }
-        .ls-fog-4 {
-          inset: 15px;
-          background: rgba(167, 139, 250, 0.08);
-          animation: ls-squeeze-4 5.2s cubic-bezier(.5, 0, .25, 1) infinite;
-        }
 
-        @keyframes ls-squeeze-1 {
-          0%, 100% { border-radius: 50%; transform: translate(0, 0) scale(1, 1) rotate(0deg); }
-          14% { border-radius: 62% 38% 54% 46% / 42% 58% 37% 63%; transform: translate(13px, -9px) scale(1.18, 0.82) rotate(4deg); }
-          31% { border-radius: 43% 57% 39% 61% / 59% 41% 65% 35%; transform: translate(-11px, 7px) scale(0.86, 1.13) rotate(-6deg); }
-          53% { border-radius: 57% 43% 64% 36% / 47% 53% 42% 58%; transform: translate(8px, 12px) scale(1.1, 0.92) rotate(3deg); }
-          77% { border-radius: 39% 61% 48% 52% / 64% 36% 57% 43%; transform: translate(-6px, -5px) scale(0.94, 1.08) rotate(-2deg); }
-        }
-
-        @keyframes ls-squeeze-2 {
-          0%, 100% { border-radius: 50%; transform: translate(0, 0) scale(1, 1) rotate(0deg); }
-          18% { border-radius: 47% 53% 63% 37% / 57% 43% 38% 62%; transform: translate(-9px, 6px) scale(0.82, 1.18) rotate(7deg); }
-          39% { border-radius: 65% 35% 43% 57% / 37% 63% 59% 41%; transform: translate(14px, 3px) scale(1.17, 0.83) rotate(-5deg); }
-          68% { border-radius: 52% 48% 58% 42% / 42% 58% 51% 49%; transform: translate(-3px, -13px) scale(0.93, 1.08) rotate(5deg); }
-          86% { border-radius: 42% 58% 51% 49% / 61% 39% 44% 56%; transform: translate(5px, 9px) scale(1.06, 0.96) rotate(-3deg); }
-        }
-
-        @keyframes ls-squeeze-3 {
-          0%, 100% { border-radius: 50%; transform: translate(0, 0) scale(1, 1) rotate(0deg); }
-          22% { border-radius: 58% 42% 37% 63% / 63% 37% 53% 47%; transform: translate(10px, 10px) scale(1.09, 0.86) rotate(-5deg); }
-          46% { border-radius: 36% 64% 57% 43% / 44% 56% 35% 65%; transform: translate(-15px, -4px) scale(0.83, 1.16) rotate(8deg); }
-          73% { border-radius: 63% 37% 52% 48% / 48% 52% 64% 36%; transform: translate(4px, -12px) scale(1.07, 0.95) rotate(-3deg); }
-          91% { border-radius: 49% 51% 61% 39% / 56% 44% 48% 52%; transform: translate(-6px, 4px) scale(0.96, 1.03) rotate(2deg); }
-        }
-
-        @keyframes ls-squeeze-4 {
-          0%, 100% { border-radius: 50%; transform: translate(0, 0) scale(1, 1) rotate(0deg); }
-          27% { border-radius: 38% 62% 64% 36% / 64% 36% 39% 61%; transform: translate(12px, -7px) scale(1.22, 0.78) rotate(9deg); }
-          58% { border-radius: 66% 34% 38% 62% / 35% 65% 63% 37%; transform: translate(-10px, 11px) scale(0.78, 1.22) rotate(-7deg); }
-          81% { border-radius: 46% 54% 56% 44% / 59% 41% 47% 53%; transform: translate(3px, -14px) scale(1.08, 0.91) rotate(4deg); }
-        }
-
-        /* === Loader B: Pure opacity breathe === */
-        .ls-breathe {
-          animation: ls-opacity-breathe 3s ease-in-out infinite;
-        }
+        /* === Loader B === */
+        .ls-breathe { animation: ls-opacity-breathe 3s ease-in-out infinite; }
         .ls-underglow {
           position: absolute;
           inset: -20px;
@@ -410,7 +308,6 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
           background: radial-gradient(circle, rgba(56, 189, 248, 0.12), transparent 70%);
           animation: ls-glow-pulse 3s ease-in-out infinite;
         }
-
         @keyframes ls-opacity-breathe {
           0%, 100% { opacity: 0.5; }
           50% { opacity: 1; }
@@ -420,41 +317,64 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
           50% { opacity: 0.6; }
         }
 
-        /* === Loader C: Constellation spiral === */
-        .ls-constellation {
+        /* === Loader C: ASCII scan box === */
+        .ls-ascii-box {
           position: relative;
-          width: 260px;
-          height: 260px;
-          animation: ls-constellation-rotate 40s linear infinite;
+          display: inline-block;
+          overflow: hidden;
+          border-radius: 4px;
         }
-        .ls-star {
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          color: rgba(56, 189, 248, 0.7);
-          font-family: "SF Mono", "Fira Code", "JetBrains Mono", ui-monospace, monospace;
-          animation: ls-twinkle 2.5s ease-in-out infinite;
+        .ls-ascii-pre {
+          font-family: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+          font-size: 0.82rem;
+          line-height: 1.55;
+          color: rgba(56, 189, 248, 0.85);
+          text-shadow: 0 0 10px rgba(56, 189, 248, 0.45);
+          white-space: pre;
+          user-select: none;
+          margin: 0;
         }
-        .ls-star-line {
+        .ls-ascii-scan {
           position: absolute;
-          top: 50%;
-          left: 50%;
-          height: 1px;
-          background: linear-gradient(90deg, rgba(56, 189, 248, 0.15), transparent);
-          transform-origin: left center;
-          animation: ls-line-fade 3s ease-in-out infinite;
+          top: -100%; left: 0; right: 0;
+          height: 100%;
+          background: linear-gradient(180deg,
+            transparent 0%,
+            rgba(56, 189, 248, 0.06) 48%,
+            rgba(56, 189, 248, 0.12) 50%,
+            rgba(56, 189, 248, 0.06) 52%,
+            transparent 100%
+          );
+          animation: ls-scan-vert 2.8s linear infinite;
+          pointer-events: none;
+        }
+        @keyframes ls-scan-vert {
+          0%   { top: -100%; }
+          100% { top: 100%; }
         }
 
-        @keyframes ls-constellation-rotate {
-          to { transform: rotate(360deg); }
+        /* === Loader D: Terminal === */
+        .ls-terminal-pre {
+          font-family: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
+          font-size: 0.8rem;
+          line-height: 1.6;
+          color: rgba(56, 189, 248, 0.8);
+          text-shadow: 0 0 6px rgba(56, 189, 248, 0.3);
+          white-space: pre;
+          user-select: none;
+          margin: 0;
         }
-        @keyframes ls-twinkle {
-          0%, 100% { opacity: 0.3; }
-          50% { opacity: 1; }
+        .ls-cursor {
+          display: inline-block;
+          width: 0.5em;
+          height: 1em;
+          background: rgba(56, 189, 248, 0.8);
+          vertical-align: text-bottom;
+          animation: ls-blink 1.1s step-end infinite;
         }
-        @keyframes ls-line-fade {
-          0%, 100% { opacity: 0.3; }
-          50% { opacity: 0.7; }
+        @keyframes ls-blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
         }
       `}</style>
     </div>
@@ -462,12 +382,49 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
 }
 
 function LoaderA() {
+  const fogRefs = useRef<(HTMLDivElement | null)[]>([null, null, null, null]);
+
+  useEffect(() => {
+    const seeds = FOG_LAYERS.map(() => Math.random() * 100);
+    let rafId: number;
+
+    function tick() {
+      const t = performance.now() / 1000;
+      FOG_LAYERS.forEach((layer, i) => {
+        const el = fogRefs.current[i];
+        if (!el) return;
+        const s = seeds[i];
+        const f = layer.freq;
+
+        const tx = Math.sin(t * f + s) * layer.txS + Math.sin(t * f * 0.7 + s + 2.1) * layer.txS * 0.35;
+        const ty = Math.cos(t * f * 0.83 + s + 1.3) * layer.tyS + Math.cos(t * f * 1.2 + s) * layer.tyS * 0.28;
+        const sx = 1 + Math.sin(t * f * 1.1 + s + 0.7) * 0.13 + Math.sin(t * f * 0.5 + s + 3) * 0.05;
+        const sy = 1 + Math.cos(t * f * 0.9 + s + 1.4) * 0.13 + Math.cos(t * f * 1.4 + s) * 0.05;
+
+        const a = 50 + Math.sin(t * f * 0.6 + s) * 13 + Math.sin(t * f * 1.3 + s + 1.7) * 5;
+        const c = 50 + Math.cos(t * f * 0.8 + s + 0.9) * 11 + Math.cos(t * f * 1.1 + s + 2.5) * 4;
+        const b = 100 - a, d = 100 - c;
+
+        el.style.borderRadius = `${a.toFixed(0)}% ${b.toFixed(0)}% ${c.toFixed(0)}% ${d.toFixed(0)}% / ${d.toFixed(0)}% ${c.toFixed(0)}% ${b.toFixed(0)}% ${a.toFixed(0)}%`;
+        el.style.transform = `translate(${tx.toFixed(1)}px, ${ty.toFixed(1)}px) scale(${sx.toFixed(3)}, ${sy.toFixed(3)})`;
+      });
+      rafId = requestAnimationFrame(tick);
+    }
+
+    rafId = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(rafId);
+  }, []);
+
   return (
     <div className="ls-fog-wrap">
-      <div className="ls-fog ls-fog-1" />
-      <div className="ls-fog ls-fog-2" />
-      <div className="ls-fog ls-fog-3" />
-      <div className="ls-fog ls-fog-4" />
+      {FOG_LAYERS.map((layer, i) => (
+        <div
+          key={i}
+          ref={el => { fogRefs.current[i] = el; }}
+          className="ls-fog"
+          style={{ inset: layer.inset, background: layer.bg }}
+        />
+      ))}
       <div className="relative z-10">
         <AppLogo
           size={64}
@@ -500,46 +457,82 @@ function LoaderB() {
 
 function LoaderC() {
   return (
-    <div className="flex flex-col items-center gap-6">
+    <div className="flex flex-col items-center gap-5">
       <AppLogo
-        size={56}
+        size={44}
         showLabel
-        className="flex-col gap-3"
-        labelClassName="text-white/50 text-[0.6rem] tracking-[0.45em]"
+        className="flex-col gap-2"
+        labelClassName="text-white/40 text-[0.58rem] tracking-[0.45em]"
       />
-      <div className="ls-constellation">
-        {CONSTELLATION.map((star, i) => {
-          if (i === 0) return null;
-          const prev = CONSTELLATION[i - 1];
-          const dx = star.x - prev.x;
-          const dy = star.y - prev.y;
-          const length = Math.sqrt(dx * dx + dy * dy);
-          const angle = Math.atan2(dy, dx) * (180 / Math.PI);
-          return (
-            <div
-              key={`line-${i}`}
-              className="ls-star-line"
-              style={{
-                width: `${length}px`,
-                transform: `translate(${prev.x}px, ${prev.y}px) rotate(${angle}deg)`,
-                animationDelay: `${(i * 0.1).toFixed(2)}s`,
-              }}
-            />
-          );
-        })}
-        {CONSTELLATION.map((star, i) => (
-          <span
-            key={i}
-            className="ls-star"
-            style={{
-              transform: `translate(${star.x}px, ${star.y}px)`,
-              fontSize: star.size,
-              animationDelay: star.delay,
-            }}
-          >
-            {star.char}
-          </span>
-        ))}
+      <div className="ls-ascii-box">
+        <pre className="ls-ascii-pre">{
+`╔═════════════════════╗
+║                     ║
+║  W O R D L I N K   ║
+║                     ║
+╠═════════════════════╣
+║  loading words...   ║
+╚═════════════════════╝`
+        }</pre>
+        <div className="ls-ascii-scan" />
+      </div>
+    </div>
+  );
+}
+
+function LoaderD() {
+  const [vals, setVals] = useState([0, 0, 0]);
+
+  useEffect(() => {
+    const targets = [
+      55 + Math.random() * 30,
+      30 + Math.random() * 40,
+      15 + Math.random() * 35,
+    ];
+    const speeds = [0.9, 0.55, 0.32];
+
+    const id = setInterval(() => {
+      setVals(prev => {
+        let done = true;
+        const next = prev.map((v, i) => {
+          if (v >= targets[i]) return v;
+          done = false;
+          return Math.min(v + speeds[i] + Math.random() * 0.7, targets[i]);
+        });
+        if (done) clearInterval(id);
+        return next;
+      });
+    }, 55);
+
+    return () => clearInterval(id);
+  }, []);
+
+  const BAR = 8;
+  const bar = (v: number) => {
+    const f = Math.round((v / 100) * BAR);
+    return '█'.repeat(f) + '░'.repeat(BAR - f);
+  };
+  const pct = (v: number) => Math.floor(v).toString().padStart(3);
+
+  return (
+    <div className="flex flex-col items-center gap-5">
+      <AppLogo
+        size={44}
+        showLabel
+        className="flex-col gap-2"
+        labelClassName="text-white/40 text-[0.58rem] tracking-[0.45em]"
+      />
+      <div>
+        <pre className="ls-terminal-pre">{
+`┌────────────────────────────┐
+│  $ wordlink --initialize   │
+│                            │
+│  vocab   [${bar(vals[0])}] ${pct(vals[0])}%   │
+│  syntax  [${bar(vals[1])}] ${pct(vals[1])}%   │
+│  audio   [${bar(vals[2])}] ${pct(vals[2])}%   │
+│                            │
+└────────────────────────────┘`
+        }</pre>
       </div>
     </div>
   );

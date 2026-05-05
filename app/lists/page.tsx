@@ -53,6 +53,7 @@ export default function ListsPage() {
   const [forkedListPrompt, setForkedListPrompt] = useState<ForkedListPrompt | null>(null);
   const [canManageCommonLists, setCanManageCommonLists] = useState(false);
   const [initialAudioFixStep, setInitialAudioFixStep] = useState<'audio-target' | 'audio-known' | null>(null);
+  const [triggerEditSignal, setTriggerEditSignal] = useState(0);
 
   const selectedList = useMemo(
     () => lists.find((l) => l.id === selectedListId) ?? null,
@@ -371,6 +372,12 @@ export default function ListsPage() {
     setSelectedListId(data.list.id);
     setSidebarOpen(false);
   }, [initialCreateLanguageFrom, initialCreateLanguageTo, lists, updateSelectedListUrl]);
+
+  const handleEditList = useCallback((listId: string) => {
+    setSelectedListId(listId);
+    setTriggerEditSignal((s) => s + 1);
+    setSidebarOpen(false);
+  }, []);
 
   const handleDismissForkNotice = useCallback(() => {
     setForkedListPrompt((current) => {
@@ -742,6 +749,7 @@ export default function ListsPage() {
           onSelectList={handleSelectList}
           onCreateList={handleCreateList}
           onDeleteList={handleDeleteList}
+          onEditList={handleEditList}
           onSubscribe={handleSubscribe}
           onUnsubscribe={handleUnsubscribe}
           onFork={handleForkList}
@@ -810,6 +818,7 @@ export default function ListsPage() {
               isOwner={isOwner}
               isEditor={canManageCommonLists}
               forkedFromListName={forkedListPrompt?.listId === selectedList.id ? forkedListPrompt.sourceName : null}
+              triggerEditSignal={triggerEditSignal}
               onEditCategory={handleEditCategory}
               onCreateCategory={handleCreateCategory}
               onUpdateList={handleUpdateList}
@@ -817,6 +826,8 @@ export default function ListsPage() {
               onRenameCategory={handleRenameCategory}
               onReorderCategories={handleReorderCategories}
               onDeleteCategory={handleDeleteCategory}
+              onFork={handleForkList}
+              onDeleteList={handleDeleteList}
             />
           ) : wizardStep === 'edit' ? (
             <TextareaEditor
