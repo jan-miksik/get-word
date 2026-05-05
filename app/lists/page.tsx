@@ -52,6 +52,7 @@ export default function ListsPage() {
   const [googleUsage, setGoogleUsage] = useState<GoogleUsageResponse | null>(null);
   const [forkedListPrompt, setForkedListPrompt] = useState<ForkedListPrompt | null>(null);
   const [canManageCommonLists, setCanManageCommonLists] = useState(false);
+  const [initialAudioFixStep, setInitialAudioFixStep] = useState<'audio-target' | 'audio-known' | null>(null);
 
   const selectedList = useMemo(
     () => lists.find((l) => l.id === selectedListId) ?? null,
@@ -127,9 +128,16 @@ export default function ListsPage() {
         });
       }
     }
-    const audioNotice = params.get('audioNotice');
-    if (audioNotice) {
-      setError(audioNotice);
+    const fixAudio = params.get('fixAudio');
+    if (fixAudio === 'target' || fixAudio === 'known') {
+      setInitialAudioFixStep(fixAudio === 'known' ? 'audio-known' : 'audio-target');
+      params.delete('fixAudio');
+      window.history.replaceState(null, '', `/lists?${params.toString()}`);
+    }
+    const notice = params.get('commonListNotice') ?? params.get('audioNotice');
+    if (notice) {
+      setError(notice);
+      params.delete('commonListNotice');
       params.delete('audioNotice');
       window.history.replaceState(null, '', `/lists?${params.toString()}`);
     }
@@ -194,8 +202,16 @@ export default function ListsPage() {
         });
         if (!res.ok) throw new Error('Failed to load list details');
         const data = await res.json();
+        const freshItems = data.items ?? [];
         setCategories(data.categories ?? []);
-        setItems(data.items ?? []);
+        setItems(freshItems);
+        if (initialAudioFixStep) {
+          setAudioStepItems(freshItems);
+          setWizardStep(initialAudioFixStep);
+          setInitialAudioFixStep(null);
+        } else {
+          setWizardStep('browse');
+        }
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         setError(err instanceof Error ? err.message : 'Failed to load list');
@@ -206,10 +222,9 @@ export default function ListsPage() {
       }
     }
     loadListDetails();
-    setWizardStep('browse');
     setEditingCategoryId(null);
     return () => controller.abort();
-  }, [selectedListId]);
+  }, [initialAudioFixStep, selectedListId]);
 
   const itemsByCategory = useMemo(() => {
     const map = new Map<string, WordListItem[]>();

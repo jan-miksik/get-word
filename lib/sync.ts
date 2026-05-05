@@ -48,7 +48,7 @@ async function readResponseError(
     } else {
       const text = (await response.text()).trim();
       if (text) {
-        return text;
+        return summarizeTextError(text, fallback);
       }
     }
   } catch {
@@ -56,6 +56,31 @@ async function readResponseError(
   }
 
   return fallback;
+}
+
+function summarizeTextError(text: string, fallback: string): string {
+  const looksLikeHtml = /^<!doctype html/i.test(text) || /^<html[\s>]/i.test(text);
+  if (!looksLikeHtml) {
+    return text.length > 500 ? `${text.slice(0, 497)}...` : text;
+  }
+
+  const nextData = text.match(/<script[^>]*id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i)?.[1];
+  if (nextData) {
+    try {
+      const parsed = JSON.parse(nextData) as {
+        err?: { message?: string; statusCode?: number };
+        props?: { pageProps?: { statusCode?: number } };
+      };
+      const statusCode = parsed.err?.statusCode ?? parsed.props?.pageProps?.statusCode;
+      const message = parsed.err?.message;
+      if (statusCode && message) return `${fallback}. Server returned ${statusCode}: ${message}`;
+      if (message) return `${fallback}. Server returned an HTML error page: ${message}`;
+    } catch {
+      // Keep the compact fallback below.
+    }
+  }
+
+  return `${fallback}. Server returned an HTML error page instead of JSON.`;
 }
 
 function toNetworkErrorMessage(context: string, error: unknown): string {
@@ -339,15 +364,10 @@ export async function syncUserData(data: {
       authRequired = true;
       throw new AuthRequiredError("Failed to sync data");
     }
-    let errorMessage = `Failed to sync data: ${response.status} ${response.statusText}`;
-    try {
-      const errorData = await response.json();
-      if (errorData.error) {
-        errorMessage = `Failed to sync data: ${errorData.error}`;
-      }
-    } catch {
-      // Ignore JSON parse failures and keep status-based message
-    }
+    const errorMessage = await readResponseError(
+      response,
+      `Failed to sync data: ${response.status} ${response.statusText}`
+    );
     throw new Error(errorMessage);
   }
 

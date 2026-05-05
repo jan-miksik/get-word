@@ -49,7 +49,7 @@ describe('WordCard fullscreen', () => {
     expect(screen.getByPlaceholderText('Enter memory hook...')).toBeVisible();
   });
 
-  it('shows the speaker button via speech fallback when stored audio is missing', () => {
+  it('does not show the speaker button when stored audio is missing', () => {
     Object.defineProperty(window, 'speechSynthesis', {
       value: { cancel: vi.fn(), speak: vi.fn() },
       configurable: true,
@@ -57,6 +57,6 @@ describe('WordCard fullscreen', () => {
 
     render(<WordCard {...baseProps} fullscreen />);
 
-    expect(screen.getByTitle('Play Vietnamese audio')).toBeInTheDocument();
+    expect(screen.queryByTitle('Play Vietnamese audio')).not.toBeInTheDocument();
   });
 });

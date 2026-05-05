@@ -6,6 +6,9 @@ export type SupportedLanguage = {
 };
 
 export const DEFAULT_SETTINGS_LANGUAGE = "en";
+const LEGACY_LANGUAGE_ALIASES: Record<string, string> = {
+  cz: "cs",
+};
 
 export const COMMON_LANGUAGES: SupportedLanguage[] = [
   { code: "en", name: "English", flag: "🇬🇧", source: "common" },
@@ -352,11 +355,12 @@ export function normalizeLanguageCode(value: unknown): string {
     return DEFAULT_SETTINGS_LANGUAGE;
   }
   const [base, subtag] = trimmed.split("-");
-  if (!subtag) return base.toLowerCase();
+  if (!subtag) return LEGACY_LANGUAGE_ALIASES[base.toLowerCase()] ?? base.toLowerCase();
   const normalizedSubtag = /^[a-z]{4}$/i.test(subtag)
     ? `${subtag[0].toUpperCase()}${subtag.slice(1).toLowerCase()}`
     : subtag.toUpperCase();
-  return `${base.toLowerCase()}-${normalizedSubtag}`;
+  const normalizedBase = LEGACY_LANGUAGE_ALIASES[base.toLowerCase()] ?? base.toLowerCase();
+  return `${normalizedBase}-${normalizedSubtag}`;
 }
 
 export function getBaseLanguage(code: string): string {

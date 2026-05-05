@@ -358,7 +358,12 @@ async function handlePost(request: NextRequest) {
                 ...(audioField === "known" ? { audioField } : {}),
               },
             ]);
-            return { itemId: item.id, hash, status: "error" as const, error: "Generation failed" };
+            return {
+              itemId: item.id,
+              hash,
+              status: "error" as const,
+              error: "TTS provider returned no audio",
+            };
           }
 
           // Upload to Arweave via ArDrive Turbo
@@ -407,6 +412,14 @@ async function handlePost(request: NextRequest) {
             sizeBytes: result.sizeBytes,
           };
         } catch (err) {
+          const detail = getErrorDetail(err);
+          console.error("[Wordlink audio] item generation failed", {
+            itemId: item.id,
+            language: item.language,
+            provider,
+            detail,
+            error: err instanceof Error ? err.message : err,
+          });
           await batchLinkAudioToItems([
             {
               itemId: item.id,
@@ -419,7 +432,7 @@ async function handlePost(request: NextRequest) {
             itemId: item.id,
             hash,
             status: "error" as const,
-            error: err instanceof Error ? err.message : "Unknown error",
+            error: detail,
           };
         }
       }),

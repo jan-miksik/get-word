@@ -20,16 +20,31 @@ export async function getUserListsByLanguagePair(
   languageFrom: string,
   languageTo: string,
 ): Promise<WordList[]> {
+  const fromVariants = getListLanguageCodeVariants(languageFrom);
+  const toVariants = getListLanguageCodeVariants(languageTo);
+
   return db
     .select()
     .from(wordLists)
     .where(
       and(
-        eq(wordLists.languageFrom, languageFrom),
-        eq(wordLists.languageTo, languageTo),
+        or(
+          and(
+            inArray(wordLists.languageFrom, fromVariants),
+            inArray(wordLists.languageTo, toVariants),
+          ),
+          and(
+            inArray(wordLists.languageFrom, toVariants),
+            inArray(wordLists.languageTo, fromVariants),
+          ),
+        ),
         or(eq(wordLists.ownerId, userId), eq(wordLists.isPublic, true)),
       ),
     );
+}
+
+export function getListLanguageCodeVariants(code: string): string[] {
+  return code === 'cs' || code === 'cz' ? ['cs', 'cz'] : [code];
 }
 
 export async function getUserSubscribedListIds(userId: string): Promise<string[]> {

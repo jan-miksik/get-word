@@ -38,16 +38,14 @@ export function TypingChallengeGame({
 
   const questionWord = words[0];
   const resolvedSourceLang = sourceLang ?? resolveSourceLangFromRole(role);
-  const fallbackSourceLang = getTargetLang(resolvedSourceLang);
-  const targetLang = fallbackSourceLang;
+  const targetLang = getTargetLang(resolvedSourceLang);
   const prompt = getWordTextByLang(questionWord, resolvedSourceLang);
   const correctAnswer = getWordTextByLang(questionWord, targetLang);
   const primaryPromptAudioSrc = getWordAudioSrcByLang(questionWord, resolvedSourceLang);
-  const fallbackPromptAudioSrc = getWordAudioSrcByLang(questionWord, fallbackSourceLang);
   const [hasAudioPlaybackError, setHasAudioPlaybackError] = useState(false);
   const effectivePromptMode: PromptMode =
     promptMode === 'audio' &&
-    (primaryPromptAudioSrc || fallbackPromptAudioSrc) &&
+    primaryPromptAudioSrc &&
     !hasAudioPlaybackError
       ? 'audio'
       : 'text';
@@ -93,7 +91,6 @@ export function TypingChallengeGame({
       sourceLang: resolvedSourceLang,
       targetLang,
       selectedPromptAudioSrc: primaryPromptAudioSrc,
-      fallbackPromptAudioSrc,
     });
   }, [
     questionWord?.id,
@@ -106,7 +103,6 @@ export function TypingChallengeGame({
     resolvedSourceLang,
     targetLang,
     primaryPromptAudioSrc,
-    fallbackPromptAudioSrc,
   ]);
 
   const updateCaret = (target: HTMLInputElement) => {
@@ -115,7 +111,7 @@ export function TypingChallengeGame({
   };
 
   const replayPrompt = async () => {
-    const candidateAudioSrcs = [primaryPromptAudioSrc, fallbackPromptAudioSrc]
+    const candidateAudioSrcs = [primaryPromptAudioSrc]
       .filter((src): src is string => Boolean(src))
       .filter((src, idx, arr) => arr.indexOf(src) === idx);
     if (!candidateAudioSrcs.length) {
@@ -123,7 +119,6 @@ export function TypingChallengeGame({
         console.warn('[AudioDebug][Typing][Replay] Missing prompt audio source', {
           wordId: questionWord?.id,
           sourceLang: resolvedSourceLang,
-          fallbackSourceLang,
           czAudio: questionWord?.czAudio ?? null,
           viAudio: questionWord?.viAudio ?? null,
         });

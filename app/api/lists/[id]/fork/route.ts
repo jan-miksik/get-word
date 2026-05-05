@@ -95,12 +95,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
     getListCategories(sourceListId),
     getListItems(sourceListId),
   ]);
+  const sourceLanguageFrom = normalizeLanguageCode(sourceList.languageFrom);
+  const sourceLanguageTo = normalizeLanguageCode(sourceList.languageTo);
 
   const forkedList = await createList({
     ownerId: user.id,
     name: typeof body.name === "string" && body.name.trim()
       ? body.name.trim()
-      : `${sourceList.name} (${languageFrom} -> ${languageTo})`,
+      : `${sourceList.name} (${languageFrom} / ${languageTo})`,
     description: sourceList.description,
     languageFrom,
     languageTo,
@@ -120,23 +122,27 @@ export async function POST(request: NextRequest, context: RouteContext) {
   for (const [index, item] of sourceItems.entries()) {
     const knownSeed = getItemTextForLanguage(
       item,
-      sourceList.languageFrom,
-      sourceList.languageTo,
+      sourceLanguageFrom,
+      sourceLanguageTo,
       languageFrom,
     );
     const targetSeed = getItemTextForLanguage(
       item,
-      sourceList.languageFrom,
-      sourceList.languageTo,
+      sourceLanguageFrom,
+      sourceLanguageTo,
       languageTo,
     );
 
     const textKnown = knownSeed.text
       ? await translateWithReuse(knownSeed.text, knownSeed.language, languageFrom, translationCache)
       : null;
-    const textTarget = targetSeed.text
-      ? await translateWithReuse(targetSeed.text, targetSeed.language, languageTo, translationCache)
-      : null;
+    const textTarget = targetSeed.language === languageTo && targetSeed.text
+      ? targetSeed.text
+      : textKnown
+        ? await translateWithReuse(textKnown, languageFrom, languageTo, translationCache)
+        : targetSeed.text
+          ? await translateWithReuse(targetSeed.text, targetSeed.language, languageTo, translationCache)
+          : null;
 
     const knownHash = textKnown
       ? computeContentHash(textKnown, languageFrom, AUDIO_PROVIDER, {

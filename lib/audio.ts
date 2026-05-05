@@ -30,7 +30,9 @@ export async function googleTTS(
   language: string,
 ): Promise<{ audio: Buffer; sizeBytes: number } | null> {
   const apiKey = process.env.GOOGLE_TTS_API_KEY;
-  if (!apiKey) return null;
+  if (!apiKey) {
+    throw new Error("GOOGLE_TTS_API_KEY environment variable is not set");
+  }
 
   // Map language codes to Google TTS language codes
   const langMap: Record<string, string> = {
@@ -59,15 +61,28 @@ export async function googleTTS(
       },
     );
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const body = await res.json().catch(() => null) as {
+        error?: { message?: string; status?: string };
+      } | null;
+      const detail = body?.error?.message ?? `${res.status} ${res.statusText}`;
+      const status = body?.error?.status ? ` (${body.error.status})` : "";
+      throw new Error(`Google TTS request failed${status}: ${detail}`);
+    }
 
     const data = await res.json();
-    if (!data.audioContent) return null;
+    if (!data.audioContent) {
+      throw new Error("Google TTS response did not include audioContent");
+    }
 
     const audio = Buffer.from(data.audioContent, "base64");
+    if (audio.length === 0) {
+      throw new Error("Google TTS returned empty audio");
+    }
     return { audio, sizeBytes: audio.length };
-  } catch {
-    return null;
+  } catch (err) {
+    if (err instanceof Error) throw err;
+    throw new Error("Google TTS request failed");
   }
 }
 
@@ -83,7 +98,9 @@ export async function elevenLabsTTS(
   voiceId: string,
 ): Promise<{ audio: Buffer; sizeBytes: number } | null> {
   const workerUrl = process.env.MEDIA_PROXY_WORKER_URL;
-  if (!workerUrl) return null;
+  if (!workerUrl) {
+    throw new Error("MEDIA_PROXY_WORKER_URL environment variable is not set");
+  }
 
   try {
     const res = await fetch(`${workerUrl}/elevenlabs-proxy`, {
@@ -96,12 +113,19 @@ export async function elevenLabsTTS(
       }),
     });
 
-    if (!res.ok) return null;
+    if (!res.ok) {
+      const detail = await res.text().catch(() => `${res.status} ${res.statusText}`);
+      throw new Error(`ElevenLabs proxy request failed: ${detail || `${res.status} ${res.statusText}`}`);
+    }
 
     const audio = Buffer.from(await res.arrayBuffer());
+    if (audio.length === 0) {
+      throw new Error("ElevenLabs proxy returned empty audio");
+    }
     return { audio, sizeBytes: audio.length };
-  } catch {
-    return null;
+  } catch (err) {
+    if (err instanceof Error) throw err;
+    throw new Error("ElevenLabs proxy request failed");
   }
 }
 

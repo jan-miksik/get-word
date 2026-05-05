@@ -15,6 +15,7 @@ import {
   getUserApiKey,
 } from "@/lib/translation";
 import { normalizeOpenRouterModel } from "@/lib/openrouter-models";
+import { normalizeLanguageCode } from "@/lib/i18n/languages";
 
 const MAX_ITEMS_PER_REQUEST = 500;
 
@@ -110,8 +111,8 @@ export async function POST(request: NextRequest) {
 
   if (needsApi.length > 0) {
     const textsToTranslate = needsApi.map((i) => i.text);
-    const fromLang = needsApi[0].from_lang;
-    const toLang = needsApi[0].to_lang;
+    const fromLang = normalizeLanguageCode(needsApi[0].from_lang);
+    const toLang = normalizeLanguageCode(needsApi[0].to_lang);
 
     if (provider === "google") {
       const quota = await reserveGoogleApiUsage({

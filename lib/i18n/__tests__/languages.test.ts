@@ -11,6 +11,7 @@ import {
 describe('settings language helpers', () => {
   it('normalizes language codes', () => {
     expect(normalizeLanguageCode('EN')).toBe('en');
+    expect(normalizeLanguageCode('cz')).toBe('cs');
     expect(normalizeLanguageCode('zh-cn')).toBe('zh-CN');
     expect(normalizeLanguageCode('pt-BR')).toBe('pt-BR');
     expect(normalizeLanguageCode('ms-arab')).toBe('ms-Arab');

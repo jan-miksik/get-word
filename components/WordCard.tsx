@@ -51,7 +51,6 @@ export const WordCard = memo(function WordCard({
 }: WordCardProps) {
   const [editingHook, setEditingHook] = useState(false);
   const [hookValue, setHookValue] = useState(memoryHook);
-  const [isMounted, setIsMounted] = useState(false);
   const hookInputRef = useRef<HTMLInputElement>(null);
   const hookDisplayRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -63,10 +62,6 @@ export const WordCard = memo(function WordCard({
   useEffect(() => {
     if (!showMemoryHook) setEditingHook(false);
   }, [showMemoryHook]);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
 
   const totalInteractions = (progress.knownCount ?? 0) + (progress.unknownCount ?? 0);
   const isFirstSeen = totalInteractions === 0;
@@ -104,9 +99,6 @@ export const WordCard = memo(function WordCard({
   // Audio playback
   const playAudio = (src: string | string[]) => {
     try {
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
       if (audioRef.current) {
         audioRef.current.pause();
         audioRef.current.currentTime = 0;
@@ -114,21 +106,6 @@ export const WordCard = memo(function WordCard({
       const audioSrc = Array.isArray(src) ? src[0] : src;
       audioRef.current = new Audio(audioSrc);
       audioRef.current.play().catch(() => {});
-    } catch {}
-  };
-
-  const speakText = (text: string, lang: string) => {
-    if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
-    if (typeof SpeechSynthesisUtterance === 'undefined') return;
-    try {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      }
-      window.speechSynthesis.cancel();
-      const utterance = new SpeechSynthesisUtterance(text);
-      utterance.lang = lang;
-      window.speechSynthesis.speak(utterance);
     } catch {}
   };
 
@@ -152,11 +129,6 @@ export const WordCard = memo(function WordCard({
   };
 
   const audioSrc = getAudioSrc();
-  const speechFallback = isMounted && !audioSrc
-    ? role === 'vi'
-      ? (word.cz ? { text: word.cz, lang: 'cs-CZ', title: 'Play Czech audio' } : null)
-      : (word.vi ? { text: word.vi, lang: 'vi-VN', title: 'Play Vietnamese audio' } : null)
-    : null;
   const shouldRenderMemoryHook = showMemoryHook;
 
   // Scroll the focused input into view after the keyboard finishes opening
@@ -372,15 +344,12 @@ className={`cover-target relative cursor-pointer touch-manipulation select-none 
             ✔✔
           </button>
         )}
-                {(audioSrc || speechFallback) && (
+        {audioSrc && (
           <button
             type="button"
             className="audio-btn"
-            onClick={() => {
-              if (audioSrc) playAudio(audioSrc);
-              else if (speechFallback) speakText(speechFallback.text, speechFallback.lang);
-            }}
-            title={speechFallback?.title ?? (role === 'vi' ? 'Play Czech audio' : 'Play Vietnamese audio')}
+            onClick={() => playAudio(audioSrc)}
+            title={role === 'vi' ? 'Play Czech audio' : 'Play Vietnamese audio'}
           >
             🔊
           </button>

@@ -219,7 +219,7 @@ describe('POST /api/translate/batch', () => {
     expect(body.results[0].status).toBe('ok')
     expect(mockOpenRouterTranslate).toHaveBeenCalledWith(
       ['hello'],
-      'cz',
+      'cs',
       'vi',
       'sk-test-key',
       'google/gemini-2.5-flash-lite',
@@ -244,7 +244,7 @@ describe('POST /api/translate/batch', () => {
     expect(res.status).toBe(200)
     expect(mockOpenRouterTranslate).toHaveBeenCalledWith(
       ['hello'],
-      'cz',
+      'cs',
       'vi',
       'sk-test-key',
       'openai/gpt-4.1-mini',

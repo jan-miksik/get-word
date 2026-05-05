@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const mockGetUserLists = vi.fn()
+const mockGetUserListsByLanguagePair = vi.fn()
+const mockGetWordListItemCountsByListIds = vi.fn()
 const mockGetUserSubscribedListIds = vi.fn()
 const mockCreateList = vi.fn()
 const mockGetListById = vi.fn()
@@ -17,6 +19,8 @@ const mockResolveUserFromRequest = vi.fn()
 
 vi.mock('@/lib/db', () => ({
   getUserLists: (...args: unknown[]) => mockGetUserLists(...args),
+  getUserListsByLanguagePair: (...args: unknown[]) => mockGetUserListsByLanguagePair(...args),
+  getWordListItemCountsByListIds: (...args: unknown[]) => mockGetWordListItemCountsByListIds(...args),
   getUserSubscribedListIds: (...args: unknown[]) => mockGetUserSubscribedListIds(...args),
   createList: (...args: unknown[]) => mockCreateList(...args),
   getListById: (...args: unknown[]) => mockGetListById(...args),
@@ -38,6 +42,7 @@ vi.mock('@/lib/auth', () => ({
 }))
 
 import { GET, POST } from '../route'
+import { GET as GET_MATCHES } from '../matches/route'
 import { GET as GET_DETAIL, PUT, DELETE } from '../[id]/route'
 import { GET as GET_CATS, POST as POST_CAT, PUT as PUT_CATS } from '../[id]/categories/route'
 import { DELETE as DELETE_CAT } from '../[id]/categories/[catId]/route'
@@ -103,6 +108,51 @@ describe('GET /api/lists', () => {
     const data = await res.json()
     expect(res.status).toBe(200)
     expect(data.canManageCommonLists).toBe(true)
+  })
+})
+
+describe('GET /api/lists/matches', () => {
+  beforeEach(() => vi.clearAllMocks())
+
+  it('returns selectable lists for the normalized language pair', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetUserListsByLanguagePair.mockResolvedValue([
+      { ...publicList, id: 'legacy-curated', languageFrom: 'cz', languageTo: 'vi', isCommon: true },
+    ])
+    mockGetWordListItemCountsByListIds.mockResolvedValue(new Map([['legacy-curated', 42]]))
+
+    const req = new NextRequest('http://localhost:3000/api/lists/matches?from=cs&to=vi')
+    const res = await GET_MATCHES(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockGetUserListsByLanguagePair).toHaveBeenCalledWith('user-1', 'cs', 'vi')
+    expect(data.lists).toEqual([
+      expect.objectContaining({
+        id: 'legacy-curated',
+        isCommon: true,
+        itemCount: 42,
+      }),
+    ])
+  })
+
+  it('uses the same matcher for the reverse language selection', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetUserListsByLanguagePair.mockResolvedValue([
+      { ...publicList, id: 'curated-reverse', languageFrom: 'cz', languageTo: 'vi' },
+    ])
+    mockGetWordListItemCountsByListIds.mockResolvedValue(new Map([['curated-reverse', 9]]))
+
+    const req = new NextRequest('http://localhost:3000/api/lists/matches?from=vi&to=cs')
+    const res = await GET_MATCHES(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockGetUserListsByLanguagePair).toHaveBeenCalledWith('user-1', 'vi', 'cs')
+    expect(data.lists[0]).toEqual(expect.objectContaining({
+      id: 'curated-reverse',
+      itemCount: 9,
+    }))
   })
 })
 

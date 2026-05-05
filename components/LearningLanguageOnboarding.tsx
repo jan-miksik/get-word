@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { GoogleUsageResponse, WordList, WordListItem } from '@/features/lists/types';
 import { syncUserData } from '@/lib/sync';
+import { normalizeLanguageCode } from '@/lib/i18n/languages';
 
 type LearningLanguage = {
   code: string;
@@ -32,6 +33,18 @@ type AudioGenerationSummary = {
   remainingUnits: number | null;
   generatedCount: number;
   failedCount: number;
+  failedTargetCount: number;
+  failedKnownCount: number;
+};
+type CommonListEstimate = {
+  status: 'loading' | 'ready' | 'unavailable';
+  wordCount: number | null;
+  seedName: string | null;
+};
+type RankedAutogenerateSeed = {
+  list: WordList;
+  index: number;
+  score: number;
 };
 
 const AUTOGENERATE_AUDIO_QUOTA_NOTICE =
@@ -43,6 +56,27 @@ function countTextUnits(texts: string[]) {
 
 function formatNumber(value: number) {
   return new Intl.NumberFormat().format(Math.max(0, Math.floor(value)));
+}
+
+function getResponseField(data: Record<string, unknown>, key: string, nestedKey: string) {
+  const value = data[key];
+  if (!value || typeof value !== 'object' || !(nestedKey in value)) return null;
+  const nestedValue = (value as Record<string, unknown>)[nestedKey];
+  return typeof nestedValue === 'string' ? nestedValue : null;
+}
+
+function getCommonListFailureNotice(message: string) {
+  const trimmed = message.trim() || 'Could not autogenerate list';
+  const punctuation = /[.!?]$/.test(trimmed) ? '' : '.';
+  return `${trimmed}${punctuation} You can finish the failed part manually from the list editor by editing the list and filling in the missing parts.`;
+}
+
+function getCommonListAudioFailureNotice(summary: AudioGenerationSummary) {
+  const failed = formatNumber(summary.failedCount);
+  const total = formatNumber(summary.generatedCount + summary.failedCount);
+  const base = `The common list was created, but audio generation failed for ${failed} of ${total} clips.`;
+  const detail = summary.notice ? ` ${summary.notice}` : '';
+  return `${base}${detail} Open this list in the editor, use the Audio steps, and click Generate on failed or missing audio rows. If a row has the wrong word or translation, edit that row first and then generate the missing sound again.`;
 }
 
 function getAudioQuotaNotice(requested: number, remaining: number) {
@@ -79,6 +113,64 @@ export function formatDurationEstimate(seconds: number) {
 
 function getLanguageName(languages: LearningLanguage[], code: string) {
   return languages.find((language) => language.code === code)?.name ?? code.toUpperCase();
+}
+
+function getAutogenerateSeedScore(list: WordList, languageFrom: string, languageTo: string) {
+  const requestedFrom = normalizeLanguageCode(languageFrom);
+  const requestedTo = normalizeLanguageCode(languageTo);
+  const listFrom = normalizeLanguageCode(list.languageFrom);
+  const listTo = normalizeLanguageCode(list.languageTo);
+  const normalizedName = list.name.trim().toLowerCase();
+  const exactMatch = listFrom === requestedFrom && listTo === requestedTo;
+  const reverseMatch = listFrom === requestedTo && listTo === requestedFrom;
+  const overlapsFrom = listFrom === requestedFrom || listTo === requestedFrom;
+  const overlapsTo = listFrom === requestedTo || listTo === requestedTo;
+
+  let score = 0;
+  if (exactMatch) score += 140;
+  if (reverseMatch) score += 125;
+  if (overlapsFrom) score += 35;
+  if (overlapsTo) score += 35;
+  if (list.isCommon) score += 30;
+  if (list.isPublic) score += 10;
+  if (normalizedName === 'testing') score -= 80;
+  else if (normalizedName.includes('testing')) score -= 30;
+
+  return score;
+}
+
+export function pickAutogenerateCommonSeed(
+  lists: WordList[],
+  languageFrom: string,
+  languageTo: string,
+): WordList | null {
+  const commonSeedLists = lists.filter((list) => list.isCommon);
+  const reusableLists = commonSeedLists.length > 0
+    ? commonSeedLists
+    : lists.filter((list) => list.isPublic);
+  if (reusableLists.length === 0) return null;
+
+  const ranked = reusableLists
+    .map((list, index) => ({
+      list,
+      index,
+      score: getAutogenerateSeedScore(list, languageFrom, languageTo),
+    }))
+    .sort(compareAutogenerateSeeds);
+
+  return ranked[0]?.list ?? null;
+}
+
+function compareAutogenerateSeeds(a: RankedAutogenerateSeed, b: RankedAutogenerateSeed) {
+  const updatedDelta = getListUpdatedTime(b.list) - getListUpdatedTime(a.list);
+  return updatedDelta || b.score - a.score || a.index - b.index;
+}
+
+function getListUpdatedTime(list: WordList) {
+  const value = list.updatedAt;
+  if (!value) return 0;
+  const time = value instanceof Date ? value.getTime() : Date.parse(value);
+  return Number.isFinite(time) ? time : 0;
 }
 
 function filterLanguages(languages: LearningLanguage[], query: string) {
@@ -198,6 +290,7 @@ export function LearningLanguageOnboarding({
   const [loadingMatches, setLoadingMatches] = useState(false);
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus | null>(null);
+  const [commonListEstimate, setCommonListEstimate] = useState<CommonListEstimate | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -245,6 +338,57 @@ export function LearningLanguageOnboarding({
     () => languages.find((language) => language.code === languageTo),
     [languages, languageTo],
   );
+  const languagePairLabel = canContinue
+    ? `${getLanguageName(languages, languageFrom)} and ${getLanguageName(languages, languageTo)}`
+    : '';
+  const hasCommonLanguageList = matches.some((list) => list.isCommon);
+  const showListSetupActions = Boolean(canContinue && !loadingMatches);
+  const showAutogenerateCommonList = showListSetupActions && !hasCommonLanguageList;
+
+  useEffect(() => {
+    if (!showAutogenerateCommonList) {
+      setCommonListEstimate(null);
+      return;
+    }
+
+    let cancelled = false;
+    setCommonListEstimate({ status: 'loading', wordCount: null, seedName: null });
+
+    async function loadCommonListEstimate() {
+      try {
+        const listsRes = await fetch('/api/lists');
+        if (!listsRes.ok) throw new Error('Could not load seed lists');
+        const listsData = await listsRes.json();
+        if (cancelled) return;
+        const availableLists: WordList[] = Array.isArray(listsData.lists) ? listsData.lists : [];
+        const seedList = pickAutogenerateCommonSeed(availableLists, languageFrom, languageTo);
+        if (!seedList) {
+          setCommonListEstimate({ status: 'unavailable', wordCount: 0, seedName: null });
+          return;
+        }
+
+        const seedDetailsRes = await fetch(`/api/lists/${seedList.id}?include_media=false`);
+        if (!seedDetailsRes.ok) throw new Error('Could not load seed list size');
+        const seedDetails = await seedDetailsRes.json();
+        if (cancelled) return;
+        const seedItems: WordListItem[] = Array.isArray(seedDetails?.items) ? seedDetails.items : [];
+        setCommonListEstimate({
+          status: 'ready',
+          wordCount: seedItems.length,
+          seedName: seedList.name,
+        });
+      } catch {
+        if (!cancelled) {
+          setCommonListEstimate({ status: 'unavailable', wordCount: null, seedName: null });
+        }
+      }
+    }
+
+    void loadCommonListEstimate();
+    return () => {
+      cancelled = true;
+    };
+  }, [languageFrom, languageTo, showAutogenerateCommonList]);
 
   async function savePreferences() {
     if (!canContinue) return false;
@@ -363,11 +507,20 @@ export function LearningLanguageOnboarding({
   }
 
   async function generateAutogeneratedListAudio(list: WordList): Promise<AudioGenerationSummary> {
+    const audioFailureNotice = 'The common list is ready, but audio generation could not finish. Audio can be added from the lists editor later.';
     const detailsRes = await fetch(`/api/lists/${list.id}?include_media=false`);
     if (!detailsRes.ok) {
-      throw new Error('Could not inspect generated list audio');
+      return {
+        notice: audioFailureNotice,
+        requestedUnits: 0,
+        remainingUnits: null,
+        generatedCount: 0,
+        failedCount: 0,
+        failedTargetCount: 0,
+        failedKnownCount: 0,
+      };
     }
-    const details = await detailsRes.json();
+    const details = await detailsRes.json().catch(() => ({}));
     const items: WordListItem[] = Array.isArray(details.items) ? details.items : [];
     const targetItems = items.filter((item) => item.textTarget && item.audioStatus !== 'ready');
     const knownItems = items.filter((item) => item.textKnown && item.knownAudioStatus !== 'ready');
@@ -383,6 +536,8 @@ export function LearningLanguageOnboarding({
         : null;
     let generatedCount = 0;
     let failedCount = 0;
+    let failedTargetCount = 0;
+    let failedKnownCount = 0;
 
     setGenerationStatus({
       title: 'Generating audio',
@@ -405,37 +560,52 @@ export function LearningLanguageOnboarding({
       if (batchItems.length === 0) return;
       for (let i = 0; i < batchItems.length; i += 200) {
         const chunk = batchItems.slice(i, i + 200);
-        const res = await fetch('/api/audio/generate/batch', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            provider: 'google_tts',
-            allow_partial: true,
-            audio_field: audioField,
-            items: chunk.map((item) => ({
-              id: item.id,
-              text: audioField === 'known' ? item.textKnown : item.textTarget ?? '',
-              language,
-            })),
-          }),
-        });
-        const data = await res.json().catch(() => ({}));
-        if (!quotaNotice && data?.quota_limit?.message) {
-          quotaNotice = data.quota_limit.message;
+        let data: Record<string, unknown> = {};
+        let res: Response;
+        try {
+          res = await fetch('/api/audio/generate/batch', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              provider: 'google_tts',
+              allow_partial: true,
+              audio_field: audioField,
+              items: chunk.map((item) => ({
+                id: item.id,
+                text: audioField === 'known' ? item.textKnown : item.textTarget ?? '',
+                language,
+              })),
+            }),
+          });
+          data = await res.json().catch(() => ({}));
+        } catch {
+          failedCount += chunk.length;
+          if (audioField === 'target') failedTargetCount += chunk.length;
+          else failedKnownCount += chunk.length;
+          quotaNotice ??= audioFailureNotice;
+          continue;
         }
-        if (!quotaNotice && data?.quota_warning?.detail) {
+        const quotaLimitMessage = getResponseField(data, 'quota_limit', 'message');
+        const quotaWarningDetail = getResponseField(data, 'quota_warning', 'detail');
+        if (!quotaNotice && quotaLimitMessage) {
+          quotaNotice = quotaLimitMessage;
+        }
+        if (!quotaNotice && quotaWarningDetail) {
           quotaNotice = 'Audio generation could not verify the free quota, so only existing reusable audio may be available. Contact us and we can help finish it.';
         }
         const results = Array.isArray(data?.results) ? data.results : [];
         generatedCount += typeof data?.generated_count === 'number'
-          ? data.generated_count
+          ? data.generated_count as number
           : results.filter((result: { status?: string }) => result.status === 'ok').length;
-        failedCount += results.filter((result: { status?: string }) => result.status === 'error').length;
+        const batchFailedCount = results.filter((result: { status?: string }) => result.status === 'error').length;
+        failedCount += batchFailedCount;
+        if (audioField === 'target') failedTargetCount += batchFailedCount;
+        else failedKnownCount += batchFailedCount;
         if (!res.ok && res.status !== 429) {
-          throw new Error(data.error ?? 'Could not generate audio');
+          quotaNotice ??= typeof data.error === 'string' ? data.error : audioFailureNotice;
         }
         if (!res.ok && res.status === 429 && !quotaNotice) {
-          quotaNotice = data.error ?? getAudioQuotaNotice(requestedUnits, 0);
+          quotaNotice = typeof data.error === 'string' ? data.error : getAudioQuotaNotice(requestedUnits, 0);
         }
       }
     }
@@ -451,6 +621,8 @@ export function LearningLanguageOnboarding({
       remainingUnits,
       generatedCount,
       failedCount,
+      failedTargetCount,
+      failedKnownCount,
     };
   }
 
@@ -458,20 +630,17 @@ export function LearningLanguageOnboarding({
     setWorkingId('common');
     setGenerationStatus({
       title: 'Preparing common list',
-      detail: 'Saving your languages and finding the best common seed...',
+      detail: 'Finding the best common seed...',
     });
     setError(null);
-    let didNavigate = false;
+    let didComplete = false;
+    let didNavigateToLists = false;
+    let generatedListId: string | null = null;
     try {
-      if (!(await savePreferencesForListNavigation())) return;
       const listsRes = await fetch('/api/lists');
       const listsData = await listsRes.json();
       const availableLists: WordList[] = Array.isArray(listsData.lists) ? listsData.lists : [];
-      const seedList =
-        availableLists.find((list) => list.isCommon) ??
-        availableLists.find((list) => list.name.toLowerCase() === 'testing') ??
-        availableLists.find((list) => list.name.toLowerCase().includes('testing')) ??
-        availableLists[0];
+      const seedList = pickAutogenerateCommonSeed(availableLists, languageFrom, languageTo);
 
       if (seedList) {
         const seedDetailsRes = await fetch(`/api/lists/${seedList.id}?include_media=false`);
@@ -494,25 +663,40 @@ export function LearningLanguageOnboarding({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: `Common ${languageFrom.toUpperCase()} -> ${languageTo.toUpperCase()}`,
+            name: `Common ${languageFrom.toUpperCase()} / ${languageTo.toUpperCase()}`,
             language_from: languageFrom,
             language_to: languageTo,
           }),
         });
         const forkData = await forkRes.json();
         if (!forkRes.ok) throw new Error(forkData.error ?? 'Could not autogenerate list');
+        generatedListId = forkData.list.id;
         onSelectList(forkData.list.id);
         const audioSummary = await generateAutogeneratedListAudio(forkData.list);
-        const params = new URLSearchParams({ selected: forkData.list.id });
-        if (audioSummary.notice) params.set('audioNotice', audioSummary.notice);
+        if (audioSummary.failedCount > 0) {
+          const notice = getCommonListAudioFailureNotice(audioSummary);
+          setError(notice);
+          setGenerationStatus({
+            title: 'Opening word list editor',
+            detail: 'The common list needs audio repair.',
+          });
+          const params = new URLSearchParams({
+            selected: forkData.list.id,
+            commonListNotice: notice,
+            fixAudio: audioSummary.failedTargetCount > 0 ? 'target' : 'known',
+          });
+          didNavigateToLists = true;
+          router.push(`/lists?${params.toString()}`);
+          return;
+        }
         setGenerationStatus({
-          title: 'Opening word list editor',
+          title: 'Opening app',
           detail: audioSummary.notice
-            ? 'The list is ready with a quota notice.'
+            ? 'The common list is ready. Audio can continue from the editor later.'
             : 'The list and audio are ready.',
         });
-        didNavigate = true;
-        router.push(`/lists?${params.toString()}`);
+        await onComplete(languageFrom, languageTo);
+        didComplete = true;
         return;
       }
 
@@ -520,7 +704,7 @@ export function LearningLanguageOnboarding({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          name: `Common ${languageFrom.toUpperCase()} -> ${languageTo.toUpperCase()}`,
+          name: `Common ${languageFrom.toUpperCase()} / ${languageTo.toUpperCase()}`,
           language_from: languageFrom,
           language_to: languageTo,
           description: 'Autogenerated common list seed',
@@ -528,18 +712,35 @@ export function LearningLanguageOnboarding({
       });
       const createData = await createRes.json();
       if (!createRes.ok) throw new Error(createData.error ?? 'Could not create list');
+      generatedListId = createData.list.id;
       onSelectList(createData.list.id);
-      const params = new URLSearchParams({ selected: createData.list.id });
       setGenerationStatus({
-        title: 'Opening word list editor',
+        title: 'Opening app',
         detail: 'Your empty list is ready.',
       });
-      didNavigate = true;
-      router.push(`/lists?${params.toString()}`);
+      await onComplete(languageFrom, languageTo);
+      didComplete = true;
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not autogenerate list');
+      const notice = getCommonListFailureNotice(err instanceof Error ? err.message : 'Could not autogenerate list');
+      setError(notice);
+      setGenerationStatus({
+        title: 'Opening word lists',
+        detail: 'The common list needs a manual finish.',
+      });
+      const params = new URLSearchParams({
+        commonListNotice: notice,
+        targetFrom: languageFrom,
+        targetTo: languageTo,
+      });
+      if (generatedListId) {
+        params.set('selected', generatedListId);
+      } else {
+        params.set('sourcePair', 'any');
+      }
+      didNavigateToLists = true;
+      router.push(`/lists?${params.toString()}`);
     } finally {
-      if (!didNavigate) {
+      if (!didComplete && !didNavigateToLists) {
         setWorkingId(null);
         setGenerationStatus(null);
       }
@@ -589,7 +790,7 @@ export function LearningLanguageOnboarding({
         </div>
       ) : null}
       <section className="w-full max-w-3xl rounded-lg border border-border-subtle bg-background-elevated p-5 shadow-xl sm:p-7">
-        <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:items-end">
+        <div className="grid gap-4 sm:grid-cols-2 sm:items-end">
           <LanguageCombobox
             id="language-from"
             label="I know"
@@ -598,7 +799,6 @@ export function LearningLanguageOnboarding({
             loading={loadingLanguages}
             onChange={setLanguageFrom}
           />
-          <span className="hidden pb-2 text-text-soft sm:block">→</span>
           <LanguageCombobox
             id="language-to"
             label="I want to learn"
@@ -627,7 +827,7 @@ export function LearningLanguageOnboarding({
           ) : matches.length > 0 ? (
             <div className="space-y-3">
               <h2 className="text-sm font-semibold text-text">
-                Existing {getLanguageName(languages, languageFrom)} → {getLanguageName(languages, languageTo)} lists
+                Existing {languagePairLabel} lists
               </h2>
               {matches.map((list) => (
                 <div key={list.id} className="flex items-stretch gap-2">
@@ -657,11 +857,16 @@ export function LearningLanguageOnboarding({
               ))}
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               <p className="text-sm text-text-soft">
-                For what you want not yet exists any wordlist, however you can create one. Options are:
+                No matching lists yet for {languagePairLabel}. You can generate a common list from the best available seed, browse other lists, or start your own.
               </p>
-              <div className="grid gap-3 sm:grid-cols-2">
+            </div>
+          )}
+
+          {showListSetupActions ? (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2">
+              {showAutogenerateCommonList ? (
                 <button
                   type="button"
                   className="rounded-lg border border-border-subtle bg-background px-4 py-3 text-left hover:border-accent disabled:opacity-50"
@@ -671,8 +876,18 @@ export function LearningLanguageOnboarding({
                   <span className="block text-sm font-semibold text-text">
                     {workingId === 'common' ? 'Autogenerating...' : 'Autogenerate common list'}
                   </span>
-                  <span className="mt-1 block text-xs text-text-soft">Most used words and phrases from the best available seed list.</span>
+                  <span className="mt-1 block text-xs text-text-soft">
+                    {commonListEstimate?.status === 'loading'
+                      ? 'Checking how many words will be generated...'
+                      : commonListEstimate?.status === 'ready'
+                        ? `${formatNumber(commonListEstimate.wordCount ?? 0)} ${commonListEstimate.wordCount === 1 ? 'word' : 'words'} will be generated${commonListEstimate.seedName ? ` from ${commonListEstimate.seedName}` : ''}.`
+                        : commonListEstimate?.status === 'unavailable'
+                          ? 'Word count is not available yet; the best available seed will be used.'
+                          : 'Most used words and phrases from the best available seed list.'}
+                  </span>
                 </button>
+              ) : null}
+              {matches.length === 0 ? (
                 <button
                   type="button"
                   className="rounded-lg border border-border-subtle bg-background px-4 py-3 text-left hover:border-accent"
@@ -682,18 +897,18 @@ export function LearningLanguageOnboarding({
                   <span className="block text-sm font-semibold text-text">Go through existing lists</span>
                   <span className="mt-1 block text-xs text-text-soft">Find what suits you most and fork it.</span>
                 </button>
-                <button
-                  type="button"
-                  className="rounded-lg border border-border-subtle bg-background px-4 py-3 text-left hover:border-accent sm:col-span-2"
-                  onClick={createOwnList}
-                  disabled={!canContinue}
-                >
-                  <span className="block text-sm font-semibold text-text">Create own list</span>
-                  <span className="mt-1 block text-xs text-text-soft">Start empty on the lists page.</span>
-                </button>
-              </div>
+              ) : null}
+              <button
+                type="button"
+                className="rounded-lg border border-border-subtle bg-background px-4 py-3 text-left hover:border-accent"
+                onClick={createOwnList}
+                disabled={!canContinue}
+              >
+                <span className="block text-sm font-semibold text-text">Create own list</span>
+                <span className="mt-1 block text-xs text-text-soft">Start empty on the lists page.</span>
+              </button>
             </div>
-          )}
+          ) : null}
         </div>
 
         {error ? <p className="mt-4 text-sm text-danger">{error}</p> : null}

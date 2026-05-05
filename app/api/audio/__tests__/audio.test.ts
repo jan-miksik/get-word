@@ -342,7 +342,27 @@ describe('POST /api/audio/generate/batch', () => {
     expect(res.status).toBe(200)
     const data = await res.json()
     expect(data.results[0].status).toBe('error')
-    expect(data.results[0].error).toBe('Generation failed')
+    expect(data.results[0].error).toBe('TTS provider returned no audio')
+  })
+
+  it('returns provider error details when generation throws', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockFindMediaByHashes.mockResolvedValue(new Map())
+    mockGoogleTTS.mockRejectedValue(new Error('Google TTS request failed: API key not valid'))
+    mockBatchLinkAudioToItems.mockResolvedValue(undefined)
+
+    const res = await POST(makeRequest({
+      items: [{ id: 'item-1', text: 'hello', language: 'vi' }],
+      provider: 'google_tts',
+    }))
+
+    expect(res.status).toBe(200)
+    const data = await res.json()
+    expect(data.results[0].status).toBe('error')
+    expect(data.results[0].error).toBe('Google TTS request failed: API key not valid')
+    expect(mockBatchLinkAudioToItems).toHaveBeenCalledWith([
+      { itemId: 'item-1', audioAssetId: null, audioStatus: 'failed' },
+    ])
   })
 
   it('handles mixed dedup and generation', async () => {

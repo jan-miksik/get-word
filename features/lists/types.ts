@@ -8,6 +8,8 @@ export type WordList = {
   isPublic: boolean;
   isCommon?: boolean;
   isOwner?: boolean;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 };
 
 export type WordCategory = {

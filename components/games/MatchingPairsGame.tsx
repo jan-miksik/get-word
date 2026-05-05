@@ -46,14 +46,9 @@ export function MatchingPairsGame({
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const requestedSourceLang = sourceLang ?? resolveSourceLangFromRole(role);
-  const fallbackSourceLang = getTargetLang(requestedSourceLang);
   const audioByWordId = useMemo(
     () => new Map(words.map((word) => [word.id, getWordAudioSrcByLang(word, requestedSourceLang)])),
     [words, requestedSourceLang],
-  );
-  const fallbackAudioByWordId = useMemo(
-    () => new Map(words.map((word) => [word.id, getWordAudioSrcByLang(word, fallbackSourceLang)])),
-    [words, fallbackSourceLang],
   );
   const hasCompleteAudio = useMemo(
     () => words.every((word) => Boolean(audioByWordId.get(word.id))),
@@ -113,7 +108,7 @@ export function MatchingPairsGame({
   };
 
   const playPrompt = async (id: string) => {
-    const candidateAudioSrcs = [audioByWordId.get(id), fallbackAudioByWordId.get(id)]
+    const candidateAudioSrcs = [audioByWordId.get(id)]
       .filter((src): src is string => Boolean(src))
       .filter((src, idx, arr) => arr.indexOf(src) === idx);
     if (!candidateAudioSrcs.length) {

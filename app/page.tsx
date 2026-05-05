@@ -24,6 +24,7 @@ import { I18nProvider } from '@/components/I18nProvider';
 import { LearningLanguageOnboarding } from '@/components/LearningLanguageOnboarding';
 
 export default function Home() {
+  const [loaderDismissed, setLoaderDismissed] = useState(false);
   const { words, isLoading: isLoadingWords } = useWordsLoader();
   const {
     isConnected,
@@ -187,8 +188,11 @@ export default function Home() {
   return (
     <AppStateProvider value={appState}>
       <I18nProvider language={appState.settingsLanguage}>
-        {!isHydrated || isLoadingWords || isAuthLoading || isLinkingWallet || isWaitingForLinkedProfile ? (
-          <LoadingScreen />
+        {!loaderDismissed ? (
+          <LoadingScreen
+            ready={isHydrated && !isLoadingWords && !isAuthLoading && !isLinkingWallet && !isWaitingForLinkedProfile}
+            onContinue={() => setLoaderDismissed(true)}
+          />
         ) : !isAuthenticated ? (
           <AuthRequiredCard onSignIn={signIn} />
         ) : !onboardingCompletedAt || !learningLanguageFrom || !learningLanguageTo ? (
