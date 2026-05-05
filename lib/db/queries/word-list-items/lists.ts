@@ -1,4 +1,4 @@
-import { and, eq, or, sql, inArray } from 'drizzle-orm';
+import { and, eq, or, sql, inArray, desc } from 'drizzle-orm';
 import { db } from '../../client';
 import {
   wordLists,
@@ -41,6 +41,14 @@ export async function getUserSubscribedListIds(userId: string): Promise<string[]
 }
 
 export async function getSystemDefaultList(): Promise<WordList | null> {
+  const commonResults = await db
+    .select()
+    .from(wordLists)
+    .where(and(eq(wordLists.isCommon, true), eq(wordLists.isPublic, true)))
+    .orderBy(desc(wordLists.updatedAt))
+    .limit(1);
+  if (commonResults[0]) return commonResults[0];
+
   const results = await db
     .select()
     .from(wordLists)
@@ -56,14 +64,29 @@ export async function createList(data: NewWordList): Promise<WordList> {
 
 export async function updateList(
   listId: string,
-  data: Partial<Pick<WordList, 'name' | 'description' | 'isPublic'>>
+  data: Partial<Pick<WordList, 'name' | 'description' | 'isPublic' | 'isCommon'>>
 ): Promise<WordList | null> {
-  const [updated] = await db
-    .update(wordLists)
-    .set({ ...data, updatedAt: new Date() })
-    .where(eq(wordLists.id, listId))
-    .returning();
-  return updated ?? null;
+  return db.transaction(async (tx) => {
+    if (data.isCommon === true) {
+      await tx
+        .update(wordLists)
+        .set({ isCommon: false, updatedAt: new Date() })
+        .where(eq(wordLists.isCommon, true));
+    }
+
+    const updateData = {
+      ...data,
+      ...(data.isCommon === true ? { isPublic: true } : {}),
+      updatedAt: new Date(),
+    };
+
+    const [updated] = await tx
+      .update(wordLists)
+      .set(updateData)
+      .where(eq(wordLists.id, listId))
+      .returning();
+    return updated ?? null;
+  });
 }
 
 export async function deleteList(listId: string): Promise<boolean> {

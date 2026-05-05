@@ -168,6 +168,20 @@ export function ListSidebar({
                   <div className="text-xs text-text-soft mt-0.5">
                     {list.languageFrom} → {list.languageTo}
                   </div>
+                  {(list.isCommon || list.isPublic) && (
+                    <div className="flex gap-1 mt-1">
+                      {list.isCommon && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-fresh/10 text-fresh">
+                          Seed
+                        </span>
+                      )}
+                      {list.isPublic && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-done/10 text-done">
+                          Public
+                        </span>
+                      )}
+                    </div>
+                  )}
                 </button>
 
                 <button
@@ -203,7 +217,7 @@ export function ListSidebar({
               return (
                 <div
                   key={list.id}
-                  className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition-colors ${
+                  className={`flex items-stretch gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
                     selectedListId === list.id
                       ? 'bg-accent/15'
                       : 'hover:bg-background/50'
@@ -211,8 +225,10 @@ export function ListSidebar({
                 >
                   <button
                     type="button"
-                    className={`flex-1 text-left min-w-0 ${
-                      selectedListId === list.id ? 'text-accent' : 'text-text'
+                    className={`min-w-0 flex-1 rounded-md px-2 py-1.5 text-left transition-colors ${
+                      selectedListId === list.id
+                        ? 'bg-background/60 text-accent'
+                        : 'text-text hover:bg-background/60'
                     }`}
                     onClick={() => onSelectList(list.id)}
                   >
@@ -222,41 +238,45 @@ export function ListSidebar({
                     </div>
                   </button>
 
-                  {/* Subscription toggle */}
-                  <button
-                    type="button"
-                    disabled={isToggling}
-                    className={`shrink-0 w-10 h-5 rounded-full transition-colors relative ${
-                      isSubscribed ? 'bg-accent' : 'bg-border-subtle'
-                    } ${isToggling ? 'opacity-50' : ''}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleToggleSubscription(list.id);
-                    }}
-                    title={isSubscribed ? t('lists.unsubscribe') : t('lists.subscribe')}
-                    aria-label={`${isSubscribed ? t('lists.unsubscribe') : t('lists.subscribe')} ${list.name}`}
-                  >
-                    <div
-                      className={`absolute top-0.5 w-4 h-4 rounded-full bg-white transition-transform ${
-                        isSubscribed ? 'translate-x-5' : 'translate-x-0.5'
-                      }`}
-                    />
-                  </button>
-
-                  {onFork ? (
+                  <div className="flex shrink-0 items-center gap-2 border-l border-border-subtle pl-3">
+                    {/* Subscription toggle */}
                     <button
                       type="button"
-                      disabled={isForking}
-                      className="shrink-0 rounded-md border border-border-subtle px-2 py-1 text-[11px] text-text-soft transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                      disabled={isToggling}
+                      className={`relative h-5 w-10 shrink-0 rounded-full transition-colors ${
+                        isSubscribed ? 'bg-accent' : 'bg-border-subtle'
+                      } ${isToggling ? 'opacity-50' : ''}`}
                       onClick={(e) => {
                         e.stopPropagation();
-                        handleFork(list.id);
+                        handleToggleSubscription(list.id);
                       }}
-                      title="Fork this list"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      title={isSubscribed ? t('lists.unsubscribe') : t('lists.subscribe')}
+                      aria-label={`${isSubscribed ? t('lists.unsubscribe') : t('lists.subscribe')} ${list.name}`}
                     >
-                      {isForking ? 'Forking...' : 'Fork'}
+                      <div
+                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
+                          isSubscribed ? 'translate-x-5' : 'translate-x-0.5'
+                        }`}
+                      />
                     </button>
-                  ) : null}
+
+                    {onFork ? (
+                      <button
+                        type="button"
+                        disabled={isForking}
+                        className="shrink-0 rounded-md border border-border-subtle bg-background px-2.5 py-1.5 text-[11px] font-medium text-text-soft transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleFork(list.id);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        title="Fork this list"
+                      >
+                        {isForking ? 'Forking...' : 'Fork'}
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
               );
             })}

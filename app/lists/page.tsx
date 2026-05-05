@@ -21,6 +21,7 @@ import { WizardProgressBar, type WizardActiveStep } from './WizardProgressBar';
 
 type WizardStep = 'browse' | WizardActiveStep;
 type LearningLanguage = { code: string; name: string; ttsAvailable?: boolean };
+type ForkedListPrompt = { listId: string; sourceName: string };
 
 export default function ListsPage() {
   const [lists, setLists] = useState<WordList[]>([]);
@@ -28,6 +29,7 @@ export default function ListsPage() {
   const [categories, setCategories] = useState<WordCategory[]>([]);
   const [items, setItems] = useState<WordListItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingDetails, setLoadingDetails] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Wizard state
@@ -48,6 +50,8 @@ export default function ListsPage() {
   const [languages, setLanguages] = useState<LearningLanguage[]>([]);
   const [isEditDirty, setIsEditDirty] = useState(false);
   const [googleUsage, setGoogleUsage] = useState<GoogleUsageResponse | null>(null);
+  const [forkedListPrompt, setForkedListPrompt] = useState<ForkedListPrompt | null>(null);
+  const [canManageCommonLists, setCanManageCommonLists] = useState(false);
 
   const selectedList = useMemo(
     () => lists.find((l) => l.id === selectedListId) ?? null,
@@ -58,6 +62,30 @@ export default function ListsPage() {
     if (!selectedList) return false;
     return selectedList.isOwner ?? selectedList.ownerId !== null;
   }, [selectedList]);
+
+  const updateSelectedListUrl = useCallback((
+    listId: string,
+    forkPrompt?: { sourceName: string } | null,
+  ) => {
+    if (typeof window === 'undefined') return;
+
+    const params = new URLSearchParams(window.location.search);
+    params.set('selected', listId);
+    params.delete('create');
+    params.delete('sourcePair');
+    params.delete('targetFrom');
+    params.delete('targetTo');
+
+    if (forkPrompt) {
+      params.set('forked', '1');
+      params.set('forkedFromName', forkPrompt.sourceName);
+    } else {
+      params.delete('forked');
+      params.delete('forkedFromName');
+    }
+
+    window.history.replaceState(null, '', `/lists?${params.toString()}`);
+  }, []);
 
   const loadGoogleUsage = useCallback(async () => {
     try {
@@ -90,6 +118,21 @@ export default function ListsPage() {
     if (params.get('sourcePair') === 'any') {
       setExistingListsHint(true);
     }
+    if (params.get('forked') === '1') {
+      const selected = params.get('selected');
+      if (selected) {
+        setForkedListPrompt({
+          listId: selected,
+          sourceName: params.get('forkedFromName') || 'another list',
+        });
+      }
+    }
+    const audioNotice = params.get('audioNotice');
+    if (audioNotice) {
+      setError(audioNotice);
+      params.delete('audioNotice');
+      window.history.replaceState(null, '', `/lists?${params.toString()}`);
+    }
   }, []);
 
   useEffect(() => {
@@ -117,6 +160,7 @@ export default function ListsPage() {
         if (!res.ok) throw new Error('Failed to load lists');
         const data = await res.json();
         setLists(data.lists);
+        setCanManageCommonLists(Boolean(data.canManageCommonLists));
         setSelectedListId((current) => {
           if (current || data.lists.length === 0) return current;
           if (typeof window !== 'undefined') {
@@ -140,6 +184,9 @@ export default function ListsPage() {
   useEffect(() => {
     if (!selectedListId) return;
     const controller = new AbortController();
+    setLoadingDetails(true);
+    setCategories([]);
+    setItems([]);
     async function loadListDetails() {
       try {
         const res = await listsApiFetch(`/api/lists/${selectedListId}?include_media=false`, {
@@ -152,6 +199,10 @@ export default function ListsPage() {
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         setError(err instanceof Error ? err.message : 'Failed to load list');
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoadingDetails(false);
+        }
       }
     }
     loadListDetails();
@@ -220,9 +271,20 @@ export default function ListsPage() {
   }, [editingCategoryId, pendingItems, selectedListId]);
 
   const handleSelectList = useCallback((listId: string) => {
+    if (listId === selectedListId) {
+      setForkedListPrompt(null);
+      updateSelectedListUrl(listId, null);
+      setSidebarOpen(false);
+      return;
+    }
+    setLoadingDetails(true);
+    setCategories([]);
+    setItems([]);
+    setForkedListPrompt(null);
+    updateSelectedListUrl(listId, null);
     setSelectedListId(listId);
     setSidebarOpen(false);
-  }, []);
+  }, [selectedListId, updateSelectedListUrl]);
 
   const handleCreateList = useCallback(async (name: string, langFrom: string, langTo: string) => {
     const res = await listsApiFetch('/api/lists', {
@@ -232,12 +294,17 @@ export default function ListsPage() {
     if (!res.ok) throw new Error('Failed to create list');
     const data = await res.json();
     setLists((prev) => [...prev, data.list]);
+    setForkedListPrompt(null);
+    setLoadingDetails(true);
+    setCategories([]);
+    setItems([]);
+    updateSelectedListUrl(data.list.id, null);
     setSelectedListId(data.list.id);
-  }, []);
+  }, [updateSelectedListUrl]);
 
   const handleUpdateList = useCallback(async (
     listId: string,
-    data: Pick<WordList, 'name' | 'description' | 'isPublic'>,
+    data: Pick<WordList, 'name' | 'description' | 'isPublic'> & { isCommon?: boolean },
   ) => {
     const res = await listsApiFetch(`/api/lists/${listId}`, {
       method: 'PUT',
@@ -245,6 +312,7 @@ export default function ListsPage() {
         name: data.name,
         description: data.description,
         is_public: data.isPublic,
+        ...(typeof data.isCommon === 'boolean' ? { is_common: data.isCommon } : {}),
       }),
     });
     const responseData = await res.json().catch(() => ({}));
@@ -252,9 +320,16 @@ export default function ListsPage() {
 
     const updatedList: WordList = responseData.list;
     setLists((prev) =>
-      prev.map((list) => (list.id === listId ? { ...list, ...updatedList } : list))
+      prev.map((list) => {
+        if (list.id === listId) return { ...list, ...updatedList };
+        return updatedList.isCommon ? { ...list, isCommon: false } : list;
+      })
     );
-  }, []);
+    if (forkedListPrompt?.listId === listId) {
+      setForkedListPrompt(null);
+      updateSelectedListUrl(listId, null);
+    }
+  }, [forkedListPrompt, updateSelectedListUrl]);
 
   const handleForkList = useCallback(async (listId: string) => {
     const sourceList = lists.find((list) => list.id === listId);
@@ -271,9 +346,24 @@ export default function ListsPage() {
     });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error ?? 'Fork failed');
+    const sourceName = sourceList?.name ?? 'another list';
     setLists((prev) => [...prev, data.list]);
+    setForkedListPrompt({ listId: data.list.id, sourceName });
+    setLoadingDetails(true);
+    setCategories([]);
+    setItems([]);
+    updateSelectedListUrl(data.list.id, { sourceName });
     setSelectedListId(data.list.id);
-  }, [initialCreateLanguageFrom, initialCreateLanguageTo, lists]);
+    setSidebarOpen(false);
+  }, [initialCreateLanguageFrom, initialCreateLanguageTo, lists, updateSelectedListUrl]);
+
+  const handleDismissForkNotice = useCallback(() => {
+    setForkedListPrompt((current) => {
+      if (!current) return null;
+      updateSelectedListUrl(current.listId, null);
+      return null;
+    });
+  }, [updateSelectedListUrl]);
 
   const handleDeleteList = useCallback(async (listId: string) => {
     try {
@@ -693,15 +783,22 @@ export default function ListsPage() {
             <div className="flex items-center justify-center h-full">
               <p className="text-text-soft">Select a list to get started</p>
             </div>
+          ) : loadingDetails ? (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-text-soft">Loading...</p>
+            </div>
           ) : wizardStep === 'browse' ? (
             <CategoryBrowser
               list={selectedList}
               categories={categories}
               itemsByCategory={itemsByCategory}
               isOwner={isOwner}
+              isEditor={canManageCommonLists}
+              forkedFromListName={forkedListPrompt?.listId === selectedList.id ? forkedListPrompt.sourceName : null}
               onEditCategory={handleEditCategory}
               onCreateCategory={handleCreateCategory}
               onUpdateList={handleUpdateList}
+              onDismissForkNotice={handleDismissForkNotice}
               onRenameCategory={handleRenameCategory}
               onReorderCategories={handleReorderCategories}
               onDeleteCategory={handleDeleteCategory}

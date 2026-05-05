@@ -8,9 +8,12 @@ interface CategoryBrowserProps {
   categories: WordCategory[];
   itemsByCategory: Map<string, WordListItem[]>;
   isOwner: boolean;
+  isEditor: boolean;
+  forkedFromListName?: string | null;
   onEditCategory: (categoryId: string, inputLang: 'known' | 'target') => void;
   onCreateCategory: (name: string) => Promise<void>;
-  onUpdateList: (listId: string, data: Pick<WordList, 'name' | 'description' | 'isPublic'>) => Promise<void>;
+  onUpdateList: (listId: string, data: Pick<WordList, 'name' | 'description' | 'isPublic'> & { isCommon?: boolean }) => Promise<void>;
+  onDismissForkNotice?: () => void;
   onRenameCategory: (categoryId: string, name: string) => Promise<void>;
   onReorderCategories: (orderedIds: string[]) => Promise<void>;
   onDeleteCategory: (categoryId: string) => Promise<void>;
@@ -21,9 +24,12 @@ export function CategoryBrowser({
   categories,
   itemsByCategory,
   isOwner,
+  isEditor,
+  forkedFromListName,
   onEditCategory,
   onCreateCategory,
   onUpdateList,
+  onDismissForkNotice,
   onRenameCategory,
   onReorderCategories,
   onDeleteCategory,
@@ -38,16 +44,19 @@ export function CategoryBrowser({
   const [listName, setListName] = useState(list.name);
   const [listDescription, setListDescription] = useState(list.description ?? '');
   const [listIsPublic, setListIsPublic] = useState(list.isPublic);
+  const [listIsCommon, setListIsCommon] = useState(Boolean(list.isCommon));
   const [savingList, setSavingList] = useState(false);
   const dragItemRef = useRef<string | null>(null);
+  const canEditListMetadata = isOwner || isEditor;
 
   useEffect(() => {
-    setEditingList(false);
-    setListName(list.name);
-    setListDescription(list.description ?? '');
+    setEditingList(Boolean(forkedFromListName));
+    setListName(forkedFromListName ? '' : list.name);
+    setListDescription(forkedFromListName ? '' : list.description ?? '');
     setListIsPublic(list.isPublic);
+    setListIsCommon(Boolean(list.isCommon));
     setSavingList(false);
-  }, [list.id, list.name, list.description, list.isPublic]);
+  }, [forkedFromListName, list.id, list.name, list.description, list.isPublic, list.isCommon]);
 
   async function handleRenameSubmit(categoryId: string) {
     const trimmed = renameValue.trim();
@@ -83,8 +92,10 @@ export function CategoryBrowser({
       await onUpdateList(list.id, {
         name: trimmedName,
         description: listDescription.trim() || null,
-        isPublic: listIsPublic,
+        isPublic: listIsCommon ? true : listIsPublic,
+        ...(isEditor ? { isCommon: listIsCommon } : {}),
       });
+      onDismissForkNotice?.();
       setEditingList(false);
     } finally {
       setSavingList(false);
@@ -95,7 +106,9 @@ export function CategoryBrowser({
     setListName(list.name);
     setListDescription(list.description ?? '');
     setListIsPublic(list.isPublic);
+    setListIsCommon(Boolean(list.isCommon));
     setEditingList(false);
+    onDismissForkNotice?.();
   }
 
   function handleDragStart(categoryId: string) {
@@ -131,8 +144,18 @@ export function CategoryBrowser({
       {/* List header */}
       <div className="mb-6">
         {editingList ? (
-          <div className="rounded-lg border border-border-subtle bg-background-elevated p-3">
+          <div className="rounded-lg border border-border-subtle bg-background-elevated p-3 shadow-sm">
             <div className="grid gap-3">
+              {forkedFromListName ? (
+                <div className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-accent">
+                    Forked list
+                  </p>
+                  <p className="mt-1 text-sm text-text">
+                    This copy was forked from {forkedFromListName}. Give it its own name and description before editing words.
+                  </p>
+                </div>
+              ) : null}
               <label className="grid gap-1">
                 <span className="text-xs font-medium text-text-soft">List name</span>
                 <input
@@ -140,6 +163,7 @@ export function CategoryBrowser({
                   value={listName}
                   onChange={(e) => setListName(e.target.value)}
                   className="rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text outline-none focus:border-accent"
+                  placeholder={forkedFromListName ? 'Name your forked list' : undefined}
                   autoFocus
                 />
               </label>
@@ -150,18 +174,38 @@ export function CategoryBrowser({
                   onChange={(e) => setListDescription(e.target.value)}
                   rows={3}
                   className="resize-none rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text outline-none focus:border-accent"
-                  placeholder="What this list is good for"
+                  placeholder={forkedFromListName ? 'What this fork is good for' : 'What this list is good for'}
                 />
               </label>
               <label className="flex items-center gap-2 text-sm text-text-soft">
                 <input
                   type="checkbox"
-                  checked={listIsPublic}
+                  checked={listIsPublic || listIsCommon}
+                  disabled={listIsCommon}
                   onChange={(e) => setListIsPublic(e.target.checked)}
                   className="size-4 accent-accent"
                 />
                 Public list
               </label>
+              {isEditor ? (
+                <label className="flex items-start gap-2 rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text-soft">
+                  <input
+                    type="checkbox"
+                    checked={listIsCommon}
+                    onChange={(e) => {
+                      setListIsCommon(e.target.checked);
+                      if (e.target.checked) setListIsPublic(true);
+                    }}
+                    className="mt-0.5 size-4 accent-accent"
+                  />
+                  <span>
+                    <span className="block font-medium text-text">Use as common list seed</span>
+                    <span className="block text-xs">
+                      Autogenerate common list will fork and translate from this list.
+                    </span>
+                  </span>
+                </label>
+              ) : null}
               <div className="flex gap-2">
                 <button
                   type="button"
@@ -191,13 +235,31 @@ export function CategoryBrowser({
               {list.description && (
                 <p className="text-sm text-text-soft mt-1">{list.description}</p>
               )}
+              {(list.isCommon || list.isPublic) && (
+                <div className="flex gap-1.5 mt-2">
+                  {list.isCommon && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-fresh/10 text-fresh border border-fresh/20">
+                      Common seed
+                    </span>
+                  )}
+                  {list.isPublic && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-done/10 text-done border border-done/20">
+                      Public
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
-            {isOwner ? (
+            {canEditListMetadata ? (
               <button
                 type="button"
-                className="hidden shrink-0 rounded-lg border border-border-subtle px-3 py-1.5 text-xs font-medium text-text-soft transition-colors hover:border-accent hover:text-accent md:inline-flex"
+                className="hidden shrink-0 items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-semibold text-background shadow-sm transition-colors hover:bg-accent/90 focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 md:inline-flex"
                 onClick={() => setEditingList(true)}
               >
+                <svg width="15" height="15" viewBox="0 0 20 20" fill="none" className="text-current">
+                  <path d="M11.5 4.5l4 4L7 17H3v-4L11.5 4.5z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                  <path d="M10 6l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
                 Edit list
               </button>
             ) : null}
@@ -348,19 +410,6 @@ export function CategoryBrowser({
           );
         })}
 
-        {/* Uncategorized items */}
-        {(() => {
-          const uncategorized = itemsByCategory.get('uncategorized') ?? [];
-          if (uncategorized.length === 0) return null;
-          return (
-            <div className="rounded-lg border border-border-subtle">
-              <div className="px-4 py-3">
-                <span className="font-medium text-text-soft text-sm">Uncategorized</span>
-                <span className="ml-2 text-xs text-text-soft">{uncategorized.length} words</span>
-              </div>
-            </div>
-          );
-        })()}
       </div>
 
       {/* Add category - desktop only, owner only */}

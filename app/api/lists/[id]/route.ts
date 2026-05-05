@@ -11,6 +11,7 @@ import {
   resolveUserFromRequest,
   unauthorizedResponse,
   forbiddenResponse,
+  isEditor,
 } from "@/lib/auth";
 import { getAudioUrl } from "@/lib/audio";
 import { getArweaveGatewayUrls } from "@/lib/audio-storage";
@@ -131,15 +132,21 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   if (!list) {
     return NextResponse.json({ error: "List not found" }, { status: 404 });
   }
-  if (list.ownerId !== user.id) {
+  const body = await request.json();
+  const commonRequested = typeof body.is_common === "boolean";
+  const canEditMetadata = list.ownerId === user.id || isEditor(user);
+  if (!canEditMetadata) {
     return forbiddenResponse("Only the list owner can update it");
   }
+  if (commonRequested && !isEditor(user)) {
+    return forbiddenResponse("Editor role required");
+  }
 
-  const body = await request.json();
   const updated = await updateList(id, {
     name: body.name,
     description: body.description,
     isPublic: body.is_public,
+    ...(commonRequested ? { isCommon: body.is_common } : {}),
   });
 
   return NextResponse.json({ list: updated });

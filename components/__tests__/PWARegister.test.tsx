@@ -2,23 +2,19 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PWARegister } from '../PWARegister';
 
-const originalNodeEnv = process.env.NODE_ENV;
-const originalAppVersion = process.env.NEXT_PUBLIC_APP_VERSION;
-
 describe('PWARegister', () => {
   beforeEach(() => {
     vi.restoreAllMocks();
   });
 
   afterEach(() => {
-    process.env.NODE_ENV = originalNodeEnv;
-    process.env.NEXT_PUBLIC_APP_VERSION = originalAppVersion;
+    vi.unstubAllEnvs();
     Reflect.deleteProperty(globalThis, 'caches');
     Reflect.deleteProperty(navigator, 'serviceWorker');
   });
 
   it('unregisters lingering service workers and clears Wordlink caches in development', async () => {
-    process.env.NODE_ENV = 'development';
+    vi.stubEnv('NODE_ENV', 'development');
 
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
@@ -76,7 +72,7 @@ describe('PWARegister', () => {
   });
 
   it('stays invisible in development when no service worker controls the page', async () => {
-    process.env.NODE_ENV = 'development';
+    vi.stubEnv('NODE_ENV', 'development');
 
     Object.defineProperty(navigator, 'serviceWorker', {
       configurable: true,
@@ -107,8 +103,8 @@ describe('PWARegister', () => {
   });
 
   it('registers the production service worker with a build-specific URL', async () => {
-    process.env.NODE_ENV = 'production';
-    process.env.NEXT_PUBLIC_APP_VERSION = '1.0.123';
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_APP_VERSION', '1.0.123');
 
     const waitingWorker = { postMessage: vi.fn() };
     const addEventListener = vi.fn();

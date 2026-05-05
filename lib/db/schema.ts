@@ -74,12 +74,14 @@ export const wordLists = pgTable(
     languageFrom: text("language_from").notNull(),
     languageTo: text("language_to").notNull(),
     isPublic: boolean("is_public").notNull().default(false),
+    isCommon: boolean("is_common").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
     index("word_lists_owner_idx").on(table.ownerId),
     index("word_lists_public_idx").on(table.isPublic),
+    index("word_lists_common_idx").on(table.isCommon),
   ],
 );
 

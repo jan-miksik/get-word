@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getUserLists, getUserSubscribedListIds, createList } from "@/lib/db";
 import {
+  isEditor,
   resolveUserFromRequest,
   unauthorizedResponse,
 } from "@/lib/auth";
@@ -19,6 +20,7 @@ export async function GET(request: NextRequest) {
       isOwner: list.ownerId === user.id,
     })),
     subscribedListIds,
+    canManageCommonLists: isEditor(user),
   });
 }
 

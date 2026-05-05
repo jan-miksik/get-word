@@ -212,6 +212,61 @@ describe('POST /api/audio/generate/batch', () => {
     expect(mockBatchLinkAudioToItems).not.toHaveBeenCalled()
   })
 
+  it('partially generates within the remaining Google TTS quota when requested', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockFindMediaByHashes.mockResolvedValue(new Map())
+    mockReserveGoogleApiUsage
+      .mockResolvedValueOnce({
+        allowed: false,
+        scope: 'tts',
+        periodStart: new Date('2026-04-01T00:00:00.000Z'),
+        requestedUnits: 10,
+        usedUnits: 49995,
+        accountLimit: 50000,
+        freeMonthlyUnits: 1000000,
+        message: 'quota reached',
+      })
+      .mockResolvedValueOnce({
+        allowed: true,
+        scope: 'tts',
+        periodStart: new Date('2026-04-01T00:00:00.000Z'),
+        requestedUnits: 5,
+        usedUnits: 50000,
+        accountLimit: 50000,
+        freeMonthlyUnits: 1000000,
+      })
+    mockGoogleTTS.mockResolvedValue({ audio: Buffer.from('audio-data'), sizeBytes: 10 })
+    mockUploadAudio.mockResolvedValue({
+      storageType: 'arweave',
+      storageRef: 'tx-partial',
+      gatewayUrl: 'https://turbo-gateway.com/tx-partial',
+      gatewayUrls: ['https://turbo-gateway.com/tx-partial', 'https://arweave.net/tx-partial'],
+    })
+    mockCreateMediaAsset.mockResolvedValue({ id: 'asset-partial', contentHash: 'hash_hello_vi_google_tts' })
+    mockBatchLinkAudioToItems.mockResolvedValue(undefined)
+
+    const res = await POST(makeRequest({
+      items: [
+        { id: 'item-1', text: 'hello', language: 'vi' },
+        { id: 'item-2', text: 'world', language: 'vi' },
+      ],
+      provider: 'google_tts',
+      allow_partial: true,
+    }))
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.generated_count).toBe(1)
+    expect(data.quota_limit.code).toBe('GOOGLE_API_PARTIAL_LIMIT')
+    expect(data.quota_limit.requested_units).toBe(10)
+    expect(data.quota_limit.allowed_units).toBe(5)
+    expect(data.results[0].status).toBe('ok')
+    expect(data.results[1].status).toBe('error')
+    expect(data.results[1].error).toMatch(/Only part of the list/)
+    expect(mockGoogleTTS).toHaveBeenCalledTimes(1)
+    expect(mockGoogleTTS).toHaveBeenCalledWith('hello', 'vi')
+  })
+
   it('continues generation with a warning when google TTS quota tracking fails', async () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
     mockFindMediaByHashes.mockResolvedValue(new Map())

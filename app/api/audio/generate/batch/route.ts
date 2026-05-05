@@ -29,6 +29,8 @@ type AudioItem = {
 const MAX_ITEMS = 200;
 const CONCURRENCY = 3;
 const AUDIO_FORMAT = "mp3";
+const PARTIAL_QUOTA_MESSAGE =
+  "This list needs more Google TTS characters than this account has left in the free quota. Only part of the list can be generated now. Contact us and we can help finish the list or raise the limit.";
 
 export const runtime = "nodejs";
 
@@ -59,9 +61,11 @@ async function handlePost(request: NextRequest) {
     provider?: string;
     voice_id?: string;
     force?: boolean;
+    allow_partial?: boolean;
     audio_field?: "known" | "target";
   };
   const force = body.force === true;
+  const allowPartial = body.allow_partial === true;
   const audioField = body.audio_field === "known" ? "known" : "target";
 
   if (!items || !Array.isArray(items) || items.length === 0) {
@@ -123,7 +127,7 @@ async function handlePost(request: NextRequest) {
     arweaveUrls?: string[];
     storageRef?: string;
   }[] = [];
-  const needsGeneration: { item: AudioItem; hash: string }[] = [];
+  let needsGeneration: { item: AudioItem; hash: string }[] = [];
 
   for (let i = 0; i < items.length; i++) {
     const hash = hashes[i];
@@ -149,13 +153,43 @@ async function handlePost(request: NextRequest) {
     }
   }
 
+  // Link dedup-resolved items before quota checks so existing audio is still reused
+  // when only new Google generation is over the free limit.
+  if (dedupLinks.length > 0) {
+    await batchLinkAudioToItems(
+      dedupLinks.map((d) => ({
+        itemId: d.itemId,
+        audioAssetId: d.audioAssetId,
+        audioStatus: "ready" as const,
+        ...(audioField === "known" ? { audioField } : {}),
+      })),
+    );
+  }
+
+  let quotaLimit:
+    | {
+        code: string;
+        message: string;
+        requested_units: number;
+        allowed_units: number;
+        skipped_items: number;
+        usage: {
+          used_units: number;
+          account_limit: number;
+          free_monthly_units: number;
+          period_start: string;
+        };
+      }
+    | undefined;
+
   if (provider === "google_tts" && needsGeneration.length > 0) {
     let quota: Awaited<ReturnType<typeof reserveGoogleApiUsage>> | undefined;
+    const requestedUnits = countGoogleApiTextUnits(needsGeneration.map(({ item }) => item.text));
     try {
       quota = await reserveGoogleApiUsage({
         userId: user.id,
         scope: "tts",
-        units: countGoogleApiTextUnits(needsGeneration.map(({ item }) => item.text)),
+        units: requestedUnits,
         requestCount: needsGeneration.length,
       });
     } catch (err) {
@@ -174,34 +208,113 @@ async function handlePost(request: NextRequest) {
       };
     }
     if (quota && !quota.allowed) {
-      return NextResponse.json(
-        {
-          error: quota.message,
-          code: "GOOGLE_API_ACCOUNT_LIMIT_REACHED",
-          scope: quota.scope,
-          usage: {
-            used_units: quota.usedUnits,
-            requested_units: quota.requestedUnits,
-            account_limit: quota.accountLimit,
-            free_monthly_units: quota.freeMonthlyUnits,
-            period_start: quota.periodStart.toISOString(),
-          },
-        },
-        { status: 429 },
-      );
-    }
-  }
+      if (allowPartial) {
+        const remainingUnits = Math.max(0, quota.accountLimit - quota.usedUnits);
+        const allowedGeneration: typeof needsGeneration = [];
+        let allowedUnits = 0;
 
-  // Link dedup-resolved items immediately
-  if (dedupLinks.length > 0) {
-    await batchLinkAudioToItems(
-      dedupLinks.map((d) => ({
-        itemId: d.itemId,
-        audioAssetId: d.audioAssetId,
-        audioStatus: "ready" as const,
-        ...(audioField === "known" ? { audioField } : {}),
-      })),
-    );
+        for (const candidate of needsGeneration) {
+          const itemUnits = countGoogleApiTextUnits([candidate.item.text]);
+          if (itemUnits === 0 || allowedUnits + itemUnits <= remainingUnits) {
+            allowedGeneration.push(candidate);
+            allowedUnits += itemUnits;
+          }
+        }
+
+        if (allowedGeneration.length > 0) {
+          const partialQuota = await reserveGoogleApiUsage({
+            userId: user.id,
+            scope: "tts",
+            units: allowedUnits,
+            requestCount: allowedGeneration.length,
+          });
+
+          if (partialQuota.allowed) {
+            quotaLimit = {
+              code: "GOOGLE_API_PARTIAL_LIMIT",
+              message: PARTIAL_QUOTA_MESSAGE,
+              requested_units: requestedUnits,
+              allowed_units: allowedUnits,
+              skipped_items: needsGeneration.length - allowedGeneration.length,
+              usage: {
+                used_units: quota.usedUnits,
+                account_limit: quota.accountLimit,
+                free_monthly_units: quota.freeMonthlyUnits,
+                period_start: quota.periodStart.toISOString(),
+              },
+            };
+            needsGeneration = allowedGeneration;
+          } else {
+            quota = partialQuota;
+          }
+        }
+      }
+
+      if (!quotaLimit) {
+        const message = quota.message ?? PARTIAL_QUOTA_MESSAGE;
+        const remainingUnits = Math.max(0, quota.accountLimit - quota.usedUnits);
+        const status = allowPartial && remainingUnits > 0 ? 200 : 429;
+        const skippedResults = items.map((item) => {
+          const dedup = dedupLinks.find((d) => d.itemId === item.id);
+          if (dedup) {
+            return {
+              id: item.id,
+              content_hash: dedup.hash,
+              audio_url: dedup.audioUrl,
+              arweave_url: dedup.arweaveUrl,
+              arweave_urls: dedup.arweaveUrls,
+              storage_ref: dedup.storageRef,
+              status: "ok" as const,
+              source: "dedup" as const,
+            };
+          }
+          return {
+            id: item.id,
+            audio_url: null,
+            status: "error" as const,
+            error: message,
+            source: "generated" as const,
+          };
+        });
+
+        if (status === 200) {
+          return NextResponse.json({
+            results: skippedResults,
+            dedup_count: dedupLinks.length,
+            generated_count: 0,
+            quota_limit: {
+              code: "GOOGLE_API_PARTIAL_LIMIT",
+              message,
+              requested_units: requestedUnits,
+              allowed_units: 0,
+              skipped_items: needsGeneration.length,
+              usage: {
+                used_units: quota.usedUnits,
+                account_limit: quota.accountLimit,
+                free_monthly_units: quota.freeMonthlyUnits,
+                period_start: quota.periodStart.toISOString(),
+              },
+            },
+          });
+        }
+
+        return NextResponse.json(
+          {
+            error: message,
+            code: "GOOGLE_API_ACCOUNT_LIMIT_REACHED",
+            scope: quota.scope,
+            usage: {
+              used_units: quota.usedUnits,
+              requested_units: quota.requestedUnits,
+              account_limit: quota.accountLimit,
+              free_monthly_units: quota.freeMonthlyUnits,
+              period_start: quota.periodStart.toISOString(),
+            },
+          },
+          { status: 429 },
+        );
+      }
+    }
   }
 
   // Step 2: Generate audio for remaining items in parallel batches
@@ -348,7 +461,7 @@ async function handlePost(request: NextRequest) {
       id: item.id,
       audio_url: null,
       status: "error" as const,
-      error: "Not processed",
+      error: quotaLimit ? quotaLimit.message : "Not processed",
       source: "generated" as const,
     };
   });
@@ -357,6 +470,7 @@ async function handlePost(request: NextRequest) {
     results,
     dedup_count: dedupLinks.length,
     generated_count: generatedResults.filter((r) => r.status === "ok").length,
+    ...(quotaLimit ? { quota_limit: quotaLimit } : {}),
     ...(quotaWarning ? { quota_warning: quotaWarning } : {}),
   });
 }

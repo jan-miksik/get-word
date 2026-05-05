@@ -134,6 +134,13 @@
       "when": 1777593600000,
       "tag": "0018_user_learning_languages",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1777899600000,
+      "tag": "0019_common_word_list_seed",
+      "breakpoints": true
     }
   ]
 }

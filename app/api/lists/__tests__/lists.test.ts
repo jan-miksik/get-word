@@ -32,6 +32,7 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@/lib/auth', () => ({
   resolveUserFromRequest: (...args: unknown[]) => mockResolveUserFromRequest(...args),
+  isEditor: (user: { userRole?: string }) => user.userRole === 'editor',
   unauthorizedResponse: () => new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: { 'content-type': 'application/json' } }),
   forbiddenResponse: () => new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { 'content-type': 'application/json' } }),
 }))
@@ -56,6 +57,7 @@ const testList = {
   languageFrom: 'cz',
   languageTo: 'vi',
   isPublic: false,
+  isCommon: false,
   createdAt: new Date(),
   updatedAt: new Date(),
 }
@@ -89,6 +91,18 @@ describe('GET /api/lists', () => {
     expect(data.lists).toHaveLength(2)
     expect(data.lists[0].name).toBe('My List')
     expect(data.subscribedListIds).toEqual(['list-2'])
+    expect(data.canManageCommonLists).toBe(false)
+  })
+
+  it('marks editor list responses as common-list manageable', async () => {
+    mockResolveUserFromRequest.mockResolvedValue({ ...testUser, userRole: 'editor' })
+    mockGetUserLists.mockResolvedValue([testList])
+    mockGetUserSubscribedListIds.mockResolvedValue([])
+    const req = new NextRequest('http://localhost:3000/api/lists')
+    const res = await GET(req)
+    const data = await res.json()
+    expect(res.status).toBe(200)
+    expect(data.canManageCommonLists).toBe(true)
   })
 })
 
@@ -241,6 +255,25 @@ describe('PUT /api/lists/[id]', () => {
     const data = await res.json()
     expect(res.status).toBe(200)
     expect(data.list.name).toBe('Updated')
+  })
+
+  it('lets editors mark a list as the common seed', async () => {
+    const editorUser = { ...testUser, userRole: 'editor' }
+    mockResolveUserFromRequest.mockResolvedValue(editorUser)
+    mockGetListById.mockResolvedValue({ ...testList, ownerId: 'other-user', isPublic: true })
+    mockUpdateList.mockResolvedValue({ ...testList, ownerId: 'other-user', isPublic: true, isCommon: true })
+    const req = new NextRequest('http://localhost:3000/api/lists/list-1', {
+      method: 'PUT',
+      body: JSON.stringify({ name: 'Updated', description: null, is_public: true, is_common: true }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await PUT(req, { params: Promise.resolve({ id: 'list-1' }) })
+    const data = await res.json()
+    expect(res.status).toBe(200)
+    expect(data.list.isCommon).toBe(true)
+    expect(mockUpdateList).toHaveBeenCalledWith('list-1', expect.objectContaining({
+      isCommon: true,
+    }))
   })
 })
 
