@@ -123,10 +123,15 @@ export async function getListById(listId: string): Promise<WordList | null> {
 
 export async function getWordListsByIds(
   ids: string[],
-): Promise<{ id: string; name: string }[]> {
+): Promise<{ id: string; name: string; languageFrom: string; languageTo: string }[]> {
   if (ids.length === 0) return [];
   return db
-    .select({ id: wordLists.id, name: wordLists.name })
+    .select({
+      id: wordLists.id,
+      name: wordLists.name,
+      languageFrom: wordLists.languageFrom,
+      languageTo: wordLists.languageTo,
+    })
     .from(wordLists)
     .where(inArray(wordLists.id, ids));
 }

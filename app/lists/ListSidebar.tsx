@@ -26,6 +26,39 @@ interface ListSidebarProps {
   openCreateSignal?: number;
 }
 
+function ForkIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
+      <circle cx="6" cy="5" r="2.25" stroke="currentColor" strokeWidth="2" />
+      <circle cx="18" cy="6" r="2.25" stroke="currentColor" strokeWidth="2" />
+      <circle cx="6" cy="19" r="2.25" stroke="currentColor" strokeWidth="2" />
+      <path d="M6 7.25v9.5M8.25 5.75h4.5A5.25 5.25 0 0118 11v-2.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ListBadges({ list }: { list: WordList }) {
+  return (
+    <>
+      {list.isCommon && (
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-fresh/10 text-fresh">
+          Seed
+        </span>
+      )}
+      {list.isPublic && (
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-done/10 text-done">
+          Public
+        </span>
+      )}
+      {!list.isPublic && !list.isCommon && (
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-text-soft/10 text-text-soft">
+          Non-Public
+        </span>
+      )}
+    </>
+  );
+}
+
 export function ListSidebar({
   lists,
   selectedListId,
@@ -210,25 +243,9 @@ export function ListSidebar({
                     onClick={() => onSelectList(list.id)}
                   >
                     <div className="font-medium truncate">{list.name}</div>
-                    <div className="text-xs text-text-soft mt-0.5">
-                      {list.languageFrom} → {list.languageTo}
-                    </div>
-                    <div className="flex gap-1 mt-1 flex-wrap">
-                      {list.isCommon && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-fresh/10 text-fresh">
-                          Seed
-                        </span>
-                      )}
-                      {list.isPublic && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-done/10 text-done">
-                          Public
-                        </span>
-                      )}
-                      {!list.isPublic && !list.isCommon && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-text-soft/10 text-text-soft">
-                          Private
-                        </span>
-                      )}
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-text-soft">
+                      <span>{list.languageFrom} → {list.languageTo}</span>
+                      <ListBadges list={list} />
                     </div>
                   </button>
 
@@ -257,9 +274,7 @@ export function ListSidebar({
                             className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-background-elevated transition-colors"
                             onClick={() => handleFork(list.id)}
                           >
-                            <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
-                              <path d="M6 3v4m0 0a3 3 0 100 6 3 3 0 000-6zm8-4v4m0 0a3 3 0 100 6 3 3 0 000-6zM6 7h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                            </svg>
+                            <ForkIcon />
                             Fork
                           </button>
                         )}
@@ -323,8 +338,9 @@ export function ListSidebar({
                     onClick={() => onSelectList(list.id)}
                   >
                     <div className="font-medium truncate">{list.name}</div>
-                    <div className="text-xs text-text-soft mt-0.5">
-                      {list.languageFrom} → {list.languageTo}
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-text-soft">
+                      <span>{list.languageFrom} → {list.languageTo}</span>
+                      <ListBadges list={list} />
                     </div>
                   </button>
 
@@ -380,9 +396,7 @@ export function ListSidebar({
                               onClick={() => handleFork(list.id)}
                               disabled={isForking}
                             >
-                              <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
-                                <path d="M6 3v4m0 0a3 3 0 100 6 3 3 0 000-6zm8-4v4m0 0a3 3 0 100 6 3 3 0 000-6zM6 7h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                              </svg>
+                              <ForkIcon />
                               {isForking ? 'Forking...' : 'Fork'}
                             </button>
                           </div>

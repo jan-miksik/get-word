@@ -23,6 +23,39 @@ interface CategoryBrowserProps {
   onDeleteList?: (listId: string) => Promise<void>;
 }
 
+function ForkIcon() {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="6" cy="5" r="2.25" stroke="currentColor" strokeWidth="2" />
+      <circle cx="18" cy="6" r="2.25" stroke="currentColor" strokeWidth="2" />
+      <circle cx="6" cy="19" r="2.25" stroke="currentColor" strokeWidth="2" />
+      <path d="M6 7.25v9.5M8.25 5.75h4.5A5.25 5.25 0 0118 11v-2.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function ListBadges({ list }: { list: WordList }) {
+  return (
+    <>
+      {list.isCommon && (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-fresh/10 text-fresh border border-fresh/20">
+          Common seed
+        </span>
+      )}
+      {list.isPublic && (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-done/10 text-done border border-done/20">
+          Public
+        </span>
+      )}
+      {!list.isPublic && !list.isCommon && (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-text-soft/10 text-text-soft border border-border-subtle">
+          Non-Public
+        </span>
+      )}
+    </>
+  );
+}
+
 export function CategoryBrowser({
   list,
   categories,
@@ -190,7 +223,7 @@ export function CategoryBrowser({
     await onDeleteList(list.id);
   }
 
-  const totalItems = items_count(itemsByCategory);
+  const totalItems = countVisibleCategoryItems(itemsByCategory, categories);
 
   return (
     <div className="max-w-3xl mx-auto p-4 md:p-6">
@@ -282,25 +315,15 @@ export function CategoryBrowser({
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
               <h1 className="text-xl font-semibold text-text">{list.name}</h1>
-              <p className="text-sm text-text-soft mt-1">
-                {list.languageFrom} → {list.languageTo} · {totalItems} words · {categories.length} categories
-              </p>
+              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-text-soft">
+                <span>{list.languageFrom} → {list.languageTo}</span>
+                <ListBadges list={list} />
+                <span className="basis-full sm:basis-auto">
+                  {totalItems} words · {categories.length} categories
+                </span>
+              </div>
               {list.description && (
                 <p className="text-sm text-text-soft mt-1">{list.description}</p>
-              )}
-              {(list.isCommon || list.isPublic) && (
-                <div className="flex gap-1.5 mt-2">
-                  {list.isCommon && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-fresh/10 text-fresh border border-fresh/20">
-                      Common seed
-                    </span>
-                  )}
-                  {list.isPublic && (
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-done/10 text-done border border-done/20">
-                      Public
-                    </span>
-                  )}
-                </div>
               )}
             </div>
 
@@ -345,9 +368,7 @@ export function CategoryBrowser({
                           onClick={handleForkList}
                           disabled={forkingList}
                         >
-                          <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
-                            <path d="M6 3v4m0 0a3 3 0 100 6 3 3 0 000-6zm8-4v4m0 0a3 3 0 100 6 3 3 0 000-6zM6 7h8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                          </svg>
+                          <ForkIcon />
                           {forkingList ? 'Forking...' : 'Fork list'}
                         </button>
                       )}
@@ -586,8 +607,13 @@ export function CategoryBrowser({
   );
 }
 
-function items_count(map: Map<string, WordListItem[]>): number {
+function countVisibleCategoryItems(
+  map: Map<string, WordListItem[]>,
+  categories: WordCategory[],
+): number {
   let count = 0;
-  for (const items of map.values()) count += items.length;
+  for (const category of categories) {
+    count += map.get(category.id)?.length ?? 0;
+  }
   return count;
 }

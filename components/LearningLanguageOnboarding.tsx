@@ -48,7 +48,9 @@ type RankedAutogenerateSeed = {
 };
 
 const AUTOGENERATE_AUDIO_QUOTA_NOTICE =
-  'Audio for this list needs {requested} Google TTS characters, but this account has {remaining} free characters left this month. I generated as much as the free quota allows, so only part of the list may have audio. Contact us and we can help finish it or raise the limit.';
+  'Audio for this list needs {requested} Google TTS characters, but this account has {remaining} free characters left this month. I generated as much as the free quota allows, so only part of the list may have audio. Contact our tech support and we can help finish it or raise the limit.';
+const AUDIO_REPAIR_INSTRUCTIONS =
+  'Or you can try to fix it by yourself, click on category in the list, that should open overview of the words in the list, then click on Edit words and check what step has failures or missing parts. It will be most likely Audio. You can just generate the missing parts and confirm that in the last step.';
 
 function countTextUnits(texts: string[]) {
   return texts.reduce((total, text) => total + Array.from(text).length, 0);
@@ -76,7 +78,7 @@ function getCommonListAudioFailureNotice(summary: AudioGenerationSummary) {
   const total = formatNumber(summary.generatedCount + summary.failedCount);
   const base = `The common list was created, but audio generation failed for ${failed} of ${total} clips.`;
   const detail = summary.notice ? ` ${summary.notice}` : '';
-  return `${base}${detail} Open this list in the editor, use the Audio steps, and click Generate on failed or missing audio rows. If a row has the wrong word or translation, edit that row first and then generate the missing sound again.`;
+  return `${base}${detail} ${AUDIO_REPAIR_INSTRUCTIONS}`;
 }
 
 function getAudioQuotaNotice(requested: number, remaining: number) {
@@ -591,7 +593,7 @@ export function LearningLanguageOnboarding({
           quotaNotice = quotaLimitMessage;
         }
         if (!quotaNotice && quotaWarningDetail) {
-          quotaNotice = 'Audio generation could not verify the free quota, so only existing reusable audio may be available. Contact us and we can help finish it.';
+          quotaNotice = 'Audio generation could not verify the free quota, so only existing reusable audio may be available. Contact our tech support and we can help finish it.';
         }
         const results = Array.isArray(data?.results) ? data.results : [];
         generatedCount += typeof data?.generated_count === 'number'
@@ -613,7 +615,7 @@ export function LearningLanguageOnboarding({
     await generateBatch(targetItems, 'target', list.languageTo);
     await generateBatch(knownItems, 'known', list.languageFrom);
     if (!quotaNotice && generatedCount === 0 && failedCount > 0) {
-      quotaNotice = 'Audio generation could not finish for this list. Contact us and we can help finish it.';
+      quotaNotice = 'Audio generation could not finish for this list. Contact our tech support and we can help finish it.';
     }
     return {
       notice: quotaNotice,

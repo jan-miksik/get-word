@@ -148,7 +148,9 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
       }
       lockedStageIndexRef.current = lockedStage;
     }
-    setExitAnim(randomExitAnim());
+    const nextExitAnim = randomExitAnim();
+    console.log('[CardDeckView] card out animation:', nextExitAnim);
+    setExitAnim(nextExitAnim);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -161,7 +163,9 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
       pendingAfterExitRef.current = null;
     }
     setCurrentIndex((i) => i + 1);
-    setEnterAnim(randomEnterAnim());
+    const nextEnterAnim = randomEnterAnim();
+    console.log('[CardDeckView] card in animation:', nextEnterAnim);
+    setEnterAnim(nextEnterAnim);
   }, []);
 
   const handleEnterAnimationEnd = useCallback((e: AnimationEvent<HTMLDivElement>) => {
@@ -235,14 +239,18 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
           className="absolute inset-0 z-20 flex flex-col items-center justify-end cursor-pointer"
           onClick={() => {
             setShowDoneOverlay(false);
-            setExitAnim(randomExitAnim());
+            const nextExitAnim = randomExitAnim();
+            console.log('[CardDeckView] card out animation:', nextExitAnim);
+            setExitAnim(nextExitAnim);
           }}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               setShowDoneOverlay(false);
-              setExitAnim(randomExitAnim());
+              const nextExitAnim = randomExitAnim();
+              console.log('[CardDeckView] card out animation:', nextExitAnim);
+              setExitAnim(nextExitAnim);
             }
           }}
         >

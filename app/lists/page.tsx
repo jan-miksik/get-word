@@ -23,6 +23,33 @@ type WizardStep = 'browse' | WizardActiveStep;
 type LearningLanguage = { code: string; name: string; ttsAvailable?: boolean };
 type ForkedListPrompt = { listId: string; sourceName: string };
 
+function ErrorMessage({ message }: { message: string }) {
+  const supportText = 'Contact our tech support';
+  const parts = message.split(supportText);
+
+  if (parts.length === 1) return <>{message}</>;
+
+  return (
+    <>
+      {parts.map((part, index) => (
+        <span key={`${part}-${index}`}>
+          {part}
+          {index < parts.length - 1 ? (
+            <a
+              href="https://t.me/janmiksik"
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium underline"
+            >
+              {supportText}
+            </a>
+          ) : null}
+        </span>
+      ))}
+    </>
+  );
+}
+
 export default function ListsPage() {
   const [lists, setLists] = useState<WordList[]>([]);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
@@ -778,7 +805,7 @@ export default function ListsPage() {
         <div className="flex-1 overflow-y-auto">
           {error && (
             <div className="p-4 m-4 rounded-lg bg-danger/10 text-danger text-sm">
-              {error}
+              <ErrorMessage message={error} />
               <button
                 type="button"
                 className="ml-2 underline"

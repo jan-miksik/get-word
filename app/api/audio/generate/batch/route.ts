@@ -31,7 +31,7 @@ const MAX_ITEMS = 200;
 const CONCURRENCY = 3;
 const AUDIO_FORMAT = "mp3";
 const PARTIAL_QUOTA_MESSAGE =
-  "This list needs more Google TTS characters than this account has left in the free quota. Only part of the list can be generated now. Contact us and we can help finish the list or raise the limit.";
+  "This list needs more Google TTS characters than this account has left in the free quota. Only part of the list can be generated now. Contact our tech support and we can help finish the list or raise the limit.";
 
 export const runtime = "nodejs";
 

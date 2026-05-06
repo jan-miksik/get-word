@@ -3,29 +3,60 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { AppLogo } from '@/components/AppLogo';
 
-const GLYPHS = [
+const ORDINARY_LATIN_GLYPHS = [
   'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
   'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-  'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'K', 'M', 'R', 'W',
-  'ñ', 'ü', 'ø', 'ß', 'ê', 'ç', 'à', 'é', 'î', 'ô',
-  'Д', 'Σ', '語', 'अ', 'ع', 'ก', 'א', 'ა', 'ㅎ', 'Ω',
+  'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+  'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
 ];
 
-const PARTICLE_COUNT = 34;
+const ACCENTED_LATIN_GLYPHS = [
+  'á', 'à', 'â', 'ä', 'å', 'æ', 'č', 'ç', 'ď', 'é', 'è', 'ê', 'ë',
+  'í', 'î', 'ï', 'ł', 'ñ', 'ó', 'ô', 'ö', 'ø', 'ř', 'š', 'ß', 'ť',
+  'ú', 'ü', 'ý', 'ž',
+];
+
+const EXOTIC_GLYPHS = [
+  'Д', 'Ж', 'Σ', 'Ψ', '語', '字', 'अ', 'ع', 'ก', 'ア', 'ㅎ',
+  'ა', 'ב', 'Ω', 'λ', 'ξ', 'ð', 'þ', 'ő',
+];
+
+const PARTICLE_COUNT = 48;
+
+function seededUnit(index: number, salt: number) {
+  let value = Math.imul(index + 1, 0x9e3779b1) ^ Math.imul(salt + 1, 0x85ebca6b);
+  value ^= value >>> 16;
+  value = Math.imul(value, 0x7feb352d);
+  value ^= value >>> 15;
+  value = Math.imul(value, 0x846ca68b);
+  value ^= value >>> 16;
+  return (value >>> 0) / 4294967296;
+}
+
+function pickGlyph(weight: number, glyphIndex: number) {
+  const glyphs = weight < 0.74
+    ? ORDINARY_LATIN_GLYPHS
+    : weight < 0.9
+      ? ACCENTED_LATIN_GLYPHS
+      : EXOTIC_GLYPHS;
+
+  return glyphs[Math.floor(glyphIndex * glyphs.length)];
+}
 
 function makeParticles() {
   return Array.from({ length: PARTICLE_COUNT }, (_, i) => {
-    const r1 = Math.random();
-    const r2 = Math.random();
-    const r3 = Math.random();
+    const r1 = seededUnit(i, 1);
+    const r2 = seededUnit(i, 2);
+    const r3 = seededUnit(i, 3);
+    const r4 = seededUnit(i, 4);
     return {
-      char: GLYPHS[Math.floor(r3 * GLYPHS.length)],
+      char: pickGlyph(r3, r4),
       left: r1 * 92 + 4,
-      top: r2 * 90 + 5,
-      delay: `${-(r1 * 10).toFixed(2)}s`,
-      duration: `${(12 + r2 * 14).toFixed(3)}s`,
+      top: r2 * 104 + 6,
+      delay: `${-(r1 * 18).toFixed(2)}s`,
+      duration: `${(18 + r2 * 18).toFixed(3)}s`,
       size: `${(0.58 + r3 * 1.45).toFixed(3)}rem`,
-      opacity: (0.06 + r2 * 0.14).toFixed(3),
+      opacity: (0.1 + r2 * 0.16).toFixed(3),
       animType: i % 3,
       rotate: Math.floor(r1 * 32 - 16),
     };
@@ -33,10 +64,10 @@ function makeParticles() {
 }
 
 const FOG_LAYERS = [
-  { inset: '-10px', bg: 'rgba(56, 189, 248, 0.18)', freq: 0.31, txS: 14, tyS: 12 },
-  { inset: '5px',   bg: 'rgba(99, 102, 241, 0.12)', freq: 0.19, txS: 11, tyS: 9  },
-  { inset: '-20px', bg: 'rgba(56, 189, 248, 0.09)', freq: 0.23, txS: 18, tyS: 15 },
-  { inset: '15px',  bg: 'rgba(167, 139, 250, 0.08)',freq: 0.41, txS: 10, tyS: 8  },
+  { inset: '-10px', bg: 'rgba(255, 247, 239, 0.72)', freq: 0.31, txS: 14, tyS: 12 },
+  { inset: '5px',   bg: 'rgba(230, 111, 45, 0.14)',  freq: 0.19, txS: 11, tyS: 9  },
+  { inset: '-20px', bg: 'rgba(91, 143, 185, 0.10)',  freq: 0.23, txS: 18, tyS: 15 },
+  { inset: '15px',  bg: 'rgba(79, 47, 36, 0.08)',    freq: 0.41, txS: 10, tyS: 8  },
 ];
 
 type LoaderVariant = 'A' | 'B' | 'C' | 'D';
@@ -48,9 +79,9 @@ interface LoadingScreenProps {
 
 const SNAP_RADIUS = 120;
 const FOLLOW_EASE = 0.18;
-const BURST_FORCE = 420;
-const BURST_DECAY = 0.9;
+const BURST_DECAY = 0.88;
 const IDLE_MOUSE = -10000;
+const RELEASE_COOLDOWN_MS = 220;
 
 type ParticleMotion = { x: number; y: number; vx: number; vy: number; following: boolean };
 
@@ -65,35 +96,38 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
   );
   const rafRef = useRef<number>(0);
   const lastWasTouchRef = useRef(false);
+  const releaseCooldownUntilRef = useRef(0);
 
   const animate = useCallback(() => {
     const mx = mouseRef.current.x;
     const my = mouseRef.current.y;
-    const container = containerRef.current;
-    if (!container) { rafRef.current = requestAnimationFrame(animate); return; }
 
-    const rect = container.getBoundingClientRect();
+    // Read all actual rendered positions before any DOM writes to avoid layout thrashing.
+    // BCR accounts for the CSS animation transform, so snap/follow targets the visible letter.
+    const centers: Array<[number, number] | null> = particleRefs.current.map(el => {
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      return [r.left + r.width / 2, r.top + r.height / 2];
+    });
 
     for (let i = 0; i < particles.length; i++) {
       const el = particleRefs.current[i];
-      if (!el) continue;
+      const center = centers[i];
+      if (!el || !center) continue;
 
-      const p = particles[i];
-      const px = rect.left + (p.left / 100) * rect.width;
-      const py = rect.top + (p.top / 100) * rect.height;
       const motion = motionRef.current[i];
-
-      const dx = mx - px - motion.x;
-      const dy = my - py - motion.y;
+      const [cx, cy] = center;
+      const dx = mx - cx;
+      const dy = my - cy;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (dist < SNAP_RADIUS) motion.following = true;
+      if (mx !== IDLE_MOUSE && dist < SNAP_RADIUS) motion.following = true;
 
       if (motion.following && mx !== IDLE_MOUSE) {
         motion.vx = 0;
         motion.vy = 0;
-        motion.x += (mx - px - motion.x) * FOLLOW_EASE;
-        motion.y += (my - py - motion.y) * FOLLOW_EASE;
+        motion.x += dx * FOLLOW_EASE;
+        motion.y += dy * FOLLOW_EASE;
       } else {
         motion.vx *= BURST_DECAY;
         motion.vy *= BURST_DECAY;
@@ -125,6 +159,7 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
   }, [animate]);
 
   const handleMouseMove = useCallback((e: React.MouseEvent) => {
+    if (performance.now() < releaseCooldownUntilRef.current) return;
     mouseRef.current = { x: e.clientX, y: e.clientY };
   }, []);
 
@@ -133,52 +168,50 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
     motionRef.current.forEach(m => { m.following = false; });
   }, []);
 
-  const triggerBurst = useCallback((clientX: number, clientY: number) => {
-    const container = containerRef.current;
-    if (!container) return;
-    const rect = container.getBoundingClientRect();
-
-    for (let i = 0; i < particles.length; i++) {
-      const p = particles[i];
-      const px = rect.left + (p.left / 100) * rect.width;
-      const py = rect.top + (p.top / 100) * rect.height;
-      const motion = motionRef.current[i];
-
-      const dx = px + motion.x - clientX;
-      const dy = py + motion.y - clientY;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      if (motion.following || dist < SNAP_RADIUS * 1.5) {
-        const effectiveDist = motion.following ? 0 : dist;
-        const t = 1 - Math.min(effectiveDist, SNAP_RADIUS * 1.5) / (SNAP_RADIUS * 1.5);
-        const force = t * BURST_FORCE;
-        const angle = dist > 1 ? Math.atan2(dy, dx) : Math.random() * Math.PI * 2;
-        motion.following = false;
-        motion.vx += Math.cos(angle) * force * 0.07;
-        motion.vy += Math.sin(angle) * force * 0.07;
-      }
-    }
-  }, [particles]);
+  const releaseFollowingParticles = useCallback(() => {
+    releaseCooldownUntilRef.current = performance.now() + RELEASE_COOLDOWN_MS;
+    mouseRef.current = { x: IDLE_MOUSE, y: IDLE_MOUSE };
+    motionRef.current.forEach((motion) => {
+      motion.following = false;
+      motion.vx = 0;
+      motion.vy = 0;
+    });
+  }, []);
 
   const handleTouchStart = useCallback((e: React.TouchEvent) => {
     const touch = e.touches[0];
     if (!touch) return;
     lastWasTouchRef.current = true;
-    triggerBurst(touch.clientX, touch.clientY);
-  }, [triggerBurst]);
+    releaseFollowingParticles();
+  }, [releaseFollowingParticles]);
 
-  const handleClick = useCallback((e: React.MouseEvent) => {
+  const handleTouchMove = useCallback((e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    if (!touch) return;
+    if (performance.now() < releaseCooldownUntilRef.current) return;
+    mouseRef.current = { x: touch.clientX, y: touch.clientY };
+  }, []);
+
+  const handleTouchEnd = useCallback(() => {
+    mouseRef.current = { x: IDLE_MOUSE, y: IDLE_MOUSE };
+    motionRef.current.forEach(m => { m.following = false; });
+  }, []);
+
+  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
     if (lastWasTouchRef.current) { lastWasTouchRef.current = false; return; }
-    triggerBurst(e.clientX, e.clientY);
-  }, [triggerBurst]);
+    releaseFollowingParticles();
+  }, [releaseFollowingParticles]);
 
   return (
     <div
       ref={containerRef}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      onClick={handleClick}
+      onMouseDown={handleMouseDown}
       onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
       className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden ls-root"
     >
       {particles.map((p, i) => (
@@ -194,6 +227,7 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
             animationDuration: p.duration,
             animationDelay: p.delay,
             '--rotate': `${p.rotate}deg`,
+            '--letter-opacity': p.opacity,
             '--ix': '0px',
             '--iy': '0px',
           } as React.CSSProperties}
@@ -216,8 +250,8 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
           relative z-10 mt-14 px-8 py-3 rounded-full text-sm font-medium tracking-wide
           transition-all duration-300 ease-out
           ${ready
-            ? 'bg-[#38bdf8] text-[#0f1d32] shadow-[0_0_20px_rgba(56,189,248,0.3)] hover:shadow-[0_0_30px_rgba(56,189,248,0.5)] hover:scale-105 cursor-pointer'
-            : 'bg-white/5 text-white/20 border border-white/8 cursor-not-allowed'
+            ? 'bg-[#4f2f24] text-[#fff7ef] shadow-[0_16px_38px_rgba(79,47,36,0.22)] hover:shadow-[0_20px_45px_rgba(79,47,36,0.3)] hover:scale-105 cursor-pointer'
+            : 'bg-[#4f2f24]/8 text-[#4f2f24]/30 border border-[#4f2f24]/10 cursor-not-allowed'
           }
         `}
       >
@@ -232,8 +266,8 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
             className={`
               w-9 h-9 rounded-lg text-xs font-bold transition-all duration-200
               ${variant === v
-                ? 'bg-[#38bdf8] text-[#0f1d32] shadow-[0_0_12px_rgba(56,189,248,0.4)]'
-                : 'bg-white/8 text-white/50 hover:bg-white/12 hover:text-white/70 border border-white/10'
+                ? 'bg-[#4f2f24] text-[#fff7ef] shadow-[0_12px_22px_rgba(79,47,36,0.2)]'
+                : 'bg-[#fff7ef]/45 text-[#4f2f24]/55 hover:bg-[#fff7ef]/70 hover:text-[#4f2f24] border border-[#4f2f24]/10'
               }
             `}
           >
@@ -244,44 +278,42 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
 
       <style>{`
         .ls-root {
-          background: #0f1d32;
-          background-image:
-            radial-gradient(ellipse 70% 50% at 50% 0%, rgba(56, 189, 248, 0.06) 0%, transparent 60%),
-            radial-gradient(ellipse 50% 40% at 80% 100%, rgba(99, 102, 241, 0.04) 0%, transparent 50%);
+          background: #fefff5fa;
         }
 
         .ls-word {
-          color: rgba(255, 255, 255, 0.7);
-          font-family: "Inter", "SF Pro Text", ui-sans-serif, system-ui, sans-serif;
+          color: rgba(79, 47, 36, 0.76);
+          font-family: Georgia, "Iowan Old Style", "Times New Roman", serif;
           font-weight: 650;
           letter-spacing: 0.02em;
           white-space: nowrap;
           will-change: transform;
+          text-shadow: 0 6px 18px rgba(79, 47, 36, 0.12);
           transition: none;
         }
-        .ls-word-0 { animation: ls-float-drift linear infinite; }
-        .ls-word-1 { animation: ls-float-wander linear infinite; }
-        .ls-word-2 { animation: ls-float-orbit linear infinite; }
+        .ls-word-0 { animation: ls-rise-straight linear infinite; }
+        .ls-word-1 { animation: ls-rise-sway linear infinite; }
+        .ls-word-2 { animation: ls-rise-tilt linear infinite; }
 
-        @keyframes ls-float-drift {
-          0%   { transform: translate(calc(0px  + var(--ix)), calc(0px  + var(--iy))) rotate(var(--rotate)); }
-          25%  { transform: translate(calc(12px + var(--ix)), calc(-30px + var(--iy))) rotate(calc(var(--rotate) + 5deg)); }
-          50%  { transform: translate(calc(-8px + var(--ix)), calc(-15px + var(--iy))) rotate(calc(var(--rotate) - 3deg)); }
-          75%  { transform: translate(calc(5px  + var(--ix)), calc(10px  + var(--iy))) rotate(calc(var(--rotate) + 2deg)); }
-          100% { transform: translate(calc(0px  + var(--ix)), calc(0px  + var(--iy))) rotate(var(--rotate)); }
+        @keyframes ls-rise-straight {
+          0%   { transform: translate(calc(0px + var(--ix)), calc(76px + var(--iy))) rotate(var(--rotate)); opacity: 0; }
+          12%  { opacity: var(--letter-opacity, 1); }
+          72%  { opacity: var(--letter-opacity, 1); }
+          100% { transform: translate(calc(8px + var(--ix)), calc(-118vh + var(--iy))) rotate(calc(var(--rotate) + 9deg)); opacity: 0; }
         }
-        @keyframes ls-float-wander {
-          0%   { transform: translate(calc(0px   + var(--ix)), calc(0px  + var(--iy))) rotate(var(--rotate)); }
-          33%  { transform: translate(calc(-18px + var(--ix)), calc(8px  + var(--iy))) rotate(calc(var(--rotate) - 6deg)); }
-          66%  { transform: translate(calc(10px  + var(--ix)), calc(-20px + var(--iy))) rotate(calc(var(--rotate) + 4deg)); }
-          100% { transform: translate(calc(0px   + var(--ix)), calc(0px  + var(--iy))) rotate(var(--rotate)); }
+        @keyframes ls-rise-sway {
+          0%   { transform: translate(calc(0px + var(--ix)), calc(92px + var(--iy))) rotate(var(--rotate)); opacity: 0; }
+          14%  { opacity: var(--letter-opacity, 1); }
+          42%  { transform: translate(calc(-28px + var(--ix)), calc(-40vh + var(--iy))) rotate(calc(var(--rotate) - 7deg)); }
+          76%  { opacity: var(--letter-opacity, 1); }
+          100% { transform: translate(calc(22px + var(--ix)), calc(-120vh + var(--iy))) rotate(calc(var(--rotate) + 12deg)); opacity: 0; }
         }
-        @keyframes ls-float-orbit {
-          0%   { transform: translate(calc(0px   + var(--ix)), calc(0px  + var(--iy))) rotate(var(--rotate)); }
-          25%  { transform: translate(calc(15px  + var(--ix)), calc(15px + var(--iy))) rotate(calc(var(--rotate) + 8deg)); }
-          50%  { transform: translate(calc(-5px  + var(--ix)), calc(25px + var(--iy))) rotate(calc(var(--rotate) - 4deg)); }
-          75%  { transform: translate(calc(-15px + var(--ix)), calc(5px  + var(--iy))) rotate(calc(var(--rotate) + 3deg)); }
-          100% { transform: translate(calc(0px   + var(--ix)), calc(0px  + var(--iy))) rotate(var(--rotate)); }
+        @keyframes ls-rise-tilt {
+          0%   { transform: translate(calc(0px + var(--ix)), calc(84px + var(--iy))) rotate(var(--rotate)); opacity: 0; }
+          10%  { opacity: var(--letter-opacity, 1); }
+          50%  { transform: translate(calc(32px + var(--ix)), calc(-48vh + var(--iy))) rotate(calc(var(--rotate) + 14deg)); }
+          78%  { opacity: var(--letter-opacity, 1); }
+          100% { transform: translate(calc(-18px + var(--ix)), calc(-116vh + var(--iy))) rotate(calc(var(--rotate) - 10deg)); opacity: 0; }
         }
 
         /* === Loader A === */
@@ -300,23 +332,13 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
         }
 
         /* === Loader B === */
-        .ls-breathe { animation: ls-opacity-breathe 3s ease-in-out infinite; }
+        .ls-breathe { opacity: 1; }
         .ls-underglow {
           position: absolute;
           inset: -20px;
           border-radius: 30%;
-          background: radial-gradient(circle, rgba(56, 189, 248, 0.12), transparent 70%);
-          animation: ls-glow-pulse 3s ease-in-out infinite;
+          background: radial-gradient(circle, rgba(79, 47, 36, 0.1), transparent 70%);
         }
-        @keyframes ls-opacity-breathe {
-          0%, 100% { opacity: 0.5; }
-          50% { opacity: 1; }
-        }
-        @keyframes ls-glow-pulse {
-          0%, 100% { opacity: 0.2; }
-          50% { opacity: 0.6; }
-        }
-
         /* === Loader C: ASCII scan box === */
         .ls-ascii-box {
           position: relative;
@@ -328,8 +350,8 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
           font-family: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
           font-size: 0.82rem;
           line-height: 1.55;
-          color: rgba(56, 189, 248, 0.85);
-          text-shadow: 0 0 10px rgba(56, 189, 248, 0.45);
+          color: rgba(79, 47, 36, 0.78);
+          text-shadow: 0 8px 22px rgba(79, 47, 36, 0.12);
           white-space: pre;
           user-select: none;
           margin: 0;
@@ -340,9 +362,9 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
           height: 100%;
           background: linear-gradient(180deg,
             transparent 0%,
-            rgba(56, 189, 248, 0.06) 48%,
-            rgba(56, 189, 248, 0.12) 50%,
-            rgba(56, 189, 248, 0.06) 52%,
+            rgba(255, 247, 239, 0.18) 48%,
+            rgba(230, 111, 45, 0.18) 50%,
+            rgba(255, 247, 239, 0.18) 52%,
             transparent 100%
           );
           animation: ls-scan-vert 2.8s linear infinite;
@@ -358,8 +380,8 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
           font-family: "SF Mono", "JetBrains Mono", "Fira Code", ui-monospace, monospace;
           font-size: 0.8rem;
           line-height: 1.6;
-          color: rgba(56, 189, 248, 0.8);
-          text-shadow: 0 0 6px rgba(56, 189, 248, 0.3);
+          color: rgba(79, 47, 36, 0.76);
+          text-shadow: 0 8px 20px rgba(79, 47, 36, 0.11);
           white-space: pre;
           user-select: none;
           margin: 0;
@@ -368,7 +390,7 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
           display: inline-block;
           width: 0.5em;
           height: 1em;
-          background: rgba(56, 189, 248, 0.8);
+          background: rgba(79, 47, 36, 0.72);
           vertical-align: text-bottom;
           animation: ls-blink 1.1s step-end infinite;
         }
@@ -430,7 +452,7 @@ function LoaderA() {
           size={64}
           showLabel
           className="flex-col gap-3"
-          labelClassName="text-white/60 text-[0.62rem] tracking-[0.45em]"
+          labelClassName="text-[#4f2f24]/55 text-[0.62rem] tracking-[0.45em]"
         />
       </div>
     </div>
@@ -447,7 +469,7 @@ function LoaderB() {
             size={88}
             showLabel
             className="flex-col gap-5"
-            labelClassName="text-white/50 text-[0.65rem] tracking-[0.45em]"
+            labelClassName="text-[#4f2f24]/55 text-[0.65rem] tracking-[0.45em]"
           />
         </div>
       </div>
@@ -462,7 +484,7 @@ function LoaderC() {
         size={44}
         showLabel
         className="flex-col gap-2"
-        labelClassName="text-white/40 text-[0.58rem] tracking-[0.45em]"
+        labelClassName="text-[#4f2f24]/45 text-[0.58rem] tracking-[0.45em]"
       />
       <div className="ls-ascii-box">
         <pre className="ls-ascii-pre">{
@@ -520,7 +542,7 @@ function LoaderD() {
         size={44}
         showLabel
         className="flex-col gap-2"
-        labelClassName="text-white/40 text-[0.58rem] tracking-[0.45em]"
+        labelClassName="text-[#4f2f24]/45 text-[0.58rem] tracking-[0.45em]"
       />
       <div>
         <pre className="ls-terminal-pre">{

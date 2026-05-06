@@ -24,6 +24,7 @@ import {
   subscribeSyncStatus,
   type SyncStatus,
 } from '@/lib/sync-coordinator';
+import { persistLearningRoleForPair } from '@/features/learning/app-state/storage';
 
 function ToggleSwitch({
   checked,
@@ -136,6 +137,44 @@ function formatSyncTime(timestamp: number | null): string | null {
   return new Date(timestamp).toLocaleDateString();
 }
 
+function formatLanguageLabel(code: string): string {
+  try {
+    const display = new Intl.DisplayNames(undefined, { type: 'language' });
+    return display.of(code) ?? code.toUpperCase();
+  } catch {
+    return code.toUpperCase();
+  }
+}
+
+function LearningLanguageButton({
+  label,
+  code,
+  selected,
+  onClick,
+}: {
+  label: string;
+  code: string;
+  selected: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={`flex-1 rounded-xl border-2 px-3 py-2.5 text-sm font-medium transition-all duration-150 ${
+        selected
+          ? 'border-accent bg-accent-soft text-accent'
+          : 'border-border-subtle text-text-soft hover:border-accent/50 hover:text-text'
+      }`}
+    >
+      <span className="block truncate">{label}</span>
+      <span className="mt-0.5 block text-[0.68rem] uppercase tracking-wide opacity-75">
+        {code}
+      </span>
+    </button>
+  );
+}
+
 interface SettingsPanelProps {
   minigameFrequency: MinigameFrequencyRange;
   onMinigameFrequencyChange: (value: MinigameFrequencyRange) => void;
@@ -173,7 +212,14 @@ export function SettingsPanel({
     userWalletAddress,
     userEmail,
     syncedWords,
+    subscribedLists = [],
+    activeList = null,
+    activeListId,
   } = useAppStateContext();
+
+  const currentLearningList = activeList
+    ?? subscribedLists.find((list) => list.id === activeListId)
+    ?? null;
 
   const minFreq = minigameFrequency !== 'off' ? minigameFrequency.min : 1;
   const maxFreq = minigameFrequency !== 'off' ? minigameFrequency.max : 3;
@@ -371,30 +417,38 @@ export function SettingsPanel({
 
           {/* Learning Language */}
           <Section label={t('settings.iWantToLearn')}>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setRole('cz')}
-                className={`flex-1 py-2.5 text-sm font-medium rounded-xl border-2 bg-transparent cursor-pointer transition-all duration-150 ${
-                  role === 'cz'
-                    ? 'border-accent bg-accent-soft text-accent'
-                    : 'border-border-subtle text-text-soft hover:border-accent/50 hover:text-text'
-                }`}
-              >
-                🇻🇳 {t('settings.learnVietnamese')}
-              </button>
-              <button
-                type="button"
-                onClick={() => setRole('vi')}
-                className={`flex-1 py-2.5 text-sm font-medium rounded-xl border-2 bg-transparent cursor-pointer transition-all duration-150 ${
-                  role === 'vi'
-                    ? 'border-accent bg-accent-soft text-accent'
-                    : 'border-border-subtle text-text-soft hover:border-accent/50 hover:text-text'
-                }`}
-              >
-                🇨🇿 {t('settings.learnCzech')}
-              </button>
-            </div>
+            {currentLearningList ? (
+              <div className="flex gap-2">
+                <LearningLanguageButton
+                  label={formatLanguageLabel(currentLearningList.languageTo)}
+                  code={currentLearningList.languageTo}
+                  selected={role === 'cz'}
+                  onClick={() => {
+                    persistLearningRoleForPair(
+                      currentLearningList.languageFrom,
+                      currentLearningList.languageTo,
+                      'cz',
+                    );
+                    setRole('cz');
+                  }}
+                />
+                <LearningLanguageButton
+                  label={formatLanguageLabel(currentLearningList.languageFrom)}
+                  code={currentLearningList.languageFrom}
+                  selected={role === 'vi'}
+                  onClick={() => {
+                    persistLearningRoleForPair(
+                      currentLearningList.languageFrom,
+                      currentLearningList.languageTo,
+                      'vi',
+                    );
+                    setRole('vi');
+                  }}
+                />
+              </div>
+            ) : (
+              <p className="m-0 text-sm text-text-soft">Choose a list first to set the learning language.</p>
+            )}
           </Section>
 
           {/* Mini-games */}

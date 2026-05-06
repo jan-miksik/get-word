@@ -28,6 +28,19 @@ export const COMMON_LANGUAGES: SupportedLanguage[] = [
   { code: "ar", name: "Arabic", flag: "🇸🇦", source: "common" },
 ];
 
+const MOST_USED_SETTINGS_LANGUAGE_CODES = [
+  "en",
+  "zh-CN",
+  "hi",
+  "es",
+  "fr",
+  "ar",
+  "bn",
+  "pt",
+  "ru",
+  "ur",
+] as const;
+
 // Google Cloud Translation NMT supported languages, mirrored from:
 // https://docs.cloud.google.com/translate/docs/languages (last checked 2026-05-01).
 export const GOOGLE_TRANSLATE_LANGUAGES: SupportedLanguage[] = [
@@ -397,6 +410,20 @@ export function mergeLanguages(...groups: SupportedLanguage[][]): SupportedLangu
     }
   }
   return [...byCode.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export function orderSettingsLanguages(
+  languages: readonly SupportedLanguage[],
+): SupportedLanguage[] {
+  const alphabetic = [...languages].sort((a, b) => a.name.localeCompare(b.name));
+  const byCode = new Map(
+    alphabetic.map((language) => [normalizeLanguageCode(language.code), language] as const),
+  );
+  const featured = MOST_USED_SETTINGS_LANGUAGE_CODES.flatMap((code) => {
+    const language = byCode.get(normalizeLanguageCode(code));
+    return language ? [language] : [];
+  });
+  return [...featured, ...alphabetic];
 }
 
 export function findBestSupportedLanguage(

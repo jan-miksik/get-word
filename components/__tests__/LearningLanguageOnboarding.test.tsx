@@ -488,7 +488,8 @@ describe('LearningLanguageOnboarding', () => {
     expect(targetUrl.searchParams.get('selected')).toBe('forked-list');
     expect(targetUrl.searchParams.get('fixAudio')).toBe('target');
     expect(targetUrl.searchParams.get('commonListNotice')).toContain('audio generation failed for 2 of 2 clips');
-    expect(targetUrl.searchParams.get('commonListNotice')).toContain('Audio steps');
+    expect(targetUrl.searchParams.get('commonListNotice')).toContain('Contact our tech support');
+    expect(targetUrl.searchParams.get('commonListNotice')).toContain('click on Edit words');
     expect(onComplete).not.toHaveBeenCalled();
   });
 

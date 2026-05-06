@@ -4,7 +4,9 @@ import { useActiveListState } from '../useActiveListState';
 import { useViewModePreference } from '../useViewModePreference';
 import {
   persistCategoryFiltersByList,
+  persistLearningRoleForPair,
   readStoredCategoryFiltersByList,
+  readStoredLearningRoleForPair,
 } from '../storage';
 
 describe('learning app-state preferences', () => {
@@ -31,6 +33,7 @@ describe('learning app-state preferences', () => {
     localStorage.removeItem('wordlink-active-list');
     localStorage.removeItem('wordlink-view-mode');
     localStorage.removeItem('wordlink-category-filters-by-list');
+    localStorage.removeItem('wordlink-learning-role-by-pair');
   });
 
   it('hydrates active list from localStorage and persists updates', () => {
@@ -84,5 +87,14 @@ describe('learning app-state preferences', () => {
       'list-1': ['Basic', 'Travel'],
       'list-2': ['Food'],
     });
+  });
+
+  it('persists the selected learning side for an exact language pair', () => {
+    persistLearningRoleForPair('en', 'fr', 'cz');
+    persistLearningRoleForPair('fr', 'en', 'vi');
+
+    expect(readStoredLearningRoleForPair('en', 'fr')).toBe('cz');
+    expect(readStoredLearningRoleForPair('fr', 'en')).toBe('vi');
+    expect(readStoredLearningRoleForPair('en', 'de')).toBeNull();
   });
 });

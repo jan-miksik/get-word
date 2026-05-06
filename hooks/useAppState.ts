@@ -10,6 +10,7 @@ import { useCategoryFilter, useGameScore, useMemoryHooks, usePreferences, usePro
 import type { LinkPayload } from '@/features/learning/app-state/types';
 import type { NormalizedWord } from '@/lib/words';
 import { useTheme } from './useTheme';
+import { readStoredLearningRoleForPair } from '@/features/learning/app-state/storage';
 
 export type { Role } from '@/features/learning/state';
 export type { Theme } from './useTheme';
@@ -22,7 +23,12 @@ export function useAppState(
 ) {
   const [isHydrated, setIsHydrated] = useState(false);
   const [syncedWords, setSyncedWords] = useState<NormalizedWord[] | null>(null);
-  const [subscribedLists, setSubscribedLists] = useState<{ id: string; name: string }[]>([]);
+  const [subscribedLists, setSubscribedLists] = useState<{
+    id: string;
+    name: string;
+    languageFrom: string;
+    languageTo: string;
+  }[]>([]);
   const isUpdatingFromServerRef = useRef(false);
   const { activeListId, setActiveListId } = useActiveListState();
 
@@ -93,6 +99,42 @@ export function useAppState(
   );
   const gameScore = useGameScore(isHydrated, isUpdatingFromServerRef);
 
+  const activeList = useMemo(
+    () => subscribedLists.find((list) => list.id === activeListId) ?? null,
+    [activeListId, subscribedLists],
+  );
+
+  useEffect(() => {
+    if (!activeList) return;
+
+    const storedRole = readStoredLearningRoleForPair(activeList.languageFrom, activeList.languageTo);
+    let preferredRole = storedRole;
+
+    if (!preferredRole && preferences.learningLanguageFrom && preferences.learningLanguageTo) {
+      if (
+        preferences.learningLanguageFrom === activeList.languageFrom &&
+        preferences.learningLanguageTo === activeList.languageTo
+      ) {
+        preferredRole = 'cz';
+      } else if (
+        preferences.learningLanguageFrom === activeList.languageTo &&
+        preferences.learningLanguageTo === activeList.languageFrom
+      ) {
+        preferredRole = 'vi';
+      }
+    }
+
+    if (preferredRole && preferredRole !== preferences.role) {
+      preferences.setRole(preferredRole);
+    }
+  }, [
+    activeList,
+    preferences.learningLanguageFrom,
+    preferences.learningLanguageTo,
+    preferences.role,
+    preferences.setRole,
+  ]);
+
   const { isLinkingWallet, hasLinkWalletError } = useServerSync({
     words,
     isHydrated,
@@ -129,6 +171,7 @@ export function useAppState(
     hasLinkWalletError,
     syncedWords: filteredSyncedWords,
     subscribedLists,
+    activeList,
     activeListId,
     setActiveListId,
   };

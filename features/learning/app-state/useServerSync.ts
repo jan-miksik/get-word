@@ -30,7 +30,12 @@ interface UseServerSyncOptions {
   applyServerPreferences: (user: SyncResponse['user']) => void;
   applyServerGameScore: (score: number) => void;
   setSyncedWords: React.Dispatch<React.SetStateAction<NormalizedWord[] | null>>;
-  setSubscribedLists: React.Dispatch<React.SetStateAction<{ id: string; name: string }[]>>;
+  setSubscribedLists: React.Dispatch<React.SetStateAction<{
+    id: string;
+    name: string;
+    languageFrom: string;
+    languageTo: string;
+  }[]>>;
   setActiveListId: (id: string | null) => void;
 }
 

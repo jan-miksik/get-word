@@ -25,6 +25,11 @@ vi.mock('@/context/AppStateContext', () => ({
     userWalletAddress: null,
     userEmail: null,
     syncedWords: [],
+    subscribedLists: [
+      { id: 'list-1', name: 'French Basics', languageFrom: 'en', languageTo: 'fr' },
+    ],
+    activeList: { id: 'list-1', name: 'French Basics', languageFrom: 'en', languageTo: 'fr' },
+    activeListId: 'list-1',
   }),
 }));
 
@@ -88,5 +93,11 @@ describe('SettingsPanel settings visibility', () => {
     expect(screen.getByRole('switch', { name: /save learning data locally/i })).toBeInTheDocument();
     expect(screen.getByRole('switch', { name: /cache sounds for active list/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /clear local learning cache/i })).toBeInTheDocument();
+  });
+
+  it('shows the current list languages in the learning section', () => {
+    render(<SettingsPanel {...baseProps} />);
+    expect(screen.getByRole('button', { name: /french/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /english/i })).toBeInTheDocument();
   });
 });
