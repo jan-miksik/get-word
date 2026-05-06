@@ -118,7 +118,7 @@ export default function Home() {
   useDueTimer(progress);
 
   // Attach press handlers to cover targets (supports virtualized mounts)
-  usePressHandlers(phrasesRef, [selectedCategories, showAll, role]);
+  usePressHandlers(phrasesScrollElement, [selectedCategories, showAll, role]);
 
   const shouldRenderMemoryHook = useCallback(
     (wordId: string) => {

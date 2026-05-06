@@ -100,7 +100,7 @@ export default function EditPage() {
   useDueTimer(progress);
 
   // Attach press handlers to cover targets
-  usePressHandlers(phrasesRef, [selectedCategories, showAll, role, progress]);
+  usePressHandlers(phrasesScrollElement, [selectedCategories, showAll, role, progress]);
 
   const shouldRenderMemoryHook = useCallback(
     (wordId: string) => {

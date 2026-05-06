@@ -11,9 +11,6 @@ import { getWordAudioSrcByLang, type SourceLang } from './games/types';
 type StreamItem = NormalizedWord | MiniGameConfig;
 
 const EXIT_ANIMATIONS = [
-  'animate-deck-exit-slide',
-  'animate-deck-exit-swipe-up',
-  'animate-deck-exit-flip',
   'animate-deck-exit-scale',
   'animate-deck-exit-dissolve',
   'animate-deck-exit-beam',

@@ -2,18 +2,26 @@
 
 import { useEffect } from 'react';
 
+type PressHandlerContainer = React.RefObject<HTMLElement | null> | HTMLElement | null;
+
+function resolveContainer(container: PressHandlerContainer): HTMLElement | null {
+  if (!container) return null;
+  if ('current' in container) return container.current;
+  return container;
+}
+
 /**
  * Attaches press (mousedown / touchstart) state handlers to all `.cover-target`
  * elements inside `container`, including elements added later via DOM mutations
  * (virtualized lists).
  */
 export function usePressHandlers(
-  containerRef: React.RefObject<HTMLElement | null>,
+  containerRef: PressHandlerContainer,
   deps: React.DependencyList
 ) {
   useEffect(() => {
-    if (!containerRef.current) return;
-    const container = containerRef.current;
+    const container = resolveContainer(containerRef);
+    if (!container) return;
 
     const cleanupMap = new Map<HTMLElement, () => void>();
 

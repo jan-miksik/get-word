@@ -33,18 +33,6 @@ module.exports = {
       },
       keyframes: {
         // ── Exit animations ──
-        'deck-exit-slide': {
-          '0%': { transform: 'translateX(0)', opacity: '1' },
-          '100%': { transform: 'translateX(-115%)', opacity: '0' },
-        },
-        'deck-exit-swipe-up': {
-          '0%': { transform: 'translateY(0) rotate(0deg)', opacity: '1' },
-          '100%': { transform: 'translateY(-130%) rotate(4deg)', opacity: '0' },
-        },
-        'deck-exit-flip': {
-          '0%': { transform: 'perspective(700px) rotateY(0deg)', opacity: '1' },
-          '100%': { transform: 'perspective(700px) rotateY(100deg)', opacity: '0' },
-        },
         'deck-exit-scale': {
           '0%': { transform: 'scale(1) translateY(0)', opacity: '1' },
           '100%': { transform: 'scale(0.6) translateY(-16px)', opacity: '0' },
@@ -78,9 +66,6 @@ module.exports = {
         },
       },
       animation: {
-        'deck-exit-slide': 'deck-exit-slide 0.28s cubic-bezier(0.4,0,1,1) forwards',
-        'deck-exit-swipe-up': 'deck-exit-swipe-up 0.28s cubic-bezier(0.4,0,1,1) forwards',
-        'deck-exit-flip': 'deck-exit-flip 0.24s cubic-bezier(0.4,0,1,1) forwards',
         'deck-exit-scale': 'deck-exit-scale 0.26s cubic-bezier(0.4,0,1,1) forwards',
         'deck-exit-rotate': 'deck-exit-rotate 0.3s cubic-bezier(0.4,0,1,1) forwards',
         'deck-exit-dissolve': 'deck-exit-dissolve 0.3s ease-in forwards',
@@ -102,4 +87,3 @@ module.exports = {
   ],
   plugins: [],
 };
-
