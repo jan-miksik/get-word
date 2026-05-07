@@ -1,0 +1,12 @@
+---
+description: When user says cm or commit, generate a commit message from staged diff only; do not run git commit
+alwaysApply: false
+---
+
+# Commit message (cm / commit)
+
+When the user types **cm** or **commit** in chat:
+
+1. Run `git diff --cached` (and optionally `git diff --cached --stat`) to get staged changes.
+2. Generate a single commit message: short conventional-style title (e.g. `feat:`, `fix:`), and 2–3 bullet points if the change set is large.
+3. **Output the message only.** Do not run `git commit`. Do not stage files. The user will copy or run commit themselves.

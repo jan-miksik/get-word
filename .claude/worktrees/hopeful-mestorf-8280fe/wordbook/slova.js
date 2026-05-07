@@ -1,0 +1,3284 @@
+export const WORDS = [
+  {
+    "id": "w000",
+    "category": [
+      "basic",
+      "phrase"
+    ],
+    "cz": "Dobrý den",
+    "en": "Good day",
+    "vi": "Xin chào",
+    "czPron": "DO-bri den",
+    "viPron": "sin čao",
+    "czAudio": "speech/cz/dobry-den.mp3",
+    "viAudio": "speech/vi/xin-chao.mp3",
+    "viHint": "(đô) (bởi) (đến) with r in the middle"
+  },
+  {
+    "id": "w001",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "Děkuji 🙏",
+    "en": "Thank you",
+    "vi": "Cảm ơn",
+    "czPron": "DĚ-ku-ji",
+    "viPron": "kam ən",
+    "czAudio": "speech/cz/dekuji.mp3",
+    "viAudio": "speech/vi/cam-on.mp3",
+    "viHint": "(dê) (cú) (gì): goat bows head."
+  },
+  {
+    "id": "w002",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "Prosím 🙏",
+    "en": "Please",
+    "vi": "Làm ơn",
+    "czPron": "PRO-sím",
+    "viPron": "lam ən",
+    "czAudio": "speech/cz/prosim.mp3",
+    "viAudio": "speech/vi/lam-on.mp3",
+    "czHint": "(lam)pa je (on)zapnutá",
+    "viHint": "(pro)fessional (xin)"
+  },
+  {
+    "id": "w003",
+    "category": [
+      "phrase",
+      "basic"
+    ],
+    "cz": "Jak se máte? 🙂",
+    "en": "How are you?",
+    "vi": "Bạn khỏe không?",
+    "czPron": "JAK se MÁ-te?",
+    "viPron": "ban kchue khong",
+    "czAudio": "speech/cz/jak-se-mate.mp3",
+    "viAudio": "speech/vi/ban-khoe-khong.mp3",
+    "czHint": "Banán křupe, Kong zívá.",
+    "viHint": "(giắc xe) (má tê) lift up/start conversation"
+  },
+  {
+    "id": "w004",
+    "category": [
+      "basic",
+      "phrase"
+    ],
+    "cz": "Posaďte se, prosím. 💺",
+    "en": "Please sit down.",
+    "vi": "Mời bạn ngồi.",
+    "czPron": "PO-sať-te se PRO-sím",
+    "viPron": "moi ban ngoi",
+    "czAudio": "speech/cz/posadte-se-prosim.mp3",
+    "viAudio": "speech/vi/moi-ban-ngoi.mp3",
+    "viHint": "phở sát-tê-sờ pro-xin"
+  },
+  {
+    "id": "w005",
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Bolí to? 😬",
+    "en": "Does it hurt?",
+    "vi": "Có đau không?",
+    "czPron": "BO-lí to?",
+    "viPron": "ko dau khong",
+    "czAudio": "speech/cz/boli-to.mp3",
+    "viAudio": "speech/vi/co-djau-khong.mp3",
+    "viHint": "(Boli)via country with injured knee",
+    "czHint": "má bolest ne(vi)"
+  },
+  {
+    "id": "w006",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "Tady? 👉",
+    "en": "Here?",
+    "vi": "Ở đây hả?",
+    "czPron": "TA-di?",
+    "viPron": "o daj ha",
+    "czAudio": "speech/cz/tady.mp3",
+    "viAudio": [
+      "speech/vi/o-djay-ha.mp3"
+    ],
+    "czHint": "A dej hák; někdo po mně chce hák",
+    "viHint": "Ta đi? finger points at map."
+  },
+  {
+    "id": "w007",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "Nashle / Na shledanou 👋",
+    "en": "Goodbye",
+    "vi": "Tạm biệt",
+    "czPron": "NA-shle / NA skhle-da-no",
+    "viPron": "tam biet",
+    "czAudio": "speech/cz/na-shledanou.mp3",
+    "viAudio": "speech/vi/tam-biet.mp3",
+    "czHint": "Tam běž; mává na rozloučenou",
+    "viHint": "(NAS)A -the space company, +hle - look at this; spaceship flies away"
+  },
+  {
+    "id": "w008",
+    "category": [
+      "phrase",
+      "nails"
+    ],
+    "cz": "Máte představu? 💡",
+    "en": "Do you have an idea?",
+    "vi": "Bạn có ý tưởng gì không?",
+    "czPron": "MÁ-te PŘED-sta-vu?",
+    "viPron": "ban ko i tuong zi chong",
+    "czAudio": "speech/cz/mate-predstavu.mp3",
+    "viAudio": "speech/vi/ban-co-y-tuong-gi-khong.mp3"
+  },
+  {
+    "id": "w009",
+    "category": [
+      "phrase",
+      "nails"
+    ],
+    "cz": "Jakou barvu? 🎨",
+    "en": "What colour?",
+    "vi": "Màu nào?",
+    "czPron": "JA-kou BAR-vu?",
+    "viPron": "mau nao",
+    "czAudio": "speech/cz/jakou-barvu.mp3",
+    "czHint": "Mňau! Nao! kočka kouše pastelku.",
+    "viAudio": [
+      "speech/vi/mau-nao.mp3"
+    ]
+  },
+  {
+    "id": "w010",
+    "category": [
+      "nails",
+      "word"
+    ],
+    "cz": "Tvar nehtu",
+    "en": "Nail shape",
+    "vi": "Hình dạng móng",
+    "czPron": "TVAR NEh-tu",
+    "viPron": "hin zan mon",
+    "czAudio": "speech/cz/tvar-nehtu.mp3",
+    "viHint": "(TV) b(ar)",
+    "viAudio": [
+      "speech/vi/hinh-dang-mong.mp3"
+    ]
+  },
+  {
+    "id": "w011",
+    "category": [
+      "nails",
+      "word"
+    ],
+    "cz": "Kulatý ⭕",
+    "en": "Round",
+    "vi": "Tròn",
+    "czPron": "KU-la-tý",
+    "viPron": "čon",
+    "czAudio": "speech/cz/kulaty.mp3",
+    "viAudio": [
+      "speech/vi/tron.mp3"
+    ],
+    "czHint": "sci-fi film Tron"
+  },
+  {
+    "id": "w012",
+    "category": [
+      "nails",
+      "word"
+    ],
+    "cz": "Hranatý ⬛",
+    "en": "Square",
+    "vi": "Vuông",
+    "czPron": "HRA-na-tý",
+    "viPron": "vuong",
+    "czAudio": "speech/cz/hranaty.mp3",
+    "czHint": "Vůně písmena g",
+    "viHint": "Hạt nát",
+    "viAudio": [
+      "speech/vi/vuong.mp3"
+    ]
+  },
+  {
+    "id": "w013",
+    "category": [
+      "nails",
+      "word"
+    ],
+    "cz": "Lak",
+    "en": "Nail polish",
+    "vi": "Sơn móng",
+    "czPron": "LAK",
+    "viPron": "son mong",
+    "czAudio": "speech/cz/lak.mp3",
+    "czHint": "Syn mongola",
+    "viHint": "Lắc! shaking with hand",
+    "viAudio": [
+      "speech/vi/son-mong.mp3"
+    ]
+  },
+  {
+    "id": "w014",
+    "category": [
+      "nails",
+      "word"
+    ],
+    "cz": "Manikúra 💅",
+    "en": "Manicure",
+    "vi": "Làm móng tay",
+    "czPron": "MA-ni-kú-ra",
+    "viPron": "lam mong taj",
+    "czAudio": "speech/cz/manikura.mp3",
+    "viAudio": "speech/vi/lam-mong-tay.mp3",
+    "viHint": "Ma-ni cưa"
+  },
+  {
+    "id": "w015",
+    "category": [
+      "nails",
+      "word"
+    ],
+    "cz": "Pedikúra 🦶",
+    "en": "Pedicure",
+    "vi": "Chăm sóc chân",
+    "czPron": "PE-di-kú-ra",
+    "viPron": "čam sok čan",
+    "czAudio": "speech/cz/pedikura.mp3",
+    "viAudio": "speech/vi/cham-soc-chan.mp3",
+    "czHint": "sok-ol tančí ča ča"
+  },
+  {
+    "id": "w016",
+    "category": [
+      "nails",
+      "word"
+    ],
+    "cz": "Gelové nehty ✨",
+    "en": "Gel nails",
+    "vi": "Móng gel",
+    "czPron": "GE-lo-vé NE-ty",
+    "viPron": "mong zel",
+    "czAudio": "speech/cz/gelove-nehty.mp3",
+    "viAudio": "speech/vi/mong-gel.mp3"
+  },
+  {
+    "id": "w017",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "Hotovo ✅",
+    "en": "Finished / Done",
+    "vi": "Xong rồi",
+    "czPron": "HO-to-vo",
+    "viPron": "xong zoj",
+    "czAudio": "speech/cz/hotovo.mp3",
+    "viAudio": "speech/vi/xong-roi.mp3"
+  },
+  {
+    "id": "w018",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "Ruka / Ruce",
+    "en": "Hand / Hands",
+    "vi": "Tay / Hai tay",
+    "czPron": "RU-ka / RU-ce",
+    "viPron": "taj / haj taj",
+    "czAudio": [
+      "speech/cz/ruka.mp3",
+      "speech/cz/ruce.mp3"
+    ],
+    "viAudio": "speech/vi/tay-hai-tay.mp3"
+  },
+  {
+    "id": "w019",
+    "category": [
+      "basic",
+      "word",
+      "nails"
+    ],
+    "cz": "Noha / Nohy",
+    "en": "Foot / Feet",
+    "vi": "Chân / Hai chân",
+    "czPron": "NO-ha / NO-hy",
+    "viPron": "čan / haj čan",
+    "czAudio": [
+      "speech/cz/noha.mp3",
+      "speech/cz/nohy.mp3"
+    ],
+    "viAudio": [
+      "speech/vi/chan-hai-chan.mp3"
+    ]
+  },
+  {
+    "id": "w020",
+    "category": [
+      "nails",
+      "word"
+    ],
+    "cz": "Nehty / Nehet",
+    "en": "Nails / Nail ",
+    "vi": "Móng tay / Móng",
+    "czPron": " NEh-ty / NE-het",
+    "viPron": "mong taj / mong",
+    "czAudio": [
+      "speech/cz/nehet.mp3",
+      "speech/cz/nehty.mp3"
+    ],
+    "viAudio": [
+      "speech/vi/mong-tay-mong.mp3"
+    ]
+  },
+  {
+    "id": "w021",
+    "category": [
+      "nails",
+      "word"
+    ],
+    "cz": "Pilník",
+    "en": "Nail file",
+    "vi": "Cây dũa móng",
+    "czPron": "PIL-ník",
+    "viPron": "kaj zua mong",
+    "czAudio": "speech/cz/pilnik.mp3",
+    "viAudio": "speech/vi/cay-dua-mong.mp3"
+  },
+  {
+    "id": "w022",
+    "category": [
+      "basic",
+      "word",
+      "nails"
+    ],
+    "cz": "Nůžky ✂️",
+    "en": "Scissors",
+    "vi": "Cái kéo",
+    "czPron": "NŮŠ-ky",
+    "viPron": "kaj keo",
+    "czAudio": "speech/cz/nuzky.mp3",
+    "viAudio": [
+      "speech/vi/cai-keo.mp3"
+    ]
+  },
+  {
+    "id": "w023",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "Suché",
+    "en": "Dry",
+    "vi": "Khô",
+    "czPron": "SU-ché",
+    "viPron": "kho",
+    "czAudio": "speech/cz/suche.mp3",
+    "viAudio": "speech/vi/kho.mp3",
+    "czHint": "\"kh\" syceni někoho kdo je vyprahly a chce se napit"
+  },
+  {
+    "id": "w024",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "Mokré",
+    "en": "Wet",
+    "vi": "Ướt",
+    "czPron": "MO-kré",
+    "viPron": "uot",
+    "czAudio": "speech/cz/mokre.mp3",
+    "viAudio": "speech/vi/uot.mp3",
+    "czHint": "trochu podobné jako voda - nuoc(vi) bez n"
+  },
+  {
+    "id": "w025",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "Voda 💧",
+    "en": "Water",
+    "vi": "Nước",
+    "czPron": "VO-da",
+    "viPron": "nuok",
+    "czAudio": "speech/cz/voda.mp3",
+    "viAudio": "speech/vi/nuoc.mp3"
+  },
+  {
+    "id": "w026",
+    "category": [
+      "basic",
+      "word",
+      "nails"
+    ],
+    "cz": "Barva",
+    "en": "Color",
+    "vi": "Màu sắc",
+    "czPron": "BAR-va",
+    "viPron": "mau sak",
+    "czAudio": "speech/cz/barva.mp3",
+    "viAudio": "speech/vi/mau-sac.mp3",
+    "czHint": "Mňau sáček; pastelky se rozsypou.",
+    "viHint": "Bar va; on the bar and my friend"
+  },
+  {
+    "id": "w027",
+    "category": [
+      "basic",
+      "word",
+      "nails"
+    ],
+    "cz": "Červená 🔴",
+    "en": "Red",
+    "vi": "Đỏ",
+    "czPron": "ČER-ve-ná",
+    "viPron": "do",
+    "czAudio": "speech/cz/cervena.mp3",
+    "viAudio": "speech/vi/djo.mp3",
+    "czHint": "do cervena"
+  },
+  {
+    "id": "w028",
+    "category": [
+      "basic",
+      "word",
+      "nails"
+    ],
+    "cz": "Růžová 🌸",
+    "en": "Pink",
+    "vi": "Hồng",
+    "czPron": "RŮ-žo-vá",
+    "viPron": "hong",
+    "czAudio": "speech/cz/ruzova.mp3",
+    "viAudio": "speech/vi/hong.mp3",
+    "czHint": "růžový mrakodrap v hong kongu"
+  },
+  {
+    "id": "w029",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "Černá ⚫",
+    "en": "Black",
+    "vi": "Đen",
+    "czPron": "ČER-ná",
+    "viPron": "den",
+    "czAudio": "speech/cz/cerna.mp3",
+    "viAudio": "speech/vi/djen.mp3",
+    "czHint": "opak noci - den"
+  },
+  {
+    "id": "w030",
+    "category": [
+      "basic",
+      "word",
+      "nails"
+    ],
+    "cz": "Bílá ⚪",
+    "en": "White",
+    "vi": "Trắng",
+    "czPron": "BÍ-lá",
+    "viPron": "čan",
+    "czAudio": "speech/cz/bila.mp3",
+    "viAudio": "speech/vi/trang.mp3",
+    "czHint": "podobné jako jang"
+  },
+  {
+    "id": "w031",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "Dnes 📅",
+    "en": "Today",
+    "vi": "Hôm nay",
+    "czPron": "DNES",
+    "viPron": "hom naj",
+    "viAudio": "speech/vi/hom-nay.mp3"
+  },
+  {
+    "id": "w032",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "Zítra ⏭️",
+    "en": "Tomorrow",
+    "vi": "Ngày mai",
+    "czPron": "ZÍ-tra",
+    "viPron": "naj maj",
+    "czAudio": "speech/cz/zitra.mp3",
+    "viAudio": "speech/vi/ngay-mai.mp3"
+  },
+  {
+    "id": "w033",
+    "category": [
+      "basic",
+      "phrase",
+      "nails"
+    ],
+    "cz": "Kolik to stojí?",
+    "en": "How much does it cost?",
+    "vi": "Giá bao nhiêu?",
+    "czPron": "KO-lik to STO-jí?",
+    "viPron": "za bao nju",
+    "czAudio": [
+      "speech/cz/kolik-to-stoji.mp3"
+    ],
+    "viAudio": [
+      "speech/vi/gia-bao-nhieu.mp3"
+    ],
+    "czHint": "za-bao-lit new(en) - při nakupování"
+  },
+  {
+    "id": "w034",
+    "category": [
+      "phrase",
+      "nails"
+    ],
+    "cz": "Můžete platit.",
+    "en": "You can pay.",
+    "vi": "Bạn có thể thanh toán.",
+    "czPron": "MŮ-že-te PLA-tit",
+    "viPron": "ban ko tche tan toan",
+    "czAudio": "speech/cz/muzete-platit.mp3",
+    "viAudio": "speech/vi/ban-co-the-thanh-toan.mp3"
+  },
+  {
+    "id": "w035",
+    "category": [
+      "word",
+      "nails"
+    ],
+    "cz": "Hotově 💶",
+    "en": "Cash",
+    "vi": "Tiền mặt",
+    "czPron": "HO-to-vě",
+    "viPron": "tien mat",
+    "czAudio": "speech/cz/hotove.mp3",
+    "viAudio": "speech/vi/tien-mat.mp3",
+    "czHint": "ty jen-om mat-eš - nedorozumění při placení"
+  },
+  {
+    "id": "w036",
+    "category": [
+      "word",
+      "nails"
+    ],
+    "cz": "Kartou 💳",
+    "en": "By card",
+    "vi": "Bằng thẻ",
+    "czPron": "KAR-tou",
+    "viPron": "bang te",
+    "czAudio": "speech/cz/kartou.mp3",
+    "viAudio": [
+      "speech/vi/bang-the.mp3"
+    ],
+    "czHint": "bankuju te - přijímá platbu kartou"
+  },
+  {
+    "id": "w037",
+    "category": [
+      "basic",
+      "word",
+      "nails",
+      "cz ≈ en"
+    ],
+    "cz": "Perfektní ✨",
+    "en": "Perfect",
+    "vi": "Hoàn hảo",
+    "czPron": "PER-fek-tní",
+    "viPron": "hoan hao",
+    "czAudio": "speech/cz/perfektni.mp3",
+    "viAudio": "speech/vi/hoan-hao.mp3",
+    "czHint": "ho ha ha"
+  },
+  {
+    "id": "w038",
+    "category": [
+      "word",
+      "cz ≈ en"
+    ],
+    "cz": "Moment ⏱️",
+    "en": "Moment",
+    "vi": "Khoảnh khắc",
+    "czPron": "MO-ment",
+    "viPron": "khoanh khak",
+    "czAudio": "speech/cz/moment.mp3",
+    "viAudio": "speech/vi/khoanh-khac.mp3"
+  },
+  {
+    "id": "w039",
+    "category": [
+      "word",
+      "cz ≈ en",
+      "basic 2"
+    ],
+    "cz": "Kafe ☕",
+    "en": "Coffee",
+    "vi": "Cà phê",
+    "czPron": "KA-fe",
+    "viPron": "ka fe",
+    "czAudio": "speech/cz/kafe.mp3",
+    "viAudio": "speech/vi/ca-phe.mp3"
+  },
+  {
+    "id": "w040",
+    "category": [
+      "word",
+      "nails",
+      "cz ≈ en"
+    ],
+    "cz": "Klient",
+    "en": "Client",
+    "vi": "Khách hàng",
+    "czPron": "KLI-ent",
+    "viPron": "khak hang",
+    "czAudio": "speech/cz/klient.mp3",
+    "viAudio": "speech/vi/khach-hang.mp3"
+  },
+  {
+    "id": "w041",
+    "category": [
+      "word",
+      "cz ≈ en",
+      "nails"
+    ],
+    "cz": "Salon / Salon krásy",
+    "en": "Salon / Beauty salon",
+    "vi": "Tiệm / Thẩm mỹ viện",
+    "czPron": "SA-lon",
+    "viPron": "tiem / tham my vien",
+    "czAudio": "speech/cz/salon.mp3",
+    "viAudio": "speech/vi/tiem-tham-my-vien.mp3"
+  },
+  {
+    "id": "w042",
+    "category": [
+      "word",
+      "cz ≈ en",
+      "nails"
+    ],
+    "cz": "Design 🎨",
+    "en": "Design",
+    "vi": "Thiết kế",
+    "czPron": "DE-zajn",
+    "viPron": "thjet ke",
+    "czAudio": "speech/cz/design.mp3",
+    "viAudio": "speech/vi/thiet-ke.mp3",
+    "czHint": "ty jet ke-ks - v zajímavém designovém balení"
+  },
+  {
+    "id": "w043",
+    "category": [
+      "basic",
+      "word",
+      "cz ≈ en"
+    ],
+    "cz": "Problém ⚠️",
+    "en": "Problem",
+    "vi": "Vấn đề",
+    "czPron": "PRO-blém",
+    "viPron": "van de",
+    "czAudio": "speech/cz/problem.mp3",
+    "viAudio": "speech/vi/van-dje.mp3"
+  },
+  {
+    "id": "w044",
+    "category": [
+      "word",
+      "cz ≈ en",
+      "nails",
+      "basic 2"
+    ],
+    "cz": "Detail 🔍",
+    "en": "Detail",
+    "vi": "Chi tiết",
+    "czPron": "DE-tajl",
+    "viPron": "či tiet",
+    "viAudio": "speech/vi/chi-tiet.mp3",
+    "czHint": "čti ty - ukazuje na drobné písmo"
+  },
+  {
+    "id": "w045",
+    "category": [
+      "word",
+      "cz ≈ en",
+      "nails"
+    ],
+    "cz": "Materiál",
+    "en": "Material",
+    "vi": "Vật liệu",
+    "czPron": "MA-te-ri-ál",
+    "viPron": "vat lijeu",
+    "czAudio": "speech/cz/material.mp3",
+    "viAudio": "speech/vi/vat-lieu.mp3"
+  },
+  {
+    "id": "w046",
+    "category": [
+      "word",
+      "cz ≈ en",
+      "basic 2"
+    ],
+    "cz": "Informace ℹ️",
+    "en": "Information",
+    "vi": "Thông tin",
+    "czPron": "IN-for-ma-ce",
+    "viPron": "thong tin",
+    "czAudio": "speech/cz/informace.mp3",
+    "viAudio": "speech/vi/thong-tin.mp3"
+  },
+  {
+    "id": "w047",
+    "category": [
+      "word",
+      "cz ≈ en",
+      "basic 2"
+    ],
+    "cz": "Super 😄",
+    "en": "Super",
+    "vi": "Tuyệt vời",
+    "czPron": "SU-per",
+    "viPron": "tujet voj",
+    "czAudio": "speech/cz/super.mp3",
+    "viAudio": "speech/vi/tuyet-voi.mp3",
+    "czHint": "tu jedl vojak"
+  },
+  {
+    "id": "w048",
+    "category": [
+      "nails",
+      "word",
+      "cz ≈ en"
+    ],
+    "cz": "Akryl",
+    "en": "Acrylic",
+    "vi": "Acrylic",
+    "czPron": "A-kryl",
+    "viPron": "ak-ril",
+    "czAudio": "speech/cz/akryl.mp3",
+    "viAudio": "speech/vi/acrylic.mp3"
+  },
+  {
+    "id": "w049",
+    "category": [
+      "nails",
+      "word",
+      "cz ≈ en"
+    ],
+    "cz": "Gel",
+    "en": "Gel",
+    "vi": "Gel",
+    "czPron": "GEL",
+    "viPron": "zel",
+    "czAudio": "speech/cz/gel.mp3",
+    "viAudio": "speech/vi/gel.mp3"
+  },
+  {
+    "id": "w050",
+    "section": "ZÁKLADNÍ SLOVESA A ZÁJMENA",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "já",
+    "en": "I",
+    "vi": "tôi",
+    "czPron": "JÁ",
+    "viPron": "toj",
+    "czAudio": "speech/cz/ja.mp3",
+    "viAudio": "speech/vi/toi.mp3"
+  },
+  {
+    "id": "w051",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "ty",
+    "en": "you (singular)",
+    "vi": "bạn",
+    "czPron": "TI",
+    "viPron": "ban",
+    "czAudio": "speech/cz/ty.mp3",
+    "viAudio": "speech/vi/ban.mp3"
+  },
+  {
+    "id": "w052",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "on",
+    "en": "he",
+    "vi": "anh ấy / ông ấy",
+    "czPron": "ON",
+    "viPron": "aň aj / on aj",
+    "czAudio": "speech/cz/on.mp3",
+    "viAudio": [
+      "speech/vi/anh-ay-ong-ay.mp3"
+    ]
+  },
+  {
+    "id": "w053",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "ona",
+    "en": "she",
+    "vi": "cô ấy / bà ấy",
+    "czPron": "O-na",
+    "viPron": "ko aj / ba aj",
+    "czAudio": "speech/cz/ona.mp3",
+    "viAudio": [
+      "speech/vi/co-ay-ba-ay.mp3"
+    ]
+  },
+  {
+    "id": "w054",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "my",
+    "en": "we",
+    "vi": "chúng tôi",
+    "czPron": "MI",
+    "viPron": "čung toj",
+    "czAudio": "speech/cz/my.mp3",
+    "viAudio": "speech/vi/chung-toi.mp3",
+    "czHint": "my dvě čuňátka si hrajem (toy(en))"
+  },
+  {
+    "id": "w055",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "vy",
+    "en": "you (plural)",
+    "vi": "các bạn",
+    "czPron": "VI",
+    "viPron": "kak ban",
+    "czAudio": "speech/cz/vy.mp3",
+    "viAudio": "speech/vi/cac-ban.mp3",
+    "czHint": "kak-ovy banán"
+  },
+  {
+    "id": "w056",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "ano",
+    "en": "yes",
+    "vi": "vâng / có",
+    "czPron": "A-no",
+    "viPron": "vang / ko",
+    "czAudio": "speech/cz/ano.mp3",
+    "viAudio": [
+      "speech/vi/vang-co.mp3"
+    ]
+  },
+  {
+    "id": "w057",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "ne",
+    "en": "no",
+    "vi": "không",
+    "czPron": "NE",
+    "viPron": "kong",
+    "czAudio": "speech/cz/ne.mp3",
+    "viAudio": "speech/vi/khong.mp3"
+  },
+  {
+    "id": "w058",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "špatný",
+    "en": "bad",
+    "vi": "xấu",
+    "czPron": "ŠPAT-ný",
+    "viPron": "sau",
+    "czAudio": "speech/cz/spatny.mp3",
+    "viAudio": "speech/vi/xau.mp3"
+  },
+  {
+    "id": "w059",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "mít",
+    "en": "to have",
+    "vi": "có",
+    "czPron": "MÍT",
+    "viPron": "ko",
+    "czAudio": "speech/cz/mit.mp3",
+    "viAudio": "speech/vi/co.mp3"
+  },
+  {
+    "id": "w060",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "být",
+    "en": "to be",
+    "vi": "là",
+    "czPron": "BÍT",
+    "viPron": "la",
+    "czAudio": "speech/cz/byt.mp3",
+    "viAudio": "speech/vi/la.mp3"
+  },
+  {
+    "id": "w061",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "dělat",
+    "en": "to do",
+    "vi": "làm",
+    "czPron": "DĚ-lat",
+    "viPron": "lam",
+    "czAudio": "speech/cz/delat.mp3",
+    "viAudio": "speech/vi/lam.mp3"
+  },
+  {
+    "id": "w062",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "jít",
+    "en": "to go",
+    "vi": "đi",
+    "czPron": "JÍT",
+    "viPron": "dji",
+    "czAudio": "speech/cz/jit.mp3",
+    "viAudio": "speech/vi/dji.mp3"
+  },
+  {
+    "id": "w063",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "chtít",
+    "en": "to want",
+    "vi": "muốn",
+    "czPron": "CHTÍT",
+    "viPron": "muon",
+    "czAudio": "speech/cz/chtit.mp3",
+    "viAudio": "speech/vi/muon.mp3"
+  },
+  {
+    "id": "w064",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "moci",
+    "en": "can / to be able",
+    "vi": "có thể",
+    "czPron": "MO-ci",
+    "viPron": "ko te",
+    "czAudio": "speech/cz/moci.mp3",
+    "viAudio": "speech/vi/co-the.mp3"
+  },
+  {
+    "id": "w065",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "potřebovat",
+    "en": "to need",
+    "vi": "cần",
+    "czPron": "PO-tře-bo-vat",
+    "viPron": "kan",
+    "czAudio": "speech/cz/potrebovat.mp3",
+    "viAudio": "speech/vi/can.mp3"
+  },
+  {
+    "id": "w066",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "tam",
+    "en": "there",
+    "vi": "ở đó",
+    "czPron": "TAM",
+    "viPron": "o dó",
+    "czAudio": "speech/cz/tam.mp3",
+    "viAudio": "speech/vi/o-djo.mp3",
+    "czHint": "Óldó jsi tam?"
+  },
+  {
+    "id": "w067",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "teď",
+    "en": "now",
+    "vi": "bây giờ",
+    "czPron": "TEĎ",
+    "viPron": "bej zo",
+    "czAudio": "speech/cz/ted.mp3",
+    "viAudio": "speech/vi/bay-gio.mp3",
+    "czHint": "brzo"
+  },
+  {
+    "id": "w068",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "čas",
+    "en": "time",
+    "vi": "thời gian",
+    "czPron": "ČAS",
+    "viPron": "toj zan",
+    "czAudio": "speech/cz/cas.mp3",
+    "viAudio": "speech/vi/thoi-gian.mp3",
+    "czHint": "toy(en) jan - čas na janovu hračku"
+  },
+  {
+    "id": "w069",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "peníze",
+    "en": "money",
+    "vi": "tiền",
+    "czPron": "PE-ní-ze",
+    "viPron": "tien",
+    "czAudio": "speech/cz/penize.mp3",
+    "viAudio": "speech/vi/tien.mp3"
+  },
+  {
+    "id": "w070",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "práce",
+    "en": "work",
+    "vi": "công việc",
+    "czPron": "PRÁ-ce",
+    "viPron": "kong viek",
+    "czAudio": "speech/cz/prace.mp3",
+    "viAudio": "speech/vi/cong-viec.mp3",
+    "czHint": "ne pro staré - khong(vi) věk"
+  },
+  {
+    "id": "w071",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "dobře",
+    "en": "well / good",
+    "vi": "tốt",
+    "czPron": "DO-bře",
+    "viPron": "tot",
+    "czAudio": "speech/cz/dobre.mp3",
+    "viAudio": "speech/vi/tot.mp3"
+  },
+  {
+    "id": "w072",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "špatně",
+    "en": "badly",
+    "vi": "không tốt",
+    "czPron": "ŠPAT-ňe",
+    "viPron": "kong tot",
+    "czAudio": "speech/cz/spatne.mp3",
+    "viAudio": "speech/vi/khong-tot.mp3"
+  },
+  {
+    "id": "w073",
+    "category": [
+      "nails",
+      "word"
+    ],
+    "cz": "prsty",
+    "en": "fingers",
+    "vi": "ngón tay",
+    "czPron": "PRS-ty",
+    "viPron": "ngon taj",
+    "czAudio": "speech/cz/prsty.mp3",
+    "viAudio": "speech/vi/ngon-tay.mp3",
+    "czHint": "krátké ruce(vi)"
+  },
+  {
+    "id": "w074",
+    "category": [
+      "nails",
+      "word"
+    ],
+    "cz": "kůžička",
+    "en": "cuticle",
+    "vi": "da quanh móng",
+    "czPron": "KŮ-žič-ka",
+    "viPron": "za kuaň mong",
+    "czAudio": "speech/cz/kuzicka.mp3",
+    "viAudio": "speech/vi/da-quanh-mong.mp3",
+    "czHint": "zažblunknutí nehtu(vi)"
+  },
+  {
+    "id": "w075",
+    "category": [
+      "nails",
+      "word",
+      "basic 2"
+    ],
+    "cz": "délka",
+    "en": "length",
+    "vi": "độ dài",
+    "czPron": "DÉL-ka",
+    "viPron": "do zaj",
+    "czAudio": "speech/cz/delka.mp3",
+    "viAudio": "speech/vi/djo-dai.mp3"
+  },
+  {
+    "id": "w076",
+    "category": [
+      "nails",
+      "word",
+      "basic"
+    ],
+    "cz": "krátké",
+    "en": "short",
+    "vi": "ngắn",
+    "czPron": "KRÁT-ké",
+    "viPron": "ngan",
+    "czAudio": "speech/cz/kratke.mp3",
+    "viAudio": "speech/vi/ngan.mp3",
+    "czHint": "jan - krátké jméno"
+  },
+  {
+    "id": "w077",
+    "category": [
+      "nails",
+      "word",
+      "basic"
+    ],
+    "cz": "dlouhé",
+    "en": "long",
+    "vi": "dài",
+    "czPron": "DLOU-hé",
+    "viPron": "zaj",
+    "czAudio": "speech/cz/dlouhe.mp3",
+    "viAudio": "speech/vi/dai.mp3",
+    "czHint": "dlouhý zaj-íc"
+  },
+  {
+    "id": "w078",
+    "category": [
+      "word",
+      "nails"
+    ],
+    "cz": "lampa",
+    "en": "lamp",
+    "vi": "đèn",
+    "czPron": "LAM-pa",
+    "viPron": "dèn",
+    "czAudio": "speech/cz/lampa.mp3",
+    "viAudio": "speech/vi/djen.mp3"
+  },
+  {
+    "id": "w079",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "trochu, chvilku",
+    "en": "a little bit, moment",
+    "vi": "một chút",
+    "czPron": "tro-chu, CHVIL-ku",
+    "viPron": "mot čut",
+    "czAudio": "speech/cz/chvilku.mp3",
+    "viAudio": "speech/vi/mot-chut.mp3"
+  },
+  {
+    "id": "w080",
+    "category": [
+      "word",
+      "nails",
+      "basic 2"
+    ],
+    "cz": "opravit",
+    "en": "to fix",
+    "vi": "sửa",
+    "czPron": "O-pra-vit",
+    "viPron": "sua",
+    "czAudio": "speech/cz/opravit.mp3",
+    "viAudio": "speech/vi/sua.mp3",
+    "czHint": "sup opravuje auto na poušti"
+  },
+  {
+    "id": "w081",
+    "category": [
+      "word",
+      "nails",
+      "basic 2"
+    ],
+    "cz": "zkrátit",
+    "en": "to shorten",
+    "vi": "cắt ngắn",
+    "czPron": "ZKRÁ-tit",
+    "viPron": "kat ngan",
+    "czAudio": "speech/cz/zkratit.mp3",
+    "viAudio": "speech/vi/cat-ngan.mp3",
+    "czHint": "kat zkracuje - sv. jan"
+  },
+  {
+    "id": "w082",
+    "category": [
+      "word",
+      "nails",
+      "basic 2"
+    ],
+    "cz": "prodloužit",
+    "en": "to lengthen",
+    "vi": "làm dài",
+    "czPron": "PRO-dlou-žit",
+    "viPron": "lam zaj",
+    "czAudio": "speech/cz/prodlouzit.mp3",
+    "viAudio": "speech/vi/lam-dai.mp3"
+  },
+  {
+    "id": "w083",
+    "category": [
+      "word",
+      "basic",
+      "nails"
+    ],
+    "cz": "změna",
+    "en": "change",
+    "vi": "thay đổi",
+    "czPron": "ZMĚ-na",
+    "viPron": "thaj doj",
+    "czAudio": "speech/cz/zmena.mp3",
+    "viAudio": "speech/vi/thay-djoi.mp3",
+    "czHint": "thajka dojí pokemona, který se změní"
+  },
+  {
+    "id": "w084",
+    "category": [
+      "word",
+      "basic",
+      "nails"
+    ],
+    "cz": "líbí se",
+    "en": "to like",
+    "vi": "thích",
+    "czPron": "LÍ-bí se",
+    "viPron": "thi",
+    "czAudio": "speech/cz/libi-se.mp3",
+    "viAudio": "speech/vi/thich.mp3",
+    "czHint": "ty - se mi líbíš"
+  },
+  {
+    "id": "w085",
+    "category": [
+      "word",
+      "nails",
+      "basic"
+    ],
+    "cz": "nelíbí se",
+    "en": "to not like",
+    "vi": "không thích",
+    "czPron": "NE-lí-bí se",
+    "viPron": "kong thik",
+    "czAudio": "speech/cz/nelibi-se.mp3",
+    "viAudio": "speech/vi/khong-thich.mp3"
+  },
+  {
+    "id": "w086",
+    "category": [
+      "word",
+      "basic 2",
+      "nails"
+    ],
+    "cz": "levné",
+    "en": "cheap",
+    "vi": "rẻ",
+    "czPron": "LEV-né",
+    "viPron": "ze",
+    "czAudio": "speech/cz/levne.mp3",
+    "viAudio": "speech/vi/re.mp3"
+  },
+  {
+    "id": "w087",
+    "category": [
+      "word",
+      "nails",
+      "basic 2"
+    ],
+    "cz": "drahé",
+    "en": "expensive",
+    "vi": "đắt",
+    "czPron": "DRA-hé",
+    "viPron": "dat",
+    "czAudio": "speech/cz/drahe.mp3",
+    "viAudio": "speech/vi/djat.mp3",
+    "czHint": "drahé data"
+  },
+  {
+    "id": "w088",
+    "category": [
+      "word",
+      "nails",
+      "basic 2"
+    ],
+    "cz": "čisté",
+    "en": "clean",
+    "vi": "sạch",
+    "czPron": "ČIS-té",
+    "viPron": "sek",
+    "czAudio": "speech/cz/ciste.mp3",
+    "viAudio": "speech/vi/sach.mp3",
+    "czHint": "čistý sek"
+  },
+  {
+    "id": "w089",
+    "category": [
+      "word",
+      "nails"
+    ],
+    "cz": "dezinfekce",
+    "en": "disinfection",
+    "vi": "khử trùng",
+    "czPron": "DE-zin-fek-ce",
+    "viPron": "khu čung",
+    "czAudio": "speech/cz/dezinfekce.mp3",
+    "viAudio": "speech/vi/khu-trung.mp3",
+    "czHint": "khšic(odhánění) čuněte"
+  },
+  {
+    "id": "w090",
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Je to v pořádku",
+    "en": "It's okay",
+    "vi": "Không sao",
+    "czPron": "JE to v po-ŘÁD-ku",
+    "viPron": "chom sao",
+    "czAudio": "speech/cz/je-to-v-poradku.mp3",
+    "viAudio": "speech/vi/khong-sao.mp3"
+  },
+  {
+    "id": "w091",
+    "category": [
+      "basic",
+      "phrase"
+    ],
+    "cz": "Ano, rozumím",
+    "en": "Yes, I understand",
+    "vi": "Vâng, tôi hiểu",
+    "czPron": "A-no ro-ZU-mím",
+    "viPron": "vang toj hieu",
+    "czAudio": "speech/cz/ano-rozumim.mp3",
+    "viAudio": "speech/vi/vang-toi-hieu.mp3"
+  },
+  {
+    "id": "w092",
+    "category": [
+      "basic",
+      "phrase"
+    ],
+    "cz": "Ne, nerozumím",
+    "en": "No, I don't understand",
+    "vi": "Không, tôi không hiểu",
+    "czPron": "NE ne-ro-ZU-mím",
+    "viPron": "chom toj chom hieu",
+    "czAudio": "speech/cz/ne-nerozumim.mp3",
+    "viAudio": "speech/vi/khong-toi-khong-hieu.mp3"
+  },
+  {
+    "id": "w093",
+    "category": [
+      "phrase",
+      "basic"
+    ],
+    "cz": "Můžete to zopakovat?",
+    "en": "Can you repeat it?",
+    "vi": "Bạn có thể nhắc lại không?",
+    "czPron": "MŮ-že-te to zo-pa-KO-vat",
+    "viPron": "ban ko tche ňak laj chom",
+    "czAudio": "speech/cz/muzete-to-zopakovat.mp3",
+    "viAudio": "speech/vi/ban-co-the-nhac-lai-khong.mp3",
+    "czHint": "můžete(vi) +ňak-ladej + ne(vi) - znovu mi nalož"
+  },
+  {
+    "id": "w094",
+    "category": [
+      "basic",
+      "phrase"
+    ],
+    "cz": "Mluvte prosím pomalu",
+    "en": "Please speak slowly",
+    "vi": "Làm ơn nói chậm",
+    "czPron": "MLUV-te PRO-sím po-MA-lu",
+    "viPron": "lam ən noj čam",
+    "czAudio": "speech/cz/mluvte-prosim-pomalu.mp3",
+    "viAudio": "speech/vi/lam-on-noi-cham.mp3",
+    "czHint": "prosím(vi) no i čaj"
+  },
+  {
+    "id": "w095",
+    "category": [
+      "basic",
+      "phrase",
+      "nails"
+    ],
+    "cz": "Počkejte prosím chvilku",
+    "en": "Please wait a moment",
+    "vi": "Làm ơn chờ một chút",
+    "czPron": "POČ-kej-te chvil-ku",
+    "viPron": "lam ən čo mot čut",
+    "czAudio": "speech/cz/pockejte-prosim-chvilku.mp3",
+    "viAudio": "speech/vi/lam-on-cho-mot-chut.mp3",
+    "czHint": "prosím čekejte[čo] chvilku[mot čut] - č m č"
+  },
+  {
+    "id": "w096",
+    "category": [
+      "basic",
+      "phrase",
+      "nails"
+    ],
+    "cz": "Teď nemám čas",
+    "en": "I don't have time now",
+    "vi": "Bây giờ tôi không có thời gian",
+    "czPron": "TEĎ ne-mám čas",
+    "viPron": "baj zə toj chom ko thoj zan",
+    "czAudio": "speech/cz/ted-nemam-cas.mp3",
+    "viAudio": "speech/vi/bay-gio-toi-khong-co-thoi-gian.mp3"
+  },
+  {
+    "id": "w097",
+    "category": [
+      "basic",
+      "phrase"
+    ],
+    "cz": "Teď je to možné",
+    "en": "It's possible now",
+    "vi": "Bây giờ được",
+    "czPron": "TEĎ je to MOŽ-né",
+    "viPron": "baj zə duk",
+    "czAudio": "speech/cz/ted-je-to-mozne.mp3",
+    "viAudio": "speech/vi/bay-gio-djuoc.mp3",
+    "czHint": "těď dobře - duk"
+  },
+  {
+    "id": "w098",
+    "category": [
+      "phrase",
+      "basic"
+    ],
+    "cz": "Chci se zeptat",
+    "en": "I want to ask",
+    "vi": "Tôi muốn hỏi",
+    "czPron": "CHCI se ZEP-tat",
+    "viPron": "toj muon hoj",
+    "czAudio": "speech/cz/chci-se-zeptat.mp3",
+    "viAudio": "speech/vi/toi-muon-hoi.mp3"
+  },
+  {
+    "id": "w099",
+    "category": [
+      "phrase",
+      "nails",
+      "basic"
+    ],
+    "cz": "Kolik to stojí?",
+    "en": "How much is it?",
+    "vi": "Bao nhiêu tiền?",
+    "czPron": "KO-lik to STO-jí",
+    "viPron": "bao ňjeu tien",
+    "czAudio": "speech/cz/kolik-to-stoji.mp3",
+    "viAudio": "speech/vi/bao-nhieu-tien.mp3",
+    "czHint": "kolik peněz?"
+  },
+  {
+    "id": "w100",
+    "category": [
+      "phrase",
+      "basic"
+    ],
+    "cz": "Kde to je?",
+    "en": "Where it is?",
+    "vi": "Ở đâu?",
+    "czPron": "GDE to je",
+    "viPron": "ə dau",
+    "czAudio": "speech/cz/kde-to-je.mp3",
+    "viAudio": "speech/vi/o-djau.mp3",
+    "czHint": "Kde?"
+  },
+  {
+    "id": "w101",
+    "category": [
+      "phrase",
+      "basic"
+    ],
+    "cz": "Kdy to bude?",
+    "en": "When will it be?",
+    "vi": "Khi nào?",
+    "czPron": "GDI to BU-de",
+    "viPron": "chi nao",
+    "czAudio": "speech/cz/kdy-to-bude.mp3",
+    "viAudio": "speech/vi/khi-nao.mp3",
+    "czHint": "chi na-o, čekání na balíček z číny"
+  },
+  {
+    "id": "w102",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Přijít",
+    "en": "To come",
+    "vi": "Đến",
+    "czPron": "PŘI-jít",
+    "viPron": "den",
+    "czAudio": "speech/cz/prijit.mp3",
+    "viAudio": "speech/vi/djen.mp3",
+    "czHint": "přijít ve dne"
+  },
+  {
+    "id": "w103",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Vidět",
+    "en": "To see",
+    "vi": "Thấy",
+    "czPron": "VI-dět",
+    "viPron": "thaj",
+    "czAudio": "speech/cz/videt.mp3",
+    "viAudio": "speech/vi/thay.mp3",
+    "czHint": "vidím thajku"
+  },
+  {
+    "id": "w104",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Slyšet",
+    "en": "To hear",
+    "vi": "Nghe",
+    "czPron": "SLY-šet",
+    "viPron": "nge",
+    "czAudio": "speech/cz/slyset.mp3",
+    "viAudio": "speech/vi/nghe.mp3",
+    "czHint": "ne-slyším"
+  },
+  {
+    "id": "w105",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Říct",
+    "en": "To say",
+    "vi": "Nói",
+    "czPron": "Říct",
+    "viPron": "noj",
+    "czAudio": "speech/cz/rict.mp3",
+    "viAudio": "speech/vi/noi.mp3"
+  },
+  {
+    "id": "w106",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Mluvit",
+    "en": "To speak",
+    "vi": "Nói chuyện",
+    "czPron": "MLU-vit",
+    "viPron": "noj čuen",
+    "czAudio": "speech/cz/mluvit.mp3",
+    "viAudio": "speech/vi/noi-chuyen.mp3",
+    "czHint": ""
+  },
+  {
+    "id": "w107",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Rozumět",
+    "en": "To understand",
+    "vi": "Hiểu",
+    "czPron": "RO-zu-mět",
+    "viPron": "hieu",
+    "czAudio": "speech/cz/rozumet.mp3",
+    "viAudio": "speech/vi/hieu.mp3"
+  },
+  {
+    "id": "w108",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Nevědět",
+    "en": "Not to know",
+    "vi": "Không biết",
+    "czPron": "NE-vě-dět",
+    "viPron": "chom bjet",
+    "czAudio": "speech/cz/nevedet.mp3",
+    "viAudio": "speech/vi/khong-biet.mp3"
+  },
+  {
+    "id": "w109",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Vědět",
+    "en": "To know",
+    "vi": "Biết",
+    "czPron": "VĚ-dět",
+    "viPron": "bjet",
+    "czAudio": "speech/cz/vedet.mp3",
+    "viAudio": "speech/vi/biet.mp3"
+  },
+  {
+    "id": "w110",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "Dobrý",
+    "en": "Good",
+    "vi": "Tốt",
+    "czPron": "DO-brý",
+    "viPron": "tot",
+    "czAudio": "speech/cz/dobry.mp3",
+    "viAudio": "speech/vi/tot.mp3"
+  },
+  {
+    "id": "w111",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Velký",
+    "en": "Big",
+    "vi": "Lớn",
+    "czPron": "VEL-ký",
+    "viPron": "lon",
+    "czAudio": "speech/cz/velky.mp3",
+    "viAudio": "speech/vi/lon.mp3",
+    "czHint": "lon-g - velký a dlouhý "
+  },
+  {
+    "id": "w112",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Malý",
+    "en": "Small",
+    "vi": "Nhỏ",
+    "czPron": "MA-lý",
+    "viPron": "ňo",
+    "czAudio": "speech/cz/maly.mp3",
+    "viAudio": "speech/vi/nho.mp3"
+  },
+  {
+    "id": "w113",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Nový",
+    "en": "New",
+    "vi": "Mới",
+    "czPron": "NO-vý",
+    "viPron": "moj",
+    "czAudio": "speech/cz/novy.mp3",
+    "viAudio": "speech/vi/moi.mp3"
+  },
+  {
+    "id": "w114",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Starý",
+    "en": "Old",
+    "vi": "Cũ",
+    "czPron": "STA-rý",
+    "viPron": "ku",
+    "czAudio": "speech/cz/stary.mp3",
+    "viAudio": "speech/vi/cu.mp3"
+  },
+  {
+    "id": "w115",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "Včera",
+    "en": "Yesterday",
+    "vi": "Hôm qua",
+    "czPron": "VČE-ra",
+    "viPron": "hom kua",
+    "czAudio": "speech/cz/vcera.mp3",
+    "viAudio": "speech/vi/hom-qua.mp3",
+    "czHint": "den + starý(vi)"
+  },
+  {
+    "id": "w116",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Levný",
+    "en": "Cheap",
+    "vi": "Rẻ",
+    "czPron": "LEV-ný",
+    "viPron": "ze",
+    "czAudio": "speech/cz/levny.mp3",
+    "viAudio": "speech/vi/re.mp3",
+    "czHint": "ze levněný"
+  },
+  {
+    "id": "w117",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Drahý",
+    "en": "Expensive",
+    "vi": "Đắt",
+    "czPron": "DRA-hý",
+    "viPron": "dat",
+    "czAudio": "speech/cz/drahy.mp3",
+    "viAudio": "speech/vi/djat.mp3",
+    "czHint": "drahé dat-a"
+  },
+  {
+    "id": "w118",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Možnost",
+    "en": "Possibility",
+    "vi": "Có thể",
+    "czPron": "MOŽ-nost",
+    "viPron": "ko tche",
+    "czAudio": "speech/cz/moznost.mp3",
+    "viAudio": "speech/vi/co-the.mp3"
+  },
+  {
+    "id": "w119",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Pomoc",
+    "en": "Help",
+    "vi": "Giúp",
+    "czPron": "PO-moc",
+    "viPron": "zup",
+    "czAudio": "speech/cz/pomoc.mp3",
+    "viAudio": "speech/vi/giup.mp3",
+    "czHint": "pomoc se zub-em"
+  },
+  {
+    "id": "w120",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Čekat",
+    "en": "To wait",
+    "vi": "Chờ",
+    "czPron": "ČE-kat",
+    "viPron": "čo",
+    "czAudio": "speech/cz/cekat.mp3",
+    "viAudio": "speech/vi/cho.mp3",
+    "czHint": "stejné první písmeno čo-kat"
+  },
+  {
+    "id": "w121",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Najít",
+    "en": "To find",
+    "vi": "Tìm",
+    "czPron": "NA-jít",
+    "viPron": "tim",
+    "czAudio": "speech/cz/najit.mp3",
+    "viAudio": "speech/vi/tim.mp3"
+  },
+  {
+    "id": "w122",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Ztratit",
+    "en": "To lose",
+    "vi": "Mất",
+    "czPron": "ZTRA-tit",
+    "viPron": "mat",
+    "czAudio": "speech/cz/ztratit.mp3",
+    "viAudio": "speech/vi/mat.mp3",
+    "czHint": "šach mat - ztratit krále"
+  },
+  {
+    "id": "w123",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Začít",
+    "en": "To start",
+    "vi": "Bắt đầu",
+    "czPron": "ZA-čít",
+    "viPron": "bat dau",
+    "czAudio": "speech/cz/zacit.mp3",
+    "viAudio": "speech/vi/bat-djau.mp3",
+    "czHint": "bat - netopýr + d-au, netopýra začíná bolet křídlo"
+  },
+  {
+    "id": "w124",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Skončit",
+    "en": "To finish",
+    "vi": "Kết thúc",
+    "czPron": "SKON-čit",
+    "viPron": "ket thuk",
+    "czAudio": "speech/cz/skoncit.mp3",
+    "viAudio": "speech/vi/ket-thuc.mp3",
+    "czHint": "ket-o dieta na skoncování s tuk-em"
+  },
+  {
+    "id": "w125",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Člověk",
+    "en": "Person",
+    "vi": "Người",
+    "czPron": "ČLO-věk",
+    "viPron": "nguoj",
+    "czAudio": "speech/cz/clovek.mp3",
+    "viAudio": "speech/vi/nguoi.mp3"
+  },
+  {
+    "id": "w126",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Lidé",
+    "en": "People",
+    "vi": "Mọi người",
+    "czPron": "LI-dé",
+    "viPron": "moj nguoj",
+    "czAudio": "speech/cz/lide.mp3",
+    "viAudio": "speech/vi/moi-nguoi.mp3"
+  },
+  {
+    "id": "w127",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Věc",
+    "en": "Thing",
+    "vi": "Vật",
+    "czPron": "Věc",
+    "viPron": "vat",
+    "czAudio": "speech/cz/vec.mp3",
+    "viAudio": "speech/vi/vat.mp3"
+  },
+  {
+    "id": "w128",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Místo",
+    "en": "Place",
+    "vi": "Nơi",
+    "czPron": "MÍ-sto",
+    "viPron": "noj",
+    "czAudio": "speech/cz/misto.mp3",
+    "viAudio": "speech/vi/noi.mp3"
+  },
+  {
+    "id": "w129",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Cesta",
+    "en": "Way / road",
+    "vi": "Đường",
+    "czPron": "CES-ta",
+    "viPron": "duong",
+    "czAudio": "speech/cz/cesta.mp3",
+    "viAudio": "speech/vi/djuong.mp3",
+    "czHint": "du po cestě"
+  },
+  {
+    "id": "w130",
+    "category": [
+      "word"
+    ],
+    "cz": "Otázka",
+    "en": "Question",
+    "vi": "Câu hỏi",
+    "czPron": "O-TÁZ-ka",
+    "viPron": "kau hoj",
+    "czAudio": "speech/cz/otazka.mp3",
+    "viAudio": "speech/vi/cau-hoi.mp3"
+  },
+  {
+    "id": "w131",
+    "category": [
+      "word"
+    ],
+    "cz": "Odpověď",
+    "en": "Answer",
+    "vi": "Trả lời",
+    "czPron": "OD-po-věď",
+    "viPron": "ča loj",
+    "czAudio": "speech/cz/odpoved.mp3",
+    "viAudio": "speech/vi/tra-loi.mp3"
+  },
+  {
+    "id": "w132",
+    "category": [
+      "word"
+    ],
+    "cz": "Plán",
+    "en": "Plan",
+    "vi": "Kế hoạch",
+    "czPron": "Plán",
+    "viPron": "ke hoak",
+    "czAudio": "speech/cz/plan.mp3",
+    "viAudio": "speech/vi/ke-hoach.mp3"
+  },
+  {
+    "id": "w133",
+    "category": [
+      "word",
+      "cz ≈ en"
+    ],
+    "cz": "Situace",
+    "en": "Situation",
+    "vi": "Tình huống",
+    "czPron": "SI-tu-a-ce",
+    "viPron": "tin huong",
+    "czAudio": "speech/cz/situace.mp3",
+    "viAudio": "speech/vi/tinh-huong.mp3"
+  },
+  {
+    "id": "w134",
+    "category": [
+      "word"
+    ],
+    "cz": "Důvod",
+    "en": "Reason",
+    "vi": "Lý do",
+    "czPron": "DŮ-vod",
+    "viPron": "li zo",
+    "czAudio": "speech/cz/duvod.mp3",
+    "viAudio": "speech/vi/ly-do.mp3"
+  },
+  {
+    "id": "w135",
+    "category": [
+      "word"
+    ],
+    "cz": "Pomalu",
+    "en": "Slowly",
+    "vi": "Chậm",
+    "czPron": "PO-ma-lu",
+    "viPron": "čam",
+    "czAudio": "speech/cz/pomalu.mp3",
+    "viAudio": "speech/vi/cham.mp3"
+  },
+  {
+    "id": "w136",
+    "category": [
+      "word"
+    ],
+    "cz": "Rychle",
+    "en": "Fast",
+    "vi": "Nhanh",
+    "czPron": "RYCH-le",
+    "viPron": "ňanh",
+    "czAudio": "speech/cz/rychle.mp3",
+    "viAudio": "speech/vi/nhanh.mp3"
+  },
+  {
+    "id": "w137",
+    "category": [
+      "word"
+    ],
+    "cz": "Vždy",
+    "en": "Always",
+    "vi": "Luôn luôn",
+    "czPron": "VŽDY",
+    "viPron": "luon luon",
+    "czAudio": "speech/cz/vzdy.mp3",
+    "viAudio": "speech/vi/luon-luon.mp3"
+  },
+  {
+    "id": "w138",
+    "category": [
+      "word"
+    ],
+    "cz": "Nikdy",
+    "en": "Never",
+    "vi": "Không bao giờ",
+    "czPron": "NIK-dy",
+    "viPron": "chom bao zə",
+    "czAudio": "speech/cz/nikdy.mp3",
+    "viAudio": "speech/vi/khong-bao-gio.mp3"
+  },
+  {
+    "id": "w139",
+    "category": [
+      "word"
+    ],
+    "cz": "Někdy",
+    "en": "Sometimes",
+    "vi": "Đôi khi",
+    "czPron": "NĚK-dy",
+    "viPron": "doj chi",
+    "czAudio": "speech/cz/nekdy.mp3",
+    "viAudio": "speech/vi/djoi-khi.mp3"
+  },
+  {
+    "id": "w140",
+    "category": [
+      "word"
+    ],
+    "cz": "Proto",
+    "en": "Therefore",
+    "vi": "Vì vậy",
+    "czPron": "PRO-to",
+    "viPron": "vi zəj",
+    "czAudio": "speech/cz/proto.mp3",
+    "viAudio": "speech/vi/vi-vay.mp3"
+  },
+  {
+    "id": "w141",
+    "category": [
+      "word"
+    ],
+    "cz": "Protože",
+    "en": "Because",
+    "vi": "Bởi vì",
+    "czPron": "PRO-to-že",
+    "viPron": "boj vi",
+    "czAudio": "speech/cz/protoze.mp3",
+    "viAudio": "speech/vi/boi-vi.mp3"
+  },
+  {
+    "id": "w142",
+    "category": [
+      "word"
+    ],
+    "cz": "Jestli",
+    "en": "If",
+    "vi": "Nếu",
+    "czPron": "JES-tli",
+    "viPron": "neu",
+    "czAudio": "speech/cz/jestli.mp3",
+    "viAudio": "speech/vi/neu.mp3"
+  },
+  {
+    "id": "w143",
+    "category": [
+      "word"
+    ],
+    "cz": "Když",
+    "en": "When / if",
+    "vi": "Khi",
+    "czPron": "Když",
+    "viPron": "chi",
+    "czAudio": "speech/cz/kdyz.mp3",
+    "viAudio": "speech/vi/khi.mp3"
+  },
+  {
+    "id": "w144",
+    "category": [
+      "word"
+    ],
+    "cz": "Ale",
+    "en": "But",
+    "vi": "Nhưng",
+    "czPron": "A-le",
+    "viPron": "ňung",
+    "czAudio": "speech/cz/ale.mp3",
+    "viAudio": "speech/vi/nhung.mp3"
+  },
+  {
+    "id": "w145",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Nebo",
+    "en": "Or",
+    "vi": "Hoặc",
+    "czPron": "NE-bo",
+    "viPron": "huak",
+    "czAudio": "speech/cz/nebo.mp3",
+    "viAudio": "speech/vi/hoac.mp3"
+  },
+  {
+    "id": "w146",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Také",
+    "en": "Also",
+    "vi": "Cũng",
+    "czPron": "TA-ké",
+    "viPron": "kung",
+    "czAudio": "speech/cz/take.mp3",
+    "viAudio": "speech/vi/cung.mp3",
+    "czHint": "kung - taky umí kung fu"
+  },
+  {
+    "id": "w147",
+    "category": [
+      "word",
+      "basic 2"
+    ],
+    "cz": "Jen",
+    "en": "Only",
+    "vi": "Chỉ",
+    "czPron": "Jen",
+    "viPron": "či",
+    "czAudio": "speech/cz/jen.mp3",
+    "viAudio": "speech/vi/chi.mp3"
+  },
+  {
+    "id": "w148",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Už",
+    "en": "Already",
+    "vi": "Đã",
+    "czPron": "Už",
+    "viPron": "da",
+    "czAudio": "speech/cz/uz.mp3",
+    "viAudio": "speech/vi/dja.mp3"
+  },
+  {
+    "id": "w149",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Ještě",
+    "en": "Still",
+    "vi": "Vẫn",
+    "czPron": "JEŠ-tě",
+    "viPron": "van",
+    "czAudio": "speech/cz/jeste.mp3",
+    "viAudio": "speech/vi/van.mp3"
+  },
+  {
+    "id": "w150",
+    "category": [
+      "word"
+    ],
+    "cz": "Zase",
+    "en": "Again",
+    "vi": "Lại",
+    "czPron": "ZA-se",
+    "viPron": "laj",
+    "czAudio": "speech/cz/zase.mp3",
+    "viAudio": "speech/vi/lai.mp3"
+  },
+  {
+    "id": "w151",
+    "category": [
+      "word"
+    ],
+    "cz": "Hned",
+    "en": "Immediately",
+    "vi": "Ngay",
+    "czPron": "Hned",
+    "viPron": "ngaj",
+    "czAudio": "speech/cz/hned.mp3",
+    "viAudio": "speech/vi/ngay.mp3"
+  },
+  {
+    "id": "w152",
+    "category": [
+      "word"
+    ],
+    "cz": "Brzy",
+    "en": "Soon",
+    "vi": "Sớm",
+    "czPron": "Brzy",
+    "viPron": "som",
+    "czAudio": "speech/cz/brzy.mp3",
+    "viAudio": "speech/vi/som.mp3"
+  },
+  {
+    "id": "w153",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Pozdě",
+    "en": "Late",
+    "vi": "Muộn",
+    "czPron": "POZ-dě",
+    "viPron": "muon",
+    "czAudio": "speech/cz/pozde.mp3",
+    "viAudio": "speech/vi/muon.mp3",
+    "czHint": "trochu jako chtít (vi)"
+  },
+  {
+    "id": "w154",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Dlouho",
+    "en": "Long (time)",
+    "vi": "Lâu",
+    "czPron": "DLOU-ho",
+    "viPron": "lau",
+    "czAudio": "speech/cz/dlouho.mp3",
+    "viAudio": "speech/vi/lau.mp3",
+    "czHint": "stejné první písmeno jako Long, + au"
+  },
+  {
+    "id": "w155",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Krátce",
+    "en": "Briefly",
+    "vi": "Ngắn",
+    "czPron": "KRÁT-ce",
+    "viPron": "ngan",
+    "czAudio": "speech/cz/kratce.mp3",
+    "viAudio": "speech/vi/ngan.mp3"
+  },
+  {
+    "id": "w156",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Hodně",
+    "en": "A lot",
+    "vi": "Nhiều",
+    "czPron": "HOD-ně",
+    "viPron": "ňieu",
+    "czAudio": "speech/cz/hodne.mp3",
+    "viAudio": "speech/vi/nhieu.mp3"
+  },
+  {
+    "id": "w157",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Málo",
+    "en": "Little",
+    "vi": "Ít",
+    "czPron": "MÁ-lo",
+    "viPron": "it",
+    "czAudio": "speech/cz/malo.mp3",
+    "viAudio": "speech/vi/it.mp3"
+  },
+  {
+    "id": "w158",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Všechno",
+    "en": "Everything",
+    "vi": "Mọi thứ",
+    "czPron": "VŠECH-no",
+    "viPron": "moj thu",
+    "czAudio": "speech/cz/vsechno.mp3",
+    "viAudio": "speech/vi/moi-thu.mp3"
+  },
+  {
+    "id": "w159",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Nic",
+    "en": "Nothing",
+    "vi": "Không có gì",
+    "czPron": "Nic",
+    "viPron": "chom ko zi",
+    "czAudio": "speech/cz/nic.mp3",
+    "viAudio": "speech/vi/khong-co-gi.mp3"
+  },
+  {
+    "id": "w160",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Něco",
+    "en": "Something",
+    "vi": "Cái gì đó",
+    "czPron": "NĚ-co",
+    "viPron": "kaj zi do",
+    "czAudio": "speech/cz/neco.mp3",
+    "viAudio": "speech/vi/cai-gi-djo.mp3"
+  },
+  {
+    "id": "w161",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Někdo",
+    "en": "Someone",
+    "vi": "Ai đó",
+    "czPron": "NĚK-do",
+    "viPron": "aj do",
+    "czAudio": "speech/cz/nekdo.mp3",
+    "viAudio": "speech/vi/ai-djo.mp3"
+  },
+  {
+    "id": "w162",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Každý",
+    "en": "Everyone",
+    "vi": "Mỗi người",
+    "czPron": "KAŽ-dý",
+    "viPron": "moj nguoj",
+    "czAudio": "speech/cz/kazdy.mp3",
+    "viAudio": "speech/vi/moi-nguoi.mp3"
+  },
+  {
+    "id": "w163",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Jeden",
+    "en": "One",
+    "vi": "Một",
+    "czPron": "JE-den",
+    "viPron": "mot",
+    "czAudio": "speech/cz/jeden.mp3",
+    "viAudio": "speech/vi/mot.mp3"
+  },
+  {
+    "id": "w164",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Dva",
+    "en": "Two",
+    "vi": "Hai",
+    "czPron": "Dva",
+    "viPron": "haj",
+    "czAudio": "speech/cz/dva.mp3",
+    "viAudio": "speech/vi/hai.mp3"
+  },
+  {
+    "id": "w165",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Více",
+    "en": "More",
+    "vi": "Hơn",
+    "czPron": "VÍ-ce",
+    "viPron": "hon",
+    "czAudio": "speech/cz/vice.mp3",
+    "viAudio": "speech/vi/hon.mp3"
+  },
+  {
+    "id": "w166",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Méně",
+    "en": "Less",
+    "vi": "Ít hơn",
+    "czPron": "MÉ-ně",
+    "viPron": "it hon",
+    "czAudio": "speech/cz/mene.mp3",
+    "viAudio": "speech/vi/it-hon.mp3"
+  },
+  {
+    "id": "w167",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Stejně",
+    "en": "Same",
+    "vi": "Giống",
+    "czPron": "STEJ-ně",
+    "viPron": "zong",
+    "czAudio": "speech/cz/stejne.mp3",
+    "viAudio": "speech/vi/giong.mp3"
+  },
+  {
+    "id": "w168",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Jinak",
+    "en": "Differently",
+    "vi": "Khác",
+    "czPron": "JI-nak",
+    "viPron": "chak",
+    "czAudio": "speech/cz/jinak.mp3",
+    "viAudio": "speech/vi/khac.mp3"
+  },
+  {
+    "id": "w169",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Správně",
+    "en": "Correctly",
+    "vi": "Đúng",
+    "czPron": "SPRÁV-ně",
+    "viPron": "dung",
+    "czAudio": "speech/cz/spravne.mp3",
+    "viAudio": "speech/vi/dung.mp3"
+  },
+  {
+    "id": "w170",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Snadno",
+    "en": "Easily",
+    "vi": "Dễ",
+    "czPron": "SNAD-no",
+    "viPron": "ze",
+    "czAudio": "speech/cz/snadno.mp3",
+    "viAudio": "speech/vi/de.mp3"
+  },
+  {
+    "id": "w171",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Těžko",
+    "en": "Hard",
+    "vi": "Khó",
+    "czPron": "TĚŽ-ko",
+    "viPron": "cho",
+    "czAudio": "speech/cz/tezko.mp3",
+    "viAudio": "speech/vi/kho.mp3"
+  },
+  {
+    "id": "w172",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Rád",
+    "en": "Gladly / like",
+    "vi": "Thích",
+    "czPron": "Rád",
+    "viPron": "thich",
+    "czAudio": "speech/cz/rad.mp3",
+    "viAudio": "speech/vi/thich.mp3"
+  },
+  {
+    "id": "w173",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Myslet",
+    "en": "To think",
+    "vi": "Nghĩ",
+    "czPron": "MY-slet",
+    "viPron": "ňi",
+    "czAudio": "speech/cz/myslet.mp3",
+    "viAudio": "speech/vi/nghi.mp3"
+  },
+  {
+    "id": "w174",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Věřit",
+    "en": "To believe",
+    "vi": "Tin",
+    "czPron": "VĚ-řit",
+    "viPron": "tin",
+    "czAudio": "speech/cz/verit.mp3",
+    "viAudio": "speech/vi/tin.mp3"
+  },
+  {
+    "id": "w175",
+    "category": [
+      "word",
+      "basic 2"
+    ],
+    "cz": "Doufat",
+    "en": "To hope",
+    "vi": "Hy vọng",
+    "czPron": "DOU-fat",
+    "viPron": "hi vong",
+    "czAudio": "speech/cz/doufat.mp3",
+    "viAudio": "speech/vi/hy-vong.mp3"
+  },
+  {
+    "id": "w176",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Zkusit",
+    "en": "To try",
+    "vi": "Thử",
+    "czPron": "ZKU-sit",
+    "viPron": "thu",
+    "czAudio": "speech/cz/zkusit.mp3",
+    "viAudio": "speech/vi/thu.mp3"
+  },
+  {
+    "id": "w177",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Rozhodnout",
+    "en": "To decide",
+    "vi": "Quyết định",
+    "czPron": "ROZ-hod-nout",
+    "viPron": "kvet din",
+    "czAudio": "speech/cz/rozhodnout.mp3",
+    "viAudio": "speech/vi/quyet-djinh.mp3"
+  },
+  {
+    "id": "w178",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Změnit",
+    "en": "To change",
+    "vi": "Thay đổi",
+    "czPron": "ZMĚ-nit",
+    "viPron": "thaj doj",
+    "czAudio": "speech/cz/zmenit.mp3",
+    "viAudio": "speech/vi/thay-djoi.mp3"
+  },
+  {
+    "id": "w179",
+    "category": [
+      "word",
+      "basic"
+    ],
+    "cz": "Zůstat",
+    "en": "To stay",
+    "vi": "Ở lại",
+    "czPron": "ZŮ-stat",
+    "viPron": "ə laj",
+    "czAudio": "speech/cz/zustat.mp3",
+    "viAudio": "speech/vi/o-lai.mp3"
+  },
+  {
+    "id": "w180",
+    "category": [
+      "word"
+    ],
+    "cz": "Vrátit",
+    "en": "To return",
+    "vi": "Quay lại",
+    "czPron": "VRÁ-tit",
+    "viPron": "kuaj laj",
+    "czAudio": "speech/cz/vratit.mp3",
+    "viAudio": "speech/vi/quay-lai.mp3"
+  },
+  {
+    "id": "w181",
+    "category": [
+      "word"
+    ],
+    "cz": "Vzít",
+    "en": "To take",
+    "vi": "Lấy",
+    "czPron": "Vzít",
+    "viPron": "lej",
+    "czAudio": "speech/cz/vzit.mp3",
+    "viAudio": "speech/vi/lay.mp3"
+  },
+  {
+    "id": "w182",
+    "category": [
+      "word"
+    ],
+    "cz": "Dát",
+    "en": "To give",
+    "vi": "Cho",
+    "czPron": "Dát",
+    "viPron": "čo",
+    "czAudio": "speech/cz/dat.mp3",
+    "viAudio": "speech/vi/cho.mp3"
+  },
+  {
+    "id": "w183",
+    "category": [
+      "word"
+    ],
+    "cz": "Držet",
+    "en": "To hold",
+    "vi": "Giữ",
+    "czPron": "DR-žet",
+    "viPron": "zu",
+    "czAudio": "speech/cz/drzet.mp3",
+    "viAudio": "speech/vi/giu.mp3"
+  },
+  {
+    "id": "w184",
+    "category": [
+      "word"
+    ],
+    "cz": "Nechat",
+    "en": "To let",
+    "vi": "Để",
+    "czPron": "NE-chat",
+    "viPron": "de",
+    "czAudio": "speech/cz/nechat.mp3",
+    "viAudio": "speech/vi/de.mp3"
+  },
+  {
+    "id": "w185",
+    "category": [
+      "word"
+    ],
+    "cz": "Patřit",
+    "en": "To belong",
+    "vi": "Thuộc",
+    "czPron": "PA-třit",
+    "viPron": "thuok",
+    "czAudio": "speech/cz/patrit.mp3",
+    "viAudio": "speech/vi/thuoc.mp3"
+  },
+  {
+    "id": "w186",
+    "category": [
+      "word"
+    ],
+    "cz": "Platí",
+    "en": "It applies",
+    "vi": "Áp dụng",
+    "czPron": "PLA-tí",
+    "viPron": "ap zun",
+    "czAudio": "speech/cz/plati.mp3",
+    "viAudio": "speech/vi/ap-dung.mp3"
+  },
+  {
+    "id": "w187",
+    "category": [
+      "phrase"
+    ],
+    "cz": "Zdát se",
+    "en": "To seem",
+    "vi": "Có vẻ",
+    "czPron": "ZDÁT se",
+    "viPron": "ko ve",
+    "czAudio": "speech/cz/zdat-se.mp3",
+    "viAudio": "speech/vi/co-ve.mp3"
+  },
+  {
+    "id": "w188",
+    "category": [
+      "word"
+    ],
+    "cz": "Stačit",
+    "en": "To be enough",
+    "vi": "Đủ",
+    "czPron": "STA-čit",
+    "viPron": "du",
+    "czAudio": "speech/cz/stacit.mp3",
+    "viAudio": "speech/vi/dju.mp3"
+  },
+  {
+    "id": "w189",
+    "category": [
+      "word"
+    ],
+    "cz": "Chybět",
+    "en": "To be missing",
+    "vi": "Thiếu",
+    "czPron": "CHY-bět",
+    "viPron": "thieu",
+    "czAudio": "speech/cz/chybet.mp3",
+    "viAudio": "speech/vi/thieu.mp3"
+  },
+  {
+    "id": "w190",
+    "category": [
+      "word"
+    ],
+    "cz": "Přesně",
+    "en": "Exactly",
+    "vi": "Chính xác",
+    "czPron": "PŘES-ně",
+    "viPron": "činh sak",
+    "czAudio": "speech/cz/presne.mp3",
+    "viAudio": "speech/vi/chinh-xac.mp3"
+  },
+  {
+    "id": "w191",
+    "category": [
+      "word"
+    ],
+    "cz": "Přibližně",
+    "en": "Approximately",
+    "vi": "Khoảng",
+    "czPron": "PŘI-bliž-ně",
+    "viPron": "chuoang",
+    "czAudio": "speech/cz/priblizne.mp3",
+    "viAudio": "speech/vi/khoang.mp3"
+  },
+  {
+    "id": "w192",
+    "category": [
+      "word"
+    ],
+    "cz": "Opravdu",
+    "en": "Really",
+    "vi": "Thật sự",
+    "czPron": "O-PRA-vdu",
+    "viPron": "that su",
+    "czAudio": "speech/cz/opravdu.mp3",
+    "viAudio": "speech/vi/that-su.mp3"
+  },
+  {
+    "id": "w193",
+    "category": [
+      "word"
+    ],
+    "cz": "Možná",
+    "en": "Maybe",
+    "vi": "Có lẽ",
+    "czPron": "MOŽ-ná",
+    "viPron": "ko le",
+    "czAudio": "speech/cz/mozna.mp3",
+    "viAudio": "speech/vi/co-le.mp3"
+  },
+  {
+    "id": "w194",
+    "category": [
+      "basic",
+      "phrase",
+      "nails"
+    ],
+    "cz": "Dnes to stačí",
+    "en": "That's enough for today",
+    "vi": "Hôm nay như vậy đủ rồi",
+    "czPron": "DNES to STA-čí",
+    "viPron": "hom naj ňu vaj du zoj",
+    "czAudio": "speech/cz/dnes-to-staci.mp3",
+    "viAudio": "speech/vi/hom-nay-nhu-vay-dju-roi.mp3"
+  },
+  {
+    "id": "w195",
+    "category": [
+      "basic",
+      "phrase"
+    ],
+    "cz": "Zítra to bude lepší",
+    "en": "Tomorrow will be better",
+    "vi": "Ngày mai sẽ tốt hơn",
+    "czPron": "ZÍT-ra to BU-de LEP-ší",
+    "viPron": "ngaj maj se tot hon",
+    "czAudio": "speech/cz/zitra-to-bude-lepsi.mp3",
+    "viAudio": "speech/vi/ngay-mai-se-tot-hon.mp3"
+  },
+  {
+    "id": "w196",
+    "category": [
+      "phrase",
+      "basic"
+    ],
+    "cz": "To je dobré",
+    "en": "That's good",
+    "vi": "Như vậy tốt",
+    "czPron": "TO je DO-bré",
+    "viPron": "ňu vaj tot",
+    "czAudio": "speech/cz/to-je-dobre.mp3",
+    "viAudio": "speech/vi/nhu-vay-tot.mp3"
+  },
+  {
+    "id": "w197",
+    "category": [
+      "phrase",
+      "basic"
+    ],
+    "cz": "To není dobré",
+    "en": "That's not good",
+    "vi": "Không tốt",
+    "czPron": "TO NE-ní DO-bré",
+    "viPron": "chom tot",
+    "czAudio": "speech/cz/to-neni-dobre.mp3",
+    "viAudio": "speech/vi/khong-tot.mp3"
+  },
+  {
+    "id": "w198",
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Můžete se posadit",
+    "en": "You can sit down",
+    "vi": "Bạn có thể ngồi",
+    "czPron": "MŮ-že-te se po-SA-dit",
+    "viPron": "ban ko tche ngoj",
+    "czAudio": "speech/cz/muzete-se-posadit.mp3",
+    "viAudio": "speech/vi/ban-co-the-ngoi.mp3"
+  },
+  {
+    "id": "w199",
+    "category": [
+      "basic",
+      "phrase"
+    ],
+    "cz": "Začneme teď",
+    "en": "We will start now",
+    "vi": "Bắt đầu bây giờ",
+    "czPron": "ZAČ-ne-me teď",
+    "viPron": "bat dau baj zə",
+    "czAudio": "speech/cz/zacneme-ted.mp3",
+    "viAudio": "speech/vi/bat-djau-bay-gio.mp3"
+  },
+  {
+    "id": "w200",
+    "category": [
+      "phrase",
+      "nails",
+      "basic"
+    ],
+    "cz": "Už je to hotové",
+    "en": "It's finished",
+    "vi": "Xong rồi",
+    "czPron": "UŽ je to HO-to-vé",
+    "viPron": "song zoj",
+    "czAudio": "speech/cz/uz-je-to-hotove.mp3",
+    "viAudio": "speech/vi/xong-roi.mp3"
+  },
+  {
+    "id": "w202",
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Nebude to bolet",
+    "en": "It won't hurt",
+    "vi": "Không đau đâu",
+    "czPron": "NE-bu-de to BO-let",
+    "viPron": "chom dau dau",
+    "czAudio": "speech/cz/nebude-to-bolet.mp3",
+    "viAudio": "speech/vi/khong-djau-djau.mp3"
+  },
+  {
+    "id": "w203",
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Líbí se vám to?",
+    "en": "Do you like it?",
+    "vi": "Bạn có thích không?",
+    "czPron": "LÍ-bí se vám to",
+    "viPron": "ban ko thik chom",
+    "czAudio": "speech/cz/libi-se-vam-to.mp3",
+    "viAudio": "speech/vi/ban-co-thich-khong.mp3"
+  },
+  {
+    "id": "w204",
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Je to hezké?",
+    "en": "Is it nice?",
+    "vi": "Đẹp không?",
+    "czPron": "JE to HEZ-ké",
+    "viPron": "dep chom",
+    "czAudio": "speech/cz/je-to-hezke.mp3",
+    "viAudio": "speech/vi/djep-khong.mp3"
+  },
+  {
+    "id": "w205",
+    "category": [
+      "phrase",
+      "nails"
+    ],
+    "cz": "Chcete jinou barvu?",
+    "en": "Do you want another color?",
+    "vi": "Bạn muốn màu khác không?",
+    "czPron": "CHCE-te JI-nou BAR-vu",
+    "viPron": "ban muon mau chac chom",
+    "czAudio": "speech/cz/chcete-jinou-barvu.mp3",
+    "viAudio": "speech/vi/ban-muon-mau-khac-khong.mp3"
+  },
+  {
+    "id": "w206",
+    "category": [
+      "nails",
+      "phrase"
+    ],
+    "cz": "Krátké nebo dlouhé?",
+    "en": "Shorter or longer?",
+    "vi": "Ngắn hay dài?",
+    "czPron": "KRÁT-ké ne-bo DLOU-hé?",
+    "viPron": "ngan haj zaj",
+    "czAudio": "speech/cz/kratke-nebo-dlouhe.mp3",
+    "viAudio": "speech/vi/ngan-hay-dai.mp3"
+  },
+  {
+    "id": "w207",
+    "category": [
+      "phrase",
+      "nails"
+    ],
+    "cz": "Uděláme to kratší",
+    "en": "We will make it shorter",
+    "vi": "Làm ngắn lại",
+    "czPron": "U-DĚ-lá-me to KRAT-ší",
+    "viPron": "lam ngan laj",
+    "czAudio": "speech/cz/udelame-to-kratsi.mp3",
+    "viAudio": "speech/vi/lam-ngan-lai.mp3"
+  },
+  {
+    "id": "w208",
+    "category": [
+      "phrase",
+      "nails"
+    ],
+    "cz": "Uděláme to delší",
+    "en": "We will make it longer",
+    "vi": "Làm dài hơn",
+    "czPron": "U-DĚ-lá-me to DEL-ší",
+    "viPron": "lam zaj hon",
+    "czAudio": "speech/cz/udelame-to-delsi.mp3",
+    "viAudio": "speech/vi/lam-dai-hon.mp3"
+  },
+  {
+    "id": "w209",
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Necháme to takto",
+    "en": "We'll leave it like this",
+    "vi": "Giữ như vậy",
+    "czPron": "NE-CHÁ-me to TAK-to",
+    "viPron": "zu ňu vaj",
+    "czAudio": "speech/cz/nechame-to-takto.mp3",
+    "viAudio": "speech/vi/giu-nhu-vay.mp3"
+  },
+  {
+    "id": "w210",
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Trochu to upravím",
+    "en": "I'll adjust it a bit",
+    "vi": "Sửa một chút",
+    "czPron": "TRO-chu to U-PRA-vím",
+    "viPron": "sua mot čut",
+    "czAudio": "speech/cz/trochu-to-upravim.mp3",
+    "viAudio": "speech/vi/sua-mot-chut.mp3"
+  },
+  {
+    "id": "w211",
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Musíme to opravit",
+    "en": "We need to fix it",
+    "vi": "Cần sửa lại",
+    "czPron": "MU-sí-me to O-PRA-vit",
+    "viPron": "kan sua laj",
+    "czAudio": "speech/cz/musime-to-opravit.mp3",
+    "viAudio": "speech/vi/can-sua-lai.mp3"
+  },
+  {
+    "id": "w212",
+    "category": [
+      "phrase",
+      "nails",
+      "basic"
+    ],
+    "cz": "Cena je tady",
+    "en": "The price is here",
+    "vi": "Giá là thế này",
+    "czPron": "CE-na je TA-dy",
+    "viPron": "za la the naj",
+    "czAudio": "speech/cz/cena-je-tady.mp3",
+    "viAudio": "speech/vi/gia-la-the-nay.mp3"
+  },
+  {
+    "id": "w213",
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Je to trochu drahé",
+    "en": "It's a bit expensive",
+    "vi": "Hơi đắt",
+    "czPron": "JE to TRO-chu DRA-hé",
+    "viPron": "hoj dat",
+    "czAudio": "speech/cz/je-to-trochu-drahe.mp3",
+    "viAudio": "speech/vi/hoi-djat.mp3"
+  },
+  {
+    "id": "w214",
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Je to levnější",
+    "en": "It's cheaper",
+    "vi": "Rẻ hơn",
+    "czPron": "JE to LEV-něj-ší",
+    "viPron": "ze hon",
+    "czAudio": "speech/cz/je-to-levnejsi.mp3",
+    "viAudio": "speech/vi/re-hon.mp3"
+  },
+  {
+    "id": "w215",
+    "category": [
+      "phrase",
+      "basic",
+      "nails"
+    ],
+    "cz": "Bude to trvat chvíli",
+    "en": "It will take a while",
+    "vi": "Sẽ mất một chút thời gian",
+    "czPron": "BU-de to TR-vat CHVÍ-li",
+    "viPron": "se mat mot čut thoj zan",
+    "czAudio": "speech/cz/bude-to-trvat-chvili.mp3",
+    "viAudio": "speech/vi/se-mat-mot-chut-thoi-gian.mp3"
+  },
+  {
+    "id": "w216",
+    "category": [
+      "basic",
+      "word"
+    ],
+    "cz": "Děkuji, nashledanou",
+    "en": "Thank you, goodbye",
+    "vi": "Cảm ơn, hẹn gặp lại",
+    "czPron": "DĚ-ku-ji na-SCHLE-da-nou",
+    "viPron": "kam ən hen gap laj",
+    "czAudio": "speech/cz/dekuji-nashledanou.mp3",
+    "viAudio": "speech/vi/cam-on-hen-gap-lai.mp3"
+  },
+
+  // new
+  { "id": "w217", "category": ["basic", "word"], "cz": "Děkuji", "en": "Thank you", "vi": "Cảm ơn", "czPron": "DYE-ku-yi", "viPron": "gam un", "czAudio": "speech/cz/dekuji.mp3", "viAudio": "speech/vi/cam-on.mp3" },
+  { "id": "w218", "category": ["basic", "word"], "cz": "Promiň", "en": "Sorry", "vi": "Xin lỗi", "czPron": "PRO-miň", "viPron": "sin loi", "czAudio": "speech/cz/promin.mp3", "viAudio": "speech/vi/xin-loi.mp3" },
+  { "id": "w219", "category": ["basic", "word"], "cz": "Prosím", "en": "Please", "vi": "Làm ơn", "czPron": "PRO-sim", "viPron": "lam un", "czAudio": "speech/cz/prosim.mp3", "viAudio": "speech/vi/lam-on.mp3" },
+  { "id": "w220", "category": ["basic", "word"], "cz": "to", "en": "it / that", "vi": "cái đó", "czPron": "to", "viPron": "kai dó", "czAudio": "speech/cz/to.mp3", "viAudio": "speech/vi/cai-do.mp3" },
+  { "id": "w221", "category": ["basic", "word"], "cz": "láska", "en": "love (noun)", "vi": "tình yêu", "czPron": "LAS-ka", "viPron": "tiň jeu", "czAudio": "speech/cz/laska.mp3", "viAudio": "speech/vi/tinh-yeu.mp3" },
+  { "id": "w222", "category": ["basic", "word"], "cz": "milovat", "en": "to love", "vi": "yêu", "czPron": "MI-lo-vat", "viPron": "jeu", "czAudio": "speech/cz/milovat.mp3", "viAudio": "speech/vi/yeu.mp3" },
+
+  { "id": "w223", "category": ["basic", "word"], "cz": "jak", "en": "how", "vi": "như thế nào", "czPron": "yak", "viPron": "ňu thê nao", "czAudio": "speech/cz/jak.mp3", "viAudio": "speech/vi/nhu-the-nao.mp3" },
+  { "id": "w224", "category": ["basic", "word"], "cz": "kdy", "en": "when", "vi": "khi nào", "czPron": "kdi", "viPron": "kchi nao", "czAudio": "speech/cz/kdy.mp3", "viAudio": "speech/vi/khi-nao.mp3" },
+  { "id": "w225", "category": ["basic", "word"], "cz": "kde", "en": "where", "vi": "ở đâu", "czPron": "kde", "viPron": "ö dau", "czAudio": "speech/cz/kde.mp3", "viAudio": "speech/vi/o-dau.mp3" },
+  { "id": "w226", "category": ["basic", "word"], "cz": "kdo", "en": "who", "vi": "ai", "czPron": "kdo", "viPron": "ai", "czAudio": "speech/cz/kdo.mp3", "viAudio": "speech/vi/ai.mp3" },
+  { "id": "w227", "category": ["basic", "word"], "cz": "proč", "en": "why", "vi": "tại sao", "czPron": "proch", "viPron": "tai sao", "czAudio": "speech/cz/proc.mp3", "viAudio": "speech/vi/tai-sao.mp3" },
+  { "id": "w228", "category": ["basic", "word"], "cz": "kolik", "en": "how much / how many", "vi": "bao nhiêu", "czPron": "KO-lik", "viPron": "bao ňieu", "czAudio": "speech/cz/kolik.mp3", "viAudio": "speech/vi/bao-nhieu.mp3" },
+  { "id": "w229", "category": ["basic", "word"], "cz": "co", "en": "what", "vi": "cái gì", "czPron": "co", "viPron": "kai zi", "czAudio": "speech/cz/co.mp3", "viAudio": "speech/vi/cai-gi.mp3" },
+
+  { "id": "w230", "category": ["basic", "word"], "cz": "v", "en": "in", "vi": "trong", "czPron": "v", "viPron": "trong", "czAudio": "speech/cz/v.mp3", "viAudio": "speech/vi/trong.mp3" },
+  { "id": "w231", "category": ["basic", "word"], "cz": "s", "en": "with", "vi": "với", "czPron": "s", "viPron": "voi", "czAudio": "speech/cz/s.mp3", "viAudio": "speech/vi/voi.mp3" },
+  { "id": "w232", "category": ["basic", "word"], "cz": "nad", "en": "above", "vi": "trên", "czPron": "nad", "viPron": "tren", "czAudio": "speech/cz/nad.mp3", "viAudio": "speech/vi/tren.mp3" },
+  { "id": "w233", "category": ["basic", "word"], "cz": "pod", "en": "under", "vi": "dưới", "czPron": "pod", "viPron": "zuoi", "czAudio": "speech/cz/pod.mp3", "viAudio": "speech/vi/duoi.mp3" },
+  { "id": "w234", "category": ["basic", "word"], "cz": "na", "en": "on", "vi": "trên", "czPron": "na", "viPron": "tren", "czAudio": "speech/cz/na.mp3", "viAudio": "speech/vi/tren.mp3" },
+  { "id": "w235", "category": ["basic", "word"], "cz": "vedle", "en": "next to", "vi": "bên cạnh", "czPron": "VED-le", "viPron": "ben kanh", "czAudio": "speech/cz/vedle.mp3", "viAudio": "speech/vi/ben-canh.mp3" },
+  { "id": "w236", "category": ["basic", "word"], "cz": "před", "en": "in front of", "vi": "trước", "czPron": "przhed", "viPron": "truok", "czAudio": "speech/cz/pred.mp3", "viAudio": "speech/vi/truoc.mp3" },
+  { "id": "w237", "category": ["basic", "word"], "cz": "za", "en": "behind / after", "vi": "sau", "czPron": "za", "viPron": "sau", "czAudio": "speech/cz/za.mp3", "viAudio": "speech/vi/sau.mp3" },
+
+  { "id": "w238", "category": ["basic", "word"], "cz": "vlevo", "en": "left", "vi": "bên trái", "czPron": "VLE-vo", "viPron": "ben trai", "czAudio": "speech/cz/vlevo.mp3", "viAudio": "speech/vi/ben-trai.mp3" },
+  { "id": "w239", "category": ["basic", "word"], "cz": "vpravo", "en": "right", "vi": "bên phải", "czPron": "VPRA-vo", "viPron": "ben fai", "czAudio": "speech/cz/vpravo.mp3", "viAudio": "speech/vi/ben-phai.mp3" },
+  { "id": "w240", "category": ["basic", "word"], "cz": "vepředu", "en": "in front", "vi": "phía trước", "czPron": "VE-przhe-du", "viPron": "fia truok", "czAudio": "speech/cz/vepredu.mp3", "viAudio": "speech/vi/phia-truoc.mp3" },
+  { "id": "w241", "category": ["basic", "word"], "cz": "vzadu", "en": "behind", "vi": "phía sau", "czPron": "VZA-du", "viPron": "fia sau", "czAudio": "speech/cz/vzadu.mp3", "viAudio": "speech/vi/phia-sau.mp3" },
+  { "id": "w242", "category": ["basic", "word"], "cz": "dole", "en": "down / below", "vi": "phía dưới", "czPron": "DO-le", "viPron": "fia zuoi", "czAudio": "speech/cz/dole.mp3", "viAudio": "speech/vi/phia-duoi.mp3" },
+  { "id": "w243", "category": ["basic", "word"], "cz": "nahoře", "en": "up / above", "vi": "phía trên", "czPron": "NA-ho-rzhe", "viPron": "fia tren", "czAudio": "speech/cz/nahore.mp3", "viAudio": "speech/vi/phia-tren.mp3" },
+
+  { "id": "w244", "category": ["basic", "word"], "cz": "rok", "en": "year", "vi": "năm", "czPron": "rok", "viPron": "nam", "czAudio": "speech/cz/rok.mp3", "viAudio": "speech/vi/nam.mp3" },
+  { "id": "w245", "category": ["basic", "word"], "cz": "měsíc", "en": "month", "vi": "tháng", "czPron": "MYE-sic", "viPron": "thang", "czAudio": "speech/cz/mesic.mp3", "viAudio": "speech/vi/thang.mp3" },
+  { "id": "w246", "category": ["basic", "word"], "cz": "den", "en": "day", "vi": "ngày", "czPron": "den", "viPron": "ngai", "czAudio": "speech/cz/den.mp3", "viAudio": "speech/vi/ngay.mp3" },
+  { "id": "w247", "category": ["basic", "word"], "cz": "hodina", "en": "hour", "vi": "giờ", "czPron": "HO-di-na", "viPron": "zo", "czAudio": "speech/cz/hodina.mp3", "viAudio": "speech/vi/gio.mp3" },
+  { "id": "w248", "category": ["basic", "word"], "cz": "minuta", "en": "minute", "vi": "phút", "czPron": "MI-nu-ta", "viPron": "fut", "czAudio": "speech/cz/minuta.mp3", "viAudio": "speech/vi/phut.mp3" },
+  { "id": "w249", "category": ["basic", "word"], "cz": "vteřina", "en": "second", "vi": "giây", "czPron": "VTE-rzhi-na", "viPron": "zaj", "czAudio": "speech/cz/vterina.mp3", "viAudio": "speech/vi/giay.mp3" },
+
+  { "id": "w250", "category": ["basic", "word"], "cz": "pondělí", "en": "Monday", "vi": "thứ hai", "czPron": "PON-dye-li", "viPron": "tu hai", "czAudio": "speech/cz/pondeli.mp3", "viAudio": "speech/vi/thu-hai.mp3" },
+  { "id": "w251", "category": ["basic", "word"], "cz": "úterý", "en": "Tuesday", "vi": "thứ ba", "czPron": "U-te-ri", "viPron": "tu ba", "czAudio": "speech/cz/utery.mp3", "viAudio": "speech/vi/thu-ba.mp3" },
+  { "id": "w252", "category": ["basic", "word"], "cz": "středa", "en": "Wednesday", "vi": "thứ tư", "czPron": "STRZHE-da", "viPron": "tu tu", "czAudio": "speech/cz/streda.mp3", "viAudio": "speech/vi/thu-tu.mp3" },
+  { "id": "w253", "category": ["basic", "word"], "cz": "čtvrtek", "en": "Thursday", "vi": "thứ năm", "czPron": "CHTVER-tek", "viPron": "tu nam", "czAudio": "speech/cz/ctvrtek.mp3", "viAudio": "speech/vi/thu-nam.mp3" },
+  { "id": "w254", "category": ["basic", "word"], "cz": "pátek", "en": "Friday", "vi": "thứ sáu", "czPron": "PA-tek", "viPron": "tu sau", "czAudio": "speech/cz/patek.mp3", "viAudio": "speech/vi/thu-sau.mp3" },
+  { "id": "w255", "category": ["basic", "word"], "cz": "sobota", "en": "Saturday", "vi": "thứ bảy", "czPron": "SO-bo-ta", "viPron": "tu baj", "czAudio": "speech/cz/sobota.mp3", "viAudio": "speech/vi/thu-bay.mp3" },
+  { "id": "w256", "category": ["basic", "word"], "cz": "neděle", "en": "Sunday", "vi": "chủ nhật", "czPron": "NE-dye-le", "viPron": "chu ňat", "czAudio": "speech/cz/nedele.mp3", "viAudio": "speech/vi/chu-nhat.mp3" },
+
+  { "id": "w257", "category": ["basic", "word"], "cz": "leden", "en": "January", "vi": "tháng một", "czPron": "LE-den", "viPron": "thang mot", "czAudio": "speech/cz/leden.mp3", "viAudio": "speech/vi/thang-mot.mp3" },
+  { "id": "w258", "category": ["basic", "word"], "cz": "únor", "en": "February", "vi": "tháng hai", "czPron": "U-nor", "viPron": "thang hai", "czAudio": "speech/cz/unor.mp3", "viAudio": "speech/vi/thang-hai.mp3" },
+  { "id": "w259", "category": ["basic", "word"], "cz": "březen", "en": "March", "vi": "tháng ba", "czPron": "BRZHE-zen", "viPron": "thang ba", "czAudio": "speech/cz/brezen.mp3", "viAudio": "speech/vi/thang-ba.mp3" },
+  { "id": "w260", "category": ["basic", "word"], "cz": "duben", "en": "April", "vi": "tháng tư", "czPron": "DU-ben", "viPron": "thang tu", "czAudio": "speech/cz/duben.mp3", "viAudio": "speech/vi/thang-tu.mp3" },
+  { "id": "w261", "category": ["basic", "word"], "cz": "květen", "en": "May", "vi": "tháng năm", "czPron": "KVYE-ten", "viPron": "thang nam", "czAudio": "speech/cz/kveten.mp3", "viAudio": "speech/vi/thang-nam.mp3" },
+  { "id": "w262", "category": ["basic", "word"], "cz": "červen", "en": "June", "vi": "tháng sáu", "czPron": "CHER-ven", "viPron": "thang sau", "czAudio": "speech/cz/cerven.mp3", "viAudio": "speech/vi/thang-sau.mp3" },
+  { "id": "w263", "category": ["basic", "word"], "cz": "červenec", "en": "July", "vi": "tháng bảy", "czPron": "CHER-ve-nec", "viPron": "thang baj", "czAudio": "speech/cz/cervenec.mp3", "viAudio": "speech/vi/thang-bay.mp3" },
+  { "id": "w264", "category": ["basic", "word"], "cz": "srpen", "en": "August", "vi": "tháng tám", "czPron": "SR-pen", "viPron": "thang tam", "czAudio": "speech/cz/srpen.mp3", "viAudio": "speech/vi/thang-tam.mp3" },
+  { "id": "w265", "category": ["basic", "word"], "cz": "září", "en": "September", "vi": "tháng chín", "czPron": "ZA-rzhi", "viPron": "thang chin", "czAudio": "speech/cz/zari.mp3", "viAudio": "speech/vi/thang-chin.mp3" },
+  { "id": "w266", "category": ["basic", "word"], "cz": "říjen", "en": "October", "vi": "tháng mười", "czPron": "RZHI-yen", "viPron": "thang muoi", "czAudio": "speech/cz/rijen.mp3", "viAudio": "speech/vi/thang-muoi.mp3" },
+  { "id": "w267", "category": ["basic", "word"], "cz": "listopad", "en": "November", "vi": "tháng mười một", "czPron": "LIS-to-pad", "viPron": "thang muoi mot", "czAudio": "speech/cz/listopad.mp3", "viAudio": "speech/vi/thang-muoi-mot.mp3" },
+  { "id": "w268", "category": ["basic", "word"], "cz": "prosinec", "en": "December", "vi": "tháng mười hai", "czPron": "PRO-si-nec", "viPron": "thang muoi hai", "czAudio": "speech/cz/prosinec.mp3", "viAudio": "speech/vi/thang-muoi-hai.mp3" },
+
+  { "id": "w269", "category": ["basic", "word"], "cz": "nula", "en": "zero", "vi": "không", "czPron": "NU-la", "viPron": "khong", "czAudio": "speech/cz/nula.mp3", "viAudio": "speech/vi/khong.mp3" },
+  { "id": "w270", "category": ["basic", "word"], "cz": "jedna", "en": "one", "vi": "một", "czPron": "YED-na", "viPron": "mot", "czAudio": "speech/cz/jedna.mp3", "viAudio": "speech/vi/mot.mp3" },
+  { "id": "w271", "category": ["basic", "word"], "cz": "dvě", "en": "two", "vi": "hai", "czPron": "dvye", "viPron": "hai", "czAudio": "speech/cz/dve.mp3", "viAudio": "speech/vi/hai.mp3" },
+  { "id": "w272", "category": ["basic", "word"], "cz": "tři", "en": "three", "vi": "ba", "czPron": "trzhi", "viPron": "ba", "czAudio": "speech/cz/tri.mp3", "viAudio": "speech/vi/ba.mp3" },
+  { "id": "w273", "category": ["basic", "word"], "cz": "čtyři", "en": "four", "vi": "bốn", "czPron": "CHTI-rzhi", "viPron": "bon", "czAudio": "speech/cz/ctyri.mp3", "viAudio": "speech/vi/bon.mp3" },
+  { "id": "w274", "category": ["basic", "word"], "cz": "pět", "en": "five", "vi": "năm", "czPron": "pyet", "viPron": "nam", "czAudio": "speech/cz/pet.mp3", "viAudio": "speech/vi/nam.mp3" },
+  { "id": "w275", "category": ["basic", "word"], "cz": "šest", "en": "six", "vi": "sáu", "czPron": "shest", "viPron": "sau", "czAudio": "speech/cz/sest.mp3", "viAudio": "speech/vi/sau.mp3" },
+  { "id": "w276", "category": ["basic", "word"], "cz": "sedm", "en": "seven", "vi": "bảy", "czPron": "sedm", "viPron": "baj", "czAudio": "speech/cz/sedm.mp3", "viAudio": "speech/vi/bay.mp3" },
+  { "id": "w277", "category": ["basic", "word"], "cz": "osm", "en": "eight", "vi": "tám", "czPron": "osm", "viPron": "tam", "czAudio": "speech/cz/osm.mp3", "viAudio": "speech/vi/tam.mp3" },
+  { "id": "w278", "category": ["basic", "word"], "cz": "devět", "en": "nine", "vi": "chín", "czPron": "DE-vyet", "viPron": "chin", "czAudio": "speech/cz/devet.mp3", "viAudio": "speech/vi/chin.mp3" },
+  { "id": "w279", "category": ["basic", "word"], "cz": "deset", "en": "ten", "vi": "mười", "czPron": "DE-set", "viPron": "muoi", "czAudio": "speech/cz/deset.mp3", "viAudio": "speech/vi/muoi.mp3" },
+  { "id": "w280", "category": ["basic", "word"], "cz": "jedenáct", "en": "eleven", "vi": "mười một", "czPron": "YE-de-nact", "viPron": "muoi mot", "czAudio": "speech/cz/jedenact.mp3", "viAudio": "speech/vi/muoi-mot.mp3" },
+  { "id": "w281", "category": ["basic", "word"], "cz": "dvanáct", "en": "twelve", "vi": "mười hai", "czPron": "DVA-nact", "viPron": "muoi hai", "czAudio": "speech/cz/dvanact.mp3", "viAudio": "speech/vi/muoi-hai.mp3" },
+  { "id": "w282", "category": ["basic", "word"], "cz": "dvacet", "en": "twenty", "vi": "hai mươi", "czPron": "DVA-cet", "viPron": "hai muoi", "czAudio": "speech/cz/dvacet.mp3", "viAudio": "speech/vi/hai-muoi.mp3" },
+  { "id": "w283", "category": ["basic", "word"], "cz": "dvacet dva", "en": "twenty-two", "vi": "hai mươi hai", "czPron": "DVA-cet DVA", "viPron": "hai muoi hai", "czAudio": "speech/cz/dvacet-dva.mp3", "viAudio": "speech/vi/hai-muoi-hai.mp3" },
+  { "id": "w284", "category": ["basic", "word"], "cz": "třicet", "en": "thirty", "vi": "ba mươi", "czPron": "TRZHI-cet", "viPron": "ba muoi", "czAudio": "speech/cz/tricet.mp3", "viAudio": "speech/vi/ba-muoi.mp3" },
+  { "id": "w285", "category": ["basic", "word"], "cz": "sto", "en": "hundred", "vi": "một trăm", "czPron": "sto", "viPron": "mot tram", "czAudio": "speech/cz/sto.mp3", "viAudio": "speech/vi/mot-tram.mp3" },
+  { "id": "w286", "category": ["basic", "word"], "cz": "tisíc", "en": "thousand", "vi": "một nghìn", "czPron": "TI-sic", "viPron": "mot ngin", "czAudio": "speech/cz/tisic.mp3", "viAudio": "speech/vi/mot-nghin.mp3" },
+  { "id": "w287", "category": ["basic", "word"], "cz": "milion", "en": "million", "vi": "một triệu", "czPron": "MI-li-on", "viPron": "mot trieu", "czAudio": "speech/cz/milion.mp3", "viAudio": "speech/vi/mot-trieu.mp3" },
+  { "id": "w288", "category": ["basic", "word"], "cz": "miliarda", "en": "billion", "vi": "một tỷ", "czPron": "MI-li-ar-da", "viPron": "mot ti", "czAudio": "speech/cz/miliarda.mp3", "viAudio": "speech/vi/mot-ty.mp3" },
+  { "id": "w289", "category": ["basic", "word"], "cz": "bilion", "en": "trillion", "vi": "một nghìn tỷ", "czPron": "BI-li-on", "viPron": "mot ngin ti", "czAudio": "speech/cz/bilion.mp3", "viAudio": "speech/vi/mot-nghin-ty.mp3" },
+  { "id": "w290", "category": ["basic", "word"], "cz": "trilion", "en": "quadrillion", "vi": "một triệu tỷ", "czPron": "TRI-li-on", "viPron": "mot trieu ti", "czAudio": "speech/cz/trilion.mp3", "viAudio": "speech/vi/mot-trieu-ty.mp3" },
+  { "id": "w291", "category": ["basic", "word"], "cz": "sto deset tisíc pětset třicet šest", "en": "110,536", "vi": "một trăm mười nghìn năm trăm ba mươi sáu", "czPron": "sto DE-set TI-sic PYET-set TRZHI-cet shest", "viPron": "mot tram muoi ngin nam tram ba muoi sau", "czAudio": "speech/cz/sto-deset-tisic-petset-tricet-sest.mp3", "viAudio": "speech/vi/110536.mp3" },
+
+  { "id": "w292", "category": ["basic", "word"], "cz": "plus", "en": "plus", "vi": "cộng", "czPron": "plus", "viPron": "kong", "czAudio": "speech/cz/plus.mp3", "viAudio": "speech/vi/cong.mp3" },
+  { "id": "w293", "category": ["basic", "word"], "cz": "mínus", "en": "minus", "vi": "trừ", "czPron": "MI-nus", "viPron": "tru", "czAudio": "speech/cz/minus.mp3", "viAudio": "speech/vi/tru.mp3" },
+  { "id": "w294", "category": ["basic", "word"], "cz": "krát", "en": "times", "vi": "nhân", "czPron": "krat", "viPron": "ňan", "czAudio": "speech/cz/krat.mp3", "viAudio": "speech/vi/nhan.mp3" },
+  { "id": "w295", "category": ["basic", "word"], "cz": "děleno", "en": "divided by", "vi": "chia", "czPron": "DYE-le-no", "viPron": "chia", "czAudio": "speech/cz/deleno.mp3", "viAudio": "speech/vi/chia.mp3" },
+
+  { "id": "w296", "category": ["basic", "word"], "cz": "tma", "en": "darkness", "vi": "bóng tối", "czPron": "tma", "viPron": "bong toi", "czAudio": "speech/cz/tma.mp3", "viAudio": "speech/vi/bong-toi.mp3" },
+  { "id": "w297", "category": ["basic", "word"], "cz": "světlo", "en": "light", "vi": "ánh sáng", "czPron": "SVYET-lo", "viPron": "anh sang", "czAudio": "speech/cz/svetlo.mp3", "viAudio": "speech/vi/anh-sang.mp3" },
+  { "id": "w298", "category": ["basic", "word"], "cz": "slunce", "en": "sun", "vi": "mặt trời", "czPron": "SLUN-ce", "viPron": "mat troi", "czAudio": "speech/cz/slunce.mp3", "viAudio": "speech/vi/mat-troi.mp3" },
+
+  { "id": "w299", "category": ["basic", "word"], "cz": "dům", "en": "house", "vi": "nhà", "czPron": "dum", "viPron": "ňa", "czAudio": "speech/cz/dum.mp3", "viAudio": "speech/vi/nha.mp3" },
+  { "id": "w300", "category": ["basic", "word"], "cz": "obchod", "en": "shop", "vi": "cửa hàng", "czPron": "OB-khod", "viPron": "cua hang", "czAudio": "speech/cz/obchod.mp3", "viAudio": "speech/vi/cua-hang.mp3" },
+  { "id": "w301", "category": ["basic", "word"], "cz": "pokoj", "en": "room", "vi": "phòng", "czPron": "PO-koy", "viPron": "fong", "czAudio": "speech/cz/pokoj.mp3", "viAudio": "speech/vi/phong.mp3" },
+  { "id": "w302", "category": ["basic", "word"], "cz": "ulice", "en": "street", "vi": "đường phố", "czPron": "U-li-ce", "viPron": "duong fo", "czAudio": "speech/cz/ulice.mp3", "viAudio": "speech/vi/duong-pho.mp3" },
+  { "id": "w303", "category": ["basic", "word"], "cz": "město", "en": "city", "vi": "thành phố", "czPron": "MYES-to", "viPron": "thanh fo", "czAudio": "speech/cz/mesto.mp3", "viAudio": "speech/vi/thanh-pho.mp3" },
+  { "id": "w304", "category": ["basic", "word"], "cz": "vesnice", "en": "village", "vi": "làng", "czPron": "VES-ni-ce", "viPron": "lang", "czAudio": "speech/cz/vesnice.mp3", "viAudio": "speech/vi/lang.mp3" },
+
+  { "id": "w305", "category": ["basic", "phrase"], "cz": "Pracuji jako", "en": "I work as", "vi": "Tôi làm việc như", "czPron": "PRA-cu-yi YA-ko", "viPron": "toi lam viek ňu", "czAudio": "speech/cz/pracuji-jako.mp3", "viAudio": "speech/vi/toi-lam-viec-nhu.mp3" },
+  { "id": "w306", "category": ["basic", "phrase"], "cz": "Bydlím v", "en": "I live in", "vi": "Tôi sống ở", "czPron": "BID-lim v", "viPron": "toi song ö", "czAudio": "speech/cz/bydlim-v.mp3", "viAudio": "speech/vi/toi-song-o.mp3" },
+  { "id": "w307", "category": ["basic", "phrase"], "cz": "Jsem v Česku 1 rok", "en": "I've been in the Czech Republic for 1 year", "vi": "Tôi ở Séc được 1 năm", "czPron": "ysem v CHES-ku YED-na rok", "viPron": "toi ö sek duok mot nam", "czAudio": "speech/cz/jsem-v-cesku-1-rok.mp3", "viAudio": "speech/vi/toi-o-sec-mot-nam.mp3" },
+  { "id": "w308", "category": ["basic", "phrase"], "cz": "Jmenuji se", "en": "My name is", "vi": "Tên tôi là", "czPron": "YME-nu-yi se", "viPron": "ten toi la", "czAudio": "speech/cz/jmenuji-se.mp3", "viAudio": "speech/vi/ten-toi-la.mp3" }
+  
+];
+
+
+// {
+//   "id": "w216",
+//   "category": [
+//     "basic",
+//     "word"
+//   ],
+//   "cz": "Rychle",
+//   "en": "Fast",
+//   "vi": "Nhanh",
+//   "czPron": "RYCH-le",
+//   "viPron": "ňanh",
+//   "czAudio": "speech/cz/rychle.mp3",
+//   "viAudio": "speech/vi/nhanh.mp3"
+// },

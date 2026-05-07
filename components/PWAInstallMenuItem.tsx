@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { getInstallPlatform, isStandalone, openPWAInstallHelp } from '@/lib/pwa-install';
+import { InstallAppIcon } from '@/components/icons/AppIcons';
 
 export function PWAInstallMenuItem({ onClick }: { onClick?: () => void }) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -63,7 +64,9 @@ export function PWAInstallMenuItem({ onClick }: { onClick?: () => void }) {
       className="menu-item pwa-install-menu-item"
       onClick={handleInstall}
     >
-      <span className="menu-item-icon">📱</span>
+      <span className="menu-item-icon">
+        <InstallAppIcon size={15} />
+      </span>
       <span className="menu-item-label">Install App</span>
       <span className="menu-item-badge">APP</span>
     </button>

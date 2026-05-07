@@ -24,6 +24,7 @@ import { withSessionCookie } from "@/features/shared/routes/session";
 import { createRouteTimer } from "@/features/shared/routes/timing";
 import { buildSyncSuccessPayload, getHydratedWordListData } from "@/features/shared/sync/response";
 import { isUuid } from "@/features/shared/sync/identity";
+import type { SyncRequest } from "@/features/sync/types";
 import {
   verifySession,
   WORDLINK_SESSION_COOKIE_NAME,
@@ -129,43 +130,6 @@ async function resolveUser(
   }
   if (deviceId) return await getUserByDeviceId(deviceId);
   return null;
-}
-
-interface SyncRequest {
-  deviceId?: string;
-  sessionId?: string;
-  userId?: string; // Optional: fallback user ID for recovery
-  role?: "cz" | "vi";
-  show_english?: boolean;
-  show_category_badges?: boolean;
-  show_pronunciation?: boolean;
-  memory_hooks_enabled?: boolean;
-  memory_hook_disable_from_stage?: number;
-  settings_language?: string;
-  language_from?: string | null;
-  language_to?: string | null;
-  onboarding_completed?: boolean;
-  game_score?: number;
-  category_order?: string[];
-  progress?: Array<{
-    word_id?: string; // legacy: old word ID like "w000"
-    word_list_item_id?: string; // new: UUID from word_list_items
-    stage_index: number;
-    known_count: number;
-    unknown_count: number;
-    last_known_at: number | null;
-    last_unknown_at: number | null;
-    next_due_at: number | null;
-  }>;
-  review_events?: Array<{
-    client_event_id: string;
-    word_id?: string;
-    word_list_item_id?: string;
-    action: "known" | "really_known" | "unknown";
-    client_created_at: number;
-  }>;
-  memory_hooks?: Record<string, string | null>; // null means delete
-  category_filters?: string[];
 }
 
 export async function POST(request: NextRequest) {

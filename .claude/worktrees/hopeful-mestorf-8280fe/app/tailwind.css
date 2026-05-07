@@ -1,0 +1,36 @@
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+/*
+  Tailwind v4 CSS-based theme configuration.
+  Colors reference CSS variables from styles.css so they respond to theme changes.
+*/
+
+@theme {
+  /* Colors reference CSS custom properties so they update with data-theme */
+  --color-background: var(--bg);
+  --color-background-elevated: var(--bg-elevated);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-strong: var(--accent-strong);
+  --color-text: var(--text);
+  --color-text-soft: var(--text-soft);
+  --color-border-subtle: var(--border-subtle);
+  --color-danger: var(--danger);
+  --color-fresh: var(--fresh);
+  --color-done: var(--done);
+
+  /* Custom border radius */
+  --radius-pill: 999px;
+  --radius-lg: 18px;
+
+  /* Custom shadows */
+  --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.75);
+  --shadow-chip: 0 10px 25px rgba(15, 23, 42, 0.7);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}

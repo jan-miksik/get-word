@@ -62,6 +62,15 @@ export type ConfirmResult = {
   }[];
 };
 
+export type CompletedTranslationRow = {
+  id: string;
+  textKnown: string;
+  textTarget: string;
+  status: 'pending' | 'ok' | 'error' | 'manual';
+  error?: string;
+  source?: 'dedup' | 'api';
+};
+
 export type GoogleUsageScope = 'translate' | 'tts';
 
 export type GoogleUsageAccountScope = {

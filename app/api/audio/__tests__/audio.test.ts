@@ -41,6 +41,7 @@ vi.mock('@/lib/audio', () => ({
   googleTTS: (...args: unknown[]) => mockGoogleTTS(...args),
   elevenLabsTTS: (...args: unknown[]) => mockElevenLabsTTS(...args),
   getAudioUrl: (...args: unknown[]) => mockGetAudioUrl(...args),
+  GoogleTTSQuotaExhaustedError: class GoogleTTSQuotaExhaustedError extends Error {},
 }))
 
 vi.mock('@/lib/audio-storage', () => ({

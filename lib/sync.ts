@@ -5,6 +5,20 @@ import {
   clearAppliedReviewEvents,
   type ReviewEventPayload,
 } from "./review-events";
+import type {
+  SyncMutationPayload,
+  SyncResponse,
+} from "@/features/sync/types";
+
+export type {
+  ProgressData,
+  SyncMutationPayload,
+  SyncProgressItem,
+  SyncRequest,
+  SyncResponse,
+  SyncCategory,
+  SyncWordListItem,
+} from "@/features/sync/types";
 
 // In-memory only: set from API responses, passed as hint to API. No localStorage.
 let lastKnownUserId: string | null = null;
@@ -119,107 +133,6 @@ export function markServerSnapshotApplied(): void {
   hasServerSnapshot = true;
 }
 
-/** API request shape for progress items. */
-export interface SyncProgressItem {
-  word_id?: string; // legacy: old word ID like "w000"
-  word_list_item_id?: string; // new: UUID from word_list_items
-  stage_index: number;
-  known_count: number;
-  unknown_count: number;
-  last_known_at: number | null;
-  last_unknown_at: number | null;
-  next_due_at: number | null;
-}
-
-/** Word list item from the API (matches DB word_list_items table). */
-export interface SyncWordListItem {
-  id: string;
-  listId: string;
-  categoryId: string | null;
-  canonicalWordId?: string | null;
-  position: number;
-  textKnown: string;
-  textTarget: string | null;
-  translationStatus: string;
-  knownAudioAssetId: string | null;
-  knownAudioStatus: string;
-  knownAudioUrl?: string | null;
-  knownAudioArweaveUrl?: string | null;
-  knownAudioArweaveUrls?: string[];
-  knownAudioStorageRef?: string | null;
-  audioAssetId: string | null;
-  audioStatus: string;
-  audioUrl?: string | null;
-  audioArweaveUrl?: string | null;
-  audioArweaveUrls?: string[];
-  audioStorageRef?: string | null;
-  notes: string | null;
-}
-
-/** Category info returned alongside word_list_items. */
-export interface SyncCategory {
-  name: string;
-  position: number;
-}
-
-/** App-side progress shape (stageIndex, camelCase). Used by useAppState, WordCard, etc. */
-export interface ProgressData {
-  stageIndex: number;
-  knownCount: number;
-  unknownCount: number;
-  lastKnownAt?: number;
-  lastUnknownAt?: number;
-  nextDueAt?: number;
-}
-
-export interface SyncResponse {
-  success: boolean;
-  applied_review_event_ids?: string[];
-  sync_revision?: number;
-  user: {
-    id: string;
-    role: "cz" | "vi";
-    user_role?: "user" | "editor";
-    show_english?: boolean;
-    show_category_badges?: boolean;
-    show_pronunciation?: boolean;
-    memory_hooks_enabled?: boolean;
-    memory_hook_disable_from_stage?: number;
-    settings_language?: string | null;
-    settings_language_selected_at?: string | null;
-    language_from?: string | null;
-    language_to?: string | null;
-    onboarding_completed_at?: string | null;
-    wallet_address?: string | null;
-    email?: string | null;
-    auth_provider?: string | null;
-    game_score?: number;
-    category_order?: string[];
-  };
-  progress: Record<
-    string,
-    {
-      id: string;
-      userId: string;
-      wordId: string | null;
-      wordListItemId: string | null;
-      stageIndex: number;
-      knownCount: number;
-      unknownCount: number;
-      lastKnownAt: string | null;
-      lastUnknownAt: string | null;
-      nextDueAt: string | null;
-      createdAt: string;
-      updatedAt: string;
-    }
-  >;
-  memory_hooks: Record<string, string>;
-  category_filters: string[];
-  word_list_items?: SyncWordListItem[];
-  categories?: Record<string, SyncCategory>;
-  lists?: { id: string; name: string; languageFrom: string; languageTo: string }[];
-}
-
 // Fetch data from server (DB-only; no localStorage).
 export async function fetchUserData(): Promise<SyncResponse> {
   const startedAt = performance.now();
@@ -324,24 +237,9 @@ export async function linkWallet(
 }
 
 // Sync data to server (DB-only; no localStorage).
-export async function syncUserData(data: {
-  role?: "cz" | "vi";
-  show_english?: boolean;
-  show_category_badges?: boolean;
-  show_pronunciation?: boolean;
-  memory_hooks_enabled?: boolean;
-  memory_hook_disable_from_stage?: number;
-  settings_language?: string;
-  language_from?: string | null;
-  language_to?: string | null;
-  onboarding_completed?: boolean;
-  game_score?: number;
-  category_order?: string[];
-  progress?: SyncProgressItem[];
-  review_events?: ReviewEventPayload[];
-  memory_hooks?: Record<string, string | null>;
-  category_filters?: string[];
-}): Promise<SyncResponse> {
+export async function syncUserData(
+  data: SyncMutationPayload & { review_events?: ReviewEventPayload[] }
+): Promise<SyncResponse> {
   if (authRequired) {
     throw new AuthRequiredError("Failed to sync data");
   }

@@ -22,7 +22,7 @@ describe('GET /api/settings-languages', () => {
     expect(res.status).toBe(200);
     expect(mockFetchGoogleSupportedLanguages).toHaveBeenCalledWith('en');
     expect(body.languages).toEqual([
-      { code: 'sv', name: 'Swedish', source: 'google' },
+      { code: 'sv', name: 'Swedish', source: 'google', flag: '🇸🇪' },
     ]);
   });
 });

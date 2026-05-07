@@ -8,11 +8,15 @@ Owns list browsing, category editing, translation review, audio generation flow,
 
 - `features/lists/types.ts`
 - `features/lists/api.ts`
+- `features/lists/client/actions.ts`
+- `features/lists/hooks/useListWizardItems.ts`
 - `app/lists/page.tsx`
 
 ## Entrypoints
 
 - UI shell: `app/lists/page.tsx`
+- Client API actions: `features/lists/client/actions.ts`
+- URL state helpers: `features/lists/client/url-state.ts`
 - UI steps:
   - `app/lists/CategoryBrowser.tsx`
   - `app/lists/TextareaEditor.tsx`
@@ -24,4 +28,5 @@ Owns list browsing, category editing, translation review, audio generation flow,
 
 - Canonical list types live in `features/lists/types.ts`.
 - Authenticated list HTTP calls go through `features/lists/api.ts`.
+- Page-level API mutations should be wrapped in `features/lists/client/actions.ts`.
 - Do not reintroduce `apiFetch` helpers inside step components.

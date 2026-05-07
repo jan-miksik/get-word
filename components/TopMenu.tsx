@@ -4,6 +4,15 @@ import { ReactNode, useEffect, useRef, useState } from 'react';
 import type { MenuPanel } from '@/hooks/useMenuPanels';
 import { PWAInstallMenuItem } from '@/components/PWAInstallMenuItem';
 import { useI18n } from '@/components/I18nProvider';
+import {
+  CategoryIcon,
+  MemoryIcon,
+  MenuIcon,
+  ProgressIcon,
+  SettingsIcon,
+  StarIcon,
+  WordListsIcon,
+} from '@/components/icons/AppIcons';
 
 interface TopMenuProps {
   onShowAll: () => void;
@@ -49,14 +58,20 @@ export function ScoreBadge({ score }: { score: number }) {
 
   return (
     <span
-      className="relative inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-yellow-400/15 border border-yellow-400/30 text-yellow-600 dark:text-yellow-400 text-xs font-semibold tabular-nums"
+      className="stat-chip stat-chip--score relative"
       aria-label={`Game score: ${score}`}
     >
-      ⭐ {score}
+      <span className="stat-chip-icon stat-chip-icon--score">
+        <StarIcon size={14} />
+      </span>
+      <span className="stat-chip-copy">
+        <span className="stat-chip-value">{score}</span>
+        <span className="stat-chip-label">stars</span>
+      </span>
       {delta && (
         <span
           key={delta.key}
-          className={`absolute -top-1 -right-1 text-xs font-bold pointer-events-none ${
+          className={`stat-chip-delta pointer-events-none ${
             delta.value > 0 ? 'text-emerald-400' : 'text-red-400'
           }`}
           style={{ animation: 'score-float 0.9s ease-out forwards' }}
@@ -106,14 +121,14 @@ function MenuDropdown({
     return () => document.removeEventListener('click', handler);
   }, [open]);
 
-  type PanelItem = { kind: 'panel'; icon: string; label: string; panel: MenuPanel; active: boolean; badge: string | null };
-  type LinkItem = { kind: 'link'; icon: string; label: string; href: string };
+  type PanelItem = { kind: 'panel'; icon: ReactNode; label: string; panel: MenuPanel; active: boolean; badge: string | null };
+  type LinkItem = { kind: 'link'; icon: ReactNode; label: string; href: string };
   type MenuItem = PanelItem | LinkItem;
 
   const items: MenuItem[] = [
     {
       kind: 'panel',
-      icon: '🏷️',
+      icon: <CategoryIcon size={15} />,
       label: t('top.categories'),
       panel: 'category',
       active: categoryActive,
@@ -121,7 +136,7 @@ function MenuDropdown({
     },
     {
       kind: 'panel',
-      icon: '📊',
+      icon: <ProgressIcon size={15} />,
       label: t('top.progress'),
       panel: 'progress',
       active: progressActive,
@@ -129,7 +144,7 @@ function MenuDropdown({
     },
     {
       kind: 'panel',
-      icon: 'ℹ️',
+      icon: <MemoryIcon size={15} />,
       label: t('top.memory'),
       panel: 'memoryHooks',
       active: false,
@@ -137,13 +152,13 @@ function MenuDropdown({
     },
     {
       kind: 'link',
-      icon: '📚',
+      icon: <WordListsIcon size={15} />,
       label: t('lists.wordLists'),
       href: '/lists',
     },
     {
       kind: 'panel',
-      icon: '⚙️',
+      icon: <SettingsIcon size={15} />,
       label: t('top.settings'),
       panel: 'settings',
       active: false,
@@ -163,7 +178,9 @@ function MenuDropdown({
         aria-expanded={open}
         aria-haspopup="menu"
       >
-        <span className="text-base leading-none">☰</span>
+        <span className="menu-toggle-icon" aria-hidden="true">
+          <MenuIcon size={16} />
+        </span>
         <span className="menu-toggle-label text-sm font-medium">Menu</span>
         {hasActiveItem && (
           <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-accent" />
@@ -230,8 +247,14 @@ function ListSelector({
   activeListId: string | null | undefined;
   onListChange: (id: string | null) => void;
 }) {
+  const selectedList = lists.find((list) => list.id === activeListId) ?? lists[0] ?? null;
+  const selectedLabel = selectedList ? shortenListName(selectedList.name) : '';
+
   return (
-    <div className="list-selector-float">
+    <div className="list-selector-pill">
+      <span className="list-selector-measure" aria-hidden="true">
+        {selectedLabel}
+      </span>
       <select
         value={activeListId ?? lists[0]?.id ?? ''}
         onChange={(e) => onListChange(e.target.value || null)}
@@ -274,33 +297,31 @@ export function TopMenu({
   const showListSelector = lists && lists.length > 0 && onListChange;
 
   return (
-    <>
-      {showListSelector && (
-        <ListSelector
-          lists={lists}
-          activeListId={activeListId}
-          onListChange={onListChange}
-        />
-      )}
-      <div className="top-menu" aria-label="Top menu">
-        <div className="top-menu-left flex flex-wrap items-center gap-2">
-          {score !== undefined && <ScoreBadge score={score} />}
-        </div>
-        {centerContent != null && (
-          <div className="top-menu-center flex items-center justify-center min-w-0 flex-1">
-            {centerContent}
-          </div>
-        )}
-        <div className="top-menu-right flex items-center gap-2 ml-auto">
-          <MenuDropdown
-            onMenuAction={onMenuAction}
-            categoryActive={categoryActive}
-            categoryCount={categoryCount}
-            progressActive={progressActive}
-            accountSlot={accountSlot}
+    <div className="top-menu" aria-label="Top menu">
+      <div className="top-menu-left flex items-center gap-2">
+        {showListSelector && (
+          <ListSelector
+            lists={lists}
+            activeListId={activeListId}
+            onListChange={onListChange}
           />
+        )}
+      </div>
+      <div className="top-menu-center flex items-center justify-center min-w-0 flex-1 gap-1">
+        <div className="top-menu-stats">
+          {score !== undefined && <ScoreBadge score={score} />}
+          {centerContent}
         </div>
       </div>
-    </>
+      <div className="top-menu-right flex items-center gap-2 ml-auto">
+        <MenuDropdown
+          onMenuAction={onMenuAction}
+          categoryActive={categoryActive}
+          categoryCount={categoryCount}
+          progressActive={progressActive}
+          accountSlot={accountSlot}
+        />
+      </div>
+    </div>
   );
 }

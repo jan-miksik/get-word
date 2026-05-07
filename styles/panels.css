@@ -201,10 +201,10 @@
 
 .memory-hooks-panel.is-open .panel-content {
   position: absolute;
-  top: 4rem;
+  top: clamp(14px, 4dvh, 48px);
   left: 14px;
   right: 14px;
-  max-height: calc(100dvh - 5rem);
+  max-height: calc(100dvh - clamp(28px, 8dvh, 96px));
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   background: rgba(15, 23, 42, 0.96);
@@ -219,10 +219,10 @@
   .memory-hooks-panel.is-open {
     inset: auto;
     bottom: auto;
-    top: 60px;
+    top: clamp(48px, 8dvh, 76px);
     right: 14px;
     left: 14px;
-    max-width: 720px;
+    max-width: 640px;
     margin-left: auto;
     margin-right: auto;
     background: rgba(15, 23, 42, 0.96);
@@ -248,7 +248,7 @@
 
 @media (min-width: 1024px) {
   .memory-hooks-panel.is-open {
-    top: 50%;
+    top: clamp(52px, 8dvh, 82px);
   }
 }
 

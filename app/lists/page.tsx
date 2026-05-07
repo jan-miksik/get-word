@@ -2,7 +2,15 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { listsApiFetch } from '@/features/lists/api';
+import * as listActions from '@/features/lists/client/actions';
+import {
+  consumeOneShotListsUrlParams,
+  readInitialListsUrlState,
+  selectedListUrl,
+} from '@/features/lists/client/url-state';
+import { useBuildAudioStepItems, useItemsByCategory } from '@/features/lists/hooks/useListWizardItems';
 import type {
+  CompletedTranslationRow,
   ConfirmResult,
   DiffResult,
   GoogleUsageResponse,
@@ -14,7 +22,7 @@ import { ListSidebar } from './ListSidebar';
 import { CategoryBrowser } from './CategoryBrowser';
 import { TextareaEditor } from './TextareaEditor';
 import { DiffPreview } from './DiffPreview';
-import { TranslationStep, type CompletedTranslationRow } from './TranslationStep';
+import { TranslationStep } from './TranslationStep';
 import { AudioStep } from './AudioStep';
 import { ApiKeySettings } from './ApiKeySettings';
 import { WizardProgressBar, type WizardActiveStep } from './WizardProgressBar';
@@ -22,6 +30,7 @@ import { WizardProgressBar, type WizardActiveStep } from './WizardProgressBar';
 type WizardStep = 'browse' | WizardActiveStep;
 type LearningLanguage = { code: string; name: string; ttsAvailable?: boolean };
 type ForkedListPrompt = { listId: string; sourceName: string };
+type PendingListItems = NonNullable<ConfirmResult['pending_items']>;
 
 function ErrorMessage({ message }: { message: string }) {
   const supportText = 'Contact our tech support';
@@ -64,7 +73,7 @@ export default function ListsPage() {
   const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
   const [editInputLanguage, setEditInputLanguage] = useState<'known' | 'target'>('known');
   const [diffResult, setDiffResult] = useState<DiffResult | null>(null);
-  const [pendingItems, setPendingItems] = useState<ConfirmResult['pending_items']>([]);
+  const [pendingItems, setPendingItems] = useState<PendingListItems>([]);
   const [audioStepItems, setAudioStepItems] = useState<WordListItem[] | null>(null);
   const [translateHeading, setTranslateHeading] = useState('Translate Words');
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -97,23 +106,7 @@ export default function ListsPage() {
     forkPrompt?: { sourceName: string } | null,
   ) => {
     if (typeof window === 'undefined') return;
-
-    const params = new URLSearchParams(window.location.search);
-    params.set('selected', listId);
-    params.delete('create');
-    params.delete('sourcePair');
-    params.delete('targetFrom');
-    params.delete('targetTo');
-
-    if (forkPrompt) {
-      params.set('forked', '1');
-      params.set('forkedFromName', forkPrompt.sourceName);
-    } else {
-      params.delete('forked');
-      params.delete('forkedFromName');
-    }
-
-    window.history.replaceState(null, '', `/lists?${params.toString()}`);
+    window.history.replaceState(null, '', selectedListUrl(listId, forkPrompt));
   }, []);
 
   const loadGoogleUsage = useCallback(async () => {
@@ -133,41 +126,30 @@ export default function ListsPage() {
   // Fetch lists and subscription status on mount
   useEffect(() => {
     if (typeof window === 'undefined') return;
-    const params = new URLSearchParams(window.location.search);
-    if (params.get('openrouter')) {
-      setSettingsOpen(true);
+    const initialUrlState = readInitialListsUrlState(window.location.search);
+    if (initialUrlState.settingsOpen) setSettingsOpen(true);
+    if (initialUrlState.initialCreateLanguageFrom) {
+      setInitialCreateLanguageFrom(initialUrlState.initialCreateLanguageFrom);
     }
-    const languageFrom = params.get('languageFrom') ?? params.get('targetFrom');
-    const languageTo = params.get('languageTo') ?? params.get('targetTo');
-    if (languageFrom) setInitialCreateLanguageFrom(languageFrom);
-    if (languageTo) setInitialCreateLanguageTo(languageTo);
-    if (params.get('create') === '1') {
+    if (initialUrlState.initialCreateLanguageTo) {
+      setInitialCreateLanguageTo(initialUrlState.initialCreateLanguageTo);
+    }
+    if (initialUrlState.shouldOpenCreate) {
       setOpenCreateSignal((value) => value + 1);
     }
-    if (params.get('sourcePair') === 'any') {
+    if (initialUrlState.existingListsHint) {
       setExistingListsHint(true);
     }
-    if (params.get('forked') === '1') {
-      const selected = params.get('selected');
-      if (selected) {
-        setForkedListPrompt({
-          listId: selected,
-          sourceName: params.get('forkedFromName') || 'another list',
-        });
-      }
+    if (initialUrlState.forkedListPrompt) {
+      setForkedListPrompt(initialUrlState.forkedListPrompt);
     }
-    const fixAudio = params.get('fixAudio');
-    if (fixAudio === 'target' || fixAudio === 'known') {
-      setInitialAudioFixStep(fixAudio === 'known' ? 'audio-known' : 'audio-target');
-      params.delete('fixAudio');
-      window.history.replaceState(null, '', `/lists?${params.toString()}`);
+    if (initialUrlState.initialAudioFixStep) {
+      setInitialAudioFixStep(initialUrlState.initialAudioFixStep);
+      window.history.replaceState(null, '', consumeOneShotListsUrlParams(window.location.search));
     }
-    const notice = params.get('commonListNotice') ?? params.get('audioNotice');
-    if (notice) {
-      setError(notice);
-      params.delete('commonListNotice');
-      params.delete('audioNotice');
-      window.history.replaceState(null, '', `/lists?${params.toString()}`);
+    if (initialUrlState.notice) {
+      setError(initialUrlState.notice);
+      window.history.replaceState(null, '', consumeOneShotListsUrlParams(window.location.search));
     }
   }, []);
 
@@ -219,19 +201,19 @@ export default function ListsPage() {
   // Fetch list details when selected list changes
   useEffect(() => {
     if (!selectedListId) return;
+    const listId = selectedListId;
     const controller = new AbortController();
     setLoadingDetails(true);
     setCategories([]);
     setItems([]);
     async function loadListDetails() {
       try {
-        const res = await listsApiFetch(`/api/lists/${selectedListId}?include_media=false`, {
+        const details = await listActions.fetchListDetails(listId, {
+          includeMedia: false,
           signal: controller.signal,
         });
-        if (!res.ok) throw new Error('Failed to load list details');
-        const data = await res.json();
-        const freshItems = data.items ?? [];
-        setCategories(data.categories ?? []);
+        const freshItems = details.items;
+        setCategories(details.categories);
         setItems(freshItems);
         if (initialAudioFixStep) {
           setAudioStepItems(freshItems);
@@ -254,64 +236,12 @@ export default function ListsPage() {
     return () => controller.abort();
   }, [initialAudioFixStep, selectedListId]);
 
-  const itemsByCategory = useMemo(() => {
-    const map = new Map<string, WordListItem[]>();
-    for (const item of items) {
-      const catId = item.categoryId ?? 'uncategorized';
-      const existing = map.get(catId) ?? [];
-      existing.push(item);
-      map.set(catId, existing);
-    }
-    return map;
-  }, [items]);
-
-  const buildAudioStepItems = useCallback((
-    sourceItems: WordListItem[],
-    translationRows: CompletedTranslationRow[] = [],
-  ): WordListItem[] => {
-    const rowById = new Map(translationRows.map((row) => [row.id, row]));
-    const categoryItems = editingCategoryId
-      ? sourceItems.filter((item) => item.categoryId === editingCategoryId)
-      : sourceItems;
-    const mergedItems = categoryItems.map((item) => {
-      const row = rowById.get(item.id);
-      if (!row) return item;
-      return {
-        ...item,
-        textKnown: row.textKnown,
-        textTarget: row.textTarget || null,
-        translationStatus: row.status === 'error' ? 'failed' : item.translationStatus,
-      };
-    });
-
-    const includedIds = new Set(mergedItems.map((item) => item.id));
-    const fallbackItems = translationRows
-      .filter((row) => !includedIds.has(row.id))
-      .map((row, index) => ({
-        id: row.id,
-        listId: selectedListId ?? '',
-        categoryId: editingCategoryId,
-        position: pendingItems?.find((item) => item.id === row.id)?.position ?? index,
-        textKnown: row.textKnown,
-        textTarget: row.textTarget || null,
-        translationStatus: row.status === 'error' ? 'failed' : 'translated',
-        knownAudioAssetId: null,
-        knownAudioStatus: 'none',
-        knownAudioUrl: null,
-        knownAudioArweaveUrl: null,
-        knownAudioArweaveUrls: [],
-        knownAudioStorageRef: null,
-        audioAssetId: null,
-        audioStatus: 'none',
-        audioUrl: null,
-        audioArweaveUrl: null,
-        audioArweaveUrls: [],
-        audioStorageRef: null,
-        notes: null,
-      }));
-
-    return [...mergedItems, ...fallbackItems].sort((a, b) => a.position - b.position);
-  }, [editingCategoryId, pendingItems, selectedListId]);
+  const itemsByCategory = useItemsByCategory(items);
+  const buildAudioStepItems = useBuildAudioStepItems({
+    editingCategoryId,
+    pendingItems,
+    selectedListId,
+  });
 
   const handleSelectList = useCallback((listId: string) => {
     if (listId === selectedListId) {
@@ -330,38 +260,21 @@ export default function ListsPage() {
   }, [selectedListId, updateSelectedListUrl]);
 
   const handleCreateList = useCallback(async (name: string, langFrom: string, langTo: string) => {
-    const res = await listsApiFetch('/api/lists', {
-      method: 'POST',
-      body: JSON.stringify({ name, language_from: langFrom, language_to: langTo }),
-    });
-    if (!res.ok) throw new Error('Failed to create list');
-    const data = await res.json();
-    setLists((prev) => [...prev, data.list]);
+    const list = await listActions.createList(name, langFrom, langTo);
+    setLists((prev) => [...prev, list]);
     setForkedListPrompt(null);
     setLoadingDetails(true);
     setCategories([]);
     setItems([]);
-    updateSelectedListUrl(data.list.id, null);
-    setSelectedListId(data.list.id);
+    updateSelectedListUrl(list.id, null);
+    setSelectedListId(list.id);
   }, [updateSelectedListUrl]);
 
   const handleUpdateList = useCallback(async (
     listId: string,
     data: Pick<WordList, 'name' | 'description' | 'isPublic'> & { isCommon?: boolean },
   ) => {
-    const res = await listsApiFetch(`/api/lists/${listId}`, {
-      method: 'PUT',
-      body: JSON.stringify({
-        name: data.name,
-        description: data.description,
-        is_public: data.isPublic,
-        ...(typeof data.isCommon === 'boolean' ? { is_common: data.isCommon } : {}),
-      }),
-    });
-    const responseData = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(responseData.error ?? 'Failed to update list');
-
-    const updatedList: WordList = responseData.list;
+    const updatedList = await listActions.updateList(listId, data);
     setLists((prev) =>
       prev.map((list) => {
         if (list.id === listId) return { ...list, ...updatedList };
@@ -380,23 +293,15 @@ export default function ListsPage() {
     const languageTo = initialCreateLanguageTo ?? sourceList?.languageTo;
     if (!languageFrom || !languageTo) return;
 
-    const res = await listsApiFetch(`/api/lists/${listId}/fork`, {
-      method: 'POST',
-      body: JSON.stringify({
-        language_from: languageFrom,
-        language_to: languageTo,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error ?? 'Fork failed');
+    const forkedList = await listActions.forkList(listId, { languageFrom, languageTo });
     const sourceName = sourceList?.name ?? 'another list';
-    setLists((prev) => [...prev, data.list]);
-    setForkedListPrompt({ listId: data.list.id, sourceName });
+    setLists((prev) => [...prev, forkedList]);
+    setForkedListPrompt({ listId: forkedList.id, sourceName });
     setLoadingDetails(true);
     setCategories([]);
     setItems([]);
-    updateSelectedListUrl(data.list.id, { sourceName });
-    setSelectedListId(data.list.id);
+    updateSelectedListUrl(forkedList.id, { sourceName });
+    setSelectedListId(forkedList.id);
     setSidebarOpen(false);
   }, [initialCreateLanguageFrom, initialCreateLanguageTo, lists, updateSelectedListUrl]);
 
@@ -416,11 +321,7 @@ export default function ListsPage() {
 
   const handleDeleteList = useCallback(async (listId: string) => {
     try {
-      const res = await listsApiFetch(`/api/lists/${listId}`, { method: 'DELETE' });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error ?? 'Delete failed');
-      }
+      await listActions.deleteList(listId);
 
       setLists((prev) => {
         const next = prev.filter((l) => l.id !== listId);
@@ -445,11 +346,7 @@ export default function ListsPage() {
 
   const handleSubscribe = useCallback(async (listId: string) => {
     try {
-      const res = await listsApiFetch(`/api/lists/${listId}/subscribe`, { method: 'POST' });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error ?? 'Subscribe failed');
-      }
+      await listActions.subscribeToList(listId);
       setSubscribedListIds((prev) => new Set([...prev, listId]));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Subscribe failed');
@@ -458,11 +355,7 @@ export default function ListsPage() {
 
   const handleUnsubscribe = useCallback(async (listId: string) => {
     try {
-      const res = await listsApiFetch(`/api/lists/${listId}/subscribe`, { method: 'DELETE' });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error ?? 'Unsubscribe failed');
-      }
+      await listActions.unsubscribeFromList(listId);
       setSubscribedListIds((prev) => {
         const next = new Set(prev);
         next.delete(listId);
@@ -483,18 +376,12 @@ export default function ListsPage() {
 
   const handlePreview = useCallback(async (lines: string[]) => {
     if (!selectedListId || !editingCategoryId) return;
-    const res = await listsApiFetch(
-      `/api/lists/${selectedListId}/categories/${editingCategoryId}/items/preview`,
-      {
-        method: 'PUT',
-        body: JSON.stringify({ lines, input_language: editInputLanguage }),
-      }
+    const diff = await listActions.previewCategoryItems(
+      selectedListId,
+      editingCategoryId,
+      lines,
+      editInputLanguage,
     );
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error ?? 'Preview failed');
-    }
-    const diff = await res.json();
     setDiffResult(diff);
     setWizardStep('preview');
   }, [selectedListId, editingCategoryId, editInputLanguage]);
@@ -502,23 +389,12 @@ export default function ListsPage() {
   const handleConfirm = useCallback(async () => {
     if (!selectedListId || !editingCategoryId || !diffResult) return;
     setAudioStepItems(null);
-    const res = await listsApiFetch(
-      `/api/lists/${selectedListId}/categories/${editingCategoryId}/items/confirm`,
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          added: diffResult.added,
-          removed: diffResult.removed,
-          reordered: diffResult.reordered.map((r) => ({ id: r.id, position: r.to_pos })),
-          input_language: editInputLanguage,
-        }),
-      }
+    const result = await listActions.confirmCategoryItems(
+      selectedListId,
+      editingCategoryId,
+      diffResult,
+      editInputLanguage,
     );
-    if (!res.ok) {
-      const data = await res.json();
-      throw new Error(data.error ?? 'Confirm failed');
-    }
-    const result: ConfirmResult = await res.json();
 
     if (result.needs_translation && result.pending_items) {
       setTranslateHeading('Translate Words');
@@ -589,17 +465,12 @@ export default function ListsPage() {
 
   async function reloadListDetails(options: { includeMedia?: boolean } = {}): Promise<WordListItem[]> {
     if (!selectedListId) return [];
-    const includeMedia = options.includeMedia ?? false;
-    const res = await listsApiFetch(
-      `/api/lists/${selectedListId}?include_media=${includeMedia ? 'true' : 'false'}`
-    );
-    if (res.ok) {
-      const data = await res.json();
-      setCategories(data.categories ?? []);
-      setItems(data.items ?? []);
-      return data.items ?? [];
-    }
-    return [];
+    const details = await listActions.fetchListDetails(selectedListId, {
+      includeMedia: options.includeMedia ?? false,
+    });
+    setCategories(details.categories);
+    setItems(details.items);
+    return details.items;
   }
 
   const handleCancelWizard = useCallback(() => {
@@ -665,20 +536,13 @@ export default function ListsPage() {
 
   const handleCreateCategory = useCallback(async (name: string) => {
     if (!selectedListId) return;
-    const res = await listsApiFetch(`/api/lists/${selectedListId}/categories`, {
-      method: 'POST',
-      body: JSON.stringify({ name }),
-    });
-    if (!res.ok) throw new Error('Failed to create category');
+    await listActions.createCategory(selectedListId, name);
     await reloadListDetails();
   }, [selectedListId]);
 
   const handleReorderCategories = useCallback(async (orderedIds: string[]) => {
     if (!selectedListId) return;
-    await listsApiFetch(`/api/lists/${selectedListId}/categories`, {
-      method: 'PUT',
-      body: JSON.stringify({ ordered_ids: orderedIds }),
-    });
+    await listActions.reorderCategories(selectedListId, orderedIds);
     // Optimistically reorder locally
     setCategories((prev) => {
       const byId = new Map(prev.map((c) => [c.id, c]));
@@ -693,14 +557,7 @@ export default function ListsPage() {
 
   const handleRenameCategory = useCallback(async (categoryId: string, name: string) => {
     if (!selectedListId) return;
-    const res = await listsApiFetch(`/api/lists/${selectedListId}/categories/${categoryId}`, {
-      method: 'PATCH',
-      body: JSON.stringify({ name }),
-    });
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      throw new Error(data.error ?? 'Rename failed');
-    }
+    await listActions.renameCategory(selectedListId, categoryId, name);
     setCategories((prev) =>
       prev.map((c) => (c.id === categoryId ? { ...c, name } : c))
     );
@@ -708,9 +565,7 @@ export default function ListsPage() {
 
   const handleDeleteCategory = useCallback(async (categoryId: string) => {
     if (!selectedListId) return;
-    await listsApiFetch(`/api/lists/${selectedListId}/categories/${categoryId}`, {
-      method: 'DELETE',
-    });
+    await listActions.deleteCategory(selectedListId, categoryId);
     await reloadListDetails();
   }, [selectedListId]);
 

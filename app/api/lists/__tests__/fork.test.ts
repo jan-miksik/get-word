@@ -35,7 +35,7 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@/lib/db/client', () => ({
   db: {
-    insert: (...args: unknown[]) => mockInsert(...args),
+    insert: (_table: unknown) => mockInsert(),
   },
 }))
 

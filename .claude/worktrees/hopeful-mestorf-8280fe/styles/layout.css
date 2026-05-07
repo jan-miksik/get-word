@@ -1,0 +1,78 @@
+.app {
+  /* 100dvh = visible viewport height, accounting for mobile browser bars.
+     100vh fallback for older browsers that don't support dvh units. */
+  height: 100vh;
+  height: 100dvh;
+  min-height: 100vh;
+  min-height: 100dvh;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  position: relative;
+  overflow: hidden;
+  /* Shift content below the notch / dynamic island on iOS when
+     viewport-fit=cover is active */
+  padding-top: env(safe-area-inset-top, 0px);
+}
+
+/* Header: top menu bar + auth row under it (desktop and mobile) */
+.app-header-bar {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  z-index: 250;
+  width: 100%;
+}
+
+.auth-row {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 0 16px 6px;
+}
+
+@media (min-width: 768px) {
+  .app {
+    padding-top: 32px;
+  }
+
+  .app-header-bar {
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  .auth-row {
+    padding: 0 16px 8px;
+  }
+}
+
+/* Main scroll area uses full width of app so scrollbar is at the right edge */
+.app > main {
+  width: 100%;
+  min-width: 0;
+}
+
+@media (min-width: 767px) {
+  .app > main {
+    padding-bottom: calc(env(safe-area-inset-bottom, 12px) + 10rem);
+  }
+}
+
+/* Centered content column: top menu and cards share this max-width */
+.app-content-column {
+  max-width: 800px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+  padding-inline: 16px;
+}
+
+.app-header {
+  padding: 14px 14px 4px;
+  border-radius: 26px;
+  background: radial-gradient(circle at top left, #0f172a 0, #020617 55%);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  box-shadow: var(--shadow-soft);
+}

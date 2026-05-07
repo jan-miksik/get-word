@@ -11,10 +11,15 @@ export function ProgressSummary({ progressStats }: ProgressSummaryProps) {
   if (progressStats.readyCount === 0) return null;
 
   return (
-    <div className="progress-summary">
-      <span className="inline-flex items-center gap-1 text-accent">
-        <span className="text-[0.6875rem] font-semibold opacity-90">({progressStats.readyCount})</span>
-        <span className="text-[0.6875rem] font-medium lowercase">to repeat</span>
+    <div className="progress-summary" aria-label={`${progressStats.readyCount} ready to repeat`}>
+      <span className="stat-chip stat-chip--repeat">
+        <span className="stat-chip-icon stat-chip-icon--repeat" aria-hidden="true">
+          <span className="stat-chip-pulse" />
+        </span>
+        <span className="stat-chip-copy">
+          <span className="stat-chip-value">{progressStats.readyCount}</span>
+          <span className="stat-chip-label">to repeat</span>
+        </span>
       </span>
     </div>
   );

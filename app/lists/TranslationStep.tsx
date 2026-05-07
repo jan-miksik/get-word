@@ -2,7 +2,12 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { listsApiFetch } from '@/features/lists/api';
-import type { ConfirmResult, GoogleUsageResponse, WordList } from '@/features/lists/types';
+import type {
+  CompletedTranslationRow,
+  ConfirmResult,
+  GoogleUsageResponse,
+  WordList,
+} from '@/features/lists/types';
 import { GoogleUsageHint } from './GoogleUsageHint';
 import {
   DEFAULT_OPENROUTER_TRANSLATION_MODEL,
@@ -24,15 +29,6 @@ interface TranslationStepProps {
   onUsageRefresh?: () => Promise<void>;
   onBack?: () => void;
 }
-
-export type CompletedTranslationRow = {
-  id: string;
-  textKnown: string;
-  textTarget: string;
-  status: 'pending' | 'ok' | 'error' | 'manual';
-  error?: string;
-  source?: 'dedup' | 'api';
-};
 
 type TranslationRow = CompletedTranslationRow;
 

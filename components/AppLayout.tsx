@@ -11,6 +11,7 @@ import { ProgressSummary } from '@/components/ProgressSummary';
 import { useMenuPanels } from '@/hooks/useMenuPanels';
 import { useAppStateContext } from '@/context/AppStateContext';
 import { PWAInstallBanner } from '@/components/PWAInstallBanner';
+import { SpeckledBackground } from '@/components/SpeckledBackground';
 import type { ProgressStats } from '@/lib/progress-stats';
 
 interface AppLayoutProps {
@@ -53,6 +54,7 @@ export function AppLayout({
 
   return (
     <div className="app" data-view-mode={viewMode}>
+      <SpeckledBackground />
       {header}
       <header className="app-header-bar" aria-label="App header">
         <TopMenu

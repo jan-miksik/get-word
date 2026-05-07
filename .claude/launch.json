@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "dev",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": ["run", "dev:fast"],
+      "runtimeExecutable": "/Users/janmiksik/.nvm/versions/node/v22.13.1/bin/node",
+      "runtimeArgs": ["./node_modules/next/dist/bin/next", "dev", "--turbo", "--disable-source-maps"],
       "port": 3000,
       "autoPort": true
     }

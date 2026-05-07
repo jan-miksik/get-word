@@ -3,6 +3,22 @@
 import { useState, useRef, useEffect, useMemo, memo } from 'react';
 import { NormalizedWord, STAGES } from '@/lib/words';
 import { ProgressData } from '@/lib/sync';
+import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
+
+function formatInterval(ms: number): string {
+  if (ms <= 0) return '';
+  const m = Math.round(ms / 60000);
+  if (m < 60) return `${m}m`;
+  const h = Math.round(m / 60);
+  if (h < 24) return `${h}h`;
+  const d = Math.round(h / 24);
+  return `${d}d`;
+}
+
+function formatNextReviewHint(intervalMs: number): string {
+  const label = formatInterval(intervalMs);
+  return label ? `Next ${label}` : 'Repeat now';
+}
 
 interface WordCardProps {
   word: NormalizedWord;
@@ -208,6 +224,13 @@ export const WordCard = memo(function WordCard({
 
   // In edit mode, always show category badges; otherwise use the setting
   const shouldShowCategoryBadges = isEditMode || showCategoryBadges;
+  const forgotHint = formatNextReviewHint(STAGES[Math.max(clampedStageIndex - 1, 0)]?.intervalMs ?? 0);
+  const okayHint = formatNextReviewHint(
+    STAGES[Math.min(clampedStageIndex + 1, STAGES.length - 1)]?.intervalMs ?? 0
+  );
+  const easyHint = formatNextReviewHint(
+    STAGES[Math.min(clampedStageIndex + 2, STAGES.length - 1)]?.intervalMs ?? 0
+  );
 
   return (
     <article className={`phrase-card ${isMoved ? 'card-moved' : ''} ${fullscreen ? 'word-card--fullscreen' : ''}`} data-word-id={word.id} data-stage-group={stageGroup}>
@@ -319,41 +342,55 @@ className={`cover-target relative cursor-pointer touch-manipulation select-none 
       </div>
 
       {/* Actions */}
-      <div className="card-actions mt-8 flex justify-center gap-[30px] items-center opacity-70">
-        <button
-          type="button"
-          className="progress-btn unknown"
-          onClick={onUnknown}
-        >
-          ✖ <span className="count">{progress.unknownCount > 0 ? `(${progress.unknownCount})` : ''}</span>
-        </button>
-        <button
-          type="button"
-          className="progress-btn known"
-          onClick={onKnown}
-        >
-          ✔ <span className="count">{progress.knownCount > 0 ? `(${progress.knownCount})` : ''}</span>
-        </button>
-        {onReallyKnown && (
-          <button
-            type="button"
-            className="progress-btn known really-known"
-            onClick={onReallyKnown}
-            title="Mark as really known (skip one time frame)"
-          >
-            ✔✔
-          </button>
-        )}
+      <div className="card-actions relative mt-8">
         {audioSrc && (
           <button
             type="button"
-            className="audio-btn"
+            className="audio-btn audio-btn--floating"
             onClick={() => playAudio(audioSrc)}
             title={role === 'vi' ? 'Play Czech audio' : 'Play Vietnamese audio'}
+            aria-label="Play audio"
           >
-            🔊
+            <SpeakerIcon size={18} />
           </button>
         )}
+        <div className={`card-actions-row ${onReallyKnown ? 'card-actions-row--three' : 'card-actions-row--two'}`}>
+          <button
+            type="button"
+            className="srs-btn srs-btn--forgot"
+            onClick={onUnknown}
+            title={forgotHint}
+          >
+            <span className="srs-btn-copy">
+              <span className="srs-btn-label">Forgot</span>
+              <span className="srs-btn-hint">{forgotHint}</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            className="srs-btn srs-btn--okay"
+            onClick={onKnown}
+            title={okayHint}
+          >
+            <span className="srs-btn-copy">
+              <span className="srs-btn-label">OK</span>
+              <span className="srs-btn-hint">{okayHint}</span>
+            </span>
+          </button>
+          {onReallyKnown && (
+            <button
+              type="button"
+              className="srs-btn srs-btn--easy"
+              onClick={onReallyKnown}
+              title={easyHint}
+            >
+              <span className="srs-btn-copy">
+                <span className="srs-btn-label">Easy</span>
+                <span className="srs-btn-hint">{easyHint}</span>
+              </span>
+            </button>
+          )}
+        </div>
       </div>
       {/* Time badge — top-right: show stage interval (1 minute, 1 hour, 8 hours, etc.) */}
       {clampedStageIndex > 0 && stageLabel && (
