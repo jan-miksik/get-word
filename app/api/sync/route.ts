@@ -31,26 +31,85 @@ import {
 import { isGoogleSupportedLanguage } from "@/lib/i18n/server";
 
 const PG_STATEMENT_TIMEOUT = "57014";
+const TRANSIENT_DATABASE_ERROR_CODES = new Set([
+  PG_STATEMENT_TIMEOUT,
+  "ENOTFOUND",
+  "EAI_AGAIN",
+  "ECONNRESET",
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "ENETUNREACH",
+  "EHOSTUNREACH",
+]);
+const DATABASE_UNAVAILABLE_MESSAGE =
+  "Database is temporarily unavailable. Please try again shortly.";
 
 function isStatementTimeout(err: unknown): boolean {
-  const e = err as { code?: string; cause?: { code?: string } };
-  return e?.code === PG_STATEMENT_TIMEOUT || e?.cause?.code === PG_STATEMENT_TIMEOUT;
+  return hasRecoverableDatabaseCode(err, new Set([PG_STATEMENT_TIMEOUT]));
+}
+
+function hasRecoverableDatabaseCode(err: unknown, codes = TRANSIENT_DATABASE_ERROR_CODES): boolean {
+  if (!err || typeof err !== "object") return false;
+  const e = err as {
+    code?: string;
+    cause?: unknown;
+    errors?: unknown[];
+  };
+
+  if (e.code && codes.has(e.code)) return true;
+  if (e.cause && hasRecoverableDatabaseCode(e.cause, codes)) return true;
+  if (Array.isArray(e.errors) && e.errors.some((item) => hasRecoverableDatabaseCode(item, codes))) {
+    return true;
+  }
+
+  return false;
+}
+
+function isTransientDatabaseError(err: unknown): boolean {
+  if (hasRecoverableDatabaseCode(err)) return true;
+  if (err instanceof Error && /getaddrinfo (ENOTFOUND|EAI_AGAIN)/i.test(err.message)) {
+    return true;
+  }
+  return false;
 }
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
 }
 
-async function withRetryOnTimeout<T>(fn: () => Promise<T>): Promise<T> {
-  try {
-    return await fn();
-  } catch (e) {
-    if (isStatementTimeout(e)) {
-      await sleep(800);
-      return fn();
+async function withRetryOnRecoverableDatabaseError<T>(fn: () => Promise<T>): Promise<T> {
+  const maxAttempts = 3;
+  const retryDelayMs = process.env.NODE_ENV === "test" ? 0 : 800;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await fn();
+    } catch (e) {
+      if (!isTransientDatabaseError(e) || attempt === maxAttempts) {
+        throw e;
+      }
+      if (isStatementTimeout(e)) {
+        console.warn("Database statement timeout during sync; retrying", { attempt });
+      }
+      await sleep(retryDelayMs);
     }
-    throw e;
   }
+
+  throw new Error("Unreachable database retry state");
+}
+
+function databaseUnavailableResponse(
+  timer: ReturnType<typeof createRouteTimer>,
+  error: unknown,
+  logLabel: string
+) {
+  console.error(logLabel, error);
+  const failed = NextResponse.json(
+    { success: false, error: DATABASE_UNAVAILABLE_MESSAGE },
+    { status: 503 }
+  );
+  failed.headers.set("Retry-After", "2");
+  return timer.applyHeaders(failed);
 }
 
 /** Prefers userId (PK lookup) when provided; falls back to deviceId get-or-create. */
@@ -177,7 +236,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    let user = await withRetryOnTimeout(() =>
+    let user = await withRetryOnRecoverableDatabaseError(() =>
       resolveUser(deviceId || null, userId || null, session.userId)
     );
     timer.mark("resolve_user");
@@ -345,6 +404,9 @@ export async function POST(request: NextRequest) {
     return timer.applyHeaders(response);
   } catch (error) {
     timer.mark("error");
+    if (isTransientDatabaseError(error)) {
+      return databaseUnavailableResponse(timer, error, "Sync database unavailable:");
+    }
     console.error("Sync error:", error);
     const errorMessage = error instanceof Error ? error.message : "Failed to sync data";
     const failed = NextResponse.json(
@@ -380,7 +442,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const user = await withRetryOnTimeout(() =>
+    const user = await withRetryOnRecoverableDatabaseError(() =>
       resolveUser(deviceId || null, userId || null, session.userId)
     );
     timer.mark("resolve_user");
@@ -418,6 +480,9 @@ export async function GET(request: NextRequest) {
     return timer.applyHeaders(response);
   } catch (error) {
     timer.mark("error");
+    if (isTransientDatabaseError(error)) {
+      return databaseUnavailableResponse(timer, error, "Fetch database unavailable:");
+    }
     console.error("Fetch error:", error);
     const errorMessage = error instanceof Error ? error.message : "Failed to fetch data";
     const failed = NextResponse.json(

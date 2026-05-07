@@ -101,6 +101,18 @@ const baseUser = {
   categoryOrder: [],
 }
 
+function makeDnsFailure() {
+  const error = new Error('Failed query')
+  ;(error as Error & { cause: Error & { code: string; hostname: string } }).cause = Object.assign(
+    new Error('getaddrinfo ENOTFOUND aws-1-eu-central-1.pooler.supabase.com'),
+    {
+      code: 'ENOTFOUND',
+      hostname: 'aws-1-eu-central-1.pooler.supabase.com',
+    }
+  )
+  return error
+}
+
 describe('GET /api/sync', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -206,6 +218,24 @@ describe('GET /api/sync', () => {
     const req = new NextRequest('http://localhost:3000/api/sync?deviceId=dev-123')
     const res = await GET(req)
     expect(res.status).toBe(401)
+  })
+
+  it('returns 503 for transient database DNS failures', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockGetUserById.mockRejectedValue(makeDnsFailure())
+
+    const req = new NextRequest('http://localhost:3000/api/sync?deviceId=dev-123')
+    const res = await GET(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(res.headers.get('Retry-After')).toBe('2')
+    expect(data).toEqual({
+      success: false,
+      error: 'Database is temporarily unavailable. Please try again shortly.',
+    })
+    expect(mockGetUserById).toHaveBeenCalledTimes(3)
+    consoleSpy.mockRestore()
   })
 })
 
@@ -505,5 +535,27 @@ describe('POST /api/sync', () => {
     })
     const res = await POST(req)
     expect(res.status).toBe(401)
+  })
+
+  it('returns 503 for transient database DNS failures', async () => {
+    const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    mockGetUserById.mockRejectedValue(makeDnsFailure())
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({ deviceId: 'dev-123' }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(res.headers.get('Retry-After')).toBe('2')
+    expect(data).toEqual({
+      success: false,
+      error: 'Database is temporarily unavailable. Please try again shortly.',
+    })
+    expect(mockGetUserById).toHaveBeenCalledTimes(3)
+    consoleSpy.mockRestore()
   })
 })
