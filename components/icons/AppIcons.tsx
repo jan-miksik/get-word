@@ -49,10 +49,9 @@ export function MenuIcon(props: IconProps) {
 export function CategoryIcon(props: IconProps) {
   return (
     <Glyph {...props}>
-      <path d="M6.5 7.5h11" />
-      <path d="M6.5 12h7.5" />
-      <path d="M6.5 16.5h11" />
-      <circle cx="17.5" cy="12" r="1.75" fill="currentColor" stroke="none" />
+      <path d="M4 7h16" />
+      <path d="M7 12h10" />
+      <path d="M10 17h4" />
     </Glyph>
   );
 }
@@ -60,11 +59,10 @@ export function CategoryIcon(props: IconProps) {
 export function ProgressIcon(props: IconProps) {
   return (
     <Glyph {...props}>
-      <path d="M5 18V8.5" />
-      <path d="M10 18V11.5" />
-      <path d="M15 18V6.5" />
-      <path d="M20 18V13.5" />
-      <path d="M4 18.25h16" />
+      <path d="M5 18V12" />
+      <path d="M12 18V7" />
+      <path d="M19 18V4" />
+      <path d="M3.5 18.5h17" />
     </Glyph>
   );
 }
@@ -72,13 +70,15 @@ export function ProgressIcon(props: IconProps) {
 export function MemoryIcon(props: IconProps) {
   return (
     <Glyph {...props}>
-      <path d="M12 5.5 13.4 8.7 16.6 10.1 13.4 11.5 12 14.7 10.6 11.5 7.4 10.1 10.6 8.7 12 5.5Z" />
-      <path d="M18.25 4.75v3.5" />
-      <path d="M16.5 6.5H20" />
-      <path d="M18.5 14.75v2.5" />
-      <path d="M17.25 16h2.5" />
-      <path d="M5.75 14.75v2.5" />
-      <path d="M4.5 16h2.5" />
+      <path
+        d="M12 4 13.6 9 19 10.5 13.6 12 12 17 10.4 12 5 10.5 10.4 9Z"
+        fill="currentColor"
+        stroke="none"
+      />
+      <path d="M19.5 5.5v2" strokeWidth={1.6} />
+      <path d="M18.5 6.5h2" strokeWidth={1.6} />
+      <path d="M5 17v2" strokeWidth={1.6} />
+      <path d="M4 18h2" strokeWidth={1.6} />
     </Glyph>
   );
 }
@@ -86,10 +86,10 @@ export function MemoryIcon(props: IconProps) {
 export function WordListsIcon(props: IconProps) {
   return (
     <Glyph {...props}>
-      <path d="M6.5 5.5h8.25a2 2 0 0 1 2 2v10.75H8.5a2 2 0 0 0-2 2V7.5a2 2 0 0 1 2-2Z" />
-      <path d="M16.75 18.25h.75a2 2 0 0 0 2-2V8.75a2 2 0 0 0-2-2H16" />
-      <path d="M9.5 9.5h5" />
-      <path d="M9.5 12.5h5" />
+      <rect x="4" y="4" width="16" height="16" rx="2" />
+      <path d="M8 9h8" />
+      <path d="M8 12.5h8" />
+      <path d="M8 16h5" />
     </Glyph>
   );
 }

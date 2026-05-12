@@ -277,18 +277,17 @@
   border-radius: 16px;
   overflow: hidden;
 
-  /* Solid background */
-  background: rgba(15, 23, 42, 0.98);
+  /* Solid background — warm dark brown instead of navy */
+  background: rgba(34, 24, 12, 0.98);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 
   /* Multi-layer border: outer dim + inner highlight */
-  border: 1px solid rgba(148, 163, 184, 0.13);
+  border: 1px solid rgba(180, 150, 100, 0.14);
   box-shadow:
-    0 0 0 0.5px rgba(255, 255, 255, 0.05) inset,
-    0 4px 8px rgba(0, 0, 0, 0.45),
-    0 20px 56px rgba(0, 0, 0, 0.55),
-    0 0 80px rgba(56, 189, 248, 0.04);
+    0 0 0 0.5px rgba(255, 240, 200, 0.04) inset,
+    0 4px 8px rgba(0, 0, 0, 0.40),
+    0 20px 56px rgba(0, 0, 0, 0.48);
 
   /* Spring open from top-right */
   animation: menu-open 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
@@ -480,7 +479,7 @@
   z-index: 50;
   border-radius: var(--radius-pill);
   border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(15, 23, 42, 0.9);
+  background: rgba(38, 28, 16, 0.88);
   color: var(--text-soft);
   cursor: pointer;
   transition:
@@ -491,7 +490,7 @@
 }
 
 .mode-btn.memory-hooks-btn:hover {
-  background: rgba(15, 23, 42, 1);
+  background: rgba(38, 28, 16, 1);
   transform: translateY(-0.5px);
 }
 

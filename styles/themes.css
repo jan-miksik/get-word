@@ -225,13 +225,16 @@ html[data-theme="warm"] body {
   border-color: var(--text);
 }
 
-/* Warm theme audio button */
+/* Warm theme audio button — flat warm dark, no navy */
 [data-theme="warm"] .audio-btn {
+  background: rgba(50, 36, 18, 0.80);
   color: var(--accent);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.14);
 }
 
 [data-theme="warm"] .audio-btn:hover {
-  background: var(--accent-soft);
+  background: rgba(50, 36, 18, 0.92);
+  color: var(--accent);
 }
 
 /* Warm theme memory hook input */

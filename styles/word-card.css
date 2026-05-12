@@ -128,20 +128,18 @@
 .audio-btn {
   margin-left: 0;
   border: none;
-  background:
-    radial-gradient(circle at 32% 24%, rgba(255, 255, 255, 0.22), transparent 34%),
-    linear-gradient(145deg, rgba(22, 35, 58, 0.96), rgba(10, 17, 31, 0.98));
-  color: #f8fafc;
+  background: rgba(38, 28, 16, 0.82);
+  color: rgba(220, 209, 185, 0.9);
   cursor: pointer;
   font-size: 1rem;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   padding: 0;
-  width: 54px;
-  height: 54px;
-  min-width: 54px;
-  min-height: 54px;
+  width: 48px;
+  height: 48px;
+  min-width: 48px;
+  min-height: 48px;
   border-radius: 999px;
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
@@ -151,9 +149,7 @@
     color var(--transition-fast),
     opacity var(--transition-fast);
   position: relative;
-  box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.08) inset,
-    0 12px 26px rgba(0, 0, 0, 0.28);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
 }
 
 .audio-btn--floating {
@@ -674,13 +670,13 @@
   /* Layers: top sheen → dot texture → base glass */
   background:
     linear-gradient(180deg,
-      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0.06) 0%,
       rgba(255, 255, 255, 0.00) 40%
     ),
-    radial-gradient(circle, rgba(148, 163, 184, 0.22) 1px, transparent 1px),
+    radial-gradient(circle, rgba(100, 80, 50, 0.20) 1px, transparent 1px),
     linear-gradient(150deg,
-      rgba(22, 38, 66, 0.90) 0%,
-      rgba(10, 18, 36, 0.94) 100%
+      rgba(38, 28, 14, 0.88) 0%,
+      rgba(22, 16, 8, 0.92) 100%
     );
   background-size: auto, 0.55em 0.55em, auto;
 
@@ -804,22 +800,50 @@
   }
 }
 
-/* Fullscreen (card deck) mode on mobile: no card chrome, fill height */
-@media (max-width: 767px) {
-  .word-card--fullscreen.phrase-card,
-  .word-card--fullscreen.phrase-card:nth-child(odd) {
-    background: none;
-    border: none;
-    box-shadow: none;
-    border-radius: 0;
-    /* Fill the full available height so actions land at the bottom */
-    flex: 1;
-    min-height: 0;
-  }
+/* Fullscreen (card deck) mode: no card chrome, fill height, push buttons to bottom */
+.word-card--fullscreen.phrase-card,
+.word-card--fullscreen.phrase-card:nth-child(odd) {
+  background: none;
+  border: none;
+  box-shadow: none;
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
 
-  /* Keep action buttons above the home indicator bar */
+.word-card--fullscreen .word-card-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+/* Dark text on the beige background */
+.word-card--fullscreen .lang-text {
+  color: #1c1410;
+}
+
+.word-card--fullscreen .cover-target.is-pressed .lang-text {
+  color: #1c1410;
+}
+
+.word-card--fullscreen .memory-hook-display {
+  color: rgba(28, 20, 16, 0.7);
+}
+
+/* Push actions to bottom with generous spacing */
+.word-card--fullscreen .card-actions {
+  margin-top: auto;
+  padding-bottom: max(env(safe-area-inset-bottom, 0px), 24px);
+  padding-top: 16px;
+}
+
+@media (max-width: 767px) {
   .word-card--fullscreen.phrase-card .card-actions {
-    padding-bottom: max(env(safe-area-inset-bottom, 0px), 12px);
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
   }
 }
 
