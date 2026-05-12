@@ -443,7 +443,7 @@
   flex-direction: column;
   justify-content: center;
   padding: 2rem 1.25rem;
-  /* Reserve space for absolutely-positioned actions + bottom menu */
+  /* Keep breathing room above the bottom menu/safe area. */
   padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 2rem);
   height: 100%;
 }
@@ -467,14 +467,9 @@
 
   .word-card--fullscreen .word-card-content.word-card-content--editing-hook {
     justify-content: flex-start;
-    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 5.5rem);
   }
 
   .word-card--fullscreen .card-actions {
-    position: absolute;
-    bottom: env(safe-area-inset-bottom, 0);
-    left: 0;
-    right: 0;
     margin: 0;
     padding: 0.5rem;
     gap: 14px;
@@ -496,12 +491,8 @@
   max-width: 100%;
 }
 
-/* Actions pinned to bottom of the card (desktop; mobile overridden above) */
+/* Actions sit in the card flow so taller text cannot slide underneath them. */
 .word-card--fullscreen .card-actions {
-  position: absolute;
-  bottom: calc(env(safe-area-inset-bottom, 0px) + 3.5rem);
-  left: 1.25rem;
-  right: 1.25rem;
   display: flex;
   justify-content: center;
   align-items: center;
@@ -516,7 +507,6 @@
 
 @media (min-width: 768px) {
   .word-card--fullscreen .card-actions {
-    position: absolute;
     margin-top: 2rem;
     gap: 30px;
   }

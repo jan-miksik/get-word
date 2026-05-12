@@ -48,64 +48,63 @@ export function MenuIcon(props: IconProps) {
 
 export function CategoryIcon(props: IconProps) {
   return (
-    <Glyph {...props}>
-      <path d="M4 7h16" />
-      <path d="M7 12h10" />
-      <path d="M10 17h4" />
+    <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
+      <rect x="4.25" y="4.75" width="6.5" height="6.5" rx="1.6" />
+      <rect x="13.25" y="4.75" width="6.5" height="6.5" rx="1.6" />
+      <rect x="4.25" y="13.25" width="6.5" height="6.5" rx="1.6" />
+      <rect x="13.25" y="13.25" width="6.5" height="6.5" rx="1.6" />
     </Glyph>
   );
 }
 
 export function ProgressIcon(props: IconProps) {
   return (
-    <Glyph {...props}>
-      <path d="M5 18V12" />
-      <path d="M12 18V7" />
-      <path d="M19 18V4" />
-      <path d="M3.5 18.5h17" />
+    <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
+      <path d="M4.5 18.5h15" />
+      <path d="M6 15.5l3.5-4 3.25 2.75L18 7.5" />
+      <circle cx="6" cy="15.5" r="1" fill="currentColor" stroke="none" />
+      <circle cx="9.5" cy="11.5" r="1" fill="currentColor" stroke="none" />
+      <circle cx="12.75" cy="14.25" r="1" fill="currentColor" stroke="none" />
+      <circle cx="18" cy="7.5" r="1" fill="currentColor" stroke="none" />
     </Glyph>
   );
 }
 
 export function MemoryIcon(props: IconProps) {
   return (
-    <Glyph {...props}>
-      <path
-        d="M12 4 13.6 9 19 10.5 13.6 12 12 17 10.4 12 5 10.5 10.4 9Z"
-        fill="currentColor"
-        stroke="none"
-      />
-      <path d="M19.5 5.5v2" strokeWidth={1.6} />
-      <path d="M18.5 6.5h2" strokeWidth={1.6} />
-      <path d="M5 17v2" strokeWidth={1.6} />
-      <path d="M4 18h2" strokeWidth={1.6} />
+    <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
+      <path d="M8.6 18.25c-2.15-.75-3.6-2.7-3.6-5.15 0-2.35 1.18-4.02 3.1-4.7.18-1.88 1.64-3.15 3.5-3.15 1.48 0 2.62.72 3.2 1.9 2.45.3 4.2 2.23 4.2 4.9 0 2.86-1.9 5.06-4.65 5.55" />
+      <path d="M9 9.7c.8-.45 1.75-.48 2.55.05" />
+      <path d="M14.6 10.25c.68-.18 1.45-.02 2.05.45" />
+      <path d="M12 13.25v6" />
+      <path d="M9.55 15.1 12 13.25l2.45 1.85" />
     </Glyph>
   );
 }
 
 export function WordListsIcon(props: IconProps) {
   return (
-    <Glyph {...props}>
-      <rect x="4" y="4" width="16" height="16" rx="2" />
-      <path d="M8 9h8" />
-      <path d="M8 12.5h8" />
-      <path d="M8 16h5" />
+    <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
+      <path d="M7.5 4.5h9A2.5 2.5 0 0 1 19 7v12.5H8A3 3 0 0 1 5 16.5V7a2.5 2.5 0 0 1 2.5-2.5Z" />
+      <path d="M8 16.5h11" />
+      <path d="M9 9h6" />
+      <path d="M9 12h5" />
     </Glyph>
   );
 }
 
 export function SettingsIcon(props: IconProps) {
   return (
-    <Glyph {...props}>
-      <path d="M12 3.75v2.1" />
-      <path d="m17.83 6.17-1.49 1.49" />
-      <path d="M20.25 12h-2.1" />
-      <path d="m17.83 17.83-1.49-1.49" />
-      <path d="M12 20.25v-2.1" />
-      <path d="m7.66 16.34-1.49 1.49" />
-      <path d="M5.85 12H3.75" />
-      <path d="m7.66 7.66-1.49-1.49" />
-      <circle cx="12" cy="12" r="3.35" />
+    <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
+      <path d="M5 7h8.5" />
+      <path d="M17 7h2" />
+      <circle cx="15.25" cy="7" r="1.75" />
+      <path d="M5 12h2" />
+      <path d="M10.5 12H19" />
+      <circle cx="8.75" cy="12" r="1.75" />
+      <path d="M5 17h7.5" />
+      <path d="M16 17h3" />
+      <circle cx="14.25" cy="17" r="1.75" />
     </Glyph>
   );
 }

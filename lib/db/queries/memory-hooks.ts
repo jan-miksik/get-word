@@ -3,8 +3,9 @@ import { db } from "../client";
 import {
   userMemoryHooks,
   type UserMemoryHook,
-  type NewUserMemoryHook,
 } from "../schema";
+
+const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 // Get all memory hooks for a user
 export async function getUserMemoryHooks(
@@ -123,22 +124,46 @@ export async function batchUpsertMemoryHooks(
   const entries = Object.entries(hooks);
   if (entries.length === 0) return;
 
-  const values = entries.map(([wordId, hookText]) => ({
-    userId,
-    wordId,
-    hookText,
-  }));
+  const legacyValues = entries
+    .filter(([key]) => !UUID_PATTERN.test(key))
+    .map(([wordId, hookText]) => ({
+      userId,
+      wordId,
+      hookText,
+    }));
+  const itemValues = entries
+    .filter(([key]) => UUID_PATTERN.test(key))
+    .map(([wordListItemId, hookText]) => ({
+      userId,
+      wordListItemId,
+      hookText,
+    }));
 
   // Insert in batches
   const BATCH_SIZE = 100;
-  for (let i = 0; i < values.length; i += BATCH_SIZE) {
-    const batch = values.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < legacyValues.length; i += BATCH_SIZE) {
+    const batch = legacyValues.slice(i, i + BATCH_SIZE);
 
     await db
       .insert(userMemoryHooks)
       .values(batch)
       .onConflictDoUpdate({
         target: [userMemoryHooks.userId, userMemoryHooks.wordId],
+        set: {
+          hookText: sql`excluded.hook_text`,
+          updatedAt: new Date(),
+        },
+      });
+  }
+
+  for (let i = 0; i < itemValues.length; i += BATCH_SIZE) {
+    const batch = itemValues.slice(i, i + BATCH_SIZE);
+
+    await db
+      .insert(userMemoryHooks)
+      .values(batch)
+      .onConflictDoUpdate({
+        target: [userMemoryHooks.userId, userMemoryHooks.wordListItemId],
         set: {
           hookText: sql`excluded.hook_text`,
           updatedAt: new Date(),

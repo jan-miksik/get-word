@@ -34,3 +34,88 @@
 *::after {
   box-sizing: border-box;
 }
+
+/* Overrides for the card-view warm theme. Keep these unlayered so they can
+   beat the older unlayered CSS imported from styles/*.css. */
+.word-card--fullscreen .cover-target.is-covered .lang-text,
+.word-card--fullscreen .cover-target.is-covered .memory-hook-text {
+  color: transparent !important;
+  text-shadow: none !important;
+}
+
+.word-card--fullscreen .cover-target.is-pressed.is-covered .lang-text {
+  color: #1c1410 !important;
+}
+
+.word-card--fullscreen .cover-target.is-pressed.is-covered .memory-hook-text {
+  color: rgba(28, 20, 16, 0.82) !important;
+}
+
+[data-theme="warm"] .top-menu {
+  background: transparent;
+  border-bottom-color: transparent;
+  backdrop-filter: none;
+}
+
+[data-theme="warm"] .top-menu-stats,
+[data-theme="warm"] .top-menu-left > div {
+  background: rgba(83, 78, 67, 0.78);
+  border-color: rgba(255, 247, 232, 0.14);
+  box-shadow: 0 12px 26px rgba(66, 54, 34, 0.18);
+}
+
+[data-theme="warm"] .mode-btn.menu-toggle-btn {
+  background: rgba(83, 78, 67, 0.86);
+  border-color: rgba(255, 247, 232, 0.16);
+  color: #f7efe2;
+  box-shadow: 0 12px 26px rgba(66, 54, 34, 0.2);
+}
+
+[data-theme="warm"] .mode-btn.menu-toggle-btn:hover,
+[data-theme="warm"] .mode-btn.menu-toggle-btn.is-active {
+  background: rgba(67, 62, 53, 0.92);
+  border-color: rgba(230, 111, 45, 0.5);
+  color: #ffd0a9;
+}
+
+[data-theme="warm"] .mode-btn.menu-toggle-btn .absolute {
+  background: #d98935;
+}
+
+[data-theme="warm"] .menu-dropdown-popup {
+  background: rgba(55, 49, 39, 0.98);
+  border-color: rgba(255, 247, 232, 0.1);
+  box-shadow:
+    0 0 0 0.5px rgba(255, 247, 232, 0.06) inset,
+    0 18px 48px rgba(66, 54, 34, 0.32);
+}
+
+[data-theme="warm"] .menu-item {
+  color: rgba(247, 239, 226, 0.76);
+  border-bottom-color: rgba(255, 247, 232, 0.08);
+}
+
+[data-theme="warm"] .menu-item:hover {
+  background: rgba(217, 137, 53, 0.12);
+  color: #fff7e8;
+}
+
+[data-theme="warm"] .menu-item-icon {
+  background: rgba(255, 247, 232, 0.08);
+  border-color: rgba(255, 247, 232, 0.1);
+  color: #d98935;
+}
+
+[data-theme="warm"] .cover-target.is-covered::before {
+  background:
+    linear-gradient(180deg, rgba(255, 250, 236, 0.08) 0%, rgba(255, 255, 255, 0) 42%),
+    radial-gradient(circle, rgba(199, 154, 83, 0.2) 1px, transparent 1px),
+    linear-gradient(150deg, rgba(53, 43, 28, 0.98) 0%, rgba(37, 30, 20, 0.99) 100%);
+  background-size: auto, 0.55em 0.55em, auto;
+  border-color: rgba(255, 247, 232, 0.1);
+  opacity: 1 !important;
+}
+
+[data-theme="warm"] .cover-target.is-pressed.is-covered::before {
+  opacity: 0 !important;
+}

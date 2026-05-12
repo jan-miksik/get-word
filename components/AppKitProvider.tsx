@@ -19,12 +19,15 @@ createAppKit({
   projectId,
   networks: networks as unknown as [AppKitNetwork, ...AppKitNetwork[]],
   metadata,
+  debug: false,
+  enableAuthLogger: false,
   features: {
     email: true,
     socials: ['google', 'apple'],
     emailShowWallets: true,
     connectMethodsOrder: ['email', 'social', 'wallet'],
     collapseWallets: true,
+    analytics: false,
   },
   allWallets: 'HIDE',
 })

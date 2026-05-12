@@ -82,16 +82,12 @@
   letter-spacing: normal;
 }
 
-/* Combined stats pill (score + due) */
+/* Combined stats group (score + due) */
 .top-menu-stats {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   min-width: 0;
-  padding: 4px;
-  border-radius: 999px;
-  background: rgba(15, 23, 42, 0.46);
-  border: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .top-menu-stats:empty {
@@ -174,10 +170,7 @@
   align-items: center;
   gap: 7px;
   min-height: 32px;
-  padding: 5px 9px 5px 6px;
-  border-radius: 999px;
-  border: 1px solid rgba(148, 163, 184, 0.16);
-  background: rgba(255, 255, 255, 0.055);
+  padding: 4px 6px;
   color: var(--text);
   white-space: nowrap;
 }

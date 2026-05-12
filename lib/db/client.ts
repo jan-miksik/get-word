@@ -1,6 +1,7 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import * as schema from "./schema";
+import { normalizeDatabaseUrl } from "./connection-string";
 
 // Connection string from environment
 const connectionString = process.env.DATABASE_URL;
@@ -12,7 +13,7 @@ if (!connectionString) {
 // Create postgres client
 // max: 3 allows Promise.all queries (e.g. progress + hooks + filters) to run in parallel
 // rather than queuing behind a single connection
-const client = postgres(connectionString, {
+const client = postgres(normalizeDatabaseUrl(connectionString), {
   max: 3,
   // Disable prepare for serverless environments (Vercel)
   prepare: false,

@@ -346,12 +346,12 @@ className={`cover-target relative cursor-pointer touch-manipulation select-none 
         {audioSrc && (
           <button
             type="button"
-            className="audio-btn audio-btn--floating"
+            className="audio-btn audio-btn--floating !h-14 !min-h-14 !w-14 !min-w-14 !rounded-full"
             onClick={() => playAudio(audioSrc)}
             title={role === 'vi' ? 'Play Czech audio' : 'Play Vietnamese audio'}
             aria-label="Play audio"
           >
-            <SpeakerIcon size={18} />
+            <SpeakerIcon size={23} />
           </button>
         )}
         <div className={`card-actions-row ${onReallyKnown ? 'card-actions-row--three' : 'card-actions-row--two'}`}>

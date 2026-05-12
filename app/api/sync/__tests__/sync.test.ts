@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
-const mockGetUserByDeviceId = vi.fn()
+const mockGetOrCreateUserByDeviceId = vi.fn()
 const mockGetUserById = vi.fn()
 const mockGetUserProgress = vi.fn()
 const mockGetUserMemoryHooks = vi.fn()
@@ -29,7 +29,7 @@ const mockSignSession = vi.fn()
 const mockIsGoogleSupportedLanguage = vi.fn()
 
 vi.mock('@/lib/db', () => ({
-  getUserByDeviceId: (...args: unknown[]) => mockGetUserByDeviceId(...args),
+  getOrCreateUserByDeviceId: (...args: unknown[]) => mockGetOrCreateUserByDeviceId(...args),
   getUserById: (...args: unknown[]) => mockGetUserById(...args),
   getUserProgress: (...args: unknown[]) => mockGetUserProgress(...args),
   batchUpsertProgress: (...args: unknown[]) => mockBatchUpsertProgress(...args),
@@ -118,6 +118,7 @@ describe('GET /api/sync', () => {
     vi.clearAllMocks()
     mockVerifySession.mockResolvedValue({ userId: 'uuid-A', userRole: 'user' })
     mockSignSession.mockResolvedValue('signed-token')
+    mockGetOrCreateUserByDeviceId.mockResolvedValue(baseUser)
     mockGetUserById.mockResolvedValue(baseUser)
     mockGetUserProgress.mockResolvedValue({})
     mockGetUserMemoryHooks.mockResolvedValue({})
@@ -213,9 +214,20 @@ describe('GET /api/sync', () => {
     ])
   })
 
-  it('returns 401 without session', async () => {
+  it('bootstraps a session from device auth without an existing session', async () => {
     mockVerifySession.mockResolvedValue(null)
     const req = new NextRequest('http://localhost:3000/api/sync?deviceId=dev-123')
+    const res = await GET(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(mockGetOrCreateUserByDeviceId).toHaveBeenCalledWith('dev-123')
+  })
+
+  it('returns 401 for a userId fallback without a session', async () => {
+    mockVerifySession.mockResolvedValue(null)
+    const req = new NextRequest('http://localhost:3000/api/sync?userId=uuid-A')
     const res = await GET(req)
     expect(res.status).toBe(401)
   })
@@ -244,6 +256,7 @@ describe('POST /api/sync', () => {
     vi.clearAllMocks()
     mockVerifySession.mockResolvedValue({ userId: 'uuid-A', userRole: 'user' })
     mockSignSession.mockResolvedValue('signed-token')
+    mockGetOrCreateUserByDeviceId.mockResolvedValue(baseUser)
     mockGetUserById.mockResolvedValue(baseUser)
     mockGetUserProgress.mockResolvedValue({})
     mockGetUserMemoryHooks.mockResolvedValue({})
@@ -526,11 +539,26 @@ describe('POST /api/sync', () => {
     expect(mockUpsertMemoryHookByItemId).toHaveBeenCalledWith('uuid-A', itemId, 'hook text')
   })
 
-  it('returns 401 without session', async () => {
+  it('bootstraps a session from device auth without an existing session', async () => {
     mockVerifySession.mockResolvedValue(null)
     const req = new NextRequest('http://localhost:3000/api/sync', {
       method: 'POST',
       body: JSON.stringify({ deviceId: 'dev-123' }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(mockGetOrCreateUserByDeviceId).toHaveBeenCalledWith('dev-123')
+  })
+
+  it('returns 401 for a userId fallback without a session', async () => {
+    mockVerifySession.mockResolvedValue(null)
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({ userId: 'uuid-A' }),
       headers: { 'Content-Type': 'application/json' },
     })
     const res = await POST(req)

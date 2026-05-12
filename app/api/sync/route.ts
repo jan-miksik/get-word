@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getUserByDeviceId,
+  getOrCreateUserByDeviceId,
   getUserById,
   getUserProgress,
   batchUpsertProgress,
@@ -113,7 +113,7 @@ function databaseUnavailableResponse(
   return timer.applyHeaders(failed);
 }
 
-/** Prefers userId (PK lookup) when provided; falls back to deviceId get-or-create. */
+/** Prefers a verified session; otherwise bootstraps from device auth. */
 async function resolveUser(
   deviceId: string | null,
   userId: string | null,
@@ -122,30 +122,19 @@ async function resolveUser(
   if (sessionUserId) {
     const sessionUser = await getUserById(sessionUserId);
     if (sessionUser) return sessionUser;
-  }
 
-  if (userId) {
-    const user = await getUserById(userId);
-    if (user) return user;
+    if (userId) {
+      const user = await getUserById(userId);
+      if (user) return user;
+    }
   }
-  if (deviceId) return await getUserByDeviceId(deviceId);
+  if (deviceId) return await getOrCreateUserByDeviceId(deviceId);
   return null;
 }
 
 export async function POST(request: NextRequest) {
   const timer = createRouteTimer();
   try {
-    const sessionToken = request.cookies.get(WORDLINK_SESSION_COOKIE_NAME)?.value;
-    const session = await verifySession(sessionToken);
-    timer.mark("verify_session");
-    if (!session?.userId) {
-      const unauthorized = NextResponse.json(
-        { success: false, error: "Authentication required" },
-        { status: 401 }
-      );
-      timer.mark("return_unauthorized");
-      return timer.applyHeaders(unauthorized);
-    }
     const body: SyncRequest = await request.json();
     timer.mark("parse_body");
     const {
@@ -177,6 +166,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const sessionToken = request.cookies.get(WORDLINK_SESSION_COOKIE_NAME)?.value;
+    const session = await verifySession(sessionToken);
+    timer.mark("verify_session");
+    if (!session?.userId && !deviceId) {
+      const unauthorized = NextResponse.json(
+        { success: false, error: "Authentication required" },
+        { status: 401 }
+      );
+      timer.mark("return_unauthorized");
+      return timer.applyHeaders(unauthorized);
+    }
+
     if (settings_language !== undefined) {
       const supported = await isGoogleSupportedLanguage(settings_language).catch(() => false);
       if (!supported) {
@@ -201,7 +202,7 @@ export async function POST(request: NextRequest) {
     }
 
     let user = await withRetryOnRecoverableDatabaseError(() =>
-      resolveUser(deviceId || null, userId || null, session.userId)
+      resolveUser(deviceId || null, userId || null, session?.userId ?? null)
     );
     timer.mark("resolve_user");
     if (!user) {
@@ -384,17 +385,6 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const timer = createRouteTimer();
   try {
-    const sessionToken = request.cookies.get(WORDLINK_SESSION_COOKIE_NAME)?.value;
-    const session = await verifySession(sessionToken);
-    timer.mark("verify_session");
-    if (!session?.userId) {
-      const unauthorized = NextResponse.json(
-        { success: false, error: "Authentication required" },
-        { status: 401 }
-      );
-      timer.mark("return_unauthorized");
-      return timer.applyHeaders(unauthorized);
-    }
     const searchParams = request.nextUrl.searchParams;
     const deviceId = searchParams.get("deviceId");
     const userId = searchParams.get("userId"); // Optional: fallback user ID
@@ -406,8 +396,20 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const sessionToken = request.cookies.get(WORDLINK_SESSION_COOKIE_NAME)?.value;
+    const session = await verifySession(sessionToken);
+    timer.mark("verify_session");
+    if (!session?.userId && !deviceId) {
+      const unauthorized = NextResponse.json(
+        { success: false, error: "Authentication required" },
+        { status: 401 }
+      );
+      timer.mark("return_unauthorized");
+      return timer.applyHeaders(unauthorized);
+    }
+
     const user = await withRetryOnRecoverableDatabaseError(() =>
-      resolveUser(deviceId || null, userId || null, session.userId)
+      resolveUser(deviceId || null, userId || null, session?.userId ?? null)
     );
     timer.mark("resolve_user");
     if (!user) {

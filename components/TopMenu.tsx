@@ -61,12 +61,11 @@ export function ScoreBadge({ score }: { score: number }) {
       className="stat-chip stat-chip--score relative"
       aria-label={`Game score: ${score}`}
     >
-      <span className="stat-chip-icon stat-chip-icon--score">
+      <span className="stat-chip-icon stat-chip-icon--score bg-slate-950 text-yellow-300 ring-1 ring-yellow-200/45 shadow-[0_0_0_3px_rgba(250,204,21,0.16)]">
         <StarIcon size={14} />
       </span>
       <span className="stat-chip-copy">
         <span className="stat-chip-value">{score}</span>
-        <span className="stat-chip-label">stars</span>
       </span>
       {delta && (
         <span
@@ -251,23 +250,24 @@ function ListSelector({
   const selectedLabel = selectedList ? shortenListName(selectedList.name) : '';
 
   return (
-    <div className="list-selector-pill">
-      <span className="list-selector-measure" aria-hidden="true">
+    <div className="relative inline-flex max-w-[min(34vw,220px)] items-center rounded-full border border-white/15 bg-slate-950/60 py-[7px] pl-3 pr-7 shadow-[0_8px_22px_rgba(0,0,0,0.16)] transition-colors hover:border-white/25 hover:bg-slate-950/75 focus-within:border-white/25 focus-within:bg-slate-950/75">
+      <span className="block min-w-[2.5ch] truncate text-[0.7rem] font-bold uppercase tracking-[0.08em] text-text">
         {selectedLabel}
       </span>
       <select
+        className="absolute inset-0 h-full w-full cursor-pointer appearance-none rounded-full border-0 bg-transparent text-transparent outline-none"
         value={activeListId ?? lists[0]?.id ?? ''}
         onChange={(e) => onListChange(e.target.value || null)}
         aria-label="Select word list"
       >
         {lists.map((list) => (
-          <option key={list.id} value={list.id}>
+          <option key={list.id} value={list.id} className="bg-slate-950 text-slate-100">
             {shortenListName(list.name)}
           </option>
         ))}
       </select>
       <svg
-        className="list-selector-chevron"
+        className="pointer-events-none absolute right-2 top-1/2 h-[5px] w-2 -translate-y-1/2 text-text"
         width="10"
         height="6"
         viewBox="0 0 10 6"
