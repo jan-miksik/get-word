@@ -648,8 +648,11 @@
 }
 
 /* ── Hidden text ── */
-.is-covered .lang-text,
-.is-covered .memory-hook-text {
+/* `.cover-target.is-covered` (vs bare `.is-covered`) gives this rule
+   enough specificity to beat the fullscreen `.word-card--fullscreen
+   .lang-text` color rule below. */
+.cover-target.is-covered .lang-text,
+.cover-target.is-covered .memory-hook-text {
   color: transparent;
   text-shadow: none;
   transition: color 0.18s ease, transform 0.18s ease;
@@ -657,13 +660,13 @@
 }
 
 /* Clear old dot pseudo-elements */
-.is-covered .lang-text::before,
-.is-covered .memory-hook-text::before {
-  content: none !important;
-  background: none !important;
+.cover-target.is-covered .lang-text::before,
+.cover-target.is-covered .memory-hook-text::before {
+  content: none;
+  background: none;
 }
 
-/* ── Frosted glass panel ── */
+/* ── Reveal cover panel ── */
 .cover-target.is-covered::before {
   content: '';
   position: absolute;
@@ -671,45 +674,39 @@
   border-radius: 12px;
   z-index: 2;
   pointer-events: none;
-
-  /* Layers: top sheen → dot texture → base glass */
-  background:
-    linear-gradient(180deg,
-      rgba(255, 255, 255, 0.06) 0%,
-      rgba(255, 255, 255, 0.00) 40%
-    ),
-    radial-gradient(circle, rgba(100, 80, 50, 0.20) 1px, transparent 1px),
-    linear-gradient(150deg,
-      rgba(38, 28, 14, 0.88) 0%,
-      rgba(22, 16, 8, 0.92) 100%
-    );
-  background-size: auto, 0.55em 0.55em, auto;
-
-  border: 1px solid rgba(148, 163, 184, 0.11);
+  border: 1px solid rgba(83, 69, 48, 0.3);
+  background-image:
+    radial-gradient(rgb(60 50 30 / 23%) 1.2px, transparent 1px),
+    linear-gradient(145deg, rgba(171, 196, 145, 0.92) 0%, rgba(220, 173, 141, 0.9) 100%);
+  background-size: 12px 12px, auto;
+  background-repeat: repeat, no-repeat;
   box-shadow:
-    0 0 0 0.5px rgba(255, 255, 255, 0.05) inset,
-    0 2px 6px rgba(0, 0, 0, 0.45);
-
+    inset 0 1px 0 rgba(255, 255, 255, 0.55),
+    inset 0 -1px 2px rgba(83, 69, 48, 0.18),
+    0 1px 0 rgba(255, 255, 255, 0.5),
+    0 4px 12px rgba(83, 69, 48, 0.12);
   transform-origin: center center;
   transition:
     opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
     transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
-
-  /* Slow breathing glow — tells the user "something's here" */
-  animation: frost-breathe 4s ease-in-out infinite;
+  animation: reveal-cover-breathe 5s ease-in-out infinite;
 }
 
-@keyframes frost-breathe {
+@keyframes reveal-cover-breathe {
   0%, 100% {
     box-shadow:
-      0 0 0 0.5px rgba(255, 255, 255, 0.05) inset,
-      0 2px 6px rgba(0, 0, 0, 0.45);
+      inset 0 1px 0 rgba(255, 255, 255, 0.55),
+      inset 0 -1px 2px rgba(83, 69, 48, 0.18),
+      0 1px 0 rgba(255, 255, 255, 0.5),
+      0 4px 12px rgba(83, 69, 48, 0.12);
   }
   50% {
     box-shadow:
-      0 0 0 0.5px rgba(255, 255, 255, 0.09) inset,
-      0 2px 6px rgba(0, 0, 0, 0.45),
-      0 0 20px rgba(56, 189, 248, 0.10);
+      inset 0 1px 0 rgba(255, 255, 255, 0.65),
+      inset 0 -1px 2px rgba(83, 69, 48, 0.22),
+      0 1px 0 rgba(255, 255, 255, 0.5),
+      0 4px 14px rgba(83, 69, 48, 0.14),
+      0 0 18px rgba(171, 196, 145, 0.12);
   }
 }
 
@@ -726,6 +723,12 @@
   transform: scaleY(0.7) scaleX(0.98);
 }
 
+/* Press: reveal hint fades up as panel dissolves */
+.cover-target.is-pressed.is-covered .reveal-hint {
+  opacity: 0;
+  transform: translateY(-2px) scale(0.98);
+}
+
 /* ── Press: text rises in ── */
 .cover-target.is-pressed .lang-text,
 .cover-target.is-pressed .memory-hook-text {
@@ -737,7 +740,7 @@
 /* Warm glow behind revealed text */
 .cover-target.is-pressed {
   background: radial-gradient(ellipse at center,
-    rgba(56, 189, 248, 0.08) 0%,
+    rgba(174, 97, 97, 0.08) 0%,
     transparent 72%
   );
   border-radius: 10px;

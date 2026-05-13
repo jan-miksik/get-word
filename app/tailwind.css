@@ -35,99 +35,25 @@
   box-sizing: border-box;
 }
 
-/* Fullscreen card cover-target text rules. Kept unlayered so they beat
-   the older unlayered CSS imported from styles/*.css. */
-.word-card--fullscreen .cover-target.is-covered .lang-text,
-.word-card--fullscreen .cover-target.is-covered .memory-hook-text {
-  color: transparent !important;
-  text-shadow: none !important;
-}
-
-.word-card--fullscreen .cover-target.is-pressed.is-covered .lang-text {
-  color: #1c1410 !important;
-}
-
-.word-card--fullscreen .cover-target.is-pressed.is-covered .memory-hook-text {
-  color: rgba(28, 20, 16, 0.82) !important;
-}
-
-/* Redesign v1 reveal cover. This intentionally lives after the legacy
-   styles/*.css imports so it can replace the old heavy slab without touching
-   those files. */
-.cover-target.is-covered::before {
-  background-image:
-    radial-gradient(rgba(60, 50, 30, 0.55) 1.8px, transparent 2px),
-    linear-gradient(145deg, rgba(171, 196, 145, 0.92) 0%, rgba(220, 173, 141, 0.9) 100%) !important;
-  background-size: 9px 9px, auto !important;
-  background-position: 0 0, 0 0 !important;
-  background-repeat: repeat, no-repeat !important;
-  background-color: transparent !important;
-  border: 1px solid rgba(83, 69, 48, 0.3) !important;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.55),
-    inset 0 -1px 2px rgba(83, 69, 48, 0.18),
-    0 1px 0 rgba(255, 255, 255, 0.5),
-    0 4px 12px rgba(83, 69, 48, 0.12) !important;
-  animation: reveal-cover-breathe 5s ease-in-out infinite !important;
-}
-
-.word-card--fullscreen .cover-target.is-covered::before {
-  background-image:
-    radial-gradient(rgba(60, 50, 30, 0.55) 1.8px, transparent 2px),
-    linear-gradient(145deg, rgba(171, 196, 145, 0.92) 0%, rgba(220, 173, 141, 0.9) 100%) !important;
-  background-size: 9px 9px, auto !important;
-  background-repeat: repeat, no-repeat !important;
-}
-
-.cover-target.is-covered .reveal-hint {
-  opacity: 1;
-}
-
+/* Reveal hint label — fades out as the user becomes more familiar with
+   pressing to reveal. Lives here (not word-card.css) because the
+   familiarity attribute is new and tied to the React component. */
 .reveal-hint__label {
   transition: opacity 0.5s ease-out;
 }
 
-html[data-reveal-familiarity="familiar"] .cover-target.is-covered .reveal-hint__label {
+html[data-reveal-familiarity="familiar"] .reveal-hint__label {
   opacity: 0.58;
 }
 
-html[data-reveal-familiarity="introduced"] .cover-target.is-covered .reveal-hint__label {
+html[data-reveal-familiarity="introduced"] .reveal-hint__label {
   opacity: 0.78;
 }
 
-html[data-reveal-familiarity="practiced"] .cover-target.is-covered .reveal-hint__label {
+html[data-reveal-familiarity="practiced"] .reveal-hint__label {
   opacity: 0.32;
 }
 
-html[data-reveal-familiarity="fluent"] .cover-target.is-covered .reveal-hint__label {
+html[data-reveal-familiarity="fluent"] .reveal-hint__label {
   opacity: 0;
-}
-
-.cover-target.is-pressed.is-covered .reveal-hint {
-  opacity: 0;
-  transform: translateY(-2px) scale(0.98);
-}
-
-.cover-target.is-pressed {
-  background: radial-gradient(ellipse at center, rgba(174, 97, 97, 0.08) 0%, transparent 72%) !important;
-}
-
-@keyframes reveal-cover-breathe {
-  0%,
-  100% {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.55),
-      inset 0 -1px 2px rgba(83, 69, 48, 0.18),
-      0 1px 0 rgba(255, 255, 255, 0.5),
-      0 4px 12px rgba(83, 69, 48, 0.12);
-  }
-
-  50% {
-    box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.65),
-      inset 0 -1px 2px rgba(83, 69, 48, 0.22),
-      0 1px 0 rgba(255, 255, 255, 0.5),
-      0 4px 14px rgba(83, 69, 48, 0.14),
-      0 0 18px rgba(171, 196, 145, 0.12);
-  }
 }
