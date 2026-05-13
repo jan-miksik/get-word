@@ -283,14 +283,11 @@
 }
 
 .menu-item-trailing {
-  font-size: 0.66rem;
+  font-size: 0.62rem;
   font-weight: 800;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  padding: 2px 8px;
-  border-radius: 999px;
-  border: 1.5px solid currentColor;
-  background: transparent;
+  opacity: 0.65;
 }
 
 /* Badge pill */
@@ -684,4 +681,19 @@
   font-weight: 900;
   font-size: 1rem;
   flex-shrink: 0;
+}
+
+/* ─── Account slot: force auth-button into tm-* palette ─── */
+.menu-dropdown-account .auth-button {
+  background: var(--tm-surface, #F4EFE2);
+  border-color: var(--tm-ink, #2A2218);
+  color: var(--tm-ink, #2A2218);
+}
+
+.menu-dropdown-account .auth-button.is-connected {
+  border-color: var(--tm-ink, #2A2218);
+}
+
+.menu-dropdown-account .auth-dot {
+  background: var(--tm-accent, #1E6FA8);
 }

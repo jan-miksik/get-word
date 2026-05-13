@@ -316,10 +316,12 @@ function MenuDropdown({
                     }}
                   >
                     <span className="menu-item-icon">{item.icon}</span>
-                    <span className="menu-item-label">{item.label}</span>
-                    {item.trailing && (
-                      <span className="menu-item-trailing">{item.trailing}</span>
-                    )}
+                    <span className="flex-1 flex flex-col gap-0.5 min-w-0">
+                      <span className="menu-item-label">{item.label}</span>
+                      {item.trailing && (
+                        <span className="menu-item-trailing">{item.trailing}</span>
+                      )}
+                    </span>
                   </button>
                 );
               }

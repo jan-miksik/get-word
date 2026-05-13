@@ -11,16 +11,15 @@ export function SpeakerIcon({ size = 18, className = '' }: SpeakerIconProps) {
       viewBox="0 0 24 24"
       fill="none"
       stroke="currentColor"
-      strokeWidth={1.7}
+      strokeWidth={1.8}
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}
       aria-hidden="true"
     >
-      <path d="M4 10.25v3.5h3.55L12 17.6V6.4l-4.45 3.85H4Z" fill="currentColor" stroke="none" />
-      <path d="M15.35 9.1a4.15 4.15 0 0 1 0 5.8" />
-      <path d="M18 6.55a7.75 7.75 0 0 1 0 10.9" />
-      <path d="M18.95 4.2h.1" />
+      <path d="M5 9.5v5H8.5L13 18V6L8.5 9.5H5Z" fill="currentColor" stroke="none" />
+      <path d="M15.5 9.5a3.5 3.5 0 0 1 0 5" />
+      <path d="M17.5 7a6.5 6.5 0 0 1 0 10" />
     </svg>
   );
 }

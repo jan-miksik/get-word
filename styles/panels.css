@@ -969,6 +969,16 @@
   border-color: #2A2218;
 }
 
+/* Toggle off-state: white/20 is invisible on cream — use dark ink tint instead */
+.settings-panel .bg-white\/20 {
+  background-color: rgba(42, 34, 24, 0.18);
+}
+
+/* Minigame range track: white/20 is invisible on cream */
+.settings-panel .minigame-range-track {
+  background: rgba(42, 34, 24, 0.2);
+}
+
 /* Scrollbar inside brutalist panels */
 .settings-panel .custom-scrollbar,
 .progress-panel .custom-scrollbar,

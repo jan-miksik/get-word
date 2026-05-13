@@ -531,7 +531,7 @@ export function SettingsPanel({
             <p className="m-0 text-xs leading-relaxed text-text-soft">
               {t('settings.localDataNotice')}
             </p>
-            <div className="rounded-lg border border-border-subtle bg-background/60 px-3 py-2">
+            <div className="rounded-lg border border-border-subtle bg-background px-3 py-2">
               <div className="flex items-center justify-between gap-3">
                 <span className="text-sm text-text">{t('settings.localCacheEnable')}</span>
                 <ToggleSwitch
@@ -584,13 +584,18 @@ export function SettingsPanel({
                   )}
                 </div>
                 {displayAddress && (
-                  <AddressWithCopy
-                    address={displayAddress}
-                    copied={copiedAddress === displayAddress}
-                    onCopy={handleCopyAddress}
-                    copyLabel={t('common.copy')}
-                    copiedLabel={t('common.copied')}
-                  />
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[0.62rem] font-semibold uppercase tracking-wider text-text-soft/60">
+                      Crypto wallet address
+                    </span>
+                    <AddressWithCopy
+                      address={displayAddress}
+                      copied={copiedAddress === displayAddress}
+                      onCopy={handleCopyAddress}
+                      copyLabel={t('common.copy')}
+                      copiedLabel={t('common.copied')}
+                    />
+                  </div>
                 )}
                 {onSignOut && (
                   <button
@@ -609,13 +614,18 @@ export function SettingsPanel({
                   <code className="text-xs text-text-soft/60 font-mono break-all">{userEmail}</code>
                 )}
                 {userWalletAddress && (
-                  <AddressWithCopy
-                    address={userWalletAddress}
-                    copied={copiedAddress === userWalletAddress}
-                    onCopy={handleCopyAddress}
-                    copyLabel={t('common.copy')}
-                    copiedLabel={t('common.copied')}
-                  />
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[0.62rem] font-semibold uppercase tracking-wider text-text-soft/60">
+                      Crypto wallet address
+                    </span>
+                    <AddressWithCopy
+                      address={userWalletAddress}
+                      copied={copiedAddress === userWalletAddress}
+                      onCopy={handleCopyAddress}
+                      copyLabel={t('common.copy')}
+                      copiedLabel={t('common.copied')}
+                    />
+                  </div>
                 )}
               </div>
             )}
