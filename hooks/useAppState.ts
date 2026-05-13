@@ -9,11 +9,9 @@ import { useServerSync } from '@/features/learning/app-state/useServerSync';
 import { useCategoryFilter, useGameScore, useMemoryHooks, usePreferences, useProgress } from '@/features/learning/state';
 import type { LinkPayload } from '@/features/learning/app-state/types';
 import type { NormalizedWord } from '@/lib/words';
-import { useTheme } from './useTheme';
 import { readStoredLearningRoleForPair } from '@/features/learning/app-state/storage';
 
 export type { Role } from '@/features/learning/state';
-export type { Theme } from './useTheme';
 export type { LinkPayload } from '@/features/learning/app-state/types';
 
 export function useAppState(
@@ -32,7 +30,6 @@ export function useAppState(
   const isUpdatingFromServerRef = useRef(false);
   const { activeListId, setActiveListId } = useActiveListState();
 
-  const theme = useTheme();
   const userProfile = useUserProfile();
   const progressState = useProgress(isHydrated, isUpdatingFromServerRef);
   const preferences = usePreferences(isHydrated, isUpdatingFromServerRef);
@@ -154,7 +151,6 @@ export function useAppState(
   });
 
   return {
-    ...theme,
     ...userProfile,
     ...progressState,
     ...preferences,

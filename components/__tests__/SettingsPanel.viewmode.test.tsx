@@ -19,8 +19,6 @@ vi.mock('@/context/AppStateContext', () => ({
     settingsLanguage: 'en',
     settingsLanguageSelectedAt: '2026-05-01T00:00:00.000Z',
     setSettingsLanguage: vi.fn(),
-    theme: 'default',
-    setTheme: vi.fn(),
     userId: null,
     userWalletAddress: null,
     userEmail: null,

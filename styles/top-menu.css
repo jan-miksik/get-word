@@ -106,17 +106,6 @@
   height: 5px;
 }
 
-/* Light themes */
-[data-theme="warm"] .list-selector-pill select,
-[data-theme="calm"] .list-selector-pill select {
-  color: var(--text);
-}
-
-[data-theme="warm"] .list-selector-pill select option,
-[data-theme="calm"] .list-selector-pill select option {
-  background: var(--bg);
-}
-
 .top-menu {
   display: flex;
   flex-wrap: nowrap;
