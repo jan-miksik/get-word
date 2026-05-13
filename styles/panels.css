@@ -679,6 +679,19 @@
   --panel-surface: #F4EFE2;
   --panel-ink: #2A2218;
   --panel-ink-soft: #6B5E48;
+
+  /* Scoped overrides so Tailwind theme tokens (bg-background-elevated,
+     text-text, border-border-subtle, etc.) resolve to brutalist palette
+     inside these panels without affecting the global dark theme. */
+  --bg: #F4EFE2;
+  --bg-elevated: #FFF8E8;
+  --text: #2A2218;
+  --text-soft: #6B5E48;
+  --border-subtle: #2A2218;
+  --accent: #1E6FA8;
+  --accent-soft: rgba(30, 111, 168, 0.12);
+  --accent-strong: #2A2218;
+
   background: var(--panel-surface);
   border: 2px solid var(--panel-ink);
   color: var(--panel-ink);
@@ -722,6 +735,253 @@
 .memory-hooks-panel .panel-content,
 .category-panel .panel-content {
   color: var(--panel-ink, #2A2218);
+}
+
+/* Category list — brutalist overrides for hardcoded dark colors */
+.category-panel .category-clear-btn {
+  border: 2px solid var(--panel-ink, #2A2218);
+  background: var(--panel-surface, #F4EFE2);
+  color: var(--panel-ink, #2A2218);
+  border-radius: 10px;
+  font-weight: 700;
+}
+
+.category-panel .category-clear-btn:hover:not(:disabled) {
+  background: var(--panel-ink, #2A2218);
+  color: var(--panel-surface, #F4EFE2);
+  transform: none;
+}
+
+.category-panel .category-clear-btn:disabled {
+  opacity: 0.4;
+}
+
+.category-panel .category-order-item {
+  border: 2px solid var(--panel-ink, #2A2218);
+  background: var(--panel-surface, #F4EFE2);
+  color: var(--panel-ink, #2A2218);
+  border-radius: 12px;
+  box-shadow: none;
+}
+
+.category-panel .category-order-item.is-selected {
+  border-color: var(--panel-ink, #2A2218);
+  background: #FFF8E8;
+}
+
+.category-panel .category-order-item.is-over {
+  border-color: var(--panel-ink, #2A2218);
+  background: #FFF8E8;
+  transform: none;
+}
+
+.category-panel .category-drag-handle {
+  border: 2px solid var(--panel-ink, #2A2218);
+  background: var(--panel-surface, #F4EFE2);
+  color: var(--panel-ink, #2A2218);
+  border-radius: 8px;
+}
+
+.category-panel .category-drag-handle:hover {
+  background: var(--panel-ink, #2A2218);
+  color: var(--panel-surface, #F4EFE2);
+  border-color: var(--panel-ink, #2A2218);
+}
+
+.category-panel .category-order-name {
+  color: var(--panel-ink, #2A2218);
+}
+
+.category-panel .category-order-count {
+  color: var(--panel-ink, #2A2218);
+  background: transparent;
+  border: 2px solid var(--panel-ink, #2A2218);
+  font-weight: 700;
+}
+
+.category-panel .category-order-btn {
+  border: 2px solid var(--panel-ink, #2A2218);
+  background: var(--panel-surface, #F4EFE2);
+  color: var(--panel-ink, #2A2218);
+  border-radius: 8px;
+}
+
+.category-panel .category-order-btn:hover:enabled {
+  background: var(--panel-ink, #2A2218);
+  color: var(--panel-surface, #F4EFE2);
+  border-color: var(--panel-ink, #2A2218);
+  transform: none;
+}
+
+.category-panel .category-order-label input[type="checkbox"] {
+  accent-color: var(--panel-ink, #2A2218);
+}
+
+/* Category chips (if used) */
+.category-panel .category-chip {
+  border: 2px solid var(--panel-ink, #2A2218);
+  background: var(--panel-surface, #F4EFE2);
+  color: var(--panel-ink, #2A2218);
+}
+
+.category-panel .category-chip:hover {
+  background: var(--panel-ink, #2A2218);
+  color: var(--panel-surface, #F4EFE2);
+  border-color: var(--panel-ink, #2A2218);
+  transform: none;
+}
+
+/* Settings: language picker / form controls inside panels */
+.settings-panel input[type="text"],
+.settings-panel input[type="search"],
+.settings-panel select,
+.settings-panel textarea {
+  background: var(--panel-surface, #F4EFE2);
+  border: 2px solid var(--panel-ink, #2A2218);
+  color: var(--panel-ink, #2A2218);
+  border-radius: 10px;
+}
+
+.settings-panel input::placeholder,
+.settings-panel textarea::placeholder {
+  color: var(--panel-ink-soft, #6B5E48);
+  opacity: 0.75;
+}
+
+/* ─── Tailwind-utility overrides for panels ───────────────────
+   tailwind.config.js compiles bg-background-elevated, text-text, etc.
+   into hardcoded hex values, so the CSS-var cascade can't reach them.
+   We override the generated utilities directly inside the panel scope. */
+
+.settings-panel .bg-background,
+.progress-panel .bg-background,
+.memory-hooks-panel .bg-background,
+.category-panel .bg-background {
+  background-color: #F4EFE2;
+}
+
+.settings-panel .bg-background-elevated,
+.progress-panel .bg-background-elevated,
+.memory-hooks-panel .bg-background-elevated,
+.category-panel .bg-background-elevated,
+.settings-panel [class*="bg-background-elevated/"],
+.progress-panel [class*="bg-background-elevated/"],
+.memory-hooks-panel [class*="bg-background-elevated/"],
+.category-panel [class*="bg-background-elevated/"] {
+  background-color: #FFF8E8;
+}
+
+.settings-panel .text-text,
+.progress-panel .text-text,
+.memory-hooks-panel .text-text,
+.category-panel .text-text {
+  color: #2A2218;
+}
+
+.settings-panel .text-text-soft,
+.progress-panel .text-text-soft,
+.memory-hooks-panel .text-text-soft,
+.category-panel .text-text-soft,
+.settings-panel [class*="text-text-soft/"],
+.progress-panel [class*="text-text-soft/"],
+.memory-hooks-panel [class*="text-text-soft/"],
+.category-panel [class*="text-text-soft/"] {
+  color: #6B5E48;
+}
+
+.settings-panel .text-accent,
+.progress-panel .text-accent,
+.memory-hooks-panel .text-accent,
+.category-panel .text-accent {
+  color: #1E6FA8;
+}
+
+.settings-panel .text-fresh,
+.progress-panel .text-fresh,
+.memory-hooks-panel .text-fresh,
+.category-panel .text-fresh {
+  color: #B45309;
+}
+
+.settings-panel .text-done,
+.progress-panel .text-done,
+.memory-hooks-panel .text-done,
+.category-panel .text-done {
+  color: #15803D;
+}
+
+.settings-panel .text-danger,
+.progress-panel .text-danger,
+.memory-hooks-panel .text-danger,
+.category-panel .text-danger {
+  color: #B91C1C;
+}
+
+.settings-panel .border-border-subtle,
+.progress-panel .border-border-subtle,
+.memory-hooks-panel .border-border-subtle,
+.category-panel .border-border-subtle,
+.settings-panel [class*="border-border-subtle/"],
+.progress-panel [class*="border-border-subtle/"],
+.memory-hooks-panel [class*="border-border-subtle/"],
+.category-panel [class*="border-border-subtle/"] {
+  border-color: #2A2218;
+}
+
+.settings-panel .border-accent-strong,
+.progress-panel .border-accent-strong,
+.memory-hooks-panel .border-accent-strong,
+.category-panel .border-accent-strong {
+  border-color: #1E6FA8;
+}
+
+.settings-panel .bg-border-subtle,
+.progress-panel .bg-border-subtle,
+.memory-hooks-panel .bg-border-subtle,
+.category-panel .bg-border-subtle {
+  background-color: rgba(42, 34, 24, 0.2);
+}
+
+.settings-panel .bg-accent,
+.progress-panel .bg-accent,
+.memory-hooks-panel .bg-accent,
+.category-panel .bg-accent {
+  background-color: #1E6FA8;
+}
+
+.settings-panel .bg-done,
+.progress-panel .bg-done,
+.memory-hooks-panel .bg-done,
+.category-panel .bg-done {
+  background-color: #15803D;
+}
+
+.settings-panel .bg-fresh,
+.progress-panel .bg-fresh,
+.memory-hooks-panel .bg-fresh,
+.category-panel .bg-fresh {
+  background-color: #B45309;
+}
+
+/* Sections in Settings use bg-background-elevated/50 — match it on cream */
+.settings-panel [class*="bg-background-elevated/50"] {
+  background-color: rgba(255, 248, 232, 0.6);
+  border-color: #2A2218;
+}
+
+/* Scrollbar inside brutalist panels */
+.settings-panel .custom-scrollbar,
+.progress-panel .custom-scrollbar,
+.memory-hooks-panel .custom-scrollbar,
+.category-panel .custom-scrollbar {
+  scrollbar-color: rgba(42, 34, 24, 0.4) transparent;
+}
+
+.settings-panel .custom-scrollbar::-webkit-scrollbar-thumb,
+.progress-panel .custom-scrollbar::-webkit-scrollbar-thumb,
+.memory-hooks-panel .custom-scrollbar::-webkit-scrollbar-thumb,
+.category-panel .custom-scrollbar::-webkit-scrollbar-thumb {
+  background: rgba(42, 34, 24, 0.4);
 }
 
 /* ─── Onboarding screen (neo-brutalist) ──────────────────── */
