@@ -255,7 +255,7 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
             className="flex items-center justify-center w-full px-4 py-4 rounded-b-xl"
             style={{ animation: 'deck-done-slide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
           >
-            <span className="text-sm" style={{ color: '#a7a7a7' }}>Tap to continue</span>
+            <span className="text-sm text-text font-medium">Tap to continue</span>
           </div>
           <style>{`
             @keyframes deck-done-slide {

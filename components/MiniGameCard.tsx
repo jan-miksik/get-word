@@ -346,7 +346,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
             className="flex items-center justify-center px-4 py-3 rounded-b-xl bg-black/15"
             style={{ animation: 'overlay-slide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
           >
-            <span className="text-sm text-white/70" style={{ color: '#a7a7a7' }} onClick={onDismiss}>Tap to continue</span>
+            <span className="text-sm text-text font-medium" onClick={onDismiss}>Tap to continue</span>
           </div>
           <style>{`
             @keyframes overlay-slide {
