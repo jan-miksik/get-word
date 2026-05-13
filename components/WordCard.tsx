@@ -47,24 +47,14 @@ function RevealHint() {
   return (
     <span
       aria-hidden="true"
-      className="reveal-hint pointer-events-none absolute inset-x-[-0.625rem] inset-y-[-0.1875rem] z-[3] flex items-center justify-center gap-1.5 rounded-xl text-[0.68rem] font-black uppercase tracking-[0.11em] text-[#6b5e48] transition-[opacity,transform] duration-500 ease-out"
+      className="reveal-hint pointer-events-none absolute inset-x-[-0.625rem] inset-y-[-0.1875rem] z-[3] flex flex-col items-center justify-center gap-1 rounded-xl transition-[opacity,transform] duration-500 ease-out"
     >
-      <svg
-        className="reveal-hint__icon"
-        width="14"
-        height="14"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z" />
-        <circle cx="12" cy="12" r="3" />
-      </svg>
-      <span className="reveal-hint__label">Tap to reveal</span>
+      <span className="reveal-hint__dots">
+        <span /><span /><span />
+      </span>
+      <span className="reveal-hint__label text-[0.58rem] font-bold uppercase tracking-[0.13em] text-[#6b5e48]">
+        Tap to reveal
+      </span>
     </span>
   );
 }
