@@ -296,12 +296,12 @@
 }
 
 .srs-btn {
+  --srs-ink: #2A2218;
   min-width: 0;
-  min-height: 64px;
-  border: 1px solid transparent;
-  border-radius: 16px;
-  padding: 11px 10px;
-  font-size: 0.78rem;
+  min-height: 72px;
+  border: 2px solid var(--srs-ink);
+  border-radius: 14px;
+  padding: 12px 10px;
   font-weight: 700;
   letter-spacing: 0;
   text-transform: none;
@@ -313,12 +313,9 @@
   -webkit-tap-highlight-color: transparent;
   transition:
     background-color var(--transition-fast),
-    transform var(--transition-fast),
-    box-shadow var(--transition-fast),
+    color var(--transition-fast),
     border-color var(--transition-fast);
-  box-shadow:
-    0 1px 0 rgba(255, 255, 255, 0.38) inset,
-    0 8px 18px rgba(0, 0, 0, 0.14);
+  box-shadow: none;
 }
 
 .srs-btn-copy {
@@ -327,56 +324,64 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 6px;
   line-height: 1;
 }
 
 .srs-btn-label {
-  font-size: 0.9rem;
-  font-weight: 850;
+  font-size: 1.05rem;
+  font-weight: 900;
   line-height: 1;
+  letter-spacing: 0.01em;
   overflow-wrap: anywhere;
 }
 
 .srs-btn-hint {
-  font-size: 0.66rem;
-  font-weight: 750;
+  font-size: 0.6rem;
+  font-weight: 700;
   line-height: 1;
-  opacity: 0.72;
-  letter-spacing: 0;
+  opacity: 0.78;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
 }
 
 .srs-btn--forgot {
-  background:
-    linear-gradient(180deg, rgba(255, 242, 222, 0.98), rgba(255, 209, 168, 0.96));
-  border-color: rgba(205, 79, 49, 0.3);
-  color: #9d2d1e;
+  background: #F4EFE2;
+  color: var(--srs-ink);
+}
+
+.srs-btn--forgot:hover {
+  background: #B91C1C;
+  color: #fff;
+  border-color: var(--srs-ink);
 }
 
 .srs-btn--okay {
-  background:
-    linear-gradient(180deg, rgba(255, 253, 247, 0.98), rgba(236, 229, 214, 0.96));
-  border-color: rgba(137, 122, 96, 0.28);
-  color: #332f28;
+  background: #F4EFE2;
+  color: var(--srs-ink);
+}
+
+.srs-btn--okay:hover {
+  background: #1E6FA8;
+  color: #fff;
+  border-color: var(--srs-ink);
 }
 
 .srs-btn--easy {
-  background:
-    linear-gradient(180deg, rgba(223, 251, 238, 0.98), rgba(177, 224, 246, 0.96));
-  border-color: rgba(29, 147, 126, 0.32);
-  color: #075c57;
+  background: #F4EFE2;
+  color: var(--srs-ink);
 }
 
-.srs-btn:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+.srs-btn--easy:hover {
+  background: #15803D;
+  color: #fff;
+  border-color: var(--srs-ink);
 }
 
 .srs-btn:active {
-  transform: translateY(0);
-  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
+  background: var(--srs-ink);
+  color: #F4EFE2;
 }
 
 @media (max-width: 430px) {
@@ -385,16 +390,16 @@
   }
 
   .srs-btn {
-    min-height: 62px;
+    min-height: 68px;
     padding-inline: 6px;
   }
 
   .srs-btn-label {
-    font-size: clamp(0.76rem, 3.8vw, 0.88rem);
+    font-size: clamp(0.95rem, 4.4vw, 1.1rem);
   }
 
   .srs-btn-hint {
-    font-size: clamp(0.56rem, 2.8vw, 0.64rem);
+    font-size: clamp(0.54rem, 2.6vw, 0.6rem);
   }
 }
 

@@ -659,3 +659,199 @@
     0 8px 18px rgba(0, 0, 0, 0.22);
 }
 
+/* ─── Neo-brutalist panel overrides ──────────────────────── */
+/* Applies to settings, progress, memory-hooks, and category panels.
+   Cream surface + dark ink border, no offset shadows. */
+
+.settings-panel.is-open .panel-backdrop,
+.progress-panel.is-open .panel-backdrop,
+.memory-hooks-panel.is-open .panel-backdrop,
+.category-panel.is-open .panel-backdrop {
+  background: rgba(42, 34, 24, 0.55);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.settings-panel,
+.progress-panel,
+.memory-hooks-panel,
+.category-panel {
+  --panel-surface: #F4EFE2;
+  --panel-ink: #2A2218;
+  --panel-ink-soft: #6B5E48;
+  background: var(--panel-surface);
+  border: 2px solid var(--panel-ink);
+  color: var(--panel-ink);
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+.settings-panel.is-open .panel-content,
+.progress-panel.is-open .panel-content,
+.memory-hooks-panel.is-open .panel-content,
+.category-panel.is-open .panel-content {
+  background: var(--panel-surface, #F4EFE2);
+  border: 2px solid var(--panel-ink, #2A2218);
+  color: var(--panel-ink, #2A2218);
+  border-radius: 16px;
+  box-shadow: none;
+}
+
+@media (min-width: 768px) {
+  .settings-panel.is-open,
+  .progress-panel.is-open,
+  .memory-hooks-panel.is-open,
+  .category-panel.is-open {
+    background: transparent !important;
+    border: none !important;
+  }
+
+  .settings-panel.is-open .panel-content,
+  .progress-panel.is-open .panel-content,
+  .memory-hooks-panel.is-open .panel-content,
+  .category-panel.is-open .panel-content {
+    background: var(--panel-surface, #F4EFE2);
+    border: 2px solid var(--panel-ink, #2A2218);
+    border-radius: 16px;
+  }
+}
+
+/* Text inside panels picks up the dark ink */
+.settings-panel .panel-content,
+.progress-panel .panel-content,
+.memory-hooks-panel .panel-content,
+.category-panel .panel-content {
+  color: var(--panel-ink, #2A2218);
+}
+
+/* ─── Onboarding screen (neo-brutalist) ──────────────────── */
+.onboarding-screen {
+  --ob-surface: #F4EFE2;
+  --ob-surface-hover: #FFF8E8;
+  --ob-ink: #2A2218;
+  --ob-ink-soft: #6B5E48;
+  --ob-accent: #1E6FA8;
+  --ob-danger: #B91C1C;
+  background: #dcd1b9;
+  color: var(--ob-ink);
+}
+
+.onboarding-overlay {
+  background: rgba(42, 34, 24, 0.55);
+  color: var(--ob-ink, #2A2218);
+}
+
+.onboarding-card {
+  background: var(--ob-surface, #F4EFE2);
+  border: 2px solid var(--ob-ink, #2A2218);
+  border-radius: 16px;
+  color: var(--ob-ink, #2A2218);
+  box-shadow: none;
+}
+
+.onboarding-spinner {
+  border: 3px solid var(--ob-ink, #2A2218);
+  border-top-color: var(--ob-accent, #1E6FA8);
+}
+
+.onboarding-text-soft {
+  color: var(--ob-ink-soft, #6B5E48);
+}
+
+.onboarding-error {
+  color: var(--ob-danger, #B91C1C);
+  font-weight: 700;
+}
+
+.onboarding-notice {
+  background: var(--ob-surface, #F4EFE2);
+  border: 2px solid var(--ob-ink, #2A2218);
+  color: var(--ob-ink, #2A2218);
+  border-radius: 10px;
+}
+
+.onboarding-divider {
+  border-top: 2px solid var(--ob-ink, #2A2218);
+}
+
+.onboarding-combobox {
+  background: var(--ob-surface, #F4EFE2);
+  border: 2px solid var(--ob-ink, #2A2218);
+  color: var(--ob-ink, #2A2218);
+  border-radius: 12px;
+  transition: background 0.14s ease;
+}
+
+.onboarding-combobox:focus-within {
+  background: var(--ob-surface-hover, #FFF8E8);
+}
+
+.onboarding-combobox-input {
+  color: var(--ob-ink, #2A2218);
+}
+
+.onboarding-combobox-input::placeholder {
+  color: var(--ob-ink-soft, #6B5E48);
+  opacity: 0.7;
+}
+
+.onboarding-combobox-list {
+  background: var(--ob-surface, #F4EFE2);
+  border: 2px solid var(--ob-ink, #2A2218);
+  border-radius: 12px;
+  color: var(--ob-ink, #2A2218);
+  box-shadow: none;
+}
+
+.onboarding-combobox-option {
+  background: transparent;
+  color: var(--ob-ink, #2A2218);
+  border-radius: 8px;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.onboarding-combobox-option:hover,
+.onboarding-combobox-option[aria-selected="true"] {
+  background: var(--ob-ink, #2A2218);
+  color: var(--ob-surface, #F4EFE2);
+}
+
+.onboarding-combobox-option:hover .onboarding-text-soft,
+.onboarding-combobox-option[aria-selected="true"] .onboarding-text-soft {
+  color: var(--ob-surface, #F4EFE2);
+  opacity: 0.8;
+}
+
+.onboarding-option {
+  background: var(--ob-surface, #F4EFE2);
+  border: 2px solid var(--ob-ink, #2A2218);
+  border-radius: 12px;
+  color: var(--ob-ink, #2A2218);
+  transition: background 0.14s ease, color 0.14s ease;
+  cursor: pointer;
+}
+
+.onboarding-option:hover:not(:disabled) {
+  background: var(--ob-ink, #2A2218);
+  color: var(--ob-surface, #F4EFE2);
+}
+
+.onboarding-option:hover:not(:disabled) .onboarding-text-soft {
+  color: var(--ob-surface, #F4EFE2);
+  opacity: 0.8;
+}
+
+.onboarding-option-secondary {
+  background: var(--ob-surface, #F4EFE2);
+  border: 2px solid var(--ob-ink, #2A2218);
+  border-radius: 10px;
+  color: var(--ob-ink, #2A2218);
+  transition: background 0.14s ease, color 0.14s ease;
+  cursor: pointer;
+}
+
+.onboarding-option-secondary:hover:not(:disabled) {
+  background: var(--ob-ink, #2A2218);
+  color: var(--ob-surface, #F4EFE2);
+}
+

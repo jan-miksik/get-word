@@ -17,7 +17,7 @@ function formatInterval(ms: number): string {
 
 function formatNextReviewHint(intervalMs: number): string {
   const label = formatInterval(intervalMs);
-  return label ? `Next ${label}` : 'Repeat now';
+  return label ? `Repeat in ${label}` : 'Repeat now';
 }
 
 interface WordCardProps {

@@ -214,13 +214,13 @@ function LanguageCombobox({
 
   return (
     <label className="relative block min-w-0">
-      <span className="mb-2 block text-lg font-semibold text-text sm:text-xl">{label}</span>
-      <div className="min-h-[66px] rounded-lg border border-border-subtle bg-background px-3 py-2 shadow-sm focus-within:border-accent">
-        <div className="mb-1 flex min-w-0 items-center gap-2 text-sm font-medium text-text">
+      <span className="mb-2 block text-lg font-extrabold uppercase tracking-wide sm:text-xl">{label}</span>
+      <div className="onboarding-combobox min-h-[66px] px-3 py-2">
+        <div className="mb-1 flex min-w-0 items-center gap-2 text-sm font-bold">
           <span className="inline-flex min-w-6 justify-center text-lg" aria-hidden="true">
             {hasSelection ? selectedLanguage?.flag ?? '•' : ''}
           </span>
-          <span className={`min-w-0 flex-1 truncate ${hasSelection ? '' : 'text-text-soft'}`}>
+          <span className={`min-w-0 flex-1 truncate ${hasSelection ? '' : 'onboarding-text-soft'}`}>
             {hasSelection ? selectedLanguage?.name ?? value.toUpperCase() : 'Select a language'}
           </span>
         </div>
@@ -233,7 +233,7 @@ function LanguageCombobox({
           aria-label={`${label} language`}
           aria-expanded={open}
           aria-controls={`${id}-options`}
-          className="w-full bg-transparent text-sm text-text outline-none placeholder:text-text-soft/70"
+          className="onboarding-combobox-input w-full bg-transparent text-sm outline-none"
           onFocus={() => setOpen(true)}
           onBlur={() => window.setTimeout(() => setOpen(false), 120)}
           onChange={(event) => {
@@ -246,10 +246,10 @@ function LanguageCombobox({
         <div
           id={`${id}-options`}
           role="listbox"
-          className="absolute z-30 mt-2 max-h-72 w-full overflow-y-auto rounded-lg border border-border-subtle bg-background-elevated p-1 shadow-xl"
+          className="onboarding-combobox-list absolute z-30 mt-2 max-h-72 w-full overflow-y-auto p-1"
         >
           {loading ? (
-            <div className="px-3 py-2 text-sm text-text-soft">Loading languages...</div>
+            <div className="px-3 py-2 text-sm onboarding-text-soft">Loading languages...</div>
           ) : shownLanguages.length > 0 ? (
             shownLanguages.map((language) => (
               <button
@@ -257,19 +257,19 @@ function LanguageCombobox({
                 type="button"
                 role="option"
                 aria-selected={language.code === value}
-                className="flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-sm text-text hover:bg-background aria-selected:bg-background"
+                className="onboarding-combobox-option flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => selectLanguage(language.code)}
               >
                 <span className="inline-flex min-w-6 justify-center text-base" aria-hidden="true">
                   {language.flag ?? ''}
                 </span>
-                <span className="min-w-0 flex-1 truncate">{language.name}</span>
-                <span className="text-xs uppercase text-text-soft">{language.code}</span>
+                <span className="min-w-0 flex-1 truncate font-semibold">{language.name}</span>
+                <span className="text-xs uppercase onboarding-text-soft">{language.code}</span>
               </button>
             ))
           ) : (
-            <div className="px-3 py-2 text-sm text-text-soft">No languages found.</div>
+            <div className="px-3 py-2 text-sm onboarding-text-soft">No languages found.</div>
           )}
         </div>
       ) : null}
@@ -773,25 +773,25 @@ export function LearningLanguageOnboarding({
   }
 
   return (
-    <div className="min-h-screen bg-background text-text flex items-start justify-center px-4 py-8 sm:py-14">
+    <div className="onboarding-screen min-h-screen flex items-start justify-center px-4 py-8 sm:py-14">
       {generationStatus ? (
-        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-background px-4 text-text">
-          <section className="w-full max-w-md rounded-lg border border-border-subtle bg-background-elevated p-6 text-center shadow-xl">
+        <div className="onboarding-overlay fixed inset-0 z-[80] flex items-center justify-center px-4">
+          <section className="onboarding-card w-full max-w-md p-6 text-center">
             <div
-              className="mx-auto mb-4 h-10 w-10 animate-spin rounded-full border-2 border-border-subtle border-t-accent"
+              className="onboarding-spinner mx-auto mb-4 h-10 w-10 animate-spin rounded-full"
               aria-hidden="true"
             />
-            <h2 className="text-base font-semibold text-text">{generationStatus.title}</h2>
-            <p className="mt-2 text-sm leading-relaxed text-text-soft">{generationStatus.detail}</p>
+            <h2 className="text-base font-extrabold">{generationStatus.title}</h2>
+            <p className="mt-2 text-sm leading-relaxed onboarding-text-soft">{generationStatus.detail}</p>
             {generationStatus.estimateSeconds ? (
-              <p className="mt-3 text-xs font-medium text-text-soft">
+              <p className="mt-3 text-xs font-bold onboarding-text-soft">
                 Estimated time: {formatDurationEstimate(generationStatus.estimateSeconds)}
               </p>
             ) : null}
           </section>
         </div>
       ) : null}
-      <section className="w-full max-w-3xl rounded-lg border border-border-subtle bg-background-elevated p-5 shadow-xl sm:p-7">
+      <section className="onboarding-card w-full max-w-3xl p-5 sm:p-7">
         <div className="grid gap-4 sm:grid-cols-2 sm:items-end">
           <LanguageCombobox
             id="language-from"
@@ -812,44 +812,44 @@ export function LearningLanguageOnboarding({
         </div>
 
         {targetLanguage && !targetLanguage.ttsAvailable ? (
-          <p className="mt-3 rounded-md border border-border-subtle bg-background px-3 py-2 text-xs text-text-soft">
+          <p className="onboarding-notice mt-3 rounded-md px-3 py-2 text-xs">
             {targetLanguage.name} is available for translation. Google TTS voice availability was not found, so audio can be added later if a provider supports it.
           </p>
         ) : null}
 
         {languageFrom === languageTo ? (
-          <p className="mt-3 text-sm text-danger">it does not make much sense</p>
+          <p className="onboarding-error mt-3 text-sm">it does not make much sense</p>
         ) : null}
 
-        <div className="mt-6 border-t border-border-subtle pt-5">
+        <div className="onboarding-divider mt-6 pt-5">
           {!languageFrom || !languageTo ? (
-            <p className="text-sm text-text-soft">Choose both languages to find matching word lists.</p>
+            <p className="text-sm onboarding-text-soft">Choose both languages to find matching word lists.</p>
           ) : loadingMatches ? (
-            <p className="text-sm text-text-soft">Looking for existing lists...</p>
+            <p className="text-sm onboarding-text-soft">Looking for existing lists...</p>
           ) : matches.length > 0 ? (
             <div className="space-y-3">
-              <h2 className="text-sm font-semibold text-text">
+              <h2 className="text-sm font-extrabold uppercase tracking-wide">
                 Existing {languagePairLabel} lists
               </h2>
               {matches.map((list) => (
                 <div key={list.id} className="flex items-stretch gap-2">
                   <button
                     type="button"
-                    className="min-w-0 flex-1 rounded-lg border border-border-subtle bg-background px-3 py-2 text-left transition-colors hover:border-accent focus:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
+                    className="onboarding-option min-w-0 flex-1 px-3 py-2 text-left disabled:opacity-50"
                     disabled={workingId === list.id}
                     onClick={() => subscribeToList(list)}
                   >
                     <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <span className="font-medium text-text">{list.name}</span>
-                      <span className="text-xs text-text-soft">{getItemCountLabel(list.itemCount)}</span>
+                      <span className="font-bold">{list.name}</span>
+                      <span className="text-xs onboarding-text-soft">{getItemCountLabel(list.itemCount)}</span>
                     </div>
-                    <div className="mt-1 text-xs text-text-soft">
+                    <div className="mt-1 text-xs onboarding-text-soft">
                       {list.description?.trim() || (list.isOwner ? 'Your list' : 'Public list')}
                     </div>
                   </button>
                   <button
                     type="button"
-                    className="shrink-0 self-center rounded-lg border border-border-subtle bg-background px-3 py-1.5 text-xs font-medium text-text-soft transition-colors hover:border-accent hover:text-accent disabled:opacity-50"
+                    className="onboarding-option-secondary shrink-0 self-center px-3 py-1.5 text-xs font-bold disabled:opacity-50"
                     disabled={workingId === `fork:${list.id}`}
                     onClick={() => forkList(list)}
                   >
@@ -860,7 +860,7 @@ export function LearningLanguageOnboarding({
             </div>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm text-text-soft">
+              <p className="text-sm onboarding-text-soft">
                 No matching lists yet for {languagePairLabel}. You can generate a common list from the best available seed, browse other lists, or start your own.
               </p>
             </div>
@@ -871,14 +871,14 @@ export function LearningLanguageOnboarding({
               {showAutogenerateCommonList ? (
                 <button
                   type="button"
-                  className="rounded-lg border border-border-subtle bg-background px-4 py-3 text-left hover:border-accent disabled:opacity-50"
+                  className="onboarding-option px-4 py-3 text-left disabled:opacity-50"
                   onClick={autogenerateCommonList}
                   disabled={!canContinue || workingId === 'common'}
                 >
-                  <span className="block text-sm font-semibold text-text">
+                  <span className="block text-sm font-extrabold">
                     {workingId === 'common' ? 'Autogenerating...' : 'Autogenerate common list'}
                   </span>
-                  <span className="mt-1 block text-xs text-text-soft">
+                  <span className="mt-1 block text-xs onboarding-text-soft">
                     {commonListEstimate?.status === 'loading'
                       ? 'Checking how many words will be generated...'
                       : commonListEstimate?.status === 'ready'
@@ -892,28 +892,28 @@ export function LearningLanguageOnboarding({
               {matches.length === 0 ? (
                 <button
                   type="button"
-                  className="rounded-lg border border-border-subtle bg-background px-4 py-3 text-left hover:border-accent"
+                  className="onboarding-option px-4 py-3 text-left"
                   onClick={goToListsForExisting}
                   disabled={!canContinue}
                 >
-                  <span className="block text-sm font-semibold text-text">Go through existing lists</span>
-                  <span className="mt-1 block text-xs text-text-soft">Find what suits you most and fork it.</span>
+                  <span className="block text-sm font-extrabold">Go through existing lists</span>
+                  <span className="mt-1 block text-xs onboarding-text-soft">Find what suits you most and fork it.</span>
                 </button>
               ) : null}
               <button
                 type="button"
-                className="rounded-lg border border-border-subtle bg-background px-4 py-3 text-left hover:border-accent"
+                className="onboarding-option px-4 py-3 text-left"
                 onClick={createOwnList}
                 disabled={!canContinue}
               >
-                <span className="block text-sm font-semibold text-text">Create own list</span>
-                <span className="mt-1 block text-xs text-text-soft">Start empty on the lists page.</span>
+                <span className="block text-sm font-extrabold">Create own list</span>
+                <span className="mt-1 block text-xs onboarding-text-soft">Start empty on the lists page.</span>
               </button>
             </div>
           ) : null}
         </div>
 
-        {error ? <p className="mt-4 text-sm text-danger">{error}</p> : null}
+        {error ? <p className="onboarding-error mt-4 text-sm">{error}</p> : null}
       </section>
     </div>
   );

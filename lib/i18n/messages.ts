@@ -83,8 +83,10 @@ export const enMessages = {
   "lists.settings": "API key settings",
   "lists.subscribe": "Subscribe",
   "lists.unsubscribe": "Unsubscribe",
-  "lists.wordLists": "Word Lists",
+  "lists.wordLists": "Word Lists Editor",
   "lists.yourLists": "Your Lists",
+  "lists.selectWordList": "Select word list",
+  "lists.selectWordListTitle": "Choose a word list",
 } as const;
 
 export type I18nKey = keyof typeof enMessages;
@@ -173,8 +175,10 @@ export const csMessages: I18nMessages = {
   "lists.settings": "Nastaveni API klicu",
   "lists.subscribe": "Odebirat",
   "lists.unsubscribe": "Zrusit odber",
-  "lists.wordLists": "Seznamy slov",
+  "lists.wordLists": "Editor seznamu slov",
   "lists.yourLists": "Vase seznamy",
+  "lists.selectWordList": "Vybrat seznam slov",
+  "lists.selectWordListTitle": "Vyberte seznam slov",
 };
 
 export const reviewedMessages: Record<string, I18nMessages> = {
