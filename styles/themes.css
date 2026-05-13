@@ -292,6 +292,132 @@ html[data-theme="warm"] body {
   background: rgba(51, 51, 51, 0.3);
 }
 
+/* ─── Warm theme game cards — neo-brutalist (bold borders, flat fills) ── */
+
+[data-theme="warm"] .game-card {
+  border: 2px solid var(--text) !important;
+  background: var(--bg) !important;
+  box-shadow: none;
+}
+
+[data-theme="warm"] .game-badge {
+  background: var(--bg-elevated);
+  border: 1.5px solid var(--text);
+  color: var(--text);
+  font-weight: 700;
+}
+
+/* Match buttons: solid cream bg + bold border, no shadow */
+[data-theme="warm"] .game-match-btn {
+  background: var(--bg-elevated);
+  border: 2px solid var(--text);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+[data-theme="warm"] .game-match-btn:not(:disabled):hover {
+  background: #fff8f0;
+  border-color: var(--accent);
+  color: var(--accent);
+  transform: none;
+}
+
+[data-theme="warm"] .game-match-btn--selected {
+  background: var(--accent);
+  border-color: var(--text);
+  color: #fff;
+  transform: none;
+}
+
+[data-theme="warm"] .game-match-btn--wrong {
+  background: var(--danger);
+  border-color: var(--text);
+  color: #fff;
+  transform: none;
+}
+
+[data-theme="warm"] .game-match-btn--matched {
+  opacity: 1;
+}
+
+/* Multiple choice options */
+[data-theme="warm"] .game-option {
+  background: var(--bg-elevated);
+  border: 2px solid var(--text);
+  color: var(--text);
+  font-weight: 600;
+  box-shadow: none;
+}
+
+[data-theme="warm"] .game-option:not(:disabled):hover {
+  background: #fff8f0;
+  border-color: var(--accent);
+  transform: none;
+}
+
+/* Typing input */
+[data-theme="warm"] .game-input {
+  background: var(--bg-elevated);
+  border: 2px solid var(--text);
+  color: var(--text);
+  box-shadow: none;
+}
+
+[data-theme="warm"] .game-input:focus {
+  border-color: var(--accent);
+  box-shadow: none;
+}
+
+/* Check / hint buttons */
+[data-theme="warm"] .game-check-btn {
+  background: var(--accent);
+  border: 2px solid var(--text);
+  color: #fff;
+  font-weight: 700;
+  box-shadow: none;
+}
+
+[data-theme="warm"] .game-check-btn:hover {
+  background: #d4601e;
+  transform: none;
+}
+
+[data-theme="warm"] .game-hint-btn {
+  background: var(--bg-elevated);
+  border: 2px solid var(--text);
+  color: var(--text-soft);
+  box-shadow: none;
+}
+
+[data-theme="warm"] .game-hint-btn:not(:disabled):hover {
+  background: var(--bg);
+  border-color: var(--text);
+  color: var(--text);
+  transform: none;
+}
+
+/* Feedback row */
+[data-theme="warm"] .game-feedback {
+  background: var(--bg-elevated);
+  border: 2px solid var(--text);
+  box-shadow: none;
+}
+
+/* Audio prompt button in games */
+[data-theme="warm"] .game-audio-btn {
+  background: var(--bg-elevated);
+  border: 2px solid var(--accent);
+  color: var(--accent);
+  font-weight: 700;
+  box-shadow: none;
+}
+
+[data-theme="warm"] .game-audio-btn:hover {
+  background: var(--accent);
+  color: #fff;
+  transform: none;
+}
 
 /* ============================================
    CALM THEME
