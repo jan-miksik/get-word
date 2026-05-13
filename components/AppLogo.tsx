@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useId, useState } from 'react';
+import { useId } from 'react';
 
 interface AppLogoProps {
   size?: number;
@@ -10,9 +10,15 @@ interface AppLogoProps {
   labelClassName?: string;
 }
 
-// Pattern tile is 10×6 base, scaled 2.5× → 25×15 display units per period.
-const TILE_W = 25;
-const TILE_H = 15;
+const PATTERN_ORIGIN_X = 165;
+const PATTERN_ORIGIN_Y = 570;
+
+type PatternOffset = {
+  x: number;
+  y: number;
+};
+
+const STATIC_OFFSET: PatternOffset = { x: 0, y: 0 };
 
 export function AppLogo({
   size = 40,
@@ -22,19 +28,11 @@ export function AppLogo({
   labelClassName = '',
 }: AppLogoProps) {
   const uid = useId().replace(/:/g, '-');
-  const [offset, setOffset] = useState({ x: 0, y: 0 });
-
-  useEffect(() => {
-    setOffset({
-      x: Math.floor(Math.random() * TILE_W),
-      y: Math.floor(Math.random() * TILE_H),
-    });
-  }, []);
-
-  const basePatId = `gw-base${uid}`;
+  const offset = STATIC_OFFSET;
   const fillPatId = `gw-fill${uid}`;
-  const tx = 165 + offset.x;
-  const ty = 570 + offset.y;
+  const tx = PATTERN_ORIGIN_X + offset.x;
+  const ty = PATTERN_ORIGIN_Y + offset.y;
+  const title = `${label} logo`;
 
   const rootClassName = ['inline-flex items-center gap-3', className].filter(Boolean).join(' ');
   const textClassName = ['text-sm font-semibold uppercase tracking-[0.24em]', labelClassName]
@@ -48,20 +46,21 @@ export function AppLogo({
         height={size}
         viewBox="0 0 200 200"
         role="img"
-        aria-label={`${label} logo`}
+        aria-label={title}
         xmlns="http://www.w3.org/2000/svg"
         className="shrink-0 rounded-[22%] shadow-[0_10px_28px_rgba(15,23,42,0.18)]"
       >
-        <title>{label} logo</title>
+        <title>{title}</title>
         <defs>
-          <pattern id={basePatId} patternUnits="userSpaceOnUse" width="10" height="6">
-            <path d="M 0,6 V 0 H 10 V 6 C 10,3 8,1 5,1 2,1 0,3 0,6 Z" fill="#000000" />
-          </pattern>
           <pattern
             id={fillPatId}
-            href={`#${basePatId}`}
+            patternUnits="userSpaceOnUse"
+            width="10"
+            height="6"
             patternTransform={`matrix(2.5,0,0,2.5,${tx},${ty})`}
-          />
+          >
+            <path d="M 0,6 V 0 H 10 V 6 C 10,3 8,1 5,1 2,1 0,3 0,6 Z" fill="#000000" />
+          </pattern>
         </defs>
         <g transform="translate(-29.306184,325.35861)">
           <g fill={`url(#${fillPatId})`} transform="translate(29.306184,-325.35861)">

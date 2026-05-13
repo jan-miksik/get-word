@@ -61,6 +61,13 @@ OPENROUTER_OAUTH_APP_ID=...
 # OPENROUTER_AUTH_URL=https://openrouter.ai/auth
 # OPENROUTER_API_BASE_URL=https://openrouter.ai/api/v1
 # OPENROUTER_OAUTH_EXCHANGE_URL=https://openrouter.ai/api/v1/auth/keys
+
+# Optional Reown embedded email/social auth.
+# Disabled by default to avoid loading third-party embedded-wallet telemetry scripts in local dev.
+# Plain wallet connection still works without this.
+# NEXT_PUBLIC_REOWN_EMBEDDED_WALLET_AUTH=true
+# NEXT_PUBLIC_REOWN_AUTO_RECONNECT=true
+# NEXT_PUBLIC_REOWN_THIRD_PARTY_WALLETS=true
 ```
 
 - **Development / admin operations**: prefer **Supabase “Direct connection”** string.
@@ -69,6 +76,9 @@ OPENROUTER_OAUTH_APP_ID=...
 - `APP_ENCRYPTION_SECRET` encrypts stored provider API keys in the database.
 - `ARDRIVE_TURBO_WALLET_JWK` funds and signs ArDrive Turbo uploads for generated audio.
 - `ARWEAVE_GATEWAY_URL` controls the public gateway used by `/api/audio/[hash]` redirects.
+- `NEXT_PUBLIC_REOWN_EMBEDDED_WALLET_AUTH=true` enables Reown email/social embedded wallet sign-in. Leave it unset for wallet-only auth and a quieter dev console.
+- `NEXT_PUBLIC_REOWN_AUTO_RECONNECT=true` lets AppKit reconnect wallets during page load. It is unset by default because reconnect can initialize vendor SDK telemetry before the user opens the wallet modal.
+- `NEXT_PUBLIC_REOWN_THIRD_PARTY_WALLETS=true` lets AppKit auto-add optional third-party connectors such as Coinbase/Base Account. It is unset by default to avoid Coinbase analytics requests in blocked local browsers.
 
 For details (direct vs pooler, URL-encoding passwords, dump/restore), see `SUPABASE_SETUP.md`.
 

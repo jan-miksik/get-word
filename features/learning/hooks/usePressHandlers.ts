@@ -3,11 +3,46 @@
 import { useEffect } from 'react';
 
 type PressHandlerContainer = React.RefObject<HTMLElement | null> | HTMLElement | null;
+type RevealFamiliarityLevel = 'new' | 'introduced' | 'familiar' | 'practiced' | 'fluent';
+
+const REVEAL_FAMILIARITY_STORAGE_KEY = 'wordlink-reveal-familiarity-count';
+const INTRODUCED_REVEAL_COUNT = 4;
+const FAMILIAR_REVEAL_COUNT = 9;
+const PRACTICED_REVEAL_COUNT = 16;
+const FLUENT_REVEAL_COUNT = 28;
+
+export function getRevealFamiliarityLevel(count: number): RevealFamiliarityLevel {
+  if (count >= FLUENT_REVEAL_COUNT) return 'fluent';
+  if (count >= PRACTICED_REVEAL_COUNT) return 'practiced';
+  if (count >= FAMILIAR_REVEAL_COUNT) return 'familiar';
+  if (count >= INTRODUCED_REVEAL_COUNT) return 'introduced';
+  return 'new';
+}
 
 function resolveContainer(container: PressHandlerContainer): HTMLElement | null {
   if (!container) return null;
   if ('current' in container) return container.current;
   return container;
+}
+
+function readRevealFamiliarityCount(): number {
+  if (typeof window === 'undefined') return 0;
+  const raw = window.localStorage.getItem(REVEAL_FAMILIARITY_STORAGE_KEY);
+  const parsed = raw ? Number.parseInt(raw, 10) : 0;
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 0;
+}
+
+function writeRevealFamiliarityCount(count: number) {
+  if (typeof window === 'undefined') return;
+  window.localStorage.setItem(REVEAL_FAMILIARITY_STORAGE_KEY, String(count));
+  document.documentElement.dataset.revealFamiliarity = getRevealFamiliarityLevel(count);
+}
+
+function syncRevealFamiliarityAttribute() {
+  if (typeof document === 'undefined') return;
+  document.documentElement.dataset.revealFamiliarity = getRevealFamiliarityLevel(
+    readRevealFamiliarityCount()
+  );
 }
 
 /**
@@ -23,6 +58,8 @@ export function usePressHandlers(
     const container = resolveContainer(containerRef);
     if (!container) return;
 
+    syncRevealFamiliarityAttribute();
+
     const cleanupMap = new Map<HTMLElement, () => void>();
 
     const attachPressHandlers = (element: HTMLElement) => {
@@ -34,16 +71,28 @@ export function usePressHandlers(
       let isScrolling = false;
       let pressTimeout: number | null = null;
       let hasMoved = false;
+      let countedRevealPress = false;
       const SCROLL_THRESHOLD = 5;
       const PRESS_DELAY = 150;
 
+      const countRevealPress = () => {
+        if (countedRevealPress || !element.classList.contains('is-covered')) return;
+        countedRevealPress = true;
+        writeRevealFamiliarityCount(readRevealFamiliarityCount() + 1);
+      };
+
       const setPressed = (value: boolean) => {
         pressed = value;
-        if (pressed) element.classList.add('is-pressed');
-        else element.classList.remove('is-pressed');
+        if (pressed) {
+          countRevealPress();
+          element.classList.add('is-pressed');
+        } else {
+          element.classList.remove('is-pressed');
+        }
       };
 
       const onDown = (event: MouseEvent | TouchEvent) => {
+        countedRevealPress = false;
         if (event.type === 'touchstart' && 'touches' in event && event.touches.length > 0) {
           touchStartX = event.touches[0].clientX;
           touchStartY = event.touches[0].clientY;
@@ -87,6 +136,7 @@ export function usePressHandlers(
         touchStartY = 0;
         isScrolling = false;
         hasMoved = false;
+        countedRevealPress = false;
       };
 
       element.addEventListener('mousedown', onDown);

@@ -53,7 +53,10 @@ export function AppLayout({
   const { showAll, setShowAll, selectedCategories, gameScore, subscribedLists, activeListId, setActiveListId } = useAppStateContext();
 
   return (
-    <div className="app" data-view-mode={viewMode}>
+    <div
+      className="app bg-[#dcd1b9]"
+      data-view-mode={viewMode}
+    >
       <SpeckledBackground />
       {header}
       <header className="app-header-bar" aria-label="App header">

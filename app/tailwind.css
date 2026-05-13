@@ -50,3 +50,71 @@
 .word-card--fullscreen .cover-target.is-pressed.is-covered .memory-hook-text {
   color: rgba(28, 20, 16, 0.82) !important;
 }
+
+/* Redesign v1 reveal cover. This intentionally lives after the legacy
+   styles/*.css imports so it can replace the old heavy slab without touching
+   those files. */
+.cover-target.is-covered::before {
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.12) 100%),
+    radial-gradient(circle, rgba(107, 94, 72, 0.2) 1px, transparent 1.2px),
+    linear-gradient(145deg, rgba(171, 196, 145, 0.9) 0%, rgba(220, 173, 141, 0.86) 100%) !important;
+  background-size: auto, 0.58em 0.58em, auto !important;
+  border: 1px solid rgba(83, 69, 48, 0.26) !important;
+  box-shadow:
+    0 0 0 0.5px rgba(255, 255, 255, 0.5) inset,
+    0 4px 12px rgba(83, 69, 48, 0.09) !important;
+  animation: reveal-cover-breathe 5s ease-in-out infinite !important;
+}
+
+.word-card--fullscreen .cover-target.is-covered::before {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.34) 0%, rgba(255, 255, 255, 0.12) 100%),
+    radial-gradient(circle, rgba(107, 94, 72, 0.2) 1px, transparent 1.2px),
+    linear-gradient(145deg, rgba(171, 196, 145, 0.9) 0%, rgba(220, 173, 141, 0.86) 100%) !important;
+}
+
+.cover-target.is-covered .reveal-hint {
+  opacity: 1;
+}
+
+html[data-reveal-familiarity="familiar"] .cover-target.is-covered .reveal-hint {
+  opacity: 0.58;
+}
+
+html[data-reveal-familiarity="introduced"] .cover-target.is-covered .reveal-hint {
+  opacity: 0.78;
+}
+
+html[data-reveal-familiarity="practiced"] .cover-target.is-covered .reveal-hint {
+  opacity: 0.32;
+}
+
+html[data-reveal-familiarity="fluent"] .cover-target.is-covered .reveal-hint {
+  opacity: 0;
+}
+
+.cover-target.is-pressed.is-covered .reveal-hint {
+  opacity: 0;
+  transform: translateY(-2px) scale(0.98);
+}
+
+.cover-target.is-pressed {
+  background: radial-gradient(ellipse at center, rgba(174, 97, 97, 0.08) 0%, transparent 72%) !important;
+}
+
+@keyframes reveal-cover-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 0.5px rgba(255, 255, 255, 0.5) inset,
+      0 4px 12px rgba(83, 69, 48, 0.09);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 0.5px rgba(255, 255, 255, 0.64) inset,
+      0 4px 14px rgba(83, 69, 48, 0.11),
+      0 0 18px rgba(171, 196, 145, 0.14);
+  }
+}

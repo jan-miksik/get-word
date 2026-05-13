@@ -92,8 +92,6 @@
   padding: 5px 12px 5px 8px;
   color: var(--tm-ink);
   white-space: nowrap;
-  background: var(--tm-surface);
-  border: 2px solid var(--tm-ink);
   border-radius: 999px;
 }
 

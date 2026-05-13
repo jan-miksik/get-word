@@ -43,6 +43,17 @@ interface WordCardProps {
   fullscreen?: boolean;
 }
 
+function RevealHint() {
+  return (
+    <span
+      aria-hidden="true"
+      className="reveal-hint pointer-events-none absolute inset-x-[-0.625rem] inset-y-[-0.1875rem] z-[3] flex items-center justify-center rounded-xl text-[0.68rem] font-black uppercase tracking-[0.11em] text-[#6b5e48] transition-[opacity,transform] duration-500 ease-out"
+    >
+      Tap to reveal
+    </span>
+  );
+}
+
 export const WordCard = memo(function WordCard({
   word,
   progress,
@@ -189,8 +200,6 @@ export const WordCard = memo(function WordCard({
   // Stage index / group
   const stageIndex = progress.stageIndex || 0;
   const clampedStageIndex = Math.max(0, Math.min(stageIndex, STAGES.length - 1));
-  const stageLabel =
-    clampedStageIndex > 0 ? STAGES[clampedStageIndex]?.name ?? null : null;
   const stageGroup =
     clampedStageIndex === 0 ? 'new' :
     clampedStageIndex <= 3 ? 'fresh' :
@@ -231,6 +240,10 @@ export const WordCard = memo(function WordCard({
   const easyHint = formatNextReviewHint(
     STAGES[Math.min(clampedStageIndex + 2, STAGES.length - 1)]?.intervalMs ?? 0
   );
+  const coverCz = shouldCover('cz');
+  const coverEn = shouldCover('en');
+  const coverVi = shouldCover('vi');
+  const coverMemoryHook = shouldCover('memory-hook');
 
   return (
     <article className={`phrase-card ${isMoved ? 'card-moved' : ''} ${fullscreen ? 'word-card--fullscreen' : ''}`} data-word-id={word.id} data-stage-group={stageGroup}>
@@ -261,7 +274,7 @@ export const WordCard = memo(function WordCard({
           <div className="hidden">CZ</div>
           <div className="flex-none w-full text-center text-[0.98rem] font-medium leading-[1.35] sm:text-[1.02rem]">
             <div
-              className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${shouldCover('cz') ? 'is-covered' : ''}`}
+              className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${coverCz ? 'is-covered' : ''}`}
               data-lang="cz"
             >
               <span className="lang-text inline-block relative min-h-[1.4em]">
@@ -270,6 +283,7 @@ export const WordCard = memo(function WordCard({
                   <span className="text-[1.1rem] sm:text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.czPron}</span>
                 )}
               </span>
+              {coverCz && <RevealHint />}
             </div>
           </div>
         </div>
@@ -280,10 +294,11 @@ export const WordCard = memo(function WordCard({
             <div className="hidden">EN</div>
             <div className="flex-none w-full text-center text-[0.98rem] font-medium leading-[1.35] sm:text-[1.02rem]">
               <div
-className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${shouldCover('en') ? 'is-covered' : ''}`}
-              data-lang="en"
-            >
-              <span className="lang-text inline-block relative min-h-[1.4em]">{word.en}</span>
+                className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${coverEn ? 'is-covered' : ''}`}
+                data-lang="en"
+              >
+                <span className="lang-text inline-block relative min-h-[1.4em]">{word.en}</span>
+                {coverEn && <RevealHint />}
               </div>
             </div>
           </div>
@@ -294,7 +309,7 @@ className={`cover-target relative cursor-pointer touch-manipulation select-none 
           <div className="hidden">VI</div>
           <div className="flex-none w-full text-center text-[0.98rem] font-medium leading-[1.35] sm:text-[1.02rem]">
             <div
-              className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${shouldCover('vi') ? 'is-covered' : ''}`}
+              className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${coverVi ? 'is-covered' : ''}`}
               data-lang="vi"
             >
               <span className="lang-text inline-block relative min-h-[1.4em]">
@@ -303,6 +318,7 @@ className={`cover-target relative cursor-pointer touch-manipulation select-none 
                   <span className="text-[1.1rem] sm:text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.viPron}</span>
                 )}
               </span>
+              {coverVi && <RevealHint />}
             </div>
           </div>
         </div>
@@ -312,14 +328,15 @@ className={`cover-target relative cursor-pointer touch-manipulation select-none 
         <div className={`memory-hook-container mt-2 mb-1 ${editingHook ? 'editing' : ''}`}>
           <div
             ref={hookDisplayRef}
-            className={`memory-hook-display cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${shouldCover('memory-hook') ? 'is-covered' : ''}`}
+            className={`memory-hook-display cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${coverMemoryHook ? 'is-covered' : ''}`}
             data-lang="memory-hook"
             onDoubleClick={startEditing}
-            onClick={() => !memoryHook && !shouldCover('memory-hook') && startEditing()}
+            onClick={() => !memoryHook && !coverMemoryHook && startEditing()}
           >
             <span className={`memory-hook-text relative inline-block min-h-[1.4em] ${!memoryHook ? 'opacity-60 italic' : ''}`}>
               {displayHook}
             </span>
+            {coverMemoryHook && <RevealHint />}
           </div>
           <input
             ref={hookInputRef}
@@ -346,7 +363,7 @@ className={`cover-target relative cursor-pointer touch-manipulation select-none 
         {audioSrc && (
           <button
             type="button"
-            className="audio-btn audio-btn--floating !h-14 !min-h-14 !w-14 !min-w-14 !rounded-full"
+            className="audio-btn audio-btn--floating !h-16 !min-h-16 !w-16 !min-w-16 !rounded-full !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] !shadow-none hover:!bg-[#2A2218] hover:!text-[#F4EFE2] active:!bg-[#2A2218] active:!text-[#F4EFE2]"
             onClick={() => playAudio(audioSrc)}
             title={role === 'vi' ? 'Play Czech audio' : 'Play Vietnamese audio'}
             aria-label="Play audio"
@@ -357,13 +374,13 @@ className={`cover-target relative cursor-pointer touch-manipulation select-none 
         <div className={`card-actions-row ${onReallyKnown ? 'card-actions-row--three' : 'card-actions-row--two'}`}>
           <button
             type="button"
-            className="srs-btn srs-btn--forgot"
+            className="srs-btn srs-btn--forgot !border-[#ae6161] !opacity-80"
             onClick={onUnknown}
             title={forgotHint}
           >
             <span className="srs-btn-copy">
-              <span className="srs-btn-label">Forgot</span>
-              <span className="srs-btn-hint">{forgotHint}</span>
+              <span className="srs-btn-label">Forgotten</span>
+              <span className="srs-btn-hint !opacity-[0.35]">{forgotHint}</span>
             </span>
           </button>
           <button
@@ -374,30 +391,24 @@ className={`cover-target relative cursor-pointer touch-manipulation select-none 
           >
             <span className="srs-btn-copy">
               <span className="srs-btn-label">OK</span>
-              <span className="srs-btn-hint">{okayHint}</span>
+              <span className="srs-btn-hint !opacity-[0.35]">{okayHint}</span>
             </span>
           </button>
           {onReallyKnown && (
             <button
               type="button"
-              className="srs-btn srs-btn--easy"
+              className="srs-btn srs-btn--easy !border-[#12750f]"
               onClick={onReallyKnown}
               title={easyHint}
             >
               <span className="srs-btn-copy">
                 <span className="srs-btn-label">Easy</span>
-                <span className="srs-btn-hint">{easyHint}</span>
+                <span className="srs-btn-hint !opacity-[0.35]">{easyHint}</span>
               </span>
             </button>
           )}
         </div>
       </div>
-      {/* Time badge — top-right: show stage interval (1 minute, 1 hour, 8 hours, etc.) */}
-      {clampedStageIndex > 0 && stageLabel && (
-        <div className="card-time-badge" data-next-due-at={progress.nextDueAt || undefined}>
-          {stageLabel}
-        </div>
-      )}
     </article>
   );
 });

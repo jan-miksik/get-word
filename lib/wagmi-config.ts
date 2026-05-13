@@ -25,4 +25,17 @@ export const wagmiAdapter = new WagmiAdapter({
   networks,
 })
 
+type WagmiAdapterInternals = {
+  addThirdPartyConnectors: () => Promise<void>
+}
+
+const enableThirdPartyWalletConnectors =
+  process.env.NEXT_PUBLIC_REOWN_THIRD_PARTY_WALLETS === 'true'
+
+if (!enableThirdPartyWalletConnectors) {
+  // AppKit auto-adds the Base Account connector, which initializes Coinbase
+  // analytics on reconnect. Keep local auth wallet-only unless explicitly enabled.
+  ;(wagmiAdapter as unknown as WagmiAdapterInternals).addThirdPartyConnectors = async () => {}
+}
+
 export const wagmiConfig = wagmiAdapter.wagmiConfig

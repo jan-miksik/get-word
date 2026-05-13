@@ -262,7 +262,7 @@ function MenuDropdown({
     <>
       <div className="relative top-menu-dropdown" ref={menuRef}>
         <button
-          className={`mode-btn menu-toggle-btn flex-none flex items-center gap-1.5 ${hasActiveItem ? 'is-active' : ''}`}
+          className={`mode-btn menu-toggle-btn flex-none flex items-center gap-1.5 !shadow-none ${hasActiveItem ? 'is-active' : ''}`}
           onClick={() => setOpen((v) => !v)}
           type="button"
           aria-label="Open menu"
