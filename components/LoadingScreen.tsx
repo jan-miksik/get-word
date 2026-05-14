@@ -65,7 +65,6 @@ function makeParticles() {
 
 interface LoadingScreenProps {
   ready?: boolean;
-  onContinue?: () => void;
 }
 
 const SNAP_RADIUS = 120;
@@ -76,7 +75,7 @@ const RELEASE_COOLDOWN_MS = 220;
 
 type ParticleMotion = { x: number; y: number; vx: number; vy: number; following: boolean };
 
-export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
+export function LoadingScreen({ ready }: LoadingScreenProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const particleRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const mouseRef = useRef({ x: IDLE_MOUSE, y: IDLE_MOUSE });
@@ -230,20 +229,13 @@ export function LoadingScreen({ ready, onContinue }: LoadingScreenProps) {
         <LoaderB />
       </div>
 
-      <button
-        disabled={!ready}
-        onClick={onContinue}
-        className={`
-          relative z-10 mt-14 px-8 py-3 rounded-full text-sm font-medium tracking-wide
-          transition-all duration-300 ease-out
-          ${ready
-            ? 'bg-[#4f2f24] text-[#fff7ef] shadow-[0_16px_38px_rgba(79,47,36,0.22)] hover:shadow-[0_20px_45px_rgba(79,47,36,0.3)] hover:scale-105 cursor-pointer'
-            : 'bg-[#4f2f24]/8 text-[#4f2f24]/30 border border-[#4f2f24]/10 cursor-not-allowed'
-          }
-        `}
+      <p
+        className={`relative z-10 mt-14 text-sm font-medium tracking-wide transition-opacity duration-300 ${
+          ready ? 'text-[#4f2f24]/70 opacity-100' : 'text-[#4f2f24]/35 opacity-80'
+        }`}
       >
-        {ready ? 'Continue' : 'Loading…'}
-      </button>
+        {ready ? 'Opening WordLink…' : 'Loading…'}
+      </p>
 
       <style>{`
         .ls-root {

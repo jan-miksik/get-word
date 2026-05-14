@@ -825,9 +825,17 @@ export function LearningLanguageOnboarding({
           {!languageFrom || !languageTo ? (
             <p className="text-sm onboarding-text-soft">Choose both languages to find matching word lists.</p>
           ) : loadingMatches ? (
-            <p className="text-sm onboarding-text-soft">Looking for existing lists...</p>
+            <div className="space-y-3">
+              <p className="text-sm leading-relaxed onboarding-text-soft">
+                Choose from existing word lists, create your own, or fork a list and customize it to fit what you want to learn.
+              </p>
+              <p className="text-sm onboarding-text-soft">Looking for existing lists...</p>
+            </div>
           ) : matches.length > 0 ? (
             <div className="space-y-3">
+              <p className="text-sm leading-relaxed onboarding-text-soft">
+                Choose from existing word lists, create your own, or fork a list and customize it to fit what you want to learn.
+              </p>
               <h2 className="text-sm font-extrabold uppercase tracking-wide">
                 Existing {languagePairLabel} lists
               </h2>

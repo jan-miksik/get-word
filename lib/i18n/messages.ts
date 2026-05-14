@@ -5,7 +5,7 @@ export const enMessages = {
   "auth.brand": "Get Word",
   "auth.connectTitle": "Connect",
   "auth.connectDescription":
-    "Continue with email, Google, or Apple to access WordLink. Wallet connection is optional and available in the same modal.",
+    "Continue with email, Google, Apple or crypto wallet",
   "auth.connectButton": "Connect",
   "common.cancel": "Cancel",
   "common.close": "Close",
@@ -97,7 +97,7 @@ export const csMessages: I18nMessages = {
   "auth.brand": "Get Word",
   "auth.connectTitle": "Pripojeni",
   "auth.connectDescription":
-    "Pokracujte e-mailem, Googlem nebo Applem a ziskejte pristup k WordLinku. Pripojeni penezenky je volitelne a dostupne ve stejnem okne.",
+    "Pokracujte e-mailem, Googlem, Applem nebo kryptopenezenkou",
   "auth.connectButton": "Pripojit",
   "common.cancel": "Zrusit",
   "common.close": "Zavrit",

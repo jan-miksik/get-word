@@ -159,6 +159,11 @@ describe('LearningLanguageOnboarding', () => {
 
     expect(screen.getByText('Select a language')).toBeInTheDocument();
     expect(screen.getByText('Choose both languages to find matching word lists.')).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'Choose from existing word lists, create your own, or fork a list and customize it to fit what you want to learn.',
+      ),
+    ).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Autogenerate common list/i })).not.toBeInTheDocument();
 
     await waitFor(() => {
@@ -231,6 +236,11 @@ describe('LearningLanguageOnboarding', () => {
     expect(await screen.findByText('Curated Czech Vietnamese')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Create own list/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Autogenerate common list/i })).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        'Choose from existing word lists, create your own, or fork a list and customize it to fit what you want to learn.',
+      ),
+    ).toBeInTheDocument();
     expect(screen.getByText('Existing Czech and Vietnamese lists')).toBeInTheDocument();
     expect(screen.queryByText(/Czech → Vietnamese/)).not.toBeInTheDocument();
   });
@@ -281,6 +291,47 @@ describe('LearningLanguageOnboarding', () => {
     expect(await screen.findByText('Common Czech Vietnamese')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Create own list/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Autogenerate common list/i })).not.toBeInTheDocument();
+  });
+
+  it('shows only the no-matches message when no lists exist for the selected languages', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === '/api/languages') {
+          return jsonResponse({
+            languages: [
+              { code: 'en', name: 'English', ttsAvailable: true, preferredVoice: null },
+              { code: 'vi', name: 'Vietnamese', ttsAvailable: true, preferredVoice: null },
+            ],
+          });
+        }
+        if (url.startsWith('/api/lists/matches?from=en&to=vi')) {
+          return jsonResponse({ lists: [] });
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      }),
+    );
+
+    render(
+      <LearningLanguageOnboarding
+        initialFrom="en"
+        initialTo="vi"
+        onComplete={vi.fn()}
+        onSelectList={vi.fn()}
+      />,
+    );
+
+    expect(
+      await screen.findByText(
+        'No matching lists yet for English and Vietnamese. You can generate a common list from the best available seed, browse other lists, or start your own.',
+      ),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(
+        'Choose from existing word lists, create your own, or fork a list and customize it to fit what you want to learn.',
+      ),
+    ).not.toBeInTheDocument();
   });
 
   it('shows the generated word count, autogenerates a common list, and opens the app', async () => {

@@ -1051,6 +1051,7 @@
   color: var(--ob-ink, #2A2218);
   border-radius: 12px;
   transition: background 0.14s ease;
+  height: 75px;
 }
 
 .onboarding-combobox:focus-within {

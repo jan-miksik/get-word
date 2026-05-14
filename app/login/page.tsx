@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AppLogo } from '@/components/AppLogo';
+import { AuthConnectCard } from '@/components/AuthConnectCard';
+import { SpeckledBackground } from '@/components/SpeckledBackground';
 import { useAuth } from '@/hooks/useAuth';
 import { linkWallet } from '@/lib/sync';
 
@@ -49,35 +50,18 @@ export default function LoginPage() {
   }, [isConnected, address, email, authProvider, nextPath, router]);
 
   return (
-    <main className="min-h-screen flex items-center justify-center px-6 py-10">
-      <div className="w-full max-w-md rounded-2xl border border-border-subtle bg-background-elevated p-7 flex flex-col gap-5">
-        <div className="flex flex-col items-center gap-3 text-center">
-          <AppLogo size={72} />
-          <div className="flex flex-col gap-2">
-            <p className="m-0 text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-text-soft opacity-80">
-              Get Word
-            </p>
-            <h1 className="m-0 text-2xl font-semibold text-text">Sign in</h1>
-          </div>
-        </div>
-        <p className="m-0 text-sm text-text-soft">
-          Sign in with email, Google, or Apple to access Get Word and continue your learning progress across devices.
-        </p>
-
-        <button
-          type="button"
-          onClick={signIn}
-          disabled={isLinking}
-          className="auth-button auth-button--large"
-        >
-          {isLinking ? 'Signing in…' : 'Sign in'}
-        </button>
-
-        {error && (
-          <p className="m-0 text-sm text-red-300" role="alert">
-            {error}
-          </p>
-        )}
+    <main className="app bg-[#dcd1b9] px-4 py-8 sm:px-6 sm:py-10">
+      <SpeckledBackground />
+      <div className="flex flex-1 items-center justify-center">
+        <AuthConnectCard
+          brand="Get Word"
+          title="Sign in"
+          description="Continue with email, Google, Apple or crypto wallet"
+          buttonLabel="Continue"
+          isBusy={isLinking}
+          error={error}
+          onSignIn={signIn}
+        />
       </div>
     </main>
   );

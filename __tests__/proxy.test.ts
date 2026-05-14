@@ -48,11 +48,22 @@ describe("proxy auth gate", () => {
     expectNextResponse(response);
   });
 
-  it("redirects login requests to the home page without checking a session", async () => {
+  it("allows anonymous users to access login", async () => {
+    mockVerifySession.mockResolvedValue(null);
+
     const response = await proxy(makeRequest("/login"));
 
-    expect(mockVerifySession).not.toHaveBeenCalled();
-    expectRedirectToRoot(response);
+    expect(mockVerifySession).toHaveBeenCalledWith(undefined);
+    expectNextResponse(response);
+  });
+
+  it("allows authenticated users to access login", async () => {
+    mockVerifySession.mockResolvedValue({ userId: "user-1", userRole: "user" });
+
+    const response = await proxy(makeRequest("/login", "valid-token"));
+
+    expect(mockVerifySession).toHaveBeenCalledWith("valid-token");
+    expectNextResponse(response);
   });
 
   it("redirects anonymous users away from lists", async () => {

@@ -93,6 +93,12 @@ export default function Home() {
       !userId &&
       (!hasLinkWalletError || isLinkingWallet)
   );
+  const appReady =
+    isHydrated &&
+    !isLoadingWords &&
+    !isAuthLoading &&
+    !isLinkingWallet &&
+    !isWaitingForLinkedProfile;
   const displayEmail = userEmail ?? email ?? undefined;
   const displayAddress = userWalletAddress ?? walletAddress ?? undefined;
 
@@ -185,13 +191,18 @@ export default function Home() {
     signIn();
   }, [isHydrated, isLoadingWords, isAuthLoading, isAuthenticated, signIn]);
 
+  useEffect(() => {
+    if (loaderDismissed || !appReady) return;
+    const timeoutId = window.setTimeout(() => setLoaderDismissed(true), 220);
+    return () => window.clearTimeout(timeoutId);
+  }, [appReady, loaderDismissed]);
+
   return (
     <AppStateProvider value={appState}>
       <I18nProvider language={appState.settingsLanguage}>
         {!loaderDismissed ? (
           <LoadingScreen
-            ready={isHydrated && !isLoadingWords && !isAuthLoading && !isLinkingWallet && !isWaitingForLinkedProfile}
-            onContinue={() => setLoaderDismissed(true)}
+            ready={appReady}
           />
         ) : !isAuthenticated ? (
           <AuthRequiredCard onSignIn={signIn} />
