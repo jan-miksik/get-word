@@ -100,8 +100,23 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
     const audioUrls = Array.from(new Set(lookaheadItems.flatMap(getAudioUrlsForItem)));
     if (audioUrls.length === 0) return;
 
-    prefetchAudio(audioUrls);
-    void Promise.allSettled(audioUrls.map((url) => checkAudioUrlAvailable(url)));
+    let cancelled = false;
+
+    void (async () => {
+      const availability = await Promise.all(
+        audioUrls.map(async (url) => ({
+          url,
+          ok: await checkAudioUrlAvailable(url),
+        })),
+      );
+
+      if (cancelled) return;
+      prefetchAudio(availability.filter((entry) => entry.ok).map((entry) => entry.url));
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [items, currentIndex]);
 
   const advance = useCallback((opts?: { skipAnimation?: boolean; afterExit?: () => void }) => {

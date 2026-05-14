@@ -667,7 +667,7 @@
 .progress-panel.is-open .panel-backdrop,
 .memory-hooks-panel.is-open .panel-backdrop,
 .category-panel.is-open .panel-backdrop {
-  background: rgba(42, 34, 24, 0.55);
+  background: rgba(30, 111, 168, 0.55);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
 }
@@ -690,7 +690,7 @@
   --border-subtle: #2A2218;
   --accent: #1E6FA8;
   --accent-soft: rgba(30, 111, 168, 0.12);
-  --accent-strong: #2A2218;
+  --accent-strong: #1E6FA8;
 
   background: var(--panel-surface);
   border: 2px solid var(--panel-ink);
@@ -747,7 +747,8 @@
 }
 
 .category-panel .category-clear-btn:hover:not(:disabled) {
-  background: var(--panel-ink, #2A2218);
+  background: var(--accent, #1E6FA8);
+  border-color: var(--accent, #1E6FA8);
   color: var(--panel-surface, #F4EFE2);
   transform: none;
 }
@@ -783,9 +784,9 @@
 }
 
 .category-panel .category-drag-handle:hover {
-  background: var(--panel-ink, #2A2218);
+  background: var(--accent, #1E6FA8);
   color: var(--panel-surface, #F4EFE2);
-  border-color: var(--panel-ink, #2A2218);
+  border-color: var(--accent, #1E6FA8);
 }
 
 .category-panel .category-order-name {
@@ -807,14 +808,14 @@
 }
 
 .category-panel .category-order-btn:hover:enabled {
-  background: var(--panel-ink, #2A2218);
+  background: var(--accent, #1E6FA8);
   color: var(--panel-surface, #F4EFE2);
-  border-color: var(--panel-ink, #2A2218);
+  border-color: var(--accent, #1E6FA8);
   transform: none;
 }
 
 .category-panel .category-order-label input[type="checkbox"] {
-  accent-color: var(--panel-ink, #2A2218);
+  accent-color: var(--accent, #1E6FA8);
 }
 
 /* Category chips (if used) */
@@ -825,9 +826,9 @@
 }
 
 .category-panel .category-chip:hover {
-  background: var(--panel-ink, #2A2218);
+  background: var(--accent, #1E6FA8);
   color: var(--panel-surface, #F4EFE2);
-  border-color: var(--panel-ink, #2A2218);
+  border-color: var(--accent, #1E6FA8);
   transform: none;
 }
 
@@ -939,7 +940,7 @@
 .progress-panel .bg-border-subtle,
 .memory-hooks-panel .bg-border-subtle,
 .category-panel .bg-border-subtle {
-  background-color: rgba(42, 34, 24, 0.2);
+  background-color: rgba(30, 111, 168, 0.2);
 }
 
 .settings-panel .bg-accent,
@@ -969,14 +970,14 @@
   border-color: #2A2218;
 }
 
-/* Toggle off-state: white/20 is invisible on cream — use dark ink tint instead */
+/* Toggle off-state: white/20 is invisible on cream — use accent tint instead */
 .settings-panel .bg-white\/20 {
-  background-color: rgba(42, 34, 24, 0.18);
+  background-color: rgba(30, 111, 168, 0.18);
 }
 
 /* Minigame range track: white/20 is invisible on cream */
 .settings-panel .minigame-range-track {
-  background: rgba(42, 34, 24, 0.2);
+  background: rgba(30, 111, 168, 0.2);
 }
 
 /* Scrollbar inside brutalist panels */
@@ -984,14 +985,14 @@
 .progress-panel .custom-scrollbar,
 .memory-hooks-panel .custom-scrollbar,
 .category-panel .custom-scrollbar {
-  scrollbar-color: rgba(42, 34, 24, 0.4) transparent;
+  scrollbar-color: rgba(30, 111, 168, 0.4) transparent;
 }
 
 .settings-panel .custom-scrollbar::-webkit-scrollbar-thumb,
 .progress-panel .custom-scrollbar::-webkit-scrollbar-thumb,
 .memory-hooks-panel .custom-scrollbar::-webkit-scrollbar-thumb,
 .category-panel .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(42, 34, 24, 0.4);
+  background: rgba(30, 111, 168, 0.4);
 }
 
 /* ─── Onboarding screen (neo-brutalist) ──────────────────── */
@@ -1007,7 +1008,7 @@
 }
 
 .onboarding-overlay {
-  background: rgba(42, 34, 24, 0.55);
+  background: rgba(30, 111, 168, 0.55);
   color: var(--ob-ink, #2A2218);
 }
 
@@ -1082,7 +1083,7 @@
 
 .onboarding-combobox-option:hover,
 .onboarding-combobox-option[aria-selected="true"] {
-  background: var(--ob-ink, #2A2218);
+  background: var(--ob-accent, #1E6FA8);
   color: var(--ob-surface, #F4EFE2);
 }
 
@@ -1102,7 +1103,7 @@
 }
 
 .onboarding-option:hover:not(:disabled) {
-  background: var(--ob-ink, #2A2218);
+  background: var(--ob-accent, #1E6FA8);
   color: var(--ob-surface, #F4EFE2);
 }
 
@@ -1121,7 +1122,6 @@
 }
 
 .onboarding-option-secondary:hover:not(:disabled) {
-  background: var(--ob-ink, #2A2218);
+  background: var(--ob-accent, #1E6FA8);
   color: var(--ob-surface, #F4EFE2);
 }
-

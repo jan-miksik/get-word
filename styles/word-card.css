@@ -128,8 +128,8 @@
 .audio-btn {
   margin-left: 0;
   border: none;
-  background: rgba(38, 28, 16, 0.82);
-  color: rgba(220, 209, 185, 0.9);
+  background: rgba(30, 111, 168, 0.82);
+  color: #fff;
   cursor: pointer;
   font-size: 1rem;
   display: inline-flex;
@@ -160,7 +160,8 @@
 }
 
 .audio-btn:hover {
-  color: var(--accent);
+  background: rgba(30, 111, 168, 1);
+  color: #fff;
   transform: translateY(-0.5px);
 }
 
@@ -380,7 +381,8 @@
 }
 
 .srs-btn:active {
-  background: var(--srs-ink);
+  background: #1E6FA8;
+  border-color: #1E6FA8;
   color: #F4EFE2;
 }
 

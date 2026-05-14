@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
+import { getPlayableAudioUrl } from '@/lib/audio-availability';
 import type { NormalizedWord } from '@/lib/words';
 import { matchAnswer } from '@/lib/minigames';
 import {
@@ -196,7 +197,12 @@ export function TypingChallengeGame({
 
     for (let i = 0; i < candidateAudioSrcs.length; i += 1) {
       const src = candidateAudioSrcs[i];
-      const result = await playAudioSrc(src);
+      const playableSrc = await getPlayableAudioUrl(src);
+      if (!playableSrc) {
+        continue;
+      }
+
+      const result = await playAudioSrc(playableSrc);
       if (result.ok) return;
       if (process.env.NODE_ENV === 'development' && i + 1 < candidateAudioSrcs.length) {
         console.warn('[AudioDebug][Typing][FallbackAttempt]', {

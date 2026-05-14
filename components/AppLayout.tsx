@@ -102,7 +102,7 @@ export function AppLayout({
                           e.stopPropagation();
                           void onSignOut();
                         }}
-                        className="h-9 w-9 inline-flex items-center justify-center rounded-lg bg-transparent border-2 border-[#2A2218] text-[#2A2218] hover:bg-[#2A2218] hover:text-[#F4EFE2] transition-colors"
+                        className="h-9 w-9 inline-flex items-center justify-center rounded-lg bg-transparent border-2 border-[#2A2218] text-[#2A2218] hover:bg-[#1E6FA8] hover:border-[#1E6FA8] hover:text-[#F4EFE2] transition-colors"
                         aria-label="Sign out"
                         title="Sign out"
                       >

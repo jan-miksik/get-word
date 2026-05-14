@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { getPlayableAudioUrl } from '@/lib/audio-availability';
 import type { NormalizedWord } from '@/lib/words';
 import {
   getTargetLang,
@@ -74,18 +75,22 @@ export function MultipleChoiceGame({
   };
 
   const playAudio = (audioSrc: string | null) => {
-    if (!audioSrc) return;
-    try {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
+    void (async () => {
+      const playableUrl = await getPlayableAudioUrl(audioSrc);
+      if (!playableUrl) return;
+
+      try {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        }
+        const audio = new Audio(playableUrl);
+        audioRef.current = audio;
+        audio.play().catch(() => {});
+      } catch {
+        // no-op: fail silently when audio playback is unavailable
       }
-      const audio = new Audio(audioSrc);
-      audioRef.current = audio;
-      audio.play().catch(() => {});
-    } catch {
-      // no-op: fail silently when audio playback is unavailable
-    }
+    })();
   };
 
   const replayPrompt = () => {

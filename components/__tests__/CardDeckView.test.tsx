@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CardDeckView } from '../CardDeckView';
 import type { NormalizedWord } from '@/lib/words';
@@ -44,7 +44,7 @@ describe('CardDeckView', () => {
     prefetchAudioMock.mockClear();
   });
 
-  it('warms audio availability and prefetches for the current and next 2 items', () => {
+  it('warms audio availability and prefetches for the current and next 2 items', async () => {
     const groupedWords = [[
       makeWord('w1'),
       makeGame('g1'),
@@ -60,10 +60,12 @@ describe('CardDeckView', () => {
       />
     );
 
-    expect(prefetchAudioMock).toHaveBeenCalledWith([
-      '/speech/cz/sample.mp3',
-      '/speech/vi/sample.mp3',
-    ]);
+    await waitFor(() => {
+      expect(prefetchAudioMock).toHaveBeenCalledWith([
+        '/speech/cz/sample.mp3',
+        '/speech/vi/sample.mp3',
+      ]);
+    });
     expect(checkAudioUrlAvailableMock).toHaveBeenCalledTimes(2);
     expect(checkAudioUrlAvailableMock).toHaveBeenNthCalledWith(1, '/speech/cz/sample.mp3');
     expect(checkAudioUrlAvailableMock).toHaveBeenNthCalledWith(2, '/speech/vi/sample.mp3');

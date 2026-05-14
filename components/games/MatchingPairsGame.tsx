@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { getPlayableAudioUrl } from '@/lib/audio-availability';
 import type { NormalizedWord } from '@/lib/words';
 import {
   getTargetLang,
@@ -145,8 +146,10 @@ export function MatchingPairsGame({
       });
 
     for (let i = 0; i < candidateAudioSrcs.length; i += 1) {
-      const src = candidateAudioSrcs[i];
-      const result = await playAudioSrc(src);
+      const playableSrc = await getPlayableAudioUrl(candidateAudioSrcs[i]);
+      if (!playableSrc) continue;
+
+      const result = await playAudioSrc(playableSrc);
       if (result.ok) return;
       if (result.reason === 'interrupted') return;
     }

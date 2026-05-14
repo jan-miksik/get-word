@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo, memo } from 'react';
+import { getPlayableAudioUrl } from '@/lib/audio-availability';
 import { NormalizedWord, STAGES } from '@/lib/words';
 import { ProgressData } from '@/lib/sync';
 import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
@@ -127,15 +128,20 @@ export const WordCard = memo(function WordCard({
 
   // Audio playback
   const playAudio = (src: string | string[]) => {
-    try {
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current.currentTime = 0;
-      }
+    void (async () => {
       const audioSrc = Array.isArray(src) ? src[0] : src;
-      audioRef.current = new Audio(audioSrc);
-      audioRef.current.play().catch(() => {});
-    } catch {}
+      const playableUrl = await getPlayableAudioUrl(audioSrc);
+      if (!playableUrl) return;
+
+      try {
+        if (audioRef.current) {
+          audioRef.current.pause();
+          audioRef.current.currentTime = 0;
+        }
+        audioRef.current = new Audio(playableUrl);
+        audioRef.current.play().catch(() => {});
+      } catch {}
+    })();
   };
 
   // Helper to normalize audio paths for Next.js (add leading slash if needed)
@@ -365,7 +371,7 @@ export const WordCard = memo(function WordCard({
         {audioSrc && (
           <button
             type="button"
-            className="audio-btn audio-btn--floating !h-16 !min-h-16 !w-16 !min-w-16 !rounded-full !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] !shadow-none hover:!bg-[#2A2218] hover:!text-[#F4EFE2] active:!bg-[#2A2218] active:!text-[#F4EFE2]"
+            className="audio-btn audio-btn--floating !h-16 !min-h-16 !w-16 !min-w-16 !rounded-full !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] !shadow-none hover:!bg-[#1E6FA8] hover:!border-[#1E6FA8] hover:!text-[#F4EFE2] active:!bg-[#1E6FA8] active:!border-[#1E6FA8] active:!text-[#F4EFE2]"
             onClick={() => playAudio(audioSrc)}
             title={role === 'vi' ? 'Play Czech audio' : 'Play Vietnamese audio'}
             aria-label="Play audio"

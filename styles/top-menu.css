@@ -247,12 +247,12 @@
 }
 
 .menu-item:hover {
-  background: var(--tm-ink);
+  background: var(--tm-accent);
   color: var(--tm-surface);
 }
 
 .menu-item:active {
-  background: var(--tm-ink);
+  background: var(--tm-accent);
   color: var(--tm-surface);
 }
 
@@ -308,7 +308,7 @@
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
-  background: currentColor;
+  background: var(--tm-accent);
   animation: dot-pulse 2.4s ease-in-out infinite;
 }
 
@@ -344,12 +344,14 @@
 }
 
 .mode-btn.menu-toggle-btn:hover {
-  background: var(--tm-ink);
+  background: var(--tm-accent);
+  border-color: var(--tm-accent);
   color: var(--tm-surface);
 }
 
 .mode-btn.menu-toggle-btn.is-active {
-  background: var(--tm-ink);
+  background: var(--tm-accent);
+  border-color: var(--tm-accent);
   color: var(--tm-surface);
 }
 
@@ -367,7 +369,7 @@
   z-index: 50;
   border-radius: var(--radius-pill);
   border: 1px solid rgba(148, 163, 184, 0.3);
-  background: rgba(38, 28, 16, 0.88);
+  background: rgba(30, 111, 168, 0.88);
   color: var(--text-soft);
   cursor: pointer;
   transition:
@@ -378,7 +380,7 @@
 }
 
 .mode-btn.memory-hooks-btn:hover {
-  background: rgba(38, 28, 16, 1);
+  background: rgba(30, 111, 168, 1);
   transform: translateY(-0.5px);
 }
 
@@ -556,7 +558,7 @@
   position: fixed;
   inset: 0;
   z-index: 300;
-  background: rgba(42, 34, 24, 0.55);
+  background: rgba(30, 111, 168, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -627,7 +629,8 @@
 }
 
 .list-select-close:hover {
-  background: var(--tm-ink);
+  background: var(--tm-accent);
+  border-color: var(--tm-accent);
   color: var(--tm-surface);
 }
 
@@ -660,12 +663,12 @@
 }
 
 .list-select-option:hover {
-  background: var(--tm-ink);
+  background: var(--tm-accent);
   color: var(--tm-surface);
 }
 
 .list-select-option.is-active {
-  background: var(--tm-ink);
+  background: var(--tm-accent);
   color: var(--tm-surface);
 }
 

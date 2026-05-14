@@ -92,7 +92,7 @@ function AddressWithCopy({
 }) {
   return (
     <div className="flex items-start gap-2">
-      <code className="min-w-0 flex-1 break-all rounded-lg bg-background/70 px-2.5 py-2 font-mono text-[0.68rem] leading-relaxed text-text-soft">
+      <code className="min-w-0 flex-1 break-all rounded-lg bg-background/30 px-2.5 py-2 font-mono text-[0.68rem] leading-relaxed text-text-soft">
         {address}
       </code>
       <button
@@ -466,7 +466,7 @@ export function SettingsPanel({
               <div className="flex flex-col gap-3 pt-1">
                 <div className="flex items-center justify-between gap-3">
                   <p className="m-0 text-xs text-text-soft">{t('settings.cardsBetweenGames')}</p>
-                  <div className="rounded-full bg-background/80 px-2.5 py-1 text-xs font-semibold tabular-nums text-text">
+                  <div className="rounded-full px-2.5 py-1 text-xs font-semibold tabular-nums text-text">
                     {minFreq}–{maxFreq}
                   </div>
                 </div>
