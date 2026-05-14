@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MultipleChoiceGame } from '../MultipleChoiceGame';
 import type { NormalizedWord } from '@/lib/words';
+
+vi.mock('@/lib/audio-availability', () => ({
+  getPlayableAudioUrl: (url: string | null) => Promise.resolve(url),
+}));
 
 const makeWord = (
   id: string,
@@ -88,22 +92,22 @@ describe('MultipleChoiceGame', () => {
     expect(onResult).toHaveBeenCalledWith(1);
   });
 
-  it('renders replay-only listening prompt and hides source text in audio mode', () => {
+  it('renders replay-only listening prompt and hides source text in audio mode', async () => {
     render(
       <MultipleChoiceGame words={WORDS} role="cz" sourceLang="cz" promptMode="audio" />
     );
     expect(screen.queryByText('pes')).not.toBeInTheDocument();
     const replay = screen.getByRole('button', { name: /replay prompt audio/i });
     fireEvent.click(replay);
-    expect(playCalls).toBe(1);
+    await waitFor(() => expect(playCalls).toBe(1));
   });
 
-  it('plays selected option audio on answer in audio mode', () => {
+  it('plays selected option audio on answer in audio mode', async () => {
     render(
       <MultipleChoiceGame words={WORDS} role="cz" sourceLang="cz" promptMode="audio" />
     );
     fireEvent.click(screen.getByText('con chó'));
-    expect(playCalls).toBe(1);
+    await waitFor(() => expect(playCalls).toBe(1));
   });
 
   it('falls back to text prompt when requested audio is missing', () => {

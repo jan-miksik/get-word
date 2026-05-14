@@ -1,4 +1,3 @@
-const path = require('path');
 const { execSync } = require('child_process');
 
 const optionalWalletPackages = [
@@ -56,15 +55,6 @@ const nextConfig = {
         ],
       },
     ];
-  },
-  webpack: (config) => {
-    // Stub optional @wagmi/connectors peer deps (Coinbase, MetaMask, Gemini, Porto, WalletConnect).
-    // See: https://github.com/wevm/wagmi/issues/4906
-    config.resolve.alias = {
-      ...createOptionalWalletAliases(path.join(__dirname, 'lib', 'wagmi-empty-module.js')),
-      ...config.resolve.alias,
-    };
-    return config;
   },
 };
 

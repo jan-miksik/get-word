@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, fireEvent } from '@testing-library/react';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TypingChallengeGame } from '../TypingChallengeGame';
 import type { NormalizedWord } from '@/lib/words';
+
+vi.mock('@/lib/audio-availability', () => ({
+  getPlayableAudioUrl: (url: string | null) => Promise.resolve(url),
+}));
 
 const makeWord = (
   id: string,
@@ -96,14 +100,14 @@ describe('TypingChallengeGame', () => {
     expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
   });
 
-  it('renders replay-only listening prompt and hides source text in audio mode', () => {
+  it('renders replay-only listening prompt and hides source text in audio mode', async () => {
     render(
       <TypingChallengeGame words={WORDS} role="cz" sourceLang="cz" promptMode="audio" />
     );
     expect(screen.queryByText('pes')).not.toBeInTheDocument();
     const replay = screen.getByRole('button', { name: /replay prompt audio/i });
     fireEvent.click(replay);
-    expect(playCalls).toBe(1);
+    await waitFor(() => expect(playCalls).toBe(1));
   });
 
   it('falls back to text prompt when requested audio is missing', () => {

@@ -3,6 +3,10 @@ import { render, screen, fireEvent, act, waitFor } from '@testing-library/react'
 import { MatchingPairsGame } from '../MatchingPairsGame';
 import type { NormalizedWord } from '@/lib/words';
 
+vi.mock('@/lib/audio-availability', () => ({
+  getPlayableAudioUrl: (url: string | null) => Promise.resolve(url),
+}));
+
 const makeWord = (
   id: string,
   cz: string,
@@ -128,7 +132,7 @@ describe('MatchingPairsGame', () => {
     expect(onResult).toHaveBeenCalledWith(2);
   });
 
-  it('uses listening mode with hidden source text when complete audio is available', () => {
+  it('uses listening mode with hidden source text when complete audio is available', async () => {
     render(
       <MatchingPairsGame words={WORDS} role="cz" sourceLang="cz" promptMode="audio" />
     );
@@ -136,7 +140,7 @@ describe('MatchingPairsGame', () => {
     const promptButton = screen.getByRole('button', { name: /play 1/i });
     expect(promptButton).toBeInTheDocument();
     fireEvent.click(promptButton);
-    expect(playCalls).toBe(1);
+    await waitFor(() => expect(playCalls).toBe(1));
   });
 
   it('falls back to text prompts when audio playback fails at runtime', async () => {
