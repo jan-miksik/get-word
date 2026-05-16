@@ -343,7 +343,7 @@ export const WordCard = memo(function WordCard({
             onDoubleClick={startEditing}
             onClick={() => !memoryHook && !coverMemoryHook && startEditing()}
           >
-            <span className={`memory-hook-text relative inline-block min-h-[1.4em] ${coverMemoryHook ? '' : '!text-[#2A2218]'} ${!memoryHook ? 'opacity-60 italic' : ''}`}>
+            <span className={`memory-hook-text relative inline-block min-h-[1.4em] ${coverMemoryHook ? '[.is-pressed_&]:!text-[#2A2218]' : '!text-[#2A2218]'} ${!memoryHook ? 'opacity-60 italic' : ''}`}>
               {displayHook}
             </span>
             {coverMemoryHook && <RevealHint />}
