@@ -23,10 +23,10 @@ function formatNextReviewHint(intervalMs: number): string {
 
 function getWordTextSize(text: string | undefined): string {
   const len = text?.length ?? 0;
-  if (len <= 6) return 'text-[1.85rem] sm:text-[2rem]';
-  if (len <= 10) return 'text-[1.55rem] sm:text-[1.75rem]';
-  if (len <= 16) return 'text-[1.25rem] sm:text-[1.45rem]';
-  if (len <= 24) return 'text-[1.05rem] sm:text-[1.2rem]';
+  if (len <= 6) return 'text-[2rem] sm:text-[2.25rem]';
+  if (len <= 10) return 'text-[1.7rem] sm:text-[1.9rem]';
+  if (len <= 16) return 'text-[1.35rem] sm:text-[1.5rem]';
+  if (len <= 24) return 'text-[1.1rem] sm:text-[1.25rem]';
   if (len <= 36) return 'text-[0.95rem] sm:text-[1.05rem]';
   return 'text-[0.85rem] sm:text-[0.95rem]';
 }
@@ -401,7 +401,7 @@ export const WordCard = memo(function WordCard({
             {unknownPresses > 0 && (
               <span
                 aria-label={`${unknownPresses} forgotten`}
-                className="absolute top-0 right-[2px] text-[#ae6161] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
+                className="absolute top-[5px] right-[5px] text-[#ae6161] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
               >
                 {unknownPresses}
               </span>
@@ -420,7 +420,7 @@ export const WordCard = memo(function WordCard({
             {knownPresses > 0 && (
               <span
                 aria-label={`${knownPresses} known`}
-                className="absolute top-0 right-[2px] text-[#1E6FA8] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
+                className="absolute top-[5px] right-[5px] text-[#1E6FA8] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
               >
                 {knownPresses}
               </span>
