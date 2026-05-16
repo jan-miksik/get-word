@@ -23,12 +23,12 @@ function formatNextReviewHint(intervalMs: number): string {
 
 function getWordTextSize(text: string | undefined): string {
   const len = text?.length ?? 0;
-  if (len <= 6) return 'text-[2rem] sm:text-[2.25rem]';
-  if (len <= 10) return 'text-[1.7rem] sm:text-[1.9rem]';
-  if (len <= 16) return 'text-[1.35rem] sm:text-[1.5rem]';
-  if (len <= 24) return 'text-[1.1rem] sm:text-[1.25rem]';
-  if (len <= 36) return 'text-[0.95rem] sm:text-[1.05rem]';
-  return 'text-[0.85rem] sm:text-[0.95rem]';
+  if (len <= 6) return '!text-[2rem] sm:!text-[2.25rem]';
+  if (len <= 10) return '!text-[1.7rem] sm:!text-[1.9rem]';
+  if (len <= 16) return '!text-[1.35rem] sm:!text-[1.5rem]';
+  if (len <= 24) return '!text-[1.1rem] sm:!text-[1.25rem]';
+  if (len <= 36) return '!text-[0.95rem] sm:!text-[1.05rem]';
+  return '!text-[0.85rem] sm:!text-[0.95rem]';
 }
 
 interface WordCardProps {
@@ -292,12 +292,12 @@ export const WordCard = memo(function WordCard({
         {/* Czech */}
         <div className="flex justify-center items-center gap-1.5">
           <div className="hidden">CZ</div>
-          <div className={`flex-none w-full text-center font-medium leading-[1.2] sm:leading-[1.25] ${getWordTextSize(word.cz)}`}>
+          <div className="flex-none w-full text-center font-medium leading-[1.2] sm:leading-[1.25]">
             <div
               className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${coverCz ? 'is-covered' : ''}`}
               data-lang="cz"
             >
-              <span className="lang-text inline-block relative min-h-[1.4em]">
+              <span className={`lang-text inline-block relative min-h-[1.4em] ${getWordTextSize(word.cz)}`}>
                 <span>{word.cz}</span>
                 {showPronunciation && word.czPron && shouldShowPron('cz') && (
                   <span className="text-[1.1rem] sm:text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.czPron}</span>
@@ -312,12 +312,12 @@ export const WordCard = memo(function WordCard({
         {showEnglish && (
           <div className="flex justify-center items-center gap-1.5">
             <div className="hidden">EN</div>
-            <div className={`flex-none w-full text-center font-medium leading-[1.2] sm:leading-[1.25] ${getWordTextSize(word.en)}`}>
+            <div className="flex-none w-full text-center font-medium leading-[1.2] sm:leading-[1.25]">
               <div
                 className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${coverEn ? 'is-covered' : ''}`}
                 data-lang="en"
               >
-                <span className="lang-text inline-block relative min-h-[1.4em]">{word.en}</span>
+                <span className={`lang-text inline-block relative min-h-[1.4em] ${getWordTextSize(word.en)}`}>{word.en}</span>
                 {coverEn && <RevealHint />}
               </div>
             </div>
@@ -327,12 +327,12 @@ export const WordCard = memo(function WordCard({
         {/* Vietnamese */}
         <div className="flex justify-center items-center gap-1.5">
           <div className="hidden">VI</div>
-          <div className={`flex-none w-full text-center font-medium leading-[1.2] sm:leading-[1.25] ${getWordTextSize(word.vi)}`}>
+          <div className="flex-none w-full text-center font-medium leading-[1.2] sm:leading-[1.25]">
             <div
               className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${coverVi ? 'is-covered' : ''}`}
               data-lang="vi"
             >
-              <span className="lang-text inline-block relative min-h-[1.4em]">
+              <span className={`lang-text inline-block relative min-h-[1.4em] ${getWordTextSize(word.vi)}`}>
                 <span>{word.vi}</span>
                 {showPronunciation && word.viPron && shouldShowPron('vi') && (
                   <span className="text-[1.1rem] sm:text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.viPron}</span>
@@ -401,7 +401,7 @@ export const WordCard = memo(function WordCard({
             {unknownPresses > 0 && (
               <span
                 aria-label={`${unknownPresses} forgotten`}
-                className="absolute top-[5px] right-[5px] text-[#ae6161] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
+                className="absolute top-[5px] right-[5px] min-[500px]:top-[8px] min-[500px]:right-[10px] text-[#ae6161] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
               >
                 {unknownPresses}
               </span>
@@ -420,7 +420,7 @@ export const WordCard = memo(function WordCard({
             {knownPresses > 0 && (
               <span
                 aria-label={`${knownPresses} known`}
-                className="absolute top-[5px] right-[5px] text-[#1E6FA8] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
+                className="absolute top-[5px] right-[5px] min-[500px]:top-[8px] min-[500px]:right-[10px] text-[#1E6FA8] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
               >
                 {knownPresses}
               </span>
