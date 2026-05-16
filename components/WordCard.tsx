@@ -21,6 +21,16 @@ function formatNextReviewHint(intervalMs: number): string {
   return label ? `Repeat in ${label}` : 'Repeat now';
 }
 
+function getWordTextSize(text: string | undefined): string {
+  const len = text?.length ?? 0;
+  if (len <= 6) return 'text-[1.85rem] sm:text-[2rem]';
+  if (len <= 10) return 'text-[1.55rem] sm:text-[1.75rem]';
+  if (len <= 16) return 'text-[1.25rem] sm:text-[1.45rem]';
+  if (len <= 24) return 'text-[1.05rem] sm:text-[1.2rem]';
+  if (len <= 36) return 'text-[0.95rem] sm:text-[1.05rem]';
+  return 'text-[0.85rem] sm:text-[0.95rem]';
+}
+
 interface WordCardProps {
   word: NormalizedWord;
   progress: ProgressData;
@@ -282,7 +292,7 @@ export const WordCard = memo(function WordCard({
         {/* Czech */}
         <div className="flex justify-center items-center gap-1.5">
           <div className="hidden">CZ</div>
-          <div className="flex-none w-full text-center text-[0.98rem] font-medium leading-[1.35] sm:text-[1.02rem]">
+          <div className={`flex-none w-full text-center font-medium leading-[1.2] sm:leading-[1.25] ${getWordTextSize(word.cz)}`}>
             <div
               className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${coverCz ? 'is-covered' : ''}`}
               data-lang="cz"
@@ -302,7 +312,7 @@ export const WordCard = memo(function WordCard({
         {showEnglish && (
           <div className="flex justify-center items-center gap-1.5">
             <div className="hidden">EN</div>
-            <div className="flex-none w-full text-center text-[0.98rem] font-medium leading-[1.35] sm:text-[1.02rem]">
+            <div className={`flex-none w-full text-center font-medium leading-[1.2] sm:leading-[1.25] ${getWordTextSize(word.en)}`}>
               <div
                 className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${coverEn ? 'is-covered' : ''}`}
                 data-lang="en"
@@ -317,7 +327,7 @@ export const WordCard = memo(function WordCard({
         {/* Vietnamese */}
         <div className="flex justify-center items-center gap-1.5">
           <div className="hidden">VI</div>
-          <div className="flex-none w-full text-center text-[0.98rem] font-medium leading-[1.35] sm:text-[1.02rem]">
+          <div className={`flex-none w-full text-center font-medium leading-[1.2] sm:leading-[1.25] ${getWordTextSize(word.vi)}`}>
             <div
               className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${coverVi ? 'is-covered' : ''}`}
               data-lang="vi"
@@ -388,17 +398,17 @@ export const WordCard = memo(function WordCard({
             onClick={onUnknown}
             title={`${forgotHint} · ${unknownPresses} forgotten`}
           >
-            {unknownPresses > 0 && (
-              <span
-                aria-label={`${unknownPresses} forgotten`}
-                className="absolute top-1.5 right-1.5 min-w-[1.25rem] h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-[#ae6161]/20 text-[#ae6161] text-[0.65rem] font-bold leading-none tabular-nums"
-              >
-                {unknownPresses}
-              </span>
-            )}
             <span className="srs-btn-copy">
+              {unknownPresses > 0 && (
+                <span
+                  aria-label={`${unknownPresses} forgotten`}
+                  className="min-w-[1.25rem] h-4 px-1.5 inline-flex items-center justify-center rounded-full bg-[#ae6161]/20 text-[#ae6161] text-[0.62rem] font-bold leading-none tabular-nums"
+                >
+                  {unknownPresses}
+                </span>
+              )}
               <span className="srs-btn-label">Forgotten</span>
-              <span className="srs-btn-hint !opacity-[0.35]">{forgotHint}</span>
+              <span className="srs-btn-hint !opacity-[0.35] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{forgotHint}</span>
             </span>
           </button>
           <button
@@ -407,17 +417,17 @@ export const WordCard = memo(function WordCard({
             onClick={onKnown}
             title={`${okayHint} · ${knownPresses} known`}
           >
-            {knownPresses > 0 && (
-              <span
-                aria-label={`${knownPresses} known`}
-                className="absolute top-1.5 right-1.5 min-w-[1.25rem] h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-[#1E6FA8]/20 text-[#1E6FA8] text-[0.65rem] font-bold leading-none tabular-nums"
-              >
-                {knownPresses}
-              </span>
-            )}
             <span className="srs-btn-copy">
+              {knownPresses > 0 && (
+                <span
+                  aria-label={`${knownPresses} known`}
+                  className="min-w-[1.25rem] h-4 px-1.5 inline-flex items-center justify-center rounded-full bg-[#1E6FA8]/20 text-[#1E6FA8] text-[0.62rem] font-bold leading-none tabular-nums"
+                >
+                  {knownPresses}
+                </span>
+              )}
               <span className="srs-btn-label">OK</span>
-              <span className="srs-btn-hint !opacity-[0.35]">{okayHint}</span>
+              <span className="srs-btn-hint !opacity-[0.35] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{okayHint}</span>
             </span>
           </button>
           {onReallyKnown && (
@@ -429,7 +439,7 @@ export const WordCard = memo(function WordCard({
             >
               <span className="srs-btn-copy">
                 <span className="srs-btn-label">Easy</span>
-                <span className="srs-btn-hint !opacity-[0.35]">{easyHint}</span>
+                <span className="srs-btn-hint !opacity-[0.35] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{easyHint}</span>
               </span>
             </button>
           )}
