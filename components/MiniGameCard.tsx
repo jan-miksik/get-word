@@ -26,36 +26,21 @@ function SoundToggle({ skipSound, onToggle }: { skipSound: boolean; onToggle: ()
       onClick={(e) => { e.stopPropagation(); onToggle(); }}
       aria-label={skipSound ? 'Sound off — click to enable' : 'Sound on — click to disable'}
       title={skipSound ? 'Enable audio prompts' : 'Disable audio prompts'}
-      className="absolute top-2.5 right-2.5 z-20 flex items-center gap-1.5 px-2 py-1 rounded-full transition-all duration-200 select-none hover:scale-110 hover:brightness-125 active:scale-95"
-      style={{
-        background: skipSound
-          ? 'color-mix(in srgb, var(--text-soft) 14%, transparent)'
-          : 'color-mix(in srgb, var(--accent) 12%, transparent)',
-        border: `1px solid ${skipSound
-          ? 'color-mix(in srgb, var(--text-soft) 28%, transparent)'
-          : 'color-mix(in srgb, var(--accent) 28%, transparent)'}`,
-        color: skipSound ? 'var(--text-soft)' : 'var(--accent)',
-        fontSize: '0.65rem',
-        letterSpacing: '0.03em',
-        fontWeight: 500,
-        right: '1rem',
-        top: '1rem',
-      }}
+      className="absolute top-3 right-3 z-20 inline-flex items-center justify-center h-9 w-9 rounded-full border-2 border-[#2A2218] bg-[#F4EFE2] text-[#2A2218] transition-colors duration-150 hover:bg-[#1E6FA8] hover:border-[#1E6FA8] hover:text-[#F4EFE2] active:bg-[#1E6FA8] active:border-[#1E6FA8] active:text-[#F4EFE2]"
     >
       {skipSound ? (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
           <line x1="23" y1="9" x2="17" y2="15" />
           <line x1="17" y1="9" x2="23" y2="15" />
         </svg>
       ) : (
-        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
           <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" />
           <path d="M15.54 8.46a5 5 0 0 1 0 7.07" />
           <path d="M19.07 4.93a10 10 0 0 1 0 14.14" />
         </svg>
       )}
-      <span>{skipSound ? 'text only' : 'sound'}</span>
     </button>
   );
 }
