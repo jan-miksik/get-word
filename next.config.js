@@ -16,15 +16,10 @@ function createOptionalWalletAliases(emptyModule) {
 
 function getBuildVersion() {
   const base = require('./package.json').version;
-  if (process.env.NODE_ENV !== 'production') {
-    return base;
-  }
-
   try {
     const count = execSync('git rev-list --count HEAD', { stdio: ['pipe', 'pipe', 'ignore'] })
       .toString()
       .trim();
-    // Replace patch segment with commit count so version auto-increments per commit
     const [major, minor] = base.split('.');
     return `${major}.${minor}.${count}`;
   } catch {
