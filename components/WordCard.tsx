@@ -336,7 +336,7 @@ export const WordCard = memo(function WordCard({
         <div className={`memory-hook-container mt-2 mb-1 ${editingHook ? 'editing' : ''}`}>
           <div
             ref={hookDisplayRef}
-            className={`memory-hook-display cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${coverMemoryHook ? 'is-covered' : ''}`}
+            className={`memory-hook-display cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full !text-[#2A2218] hover:!bg-[#2A2218]/5 ${coverMemoryHook ? 'is-covered' : ''}`}
             data-lang="memory-hook"
             onDoubleClick={startEditing}
             onClick={() => !memoryHook && !coverMemoryHook && startEditing()}
@@ -349,7 +349,7 @@ export const WordCard = memo(function WordCard({
           <input
             ref={hookInputRef}
             type="text"
-            className={`memory-hook-input ${editingHook ? 'block' : 'hidden'}`}
+            className={`memory-hook-input ${editingHook ? 'block' : 'hidden'} !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] placeholder:!text-[#2A2218]/50 focus:!border-[#1E6FA8] focus:!shadow-none`}
             placeholder="Enter memory hook..."
             value={hookValue}
             onChange={(e) => setHookValue(e.target.value)}
