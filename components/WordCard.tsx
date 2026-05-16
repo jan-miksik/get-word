@@ -398,15 +398,15 @@ export const WordCard = memo(function WordCard({
             onClick={onUnknown}
             title={`${forgotHint} · ${unknownPresses} forgotten`}
           >
+            {unknownPresses > 0 && (
+              <span
+                aria-label={`${unknownPresses} forgotten`}
+                className="absolute top-0 right-[2px] text-[#ae6161] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
+              >
+                {unknownPresses}
+              </span>
+            )}
             <span className="srs-btn-copy">
-              {unknownPresses > 0 && (
-                <span
-                  aria-label={`${unknownPresses} forgotten`}
-                  className="min-w-[1.25rem] h-4 px-1.5 inline-flex items-center justify-center rounded-full bg-[#ae6161]/20 text-[#ae6161] text-[0.62rem] font-bold leading-none tabular-nums"
-                >
-                  {unknownPresses}
-                </span>
-              )}
               <span className="srs-btn-label">Forgotten</span>
               <span className="srs-btn-hint !opacity-[0.35] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{forgotHint}</span>
             </span>
@@ -417,15 +417,15 @@ export const WordCard = memo(function WordCard({
             onClick={onKnown}
             title={`${okayHint} · ${knownPresses} known`}
           >
+            {knownPresses > 0 && (
+              <span
+                aria-label={`${knownPresses} known`}
+                className="absolute top-0 right-[2px] text-[#1E6FA8] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
+              >
+                {knownPresses}
+              </span>
+            )}
             <span className="srs-btn-copy">
-              {knownPresses > 0 && (
-                <span
-                  aria-label={`${knownPresses} known`}
-                  className="min-w-[1.25rem] h-4 px-1.5 inline-flex items-center justify-center rounded-full bg-[#1E6FA8]/20 text-[#1E6FA8] text-[0.62rem] font-bold leading-none tabular-nums"
-                >
-                  {knownPresses}
-                </span>
-              )}
               <span className="srs-btn-label">OK</span>
               <span className="srs-btn-hint !opacity-[0.35] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{okayHint}</span>
             </span>
