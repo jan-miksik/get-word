@@ -169,7 +169,7 @@ export async function POST(request: NextRequest) {
     const sessionToken = request.cookies.get(WORDLINK_SESSION_COOKIE_NAME)?.value;
     const session = await verifySession(sessionToken);
     timer.mark("verify_session");
-    if (!session?.userId && !deviceId) {
+    if (!session?.userId) {
       const unauthorized = NextResponse.json(
         { success: false, error: "Authentication required" },
         { status: 401 }
@@ -399,7 +399,7 @@ export async function GET(request: NextRequest) {
     const sessionToken = request.cookies.get(WORDLINK_SESSION_COOKIE_NAME)?.value;
     const session = await verifySession(sessionToken);
     timer.mark("verify_session");
-    if (!session?.userId && !deviceId) {
+    if (!session?.userId) {
       const unauthorized = NextResponse.json(
         { success: false, error: "Authentication required" },
         { status: 401 }

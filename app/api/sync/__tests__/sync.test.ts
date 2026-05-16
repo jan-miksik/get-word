@@ -214,15 +214,13 @@ describe('GET /api/sync', () => {
     ])
   })
 
-  it('bootstraps a session from device auth without an existing session', async () => {
+  it('returns 401 for device auth without an existing session', async () => {
     mockVerifySession.mockResolvedValue(null)
     const req = new NextRequest('http://localhost:3000/api/sync?deviceId=dev-123')
     const res = await GET(req)
-    const data = await res.json()
 
-    expect(res.status).toBe(200)
-    expect(data.success).toBe(true)
-    expect(mockGetOrCreateUserByDeviceId).toHaveBeenCalledWith('dev-123')
+    expect(res.status).toBe(401)
+    expect(mockGetOrCreateUserByDeviceId).not.toHaveBeenCalled()
   })
 
   it('returns 401 for a userId fallback without a session', async () => {
@@ -539,7 +537,7 @@ describe('POST /api/sync', () => {
     expect(mockUpsertMemoryHookByItemId).toHaveBeenCalledWith('uuid-A', itemId, 'hook text')
   })
 
-  it('bootstraps a session from device auth without an existing session', async () => {
+  it('returns 401 for device auth without an existing session', async () => {
     mockVerifySession.mockResolvedValue(null)
     const req = new NextRequest('http://localhost:3000/api/sync', {
       method: 'POST',
@@ -547,11 +545,9 @@ describe('POST /api/sync', () => {
       headers: { 'Content-Type': 'application/json' },
     })
     const res = await POST(req)
-    const data = await res.json()
 
-    expect(res.status).toBe(200)
-    expect(data.success).toBe(true)
-    expect(mockGetOrCreateUserByDeviceId).toHaveBeenCalledWith('dev-123')
+    expect(res.status).toBe(401)
+    expect(mockGetOrCreateUserByDeviceId).not.toHaveBeenCalled()
   })
 
   it('returns 401 for a userId fallback without a session', async () => {

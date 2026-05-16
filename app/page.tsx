@@ -86,7 +86,7 @@ export default function Home() {
   // Use synced words (from word_list_items) when available, fall back to static
   const activeWords = syncedWords ?? normalizedWords;
 
-  const isAuthenticated = Boolean(userId || isConnected);
+  const isAuthenticated = isConnected;
   const isWaitingForLinkedProfile = Boolean(
     isConnected &&
       walletAddress &&
@@ -104,7 +104,6 @@ export default function Home() {
 
   const { minigameFrequency, setMinigameFrequency } = useMinigameFrequencyPreference();
   const { viewMode, setViewMode } = useViewModePreference();
-  const hasAutoPromptedRef = useRef(false);
 
   const categories = useMemo(
     () => getAvailableCategories(activeWords),
@@ -184,12 +183,6 @@ export default function Home() {
     setDismissedGames,
     setGameScore,
   });
-
-  useEffect(() => {
-    if (!isHydrated || isLoadingWords || isAuthLoading || isAuthenticated || hasAutoPromptedRef.current) return;
-    hasAutoPromptedRef.current = true;
-    signIn();
-  }, [isHydrated, isLoadingWords, isAuthLoading, isAuthenticated, signIn]);
 
   useEffect(() => {
     if (loaderDismissed || !appReady) return;

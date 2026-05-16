@@ -9,11 +9,11 @@ import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
 function formatInterval(ms: number): string {
   if (ms <= 0) return '';
   const m = Math.round(ms / 60000);
-  if (m < 60) return `${m}m`;
+  if (m < 60) return `${m} min`;
   const h = Math.round(m / 60);
-  if (h < 24) return `${h}h`;
+  if (h < 24) return `${h} ${h === 1 ? 'hour' : 'hours'}`;
   const d = Math.round(h / 24);
-  return `${d}d`;
+  return `${d} ${d === 1 ? 'day' : 'days'}`;
 }
 
 function formatNextReviewHint(intervalMs: number): string {
@@ -93,7 +93,9 @@ export const WordCard = memo(function WordCard({
     if (!showMemoryHook) setEditingHook(false);
   }, [showMemoryHook]);
 
-  const totalInteractions = (progress.knownCount ?? 0) + (progress.unknownCount ?? 0);
+  const knownPresses = progress.knownCount ?? 0;
+  const unknownPresses = progress.unknownCount ?? 0;
+  const totalInteractions = knownPresses + unknownPresses;
   const isFirstSeen = totalInteractions === 0;
 
   // Determine which languages should be covered.
@@ -382,10 +384,18 @@ export const WordCard = memo(function WordCard({
         <div className={`card-actions-row ${onReallyKnown ? 'card-actions-row--three' : 'card-actions-row--two'}`}>
           <button
             type="button"
-            className="srs-btn srs-btn--forgot !border-[#ae6161] !opacity-80"
+            className="srs-btn srs-btn--forgot !relative !border-[#ae6161] !opacity-80"
             onClick={onUnknown}
-            title={forgotHint}
+            title={`${forgotHint} · ${unknownPresses} forgotten`}
           >
+            {unknownPresses > 0 && (
+              <span
+                aria-label={`${unknownPresses} forgotten`}
+                className="absolute top-1.5 right-1.5 min-w-[1.25rem] h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-[#ae6161]/20 text-[#ae6161] text-[0.65rem] font-bold leading-none tabular-nums"
+              >
+                {unknownPresses}
+              </span>
+            )}
             <span className="srs-btn-copy">
               <span className="srs-btn-label">Forgotten</span>
               <span className="srs-btn-hint !opacity-[0.35]">{forgotHint}</span>
@@ -393,10 +403,18 @@ export const WordCard = memo(function WordCard({
           </button>
           <button
             type="button"
-            className="srs-btn srs-btn--okay"
+            className="srs-btn srs-btn--okay !relative"
             onClick={onKnown}
-            title={okayHint}
+            title={`${okayHint} · ${knownPresses} known`}
           >
+            {knownPresses > 0 && (
+              <span
+                aria-label={`${knownPresses} known`}
+                className="absolute top-1.5 right-1.5 min-w-[1.25rem] h-5 px-1.5 inline-flex items-center justify-center rounded-full bg-[#1E6FA8]/20 text-[#1E6FA8] text-[0.65rem] font-bold leading-none tabular-nums"
+              >
+                {knownPresses}
+              </span>
+            )}
             <span className="srs-btn-copy">
               <span className="srs-btn-label">OK</span>
               <span className="srs-btn-hint !opacity-[0.35]">{okayHint}</span>
@@ -405,7 +423,7 @@ export const WordCard = memo(function WordCard({
           {onReallyKnown && (
             <button
               type="button"
-              className="srs-btn srs-btn--easy !border-[#12750f]"
+              className="srs-btn srs-btn--easy !relative !border-[#12750f]"
               onClick={onReallyKnown}
               title={easyHint}
             >
