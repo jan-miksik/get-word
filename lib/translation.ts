@@ -117,7 +117,32 @@ export async function openRouterTranslate(
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
     const batch = texts.slice(i, i + BATCH_SIZE);
     try {
-      const prompt = `Translate the following words/phrases from ${fromLang} to ${toLang}. Return a JSON array of objects with "original" and "translated" fields. Only return the JSON array, no other text.\n\nWords:\n${batch.map((t, idx) => `${idx + 1}. ${t}`).join("\n")}`;
+      const prompt = `
+Translate the following words and phrases from ${fromLang} to ${toLang}.
+
+Rules:
+- If it is a single word, give the most common basic translation.
+- If it is a phrase or sentence, translate it naturally for real-life use.
+- Do not translate word-by-word if that sounds unnatural.
+- Prefer common everyday language.
+- Keep the translation beginner-friendly.
+- If the source phrase is polite, make the translation polite in a natural way.
+- Preserve the exact original text in the "original" field.
+- Return only valid JSON.
+- Do not include markdown or explanations outside the JSON.
+
+Return this exact shape:
+[
+  {
+    "original": "source text",
+    "translated": "natural translation",
+    "note": "optional short note if needed"
+  }
+]
+
+Words:
+${batch.map((t, idx) => `${idx + 1}. ${t}`).join("\n")}
+`.trim();
 
       const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
@@ -130,8 +155,12 @@ export async function openRouterTranslate(
           messages: [
             {
               role: "system",
-              content:
-                "You are a precise translator. Return only a JSON array with objects containing 'original' and 'translated' fields. No markdown, no explanation.",
+              content: `
+You are a professional translator for a language-learning app.
+You translate meaning, not just words.
+Your translations must sound natural to native speakers.
+Return only valid JSON.
+`.trim(),
             },
             { role: "user", content: prompt },
           ],
@@ -172,6 +201,7 @@ export async function openRouterTranslate(
       const parsed = JSON.parse(jsonMatch[0]) as {
         original: string;
         translated: string;
+        note?: string;
       }[];
       const translationMap = new Map(
         parsed.map((p) => [p.original.toLowerCase().trim(), p.translated]),

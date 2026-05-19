@@ -114,6 +114,37 @@ type TtsLanguageOption = {
 };
 
 const AUDIO_LOG_PREFIX = '[Wordlink audio]';
+const GOOGLE_TTS_VOICE_STORAGE_PREFIX = 'wordlink-list-google-tts-voice';
+
+function readStorageValue(key: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorageValue(key: string, value: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore private browsing or blocked storage; the current session still works.
+  }
+}
+
+function getGoogleVoiceStorageKey(languageCode: string): string {
+  return `${GOOGLE_TTS_VOICE_STORAGE_PREFIX}:${languageCode.toLowerCase()}`;
+}
+
+function readStoredGoogleVoiceId(languageCode: string): string {
+  return readStorageValue(getGoogleVoiceStorageKey(languageCode)) || 'default';
+}
+
+function writeStoredGoogleVoiceId(languageCode: string, voiceId: string): void {
+  writeStorageValue(getGoogleVoiceStorageKey(languageCode), voiceId);
+}
 
 class AudioLoadError extends Error {
   constructor(
@@ -358,6 +389,10 @@ export function AudioStep({
   onUsageRefresh,
   onBack,
 }: AudioStepProps) {
+  const activeLanguageCode = audioSide === 'known' ? list.languageFrom : list.languageTo;
+  const activeLanguageLabel = audioSide === 'known'
+    ? formatLanguage(list.languageFrom)
+    : formatLanguage(list.languageTo);
   const [rows, setRows] = useState<AudioRow[]>(() => buildAudioRows(items, list, audioSide));
   const [generating, setGenerating] = useState(false);
   const [completing, setCompleting] = useState(false);
@@ -367,7 +402,9 @@ export function AudioStep({
   const [playbackErrors, setPlaybackErrors] = useState<Record<string, string>>({});
   const [progress, setProgress] = useState(0);
   const [voiceOptions, setVoiceOptions] = useState<string[]>([]);
-  const [selectedGoogleVoiceId, setSelectedGoogleVoiceId] = useState('default');
+  const [selectedGoogleVoiceId, setSelectedGoogleVoiceId] = useState(
+    () => readStoredGoogleVoiceId(activeLanguageCode),
+  );
   const [loadingVoices, setLoadingVoices] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioCacheRef = useRef<Map<string, CachedAudio>>(new Map());
@@ -384,10 +421,6 @@ export function AudioStep({
     const selected = getSelectedReusableOption(row);
     return Boolean(selected?.audioUrl) && row.audioStatus !== 'ready';
   }).length;
-  const activeLanguageLabel = audioSide === 'known'
-    ? formatLanguage(list.languageFrom)
-    : formatLanguage(list.languageTo);
-  const activeLanguageCode = audioSide === 'known' ? list.languageFrom : list.languageTo;
   const googleVoiceIdForRequest =
     selectedGoogleVoiceId === 'default' ? undefined : selectedGoogleVoiceId;
   const googleTtsUsage = googleUsage?.account.find((scope) => scope.scope === 'tts');
@@ -399,12 +432,12 @@ export function AudioStep({
     setRows(buildAudioRows(items, list, audioSide));
     setPlaybackErrors({});
     setError(null);
-    setSelectedGoogleVoiceId('default');
+    setSelectedGoogleVoiceId(readStoredGoogleVoiceId(activeLanguageCode));
     didInitializeVoiceRef.current = false;
     if (audioRef.current) audioRef.current.pause();
     setPlayingId(null);
     playQueueRef.current = [];
-  }, [audioSide, items, list]);
+  }, [activeLanguageCode, audioSide, items, list]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1025,6 +1058,11 @@ export function AudioStep({
     }
   }, [lookupReusableAudio]);
 
+  const handleGoogleVoiceChange = useCallback((voiceId: string) => {
+    setSelectedGoogleVoiceId(voiceId);
+    writeStoredGoogleVoiceId(activeLanguageCode, voiceId);
+  }, [activeLanguageCode]);
+
   const handleComplete = useCallback(async () => {
     setCompleting(true);
     try {
@@ -1075,7 +1113,7 @@ export function AudioStep({
             Google voice
             <select
               value={selectedGoogleVoiceId}
-              onChange={(event) => setSelectedGoogleVoiceId(event.target.value)}
+              onChange={(event) => handleGoogleVoiceChange(event.target.value)}
               disabled={generating || regeneratingIds.size > 0 || loadingVoices}
               className="rounded-lg border border-border-subtle bg-background px-2.5 py-1.5 text-xs text-text disabled:opacity-50"
             >

@@ -38,6 +38,40 @@ type OpenRouterUiState =
   | 'connected'
   | 'failed_retryable';
 
+type TranslationProvider = 'google' | 'openrouter';
+
+const TRANSLATION_PROVIDER_STORAGE_KEY = 'wordlink-list-translation-provider';
+const OPENROUTER_MODEL_STORAGE_KEY = 'wordlink-list-openrouter-model';
+
+function readStorageValue(key: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorageValue(key: string, value: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore private browsing or blocked storage; the current session still works.
+  }
+}
+
+function readStoredTranslationProvider(): TranslationProvider {
+  return readStorageValue(TRANSLATION_PROVIDER_STORAGE_KEY) === 'openrouter'
+    ? 'openrouter'
+    : 'google';
+}
+
+function readStoredOpenRouterModel(): string | null {
+  const stored = readStorageValue(OPENROUTER_MODEL_STORAGE_KEY);
+  return stored ? normalizeOpenRouterModel(stored) : null;
+}
+
 interface TranslationTextareaProps {
   value: string;
   onChange: (value: string) => void;
@@ -103,10 +137,12 @@ export function TranslationStep({
   const [translating, setTranslating] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [provider, setProvider] = useState<'google' | 'openrouter'>('google');
+  const [provider, setProvider] = useState<TranslationProvider>(() => readStoredTranslationProvider());
   const [openRouterState, setOpenRouterState] = useState<OpenRouterUiState>('not_connected');
   const [openRouterLoading, setOpenRouterLoading] = useState(false);
-  const [openRouterModel, setOpenRouterModel] = useState(DEFAULT_OPENROUTER_TRANSLATION_MODEL);
+  const [openRouterModel, setOpenRouterModel] = useState(
+    () => readStoredOpenRouterModel() ?? DEFAULT_OPENROUTER_TRANSLATION_MODEL,
+  );
 
   const needsTranslation = inputLanguage === 'known' ? 'textTarget' : 'textKnown';
   const hasSource = inputLanguage === 'known' ? 'textKnown' : 'textTarget';
@@ -129,7 +165,7 @@ export function TranslationStep({
       }
       const data = await res.json();
       setOpenRouterState((data.state as OpenRouterUiState) ?? 'not_connected');
-      setOpenRouterModel(normalizeOpenRouterModel(data.connection?.translationModel));
+      setOpenRouterModel(readStoredOpenRouterModel() ?? normalizeOpenRouterModel(data.connection?.translationModel));
     } catch {
       setOpenRouterState('not_connected');
     } finally {
@@ -168,6 +204,10 @@ export function TranslationStep({
   useEffect(() => {
     void loadOpenRouterStatus();
   }, [loadOpenRouterStatus]);
+
+  useEffect(() => {
+    writeStorageValue(TRANSLATION_PROVIDER_STORAGE_KEY, provider);
+  }, [provider]);
 
   const handleAutoTranslate = useCallback(async () => {
     if (provider === 'google' && isGooglePaused) {
@@ -262,9 +302,15 @@ export function TranslationStep({
     onUsageRefresh,
   ]);
 
+  const handleOpenRouterModelChange = useCallback((model: string) => {
+    setOpenRouterModel(model);
+    writeStorageValue(OPENROUTER_MODEL_STORAGE_KEY, model);
+  }, []);
+
   const handleOpenRouterModelSave = useCallback(async () => {
     const model = normalizeOpenRouterModel(openRouterModel);
     setOpenRouterModel(model);
+    writeStorageValue(OPENROUTER_MODEL_STORAGE_KEY, model);
     setError(null);
     setOpenRouterLoading(true);
     try {
@@ -276,7 +322,9 @@ export function TranslationStep({
       if (!res.ok) {
         throw new Error(data.error ?? 'Failed to save OpenRouter model');
       }
-      setOpenRouterModel(normalizeOpenRouterModel(data.connection?.translationModel));
+      const savedModel = normalizeOpenRouterModel(data.connection?.translationModel);
+      setOpenRouterModel(savedModel);
+      writeStorageValue(OPENROUTER_MODEL_STORAGE_KEY, savedModel);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save OpenRouter model');
     } finally {
@@ -350,7 +398,7 @@ export function TranslationStep({
           <select
             value={provider}
             onChange={(e) => {
-              const next = e.target.value as 'google' | 'openrouter';
+              const next = e.target.value as TranslationProvider;
               setProvider(next);
               if (next === 'openrouter') {
                 void loadOpenRouterStatus();
@@ -435,7 +483,7 @@ export function TranslationStep({
               }
               onChange={(e) => {
                 const next = e.target.value;
-                if (next !== 'custom') setOpenRouterModel(next);
+                if (next !== 'custom') handleOpenRouterModelChange(next);
               }}
               className="min-w-0 flex-1 px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs"
             >
@@ -449,7 +497,7 @@ export function TranslationStep({
             <input
               type="text"
               value={openRouterModel}
-              onChange={(e) => setOpenRouterModel(e.target.value)}
+              onChange={(e) => handleOpenRouterModelChange(e.target.value)}
               placeholder="provider/model-name"
               className="min-w-0 flex-1 px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs focus:outline-none focus:border-accent"
               spellCheck={false}

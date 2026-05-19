@@ -1,5 +1,5 @@
 import React from 'react';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { TranslationStep } from '../TranslationStep';
 
@@ -12,6 +12,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 describe('TranslationStep Google usage gating', () => {
   const originalFetch = global.fetch;
+  const providerStorageKey = 'wordlink-list-translation-provider';
 
   beforeEach(() => {
     global.fetch = vi.fn((input: RequestInfo | URL) => {
@@ -25,6 +26,7 @@ describe('TranslationStep Google usage gating', () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
+    window.localStorage.clear();
   });
 
   it('disables Google auto-translate when the free account share is paused', () => {
@@ -79,5 +81,73 @@ describe('TranslationStep Google usage gating', () => {
 
     expect(screen.getByRole('button', { name: /auto-translate \(1\)/i })).toBeDisabled();
     expect(screen.getByText(/reached the free Google API usage limit/i)).toBeInTheDocument();
+  });
+
+  it('keeps the selected translation provider for later edit rounds', async () => {
+    render(
+      <TranslationStep
+        list={{
+          id: 'list-1',
+          ownerId: 'user-1',
+          name: 'My list',
+          description: null,
+          languageFrom: 'cz',
+          languageTo: 'vi',
+          isPublic: false,
+        }}
+        pendingItems={[
+          {
+            id: 'item-1',
+            text_known: 'hello',
+            text_target: null,
+            position: 0,
+          },
+        ]}
+        inputLanguage="known"
+        googleUsage={null}
+        onComplete={vi.fn(async () => {})}
+        onSkip={vi.fn(async () => {})}
+      />,
+    );
+
+    fireEvent.change(screen.getByRole('combobox'), {
+      target: { value: 'openrouter' },
+    });
+
+    await waitFor(() => {
+      expect(window.localStorage.getItem(providerStorageKey)).toBe('openrouter');
+    });
+  });
+
+  it('restores the saved translation provider on mount', () => {
+    window.localStorage.setItem(providerStorageKey, 'openrouter');
+
+    render(
+      <TranslationStep
+        list={{
+          id: 'list-1',
+          ownerId: 'user-1',
+          name: 'My list',
+          description: null,
+          languageFrom: 'cz',
+          languageTo: 'vi',
+          isPublic: false,
+        }}
+        pendingItems={[
+          {
+            id: 'item-1',
+            text_known: 'hello',
+            text_target: null,
+            position: 0,
+          },
+        ]}
+        inputLanguage="known"
+        googleUsage={null}
+        onComplete={vi.fn(async () => {})}
+        onSkip={vi.fn(async () => {})}
+      />,
+    );
+
+    expect(screen.getByRole('combobox')).toHaveValue('openrouter');
   });
 });
