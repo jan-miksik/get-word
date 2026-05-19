@@ -344,7 +344,10 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
           let result: { audio: Buffer; sizeBytes: number } | null = null;
 
           if (provider === "google_tts") {
-            result = await googleTTS(item.text, item.language);
+            const googleVoiceId = voice_id?.trim();
+            result = googleVoiceId
+              ? await googleTTS(item.text, item.language, googleVoiceId)
+              : await googleTTS(item.text, item.language);
           } else if (provider === "elevenlabs" && encryptedKey) {
             result = await elevenLabsTTS(
               item.text,

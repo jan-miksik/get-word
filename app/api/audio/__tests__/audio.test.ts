@@ -186,6 +186,36 @@ describe('POST /api/audio/generate/batch', () => {
     expect(mockCreateMediaAsset).toHaveBeenCalled()
   })
 
+  it('passes a selected Google TTS voice through to synthesis', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockFindMediaByHashes.mockResolvedValue(new Map())
+    mockGoogleTTS.mockResolvedValue({ audio: Buffer.from('audio-data'), sizeBytes: 10 })
+    mockUploadAudio.mockResolvedValue({
+      storageType: 'arweave',
+      storageRef: 'tx-voice',
+      gatewayUrl: 'https://turbo-gateway.com/tx-voice',
+      gatewayUrls: ['https://turbo-gateway.com/tx-voice', 'https://arweave.net/tx-voice'],
+    })
+    mockCreateMediaAsset.mockResolvedValue({ id: 'asset-voice', contentHash: 'hash_hello_vi_google_tts' })
+    mockBatchLinkAudioToItems.mockResolvedValue(undefined)
+
+    const res = await POST(makeRequest({
+      items: [{ id: 'item-1', text: 'hello', language: 'vi' }],
+      provider: 'google_tts',
+      voice_id: 'vi-VN-Neural2-A',
+    }))
+
+    expect(res.status).toBe(200)
+    expect(mockGoogleTTS).toHaveBeenCalledWith('hello', 'vi', 'vi-VN-Neural2-A')
+    expect(mockComputeContentHash).toHaveBeenCalledWith('hello', 'vi', 'google_tts', {
+      voiceId: 'vi-VN-Neural2-A',
+      audioFormat: 'mp3',
+    })
+    expect(mockUploadAudio).toHaveBeenCalledWith(expect.any(Buffer), expect.objectContaining({
+      voiceId: 'vi-VN-Neural2-A',
+    }))
+  })
+
   it('pauses google TTS when account reaches the free quota share', async () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
     mockFindMediaByHashes.mockResolvedValue(new Map())

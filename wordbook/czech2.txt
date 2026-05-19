@@ -1,0 +1,452 @@
+## Seznámení
+ahoj
+ahoj, já jsem ...
+já
+Nerozumím
+Nevím
+Nerozumím, mluvte prosím pomalu
+Mluvíte anglicky?
+Jsem z ...
+Bydlím v ...
+děkuji
+Prosím
+ty
+Ano
+Zopakujte to prosím, nerozuměl jsem
+Ne
+Ne, nechci
+Možná
+to
+je
+To je dobré
+věc
+něco
+tady
+já zůstanu tady
+tam
+on
+on už šel
+ona
+můj
+To je můj batoh
+tvůj
+jejich
+
+
+## Potřeby
+chtít
+Chci tuto věc
+Chci na záchod.
+nechtít
+nic nechci, děkuji
+dělat
+Co děláš?
+mít
+Mám hlad
+Máme jídlo, jestli chcete
+nemít
+moci
+jít
+Nemám žízeň
+Můžeme jít
+jet
+Už pojedeme
+jíst
+pít
+Nepiju alkohol
+Chci jíst
+bolet
+Bolí mě břicho
+kupovat
+mluvit
+Chceš něco koupit?
+Mluvím trochu ...
+
+
+## nouzové situace
+pomoc
+Pomozte mi!
+doktor
+Hledám doktora.
+nemocnice
+Kde je nemocnice?
+policie
+hasiči
+problém
+Mám problém.
+bolí
+Bolí mně ...
+Co tě bolí?
+nebolí
+v pořádku
+Jsem v pořádku.
+Už je to v pořádku.
+
+
+
+## nákup
+peníze
+Kolik to stojí?
+Chci toto prosím
+karta
+Kartou, prosím
+otevřeno
+Mají otevřeno
+zavřeno
+Ten obchod už je zavřený
+zpět
+východ
+vchod
+
+
+## přídavné jména
+dobrý
+špatný
+To je dobré
+To je špatné
+malý
+velký
+Ano, ten velký
+Dám si ten malý
+pomalu
+jde to pomalu
+rychlý
+Šlo to rychle
+nový
+Mám nový mobil
+starý
+
+
+## otázky
+Co?
+Co to je?
+Kolik?
+Kdo?
+Kolik je hodin?
+Kdo má klíče?
+Kde?
+Kdo jste?
+Kde jsi?
+Kam?
+Kam pak půjdeš?
+Kde je záchod?
+Kdy?
+Kdy se zase uvidíme?
+Jak?
+Jak se to jmenuje?
+Proč?
+Proč to nefunguje?
+
+## spojky a předložky
+a
+Petr a Jan
+nebo
+ale
+ale potom ano
+protože
+protože už šel domů
+Tady nebo sebou?
+když
+Když budeš v Praze, tak se ozvi
+s
+Kafe s mlékem
+v
+Bydlím v bytě
+z
+na
+On je z Evropy
+Je to na stole
+bez
+bez masa
+bez cukru
+
+
+## čas
+čas
+Nemám čas.
+teď
+potom
+dnes
+Přijede dnes.
+Zítra pojedu zpět.
+Teď můžu, potom ne.
+zítra
+včera
+Včera tady nikdo nebyl.
+minuta
+Za deset minut jsem tam.
+hodina
+Asi ještě 2 hodiny.
+den
+Za tři dny odjíždím.
+týden
+Jsem tady 2 týdny.
+měsíc
+Mám na to měsíc.
+rok
+ráno
+Ráno nemůžu.
+To bylo minulý rok.
+večer
+Večer se můžeme potkat.
+
+## čísla
+nula
+jeden
+Chci jeden
+dva
+stačí dva
+Za tři hodiny tam budeme
+tři
+čtyři
+Mám čtyři sourozence
+Dej mi pět minut
+pět
+šest
+sedm
+osm
+stojí to osm dolarů
+přijde sedm lidí
+devět
+deset
+Vezmu si jich deset, prosím
+Je to za sto korun
+sto
+tisíc
+Kde je ten tisíc korun?
+milion
+Jenom jeden milion?
+
+## rodina
+rodina
+Moje rodina jela do ...
+rodiče
+Rodiče jsou doma.
+matka
+Matka o tom neví.
+otec
+Otec zrovna odešel.
+bratr
+To je můj bratr.
+Sestra šla domů.
+sestra
+dítě
+Nevím čí je to dítě.
+manžel
+Řekla jsem to manželovi.
+manželka
+Manželka má radost.
+přítel
+Kde je tvůj přítel?
+přítelkyně
+Přítelkyně je v práci.
+syn
+Má 6 synů.
+Vidím adamovu dceru.
+dcera
+příbuzný
+babička
+dědeček
+
+## barvy
+barva
+Hezká barva.
+bílá
+černá
+Chci tu bílou.
+Černá kniha.
+červená
+modrá
+Proč jsi tak modrý?
+zelená
+Měl červené tričko.
+Vidíš tu paní v zeleném?
+žlutá
+Žluté auto.
+hnědá
+Hnědá už není.
+světlá
+Vezmu si tu světlou bundu
+tmavá
+
+
+## oblečení
+oblečení
+Jdeme nakupovat oblečení.
+kalhoty
+Ztratil jsem kalhoty.
+bunda
+tričko
+Máš hezké tričko.
+Kde je moje bunda?
+košile
+šaty
+Čisté šaty
+boty
+mokré
+suché
+Boty do města.
+Tvoje tričko už je suché.
+Oblečení je ještě mokré.
+velikost
+Menší velikost.
+Větší velikost, prosím.
+
+## tělo
+tělo
+Bolí mně tělo.
+hlava
+Jdu si umýt hlavu.
+obličej
+ruka
+ruce
+Chci masáž rukou.
+noha
+To je moje noha
+břicho
+záda
+Bolí ho břicho a záda.
+vlasy
+Má dlouhé vlasy.
+zuby
+========================= base 2 ==================
+
+
+## běžné slova
+muž
+žena
+člověk
+lidé
+láska
+zvíře
+práce
+toaleta
+pokoj
+klíč
+pračka
+wifi
+internet
+stůl
+židle
+kniha
+auto
+kolo
+motorka
+nádoba
+
+
+
+
+
+
+smutný
+veselý
+naštvaný
+
+
+
+vidět
+slyšet
+číst
+psát
+učit se
+ztratit
+dát
+milovat
+umět
+
+
+
+
+
+on
+ona
+my
+oni
+
+
+pes
+kočka
+pták
+ryba
+kůň
+kráva
+prase
+slepice
+lev
+
+
+
+
+
+
+
+jeho
+její
+naše
+
+
+podnikatel
+zaměstnanec
+pracovat
+student
+učitel
+prodavač
+manažer
+
+levný
+drahý
+krásný
+ošklivý
+teplý
+studený
+snadné
+těžké
+nebezpečný
+bezpečný
+unavený
+
+
+
+šedá
+
+
+
+Odkud?
+Který?
+
+
+jídlo
+pití
+maso
+ovoce
+zelenina
+
+
+město
+dům
+záchod
+
+
+
+
+
+miliarda
+bilion
+krát
+plus
+děleno
+mínus
+
+
+
+
+
+
+
+
+
+
+
+
+

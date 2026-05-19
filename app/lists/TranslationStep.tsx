@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { listsApiFetch } from '@/features/lists/api';
 import type {
   CompletedTranslationRow,
@@ -37,6 +37,48 @@ type OpenRouterUiState =
   | 'connecting'
   | 'connected'
   | 'failed_retryable';
+
+interface TranslationTextareaProps {
+  value: string;
+  onChange: (value: string) => void;
+  ariaLabel: string;
+  placeholder?: string;
+}
+
+function TranslationTextarea({
+  value,
+  onChange,
+  ariaLabel,
+  placeholder,
+}: TranslationTextareaProps) {
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+
+  const resizeToContent = useCallback((element: HTMLTextAreaElement) => {
+    element.style.height = '0px';
+    element.style.height = `${element.scrollHeight}px`;
+  }, []);
+
+  useEffect(() => {
+    if (!textareaRef.current) return;
+    resizeToContent(textareaRef.current);
+  }, [resizeToContent, value]);
+
+  return (
+    <textarea
+      ref={textareaRef}
+      value={value}
+      onChange={(e) => {
+        onChange(e.target.value);
+        resizeToContent(e.currentTarget);
+      }}
+      aria-label={ariaLabel}
+      placeholder={placeholder}
+      rows={1}
+      className="block min-h-7 w-full cursor-text select-text resize-none overflow-hidden bg-transparent text-sm leading-relaxed text-text focus:outline-none placeholder:text-text-soft/50"
+      spellCheck={false}
+    />
+  );
+}
 
 export function TranslationStep({
   list,
@@ -448,31 +490,29 @@ export function TranslationStep({
           {rows.map((row) => (
             <div
               key={row.id}
-              className={`grid grid-cols-2 gap-0 ${
+              className={`grid grid-cols-2 items-start gap-0 ${
                 row.status === 'error' ? 'bg-danger/5' : ''
               }`}
             >
               <div className="px-3 py-2 border-r border-border-subtle">
-                <input
-                  type="text"
+                <TranslationTextarea
                   value={row[hasSource]}
-                  onChange={(e) => handleCellEdit(row.id, hasSource, e.target.value)}
-                  className="w-full bg-transparent text-text text-sm focus:outline-none"
+                  onChange={(value) => handleCellEdit(row.id, hasSource, value)}
+                  ariaLabel={`${inputLanguage === 'known' ? 'Known' : 'Target'} source text`}
                 />
               </div>
-              <div className="px-3 py-2 flex items-center gap-2">
-                <input
-                  type="text"
+              <div className="px-3 py-2 flex items-start gap-2">
+                <TranslationTextarea
                   value={row[needsTranslation]}
-                  onChange={(e) => handleCellEdit(row.id, needsTranslation, e.target.value)}
+                  onChange={(value) => handleCellEdit(row.id, needsTranslation, value)}
                   placeholder="Enter translation..."
-                  className="flex-1 bg-transparent text-text text-sm focus:outline-none placeholder:text-text-soft/50"
+                  ariaLabel={`${inputLanguage === 'known' ? 'Target' : 'Known'} translation text`}
                 />
                 {row.status === 'error' && (
-                  <span className="text-danger text-xs shrink-0" title={row.error}>!</span>
+                  <span className="mt-1 text-danger text-xs shrink-0" title={row.error}>!</span>
                 )}
                 {row.source === 'dedup' && (
-                  <span className="text-done text-xs shrink-0" title="Reused from existing">reused</span>
+                  <span className="mt-1 text-done text-xs shrink-0" title="Reused from existing">reused</span>
                 )}
               </div>
             </div>

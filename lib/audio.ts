@@ -39,6 +39,7 @@ export function computeContentHash(
 export async function googleTTS(
   text: string,
   language: string,
+  voiceId?: string,
 ): Promise<{ audio: Buffer; sizeBytes: number } | null> {
   const apiKey = process.env.GOOGLE_TTS_API_KEY;
   if (!apiKey) {
@@ -52,6 +53,7 @@ export async function googleTTS(
     en: "en-US",
   };
   const langCode = langMap[language] ?? language;
+  const requestedVoiceId = voiceId?.trim();
 
   try {
     const res = await fetch(
@@ -61,10 +63,15 @@ export async function googleTTS(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           input: { text },
-          voice: {
-            languageCode: langCode,
-            ssmlGender: "FEMALE",
-          },
+          voice: requestedVoiceId && requestedVoiceId !== "default"
+            ? {
+                languageCode: langCode,
+                name: requestedVoiceId,
+              }
+            : {
+                languageCode: langCode,
+                ssmlGender: "FEMALE",
+              },
           audioConfig: {
             audioEncoding: "MP3",
           },

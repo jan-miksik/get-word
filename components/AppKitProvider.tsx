@@ -99,7 +99,7 @@ const appKitConfig: AppKitConfig = {
   basic: false,
   debug: false,
   enableCoinbase: false,
-  enableEIP6963: false,
+  enableEIP6963: true,
   enableReconnect: true,
   enableAuthLogger: false,
   features: {
@@ -108,9 +108,10 @@ const appKitConfig: AppKitConfig = {
     emailShowWallets: true,
     connectMethodsOrder: ['email', 'social', 'wallet'],
     collapseWallets: false,
+    allWallets: true,
     analytics: false,
   },
-  allWallets: 'HIDE',
+  allWallets: 'SHOW',
 }
 
 createAppKit(appKitConfig)

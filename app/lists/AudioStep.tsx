@@ -106,6 +106,13 @@ type QueuedAudio = {
   source: AudioSourceCandidate;
 };
 
+type TtsLanguageOption = {
+  code: string;
+  name: string;
+  ttsVoices?: string[];
+  preferredVoice?: string | null;
+};
+
 const AUDIO_LOG_PREFIX = '[Wordlink audio]';
 
 class AudioLoadError extends Error {
@@ -228,6 +235,10 @@ function formatLanguage(code: string): string {
     en: 'English',
   };
   return names[code] ?? code.toUpperCase();
+}
+
+function getBaseLanguage(code: string): string {
+  return code.toLowerCase().split('-')[0];
 }
 
 function getLoadErrorMessage(error: unknown, fallbackUrl: string | null): string {
@@ -355,9 +366,13 @@ export function AudioStep({
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(() => new Set());
   const [playbackErrors, setPlaybackErrors] = useState<Record<string, string>>({});
   const [progress, setProgress] = useState(0);
+  const [voiceOptions, setVoiceOptions] = useState<string[]>([]);
+  const [selectedGoogleVoiceId, setSelectedGoogleVoiceId] = useState('default');
+  const [loadingVoices, setLoadingVoices] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioCacheRef = useRef<Map<string, CachedAudio>>(new Map());
   const playQueueRef = useRef<QueuedAudio[]>([]);
+  const didInitializeVoiceRef = useRef(false);
 
   const readyCount = rows.filter((row) => row.audioStatus === 'ready').length;
   const needsGenCount = rows.filter((row) => row.audioStatus === 'none' || row.audioStatus === 'failed').length;
@@ -372,6 +387,9 @@ export function AudioStep({
   const activeLanguageLabel = audioSide === 'known'
     ? formatLanguage(list.languageFrom)
     : formatLanguage(list.languageTo);
+  const activeLanguageCode = audioSide === 'known' ? list.languageFrom : list.languageTo;
+  const googleVoiceIdForRequest =
+    selectedGoogleVoiceId === 'default' ? undefined : selectedGoogleVoiceId;
   const googleTtsUsage = googleUsage?.account.find((scope) => scope.scope === 'tts');
   const isGoogleTtsPaused = Boolean(googleTtsUsage?.paused);
   const googlePausedMessage = googleTtsUsage?.limit_message
@@ -381,10 +399,72 @@ export function AudioStep({
     setRows(buildAudioRows(items, list, audioSide));
     setPlaybackErrors({});
     setError(null);
+    setSelectedGoogleVoiceId('default');
+    didInitializeVoiceRef.current = false;
     if (audioRef.current) audioRef.current.pause();
     setPlayingId(null);
     playQueueRef.current = [];
   }, [audioSide, items, list]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadVoices() {
+      setLoadingVoices(true);
+      try {
+        const res = await fetch('/api/languages');
+        if (!res.ok) throw new Error('Failed to load Google TTS voices');
+        const data = await res.json();
+        const languages = Array.isArray(data.languages)
+          ? data.languages as TtsLanguageOption[]
+          : [];
+        const activeBase = getBaseLanguage(activeLanguageCode);
+        const language = languages.find((candidate) =>
+          candidate.code.toLowerCase() === activeLanguageCode.toLowerCase()
+          || getBaseLanguage(candidate.code) === activeBase
+        );
+        const voices = Array.from(new Set(language?.ttsVoices ?? []));
+        if (cancelled) return;
+        setVoiceOptions(voices);
+        setSelectedGoogleVoiceId((current) =>
+          current !== 'default' && voices.includes(current) ? current : 'default'
+        );
+      } catch (err) {
+        if (cancelled) return;
+        console.warn(AUDIO_LOG_PREFIX, 'could not load Google TTS voices', err);
+        setVoiceOptions([]);
+        setSelectedGoogleVoiceId('default');
+      } finally {
+        if (!cancelled) setLoadingVoices(false);
+      }
+    }
+
+    void loadVoices();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [activeLanguageCode]);
+
+  useEffect(() => {
+    if (!didInitializeVoiceRef.current) {
+      didInitializeVoiceRef.current = true;
+      return;
+    }
+
+    setRows((prev) =>
+      prev.map((row) =>
+        row.audioStatus === 'ready'
+          ? row
+          : {
+              ...row,
+              reusableOptions: [],
+              selectedReusableAssetId: row.audioAssetId,
+              reuseStatus: 'unchecked' as const,
+            },
+      ),
+    );
+  }, [selectedGoogleVoiceId]);
 
   const clearCachedAudio = useCallback((audioUrl: string | null | undefined) => {
     if (!audioUrl) return;
@@ -530,6 +610,7 @@ export function AudioStep({
             selected_asset_id: row.selectedReusableAssetId ?? undefined,
           })),
           provider: 'google_tts',
+          ...(googleVoiceIdForRequest ? { voice_id: googleVoiceIdForRequest } : {}),
           audio_field: audioSide,
           link,
         }),
@@ -611,7 +692,7 @@ export function AudioStep({
         setError(err instanceof Error ? err.message : 'Could not reuse existing audio');
       }
     }
-  }, [audioSide]);
+  }, [audioSide, googleVoiceIdForRequest]);
 
   useEffect(() => {
     const uncheckedRows = rows.filter((row) => row.audioText && row.reuseStatus === 'unchecked');
@@ -692,6 +773,7 @@ export function AudioStep({
             language: row.language,
           })),
           provider: 'google_tts',
+          ...(googleVoiceIdForRequest ? { voice_id: googleVoiceIdForRequest } : {}),
           audio_field: audioSide,
           force,
         }),
@@ -780,7 +862,7 @@ export function AudioStep({
         setGenerating(false);
       }
     }
-  }, [audioSide, clearCachedAudio, onUsageRefresh, preloadAudio]);
+  }, [audioSide, clearCachedAudio, googleVoiceIdForRequest, onUsageRefresh, preloadAudio]);
 
   const handleGenerateAll = useCallback(async () => {
     if (isGoogleTtsPaused) {
@@ -989,6 +1071,25 @@ export function AudioStep({
 
       <div className="mb-4 rounded-lg border border-border-subtle bg-background-elevated p-3">
         <div className="flex flex-wrap items-center gap-3">
+          <label className="flex min-w-[14rem] flex-col gap-1 text-xs text-text-soft">
+            Google voice
+            <select
+              value={selectedGoogleVoiceId}
+              onChange={(event) => setSelectedGoogleVoiceId(event.target.value)}
+              disabled={generating || regeneratingIds.size > 0 || loadingVoices}
+              className="rounded-lg border border-border-subtle bg-background px-2.5 py-1.5 text-xs text-text disabled:opacity-50"
+            >
+              <option value="default">
+                {loadingVoices ? 'Loading voices...' : 'Default Google voice'}
+              </option>
+              {voiceOptions.map((voice) => (
+                <option key={voice} value={voice}>
+                  {voice}
+                </option>
+              ))}
+            </select>
+          </label>
+
           {selectedReusableCount > 0 && (
             <button
               type="button"
