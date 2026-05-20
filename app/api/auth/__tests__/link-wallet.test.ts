@@ -56,6 +56,7 @@ import { POST } from '../../auth/link-wallet/route'
 
 // Valid Ethereum address for tests
 const VALID_WALLET = '0x1234567890abcdef1234567890abcdef12345678'
+const SECOND_WALLET = '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd'
 
 function makeRequest(body: Record<string, unknown>) {
   return new NextRequest('http://localhost:3000/api/auth/link-wallet', {
@@ -155,6 +156,54 @@ describe('POST /api/auth/link-wallet', () => {
       deviceId: 'dev-123',
       walletAddress: VALID_WALLET,
     })
+  })
+
+  it('wallet-only login does not overwrite a different linked account on the same device', async () => {
+    const previousUser = {
+      id: 'uuid-A',
+      deviceId: 'dev-123',
+      walletAddress: VALID_WALLET,
+      email: 'old@example.com',
+      authProvider: 'email',
+      role: 'vi',
+      userRole: 'user',
+      showEnglish: true,
+      showCategoryBadges: false,
+      gameScore: 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      showPronunciation: false,
+      memoryHooksEnabled: true,
+      memoryHookDisableFromStage: 8,
+      categoryOrder: [],
+    }
+    const newUser = {
+      ...previousUser,
+      id: 'uuid-new',
+      deviceId: 'dev-123',
+      walletAddress: SECOND_WALLET,
+      email: null,
+      authProvider: null,
+    }
+
+    mockGetUserByDeviceId.mockResolvedValue(previousUser)
+    mockGetUserByEmail.mockResolvedValue(null)
+    mockGetUserByWalletAddress.mockResolvedValue(null)
+    mockCreateUser.mockResolvedValue(newUser)
+
+    const res = await POST(makeRequest({ deviceId: 'dev-123', walletAddress: SECOND_WALLET }))
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(data.user.id).toBe('uuid-new')
+    expect(data.user.email).toBeNull()
+    expect(mockUpdateUserFields).toHaveBeenCalledWith('uuid-A', { deviceId: null })
+    expect(mockCreateUser).toHaveBeenCalledWith({
+      deviceId: 'dev-123',
+      walletAddress: SECOND_WALLET,
+    })
+    expect(mockDeleteUser).not.toHaveBeenCalled()
   })
 
   it('idempotent: returns data if wallet already linked to same user', async () => {
@@ -334,6 +383,73 @@ describe('POST /api/auth/link-wallet', () => {
     expect(data.success).toBe(true)
     expect(data.user.id).toBe('uuid-B')
     expect(mockGetUserByEmail).toHaveBeenCalledWith('user@example.com')
+  })
+
+  it('email-first: merges stale wallet-only device user into a new email login', async () => {
+    const deviceUser = {
+      id: 'uuid-A',
+      deviceId: 'dev-123',
+      walletAddress: VALID_WALLET,
+      email: null,
+      authProvider: null,
+      role: 'vi',
+      userRole: 'user',
+      showEnglish: true,
+      showCategoryBadges: false,
+      gameScore: 4,
+      categoryOrder: [],
+    }
+    const createdEmailUser = {
+      ...deviceUser,
+      id: 'uuid-B',
+      deviceId: 'dev-123',
+      walletAddress: SECOND_WALLET,
+      email: 'user@example.com',
+      authProvider: 'google',
+      gameScore: 0,
+    }
+    const mergedUser = {
+      ...createdEmailUser,
+      gameScore: 4,
+    }
+
+    mockGetUserByDeviceId.mockResolvedValue(deviceUser)
+    mockGetUserByEmail.mockResolvedValue(null)
+    mockGetUserByWalletAddress.mockResolvedValue(null)
+    mockCreateUser.mockResolvedValue(createdEmailUser)
+    mockGetUserById.mockResolvedValue(mergedUser)
+    mockMergeUserData.mockReturnValue({
+      mergedProgress: {},
+      mergedHooks: {},
+      mergedFilters: [],
+    })
+
+    const res = await POST(makeRequest({
+      deviceId: 'dev-123',
+      walletAddress: SECOND_WALLET,
+      email: 'user@example.com',
+      authProvider: 'google',
+    }))
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(data.merged).toBe(true)
+    expect(data.user.id).toBe('uuid-B')
+    expect(mockCreateUser).toHaveBeenCalledWith({
+      deviceId: 'dev-123',
+      walletAddress: SECOND_WALLET,
+      email: 'user@example.com',
+      authProvider: 'google',
+    })
+    expect(mockMergeUserData).toHaveBeenCalled()
+    expect(mockDeleteUser).toHaveBeenCalledWith('uuid-A')
+    expect(mockUpdateUserFields).toHaveBeenCalledWith('uuid-B', expect.objectContaining({
+      deviceId: 'dev-123',
+      walletAddress: SECOND_WALLET,
+      email: 'user@example.com',
+      authProvider: 'google',
+    }))
   })
 
   it('returns 500 if body is malformed JSON', async () => {

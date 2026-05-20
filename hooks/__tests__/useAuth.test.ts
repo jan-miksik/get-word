@@ -96,9 +96,15 @@ describe('useAuth', () => {
   })
 
   it('signOut calls disconnect', async () => {
+    localStorage.setItem('wordlink_device_id', 'device-123')
     const { result } = renderHook(() => useAuth())
     await result.current.signOut()
-    expect(mockFetch).toHaveBeenCalledWith('/api/auth/logout', { method: 'POST' })
+    expect(mockFetch).toHaveBeenCalledWith('/api/auth/logout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ deviceId: 'device-123' }),
+    })
+    expect(localStorage.getItem('wordlink_device_id')).toBeNull()
     expect(mockDisconnect).toHaveBeenCalled()
   })
 

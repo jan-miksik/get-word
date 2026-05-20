@@ -81,7 +81,7 @@ export function CategoryPanel({ isOpen, categories, onClose }: CategoryPanelProp
 
   return (
     <section
-      className={`category-panel ${isOpen ? 'is-open' : ''}`}
+      className={`category-panel ${isOpen ? 'is-open fixed inset-0' : ''}`}
       aria-label="Category filter"
       onClick={(e) => e.stopPropagation()}
     >

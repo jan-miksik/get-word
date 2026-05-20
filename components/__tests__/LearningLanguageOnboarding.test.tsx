@@ -5,6 +5,7 @@ import {
   formatDurationEstimate,
   LearningLanguageOnboarding,
   pickAutogenerateCommonSeed,
+  sortMatchedWordLists,
 } from '../LearningLanguageOnboarding';
 
 const mocks = vi.hoisted(() => ({
@@ -149,6 +150,51 @@ describe('LearningLanguageOnboarding', () => {
     expect(seed).toBeNull();
   });
 
+  it('sorts the general common seed first for matching lists', () => {
+    const sorted = sortMatchedWordLists([
+      {
+        id: 'personal',
+        ownerId: 'user-1',
+        name: 'My Czech Vietnamese',
+        description: null,
+        languageFrom: 'cs',
+        languageTo: 'vi',
+        isPublic: false,
+        isCommon: false,
+        isOwner: true,
+        itemCount: 20,
+      },
+      {
+        id: 'general-common-cz',
+        ownerId: null,
+        name: 'General common list - CZ based',
+        description: null,
+        languageFrom: 'cz',
+        languageTo: 'vi',
+        isPublic: true,
+        isCommon: true,
+        itemCount: 120,
+      },
+      {
+        id: 'curated',
+        ownerId: null,
+        name: 'Curated Czech Vietnamese',
+        description: null,
+        languageFrom: 'cs',
+        languageTo: 'vi',
+        isPublic: true,
+        isCommon: false,
+        itemCount: 200,
+      },
+    ], 'vi', 'cs');
+
+    expect(sorted.map((list) => list.id)).toEqual([
+      'general-common-cz',
+      'curated',
+      'personal',
+    ]);
+  });
+
   it('starts with the target learning language unselected', async () => {
     render(
       <LearningLanguageOnboarding
@@ -289,6 +335,7 @@ describe('LearningLanguageOnboarding', () => {
     );
 
     expect(await screen.findByText('Common Czech Vietnamese')).toBeInTheDocument();
+    expect(screen.getByText('recommended')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Create own list/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Autogenerate common list/i })).not.toBeInTheDocument();
   });

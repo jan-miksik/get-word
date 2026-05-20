@@ -83,7 +83,6 @@ Jsem v pořádku.
 Už je to v pořádku.
 
 
-
 ## nákup
 peníze
 Kolik to stojí?
@@ -136,6 +135,7 @@ Jak?
 Jak se to jmenuje?
 Proč?
 Proč to nefunguje?
+
 
 ## spojky a předložky
 a
@@ -190,6 +190,7 @@ To bylo minulý rok.
 večer
 Večer se můžeme potkat.
 
+
 ## čísla
 nula
 jeden
@@ -216,6 +217,7 @@ tisíc
 Kde je ten tisíc korun?
 milion
 Jenom jeden milion?
+
 
 ## rodina
 rodina
@@ -247,6 +249,7 @@ dcera
 příbuzný
 babička
 dědeček
+
 
 ## barvy
 barva
@@ -292,6 +295,7 @@ velikost
 Menší velikost.
 Větší velikost, prosím.
 
+
 ## tělo
 tělo
 Bolí mně tělo.
@@ -309,7 +313,7 @@ Bolí ho břicho a záda.
 vlasy
 Má dlouhé vlasy.
 zuby
-========================= base 2 ==================
+========================= base 2 ========================
 
 
 ## běžné slova

@@ -46,6 +46,11 @@ type RankedAutogenerateSeed = {
   index: number;
   score: number;
 };
+type RankedMatchedList = {
+  list: MatchedWordList;
+  index: number;
+  score: number;
+};
 
 const AUTOGENERATE_AUDIO_QUOTA_NOTICE =
   'Audio for this list needs {requested} Google TTS characters, but this account has {remaining} free characters left this month. I generated as much as the free quota allows, so only part of the list may have audio. Contact our tech support and we can help finish it or raise the limit.';
@@ -139,6 +144,48 @@ function getAutogenerateSeedScore(list: WordList, languageFrom: string, language
   else if (normalizedName.includes('testing')) score -= 30;
 
   return score;
+}
+
+function getMatchedListScore(list: MatchedWordList, languageFrom: string, languageTo: string) {
+  const requestedFrom = normalizeLanguageCode(languageFrom);
+  const requestedTo = normalizeLanguageCode(languageTo);
+  const listFrom = normalizeLanguageCode(list.languageFrom);
+  const listTo = normalizeLanguageCode(list.languageTo);
+  const normalizedName = list.name.trim().toLowerCase();
+  const exactMatch = listFrom === requestedFrom && listTo === requestedTo;
+  const reverseMatch = listFrom === requestedTo && listTo === requestedFrom;
+
+  let score = 0;
+  if (list.isCommon) score += 1000;
+  if (exactMatch) score += 120;
+  if (reverseMatch) score += 100;
+  if (normalizedName.includes('general')) score += 35;
+  if (normalizedName.includes('common')) score += 35;
+  if (normalizedName.includes('seed')) score += 20;
+  if (list.isPublic) score += 5;
+  if (normalizedName === 'testing') score -= 80;
+  else if (normalizedName.includes('testing')) score -= 30;
+
+  return score;
+}
+
+export function sortMatchedWordLists(
+  lists: MatchedWordList[],
+  languageFrom: string,
+  languageTo: string,
+): MatchedWordList[] {
+  return lists
+    .map((list, index) => ({
+      list,
+      index,
+      score: getMatchedListScore(list, languageFrom, languageTo),
+    }))
+    .sort(compareMatchedLists)
+    .map(({ list }) => list);
+}
+
+function compareMatchedLists(a: RankedMatchedList, b: RankedMatchedList) {
+  return b.score - a.score || (b.list.itemCount ?? 0) - (a.list.itemCount ?? 0) || a.index - b.index;
 }
 
 export function pickAutogenerateCommonSeed(
@@ -326,7 +373,11 @@ export function LearningLanguageOnboarding({
       signal: controller.signal,
     })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Failed to load matches'))))
-      .then((data) => setMatches(Array.isArray(data.lists) ? data.lists : []))
+      .then((data) => setMatches(
+        Array.isArray(data.lists)
+          ? sortMatchedWordLists(data.lists, languageFrom, languageTo)
+          : [],
+      ))
       .catch((err) => {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         setMatches([]);
@@ -839,32 +890,49 @@ export function LearningLanguageOnboarding({
               <h2 className="text-sm font-extrabold uppercase tracking-wide">
                 Existing {languagePairLabel} lists
               </h2>
-              {matches.map((list) => (
-                <div key={list.id} className="flex items-stretch gap-2">
-                  <button
-                    type="button"
-                    className="onboarding-option min-w-0 flex-1 px-3 py-2 text-left disabled:opacity-50"
-                    disabled={workingId === list.id}
-                    onClick={() => subscribeToList(list)}
-                  >
-                    <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <span className="font-bold">{list.name}</span>
-                      <span className="text-xs onboarding-text-soft">{getItemCountLabel(list.itemCount)}</span>
-                    </div>
-                    <div className="mt-1 text-xs onboarding-text-soft">
-                      {list.description?.trim() || (list.isOwner ? 'Your list' : 'Public list')}
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    className="onboarding-option-secondary shrink-0 self-center px-3 py-1.5 text-xs font-bold disabled:opacity-50"
-                    disabled={workingId === `fork:${list.id}`}
-                    onClick={() => forkList(list)}
-                  >
-                    {workingId === `fork:${list.id}` ? 'Forking...' : 'Fork'}
-                  </button>
-                </div>
-              ))}
+              {matches.map((list, index) => {
+                const isRecommended = index === 0 && Boolean(list.isCommon);
+                const optionTextSoftClass = isRecommended
+                  ? 'text-[color:var(--ob-surface)] opacity-[0.85]'
+                  : 'onboarding-text-soft';
+
+                return (
+                  <div key={list.id} className="flex items-stretch gap-2">
+                    <button
+                      type="button"
+                      className={[
+                        'onboarding-option min-w-0 flex-1 px-3 py-2 text-left disabled:opacity-50',
+                        isRecommended
+                          ? 'border-[var(--ob-accent)] bg-[var(--ob-accent)] text-[color:var(--ob-surface)]'
+                          : '',
+                      ].join(' ')}
+                      disabled={workingId === list.id}
+                      onClick={() => subscribeToList(list)}
+                    >
+                      <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                        <span className="font-bold">{list.name}</span>
+                        {isRecommended ? (
+                          <span className="rounded-full border border-[var(--ob-ink)] bg-[var(--ob-surface)] px-2 py-0.5 text-[10px] font-black uppercase text-[color:var(--ob-ink)]">
+                            recommended
+                          </span>
+                        ) : null}
+                        <span className={`text-xs ${optionTextSoftClass}`}>{getItemCountLabel(list.itemCount)}</span>
+                      </div>
+                      <div className={`mt-1 text-xs ${optionTextSoftClass}`}>
+                        {list.description?.trim() || (list.isOwner ? 'Your list' : 'Public list')}
+                      </div>
+                    </button>
+                    <button
+                      type="button"
+                      className="onboarding-option-secondary shrink-0 self-center px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+                      disabled={workingId === `fork:${list.id}`}
+                      onClick={() => forkList(list)}
+                    >
+                      {workingId === `fork:${list.id}` ? 'Forking...' : 'Fork'}
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           ) : (
             <div className="space-y-3">

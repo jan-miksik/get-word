@@ -8,7 +8,7 @@ interface MemoryHooksPanelProps {
 export function MemoryHooksPanel({ isOpen, onClose }: MemoryHooksPanelProps) {
   return (
     <section
-      className={`memory-hooks-panel ${isOpen ? 'is-open' : ''}`}
+      className={`memory-hooks-panel ${isOpen ? 'is-open fixed inset-0' : ''}`}
       aria-label="Memory Hooks Info"
       onClick={(e) => e.stopPropagation()}
     >

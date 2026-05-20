@@ -348,7 +348,7 @@ export function SettingsPanel({
 
   return (
     <section
-      className={`settings-panel ${isOpen ? 'is-open' : ''}`}
+      className={`settings-panel ${isOpen ? 'is-open fixed inset-0' : ''}`}
       aria-label={t('common.settings')}
       onClick={(e) => e.stopPropagation()}
     >

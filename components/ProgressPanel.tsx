@@ -20,7 +20,7 @@ export function ProgressPanel({ isOpen, progressStats, onClose }: ProgressPanelP
 
   return (
     <section
-      className={`progress-panel ${isOpen ? 'is-open' : ''}`}
+      className={`progress-panel ${isOpen ? 'is-open fixed inset-0' : ''}`}
       aria-label="Progress"
       onClick={(e) => e.stopPropagation()}
     >

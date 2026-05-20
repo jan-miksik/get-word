@@ -22,7 +22,6 @@ function formatNextReviewHint(intervalMs: number): string {
 }
 
 function getWordTextSize(maxLen: number): string {
-  if (maxLen <= 8) return '!text-[3rem] sm:!text-[3.75rem]';
   if (maxLen <= 18) return '!text-[2.25rem] sm:!text-[2.75rem]';
   if (maxLen <= 30) return '!text-[1.65rem] sm:!text-[2rem]';
   if (maxLen <= 48) return '!text-[1.25rem] sm:!text-[1.5rem]';
@@ -482,7 +481,7 @@ export const WordCard = memo(function WordCard({
                   className="absolute right-0 bottom-[calc(100%+0.5rem)] z-50 w-[13rem] max-w-[80vw] rounded-xl border-2 border-[#2A2218] bg-[#F4EFE2] text-[#2A2218] shadow-lg overflow-hidden flex flex-col"
                 >
                   <div className="sticky top-0 bg-[#F4EFE2] px-3 py-1.5 text-[0.65rem] font-bold uppercase tracking-[0.08em] text-[#2A2218]/70 border-b border-[#2A2218]/20">
-                    Select repeat time
+                    Repeat after
                   </div>
                   <div className="p-1">
                   {STAGES.map((stage, idx) => {

@@ -2,6 +2,8 @@
 
 import { useCallback } from 'react'
 import { useAppKit, useAppKitAccount, useDisconnect } from '@reown/appkit/react'
+import { deleteDeviceId, getDeviceId } from '@/lib/device-id'
+import { clearLearningCache } from '@/lib/local-learning-cache'
 import { clearPendingSync, resetSyncIdentity } from '@/lib/sync'
 
 type AuthStatus = 'connected' | 'disconnected' | 'connecting' | 'reconnecting'
@@ -40,13 +42,21 @@ export function useAuth(): UseAuthReturn {
   }, [open])
 
   const signOut = useCallback(async () => {
+    const deviceId = getDeviceId()
     try {
-      await fetch('/api/auth/logout', { method: 'POST' })
+      await fetch('/api/auth/logout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ deviceId }),
+      })
     } catch (error) {
       console.error('[useAuth] Failed to clear server session cookie:', error)
     }
     clearPendingSync()
     resetSyncIdentity()
+    deleteDeviceId()
+    document.cookie = 'wordlink_user_role=;path=/;max-age=0;SameSite=Lax'
+    await clearLearningCache()
     await Promise.resolve(disconnect())
   }, [disconnect])
 

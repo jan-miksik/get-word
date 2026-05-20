@@ -22,6 +22,8 @@ export function useMenuPanels() {
         !target.closest('.category-panel') &&
         !target.closest('.memory-hooks-panel') &&
         !target.closest('.top-menu-dropdown') &&
+        !target.closest('.menu-dropdown-popup') &&
+        !target.closest('.menu-item') &&
         !target.closest('.mode-btn')
       ) {
         setOpenPanel(null);

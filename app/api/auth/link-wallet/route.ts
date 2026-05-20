@@ -53,6 +53,33 @@ function mergeCategoryOrder(
   return merged.slice(0, 500)
 }
 
+function sameWalletAddress(a: string | null | undefined, b: string | null | undefined): boolean {
+  return Boolean(a && b && a.toLowerCase() === b.toLowerCase())
+}
+
+function sameEmail(a: string | null | undefined, b: string | null | undefined): boolean {
+  return Boolean(a && b && a.toLowerCase() === b.toLowerCase())
+}
+
+function deviceUserMatchesCurrentLogin(
+  user: Awaited<ReturnType<typeof getUserByDeviceId>>,
+  walletAddress: string,
+  email: string | null
+): boolean {
+  if (!user) return false
+  if (user.walletAddress) return sameWalletAddress(user.walletAddress, walletAddress)
+  if (user.email) return sameEmail(user.email, email)
+  return true
+}
+
+function canMergeDeviceUserIntoEmailLogin(
+  user: Awaited<ReturnType<typeof getUserByDeviceId>>,
+  email: string | null
+): boolean {
+  if (!user || !email) return false
+  return !user.email || sameEmail(user.email, email)
+}
+
 export async function POST(request: NextRequest) {
   const timer = createRouteTimer()
   try {
@@ -84,10 +111,31 @@ export async function POST(request: NextRequest) {
       getUserByDeviceId(deviceId),
     ])
     timer.mark("resolve_users")
-    const targetUser = emailUser ?? walletUser ?? deviceUser
+    const reusableDeviceUser = deviceUserMatchesCurrentLogin(
+      deviceUser,
+      walletAddress,
+      trimmedEmail
+    )
+      ? deviceUser
+      : null
+    const detachedDeviceUser =
+      deviceUser && deviceUser.id !== reusableDeviceUser?.id ? deviceUser : null
+    const mergeableDetachedDeviceUser = canMergeDeviceUserIntoEmailLogin(
+      detachedDeviceUser,
+      trimmedEmail
+    )
+      ? detachedDeviceUser
+      : null
+    let targetUser = emailUser ?? walletUser ?? reusableDeviceUser
+    let createdTargetUser = false
+
+    if (detachedDeviceUser?.deviceId === deviceId) {
+      await updateUserFields(detachedDeviceUser.id, { deviceId: null })
+      timer.mark("detach_stale_device_user")
+    }
 
     if (!targetUser) {
-      const createdUser = await createUser({
+      targetUser = await createUser({
         deviceId,
         walletAddress,
         ...(trimmedEmail && { email: trimmedEmail }),
@@ -95,18 +143,10 @@ export async function POST(request: NextRequest) {
           String(authProvider).trim() !== '' && { authProvider: String(authProvider).trim() }),
       })
       timer.mark("create_user")
-      const hydratedLists = await getHydratedWordListData(createdUser.id, {})
-      timer.mark("hydrate_word_lists")
-      const response = await withSessionCookie(
-        buildSyncSuccessPayload(createdUser, {}, {}, [], hydratedLists),
-        createdUser.id,
-        createdUser.userRole
-      )
-      timer.mark("build_response")
-      return timer.applyHeaders(response)
+      createdTargetUser = true
     }
 
-    const sourceUsers = [deviceUser, walletUser].filter(
+    const sourceUsers = [reusableDeviceUser, walletUser, mergeableDetachedDeviceUser].filter(
       (user, index, users): user is NonNullable<typeof user> =>
         user != null &&
         user.id !== targetUser.id &&
@@ -115,6 +155,18 @@ export async function POST(request: NextRequest) {
 
     // No merge needed: target already wins by priority, so just attach current identifiers.
     if (sourceUsers.length === 0) {
+      if (createdTargetUser) {
+        const hydratedLists = await getHydratedWordListData(targetUser.id, {})
+        timer.mark("hydrate_word_lists")
+        const response = await withSessionCookie(
+          buildSyncSuccessPayload(targetUser, {}, {}, [], hydratedLists),
+          targetUser.id,
+          targetUser.userRole
+        )
+        timer.mark("build_response")
+        return timer.applyHeaders(response)
+      }
+
       await updateUserFields(targetUser.id, {
         deviceId,
         walletAddress,
