@@ -93,6 +93,16 @@ export function WordListsIcon(props: IconProps) {
   );
 }
 
+export function UpcomingIcon(props: IconProps) {
+  return (
+    <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
+      <circle cx="12" cy="12.5" r="6.75" />
+      <path d="M12 9v3.75l2.4 1.5" />
+      <path d="M9 4.5h6" />
+    </Glyph>
+  );
+}
+
 export function SettingsIcon(props: IconProps) {
   return (
     <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
