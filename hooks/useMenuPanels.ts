@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 
-export type MenuPanel = 'settings' | 'progress' | 'category' | 'memoryHooks';
+export type MenuPanel = 'settings' | 'progress' | 'category' | 'memoryHooks' | 'upcoming';
 
 export function useMenuPanels() {
   const [openPanel, setOpenPanel] = useState<MenuPanel | null>(null);
@@ -21,6 +21,7 @@ export function useMenuPanels() {
         !target.closest('.progress-panel') &&
         !target.closest('.category-panel') &&
         !target.closest('.memory-hooks-panel') &&
+        !target.closest('.upcoming-panel') &&
         !target.closest('.top-menu-dropdown') &&
         !target.closest('.menu-dropdown-popup') &&
         !target.closest('.menu-item') &&
@@ -38,6 +39,7 @@ export function useMenuPanels() {
     progressOpen: openPanel === 'progress',
     categoryOpen: openPanel === 'category',
     memoryHooksOpen: openPanel === 'memoryHooks',
+    upcomingOpen: openPanel === 'upcoming',
     toggle,
     closeAll,
   };

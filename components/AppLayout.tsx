@@ -8,6 +8,7 @@ import { CategoryPanel } from '@/components/CategoryPanel';
 import { MemoryHooksPanel } from '@/components/MemoryHooksPanel';
 import { ProgressPanel } from '@/components/ProgressPanel';
 import { ProgressSummary } from '@/components/ProgressSummary';
+import { UpcomingPanel } from '@/components/UpcomingPanel';
 import { useMenuPanels } from '@/hooks/useMenuPanels';
 import { useAppStateContext } from '@/context/AppStateContext';
 import { PWAInstallBanner } from '@/components/PWAInstallBanner';
@@ -47,8 +48,15 @@ export function AppLayout({
   header,
   children,
 }: AppLayoutProps) {
-  const { settingsOpen, progressOpen, categoryOpen, memoryHooksOpen, toggle, closeAll } =
-    useMenuPanels();
+  const {
+    settingsOpen,
+    progressOpen,
+    categoryOpen,
+    memoryHooksOpen,
+    upcomingOpen,
+    toggle,
+    closeAll,
+  } = useMenuPanels();
 
   const { showAll, setShowAll, selectedCategories, gameScore, subscribedLists, activeListId, setActiveListId } = useAppStateContext();
 
@@ -164,6 +172,7 @@ export function AppLayout({
         progressStats={progressStats}
         onClose={closeAll}
       />
+      <UpcomingPanel isOpen={upcomingOpen} onClose={closeAll} />
 
       <PWAInstallBanner />
       {children}

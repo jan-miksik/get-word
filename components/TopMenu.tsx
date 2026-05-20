@@ -11,6 +11,7 @@ import {
   ProgressIcon,
   SettingsIcon,
   StarIcon,
+  UpcomingIcon,
   WordListsIcon,
 } from '@/components/icons/AppIcons';
 
@@ -230,6 +231,14 @@ function MenuDropdown({
       label: t('top.progress'),
       panel: 'progress',
       active: progressActive,
+      badge: null,
+    },
+    {
+      kind: 'panel',
+      icon: <UpcomingIcon size={15} />,
+      label: t('top.upcoming'),
+      panel: 'upcoming',
+      active: false,
       badge: null,
     },
     {
