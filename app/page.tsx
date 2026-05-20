@@ -197,9 +197,7 @@ export default function Home() {
     <AppStateProvider value={appState}>
       <I18nProvider language={appState.settingsLanguage}>
         {!loaderDismissed ? (
-          <LoadingScreen
-            ready={appReady}
-          />
+          <LoadingScreen />
         ) : !isAuthenticated ? (
           <AuthRequiredCard onSignIn={signIn} />
         ) : !onboardingCompletedAt || !learningLanguageFrom || !learningLanguageTo ? (

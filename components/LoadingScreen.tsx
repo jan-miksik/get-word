@@ -63,10 +63,6 @@ function makeParticles() {
   });
 }
 
-interface LoadingScreenProps {
-  ready?: boolean;
-}
-
 const SNAP_RADIUS = 120;
 const FOLLOW_EASE = 0.18;
 const BURST_DECAY = 0.88;
@@ -75,7 +71,7 @@ const RELEASE_COOLDOWN_MS = 220;
 
 type ParticleMotion = { x: number; y: number; vx: number; vy: number; following: boolean };
 
-export function LoadingScreen({ ready }: LoadingScreenProps) {
+export function LoadingScreen() {
   const containerRef = useRef<HTMLDivElement>(null);
   const particleRefs = useRef<(HTMLSpanElement | null)[]>([]);
   const mouseRef = useRef({ x: IDLE_MOUSE, y: IDLE_MOUSE });
@@ -228,14 +224,6 @@ export function LoadingScreen({ ready }: LoadingScreenProps) {
       <div className="relative z-10 flex flex-col items-center">
         <LoaderB />
       </div>
-
-      <p
-        className={`relative z-10 mt-14 text-sm font-medium tracking-wide transition-opacity duration-300 ${
-          ready ? 'text-[#4f2f24]/70 opacity-100' : 'text-[#4f2f24]/35 opacity-80'
-        }`}
-      >
-        {ready ? 'Opening WordLink…' : 'Loading…'}
-      </p>
 
       <style>{`
         .ls-root {
