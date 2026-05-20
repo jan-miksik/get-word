@@ -26,11 +26,11 @@ function formatRelativeDue(nextDueAt: number | undefined, now: number): string |
   return '<1m';
 }
 
-function stageBarClass(stageIndex: number): string {
-  if (stageIndex >= 9) return 'bg-done';
-  if (stageIndex >= 5) return 'bg-fresh';
-  if (stageIndex >= 1) return 'bg-accent';
-  return 'bg-border-subtle';
+function stageBarStyle(stageIndex: number): string {
+  if (stageIndex >= 9) return 'bg-[#1E6FA8]';
+  if (stageIndex >= 5) return 'bg-[#3F8F4D]';
+  if (stageIndex >= 1) return 'bg-[#B5651D]';
+  return 'bg-[#C9BFA6]';
 }
 
 function pickPair(word: NormalizedWord, role: Role): { source: string; target: string } {
@@ -55,20 +55,19 @@ function WordRow({
   const due = formatRelativeDue(progress?.nextDueAt, now);
   const isDueNow = due === 'now';
   return (
-    <li className="flex items-center gap-2 px-3 py-[3px] min-h-[26px] border-b border-border-subtle/30 last:border-b-0">
-      <span
-        className={`block w-[3px] h-4 rounded-pill flex-none ${stageBarClass(stageIdx)}`}
-        aria-hidden
-      />
+    <li className="flex items-center gap-2 px-2.5 py-[5px] min-h-[28px] rounded-[10px] border-2 border-[#2A2218] bg-[#FFF8E8]">
+      <span className={`block w-[3px] h-4 rounded-pill flex-none ${stageBarStyle(stageIdx)}`} aria-hidden />
       <span className="flex-1 flex items-baseline gap-1.5 min-w-0">
-        <span className="text-[0.8125rem] leading-tight font-medium text-text truncate">
+        <span className="text-[0.875rem] leading-tight font-semibold text-[#2A2218] truncate">
           {source}
         </span>
-        <span className="text-[0.6875rem] leading-tight text-text-soft truncate">{target}</span>
+        <span className="text-[0.75rem] leading-tight text-[#6B5E48] truncate">{target}</span>
       </span>
       <span
-        className={`text-[0.6875rem] tabular-nums whitespace-nowrap flex-none ${
-          isDueNow ? 'text-accent font-semibold' : 'text-text-soft'
+        className={`text-[0.75rem] tabular-nums whitespace-nowrap flex-none px-1.5 rounded-md border-2 ${
+          isDueNow
+            ? 'text-[#FFF8E8] bg-[#1E6FA8] border-[#1E6FA8] font-bold'
+            : 'text-[#2A2218] border-[#2A2218] bg-transparent font-semibold'
         }`}
       >
         {due ?? '—'}
@@ -89,13 +88,13 @@ function Section({
   if (count === 0) return null;
   return (
     <div className="mb-3 last:mb-0">
-      <div className="flex items-baseline justify-between px-3 py-1 border-b border-border-subtle/60">
-        <span className="text-[0.6875rem] uppercase tracking-wide font-semibold text-text-soft">
+      <div className="flex items-baseline justify-between px-1 mb-1.5">
+        <span className="text-[0.6875rem] uppercase tracking-wider font-bold text-[#2A2218]">
           {label}
         </span>
-        <span className="text-[0.6875rem] tabular-nums text-text-soft">{count}</span>
+        <span className="text-[0.75rem] tabular-nums font-semibold text-[#6B5E48]">{count}</span>
       </div>
-      <ul className="m-0 p-0 list-none">{children}</ul>
+      <ul className="m-0 p-0 list-none flex flex-col gap-1.5">{children}</ul>
     </div>
   );
 }
@@ -133,78 +132,65 @@ export function UpcomingPanel({ isOpen, onClose }: UpcomingPanelProps) {
 
   return (
     <section
-      className={`upcoming-panel ${isOpen ? 'block' : 'hidden'} fixed inset-0 z-[550]`}
+      className={`upcoming-panel ${isOpen ? 'is-open' : ''}`}
       aria-label={t('top.upcoming')}
       aria-hidden={!isOpen}
       onClick={(e) => e.stopPropagation()}
     >
-      <div
-        className="absolute inset-0 bg-[rgba(6,10,24,0.5)] backdrop-blur-[12px] md:hidden"
-        onClick={onClose}
-        aria-hidden
-      />
-      <div
-        className="absolute top-16 left-[14px] right-[14px] max-h-[calc(100dvh-5rem)] flex flex-col overflow-hidden bg-[rgba(15,23,42,0.96)] border border-[rgba(148,163,184,0.35)] rounded-[18px] shadow-soft md:top-[60px] md:max-w-[720px] md:mx-auto md:max-h-[80vh]"
-      >
-        <div className="p-4 pb-3 relative flex-none">
-          <h1 className="text-[1.35rem] font-semibold m-0 text-text">
-            {t('top.upcoming')}
-            {total > 0 && (
-              <span className="ml-2 text-sm font-medium text-text-soft tabular-nums">
-                {total}
-              </span>
-            )}
-          </h1>
-          <button
-            onClick={onClose}
-            className="absolute top-3.5 right-3.5 bg-transparent border-none text-xl text-text-soft cursor-pointer p-1 leading-none flex items-center justify-center w-6 h-6 rounded-md transition-all hover:bg-background-elevated hover:text-text"
-            aria-label={t('common.close')}
-          >
-            ×
-          </button>
-        </div>
-        <div
-          className="flex-1 overflow-y-auto px-1 pb-2"
-          style={{ WebkitOverflowScrolling: 'touch' }}
-        >
-          {total === 0 ? (
-            <div className="p-6 text-center text-sm text-text-soft">
-              {t('upcoming.empty')}
-            </div>
-          ) : (
-            <>
-              <Section label={t('upcoming.dueNow')} count={dueWords.length}>
-                {dueWords.map((w) => (
-                  <WordRow key={w.id} word={w} progress={progress[w.id]} role={role} now={now} />
-                ))}
-              </Section>
-              <Section label={t('upcoming.upcoming')} count={upcoming.length}>
-                {upcoming.map((w) => (
-                  <WordRow key={w.id} word={w} progress={progress[w.id]} role={role} now={now} />
-                ))}
-              </Section>
-              <Section label={t('upcoming.new')} count={newWords.length}>
-                {newWords.map((w) => (
-                  <WordRow key={w.id} word={w} progress={progress[w.id]} role={role} now={now} />
-                ))}
-              </Section>
-              {done.length > 0 && (
-                <div className="mt-3 pt-3 border-t border-border-subtle/60">
-                  <Section label={t('upcoming.done')} count={done.length}>
-                    {done.map((w) => (
-                      <WordRow
-                        key={w.id}
-                        word={w}
-                        progress={progress[w.id]}
-                        role={role}
-                        now={now}
-                      />
-                    ))}
-                  </Section>
-                </div>
+      {isOpen && (
+        <div className="panel-backdrop" onClick={onClose} aria-hidden />
+      )}
+      <div className="panel-content">
+        <div className="px-3.5 pt-3.5 pb-4 flex flex-col h-full">
+          <div className="flex items-center justify-between gap-3 mb-3 relative flex-none">
+            <h2 className="m-0 text-[1.05rem] font-semibold">
+              {t('top.upcoming')}:
+              {total > 0 && (
+                <span className="ml-2 text-[0.9rem] font-medium opacity-70 tabular-nums">
+                  {total}
+                </span>
               )}
-            </>
-          )}
+            </h2>
+            <button
+              onClick={onClose}
+              className="absolute right-0 top-0 flex h-6 w-6 items-center justify-center rounded-md p-1 text-[1.25rem] text-text-soft transition-colors duration-150 hover:bg-background-elevated hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
+              aria-label={t('common.close')}
+            >
+              ×
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto -mx-1 px-1" style={{ WebkitOverflowScrolling: 'touch' }}>
+            {total === 0 ? (
+              <p className="m-0 text-text-soft">{t('upcoming.empty')}</p>
+            ) : (
+              <>
+                <Section label={t('upcoming.dueNow')} count={dueWords.length}>
+                  {dueWords.map((w) => (
+                    <WordRow key={w.id} word={w} progress={progress[w.id]} role={role} now={now} />
+                  ))}
+                </Section>
+                <Section label={t('upcoming.upcoming')} count={upcoming.length}>
+                  {upcoming.map((w) => (
+                    <WordRow key={w.id} word={w} progress={progress[w.id]} role={role} now={now} />
+                  ))}
+                </Section>
+                <Section label={t('upcoming.new')} count={newWords.length}>
+                  {newWords.map((w) => (
+                    <WordRow key={w.id} word={w} progress={progress[w.id]} role={role} now={now} />
+                  ))}
+                </Section>
+                {done.length > 0 && (
+                  <div className="mt-4 pt-3 border-t-2 border-[#2A2218]/30">
+                    <Section label={t('upcoming.done')} count={done.length}>
+                      {done.map((w) => (
+                        <WordRow key={w.id} word={w} progress={progress[w.id]} role={role} now={now} />
+                      ))}
+                    </Section>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
     </section>
