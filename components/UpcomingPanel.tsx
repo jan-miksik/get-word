@@ -63,15 +63,17 @@ function WordRow({
         </span>
         <span className="text-[0.75rem] leading-tight text-[#6B5E48] truncate">{target}</span>
       </span>
-      <span
-        className={`text-[0.75rem] tabular-nums whitespace-nowrap flex-none px-1.5 rounded-md border-2 ${
-          isDueNow
-            ? 'text-[#FFF8E8] bg-[#1E6FA8] border-[#1E6FA8] font-bold'
-            : 'text-[#2A2218] border-[#2A2218] bg-transparent font-semibold'
-        }`}
-      >
-        {due ?? '—'}
-      </span>
+      {due && (
+        <span
+          className={`text-[0.75rem] tabular-nums whitespace-nowrap flex-none px-1.5 rounded-md border-2 ${
+            isDueNow
+              ? 'text-[#FFF8E8] bg-[#1E6FA8] border-[#1E6FA8] font-bold'
+              : 'text-[#2A2218] border-[#2A2218] bg-transparent font-semibold'
+          }`}
+        >
+          {due}
+        </span>
+      )}
     </li>
   );
 }
@@ -125,6 +127,11 @@ export function UpcomingPanel({ isOpen, onClose }: UpcomingPanelProps) {
       if (stage >= 10) dn.push(w);
       else up.push(w);
     }
+    up.sort((a, b) => {
+      const ad = progress[a.id]?.nextDueAt ?? Number.POSITIVE_INFINITY;
+      const bd = progress[b.id]?.nextDueAt ?? Number.POSITIVE_INFINITY;
+      return ad - bd;
+    });
     return { upcoming: up, done: dn };
   }, [settlingWords, progress]);
 
