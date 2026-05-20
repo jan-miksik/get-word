@@ -2,13 +2,15 @@
 
 import { useMemo } from 'react';
 import type { ProgressData } from '@/lib/sync';
-import { isDue, type NormalizedWord } from '@/lib/words';
+import { createWordCategoryOrderComparer, isDue, type NormalizedWord } from '@/lib/words';
 
 export interface WordStream {
   dueWords: NormalizedWord[];
   newWords: NormalizedWord[];
   settlingWords: NormalizedWord[];
 }
+
+const DEFAULT_CATEGORY_ORDER: string[] = [];
 
 /**
  * Buckets filtered words into due / new / settling streams.
@@ -17,18 +19,24 @@ export interface WordStream {
 export function useWordStream(
   filteredWords: NormalizedWord[],
   progress: Record<string, ProgressData>,
-  isHydrated: boolean
+  isHydrated: boolean,
+  categoryOrder: string[] = DEFAULT_CATEGORY_ORDER
 ): WordStream {
   return useMemo(() => {
     if (!isHydrated) {
       return { dueWords: [], newWords: [], settlingWords: [] };
     }
 
+    const compareByCategoryOrder = createWordCategoryOrderComparer(categoryOrder);
+    const originalIndex = new Map(filteredWords.map((word, index) => [word.id, index]));
+    const compareStable = (a: NormalizedWord, b: NormalizedWord) =>
+      compareByCategoryOrder(a, b) || (originalIndex.get(a.id) ?? 0) - (originalIndex.get(b.id) ?? 0);
+    const orderedWords = [...filteredWords].sort(compareStable);
     const due: NormalizedWord[] = [];
     const newWords: NormalizedWord[] = [];
     const settling: NormalizedWord[] = [];
 
-    filteredWords.forEach((word) => {
+    orderedWords.forEach((word) => {
       const wordProgress = progress[word.id];
       if (!wordProgress || wordProgress.stageIndex === 0) {
         newWords.push(word);
@@ -39,8 +47,12 @@ export function useWordStream(
       }
     });
 
-    due.sort((a, b) => (progress[a.id]?.nextDueAt ?? 0) - (progress[b.id]?.nextDueAt ?? 0));
+    due.sort(
+      (a, b) =>
+        compareStable(a, b) ||
+        (progress[a.id]?.nextDueAt ?? 0) - (progress[b.id]?.nextDueAt ?? 0)
+    );
 
     return { dueWords: due, newWords, settlingWords: settling };
-  }, [filteredWords, progress, isHydrated]);
+  }, [filteredWords, progress, isHydrated, categoryOrder]);
 }

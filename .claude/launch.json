@@ -3,10 +3,10 @@
   "configurations": [
     {
       "name": "dev",
-      "runtimeExecutable": "/Users/janmiksik/.nvm/versions/node/v22.13.1/bin/node",
-      "runtimeArgs": ["./node_modules/next/dist/bin/next", "dev", "--turbo", "--disable-source-maps"],
-      "port": 3000,
-      "autoPort": true
+      "runtimeExecutable": "/Users/janm/.nvm/versions/node/v24.15.0/bin/node",
+      "runtimeArgs": ["/Users/janm/Documents/projects/get word/node_modules/next/dist/bin/next", "dev", "--turbo", "--port", "3030"],
+      "port": 3030,
+      "autoPort": false
     }
   ]
 }

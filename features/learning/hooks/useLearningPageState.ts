@@ -17,6 +17,7 @@ interface UseLearningPageStateOptions {
   isHydrated: boolean;
   viewMode: ViewMode;
   minigameFrequency: MinigameFrequencyRange;
+  categoryOrder: string[];
 }
 
 export function useLearningPageState({
@@ -27,6 +28,7 @@ export function useLearningPageState({
   isHydrated,
   viewMode,
   minigameFrequency,
+  categoryOrder,
 }: UseLearningPageStateOptions) {
   const [showNotReady, setShowNotReady] = useState(false);
   const [dismissedGames, setDismissedGames] = useState<Set<string>>(new Set());
@@ -37,16 +39,21 @@ export function useLearningPageState({
   } | null>(null);
 
   const selectedCategoriesKey = Array.from(selectedCategories).sort().join('|');
+  const categoryOrderKey = categoryOrder.join('|');
   const wordsResetKey = useMemo(() => {
     let hash = 5381;
     for (const word of filteredWords) {
-      const id = word.id;
-      for (let i = 0; i < id.length; i += 1) {
-        hash = ((hash << 5) + hash + id.charCodeAt(i)) | 0;
+      const categoryPositionSig = Object.entries(word.categoryPositions ?? {})
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([category, position]) => `${category}:${position}`)
+        .join(',');
+      const signature = `${word.id}:${word.listPosition ?? ''}:${categoryPositionSig}`;
+      for (let i = 0; i < signature.length; i += 1) {
+        hash = ((hash << 5) + hash + signature.charCodeAt(i)) | 0;
       }
     }
-    return `${filteredWords.length}:${hash}`;
-  }, [filteredWords]);
+    return `${filteredWords.length}:${hash}:${categoryOrderKey}`;
+  }, [categoryOrderKey, filteredWords]);
 
   useEffect(() => {
     setShowNotReady(false);
@@ -58,8 +65,14 @@ export function useLearningPageState({
     [activeWords, selectedCategories]
   );
 
-  const { dueWords, newWords, settlingWords } = useWordStream(filteredWords, progress, isHydrated);
+  const { dueWords, newWords, settlingWords } = useWordStream(
+    filteredWords,
+    progress,
+    isHydrated,
+    categoryOrder
+  );
   const readyCount = dueWords.length;
+  const dueWordsKey = dueWords.map((word) => word.id).join('|');
 
   const learnedPool = useMemo(
     () => filteredWords.filter((word) => (progress[word.id]?.stageIndex ?? 0) > 0),
@@ -84,7 +97,7 @@ export function useLearningPageState({
     resetStablePlans();
   }, [selectedCategoriesKey, wordsResetKey]);
 
-  const deckResetKey = `${selectedCategoriesKey}|${wordsResetKey}|${viewMode}`;
+  const deckResetKey = `${selectedCategoriesKey}|${wordsResetKey}|${viewMode}|${dueWordsKey}`;
   if (
     viewMode === 'card' &&
     (!frozenDeckRef.current || frozenDeckRef.current.key !== deckResetKey)

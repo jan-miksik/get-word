@@ -16,6 +16,7 @@ interface UseEditRenderersOptions {
   markKnown: (wordId: string) => void;
   markReallyKnown: (wordId: string) => void;
   markUnknown: (wordId: string) => void;
+  setCustomStage: (wordId: string, stageIndex: number, opts?: { noRepeat?: boolean }) => void;
   setMemoryHook: (word: Pick<NormalizedWord, 'id' | 'canonicalWordId'>, hook: string) => void;
   lastMovedId: string | null;
   handleWordFieldChange: (wordId: string, field: keyof Word, value: string | string[]) => void;
@@ -38,6 +39,7 @@ export function useEditRenderers({
   markKnown,
   markReallyKnown,
   markUnknown,
+  setCustomStage,
   setMemoryHook,
   lastMovedId,
   handleWordFieldChange,
@@ -63,6 +65,7 @@ export function useEditRenderers({
           suggestedHook={getSuggestedMemoryHook(word)}
           onKnown={() => markKnown(word.id)}
           onReallyKnown={() => markReallyKnown(word.id)}
+          onCustomStage={(stageIndex, opts) => setCustomStage(word.id, stageIndex, opts)}
           onUnknown={() => markUnknown(word.id)}
           onMemoryHookChange={(hook) => setMemoryHook(word, hook)}
           isMoved={lastMovedId === word.id}
@@ -77,7 +80,7 @@ export function useEditRenderers({
         />
       </div>
     );
-  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, handleWordFieldChange, handleCategoryToggle, handleCategoryAdd, handleCategoryRemove, showEnglish, showCategoryBadges, categoryOrder, shouldRenderMemoryHook]);
+  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, lastMovedId, handleWordFieldChange, handleCategoryToggle, handleCategoryAdd, handleCategoryRemove, showEnglish, showCategoryBadges, categoryOrder, shouldRenderMemoryHook]);
 
   return {
     renderEditableCard,

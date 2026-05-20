@@ -21,14 +21,12 @@ function formatNextReviewHint(intervalMs: number): string {
   return label ? `Repeat in ${label}` : 'Repeat now';
 }
 
-function getWordTextSize(text: string | undefined): string {
-  const len = text?.length ?? 0;
-  if (len <= 6) return '!text-[2rem] sm:!text-[2.25rem]';
-  if (len <= 10) return '!text-[1.7rem] sm:!text-[1.9rem]';
-  if (len <= 16) return '!text-[1.35rem] sm:!text-[1.5rem]';
-  if (len <= 24) return '!text-[1.1rem] sm:!text-[1.25rem]';
-  if (len <= 36) return '!text-[0.95rem] sm:!text-[1.05rem]';
-  return '!text-[0.85rem] sm:!text-[0.95rem]';
+function getWordTextSize(maxLen: number): string {
+  if (maxLen <= 8) return '!text-[3rem] sm:!text-[3.75rem]';
+  if (maxLen <= 18) return '!text-[2.25rem] sm:!text-[2.75rem]';
+  if (maxLen <= 30) return '!text-[1.65rem] sm:!text-[2rem]';
+  if (maxLen <= 48) return '!text-[1.25rem] sm:!text-[1.5rem]';
+  return '!text-[1rem] sm:!text-[1.2rem]';
 }
 
 interface WordCardProps {
@@ -41,6 +39,7 @@ interface WordCardProps {
   suggestedHook: string;
   onKnown: () => void;
   onReallyKnown?: () => void;
+  onCustomStage?: (stageIndex: number, opts?: { noRepeat?: boolean }) => void;
   onUnknown: () => void;
   onMemoryHookChange: (hook: string) => void;
   isMoved?: boolean;
@@ -77,6 +76,7 @@ export const WordCard = memo(function WordCard({
   suggestedHook,
   onKnown,
   onReallyKnown,
+  onCustomStage,
   onUnknown,
   onMemoryHookChange,
   isMoved,
@@ -91,9 +91,12 @@ export const WordCard = memo(function WordCard({
 }: WordCardProps) {
   const [editingHook, setEditingHook] = useState(false);
   const [hookValue, setHookValue] = useState(memoryHook);
+  const [customOpen, setCustomOpen] = useState(false);
   const hookInputRef = useRef<HTMLInputElement>(null);
   const hookDisplayRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const customPopoverRef = useRef<HTMLDivElement>(null);
+  const customTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setHookValue(memoryHook);
@@ -102,6 +105,28 @@ export const WordCard = memo(function WordCard({
   useEffect(() => {
     if (!showMemoryHook) setEditingHook(false);
   }, [showMemoryHook]);
+
+  useEffect(() => {
+    if (!customOpen) return;
+    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
+      const target = event.target as Node | null;
+      if (!target) return;
+      if (customPopoverRef.current?.contains(target)) return;
+      if (customTriggerRef.current?.contains(target)) return;
+      setCustomOpen(false);
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setCustomOpen(false);
+    };
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('touchstart', handlePointerDown);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('touchstart', handlePointerDown);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [customOpen]);
 
   const knownPresses = progress.knownCount ?? 0;
   const unknownPresses = progress.unknownCount ?? 0;
@@ -257,13 +282,17 @@ export const WordCard = memo(function WordCard({
   const okayHint = formatNextReviewHint(
     STAGES[Math.min(clampedStageIndex + 1, STAGES.length - 1)]?.intervalMs ?? 0
   );
-  const easyHint = formatNextReviewHint(
-    STAGES[Math.min(clampedStageIndex + 2, STAGES.length - 1)]?.intervalMs ?? 0
-  );
   const coverCz = shouldCover('cz');
   const coverEn = shouldCover('en');
   const coverVi = shouldCover('vi');
   const coverMemoryHook = shouldCover('memory-hook');
+
+  const cardMaxTextLen = Math.max(
+    word.cz?.length ?? 0,
+    showEnglish ? (word.en?.length ?? 0) : 0,
+    word.vi?.length ?? 0,
+  );
+  const cardTextSizeClass = getWordTextSize(cardMaxTextLen);
 
   return (
     <article className={`phrase-card ${isMoved ? 'card-moved' : ''} ${fullscreen ? 'word-card--fullscreen' : ''}`} data-word-id={word.id} data-stage-group={stageGroup}>
@@ -297,7 +326,7 @@ export const WordCard = memo(function WordCard({
               className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${coverCz ? 'is-covered' : ''}`}
               data-lang="cz"
             >
-              <span className={`lang-text inline-block relative min-h-[1.4em] ${getWordTextSize(word.cz)}`}>
+              <span className={`lang-text inline-block relative min-h-[1.4em] ${cardTextSizeClass}`}>
                 <span>{word.cz}</span>
                 {showPronunciation && word.czPron && shouldShowPron('cz') && (
                   <span className="text-[1.1rem] sm:text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.czPron}</span>
@@ -317,7 +346,7 @@ export const WordCard = memo(function WordCard({
                 className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${coverEn ? 'is-covered' : ''}`}
                 data-lang="en"
               >
-                <span className={`lang-text inline-block relative min-h-[1.4em] ${getWordTextSize(word.en)}`}>{word.en}</span>
+                <span className={`lang-text inline-block relative min-h-[1.4em] ${cardTextSizeClass}`}>{word.en}</span>
                 {coverEn && <RevealHint />}
               </div>
             </div>
@@ -332,7 +361,7 @@ export const WordCard = memo(function WordCard({
               className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${coverVi ? 'is-covered' : ''}`}
               data-lang="vi"
             >
-              <span className={`lang-text inline-block relative min-h-[1.4em] ${getWordTextSize(word.vi)}`}>
+              <span className={`lang-text inline-block relative min-h-[1.4em] ${cardTextSizeClass}`}>
                 <span>{word.vi}</span>
                 {showPronunciation && word.viPron && shouldShowPron('vi') && (
                   <span className="text-[1.1rem] sm:text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.viPron}</span>
@@ -431,17 +460,66 @@ export const WordCard = memo(function WordCard({
             </span>
           </button>
           {onReallyKnown && (
-            <button
-              type="button"
-              className="srs-btn srs-btn--easy !relative !border-[#12750f]"
-              onClick={onReallyKnown}
-              title={easyHint}
-            >
-              <span className="srs-btn-copy">
-                <span className="srs-btn-label">Easy</span>
-                <span className="srs-btn-hint !opacity-[0.35] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{easyHint}</span>
-              </span>
-            </button>
+            <div className="relative flex">
+              <button
+                ref={customTriggerRef}
+                type="button"
+                className="srs-btn srs-btn--easy !relative !border-[#12750f] w-full"
+                onClick={() => setCustomOpen((open) => !open)}
+                title="Pick a custom interval"
+                aria-haspopup="listbox"
+                aria-expanded={customOpen}
+              >
+                <span className="srs-btn-copy">
+                  <span className="srs-btn-label">⋯</span>
+                  <span className="srs-btn-hint !opacity-[0.35] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">Custom</span>
+                </span>
+              </button>
+              {customOpen && (
+                <div
+                  ref={customPopoverRef}
+                  role="listbox"
+                  className="absolute right-0 bottom-[calc(100%+0.5rem)] z-50 w-[13rem] max-w-[80vw] rounded-xl border-2 border-[#2A2218] bg-[#F4EFE2] text-[#2A2218] shadow-lg overflow-hidden flex flex-col"
+                >
+                  <div className="sticky top-0 bg-[#F4EFE2] px-3 py-1.5 text-[0.65rem] font-bold uppercase tracking-[0.08em] text-[#2A2218]/70 border-b border-[#2A2218]/20">
+                    Select repeat time
+                  </div>
+                  <div className="p-1">
+                  {STAGES.map((stage, idx) => {
+                    const isCurrent = idx === clampedStageIndex;
+                    return (
+                      <button
+                        key={stage.id}
+                        type="button"
+                        role="option"
+                        aria-current={isCurrent}
+                        onClick={() => {
+                          setCustomOpen(false);
+                          onCustomStage?.(idx);
+                        }}
+                        className={`block w-full rounded-md px-2.5 py-1 text-left text-[0.8rem] leading-tight transition-colors hover:bg-[#2A2218]/10 active:bg-[#2A2218]/20 ${
+                          isCurrent ? 'bg-[#2A2218]/5 font-semibold' : ''
+                        }`}
+                      >
+                        {stage.name}
+                      </button>
+                    );
+                  })}
+                  <button
+                    type="button"
+                    role="option"
+                    onClick={() => {
+                      setCustomOpen(false);
+                      onCustomStage?.(STAGES.length - 1, { noRepeat: true });
+                    }}
+                    className="block w-full rounded-md px-2.5 py-1 text-left text-[0.8rem] leading-tight transition-colors hover:bg-[#12750f]/10 active:bg-[#12750f]/20 border-t border-[#2A2218]/20 mt-1 pt-1.5"
+                  >
+                    Fully known — no repeat
+                  </button>
+                  </div>
+                </div>
+              )}
+            </div>
           )}
         </div>
       </div>

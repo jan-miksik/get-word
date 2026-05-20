@@ -66,15 +66,19 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   }
 
   const body = await request.json();
-  if (!Array.isArray(body.order)) {
+  const order = Array.isArray(body.order)
+    ? body.order
+    : Array.isArray(body.ordered_ids)
+      ? body.ordered_ids
+      : null;
+  if (!order) {
     return NextResponse.json(
       { error: "order (array of category IDs) is required" },
       { status: 400 }
     );
   }
 
-  await reorderCategories(id, body.order);
+  await reorderCategories(id, order);
   const categories = await getListCategories(id);
   return NextResponse.json({ categories });
 }
-

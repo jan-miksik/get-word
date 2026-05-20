@@ -17,6 +17,7 @@ interface UseLearningRenderersOptions {
   markKnown: (wordId: string) => void;
   markReallyKnown: (wordId: string) => void;
   markUnknown: (wordId: string) => void;
+  setCustomStage: (wordId: string, stageIndex: number, opts?: { noRepeat?: boolean }) => void;
   setMemoryHook: (word: Pick<NormalizedWord, 'id' | 'canonicalWordId'>, hook: string) => void;
   lastMovedId: string | null;
   showEnglish: boolean;
@@ -39,6 +40,7 @@ export function useLearningRenderers({
   markKnown,
   markReallyKnown,
   markUnknown,
+  setCustomStage,
   setMemoryHook,
   lastMovedId,
   showEnglish,
@@ -68,6 +70,7 @@ export function useLearningRenderers({
           suggestedHook={getSuggestedMemoryHook(word)}
           onKnown={() => markKnown(word.id)}
           onReallyKnown={() => markReallyKnown(word.id)}
+          onCustomStage={(stageIndex, opts) => setCustomStage(word.id, stageIndex, opts)}
           onUnknown={() => markUnknown(word.id)}
           onMemoryHookChange={(hook) => setMemoryHook(word, hook)}
           isMoved={lastMovedId === word.id}
@@ -79,7 +82,7 @@ export function useLearningRenderers({
         />
       </div>
     );
-  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook]);
+  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook]);
 
   const renderMiniGame = useCallback((config: MiniGameConfig) => {
     if (dismissedGames.has(config.id)) return null;
@@ -135,6 +138,7 @@ export function useLearningRenderers({
             suggestedHook={getSuggestedMemoryHook(word)}
             onKnown={() => { onComplete(() => markKnown(word.id)); }}
             onReallyKnown={() => { onComplete(() => markReallyKnown(word.id)); }}
+            onCustomStage={(stageIndex, opts) => { onComplete(() => setCustomStage(word.id, stageIndex, opts)); }}
             onUnknown={() => { onComplete(() => markUnknown(word.id)); }}
             onMemoryHookChange={(hook) => setMemoryHook(word, hook)}
             isMoved={false}
@@ -148,7 +152,7 @@ export function useLearningRenderers({
         </div>
       );
     },
-    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook]
+    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook]
   );
 
   const renderMiniGameForDeck = useCallback(

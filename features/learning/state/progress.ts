@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ProgressData, SyncResponse } from '@/lib/sync';
+import { debouncedSync } from '@/lib/sync';
 import { STAGES } from '@/lib/words';
 import { requestSync } from '@/lib/sync-coordinator';
 import {
@@ -63,7 +64,7 @@ function formatRelativeFromNow(timestamp?: number, now = Date.now()) {
 }
 
 function logNextDueAtCalculation(args: {
-  action: 'known' | 'really-known' | 'unknown';
+  action: 'known' | 'really-known' | 'unknown' | 'custom';
   wordId: string;
   previousStageIndex: number;
   nextStageIndex: number;
@@ -241,6 +242,80 @@ export function useProgress(
     [recordReviewEvent]
   );
 
+  const setCustomStage = useCallback(
+    (wordId: string, stageIndex: number, opts?: { noRepeat?: boolean }) => {
+      const now = Date.now();
+      const noRepeat = opts?.noRepeat === true;
+      const clampedStageIndex = Math.max(0, Math.min(stageIndex, STAGES.length - 1));
+      let nextEntry: ProgressData | null = null;
+
+      setProgress((prev) => {
+        const current = prev[wordId] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
+        const previousStageIndex = current.stageIndex;
+        const stage = STAGES[clampedStageIndex];
+        const nextDueAt = noRepeat
+          ? undefined
+          : stage.intervalMs > 0
+            ? now + stage.intervalMs
+            : undefined;
+
+        let knownCount = current.knownCount;
+        let unknownCount = current.unknownCount;
+        let lastKnownAt = current.lastKnownAt;
+        let lastUnknownAt = current.lastUnknownAt;
+
+        if (noRepeat) {
+          if (previousStageIndex < clampedStageIndex) {
+            knownCount += 1;
+          }
+          lastKnownAt = now;
+        } else if (clampedStageIndex > previousStageIndex) {
+          knownCount += 1;
+          lastKnownAt = now;
+        } else if (clampedStageIndex < previousStageIndex) {
+          unknownCount += 1;
+          lastUnknownAt = now;
+        } else {
+          lastKnownAt = now;
+        }
+
+        logNextDueAtCalculation({
+          action: 'custom',
+          wordId,
+          previousStageIndex,
+          nextStageIndex: clampedStageIndex,
+          intervalMs: noRepeat ? undefined : stage.intervalMs,
+          nextDueAt,
+        });
+
+        const updated: ProgressData = {
+          ...current,
+          stageIndex: clampedStageIndex,
+          knownCount,
+          unknownCount,
+          lastKnownAt,
+          lastUnknownAt,
+          nextDueAt,
+        };
+        nextEntry = updated;
+
+        return {
+          ...prev,
+          [wordId]: updated,
+        };
+      });
+
+      setLastMoved(wordId);
+
+      if (nextEntry) {
+        debouncedSync({ progress: serializeProgressForSync({ [wordId]: nextEntry }) }).catch(
+          (e) => console.error('[progress] sync custom stage:', e)
+        );
+      }
+    },
+    [setLastMoved]
+  );
+
   const getWordDisplayMode = useCallback(
     (wordId: string): 0 | 1 => {
       const progressEntry = progress[wordId];
@@ -257,6 +332,7 @@ export function useProgress(
     markKnown,
     markReallyKnown,
     markUnknown,
+    setCustomStage,
     getWordDisplayMode,
     applyServerProgress,
   };

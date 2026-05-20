@@ -64,12 +64,27 @@ describe('injectMinigames', () => {
     games.forEach(game => expect(game.words.length).toBe(4));
   });
 
-  it('injects at least one game for new user with short list (early anchors get full-list fallback)', () => {
+  it('uses only stream-above words even when a larger learned pool exists', () => {
+    const result = injectMinigames(words, words, 'cz', 42, { minInterval: 5, maxInterval: 5 });
+    const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
+    expect(games.length).toBeGreaterThan(0);
+    games.forEach(game => {
+      expect(game.words.length).toBe(4);
+      const anchorIdx = game.anchorOriginalIndex ?? 0;
+      const prefixIds = new Set(words.slice(0, anchorIdx + 1).map(w => w.id));
+      game.words.forEach(w => expect(prefixIds.has(w.id)).toBe(true));
+    });
+  });
+
+  it('skips early games until four cards have been shown', () => {
     const shortList = Array.from({ length: 6 }, (_, i) => makeWord(`w${i}`, `cz${i}`, `vi${i}`));
     const result = injectMinigames(shortList, [], 'cz', 99, { minInterval: 1, maxInterval: 2 });
     const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
     expect(games.length).toBeGreaterThan(0);
-    games.forEach(game => expect(game.words.length).toBe(4));
+    games.forEach(game => {
+      expect(game.words.length).toBe(4);
+      expect(game.anchorOriginalIndex).toBeGreaterThanOrEqual(3);
+    });
   });
 
   it('returns empty array for empty words', () => {
@@ -102,7 +117,8 @@ describe('injectMinigames', () => {
     });
 
     expect(gaps.length).toBeGreaterThan(2);
-    expect(gaps.every(g => g >= 2 && g <= 4)).toBe(true);
+    expect(gaps[0]).toBeGreaterThanOrEqual(4);
+    expect(gaps.slice(1).every(g => g >= 2 && g <= 4)).toBe(true);
     expect(new Set(gaps).size).toBeGreaterThan(1); // variation across insertions
   });
 
@@ -220,48 +236,48 @@ describe('injectMinigames', () => {
 });
 
 describe('composeStream', () => {
-  // 5-word original list: w0…w4
-  const originalWords = Array.from({ length: 5 }, (_, i) =>
+  // 6-word original list: w0…w5
+  const originalWords = Array.from({ length: 6 }, (_, i) =>
     makeWord(`w${i}`, `cz${i}`, `vi${i}`)
   );
   const originalIndexMap = new Map(originalWords.map((w, i) => [w.id, i]));
 
-  // One anchor after originalIndex 2 (after the 3rd word)
+  // One anchor after originalIndex 3 (after the 4th word)
   const anchors = computeGameAnchors(originalWords, originalWords, 99, {
-    minInterval: 3,
-    maxInterval: 3,
+    minInterval: 4,
+    maxInterval: 4,
   });
 
   it('produces the same stream as injectMinigames when no words are removed', () => {
     const composed = composeStream(originalWords, originalIndexMap, anchors);
     const injected = injectMinigames(originalWords, originalWords, 'cz', 99, {
-      minInterval: 3,
-      maxInterval: 3,
+      minInterval: 4,
+      maxInterval: 4,
     });
     expect(composed).toEqual(injected);
   });
 
   it('game stays in stream when the word before it is removed', () => {
-    // Remove w2 (the word the game follows at originalIndex 2)
-    const currentWords = originalWords.filter(w => w.id !== 'w2');
+    // Remove w3 (the word the game follows at originalIndex 3)
+    const currentWords = originalWords.filter(w => w.id !== 'w3');
     const stream = composeStream(currentWords, originalIndexMap, anchors);
     const gameCount = stream.filter(item => '_isMinigame' in item).length;
     expect(gameCount).toBe(anchors.length);
   });
 
   it('game inserts after the nearest lower surviving word when its anchor word is removed', () => {
-    // Remove w2; game should now follow w1 (originalIndex 1, the next lower surviving word)
-    const currentWords = originalWords.filter(w => w.id !== 'w2');
+    // Remove w3; game should now follow w2 (originalIndex 2, the next lower surviving word)
+    const currentWords = originalWords.filter(w => w.id !== 'w3');
     const stream = composeStream(currentWords, originalIndexMap, anchors);
     const gameIdx = stream.findIndex(item => '_isMinigame' in item);
     const itemBefore = gameIdx > 0 ? stream[gameIdx - 1] : null;
-    // w1 is the last remaining word with origIdx < 2
-    expect(itemBefore && !('_isMinigame' in itemBefore) && (itemBefore as NormalizedWord).id).toBe('w1');
+    // w2 is the last remaining word with origIdx < 3
+    expect(itemBefore && !('_isMinigame' in itemBefore) && (itemBefore as NormalizedWord).id).toBe('w2');
   });
 
   it('game floats to top when all words with origIdx <= anchor are removed', () => {
-    // Remove w0, w1, w2 — no surviving word has origIdx ≤ 2
-    const currentWords = originalWords.filter(w => !['w0', 'w1', 'w2'].includes(w.id));
+    // Remove w0, w1, w2, w3 — no surviving word has origIdx ≤ 3
+    const currentWords = originalWords.filter(w => !['w0', 'w1', 'w2', 'w3'].includes(w.id));
     const stream = composeStream(currentWords, originalIndexMap, anchors);
     // Game should be at index 0
     expect('_isMinigame' in stream[0]).toBe(true);

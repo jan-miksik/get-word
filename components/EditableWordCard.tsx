@@ -17,6 +17,7 @@ interface EditableWordCardProps {
   suggestedHook: string;
   onKnown: () => void;
   onReallyKnown?: () => void;
+  onCustomStage?: (stageIndex: number, opts?: { noRepeat?: boolean }) => void;
   onUnknown: () => void;
   onMemoryHookChange: (hook: string) => void;
   isMoved?: boolean;
@@ -58,6 +59,7 @@ export const EditableWordCard = memo(function EditableWordCard({
   suggestedHook,
   onKnown,
   onReallyKnown,
+  onCustomStage,
   onUnknown,
   onMemoryHookChange,
   isMoved,
@@ -537,6 +539,7 @@ export const EditableWordCard = memo(function EditableWordCard({
         suggestedHook={suggestedHook}
         onKnown={onKnown}
         onReallyKnown={onReallyKnown}
+        onCustomStage={onCustomStage}
         onUnknown={onUnknown}
         onMemoryHookChange={onMemoryHookChange}
         isMoved={isMoved}

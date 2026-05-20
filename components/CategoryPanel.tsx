@@ -5,7 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 
 interface CategoryPanelProps {
   isOpen: boolean;
-  categories: Array<{ name: string; count: number }>;
+  categories: Array<{ name: string; count: number; position?: number }>;
   onClose?: () => void;
 }
 
@@ -31,6 +31,11 @@ export function CategoryPanel({ isOpen, categories, onClose }: CategoryPanelProp
       if (ai !== undefined && bi !== undefined) return ai - bi;
       if (ai !== undefined) return -1;
       if (bi !== undefined) return 1;
+      if (a.position !== undefined && b.position !== undefined && a.position !== b.position) {
+        return a.position - b.position;
+      }
+      if (a.position !== undefined) return -1;
+      if (b.position !== undefined) return 1;
       return a.name.localeCompare(b.name);
     });
   }, [categories, categoryOrder]);

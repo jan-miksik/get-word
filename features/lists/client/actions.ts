@@ -154,10 +154,11 @@ export async function createCategory(listId: string, name: string): Promise<void
 }
 
 export async function reorderCategories(listId: string, orderedIds: string[]): Promise<void> {
-  await listsApiFetch(`/api/lists/${listId}/categories`, {
+  const res = await listsApiFetch(`/api/lists/${listId}/categories`, {
     method: "PUT",
-    body: JSON.stringify({ ordered_ids: orderedIds }),
+    body: JSON.stringify({ order: orderedIds }),
   });
+  if (!res.ok) throw new Error("Failed to reorder categories");
 }
 
 export async function renameCategory(

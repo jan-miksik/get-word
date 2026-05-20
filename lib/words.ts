@@ -4,6 +4,8 @@ import { Word } from '@/data/words';
 export interface NormalizedWord extends Word {
   id: string;
   category: string[];
+  categoryPositions?: Record<string, number>;
+  listPosition?: number;
   listId?: string;
   canonicalWordId?: string | null;
 }
@@ -77,17 +79,99 @@ export function normalizeWords(words: Word[]): NormalizedWord[] {
   });
 }
 
-export function getAvailableCategories(words: NormalizedWord[]): Array<{ name: string; count: number }> {
+export function getAvailableCategories(
+  words: NormalizedWord[]
+): Array<{ name: string; count: number; position?: number }> {
   const counts = new Map<string, number>();
+  const positions = new Map<string, number>();
   words.forEach((word) => {
     word.category.forEach((cat) => {
       if (cat === "word" || cat === "phrase") return;
       counts.set(cat, (counts.get(cat) || 0) + 1);
+      const position = word.categoryPositions?.[cat];
+      if (typeof position === 'number' && Number.isFinite(position)) {
+        const current = positions.get(cat);
+        positions.set(cat, current === undefined ? position : Math.min(current, position));
+      }
     });
   });
   return Array.from(counts.entries())
-    .map(([name, count]) => ({ name, count }))
-    .sort((a, b) => a.name.localeCompare(b.name));
+    .map(([name, count]) => ({ name, count, position: positions.get(name) }))
+    .sort((a, b) => {
+      const aPosition = a.position;
+      const bPosition = b.position;
+      if (aPosition !== undefined && bPosition !== undefined && aPosition !== bPosition) {
+        return aPosition - bPosition;
+      }
+      if (aPosition !== undefined && bPosition === undefined) return -1;
+      if (aPosition === undefined && bPosition !== undefined) return 1;
+      return a.name.localeCompare(b.name);
+    });
+}
+
+function getFilterableWordCategories(word: NormalizedWord): string[] {
+  return word.category.filter((cat) => cat !== "word" && cat !== "phrase");
+}
+
+type CategorySortKey = {
+  source: number;
+  value: number | string;
+};
+
+function getWordCategorySortKey(
+  word: NormalizedWord,
+  categoryOrderIndex: Map<string, number>
+): CategorySortKey {
+  const categories = getFilterableWordCategories(word);
+  if (categories.length === 0) return { source: 3, value: "" };
+
+  let best: CategorySortKey | null = null;
+  for (const category of categories) {
+    const userIndex = categoryOrderIndex.get(category);
+    const key =
+      userIndex !== undefined
+        ? { source: 0, value: userIndex }
+        : typeof word.categoryPositions?.[category] === "number" &&
+            Number.isFinite(word.categoryPositions[category])
+          ? { source: 1, value: word.categoryPositions[category] }
+          : { source: 2, value: category };
+
+    if (!best || compareCategorySortKeys(key, best) < 0) {
+      best = key;
+    }
+  }
+
+  return best ?? { source: 3, value: "" };
+}
+
+function compareCategorySortKeys(left: CategorySortKey, right: CategorySortKey): number {
+  if (left.source !== right.source) return left.source - right.source;
+  if (typeof left.value === "number" && typeof right.value === "number") {
+    return left.value - right.value;
+  }
+  return String(left.value).localeCompare(String(right.value));
+}
+
+export function createWordCategoryOrderComparer(categoryOrder: string[] = []) {
+  const categoryOrderIndex = new Map<string, number>();
+  categoryOrder.forEach((name, index) => categoryOrderIndex.set(name, index));
+
+  return (left: NormalizedWord, right: NormalizedWord): number => {
+    const categoryComparison = compareCategorySortKeys(
+      getWordCategorySortKey(left, categoryOrderIndex),
+      getWordCategorySortKey(right, categoryOrderIndex)
+    );
+    if (categoryComparison !== 0) return categoryComparison;
+
+    const leftPosition = left.listPosition;
+    const rightPosition = right.listPosition;
+    if (leftPosition !== undefined && rightPosition !== undefined && leftPosition !== rightPosition) {
+      return leftPosition - rightPosition;
+    }
+    if (leftPosition !== undefined) return -1;
+    if (rightPosition !== undefined) return 1;
+    return 0;
+  };
 }
 
 // Get all categories from allWords, but count occurrences in filteredWords
@@ -203,6 +287,9 @@ export function wordListItemsToNormalizedWords(
         ? categories[item.categoryId]?.name
         : undefined;
       const baseTags = catName ? [catName] : [];
+      const catPosition = item.categoryId
+        ? categories[item.categoryId]?.position
+        : undefined;
 
       // Infer word/phrase from textKnown
       const normalized = item.textKnown
@@ -233,6 +320,11 @@ export function wordListItemsToNormalizedWords(
       return {
         id: item.id, // UUID from word_list_items
         category,
+        categoryPositions:
+          catName && typeof catPosition === 'number' && Number.isFinite(catPosition)
+            ? { [catName]: catPosition }
+            : undefined,
+        listPosition: item.position,
         cz,
         en,
         vi,

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { wordListItemsToNormalizedWords, isDue, normalizeWords } from '@/lib/words';
+import { wordListItemsToNormalizedWords, isDue, normalizeWords, getAvailableCategories } from '@/lib/words';
 import type { NormalizedWord } from '@/lib/words';
 import { WORDS as RAW_WORDS } from '../../wordbook/slova.js';
 import type { Word } from '@/data/words';
@@ -89,6 +89,25 @@ describe('Migration: wordListItemsToNormalizedWords', () => {
     const result = wordListItemsToNormalizedWords(itemsWithNull, {}, 'vi');
     expect(result.length).toBe(1);
     expect(result[0].id).toBe('b');
+  });
+
+  it('uses editor category positions as the default available category order', () => {
+    const result = wordListItemsToNormalizedWords(
+      [
+        { id: 'item-1', categoryId: 'cat-b', textKnown: 'b', textTarget: 'be', notes: null, position: 0 },
+        { id: 'item-2', categoryId: 'cat-a', textKnown: 'a', textTarget: 'ah', notes: null, position: 1 },
+      ],
+      {
+        'cat-a': { name: 'Alpha', position: 1 },
+        'cat-b': { name: 'Beta', position: 0 },
+      },
+      'vi'
+    );
+
+    expect(getAvailableCategories(result).map((category) => category.name)).toEqual([
+      'Beta',
+      'Alpha',
+    ]);
   });
 });
 

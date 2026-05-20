@@ -62,6 +62,7 @@ export default function Home() {
     markKnown,
     markReallyKnown,
     markUnknown,
+    setCustomStage,
     filteredWords,
     getMemoryHook,
     setMemoryHook,
@@ -155,6 +156,7 @@ export default function Home() {
     isHydrated,
     viewMode,
     minigameFrequency,
+    categoryOrder,
   });
 
   const {
@@ -172,6 +174,7 @@ export default function Home() {
     markKnown,
     markReallyKnown,
     markUnknown,
+    setCustomStage,
     setMemoryHook,
     lastMovedId,
     showEnglish,

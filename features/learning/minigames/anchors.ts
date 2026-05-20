@@ -12,7 +12,7 @@ const GAME_TYPES: GameType[] = ['multipleChoice', 'typing', 'matching'];
 
 export function computeGameAnchors(
   originalWords: NormalizedWord[],
-  learnedPool: NormalizedWord[],
+  _learnedPool: NormalizedWord[],
   seed: number,
   options?: InjectMinigamesOptions,
 ): GameAnchor[] {
@@ -77,9 +77,7 @@ export function computeGameAnchors(
     }
   }
 
-  const useStreamAbove = learnedPool.length < 4;
   const streamAboveWindow = 14;
-  const learnedPoolSimilarPairs = useStreamAbove ? [] : buildSimilarPairs(learnedPool);
 
   const pickDistinctWords = (pool: NormalizedWord[], rand: () => number): NormalizedWord[] => {
     const total = pool.length;
@@ -140,14 +138,10 @@ export function computeGameAnchors(
     const randType = createRng(mixSeed(baseSeed, mixSeed(anchorIndex + 1, 8000 + slotIndex)));
     const gameType = pickGameType(slotIndex, lastGameType, randType);
 
-    let pool = useStreamAbove
-      ? originalWords.slice(Math.max(0, anchorIndex + 1 - streamAboveWindow), anchorIndex + 1)
-      : learnedPool;
-
-    if (useStreamAbove && pool.length < 4 && originalWords.length >= 4) {
-      pool = originalWords.slice(0, anchorIndex + 1);
-      if (pool.length < 4) pool = originalWords;
-    }
+    const pool = originalWords.slice(
+      Math.max(0, anchorIndex + 1 - streamAboveWindow),
+      anchorIndex + 1,
+    );
 
     if (pool.length < 4) {
       anchors.push(null);
@@ -155,10 +149,10 @@ export function computeGameAnchors(
     }
 
     const anchorId = `game-${originalWords[anchorIndex].id}-s${baseSeed}`;
+    const similarPairs = buildSimilarPairs(pool);
     const level2Eligible =
-      !useStreamAbove &&
       (gameType === 'multipleChoice' || gameType === 'matching') &&
-      learnedPoolSimilarPairs.length > 0;
+      similarPairs.length > 0;
 
     let attempt = 0;
     let chosen: NormalizedWord[] | null = null;
@@ -170,7 +164,7 @@ export function computeGameAnchors(
       const randLevel = createRng(mixSeed(baseSeed, mixSeed(anchorIndex + 1, 5000 + attempt)));
       const shouldAttemptLevel2 = level2Eligible && randLevel() < 0.5;
       const level2Candidate = shouldAttemptLevel2
-        ? pickLevel2DistinctWords(pool, learnedPoolSimilarPairs, randPick)
+        ? pickLevel2DistinctWords(pool, similarPairs, randPick)
         : null;
       const candidate = level2Candidate ?? pickDistinctWords(pool, randPick);
       const candidateLevel: GameDifficultyLevel = level2Candidate ? 2 : 1;

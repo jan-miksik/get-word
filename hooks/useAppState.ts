@@ -70,6 +70,11 @@ export function useAppState(
     (wordId: string) => progressState.markUnknown(resolveProgressId(wordId)),
     [progressState, resolveProgressId]
   );
+  const setCustomStage = useCallback(
+    (wordId: string, stageIndex: number, opts?: { noRepeat?: boolean }) =>
+      progressState.setCustomStage(resolveProgressId(wordId), stageIndex, opts),
+    [progressState, resolveProgressId]
+  );
   const lastMovedId = useMemo(() => {
     if (!progressState.lastMovedId) return null;
     for (const word of allWords) {
@@ -161,6 +166,7 @@ export function useAppState(
     markKnown,
     markReallyKnown,
     markUnknown,
+    setCustomStage,
     lastMovedId,
     isHydrated,
     isLinkingWallet,
