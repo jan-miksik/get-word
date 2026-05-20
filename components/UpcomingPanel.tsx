@@ -26,7 +26,7 @@ function formatRelativeDue(nextDueAt: number | undefined, now: number): string |
   return '<1m';
 }
 
-function stageDotClass(stageIndex: number): string {
+function stageBarClass(stageIndex: number): string {
   if (stageIndex >= 9) return 'bg-done';
   if (stageIndex >= 5) return 'bg-fresh';
   if (stageIndex >= 1) return 'bg-accent';
@@ -55,9 +55,9 @@ function WordRow({
   const due = formatRelativeDue(progress?.nextDueAt, now);
   const isDueNow = due === 'now';
   return (
-    <li className="flex items-center gap-2 px-2.5 py-[3px] min-h-[24px] border-b border-border-subtle/30 last:border-b-0 hover:bg-background-elevated/40">
+    <li className="flex items-center gap-2 px-3 py-[3px] min-h-[26px] border-b border-border-subtle/30 last:border-b-0">
       <span
-        className={`block w-[3px] h-4 rounded-pill flex-none ${stageDotClass(stageIdx)}`}
+        className={`block w-[3px] h-4 rounded-pill flex-none ${stageBarClass(stageIdx)}`}
         aria-hidden
       />
       <span className="flex-1 flex items-baseline gap-1.5 min-w-0">
@@ -89,7 +89,7 @@ function Section({
   if (count === 0) return null;
   return (
     <div className="mb-3 last:mb-0">
-      <div className="sticky top-0 z-10 flex items-baseline justify-between px-2.5 py-1 bg-background-elevated/95 backdrop-blur-sm border-b border-border-subtle/60">
+      <div className="flex items-baseline justify-between px-3 py-1 border-b border-border-subtle/60">
         <span className="text-[0.6875rem] uppercase tracking-wide font-semibold text-text-soft">
           {label}
         </span>
@@ -133,40 +133,46 @@ export function UpcomingPanel({ isOpen, onClose }: UpcomingPanelProps) {
 
   return (
     <section
-      className={`upcoming-panel fixed inset-0 z-[550] ${isOpen ? 'block' : 'hidden'}`}
+      className={`upcoming-panel ${isOpen ? 'block' : 'hidden'} fixed inset-0 z-[550]`}
       aria-label={t('top.upcoming')}
       aria-hidden={!isOpen}
       onClick={(e) => e.stopPropagation()}
     >
       <div
-        className="absolute inset-0 bg-[rgba(6,10,24,0.5)] backdrop-blur-md md:hidden"
+        className="absolute inset-0 bg-[rgba(6,10,24,0.5)] backdrop-blur-[12px] md:hidden"
         onClick={onClose}
         aria-hidden
       />
-      <div className="absolute left-3 right-3 top-16 md:top-[60px] md:left-1/2 md:-translate-x-1/2 md:right-auto md:w-[480px] md:max-w-[calc(100vw-28px)] max-h-[calc(100dvh-5rem)] flex flex-col rounded-2xl border border-border-subtle bg-background-elevated shadow-soft overflow-hidden">
-        <div className="flex items-center justify-between px-4 py-3 border-b border-border-subtle">
-          <div className="flex items-baseline gap-2">
-            <h2 className="text-[1.05rem] font-semibold m-0 text-text">
-              {t('top.upcoming')}
-            </h2>
-            <span className="text-xs text-text-soft tabular-nums">{total}</span>
-          </div>
+      <div
+        className="absolute top-16 left-[14px] right-[14px] max-h-[calc(100dvh-5rem)] flex flex-col overflow-hidden bg-[rgba(15,23,42,0.96)] border border-[rgba(148,163,184,0.35)] rounded-[18px] shadow-soft md:top-[60px] md:max-w-[720px] md:mx-auto md:max-h-[80vh]"
+      >
+        <div className="p-4 pb-3 relative flex-none">
+          <h1 className="text-[1.35rem] font-semibold m-0 text-text">
+            {t('top.upcoming')}
+            {total > 0 && (
+              <span className="ml-2 text-sm font-medium text-text-soft tabular-nums">
+                {total}
+              </span>
+            )}
+          </h1>
           <button
-            type="button"
             onClick={onClose}
+            className="absolute top-3.5 right-3.5 bg-transparent border-none text-xl text-text-soft cursor-pointer p-1 leading-none flex items-center justify-center w-6 h-6 rounded-md transition-all hover:bg-background-elevated hover:text-text"
             aria-label={t('common.close')}
-            className="bg-transparent border-none text-xl text-text-soft cursor-pointer p-1 leading-none flex items-center justify-center w-7 h-7 rounded-md transition-colors hover:bg-background hover:text-text"
           >
             ×
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div
+          className="flex-1 overflow-y-auto px-1 pb-2"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
           {total === 0 ? (
             <div className="p-6 text-center text-sm text-text-soft">
               {t('upcoming.empty')}
             </div>
           ) : (
-            <div className="py-1">
+            <>
               <Section label={t('upcoming.dueNow')} count={dueWords.length}>
                 {dueWords.map((w) => (
                   <WordRow key={w.id} word={w} progress={progress[w.id]} role={role} now={now} />
@@ -183,7 +189,7 @@ export function UpcomingPanel({ isOpen, onClose }: UpcomingPanelProps) {
                 ))}
               </Section>
               {done.length > 0 && (
-                <div className="mt-2 pt-2 border-t-2 border-border-subtle">
+                <div className="mt-3 pt-3 border-t border-border-subtle/60">
                   <Section label={t('upcoming.done')} count={done.length}>
                     {done.map((w) => (
                       <WordRow
@@ -197,7 +203,7 @@ export function UpcomingPanel({ isOpen, onClose }: UpcomingPanelProps) {
                   </Section>
                 </div>
               )}
-            </div>
+            </>
           )}
         </div>
       </div>
