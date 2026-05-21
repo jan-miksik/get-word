@@ -193,8 +193,8 @@ describe('GET /api/sync', () => {
       ['asset-1', {
         id: 'asset-1',
         contentHash: 'hash-123',
-        storageType: 'r2',
-        storageRef: 'r2/key',
+        storageType: 'arweave',
+        storageRef: 'tx-123',
       }],
     ]))
 
@@ -207,9 +207,12 @@ describe('GET /api/sync', () => {
       expect.objectContaining({
         id: 'item-1',
         audioUrl: '/api/audio/hash-123',
-        audioArweaveUrl: null,
-        audioArweaveUrls: [],
-        audioStorageRef: 'r2/key',
+        audioArweaveUrl: 'https://turbo-gateway.com/tx-123',
+        audioArweaveUrls: expect.arrayContaining([
+          'https://turbo-gateway.com/tx-123',
+          'https://arweave.net/tx-123',
+        ]),
+        audioStorageRef: 'tx-123',
       }),
     ])
   })

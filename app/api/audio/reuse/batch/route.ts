@@ -10,6 +10,7 @@ import {
 } from "@/lib/auth";
 import { computeContentHash, getAudioUrl } from "@/lib/audio";
 import { getArweaveGatewayUrls } from "@/lib/audio-storage";
+import { isPlayableAudioAsset } from "@/lib/audio-assets";
 
 type AudioReuseItem = {
   id: string;
@@ -84,10 +85,12 @@ export async function POST(request: NextRequest) {
     const exactAsset = existingMedia.get(hash);
     const variants =
       reusableVariants.get(`${item.language}\u0000${item.text}`) ?? [];
+    const playableVariants = variants.filter(isPlayableAudioAsset);
+    const playableExactAsset = isPlayableAudioAsset(exactAsset) ? exactAsset : undefined;
     const selectedAsset =
-      variants.find((asset) => asset.id === item.selected_asset_id)
-      ?? exactAsset
-      ?? variants[0];
+      playableVariants.find((asset) => asset.id === item.selected_asset_id)
+      ?? playableExactAsset
+      ?? playableVariants[0];
 
     if (!selectedAsset) {
       return {
@@ -108,9 +111,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const rawVariants = variants.some((asset) => asset.id === selectedAsset.id)
-      ? variants
-      : [selectedAsset, ...variants];
+    const rawVariants = playableVariants.some((asset) => asset.id === selectedAsset.id)
+      ? playableVariants
+      : [selectedAsset, ...playableVariants];
 
     const matches = rawVariants.map((asset) => {
       const arweaveUrls =

@@ -18,6 +18,7 @@ import {
   getAudioUrl,
   GoogleTTSQuotaExhaustedError,
 } from "@/lib/audio";
+import { isPlayableAudioAsset } from "@/lib/audio-assets";
 import { getArweaveGatewayUrls, uploadAudio } from "@/lib/audio-storage";
 import { getUserApiKey } from "@/lib/translation";
 
@@ -123,12 +124,12 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
     arweaveUrls?: string[];
     storageRef?: string;
   }[] = [];
-  let needsGeneration: { item: AudioItem; hash: string }[] = [];
+  let needsGeneration: { item: AudioItem; hash: string; replaceExisting?: boolean }[] = [];
 
   for (let i = 0; i < items.length; i++) {
     const hash = hashes[i];
     const existing = existingMedia.get(hash);
-    if (existing) {
+    if (isPlayableAudioAsset(existing)) {
       dedupLinks.push({
         itemId: items[i].id,
         hash,
@@ -145,7 +146,7 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
         storageRef: existing.storageRef,
       });
     } else {
-      needsGeneration.push({ item: items[i], hash });
+      needsGeneration.push({ item: items[i], hash, replaceExisting: Boolean(existing) });
     }
   }
 
@@ -330,7 +331,7 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
 
     const batch = needsGeneration.slice(i, i + CONCURRENCY);
     const batchResults = await Promise.all(
-      batch.map(async ({ item, hash }) => {
+      batch.map(async ({ item, hash, replaceExisting }) => {
         if (quotaExhaustedMessage) {
           await batchLinkAudioToItems([{
             itemId: item.id,
@@ -393,7 +394,7 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
             sizeBytes: result.sizeBytes,
           };
 
-          const asset = force
+          const asset = force || replaceExisting
             ? await upsertMediaAsset(mediaAssetData)
             : await createMediaAsset(mediaAssetData);
 

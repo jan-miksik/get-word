@@ -74,6 +74,9 @@ export function useBuildAudioStepItems({
         notes: null,
       }));
 
-    return [...mergedItems, ...fallbackItems].sort((a, b) => a.position - b.position);
+    const result = [...mergedItems, ...fallbackItems];
+    return editingCategoryId
+      ? result.sort((a, b) => a.position - b.position)
+      : result;
   }, [editingCategoryId, pendingItems, selectedListId]);
 }

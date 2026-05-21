@@ -9,6 +9,7 @@ const mockCreateList = vi.fn()
 const mockCreateCategory = vi.fn()
 const mockFindExistingTranslations = vi.fn()
 const mockFindMediaByHashes = vi.fn()
+const mockGetMediaAssetsByIds = vi.fn()
 const mockGoogleTranslate = vi.fn()
 const mockOpenRouterTranslate = vi.fn()
 const mockGetUserApiKey = vi.fn()
@@ -33,6 +34,7 @@ vi.mock('@/lib/db', () => ({
   createCategory: (...args: unknown[]) => mockCreateCategory(...args),
   findExistingTranslations: (...args: unknown[]) => mockFindExistingTranslations(...args),
   findMediaByHashes: (...args: unknown[]) => mockFindMediaByHashes(...args),
+  getMediaAssetsByIds: (...args: unknown[]) => mockGetMediaAssetsByIds(...args),
 }))
 
 vi.mock('@/lib/db/client', () => ({
@@ -88,6 +90,20 @@ describe('POST /api/lists/[id]/fork', () => {
     mockCreateCategory.mockResolvedValue({ id: 'fork-cat-1' })
     mockFindExistingTranslations.mockResolvedValue([])
     mockFindMediaByHashes.mockResolvedValue(new Map())
+    mockGetMediaAssetsByIds.mockResolvedValue(new Map([
+      ['asset-known', {
+        id: 'asset-known',
+        contentHash: 'hash-known',
+        storageType: 'arweave',
+        storageRef: 'tx-known',
+      }],
+      ['asset-target', {
+        id: 'asset-target',
+        contentHash: 'hash-target',
+        storageType: 'arweave',
+        storageRef: 'tx-target',
+      }],
+    ]))
     mockGetUserApiKey.mockResolvedValue('openrouter-key')
     mockGoogleTranslate.mockResolvedValue([
       { text: 'ahoj', translated: 'salut', status: 'ok' },

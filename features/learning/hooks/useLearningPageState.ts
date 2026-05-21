@@ -79,7 +79,7 @@ export function useLearningPageState({
     [filteredWords, progress]
   );
 
-  const { resetStablePlans, streamGroupedWords } = useLearningStreamGroups({
+  const { streamGroupedWords } = useLearningStreamGroups({
     dueWords,
     newWords,
     settlingWords,
@@ -92,10 +92,6 @@ export function useLearningPageState({
     selectedCategoriesKey,
     wordsResetKey,
   });
-
-  useEffect(() => {
-    resetStablePlans();
-  }, [selectedCategoriesKey, wordsResetKey]);
 
   const deckResetKey = `${selectedCategoriesKey}|${wordsResetKey}|${viewMode}|${dueWordsKey}`;
   if (

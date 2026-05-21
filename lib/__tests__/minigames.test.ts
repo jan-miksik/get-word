@@ -76,15 +76,43 @@ describe('injectMinigames', () => {
     });
   });
 
-  it('skips early games until four cards have been shown', () => {
+  it('supplements early games from surrounding words so the configured interval is honored', () => {
     const shortList = Array.from({ length: 6 }, (_, i) => makeWord(`w${i}`, `cz${i}`, `vi${i}`));
-    const result = injectMinigames(shortList, [], 'cz', 99, { minInterval: 1, maxInterval: 2 });
+    const result = injectMinigames(shortList, [], 'cz', 99, { minInterval: 2, maxInterval: 2 });
     const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
     expect(games.length).toBeGreaterThan(0);
-    games.forEach(game => {
-      expect(game.words.length).toBe(4);
-      expect(game.anchorOriginalIndex).toBeGreaterThanOrEqual(3);
+    expect(games[0].words.length).toBe(4);
+    expect(games[0].anchorOriginalIndex).toBe(1);
+    expect(result.slice(0, 3).map(item => '_isMinigame' in item ? item.id : item.id)).toEqual([
+      'w0',
+      'w1',
+      games[0].id,
+    ]);
+  });
+
+  it('prefers surrounding words from the same category when supplementing early games', () => {
+    const makeCategorizedWord = (id: string, category: string): NormalizedWord => ({
+      ...makeWord(id, `cz-${id}`, `vi-${id}`),
+      category: [category, 'word'],
     });
+    const mixedList = [
+      makeCategorizedWord('travel-0', 'travel'),
+      makeCategorizedWord('travel-1', 'travel'),
+      makeCategorizedWord('food-0', 'food'),
+      makeCategorizedWord('food-1', 'food'),
+      makeCategorizedWord('travel-2', 'travel'),
+      makeCategorizedWord('travel-3', 'travel'),
+    ];
+
+    const result = injectMinigames(mixedList, [], 'cz', 99, { minInterval: 2, maxInterval: 2 });
+    const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
+
+    expect(games[0].words.map(word => word.id).sort()).toEqual([
+      'travel-0',
+      'travel-1',
+      'travel-2',
+      'travel-3',
+    ]);
   });
 
   it('returns empty array for empty words', () => {
@@ -117,8 +145,7 @@ describe('injectMinigames', () => {
     });
 
     expect(gaps.length).toBeGreaterThan(2);
-    expect(gaps[0]).toBeGreaterThanOrEqual(4);
-    expect(gaps.slice(1).every(g => g >= 2 && g <= 4)).toBe(true);
+    expect(gaps.every(g => g >= 2 && g <= 4)).toBe(true);
     expect(new Set(gaps).size).toBeGreaterThan(1); // variation across insertions
   });
 

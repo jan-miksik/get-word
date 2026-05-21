@@ -108,7 +108,7 @@ export function useLearningStreamGroups({
           }
           const existing = stableMinigamePlansRef.current[kind];
 
-          let plan =
+          const plan =
             existing &&
             existing.resetKey === resetKey &&
             existing.configKey === configKey
@@ -141,21 +141,17 @@ export function useLearningStreamGroups({
 
           stableMinigamePlansRef.current[kind] = plan;
 
-          let minOrigIdx = Number.POSITIVE_INFINITY;
           let maxOrigIdx = Number.NEGATIVE_INFINITY;
           for (const word of words) {
             const originalIndex = plan.originalIndexMap.get(word.id);
             if (typeof originalIndex !== 'number' || !Number.isFinite(originalIndex)) continue;
-            if (originalIndex < minOrigIdx) minOrigIdx = originalIndex;
             if (originalIndex > maxOrigIdx) maxOrigIdx = originalIndex;
           }
 
-          if (!Number.isFinite(minOrigIdx)) minOrigIdx = 0;
           if (!Number.isFinite(maxOrigIdx)) maxOrigIdx = 0;
 
           const windowedAnchors = plan.anchors.filter(
-            (anchor) =>
-              anchor.anchorOriginalIndex >= minOrigIdx && anchor.anchorOriginalIndex <= maxOrigIdx,
+            (anchor) => anchor.anchorOriginalIndex <= maxOrigIdx,
           );
 
           const anchorsForCompose =

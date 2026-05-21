@@ -5,6 +5,7 @@ import {
   createList,
   findExistingTranslations,
   findMediaByHashes,
+  getMediaAssetsByIds,
   getListById,
   getListCategories,
   getListItems,
@@ -12,6 +13,7 @@ import {
 import { wordListItems } from "@/lib/db/schema";
 import { resolveUserFromRequest, unauthorizedResponse } from "@/lib/auth";
 import { computeContentHash } from "@/lib/audio";
+import { isPlayableAudioAsset } from "@/lib/audio-assets";
 import {
   getUserApiKey,
   googleTranslate,
@@ -43,8 +45,12 @@ function getItemTextForSide(item: SourceItem, side: ListSide): string | null {
   return side === "known" ? item.textKnown : item.textTarget;
 }
 
-function getItemAudioForSide(item: SourceItem, side: ListSide) {
-  return side === "known"
+function getItemAudioForSide(
+  item: SourceItem,
+  side: ListSide,
+  mediaAssets: Awaited<ReturnType<typeof getMediaAssetsByIds>>,
+) {
+  const audio = side === "known"
     ? {
         audioAssetId: item.knownAudioAssetId,
         audioStatus: item.knownAudioStatus,
@@ -52,6 +58,12 @@ function getItemAudioForSide(item: SourceItem, side: ListSide) {
     : {
         audioAssetId: item.audioAssetId,
         audioStatus: item.audioStatus,
+      };
+  return isPlayableAudioAsset(mediaAssets.get(audio.audioAssetId ?? ""))
+    ? audio
+    : {
+        audioAssetId: null,
+        audioStatus: "none" as const,
       };
 }
 
@@ -125,6 +137,11 @@ export async function POST(request: NextRequest, context: RouteContext) {
     getListCategories(sourceListId),
     getListItems(sourceListId),
   ]);
+  const sourceAudioAssets = await getMediaAssetsByIds(
+    sourceItems
+      .flatMap((item) => [item.knownAudioAssetId, item.audioAssetId])
+      .filter((id): id is string => Boolean(id)),
+  );
   const sourceLanguageFrom = normalizeLanguageCode(sourceList.languageFrom);
   const sourceLanguageTo = normalizeLanguageCode(sourceList.languageTo);
   const translationProvider = (
@@ -195,7 +212,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     let audioStatus: "none" | "pending" | "ready" | "failed" = "none";
 
     if (knownSourceSide && textKnown) {
-      const copied = getItemAudioForSide(item, knownSourceSide);
+      const copied = getItemAudioForSide(item, knownSourceSide, sourceAudioAssets);
       knownAudioAssetId = copied.audioAssetId ?? null;
       knownAudioStatus = copied.audioAssetId ? copied.audioStatus : "none";
     } else if (translationProvider !== "none" && requestedSourceText) {
@@ -212,7 +229,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
     }
 
     if (targetSourceSide && textTarget) {
-      const copied = getItemAudioForSide(item, targetSourceSide);
+      const copied = getItemAudioForSide(item, targetSourceSide, sourceAudioAssets);
       audioAssetId = copied.audioAssetId ?? null;
       audioStatus = copied.audioAssetId ? copied.audioStatus : "none";
     } else if (translationProvider !== "none" && requestedSourceText) {
@@ -279,20 +296,24 @@ export async function POST(request: NextRequest, context: RouteContext) {
             translationStatus: item.translationStatus,
             knownAudioAssetId:
               item.knownAudioAssetId ??
-              (item.knownHash ? mediaByHash.get(item.knownHash)?.id ?? null : null),
+              (item.knownHash && isPlayableAudioAsset(mediaByHash.get(item.knownHash))
+                ? mediaByHash.get(item.knownHash)?.id ?? null
+                : null),
             knownAudioStatus:
               item.knownAudioAssetId
                 ? item.knownAudioStatus
-                : item.knownHash && mediaByHash.has(item.knownHash)
+                : item.knownHash && isPlayableAudioAsset(mediaByHash.get(item.knownHash))
                   ? "ready" as const
                   : "none" as const,
             audioAssetId:
               item.audioAssetId ??
-              (item.targetHash ? mediaByHash.get(item.targetHash)?.id ?? null : null),
+              (item.targetHash && isPlayableAudioAsset(mediaByHash.get(item.targetHash))
+                ? mediaByHash.get(item.targetHash)?.id ?? null
+                : null),
             audioStatus:
               item.audioAssetId
                 ? item.audioStatus
-                : item.targetHash && mediaByHash.has(item.targetHash)
+                : item.targetHash && isPlayableAudioAsset(mediaByHash.get(item.targetHash))
                   ? "ready" as const
                   : "none" as const,
             notes: item.sourceItem.notes,

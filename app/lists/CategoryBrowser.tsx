@@ -5,6 +5,8 @@ import { useI18n } from '@/components/I18nProvider';
 import type { WordCategory, WordList, WordListItem } from '@/features/lists/types';
 import { ConfirmModal } from '@/components/ConfirmModal';
 
+const ALL_WORDS_CATEGORY_ID = '__all_words__';
+
 interface CategoryBrowserProps {
   list: WordList;
   categories: WordCategory[];
@@ -15,6 +17,7 @@ interface CategoryBrowserProps {
   forkedFromListName?: string | null;
   triggerEditSignal?: number;
   onEditCategory: (categoryId: string, inputLang: 'known' | 'target') => void;
+  onEditAllWords: () => void;
   onCreateCategory: (name: string) => Promise<void>;
   onUpdateList: (listId: string, data: Pick<WordList, 'name' | 'description' | 'isPublic'> & {
     isCommon?: boolean;
@@ -80,6 +83,7 @@ export function CategoryBrowser({
   forkedFromListName,
   triggerEditSignal,
   onEditCategory,
+  onEditAllWords,
   onCreateCategory,
   onUpdateList,
   onDismissForkNotice,
@@ -113,6 +117,7 @@ export function CategoryBrowser({
   const headerMenuRef = useRef<HTMLDivElement>(null);
   const canEditListMetadata = isOwner || isEditor;
   const canEditListContent = isOwner || (isEditor && Boolean(list.isCommon));
+  const canDeleteList = isOwner || (isEditor && Boolean(list.isCommon));
   const languageOptions = languages.length > 0 ? languages : [
     { code: 'cs', name: t('languageName.cs') },
     { code: 'vi', name: t('languageName.vi') },
@@ -267,7 +272,9 @@ export function CategoryBrowser({
     await onDeleteList(list.id);
   }
 
-  const totalItems = countVisibleCategoryItems(itemsByCategory, categories);
+  const allItems = getAllItemsInCategoryOrder(itemsByCategory, categories);
+  const allWordsExpanded = expandedIds.has(ALL_WORDS_CATEGORY_ID);
+  const totalItems = allItems.length;
 
   return (
     <div className="max-w-3xl mx-auto p-4 md:p-6">
@@ -442,7 +449,7 @@ export function CategoryBrowser({
               ) : null}
 
               {/* Three-dots menu next to Edit list */}
-              {(onFork || (isOwner && onDeleteList)) && (
+              {(onFork || (canDeleteList && onDeleteList)) && (
                 <div className="relative" ref={headerMenuRef}>
                   <button
                     type="button"
@@ -471,7 +478,7 @@ export function CategoryBrowser({
                           {forkingList ? t('lists.copying') : t('lists.copyList')}
                         </button>
                       )}
-                      {isOwner && onDeleteList && (
+                      {canDeleteList && onDeleteList && (
                         <>
                           {onFork && <div className="my-1 border-t border-border-subtle" />}
                           <button
@@ -502,6 +509,78 @@ export function CategoryBrowser({
 
       {/* Categories */}
       <div className="space-y-2">
+        {canEditListContent ? (
+          <div className="overflow-hidden rounded-xl border border-accent/30 bg-gradient-to-br from-accent/15 via-background-elevated to-background shadow-sm ring-1 ring-accent/10">
+            <button
+              type="button"
+              className="w-full flex items-center gap-3 px-4 py-3.5 text-left hover:bg-accent/5 transition-colors"
+              onClick={() => toggleExpand(ALL_WORDS_CATEGORY_ID)}
+            >
+              <span className="inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-accent/15 text-accent">
+                <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                  <path d="M5 5.5h10M5 10h10M5 14.5h6" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+                </svg>
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-text text-sm">{t('lists.allWords')}</span>
+                  <span className="rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-[11px] font-medium uppercase tracking-wide text-accent">
+                    {t('lists.reviewMode')}
+                  </span>
+                </div>
+                <p className="mt-0.5 text-xs text-text-soft">{t('lists.allWordsDescription')}</p>
+              </div>
+              <span className="text-xs text-text-soft">{t('lists.wordsCount', { count: totalItems })}</span>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                className={`text-accent transition-transform shrink-0 ${allWordsExpanded ? 'rotate-90' : ''}`}
+              >
+                <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
+              </svg>
+            </button>
+
+            {allWordsExpanded && (
+              <div className="border-t border-accent/20 px-4 pb-3">
+                <div className="py-2 hidden md:flex gap-2">
+                  <button
+                    type="button"
+                    className="px-3 py-1.5 rounded-lg bg-accent text-background text-xs font-semibold hover:bg-accent-strong transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onEditAllWords();
+                    }}
+                  >
+                    {t('lists.reviewAllWords')}
+                  </button>
+                  <span className="self-center text-xs text-text-soft">{t('lists.allWordsSafeEditHint')}</span>
+                </div>
+
+                {allItems.length === 0 ? (
+                  <p className="py-3 text-sm text-text-soft">{t('lists.emptyList')}</p>
+                ) : (
+                  <div className="divide-y divide-border-subtle">
+                    {allItems.map((item) => (
+                      <div key={item.id} className="flex items-center gap-3 py-2 text-sm">
+                        <span className="flex-1 text-text truncate">{item.textKnown}</span>
+                        <span className="flex-1 text-text-soft truncate">
+                          {item.textTarget ?? (
+                            <span className="italic text-fresh/70">{t('lists.missingTranslation')}</span>
+                          )}
+                        </span>
+                        {item.audioStatus === 'ready' && (
+                          <span className="text-xs text-done" title={t('lists.hasAudio')}>♪</span>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        ) : null}
+
         {categories.map((category) => {
           const catItems = itemsByCategory.get(category.id) ?? [];
           const isExpanded = expandedIds.has(category.id);
@@ -706,13 +785,22 @@ export function CategoryBrowser({
   );
 }
 
-function countVisibleCategoryItems(
+function getAllItemsInCategoryOrder(
   map: Map<string, WordListItem[]>,
   categories: WordCategory[],
-): number {
-  let count = 0;
+): WordListItem[] {
+  const items: WordListItem[] = [];
+  const seenCategoryIds = new Set<string>();
+
   for (const category of categories) {
-    count += map.get(category.id)?.length ?? 0;
+    seenCategoryIds.add(category.id);
+    items.push(...(map.get(category.id) ?? []));
   }
-  return count;
+
+  for (const [categoryId, categoryItems] of map) {
+    if (seenCategoryIds.has(categoryId)) continue;
+    items.push(...categoryItems);
+  }
+
+  return items;
 }

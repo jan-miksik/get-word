@@ -13,8 +13,7 @@ import {
   forbiddenResponse,
   isEditor,
 } from "@/lib/auth";
-import { getAudioUrl } from "@/lib/audio";
-import { getArweaveGatewayUrls } from "@/lib/audio-storage";
+import { getPlayableAudioFields } from "@/lib/audio-assets";
 import { normalizeLanguageCode } from "@/lib/i18n/languages";
 
 type RouteContext = { params: Promise<{ id: string }> };
@@ -32,27 +31,7 @@ function hydrateSingleAudioAsset(
     };
   }
 
-  const asset = mediaAssets.get(audioAssetId);
-  if (!asset) {
-    return {
-      url: null,
-      arweaveUrl: null,
-      arweaveUrls: [] as string[],
-      storageRef: null,
-    };
-  }
-
-  const arweaveUrls =
-    asset.storageType === "arweave"
-      ? getArweaveGatewayUrls(asset.storageRef)
-      : [];
-
-  return {
-    url: getAudioUrl(asset.contentHash),
-    arweaveUrl: arweaveUrls[0] ?? null,
-    arweaveUrls,
-    storageRef: asset.storageRef,
-  };
+  return getPlayableAudioFields(mediaAssets.get(audioAssetId));
 }
 
 function getHydratedAudioFields(
@@ -187,7 +166,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
   if (!list) {
     return NextResponse.json({ error: "List not found" }, { status: 404 });
   }
-  if (list.ownerId !== user.id) {
+  if (list.ownerId !== user.id && !(list.isCommon && isEditor(user))) {
     return forbiddenResponse("Only the list owner can delete it");
   }
 

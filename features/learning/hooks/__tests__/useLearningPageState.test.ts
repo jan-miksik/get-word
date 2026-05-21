@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 
 import { useLearningPageState } from '../useLearningPageState';
 import type { ProgressData } from '@/lib/sync';
+import type { MiniGameConfig } from '@/lib/minigames';
 import type { NormalizedWord } from '@/lib/words';
 
 function makeWord(
@@ -30,6 +31,12 @@ function visibleWordIds(groups: ReturnType<typeof useLearningPageState>['cardDec
     .flat()
     .filter((item): item is NormalizedWord => !('_isMinigame' in item))
     .map((word) => word.id);
+}
+
+function visibleItems(groups: ReturnType<typeof useLearningPageState>['streamGroupedWords']) {
+  return groups
+    .flat()
+    .map((item) => '_isMinigame' in item ? `game:${item.anchorOriginalIndex}` : item.id);
 }
 
 describe('useLearningPageState', () => {
@@ -182,5 +189,55 @@ describe('useLearningPageState', () => {
     rerender({ progress: dueProgress });
 
     expect(visibleWordIds(result.current.cardDeckGroups)).toEqual(['review-1', 'new-1']);
+  });
+
+  it('keeps an early pending minigame available as fresh-user cards are learned on the go', () => {
+    const now = Date.now();
+    const words = Array.from({ length: 6 }, (_, index) =>
+      makeWord(`new-${index}`, 'list-a', 'basics', 0, index)
+    );
+    const selectedCategories = new Set<string>();
+    const learnedProgress: Record<string, ProgressData> = {
+      'new-0': {
+        stageIndex: 1,
+        knownCount: 1,
+        unknownCount: 0,
+        nextDueAt: now + 60_000,
+      },
+      'new-1': {
+        stageIndex: 1,
+        knownCount: 1,
+        unknownCount: 0,
+        nextDueAt: now + 60_000,
+      },
+    };
+
+    const { result, rerender } = renderHook(
+      ({ progress }) =>
+        useLearningPageState({
+          activeWords: words,
+          filteredWords: words,
+          selectedCategories,
+          progress,
+          isHydrated: true,
+          viewMode: 'stream',
+          minigameFrequency: { min: 2, max: 2 },
+          categoryOrder: [],
+        }),
+      { initialProps: { progress: {} as Record<string, ProgressData> } }
+    );
+
+    const initialGame = result.current.streamGroupedWords
+      .flat()
+      .find((item): item is MiniGameConfig => '_isMinigame' in item);
+    expect(initialGame?.anchorOriginalIndex).toBe(1);
+
+    rerender({ progress: learnedProgress });
+
+    expect(visibleItems(result.current.streamGroupedWords).slice(0, 3)).toEqual([
+      'game:1',
+      'new-2',
+      'new-3',
+    ]);
   });
 });

@@ -131,7 +131,12 @@ describe('POST /api/audio/generate/batch', () => {
 
   it('returns dedup results when all items have existing audio', async () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
-    const existingAsset = { id: 'asset-1', contentHash: 'hash_xin chào_vi_google_tts' }
+    const existingAsset = {
+      id: 'asset-1',
+      contentHash: 'hash_xin chào_vi_google_tts',
+      storageType: 'arweave',
+      storageRef: 'tx-existing',
+    }
     mockFindMediaByHashes.mockResolvedValue(new Map([['hash_xin chào_vi_google_tts', existingAsset]]))
     mockBatchLinkAudioToItems.mockResolvedValue(undefined)
 
@@ -398,7 +403,12 @@ describe('POST /api/audio/generate/batch', () => {
 
   it('handles mixed dedup and generation', async () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
-    const existingAsset = { id: 'asset-existing', contentHash: 'hash_hello_vi_google_tts' }
+    const existingAsset = {
+      id: 'asset-existing',
+      contentHash: 'hash_hello_vi_google_tts',
+      storageType: 'arweave',
+      storageRef: 'tx-existing',
+    }
     mockFindMediaByHashes.mockResolvedValue(new Map([['hash_hello_vi_google_tts', existingAsset]]))
     mockGoogleTTS.mockResolvedValue({ audio: Buffer.from('audio'), sizeBytes: 5 })
     mockUploadAudio.mockResolvedValue({

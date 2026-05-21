@@ -463,6 +463,24 @@ describe('DELETE /api/lists/[id]', () => {
     expect(res.status).toBe(403)
   })
 
+  it('lets editors delete the common seed list', async () => {
+    mockResolveUserFromRequest.mockResolvedValue({ ...testUser, userRole: 'editor' })
+    mockGetListById.mockResolvedValue({
+      ...publicList,
+      id: 'common-list',
+      ownerId: null,
+      isCommon: true,
+    })
+    mockDeleteList.mockResolvedValue(true)
+    const req = new NextRequest('http://localhost:3000/api/lists/common-list', { method: 'DELETE' })
+    const res = await DELETE(req, { params: Promise.resolve({ id: 'common-list' }) })
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(mockDeleteList).toHaveBeenCalledWith('common-list')
+  })
+
   it('deletes list', async () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
     mockGetListById.mockResolvedValue(testList)

@@ -8,8 +8,7 @@ import {
   getWordListsByIds,
 } from '@/lib/db';
 import { rekeyByItemId } from '@/features/shared/sync/identity';
-import { getAudioUrl } from '@/lib/audio';
-import { getArweaveGatewayUrls } from '@/lib/audio-storage';
+import { getPlayableAudioFields } from '@/lib/audio-assets';
 import { DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE } from '@/lib/words';
 
 type HydratedWordListItems = Awaited<ReturnType<typeof getUserSubscribedItems>>;
@@ -40,27 +39,7 @@ function hydrateSingleAudioAsset(
     };
   }
 
-  const asset = mediaAssets.get(audioAssetId);
-  if (!asset) {
-    return {
-      url: null,
-      arweaveUrl: null,
-      arweaveUrls: [] as string[],
-      storageRef: null,
-    };
-  }
-
-  const arweaveUrls =
-    asset.storageType === 'arweave'
-      ? getArweaveGatewayUrls(asset.storageRef)
-      : [];
-
-  return {
-    url: getAudioUrl(asset.contentHash),
-    arweaveUrl: arweaveUrls[0] ?? null,
-    arweaveUrls,
-    storageRef: asset.storageRef,
-  };
+  return getPlayableAudioFields(mediaAssets.get(audioAssetId));
 }
 
 function getHydratedAudioFields(

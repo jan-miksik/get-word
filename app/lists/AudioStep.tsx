@@ -116,8 +116,17 @@ type TtsLanguageOption = {
 };
 
 const AUDIO_LOG_PREFIX = '[Get Word audio]';
+const AUDIO_REUSE_BATCH_SIZE = 200;
 const GOOGLE_TTS_VOICE_STORAGE_PREFIX = 'wordlink-list-google-tts-voice';
 type TranslateFn = (key: I18nKey, values?: Record<string, string | number>) => string;
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) {
+    chunks.push(items.slice(i, i + size));
+  }
+  return chunks;
+}
 
 function readStorageValue(key: string): string | null {
   if (typeof window === 'undefined') return null;
@@ -321,23 +330,27 @@ function buildAudioRows(items: WordListItem[], list: WordList, audioSide: AudioS
 
   return items
     .filter((item) => Boolean(isKnownSide ? item.textKnown : item.textTarget))
-    .map((item) => ({
-      id: item.id,
-      audioAssetId: isKnownSide ? item.knownAudioAssetId ?? null : item.audioAssetId ?? null,
-      knownText: item.textKnown,
-      targetText: item.textTarget ?? '',
-      audioText: isKnownSide ? item.textKnown : item.textTarget ?? '',
-      supportingText: isKnownSide ? item.textTarget ?? '' : item.textKnown,
-      language: isKnownSide ? list.languageFrom : list.languageTo,
-      audioUrl: isKnownSide ? item.knownAudioUrl ?? null : item.audioUrl ?? null,
-      arweaveUrl: isKnownSide ? item.knownAudioArweaveUrl ?? null : item.audioArweaveUrl ?? null,
-      arweaveUrls: isKnownSide ? item.knownAudioArweaveUrls ?? [] : item.audioArweaveUrls ?? [],
-      storageRef: isKnownSide ? item.knownAudioStorageRef ?? null : item.audioStorageRef ?? null,
-      reusableOptions: [],
-      selectedReusableAssetId: isKnownSide ? item.knownAudioAssetId ?? null : item.audioAssetId ?? null,
-      reuseStatus: 'unchecked',
-      audioStatus: (isKnownSide ? item.knownAudioStatus : item.audioStatus ?? 'none') as AudioRow['audioStatus'],
-    }));
+    .map((item) => {
+      const audioUrl = isKnownSide ? item.knownAudioUrl ?? null : item.audioUrl ?? null;
+      const rawAudioStatus = (isKnownSide ? item.knownAudioStatus : item.audioStatus ?? 'none') as AudioRow['audioStatus'];
+      return {
+        id: item.id,
+        audioAssetId: isKnownSide ? item.knownAudioAssetId ?? null : item.audioAssetId ?? null,
+        knownText: item.textKnown,
+        targetText: item.textTarget ?? '',
+        audioText: isKnownSide ? item.textKnown : item.textTarget ?? '',
+        supportingText: isKnownSide ? item.textTarget ?? '' : item.textKnown,
+        language: isKnownSide ? list.languageFrom : list.languageTo,
+        audioUrl,
+        arweaveUrl: isKnownSide ? item.knownAudioArweaveUrl ?? null : item.audioArweaveUrl ?? null,
+        arweaveUrls: isKnownSide ? item.knownAudioArweaveUrls ?? [] : item.audioArweaveUrls ?? [],
+        storageRef: isKnownSide ? item.knownAudioStorageRef ?? null : item.audioStorageRef ?? null,
+        reusableOptions: [],
+        selectedReusableAssetId: isKnownSide ? item.knownAudioAssetId ?? null : item.audioAssetId ?? null,
+        reuseStatus: 'unchecked',
+        audioStatus: rawAudioStatus === 'ready' && !audioUrl ? 'none' : rawAudioStatus,
+      };
+    });
 }
 
 function getSelectedReusableOption(row: AudioRow): AudioVariant | null {
@@ -631,42 +644,47 @@ export function AudioStep({
 
   const lookupReusableAudio = useCallback(async (targetRows: AudioRow[], link = false) => {
     if (targetRows.length === 0) return;
+    const targetIds = new Set(targetRows.map((row) => row.id));
 
     setRows((prev) =>
       prev.map((row) =>
-        targetRows.some((target) => target.id === row.id)
+        targetIds.has(row.id)
           ? { ...row, reuseStatus: 'checking' as const }
           : row,
       ),
     );
 
     try {
-      const res = await listsApiFetch('/api/audio/reuse/batch', {
-        method: 'POST',
-        body: JSON.stringify({
-          items: targetRows.map((row) => ({
-            id: row.id,
-            text: row.audioText,
-            language: row.language,
-            selected_asset_id: row.selectedReusableAssetId ?? undefined,
-          })),
-          provider: 'google_tts',
-          ...(googleVoiceIdForRequest ? { voice_id: googleVoiceIdForRequest } : {}),
-          audio_field: audioSide,
-          link,
-        }),
-      });
+      const results: AudioReuseResult[] = [];
+      for (const batchRows of chunkArray(targetRows, AUDIO_REUSE_BATCH_SIZE)) {
+        const res = await listsApiFetch('/api/audio/reuse/batch', {
+          method: 'POST',
+          body: JSON.stringify({
+            items: batchRows.map((row) => ({
+              id: row.id,
+              text: row.audioText,
+              language: row.language,
+              selected_asset_id: row.selectedReusableAssetId ?? undefined,
+            })),
+            provider: 'google_tts',
+            ...(googleVoiceIdForRequest ? { voice_id: googleVoiceIdForRequest } : {}),
+            audio_field: audioSide,
+            link,
+          }),
+        });
 
-      const payload = await readDebugResponse(res);
-      if (!res.ok) {
-        throw new Error(getErrorFromPayload(payload, t));
-      }
-      if (!payload.json || typeof payload.json !== 'object') {
-        throw new Error(t('lists.audioReuseInvalidResponse'));
+        const payload = await readDebugResponse(res);
+        if (!res.ok) {
+          throw new Error(getErrorFromPayload(payload, t));
+        }
+        if (!payload.json || typeof payload.json !== 'object') {
+          throw new Error(t('lists.audioReuseInvalidResponse'));
+        }
+
+        const data = payload.json as { results?: unknown };
+        results.push(...((Array.isArray(data.results) ? data.results : []) as AudioReuseResult[]));
       }
 
-      const data = payload.json as { results?: unknown };
-      const results = (Array.isArray(data.results) ? data.results : []) as AudioReuseResult[];
       const resultMap = new Map<string, AudioReuseResult>();
       for (const result of results) resultMap.set(result.id, result);
 
@@ -724,7 +742,7 @@ export function AudioStep({
       console.error(AUDIO_LOG_PREFIX, 'audio reuse lookup failed', err);
       setRows((prev) =>
         prev.map((row) =>
-          targetRows.some((target) => target.id === row.id)
+          targetIds.has(row.id)
             ? { ...row, reuseStatus: 'error' as const }
             : row,
         ),

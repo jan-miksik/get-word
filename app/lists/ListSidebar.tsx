@@ -99,10 +99,16 @@ export function ListSidebar({
   const [deleteConfirm, setDeleteConfirm] = useState<WordList | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const isManagedList = (list: WordList) =>
-    (list.isOwner ?? list.ownerId !== null) || (canManageCommonLists && Boolean(list.isCommon));
-  const ownLists = lists.filter(isManagedList);
-  const publicLists = lists.filter((l) => !isManagedList(l) && l.isPublic);
+  const isOwnedList = (list: WordList) => list.isOwner ?? list.ownerId !== null;
+  const canManageSharedList = (list: WordList) => canManageCommonLists && Boolean(list.isCommon);
+  const canManageList = (list: WordList) => isOwnedList(list) || canManageSharedList(list);
+  const curatedLists = lists.filter((list) => list.isPublic && Boolean(list.isRecommended));
+  const ownLists = lists.filter((list) => isOwnedList(list) && !curatedLists.some((curated) => curated.id === list.id));
+  const publicLists = lists.filter((list) =>
+    list.isPublic &&
+    !list.isRecommended &&
+    !isOwnedList(list)
+  );
 
   useEffect(() => {
     if (openCreateSignal > 0) {
@@ -234,7 +240,7 @@ export function ListSidebar({
             {ownLists.map((list) => {
               const isForking = togglingId === `fork:${list.id}`;
               const isDropdownOpen = openDropdownId === list.id;
-              const canDelete = list.isOwner ?? list.ownerId !== null;
+              const canDelete = canManageList(list);
 
               return (
                 <div
@@ -324,13 +330,150 @@ export function ListSidebar({
           </div>
         )}
 
-        {publicLists.length > 0 && (
+        {curatedLists.length > 0 && (
           <div className="mb-4">
             <h3 className="px-2 py-1 text-xs font-medium text-text-soft uppercase tracking-wide">
               {t('lists.curatedLists')}
             </h3>
+            {curatedLists.map((list) => {
+              const isSubscribed = subscribedListIds.has(list.id);
+              const canSubscribe = !isOwnedList(list);
+              const canEdit = canManageList(list);
+              const canDelete = canManageList(list);
+              const isToggling = togglingId === list.id;
+              const isForking = togglingId === `fork:${list.id}`;
+              const isDropdownOpen = openDropdownId === `cur:${list.id}`;
+
+              return (
+                <div
+                  key={list.id}
+                  className={`group flex items-stretch gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                    selectedListId === list.id
+                      ? 'bg-accent/15'
+                      : 'hover:bg-background/50'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    className={`min-w-0 flex-1 rounded-md px-2 py-1.5 text-left transition-colors ${
+                      selectedListId === list.id
+                        ? 'bg-background/60 text-accent'
+                        : 'text-text hover:bg-background/60'
+                    }`}
+                    onClick={() => onSelectList(list.id)}
+                  >
+                    <div className="font-medium truncate">{list.name}</div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-text-soft">
+                      <span>{list.languageFrom} → {list.languageTo}</span>
+                      <ListBadges list={list} />
+                    </div>
+                  </button>
+
+                  <div className="flex shrink-0 items-center gap-2 border-l border-border-subtle pl-3">
+                    {canSubscribe && (
+                      <button
+                        type="button"
+                        disabled={isToggling}
+                        className={`relative h-5 w-10 shrink-0 rounded-full transition-colors ${
+                          isSubscribed ? 'bg-accent' : 'bg-border-subtle'
+                        } ${isToggling ? 'opacity-50' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleSubscription(list.id);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        title={isSubscribed ? t('lists.unsubscribe') : t('lists.subscribe')}
+                        aria-label={`${isSubscribed ? t('lists.unsubscribe') : t('lists.subscribe')} ${list.name}`}
+                      >
+                        <div
+                          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
+                            isSubscribed ? 'translate-x-5' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </button>
+                    )}
+
+                    {(onFork || canEdit || canDelete) && (
+                      <div className="relative shrink-0" ref={isDropdownOpen ? dropdownRef : undefined}>
+                        <button
+                          type="button"
+                          className="p-1.5 rounded-md text-text-soft opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 group-focus-within:opacity-100 hover:text-text hover:bg-background/80 focus-visible:opacity-100 data-[open=true]:opacity-100"
+                          data-open={isDropdownOpen}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setOpenDropdownId((prev) => (prev === `cur:${list.id}` ? null : `cur:${list.id}`));
+                          }}
+                          disabled={isForking}
+                          aria-label={t('lists.optionsFor', { name: list.name })}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                            <circle cx="10" cy="4" r="1.5" />
+                            <circle cx="10" cy="10" r="1.5" />
+                            <circle cx="10" cy="16" r="1.5" />
+                          </svg>
+                        </button>
+
+                        {isDropdownOpen && (
+                          <div className="absolute right-0 top-full mt-1 z-50 min-w-[130px] rounded-lg border border-border-subtle bg-background shadow-lg py-1">
+                            {onFork && (
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-background-elevated transition-colors"
+                                onClick={() => handleFork(list.id)}
+                                disabled={isForking}
+                              >
+                                <ForkIcon />
+                                {isForking ? t('lists.copying') : t('lists.copyList')}
+                              </button>
+                            )}
+                            {canEdit && (
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-background-elevated transition-colors"
+                                onClick={() => handleEditClick(list.id)}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+                                  <path d="M11.5 4.5l4 4L7 17H3v-4L11.5 4.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                                {t('lists.edit')}
+                              </button>
+                            )}
+                            {canDelete && (
+                              <>
+                                {(onFork || canEdit) && <div className="my-1 border-t border-border-subtle" />}
+                                <button
+                                  type="button"
+                                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-danger hover:bg-danger/10 transition-colors"
+                                  onClick={() => handleDeleteClick(list)}
+                                >
+                                  <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+                                    <path d="M4 6h12M8 3h4M7 6v10m6-10v10M6 6l.6 10.2A1 1 0 007.6 17h4.8a1 1 0 001-.8L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                  </svg>
+                                  {t('lists.delete')}
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {publicLists.length > 0 && (
+          <div className="mb-4">
+            <h3 className="px-2 py-1 text-xs font-medium text-text-soft uppercase tracking-wide">
+              {t('lists.publicLists')}
+            </h3>
             {publicLists.map((list) => {
               const isSubscribed = subscribedListIds.has(list.id);
+              const canSubscribe = !isOwnedList(list);
+              const canEdit = canManageList(list);
+              const canDelete = canManageList(list);
               const isToggling = togglingId === list.id;
               const isForking = togglingId === `fork:${list.id}`;
               const isDropdownOpen = openDropdownId === `pub:${list.id}`;
@@ -361,30 +504,31 @@ export function ListSidebar({
                   </button>
 
                   <div className="flex shrink-0 items-center gap-2 border-l border-border-subtle pl-3">
-                    {/* Subscription toggle */}
-                    <button
-                      type="button"
-                      disabled={isToggling}
-                      className={`relative h-5 w-10 shrink-0 rounded-full transition-colors ${
-                        isSubscribed ? 'bg-accent' : 'bg-border-subtle'
-                      } ${isToggling ? 'opacity-50' : ''}`}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleToggleSubscription(list.id);
-                      }}
-                      onPointerDown={(e) => e.stopPropagation()}
-                      title={isSubscribed ? t('lists.unsubscribe') : t('lists.subscribe')}
-                      aria-label={`${isSubscribed ? t('lists.unsubscribe') : t('lists.subscribe')} ${list.name}`}
-                    >
-                      <div
-                        className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
-                          isSubscribed ? 'translate-x-5' : 'translate-x-0.5'
-                        }`}
-                      />
-                    </button>
+                    {canSubscribe && (
+                      <button
+                        type="button"
+                        disabled={isToggling}
+                        className={`relative h-5 w-10 shrink-0 rounded-full transition-colors ${
+                          isSubscribed ? 'bg-accent' : 'bg-border-subtle'
+                        } ${isToggling ? 'opacity-50' : ''}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleSubscription(list.id);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        title={isSubscribed ? t('lists.unsubscribe') : t('lists.subscribe')}
+                        aria-label={`${isSubscribed ? t('lists.unsubscribe') : t('lists.subscribe')} ${list.name}`}
+                      >
+                        <div
+                          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition-transform ${
+                            isSubscribed ? 'translate-x-5' : 'translate-x-0.5'
+                          }`}
+                        />
+                      </button>
+                    )}
 
                     {/* Three-dots for public lists */}
-                    {onFork && (
+                    {(onFork || canEdit || canDelete) && (
                       <div className="relative shrink-0" ref={isDropdownOpen ? dropdownRef : undefined}>
                         <button
                           type="button"
@@ -406,15 +550,44 @@ export function ListSidebar({
 
                         {isDropdownOpen && (
                           <div className="absolute right-0 top-full mt-1 z-50 min-w-[130px] rounded-lg border border-border-subtle bg-background shadow-lg py-1">
-                            <button
-                              type="button"
-                              className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-background-elevated transition-colors"
-                              onClick={() => handleFork(list.id)}
-                              disabled={isForking}
-                            >
-                              <ForkIcon />
-                              {isForking ? t('lists.copying') : t('lists.copyList')}
-                            </button>
+                            {onFork && (
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-background-elevated transition-colors"
+                                onClick={() => handleFork(list.id)}
+                                disabled={isForking}
+                              >
+                                <ForkIcon />
+                                {isForking ? t('lists.copying') : t('lists.copyList')}
+                              </button>
+                            )}
+                            {canEdit && (
+                              <button
+                                type="button"
+                                className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-background-elevated transition-colors"
+                                onClick={() => handleEditClick(list.id)}
+                              >
+                                <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+                                  <path d="M11.5 4.5l4 4L7 17H3v-4L11.5 4.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                                {t('lists.edit')}
+                              </button>
+                            )}
+                            {canDelete && (
+                              <>
+                                {(onFork || canEdit) && <div className="my-1 border-t border-border-subtle" />}
+                                <button
+                                  type="button"
+                                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-danger hover:bg-danger/10 transition-colors"
+                                  onClick={() => handleDeleteClick(list)}
+                                >
+                                  <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+                                    <path d="M4 6h12M8 3h4M7 6v10m6-10v10M6 6l.6 10.2A1 1 0 007.6 17h4.8a1 1 0 001-.8L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                                  </svg>
+                                  {t('lists.delete')}
+                                </button>
+                              </>
+                            )}
                           </div>
                         )}
                       </div>

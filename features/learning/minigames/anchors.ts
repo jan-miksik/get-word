@@ -9,6 +9,60 @@ import type {
 } from './types';
 
 const GAME_TYPES: GameType[] = ['multipleChoice', 'typing', 'matching'];
+const STRUCTURAL_CATEGORIES = new Set(['word', 'phrase']);
+
+function getLearningCategories(word: NormalizedWord): string[] {
+  return word.category.filter((category) => !STRUCTURAL_CATEGORIES.has(category));
+}
+
+function sharesLearningScope(anchor: NormalizedWord, candidate: NormalizedWord): boolean {
+  const anchorCategories = getLearningCategories(anchor);
+  const candidateCategories = getLearningCategories(candidate);
+
+  if (anchorCategories.length === 0 || candidateCategories.length === 0) {
+    return anchorCategories.length === candidateCategories.length;
+  }
+
+  const candidateSet = new Set(candidateCategories);
+  return anchorCategories.some((category) => candidateSet.has(category));
+}
+
+function buildGameWordPool(
+  originalWords: NormalizedWord[],
+  anchorIndex: number,
+  streamAboveWindow: number,
+): NormalizedWord[] {
+  const anchorWord = originalWords[anchorIndex];
+  const pool = originalWords.slice(
+    Math.max(0, anchorIndex + 1 - streamAboveWindow),
+    anchorIndex + 1,
+  );
+
+  if (pool.length >= 4 || !anchorWord) return pool;
+
+  const selectedIds = new Set(pool.map((word) => word.id));
+  const scopedSurrounding: NormalizedWord[] = [];
+  const fallbackSurrounding: NormalizedWord[] = [];
+
+  const collect = (word: NormalizedWord | undefined) => {
+    if (!word || selectedIds.has(word.id)) return;
+    selectedIds.add(word.id);
+    if (sharesLearningScope(anchorWord, word)) scopedSurrounding.push(word);
+    else fallbackSurrounding.push(word);
+  };
+
+  for (let distance = 1; pool.length + scopedSurrounding.length < 4; distance += 1) {
+    const beforeIndex = anchorIndex - distance;
+    const afterIndex = anchorIndex + distance;
+    if (beforeIndex < 0 && afterIndex >= originalWords.length) break;
+
+    collect(originalWords[afterIndex]);
+    collect(originalWords[beforeIndex]);
+  }
+
+  const scopedPool = [...pool, ...scopedSurrounding];
+  return scopedPool.length >= 4 ? scopedPool : [...scopedPool, ...fallbackSurrounding];
+}
 
 export function computeGameAnchors(
   originalWords: NormalizedWord[],
@@ -138,10 +192,7 @@ export function computeGameAnchors(
     const randType = createRng(mixSeed(baseSeed, mixSeed(anchorIndex + 1, 8000 + slotIndex)));
     const gameType = pickGameType(slotIndex, lastGameType, randType);
 
-    const pool = originalWords.slice(
-      Math.max(0, anchorIndex + 1 - streamAboveWindow),
-      anchorIndex + 1,
-    );
+    const pool = buildGameWordPool(originalWords, anchorIndex, streamAboveWindow);
 
     if (pool.length < 4) {
       anchors.push(null);
