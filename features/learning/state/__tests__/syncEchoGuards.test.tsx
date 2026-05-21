@@ -29,7 +29,7 @@ const baseUser = {
   show_category_badges: false,
   show_pronunciation: false,
   memory_hooks_enabled: true,
-  memory_hook_disable_from_stage: 8,
+  memory_hook_disable_from_stage: 5,
   settings_language: 'en',
   settings_language_selected_at: '2026-05-01T00:00:00.000Z',
   category_order: ['animals', 'travel'],

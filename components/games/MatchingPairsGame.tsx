@@ -11,6 +11,7 @@ import {
   type PromptMode,
   type SourceLang,
 } from './types';
+import { useI18n } from '@/components/I18nProvider';
 
 interface Props {
   words: NormalizedWord[];
@@ -32,6 +33,7 @@ export function MatchingPairsGame({
   level = 1,
   onResult,
 }: Props) {
+  const { t } = useI18n();
   const rightOrder = useMemo(
     () => [...words].sort(() => Math.random() - 0.5),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -196,7 +198,7 @@ export function MatchingPairsGame({
 
   return (
     <article className="phrase-card game-card game-card--matching">
-      <div className="game-badge">🔗 Match</div>
+      <div className="game-badge">🔗 {t('game.match')}</div>
 
       <div className="game-match-grid">
         <div className="game-match-col">
@@ -211,7 +213,7 @@ export function MatchingPairsGame({
                 disabled={matched.has(w.id) || !!wrongPair}
                 aria-label={
                   effectivePromptMode === 'audio'
-                    ? `Play ${promptNumberById.get(w.id) ?? ''}`.trim()
+                    ? t('game.playPrompt', { number: promptNumberById.get(w.id) ?? '' }).trim()
                     : undefined
                 }
               >
@@ -241,7 +243,7 @@ export function MatchingPairsGame({
       </div>
 
       {isComplete ? (
-        <div className="game-feedback game-feedback--exact">✓ All matched!</div>
+        <div className="game-feedback game-feedback--exact">✓ {t('game.allMatched')}</div>
       ) : (
         <div className="min-h-[44px]" aria-hidden="true" />
       )}

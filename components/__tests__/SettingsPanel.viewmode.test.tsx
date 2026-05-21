@@ -14,7 +14,7 @@ vi.mock('@/context/AppStateContext', () => ({
     setShowPronunciation: vi.fn(),
     memoryHooksEnabled: true,
     setMemoryHooksEnabled: vi.fn(),
-    memoryHookDisableFromStage: 8,
+    memoryHookDisableFromStage: 5,
     setMemoryHookDisableFromStage: vi.fn(),
     settingsLanguage: 'en',
     settingsLanguageSelectedAt: '2026-05-01T00:00:00.000Z',

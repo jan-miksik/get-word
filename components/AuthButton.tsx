@@ -1,6 +1,7 @@
 'use client'
 
 import { useAuth } from '@/hooks/useAuth'
+import { useI18n } from '@/components/I18nProvider'
 
 interface AuthButtonProps {
   /** When true, show as logged in (from Reown or from server-linked account) */
@@ -15,6 +16,7 @@ interface AuthButtonProps {
 
 export function AuthButton({ isAuthenticated: propAuthenticated, authEmail: propEmail, authAddress: propAddress, size = 'default' }: AuthButtonProps = {}) {
   const { isConnected, email, address, signIn, openAccountMenu } = useAuth()
+  const { t } = useI18n()
 
   const isAuthenticated = propAuthenticated ?? isConnected
   const displayEmail = propEmail ?? email
@@ -23,12 +25,12 @@ export function AuthButton({ isAuthenticated: propAuthenticated, authEmail: prop
   if (isAuthenticated) {
     const displayName =
       displayEmail ||
-      (displayAddress ? `${displayAddress.slice(0, 6)}...${displayAddress.slice(-4)}` : 'Account linked')
+      (displayAddress ? `${displayAddress.slice(0, 6)}...${displayAddress.slice(-4)}` : t('auth.accountLinked'))
     return (
       <button
         onClick={openAccountMenu}
         className="auth-button is-connected"
-        title={`Signed in as ${displayName}. Click for account options.`}
+        title={t('auth.signedInAs', { name: displayName })}
       >
         <span className="auth-dot" />
         <span className="auth-label">{displayName}</span>
@@ -40,9 +42,9 @@ export function AuthButton({ isAuthenticated: propAuthenticated, authEmail: prop
     <button
       onClick={signIn}
       className={size === 'large' ? 'auth-button auth-button--large' : 'auth-button'}
-      title="Connect to sync across devices"
+      title={t('auth.connectTooltip')}
     >
-      Connect
+      {t('auth.connectButton')}
     </button>
   )
 }

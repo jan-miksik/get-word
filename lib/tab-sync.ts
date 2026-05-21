@@ -3,14 +3,14 @@ import type { ReviewEventPayload } from "./review-events";
 
 const CHANNEL_NAME = "wordlink-sync";
 
-export type WordlinkTabMessage =
+export type GetWordTabMessage =
   | { type: "review_event"; sessionId: string; event: ReviewEventPayload }
   | { type: "memory_hook_changed"; sessionId: string; wordId: string; hook: string }
   | { type: "preferences_changed"; sessionId: string; patch: Record<string, unknown> }
   | { type: "category_filters_changed"; sessionId: string; scopeKey: string; categories: string[] }
   | { type: "game_score_changed"; sessionId: string; score: number };
 
-type OutboundWordlinkTabMessage = WordlinkTabMessage extends infer Message
+type OutboundGetWordTabMessage = GetWordTabMessage extends infer Message
   ? Message extends { sessionId: string }
     ? Omit<Message, "sessionId">
     : never
@@ -23,7 +23,7 @@ function openChannel(): BroadcastChannel | null {
   return new BroadcastChannel(CHANNEL_NAME);
 }
 
-export function postTabMessage(message: OutboundWordlinkTabMessage): void {
+export function postTabMessage(message: OutboundGetWordTabMessage): void {
   const channel = openChannel();
   if (!channel) return;
   channel.postMessage({ ...message, sessionId: getSessionId() });
@@ -31,12 +31,12 @@ export function postTabMessage(message: OutboundWordlinkTabMessage): void {
 }
 
 export function subscribeTabMessages(
-  handler: (message: WordlinkTabMessage) => void
+  handler: (message: GetWordTabMessage) => void
 ): () => void {
   const channel = openChannel();
   if (!channel) return () => {};
 
-  const listener = (event: MessageEvent<WordlinkTabMessage>) => {
+  const listener = (event: MessageEvent<GetWordTabMessage>) => {
     const message = event.data;
     if (!message || message.sessionId === getSessionId()) return;
     handler(message);

@@ -1,4 +1,11 @@
 import { TurboFactory, type ArweaveJWK } from "@ardrive/turbo-sdk";
+export {
+  getArweaveGatewayBaseUrl,
+  getArweaveGatewayBaseUrls,
+  getArweaveGatewayUrl,
+  getArweaveGatewayUrls,
+} from "@/lib/arweave-gateways";
+import { getArweaveGatewayUrl, getArweaveGatewayUrls } from "@/lib/arweave-gateways";
 
 type UploadAudioMetadata = {
   contentHash: string;
@@ -63,37 +70,6 @@ function getTurboClient() {
   return turboClient;
 }
 
-const DEFAULT_ARWEAVE_GATEWAYS = [
-  "https://turbo-gateway.com",
-  "https://arweave.net",
-  "https://ar-io.net",
-];
-
-function normalizeGatewayUrl(url: string): string {
-  return url.trim().replace(/\/+$/, "");
-}
-
-export function getArweaveGatewayBaseUrls(): string[] {
-  const configured = process.env.ARWEAVE_GATEWAY_URL
-    ?.split(",")
-    .map(normalizeGatewayUrl)
-    .filter(Boolean) ?? [];
-
-  return Array.from(new Set([...configured, ...DEFAULT_ARWEAVE_GATEWAYS]));
-}
-
-export function getArweaveGatewayBaseUrl(): string {
-  return getArweaveGatewayBaseUrls()[0];
-}
-
-export function getArweaveGatewayUrl(storageRef: string): string {
-  return `${getArweaveGatewayBaseUrl()}/${storageRef}`;
-}
-
-export function getArweaveGatewayUrls(storageRef: string): string[] {
-  return getArweaveGatewayBaseUrls().map((baseUrl) => `${baseUrl}/${storageRef}`);
-}
-
 export async function uploadAudio(
   audio: Buffer,
   metadata: UploadAudioMetadata,
@@ -103,7 +79,7 @@ export async function uploadAudio(
     data: audio,
     dataItemOpts: {
       tags: [
-        { name: "App-Name", value: "Wordlink" },
+        { name: "App-Name", value: "Get Word" },
         { name: "Content-Type", value: "audio/mpeg" },
         { name: "Content-Hash", value: metadata.contentHash },
         { name: "Language", value: metadata.language },

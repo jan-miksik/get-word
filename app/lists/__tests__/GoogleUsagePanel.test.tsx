@@ -43,12 +43,12 @@ describe('GoogleUsagePanel', () => {
       />,
     );
 
-    expect(screen.getByText('Google API Usage')).toBeInTheDocument();
-    expect(screen.getByText('This account')).toBeInTheDocument();
-    expect(screen.getByText('All accounts')).toBeInTheDocument();
-    expect(screen.getByText('Paused')).toBeInTheDocument();
-    expect(screen.getByText(/25,000 \/ 25,000 free chars on this account/i)).toBeInTheDocument();
-    expect(screen.getByText(/130,000 \/ 500,000 free chars across all accounts/i)).toBeInTheDocument();
+    expect(screen.getByText('Využití Google API')).toBeInTheDocument();
+    expect(screen.getByText('Tento účet')).toBeInTheDocument();
+    expect(screen.getByText('Všechny účty')).toBeInTheDocument();
+    expect(screen.getByText('Pozastaveno')).toBeInTheDocument();
+    expect(screen.getByText(/25 000 \/ 25 000 bezplatných znaků na tomto účtu/i)).toBeInTheDocument();
+    expect(screen.getByText(/130 000 \/ 500 000 bezplatných znaků napříč účty/i)).toBeInTheDocument();
     expect(screen.getByText(/Reach out to us for more usage/i)).toBeInTheDocument();
   });
 });

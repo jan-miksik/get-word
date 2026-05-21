@@ -23,7 +23,7 @@ describe('ConfirmModal', () => {
     render(
       <ConfirmModal isOpen title="Delete?" message="Sure?" onConfirm={onConfirm} onCancel={vi.fn()} />
     );
-    fireEvent.click(screen.getByRole('button', { name: /delete/i }));
+    fireEvent.click(screen.getByRole('button', { name: /smazat/i }));
     expect(onConfirm).toHaveBeenCalledOnce();
   });
 
@@ -32,7 +32,7 @@ describe('ConfirmModal', () => {
     render(
       <ConfirmModal isOpen title="Delete?" message="Sure?" onConfirm={vi.fn()} onCancel={onCancel} />
     );
-    fireEvent.click(screen.getByRole('button', { name: /cancel/i }));
+    fireEvent.click(screen.getByRole('button', { name: /zrušit/i }));
     expect(onCancel).toHaveBeenCalledOnce();
   });
 

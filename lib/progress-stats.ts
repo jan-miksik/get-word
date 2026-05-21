@@ -52,11 +52,11 @@ export function calculateProgressStats(
     
     if (stageIdx === 0) {
       stats.new += 1;
-    } else if (stageIdx >= 1 && stageIdx <= 5) {
+    } else if (stageIdx >= 1 && stageIdx <= 2) {
       stats.fresh += 1;
-    } else if (stageIdx >= 6 && stageIdx <= 8) {
+    } else if (stageIdx >= 3 && stageIdx <= 5) {
       stats.learning += 1;
-    } else if (stageIdx >= 9) {
+    } else if (stageIdx >= 6) {
       stats.done += 1;
     }
   });

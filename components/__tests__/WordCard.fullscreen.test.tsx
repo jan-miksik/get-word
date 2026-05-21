@@ -1,7 +1,7 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { WordCard } from '../WordCard';
-import type { NormalizedWord } from '@/lib/words';
+import { STAGES, type NormalizedWord } from '@/lib/words';
 
 vi.mock('@/lib/audio-availability', () => ({
   getPlayableAudioUrl: (url: string | null) => Promise.resolve(url),
@@ -90,24 +90,42 @@ describe('WordCard fullscreen', () => {
   it('renders the renamed SRS controls and preserves their click handlers', () => {
     const onUnknown = vi.fn();
     const onKnown = vi.fn();
-    const onReallyKnown = vi.fn();
+    const onCustomStage = vi.fn();
 
     render(
       <WordCard
         {...baseProps}
         onUnknown={onUnknown}
         onKnown={onKnown}
-        onReallyKnown={onReallyKnown}
+        onCustomStage={onCustomStage}
         fullscreen
       />
     );
 
     fireEvent.click(screen.getByRole('button', { name: /forgotten/i }));
     fireEvent.click(screen.getByRole('button', { name: /^ok/i }));
-    fireEvent.click(screen.getByRole('button', { name: /easy/i }));
+    fireEvent.click(screen.getByRole('button', { name: /custom interval/i }));
+    fireEvent.click(screen.getByRole('option', { name: /fully known/i }));
 
     expect(onUnknown).toHaveBeenCalledTimes(1);
     expect(onKnown).toHaveBeenCalledTimes(1);
+    expect(onCustomStage).toHaveBeenCalledWith(STAGES.length - 1, { noRepeat: true });
+  });
+
+  it('keeps the legacy fully-known handler working when no custom stage handler is provided', () => {
+    const onReallyKnown = vi.fn();
+
+    render(
+      <WordCard
+        {...baseProps}
+        onReallyKnown={onReallyKnown}
+        fullscreen
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /custom interval/i }));
+    fireEvent.click(screen.getByRole('option', { name: /fully known/i }));
+
     expect(onReallyKnown).toHaveBeenCalledTimes(1);
   });
 

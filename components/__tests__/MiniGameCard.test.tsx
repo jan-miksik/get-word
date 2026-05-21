@@ -147,7 +147,7 @@ describe('MiniGameCard', () => {
     fireEvent.click(await screen.findByText(correctAnswer));
     expect(onResult).toHaveBeenCalledWith(1);
     // Overlay appears, clicking it dismisses the card
-    fireEvent.click(screen.getByText('Tap to continue'));
+    fireEvent.click(screen.getByText(/tap to continue/i));
     expect(onDismiss).toHaveBeenCalled();
   });
 

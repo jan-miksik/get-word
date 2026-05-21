@@ -1,4 +1,4 @@
--- Schema for WordLink application
+-- Schema for Get Word application
 -- Run this in Supabase Dashboard → SQL Editor
 
 CREATE TABLE public.words (

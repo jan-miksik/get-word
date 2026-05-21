@@ -51,7 +51,7 @@ export function TextareaEditor({
       const lines = text.split('\n');
       await onPreview(lines);
     } catch (err) {
-      setPreviewError(err instanceof Error ? err.message : 'Preview failed');
+      setPreviewError(err instanceof Error ? err.message : 'Náhled se nepodařil');
     } finally {
       setPreviewing(false);
     }
@@ -62,21 +62,21 @@ export function TextareaEditor({
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-lg font-semibold text-text">Edit: {category.name}</h2>
-          <p className="text-sm text-text-soft mt-0.5">One word or phrase per line</p>
+          <h2 className="text-lg font-semibold text-text">Upravit: {category.name}</h2>
+          <p className="text-sm text-text-soft mt-0.5">Jedno slovo nebo fráze na řádek</p>
         </div>
         <button
           type="button"
           className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
           onClick={onCancel}
         >
-          Cancel
+          Zrušit
         </button>
       </div>
 
       {/* Language toggle */}
       <div className="flex items-center gap-2 mb-4 p-3 rounded-lg bg-background-elevated border border-border-subtle">
-        <span className="text-sm text-text-soft">Entering words in:</span>
+        <span className="text-sm text-text-soft">Zadáváte slova v jazyce:</span>
         <div className="flex rounded-lg border border-border-subtle overflow-hidden">
           <button
             type="button"
@@ -87,7 +87,7 @@ export function TextareaEditor({
             }`}
             onClick={() => onInputLanguageChange('known')}
           >
-            Known language
+            Známý jazyk
           </button>
           <button
             type="button"
@@ -98,7 +98,7 @@ export function TextareaEditor({
             }`}
             onClick={() => onInputLanguageChange('target')}
           >
-            Target language
+            Cizí jazyk
           </button>
         </div>
       </div>
@@ -109,13 +109,13 @@ export function TextareaEditor({
         onChange={(e) => setText(e.target.value)}
         rows={Math.max(15, lineCount + 3)}
         className="w-full px-4 py-3 rounded-lg bg-background-elevated border border-border-subtle text-text text-sm font-mono leading-relaxed resize-y focus:outline-none focus:border-accent"
-        placeholder="Enter words, one per line..."
+        placeholder="Zadejte slova, každé na nový řádek..."
         spellCheck={false}
       />
 
       <div className="flex items-center justify-between mt-3">
         <span className="text-xs text-text-soft">
-          {lineCount} {lineCount === 1 ? 'word' : 'words'}
+          {lineCount} {lineCount === 1 ? 'slovo' : lineCount >= 2 && lineCount <= 4 ? 'slova' : 'slov'}
         </span>
 
         {previewError && (
@@ -128,7 +128,7 @@ export function TextareaEditor({
           className="px-4 py-2 rounded-lg bg-accent text-background text-sm font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
           onClick={handlePreview}
         >
-          {previewing ? 'Previewing...' : 'Preview changes'}
+          {previewing ? 'Připravuji náhled...' : 'Zobrazit změny'}
         </button>
       </div>
     </div>

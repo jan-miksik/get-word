@@ -5,6 +5,8 @@ vi.mock("@/lib/i18n/server", () => ({
   fetchGoogleSupportedLanguages: () => Promise.resolve([
     { code: "en", name: "English", source: "google" },
     { code: "cs", name: "Czech", source: "google" },
+    { code: "hi", name: "Hindi", source: "google" },
+    { code: "bn", name: "Bengali", source: "google" },
     { code: "zh-CN", name: "Chinese (Simplified)", source: "google" },
     { code: "pt-PT", name: "Portuguese (Portugal)", source: "google" },
   ]),
@@ -23,17 +25,25 @@ describe("learning language catalog", () => {
     expect(czech?.ttsAvailable).toBe(true);
   });
 
-  it("sorts learning languages by approximate speaker count before name", async () => {
+  it("sorts featured app languages before approximate speaker count", async () => {
     vi.stubEnv("GOOGLE_TRANSLATE_API_KEY", "");
     vi.stubEnv("GOOGLE_TTS_API_KEY", "");
 
     const languages = await getLearningLanguageCatalog("en");
-    const englishIndex = languages.findIndex((language) => language.code === "en");
     const czechIndex = languages.findIndex((language) => language.code === "cs");
+    const vietnameseIndex = languages.findIndex((language) => language.code === "vi");
+    const englishIndex = languages.findIndex((language) => language.code === "en");
+    const hindiIndex = languages.findIndex((language) => language.code === "hi");
+    const bengaliIndex = languages.findIndex((language) => language.code === "bn");
 
-    expect(englishIndex).toBeGreaterThanOrEqual(0);
     expect(czechIndex).toBeGreaterThanOrEqual(0);
-    expect(englishIndex).toBeLessThan(czechIndex);
+    expect(vietnameseIndex).toBeGreaterThanOrEqual(0);
+    expect(englishIndex).toBeGreaterThanOrEqual(0);
+    expect(hindiIndex).toBeGreaterThanOrEqual(0);
+    expect(bengaliIndex).toBeGreaterThanOrEqual(0);
+    expect(czechIndex).toBeLessThan(vietnameseIndex);
+    expect(vietnameseIndex).toBeLessThan(englishIndex);
+    expect(hindiIndex).toBeLessThan(bengaliIndex);
   });
 
   it("excludes hidden learning languages from the catalog", async () => {

@@ -34,6 +34,7 @@ type PendingListItems = NonNullable<ConfirmResult['pending_items']>;
 
 function ErrorMessage({ message }: { message: string }) {
   const supportText = 'Contact our tech support';
+  const supportLinkText = 'Kontaktujte technickou podporu';
   const parts = message.split(supportText);
 
   if (parts.length === 1) return <>{message}</>;
@@ -50,7 +51,7 @@ function ErrorMessage({ message }: { message: string }) {
               rel="noreferrer"
               className="font-medium underline"
             >
-              {supportText}
+              {supportLinkText}
             </a>
           ) : null}
         </span>
@@ -75,7 +76,7 @@ export default function ListsPage() {
   const [diffResult, setDiffResult] = useState<DiffResult | null>(null);
   const [pendingItems, setPendingItems] = useState<PendingListItems>([]);
   const [audioStepItems, setAudioStepItems] = useState<WordListItem[] | null>(null);
-  const [translateHeading, setTranslateHeading] = useState('Translate Words');
+  const [translateHeading, setTranslateHeading] = useState('Přeložit slova');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [subscribedListIds, setSubscribedListIds] = useState<Set<string>>(new Set());
@@ -114,12 +115,12 @@ export default function ListsPage() {
       const res = await listsApiFetch('/api/google-usage');
       if (!res.ok) {
         if (res.status === 401) return;
-        throw new Error('Failed to load Google API usage');
+        throw new Error('Využití Google API se nepodařilo načíst');
       }
       const data = await res.json();
       setGoogleUsage(data);
     } catch (err) {
-      console.warn('[Wordlink lists] Could not load Google API usage', err);
+      console.warn('[Get Word lists] Could not load Google API usage', err);
     }
   }, []);
 
@@ -175,7 +176,7 @@ export default function ListsPage() {
       try {
         void loadGoogleUsage();
         const res = await listsApiFetch('/api/lists');
-        if (!res.ok) throw new Error('Failed to load lists');
+        if (!res.ok) throw new Error('Seznamy se nepodařilo načíst');
         const data = await res.json();
         setLists(data.lists);
         setCanManageCommonLists(Boolean(data.canManageCommonLists));
@@ -190,7 +191,7 @@ export default function ListsPage() {
         });
         setSubscribedListIds(new Set<string>(data.subscribedListIds ?? []));
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load lists');
+        setError(err instanceof Error ? err.message : 'Seznamy se nepodařilo načíst');
       } finally {
         setLoading(false);
       }
@@ -224,7 +225,7 @@ export default function ListsPage() {
         }
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
-        setError(err instanceof Error ? err.message : 'Failed to load list');
+        setError(err instanceof Error ? err.message : 'Seznam se nepodařilo načíst');
       } finally {
         if (!controller.signal.aborted) {
           setLoadingDetails(false);
@@ -294,7 +295,7 @@ export default function ListsPage() {
     if (!languageFrom || !languageTo) return;
 
     const forkedList = await listActions.forkList(listId, { languageFrom, languageTo });
-    const sourceName = sourceList?.name ?? 'another list';
+    const sourceName = sourceList?.name ?? 'jiný seznam';
     setLists((prev) => [...prev, forkedList]);
     setForkedListPrompt({ listId: forkedList.id, sourceName });
     setLoadingDetails(true);
@@ -340,7 +341,7 @@ export default function ListsPage() {
         return next;
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Delete failed');
+      setError(err instanceof Error ? err.message : 'Smazání se nepodařilo');
     }
   }, []);
 
@@ -349,7 +350,7 @@ export default function ListsPage() {
       await listActions.subscribeToList(listId);
       setSubscribedListIds((prev) => new Set([...prev, listId]));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Subscribe failed');
+      setError(err instanceof Error ? err.message : 'Odběr se nepodařilo zapnout');
     }
   }, []);
 
@@ -362,7 +363,7 @@ export default function ListsPage() {
         return next;
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unsubscribe failed');
+      setError(err instanceof Error ? err.message : 'Odběr se nepodařilo zrušit');
     }
   }, []);
 
@@ -397,7 +398,7 @@ export default function ListsPage() {
     );
 
     if (result.needs_translation && result.pending_items) {
-      setTranslateHeading('Translate Words');
+      setTranslateHeading('Přeložit slova');
       setPendingItems(result.pending_items);
       setWizardStep('translate');
     } else {
@@ -407,7 +408,7 @@ export default function ListsPage() {
         ? freshItems.filter((i) => i.categoryId === editingCategoryId)
         : [];
       if (categoryItems.length > 0) {
-        setTranslateHeading('Review Translations & Audio');
+        setTranslateHeading('Zkontrolovat překlady a zvuk');
         setPendingItems(
           categoryItems.map((item) => ({
             id: item.id,
@@ -479,7 +480,7 @@ export default function ListsPage() {
     setDiffResult(null);
     setPendingItems([]);
     setAudioStepItems(null);
-    setTranslateHeading('Translate Words');
+    setTranslateHeading('Přeložit slova');
     setIsEditDirty(false);
   }, []);
 
@@ -514,7 +515,7 @@ export default function ListsPage() {
         reordered: [],
         unchanged: categoryItems.length,
       });
-      setTranslateHeading('Review Translations & Audio');
+      setTranslateHeading('Zkontrolovat překlady a zvuk');
       setPendingItems(
         categoryItems.map((item) => ({
           id: item.id,
@@ -572,7 +573,7 @@ export default function ListsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background text-text">
-        <div className="text-text-soft">Loading lists...</div>
+        <div className="text-text-soft">Načítání seznamů...</div>
       </div>
     );
   }
@@ -588,7 +589,7 @@ export default function ListsPage() {
         type="button"
         className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-background-elevated border border-border-subtle md:hidden"
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        aria-label="Toggle sidebar"
+        aria-label="Přepnout boční panel"
       >
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-text">
           <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -600,8 +601,8 @@ export default function ListsPage() {
         type="button"
         className="fixed top-4 right-4 z-50 p-2 rounded-lg bg-background-elevated border border-border-subtle text-text-soft hover:text-text transition-colors"
         onClick={() => setSettingsOpen(true)}
-        aria-label="API key settings"
-        title="API Keys"
+        aria-label="Nastavení API klíčů"
+        title="API klíče"
       >
         {/* Key icon */}
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-current">
@@ -666,31 +667,31 @@ export default function ListsPage() {
                 className="ml-2 underline"
                 onClick={() => setError(null)}
               >
-                Dismiss
+                Zavřít
               </button>
             </div>
           )}
 
           {existingListsHint && (
             <div className="p-4 m-4 rounded-lg border border-border-subtle bg-background-elevated text-sm text-text-soft">
-              Create a new word list from existing lists by choosing a curated list and using Fork. The fork creates fresh learning progress while reusing translations and audio where possible.
+              Nový seznam slov můžete vytvořit z existujících seznamů: vyberte připravený seznam a použijte Kopírovat. Kopie začne s čistým pokrokem v učení a podle možností znovu použije překlady i zvuk.
               <button
                 type="button"
                 className="ml-2 text-accent underline"
                 onClick={() => setExistingListsHint(false)}
               >
-                Dismiss
+                Zavřít
               </button>
             </div>
           )}
 
           {!selectedList ? (
             <div className="flex items-center justify-center h-full">
-              <p className="text-text-soft">Select a list to get started</p>
+              <p className="text-text-soft">Začněte výběrem seznamu</p>
             </div>
           ) : loadingDetails ? (
             <div className="flex items-center justify-center h-full">
-              <p className="text-text-soft">Loading...</p>
+              <p className="text-text-soft">Načítání...</p>
             </div>
           ) : wizardStep === 'browse' ? (
             <CategoryBrowser
@@ -746,7 +747,7 @@ export default function ListsPage() {
               list={selectedList}
               items={currentAudioItems}
               audioSide="target"
-              title="Audio - to learn"
+              title="Zvuk - učený jazyk"
               googleUsage={googleUsage}
               onComplete={handleTargetAudioComplete}
               onSkip={handleTargetAudioComplete}
@@ -758,7 +759,7 @@ export default function ListsPage() {
               list={selectedList}
               items={currentAudioItems}
               audioSide="known"
-              title="Audio - known"
+              title="Zvuk - známý jazyk"
               googleUsage={googleUsage}
               onComplete={handleKnownAudioComplete}
               onSkip={handleKnownAudioComplete}
@@ -778,7 +779,7 @@ export default function ListsPage() {
             setSidebarOpen(true);
           }}
         >
-          + New List
+          + Nový seznam
         </button>
       )}
     </div>

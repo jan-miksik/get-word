@@ -13,21 +13,28 @@ export interface NormalizedWord extends Word {
 // Spaced-repetition stages
 export const STAGES = [
   { id: 0, name: "New / forgotten", intervalMs: 0 },
-  { id: 1, name: "1 minute", intervalMs: 1 * 60 * 1000 },
-  { id: 2, name: "10 minutes", intervalMs: 10 * 60 * 1000 },
-  { id: 3, name: "1 hour", intervalMs: 60 * 60 * 1000 },
-  { id: 4, name: "8 hours", intervalMs: 8 * 60 * 60 * 1000 },
-  { id: 5, name: "1 day", intervalMs: 24 * 60 * 60 * 1000 },
-  { id: 6, name: "3 days", intervalMs: 3 * 24 * 60 * 60 * 1000 },
-  { id: 7, name: "7 days", intervalMs: 7 * 24 * 60 * 60 * 1000 },
-  { id: 8, name: "14 days", intervalMs: 14 * 24 * 60 * 60 * 1000 },
-  { id: 9, name: "30 days", intervalMs: 30 * 24 * 60 * 60 * 1000 },
-  { id: 10, name: "60 days", intervalMs: 60 * 24 * 60 * 60 * 1000 },
+  { id: 1, name: "5 minutes", intervalMs: 5 * 60 * 1000 },
+  { id: 2, name: "1 day", intervalMs: 24 * 60 * 60 * 1000 },
+  { id: 3, name: "3 days", intervalMs: 3 * 24 * 60 * 60 * 1000 },
+  { id: 4, name: "7 days", intervalMs: 7 * 24 * 60 * 60 * 1000 },
+  { id: 5, name: "14 days", intervalMs: 14 * 24 * 60 * 60 * 1000 },
+  { id: 6, name: "30 days", intervalMs: 30 * 24 * 60 * 60 * 1000 },
+  { id: 7, name: "60 days", intervalMs: 60 * 24 * 60 * 60 * 1000 },
 ];
 
-export const MEMORY_HOOK_DISABLE_STAGE_OPTIONS = [5, 6, 7, 8, 9, 10] as const;
+export function remapLegacyStageIndex(stageIndex: unknown): number {
+  const parsed = Number(stageIndex);
+  if (!Number.isFinite(parsed)) return 0;
+  const normalized = Math.floor(parsed);
+  if (normalized <= 0) return 0;
+  if (normalized <= 4) return 1;
+  if (normalized >= 10) return STAGES.length - 1;
+  return normalized - 3;
+}
+
+export const MEMORY_HOOK_DISABLE_STAGE_OPTIONS = [2, 3, 4, 5, 6, 7] as const;
 export type MemoryHookDisableFromStage = (typeof MEMORY_HOOK_DISABLE_STAGE_OPTIONS)[number];
-export const DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE: MemoryHookDisableFromStage = 8; // 14 days
+export const DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE: MemoryHookDisableFromStage = 5; // 14 days
 
 export function normalizeMemoryHookDisableFromStage(
   value: unknown

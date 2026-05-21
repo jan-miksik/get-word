@@ -39,17 +39,17 @@ function ListBadges({ list }: { list: WordList }) {
     <>
       {list.isCommon && (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-fresh/10 text-fresh border border-fresh/20">
-          Common seed
+          Společný základ
         </span>
       )}
       {list.isPublic && (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-done/10 text-done border border-done/20">
-          Public
+          Veřejný
         </span>
       )}
       {!list.isPublic && !list.isCommon && (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-text-soft/10 text-text-soft border border-border-subtle">
-          Non-Public
+          Neveřejný
         </span>
       )}
     </>
@@ -235,32 +235,32 @@ export function CategoryBrowser({
               {forkedFromListName ? (
                 <div className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-                    Forked list
+                    Kopie seznamu
                   </p>
                   <p className="mt-1 text-sm text-text">
-                    This copy was forked from {forkedFromListName}. Give it its own name and description before editing words.
+                    Tato kopie vznikla ze seznamu {forkedFromListName}. Než začnete upravovat slova, dejte jí vlastní název a popis.
                   </p>
                 </div>
               ) : null}
               <label className="grid gap-1">
-                <span className="text-xs font-medium text-text-soft">List name</span>
+                <span className="text-xs font-medium text-text-soft">Název seznamu</span>
                 <input
                   type="text"
                   value={listName}
                   onChange={(e) => setListName(e.target.value)}
                   className="rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text outline-none focus:border-accent"
-                  placeholder={forkedFromListName ? 'Name your forked list' : undefined}
+                  placeholder={forkedFromListName ? 'Pojmenujte kopii seznamu' : undefined}
                   autoFocus
                 />
               </label>
               <label className="grid gap-1">
-                <span className="text-xs font-medium text-text-soft">Description</span>
+                <span className="text-xs font-medium text-text-soft">Popis</span>
                 <textarea
                   value={listDescription}
                   onChange={(e) => setListDescription(e.target.value)}
                   rows={3}
                   className="resize-none rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text outline-none focus:border-accent"
-                  placeholder={forkedFromListName ? 'What this fork is good for' : 'What this list is good for'}
+                  placeholder={forkedFromListName ? 'K čemu je tato kopie dobrá' : 'K čemu je tento seznam dobrý'}
                 />
               </label>
               <label className="flex items-center gap-2 text-sm text-text-soft">
@@ -271,7 +271,7 @@ export function CategoryBrowser({
                   onChange={(e) => setListIsPublic(e.target.checked)}
                   className="size-4 accent-accent"
                 />
-                Public list
+                Veřejný seznam
               </label>
               {isEditor ? (
                 <label className="flex items-start gap-2 rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text-soft">
@@ -285,9 +285,9 @@ export function CategoryBrowser({
                     className="mt-0.5 size-4 accent-accent"
                   />
                   <span>
-                    <span className="block font-medium text-text">Use as common list seed</span>
+                    <span className="block font-medium text-text">Použít jako základ společného seznamu</span>
                     <span className="block text-xs">
-                      Autogenerate common list will fork and translate from this list.
+                      Automatické vytvoření společného seznamu bude kopírovat a překládat z tohoto seznamu.
                     </span>
                   </span>
                 </label>
@@ -299,14 +299,14 @@ export function CategoryBrowser({
                   disabled={savingList || !listName.trim()}
                   onClick={handleListMetadataSubmit}
                 >
-                  {savingList ? 'Saving...' : 'Save list'}
+                  {savingList ? 'Ukládám...' : 'Uložit seznam'}
                 </button>
                 <button
                   type="button"
                   className="rounded-lg border border-border-subtle px-3 py-1.5 text-xs font-medium text-text-soft"
                   onClick={cancelListMetadataEdit}
                 >
-                  Cancel
+                  Zrušit
                 </button>
               </div>
             </div>
@@ -319,7 +319,7 @@ export function CategoryBrowser({
                 <span>{list.languageFrom} → {list.languageTo}</span>
                 <ListBadges list={list} />
                 <span className="basis-full sm:basis-auto">
-                  {totalItems} words · {categories.length} categories
+                  {totalItems} slov · {categories.length} kategorií
                 </span>
               </div>
               {list.description && (
@@ -338,7 +338,7 @@ export function CategoryBrowser({
                     <path d="M11.5 4.5l4 4L7 17H3v-4L11.5 4.5z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                     <path d="M10 6l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
                   </svg>
-                  Edit list
+                  Upravit seznam
                 </button>
               ) : null}
 
@@ -350,7 +350,7 @@ export function CategoryBrowser({
                     className="p-2 rounded-lg border border-border-subtle text-text-soft hover:text-text hover:bg-background-elevated transition-colors"
                     onClick={() => setHeaderMenuOpen((prev) => !prev)}
                     disabled={forkingList}
-                    aria-label="More options"
+                    aria-label="Další možnosti"
                   >
                     <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
                       <circle cx="10" cy="4" r="1.5" />
@@ -369,7 +369,7 @@ export function CategoryBrowser({
                           disabled={forkingList}
                         >
                           <ForkIcon />
-                          {forkingList ? 'Forking...' : 'Fork list'}
+                          {forkingList ? 'Kopíruji...' : 'Zkopírovat seznam'}
                         </button>
                       )}
                       {onDeleteList && (
@@ -383,7 +383,7 @@ export function CategoryBrowser({
                             <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
                               <path d="M4 6h12M8 3h4M7 6v10m6-10v10M6 6l.6 10.2A1 1 0 007.6 17h4.8a1 1 0 001-.8L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                             </svg>
-                            Delete list
+                            Smazat seznam
                           </button>
                         </>
                       )}
@@ -398,7 +398,7 @@ export function CategoryBrowser({
 
       {/* Mobile read-only banner */}
       <div className="md:hidden mb-4 p-3 rounded-lg bg-accent/10 border border-accent/20">
-        <p className="text-sm text-accent">Edit your word list on desktop</p>
+        <p className="text-sm text-accent">Seznam slov upravte na počítači</p>
       </div>
 
       {/* Categories */}
@@ -440,14 +440,14 @@ export function CategoryBrowser({
                     className="px-2.5 py-1 rounded-md bg-accent text-background text-xs font-medium"
                     onMouseDown={(e) => { e.preventDefault(); void handleRenameSubmit(category.id); }}
                   >
-                    Save
+                    Uložit
                   </button>
                   <button
                     type="button"
                     className="px-2.5 py-1 rounded-md border border-border-subtle text-text-soft text-xs"
                     onMouseDown={(e) => { e.preventDefault(); setRenamingId(null); setRenameValue(''); }}
                   >
-                    Cancel
+                    Zrušit
                   </button>
                 </div>
               ) : (
@@ -468,7 +468,7 @@ export function CategoryBrowser({
                     <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
                   </svg>
                   <span className="font-medium text-text text-sm flex-1 truncate">{category.name}</span>
-                  <span className="text-xs text-text-soft">{catItems.length} words</span>
+                  <span className="text-xs text-text-soft">{catItems.length} slov</span>
                 </button>
               )}
 
@@ -486,7 +486,7 @@ export function CategoryBrowser({
                           onEditCategory(category.id, 'known');
                         }}
                       >
-                        Edit words
+                        Upravit slova
                       </button>
                       <button
                         type="button"
@@ -497,7 +497,7 @@ export function CategoryBrowser({
                           setRenameValue(category.name);
                         }}
                       >
-                        Rename
+                        Přejmenovat
                       </button>
                       <button
                         type="button"
@@ -507,13 +507,13 @@ export function CategoryBrowser({
                           setDeleteCategoryConfirm(category);
                         }}
                       >
-                        Delete
+                        Smazat
                       </button>
                     </div>
                   )}
 
                   {catItems.length === 0 ? (
-                    <p className="py-3 text-sm text-text-soft">No words in this category</p>
+                    <p className="py-3 text-sm text-text-soft">V této kategorii nejsou žádná slova</p>
                   ) : (
                     <div className="divide-y divide-border-subtle">
                       {catItems.map((item) => (
@@ -521,11 +521,11 @@ export function CategoryBrowser({
                           <span className="flex-1 text-text truncate">{item.textKnown}</span>
                           <span className="flex-1 text-text-soft truncate">
                             {item.textTarget ?? (
-                              <span className="italic text-fresh/70">needs translation</span>
+                              <span className="italic text-fresh/70">chybí překlad</span>
                             )}
                           </span>
                           {item.audioStatus === 'ready' && (
-                            <span className="text-xs text-done" title="Has audio">♪</span>
+                            <span className="text-xs text-done" title="Má zvuk">♪</span>
                           )}
                         </div>
                       ))}
@@ -545,7 +545,7 @@ export function CategoryBrowser({
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="Category name"
+                placeholder="Název kategorie"
                 value={newCategoryName}
                 onChange={(e) => setNewCategoryName(e.target.value)}
                 className="flex-1 px-3 py-2 rounded-lg bg-background-elevated border border-border-subtle text-text text-sm focus:outline-none focus:border-accent"
@@ -560,14 +560,14 @@ export function CategoryBrowser({
                 className="px-4 py-2 rounded-lg bg-accent text-background text-sm font-medium"
                 onClick={handleAddCategory}
               >
-                Add
+                Přidat
               </button>
               <button
                 type="button"
                 className="px-4 py-2 rounded-lg border border-border-subtle text-text text-sm"
                 onClick={() => setShowAddCategory(false)}
               >
-                Cancel
+                Zrušit
               </button>
             </div>
           ) : (
@@ -576,7 +576,7 @@ export function CategoryBrowser({
               className="w-full py-2.5 rounded-lg border border-dashed border-border-subtle text-text-soft text-sm hover:border-accent hover:text-accent transition-colors"
               onClick={() => setShowAddCategory(true)}
             >
-              + Add category
+              + Přidat kategorii
             </button>
           )}
         </div>
@@ -584,9 +584,9 @@ export function CategoryBrowser({
 
       <ConfirmModal
         isOpen={Boolean(deleteCategoryConfirm)}
-        title={`Delete category "${deleteCategoryConfirm?.name ?? ''}"?`}
-        message="All words in this category will be permanently deleted."
-        confirmLabel="Delete"
+        title={`Smazat kategorii "${deleteCategoryConfirm?.name ?? ''}"?`}
+        message="Všechna slova v této kategorii budou trvale smazána."
+        confirmLabel="Smazat"
         onConfirm={() => {
           const id = deleteCategoryConfirm?.id;
           setDeleteCategoryConfirm(null);
@@ -597,9 +597,9 @@ export function CategoryBrowser({
 
       <ConfirmModal
         isOpen={deleteListConfirm}
-        title={`Delete list "${list.name}"?`}
-        message="This will permanently delete the list and all its words. This action cannot be undone."
-        confirmLabel="Delete"
+        title={`Smazat seznam "${list.name}"?`}
+        message="Seznam a všechna jeho slova budou trvale smazána. Tuto akci nelze vrátit."
+        confirmLabel="Smazat"
         onConfirm={handleDeleteListConfirmed}
         onCancel={() => setDeleteListConfirm(false)}
       />

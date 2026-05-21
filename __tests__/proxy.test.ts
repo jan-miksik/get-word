@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockVerifySession = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/session", () => ({
-  WORDLINK_SESSION_COOKIE_NAME: "wordlink_session",
+  GET_WORD_SESSION_COOKIE_NAME: "wordlink_session",
   verifySession: mockVerifySession,
 }));
 

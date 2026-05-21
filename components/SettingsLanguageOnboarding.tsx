@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { syncUserData } from '@/lib/sync';
 import {
   COMMON_LANGUAGES,
@@ -25,17 +25,32 @@ const SCATTER_MT_CLASSES = [
   'mt-0', 'mt-3', 'mt-1', 'mt-4', 'mt-2', 'mt-0', 'mt-3', 'mt-1',
 ];
 
-function matchesQuery(lang: SupportedLanguage, query: string): boolean {
+function matchesQuery(lang: SupportedLanguage, query: string, displayName: string): boolean {
   const q = query.trim().toLowerCase();
-  return lang.name.toLowerCase().includes(q) || lang.code.toLowerCase().includes(q);
+  return (
+    lang.name.toLowerCase().includes(q) ||
+    displayName.toLowerCase().includes(q) ||
+    lang.code.toLowerCase().includes(q)
+  );
 }
 
 export function SettingsLanguageOnboarding() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { settingsLanguage, setSettingsLanguage } = useAppStateContext();
   const [query, setQuery] = useState('');
   const [languages, setLanguages] = useState<SupportedLanguage[]>(COMMON_LANGUAGES);
   const [selected, setSelected] = useState(settingsLanguage);
+  const displayNames = useMemo(() => {
+    try {
+      return new Intl.DisplayNames(language, { type: 'language' });
+    } catch {
+      return null;
+    }
+  }, [language]);
+  const getDisplayName = useCallback(
+    (lang: SupportedLanguage) => displayNames?.of(normalizeLanguageCode(lang.code)) ?? lang.name,
+    [displayNames],
+  );
 
   const browserSuggestion = useMemo(
     () => findBestSupportedLanguage(getBrowserLanguageCandidates(), COMMON_LANGUAGES),
@@ -71,8 +86,11 @@ export function SettingsLanguageOnboarding() {
   );
 
   const selectedName = useMemo(
-    () => languages.find((l) => normalizeLanguageCode(l.code) === normalizeLanguageCode(selected))?.name ?? selected,
-    [languages, selected],
+    () => {
+      const selectedLanguage = languages.find((l) => normalizeLanguageCode(l.code) === normalizeLanguageCode(selected));
+      return selectedLanguage ? getDisplayName(selectedLanguage) : selected;
+    },
+    [getDisplayName, languages, selected],
   );
 
   const isSearching = query.trim().length > 0;
@@ -87,7 +105,7 @@ export function SettingsLanguageOnboarding() {
       <section className="w-full max-w-xl rounded-2xl border border-border-subtle bg-background-elevated p-5 shadow-2xl sm:p-6">
 
         <div className="mb-5 flex flex-col gap-1">
-          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.26em] text-accent">WordLink</p>
+          <p className="text-[0.68rem] font-semibold uppercase tracking-[0.26em] text-accent">Get Word</p>
           <div className="flex items-center gap-2">
             <span className="text-2xl" aria-hidden="true">🌐</span>
             <h1 className="m-0 text-2xl font-semibold text-text">{t('language.onboardingTitle')}</h1>
@@ -107,7 +125,8 @@ export function SettingsLanguageOnboarding() {
         <div className="max-h-[50vh] overflow-y-auto">
           <div className="flex flex-wrap gap-2 pb-1">
             {featuredLanguages.map((lang) => {
-              const hidden = isSearching && !matchesQuery(lang, query);
+              const displayName = getDisplayName(lang);
+              const hidden = isSearching && !matchesQuery(lang, query, displayName);
               return (
                 <LanguagePill
                   key={lang.code}
@@ -115,6 +134,7 @@ export function SettingsLanguageOnboarding() {
                   selected={normalizeLanguageCode(lang.code) === normalizeLanguageCode(selected)}
                   featured
                   hidden={hidden}
+                  displayName={displayName}
                   onClick={() => setSelected(lang.code)}
                 />
               );
@@ -123,13 +143,14 @@ export function SettingsLanguageOnboarding() {
 
           {!isSearching && (
             <p className="mt-2 mb-2 text-[0.68rem] text-text-soft/60">
-              Most optimised for Czech → Vietnamese
+              {t('language.optimizedPair')}
             </p>
           )}
 
           <div className="flex flex-wrap gap-2">
             {otherLanguages.map((lang, i) => {
-              const hidden = isSearching && !matchesQuery(lang, query);
+              const displayName = getDisplayName(lang);
+              const hidden = isSearching && !matchesQuery(lang, query, displayName);
               return (
                 <LanguagePill
                   key={lang.code}
@@ -137,6 +158,7 @@ export function SettingsLanguageOnboarding() {
                   selected={normalizeLanguageCode(lang.code) === normalizeLanguageCode(selected)}
                   mtClass={SCATTER_MT_CLASSES[i % SCATTER_MT_CLASSES.length]}
                   hidden={hidden}
+                  displayName={displayName}
                   onClick={() => setSelected(lang.code)}
                 />
               );
@@ -162,6 +184,7 @@ function LanguagePill({
   featured = false,
   mtClass = 'mt-0',
   hidden = false,
+  displayName,
   onClick,
 }: {
   lang: SupportedLanguage;
@@ -169,6 +192,7 @@ function LanguagePill({
   featured?: boolean;
   mtClass?: string;
   hidden?: boolean;
+  displayName: string;
   onClick: () => void;
 }) {
   const flag = FLAG_EMOJIS[normalizeLanguageCode(lang.code)] ?? '';
@@ -188,7 +212,7 @@ function LanguagePill({
       className={`${mtClass} inline-flex items-center gap-1.5 rounded-full border transition-all duration-150 ${sizeClasses} ${stateClasses}`}
     >
       {flag && <span aria-hidden="true">{flag}</span>}
-      <span>{lang.name}</span>
+      <span>{displayName}</span>
     </button>
   );
 }

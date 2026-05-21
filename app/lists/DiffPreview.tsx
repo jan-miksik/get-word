@@ -31,7 +31,7 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }
     try {
       await onConfirm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Confirm failed');
+      setError(err instanceof Error ? err.message : 'Potvrzení se nepodařilo');
     } finally {
       setConfirming(false);
     }
@@ -40,25 +40,25 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }
   return (
     <div className="max-w-3xl mx-auto p-4 md:p-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-text">Preview Changes</h2>
+        <h2 className="text-lg font-semibold text-text">Náhled změn</h2>
         <button
           type="button"
           className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
           onClick={onCancel}
         >
-          Cancel
+          Zrušit
         </button>
       </div>
 
       {/* Summary */}
       <div className="p-3 rounded-lg bg-background-elevated border border-border-subtle mb-4 text-sm">
-        <span className="text-done">{diff.added.length} added</span>
+        <span className="text-done">{diff.added.length} přidáno</span>
         <span className="mx-2 text-text-soft">·</span>
-        <span className="text-danger">{diff.removed.length} removed</span>
+        <span className="text-danger">{diff.removed.length} odebráno</span>
         <span className="mx-2 text-text-soft">·</span>
-        <span className="text-fresh">{diff.reordered.length} reordered</span>
+        <span className="text-fresh">{diff.reordered.length} přesunuto</span>
         <span className="mx-2 text-text-soft">·</span>
-        <span className="text-text-soft">{diff.unchanged} unchanged</span>
+        <span className="text-text-soft">{diff.unchanged} beze změny</span>
       </div>
 
       {diff.warning && (
@@ -69,9 +69,9 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }
 
       {!hasChanges ? (
         <div className="space-y-3">
-          <p className="text-text-soft text-sm">No changes detected. Current items:</p>
+          <p className="text-text-soft text-sm">Nenalezeny žádné změny. Aktuální položky:</p>
           {orderedExistingItems.length === 0 ? (
-            <p className="text-text-soft text-sm py-6 text-center">This category is empty.</p>
+            <p className="text-text-soft text-sm py-6 text-center">Tato kategorie je prázdná.</p>
           ) : (
             <div className="rounded-lg border border-border-subtle overflow-hidden">
               {orderedExistingItems.map((item, index) => (
@@ -84,7 +84,7 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }
                     {item.textKnown}
                   </div>
                   <div className="text-xs text-text-soft mt-0.5">
-                    {item.textTarget || 'No translation yet'}
+                    {item.textTarget || 'Zatím bez překladu'}
                   </div>
                 </div>
               ))}
@@ -97,7 +97,7 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }
           {diff.added.length > 0 && (
             <div>
               <h3 className="text-xs font-medium text-done uppercase tracking-wide mb-2">
-                Added ({diff.added.length})
+                Přidáno ({diff.added.length})
               </h3>
               <div className="rounded-lg border border-done/20 overflow-hidden">
                 {diff.added.map((text, i) => (
@@ -116,7 +116,7 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }
           {diff.removed.length > 0 && (
             <div>
               <h3 className="text-xs font-medium text-danger uppercase tracking-wide mb-2">
-                Removed ({diff.removed.length})
+                Odebráno ({diff.removed.length})
               </h3>
               <div className="rounded-lg border border-danger/20 overflow-hidden">
                 {diff.removed.map((item) => (
@@ -138,7 +138,7 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }
           {diff.reordered.length > 0 && (
             <div>
               <h3 className="text-xs font-medium text-fresh uppercase tracking-wide mb-2">
-                Reordered ({diff.reordered.length})
+                Přesunuto ({diff.reordered.length})
               </h3>
               <div className="rounded-lg border border-fresh/20 overflow-hidden">
                 {diff.reordered.map((item) => (
@@ -169,7 +169,7 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }
           className="px-4 py-2 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
           onClick={onBack ?? onCancel}
         >
-          ← Back
+          ← Zpět
         </button>
         <div className="flex gap-2">
         <button
@@ -178,7 +178,7 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }
           className="px-4 py-2 rounded-lg bg-accent text-background text-sm font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
           onClick={handleConfirm}
         >
-          {confirming ? 'Confirming...' : hasChanges ? 'Confirm changes' : 'Continue'}
+          {confirming ? 'Potvrzuji...' : hasChanges ? 'Potvrdit změny' : 'Pokračovat'}
         </button>
         </div>
       </div>

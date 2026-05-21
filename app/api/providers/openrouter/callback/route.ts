@@ -12,7 +12,7 @@ type CallbackStatus = "connected" | "failed";
 
 function getAppBaseUrl(request: NextRequest): string {
   if (process.env.NODE_ENV !== "production") return request.nextUrl.origin;
-  return process.env.WORDLINK_APP_URL?.trim() || request.nextUrl.origin;
+  return process.env.GET_WORD_APP_URL?.trim() || request.nextUrl.origin;
 }
 
 function normalizeReturnTo(value: string | undefined): string {

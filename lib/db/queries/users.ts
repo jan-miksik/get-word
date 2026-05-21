@@ -1,19 +1,9 @@
 import { eq } from "drizzle-orm";
 import { db } from "../client";
 import { users, type User, type NewUser } from "../schema";
+import { normalizeMemoryHookDisableFromStage } from "@/lib/words";
 
-const MEMORY_HOOK_DISABLE_STAGE_VALUES = new Set([5, 6, 7, 8, 9, 10]);
-const DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE = 8;
 const LANGUAGE_CODE_PATTERN = /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/;
-
-function normalizeMemoryHookDisableFromStage(value: unknown): number {
-  const parsed = Number(value);
-  if (!Number.isFinite(parsed)) return DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE;
-  const normalized = Math.floor(parsed);
-  return MEMORY_HOOK_DISABLE_STAGE_VALUES.has(normalized)
-    ? normalized
-    : DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE;
-}
 
 function normalizeSettingsLanguage(value: unknown): string | undefined {
   if (typeof value !== "string") return undefined;

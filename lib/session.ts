@@ -1,14 +1,14 @@
-export type WordlinkUserRole = "user" | "editor";
+export type GetWordUserRole = "user" | "editor";
 
-export type WordlinkSession = {
+export type GetWordSession = {
   userId: string;
-  userRole: WordlinkUserRole;
+  userRole: GetWordUserRole;
   iat: number; // seconds since epoch
   exp: number; // seconds since epoch
 };
 
-export const WORDLINK_SESSION_COOKIE_NAME = "wordlink_session";
-export const WORDLINK_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
+export const GET_WORD_SESSION_COOKIE_NAME = "wordlink_session";
+export const GET_WORD_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 function getSessionSecret(): string | null {
   const configured = process.env.APP_SESSION_SECRET;
@@ -74,7 +74,7 @@ async function hmacSha256(secret: string, message: string): Promise<Uint8Array> 
  */
 export async function signSession(input: {
   userId: string;
-  userRole: WordlinkUserRole;
+  userRole: GetWordUserRole;
   now?: number; // seconds since epoch
   ttlSeconds?: number;
 }): Promise<string> {
@@ -82,9 +82,9 @@ export async function signSession(input: {
   if (!secret) throw new Error("APP_SESSION_SECRET is not configured");
 
   const now = input.now ?? Math.floor(Date.now() / 1000);
-  const ttlSeconds = input.ttlSeconds ?? WORDLINK_SESSION_TTL_SECONDS;
+  const ttlSeconds = input.ttlSeconds ?? GET_WORD_SESSION_TTL_SECONDS;
 
-  const session: WordlinkSession = {
+  const session: GetWordSession = {
     userId: input.userId,
     userRole: input.userRole,
     iat: now,
@@ -98,7 +98,7 @@ export async function signSession(input: {
   return `${payloadB64}.${sigB64}`;
 }
 
-export async function verifySession(token: string | null | undefined): Promise<WordlinkSession | null> {
+export async function verifySession(token: string | null | undefined): Promise<GetWordSession | null> {
   const secret = getSessionSecret();
   if (!secret) {
     if (process.env.NODE_ENV === "production") {
@@ -129,10 +129,10 @@ export async function verifySession(token: string | null | undefined): Promise<W
 
   if (!constantTimeEqual(expectedSig, providedSig)) return null;
 
-  let session: WordlinkSession;
+  let session: GetWordSession;
   try {
     const payloadJson = new TextDecoder().decode(base64UrlDecodeToBytes(payloadB64));
-    session = JSON.parse(payloadJson) as WordlinkSession;
+    session = JSON.parse(payloadJson) as GetWordSession;
   } catch {
     return null;
   }

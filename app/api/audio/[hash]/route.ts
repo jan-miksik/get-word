@@ -71,7 +71,7 @@ export async function GET(_request: NextRequest, context: RouteContext) {
       }
     }
 
-    console.warn("[Wordlink audio] all Arweave audio gateways failed", {
+    console.warn("[Get Word audio] all Arweave audio gateways failed", {
       contentHash: asset.contentHash,
       storageRef: asset.storageRef,
       attempts,

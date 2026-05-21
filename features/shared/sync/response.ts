@@ -10,6 +10,7 @@ import {
 import { rekeyByItemId } from '@/features/shared/sync/identity';
 import { getAudioUrl } from '@/lib/audio';
 import { getArweaveGatewayUrls } from '@/lib/audio-storage';
+import { DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE } from '@/lib/words';
 
 type HydratedWordListItems = Awaited<ReturnType<typeof getUserSubscribedItems>>;
 type HydratedListNames = Awaited<ReturnType<typeof getWordListsByIds>>;
@@ -174,7 +175,8 @@ export function buildSyncSuccessPayload(
       show_category_badges: user.showCategoryBadges ?? false,
       show_pronunciation: user.showPronunciation ?? false,
       memory_hooks_enabled: user.memoryHooksEnabled ?? true,
-      memory_hook_disable_from_stage: user.memoryHookDisableFromStage ?? 8,
+      memory_hook_disable_from_stage:
+        user.memoryHookDisableFromStage ?? DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
       settings_language: user.settingsLanguage ?? null,
       settings_language_selected_at: user.settingsLanguageSelectedAt
         ? new Date(user.settingsLanguageSelectedAt).toISOString()

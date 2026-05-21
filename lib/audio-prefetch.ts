@@ -3,6 +3,8 @@
  * Injects <link rel="prefetch"> tags for upcoming words with audio.
  */
 
+import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
+
 const PREFETCH_COUNT = 10;
 const prefetchedHashes = new Set<string>();
 
@@ -15,7 +17,8 @@ export function prefetchAudio(audioUrls: string[]): void {
   if (typeof document === "undefined") return;
 
   const toPrefetch = audioUrls
-    .filter((url) => url && !prefetchedHashes.has(url))
+    .map((url) => getArweaveGatewayUrlCandidates(url)[0])
+    .filter((url): url is string => Boolean(url) && !prefetchedHashes.has(url))
     .slice(0, PREFETCH_COUNT);
 
   for (const url of toPrefetch) {

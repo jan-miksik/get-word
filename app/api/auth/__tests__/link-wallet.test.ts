@@ -120,7 +120,7 @@ describe('POST /api/auth/link-wallet', () => {
       updatedAt: new Date(),
       showPronunciation: false,
       memoryHooksEnabled: true,
-      memoryHookDisableFromStage: 8,
+      memoryHookDisableFromStage: 5,
       categoryOrder: [],
     }
     mockGetUserByDeviceId.mockResolvedValue(null)
@@ -174,7 +174,7 @@ describe('POST /api/auth/link-wallet', () => {
       updatedAt: new Date(),
       showPronunciation: false,
       memoryHooksEnabled: true,
-      memoryHookDisableFromStage: 8,
+      memoryHookDisableFromStage: 5,
       categoryOrder: [],
     }
     const newUser = {

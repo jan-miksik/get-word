@@ -7,6 +7,7 @@ import type { MiniGameConfig } from '@/lib/minigames';
 import { checkAudioUrlAvailable } from '@/lib/audio-availability';
 import { prefetchAudio } from '@/lib/audio-prefetch';
 import { getWordAudioSrcByLang, type SourceLang } from './games/types';
+import { useI18n } from '@/components/I18nProvider';
 
 type StreamItem = NormalizedWord | MiniGameConfig;
 
@@ -57,6 +58,7 @@ interface CardDeckViewProps {
 }
 
 export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardDeckViewProps) {
+  const { t } = useI18n();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [exitAnim, setExitAnim] = useState<string | null>(null);
   const [enterAnim, setEnterAnim] = useState<string | null>(null);
@@ -190,7 +192,7 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
   if (isDone && !showDoneOverlay) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-2xl font-semibold opacity-60">All done!</p>
+        <p className="text-2xl font-semibold opacity-60">{t('card.allDone')}</p>
       </div>
     );
   }
@@ -203,7 +205,7 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
   if (!item) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-2xl font-semibold opacity-60">All done!</p>
+        <p className="text-2xl font-semibold opacity-60">{t('card.allDone')}</p>
       </div>
     );
   }
@@ -270,7 +272,7 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
             className="flex items-center justify-center w-full px-4 py-4 rounded-b-xl"
             style={{ animation: 'deck-done-slide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
           >
-            <span className="text-sm text-text font-medium">Tap to continue</span>
+            <span className="text-sm text-text font-medium">{t('card.tapToContinue')}</span>
           </div>
           <style>{`
             @keyframes deck-done-slide {

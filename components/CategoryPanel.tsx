@@ -1,6 +1,7 @@
 'use client';
 
 import { useAppStateContext } from '@/context/AppStateContext';
+import { useI18n } from '@/components/I18nProvider';
 import { useCallback, useMemo, useState } from 'react';
 
 interface CategoryPanelProps {
@@ -10,6 +11,7 @@ interface CategoryPanelProps {
 }
 
 export function CategoryPanel({ isOpen, categories, onClose }: CategoryPanelProps) {
+  const { t } = useI18n();
   const {
     selectedCategories,
     toggleCategory: onToggleCategory,
@@ -82,7 +84,7 @@ export function CategoryPanel({ isOpen, categories, onClose }: CategoryPanelProp
   return (
     <section
       className={`category-panel ${isOpen ? 'is-open fixed inset-0' : ''}`}
-      aria-label="Category filter"
+      aria-label={t('category.aria')}
       onClick={(e) => e.stopPropagation()}
     >
       {isOpen && onClose && (
@@ -95,12 +97,12 @@ export function CategoryPanel({ isOpen, categories, onClose }: CategoryPanelProp
       <div className="panel-content">
       <div className="px-3.5 pt-3.5 pb-4">
         <div className="flex items-center justify-between gap-3 mb-3 relative">
-          <h2 className="m-0 text-[1.05rem]">Categories:</h2>
+          <h2 className="m-0 text-[1.05rem]">{t('category.title')}</h2>
           {onClose && (
             <button
               onClick={onClose}
               className="absolute right-0 top-0 flex h-6 w-6 items-center justify-center rounded-md p-1 text-[1.25rem] text-text-soft transition-colors duration-150 hover:bg-background-elevated hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60"
-              aria-label="Close categories"
+              aria-label={t('category.close')}
             >
               ×
             </button>
@@ -108,22 +110,22 @@ export function CategoryPanel({ isOpen, categories, onClose }: CategoryPanelProp
         </div>
         <div className="flex items-center justify-between gap-2 mb-2">
           <p className="m-0 text-[0.92rem] text-text-soft">
-            Drag to reorder. Checked categories stay visible.
+            {t('category.description')}
           </p>
           <button
             type="button"
             className="category-clear-btn text-[0.9rem]"
             onClick={() => setCategoryOrder([])}
             disabled={!Array.isArray(categoryOrder) || categoryOrder.length === 0}
-            aria-label="Reset category order"
-            title="Reset order to alphabetical"
+            aria-label={t('category.resetOrder')}
+            title={t('category.resetOrderTitle')}
           >
-            Reset order
+            {t('category.resetOrder')}
           </button>
         </div>
 
         {orderedCategories.length === 0 ? (
-          <p className="m-0 text-text-soft">No categories available.</p>
+          <p className="m-0 text-text-soft">{t('category.empty')}</p>
         ) : (
           <ul className="category-order-list custom-scrollbar" role="list">
             {orderedCategories.map((cat, i) => {
@@ -165,8 +167,8 @@ export function CategoryPanel({ isOpen, categories, onClose }: CategoryPanelProp
                       setDraggingName(null);
                       setDragOverName(null);
                     }}
-                    aria-label={`Drag to reorder ${cat.name}`}
-                    title="Drag to reorder"
+                    aria-label={t('category.dragToReorderItem', { name: cat.name })}
+                    title={t('category.dragToReorder')}
                   >
                     ⠿
                   </button>
@@ -187,8 +189,8 @@ export function CategoryPanel({ isOpen, categories, onClose }: CategoryPanelProp
                       className="category-order-btn"
                       onClick={() => moveCategory(cat.name, -1)}
                       disabled={i === 0}
-                      aria-label={`Move ${cat.name} up`}
-                      title="Move up"
+                      aria-label={t('category.moveItemUp', { name: cat.name })}
+                      title={t('category.moveUp')}
                     >
                       ↑
                     </button>
@@ -197,8 +199,8 @@ export function CategoryPanel({ isOpen, categories, onClose }: CategoryPanelProp
                       className="category-order-btn"
                       onClick={() => moveCategory(cat.name, 1)}
                       disabled={i === orderedCategories.length - 1}
-                      aria-label={`Move ${cat.name} down`}
-                      title="Move down"
+                      aria-label={t('category.moveItemDown', { name: cat.name })}
+                      title={t('category.moveDown')}
                     >
                       ↓
                     </button>

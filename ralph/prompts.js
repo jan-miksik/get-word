@@ -10,7 +10,7 @@
  * @param {string} progressSummary
  */
 export function buildPlanningPrompt(task, progressSummary) {
-  return `You are implementing a feature for the Wordlink codebase (Next.js + Drizzle ORM + Postgres).
+  return `You are implementing a feature for the Get Word codebase (Next.js + Drizzle ORM + Postgres).
 
 TASK: ${task.description} (category: ${task.category})
 
@@ -38,7 +38,7 @@ Output the plan in <plan> tags. Do NOT write code yet.`;
  * @param {string} progressSummary
  */
 export function buildImplementationPrompt(task, plan, progressSummary) {
-  return `You are implementing a feature for the Wordlink codebase (Next.js + Drizzle ORM + Postgres).
+  return `You are implementing a feature for the Get Word codebase (Next.js + Drizzle ORM + Postgres).
 
 TASK: ${task.description} (category: ${task.category})
 
@@ -66,7 +66,7 @@ When ALL tasks in prd.json have passes=true, output: <complete>ALL_TASKS_DONE</c
  * @param {string} errorOutput - output from failed build/test
  */
 export function buildFixPrompt(task, errorOutput) {
-  return `You are fixing a failed build or test in the Wordlink codebase (Next.js + Drizzle ORM + Postgres).
+  return `You are fixing a failed build or test in the Get Word codebase (Next.js + Drizzle ORM + Postgres).
 
 TASK: ${task.description} (category: ${task.category})
 
@@ -87,7 +87,7 @@ After fixing, re-run pnpm run build and pnpm test to confirm the fix works.`;
  * @param {string} progressSummary
  */
 export function buildSimplePrompt(task, progressSummary) {
-  return `You are working on the Wordlink codebase (Next.js + Drizzle ORM + Postgres).
+  return `You are working on the Get Word codebase (Next.js + Drizzle ORM + Postgres).
 
 Pick this task and implement it:
 TASK: ${task.description} (category: ${task.category})

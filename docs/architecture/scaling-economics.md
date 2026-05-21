@@ -12,7 +12,7 @@ This file covers what it *costs*, who *pays*, and how to make the system *grow i
 
 ## 1. Cost vectors
 
-Wordlink's spend splits into four buckets. They scale very differently — that's why a flat "per-user cost" is misleading.
+Get Word's spend splits into four buckets. They scale very differently — that's why a flat "per-user cost" is misleading.
 
 | Bucket | What's in it | Scales with |
 |---|---|---|
@@ -130,7 +130,7 @@ The PWA setup ([sw.js](public/sw.js), [PWARegister.tsx](components/PWARegister.t
 
 ### Lever 3 — P2P / device-shared resources
 
-Useful at 100k+ scale, niche before that. Wordlink has natural fit because curated word lists are immutable, content-addressed, and shared across users.
+Useful at 100k+ scale, niche before that. Get Word has natural fit because curated word lists are immutable, content-addressed, and shared across users.
 
 - **Curated lists distributed via [Helia/IPFS](https://helia.io/)** — clients seed lists they've downloaded. Server only signs manifests.
 - **Generated audio gossiped between peers** in same language. Content-addressed by hash already, so dedup is built in. Server is the trust anchor that says "yes, this hash is the official audio for this word."
@@ -151,7 +151,7 @@ Caveats: P2P only helps with read-heavy public content. User progress/state is p
 └──────────────────────────────────────────────────────────────┘
 ```
 
-The product *frames* infra cost as a user choice, not a hidden tax. This works because Wordlink is a learning tool — users have time, and many will prefer privacy + free over polish.
+The product *frames* infra cost as a user choice, not a hidden tax. This works because Get Word is a learning tool — users have time, and many will prefer privacy + free over polish.
 
 ---
 
@@ -214,6 +214,6 @@ Each of these is a cheap script + a feature flag. None require new infra.
 | **10m** | Multi-region DB, abuse | Service split (sync/content/media/provider/analytics). Regional shards. Dedicated identity. | P2P content distribution becomes net-positive. Self-host tier becomes a real product line. |
 | **100m** | Compliance, governance, fraud | Multi-region active/active. Data residency. Formal SRE. Data lake replaces operational DB queries. | Federated model: official cloud + community-run instances + open protocol. Wallet-based identity is a cost lever, not just auth. |
 | **1bn (1mld)** | Per-user inefficiency × scale | Edge-resident state. Compact binary sync protocol. AI generation is local or contracted at platform tier. | Most users on local-first / P2P. Paid cloud is a premium minority. Infra cost grows sub-linearly with users. |
-| **10bn (10mld)** | Theoretical — beyond human population | Treat as stress test. Architecture must be designed *with* cloud/CDN/AI vendors, not *on top of* them. | Irrelevant; at this scale Wordlink is a protocol with implementations, not an app. |
+| **10bn (10mld)** | Theoretical — beyond human population | Treat as stress test. Architecture must be designed *with* cloud/CDN/AI vendors, not *on top of* them. | Irrelevant; at this scale Get Word is a protocol with implementations, not an app. |
 
 **The single insight**: above 1m users, the question isn't "how do we host this" but "how do we *not* host most of it." The cost-shifting levers in §3 aren't optimizations at that point — they're the architecture.

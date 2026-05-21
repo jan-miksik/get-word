@@ -13,6 +13,7 @@ import { useMenuPanels } from '@/hooks/useMenuPanels';
 import { useAppStateContext } from '@/context/AppStateContext';
 import { PWAInstallBanner } from '@/components/PWAInstallBanner';
 import { SpeckledBackground } from '@/components/SpeckledBackground';
+import { useI18n } from '@/components/I18nProvider';
 import type { ProgressStats } from '@/lib/progress-stats';
 
 interface AppLayoutProps {
@@ -48,6 +49,7 @@ export function AppLayout({
   header,
   children,
 }: AppLayoutProps) {
+  const { t } = useI18n();
   const {
     settingsOpen,
     progressOpen,
@@ -67,7 +69,7 @@ export function AppLayout({
     >
       <SpeckledBackground />
       {header}
-      <header className="app-header-bar" aria-label="App header">
+      <header className="app-header-bar" aria-label={t('auth.brand')}>
         <TopMenu
           showAll={showAll}
           onShowAll={() => setShowAll(!showAll)}
@@ -111,8 +113,8 @@ export function AppLayout({
                           void onSignOut();
                         }}
                         className="h-9 w-9 inline-flex items-center justify-center rounded-lg bg-transparent border-2 border-[#2A2218] text-[#2A2218] hover:bg-[#1E6FA8] hover:border-[#1E6FA8] hover:text-[#F4EFE2] transition-colors"
-                        aria-label="Sign out"
-                        title="Sign out"
+                        aria-label={t('common.signOut')}
+                        title={t('common.signOut')}
                       >
                         <svg
                           width="18"

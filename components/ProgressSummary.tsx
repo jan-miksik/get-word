@@ -11,14 +11,14 @@ export function ProgressSummary({ progressStats }: ProgressSummaryProps) {
   if (progressStats.readyCount === 0) return null;
 
   return (
-    <div className="progress-summary" aria-label={`${progressStats.readyCount} ready to repeat`}>
+    <div className="progress-summary" aria-label={`${progressStats.readyCount} k zopakování`}>
       <span className="stat-chip stat-chip--repeat">
         <span className="stat-chip-icon stat-chip-icon--repeat" aria-hidden="true">
           <span className="stat-chip-pulse" />
         </span>
         <span className="stat-chip-copy">
           <span className="stat-chip-value">{progressStats.readyCount}</span>
-          <span className="stat-chip-label">to repeat</span>
+          <span className="stat-chip-label">K zopakování</span>
         </span>
       </span>
     </div>

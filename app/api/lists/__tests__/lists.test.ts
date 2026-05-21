@@ -172,20 +172,20 @@ describe('POST /api/lists', () => {
 
   it('creates a new list', async () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
-    const created = { ...testList, id: 'list-new', name: 'New List' }
+    const created = { ...testList, id: 'list-new', name: 'Nový seznam' }
     mockCreateList.mockResolvedValue(created)
     const req = new NextRequest('http://localhost:3000/api/lists', {
       method: 'POST',
-      body: JSON.stringify({ name: 'New List', language_from: 'cz', language_to: 'vi' }),
+      body: JSON.stringify({ name: 'Nový seznam', language_from: 'cz', language_to: 'vi' }),
       headers: { 'Content-Type': 'application/json' },
     })
     const res = await POST(req)
     const data = await res.json()
     expect(res.status).toBe(201)
-    expect(data.list.name).toBe('New List')
+    expect(data.list.name).toBe('Nový seznam')
     expect(mockCreateList).toHaveBeenCalledWith(expect.objectContaining({
       ownerId: 'user-1',
-      name: 'New List',
+      name: 'Nový seznam',
       languageFrom: 'cz',
       languageTo: 'vi',
       isPublic: false,

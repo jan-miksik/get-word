@@ -46,7 +46,7 @@ vi.mock('@/lib/audio', () => ({
 
 vi.mock('@/lib/audio-storage', () => ({
   uploadAudio: (...args: unknown[]) => mockUploadAudio(...args),
-  getArweaveGatewayUrl: (ref: string) => `https://arweave.net/${ref}`,
+  getArweaveGatewayUrl: (ref: string) => `https://turbo-gateway.com/${ref}`,
   getArweaveGatewayUrls: (ref: string) => [
     `https://turbo-gateway.com/${ref}`,
     `https://arweave.net/${ref}`,

@@ -11,6 +11,7 @@ import {
   type PromptMode,
   type SourceLang,
 } from './types';
+import { useI18n } from '@/components/I18nProvider';
 
 interface Props {
   words: NormalizedWord[];
@@ -29,6 +30,7 @@ export function MultipleChoiceGame({
   level = 1,
   onResult,
 }: Props) {
+  const { t } = useI18n();
   const [selected, setSelected] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
@@ -101,8 +103,8 @@ export function MultipleChoiceGame({
     <article className="phrase-card game-card game-card--choice">
       <div className="game-badge">
         {effectivePromptMode === 'audio'
-          ? '🎯 Choose'
-          : '🎯 Choice'}
+          ? `🎯 ${t('game.choose')}`
+          : `🎯 ${t('game.choice')}`}
       </div>
       {effectivePromptMode === 'audio' ? (
         <div className="game-audio-prompt">
@@ -110,7 +112,7 @@ export function MultipleChoiceGame({
             type="button"
             className="game-audio-btn"
             onClick={replayPrompt}
-            aria-label="Replay prompt audio"
+            aria-label={t('game.replayPromptAudio')}
           >
             🔊
           </button>
@@ -142,7 +144,7 @@ export function MultipleChoiceGame({
       {answered ? (
         <div className="game-feedback">
           <span className={options.find(o => o.id === selected)?.isCorrect ? 'game-feedback--exact' : 'game-feedback--wrong'}>
-            {options.find(o => o.id === selected)?.isCorrect ? '✓ Correct!' : `✗  ${correctAnswer}`}
+            {options.find(o => o.id === selected)?.isCorrect ? `✓ ${t('game.correct')}` : `✗  ${correctAnswer}`}
           </span>
         </div>
       ) : (

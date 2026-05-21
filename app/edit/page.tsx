@@ -161,7 +161,7 @@ export default function EditPage() {
           <LoadingScreen />
         ) : isRedirecting || userRole !== 'editor' ? (
           <div className="app">
-            <div className="p-8 text-center">Redirecting...</div>
+            <div className="p-8 text-center">Přesměrování...</div>
           </div>
         ) : (
           <EditStudyContent

@@ -38,15 +38,15 @@ export const ALL_CATEGORIES = [...STANDARD_CATEGORIES, ...EDIT_ONLY_CATEGORIES];
 
 // Field labels for better UX
 const FIELD_LABELS: Record<string, string> = {
-  cz: 'Czech',
-  en: 'English',
-  vi: 'Vietnamese',
-  czPron: 'Czech Pronunciation',
-  viPron: 'Vietnamese Pronunciation',
-  czHint: 'Czech Hint',
-  viHint: 'Vietnamese Hint',
-  czAudio: 'Czech Audio',
-  viAudio: 'Vietnamese Audio',
+  cz: 'Čeština',
+  en: 'Angličtina',
+  vi: 'Vietnamština',
+  czPron: 'Česká výslovnost',
+  viPron: 'Vietnamská výslovnost',
+  czHint: 'Český háček',
+  viHint: 'Vietnamský háček',
+  czAudio: 'Český zvuk',
+  viAudio: 'Vietnamský zvuk',
 };
 
 export const EditableWordCard = memo(function EditableWordCard({
@@ -197,7 +197,7 @@ export const EditableWordCard = memo(function EditableWordCard({
               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50
               ${showCategoryDropdown ? 'bg-white/[0.08] border-sky-400/30 shadow-[0_0_20px_rgba(56,189,248,0.15)]' : ''}
             `}
-            title="Edit categories"
+            title="Upravit kategorie"
           >
             <span className="text-sm transition-transform duration-200 group-hover:scale-110">🏷️</span>
           </button>
@@ -223,7 +223,7 @@ export const EditableWordCard = memo(function EditableWordCard({
             {/* Current categories section */}
             <div className="mb-3">
               <div className="text-[0.65rem] uppercase tracking-wider text-slate-400 mb-2 font-medium">
-                Current
+                Aktuální
               </div>
               <div className="flex flex-wrap gap-1.5">
                 {currentCategories.length > 0 ? (
@@ -245,14 +245,14 @@ export const EditableWordCard = memo(function EditableWordCard({
                         e.stopPropagation();
                         onCategoryRemove(cat);
                       }}
-                      title="Click to remove"
+                      title="Kliknutím odebrat"
                     >
                       <span>{cat}</span>
                       <span className="ml-1 opacity-60 group-hover/badge:opacity-100">×</span>
                     </button>
                   ))
                 ) : (
-                  <span className="text-[0.7rem] text-slate-500 italic">None</span>
+                  <span className="text-[0.7rem] text-slate-500 italic">Žádné</span>
                 )}
               </div>
             </div>
@@ -266,7 +266,7 @@ export const EditableWordCard = memo(function EditableWordCard({
             {availableCategoriesToAdd.length > 0 && (
               <div>
                 <div className="text-[0.65rem] uppercase tracking-wider text-slate-400 mb-2 font-medium">
-                  Add
+                  Přidat
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {availableCategoriesToAdd.map((cat) => (
@@ -326,7 +326,7 @@ export const EditableWordCard = memo(function EditableWordCard({
             active:translate-y-0 active:shadow-[0_2px_8px_rgba(0,0,0,0.3)]
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50
           "
-          title="Edit text fields"
+          title="Upravit textová pole"
         >
           <span className="text-sm transition-transform duration-200 group-hover:scale-110">✏️</span>
         </button>
@@ -375,7 +375,7 @@ export const EditableWordCard = memo(function EditableWordCard({
                 border-b border-white/[0.05]
               ">
                 <div>
-                  <h3 className="text-base font-semibold text-white">Edit Word</h3>
+                  <h3 className="text-base font-semibold text-white">Upravit slovo</h3>
                   <p className="text-xs text-slate-400 mt-0.5">{word.en || word.cz}</p>
                 </div>
                 <button
@@ -400,7 +400,7 @@ export const EditableWordCard = memo(function EditableWordCard({
                     hover:bg-white/[0.1] hover:text-white hover:border-white/[0.15]
                     active:scale-95
                   "
-                  aria-label="Close edit modal"
+                  aria-label="Zavřít úpravu slova"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -426,7 +426,7 @@ export const EditableWordCard = memo(function EditableWordCard({
                           type="text"
                           value={localWord[field] || ''}
                           onChange={(e) => setLocalWord(prev => ({ ...prev, [field]: e.target.value }))}
-                          placeholder={`Enter ${FIELD_LABELS[field].toLowerCase()}`}
+                          placeholder={`Zadejte: ${FIELD_LABELS[field].toLowerCase()}`}
                           className="
                             w-full px-4 py-2.5 rounded-xl
                             bg-white/[0.03]
@@ -445,7 +445,7 @@ export const EditableWordCard = memo(function EditableWordCard({
                   {/* Divider */}
                   <div className="flex items-center gap-3 py-2">
                     <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
-                    <span className="text-[0.65rem] uppercase tracking-wider text-slate-500">Pronunciation & Hints</span>
+                    <span className="text-[0.65rem] uppercase tracking-wider text-slate-500">Výslovnost a háčky</span>
                     <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
                   </div>
 
@@ -464,7 +464,7 @@ export const EditableWordCard = memo(function EditableWordCard({
                           type="text"
                           value={localWord[field] || ''}
                           onChange={(e) => setLocalWord(prev => ({ ...prev, [field]: e.target.value }))}
-                          placeholder={`Enter ${field.includes('Pron') ? 'pronunciation' : 'hint'}`}
+                          placeholder={field.includes('Pron') ? 'Zadejte výslovnost' : 'Zadejte háček'}
                           className="
                             w-full px-3 py-2 rounded-xl
                             bg-white/[0.03]
@@ -483,7 +483,7 @@ export const EditableWordCard = memo(function EditableWordCard({
                   {/* Divider */}
                   <div className="flex items-center gap-3 py-2">
                     <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
-                    <span className="text-[0.65rem] uppercase tracking-wider text-slate-500">Audio Files</span>
+                    <span className="text-[0.65rem] uppercase tracking-wider text-slate-500">Zvukové soubory</span>
                     <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
                   </div>
 
@@ -497,7 +497,7 @@ export const EditableWordCard = memo(function EditableWordCard({
                           transition-colors group-focus-within:text-sky-400
                         ">
                           {FIELD_LABELS[field]}
-                          <span className="ml-1 text-slate-500 normal-case tracking-normal">(comma-separated)</span>
+                          <span className="ml-1 text-slate-500 normal-case tracking-normal">(oddělené čárkou)</span>
                         </label>
                         <input
                           type="text"

@@ -101,13 +101,13 @@ export function useEditableWords({ words, setWords }: UseEditableWordsArgs) {
       });
       const data = await response.json();
       if (data.success) {
-        setSaveMessage('Saved successfully!');
+        setSaveMessage('Uloženo.');
         window.setTimeout(() => setSaveMessage(null), 2000);
       } else {
-        setSaveMessage(`Error: ${data.error || 'Failed to save'}`);
+        setSaveMessage(`Chyba: ${data.error || 'Uložení se nepodařilo'}`);
       }
     } catch (error) {
-      setSaveMessage(`Error: ${error instanceof Error ? error.message : 'Failed to save'}`);
+      setSaveMessage(`Chyba: ${error instanceof Error ? error.message : 'Uložení se nepodařilo'}`);
     } finally {
       setIsSaving(false);
     }

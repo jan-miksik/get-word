@@ -72,7 +72,7 @@ export function EditStudyContent({
       >
         <div className="app-content-column flex flex-col gap-[18px] flex-1 min-h-0">
           {filteredWords.length === 0 ? (
-            <div className="p-8 text-center text-text-soft">No words match your current filters.</div>
+            <div className="p-8 text-center text-text-soft">Žádná slova neodpovídají aktuálním filtrům.</div>
           ) : (
             <VirtualizedWordList
               key="stream"
@@ -81,7 +81,7 @@ export function EditStudyContent({
               renderCard={renderEditableCard}
               showHeaders={false}
               scrollElement={phrasesScrollElement}
-              emptyMessage="No words to display."
+              emptyMessage="Žádná slova k zobrazení."
               stageFooter={(stageIndex) => {
                 const isLastMainSlot =
                   (stageIndex === 1 && newWordsCount > 0) ||

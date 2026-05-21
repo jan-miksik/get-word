@@ -17,9 +17,9 @@ export function EditHeader({
     <div className="py-3 border-b border-border-subtle bg-background-elevated">
       <div className="app-content-column flex justify-between items-center flex-wrap gap-2">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-accent font-semibold">✏️ EDIT MODE</span>
+          <span className="text-sm text-accent font-semibold">✏️ REŽIM ÚPRAV</span>
           {saveMessage && (
-            <span className={`text-sm ${saveMessage.includes('Error') ? 'text-danger' : 'text-accent'}`}>
+            <span className={`text-sm ${saveMessage.includes('Chyba') ? 'text-danger' : 'text-accent'}`}>
               {saveMessage}
             </span>
           )}
@@ -29,14 +29,14 @@ export function EditHeader({
             onClick={onCancel}
             className="py-1.5 px-3 rounded-full border border-border-subtle bg-transparent text-text cursor-pointer text-xs"
           >
-            Cancel
+            Zrušit
           </button>
           <button
             onClick={onSave}
             disabled={isSaving}
             className={`py-1.5 px-3 rounded-full border-none bg-accent text-background text-xs font-medium ${isSaving ? 'cursor-not-allowed opacity-60' : 'cursor-pointer'}`}
           >
-            {isSaving ? 'Saving...' : 'Save'}
+            {isSaving ? 'Ukládám...' : 'Uložit'}
           </button>
         </div>
       </div>

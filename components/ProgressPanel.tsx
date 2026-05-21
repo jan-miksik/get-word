@@ -2,6 +2,8 @@
 
 import { STAGES } from '@/lib/words';
 import type { ProgressStats } from '@/lib/progress-stats';
+import { useI18n } from '@/components/I18nProvider';
+import type { I18nKey } from '@/lib/i18n/messages';
 
 interface ProgressPanelProps {
   isOpen: boolean;
@@ -10,6 +12,7 @@ interface ProgressPanelProps {
 }
 
 export function ProgressPanel({ isOpen, progressStats, onClose }: ProgressPanelProps) {
+  const { t } = useI18n();
   const progressPercent = progressStats.total > 0 
     ? Math.round((progressStats.fresh + progressStats.learning + progressStats.done) / progressStats.total * 100) 
     : 0;
@@ -21,7 +24,7 @@ export function ProgressPanel({ isOpen, progressStats, onClose }: ProgressPanelP
   return (
     <section
       className={`progress-panel ${isOpen ? 'is-open fixed inset-0' : ''}`}
-      aria-label="Progress"
+      aria-label={t('progress.aria')}
       onClick={(e) => e.stopPropagation()}
     >
       {isOpen && (
@@ -35,11 +38,11 @@ export function ProgressPanel({ isOpen, progressStats, onClose }: ProgressPanelP
       <div className="p-4" id="progress-panel-content">
         <div className="py-3 max-w-full sm:py-6">
           <div className="mb-4 relative">
-            <h1 className="text-[1.35rem] font-semibold m-0 text-text">📊 Learning Progress</h1>
+            <h1 className="text-[1.35rem] font-semibold m-0 text-text">📊 {t('progress.title')}</h1>
             <button
               onClick={onClose}
               className="absolute top-0 right-0 bg-transparent border-none text-xl text-text-soft cursor-pointer p-1 leading-none flex items-center justify-center w-6 h-6 rounded-md transition-all hover:bg-background-elevated hover:text-text"
-              aria-label="Close progress"
+              aria-label={t('progress.close')}
             >
               ×
             </button>
@@ -49,52 +52,52 @@ export function ProgressPanel({ isOpen, progressStats, onClose }: ProgressPanelP
           <div className="grid grid-cols-2 gap-2 mb-4 sm:grid-cols-4">
             <div className="bg-background-elevated border border-border-subtle rounded-lg p-2.5 text-center">
               <div className="text-2xl font-bold text-accent mb-0.5">{progressStats.total}</div>
-              <div className="text-xs text-text-soft font-medium">Total Words</div>
+              <div className="text-xs text-text-soft font-medium">{t('progress.totalWords')}</div>
             </div>
             <div className="bg-background-elevated border border-border-subtle rounded-lg p-2.5 text-center">
               <div className="text-2xl font-bold text-accent mb-0.5">{progressPercent}%</div>
-              <div className="text-xs text-text-soft font-medium">Progress</div>
+              <div className="text-xs text-text-soft font-medium">{t('progress.progress')}</div>
               <div className="text-[0.6875rem] text-text-soft mt-0.5">
                 {progressStats.fresh + progressStats.learning + progressStats.done} / {progressStats.total}
               </div>
             </div>
             <div className="bg-background-elevated border border-border-subtle rounded-lg p-2.5 text-center">
               <div className="text-2xl font-bold text-accent mb-0.5">{progressStats.readyCount}</div>
-              <div className="text-xs text-text-soft font-medium">Ready Now</div>
+              <div className="text-xs text-text-soft font-medium">{t('progress.readyNow')}</div>
             </div>
             <div className="bg-background-elevated border border-border-subtle rounded-lg p-2.5 text-center">
               <div className="text-2xl font-bold text-accent mb-0.5">{progressStats.done}</div>
-              <div className="text-xs text-text-soft font-medium">Done</div>
-              <div className="text-[0.6875rem] text-text-soft mt-0.5">Stage 9-10</div>
+              <div className="text-xs text-text-soft font-medium">{t('progress.done')}</div>
+              <div className="text-[0.6875rem] text-text-soft mt-0.5">{t('progress.doneStages')}</div>
             </div>
           </div>
 
           {/* Learning status breakdown */}
           <div className="mb-5">
-            <h2 className="text-base font-semibold m-0 mb-2.5 text-text">Learning Status</h2>
+            <h2 className="text-base font-semibold m-0 mb-2.5 text-text">{t('progress.learningStatus')}</h2>
             <div className="grid grid-cols-4 gap-2">
               <div className="bg-background-elevated border border-border-subtle rounded-lg p-2.5 text-center">
                 <div className="text-xl font-bold mb-1 text-text-soft">{progressStats.new}</div>
-                <div className="text-[0.6875rem] text-text-soft font-medium">New / Not Started</div>
+                <div className="text-[0.6875rem] text-text-soft font-medium">{t('progress.newNotStarted')}</div>
               </div>
               <div className="bg-background-elevated border border-border-subtle rounded-lg p-2.5 text-center">
                 <div className="text-xl font-bold mb-1 text-fresh">{progressStats.fresh}</div>
-                <div className="text-[0.6875rem] text-text-soft font-medium">Fresh</div>
+                <div className="text-[0.6875rem] text-text-soft font-medium">{t('progress.fresh')}</div>
               </div>
               <div className="bg-background-elevated border border-accent-strong rounded-lg p-2.5 text-center">
                 <div className="text-xl font-bold mb-1 text-accent">{progressStats.learning}</div>
-                <div className="text-[0.6875rem] text-text-soft font-medium">Learning</div>
+                <div className="text-[0.6875rem] text-text-soft font-medium">{t('progress.learning')}</div>
               </div>
               <div className="bg-background-elevated border border-border-subtle rounded-lg p-2.5 text-center">
                 <div className="text-xl font-bold mb-1 text-done">{progressStats.done}</div>
-                <div className="text-[0.6875rem] text-text-soft font-medium">Done</div>
+                <div className="text-[0.6875rem] text-text-soft font-medium">{t('progress.done')}</div>
               </div>
             </div>
           </div>
 
           {/* Words by Stage */}
           <div className="mb-5">
-            <h2 className="text-base font-semibold m-0 mb-2.5 text-text">Words by Stage</h2>
+            <h2 className="text-base font-semibold m-0 mb-2.5 text-text">{t('progress.wordsByStage')}</h2>
             <div className="flex flex-col gap-1.5">
               {STAGES.map((stage, index) => {
                 const count = progressStats.byStage[index];
@@ -108,7 +111,7 @@ export function ProgressPanel({ isOpen, progressStats, onClose }: ProgressPanelP
                     key={index}
                     className={`bg-background-elevated border border-border-subtle rounded-lg py-2 px-3 flex items-center gap-2`}
                   >
-                    <div className="flex-1 text-[0.8125rem] font-medium text-text">{stage.name}</div>
+                    <div className="flex-1 text-[0.8125rem] font-medium text-text">{t(`stage.${stage.id}` as I18nKey)}</div>
                     <div className="text-sm font-semibold text-accent min-w-[28px] text-right">{count}</div>
                     <div className="w-[60px] h-1 bg-border-subtle rounded-pill overflow-hidden">
                       <div
@@ -124,18 +127,18 @@ export function ProgressPanel({ isOpen, progressStats, onClose }: ProgressPanelP
 
           {/* Answer statistics */}
           <div className="mb-5">
-            <h2 className="text-base font-semibold m-0 mb-2.5 text-text">Answer Statistics</h2>
+            <h2 className="text-base font-semibold m-0 mb-2.5 text-text">{t('progress.answerStats')}</h2>
             <div className="grid grid-cols-3 gap-2">
               <div className="bg-background-elevated border border-border-subtle rounded-lg p-2.5 text-center">
-                <div className="text-[0.6875rem] text-text-soft mb-1 font-medium">Correct</div>
+                <div className="text-[0.6875rem] text-text-soft mb-1 font-medium">{t('progress.correct')}</div>
                 <div className="text-xl font-bold text-done">{progressStats.totalKnown}</div>
               </div>
               <div className="bg-background-elevated border border-border-subtle rounded-lg p-2.5 text-center">
-                <div className="text-[0.6875rem] text-text-soft mb-1 font-medium">Incorrect</div>
+                <div className="text-[0.6875rem] text-text-soft mb-1 font-medium">{t('progress.incorrect')}</div>
                 <div className="text-xl font-bold text-danger">{progressStats.totalUnknown}</div>
               </div>
               <div className="bg-background-elevated border border-border-subtle rounded-lg p-2.5 text-center">
-                <div className="text-[0.6875rem] text-text-soft mb-1 font-medium">Accuracy</div>
+                <div className="text-[0.6875rem] text-text-soft mb-1 font-medium">{t('progress.accuracy')}</div>
                 <div className="text-xl font-bold text-text">{accuracy}%</div>
               </div>
             </div>

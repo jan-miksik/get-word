@@ -79,7 +79,7 @@ describe('TranslationStep Google usage gating', () => {
       />,
     );
 
-    expect(screen.getByRole('button', { name: /auto-translate \(1\)/i })).toBeDisabled();
+    expect(screen.getByRole('button', { name: /automaticky přeložit \(1\)/i })).toBeDisabled();
     expect(screen.getByText(/reached the free Google API usage limit/i)).toBeInTheDocument();
   });
 

@@ -14,11 +14,11 @@ interface WizardProgressBarProps {
 }
 
 const STEPS: { id: WizardActiveStep; label: string }[] = [
-  { id: 'edit', label: 'Edit' },
-  { id: 'preview', label: 'Preview' },
-  { id: 'translate', label: 'Translate' },
-  { id: 'audio-target', label: 'Audio - to learn' },
-  { id: 'audio-known', label: 'Audio - known' },
+  { id: 'edit', label: 'Upravit' },
+  { id: 'preview', label: 'Náhled' },
+  { id: 'translate', label: 'Překlad' },
+  { id: 'audio-target', label: 'Zvuk - učený jazyk' },
+  { id: 'audio-known', label: 'Zvuk - známý jazyk' },
 ];
 
 export function WizardProgressBar({

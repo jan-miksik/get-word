@@ -1,5 +1,12 @@
 import { describe, it, expect } from 'vitest';
-import { wordListItemsToNormalizedWords, isDue, normalizeWords, getAvailableCategories } from '@/lib/words';
+import {
+  STAGES,
+  getAvailableCategories,
+  isDue,
+  normalizeWords,
+  remapLegacyStageIndex,
+  wordListItemsToNormalizedWords,
+} from '@/lib/words';
 import type { NormalizedWord } from '@/lib/words';
 import { WORDS as RAW_WORDS } from '../../wordbook/slova.js';
 import type { Word } from '@/data/words';
@@ -112,6 +119,26 @@ describe('Migration: wordListItemsToNormalizedWords', () => {
 });
 
 describe('Migration: SR state preservation', () => {
+  it('uses the compact review ladder with a 5-minute first review', () => {
+    expect(STAGES.map((stage) => stage.name)).toEqual([
+      'New / forgotten',
+      '5 minutes',
+      '1 day',
+      '3 days',
+      '7 days',
+      '14 days',
+      '30 days',
+      '60 days',
+    ]);
+    expect(STAGES[1].intervalMs).toBe(5 * 60 * 1000);
+  });
+
+  it('remaps legacy stage indexes onto the compact review ladder', () => {
+    expect(
+      Array.from({ length: 11 }, (_, stageIndex) => remapLegacyStageIndex(stageIndex))
+    ).toEqual([0, 1, 1, 1, 1, 2, 3, 4, 5, 6, 7]);
+  });
+
   it('isDue works with both old and new progress formats', () => {
     // Old format: stageIndex + nextDueAt as timestamp
     const pastDue = { stageIndex: 3, nextDueAt: Date.now() - 60000 };
@@ -126,7 +153,7 @@ describe('Migration: SR state preservation', () => {
   it('progress keyed by UUID works the same as by old word ID', () => {
     // Simulate progress map keyed by UUID
     const progress: Record<string, { stageIndex: number; nextDueAt?: number }> = {
-      'a1b2c3d4-e5f6-7890-abcd-ef1234567890': { stageIndex: 5, nextDueAt: Date.now() - 1000 },
+      'a1b2c3d4-e5f6-7890-abcd-ef1234567890': { stageIndex: 7, nextDueAt: Date.now() - 1000 },
       'b2c3d4e5-f6a7-8901-bcde-f12345678901': { stageIndex: 2, nextDueAt: Date.now() + 100000 },
     };
 

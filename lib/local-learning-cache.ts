@@ -2,6 +2,7 @@
 
 import type { SyncResponse } from '@/lib/sync';
 import type { NormalizedWord } from '@/lib/words';
+import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
 
 const DB_NAME = 'wordlink-learning-cache';
 const DB_VERSION = 1;
@@ -192,20 +193,24 @@ export async function cacheActiveListAudio(words: NormalizedWord[]): Promise<Aud
   let cachedCount = 0;
 
   for (const url of urls) {
-    try {
-      const request = new Request(url, { credentials: 'same-origin' });
-      const existing = await cache.match(request);
-      if (existing) {
-        cachedCount += 1;
-        continue;
+    const candidates = getArweaveGatewayUrlCandidates(url);
+    for (const candidate of candidates) {
+      try {
+        const request = new Request(candidate, { credentials: 'same-origin' });
+        const existing = await cache.match(request);
+        if (existing) {
+          cachedCount += 1;
+          break;
+        }
+        const response = await fetch(request);
+        if (response.ok) {
+          await cache.put(request, response.clone());
+          cachedCount += 1;
+          break;
+        }
+      } catch {
+        // Individual gateway failures should not block the cache job.
       }
-      const response = await fetch(request);
-      if (response.ok) {
-        await cache.put(request, response.clone());
-        cachedCount += 1;
-      }
-    } catch {
-      // Individual audio failures should not block the cache job.
     }
   }
 

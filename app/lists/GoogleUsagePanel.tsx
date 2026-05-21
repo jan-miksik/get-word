@@ -12,8 +12,8 @@ const SCOPE_LABELS: Record<GoogleUsageScope, string> = {
   tts: 'Google TTS',
 };
 
-const numberFormatter = new Intl.NumberFormat('en-US');
-const monthFormatter = new Intl.DateTimeFormat('en-US', {
+const numberFormatter = new Intl.NumberFormat('cs-CZ');
+const monthFormatter = new Intl.DateTimeFormat('cs-CZ', {
   month: 'long',
   year: 'numeric',
   timeZone: 'UTC',
@@ -64,17 +64,17 @@ function AccountScopeRow({ scope }: { scope: GoogleUsageAccountScope }) {
         <div>
           <p className="text-sm font-medium text-text">{SCOPE_LABELS[scope.scope]}</p>
           <p className="text-[11px] text-text-soft">
-            {formatUnits(scope.used_units)} / {formatUnits(scope.account_limit)} free chars on this account
+            {formatUnits(scope.used_units)} / {formatUnits(scope.account_limit)} bezplatných znaků na tomto účtu
           </p>
         </div>
         <div className={`text-xs font-medium ${scope.paused ? 'text-danger' : 'text-text-soft'}`}>
-          {scope.paused ? 'Paused' : `${Math.round(percent)}% used`}
+          {scope.paused ? 'Pozastaveno' : `${Math.round(percent)} % využito`}
         </div>
       </div>
-      <UsageBar label={`${SCOPE_LABELS[scope.scope]} account usage`} percent={percent} tone={tone} />
+      <UsageBar label={`Využití ${SCOPE_LABELS[scope.scope]} na účtu`} percent={percent} tone={tone} />
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-text-soft">
-        <span>{formatUnits(scope.request_count)} requests this month</span>
-        <span>{formatUnits(scope.free_monthly_units)} total free monthly chars</span>
+        <span>{formatUnits(scope.request_count)} požadavků tento měsíc</span>
+        <span>{formatUnits(scope.free_monthly_units)} bezplatných znaků měsíčně celkem</span>
       </div>
       {scope.paused && scope.limit_message ? (
         <p className="mt-2 text-xs text-danger">{scope.limit_message}</p>
@@ -93,15 +93,15 @@ function GlobalScopeRow({ scope }: { scope: GoogleUsageGlobalScope }) {
         <div>
           <p className="text-sm font-medium text-text">{SCOPE_LABELS[scope.scope]}</p>
           <p className="text-[11px] text-text-soft">
-            {formatUnits(scope.used_units)} / {formatUnits(scope.free_monthly_units)} free chars across all accounts
+            {formatUnits(scope.used_units)} / {formatUnits(scope.free_monthly_units)} bezplatných znaků napříč účty
           </p>
         </div>
-        <div className="text-xs font-medium text-text-soft">{Math.round(percent)}% used</div>
+        <div className="text-xs font-medium text-text-soft">{Math.round(percent)} % využito</div>
       </div>
-      <UsageBar label={`${SCOPE_LABELS[scope.scope]} global usage`} percent={percent} tone={tone} />
+      <UsageBar label={`Celkové využití ${SCOPE_LABELS[scope.scope]}`} percent={percent} tone={tone} />
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-[11px] text-text-soft">
-        <span>{formatUnits(scope.account_count)} active accounts</span>
-        <span>{formatUnits(scope.request_count)} requests this month</span>
+        <span>{formatUnits(scope.account_count)} aktivních účtů</span>
+        <span>{formatUnits(scope.request_count)} požadavků tento měsíc</span>
       </div>
     </div>
   );
@@ -119,15 +119,15 @@ export function GoogleUsagePanel({ usage, compact = false }: GoogleUsagePanelPro
     <>
       <div className="mb-3 flex flex-wrap items-end justify-between gap-2">
         <div>
-          <h2 className="text-sm font-semibold text-text">Google API Usage</h2>
-          <p className="text-xs text-text-soft">Free-tier usage for {monthLabel}</p>
+          <h2 className="text-sm font-semibold text-text">Využití Google API</h2>
+          <p className="text-xs text-text-soft">Využití bezplatné vrstvy za {monthLabel}</p>
         </div>
-        <p className="text-[11px] text-text-soft">Limits reset on the first day of each month.</p>
+        <p className="text-[11px] text-text-soft">Limity se resetují první den každého měsíce.</p>
       </div>
 
       <div className="grid gap-3 lg:grid-cols-2">
         <div className="space-y-3">
-          <h3 className="text-xs font-medium uppercase tracking-wide text-text-soft">This account</h3>
+          <h3 className="text-xs font-medium uppercase tracking-wide text-text-soft">Tento účet</h3>
           {usage.account.map((scope) => (
             <AccountScopeRow key={scope.scope} scope={scope} />
           ))}
@@ -135,7 +135,7 @@ export function GoogleUsagePanel({ usage, compact = false }: GoogleUsagePanelPro
 
         {usage.global && usage.global.length > 0 ? (
           <div className="space-y-3">
-            <h3 className="text-xs font-medium uppercase tracking-wide text-text-soft">All accounts</h3>
+            <h3 className="text-xs font-medium uppercase tracking-wide text-text-soft">Všechny účty</h3>
             {usage.global.map((scope) => (
               <GlobalScopeRow key={scope.scope} scope={scope} />
             ))}

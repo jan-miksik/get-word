@@ -173,7 +173,7 @@ export const users = pgTable("users", {
   showCategoryBadges: boolean("show_category_badges").default(false).notNull(),
   showPronunciation: boolean("show_pronunciation").default(false).notNull(),
   memoryHooksEnabled: boolean("memory_hooks_enabled").default(true).notNull(),
-  memoryHookDisableFromStage: integer("memory_hook_disable_from_stage").default(8).notNull(),
+  memoryHookDisableFromStage: integer("memory_hook_disable_from_stage").default(5).notNull(),
   settingsLanguage: text("settings_language"),
   settingsLanguageSelectedAt: timestamp("settings_language_selected_at"),
   languageFrom: text("language_from"),
@@ -214,7 +214,7 @@ export const userProgress = pgTable(
       () => wordListItems.id,
       { onDelete: "set null" },
     ),
-    stageIndex: integer("stage_index").notNull().default(0), // 0-10 spaced repetition
+    stageIndex: integer("stage_index").notNull().default(0), // 0-7 spaced repetition
     knownCount: integer("known_count").notNull().default(0),
     unknownCount: integer("unknown_count").notNull().default(0),
     lastKnownAt: timestamp("last_known_at"),

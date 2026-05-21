@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 const CACHE_PREFIX = 'wordlink-';
 
-async function clearWordlinkCaches() {
+async function clearGetWordCaches() {
   if (!('caches' in window)) return;
 
   const cacheKeys = await caches.keys();
@@ -46,7 +46,7 @@ export function PWARegister() {
             : [];
 
           await unregisterExistingWorkers();
-          await clearWordlinkCaches();
+          await clearGetWordCaches();
           setDevStatus({
             controlled: wasControlled,
             cachesCleared: cacheKeys.length,
@@ -54,7 +54,7 @@ export function PWARegister() {
 
           if (wasControlled) {
             console.warn(
-              '[PWA] A stale service worker was controlling this dev page. It has been unregistered and Wordlink caches were cleared. Reload once if the UI still looks old.',
+              '[PWA] A stale service worker was controlling this dev page. It has been unregistered and Get Word caches were cleared. Reload once if the UI still looks old.',
             );
           }
           return;
@@ -106,7 +106,7 @@ export function PWARegister() {
       <div className="fixed left-1/2 top-3 z-[400] w-[min(calc(100vw-1rem),42rem)] -translate-x-1/2 rounded-xl border border-amber-400/35 bg-amber-100/95 px-3 py-2 text-xs text-amber-950 shadow-lg backdrop-blur">
         <div className="font-semibold">Stale service worker detected in dev</div>
         <div className="mt-0.5">
-          Wordlink cleared {devStatus.cachesCleared} cache
+          Get Word cleared {devStatus.cachesCleared} cache
           {devStatus.cachesCleared === 1 ? '' : 's'} and unregistered the old worker.
           Reload once if the page still looks outdated.
         </div>

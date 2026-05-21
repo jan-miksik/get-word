@@ -40,7 +40,7 @@ describe("ApiKeySettings OpenRouter UX", () => {
     render(<ApiKeySettings isOpen onClose={() => {}} />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /connect/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /připojit openrouter/i })).toBeInTheDocument();
     });
   });
 
@@ -70,10 +70,10 @@ describe("ApiKeySettings OpenRouter UX", () => {
     render(<ApiKeySettings isOpen onClose={() => {}} />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /disconnect/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /odpojit/i })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /^test$/i })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /reconnect/i })).not.toBeInTheDocument();
-      expect(screen.getByLabelText(/translation model/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/překladový model/i)).toBeInTheDocument();
     });
   });
 });

@@ -41,4 +41,22 @@ describe('audio availability', () => {
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
+
+  it('falls back from a broken Arweave gateway URL to the next configured gateway', async () => {
+    global.fetch = vi.fn(async (input) => {
+      const url = String(input);
+      return {
+        ok: url.startsWith('https://turbo-gateway.com/'),
+        status: url.startsWith('https://turbo-gateway.com/') ? 200 : 404,
+      } as Response;
+    });
+
+    await expect(getPlayableAudioUrl('https://ar-io.net/tx123')).resolves.toBe(
+      'https://turbo-gateway.com/tx123',
+    );
+    await expect(checkAudioUrlAvailable('https://ar-io.net/tx123')).resolves.toBe(true);
+
+    expect(global.fetch).toHaveBeenCalledWith('https://turbo-gateway.com/tx123', { method: 'HEAD' });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
 });

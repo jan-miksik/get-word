@@ -11,7 +11,7 @@ export async function POST(request: NextRequest) {
   try {
     return await handleGenerateAudioBatch(request);
   } catch (err) {
-    console.error("[Wordlink audio] batch generation crashed", {
+    console.error("[Get Word audio] batch generation crashed", {
       requestId,
       error: err instanceof Error ? err.message : err,
       stack: err instanceof Error ? err.stack : undefined,

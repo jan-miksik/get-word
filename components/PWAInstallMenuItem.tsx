@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getInstallPlatform, isStandalone, openPWAInstallHelp } from '@/lib/pwa-install';
 import { InstallAppIcon } from '@/components/icons/AppIcons';
+import { useI18n } from '@/components/I18nProvider';
 
 export function PWAInstallMenuItem({ onClick }: { onClick?: () => void }) {
+  const { t } = useI18n();
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [installed, setInstalled] = useState(false);
@@ -67,7 +69,7 @@ export function PWAInstallMenuItem({ onClick }: { onClick?: () => void }) {
       <span className="menu-item-icon">
         <InstallAppIcon size={15} />
       </span>
-      <span className="menu-item-label">Install App</span>
+      <span className="menu-item-label">{t('pwa.installMenuLabel')}</span>
       <span className="menu-item-badge">APP</span>
     </button>
   );

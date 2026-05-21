@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrCreateUserByDeviceId, getUserById, type User } from "@/lib/db";
-import { verifySession, WORDLINK_SESSION_COOKIE_NAME } from "@/lib/session";
+import { GET_WORD_SESSION_COOKIE_NAME, verifySession } from "@/lib/session";
 
 /**
  * Resolve the user from a request.
@@ -9,7 +9,7 @@ import { verifySession, WORDLINK_SESSION_COOKIE_NAME } from "@/lib/session";
 export async function resolveUserFromRequest(
   request: NextRequest
 ): Promise<User | null> {
-  const sessionToken = request.cookies.get(WORDLINK_SESSION_COOKIE_NAME)?.value;
+  const sessionToken = request.cookies.get(GET_WORD_SESSION_COOKIE_NAME)?.value;
   const session = await verifySession(sessionToken);
   if (session?.userId) {
     const sessionUser = await getUserById(session.userId);
@@ -29,7 +29,7 @@ export async function resolveUserFromRequest(
 export async function resolveAuthenticatedUser(
   request: NextRequest
 ): Promise<User | null> {
-  const sessionToken = request.cookies.get(WORDLINK_SESSION_COOKIE_NAME)?.value;
+  const sessionToken = request.cookies.get(GET_WORD_SESSION_COOKIE_NAME)?.value;
   const session = await verifySession(sessionToken);
   if (!session?.userId) return null;
   return getUserById(session.userId);

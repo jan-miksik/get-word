@@ -26,8 +26,8 @@ import { buildSyncSuccessPayload, getHydratedWordListData } from "@/features/sha
 import { isUuid } from "@/features/shared/sync/identity";
 import type { SyncRequest } from "@/features/sync/types";
 import {
+  GET_WORD_SESSION_COOKIE_NAME,
   verifySession,
-  WORDLINK_SESSION_COOKIE_NAME,
 } from "@/lib/session";
 import { isGoogleSupportedLanguage } from "@/lib/i18n/server";
 
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const sessionToken = request.cookies.get(WORDLINK_SESSION_COOKIE_NAME)?.value;
+    const sessionToken = request.cookies.get(GET_WORD_SESSION_COOKIE_NAME)?.value;
     const session = await verifySession(sessionToken);
     timer.mark("verify_session");
     if (!session?.userId) {
@@ -396,7 +396,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const sessionToken = request.cookies.get(WORDLINK_SESSION_COOKIE_NAME)?.value;
+    const sessionToken = request.cookies.get(GET_WORD_SESSION_COOKIE_NAME)?.value;
     const session = await verifySession(sessionToken);
     timer.mark("verify_session");
     if (!session?.userId) {

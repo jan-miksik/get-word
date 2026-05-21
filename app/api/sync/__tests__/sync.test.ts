@@ -57,8 +57,8 @@ vi.mock('@/lib/db', () => ({
 vi.mock('@/lib/session', () => ({
   verifySession: (...args: unknown[]) => mockVerifySession(...args),
   signSession: (...args: unknown[]) => mockSignSession(...args),
-  WORDLINK_SESSION_COOKIE_NAME: 'wordlink_session',
-  WORDLINK_SESSION_TTL_SECONDS: 60 * 60 * 24 * 30,
+  GET_WORD_SESSION_COOKIE_NAME: 'wordlink_session',
+  GET_WORD_SESSION_TTL_SECONDS: 60 * 60 * 24 * 30,
 }))
 
 vi.mock('@/lib/i18n/server', () => ({
@@ -95,7 +95,7 @@ const baseUser = {
   showEnglish: true,
   showCategoryBadges: false,
   memoryHooksEnabled: true,
-  memoryHookDisableFromStage: 8,
+  memoryHookDisableFromStage: 5,
   settingsLanguage: 'en',
   settingsLanguageSelectedAt: new Date('2026-05-01T00:00:00.000Z'),
   categoryOrder: [],

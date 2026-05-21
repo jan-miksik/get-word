@@ -188,7 +188,7 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
       });
     } catch (err) {
       const detail = getErrorDetail(err);
-      console.error("[Wordlink audio] Google TTS quota check failed", {
+      console.error("[Get Word audio] Google TTS quota check failed", {
         detail,
         error: err instanceof Error ? err.message : err,
         stack: err instanceof Error ? err.stack : undefined,
@@ -421,7 +421,7 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
             quotaExhaustedMessage = err.message;
           }
           const detail = getErrorDetail(err);
-          console.error("[Wordlink audio] item generation failed", {
+          console.error("[Get Word audio] item generation failed", {
             itemId: item.id,
             language: item.language,
             provider,

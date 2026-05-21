@@ -23,7 +23,7 @@ interface TopMenuProps {
   categoryActive: boolean;
   progressActive: boolean;
   score?: number;
-  /** Rendered in center of bar (e.g. "to repeat" count or Sign in button) */
+  /** Rendered in center of bar (e.g. repeat count or Sign in button) */
   centerContent?: ReactNode;
   /** When logged in, rendered at top of menu dropdown */
   accountSlot?: ReactNode;
@@ -42,6 +42,7 @@ function shortenListName(name: string): string {
 }
 
 export function ScoreBadge({ score }: { score: number }) {
+  const { t } = useI18n();
   const prevScore = useRef(score);
   const [delta, setDelta] = useState<{ value: number; key: number } | null>(null);
   const keyRef = useRef(0);
@@ -60,7 +61,7 @@ export function ScoreBadge({ score }: { score: number }) {
   return (
     <span
       className="stat-chip stat-chip--score relative"
-      aria-label={`Game score: ${score}`}
+      aria-label={t('score.aria', { score })}
     >
       <span className="stat-chip-icon stat-chip-icon--score">
         <StarIcon size={14} />
@@ -126,7 +127,7 @@ function ListSelectModal({ lists, activeListId, onListChange, onClose }: ListSel
             type="button"
             className="list-select-close"
             onClick={onClose}
-            aria-label="Close"
+            aria-label={t('common.close')}
           >
             ×
           </button>
@@ -274,14 +275,14 @@ function MenuDropdown({
           className={`mode-btn menu-toggle-btn flex-none flex items-center gap-1.5 !shadow-none ${hasActiveItem ? 'is-active' : ''}`}
           onClick={() => setOpen((v) => !v)}
           type="button"
-          aria-label="Open menu"
+          aria-label={t('menu.open')}
           aria-expanded={open}
           aria-haspopup="menu"
         >
           <span className="menu-toggle-icon" aria-hidden="true">
             <MenuIcon size={16} />
           </span>
-          <span className="menu-toggle-label text-sm font-medium">Menu</span>
+          <span className="menu-toggle-label text-sm font-medium">{t('menu.label')}</span>
           {hasActiveItem && (
             <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-accent" />
           )}

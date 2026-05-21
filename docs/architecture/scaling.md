@@ -1,6 +1,6 @@
-# Scaling Wordlink
+# Scaling Get Word
 
-This is an order-of-magnitude scaling plan for the current Wordlink app.
+This is an order-of-magnitude scaling plan for the current Get Word app.
 
 Assumptions:
 
@@ -196,7 +196,7 @@ Change:
 
 Key product decision:
 
-- Decide whether Wordlink is mostly private learning state, a marketplace of public word lists, or an AI media generation platform. Each one stresses different systems.
+- Decide whether Get Word is mostly private learning state, a marketplace of public word lists, or an AI media generation platform. Each one stresses different systems.
 
 ### 100m users
 

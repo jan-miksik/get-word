@@ -13,7 +13,7 @@ describe('PWARegister', () => {
     Reflect.deleteProperty(navigator, 'serviceWorker');
   });
 
-  it('unregisters lingering service workers and clears Wordlink caches in development', async () => {
+  it('unregisters lingering service workers and clears Get Word caches in development', async () => {
     vi.stubEnv('NODE_ENV', 'development');
 
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
@@ -62,12 +62,12 @@ describe('PWARegister', () => {
     });
 
     expect(warn).toHaveBeenCalledWith(
-      '[PWA] A stale service worker was controlling this dev page. It has been unregistered and Wordlink caches were cleared. Reload once if the UI still looks old.',
+      '[PWA] A stale service worker was controlling this dev page. It has been unregistered and Get Word caches were cleared. Reload once if the UI still looks old.',
     );
     expect(
       await screen.findByText('Stale service worker detected in dev')
     ).toBeInTheDocument();
-    expect(document.body.textContent).toContain('Wordlink cleared 2 caches');
+    expect(document.body.textContent).toContain('Get Word cleared 2 caches');
     expect(register).not.toHaveBeenCalled();
   });
 

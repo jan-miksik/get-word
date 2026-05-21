@@ -42,17 +42,17 @@ function ListBadges({ list }: { list: WordList }) {
     <>
       {list.isCommon && (
         <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-fresh/10 text-fresh">
-          Seed
+          Základ
         </span>
       )}
       {list.isPublic && (
         <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-done/10 text-done">
-          Public
+          Veřejný
         </span>
       )}
       {!list.isPublic && !list.isCommon && (
         <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-text-soft/10 text-text-soft">
-          Non-Public
+          Neveřejný
         </span>
       )}
     </>
@@ -257,7 +257,7 @@ export function ListSidebar({
                       data-open={isDropdownOpen}
                       onClick={(e) => toggleDropdown(e, list.id)}
                       disabled={deletingId === list.id || isForking}
-                      aria-label={`Options for ${list.name}`}
+                      aria-label={`Možnosti pro ${list.name}`}
                     >
                       <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
                         <circle cx="10" cy="4" r="1.5" />
@@ -275,7 +275,7 @@ export function ListSidebar({
                             onClick={() => handleFork(list.id)}
                           >
                             <ForkIcon />
-                            Fork
+                            Kopírovat
                           </button>
                         )}
                         <button
@@ -286,7 +286,7 @@ export function ListSidebar({
                           <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
                             <path d="M11.5 4.5l4 4L7 17H3v-4L11.5 4.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
-                          Edit
+                          Upravit
                         </button>
                         <div className="my-1 border-t border-border-subtle" />
                         <button
@@ -297,7 +297,7 @@ export function ListSidebar({
                           <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
                             <path d="M4 6h12M8 3h4M7 6v10m6-10v10M6 6l.6 10.2A1 1 0 007.6 17h4.8a1 1 0 001-.8L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                           </svg>
-                          Delete
+                          Smazat
                         </button>
                       </div>
                     )}
@@ -379,7 +379,7 @@ export function ListSidebar({
                             setOpenDropdownId((prev) => (prev === `pub:${list.id}` ? null : `pub:${list.id}`));
                           }}
                           disabled={isForking}
-                          aria-label={`Options for ${list.name}`}
+                          aria-label={`Možnosti pro ${list.name}`}
                         >
                           <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
                             <circle cx="10" cy="4" r="1.5" />
@@ -397,7 +397,7 @@ export function ListSidebar({
                               disabled={isForking}
                             >
                               <ForkIcon />
-                              {isForking ? 'Forking...' : 'Fork'}
+                              {isForking ? 'Kopíruji...' : 'Kopírovat'}
                             </button>
                           </div>
                         )}
@@ -430,7 +430,7 @@ export function ListSidebar({
                 onClick={() => setUsageModalOpen(true)}
               >
                 <span>{scope.scope === 'translate' ? t('lists.googleTranslate') : t('lists.googleTts')}</span>
-                <span>{percent}% used</span>
+                <span>{percent}% využito</span>
               </button>
             );
           })}
@@ -456,9 +456,9 @@ export function ListSidebar({
                 className="flex-1 px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs"
               >
                 {(languages.length > 0 ? languages : [
-                  { code: 'cs', name: 'Czech' },
-                  { code: 'vi', name: 'Vietnamese' },
-                  { code: 'en', name: 'English' },
+                  { code: 'cs', name: 'Čeština' },
+                  { code: 'vi', name: 'Vietnamština' },
+                  { code: 'en', name: 'Angličtina' },
                 ]).map((language) => (
                   <option key={language.code} value={language.code}>
                     {language.name}
@@ -472,9 +472,9 @@ export function ListSidebar({
                 className="flex-1 px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs"
               >
                 {(languages.length > 0 ? languages : [
-                  { code: 'vi', name: 'Vietnamese' },
-                  { code: 'cs', name: 'Czech' },
-                  { code: 'en', name: 'English' },
+                  { code: 'vi', name: 'Vietnamština' },
+                  { code: 'cs', name: 'Čeština' },
+                  { code: 'en', name: 'Angličtina' },
                 ]).map((language) => (
                   <option key={language.code} value={language.code}>
                     {language.name}
@@ -514,8 +514,8 @@ export function ListSidebar({
       <ConfirmModal
         isOpen={Boolean(deleteConfirm)}
         title={t('lists.deleteConfirm', { name: deleteConfirm?.name ?? '' })}
-        message={`This will permanently delete "${deleteConfirm?.name ?? ''}". This action cannot be undone.`}
-        confirmLabel="Delete"
+        message={`Seznam "${deleteConfirm?.name ?? ''}" bude trvale smazán. Tuto akci nelze vrátit.`}
+        confirmLabel="Smazat"
         onConfirm={handleDeleteConfirmed}
         onCancel={() => setDeleteConfirm(null)}
       />
@@ -531,12 +531,12 @@ export function ListSidebar({
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4 sm:px-6">
-                  <h2 className="text-sm font-semibold text-text">Google API Usage</h2>
+                  <h2 className="text-sm font-semibold text-text">Využití Google API</h2>
                   <button
                     type="button"
                     className="text-lg leading-none text-text-soft transition-colors hover:text-text"
                     onClick={() => setUsageModalOpen(false)}
-                    aria-label="Close"
+                    aria-label="Zavřít"
                   >
                     ✕
                   </button>
@@ -552,7 +552,7 @@ export function ListSidebar({
       {returningToApp
         ? createPortal(
             <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background text-text">
-              <div className="text-text-soft">Loading app...</div>
+              <div className="text-text-soft">Načítání aplikace...</div>
             </div>,
             document.body,
           )

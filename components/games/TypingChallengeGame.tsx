@@ -5,7 +5,6 @@ import { getPlayableAudioUrl } from '@/lib/audio-availability';
 import type { NormalizedWord } from '@/lib/words';
 import { matchAnswer } from '@/lib/minigames';
 import {
-  getLanguageLabel,
   getTargetLang,
   getWordAudioSrcByLang,
   getWordTextByLang,
@@ -13,6 +12,7 @@ import {
   type PromptMode,
   type SourceLang,
 } from './types';
+import { useI18n } from '@/components/I18nProvider';
 
 interface Props {
   words: NormalizedWord[];
@@ -29,6 +29,7 @@ export function TypingChallengeGame({
   promptMode = 'text',
   onResult,
 }: Props) {
+  const { t } = useI18n();
   const [value, setValue] = useState('');
   const [result, setResult] = useState<'exact' | 'close' | 'wrong' | null>(null);
   const [hintUsed, setHintUsed] = useState(false);
@@ -55,6 +56,7 @@ export function TypingChallengeGame({
   const firstLetterMatch = normalizedAnswer.match(/\S/);
   const firstLetter = firstLetterMatch ? firstLetterMatch[0] : '';
   const answerChars = normalizedAnswer.split('');
+  const targetLanguageLabel = targetLang === 'cz' ? t('languageName.cs') : t('languageName.vi');
 
   const check = () => {
     if (result !== null || !value.trim()) return;
@@ -225,29 +227,29 @@ export function TypingChallengeGame({
   };
 
   const resultLabels: Record<'exact' | 'close' | 'wrong', React.ReactNode> = {
-    exact: '✓ Perfect!',
+    exact: `✓ ${t('game.perfect')}`,
     close: (
       <>
-        ~ Close! Correct: <strong>{correctAnswer}</strong>
+        ~ {t('game.close')} <strong>{correctAnswer}</strong>
       </>
     ),
     wrong: (
       <>
-        ✗ Correct: <strong>{correctAnswer}</strong>
+        ✗ {t('game.correctAnswer')} <strong>{correctAnswer}</strong>
       </>
     ),
   };
 
   return (
     <article className="phrase-card game-card game-card--typing">
-      <div className="game-badge">{`⌨️ Type in ${getLanguageLabel(targetLang)}`}</div>
+      <div className="game-badge">{`⌨️ ${t('game.typeIn', { language: targetLanguageLabel })}`}</div>
       {effectivePromptMode === 'audio' ? (
         <div className="game-audio-prompt">
           <button
             type="button"
             className="game-audio-btn"
             onClick={replayPrompt}
-            aria-label="Replay prompt audio"
+            aria-label={t('game.replayPromptAudio')}
           >
             🔊
           </button>
@@ -286,7 +288,7 @@ export function TypingChallengeGame({
             ref={inputRef}
             type="text"
             className={`game-input game-input--masked${result ? ` game-input--${result}` : ''}`}
-            placeholder="Type translation…"
+            placeholder={t('game.typeTranslation')}
             value={value}
             onChange={e => {
               setValue(e.target.value);
@@ -308,7 +310,7 @@ export function TypingChallengeGame({
         {result === null && (
           <div className="game-typing-actions">
             <button type="button" className="game-check-btn" onClick={check}>
-              Check
+              {t('game.check')}
             </button>
             <button
               type="button"
@@ -335,7 +337,7 @@ export function TypingChallengeGame({
               }}
               disabled={hintUsed}
             >
-              Hint
+              {t('game.hint')}
             </button>
           </div>
         )}

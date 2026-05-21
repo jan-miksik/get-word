@@ -12,7 +12,7 @@ interface ConfirmModalProps {
   onCancel: () => void;
 }
 
-export function ConfirmModal({ isOpen, title, message, confirmLabel = 'Delete', onConfirm, onCancel }: ConfirmModalProps) {
+export function ConfirmModal({ isOpen, title, message, confirmLabel = 'Smazat', onConfirm, onCancel }: ConfirmModalProps) {
   useEffect(() => {
     if (!isOpen) return;
     function handleKey(e: KeyboardEvent) {
@@ -42,7 +42,7 @@ export function ConfirmModal({ isOpen, title, message, confirmLabel = 'Delete', 
             className="rounded-lg border border-border-subtle px-4 py-2 text-sm font-medium text-text-soft hover:bg-background-elevated transition-colors"
             onClick={onCancel}
           >
-            Cancel
+            Zrušit
           </button>
           <button
             type="button"

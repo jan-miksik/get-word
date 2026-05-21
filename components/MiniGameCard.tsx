@@ -11,6 +11,7 @@ import { MultipleChoiceGame } from './games/MultipleChoiceGame';
 import { TypingChallengeGame } from './games/TypingChallengeGame';
 import { MatchingPairsGame } from './games/MatchingPairsGame';
 import { getWordAudioSrcByLang, type PromptMode, type SourceLang } from './games/types';
+import { useI18n } from '@/components/I18nProvider';
 
 const SKIP_SOUND_KEY = 'wordlink-skip-sound';
 
@@ -20,12 +21,14 @@ function readSkipSound(): boolean {
 }
 
 function SoundToggle({ skipSound, onToggle }: { skipSound: boolean; onToggle: () => void }) {
+  const { t } = useI18n();
+
   return (
     <button
       type="button"
       onClick={(e) => { e.stopPropagation(); onToggle(); }}
-      aria-label={skipSound ? 'Sound off — click to enable' : 'Sound on — click to disable'}
-      title={skipSound ? 'Enable audio prompts' : 'Disable audio prompts'}
+      aria-label={skipSound ? t('game.soundOff') : t('game.soundOn')}
+      title={skipSound ? t('game.enableAudio') : t('game.disableAudio')}
       className="absolute top-3 right-3 z-20 inline-flex items-center justify-center h-9 w-9 rounded-full border-2 border-[#2A2218] bg-[#F4EFE2] text-[#2A2218] transition-colors duration-150 hover:bg-[#1E6FA8] hover:border-[#1E6FA8] hover:text-[#F4EFE2] active:bg-[#1E6FA8] active:border-[#1E6FA8] active:text-[#F4EFE2]"
     >
       {skipSound ? (
@@ -152,6 +155,7 @@ function pickCachedVerifiedAudioSourceLangForMatching(
 }
 
 export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
+  const { t } = useI18n();
   const [finished, setFinished] = useState<{ delta: number } | null>(null);
   const [skipSound, setSkipSound] = useState<boolean>(() => readSkipSound());
   const [verifiedQuestionAudioSourceLang, setVerifiedQuestionAudioSourceLang] = useState<SourceLang | null>(() =>
@@ -331,7 +335,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
             className="flex items-center justify-center px-4 py-3.5 rounded-b-xl bg-[#2A2218] text-[#F4EFE2] border-t-2 border-[#2A2218] shadow-[0_-6px_18px_rgba(0,0,0,0.18)]"
             style={{ animation: 'overlay-slide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
           >
-            <span className="text-sm font-bold uppercase tracking-[0.08em]" onClick={onDismiss}>Tap to continue →</span>
+            <span className="text-sm font-bold uppercase tracking-[0.08em]" onClick={onDismiss}>{t('card.tapToContinue')} →</span>
           </div>
           <style>{`
             @keyframes overlay-slide {

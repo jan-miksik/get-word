@@ -49,17 +49,17 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
   const [customModelSaved, setCustomModelSaved] = useState('');
 
   const reasonMessages: Record<string, string> = {
-    invalid_state: 'OpenRouter callback state was invalid. Please retry.',
-    missing_code: 'OpenRouter did not return an authorization code.',
-    code_expired: 'OpenRouter authorization code expired. Please retry.',
-    invalid_code: 'OpenRouter authorization code was invalid. Please retry.',
-    exchange_rejected: 'OpenRouter rejected the authorization request.',
-    exchange_failed: 'OpenRouter key exchange failed. Please retry.',
-    oauth_not_configured: 'OpenRouter OAuth exchange is not configured on the server.',
-    provider_error: 'OpenRouter returned an OAuth error before key exchange completed.',
-    test_failed: 'OpenRouter key test failed after exchange.',
-    unauthorized: 'OpenRouter key test failed with unauthorized response.',
-    rate_limited: 'Too many OpenRouter requests. Please wait and retry.',
+    invalid_state: 'Stav návratu z OpenRouteru je neplatný. Zkuste to znovu.',
+    missing_code: 'OpenRouter nevrátil autorizační kód.',
+    code_expired: 'Autorizační kód OpenRouteru vypršel. Zkuste to znovu.',
+    invalid_code: 'Autorizační kód OpenRouteru je neplatný. Zkuste to znovu.',
+    exchange_rejected: 'OpenRouter odmítl autorizační požadavek.',
+    exchange_failed: 'Výměna klíče OpenRouteru selhala. Zkuste to znovu.',
+    oauth_not_configured: 'OAuth výměna OpenRouteru není na serveru nastavená.',
+    provider_error: 'OpenRouter vrátil chybu OAuth před dokončením výměny klíče.',
+    test_failed: 'Test klíče OpenRouteru po výměně selhal.',
+    unauthorized: 'Test klíče OpenRouteru selhal kvůli neoprávněné odpovědi.',
+    rate_limited: 'Příliš mnoho požadavků na OpenRouter. Počkejte a zkuste to znovu.',
   };
 
   function applyModelState(model: string) {
@@ -86,11 +86,11 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error ?? 'Failed to save OpenRouter model');
+        throw new Error(data.error ?? 'Model OpenRouteru se nepodařilo uložit');
       }
       applyModelState(normalized);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save OpenRouter model');
+      setError(err instanceof Error ? err.message : 'Model OpenRouteru se nepodařilo uložit');
     } finally {
       setBusyAction(null);
     }
@@ -154,11 +154,11 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
     if (!result) return;
 
     if (result === 'connected') {
-      setStatusNotice('OpenRouter connected successfully.');
+      setStatusNotice('OpenRouter byl úspěšně připojen.');
       setOpenRouterState('connected');
     } else if (result === 'failed') {
       setOpenRouterState('failed_retryable');
-      setStatusNotice(reason ? (reasonMessages[reason] ?? 'OpenRouter connection failed. Please retry.') : 'OpenRouter connection failed. Please retry.');
+      setStatusNotice(reason ? (reasonMessages[reason] ?? 'Připojení k OpenRouteru selhalo. Zkuste to znovu.') : 'Připojení k OpenRouteru selhalo. Zkuste to znovu.');
     }
 
     params.delete('openrouter');
@@ -182,7 +182,7 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
       });
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error ?? 'Failed to save key');
+        throw new Error(data.error ?? 'Klíč se nepodařilo uložit');
       }
       setNewKey('');
       setAddingProvider(null);
@@ -191,7 +191,7 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
         setOpenRouterState('connected');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save key');
+      setError(err instanceof Error ? err.message : 'Klíč se nepodařilo uložit');
       if (provider === 'openrouter') {
         setOpenRouterState('failed_retryable');
       }
@@ -232,17 +232,17 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error ?? 'Failed to start OpenRouter connection');
+        throw new Error(data.error ?? 'Připojení k OpenRouteru se nepodařilo spustit');
       }
       if (!data.authorizeUrl || typeof data.authorizeUrl !== 'string') {
-        throw new Error('OpenRouter authorization URL missing from server response');
+        throw new Error('V odpovědi serveru chybí autorizační URL OpenRouteru');
       }
 
       setOpenRouterState('connecting');
       window.location.assign(data.authorizeUrl);
     } catch (err) {
       setOpenRouterState('failed_retryable');
-      setError(err instanceof Error ? err.message : 'Failed to start OpenRouter connection');
+      setError(err instanceof Error ? err.message : 'Připojení k OpenRouteru se nepodařilo spustit');
       setBusyAction(null);
     }
   }
@@ -250,8 +250,8 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
   if (!isOpen) return null;
 
   const providers = [
-    { id: 'openrouter', name: 'OpenRouter', description: 'AI-powered translations' },
-    { id: 'elevenlabs', name: 'ElevenLabs', description: 'Premium text-to-speech audio' },
+    { id: 'openrouter', name: 'OpenRouter', description: 'AI překlady' },
+    { id: 'elevenlabs', name: 'ElevenLabs', description: 'Prémiový převod textu na řeč' },
   ];
 
   return (
@@ -266,16 +266,16 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
         {/* Header */}
         <div className="flex items-start justify-between gap-3 px-6 pt-6 pb-1">
           <div className="min-w-0">
-            <h3 className="text-lg font-semibold text-text leading-tight">API Keys</h3>
+            <h3 className="text-lg font-semibold text-text leading-tight">API klíče</h3>
             <p className="text-sm text-text-soft mt-1.5 leading-relaxed">
-              Connect your own keys to unlock additional providers. Keys are encrypted and never shown again.
+              Připojte vlastní klíče a odemkněte další poskytovatele. Klíče jsou šifrované a znovu se nezobrazí.
             </p>
           </div>
           <button
             type="button"
             className="w-8 h-8 flex items-center justify-center rounded-lg text-text-soft hover:text-text hover:bg-background transition-colors flex-shrink-0 -mt-1 -mr-2"
             onClick={onClose}
-            aria-label="Close"
+            aria-label="Zavřít"
           >
             <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true">
               <path d="M1 1l12 12M13 1L1 13" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
@@ -313,15 +313,15 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
             const customInputDirty = customModelInput.trim() !== customModelSaved;
 
             let statusDotClass = 'bg-text-soft/40';
-            let statusText = 'Not connected';
+            let statusText = 'Nepřipojeno';
             if (isOpenRouter) {
-              if (openRouterState === 'checking') { statusDotClass = 'bg-text-soft/40 animate-pulse'; statusText = 'Checking…'; }
-              else if (openRouterState === 'connected') { statusDotClass = 'bg-done'; statusText = 'Connected'; }
-              else if (openRouterState === 'connecting') { statusDotClass = 'bg-fresh animate-pulse'; statusText = 'Connecting…'; }
-              else if (openRouterState === 'failed_retryable') { statusDotClass = 'bg-danger'; statusText = 'Connection failed'; }
+              if (openRouterState === 'checking') { statusDotClass = 'bg-text-soft/40 animate-pulse'; statusText = 'Kontroluji…'; }
+              else if (openRouterState === 'connected') { statusDotClass = 'bg-done'; statusText = 'Připojeno'; }
+              else if (openRouterState === 'connecting') { statusDotClass = 'bg-fresh animate-pulse'; statusText = 'Připojuji…'; }
+              else if (openRouterState === 'failed_retryable') { statusDotClass = 'bg-danger'; statusText = 'Připojení selhalo'; }
             } else if (stored) {
               statusDotClass = stored.status === 'failed' ? 'bg-danger' : 'bg-done';
-              statusText = stored.status === 'failed' ? 'Connection failed' : 'Connected';
+              statusText = stored.status === 'failed' ? 'Připojení selhalo' : 'Připojeno';
             }
 
             return (
@@ -359,7 +359,7 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
                       onClick={() => handleDeleteKey(p.id)}
                       disabled={isBusy}
                     >
-                      {busyAction === `delete:${p.id}` ? 'Disconnecting…' : 'Disconnect'}
+                      {busyAction === `delete:${p.id}` ? 'Odpojuji…' : 'Odpojit'}
                     </button>
                   </div>
                 )}
@@ -374,13 +374,13 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
                       disabled={isBusy || openRouterState === 'connecting'}
                     >
                       {openRouterState === 'connecting'
-                        ? 'Connecting…'
+                        ? 'Připojuji…'
                         : openRouterState === 'failed_retryable'
-                        ? 'Retry — Connect with OpenRouter'
-                        : 'Connect with OpenRouter'}
+                        ? 'Zkusit znovu - připojit OpenRouter'
+                        : 'Připojit OpenRouter'}
                     </button>
                     <p className="text-[11px] text-text-soft text-center mt-2">
-                      You'll be redirected to OpenRouter to authorize.
+                      Budete přesměrováni na OpenRouter kvůli autorizaci.
                     </p>
                   </div>
                 )}
@@ -394,7 +394,7 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
                       onClick={() => setAddingProvider(p.id)}
                       disabled={isBusy}
                     >
-                      Add {p.name} API key
+                      Přidat API klíč {p.name}
                     </button>
                   </div>
                 )}
@@ -412,7 +412,7 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
                       <input
                         id={`${p.id}-key-input`}
                         type="password"
-                        placeholder={p.id === 'elevenlabs' ? 'sk_...' : 'Paste your API key'}
+                        placeholder={p.id === 'elevenlabs' ? 'sk_...' : 'Vložte API klíč'}
                         value={newKey}
                         onChange={(e) => setNewKey(e.target.value)}
                         className="mt-1.5 w-full px-3 py-2.5 rounded-lg bg-background border border-border-subtle text-text text-sm font-mono focus:outline-none focus:border-accent transition-colors"
@@ -430,7 +430,7 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
                         onClick={() => handleSaveKey(p.id)}
                         disabled={isBusy || !newKey.trim()}
                       >
-                        {busyAction === `save:${p.id}` ? 'Saving…' : 'Save key'}
+                        {busyAction === `save:${p.id}` ? 'Ukládám…' : 'Uložit klíč'}
                       </button>
                       <button
                         type="button"
@@ -438,7 +438,7 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
                         onClick={() => { setAddingProvider(null); setNewKey(''); }}
                         disabled={isBusy}
                       >
-                        Cancel
+                        Zrušit
                       </button>
                     </div>
                   </div>
@@ -452,7 +452,7 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
                         htmlFor="openrouter-model-select"
                         className="text-[11px] text-text-soft uppercase tracking-wider font-medium"
                       >
-                        Translation model
+                        Překladový model
                       </label>
                       <a
                         className="text-xs text-accent hover:text-accent-strong"
@@ -460,7 +460,7 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
                         target="_blank"
                         rel="noreferrer"
                       >
-                        Browse all ↗
+                        Procházet vše ↗
                       </a>
                     </div>
 
@@ -484,13 +484,13 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
                           {model.name}
                         </option>
                       ))}
-                      <option value="custom">Custom model…</option>
+                      <option value="custom">Vlastní model…</option>
                     </select>
 
                     {/* Custom model input — only show save button when dirty */}
                     <div className="relative">
                       <label htmlFor="openrouter-model-custom" className="text-[11px] text-text-soft">
-                        Custom model ID
+                        ID vlastního modelu
                       </label>
                       <div className="relative mt-1.5">
                         <input
@@ -514,7 +514,7 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
                             onClick={() => void saveModel(customModelInput.trim())}
                             disabled={isBusy}
                           >
-                            {busyAction === 'openrouter:model' ? '…' : 'Save'}
+                            {busyAction === 'openrouter:model' ? '…' : 'Uložit'}
                           </button>
                         )}
                       </div>
@@ -527,7 +527,7 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
         </div>
 
         {loading && (
-          <p className="text-sm text-text-soft pb-5 text-center">Loading…</p>
+          <p className="text-sm text-text-soft pb-5 text-center">Načítání…</p>
         )}
       </div>
     </div>

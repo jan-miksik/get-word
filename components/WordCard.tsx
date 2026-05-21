@@ -5,9 +5,16 @@ import { getPlayableAudioUrl } from '@/lib/audio-availability';
 import { NormalizedWord, STAGES } from '@/lib/words';
 import { ProgressData } from '@/lib/sync';
 import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
+import { useI18n } from '@/components/I18nProvider';
+import type { I18nKey } from '@/lib/i18n/messages';
 
-function formatInterval(ms: number): string {
+function formatInterval(
+  ms: number,
+  t: (key: I18nKey, values?: Record<string, string | number>) => string,
+): string {
   if (ms <= 0) return '';
+  const stage = STAGES.find((entry) => entry.intervalMs === ms);
+  if (stage) return t(`stage.${stage.id}` as I18nKey);
   const m = Math.round(ms / 60000);
   if (m < 60) return `${m} min`;
   const h = Math.round(m / 60);
@@ -16,9 +23,12 @@ function formatInterval(ms: number): string {
   return `${d} ${d === 1 ? 'day' : 'days'}`;
 }
 
-function formatNextReviewHint(intervalMs: number): string {
-  const label = formatInterval(intervalMs);
-  return label ? `Repeat in ${label}` : 'Repeat now';
+function formatNextReviewHint(
+  intervalMs: number,
+  t: (key: I18nKey, values?: Record<string, string | number>) => string,
+): string {
+  const label = formatInterval(intervalMs, t);
+  return label ? t('card.repeatIn', { interval: label }) : t('card.repeatNow');
 }
 
 function getWordTextSize(maxLen: number): string {
@@ -53,13 +63,15 @@ interface WordCardProps {
 }
 
 function RevealHint() {
+  const { t } = useI18n();
+
   return (
     <span
       aria-hidden="true"
       className="reveal-hint pointer-events-none absolute inset-x-[-0.625rem] inset-y-[-0.1875rem] z-[3] flex items-center justify-center rounded-xl transition-[opacity,transform] duration-500 ease-out"
     >
       <span className="reveal-hint__label text-[0.6rem] font-bold uppercase tracking-[0.13em] text-[#6b5e48]">
-        Tap to reveal
+        {t('card.tapToReveal')}
       </span>
     </span>
   );
@@ -88,6 +100,7 @@ export const WordCard = memo(function WordCard({
   showMemoryHook = true,
   fullscreen = false,
 }: WordCardProps) {
+  const { t } = useI18n();
   const [editingHook, setEditingHook] = useState(false);
   const [hookValue, setHookValue] = useState(memoryHook);
   const [customOpen, setCustomOpen] = useState(false);
@@ -239,17 +252,18 @@ export const WordCard = memo(function WordCard({
     setHookValue(memoryHook);
   };
 
-  const displayHook = memoryHook || (suggestedHook ? `💡 ${suggestedHook}` : '💭 Add memory hook...');
+  const displayHook = memoryHook || (suggestedHook ? `💡 ${suggestedHook}` : `💭 ${t('card.memoryHookPlaceholder')}`);
 
   // Stage index / group
   const stageIndex = progress.stageIndex || 0;
   const clampedStageIndex = Math.max(0, Math.min(stageIndex, STAGES.length - 1));
   const stageGroup =
     clampedStageIndex === 0 ? 'new' :
-    clampedStageIndex <= 3 ? 'fresh' :
-    clampedStageIndex <= 6 ? 'learning' :
-    clampedStageIndex <= 8 ? 'seasoned' :
+    clampedStageIndex <= 2 ? 'fresh' :
+    clampedStageIndex <= 5 ? 'learning' :
+    clampedStageIndex <= 6 ? 'seasoned' :
     'mastered';
+  const hasCustomStageActions = Boolean(onCustomStage || onReallyKnown);
 
   // Get categories to display (exclude "to fix" unless in edit mode)
   const displayCategories = word.category?.filter(
@@ -277,9 +291,10 @@ export const WordCard = memo(function WordCard({
 
   // In edit mode, always show category badges; otherwise use the setting
   const shouldShowCategoryBadges = isEditMode || showCategoryBadges;
-  const forgotHint = formatNextReviewHint(STAGES[Math.max(clampedStageIndex - 1, 0)]?.intervalMs ?? 0);
+  const forgotHint = formatNextReviewHint(STAGES[Math.max(clampedStageIndex - 1, 0)]?.intervalMs ?? 0, t);
   const okayHint = formatNextReviewHint(
-    STAGES[Math.min(clampedStageIndex + 1, STAGES.length - 1)]?.intervalMs ?? 0
+    STAGES[Math.min(clampedStageIndex + 1, STAGES.length - 1)]?.intervalMs ?? 0,
+    t,
   );
   const coverCz = shouldCover('cz');
   const coverEn = shouldCover('en');
@@ -390,7 +405,7 @@ export const WordCard = memo(function WordCard({
             ref={hookInputRef}
             type="text"
             className={`memory-hook-input ${editingHook ? 'block' : 'hidden'} !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] placeholder:!text-[#2A2218]/50 focus:!border-[#1E6FA8] focus:!shadow-none`}
-            placeholder="Enter memory hook..."
+            placeholder={t('card.memoryHookInput')}
             value={hookValue}
             onChange={(e) => setHookValue(e.target.value)}
             onBlur={finishEditing}
@@ -413,8 +428,8 @@ export const WordCard = memo(function WordCard({
             type="button"
             className="audio-btn audio-btn--floating !h-16 !min-h-16 !w-16 !min-w-16 !rounded-full !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] !shadow-none hover:!bg-[#1E6FA8] hover:!border-[#1E6FA8] hover:!text-[#F4EFE2] active:!bg-[#1E6FA8] active:!border-[#1E6FA8] active:!text-[#F4EFE2]"
             onClick={() => playAudio(audioSrc)}
-            title={role === 'vi' ? 'Play Czech audio' : 'Play Vietnamese audio'}
-            aria-label="Play audio"
+            title={role === 'vi' ? t('card.playCzechAudio') : t('card.playVietnameseAudio')}
+            aria-label={t('card.playAudio')}
           >
             <SpeakerIcon size={23} />
           </button>
@@ -424,18 +439,18 @@ export const WordCard = memo(function WordCard({
             type="button"
             className="srs-btn srs-btn--forgot !relative !border-[#ae6161] !opacity-80"
             onClick={onUnknown}
-            title={`${forgotHint} · ${unknownPresses} forgotten`}
+            title={`${forgotHint} · ${unknownPresses} ${t('card.forgotten')}`}
           >
             {unknownPresses > 0 && (
               <span
-                aria-label={`${unknownPresses} forgotten`}
+                aria-label={`${unknownPresses} ${t('card.forgotten')}`}
                 className="absolute top-[5px] right-[5px] min-[500px]:top-[8px] min-[500px]:right-[10px] text-[#ae6161] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
               >
                 {unknownPresses}
               </span>
             )}
             <span className="srs-btn-copy">
-              <span className="srs-btn-label">Forgotten</span>
+              <span className="srs-btn-label">{t('card.forgotten')}</span>
               <span className="srs-btn-hint !opacity-[0.35] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{forgotHint}</span>
             </span>
           </button>
@@ -443,35 +458,36 @@ export const WordCard = memo(function WordCard({
             type="button"
             className="srs-btn srs-btn--okay !relative"
             onClick={onKnown}
-            title={`${okayHint} · ${knownPresses} known`}
+            title={`${okayHint} · ${knownPresses} ${t('card.known')}`}
           >
             {knownPresses > 0 && (
               <span
-                aria-label={`${knownPresses} known`}
+                aria-label={`${knownPresses} ${t('card.known')}`}
                 className="absolute top-[5px] right-[5px] min-[500px]:top-[8px] min-[500px]:right-[10px] text-[#1E6FA8] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
               >
                 {knownPresses}
               </span>
             )}
             <span className="srs-btn-copy">
-              <span className="srs-btn-label">OK</span>
+              <span className="srs-btn-label">{t('card.ok')}</span>
               <span className="srs-btn-hint !opacity-[0.35] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{okayHint}</span>
             </span>
           </button>
-          {onReallyKnown && (
+          {hasCustomStageActions && (
             <div className="relative flex">
               <button
                 ref={customTriggerRef}
                 type="button"
                 className="srs-btn srs-btn--easy !relative !border-[#12750f] w-full"
                 onClick={() => setCustomOpen((open) => !open)}
-                title="Pick a custom interval"
+                title={t('card.pickCustomInterval')}
+                aria-label={t('card.customInterval')}
                 aria-haspopup="listbox"
                 aria-expanded={customOpen}
               >
                 <span className="srs-btn-copy">
                   <span className="srs-btn-label">⋯</span>
-                  <span className="srs-btn-hint !opacity-[0.35] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">Custom</span>
+                  <span className="srs-btn-hint !opacity-[0.35] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{t('card.custom')}</span>
                 </span>
               </button>
               {customOpen && (
@@ -481,7 +497,7 @@ export const WordCard = memo(function WordCard({
                   className="absolute right-0 bottom-[calc(100%+0.5rem)] z-50 w-[13rem] max-w-[80vw] rounded-xl border-2 border-[#2A2218] bg-[#F4EFE2] text-[#2A2218] shadow-lg overflow-hidden flex flex-col"
                 >
                   <div className="sticky top-0 bg-[#F4EFE2] px-3 py-1.5 text-[0.65rem] font-bold uppercase tracking-[0.08em] text-[#2A2218]/70 border-b border-[#2A2218]/20">
-                    Repeat after
+                    {t('card.repeatAfter')}
                   </div>
                   <div className="p-1">
                   {STAGES.map((stage, idx) => {
@@ -500,7 +516,7 @@ export const WordCard = memo(function WordCard({
                           isCurrent ? 'bg-[#2A2218]/5 font-semibold' : ''
                         }`}
                       >
-                        {stage.name}
+                        {t(`stage.${stage.id}` as I18nKey)}
                       </button>
                     );
                   })}
@@ -509,11 +525,15 @@ export const WordCard = memo(function WordCard({
                     role="option"
                     onClick={() => {
                       setCustomOpen(false);
-                      onCustomStage?.(STAGES.length - 1, { noRepeat: true });
+                      if (onCustomStage) {
+                        onCustomStage(STAGES.length - 1, { noRepeat: true });
+                      } else {
+                        onReallyKnown?.();
+                      }
                     }}
                     className="block w-full rounded-md px-2.5 py-1 text-left text-[0.8rem] leading-tight transition-colors hover:bg-[#12750f]/10 active:bg-[#12750f]/20 border-t border-[#2A2218]/20 mt-1 pt-1.5"
                   >
-                    Fully known — no repeat
+                    {t('card.fullyKnownNoRepeat')}
                   </button>
                   </div>
                 </div>

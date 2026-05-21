@@ -1,4 +1,4 @@
-# AI-Optimized Refactor Plan for Wordlink
+# AI-Optimized Refactor Plan for Get Word
 
 ## Status
 
