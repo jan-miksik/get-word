@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getListById,
-  getCategoryItems,
   createItems,
   deleteItems,
   updateItemPositions,
@@ -11,9 +10,14 @@ import {
   resolveUserFromRequest,
   unauthorizedResponse,
   forbiddenResponse,
+  isEditor,
 } from "@/lib/auth";
 
 type RouteContext = { params: Promise<{ id: string; catId: string }> };
+
+function canManageListContent(list: Awaited<ReturnType<typeof getListById>>, user: NonNullable<Awaited<ReturnType<typeof resolveUserFromRequest>>>) {
+  return Boolean(list && (list.ownerId === user.id || (list.isCommon && isEditor(user))));
+}
 
 export async function POST(request: NextRequest, context: RouteContext) {
   const user = await resolveUserFromRequest(request);
@@ -25,7 +29,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (!list) {
     return NextResponse.json({ error: "List not found" }, { status: 404 });
   }
-  if (list.ownerId !== user.id) {
+  if (!canManageListContent(list, user)) {
     return forbiddenResponse("Only the list owner can modify items");
   }
 
@@ -58,20 +62,21 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   // Process additions
   if (added.length > 0) {
-    // Determine starting position from existing items
-    const existingItems = await getCategoryItems(id, catId);
-    const maxPos = existingItems.reduce(
-      (max, item) => Math.max(max, item.position),
-      -1,
-    );
-
+    const addedPositions = Array.isArray(body.added_positions)
+      ? body.added_positions
+          .map((entry: { text?: unknown; position?: unknown }, index: number) => ({
+            text: typeof entry.text === "string" ? entry.text : String(added[index] ?? ""),
+            position: Number.isFinite(Number(entry.position)) ? Number(entry.position) : index,
+          }))
+          .filter((entry: { text: string }) => entry.text.trim().length > 0)
+      : added.map((text: string, index: number) => ({ text, position: index }));
     const isTarget = input_language === "target";
-    const newItems = added.map((text: string, i: number) => ({
+    const newItems = addedPositions.map(({ text, position }: { text: string; position: number }) => ({
       listId: id,
       categoryId: catId,
       textKnown: isTarget ? "" : text,
       textTarget: isTarget ? text : null,
-      position: maxPos + 1 + i,
+      position,
       translationStatus: "pending" as const,
     }));
 

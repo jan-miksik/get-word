@@ -6,6 +6,7 @@ import {
   integer,
   boolean,
   unique,
+  uniqueIndex,
   index,
   pgEnum,
   jsonb,
@@ -75,6 +76,7 @@ export const wordLists = pgTable(
     languageTo: text("language_to").notNull(),
     isPublic: boolean("is_public").notNull().default(false),
     isCommon: boolean("is_common").notNull().default(false),
+    isRecommended: boolean("is_recommended").notNull().default(false),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
@@ -82,6 +84,13 @@ export const wordLists = pgTable(
     index("word_lists_owner_idx").on(table.ownerId),
     index("word_lists_public_idx").on(table.isPublic),
     index("word_lists_common_idx").on(table.isCommon),
+    index("word_lists_recommended_idx").on(table.isRecommended),
+    uniqueIndex("word_lists_recommended_pair_unique")
+      .on(
+        sql`(case when lower(${table.languageFrom}) in ('cz', 'cs') then 'cs' else lower(${table.languageFrom}) end)`,
+        sql`(case when lower(${table.languageTo}) in ('cz', 'cs') then 'cs' else lower(${table.languageTo}) end)`,
+      )
+      .where(sql`${table.isRecommended} = true`),
   ],
 );
 

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useI18n } from '@/components/I18nProvider';
 import { listsApiFetch } from '@/features/lists/api';
 import type {
   CompletedTranslationRow,
@@ -11,6 +12,7 @@ import type {
 import { GoogleUsageHint } from './GoogleUsageHint';
 import {
   DEFAULT_OPENROUTER_TRANSLATION_MODEL,
+  OPENROUTER_MODEL_STORAGE_KEY,
   OPENROUTER_MODELS_URL,
   OPENROUTER_TRANSLATION_MODELS,
   normalizeOpenRouterModel,
@@ -41,7 +43,6 @@ type OpenRouterUiState =
 type TranslationProvider = 'google' | 'openrouter';
 
 const TRANSLATION_PROVIDER_STORAGE_KEY = 'wordlink-list-translation-provider';
-const OPENROUTER_MODEL_STORAGE_KEY = 'wordlink-list-openrouter-model';
 
 function readStorageValue(key: string): string | null {
   if (typeof window === 'undefined') return null;
@@ -118,13 +119,14 @@ export function TranslationStep({
   list,
   pendingItems,
   inputLanguage,
-  heading = 'Přeložit slova',
+  heading,
   googleUsage,
   onComplete,
   onSkip,
   onUsageRefresh,
   onBack,
 }: TranslationStepProps) {
+  const { t } = useI18n();
   const [rows, setRows] = useState<TranslationRow[]>(() =>
     pendingItems.map((item) => ({
       id: item.id,
@@ -153,7 +155,19 @@ export function TranslationStep({
   const googleTranslateUsage = googleUsage?.account.find((scope) => scope.scope === 'translate');
   const isGooglePaused = Boolean(googleTranslateUsage?.paused);
   const googlePausedMessage = googleTranslateUsage?.limit_message
-    ?? 'Tento účet dosáhl bezplatného limitu Google API. Ozvěte se nám kvůli navýšení, nebo použijte vlastní API klíče.';
+    ?? t('lists.googleLimitReached');
+  const resolvedHeading = heading ?? t('lists.translateWords');
+  const sourceLabel = inputLanguage === 'known' ? t('lists.knownLanguage') : t('lists.targetLanguage');
+  const translationLabel = inputLanguage === 'known' ? t('lists.targetLanguage') : t('lists.knownLanguage');
+  const formatLanguageLabel = useCallback((code: string) => {
+    const normalized = code.toLowerCase();
+    if (normalized === 'cs' || normalized === 'cz') return t('languageName.cs');
+    if (normalized === 'vi') return t('languageName.vi');
+    if (normalized === 'en') return t('languageName.en');
+    return code.toUpperCase();
+  }, [t]);
+  const sourceLanguageCode = inputLanguage === 'known' ? list.languageFrom : list.languageTo;
+  const targetLanguageCode = inputLanguage === 'known' ? list.languageTo : list.languageFrom;
 
   const loadOpenRouterStatus = useCallback(async () => {
     setOpenRouterLoading(true);
@@ -187,19 +201,19 @@ export function TranslationStep({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error ?? 'Připojení k OpenRouteru se nepodařilo spustit');
+        throw new Error(data.error ?? t('lists.openRouterConnectStartFailed'));
       }
       if (!data.authorizeUrl || typeof data.authorizeUrl !== 'string') {
-        throw new Error('Chybí autorizační URL OpenRouteru');
+        throw new Error(t('lists.openRouterMissingAuthorizeUrl'));
       }
       setOpenRouterState('connecting');
       window.location.assign(data.authorizeUrl);
     } catch (err) {
       setOpenRouterState('failed_retryable');
-      setError(err instanceof Error ? err.message : 'Připojení k OpenRouteru se nepodařilo spustit');
+      setError(err instanceof Error ? err.message : t('lists.openRouterConnectStartFailed'));
       setOpenRouterLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void loadOpenRouterStatus();
@@ -215,7 +229,7 @@ export function TranslationStep({
       return;
     }
     if (provider === 'openrouter' && openRouterState !== 'connected') {
-      setError('Před použitím tohoto poskytovatele připojte OpenRouter.');
+      setError(t('lists.openRouterConnectFirst'));
       return;
     }
     setTranslating(true);
@@ -245,7 +259,7 @@ export function TranslationStep({
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error ?? 'Překlad se nepodařil');
+        throw new Error(data.error ?? t('lists.translationFailed'));
       }
 
       const data = await res.json();
@@ -277,11 +291,11 @@ export function TranslationStep({
 
       // Surface a top-level error if every item failed
       if (data.results.length > 0 && data.results.every((r: { status: string }) => r.status === 'error')) {
-        const firstError = data.results[0]?.error ?? 'Překlad se nepodařil';
-        setError(`Automatický překlad selhal: ${firstError}`);
+        const firstError = data.results[0]?.error ?? t('lists.translationFailed');
+        setError(t('lists.autoTranslateFailed', { message: firstError }));
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Překlad se nepodařil');
+      setError(err instanceof Error ? err.message : t('lists.translationFailed'));
     } finally {
       setTranslating(false);
       if (provider === 'google') {
@@ -320,17 +334,17 @@ export function TranslationStep({
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.error ?? 'Model OpenRouteru se nepodařilo uložit');
+        throw new Error(data.error ?? t('lists.openRouterModelSaveFailed'));
       }
       const savedModel = normalizeOpenRouterModel(data.connection?.translationModel);
       setOpenRouterModel(savedModel);
       writeStorageValue(OPENROUTER_MODEL_STORAGE_KEY, savedModel);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Model OpenRouteru se nepodařilo uložit');
+      setError(err instanceof Error ? err.message : t('lists.openRouterModelSaveFailed'));
     } finally {
       setOpenRouterLoading(false);
     }
-  }, [openRouterModel]);
+  }, [openRouterModel, t]);
 
   const handleCellEdit = useCallback((id: string, field: 'textKnown' | 'textTarget', value: string) => {
     setRows((prev) =>
@@ -360,26 +374,26 @@ export function TranslationStep({
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error ?? 'Překlady se nepodařilo uložit');
+        throw new Error(data.error ?? t('lists.translationSaveFailed'));
       }
 
       await onComplete(rows);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Uložení se nepodařilo');
+      setError(err instanceof Error ? err.message : t('lists.saveFailedShort'));
     } finally {
       setConfirming(false);
     }
-  }, [rows, needsTranslation, list.id, onComplete]);
+  }, [rows, needsTranslation, list.id, onComplete, t]);
 
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-lg font-semibold text-text">{heading}</h2>
+          <h2 className="text-lg font-semibold text-text">{resolvedHeading}</h2>
           <p className="text-sm text-text-soft mt-0.5">
-            Přeloženo {readyCount} z {rows.length}
+            {t('lists.translatedProgress', { ready: readyCount, total: rows.length })}
             {dedupCount > 0 && (
-              <span className="text-done ml-1">({dedupCount} znovu použito)</span>
+              <span className="text-done ml-1">({t('lists.reusedCount', { count: dedupCount })})</span>
             )}
           </p>
         </div>
@@ -388,7 +402,7 @@ export function TranslationStep({
           className="px-3 py-1.5 rounded-lg border border-border-subtle text-text-soft text-sm hover:text-text transition-colors"
           onClick={onSkip}
         >
-          Přeskočit
+          {t('lists.skip')}
         </button>
       </div>
 
@@ -406,8 +420,8 @@ export function TranslationStep({
             }}
             className="px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs"
           >
-            <option value="google">Google Translate</option>
-            <option value="openrouter">OpenRouter (BYOK)</option>
+            <option value="google">{t('lists.translationProviderGoogle')}</option>
+            <option value="openrouter">{t('lists.translationProviderOpenRouter')}</option>
           </select>
           <button
             type="button"
@@ -420,7 +434,7 @@ export function TranslationStep({
             className="px-4 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
             onClick={handleAutoTranslate}
           >
-            {translating ? 'Překládám...' : `Automaticky přeložit (${pendingCount})`}
+            {translating ? t('lists.generating') : t('lists.autoTranslateAction', { count: pendingCount })}
           </button>
         </div>
         {provider === 'google' && googleTranslateUsage && (
@@ -438,10 +452,10 @@ export function TranslationStep({
         <div className="mb-4 p-3 rounded-lg border border-border-subtle bg-background-elevated flex items-center justify-between gap-3">
           <div className="text-xs text-text-soft">
             {openRouterState === 'connecting'
-              ? 'Připojování k OpenRouteru probíhá.'
+              ? t('lists.openRouterConnecting')
               : openRouterState === 'failed_retryable'
-              ? 'Připojení k OpenRouteru selhalo. Zkuste to znovu.'
-              : 'OpenRouter není pro tento účet připojený.'}
+              ? t('lists.openRouterFailedRetryable')
+              : t('lists.openRouterNotConnected')}
           </div>
           <button
             type="button"
@@ -450,10 +464,10 @@ export function TranslationStep({
             disabled={openRouterLoading || openRouterState === 'connecting'}
           >
             {openRouterState === 'failed_retryable'
-              ? 'Zkusit znovu'
+              ? t('lists.retry')
               : openRouterState === 'connecting'
-              ? 'Připojuji...'
-              : 'Připojit OpenRouter'}
+              ? t('lists.connecting')
+              : t('lists.connectOpenRouter')}
           </button>
         </div>
       )}
@@ -462,7 +476,7 @@ export function TranslationStep({
         <div className="mb-4 p-3 rounded-lg border border-border-subtle bg-background-elevated">
           <div className="flex items-center justify-between gap-3 mb-2">
             <label className="text-xs font-medium text-text" htmlFor="translation-openrouter-model">
-              Model OpenRouteru
+              {t('lists.openRouterModel')}
             </label>
             <a
               className="text-[11px] text-accent hover:text-accent-strong"
@@ -470,7 +484,7 @@ export function TranslationStep({
               target="_blank"
               rel="noreferrer"
             >
-              Procházet modely
+              {t('lists.browseModels')}
             </a>
           </div>
           <div className="flex flex-col md:flex-row gap-2">
@@ -492,7 +506,7 @@ export function TranslationStep({
                   {model.name} - {model.price}
                 </option>
               ))}
-              <option value="custom">Vlastní název modelu</option>
+              <option value="custom">{t('lists.customModelName')}</option>
             </select>
             <input
               type="text"
@@ -508,7 +522,7 @@ export function TranslationStep({
               onClick={handleOpenRouterModelSave}
               disabled={openRouterLoading}
             >
-              {openRouterLoading ? 'Ukládám...' : 'Uložit'}
+              {openRouterLoading ? t('common.saving') : t('common.save')}
             </button>
           </div>
         </div>
@@ -520,18 +534,24 @@ export function TranslationStep({
 
       <div className="mb-4 rounded-lg border border-border-subtle bg-background-elevated p-3 text-xs text-text-soft">
         {inputLanguage === 'target'
-          ? `Zadali jste text v jazyce ${list.languageTo.toUpperCase()}, nové řádky tady proto dostanou doplněnou stranu ${list.languageFrom.toUpperCase()}. Při přidání řádků v cizím jazyce tak mohou vzniknout nové položky na známé straně.`
-          : `Zadali jste text v jazyce ${list.languageFrom.toUpperCase()}, nové řádky tady proto dostanou doplněnou stranu ${list.languageTo.toUpperCase()}.`}
+          ? t('lists.translationSourceHintTarget', {
+              source: formatLanguageLabel(sourceLanguageCode),
+              target: formatLanguageLabel(targetLanguageCode),
+            })
+          : t('lists.translationSourceHintKnown', {
+              source: formatLanguageLabel(sourceLanguageCode),
+              target: formatLanguageLabel(targetLanguageCode),
+            })}
       </div>
 
       {/* Two-column table */}
       <div className="rounded-lg border border-border-subtle overflow-hidden">
         <div className="grid grid-cols-2 gap-0 bg-background-elevated text-xs font-medium text-text-soft uppercase tracking-wide">
           <div className="px-3 py-2 border-r border-border-subtle">
-            {inputLanguage === 'known' ? 'Známý jazyk' : 'Cizí jazyk'} (zdroj)
+            {t('lists.sourceColumn', { language: sourceLabel })}
           </div>
           <div className="px-3 py-2">
-            {inputLanguage === 'known' ? 'Cizí jazyk' : 'Známý jazyk'} (překlad)
+            {t('lists.translationColumn', { language: translationLabel })}
           </div>
         </div>
         <div className="divide-y divide-border-subtle max-h-[60vh] overflow-y-auto">
@@ -546,21 +566,23 @@ export function TranslationStep({
                 <TranslationTextarea
                   value={row[hasSource]}
                   onChange={(value) => handleCellEdit(row.id, hasSource, value)}
-                  ariaLabel={`${inputLanguage === 'known' ? 'Známý jazyk' : 'Cizí jazyk'}: zdrojový text`}
+                  ariaLabel={t('lists.sourceTextAria', { language: sourceLabel })}
                 />
               </div>
               <div className="px-3 py-2 flex items-start gap-2">
                 <TranslationTextarea
                   value={row[needsTranslation]}
                   onChange={(value) => handleCellEdit(row.id, needsTranslation, value)}
-                  placeholder="Zadejte překlad..."
-                  ariaLabel={`${inputLanguage === 'known' ? 'Cizí jazyk' : 'Známý jazyk'}: překlad`}
+                  placeholder={t('lists.enterTranslation')}
+                  ariaLabel={t('lists.translationTextAria', { language: translationLabel })}
                 />
                 {row.status === 'error' && (
                   <span className="mt-1 text-danger text-xs shrink-0" title={row.error}>!</span>
                 )}
                 {row.source === 'dedup' && (
-                  <span className="mt-1 text-done text-xs shrink-0" title="Znovu použito z existujících položek">znovu použito</span>
+                  <span className="mt-1 text-done text-xs shrink-0" title={t('lists.reusedFromExisting')}>
+                    {t('lists.audioStatusReused')}
+                  </span>
                 )}
               </div>
             </div>
@@ -573,10 +595,10 @@ export function TranslationStep({
         {onBack ? (
           <button
             type="button"
-            className="px-4 py-2 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
-            onClick={onBack}
-          >
-            ← Zpět
+          className="px-4 py-2 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
+          onClick={onBack}
+        >
+            {`\u2190 ${t('lists.back')}`}
           </button>
         ) : <div />}
         <div className="flex gap-2">
@@ -585,7 +607,7 @@ export function TranslationStep({
           className="px-4 py-2 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
           onClick={onSkip}
         >
-          Přeskočit překlady
+          {t('lists.skipTranslations')}
         </button>
         <button
           type="button"
@@ -593,7 +615,7 @@ export function TranslationStep({
           className="px-4 py-2 rounded-lg bg-accent text-background text-sm font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
           onClick={handleConfirmTranslations}
         >
-          {confirming ? 'Ukládám...' : 'Potvrdit překlady'}
+          {confirming ? t('common.saving') : t('lists.confirmTranslations')}
         </button>
         </div>
       </div>

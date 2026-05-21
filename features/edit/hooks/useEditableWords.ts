@@ -2,6 +2,7 @@
 
 import { useCallback, useMemo, useState } from 'react';
 
+import { useI18n } from '@/components/I18nProvider';
 import type { Word } from '@/data/words';
 import { getDeviceId } from '@/lib/device-id';
 
@@ -11,6 +12,7 @@ type UseEditableWordsArgs = {
 };
 
 export function useEditableWords({ words, setWords }: UseEditableWordsArgs) {
+  const { t } = useI18n();
   const [isSaving, setIsSaving] = useState(false);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
@@ -101,17 +103,25 @@ export function useEditableWords({ words, setWords }: UseEditableWordsArgs) {
       });
       const data = await response.json();
       if (data.success) {
-        setSaveMessage('Uloženo.');
+        setSaveMessage(t('editor.saved'));
         window.setTimeout(() => setSaveMessage(null), 2000);
       } else {
-        setSaveMessage(`Chyba: ${data.error || 'Uložení se nepodařilo'}`);
+        setSaveMessage(
+          t('editor.errorPrefix', {
+            message: data.error || t('editor.saveFailed'),
+          }),
+        );
       }
     } catch (error) {
-      setSaveMessage(`Chyba: ${error instanceof Error ? error.message : 'Uložení se nepodařilo'}`);
+      setSaveMessage(
+        t('editor.errorPrefix', {
+          message: error instanceof Error ? error.message : t('editor.saveFailed'),
+        }),
+      );
     } finally {
       setIsSaving(false);
     }
-  }, [words]);
+  }, [t, words]);
 
   return {
     handleCategoryAdd,

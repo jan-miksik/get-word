@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
+import { useI18n } from '@/components/I18nProvider';
 import type { WordCategory, WordListItem } from '@/features/lists/types';
 
 interface TextareaEditorProps {
@@ -22,6 +23,7 @@ export function TextareaEditor({
   onCancel,
   onDirtyChange,
 }: TextareaEditorProps) {
+  const { t } = useI18n();
   const initialText = useMemo(() => {
     return items
       .sort((a, b) => a.position - b.position)
@@ -51,7 +53,7 @@ export function TextareaEditor({
       const lines = text.split('\n');
       await onPreview(lines);
     } catch (err) {
-      setPreviewError(err instanceof Error ? err.message : 'Náhled se nepodařil');
+      setPreviewError(err instanceof Error ? err.message : t('lists.previewFailed'));
     } finally {
       setPreviewing(false);
     }
@@ -62,21 +64,21 @@ export function TextareaEditor({
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-lg font-semibold text-text">Upravit: {category.name}</h2>
-          <p className="text-sm text-text-soft mt-0.5">Jedno slovo nebo fráze na řádek</p>
+          <h2 className="text-lg font-semibold text-text">{t('lists.editCategoryTitle', { name: category.name })}</h2>
+          <p className="text-sm text-text-soft mt-0.5">{t('lists.onePerLine')}</p>
         </div>
         <button
           type="button"
           className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
           onClick={onCancel}
         >
-          Zrušit
+          {t('common.cancel')}
         </button>
       </div>
 
       {/* Language toggle */}
       <div className="flex items-center gap-2 mb-4 p-3 rounded-lg bg-background-elevated border border-border-subtle">
-        <span className="text-sm text-text-soft">Zadáváte slova v jazyce:</span>
+        <span className="text-sm text-text-soft">{t('lists.languageInputLabel')}</span>
         <div className="flex rounded-lg border border-border-subtle overflow-hidden">
           <button
             type="button"
@@ -87,7 +89,7 @@ export function TextareaEditor({
             }`}
             onClick={() => onInputLanguageChange('known')}
           >
-            Známý jazyk
+            {t('lists.knownLanguage')}
           </button>
           <button
             type="button"
@@ -98,7 +100,7 @@ export function TextareaEditor({
             }`}
             onClick={() => onInputLanguageChange('target')}
           >
-            Cizí jazyk
+            {t('lists.targetLanguage')}
           </button>
         </div>
       </div>
@@ -109,13 +111,13 @@ export function TextareaEditor({
         onChange={(e) => setText(e.target.value)}
         rows={Math.max(15, lineCount + 3)}
         className="w-full px-4 py-3 rounded-lg bg-background-elevated border border-border-subtle text-text text-sm font-mono leading-relaxed resize-y focus:outline-none focus:border-accent"
-        placeholder="Zadejte slova, každé na nový řádek..."
+        placeholder={t('lists.enterWordsPlaceholder')}
         spellCheck={false}
       />
 
       <div className="flex items-center justify-between mt-3">
         <span className="text-xs text-text-soft">
-          {lineCount} {lineCount === 1 ? 'slovo' : lineCount >= 2 && lineCount <= 4 ? 'slova' : 'slov'}
+          {t('lists.nonEmptyLines', { count: lineCount })}
         </span>
 
         {previewError && (
@@ -128,7 +130,7 @@ export function TextareaEditor({
           className="px-4 py-2 rounded-lg bg-accent text-background text-sm font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
           onClick={handlePreview}
         >
-          {previewing ? 'Připravuji náhled...' : 'Zobrazit změny'}
+          {previewing ? t('lists.preparingPreview') : t('lists.previewChanges')}
         </button>
       </div>
     </div>

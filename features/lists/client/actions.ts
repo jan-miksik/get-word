@@ -44,8 +44,13 @@ export async function createList(
 
 export async function updateList(
   listId: string,
-  data: Pick<WordList, "name" | "description" | "isPublic"> & { isCommon?: boolean },
-): Promise<WordList> {
+  data: Pick<WordList, "name" | "description" | "isPublic"> & {
+    isCommon?: boolean;
+    isRecommended?: boolean;
+    languageFrom?: string;
+    languageTo?: string;
+  },
+): Promise<{ list: WordList; clearedSides: ("known" | "target")[] }> {
   const res = await listsApiFetch(`/api/lists/${listId}`, {
     method: "PUT",
     body: JSON.stringify({
@@ -53,27 +58,65 @@ export async function updateList(
       description: data.description,
       is_public: data.isPublic,
       ...(typeof data.isCommon === "boolean" ? { is_common: data.isCommon } : {}),
+      ...(typeof data.isRecommended === "boolean" ? { is_recommended: data.isRecommended } : {}),
+      ...(data.languageFrom ? { language_from: data.languageFrom } : {}),
+      ...(data.languageTo ? { language_to: data.languageTo } : {}),
     }),
   });
   const responseData = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(responseData.error ?? "Failed to update list");
-  return responseData.list;
+  return {
+    list: responseData.list,
+    clearedSides: Array.isArray(responseData.cleared_sides)
+      ? responseData.cleared_sides.filter((side: unknown): side is "known" | "target" =>
+          side === "known" || side === "target"
+        )
+      : [],
+  };
 }
 
 export async function forkList(
   listId: string,
-  data: { languageFrom: string; languageTo: string },
-): Promise<WordList> {
+  data: {
+    languageFrom: string;
+    languageTo: string;
+    translationProvider?: "google" | "openrouter" | "none";
+    translationModel?: string;
+    sourceLanguage?: string;
+  },
+): Promise<{
+  list: WordList;
+  copied: number;
+  translated: number;
+  clearedSides: ("known" | "target")[];
+  missingAudio: { known: number; target: number };
+}> {
   const res = await listsApiFetch(`/api/lists/${listId}/fork`, {
     method: "POST",
     body: JSON.stringify({
       language_from: data.languageFrom,
       language_to: data.languageTo,
+      translation_provider: data.translationProvider ?? "none",
+      ...(data.translationModel ? { translation_model: data.translationModel } : {}),
+      ...(data.sourceLanguage ? { source_language: data.sourceLanguage } : {}),
     }),
   });
   const responseData = await res.json();
   if (!res.ok) throw new Error(responseData.error ?? "Fork failed");
-  return responseData.list;
+  return {
+    list: responseData.list,
+    copied: Number(responseData.copied ?? 0),
+    translated: Number(responseData.translated ?? 0),
+    clearedSides: Array.isArray(responseData.cleared_sides)
+      ? responseData.cleared_sides.filter((side: unknown): side is "known" | "target" =>
+          side === "known" || side === "target"
+        )
+      : [],
+    missingAudio: {
+      known: Number(responseData.missing_audio?.known ?? 0),
+      target: Number(responseData.missing_audio?.target ?? 0),
+    },
+  };
 }
 
 export async function deleteList(listId: string): Promise<void> {
@@ -132,6 +175,10 @@ export async function confirmCategoryItems(
       method: "POST",
       body: JSON.stringify({
         added: diffResult.added,
+        added_positions: diffResult.added_positions ?? diffResult.added.map((text, index) => ({
+          text,
+          position: index,
+        })),
         removed: diffResult.removed,
         reordered: diffResult.reordered.map((r) => ({ id: r.id, position: r.to_pos })),
         input_language: inputLanguage,

@@ -51,6 +51,8 @@ export type SyncMutationPayload = Omit<
 export interface SyncWordListItem {
   id: string;
   listId: string;
+  languageFrom?: string;
+  languageTo?: string;
   categoryId: string | null;
   canonicalWordId?: string | null;
   position: number;
@@ -131,5 +133,11 @@ export interface SyncResponse {
   category_filters: string[];
   word_list_items?: SyncWordListItem[];
   categories?: Record<string, SyncCategory>;
-  lists?: { id: string; name: string; languageFrom: string; languageTo: string }[];
+  lists?: {
+    id: string;
+    name: string;
+    languageFrom: string;
+    languageTo: string;
+    isRecommended?: boolean;
+  }[];
 }

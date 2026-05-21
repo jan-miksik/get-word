@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 
 const mockGetUserLists = vi.fn()
 const mockGetUserListsByLanguagePair = vi.fn()
+const mockGetSystemDefaultList = vi.fn()
 const mockGetWordListItemCountsByListIds = vi.fn()
 const mockGetUserSubscribedListIds = vi.fn()
 const mockCreateList = vi.fn()
@@ -20,6 +21,28 @@ const mockResolveUserFromRequest = vi.fn()
 vi.mock('@/lib/db', () => ({
   getUserLists: (...args: unknown[]) => mockGetUserLists(...args),
   getUserListsByLanguagePair: (...args: unknown[]) => mockGetUserListsByLanguagePair(...args),
+  getSystemDefaultList: (...args: unknown[]) => mockGetSystemDefaultList(...args),
+  pickRecommendedWordList: (
+    lists: Array<{ id: string; isRecommended?: boolean; languageFrom: string; languageTo: string }>,
+    languageFrom: string,
+    languageTo: string,
+    fallbackSeed: { id: string; languageFrom: string; languageTo: string } | null,
+  ) => {
+    const normalize = (code: string) => (code === 'cz' || code === 'cs' ? 'cs' : code)
+    const exact = lists.find((list) =>
+      list.isRecommended &&
+      normalize(list.languageFrom) === normalize(languageFrom) &&
+      normalize(list.languageTo) === normalize(languageTo)
+    )
+    if (exact) return { list: exact, reason: 'exact' }
+    const reverse = lists.find((list) =>
+      list.isRecommended &&
+      normalize(list.languageFrom) === normalize(languageTo) &&
+      normalize(list.languageTo) === normalize(languageFrom)
+    )
+    if (reverse) return { list: reverse, reason: 'reverse' }
+    return fallbackSeed ? { list: fallbackSeed, reason: 'fallback_seed' } : null
+  },
   getWordListItemCountsByListIds: (...args: unknown[]) => mockGetWordListItemCountsByListIds(...args),
   getUserSubscribedListIds: (...args: unknown[]) => mockGetUserSubscribedListIds(...args),
   createList: (...args: unknown[]) => mockCreateList(...args),
@@ -117,8 +140,9 @@ describe('GET /api/lists/matches', () => {
   it('returns selectable lists for the normalized language pair', async () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
     mockGetUserListsByLanguagePair.mockResolvedValue([
-      { ...publicList, id: 'legacy-curated', languageFrom: 'cz', languageTo: 'vi', isCommon: true },
+      { ...publicList, id: 'legacy-curated', languageFrom: 'cz', languageTo: 'vi', isCommon: true, isRecommended: true },
     ])
+    mockGetSystemDefaultList.mockResolvedValue(null)
     mockGetWordListItemCountsByListIds.mockResolvedValue(new Map([['legacy-curated', 42]]))
 
     const req = new NextRequest('http://localhost:3000/api/lists/matches?from=cs&to=vi')
@@ -134,13 +158,19 @@ describe('GET /api/lists/matches', () => {
         itemCount: 42,
       }),
     ])
+    expect(data.recommendedList).toEqual(expect.objectContaining({
+      id: 'legacy-curated',
+      itemCount: 42,
+    }))
+    expect(data.recommendedReason).toBe('exact')
   })
 
   it('uses the same matcher for the reverse language selection', async () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
     mockGetUserListsByLanguagePair.mockResolvedValue([
-      { ...publicList, id: 'curated-reverse', languageFrom: 'cz', languageTo: 'vi' },
+      { ...publicList, id: 'curated-reverse', languageFrom: 'cz', languageTo: 'vi', isRecommended: true },
     ])
+    mockGetSystemDefaultList.mockResolvedValue(null)
     mockGetWordListItemCountsByListIds.mockResolvedValue(new Map([['curated-reverse', 9]]))
 
     const req = new NextRequest('http://localhost:3000/api/lists/matches?from=vi&to=cs')
@@ -153,6 +183,31 @@ describe('GET /api/lists/matches', () => {
       id: 'curated-reverse',
       itemCount: 9,
     }))
+    expect(data.recommendedList).toEqual(expect.objectContaining({ id: 'curated-reverse' }))
+    expect(data.recommendedReason).toBe('reverse')
+  })
+
+  it('does not expose the common seed as a curated recommendation', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetUserListsByLanguagePair.mockResolvedValue([])
+    mockGetSystemDefaultList.mockResolvedValue({
+      ...publicList,
+      id: 'common-seed',
+      name: 'Common Seed',
+      isCommon: true,
+      isRecommended: false,
+    })
+    mockGetWordListItemCountsByListIds.mockResolvedValue(new Map([['common-seed', 120]]))
+
+    const req = new NextRequest('http://localhost:3000/api/lists/matches?from=en&to=ja')
+    const res = await GET_MATCHES(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.lists).toEqual([])
+    expect(data.recommendedList).toBeNull()
+    expect(data.recommendedReason).toBeNull()
+    expect(mockGetSystemDefaultList).not.toHaveBeenCalled()
   })
 })
 
@@ -307,6 +362,25 @@ describe('PUT /api/lists/[id]', () => {
     expect(data.list.name).toBe('Updated')
   })
 
+  it('passes language changes through metadata update so item sides can be cleared', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetListById.mockResolvedValue(testList)
+    mockUpdateList.mockResolvedValue({ ...testList, languageTo: 'fr' })
+    const req = new NextRequest('http://localhost:3000/api/lists/list-1', {
+      method: 'PUT',
+      body: JSON.stringify({ name: 'Updated', language_from: 'cz', language_to: 'fr' }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await PUT(req, { params: Promise.resolve({ id: 'list-1' }) })
+    const data = await res.json()
+    expect(res.status).toBe(200)
+    expect(data.cleared_sides).toEqual(['target'])
+    expect(mockUpdateList).toHaveBeenCalledWith('list-1', expect.objectContaining({
+      languageFrom: 'cs',
+      languageTo: 'fr',
+    }))
+  })
+
   it('lets editors mark a list as the common seed', async () => {
     const editorUser = { ...testUser, userRole: 'editor' }
     mockResolveUserFromRequest.mockResolvedValue(editorUser)
@@ -324,6 +398,57 @@ describe('PUT /api/lists/[id]', () => {
     expect(mockUpdateList).toHaveBeenCalledWith('list-1', expect.objectContaining({
       isCommon: true,
     }))
+  })
+
+  it('lets editors mark a list as selected and makes it public', async () => {
+    const editorUser = { ...testUser, userRole: 'editor' }
+    mockResolveUserFromRequest.mockResolvedValue(editorUser)
+    mockGetListById.mockResolvedValue({ ...testList, ownerId: 'other-user', isPublic: false })
+    mockUpdateList.mockResolvedValue({
+      ...testList,
+      ownerId: 'other-user',
+      isPublic: true,
+      isRecommended: true,
+    })
+    const req = new NextRequest('http://localhost:3000/api/lists/list-1', {
+      method: 'PUT',
+      body: JSON.stringify({
+        name: 'Updated',
+        description: null,
+        is_public: false,
+        is_recommended: true,
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await PUT(req, { params: Promise.resolve({ id: 'list-1' }) })
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.list.isPublic).toBe(true)
+    expect(data.list.isRecommended).toBe(true)
+    expect(mockUpdateList).toHaveBeenCalledWith('list-1', expect.objectContaining({
+      isPublic: false,
+      isRecommended: true,
+    }))
+  })
+
+  it('rejects selected-list changes for non-editors', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetListById.mockResolvedValue(testList)
+    const req = new NextRequest('http://localhost:3000/api/lists/list-1', {
+      method: 'PUT',
+      body: JSON.stringify({
+        name: 'Updated',
+        description: null,
+        is_public: true,
+        is_recommended: true,
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await PUT(req, { params: Promise.resolve({ id: 'list-1' }) })
+
+    expect(res.status).toBe(403)
+    expect(mockUpdateList).not.toHaveBeenCalled()
   })
 })
 

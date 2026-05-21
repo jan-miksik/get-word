@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, useRef, memo, useCallback } from 'react';
+import { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
+import { useI18n } from '@/components/I18nProvider';
 import { NormalizedWord } from '@/lib/words';
 import { Word } from '@/data/words';
 import { ProgressData } from '@/lib/sync';
@@ -36,19 +37,6 @@ export const STANDARD_CATEGORIES = ['basic', 'basic 2', 'cz ≈ en', 'phrase', '
 export const EDIT_ONLY_CATEGORIES = ['to fix'];
 export const ALL_CATEGORIES = [...STANDARD_CATEGORIES, ...EDIT_ONLY_CATEGORIES];
 
-// Field labels for better UX
-const FIELD_LABELS: Record<string, string> = {
-  cz: 'Čeština',
-  en: 'Angličtina',
-  vi: 'Vietnamština',
-  czPron: 'Česká výslovnost',
-  viPron: 'Vietnamská výslovnost',
-  czHint: 'Český háček',
-  viHint: 'Vietnamský háček',
-  czAudio: 'Český zvuk',
-  viAudio: 'Vietnamský zvuk',
-};
-
 export const EditableWordCard = memo(function EditableWordCard({
   word,
   progress,
@@ -73,6 +61,7 @@ export const EditableWordCard = memo(function EditableWordCard({
   categoryOrder,
   showMemoryHook = true,
 }: EditableWordCardProps) {
+  const { t } = useI18n();
   const [showEditModal, setShowEditModal] = useState(false);
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
   const categoryDropdownRef = useRef<HTMLDivElement>(null);
@@ -81,6 +70,20 @@ export const EditableWordCard = memo(function EditableWordCard({
   // Local state for editing - only syncs to parent on modal close
   const [localWord, setLocalWord] = useState<Partial<Word>>(word);
   const isClosingRef = useRef(false);
+  const fieldLabels = useMemo<Record<string, string>>(
+    () => ({
+      cz: t('editor.fieldCzech'),
+      en: t('editor.fieldEnglish'),
+      vi: t('editor.fieldVietnamese'),
+      czPron: t('editor.fieldCzechPronunciation'),
+      viPron: t('editor.fieldVietnamesePronunciation'),
+      czHint: t('editor.fieldCzechHook'),
+      viHint: t('editor.fieldVietnameseHook'),
+      czAudio: t('editor.fieldCzechAudio'),
+      viAudio: t('editor.fieldVietnameseAudio'),
+    }),
+    [t],
+  );
   
   // Update local state when word prop changes (e.g., from external updates)
   // But only if modal is closed and we're not in the process of closing
@@ -197,7 +200,7 @@ export const EditableWordCard = memo(function EditableWordCard({
               focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50
               ${showCategoryDropdown ? 'bg-white/[0.08] border-sky-400/30 shadow-[0_0_20px_rgba(56,189,248,0.15)]' : ''}
             `}
-            title="Upravit kategorie"
+            title={t('editor.editCategories')}
           >
             <span className="text-sm transition-transform duration-200 group-hover:scale-110">🏷️</span>
           </button>
@@ -222,9 +225,9 @@ export const EditableWordCard = memo(function EditableWordCard({
           >
             {/* Current categories section */}
             <div className="mb-3">
-              <div className="text-[0.65rem] uppercase tracking-wider text-slate-400 mb-2 font-medium">
-                Aktuální
-              </div>
+                <div className="text-[0.65rem] uppercase tracking-wider text-slate-400 mb-2 font-medium">
+                {t('editor.currentCategories')}
+                </div>
               <div className="flex flex-wrap gap-1.5">
                 {currentCategories.length > 0 ? (
                   currentCategories.map((cat) => (
@@ -245,14 +248,14 @@ export const EditableWordCard = memo(function EditableWordCard({
                         e.stopPropagation();
                         onCategoryRemove(cat);
                       }}
-                      title="Kliknutím odebrat"
+                      title={t('editor.removeCategory')}
                     >
                       <span>{cat}</span>
                       <span className="ml-1 opacity-60 group-hover/badge:opacity-100">×</span>
                     </button>
                   ))
                 ) : (
-                  <span className="text-[0.7rem] text-slate-500 italic">Žádné</span>
+                  <span className="text-[0.7rem] text-slate-500 italic">{t('editor.noCategories')}</span>
                 )}
               </div>
             </div>
@@ -266,7 +269,7 @@ export const EditableWordCard = memo(function EditableWordCard({
             {availableCategoriesToAdd.length > 0 && (
               <div>
                 <div className="text-[0.65rem] uppercase tracking-wider text-slate-400 mb-2 font-medium">
-                  Přidat
+                  {t('editor.addCategory')}
                 </div>
                 <div className="flex flex-wrap gap-1.5">
                   {availableCategoriesToAdd.map((cat) => (
@@ -326,7 +329,7 @@ export const EditableWordCard = memo(function EditableWordCard({
             active:translate-y-0 active:shadow-[0_2px_8px_rgba(0,0,0,0.3)]
             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-400/50
           "
-          title="Upravit textová pole"
+          title={t('editor.editTextFields')}
         >
           <span className="text-sm transition-transform duration-200 group-hover:scale-110">✏️</span>
         </button>
@@ -375,7 +378,7 @@ export const EditableWordCard = memo(function EditableWordCard({
                 border-b border-white/[0.05]
               ">
                 <div>
-                  <h3 className="text-base font-semibold text-white">Upravit slovo</h3>
+                  <h3 className="text-base font-semibold text-white">{t('editor.editWord')}</h3>
                   <p className="text-xs text-slate-400 mt-0.5">{word.en || word.cz}</p>
                 </div>
                 <button
@@ -400,7 +403,7 @@ export const EditableWordCard = memo(function EditableWordCard({
                     hover:bg-white/[0.1] hover:text-white hover:border-white/[0.15]
                     active:scale-95
                   "
-                  aria-label="Zavřít úpravu slova"
+                  aria-label={t('editor.closeEditWord')}
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -420,13 +423,13 @@ export const EditableWordCard = memo(function EditableWordCard({
                           text-slate-400 mb-1.5 font-medium
                           transition-colors group-focus-within:text-sky-400
                         ">
-                          {FIELD_LABELS[field]}
+                          {fieldLabels[field]}
                         </label>
                         <input
                           type="text"
                           value={localWord[field] || ''}
                           onChange={(e) => setLocalWord(prev => ({ ...prev, [field]: e.target.value }))}
-                          placeholder={`Zadejte: ${FIELD_LABELS[field].toLowerCase()}`}
+                          placeholder={t('editor.enterField', { field: fieldLabels[field].toLowerCase() })}
                           className="
                             w-full px-4 py-2.5 rounded-xl
                             bg-white/[0.03]
@@ -445,7 +448,7 @@ export const EditableWordCard = memo(function EditableWordCard({
                   {/* Divider */}
                   <div className="flex items-center gap-3 py-2">
                     <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
-                    <span className="text-[0.65rem] uppercase tracking-wider text-slate-500">Výslovnost a háčky</span>
+                    <span className="text-[0.65rem] uppercase tracking-wider text-slate-500">{t('editor.pronunciationAndHooks')}</span>
                     <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
                   </div>
 
@@ -458,13 +461,13 @@ export const EditableWordCard = memo(function EditableWordCard({
                           text-slate-400 mb-1.5 font-medium
                           transition-colors group-focus-within:text-sky-400
                         ">
-                          {FIELD_LABELS[field]}
+                          {fieldLabels[field]}
                         </label>
                         <input
                           type="text"
                           value={localWord[field] || ''}
                           onChange={(e) => setLocalWord(prev => ({ ...prev, [field]: e.target.value }))}
-                          placeholder={field.includes('Pron') ? 'Zadejte výslovnost' : 'Zadejte háček'}
+                          placeholder={field.includes('Pron') ? t('editor.enterPronunciation') : t('editor.enterHook')}
                           className="
                             w-full px-3 py-2 rounded-xl
                             bg-white/[0.03]
@@ -483,7 +486,7 @@ export const EditableWordCard = memo(function EditableWordCard({
                   {/* Divider */}
                   <div className="flex items-center gap-3 py-2">
                     <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
-                    <span className="text-[0.65rem] uppercase tracking-wider text-slate-500">Zvukové soubory</span>
+                    <span className="text-[0.65rem] uppercase tracking-wider text-slate-500">{t('editor.audioFiles')}</span>
                     <div className="flex-1 h-px bg-gradient-to-r from-transparent via-white/[0.08] to-transparent" />
                   </div>
 
@@ -496,8 +499,8 @@ export const EditableWordCard = memo(function EditableWordCard({
                           text-slate-400 mb-1.5 font-medium
                           transition-colors group-focus-within:text-sky-400
                         ">
-                          {FIELD_LABELS[field]}
-                          <span className="ml-1 text-slate-500 normal-case tracking-normal">(oddělené čárkou)</span>
+                          {fieldLabels[field]}
+                          <span className="ml-1 text-slate-500 normal-case tracking-normal">{t('editor.commaSeparated')}</span>
                         </label>
                         <input
                           type="text"

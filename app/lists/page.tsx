@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { I18nProvider, useI18n } from '@/components/I18nProvider';
+import { fetchUserData } from '@/lib/sync';
+import { subscribeTabMessages } from '@/lib/tab-sync';
 import { listsApiFetch } from '@/features/lists/api';
 import * as listActions from '@/features/lists/client/actions';
 import {
@@ -26,11 +29,67 @@ import { TranslationStep } from './TranslationStep';
 import { AudioStep } from './AudioStep';
 import { ApiKeySettings } from './ApiKeySettings';
 import { WizardProgressBar, type WizardActiveStep } from './WizardProgressBar';
+import {
+  DEFAULT_OPENROUTER_TRANSLATION_MODEL,
+  OPENROUTER_MODEL_STORAGE_KEY,
+  OPENROUTER_MODELS_URL,
+  OPENROUTER_TRANSLATION_MODELS,
+  normalizeOpenRouterModel,
+} from '@/lib/openrouter-models';
 
 type WizardStep = 'browse' | WizardActiveStep;
 type LearningLanguage = { code: string; name: string; ttsAvailable?: boolean };
 type ForkedListPrompt = { listId: string; sourceName: string };
 type PendingListItems = NonNullable<ConfirmResult['pending_items']>;
+type TranslateHeadingMode = 'translate' | 'review';
+type TranslationProvider = 'google' | 'openrouter' | 'none';
+type PendingFork = {
+  source: WordList;
+  languageFrom: string;
+  languageTo: string;
+  provider: TranslationProvider;
+  sourceLanguage: string;
+  translationModel: string;
+};
+
+function normalizeListLanguageCode(code: string): string {
+  const [base, region] = String(code).trim().split('-');
+  const normalizedBase = (base ?? '').toLowerCase();
+  if (normalizedBase === 'cs' || normalizedBase === 'cz') return 'cs';
+  return region ? `${normalizedBase}-${region.toUpperCase()}` : normalizedBase;
+}
+
+function isSameListDirection(left: WordList, right: WordList): boolean {
+  return (
+    normalizeListLanguageCode(left.languageFrom) === normalizeListLanguageCode(right.languageFrom) &&
+    normalizeListLanguageCode(left.languageTo) === normalizeListLanguageCode(right.languageTo)
+  );
+}
+
+function readStorageValue(key: string): string | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    return window.localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeStorageValue(key: string, value: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(key, value);
+  } catch {
+    // Ignore blocked storage; the selected model still applies to this fork.
+  }
+}
+
+function readStoredOpenRouterModel(): string {
+  const stored = readStorageValue(OPENROUTER_MODEL_STORAGE_KEY);
+  return stored
+    ? normalizeOpenRouterModel(stored)
+    : DEFAULT_OPENROUTER_TRANSLATION_MODEL;
+}
 
 function ErrorMessage({ message }: { message: string }) {
   const supportText = 'Contact our tech support';
@@ -61,6 +120,46 @@ function ErrorMessage({ message }: { message: string }) {
 }
 
 export default function ListsPage() {
+  const [settingsLanguage, setSettingsLanguage] = useState('en');
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void fetchUserData()
+      .then((data) => {
+        if (cancelled) return;
+        const language = data.user?.settings_language;
+        if (typeof language === 'string' && language.trim()) {
+          setSettingsLanguage(language);
+        }
+      })
+      .catch(() => {
+        // Keep English fallback until the saved language is available.
+      });
+
+    const unsubscribe = subscribeTabMessages((message) => {
+      if (message.type !== 'preferences_changed') return;
+      const language = message.patch.settingsLanguage;
+      if (typeof language === 'string' && language.trim()) {
+        setSettingsLanguage(language);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
+  }, []);
+
+  return (
+    <I18nProvider language={settingsLanguage}>
+      <ListsPageContent />
+    </I18nProvider>
+  );
+}
+
+function ListsPageContent() {
+  const { t } = useI18n();
   const [lists, setLists] = useState<WordList[]>([]);
   const [selectedListId, setSelectedListId] = useState<string | null>(null);
   const [categories, setCategories] = useState<WordCategory[]>([]);
@@ -76,7 +175,7 @@ export default function ListsPage() {
   const [diffResult, setDiffResult] = useState<DiffResult | null>(null);
   const [pendingItems, setPendingItems] = useState<PendingListItems>([]);
   const [audioStepItems, setAudioStepItems] = useState<WordListItem[] | null>(null);
-  const [translateHeading, setTranslateHeading] = useState('Přeložit slova');
+  const [translateHeadingMode, setTranslateHeadingMode] = useState<TranslateHeadingMode>('translate');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [subscribedListIds, setSubscribedListIds] = useState<Set<string>>(new Set());
@@ -91,6 +190,8 @@ export default function ListsPage() {
   const [canManageCommonLists, setCanManageCommonLists] = useState(false);
   const [initialAudioFixStep, setInitialAudioFixStep] = useState<'audio-target' | 'audio-known' | null>(null);
   const [triggerEditSignal, setTriggerEditSignal] = useState(0);
+  const [pendingFork, setPendingFork] = useState<PendingFork | null>(null);
+  const [forkingListId, setForkingListId] = useState<string | null>(null);
 
   const selectedList = useMemo(
     () => lists.find((l) => l.id === selectedListId) ?? null,
@@ -115,14 +216,14 @@ export default function ListsPage() {
       const res = await listsApiFetch('/api/google-usage');
       if (!res.ok) {
         if (res.status === 401) return;
-        throw new Error('Využití Google API se nepodařilo načíst');
+        throw new Error(t('lists.googleUsageLoadFailed'));
       }
       const data = await res.json();
       setGoogleUsage(data);
     } catch (err) {
       console.warn('[Get Word lists] Could not load Google API usage', err);
     }
-  }, []);
+  }, [t]);
 
   // Fetch lists and subscription status on mount
   useEffect(() => {
@@ -176,7 +277,7 @@ export default function ListsPage() {
       try {
         void loadGoogleUsage();
         const res = await listsApiFetch('/api/lists');
-        if (!res.ok) throw new Error('Seznamy se nepodařilo načíst');
+        if (!res.ok) throw new Error(t('lists.loadFailed'));
         const data = await res.json();
         setLists(data.lists);
         setCanManageCommonLists(Boolean(data.canManageCommonLists));
@@ -191,13 +292,13 @@ export default function ListsPage() {
         });
         setSubscribedListIds(new Set<string>(data.subscribedListIds ?? []));
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Seznamy se nepodařilo načíst');
+        setError(err instanceof Error ? err.message : t('lists.loadFailed'));
       } finally {
         setLoading(false);
       }
     }
     loadLists();
-  }, [loadGoogleUsage]);
+  }, [loadGoogleUsage, t]);
 
   // Fetch list details when selected list changes
   useEffect(() => {
@@ -225,7 +326,7 @@ export default function ListsPage() {
         }
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
-        setError(err instanceof Error ? err.message : 'Seznam se nepodařilo načíst');
+        setError(err instanceof Error ? err.message : t('lists.loadOneFailed'));
       } finally {
         if (!controller.signal.aborted) {
           setLoadingDetails(false);
@@ -235,7 +336,7 @@ export default function ListsPage() {
     loadListDetails();
     setEditingCategoryId(null);
     return () => controller.abort();
-  }, [initialAudioFixStep, selectedListId]);
+  }, [initialAudioFixStep, selectedListId, t]);
 
   const itemsByCategory = useItemsByCategory(items);
   const buildAudioStepItems = useBuildAudioStepItems({
@@ -273,29 +374,80 @@ export default function ListsPage() {
 
   const handleUpdateList = useCallback(async (
     listId: string,
-    data: Pick<WordList, 'name' | 'description' | 'isPublic'> & { isCommon?: boolean },
+    data: Pick<WordList, 'name' | 'description' | 'isPublic'> & {
+      isCommon?: boolean;
+      isRecommended?: boolean;
+      languageFrom?: string;
+      languageTo?: string;
+    },
   ) => {
-    const updatedList = await listActions.updateList(listId, data);
+    const { list: updatedList, clearedSides } = await listActions.updateList(listId, data);
     setLists((prev) =>
       prev.map((list) => {
         if (list.id === listId) return { ...list, ...updatedList };
-        return updatedList.isCommon ? { ...list, isCommon: false } : list;
+        return {
+          ...list,
+          ...(updatedList.isCommon ? { isCommon: false } : {}),
+          ...(updatedList.isRecommended && isSameListDirection(list, updatedList)
+            ? { isRecommended: false }
+            : {}),
+        };
       })
     );
     if (forkedListPrompt?.listId === listId) {
       setForkedListPrompt(null);
       updateSelectedListUrl(listId, null);
     }
-  }, [forkedListPrompt, updateSelectedListUrl]);
+    if (clearedSides.length > 0 && selectedListId === listId) {
+      const freshItems = await reloadListDetails();
+      setEditingCategoryId(null);
+      setAudioStepItems(null);
+      setDiffResult(null);
+      setEditInputLanguage(clearedSides.includes('target') ? 'known' : 'target');
+      setTranslateHeadingMode('translate');
+      setPendingItems(
+        freshItems.map((item) => ({
+          id: item.id,
+          text_known: item.textKnown,
+          text_target: item.textTarget ?? null,
+          position: item.position,
+        })),
+      );
+      setWizardStep('translate');
+    }
+  }, [forkedListPrompt, selectedListId, updateSelectedListUrl]);
 
   const handleForkList = useCallback(async (listId: string) => {
     const sourceList = lists.find((list) => list.id === listId);
-    const languageFrom = initialCreateLanguageFrom ?? sourceList?.languageFrom;
-    const languageTo = initialCreateLanguageTo ?? sourceList?.languageTo;
-    if (!languageFrom || !languageTo) return;
+    if (!sourceList) return;
+    setPendingFork({
+      source: sourceList,
+      languageFrom: initialCreateLanguageFrom ?? sourceList.languageFrom,
+      languageTo: initialCreateLanguageTo ?? sourceList.languageTo,
+      provider: 'none',
+      sourceLanguage: sourceList.languageFrom,
+      translationModel: readStoredOpenRouterModel(),
+    });
+  }, [initialCreateLanguageFrom, initialCreateLanguageTo, lists]);
 
-    const forkedList = await listActions.forkList(listId, { languageFrom, languageTo });
-    const sourceName = sourceList?.name ?? 'jiný seznam';
+  const handlePendingForkModelChange = useCallback((model: string) => {
+    setPendingFork((current) =>
+      current ? { ...current, translationModel: model } : current
+    );
+    writeStorageValue(OPENROUTER_MODEL_STORAGE_KEY, model);
+  }, []);
+
+  const handleConfirmFork = useCallback(async () => {
+    if (!pendingFork || pendingFork.languageFrom === pendingFork.languageTo) return;
+    setForkingListId(pendingFork.source.id);
+    const { list: forkedList } = await listActions.forkList(pendingFork.source.id, {
+      languageFrom: pendingFork.languageFrom,
+      languageTo: pendingFork.languageTo,
+      translationProvider: pendingFork.provider,
+      sourceLanguage: pendingFork.sourceLanguage,
+      translationModel: pendingFork.translationModel,
+    });
+    const sourceName = pendingFork.source.name ?? t('lists.anotherList');
     setLists((prev) => [...prev, forkedList]);
     setForkedListPrompt({ listId: forkedList.id, sourceName });
     setLoadingDetails(true);
@@ -304,7 +456,9 @@ export default function ListsPage() {
     updateSelectedListUrl(forkedList.id, { sourceName });
     setSelectedListId(forkedList.id);
     setSidebarOpen(false);
-  }, [initialCreateLanguageFrom, initialCreateLanguageTo, lists, updateSelectedListUrl]);
+    setPendingFork(null);
+    setForkingListId(null);
+  }, [pendingFork, t, updateSelectedListUrl]);
 
   const handleEditList = useCallback((listId: string) => {
     setSelectedListId(listId);
@@ -341,18 +495,18 @@ export default function ListsPage() {
         return next;
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Smazání se nepodařilo');
+      setError(err instanceof Error ? err.message : t('lists.deleteFailed'));
     }
-  }, []);
+  }, [t]);
 
   const handleSubscribe = useCallback(async (listId: string) => {
     try {
       await listActions.subscribeToList(listId);
       setSubscribedListIds((prev) => new Set([...prev, listId]));
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Odběr se nepodařilo zapnout');
+      setError(err instanceof Error ? err.message : t('lists.subscribeFailed'));
     }
-  }, []);
+  }, [t]);
 
   const handleUnsubscribe = useCallback(async (listId: string) => {
     try {
@@ -363,9 +517,9 @@ export default function ListsPage() {
         return next;
       });
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Odběr se nepodařilo zrušit');
+      setError(err instanceof Error ? err.message : t('lists.unsubscribeFailed'));
     }
-  }, []);
+  }, [t]);
 
   const handleEditCategory = useCallback((categoryId: string, inputLang: 'known' | 'target') => {
     setEditingCategoryId(categoryId);
@@ -398,7 +552,7 @@ export default function ListsPage() {
     );
 
     if (result.needs_translation && result.pending_items) {
-      setTranslateHeading('Přeložit slova');
+      setTranslateHeadingMode('translate');
       setPendingItems(result.pending_items);
       setWizardStep('translate');
     } else {
@@ -408,7 +562,7 @@ export default function ListsPage() {
         ? freshItems.filter((i) => i.categoryId === editingCategoryId)
         : [];
       if (categoryItems.length > 0) {
-        setTranslateHeading('Zkontrolovat překlady a zvuk');
+        setTranslateHeadingMode('review');
         setPendingItems(
           categoryItems.map((item) => ({
             id: item.id,
@@ -480,7 +634,7 @@ export default function ListsPage() {
     setDiffResult(null);
     setPendingItems([]);
     setAudioStepItems(null);
-    setTranslateHeading('Přeložit slova');
+    setTranslateHeadingMode('translate');
     setIsEditDirty(false);
   }, []);
 
@@ -515,7 +669,7 @@ export default function ListsPage() {
         reordered: [],
         unchanged: categoryItems.length,
       });
-      setTranslateHeading('Zkontrolovat překlady a zvuk');
+      setTranslateHeadingMode('review');
       setPendingItems(
         categoryItems.map((item) => ({
           id: item.id,
@@ -573,7 +727,7 @@ export default function ListsPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background text-text">
-        <div className="text-text-soft">Načítání seznamů...</div>
+        <div className="text-text-soft">{t('common.loadingLists')}</div>
       </div>
     );
   }
@@ -581,6 +735,11 @@ export default function ListsPage() {
   const editingCategory = categories.find((c) => c.id === editingCategoryId);
   const editingItems = editingCategoryId ? itemsByCategory.get(editingCategoryId) ?? [] : [];
   const currentAudioItems = audioStepItems ?? (editingCategoryId ? editingItems : items);
+  const languageOptions = languages.length > 0 ? languages : [
+    { code: 'cs', name: t('languageName.cs') },
+    { code: 'vi', name: t('languageName.vi') },
+    { code: 'en', name: t('languageName.en') },
+  ];
 
   return (
     <div className="flex h-screen bg-background text-text overflow-hidden">
@@ -589,7 +748,7 @@ export default function ListsPage() {
         type="button"
         className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-background-elevated border border-border-subtle md:hidden"
         onClick={() => setSidebarOpen(!sidebarOpen)}
-        aria-label="Přepnout boční panel"
+        aria-label={t('lists.toggleSidebar')}
       >
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-text">
           <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
@@ -601,8 +760,8 @@ export default function ListsPage() {
         type="button"
         className="fixed top-4 right-4 z-50 p-2 rounded-lg bg-background-elevated border border-border-subtle text-text-soft hover:text-text transition-colors"
         onClick={() => setSettingsOpen(true)}
-        aria-label="Nastavení API klíčů"
-        title="API klíče"
+        aria-label={t('lists.settings')}
+        title={t('lists.apiKeys')}
       >
         {/* Key icon */}
         <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-current">
@@ -627,6 +786,7 @@ export default function ListsPage() {
           subscribedListIds={subscribedListIds}
           googleUsage={googleUsage}
           languages={languages}
+          canManageCommonLists={canManageCommonLists}
           initialCreateLanguageFrom={initialCreateLanguageFrom}
           initialCreateLanguageTo={initialCreateLanguageTo}
           onSelectList={handleSelectList}
@@ -667,37 +827,38 @@ export default function ListsPage() {
                 className="ml-2 underline"
                 onClick={() => setError(null)}
               >
-                Zavřít
+                {t('common.close')}
               </button>
             </div>
           )}
 
           {existingListsHint && (
             <div className="p-4 m-4 rounded-lg border border-border-subtle bg-background-elevated text-sm text-text-soft">
-              Nový seznam slov můžete vytvořit z existujících seznamů: vyberte připravený seznam a použijte Kopírovat. Kopie začne s čistým pokrokem v učení a podle možností znovu použije překlady i zvuk.
+              {t('lists.createFromExistingHint')}
               <button
                 type="button"
                 className="ml-2 text-accent underline"
                 onClick={() => setExistingListsHint(false)}
               >
-                Zavřít
+                {t('common.close')}
               </button>
             </div>
           )}
 
           {!selectedList ? (
             <div className="flex items-center justify-center h-full">
-              <p className="text-text-soft">Začněte výběrem seznamu</p>
+              <p className="text-text-soft">{t('lists.startBySelecting')}</p>
             </div>
           ) : loadingDetails ? (
             <div className="flex items-center justify-center h-full">
-              <p className="text-text-soft">Načítání...</p>
+              <p className="text-text-soft">{t('app.loading')}</p>
             </div>
           ) : wizardStep === 'browse' ? (
             <CategoryBrowser
               list={selectedList}
               categories={categories}
               itemsByCategory={itemsByCategory}
+              languages={languages}
               isOwner={isOwner}
               isEditor={canManageCommonLists}
               forkedFromListName={forkedListPrompt?.listId === selectedList.id ? forkedListPrompt.sourceName : null}
@@ -735,7 +896,11 @@ export default function ListsPage() {
               list={selectedList}
               pendingItems={pendingItems ?? []}
               inputLanguage={editInputLanguage}
-              heading={translateHeading}
+              heading={t(
+                translateHeadingMode === 'review'
+                  ? 'lists.reviewTranslationsAndAudio'
+                  : 'lists.translateWords',
+              )}
               googleUsage={googleUsage}
               onComplete={handleTranslationComplete}
               onSkip={handleSkipTranslation}
@@ -747,7 +912,7 @@ export default function ListsPage() {
               list={selectedList}
               items={currentAudioItems}
               audioSide="target"
-              title="Zvuk - učený jazyk"
+              title={t('lists.audioTarget')}
               googleUsage={googleUsage}
               onComplete={handleTargetAudioComplete}
               onSkip={handleTargetAudioComplete}
@@ -759,7 +924,7 @@ export default function ListsPage() {
               list={selectedList}
               items={currentAudioItems}
               audioSide="known"
-              title="Zvuk - známý jazyk"
+              title={t('lists.audioKnown')}
               googleUsage={googleUsage}
               onComplete={handleKnownAudioComplete}
               onSkip={handleKnownAudioComplete}
@@ -779,8 +944,159 @@ export default function ListsPage() {
             setSidebarOpen(true);
           }}
         >
-          + Nový seznam
+          + {t('lists.newList')}
         </button>
+      )}
+
+      {pendingFork && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setPendingFork(null)}
+        >
+          <div
+            className="w-full max-w-lg rounded-lg border border-border-subtle bg-background p-4 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="mb-3">
+              <h2 className="text-base font-semibold text-text">{t('lists.copyList')}</h2>
+              <p className="mt-1 text-sm text-text-soft">{pendingFork.source.name}</p>
+            </div>
+            <div className="grid gap-3">
+              <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
+                <label className="grid gap-1">
+                  <span className="text-xs font-medium text-text-soft">{t('lists.knownLanguage')}</span>
+                  <select
+                    value={pendingFork.languageFrom}
+                    onChange={(event) => setPendingFork((current) =>
+                      current ? { ...current, languageFrom: event.target.value } : current
+                    )}
+                    className="rounded-lg border border-border-subtle bg-background-elevated px-3 py-2 text-sm text-text outline-none focus:border-accent"
+                  >
+                    {languageOptions.map((language) => (
+                      <option key={language.code} value={language.code}>
+                        {language.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <span className="hidden pb-2 text-xs text-text-soft sm:block">→</span>
+                <label className="grid gap-1">
+                  <span className="text-xs font-medium text-text-soft">{t('lists.targetLanguage')}</span>
+                  <select
+                    value={pendingFork.languageTo}
+                    onChange={(event) => setPendingFork((current) =>
+                      current ? { ...current, languageTo: event.target.value } : current
+                    )}
+                    className="rounded-lg border border-border-subtle bg-background-elevated px-3 py-2 text-sm text-text outline-none focus:border-accent"
+                  >
+                    {languageOptions.map((language) => (
+                      <option key={language.code} value={language.code}>
+                        {language.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              <label className="grid gap-1">
+                <span className="text-xs font-medium text-text-soft">{t('lists.translation')}</span>
+                <select
+                  value={pendingFork.provider}
+                  onChange={(event) => setPendingFork((current) =>
+                    current ? { ...current, provider: event.target.value as TranslationProvider } : current
+                  )}
+                  className="rounded-lg border border-border-subtle bg-background-elevated px-3 py-2 text-sm text-text outline-none focus:border-accent"
+                >
+                  <option value="none">{t('lists.noAutoTranslation')}</option>
+                  <option value="google">{t('lists.translationProviderGoogle')}</option>
+                  <option value="openrouter">BYOK LLM (OpenRouter)</option>
+                </select>
+              </label>
+              {pendingFork.provider !== 'none' && (
+                <label className="grid gap-1">
+                  <span className="text-xs font-medium text-text-soft">{t('lists.translateFromOriginalLanguage')}</span>
+                  <select
+                    value={pendingFork.sourceLanguage}
+                    onChange={(event) => setPendingFork((current) =>
+                      current ? { ...current, sourceLanguage: event.target.value } : current
+                    )}
+                    className="rounded-lg border border-border-subtle bg-background-elevated px-3 py-2 text-sm text-text outline-none focus:border-accent"
+                  >
+                    <option value={pendingFork.source.languageFrom}>{pendingFork.source.languageFrom}</option>
+                    <option value={pendingFork.source.languageTo}>{pendingFork.source.languageTo}</option>
+                  </select>
+                </label>
+              )}
+              {pendingFork.provider === 'openrouter' && (
+                <div className="grid gap-2 rounded-lg border border-border-subtle bg-background-elevated p-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <label className="text-xs font-medium text-text-soft" htmlFor="fork-openrouter-model">
+                      {t('lists.openRouterModel')}
+                    </label>
+                    <a
+                      className="text-[11px] text-accent hover:text-accent-strong"
+                      href={OPENROUTER_MODELS_URL}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      {t('lists.browseModels')}
+                    </a>
+                  </div>
+                  <div className="grid gap-2 md:grid-cols-2">
+                    <select
+                      id="fork-openrouter-model"
+                      value={
+                        OPENROUTER_TRANSLATION_MODELS.some((model) => model.id === pendingFork.translationModel)
+                          ? pendingFork.translationModel
+                          : 'custom'
+                      }
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        if (next !== 'custom') handlePendingForkModelChange(next);
+                      }}
+                      className="min-w-0 rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text outline-none focus:border-accent"
+                    >
+                      {OPENROUTER_TRANSLATION_MODELS.map((model) => (
+                        <option key={model.id} value={model.id}>
+                          {model.name} - {model.price}
+                        </option>
+                      ))}
+                      <option value="custom">{t('lists.customModelName')}</option>
+                    </select>
+                    <input
+                      value={pendingFork.translationModel}
+                      onChange={(event) => handlePendingForkModelChange(event.target.value)}
+                      placeholder="provider/model-name"
+                      className="min-w-0 rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text outline-none focus:border-accent"
+                      spellCheck={false}
+                    />
+                  </div>
+                </div>
+              )}
+              <div className="flex justify-end gap-2 pt-1">
+                <button
+                  type="button"
+                  className="rounded-lg border border-border-subtle px-3 py-1.5 text-sm text-text-soft"
+                  onClick={() => setPendingFork(null)}
+                >
+                  {t('common.cancel')}
+                </button>
+                <button
+                  type="button"
+                  disabled={forkingListId === pendingFork.source.id || pendingFork.languageFrom === pendingFork.languageTo}
+                  className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-background disabled:opacity-50"
+                  onClick={() => {
+                    void handleConfirmFork().catch((err) => {
+                      setForkingListId(null);
+                      setError(err instanceof Error ? err.message : t('lists.copyFailed'));
+                    });
+                  }}
+                >
+                  {forkingListId === pendingFork.source.id ? t('lists.copying') : t('lists.copyList')}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

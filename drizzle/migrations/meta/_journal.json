@@ -148,6 +148,13 @@
       "when": 1779235200000,
       "tag": "0020_compact_early_review_stages",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1779321600000,
+      "tag": "0021_recommended_word_lists",
+      "breakpoints": true
     }
   ]
 }

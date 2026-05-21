@@ -15,6 +15,8 @@ import { DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE } from '@/lib/words';
 type HydratedWordListItems = Awaited<ReturnType<typeof getUserSubscribedItems>>;
 type HydratedListNames = Awaited<ReturnType<typeof getWordListsByIds>>;
 type HydratedWordListItemWithMedia = HydratedWordListItems[number] & {
+  languageFrom: string;
+  languageTo: string;
   knownAudioUrl: string | null;
   knownAudioArweaveUrl: string | null;
   knownAudioArweaveUrls: string[];
@@ -136,9 +138,19 @@ export async function getHydratedWordListData(
     categoryLookup[category.id] = { name: category.name, position: category.position };
   }
 
+  const listLanguageById = new Map(
+    listNameRows.map((list) => [list.id, {
+      languageFrom: list.languageFrom,
+      languageTo: list.languageTo,
+    }]),
+  );
+
   const hydratedWordListItems = wordListItems.map((item) => {
+    const listLanguages = listLanguageById.get(item.listId);
     return {
       ...item,
+      languageFrom: listLanguages?.languageFrom ?? '',
+      languageTo: listLanguages?.languageTo ?? '',
       ...getHydratedAudioFields(item.knownAudioAssetId, item.audioAssetId, mediaAssets),
     };
   });

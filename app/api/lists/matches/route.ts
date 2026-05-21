@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
   getUserListsByLanguagePair,
+  pickRecommendedWordList,
   getWordListItemCountsByListIds,
 } from "@/lib/db";
 import { resolveUserFromRequest, unauthorizedResponse } from "@/lib/auth";
@@ -28,13 +29,22 @@ export async function GET(request: NextRequest) {
   }
 
   const lists = await getUserListsByLanguagePair(user.id, languageFrom, languageTo);
-  const itemCounts = await getWordListItemCountsByListIds(lists.map((list) => list.id));
+  const recommended = pickRecommendedWordList(lists, languageFrom, languageTo, null);
+  const countIds = [...new Set([
+    ...lists.map((list) => list.id),
+    ...(recommended ? [recommended.list.id] : []),
+  ])];
+  const itemCounts = await getWordListItemCountsByListIds(countIds);
+
+  const serializeList = (list: typeof lists[number]) => ({
+    ...list,
+    isOwner: list.ownerId === user.id,
+    itemCount: itemCounts.get(list.id) ?? 0,
+  });
 
   return NextResponse.json({
-    lists: lists.map((list) => ({
-      ...list,
-      isOwner: list.ownerId === user.id,
-      itemCount: itemCounts.get(list.id) ?? 0,
-    })),
+    lists: lists.map(serializeList),
+    recommendedList: recommended ? serializeList(recommended.list) : null,
+    recommendedReason: recommended?.reason ?? null,
   });
 }

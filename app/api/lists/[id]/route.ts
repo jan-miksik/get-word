@@ -15,6 +15,7 @@ import {
 } from "@/lib/auth";
 import { getAudioUrl } from "@/lib/audio";
 import { getArweaveGatewayUrls } from "@/lib/audio-storage";
+import { normalizeLanguageCode } from "@/lib/i18n/languages";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -134,11 +135,28 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   }
   const body = await request.json();
   const commonRequested = typeof body.is_common === "boolean";
+  const recommendedRequested = typeof body.is_recommended === "boolean";
+  const rawLanguageFrom = typeof body.language_from === "string" ? body.language_from : undefined;
+  const rawLanguageTo = typeof body.language_to === "string" ? body.language_to : undefined;
+  const languageFrom = rawLanguageFrom ? normalizeLanguageCode(rawLanguageFrom) : undefined;
+  const languageTo = rawLanguageTo ? normalizeLanguageCode(rawLanguageTo) : undefined;
+  if (languageFrom && languageTo && languageFrom === languageTo) {
+    return NextResponse.json(
+      { error: "language_from and language_to must be different" },
+      { status: 400 },
+    );
+  }
+  if ((languageFrom && languageFrom === list.languageTo && !languageTo) || (languageTo && languageTo === list.languageFrom && !languageFrom)) {
+    return NextResponse.json(
+      { error: "language_from and language_to must be different" },
+      { status: 400 },
+    );
+  }
   const canEditMetadata = list.ownerId === user.id || isEditor(user);
   if (!canEditMetadata) {
     return forbiddenResponse("Only the list owner can update it");
   }
-  if (commonRequested && !isEditor(user)) {
+  if ((commonRequested || recommendedRequested) && !isEditor(user)) {
     return forbiddenResponse("Editor role required");
   }
 
@@ -147,9 +165,17 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     description: body.description,
     isPublic: body.is_public,
     ...(commonRequested ? { isCommon: body.is_common } : {}),
+    ...(recommendedRequested ? { isRecommended: body.is_recommended } : {}),
+    ...(languageFrom ? { languageFrom } : {}),
+    ...(languageTo ? { languageTo } : {}),
   });
 
-  return NextResponse.json({ list: updated });
+  const clearedSides = [
+    languageFrom && languageFrom !== normalizeLanguageCode(list.languageFrom) ? "known" : null,
+    languageTo && languageTo !== normalizeLanguageCode(list.languageTo) ? "target" : null,
+  ].filter((side): side is "known" | "target" => Boolean(side));
+
+  return NextResponse.json({ list: updated, cleared_sides: clearedSides });
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {

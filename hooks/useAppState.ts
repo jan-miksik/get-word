@@ -26,6 +26,7 @@ export function useAppState(
     name: string;
     languageFrom: string;
     languageTo: string;
+    isRecommended?: boolean;
   }[]>([]);
   const isUpdatingFromServerRef = useRef(false);
   const { activeListId, setActiveListId } = useActiveListState();

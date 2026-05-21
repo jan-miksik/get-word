@@ -1,5 +1,7 @@
 'use client';
 
+import { useI18n } from '@/components/I18nProvider';
+
 export type WizardActiveStep =
   | 'edit'
   | 'preview'
@@ -13,25 +15,25 @@ interface WizardProgressBarProps {
   canJumpForward?: boolean;
 }
 
-const STEPS: { id: WizardActiveStep; label: string }[] = [
-  { id: 'edit', label: 'Upravit' },
-  { id: 'preview', label: 'Náhled' },
-  { id: 'translate', label: 'Překlad' },
-  { id: 'audio-target', label: 'Zvuk - učený jazyk' },
-  { id: 'audio-known', label: 'Zvuk - známý jazyk' },
-];
-
 export function WizardProgressBar({
   currentStep,
   onGoToStep,
   canJumpForward = false,
 }: WizardProgressBarProps) {
-  const currentIndex = STEPS.findIndex((s) => s.id === currentStep);
+  const { t } = useI18n();
+  const steps: { id: WizardActiveStep; label: string }[] = [
+    { id: 'edit', label: t('lists.wizardEdit') },
+    { id: 'preview', label: t('lists.wizardPreview') },
+    { id: 'translate', label: t('lists.wizardTranslate') },
+    { id: 'audio-target', label: t('lists.wizardAudioTarget') },
+    { id: 'audio-known', label: t('lists.wizardAudioKnown') },
+  ];
+  const currentIndex = steps.findIndex((s) => s.id === currentStep);
 
   return (
     <div className="px-4 md:px-6 py-3 border-b border-border-subtle bg-background-elevated">
       <div className="max-w-4xl mx-auto flex items-center gap-1.5 text-sm">
-        {STEPS.map((step, index) => {
+        {steps.map((step, index) => {
           const isPast = index < currentIndex;
           const isCurrent = index === currentIndex;
           const isFuture = index > currentIndex;

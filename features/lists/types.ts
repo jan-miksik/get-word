@@ -7,6 +7,7 @@ export type WordList = {
   languageTo: string;
   isPublic: boolean;
   isCommon?: boolean;
+  isRecommended?: boolean;
   isOwner?: boolean;
   createdAt?: string | Date;
   updatedAt?: string | Date;
@@ -45,6 +46,7 @@ export type WordListItem = {
 
 export type DiffResult = {
   added: string[];
+  added_positions?: { text: string; position: number }[];
   removed: { id: string; text_known: string; text_target: string | null }[];
   reordered: { id: string; text: string; from_pos: number; to_pos: number }[];
   unchanged: number;

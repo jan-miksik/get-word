@@ -250,20 +250,22 @@ describe('LearningLanguageOnboarding', () => {
           });
         }
         if (url.startsWith('/api/lists/matches?from=cs&to=vi')) {
+          const curatedList = {
+            id: 'curated-cs-vi',
+            ownerId: null,
+            name: 'Curated Czech Vietnamese',
+            description: 'Curated starter list',
+            languageFrom: 'cz',
+            languageTo: 'vi',
+            isPublic: true,
+            isCommon: false,
+            isRecommended: true,
+            itemCount: 88,
+          };
           return jsonResponse({
-            lists: [
-              {
-                id: 'curated-cs-vi',
-                ownerId: null,
-                name: 'Curated Czech Vietnamese',
-                description: 'Curated starter list',
-                languageFrom: 'cz',
-                languageTo: 'vi',
-                isPublic: true,
-                isCommon: false,
-                itemCount: 88,
-              },
-            ],
+            lists: [curatedList],
+            recommendedList: curatedList,
+            recommendedReason: 'exact',
           });
         }
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
@@ -281,6 +283,7 @@ describe('LearningLanguageOnboarding', () => {
 
     expect(await screen.findByText('Curated Czech Vietnamese')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Create own list/i })).toBeInTheDocument();
+    expect(screen.getByText('recommended')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Autogenerate common list/i })).toBeInTheDocument();
     expect(
       screen.getByText(
@@ -305,20 +308,22 @@ describe('LearningLanguageOnboarding', () => {
           });
         }
         if (url.startsWith('/api/lists/matches?from=vi&to=cs')) {
+          const commonList = {
+            id: 'common-cs-vi',
+            ownerId: null,
+            name: 'Common Czech Vietnamese',
+            description: 'Common starter list',
+            languageFrom: 'cz',
+            languageTo: 'vi',
+            isPublic: true,
+            isCommon: true,
+            isRecommended: true,
+            itemCount: 120,
+          };
           return jsonResponse({
-            lists: [
-              {
-                id: 'common-cs-vi',
-                ownerId: null,
-                name: 'Common Czech Vietnamese',
-                description: 'Common starter list',
-                languageFrom: 'cz',
-                languageTo: 'vi',
-                isPublic: true,
-                isCommon: true,
-                itemCount: 120,
-              },
-            ],
+            lists: [commonList],
+            recommendedList: commonList,
+            recommendedReason: 'reverse',
           });
         }
         return Promise.reject(new Error(`Unexpected fetch: ${url}`));
@@ -379,6 +384,57 @@ describe('LearningLanguageOnboarding', () => {
         'Choose from existing word lists, create your own, or fork a list and customize it to fit what you want to learn.',
       ),
     ).not.toBeInTheDocument();
+  });
+
+  it('shows a forkable basic seed when the server falls back from selected lists', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === '/api/languages') {
+          return jsonResponse({
+            languages: [
+              { code: 'en', name: 'English', ttsAvailable: true, preferredVoice: null },
+              { code: 'ja', name: 'Japanese', ttsAvailable: true, preferredVoice: null },
+            ],
+          });
+        }
+        if (url.startsWith('/api/lists/matches?from=en&to=ja')) {
+          return jsonResponse({
+            lists: [],
+            recommendedList: {
+              id: 'basic-seed',
+              ownerId: null,
+              name: 'Basic Seed',
+              description: 'Starter seed',
+              languageFrom: 'cs',
+              languageTo: 'vi',
+              isPublic: true,
+              isCommon: true,
+              isRecommended: false,
+              itemCount: 100,
+            },
+            recommendedReason: 'fallback_seed',
+          });
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      }),
+    );
+
+    render(
+      <LearningLanguageOnboarding
+        initialFrom="en"
+        initialTo="ja"
+        onComplete={vi.fn()}
+        onSelectList={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText('Basic Seed')).toBeInTheDocument();
+    expect(screen.getByText(/No exact selected list exists yet for English and Japanese/i)).toBeInTheDocument();
+    expect(screen.getByText('seed')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /^Fork$/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Autogenerate common list/i })).not.toBeInTheDocument();
   });
 
   it('shows the generated word count, autogenerates a common list, and opens the app', async () => {

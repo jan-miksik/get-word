@@ -10,6 +10,8 @@ const mockCreateCategory = vi.fn()
 const mockFindExistingTranslations = vi.fn()
 const mockFindMediaByHashes = vi.fn()
 const mockGoogleTranslate = vi.fn()
+const mockOpenRouterTranslate = vi.fn()
+const mockGetUserApiKey = vi.fn()
 const mockReturning = vi.fn()
 const mockValues = vi.fn(() => ({ returning: mockReturning }))
 const mockInsert = vi.fn(() => ({ values: mockValues }))
@@ -41,6 +43,8 @@ vi.mock('@/lib/db/client', () => ({
 
 vi.mock('@/lib/translation', () => ({
   googleTranslate: (...args: unknown[]) => mockGoogleTranslate(...args),
+  openRouterTranslate: (...args: unknown[]) => mockOpenRouterTranslate(...args),
+  getUserApiKey: (...args: unknown[]) => mockGetUserApiKey(...args),
 }))
 
 import { POST } from '../[id]/fork/route'
@@ -65,6 +69,10 @@ describe('POST /api/lists/[id]/fork', () => {
         categoryId: 'cat-1',
         textKnown: 'ahoj',
         textTarget: 'xin chao',
+        knownAudioAssetId: 'asset-known',
+        knownAudioStatus: 'ready',
+        audioAssetId: 'asset-target',
+        audioStatus: 'ready',
         notes: null,
       },
     ])
@@ -80,7 +88,11 @@ describe('POST /api/lists/[id]/fork', () => {
     mockCreateCategory.mockResolvedValue({ id: 'fork-cat-1' })
     mockFindExistingTranslations.mockResolvedValue([])
     mockFindMediaByHashes.mockResolvedValue(new Map())
+    mockGetUserApiKey.mockResolvedValue('openrouter-key')
     mockGoogleTranslate.mockResolvedValue([
+      { text: 'ahoj', translated: 'salut', status: 'ok' },
+    ])
+    mockOpenRouterTranslate.mockResolvedValue([
       { text: 'ahoj', translated: 'salut', status: 'ok' },
     ])
     mockReturning.mockResolvedValue([
@@ -99,6 +111,8 @@ describe('POST /api/lists/[id]/fork', () => {
         name: 'Common CS / FR',
         language_from: 'cs',
         language_to: 'fr',
+        translation_provider: 'google',
+        source_language: 'cs',
       }),
       headers: { 'Content-Type': 'application/json' },
     })
@@ -118,7 +132,7 @@ describe('POST /api/lists/[id]/fork', () => {
     expect(body.copied).toBe(1)
   })
 
-  it('chains through the requested first language when neither fork language exists in the seed', async () => {
+  it('translates both changed languages from the selected source language', async () => {
     mockGetListById.mockResolvedValue({
       id: 'seed-list',
       ownerId: null,
@@ -141,8 +155,8 @@ describe('POST /api/lists/[id]/fork', () => {
       if (texts[0] === 'hello' && from === 'en' && to === 'cs') {
         return [{ text: 'hello', translated: 'ahoj', status: 'ok' }]
       }
-      if (texts[0] === 'ahoj' && from === 'cs' && to === 'fr') {
-        return [{ text: 'ahoj', translated: 'salut', status: 'ok' }]
+      if (texts[0] === 'hello' && from === 'en' && to === 'fr') {
+        return [{ text: 'hello', translated: 'salut', status: 'ok' }]
       }
       return [{ text: texts[0], translated: null, status: 'error' }]
     })
@@ -153,6 +167,8 @@ describe('POST /api/lists/[id]/fork', () => {
         name: 'Common CS / FR',
         language_from: 'cs',
         language_to: 'fr',
+        translation_provider: 'google',
+        source_language: 'en',
       }),
       headers: { 'Content-Type': 'application/json' },
     })
@@ -161,12 +177,104 @@ describe('POST /api/lists/[id]/fork', () => {
 
     expect(res.status).toBe(201)
     expect(mockGoogleTranslate).toHaveBeenNthCalledWith(1, ['hello'], 'en', 'cs')
-    expect(mockGoogleTranslate).toHaveBeenNthCalledWith(2, ['ahoj'], 'cs', 'fr')
+    expect(mockGoogleTranslate).toHaveBeenNthCalledWith(2, ['hello'], 'en', 'fr')
     expect(mockValues).toHaveBeenCalledWith([
       expect.objectContaining({
         textKnown: 'ahoj',
         textTarget: 'salut',
         translationStatus: 'translated',
+      }),
+    ])
+  })
+
+  it('copies text and audio links when forking the same language pair', async () => {
+    const req = new NextRequest('http://localhost:3000/api/lists/seed-list/fork', {
+      method: 'POST',
+      body: JSON.stringify({
+        language_from: 'cs',
+        language_to: 'vi',
+        translation_provider: 'none',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'seed-list' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(mockGoogleTranslate).not.toHaveBeenCalled()
+    expect(mockValues).toHaveBeenCalledWith([
+      expect.objectContaining({
+        textKnown: 'ahoj',
+        textTarget: 'xin chao',
+        knownAudioAssetId: 'asset-known',
+        knownAudioStatus: 'ready',
+        audioAssetId: 'asset-target',
+        audioStatus: 'ready',
+      }),
+    ])
+    expect(body.cleared_sides).toEqual([])
+  })
+
+  it('clears the changed target side and audio when no fork translation provider is selected', async () => {
+    const req = new NextRequest('http://localhost:3000/api/lists/seed-list/fork', {
+      method: 'POST',
+      body: JSON.stringify({
+        language_from: 'cs',
+        language_to: 'fr',
+        translation_provider: 'none',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'seed-list' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(mockValues).toHaveBeenCalledWith([
+      expect.objectContaining({
+        textKnown: 'ahoj',
+        textTarget: null,
+        knownAudioAssetId: 'asset-known',
+        audioAssetId: null,
+        audioStatus: 'none',
+        translationStatus: 'pending',
+      }),
+    ])
+    expect(body.cleared_sides).toEqual(['target'])
+  })
+
+  it('translates with OpenRouter BYOK when requested', async () => {
+    mockOpenRouterTranslate.mockResolvedValueOnce([
+      { text: 'ahoj', translated: 'bonjour', status: 'ok' },
+    ])
+    const req = new NextRequest('http://localhost:3000/api/lists/seed-list/fork', {
+      method: 'POST',
+      body: JSON.stringify({
+        language_from: 'cs',
+        language_to: 'fr',
+        translation_provider: 'openrouter',
+        source_language: 'cs',
+        translation_model: 'openai/gpt-4o-mini',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'seed-list' }) })
+
+    expect(res.status).toBe(201)
+    expect(mockGetUserApiKey).toHaveBeenCalledWith('user-1', 'openrouter')
+    expect(mockOpenRouterTranslate).toHaveBeenCalledWith(
+      ['ahoj'],
+      'cs',
+      'fr',
+      'openrouter-key',
+      expect.any(String),
+    )
+    expect(mockValues).toHaveBeenCalledWith([
+      expect.objectContaining({
+        textKnown: 'ahoj',
+        textTarget: 'bonjour',
       }),
     ])
   })

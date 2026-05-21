@@ -32,6 +32,32 @@ export function computeContentHash(
     .digest("hex");
 }
 
+function inferGoogleVoiceLanguageCode(voiceId: string | undefined): string | null {
+  const requestedVoiceId = voiceId?.trim();
+  if (!requestedVoiceId || requestedVoiceId === "default") return null;
+
+  const voiceFamilyMarkers = new Set([
+    "Standard",
+    "Wavenet",
+    "Neural2",
+    "Studio",
+    "News",
+    "Polyglot",
+    "Journey",
+    "Casual",
+    "Chirp",
+    "Chirp3",
+  ]);
+  const parts = requestedVoiceId.split("-").filter(Boolean);
+  const familyIndex = parts.findIndex((part, index) =>
+    index > 0 && voiceFamilyMarkers.has(part),
+  );
+
+  if (familyIndex > 1) return parts.slice(0, familyIndex).join("-");
+  if (parts.length >= 3) return parts.slice(0, 2).join("-");
+  return null;
+}
+
 /**
  * Google Cloud TTS: generate audio for a single text.
  * Returns audio bytes as Buffer, or null on failure.
@@ -54,6 +80,8 @@ export async function googleTTS(
   };
   const langCode = langMap[language] ?? language;
   const requestedVoiceId = voiceId?.trim();
+  const requestedVoiceLanguageCode = inferGoogleVoiceLanguageCode(requestedVoiceId);
+  const voiceLanguageCode = requestedVoiceLanguageCode ?? langCode;
 
   try {
     const res = await fetch(
@@ -65,7 +93,7 @@ export async function googleTTS(
           input: { text },
           voice: requestedVoiceId && requestedVoiceId !== "default"
             ? {
-                languageCode: langCode,
+                languageCode: voiceLanguageCode,
                 name: requestedVoiceId,
               }
             : {
@@ -89,6 +117,8 @@ export async function googleTTS(
         httpStatus: res.status,
         httpStatusText: res.statusText,
         language,
+        requestedLanguageCode: langCode,
+        voiceLanguageCode,
         errorCode: body?.error?.code,
         errorStatus,
         errorMessage: body?.error?.message,

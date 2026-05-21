@@ -8,6 +8,8 @@ export interface NormalizedWord extends Word {
   listPosition?: number;
   listId?: string;
   canonicalWordId?: string | null;
+  languageFrom?: string;
+  languageTo?: string;
 }
 
 // Spaced-repetition stages
@@ -250,6 +252,8 @@ export function wordListItemsToNormalizedWords(
     audioUrl?: string | null;
     audioArweaveUrl?: string | null;
     audioArweaveUrls?: string[];
+    languageFrom?: string;
+    languageTo?: string;
     notes: string | null;
     position: number;
   }>,
@@ -272,6 +276,11 @@ export function wordListItemsToNormalizedWords(
 
   const pairKey = (left: string, right: string) =>
     `${normalizePairKeyPart(left)}|${normalizePairKeyPart(right)}`;
+  const normalizeListCode = (value: string | undefined) => {
+    const [base] = String(value ?? '').trim().split('-');
+    const normalized = base.toLowerCase();
+    return normalized === 'cz' ? 'cs' : normalized;
+  };
 
   const mediaByPair = new Map<
     string,
@@ -316,9 +325,15 @@ export function wordListItemsToNormalizedWords(
       // The system list has languageFrom=cz, languageTo=vi
       const cz = item.textKnown;
       const vi = item.textTarget!;
-      const media =
-        mediaByPair.get(pairKey(cz, vi)) ??
-        mediaByPair.get(pairKey(vi, cz));
+      const itemLanguageFrom = item.languageFrom;
+      const itemLanguageTo = item.languageTo;
+      const canUseLegacyMediaFallback =
+        (!itemLanguageFrom && !itemLanguageTo) ||
+        (normalizeListCode(itemLanguageFrom) === 'cs' &&
+          normalizeListCode(itemLanguageTo) === 'vi');
+      const media = canUseLegacyMediaFallback
+        ? mediaByPair.get(pairKey(cz, vi)) ?? mediaByPair.get(pairKey(vi, cz))
+        : undefined;
       const generatedKnownAudio = [item.knownAudioUrl, ...(item.knownAudioArweaveUrls ?? [])]
         .filter((url): url is string => Boolean(url));
       const generatedTargetAudio = [item.audioUrl, ...(item.audioArweaveUrls ?? [])]
@@ -347,6 +362,8 @@ export function wordListItemsToNormalizedWords(
             : media?.viAudio,
         listId: item.listId,
         canonicalWordId: item.canonicalWordId ?? null,
+        languageFrom: itemLanguageFrom,
+        languageTo: itemLanguageTo,
       } as NormalizedWord;
     });
 }

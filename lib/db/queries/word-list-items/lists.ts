@@ -43,8 +43,83 @@ export async function getUserListsByLanguagePair(
     );
 }
 
+export function normalizeListLanguageCode(code: string): string {
+  const trimmed = String(code).trim();
+  if (!trimmed) return '';
+  const [base, region] = trimmed.split('-');
+  const normalizedBase = base.toLowerCase();
+  if (normalizedBase === 'cs' || normalizedBase === 'cz') return 'cs';
+  return region ? `${normalizedBase}-${region.toUpperCase()}` : normalizedBase;
+}
+
 export function getListLanguageCodeVariants(code: string): string[] {
-  return code === 'cs' || code === 'cz' ? ['cs', 'cz'] : [code];
+  const normalized = normalizeListLanguageCode(code);
+  return normalized === 'cs' ? ['cs', 'cz'] : [normalized];
+}
+
+function isSameLanguageCode(left: string, right: string): boolean {
+  return normalizeListLanguageCode(left) === normalizeListLanguageCode(right);
+}
+
+function isExactLanguagePair(
+  list: Pick<WordList, 'languageFrom' | 'languageTo'>,
+  languageFrom: string,
+  languageTo: string,
+): boolean {
+  return (
+    isSameLanguageCode(list.languageFrom, languageFrom) &&
+    isSameLanguageCode(list.languageTo, languageTo)
+  );
+}
+
+function isReverseLanguagePair(
+  list: Pick<WordList, 'languageFrom' | 'languageTo'>,
+  languageFrom: string,
+  languageTo: string,
+): boolean {
+  return (
+    isSameLanguageCode(list.languageFrom, languageTo) &&
+    isSameLanguageCode(list.languageTo, languageFrom)
+  );
+}
+
+export type RecommendedWordListReason = 'exact' | 'reverse' | 'fallback_seed';
+
+export type RecommendedWordListResult = {
+  list: WordList;
+  reason: RecommendedWordListReason;
+};
+
+export function pickRecommendedWordList(
+  lists: WordList[],
+  languageFrom: string,
+  languageTo: string,
+  fallbackSeed: WordList | null = null,
+): RecommendedWordListResult | null {
+  const exact = lists.find((list) =>
+    list.isRecommended && isExactLanguagePair(list, languageFrom, languageTo)
+  );
+  if (exact) return { list: exact, reason: 'exact' };
+
+  const reverse = lists.find((list) =>
+    list.isRecommended && isReverseLanguagePair(list, languageFrom, languageTo)
+  );
+  if (reverse) return { list: reverse, reason: 'reverse' };
+
+  if (fallbackSeed) return { list: fallbackSeed, reason: 'fallback_seed' };
+  return null;
+}
+
+export async function getRecommendedWordListForLanguagePair(
+  userId: string,
+  languageFrom: string,
+  languageTo: string,
+): Promise<RecommendedWordListResult | null> {
+  const [matchingLists, fallbackSeed] = await Promise.all([
+    getUserListsByLanguagePair(userId, languageFrom, languageTo),
+    getSystemDefaultList(),
+  ]);
+  return pickRecommendedWordList(matchingLists, languageFrom, languageTo, fallbackSeed);
 }
 
 export async function getUserSubscribedListIds(userId: string): Promise<string[]> {
@@ -79,9 +154,16 @@ export async function createList(data: NewWordList): Promise<WordList> {
 
 export async function updateList(
   listId: string,
-  data: Partial<Pick<WordList, 'name' | 'description' | 'isPublic' | 'isCommon'>>
+  data: Partial<Pick<WordList, 'name' | 'description' | 'isPublic' | 'isCommon' | 'isRecommended' | 'languageFrom' | 'languageTo'>>
 ): Promise<WordList | null> {
   return db.transaction(async (tx) => {
+    const [current] = await tx
+      .select()
+      .from(wordLists)
+      .where(eq(wordLists.id, listId))
+      .limit(1);
+    if (!current) return null;
+
     if (data.isCommon === true) {
       await tx
         .update(wordLists)
@@ -89,9 +171,31 @@ export async function updateList(
         .where(eq(wordLists.isCommon, true));
     }
 
+    if (data.isRecommended === true) {
+      const recommendationLanguageFrom = data.languageFrom ?? current.languageFrom;
+      const recommendationLanguageTo = data.languageTo ?? current.languageTo;
+      await tx
+        .update(wordLists)
+        .set({ isRecommended: false, updatedAt: new Date() })
+        .where(
+          and(
+            eq(wordLists.isRecommended, true),
+            inArray(wordLists.languageFrom, getListLanguageCodeVariants(recommendationLanguageFrom)),
+            inArray(wordLists.languageTo, getListLanguageCodeVariants(recommendationLanguageTo)),
+          ),
+        );
+    }
+
+    const languageFromChanged =
+      data.languageFrom !== undefined &&
+      normalizeListLanguageCode(data.languageFrom) !== normalizeListLanguageCode(current.languageFrom);
+    const languageToChanged =
+      data.languageTo !== undefined &&
+      normalizeListLanguageCode(data.languageTo) !== normalizeListLanguageCode(current.languageTo);
+    const shouldRemainRecommended = data.isRecommended ?? current.isRecommended;
     const updateData = {
       ...data,
-      ...(data.isCommon === true ? { isPublic: true } : {}),
+      ...(data.isCommon === true || shouldRemainRecommended ? { isPublic: true } : {}),
       updatedAt: new Date(),
     };
 
@@ -100,6 +204,29 @@ export async function updateList(
       .set(updateData)
       .where(eq(wordLists.id, listId))
       .returning();
+
+    if (languageFromChanged || languageToChanged) {
+      const itemUpdate: Record<string, unknown> = {
+        translationStatus: 'pending',
+        updatedAt: new Date(),
+      };
+      if (languageFromChanged) {
+        itemUpdate.textKnown = '';
+        itemUpdate.knownAudioAssetId = null;
+        itemUpdate.knownAudioStatus = 'none';
+      }
+      if (languageToChanged) {
+        itemUpdate.textTarget = null;
+        itemUpdate.audioAssetId = null;
+        itemUpdate.audioStatus = 'none';
+      }
+
+      await tx
+        .update(wordListItems)
+        .set(itemUpdate)
+        .where(eq(wordListItems.listId, listId));
+    }
+
     return updated ?? null;
   });
 }
@@ -123,7 +250,13 @@ export async function getListById(listId: string): Promise<WordList | null> {
 
 export async function getWordListsByIds(
   ids: string[],
-): Promise<{ id: string; name: string; languageFrom: string; languageTo: string }[]> {
+): Promise<{
+  id: string;
+  name: string;
+  languageFrom: string;
+  languageTo: string;
+  isRecommended: boolean;
+}[]> {
   if (ids.length === 0) return [];
   return db
     .select({
@@ -131,6 +264,7 @@ export async function getWordListsByIds(
       name: wordLists.name,
       languageFrom: wordLists.languageFrom,
       languageTo: wordLists.languageTo,
+      isRecommended: wordLists.isRecommended,
     })
     .from(wordLists)
     .where(inArray(wordLists.id, ids));

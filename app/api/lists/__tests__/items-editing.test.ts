@@ -21,6 +21,7 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@/lib/auth', () => ({
   resolveUserFromRequest: (...args: unknown[]) => mockResolveUserFromRequest(...args),
+  isEditor: (user: { userRole?: string }) => user.userRole === 'editor',
   unauthorizedResponse: () =>
     new Response(JSON.stringify({ error: 'Authentication required' }), {
       status: 401,
@@ -361,6 +362,45 @@ describe('POST /api/lists/[id]/categories/[catId]/items/confirm', () => {
     expect(body.needs_translation).toBe(true)
     expect(body.pending_items).toHaveLength(1)
     expect(body.pending_items[0].text_known).toBe('new word')
+  })
+
+  it('preserves inserted line positions when creating new words', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetListById.mockResolvedValue(testList)
+    mockCreateItems.mockResolvedValue([
+      makeItem({ id: 'new-1', textKnown: 'inserted top', position: 0 }),
+      makeItem({ id: 'new-2', textKnown: 'inserted middle', position: 2 }),
+    ])
+    const req = new NextRequest('http://localhost/api/lists/list-1/categories/cat-1/items/confirm', {
+      method: 'POST',
+      body: JSON.stringify({
+        added: ['inserted top', 'inserted middle'],
+        added_positions: [
+          { text: 'inserted top', position: 0 },
+          { text: 'inserted middle', position: 2 },
+        ],
+        removed: [],
+        reordered: [{ id: 'existing-1', position: 1 }],
+        input_language: 'known',
+      }),
+    })
+    const res = await POST(req, makeCtx())
+    expect(res.status).toBe(200)
+    expect(mockCreateItems).toHaveBeenCalledWith([
+      expect.objectContaining({ textKnown: 'inserted top', position: 0 }),
+      expect.objectContaining({ textKnown: 'inserted middle', position: 2 }),
+    ])
+  })
+
+  it('allows editors to modify common seed list items', async () => {
+    mockResolveUserFromRequest.mockResolvedValue({ ...testUser, userRole: 'editor' })
+    mockGetListById.mockResolvedValue({ ...testList, ownerId: null, isCommon: true, isPublic: true })
+    const req = new NextRequest('http://localhost/api/lists/list-1/categories/cat-1/items/confirm', {
+      method: 'POST',
+      body: JSON.stringify({ added: [], removed: [], reordered: [] }),
+    })
+    const res = await POST(req, makeCtx())
+    expect(res.status).toBe(200)
   })
 
   it('returns needs_translation when new words are added with input_language=target', async () => {

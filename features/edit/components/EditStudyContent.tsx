@@ -2,6 +2,7 @@
 
 import { AppLayout } from '@/components/AppLayout';
 import { BottomNav } from '@/components/BottomNav';
+import { useI18n } from '@/components/I18nProvider';
 import { VirtualizedWordList } from '@/components/VirtualizedWordList';
 import type { MinigameFrequencyRange } from '@/lib/minigames';
 import type { ProgressStats } from '@/lib/progress-stats';
@@ -51,6 +52,8 @@ export function EditStudyContent({
   onToggleShowNotReady,
   readyCount,
 }: EditStudyContentProps) {
+  const { t } = useI18n();
+
   return (
     <AppLayout
       viewMode="stream"
@@ -72,7 +75,7 @@ export function EditStudyContent({
       >
         <div className="app-content-column flex flex-col gap-[18px] flex-1 min-h-0">
           {filteredWords.length === 0 ? (
-            <div className="p-8 text-center text-text-soft">Žádná slova neodpovídají aktuálním filtrům.</div>
+            <div className="p-8 text-center text-text-soft">{t('learning.noFilterMatches')}</div>
           ) : (
             <VirtualizedWordList
               key="stream"
@@ -81,7 +84,7 @@ export function EditStudyContent({
               renderCard={renderEditableCard}
               showHeaders={false}
               scrollElement={phrasesScrollElement}
-              emptyMessage="Žádná slova k zobrazení."
+              emptyMessage={t('learning.noWords')}
               stageFooter={(stageIndex) => {
                 const isLastMainSlot =
                   (stageIndex === 1 && newWordsCount > 0) ||

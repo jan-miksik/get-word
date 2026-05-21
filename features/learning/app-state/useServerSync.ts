@@ -35,6 +35,7 @@ interface UseServerSyncOptions {
     name: string;
     languageFrom: string;
     languageTo: string;
+    isRecommended?: boolean;
   }[]>>;
   setActiveListId: (id: string | null) => void;
 }

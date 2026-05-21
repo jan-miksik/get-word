@@ -4,9 +4,14 @@ import {
   resolveUserFromRequest,
   unauthorizedResponse,
   forbiddenResponse,
+  isEditor,
 } from "@/lib/auth";
 
 type RouteContext = { params: Promise<{ id: string; catId: string }> };
+
+function canManageListContent(list: Awaited<ReturnType<typeof getListById>>, user: NonNullable<Awaited<ReturnType<typeof resolveUserFromRequest>>>) {
+  return Boolean(list && (list.ownerId === user.id || (list.isCommon && isEditor(user))));
+}
 
 function normalize(text: string): string {
   return text.trim().replace(/\s+/g, " ").toLowerCase();
@@ -22,7 +27,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   if (!list) {
     return NextResponse.json({ error: "List not found" }, { status: 404 });
   }
-  if (list.ownerId !== user.id) {
+  if (!canManageListContent(list, user)) {
     return forbiddenResponse("Only the list owner can modify items");
   }
 
@@ -92,6 +97,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
   // Compute diff
   const added: string[] = [];
+  const addedPositions: { text: string; position: number }[] = [];
   const reordered: { id: string; text: string; from_pos: number; to_pos: number }[] = [];
   const matchedIds = new Set<string>();
   let unchanged = 0;
@@ -115,6 +121,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
       }
     } else {
       added.push(lineText);
+      addedPositions.push({ text: lineText, position: i });
     }
   }
 
@@ -128,6 +135,7 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
   const result: Record<string, unknown> = {
     added,
+    added_positions: addedPositions,
     removed,
     reordered,
     unchanged,

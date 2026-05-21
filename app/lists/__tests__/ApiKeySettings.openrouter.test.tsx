@@ -1,6 +1,7 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
+import { I18nProvider } from "@/components/I18nProvider";
 import { ApiKeySettings } from "../ApiKeySettings";
 
 vi.mock("@/lib/device-id", () => ({
@@ -37,10 +38,14 @@ describe("ApiKeySettings OpenRouter UX", () => {
       return Promise.resolve(jsonResponse({}));
     }) as typeof fetch;
 
-    render(<ApiKeySettings isOpen onClose={() => {}} />);
+    render(
+      <I18nProvider language="en">
+        <ApiKeySettings isOpen onClose={() => {}} />
+      </I18nProvider>,
+    );
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /připojit openrouter/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /connect openrouter/i })).toBeInTheDocument();
     });
   });
 
@@ -67,13 +72,17 @@ describe("ApiKeySettings OpenRouter UX", () => {
       return Promise.resolve(jsonResponse({}));
     }) as typeof fetch;
 
-    render(<ApiKeySettings isOpen onClose={() => {}} />);
+    render(
+      <I18nProvider language="en">
+        <ApiKeySettings isOpen onClose={() => {}} />
+      </I18nProvider>,
+    );
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /odpojit/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /disconnect/i })).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /^test$/i })).not.toBeInTheDocument();
       expect(screen.queryByRole("button", { name: /reconnect/i })).not.toBeInTheDocument();
-      expect(screen.getByLabelText(/překladový model/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/translation model/i)).toBeInTheDocument();
     });
   });
 });

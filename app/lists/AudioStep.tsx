@@ -1,6 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import type { I18nKey } from '@/lib/i18n/messages';
+import { useI18n } from '@/components/I18nProvider';
 import { listsApiFetch } from '@/features/lists/api';
 import type { GoogleUsageResponse, WordList, WordListItem } from '@/features/lists/types';
 import { GoogleUsageHint } from './GoogleUsageHint';
@@ -115,6 +117,7 @@ type TtsLanguageOption = {
 
 const AUDIO_LOG_PREFIX = '[Get Word audio]';
 const GOOGLE_TTS_VOICE_STORAGE_PREFIX = 'wordlink-list-google-tts-voice';
+type TranslateFn = (key: I18nKey, values?: Record<string, string | number>) => string;
 
 function readStorageValue(key: string): string | null {
   if (typeof window === 'undefined') return null;
@@ -219,7 +222,7 @@ async function readDebugResponse(response: Response): Promise<DebugResponsePaylo
   };
 }
 
-function getErrorFromPayload(payload: DebugResponsePayload): string {
+function getErrorFromPayload(payload: DebugResponsePayload, t: TranslateFn): string {
   if (
     payload.json &&
     typeof payload.json === 'object' &&
@@ -254,25 +257,23 @@ function getErrorFromPayload(payload: DebugResponsePayload): string {
 
   const bodyPreview = payload.rawText.trim().slice(0, 160);
   return bodyPreview
-    ? `Generování selhalo (${payload.status}): ${bodyPreview}`
-    : `Generování selhalo (${payload.status} ${payload.statusText})`;
+    ? `${t('lists.audioGenerateGenericFailed')} (${payload.status}): ${bodyPreview}`
+    : `${t('lists.audioGenerateGenericFailed')} (${payload.status} ${payload.statusText})`;
 }
 
-function formatLanguage(code: string): string {
-  const names: Record<string, string> = {
-    cs: 'čeština',
-    cz: 'čeština',
-    vi: 'vietnamština',
-    en: 'angličtina',
-  };
-  return names[code] ?? code.toUpperCase();
+function formatLanguage(code: string, t: TranslateFn): string {
+  const normalized = code.toLowerCase();
+  if (normalized === 'cs' || normalized === 'cz') return t('languageName.cs');
+  if (normalized === 'vi') return t('languageName.vi');
+  if (normalized === 'en') return t('languageName.en');
+  return code.toUpperCase();
 }
 
 function getBaseLanguage(code: string): string {
   return code.toLowerCase().split('-')[0];
 }
 
-function getLoadErrorMessage(error: unknown, fallbackUrl: string | null): string {
+function getLoadErrorMessage(error: unknown, fallbackUrl: string | null, t: TranslateFn): string {
   if (error instanceof AudioLoadError) {
     const firstAttempt = error.attempts[0];
     const failedUrl = firstAttempt?.requestedUrl ?? fallbackUrl ?? undefined;
@@ -280,7 +281,10 @@ function getLoadErrorMessage(error: unknown, fallbackUrl: string | null): string
       firstAttempt?.status
         ? `HTTP ${firstAttempt.status}`
         : firstAttempt?.error ?? error.message;
-    return `Nepodařilo se načíst ${failedUrl ?? 'zvukový soubor'} (${reason}).`;
+    return t('lists.audioLoadFailed', {
+      file: failedUrl ?? t('lists.audioFile'),
+      reason,
+    });
   }
 
   if (error && typeof error === 'object' && 'playbackUrl' in error) {
@@ -289,11 +293,14 @@ function getLoadErrorMessage(error: unknown, fallbackUrl: string | null): string
     const reason =
       'mediaError' in error && typeof error.mediaError === 'string'
         ? error.mediaError
-        : 'přehrávání selhalo';
-    return `Nepodařilo se přehrát ${playbackUrl ?? 'zvukový soubor'} (${reason}).`;
+        : t('lists.audioPlaybackGenericReason');
+    return t('lists.audioPlaybackFailed', {
+      file: playbackUrl ?? t('lists.audioFile'),
+      reason,
+    });
   }
 
-  return error instanceof Error ? error.message : 'Zvukový soubor se nepodařilo načíst.';
+  return error instanceof Error ? error.message : t('lists.audioFileLoadFailed');
 }
 
 function toAudioVariant(match: AudioReuseMatch): AudioVariant {
@@ -389,10 +396,11 @@ export function AudioStep({
   onUsageRefresh,
   onBack,
 }: AudioStepProps) {
+  const { t } = useI18n();
   const activeLanguageCode = audioSide === 'known' ? list.languageFrom : list.languageTo;
   const activeLanguageLabel = audioSide === 'known'
-    ? formatLanguage(list.languageFrom)
-    : formatLanguage(list.languageTo);
+    ? formatLanguage(list.languageFrom, t)
+    : formatLanguage(list.languageTo, t);
   const [rows, setRows] = useState<AudioRow[]>(() => buildAudioRows(items, list, audioSide));
   const [generating, setGenerating] = useState(false);
   const [completing, setCompleting] = useState(false);
@@ -426,7 +434,7 @@ export function AudioStep({
   const googleTtsUsage = googleUsage?.account.find((scope) => scope.scope === 'tts');
   const isGoogleTtsPaused = Boolean(googleTtsUsage?.paused);
   const googlePausedMessage = googleTtsUsage?.limit_message
-    ?? 'Tento účet dosáhl bezplatného limitu Google API. Ozvěte se nám kvůli navýšení, nebo použijte vlastní API klíče.';
+    ?? t('lists.googleLimitReached');
 
   useEffect(() => {
     setRows(buildAudioRows(items, list, audioSide));
@@ -607,7 +615,7 @@ export function AudioStep({
     }
 
     if (!blob || !responseDetails) {
-      throw new AudioLoadError('Zvuk se nepodařilo načíst z žádné brány', failedAttempts);
+      throw new AudioLoadError(t('lists.audioGatewayLoadFailed'), failedAttempts);
     }
 
     const objectUrl = URL.createObjectURL(blob);
@@ -651,10 +659,10 @@ export function AudioStep({
 
       const payload = await readDebugResponse(res);
       if (!res.ok) {
-        throw new Error(getErrorFromPayload(payload));
+        throw new Error(getErrorFromPayload(payload, t));
       }
       if (!payload.json || typeof payload.json !== 'object') {
-        throw new Error('Vyhledání znovupoužitelného zvuku vrátilo odpověď, která není JSON');
+        throw new Error(t('lists.audioReuseInvalidResponse'));
       }
 
       const data = payload.json as { results?: unknown };
@@ -722,10 +730,10 @@ export function AudioStep({
         ),
       );
       if (link) {
-        setError(err instanceof Error ? err.message : 'Existující zvuk se nepodařilo znovu použít');
+        setError(err instanceof Error ? err.message : t('lists.audioUseExistingFailed'));
       }
     }
-  }, [audioSide, googleVoiceIdForRequest]);
+  }, [audioSide, googleVoiceIdForRequest, t]);
 
   useEffect(() => {
     const uncheckedRows = rows.filter((row) => row.audioText && row.reuseStatus === 'unchecked');
@@ -738,10 +746,10 @@ export function AudioStep({
     source: AudioSourceCandidate,
     details?: unknown,
   ) => {
-    const baseMessage = getLoadErrorMessage(details, source.audioUrl);
+    const baseMessage = getLoadErrorMessage(details, source.audioUrl, t);
     const message = source.kind === 'linked'
-      ? `${baseMessage} Vygenerujte nový soubor, který ho nahradí.`
-      : `${baseMessage} Zkuste jinou uloženou verzi nebo vygenerujte novou.`;
+      ? t('lists.audioLinkedFailureAction', { message: baseMessage })
+      : t('lists.audioReusableFailureAction', { message: baseMessage });
 
     console.error(AUDIO_LOG_PREFIX, 'audio playback failed', {
       itemId: row.id,
@@ -767,7 +775,7 @@ export function AudioStep({
         ),
       );
     }
-  }, []);
+  }, [t]);
 
   const generateRows = useCallback(async (targetRows: AudioRow[], force = false) => {
     if (targetRows.length === 0) return;
@@ -814,10 +822,10 @@ export function AudioStep({
 
       const payload = await readDebugResponse(res);
       if (!res.ok) {
-        throw new Error(getErrorFromPayload(payload));
+        throw new Error(getErrorFromPayload(payload, t));
       }
       if (!payload.json || typeof payload.json !== 'object') {
-        throw new Error('Generování zvuku vrátilo odpověď, která není JSON');
+        throw new Error(t('lists.audioGenerateInvalidResponse'));
       }
 
       const data = payload.json as {
@@ -852,7 +860,9 @@ export function AudioStep({
         targetRows.some((target) => target.id === result.id),
       );
       if (attempted.length > 0 && attempted.every((result) => result.status === 'error')) {
-        setError(`Generování zvuku selhalo: ${attempted[0]?.error ?? 'Generování selhalo'}`);
+        setError(t('lists.audioGenerateFailed', {
+          message: attempted[0]?.error ?? t('lists.audioGenerateGenericFailed'),
+        }));
       }
 
       for (const result of attempted) {
@@ -875,7 +885,7 @@ export function AudioStep({
       setProgress(100);
     } catch (err) {
       console.error(AUDIO_LOG_PREFIX, 'audio generation failed', err);
-      setError(err instanceof Error ? err.message : 'Generování selhalo');
+      setError(err instanceof Error ? err.message : t('lists.audioGenerateGenericFailed'));
       setRows((prev) =>
         prev.map((row) =>
           targetRows.some((target) => target.id === row.id)
@@ -895,7 +905,7 @@ export function AudioStep({
         setGenerating(false);
       }
     }
-  }, [audioSide, clearCachedAudio, googleVoiceIdForRequest, onUsageRefresh, preloadAudio]);
+  }, [audioSide, clearCachedAudio, googleVoiceIdForRequest, onUsageRefresh, preloadAudio, t]);
 
   const handleGenerateAll = useCallback(async () => {
     if (isGoogleTtsPaused) {
@@ -1083,11 +1093,11 @@ export function AudioStep({
   }, []);
 
   const subtitle = useMemo(() => {
-    const parts = [`Připraveno ${readyCount} z ${rows.length}`];
-    if (dedupCount > 0) parts.push(`${dedupCount} znovu použito`);
-    if (reusableCount > 0) parts.push(`${reusableCount} s uloženými verzemi`);
+    const parts = [t('lists.audioReadySummary', { ready: readyCount, total: rows.length })];
+    if (dedupCount > 0) parts.push(t('lists.reusedCount', { count: dedupCount }));
+    if (reusableCount > 0) parts.push(t('lists.savedVersionsCount', { count: reusableCount }));
     return parts.join(' • ');
-  }, [dedupCount, readyCount, reusableCount, rows.length]);
+  }, [dedupCount, readyCount, reusableCount, rows.length, t]);
 
   return (
     <div className="max-w-3xl mx-auto p-4 md:p-6">
@@ -1095,7 +1105,7 @@ export function AudioStep({
         <div>
           <h2 className="text-lg font-semibold text-text">{title}</h2>
           <p className="mt-0.5 text-sm text-text-soft">
-            {subtitle} pro jazyk {activeLanguageLabel}
+            {t('lists.audioForLanguage', { summary: subtitle, language: activeLanguageLabel })}
           </p>
         </div>
         <button
@@ -1103,14 +1113,14 @@ export function AudioStep({
           className="rounded-lg border border-border-subtle px-3 py-1.5 text-sm text-text-soft transition-colors hover:text-text"
           onClick={onSkip}
         >
-          Přeskočit
+          {t('lists.skip')}
         </button>
       </div>
 
       <div className="mb-4 rounded-lg border border-border-subtle bg-background-elevated p-3">
         <div className="flex flex-wrap items-center gap-3">
           <label className="flex min-w-[14rem] flex-col gap-1 text-xs text-text-soft">
-            Hlas Google
+            {t('lists.googleVoice')}
             <select
               value={selectedGoogleVoiceId}
               onChange={(event) => handleGoogleVoiceChange(event.target.value)}
@@ -1118,7 +1128,7 @@ export function AudioStep({
               className="rounded-lg border border-border-subtle bg-background px-2.5 py-1.5 text-xs text-text disabled:opacity-50"
             >
               <option value="default">
-                {loadingVoices ? 'Načítám hlasy...' : 'Výchozí hlas Google'}
+                {loadingVoices ? t('lists.loadingVoices') : t('lists.defaultGoogleVoice')}
               </option>
               {voiceOptions.map((voice) => (
                 <option key={voice} value={voice}>
@@ -1135,7 +1145,7 @@ export function AudioStep({
               className="rounded-lg bg-done px-4 py-1.5 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
               onClick={handleUseAllExisting}
             >
-              Použít vybrané existující ({selectedReusableCount})
+              {t('lists.useSelectedExisting', { count: selectedReusableCount })}
             </button>
           )}
 
@@ -1145,7 +1155,7 @@ export function AudioStep({
             className="rounded-lg bg-accent px-4 py-1.5 text-xs font-medium text-background transition-colors hover:bg-accent-strong disabled:opacity-50"
             onClick={handleGenerateAll}
           >
-            {generating ? 'Generuji...' : `Vygenerovat zvuk (${needsGenCount})`}
+            {generating ? t('lists.generating') : t('lists.generateAudio', { count: needsGenCount })}
           </button>
 
           {rows.some((row) => Boolean(getPreviewSource(row))) && (
@@ -1154,7 +1164,7 @@ export function AudioStep({
               className="rounded-lg border border-border-subtle px-3 py-1.5 text-xs text-text transition-colors hover:bg-background/50"
               onClick={playingId ? handlePause : handlePlayAll}
             >
-              {playingId ? 'Pozastavit' : 'Přehrát vše'}
+              {playingId ? t('lists.pause') : t('lists.playAll')}
             </button>
           )}
         </div>
@@ -1209,7 +1219,7 @@ export function AudioStep({
                         : 'bg-border-subtle text-text-soft'
                     }`}
                     onClick={() => void handlePlaySingle(row)}
-                    title="Přehrát zvuk"
+                    title={t('lists.playAudio')}
                   >
                     {isPlaying ? (
                       <svg width="12" height="12" viewBox="0 0 12 12">
@@ -1248,7 +1258,7 @@ export function AudioStep({
                     >
                       {row.reusableOptions.map((option, index) => (
                         <option key={option.assetId} value={option.assetId}>
-                          {`Verze ${index + 1} (${row.reusableOptions.length})`}
+                          {t('lists.versionCount', { index: index + 1, total: row.reusableOptions.length })}
                         </option>
                       ))}
                     </select>
@@ -1260,21 +1270,27 @@ export function AudioStep({
                     className="shrink-0 rounded-md border border-border-subtle px-2.5 py-1 text-xs text-text-soft transition-colors hover:bg-background/50 hover:text-text disabled:opacity-50"
                     onClick={() => void handleRegenerateRow(row)}
                   >
-                    {isRegenerating ? 'Generuji...' : row.audioStatus === 'ready' ? 'Vygenerovat nový' : 'Vygenerovat'}
+                    {isRegenerating
+                      ? t('lists.generating')
+                      : row.audioStatus === 'ready'
+                      ? t('lists.generateNew')
+                      : t('lists.generate')}
                   </button>
 
                   <span className="shrink-0 text-xs">
                     {row.audioStatus === 'ready' && (
-                      <span className="text-done">{row.source === 'dedup' ? 'znovu použito' : 'hotovo'}</span>
+                      <span className="text-done">
+                        {row.source === 'dedup' ? t('lists.audioStatusReused') : t('lists.audioStatusReady')}
+                      </span>
                     )}
                     {row.audioStatus === 'pending' && (
-                      <span className="text-fresh">čeká</span>
+                      <span className="text-fresh">{t('lists.audioStatusPending')}</span>
                     )}
                     {row.audioStatus === 'failed' && (
-                      <span className="text-danger">selhalo</span>
+                      <span className="text-danger">{t('lists.audioStatusFailed')}</span>
                     )}
                     {row.audioStatus === 'none' && (
-                      <span className="text-text-soft">bez zvuku</span>
+                      <span className="text-text-soft">{t('lists.audioStatusNone')}</span>
                     )}
                   </span>
                 </div>
@@ -1291,7 +1307,7 @@ export function AudioStep({
             className="rounded-lg border border-border-subtle px-4 py-2 text-sm text-text transition-colors hover:bg-background-elevated"
             onClick={onBack}
           >
-            ← Zpět
+            {`\u2190 ${t('lists.back')}`}
           </button>
         ) : <div />}
         <div className="flex gap-2">
@@ -1300,7 +1316,7 @@ export function AudioStep({
             className="rounded-lg border border-border-subtle px-4 py-2 text-sm text-text transition-colors hover:bg-background-elevated"
             onClick={onSkip}
           >
-            Přeskočit
+            {t('lists.skip')}
           </button>
           <button
             type="button"
@@ -1314,7 +1330,7 @@ export function AudioStep({
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
               </svg>
             )}
-            {audioSide === 'known' ? 'Potvrdit' : 'Pokračovat'}
+            {audioSide === 'known' ? t('lists.confirmAudio') : t('lists.continue')}
           </button>
         </div>
       </div>

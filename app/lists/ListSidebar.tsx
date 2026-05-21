@@ -14,6 +14,7 @@ interface ListSidebarProps {
   subscribedListIds: Set<string>;
   googleUsage?: GoogleUsageResponse | null;
   languages?: { code: string; name: string; ttsAvailable?: boolean }[];
+  canManageCommonLists?: boolean;
   initialCreateLanguageFrom?: string | null;
   initialCreateLanguageTo?: string | null;
   onSelectList: (id: string) => void;
@@ -38,21 +39,28 @@ function ForkIcon({ className = '' }: { className?: string }) {
 }
 
 function ListBadges({ list }: { list: WordList }) {
+  const { t } = useI18n();
+
   return (
     <>
       {list.isCommon && (
         <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-fresh/10 text-fresh">
-          Základ
+          {t('lists.badgeCommon')}
+        </span>
+      )}
+      {list.isRecommended && (
+        <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-accent/10 text-accent">
+          {t('lists.badgeRecommended')}
         </span>
       )}
       {list.isPublic && (
         <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-done/10 text-done">
-          Veřejný
+          {t('lists.badgePublic')}
         </span>
       )}
       {!list.isPublic && !list.isCommon && (
         <span className="px-1.5 py-0.5 rounded text-[10px] font-medium bg-text-soft/10 text-text-soft">
-          Neveřejný
+          {t('lists.badgePrivate')}
         </span>
       )}
     </>
@@ -65,6 +73,7 @@ export function ListSidebar({
   subscribedListIds,
   googleUsage,
   languages = [],
+  canManageCommonLists = false,
   initialCreateLanguageFrom,
   initialCreateLanguageTo,
   onSelectList,
@@ -90,8 +99,10 @@ export function ListSidebar({
   const [deleteConfirm, setDeleteConfirm] = useState<WordList | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const ownLists = lists.filter((l) => l.isOwner ?? l.ownerId !== null);
-  const publicLists = lists.filter((l) => !(l.isOwner ?? l.ownerId !== null) && l.isPublic);
+  const isManagedList = (list: WordList) =>
+    (list.isOwner ?? list.ownerId !== null) || (canManageCommonLists && Boolean(list.isCommon));
+  const ownLists = lists.filter(isManagedList);
+  const publicLists = lists.filter((l) => !isManagedList(l) && l.isPublic);
 
   useEffect(() => {
     if (openCreateSignal > 0) {
@@ -223,6 +234,7 @@ export function ListSidebar({
             {ownLists.map((list) => {
               const isForking = togglingId === `fork:${list.id}`;
               const isDropdownOpen = openDropdownId === list.id;
+              const canDelete = list.isOwner ?? list.ownerId !== null;
 
               return (
                 <div
@@ -257,7 +269,7 @@ export function ListSidebar({
                       data-open={isDropdownOpen}
                       onClick={(e) => toggleDropdown(e, list.id)}
                       disabled={deletingId === list.id || isForking}
-                      aria-label={`Možnosti pro ${list.name}`}
+                      aria-label={t('lists.optionsFor', { name: list.name })}
                     >
                       <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
                         <circle cx="10" cy="4" r="1.5" />
@@ -275,7 +287,7 @@ export function ListSidebar({
                             onClick={() => handleFork(list.id)}
                           >
                             <ForkIcon />
-                            Kopírovat
+                            {t('lists.copyList')}
                           </button>
                         )}
                         <button
@@ -286,19 +298,23 @@ export function ListSidebar({
                           <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
                             <path d="M11.5 4.5l4 4L7 17H3v-4L11.5 4.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
-                          Upravit
+                          {t('lists.edit')}
                         </button>
-                        <div className="my-1 border-t border-border-subtle" />
-                        <button
-                          type="button"
-                          className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-danger hover:bg-danger/10 transition-colors"
-                          onClick={() => handleDeleteClick(list)}
-                        >
-                          <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
-                            <path d="M4 6h12M8 3h4M7 6v10m6-10v10M6 6l.6 10.2A1 1 0 007.6 17h4.8a1 1 0 001-.8L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                          </svg>
-                          Smazat
-                        </button>
+                        {canDelete && (
+                          <>
+                            <div className="my-1 border-t border-border-subtle" />
+                            <button
+                              type="button"
+                              className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-danger hover:bg-danger/10 transition-colors"
+                              onClick={() => handleDeleteClick(list)}
+                            >
+                              <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+                                <path d="M4 6h12M8 3h4M7 6v10m6-10v10M6 6l.6 10.2A1 1 0 007.6 17h4.8a1 1 0 001-.8L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                              </svg>
+                              {t('lists.delete')}
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>
@@ -379,7 +395,7 @@ export function ListSidebar({
                             setOpenDropdownId((prev) => (prev === `pub:${list.id}` ? null : `pub:${list.id}`));
                           }}
                           disabled={isForking}
-                          aria-label={`Možnosti pro ${list.name}`}
+                          aria-label={t('lists.optionsFor', { name: list.name })}
                         >
                           <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
                             <circle cx="10" cy="4" r="1.5" />
@@ -397,7 +413,7 @@ export function ListSidebar({
                               disabled={isForking}
                             >
                               <ForkIcon />
-                              {isForking ? 'Kopíruji...' : 'Kopírovat'}
+                              {isForking ? t('lists.copying') : t('lists.copyList')}
                             </button>
                           </div>
                         )}
@@ -430,7 +446,7 @@ export function ListSidebar({
                 onClick={() => setUsageModalOpen(true)}
               >
                 <span>{scope.scope === 'translate' ? t('lists.googleTranslate') : t('lists.googleTts')}</span>
-                <span>{percent}% využito</span>
+                <span>{t('lists.percentUsed', { percent })}</span>
               </button>
             );
           })}
@@ -456,9 +472,9 @@ export function ListSidebar({
                 className="flex-1 px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs"
               >
                 {(languages.length > 0 ? languages : [
-                  { code: 'cs', name: 'Čeština' },
-                  { code: 'vi', name: 'Vietnamština' },
-                  { code: 'en', name: 'Angličtina' },
+                  { code: 'cs', name: t('languageName.cs') },
+                  { code: 'vi', name: t('languageName.vi') },
+                  { code: 'en', name: t('languageName.en') },
                 ]).map((language) => (
                   <option key={language.code} value={language.code}>
                     {language.name}
@@ -472,9 +488,9 @@ export function ListSidebar({
                 className="flex-1 px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs"
               >
                 {(languages.length > 0 ? languages : [
-                  { code: 'vi', name: 'Vietnamština' },
-                  { code: 'cs', name: 'Čeština' },
-                  { code: 'en', name: 'Angličtina' },
+                  { code: 'vi', name: t('languageName.vi') },
+                  { code: 'cs', name: t('languageName.cs') },
+                  { code: 'en', name: t('languageName.en') },
                 ]).map((language) => (
                   <option key={language.code} value={language.code}>
                     {language.name}
@@ -514,8 +530,8 @@ export function ListSidebar({
       <ConfirmModal
         isOpen={Boolean(deleteConfirm)}
         title={t('lists.deleteConfirm', { name: deleteConfirm?.name ?? '' })}
-        message={`Seznam "${deleteConfirm?.name ?? ''}" bude trvale smazán. Tuto akci nelze vrátit.`}
-        confirmLabel="Smazat"
+        message={t('lists.deleteListMessage')}
+        confirmLabel={t('lists.delete')}
         onConfirm={handleDeleteConfirmed}
         onCancel={() => setDeleteConfirm(null)}
       />
@@ -531,12 +547,12 @@ export function ListSidebar({
                 onClick={(e) => e.stopPropagation()}
               >
                 <div className="flex items-center justify-between border-b border-border-subtle px-5 py-4 sm:px-6">
-                  <h2 className="text-sm font-semibold text-text">Využití Google API</h2>
+                  <h2 className="text-sm font-semibold text-text">{t('lists.googleApiUsage')}</h2>
                   <button
                     type="button"
                     className="text-lg leading-none text-text-soft transition-colors hover:text-text"
                     onClick={() => setUsageModalOpen(false)}
-                    aria-label="Zavřít"
+                    aria-label={t('common.close')}
                   >
                     ✕
                   </button>
@@ -552,7 +568,7 @@ export function ListSidebar({
       {returningToApp
         ? createPortal(
             <div className="fixed inset-0 z-[70] flex items-center justify-center bg-background text-text">
-              <div className="text-text-soft">Načítání aplikace...</div>
+              <div className="text-text-soft">{t('common.loadingApp')}</div>
             </div>,
             document.body,
           )

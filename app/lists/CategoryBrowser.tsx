@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useEffect, useRef } from 'react';
+import { useI18n } from '@/components/I18nProvider';
 import type { WordCategory, WordList, WordListItem } from '@/features/lists/types';
 import { ConfirmModal } from '@/components/ConfirmModal';
 
@@ -8,13 +9,19 @@ interface CategoryBrowserProps {
   list: WordList;
   categories: WordCategory[];
   itemsByCategory: Map<string, WordListItem[]>;
+  languages?: { code: string; name: string }[];
   isOwner: boolean;
   isEditor: boolean;
   forkedFromListName?: string | null;
   triggerEditSignal?: number;
   onEditCategory: (categoryId: string, inputLang: 'known' | 'target') => void;
   onCreateCategory: (name: string) => Promise<void>;
-  onUpdateList: (listId: string, data: Pick<WordList, 'name' | 'description' | 'isPublic'> & { isCommon?: boolean }) => Promise<void>;
+  onUpdateList: (listId: string, data: Pick<WordList, 'name' | 'description' | 'isPublic'> & {
+    isCommon?: boolean;
+    isRecommended?: boolean;
+    languageFrom?: string;
+    languageTo?: string;
+  }) => Promise<void>;
   onDismissForkNotice?: () => void;
   onRenameCategory: (categoryId: string, name: string) => Promise<void>;
   onReorderCategories: (orderedIds: string[]) => Promise<void>;
@@ -35,21 +42,28 @@ function ForkIcon() {
 }
 
 function ListBadges({ list }: { list: WordList }) {
+  const { t } = useI18n();
+
   return (
     <>
       {list.isCommon && (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-fresh/10 text-fresh border border-fresh/20">
-          Společný základ
+          {t('lists.badgeCommonBase')}
+        </span>
+      )}
+      {list.isRecommended && (
+        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-accent/10 text-accent border border-accent/20">
+          {t('lists.badgeRecommended')}
         </span>
       )}
       {list.isPublic && (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-done/10 text-done border border-done/20">
-          Veřejný
+          {t('lists.badgePublic')}
         </span>
       )}
       {!list.isPublic && !list.isCommon && (
         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-text-soft/10 text-text-soft border border-border-subtle">
-          Neveřejný
+          {t('lists.badgePrivate')}
         </span>
       )}
     </>
@@ -60,6 +74,7 @@ export function CategoryBrowser({
   list,
   categories,
   itemsByCategory,
+  languages = [],
   isOwner,
   isEditor,
   forkedFromListName,
@@ -74,6 +89,7 @@ export function CategoryBrowser({
   onFork,
   onDeleteList,
 }: CategoryBrowserProps) {
+  const { t } = useI18n();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
   const [newCategoryName, setNewCategoryName] = useState('');
   const [showAddCategory, setShowAddCategory] = useState(false);
@@ -83,8 +99,11 @@ export function CategoryBrowser({
   const [editingList, setEditingList] = useState(false);
   const [listName, setListName] = useState(list.name);
   const [listDescription, setListDescription] = useState(list.description ?? '');
+  const [listLanguageFrom, setListLanguageFrom] = useState(list.languageFrom);
+  const [listLanguageTo, setListLanguageTo] = useState(list.languageTo);
   const [listIsPublic, setListIsPublic] = useState(list.isPublic);
   const [listIsCommon, setListIsCommon] = useState(Boolean(list.isCommon));
+  const [listIsRecommended, setListIsRecommended] = useState(Boolean(list.isRecommended));
   const [savingList, setSavingList] = useState(false);
   const [headerMenuOpen, setHeaderMenuOpen] = useState(false);
   const [deleteCategoryConfirm, setDeleteCategoryConfirm] = useState<WordCategory | null>(null);
@@ -93,15 +112,34 @@ export function CategoryBrowser({
   const dragItemRef = useRef<string | null>(null);
   const headerMenuRef = useRef<HTMLDivElement>(null);
   const canEditListMetadata = isOwner || isEditor;
+  const canEditListContent = isOwner || (isEditor && Boolean(list.isCommon));
+  const languageOptions = languages.length > 0 ? languages : [
+    { code: 'cs', name: t('languageName.cs') },
+    { code: 'vi', name: t('languageName.vi') },
+    { code: 'en', name: t('languageName.en') },
+  ];
 
   useEffect(() => {
     setEditingList(Boolean(forkedFromListName));
     setListName(forkedFromListName ? '' : list.name);
     setListDescription(forkedFromListName ? '' : list.description ?? '');
+    setListLanguageFrom(list.languageFrom);
+    setListLanguageTo(list.languageTo);
     setListIsPublic(list.isPublic);
     setListIsCommon(Boolean(list.isCommon));
+    setListIsRecommended(Boolean(list.isRecommended));
     setSavingList(false);
-  }, [forkedFromListName, list.id, list.name, list.description, list.isPublic, list.isCommon]);
+  }, [
+    forkedFromListName,
+    list.id,
+    list.name,
+    list.description,
+    list.languageFrom,
+    list.languageTo,
+    list.isPublic,
+    list.isCommon,
+    list.isRecommended,
+  ]);
 
   useEffect(() => {
     if (triggerEditSignal && triggerEditSignal > 0) {
@@ -161,8 +199,11 @@ export function CategoryBrowser({
       await onUpdateList(list.id, {
         name: trimmedName,
         description: listDescription.trim() || null,
-        isPublic: listIsCommon ? true : listIsPublic,
+        languageFrom: listLanguageFrom,
+        languageTo: listLanguageTo,
+        isPublic: listIsCommon || listIsRecommended ? true : listIsPublic,
         ...(isEditor ? { isCommon: listIsCommon } : {}),
+        ...(isEditor ? { isRecommended: listIsRecommended } : {}),
       });
       onDismissForkNotice?.();
       setEditingList(false);
@@ -174,8 +215,11 @@ export function CategoryBrowser({
   function cancelListMetadataEdit() {
     setListName(list.name);
     setListDescription(list.description ?? '');
+    setListLanguageFrom(list.languageFrom);
+    setListLanguageTo(list.languageTo);
     setListIsPublic(list.isPublic);
     setListIsCommon(Boolean(list.isCommon));
+    setListIsRecommended(Boolean(list.isRecommended));
     setEditingList(false);
     onDismissForkNotice?.();
   }
@@ -235,78 +279,133 @@ export function CategoryBrowser({
               {forkedFromListName ? (
                 <div className="rounded-lg border border-accent/30 bg-accent/10 px-3 py-2">
                   <p className="text-xs font-semibold uppercase tracking-wide text-accent">
-                    Kopie seznamu
+                    {t('lists.copyNoticeTitle')}
                   </p>
                   <p className="mt-1 text-sm text-text">
-                    Tato kopie vznikla ze seznamu {forkedFromListName}. Než začnete upravovat slova, dejte jí vlastní název a popis.
+                    {t('lists.copyNoticeBody', { name: forkedFromListName })}
                   </p>
                 </div>
               ) : null}
               <label className="grid gap-1">
-                <span className="text-xs font-medium text-text-soft">Název seznamu</span>
+                <span className="text-xs font-medium text-text-soft">{t('lists.listName')}</span>
                 <input
                   type="text"
                   value={listName}
                   onChange={(e) => setListName(e.target.value)}
                   className="rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text outline-none focus:border-accent"
-                  placeholder={forkedFromListName ? 'Pojmenujte kopii seznamu' : undefined}
+                  placeholder={forkedFromListName ? t('lists.nameCopyPlaceholder') : undefined}
                   autoFocus
                 />
               </label>
               <label className="grid gap-1">
-                <span className="text-xs font-medium text-text-soft">Popis</span>
+                <span className="text-xs font-medium text-text-soft">{t('lists.description')}</span>
                 <textarea
                   value={listDescription}
                   onChange={(e) => setListDescription(e.target.value)}
                   rows={3}
                   className="resize-none rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text outline-none focus:border-accent"
-                  placeholder={forkedFromListName ? 'K čemu je tato kopie dobrá' : 'K čemu je tento seznam dobrý'}
+                  placeholder={
+                    forkedFromListName
+                      ? t('lists.copyDescriptionPlaceholder')
+                      : t('lists.descriptionPlaceholder')
+                  }
                 />
               </label>
+              <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
+                <label className="grid gap-1">
+                  <span className="text-xs font-medium text-text-soft">{t('lists.knownLanguage')}</span>
+                  <select
+                    value={listLanguageFrom}
+                    onChange={(e) => setListLanguageFrom(e.target.value)}
+                    className="rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text outline-none focus:border-accent"
+                  >
+                    {languageOptions.map((language) => (
+                      <option key={language.code} value={language.code}>
+                        {language.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <span className="hidden pb-2 text-xs text-text-soft sm:block">→</span>
+                <label className="grid gap-1">
+                  <span className="text-xs font-medium text-text-soft">{t('lists.targetLanguage')}</span>
+                  <select
+                    value={listLanguageTo}
+                    onChange={(e) => setListLanguageTo(e.target.value)}
+                    className="rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text outline-none focus:border-accent"
+                  >
+                    {languageOptions.map((language) => (
+                      <option key={language.code} value={language.code}>
+                        {language.name}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
               <label className="flex items-center gap-2 text-sm text-text-soft">
                 <input
                   type="checkbox"
-                  checked={listIsPublic || listIsCommon}
-                  disabled={listIsCommon}
+                  checked={listIsPublic || listIsCommon || listIsRecommended}
+                  disabled={listIsCommon || listIsRecommended}
                   onChange={(e) => setListIsPublic(e.target.checked)}
                   className="size-4 accent-accent"
                 />
-                Veřejný seznam
+                {t('lists.publicList')}
               </label>
               {isEditor ? (
-                <label className="flex items-start gap-2 rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text-soft">
-                  <input
-                    type="checkbox"
-                    checked={listIsCommon}
-                    onChange={(e) => {
-                      setListIsCommon(e.target.checked);
-                      if (e.target.checked) setListIsPublic(true);
-                    }}
-                    className="mt-0.5 size-4 accent-accent"
-                  />
-                  <span>
-                    <span className="block font-medium text-text">Použít jako základ společného seznamu</span>
-                    <span className="block text-xs">
-                      Automatické vytvoření společného seznamu bude kopírovat a překládat z tohoto seznamu.
+                <div className="grid gap-2">
+                  <label className="flex items-start gap-2 rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text-soft">
+                    <input
+                      type="checkbox"
+                      checked={listIsRecommended}
+                      onChange={(e) => {
+                        setListIsRecommended(e.target.checked);
+                        if (e.target.checked) setListIsPublic(true);
+                      }}
+                      className="mt-0.5 size-4 accent-accent"
+                    />
+                    <span>
+                      <span className="block font-medium text-text">{t('lists.recommendedList')}</span>
+                      <span className="block text-xs">
+                        {t('lists.recommendedListDescription', {
+                          from: listLanguageFrom,
+                          to: listLanguageTo,
+                        })}
+                      </span>
                     </span>
-                  </span>
-                </label>
+                  </label>
+                  <label className="flex items-start gap-2 rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text-soft">
+                    <input
+                      type="checkbox"
+                      checked={listIsCommon}
+                      onChange={(e) => {
+                        setListIsCommon(e.target.checked);
+                        if (e.target.checked) setListIsPublic(true);
+                      }}
+                      className="mt-0.5 size-4 accent-accent"
+                    />
+                    <span>
+                      <span className="block font-medium text-text">{t('lists.commonBaseList')}</span>
+                      <span className="block text-xs">{t('lists.commonBaseListDescription')}</span>
+                    </span>
+                  </label>
+                </div>
               ) : null}
               <div className="flex gap-2">
                 <button
                   type="button"
                   className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-background disabled:opacity-50"
-                  disabled={savingList || !listName.trim()}
+                  disabled={savingList || !listName.trim() || listLanguageFrom === listLanguageTo}
                   onClick={handleListMetadataSubmit}
                 >
-                  {savingList ? 'Ukládám...' : 'Uložit seznam'}
+                  {savingList ? t('common.saving') : t('lists.saveList')}
                 </button>
                 <button
                   type="button"
                   className="rounded-lg border border-border-subtle px-3 py-1.5 text-xs font-medium text-text-soft"
                   onClick={cancelListMetadataEdit}
                 >
-                  Zrušit
+                  {t('common.cancel')}
                 </button>
               </div>
             </div>
@@ -319,7 +418,7 @@ export function CategoryBrowser({
                 <span>{list.languageFrom} → {list.languageTo}</span>
                 <ListBadges list={list} />
                 <span className="basis-full sm:basis-auto">
-                  {totalItems} slov · {categories.length} kategorií
+                  {t('lists.listStats', { words: totalItems, categories: categories.length })}
                 </span>
               </div>
               {list.description && (
@@ -338,19 +437,19 @@ export function CategoryBrowser({
                     <path d="M11.5 4.5l4 4L7 17H3v-4L11.5 4.5z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
                     <path d="M10 6l4 4" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
                   </svg>
-                  Upravit seznam
+                  {t('lists.editList')}
                 </button>
               ) : null}
 
               {/* Three-dots menu next to Edit list */}
-              {(onFork || onDeleteList) && (
+              {(onFork || (isOwner && onDeleteList)) && (
                 <div className="relative" ref={headerMenuRef}>
                   <button
                     type="button"
                     className="p-2 rounded-lg border border-border-subtle text-text-soft hover:text-text hover:bg-background-elevated transition-colors"
                     onClick={() => setHeaderMenuOpen((prev) => !prev)}
                     disabled={forkingList}
-                    aria-label="Další možnosti"
+                    aria-label={t('lists.moreOptions')}
                   >
                     <svg width="16" height="16" viewBox="0 0 20 20" fill="currentColor">
                       <circle cx="10" cy="4" r="1.5" />
@@ -369,10 +468,10 @@ export function CategoryBrowser({
                           disabled={forkingList}
                         >
                           <ForkIcon />
-                          {forkingList ? 'Kopíruji...' : 'Zkopírovat seznam'}
+                          {forkingList ? t('lists.copying') : t('lists.copyList')}
                         </button>
                       )}
-                      {onDeleteList && (
+                      {isOwner && onDeleteList && (
                         <>
                           {onFork && <div className="my-1 border-t border-border-subtle" />}
                           <button
@@ -381,9 +480,9 @@ export function CategoryBrowser({
                             onClick={() => { setHeaderMenuOpen(false); setDeleteListConfirm(true); }}
                           >
                             <svg width="14" height="14" viewBox="0 0 20 20" fill="none">
-                              <path d="M4 6h12M8 3h4M7 6v10m6-10v10M6 6l.6 10.2A1 1 0 007.6 17h4.8a1 1 0 001-.8L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                            </svg>
-                            Smazat seznam
+                            <path d="M4 6h12M8 3h4M7 6v10m6-10v10M6 6l.6 10.2A1 1 0 007.6 17h4.8a1 1 0 001-.8L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                          </svg>
+                            {t('lists.delete')}
                           </button>
                         </>
                       )}
@@ -398,7 +497,7 @@ export function CategoryBrowser({
 
       {/* Mobile read-only banner */}
       <div className="md:hidden mb-4 p-3 rounded-lg bg-accent/10 border border-accent/20">
-        <p className="text-sm text-accent">Seznam slov upravte na počítači</p>
+        <p className="text-sm text-accent">{t('lists.editOnDesktop')}</p>
       </div>
 
       {/* Categories */}
@@ -414,7 +513,7 @@ export function CategoryBrowser({
               className={`rounded-lg border transition-colors ${
                 isDragOver ? 'border-accent' : 'border-border-subtle'
               }`}
-              draggable={isOwner}
+              draggable={canEditListContent}
               onDragStart={() => handleDragStart(category.id)}
               onDragOver={(e) => handleDragOver(e, category.id)}
               onDragEnd={() => setDragOverId(null)}
@@ -440,14 +539,14 @@ export function CategoryBrowser({
                     className="px-2.5 py-1 rounded-md bg-accent text-background text-xs font-medium"
                     onMouseDown={(e) => { e.preventDefault(); void handleRenameSubmit(category.id); }}
                   >
-                    Uložit
+                    {t('common.save')}
                   </button>
                   <button
                     type="button"
                     className="px-2.5 py-1 rounded-md border border-border-subtle text-text-soft text-xs"
                     onMouseDown={(e) => { e.preventDefault(); setRenamingId(null); setRenameValue(''); }}
                   >
-                    Zrušit
+                    {t('common.cancel')}
                   </button>
                 </div>
               ) : (
@@ -456,7 +555,7 @@ export function CategoryBrowser({
                   className="w-full flex items-center gap-3 px-4 py-3 text-left hover:bg-background-elevated/50 rounded-lg transition-colors"
                   onClick={() => toggleExpand(category.id)}
                 >
-                  {isOwner && (
+                  {canEditListContent && (
                     <span className="cursor-grab text-text-soft text-xs select-none hidden md:inline">⠿</span>
                   )}
                   <svg
@@ -468,15 +567,15 @@ export function CategoryBrowser({
                     <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
                   </svg>
                   <span className="font-medium text-text text-sm flex-1 truncate">{category.name}</span>
-                  <span className="text-xs text-text-soft">{catItems.length} slov</span>
+                  <span className="text-xs text-text-soft">{t('lists.wordsCount', { count: catItems.length })}</span>
                 </button>
               )}
 
               {/* Expanded word list */}
               {isExpanded && (
                 <div className="px-4 pb-3 border-t border-border-subtle">
-                  {/* Edit/Delete buttons - desktop only, owner only */}
-                  {isOwner && (
+                  {/* Edit/Delete buttons - desktop only */}
+                  {canEditListContent && (
                     <div className="py-2 hidden md:flex gap-2">
                       <button
                         type="button"
@@ -486,7 +585,7 @@ export function CategoryBrowser({
                           onEditCategory(category.id, 'known');
                         }}
                       >
-                        Upravit slova
+                        {t('lists.editWords')}
                       </button>
                       <button
                         type="button"
@@ -497,7 +596,7 @@ export function CategoryBrowser({
                           setRenameValue(category.name);
                         }}
                       >
-                        Přejmenovat
+                        {t('lists.rename')}
                       </button>
                       <button
                         type="button"
@@ -507,13 +606,13 @@ export function CategoryBrowser({
                           setDeleteCategoryConfirm(category);
                         }}
                       >
-                        Smazat
+                        {t('lists.delete')}
                       </button>
                     </div>
                   )}
 
                   {catItems.length === 0 ? (
-                    <p className="py-3 text-sm text-text-soft">V této kategorii nejsou žádná slova</p>
+                    <p className="py-3 text-sm text-text-soft">{t('lists.emptyCategory')}</p>
                   ) : (
                     <div className="divide-y divide-border-subtle">
                       {catItems.map((item) => (
@@ -521,11 +620,11 @@ export function CategoryBrowser({
                           <span className="flex-1 text-text truncate">{item.textKnown}</span>
                           <span className="flex-1 text-text-soft truncate">
                             {item.textTarget ?? (
-                              <span className="italic text-fresh/70">chybí překlad</span>
+                              <span className="italic text-fresh/70">{t('lists.missingTranslation')}</span>
                             )}
                           </span>
                           {item.audioStatus === 'ready' && (
-                            <span className="text-xs text-done" title="Má zvuk">♪</span>
+                            <span className="text-xs text-done" title={t('lists.hasAudio')}>♪</span>
                           )}
                         </div>
                       ))}
@@ -538,14 +637,14 @@ export function CategoryBrowser({
         })}
       </div>
 
-      {/* Add category - desktop only, owner only */}
-      {isOwner && (
+      {/* Add category - desktop only */}
+      {canEditListContent && (
         <div className="mt-4 hidden md:block">
           {showAddCategory ? (
             <div className="flex gap-2">
               <input
                 type="text"
-                placeholder="Název kategorie"
+                placeholder={t('lists.categoryName')}
                 value={newCategoryName}
                 onChange={(e) => setNewCategoryName(e.target.value)}
                 className="flex-1 px-3 py-2 rounded-lg bg-background-elevated border border-border-subtle text-text text-sm focus:outline-none focus:border-accent"
@@ -560,14 +659,14 @@ export function CategoryBrowser({
                 className="px-4 py-2 rounded-lg bg-accent text-background text-sm font-medium"
                 onClick={handleAddCategory}
               >
-                Přidat
+                {t('editor.addCategory')}
               </button>
               <button
                 type="button"
                 className="px-4 py-2 rounded-lg border border-border-subtle text-text text-sm"
                 onClick={() => setShowAddCategory(false)}
               >
-                Zrušit
+                {t('common.cancel')}
               </button>
             </div>
           ) : (
@@ -576,7 +675,7 @@ export function CategoryBrowser({
               className="w-full py-2.5 rounded-lg border border-dashed border-border-subtle text-text-soft text-sm hover:border-accent hover:text-accent transition-colors"
               onClick={() => setShowAddCategory(true)}
             >
-              + Přidat kategorii
+              + {t('lists.addCategoryCta')}
             </button>
           )}
         </div>
@@ -584,9 +683,9 @@ export function CategoryBrowser({
 
       <ConfirmModal
         isOpen={Boolean(deleteCategoryConfirm)}
-        title={`Smazat kategorii "${deleteCategoryConfirm?.name ?? ''}"?`}
-        message="Všechna slova v této kategorii budou trvale smazána."
-        confirmLabel="Smazat"
+        title={t('lists.deleteCategoryTitle', { name: deleteCategoryConfirm?.name ?? '' })}
+        message={t('lists.deleteCategoryMessage')}
+        confirmLabel={t('lists.delete')}
         onConfirm={() => {
           const id = deleteCategoryConfirm?.id;
           setDeleteCategoryConfirm(null);
@@ -597,9 +696,9 @@ export function CategoryBrowser({
 
       <ConfirmModal
         isOpen={deleteListConfirm}
-        title={`Smazat seznam "${list.name}"?`}
-        message="Seznam a všechna jeho slova budou trvale smazána. Tuto akci nelze vrátit."
-        confirmLabel="Smazat"
+        title={t('lists.deleteConfirm', { name: list.name })}
+        message={t('lists.deleteListMessage')}
+        confirmLabel={t('lists.delete')}
         onConfirm={handleDeleteListConfirmed}
         onCancel={() => setDeleteListConfirm(false)}
       />

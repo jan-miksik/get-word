@@ -3,6 +3,8 @@ export const OPENROUTER_MODELS_URL = "https://openrouter.ai/models";
 export const DEFAULT_OPENROUTER_TRANSLATION_MODEL =
   "google/gemini-2.5-flash-lite";
 
+export const OPENROUTER_MODEL_STORAGE_KEY = "wordlink-list-openrouter-model";
+
 export const OPENROUTER_TRANSLATION_MODELS = [
   {
     id: "google/gemini-2.5-flash-lite",

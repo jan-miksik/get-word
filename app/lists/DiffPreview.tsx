@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useI18n } from '@/components/I18nProvider';
 import type { DiffResult } from '@/features/lists/types';
 
 type ExistingItem = {
@@ -19,6 +20,7 @@ interface DiffPreviewProps {
 }
 
 export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }: DiffPreviewProps) {
+  const { t } = useI18n();
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,7 +33,7 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }
     try {
       await onConfirm();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Potvrzení se nepodařilo');
+      setError(err instanceof Error ? err.message : t('lists.confirmFailed'));
     } finally {
       setConfirming(false);
     }
@@ -40,25 +42,25 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }
   return (
     <div className="max-w-3xl mx-auto p-4 md:p-6">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg font-semibold text-text">Náhled změn</h2>
+        <h2 className="text-lg font-semibold text-text">{t('lists.previewTitle')}</h2>
         <button
           type="button"
           className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
           onClick={onCancel}
         >
-          Zrušit
+          {t('common.cancel')}
         </button>
       </div>
 
       {/* Summary */}
       <div className="p-3 rounded-lg bg-background-elevated border border-border-subtle mb-4 text-sm">
-        <span className="text-done">{diff.added.length} přidáno</span>
+        <span className="text-done">{t('lists.addedSummary', { count: diff.added.length })}</span>
         <span className="mx-2 text-text-soft">·</span>
-        <span className="text-danger">{diff.removed.length} odebráno</span>
+        <span className="text-danger">{t('lists.removedSummary', { count: diff.removed.length })}</span>
         <span className="mx-2 text-text-soft">·</span>
-        <span className="text-fresh">{diff.reordered.length} přesunuto</span>
+        <span className="text-fresh">{t('lists.movedSummary', { count: diff.reordered.length })}</span>
         <span className="mx-2 text-text-soft">·</span>
-        <span className="text-text-soft">{diff.unchanged} beze změny</span>
+        <span className="text-text-soft">{t('lists.unchangedSummary', { count: diff.unchanged })}</span>
       </div>
 
       {diff.warning && (
@@ -69,9 +71,9 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }
 
       {!hasChanges ? (
         <div className="space-y-3">
-          <p className="text-text-soft text-sm">Nenalezeny žádné změny. Aktuální položky:</p>
+          <p className="text-text-soft text-sm">{t('lists.noChangesFound')}</p>
           {orderedExistingItems.length === 0 ? (
-            <p className="text-text-soft text-sm py-6 text-center">Tato kategorie je prázdná.</p>
+            <p className="text-text-soft text-sm py-6 text-center">{t('lists.emptyCategoryPreview')}</p>
           ) : (
             <div className="rounded-lg border border-border-subtle overflow-hidden">
               {orderedExistingItems.map((item, index) => (
@@ -84,7 +86,7 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }
                     {item.textKnown}
                   </div>
                   <div className="text-xs text-text-soft mt-0.5">
-                    {item.textTarget || 'Zatím bez překladu'}
+                    {item.textTarget || t('lists.noTranslationYet')}
                   </div>
                 </div>
               ))}
@@ -97,7 +99,7 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }
           {diff.added.length > 0 && (
             <div>
               <h3 className="text-xs font-medium text-done uppercase tracking-wide mb-2">
-                Přidáno ({diff.added.length})
+                {t('lists.addedCount', { count: diff.added.length })}
               </h3>
               <div className="rounded-lg border border-done/20 overflow-hidden">
                 {diff.added.map((text, i) => (
@@ -116,7 +118,7 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }
           {diff.removed.length > 0 && (
             <div>
               <h3 className="text-xs font-medium text-danger uppercase tracking-wide mb-2">
-                Odebráno ({diff.removed.length})
+                {t('lists.removedCount', { count: diff.removed.length })}
               </h3>
               <div className="rounded-lg border border-danger/20 overflow-hidden">
                 {diff.removed.map((item) => (
@@ -138,7 +140,7 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }
           {diff.reordered.length > 0 && (
             <div>
               <h3 className="text-xs font-medium text-fresh uppercase tracking-wide mb-2">
-                Přesunuto ({diff.reordered.length})
+                {t('lists.movedCount', { count: diff.reordered.length })}
               </h3>
               <div className="rounded-lg border border-fresh/20 overflow-hidden">
                 {diff.reordered.map((item) => (
@@ -169,7 +171,7 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }
           className="px-4 py-2 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
           onClick={onBack ?? onCancel}
         >
-          ← Zpět
+          {`\u2190 ${t('lists.back')}`}
         </button>
         <div className="flex gap-2">
         <button
@@ -178,7 +180,11 @@ export function DiffPreview({ diff, existingItems, onConfirm, onCancel, onBack }
           className="px-4 py-2 rounded-lg bg-accent text-background text-sm font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
           onClick={handleConfirm}
         >
-          {confirming ? 'Potvrzuji...' : hasChanges ? 'Potvrdit změny' : 'Pokračovat'}
+          {confirming
+            ? t('lists.confirming')
+            : hasChanges
+            ? t('lists.confirmChanges')
+            : t('lists.continue')}
         </button>
         </div>
       </div>

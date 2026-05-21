@@ -22,6 +22,7 @@ type Props = {
 };
 
 type MatchedWordList = WordList & { isOwner?: boolean; itemCount?: number };
+type RecommendedReason = 'exact' | 'reverse' | 'fallback_seed';
 type GenerationStatus = {
   title: string;
   detail: string;
@@ -335,6 +336,8 @@ export function LearningLanguageOnboarding({
   const [languageFrom, setLanguageFrom] = useState(initialFrom ?? 'en');
   const [languageTo, setLanguageTo] = useState(initialTo ?? '');
   const [matches, setMatches] = useState<MatchedWordList[]>([]);
+  const [recommendedList, setRecommendedList] = useState<MatchedWordList | null>(null);
+  const [recommendedReason, setRecommendedReason] = useState<RecommendedReason | null>(null);
   const [loadingLanguages, setLoadingLanguages] = useState(true);
   const [loadingMatches, setLoadingMatches] = useState(false);
   const [workingId, setWorkingId] = useState<string | null>(null);
@@ -365,6 +368,8 @@ export function LearningLanguageOnboarding({
   useEffect(() => {
     if (!languageFrom || !languageTo || languageFrom === languageTo) {
       setMatches([]);
+      setRecommendedList(null);
+      setRecommendedReason(null);
       return;
     }
     const controller = new AbortController();
@@ -373,14 +378,40 @@ export function LearningLanguageOnboarding({
       signal: controller.signal,
     })
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Failed to load matches'))))
-      .then((data) => setMatches(
-        Array.isArray(data.lists)
+      .then((data) => {
+        const sorted = Array.isArray(data.lists)
           ? sortMatchedWordLists(data.lists, languageFrom, languageTo)
-          : [],
-      ))
+          : [];
+        const serverRecommended = data.recommendedList && typeof data.recommendedList === 'object'
+          ? data.recommendedList as MatchedWordList
+          : null;
+        const serverReason = (
+          data.recommendedReason === 'exact' ||
+          data.recommendedReason === 'reverse' ||
+          data.recommendedReason === 'fallback_seed'
+        )
+          ? data.recommendedReason as RecommendedReason
+          : null;
+        const recommendedInMatches = serverRecommended && serverReason !== 'fallback_seed'
+          ? sorted.find((list) => list.id === serverRecommended.id) ?? serverRecommended
+          : null;
+
+        setMatches(
+          recommendedInMatches
+            ? [
+                recommendedInMatches,
+                ...sorted.filter((list) => list.id !== recommendedInMatches.id),
+              ]
+            : sorted,
+        );
+        setRecommendedList(serverRecommended);
+        setRecommendedReason(serverReason);
+      })
       .catch((err) => {
         if (err instanceof DOMException && err.name === 'AbortError') return;
         setMatches([]);
+        setRecommendedList(null);
+        setRecommendedReason(null);
       })
       .finally(() => setLoadingMatches(false));
     return () => controller.abort();
@@ -396,7 +427,8 @@ export function LearningLanguageOnboarding({
     : '';
   const hasCommonLanguageList = matches.some((list) => list.isCommon);
   const showListSetupActions = Boolean(canContinue && !loadingMatches);
-  const showAutogenerateCommonList = showListSetupActions && !hasCommonLanguageList;
+  const hasFallbackSeedRecommendation = Boolean(recommendedList && recommendedReason === 'fallback_seed');
+  const showAutogenerateCommonList = showListSetupActions && !hasCommonLanguageList && !hasFallbackSeedRecommendation;
 
   useEffect(() => {
     if (!showAutogenerateCommonList) {
@@ -503,6 +535,8 @@ export function LearningLanguageOnboarding({
         body: JSON.stringify({
           language_from: languageFrom,
           language_to: languageTo,
+          translation_provider: 'google',
+          source_language: list.languageFrom,
         }),
       });
       const data = await res.json();
@@ -719,6 +753,8 @@ export function LearningLanguageOnboarding({
             name: `Common ${languageFrom.toUpperCase()} / ${languageTo.toUpperCase()}`,
             language_from: languageFrom,
             language_to: languageTo,
+            translation_provider: 'google',
+            source_language: seedList.languageFrom,
           }),
         });
         const forkData = await forkRes.json();
@@ -887,11 +923,37 @@ export function LearningLanguageOnboarding({
               <p className="text-sm leading-relaxed onboarding-text-soft">
                 Choose from existing word lists, create your own, or fork a list and customize it to fit what you want to learn.
               </p>
+              {hasFallbackSeedRecommendation && recommendedList ? (
+                <div className="flex items-stretch gap-2">
+                  <div className="onboarding-option min-w-0 flex-1 border-[var(--ob-accent)] bg-[var(--ob-accent)] px-3 py-2 text-left text-[color:var(--ob-surface)]">
+                    <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                      <span className="font-bold">{recommendedList.name}</span>
+                      <span className="rounded-full border border-[var(--ob-ink)] bg-[var(--ob-surface)] px-2 py-0.5 text-[10px] font-black uppercase text-[color:var(--ob-ink)]">
+                        seed
+                      </span>
+                      <span className="text-xs text-[color:var(--ob-surface)] opacity-[0.85]">
+                        {getItemCountLabel(recommendedList.itemCount)}
+                      </span>
+                    </div>
+                    <div className="mt-1 text-xs text-[color:var(--ob-surface)] opacity-[0.85]">
+                      No exact selected list exists yet. Create a fork from this basic seed.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="onboarding-option-secondary shrink-0 self-center px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+                    disabled={workingId === `fork:${recommendedList.id}`}
+                    onClick={() => forkList(recommendedList)}
+                  >
+                    {workingId === `fork:${recommendedList.id}` ? 'Forking...' : 'Fork'}
+                  </button>
+                </div>
+              ) : null}
               <h2 className="text-sm font-extrabold uppercase tracking-wide">
                 Existing {languagePairLabel} lists
               </h2>
-              {matches.map((list, index) => {
-                const isRecommended = index === 0 && Boolean(list.isCommon);
+              {matches.map((list) => {
+                const isRecommended = list.id === recommendedList?.id && recommendedReason !== 'fallback_seed';
                 const optionTextSoftClass = isRecommended
                   ? 'text-[color:var(--ob-surface)] opacity-[0.85]'
                   : 'onboarding-text-soft';
@@ -933,6 +995,36 @@ export function LearningLanguageOnboarding({
                   </div>
                 );
               })}
+            </div>
+          ) : hasFallbackSeedRecommendation && recommendedList ? (
+            <div className="space-y-3">
+              <p className="text-sm onboarding-text-soft">
+                No exact selected list exists yet for {languagePairLabel}. You can create a fork from the basic seed and customize it.
+              </p>
+              <div className="flex items-stretch gap-2">
+                <div className="onboarding-option min-w-0 flex-1 border-[var(--ob-accent)] bg-[var(--ob-accent)] px-3 py-2 text-left text-[color:var(--ob-surface)]">
+                  <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
+                    <span className="font-bold">{recommendedList.name}</span>
+                    <span className="rounded-full border border-[var(--ob-ink)] bg-[var(--ob-surface)] px-2 py-0.5 text-[10px] font-black uppercase text-[color:var(--ob-ink)]">
+                      seed
+                    </span>
+                    <span className="text-xs text-[color:var(--ob-surface)] opacity-[0.85]">
+                      {getItemCountLabel(recommendedList.itemCount)}
+                    </span>
+                  </div>
+                  <div className="mt-1 text-xs text-[color:var(--ob-surface)] opacity-[0.85]">
+                    {recommendedList.description?.trim() || 'Basic list seed'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="onboarding-option-secondary shrink-0 self-center px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+                  disabled={workingId === `fork:${recommendedList.id}`}
+                  onClick={() => forkList(recommendedList)}
+                >
+                  {workingId === `fork:${recommendedList.id}` ? 'Forking...' : 'Fork'}
+                </button>
+              </div>
             </div>
           ) : (
             <div className="space-y-3">
