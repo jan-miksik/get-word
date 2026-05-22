@@ -33,7 +33,8 @@ Use `AI_CONTEXT.md` as the first stop for agent sessions. This file is a slightl
   - `app/api/sync/route.ts`
   - `features/shared/sync/response.ts`
 - Compatibility note:
-  - `hooks/useProgress.ts`, `hooks/usePreferences.ts`, `hooks/useMemoryHooks.ts`, `hooks/useCategoryFilter.ts`, `hooks/useGameScore.ts`, `hooks/useUserProfile.ts`, `hooks/useWordsLoader.ts`, `hooks/useWordStream.ts`, and `hooks/usePressHandlers.ts` are legacy barrels. Prefer feature-local imports for new code.
+  - `lib/minigames.ts` re-exports `@/features/learning/minigames`. Prefer the feature path in new code.
+  - The former top-level `hooks/use*` barrels (Progress, Preferences, MemoryHooks, CategoryFilter, GameScore, UserProfile, WordsLoader, WordStream, PressHandlers) were removed — import directly from `features/learning/state/*`, `features/learning/hooks/*`, or `features/auth/state/userProfile`.
 
 ## Lists
 

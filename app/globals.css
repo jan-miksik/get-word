@@ -1,5 +1,5 @@
 /* Global styles */
-@import url('../styles.css');
+@import url('../styles/tokens.css');
 @import url('../styles/animations.css');
 @import url('../styles/layout.css');
 @import url('../styles/top-menu.css');

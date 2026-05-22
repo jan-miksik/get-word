@@ -3,11 +3,11 @@
 
 /*
   Tailwind v4 CSS-based theme configuration.
-  Colors reference CSS variables from styles.css so they respond to theme changes.
+  Colors reference CSS variables from styles/tokens.css so they respond to theme changes.
 */
 
 @theme {
-  /* Colors reference CSS custom properties defined in styles.css */
+  /* Colors reference CSS custom properties defined in styles/tokens.css */
   --color-background: var(--bg);
   --color-background-elevated: var(--bg-elevated);
   --color-accent: var(--accent);

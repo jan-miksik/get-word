@@ -79,6 +79,11 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 - `wordbook/`: source word-list scratch/import material; read only for data import tasks.
 - `drizzle/migrations/meta/*.json`: generated snapshots; read only for migration debugging.
 - `styles/*.css`: legacy styling. New styling should use Tailwind. Read these only when modifying existing legacy classes.
+- `ralph/`: autonomous CLI orchestrator (`planner.js`/`executor.js`/`progress.js`). Unrelated to the runtime app.
+- `migrations/`: legacy Supabase SQL (initial setup + RLS). Canonical migrations live in `drizzle/migrations/`.
+- `schema_only.sql`: historical schema snapshot. Source of truth is `lib/db/schema.ts`.
+- `lib/i18n/messages.ts`: ~940-line translation table; treat as data.
+- `docs/plans/archive/`: completed refactor plans kept for history.
 
 ## Current Hotspots
 
@@ -94,7 +99,8 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 - New feature-specific types belong in `features/<feature>/types.ts`, not page files.
 - New list browser HTTP calls should go through `features/lists/api.ts` or `features/lists/client/actions.ts`.
 - New learning state belongs under `features/learning/state` or `features/learning/app-state`.
-- Top-level `hooks/useProgress.ts`, `hooks/usePreferences.ts`, `hooks/useMemoryHooks.ts`, `hooks/useCategoryFilter.ts`, `hooks/useGameScore.ts`, `hooks/useUserProfile.ts`, `hooks/useWordsLoader.ts`, `hooks/useWordStream.ts`, `hooks/usePressHandlers.ts`, and `lib/minigames.ts` are compatibility barrels. Prefer feature-local imports in new code.
+- `lib/minigames.ts` is a compatibility barrel — prefer `@/features/learning/minigames` in new code.
+- The former `hooks/use{Progress,Preferences,MemoryHooks,CategoryFilter,GameScore,UserProfile,WordsLoader,WordStream,PressHandlers}.ts` barrels were removed; import directly from `features/learning/state/*`, `features/learning/hooks/*`, and `features/auth/state/userProfile`.
 
 ## Refactor Rules
 

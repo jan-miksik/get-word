@@ -1,5 +1,7 @@
 # CLAUDE.md
 
+> Architecture and conventions live here. Task-oriented navigation ("where do I look for X?") lives in [`AI_CONTEXT.md`](AI_CONTEXT.md). Codex/AGENTS readers: see [`AGENTS.md`](AGENTS.md) — it points back to these two files.
+
 ## Styling
 
 Use Tailwind for all new styling. Do not refactor existing CSS in `styles/*.css` — that is a separate future task.
@@ -11,9 +13,9 @@ Use Tailwind for all new styling. Do not refactor existing CSS in `styles/*.css`
 
 Tailwind v4 is compiled by Next/PostCSS from `app/tailwind.css`. Development runs through Turbopack with `pnpm run dev`; use `pnpm run dev:fast` to disable dev source maps during tight UI/state iteration.
 
-Plain CSS lives in `styles/*.css` (one file per concern: `layout.css`, `word-card.css`, `panels.css`, `top-menu.css`, `minigames.css`, `themes.css`, etc.). These are imported in `app/globals.css`.
+Plain CSS lives in `styles/*.css` (one file per concern: `layout.css`, `word-card.css`, `panels.css`, `top-menu.css`, `minigames.css`, etc.). These are imported in `app/globals.css`.
 
-CSS custom properties are the design system (defined in `styles/themes.css` and `app/globals.css`): `--accent`, `--bg`, `--text`, `--text-soft`, `--border-subtle`, etc. Three themes: `default` (dark navy), `warm` (light), `calm` (light). Theme is stored in `localStorage` and applied via `data-theme` on `<html>`.
+CSS custom properties are the design system (defined in `styles/tokens.css` and `app/globals.css`): `--accent`, `--bg`, `--text`, `--text-soft`, `--border-subtle`, etc. Three themes: `default` (dark navy), `warm` (light), `calm` (light). Theme is stored in `localStorage` and applied via `data-theme` on `<html>`.
 
 ### Data flow
 
@@ -32,7 +34,7 @@ data/words       →  features/learning/hooks/useWordsLoader  →  page.tsx
 - `features/learning/state/*` for progress, preferences, memory hooks, category filters, and game score
 - `features/auth/state/userProfile.ts` for synced identity fields
 
-Top-level `hooks/useProgress.ts`, `hooks/usePreferences.ts`, `hooks/useMemoryHooks.ts`, `hooks/useCategoryFilter.ts`, `hooks/useGameScore.ts`, `hooks/useUserProfile.ts`, `hooks/useWordsLoader.ts`, `hooks/useWordStream.ts`, and `hooks/usePressHandlers.ts` are compatibility barrels. Prefer feature-local imports for new work.
+Import directly from feature paths: `features/learning/state/*`, `features/learning/hooks/*`, and `features/auth/state/userProfile`. The previous top-level `hooks/use*` compatibility barrels were removed.
 
 **`useMenuPanels`** (`hooks/useMenuPanels.ts`) owns panel open/close state (`settings`, `progress`, `category`, `memoryHooks`) as a single enum, inside `AppLayout`. Panel state is NOT passed from pages — `AppLayout` manages it internally.
 
