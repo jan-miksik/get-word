@@ -16,6 +16,9 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 - Word loading: `features/learning/hooks/useWordsLoader.ts`
 - Stream/deck grouping: `features/learning/hooks/useLearningStreamGroups.ts`
 - Render callbacks: `features/learning/hooks/useLearningRenderers.tsx`
+- Language onboarding UI: `components/LearningLanguageOnboarding.tsx`
+- Onboarding recommendations/estimates: `features/learning/onboarding/listRecommendations.ts`
+- Onboarding language picker: `features/learning/onboarding/LanguageCombobox.tsx`
 
 ### Learning state and sync
 
@@ -79,10 +82,10 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 
 ## Current Hotspots
 
-- `app/lists/page.tsx` is still the largest active coordinator. Prefer extracting focused hooks rather than adding more state there.
-- `app/lists/AudioStep.tsx` mixes UI, playback, cache, reuse lookup, and generation actions. Prefer extracting audio client hooks/helpers before adding new behavior.
+- `app/lists/page.tsx` is still an active coordinator. Prefer extracting focused hooks rather than adding more state there.
+- `app/lists/AudioStep.tsx` still mixes UI, playback, cache, reuse lookup, and generation actions. Pure row/source and API parsing helpers already live under `features/lists/audio-step/*`.
 - `app/api/sync/route.ts` is behaviorally central and contains legacy compatibility paths. Keep route shape stable and extract internals carefully.
-- `components/LearningLanguageOnboarding.tsx` spans onboarding, list matching, common-list generation, and audio repair messaging.
+- `components/LearningLanguageOnboarding.tsx` still owns common-list generation and audio repair flow. List ranking and language-picker UI already live under `features/learning/onboarding/*`.
 
 ## Boundary Rules
 
