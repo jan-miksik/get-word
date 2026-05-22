@@ -6,8 +6,8 @@ type RouteContext = { params: Promise<{ hash: string }> };
 
 /**
  * GET /api/audio/[hash] — serve audio by content hash.
- * Fallback endpoint when no Cloudflare Worker is configured.
- * In production, the Worker handles this with R2 cache + Arweave fallback.
+ * Looks up the asset in `media_assets` and streams from the recorded
+ * storage backend; Arweave-backed assets fall through gateway candidates.
  */
 export async function GET(_request: NextRequest, context: RouteContext) {
   const { hash } = await context.params;
