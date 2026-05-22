@@ -8,8 +8,6 @@ export function useWordsLoader() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const shouldLogPerf = process.env.NEXT_PUBLIC_DEBUG_TIMING === '1';
-    const startedAt = performance.now();
     const defaultWords = WORDS.map((word) => ({ ...word, category: [...word.category] })) as Word[];
     const WORDS_FETCH_TIMEOUT_MS = 30_000;
 
@@ -18,12 +16,6 @@ export function useWordsLoader() {
 
     fetch('/api/words', { signal: controller.signal })
       .then((res) => {
-        if (shouldLogPerf) {
-          const serverTiming = res.headers.get('server-timing');
-          if (serverTiming) {
-            console.info(`[timing] /api/words server-timing: ${serverTiming}`);
-          }
-        }
         if (!res.ok) {
           throw new Error(`Words API ${res.status}: ${res.statusText}`);
         }
@@ -36,20 +28,12 @@ export function useWordsLoader() {
         }
         setWords(defaultWords);
       })
-      .catch((err) => {
-        if (err?.name === 'AbortError') {
-          console.warn('[useWordsLoader] Words fetch timeout, using local fallback');
-        } else {
-          console.warn('[useWordsLoader] Words fetch failed, using local fallback:', err);
-        }
+      .catch(() => {
         setWords(defaultWords);
       })
       .finally(() => {
         clearTimeout(timeoutId);
         setIsLoading(false);
-        if (shouldLogPerf) {
-          console.info(`[timing] useWordsLoader.total ${(performance.now() - startedAt).toFixed(1)}ms`);
-        }
       });
   }, []);
 

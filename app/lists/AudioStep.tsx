@@ -178,11 +178,8 @@ class AudioLoadError extends Error {
 }
 
 function logAudioStep(message: string, details?: unknown) {
-  if (details === undefined) {
-    console.info(AUDIO_LOG_PREFIX, message);
-    return;
-  }
-  console.info(AUDIO_LOG_PREFIX, message, details);
+  void message;
+  void details;
 }
 
 function getMediaErrorLabel(error: MediaError | null): string {
@@ -209,15 +206,8 @@ async function readDebugResponse(response: Response): Promise<DebugResponsePaylo
   if (rawText.trim()) {
     try {
       json = JSON.parse(rawText);
-    } catch (err) {
-      console.warn(AUDIO_LOG_PREFIX, 'response was not valid JSON', {
-        status: response.status,
-        statusText: response.statusText,
-        url: response.url,
-        contentType,
-        bodyPreview: rawText.slice(0, 500),
-        parseError: err instanceof Error ? err.message : err,
-      });
+    } catch {
+      // Leave json as null so callers can surface a user-facing error.
     }
   }
 
@@ -483,9 +473,8 @@ export function AudioStep({
         setSelectedGoogleVoiceId((current) =>
           current !== 'default' && voices.includes(current) ? current : 'default'
         );
-      } catch (err) {
+      } catch {
         if (cancelled) return;
-        console.warn(AUDIO_LOG_PREFIX, 'could not load Google TTS voices', err);
         setVoiceOptions([]);
         setSelectedGoogleVoiceId('default');
       } finally {
@@ -896,10 +885,6 @@ export function AudioStep({
         }).catch(() => {});
       }
 
-      if (data.quota_warning) {
-        console.warn(AUDIO_LOG_PREFIX, 'audio generated while quota tracking failed', data.quota_warning);
-      }
-
       setProgress(100);
     } catch (err) {
       console.error(AUDIO_LOG_PREFIX, 'audio generation failed', err);
@@ -963,13 +948,8 @@ export function AudioStep({
     let playbackUrl = source.audioUrl;
     try {
       playbackUrl = await preloadAudio(row.id, source);
-    } catch (err) {
-      console.warn(AUDIO_LOG_PREFIX, 'preload failed; trying direct media URL', {
-        itemId: row.id,
-        sourceKind: source.kind,
-        audioUrl: source.audioUrl,
-        error: err instanceof Error ? err.message : err,
-      });
+    } catch {
+      // Fall back to the direct media URL if preloading fails.
     }
 
     const audio = new Audio(playbackUrl);
@@ -1016,13 +996,8 @@ export function AudioStep({
     let playbackUrl = next.source.audioUrl;
     try {
       playbackUrl = await preloadAudio(row.id, next.source);
-    } catch (err) {
-      console.warn(AUDIO_LOG_PREFIX, 'preload failed during play all; trying direct media URL', {
-        itemId: row.id,
-        sourceKind: next.source.kind,
-        audioUrl: next.source.audioUrl,
-        error: err instanceof Error ? err.message : err,
-      });
+    } catch {
+      // Fall back to the direct media URL if preloading fails.
     }
 
     const audio = new Audio(playbackUrl);

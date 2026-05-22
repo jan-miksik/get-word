@@ -163,7 +163,6 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
       lockedStageIndexRef.current = lockedStage;
     }
     const nextExitAnim = randomExitAnim();
-    console.log('[CardDeckView] card out animation:', nextExitAnim);
     setExitAnim(nextExitAnim);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -178,7 +177,6 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
     }
     setCurrentIndex((i) => i + 1);
     const nextEnterAnim = randomEnterAnim();
-    console.log('[CardDeckView] card in animation:', nextEnterAnim);
     setEnterAnim(nextEnterAnim);
   }, []);
 
@@ -254,7 +252,6 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
           onClick={() => {
             setShowDoneOverlay(false);
             const nextExitAnim = randomExitAnim();
-            console.log('[CardDeckView] card out animation:', nextExitAnim);
             setExitAnim(nextExitAnim);
           }}
           role="button"
@@ -263,7 +260,6 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
             if (e.key === 'Enter' || e.key === ' ') {
               setShowDoneOverlay(false);
               const nextExitAnim = randomExitAnim();
-              console.log('[CardDeckView] card out animation:', nextExitAnim);
               setExitAnim(nextExitAnim);
             }
           }}

@@ -57,7 +57,6 @@ export function useServerSync({
   setSubscribedLists,
   setActiveListId,
 }: UseServerSyncOptions) {
-  const shouldLogPerf = process.env.NEXT_PUBLIC_DEBUG_TIMING === '1';
   const [isLinkingWallet, setIsLinkingWallet] = useState(false);
   const [hasLinkWalletError, setHasLinkWalletError] = useState(false);
   const isHydratedRef = useRef(false);
@@ -68,7 +67,6 @@ export function useServerSync({
     serverData: SyncResponse,
     options: { clearPending?: boolean; persistSnapshot?: boolean; markServerSnapshot?: boolean } = {}
   ) => {
-    const applyStart = performance.now();
     if (options.clearPending ?? true) {
       clearPendingSync();
     }
@@ -83,7 +81,6 @@ export function useServerSync({
       applyServerGameScore(serverData.user.game_score);
     }
     if (serverData.word_list_items && serverData.categories) {
-      const convertStart = performance.now();
       const role = serverData.user?.role ?? 'vi';
       const converted = wordListItemsToNormalizedWords(
         serverData.word_list_items,
@@ -92,11 +89,6 @@ export function useServerSync({
         { mediaFallbackWords: words }
       );
       setSyncedWords(converted);
-      if (shouldLogPerf) {
-        console.info(
-          `[timing] useServerSync.wordListItemsToNormalizedWords ${(performance.now() - convertStart).toFixed(1)}ms (${serverData.word_list_items.length} items)`
-        );
-      }
     }
     if (serverData.lists) {
       setSubscribedLists(serverData.lists);
@@ -114,9 +106,6 @@ export function useServerSync({
     if (options.persistSnapshot ?? true) {
       void saveSnapshot(serverData, readStoredActiveListId()).catch(() => undefined);
     }
-    if (shouldLogPerf) {
-      console.info(`[timing] useServerSync.applyServerData ${(performance.now() - applyStart).toFixed(1)}ms`);
-    }
   }, [
     applyServerCategories,
     applyServerGameScore,
@@ -127,7 +116,6 @@ export function useServerSync({
     setActiveListId,
     setSubscribedLists,
     setSyncedWords,
-    shouldLogPerf,
     words,
   ]);
 
@@ -153,11 +141,9 @@ export function useServerSync({
   useEffect(() => {
     if (hasLoadedRef.current || words.length === 0) return;
     hasLoadedRef.current = true;
-    const hydrationStart = performance.now();
 
     const hydrationTimeout = setTimeout(() => {
       if (!isHydratedRef.current) {
-        console.warn('[useServerSync] Hydration timeout — proceeding without server data');
         isHydratedRef.current = true;
         setIsHydrated(true);
         isUpdatingFromServerRef.current = false;
@@ -195,33 +181,23 @@ export function useServerSync({
         setIsHydrated(true);
         requestAnimationFrame(() => {
           isUpdatingFromServerRef.current = false;
-          if (shouldLogPerf) {
-            console.info(`[timing] useServerSync.initialHydration ${(performance.now() - hydrationStart).toFixed(1)}ms`);
-          }
         });
       })
       .catch((error) => {
         clearTimeout(hydrationTimeout);
         if (!isAuthRequiredError(error)) {
           console.error('[useServerSync] Failed to fetch:', error);
-          if (error instanceof Error) {
-            console.error('[useServerSync] Error message:', error.message);
-            console.error('[useServerSync] Error stack:', error.stack);
-          }
         }
         isHydratedRef.current = true;
         setIsHydrated(true);
         isUpdatingFromServerRef.current = false;
-        if (shouldLogPerf) {
-          console.info(`[timing] useServerSync.initialHydrationFailed ${(performance.now() - hydrationStart).toFixed(1)}ms`);
-        }
       });
 
     return () => {
       cancelled = true;
       clearTimeout(hydrationTimeout);
     };
-  }, [applyServerData, isUpdatingFromServerRef, setActiveListId, setIsHydrated, shouldLogPerf, words.length]);
+  }, [applyServerData, isUpdatingFromServerRef, setActiveListId, setIsHydrated, words.length]);
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -250,7 +226,6 @@ export function useServerSync({
 
   useEffect(() => {
     if (!isHydrated || !walletAddress || hasLinkedRef.current) return;
-    const linkStart = performance.now();
     hasLinkedRef.current = true;
     setHasLinkWalletError(false);
     setIsLinkingWallet(true);
@@ -266,9 +241,6 @@ export function useServerSync({
         requestAnimationFrame(() => {
           isUpdatingFromServerRef.current = false;
           setIsLinkingWallet(false);
-          if (shouldLogPerf) {
-            console.info(`[timing] useServerSync.linkWalletHydration ${(performance.now() - linkStart).toFixed(1)}ms`);
-          }
         });
       })
       .catch((error) => {
@@ -278,7 +250,7 @@ export function useServerSync({
         setIsLinkingWallet(false);
         setHasLinkWalletError(true);
       });
-  }, [applyServerData, isHydrated, isUpdatingFromServerRef, linkPayload?.authProvider, linkPayload?.email, shouldLogPerf, walletAddress]);
+  }, [applyServerData, isHydrated, isUpdatingFromServerRef, linkPayload?.authProvider, linkPayload?.email, walletAddress]);
 
   useEffect(() => {
     if (!walletAddress) {

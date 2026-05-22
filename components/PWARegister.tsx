@@ -52,11 +52,6 @@ export function PWARegister() {
             cachesCleared: cacheKeys.length,
           });
 
-          if (wasControlled) {
-            console.warn(
-              '[PWA] A stale service worker was controlling this dev page. It has been unregistered and Get Word caches were cleared. Reload once if the UI still looks old.',
-            );
-          }
           return;
         }
 
@@ -85,9 +80,8 @@ export function PWARegister() {
             }
           });
         });
-      } catch (e) {
+      } catch {
         // Intentionally swallow: PWA is an enhancement and should never break the app.
-        console.warn('[PWA] Service worker registration failed', e);
       }
     };
 

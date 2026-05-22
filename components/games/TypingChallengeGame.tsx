@@ -52,7 +52,6 @@ export function TypingChallengeGame({
       ? 'audio'
       : 'text';
   const normalizedAnswer = correctAnswer.trim();
-  const letterCount = [...normalizedAnswer.replace(/\s+/g, '')].length;
   const firstLetterMatch = normalizedAnswer.match(/\S/);
   const firstLetter = firstLetterMatch ? firstLetterMatch[0] : '';
   const answerChars = normalizedAnswer.split('');
@@ -80,34 +79,6 @@ export function TypingChallengeGame({
     };
   }, []);
 
-  useEffect(() => {
-    if (process.env.NODE_ENV !== 'development') return;
-    // Debug aid for tracking prompt-audio selection in typing minigames.
-    console.info('[AudioDebug][Typing][Init]', {
-      wordId: questionWord?.id,
-      cz: questionWord?.cz,
-      vi: questionWord?.vi,
-      czAudio: questionWord?.czAudio ?? null,
-      viAudio: questionWord?.viAudio ?? null,
-      requestedPromptMode: promptMode,
-      effectivePromptMode,
-      sourceLang: resolvedSourceLang,
-      targetLang,
-      selectedPromptAudioSrc: primaryPromptAudioSrc,
-    });
-  }, [
-    questionWord?.id,
-    questionWord?.cz,
-    questionWord?.vi,
-    questionWord?.czAudio,
-    questionWord?.viAudio,
-    promptMode,
-    effectivePromptMode,
-    resolvedSourceLang,
-    targetLang,
-    primaryPromptAudioSrc,
-  ]);
-
   const updateCaret = (target: HTMLInputElement) => {
     const next = target.selectionStart ?? value.length;
     setCaretIndex(next);
@@ -118,34 +89,10 @@ export function TypingChallengeGame({
       .filter((src): src is string => Boolean(src))
       .filter((src, idx, arr) => arr.indexOf(src) === idx);
     if (!candidateAudioSrcs.length) {
-      if (process.env.NODE_ENV === 'development') {
-        console.warn('[AudioDebug][Typing][Replay] Missing prompt audio source', {
-          wordId: questionWord?.id,
-          sourceLang: resolvedSourceLang,
-          czAudio: questionWord?.czAudio ?? null,
-          viAudio: questionWord?.viAudio ?? null,
-        });
-      }
       return;
     }
 
     const playAudioSrc = async (audioSrc: string): Promise<{ ok: boolean; reason?: string }> => {
-      if (process.env.NODE_ENV === 'development') {
-        void fetch(audioSrc, { method: 'HEAD' })
-          .then((res) => {
-            console.info('[AudioDebug][Typing][HEAD]', {
-              src: audioSrc,
-              status: res.status,
-              ok: res.ok,
-            });
-          })
-          .catch((err) => {
-            console.warn('[AudioDebug][Typing][HEAD] Failed', {
-              src: audioSrc,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          });
-      }
       return new Promise((resolve) => {
         let settled = false;
         const done = (result: { ok: boolean; reason?: string }) => {
@@ -160,13 +107,6 @@ export function TypingChallengeGame({
           }
           const audio = new Audio(audioSrc);
           audio.onerror = () => {
-            if (process.env.NODE_ENV === 'development') {
-              console.error('[AudioDebug][Typing][AudioError]', {
-                src: audioSrc,
-                networkState: audio.networkState,
-                readyState: audio.readyState,
-              });
-            }
             done({ ok: false, reason: 'audio-error' });
           };
           audioRef.current = audio;
@@ -177,21 +117,9 @@ export function TypingChallengeGame({
             .catch((err) => {
               const message = err instanceof Error ? err.message : String(err);
               const interrupted = /interrupted by a call to pause/i.test(message);
-              if (process.env.NODE_ENV === 'development' && !interrupted) {
-                console.error('[AudioDebug][Typing][PlayRejected]', {
-                  src: audioSrc,
-                  error: message,
-                });
-              }
               done({ ok: false, reason: interrupted ? 'interrupted' : message });
             });
-        } catch (err) {
-          if (process.env.NODE_ENV === 'development') {
-            console.error('[AudioDebug][Typing][ReplayException]', {
-              src: audioSrc,
-              error: err instanceof Error ? err.message : String(err),
-            });
-          }
+        } catch {
           done({ ok: false, reason: 'exception' });
         }
       });
@@ -206,24 +134,11 @@ export function TypingChallengeGame({
 
       const result = await playAudioSrc(playableSrc);
       if (result.ok) return;
-      if (process.env.NODE_ENV === 'development' && i + 1 < candidateAudioSrcs.length) {
-        console.warn('[AudioDebug][Typing][FallbackAttempt]', {
-          failedSrc: src,
-          nextSrc: candidateAudioSrcs[i + 1],
-          reason: result.reason,
-        });
-      }
       // User clicked replay repeatedly while previous attempt is being replaced.
       if (result.reason === 'interrupted') return;
     }
 
     setHasAudioPlaybackError(true);
-    if (process.env.NODE_ENV === 'development') {
-      console.warn('[AudioDebug][Typing][FallbackToText]', {
-        wordId: questionWord?.id,
-        triedSources: candidateAudioSrcs,
-      });
-    }
   };
 
   const resultLabels: Record<'exact' | 'close' | 'wrong', React.ReactNode> = {

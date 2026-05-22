@@ -39,9 +39,8 @@ export function getDeviceId(): string {
       inMemoryId = stored;
       return stored;
     }
-  } catch (error) {
+  } catch {
     // Storage unavailable (private mode, disabled, quota exceeded, etc.)
-    console.warn('Failed to read device ID from localStorage:', error);
   }
   
   // Fall back to in-memory ID if available
@@ -77,9 +76,8 @@ export function getOrCreateDeviceId(): { id: string; persisted: boolean } {
       inMemoryId = existingId;
       return { id: existingId, persisted: true };
     }
-  } catch (error) {
+  } catch {
     // Storage unavailable - treat as missing, will generate new ID
-    console.warn('Failed to read device ID from localStorage:', error);
   }
   
   // Check in-memory ID as fallback
@@ -96,9 +94,8 @@ export function getOrCreateDeviceId(): { id: string; persisted: boolean } {
   try {
     localStorage.setItem(DEVICE_ID_KEY, deviceId);
     persisted = true;
-  } catch (error) {
+  } catch {
     // Storage unavailable - log warning but continue with in-memory ID
-    console.warn('Failed to store device ID in localStorage:', error);
   }
   
   return { id: deviceId, persisted };
@@ -122,14 +119,12 @@ export function deleteDeviceId(): boolean {
   
   try {
     hadId = localStorage.getItem(DEVICE_ID_KEY) !== null;
-  } catch (error) {
-    console.warn('Failed to check device ID in localStorage:', error);
+  } catch {
   }
 
   try {
     localStorage.removeItem(DEVICE_ID_KEY);
-  } catch (error) {
-    console.warn('Failed to remove device ID from localStorage:', error);
+  } catch {
   }
 
   // Clear in-memory ID when deleting

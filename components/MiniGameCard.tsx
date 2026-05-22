@@ -250,43 +250,6 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
     };
   }, [config.words, requestedMatchingAudioSourceLang]);
 
-  useEffect(() => {
-    if (process.env.NODE_ENV !== 'development') return;
-    console.info('[AudioDebug][MiniGameCard]', {
-      gameId: config.id,
-      gameType: config.gameType,
-      shouldUseAudioPrompt,
-      randomSourceLang,
-      typingAndChoicePromptMode,
-      typingAndChoiceSourceLang,
-      matchingPromptMode,
-      requestedQuestionAudioSourceLang,
-      verifiedQuestionAudioSourceLang,
-      requestedMatchingAudioSourceLang,
-      verifiedMatchingAudioSourceLang,
-      level,
-      questionWordId: questionWord?.id,
-      questionCzAudio: questionWord?.czAudio ?? null,
-      questionViAudio: questionWord?.viAudio ?? null,
-    });
-  }, [
-    config.id,
-    config.gameType,
-    shouldUseAudioPrompt,
-    randomSourceLang,
-    typingAndChoicePromptMode,
-    typingAndChoiceSourceLang,
-    matchingPromptMode,
-    requestedQuestionAudioSourceLang,
-    verifiedQuestionAudioSourceLang,
-    requestedMatchingAudioSourceLang,
-    verifiedMatchingAudioSourceLang,
-    level,
-    questionWord?.id,
-    questionWord?.czAudio,
-    questionWord?.viAudio,
-  ]);
-
   let game = null;
   if (config.gameType === 'multipleChoice') {
     game = (

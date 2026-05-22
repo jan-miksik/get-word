@@ -221,8 +221,7 @@ function ListsPageContent() {
       }
       const data = await res.json();
       setGoogleUsage(data);
-    } catch (err) {
-      console.warn('[Get Word lists] Could not load Google API usage', err);
+    } catch {
     }
   }, [t]);
 
