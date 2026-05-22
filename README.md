@@ -23,55 +23,23 @@ to disable dev source maps during tight UI/state iteration.
 
 ### Environment variables
 
-Create `.env.local` with:
+Copy `.env.example` to `.env.local` and fill in the values you need:
 
-```env
-DATABASE_URL=postgresql://...
-# Used to sign login/session cookies and OAuth state cookies.
-# Generate with: openssl rand -base64 32
-APP_SESSION_SECRET=...
-# Used to encrypt stored BYOK provider API keys at rest.
-# Generate with: openssl rand -hex 32
-APP_ENCRYPTION_SECRET=...
-GET_WORD_APP_URL=http://localhost:3000
-GOOGLE_TRANSLATE_API_KEY=...
-GOOGLE_TTS_API_KEY=...
-# Optional Google free-tier monitoring/limits. Defaults use a 5% per-account monthly share.
-# GOOGLE_TRANSLATE_FREE_MONTHLY_CHARS=500000
-# GOOGLE_TTS_FREE_MONTHLY_CHARS=1000000
-# GOOGLE_API_FREE_ACCOUNT_LIMIT_RATIO=0.05
-# GOOGLE_TRANSLATE_ACCOUNT_MONTHLY_CHARS=25000
-# GOOGLE_TTS_ACCOUNT_MONTHLY_CHARS=50000
-# Single-line Arweave JWK JSON or base64-encoded JWK JSON for ArDrive Turbo uploads
-ARDRIVE_TURBO_WALLET_JWK=...
-
-# Optional overrides
-# ARDRIVE_TURBO_UPLOAD_URL=https://upload.ardrive.io
-# ARDRIVE_TURBO_PAYMENT_URL=https://payment.ardrive.io
-# ARWEAVE_GATEWAY_URL=https://arweave.net
-
-# Optional app identifier sent to OpenRouter during OAuth.
-OPENROUTER_OAUTH_APP_ID=...
-
-# optional, for bearer-auth exchange compatibility:
-# OPENROUTER_OAUTH_BEARER_TOKEN=...
-# OPENROUTER_API_KEY=...
-
-# optional overrides:
-# OPENROUTER_AUTH_URL=https://openrouter.ai/auth
-# OPENROUTER_API_BASE_URL=https://openrouter.ai/api/v1
-# OPENROUTER_OAUTH_EXCHANGE_URL=https://openrouter.ai/api/v1/auth/keys
-
-# Optional Reown embedded email/social auth.
-# Enabled by default so the connect modal shows email, Google, Apple, and crypto wallet options together.
+```bash
+cp .env.example .env.local
 ```
+
+`.env.example` documents each variable in more detail, including which ones are
+required vs optional and how to generate the app secrets.
 
 - **Development / admin operations**: prefer **Supabase “Direct connection”** string.
 - **Production (Vercel)**: prefer **Supabase “Connection Pooler”** string (better for serverless).
 - `APP_SESSION_SECRET` signs session cookies and OpenRouter OAuth state cookies.
 - `APP_ENCRYPTION_SECRET` encrypts stored provider API keys in the database.
+- `NEXT_PUBLIC_REOWN_PROJECT_ID` is required for wallet connect and embedded Reown email/social auth.
+- `GOOGLE_TRANSLATE_API_KEY` and `GOOGLE_TTS_API_KEY` enable list translation and pronunciation audio generation.
 - `ARDRIVE_TURBO_WALLET_JWK` funds and signs ArDrive Turbo uploads for generated audio.
-- `ARWEAVE_GATEWAY_URL` controls the public gateway used by `/api/audio/[hash]` redirects.
+- `ARWEAVE_GATEWAY_URL` and `NEXT_PUBLIC_ARWEAVE_GATEWAY_URL` can override the Arweave playback gateway list.
 
 For details (direct vs pooler, URL-encoding passwords, dump/restore), see `SUPABASE_SETUP.md`.
 
@@ -88,7 +56,7 @@ For details (direct vs pooler, URL-encoding passwords, dump/restore), see `SUPAB
 
 #### Local dev flow
 
-1. Set env vars above in `.env.local`.
+1. Copy `.env.example` to `.env.local` and fill in the required values.
 2. Run DB migrations (`pnpm run db:migrate`).
 3. Start app (`pnpm run dev`).
 4. Open `/lists` and use API key settings or translation provider CTA to connect OpenRouter.
@@ -113,16 +81,15 @@ Ensure `DATABASE_URL` is set in `.env.local` before running.
 
 ```bash
 pnpm run db:push       # push schema (fast, no migrations)
-pnpm run db:seed       # seed words
 pnpm run db:studio     # open Drizzle Studio
 ```
 
 Optional utilities:
 
 ```bash
+pnpm run db:backup
 pnpm run db:dump-restore
 pnpm run db:dump-restore-full
-pnpm run db:migrate-to-supabase
 ```
 
 Drizzle-generated migrations in `drizzle/migrations/` are the canonical schema migration path. The root `migrations/` directory contains legacy/manual Supabase and RLS SQL and should only be edited for those specific tasks.
@@ -138,8 +105,9 @@ This app uses **device-based identification**:
 ### Deployment (Vercel)
 
 1. Import the repo into Vercel.
-2. Set **Environment Variables**:
-   - `DATABASE_URL`: Supabase **Connection Pooler** Postgres URL (recommended for Production).
+2. Set the same environment variables you use locally.
+   - At minimum, set `DATABASE_URL`, `APP_SESSION_SECRET`, `APP_ENCRYPTION_SECRET`, and `GET_WORD_APP_URL`.
+   - Add `NEXT_PUBLIC_REOWN_PROJECT_ID`, Google API keys, ArDrive, and OpenRouter vars if you use those features.
 3. Deploy.
 
 Notes:

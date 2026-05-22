@@ -3,8 +3,7 @@
 import { useState, useEffect, useRef, memo, useCallback, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n } from '@/components/I18nProvider';
-import { NormalizedWord } from '@/lib/words';
-import { Word } from '@/data/words';
+import { NormalizedWord, Word } from '@/lib/words';
 import { ProgressData } from '@/lib/sync';
 import { WordCard } from './WordCard';
 

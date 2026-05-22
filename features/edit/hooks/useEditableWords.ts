@@ -3,8 +3,8 @@
 import { useCallback, useMemo, useState } from 'react';
 
 import { useI18n } from '@/components/I18nProvider';
-import type { Word } from '@/data/words';
 import { getDeviceId } from '@/lib/device-id';
+import type { Word } from '@/lib/words';
 
 type UseEditableWordsArgs = {
   words: Word[];

@@ -39,9 +39,13 @@ Since you're using **Drizzle ORM** with direct PostgreSQL connections, you have 
 
 ## Step 3: Create Environment File
 
-1. Create `.env.local` file in the project root (if it doesn't exist)
+1. Copy the example file:
 
-2. Add your connection string:
+   ```bash
+   cp .env.example .env.local
+   ```
+
+2. Set `DATABASE_URL` in `.env.local`:
    ```env
    DATABASE_URL=postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres
    ```
@@ -86,15 +90,7 @@ Or if you prefer to use migrations:
 pnpm run db:migrate
 ```
 
-## Step 5: Seed Your Database (Optional)
-
-If you have seed data:
-
-```bash
-pnpm run db:seed
-```
-
-## Step 6: Migrate Local Data to Remote Supabase
+## Step 5: Migrate Local Data to Remote Supabase
 
 If you have data in your local Supabase database that you want to migrate to the remote Supabase:
 
@@ -137,40 +133,9 @@ pnpm run db:dump-restore-full
 
 ⚠️ **Warning**: This will replace the entire remote database schema and data!
 
-### Option 3: TypeScript Migration Script
-
-For more control and intelligent duplicate handling:
-
-1. **Make sure local Supabase is running:**
-   ```bash
-   npx supabase start
-   ```
-
-2. **Ensure remote schema is up to date:**
-   ```bash
-   pnpm run db:push
-   ```
-
-3. **Run migration:**
-   ```bash
-   pnpm run db:migrate-to-supabase
-   ```
-
-   This script will:
-   - ✅ Export all tables from local database
-   - ✅ Import to remote Supabase with conflict handling
-   - ✅ Map user IDs correctly for foreign key relationships
-   - ✅ Skip duplicates intelligently
-   - ✅ Preserve all your progress, memory hooks, and filters
-
-4. **Verify the migration:**
-   ```bash
-   pnpm run db:studio
-   ```
-
 **Note**: For dump scripts, the default local Supabase connection is `postgresql://postgres:postgres@127.0.0.1:54322/postgres`. If your local setup is different, set `LOCAL_DATABASE_URL` in `.env.local`.
 
-## Step 7: Verify Connection
+## Step 6: Verify Connection
 
 You can verify your connection by:
 
@@ -185,7 +150,7 @@ You can verify your connection by:
    pnpm run dev
    ```
 
-## Production Setup
+## Step 7: Production Setup
 
 For production deployments (e.g., Vercel):
 

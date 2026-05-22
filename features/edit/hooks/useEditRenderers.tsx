@@ -2,9 +2,8 @@
 
 import { useCallback } from 'react';
 import { EditableWordCard } from '@/components/EditableWordCard';
-import type { Word } from '@/data/words';
 import type { ProgressData } from '@/lib/sync';
-import type { NormalizedWord } from '@/lib/words';
+import type { NormalizedWord, Word } from '@/lib/words';
 
 interface UseEditRenderersOptions {
   progress: Record<string, ProgressData>;

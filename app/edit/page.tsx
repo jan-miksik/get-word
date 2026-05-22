@@ -2,7 +2,6 @@
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Word } from '@/data/words';
 import { EditHeader } from '@/features/edit/components/EditHeader';
 import { EditStudyContent } from '@/features/edit/components/EditStudyContent';
 import { useEditPageState } from '@/features/edit/hooks/useEditPageState';
@@ -15,6 +14,7 @@ import {
   normalizeWords,
   getAllCategoriesWithCounts,
   shouldShowMemoryHookForStage,
+  type Word,
 } from '@/lib/words';
 import { useAppState } from '@/hooks/useAppState';
 import { LoadingScreen } from '@/components/LoadingScreen';

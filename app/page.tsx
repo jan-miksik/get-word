@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { Word } from '@/data/words';
 import { AuthRequiredCard } from '@/features/learning/components/AuthRequiredCard';
 import { LearningStudyContent } from '@/features/learning/components/LearningStudyContent';
 import { useViewModePreference } from '@/features/learning/app-state/useViewModePreference';
@@ -15,6 +14,7 @@ import {
   getAvailableCategories,
   normalizeWords,
   shouldShowMemoryHookForStage,
+  type Word,
 } from '@/lib/words';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { useDueTimer } from '@/hooks/useDueTimer';
@@ -84,7 +84,7 @@ export default function Home() {
     setActiveListId,
   } = appState;
 
-  // Use synced words (from word_list_items) when available, fall back to static
+  // Use synced words (from word_list_items) when available, otherwise use the fetched words table.
   const activeWords = syncedWords ?? normalizedWords;
 
   const isAuthenticated = isConnected;

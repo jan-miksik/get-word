@@ -1,14 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { WORDS, type Word } from '@/data/words';
+import type { Word } from '@/lib/words';
 
 export function useWordsLoader() {
   const [words, setWords] = useState<Word[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const defaultWords = WORDS.map((word) => ({ ...word, category: [...word.category] })) as Word[];
     const WORDS_FETCH_TIMEOUT_MS = 30_000;
 
     const controller = new AbortController();
@@ -22,14 +21,10 @@ export function useWordsLoader() {
         return res.json();
       })
       .then((data) => {
-        if (data.words && Array.isArray(data.words) && data.words.length > 0) {
-          setWords(data.words);
-          return;
-        }
-        setWords(defaultWords);
+        setWords(Array.isArray(data.words) ? data.words : []);
       })
       .catch(() => {
-        setWords(defaultWords);
+        setWords([]);
       })
       .finally(() => {
         clearTimeout(timeoutId);

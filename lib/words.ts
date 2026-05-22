@@ -1,5 +1,18 @@
 // Word normalization and utility functions
-import { Word } from '@/data/words';
+
+export interface Word {
+  id: string;
+  category: string[];
+  cz: string;
+  en: string;
+  vi: string;
+  czPron?: string;
+  viPron?: string;
+  czAudio?: string | string[];
+  viAudio?: string | string[];
+  czHint?: string;
+  viHint?: string;
+}
 
 export interface NormalizedWord extends Word {
   id: string;
@@ -83,7 +96,6 @@ export function normalizeWords(words: Word[]): NormalizedWord[] {
       : [];
     const typeTag = inferWordType(entry);
     const category = [...new Set([...baseTags, typeTag])];
-    // id comes from the word data (slova.js)
     return { ...entry, category };
   });
 }

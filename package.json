@@ -14,7 +14,6 @@
     "db:migrate:run": "npx tsx scripts/run-migrations.ts",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "npx tsx scripts/seed-words.ts",
     "db:dump-restore": "bash scripts/dump-and-restore.sh",
     "db:dump-restore-full": "bash scripts/dump-and-restore-full.sh",
     "db:backup": "bash scripts/backup-remote-db.sh",
