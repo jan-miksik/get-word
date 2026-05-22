@@ -1,4 +1,4 @@
-const SESSION_ID_KEY = "wordlink_session_id";
+const SESSION_ID_KEY = "get_word_session_id";
 
 let inMemorySessionId: string | null = null;
 

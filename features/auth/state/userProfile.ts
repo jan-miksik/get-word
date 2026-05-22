@@ -15,7 +15,7 @@ export function useUserProfile() {
     setUserEmail(user.email ?? null);
     if (user.user_role) {
       setUserRoleState(user.user_role);
-      document.cookie = `wordlink_user_role=${user.user_role};path=/;max-age=31536000;SameSite=Lax`;
+      document.cookie = `get_word_user_role=${user.user_role};path=/;max-age=31536000;SameSite=Lax`;
     }
   }, []);
 

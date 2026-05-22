@@ -1,6 +1,6 @@
 'use client';
 
-export const DB_NAME = 'wordlink-learning-cache';
+export const DB_NAME = 'get-word-learning-cache';
 export const DB_VERSION = 2;
 
 export const STORE_KV = 'kv';

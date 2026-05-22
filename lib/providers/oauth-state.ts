@@ -1,6 +1,6 @@
 import crypto from "crypto";
 
-export const OPENROUTER_OAUTH_COOKIE_NAME = "wordlink_openrouter_oauth";
+export const OPENROUTER_OAUTH_COOKIE_NAME = "get_word_openrouter_oauth";
 const OAUTH_TTL_SECONDS = 10 * 60;
 
 export type OpenRouterOAuthState = {

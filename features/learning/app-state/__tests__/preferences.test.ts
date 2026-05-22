@@ -30,14 +30,14 @@ describe('learning app-state preferences', () => {
   });
 
   beforeEach(() => {
-    localStorage.removeItem('wordlink-active-list');
-    localStorage.removeItem('wordlink-view-mode');
-    localStorage.removeItem('wordlink-category-filters-by-list');
-    localStorage.removeItem('wordlink-learning-role-by-pair');
+    localStorage.removeItem('get-word-active-list');
+    localStorage.removeItem('get-word-view-mode');
+    localStorage.removeItem('get-word-category-filters-by-list');
+    localStorage.removeItem('get-word-learning-role-by-pair');
   });
 
   it('hydrates active list from localStorage and persists updates', () => {
-    localStorage.setItem('wordlink-active-list', 'list-123');
+    localStorage.setItem('get-word-active-list', 'list-123');
 
     const { result } = renderHook(() => useActiveListState());
     expect(result.current.activeListId).toBe('list-123');
@@ -47,11 +47,11 @@ describe('learning app-state preferences', () => {
     });
 
     expect(result.current.activeListId).toBe('list-456');
-    expect(localStorage.getItem('wordlink-active-list')).toBe('list-456');
+    expect(localStorage.getItem('get-word-active-list')).toBe('list-456');
   });
 
   it('removes stored active list when cleared', () => {
-    localStorage.setItem('wordlink-active-list', 'list-123');
+    localStorage.setItem('get-word-active-list', 'list-123');
 
     const { result } = renderHook(() => useActiveListState());
 
@@ -60,11 +60,11 @@ describe('learning app-state preferences', () => {
     });
 
     expect(result.current.activeListId).toBeNull();
-    expect(localStorage.getItem('wordlink-active-list')).toBeNull();
+    expect(localStorage.getItem('get-word-active-list')).toBeNull();
   });
 
   it('keeps view mode pinned to card and persists card mode', () => {
-    localStorage.setItem('wordlink-view-mode', 'stream');
+    localStorage.setItem('get-word-view-mode', 'stream');
 
     const { result } = renderHook(() => useViewModePreference());
     expect(result.current.viewMode).toBe('card');
@@ -74,7 +74,7 @@ describe('learning app-state preferences', () => {
     });
 
     expect(result.current.viewMode).toBe('card');
-    expect(localStorage.getItem('wordlink-view-mode')).toBe('card');
+    expect(localStorage.getItem('get-word-view-mode')).toBe('card');
   });
 
   it('persists category filters by list in localStorage', () => {

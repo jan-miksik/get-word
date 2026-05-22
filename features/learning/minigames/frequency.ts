@@ -5,7 +5,7 @@ import {
   type MinigameFrequencyRange,
 } from './types';
 
-export const MINIGAME_FREQUENCY_STORAGE_KEY = 'wordlink-minigame-frequency';
+export const MINIGAME_FREQUENCY_STORAGE_KEY = 'get-word-minigame-frequency';
 
 const LEGACY_MINIGAME_FREQUENCIES: Record<string, Exclude<MinigameFrequencyRange, 'off'>> = {
   '2-5': { min: 2, max: 5 },

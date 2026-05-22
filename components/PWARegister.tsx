@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 
-const CACHE_PREFIX = 'wordlink-';
+const CACHE_PREFIX = 'get-word-';
 
 async function clearGetWordCaches() {
   if (!('caches' in window)) return;

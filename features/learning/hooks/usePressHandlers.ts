@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 type PressHandlerContainer = React.RefObject<HTMLElement | null> | HTMLElement | null;
 type RevealFamiliarityLevel = 'new' | 'introduced' | 'familiar' | 'practiced' | 'fluent';
 
-const REVEAL_FAMILIARITY_STORAGE_KEY = 'wordlink-reveal-familiarity-count';
+const REVEAL_FAMILIARITY_STORAGE_KEY = 'get-word-reveal-familiarity-count';
 const INTRODUCED_REVEAL_COUNT = 4;
 const FAMILIAR_REVEAL_COUNT = 9;
 const PRACTICED_REVEAL_COUNT = 16;

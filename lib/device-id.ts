@@ -14,7 +14,7 @@
  *
  * All functions are no-ops on the server (return empty string or do nothing).
  */
-const DEVICE_ID_KEY = 'wordlink_device_id';
+const DEVICE_ID_KEY = 'get_word_device_id';
 
 // Module-scoped in-memory ID to persist across calls when localStorage fails
 let inMemoryId: string | null = null;

@@ -13,7 +13,7 @@ function jsonResponse(body: unknown, status = 200): Response {
 
 describe('TranslationStep Google usage gating', () => {
   const originalFetch = global.fetch;
-  const providerStorageKey = 'wordlink-list-translation-provider';
+  const providerStorageKey = 'get-word-list-translation-provider';
 
   beforeEach(() => {
     global.fetch = vi.fn((input: RequestInfo | URL) => {

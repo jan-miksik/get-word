@@ -250,7 +250,7 @@ export async function syncUserData(
   clearAppliedReviewEvents(result.applied_review_event_ids);
   if (typeof window !== "undefined") {
     window.dispatchEvent(
-      new CustomEvent("wordlink:server-sync", { detail: result })
+      new CustomEvent("get-word:server-sync", { detail: result })
     );
   }
   return result;

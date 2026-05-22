@@ -293,11 +293,11 @@ export function useServerSync({
     };
     const onOnline = () => refetchServerData();
 
-    window.addEventListener('wordlink:server-sync', onServerSync);
+    window.addEventListener('get-word:server-sync', onServerSync);
     document.addEventListener('visibilitychange', onVisibilityChange);
     window.addEventListener('online', onOnline);
     return () => {
-      window.removeEventListener('wordlink:server-sync', onServerSync);
+      window.removeEventListener('get-word:server-sync', onServerSync);
       document.removeEventListener('visibilitychange', onVisibilityChange);
       window.removeEventListener('online', onOnline);
     };

@@ -2,10 +2,10 @@
 
 import type { ViewMode } from './types';
 
-const ACTIVE_LIST_STORAGE_KEY = 'wordlink-active-list';
-const VIEW_MODE_STORAGE_KEY = 'wordlink-view-mode';
-const CATEGORY_FILTERS_STORAGE_KEY = 'wordlink-category-filters-by-list';
-const LEARNING_ROLE_BY_PAIR_STORAGE_KEY = 'wordlink-learning-role-by-pair';
+const ACTIVE_LIST_STORAGE_KEY = 'get-word-active-list';
+const VIEW_MODE_STORAGE_KEY = 'get-word-view-mode';
+const CATEGORY_FILTERS_STORAGE_KEY = 'get-word-category-filters-by-list';
+const LEARNING_ROLE_BY_PAIR_STORAGE_KEY = 'get-word-learning-role-by-pair';
 
 type StoredLearningRole = 'cz' | 'vi';
 

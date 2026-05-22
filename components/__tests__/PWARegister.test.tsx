@@ -42,8 +42,8 @@ describe('PWARegister', () => {
       configurable: true,
       value: {
         keys: vi.fn().mockResolvedValue([
-          'wordlink-static-old',
-          'wordlink-runtime-old',
+          'get-word-static-old',
+          'get-word-runtime-old',
           'unrelated-cache',
         ]),
         delete: cacheDelete,
@@ -56,8 +56,8 @@ describe('PWARegister', () => {
       expect(getRegistrations).toHaveBeenCalledTimes(1);
       expect(unregisterA).toHaveBeenCalledTimes(1);
       expect(unregisterB).toHaveBeenCalledTimes(1);
-      expect(cacheDelete).toHaveBeenCalledWith('wordlink-static-old');
-      expect(cacheDelete).toHaveBeenCalledWith('wordlink-runtime-old');
+      expect(cacheDelete).toHaveBeenCalledWith('get-word-static-old');
+      expect(cacheDelete).toHaveBeenCalledWith('get-word-runtime-old');
       expect(cacheDelete).not.toHaveBeenCalledWith('unrelated-cache');
     });
 

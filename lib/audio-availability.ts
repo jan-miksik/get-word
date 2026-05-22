@@ -10,7 +10,7 @@ type AudioAvailabilityCacheEntry = {
 
 const audioAvailabilityCache = new Map<string, AudioAvailabilityCacheEntry>();
 
-const AUDIO_CACHE_NAME = 'wordlink-active-list-audio-v1';
+const AUDIO_CACHE_NAME = 'get-word-active-list-audio-v1';
 // Short per-gateway timeout so one slow Arweave node can't stall playback.
 // AbortController gives us a hard cutoff that works on both fetch implementations.
 const GATEWAY_TIMEOUT_MS = 1500;

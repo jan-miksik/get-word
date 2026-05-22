@@ -51,8 +51,8 @@ describe('local learning cache preferences', () => {
     setStoragePreference(true);
     await clearLearningCache();
 
-    expect(deleteDatabase).toHaveBeenCalledWith('wordlink-learning-cache');
-    expect(deleteCache).toHaveBeenCalledWith('wordlink-active-list-audio-v1');
+    expect(deleteDatabase).toHaveBeenCalledWith('get-word-learning-cache');
+    expect(deleteCache).toHaveBeenCalledWith('get-word-active-list-audio-v1');
     expect(getStoragePreference()).toBe(true);
   });
 });

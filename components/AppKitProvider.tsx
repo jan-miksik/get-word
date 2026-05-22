@@ -48,14 +48,14 @@ function installTelemetryNoops() {
   }
 
   const globalWithNoopFlag = globalThis as typeof globalThis & {
-    __wordlinkTelemetryNoopsInstalled?: boolean
+    __getWordTelemetryNoopsInstalled?: boolean
   }
 
-  if (globalWithNoopFlag.__wordlinkTelemetryNoopsInstalled) {
+  if (globalWithNoopFlag.__getWordTelemetryNoopsInstalled) {
     return
   }
 
-  globalWithNoopFlag.__wordlinkTelemetryNoopsInstalled = true
+  globalWithNoopFlag.__getWordTelemetryNoopsInstalled = true
 
   const originalFetch = window.fetch.bind(window)
   window.fetch = ((input, init) => {

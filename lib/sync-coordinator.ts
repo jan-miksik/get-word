@@ -34,7 +34,7 @@ export interface SyncStatus {
 
 type Listener = (status: SyncStatus) => void;
 
-const LAST_SYNCED_AT_KEY = 'wordlink-last-synced-at';
+const LAST_SYNCED_AT_KEY = 'get-word-last-synced-at';
 const NORMAL_SYNC_DEBOUNCE_MS = 7_500;
 const PERIODIC_SYNC_MS = 5 * 60 * 1000;
 const RETRY_DELAYS_MS = [10_000, 30_000, 2 * 60_000, 5 * 60_000];

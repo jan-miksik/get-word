@@ -86,6 +86,6 @@ describe("POST /api/providers/openrouter/connect/start", () => {
     expect(body.authorizeUrl).toContain("openrouter.ai/auth");
 
     const setCookie = res.headers.get("set-cookie");
-    expect(setCookie).toContain("wordlink_openrouter_oauth=");
+    expect(setCookie).toContain("get_word_openrouter_oauth=");
   });
 });

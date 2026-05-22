@@ -1,7 +1,7 @@
 import { getSessionId } from "./session-id";
 import type { ReviewEventPayload } from "./review-events";
 
-const CHANNEL_NAME = "wordlink-sync";
+const CHANNEL_NAME = "get-word-sync";
 
 export type GetWordTabMessage =
   | { type: "review_event"; sessionId: string; event: ReviewEventPayload }

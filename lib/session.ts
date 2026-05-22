@@ -7,7 +7,7 @@ export type GetWordSession = {
   exp: number; // seconds since epoch
 };
 
-export const GET_WORD_SESSION_COOKIE_NAME = "wordlink_session";
+export const GET_WORD_SESSION_COOKIE_NAME = "get_word_session";
 export const GET_WORD_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
 
 function getSessionSecret(): string | null {

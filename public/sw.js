@@ -1,10 +1,10 @@
 /* eslint-disable no-restricted-globals */
 
 const VERSION = new URL(self.location.href).searchParams.get('build') || 'v1';
-const STATIC_CACHE = `wordlink-static-${VERSION}`;
-const PAGES_CACHE = `wordlink-pages-${VERSION}`;
-const RUNTIME_CACHE = `wordlink-runtime-${VERSION}`;
-const ACTIVE_LIST_AUDIO_CACHE = 'wordlink-active-list-audio-v1';
+const STATIC_CACHE = `get-word-static-${VERSION}`;
+const PAGES_CACHE = `get-word-pages-${VERSION}`;
+const RUNTIME_CACHE = `get-word-runtime-${VERSION}`;
+const ACTIVE_LIST_AUDIO_CACHE = 'get-word-active-list-audio-v1';
 
 const PRECACHE_URLS = [
   '/offline.html',
@@ -41,7 +41,7 @@ self.addEventListener('activate', (event) => {
       const keys = await caches.keys();
       await Promise.all(
         keys
-          .filter((k) => k.startsWith('wordlink-'))
+          .filter((k) => k.startsWith('get-word-') || k.startsWith('wordlink-'))
           .filter((k) => k !== ACTIVE_LIST_AUDIO_CACHE)
           .map((k) => caches.delete(k))
       );

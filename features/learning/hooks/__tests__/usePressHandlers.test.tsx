@@ -77,7 +77,7 @@ describe('usePressHandlers', () => {
     const target = screen.getByText('hidden word');
     fireEvent.mouseDown(target);
 
-    expect(window.localStorage.getItem('wordlink-reveal-familiarity-count')).toBe('1');
+    expect(window.localStorage.getItem('get-word-reveal-familiarity-count')).toBe('1');
     expect(document.documentElement.dataset.revealFamiliarity).toBe('new');
   });
 
@@ -86,7 +86,7 @@ describe('usePressHandlers', () => {
 
     fireEvent.mouseDown(screen.getByText('visible word'));
 
-    expect(window.localStorage.getItem('wordlink-reveal-familiarity-count')).toBeNull();
+    expect(window.localStorage.getItem('get-word-reveal-familiarity-count')).toBeNull();
   });
 
   it('does not count a touch reveal when scrolling cancels the press delay', () => {
@@ -98,7 +98,7 @@ describe('usePressHandlers', () => {
     fireEvent.touchMove(target, { touches: [{ clientX: 10, clientY: 30 }] });
     vi.advanceTimersByTime(200);
 
-    expect(window.localStorage.getItem('wordlink-reveal-familiarity-count')).toBeNull();
+    expect(window.localStorage.getItem('get-word-reveal-familiarity-count')).toBeNull();
     expect(target).not.toHaveClass('is-pressed');
   });
 

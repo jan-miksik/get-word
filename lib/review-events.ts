@@ -3,7 +3,7 @@ import { scheduleDrain } from "@/lib/local-first/drainer";
 import { isLocalFirstAvailableSync, ensureLocalFirstAvailability } from "@/lib/local-first/availability";
 import { getDeviceId } from "@/lib/device-id";
 
-const REVIEW_EVENT_OUTBOX_KEY = "wordlink_review_event_outbox";
+const REVIEW_EVENT_OUTBOX_KEY = "get_word_review_event_outbox";
 
 export type ReviewEventAction = "known" | "really_known" | "unknown";
 

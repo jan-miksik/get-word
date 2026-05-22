@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mockVerifySession = vi.hoisted(() => vi.fn());
 
 vi.mock("@/lib/session", () => ({
-  GET_WORD_SESSION_COOKIE_NAME: "wordlink_session",
+  GET_WORD_SESSION_COOKIE_NAME: "get_word_session",
   verifySession: mockVerifySession,
 }));
 
@@ -12,7 +12,7 @@ import { config, proxy } from "../proxy";
 
 function makeRequest(pathname: string, token?: string) {
   return new NextRequest(`http://localhost:3000${pathname}`, {
-    headers: token ? { cookie: `wordlink_session=${token}` } : undefined,
+    headers: token ? { cookie: `get_word_session=${token}` } : undefined,
   });
 }
 

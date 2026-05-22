@@ -96,7 +96,7 @@ describe('useAuth', () => {
   })
 
   it('signOut calls disconnect', async () => {
-    localStorage.setItem('wordlink_device_id', 'device-123')
+    localStorage.setItem('get_word_device_id', 'device-123')
     const { result } = renderHook(() => useAuth())
     await result.current.signOut()
     expect(mockFetch).toHaveBeenCalledWith('/api/auth/logout', {
@@ -104,7 +104,7 @@ describe('useAuth', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ deviceId: 'device-123' }),
     })
-    expect(localStorage.getItem('wordlink_device_id')).toBeNull()
+    expect(localStorage.getItem('get_word_device_id')).toBeNull()
     expect(mockDisconnect).toHaveBeenCalled()
   })
 

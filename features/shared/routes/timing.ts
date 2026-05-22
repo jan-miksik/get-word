@@ -28,7 +28,7 @@ export function createRouteTimer(): RouteTimer {
           marks.map((mark) => `${mark.name};dur=${mark.dur.toFixed(1)}`).join(', ')
         );
       }
-      response.headers.set('x-wordlink-total-ms', this.totalMs().toFixed(1));
+      response.headers.set('x-get-word-total-ms', this.totalMs().toFixed(1));
       return response;
     },
   };

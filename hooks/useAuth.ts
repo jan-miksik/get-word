@@ -55,7 +55,7 @@ export function useAuth(): UseAuthReturn {
     clearPendingSync()
     resetSyncIdentity()
     deleteDeviceId()
-    document.cookie = 'wordlink_user_role=;path=/;max-age=0;SameSite=Lax'
+    document.cookie = 'get_word_user_role=;path=/;max-age=0;SameSite=Lax'
     await clearLearningCache()
     await Promise.resolve(disconnect())
   }, [disconnect])

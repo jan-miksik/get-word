@@ -20,7 +20,7 @@ CSS custom properties are the design system (defined in `styles/tokens.css` and 
 ### Data flow
 
 ```
-data/words       →  features/learning/hooks/useWordsLoader  →  page.tsx
+/api/words       →  features/learning/hooks/useWordsLoader  →  page.tsx
                                            ↓
                                       useAppState   ←→   lib/sync.ts  ←→  /api/sync
                                            ↓
@@ -65,7 +65,7 @@ Tables: `users`, `words`, `user_progress`, `user_memory_hooks`, `user_category_f
 - **Card mode** (`CardDeckView`): swipe-style fullscreen deck. Monkey emoji button appears on the card itself on mobile (hidden from top bar).
 - **Stream mode** (`VirtualizedWordList`): virtualized scrolling list with minigames injected inline.
 
-View mode stored in `localStorage` under `wordlink-view-mode`.
+View mode stored in `localStorage` under `get-word-view-mode`.
 
 ### Pages
 

@@ -6,9 +6,9 @@ import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
 import { DB_NAME, STORE_KV, openDb as openSharedDb } from '@/lib/local-first/db';
 
 const STORE_NAME = STORE_KV;
-const STORAGE_PREF_KEY = 'wordlink-local-learning-cache-enabled';
-const AUDIO_PREF_KEY = 'wordlink-active-list-audio-cache-enabled';
-const AUDIO_CACHE_NAME = 'wordlink-active-list-audio-v1';
+const STORAGE_PREF_KEY = 'get-word-local-learning-cache-enabled';
+const AUDIO_PREF_KEY = 'get-word-active-list-audio-cache-enabled';
+const AUDIO_CACHE_NAME = 'get-word-active-list-audio-v1';
 
 export interface LearningSnapshot {
   savedAt: number;

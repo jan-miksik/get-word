@@ -63,7 +63,7 @@ vi.mock('@/lib/db', () => ({
 vi.mock('@/lib/session', () => ({
   verifySession: (...args: unknown[]) => mockVerifySession(...args),
   signSession: (...args: unknown[]) => mockSignSession(...args),
-  GET_WORD_SESSION_COOKIE_NAME: 'wordlink_session',
+  GET_WORD_SESSION_COOKIE_NAME: 'get_word_session',
   GET_WORD_SESSION_TTL_SECONDS: 60 * 60 * 24 * 30,
 }))
 

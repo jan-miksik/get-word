@@ -6,8 +6,8 @@ import {
 
 export type StoredTranslationProvider = 'google' | 'openrouter';
 
-const TRANSLATION_PROVIDER_STORAGE_KEY = 'wordlink-list-translation-provider';
-const GOOGLE_TTS_VOICE_STORAGE_PREFIX = 'wordlink-list-google-tts-voice';
+const TRANSLATION_PROVIDER_STORAGE_KEY = 'get-word-list-translation-provider';
+const GOOGLE_TTS_VOICE_STORAGE_PREFIX = 'get-word-list-google-tts-voice';
 
 function readStorageValue(key: string): string | null {
   if (typeof window === 'undefined') return null;

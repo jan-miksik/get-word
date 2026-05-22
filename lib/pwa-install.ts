@@ -3,7 +3,7 @@ export interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>;
 }
 
-export const PWA_INSTALL_HELP_EVENT = 'wordlink:pwa-install-help-open';
+export const PWA_INSTALL_HELP_EVENT = 'get-word:pwa-install-help-open';
 
 export function isStandalone() {
   if (typeof window === 'undefined') return false;

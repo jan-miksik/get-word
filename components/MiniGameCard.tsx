@@ -13,7 +13,7 @@ import { MatchingPairsGame } from './games/MatchingPairsGame';
 import { getWordAudioSrcByLang, type PromptMode, type SourceLang } from './games/types';
 import { useI18n } from '@/components/I18nProvider';
 
-const SKIP_SOUND_KEY = 'wordlink-skip-sound';
+const SKIP_SOUND_KEY = 'get-word-skip-sound';
 
 function readSkipSound(): boolean {
   if (typeof window === 'undefined') return false;

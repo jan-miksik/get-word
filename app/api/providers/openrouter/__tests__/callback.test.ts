@@ -9,7 +9,7 @@ const mockTestConnection = vi.fn();
 const mockUpsertProviderSecret = vi.fn();
 
 vi.mock("@/lib/providers/oauth-state", () => ({
-  OPENROUTER_OAUTH_COOKIE_NAME: "wordlink_openrouter_oauth",
+  OPENROUTER_OAUTH_COOKIE_NAME: "get_word_openrouter_oauth",
   parseOAuthState: (...args: unknown[]) => mockParseOAuthState(...args),
 }));
 

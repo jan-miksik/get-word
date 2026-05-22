@@ -19,7 +19,7 @@ export type Role = 'cz' | 'vi';
 export type SettingsLanguage = string;
 
 const DEFAULT_SETTINGS_LANGUAGE = 'en';
-const LEARNING_ONBOARDING_COMPLETED_SESSION_KEY = 'wordlink-learning-onboarding-completed';
+const LEARNING_ONBOARDING_COMPLETED_SESSION_KEY = 'get-word-learning-onboarding-completed';
 
 function normalizeSettingsLanguage(value: unknown): SettingsLanguage {
   if (typeof value !== 'string') return DEFAULT_SETTINGS_LANGUAGE;
