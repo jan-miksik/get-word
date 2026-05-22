@@ -22,7 +22,10 @@ describe('audio availability', () => {
 
     await expect(checkAudioUrlAvailable('/speech/cz/missing.mp3')).resolves.toBe(false);
 
-    expect(global.fetch).toHaveBeenCalledWith('/speech/cz/missing.mp3', { method: 'HEAD' });
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/speech/cz/missing.mp3',
+      expect.objectContaining({ method: 'HEAD' }),
+    );
     expect(logSpy).toHaveBeenCalledWith(
       '[AudioAvailability] Missing audio file',
       expect.objectContaining({
@@ -56,7 +59,10 @@ describe('audio availability', () => {
     );
     await expect(checkAudioUrlAvailable('https://ar-io.net/tx123')).resolves.toBe(true);
 
-    expect(global.fetch).toHaveBeenCalledWith('https://turbo-gateway.com/tx123', { method: 'HEAD' });
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://turbo-gateway.com/tx123',
+      expect.objectContaining({ method: 'HEAD' }),
+    );
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 });

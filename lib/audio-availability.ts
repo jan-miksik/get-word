@@ -10,33 +10,62 @@ type AudioAvailabilityCacheEntry = {
 
 const audioAvailabilityCache = new Map<string, AudioAvailabilityCacheEntry>();
 
-async function probeSingleAudioUrl(url: string): Promise<boolean> {
+const AUDIO_CACHE_NAME = 'wordlink-active-list-audio-v1';
+// Short per-gateway timeout so one slow Arweave node can't stall playback.
+// AbortController gives us a hard cutoff that works on both fetch implementations.
+const GATEWAY_TIMEOUT_MS = 1500;
+
+async function checkCacheFirst(candidates: string[]): Promise<string | null> {
+  if (typeof caches === 'undefined') return null;
   try {
-    const headResponse = await fetch(url, { method: 'HEAD' });
-    if (headResponse.ok) return true;
-    if (headResponse.status === 404) {
-      return false;
-    }
-    if (headResponse.status !== 405 && headResponse.status !== 501) {
-      return false;
+    const cache = await caches.open(AUDIO_CACHE_NAME);
+    for (const candidate of candidates) {
+      const hit = await cache.match(candidate);
+      if (hit) return candidate;
     }
   } catch {
+    // Cache API can be unavailable in private modes; fall through to network.
+  }
+  return null;
+}
+
+async function probeWithTimeout(url: string): Promise<boolean> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), GATEWAY_TIMEOUT_MS);
+  try {
+    const headResponse = await fetch(url, { method: 'HEAD', signal: controller.signal });
+    if (headResponse.ok) return true;
+    if (headResponse.status === 404) return false;
+    if (headResponse.status !== 405 && headResponse.status !== 501) return false;
+  } catch {
     return false;
+  } finally {
+    clearTimeout(timer);
   }
 
+  const getController = new AbortController();
+  const getTimer = setTimeout(() => getController.abort(), GATEWAY_TIMEOUT_MS);
   try {
-    const getResponse = await fetch(url, { method: 'GET' });
+    const getResponse = await fetch(url, { method: 'GET', signal: getController.signal });
     return getResponse.ok;
   } catch {
     return false;
+  } finally {
+    clearTimeout(getTimer);
   }
 }
 
 async function probeAudioUrl(url: string): Promise<string | null> {
   const candidates = getArweaveGatewayUrlCandidates(url);
 
+  // 1. Cache API hit beats any network attempt.
+  const cached = await checkCacheFirst(candidates);
+  if (cached) return cached;
+
+  // 2. Iterate gateway candidates with a per-attempt timeout so a single
+  //    slow gateway can't block subsequent fallbacks.
   for (const candidate of candidates) {
-    if (await probeSingleAudioUrl(candidate)) {
+    if (await probeWithTimeout(candidate)) {
       return candidate;
     }
   }

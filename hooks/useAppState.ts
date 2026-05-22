@@ -10,6 +10,7 @@ import { useCategoryFilter, useGameScore, useMemoryHooks, usePreferences, usePro
 import type { LinkPayload } from '@/features/learning/app-state/types';
 import type { NormalizedWord } from '@/lib/words';
 import { readStoredLearningRoleForPair } from '@/features/learning/app-state/storage';
+import { cacheActiveListAudio } from '@/lib/local-learning-cache';
 
 export type { Role } from '@/features/learning/state';
 export type { LinkPayload } from '@/features/learning/app-state/types';
@@ -106,6 +107,14 @@ export function useAppState(
     () => subscribedLists.find((list) => list.id === activeListId) ?? null,
     [activeListId, subscribedLists],
   );
+
+  // Warm the active list's audio cache when the user switches lists. The
+  // helper internally respects the user's audio-cache preference and bails
+  // out cleanly when off, so this is safe to call unconditionally.
+  useEffect(() => {
+    if (!isHydrated || !activeListId || activeWords.length === 0) return;
+    void cacheActiveListAudio(activeWords).catch(() => undefined);
+  }, [activeListId, activeWords, isHydrated]);
 
   useEffect(() => {
     if (!activeList) return;
