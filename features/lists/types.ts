@@ -13,6 +13,23 @@ export type WordList = {
   updatedAt?: string | Date;
 };
 
+export type LearningLanguage = {
+  code: string;
+  name: string;
+  ttsAvailable?: boolean;
+};
+
+export type TranslationProvider = 'google' | 'openrouter' | 'none';
+
+export type PendingFork = {
+  source: WordList;
+  languageFrom: string;
+  languageTo: string;
+  provider: TranslationProvider;
+  sourceLanguage: string;
+  translationModel: string;
+};
+
 export type WordCategory = {
   id: string;
   listId: string;

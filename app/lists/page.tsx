@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
-import { fetchUserData } from '@/lib/sync';
-import { subscribeTabMessages } from '@/lib/tab-sync';
 import { listsApiFetch } from '@/features/lists/api';
 import * as listActions from '@/features/lists/client/actions';
 import {
@@ -15,16 +13,21 @@ import {
   readStoredOpenRouterModelOrDefault,
   writeStoredOpenRouterModel,
 } from '@/features/lists/client/storage';
+import { isSameListDirection } from '@/features/lists/languages';
+import { useLearningLanguages } from '@/features/lists/hooks/useLearningLanguages';
+import { useListsSettingsLanguage } from '@/features/lists/hooks/useListsSettingsLanguage';
 import { useBuildAudioStepItems, useItemsByCategory } from '@/features/lists/hooks/useListWizardItems';
 import type {
   CompletedTranslationRow,
   ConfirmResult,
   DiffResult,
   GoogleUsageResponse,
+  PendingFork,
   WordCategory,
   WordList,
   WordListItem,
 } from '@/features/lists/types';
+import { ErrorMessage } from './ErrorMessage';
 import { ListSidebar } from './ListSidebar';
 import { CategoryBrowser } from './CategoryBrowser';
 import { TextareaEditor } from './TextareaEditor';
@@ -32,100 +35,16 @@ import { DiffPreview } from './DiffPreview';
 import { TranslationStep } from './TranslationStep';
 import { AudioStep } from './AudioStep';
 import { ApiKeySettings } from './ApiKeySettings';
+import { PendingForkDialog } from './PendingForkDialog';
 import { WizardProgressBar, type WizardActiveStep } from './WizardProgressBar';
-import {
-  OPENROUTER_MODELS_URL,
-  OPENROUTER_TRANSLATION_MODELS,
-} from '@/lib/openrouter-models';
 
 type WizardStep = 'browse' | WizardActiveStep;
-type LearningLanguage = { code: string; name: string; ttsAvailable?: boolean };
 type ForkedListPrompt = { listId: string; sourceName: string };
 type PendingListItems = NonNullable<ConfirmResult['pending_items']>;
 type TranslateHeadingMode = 'translate' | 'review';
-type TranslationProvider = 'google' | 'openrouter' | 'none';
-type PendingFork = {
-  source: WordList;
-  languageFrom: string;
-  languageTo: string;
-  provider: TranslationProvider;
-  sourceLanguage: string;
-  translationModel: string;
-};
-
-function normalizeListLanguageCode(code: string): string {
-  const [base, region] = String(code).trim().split('-');
-  const normalizedBase = (base ?? '').toLowerCase();
-  if (normalizedBase === 'cs' || normalizedBase === 'cz') return 'cs';
-  return region ? `${normalizedBase}-${region.toUpperCase()}` : normalizedBase;
-}
-
-function isSameListDirection(left: WordList, right: WordList): boolean {
-  return (
-    normalizeListLanguageCode(left.languageFrom) === normalizeListLanguageCode(right.languageFrom) &&
-    normalizeListLanguageCode(left.languageTo) === normalizeListLanguageCode(right.languageTo)
-  );
-}
-
-function ErrorMessage({ message }: { message: string }) {
-  const supportText = 'Contact our tech support';
-  const supportLinkText = 'Kontaktujte technickou podporu';
-  const parts = message.split(supportText);
-
-  if (parts.length === 1) return <>{message}</>;
-
-  return (
-    <>
-      {parts.map((part, index) => (
-        <span key={`${part}-${index}`}>
-          {part}
-          {index < parts.length - 1 ? (
-            <a
-              href="https://t.me/janmiksik"
-              target="_blank"
-              rel="noreferrer"
-              className="font-medium underline"
-            >
-              {supportLinkText}
-            </a>
-          ) : null}
-        </span>
-      ))}
-    </>
-  );
-}
 
 export default function ListsPage() {
-  const [settingsLanguage, setSettingsLanguage] = useState('en');
-
-  useEffect(() => {
-    let cancelled = false;
-
-    void fetchUserData()
-      .then((data) => {
-        if (cancelled) return;
-        const language = data.user?.settings_language;
-        if (typeof language === 'string' && language.trim()) {
-          setSettingsLanguage(language);
-        }
-      })
-      .catch(() => {
-        // Keep English fallback until the saved language is available.
-      });
-
-    const unsubscribe = subscribeTabMessages((message) => {
-      if (message.type !== 'preferences_changed') return;
-      const language = message.patch.settingsLanguage;
-      if (typeof language === 'string' && language.trim()) {
-        setSettingsLanguage(language);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-      unsubscribe();
-    };
-  }, []);
+  const settingsLanguage = useListsSettingsLanguage();
 
   return (
     <I18nProvider language={settingsLanguage}>
@@ -160,7 +79,7 @@ function ListsPageContent() {
   const [initialCreateLanguageFrom, setInitialCreateLanguageFrom] = useState<string | null>(null);
   const [initialCreateLanguageTo, setInitialCreateLanguageTo] = useState<string | null>(null);
   const [existingListsHint, setExistingListsHint] = useState(false);
-  const [languages, setLanguages] = useState<LearningLanguage[]>([]);
+  const languages = useLearningLanguages();
   const [isEditDirty, setIsEditDirty] = useState(false);
   const [googleUsage, setGoogleUsage] = useState<GoogleUsageResponse | null>(null);
   const [forkedListPrompt, setForkedListPrompt] = useState<ForkedListPrompt | null>(null);
@@ -229,23 +148,6 @@ function ListsPageContent() {
       setError(initialUrlState.notice);
       window.history.replaceState(null, '', consumeOneShotListsUrlParams(window.location.search));
     }
-  }, []);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/languages')
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled) {
-          setLanguages(Array.isArray(data.languages) ? data.languages : []);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setLanguages([]);
-      });
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
   useEffect(() => {
@@ -969,154 +871,19 @@ function ListsPageContent() {
       )}
 
       {pendingFork && (
-        <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setPendingFork(null)}
-        >
-          <div
-            className="w-full max-w-lg rounded-lg border border-border-subtle bg-background p-4 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <div className="mb-3">
-              <h2 className="text-base font-semibold text-text">{t('lists.copyList')}</h2>
-              <p className="mt-1 text-sm text-text-soft">{pendingFork.source.name}</p>
-            </div>
-            <div className="grid gap-3">
-              <div className="grid gap-2 sm:grid-cols-[1fr_auto_1fr] sm:items-end">
-                <label className="grid gap-1">
-                  <span className="text-xs font-medium text-text-soft">{t('lists.knownLanguage')}</span>
-                  <select
-                    value={pendingFork.languageFrom}
-                    onChange={(event) => setPendingFork((current) =>
-                      current ? { ...current, languageFrom: event.target.value } : current
-                    )}
-                    className="rounded-lg border border-border-subtle bg-background-elevated px-3 py-2 text-sm text-text outline-none focus:border-accent"
-                  >
-                    {languageOptions.map((language) => (
-                      <option key={language.code} value={language.code}>
-                        {language.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <span className="hidden pb-2 text-xs text-text-soft sm:block">→</span>
-                <label className="grid gap-1">
-                  <span className="text-xs font-medium text-text-soft">{t('lists.targetLanguage')}</span>
-                  <select
-                    value={pendingFork.languageTo}
-                    onChange={(event) => setPendingFork((current) =>
-                      current ? { ...current, languageTo: event.target.value } : current
-                    )}
-                    className="rounded-lg border border-border-subtle bg-background-elevated px-3 py-2 text-sm text-text outline-none focus:border-accent"
-                  >
-                    {languageOptions.map((language) => (
-                      <option key={language.code} value={language.code}>
-                        {language.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <label className="grid gap-1">
-                <span className="text-xs font-medium text-text-soft">{t('lists.translation')}</span>
-                <select
-                  value={pendingFork.provider}
-                  onChange={(event) => setPendingFork((current) =>
-                    current ? { ...current, provider: event.target.value as TranslationProvider } : current
-                  )}
-                  className="rounded-lg border border-border-subtle bg-background-elevated px-3 py-2 text-sm text-text outline-none focus:border-accent"
-                >
-                  <option value="none">{t('lists.noAutoTranslation')}</option>
-                  <option value="google">{t('lists.translationProviderGoogle')}</option>
-                  <option value="openrouter">BYOK LLM (OpenRouter)</option>
-                </select>
-              </label>
-              {pendingFork.provider !== 'none' && (
-                <label className="grid gap-1">
-                  <span className="text-xs font-medium text-text-soft">{t('lists.translateFromOriginalLanguage')}</span>
-                  <select
-                    value={pendingFork.sourceLanguage}
-                    onChange={(event) => setPendingFork((current) =>
-                      current ? { ...current, sourceLanguage: event.target.value } : current
-                    )}
-                    className="rounded-lg border border-border-subtle bg-background-elevated px-3 py-2 text-sm text-text outline-none focus:border-accent"
-                  >
-                    <option value={pendingFork.source.languageFrom}>{pendingFork.source.languageFrom}</option>
-                    <option value={pendingFork.source.languageTo}>{pendingFork.source.languageTo}</option>
-                  </select>
-                </label>
-              )}
-              {pendingFork.provider === 'openrouter' && (
-                <div className="grid gap-2 rounded-lg border border-border-subtle bg-background-elevated p-3">
-                  <div className="flex items-center justify-between gap-3">
-                    <label className="text-xs font-medium text-text-soft" htmlFor="fork-openrouter-model">
-                      {t('lists.openRouterModel')}
-                    </label>
-                    <a
-                      className="text-[11px] text-accent hover:text-accent-strong"
-                      href={OPENROUTER_MODELS_URL}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      {t('lists.browseModels')}
-                    </a>
-                  </div>
-                  <div className="grid gap-2 md:grid-cols-2">
-                    <select
-                      id="fork-openrouter-model"
-                      value={
-                        OPENROUTER_TRANSLATION_MODELS.some((model) => model.id === pendingFork.translationModel)
-                          ? pendingFork.translationModel
-                          : 'custom'
-                      }
-                      onChange={(event) => {
-                        const next = event.target.value;
-                        if (next !== 'custom') handlePendingForkModelChange(next);
-                      }}
-                      className="min-w-0 rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text outline-none focus:border-accent"
-                    >
-                      {OPENROUTER_TRANSLATION_MODELS.map((model) => (
-                        <option key={model.id} value={model.id}>
-                          {model.name} - {model.price}
-                        </option>
-                      ))}
-                      <option value="custom">{t('lists.customModelName')}</option>
-                    </select>
-                    <input
-                      value={pendingFork.translationModel}
-                      onChange={(event) => handlePendingForkModelChange(event.target.value)}
-                      placeholder="provider/model-name"
-                      className="min-w-0 rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text outline-none focus:border-accent"
-                      spellCheck={false}
-                    />
-                  </div>
-                </div>
-              )}
-              <div className="flex justify-end gap-2 pt-1">
-                <button
-                  type="button"
-                  className="rounded-lg border border-border-subtle px-3 py-1.5 text-sm text-text-soft"
-                  onClick={() => setPendingFork(null)}
-                >
-                  {t('common.cancel')}
-                </button>
-                <button
-                  type="button"
-                  disabled={forkingListId === pendingFork.source.id || pendingFork.languageFrom === pendingFork.languageTo}
-                  className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-background disabled:opacity-50"
-                  onClick={() => {
-                    void handleConfirmFork().catch((err) => {
-                      setForkingListId(null);
-                      setError(err instanceof Error ? err.message : t('lists.copyFailed'));
-                    });
-                  }}
-                >
-                  {forkingListId === pendingFork.source.id ? t('lists.copying') : t('lists.copyList')}
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
+        <PendingForkDialog
+          pendingFork={pendingFork}
+          forkingListId={forkingListId}
+          languageOptions={languageOptions}
+          onChange={(updater) => setPendingFork((current) => (current ? updater(current) : current))}
+          onModelChange={handlePendingForkModelChange}
+          onCancel={() => setPendingFork(null)}
+          onConfirm={handleConfirmFork}
+          onError={(message) => {
+            setForkingListId(null);
+            setError(message);
+          }}
+        />
       )}
     </div>
   );

@@ -33,8 +33,10 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 - List API fetch wrapper: `features/lists/api.ts`
 - Canonical list types: `features/lists/types.ts`
 - URL state helpers: `features/lists/client/url-state.ts`
+- Local preference storage: `features/lists/client/storage.ts`
+- Language helpers/loading: `features/lists/languages.ts`, `features/lists/hooks/useLearningLanguages.ts`
 - Wizard item selectors: `features/lists/hooks/useListWizardItems.ts`
-- Main list UI pieces: `app/lists/ListSidebar.tsx`, `app/lists/CategoryBrowser.tsx`, `app/lists/TextareaEditor.tsx`, `app/lists/TranslationStep.tsx`, `app/lists/AudioStep.tsx`
+- Main list UI pieces: `app/lists/ListSidebar.tsx`, `app/lists/CategoryBrowser.tsx`, `app/lists/TextareaEditor.tsx`, `app/lists/TranslationStep.tsx`, `app/lists/AudioStep.tsx`, `app/lists/PendingForkDialog.tsx`
 
 ### Audio
 

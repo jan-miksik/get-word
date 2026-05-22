@@ -10,6 +10,7 @@ Owns list browsing, category editing, translation review, audio generation flow,
 - `features/lists/api.ts`
 - `features/lists/client/actions.ts`
 - `features/lists/hooks/useListWizardItems.ts`
+- `features/lists/hooks/useLearningLanguages.ts`
 - `app/lists/page.tsx`
 
 ## Entrypoints
@@ -17,7 +18,10 @@ Owns list browsing, category editing, translation review, audio generation flow,
 - UI shell: `app/lists/page.tsx`
 - Client API actions: `features/lists/client/actions.ts`
 - URL state helpers: `features/lists/client/url-state.ts`
+- Local preference storage: `features/lists/client/storage.ts`
+- Language helpers: `features/lists/languages.ts`
 - UI steps:
+  - `app/lists/PendingForkDialog.tsx`
   - `app/lists/CategoryBrowser.tsx`
   - `app/lists/TextareaEditor.tsx`
   - `app/lists/DiffPreview.tsx`
