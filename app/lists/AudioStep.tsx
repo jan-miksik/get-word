@@ -15,7 +15,6 @@ import {
   toAudioVariant,
   type AudioRow,
   type AudioSide,
-  type AudioSourceCandidate,
 } from '@/features/lists/audio-step/rows';
 import {
   chunkArray,
@@ -23,99 +22,17 @@ import {
   readDebugResponse,
   type AudioGenerationResult,
   type AudioReuseResult,
-  type TranslateFn,
 } from '@/features/lists/audio-step/api';
 import {
   formatLanguage,
   getBaseLanguage,
   type TtsLanguageOption,
 } from '@/features/lists/audio-step/language';
+import { useAudioPlayback } from '@/features/lists/audio-step/useAudioPlayback';
 import { GoogleUsageHint } from './GoogleUsageHint';
-
-type CachedAudio = {
-  objectUrl: string;
-  contentType: string;
-  finalUrl: string;
-  sizeBytes: number;
-};
-
-type QueuedAudio = {
-  rowId: string;
-  source: AudioSourceCandidate;
-};
 
 const AUDIO_LOG_PREFIX = '[Get Word audio]';
 const AUDIO_REUSE_BATCH_SIZE = 200;
-
-class AudioLoadError extends Error {
-  constructor(
-    message: string,
-    readonly attempts: {
-      requestedUrl: string;
-      finalUrl?: string;
-      status?: number;
-      ok?: boolean;
-      contentType?: string;
-      contentLength?: string | null;
-      bodyPreview?: string;
-      error?: string;
-    }[],
-  ) {
-    super(message);
-    this.name = 'AudioLoadError';
-  }
-}
-
-function logAudioStep(message: string, details?: unknown) {
-  void message;
-  void details;
-}
-
-function getMediaErrorLabel(error: MediaError | null): string {
-  if (!error) return 'unknown';
-  switch (error.code) {
-    case 1:
-      return 'MEDIA_ERR_ABORTED';
-    case 2:
-      return 'MEDIA_ERR_NETWORK';
-    case 3:
-      return 'MEDIA_ERR_DECODE';
-    case 4:
-      return 'MEDIA_ERR_SRC_NOT_SUPPORTED';
-    default:
-      return `MEDIA_ERR_${error.code}`;
-  }
-}
-
-function getLoadErrorMessage(error: unknown, fallbackUrl: string | null, t: TranslateFn): string {
-  if (error instanceof AudioLoadError) {
-    const firstAttempt = error.attempts[0];
-    const failedUrl = firstAttempt?.requestedUrl ?? fallbackUrl ?? undefined;
-    const reason =
-      firstAttempt?.status
-        ? `HTTP ${firstAttempt.status}`
-        : firstAttempt?.error ?? error.message;
-    return t('lists.audioLoadFailed', {
-      file: failedUrl ?? t('lists.audioFile'),
-      reason,
-    });
-  }
-
-  if (error && typeof error === 'object' && 'playbackUrl' in error) {
-    const playbackUrl =
-      typeof error.playbackUrl === 'string' ? error.playbackUrl : fallbackUrl ?? undefined;
-    const reason =
-      'mediaError' in error && typeof error.mediaError === 'string'
-        ? error.mediaError
-        : t('lists.audioPlaybackGenericReason');
-    return t('lists.audioPlaybackFailed', {
-      file: playbackUrl ?? t('lists.audioFile'),
-      reason,
-    });
-  }
-
-  return error instanceof Error ? error.message : t('lists.audioFileLoadFailed');
-}
 
 interface AudioStepProps {
   list: WordList;
@@ -149,19 +66,34 @@ export function AudioStep({
   const [generating, setGenerating] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [playingId, setPlayingId] = useState<string | null>(null);
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(() => new Set());
-  const [playbackErrors, setPlaybackErrors] = useState<Record<string, string>>({});
   const [progress, setProgress] = useState(0);
   const [voiceOptions, setVoiceOptions] = useState<string[]>([]);
   const [selectedGoogleVoiceId, setSelectedGoogleVoiceId] = useState(
     () => readStoredGoogleVoiceId(activeLanguageCode),
   );
   const [loadingVoices, setLoadingVoices] = useState(false);
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const audioCacheRef = useRef<Map<string, CachedAudio>>(new Map());
-  const playQueueRef = useRef<QueuedAudio[]>([]);
   const didInitializeVoiceRef = useRef(false);
+
+  const markRowFailed = useCallback((rowId: string) => {
+    setRows((prev) =>
+      prev.map((candidate) =>
+        candidate.id === rowId ? { ...candidate, audioStatus: 'failed' as const } : candidate,
+      ),
+    );
+  }, []);
+
+  const {
+    playingId,
+    playbackErrors,
+    setPlaybackErrors,
+    clearCachedAudio,
+    preloadAudio,
+    playSingle,
+    playQueue,
+    pause: handlePause,
+    resetForReload: resetPlaybackForReload,
+  } = useAudioPlayback({ rows, t, onLinkedSourceFailed: markRowFailed });
 
   const readyCount = rows.filter((row) => row.audioStatus === 'ready').length;
   const needsGenCount = rows.filter((row) => row.audioStatus === 'none' || row.audioStatus === 'failed').length;
@@ -182,14 +114,11 @@ export function AudioStep({
 
   useEffect(() => {
     setRows(buildAudioRows(items, list, audioSide));
-    setPlaybackErrors({});
     setError(null);
     setSelectedGoogleVoiceId(readStoredGoogleVoiceId(activeLanguageCode));
     didInitializeVoiceRef.current = false;
-    if (audioRef.current) audioRef.current.pause();
-    setPlayingId(null);
-    playQueueRef.current = [];
-  }, [activeLanguageCode, audioSide, items, list]);
+    resetPlaybackForReload();
+  }, [activeLanguageCode, audioSide, items, list, resetPlaybackForReload]);
 
   useEffect(() => {
     let cancelled = false;
@@ -249,128 +178,6 @@ export function AudioStep({
       ),
     );
   }, [selectedGoogleVoiceId]);
-
-  const clearCachedAudio = useCallback((audioUrl: string | null | undefined) => {
-    if (!audioUrl) return;
-    const cached = audioCacheRef.current.get(audioUrl);
-    if (!cached) return;
-    URL.revokeObjectURL(cached.objectUrl);
-    audioCacheRef.current.delete(audioUrl);
-    logAudioStep('cleared cached audio blob', { audioUrl, finalUrl: cached.finalUrl });
-  }, []);
-
-  const preloadAudio = useCallback(async (rowId: string, source: AudioSourceCandidate): Promise<string> => {
-    const cached = audioCacheRef.current.get(source.audioUrl);
-    if (cached) {
-      logAudioStep('using cached audio blob', {
-        itemId: rowId,
-        audioUrl: source.audioUrl,
-        finalUrl: cached.finalUrl,
-        contentType: cached.contentType,
-        sizeBytes: cached.sizeBytes,
-      });
-      return cached.objectUrl;
-    }
-
-    const candidateUrls = Array.from(new Set([
-      source.audioUrl,
-      ...source.arweaveUrls,
-      ...(source.arweaveUrl ? [source.arweaveUrl] : []),
-    ]));
-
-    let blob: Blob | null = null;
-    let responseDetails: {
-      requestedUrl: string;
-      finalUrl: string;
-      status: number;
-      ok: boolean;
-      contentType: string;
-      contentLength: string | null;
-    } | null = null;
-    const failedAttempts: AudioLoadError['attempts'] = [];
-
-    for (const candidateUrl of candidateUrls) {
-      let response: Response;
-      try {
-        response = await fetch(candidateUrl, {
-          cache: 'force-cache',
-          headers: {
-            Accept: 'audio/mpeg,audio/*;q=0.9,*/*;q=0.1',
-          },
-        });
-      } catch (err) {
-        failedAttempts.push({
-          requestedUrl: candidateUrl,
-          error: err instanceof Error ? err.message : 'Network error',
-        });
-        continue;
-      }
-
-      const contentType = response.headers.get('content-type') ?? '';
-      const contentLength = response.headers.get('content-length');
-      const attemptDetails = {
-        requestedUrl: candidateUrl,
-        finalUrl: response.url,
-        status: response.status,
-        ok: response.ok,
-        contentType,
-        contentLength,
-      };
-
-      if (!response.ok) {
-        let bodyPreview = '';
-        try {
-          bodyPreview = (await response.clone().text()).slice(0, 240);
-        } catch {
-          bodyPreview = '[could not read response body]';
-        }
-        failedAttempts.push({ ...attemptDetails, bodyPreview });
-        continue;
-      }
-
-      const normalizedContentType = contentType.toLowerCase();
-      const looksLikeAudio =
-        normalizedContentType.startsWith('audio/')
-        || normalizedContentType.includes('mpeg')
-        || normalizedContentType.includes('octet-stream')
-        || normalizedContentType === '';
-
-      if (!looksLikeAudio) {
-        let bodyPreview = '';
-        try {
-          bodyPreview = (await response.clone().text()).slice(0, 240);
-        } catch {
-          bodyPreview = '[could not read response body]';
-        }
-        failedAttempts.push({ ...attemptDetails, bodyPreview });
-        continue;
-      }
-
-      const candidateBlob = await response.blob();
-      if (candidateBlob.size === 0) {
-        failedAttempts.push({ ...attemptDetails, bodyPreview: '[empty audio response]' });
-        continue;
-      }
-
-      blob = candidateBlob;
-      responseDetails = attemptDetails;
-      break;
-    }
-
-    if (!blob || !responseDetails) {
-      throw new AudioLoadError(t('lists.audioGatewayLoadFailed'), failedAttempts);
-    }
-
-    const objectUrl = URL.createObjectURL(blob);
-    audioCacheRef.current.set(source.audioUrl, {
-      objectUrl,
-      contentType: blob.type || responseDetails.contentType || 'unknown',
-      finalUrl: responseDetails.finalUrl,
-      sizeBytes: blob.size,
-    });
-
-    return objectUrl;
-  }, []);
 
   const lookupReusableAudio = useCallback(async (targetRows: AudioRow[], link = false) => {
     if (targetRows.length === 0) return;
@@ -488,42 +295,6 @@ export function AudioStep({
     if (uncheckedRows.length === 0) return;
     void lookupReusableAudio(uncheckedRows, false);
   }, [lookupReusableAudio, rows]);
-
-  const markPlaybackFailed = useCallback((
-    row: AudioRow,
-    source: AudioSourceCandidate,
-    details?: unknown,
-  ) => {
-    const baseMessage = getLoadErrorMessage(details, source.audioUrl, t);
-    const message = source.kind === 'linked'
-      ? t('lists.audioLinkedFailureAction', { message: baseMessage })
-      : t('lists.audioReusableFailureAction', { message: baseMessage });
-
-    console.error(AUDIO_LOG_PREFIX, 'audio playback failed', {
-      itemId: row.id,
-      text: row.audioText,
-      sourceKind: source.kind,
-      audioUrl: source.audioUrl,
-      arweaveUrl: source.arweaveUrl ?? null,
-      arweaveUrls: source.arweaveUrls,
-      storageRef: source.storageRef ?? null,
-      details,
-    });
-
-    setPlayingId(null);
-    setPlaybackErrors((prev) => ({
-      ...prev,
-      [row.id]: message,
-    }));
-
-    if (source.kind === 'linked') {
-      setRows((prev) =>
-        prev.map((candidate) =>
-          candidate.id === row.id ? { ...candidate, audioStatus: 'failed' as const } : candidate,
-        ),
-      );
-    }
-  }, [t]);
 
   const generateRows = useCallback(async (targetRows: AudioRow[], force = false) => {
     if (targetRows.length === 0) return;
@@ -673,124 +444,23 @@ export function AudioStep({
       setError(googlePausedMessage);
       return;
     }
-    if (audioRef.current) audioRef.current.pause();
-    playQueueRef.current = [];
-    setPlayingId(null);
+    handlePause();
     await generateRows([row], true);
-  }, [generateRows, googlePausedMessage, isGoogleTtsPaused]);
-
-
-  const playRow = useCallback(async (row: AudioRow, source: AudioSourceCandidate) => {
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-
-    setPlayingId(row.id);
-    let playbackUrl = source.audioUrl;
-    try {
-      playbackUrl = await preloadAudio(row.id, source);
-    } catch {
-      // Fall back to the direct media URL if preloading fails.
-    }
-
-    const audio = new Audio(playbackUrl);
-    audio.preload = 'auto';
-    audioRef.current = audio;
-    audio.onended = () => setPlayingId(null);
-    audio.onerror = () => markPlaybackFailed(row, source, {
-      playbackUrl,
-      mediaError: getMediaErrorLabel(audio.error),
-      mediaMessage: audio.error?.message ?? null,
-      networkState: audio.networkState,
-      readyState: audio.readyState,
-    });
-    audio.play().catch((err) => {
-      markPlaybackFailed(row, source, {
-        playbackUrl,
-        playError: err instanceof Error ? err.message : err,
-        mediaError: getMediaErrorLabel(audio.error),
-        mediaMessage: audio.error?.message ?? null,
-        networkState: audio.networkState,
-        readyState: audio.readyState,
-      });
-    });
-  }, [markPlaybackFailed, preloadAudio]);
-
-  const playNext = useCallback(async () => {
-    const next = playQueueRef.current.shift();
-    if (!next) {
-      setPlayingId(null);
-      return;
-    }
-
-    const row = rows.find((candidate) => candidate.id === next.rowId);
-    if (!row) {
-      void playNext();
-      return;
-    }
-
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
-
-    setPlayingId(row.id);
-    let playbackUrl = next.source.audioUrl;
-    try {
-      playbackUrl = await preloadAudio(row.id, next.source);
-    } catch {
-      // Fall back to the direct media URL if preloading fails.
-    }
-
-    const audio = new Audio(playbackUrl);
-    audio.preload = 'auto';
-    audioRef.current = audio;
-    audio.onended = () => {
-      setTimeout(() => void playNext(), 1200);
-    };
-    audio.onerror = () => {
-      markPlaybackFailed(row, next.source, {
-        playbackUrl,
-        mediaError: getMediaErrorLabel(audio.error),
-        mediaMessage: audio.error?.message ?? null,
-        networkState: audio.networkState,
-        readyState: audio.readyState,
-      });
-      void playNext();
-    };
-    audio.play().catch((err) => {
-      markPlaybackFailed(row, next.source, {
-        playbackUrl,
-        playError: err instanceof Error ? err.message : err,
-        mediaError: getMediaErrorLabel(audio.error),
-        mediaMessage: audio.error?.message ?? null,
-        networkState: audio.networkState,
-        readyState: audio.readyState,
-      });
-      void playNext();
-    });
-  }, [markPlaybackFailed, preloadAudio, rows]);
+  }, [generateRows, googlePausedMessage, handlePause, isGoogleTtsPaused]);
 
   const handlePlaySingle = useCallback(async (row: AudioRow) => {
     const source = getPreviewSource(row);
     if (!source) return;
-    await playRow(row, source);
-  }, [playRow]);
+    await playSingle(row, source);
+  }, [playSingle]);
 
   const handlePlayAll = useCallback(() => {
     const queue = rows.flatMap((row) => {
       const source = getPreviewSource(row);
       return source ? [{ rowId: row.id, source }] : [];
     });
-    if (queue.length === 0) return;
-    playQueueRef.current = queue;
-    void playNext();
-  }, [playNext, rows]);
-
-  const handlePause = useCallback(() => {
-    if (audioRef.current) audioRef.current.pause();
-    playQueueRef.current = [];
-    setPlayingId(null);
-  }, []);
+    playQueue(queue);
+  }, [playQueue, rows]);
 
   const handleReusableSelectionChange = useCallback(async (row: AudioRow, assetId: string) => {
     const updatedRow = { ...row, selectedReusableAssetId: assetId };
@@ -815,16 +485,6 @@ export function AudioStep({
       setCompleting(false);
     }
   }, [onComplete]);
-
-  useEffect(() => {
-    return () => {
-      if (audioRef.current) audioRef.current.pause();
-      for (const cached of audioCacheRef.current.values()) {
-        URL.revokeObjectURL(cached.objectUrl);
-      }
-      audioCacheRef.current.clear();
-    };
-  }, []);
 
   const subtitle = useMemo(() => {
     const parts = [t('lists.audioReadySummary', { ready: readyCount, total: rows.length })];
