@@ -107,7 +107,8 @@ const COMMON_TTS_LANGUAGE_BASES = new Set([
  * Default app-specific order.
  *
  * This should not be only "most spoken languages globally".
- * For Get Word, Czech/Vietnamese should be visible because they are core app languages.
+ * Czech/Vietnamese remain visible because they are historical/default featured languages,
+ * but the product supports configurable Google-backed language pairs.
  */
 const FEATURED_LANGUAGE_BASE_RANKS = new Map<string, number>([
   ["cs", 0],

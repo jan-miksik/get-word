@@ -4,6 +4,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { I18nKey } from '@/lib/i18n/messages';
 import { useI18n } from '@/components/I18nProvider';
 import { listsApiFetch } from '@/features/lists/api';
+import {
+  readStoredGoogleVoiceId,
+  writeStoredGoogleVoiceId,
+} from '@/features/lists/client/storage';
 import type { GoogleUsageResponse, WordList, WordListItem } from '@/features/lists/types';
 import { GoogleUsageHint } from './GoogleUsageHint';
 
@@ -117,7 +121,6 @@ type TtsLanguageOption = {
 
 const AUDIO_LOG_PREFIX = '[Get Word audio]';
 const AUDIO_REUSE_BATCH_SIZE = 200;
-const GOOGLE_TTS_VOICE_STORAGE_PREFIX = 'wordlink-list-google-tts-voice';
 type TranslateFn = (key: I18nKey, values?: Record<string, string | number>) => string;
 
 function chunkArray<T>(items: T[], size: number): T[][] {
@@ -126,36 +129,6 @@ function chunkArray<T>(items: T[], size: number): T[][] {
     chunks.push(items.slice(i, i + size));
   }
   return chunks;
-}
-
-function readStorageValue(key: string): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function writeStorageValue(key: string, value: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    // Ignore private browsing or blocked storage; the current session still works.
-  }
-}
-
-function getGoogleVoiceStorageKey(languageCode: string): string {
-  return `${GOOGLE_TTS_VOICE_STORAGE_PREFIX}:${languageCode.toLowerCase()}`;
-}
-
-function readStoredGoogleVoiceId(languageCode: string): string {
-  return readStorageValue(getGoogleVoiceStorageKey(languageCode)) || 'default';
-}
-
-function writeStoredGoogleVoiceId(languageCode: string, voiceId: string): void {
-  writeStorageValue(getGoogleVoiceStorageKey(languageCode), voiceId);
 }
 
 class AudioLoadError extends Error {

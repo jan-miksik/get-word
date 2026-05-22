@@ -3,6 +3,12 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { listsApiFetch } from '@/features/lists/api';
+import {
+  readStoredOpenRouterModel,
+  readStoredTranslationProvider,
+  writeStoredOpenRouterModel,
+  writeStoredTranslationProvider,
+} from '@/features/lists/client/storage';
 import type {
   CompletedTranslationRow,
   ConfirmResult,
@@ -12,7 +18,6 @@ import type {
 import { GoogleUsageHint } from './GoogleUsageHint';
 import {
   DEFAULT_OPENROUTER_TRANSLATION_MODEL,
-  OPENROUTER_MODEL_STORAGE_KEY,
   OPENROUTER_MODELS_URL,
   OPENROUTER_TRANSLATION_MODELS,
   normalizeOpenRouterModel,
@@ -41,37 +46,6 @@ type OpenRouterUiState =
   | 'failed_retryable';
 
 type TranslationProvider = 'google' | 'openrouter';
-
-const TRANSLATION_PROVIDER_STORAGE_KEY = 'wordlink-list-translation-provider';
-
-function readStorageValue(key: string): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function writeStorageValue(key: string, value: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    // Ignore private browsing or blocked storage; the current session still works.
-  }
-}
-
-function readStoredTranslationProvider(): TranslationProvider {
-  return readStorageValue(TRANSLATION_PROVIDER_STORAGE_KEY) === 'openrouter'
-    ? 'openrouter'
-    : 'google';
-}
-
-function readStoredOpenRouterModel(): string | null {
-  const stored = readStorageValue(OPENROUTER_MODEL_STORAGE_KEY);
-  return stored ? normalizeOpenRouterModel(stored) : null;
-}
 
 interface TranslationTextareaProps {
   value: string;
@@ -220,7 +194,7 @@ export function TranslationStep({
   }, [loadOpenRouterStatus]);
 
   useEffect(() => {
-    writeStorageValue(TRANSLATION_PROVIDER_STORAGE_KEY, provider);
+    writeStoredTranslationProvider(provider);
   }, [provider]);
 
   const handleAutoTranslate = useCallback(async () => {
@@ -318,13 +292,13 @@ export function TranslationStep({
 
   const handleOpenRouterModelChange = useCallback((model: string) => {
     setOpenRouterModel(model);
-    writeStorageValue(OPENROUTER_MODEL_STORAGE_KEY, model);
+    writeStoredOpenRouterModel(model);
   }, []);
 
   const handleOpenRouterModelSave = useCallback(async () => {
     const model = normalizeOpenRouterModel(openRouterModel);
     setOpenRouterModel(model);
-    writeStorageValue(OPENROUTER_MODEL_STORAGE_KEY, model);
+    writeStoredOpenRouterModel(model);
     setError(null);
     setOpenRouterLoading(true);
     try {
@@ -338,7 +312,7 @@ export function TranslationStep({
       }
       const savedModel = normalizeOpenRouterModel(data.connection?.translationModel);
       setOpenRouterModel(savedModel);
-      writeStorageValue(OPENROUTER_MODEL_STORAGE_KEY, savedModel);
+      writeStoredOpenRouterModel(savedModel);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('lists.openRouterModelSaveFailed'));
     } finally {

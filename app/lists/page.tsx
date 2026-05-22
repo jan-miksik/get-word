@@ -11,6 +11,10 @@ import {
   readInitialListsUrlState,
   selectedListUrl,
 } from '@/features/lists/client/url-state';
+import {
+  readStoredOpenRouterModelOrDefault,
+  writeStoredOpenRouterModel,
+} from '@/features/lists/client/storage';
 import { useBuildAudioStepItems, useItemsByCategory } from '@/features/lists/hooks/useListWizardItems';
 import type {
   CompletedTranslationRow,
@@ -30,11 +34,8 @@ import { AudioStep } from './AudioStep';
 import { ApiKeySettings } from './ApiKeySettings';
 import { WizardProgressBar, type WizardActiveStep } from './WizardProgressBar';
 import {
-  DEFAULT_OPENROUTER_TRANSLATION_MODEL,
-  OPENROUTER_MODEL_STORAGE_KEY,
   OPENROUTER_MODELS_URL,
   OPENROUTER_TRANSLATION_MODELS,
-  normalizeOpenRouterModel,
 } from '@/lib/openrouter-models';
 
 type WizardStep = 'browse' | WizardActiveStep;
@@ -64,31 +65,6 @@ function isSameListDirection(left: WordList, right: WordList): boolean {
     normalizeListLanguageCode(left.languageFrom) === normalizeListLanguageCode(right.languageFrom) &&
     normalizeListLanguageCode(left.languageTo) === normalizeListLanguageCode(right.languageTo)
   );
-}
-
-function readStorageValue(key: string): string | null {
-  if (typeof window === 'undefined') return null;
-  try {
-    return window.localStorage.getItem(key);
-  } catch {
-    return null;
-  }
-}
-
-function writeStorageValue(key: string, value: string): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(key, value);
-  } catch {
-    // Ignore blocked storage; the selected model still applies to this fork.
-  }
-}
-
-function readStoredOpenRouterModel(): string {
-  const stored = readStorageValue(OPENROUTER_MODEL_STORAGE_KEY);
-  return stored
-    ? normalizeOpenRouterModel(stored)
-    : DEFAULT_OPENROUTER_TRANSLATION_MODEL;
 }
 
 function ErrorMessage({ message }: { message: string }) {
@@ -428,7 +404,7 @@ function ListsPageContent() {
       languageTo: initialCreateLanguageTo ?? sourceList.languageTo,
       provider: 'none',
       sourceLanguage: sourceList.languageFrom,
-      translationModel: readStoredOpenRouterModel(),
+      translationModel: readStoredOpenRouterModelOrDefault(),
     });
   }, [initialCreateLanguageFrom, initialCreateLanguageTo, lists]);
 
@@ -436,7 +412,7 @@ function ListsPageContent() {
     setPendingFork((current) =>
       current ? { ...current, translationModel: model } : current
     );
-    writeStorageValue(OPENROUTER_MODEL_STORAGE_KEY, model);
+    writeStoredOpenRouterModel(model);
   }, []);
 
   const handleConfirmFork = useCallback(async () => {

@@ -38,6 +38,18 @@
     ".next-dev/dev/types/**/*.ts"
   ],
   "exclude": [
-    "node_modules"
+    "node_modules",
+    ".claude",
+    ".next",
+    ".next-dev",
+    ".pnpm-store",
+    ".playwright-mcp",
+    ".vercel",
+    ".worktrees",
+    "app/.generated",
+    "backups",
+    "build",
+    "coverage",
+    "out"
   ]
 }

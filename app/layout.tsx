@@ -7,7 +7,7 @@ import './tailwind.css';
 
 export const metadata: Metadata = {
   title: 'Get Word',
-  description: 'Learn Czech and Vietnamese with spaced repetition',
+  description: 'Learn languages with spaced repetition and configurable word lists',
   applicationName: 'Get Word',
   manifest: '/manifest.webmanifest',
   appleWebApp: {

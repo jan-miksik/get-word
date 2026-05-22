@@ -1,6 +1,15 @@
 # Feature Map
 
-Use this file as the first stop before searching the repo.
+Use `AI_CONTEXT.md` as the first stop for agent sessions. This file is a slightly deeper feature map for humans and agents that already know which area they are changing.
+
+## Ignore Unless Relevant
+
+- `.claude/worktrees/` contains local worktree copies and stale duplicate app files.
+- `.next/`, `.next-dev/`, `out/`, `build/`, and `coverage/` are generated output.
+- `public/speech/` is static audio asset data.
+- `wordbook/` is scratch/import word-list source material.
+- `drizzle/migrations/meta/*.json` are generated Drizzle snapshots.
+- `styles/*.css` are legacy styling files; new styling should use Tailwind.
 
 ## Learning Flow
 

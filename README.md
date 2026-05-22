@@ -1,10 +1,10 @@
 ## Get Word
 
-Language learning app (Czech ↔ Vietnamese) built with **Next.js** + **Supabase Postgres** (via **Drizzle ORM**). Designed for **Vercel** deployment.
+Multilingual language learning app for configurable language pairs, built with **Next.js** + **Supabase Postgres** (via **Drizzle ORM**). Designed for **Vercel** deployment.
 
 ### Tech stack
 
-- **Next.js 15** (React 19)
+- **Next.js 16** (React 19)
 - **Supabase PostgreSQL**
 - **Drizzle ORM** (`drizzle-orm`, `drizzle-kit`)
 - **Tailwind v4** (compiled by Next/PostCSS from `app/tailwind.css`)
@@ -124,6 +124,8 @@ pnpm run db:dump-restore
 pnpm run db:dump-restore-full
 pnpm run db:migrate-to-supabase
 ```
+
+Drizzle-generated migrations in `drizzle/migrations/` are the canonical schema migration path. The root `migrations/` directory contains legacy/manual Supabase and RLS SQL and should only be edited for those specific tasks.
 
 ### Data model & sync
 

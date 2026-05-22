@@ -1,4 +1,0 @@
-# Example environment variables for local development
-# Copy this to .dev.vars (not committed to git)
-# The actual database binding will be configured via wrangler.toml
-
