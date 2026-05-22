@@ -20,6 +20,7 @@ Owns list browsing, category editing, translation review, audio generation flow,
 - URL state helpers: `features/lists/client/url-state.ts`
 - Local preference storage: `features/lists/client/storage.ts`
 - Language helpers: `features/lists/languages.ts`
+- Audio-step row/source mapping: `features/lists/audio-step/rows.ts`
 - UI steps:
   - `app/lists/PendingForkDialog.tsx`
   - `app/lists/CategoryBrowser.tsx`
