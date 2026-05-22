@@ -41,6 +41,12 @@ export interface SyncRequest {
   review_events?: SyncReviewEventItem[];
   memory_hooks?: Record<string, string | null>;
   category_filters?: string[];
+  /**
+   * Stable identifiers for the outbox ops that produced this payload. Server
+   * uses these for idempotent retry handling (processed_client_ops table).
+   * When absent, server falls back to legacy non-idempotent behaviour.
+   */
+  client_op_ids?: string[];
 }
 
 export type SyncMutationPayload = Omit<
@@ -91,6 +97,8 @@ export interface ProgressData {
 export interface SyncResponse {
   success: boolean;
   applied_review_event_ids?: string[];
+  applied_client_op_ids?: string[];
+  op_errors?: Record<string, string>;
   sync_revision?: number;
   user: {
     id: string;

@@ -3,10 +3,9 @@
 import type { SyncResponse } from '@/lib/sync';
 import type { NormalizedWord } from '@/lib/words';
 import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
+import { DB_NAME, STORE_KV, openDb as openSharedDb } from '@/lib/local-first/db';
 
-const DB_NAME = 'wordlink-learning-cache';
-const DB_VERSION = 1;
-const STORE_NAME = 'kv';
+const STORE_NAME = STORE_KV;
 const STORAGE_PREF_KEY = 'wordlink-local-learning-cache-enabled';
 const AUDIO_PREF_KEY = 'wordlink-active-list-audio-cache-enabled';
 const AUDIO_CACHE_NAME = 'wordlink-active-list-audio-v1';
@@ -66,20 +65,7 @@ export function setAudioCachePreference(enabled: boolean): void {
 }
 
 function openDb(): Promise<IDBDatabase | null> {
-  if (typeof indexedDB === 'undefined') return Promise.resolve(null);
-
-  return new Promise((resolve) => {
-    const request = indexedDB.open(DB_NAME, DB_VERSION);
-    request.onupgradeneeded = () => {
-      const db = request.result;
-      if (!db.objectStoreNames.contains(STORE_NAME)) {
-        db.createObjectStore(STORE_NAME);
-      }
-    };
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => resolve(null);
-    request.onblocked = () => resolve(null);
-  });
+  return openSharedDb();
 }
 
 async function idbGet<T>(key: string): Promise<T | null> {
