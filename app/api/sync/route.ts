@@ -19,11 +19,17 @@ import {
   touchUserDevice,
   applyNewReviewEvents,
   recordProcessedClientOps,
+  getUserMemoryHooksDelta,
+  getUserSyncRevision,
 } from "@/lib/db";
 import { type User } from "@/lib/db/schema";
 import { withSessionCookie } from "@/features/shared/routes/session";
 import { createRouteTimer } from "@/features/shared/routes/timing";
-import { buildSyncSuccessPayload, getHydratedWordListData } from "@/features/shared/sync/response";
+import {
+  buildSyncDeltaPayload,
+  buildSyncSuccessPayload,
+  getHydratedWordListData,
+} from "@/features/shared/sync/response";
 import { isUuid } from "@/features/shared/sync/identity";
 import type { SyncRequest } from "@/features/sync/types";
 import {
@@ -77,6 +83,25 @@ function isTransientDatabaseError(err: unknown): boolean {
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Accepts either ISO 8601 timestamps or numeric epoch ms (the format
+ * getUserSyncRevision returns). Returns null for malformed input so the
+ * route falls back to a full snapshot rather than silently serving stale
+ * deltas anchored at the epoch.
+ */
+function parseSinceCursor(value: string | null): Date | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const numeric = Number(trimmed);
+  if (Number.isFinite(numeric) && numeric > 0) {
+    const d = new Date(numeric);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+  const parsed = new Date(trimmed);
+  return Number.isNaN(parsed.getTime()) ? null : parsed;
 }
 
 async function withRetryOnRecoverableDatabaseError<T>(fn: () => Promise<T>): Promise<T> {
@@ -375,6 +400,8 @@ export async function POST(request: NextRequest) {
     timer.mark("fetch_user_data");
     const hydratedLists = await getHydratedWordListData(user.id, currentHooks);
     timer.mark("fetch_list_metadata");
+    const syncRevision = await getUserSyncRevision(user.id);
+    timer.mark("compute_sync_revision");
     const response = await withSessionCookie(
       buildSyncSuccessPayload(
         { ...user, role: role ?? user.role },
@@ -385,7 +412,7 @@ export async function POST(request: NextRequest) {
         {
           applied_review_event_ids: appliedReviewEventIds,
           applied_client_op_ids: clientOpIds,
-          sync_revision: Date.now(),
+          sync_revision: syncRevision,
         }
       ),
       user.id,
@@ -414,6 +441,8 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const deviceId = searchParams.get("deviceId");
     const userId = searchParams.get("userId"); // Optional: fallback user ID
+    const sinceParam = searchParams.get("since");
+    const since = parseSinceCursor(sinceParam);
 
     if (!deviceId && !userId) {
       return NextResponse.json(
@@ -448,6 +477,40 @@ export async function GET(request: NextRequest) {
       return timer.applyHeaders(failed);
     }
     await touchUserDevice(user.id, deviceId);
+
+    if (since) {
+      const [progress, hookDelta, categoryFilters] = await Promise.all([
+        getUserProgress(user.id, { since }),
+        getUserMemoryHooksDelta(user.id, since),
+        getUserCategoryFilters(user.id),
+      ]);
+      timer.mark("fetch_user_data");
+
+      const updated: Record<string, string> = {};
+      const deleted: string[] = [];
+      for (const row of hookDelta) {
+        if (row.deletedAt) deleted.push(row.key);
+        else updated[row.key] = row.hookText;
+      }
+
+      const syncRevision = await getUserSyncRevision(user.id);
+      timer.mark("compute_sync_revision");
+      const deltaResponse = await withSessionCookie(
+        buildSyncDeltaPayload(
+          user,
+          progress,
+          updated,
+          deleted,
+          categoryFilters,
+          { sync_revision: syncRevision }
+        ),
+        user.id,
+        user.userRole
+      );
+      timer.mark("build_response");
+      return timer.applyHeaders(deltaResponse);
+    }
+
     const [progress, memoryHooks, categoryFilters] = await Promise.all([
       getUserProgress(user.id),
       getUserMemoryHooks(user.id),
@@ -456,6 +519,8 @@ export async function GET(request: NextRequest) {
     timer.mark("fetch_user_data");
     const hydratedLists = await getHydratedWordListData(user.id, memoryHooks);
     timer.mark("fetch_list_metadata");
+    const syncRevision = await getUserSyncRevision(user.id);
+    timer.mark("compute_sync_revision");
     const response = await withSessionCookie(
       buildSyncSuccessPayload(
         user,
@@ -463,7 +528,7 @@ export async function GET(request: NextRequest) {
         memoryHooks,
         categoryFilters,
         hydratedLists,
-        { sync_revision: Date.now() }
+        { sync_revision: syncRevision }
       ),
       user.id,
       user.userRole

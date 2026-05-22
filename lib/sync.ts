@@ -120,13 +120,18 @@ export function markServerSnapshotApplied(): void {
 }
 
 // Fetch data from server (DB-only; no localStorage).
-export async function fetchUserData(): Promise<SyncResponse> {
+// When `since` is provided, the server returns a delta response (is_delta=true)
+// containing only rows changed after the cursor + memory hook tombstones.
+export async function fetchUserData(options?: { since?: number | string }): Promise<SyncResponse> {
   const deviceId = getDeviceId();
   const sessionId = getSessionId();
   const params = new URLSearchParams();
   if (deviceId) params.set('deviceId', deviceId);
   if (sessionId) params.set('sessionId', sessionId);
   if (lastKnownUserId) params.set('userId', lastKnownUserId);
+  if (options?.since !== undefined && options.since !== null && options.since !== '') {
+    params.set('since', String(options.since));
+  }
 
   try {
     const response = await fetch(`/api/sync?${params.toString()}`);

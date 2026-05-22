@@ -25,6 +25,8 @@ const mockGetWordListsByIds = vi.fn()
 const mockTouchUserDevice = vi.fn()
 const mockApplyNewReviewEvents = vi.fn()
 const mockRecordProcessedClientOps = vi.fn()
+const mockGetUserMemoryHooksDelta = vi.fn()
+const mockGetUserSyncRevision = vi.fn()
 const mockVerifySession = vi.fn()
 const mockSignSession = vi.fn()
 const mockIsGoogleSupportedLanguage = vi.fn()
@@ -54,6 +56,8 @@ vi.mock('@/lib/db', () => ({
   touchUserDevice: (...args: unknown[]) => mockTouchUserDevice(...args),
   applyNewReviewEvents: (...args: unknown[]) => mockApplyNewReviewEvents(...args),
   recordProcessedClientOps: (...args: unknown[]) => mockRecordProcessedClientOps(...args),
+  getUserMemoryHooksDelta: (...args: unknown[]) => mockGetUserMemoryHooksDelta(...args),
+  getUserSyncRevision: (...args: unknown[]) => mockGetUserSyncRevision(...args),
 }))
 
 vi.mock('@/lib/session', () => ({
@@ -135,6 +139,8 @@ describe('GET /api/sync', () => {
     mockTouchUserDevice.mockResolvedValue(undefined)
     mockApplyNewReviewEvents.mockResolvedValue([])
     mockRecordProcessedClientOps.mockResolvedValue(undefined)
+    mockGetUserMemoryHooksDelta.mockResolvedValue([])
+    mockGetUserSyncRevision.mockResolvedValue(1779480000000)
     mockIsGoogleSupportedLanguage.mockResolvedValue(true)
   })
 
@@ -253,6 +259,58 @@ describe('GET /api/sync', () => {
     expect(mockGetUserById).toHaveBeenCalledTimes(3)
     consoleSpy.mockRestore()
   })
+
+  it('serves a delta response when ?since= is provided', async () => {
+    mockGetUserMemoryHooksDelta.mockResolvedValueOnce([
+      { key: 'word-a', hookText: 'updated', deletedAt: null },
+      { key: 'word-b', hookText: 'gone', deletedAt: new Date('2026-05-10T00:00:00Z') },
+    ])
+    mockGetUserProgress.mockResolvedValueOnce({
+      'word-c': { wordId: 'word-c', stageIndex: 4, knownCount: 2, unknownCount: 0 },
+    })
+    mockGetUserSyncRevision.mockResolvedValueOnce(1779500000000)
+
+    const req = new NextRequest(
+      'http://localhost:3000/api/sync?deviceId=dev-123&since=1779400000000'
+    )
+    const res = await GET(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.is_delta).toBe(true)
+    expect(data.memory_hooks).toEqual({ 'word-a': 'updated' })
+    expect(data.memory_hooks_deleted).toEqual(['word-b'])
+    expect(data.progress['word-c'].stageIndex).toBe(4)
+    expect(data.sync_revision).toBe(1779500000000)
+    expect(data.word_list_items).toBeUndefined()
+    expect(data.categories).toBeUndefined()
+    expect(data.lists).toBeUndefined()
+    expect(mockGetUserProgress).toHaveBeenCalledWith('uuid-A', { since: expect.any(Date) })
+    const passedSince = mockGetUserProgress.mock.calls[0][1].since as Date
+    expect(passedSince.getTime()).toBe(1779400000000)
+    expect(mockGetUserMemoryHooks).not.toHaveBeenCalled()
+  })
+
+  it('falls back to full snapshot when ?since= is malformed', async () => {
+    const req = new NextRequest(
+      'http://localhost:3000/api/sync?deviceId=dev-123&since=not-a-date'
+    )
+    const res = await GET(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.is_delta).toBeUndefined()
+    expect(mockGetUserMemoryHooksDelta).not.toHaveBeenCalled()
+    expect(mockGetUserMemoryHooks).toHaveBeenCalled()
+  })
+
+  it('uses getUserSyncRevision for sync_revision in full responses', async () => {
+    mockGetUserSyncRevision.mockResolvedValueOnce(1779600000000)
+    const req = new NextRequest('http://localhost:3000/api/sync?deviceId=dev-123')
+    const res = await GET(req)
+    const data = await res.json()
+    expect(data.sync_revision).toBe(1779600000000)
+  })
 })
 
 describe('POST /api/sync', () => {
@@ -275,6 +333,8 @@ describe('POST /api/sync', () => {
     mockTouchUserDevice.mockResolvedValue(undefined)
     mockApplyNewReviewEvents.mockResolvedValue([])
     mockRecordProcessedClientOps.mockResolvedValue(undefined)
+    mockGetUserMemoryHooksDelta.mockResolvedValue([])
+    mockGetUserSyncRevision.mockResolvedValue(1779480000000)
     mockIsGoogleSupportedLanguage.mockResolvedValue(true)
   })
 

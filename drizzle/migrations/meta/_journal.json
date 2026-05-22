@@ -162,6 +162,13 @@
       "when": 1779408000000,
       "tag": "0022_processed_client_ops",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1779494400000,
+      "tag": "0023_memory_hooks_soft_delete",
+      "breakpoints": true
     }
   ]
 }

@@ -234,6 +234,7 @@ export const userProgress = pgTable(
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
   },
   (table) => [
+    index("user_progress_updated_at_idx").on(table.updatedAt),
     unique().on(table.userId, table.wordId),
     unique("user_progress_user_word_list_item_unique").on(
       table.userId,
@@ -334,8 +335,12 @@ export const userMemoryHooks = pgTable(
     hookText: text("hook_text").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    // Soft-delete marker. Delta sync (PR 5) returns tombstoned rows so other
+    // devices can drop them locally; row stays in the table for LWW arbitration.
+    deletedAt: timestamp("deleted_at"),
   },
   (table) => [
+    index("user_memory_hooks_updated_at_idx").on(table.updatedAt),
     unique("user_memory_hooks_user_id_word_id_unique").on(table.userId, table.wordId),
     unique("user_memory_hooks_user_id_word_list_item_id_unique").on(
       table.userId,
@@ -355,7 +360,10 @@ export const userCategoryFilters = pgTable(
     category: text("category").notNull(),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
-  (table) => [unique().on(table.userId, table.category)]
+  (table) => [
+    index("user_category_filters_user_id_idx").on(table.userId),
+    unique().on(table.userId, table.category),
+  ]
 );
 
 // User API keys - BYOK key storage (encrypted)

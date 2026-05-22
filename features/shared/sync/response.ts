@@ -142,6 +142,34 @@ export async function getHydratedWordListData(
   };
 }
 
+function buildSyncUser(user: SyncUserShape) {
+  return {
+    id: user.id,
+    role: user.role,
+    user_role: user.userRole ?? 'user',
+    show_english: user.showEnglish ?? true,
+    show_category_badges: user.showCategoryBadges ?? false,
+    show_pronunciation: user.showPronunciation ?? false,
+    memory_hooks_enabled: user.memoryHooksEnabled ?? true,
+    memory_hook_disable_from_stage:
+      user.memoryHookDisableFromStage ?? DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
+    settings_language: user.settingsLanguage ?? null,
+    settings_language_selected_at: user.settingsLanguageSelectedAt
+      ? new Date(user.settingsLanguageSelectedAt).toISOString()
+      : null,
+    language_from: user.languageFrom ?? null,
+    language_to: user.languageTo ?? null,
+    onboarding_completed_at: user.onboardingCompletedAt
+      ? new Date(user.onboardingCompletedAt).toISOString()
+      : null,
+    game_score: user.gameScore ?? 0,
+    category_order: user.categoryOrder ?? [],
+    wallet_address: user.walletAddress ?? null,
+    email: user.email ?? null,
+    auth_provider: user.authProvider ?? null,
+  };
+}
+
 export function buildSyncSuccessPayload(
   user: SyncUserShape,
   progress: Record<string, unknown>,
@@ -158,36 +186,39 @@ export function buildSyncSuccessPayload(
   return {
     ...extra,
     success: true,
-    user: {
-      id: user.id,
-      role: user.role,
-      user_role: user.userRole ?? 'user',
-      show_english: user.showEnglish ?? true,
-      show_category_badges: user.showCategoryBadges ?? false,
-      show_pronunciation: user.showPronunciation ?? false,
-      memory_hooks_enabled: user.memoryHooksEnabled ?? true,
-      memory_hook_disable_from_stage:
-        user.memoryHookDisableFromStage ?? DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
-      settings_language: user.settingsLanguage ?? null,
-      settings_language_selected_at: user.settingsLanguageSelectedAt
-        ? new Date(user.settingsLanguageSelectedAt).toISOString()
-        : null,
-      language_from: user.languageFrom ?? null,
-      language_to: user.languageTo ?? null,
-      onboarding_completed_at: user.onboardingCompletedAt
-        ? new Date(user.onboardingCompletedAt).toISOString()
-        : null,
-      game_score: user.gameScore ?? 0,
-      category_order: user.categoryOrder ?? [],
-      wallet_address: user.walletAddress ?? null,
-      email: user.email ?? null,
-      auth_provider: user.authProvider ?? null,
-    },
+    user: buildSyncUser(user),
     progress,
     memory_hooks: hydratedLists.rekeyedHooks,
     category_filters: categoryFilters,
     word_list_items: hydratedLists.wordListItems,
     categories: hydratedLists.categoryLookup,
     lists: hydratedLists.listNameRows,
+  };
+}
+
+/**
+ * Delta variant for GET /api/sync?since=<cursor>. Returns only rows that
+ * changed since the cursor plus the always-included tail (user prefs +
+ * category_filters are tiny). Word list items, categories, and lists are
+ * intentionally omitted — the client keeps its existing copies and only
+ * re-fetches the full snapshot on cache invalidation.
+ */
+export function buildSyncDeltaPayload(
+  user: SyncUserShape,
+  progress: Record<string, unknown>,
+  memoryHooksUpdated: Record<string, string>,
+  memoryHooksDeleted: string[],
+  categoryFilters: string[],
+  extra: Record<string, unknown> = {}
+) {
+  return {
+    ...extra,
+    success: true,
+    is_delta: true,
+    user: buildSyncUser(user),
+    progress,
+    memory_hooks: memoryHooksUpdated,
+    memory_hooks_deleted: memoryHooksDeleted,
+    category_filters: categoryFilters,
   };
 }

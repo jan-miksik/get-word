@@ -100,6 +100,14 @@ export interface SyncResponse {
   applied_client_op_ids?: string[];
   op_errors?: Record<string, string>;
   sync_revision?: number;
+  /**
+   * Marks a delta response from GET /api/sync?since=<cursor>. When true,
+   * memory_hooks contains only updated keys and memory_hooks_deleted carries
+   * tombstones to drop; word_list_items/categories/lists are omitted and the
+   * client should keep its existing copies.
+   */
+  is_delta?: boolean;
+  memory_hooks_deleted?: string[];
   user: {
     id: string;
     role: UserRole;

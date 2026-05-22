@@ -62,6 +62,29 @@ export function useProgress(
     []
   );
 
+  // Delta variant: merge a partial server snapshot into existing state without
+  // dropping rows that weren't returned. Used for ?since= delta fetches.
+  const mergeServerProgress = useCallback(
+    (serverProgress: SyncResponse['progress']) => {
+      if (!serverProgress || Object.keys(serverProgress).length === 0) return;
+      setProgress((prev) => {
+        const next: Record<string, ProgressData> = { ...prev };
+        for (const [wordId, progressEntry] of Object.entries(serverProgress)) {
+          next[wordId] = {
+            stageIndex: progressEntry.stageIndex,
+            knownCount: progressEntry.knownCount,
+            unknownCount: progressEntry.unknownCount,
+            lastKnownAt: progressEntry.lastKnownAt ? new Date(progressEntry.lastKnownAt).getTime() : undefined,
+            lastUnknownAt: progressEntry.lastUnknownAt ? new Date(progressEntry.lastUnknownAt).getTime() : undefined,
+            nextDueAt: progressEntry.nextDueAt ? new Date(progressEntry.nextDueAt).getTime() : undefined,
+          };
+        }
+        return next;
+      });
+    },
+    []
+  );
+
   const setLastMoved = useCallback((wordId: string) => {
     setLastMovedId(wordId);
     if (lastMovedTimeoutRef.current) clearTimeout(lastMovedTimeoutRef.current);
@@ -246,5 +269,6 @@ export function useProgress(
     setCustomStage,
     getWordDisplayMode,
     applyServerProgress,
+    mergeServerProgress,
   };
 }

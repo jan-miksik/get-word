@@ -1,4 +1,4 @@
-import { eq, and, sql } from "drizzle-orm";
+import { eq, and, sql, gt, isNull } from "drizzle-orm";
 import { db } from "../client";
 import {
   userMemoryHooks,
@@ -7,14 +7,17 @@ import {
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-// Get all memory hooks for a user
+/**
+ * Get all memory hooks for a user, excluding soft-deleted rows. Used by full
+ * snapshot fetches where deleted rows would just be noise.
+ */
 export async function getUserMemoryHooks(
   userId: string
 ): Promise<Record<string, string>> {
   const results = await db
     .select()
     .from(userMemoryHooks)
-    .where(eq(userMemoryHooks.userId, userId));
+    .where(and(eq(userMemoryHooks.userId, userId), isNull(userMemoryHooks.deletedAt)));
 
   const hooksMap: Record<string, string> = {};
   for (const row of results) {
@@ -22,6 +25,28 @@ export async function getUserMemoryHooks(
     if (key) hooksMap[key] = row.hookText;
   }
   return hooksMap;
+}
+
+/**
+ * Delta fetch: return rows whose updatedAt > since, INCLUDING soft-deleted
+ * tombstones. The client filters by deletedAt to know which keys to drop.
+ */
+export async function getUserMemoryHooksDelta(
+  userId: string,
+  since: Date
+): Promise<Array<{ key: string; hookText: string; deletedAt: Date | null }>> {
+  const results = await db
+    .select()
+    .from(userMemoryHooks)
+    .where(and(eq(userMemoryHooks.userId, userId), gt(userMemoryHooks.updatedAt, since)));
+
+  const out: Array<{ key: string; hookText: string; deletedAt: Date | null }> = [];
+  for (const row of results) {
+    const key = row.wordListItemId ?? row.wordId;
+    if (!key) continue;
+    out.push({ key, hookText: row.hookText, deletedAt: row.deletedAt ?? null });
+  }
+  return out;
 }
 
 // Get memory hook for a specific word
@@ -42,7 +67,8 @@ export async function getWordMemoryHook(
   return results[0]?.hookText || null;
 }
 
-// Upsert memory hook
+// Upsert memory hook. Clears any prior soft-delete tombstone so a re-create
+// after delete reuses the existing row.
 export async function upsertMemoryHook(
   userId: string,
   wordId: string,
@@ -56,6 +82,7 @@ export async function upsertMemoryHook(
       set: {
         hookText,
         updatedAt: new Date(),
+        deletedAt: null,
       },
     })
     .returning();
@@ -76,40 +103,51 @@ export async function upsertMemoryHookByItemId(
       set: {
         hookText,
         updatedAt: new Date(),
+        deletedAt: null,
       },
     })
     .returning();
   return results[0];
 }
 
-// Delete memory hook
+/**
+ * Soft-delete a memory hook by setting deletedAt and bumping updatedAt so
+ * delta clients pick up the tombstone. The row stays in the table for LWW
+ * arbitration; compaction can hard-delete old tombstones later.
+ */
 export async function deleteMemoryHook(
   userId: string,
   wordId: string
 ): Promise<boolean> {
+  const now = new Date();
   const results = await db
-    .delete(userMemoryHooks)
+    .update(userMemoryHooks)
+    .set({ deletedAt: now, updatedAt: now })
     .where(
       and(
         eq(userMemoryHooks.userId, userId),
-        eq(userMemoryHooks.wordId, wordId)
+        eq(userMemoryHooks.wordId, wordId),
+        isNull(userMemoryHooks.deletedAt)
       )
     )
     .returning();
   return results.length > 0;
 }
 
-// Delete memory hook for a list item
+// Soft-delete memory hook for a list item
 export async function deleteMemoryHookByItemId(
   userId: string,
   wordListItemId: string
 ): Promise<boolean> {
+  const now = new Date();
   const results = await db
-    .delete(userMemoryHooks)
+    .update(userMemoryHooks)
+    .set({ deletedAt: now, updatedAt: now })
     .where(
       and(
         eq(userMemoryHooks.userId, userId),
-        eq(userMemoryHooks.wordListItemId, wordListItemId)
+        eq(userMemoryHooks.wordListItemId, wordListItemId),
+        isNull(userMemoryHooks.deletedAt)
       )
     )
     .returning();
@@ -152,6 +190,7 @@ export async function batchUpsertMemoryHooks(
         set: {
           hookText: sql`excluded.hook_text`,
           updatedAt: new Date(),
+          deletedAt: null,
         },
       });
   }
@@ -167,6 +206,7 @@ export async function batchUpsertMemoryHooks(
         set: {
           hookText: sql`excluded.hook_text`,
           updatedAt: new Date(),
+          deletedAt: null,
         },
       });
   }

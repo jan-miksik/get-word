@@ -11,3 +11,4 @@ export * from "./review-events";
 export * from "./processed-ops";
 export * from "./google-api-usage";
 export * from "./multi-device-insights";
+export * from "./sync-revision";

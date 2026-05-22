@@ -1,4 +1,4 @@
-import { eq, and, lte, or, sql, isNull } from "drizzle-orm";
+import { eq, and, lte, or, sql, isNull, gt } from "drizzle-orm";
 import { db } from "../client";
 import {
   userProgress,
@@ -9,15 +9,21 @@ import { STAGES } from "@/lib/words";
 
 /**
  * Get all progress for a user, keyed by wordListItemId (preferred) or wordId (legacy).
- * Excludes archived entries.
+ * Excludes archived entries. When `since` is provided, returns only rows whose
+ * updatedAt is strictly greater than the cursor (delta fetch path).
  */
 export async function getUserProgress(
-  userId: string
+  userId: string,
+  options?: { since?: Date }
 ): Promise<Record<string, UserProgress>> {
+  const conditions = [eq(userProgress.userId, userId), isNull(userProgress.archivedAt)];
+  if (options?.since) {
+    conditions.push(gt(userProgress.updatedAt, options.since));
+  }
   const results = await db
     .select()
     .from(userProgress)
-    .where(and(eq(userProgress.userId, userId), isNull(userProgress.archivedAt)));
+    .where(and(...conditions));
 
   const progressMap: Record<string, UserProgress> = {};
   for (const row of results) {

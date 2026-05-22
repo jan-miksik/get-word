@@ -11,6 +11,7 @@ import {
 import { installSyncLifecycle } from '@/lib/sync-coordinator';
 import { startDrainer } from '@/lib/local-first/drainer';
 import { loadAllDomainsFromIdb, persistDomainsToIdb } from '@/lib/local-first/hydrate';
+import { getMeta, putMeta } from '@/lib/local-first/stores';
 import { getSnapshot, getStoragePreference, saveSnapshot } from '@/lib/local-learning-cache';
 import type { SyncResponse } from '@/lib/sync';
 import type { NormalizedWord } from '@/lib/words';
@@ -26,7 +27,9 @@ interface UseServerSyncOptions {
   linkPayload?: LinkPayload;
   isUpdatingFromServerRef: React.MutableRefObject<boolean>;
   applyServerProgress: (progress: SyncResponse['progress']) => void;
+  mergeServerProgress: (progress: SyncResponse['progress']) => void;
   applyServerMemoryHooks: (memoryHooks: SyncResponse['memory_hooks']) => void;
+  mergeServerMemoryHooks: (updated: SyncResponse['memory_hooks'], deleted: string[]) => void;
   applyServerCategories: (categories: SyncResponse['category_filters']) => void;
   applyServerProfile: (user: SyncResponse['user']) => void;
   applyServerPreferences: (user: SyncResponse['user']) => void;
@@ -50,7 +53,9 @@ export function useServerSync({
   linkPayload,
   isUpdatingFromServerRef,
   applyServerProgress,
+  mergeServerProgress,
   applyServerMemoryHooks,
+  mergeServerMemoryHooks,
   applyServerCategories,
   applyServerProfile,
   applyServerPreferences,
@@ -111,6 +116,9 @@ export function useServerSync({
     if ((options.persistDomains ?? true) && getStoragePreference()) {
       void persistDomainsToIdb(serverData).catch(() => undefined);
     }
+    if (typeof serverData.sync_revision === 'number' && getStoragePreference()) {
+      void putMeta({ lastSinceCursor: String(serverData.sync_revision) }).catch(() => undefined);
+    }
   }, [
     applyServerCategories,
     applyServerGameScore,
@@ -124,17 +132,51 @@ export function useServerSync({
     words,
   ]);
 
+  const applyServerDelta = useCallback((delta: SyncResponse) => {
+    if (delta.progress) mergeServerProgress(delta.progress);
+    mergeServerMemoryHooks(delta.memory_hooks ?? {}, delta.memory_hooks_deleted ?? []);
+    if (delta.category_filters) applyServerCategories(delta.category_filters);
+    if (delta.user) {
+      applyServerProfile(delta.user);
+      applyServerPreferences(delta.user);
+    }
+    if (delta.user?.game_score !== undefined) {
+      applyServerGameScore(delta.user.game_score);
+    }
+    if (typeof delta.sync_revision === 'number' && getStoragePreference()) {
+      void putMeta({ lastSinceCursor: String(delta.sync_revision) }).catch(() => undefined);
+    }
+  }, [
+    applyServerCategories,
+    applyServerGameScore,
+    applyServerPreferences,
+    applyServerProfile,
+    mergeServerMemoryHooks,
+    mergeServerProgress,
+  ]);
+
   const applyFreshServerData = useCallback((serverData: SyncResponse) => {
     isUpdatingFromServerRef.current = true;
-    applyServerData(serverData, { clearPending: false });
+    if (serverData.is_delta) {
+      applyServerDelta(serverData);
+    } else {
+      applyServerData(serverData, { clearPending: false });
+    }
     requestAnimationFrame(() => {
       isUpdatingFromServerRef.current = false;
     });
-  }, [applyServerData, isUpdatingFromServerRef]);
+  }, [applyServerData, applyServerDelta, isUpdatingFromServerRef]);
 
   const refetchServerData = useCallback(() => {
     if (!isHydratedRef.current) return;
-    fetchUserData()
+    (async () => {
+      let since: string | undefined;
+      if (getStoragePreference()) {
+        const meta = await getMeta().catch(() => null);
+        if (meta?.lastSinceCursor) since = meta.lastSinceCursor;
+      }
+      return fetchUserData(since ? { since } : undefined);
+    })()
       .then(applyFreshServerData)
       .catch((error) => {
         if (!isAuthRequiredError(error)) {

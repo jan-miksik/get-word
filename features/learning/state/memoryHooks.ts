@@ -32,6 +32,27 @@ export function useMemoryHooks(
     setMemoryHooks(hooks);
   }, []);
 
+  // Delta variant: merge updated hooks and drop tombstoned keys without
+  // touching unmentioned entries. Used for ?since= delta fetches.
+  const mergeServerMemoryHooks = useCallback(
+    (updated: Record<string, string>, deleted: string[] = []) => {
+      const hasUpdates = Object.keys(updated).length > 0;
+      const hasDeletes = deleted.length > 0;
+      if (!hasUpdates && !hasDeletes) return;
+      setMemoryHooks((prev) => {
+        const next = { ...prev };
+        for (const [key, value] of Object.entries(updated)) {
+          next[key] = value;
+        }
+        for (const key of deleted) {
+          delete next[key];
+        }
+        return next;
+      });
+    },
+    []
+  );
+
   const getMemoryHook = useCallback((target: MemoryHookTarget) => {
     for (const key of getMemoryHookAliases(target)) {
       if (memoryHooks[key]) return memoryHooks[key];
@@ -94,5 +115,6 @@ export function useMemoryHooks(
     setMemoryHook,
     getSuggestedMemoryHook,
     applyServerMemoryHooks,
+    mergeServerMemoryHooks,
   };
 }
