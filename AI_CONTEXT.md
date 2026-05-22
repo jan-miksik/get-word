@@ -34,6 +34,7 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 ### Lists editor
 
 - Current page shell and wizard coordinator: `app/lists/page.tsx`
+- Wizard step state + handlers: `features/lists/hooks/useListsWizard.ts`
 - List API client actions: `features/lists/client/actions.ts`
 - List API fetch wrapper: `features/lists/api.ts`
 - Canonical list types: `features/lists/types.ts`
@@ -41,6 +42,7 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 - Local preference storage: `features/lists/client/storage.ts`
 - Language helpers/loading: `features/lists/languages.ts`, `features/lists/hooks/useLearningLanguages.ts`
 - Audio-step row/source mapping: `features/lists/audio-step/rows.ts`
+- Audio-step playback + cache: `features/lists/audio-step/useAudioPlayback.ts`
 - Wizard item selectors: `features/lists/hooks/useListWizardItems.ts`
 - Main list UI pieces: `app/lists/ListSidebar.tsx`, `app/lists/CategoryBrowser.tsx`, `app/lists/TextareaEditor.tsx`, `app/lists/TranslationStep.tsx`, `app/lists/AudioStep.tsx`, `app/lists/PendingForkDialog.tsx`
 
@@ -87,10 +89,10 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 
 ## Current Hotspots
 
-- `app/lists/page.tsx` is still an active coordinator. Prefer extracting focused hooks rather than adding more state there.
-- `app/lists/AudioStep.tsx` still mixes UI, playback, cache, reuse lookup, and generation actions. Pure row/source and API parsing helpers already live under `features/lists/audio-step/*`.
+- `app/lists/page.tsx` is the lists coordinator. Wizard step state lives in `features/lists/hooks/useListsWizard.ts`; the page owns list/category/items, sidebar, settings, subscriptions, google-usage, error, and fork state. Extract more focused hooks rather than adding new state in the page.
+- `app/lists/AudioStep.tsx` still owns row state, generation, voice selection, and the JSX surface. Playback/cache/error machinery lives in `features/lists/audio-step/useAudioPlayback.ts`; pure row/source and API parsing helpers live under `features/lists/audio-step/*`.
 - `app/api/sync/route.ts` is behaviorally central and contains legacy compatibility paths. Keep route shape stable and extract internals carefully.
-- `components/LearningLanguageOnboarding.tsx` still owns common-list generation and audio repair flow. List ranking and language-picker UI already live under `features/learning/onboarding/*`.
+- `components/LearningLanguageOnboarding.tsx` still owns the autogenerate-common-list orchestration and language-picker UI. The Google-TTS batch audio generation flow now lives in `features/learning/onboarding/commonListAudioGeneration.ts`; list ranking and language-picker UI live under `features/learning/onboarding/*`.
 
 ## Boundary Rules
 
