@@ -8,7 +8,7 @@ vi.mock("@/lib/session", () => ({
   verifySession: mockVerifySession,
 }));
 
-import { config, middleware } from "../middleware";
+import { config, proxy } from "../proxy";
 
 function makeRequest(pathname: string, token?: string) {
   return new NextRequest(`http://localhost:3000${pathname}`, {
@@ -25,7 +25,7 @@ function expectRedirectToRoot(response: Response) {
   expect(response.headers.get("location")).toBe("http://localhost:3000/");
 }
 
-describe("middleware auth gate", () => {
+describe("proxy auth gate", () => {
   beforeEach(() => {
     mockVerifySession.mockReset();
   });
@@ -42,7 +42,7 @@ describe("middleware auth gate", () => {
   it("allows anonymous users to access the home page", async () => {
     mockVerifySession.mockResolvedValue(null);
 
-    const response = await middleware(makeRequest("/"));
+    const response = await proxy(makeRequest("/"));
 
     expect(mockVerifySession).toHaveBeenCalledWith(undefined);
     expectNextResponse(response);
@@ -51,7 +51,7 @@ describe("middleware auth gate", () => {
   it("allows anonymous users to access login", async () => {
     mockVerifySession.mockResolvedValue(null);
 
-    const response = await middleware(makeRequest("/login"));
+    const response = await proxy(makeRequest("/login"));
 
     expect(mockVerifySession).toHaveBeenCalledWith(undefined);
     expectNextResponse(response);
@@ -60,7 +60,7 @@ describe("middleware auth gate", () => {
   it("allows authenticated users to access login", async () => {
     mockVerifySession.mockResolvedValue({ userId: "user-1", userRole: "user" });
 
-    const response = await middleware(makeRequest("/login", "valid-token"));
+    const response = await proxy(makeRequest("/login", "valid-token"));
 
     expect(mockVerifySession).toHaveBeenCalledWith("valid-token");
     expectNextResponse(response);
@@ -69,7 +69,7 @@ describe("middleware auth gate", () => {
   it("redirects anonymous users away from lists", async () => {
     mockVerifySession.mockResolvedValue(null);
 
-    const response = await middleware(makeRequest("/lists", "expired-token"));
+    const response = await proxy(makeRequest("/lists", "expired-token"));
 
     expect(mockVerifySession).toHaveBeenCalledWith("expired-token");
     expectRedirectToRoot(response);
@@ -78,7 +78,7 @@ describe("middleware auth gate", () => {
   it("allows authenticated users to access lists", async () => {
     mockVerifySession.mockResolvedValue({ userId: "user-1", userRole: "user" });
 
-    const response = await middleware(makeRequest("/lists/abc", "valid-token"));
+    const response = await proxy(makeRequest("/lists/abc", "valid-token"));
 
     expect(mockVerifySession).toHaveBeenCalledWith("valid-token");
     expectNextResponse(response);
@@ -87,7 +87,7 @@ describe("middleware auth gate", () => {
   it("redirects non-editors away from edit routes", async () => {
     mockVerifySession.mockResolvedValue({ userId: "user-1", userRole: "user" });
 
-    const response = await middleware(makeRequest("/edit", "valid-token"));
+    const response = await proxy(makeRequest("/edit", "valid-token"));
 
     expectRedirectToRoot(response);
   });
@@ -95,7 +95,7 @@ describe("middleware auth gate", () => {
   it("allows editors to access edit routes", async () => {
     mockVerifySession.mockResolvedValue({ userId: "editor-1", userRole: "editor" });
 
-    const response = await middleware(makeRequest("/edit/words", "editor-token"));
+    const response = await proxy(makeRequest("/edit/words", "editor-token"));
 
     expectNextResponse(response);
   });
