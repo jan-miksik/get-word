@@ -24,6 +24,8 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 - Progress/preferences/hooks/filter state: `features/learning/state/*`
 - Sync API route: `app/api/sync/route.ts`
 - Sync response assembly: `features/shared/sync/response.ts`
+- Sync cursor parsing: `features/shared/sync/cursor.ts`
+- Route database retry helpers: `features/shared/routes/database-retry.ts`
 - Sync payload types: `features/sync/types.ts`
 
 ### Lists editor

@@ -26,118 +26,23 @@ import { type User } from "@/lib/db/schema";
 import { withSessionCookie } from "@/features/shared/routes/session";
 import { createRouteTimer } from "@/features/shared/routes/timing";
 import {
+  databaseUnavailableResponse,
+  isTransientDatabaseError,
+  withRetryOnRecoverableDatabaseError,
+} from "@/features/shared/routes/database-retry";
+import {
   buildSyncDeltaPayload,
   buildSyncSuccessPayload,
   getHydratedWordListData,
 } from "@/features/shared/sync/response";
 import { isUuid } from "@/features/shared/sync/identity";
+import { parseSinceCursor } from "@/features/shared/sync/cursor";
 import type { SyncRequest } from "@/features/sync/types";
 import {
   GET_WORD_SESSION_COOKIE_NAME,
   verifySession,
 } from "@/lib/session";
 import { isGoogleSupportedLanguage } from "@/lib/i18n/server";
-
-const PG_STATEMENT_TIMEOUT = "57014";
-const TRANSIENT_DATABASE_ERROR_CODES = new Set([
-  PG_STATEMENT_TIMEOUT,
-  "ENOTFOUND",
-  "EAI_AGAIN",
-  "ECONNRESET",
-  "ECONNREFUSED",
-  "ETIMEDOUT",
-  "ENETUNREACH",
-  "EHOSTUNREACH",
-]);
-const DATABASE_UNAVAILABLE_MESSAGE =
-  "Database is temporarily unavailable. Please try again shortly.";
-
-function isStatementTimeout(err: unknown): boolean {
-  return hasRecoverableDatabaseCode(err, new Set([PG_STATEMENT_TIMEOUT]));
-}
-
-function hasRecoverableDatabaseCode(err: unknown, codes = TRANSIENT_DATABASE_ERROR_CODES): boolean {
-  if (!err || typeof err !== "object") return false;
-  const e = err as {
-    code?: string;
-    cause?: unknown;
-    errors?: unknown[];
-  };
-
-  if (e.code && codes.has(e.code)) return true;
-  if (e.cause && hasRecoverableDatabaseCode(e.cause, codes)) return true;
-  if (Array.isArray(e.errors) && e.errors.some((item) => hasRecoverableDatabaseCode(item, codes))) {
-    return true;
-  }
-
-  return false;
-}
-
-function isTransientDatabaseError(err: unknown): boolean {
-  if (hasRecoverableDatabaseCode(err)) return true;
-  if (err instanceof Error && /getaddrinfo (ENOTFOUND|EAI_AGAIN)/i.test(err.message)) {
-    return true;
-  }
-  return false;
-}
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
-/**
- * Accepts either ISO 8601 timestamps or numeric epoch ms (the format
- * getUserSyncRevision returns). Returns null for malformed input so the
- * route falls back to a full snapshot rather than silently serving stale
- * deltas anchored at the epoch.
- */
-function parseSinceCursor(value: string | null): Date | null {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  const numeric = Number(trimmed);
-  if (Number.isFinite(numeric) && numeric > 0) {
-    const d = new Date(numeric);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }
-  const parsed = new Date(trimmed);
-  return Number.isNaN(parsed.getTime()) ? null : parsed;
-}
-
-async function withRetryOnRecoverableDatabaseError<T>(fn: () => Promise<T>): Promise<T> {
-  const maxAttempts = 3;
-  const retryDelayMs = process.env.NODE_ENV === "test" ? 0 : 800;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      return await fn();
-    } catch (e) {
-      if (!isTransientDatabaseError(e) || attempt === maxAttempts) {
-        throw e;
-      }
-      if (isStatementTimeout(e)) {
-        console.warn("Database statement timeout during sync; retrying", { attempt });
-      }
-      await sleep(retryDelayMs);
-    }
-  }
-
-  throw new Error("Unreachable database retry state");
-}
-
-function databaseUnavailableResponse(
-  timer: ReturnType<typeof createRouteTimer>,
-  error: unknown,
-  logLabel: string
-) {
-  console.error(logLabel, error);
-  const failed = NextResponse.json(
-    { success: false, error: DATABASE_UNAVAILABLE_MESSAGE },
-    { status: 503 }
-  );
-  failed.headers.set("Retry-After", "2");
-  return timer.applyHeaders(failed);
-}
 
 /** Prefers a verified session; otherwise bootstraps from device auth. */
 async function resolveUser(
