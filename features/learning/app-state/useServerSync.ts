@@ -10,6 +10,7 @@ import {
 } from '@/lib/sync';
 import { installSyncLifecycle } from '@/lib/sync-coordinator';
 import { startDrainer } from '@/lib/local-first/drainer';
+import { loadAllDomainsFromIdb, persistDomainsToIdb } from '@/lib/local-first/hydrate';
 import { getSnapshot, getStoragePreference, saveSnapshot } from '@/lib/local-learning-cache';
 import type { SyncResponse } from '@/lib/sync';
 import type { NormalizedWord } from '@/lib/words';
@@ -66,7 +67,7 @@ export function useServerSync({
 
   const applyServerData = useCallback((
     serverData: SyncResponse,
-    options: { clearPending?: boolean; persistSnapshot?: boolean; markServerSnapshot?: boolean } = {}
+    options: { clearPending?: boolean; persistSnapshot?: boolean; markServerSnapshot?: boolean; persistDomains?: boolean } = {}
   ) => {
     if (options.clearPending ?? true) {
       clearPendingSync();
@@ -106,6 +107,9 @@ export function useServerSync({
     }
     if (options.persistSnapshot ?? true) {
       void saveSnapshot(serverData, readStoredActiveListId()).catch(() => undefined);
+    }
+    if ((options.persistDomains ?? true) && getStoragePreference()) {
+      void persistDomainsToIdb(serverData).catch(() => undefined);
     }
   }, [
     applyServerCategories,
@@ -153,24 +157,51 @@ export function useServerSync({
 
     let cancelled = false;
     if (getStoragePreference()) {
-      getSnapshot()
-        .then((snapshot) => {
-          if (cancelled || !snapshot || isHydratedRef.current) return;
+      const warmFromIdb = async () => {
+        const idbHydration = await loadAllDomainsFromIdb().catch(() => null);
+        if (cancelled || isHydratedRef.current) return true;
+        if (idbHydration) {
           isUpdatingFromServerRef.current = true;
-          applyServerData(
-            { success: true, ...snapshot.data } as SyncResponse,
-            { clearPending: false, persistSnapshot: false, markServerSnapshot: false }
-          );
-          if (snapshot.activeListId) {
-            setActiveListId(snapshot.activeListId);
+          applyServerData(idbHydration.syncResponse, {
+            clearPending: false,
+            persistSnapshot: false,
+            persistDomains: false,
+            markServerSnapshot: false,
+          });
+          if (idbHydration.activeListId) {
+            setActiveListId(idbHydration.activeListId);
           }
           isHydratedRef.current = true;
           setIsHydrated(true);
           requestAnimationFrame(() => {
             isUpdatingFromServerRef.current = false;
           });
-        })
-        .catch(() => undefined);
+          return true;
+        }
+        return false;
+      };
+
+      void warmFromIdb().then((warmed) => {
+        if (warmed || cancelled || isHydratedRef.current) return;
+        return getSnapshot()
+          .then((snapshot) => {
+            if (cancelled || !snapshot || isHydratedRef.current) return;
+            isUpdatingFromServerRef.current = true;
+            applyServerData(
+              { success: true, ...snapshot.data } as SyncResponse,
+              { clearPending: false, persistSnapshot: false, persistDomains: false, markServerSnapshot: false }
+            );
+            if (snapshot.activeListId) {
+              setActiveListId(snapshot.activeListId);
+            }
+            isHydratedRef.current = true;
+            setIsHydrated(true);
+            requestAnimationFrame(() => {
+              isUpdatingFromServerRef.current = false;
+            });
+          })
+          .catch(() => undefined);
+      });
     }
 
     fetchUserData()
