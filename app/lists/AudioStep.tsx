@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import type { I18nKey } from '@/lib/i18n/messages';
 import { useI18n } from '@/components/I18nProvider';
 import { listsApiFetch } from '@/features/lists/api';
 import {
@@ -14,41 +13,24 @@ import {
   getPreviewSource,
   getSelectedReusableOption,
   toAudioVariant,
-  type AudioReuseMatch,
   type AudioRow,
   type AudioSide,
   type AudioSourceCandidate,
 } from '@/features/lists/audio-step/rows';
+import {
+  chunkArray,
+  getErrorFromPayload,
+  readDebugResponse,
+  type AudioGenerationResult,
+  type AudioReuseResult,
+  type TranslateFn,
+} from '@/features/lists/audio-step/api';
+import {
+  formatLanguage,
+  getBaseLanguage,
+  type TtsLanguageOption,
+} from '@/features/lists/audio-step/language';
 import { GoogleUsageHint } from './GoogleUsageHint';
-
-type AudioGenerationResult = {
-  id: string;
-  content_hash?: string;
-  audio_url: string | null;
-  arweave_url?: string | null;
-  arweave_urls?: string[];
-  storage_ref?: string | null;
-  size_bytes?: number;
-  status: string;
-  source?: string;
-  error?: string;
-};
-
-type AudioReuseResult = {
-  id: string;
-  content_hash?: string;
-  asset_id?: string;
-  selected_asset_id?: string;
-  audio_url: string | null;
-  arweave_url?: string | null;
-  arweave_urls?: string[];
-  storage_ref?: string | null;
-  size_bytes?: number;
-  status: 'found' | 'missing' | 'error';
-  linked?: boolean;
-  error?: string;
-  matches?: AudioReuseMatch[];
-};
 
 type CachedAudio = {
   objectUrl: string;
@@ -57,38 +39,13 @@ type CachedAudio = {
   sizeBytes: number;
 };
 
-type DebugResponsePayload = {
-  status: number;
-  statusText: string;
-  url: string;
-  contentType: string;
-  rawText: string;
-  json: unknown;
-};
-
 type QueuedAudio = {
   rowId: string;
   source: AudioSourceCandidate;
 };
 
-type TtsLanguageOption = {
-  code: string;
-  name: string;
-  ttsVoices?: string[];
-  preferredVoice?: string | null;
-};
-
 const AUDIO_LOG_PREFIX = '[Get Word audio]';
 const AUDIO_REUSE_BATCH_SIZE = 200;
-type TranslateFn = (key: I18nKey, values?: Record<string, string | number>) => string;
-
-function chunkArray<T>(items: T[], size: number): T[][] {
-  const chunks: T[][] = [];
-  for (let i = 0; i < items.length; i += size) {
-    chunks.push(items.slice(i, i + size));
-  }
-  return chunks;
-}
 
 class AudioLoadError extends Error {
   constructor(
@@ -128,80 +85,6 @@ function getMediaErrorLabel(error: MediaError | null): string {
     default:
       return `MEDIA_ERR_${error.code}`;
   }
-}
-
-async function readDebugResponse(response: Response): Promise<DebugResponsePayload> {
-  const contentType = response.headers.get('content-type') ?? '';
-  const rawText = await response.text();
-  let json: unknown = null;
-
-  if (rawText.trim()) {
-    try {
-      json = JSON.parse(rawText);
-    } catch {
-      // Leave json as null so callers can surface a user-facing error.
-    }
-  }
-
-  return {
-    status: response.status,
-    statusText: response.statusText,
-    url: response.url,
-    contentType,
-    rawText,
-    json,
-  };
-}
-
-function getErrorFromPayload(payload: DebugResponsePayload, t: TranslateFn): string {
-  if (
-    payload.json &&
-    typeof payload.json === 'object' &&
-    'error' in payload.json &&
-    typeof payload.json.error === 'string'
-  ) {
-    const detail =
-      'detail' in payload.json && typeof payload.json.detail === 'string'
-        ? payload.json.detail
-        : null;
-    const requestId =
-      'request_id' in payload.json && typeof payload.json.request_id === 'string'
-        ? payload.json.request_id
-        : null;
-    const code =
-      'code' in payload.json && typeof payload.json.code === 'string'
-        ? payload.json.code
-        : null;
-    const hint =
-      'hint' in payload.json && typeof payload.json.hint === 'string'
-        ? payload.json.hint
-        : null;
-
-    return [
-      payload.json.error,
-      detail ? `Detail: ${detail}` : null,
-      code ? `Code: ${code}` : null,
-      hint ? `Hint: ${hint}` : null,
-      requestId ? `Request: ${requestId}` : null,
-    ].filter(Boolean).join(' ');
-  }
-
-  const bodyPreview = payload.rawText.trim().slice(0, 160);
-  return bodyPreview
-    ? `${t('lists.audioGenerateGenericFailed')} (${payload.status}): ${bodyPreview}`
-    : `${t('lists.audioGenerateGenericFailed')} (${payload.status} ${payload.statusText})`;
-}
-
-function formatLanguage(code: string, t: TranslateFn): string {
-  const normalized = code.toLowerCase();
-  if (normalized === 'cs' || normalized === 'cz') return t('languageName.cs');
-  if (normalized === 'vi') return t('languageName.vi');
-  if (normalized === 'en') return t('languageName.en');
-  return code.toUpperCase();
-}
-
-function getBaseLanguage(code: string): string {
-  return code.toLowerCase().split('-')[0];
 }
 
 function getLoadErrorMessage(error: unknown, fallbackUrl: string | null, t: TranslateFn): string {
