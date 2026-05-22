@@ -16,11 +16,9 @@ import {
 import { isSameListDirection } from '@/features/lists/languages';
 import { useLearningLanguages } from '@/features/lists/hooks/useLearningLanguages';
 import { useListsSettingsLanguage } from '@/features/lists/hooks/useListsSettingsLanguage';
-import { useBuildAudioStepItems, useItemsByCategory } from '@/features/lists/hooks/useListWizardItems';
+import { useItemsByCategory } from '@/features/lists/hooks/useListWizardItems';
+import { useListsWizard } from '@/features/lists/hooks/useListsWizard';
 import type {
-  CompletedTranslationRow,
-  ConfirmResult,
-  DiffResult,
   GoogleUsageResponse,
   PendingFork,
   WordCategory,
@@ -38,10 +36,7 @@ import { ApiKeySettings } from './ApiKeySettings';
 import { PendingForkDialog } from './PendingForkDialog';
 import { WizardProgressBar, type WizardActiveStep } from './WizardProgressBar';
 
-type WizardStep = 'browse' | WizardActiveStep;
 type ForkedListPrompt = { listId: string; sourceName: string };
-type PendingListItems = NonNullable<ConfirmResult['pending_items']>;
-type TranslateHeadingMode = 'translate' | 'review';
 
 export default function ListsPage() {
   const settingsLanguage = useListsSettingsLanguage();
@@ -63,15 +58,6 @@ function ListsPageContent() {
   const [loadingDetails, setLoadingDetails] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Wizard state
-  const [wizardStep, setWizardStep] = useState<WizardStep>('browse');
-  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
-  const [editingAllWords, setEditingAllWords] = useState(false);
-  const [editInputLanguage, setEditInputLanguage] = useState<'known' | 'target'>('known');
-  const [diffResult, setDiffResult] = useState<DiffResult | null>(null);
-  const [pendingItems, setPendingItems] = useState<PendingListItems>([]);
-  const [audioStepItems, setAudioStepItems] = useState<WordListItem[] | null>(null);
-  const [translateHeadingMode, setTranslateHeadingMode] = useState<TranslateHeadingMode>('translate');
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [subscribedListIds, setSubscribedListIds] = useState<Set<string>>(new Set());
@@ -80,12 +66,10 @@ function ListsPageContent() {
   const [initialCreateLanguageTo, setInitialCreateLanguageTo] = useState<string | null>(null);
   const [existingListsHint, setExistingListsHint] = useState(false);
   const languages = useLearningLanguages();
-  const [isEditDirty, setIsEditDirty] = useState(false);
   const [googleUsage, setGoogleUsage] = useState<GoogleUsageResponse | null>(null);
   const [forkedListPrompt, setForkedListPrompt] = useState<ForkedListPrompt | null>(null);
   const [canManageCommonLists, setCanManageCommonLists] = useState(false);
   const [initialAudioFixStep, setInitialAudioFixStep] = useState<'audio-target' | 'audio-known' | null>(null);
-  const [triggerEditSignal, setTriggerEditSignal] = useState(0);
   const [pendingFork, setPendingFork] = useState<PendingFork | null>(null);
   const [forkingListId, setForkingListId] = useState<string | null>(null);
 
@@ -178,7 +162,30 @@ function ListsPageContent() {
     loadLists();
   }, [loadGoogleUsage, t]);
 
-  // Fetch list details when selected list changes
+  const itemsByCategory = useItemsByCategory(items);
+
+  const reloadListDetails = useCallback(
+    async (options: { includeMedia?: boolean } = {}): Promise<WordListItem[]> => {
+      if (!selectedListId) return [];
+      const details = await listActions.fetchListDetails(selectedListId, {
+        includeMedia: options.includeMedia ?? false,
+      });
+      setCategories(details.categories);
+      setItems(details.items);
+      return details.items;
+    },
+    [selectedListId],
+  );
+
+  const wizard = useListsWizard({
+    selectedListId,
+    items,
+    itemsByCategory,
+    reloadListDetails,
+    loadGoogleUsage,
+  });
+
+  // Fetch list details when selected list changes.
   useEffect(() => {
     if (!selectedListId) return;
     const listId = selectedListId;
@@ -196,11 +203,10 @@ function ListsPageContent() {
         setCategories(details.categories);
         setItems(freshItems);
         if (initialAudioFixStep) {
-          setAudioStepItems(freshItems);
-          setWizardStep(initialAudioFixStep);
+          wizard.openAudioStepFromFix(freshItems, initialAudioFixStep);
           setInitialAudioFixStep(null);
         } else {
-          setWizardStep('browse');
+          wizard.showBrowse();
         }
       } catch (err) {
         if (err instanceof DOMException && err.name === 'AbortError') return;
@@ -212,17 +218,10 @@ function ListsPageContent() {
       }
     }
     loadListDetails();
-    setEditingCategoryId(null);
-    setEditingAllWords(false);
+    wizard.resetForListChange();
     return () => controller.abort();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialAudioFixStep, selectedListId, t]);
-
-  const itemsByCategory = useItemsByCategory(items);
-  const buildAudioStepItems = useBuildAudioStepItems({
-    editingCategoryId,
-    pendingItems,
-    selectedListId,
-  });
 
   const handleSelectList = useCallback((listId: string) => {
     if (listId === selectedListId) {
@@ -279,23 +278,9 @@ function ListsPageContent() {
     }
     if (clearedSides.length > 0 && selectedListId === listId) {
       const freshItems = await reloadListDetails();
-      setEditingCategoryId(null);
-      setEditingAllWords(true);
-      setAudioStepItems(null);
-      setDiffResult(null);
-      setEditInputLanguage(clearedSides.includes('target') ? 'known' : 'target');
-      setTranslateHeadingMode('translate');
-      setPendingItems(
-        freshItems.map((item) => ({
-          id: item.id,
-          text_known: item.textKnown,
-          text_target: item.textTarget ?? null,
-          position: item.position,
-        })),
-      );
-      setWizardStep('translate');
+      wizard.startAllWordsReviewAfterSideClear(clearedSides, freshItems);
     }
-  }, [forkedListPrompt, selectedListId, updateSelectedListUrl]);
+  }, [forkedListPrompt, reloadListDetails, selectedListId, updateSelectedListUrl, wizard]);
 
   const handleForkList = useCallback(async (listId: string) => {
     const sourceList = lists.find((list) => list.id === listId);
@@ -342,9 +327,9 @@ function ListsPageContent() {
 
   const handleEditList = useCallback((listId: string) => {
     setSelectedListId(listId);
-    setTriggerEditSignal((s) => s + 1);
+    wizard.triggerEdit();
     setSidebarOpen(false);
-  }, []);
+  }, [wizard]);
 
   const handleDismissForkNotice = useCallback(() => {
     setForkedListPrompt((current) => {
@@ -401,214 +386,6 @@ function ListsPageContent() {
     }
   }, [t]);
 
-  const handleEditCategory = useCallback((categoryId: string, inputLang: 'known' | 'target') => {
-    setEditingCategoryId(categoryId);
-    setEditingAllWords(false);
-    setEditInputLanguage(inputLang);
-    setAudioStepItems(null);
-    setIsEditDirty(false);
-    setWizardStep('edit');
-  }, []);
-
-  const handleEditAllWords = useCallback(() => {
-    setEditingCategoryId(null);
-    setEditingAllWords(true);
-    setEditInputLanguage('known');
-    setAudioStepItems(null);
-    setDiffResult({
-      added: [],
-      removed: [],
-      reordered: [],
-      unchanged: items.length,
-    });
-    setTranslateHeadingMode('review');
-    setPendingItems(
-      items.map((item) => ({
-        id: item.id,
-        text_known: item.textKnown,
-        text_target: item.textTarget ?? null,
-        position: item.position,
-      })),
-    );
-    setIsEditDirty(false);
-    setWizardStep('translate');
-  }, [items]);
-
-  const handlePreview = useCallback(async (lines: string[]) => {
-    if (!selectedListId || !editingCategoryId) return;
-    const diff = await listActions.previewCategoryItems(
-      selectedListId,
-      editingCategoryId,
-      lines,
-      editInputLanguage,
-    );
-    setDiffResult(diff);
-    setWizardStep('preview');
-  }, [selectedListId, editingCategoryId, editInputLanguage]);
-
-  const handleConfirm = useCallback(async () => {
-    if (!selectedListId || !editingCategoryId || !diffResult) return;
-    setAudioStepItems(null);
-    const result = await listActions.confirmCategoryItems(
-      selectedListId,
-      editingCategoryId,
-      diffResult,
-      editInputLanguage,
-    );
-
-    if (result.needs_translation && result.pending_items) {
-      setTranslateHeadingMode('translate');
-      setPendingItems(result.pending_items);
-      setWizardStep('translate');
-    } else {
-      // Reload first so freshItems includes any just-confirmed new words
-      const freshItems = await reloadListDetails();
-      const categoryItems = editingCategoryId
-        ? freshItems.filter((i) => i.categoryId === editingCategoryId)
-        : [];
-      if (categoryItems.length > 0) {
-        setTranslateHeadingMode('review');
-        setPendingItems(
-          categoryItems.map((item) => ({
-            id: item.id,
-            text_known: item.textKnown,
-            text_target: item.textTarget ?? null,
-            position: item.position,
-          }))
-        );
-        setWizardStep('translate');
-      } else {
-        setWizardStep('browse');
-      }
-    }
-  }, [selectedListId, editingCategoryId, diffResult, editInputLanguage]);
-
-  const handleTranslationComplete = useCallback(async (translationRows: CompletedTranslationRow[]) => {
-    const [freshItems] = await Promise.all([
-      reloadListDetails({ includeMedia: true }),
-      loadGoogleUsage(),
-    ]);
-    setPendingItems(translationRows.map((row, index) => ({
-      id: row.id,
-      text_known: row.textKnown,
-      text_target: row.textTarget || null,
-      position: pendingItems?.find((item) => item.id === row.id)?.position ?? index,
-    })));
-    setAudioStepItems(buildAudioStepItems(freshItems, translationRows));
-    setWizardStep('audio-target');
-  }, [buildAudioStepItems, loadGoogleUsage, pendingItems]);
-
-  const handleTargetAudioComplete = useCallback(async () => {
-    const [freshItems] = await Promise.all([
-      reloadListDetails({ includeMedia: true }),
-      loadGoogleUsage(),
-    ]);
-    setAudioStepItems(buildAudioStepItems(freshItems));
-    setWizardStep('audio-known');
-  }, [buildAudioStepItems, loadGoogleUsage]);
-
-  const handleKnownAudioComplete = useCallback(async () => {
-    await Promise.all([reloadListDetails(), loadGoogleUsage()]);
-    setWizardStep('browse');
-    setEditingCategoryId(null);
-    setEditingAllWords(false);
-    setPendingItems([]);
-    setAudioStepItems(null);
-    setDiffResult(null);
-  }, [loadGoogleUsage]);
-
-  const handleSkipTranslation = useCallback(async () => {
-    if (editingAllWords) {
-      const [freshItems] = await Promise.all([
-        reloadListDetails({ includeMedia: true }),
-        loadGoogleUsage(),
-      ]);
-      setAudioStepItems(buildAudioStepItems(freshItems));
-      setWizardStep('audio-target');
-      return;
-    }
-
-    await Promise.all([reloadListDetails(), loadGoogleUsage()]);
-    setWizardStep('browse');
-    setEditingCategoryId(null);
-    setEditingAllWords(false);
-    setAudioStepItems(null);
-  }, [buildAudioStepItems, editingAllWords, loadGoogleUsage]);
-
-  async function reloadListDetails(options: { includeMedia?: boolean } = {}): Promise<WordListItem[]> {
-    if (!selectedListId) return [];
-    const details = await listActions.fetchListDetails(selectedListId, {
-      includeMedia: options.includeMedia ?? false,
-    });
-    setCategories(details.categories);
-    setItems(details.items);
-    return details.items;
-  }
-
-  const handleCancelWizard = useCallback(() => {
-    setWizardStep('browse');
-    setEditingCategoryId(null);
-    setEditingAllWords(false);
-    setDiffResult(null);
-    setPendingItems([]);
-    setAudioStepItems(null);
-    setTranslateHeadingMode('translate');
-    setIsEditDirty(false);
-  }, []);
-
-  const handleGoBack = useCallback(() => {
-    if (editingAllWords && wizardStep === 'translate') handleCancelWizard();
-    else if (wizardStep === 'preview') setWizardStep('edit');
-    else if (wizardStep === 'translate') setWizardStep('preview');
-    else if (wizardStep === 'audio-target') setWizardStep('translate');
-    else if (wizardStep === 'audio-known') setWizardStep('audio-target');
-    else handleCancelWizard();
-  }, [editingAllWords, wizardStep, handleCancelWizard]);
-
-  const handleGoToStep = useCallback(async (step: WizardActiveStep) => {
-    const order: WizardActiveStep[] = ['edit', 'preview', 'translate', 'audio-target', 'audio-known'];
-    if (editingAllWords && (step === 'edit' || step === 'preview')) return;
-    const currentIdx = order.indexOf(wizardStep as WizardActiveStep);
-    const targetIdx = order.indexOf(step);
-
-    // Always allow going back
-    if (targetIdx <= currentIdx) {
-      setWizardStep(step);
-      return;
-    }
-
-    // Blocked if currently editing with unsaved changes
-    if (isEditDirty) return;
-
-    // From edit step: set up diff/pending so later steps have data
-    if (wizardStep === 'edit' && editingCategoryId) {
-      const categoryItems = itemsByCategory.get(editingCategoryId) ?? [];
-      setDiffResult({
-        added: [],
-        removed: [],
-        reordered: [],
-        unchanged: categoryItems.length,
-      });
-      setTranslateHeadingMode('review');
-      setPendingItems(
-        categoryItems.map((item) => ({
-          id: item.id,
-          text_known: item.textKnown,
-          text_target: item.textTarget ?? null,
-          position: item.position,
-        })),
-      );
-    }
-
-    if (step === 'audio-target' || step === 'audio-known') {
-      const freshItems = await reloadListDetails({ includeMedia: true });
-      setAudioStepItems(buildAudioStepItems(freshItems));
-    }
-
-    // From any non-edit step: allow jumping forward freely
-    setWizardStep(step);
-  }, [buildAudioStepItems, editingAllWords, editingCategoryId, isEditDirty, itemsByCategory, wizardStep]);
-
   const handleCreateCategory = useCallback(async (name: string) => {
     if (!selectedListId) return;
     await listActions.createCategory(selectedListId, name);
@@ -652,9 +429,9 @@ function ListsPageContent() {
     );
   }
 
-  const editingCategory = categories.find((c) => c.id === editingCategoryId);
-  const editingItems = editingCategoryId ? itemsByCategory.get(editingCategoryId) ?? [] : [];
-  const currentAudioItems = audioStepItems ?? (editingCategoryId ? editingItems : items);
+  const editingCategory = categories.find((c) => c.id === wizard.editingCategoryId);
+  const editingItems = wizard.editingCategoryId ? itemsByCategory.get(wizard.editingCategoryId) ?? [] : [];
+  const currentAudioItems = wizard.audioStepItems ?? (wizard.editingCategoryId ? editingItems : items);
   const languageOptions = languages.length > 0 ? languages : [
     { code: 'cs', name: t('languageName.cs') },
     { code: 'vi', name: t('languageName.vi') },
@@ -730,12 +507,12 @@ function ListsPageContent() {
 
       {/* Main content */}
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
-        {wizardStep !== 'browse' && selectedList && (
+        {wizard.wizardStep !== 'browse' && selectedList && (
           <WizardProgressBar
-            currentStep={wizardStep as WizardActiveStep}
-            onGoToStep={handleGoToStep}
-            canJumpForward={!isEditDirty}
-            availableSteps={editingAllWords ? ['translate', 'audio-target', 'audio-known'] : undefined}
+            currentStep={wizard.wizardStep as WizardActiveStep}
+            onGoToStep={wizard.handleGoToStep}
+            canJumpForward={!wizard.isEditDirty}
+            availableSteps={wizard.editingAllWords ? ['translate', 'audio-target', 'audio-known'] : undefined}
           />
         )}
 
@@ -774,7 +551,7 @@ function ListsPageContent() {
             <div className="flex items-center justify-center h-full">
               <p className="text-text-soft">{t('app.loading')}</p>
             </div>
-          ) : wizardStep === 'browse' ? (
+          ) : wizard.wizardStep === 'browse' ? (
             <CategoryBrowser
               list={selectedList}
               categories={categories}
@@ -783,9 +560,9 @@ function ListsPageContent() {
               isOwner={isOwner}
               isEditor={canManageCommonLists}
               forkedFromListName={forkedListPrompt?.listId === selectedList.id ? forkedListPrompt.sourceName : null}
-              triggerEditSignal={triggerEditSignal}
-              onEditCategory={handleEditCategory}
-              onEditAllWords={handleEditAllWords}
+              triggerEditSignal={wizard.triggerEditSignal}
+              onEditCategory={wizard.handleEditCategory}
+              onEditAllWords={wizard.handleEditAllWords}
               onCreateCategory={handleCreateCategory}
               onUpdateList={handleUpdateList}
               onDismissForkNotice={handleDismissForkNotice}
@@ -795,63 +572,63 @@ function ListsPageContent() {
               onFork={handleForkList}
               onDeleteList={handleDeleteList}
             />
-          ) : wizardStep === 'edit' ? (
+          ) : wizard.wizardStep === 'edit' ? (
             <TextareaEditor
               category={editingCategory!}
               items={editingItems}
-              inputLanguage={editInputLanguage}
-              onInputLanguageChange={setEditInputLanguage}
-              onPreview={handlePreview}
-              onCancel={handleCancelWizard}
-              onDirtyChange={setIsEditDirty}
+              inputLanguage={wizard.editInputLanguage}
+              onInputLanguageChange={wizard.setEditInputLanguage}
+              onPreview={wizard.handlePreview}
+              onCancel={wizard.handleCancelWizard}
+              onDirtyChange={wizard.setIsEditDirty}
             />
-          ) : wizardStep === 'preview' ? (
+          ) : wizard.wizardStep === 'preview' ? (
             <DiffPreview
-              diff={diffResult!}
+              diff={wizard.diffResult!}
               existingItems={editingItems}
-              onConfirm={handleConfirm}
-              onCancel={handleCancelWizard}
-              onBack={handleGoBack}
+              onConfirm={wizard.handleConfirm}
+              onCancel={wizard.handleCancelWizard}
+              onBack={wizard.handleGoBack}
             />
-          ) : wizardStep === 'translate' ? (
+          ) : wizard.wizardStep === 'translate' ? (
             <TranslationStep
               list={selectedList}
-              pendingItems={pendingItems ?? []}
-              inputLanguage={editInputLanguage}
+              pendingItems={wizard.pendingItems ?? []}
+              inputLanguage={wizard.editInputLanguage}
               heading={t(
-                translateHeadingMode === 'review'
+                wizard.translateHeadingMode === 'review'
                   ? 'lists.reviewTranslationsAndAudio'
                   : 'lists.translateWords',
               )}
               googleUsage={googleUsage}
-              onComplete={handleTranslationComplete}
-              onSkip={handleSkipTranslation}
+              onComplete={wizard.handleTranslationComplete}
+              onSkip={wizard.handleSkipTranslation}
               onUsageRefresh={loadGoogleUsage}
-              onBack={handleGoBack}
+              onBack={wizard.handleGoBack}
             />
-          ) : wizardStep === 'audio-target' ? (
+          ) : wizard.wizardStep === 'audio-target' ? (
             <AudioStep
               list={selectedList}
               items={currentAudioItems}
               audioSide="target"
               title={t('lists.audioTarget')}
               googleUsage={googleUsage}
-              onComplete={handleTargetAudioComplete}
-              onSkip={handleTargetAudioComplete}
+              onComplete={wizard.handleTargetAudioComplete}
+              onSkip={wizard.handleTargetAudioComplete}
               onUsageRefresh={loadGoogleUsage}
-              onBack={handleGoBack}
+              onBack={wizard.handleGoBack}
             />
-          ) : wizardStep === 'audio-known' ? (
+          ) : wizard.wizardStep === 'audio-known' ? (
             <AudioStep
               list={selectedList}
               items={currentAudioItems}
               audioSide="known"
               title={t('lists.audioKnown')}
               googleUsage={googleUsage}
-              onComplete={handleKnownAudioComplete}
-              onSkip={handleKnownAudioComplete}
+              onComplete={wizard.handleKnownAudioComplete}
+              onSkip={wizard.handleKnownAudioComplete}
               onUsageRefresh={loadGoogleUsage}
-              onBack={handleGoBack}
+              onBack={wizard.handleGoBack}
             />
           ) : null}
         </div>

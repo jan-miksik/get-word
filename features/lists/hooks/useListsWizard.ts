@@ -1,0 +1,355 @@
+'use client';
+
+// Owns wizard-only state and handlers for `app/lists/page.tsx`.
+//
+// The page coordinates lists/categories/items/error/sidebar/google-usage
+// concerns; this hook isolates the inner wizard flow: which step the user is
+// on, what they are editing, the diff/translation/audio in-flight payloads,
+// and step transitions. The page exposes the data the wizard needs (selected
+// list id, current items, helpers to reload list details and audio step
+// items, google-usage refresher) and calls a few imperative entries when
+// outside events should drive the wizard (list change, server-cleared sides
+// after `handleUpdateList`, initial URL-triggered audio fix).
+
+import { useCallback, useState } from 'react';
+import type { WizardActiveStep } from '@/app/lists/WizardProgressBar';
+import * as listActions from '@/features/lists/client/actions';
+import { useBuildAudioStepItems } from '@/features/lists/hooks/useListWizardItems';
+import type {
+  CompletedTranslationRow,
+  DiffResult,
+  WordListItem,
+} from '@/features/lists/types';
+
+type WizardStep = 'browse' | WizardActiveStep;
+type TranslateHeadingMode = 'translate' | 'review';
+type PendingListItems = NonNullable<
+  Awaited<ReturnType<typeof listActions.confirmCategoryItems>>['pending_items']
+>;
+
+const WIZARD_ORDER: WizardActiveStep[] = [
+  'edit',
+  'preview',
+  'translate',
+  'audio-target',
+  'audio-known',
+];
+
+function itemsToPending(items: WordListItem[]): PendingListItems {
+  return items.map((item) => ({
+    id: item.id,
+    text_known: item.textKnown,
+    text_target: item.textTarget ?? null,
+    position: item.position,
+  }));
+}
+
+export type UseListsWizardDeps = {
+  selectedListId: string | null;
+  items: WordListItem[];
+  itemsByCategory: Map<string, WordListItem[]>;
+  reloadListDetails: (options?: { includeMedia?: boolean }) => Promise<WordListItem[]>;
+  loadGoogleUsage: () => Promise<void> | void;
+};
+
+export function useListsWizard({
+  selectedListId,
+  items,
+  itemsByCategory,
+  reloadListDetails,
+  loadGoogleUsage,
+}: UseListsWizardDeps) {
+  const [wizardStep, setWizardStep] = useState<WizardStep>('browse');
+  const [editingCategoryId, setEditingCategoryId] = useState<string | null>(null);
+  const [editingAllWords, setEditingAllWords] = useState(false);
+  const [editInputLanguage, setEditInputLanguage] = useState<'known' | 'target'>('known');
+  const [diffResult, setDiffResult] = useState<DiffResult | null>(null);
+  const [pendingItems, setPendingItems] = useState<PendingListItems>([]);
+  const [audioStepItems, setAudioStepItems] = useState<WordListItem[] | null>(null);
+  const [translateHeadingMode, setTranslateHeadingMode] = useState<TranslateHeadingMode>('translate');
+  const [triggerEditSignal, setTriggerEditSignal] = useState(0);
+  const [isEditDirty, setIsEditDirty] = useState(false);
+
+  const buildAudioStepItems = useBuildAudioStepItems({
+    editingCategoryId,
+    pendingItems,
+    selectedListId,
+  });
+
+  // External triggers — used by the page when something outside the wizard
+  // (URL state, server-driven side cleanup, list change) should update the
+  // wizard's view.
+  const resetForListChange = useCallback(() => {
+    setEditingCategoryId(null);
+    setEditingAllWords(false);
+  }, []);
+
+  const showBrowse = useCallback(() => setWizardStep('browse'), []);
+
+  const openAudioStepFromFix = useCallback(
+    (freshItems: WordListItem[], step: WizardActiveStep) => {
+      setAudioStepItems(freshItems);
+      setWizardStep(step);
+    },
+    [],
+  );
+
+  const startAllWordsReviewAfterSideClear = useCallback(
+    (clearedSides: Array<'known' | 'target'>, freshItems: WordListItem[]) => {
+      setEditingCategoryId(null);
+      setEditingAllWords(true);
+      setAudioStepItems(null);
+      setDiffResult(null);
+      setEditInputLanguage(clearedSides.includes('target') ? 'known' : 'target');
+      setTranslateHeadingMode('translate');
+      setPendingItems(itemsToPending(freshItems));
+      setWizardStep('translate');
+    },
+    [],
+  );
+
+  const triggerEdit = useCallback(() => {
+    setTriggerEditSignal((value) => value + 1);
+  }, []);
+
+  // Wizard handlers — referenced by the page render and child components.
+  const handleEditCategory = useCallback(
+    (categoryId: string, inputLang: 'known' | 'target') => {
+      setEditingCategoryId(categoryId);
+      setEditingAllWords(false);
+      setEditInputLanguage(inputLang);
+      setAudioStepItems(null);
+      setIsEditDirty(false);
+      setWizardStep('edit');
+    },
+    [],
+  );
+
+  const handleEditAllWords = useCallback(() => {
+    setEditingCategoryId(null);
+    setEditingAllWords(true);
+    setEditInputLanguage('known');
+    setAudioStepItems(null);
+    setDiffResult({
+      added: [],
+      removed: [],
+      reordered: [],
+      unchanged: items.length,
+    });
+    setTranslateHeadingMode('review');
+    setPendingItems(itemsToPending(items));
+    setIsEditDirty(false);
+    setWizardStep('translate');
+  }, [items]);
+
+  const handlePreview = useCallback(
+    async (lines: string[]) => {
+      if (!selectedListId || !editingCategoryId) return;
+      const diff = await listActions.previewCategoryItems(
+        selectedListId,
+        editingCategoryId,
+        lines,
+        editInputLanguage,
+      );
+      setDiffResult(diff);
+      setWizardStep('preview');
+    },
+    [selectedListId, editingCategoryId, editInputLanguage],
+  );
+
+  const handleConfirm = useCallback(async () => {
+    if (!selectedListId || !editingCategoryId || !diffResult) return;
+    setAudioStepItems(null);
+    const result = await listActions.confirmCategoryItems(
+      selectedListId,
+      editingCategoryId,
+      diffResult,
+      editInputLanguage,
+    );
+
+    if (result.needs_translation && result.pending_items) {
+      setTranslateHeadingMode('translate');
+      setPendingItems(result.pending_items);
+      setWizardStep('translate');
+      return;
+    }
+
+    // Reload first so freshItems includes any just-confirmed new words.
+    const freshItems = await reloadListDetails();
+    const categoryItems = freshItems.filter((i) => i.categoryId === editingCategoryId);
+    if (categoryItems.length > 0) {
+      setTranslateHeadingMode('review');
+      setPendingItems(itemsToPending(categoryItems));
+      setWizardStep('translate');
+    } else {
+      setWizardStep('browse');
+    }
+  }, [diffResult, editInputLanguage, editingCategoryId, reloadListDetails, selectedListId]);
+
+  const handleTranslationComplete = useCallback(
+    async (translationRows: CompletedTranslationRow[]) => {
+      const [freshItems] = await Promise.all([
+        reloadListDetails({ includeMedia: true }),
+        loadGoogleUsage(),
+      ]);
+      setPendingItems(
+        translationRows.map((row, index) => ({
+          id: row.id,
+          text_known: row.textKnown,
+          text_target: row.textTarget || null,
+          position: pendingItems.find((item) => item.id === row.id)?.position ?? index,
+        })),
+      );
+      setAudioStepItems(buildAudioStepItems(freshItems, translationRows));
+      setWizardStep('audio-target');
+    },
+    [buildAudioStepItems, loadGoogleUsage, pendingItems, reloadListDetails],
+  );
+
+  const handleTargetAudioComplete = useCallback(async () => {
+    const [freshItems] = await Promise.all([
+      reloadListDetails({ includeMedia: true }),
+      loadGoogleUsage(),
+    ]);
+    setAudioStepItems(buildAudioStepItems(freshItems));
+    setWizardStep('audio-known');
+  }, [buildAudioStepItems, loadGoogleUsage, reloadListDetails]);
+
+  const handleKnownAudioComplete = useCallback(async () => {
+    await Promise.all([reloadListDetails(), loadGoogleUsage()]);
+    setWizardStep('browse');
+    setEditingCategoryId(null);
+    setEditingAllWords(false);
+    setPendingItems([]);
+    setAudioStepItems(null);
+    setDiffResult(null);
+  }, [loadGoogleUsage, reloadListDetails]);
+
+  const handleSkipTranslation = useCallback(async () => {
+    if (editingAllWords) {
+      const [freshItems] = await Promise.all([
+        reloadListDetails({ includeMedia: true }),
+        loadGoogleUsage(),
+      ]);
+      setAudioStepItems(buildAudioStepItems(freshItems));
+      setWizardStep('audio-target');
+      return;
+    }
+
+    await Promise.all([reloadListDetails(), loadGoogleUsage()]);
+    setWizardStep('browse');
+    setEditingCategoryId(null);
+    setEditingAllWords(false);
+    setAudioStepItems(null);
+  }, [buildAudioStepItems, editingAllWords, loadGoogleUsage, reloadListDetails]);
+
+  const handleCancelWizard = useCallback(() => {
+    setWizardStep('browse');
+    setEditingCategoryId(null);
+    setEditingAllWords(false);
+    setDiffResult(null);
+    setPendingItems([]);
+    setAudioStepItems(null);
+    setTranslateHeadingMode('translate');
+    setIsEditDirty(false);
+  }, []);
+
+  const handleGoBack = useCallback(() => {
+    if (editingAllWords && wizardStep === 'translate') {
+      handleCancelWizard();
+    } else if (wizardStep === 'preview') {
+      setWizardStep('edit');
+    } else if (wizardStep === 'translate') {
+      setWizardStep('preview');
+    } else if (wizardStep === 'audio-target') {
+      setWizardStep('translate');
+    } else if (wizardStep === 'audio-known') {
+      setWizardStep('audio-target');
+    } else {
+      handleCancelWizard();
+    }
+  }, [editingAllWords, handleCancelWizard, wizardStep]);
+
+  const handleGoToStep = useCallback(
+    async (step: WizardActiveStep) => {
+      if (editingAllWords && (step === 'edit' || step === 'preview')) return;
+      const currentIdx = WIZARD_ORDER.indexOf(wizardStep as WizardActiveStep);
+      const targetIdx = WIZARD_ORDER.indexOf(step);
+
+      // Always allow going back.
+      if (targetIdx <= currentIdx) {
+        setWizardStep(step);
+        return;
+      }
+
+      // Blocked if currently editing with unsaved changes.
+      if (isEditDirty) return;
+
+      // From edit step: set up diff/pending so later steps have data.
+      if (wizardStep === 'edit' && editingCategoryId) {
+        const categoryItems = itemsByCategory.get(editingCategoryId) ?? [];
+        setDiffResult({
+          added: [],
+          removed: [],
+          reordered: [],
+          unchanged: categoryItems.length,
+        });
+        setTranslateHeadingMode('review');
+        setPendingItems(itemsToPending(categoryItems));
+      }
+
+      if (step === 'audio-target' || step === 'audio-known') {
+        const freshItems = await reloadListDetails({ includeMedia: true });
+        setAudioStepItems(buildAudioStepItems(freshItems));
+      }
+
+      setWizardStep(step);
+    },
+    [
+      buildAudioStepItems,
+      editingAllWords,
+      editingCategoryId,
+      isEditDirty,
+      itemsByCategory,
+      reloadListDetails,
+      wizardStep,
+    ],
+  );
+
+  return {
+    // State
+    wizardStep,
+    editingCategoryId,
+    editingAllWords,
+    editInputLanguage,
+    diffResult,
+    pendingItems,
+    audioStepItems,
+    translateHeadingMode,
+    triggerEditSignal,
+    isEditDirty,
+    // Setters used by child components / external code.
+    setEditInputLanguage,
+    setIsEditDirty,
+    // External triggers — only call from outside-the-wizard effects.
+    resetForListChange,
+    showBrowse,
+    openAudioStepFromFix,
+    startAllWordsReviewAfterSideClear,
+    triggerEdit,
+    // Handlers wired to child components.
+    handleEditCategory,
+    handleEditAllWords,
+    handlePreview,
+    handleConfirm,
+    handleTranslationComplete,
+    handleTargetAudioComplete,
+    handleKnownAudioComplete,
+    handleSkipTranslation,
+    handleCancelWizard,
+    handleGoBack,
+    handleGoToStep,
+  } as const;
+}
+
+export type ListsWizard = ReturnType<typeof useListsWizard>;
