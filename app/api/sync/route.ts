@@ -18,6 +18,7 @@ import {
   getWordIdToItemIdMapping,
   touchUserDevice,
   applyNewReviewEvents,
+  recordProcessedClientOps,
 } from "@/lib/db";
 import { type User } from "@/lib/db/schema";
 import { withSessionCookie } from "@/features/shared/routes/session";
@@ -156,8 +157,12 @@ export async function POST(request: NextRequest) {
       review_events,
       memory_hooks,
       category_filters,
+      client_op_ids,
     } = body;
     const userId = body.userId as string | undefined; // Optional compatibility hint from client
+    const clientOpIds = Array.isArray(client_op_ids)
+      ? client_op_ids.filter((id): id is string => typeof id === "string" && id.length > 0)
+      : [];
 
     if (!deviceId && !userId) {
       return NextResponse.json(
@@ -341,6 +346,26 @@ export async function POST(request: NextRequest) {
     }
     timer.mark("apply_mutations");
 
+    // Record applied client_op_ids for idempotent retry handling. Done AFTER
+    // mutations: a failed mutation throws and no ids are recorded, so the
+    // client safely retries the whole batch. Unique constraint on
+    // (userId, clientOpId) silently drops re-records on duplicate retries.
+    if (clientOpIds.length > 0) {
+      try {
+        await recordProcessedClientOps({
+          userId: user.id,
+          deviceId,
+          clientOpIds,
+        });
+      } catch (error) {
+        // Recording is best-effort; mutations already committed. Log and
+        // continue so the client still gets the success response. Worst case
+        // a retry re-applies idempotent mutations.
+        console.error("Failed to record processed_client_ops:", error);
+      }
+    }
+    timer.mark("record_processed_ops");
+
     // Fetch all current data to return
     const [currentProgress, currentHooks, currentFilters] = await Promise.all([
       getUserProgress(user.id),
@@ -359,6 +384,7 @@ export async function POST(request: NextRequest) {
         hydratedLists,
         {
           applied_review_event_ids: appliedReviewEventIds,
+          applied_client_op_ids: clientOpIds,
           sync_revision: Date.now(),
         }
       ),

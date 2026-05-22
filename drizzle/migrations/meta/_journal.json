@@ -155,6 +155,13 @@
       "when": 1779321600000,
       "tag": "0021_recommended_word_lists",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1779408000000,
+      "tag": "0022_processed_client_ops",
+      "breakpoints": true
     }
   ]
 }

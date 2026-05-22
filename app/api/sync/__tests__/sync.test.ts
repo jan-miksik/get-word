@@ -24,6 +24,7 @@ const mockGetWordIdToItemIdMapping = vi.fn()
 const mockGetWordListsByIds = vi.fn()
 const mockTouchUserDevice = vi.fn()
 const mockApplyNewReviewEvents = vi.fn()
+const mockRecordProcessedClientOps = vi.fn()
 const mockVerifySession = vi.fn()
 const mockSignSession = vi.fn()
 const mockIsGoogleSupportedLanguage = vi.fn()
@@ -52,6 +53,7 @@ vi.mock('@/lib/db', () => ({
   getWordListsByIds: (...args: unknown[]) => mockGetWordListsByIds(...args),
   touchUserDevice: (...args: unknown[]) => mockTouchUserDevice(...args),
   applyNewReviewEvents: (...args: unknown[]) => mockApplyNewReviewEvents(...args),
+  recordProcessedClientOps: (...args: unknown[]) => mockRecordProcessedClientOps(...args),
 }))
 
 vi.mock('@/lib/session', () => ({
@@ -132,6 +134,7 @@ describe('GET /api/sync', () => {
     mockGetWordListsByIds.mockResolvedValue([])
     mockTouchUserDevice.mockResolvedValue(undefined)
     mockApplyNewReviewEvents.mockResolvedValue([])
+    mockRecordProcessedClientOps.mockResolvedValue(undefined)
     mockIsGoogleSupportedLanguage.mockResolvedValue(true)
   })
 
@@ -271,6 +274,7 @@ describe('POST /api/sync', () => {
     mockGetWordListsByIds.mockResolvedValue([])
     mockTouchUserDevice.mockResolvedValue(undefined)
     mockApplyNewReviewEvents.mockResolvedValue([])
+    mockRecordProcessedClientOps.mockResolvedValue(undefined)
     mockIsGoogleSupportedLanguage.mockResolvedValue(true)
   })
 
@@ -282,6 +286,80 @@ describe('POST /api/sync', () => {
     })
     const res = await POST(req)
     expect(res.status).toBe(400)
+  })
+
+  it('records and echoes client_op_ids on successful sync', async () => {
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: 'dev-123',
+        game_score: 42,
+        client_op_ids: ['op-a', 'op-b'],
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.applied_client_op_ids).toEqual(['op-a', 'op-b'])
+    expect(mockRecordProcessedClientOps).toHaveBeenCalledWith({
+      userId: 'uuid-A',
+      deviceId: 'dev-123',
+      clientOpIds: ['op-a', 'op-b'],
+    })
+  })
+
+  it('omits malformed client_op_ids entries', async () => {
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: 'dev-123',
+        client_op_ids: ['valid-id', '', null, 123, 'another-id'],
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.applied_client_op_ids).toEqual(['valid-id', 'another-id'])
+  })
+
+  it('skips recording when no client_op_ids are provided (legacy sync path)', async () => {
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: 'dev-123',
+        game_score: 5,
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.applied_client_op_ids).toEqual([])
+    expect(mockRecordProcessedClientOps).not.toHaveBeenCalled()
+  })
+
+  it('still returns success when recording processed ops fails', async () => {
+    mockRecordProcessedClientOps.mockRejectedValueOnce(new Error('record failed'))
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: 'dev-123',
+        game_score: 3,
+        client_op_ids: ['op-x'],
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(data.applied_client_op_ids).toEqual(['op-x'])
   })
 
   it('syncs progress for authenticated user', async () => {

@@ -293,6 +293,31 @@ export const reviewEvents = pgTable(
   ],
 );
 
+// Processed client ops - dedup table for idempotent outbox replay.
+//
+// Retention invariant: rows here MUST outlive any client-side outbox op, or a
+// stale client retry can land *after* compaction and re-apply a mutation.
+// See scripts/compact-review-events.ts (>=365 days). Do not shorten without
+// matching the outbox op lifetime.
+export const processedClientOps = pgTable(
+  "processed_client_ops",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    deviceId: text("device_id"),
+    clientOpId: text("client_op_id").notNull(),
+    entity: text("entity").notNull(),
+    clientCreatedAt: timestamp("client_created_at"),
+    processedAt: timestamp("processed_at").defaultNow().notNull(),
+  },
+  (table) => [
+    unique("processed_client_ops_user_op_unique").on(table.userId, table.clientOpId),
+    index("processed_client_ops_processed_at_idx").on(table.processedAt),
+  ],
+);
+
 // User memory hooks - custom notes for words
 export const userMemoryHooks = pgTable(
   "user_memory_hooks",
@@ -453,3 +478,5 @@ export type GoogleApiUsage = typeof googleApiUsage.$inferSelect;
 export type NewGoogleApiUsage = typeof googleApiUsage.$inferInsert;
 export type UserListSubscription = typeof userListSubscriptions.$inferSelect;
 export type NewUserListSubscription = typeof userListSubscriptions.$inferInsert;
+export type ProcessedClientOp = typeof processedClientOps.$inferSelect;
+export type NewProcessedClientOp = typeof processedClientOps.$inferInsert;
