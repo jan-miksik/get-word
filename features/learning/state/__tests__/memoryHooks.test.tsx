@@ -1,12 +1,12 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockDebouncedSync = vi.fn<(data: unknown) => Promise<void>>(() => Promise.resolve());
+const mockEnqueueOp = vi.fn<(input: unknown) => Promise<null>>(() => Promise.resolve(null));
 const mockPostTabMessage = vi.fn<(message: unknown) => void>();
 const mockSubscribeTabMessages = vi.fn<(listener: unknown) => () => void>(() => () => {});
 
-vi.mock('@/lib/sync', () => ({
-  debouncedSync: (data: unknown) => mockDebouncedSync(data),
+vi.mock('@/lib/local-first/enqueue', () => ({
+  enqueueOp: (input: unknown) => mockEnqueueOp(input),
 }));
 
 vi.mock('@/lib/tab-sync', () => ({
@@ -19,7 +19,7 @@ import { useMemoryHooks } from '../memoryHooks';
 describe('useMemoryHooks', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockDebouncedSync.mockResolvedValue(undefined);
+    mockEnqueueOp.mockResolvedValue(null);
     mockSubscribeTabMessages.mockReturnValue(() => {});
   });
 
@@ -65,9 +65,14 @@ describe('useMemoryHooks', () => {
         canonicalWordId: 'source-item-id',
       })
     ).toBe('hook text');
-    expect(mockDebouncedSync).toHaveBeenCalledWith({
-      memory_hooks: { 'source-item-id': 'hook text' },
-    });
+    expect(mockEnqueueOp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entity: 'memory_hook',
+        opType: 'set',
+        payload: { id: 'source-item-id', text: 'hook text' },
+        legacyPayload: { memory_hooks: { 'source-item-id': 'hook text' } },
+      })
+    );
     expect(mockPostTabMessage).toHaveBeenCalledWith({
       type: 'memory_hook_changed',
       wordId: 'source-item-id',

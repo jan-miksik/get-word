@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { NormalizedWord } from '@/lib/words';
-import { debouncedSync } from '@/lib/sync';
+import { enqueueOp } from '@/lib/local-first/enqueue';
 import { postTabMessage, subscribeTabMessages } from '@/lib/tab-sync';
 import type { Role } from './preferences';
 
@@ -56,9 +56,12 @@ export function useMemoryHooks(
       return next;
     });
     if (isHydrated && !isUpdatingFromServerRef.current) {
-      debouncedSync({ memory_hooks: { [syncKey]: trimmed || null } }).catch((e) =>
-        console.error('[useMemoryHooks] sync:', e)
-      );
+      void enqueueOp({
+        entity: 'memory_hook',
+        opType: 'set',
+        payload: { id: syncKey, text: trimmed || null },
+        legacyPayload: { memory_hooks: { [syncKey]: trimmed || null } },
+      }).catch((e) => console.error('[useMemoryHooks] enqueue:', e));
       postTabMessage({ type: 'memory_hook_changed', wordId: syncKey, hook: trimmed });
     }
   }, [isHydrated, isUpdatingFromServerRef]);

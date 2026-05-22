@@ -42,9 +42,9 @@ describe('local-first availability probe', () => {
       configurable: true,
       value: {
         open: () => {
-          const req: Partial<IDBOpenDBRequest> = {};
-          queueMicrotask(() => req.onerror?.(new Event('error')));
-          return req as IDBOpenDBRequest;
+          const req = {} as IDBOpenDBRequest;
+          queueMicrotask(() => req.onerror?.call(req, new Event('error')));
+          return req;
         },
       },
     });
@@ -54,9 +54,9 @@ describe('local-first availability probe', () => {
 
   it('memoizes the probe result for the TTL window', async () => {
     const openSpy = vi.fn(() => {
-      const req: Partial<IDBOpenDBRequest> = {};
-      queueMicrotask(() => (req.onerror as any)?.());
-      return req as IDBOpenDBRequest;
+      const req = {} as IDBOpenDBRequest;
+      queueMicrotask(() => req.onerror?.call(req, new Event('error')));
+      return req;
     });
     Object.defineProperty(globalThis, 'indexedDB', {
       configurable: true,

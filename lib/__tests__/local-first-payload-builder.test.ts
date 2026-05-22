@@ -117,17 +117,59 @@ describe('payload builder', () => {
     expect(built?.payload.progress?.[0]).toMatchObject({ word_id: 'w1', stage_index: 2 });
   });
 
-  it('ignores review_event ops (handled via separate review_events array)', () => {
+  it('collects review_event ops into the review_events array, keyed by client_event_id', () => {
     const built = buildPayloadFromOps([
       makeOp({
         entity: 'review_event',
         opType: 'event',
-        payload: { client_event_id: 'x', word_id: 'w1', action: 'known', client_created_at: 0 },
+        payload: { client_event_id: 'x', word_id: 'w1', action: 'known', client_created_at: 100 },
+      }),
+      makeOp({
+        entity: 'review_event',
+        opType: 'event',
+        payload: { client_event_id: 'x', word_id: 'w1', action: 'known', client_created_at: 100 },
       }),
       makeOp({ entity: 'game_score', opType: 'max', payload: { score: 7 } }),
     ]);
-    expect(built?.payload.progress).toBeUndefined();
+    expect(built?.payload.review_events).toEqual([
+      { client_event_id: 'x', word_id: 'w1', action: 'known', client_created_at: 100 },
+    ]);
     expect(built?.payload.game_score).toBe(7);
-    expect(built?.clientOpIds).toHaveLength(2);
+    expect(built?.clientOpIds).toHaveLength(3);
+  });
+
+  it('prefers word_list_item_id over word_id in review_event payloads', () => {
+    const built = buildPayloadFromOps([
+      makeOp({
+        entity: 'review_event',
+        opType: 'event',
+        payload: {
+          client_event_id: 'r',
+          word_id: 'legacy',
+          word_list_item_id: 'wli-1',
+          action: 'unknown',
+          client_created_at: 1,
+        },
+      }),
+    ]);
+    expect(built?.payload.review_events).toEqual([
+      { client_event_id: 'r', word_list_item_id: 'wli-1', action: 'unknown', client_created_at: 1 },
+    ]);
+  });
+
+  it('drops malformed review_event payloads', () => {
+    const built = buildPayloadFromOps([
+      makeOp({
+        entity: 'review_event',
+        opType: 'event',
+        payload: { client_event_id: 'a', action: 'known', client_created_at: 0 },
+      }),
+      makeOp({
+        entity: 'review_event',
+        opType: 'event',
+        payload: { client_event_id: 'b', word_id: 'w', client_created_at: 0 },
+      }),
+    ]);
+    expect(built?.payload.review_events).toBeUndefined();
   });
 });

@@ -1,3 +1,8 @@
+import { appendOp } from "@/lib/local-first/outbox";
+import { scheduleDrain } from "@/lib/local-first/drainer";
+import { isLocalFirstAvailableSync, ensureLocalFirstAvailability } from "@/lib/local-first/availability";
+import { getDeviceId } from "@/lib/device-id";
+
 const REVIEW_EVENT_OUTBOX_KEY = "wordlink_review_event_outbox";
 
 export type ReviewEventAction = "known" | "really_known" | "unknown";
@@ -59,7 +64,36 @@ export function enqueueReviewEvent(event: ReviewEventPayload): ReviewEventPayloa
     events.push(event);
     writeOutbox(events);
   }
+  void writeThroughToIdbOutbox(event);
   return events;
+}
+
+async function writeThroughToIdbOutbox(event: ReviewEventPayload): Promise<void> {
+  try {
+    const available = isLocalFirstAvailableSync()
+      ? true
+      : await ensureLocalFirstAvailability();
+    if (!available) return;
+    await appendOp({
+      entity: "review_event",
+      opType: "event",
+      payload: event,
+      clientOpId: event.client_event_id,
+      deviceId: safeDeviceId(),
+    });
+    scheduleDrain();
+  } catch (error) {
+    console.error("[review-events] failed to write-through to IDB outbox:", error);
+  }
+}
+
+function safeDeviceId(): string | null {
+  try {
+    const id = getDeviceId();
+    return id || null;
+  } catch {
+    return null;
+  }
 }
 
 export function clearAppliedReviewEvents(clientEventIds: string[] | undefined): void {

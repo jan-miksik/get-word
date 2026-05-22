@@ -9,6 +9,7 @@ import {
   markServerSnapshotApplied,
 } from '@/lib/sync';
 import { installSyncLifecycle } from '@/lib/sync-coordinator';
+import { startDrainer } from '@/lib/local-first/drainer';
 import { getSnapshot, getStoragePreference, saveSnapshot } from '@/lib/local-learning-cache';
 import type { SyncResponse } from '@/lib/sync';
 import type { NormalizedWord } from '@/lib/words';
@@ -201,7 +202,12 @@ export function useServerSync({
 
   useEffect(() => {
     if (!isHydrated) return;
-    return installSyncLifecycle();
+    const lifecycle = startDrainer();
+    const cleanup = installSyncLifecycle();
+    return () => {
+      cleanup();
+      lifecycle.stop();
+    };
   }, [isHydrated]);
 
   useEffect(() => {

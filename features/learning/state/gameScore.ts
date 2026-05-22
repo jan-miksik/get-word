@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback, type Dispatch, type SetStateAction } from 'react';
-import { debouncedSync } from '@/lib/sync';
+import { enqueueOp } from '@/lib/local-first/enqueue';
 import { postTabMessage, subscribeTabMessages } from '@/lib/tab-sync';
 
 export function useGameScore(
@@ -17,9 +17,12 @@ export function useGameScore(
       gameScoreSyncedRef.current = true;
       return;
     }
-    debouncedSync({ game_score: gameScore }).catch((e) =>
-      console.error('[useGameScore] sync:', e)
-    );
+    void enqueueOp({
+      entity: 'game_score',
+      opType: 'max',
+      payload: { score: gameScore },
+      legacyPayload: { game_score: gameScore },
+    }).catch((e) => console.error('[useGameScore] enqueue:', e));
   }, [gameScore, isHydrated, isUpdatingFromServerRef]);
 
   const applyServerGameScore = useCallback((score: number) => {

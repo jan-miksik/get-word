@@ -1,6 +1,10 @@
 'use client';
 
-import type { SyncMutationPayload, SyncProgressItem } from '@/features/sync/types';
+import type {
+  SyncMutationPayload,
+  SyncProgressItem,
+  SyncReviewEventItem,
+} from '@/features/sync/types';
 import type { OutboxOp } from './outbox';
 
 export interface BuiltPayload {
@@ -50,6 +54,7 @@ export function buildPayloadFromOps(ops: OutboxOp[]): BuiltPayload | null {
 
   const progressByKey = new Map<string, SyncProgressItem>();
   const memoryHooks: Record<string, string | null> = {};
+  const reviewEventsByClientId = new Map<string, SyncReviewEventItem>();
   let maxGameScore: number | null = null;
   let lastCategoryFilters: string[] | null = null;
 
@@ -78,7 +83,7 @@ export function buildPayloadFromOps(ops: OutboxOp[]): BuiltPayload | null {
         break;
       }
       case 'review_event':
-        // Review events are handled separately via review_events array; ignore here.
+        applyReviewEventOp(reviewEventsByClientId, op);
         break;
     }
   }
@@ -94,6 +99,9 @@ export function buildPayloadFromOps(ops: OutboxOp[]): BuiltPayload | null {
   }
   if (maxGameScore !== null) {
     payload.game_score = maxGameScore;
+  }
+  if (reviewEventsByClientId.size > 0) {
+    payload.review_events = Array.from(reviewEventsByClientId.values());
   }
 
   return { payload, clientOpIds: payload.client_op_ids };
@@ -128,6 +136,25 @@ function applyMemoryHookOp(
   const p = op.payload as Partial<MemoryHookOpPayload>;
   if (typeof p.id !== 'string' || p.id.length === 0) return;
   bucket[p.id] = p.text ?? null;
+}
+
+function applyReviewEventOp(
+  bucket: Map<string, SyncReviewEventItem>,
+  op: OutboxOp
+): void {
+  if (!isObject(op.payload)) return;
+  const p = op.payload as Partial<SyncReviewEventItem>;
+  if (typeof p.client_event_id !== 'string' || p.client_event_id.length === 0) return;
+  if (p.action !== 'known' && p.action !== 'really_known' && p.action !== 'unknown') return;
+  if (typeof p.client_created_at !== 'number') return;
+  if (typeof p.word_id !== 'string' && typeof p.word_list_item_id !== 'string') return;
+  bucket.set(p.client_event_id, {
+    client_event_id: p.client_event_id,
+    ...(p.word_list_item_id ? { word_list_item_id: p.word_list_item_id } : {}),
+    ...(p.word_id && !p.word_list_item_id ? { word_id: p.word_id } : {}),
+    action: p.action,
+    client_created_at: p.client_created_at,
+  });
 }
 
 function applyPreferenceOp(

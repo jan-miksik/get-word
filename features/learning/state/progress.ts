@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ProgressData, SyncResponse } from '@/lib/sync';
-import { debouncedSync } from '@/lib/sync';
+import { enqueueOp } from '@/lib/local-first/enqueue';
 import { STAGES } from '@/lib/words';
 import { requestSync } from '@/lib/sync-coordinator';
 import {
@@ -215,9 +215,13 @@ export function useProgress(
       setLastMoved(wordId);
 
       if (nextEntry) {
-        debouncedSync({ progress: serializeProgressForSync({ [wordId]: nextEntry }) }).catch(
-          (e) => console.error('[progress] sync custom stage:', e)
-        );
+        const [serialized] = serializeProgressForSync({ [wordId]: nextEntry });
+        void enqueueOp({
+          entity: 'progress',
+          opType: 'upsert',
+          payload: serialized,
+          legacyPayload: { progress: [serialized] },
+        }).catch((e) => console.error('[progress] enqueue custom stage:', e));
       }
     },
     [setLastMoved]

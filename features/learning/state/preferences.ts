@@ -2,7 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import type { SyncResponse } from '@/lib/sync';
-import { debouncedSync, hasReceivedServerSnapshot, syncUserData } from '@/lib/sync';
+import { hasReceivedServerSnapshot, syncUserData } from '@/lib/sync';
+import { enqueueOp } from '@/lib/local-first/enqueue';
+import type { SyncMutationPayload } from '@/features/sync/types';
 import { postTabMessage, subscribeTabMessages } from '@/lib/tab-sync';
 import {
   getDetectedSettingsLanguage,
@@ -58,6 +60,15 @@ function normalizeCategoryOrderValue(value: unknown): string[] {
   );
 }
 
+function enqueuePreference(field: string, value: unknown): Promise<unknown> {
+  return enqueueOp({
+    entity: 'preference',
+    opType: 'set',
+    payload: { field, value },
+    legacyPayload: { [field]: value } as unknown as SyncMutationPayload,
+  }).catch((e) => console.error(`[usePreferences] enqueue ${field}:`, e));
+}
+
 function areStringArraysEqual(left: string[], right: string[]): boolean {
   if (left === right) return true;
   if (left.length !== right.length) return false;
@@ -103,65 +114,52 @@ export function usePreferences(
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
     if (!hasReceivedServerSnapshot()) return;
-    debouncedSync({ role }).catch((e) => console.error('[usePreferences] sync role:', e));
+    void enqueuePreference('role', role);
   }, [role, isHydrated, isUpdatingFromServerRef]);
 
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
     if (!hasReceivedServerSnapshot()) return;
-    debouncedSync({ show_english: showEnglish }).catch((e) =>
-      console.error('[usePreferences] sync show_english:', e)
-    );
+    void enqueuePreference('show_english', showEnglish);
   }, [showEnglish, isHydrated, isUpdatingFromServerRef]);
 
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
     if (!hasReceivedServerSnapshot()) return;
-    debouncedSync({ show_category_badges: showCategoryBadges }).catch((e) =>
-      console.error('[usePreferences] sync show_category_badges:', e)
-    );
+    void enqueuePreference('show_category_badges', showCategoryBadges);
   }, [showCategoryBadges, isHydrated, isUpdatingFromServerRef]);
 
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
     if (!hasReceivedServerSnapshot()) return;
-    debouncedSync({ show_pronunciation: showPronunciation }).catch((e) =>
-      console.error('[usePreferences] sync show_pronunciation:', e)
-    );
+    void enqueuePreference('show_pronunciation', showPronunciation);
   }, [showPronunciation, isHydrated, isUpdatingFromServerRef]);
 
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
     if (!hasReceivedServerSnapshot()) return;
-    debouncedSync({ memory_hooks_enabled: memoryHooksEnabled }).catch((e) =>
-      console.error('[usePreferences] sync memory_hooks_enabled:', e)
-    );
+    void enqueuePreference('memory_hooks_enabled', memoryHooksEnabled);
   }, [memoryHooksEnabled, isHydrated, isUpdatingFromServerRef]);
 
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
     if (!hasReceivedServerSnapshot()) return;
-    debouncedSync({
-      memory_hook_disable_from_stage: normalizeMemoryHookDisableFromStage(memoryHookDisableFromStage),
-    }).catch((e) =>
-      console.error('[usePreferences] sync memory_hook_disable_from_stage:', e)
+    void enqueuePreference(
+      'memory_hook_disable_from_stage',
+      normalizeMemoryHookDisableFromStage(memoryHookDisableFromStage)
     );
   }, [memoryHookDisableFromStage, isHydrated, isUpdatingFromServerRef]);
 
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
     if (!hasReceivedServerSnapshot()) return;
-    debouncedSync({ category_order: categoryOrder }).catch((e) =>
-      console.error('[usePreferences] sync category_order:', e)
-    );
+    void enqueuePreference('category_order', categoryOrder);
   }, [categoryOrder, isHydrated, isUpdatingFromServerRef]);
 
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
     if (!hasReceivedServerSnapshot()) return;
-    debouncedSync({ settings_language: settingsLanguage }).catch((e) =>
-      console.error('[usePreferences] sync settings_language:', e)
-    );
+    void enqueuePreference('settings_language', settingsLanguage);
   }, [settingsLanguage, isHydrated, isUpdatingFromServerRef]);
 
   const setRole = useCallback((newRole: Role) => {

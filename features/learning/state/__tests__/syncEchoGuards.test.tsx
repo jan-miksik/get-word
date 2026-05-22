@@ -1,15 +1,18 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const mockDebouncedSync = vi.fn<(data: unknown) => Promise<void>>(() => Promise.resolve());
+const mockEnqueueOp = vi.fn<(input: unknown) => Promise<null>>(() => Promise.resolve(null));
 const mockSyncUserData = vi.fn<(data: unknown) => Promise<void>>(() => Promise.resolve());
 const mockPostTabMessage = vi.fn<(message: unknown) => void>();
 const mockSubscribeTabMessages = vi.fn<(listener: unknown) => () => void>(() => () => {});
 
 vi.mock('@/lib/sync', () => ({
-  debouncedSync: (data: unknown) => mockDebouncedSync(data),
   syncUserData: (data: unknown) => mockSyncUserData(data),
   hasReceivedServerSnapshot: () => true,
+}));
+
+vi.mock('@/lib/local-first/enqueue', () => ({
+  enqueueOp: (input: unknown) => mockEnqueueOp(input),
 }));
 
 vi.mock('@/lib/tab-sync', () => ({
@@ -59,7 +62,7 @@ describe('server sync echo guards', () => {
     sessionStorage.clear();
     delete process.env.NEXT_PUBLIC_GET_WORD_SIMULATE_FIRST_OPEN;
     mockSubscribeTabMessages.mockReturnValue(() => {});
-    mockDebouncedSync.mockResolvedValue(undefined);
+    mockEnqueueOp.mockResolvedValue(null);
     mockSyncUserData.mockResolvedValue(undefined);
   });
 
@@ -75,7 +78,7 @@ describe('server sync echo guards', () => {
     });
 
     rerender({ isHydrated: true });
-    mockDebouncedSync.mockClear();
+    mockEnqueueOp.mockClear();
 
     act(() => {
       result.current.applyServerPreferences({ ...baseUser, category_order: ['animals', 'travel'] });
@@ -83,7 +86,7 @@ describe('server sync echo guards', () => {
 
     rerender({ isHydrated: true });
 
-    expect(mockDebouncedSync).not.toHaveBeenCalled();
+    expect(mockEnqueueOp).not.toHaveBeenCalled();
   });
 
   it('syncs settings language changes and marks the selection time locally', () => {
@@ -118,8 +121,10 @@ describe('server sync echo guards', () => {
       language_to: 'cs',
       onboarding_completed: true,
     });
-    expect(mockDebouncedSync).not.toHaveBeenCalledWith(
-      expect.objectContaining({ onboarding_completed: true })
+    expect(mockEnqueueOp).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: expect.objectContaining({ field: 'onboarding_completed' }),
+      })
     );
   });
 
@@ -180,7 +185,7 @@ describe('server sync echo guards', () => {
     });
 
     rerender({ isHydrated: true, scopeKey: 'list-a' });
-    mockDebouncedSync.mockClear();
+    mockEnqueueOp.mockClear();
 
     act(() => {
       result.current.applyServerCategories(['animals']);
@@ -188,7 +193,7 @@ describe('server sync echo guards', () => {
 
     rerender({ isHydrated: true, scopeKey: 'list-a' });
 
-    expect(mockDebouncedSync).not.toHaveBeenCalled();
+    expect(mockEnqueueOp).not.toHaveBeenCalled();
   });
 
   it('defaults a new list scope to all of its categories', () => {
