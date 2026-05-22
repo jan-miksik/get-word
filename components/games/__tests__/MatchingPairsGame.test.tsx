@@ -22,19 +22,22 @@ const makeWord = (
 });
 
 const WORDS = [
-  makeWord('a', 'pes', 'con chó', { czAudio: 'speech/cz/pes.mp3' }),
-  makeWord('b', 'kočka', 'con mèo', { czAudio: 'speech/cz/kocka.mp3' }),
-  makeWord('c', 'auto', 'xe hơi', { czAudio: 'speech/cz/auto.mp3' }),
-  makeWord('d', 'voda', 'nước', { czAudio: 'speech/cz/voda.mp3' }),
+  makeWord('a', 'pes', 'con chó', { czAudio: 'speech/cz/pes.mp3', viAudio: 'speech/vi/con-cho.mp3' }),
+  makeWord('b', 'kočka', 'con mèo', { czAudio: 'speech/cz/kocka.mp3', viAudio: 'speech/vi/con-meo.mp3' }),
+  makeWord('c', 'auto', 'xe hơi', { czAudio: 'speech/cz/auto.mp3', viAudio: 'speech/vi/xe-hoi.mp3' }),
+  makeWord('d', 'voda', 'nước', { czAudio: 'speech/cz/voda.mp3', viAudio: 'speech/vi/nuoc.mp3' }),
 ];
 
 let playCalls = 0;
+let audioSources: string[] = [];
 
 beforeEach(() => {
   playCalls = 0;
+  audioSources = [];
   vi.stubGlobal(
     'Audio',
-    vi.fn().mockImplementation(function FakeAudio(this: { play: () => Promise<void>; pause: () => void }, _src: string) {
+    vi.fn().mockImplementation(function FakeAudio(this: { play: () => Promise<void>; pause: () => void }, src: string) {
+      audioSources.push(src);
       this.play = () => {
         playCalls += 1;
         return Promise.resolve();
@@ -158,6 +161,24 @@ describe('MatchingPairsGame', () => {
     await waitFor(() => {
       expect(screen.getByText('pes')).toBeInTheDocument();
     });
+  });
+
+  it('plays the learning-language audio for a correct match when sound is enabled', async () => {
+    render(<MatchingPairsGame words={WORDS} role="cz" soundEnabled />);
+    fireEvent.click(screen.getByText('pes'));
+    fireEvent.click(screen.getByText('con chó'));
+    await waitFor(() => expect(playCalls).toBe(1));
+    expect(audioSources).toContain('/speech/vi/con-cho.mp3');
+  });
+
+  it('does not play audio for an incorrect match even when sound is enabled', async () => {
+    vi.useFakeTimers();
+    render(<MatchingPairsGame words={WORDS} role="cz" soundEnabled />);
+    fireEvent.click(screen.getByText('pes'));
+    fireEvent.click(screen.getByText('con mèo'));
+    expect(playCalls).toBe(0);
+    await act(async () => { vi.advanceTimersByTime(700); });
+    vi.useRealTimers();
   });
 
   it('falls back to full text mode when any source audio is missing', () => {

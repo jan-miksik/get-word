@@ -257,6 +257,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
         {...gameProps}
         sourceLang={typingAndChoiceSourceLang}
         promptMode={typingAndChoicePromptMode}
+        soundEnabled={!skipSound}
       />
     );
   } else if (config.gameType === 'typing') {
@@ -265,12 +266,14 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
         {...gameProps}
         sourceLang={typingAndChoiceSourceLang}
         promptMode={typingAndChoicePromptMode}
+        soundEnabled={!skipSound}
       />
     );
   } else if (config.gameType === 'matching') {
     game = (
       <MatchingPairsGame
         {...gameProps}
+        soundEnabled={!skipSound}
         {...(matchingPromptMode === 'audio'
           ? { sourceLang: verifiedMatchingAudioSourceLang!, promptMode: 'audio' as const }
           : { promptMode: 'text' as const })}

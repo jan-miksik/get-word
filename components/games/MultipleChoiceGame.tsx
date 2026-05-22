@@ -4,8 +4,10 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getPlayableAudioUrl } from '@/lib/audio-availability';
 import type { NormalizedWord } from '@/lib/words';
 import {
+  getLearningLangFromRole,
   getTargetLang,
   getWordAudioSrcByLang,
+  getWordAudioSrcsByLang,
   getWordTextByLang,
   resolveSourceLangFromRole,
   type PromptMode,
@@ -18,6 +20,7 @@ interface Props {
   role: 'cz' | 'vi';
   sourceLang?: SourceLang;
   promptMode?: PromptMode;
+  soundEnabled?: boolean;
   level?: 1 | 2;
   onResult?: (delta: number) => void;
 }
@@ -27,6 +30,7 @@ export function MultipleChoiceGame({
   role,
   sourceLang,
   promptMode = 'text',
+  soundEnabled = false,
   level = 1,
   onResult,
 }: Props) {
@@ -36,6 +40,7 @@ export function MultipleChoiceGame({
 
   const questionWord = words[0];
   const resolvedSourceLang = sourceLang ?? resolveSourceLangFromRole(role);
+  const learningLang = getLearningLangFromRole(role);
   const targetLang = getTargetLang(resolvedSourceLang);
   const getOption = (w: NormalizedWord) => getWordTextByLang(w, targetLang);
   const prompt = getWordTextByLang(questionWord, resolvedSourceLang);
@@ -47,11 +52,11 @@ export function MultipleChoiceGame({
     () => [...words].sort(() => Math.random() - 0.5).map(w => ({
       id: w.id,
       label: getOption(w),
-      audioSrc: getWordAudioSrcByLang(w, targetLang),
+      answerAudioSrcs: getWordAudioSrcsByLang(w, learningLang),
       isCorrect: w.id === questionWord.id,
     })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [words, targetLang, questionWord.id]
+    [words, targetLang, learningLang, questionWord.id]
   );
 
   const answered = selected !== null;
@@ -68,29 +73,36 @@ export function MultipleChoiceGame({
   const handleSelect = (optionId: string) => {
     if (answered) return;
     const selectedOption = options.find(o => o.id === optionId);
-    if (effectivePromptMode === 'audio') {
-      playAudio(selectedOption?.audioSrc ?? null);
+    const isCorrect = selectedOption?.isCorrect ?? false;
+    if (isCorrect && soundEnabled) {
+      playAudio(selectedOption?.answerAudioSrcs ?? []);
     }
     setSelected(optionId);
-    const isCorrect = selectedOption?.isCorrect ?? false;
     onResult?.(isCorrect ? (level === 2 ? 2 : 1) : -1);
   };
 
-  const playAudio = (audioSrc: string | null) => {
+  const playAudio = (audioSrc: string | string[] | null) => {
     void (async () => {
-      const playableUrl = await getPlayableAudioUrl(audioSrc);
-      if (!playableUrl) return;
+      const candidates = (Array.isArray(audioSrc) ? audioSrc : [audioSrc])
+        .filter((src): src is string => Boolean(src))
+        .filter((src, index, arr) => arr.indexOf(src) === index);
 
-      try {
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
+      for (const candidate of candidates) {
+        const playableUrl = await getPlayableAudioUrl(candidate);
+        if (!playableUrl) continue;
+
+        try {
+          if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+          }
+          const audio = new Audio(playableUrl);
+          audioRef.current = audio;
+          await audio.play();
+          return;
+        } catch {
+          // Try the next candidate when this source cannot be played.
         }
-        const audio = new Audio(playableUrl);
-        audioRef.current = audio;
-        audio.play().catch(() => {});
-      } catch {
-        // no-op: fail silently when audio playback is unavailable
       }
     })();
   };

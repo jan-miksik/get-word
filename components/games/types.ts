@@ -13,6 +13,10 @@ export function getTargetLang(sourceLang: SourceLang): SourceLang {
   return sourceLang === 'cz' ? 'vi' : 'cz';
 }
 
+export function getLearningLangFromRole(role: 'cz' | 'vi'): SourceLang {
+  return role === 'cz' ? 'vi' : 'cz';
+}
+
 export function getLanguageLabel(lang: SourceLang): string {
   return lang === 'cz' ? 'Czech' : 'Vietnamese';
 }
@@ -33,13 +37,21 @@ export function getWordAudioSrcByLang(
   word: NormalizedWord,
   sourceLang: SourceLang,
 ): string | null {
+  return getWordAudioSrcsByLang(word, sourceLang)[0] ?? null;
+}
+
+export function getWordAudioSrcsByLang(
+  word: NormalizedWord,
+  sourceLang: SourceLang,
+): string[] {
   const raw = sourceLang === 'cz' ? word.czAudio : word.viAudio;
-  if (!raw) return null;
+  if (!raw) return [];
   const candidates = Array.isArray(raw) ? raw : [raw];
-  const firstUsablePath = candidates.find(
+  return candidates
+    .filter(
     (candidate): candidate is string =>
       typeof candidate === 'string' && candidate.trim().length > 0,
-  );
-  if (!firstUsablePath) return null;
-  return normalizeAudioPath(firstUsablePath);
+    )
+    .map(normalizeAudioPath)
+    .filter((candidate, index, arr) => arr.indexOf(candidate) === index);
 }

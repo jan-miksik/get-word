@@ -5,8 +5,9 @@ import { getPlayableAudioUrl } from '@/lib/audio-availability';
 import type { NormalizedWord } from '@/lib/words';
 import { matchAnswer } from '@/lib/minigames';
 import {
+  getLearningLangFromRole,
   getTargetLang,
-  getWordAudioSrcByLang,
+  getWordAudioSrcsByLang,
   getWordTextByLang,
   resolveSourceLangFromRole,
   type PromptMode,
@@ -19,6 +20,7 @@ interface Props {
   role: 'cz' | 'vi';
   sourceLang?: SourceLang;
   promptMode?: PromptMode;
+  soundEnabled?: boolean;
   onResult?: (delta: number) => void;
 }
 
@@ -27,6 +29,7 @@ export function TypingChallengeGame({
   role,
   sourceLang,
   promptMode = 'text',
+  soundEnabled = false,
   onResult,
 }: Props) {
   const { t } = useI18n();
@@ -40,14 +43,16 @@ export function TypingChallengeGame({
 
   const questionWord = words[0];
   const resolvedSourceLang = sourceLang ?? resolveSourceLangFromRole(role);
+  const learningLang = getLearningLangFromRole(role);
   const targetLang = getTargetLang(resolvedSourceLang);
   const prompt = getWordTextByLang(questionWord, resolvedSourceLang);
   const correctAnswer = getWordTextByLang(questionWord, targetLang);
-  const primaryPromptAudioSrc = getWordAudioSrcByLang(questionWord, resolvedSourceLang);
+  const promptAudioSrcs = getWordAudioSrcsByLang(questionWord, resolvedSourceLang);
+  const learningAudioSrcs = getWordAudioSrcsByLang(questionWord, learningLang);
   const [hasAudioPlaybackError, setHasAudioPlaybackError] = useState(false);
   const effectivePromptMode: PromptMode =
     promptMode === 'audio' &&
-    primaryPromptAudioSrc &&
+    promptAudioSrcs.length > 0 &&
     !hasAudioPlaybackError
       ? 'audio'
       : 'text';
@@ -62,6 +67,9 @@ export function TypingChallengeGame({
     const r = matchAnswer(value, correctAnswer);
     setResult(r);
     const delta = r === 'exact' ? 2 : r === 'close' ? 1 : 0;
+    if (delta > 0 && soundEnabled) {
+      void playClip(learningAudioSrcs);
+    }
     onResult?.(delta);
   };
 
@@ -84,12 +92,14 @@ export function TypingChallengeGame({
     setCaretIndex(next);
   };
 
-  const replayPrompt = async () => {
-    const candidateAudioSrcs = [primaryPromptAudioSrc]
+  const playClip = async (
+    audioSrc: string | string[] | null,
+  ): Promise<{ ok: boolean; interrupted: boolean }> => {
+    const candidateAudioSrcs = (Array.isArray(audioSrc) ? audioSrc : [audioSrc])
       .filter((src): src is string => Boolean(src))
       .filter((src, idx, arr) => arr.indexOf(src) === idx);
     if (!candidateAudioSrcs.length) {
-      return;
+      return { ok: false, interrupted: false };
     }
 
     const playAudioSrc = async (audioSrc: string): Promise<{ ok: boolean; reason?: string }> => {
@@ -133,11 +143,17 @@ export function TypingChallengeGame({
       }
 
       const result = await playAudioSrc(playableSrc);
-      if (result.ok) return;
+      if (result.ok) return { ok: true, interrupted: false };
       // User clicked replay repeatedly while previous attempt is being replaced.
-      if (result.reason === 'interrupted') return;
+      if (result.reason === 'interrupted') return { ok: false, interrupted: true };
     }
 
+    return { ok: false, interrupted: false };
+  };
+
+  const replayPrompt = async () => {
+    const result = await playClip(promptAudioSrcs);
+    if (result.ok || result.interrupted) return;
     setHasAudioPlaybackError(true);
   };
 

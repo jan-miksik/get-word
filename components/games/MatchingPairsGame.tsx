@@ -4,8 +4,10 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { getPlayableAudioUrl } from '@/lib/audio-availability';
 import type { NormalizedWord } from '@/lib/words';
 import {
+  getLearningLangFromRole,
   getTargetLang,
   getWordAudioSrcByLang,
+  getWordAudioSrcsByLang,
   getWordTextByLang,
   resolveSourceLangFromRole,
   type PromptMode,
@@ -18,6 +20,7 @@ interface Props {
   role: 'cz' | 'vi';
   sourceLang?: SourceLang;
   promptMode?: PromptMode;
+  soundEnabled?: boolean;
   level?: 1 | 2;
   onResult?: (delta: number) => void;
 }
@@ -30,6 +33,7 @@ export function MatchingPairsGame({
   role,
   sourceLang,
   promptMode = 'text',
+  soundEnabled = false,
   level = 1,
   onResult,
 }: Props) {
@@ -49,9 +53,14 @@ export function MatchingPairsGame({
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const requestedSourceLang = sourceLang ?? resolveSourceLangFromRole(role);
+  const learningLang = getLearningLangFromRole(role);
   const audioByWordId = useMemo(
     () => new Map(words.map((word) => [word.id, getWordAudioSrcByLang(word, requestedSourceLang)])),
     [words, requestedSourceLang],
+  );
+  const learningAudioByWordId = useMemo(
+    () => new Map(words.map((word) => [word.id, getWordAudioSrcsByLang(word, learningLang)])),
+    [words, learningLang],
   );
   const hasCompleteAudio = useMemo(
     () => words.every((word) => Boolean(audioByWordId.get(word.id))),
@@ -90,6 +99,9 @@ export function MatchingPairsGame({
 
   const attempt = (lId: string, rId: string) => {
     if (lId === rId) {
+      if (soundEnabled) {
+        void playClip(learningAudioByWordId.get(lId) ?? []);
+      }
       setMatchColors(prev => {
         if (prev.has(lId)) return prev;
         const next = new Map(prev);
@@ -110,13 +122,14 @@ export function MatchingPairsGame({
     }
   };
 
-  const playPrompt = async (id: string) => {
-    const candidateAudioSrcs = [audioByWordId.get(id)]
+  const playClip = async (
+    audioSrc: string | string[] | null,
+  ): Promise<{ ok: boolean; interrupted: boolean }> => {
+    const candidateAudioSrcs = (Array.isArray(audioSrc) ? audioSrc : [audioSrc])
       .filter((src): src is string => Boolean(src))
       .filter((src, idx, arr) => arr.indexOf(src) === idx);
     if (!candidateAudioSrcs.length) {
-      setHasAudioPlaybackError(true);
-      return;
+      return { ok: false, interrupted: false };
     }
 
     const playAudioSrc = async (audioSrc: string): Promise<{ ok: boolean; reason?: string }> =>
@@ -152,10 +165,16 @@ export function MatchingPairsGame({
       if (!playableSrc) continue;
 
       const result = await playAudioSrc(playableSrc);
-      if (result.ok) return;
-      if (result.reason === 'interrupted') return;
+      if (result.ok) return { ok: true, interrupted: false };
+      if (result.reason === 'interrupted') return { ok: false, interrupted: true };
     }
 
+    return { ok: false, interrupted: false };
+  };
+
+  const playPrompt = async (id: string) => {
+    const result = await playClip(audioByWordId.get(id) ?? null);
+    if (result.ok || result.interrupted) return;
     setHasAudioPlaybackError(true);
   };
 

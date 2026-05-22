@@ -30,14 +30,17 @@ const WORDS = [
 
 let playCalls = 0;
 let pauseCalls = 0;
+let audioSources: string[] = [];
 
 beforeEach(() => {
   playCalls = 0;
   pauseCalls = 0;
+  audioSources = [];
   vi.stubGlobal(
     'Audio',
     vi.fn().mockImplementation(function FakeAudio(this: { src: string; play: () => Promise<void>; pause: () => void }, src: string) {
       this.src = src;
+      audioSources.push(src);
       this.play = () => {
         playCalls += 1;
         return Promise.resolve();
@@ -60,6 +63,16 @@ describe('TypingChallengeGame', () => {
     expect(onResult).toHaveBeenCalledWith(2);
   });
 
+  it('plays the learning-language audio when an exact answer is checked with sound enabled', async () => {
+    render(
+      <TypingChallengeGame words={WORDS} role="cz" soundEnabled />
+    );
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'con chó' } });
+    fireEvent.click(screen.getByText('Check'));
+    await waitFor(() => expect(playCalls).toBe(1));
+    expect(audioSources).toContain('/speech/vi/con-cho.mp3');
+  });
+
   it('calls onResult(1) when close match is submitted', () => {
     const onResult = vi.fn();
     render(
@@ -71,6 +84,16 @@ describe('TypingChallengeGame', () => {
     expect(onResult).toHaveBeenCalledWith(1);
   });
 
+  it('plays the learning-language audio when a close answer is checked with sound enabled', async () => {
+    render(
+      <TypingChallengeGame words={WORDS} role="cz" soundEnabled />
+    );
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'con cho' } });
+    fireEvent.click(screen.getByText('Check'));
+    await waitFor(() => expect(playCalls).toBe(1));
+    expect(audioSources).toContain('/speech/vi/con-cho.mp3');
+  });
+
   it('calls onResult(0) when wrong answer is submitted', () => {
     const onResult = vi.fn();
     render(
@@ -79,6 +102,15 @@ describe('TypingChallengeGame', () => {
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'totally wrong' } });
     fireEvent.click(screen.getByText('Check'));
     expect(onResult).toHaveBeenCalledWith(0);
+  });
+
+  it('does not play audio when a wrong answer is checked with sound enabled', () => {
+    render(
+      <TypingChallengeGame words={WORDS} role="cz" soundEnabled />
+    );
+    fireEvent.change(screen.getByRole('textbox'), { target: { value: 'totally wrong' } });
+    fireEvent.click(screen.getByText('Check'));
+    expect(playCalls).toBe(0);
   });
 
   it('does not throw when onResult is not provided', () => {
