@@ -88,6 +88,7 @@ export function usePreferences(
   const [showCategoryBadges, setShowCategoryBadges] = useState(false);
   const [showPronunciation, setShowPronunciation] = useState(false);
   const [memoryHooksEnabled, setMemoryHooksEnabled] = useState(true);
+  const [memoryHooksIntroAnswered, setMemoryHooksIntroAnswered] = useState(false);
   const [memoryHookDisableFromStage, setMemoryHookDisableFromStageState] = useState<number>(
     DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE
   );
@@ -144,6 +145,12 @@ export function usePreferences(
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
     if (!hasReceivedServerSnapshot()) return;
+    void enqueuePreference('memory_hooks_intro_answered', memoryHooksIntroAnswered);
+  }, [memoryHooksIntroAnswered, isHydrated, isUpdatingFromServerRef]);
+
+  useEffect(() => {
+    if (!isHydrated || isUpdatingFromServerRef.current) return;
+    if (!hasReceivedServerSnapshot()) return;
     void enqueuePreference(
       'memory_hook_disable_from_stage',
       normalizeMemoryHookDisableFromStage(memoryHookDisableFromStage)
@@ -181,6 +188,13 @@ export function usePreferences(
   const setMemoryHooksEnabledPreference = useCallback((value: boolean) => {
     setMemoryHooksEnabled(value);
     postTabMessage({ type: 'preferences_changed', patch: { memoryHooksEnabled: value } });
+  }, []);
+  const setMemoryHooksIntroAnsweredPreference = useCallback((value: boolean) => {
+    setMemoryHooksIntroAnswered(value);
+    postTabMessage({
+      type: 'preferences_changed',
+      patch: { memoryHooksIntroAnswered: value },
+    });
   }, []);
   const setMemoryHookDisableFromStage = useCallback((stage: number) => {
     const normalized = normalizeMemoryHookDisableFromStage(stage);
@@ -248,6 +262,7 @@ export function usePreferences(
     setShowCategoryBadges(false);
     setShowPronunciation(false);
     setMemoryHooksEnabled(user.memory_hooks_enabled ?? true);
+    setMemoryHooksIntroAnswered(user.memory_hooks_intro_answered ?? false);
     setMemoryHookDisableFromStageState(
       normalizeMemoryHookDisableFromStage(user.memory_hook_disable_from_stage)
     );
@@ -278,6 +293,9 @@ export function usePreferences(
       }
       if (typeof patch.memoryHooksEnabled === 'boolean') {
         setMemoryHooksEnabled(patch.memoryHooksEnabled);
+      }
+      if (typeof patch.memoryHooksIntroAnswered === 'boolean') {
+        setMemoryHooksIntroAnswered(patch.memoryHooksIntroAnswered);
       }
       if (typeof patch.memoryHookDisableFromStage === 'number') {
         setMemoryHookDisableFromStageState(
@@ -321,6 +339,8 @@ export function usePreferences(
     setShowPronunciation: setShowPronunciationPreference,
     memoryHooksEnabled,
     setMemoryHooksEnabled: setMemoryHooksEnabledPreference,
+    memoryHooksIntroAnswered,
+    setMemoryHooksIntroAnswered: setMemoryHooksIntroAnsweredPreference,
     memoryHookDisableFromStage,
     setMemoryHookDisableFromStage,
     categoryOrder,

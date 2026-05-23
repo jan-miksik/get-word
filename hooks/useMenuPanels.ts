@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { OPEN_MEMORY_HOOKS_PANEL_EVENT } from '@/lib/ui-events';
 
 export type MenuPanel = 'settings' | 'progress' | 'category' | 'memoryHooks' | 'upcoming';
 
@@ -33,6 +34,14 @@ export function useMenuPanels() {
     document.addEventListener('click', handleClick);
     return () => document.removeEventListener('click', handleClick);
   }, [openPanel]);
+
+  useEffect(() => {
+    const handleOpenMemoryHooksPanel = () => setOpenPanel('memoryHooks');
+    window.addEventListener(OPEN_MEMORY_HOOKS_PANEL_EVENT, handleOpenMemoryHooksPanel);
+    return () => {
+      window.removeEventListener(OPEN_MEMORY_HOOKS_PANEL_EVENT, handleOpenMemoryHooksPanel);
+    };
+  }, []);
 
   return {
     settingsOpen: openPanel === 'settings',

@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
       show_category_badges,
       show_pronunciation,
       memory_hooks_enabled,
+      memory_hooks_intro_answered,
       memory_hook_disable_from_stage,
       settings_language,
       language_from,
@@ -162,6 +163,7 @@ export async function POST(request: NextRequest) {
       show_category_badges !== undefined ||
       show_pronunciation !== undefined ||
       memory_hooks_enabled !== undefined ||
+      memory_hooks_intro_answered !== undefined ||
       memory_hook_disable_from_stage !== undefined ||
       settings_language !== undefined ||
       language_from !== undefined ||
@@ -175,6 +177,7 @@ export async function POST(request: NextRequest) {
         show_category_badges,
         show_pronunciation,
         memory_hooks_enabled,
+        memory_hooks_intro_answered,
         memory_hook_disable_from_stage,
         settings_language,
         language_from,

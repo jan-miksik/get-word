@@ -182,6 +182,7 @@ export const users = pgTable("users", {
   showCategoryBadges: boolean("show_category_badges").default(false).notNull(),
   showPronunciation: boolean("show_pronunciation").default(false).notNull(),
   memoryHooksEnabled: boolean("memory_hooks_enabled").default(true).notNull(),
+  memoryHooksIntroAnswered: boolean("memory_hooks_intro_answered").default(false).notNull(),
   memoryHookDisableFromStage: integer("memory_hook_disable_from_stage").default(5).notNull(),
   settingsLanguage: text("settings_language"),
   settingsLanguageSelectedAt: timestamp("settings_language_selected_at"),

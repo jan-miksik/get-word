@@ -70,6 +70,7 @@ type SyncUserShape = {
   showCategoryBadges: boolean | null;
   showPronunciation?: boolean | null;
   memoryHooksEnabled?: boolean | null;
+  memoryHooksIntroAnswered?: boolean | null;
   memoryHookDisableFromStage?: number | null;
   settingsLanguage?: string | null;
   settingsLanguageSelectedAt?: Date | string | null;
@@ -151,6 +152,7 @@ function buildSyncUser(user: SyncUserShape) {
     show_category_badges: user.showCategoryBadges ?? false,
     show_pronunciation: user.showPronunciation ?? false,
     memory_hooks_enabled: user.memoryHooksEnabled ?? true,
+    memory_hooks_intro_answered: user.memoryHooksIntroAnswered ?? false,
     memory_hook_disable_from_stage:
       user.memoryHookDisableFromStage ?? DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
     settings_language: user.settingsLanguage ?? null,

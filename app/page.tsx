@@ -22,9 +22,12 @@ import { useAuth } from '@/hooks/useAuth';
 import { AppStateProvider } from '@/context/AppStateContext';
 import { I18nProvider } from '@/components/I18nProvider';
 import { LearningLanguageOnboarding } from '@/components/LearningLanguageOnboarding';
+import { MemoryHooksIntroCard } from '@/features/learning/components/MemoryHooksIntroCard';
+import { OPEN_MEMORY_HOOKS_PANEL_EVENT } from '@/lib/ui-events';
 
 export default function Home() {
   const [loaderDismissed, setLoaderDismissed] = useState(false);
+  const [completedDeckWordCards, setCompletedDeckWordCards] = useState(0);
   const { words, isLoading: isLoadingWords } = useWordsLoader();
   const {
     isConnected,
@@ -58,6 +61,7 @@ export default function Home() {
     showCategoryBadges,
     showPronunciation,
     memoryHooksEnabled,
+    memoryHooksIntroAnswered,
     memoryHookDisableFromStage,
     markKnown,
     markReallyKnown,
@@ -82,6 +86,8 @@ export default function Home() {
     onboardingCompletedAt,
     setLearningLanguages,
     setActiveListId,
+    setMemoryHooksEnabled,
+    setMemoryHooksIntroAnswered,
   } = appState;
 
   // Use synced words (from word_list_items) when available, otherwise use the fetched words table.
@@ -193,6 +199,37 @@ export default function Home() {
     return () => window.clearTimeout(timeoutId);
   }, [appReady, loaderDismissed]);
 
+  const shouldShowMemoryHooksIntro = useMemo(
+    () =>
+      viewMode === 'card' &&
+      memoryHooksEnabled &&
+      !memoryHooksIntroAnswered &&
+      completedDeckWordCards >= 3,
+    [completedDeckWordCards, memoryHooksEnabled, memoryHooksIntroAnswered, viewMode]
+  );
+
+  const handleEnableMemoryHooks = useCallback(() => {
+    setMemoryHooksEnabled(true);
+    setMemoryHooksIntroAnswered(true);
+  }, [setMemoryHooksEnabled, setMemoryHooksIntroAnswered]);
+
+  const handleDisableMemoryHooks = useCallback(() => {
+    setMemoryHooksEnabled(false);
+    setMemoryHooksIntroAnswered(true);
+  }, [setMemoryHooksEnabled, setMemoryHooksIntroAnswered]);
+
+  const handleLearnMoreMemoryHooks = useCallback(() => {
+    window.dispatchEvent(new Event(OPEN_MEMORY_HOOKS_PANEL_EVENT));
+  }, []);
+
+  const memoryHooksIntroCard = shouldShowMemoryHooksIntro ? (
+    <MemoryHooksIntroCard
+      onEnableMemoryHooks={handleEnableMemoryHooks}
+      onDisableMemoryHooks={handleDisableMemoryHooks}
+      onLearnMore={handleLearnMoreMemoryHooks}
+    />
+  ) : null;
+
   return (
     <AppStateProvider value={appState}>
       <I18nProvider language={appState.settingsLanguage}>
@@ -225,6 +262,8 @@ export default function Home() {
             phrasesCallbackRef={phrasesCallbackRef}
             phrasesScrollElement={phrasesScrollElement}
             filteredWords={filteredWords}
+            memoryHooksIntroCard={memoryHooksIntroCard}
+            onDeckWordCardCompleted={() => setCompletedDeckWordCards((count) => count + 1)}
             cardDeckGroups={cardDeckGroups}
             streamGroupedWords={streamGroupedWords}
             renderCardForDeck={renderCardForDeck}

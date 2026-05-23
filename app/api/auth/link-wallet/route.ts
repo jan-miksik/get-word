@@ -311,6 +311,7 @@ export async function POST(request: NextRequest) {
       showCategoryBadges: targetUser.showCategoryBadges,
       showPronunciation: targetUser.showPronunciation,
       memoryHooksEnabled: targetUser.memoryHooksEnabled,
+      memoryHooksIntroAnswered: targetUser.memoryHooksIntroAnswered,
       memoryHookDisableFromStage: targetUser.memoryHookDisableFromStage,
       settingsLanguage: targetUser.settingsLanguage,
       settingsLanguageSelectedAt: targetUser.settingsLanguageSelectedAt,
@@ -346,6 +347,8 @@ export async function POST(request: NextRequest) {
           showCategoryBadges: targetUser.showCategoryBadges,
           showPronunciation: targetUser.showPronunciation,
           memoryHooksEnabled: targetUser.memoryHooksEnabled,
+          memoryHooksIntroAnswered:
+            mergedUser.memoryHooksIntroAnswered ?? targetUser.memoryHooksIntroAnswered,
           memoryHookDisableFromStage: targetUser.memoryHookDisableFromStage,
           settingsLanguage: mergedUser.settingsLanguage ?? targetUser.settingsLanguage,
           settingsLanguageSelectedAt:

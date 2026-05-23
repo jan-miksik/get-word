@@ -101,6 +101,7 @@ const baseUser = {
   showEnglish: true,
   showCategoryBadges: false,
   memoryHooksEnabled: true,
+  memoryHooksIntroAnswered: false,
   memoryHookDisableFromStage: 5,
   settingsLanguage: 'en',
   settingsLanguageSelectedAt: new Date('2026-05-01T00:00:00.000Z'),
@@ -514,6 +515,33 @@ describe('POST /api/sync', () => {
     )
     expect(data.user.memory_hooks_enabled).toBe(false)
     expect(data.user.memory_hook_disable_from_stage).toBe(6)
+  })
+
+  it('syncs the memory hooks intro answer setting', async () => {
+    mockUpdateUserPreferences.mockResolvedValue({
+      ...baseUser,
+      memoryHooksIntroAnswered: true,
+    })
+
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: 'dev-123',
+        memory_hooks_intro_answered: true,
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(mockUpdateUserPreferences).toHaveBeenCalledWith(
+      'uuid-A',
+      expect.objectContaining({
+        memory_hooks_intro_answered: true,
+      })
+    )
+    expect(data.user.memory_hooks_intro_answered).toBe(true)
   })
 
   it('syncs settings language when supported', async () => {

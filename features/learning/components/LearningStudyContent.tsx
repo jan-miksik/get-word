@@ -24,6 +24,8 @@ interface LearningStudyContentProps {
   phrasesCallbackRef: (node: HTMLElement | null) => void;
   phrasesScrollElement: HTMLElement | null;
   filteredWords: NormalizedWord[];
+  memoryHooksIntroCard?: React.ReactNode;
+  onDeckWordCardCompleted?: (word: NormalizedWord) => void;
   cardDeckGroups: (NormalizedWord | MiniGameConfig)[][];
   streamGroupedWords: (NormalizedWord | MiniGameConfig)[][];
   renderCardForDeck: (
@@ -55,6 +57,8 @@ export function LearningStudyContent({
   phrasesCallbackRef,
   phrasesScrollElement,
   filteredWords,
+  memoryHooksIntroCard,
+  onDeckWordCardCompleted,
   cardDeckGroups,
   streamGroupedWords,
   renderCardForDeck,
@@ -92,6 +96,8 @@ export function LearningStudyContent({
             <CardDeckView
               key={`card-${contentResetKey}`}
               groupedWords={cardDeckGroups}
+              interstitialCard={memoryHooksIntroCard}
+              onWordCardCompleted={onDeckWordCardCompleted}
               renderCard={renderCardForDeck}
               renderMiniGame={renderMiniGameForDeck}
             />

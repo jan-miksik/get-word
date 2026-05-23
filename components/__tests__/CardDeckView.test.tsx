@@ -160,6 +160,71 @@ describe('CardDeckView', () => {
     expect(screen.getByText(/all done/i)).toBeInTheDocument();
   });
 
+  it('calls onWordCardCompleted for word cards but not minigames', async () => {
+    const onWordCardCompleted = vi.fn();
+    const groupedWords = [[makeWord('w1'), makeGame('g1')]];
+    const renderCard = (word: NormalizedWord, _: number, onComplete: (afterExit?: () => void) => void) => (
+      <div>
+        <span>{word.id}</span>
+        <button onClick={() => onComplete()}>Complete</button>
+      </div>
+    );
+    const renderMiniGame = (config: MiniGameConfig, onComplete: () => void) => (
+      <div>
+        <span>{config.id}</span>
+        <button onClick={onComplete}>Finish game</button>
+      </div>
+    );
+
+    render(
+      <CardDeckView
+        groupedWords={groupedWords}
+        onWordCardCompleted={onWordCardCompleted}
+        renderCard={renderCard}
+        renderMiniGame={renderMiniGame}
+      />
+    );
+
+    await userEvent.click(screen.getByText('Complete'));
+    expect(onWordCardCompleted).toHaveBeenCalledTimes(1);
+    expect(onWordCardCompleted).toHaveBeenCalledWith(expect.objectContaining({ id: 'w1' }));
+
+    await userEvent.click(screen.getByText('Finish game'));
+    expect(onWordCardCompleted).toHaveBeenCalledTimes(1);
+  });
+
+  it('renders an interstitial card before all-done when provided', async () => {
+    const groupedWords = [[makeWord('w1')]];
+    const renderCard = (word: NormalizedWord, _: number, onComplete: (afterExit?: () => void) => void) => (
+      <div>
+        <span>{word.id}</span>
+        <button onClick={() => onComplete()}>Complete</button>
+      </div>
+    );
+
+    const { rerender } = render(
+      <CardDeckView
+        groupedWords={groupedWords}
+        renderCard={renderCard}
+        renderMiniGame={vi.fn()}
+      />
+    );
+
+    await userEvent.click(screen.getByText('Complete'));
+
+    rerender(
+      <CardDeckView
+        groupedWords={[]}
+        interstitialCard={<div data-testid="intro-card">Intro</div>}
+        renderCard={renderCard}
+        renderMiniGame={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('intro-card')).toBeInTheDocument();
+    expect(screen.queryByText(/all done/i)).not.toBeInTheDocument();
+  });
+
   it('resets the deck cursor when switching to a different grouped word set', async () => {
     const renderCard = (word: NormalizedWord, _: number, onComplete: (afterExit?: () => void) => void) => (
       <div>

@@ -48,6 +48,8 @@ function getAudioUrlsForItem(item: StreamItem): string[] {
 
 interface CardDeckViewProps {
   groupedWords: (NormalizedWord | MiniGameConfig)[][];
+  interstitialCard?: ReactNode | null;
+  onWordCardCompleted?: (word: NormalizedWord) => void;
   renderCard: (
     word: NormalizedWord,
     stageIndex: number,
@@ -57,7 +59,13 @@ interface CardDeckViewProps {
   renderMiniGame: (config: MiniGameConfig, onComplete: () => void) => ReactNode;
 }
 
-export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardDeckViewProps) {
+export function CardDeckView({
+  groupedWords,
+  interstitialCard = null,
+  onWordCardCompleted,
+  renderCard,
+  renderMiniGame,
+}: CardDeckViewProps) {
   const { t } = useI18n();
   const [currentIndex, setCurrentIndex] = useState(0);
   const [exitAnim, setExitAnim] = useState<string | null>(null);
@@ -98,6 +106,11 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
   }, [groupedWords]);
 
   useEffect(() => {
+    if (!interstitialCard) return;
+    setShowDoneOverlay(false);
+  }, [interstitialCard]);
+
+  useEffect(() => {
     const lookaheadItems = items.slice(currentIndex, currentIndex + AUDIO_LOOKAHEAD_CARDS + 1);
     const audioUrls = Array.from(new Set(lookaheadItems.flatMap(getAudioUrlsForItem)));
     if (audioUrls.length === 0) return;
@@ -127,6 +140,12 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
     const last = currentItems.length > 0 ? currentItems.length - 1 : -1;
     const skip = opts?.skipAnimation ?? false;
     if (opts?.afterExit) pendingAfterExitRef.current = opts.afterExit;
+    const currentItem = currentItems[idx] ?? lastItemRef.current;
+    const isMinigame = currentItem ? '_isMinigame' in currentItem : false;
+
+    if (currentItem && !isMinigame) {
+      onWordCardCompleted?.(currentItem as NormalizedWord);
+    }
 
     if (process.env.NODE_ENV === 'test' || skip) {
       setCurrentIndex((i) => i + 1);
@@ -138,8 +157,6 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
     }
 
     if (last >= 0 && idx >= last) {
-      const currentItem = currentItems[idx];
-      const isMinigame = currentItem && '_isMinigame' in currentItem;
       if (!isMinigame) {
         setShowDoneOverlay(true);
         if (pendingAfterExitRef.current) {
@@ -150,7 +167,6 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
       }
     }
 
-    const currentItem = currentItems[idx] ?? lastItemRef.current;
     if (currentItem) {
       lockedItemRef.current = currentItem;
       let lockedStage = 0;
@@ -165,7 +181,7 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
     const nextExitAnim = randomExitAnim();
     setExitAnim(nextExitAnim);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [onWordCardCompleted]);
 
   const handleAnimationEnd = useCallback((e: AnimationEvent<HTMLDivElement>) => {
     if (!e.animationName.startsWith('deck-exit-')) return;
@@ -186,6 +202,14 @@ export function CardDeckView({ groupedWords, renderCard, renderMiniGame }: CardD
   }, []);
 
   const isDone = items.length === 0 || currentIndex >= items.length;
+
+  if (interstitialCard) {
+    return (
+      <div className="relative flex h-full w-full flex-col overflow-hidden">
+        {interstitialCard}
+      </div>
+    );
+  }
 
   if (isDone && !showDoneOverlay) {
     return (

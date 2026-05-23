@@ -32,6 +32,7 @@ const baseUser = {
   show_category_badges: false,
   show_pronunciation: false,
   memory_hooks_enabled: true,
+  memory_hooks_intro_answered: false,
   memory_hook_disable_from_stage: 5,
   settings_language: 'en',
   settings_language_selected_at: '2026-05-01T00:00:00.000Z',
@@ -102,6 +103,21 @@ describe('server sync echo guards', () => {
     expect(mockPostTabMessage).toHaveBeenCalledWith({
       type: 'preferences_changed',
       patch: expect.objectContaining({ settingsLanguage: 'de' }),
+    });
+  });
+
+  it('persists the memory hooks intro answer locally and across tabs', () => {
+    const isUpdatingFromServerRef = { current: false };
+    const { result } = renderHook(() => usePreferences(true, isUpdatingFromServerRef));
+
+    act(() => {
+      result.current.setMemoryHooksIntroAnswered(true);
+    });
+
+    expect(result.current.memoryHooksIntroAnswered).toBe(true);
+    expect(mockPostTabMessage).toHaveBeenCalledWith({
+      type: 'preferences_changed',
+      patch: { memoryHooksIntroAnswered: true },
     });
   });
 

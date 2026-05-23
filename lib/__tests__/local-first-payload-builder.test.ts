@@ -46,9 +46,15 @@ describe('payload builder', () => {
     const built = buildPayloadFromOps([
       makeOp({ entity: 'preference', opType: 'set', payload: { field: 'show_english', value: true } }),
       makeOp({ entity: 'preference', opType: 'set', payload: { field: 'memory_hooks_enabled', value: false } }),
+      makeOp({
+        entity: 'preference',
+        opType: 'set',
+        payload: { field: 'memory_hooks_intro_answered', value: true },
+      }),
     ]);
     expect(built?.payload.show_english).toBe(true);
     expect(built?.payload.memory_hooks_enabled).toBe(false);
+    expect(built?.payload.memory_hooks_intro_answered).toBe(true);
   });
 
   it('keeps the last value when the same preference field is set twice', () => {

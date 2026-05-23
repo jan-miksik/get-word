@@ -30,6 +30,7 @@ export interface SyncRequest {
   show_category_badges?: boolean;
   show_pronunciation?: boolean;
   memory_hooks_enabled?: boolean;
+  memory_hooks_intro_answered?: boolean;
   memory_hook_disable_from_stage?: number;
   settings_language?: string;
   language_from?: string | null;
@@ -116,6 +117,7 @@ export interface SyncResponse {
     show_category_badges?: boolean;
     show_pronunciation?: boolean;
     memory_hooks_enabled?: boolean;
+    memory_hooks_intro_answered?: boolean;
     memory_hook_disable_from_stage?: number;
     settings_language?: string | null;
     settings_language_selected_at?: string | null;

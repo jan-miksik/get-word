@@ -96,6 +96,7 @@ export async function updateUserPreferences(
     show_category_badges?: boolean;
     show_pronunciation?: boolean;
     memory_hooks_enabled?: boolean;
+    memory_hooks_intro_answered?: boolean;
     memory_hook_disable_from_stage?: number;
     settings_language?: string;
     language_from?: string | null;
@@ -110,6 +111,7 @@ export async function updateUserPreferences(
     showCategoryBadges?: boolean;
     showPronunciation?: boolean;
     memoryHooksEnabled?: boolean;
+    memoryHooksIntroAnswered?: boolean;
     memoryHookDisableFromStage?: number;
     settingsLanguage?: string;
     settingsLanguageSelectedAt?: Date;
@@ -126,6 +128,9 @@ export async function updateUserPreferences(
   if (prefs.show_category_badges !== undefined) updates.showCategoryBadges = prefs.show_category_badges;
   if (prefs.show_pronunciation !== undefined) updates.showPronunciation = prefs.show_pronunciation;
   if (prefs.memory_hooks_enabled !== undefined) updates.memoryHooksEnabled = prefs.memory_hooks_enabled;
+  if (prefs.memory_hooks_intro_answered !== undefined) {
+    updates.memoryHooksIntroAnswered = prefs.memory_hooks_intro_answered;
+  }
   if (prefs.memory_hook_disable_from_stage !== undefined) {
     updates.memoryHookDisableFromStage = normalizeMemoryHookDisableFromStage(
       prefs.memory_hook_disable_from_stage

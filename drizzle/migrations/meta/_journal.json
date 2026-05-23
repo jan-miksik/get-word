@@ -169,6 +169,13 @@
       "when": 1779494400000,
       "tag": "0023_memory_hooks_soft_delete",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1779580800000,
+      "tag": "0024_memory_hooks_intro_answered",
+      "breakpoints": true
     }
   ]
 }
