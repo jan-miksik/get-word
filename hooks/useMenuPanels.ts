@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { OPEN_MEMORY_HOOKS_PANEL_EVENT } from '@/lib/ui-events';
 
 export type MenuPanel = 'settings' | 'progress' | 'category' | 'memoryHooks' | 'upcoming';
 
 export function useMenuPanels() {
   const [openPanel, setOpenPanel] = useState<MenuPanel | null>(null);
+  const ignoreNextDocumentClickRef = useRef(false);
 
   const toggle = useCallback((panel: MenuPanel) => {
     setOpenPanel((prev) => (prev === panel ? null : panel));
@@ -16,6 +17,10 @@ export function useMenuPanels() {
 
   useEffect(() => {
     const handleClick = (e: MouseEvent) => {
+      if (ignoreNextDocumentClickRef.current) {
+        ignoreNextDocumentClickRef.current = false;
+        return;
+      }
       const target = e.target as HTMLElement;
       if (
         !target.closest('.settings-panel') &&
@@ -26,6 +31,7 @@ export function useMenuPanels() {
         !target.closest('.top-menu-dropdown') &&
         !target.closest('.menu-dropdown-popup') &&
         !target.closest('.menu-item') &&
+        !target.closest('[data-memory-hooks-learn-more]') &&
         !target.closest('.mode-btn')
       ) {
         setOpenPanel(null);
@@ -36,7 +42,10 @@ export function useMenuPanels() {
   }, [openPanel]);
 
   useEffect(() => {
-    const handleOpenMemoryHooksPanel = () => setOpenPanel('memoryHooks');
+    const handleOpenMemoryHooksPanel = () => {
+      ignoreNextDocumentClickRef.current = true;
+      setOpenPanel('memoryHooks');
+    };
     window.addEventListener(OPEN_MEMORY_HOOKS_PANEL_EVENT, handleOpenMemoryHooksPanel);
     return () => {
       window.removeEventListener(OPEN_MEMORY_HOOKS_PANEL_EVENT, handleOpenMemoryHooksPanel);

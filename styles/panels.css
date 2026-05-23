@@ -171,91 +171,52 @@
   }
 }
 
+/* Memory hooks: how-it-works overlay.
+   Single source of truth — see also the .memory-hooks-learn-more / scoped
+   token overrides further down the file. */
 .memory-hooks-panel {
-  margin-top: 4px;
-  border-radius: 18px;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  background: rgba(15, 23, 42, 0.96);
-  padding: 0;
+  --tm-accent: #1E6FA8;
   display: none;
-  align-self: end;
-  max-height: 80vh;
-  overflow-y: auto;
-  z-index: 150;
-  box-shadow: var(--shadow-soft);
 }
 
 .memory-hooks-panel.is-open {
   display: block;
   position: fixed;
   inset: 0;
-  max-width: none;
-  margin: 0;
-  padding: 0;
-  border: none;
-  background: transparent;
   z-index: 550;
+  overflow: hidden;
+  background: transparent;
 }
 
 .memory-hooks-panel.is-open .panel-backdrop {
-  display: block;
   position: absolute;
   inset: 0;
-  background: rgba(6, 10, 24, 0.5);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: rgba(31, 26, 18, 0.56);
 }
 
 .memory-hooks-panel.is-open .panel-content {
-  position: absolute;
-  top: clamp(14px, 4dvh, 48px);
-  left: 14px;
-  right: 14px;
-  max-height: calc(100dvh - clamp(28px, 8dvh, 96px));
+  /* Static layout inside the fixed-viewport section: simple normal flow
+     auto-centers via margin auto, no absolute-positioning footguns. */
+  position: relative;
+  margin: clamp(12px, 5dvh, 54px) auto;
+  width: calc(100% - 2 * clamp(12px, 7vw, 76px));
+  max-width: 860px;
+  max-height: calc(100dvh - 2 * clamp(12px, 5dvh, 54px));
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
-  background: rgba(15, 23, 42, 0.96);
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: 18px;
-  padding: 0;
-  z-index: 1;
-  box-shadow: var(--shadow-soft);
+  background: #f4ecda;
+  color: #1f1a12;
+  border: 2px solid #1f1a12;
+  border-radius: 26px;
+  box-shadow: none;
 }
 
-@media (min-width: 768px) {
-  .memory-hooks-panel.is-open {
-    inset: auto;
-    bottom: auto;
-    top: clamp(48px, 8dvh, 76px);
-    right: 14px;
-    left: 14px;
-    max-width: 640px;
-    margin-left: auto;
-    margin-right: auto;
-    background: rgba(15, 23, 42, 0.96);
-    border: 1px solid rgba(148, 163, 184, 0.35);
-  }
-
-  .memory-hooks-panel.is-open .panel-backdrop {
-    display: none;
-  }
-
+@media (max-width: 640px) {
   .memory-hooks-panel.is-open .panel-content {
-    position: static;
-    max-height: 80vh;
-    overflow-y: auto;
-    background: transparent;
-    border: none;
-    border-radius: 0;
-    left: auto;
-    right: auto;
-    top: auto;
-  }
-}
-
-@media (min-width: 1024px) {
-  .memory-hooks-panel.is-open {
-    top: clamp(52px, 8dvh, 82px);
+    margin: 10px;
+    width: calc(100% - 20px);
+    max-height: calc(100dvh - 20px);
+    border-radius: 20px;
   }
 }
 
@@ -523,7 +484,6 @@
 @media (min-width: 640px) {
   .settings-panel.is-open,
   .progress-panel.is-open,
-  .memory-hooks-panel.is-open,
   .category-panel.is-open,
   .upcoming-panel.is-open {
     /* right: auto; */
@@ -668,12 +628,12 @@
 }
 
 /* ─── Neo-brutalist panel overrides ──────────────────────── */
-/* Applies to settings, progress, memory-hooks, and category panels.
+/* Applies to settings, progress, category, and upcoming panels.
+   Memory-hooks panel has its own self-contained design above.
    Cream surface + dark ink border, no offset shadows. */
 
 .settings-panel.is-open .panel-backdrop,
 .progress-panel.is-open .panel-backdrop,
-.memory-hooks-panel.is-open .panel-backdrop,
 .category-panel.is-open .panel-backdrop,
 .upcoming-panel.is-open .panel-backdrop {
   background: rgba(30, 111, 168, 0.55);
@@ -683,7 +643,6 @@
 
 .settings-panel,
 .progress-panel,
-.memory-hooks-panel,
 .category-panel,
 .upcoming-panel {
   --panel-surface: #F4EFE2;
@@ -711,7 +670,6 @@
 
 .settings-panel.is-open .panel-content,
 .progress-panel.is-open .panel-content,
-.memory-hooks-panel.is-open .panel-content,
 .category-panel.is-open .panel-content,
 .upcoming-panel.is-open .panel-content {
   background: var(--panel-surface, #F4EFE2);
@@ -724,16 +682,14 @@
 @media (min-width: 768px) {
   .settings-panel.is-open,
   .progress-panel.is-open,
-  .memory-hooks-panel.is-open,
   .category-panel.is-open,
   .upcoming-panel.is-open {
-    background: transparent !important;
-    border: none !important;
+    background: transparent;
+    border: none;
   }
 
   .settings-panel.is-open .panel-content,
   .progress-panel.is-open .panel-content,
-  .memory-hooks-panel.is-open .panel-content,
   .category-panel.is-open .panel-content,
   .upcoming-panel.is-open .panel-content {
     background: var(--panel-surface, #F4EFE2);
@@ -745,7 +701,6 @@
 /* Text inside panels picks up the dark ink */
 .settings-panel .panel-content,
 .progress-panel .panel-content,
-.memory-hooks-panel .panel-content,
 .category-panel .panel-content,
 .upcoming-panel .panel-content {
   color: var(--panel-ink, #2A2218);
@@ -1007,6 +962,12 @@
 .memory-hooks-panel .custom-scrollbar::-webkit-scrollbar-thumb,
 .category-panel .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(30, 111, 168, 0.4);
+}
+
+/* Learn-more inner colors — sits inside .panel-content. */
+.memory-hooks-panel .memory-hooks-learn-more {
+  background: #f4ecda;
+  color: #1f1a12;
 }
 
 /* ─── Onboarding screen (neo-brutalist) ──────────────────── */

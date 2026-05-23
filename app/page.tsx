@@ -23,11 +23,17 @@ import { AppStateProvider } from '@/context/AppStateContext';
 import { I18nProvider } from '@/components/I18nProvider';
 import { LearningLanguageOnboarding } from '@/components/LearningLanguageOnboarding';
 import { MemoryHooksIntroCard } from '@/features/learning/components/MemoryHooksIntroCard';
-import { OPEN_MEMORY_HOOKS_PANEL_EVENT } from '@/lib/ui-events';
+import { PWAInstallIntroCard } from '@/features/learning/components/PWAInstallIntroCard';
+import {
+  persistPWAInstallPromptAnswered,
+  readPWAInstallPromptAnswered,
+} from '@/features/learning/app-state/storage';
+import { isMobileDevice, isSmallScreen, isStandalone, type SimulatedPlatform } from '@/lib/pwa-install';
 
 export default function Home() {
   const [loaderDismissed, setLoaderDismissed] = useState(false);
   const [completedDeckWordCards, setCompletedDeckWordCards] = useState(0);
+  const [memoryHooksIntroDismissedForSession, setMemoryHooksIntroDismissedForSession] = useState(false);
   const { words, isLoading: isLoadingWords } = useWordsLoader();
   const {
     isConnected,
@@ -199,36 +205,106 @@ export default function Home() {
     return () => window.clearTimeout(timeoutId);
   }, [appReady, loaderDismissed]);
 
+  const forceShowMemoryHooksIntro = useMemo(() => {
+    if (typeof window === 'undefined') return false;
+    return new URLSearchParams(window.location.search).has('previewMemoryHooksIntro');
+  }, []);
+
   const shouldShowMemoryHooksIntro = useMemo(
     () =>
-      viewMode === 'card' &&
-      memoryHooksEnabled &&
-      !memoryHooksIntroAnswered &&
-      completedDeckWordCards >= 3,
-    [completedDeckWordCards, memoryHooksEnabled, memoryHooksIntroAnswered, viewMode]
+      (forceShowMemoryHooksIntro && !memoryHooksIntroDismissedForSession) ||
+      (viewMode === 'card' &&
+        memoryHooksEnabled &&
+        !memoryHooksIntroAnswered &&
+        completedDeckWordCards >= 3),
+    [
+      completedDeckWordCards,
+      forceShowMemoryHooksIntro,
+      memoryHooksIntroDismissedForSession,
+      memoryHooksEnabled,
+      memoryHooksIntroAnswered,
+      viewMode,
+    ]
   );
 
   const handleEnableMemoryHooks = useCallback(() => {
+    setMemoryHooksIntroDismissedForSession(true);
     setMemoryHooksEnabled(true);
     setMemoryHooksIntroAnswered(true);
   }, [setMemoryHooksEnabled, setMemoryHooksIntroAnswered]);
 
   const handleDisableMemoryHooks = useCallback(() => {
+    setMemoryHooksIntroDismissedForSession(true);
     setMemoryHooksEnabled(false);
     setMemoryHooksIntroAnswered(true);
   }, [setMemoryHooksEnabled, setMemoryHooksIntroAnswered]);
-
-  const handleLearnMoreMemoryHooks = useCallback(() => {
-    window.dispatchEvent(new Event(OPEN_MEMORY_HOOKS_PANEL_EVENT));
-  }, []);
 
   const memoryHooksIntroCard = shouldShowMemoryHooksIntro ? (
     <MemoryHooksIntroCard
       onEnableMemoryHooks={handleEnableMemoryHooks}
       onDisableMemoryHooks={handleDisableMemoryHooks}
-      onLearnMore={handleLearnMoreMemoryHooks}
+      learningLanguageFrom={learningLanguageFrom}
+      learningLanguageTo={learningLanguageTo}
     />
   ) : null;
+
+  const previewPWAInstallIntro = useMemo<{ enabled: boolean; simulated: SimulatedPlatform }>(() => {
+    if (typeof window === 'undefined') return { enabled: false, simulated: null };
+    const params = new URLSearchParams(window.location.search);
+    if (!params.has('previewPWAInstallIntro')) return { enabled: false, simulated: null };
+    const raw = (params.get('previewPWAInstallIntro') ?? '').toLowerCase();
+    let simulated: SimulatedPlatform = null;
+    if (raw === 'ios') simulated = 'ios';
+    else if (raw === 'ios-non-safari') simulated = 'ios-non-safari';
+    else if (raw === 'android') simulated = 'android';
+    return { enabled: true, simulated };
+  }, []);
+
+  const [pwaInstallPromptAnswered, setPwaInstallPromptAnswered] = useState(true);
+  const [isAppInstalled, setIsAppInstalled] = useState(true);
+  const [isOnMobileDevice, setIsOnMobileDevice] = useState(false);
+  const [isOnSmallScreen, setIsOnSmallScreen] = useState(false);
+
+  useEffect(() => {
+    setPwaInstallPromptAnswered(readPWAInstallPromptAnswered());
+    setIsAppInstalled(isStandalone());
+    setIsOnMobileDevice(isMobileDevice());
+    setIsOnSmallScreen(isSmallScreen());
+    const onAppInstalled = () => setIsAppInstalled(true);
+    const onResize = () => setIsOnSmallScreen(isSmallScreen());
+    window.addEventListener('appinstalled', onAppInstalled);
+    window.addEventListener('resize', onResize);
+    return () => {
+      window.removeEventListener('appinstalled', onAppInstalled);
+      window.removeEventListener('resize', onResize);
+    };
+  }, []);
+
+  const handleDismissPWAInstallIntro = useCallback(() => {
+    persistPWAInstallPromptAnswered(true);
+    setPwaInstallPromptAnswered(true);
+  }, []);
+
+  // Visible only on real mobile (normal flow) or on small viewports (preview/testing).
+  const isPWAVisibleForViewport = isOnMobileDevice || isOnSmallScreen;
+
+  const shouldShowPWAInstallIntro =
+    (previewPWAInstallIntro.enabled && isPWAVisibleForViewport) ||
+    (viewMode === 'card' &&
+      isOnMobileDevice &&
+      !shouldShowMemoryHooksIntro &&
+      !pwaInstallPromptAnswered &&
+      !isAppInstalled &&
+      completedDeckWordCards >= 10);
+
+  const pwaInstallIntroCard = shouldShowPWAInstallIntro ? (
+    <PWAInstallIntroCard
+      onDismiss={handleDismissPWAInstallIntro}
+      simulatedPlatform={previewPWAInstallIntro.simulated}
+    />
+  ) : null;
+
+  const interstitialCard = memoryHooksIntroCard ?? pwaInstallIntroCard;
 
   return (
     <AppStateProvider value={appState}>
@@ -262,7 +338,7 @@ export default function Home() {
             phrasesCallbackRef={phrasesCallbackRef}
             phrasesScrollElement={phrasesScrollElement}
             filteredWords={filteredWords}
-            memoryHooksIntroCard={memoryHooksIntroCard}
+            interstitialCard={interstitialCard}
             onDeckWordCardCompleted={() => setCompletedDeckWordCards((count) => count + 1)}
             cardDeckGroups={cardDeckGroups}
             streamGroupedWords={streamGroupedWords}

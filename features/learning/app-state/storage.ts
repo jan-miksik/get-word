@@ -10,6 +10,7 @@ const ACTIVE_LIST_STORAGE_KEY = 'get-word-active-list';
 const VIEW_MODE_STORAGE_KEY = 'get-word-view-mode';
 const CATEGORY_FILTERS_STORAGE_KEY = 'get-word-category-filters-by-list';
 const LEARNING_ROLE_BY_PAIR_STORAGE_KEY = 'get-word-learning-role-by-pair';
+const PWA_INSTALL_PROMPT_ANSWERED_KEY = 'get-word-pwa-install-prompt-answered';
 
 type StoredLearningRole = LearningRole;
 
@@ -115,4 +116,18 @@ export function persistLearningRoleForPair(
   const next = readStoredLearningRolesByPair();
   next[getLearningPairKey(languageFrom, languageTo)] = role;
   localStorage.setItem(LEARNING_ROLE_BY_PAIR_STORAGE_KEY, JSON.stringify(next));
+}
+
+export function readPWAInstallPromptAnswered(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(PWA_INSTALL_PROMPT_ANSWERED_KEY) === '1';
+}
+
+export function persistPWAInstallPromptAnswered(answered: boolean): void {
+  if (typeof window === 'undefined') return;
+  if (answered) {
+    localStorage.setItem(PWA_INSTALL_PROMPT_ANSWERED_KEY, '1');
+  } else {
+    localStorage.removeItem(PWA_INSTALL_PROMPT_ANSWERED_KEY);
+  }
 }
