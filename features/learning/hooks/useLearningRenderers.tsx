@@ -6,10 +6,11 @@ import { MiniGameCard } from '@/components/MiniGameCard';
 import type { ProgressData } from '@/lib/sync';
 import type { MiniGameConfig } from '@/lib/minigames';
 import type { NormalizedWord } from '@/lib/words';
+import type { LearningRole } from '@/features/learning/state/learningRole';
 
 interface UseLearningRenderersOptions {
   progress: Record<string, ProgressData>;
-  role: 'cz' | 'vi';
+  role: LearningRole;
   getWordDisplayMode: (wordId: string) => 0 | 1;
   showAll: boolean;
   getMemoryHook: (word: Pick<NormalizedWord, 'id' | 'canonicalWordId'>) => string;

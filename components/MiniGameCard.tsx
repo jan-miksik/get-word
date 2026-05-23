@@ -10,7 +10,12 @@ import type { NormalizedWord } from '@/lib/words';
 import { MultipleChoiceGame } from './games/MultipleChoiceGame';
 import { TypingChallengeGame } from './games/TypingChallengeGame';
 import { MatchingPairsGame } from './games/MatchingPairsGame';
-import { getWordAudioSrcByLang, type PromptMode, type SourceLang } from './games/types';
+import {
+  getWordAudioSrcBySide,
+  type LearningRole,
+  type PromptMode,
+  type WordSide,
+} from './games/types';
 import { useI18n } from '@/components/I18nProvider';
 
 const SKIP_SOUND_KEY = 'get-word-skip-sound';
@@ -50,7 +55,7 @@ function SoundToggle({ skipSound, onToggle }: { skipSound: boolean; onToggle: ()
 
 interface Props {
   config: MiniGameConfig;
-  role: 'cz' | 'vi';
+  role: LearningRole;
   onDismiss: () => void;
   onResult?: (delta: number) => void;
 }
@@ -63,88 +68,92 @@ function hashString(input: string): number {
   return hash;
 }
 
-export function getDeterministicSourceLangForGameId(gameId: string): SourceLang {
-  return (hashString(gameId) & 1) === 0 ? 'cz' : 'vi';
+const WORD_SIDES = ['from', 'to'] as const satisfies readonly WordSide[];
+
+export function getDeterministicSourceLangForGameId(gameId: string): WordSide {
+  return (hashString(gameId) & 1) === 0 ? 'from' : 'to';
 }
 
 export function shouldUseDeterministicAudioPromptForGameId(gameId: string): boolean {
   return ((hashString(gameId) >> 1) & 1) === 0;
 }
 
-function pickAudioSourceLangForQuestion(word: NormalizedWord | undefined): SourceLang | null {
+function pickAudioSideForQuestion(word: NormalizedWord | undefined): WordSide | null {
   if (!word) return null;
-  if (getWordAudioSrcByLang(word, 'cz')) return 'cz';
-  if (getWordAudioSrcByLang(word, 'vi')) return 'vi';
+  for (const side of WORD_SIDES) {
+    if (getWordAudioSrcBySide(word, side)) return side;
+  }
   return null;
 }
 
-function pickAudioSourceLangForMatching(words: NormalizedWord[]): SourceLang | null {
-  const hasAllCzAudio = words.every((word) => Boolean(getWordAudioSrcByLang(word, 'cz')));
-  if (hasAllCzAudio) return 'cz';
-  const hasAllViAudio = words.every((word) => Boolean(getWordAudioSrcByLang(word, 'vi')));
-  if (hasAllViAudio) return 'vi';
+function pickAudioSideForMatching(words: NormalizedWord[]): WordSide | null {
+  for (const side of WORD_SIDES) {
+    if (words.every((word) => Boolean(getWordAudioSrcBySide(word, side)))) {
+      return side;
+    }
+  }
   return null;
 }
 
-async function pickVerifiedAudioSourceLangForQuestion(
+async function pickVerifiedAudioSideForQuestion(
   word: NormalizedWord | undefined,
-): Promise<SourceLang | null> {
+): Promise<WordSide | null> {
   if (!word) return null;
 
-  for (const lang of ['cz', 'vi'] as const) {
-    const audioSrc = getWordAudioSrcByLang(word, lang);
+  for (const side of WORD_SIDES) {
+    const audioSrc = getWordAudioSrcBySide(word, side);
     if (!audioSrc) continue;
     if (await checkAudioUrlAvailable(audioSrc)) {
-      return lang;
+      return side;
     }
   }
 
   return null;
 }
 
-function pickCachedVerifiedAudioSourceLangForQuestion(
+function pickCachedVerifiedAudioSideForQuestion(
   word: NormalizedWord | undefined,
-): SourceLang | null {
+): WordSide | null {
   if (!word) return null;
 
-  for (const lang of ['cz', 'vi'] as const) {
-    const audioSrc = getWordAudioSrcByLang(word, lang);
+  for (const side of WORD_SIDES) {
+    const audioSrc = getWordAudioSrcBySide(word, side);
     if (!audioSrc) continue;
     const availability = getCachedAudioUrlAvailability(audioSrc);
-    if (availability === true) return lang;
+    if (availability === true) return side;
   }
 
   return null;
 }
 
-async function pickVerifiedAudioSourceLangForMatching(
+async function pickVerifiedAudioSideForMatching(
   words: NormalizedWord[],
-): Promise<SourceLang | null> {
-  for (const lang of ['cz', 'vi'] as const) {
-    const audioSources = words.map((word) => getWordAudioSrcByLang(word, lang));
+): Promise<WordSide | null> {
+  for (const side of WORD_SIDES) {
+    const audioSources = words.map((word) => getWordAudioSrcBySide(word, side));
     if (audioSources.some((src) => !src)) continue;
 
     const availability = await Promise.all(
       audioSources.map((src) => checkAudioUrlAvailable(src)),
     );
     if (availability.every(Boolean)) {
-      return lang;
+      return side;
     }
   }
 
   return null;
 }
 
-function pickCachedVerifiedAudioSourceLangForMatching(
+function pickCachedVerifiedAudioSideForMatching(
   words: NormalizedWord[],
-): SourceLang | null {
-  for (const lang of ['cz', 'vi'] as const) {
-    const audioSources = words.map((word) => getWordAudioSrcByLang(word, lang));
+): WordSide | null {
+  for (const side of WORD_SIDES) {
+    const audioSources = words.map((word) => getWordAudioSrcBySide(word, side));
     if (audioSources.some((src) => !src)) continue;
 
     const availability = audioSources.map((src) => getCachedAudioUrlAvailability(src));
     if (availability.every((result) => result === true)) {
-      return lang;
+      return side;
     }
     if (availability.some((result) => result === null)) {
       continue;
@@ -158,11 +167,11 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
   const { t } = useI18n();
   const [finished, setFinished] = useState<{ delta: number } | null>(null);
   const [skipSound, setSkipSound] = useState<boolean>(() => readSkipSound());
-  const [verifiedQuestionAudioSourceLang, setVerifiedQuestionAudioSourceLang] = useState<SourceLang | null>(() =>
-    pickCachedVerifiedAudioSourceLangForQuestion(config.words[0]),
+  const [verifiedQuestionAudioSide, setVerifiedQuestionAudioSide] = useState<WordSide | null>(() =>
+    pickCachedVerifiedAudioSideForQuestion(config.words[0]),
   );
-  const [verifiedMatchingAudioSourceLang, setVerifiedMatchingAudioSourceLang] = useState<SourceLang | null>(() =>
-    pickCachedVerifiedAudioSourceLangForMatching(config.words),
+  const [verifiedMatchingAudioSide, setVerifiedMatchingAudioSide] = useState<WordSide | null>(() =>
+    pickCachedVerifiedAudioSideForMatching(config.words),
   );
   const level = config.level ?? 1;
 
@@ -173,7 +182,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
       return next;
     });
   }, []);
-  const randomSourceLang = useMemo(
+  const randomPromptSide = useMemo(
     () => getDeterministicSourceLangForGameId(config.id),
     [config.id],
   );
@@ -189,73 +198,73 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
 
   const gameProps = { words: config.words, role, level, onResult: handleResult };
   const questionWord = config.words[0];
-  const requestedQuestionAudioSourceLang = useMemo(
-    () => (shouldUseAudioPrompt ? pickAudioSourceLangForQuestion(questionWord) : null),
+  const requestedQuestionAudioSide = useMemo(
+    () => (shouldUseAudioPrompt ? pickAudioSideForQuestion(questionWord) : null),
     [shouldUseAudioPrompt, questionWord],
   );
-  const typingAndChoiceSourceLang = verifiedQuestionAudioSourceLang ?? randomSourceLang;
+  const typingAndChoicePromptSide: WordSide = verifiedQuestionAudioSide ?? randomPromptSide;
   const typingAndChoicePromptMode: PromptMode =
-    !skipSound && verifiedQuestionAudioSourceLang ? 'audio' : 'text';
+    !skipSound && verifiedQuestionAudioSide ? 'audio' : 'text';
 
-  const requestedMatchingAudioSourceLang = useMemo(
-    () => (shouldUseAudioPrompt ? pickAudioSourceLangForMatching(config.words) : null),
+  const requestedMatchingAudioSide = useMemo(
+    () => (shouldUseAudioPrompt ? pickAudioSideForMatching(config.words) : null),
     [config.words, shouldUseAudioPrompt],
   );
   const matchingPromptMode: PromptMode =
-    !skipSound && verifiedMatchingAudioSourceLang ? 'audio' : 'text';
+    !skipSound && verifiedMatchingAudioSide ? 'audio' : 'text';
 
   useEffect(() => {
     let cancelled = false;
-    const cachedLang = pickCachedVerifiedAudioSourceLangForQuestion(questionWord);
+    const cachedSide = pickCachedVerifiedAudioSideForQuestion(questionWord);
 
-    if (!requestedQuestionAudioSourceLang) {
-      setVerifiedQuestionAudioSourceLang(null);
+    if (!requestedQuestionAudioSide) {
+      setVerifiedQuestionAudioSide(null);
       return () => {
         cancelled = true;
       };
     }
 
-    setVerifiedQuestionAudioSourceLang(cachedLang);
-    void pickVerifiedAudioSourceLangForQuestion(questionWord).then((lang) => {
+    setVerifiedQuestionAudioSide(cachedSide);
+    void pickVerifiedAudioSideForQuestion(questionWord).then((side) => {
       if (!cancelled) {
-        setVerifiedQuestionAudioSourceLang(lang);
+        setVerifiedQuestionAudioSide(side);
       }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [questionWord, requestedQuestionAudioSourceLang]);
+  }, [questionWord, requestedQuestionAudioSide]);
 
   useEffect(() => {
     let cancelled = false;
-    const cachedLang = pickCachedVerifiedAudioSourceLangForMatching(config.words);
+    const cachedSide = pickCachedVerifiedAudioSideForMatching(config.words);
 
-    if (!requestedMatchingAudioSourceLang) {
-      setVerifiedMatchingAudioSourceLang(null);
+    if (!requestedMatchingAudioSide) {
+      setVerifiedMatchingAudioSide(null);
       return () => {
         cancelled = true;
       };
     }
 
-    setVerifiedMatchingAudioSourceLang(cachedLang);
-    void pickVerifiedAudioSourceLangForMatching(config.words).then((lang) => {
+    setVerifiedMatchingAudioSide(cachedSide);
+    void pickVerifiedAudioSideForMatching(config.words).then((side) => {
       if (!cancelled) {
-        setVerifiedMatchingAudioSourceLang(lang);
+        setVerifiedMatchingAudioSide(side);
       }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [config.words, requestedMatchingAudioSourceLang]);
+  }, [config.words, requestedMatchingAudioSide]);
 
   let game = null;
   if (config.gameType === 'multipleChoice') {
     game = (
       <MultipleChoiceGame
         {...gameProps}
-        sourceLang={typingAndChoiceSourceLang}
+        sourceLang={typingAndChoicePromptSide}
         promptMode={typingAndChoicePromptMode}
         soundEnabled={!skipSound}
       />
@@ -264,7 +273,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
     game = (
       <TypingChallengeGame
         {...gameProps}
-        sourceLang={typingAndChoiceSourceLang}
+        sourceLang={typingAndChoicePromptSide}
         promptMode={typingAndChoicePromptMode}
         soundEnabled={!skipSound}
       />
@@ -275,7 +284,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
         {...gameProps}
         soundEnabled={!skipSound}
         {...(matchingPromptMode === 'audio'
-          ? { sourceLang: verifiedMatchingAudioSourceLang!, promptMode: 'audio' as const }
+          ? { sourceLang: verifiedMatchingAudioSide!, promptMode: 'audio' as const }
           : { promptMode: 'text' as const })}
       />
     );

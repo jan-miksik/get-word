@@ -436,27 +436,27 @@ export function SettingsPanel({
                 <LearningLanguageButton
                   label={formatLanguageLabel(currentLearningList.languageTo, language)}
                   code={currentLearningList.languageTo}
-                  selected={role === 'cz'}
+                  selected={role === 'knownLanguage'}
                   onClick={() => {
                     persistLearningRoleForPair(
                       currentLearningList.languageFrom,
                       currentLearningList.languageTo,
-                      'cz',
+                      'knownLanguage',
                     );
-                    setRole('cz');
+                    setRole('knownLanguage');
                   }}
                 />
                 <LearningLanguageButton
                   label={formatLanguageLabel(currentLearningList.languageFrom, language)}
                   code={currentLearningList.languageFrom}
-                  selected={role === 'vi'}
+                  selected={role === 'languageToLearn'}
                   onClick={() => {
                     persistLearningRoleForPair(
                       currentLearningList.languageFrom,
                       currentLearningList.languageTo,
-                      'vi',
+                      'languageToLearn',
                     );
-                    setRole('vi');
+                    setRole('languageToLearn');
                   }}
                 />
               </div>

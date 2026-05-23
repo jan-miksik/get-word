@@ -97,7 +97,7 @@ const baseUser = {
   id: 'uuid-A',
   deviceId: 'dev-123',
   walletAddress: null,
-  role: 'vi',
+  role: 'languageToLearn',
   showEnglish: true,
   showCategoryBadges: false,
   memoryHooksEnabled: true,
@@ -159,7 +159,7 @@ describe('GET /api/sync', () => {
     expect(res.status).toBe(200)
     expect(data.success).toBe(true)
     expect(data.user.id).toBe('uuid-A')
-    expect(data.user.role).toBe('vi')
+    expect(data.user.role).toBe('languageToLearn')
   })
 
   it('returns game_score in user object', async () => {
@@ -448,7 +448,7 @@ describe('POST /api/sync', () => {
     expect(mockBatchUpsertProgress).toHaveBeenCalled()
   })
 
-  it('syncs role change for authenticated user', async () => {
+  it('ignores unknown role values', async () => {
     const req = new NextRequest('http://localhost:3000/api/sync', {
       method: 'POST',
       body: JSON.stringify({
@@ -462,7 +462,24 @@ describe('POST /api/sync', () => {
 
     expect(res.status).toBe(200)
     expect(data.success).toBe(true)
-    expect(mockUpdateUserRole).toHaveBeenCalledWith('uuid-A', 'cz')
+    expect(mockUpdateUserRole).not.toHaveBeenCalled()
+  })
+
+  it('syncs role change with new LearningRole shape', async () => {
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: 'dev-123',
+        role: 'knownLanguage',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.success).toBe(true)
+    expect(mockUpdateUserRole).toHaveBeenCalledWith('uuid-A', 'knownLanguage')
   })
 
   it('syncs preferences for authenticated user', async () => {

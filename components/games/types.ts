@@ -1,28 +1,32 @@
 'use client';
 
 import type { NormalizedWord } from '@/lib/words';
+import type { WordSide } from '@/features/learning/state/learningRole';
 
-export type SourceLang = 'cz' | 'vi';
 export type PromptMode = 'text' | 'audio';
 
-export function resolveSourceLangFromRole(role: 'cz' | 'vi'): SourceLang {
-  return role === 'cz' ? 'cz' : 'vi';
-}
+// Re-export pair-agnostic types/helpers so call sites can import the new API
+// from this module (which is where they already import the old types from).
+export type { LearningRole, WordSide } from '@/features/learning/state/learningRole';
+export {
+  flipSide,
+  isLearningRole,
+  knownSideForRole,
+  learningSideForRole,
+} from '@/features/learning/state/learningRole';
 
-export function getTargetLang(sourceLang: SourceLang): SourceLang {
-  return sourceLang === 'cz' ? 'vi' : 'cz';
-}
-
-export function getLearningLangFromRole(role: 'cz' | 'vi'): SourceLang {
-  return role === 'cz' ? 'vi' : 'cz';
-}
-
-export function getLanguageLabel(lang: SourceLang): string {
-  return lang === 'cz' ? 'Czech' : 'Vietnamese';
-}
-
-export function getWordTextByLang(word: NormalizedWord, lang: SourceLang): string {
-  return lang === 'cz' ? word.cz : word.vi;
+/**
+ * Read the text of a word on a given side.
+ *
+ * Words still have the legacy `cz` / `vi` field shape: `wordListItemsToNormalizedWords`
+ * maps `textKnown → cz` and `textTarget → vi`. The side→field mapping is:
+ *   'from' → word.cz  (= textKnown, the list's languageFrom side)
+ *   'to'   → word.vi  (= textTarget, the list's languageTo side)
+ *
+ * Migrating the underlying field shape away from cz/vi is a separate task.
+ */
+export function getWordTextBySide(word: NormalizedWord, side: WordSide): string {
+  return side === 'from' ? word.cz : word.vi;
 }
 
 export function normalizeAudioPath(path: string): string {
@@ -33,25 +37,41 @@ export function normalizeAudioPath(path: string): string {
   return pathStr.startsWith('/') ? pathStr : `/${pathStr}`;
 }
 
-export function getWordAudioSrcByLang(
+export function getWordAudioSrcBySide(
   word: NormalizedWord,
-  sourceLang: SourceLang,
+  side: WordSide,
 ): string | null {
-  return getWordAudioSrcsByLang(word, sourceLang)[0] ?? null;
+  return getWordAudioSrcsBySide(word, side)[0] ?? null;
 }
 
-export function getWordAudioSrcsByLang(
+export function getWordAudioSrcsBySide(
   word: NormalizedWord,
-  sourceLang: SourceLang,
+  side: WordSide,
 ): string[] {
-  const raw = sourceLang === 'cz' ? word.czAudio : word.viAudio;
+  const raw = side === 'from' ? word.czAudio : word.viAudio;
   if (!raw) return [];
   const candidates = Array.isArray(raw) ? raw : [raw];
   return candidates
     .filter(
-    (candidate): candidate is string =>
-      typeof candidate === 'string' && candidate.trim().length > 0,
+      (candidate): candidate is string =>
+        typeof candidate === 'string' && candidate.trim().length > 0,
     )
     .map(normalizeAudioPath)
     .filter((candidate, index, arr) => arr.indexOf(candidate) === index);
 }
+
+/**
+ * Look up the BCP-47 language code for a word's given side. Set by
+ * wordListItemsToNormalizedWords from the list's languageFrom / languageTo.
+ * Returns null when the word has no language metadata (legacy bundled data).
+ */
+export function getWordLanguageCodeForSide(
+  word: NormalizedWord,
+  side: WordSide,
+): string | null {
+  const code = side === 'from' ? word.languageFrom : word.languageTo;
+  if (!code) return null;
+  const trimmed = String(code).trim();
+  return trimmed ? trimmed : null;
+}
+

@@ -7,6 +7,7 @@ import { ProgressData } from '@/lib/sync';
 import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
 import { useI18n } from '@/components/I18nProvider';
 import type { I18nKey } from '@/lib/i18n/messages';
+import type { LearningRole } from '@/features/learning/state/learningRole';
 
 function formatInterval(
   ms: number,
@@ -41,7 +42,7 @@ function getWordTextSize(maxLen: number): string {
 interface WordCardProps {
   word: NormalizedWord;
   progress: ProgressData;
-  role: 'cz' | 'vi';
+  role: LearningRole;
   modeIndex: number;
   showAll: boolean;
   memoryHook: string;
@@ -156,7 +157,10 @@ export const WordCard = memo(function WordCard({
       return diff >= 5;
     }
 
-    if (role === 'cz') {
+    // 'knownLanguage' (old 'cz'): user knows the from-side (cz), so the
+    // unknown side they're studying is 'vi' on the front, and the answer
+    // reveal shows 'cz' (+ 'en' helper text).
+    if (role === 'knownLanguage') {
       if (modeIndex === 0) {
         return lang === 'vi';
       } else {
@@ -171,8 +175,13 @@ export const WordCard = memo(function WordCard({
     }
   };
 
+  // Show pronunciation for whichever side the user is LEARNING (the side they
+  // need help pronouncing). 'knownLanguage' → learning the 'vi' side, etc.
   const shouldShowPron = (langKey: 'cz' | 'vi') => {
-    return (langKey === 'cz' && role === 'vi') || (langKey === 'vi' && role === 'cz');
+    return (
+      (langKey === 'cz' && role === 'languageToLearn') ||
+      (langKey === 'vi' && role === 'knownLanguage')
+    );
   };
 
   // Audio playback
@@ -202,11 +211,13 @@ export const WordCard = memo(function WordCard({
     return pathStr.startsWith('/') ? pathStr : `/${pathStr}`;
   };
 
-  // Get audio source for current role
+  // Get audio source for the side the user is learning (not the side they
+  // already know). 'languageToLearn' (old 'vi') → learning from-side → cz audio.
+  // 'knownLanguage' (old 'cz') → learning to-side → vi audio.
   const getAudioSrc = (): string | null => {
-    if (role === 'vi' && word.czAudio) {
+    if (role === 'languageToLearn' && word.czAudio) {
       return normalizeAudioPath(word.czAudio);
-    } else if (role === 'cz' && word.viAudio) {
+    } else if (role === 'knownLanguage' && word.viAudio) {
       return normalizeAudioPath(word.viAudio);
     }
     return null;
@@ -428,7 +439,7 @@ export const WordCard = memo(function WordCard({
             type="button"
             className="audio-btn audio-btn--floating !h-16 !min-h-16 !w-16 !min-w-16 !rounded-full !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] !shadow-none hover:!bg-[#1E6FA8] hover:!border-[#1E6FA8] hover:!text-[#F4EFE2] active:!bg-[#1E6FA8] active:!border-[#1E6FA8] active:!text-[#F4EFE2]"
             onClick={() => playAudio(audioSrc)}
-            title={role === 'vi' ? t('card.playCzechAudio') : t('card.playVietnameseAudio')}
+            title={role === 'languageToLearn' ? t('card.playCzechAudio') : t('card.playVietnameseAudio')}
             aria-label={t('card.playAudio')}
           >
             <SpeakerIcon size={23} />

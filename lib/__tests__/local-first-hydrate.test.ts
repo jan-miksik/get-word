@@ -110,7 +110,7 @@ describe('loadAllDomainsFromIdb', () => {
   });
 
   it('hydrates from per-domain rows', async () => {
-    const user = { id: 'u-1', role: 'cz' } as SyncResponse['user'];
+    const user = { id: 'u-1', role: 'knownLanguage' } as SyncResponse['user'];
     mockGetPrefsRow.mockResolvedValueOnce({
       schemaVersion: META_SCHEMA_VERSION,
       updatedAt: '2026-05-01T00:00:00Z',
@@ -166,7 +166,7 @@ describe('loadAllDomainsFromIdb', () => {
       savedAt: 1,
       activeListId: 'list-9',
       data: {
-        user: { id: 'u-2', role: 'vi' } as SyncResponse['user'],
+        user: { id: 'u-2', role: 'languageToLearn' } as SyncResponse['user'],
         progress: { 'w-9': { wordId: 'w-9', stageIndex: 4 } } as unknown as SyncResponse['progress'],
         memory_hooks: { 'w-9': 'note' },
         category_filters: ['animals'],
@@ -179,7 +179,7 @@ describe('loadAllDomainsFromIdb', () => {
 
     const result = await loadAllDomainsFromIdb();
     expect(result).not.toBeNull();
-    expect(result!.syncResponse.user).toEqual({ id: 'u-2', role: 'vi' });
+    expect(result!.syncResponse.user).toEqual({ id: 'u-2', role: 'languageToLearn' });
     expect(result!.syncResponse.progress['w-9']).toEqual({ wordId: 'w-9', stageIndex: 4 });
     expect(result!.syncResponse.memory_hooks).toEqual({ 'w-9': 'note' });
     expect(result!.syncResponse.category_filters).toEqual(['animals']);
@@ -192,7 +192,7 @@ describe('persistDomainsToIdb', () => {
   it('writes per-domain rows from a SyncResponse', async () => {
     const data: SyncResponse = {
       success: true,
-      user: { id: 'u-1', role: 'cz' } as SyncResponse['user'],
+      user: { id: 'u-1', role: 'knownLanguage' } as SyncResponse['user'],
       progress: {
         'w-1': { updatedAt: '2026-05-01T00:00:00Z', wordId: 'w-1', stageIndex: 2 } as unknown as SyncResponse['progress'][string],
       },
@@ -215,7 +215,7 @@ describe('persistDomainsToIdb', () => {
     mockEnsure.mockResolvedValueOnce(false);
     await persistDomainsToIdb({
       success: true,
-      user: { id: 'u-1', role: 'cz' } as SyncResponse['user'],
+      user: { id: 'u-1', role: 'knownLanguage' } as SyncResponse['user'],
       progress: {},
       memory_hooks: {},
       category_filters: [],

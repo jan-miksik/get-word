@@ -61,23 +61,23 @@ describe('MiniGameCard', () => {
   });
 
   it('renders MultipleChoiceGame for multipleChoice type', async () => {
-    render(<MiniGameCard config={config('multipleChoice')} role="cz" onDismiss={vi.fn()} />);
+    render(<MiniGameCard config={config('multipleChoice')} role="knownLanguage" onDismiss={vi.fn()} />);
     const shouldUseAudio = shouldUseDeterministicAudioPromptForGameId('test-multipleChoice');
     expect(await screen.findByText(shouldUseAudio ? '🎯 Choose' : '🎯 Choice')).toBeInTheDocument();
   });
 
   it('renders TypingChallengeGame for typing type', async () => {
-    render(<MiniGameCard config={config('typing')} role="cz" onDismiss={vi.fn()} />);
+    render(<MiniGameCard config={config('typing')} role="knownLanguage" onDismiss={vi.fn()} />);
     expect(await screen.findByText('⌨️ Type in Vietnamese')).toBeInTheDocument();
   });
 
   it('renders MatchingPairsGame for matching type', async () => {
-    render(<MiniGameCard config={config('matching')} role="cz" onDismiss={vi.fn()} />);
+    render(<MiniGameCard config={config('matching')} role="knownLanguage" onDismiss={vi.fn()} />);
     expect(await screen.findByText('🔗 Match')).toBeInTheDocument();
   });
 
   it('passes role to the game component', async () => {
-    render(<MiniGameCard config={config('multipleChoice')} role="vi" onDismiss={vi.fn()} />);
+    render(<MiniGameCard config={config('multipleChoice')} role="languageToLearn" onDismiss={vi.fn()} />);
     const shouldUseAudio = shouldUseDeterministicAudioPromptForGameId('test-multipleChoice');
     const sourceLang = shouldUseAudio ? 'cz' : getDeterministicSourceLangForGameId('test-multipleChoice');
     const expectedOption = sourceLang === 'cz' ? 'con chó' : 'pes';
@@ -85,7 +85,7 @@ describe('MiniGameCard', () => {
   });
 
   it('uses deterministic prompt mode for matching cards', async () => {
-    render(<MiniGameCard config={config('matching')} role="cz" onDismiss={vi.fn()} />);
+    render(<MiniGameCard config={config('matching')} role="knownLanguage" onDismiss={vi.fn()} />);
     const shouldUseAudio = shouldUseDeterministicAudioPromptForGameId('test-matching');
     if (shouldUseAudio) {
       expect(await screen.findByRole('button', { name: /play 1/i })).toBeInTheDocument();
@@ -107,7 +107,7 @@ describe('MiniGameCard', () => {
     render(
       <MiniGameCard
         config={{ ...config('multipleChoice'), id: 'audio-c', words: fallbackWords }}
-        role="cz"
+        role="knownLanguage"
         onDismiss={vi.fn()}
       />
     );
@@ -126,7 +126,7 @@ describe('MiniGameCard', () => {
     render(
       <MiniGameCard
         config={{ ...config('matching'), id: 'audio-c', words: fallbackWords }}
-        role="cz"
+        role="knownLanguage"
         onDismiss={vi.fn()}
       />
     );
@@ -139,7 +139,7 @@ describe('MiniGameCard', () => {
     const onResult = vi.fn();
     const onDismiss = vi.fn();
     render(
-      <MiniGameCard config={config('multipleChoice')} role="cz" onDismiss={onDismiss} onResult={onResult} />
+      <MiniGameCard config={config('multipleChoice')} role="knownLanguage" onDismiss={onDismiss} onResult={onResult} />
     );
     const shouldUseAudio = shouldUseDeterministicAudioPromptForGameId('test-multipleChoice');
     const sourceLang = shouldUseAudio ? 'cz' : getDeterministicSourceLangForGameId('test-multipleChoice');
@@ -156,7 +156,7 @@ describe('MiniGameCard', () => {
     render(
       <MiniGameCard
         config={{ ...config('multipleChoice'), id: 'test-multipleChoice-l2', level: 2 }}
-        role="cz"
+        role="knownLanguage"
         onDismiss={vi.fn()}
         onResult={onResult}
       />
@@ -186,7 +186,7 @@ describe('MiniGameCard', () => {
     render(
       <MiniGameCard
         config={{ ...config('multipleChoice'), id: 'audio-c', words: brokenPromptWords }}
-        role="cz"
+        role="knownLanguage"
         onDismiss={vi.fn()}
       />
     );
@@ -204,7 +204,7 @@ describe('MiniGameCard', () => {
     render(
       <MiniGameCard
         config={{ ...config('multipleChoice'), id: 'audio-c' }}
-        role="cz"
+        role="knownLanguage"
         onDismiss={vi.fn()}
       />
     );

@@ -1,5 +1,9 @@
 'use client';
 
+import {
+  isLearningRole,
+  type LearningRole,
+} from '@/features/learning/state/learningRole';
 import type { ViewMode } from './types';
 
 const ACTIVE_LIST_STORAGE_KEY = 'get-word-active-list';
@@ -7,7 +11,7 @@ const VIEW_MODE_STORAGE_KEY = 'get-word-view-mode';
 const CATEGORY_FILTERS_STORAGE_KEY = 'get-word-category-filters-by-list';
 const LEARNING_ROLE_BY_PAIR_STORAGE_KEY = 'get-word-learning-role-by-pair';
 
-type StoredLearningRole = 'cz' | 'vi';
+type StoredLearningRole = LearningRole;
 
 function normalizePairCode(code: string): string {
   const trimmed = String(code).trim();
@@ -85,9 +89,9 @@ export function readStoredLearningRolesByPair(): Record<string, StoredLearningRo
     }
 
     return Object.fromEntries(
-      Object.entries(parsed).filter((entry): entry is [string, StoredLearningRole] => (
-        entry[1] === 'cz' || entry[1] === 'vi'
-      )),
+      Object.entries(parsed).flatMap(([key, value]): Array<[string, StoredLearningRole]> =>
+        isLearningRole(value) ? [[key, value]] : [],
+      ),
     );
   } catch {
     return {};

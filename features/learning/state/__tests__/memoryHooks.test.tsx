@@ -26,7 +26,7 @@ describe('useMemoryHooks', () => {
   it('reads hooks through a canonical item alias', () => {
     const isUpdatingFromServerRef = { current: false };
     const { result } = renderHook(() =>
-      useMemoryHooks(true, isUpdatingFromServerRef, 'vi')
+      useMemoryHooks(true, isUpdatingFromServerRef, 'languageToLearn')
     );
 
     act(() => {
@@ -46,7 +46,7 @@ describe('useMemoryHooks', () => {
   it('syncs new hooks using the canonical item alias when present', () => {
     const isUpdatingFromServerRef = { current: false };
     const { result } = renderHook(() =>
-      useMemoryHooks(true, isUpdatingFromServerRef, 'vi')
+      useMemoryHooks(true, isUpdatingFromServerRef, 'languageToLearn')
     );
 
     act(() => {

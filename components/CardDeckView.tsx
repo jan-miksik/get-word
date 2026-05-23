@@ -6,7 +6,7 @@ import type { NormalizedWord } from '@/lib/words';
 import type { MiniGameConfig } from '@/lib/minigames';
 import { checkAudioUrlAvailable } from '@/lib/audio-availability';
 import { prefetchAudio } from '@/lib/audio-prefetch';
-import { getWordAudioSrcByLang, type SourceLang } from './games/types';
+import { getWordAudioSrcBySide, type WordSide } from './games/types';
 import { useI18n } from '@/components/I18nProvider';
 
 type StreamItem = NormalizedWord | MiniGameConfig;
@@ -36,8 +36,8 @@ function randomEnterAnim(): string {
 }
 
 function getAudioUrlsForWord(word: NormalizedWord): string[] {
-  return (['cz', 'vi'] as const satisfies readonly SourceLang[])
-    .map((lang) => getWordAudioSrcByLang(word, lang))
+  return (['from', 'to'] as const satisfies readonly WordSide[])
+    .map((side) => getWordAudioSrcBySide(word, side))
     .filter((url): url is string => Boolean(url));
 }
 

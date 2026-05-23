@@ -4,7 +4,7 @@ import { SettingsPanel } from '../SettingsPanel';
 
 vi.mock('@/context/AppStateContext', () => ({
   useAppStateContext: () => ({
-    role: 'cz',
+    role: 'knownLanguage',
     setRole: vi.fn(),
     showEnglish: true,
     setShowEnglish: vi.fn(),

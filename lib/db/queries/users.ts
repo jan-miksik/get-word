@@ -64,7 +64,7 @@ export async function getOrCreateUserByDeviceId(
 
   const results = await db
     .insert(users)
-    .values({ deviceId, role: "vi" })
+    .values({ deviceId, role: "languageToLearn" })
     .returning();
   return results[0];
 }
@@ -75,10 +75,10 @@ export async function createUser(user: NewUser): Promise<User> {
   return results[0];
 }
 
-// Update user role
+// Update user role.
 export async function updateUserRole(
   userId: string,
-  role: "cz" | "vi"
+  role: "knownLanguage" | "languageToLearn"
 ): Promise<User | null> {
   const results = await db
     .update(users)

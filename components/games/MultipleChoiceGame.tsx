@@ -4,21 +4,22 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getPlayableAudioUrl } from '@/lib/audio-availability';
 import type { NormalizedWord } from '@/lib/words';
 import {
-  getLearningLangFromRole,
-  getTargetLang,
-  getWordAudioSrcByLang,
-  getWordAudioSrcsByLang,
-  getWordTextByLang,
-  resolveSourceLangFromRole,
+  flipSide,
+  getWordAudioSrcBySide,
+  getWordAudioSrcsBySide,
+  getWordTextBySide,
+  knownSideForRole,
+  learningSideForRole,
+  type LearningRole,
   type PromptMode,
-  type SourceLang,
+  type WordSide,
 } from './types';
 import { useI18n } from '@/components/I18nProvider';
 
 interface Props {
   words: NormalizedWord[];
-  role: 'cz' | 'vi';
-  sourceLang?: SourceLang;
+  role: LearningRole;
+  sourceLang?: WordSide;
   promptMode?: PromptMode;
   soundEnabled?: boolean;
   level?: 1 | 2;
@@ -39,24 +40,24 @@ export function MultipleChoiceGame({
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const questionWord = words[0];
-  const resolvedSourceLang = sourceLang ?? resolveSourceLangFromRole(role);
-  const learningLang = getLearningLangFromRole(role);
-  const targetLang = getTargetLang(resolvedSourceLang);
-  const getOption = (w: NormalizedWord) => getWordTextByLang(w, targetLang);
-  const prompt = getWordTextByLang(questionWord, resolvedSourceLang);
+  const promptSide: WordSide = sourceLang ?? knownSideForRole(role);
+  const learningSide: WordSide = learningSideForRole(role);
+  const answerSide: WordSide = flipSide(promptSide);
+  const getOption = (w: NormalizedWord) => getWordTextBySide(w, answerSide);
+  const prompt = getWordTextBySide(questionWord, promptSide);
   const correctAnswer = getOption(questionWord);
-  const promptAudioSrc = getWordAudioSrcByLang(questionWord, resolvedSourceLang);
+  const promptAudioSrc = getWordAudioSrcBySide(questionWord, promptSide);
   const effectivePromptMode: PromptMode = promptMode === 'audio' && promptAudioSrc ? 'audio' : 'text';
 
   const options = useMemo(
     () => [...words].sort(() => Math.random() - 0.5).map(w => ({
       id: w.id,
       label: getOption(w),
-      answerAudioSrcs: getWordAudioSrcsByLang(w, learningLang),
+      answerAudioSrcs: getWordAudioSrcsBySide(w, learningSide),
       isCorrect: w.id === questionWord.id,
     })),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [words, targetLang, learningLang, questionWord.id]
+    [words, answerSide, learningSide, questionWord.id]
   );
 
   const answered = selected !== null;

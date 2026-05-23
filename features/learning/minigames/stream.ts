@@ -146,7 +146,6 @@ export function pruneAnchorsForCurrentSize(
 export function injectMinigames(
   words: NormalizedWord[],
   learnedPool: NormalizedWord[],
-  _role: 'cz' | 'vi',
   seed?: number,
   options?: InjectMinigamesOptions,
 ): StreamItem[] {

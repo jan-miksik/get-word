@@ -58,7 +58,7 @@ describe('MultipleChoiceGame', () => {
   it('calls onResult(+1) when the correct option is selected', () => {
     const onResult = vi.fn();
     render(
-      <MultipleChoiceGame words={WORDS} role="cz" onResult={onResult} />
+      <MultipleChoiceGame words={WORDS} role="knownLanguage" onResult={onResult} />
     );
     // role=cz: prompt=pes, correct answer=con chó
     fireEvent.click(screen.getByText('con chó'));
@@ -68,7 +68,7 @@ describe('MultipleChoiceGame', () => {
   it('calls onResult(-1) when a wrong option is selected', () => {
     const onResult = vi.fn();
     render(
-      <MultipleChoiceGame words={WORDS} role="cz" onResult={onResult} />
+      <MultipleChoiceGame words={WORDS} role="knownLanguage" onResult={onResult} />
     );
     // role=cz: prompt=pes, wrong answer=con mèo
     fireEvent.click(screen.getByText('con mèo'));
@@ -78,14 +78,14 @@ describe('MultipleChoiceGame', () => {
   it('awards +2 for a correct answer in level 2', () => {
     const onResult = vi.fn();
     render(
-      <MultipleChoiceGame words={WORDS} role="cz" level={2} onResult={onResult} />
+      <MultipleChoiceGame words={WORDS} role="knownLanguage" level={2} onResult={onResult} />
     );
     fireEvent.click(screen.getByText('con chó'));
     expect(onResult).toHaveBeenCalledWith(2);
   });
 
   it('does not throw when onResult is not provided', () => {
-    render(<MultipleChoiceGame words={WORDS} role="cz" />);
+    render(<MultipleChoiceGame words={WORDS} role="knownLanguage" />);
     fireEvent.click(screen.getByText('con chó'));
     // no assertion needed - just must not throw
   });
@@ -93,7 +93,7 @@ describe('MultipleChoiceGame', () => {
   it('supports sourceLang override for random direction', () => {
     const onResult = vi.fn();
     render(
-      <MultipleChoiceGame words={WORDS} role="cz" sourceLang="vi" onResult={onResult} />
+      <MultipleChoiceGame words={WORDS} role="knownLanguage" sourceLang="to" onResult={onResult} />
     );
     // sourceLang=vi => prompt is Vietnamese and options are Czech
     expect(screen.getByText('con chó')).toBeInTheDocument();
@@ -103,7 +103,7 @@ describe('MultipleChoiceGame', () => {
 
   it('renders replay-only listening prompt and hides source text in audio mode', async () => {
     render(
-      <MultipleChoiceGame words={WORDS} role="cz" sourceLang="cz" promptMode="audio" />
+      <MultipleChoiceGame words={WORDS} role="knownLanguage" sourceLang="from" promptMode="audio" />
     );
     expect(screen.queryByText('pes')).not.toBeInTheDocument();
     const replay = screen.getByRole('button', { name: /replay prompt audio/i });
@@ -113,7 +113,7 @@ describe('MultipleChoiceGame', () => {
 
   it('plays selected option audio on answer in audio mode when sound is enabled', async () => {
     render(
-      <MultipleChoiceGame words={WORDS} role="cz" sourceLang="cz" promptMode="audio" soundEnabled />
+      <MultipleChoiceGame words={WORDS} role="knownLanguage" sourceLang="from" promptMode="audio" soundEnabled />
     );
     fireEvent.click(screen.getByText('con chó'));
     await waitFor(() => expect(playCalls).toBe(1));
@@ -121,7 +121,7 @@ describe('MultipleChoiceGame', () => {
 
   it('plays the learning-language audio for a correct answer when sound is enabled', async () => {
     render(
-      <MultipleChoiceGame words={WORDS} role="cz" soundEnabled />
+      <MultipleChoiceGame words={WORDS} role="knownLanguage" soundEnabled />
     );
     fireEvent.click(screen.getByText('con chó'));
     await waitFor(() => expect(playCalls).toBe(1));
@@ -140,7 +140,7 @@ describe('MultipleChoiceGame', () => {
     ];
 
     render(
-      <MultipleChoiceGame words={wordsWithFallbackAudio} role="cz" soundEnabled />
+      <MultipleChoiceGame words={wordsWithFallbackAudio} role="knownLanguage" soundEnabled />
     );
     fireEvent.click(screen.getByText('con chó'));
 
@@ -151,7 +151,7 @@ describe('MultipleChoiceGame', () => {
 
   it('does not play answer audio for a wrong answer even when sound is enabled', async () => {
     render(
-      <MultipleChoiceGame words={WORDS} role="cz" soundEnabled />
+      <MultipleChoiceGame words={WORDS} role="knownLanguage" soundEnabled />
     );
     fireEvent.click(screen.getByText('con mèo'));
     await waitFor(() => expect(playCalls).toBe(0));
@@ -165,7 +165,7 @@ describe('MultipleChoiceGame', () => {
       makeWord('d', 'voda', 'nước'),
     ];
     render(
-      <MultipleChoiceGame words={noAudioWords} role="cz" sourceLang="cz" promptMode="audio" />
+      <MultipleChoiceGame words={noAudioWords} role="knownLanguage" sourceLang="from" promptMode="audio" />
     );
     expect(screen.getByText('pes')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /replay prompt audio/i })).not.toBeInTheDocument();

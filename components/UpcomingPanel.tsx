@@ -34,7 +34,9 @@ function stageBarStyle(stageIndex: number): string {
 }
 
 function pickPair(word: NormalizedWord, role: Role): { source: string; target: string } {
-  return role === 'cz'
+  // role === 'knownLanguage' (= old 'cz'): user knows the from-side, so the
+  // prompt is the from-side (word.cz) and the target is the to-side (word.vi).
+  return role === 'knownLanguage'
     ? { source: word.cz, target: word.vi }
     : { source: word.vi, target: word.cz };
 }

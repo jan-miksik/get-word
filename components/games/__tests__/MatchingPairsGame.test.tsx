@@ -49,7 +49,7 @@ beforeEach(() => {
 
 describe('MatchingPairsGame', () => {
   it('renders 4 left buttons (cz) and 4 right buttons (vi) when role is cz', () => {
-    render(<MatchingPairsGame words={WORDS} role="cz" />);
+    render(<MatchingPairsGame words={WORDS} role="knownLanguage" />);
     expect(screen.getByText('pes')).toBeInTheDocument();
     expect(screen.getByText('kočka')).toBeInTheDocument();
     expect(screen.getByText('con chó')).toBeInTheDocument();
@@ -57,13 +57,13 @@ describe('MatchingPairsGame', () => {
   });
 
   it('renders vi on left and cz on right when role is vi', () => {
-    render(<MatchingPairsGame words={WORDS} role="vi" />);
+    render(<MatchingPairsGame words={WORDS} role="languageToLearn" />);
     expect(screen.getByText('con chó')).toBeInTheDocument();
     expect(screen.getByText('pes')).toBeInTheDocument();
   });
 
   it('matching a correct pair marks both buttons with matched class', () => {
-    render(<MatchingPairsGame words={WORDS} role="cz" />);
+    render(<MatchingPairsGame words={WORDS} role="knownLanguage" />);
     fireEvent.click(screen.getByText('pes'));
     fireEvent.click(screen.getByText('con chó'));
     expect(screen.getByText('pes').closest('button')).toHaveClass('game-match-btn--matched');
@@ -71,7 +71,7 @@ describe('MatchingPairsGame', () => {
   });
 
   it('assigns 4 different colors to matched pairs (in match order)', () => {
-    render(<MatchingPairsGame words={WORDS} role="cz" />);
+    render(<MatchingPairsGame words={WORDS} role="knownLanguage" />);
 
     fireEvent.click(screen.getByText('pes'));
     fireEvent.click(screen.getByText('con chó'));
@@ -96,7 +96,7 @@ describe('MatchingPairsGame', () => {
 
   it('selecting a wrong pair flashes wrong class then resets after timeout', async () => {
     vi.useFakeTimers();
-    render(<MatchingPairsGame words={WORDS} role="cz" />);
+    render(<MatchingPairsGame words={WORDS} role="knownLanguage" />);
     fireEvent.click(screen.getByText('pes'));
     fireEvent.click(screen.getByText('con mèo')); // wrong pair
     expect(screen.getByText('pes').closest('button')).toHaveClass('game-match-btn--wrong');
@@ -106,7 +106,7 @@ describe('MatchingPairsGame', () => {
   });
 
   it('shows completion message when all pairs matched', () => {
-    render(<MatchingPairsGame words={WORDS} role="cz" />);
+    render(<MatchingPairsGame words={WORDS} role="knownLanguage" />);
     // Match all 4 pairs (right column is shuffled but words are accessible by text)
     fireEvent.click(screen.getByText('pes'));      fireEvent.click(screen.getByText('con chó'));
     fireEvent.click(screen.getByText('kočka'));   fireEvent.click(screen.getByText('con mèo'));
@@ -117,7 +117,7 @@ describe('MatchingPairsGame', () => {
 
   it('calls onResult(+1) when all pairs matched', () => {
     const onResult = vi.fn();
-    render(<MatchingPairsGame words={WORDS} role="cz" onResult={onResult} />);
+    render(<MatchingPairsGame words={WORDS} role="knownLanguage" onResult={onResult} />);
     fireEvent.click(screen.getByText('pes'));      fireEvent.click(screen.getByText('con chó'));
     fireEvent.click(screen.getByText('kočka'));   fireEvent.click(screen.getByText('con mèo'));
     fireEvent.click(screen.getByText('auto'));    fireEvent.click(screen.getByText('xe hơi'));
@@ -127,7 +127,7 @@ describe('MatchingPairsGame', () => {
 
   it('calls onResult(+2) when level 2 is completed', () => {
     const onResult = vi.fn();
-    render(<MatchingPairsGame words={WORDS} role="cz" level={2} onResult={onResult} />);
+    render(<MatchingPairsGame words={WORDS} role="knownLanguage" level={2} onResult={onResult} />);
     fireEvent.click(screen.getByText('pes'));      fireEvent.click(screen.getByText('con chó'));
     fireEvent.click(screen.getByText('kočka'));   fireEvent.click(screen.getByText('con mèo'));
     fireEvent.click(screen.getByText('auto'));    fireEvent.click(screen.getByText('xe hơi'));
@@ -137,7 +137,7 @@ describe('MatchingPairsGame', () => {
 
   it('uses listening mode with hidden source text when complete audio is available', async () => {
     render(
-      <MatchingPairsGame words={WORDS} role="cz" sourceLang="cz" promptMode="audio" />
+      <MatchingPairsGame words={WORDS} role="knownLanguage" sourceLang="from" promptMode="audio" />
     );
     expect(screen.queryByText('pes')).not.toBeInTheDocument();
     const promptButton = screen.getByRole('button', { name: /play 1/i });
@@ -155,7 +155,7 @@ describe('MatchingPairsGame', () => {
       }),
     );
     render(
-      <MatchingPairsGame words={WORDS} role="cz" sourceLang="cz" promptMode="audio" />
+      <MatchingPairsGame words={WORDS} role="knownLanguage" sourceLang="from" promptMode="audio" />
     );
     fireEvent.click(screen.getByRole('button', { name: /play 1/i }));
     await waitFor(() => {
@@ -164,7 +164,7 @@ describe('MatchingPairsGame', () => {
   });
 
   it('plays the learning-language audio for a correct match when sound is enabled', async () => {
-    render(<MatchingPairsGame words={WORDS} role="cz" soundEnabled />);
+    render(<MatchingPairsGame words={WORDS} role="knownLanguage" soundEnabled />);
     fireEvent.click(screen.getByText('pes'));
     fireEvent.click(screen.getByText('con chó'));
     await waitFor(() => expect(playCalls).toBe(1));
@@ -173,7 +173,7 @@ describe('MatchingPairsGame', () => {
 
   it('does not play audio for an incorrect match even when sound is enabled', async () => {
     vi.useFakeTimers();
-    render(<MatchingPairsGame words={WORDS} role="cz" soundEnabled />);
+    render(<MatchingPairsGame words={WORDS} role="knownLanguage" soundEnabled />);
     fireEvent.click(screen.getByText('pes'));
     fireEvent.click(screen.getByText('con mèo'));
     expect(playCalls).toBe(0);
@@ -189,7 +189,7 @@ describe('MatchingPairsGame', () => {
       makeWord('d', 'voda', 'nước', { czAudio: 'speech/cz/voda.mp3' }),
     ];
     render(
-      <MatchingPairsGame words={mixedAudio} role="cz" sourceLang="cz" promptMode="audio" />
+      <MatchingPairsGame words={mixedAudio} role="knownLanguage" sourceLang="from" promptMode="audio" />
     );
     expect(screen.getByText('pes')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /play 1/i })).not.toBeInTheDocument();

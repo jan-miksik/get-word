@@ -90,11 +90,26 @@ describe('learning app-state preferences', () => {
   });
 
   it('persists the selected learning side for an exact language pair', () => {
-    persistLearningRoleForPair('en', 'fr', 'cz');
-    persistLearningRoleForPair('fr', 'en', 'vi');
+    persistLearningRoleForPair('en', 'fr', 'knownLanguage');
+    persistLearningRoleForPair('fr', 'en', 'languageToLearn');
 
-    expect(readStoredLearningRoleForPair('en', 'fr')).toBe('cz');
-    expect(readStoredLearningRoleForPair('fr', 'en')).toBe('vi');
+    expect(readStoredLearningRoleForPair('en', 'fr')).toBe('knownLanguage');
+    expect(readStoredLearningRoleForPair('fr', 'en')).toBe('languageToLearn');
     expect(readStoredLearningRoleForPair('en', 'de')).toBeNull();
+  });
+
+  it('drops entries with unknown role values on read', () => {
+    localStorage.setItem(
+      'get-word-learning-role-by-pair',
+      JSON.stringify({
+        'en__fr': 'knownLanguage',
+        'es__pt': 'unknown-value',
+        'de__it': 'cz',
+      }),
+    );
+
+    expect(readStoredLearningRoleForPair('en', 'fr')).toBe('knownLanguage');
+    expect(readStoredLearningRoleForPair('es', 'pt')).toBeNull();
+    expect(readStoredLearningRoleForPair('de', 'it')).toBeNull();
   });
 });

@@ -4,10 +4,11 @@ import { useCallback } from 'react';
 import { EditableWordCard } from '@/components/EditableWordCard';
 import type { ProgressData } from '@/lib/sync';
 import type { NormalizedWord, Word } from '@/lib/words';
+import type { LearningRole } from '@/features/learning/state/learningRole';
 
 interface UseEditRenderersOptions {
   progress: Record<string, ProgressData>;
-  role: 'cz' | 'vi';
+  role: LearningRole;
   getWordDisplayMode: (wordId: string) => 0 | 1;
   showAll: boolean;
   getMemoryHook: (word: Pick<NormalizedWord, 'id' | 'canonicalWordId'>) => string;

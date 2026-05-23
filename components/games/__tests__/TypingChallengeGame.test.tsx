@@ -56,7 +56,7 @@ describe('TypingChallengeGame', () => {
   it('calls onResult(2) when exact match is submitted', () => {
     const onResult = vi.fn();
     render(
-      <TypingChallengeGame words={WORDS} role="cz" onResult={onResult} />
+      <TypingChallengeGame words={WORDS} role="knownLanguage" onResult={onResult} />
     );
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'con chó' } });
     fireEvent.click(screen.getByText('Check'));
@@ -65,7 +65,7 @@ describe('TypingChallengeGame', () => {
 
   it('plays the learning-language audio when an exact answer is checked with sound enabled', async () => {
     render(
-      <TypingChallengeGame words={WORDS} role="cz" soundEnabled />
+      <TypingChallengeGame words={WORDS} role="knownLanguage" soundEnabled />
     );
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'con chó' } });
     fireEvent.click(screen.getByText('Check'));
@@ -76,7 +76,7 @@ describe('TypingChallengeGame', () => {
   it('calls onResult(1) when close match is submitted', () => {
     const onResult = vi.fn();
     render(
-      <TypingChallengeGame words={WORDS} role="cz" onResult={onResult} />
+      <TypingChallengeGame words={WORDS} role="knownLanguage" onResult={onResult} />
     );
     // 'con cho' is close to 'con chó' (missing diacritic)
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'con cho' } });
@@ -86,7 +86,7 @@ describe('TypingChallengeGame', () => {
 
   it('plays the learning-language audio when a close answer is checked with sound enabled', async () => {
     render(
-      <TypingChallengeGame words={WORDS} role="cz" soundEnabled />
+      <TypingChallengeGame words={WORDS} role="knownLanguage" soundEnabled />
     );
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'con cho' } });
     fireEvent.click(screen.getByText('Check'));
@@ -97,7 +97,7 @@ describe('TypingChallengeGame', () => {
   it('calls onResult(0) when wrong answer is submitted', () => {
     const onResult = vi.fn();
     render(
-      <TypingChallengeGame words={WORDS} role="cz" onResult={onResult} />
+      <TypingChallengeGame words={WORDS} role="knownLanguage" onResult={onResult} />
     );
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'totally wrong' } });
     fireEvent.click(screen.getByText('Check'));
@@ -106,7 +106,7 @@ describe('TypingChallengeGame', () => {
 
   it('does not play audio when a wrong answer is checked with sound enabled', () => {
     render(
-      <TypingChallengeGame words={WORDS} role="cz" soundEnabled />
+      <TypingChallengeGame words={WORDS} role="knownLanguage" soundEnabled />
     );
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'totally wrong' } });
     fireEvent.click(screen.getByText('Check'));
@@ -114,7 +114,7 @@ describe('TypingChallengeGame', () => {
   });
 
   it('does not throw when onResult is not provided', () => {
-    render(<TypingChallengeGame words={WORDS} role="cz" />);
+    render(<TypingChallengeGame words={WORDS} role="knownLanguage" />);
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'con chó' } });
     fireEvent.click(screen.getByText('Check'));
     // no assertion needed - just must not throw
@@ -122,7 +122,7 @@ describe('TypingChallengeGame', () => {
 
   it('supports sourceLang override for direction switching', () => {
     render(
-      <TypingChallengeGame words={WORDS} role="cz" sourceLang="vi" />
+      <TypingChallengeGame words={WORDS} role="knownLanguage" sourceLang="to" />
     );
     // sourceLang=vi means prompt is Vietnamese and expected answer is Czech
     expect(screen.getByText('⌨️ Type in Czech')).toBeInTheDocument();
@@ -134,7 +134,7 @@ describe('TypingChallengeGame', () => {
 
   it('renders replay-only listening prompt and hides source text in audio mode', async () => {
     render(
-      <TypingChallengeGame words={WORDS} role="cz" sourceLang="cz" promptMode="audio" />
+      <TypingChallengeGame words={WORDS} role="knownLanguage" sourceLang="from" promptMode="audio" />
     );
     expect(screen.queryByText('pes')).not.toBeInTheDocument();
     const replay = screen.getByRole('button', { name: /replay prompt audio/i });
@@ -148,7 +148,7 @@ describe('TypingChallengeGame', () => {
       makeWord('b', 'kočka', 'con mèo'),
     ];
     render(
-      <TypingChallengeGame words={noAudioWords} role="cz" sourceLang="cz" promptMode="audio" />
+      <TypingChallengeGame words={noAudioWords} role="knownLanguage" sourceLang="from" promptMode="audio" />
     );
     expect(screen.getByText('⌨️ Type in Vietnamese')).toBeInTheDocument();
     expect(screen.getByText('pes')).toBeInTheDocument();

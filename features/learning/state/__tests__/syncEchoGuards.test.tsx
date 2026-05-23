@@ -27,7 +27,7 @@ import type { NormalizedWord } from '@/lib/words';
 
 const baseUser = {
   id: 'user-1',
-  role: 'vi',
+  role: 'languageToLearn',
   show_english: true,
   show_category_badges: false,
   show_pronunciation: false,

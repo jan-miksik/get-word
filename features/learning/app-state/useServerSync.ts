@@ -88,11 +88,9 @@ export function useServerSync({
       applyServerGameScore(serverData.user.game_score);
     }
     if (serverData.word_list_items && serverData.categories) {
-      const role = serverData.user?.role ?? 'vi';
       const converted = wordListItemsToNormalizedWords(
         serverData.word_list_items,
         serverData.categories,
-        role as 'cz' | 'vi',
         { mediaFallbackWords: words }
       );
       setSyncedWords(converted);

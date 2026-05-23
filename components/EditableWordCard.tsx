@@ -5,12 +5,13 @@ import { createPortal } from 'react-dom';
 import { useI18n } from '@/components/I18nProvider';
 import { NormalizedWord, Word } from '@/lib/words';
 import { ProgressData } from '@/lib/sync';
+import type { LearningRole } from '@/features/learning/state/learningRole';
 import { WordCard } from './WordCard';
 
 interface EditableWordCardProps {
   word: NormalizedWord;
   progress: ProgressData;
-  role: 'cz' | 'vi';
+  role: LearningRole;
   modeIndex: number;
   showAll: boolean;
   memoryHook: string;

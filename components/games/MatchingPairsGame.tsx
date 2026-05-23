@@ -4,21 +4,22 @@ import { useState, useMemo, useEffect, useRef } from 'react';
 import { getPlayableAudioUrl } from '@/lib/audio-availability';
 import type { NormalizedWord } from '@/lib/words';
 import {
-  getLearningLangFromRole,
-  getTargetLang,
-  getWordAudioSrcByLang,
-  getWordAudioSrcsByLang,
-  getWordTextByLang,
-  resolveSourceLangFromRole,
+  flipSide,
+  getWordAudioSrcBySide,
+  getWordAudioSrcsBySide,
+  getWordTextBySide,
+  knownSideForRole,
+  learningSideForRole,
+  type LearningRole,
   type PromptMode,
-  type SourceLang,
+  type WordSide,
 } from './types';
 import { useI18n } from '@/components/I18nProvider';
 
 interface Props {
   words: NormalizedWord[];
-  role: 'cz' | 'vi';
-  sourceLang?: SourceLang;
+  role: LearningRole;
+  sourceLang?: WordSide;
   promptMode?: PromptMode;
   soundEnabled?: boolean;
   level?: 1 | 2;
@@ -52,15 +53,15 @@ export function MatchingPairsGame({
   const [hasAudioPlaybackError, setHasAudioPlaybackError] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
-  const requestedSourceLang = sourceLang ?? resolveSourceLangFromRole(role);
-  const learningLang = getLearningLangFromRole(role);
+  const requestedPromptSide: WordSide = sourceLang ?? knownSideForRole(role);
+  const learningSide: WordSide = learningSideForRole(role);
   const audioByWordId = useMemo(
-    () => new Map(words.map((word) => [word.id, getWordAudioSrcByLang(word, requestedSourceLang)])),
-    [words, requestedSourceLang],
+    () => new Map(words.map((word) => [word.id, getWordAudioSrcBySide(word, requestedPromptSide)])),
+    [words, requestedPromptSide],
   );
   const learningAudioByWordId = useMemo(
-    () => new Map(words.map((word) => [word.id, getWordAudioSrcsByLang(word, learningLang)])),
-    [words, learningLang],
+    () => new Map(words.map((word) => [word.id, getWordAudioSrcsBySide(word, learningSide)])),
+    [words, learningSide],
   );
   const hasCompleteAudio = useMemo(
     () => words.every((word) => Boolean(audioByWordId.get(word.id))),
@@ -68,11 +69,11 @@ export function MatchingPairsGame({
   );
   const effectivePromptMode: PromptMode =
     promptMode === 'audio' && hasCompleteAudio && !hasAudioPlaybackError ? 'audio' : 'text';
-  const textModeSourceLang =
+  const textModePromptSide: WordSide =
     promptMode === 'audio' && !hasCompleteAudio
-      ? resolveSourceLangFromRole(role)
-      : requestedSourceLang;
-  const targetLang = getTargetLang(textModeSourceLang);
+      ? knownSideForRole(role)
+      : requestedPromptSide;
+  const textModeAnswerSide: WordSide = flipSide(textModePromptSide);
   const promptNumberById = useMemo(
     () => new Map(words.map((word, index) => [word.id, index + 1])),
     [words],
@@ -238,7 +239,7 @@ export function MatchingPairsGame({
               >
                 {effectivePromptMode === 'audio'
                   ? `🔊`
-                  : getWordTextByLang(w, textModeSourceLang)}
+                  : getWordTextBySide(w, textModePromptSide)}
               </button>
             );
           })}
@@ -254,7 +255,7 @@ export function MatchingPairsGame({
                 onClick={() => handleRight(w.id)}
                 disabled={matched.has(w.id) || !!wrongPair}
               >
-                {getWordTextByLang(w, targetLang)}
+                {getWordTextBySide(w, textModeAnswerSide)}
               </button>
             );
           })}

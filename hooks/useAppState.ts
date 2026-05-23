@@ -120,19 +120,22 @@ export function useAppState(
     if (!activeList) return;
 
     const storedRole = readStoredLearningRoleForPair(activeList.languageFrom, activeList.languageTo);
-    let preferredRole = storedRole;
+    let preferredRole: 'knownLanguage' | 'languageToLearn' | null = storedRole;
 
     if (!preferredRole && preferences.learningLanguageFrom && preferences.learningLanguageTo) {
       if (
         preferences.learningLanguageFrom === activeList.languageFrom &&
         preferences.learningLanguageTo === activeList.languageTo
       ) {
-        preferredRole = 'cz';
+        // User's known language IS the list's from-side.
+        preferredRole = 'knownLanguage';
       } else if (
         preferences.learningLanguageFrom === activeList.languageTo &&
         preferences.learningLanguageTo === activeList.languageFrom
       ) {
-        preferredRole = 'vi';
+        // User's known language is the list's to-side: the from-side is what
+        // they're learning toward.
+        preferredRole = 'languageToLearn';
       }
     }
 

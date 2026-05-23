@@ -270,7 +270,6 @@ export function wordListItemsToNormalizedWords(
     position: number;
   }>,
   categories: Record<string, { name: string; position: number }>,
-  _userRole: 'cz' | 'vi',
   opts?: {
     mediaFallbackWords?: Array<
       Pick<NormalizedWord, 'cz' | 'vi' | 'czPron' | 'viPron' | 'czAudio' | 'viAudio'>

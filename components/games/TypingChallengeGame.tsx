@@ -5,20 +5,23 @@ import { getPlayableAudioUrl } from '@/lib/audio-availability';
 import type { NormalizedWord } from '@/lib/words';
 import { matchAnswer } from '@/lib/minigames';
 import {
-  getLearningLangFromRole,
-  getTargetLang,
-  getWordAudioSrcsByLang,
-  getWordTextByLang,
-  resolveSourceLangFromRole,
+  flipSide,
+  getWordAudioSrcsBySide,
+  getWordLanguageCodeForSide,
+  getWordTextBySide,
+  knownSideForRole,
+  learningSideForRole,
+  type LearningRole,
   type PromptMode,
-  type SourceLang,
+  type WordSide,
 } from './types';
 import { useI18n } from '@/components/I18nProvider';
+import type { I18nKey } from '@/lib/i18n/messages';
 
 interface Props {
   words: NormalizedWord[];
-  role: 'cz' | 'vi';
-  sourceLang?: SourceLang;
+  role: LearningRole;
+  sourceLang?: WordSide;
   promptMode?: PromptMode;
   soundEnabled?: boolean;
   onResult?: (delta: number) => void;
@@ -42,13 +45,13 @@ export function TypingChallengeGame({
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const questionWord = words[0];
-  const resolvedSourceLang = sourceLang ?? resolveSourceLangFromRole(role);
-  const learningLang = getLearningLangFromRole(role);
-  const targetLang = getTargetLang(resolvedSourceLang);
-  const prompt = getWordTextByLang(questionWord, resolvedSourceLang);
-  const correctAnswer = getWordTextByLang(questionWord, targetLang);
-  const promptAudioSrcs = getWordAudioSrcsByLang(questionWord, resolvedSourceLang);
-  const learningAudioSrcs = getWordAudioSrcsByLang(questionWord, learningLang);
+  const promptSide: WordSide = sourceLang ?? knownSideForRole(role);
+  const learningSide: WordSide = learningSideForRole(role);
+  const answerSide: WordSide = flipSide(promptSide);
+  const prompt = getWordTextBySide(questionWord, promptSide);
+  const correctAnswer = getWordTextBySide(questionWord, answerSide);
+  const promptAudioSrcs = getWordAudioSrcsBySide(questionWord, promptSide);
+  const learningAudioSrcs = getWordAudioSrcsBySide(questionWord, learningSide);
   const [hasAudioPlaybackError, setHasAudioPlaybackError] = useState(false);
   const effectivePromptMode: PromptMode =
     promptMode === 'audio' &&
@@ -60,7 +63,20 @@ export function TypingChallengeGame({
   const firstLetterMatch = normalizedAnswer.match(/\S/);
   const firstLetter = firstLetterMatch ? firstLetterMatch[0] : '';
   const answerChars = normalizedAnswer.split('');
-  const targetLanguageLabel = targetLang === 'cz' ? t('languageName.cs') : t('languageName.vi');
+  const answerLanguageCode = getWordLanguageCodeForSide(questionWord, answerSide);
+  const targetLanguageLabel = (() => {
+    // BCP-47-driven lookup; falls back to the legacy cz/vi labels for words
+    // that pre-date the languageFrom/languageTo metadata.
+    if (answerLanguageCode) {
+      // Dynamic BCP-47 code; the key may or may not exist in the message
+      // catalog. t() returns the key itself when missing, which we treat as
+      // "fall back to the legacy label below".
+      const key = `languageName.${answerLanguageCode}` as I18nKey;
+      const translated = t(key);
+      if (translated && translated !== key) return translated;
+    }
+    return answerSide === 'from' ? t('languageName.cs') : t('languageName.vi');
+  })();
 
   const check = () => {
     if (result !== null || !value.trim()) return;

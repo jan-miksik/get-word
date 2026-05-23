@@ -45,7 +45,7 @@ describe('injectMinigames', () => {
   );
 
   it('injects games using stream-above when pool is empty (new user)', () => {
-    const result = injectMinigames(words, [], 'cz', 42, { minInterval: 5, maxInterval: 5 });
+    const result = injectMinigames(words, [], 42, { minInterval: 5, maxInterval: 5 });
     const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
     expect(games.length).toBeGreaterThan(0);
     games.forEach(game => {
@@ -58,14 +58,14 @@ describe('injectMinigames', () => {
   });
 
   it('injects games using stream-above when pool has fewer than 4', () => {
-    const result = injectMinigames(words, words.slice(0, 3), 'cz', 42, { minInterval: 5, maxInterval: 5 });
+    const result = injectMinigames(words, words.slice(0, 3), 42, { minInterval: 5, maxInterval: 5 });
     const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
     expect(games.length).toBeGreaterThan(0);
     games.forEach(game => expect(game.words.length).toBe(4));
   });
 
   it('uses only stream-above words even when a larger learned pool exists', () => {
-    const result = injectMinigames(words, words, 'cz', 42, { minInterval: 5, maxInterval: 5 });
+    const result = injectMinigames(words, words, 42, { minInterval: 5, maxInterval: 5 });
     const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
     expect(games.length).toBeGreaterThan(0);
     games.forEach(game => {
@@ -78,7 +78,7 @@ describe('injectMinigames', () => {
 
   it('supplements early games from surrounding words so the configured interval is honored', () => {
     const shortList = Array.from({ length: 6 }, (_, i) => makeWord(`w${i}`, `cz${i}`, `vi${i}`));
-    const result = injectMinigames(shortList, [], 'cz', 99, { minInterval: 2, maxInterval: 2 });
+    const result = injectMinigames(shortList, [], 99, { minInterval: 2, maxInterval: 2 });
     const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
     expect(games.length).toBeGreaterThan(0);
     expect(games[0].words.length).toBe(4);
@@ -104,7 +104,7 @@ describe('injectMinigames', () => {
       makeCategorizedWord('travel-3', 'travel'),
     ];
 
-    const result = injectMinigames(mixedList, [], 'cz', 99, { minInterval: 2, maxInterval: 2 });
+    const result = injectMinigames(mixedList, [], 99, { minInterval: 2, maxInterval: 2 });
     const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
 
     expect(games[0].words.map(word => word.id).sort()).toEqual([
@@ -116,23 +116,23 @@ describe('injectMinigames', () => {
   });
 
   it('returns empty array for empty words', () => {
-    const result = injectMinigames([], words, 'cz', 42);
+    const result = injectMinigames([], words, 42);
     expect(result).toEqual([]);
   });
 
   it('injects deterministic number of games for given word count and frequency', () => {
-    const result = injectMinigames(words, words, 'cz', 42, { minInterval: 5, maxInterval: 5 });
+    const result = injectMinigames(words, words, 42, { minInterval: 5, maxInterval: 5 });
     const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
     // gap=5, 20 words → floor(20/5) = 4 games
     expect(games.length).toBe(4);
     // Running again with same params gives identical output
-    const result2 = injectMinigames(words, words, 'cz', 42, { minInterval: 5, maxInterval: 5 });
+    const result2 = injectMinigames(words, words, 42, { minInterval: 5, maxInterval: 5 });
     expect(result2).toEqual(result);
   });
 
   it('draws a new gap per insertion and stays within bounds', () => {
     const manyWords = Array.from({ length: 50 }, (_, i) => makeWord(`w${i}`, `cz${i}`, `vi${i}`));
-    const result = injectMinigames(manyWords, manyWords, 'cz', 7, { minInterval: 2, maxInterval: 4 });
+    const result = injectMinigames(manyWords, manyWords, 7, { minInterval: 2, maxInterval: 4 });
     const gaps: number[] = [];
     let sinceLastGame = 0;
     result.forEach(item => {
@@ -150,7 +150,7 @@ describe('injectMinigames', () => {
   });
 
   it('never injects two consecutive minigames', () => {
-    const result = injectMinigames(words, words, 'cz', 42);
+    const result = injectMinigames(words, words, 42);
     for (let i = 0; i < result.length - 1; i++) {
       if ('_isMinigame' in result[i]) {
         expect('_isMinigame' in result[i + 1]).toBe(false);
@@ -159,7 +159,7 @@ describe('injectMinigames', () => {
   });
 
   it('each game has exactly 4 words', () => {
-    const result = injectMinigames(words, words, 'cz', 42);
+    const result = injectMinigames(words, words, 42);
     result.forEach(item => {
       if ('_isMinigame' in item) {
         expect(item.words.length).toBe(4);
@@ -169,7 +169,7 @@ describe('injectMinigames', () => {
 
   it('uses varied game types without repeating the same type back-to-back', () => {
     const manyWords = Array.from({ length: 50 }, (_, i) => makeWord(`w${i}`, `cz${i}`, `vi${i}`));
-    const result = injectMinigames(manyWords, manyWords, 'cz', 1);
+    const result = injectMinigames(manyWords, manyWords, 1);
     const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
     if (games.length >= 2) {
       for (let i = 1; i < games.length; i++) {
@@ -180,7 +180,7 @@ describe('injectMinigames', () => {
   });
 
   it('anchors ID and anchorOriginalIndex to the preceding word position and seed', () => {
-    const result = injectMinigames(words, words, 'cz', 9, { minInterval: 3, maxInterval: 3 });
+    const result = injectMinigames(words, words, 9, { minInterval: 3, maxInterval: 3 });
     const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
     expect(games.length).toBeGreaterThan(0);
     games.forEach(game => {
@@ -194,11 +194,11 @@ describe('injectMinigames', () => {
   });
 
   it('is deterministic for the same seed and varies for different seeds', () => {
-    const resultA1 = injectMinigames(words, words, 'cz', 123, { minInterval: 2, maxInterval: 5 });
-    const resultA2 = injectMinigames(words, words, 'cz', 123, { minInterval: 2, maxInterval: 5 });
+    const resultA1 = injectMinigames(words, words, 123, { minInterval: 2, maxInterval: 5 });
+    const resultA2 = injectMinigames(words, words, 123, { minInterval: 2, maxInterval: 5 });
     expect(resultA1).toEqual(resultA2);
 
-    const resultB = injectMinigames(words, words, 'cz', 321, { minInterval: 2, maxInterval: 5 });
+    const resultB = injectMinigames(words, words, 321, { minInterval: 2, maxInterval: 5 });
     expect(resultB).not.toEqual(resultA1);
   });
 
@@ -220,7 +220,7 @@ describe('injectMinigames', () => {
 
     let level2Games: MiniGameConfig[] = [];
     for (let seed = 1; seed <= 80; seed++) {
-      const result = injectMinigames(similarPool, similarPool, 'cz', seed, {
+      const result = injectMinigames(similarPool, similarPool, seed, {
         minInterval: 1,
         maxInterval: 1,
       });
@@ -252,7 +252,7 @@ describe('injectMinigames', () => {
       makeWord('d11', 'lima', 'phongtam'),
     ];
 
-    const result = injectMinigames(distinctPool, distinctPool, 'cz', 17, {
+    const result = injectMinigames(distinctPool, distinctPool, 17, {
       minInterval: 1,
       maxInterval: 1,
     });
@@ -277,7 +277,7 @@ describe('composeStream', () => {
 
   it('produces the same stream as injectMinigames when no words are removed', () => {
     const composed = composeStream(originalWords, originalIndexMap, anchors);
-    const injected = injectMinigames(originalWords, originalWords, 'cz', 99, {
+    const injected = injectMinigames(originalWords, originalWords, 99, {
       minInterval: 4,
       maxInterval: 4,
     });

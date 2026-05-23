@@ -14,8 +14,12 @@ import {
   DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
   normalizeMemoryHookDisableFromStage,
 } from '@/lib/words';
+import {
+  isLearningRole,
+  type LearningRole,
+} from '@/features/learning/state/learningRole';
 
-export type Role = 'cz' | 'vi';
+export type Role = LearningRole;
 export type SettingsLanguage = string;
 
 const DEFAULT_SETTINGS_LANGUAGE = 'en';
@@ -82,7 +86,7 @@ export function usePreferences(
   isHydrated: boolean,
   isUpdatingFromServerRef: React.MutableRefObject<boolean>
 ) {
-  const [role, setRoleState] = useState<Role>('vi');
+  const [role, setRoleState] = useState<Role>('languageToLearn');
   const [showAll, setShowAll] = useState(false);
   const [showEnglish, setShowEnglish] = useState(false);
   const [showCategoryBadges, setShowCategoryBadges] = useState(false);
@@ -257,7 +261,7 @@ export function usePreferences(
     const simulateLearningOnboarding =
       simulateFirstOpen && !hasCompletedLearningOnboardingInSession();
     const detectedLanguage = normalizeSettingsLanguage(getDetectedSettingsLanguage());
-    if (user.role) setRoleState(user.role);
+    if (isLearningRole(user.role)) setRoleState(user.role);
     setShowEnglish(false);
     setShowCategoryBadges(false);
     setShowPronunciation(false);
@@ -283,7 +287,7 @@ export function usePreferences(
     return subscribeTabMessages((message) => {
       if (message.type !== 'preferences_changed') return;
       const patch = message.patch;
-      if (patch.role === 'cz' || patch.role === 'vi') setRoleState(patch.role);
+      if (isLearningRole(patch.role)) setRoleState(patch.role);
       if (typeof patch.showEnglish === 'boolean') setShowEnglish(false);
       if (typeof patch.showCategoryBadges === 'boolean') {
         setShowCategoryBadges(false);

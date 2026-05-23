@@ -176,7 +176,7 @@ export const users = pgTable("users", {
   email: text("email").unique(), // Email (when signed in with email/Google/social)
   walletAddress: text("wallet_address").unique(), // Web3 embedded wallet
   authProvider: text("auth_provider"), // "email" | "google" | "apple" | "wallet" etc.
-  role: text("role").notNull().default("vi"), // "cz" or "vi"
+  role: text("role").notNull().default("languageToLearn"), // "knownLanguage" or "languageToLearn"
   userRole: text("user_role").notNull().default("user"), // "user" or "editor"
   showEnglish: boolean("show_english").default(true).notNull(),
   showCategoryBadges: boolean("show_category_badges").default(false).notNull(),

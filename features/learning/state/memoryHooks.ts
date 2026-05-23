@@ -102,8 +102,11 @@ export function useMemoryHooks(
   const getSuggestedMemoryHook = useCallback(
     (word: NormalizedWord) => {
       if (!word) return '';
-      if (role === 'vi') return word.viHint || '';
-      if (role === 'cz') return word.czHint || '';
+      // Preserves legacy role→hint mapping: old 'cz' showed czHint, old 'vi'
+      // showed viHint. In new terms: 'knownLanguage' (= old 'cz') maps to the
+      // from-side hint, 'languageToLearn' (= old 'vi') maps to the to-side hint.
+      if (role === 'knownLanguage') return word.czHint || '';
+      if (role === 'languageToLearn') return word.viHint || '';
       return '';
     },
     [role]

@@ -23,6 +23,7 @@ import {
   getUserSyncRevision,
 } from "@/lib/db";
 import { type User } from "@/lib/db/schema";
+import { isLearningRole } from "@/features/learning/state/learningRole";
 import { withSessionCookie } from "@/features/shared/routes/session";
 import { createRouteTimer } from "@/features/shared/routes/timing";
 import {
@@ -152,8 +153,7 @@ export async function POST(request: NextRequest) {
     await touchUserDevice(user.id, deviceId);
     let appliedReviewEventIds: string[] = [];
 
-    // Update role if provided
-    if (role && role !== user.role) {
+    if (role && isLearningRole(role) && role !== user.role) {
       await updateUserRole(user.id, role);
     }
 
@@ -312,7 +312,7 @@ export async function POST(request: NextRequest) {
     timer.mark("compute_sync_revision");
     const response = await withSessionCookie(
       buildSyncSuccessPayload(
-        { ...user, role: role ?? user.role },
+        user,
         currentProgress,
         currentHooks,
         currentFilters,

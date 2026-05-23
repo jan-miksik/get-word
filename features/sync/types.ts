@@ -1,4 +1,5 @@
-export type UserRole = "cz" | "vi";
+/** Wire-format learning role. */
+export type UserRole = "knownLanguage" | "languageToLearn";
 
 export type SyncReviewEventAction = "known" | "really_known" | "unknown";
 
