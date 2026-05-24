@@ -5,7 +5,18 @@ const CHANNEL_NAME = "get-word-sync";
 
 export type GetWordTabMessage =
   | { type: "review_event"; sessionId: string; event: ReviewEventPayload }
-  | { type: "memory_hook_changed"; sessionId: string; wordId: string; hook: string }
+  | {
+      type: "memory_hook_changed";
+      sessionId: string;
+      wordId: string;
+      hook: string;
+      /**
+       * Wall-clock timestamp (ms) when the source tab applied this change.
+       * Receivers use it as an LWW guard so an out-of-order broadcast can't
+       * revert a fresher local edit (e.g. when two tabs race a save).
+       */
+      updatedAt: number;
+    }
   | { type: "preferences_changed"; sessionId: string; patch: Record<string, unknown> }
   | { type: "category_filters_changed"; sessionId: string; scopeKey: string; categories: string[] }
   | { type: "game_score_changed"; sessionId: string; score: number };

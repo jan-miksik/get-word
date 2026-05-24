@@ -73,9 +73,6 @@ export function MemoryHooksPanel({ isOpen, onClose }: MemoryHooksPanelProps) {
                       </span>
                       <span>{kind.title}</span>
                     </p>
-                    <p className="m-0 mt-1.5 text-[0.96rem] font-semibold leading-snug text-[#6f6453] sm:text-[1.02rem]">
-                      {kind.example}
-                    </p>
                   </div>
                 ))}
               </div>
@@ -100,8 +97,8 @@ export function MemoryHooksPanel({ isOpen, onClose }: MemoryHooksPanelProps) {
               </div>
             </section>
 
-            <TextSection title={copy.fadeLabel}>{copy.fade}</TextSection>
-            <TextSection title={copy.makeOwnLabel}>{copy.makeOwn}</TextSection>
+            <TextSection title={copy.fadeLabel} paragraphs={copy.fade} />
+            <TextSection title={copy.makeOwnLabel} paragraphs={[copy.makeOwn]} />
           </div>
         </div>
       </div>
@@ -117,13 +114,18 @@ function SectionLabel({ children }: { children: string }) {
   );
 }
 
-function TextSection({ title, children }: { title: string; children: string }) {
+function TextSection({ title, paragraphs }: { title: string; paragraphs: string[] }) {
   return (
     <section className="space-y-3">
       <SectionLabel>{title}</SectionLabel>
-      <p className="m-0 text-[1.02rem] font-medium leading-relaxed text-[#4a4032] sm:text-[1.12rem]">
-        {children}
-      </p>
+      {paragraphs.map((paragraph, index) => (
+        <p
+          key={index}
+          className="m-0 text-[1.02rem] font-medium leading-relaxed text-[#4a4032] sm:text-[1.12rem]"
+        >
+          {paragraph}
+        </p>
+      ))}
     </section>
   );
 }

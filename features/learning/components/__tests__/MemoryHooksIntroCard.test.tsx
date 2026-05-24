@@ -38,6 +38,6 @@ describe('MemoryHooksIntroCard', () => {
     fireEvent.click(screen.getByRole('button', { name: /zjistit víc/i }));
 
     expect(document.querySelector('.memory-hooks-panel')).toHaveClass('is-open');
-    expect(screen.getByRole('heading', { name: 'Mnemotechniky' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Mnemotechnické pomůcky' })).toBeInTheDocument();
   });
 });

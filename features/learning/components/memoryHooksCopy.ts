@@ -27,7 +27,6 @@ export type MemoryHooksLearnMoreCopy = {
   kinds: Array<{
     label: string;
     title: string;
-    example: string;
   }>;
   qualitiesLabel: string;
   qualities: Array<{
@@ -35,24 +34,16 @@ export type MemoryHooksLearnMoreCopy = {
     description: string;
   }>;
   fadeLabel: string;
-  fade: string;
+  fade: string[];
   makeOwnLabel: string;
   makeOwn: string;
 };
 
-const examplesEn: MemoryHookExample[] = [
+const examplesEnglishVietnameseEn: MemoryHookExample[] = [
   {
     source: 'ăn',
     target: 'eat',
-    hook: 'Sounds like "an" in "an apple" - imagine eating an apple.',
-  },
-];
-
-const examplesCs: MemoryHookExample[] = [
-  {
-    source: 'ăn',
-    target: 'jíst',
-    hook: 'Zní trochu jako začátek slova "ano" - Ano, dám si něco k jídlu.',
+    hook: 'Sounds a bit like "an" in "an apple".',
   },
 ];
 
@@ -60,7 +51,23 @@ const examplesEnglishVietnameseCs: MemoryHookExample[] = [
   {
     source: 'ăn',
     target: 'eat',
-    hook: 'V angličtině zní jako "an" v "an apple" - představ si, že jíš jablko.',
+    hook: 'Zní trochu jako "an" v "an apple".',
+  },
+];
+
+const examplesEnglishVietnameseVi: MemoryHookExample[] = [
+  {
+    source: 'ăn',
+    target: 'eat',
+    hook: '"ăn" nghe gần giống "an" trong "an apple".',
+  },
+];
+
+const examplesCzechVietnameseCs: MemoryHookExample[] = [
+  {
+    source: 'ăn',
+    target: 'jíst',
+    hook: 'Zní trochu jako začátek slova "ano" - Ano, dám si něco k jídlu.',
   },
 ];
 
@@ -72,14 +79,6 @@ const examplesCzechVietnameseEn: MemoryHookExample[] = [
   },
 ];
 
-const examplesVi: MemoryHookExample[] = [
-  {
-    source: 'ăn',
-    target: 'eat',
-    hook: '"ăn" nghe gần giống "an" trong "an apple" - tưởng tượng đang ăn táo.',
-  },
-];
-
 const examplesCzechVietnameseVi: MemoryHookExample[] = [
   {
     source: 'ăn',
@@ -88,14 +87,22 @@ const examplesCzechVietnameseVi: MemoryHookExample[] = [
   },
 ];
 
-const introCopyByLanguage: Record<string, MemoryHooksIntroCopy> = {
+const examplesVietnameseCzech: MemoryHookExample[] = [
+  {
+    source: 'jíst',
+    target: 'ăn',
+    hook: '"jí" trong "jíš" nghe hơi giống "gì" = cái gì. Co jíš? = Bạn đang ăn gì vậy?',
+  },
+];
+
+const englishToVietnameseCopyByLanguage: Record<string, MemoryHooksIntroCopy> = {
   en: {
     title: 'Memory hooks help you remember words faster',
     body:
       'They connect a new word with something you already know — using sound, images, or simple associations.',
     learnMoreInline: 'Learn more about memory hooks',
     examplesPairLabel: 'EN → VI',
-    examples: examplesEn,
+    examples: examplesEnglishVietnameseEn,
     useHooksLabel: 'Use memory hooks',
     continueLabel: 'Continue',
     onLabel: 'On',
@@ -119,7 +126,7 @@ const introCopyByLanguage: Record<string, MemoryHooksIntroCopy> = {
       'Chúng kết nối từ mới với điều bạn đã biết — bằng âm thanh, hình ảnh hoặc liên tưởng đơn giản.',
     learnMoreInline: 'Tìm hiểu thêm về mẹo ghi nhớ',
     examplesPairLabel: 'EN → VI',
-    examples: examplesVi,
+    examples: examplesEnglishVietnameseVi,
     useHooksLabel: 'Dùng mẹo ghi nhớ',
     continueLabel: 'Tiếp tục',
     onLabel: 'Bật',
@@ -127,22 +134,39 @@ const introCopyByLanguage: Record<string, MemoryHooksIntroCopy> = {
   },
 };
 
-const englishToVietnameseCopyByLanguage = introCopyByLanguage;
 const czechToVietnameseCopyByLanguage: Record<string, MemoryHooksIntroCopy> = {
   en: {
-    ...introCopyByLanguage.en,
+    ...englishToVietnameseCopyByLanguage.en,
     examplesPairLabel: 'CS → VI',
     examples: examplesCzechVietnameseEn,
   },
   cs: {
-    ...introCopyByLanguage.cs,
+    ...englishToVietnameseCopyByLanguage.cs,
     examplesPairLabel: 'CS → VI',
-    examples: examplesCs,
+    examples: examplesCzechVietnameseCs,
   },
   vi: {
-    ...introCopyByLanguage.vi,
+    ...englishToVietnameseCopyByLanguage.vi,
     examplesPairLabel: 'CS → VI',
     examples: examplesCzechVietnameseVi,
+  },
+};
+
+const vietnameseToCzechCopyByLanguage: Record<string, MemoryHooksIntroCopy> = {
+  en: {
+    ...englishToVietnameseCopyByLanguage.en,
+    examplesPairLabel: 'VI → CS',
+    examples: examplesVietnameseCzech,
+  },
+  cs: {
+    ...englishToVietnameseCopyByLanguage.cs,
+    examplesPairLabel: 'VI → CS',
+    examples: examplesVietnameseCzech,
+  },
+  vi: {
+    ...englishToVietnameseCopyByLanguage.vi,
+    examplesPairLabel: 'VI → CS',
+    examples: examplesVietnameseCzech,
   },
 };
 
@@ -151,154 +175,160 @@ const learnMoreCopyByLanguage: Record<string, MemoryHooksLearnMoreCopy> = {
     eyebrow: 'How it works',
     title: 'Memory hooks',
     intro:
-      "A memory hook is a tiny mental bridge from a new word to something you already know - a sound it rhymes with, a picture it conjures, or a quick story you'd tell about it.",
+      'A memory hook is a tiny mental bridge between a new word and something familiar — a similar sound, an image in your head, or a short scene.',
     temporary:
-      'Once the word feels familiar on its own, the hook quietly falls away. You stop using it without thinking about it.',
-    kindsLabel: 'Three kinds of hooks',
+      'A hook is meant to be temporary. Once the word has settled in memory, you no longer need the hook. With disuse, the hook fades and disappears over time.',
+    kindsLabel: 'Kinds of hooks',
     kinds: [
       {
         label: 'Sound',
-        title: 'Pin a Vietnamese word to one that rhymes or echoes in English.',
-        example: '"mèo" sounds like "meow" - the noise a cat makes.',
+        title: 'Pinning a new word to a word or sound that sounds similar.',
       },
       {
         label: 'Image',
-        title: 'Picture something specific and vivid in your head.',
-        example: '"ba" = three -> three sheep saying "baa".',
+        title: 'Linking the word to something concrete and easy to picture.',
       },
       {
         label: 'Story',
-        title: 'Build a tiny scene that links the word to its meaning.',
-        example: '"ăn" = eat -> you, biting into "an apple".',
+        title: 'A short scene that connects the new word with its meaning.',
       },
     ],
-    qualitiesLabel: 'Good hooks are usually',
+    qualitiesLabel: 'Good hooks tend to be',
     qualities: [
       {
         title: 'Fast',
-        description: 'Understood in a glance - no effort to decode.',
+        description: 'They make sense at a glance, without complex decoding.',
       },
       {
         title: 'Vivid',
-        description: 'Picture, sound, or feeling, not just a definition.',
+        description:
+          'They create an image, sound, feeling, or small scene — not just a dry definition.',
       },
       {
         title: 'Personal',
-        description: 'Hangs off something you already know.',
+        description:
+          'They build on something familiar: a language, experience, humor, place, person, or your own association.',
       },
       {
         title: 'Imperfect',
-        description: "Doesn't have to be exact - close enough is fine.",
+        description:
+          "They don't have to fit exactly. Close enough to bring the meaning to mind is fine.",
       },
     ],
     fadeLabel: 'When the hook fades',
-    fade:
-      'The first few times you meet a word, the hook is doing the heavy lifting. As you see the word in different sentences, the word starts pulling its own meaning straight up - no detour through "an apple" needed. From then on we quietly drop the hook from the card.',
-    makeOwnLabel: 'Make your own',
+    fade: [
+      'In the first encounters with a word, the hook can help a lot. Once the word appears in more sentences and contexts, the meaning starts surfacing directly — without the detour through the original association.',
+      'From that point the hook has done its job. It can stop being used and disappear.',
+    ],
+    makeOwnLabel: 'Your own hooks',
     makeOwn:
-      'Hooks we suggest are a starting point. The strongest hooks are the ones you write yourself - your own associations stick best. Tap Edit hook on any card to swap in your own.',
+      'The strongest hooks are often the ones a person adapts or creates themselves. Your own associations usually stick best.',
   },
   cs: {
     eyebrow: 'Jak to funguje',
-    title: 'Mnemotechniky',
+    title: 'Mnemotechnické pomůcky',
     intro:
-      'Mnemotechnická pomůcka je malý mentální most mezi novým slovem a něčím známým - podobným zvukem, obrázkem v hlavě nebo krátkou scénou.',
+      'Mnemotechnická pomůcka je malý mentální most mezi novým slovem a něčím známým — podobným zvukem, obrazem v hlavě nebo krátkou scénou.',
     temporary:
-      'Jakmile slovo začne působit známě samo o sobě, háček tiše zmizí. Přestaneš ho používat, aniž bys na to musel myslet.',
-    kindsLabel: 'Tři druhy mnemotechnik',
+      'Mnemotechnika má být jen dočasná. Po tom co se slovo usadí v paměti už není nutné mnemotechniku používat. Nepoužíváním mnemotechnika časem vybledne a zmizí.',
+    kindsLabel: 'Druhy mnemotechnik',
     kinds: [
       {
         label: 'Zvuk',
-        title: 'Přichyť vietnamské slovo ke slovu, které zní podobně.',
-        example: '"mèo" zní jako anglické "meow" - zvuk, který dělá kočka.',
+        title: 'Přichycení nového slova ke slovu nebo zvuku, který zní podobně.',
       },
       {
         label: 'Obraz',
-        title: 'Představ si něco konkrétního a živého.',
-        example: '"ba" = three -> tři ovce říkají "baa".',
+        title: 'Spojení slova s konkrétním a snadno představitelným obrazem.',
       },
       {
         label: 'Příběh',
-        title: 'Postav malou scénu, která spojí slovo s významem.',
-        example: '"ăn" = jíst -> "ano, dám si něco k jídlu".',
+        title: 'Krátká scéna, která propojí nové slovo s jeho významem.',
       },
     ],
     qualitiesLabel: 'Dobré mnemotechniky bývají',
     qualities: [
       {
         title: 'Rychlé',
-        description: 'Pochopíš je na první pohled - bez luštění.',
+        description: 'Dávají smysl na první pohled, bez složitého luštění.',
       },
       {
         title: 'Živé',
-        description: 'Obrázek, zvuk nebo pocit, ne jen definice.',
+        description:
+          'Vytvářejí obraz, zvuk, pocit nebo malou scénu — ne jen suchou definici.',
       },
       {
         title: 'Osobní',
-        description: 'Navazují na něco, co už znáš.',
+        description:
+          'Navazují na něco známého: jazyk, zkušenost, humor, místo, člověka nebo vlastní asociaci.',
       },
       {
         title: 'Nedokonalé',
-        description: 'Nemusí sedět přesně - stačí dost blízko.',
+        description:
+          'Nemusí sedět přesně. Stačí, když jsou dost blízko na to, aby pomohly vybavit význam.',
       },
     ],
     fadeLabel: 'Kdy pomůcka vybledne',
-    fade:
-      'Prvních pár setkání se slovem pomůcka hodně pomáhá. Jakmile slovo uvidíš v různých větách, začne si význam vytahovat samo - bez odbočky přes "ano". Od té chvíle pomůcka z kartičky potichu zmizí.',
-    makeOwnLabel: 'Vytvoř si vlastní',
+    fade: [
+      'Při prvních setkáních se slovem může pomůcka výrazně pomoct. Jakmile se slovo objeví ve více větách a kontextech, význam se začne vybavovat přímo — bez odbočky přes původní asociaci.',
+      'Od té chvíle pomůcka splnila svůj účel. Může se přestat používat a zmizet.',
+    ],
+    makeOwnLabel: 'Vlastní pomůcky',
     makeOwn:
-      'Navržené mnemotechniky jsou jen začátek. Nejsilnější bývají ty, které si upravíš nebo napíšeš sám - vlastní asociace drží nejlíp. Na kartičce můžeš klepnout na Upravit pomůcku a vyměnit ji za svou.',
+      'Nejsilnější často bývají mnemotechniky, které si člověk upraví nebo vytvoří sám. Vlastní asociace obvykle drží nejlépe.',
   },
   vi: {
     eyebrow: 'Cách hoạt động',
     title: 'Mẹo ghi nhớ',
     intro:
-      'Mẹo ghi nhớ là một cây cầu nhỏ trong đầu, nối từ mới với điều bạn đã biết - âm thanh gần giống, hình ảnh gợi ra, hoặc một câu chuyện rất ngắn.',
+      'Mẹo ghi nhớ là một cây cầu nhỏ trong đầu giữa một từ mới và điều gì đó quen thuộc — một âm thanh tương tự, một hình ảnh trong đầu hoặc một cảnh ngắn.',
     temporary:
-      'Khi từ đã trở nên quen thuộc, mẹo sẽ tự mờ đi. Bạn ngừng dùng nó mà gần như không cần nghĩ.',
-    kindsLabel: 'Ba kiểu mẹo',
+      'Mẹo chỉ là tạm thời. Khi từ đã ổn định trong trí nhớ, bạn không còn cần dùng mẹo nữa. Không dùng đến thì mẹo dần phai đi và biến mất.',
+    kindsLabel: 'Các kiểu mẹo',
     kinds: [
       {
         label: 'Âm',
-        title: 'Nối một từ tiếng Việt với âm gần giống trong tiếng Anh.',
-        example: '"mèo" nghe như "meow" - tiếng kêu của con mèo.',
+        title: 'Gắn từ mới vào một từ hoặc âm thanh nghe gần giống.',
       },
       {
         label: 'Hình',
-        title: 'Tưởng tượng một hình ảnh thật cụ thể và rõ.',
-        example: '"ba" = three -> ba con cừu kêu "baa".',
+        title: 'Liên kết từ với điều gì đó cụ thể và dễ hình dung.',
       },
       {
         label: 'Chuyện',
-        title: 'Tạo một cảnh nhỏ nối từ với nghĩa của nó.',
-        example: '"ăn" = eat -> bạn đang cắn vào "an apple".',
+        title: 'Một cảnh ngắn nối từ mới với ý nghĩa của nó.',
       },
     ],
     qualitiesLabel: 'Mẹo tốt thường',
     qualities: [
       {
         title: 'Nhanh',
-        description: 'Hiểu ngay trong một thoáng - không cần giải mã.',
+        description: 'Hiểu ngay trong một thoáng, không cần giải mã phức tạp.',
       },
       {
         title: 'Sống động',
-        description: 'Có hình, âm thanh, hoặc cảm giác, không chỉ là định nghĩa.',
+        description:
+          'Tạo ra hình ảnh, âm thanh, cảm giác hoặc một cảnh nhỏ — không chỉ là định nghĩa khô khan.',
       },
       {
         title: 'Cá nhân',
-        description: 'Bám vào điều bạn đã biết.',
+        description:
+          'Bám vào điều quen thuộc: ngôn ngữ, kinh nghiệm, sự hài hước, nơi chốn, con người hay liên tưởng riêng.',
       },
       {
         title: 'Không hoàn hảo',
-        description: 'Không cần chính xác tuyệt đối - gần đủ là được.',
+        description:
+          'Không cần khớp chính xác. Đủ gần để gợi ra ý nghĩa là được.',
       },
     ],
-    fadeLabel: 'Khi mẹo mờ đi',
-    fade:
-      'Trong vài lần đầu gặp một từ, mẹo đang giúp rất nhiều. Khi bạn thấy từ đó trong nhiều câu khác nhau, chính từ ấy bắt đầu kéo nghĩa lên trực tiếp - không cần đi vòng qua "an apple" nữa. Từ lúc đó, chúng tôi sẽ nhẹ nhàng bỏ mẹo khỏi thẻ.',
-    makeOwnLabel: 'Tự tạo mẹo',
+    fadeLabel: 'Khi mẹo phai đi',
+    fade: [
+      'Trong những lần gặp đầu tiên, mẹo có thể giúp rất nhiều. Khi từ xuất hiện trong nhiều câu và bối cảnh khác nhau, ý nghĩa bắt đầu hiện ra trực tiếp — không cần đi vòng qua liên tưởng ban đầu.',
+      'Từ lúc đó mẹo đã hoàn thành vai trò. Có thể ngừng dùng và tự biến mất.',
+    ],
+    makeOwnLabel: 'Mẹo của riêng bạn',
     makeOwn:
-      'Mẹo được gợi ý chỉ là điểm bắt đầu. Mẹo mạnh nhất thường là mẹo bạn tự viết - liên tưởng riêng của bạn sẽ bám lâu hơn. Chạm Edit hook trên bất kỳ thẻ nào để thay bằng mẹo của bạn.',
+      'Những mẹo mạnh nhất thường là những mẹo do chính bạn tự điều chỉnh hoặc tạo ra. Liên tưởng riêng của bạn thường bám lâu nhất.',
   },
 };
 
@@ -314,13 +344,16 @@ export function getMemoryHooksIntroCopy(
   learningLanguageFrom?: string | null,
   learningLanguageTo?: string | null,
 ): MemoryHooksIntroCopy {
+  const uiKey = resolveCopyKey(language);
   const from = normalizeLanguageCode(learningLanguageFrom ?? '');
   const to = normalizeLanguageCode(learningLanguageTo ?? '');
-  const copyByLanguage =
-    from === 'cs' && to === 'vi'
-      ? czechToVietnameseCopyByLanguage
-      : englishToVietnameseCopyByLanguage;
-  return copyByLanguage[resolveCopyKey(language)];
+  let copyByLanguage = englishToVietnameseCopyByLanguage;
+  if (uiKey === 'vi' || (from === 'vi' && to === 'cs')) {
+    copyByLanguage = vietnameseToCzechCopyByLanguage;
+  } else if (from === 'cs' && to === 'vi') {
+    copyByLanguage = czechToVietnameseCopyByLanguage;
+  }
+  return copyByLanguage[uiKey];
 }
 
 export function getMemoryHooksLearnMoreCopy(

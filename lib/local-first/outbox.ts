@@ -24,6 +24,31 @@ export interface OutboxOp {
 
 const MAX_ATTEMPTS_PER_SESSION = 8;
 
+type StatusListener = (status: OutboxStatus) => void;
+const statusListeners = new Set<StatusListener>();
+
+function notifyStatusChanged(): void {
+  if (statusListeners.size === 0) return;
+  // Fire-and-forget: status computation requires an IDB roundtrip, so we
+  // schedule it off the critical path. Subscribers receive eventually-
+  // consistent counts, which is the right tradeoff — they're for UI hints.
+  void getOutboxStatus().then((status) => {
+    for (const listener of statusListeners) {
+      listener(status);
+    }
+  });
+}
+
+export function subscribeOutboxStatus(listener: StatusListener): () => void {
+  statusListeners.add(listener);
+  // Emit the current snapshot so subscribers don't have to also call
+  // getOutboxStatus() on mount.
+  void getOutboxStatus().then((status) => listener(status));
+  return () => {
+    statusListeners.delete(listener);
+  };
+}
+
 function randomId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -57,6 +82,7 @@ export async function appendOp(input: {
       tx.objectStore(STORE_OUTBOX).put(op, op.clientOpId);
       tx.oncomplete = () => {
         db.close();
+        notifyStatusChanged();
         resolve(op);
       };
       tx.onerror = () => {
@@ -109,8 +135,45 @@ export async function peekReadyOps(limit: number, now: number = Date.now()): Pro
   const ready = all
     .filter((op) => op.attempts < MAX_ATTEMPTS_PER_SESSION)
     .filter((op) => (op.nextAttemptAt ?? 0) <= now)
-    .sort((a, b) => a.clientCreatedAt.localeCompare(b.clientCreatedAt));
+    // Primary order by enqueue time, but tie-break on clientOpId so two ops
+    // enqueued in the same millisecond have a deterministic order across
+    // drains. Without the tie-break, the IDB cursor's traversal order (and any
+    // sort algorithm instability) could reshuffle same-ms ops between attempts.
+    .sort((a, b) => {
+      const tsCompare = a.clientCreatedAt.localeCompare(b.clientCreatedAt);
+      if (tsCompare !== 0) return tsCompare;
+      return a.clientOpId.localeCompare(b.clientOpId);
+    });
   return ready.slice(0, limit);
+}
+
+/**
+ * Counts of ops by lifecycle bucket. Useful for surfacing "stalled writes" in
+ * the UI without exposing the raw outbox shape. Mirrors the semantics used by
+ * `peekReadyOps`/`markFailed` so the counts move when those functions do.
+ */
+export interface OutboxStatus {
+  total: number;
+  ready: number;
+  inBackoff: number;
+  abandoned: number;
+}
+
+export async function getOutboxStatus(now: number = Date.now()): Promise<OutboxStatus> {
+  const all = await listOps();
+  let abandoned = 0;
+  let inBackoff = 0;
+  let ready = 0;
+  for (const op of all) {
+    if (op.attempts >= MAX_ATTEMPTS_PER_SESSION) {
+      abandoned += 1;
+    } else if ((op.nextAttemptAt ?? 0) > now) {
+      inBackoff += 1;
+    } else {
+      ready += 1;
+    }
+  }
+  return { total: all.length, ready, inBackoff, abandoned };
 }
 
 export async function deleteOps(clientOpIds: string[]): Promise<void> {
@@ -126,6 +189,7 @@ export async function deleteOps(clientOpIds: string[]): Promise<void> {
       }
       tx.oncomplete = () => {
         db.close();
+        notifyStatusChanged();
         resolve();
       };
       tx.onerror = () => {
@@ -168,6 +232,7 @@ export async function markFailed(
       }
       tx.oncomplete = () => {
         db.close();
+        notifyStatusChanged();
         resolve();
       };
       tx.onerror = () => {
@@ -190,6 +255,7 @@ export async function clearAllOps(): Promise<void> {
       tx.objectStore(STORE_OUTBOX).clear();
       tx.oncomplete = () => {
         db.close();
+        notifyStatusChanged();
         resolve();
       };
       tx.onerror = () => {

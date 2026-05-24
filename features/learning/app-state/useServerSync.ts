@@ -10,7 +10,11 @@ import {
 } from '@/lib/sync';
 import { installSyncLifecycle } from '@/lib/sync-coordinator';
 import { startDrainer } from '@/lib/local-first/drainer';
-import { loadAllDomainsFromIdb, persistDomainsToIdb } from '@/lib/local-first/hydrate';
+import {
+  applyPendingOutboxToSyncResponse,
+  loadAllDomainsFromIdb,
+  persistDomainsToIdb,
+} from '@/lib/local-first/hydrate';
 import { getMeta, putMeta } from '@/lib/local-first/stores';
 import { getSnapshot, getStoragePreference, saveSnapshot } from '@/lib/local-learning-cache';
 import type { SyncResponse } from '@/lib/sync';
@@ -153,12 +157,16 @@ export function useServerSync({
     mergeServerProgress,
   ]);
 
-  const applyFreshServerData = useCallback((serverData: SyncResponse) => {
+  const applyFreshServerData = useCallback(async (serverData: SyncResponse) => {
     isUpdatingFromServerRef.current = true;
+    const overlaidServerData = await applyPendingOutboxToSyncResponse(
+      serverData,
+      serverData.submitted_review_events ?? []
+    ).catch(() => serverData);
     if (serverData.is_delta) {
-      applyServerDelta(serverData);
+      applyServerDelta(overlaidServerData);
     } else {
-      applyServerData(serverData, { clearPending: false });
+      applyServerData(overlaidServerData, { clearPending: false });
     }
     requestAnimationFrame(() => {
       isUpdatingFromServerRef.current = false;
@@ -245,10 +253,14 @@ export function useServerSync({
     }
 
     fetchUserData()
-      .then((serverData) => {
+      .then(async (serverData) => {
         clearTimeout(hydrationTimeout);
         isUpdatingFromServerRef.current = true;
-        applyServerData(serverData);
+        const overlaidServerData = await applyPendingOutboxToSyncResponse(
+          serverData,
+          serverData.submitted_review_events ?? []
+        ).catch(() => serverData);
+        applyServerData(overlaidServerData);
         isHydratedRef.current = true;
         setIsHydrated(true);
         requestAnimationFrame(() => {
@@ -284,7 +296,7 @@ export function useServerSync({
   useEffect(() => {
     const onServerSync = (event: Event) => {
       const detail = (event as CustomEvent<SyncResponse>).detail;
-      if (detail?.success) applyFreshServerData(detail);
+      if (detail?.success) void applyFreshServerData(detail);
     };
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') refetchServerData();

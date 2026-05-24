@@ -12,6 +12,15 @@ export interface SyncProgressItem {
   last_known_at: number | null;
   last_unknown_at: number | null;
   next_due_at: number | null;
+  /**
+   * Wall-clock timestamp (ms) when the client produced this write. Used
+   * server-side as a last-write-wins guard: the upsert only overwrites the
+   * existing row if this value is strictly greater than the row's updatedAt.
+   * Optional — when absent, the server infers from last_known_at /
+   * last_unknown_at and finally falls back to epoch so stale legacy writes do
+   * not clobber fresher review-event state.
+   */
+  client_updated_at?: number;
 }
 
 export interface SyncReviewEventItem {
@@ -100,6 +109,7 @@ export interface SyncResponse {
   success: boolean;
   applied_review_event_ids?: string[];
   applied_client_op_ids?: string[];
+  submitted_review_events?: SyncReviewEventItem[];
   op_errors?: Record<string, string>;
   sync_revision?: number;
   /**

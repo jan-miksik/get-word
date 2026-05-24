@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import type { SyncResponse } from '@/lib/sync';
 import { hasReceivedServerSnapshot, syncUserData } from '@/lib/sync';
 import { enqueueOp } from '@/lib/local-first/enqueue';
@@ -99,6 +99,10 @@ export function usePreferences(
   const [settingsLanguage, setSettingsLanguageState] =
     useState<SettingsLanguage>(DEFAULT_SETTINGS_LANGUAGE);
   const [settingsLanguageSelectedAt, setSettingsLanguageSelectedAt] = useState<string | null>(null);
+  const settingsLanguageSelectedAtRef = useRef<string | null>(null);
+  useEffect(() => {
+    settingsLanguageSelectedAtRef.current = settingsLanguageSelectedAt;
+  }, [settingsLanguageSelectedAt]);
   const [learningLanguageFrom, setLearningLanguageFrom] = useState<string | null>(null);
   const [learningLanguageTo, setLearningLanguageTo] = useState<string | null>(null);
   const [onboardingCompletedAt, setOnboardingCompletedAt] = useState<string | null>(null);
@@ -219,13 +223,14 @@ export function usePreferences(
   }, []);
   const setSettingsLanguage = useCallback((language: string) => {
     const normalized = normalizeSettingsLanguage(language);
+    const selectedAt = new Date().toISOString();
     setSettingsLanguageState(normalized);
-    setSettingsLanguageSelectedAt(new Date().toISOString());
+    setSettingsLanguageSelectedAt(selectedAt);
     postTabMessage({
       type: 'preferences_changed',
       patch: {
         settingsLanguage: normalized,
-        settingsLanguageSelectedAt: new Date().toISOString(),
+        settingsLanguageSelectedAt: selectedAt,
       },
     });
   }, []);
@@ -270,10 +275,16 @@ export function usePreferences(
     setMemoryHookDisableFromStageState(
       normalizeMemoryHookDisableFromStage(user.memory_hook_disable_from_stage)
     );
-    setSettingsLanguageState(
-      user.settings_language ? normalizeSettingsLanguage(user.settings_language) : detectedLanguage
-    );
-    setSettingsLanguageSelectedAt(simulateFirstOpen ? null : user.settings_language_selected_at ?? null);
+    const serverSelectedAt = simulateFirstOpen ? null : user.settings_language_selected_at ?? null;
+    const localSelectedAt = settingsLanguageSelectedAtRef.current;
+    const serverSelectedAtMs = serverSelectedAt ? new Date(serverSelectedAt).getTime() : 0;
+    const localSelectedAtMs = localSelectedAt ? new Date(localSelectedAt).getTime() : 0;
+    if (serverSelectedAtMs >= localSelectedAtMs) {
+      setSettingsLanguageState(
+        user.settings_language ? normalizeSettingsLanguage(user.settings_language) : detectedLanguage
+      );
+      setSettingsLanguageSelectedAt(serverSelectedAt);
+    }
     setLearningLanguageFrom(simulateLearningOnboarding ? null : user.language_from ?? null);
     setLearningLanguageTo(simulateLearningOnboarding ? null : user.language_to ?? null);
     setOnboardingCompletedAt(simulateLearningOnboarding ? null : user.onboarding_completed_at ?? null);
@@ -312,11 +323,21 @@ export function usePreferences(
           areStringArraysEqual(prev, nextCategoryOrder) ? prev : nextCategoryOrder
         );
       }
-      if (typeof patch.settingsLanguage === 'string') {
-        setSettingsLanguageState(normalizeSettingsLanguage(patch.settingsLanguage));
-      }
-      if (typeof patch.settingsLanguageSelectedAt === 'string' || patch.settingsLanguageSelectedAt === null) {
-        setSettingsLanguageSelectedAt(patch.settingsLanguageSelectedAt);
+      const patchSelectedAt =
+        typeof patch.settingsLanguageSelectedAt === 'string' || patch.settingsLanguageSelectedAt === null
+          ? patch.settingsLanguageSelectedAt
+          : undefined;
+      const localSelectedAt = settingsLanguageSelectedAtRef.current;
+      const patchSelectedAtMs =
+        patchSelectedAt && typeof patchSelectedAt === 'string' ? new Date(patchSelectedAt).getTime() : 0;
+      const localSelectedAtMsForTab = localSelectedAt ? new Date(localSelectedAt).getTime() : 0;
+      if (patchSelectedAt === undefined || patchSelectedAtMs >= localSelectedAtMsForTab) {
+        if (typeof patch.settingsLanguage === 'string') {
+          setSettingsLanguageState(normalizeSettingsLanguage(patch.settingsLanguage));
+        }
+        if (patchSelectedAt !== undefined) {
+          setSettingsLanguageSelectedAt(patchSelectedAt);
+        }
       }
       if (typeof patch.learningLanguageFrom === 'string' || patch.learningLanguageFrom === null) {
         setLearningLanguageFrom(patch.learningLanguageFrom);

@@ -64,6 +64,33 @@ async function resolveUser(
   return null;
 }
 
+function toFiniteDate(value: unknown): Date | null {
+  if (typeof value !== "number" || !Number.isFinite(value)) return null;
+  return new Date(value);
+}
+
+function getClientProgressUpdatedAt(progress: {
+  client_updated_at?: number;
+  last_known_at: number | null;
+  last_unknown_at: number | null;
+}): Date {
+  const explicit = toFiniteDate(progress.client_updated_at);
+  if (explicit) return explicit;
+
+  const inferred = Math.max(
+    progress.last_known_at ?? 0,
+    progress.last_unknown_at ?? 0
+  );
+  if (Number.isFinite(inferred) && inferred > 0) {
+    return new Date(inferred);
+  }
+
+  // Missing timestamps are legacy/stale-client writes. Use the oldest possible
+  // client write time so they can insert a missing row but cannot overwrite
+  // fresher progress already produced by review events or another device.
+  return new Date(0);
+}
+
 export async function POST(request: NextRequest) {
   const timer = createRouteTimer();
   try {
@@ -215,8 +242,12 @@ export async function POST(request: NextRequest) {
           lastKnownAt: p.last_known_at ? new Date(p.last_known_at) : null,
           lastUnknownAt: p.last_unknown_at ? new Date(p.last_unknown_at) : null,
           nextDueAt: p.next_due_at ? new Date(p.next_due_at) : null,
+          // Forward client-side wall time so batchUpsertProgress can enforce
+          // LWW. Older queued ops infer from their review timestamps and fall
+          // back to epoch so they cannot clobber fresher review-event writes.
+          updatedAt: getClientProgressUpdatedAt(p),
         }));
-        await batchUpsertProgress(progressData);
+        await batchUpsertProgress(progressData, undefined, { lww: true });
       }
 
       if (newProgress.length > 0) {
@@ -229,8 +260,9 @@ export async function POST(request: NextRequest) {
           lastKnownAt: p.last_known_at ? new Date(p.last_known_at) : null,
           lastUnknownAt: p.last_unknown_at ? new Date(p.last_unknown_at) : null,
           nextDueAt: p.next_due_at ? new Date(p.next_due_at) : null,
+          updatedAt: getClientProgressUpdatedAt(p),
         }));
-        await batchUpsertProgressByItemId(progressData);
+        await batchUpsertProgressByItemId(progressData, undefined, { lww: true });
       }
     }
 

@@ -247,12 +247,16 @@ export async function syncUserData(
     lastKnownUserId = result.user.id;
     authRequired = false;
   }
-  clearAppliedReviewEvents(result.applied_review_event_ids);
   if (typeof window !== "undefined") {
+    const detail =
+      data.review_events && data.review_events.length > 0
+        ? { ...result, submitted_review_events: data.review_events }
+        : result;
     window.dispatchEvent(
-      new CustomEvent("get-word:server-sync", { detail: result })
+      new CustomEvent("get-word:server-sync", { detail })
     );
   }
+  clearAppliedReviewEvents(result.applied_review_event_ids);
   return result;
 }
 

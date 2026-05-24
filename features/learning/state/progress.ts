@@ -16,7 +16,78 @@ import { postTabMessage, subscribeTabMessages } from '@/lib/tab-sync';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export function serializeProgressForSync(progress: Record<string, ProgressData>) {
+/**
+ * Fold a single review event into a progress row. Mirrors the server's
+ * `applyReviewEventToProgress` so optimistic client state matches what the
+ * server will compute when it eventually applies the event.
+ */
+function applyEventToEntry(
+  current: ProgressData | undefined,
+  event: ReviewEventPayload,
+): ProgressData {
+  const base: ProgressData = current ?? { stageIndex: 0, knownCount: 0, unknownCount: 0 };
+  const now = event.client_created_at;
+  const nextStageIndex =
+    event.action === 'known'
+      ? Math.min(base.stageIndex + 1, STAGES.length - 1)
+      : event.action === 'really_known'
+        ? Math.min(base.stageIndex + 2, STAGES.length - 1)
+        : Math.max(base.stageIndex - 1, 0);
+  const stage = STAGES[nextStageIndex];
+  const nextDueAt = stage.intervalMs > 0 ? now + stage.intervalMs : undefined;
+
+  return {
+    ...base,
+    stageIndex: nextStageIndex,
+    knownCount: event.action === 'unknown' ? base.knownCount : base.knownCount + 1,
+    unknownCount: event.action === 'unknown' ? base.unknownCount + 1 : base.unknownCount,
+    lastKnownAt: event.action === 'unknown' ? base.lastKnownAt : now,
+    lastUnknownAt: event.action === 'unknown' ? now : base.lastUnknownAt,
+    nextDueAt,
+  };
+}
+
+/**
+ * Replay any review events that are still in the local outbox on top of a
+ * server snapshot. This is the client-side counterpart to the server's
+ * event-sourced apply — the server's snapshot lags behind events that are
+ * either still debouncing in the outbox or were POSTed but whose response
+ * arrived out of order. Without this, a snapshot would visibly revert words
+ * the user just touched.
+ *
+ * Reads from the localStorage outbox, which `enqueueReviewEvent` always
+ * populates first, so this works whether or not IndexedDB is available.
+ */
+function withPendingEventsApplied(
+  map: Record<string, ProgressData>,
+): Record<string, ProgressData> {
+  const pending = getPendingReviewEvents();
+  if (pending.length === 0) return map;
+  // Outbox is already ordered by enqueue time; events for the same word must
+  // apply in that order to match server-side composition.
+  const next = { ...map };
+  for (const event of pending) {
+    const targetId = getReviewEventTargetId(event);
+    if (!targetId) continue;
+    const current = next[targetId];
+    const latestLocalActivity = Math.max(
+      current?.lastKnownAt ?? 0,
+      current?.lastUnknownAt ?? 0,
+    );
+    // Server snapshots are overlaid with pending custom progress before they
+    // reach this hook. If that custom write happened after an older review
+    // event, replaying the review event here would undo the user's selected
+    // repeat interval (for example, 5 min visibly becoming 1 day).
+    if (latestLocalActivity >= event.client_created_at) continue;
+    next[targetId] = applyEventToEntry(next[targetId], event);
+  }
+  return next;
+}
+
+export function serializeProgressForSync(
+  progress: Record<string, ProgressData>,
+  clientUpdatedAt: number = Date.now(),
+) {
   return Object.entries(progress).map(([id, data]) => {
     const isUuid = UUID_RE.test(id);
     return {
@@ -27,6 +98,10 @@ export function serializeProgressForSync(progress: Record<string, ProgressData>)
       last_known_at: data.lastKnownAt ?? null,
       last_unknown_at: data.lastUnknownAt ?? null,
       next_due_at: data.nextDueAt ?? null,
+      // Stamp the moment of this write so server can LWW-arbitrate against
+      // any newer state already on the row. Without this, a stale outbox
+      // replay can silently clobber a fresher write from another tab/device.
+      client_updated_at: clientUpdatedAt,
     };
   });
 }
@@ -36,8 +111,13 @@ export function useProgress(
   isUpdatingFromServerRef: React.MutableRefObject<boolean>
 ) {
   const [progress, setProgress] = useState<Record<string, ProgressData>>({});
+  const progressRef = useRef<Record<string, ProgressData>>({});
   const [lastMovedId, setLastMovedId] = useState<string | null>(null);
   const lastMovedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    progressRef.current = progress;
+  }, [progress]);
 
   useEffect(() => () => {
     if (lastMovedTimeoutRef.current) clearTimeout(lastMovedTimeoutRef.current);
@@ -57,7 +137,12 @@ export function useProgress(
           nextDueAt: progressEntry.nextDueAt ? new Date(progressEntry.nextDueAt).getTime() : undefined,
         };
       }
-      setProgress(next);
+      // Replay outbox-pending events on top so the user doesn't see their
+      // just-marked words revert while the POST is still in flight or before
+      // its response has been processed.
+      const merged = withPendingEventsApplied(next);
+      progressRef.current = merged;
+      setProgress(merged);
     },
     []
   );
@@ -79,7 +164,12 @@ export function useProgress(
             nextDueAt: progressEntry.nextDueAt ? new Date(progressEntry.nextDueAt).getTime() : undefined,
           };
         }
-        return next;
+        // Same outbox replay as the full-snapshot path: a delta can carry rows
+        // that another device (or our own in-flight POST) wrote, but the
+        // events still queued locally always represent the truest user intent.
+        const merged = withPendingEventsApplied(next);
+        progressRef.current = merged;
+        return merged;
       });
     },
     []
@@ -94,7 +184,9 @@ export function useProgress(
   const updateProgress = useCallback((wordId: string, updates: Partial<ProgressData>) => {
     setProgress((prev) => {
       const current = prev[wordId] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
-      return { ...prev, [wordId]: { ...current, ...updates } };
+      const next = { ...prev, [wordId]: { ...current, ...updates } };
+      progressRef.current = next;
+      return next;
     });
   }, []);
 
@@ -109,33 +201,14 @@ export function useProgress(
     (event: ReviewEventPayload) => {
       const wordId = getReviewEventTargetId(event);
       if (!wordId) return;
-      const now = event.client_created_at;
 
       setProgress((prev) => {
-        const current = prev[wordId] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
-        const nextStageIndex =
-          event.action === 'known'
-            ? Math.min(current.stageIndex + 1, STAGES.length - 1)
-            : event.action === 'really_known'
-              ? Math.min(current.stageIndex + 2, STAGES.length - 1)
-              : Math.max(current.stageIndex - 1, 0);
-        const stage = STAGES[nextStageIndex];
-        const nextDueAt = stage.intervalMs > 0 ? now + stage.intervalMs : undefined;
-
-        return {
+        const next = {
           ...prev,
-          [wordId]: {
-            ...current,
-            stageIndex: nextStageIndex,
-            knownCount:
-              event.action === 'unknown' ? current.knownCount : current.knownCount + 1,
-            unknownCount:
-              event.action === 'unknown' ? current.unknownCount + 1 : current.unknownCount,
-            lastKnownAt: event.action === 'unknown' ? current.lastKnownAt : now,
-            lastUnknownAt: event.action === 'unknown' ? now : current.lastUnknownAt,
-            nextDueAt,
-          },
+          [wordId]: applyEventToEntry(prev[wordId], event),
         };
+        progressRef.current = next;
+        return next;
       });
       setLastMoved(wordId);
     },
@@ -186,66 +259,57 @@ export function useProgress(
       const now = Date.now();
       const noRepeat = opts?.noRepeat === true;
       const clampedStageIndex = Math.max(0, Math.min(stageIndex, STAGES.length - 1));
-      let nextEntry: ProgressData | null = null;
+      const prev = progressRef.current;
+      const current = prev[wordId] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
+      const previousStageIndex = current.stageIndex;
+      const stage = STAGES[clampedStageIndex];
+      const nextDueAt = noRepeat
+        ? undefined
+        : stage.intervalMs > 0
+          ? now + stage.intervalMs
+          : undefined;
 
-      setProgress((prev) => {
-        const current = prev[wordId] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
-        const previousStageIndex = current.stageIndex;
-        const stage = STAGES[clampedStageIndex];
-        const nextDueAt = noRepeat
-          ? undefined
-          : stage.intervalMs > 0
-            ? now + stage.intervalMs
-            : undefined;
+      let knownCount = current.knownCount;
+      let unknownCount = current.unknownCount;
+      let lastKnownAt = current.lastKnownAt;
+      let lastUnknownAt = current.lastUnknownAt;
 
-        let knownCount = current.knownCount;
-        let unknownCount = current.unknownCount;
-        let lastKnownAt = current.lastKnownAt;
-        let lastUnknownAt = current.lastUnknownAt;
-
-        if (noRepeat) {
-          if (previousStageIndex < clampedStageIndex) {
-            knownCount += 1;
-          }
-          lastKnownAt = now;
-        } else if (clampedStageIndex > previousStageIndex) {
+      if (noRepeat) {
+        if (previousStageIndex < clampedStageIndex) {
           knownCount += 1;
-          lastKnownAt = now;
-        } else if (clampedStageIndex < previousStageIndex) {
-          unknownCount += 1;
-          lastUnknownAt = now;
-        } else {
-          lastKnownAt = now;
         }
+        lastKnownAt = now;
+      } else if (clampedStageIndex > previousStageIndex) {
+        knownCount += 1;
+        lastKnownAt = now;
+      } else if (clampedStageIndex < previousStageIndex) {
+        unknownCount += 1;
+        lastUnknownAt = now;
+      } else {
+        lastKnownAt = now;
+      }
 
-        const updated: ProgressData = {
-          ...current,
-          stageIndex: clampedStageIndex,
-          knownCount,
-          unknownCount,
-          lastKnownAt,
-          lastUnknownAt,
-          nextDueAt,
-        };
-        nextEntry = updated;
-
-        return {
-          ...prev,
-          [wordId]: updated,
-        };
-      });
+      const nextEntry: ProgressData = {
+        ...current,
+        stageIndex: clampedStageIndex,
+        knownCount,
+        unknownCount,
+        lastKnownAt,
+        lastUnknownAt,
+        nextDueAt,
+      };
+      progressRef.current = { ...prev, [wordId]: nextEntry };
+      setProgress(progressRef.current);
 
       setLastMoved(wordId);
 
-      if (nextEntry) {
-        const [serialized] = serializeProgressForSync({ [wordId]: nextEntry });
-        void enqueueOp({
-          entity: 'progress',
-          opType: 'upsert',
-          payload: serialized,
-          legacyPayload: { progress: [serialized] },
-        }).catch((e) => console.error('[progress] enqueue custom stage:', e));
-      }
+      const [serialized] = serializeProgressForSync({ [wordId]: nextEntry }, now);
+      void enqueueOp({
+        entity: 'progress',
+        opType: 'upsert',
+        payload: serialized,
+        legacyPayload: { progress: [serialized] },
+      }).catch((e) => console.error('[progress] enqueue custom stage:', e));
     },
     [setLastMoved]
   );

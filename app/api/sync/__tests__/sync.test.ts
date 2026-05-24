@@ -424,6 +424,10 @@ describe('POST /api/sync', () => {
   })
 
   it('syncs progress for authenticated user', async () => {
+    // Pinned timestamp so the assertion below can compare the forwarded
+    // updatedAt exactly; the API must convert client_updated_at → Date so
+    // batchUpsertProgress can enforce its LWW guard.
+    const clientUpdatedAt = 1_700_000_000_000
     const req = new NextRequest('http://localhost:3000/api/sync', {
       method: 'POST',
       body: JSON.stringify({
@@ -436,6 +440,7 @@ describe('POST /api/sync', () => {
           last_known_at: Date.now(),
           last_unknown_at: null,
           next_due_at: null,
+          client_updated_at: clientUpdatedAt,
         }],
       }),
       headers: { 'Content-Type': 'application/json' },
@@ -445,7 +450,74 @@ describe('POST /api/sync', () => {
 
     expect(res.status).toBe(200)
     expect(data.success).toBe(true)
-    expect(mockBatchUpsertProgress).toHaveBeenCalled()
+    // The route must request LWW mode for client-originated progress and
+    // forward client_updated_at as the row's updatedAt. Without this, a
+    // stale outbox replay can clobber fresher state from another tab/device.
+    expect(mockBatchUpsertProgress).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          wordId: 'w001',
+          stageIndex: 1,
+          updatedAt: new Date(clientUpdatedAt),
+        }),
+      ],
+      undefined,
+      { lww: true },
+    )
+  })
+
+  it('infers progress updatedAt from review timestamps when client_updated_at is omitted', async () => {
+    // Older queued ops may not include client_updated_at. Infer from the row's
+    // own review timestamp instead of stamping server now(), otherwise a stale
+    // progress op can clobber a fresher review-event write in the same drain.
+    const lastKnownAt = 1_700_000_000_000
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: 'dev-123',
+        progress: [{
+          word_id: 'w002',
+          stage_index: 2,
+          known_count: 0,
+          unknown_count: 0,
+          last_known_at: lastKnownAt,
+          last_unknown_at: null,
+          next_due_at: null,
+        }],
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+
+    const lastCall = mockBatchUpsertProgress.mock.calls.at(-1)!
+    const rows = lastCall[0] as Array<{ updatedAt: Date }>
+    expect(rows[0].updatedAt).toEqual(new Date(lastKnownAt))
+  })
+
+  it('treats timestamp-free progress as oldest possible client write', async () => {
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: 'dev-123',
+        progress: [{
+          word_id: 'w002',
+          stage_index: 2,
+          known_count: 0,
+          unknown_count: 0,
+          last_known_at: null,
+          last_unknown_at: null,
+          next_due_at: null,
+        }],
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+
+    const lastCall = mockBatchUpsertProgress.mock.calls.at(-1)!
+    const rows = lastCall[0] as Array<{ updatedAt: Date }>
+    expect(rows[0].updatedAt).toEqual(new Date(0))
   })
 
   it('ignores unknown role values', async () => {

@@ -21,6 +21,7 @@ interface ProgressOpPayload {
   last_known_at: number | null;
   last_unknown_at: number | null;
   next_due_at: number | null;
+  client_updated_at?: number;
 }
 
 interface MemoryHookOpPayload {
@@ -125,6 +126,10 @@ function applyProgressOp(
     last_known_at: p.last_known_at ?? null,
     last_unknown_at: p.last_unknown_at ?? null,
     next_due_at: p.next_due_at ?? null,
+    // Pass through so server-side LWW can arbitrate against the row's
+    // existing updatedAt. Coalescing on `key` already keeps the last op's
+    // timestamp, which is the freshest user intent for that word.
+    ...(typeof p.client_updated_at === 'number' ? { client_updated_at: p.client_updated_at } : {}),
   });
 }
 

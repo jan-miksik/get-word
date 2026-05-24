@@ -4,9 +4,12 @@ import { serializeProgressForSync } from '../progress';
 describe('serializeProgressForSync', () => {
   it('maps legacy word ids to word_id payloads', () => {
     expect(
-      serializeProgressForSync({
-        w001: { stageIndex: 1, knownCount: 2, unknownCount: 3 },
-      })
+      serializeProgressForSync(
+        {
+          w001: { stageIndex: 1, knownCount: 2, unknownCount: 3 },
+        },
+        1_700_000_000_000,
+      )
     ).toEqual([
       {
         word_id: 'w001',
@@ -16,15 +19,19 @@ describe('serializeProgressForSync', () => {
         last_known_at: null,
         last_unknown_at: null,
         next_due_at: null,
+        client_updated_at: 1_700_000_000_000,
       },
     ]);
   });
 
   it('maps uuid ids to word_list_item_id payloads', () => {
     expect(
-      serializeProgressForSync({
-        '123e4567-e89b-12d3-a456-426614174000': { stageIndex: 4, knownCount: 5, unknownCount: 1 },
-      })
+      serializeProgressForSync(
+        {
+          '123e4567-e89b-12d3-a456-426614174000': { stageIndex: 4, knownCount: 5, unknownCount: 1 },
+        },
+        1_700_000_000_500,
+      )
     ).toEqual([
       {
         word_list_item_id: '123e4567-e89b-12d3-a456-426614174000',
@@ -34,7 +41,18 @@ describe('serializeProgressForSync', () => {
         last_known_at: null,
         last_unknown_at: null,
         next_due_at: null,
+        client_updated_at: 1_700_000_000_500,
       },
     ]);
+  });
+
+  it('defaults client_updated_at to now() when omitted', () => {
+    const before = Date.now();
+    const [row] = serializeProgressForSync({
+      w001: { stageIndex: 1, knownCount: 0, unknownCount: 0 },
+    });
+    const after = Date.now();
+    expect(row.client_updated_at).toBeGreaterThanOrEqual(before);
+    expect(row.client_updated_at).toBeLessThanOrEqual(after);
   });
 });

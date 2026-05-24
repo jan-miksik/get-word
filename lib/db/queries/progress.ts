@@ -8,6 +8,17 @@ import {
 import { STAGES } from "@/lib/words";
 
 /**
+ * Either the top-level `db` instance or a transaction handle from
+ * `db.transaction(...)`. Both expose the methods (insert / select / etc.) we
+ * use here, so callers can opt into running a query inside a transaction
+ * without the query helpers having to know which one they got. We derive the
+ * transaction-handle type from drizzle's own callback signature to stay in
+ * sync with the installed version.
+ */
+type TxHandle = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type Executor = typeof db | TxHandle;
+
+/**
  * Get all progress for a user, keyed by wordListItemId (preferred) or wordId (legacy).
  * Excludes archived entries. When `since` is provided, returns only rows whose
  * updatedAt is strictly greater than the cursor (delta fetch path).
@@ -39,9 +50,10 @@ export async function getUserProgress(
 // Get progress for a specific word
 export async function getWordProgress(
   userId: string,
-  wordId: string
+  wordId: string,
+  executor: Executor = db
 ): Promise<UserProgress | null> {
-  const results = await db
+  const results = await executor
     .select()
     .from(userProgress)
     .where(
@@ -53,9 +65,10 @@ export async function getWordProgress(
 
 export async function getWordProgressByItemId(
   userId: string,
-  wordListItemId: string
+  wordListItemId: string,
+  executor: Executor = db
 ): Promise<UserProgress | null> {
-  const results = await db
+  const results = await executor
     .select()
     .from(userProgress)
     .where(
@@ -108,18 +121,51 @@ export async function upsertProgress(
   return results[0];
 }
 
+/**
+ * Options controlling how `batchUpsertProgress*` reconciles with existing
+ * rows.
+ *
+ * When `lww: true`, the upsert only overwrites an existing row if the
+ * incoming `updatedAt` is strictly newer. Callers must populate `updatedAt`
+ * on every input (typically from the client's wall-clock). This is the right
+ * mode for client-originated writes (`setCustomStage`, drag interactions)
+ * where a stale outbox replay could otherwise clobber fresher state from
+ * another tab or device.
+ *
+ * When `lww` is unset/false, the upsert overwrites unconditionally and stamps
+ * `updatedAt = now()` server-side. This is the right mode for server-driven
+ * writes (event-sourced `applyReviewEventToProgress`) where the row's prior
+ * state has already been folded into the new values inside a transaction —
+ * the new write is, by construction, the freshest truth.
+ */
+type UpsertOptions = { lww?: boolean };
+
+function progressLwwSetWhere() {
+  return sql`excluded.updated_at > CASE
+    WHEN ${userProgress.lastKnownAt} IS NULL AND ${userProgress.lastUnknownAt} IS NULL
+      THEN ${userProgress.updatedAt}
+    ELSE GREATEST(
+      COALESCE(${userProgress.lastKnownAt}, 'epoch'::timestamp),
+      COALESCE(${userProgress.lastUnknownAt}, 'epoch'::timestamp)
+    )
+  END`;
+}
+
 // Batch upsert progress (legacy: conflicts on userId + wordId)
 export async function batchUpsertProgress(
-  progressList: Omit<NewUserProgress, "id" | "createdAt" | "updatedAt">[]
+  progressList: Omit<NewUserProgress, "id" | "createdAt">[],
+  executor: Executor = db,
+  options: UpsertOptions = {}
 ): Promise<void> {
   if (progressList.length === 0) return;
 
   const BATCH_SIZE = 100;
+  const lww = options.lww === true;
 
   for (let i = 0; i < progressList.length; i += BATCH_SIZE) {
     const batch = progressList.slice(i, i + BATCH_SIZE);
 
-    await db
+    await executor
       .insert(userProgress)
       .values(batch)
       .onConflictDoUpdate({
@@ -131,24 +177,30 @@ export async function batchUpsertProgress(
           lastKnownAt: sql`excluded.last_known_at`,
           lastUnknownAt: sql`excluded.last_unknown_at`,
           nextDueAt: sql`excluded.next_due_at`,
-          updatedAt: new Date(),
+          updatedAt: lww ? sql`excluded.updated_at` : new Date(),
         },
+        ...(lww
+          ? { setWhere: progressLwwSetWhere() }
+          : {}),
       });
   }
 }
 
 // Batch upsert progress by wordListItemId (new path)
 export async function batchUpsertProgressByItemId(
-  progressList: Omit<NewUserProgress, "id" | "createdAt" | "updatedAt">[]
+  progressList: Omit<NewUserProgress, "id" | "createdAt">[],
+  executor: Executor = db,
+  options: UpsertOptions = {}
 ): Promise<void> {
   if (progressList.length === 0) return;
 
   const BATCH_SIZE = 100;
+  const lww = options.lww === true;
 
   for (let i = 0; i < progressList.length; i += BATCH_SIZE) {
     const batch = progressList.slice(i, i + BATCH_SIZE);
 
-    await db
+    await executor
       .insert(userProgress)
       .values(batch)
       .onConflictDoUpdate({
@@ -160,27 +212,33 @@ export async function batchUpsertProgressByItemId(
           lastKnownAt: sql`excluded.last_known_at`,
           lastUnknownAt: sql`excluded.last_unknown_at`,
           nextDueAt: sql`excluded.next_due_at`,
-          updatedAt: new Date(),
+          updatedAt: lww ? sql`excluded.updated_at` : new Date(),
         },
+        ...(lww
+          ? { setWhere: progressLwwSetWhere() }
+          : {}),
       });
   }
 }
 
 export type ReviewProgressAction = "known" | "really_known" | "unknown";
 
-export async function applyReviewEventToProgress(args: {
-  userId: string;
-  wordId?: string | null;
-  wordListItemId?: string | null;
-  action: ReviewProgressAction;
-  occurredAt: Date;
-}): Promise<void> {
+export async function applyReviewEventToProgress(
+  args: {
+    userId: string;
+    wordId?: string | null;
+    wordListItemId?: string | null;
+    action: ReviewProgressAction;
+    occurredAt: Date;
+  },
+  executor: Executor = db
+): Promise<void> {
   const { userId, wordId, wordListItemId, action, occurredAt } = args;
   if (!wordId && !wordListItemId) return;
 
   const current = wordListItemId
-    ? await getWordProgressByItemId(userId, wordListItemId)
-    : await getWordProgress(userId, wordId!);
+    ? await getWordProgressByItemId(userId, wordListItemId, executor)
+    : await getWordProgress(userId, wordId!, executor);
 
   const currentStageIndex = current?.stageIndex ?? 0;
   const knownCount = current?.knownCount ?? 0;
@@ -224,9 +282,9 @@ export async function applyReviewEventToProgress(args: {
   };
 
   if (wordListItemId) {
-    await batchUpsertProgressByItemId([values]);
+    await batchUpsertProgressByItemId([values], executor);
   } else {
-    await batchUpsertProgress([values]);
+    await batchUpsertProgress([values], executor);
   }
 }
 

@@ -24,6 +24,10 @@ vi.mock('../local-learning-cache', () => ({
   getSnapshot: vi.fn(),
 }));
 
+vi.mock('../local-first/outbox', () => ({
+  listOps: vi.fn(),
+}));
+
 import { ensureLocalFirstAvailability } from '../local-first/availability';
 import {
   getAllMemoryHookRows,
@@ -38,7 +42,12 @@ import {
   putProgressRow,
 } from '../local-first/stores';
 import { getSnapshot } from '../local-learning-cache';
-import { loadAllDomainsFromIdb, persistDomainsToIdb } from '../local-first/hydrate';
+import { listOps } from '../local-first/outbox';
+import {
+  applyPendingOutboxToSyncResponse,
+  loadAllDomainsFromIdb,
+  persistDomainsToIdb,
+} from '../local-first/hydrate';
 
 const mockEnsure = vi.mocked(ensureLocalFirstAvailability);
 const mockGetMeta = vi.mocked(getMeta);
@@ -52,6 +61,7 @@ const mockPutMemoryHookRow = vi.mocked(putMemoryHookRow);
 const mockPutCategoryFilterRow = vi.mocked(putCategoryFilterRow);
 const mockPutPrefsRow = vi.mocked(putPrefsRow);
 const mockPutMeta = vi.mocked(putMeta);
+const mockListOps = vi.mocked(listOps);
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -71,6 +81,7 @@ beforeEach(() => {
   mockPutCategoryFilterRow.mockResolvedValue(true);
   mockPutPrefsRow.mockResolvedValue(true);
   mockPutMeta.mockResolvedValue(true);
+  mockListOps.mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -222,5 +233,228 @@ describe('persistDomainsToIdb', () => {
     });
     expect(mockPutProgressRow).not.toHaveBeenCalled();
     expect(mockPutMeta).not.toHaveBeenCalled();
+  });
+});
+
+describe('applyPendingOutboxToSyncResponse', () => {
+  it('replays pending settings-language and progress writes over a stale server snapshot', async () => {
+    const serverData: SyncResponse = {
+      success: true,
+      user: {
+        id: 'u-1',
+        role: 'languageToLearn',
+        settings_language: 'en',
+        settings_language_selected_at: '2026-05-01T00:00:00.000Z',
+      } as SyncResponse['user'],
+      progress: {
+        'w-1': {
+          id: 'row-1',
+          userId: 'u-1',
+          wordId: 'w-1',
+          wordListItemId: null,
+          stageIndex: 2,
+          knownCount: 0,
+          unknownCount: 0,
+          lastKnownAt: null,
+          lastUnknownAt: null,
+          nextDueAt: null,
+          createdAt: '2026-05-01T00:00:00.000Z',
+          updatedAt: '2026-05-01T00:00:00.000Z',
+        },
+      },
+      memory_hooks: {},
+      category_filters: [],
+    };
+    mockListOps.mockResolvedValueOnce([
+      {
+        clientOpId: 'pref-1',
+        entity: 'preference',
+        opType: 'set',
+        payload: { field: 'settings_language', value: 'de' },
+        clientCreatedAt: '2026-05-24T12:00:00.000Z',
+        deviceId: 'dev-1',
+        attempts: 0,
+      },
+      {
+        clientOpId: 'progress-1',
+        entity: 'progress',
+        opType: 'upsert',
+        payload: {
+          word_id: 'w-1',
+          stage_index: 7,
+          known_count: 3,
+          unknown_count: 1,
+          last_known_at: 1_779_625_000_000,
+          last_unknown_at: null,
+          next_due_at: null,
+          client_updated_at: 1_779_625_000_000,
+        },
+        clientCreatedAt: '2026-05-24T12:00:01.000Z',
+        deviceId: 'dev-1',
+        attempts: 0,
+      },
+    ]);
+
+    const result = await applyPendingOutboxToSyncResponse(serverData);
+
+    expect(result.user.settings_language).toBe('de');
+    expect(result.user.settings_language_selected_at).toBe('2026-05-24T12:00:00.000Z');
+    expect(result.progress['w-1'].stageIndex).toBe(7);
+    expect(result.progress['w-1'].knownCount).toBe(3);
+    expect(serverData.user.settings_language).toBe('en');
+    expect(serverData.progress['w-1'].stageIndex).toBe(2);
+  });
+
+  it('replays a submitted review event when the server snapshot is still stale', async () => {
+    const serverData: SyncResponse = {
+      success: true,
+      user: { id: 'u-1', role: 'languageToLearn' } as SyncResponse['user'],
+      progress: {
+        'w-1': {
+          id: 'row-1',
+          userId: 'u-1',
+          wordId: 'w-1',
+          wordListItemId: null,
+          stageIndex: 1,
+          knownCount: 0,
+          unknownCount: 0,
+          lastKnownAt: null,
+          lastUnknownAt: null,
+          nextDueAt: null,
+          createdAt: '2026-05-01T00:00:00.000Z',
+          updatedAt: '2026-05-01T00:00:00.000Z',
+        },
+      },
+      memory_hooks: {},
+      category_filters: [],
+    };
+    mockListOps.mockResolvedValueOnce([
+      {
+        clientOpId: 'review-1',
+        entity: 'review_event',
+        opType: 'event',
+        payload: {
+          client_event_id: 'review-1',
+          word_id: 'w-1',
+          action: 'known',
+          client_created_at: 1_779_625_000_000,
+        },
+        clientCreatedAt: '2026-05-24T12:00:00.000Z',
+        deviceId: 'dev-1',
+        attempts: 0,
+      },
+    ]);
+
+    const result = await applyPendingOutboxToSyncResponse(serverData);
+
+    expect(result.progress['w-1'].stageIndex).toBe(2);
+    expect(result.progress['w-1'].knownCount).toBe(1);
+    expect(result.progress['w-1'].lastKnownAt).toBe('2026-05-24T12:16:40.000Z');
+  });
+
+  it('does not double-replay a review event already reflected by the server snapshot', async () => {
+    const clientCreatedAt = 1_779_625_000_000;
+    const serverData: SyncResponse = {
+      success: true,
+      user: { id: 'u-1', role: 'languageToLearn' } as SyncResponse['user'],
+      progress: {
+        'w-1': {
+          id: 'row-1',
+          userId: 'u-1',
+          wordId: 'w-1',
+          wordListItemId: null,
+          stageIndex: 2,
+          knownCount: 1,
+          unknownCount: 0,
+          lastKnownAt: new Date(clientCreatedAt).toISOString(),
+          lastUnknownAt: null,
+          nextDueAt: null,
+          createdAt: '2026-05-01T00:00:00.000Z',
+          updatedAt: new Date(clientCreatedAt).toISOString(),
+        },
+      },
+      memory_hooks: {},
+      category_filters: [],
+    };
+    mockListOps.mockResolvedValueOnce([]);
+
+    const result = await applyPendingOutboxToSyncResponse(serverData, [
+      {
+        client_event_id: 'review-1',
+        word_id: 'w-1',
+        action: 'known',
+        client_created_at: clientCreatedAt,
+      },
+    ]);
+
+    expect(result.progress['w-1'].stageIndex).toBe(2);
+    expect(result.progress['w-1'].knownCount).toBe(1);
+  });
+
+  it('does not replay an older review event over a newer pending custom progress write', async () => {
+    const reviewAt = 1_779_625_000_000;
+    const customAt = reviewAt + 1_000;
+    const serverData: SyncResponse = {
+      success: true,
+      user: { id: 'u-1', role: 'languageToLearn' } as SyncResponse['user'],
+      progress: {
+        'w-1': {
+          id: 'row-1',
+          userId: 'u-1',
+          wordId: 'w-1',
+          wordListItemId: null,
+          stageIndex: 0,
+          knownCount: 0,
+          unknownCount: 0,
+          lastKnownAt: null,
+          lastUnknownAt: null,
+          nextDueAt: null,
+          createdAt: '2026-05-01T00:00:00.000Z',
+          updatedAt: '2026-05-01T00:00:00.000Z',
+        },
+      },
+      memory_hooks: {},
+      category_filters: [],
+    };
+    mockListOps.mockResolvedValueOnce([
+      {
+        clientOpId: 'review-1',
+        entity: 'review_event',
+        opType: 'event',
+        payload: {
+          client_event_id: 'review-1',
+          word_id: 'w-1',
+          action: 'known',
+          client_created_at: reviewAt,
+        },
+        clientCreatedAt: new Date(reviewAt).toISOString(),
+        deviceId: 'dev-1',
+        attempts: 0,
+      },
+      {
+        clientOpId: 'progress-1',
+        entity: 'progress',
+        opType: 'upsert',
+        payload: {
+          word_id: 'w-1',
+          stage_index: 1,
+          known_count: 1,
+          unknown_count: 0,
+          last_known_at: customAt,
+          last_unknown_at: null,
+          next_due_at: customAt + 5 * 60 * 1000,
+          client_updated_at: customAt,
+        },
+        clientCreatedAt: new Date(customAt).toISOString(),
+        deviceId: 'dev-1',
+        attempts: 0,
+      },
+    ]);
+
+    const result = await applyPendingOutboxToSyncResponse(serverData);
+
+    expect(result.progress['w-1'].stageIndex).toBe(1);
+    expect(result.progress['w-1'].knownCount).toBe(1);
+    expect(result.progress['w-1'].nextDueAt).toBe(new Date(customAt + 5 * 60 * 1000).toISOString());
   });
 });

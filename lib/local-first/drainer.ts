@@ -7,10 +7,12 @@ import { ensureLocalFirstAvailability } from './availability';
 
 const MAX_BATCH = 25;
 const DEBOUNCE_MS = 2500;
+const PERIODIC_DRAIN_MS = 60_000;
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let drainInFlight: Promise<void> | null = null;
 let scheduledByVisibility = false;
+let periodicTimer: ReturnType<typeof setInterval> | null = null;
 
 export function scheduleDrain(): void {
   if (debounceTimer) clearTimeout(debounceTimer);
@@ -92,8 +94,14 @@ export function startDrainer(): DrainerLifecycle {
   const handleOnline = () => {
     void drainOnce();
   };
+  const handleFocus = () => {
+    void drainOnce();
+  };
+  const handleLeavingPage = () => {
+    void drainOnce();
+  };
   const handleVisibility = () => {
-    if (document.visibilityState === 'visible' && !scheduledByVisibility) {
+    if (!scheduledByVisibility) {
       scheduledByVisibility = true;
       queueMicrotask(() => {
         scheduledByVisibility = false;
@@ -103,16 +111,31 @@ export function startDrainer(): DrainerLifecycle {
   };
 
   window.addEventListener('online', handleOnline);
+  window.addEventListener('focus', handleFocus);
+  window.addEventListener('blur', handleLeavingPage);
+  window.addEventListener('pagehide', handleLeavingPage);
+  window.addEventListener('beforeunload', handleLeavingPage);
   document.addEventListener('visibilitychange', handleVisibility);
 
   // Drain any persisted ops on boot.
   void drainOnce();
+  periodicTimer = setInterval(() => {
+    void drainOnce();
+  }, PERIODIC_DRAIN_MS);
 
   lifecycle = {
     start() {},
     stop() {
       window.removeEventListener('online', handleOnline);
+      window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('blur', handleLeavingPage);
+      window.removeEventListener('pagehide', handleLeavingPage);
+      window.removeEventListener('beforeunload', handleLeavingPage);
       document.removeEventListener('visibilitychange', handleVisibility);
+      if (periodicTimer) {
+        clearInterval(periodicTimer);
+        periodicTimer = null;
+      }
       lifecycle = null;
     },
   };

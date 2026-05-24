@@ -47,4 +47,35 @@ describe('sync client errors', () => {
       'Failed to sync data: 500 Internal Server Error. Server returned 500: 500 - Internal Server Error.',
     );
   });
+
+  it('includes submitted review events in the local server-sync event detail', async () => {
+    const reviewEvent = {
+      client_event_id: 'event-1',
+      word_id: 'w001',
+      action: 'known' as const,
+      client_created_at: 1_779_625_000_000,
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({
+        success: true,
+        applied_review_event_ids: ['event-1'],
+        user: { id: 'user-1' },
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      })),
+    );
+    const listener = vi.fn();
+    window.addEventListener('get-word:server-sync', listener);
+
+    await syncUserData({ review_events: [reviewEvent] });
+
+    expect(listener).toHaveBeenCalledWith(expect.objectContaining({
+      detail: expect.objectContaining({
+        submitted_review_events: [reviewEvent],
+      }),
+    }));
+    window.removeEventListener('get-word:server-sync', listener);
+  });
 });

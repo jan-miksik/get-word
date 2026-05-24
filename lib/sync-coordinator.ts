@@ -7,6 +7,7 @@ import {
 } from '@/lib/review-events';
 import { getSessionId } from '@/lib/session-id';
 import { isAuthRequiredError, syncUserData } from '@/lib/sync';
+import { isLocalFirstAvailableSync } from '@/lib/local-first/availability';
 
 export type SyncReason =
   | 'app_open'
@@ -113,6 +114,16 @@ function scheduleRetry(reason: SyncReason): void {
 }
 
 async function normalFlush(reason: SyncReason): Promise<void> {
+  // When IndexedDB is available the local-first drainer owns review-event
+  // POSTs. Running normalFlush in parallel would race the drainer: both POSTs
+  // return full snapshots and the later one can clobber a fresh optimistic
+  // update applied between the two responses. We keep this path alive only as
+  // a fallback for the IDB-unavailable case (private browsing, storage
+  // quotas, old browsers) — the drainer never runs there.
+  if (isLocalFirstAvailableSync()) {
+    emit({ lastReason: reason, lastError: null });
+    return;
+  }
   const pending = getPendingReviewEvents();
   if (pending.length === 0) {
     emit({ lastReason: reason, lastError: null });
@@ -208,6 +219,10 @@ export function requestSync(reason: SyncReason): void {
   if (typeof window === 'undefined') return;
   emit({ lastReason: reason });
   if (getPendingReviewEvents().length === 0) return;
+  // When the IDB drainer owns review-event POSTs the coordinator's normalFlush
+  // is a no-op anyway; skip scheduling to avoid the wasted timer and to keep
+  // the two systems' debounce windows from interleaving in surprising ways.
+  if (isLocalFirstAvailableSync()) return;
 
   clearTimer(syncTimer);
   syncTimer = window.setTimeout(() => {
