@@ -491,6 +491,29 @@
   }
 }
 
+@media (max-width: 767px) {
+  .settings-panel.is-open,
+  .progress-panel.is-open,
+  .category-panel.is-open,
+  .upcoming-panel.is-open {
+    inset: 0;
+    height: 100vh;
+    height: 100dvh;
+    align-self: stretch;
+    max-width: none;
+    max-height: none;
+    overflow: hidden;
+  }
+
+  .settings-panel.is-open .panel-content,
+  .progress-panel.is-open .panel-content,
+  .category-panel.is-open .panel-content,
+  .upcoming-panel.is-open .panel-content {
+    left: 1px;
+    right: 1px;
+  }
+}
+
 /* Custom scrollbar for glass panels */
 .custom-scrollbar {
   scrollbar-width: thin;

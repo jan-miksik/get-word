@@ -27,6 +27,8 @@ interface AppLayoutProps {
   authEmail?: string;
   authAddress?: string;
   onSignOut?: () => void | Promise<void>;
+  /** Optional inert account display for isolated UI previews. */
+  accountSlotOverride?: ReactNode;
   // Page-computed values (differ between main and edit page)
   categories: Array<{ name: string; count: number }>;
   progressStats: ProgressStats;
@@ -44,6 +46,7 @@ export function AppLayout({
   authEmail,
   authAddress,
   onSignOut,
+  accountSlotOverride,
   categories,
   progressStats,
   header,
@@ -96,7 +99,9 @@ export function AppLayout({
                 )
           }
           accountSlot={
-            isAuthenticated
+            accountSlotOverride !== undefined
+              ? accountSlotOverride
+              : isAuthenticated
               ? (
                   <div className="flex items-center gap-2">
                     <AuthButton

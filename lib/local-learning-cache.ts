@@ -23,6 +23,7 @@ export interface AudioCacheStatus {
   supported: boolean;
   enabled: boolean;
   cachedCount: number;
+  cachedSizeBytes: number;
   lastCachedAt: number | null;
 }
 
@@ -30,12 +31,15 @@ function storageAvailable(): boolean {
   return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
 }
 
-function readBooleanPreference(key: string): boolean {
-  if (!storageAvailable()) return false;
+function readStoredBooleanPreference(key: string): boolean | null {
+  if (!storageAvailable()) return null;
   try {
-    return window.localStorage.getItem(key) === '1';
+    const value = window.localStorage.getItem(key);
+    if (value === '1') return true;
+    if (value === '0') return false;
+    return null;
   } catch {
-    return false;
+    return null;
   }
 }
 
@@ -49,19 +53,58 @@ function writeBooleanPreference(key: string, value: boolean): void {
 }
 
 export function getStoragePreference(): boolean {
-  return readBooleanPreference(STORAGE_PREF_KEY);
+  return true;
 }
 
 export function setStoragePreference(enabled: boolean): void {
   writeBooleanPreference(STORAGE_PREF_KEY, enabled);
 }
 
+function isInstalledPwa(): boolean {
+  if (typeof window === 'undefined') return false;
+  if (window.matchMedia?.('(display-mode: standalone)')?.matches) return true;
+  if (window.matchMedia?.('(display-mode: window-controls-overlay)')?.matches) return true;
+  return Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone);
+}
+
+function isLikelyUnmeteredConnection(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const connection = (navigator as Navigator & {
+    connection?: { saveData?: boolean; type?: string; effectiveType?: string };
+  }).connection;
+
+  if (!connection) return isProbablyDesktopBrowser();
+  if (connection.saveData) return false;
+  if (connection.type === 'wifi' || connection.type === 'ethernet') return true;
+  return connection.effectiveType === '4g';
+}
+
+function isProbablyDesktopBrowser(): boolean {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+  const coarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches ?? false;
+  const mobileUserAgent = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  return !coarsePointer && !mobileUserAgent;
+}
+
+function getDefaultAudioCachePreference(): boolean {
+  return isInstalledPwa() || isLikelyUnmeteredConnection();
+}
+
 export function getAudioCachePreference(): boolean {
-  return readBooleanPreference(AUDIO_PREF_KEY);
+  return readStoredBooleanPreference(AUDIO_PREF_KEY) ?? getDefaultAudioCachePreference();
 }
 
 export function setAudioCachePreference(enabled: boolean): void {
   writeBooleanPreference(AUDIO_PREF_KEY, enabled);
+  notifyAudioCachePreference(enabled);
+}
+
+function notifyAudioCachePreference(enabled: boolean): void {
+  if (typeof navigator === 'undefined') return;
+  navigator.serviceWorker?.controller?.postMessage({
+    type: 'GET_WORD_AUDIO_CACHE_PREFERENCE',
+    enabled,
+  });
 }
 
 function openDb(): Promise<IDBDatabase | null> {
@@ -144,6 +187,7 @@ export async function clearAudioCache(): Promise<void> {
     try {
       window.localStorage.removeItem(`${AUDIO_PREF_KEY}:lastCachedAt`);
       window.localStorage.removeItem(`${AUDIO_PREF_KEY}:cachedCount`);
+      window.localStorage.removeItem(`${AUDIO_PREF_KEY}:cachedSizeBytes`);
     } catch {
       // Best-effort cleanup only.
     }
@@ -170,6 +214,7 @@ export function getAudioUrlsForWords(words: NormalizedWord[]): string[] {
 export async function cacheActiveListAudio(words: NormalizedWord[]): Promise<AudioCacheStatus> {
   const supported = typeof caches !== 'undefined' && typeof fetch !== 'undefined';
   const enabled = getAudioCachePreference();
+  notifyAudioCachePreference(enabled);
   if (!supported || !enabled) {
     return getAudioCacheStatus();
   }
@@ -212,17 +257,48 @@ export async function cacheActiveListAudio(words: NormalizedWord[]): Promise<Aud
   return getAudioCacheStatus();
 }
 
+async function getCachedResponseSizeBytes(response: Response): Promise<number> {
+  const contentLength = response.headers.get('content-length');
+  if (contentLength) {
+    const parsed = Number(contentLength);
+    if (Number.isFinite(parsed) && parsed >= 0) return parsed;
+  }
+
+  try {
+    return (await response.clone().blob()).size;
+  } catch {
+    return 0;
+  }
+}
+
 export async function getAudioCacheStatus(): Promise<AudioCacheStatus> {
   const supported = typeof caches !== 'undefined';
   const enabled = getAudioCachePreference();
   let cachedCount = 0;
+  let cachedSizeBytes = 0;
 
   if (supported) {
     try {
       const cache = await caches.open(AUDIO_CACHE_NAME);
-      cachedCount = (await cache.keys()).length;
+      const requests = await cache.keys();
+      cachedCount = requests.length;
+      for (const request of requests) {
+        const response = await cache.match(request);
+        if (response) {
+          cachedSizeBytes += await getCachedResponseSizeBytes(response);
+        }
+      }
+      if (storageAvailable()) {
+        try {
+          window.localStorage.setItem(`${AUDIO_PREF_KEY}:cachedSizeBytes`, String(cachedSizeBytes));
+        } catch {
+          // Best-effort metadata only.
+        }
+      }
     } catch {
       cachedCount = Number(window.localStorage?.getItem(`${AUDIO_PREF_KEY}:cachedCount`) ?? 0) || 0;
+      cachedSizeBytes =
+        Number(window.localStorage?.getItem(`${AUDIO_PREF_KEY}:cachedSizeBytes`) ?? 0) || 0;
     }
   }
 
@@ -230,5 +306,5 @@ export async function getAudioCacheStatus(): Promise<AudioCacheStatus> {
     ? Number(window.localStorage.getItem(`${AUDIO_PREF_KEY}:lastCachedAt`) ?? 0) || null
     : null;
 
-  return { supported, enabled, cachedCount, lastCachedAt };
+  return { supported, enabled, cachedCount, cachedSizeBytes, lastCachedAt };
 }

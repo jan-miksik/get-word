@@ -14,14 +14,10 @@ import {
   clearLearningCache,
   getAudioCachePreference,
   getAudioCacheStatus,
-  getStoragePreference,
   setAudioCachePreference,
-  setStoragePreference,
   type AudioCacheStatus,
 } from '@/lib/local-learning-cache';
 import {
-  flushPendingSync,
-  getSyncStatus,
   subscribeSyncStatus,
   type SyncStatus,
 } from '@/lib/sync-coordinator';
@@ -145,6 +141,20 @@ function formatSyncTime(
   return new Date(timestamp).toLocaleDateString();
 }
 
+function formatByteSize(bytes: number, locale: string): string {
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let value = Math.max(0, bytes);
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  const maximumFractionDigits = unitIndex === 0 || value >= 10 ? 0 : 1;
+  return `${new Intl.NumberFormat(locale, { maximumFractionDigits }).format(value)} ${units[unitIndex]}`;
+}
+
 function formatLanguageLabel(code: string, language: string): string {
   if (language.toLowerCase().startsWith('cs')) {
     const normalized = code.toLowerCase().split('-')[0];
@@ -202,6 +212,18 @@ interface SettingsPanelProps {
   onSignOut?: () => void | Promise<void>;
 }
 
+const INITIAL_SYNC_STATUS: SyncStatus = {
+  pendingCount: 0,
+  isSyncing: false,
+  isRetrying: false,
+  lastSyncedAt: null,
+  lastAttemptAt: null,
+  lastError: null,
+  retryCount: 0,
+  nextRetryAt: null,
+  lastReason: null,
+};
+
 export function SettingsPanel({
   minigameFrequency,
   onMinigameFrequencyChange,
@@ -245,9 +267,8 @@ export function SettingsPanel({
     100;
   const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
-  const [syncStatus, setSyncStatus] = useState<SyncStatus>(() => getSyncStatus());
-  const [localCacheEnabled, setLocalCacheEnabled] = useState(() => getStoragePreference());
-  const [audioCacheEnabled, setAudioCacheEnabled] = useState(() => getAudioCachePreference());
+  const [syncStatus, setSyncStatus] = useState<SyncStatus>(INITIAL_SYNC_STATUS);
+  const [audioCacheEnabled, setAudioCacheEnabled] = useState(false);
   const [audioCacheStatus, setAudioCacheStatus] = useState<AudioCacheStatus | null>(null);
   const [cacheMessage, setCacheMessage] = useState<string | null>(null);
   const [cacheBusy, setCacheBusy] = useState(false);
@@ -300,21 +321,15 @@ export function SettingsPanel({
     if (!isOpen) return;
     let cancelled = false;
     getAudioCacheStatus().then((status) => {
-      if (!cancelled) setAudioCacheStatus(status);
+      if (!cancelled) {
+        setAudioCacheStatus(status);
+        setAudioCacheEnabled(getAudioCachePreference());
+      }
     });
     return () => {
       cancelled = true;
     };
   }, [isOpen]);
-
-  const handleLocalCacheToggle = useCallback((enabled: boolean) => {
-    setStoragePreference(enabled);
-    setLocalCacheEnabled(enabled);
-    setCacheMessage(null);
-    if (enabled) {
-      void flushPendingSync('manual');
-    }
-  }, []);
 
   const handleAudioCacheToggle = useCallback(async (enabled: boolean) => {
     setAudioCachePreference(enabled);
@@ -339,10 +354,6 @@ export function SettingsPanel({
     setCacheBusy(true);
     try {
       await clearLearningCache();
-      setLocalCacheEnabled(false);
-      setAudioCacheEnabled(false);
-      setStoragePreference(false);
-      setAudioCachePreference(false);
       setAudioCacheStatus(await getAudioCacheStatus());
       setCacheMessage(t('settings.clearLocalCacheDone'));
     } finally {
@@ -547,14 +558,6 @@ export function SettingsPanel({
             </p>
             <div className="rounded-lg border border-border-subtle bg-background px-3 py-2">
               <div className="flex items-center justify-between gap-3">
-                <span className="text-sm text-text">{t('settings.localCacheEnable')}</span>
-                <ToggleSwitch
-                  checked={localCacheEnabled}
-                  onChange={handleLocalCacheToggle}
-                  ariaLabel={t('settings.localCacheEnable')}
-                />
-              </div>
-              <div className="mt-2 flex items-center justify-between gap-3">
                 <span className="text-sm text-text">{t('settings.audioCacheEnable')}</span>
                 <ToggleSwitch
                   checked={audioCacheEnabled}
@@ -562,11 +565,19 @@ export function SettingsPanel({
                   ariaLabel={t('settings.audioCacheEnable')}
                 />
               </div>
+              <p className="mt-2 mb-0 text-xs leading-relaxed text-text-soft">
+                {t('settings.audioCacheNotice')}
+              </p>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-text-soft">
               <span>{syncLabel}</span>
               {audioCacheStatus && audioCacheStatus.cachedCount > 0 && (
-                <span>{t('settings.audioCached', { count: audioCacheStatus.cachedCount })}</span>
+                <span>
+                  {t('settings.audioCached', {
+                    count: audioCacheStatus.cachedCount,
+                    size: formatByteSize(audioCacheStatus.cachedSizeBytes, language),
+                  })}
+                </span>
               )}
               {cacheMessage && <span className="text-accent">{cacheMessage}</span>}
             </div>

@@ -5,6 +5,7 @@ const STATIC_CACHE = `get-word-static-${VERSION}`;
 const PAGES_CACHE = `get-word-pages-${VERSION}`;
 const RUNTIME_CACHE = `get-word-runtime-${VERSION}`;
 const ACTIVE_LIST_AUDIO_CACHE = 'get-word-active-list-audio-v1';
+let audioCacheEnabled = true;
 
 const PRECACHE_URLS = [
   '/offline.html',
@@ -60,6 +61,10 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('message', (event) => {
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
+    return;
+  }
+  if (event.data && event.data.type === 'GET_WORD_AUDIO_CACHE_PREFERENCE') {
+    audioCacheEnabled = event.data.enabled !== false;
   }
 });
 
@@ -96,6 +101,9 @@ self.addEventListener('fetch', (event) => {
   if (isAudioApiPath(url.pathname)) {
     event.respondWith(
       (async () => {
+        if (!audioCacheEnabled) {
+          return fetch(request);
+        }
         const cache = await caches.open(ACTIVE_LIST_AUDIO_CACHE);
         const cached = await cache.match(request);
         if (cached) return cached;

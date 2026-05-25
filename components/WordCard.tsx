@@ -445,10 +445,10 @@ export const WordCard = memo(function WordCard({
             <SpeakerIcon size={23} />
           </button>
         )}
-        <div className={`card-actions-row ${onReallyKnown ? 'card-actions-row--three' : 'card-actions-row--two'}`}>
+        <div className={`card-actions-row ${hasCustomStageActions ? 'card-actions-row--three' : 'card-actions-row--two'}`}>
           <button
             type="button"
-            className="srs-btn srs-btn--forgot !relative !border-[#ae6161] !opacity-80"
+            className="srs-btn srs-btn--forgot !relative !border-[#ae6161] !opacity-80 max-md:!pb-0"
             onClick={onUnknown}
             title={`${forgotHint} · ${unknownPresses} ${t('card.forgotten')}`}
           >
@@ -505,12 +505,12 @@ export const WordCard = memo(function WordCard({
                 <div
                   ref={customPopoverRef}
                   role="listbox"
-                  className="absolute right-0 bottom-[calc(100%+0.5rem)] z-50 w-[13rem] max-w-[80vw] rounded-xl border-2 border-[#2A2218] bg-[#F4EFE2] text-[#2A2218] shadow-lg overflow-hidden flex flex-col"
+                  className="absolute right-0 bottom-[calc(100%+0.5rem)] z-50 w-[16.5rem] max-w-[calc(100vw-2rem)] max-h-[min(75dvh,34rem)] rounded-2xl border-2 border-[#2A2218] bg-[#F4EFE2] text-[#2A2218] shadow-lg overflow-y-auto flex flex-col max-md:fixed max-md:left-4 max-md:right-4 max-md:bottom-[calc(env(safe-area-inset-bottom,0px)+7.5rem)] max-md:w-auto max-md:max-w-none"
                 >
-                  <div className="sticky top-0 bg-[#F4EFE2] px-3 py-1.5 text-[0.65rem] font-bold uppercase tracking-[0.08em] text-[#2A2218]/70 border-b border-[#2A2218]/20">
+                  <div className="sticky top-0 bg-[#F4EFE2] px-4 py-3 text-[0.78rem] font-bold uppercase tracking-[0.12em] text-[#2A2218]/70 border-b border-[#2A2218]/20">
                     {t('card.repeatAfter')}
                   </div>
-                  <div className="p-1">
+                  <div className="p-2">
                   {STAGES.map((stage, idx) => {
                     const isCurrent = idx === clampedStageIndex;
                     return (
@@ -518,12 +518,12 @@ export const WordCard = memo(function WordCard({
                         key={stage.id}
                         type="button"
                         role="option"
-                        aria-current={isCurrent}
+                        aria-selected={isCurrent}
                         onClick={() => {
                           setCustomOpen(false);
                           onCustomStage?.(idx);
                         }}
-                        className={`block w-full rounded-md px-2.5 py-1 text-left text-[0.8rem] leading-tight transition-colors hover:bg-[#2A2218]/10 active:bg-[#2A2218]/20 ${
+                        className={`flex min-h-12 w-full items-center rounded-lg px-3.5 py-2.5 text-left text-[1rem] leading-snug transition-colors hover:bg-[#2A2218]/10 active:bg-[#2A2218]/20 ${
                           isCurrent ? 'bg-[#2A2218]/5 font-semibold' : ''
                         }`}
                       >
@@ -534,6 +534,7 @@ export const WordCard = memo(function WordCard({
                   <button
                     type="button"
                     role="option"
+                    aria-selected={false}
                     onClick={() => {
                       setCustomOpen(false);
                       if (onCustomStage) {
@@ -542,7 +543,7 @@ export const WordCard = memo(function WordCard({
                         onReallyKnown?.();
                       }
                     }}
-                    className="block w-full rounded-md px-2.5 py-1 text-left text-[0.8rem] leading-tight transition-colors hover:bg-[#12750f]/10 active:bg-[#12750f]/20 border-t border-[#2A2218]/20 mt-1 pt-1.5"
+                    className="flex min-h-12 w-full items-center rounded-lg px-3.5 py-2.5 text-left text-[1rem] leading-snug transition-colors hover:bg-[#12750f]/10 active:bg-[#12750f]/20 border-t border-[#2A2218]/20 mt-2 pt-3"
                   >
                     {t('card.fullyKnownNoRepeat')}
                   </button>

@@ -88,9 +88,9 @@ describe('SettingsPanel settings visibility', () => {
   it('shows local cache and sync controls in settings', () => {
     render(<SettingsPanel {...baseProps} />);
     expect(screen.getByText(/local data & sync/i)).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: /save learning data locally/i })).toBeInTheDocument();
     expect(screen.getByRole('switch', { name: /cache sounds for active list/i })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /clear local learning cache/i })).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: /save learning data locally/i })).not.toBeInTheDocument();
   });
 
   it('shows the current list languages in the learning section', () => {

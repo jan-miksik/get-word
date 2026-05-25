@@ -305,7 +305,7 @@ function MenuDropdown({
                     key={item.label}
                     href={item.href}
                     role="menuitem"
-                    className="menu-item"
+                    className="menu-item word-lists-editor-item"
                     onClick={() => setOpen(false)}
                   >
                     <span className="menu-item-icon">{item.icon}</span>
