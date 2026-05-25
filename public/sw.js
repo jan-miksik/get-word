@@ -1,5 +1,3 @@
-/* eslint-disable no-restricted-globals */
-
 const VERSION = new URL(self.location.href).searchParams.get('build') || 'v1';
 const STATIC_CACHE = `get-word-static-${VERSION}`;
 const PAGES_CACHE = `get-word-pages-${VERSION}`;
@@ -14,6 +12,7 @@ const PRECACHE_URLS = [
   '/favicon.ico',
   '/favicon-16x16.png',
   '/favicon-32x32.png',
+  '/apple-touch-icon.png',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/maskable-192.png',

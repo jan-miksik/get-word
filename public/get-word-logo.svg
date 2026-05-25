@@ -128,6 +128,13 @@
        y="0"
        preserveAspectRatio="none" />
   </defs>
+  <rect
+     id="icon-background"
+     x="0"
+     y="0"
+     width="200"
+     height="200"
+     fill="#ffffff" />
   <!-- Row 1 -->
   <!-- 1. Original: blue blob on cream/white -->
   <!-- 2. Warm coral on cream -->
