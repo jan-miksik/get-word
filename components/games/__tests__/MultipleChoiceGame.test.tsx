@@ -3,14 +3,6 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { MultipleChoiceGame } from '../MultipleChoiceGame';
 import type { NormalizedWord } from '@/lib/words';
 
-const getPlayableAudioUrlMock = vi.hoisted(() =>
-  vi.fn((url: string | null) => Promise.resolve(url)),
-);
-
-vi.mock('@/lib/audio-availability', () => ({
-  getPlayableAudioUrl: getPlayableAudioUrlMock,
-}));
-
 const makeWord = (
   id: string,
   cz: string,
@@ -39,17 +31,17 @@ let audioSources: string[] = [];
 beforeEach(() => {
   playCalls = 0;
   audioSources = [];
-  getPlayableAudioUrlMock.mockReset();
-  getPlayableAudioUrlMock.mockImplementation((url: string | null) => Promise.resolve(url));
   vi.stubGlobal(
     'Audio',
-    vi.fn().mockImplementation(function FakeAudio(this: { play: () => Promise<void>; pause: () => void }, src: string) {
-      audioSources.push(src);
+    vi.fn().mockImplementation(function FakeAudio(this: { src: string; play: () => Promise<void>; pause: () => void; load: () => void }, src: string) {
+      this.src = src;
       this.play = () => {
+        audioSources.push(this.src);
         playCalls += 1;
         return Promise.resolve();
       };
       this.pause = () => {};
+      this.load = () => {};
     }),
   );
 });
@@ -129,8 +121,19 @@ describe('MultipleChoiceGame', () => {
   });
 
   it('tries later learning-language audio candidates when the first one is unavailable', async () => {
-    getPlayableAudioUrlMock.mockImplementation((url: string | null) =>
-      Promise.resolve(url?.includes('missing') ? null : url),
+    vi.stubGlobal(
+      'Audio',
+      vi.fn().mockImplementation(function FakeAudio(this: { src: string; play: () => Promise<void>; pause: () => void; load: () => void }, src: string) {
+        this.src = src;
+        this.play = () => {
+          audioSources.push(this.src);
+          if (this.src.includes('missing')) return Promise.reject(new Error('not found'));
+          playCalls += 1;
+          return Promise.resolve();
+        };
+        this.pause = () => {};
+        this.load = () => {};
+      }),
     );
     const wordsWithFallbackAudio = [
       makeWord('a', 'pes', 'con chó', {
@@ -145,7 +148,7 @@ describe('MultipleChoiceGame', () => {
     fireEvent.click(screen.getByText('con chó'));
 
     await waitFor(() => expect(playCalls).toBe(1));
-    expect(getPlayableAudioUrlMock).toHaveBeenCalledWith('/speech/vi/missing.mp3');
+    expect(audioSources).toContain('/speech/vi/missing.mp3');
     expect(audioSources).toContain('/speech/vi/con-cho.mp3');
   });
 

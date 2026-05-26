@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { getPlayableAudioUrl } from '@/lib/audio-availability';
+import { playUserInitiatedAudio } from '@/lib/audio-playback';
 import type { NormalizedWord } from '@/lib/words';
 import { matchAnswer } from '@/lib/minigames';
 import {
@@ -111,60 +111,7 @@ export function TypingChallengeGame({
   const playClip = async (
     audioSrc: string | string[] | null,
   ): Promise<{ ok: boolean; interrupted: boolean }> => {
-    const candidateAudioSrcs = (Array.isArray(audioSrc) ? audioSrc : [audioSrc])
-      .filter((src): src is string => Boolean(src))
-      .filter((src, idx, arr) => arr.indexOf(src) === idx);
-    if (!candidateAudioSrcs.length) {
-      return { ok: false, interrupted: false };
-    }
-
-    const playAudioSrc = async (audioSrc: string): Promise<{ ok: boolean; reason?: string }> => {
-      return new Promise((resolve) => {
-        let settled = false;
-        const done = (result: { ok: boolean; reason?: string }) => {
-          if (settled) return;
-          settled = true;
-          resolve(result);
-        };
-        try {
-          if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-          }
-          const audio = new Audio(audioSrc);
-          audio.onerror = () => {
-            done({ ok: false, reason: 'audio-error' });
-          };
-          audioRef.current = audio;
-          audio.play()
-            .then(() => {
-              done({ ok: true });
-            })
-            .catch((err) => {
-              const message = err instanceof Error ? err.message : String(err);
-              const interrupted = /interrupted by a call to pause/i.test(message);
-              done({ ok: false, reason: interrupted ? 'interrupted' : message });
-            });
-        } catch {
-          done({ ok: false, reason: 'exception' });
-        }
-      });
-    };
-
-    for (let i = 0; i < candidateAudioSrcs.length; i += 1) {
-      const src = candidateAudioSrcs[i];
-      const playableSrc = await getPlayableAudioUrl(src);
-      if (!playableSrc) {
-        continue;
-      }
-
-      const result = await playAudioSrc(playableSrc);
-      if (result.ok) return { ok: true, interrupted: false };
-      // User clicked replay repeatedly while previous attempt is being replaced.
-      if (result.reason === 'interrupted') return { ok: false, interrupted: true };
-    }
-
-    return { ok: false, interrupted: false };
+    return playUserInitiatedAudio(audioRef, audioSrc);
   };
 
   const replayPrompt = async () => {

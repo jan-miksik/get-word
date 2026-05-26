@@ -97,6 +97,16 @@ export class AuthRequiredError extends Error {
   }
 }
 
+class LinkWalletRequestError extends Error {
+  constructor(
+    message: string,
+    readonly status: number
+  ) {
+    super(message);
+    this.name = "LinkWalletRequestError";
+  }
+}
+
 export function isAuthRequiredError(error: unknown): boolean {
   if (error instanceof AuthRequiredError) return true;
   return error instanceof Error && error.message.includes(AUTH_REQUIRED_TEXT);
@@ -189,7 +199,7 @@ export async function linkWallet(
         response,
         `Failed to link wallet: ${response.status} ${response.statusText}`
       );
-      throw new Error(errorMessage);
+      throw new LinkWalletRequestError(errorMessage, response.status);
     }
 
     const result = await response.json();
@@ -207,6 +217,48 @@ export async function linkWallet(
     }
     throw new Error(toNetworkErrorMessage("Failed to link wallet", error));
   }
+}
+
+/**
+ * Complete the AppKit-to-app-session handoff with brief retries.
+ *
+ * Social and embedded-wallet sign-in may finish before the server or network
+ * is ready for the linking request. Keep this bounded so a real failure is
+ * surfaced promptly and remains retryable from the UI.
+ */
+export async function linkWalletWithRetry(
+  walletAddress: string,
+  opts?: { email?: string | null; authProvider?: string | null },
+  retryOptions?: { maxAttempts?: number; baseDelayMs?: number }
+): Promise<SyncResponse> {
+  const maxAttempts = Math.max(1, retryOptions?.maxAttempts ?? 3);
+  const baseDelayMs = Math.max(0, retryOptions?.baseDelayMs ?? 350);
+  let lastError: unknown;
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    try {
+      return await linkWallet(walletAddress, opts);
+    } catch (error) {
+      lastError = error;
+      if (
+        error instanceof LinkWalletRequestError &&
+        error.status < 500 &&
+        error.status !== 408 &&
+        error.status !== 429
+      ) {
+        throw error;
+      }
+      if (attempt < maxAttempts) {
+        await new Promise<void>((resolve) => {
+          window.setTimeout(resolve, baseDelayMs * 2 ** (attempt - 1));
+        });
+      }
+    }
+  }
+
+  throw lastError instanceof Error
+    ? lastError
+    : new Error('Failed to complete sign in');
 }
 
 // Sync data to server (DB-only; no localStorage).

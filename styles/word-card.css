@@ -352,21 +352,9 @@
   color: var(--srs-ink);
 }
 
-.srs-btn--forgot:hover {
-  background: #B91C1C;
-  color: #fff;
-  border-color: var(--srs-ink);
-}
-
 .srs-btn--okay {
   background: #F4EFE2;
   color: var(--srs-ink);
-}
-
-.srs-btn--okay:hover {
-  background: #1E6FA8;
-  color: #fff;
-  border-color: var(--srs-ink);
 }
 
 .srs-btn--easy {
@@ -374,10 +362,24 @@
   color: var(--srs-ink);
 }
 
-.srs-btn--easy:hover {
-  background: #15803D;
-  color: #fff;
-  border-color: var(--srs-ink);
+@media (hover: hover) and (pointer: fine) {
+  .srs-btn--forgot:hover {
+    background: #B91C1C;
+    color: #fff;
+    border-color: var(--srs-ink);
+  }
+
+  .srs-btn--okay:hover {
+    background: #1E6FA8;
+    color: #fff;
+    border-color: var(--srs-ink);
+  }
+
+  .srs-btn--easy:hover {
+    background: #15803D;
+    color: #fff;
+    border-color: var(--srs-ink);
+  }
 }
 
 .srs-btn:active {

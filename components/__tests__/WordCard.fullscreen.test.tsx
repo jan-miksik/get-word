@@ -1,11 +1,7 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { WordCard } from '../WordCard';
 import { STAGES, type NormalizedWord } from '@/lib/words';
-
-vi.mock('@/lib/audio-availability', () => ({
-  getPlayableAudioUrl: (url: string | null) => Promise.resolve(url),
-}));
 
 const word: NormalizedWord = {
   id: 'test-1',
@@ -129,7 +125,7 @@ describe('WordCard fullscreen', () => {
     expect(onReallyKnown).toHaveBeenCalledTimes(1);
   });
 
-  it('plays stored audio from the larger floating audio button', async () => {
+  it('starts stored audio synchronously from the larger floating audio button', () => {
     const play = vi.fn(() => Promise.resolve());
     const pause = vi.fn();
     const audioConstructor = vi.fn();
@@ -156,10 +152,7 @@ describe('WordCard fullscreen', () => {
     expect(button).toHaveClass('!h-16');
 
     fireEvent.click(button);
-
-    await waitFor(() => {
-      expect(audioConstructor).toHaveBeenCalledWith('/speech/vi/dog.mp3');
-      expect(play).toHaveBeenCalledTimes(1);
-    });
+    expect(audioConstructor).toHaveBeenCalledWith('/speech/vi/dog.mp3');
+    expect(play).toHaveBeenCalledTimes(1);
   });
 });

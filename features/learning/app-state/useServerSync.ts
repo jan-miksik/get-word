@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   fetchUserData,
-  linkWallet,
+  linkWalletWithRetry,
   clearPendingSync,
   isAuthRequiredError,
   markServerSnapshotApplied,
@@ -69,10 +69,12 @@ export function useServerSync({
   setActiveListId,
 }: UseServerSyncOptions) {
   const [isLinkingWallet, setIsLinkingWallet] = useState(false);
-  const [hasLinkWalletError, setHasLinkWalletError] = useState(false);
+  const [linkWalletError, setLinkWalletError] = useState<string | null>(null);
+  const [linkRetryNonce, setLinkRetryNonce] = useState(0);
   const isHydratedRef = useRef(false);
   const hasLoadedRef = useRef(false);
-  const hasLinkedRef = useRef(false);
+  const linkedIdentityRef = useRef<string | null>(null);
+  const linkAttemptRef = useRef(0);
 
   const applyServerData = useCallback((
     serverData: SyncResponse,
@@ -313,44 +315,66 @@ export function useServerSync({
     };
   }, [applyFreshServerData, refetchServerData]);
 
+  const retryLinkWallet = useCallback(() => {
+    linkedIdentityRef.current = null;
+    setLinkWalletError(null);
+    setLinkRetryNonce((nonce) => nonce + 1);
+  }, []);
+
   useEffect(() => {
-    if (!isHydrated || !walletAddress || hasLinkedRef.current) return;
-    hasLinkedRef.current = true;
-    setHasLinkWalletError(false);
+    if (!isHydrated || !walletAddress) return;
+    const identityKey = [
+      walletAddress.toLowerCase(),
+      linkPayload?.email?.trim().toLowerCase() ?? '',
+      linkPayload?.authProvider?.trim().toLowerCase() ?? '',
+    ].join('|');
+    if (linkedIdentityRef.current === identityKey) return;
+    linkedIdentityRef.current = identityKey;
+    const attemptId = linkAttemptRef.current + 1;
+    linkAttemptRef.current = attemptId;
+    setLinkWalletError(null);
     setIsLinkingWallet(true);
     isUpdatingFromServerRef.current = true;
     clearPendingSync();
 
-    linkWallet(walletAddress, {
+    linkWalletWithRetry(walletAddress, {
       email: linkPayload?.email ?? undefined,
       authProvider: linkPayload?.authProvider ?? undefined,
     })
       .then((serverData) => {
+        if (linkAttemptRef.current !== attemptId) return;
         applyServerData(serverData);
         requestAnimationFrame(() => {
+          if (linkAttemptRef.current !== attemptId) return;
           isUpdatingFromServerRef.current = false;
           setIsLinkingWallet(false);
         });
       })
       .catch((error) => {
+        if (linkAttemptRef.current !== attemptId) return;
         console.error('[useServerSync] Failed to link wallet:', error);
         isUpdatingFromServerRef.current = false;
-        hasLinkedRef.current = false;
+        linkedIdentityRef.current = null;
         setIsLinkingWallet(false);
-        setHasLinkWalletError(true);
+        setLinkWalletError(
+          'We connected your account, but could not finish signing you in. Please try again.'
+        );
       });
-  }, [applyServerData, isHydrated, isUpdatingFromServerRef, linkPayload?.authProvider, linkPayload?.email, walletAddress]);
+  }, [applyServerData, isHydrated, isUpdatingFromServerRef, linkPayload?.authProvider, linkPayload?.email, linkRetryNonce, walletAddress]);
 
   useEffect(() => {
     if (!walletAddress) {
-      hasLinkedRef.current = false;
+      linkAttemptRef.current += 1;
+      linkedIdentityRef.current = null;
       setIsLinkingWallet(false);
-      setHasLinkWalletError(false);
+      setLinkWalletError(null);
     }
   }, [walletAddress]);
 
   return {
     isLinkingWallet,
-    hasLinkWalletError,
+    hasLinkWalletError: linkWalletError !== null,
+    linkWalletError,
+    retryLinkWallet,
   };
 }

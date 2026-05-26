@@ -8,7 +8,7 @@ vi.mock('../session-id', () => ({
   getSessionId: () => 'session-1',
 }));
 
-import { fetchUserData, resetSyncIdentity, syncUserData } from '../sync';
+import { fetchUserData, linkWalletWithRetry, resetSyncIdentity, syncUserData } from '../sync';
 
 const nextErrorHtml = `<!DOCTYPE html><html><body><div id="__next"></div><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"statusCode":500}},"page":"/_error","err":{"name":"Internal Server Error.","message":"500 - Internal Server Error.","statusCode":500}}</script></body></html>`;
 
@@ -77,5 +77,50 @@ describe('sync client errors', () => {
       }),
     }));
     window.removeEventListener('get-word:server-sync', listener);
+  });
+
+  it('retries the login session handoff after a transient failure', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ error: 'temporary failure' }), {
+        status: 503,
+        headers: { 'content-type': 'application/json' },
+      }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        success: true,
+        user: { id: 'user-1' },
+      }), {
+        status: 200,
+        headers: { 'content-type': 'application/json' },
+      }));
+    vi.stubGlobal('fetch', fetchMock);
+
+    const result = await linkWalletWithRetry(
+      '0x1234567890abcdef1234567890abcdef12345678',
+      undefined,
+      { baseDelayMs: 0 }
+    );
+
+    expect(result.user?.id).toBe('user-1');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('does not retry a rejected login session request', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      new Response(JSON.stringify({ error: 'Invalid wallet address format' }), {
+        status: 400,
+        headers: { 'content-type': 'application/json' },
+      })
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      linkWalletWithRetry(
+        'invalid-wallet',
+        undefined,
+        { baseDelayMs: 0 }
+      )
+    ).rejects.toThrow('Invalid wallet address format');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 });

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo, memo } from 'react';
-import { getPlayableAudioUrl } from '@/lib/audio-availability';
+import { playUserInitiatedAudio } from '@/lib/audio-playback';
 import { NormalizedWord, STAGES } from '@/lib/words';
 import { ProgressData } from '@/lib/sync';
 import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
@@ -186,41 +186,32 @@ export const WordCard = memo(function WordCard({
 
   // Audio playback
   const playAudio = (src: string | string[]) => {
-    void (async () => {
-      const audioSrc = Array.isArray(src) ? src[0] : src;
-      const playableUrl = await getPlayableAudioUrl(audioSrc);
-      if (!playableUrl) return;
-
-      try {
-        if (audioRef.current) {
-          audioRef.current.pause();
-          audioRef.current.currentTime = 0;
-        }
-        audioRef.current = new Audio(playableUrl);
-        audioRef.current.play().catch(() => {});
-      } catch {}
-    })();
+    void playUserInitiatedAudio(audioRef, src);
   };
 
   // Helper to normalize audio paths for Next.js (add leading slash if needed)
-  const normalizeAudioPath = (path: string | string[]): string => {
-    const pathStr = Array.isArray(path) ? path[0] : path;
-    if (/^(?:https?:|blob:|data:)/i.test(pathStr)) return pathStr;
+  const normalizeAudioPath = (path: string): string => {
+    if (/^(?:https?:|blob:|data:)/i.test(path)) return path;
     // Ensure path starts with / for Next.js public directory
     // Paths in data are like "speech/cz/file.mp3", need to be "/speech/cz/file.mp3"
-    return pathStr.startsWith('/') ? pathStr : `/${pathStr}`;
+    return path.startsWith('/') ? path : `/${path}`;
   };
 
   // Get audio source for the side the user is learning (not the side they
   // already know). 'languageToLearn' (old 'vi') → learning from-side → cz audio.
   // 'knownLanguage' (old 'cz') → learning to-side → vi audio.
-  const getAudioSrc = (): string | null => {
+  const getAudioSrc = (): string[] | null => {
+    let storedAudio: string | string[] | undefined;
     if (role === 'languageToLearn' && word.czAudio) {
-      return normalizeAudioPath(word.czAudio);
+      storedAudio = word.czAudio;
     } else if (role === 'knownLanguage' && word.viAudio) {
-      return normalizeAudioPath(word.viAudio);
+      storedAudio = word.viAudio;
     }
-    return null;
+    if (!storedAudio) return null;
+    const candidates = (Array.isArray(storedAudio) ? storedAudio : [storedAudio])
+      .map(normalizeAudioPath)
+      .filter((candidate, index, all) => all.indexOf(candidate) === index);
+    return candidates.length > 0 ? candidates : null;
   };
 
   const audioSrc = getAudioSrc();
@@ -505,14 +496,15 @@ export const WordCard = memo(function WordCard({
                 <div
                   ref={customPopoverRef}
                   role="listbox"
-                  className="absolute right-0 bottom-[calc(100%+0.5rem)] z-50 w-[16.5rem] max-w-[calc(100vw-2rem)] max-h-[min(75dvh,34rem)] rounded-2xl border-2 border-[#2A2218] bg-[#F4EFE2] text-[#2A2218] shadow-lg overflow-y-auto flex flex-col max-md:fixed max-md:left-4 max-md:right-4 max-md:bottom-[calc(env(safe-area-inset-bottom,0px)+7.5rem)] max-md:w-auto max-md:max-w-none"
+                  className="absolute right-0 bottom-[calc(100%+0.5rem)] z-50 w-[15rem] max-w-[calc(100vw-2rem)] max-h-[min(70dvh,26rem)] rounded-2xl border-2 border-[#2A2218] bg-[#F4EFE2] text-[#2A2218] shadow-lg overflow-hidden flex flex-col"
                 >
-                  <div className="sticky top-0 bg-[#F4EFE2] px-4 py-3 text-[0.78rem] font-bold uppercase tracking-[0.12em] text-[#2A2218]/70 border-b border-[#2A2218]/20">
+                  <div className="bg-[#F4EFE2] px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.12em] text-[#2A2218]/70 border-b border-[#2A2218]/20">
                     {t('card.repeatAfter')}
                   </div>
-                  <div className="p-2">
+                  <div className="overflow-y-auto">
                   {STAGES.map((stage, idx) => {
                     const isCurrent = idx === clampedStageIndex;
+                    const stripe = idx % 2 === 1;
                     return (
                       <button
                         key={stage.id}
@@ -523,8 +515,12 @@ export const WordCard = memo(function WordCard({
                           setCustomOpen(false);
                           onCustomStage?.(idx);
                         }}
-                        className={`flex min-h-12 w-full items-center rounded-lg px-3.5 py-2.5 text-left text-[1rem] leading-snug transition-colors hover:bg-[#2A2218]/10 active:bg-[#2A2218]/20 ${
-                          isCurrent ? 'bg-[#2A2218]/5 font-semibold' : ''
+                        className={`relative flex w-full items-center px-3 py-2 text-left text-[0.9rem] leading-snug transition-colors hover:bg-[#2A2218]/15 active:bg-[#2A2218]/25 ${
+                          isCurrent
+                            ? 'bg-[#2A2218]/12 font-semibold before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-r before:bg-[#2A2218]'
+                            : stripe
+                              ? 'bg-[#2A2218]/[0.045]'
+                              : ''
                         }`}
                       >
                         {t(`stage.${stage.id}` as I18nKey)}
@@ -543,7 +539,7 @@ export const WordCard = memo(function WordCard({
                         onReallyKnown?.();
                       }
                     }}
-                    className="flex min-h-12 w-full items-center rounded-lg px-3.5 py-2.5 text-left text-[1rem] leading-snug transition-colors hover:bg-[#12750f]/10 active:bg-[#12750f]/20 border-t border-[#2A2218]/20 mt-2 pt-3"
+                    className="flex w-full items-center px-3 py-2 text-left text-[0.9rem] leading-snug font-medium text-[#12750f] bg-[#12750f]/[0.08] transition-colors hover:bg-[#12750f]/20 active:bg-[#12750f]/30 border-t border-[#2A2218]/20"
                   >
                     {t('card.fullyKnownNoRepeat')}
                   </button>

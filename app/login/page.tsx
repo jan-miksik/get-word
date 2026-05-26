@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthConnectCard } from '@/components/AuthConnectCard';
 import { SpeckledBackground } from '@/components/SpeckledBackground';
 import { useAuth } from '@/hooks/useAuth';
-import { linkWallet } from '@/lib/sync';
+import { linkWalletWithRetry } from '@/lib/sync';
 
 function sanitizeNextPath(input: string | null): string {
   if (!input) return '/';
@@ -25,6 +25,7 @@ export default function LoginPage() {
   const { isConnected, address, email, authProvider, signIn } = useAuth();
   const [isLinking, setIsLinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [linkRetryNonce, setLinkRetryNonce] = useState(0);
   const linkedAddressRef = useRef<string | null>(null);
 
   useEffect(() => {
@@ -33,7 +34,7 @@ export default function LoginPage() {
     linkedAddressRef.current = address;
     setIsLinking(true);
     setError(null);
-    void linkWallet(address, {
+    void linkWalletWithRetry(address, {
       email: email ?? null,
       authProvider: authProvider ?? null,
     })
@@ -47,7 +48,17 @@ export default function LoginPage() {
       .finally(() => {
         setIsLinking(false);
       });
-  }, [isConnected, address, email, authProvider, nextPath, router]);
+  }, [isConnected, address, email, authProvider, linkRetryNonce, nextPath, router]);
+
+  const handleSignIn = useCallback(() => {
+    if (isConnected && address && error) {
+      linkedAddressRef.current = null;
+      setError(null);
+      setLinkRetryNonce((nonce) => nonce + 1);
+      return;
+    }
+    signIn();
+  }, [address, error, isConnected, signIn]);
 
   return (
     <main className="app bg-[#dcd1b9] px-4 py-8 sm:px-6 sm:py-10">
@@ -60,7 +71,7 @@ export default function LoginPage() {
           buttonLabel="Continue"
           isBusy={isLinking}
           error={error}
-          onSignIn={signIn}
+          onSignIn={handleSignIn}
         />
       </div>
     </main>

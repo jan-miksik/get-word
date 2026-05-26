@@ -84,6 +84,18 @@
   justify-content: center;
 }
 
+/* Mobile: bump the icon-only menu button up so it's a comfortable tap target
+   and visually heavier than a tiny 16px glyph. Larger padding + scaled-up icon
+   are applied here (mobile-default) and overridden back on desktop below. */
+.mode-btn.menu-toggle-btn {
+  padding: 10px 14px;
+}
+
+.menu-toggle-icon svg {
+  width: 22px;
+  height: 22px;
+}
+
 .stat-chip {
   display: inline-flex;
   align-items: center;
@@ -175,6 +187,16 @@
 
   .menu-toggle-label {
     display: inline;
+  }
+
+  /* Desktop: revert to the compact icon + label sizing. */
+  .mode-btn.menu-toggle-btn {
+    padding: 7px 14px;
+  }
+
+  .menu-toggle-icon svg {
+    width: 16px;
+    height: 16px;
   }
 }
 

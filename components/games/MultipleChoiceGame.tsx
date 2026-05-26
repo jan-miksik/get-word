@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { getPlayableAudioUrl } from '@/lib/audio-availability';
+import { playUserInitiatedAudio } from '@/lib/audio-playback';
 import type { NormalizedWord } from '@/lib/words';
 import {
   flipSide,
@@ -83,29 +83,7 @@ export function MultipleChoiceGame({
   };
 
   const playAudio = (audioSrc: string | string[] | null) => {
-    void (async () => {
-      const candidates = (Array.isArray(audioSrc) ? audioSrc : [audioSrc])
-        .filter((src): src is string => Boolean(src))
-        .filter((src, index, arr) => arr.indexOf(src) === index);
-
-      for (const candidate of candidates) {
-        const playableUrl = await getPlayableAudioUrl(candidate);
-        if (!playableUrl) continue;
-
-        try {
-          if (audioRef.current) {
-            audioRef.current.pause();
-            audioRef.current.currentTime = 0;
-          }
-          const audio = new Audio(playableUrl);
-          audioRef.current = audio;
-          await audio.play();
-          return;
-        } catch {
-          // Try the next candidate when this source cannot be played.
-        }
-      }
-    })();
+    void playUserInitiatedAudio(audioRef, audioSrc);
   };
 
   const replayPrompt = () => {

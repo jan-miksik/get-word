@@ -1,89 +1,165 @@
 import { normalizeLanguageCode } from '@/lib/i18n/languages';
 
+export type PWAInstallBenefit = { title: string; description: string };
+
 export type PWAInstallIntroCopy = {
-  title: string;
-  body: string;
-  advantagesLabel: string;
-  advantages: string[];
-  installLabel: string;
-  laterLabel: string;
-  gotItLabel: string;
-  iosSafariStepsLabel: string;
-  iosSafariSteps: string[];
-  iosSafariFootnote: string;
-  iosNonSafariNote: string;
+  iosTitle: string;
+  iosSubtitle: string;
+  androidTitle: string;
+  androidSubtitle: string;
+  benefitChips: PWAInstallBenefit[];
+  benefitList: PWAInstallBenefit[];
+  safariBannerLabel: string;
+  safariBannerHeadline: string;
+  safariBannerBodyBefore: string;
+  safariBannerMenuLabel: string;
+  safariBannerBodyAfter: string;
+  iosStepsLabel: string;
+  iosStepsBadge: string;
+  iosSteps: { text: string; bold: string; alt?: string }[];
+  videoLabel: string;
+  androidCtaLabel: string;
+  androidCtaHint: string;
+  androidCtaHintBold: string;
   desktopHint: string;
+  skipInstallLabel: string;
 };
 
 const copyByLanguage: Record<string, PWAInstallIntroCopy> = {
   en: {
-    title: 'Install Get Word as an app',
-    body: 'Add Get Word to your home screen for a faster, more focused way to learn.',
-    advantagesLabel: 'Why install',
-    advantages: [
-      'Opens like a real app — no browser bar.',
-      'Launches from your home screen with one tap.',
-      'Works offline after the first load.',
+    iosTitle: 'Why add Get Word to home screen',
+    iosSubtitle: '',
+    androidTitle: 'Why add Get Word to home screen',
+    androidSubtitle: '',
+    benefitChips: [
+      { title: 'Better offline', description: '' },
+      { title: 'Easier access', description: '' },
+      { title: 'No browser bar', description: '' },
     ],
-    installLabel: 'Install',
-    laterLabel: 'Maybe later',
-    gotItLabel: 'Got it',
-    iosSafariStepsLabel: 'How to install on iPhone / iPad',
-    iosSafariSteps: [
-      'Tap the Share button at the bottom of Safari.',
-      'Scroll down and tap "Add to Home Screen".',
-      'Tap "Add" in the top-right corner.',
+    benefitList: [
+      {
+        title: 'Better offline support',
+        description: 'Most features work without a stable connection.',
+      },
+      {
+        title: 'Easier access',
+        description: 'Launch from your home screen with a single tap.',
+      },
+      {
+        title: 'No browser bar',
+        description: 'Opens like a standalone app.',
+      },
     ],
-    iosSafariFootnote: 'Only Safari can fully install this on iPhone / iPad.',
-    iosNonSafariNote:
-      'On iPhone / iPad, installing this app only works in Safari. Other browsers (Chrome, Firefox, etc.) cannot install it properly. Open this page in Safari to install.',
+    safariBannerLabel: 'YOU NEED SAFARI',
+    safariBannerHeadline: 'Only Safari can fully install this on iPhone / iPad.',
+    safariBannerBodyBefore: 'Open this page in Safari and follow the steps below. You can reopen these instructions any time via the menu ',
+    safariBannerMenuLabel: 'Add to home screen',
+    safariBannerBodyAfter: '.',
+    iosStepsLabel: 'STEPS',
+    iosStepsBadge: 'iOS · Safari',
+    iosSteps: [
+      { text: 'Tap the ', bold: '… dots', alt: '' },
+      { text: 'Tap the ', bold: 'Share', alt: 'Share' },
+      { text: 'Scroll down or tap ', bold: 'Show more', alt: 'View more' },
+      { text: 'Choose ', bold: 'Add to Home Screen', alt: '' },
+      { text: 'Tap ', bold: 'Add', alt: 'Add' },
+    ],
+    videoLabel: 'Video guide',
+    androidCtaLabel: 'Add to home screen',
+    androidCtaHint: 'After tapping, confirm ',
+    androidCtaHintBold: 'Install',
     desktopHint: 'Open your browser menu and choose "Install app" or "Add to Home screen".',
+    skipInstallLabel: 'Continue without adding to home screen',
   },
   cs: {
-    title: 'Nainstalujte si Get Word jako aplikaci',
-    body: 'Přidejte Get Word na plochu - učení bude rychlejší a bez rušivých prvků prohlížeče.',
-    advantagesLabel: 'Proč instalovat',
-    advantages: [
-      'Otevírá se jako opravdová aplikace - bez lišty prohlížeče.',
-      'Spustíte ji z plochy jedním klepnutím.',
-      'Po prvním načtení funguje i offline.',
+    iosTitle: 'Proč přidat Get Word na plochu',
+    iosSubtitle: '',
+    androidTitle: 'Proč přidat Get Word na plochu',
+    androidSubtitle: '',
+    benefitChips: [
+      { title: 'Lepší offline', description: '' },
+      { title: 'Snadnější přístup', description: '' },
+      { title: 'Bez lišty', description: '' },
     ],
-    installLabel: 'Instalovat',
-    laterLabel: 'Možná později',
-    gotItLabel: 'Rozumím',
-    iosSafariStepsLabel: 'Jak nainstalovat na iPhone / iPad',
-    iosSafariSteps: [
-      'Klepněte na tlačítko Sdílet ve spodní liště Safari.',
-      'Posuňte níž a klepněte na "Přidat na plochu".',
-      'Klepněte na "Přidat" v pravém horním rohu.',
+    benefitList: [
+      {
+        title: 'Lepší offline podpora',
+        description: 'Většinu funkcí zvládnete i bez stabilního připojení.',
+      },
+      {
+        title: 'Snadnější přístup',
+        description: 'Spustíte ji z plochy jedním klepnutím.',
+      },
+      {
+        title: 'Bez lišty prohlížeče',
+        description: 'Otevírá se jako samostatná aplikace.',
+      },
     ],
-    iosSafariFootnote: 'Na iPhonu / iPadu lze aplikaci plně nainstalovat jen v Safari.',
-    iosNonSafariNote:
-      'Na iPhonu / iPadu instalace funguje pouze v prohlížeči Safari. Ostatní prohlížeče (Chrome, Firefox apod.) ji neumí správně nainstalovat. Otevřete tuto stránku v Safari a pak nainstalujte.',
-    desktopHint: 'Otevřete menu prohlížeče a zvolte "Nainstalovat aplikaci" nebo "Přidat na plochu".',
+    safariBannerLabel: 'POTŘEBUJETE SAFARI',
+    safariBannerHeadline: 'Plnou instalaci na iPhone / iPad zvládne jen Safari.',
+    safariBannerBodyBefore: 'Otevřete tuto stránku v Safari a postupujte podle návodu níže. Návod zobrazíte přes menu ',
+    safariBannerMenuLabel: 'Přidat na plochu',
+    safariBannerBodyAfter: '.',
+    iosStepsLabel: 'POSTUP',
+    iosStepsBadge: 'iOS · Safari',
+    iosSteps: [
+      { text: 'Stiskněte ', bold: '… tečky', alt: '' },
+      { text: 'Stiskněte tlačítko ', bold: 'Sdílet', alt: 'Share' },
+      { text: 'Posuňte níž nebo stiskněte ', bold: 'Zobrazit více', alt: 'View more' },
+      { text: 'Vyberte ', bold: 'Přidat na plochu', alt: 'Add to Home Screen' },
+      { text: 'Stiskněte ', bold: 'Přidat', alt: 'Add' },
+    ],
+    videoLabel: 'Video návod',
+    androidCtaLabel: 'Přidat na plochu mobilu',
+    androidCtaHint: 'Po stisknutí potvrďte v dialogu prohlížeče ',
+    androidCtaHintBold: 'Instalovat',
+    desktopHint: 'Otevřete menu prohlížeče a zvolte "Přidat na plochu".',
+    skipInstallLabel: 'Pokračovat bez přidání na plochu',
   },
   vi: {
-    title: 'Cài Get Word như một ứng dụng',
-    body: 'Thêm Get Word vào màn hình chính để học nhanh hơn và tập trung hơn.',
-    advantagesLabel: 'Vì sao nên cài',
-    advantages: [
-      'Mở như ứng dụng thật - không có thanh trình duyệt.',
-      'Khởi chạy từ màn hình chính chỉ với một chạm.',
-      'Hoạt động offline sau lần tải đầu tiên.',
+    iosTitle: 'Vì sao nên thêm Get Word vào màn hình chính',
+    iosSubtitle: '',
+    androidTitle: 'Vì sao nên thêm Get Word vào màn hình chính',
+    androidSubtitle: '',
+    benefitChips: [
+      { title: 'Offline tốt hơn', description: '' },
+      { title: 'Dễ truy cập', description: '' },
+      { title: 'Không có thanh', description: '' },
     ],
-    installLabel: 'Cài đặt',
-    laterLabel: 'Để sau',
-    gotItLabel: 'Đã hiểu',
-    iosSafariStepsLabel: 'Cách cài trên iPhone / iPad',
-    iosSafariSteps: [
-      'Chạm vào nút Chia sẻ ở dưới cùng của Safari.',
-      'Cuộn xuống và chạm "Thêm vào Màn hình chính".',
-      'Chạm "Thêm" ở góc trên bên phải.',
+    benefitList: [
+      {
+        title: 'Hỗ trợ offline tốt hơn',
+        description: 'Hầu hết tính năng chạy mà không cần kết nối ổn định.',
+      },
+      {
+        title: 'Truy cập dễ hơn',
+        description: 'Mở từ màn hình chính chỉ với một chạm.',
+      },
+      {
+        title: 'Không có thanh trình duyệt',
+        description: 'Mở như một ứng dụng độc lập.',
+      },
     ],
-    iosSafariFootnote: 'Trên iPhone / iPad, chỉ Safari mới cài được đầy đủ.',
-    iosNonSafariNote:
-      'Trên iPhone / iPad, việc cài ứng dụng chỉ hoạt động trong Safari. Các trình duyệt khác (Chrome, Firefox...) không cài được đầy đủ. Hãy mở trang này trong Safari rồi cài.',
+    safariBannerLabel: 'CẦN SAFARI',
+    safariBannerHeadline: 'Trên iPhone / iPad, chỉ Safari mới cài được đầy đủ.',
+    safariBannerBodyBefore: 'Mở trang này trong Safari rồi làm theo hướng dẫn bên dưới. Bạn có thể mở lại hướng dẫn bất kỳ lúc nào qua menu ',
+    safariBannerMenuLabel: 'Thêm vào màn hình chính',
+    safariBannerBodyAfter: '.',
+    iosStepsLabel: 'CÁC BƯỚC',
+    iosStepsBadge: 'iOS · Safari',
+    iosSteps: [
+      { text: 'Chạm vào ', bold: '… dấu chấm', alt: '' },
+      { text: 'Chạm nút ', bold: 'Chia sẻ', alt: 'Share' },
+      { text: 'Cuộn xuống hoặc chạm ', bold: 'Xem thêm', alt: 'View more' },
+      { text: 'Chọn ', bold: 'Thêm vào màn hình chính', alt: 'Add to Home Screen' },
+      { text: 'Chạm ', bold: 'Thêm', alt: 'Add' },
+    ],
+    videoLabel: 'Video hướng dẫn',
+    androidCtaLabel: 'Thêm vào màn hình chính',
+    androidCtaHint: 'Sau khi chạm, xác nhận ',
+    androidCtaHintBold: 'Cài đặt',
     desktopHint: 'Mở menu trình duyệt và chọn "Cài đặt ứng dụng" hoặc "Thêm vào Màn hình chính".',
+    skipInstallLabel: 'Tiếp tục mà không thêm vào màn hình chính',
   },
 };
 

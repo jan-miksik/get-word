@@ -82,6 +82,8 @@ export default function Home() {
     isHydrated,
     isLinkingWallet,
     hasLinkWalletError,
+    linkWalletError,
+    retryLinkWallet,
     setGameScore,
     syncedWords,
     userId,
@@ -99,7 +101,7 @@ export default function Home() {
   // Use synced words (from word_list_items) when available, otherwise use the fetched words table.
   const activeWords = syncedWords ?? normalizedWords;
 
-  const isAuthenticated = isConnected;
+  const isAuthenticated = Boolean(isConnected && userId && !hasLinkWalletError);
   const isWaitingForLinkedProfile = Boolean(
     isConnected &&
       walletAddress &&
@@ -280,16 +282,24 @@ export default function Home() {
     };
   }, []);
 
+  const [previewPWADismissed, setPreviewPWADismissed] = useState(false);
+
   const handleDismissPWAInstallIntro = useCallback(() => {
     persistPWAInstallPromptAnswered(true);
     setPwaInstallPromptAnswered(true);
+    setPreviewPWADismissed(true);
   }, []);
 
   // Visible only on real mobile (normal flow) or on small viewports (preview/testing).
   const isPWAVisibleForViewport = isOnMobileDevice || isOnSmallScreen;
 
+  // Preview mode is gated on small viewport / mobile UA so the install screen
+  // never appears on desktop, even with the URL param set.
+  const isPreviewPWAActive =
+    previewPWAInstallIntro.enabled && isPWAVisibleForViewport && !previewPWADismissed;
+
   const shouldShowPWAInstallIntro =
-    (previewPWAInstallIntro.enabled && isPWAVisibleForViewport) ||
+    isPreviewPWAActive ||
     (viewMode === 'card' &&
       isOnMobileDevice &&
       !shouldShowMemoryHooksIntro &&
@@ -312,7 +322,11 @@ export default function Home() {
         {!loaderDismissed ? (
           <LoadingScreen />
         ) : !isAuthenticated ? (
-          <AuthRequiredCard onSignIn={signIn} />
+          <AuthRequiredCard
+            onSignIn={hasLinkWalletError && walletAddress ? retryLinkWallet : signIn}
+            isBusy={isLinkingWallet}
+            error={linkWalletError}
+          />
         ) : !onboardingCompletedAt || !learningLanguageFrom || !learningLanguageTo ? (
           <LearningLanguageOnboarding
             initialFrom={learningLanguageFrom}
@@ -322,7 +336,9 @@ export default function Home() {
           />
         ) : (
           <LearningStudyContent
-            viewMode={viewMode}
+            // Force card view when previewing the PWA install screen — the
+            // interstitial only renders inside the card deck.
+            viewMode={isPreviewPWAActive ? 'card' : viewMode}
             onViewModeChange={setViewMode}
             minigameFrequency={minigameFrequency}
             onMinigameFrequencyChange={(f) => setMinigameFrequency(f)}
