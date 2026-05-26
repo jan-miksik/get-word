@@ -21,3 +21,4 @@ ALTER TABLE IF EXISTS public.user_api_keys           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.oauth_rate_limits       ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.google_api_usage        ENABLE ROW LEVEL SECURITY;
 ALTER TABLE IF EXISTS public.user_list_subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE IF EXISTS public.processed_client_ops     ENABLE ROW LEVEL SECURITY;
