@@ -65,6 +65,11 @@ export function TypingChallengeGame({
   const answerChars = normalizedAnswer.split('');
   const answerLanguageCode = getWordLanguageCodeForSide(questionWord, answerSide);
   const targetLanguageLabel = (() => {
+    if (answerLanguageCode) {
+      const key = `languageNameIn.${answerLanguageCode}` as I18nKey;
+      const translated = t(key);
+      if (translated && translated !== key) return translated;
+    }
     // BCP-47-driven lookup; falls back to the legacy cz/vi labels for words
     // that pre-date the languageFrom/languageTo metadata.
     if (answerLanguageCode) {
@@ -75,7 +80,7 @@ export function TypingChallengeGame({
       const translated = t(key);
       if (translated && translated !== key) return translated;
     }
-    return answerSide === 'from' ? t('languageName.cs') : t('languageName.vi');
+    return answerSide === 'from' ? t('languageNameIn.cs') : t('languageNameIn.vi');
   })();
 
   const check = () => {

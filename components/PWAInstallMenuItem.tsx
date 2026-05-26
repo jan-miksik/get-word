@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { isStandalone, openPWAInstallHelp } from '@/lib/pwa-install';
+import { installGlobalPWACapture, isStandalone, openPWAInstallHelp } from '@/lib/pwa-install';
 import { InstallAppIcon } from '@/components/icons/AppIcons';
 import { useI18n } from '@/components/I18nProvider';
 
@@ -17,6 +17,12 @@ export function PWAInstallMenuItem({ onClick }: { onClick?: () => void }) {
     // "is this a mobile viewport" question.
     const mobileQuery = window.matchMedia?.('(max-width: 900px)');
     const syncMobileViewport = () => setIsMobileViewport(mobileQuery?.matches === true);
+
+    // Catch `beforeinstallprompt` as early as possible — it fires once near
+    // page load, long before the user opens the install modal. Without this
+    // the Android install button never shows up because the modal's own
+    // listener is registered too late.
+    installGlobalPWACapture();
 
     syncMobileViewport();
     setInstalled(isStandalone());

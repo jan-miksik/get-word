@@ -240,4 +240,30 @@ describe('useLearningPageState', () => {
       'new-3',
     ]);
   });
+
+  it('keeps minigames available through a larger new-word card session', () => {
+    const words = Array.from({ length: 10 }, (_, index) =>
+      makeWord(`new-${index}`, 'list-a', 'basics', 0, index)
+    );
+
+    const { result } = renderHook(() =>
+      useLearningPageState({
+        activeWords: words,
+        filteredWords: words,
+        selectedCategories: new Set<string>(),
+        progress: {},
+        isHydrated: true,
+        viewMode: 'card',
+        minigameFrequency: { min: 2, max: 2 },
+        categoryOrder: [],
+      })
+    );
+
+    const gameAnchors = result.current.cardDeckGroups
+      .flat()
+      .filter((item): item is MiniGameConfig => '_isMinigame' in item)
+      .map((item) => item.anchorOriginalIndex);
+
+    expect(gameAnchors).toEqual([1, 3, 5, 7, 9]);
+  });
 });

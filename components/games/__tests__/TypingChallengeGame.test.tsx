@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TypingChallengeGame } from '../TypingChallengeGame';
+import { I18nProvider } from '@/components/I18nProvider';
 import type { NormalizedWord } from '@/lib/words';
 
 vi.mock('@/lib/audio-availability', () => ({
@@ -153,5 +154,14 @@ describe('TypingChallengeGame', () => {
     expect(screen.getByText('⌨️ Type in Vietnamese')).toBeInTheDocument();
     expect(screen.getByText('pes')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /replay prompt audio/i })).not.toBeInTheDocument();
+  });
+
+  it('uses natural Czech wording for the Vietnamese typing target', () => {
+    render(
+      <I18nProvider language="cs">
+        <TypingChallengeGame words={WORDS} role="knownLanguage" />
+      </I18nProvider>
+    );
+    expect(screen.getByText('⌨️ Psaní ve vietnamštině')).toBeInTheDocument();
   });
 });

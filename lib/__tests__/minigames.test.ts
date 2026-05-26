@@ -326,25 +326,27 @@ describe('composeStream', () => {
 
 describe('pruneAnchorsForCurrentSize', () => {
   const words10 = Array.from({ length: 10 }, (_, i) => makeWord(`w${i}`, `cz${i}`, `vi${i}`));
-  // Compute a fixed set of anchors (at freq 1-2 for 10 words ~5-6 anchors)
-  const anchors10 = computeGameAnchors(words10, words10, 1, { minInterval: 1, maxInterval: 2 });
+  const anchors10 = computeGameAnchors(words10, words10, 1, { minInterval: 2, maxInterval: 2 });
 
   it('returns all anchors unchanged when they already fit within capacity', () => {
-    // 10 words, minGap=1: maxGames = floor(10/2) = 5
-    const result = pruneAnchorsForCurrentSize(anchors10, 10, 1);
-    expect(result.length).toBeLessThanOrEqual(Math.floor(10 / 2));
+    const result = pruneAnchorsForCurrentSize(anchors10, 10, 2);
+    expect(result.length).toBeLessThanOrEqual(1 + Math.floor(10 / 2));
     expect(result).toEqual(anchors10.slice(0, result.length));
   });
 
-  it('caps anchor count to floor(wordCount / (minGap + 1))', () => {
-    // 3 words, minGap=1: maxGames = floor(3/2) = 1
-    const result = pruneAnchorsForCurrentSize(anchors10, 3, 1);
-    expect(result.length).toBe(1);
+  it('does not drop valid late anchors from a full new-word run', () => {
+    const result = pruneAnchorsForCurrentSize(anchors10, words10.length, 2);
+    expect(result.map((anchor) => anchor.anchorOriginalIndex)).toEqual([1, 3, 5, 7, 9]);
+  });
+
+  it('caps anchors to available spaced slots after cards disappear', () => {
+    const result = pruneAnchorsForCurrentSize(anchors10, 3, 2);
+    expect(result.length).toBe(2);
   });
 
   it('preserves the earliest anchors (lowest originalIndex)', () => {
-    const result = pruneAnchorsForCurrentSize(anchors10, 4, 1);
-    const expected = anchors10.slice(0, Math.floor(4 / 2));
+    const result = pruneAnchorsForCurrentSize(anchors10, 4, 2);
+    const expected = anchors10.slice(0, 1 + Math.floor(4 / 2));
     expect(result).toEqual(expected);
   });
 
@@ -359,21 +361,28 @@ describe('pruneAnchorsForCurrentSize', () => {
   });
 
   it('integration: composing with pruned anchors never exceeds word-to-game capacity', () => {
-    // Simulate: 10 original words → anchors computed → only 3 words remain
+    // Simulate: 10 original words -> anchors computed -> only 3 words remain.
+    // One pending game may float before the first surviving word.
     const words3 = words10.slice(7); // last 3 words
     const originalIndexMap = new Map(words10.map((w, i) => [w.id, i]));
-    const minGap = 1;
+    const minGap = 2;
 
     const pruned = pruneAnchorsForCurrentSize(anchors10, words3.length, minGap);
-    const stream = composeStream(words3, originalIndexMap, pruned);
+    const stream = enforceMinigameMinGap(
+      composeStream(words3, originalIndexMap, pruned),
+      minGap,
+    );
 
     const games = stream.filter(item => '_isMinigame' in item);
-    expect(games.length).toBeLessThanOrEqual(Math.floor(words3.length / (minGap + 1)));
+    expect(games.length).toBeLessThanOrEqual(1 + Math.floor(words3.length / minGap));
 
-    // No back-to-back games
-    for (let i = 0; i < stream.length - 1; i++) {
-      if ('_isMinigame' in stream[i]) {
-        expect('_isMinigame' in stream[i + 1]).toBe(false);
+    let wordsSinceGame = minGap;
+    for (const item of stream) {
+      if ('_isMinigame' in item) {
+        expect(wordsSinceGame).toBeGreaterThanOrEqual(minGap);
+        wordsSinceGame = 0;
+      } else {
+        wordsSinceGame += 1;
       }
     }
   });

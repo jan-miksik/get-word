@@ -1,7 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { isStandalone, PWA_INSTALL_HELP_EVENT } from '@/lib/pwa-install';
+import {
+  installGlobalPWACapture,
+  isStandalone,
+  PWA_INSTALL_HELP_EVENT,
+  readSimulatedPlatformFromUrl,
+  type SimulatedPlatform,
+} from '@/lib/pwa-install';
 import { PWAInstallIntroCard } from '@/features/learning/components/PWAInstallIntroCard';
 
 export function PWAInstallBanner() {
@@ -9,13 +15,19 @@ export function PWAInstallBanner() {
   const [hydrated, setHydrated] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const [simulatedPlatform, setSimulatedPlatform] = useState<SimulatedPlatform>(null);
 
   useEffect(() => {
     const mobileQuery = window.matchMedia?.('(max-width: 900px)');
     const syncMobileViewport = () => setIsMobileViewport(mobileQuery?.matches === true);
 
+    // Idempotent — mirrors the install in PWAInstallMenuItem so the captured
+    // `beforeinstallprompt` is available whichever component mounts first.
+    installGlobalPWACapture();
+
     syncMobileViewport();
     setInstalled(isStandalone());
+    setSimulatedPlatform(readSimulatedPlatformFromUrl());
     setHydrated(true);
 
     const onAppInstalled = () => {
@@ -101,7 +113,7 @@ export function PWAInstallBanner() {
           </svg>
         </button>
         <div className="flex-1 min-h-0 overflow-hidden">
-          <PWAInstallIntroCard onDismiss={close} />
+          <PWAInstallIntroCard onDismiss={close} simulatedPlatform={simulatedPlatform} />
         </div>
       </div>
     </div>

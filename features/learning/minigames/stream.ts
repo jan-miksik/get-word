@@ -1,7 +1,6 @@
 import type { NormalizedWord } from '@/lib/words';
 
 import { computeGameAnchors } from './anchors';
-import { hasAtLeastOneSimilarPair } from './similarity';
 import type { GameAnchor, InjectMinigamesOptions, MiniGameConfig, StreamItem } from './types';
 
 export function composeStream(
@@ -138,7 +137,10 @@ export function pruneAnchorsForCurrentSize(
   if (currentWordCount === 0) return [];
   if (minGap <= 0) return anchors;
 
-  const maxGames = Math.floor(currentWordCount / (minGap + 1));
+  // A minigame is inserted between cards; it does not consume an additional
+  // word from the configured gap. A pending game can also float before the
+  // first remaining word after earlier cards have been learned.
+  const maxGames = 1 + Math.floor(currentWordCount / minGap);
   if (anchors.length <= maxGames) return anchors;
   return anchors.slice(0, Math.max(0, maxGames));
 }

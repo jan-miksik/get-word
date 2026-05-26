@@ -4,8 +4,12 @@ import { CSSProperties, Fragment, ReactNode, useEffect, useMemo, useState } from
 import { useI18n } from '@/components/I18nProvider';
 import {
   BeforeInstallPromptEvent,
+  clearCapturedBeforeInstallPrompt,
+  getCapturedBeforeInstallPrompt,
   getInstallPlatform,
+  installGlobalPWACapture,
   isStandalone,
+  onBeforeInstallPromptCaptured,
   type SimulatedPlatform,
 } from '@/lib/pwa-install';
 import { getPWAInstallIntroCopy, type PWAInstallIntroCopy } from './pwaInstallCopy';
@@ -44,16 +48,23 @@ export function PWAInstallIntroCard({ onDismiss, simulatedPlatform }: PWAInstall
       return;
     }
 
-    const onBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-    };
-    const onAppInstalled = () => onDismiss();
+    // Make sure the global capture is installed before we read it, in case
+    // the modal opens before any other entry point has mounted.
+    installGlobalPWACapture();
 
-    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+    // Seed from any `beforeinstallprompt` that was captured before the modal
+    // opened — this is the common case on Android Chrome, where the event
+    // fires near page load.
+    const captured = getCapturedBeforeInstallPrompt();
+    if (captured) setDeferredPrompt(captured);
+
+    // Stay subscribed for the rare case the event fires while the modal is
+    // already open.
+    const unsubscribe = onBeforeInstallPromptCaptured((e) => setDeferredPrompt(e));
+    const onAppInstalled = () => onDismiss();
     window.addEventListener('appinstalled', onAppInstalled);
     return () => {
-      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+      unsubscribe();
       window.removeEventListener('appinstalled', onAppInstalled);
     };
   }, [onDismiss, simulatedPlatform]);
@@ -65,6 +76,10 @@ export function PWAInstallIntroCard({ onDismiss, simulatedPlatform }: PWAInstall
       await deferredPrompt.userChoice;
     } finally {
       setDeferredPrompt(null);
+      // The browser will not re-fire `beforeinstallprompt` for this event, so
+      // drop the global slot to avoid handing out a stale, already-consumed
+      // prompt to a future modal open.
+      clearCapturedBeforeInstallPrompt();
       onDismiss();
     }
   };
