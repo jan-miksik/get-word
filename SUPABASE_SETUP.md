@@ -97,50 +97,47 @@ Or if you prefer to use migrations:
 pnpm run db:migrate
 ```
 
-## Step 5: Migrate Local Data to Remote Supabase
+## Step 5: Back Up Development Data and Restore It to New Production
 
-If you have data in your local Supabase database that you want to migrate to the remote Supabase:
+If your development app already uses a Supabase database and you want to seed a
+new production project with the same application data:
 
-### Option 1: SQL Dump (Simplest - Recommended)
+1. **Create a data-only development backup:**
 
-1. **Make sure local Supabase is running:**
    ```bash
-   npx supabase start
+   pnpm run db:dev:backup
    ```
 
-2. **Ensure remote schema is up to date:**
+   The command reads development `DATABASE_URL` from `.env.local`, unless you
+   supply `DEV_DATABASE_URL` in the shell. It writes a private, gitignored file
+   such as `backups/dev_public_data_YYYYMMDD_HHMMSS.sql`. The dump contains
+   data from the app's `public` schema, not Supabase Auth or Storage schemas.
+   Keep it private: it includes encrypted provider-key records. Set the same
+   `APP_ENCRYPTION_SECRET` in production if imported provider credentials need
+   to remain decryptable.
+
+2. **Create the production Supabase project and apply schema migrations:**
+
    ```bash
-   pnpm run db:push
+   pnpm run db:prod:migrate
    ```
 
-3. Prefer the **Direct connection** string for dump/restore when your machine has IPv6. If it does not, arrange a supported IPv4 admin path (such as Supabase's IPv4 add-on) before restoring production data.
+   Paste the production Direct connection URL when IPv6 is available, or the
+   Session Pooler URL on port `5432`. The script reads it as hidden input.
 
-4. **Run dump & restore:**
+3. **Restore the data into the new, still-empty production database:**
+
    ```bash
-   pnpm run db:dump-restore
+   pnpm run db:prod -- restore backups/dev_public_data_YYYYMMDD_HHMMSS.sql
    ```
 
-   This script will:
-   - Export all data from your local database (words, users, progress, memory hooks, category filters)
-   - Restore it to your remote Supabase database
-   - Handle data-only migration (schema must already exist on remote)
+   Paste the same production admin connection URL and type
+   `RESTORE_PRODUCTION_DATA` at the confirmation prompt. Restore only into a
+   new migrated database with no app data, because the dump uses inserts/COPY
+   operations and is not a merge workflow.
 
-5. **Verify the migration:**
-   ```bash
-   pnpm run db:studio
-   ```
-
-### Option 2: Full Dump (Schema + Data)
-
-If you want to migrate everything including schema:
-
-```bash
-pnpm run db:dump-restore-full
-```
-
-⚠️ **Warning**: This will replace the entire remote database schema and data!
-
-**Note**: For dump scripts, the default local Supabase connection is `postgresql://postgres:postgres@127.0.0.1:54322/postgres`. If your local setup is different, set `LOCAL_DATABASE_URL` in `.env.local`.
+4. **Verify the imported data through the production app or an approved
+   production database session.**
 
 ## Step 6: Verify Connection
 

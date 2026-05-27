@@ -6,12 +6,14 @@ usage() {
 Usage:
   pnpm run db:prod:migrate
   pnpm run db:prod -- migrate
+  pnpm run db:prod -- restore <path-to-dev-public-data-backup.sql>
   pnpm run db:prod -- sql <path-to-file.sql>
   pnpm run db:prod -- shell
   pnpm run db:prod -- compact [--apply]
 
 Actions:
   migrate          Apply canonical Drizzle migrations from drizzle/migrations/.
+  restore <file>   Restore public application data into a new, migrated database.
   sql <file>       Run a reviewed SQL file with psql.
   shell            Open an emergency interactive psql session without history.
   compact          Preview old sync/review rows eligible for deletion.
@@ -45,6 +47,7 @@ action="${1:-}"
 description=""
 confirmation_phrase=""
 sql_file=""
+restore_file=""
 compact_apply=false
 
 case "$action" in
@@ -52,6 +55,13 @@ case "$action" in
     [[ "$#" -eq 1 ]] || die "migrate does not accept arguments."
     description="apply canonical Drizzle migrations from drizzle/migrations/"
     confirmation_phrase="MIGRATE_PRODUCTION"
+    ;;
+  restore)
+    [[ "$#" -eq 2 ]] || die "restore requires exactly one SQL backup file path."
+    restore_file="$2"
+    [[ -f "$restore_file" ]] || die "Backup file not found: $restore_file"
+    description="restore public application data from $restore_file into a new, migrated production database"
+    confirmation_phrase="RESTORE_PRODUCTION_DATA"
     ;;
   sql)
     [[ "$#" -eq 2 ]] || die "sql requires exactly one SQL file path."
@@ -146,6 +156,11 @@ printf '\nRunning action...\n'
 case "$action" in
   migrate)
     pnpm run db:migrate
+    ;;
+  restore)
+    command -v psql >/dev/null 2>&1 || die "psql is required for the restore action."
+    printf '%s\n' "This restore assumes the target is new, has migrations applied, and has no application data."
+    psql "$DATABASE_URL" --set ON_ERROR_STOP=on --single-transaction --file "$restore_file"
     ;;
   sql)
     command -v psql >/dev/null 2>&1 || die "psql is required for the sql action."

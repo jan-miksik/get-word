@@ -12,6 +12,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:run": "npx tsx scripts/run-migrations.ts",
+    "db:dev:backup": "bash scripts/backup-dev-db.sh",
     "db:prod": "bash scripts/production-db.sh",
     "db:prod:migrate": "bash scripts/production-db.sh migrate",
     "db:push": "drizzle-kit push",

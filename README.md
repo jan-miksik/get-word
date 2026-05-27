@@ -88,18 +88,29 @@ For production, prompt for the URL instead of storing it in `.env.local` or
 putting it into shell history:
 
 ```bash
+pnpm run db:dev:backup
 pnpm run db:prod:migrate
+pnpm run db:prod -- restore backups/dev_public_data_YYYYMMDD_HHMMSS.sql
 pnpm run db:prod -- sql path/to/reviewed-operation.sql
 pnpm run db:prod -- compact          # dry run
 pnpm run db:prod -- compact --apply
 pnpm run db:prod -- shell            # emergency interactive access only
 ```
 
-The production helper hides the pasted `DATABASE_URL`, exposes it only to the
-selected allowlisted action, shows the target host for confirmation, rejects
-local database URLs, and unsets the URL when done. Applying migrations,
-executing SQL, opening an interactive shell, and deleting maintenance rows each
-require a purpose-specific confirmation phrase. Supabase Direct URLs
+`db:dev:backup` reads the current development `DATABASE_URL` from `.env.local`
+unless `DEV_DATABASE_URL` is provided, then writes an ignored
+`backups/dev_public_data_*.sql` export of application data in the `public`
+schema. For a new production database, apply migrations first, then restore
+that data backup. It does not copy Supabase Auth or Storage-managed schemas.
+Treat the dump as sensitive user data; it includes encrypted provider-key
+records, which require the same `APP_ENCRYPTION_SECRET` to decrypt after import.
+
+The production helper hides the pasted production `DATABASE_URL`, exposes it
+only to the selected allowlisted action, shows the target host for
+confirmation, rejects local database URLs, and unsets the URL when done.
+Applying migrations, restoring data, executing SQL, opening an interactive
+shell, and deleting maintenance rows each require a purpose-specific
+confirmation phrase. Supabase Direct URLs
 (`db.<project-ref>.supabase.co:5432`) require IPv6 by default. If the machine
 running the command cannot resolve or reach that host, paste the Session Pooler
 URL from the Supabase Connect panel instead (`*.pooler.supabase.com:5432`).
@@ -107,7 +118,6 @@ URL from the Supabase Connect panel instead (`*.pooler.supabase.com:5432`).
 Optional utilities:
 
 ```bash
-pnpm run db:backup
 pnpm run db:dump-restore
 pnpm run db:dump-restore-full
 ```

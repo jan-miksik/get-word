@@ -3,8 +3,8 @@
   "configurations": [
     {
       "name": "dev",
-      "runtimeExecutable": "/Users/janm/.nvm/versions/node/v24.15.0/bin/node",
-      "runtimeArgs": ["/Users/janm/Documents/projects/get word/node_modules/next/dist/bin/next", "dev", "--turbo", "--port", "3030"],
+      "runtimeExecutable": "/Users/janm/.nvm/versions/node/v24.15.0/bin/pnpm",
+      "runtimeArgs": ["exec", "next", "dev", "--turbo", "--port", "3030"],
       "port": 3030,
       "autoPort": false
     }
