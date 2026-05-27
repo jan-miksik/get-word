@@ -40,6 +40,8 @@ const makeGame = (id: string): MiniGameConfig => ({
 
 describe('CardDeckView', () => {
   beforeEach(() => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+    Reflect.deleteProperty(navigator, 'connection');
     checkAudioUrlAvailableMock.mockClear();
     prefetchAudioMock.mockClear();
   });
@@ -69,6 +71,22 @@ describe('CardDeckView', () => {
     expect(checkAudioUrlAvailableMock).toHaveBeenCalledTimes(2);
     expect(checkAudioUrlAvailableMock).toHaveBeenNthCalledWith(1, '/speech/cz/sample.mp3');
     expect(checkAudioUrlAvailableMock).toHaveBeenNthCalledWith(2, '/speech/vi/sample.mp3');
+  });
+
+  it('does not issue audio warmup probes while offline', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+
+    render(
+      <CardDeckView
+        groupedWords={[[makeWord('w1'), makeWord('w2')]]}
+        renderCard={(word) => <span>{word.id}</span>}
+        renderMiniGame={vi.fn()}
+      />
+    );
+
+    await Promise.resolve();
+    expect(checkAudioUrlAvailableMock).not.toHaveBeenCalled();
+    expect(prefetchAudioMock).not.toHaveBeenCalled();
   });
 
   it('renders the first item from the flattened stream', () => {

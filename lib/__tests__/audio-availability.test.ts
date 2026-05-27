@@ -13,6 +13,8 @@ describe('audio availability', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    Reflect.deleteProperty(navigator, 'onLine');
   });
 
   it('logs missing audio files in development when HEAD returns 404', async () => {
@@ -43,6 +45,21 @@ describe('audio availability', () => {
     await expect(getPlayableAudioUrl('/speech/cz/missing.mp3')).resolves.toBeNull();
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it('checks cached audio without probing the network while offline', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+    const cachedUrl = 'https://turbo-gateway.com/tx-cached';
+    vi.stubGlobal('caches', {
+      open: async () => ({
+        match: async (url: string) => (url === cachedUrl ? new Response('ok') : undefined),
+      }),
+    });
+    global.fetch = vi.fn();
+
+    await expect(getPlayableAudioUrl(cachedUrl)).resolves.toBe(cachedUrl);
+    await expect(checkAudioUrlAvailable(cachedUrl)).resolves.toBe(true);
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it('falls back from a broken Arweave gateway URL to the next configured gateway', async () => {

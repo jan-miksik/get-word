@@ -3,12 +3,14 @@
 import type { SyncResponse } from '@/lib/sync';
 import type { NormalizedWord } from '@/lib/words';
 import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
+import { canBulkCacheAudio, subscribeAudioNetworkChanges } from '@/lib/audio-network-policy';
 import { DB_NAME, STORE_KV, openDb as openSharedDb } from '@/lib/local-first/db';
 
 const STORE_NAME = STORE_KV;
 const STORAGE_PREF_KEY = 'get-word-local-learning-cache-enabled';
 const AUDIO_PREF_KEY = 'get-word-active-list-audio-cache-enabled';
 const AUDIO_CACHE_NAME = 'get-word-active-list-audio-v1';
+let activeAudioCacheController: AbortController | null = null;
 
 export interface LearningSnapshot {
   savedAt: number;
@@ -60,34 +62,8 @@ export function setStoragePreference(enabled: boolean): void {
   writeBooleanPreference(STORAGE_PREF_KEY, enabled);
 }
 
-function isInstalledPwa(): boolean {
-  if (typeof window === 'undefined') return false;
-  if (window.matchMedia?.('(display-mode: standalone)')?.matches) return true;
-  if (window.matchMedia?.('(display-mode: window-controls-overlay)')?.matches) return true;
-  return Boolean((window.navigator as Navigator & { standalone?: boolean }).standalone);
-}
-
-function isLikelyUnmeteredConnection(): boolean {
-  if (typeof navigator === 'undefined') return false;
-  const connection = (navigator as Navigator & {
-    connection?: { saveData?: boolean; type?: string; effectiveType?: string };
-  }).connection;
-
-  if (!connection) return isProbablyDesktopBrowser();
-  if (connection.saveData) return false;
-  if (connection.type === 'wifi' || connection.type === 'ethernet') return true;
-  return connection.effectiveType === '4g';
-}
-
-function isProbablyDesktopBrowser(): boolean {
-  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
-  const coarsePointer = window.matchMedia?.('(pointer: coarse)')?.matches ?? false;
-  const mobileUserAgent = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-  return !coarsePointer && !mobileUserAgent;
-}
-
 function getDefaultAudioCachePreference(): boolean {
-  return isInstalledPwa() || isLikelyUnmeteredConnection();
+  return canBulkCacheAudio();
 }
 
 export function getAudioCachePreference(): boolean {
@@ -205,47 +181,77 @@ function normalizeAudioValue(value: unknown): string[] {
 
 export function getAudioUrlsForWords(words: NormalizedWord[]): string[] {
   const urls = words.flatMap((word) => [
-    ...normalizeAudioValue(word.czAudio),
-    ...normalizeAudioValue(word.viAudio),
-  ]);
+    normalizeAudioValue(word.czAudio)[0],
+    normalizeAudioValue(word.viAudio)[0],
+  ]).filter((url): url is string => Boolean(url));
   return Array.from(new Set(urls));
 }
 
 export async function cacheActiveListAudio(words: NormalizedWord[]): Promise<AudioCacheStatus> {
+  activeAudioCacheController?.abort();
+  activeAudioCacheController = null;
+
   const supported = typeof caches !== 'undefined' && typeof fetch !== 'undefined';
   const enabled = getAudioCachePreference();
   notifyAudioCachePreference(enabled);
-  if (!supported || !enabled) {
+  if (!supported || !enabled || !canBulkCacheAudio()) {
     return getAudioCacheStatus();
   }
 
+  const controller = new AbortController();
+  activeAudioCacheController = controller;
+  const unsubscribeNetworkChanges = subscribeAudioNetworkChanges(() => {
+    if (!canBulkCacheAudio()) controller.abort();
+  });
   const cache = await caches.open(AUDIO_CACHE_NAME);
   const urls = getAudioUrlsForWords(words);
   let cachedCount = 0;
+  let downloadedAny = false;
 
-  for (const url of urls) {
-    const candidates = getArweaveGatewayUrlCandidates(url);
-    for (const candidate of candidates) {
-      try {
-        const request = new Request(candidate, { credentials: 'same-origin' });
-        const existing = await cache.match(request);
-        if (existing) {
-          cachedCount += 1;
+  try {
+    for (const url of urls) {
+      if (controller.signal.aborted || !canBulkCacheAudio()) break;
+
+      const candidates = getArweaveGatewayUrlCandidates(url);
+      for (const candidate of candidates) {
+        if (controller.signal.aborted || !canBulkCacheAudio()) break;
+
+        try {
+          const existing = await cache.match(candidate);
+          if (existing) {
+            cachedCount += 1;
+            break;
+          }
+          const response = await fetch(candidate, {
+            credentials: 'same-origin',
+            signal: controller.signal,
+          });
+          if (response.ok) {
+            await cache.put(candidate, response.clone());
+            downloadedAny = true;
+            cachedCount += 1;
+            break;
+          }
+          if (response.status === 408 || response.status === 429 || response.status >= 500) {
+            controller.abort();
+            break;
+          }
+        } catch {
+          // Bulk caching is optional: stop after a transport failure rather
+          // than attempting every audio URL while connectivity is degraded.
+          controller.abort();
           break;
         }
-        const response = await fetch(request);
-        if (response.ok) {
-          await cache.put(request, response.clone());
-          cachedCount += 1;
-          break;
-        }
-      } catch {
-        // Individual gateway failures should not block the cache job.
       }
+    }
+  } finally {
+    unsubscribeNetworkChanges();
+    if (activeAudioCacheController === controller) {
+      activeAudioCacheController = null;
     }
   }
 
-  if (storageAvailable()) {
+  if (downloadedAny && storageAvailable()) {
     try {
       window.localStorage.setItem(`${AUDIO_PREF_KEY}:lastCachedAt`, String(Date.now()));
       window.localStorage.setItem(`${AUDIO_PREF_KEY}:cachedCount`, String(cachedCount));

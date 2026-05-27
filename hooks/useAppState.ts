@@ -11,6 +11,7 @@ import type { LinkPayload } from '@/features/learning/app-state/types';
 import type { NormalizedWord } from '@/lib/words';
 import { readStoredLearningRoleForPair } from '@/features/learning/app-state/storage';
 import { cacheActiveListAudio } from '@/lib/local-learning-cache';
+import { subscribeAudioNetworkChanges } from '@/lib/audio-network-policy';
 
 export type { Role } from '@/features/learning/state';
 export type { LinkPayload } from '@/features/learning/app-state/types';
@@ -108,12 +109,13 @@ export function useAppState(
     [activeListId, subscribedLists],
   );
 
-  // Warm the active list's audio cache when the user switches lists. The
-  // helper internally respects the user's audio-cache preference and bails
-  // out cleanly when off, so this is safe to call unconditionally.
+  // Warm the active list only on a suitable network, resuming after reconnect
+  // or a switch back to an unmetered connection.
   useEffect(() => {
     if (!isHydrated || !activeListId || activeWords.length === 0) return;
-    void cacheActiveListAudio(activeWords).catch(() => undefined);
+    const cacheAudio = () => void cacheActiveListAudio(activeWords).catch(() => undefined);
+    cacheAudio();
+    return subscribeAudioNetworkChanges(cacheAudio);
   }, [activeListId, activeWords, isHydrated]);
 
   useEffect(() => {

@@ -1,6 +1,7 @@
 'use client';
 
 import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
+import { isAudioNetworkOffline } from '@/lib/audio-network-policy';
 
 export type AudioPlaybackResult = {
   ok: boolean;
@@ -58,6 +59,10 @@ export function playUserInitiatedAudio(
     const tryNextCandidate = () => {
       if (audioRef.current !== audio) {
         done({ ok: false, interrupted: true });
+        return;
+      }
+      if (isAudioNetworkOffline()) {
+        done({ ok: false, interrupted: false });
         return;
       }
 

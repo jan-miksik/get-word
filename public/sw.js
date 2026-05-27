@@ -101,14 +101,20 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       (async () => {
         if (!audioCacheEnabled) {
-          return fetch(request);
+          return fetch(request).catch(() => Response.error());
         }
         const cache = await caches.open(ACTIVE_LIST_AUDIO_CACHE);
         const cached = await cache.match(request);
         if (cached) return cached;
-        const response = await fetch(request);
-        cache.put(request, response.clone());
-        return response;
+        try {
+          const response = await fetch(request);
+          if (response.ok) {
+            await cache.put(request, response.clone());
+          }
+          return response;
+        } catch {
+          return Response.error();
+        }
       })()
     );
     return;

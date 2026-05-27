@@ -1,6 +1,7 @@
 'use client';
 
 import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
+import { isAudioNetworkOffline } from '@/lib/audio-network-policy';
 
 type AudioAvailabilityCacheEntry = {
   promise: Promise<string | null>;
@@ -35,7 +36,16 @@ async function probeWithTimeout(url: string): Promise<boolean> {
   try {
     const headResponse = await fetch(url, { method: 'HEAD', signal: controller.signal });
     if (headResponse.ok) return true;
-    if (headResponse.status === 404) return false;
+    if (headResponse.status === 404) {
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[AudioAvailability] Missing audio file', {
+          url,
+          method: 'HEAD',
+          status: headResponse.status,
+        });
+      }
+      return false;
+    }
     if (headResponse.status !== 405 && headResponse.status !== 501) return false;
   } catch {
     return false;
@@ -61,10 +71,12 @@ async function probeAudioUrl(url: string): Promise<string | null> {
   // 1. Cache API hit beats any network attempt.
   const cached = await checkCacheFirst(candidates);
   if (cached) return cached;
+  if (isAudioNetworkOffline()) return null;
 
   // 2. Iterate gateway candidates with a per-attempt timeout so a single
   //    slow gateway can't block subsequent fallbacks.
   for (const candidate of candidates) {
+    if (isAudioNetworkOffline()) return null;
     if (await probeWithTimeout(candidate)) {
       return candidate;
     }
@@ -75,6 +87,9 @@ async function probeAudioUrl(url: string): Promise<string | null> {
 
 export function checkAudioUrlAvailable(url: string | null): Promise<boolean> {
   if (!url) return Promise.resolve(false);
+  if (isAudioNetworkOffline()) {
+    return checkCacheFirst(getArweaveGatewayUrlCandidates(url)).then(Boolean);
+  }
 
   const cached = audioAvailabilityCache.get(url);
   if (cached) return cached.promise.then(Boolean);
@@ -104,6 +119,9 @@ export function getCachedAudioUrlAvailability(url: string | null): boolean | nul
 
 export async function getPlayableAudioUrl(url: string | null): Promise<string | null> {
   if (!url) return null;
+  if (isAudioNetworkOffline()) {
+    return checkCacheFirst(getArweaveGatewayUrlCandidates(url));
+  }
 
   const cached = audioAvailabilityCache.get(url);
   if (cached?.settled) return cached.value;

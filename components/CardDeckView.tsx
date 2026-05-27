@@ -6,6 +6,10 @@ import type { NormalizedWord } from '@/lib/words';
 import type { MiniGameConfig } from '@/lib/minigames';
 import { checkAudioUrlAvailable } from '@/lib/audio-availability';
 import { prefetchAudio } from '@/lib/audio-prefetch';
+import {
+  getAudioWarmupLookahead,
+  subscribeAudioNetworkChanges,
+} from '@/lib/audio-network-policy';
 import { getWordAudioSrcBySide, type WordSide } from './games/types';
 import { useI18n } from '@/components/I18nProvider';
 
@@ -70,6 +74,7 @@ export function CardDeckView({
   const [currentIndex, setCurrentIndex] = useState(0);
   const [exitAnim, setExitAnim] = useState<string | null>(null);
   const [enterAnim, setEnterAnim] = useState<string | null>(null);
+  const [audioNetworkRevision, setAudioNetworkRevision] = useState(0);
   // When the last card completes we show an overlay instead of jumping straight
   // to "All done!" — the user taps the overlay to confirm.
   const [showDoneOverlay, setShowDoneOverlay] = useState(false);
@@ -111,7 +116,14 @@ export function CardDeckView({
   }, [interstitialCard]);
 
   useEffect(() => {
-    const lookaheadItems = items.slice(currentIndex, currentIndex + AUDIO_LOOKAHEAD_CARDS + 1);
+    return subscribeAudioNetworkChanges(() => setAudioNetworkRevision((revision) => revision + 1));
+  }, []);
+
+  useEffect(() => {
+    const lookahead = getAudioWarmupLookahead(AUDIO_LOOKAHEAD_CARDS);
+    if (lookahead < 0) return;
+
+    const lookaheadItems = items.slice(currentIndex, currentIndex + lookahead + 1);
     const audioUrls = Array.from(new Set(lookaheadItems.flatMap(getAudioUrlsForItem)));
     if (audioUrls.length === 0) return;
 
@@ -132,7 +144,7 @@ export function CardDeckView({
     return () => {
       cancelled = true;
     };
-  }, [items, currentIndex]);
+  }, [items, currentIndex, audioNetworkRevision]);
 
   const advance = useCallback((opts?: { skipAnimation?: boolean; afterExit?: () => void }) => {
     const idx = currentIndexRef.current;
