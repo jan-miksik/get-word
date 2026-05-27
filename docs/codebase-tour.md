@@ -335,8 +335,9 @@ These are not useless. They are just not good starting points.
 - `ralph/`  
   Separate helper/orchestrator tooling, not the main app runtime.
 
-- `migrations/`  
-  Legacy/manual SQL. The main migration path is `drizzle/migrations/`.
+- Historical root `migrations/`
+  Removed legacy/manual SQL; consult Git history only when investigating old
+  Supabase/RLS setup. Current migrations live in `drizzle/migrations/`.
 
 - `lib/i18n/messages.ts`  
   Mostly data, not a good architecture starting point.

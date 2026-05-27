@@ -37,7 +37,9 @@ import path from "path";
 import { fileURLToPath } from "url";
 import { and, lt, isNotNull } from "drizzle-orm";
 
-dotenv.config({ path: ".env.local" });
+if (!process.env.DATABASE_URL) {
+  dotenv.config({ path: ".env.local" });
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 void __dirname;

@@ -69,8 +69,8 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 - Query barrel: `lib/db/index.ts`
 - Entity queries: `lib/db/queries/*`
 - Word-list item queries are split by concern under `lib/db/queries/word-list-items/*`
-- Canonical Drizzle migrations: `drizzle/migrations/*`
-- Root `migrations/*` are legacy/manual Supabase/RLS SQL unless a task explicitly says otherwise.
+- Canonical and only checked-in migrations: `drizzle/migrations/*`
+- Historical manual Supabase/RLS scripts removed from the old root `migrations/` directory are available through Git history if needed.
 
 ## Do Not Read Unless Needed
 
@@ -82,7 +82,6 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 - `drizzle/migrations/meta/*.json`: generated snapshots; read only for migration debugging.
 - `styles/*.css`: legacy styling. New styling should use Tailwind. Read these only when modifying existing legacy classes.
 - `ralph/`: autonomous CLI orchestrator (`planner.js`/`executor.js`/`progress.js`). Unrelated to the runtime app.
-- `migrations/`: legacy Supabase SQL (initial setup + RLS). Canonical migrations live in `drizzle/migrations/`.
 - `schema_only.sql`: historical schema snapshot. Source of truth is `lib/db/schema.ts`.
 - `lib/i18n/messages.ts`: ~940-line translation table; treat as data.
 - `docs/plans/archive/`: completed refactor plans kept for history.

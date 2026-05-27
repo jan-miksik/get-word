@@ -32,8 +32,8 @@ cp .env.example .env.local
 `.env.example` documents each variable in more detail, including which ones are
 required vs optional and how to generate the app secrets.
 
-- **Development / admin operations**: prefer **Supabase “Direct connection”** string.
-- **Production (Vercel)**: prefer **Supabase “Connection Pooler”** string (better for serverless).
+- **Development / admin operations**: use Supabase **Direct connection** when IPv6 is available; otherwise use **Session Pooler** for Drizzle/`psql`.
+- **Production (Vercel)**: prefer Supabase **Transaction Pooler** for serverless app traffic.
 - `APP_SESSION_SECRET` signs session cookies and OpenRouter OAuth state cookies.
 - `APP_ENCRYPTION_SECRET` encrypts stored provider API keys in the database.
 - `NEXT_PUBLIC_REOWN_PROJECT_ID` is required for wallet connect and embedded Reown email/social auth.
@@ -84,6 +84,26 @@ pnpm run db:push       # push schema (fast, no migrations)
 pnpm run db:studio     # open Drizzle Studio
 ```
 
+For production, prompt for the URL instead of storing it in `.env.local` or
+putting it into shell history:
+
+```bash
+pnpm run db:prod:migrate
+pnpm run db:prod -- sql path/to/reviewed-operation.sql
+pnpm run db:prod -- compact          # dry run
+pnpm run db:prod -- compact --apply
+pnpm run db:prod -- shell            # emergency interactive access only
+```
+
+The production helper hides the pasted `DATABASE_URL`, exposes it only to the
+selected allowlisted action, shows the target host for confirmation, rejects
+local database URLs, and unsets the URL when done. Applying migrations,
+executing SQL, opening an interactive shell, and deleting maintenance rows each
+require a purpose-specific confirmation phrase. Supabase Direct URLs
+(`db.<project-ref>.supabase.co:5432`) require IPv6 by default. If the machine
+running the command cannot resolve or reach that host, paste the Session Pooler
+URL from the Supabase Connect panel instead (`*.pooler.supabase.com:5432`).
+
 Optional utilities:
 
 ```bash
@@ -92,7 +112,10 @@ pnpm run db:dump-restore
 pnpm run db:dump-restore-full
 ```
 
-Drizzle-generated migrations in `drizzle/migrations/` are the canonical schema migration path. The root `migrations/` directory contains legacy/manual Supabase and RLS SQL and should only be edited for those specific tasks.
+Drizzle-generated migrations in `drizzle/migrations/` are the canonical and
+only current checked-in schema migration path. Historical manual Supabase/RLS
+SQL that used to live in a root `migrations/` directory can be recovered from
+Git history if it is needed for investigation.
 
 ### Data model & sync
 
@@ -111,5 +134,5 @@ This app uses **device-based identification**:
 3. Deploy.
 
 Notes:
-- If you run administrative operations like `pg_dump`/`psql`, you’ll typically need a **Direct connection** URL (pooler connections can break those workflows).
+- For Drizzle migrations and `psql`, use a **Direct connection** URL when your network supports IPv6, or Supabase **Session Pooler** on port `5432` when it does not. Prefer direct/IPv4-enabled connectivity for dump and restore operations.
 - Don’t commit `.env.local` (it’s ignored).

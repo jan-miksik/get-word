@@ -9,7 +9,9 @@ import * as dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 
-dotenv.config({ path: ".env.local" });
+if (!process.env.DATABASE_URL) {
+  dotenv.config({ path: ".env.local" });
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const projectRoot = path.resolve(__dirname, "..");

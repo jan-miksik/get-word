@@ -12,6 +12,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:run": "npx tsx scripts/run-migrations.ts",
+    "db:prod": "bash scripts/production-db.sh",
+    "db:prod:migrate": "bash scripts/production-db.sh migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:dump-restore": "bash scripts/dump-and-restore.sh",
