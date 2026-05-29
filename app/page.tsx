@@ -250,7 +250,7 @@ export default function Home() {
     />
   ) : null;
 
-  const previewPWAInstallIntro = useMemo<{ enabled: boolean; simulated: SimulatedPlatform }>(() => {
+  const [previewPWAInstallIntro] = useState<{ enabled: boolean; simulated: SimulatedPlatform }>(() => {
     if (typeof window === 'undefined') return { enabled: false, simulated: null };
     const params = new URLSearchParams(window.location.search);
     if (!params.has('previewPWAInstallIntro')) return { enabled: false, simulated: null };
@@ -260,7 +260,7 @@ export default function Home() {
     else if (raw === 'ios-non-safari') simulated = 'ios-non-safari';
     else if (raw === 'android') simulated = 'android';
     return { enabled: true, simulated };
-  }, []);
+  });
 
   const [pwaInstallPromptAnswered, setPwaInstallPromptAnswered] = useState(true);
   const [isAppInstalled, setIsAppInstalled] = useState(true);

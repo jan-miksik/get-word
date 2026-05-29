@@ -47,6 +47,11 @@ export function PWARegister() {
 
           await unregisterExistingWorkers();
           await clearGetWordCaches();
+          if (wasControlled) {
+            console.warn(
+              '[PWA] A stale service worker was controlling this dev page. It has been unregistered and Get Word caches were cleared. Reload once if the UI still looks old.'
+            );
+          }
           setDevStatus({
             controlled: wasControlled,
             cachesCleared: cacheKeys.length,
