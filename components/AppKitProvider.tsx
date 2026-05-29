@@ -6,6 +6,11 @@ import { createAppKit } from '@reown/appkit/react'
 import type { AppKitNetwork } from '@reown/appkit/networks'
 import { cookieToInitialState, WagmiProvider, type Config } from 'wagmi'
 import { wagmiAdapter, projectId, networks } from '@/lib/wagmi-config'
+import {
+  MAGIC_ACCOUNT_ACCESS_DENIED_EVENT,
+  isMagicAccountAccessDeniedError,
+  markMagicAccountAccessDenied,
+} from '@/lib/magic-rpc'
 
 const appUrl =
   typeof window !== 'undefined' ? window.location.origin : 'https://app-for-learning-language.vercel.app'
@@ -40,6 +45,42 @@ function isBlockedTelemetryUrl(input: Parameters<typeof fetch>[0] | URL) {
   } catch {
     return false
   }
+}
+
+function installMagicRejectionSilencer() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  const globalWithFlag = globalThis as typeof globalThis & {
+    __getWordMagicSilencerInstalled?: boolean
+  }
+
+  if (globalWithFlag.__getWordMagicSilencerInstalled) {
+    return
+  }
+
+  globalWithFlag.__getWordMagicSilencerInstalled = true
+
+  // The Magic SDK (used by Reown for email/social embedded wallets) rejects
+  // with "User denied account access" when a persisted session can't be
+  // restored. Reown doesn't catch it, so it surfaces as an unhandled
+  // rejection. Let useAuth clear stale reconnect state while keeping this from
+  // surfacing as an uncaught promise in the browser.
+  window.addEventListener(
+    'unhandledrejection',
+    (event) => {
+      if (!isMagicAccountAccessDeniedError(event.reason)) {
+        return
+      }
+
+      event.preventDefault()
+      event.stopImmediatePropagation()
+      markMagicAccountAccessDenied()
+      window.dispatchEvent(new CustomEvent(MAGIC_ACCOUNT_ACCESS_DENIED_EVENT))
+    },
+    { capture: true }
+  )
 }
 
 function installTelemetryNoops() {
@@ -90,6 +131,7 @@ type AppKitConfig = Parameters<typeof createAppKit>[0] & {
 }
 
 installTelemetryNoops()
+installMagicRejectionSilencer()
 
 const appKitConfig: AppKitConfig = {
   adapters: [wagmiAdapter],
@@ -100,7 +142,10 @@ const appKitConfig: AppKitConfig = {
   debug: false,
   enableCoinbase: false,
   enableEIP6963: true,
-  enableReconnect: true,
+  // Magic can throw inside its embedded-wallet runtime when a stale session
+  // refresh returns 401. Disable startup reconnect so users land on the
+  // Connect flow instead of a wedged loading state.
+  enableReconnect: false,
   enableAuthLogger: false,
   features: {
     email: true,
@@ -137,6 +182,7 @@ export function AppKitProvider({
     <WagmiProvider
       config={wagmiAdapter.wagmiConfig as Config}
       initialState={initialState}
+      reconnectOnMount={false}
     >
       <QueryClientProvider client={queryClient}>
         {children}

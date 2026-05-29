@@ -41,6 +41,18 @@ function shortenListName(name: string): string {
     .replace(/Czech[–\-\s]*Vietnamese/i, 'cz - vi');
 }
 
+export function BetaBadge() {
+  return (
+    <span
+      className="inline-flex items-center rounded-full border border-[#2A2218]/70 bg-[#F4EFE2] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#2A2218] shadow-[0_1px_0_rgba(0,0,0,0.04)]"
+      aria-label="Beta version"
+      title="Beta version"
+    >
+      Beta
+    </span>
+  );
+}
+
 export function ScoreBadge({ score }: { score: number }) {
   const { t } = useI18n();
   const prevScore = useRef(score);
@@ -390,6 +402,7 @@ export function TopMenu({
   return (
     <div className="top-menu" aria-label="Top menu">
       <div className="top-menu-left flex items-center gap-2 min-w-0">
+        <BetaBadge />
         <div className="top-menu-stats">
           {score !== undefined && <ScoreBadge score={score} />}
           {centerContent}
