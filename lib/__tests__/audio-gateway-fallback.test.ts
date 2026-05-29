@@ -5,6 +5,15 @@ import {
   getPlayableAudioUrl,
 } from '../audio-availability';
 
+function hostIs(value: Request | string, host: string): boolean {
+  const rawUrl = typeof value === 'string' ? value : value.url;
+  try {
+    return new URL(rawUrl).host === host;
+  } catch {
+    return false;
+  }
+}
+
 beforeEach(() => {
   clearAudioAvailabilityCache();
 });
@@ -35,10 +44,9 @@ describe('audio availability resolver', () => {
 
   it('falls through gateway candidates when the first one 503s', async () => {
     const fetchMock = vi.fn(async (input: Request | string) => {
-      const url = typeof input === 'string' ? input : input.url;
-      if (url.includes('turbo-gateway.com')) return new Response('boom', { status: 503 });
-      if (url.includes('arweave.net')) return new Response('boom', { status: 503 });
-      if (url.includes('ar-io.net')) return new Response(null, { status: 200 });
+      if (hostIs(input, 'turbo-gateway.com')) return new Response('boom', { status: 503 });
+      if (hostIs(input, 'arweave.net')) return new Response('boom', { status: 503 });
+      if (hostIs(input, 'ar-io.net')) return new Response(null, { status: 200 });
       return new Response(null, { status: 404 });
     });
     vi.stubGlobal('fetch', fetchMock);
@@ -51,8 +59,8 @@ describe('audio availability resolver', () => {
     const calledUrls = fetchMock.mock.calls.map(([req]) =>
       typeof req === 'string' ? req : (req as Request).url,
     );
-    expect(calledUrls.some((u) => u.includes('turbo-gateway.com'))).toBe(true);
-    expect(calledUrls.some((u) => u.includes('ar-io.net'))).toBe(true);
+    expect(calledUrls.some((url) => hostIs(url, 'turbo-gateway.com'))).toBe(true);
+    expect(calledUrls.some((url) => hostIs(url, 'ar-io.net'))).toBe(true);
   });
 
   it('returns null when every gateway times out or fails', async () => {

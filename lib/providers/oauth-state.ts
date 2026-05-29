@@ -28,9 +28,17 @@ function hmac(input: string): string {
   return base64Url(
     crypto
       .createHmac("sha256", getSigningSecret())
+      // codeql[js/insufficient-password-hash] HMAC-SHA-256 signs short-lived OAuth state cookies; this is not password hashing.
       .update(input)
       .digest(),
   );
+}
+
+function signaturesMatch(expected: string, actual: string): boolean {
+  const expectedBytes = Buffer.from(expected);
+  const actualBytes = Buffer.from(actual);
+  if (expectedBytes.length !== actualBytes.length) return false;
+  return crypto.timingSafeEqual(expectedBytes, actualBytes);
 }
 
 export function randomBase64Url(bytes = 32): string {
@@ -38,7 +46,13 @@ export function randomBase64Url(bytes = 32): string {
 }
 
 export function createPkceChallenge(codeVerifier: string): string {
-  return base64Url(crypto.createHash("sha256").update(codeVerifier).digest());
+  return base64Url(
+    crypto
+      .createHash("sha256")
+      // codeql[js/insufficient-password-hash] PKCE S256 requires SHA-256 by RFC 7636; the verifier is not stored as a password hash.
+      .update(codeVerifier)
+      .digest(),
+  );
 }
 
 export function createOAuthState(input: {
@@ -67,7 +81,7 @@ export function parseOAuthState(raw: string | undefined): OpenRouterOAuthState |
   if (!raw) return null;
   const [payload, signature] = raw.split(".");
   if (!payload || !signature) return null;
-  if (hmac(payload) !== signature) return null;
+  if (!signaturesMatch(hmac(payload), signature)) return null;
 
   let parsed: OpenRouterOAuthState;
   try {
