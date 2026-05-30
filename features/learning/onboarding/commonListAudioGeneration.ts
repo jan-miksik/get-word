@@ -1,6 +1,6 @@
 // Audio generation flow used by the "autogenerate common list" onboarding
 // path. Splits the long Google-TTS batch loop, quota probing, and
-// notice/messaging helpers out of `components/LearningLanguageOnboarding.tsx`
+// notice/messaging helpers out of `LearningLanguageOnboarding.tsx`
 // so the component stays focused on UI and choice orchestration.
 
 import type {

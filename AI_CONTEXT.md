@@ -6,6 +6,14 @@ Use this file as the first stop for Codex, Claude Code, and other coding agents.
 
 Get Word is a Next.js multilingual language-learning app with device/session auth, wallet linking, spaced repetition, list editing, translation, and generated pronunciation audio. It supports configurable language pairs backed by Google-supported translation languages, with Czech/Vietnamese as historical/default featured languages rather than a hard product boundary. PostgreSQL access goes through Drizzle in `lib/db`.
 
+## Placement Cheat Sheet
+
+- `app/*`: route entrypoints only. Keep pages as composition shells and API routes as request/response shells.
+- `features/*`: product/domain behavior for one capability. Put feature hooks, state, server services, types, and feature-only UI here.
+- `components/*`: shared React UI. If UI is feature-specific, prefer `features/<feature>/components/*` during refactors.
+- `lib/*`: shared non-UI foundations such as DB, auth/session, storage, network helpers, sync mechanics, and reusable pure helpers.
+- `hooks/*`: truly app-wide hooks only. Feature workflow hooks belong under `features/<feature>/hooks/*`.
+
 ## Start Here By Task
 
 ### Learning page behavior
@@ -16,7 +24,10 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 - Word loading: `features/learning/hooks/useWordsLoader.ts`
 - Stream/deck grouping: `features/learning/hooks/useLearningStreamGroups.ts`
 - Render callbacks: `features/learning/hooks/useLearningRenderers.tsx`
-- Language onboarding UI: `components/LearningLanguageOnboarding.tsx`
+- PWA install intro state: `features/learning/hooks/usePWAInstallIntro.ts`
+- Language onboarding UI: `features/learning/onboarding/LearningLanguageOnboarding.tsx`
+- Language onboarding data/loading: `features/learning/onboarding/useLearningOnboardingData.ts`
+- Language onboarding actions/navigation: `features/learning/onboarding/useLearningOnboardingActions.ts`
 - Onboarding recommendations/estimates: `features/learning/onboarding/listRecommendations.ts`
 - Onboarding language picker: `features/learning/onboarding/LanguageCombobox.tsx`
 
@@ -41,8 +52,17 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 - URL state helpers: `features/lists/client/url-state.ts`
 - Local preference storage: `features/lists/client/storage.ts`
 - Language helpers/loading: `features/lists/languages.ts`, `features/lists/hooks/useLearningLanguages.ts`
+- Google usage loading: `features/lists/hooks/useGoogleUsage.ts`
+- Lists page data/loading/subscriptions: `features/lists/hooks/useListsPageData.ts`
+- Lists detail loading/category mutations: `features/lists/hooks/useListsDetailsData.ts`
+- Lists fork dialog/state/actions: `features/lists/hooks/useListsForking.ts`
+- Lists page select/create/update/edit actions: `features/lists/hooks/useListsPageActions.ts`
+- Audio-step row UI: `features/lists/audio-step/AudioStepRow.tsx`
 - Audio-step row/source mapping: `features/lists/audio-step/rows.ts`
 - Audio-step playback + cache: `features/lists/audio-step/useAudioPlayback.ts`
+- Audio-step generation/regeneration workflow: `features/lists/audio-step/useAudioGenerationWorkflow.ts`
+- Audio-step Google TTS voice selection: `features/lists/audio-step/useGoogleTtsVoiceSelection.ts`
+- Audio-step reusable audio lookup/linking: `features/lists/audio-step/useReusableAudioLookup.ts`
 - Wizard item selectors: `features/lists/hooks/useListWizardItems.ts`
 - Main list UI pieces: `app/lists/ListSidebar.tsx`, `app/lists/CategoryBrowser.tsx`, `app/lists/TextareaEditor.tsx`, `app/lists/TranslationStep.tsx`, `app/lists/AudioStep.tsx`, `app/lists/PendingForkDialog.tsx`
 
@@ -91,7 +111,7 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 - `app/lists/page.tsx` is the lists coordinator. Wizard step state lives in `features/lists/hooks/useListsWizard.ts`; the page owns list/category/items, sidebar, settings, subscriptions, google-usage, error, and fork state. Extract more focused hooks rather than adding new state in the page.
 - `app/lists/AudioStep.tsx` still owns row state, generation, voice selection, and the JSX surface. Playback/cache/error machinery lives in `features/lists/audio-step/useAudioPlayback.ts`; pure row/source and API parsing helpers live under `features/lists/audio-step/*`.
 - `app/api/sync/route.ts` is behaviorally central and contains legacy compatibility paths. Keep route shape stable and extract internals carefully.
-- `components/LearningLanguageOnboarding.tsx` still owns the autogenerate-common-list orchestration and language-picker UI. The Google-TTS batch audio generation flow now lives in `features/learning/onboarding/commonListAudioGeneration.ts`; list ranking and language-picker UI live under `features/learning/onboarding/*`.
+- `features/learning/onboarding/LearningLanguageOnboarding.tsx` is now mostly the onboarding UI shell. Data loading and derived list state live in `features/learning/onboarding/useLearningOnboardingData.ts`; subscribe/fork/create/autogenerate navigation actions live in `features/learning/onboarding/useLearningOnboardingActions.ts`. The old `components/LearningLanguageOnboarding.tsx` path is a compatibility export only.
 
 ## Boundary Rules
 

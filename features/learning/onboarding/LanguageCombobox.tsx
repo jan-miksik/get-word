@@ -57,10 +57,12 @@ export function LanguageCombobox({
         <input
           id={id}
           type="search"
+          role="combobox"
           value={query}
           autoComplete="off"
           placeholder={placeholder}
           aria-label={`${label} language`}
+          aria-autocomplete="list"
           aria-expanded={open}
           aria-controls={`${id}-options`}
           className="onboarding-combobox-input w-full bg-transparent text-sm outline-none"

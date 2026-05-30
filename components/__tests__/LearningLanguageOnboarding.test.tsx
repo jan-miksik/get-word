@@ -226,7 +226,7 @@ describe('LearningLanguageOnboarding', () => {
       />,
     );
 
-    fireEvent.focus(screen.getByRole('searchbox', { name: /I want to learn language/i }));
+    fireEvent.focus(screen.getByRole('combobox', { name: /I want to learn language/i }));
     fireEvent.click(await screen.findByRole('option', { name: /Czech/i }));
 
     await waitFor(() => {

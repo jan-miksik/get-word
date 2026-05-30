@@ -21,14 +21,10 @@ import { useDueTimer } from '@/hooks/useDueTimer';
 import { useAuth } from '@/hooks/useAuth';
 import { AppStateProvider } from '@/context/AppStateContext';
 import { I18nProvider } from '@/components/I18nProvider';
-import { LearningLanguageOnboarding } from '@/components/LearningLanguageOnboarding';
+import { LearningLanguageOnboarding } from '@/features/learning/onboarding/LearningLanguageOnboarding';
 import { MemoryHooksIntroCard } from '@/features/learning/components/MemoryHooksIntroCard';
 import { PWAInstallIntroCard } from '@/features/learning/components/PWAInstallIntroCard';
-import {
-  persistPWAInstallPromptAnswered,
-  readPWAInstallPromptAnswered,
-} from '@/features/learning/app-state/storage';
-import { isMobileDevice, isSmallScreen, isStandalone, type SimulatedPlatform } from '@/lib/pwa-install';
+import { usePWAInstallIntro } from '@/features/learning/hooks/usePWAInstallIntro';
 
 export default function Home() {
   const [loaderDismissed, setLoaderDismissed] = useState(false);
@@ -60,7 +56,6 @@ export default function Home() {
     role,
     getWordDisplayMode,
     showAll,
-    setShowAll,
     progress,
     selectedCategories,
     showEnglish,
@@ -250,66 +245,20 @@ export default function Home() {
     />
   ) : null;
 
-  const [previewPWAInstallIntro] = useState<{ enabled: boolean; simulated: SimulatedPlatform }>(() => {
-    if (typeof window === 'undefined') return { enabled: false, simulated: null };
-    const params = new URLSearchParams(window.location.search);
-    if (!params.has('previewPWAInstallIntro')) return { enabled: false, simulated: null };
-    const raw = (params.get('previewPWAInstallIntro') ?? '').toLowerCase();
-    let simulated: SimulatedPlatform = null;
-    if (raw === 'ios') simulated = 'ios';
-    else if (raw === 'ios-non-safari') simulated = 'ios-non-safari';
-    else if (raw === 'android') simulated = 'android';
-    return { enabled: true, simulated };
+  const {
+    dismissPWAInstallIntro,
+    isPreviewPWAActive,
+    previewPWAInstallIntro,
+    shouldShowPWAInstallIntro,
+  } = usePWAInstallIntro({
+    viewMode,
+    shouldShowMemoryHooksIntro,
+    completedDeckWordCards,
   });
-
-  const [pwaInstallPromptAnswered, setPwaInstallPromptAnswered] = useState(true);
-  const [isAppInstalled, setIsAppInstalled] = useState(true);
-  const [isOnMobileDevice, setIsOnMobileDevice] = useState(false);
-  const [isOnSmallScreen, setIsOnSmallScreen] = useState(false);
-
-  useEffect(() => {
-    setPwaInstallPromptAnswered(readPWAInstallPromptAnswered());
-    setIsAppInstalled(isStandalone());
-    setIsOnMobileDevice(isMobileDevice());
-    setIsOnSmallScreen(isSmallScreen());
-    const onAppInstalled = () => setIsAppInstalled(true);
-    const onResize = () => setIsOnSmallScreen(isSmallScreen());
-    window.addEventListener('appinstalled', onAppInstalled);
-    window.addEventListener('resize', onResize);
-    return () => {
-      window.removeEventListener('appinstalled', onAppInstalled);
-      window.removeEventListener('resize', onResize);
-    };
-  }, []);
-
-  const [previewPWADismissed, setPreviewPWADismissed] = useState(false);
-
-  const handleDismissPWAInstallIntro = useCallback(() => {
-    persistPWAInstallPromptAnswered(true);
-    setPwaInstallPromptAnswered(true);
-    setPreviewPWADismissed(true);
-  }, []);
-
-  // Visible only on real mobile (normal flow) or on small viewports (preview/testing).
-  const isPWAVisibleForViewport = isOnMobileDevice || isOnSmallScreen;
-
-  // Preview mode is gated on small viewport / mobile UA so the install screen
-  // never appears on desktop, even with the URL param set.
-  const isPreviewPWAActive =
-    previewPWAInstallIntro.enabled && isPWAVisibleForViewport && !previewPWADismissed;
-
-  const shouldShowPWAInstallIntro =
-    isPreviewPWAActive ||
-    (viewMode === 'card' &&
-      isOnMobileDevice &&
-      !shouldShowMemoryHooksIntro &&
-      !pwaInstallPromptAnswered &&
-      !isAppInstalled &&
-      completedDeckWordCards >= 10);
 
   const pwaInstallIntroCard = shouldShowPWAInstallIntro ? (
     <PWAInstallIntroCard
-      onDismiss={handleDismissPWAInstallIntro}
+      onDismiss={dismissPWAInstallIntro}
       simulatedPlatform={previewPWAInstallIntro.simulated}
     />
   ) : null;

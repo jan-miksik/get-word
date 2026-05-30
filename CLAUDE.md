@@ -9,6 +9,18 @@ Use Tailwind for all new styling. Do not refactor existing CSS in `styles/*.css`
 
 ## Architecture
 
+### Code placement
+
+Use this decision tree before adding or moving code:
+
+- `app/*` is for Next.js route entrypoints. Pages should compose feature UI/state; API routes should parse, authorize, call services/helpers, and return responses.
+- `features/<feature>/*` is for product/domain behavior owned by one capability, such as learning, lists, audio, auth, providers, edit, or sync.
+- `components/*` is for shared React UI that is reused across features or represents app-wide UI. Feature-only UI should move toward `features/<feature>/components/*`.
+- `lib/*` is for shared non-UI foundations: database access, auth/session helpers, storage, network policy, sync mechanics, reusable pure helpers, and domain primitives used by multiple features.
+- `hooks/*` is for truly app-wide React hooks. Feature workflow hooks belong in `features/<feature>/hooks/*`.
+
+If a file needs product context to explain why it exists, prefer `features/<feature>`. If it is reusable infrastructure with no UI, prefer `lib`. If it only renders UI and owns little behavior, prefer `components` or a feature-local `components` folder.
+
 ### CSS / Tailwind
 
 Tailwind v4 is compiled by Next/PostCSS from `app/tailwind.css`. Development runs through Turbopack with `pnpm run dev`; use `pnpm run dev:fast` to disable dev source maps during tight UI/state iteration.
