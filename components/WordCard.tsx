@@ -6,38 +6,15 @@ import { NormalizedWord, STAGES } from '@/lib/words';
 import { ProgressData } from '@/lib/sync';
 import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
 import { useI18n } from '@/components/I18nProvider';
-import type { I18nKey } from '@/lib/i18n/messages';
 import type { LearningRole } from '@/features/learning/state/learningRole';
-
-function formatInterval(
-  ms: number,
-  t: (key: I18nKey, values?: Record<string, string | number>) => string,
-): string {
-  if (ms <= 0) return '';
-  const stage = STAGES.find((entry) => entry.intervalMs === ms);
-  if (stage) return t(`stage.${stage.id}` as I18nKey);
-  const m = Math.round(ms / 60000);
-  if (m < 60) return `${m} min`;
-  const h = Math.round(m / 60);
-  if (h < 24) return `${h} ${h === 1 ? 'hour' : 'hours'}`;
-  const d = Math.round(h / 24);
-  return `${d} ${d === 1 ? 'day' : 'days'}`;
-}
-
-function formatNextReviewHint(
-  intervalMs: number,
-  t: (key: I18nKey, values?: Record<string, string | number>) => string,
-): string {
-  const label = formatInterval(intervalMs, t);
-  return label ? t('card.repeatIn', { interval: label }) : t('card.repeatNow');
-}
-
-function getWordTextSize(maxLen: number): string {
-  if (maxLen <= 18) return '!text-[2.25rem] sm:!text-[2.75rem]';
-  if (maxLen <= 30) return '!text-[1.65rem] sm:!text-[2rem]';
-  if (maxLen <= 48) return '!text-[1.25rem] sm:!text-[1.5rem]';
-  return '!text-[1rem] sm:!text-[1.2rem]';
-}
+import { RevealHint } from '@/components/word-card/RevealHint';
+import { LanguageRow } from '@/components/word-card/LanguageRow';
+import { CustomStagePopover } from '@/components/word-card/CustomStagePopover';
+import {
+  formatNextReviewHint,
+  getLearningAudioSrc,
+  getWordTextSize,
+} from '@/components/word-card/helpers';
 
 interface WordCardProps {
   word: NormalizedWord;
@@ -61,21 +38,6 @@ interface WordCardProps {
   categoryOrder?: string[];
   showMemoryHook?: boolean;
   fullscreen?: boolean;
-}
-
-function RevealHint() {
-  const { t } = useI18n();
-
-  return (
-    <span
-      aria-hidden="true"
-      className="reveal-hint pointer-events-none absolute inset-x-[-0.625rem] inset-y-[-0.1875rem] z-[3] flex items-center justify-center rounded-xl transition-[opacity,transform] duration-500 ease-out"
-    >
-      <span className="reveal-hint__label text-[0.6rem] font-bold uppercase tracking-[0.13em] text-[#6b5e48]">
-        {t('card.tapToReveal')}
-      </span>
-    </span>
-  );
 }
 
 export const WordCard = memo(function WordCard({
@@ -104,12 +66,9 @@ export const WordCard = memo(function WordCard({
   const { t } = useI18n();
   const [editingHook, setEditingHook] = useState(false);
   const [hookValue, setHookValue] = useState(memoryHook);
-  const [customOpen, setCustomOpen] = useState(false);
   const hookInputRef = useRef<HTMLInputElement>(null);
   const hookDisplayRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
-  const customPopoverRef = useRef<HTMLDivElement>(null);
-  const customTriggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     setHookValue(memoryHook);
@@ -118,28 +77,6 @@ export const WordCard = memo(function WordCard({
   useEffect(() => {
     if (!showMemoryHook) setEditingHook(false);
   }, [showMemoryHook]);
-
-  useEffect(() => {
-    if (!customOpen) return;
-    const handlePointerDown = (event: MouseEvent | TouchEvent) => {
-      const target = event.target as Node | null;
-      if (!target) return;
-      if (customPopoverRef.current?.contains(target)) return;
-      if (customTriggerRef.current?.contains(target)) return;
-      setCustomOpen(false);
-    };
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setCustomOpen(false);
-    };
-    document.addEventListener('mousedown', handlePointerDown);
-    document.addEventListener('touchstart', handlePointerDown);
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('mousedown', handlePointerDown);
-      document.removeEventListener('touchstart', handlePointerDown);
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [customOpen]);
 
   const knownPresses = progress.knownCount ?? 0;
   const unknownPresses = progress.unknownCount ?? 0;
@@ -184,37 +121,11 @@ export const WordCard = memo(function WordCard({
     );
   };
 
-  // Audio playback
   const playAudio = (src: string | string[]) => {
     void playUserInitiatedAudio(audioRef, src);
   };
 
-  // Helper to normalize audio paths for Next.js (add leading slash if needed)
-  const normalizeAudioPath = (path: string): string => {
-    if (/^(?:https?:|blob:|data:)/i.test(path)) return path;
-    // Ensure path starts with / for Next.js public directory
-    // Paths in data are like "speech/cz/file.mp3", need to be "/speech/cz/file.mp3"
-    return path.startsWith('/') ? path : `/${path}`;
-  };
-
-  // Get audio source for the side the user is learning (not the side they
-  // already know). 'languageToLearn' (old 'vi') → learning from-side → cz audio.
-  // 'knownLanguage' (old 'cz') → learning to-side → vi audio.
-  const getAudioSrc = (): string[] | null => {
-    let storedAudio: string | string[] | undefined;
-    if (role === 'languageToLearn' && word.czAudio) {
-      storedAudio = word.czAudio;
-    } else if (role === 'knownLanguage' && word.viAudio) {
-      storedAudio = word.viAudio;
-    }
-    if (!storedAudio) return null;
-    const candidates = (Array.isArray(storedAudio) ? storedAudio : [storedAudio])
-      .map(normalizeAudioPath)
-      .filter((candidate, index, all) => all.indexOf(candidate) === index);
-    return candidates.length > 0 ? candidates : null;
-  };
-
-  const audioSrc = getAudioSrc();
+  const audioSrc = getLearningAudioSrc(role, word);
   const shouldRenderMemoryHook = showMemoryHook;
 
   // Scroll the focused input into view after the keyboard finishes opening
@@ -234,8 +145,8 @@ export const WordCard = memo(function WordCard({
       return () => vv.removeEventListener('resize', scrollIntoCenter);
     }
     // Fallback: scroll after a short delay on browsers without visualViewport
-    const t = setTimeout(scrollIntoCenter, 350);
-    return () => clearTimeout(t);
+    const timer = setTimeout(scrollIntoCenter, 350);
+    return () => clearTimeout(timer);
   }, [editingHook]);
 
   // Memory hook editing
@@ -334,59 +245,25 @@ export const WordCard = memo(function WordCard({
         </div>
       )}
       <div className={`word-card-content flex flex-col gap-4 ${editingHook ? 'word-card-content--editing-hook' : ''}`}>
-        {/* Czech */}
-        <div className="flex justify-center items-center gap-1.5">
-          <div className="hidden">CZ</div>
-          <div className="flex-none w-full text-center font-medium leading-[1.2] sm:leading-[1.25]">
-            <div
-              className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${coverCz ? 'is-covered' : ''}`}
-              data-lang="cz"
-            >
-              <span className={`lang-text inline-block relative min-h-[1.4em] ${cardTextSizeClass}`}>
-                <span>{word.cz}</span>
-                {showPronunciation && word.czPron && shouldShowPron('cz') && (
-                  <span className="text-[1.1rem] sm:text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.czPron}</span>
-                )}
-              </span>
-              {coverCz && <RevealHint />}
-            </div>
-          </div>
-        </div>
+        <LanguageRow hiddenLabel="CZ" lang="cz" covered={coverCz} textSizeClass={cardTextSizeClass}>
+          <span>{word.cz}</span>
+          {showPronunciation && word.czPron && shouldShowPron('cz') && (
+            <span className="text-[1.1rem] sm:text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.czPron}</span>
+          )}
+        </LanguageRow>
 
-        {/* English */}
         {showEnglish && (
-          <div className="flex justify-center items-center gap-1.5">
-            <div className="hidden">EN</div>
-            <div className="flex-none w-full text-center font-medium leading-[1.2] sm:leading-[1.25]">
-              <div
-                className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${coverEn ? 'is-covered' : ''}`}
-                data-lang="en"
-              >
-                <span className={`lang-text inline-block relative min-h-[1.4em] ${cardTextSizeClass}`}>{word.en}</span>
-                {coverEn && <RevealHint />}
-              </div>
-            </div>
-          </div>
+          <LanguageRow hiddenLabel="EN" lang="en" covered={coverEn} textSizeClass={cardTextSizeClass}>
+            {word.en}
+          </LanguageRow>
         )}
 
-        {/* Vietnamese */}
-        <div className="flex justify-center items-center gap-1.5">
-          <div className="hidden">VI</div>
-          <div className="flex-none w-full text-center font-medium leading-[1.2] sm:leading-[1.25]">
-            <div
-              className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${coverVi ? 'is-covered' : ''}`}
-              data-lang="vi"
-            >
-              <span className={`lang-text inline-block relative min-h-[1.4em] ${cardTextSizeClass}`}>
-                <span>{word.vi}</span>
-                {showPronunciation && word.viPron && shouldShowPron('vi') && (
-                  <span className="text-[1.1rem] sm:text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.viPron}</span>
-                )}
-              </span>
-              {coverVi && <RevealHint />}
-            </div>
-          </div>
-        </div>
+        <LanguageRow hiddenLabel="VI" lang="vi" covered={coverVi} textSizeClass={cardTextSizeClass}>
+          <span>{word.vi}</span>
+          {showPronunciation && word.viPron && shouldShowPron('vi') && (
+            <span className="text-[1.1rem] sm:text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.viPron}</span>
+          )}
+        </LanguageRow>
 
       {/* Memory Hook */}
       {shouldRenderMemoryHook && (
@@ -476,77 +353,11 @@ export const WordCard = memo(function WordCard({
             </span>
           </button>
           {hasCustomStageActions && (
-            <div className="relative flex">
-              <button
-                ref={customTriggerRef}
-                type="button"
-                className="srs-btn srs-btn--easy !relative !border-[#12750f] w-full"
-                onClick={() => setCustomOpen((open) => !open)}
-                title={t('card.pickCustomInterval')}
-                aria-label={t('card.customInterval')}
-                aria-haspopup="listbox"
-                aria-expanded={customOpen}
-              >
-                <span className="srs-btn-copy">
-                  <span className="srs-btn-label">⋯</span>
-                  <span className="srs-btn-hint !opacity-[0.35] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{t('card.custom')}</span>
-                </span>
-              </button>
-              {customOpen && (
-                <div
-                  ref={customPopoverRef}
-                  role="listbox"
-                  className="absolute right-0 bottom-[calc(100%+0.5rem)] z-50 w-[15rem] max-w-[calc(100vw-2rem)] max-h-[min(70dvh,26rem)] rounded-2xl border-2 border-[#2A2218] bg-[#F4EFE2] text-[#2A2218] shadow-lg overflow-hidden flex flex-col"
-                >
-                  <div className="bg-[#F4EFE2] px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.12em] text-[#2A2218]/70 border-b border-[#2A2218]/20">
-                    {t('card.repeatAfter')}
-                  </div>
-                  <div className="overflow-y-auto">
-                  {STAGES.map((stage, idx) => {
-                    const isCurrent = idx === clampedStageIndex;
-                    const stripe = idx % 2 === 1;
-                    return (
-                      <button
-                        key={stage.id}
-                        type="button"
-                        role="option"
-                        aria-selected={isCurrent}
-                        onClick={() => {
-                          setCustomOpen(false);
-                          onCustomStage?.(idx);
-                        }}
-                        className={`relative flex w-full items-center px-3 py-2 text-left text-[0.9rem] leading-snug transition-colors hover:bg-[#2A2218]/15 active:bg-[#2A2218]/25 ${
-                          isCurrent
-                            ? 'bg-[#2A2218]/12 font-semibold before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-r before:bg-[#2A2218]'
-                            : stripe
-                              ? 'bg-[#2A2218]/[0.045]'
-                              : ''
-                        }`}
-                      >
-                        {t(`stage.${stage.id}` as I18nKey)}
-                      </button>
-                    );
-                  })}
-                  <button
-                    type="button"
-                    role="option"
-                    aria-selected={false}
-                    onClick={() => {
-                      setCustomOpen(false);
-                      if (onCustomStage) {
-                        onCustomStage(STAGES.length - 1, { noRepeat: true });
-                      } else {
-                        onReallyKnown?.();
-                      }
-                    }}
-                    className="flex w-full items-center px-3 py-2 text-left text-[0.9rem] leading-snug font-medium text-[#12750f] bg-[#12750f]/[0.08] transition-colors hover:bg-[#12750f]/20 active:bg-[#12750f]/30 border-t border-[#2A2218]/20"
-                  >
-                    {t('card.fullyKnownNoRepeat')}
-                  </button>
-                  </div>
-                </div>
-              )}
-            </div>
+            <CustomStagePopover
+              clampedStageIndex={clampedStageIndex}
+              onCustomStage={onCustomStage}
+              onReallyKnown={onReallyKnown}
+            />
           )}
         </div>
       </div>
