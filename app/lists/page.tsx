@@ -2,29 +2,20 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
-import { listsApiFetch } from '@/features/lists/api';
-import * as listActions from '@/features/lists/client/actions';
 import {
   consumeOneShotListsUrlParams,
   readInitialListsUrlState,
   selectedListUrl,
 } from '@/features/lists/client/url-state';
-import {
-  readStoredOpenRouterModelOrDefault,
-  writeStoredOpenRouterModel,
-} from '@/features/lists/client/storage';
-import { isSameListDirection } from '@/features/lists/languages';
 import { useLearningLanguages } from '@/features/lists/hooks/useLearningLanguages';
 import { useListsSettingsLanguage } from '@/features/lists/hooks/useListsSettingsLanguage';
-import { useItemsByCategory } from '@/features/lists/hooks/useListWizardItems';
+import { useGoogleUsage } from '@/features/lists/hooks/useGoogleUsage';
+import { useListsPageData } from '@/features/lists/hooks/useListsPageData';
+import { useListsDetailsData } from '@/features/lists/hooks/useListsDetailsData';
+import { useListsForking } from '@/features/lists/hooks/useListsForking';
+import { useListsPageActions } from '@/features/lists/hooks/useListsPageActions';
 import { useListsWizard } from '@/features/lists/hooks/useListsWizard';
-import type {
-  GoogleUsageResponse,
-  PendingFork,
-  WordCategory,
-  WordList,
-  WordListItem,
-} from '@/features/lists/types';
+import type { WordListItem } from '@/features/lists/types';
 import { ErrorMessage } from './ErrorMessage';
 import { ListSidebar } from './ListSidebar';
 import { CategoryBrowser } from './CategoryBrowser';
@@ -35,8 +26,6 @@ import { AudioStep } from './AudioStep';
 import { ApiKeySettings } from './ApiKeySettings';
 import { PendingForkDialog } from './PendingForkDialog';
 import { WizardProgressBar, type WizardActiveStep } from './WizardProgressBar';
-
-type ForkedListPrompt = { listId: string; sourceName: string };
 
 export default function ListsPage() {
   const settingsLanguage = useListsSettingsLanguage();
@@ -50,38 +39,59 @@ export default function ListsPage() {
 
 function ListsPageContent() {
   const { t } = useI18n();
-  const [lists, setLists] = useState<WordList[]>([]);
-  const [selectedListId, setSelectedListId] = useState<string | null>(null);
-  const [categories, setCategories] = useState<WordCategory[]>([]);
-  const [items, setItems] = useState<WordListItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [loadingDetails, setLoadingDetails] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const initialUrlState = useMemo(() => {
+    if (typeof window === 'undefined') return null;
+    return readInitialListsUrlState(window.location.search);
+  }, []);
+  const [error, setError] = useState<string | null>(initialUrlState?.notice ?? null);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [subscribedListIds, setSubscribedListIds] = useState<Set<string>>(new Set());
-  const [openCreateSignal, setOpenCreateSignal] = useState(0);
-  const [initialCreateLanguageFrom, setInitialCreateLanguageFrom] = useState<string | null>(null);
-  const [initialCreateLanguageTo, setInitialCreateLanguageTo] = useState<string | null>(null);
-  const [existingListsHint, setExistingListsHint] = useState(false);
-  const languages = useLearningLanguages();
-  const [googleUsage, setGoogleUsage] = useState<GoogleUsageResponse | null>(null);
-  const [forkedListPrompt, setForkedListPrompt] = useState<ForkedListPrompt | null>(null);
-  const [canManageCommonLists, setCanManageCommonLists] = useState(false);
-  const [initialAudioFixStep, setInitialAudioFixStep] = useState<'audio-target' | 'audio-known' | null>(null);
-  const [pendingFork, setPendingFork] = useState<PendingFork | null>(null);
-  const [forkingListId, setForkingListId] = useState<string | null>(null);
-
-  const selectedList = useMemo(
-    () => lists.find((l) => l.id === selectedListId) ?? null,
-    [lists, selectedListId]
+  const [settingsOpen, setSettingsOpen] = useState(initialUrlState?.settingsOpen ?? false);
+  const [openCreateSignal, setOpenCreateSignal] = useState(initialUrlState?.shouldOpenCreate ? 1 : 0);
+  const [initialCreateLanguageFrom] = useState<string | null>(
+    initialUrlState?.initialCreateLanguageFrom ?? null,
   );
-
-  const isOwner = useMemo(() => {
-    if (!selectedList) return false;
-    return selectedList.isOwner ?? selectedList.ownerId !== null;
-  }, [selectedList]);
+  const [initialCreateLanguageTo] = useState<string | null>(
+    initialUrlState?.initialCreateLanguageTo ?? null,
+  );
+  const [existingListsHint, setExistingListsHint] = useState(initialUrlState?.existingListsHint ?? false);
+  const languages = useLearningLanguages();
+  const { googleUsage, loadGoogleUsage } = useGoogleUsage();
+  const {
+    lists,
+    selectedListId,
+    selectedList,
+    isOwner,
+    loading,
+    subscribedListIds,
+    canManageCommonLists,
+    setSelectedListId,
+    addListAndSelect,
+    applyUpdatedList,
+    deleteList,
+    subscribeToList,
+    unsubscribeFromList,
+  } = useListsPageData({
+    initialSelectedListId: initialUrlState?.selectedListId,
+    loadGoogleUsage,
+    setError,
+  });
+  const [initialAudioFixStep, setInitialAudioFixStep] = useState<'audio-target' | 'audio-known' | null>(
+    initialUrlState?.initialAudioFixStep ?? null,
+  );
+  const {
+    categories,
+    items,
+    itemsByCategory,
+    loadingDetails,
+    beginDetailsTransition,
+    reloadListDetails,
+    loadSelectedListDetails,
+    createCategory,
+    reorderCategories,
+    renameCategory,
+    deleteCategory,
+  } = useListsDetailsData({ selectedListId, setError });
 
   const updateSelectedListUrl = useCallback((
     listId: string,
@@ -90,92 +100,39 @@ function ListsPageContent() {
     if (typeof window === 'undefined') return;
     window.history.replaceState(null, '', selectedListUrl(listId, forkPrompt));
   }, []);
-
-  const loadGoogleUsage = useCallback(async () => {
-    try {
-      const res = await listsApiFetch('/api/google-usage');
-      if (!res.ok) {
-        if (res.status === 401) return;
-        throw new Error(t('lists.googleUsageLoadFailed'));
-      }
-      const data = await res.json();
-      setGoogleUsage(data);
-    } catch {
-    }
-  }, [t]);
-
-  // Fetch lists and subscription status on mount
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const initialUrlState = readInitialListsUrlState(window.location.search);
-    if (initialUrlState.settingsOpen) setSettingsOpen(true);
-    if (initialUrlState.initialCreateLanguageFrom) {
-      setInitialCreateLanguageFrom(initialUrlState.initialCreateLanguageFrom);
-    }
-    if (initialUrlState.initialCreateLanguageTo) {
-      setInitialCreateLanguageTo(initialUrlState.initialCreateLanguageTo);
-    }
-    if (initialUrlState.shouldOpenCreate) {
-      setOpenCreateSignal((value) => value + 1);
-    }
-    if (initialUrlState.existingListsHint) {
-      setExistingListsHint(true);
-    }
-    if (initialUrlState.forkedListPrompt) {
-      setForkedListPrompt(initialUrlState.forkedListPrompt);
-    }
-    if (initialUrlState.initialAudioFixStep) {
-      setInitialAudioFixStep(initialUrlState.initialAudioFixStep);
-      window.history.replaceState(null, '', consumeOneShotListsUrlParams(window.location.search));
-    }
-    if (initialUrlState.notice) {
-      setError(initialUrlState.notice);
-      window.history.replaceState(null, '', consumeOneShotListsUrlParams(window.location.search));
-    }
+  const closeSidebar = useCallback(() => {
+    setSidebarOpen(false);
   }, []);
+  const {
+    forkedListPrompt,
+    pendingFork,
+    forkingListId,
+    clearForkedListPrompt,
+    dismissForkNotice,
+    startFork,
+    updatePendingFork,
+    changeForkModel,
+    cancelFork,
+    confirmFork,
+    resetForking,
+  } = useListsForking({
+    lists,
+    initialCreateLanguageFrom,
+    initialCreateLanguageTo,
+    initialForkedListPrompt: initialUrlState?.forkedListPrompt ?? null,
+    beginDetailsTransition,
+    addListAndSelect,
+    updateSelectedListUrl,
+    onForkSelected: closeSidebar,
+  });
 
+  // Consume one-shot URL params after initial state has been seeded from them.
   useEffect(() => {
-    async function loadLists() {
-      try {
-        void loadGoogleUsage();
-        const res = await listsApiFetch('/api/lists');
-        if (!res.ok) throw new Error(t('lists.loadFailed'));
-        const data = await res.json();
-        setLists(data.lists);
-        setCanManageCommonLists(Boolean(data.canManageCommonLists));
-        setSelectedListId((current) => {
-          if (current || data.lists.length === 0) return current;
-          if (typeof window !== 'undefined') {
-            const selected = new URLSearchParams(window.location.search).get('selected');
-            if (selected && data.lists.some((l: WordList) => l.id === selected)) return selected;
-          }
-          const owned = data.lists.find((l: WordList) => l.ownerId !== null);
-          return owned?.id ?? data.lists[0].id;
-        });
-        setSubscribedListIds(new Set<string>(data.subscribedListIds ?? []));
-      } catch (err) {
-        setError(err instanceof Error ? err.message : t('lists.loadFailed'));
-      } finally {
-        setLoading(false);
-      }
+    if (!initialUrlState) return;
+    if (initialUrlState.initialAudioFixStep || initialUrlState.notice) {
+      window.history.replaceState(null, '', consumeOneShotListsUrlParams(window.location.search));
     }
-    loadLists();
-  }, [loadGoogleUsage, t]);
-
-  const itemsByCategory = useItemsByCategory(items);
-
-  const reloadListDetails = useCallback(
-    async (options: { includeMedia?: boolean } = {}): Promise<WordListItem[]> => {
-      if (!selectedListId) return [];
-      const details = await listActions.fetchListDetails(selectedListId, {
-        includeMedia: options.includeMedia ?? false,
-      });
-      setCategories(details.categories);
-      setItems(details.items);
-      return details.items;
-    },
-    [selectedListId],
-  );
+  }, [initialUrlState]);
 
   const wizard = useListsWizard({
     selectedListId,
@@ -185,241 +142,57 @@ function ListsPageContent() {
     loadGoogleUsage,
   });
 
+  const handleSidesCleared = useCallback((clearedSides: ('known' | 'target')[], freshItems: WordListItem[]) => {
+    wizard.startAllWordsReviewAfterSideClear(clearedSides, freshItems);
+  }, [wizard]);
+
+  const {
+    selectList,
+    createList,
+    updateList,
+    editList,
+  } = useListsPageActions({
+    selectedListId,
+    setSelectedListId,
+    beginDetailsTransition,
+    clearForkedListPrompt,
+    updateSelectedListUrl,
+    addListAndSelect,
+    applyUpdatedList,
+    reloadListDetails,
+    onListEdit: () => {
+      wizard.triggerEdit();
+      closeSidebar();
+    },
+    onListSelected: closeSidebar,
+    onListSidesCleared: handleSidesCleared,
+    forkedListPrompt,
+  });
+
   // Fetch list details when selected list changes.
   useEffect(() => {
     if (!selectedListId) return;
-    const listId = selectedListId;
     const controller = new AbortController();
-    setLoadingDetails(true);
-    setCategories([]);
-    setItems([]);
-    async function loadListDetails() {
-      try {
-        const details = await listActions.fetchListDetails(listId, {
-          includeMedia: false,
-          signal: controller.signal,
-        });
-        const freshItems = details.items;
-        setCategories(details.categories);
-        setItems(freshItems);
-        if (initialAudioFixStep) {
-          wizard.openAudioStepFromFix(freshItems, initialAudioFixStep);
-          setInitialAudioFixStep(null);
-        } else {
-          wizard.showBrowse();
-        }
-      } catch (err) {
-        if (err instanceof DOMException && err.name === 'AbortError') return;
-        setError(err instanceof Error ? err.message : t('lists.loadOneFailed'));
-      } finally {
-        if (!controller.signal.aborted) {
-          setLoadingDetails(false);
-        }
-      }
-    }
-    loadListDetails();
+    const timeoutId = window.setTimeout(() => {
+      void loadSelectedListDetails({
+        signal: controller.signal,
+        onLoaded: (freshItems) => {
+          if (initialAudioFixStep) {
+            wizard.openAudioStepFromFix(freshItems, initialAudioFixStep);
+            setInitialAudioFixStep(null);
+          } else {
+            wizard.showBrowse();
+          }
+        },
+      });
+    }, 0);
     wizard.resetForListChange();
-    return () => controller.abort();
+    return () => {
+      window.clearTimeout(timeoutId);
+      controller.abort();
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialAudioFixStep, selectedListId, t]);
-
-  const handleSelectList = useCallback((listId: string) => {
-    if (listId === selectedListId) {
-      setForkedListPrompt(null);
-      updateSelectedListUrl(listId, null);
-      setSidebarOpen(false);
-      return;
-    }
-    setLoadingDetails(true);
-    setCategories([]);
-    setItems([]);
-    setForkedListPrompt(null);
-    updateSelectedListUrl(listId, null);
-    setSelectedListId(listId);
-    setSidebarOpen(false);
-  }, [selectedListId, updateSelectedListUrl]);
-
-  const handleCreateList = useCallback(async (name: string, langFrom: string, langTo: string) => {
-    const list = await listActions.createList(name, langFrom, langTo);
-    setLists((prev) => [...prev, list]);
-    setForkedListPrompt(null);
-    setLoadingDetails(true);
-    setCategories([]);
-    setItems([]);
-    updateSelectedListUrl(list.id, null);
-    setSelectedListId(list.id);
-  }, [updateSelectedListUrl]);
-
-  const handleUpdateList = useCallback(async (
-    listId: string,
-    data: Pick<WordList, 'name' | 'description' | 'isPublic'> & {
-      isCommon?: boolean;
-      isRecommended?: boolean;
-      languageFrom?: string;
-      languageTo?: string;
-    },
-  ) => {
-    const { list: updatedList, clearedSides } = await listActions.updateList(listId, data);
-    setLists((prev) =>
-      prev.map((list) => {
-        if (list.id === listId) return { ...list, ...updatedList };
-        return {
-          ...list,
-          ...(updatedList.isCommon ? { isCommon: false } : {}),
-          ...(updatedList.isRecommended && isSameListDirection(list, updatedList)
-            ? { isRecommended: false }
-            : {}),
-        };
-      })
-    );
-    if (forkedListPrompt?.listId === listId) {
-      setForkedListPrompt(null);
-      updateSelectedListUrl(listId, null);
-    }
-    if (clearedSides.length > 0 && selectedListId === listId) {
-      const freshItems = await reloadListDetails();
-      wizard.startAllWordsReviewAfterSideClear(clearedSides, freshItems);
-    }
-  }, [forkedListPrompt, reloadListDetails, selectedListId, updateSelectedListUrl, wizard]);
-
-  const handleForkList = useCallback(async (listId: string) => {
-    const sourceList = lists.find((list) => list.id === listId);
-    if (!sourceList) return;
-    setPendingFork({
-      source: sourceList,
-      languageFrom: initialCreateLanguageFrom ?? sourceList.languageFrom,
-      languageTo: initialCreateLanguageTo ?? sourceList.languageTo,
-      provider: 'none',
-      sourceLanguage: sourceList.languageFrom,
-      translationModel: readStoredOpenRouterModelOrDefault(),
-    });
-  }, [initialCreateLanguageFrom, initialCreateLanguageTo, lists]);
-
-  const handlePendingForkModelChange = useCallback((model: string) => {
-    setPendingFork((current) =>
-      current ? { ...current, translationModel: model } : current
-    );
-    writeStoredOpenRouterModel(model);
-  }, []);
-
-  const handleConfirmFork = useCallback(async () => {
-    if (!pendingFork || pendingFork.languageFrom === pendingFork.languageTo) return;
-    setForkingListId(pendingFork.source.id);
-    const { list: forkedList } = await listActions.forkList(pendingFork.source.id, {
-      languageFrom: pendingFork.languageFrom,
-      languageTo: pendingFork.languageTo,
-      translationProvider: pendingFork.provider,
-      sourceLanguage: pendingFork.sourceLanguage,
-      translationModel: pendingFork.translationModel,
-    });
-    const sourceName = pendingFork.source.name ?? t('lists.anotherList');
-    setLists((prev) => [...prev, forkedList]);
-    setForkedListPrompt({ listId: forkedList.id, sourceName });
-    setLoadingDetails(true);
-    setCategories([]);
-    setItems([]);
-    updateSelectedListUrl(forkedList.id, { sourceName });
-    setSelectedListId(forkedList.id);
-    setSidebarOpen(false);
-    setPendingFork(null);
-    setForkingListId(null);
-  }, [pendingFork, t, updateSelectedListUrl]);
-
-  const handleEditList = useCallback((listId: string) => {
-    setSelectedListId(listId);
-    wizard.triggerEdit();
-    setSidebarOpen(false);
-  }, [wizard]);
-
-  const handleDismissForkNotice = useCallback(() => {
-    setForkedListPrompt((current) => {
-      if (!current) return null;
-      updateSelectedListUrl(current.listId, null);
-      return null;
-    });
-  }, [updateSelectedListUrl]);
-
-  const handleDeleteList = useCallback(async (listId: string) => {
-    try {
-      await listActions.deleteList(listId);
-
-      setLists((prev) => {
-        const next = prev.filter((l) => l.id !== listId);
-        const nextOwned = next.find((l) => l.ownerId !== null);
-        setSelectedListId((current) => (
-          current === listId
-            ? (nextOwned?.id ?? next[0]?.id ?? null)
-            : current
-        ));
-        return next;
-      });
-
-      setSubscribedListIds((prev) => {
-        const next = new Set(prev);
-        next.delete(listId);
-        return next;
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('lists.deleteFailed'));
-    }
-  }, [t]);
-
-  const handleSubscribe = useCallback(async (listId: string) => {
-    try {
-      await listActions.subscribeToList(listId);
-      setSubscribedListIds((prev) => new Set([...prev, listId]));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('lists.subscribeFailed'));
-    }
-  }, [t]);
-
-  const handleUnsubscribe = useCallback(async (listId: string) => {
-    try {
-      await listActions.unsubscribeFromList(listId);
-      setSubscribedListIds((prev) => {
-        const next = new Set(prev);
-        next.delete(listId);
-        return next;
-      });
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('lists.unsubscribeFailed'));
-    }
-  }, [t]);
-
-  const handleCreateCategory = useCallback(async (name: string) => {
-    if (!selectedListId) return;
-    await listActions.createCategory(selectedListId, name);
-    await reloadListDetails();
-  }, [selectedListId]);
-
-  const handleReorderCategories = useCallback(async (orderedIds: string[]) => {
-    if (!selectedListId) return;
-    await listActions.reorderCategories(selectedListId, orderedIds);
-    // Optimistically reorder locally
-    setCategories((prev) => {
-      const byId = new Map(prev.map((c) => [c.id, c]));
-      return orderedIds
-        .map((id, i) => {
-          const cat = byId.get(id);
-          return cat ? { ...cat, position: i } : null;
-        })
-        .filter((c): c is WordCategory => c !== null);
-    });
-  }, [selectedListId]);
-
-  const handleRenameCategory = useCallback(async (categoryId: string, name: string) => {
-    if (!selectedListId) return;
-    await listActions.renameCategory(selectedListId, categoryId, name);
-    setCategories((prev) =>
-      prev.map((c) => (c.id === categoryId ? { ...c, name } : c))
-    );
-  }, [selectedListId]);
-
-  const handleDeleteCategory = useCallback(async (categoryId: string) => {
-    if (!selectedListId) return;
-    await listActions.deleteCategory(selectedListId, categoryId);
-    await reloadListDetails();
-  }, [selectedListId]);
+  }, [initialAudioFixStep, loadSelectedListDetails, selectedListId]);
 
   if (loading) {
     return (
@@ -486,13 +259,13 @@ function ListsPageContent() {
           canManageCommonLists={canManageCommonLists}
           initialCreateLanguageFrom={initialCreateLanguageFrom}
           initialCreateLanguageTo={initialCreateLanguageTo}
-          onSelectList={handleSelectList}
-          onCreateList={handleCreateList}
-          onDeleteList={handleDeleteList}
-          onEditList={handleEditList}
-          onSubscribe={handleSubscribe}
-          onUnsubscribe={handleUnsubscribe}
-          onFork={handleForkList}
+          onSelectList={selectList}
+          onCreateList={createList}
+          onDeleteList={deleteList}
+          onEditList={editList}
+          onSubscribe={subscribeToList}
+          onUnsubscribe={unsubscribeFromList}
+          onFork={startFork}
           openCreateSignal={openCreateSignal}
         />
       </div>
@@ -563,14 +336,14 @@ function ListsPageContent() {
               triggerEditSignal={wizard.triggerEditSignal}
               onEditCategory={wizard.handleEditCategory}
               onEditAllWords={wizard.handleEditAllWords}
-              onCreateCategory={handleCreateCategory}
-              onUpdateList={handleUpdateList}
-              onDismissForkNotice={handleDismissForkNotice}
-              onRenameCategory={handleRenameCategory}
-              onReorderCategories={handleReorderCategories}
-              onDeleteCategory={handleDeleteCategory}
-              onFork={handleForkList}
-              onDeleteList={handleDeleteList}
+              onCreateCategory={createCategory}
+              onUpdateList={updateList}
+              onDismissForkNotice={dismissForkNotice}
+              onRenameCategory={renameCategory}
+              onReorderCategories={reorderCategories}
+              onDeleteCategory={deleteCategory}
+              onFork={startFork}
+              onDeleteList={deleteList}
             />
           ) : wizard.wizardStep === 'edit' ? (
             <TextareaEditor
@@ -652,12 +425,12 @@ function ListsPageContent() {
           pendingFork={pendingFork}
           forkingListId={forkingListId}
           languageOptions={languageOptions}
-          onChange={(updater) => setPendingFork((current) => (current ? updater(current) : current))}
-          onModelChange={handlePendingForkModelChange}
-          onCancel={() => setPendingFork(null)}
-          onConfirm={handleConfirmFork}
+          onChange={updatePendingFork}
+          onModelChange={changeForkModel}
+          onCancel={cancelFork}
+          onConfirm={confirmFork}
           onError={(message) => {
-            setForkingListId(null);
+            resetForking();
             setError(message);
           }}
         />

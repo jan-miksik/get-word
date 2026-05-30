@@ -1,38 +1,24 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
-import { listsApiFetch } from '@/features/lists/api';
-import {
-  readStoredGoogleVoiceId,
-  writeStoredGoogleVoiceId,
-} from '@/features/lists/client/storage';
 import type { GoogleUsageResponse, WordList, WordListItem } from '@/features/lists/types';
 import {
   buildAudioRows,
   getPreviewSource,
   getSelectedReusableOption,
-  toAudioVariant,
   type AudioRow,
   type AudioSide,
 } from '@/features/lists/audio-step/rows';
 import {
-  chunkArray,
-  getErrorFromPayload,
-  readDebugResponse,
-  type AudioGenerationResult,
-  type AudioReuseResult,
-} from '@/features/lists/audio-step/api';
-import {
   formatLanguage,
-  getBaseLanguage,
-  type TtsLanguageOption,
 } from '@/features/lists/audio-step/language';
 import { useAudioPlayback } from '@/features/lists/audio-step/useAudioPlayback';
+import { useGoogleTtsVoiceSelection } from '@/features/lists/audio-step/useGoogleTtsVoiceSelection';
+import { useReusableAudioLookup } from '@/features/lists/audio-step/useReusableAudioLookup';
+import { useAudioGenerationWorkflow } from '@/features/lists/audio-step/useAudioGenerationWorkflow';
+import { AudioStepRow } from '@/features/lists/audio-step/AudioStepRow';
 import { GoogleUsageHint } from './GoogleUsageHint';
-
-const AUDIO_LOG_PREFIX = '[Get Word audio]';
-const AUDIO_REUSE_BATCH_SIZE = 200;
 
 interface AudioStepProps {
   list: WordList;
@@ -46,7 +32,49 @@ interface AudioStepProps {
   onBack?: () => void;
 }
 
+function buildAudioStepResetKey(list: WordList, items: WordListItem[], audioSide: AudioSide) {
+  return [
+    list.id,
+    list.languageFrom,
+    list.languageTo,
+    audioSide,
+    items.map((item) => [
+      item.id,
+      item.textKnown,
+      item.textTarget ?? '',
+      item.knownAudioAssetId ?? '',
+      item.knownAudioStatus ?? '',
+      item.knownAudioUrl ?? '',
+      item.audioAssetId ?? '',
+      item.audioStatus,
+      item.audioUrl ?? '',
+    ].join(':')).join('|'),
+  ].join('::');
+}
+
 export function AudioStep({
+  list,
+  items,
+  audioSide,
+  ...props
+}: AudioStepProps) {
+  const resetKey = useMemo(
+    () => buildAudioStepResetKey(list, items, audioSide),
+    [audioSide, items, list],
+  );
+
+  return (
+    <AudioStepContent
+      key={resetKey}
+      list={list}
+      items={items}
+      audioSide={audioSide}
+      {...props}
+    />
+  );
+}
+
+function AudioStepContent({
   list,
   items,
   audioSide,
@@ -63,17 +91,14 @@ export function AudioStep({
     ? formatLanguage(list.languageFrom, t)
     : formatLanguage(list.languageTo, t);
   const [rows, setRows] = useState<AudioRow[]>(() => buildAudioRows(items, list, audioSide));
-  const [generating, setGenerating] = useState(false);
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(() => new Set());
-  const [progress, setProgress] = useState(0);
-  const [voiceOptions, setVoiceOptions] = useState<string[]>([]);
-  const [selectedGoogleVoiceId, setSelectedGoogleVoiceId] = useState(
-    () => readStoredGoogleVoiceId(activeLanguageCode),
-  );
-  const [loadingVoices, setLoadingVoices] = useState(false);
-  const didInitializeVoiceRef = useRef(false);
+  const {
+    voiceOptions,
+    selectedGoogleVoiceId,
+    loadingVoices,
+    handleGoogleVoiceChange,
+  } = useGoogleTtsVoiceSelection(activeLanguageCode);
 
   const markRowFailed = useCallback((rowId: string) => {
     setRows((prev) =>
@@ -92,7 +117,6 @@ export function AudioStep({
     playSingle,
     playQueue,
     pause: handlePause,
-    resetForReload: resetPlaybackForReload,
   } = useAudioPlayback({ rows, t, onLinkedSourceFailed: markRowFailed });
 
   const readyCount = rows.filter((row) => row.audioStatus === 'ready').length;
@@ -112,341 +136,40 @@ export function AudioStep({
   const googlePausedMessage = googleTtsUsage?.limit_message
     ?? t('lists.googleLimitReached');
 
-  useEffect(() => {
-    setRows(buildAudioRows(items, list, audioSide));
-    setError(null);
-    setSelectedGoogleVoiceId(readStoredGoogleVoiceId(activeLanguageCode));
-    didInitializeVoiceRef.current = false;
-    resetPlaybackForReload();
-  }, [activeLanguageCode, audioSide, items, list, resetPlaybackForReload]);
+  const {
+    useAllExisting: handleUseAllExisting,
+    selectReusableAudio: handleReusableSelectionChange,
+  } = useReusableAudioLookup({
+    rows,
+    setRows,
+    setError,
+    audioSide,
+    googleVoiceIdForRequest,
+    selectedGoogleVoiceId,
+    t,
+  });
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function loadVoices() {
-      setLoadingVoices(true);
-      try {
-        const res = await fetch('/api/languages');
-        if (!res.ok) throw new Error('Failed to load Google TTS voices');
-        const data = await res.json();
-        const languages = Array.isArray(data.languages)
-          ? data.languages as TtsLanguageOption[]
-          : [];
-        const activeBase = getBaseLanguage(activeLanguageCode);
-        const language = languages.find((candidate) =>
-          candidate.code.toLowerCase() === activeLanguageCode.toLowerCase()
-          || getBaseLanguage(candidate.code) === activeBase
-        );
-        const voices = Array.from(new Set(language?.ttsVoices ?? []));
-        if (cancelled) return;
-        setVoiceOptions(voices);
-        setSelectedGoogleVoiceId((current) =>
-          current !== 'default' && voices.includes(current) ? current : 'default'
-        );
-      } catch {
-        if (cancelled) return;
-        setVoiceOptions([]);
-        setSelectedGoogleVoiceId('default');
-      } finally {
-        if (!cancelled) setLoadingVoices(false);
-      }
-    }
-
-    void loadVoices();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [activeLanguageCode]);
-
-  useEffect(() => {
-    if (!didInitializeVoiceRef.current) {
-      didInitializeVoiceRef.current = true;
-      return;
-    }
-
-    setRows((prev) =>
-      prev.map((row) =>
-        row.audioStatus === 'ready'
-          ? row
-          : {
-              ...row,
-              reusableOptions: [],
-              selectedReusableAssetId: row.audioAssetId,
-              reuseStatus: 'unchecked' as const,
-            },
-      ),
-    );
-  }, [selectedGoogleVoiceId]);
-
-  const lookupReusableAudio = useCallback(async (targetRows: AudioRow[], link = false) => {
-    if (targetRows.length === 0) return;
-    const targetIds = new Set(targetRows.map((row) => row.id));
-
-    setRows((prev) =>
-      prev.map((row) =>
-        targetIds.has(row.id)
-          ? { ...row, reuseStatus: 'checking' as const }
-          : row,
-      ),
-    );
-
-    try {
-      const results: AudioReuseResult[] = [];
-      for (const batchRows of chunkArray(targetRows, AUDIO_REUSE_BATCH_SIZE)) {
-        const res = await listsApiFetch('/api/audio/reuse/batch', {
-          method: 'POST',
-          body: JSON.stringify({
-            items: batchRows.map((row) => ({
-              id: row.id,
-              text: row.audioText,
-              language: row.language,
-              selected_asset_id: row.selectedReusableAssetId ?? undefined,
-            })),
-            provider: 'google_tts',
-            ...(googleVoiceIdForRequest ? { voice_id: googleVoiceIdForRequest } : {}),
-            audio_field: audioSide,
-            link,
-          }),
-        });
-
-        const payload = await readDebugResponse(res);
-        if (!res.ok) {
-          throw new Error(getErrorFromPayload(payload, t));
-        }
-        if (!payload.json || typeof payload.json !== 'object') {
-          throw new Error(t('lists.audioReuseInvalidResponse'));
-        }
-
-        const data = payload.json as { results?: unknown };
-        results.push(...((Array.isArray(data.results) ? data.results : []) as AudioReuseResult[]));
-      }
-
-      const resultMap = new Map<string, AudioReuseResult>();
-      for (const result of results) resultMap.set(result.id, result);
-
-      setRows((prev) =>
-        prev.map((row) => {
-          const result = resultMap.get(row.id);
-          if (!result) return row;
-
-          if (result.status !== 'found') {
-            return {
-              ...row,
-              reusableOptions: [],
-              reuseStatus: result.status === 'missing' ? 'missing' : 'error',
-            };
-          }
-
-          const reusableOptions = (result.matches ?? [])
-            .map(toAudioVariant)
-            .filter((option) => Boolean(option.audioUrl));
-          const selectedReusableAssetId =
-            result.selected_asset_id
-            ?? row.audioAssetId
-            ?? row.selectedReusableAssetId
-            ?? reusableOptions[0]?.assetId
-            ?? null;
-          const selectedOption =
-            reusableOptions.find((option) => option.assetId === selectedReusableAssetId)
-            ?? reusableOptions[0]
-            ?? null;
-
-          const nextRow: AudioRow = {
-            ...row,
-            reusableOptions,
-            selectedReusableAssetId,
-            reuseStatus: reusableOptions.length > 0 ? 'found' : 'missing',
-          };
-
-          if (!link || !selectedOption?.audioUrl) {
-            return nextRow;
-          }
-
-          return {
-            ...nextRow,
-            audioAssetId: selectedOption.assetId,
-            audioUrl: selectedOption.audioUrl,
-            arweaveUrl: selectedOption.arweaveUrl ?? null,
-            arweaveUrls: selectedOption.arweaveUrls,
-            storageRef: selectedOption.storageRef ?? null,
-            audioStatus: 'ready',
-            source: 'dedup',
-          };
-        }),
-      );
-    } catch (err) {
-      console.error(AUDIO_LOG_PREFIX, 'audio reuse lookup failed', err);
-      setRows((prev) =>
-        prev.map((row) =>
-          targetIds.has(row.id)
-            ? { ...row, reuseStatus: 'error' as const }
-            : row,
-        ),
-      );
-      if (link) {
-        setError(err instanceof Error ? err.message : t('lists.audioUseExistingFailed'));
-      }
-    }
-  }, [audioSide, googleVoiceIdForRequest, t]);
-
-  useEffect(() => {
-    const uncheckedRows = rows.filter((row) => row.audioText && row.reuseStatus === 'unchecked');
-    if (uncheckedRows.length === 0) return;
-    void lookupReusableAudio(uncheckedRows, false);
-  }, [lookupReusableAudio, rows]);
-
-  const generateRows = useCallback(async (targetRows: AudioRow[], force = false) => {
-    if (targetRows.length === 0) return;
-
-    if (force) {
-      setRegeneratingIds((prev) => new Set([...prev, ...targetRows.map((row) => row.id)]));
-    } else {
-      setGenerating(true);
-    }
-
-    setError(null);
-    setProgress(0);
-    setPlaybackErrors((prev) => {
-      const next = { ...prev };
-      for (const row of targetRows) delete next[row.id];
-      return next;
-    });
-
-    for (const row of targetRows) clearCachedAudio(row.audioUrl);
-
-    setRows((prev) =>
-      prev.map((row) =>
-        targetRows.some((target) => target.id === row.id)
-          ? { ...row, audioStatus: 'pending' as const }
-          : row,
-      ),
-    );
-
-    try {
-      const res = await listsApiFetch('/api/audio/generate/batch', {
-        method: 'POST',
-        body: JSON.stringify({
-          items: targetRows.map((row) => ({
-            id: row.id,
-            text: row.audioText,
-            language: row.language,
-          })),
-          provider: 'google_tts',
-          ...(googleVoiceIdForRequest ? { voice_id: googleVoiceIdForRequest } : {}),
-          audio_field: audioSide,
-          force,
-        }),
-      });
-
-      const payload = await readDebugResponse(res);
-      if (!res.ok) {
-        throw new Error(getErrorFromPayload(payload, t));
-      }
-      if (!payload.json || typeof payload.json !== 'object') {
-        throw new Error(t('lists.audioGenerateInvalidResponse'));
-      }
-
-      const data = payload.json as {
-        results?: unknown;
-        quota_warning?: unknown;
-      };
-      const results = (Array.isArray(data.results) ? data.results : []) as AudioGenerationResult[];
-      const resultMap = new Map<string, AudioGenerationResult>();
-      for (const result of results) resultMap.set(result.id, result);
-
-      setRows((prev) =>
-        prev.map((row) => {
-          const result = resultMap.get(row.id);
-          if (!result) return row;
-
-          return {
-            ...row,
-            audioAssetId: result.status === 'ok' ? row.audioAssetId : row.audioAssetId,
-            audioUrl: result.audio_url ?? row.audioUrl,
-            arweaveUrl: result.arweave_url ?? row.arweaveUrl ?? null,
-            arweaveUrls: result.arweave_urls ?? row.arweaveUrls,
-            storageRef: result.storage_ref ?? row.storageRef ?? null,
-            audioStatus: result.status === 'ok' ? 'ready' : 'failed',
-            source: result.source === 'dedup' || result.source === 'generated'
-              ? result.source
-              : undefined,
-          };
-        }),
-      );
-
-      const attempted = results.filter((result) =>
-        targetRows.some((target) => target.id === result.id),
-      );
-      if (attempted.length > 0 && attempted.every((result) => result.status === 'error')) {
-        setError(t('lists.audioGenerateFailed', {
-          message: attempted[0]?.error ?? t('lists.audioGenerateGenericFailed'),
-        }));
-      }
-
-      for (const result of attempted) {
-        if (result.status !== 'ok' || !result.audio_url) continue;
-        const sourceRow = targetRows.find((row) => row.id === result.id);
-        if (!sourceRow) continue;
-        void preloadAudio(result.id, {
-          kind: 'linked',
-          audioUrl: result.audio_url,
-          arweaveUrl: result.arweave_url ?? null,
-          arweaveUrls: result.arweave_urls ?? [],
-          storageRef: result.storage_ref ?? null,
-        }).catch(() => {});
-      }
-
-      setProgress(100);
-    } catch (err) {
-      console.error(AUDIO_LOG_PREFIX, 'audio generation failed', err);
-      setError(err instanceof Error ? err.message : t('lists.audioGenerateGenericFailed'));
-      setRows((prev) =>
-        prev.map((row) =>
-          targetRows.some((target) => target.id === row.id)
-            ? { ...row, audioStatus: 'failed' as const }
-            : row,
-        ),
-      );
-    } finally {
-      void onUsageRefresh?.();
-      if (force) {
-        setRegeneratingIds((prev) => {
-          const next = new Set(prev);
-          for (const row of targetRows) next.delete(row.id);
-          return next;
-        });
-      } else {
-        setGenerating(false);
-      }
-    }
-  }, [audioSide, clearCachedAudio, googleVoiceIdForRequest, onUsageRefresh, preloadAudio, t]);
-
-  const handleGenerateAll = useCallback(async () => {
-    if (isGoogleTtsPaused) {
-      setError(googlePausedMessage);
-      return;
-    }
-    const toGenerate = rows.filter((row) => row.audioStatus === 'none' || row.audioStatus === 'failed');
-    await generateRows(toGenerate, toGenerate.some((row) => Boolean(row.audioUrl)));
-  }, [generateRows, googlePausedMessage, isGoogleTtsPaused, rows]);
-
-  const handleUseAllExisting = useCallback(async () => {
-    const reusableRows = rows.filter((row) => {
-      const selected = getSelectedReusableOption(row);
-      return Boolean(selected?.audioUrl) && row.audioStatus !== 'ready';
-    });
-    await lookupReusableAudio(reusableRows, true);
-  }, [lookupReusableAudio, rows]);
-
-  const handleRegenerateRow = useCallback(async (row: AudioRow) => {
-    if (isGoogleTtsPaused) {
-      setError(googlePausedMessage);
-      return;
-    }
-    handlePause();
-    await generateRows([row], true);
-  }, [generateRows, googlePausedMessage, handlePause, isGoogleTtsPaused]);
+  const {
+    generating,
+    regeneratingIds,
+    progress,
+    generateAll: handleGenerateAll,
+    regenerateRow: handleRegenerateRow,
+  } = useAudioGenerationWorkflow({
+    rows,
+    setRows,
+    setError,
+    setPlaybackErrors,
+    clearCachedAudio,
+    preloadAudio,
+    pause: handlePause,
+    audioSide,
+    googleVoiceIdForRequest,
+    isGoogleTtsPaused,
+    googlePausedMessage,
+    onUsageRefresh,
+    t,
+  });
 
   const handlePlaySingle = useCallback(async (row: AudioRow) => {
     const source = getPreviewSource(row);
@@ -461,21 +184,6 @@ export function AudioStep({
     });
     playQueue(queue);
   }, [playQueue, rows]);
-
-  const handleReusableSelectionChange = useCallback(async (row: AudioRow, assetId: string) => {
-    const updatedRow = { ...row, selectedReusableAssetId: assetId };
-    setRows((prev) =>
-      prev.map((r) => r.id === row.id ? updatedRow : r),
-    );
-    if (getSelectedReusableOption(updatedRow)?.audioUrl) {
-      await lookupReusableAudio([updatedRow], true);
-    }
-  }, [lookupReusableAudio]);
-
-  const handleGoogleVoiceChange = useCallback((voiceId: string) => {
-    setSelectedGoogleVoiceId(voiceId);
-    writeStoredGoogleVoiceId(activeLanguageCode, voiceId);
-  }, [activeLanguageCode]);
 
   const handleComplete = useCallback(async () => {
     setCompleting(true);
@@ -586,111 +294,22 @@ export function AudioStep({
 
       <div className="overflow-hidden rounded-lg border border-border-subtle">
         <div className="max-h-[60vh] divide-y divide-border-subtle overflow-y-auto">
-          {rows.map((row) => {
-            const isPlaying = playingId === row.id;
-            const isRegenerating = regeneratingIds.has(row.id);
-            const playbackError = playbackErrors[row.id];
-            const previewSource = getPreviewSource(row);
-            const canPlay = Boolean(previewSource);
-            const selectedReusable = getSelectedReusableOption(row);
-
-            return (
-              <div
-                key={row.id}
-                className={`flex flex-col gap-3 px-4 py-3 transition-colors sm:flex-row sm:items-center ${
-                  isPlaying ? 'border-l-2 border-l-accent bg-accent/10' : ''
-                }`}
-              >
-                <div className="flex min-w-0 flex-1 items-start gap-3">
-                  <button
-                    type="button"
-                    disabled={!canPlay}
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full transition-colors ${
-                      canPlay
-                        ? isPlaying
-                          ? 'bg-accent text-background'
-                          : 'bg-accent/10 text-accent hover:bg-accent/20'
-                        : 'bg-border-subtle text-text-soft'
-                    }`}
-                    onClick={() => void handlePlaySingle(row)}
-                    title={t('lists.playAudio')}
-                  >
-                    {isPlaying ? (
-                      <svg width="12" height="12" viewBox="0 0 12 12">
-                        <rect x="2" y="2" width="3" height="8" fill="currentColor" rx="0.5" />
-                        <rect x="7" y="2" width="3" height="8" fill="currentColor" rx="0.5" />
-                      </svg>
-                    ) : (
-                      <svg width="12" height="12" viewBox="0 0 12 12">
-                        <path d="M3 1.5v9l7.5-4.5L3 1.5z" fill="currentColor" />
-                      </svg>
-                    )}
-                  </button>
-
-                  <div className="min-w-0 flex-1">
-                    <span className="block break-words text-sm font-medium text-text">
-                      {row.audioText}
-                    </span>
-                    <span className="block break-words text-xs text-text-soft">
-                      {row.supportingText}
-                    </span>
-                    {playbackError && (
-                      <span className="mt-1 block break-words text-xs text-danger">
-                        {playbackError}
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                <div className="flex shrink-0 flex-wrap items-center gap-2 pl-11 sm:pl-0 sm:justify-end">
-                  {row.reusableOptions.length > 1 && (
-                    <select
-                      value={row.selectedReusableAssetId ?? selectedReusable?.assetId ?? ''}
-                      onChange={(event) => void handleReusableSelectionChange(row, event.target.value)}
-                      disabled={generating || row.reuseStatus === 'checking'}
-                      className="max-w-[10rem] rounded-md border border-border-subtle bg-background px-2.5 py-1 text-xs text-text disabled:opacity-50"
-                    >
-                      {row.reusableOptions.map((option, index) => (
-                        <option key={option.assetId} value={option.assetId}>
-                          {t('lists.versionCount', { index: index + 1, total: row.reusableOptions.length })}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-
-                  <button
-                    type="button"
-                    disabled={generating || isRegenerating || !row.audioText || isGoogleTtsPaused}
-                    className="shrink-0 rounded-md border border-border-subtle px-2.5 py-1 text-xs text-text-soft transition-colors hover:bg-background/50 hover:text-text disabled:opacity-50"
-                    onClick={() => void handleRegenerateRow(row)}
-                  >
-                    {isRegenerating
-                      ? t('lists.generating')
-                      : row.audioStatus === 'ready'
-                      ? t('lists.generateNew')
-                      : t('lists.generate')}
-                  </button>
-
-                  <span className="shrink-0 text-xs">
-                    {row.audioStatus === 'ready' && (
-                      <span className="text-done">
-                        {row.source === 'dedup' ? t('lists.audioStatusReused') : t('lists.audioStatusReady')}
-                      </span>
-                    )}
-                    {row.audioStatus === 'pending' && (
-                      <span className="text-fresh">{t('lists.audioStatusPending')}</span>
-                    )}
-                    {row.audioStatus === 'failed' && (
-                      <span className="text-danger">{t('lists.audioStatusFailed')}</span>
-                    )}
-                    {row.audioStatus === 'none' && (
-                      <span className="text-text-soft">{t('lists.audioStatusNone')}</span>
-                    )}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+          {rows.map((row) => (
+            <AudioStepRow
+              key={row.id}
+              row={row}
+              isPlaying={playingId === row.id}
+              isRegenerating={regeneratingIds.has(row.id)}
+              playbackError={playbackErrors[row.id]}
+              generating={generating}
+              isGoogleTtsPaused={isGoogleTtsPaused}
+              onPlay={(selectedRow) => void handlePlaySingle(selectedRow)}
+              onRegenerate={(selectedRow) => void handleRegenerateRow(selectedRow)}
+              onReusableSelectionChange={(selectedRow, assetId) =>
+                void handleReusableSelectionChange(selectedRow, assetId)
+              }
+            />
+          ))}
         </div>
       </div>
 

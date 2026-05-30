@@ -6,6 +6,7 @@ export type InitialListsUrlState = {
   initialCreateLanguageTo: string | null;
   shouldOpenCreate: boolean;
   existingListsHint: boolean;
+  selectedListId: string | null;
   forkedListPrompt: { listId: string; sourceName: string } | null;
   initialAudioFixStep: InitialAudioFixStep | null;
   notice: string | null;
@@ -25,6 +26,7 @@ export function readInitialListsUrlState(urlSearch: string): InitialListsUrlStat
     initialCreateLanguageTo: languageTo,
     shouldOpenCreate: params.get("create") === "1",
     existingListsHint: params.get("sourcePair") === "any",
+    selectedListId: selected,
     forkedListPrompt: params.get("forked") === "1" && selected
       ? {
           listId: selected,
