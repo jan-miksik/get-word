@@ -1,0 +1,55 @@
+import type {
+  AudioItem,
+  DedupLink,
+  GeneratedResult,
+  QuotaLimit,
+} from "./types";
+
+/**
+ * Maps the original request items back to their final per-item response,
+ * preferring deduplicated assets, then freshly generated audio, then an error.
+ */
+export function buildBatchResults(
+  items: AudioItem[],
+  dedupLinks: DedupLink[],
+  generatedResults: GeneratedResult[],
+  quotaLimit: QuotaLimit | undefined,
+) {
+  return items.map((item) => {
+    const dedup = dedupLinks.find((d) => d.itemId === item.id);
+    if (dedup) {
+      return {
+        id: item.id,
+        content_hash: dedup.hash,
+        audio_url: dedup.audioUrl,
+        arweave_url: dedup.arweaveUrl,
+        arweave_urls: dedup.arweaveUrls,
+        storage_ref: dedup.storageRef,
+        status: "ok" as const,
+        source: "dedup" as const,
+      };
+    }
+    const gen = generatedResults.find((g) => g.itemId === item.id);
+    if (gen) {
+      return {
+        id: item.id,
+        content_hash: gen.hash,
+        audio_url: gen.audioUrl ?? null,
+        arweave_url: gen.arweaveUrl,
+        arweave_urls: gen.arweaveUrls,
+        storage_ref: gen.storageRef,
+        size_bytes: gen.sizeBytes,
+        status: gen.status,
+        ...(gen.error ? { error: gen.error } : {}),
+        source: "generated" as const,
+      };
+    }
+    return {
+      id: item.id,
+      audio_url: null,
+      status: "error" as const,
+      error: quotaLimit ? quotaLimit.message : "Not processed",
+      source: "generated" as const,
+    };
+  });
+}

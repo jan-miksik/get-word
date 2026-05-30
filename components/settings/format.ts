@@ -1,0 +1,67 @@
+import type { I18nKey } from '@/lib/i18n/messages';
+
+export async function copyTextToClipboard(text: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+
+  const textarea = document.createElement('textarea');
+  textarea.value = text;
+  textarea.setAttribute('readonly', '');
+  textarea.style.position = 'fixed';
+  textarea.style.opacity = '0';
+  document.body.appendChild(textarea);
+  textarea.select();
+
+  try {
+    document.execCommand('copy');
+  } finally {
+    document.body.removeChild(textarea);
+  }
+}
+
+export function formatSyncTime(
+  timestamp: number | null,
+  t: (key: I18nKey, values?: Record<string, string | number>) => string,
+): string | null {
+  if (!timestamp) return null;
+  const diffMs = Date.now() - timestamp;
+  if (diffMs < 60_000) return t('common.justNow');
+  if (diffMs < 60 * 60_000) {
+    return t('common.minutesAgo', { count: Math.max(1, Math.round(diffMs / 60_000)) });
+  }
+  if (diffMs < 24 * 60 * 60_000) {
+    return t('common.hoursAgo', { count: Math.max(1, Math.round(diffMs / (60 * 60_000))) });
+  }
+  return new Date(timestamp).toLocaleDateString();
+}
+
+export function formatByteSize(bytes: number, locale: string): string {
+  const units = ['B', 'KB', 'MB', 'GB'];
+  let value = Math.max(0, bytes);
+  let unitIndex = 0;
+
+  while (value >= 1024 && unitIndex < units.length - 1) {
+    value /= 1024;
+    unitIndex += 1;
+  }
+
+  const maximumFractionDigits = unitIndex === 0 || value >= 10 ? 0 : 1;
+  return `${new Intl.NumberFormat(locale, { maximumFractionDigits }).format(value)} ${units[unitIndex]}`;
+}
+
+export function formatLanguageLabel(code: string, language: string): string {
+  if (language.toLowerCase().startsWith('cs')) {
+    const normalized = code.toLowerCase().split('-')[0];
+    if (normalized === 'cs' || normalized === 'cz') return 'Češtinu';
+    if (normalized === 'vi') return 'Vietnamštinu';
+  }
+
+  try {
+    const display = new Intl.DisplayNames(language, { type: 'language' });
+    return display.of(code) ?? code.toUpperCase();
+  } catch {
+    return code.toUpperCase();
+  }
+}
