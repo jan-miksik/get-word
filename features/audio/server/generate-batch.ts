@@ -6,50 +6,30 @@ import {
 import {
   countGoogleApiTextUnits,
   findMediaByHashes,
-  createMediaAsset,
-  upsertMediaAsset,
   batchLinkAudioToItems,
   reserveGoogleApiUsage,
 } from "@/lib/db";
 import {
   computeContentHash,
-  googleTTS,
-  elevenLabsTTS,
   getAudioUrl,
-  GoogleTTSQuotaExhaustedError,
 } from "@/lib/audio";
 import { isPlayableAudioAsset } from "@/lib/audio-assets";
-import { getArweaveGatewayUrls, uploadAudio } from "@/lib/audio-storage";
+import { getArweaveGatewayUrls } from "@/lib/audio-storage";
 import { getUserApiKey } from "@/lib/translation";
-
-type AudioItem = {
-  id: string;
-  text: string;
-  language: string;
-};
-
-const MAX_ITEMS = 200;
-const CONCURRENCY = 3;
-const AUDIO_FORMAT = "mp3";
-const PARTIAL_QUOTA_MESSAGE =
-  "This list needs more Google TTS characters than this account has left in the free quota. Only part of the list can be generated now. Contact our tech support and we can help finish the list or raise the limit.";
-
-function getErrorDetail(err: unknown): string {
-  if (!(err instanceof Error)) return "Unknown error";
-  const cause = err.cause;
-  if (cause instanceof Error && cause.message) {
-    return cause.message;
-  }
-  if (
-    cause &&
-    typeof cause === "object" &&
-    "message" in cause &&
-    typeof cause.message === "string"
-  ) {
-    return cause.message;
-  }
-  return err.message;
-}
+import { getErrorDetail } from "./batch/errors";
+import { generateAudioForItem } from "./batch/generate-item";
+import { buildBatchResults } from "./batch/results";
+import {
+  AUDIO_FORMAT,
+  CONCURRENCY,
+  MAX_ITEMS,
+  PARTIAL_QUOTA_MESSAGE,
+  type AudioItem,
+  type DedupLink,
+  type GeneratedResult,
+  type GenerationCandidate,
+  type QuotaLimit,
+} from "./batch/types";
 
 export async function handleGenerateAudioBatch(request: NextRequest) {
   const user = await resolveUserFromRequest(request);
@@ -115,16 +95,8 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
       }
     | undefined;
 
-  const dedupLinks: {
-    itemId: string;
-    hash: string;
-    audioAssetId: string;
-    audioUrl: string;
-    arweaveUrl?: string;
-    arweaveUrls?: string[];
-    storageRef?: string;
-  }[] = [];
-  let needsGeneration: { item: AudioItem; hash: string; replaceExisting?: boolean }[] = [];
+  const dedupLinks: DedupLink[] = [];
+  let needsGeneration: GenerationCandidate[] = [];
 
   for (let i = 0; i < items.length; i++) {
     const hash = hashes[i];
@@ -161,21 +133,7 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
     );
   }
 
-  let quotaLimit:
-    | {
-        code: string;
-        message: string;
-        requested_units: number;
-        allowed_units: number;
-        skipped_items: number;
-        usage: {
-          used_units: number;
-          account_limit: number;
-          free_monthly_units: number;
-          period_start: string;
-        };
-      }
-    | undefined;
+  let quotaLimit: QuotaLimit | undefined;
 
   if (provider === "google_tts" && needsGeneration.length > 0) {
     let quota: Awaited<ReturnType<typeof reserveGoogleApiUsage>> | undefined;
@@ -312,18 +270,7 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
     }
   }
 
-  const generatedResults: {
-    itemId: string;
-    hash: string;
-    status: "ok" | "error";
-    audioUrl?: string;
-    arweaveUrl?: string;
-    arweaveUrls?: string[];
-    storageRef?: string;
-    sizeBytes?: number;
-    error?: string;
-  }[] = [];
-
+  const generatedResults: GeneratedResult[] = [];
   let quotaExhaustedMessage: string | null = null;
 
   for (let i = 0; i < needsGeneration.length; i += CONCURRENCY) {
@@ -331,119 +278,32 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
 
     const batch = needsGeneration.slice(i, i + CONCURRENCY);
     const batchResults = await Promise.all(
-      batch.map(async ({ item, hash, replaceExisting }) => {
+      batch.map(async (candidate) => {
         if (quotaExhaustedMessage) {
           await batchLinkAudioToItems([{
-            itemId: item.id,
+            itemId: candidate.item.id,
             audioAssetId: null,
             audioStatus: "failed",
             ...(audioField === "known" ? { audioField } : {}),
           }]);
-          return { itemId: item.id, hash, status: "error" as const, error: quotaExhaustedMessage };
-        }
-        try {
-          let result: { audio: Buffer; sizeBytes: number } | null = null;
-
-          if (provider === "google_tts") {
-            const googleVoiceId = voice_id?.trim();
-            result = googleVoiceId
-              ? await googleTTS(item.text, item.language, googleVoiceId)
-              : await googleTTS(item.text, item.language);
-          } else if (provider === "elevenlabs" && encryptedKey) {
-            result = await elevenLabsTTS(
-              item.text,
-              item.language,
-              encryptedKey,
-              voice_id ?? "default",
-            );
-          }
-
-          if (!result) {
-            await batchLinkAudioToItems([
-              {
-                itemId: item.id,
-                audioAssetId: null,
-                audioStatus: "failed",
-                ...(audioField === "known" ? { audioField } : {}),
-              },
-            ]);
-            return {
-              itemId: item.id,
-              hash,
-              status: "error" as const,
-              error: "TTS provider returned no audio",
-            };
-          }
-
-          const storage = await uploadAudio(result.audio, {
-            contentHash: hash,
-            language: item.language,
-            textReference: item.text,
-            provider,
-            voiceId: voice_id ?? "default",
-          });
-
-          const mediaAssetData = {
-            contentHash: hash,
-            storageType: storage.storageType,
-            storageRef: storage.storageRef,
-            mediaType: "audio" as const,
-            language: item.language,
-            textReference: item.text,
-            provider: provider as "google_tts" | "elevenlabs",
-            sizeBytes: result.sizeBytes,
-          };
-
-          const asset = force || replaceExisting
-            ? await upsertMediaAsset(mediaAssetData)
-            : await createMediaAsset(mediaAssetData);
-
-          await batchLinkAudioToItems([
-            {
-              itemId: item.id,
-              audioAssetId: asset.id,
-              audioStatus: "ready",
-              ...(audioField === "known" ? { audioField } : {}),
-            },
-          ]);
-
           return {
-            itemId: item.id,
-            hash,
-            status: "ok" as const,
-            audioUrl: getAudioUrl(hash),
-            arweaveUrl: storage.gatewayUrl,
-            arweaveUrls: storage.gatewayUrls,
-            storageRef: storage.storageRef,
-            sizeBytes: result.sizeBytes,
-          };
-        } catch (err) {
-          if (err instanceof GoogleTTSQuotaExhaustedError) {
-            quotaExhaustedMessage = err.message;
-          }
-          const detail = getErrorDetail(err);
-          console.error("[Get Word audio] item generation failed", {
-            itemId: item.id,
-            language: item.language,
-            provider,
-            detail,
-            error: err instanceof Error ? err.message : err,
-          });
-          await batchLinkAudioToItems([
-            {
-              itemId: item.id,
-              audioAssetId: null,
-              audioStatus: "failed",
-              ...(audioField === "known" ? { audioField } : {}),
-            },
-          ]);
-          return {
-            itemId: item.id,
-            hash,
+            itemId: candidate.item.id,
+            hash: candidate.hash,
             status: "error" as const,
-            error: detail,
+            error: quotaExhaustedMessage,
           };
         }
+        const { result, quotaExhausted } = await generateAudioForItem(candidate, {
+          provider,
+          voiceId: voice_id,
+          encryptedKey,
+          audioField,
+          force,
+        });
+        if (quotaExhausted) {
+          quotaExhaustedMessage = quotaExhausted;
+        }
+        return result;
       }),
     );
     generatedResults.push(...batchResults);
@@ -463,43 +323,7 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
     );
   }
 
-  const results = items.map((item) => {
-    const dedup = dedupLinks.find((d) => d.itemId === item.id);
-    if (dedup) {
-      return {
-        id: item.id,
-        content_hash: dedup.hash,
-        audio_url: dedup.audioUrl,
-        arweave_url: dedup.arweaveUrl,
-        arweave_urls: dedup.arweaveUrls,
-        storage_ref: dedup.storageRef,
-        status: "ok" as const,
-        source: "dedup" as const,
-      };
-    }
-    const gen = generatedResults.find((g) => g.itemId === item.id);
-    if (gen) {
-      return {
-        id: item.id,
-        content_hash: gen.hash,
-        audio_url: gen.audioUrl ?? null,
-        arweave_url: gen.arweaveUrl,
-        arweave_urls: gen.arweaveUrls,
-        storage_ref: gen.storageRef,
-        size_bytes: gen.sizeBytes,
-        status: gen.status,
-        ...(gen.error ? { error: gen.error } : {}),
-        source: "generated" as const,
-      };
-    }
-    return {
-      id: item.id,
-      audio_url: null,
-      status: "error" as const,
-      error: quotaLimit ? quotaLimit.message : "Not processed",
-      source: "generated" as const,
-    };
-  });
+  const results = buildBatchResults(items, dedupLinks, generatedResults, quotaLimit);
 
   return NextResponse.json({
     results,
