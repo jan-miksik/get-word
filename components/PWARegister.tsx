@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { installGlobalPWACapture } from '@/lib/pwa-install';
 
 const CACHE_PREFIX = 'get-word-';
 const ACTIVE_LIST_AUDIO_CACHE = 'get-word-active-list-audio-v1';
@@ -47,6 +48,9 @@ export function PWARegister() {
   } | null>(null);
 
   useEffect(() => {
+    // Capture the one-shot Android install prompt before any install UI opens.
+    installGlobalPWACapture();
+
     if (!('serviceWorker' in navigator)) return;
     const serviceWorker = navigator.serviceWorker;
 

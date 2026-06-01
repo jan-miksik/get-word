@@ -7,6 +7,7 @@ import type { AppKitNetwork } from '@reown/appkit/networks'
 import { cookieToInitialState, WagmiProvider, type Config } from 'wagmi'
 import { wagmiAdapter, projectId, networks } from '@/lib/wagmi-config'
 import { installAppKitAuthFeatureGuard } from '@/components/appkit-auth-features'
+import { installAppKitLabelOverrides } from '@/components/appkit-label-overrides'
 import {
   MAGIC_ACCOUNT_ACCESS_DENIED_EVENT,
   isMagicAccountAccessDeniedError,
@@ -161,6 +162,7 @@ const appKitConfig: AppKitConfig = {
 
 const appKit = createAppKit(appKitConfig)
 installAppKitAuthFeatureGuard(appKit)
+installAppKitLabelOverrides()
 
 export function AppKitProvider({
   children,

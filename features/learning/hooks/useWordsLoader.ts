@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { Word } from '@/lib/words';
+import { stripLegacyLocalSpeechAudioFromWord } from '@/lib/words';
 
 export function useWordsLoader() {
   const [words, setWords] = useState<Word[]>([]);
@@ -21,7 +22,11 @@ export function useWordsLoader() {
         return res.json();
       })
       .then((data) => {
-        setWords(Array.isArray(data.words) ? data.words : []);
+        setWords(
+          Array.isArray(data.words)
+            ? data.words.map(stripLegacyLocalSpeechAudioFromWord)
+            : [],
+        );
       })
       .catch(() => {
         setWords([]);

@@ -25,6 +25,36 @@ export interface NormalizedWord extends Word {
   languageTo?: string;
 }
 
+// Audio used to ship as static files under public/speech/. The app now serves
+// audio from Arweave (and /api/audio), so these legacy local paths are dropped:
+// most of them have no matching file, producing 404 noise during bulk caching
+// and playback. Keeping only remote/api audio lets public/speech be removed.
+export function stripLegacyLocalSpeechAudio(
+  value: string | string[] | undefined | null,
+): string | string[] | undefined {
+  const isLegacy = (url: unknown): boolean =>
+    typeof url === 'string' && /^\/?speech\//i.test(url.trim());
+  if (Array.isArray(value)) {
+    const kept = value.filter(
+      (url): url is string => typeof url === 'string' && url.length > 0 && !isLegacy(url),
+    );
+    return kept.length > 0 ? kept : undefined;
+  }
+  return typeof value === 'string' && value.length > 0 && !isLegacy(value)
+    ? value
+    : undefined;
+}
+
+export function stripLegacyLocalSpeechAudioFromWord<T extends Pick<Word, 'czAudio' | 'viAudio'>>(
+  word: T,
+): T {
+  return {
+    ...word,
+    czAudio: stripLegacyLocalSpeechAudio(word.czAudio),
+    viAudio: stripLegacyLocalSpeechAudio(word.viAudio),
+  };
+}
+
 // Spaced-repetition stages
 export const STAGES = [
   { id: 0, name: "New / forgotten", intervalMs: 0 },
@@ -363,14 +393,12 @@ export function wordListItemsToNormalizedWords(
         vi,
         czPron: media?.czPron,
         viPron: media?.viPron,
-        czAudio:
-          generatedKnownAudio.length > 0
-            ? generatedKnownAudio
-            : media?.czAudio,
-        viAudio:
-          generatedTargetAudio.length > 0
-            ? generatedTargetAudio
-            : media?.viAudio,
+        czAudio: stripLegacyLocalSpeechAudio(
+          generatedKnownAudio.length > 0 ? generatedKnownAudio : media?.czAudio,
+        ),
+        viAudio: stripLegacyLocalSpeechAudio(
+          generatedTargetAudio.length > 0 ? generatedTargetAudio : media?.viAudio,
+        ),
         listId: item.listId,
         canonicalWordId: item.canonicalWordId ?? null,
         languageFrom: itemLanguageFrom,

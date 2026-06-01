@@ -3,8 +3,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   BeforeInstallPromptEvent,
+  clearCapturedBeforeInstallPrompt,
+  getCapturedBeforeInstallPrompt,
   getInstallPlatform,
+  installGlobalPWACapture,
   isStandalone,
+  onBeforeInstallPromptCaptured,
   openPWAInstallHelp,
 } from '@/lib/pwa-install';
 import { useI18n } from '@/components/I18nProvider';
@@ -15,23 +19,26 @@ export function PWAInstallSection() {
   const [installed, setInstalled] = useState(false);
 
   useEffect(() => {
+    installGlobalPWACapture();
     setInstalled(isStandalone());
 
-    const onBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault();
-      setDeferredPrompt(e as BeforeInstallPromptEvent);
-    };
-    const onAppInstalled = () => setInstalled(true);
+    const captured = getCapturedBeforeInstallPrompt();
+    if (captured) setDeferredPrompt(captured);
 
-    window.addEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+    const unsubscribe = onBeforeInstallPromptCaptured((e) => setDeferredPrompt(e));
+    const onAppInstalled = () => {
+      setInstalled(true);
+      setDeferredPrompt(null);
+    };
+
     window.addEventListener('appinstalled', onAppInstalled);
     return () => {
-      window.removeEventListener('beforeinstallprompt', onBeforeInstallPrompt);
+      unsubscribe();
       window.removeEventListener('appinstalled', onAppInstalled);
     };
   }, []);
 
-  const { isIOS, isIOSSafari } = useMemo(getInstallPlatform, []);
+  const { isIOS, isIOSSafari } = useMemo(() => getInstallPlatform(), []);
 
   if (installed) {
     return (
@@ -61,6 +68,7 @@ export function PWAInstallSection() {
               await deferredPrompt.userChoice;
             } finally {
               setDeferredPrompt(null);
+              clearCapturedBeforeInstallPrompt();
             }
           }}
         >
