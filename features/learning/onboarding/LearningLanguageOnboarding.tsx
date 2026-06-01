@@ -2,6 +2,7 @@
 
 import { formatDurationEstimate } from '@/features/learning/onboarding/listRecommendations';
 import { formatNumber } from '@/features/learning/onboarding/commonListAudioGeneration';
+import { useI18n } from '@/components/I18nProvider';
 import { LanguageCombobox } from './LanguageCombobox';
 import { useLearningOnboardingActions } from './useLearningOnboardingActions';
 import { useLearningOnboardingData } from './useLearningOnboardingData';
@@ -26,6 +27,7 @@ export function LearningLanguageOnboarding({
   onComplete,
   onSelectList,
 }: Props) {
+  const { t } = useI18n();
   const {
     languages,
     loadingLanguages,
@@ -67,6 +69,20 @@ export function LearningLanguageOnboarding({
     const safeCount = count ?? 0;
     return `${safeCount} ${safeCount === 1 ? 'word' : 'words'}`;
   }
+
+  const introBlock = (
+    <>
+      <p className="hidden text-sm leading-relaxed onboarding-text-soft md:block">
+        {t('onboarding.intro')}
+      </p>
+      <p className="text-sm leading-relaxed onboarding-text-soft md:hidden">
+        {t('onboarding.introMobile')}
+      </p>
+      <p className="onboarding-notice rounded-md px-3 py-2 text-xs md:hidden">
+        {t('onboarding.desktopOnlyNote')}
+      </p>
+    </>
+  );
 
   return (
     <div className="onboarding-screen min-h-screen flex items-start justify-center px-4 py-8 sm:py-14">
@@ -122,19 +138,15 @@ export function LearningLanguageOnboarding({
             <p className="text-sm onboarding-text-soft">Choose both languages to find matching word lists.</p>
           ) : loadingMatches ? (
             <div className="space-y-3">
-              <p className="text-sm leading-relaxed onboarding-text-soft">
-                Choose from existing word lists, create your own, or fork a list and customize it to fit what you want to learn.
-              </p>
+              {introBlock}
               <p className="text-sm onboarding-text-soft">Looking for existing lists...</p>
             </div>
           ) : matches.length > 0 ? (
             <div className="space-y-3">
-              <p className="text-sm leading-relaxed onboarding-text-soft">
-                Choose from existing word lists, create your own, or fork a list and customize it to fit what you want to learn.
-              </p>
+              {introBlock}
               {hasFallbackSeedRecommendation && recommendedList ? (
                 <div className="flex items-stretch gap-2">
-                  <div className="onboarding-option min-w-0 flex-1 border-[var(--ob-accent)] bg-[var(--ob-accent)] px-3 py-2 text-left text-[color:var(--ob-surface)]">
+                  <div className="onboarding-option onboarding-option-highlight min-w-0 flex-1 px-3 py-2 text-left">
                     <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
                       <span className="font-bold">{recommendedList.name}</span>
                       <span className="rounded-full border border-[var(--ob-ink)] bg-[var(--ob-surface)] px-2 py-0.5 text-[10px] font-black uppercase text-[color:var(--ob-ink)]">
@@ -150,7 +162,7 @@ export function LearningLanguageOnboarding({
                   </div>
                   <button
                     type="button"
-                    className="onboarding-option-secondary shrink-0 self-center px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+                    className="onboarding-option-secondary hidden shrink-0 self-center px-3 py-1.5 text-xs font-bold disabled:opacity-50 md:inline-block"
                     disabled={workingId === `fork:${recommendedList.id}`}
                     onClick={() => forkList(recommendedList)}
                   >
@@ -173,9 +185,7 @@ export function LearningLanguageOnboarding({
                       type="button"
                       className={[
                         'onboarding-option min-w-0 flex-1 px-3 py-2 text-left disabled:opacity-50',
-                        isRecommended
-                          ? 'border-[var(--ob-accent)] bg-[var(--ob-accent)] text-[color:var(--ob-surface)]'
-                          : '',
+                        isRecommended ? 'onboarding-option-highlight' : '',
                       ].join(' ')}
                       disabled={workingId === list.id}
                       onClick={() => subscribeToList(list)}
@@ -195,7 +205,7 @@ export function LearningLanguageOnboarding({
                     </button>
                     <button
                       type="button"
-                      className="onboarding-option-secondary shrink-0 self-center px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+                      className="onboarding-option-secondary hidden shrink-0 self-center px-3 py-1.5 text-xs font-bold disabled:opacity-50 md:inline-block"
                       disabled={workingId === `fork:${list.id}`}
                       onClick={() => forkList(list)}
                     >
@@ -211,7 +221,7 @@ export function LearningLanguageOnboarding({
                 No exact selected list exists yet for {languagePairLabel}. You can create a fork from the basic seed and customize it.
               </p>
               <div className="flex items-stretch gap-2">
-                <div className="onboarding-option min-w-0 flex-1 border-[var(--ob-accent)] bg-[var(--ob-accent)] px-3 py-2 text-left text-[color:var(--ob-surface)]">
+                <div className="onboarding-option onboarding-option-highlight min-w-0 flex-1 px-3 py-2 text-left">
                   <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
                     <span className="font-bold">{recommendedList.name}</span>
                     <span className="rounded-full border border-[var(--ob-ink)] bg-[var(--ob-surface)] px-2 py-0.5 text-[10px] font-black uppercase text-[color:var(--ob-ink)]">
@@ -269,7 +279,7 @@ export function LearningLanguageOnboarding({
               {matches.length === 0 ? (
                 <button
                   type="button"
-                  className="onboarding-option px-4 py-3 text-left"
+                  className="onboarding-option hidden px-4 py-3 text-left md:block"
                   onClick={goToListsForExisting}
                   disabled={!canContinue}
                 >
@@ -279,7 +289,7 @@ export function LearningLanguageOnboarding({
               ) : null}
               <button
                 type="button"
-                className="onboarding-option px-4 py-3 text-left"
+                className="onboarding-option hidden px-4 py-3 text-left md:block"
                 onClick={createOwnList}
                 disabled={!canContinue}
               >

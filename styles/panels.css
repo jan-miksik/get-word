@@ -1111,6 +1111,13 @@
   opacity: 0.8;
 }
 
+.onboarding-option-highlight,
+.onboarding-option-highlight:hover:not(:disabled) {
+  background: var(--ob-accent, #1E6FA8);
+  border-color: var(--ob-accent, #1E6FA8);
+  color: var(--ob-surface, #F4EFE2);
+}
+
 .onboarding-option-secondary {
   background: var(--ob-surface, #F4EFE2);
   border: 2px solid var(--ob-ink, #2A2218);

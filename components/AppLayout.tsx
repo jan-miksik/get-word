@@ -65,6 +65,11 @@ export function AppLayout({
 
   const { showAll, setShowAll, selectedCategories, gameScore, subscribedLists, activeListId, setActiveListId } = useAppStateContext();
 
+  const activeList = subscribedLists.find((list) => list.id === activeListId) ?? null;
+  const activeListLanguagePair = activeList
+    ? { from: activeList.languageFrom, to: activeList.languageTo }
+    : null;
+
   return (
     <div
       className="app bg-[#dcd1b9]"
@@ -84,6 +89,7 @@ export function AppLayout({
           lists={subscribedLists.length > 0 ? subscribedLists : undefined}
           activeListId={activeListId}
           onListChange={setActiveListId}
+          activeListLanguagePair={activeListLanguagePair}
           centerContent={
             isAuthenticated
               ? <ProgressSummary progressStats={progressStats} />

@@ -32,6 +32,8 @@ interface TopMenuProps {
   lists?: { id: string; name: string }[];
   activeListId?: string | null;
   onListChange?: (id: string | null) => void;
+  /** Language pair of the active list, used to suggest other lists to switch to. */
+  activeListLanguagePair?: { from: string; to: string } | null;
 }
 
 function shortenListName(name: string): string {
@@ -108,10 +110,22 @@ interface ListSelectModalProps {
   activeListId: string | null | undefined;
   onListChange: (id: string | null) => void;
   onClose: () => void;
+  languagePair?: { from: string; to: string } | null;
 }
 
-function ListSelectModal({ lists, activeListId, onListChange, onClose }: ListSelectModalProps) {
+type SuggestedList = { id: string; name: string; itemCount?: number };
+
+function ListSelectModal({
+  lists,
+  activeListId,
+  onListChange,
+  onClose,
+  languagePair,
+}: ListSelectModalProps) {
   const { t } = useI18n();
+  const [suggested, setSuggested] = useState<SuggestedList[]>([]);
+  const [recommendedId, setRecommendedId] = useState<string | null>(null);
+  const [subscribingId, setSubscribingId] = useState<string | null>(null);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -120,6 +134,52 @@ function ListSelectModal({ lists, activeListId, onListChange, onClose }: ListSel
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [onClose]);
+
+  // Suggest other lists for the same language pair so a wrong pick during
+  // onboarding can be undone on mobile. Only list metadata is fetched here;
+  // the list content is downloaded only once the user subscribes below.
+  useEffect(() => {
+    if (!languagePair) return;
+    const controller = new AbortController();
+    const subscribedIds = new Set(lists.map((list) => list.id));
+    fetch(
+      `/api/lists/matches?from=${encodeURIComponent(languagePair.from)}&to=${encodeURIComponent(languagePair.to)}`,
+      { signal: controller.signal },
+    )
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Failed to load matches'))))
+      .then((data: { lists?: SuggestedList[]; recommendedList?: { id: string } | null }) => {
+        const recommended = data.recommendedList?.id ?? null;
+        const available = (Array.isArray(data.lists) ? data.lists : []).filter(
+          (list) => !subscribedIds.has(list.id),
+        );
+        available.sort((a, b) => {
+          if (a.id === recommended) return -1;
+          if (b.id === recommended) return 1;
+          return (b.itemCount ?? 0) - (a.itemCount ?? 0);
+        });
+        setRecommendedId(available.some((list) => list.id === recommended) ? recommended : null);
+        setSuggested(available);
+      })
+      .catch((err) => {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
+        setSuggested([]);
+        setRecommendedId(null);
+      });
+    return () => controller.abort();
+  }, [languagePair, lists]);
+
+  async function subscribeAndSwitch(id: string) {
+    if (subscribingId) return;
+    setSubscribingId(id);
+    try {
+      const res = await fetch(`/api/lists/${id}/subscribe`, { method: 'POST' });
+      if (!res.ok && res.status !== 409) throw new Error('Subscribe failed');
+      onListChange(id);
+      window.location.reload();
+    } catch {
+      setSubscribingId(null);
+    }
+  }
 
   return (
     <div
@@ -164,6 +224,38 @@ function ListSelectModal({ lists, activeListId, onListChange, onClose }: ListSel
               </button>
             );
           })}
+          {suggested.length > 0 && (
+            <div className="list-select-suggested">
+              <h3 className="list-select-suggested-title">{t('lists.suggestedHeading')}</h3>
+              {suggested.map((list) => {
+                const adding = subscribingId === list.id;
+                return (
+                  <button
+                    key={list.id}
+                    type="button"
+                    role="option"
+                    aria-selected={false}
+                    className="list-select-option list-select-option--suggested"
+                    disabled={!!subscribingId}
+                    onClick={() => subscribeAndSwitch(list.id)}
+                  >
+                    <span className="list-select-option-name">
+                      {shortenListName(list.name)}
+                      {list.id === recommendedId && (
+                        <span className="list-select-option-badge">{t('lists.badgeRecommended')}</span>
+                      )}
+                    </span>
+                    {adding && (
+                      <span className="list-select-option-check" aria-hidden="true">
+                        {t('lists.addingList')}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+              <p className="list-select-suggested-note">{t('lists.suggestedNote')}</p>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -180,6 +272,7 @@ interface MenuDropdownProps {
   lists?: { id: string; name: string }[];
   activeListId?: string | null;
   onListChange?: (id: string | null) => void;
+  activeListLanguagePair?: { from: string; to: string } | null;
 }
 
 function MenuDropdown({
@@ -191,6 +284,7 @@ function MenuDropdown({
   lists,
   activeListId,
   onListChange,
+  activeListLanguagePair,
 }: MenuDropdownProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -379,6 +473,7 @@ function MenuDropdown({
           activeListId={activeListId}
           onListChange={onListChange!}
           onClose={() => setListModalOpen(false)}
+          languagePair={activeListLanguagePair}
         />
       )}
     </>
@@ -398,6 +493,7 @@ export function TopMenu({
   lists,
   activeListId,
   onListChange,
+  activeListLanguagePair,
 }: TopMenuProps) {
   return (
     <div className="top-menu" aria-label="Top menu">
@@ -419,6 +515,7 @@ export function TopMenu({
           lists={lists}
           activeListId={activeListId}
           onListChange={onListChange}
+          activeListLanguagePair={activeListLanguagePair}
         />
       </div>
     </div>

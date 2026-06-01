@@ -14,6 +14,34 @@ import { clearPendingSync, resetSyncIdentity } from '@/lib/sync'
 type AuthStatus = 'connected' | 'disconnected' | 'connecting' | 'reconnecting'
 
 /**
+ * Resolve when `promise` settles, or after `ms` — whichever comes first. Used so
+ * a hanging wallet disconnect or IndexedDB clear (seen on some Android WebViews)
+ * can never block the post-logout navigation. Never rejects.
+ */
+function withTimeout(promise: Promise<unknown>, ms: number, message: string): Promise<void> {
+  return new Promise<void>((resolve) => {
+    let settled = false
+    const finish = () => {
+      if (settled) return
+      settled = true
+      resolve()
+    }
+    const timer = setTimeout(() => {
+      console.warn(message)
+      finish()
+    }, ms)
+    void Promise.resolve(promise)
+      .catch((error) => {
+        console.error(message, error)
+      })
+      .finally(() => {
+        clearTimeout(timer)
+        finish()
+      })
+  })
+}
+
+/**
  * How long to wait for a persisted (e.g. Magic-based embedded wallet) session
  * to finish reconnecting before treating it as failed and falling back to the
  * Connect flow. Reown / Magic do not always surface the "User denied account
@@ -94,8 +122,8 @@ export function useAuth(): UseAuthReturn {
     resetSyncIdentity()
     deleteDeviceId()
     document.cookie = 'get_word_user_role=;path=/;max-age=0;SameSite=Lax'
-    await clearLearningCache()
-    await Promise.resolve(disconnect())
+    await withTimeout(clearLearningCache(), 2000, '[useAuth] clearLearningCache timed out')
+    await withTimeout(Promise.resolve(disconnect()), 2000, '[useAuth] wallet disconnect timed out')
   }, [disconnect])
 
   const clearRejectedReconnect = useCallback(
