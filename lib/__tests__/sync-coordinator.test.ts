@@ -34,6 +34,7 @@ import {
   __resetSyncCoordinatorForTests,
   flushPendingSync,
   getSyncStatus,
+  installSyncLifecycle,
   requestSync,
 } from '../sync-coordinator';
 
@@ -151,5 +152,19 @@ describe('sync coordinator', () => {
     await vi.waitFor(() => expect(mockSyncUserData).toHaveBeenCalledTimes(1));
 
     expect(mockSyncUserData).toHaveBeenCalledWith({ review_events: [event1] });
+  });
+
+  it('treats pageshow as an app-open sync point', async () => {
+    mockIsLocalFirstAvailableSync.mockReturnValue(false);
+    enqueueReviewEvent(event1);
+    mockSyncUserData.mockResolvedValue({ success: true, applied_review_event_ids: ['event-1'] });
+
+    const cleanup = installSyncLifecycle();
+    window.dispatchEvent(new Event('pageshow'));
+
+    await vi.waitFor(() => expect(mockSyncUserData).toHaveBeenCalledWith({
+      review_events: [event1],
+    }));
+    cleanup();
   });
 });

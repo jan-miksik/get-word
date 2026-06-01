@@ -269,6 +269,7 @@ export function installSyncLifecycle(): () => void {
   const onFocus = () => void flushPendingSync('focus');
   const onBlur = () => flushPendingSync('blur', { urgent: true });
   const onOnline = () => void flushPendingSync('online');
+  const onPageShow = () => void flushPendingSync('app_open');
   const onPageHide = () => flushPendingSync('pagehide', { urgent: true });
   const onVisibilityChange = () => {
     if (document.visibilityState === 'visible') {
@@ -281,6 +282,7 @@ export function installSyncLifecycle(): () => void {
   window.addEventListener('focus', onFocus);
   window.addEventListener('blur', onBlur);
   window.addEventListener('online', onOnline);
+  window.addEventListener('pageshow', onPageShow);
   window.addEventListener('pagehide', onPageHide);
   document.addEventListener('visibilitychange', onVisibilityChange);
 
@@ -299,6 +301,7 @@ export function installSyncLifecycle(): () => void {
     window.removeEventListener('focus', onFocus);
     window.removeEventListener('blur', onBlur);
     window.removeEventListener('online', onOnline);
+    window.removeEventListener('pageshow', onPageShow);
     window.removeEventListener('pagehide', onPageHide);
     document.removeEventListener('visibilitychange', onVisibilityChange);
     clearTimer(syncTimer);

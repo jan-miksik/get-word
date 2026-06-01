@@ -75,6 +75,11 @@ export function useServerSync({
   const hasLoadedRef = useRef(false);
   const linkedIdentityRef = useRef<string | null>(null);
   const linkAttemptRef = useRef(0);
+  const applyCachedActiveListId = useCallback((cachedActiveListId: string | null | undefined) => {
+    if (!cachedActiveListId) return;
+    if (readStoredActiveListId()) return;
+    setActiveListId(cachedActiveListId);
+  }, [setActiveListId]);
 
   const applyServerData = useCallback((
     serverData: SyncResponse,
@@ -194,7 +199,7 @@ export function useServerSync({
   }, [applyFreshServerData]);
 
   useEffect(() => {
-    if (hasLoadedRef.current || words.length === 0) return;
+    if (hasLoadedRef.current) return;
     hasLoadedRef.current = true;
 
     const hydrationTimeout = setTimeout(() => {
@@ -218,9 +223,7 @@ export function useServerSync({
             persistDomains: false,
             markServerSnapshot: false,
           });
-          if (idbHydration.activeListId) {
-            setActiveListId(idbHydration.activeListId);
-          }
+          applyCachedActiveListId(idbHydration.activeListId);
           isHydratedRef.current = true;
           setIsHydrated(true);
           requestAnimationFrame(() => {
@@ -241,9 +244,7 @@ export function useServerSync({
               { success: true, ...snapshot.data } as SyncResponse,
               { clearPending: false, persistSnapshot: false, persistDomains: false, markServerSnapshot: false }
             );
-            if (snapshot.activeListId) {
-              setActiveListId(snapshot.activeListId);
-            }
+            applyCachedActiveListId(snapshot.activeListId);
             isHydratedRef.current = true;
             setIsHydrated(true);
             requestAnimationFrame(() => {
@@ -283,7 +284,7 @@ export function useServerSync({
       cancelled = true;
       clearTimeout(hydrationTimeout);
     };
-  }, [applyServerData, isUpdatingFromServerRef, setActiveListId, setIsHydrated, words.length]);
+  }, [applyCachedActiveListId, applyServerData, isUpdatingFromServerRef, setIsHydrated]);
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -303,14 +304,20 @@ export function useServerSync({
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') refetchServerData();
     };
+    const onFocus = () => refetchServerData();
+    const onPageShow = () => refetchServerData();
     const onOnline = () => refetchServerData();
 
     window.addEventListener('get-word:server-sync', onServerSync);
     document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('focus', onFocus);
+    window.addEventListener('pageshow', onPageShow);
     window.addEventListener('online', onOnline);
     return () => {
       window.removeEventListener('get-word:server-sync', onServerSync);
       document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('focus', onFocus);
+      window.removeEventListener('pageshow', onPageShow);
       window.removeEventListener('online', onOnline);
     };
   }, [applyFreshServerData, refetchServerData]);

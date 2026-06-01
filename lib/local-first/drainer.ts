@@ -112,6 +112,7 @@ export function startDrainer(): DrainerLifecycle {
 
   window.addEventListener('online', handleOnline);
   window.addEventListener('focus', handleFocus);
+  window.addEventListener('pageshow', handleFocus);
   window.addEventListener('blur', handleLeavingPage);
   window.addEventListener('pagehide', handleLeavingPage);
   window.addEventListener('beforeunload', handleLeavingPage);
@@ -128,6 +129,7 @@ export function startDrainer(): DrainerLifecycle {
     stop() {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('focus', handleFocus);
+      window.removeEventListener('pageshow', handleFocus);
       window.removeEventListener('blur', handleLeavingPage);
       window.removeEventListener('pagehide', handleLeavingPage);
       window.removeEventListener('beforeunload', handleLeavingPage);

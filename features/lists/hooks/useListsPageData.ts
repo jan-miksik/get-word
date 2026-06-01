@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetState
 import { useI18n } from '@/components/I18nProvider';
 import { listsApiFetch } from '@/features/lists/api';
 import * as listActions from '@/features/lists/client/actions';
+import { readStoredSelectedListId, writeStoredSelectedListId } from '@/features/lists/client/storage';
 import { isSameListDirection } from '@/features/lists/languages';
 import type { WordList } from '@/features/lists/types';
 
@@ -18,7 +19,7 @@ export function useListsPageData({
 }: UseListsPageDataOptions) {
   const { t } = useI18n();
   const [lists, setLists] = useState<WordList[]>([]);
-  const [selectedListId, setSelectedListId] = useState<string | null>(null);
+  const [selectedListId, setSelectedListIdState] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [subscribedListIds, setSubscribedListIds] = useState<Set<string>>(new Set());
   const [canManageCommonLists, setCanManageCommonLists] = useState(false);
@@ -37,13 +38,20 @@ export function useListsPageData({
         const loadedLists = Array.isArray(data.lists) ? data.lists as WordList[] : [];
         setLists(loadedLists);
         setCanManageCommonLists(Boolean(data.canManageCommonLists));
-        setSelectedListId((current) => {
+        setSelectedListIdState((current) => {
           if (current || loadedLists.length === 0) return current;
           if (initialSelectedListId && loadedLists.some((list) => list.id === initialSelectedListId)) {
+            writeStoredSelectedListId(initialSelectedListId);
             return initialSelectedListId;
           }
+          const storedSelectedListId = readStoredSelectedListId();
+          if (storedSelectedListId && loadedLists.some((list) => list.id === storedSelectedListId)) {
+            return storedSelectedListId;
+          }
           const owned = loadedLists.find((list) => list.ownerId !== null);
-          return owned?.id ?? loadedLists[0].id;
+          const nextSelectedListId = owned?.id ?? loadedLists[0].id;
+          writeStoredSelectedListId(nextSelectedListId);
+          return nextSelectedListId;
         });
         setSubscribedListIds(new Set<string>(data.subscribedListIds ?? []));
       } catch (err) {
@@ -72,10 +80,15 @@ export function useListsPageData({
     return selectedList.isOwner ?? selectedList.ownerId !== null;
   }, [selectedList]);
 
+  const setSelectedListId = useCallback((listId: string | null) => {
+    writeStoredSelectedListId(listId);
+    setSelectedListIdState(listId);
+  }, []);
+
   const addListAndSelect = useCallback((list: WordList) => {
     setLists((prev) => [...prev, list]);
     setSelectedListId(list.id);
-  }, []);
+  }, [setSelectedListId]);
 
   const applyUpdatedList = useCallback((updatedList: WordList) => {
     setLists((prev) =>
@@ -99,9 +112,13 @@ export function useListsPageData({
       setLists((prev) => {
         const next = prev.filter((list) => list.id !== listId);
         const nextOwned = next.find((list) => list.ownerId !== null);
-        setSelectedListId((current) => (
+        setSelectedListIdState((current) => (
           current === listId
-            ? (nextOwned?.id ?? next[0]?.id ?? null)
+            ? (() => {
+                const nextSelectedListId = nextOwned?.id ?? next[0]?.id ?? null;
+                writeStoredSelectedListId(nextSelectedListId);
+                return nextSelectedListId;
+              })()
             : current
         ));
         return next;

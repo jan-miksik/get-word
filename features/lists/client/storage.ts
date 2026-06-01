@@ -8,6 +8,7 @@ export type StoredTranslationProvider = 'google' | 'openrouter';
 
 const TRANSLATION_PROVIDER_STORAGE_KEY = 'get-word-list-translation-provider';
 const GOOGLE_TTS_VOICE_STORAGE_PREFIX = 'get-word-list-google-tts-voice';
+const ACTIVE_LIST_STORAGE_KEY = 'get-word-active-list';
 
 function readStorageValue(key: string): string | null {
   if (typeof window === 'undefined') return null;
@@ -27,6 +28,15 @@ function writeStorageValue(key: string, value: string): void {
   }
 }
 
+function removeStorageValue(key: string): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(key);
+  } catch {
+    // Storage persistence is best-effort; the current page state still works.
+  }
+}
+
 export function readStoredTranslationProvider(): StoredTranslationProvider {
   return readStorageValue(TRANSLATION_PROVIDER_STORAGE_KEY) === 'openrouter'
     ? 'openrouter'
@@ -35,6 +45,18 @@ export function readStoredTranslationProvider(): StoredTranslationProvider {
 
 export function writeStoredTranslationProvider(provider: StoredTranslationProvider): void {
   writeStorageValue(TRANSLATION_PROVIDER_STORAGE_KEY, provider);
+}
+
+export function readStoredSelectedListId(): string | null {
+  return readStorageValue(ACTIVE_LIST_STORAGE_KEY);
+}
+
+export function writeStoredSelectedListId(listId: string | null): void {
+  if (listId) {
+    writeStorageValue(ACTIVE_LIST_STORAGE_KEY, listId);
+    return;
+  }
+  removeStorageValue(ACTIVE_LIST_STORAGE_KEY);
 }
 
 export function readStoredOpenRouterModel(): string | null {
