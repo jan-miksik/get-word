@@ -307,7 +307,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
           onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onDismiss(); }}
         >
           <div
-            className="flex items-center justify-center px-4 py-3.5 rounded-b-xl bg-[#2A2218] text-[#F4EFE2] border-t-2 border-[#2A2218] shadow-[0_-6px_18px_rgba(0,0,0,0.18)]"
+            className="flex items-center justify-center px-4 py-3.5 rounded-b-xl max-sm:rounded-b-none bg-[#2A2218] text-[#F4EFE2] border-t-2 border-[#2A2218] shadow-[0_-6px_18px_rgba(0,0,0,0.18)]"
             style={{ animation: 'overlay-slide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
           >
             <span className="text-sm font-bold uppercase tracking-[0.08em]" onClick={onDismiss}>{t('card.tapToContinue')} →</span>

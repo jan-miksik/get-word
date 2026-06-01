@@ -207,8 +207,10 @@
   -webkit-tap-highlight-color: transparent;
 }
 
-.memory-hook-display:hover {
-  background: rgba(15, 23, 42, 0.6);
+@media (hover: hover) {
+  .memory-hook-display:hover {
+    background: rgba(15, 23, 42, 0.6);
+  }
 }
 
 .memory-hook-container {
@@ -243,6 +245,9 @@
   text-align: center;
   outline: none;
   box-sizing: border-box;
+  /* Hidden via opacity (not display:none) so it stays focusable on first tap */
+  opacity: 0;
+  pointer-events: none;
 }
 
 @media (min-width: 640px) {
@@ -256,12 +261,9 @@
   box-shadow: 0 0 0 2px var(--accent-soft);
 }
 
-.memory-hook-container .memory-hook-input {
-  display: none;
-}
-
 .memory-hook-container.editing .memory-hook-input {
-  display: block;
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .progress-btn {

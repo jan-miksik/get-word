@@ -152,7 +152,10 @@ export const WordCard = memo(function WordCard({
   // Memory hook editing
   const startEditing = () => {
     setEditingHook(true);
-    setTimeout(() => hookInputRef.current?.focus(), 0);
+    // Focus synchronously within the tap gesture so iOS opens the keyboard on
+    // the first tap. The input is hidden via opacity (not display:none), which
+    // keeps it focusable here.
+    hookInputRef.current?.focus();
   };
 
   const finishEditing = () => {
@@ -283,7 +286,7 @@ export const WordCard = memo(function WordCard({
           <input
             ref={hookInputRef}
             type="text"
-            className={`memory-hook-input ${editingHook ? 'block' : 'hidden'} !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] placeholder:!text-[#2A2218]/50 focus:!border-[#1E6FA8] focus:!shadow-none`}
+            className={`memory-hook-input !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] placeholder:!text-[#2A2218]/50 focus:!border-[#1E6FA8] focus:!shadow-none`}
             placeholder={t('card.memoryHookInput')}
             value={hookValue}
             onChange={(e) => setHookValue(e.target.value)}

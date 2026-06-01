@@ -301,7 +301,7 @@ export function CardDeckView({
           }}
         >
           <div
-            className="flex items-center justify-center w-full px-4 py-4 rounded-b-xl"
+            className="flex items-center justify-center w-full px-4 py-4 rounded-b-xl max-sm:rounded-b-none"
             style={{ animation: 'deck-done-slide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
           >
             <span className="text-sm text-text font-medium">{t('card.tapToContinue')}</span>

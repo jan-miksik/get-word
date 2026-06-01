@@ -401,7 +401,7 @@ export function TopMenu({
 }: TopMenuProps) {
   return (
     <div className="top-menu" aria-label="Top menu">
-      <div className="top-menu-left flex items-center gap-2 min-w-0">
+      <div className="top-menu-left flex flex-col items-start gap-1 min-w-0">
         <BetaBadge />
         <div className="top-menu-stats">
           {score !== undefined && <ScoreBadge score={score} />}

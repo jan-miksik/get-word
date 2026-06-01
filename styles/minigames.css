@@ -166,9 +166,15 @@
   line-height: 1.3;
 }
 
-.game-option:not(:disabled):hover {
-  background: var(--game-surface-hover);
-  border-color: var(--game-accent);
+@media (hover: hover) {
+  .game-option:not(:disabled):hover {
+    background: var(--game-surface-hover);
+    border-color: var(--game-accent);
+  }
+}
+
+.game-option:focus:not(:focus-visible) {
+  outline: none;
 }
 
 .game-option--correct {
@@ -346,6 +352,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  min-width: 0;
 }
 
 .game-match-btn {
@@ -363,19 +370,25 @@
     border-color var(--transition-fast),
     color var(--transition-fast);
   line-height: 1.3;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  hyphens: auto;
 }
 
-.game-match-btn:not(:disabled):not(.game-match-btn--selected):not(.game-match-btn--wrong):hover {
-  background: var(--game-surface-hover);
-  border-color: var(--game-accent);
-  color: var(--game-ink);
-}
+@media (hover: hover) {
+  .game-match-btn:not(:disabled):not(.game-match-btn--selected):not(.game-match-btn--wrong):hover {
+    background: var(--game-surface-hover);
+    border-color: var(--game-accent);
+    color: var(--game-ink);
+  }
 
-.game-match-btn--selected:not(:disabled):hover {
-  background: var(--game-accent);
-  border-color: var(--game-ink);
-  color: #fff;
-  filter: brightness(1.08);
+  .game-match-btn--selected:not(:disabled):hover {
+    background: var(--game-accent);
+    border-color: var(--game-ink);
+    color: #fff;
+    filter: brightness(1.08);
+  }
 }
 
 .game-match-btn--selected {
