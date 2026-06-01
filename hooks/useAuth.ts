@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef } from 'react'
 import { useAppKit, useAppKitAccount, useDisconnect } from '@reown/appkit/react'
+import { clearStaleAppKitAuthSession } from '@/components/appkit-auth-features'
 import { deleteDeviceId, getDeviceId } from '@/lib/device-id'
 import { clearLearningCache } from '@/lib/local-learning-cache'
 import {
@@ -101,6 +102,7 @@ export function useAuth(): UseAuthReturn {
     (message: string) => {
       reconnectFallbackFired.current = true
       console.warn(message)
+      clearStaleAppKitAuthSession()
       try {
         const result = disconnect() as unknown
         if (result instanceof Promise) {
@@ -133,6 +135,8 @@ export function useAuth(): UseAuthReturn {
   // (no disconnected-to-connected flash) but bounds how long it can show.
   useEffect(() => {
     const handleMagicAccountAccessDenied = () => {
+      clearStaleAppKitAuthSession()
+
       if (!isWaitingForWalletProvider()) {
         return
       }

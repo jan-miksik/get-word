@@ -39,6 +39,7 @@ describe('useAuth', () => {
     vi.clearAllMocks()
     vi.stubGlobal('fetch', mockFetch)
     mockFetch.mockResolvedValue({ ok: true })
+    localStorage.clear()
     delete (window as typeof window & Partial<Record<typeof MAGIC_ACCOUNT_ACCESS_DENIED_FLAG, number>>)[
       MAGIC_ACCOUNT_ACCESS_DENIED_FLAG
     ]
@@ -166,6 +167,7 @@ describe('useAuth', () => {
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     mockStatus = 'reconnecting'
     mockOpen.mockResolvedValue(undefined)
+    localStorage.setItem('@appkit-wallet/EMAIL_LOGIN_USED_KEY', 'true')
     const { unmount } = renderHook(() => useAuth())
 
     act(() => {
@@ -174,6 +176,7 @@ describe('useAuth', () => {
 
     expect(mockDisconnect).toHaveBeenCalled()
     expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
+    expect(localStorage.getItem('@appkit-wallet/EMAIL_LOGIN_USED_KEY')).toBeNull()
 
     unmount()
     consoleWarn.mockRestore()
@@ -235,6 +238,7 @@ describe('useAuth', () => {
   it('does not reopen the connect modal for explicit Magic denials outside provider waits', () => {
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     mockStatus = 'disconnected'
+    localStorage.setItem('@appkit-wallet/EMAIL_LOGIN_USED_KEY', 'true')
     const { unmount } = renderHook(() => useAuth())
 
     act(() => {
@@ -243,6 +247,7 @@ describe('useAuth', () => {
 
     expect(mockDisconnect).not.toHaveBeenCalled()
     expect(mockOpen).not.toHaveBeenCalled()
+    expect(localStorage.getItem('@appkit-wallet/EMAIL_LOGIN_USED_KEY')).toBeNull()
 
     unmount()
     consoleWarn.mockRestore()
