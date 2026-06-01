@@ -319,14 +319,14 @@ export const WordCard = memo(function WordCard({
         <div className={`card-actions-row ${hasCustomStageActions ? 'card-actions-row--three' : 'card-actions-row--two'}`}>
           <button
             type="button"
-            className="srs-btn srs-btn--forgot !relative !border-[#ae6161] !opacity-80 max-md:!pb-0"
+            className="srs-btn srs-btn--forgot !relative !opacity-80 max-md:!pb-0"
             onClick={onUnknown}
             title={`${forgotHint} · ${unknownPresses} ${t('card.forgotten')}`}
           >
             {unknownPresses > 0 && (
               <span
                 aria-label={`${unknownPresses} ${t('card.forgotten')}`}
-                className="absolute top-[5px] right-[5px] min-[500px]:top-[8px] min-[500px]:right-[10px] text-[#ae6161] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
+                className="absolute top-[5px] right-[5px] min-[500px]:top-[8px] min-[500px]:right-[10px] text-[#2A2218] text-[0.7rem] font-bold leading-none tabular-nums pointer-events-none"
               >
                 {unknownPresses}
               </span>

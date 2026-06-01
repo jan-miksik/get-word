@@ -113,6 +113,7 @@ describe('PWARegister', () => {
       waiting: waitingWorker,
       installing: null,
       addEventListener: vi.fn(),
+      update: vi.fn().mockResolvedValue(undefined),
     };
     const register = vi.fn().mockResolvedValue(registration);
 
@@ -132,6 +133,7 @@ describe('PWARegister', () => {
     await waitFor(() => {
       expect(register).toHaveBeenCalledWith('/sw.js?build=1.0.123', {
         scope: '/',
+        updateViaCache: 'none',
       });
     });
 
@@ -142,5 +144,6 @@ describe('PWARegister', () => {
     expect(waitingWorker.postMessage).toHaveBeenCalledWith({
       type: 'SKIP_WAITING',
     });
+    expect(registration.update).toHaveBeenCalledTimes(1);
   });
 });

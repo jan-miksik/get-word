@@ -46,7 +46,7 @@ export function CustomStagePopover({
       <button
         ref={customTriggerRef}
         type="button"
-        className="srs-btn srs-btn--easy !relative !border-[#12750f] w-full"
+        className="srs-btn srs-btn--easy !relative w-full"
         onClick={() => setCustomOpen((open) => !open)}
         title={t('card.pickCustomInterval')}
         aria-label={t('card.customInterval')}

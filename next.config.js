@@ -43,6 +43,12 @@ const nextConfig = {
   async headers() {
     return [
       {
+        source: '/sw.js',
+        headers: [
+          { key: 'Cache-Control', value: 'no-store, no-cache, must-revalidate' },
+        ],
+      },
+      {
         source: '/:path*',
         headers: [
           // Popup-based social auth flows may need access to the opener window.

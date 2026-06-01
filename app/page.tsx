@@ -26,8 +26,11 @@ import { MemoryHooksIntroCard } from '@/features/learning/components/MemoryHooks
 import { PWAInstallIntroCard } from '@/features/learning/components/PWAInstallIntroCard';
 import { usePWAInstallIntro } from '@/features/learning/hooks/usePWAInstallIntro';
 
+const BOOT_LOADING_TIMEOUT_MS = 12_000;
+
 export default function Home() {
   const [loaderDismissed, setLoaderDismissed] = useState(false);
+  const [bootTimedOut, setBootTimedOut] = useState(false);
   const [completedDeckWordCards, setCompletedDeckWordCards] = useState(0);
   const [memoryHooksIntroDismissedForSession, setMemoryHooksIntroDismissedForSession] = useState(false);
   const { words, isLoading: isLoadingWords } = useWordsLoader();
@@ -197,10 +200,16 @@ export default function Home() {
   });
 
   useEffect(() => {
-    if (loaderDismissed || !appReady) return;
+    if (loaderDismissed || (!appReady && !bootTimedOut)) return;
     const timeoutId = window.setTimeout(() => setLoaderDismissed(true), 220);
     return () => window.clearTimeout(timeoutId);
-  }, [appReady, loaderDismissed]);
+  }, [appReady, bootTimedOut, loaderDismissed]);
+
+  useEffect(() => {
+    if (appReady || loaderDismissed || bootTimedOut) return;
+    const timeoutId = window.setTimeout(() => setBootTimedOut(true), BOOT_LOADING_TIMEOUT_MS);
+    return () => window.clearTimeout(timeoutId);
+  }, [appReady, bootTimedOut, loaderDismissed]);
 
   const forceShowMemoryHooksIntro = useMemo(() => {
     if (typeof window === 'undefined') return false;

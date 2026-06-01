@@ -213,6 +213,25 @@ describe('useAuth', () => {
     consoleWarn.mockRestore()
   })
 
+  it('times out a stale connecting wallet session', async () => {
+    vi.useFakeTimers()
+    const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    mockStatus = 'connecting'
+    mockOpen.mockResolvedValue(undefined)
+    const { unmount } = renderHook(() => useAuth())
+
+    await act(async () => {
+      vi.advanceTimersByTime(8000)
+    })
+
+    expect(mockDisconnect).toHaveBeenCalled()
+    expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
+
+    unmount()
+    consoleWarn.mockRestore()
+    vi.useRealTimers()
+  })
+
   it('does not reopen the connect modal for explicit Magic denials outside provider waits', () => {
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     mockStatus = 'disconnected'

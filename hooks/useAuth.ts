@@ -166,7 +166,7 @@ export function useAuth(): UseAuthReturn {
   }, [clearRejectedReconnect, isWaitingForWalletProvider, status])
 
   useEffect(() => {
-    if (status !== 'reconnecting') {
+    if (!isWaitingForWalletProvider()) {
       reconnectFallbackFired.current = false
       return
     }
@@ -175,13 +175,13 @@ export function useAuth(): UseAuthReturn {
     }
     const timeoutId = window.setTimeout(() => {
       clearRejectedReconnect(
-        '[useAuth] Wallet reconnect timed out; clearing session and opening Connect modal'
+        `[useAuth] Wallet ${statusRef.current} timed out; clearing session and opening Connect modal`
       )
     }, RECONNECT_TIMEOUT_MS)
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [status, clearRejectedReconnect])
+  }, [status, clearRejectedReconnect, isWaitingForWalletProvider])
 
   const openAccountMenu = useCallback(() => {
     if (isConnected) {

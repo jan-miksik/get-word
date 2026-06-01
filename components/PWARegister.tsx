@@ -3,6 +3,9 @@
 import { useEffect, useState } from 'react';
 
 const CACHE_PREFIX = 'get-word-';
+const ACTIVE_LIST_AUDIO_CACHE = 'get-word-active-list-audio-v1';
+const APP_VERSION_STORAGE_KEY = 'get-word-pwa-app-version';
+const FALLBACK_APP_VERSION = 'dev';
 
 async function clearGetWordCaches() {
   if (!('caches' in window)) return;
@@ -11,6 +14,7 @@ async function clearGetWordCaches() {
   await Promise.all(
     cacheKeys
       .filter((key) => key.startsWith(CACHE_PREFIX))
+      .filter((key) => key !== ACTIVE_LIST_AUDIO_CACHE)
       .map((key) => caches.delete(key))
   );
 }
@@ -18,6 +22,22 @@ async function clearGetWordCaches() {
 async function unregisterExistingWorkers() {
   const registrations = await navigator.serviceWorker.getRegistrations();
   await Promise.all(registrations.map((registration) => registration.unregister()));
+}
+
+function readStoredAppVersion(): string | null {
+  try {
+    return window.localStorage.getItem(APP_VERSION_STORAGE_KEY);
+  } catch {
+    return null;
+  }
+}
+
+function writeStoredAppVersion(version: string): void {
+  try {
+    window.localStorage.setItem(APP_VERSION_STORAGE_KEY, version);
+  } catch {
+    // Version tracking is a recovery aid; the PWA still works without it.
+  }
 }
 
 export function PWARegister() {
@@ -30,12 +50,13 @@ export function PWARegister() {
     if (!('serviceWorker' in navigator)) return;
     const serviceWorker = navigator.serviceWorker;
 
-    let didReloadForControllerChange = false;
-    const handleControllerChange = () => {
-      if (didReloadForControllerChange) return;
-      didReloadForControllerChange = true;
+    let didReload = false;
+    const reloadOnce = () => {
+      if (didReload) return;
+      didReload = true;
       window.location.reload();
     };
+    const handleControllerChange = reloadOnce;
 
     const register = async () => {
       try {
@@ -62,11 +83,13 @@ export function PWARegister() {
 
         serviceWorker.addEventListener('controllerchange', handleControllerChange);
 
-        const buildVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? 'dev';
+        const buildVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? FALLBACK_APP_VERSION;
+        const previousBuildVersion = readStoredAppVersion();
         const registration = await serviceWorker.register(
           `/sw.js?build=${encodeURIComponent(buildVersion)}`,
-          { scope: '/' }
+          { scope: '/', updateViaCache: 'none' }
         );
+        void registration.update().catch(() => undefined);
 
         if (registration.waiting) {
           registration.waiting.postMessage({ type: 'SKIP_WAITING' });
@@ -85,6 +108,16 @@ export function PWARegister() {
             }
           });
         });
+
+        if (previousBuildVersion && previousBuildVersion !== buildVersion) {
+          await clearGetWordCaches();
+          writeStoredAppVersion(buildVersion);
+          reloadOnce();
+          return;
+        }
+        if (!previousBuildVersion) {
+          writeStoredAppVersion(buildVersion);
+        }
       } catch {
         // Intentionally swallow: PWA is an enhancement and should never break the app.
       }
