@@ -6,6 +6,7 @@ import { createAppKit } from '@reown/appkit/react'
 import type { AppKitNetwork } from '@reown/appkit/networks'
 import { cookieToInitialState, WagmiProvider, type Config } from 'wagmi'
 import { wagmiAdapter, projectId, networks } from '@/lib/wagmi-config'
+import { installAppKitAuthFeatureGuard } from '@/components/appkit-auth-features'
 import {
   MAGIC_ACCOUNT_ACCESS_DENIED_EVENT,
   isMagicAccountAccessDeniedError,
@@ -158,7 +159,8 @@ const appKitConfig: AppKitConfig = {
   allWallets: 'SHOW',
 }
 
-createAppKit(appKitConfig)
+const appKit = createAppKit(appKitConfig)
+installAppKitAuthFeatureGuard(appKit)
 
 export function AppKitProvider({
   children,
