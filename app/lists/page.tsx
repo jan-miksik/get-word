@@ -212,7 +212,7 @@ function ListsPageContent() {
   ];
 
   return (
-    <div className="flex h-screen bg-background text-text overflow-hidden">
+    <div className="flex h-screen bg-background text-text overflow-hidden overscroll-none">
       {/* Mobile sidebar toggle */}
       <button
         type="button"
@@ -289,7 +289,7 @@ function ListsPageContent() {
           />
         )}
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto overscroll-y-contain">
           {error && (
             <div className="p-4 m-4 rounded-lg bg-danger/10 text-danger text-sm">
               <ErrorMessage message={error} />

@@ -142,10 +142,9 @@ const appKitConfig: AppKitConfig = {
   debug: false,
   enableCoinbase: false,
   enableEIP6963: true,
-  // Magic can throw inside its embedded-wallet runtime when a stale session
-  // refresh returns 401. Disable startup reconnect so users land on the
-  // Connect flow instead of a wedged loading state.
-  enableReconnect: false,
+  // Allow Magic/Reown to restore persisted email/social sessions. useAuth
+  // bounds stale reconnects and reopens the Connect flow when Magic rejects.
+  enableReconnect: true,
   enableAuthLogger: false,
   features: {
     email: true,
@@ -182,7 +181,7 @@ export function AppKitProvider({
     <WagmiProvider
       config={wagmiAdapter.wagmiConfig as Config}
       initialState={initialState}
-      reconnectOnMount={false}
+      reconnectOnMount
     >
       <QueryClientProvider client={queryClient}>
         {children}

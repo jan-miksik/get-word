@@ -95,7 +95,16 @@ describe('useAuth', () => {
     expect(result.current.authProvider).toBe('apple')
   })
 
-  it('signIn clears stale wallet state before opening AppKit connect modal', async () => {
+  it('signIn opens AppKit connect modal without clearing a reusable provider session', async () => {
+    mockOpen.mockResolvedValue(undefined)
+    const { result } = renderHook(() => useAuth())
+    result.current.signIn()
+    expect(mockDisconnect).not.toHaveBeenCalled()
+    expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
+  })
+
+  it('signIn clears stale wallet state when reconnecting before opening AppKit connect modal', async () => {
+    mockStatus = 'reconnecting'
     mockOpen.mockResolvedValue(undefined)
     const { result } = renderHook(() => useAuth())
     result.current.signIn()

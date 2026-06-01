@@ -93,6 +93,8 @@
 .app > main {
   width: 100%;
   min-width: 0;
+  overscroll-behavior-y: contain;
+  -webkit-overflow-scrolling: touch;
 }
 
 @media (min-width: 767px) {

@@ -61,6 +61,11 @@ export function useAuth(): UseAuthReturn {
       })
     }
 
+    if (statusRef.current !== 'connecting' && statusRef.current !== 'reconnecting') {
+      openConnectModal()
+      return
+    }
+
     try {
       void Promise.resolve(disconnect())
         .catch((error) => {
