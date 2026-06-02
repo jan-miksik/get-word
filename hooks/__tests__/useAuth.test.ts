@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { mockWarmAppKitEmbeddedAuthFrame, mockWaitForAppKitAuthConnector } = vi.hoisted(() => ({
+const { mockWarmAppKitEmbeddedAuthFrame, mockWaitForAppKitAuthUi } = vi.hoisted(() => ({
   mockWarmAppKitEmbeddedAuthFrame: vi.fn(() => Promise.resolve(false)),
-  mockWaitForAppKitAuthConnector: vi.fn(() => Promise.resolve(true)),
+  mockWaitForAppKitAuthUi: vi.fn(() => Promise.resolve(true)),
 }))
 
 // Mock the Reown/wagmi hooks before importing useAuth
@@ -34,7 +34,7 @@ vi.mock('@/components/appkit-auth-features', async (importActual) => {
   return {
     ...actual,
     warmAppKitEmbeddedAuthFrame: mockWarmAppKitEmbeddedAuthFrame,
-    waitForAppKitAuthConnector: mockWaitForAppKitAuthConnector,
+    waitForAppKitAuthUi: mockWaitForAppKitAuthUi,
   }
 })
 
@@ -56,7 +56,7 @@ describe('useAuth', () => {
     vi.stubGlobal('fetch', mockFetch)
     mockFetch.mockResolvedValue({ ok: true })
     mockWarmAppKitEmbeddedAuthFrame.mockResolvedValue(false)
-    mockWaitForAppKitAuthConnector.mockResolvedValue(true)
+    mockWaitForAppKitAuthUi.mockResolvedValue(true)
     localStorage.clear()
     delete (window as typeof window & Partial<Record<typeof MAGIC_ACCOUNT_ACCESS_DENIED_FLAG, number>>)[
       MAGIC_ACCOUNT_ACCESS_DENIED_FLAG
@@ -119,24 +119,24 @@ describe('useAuth', () => {
     const { result } = renderHook(() => useAuth())
     result.current.signIn()
     expect(mockDisconnect).not.toHaveBeenCalled()
-    expect(mockWarmAppKitEmbeddedAuthFrame).toHaveBeenCalled()
 
     await waitFor(() => {
-      expect(mockWaitForAppKitAuthConnector).toHaveBeenCalled()
+      expect(mockWaitForAppKitAuthUi).toHaveBeenCalled()
+      expect(mockWarmAppKitEmbeddedAuthFrame).toHaveBeenCalled()
       expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
     })
   })
 
-  it('signIn opens connect during reconnect after AppKit auth connector is ready', async () => {
+  it('signIn opens connect during reconnect after AppKit auth UI is ready', async () => {
     mockStatus = 'reconnecting'
     mockOpen.mockResolvedValue(undefined)
     const { result } = renderHook(() => useAuth())
     result.current.signIn()
     expect(mockDisconnect).not.toHaveBeenCalled()
-    expect(mockWarmAppKitEmbeddedAuthFrame).toHaveBeenCalled()
 
     await waitFor(() => {
-      expect(mockWaitForAppKitAuthConnector).toHaveBeenCalled()
+      expect(mockWaitForAppKitAuthUi).toHaveBeenCalled()
+      expect(mockWarmAppKitEmbeddedAuthFrame).toHaveBeenCalled()
       expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
     })
   })
@@ -153,6 +153,10 @@ describe('useAuth', () => {
     const { result, rerender } = renderHook(() => useAuth())
     result.current.signIn()
 
+    await waitFor(() => {
+      expect(mockWarmAppKitEmbeddedAuthFrame).toHaveBeenCalled()
+    })
+
     mockIsConnected = true
     mockAddress = '0xABC123'
     mockStatus = 'connected'
@@ -166,12 +170,12 @@ describe('useAuth', () => {
     expect(mockOpen).not.toHaveBeenCalled()
   })
 
-  it('waits for the AppKit auth connector before opening connect', async () => {
-    let resolveConnectorWait: (value: boolean) => void = () => {}
+  it('waits for the AppKit auth UI before opening connect', async () => {
+    let resolveAuthUiWait: (value: boolean) => void = () => {}
     mockOpen.mockResolvedValue(undefined)
-    mockWaitForAppKitAuthConnector.mockReturnValueOnce(
+    mockWaitForAppKitAuthUi.mockReturnValueOnce(
       new Promise<boolean>((resolve) => {
-        resolveConnectorWait = resolve
+        resolveAuthUiWait = resolve
       })
     )
     const { result } = renderHook(() => useAuth())
@@ -181,10 +185,12 @@ describe('useAuth', () => {
     expect(mockOpen).not.toHaveBeenCalled()
 
     await act(async () => {
-      resolveConnectorWait(true)
+      resolveAuthUiWait(true)
     })
 
-    expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
+    await waitFor(() => {
+      expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
+    })
   })
 
   it('signOut calls disconnect', async () => {

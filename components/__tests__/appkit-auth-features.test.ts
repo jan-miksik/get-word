@@ -1,23 +1,45 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RemoteFeatures } from '@reown/appkit/react'
 
-const { mockConnectorController } = vi.hoisted(() => ({
+const {
+  mockChainController,
+  mockConnectorController,
+  mockOptionsController,
+} = vi.hoisted(() => ({
+  mockChainController: {
+    state: {
+      activeChain: 'eip155',
+      noAdapters: false,
+    },
+    subscribeKey: vi.fn(),
+  },
   mockConnectorController: {
     getAuthConnector: vi.fn(),
+    subscribeKey: vi.fn(),
+  },
+  mockOptionsController: {
+    state: {
+      remoteFeatures: {},
+    },
     subscribeKey: vi.fn(),
   },
 }))
 
 vi.mock('@reown/appkit-controllers', () => ({
+  ChainController: mockChainController,
   ConnectorController: mockConnectorController,
+  OptionsController: mockOptionsController,
 }))
 
 import {
   clearStaleAppKitAuthSession,
   hasRequiredAuthFeatures,
   installAppKitAuthFeatureGuard,
+  installAppKitReadyWait,
   mergeRequiredAuthSocials,
   waitForAppKitAuthConnector,
+  waitForAppKitAuthUi,
+  waitForAppKitReady,
 } from '@/components/appkit-auth-features'
 import { MAGIC_ACCOUNT_ACCESS_DENIED_EVENT } from '@/lib/magic-rpc'
 
@@ -25,8 +47,13 @@ describe('appkit-auth-features', () => {
   beforeEach(() => {
     vi.useRealTimers()
     vi.clearAllMocks()
+    mockChainController.state.activeChain = 'eip155'
+    mockChainController.state.noAdapters = false
+    mockChainController.subscribeKey.mockReturnValue(vi.fn())
     mockConnectorController.getAuthConnector.mockReturnValue(undefined)
     mockConnectorController.subscribeKey.mockReturnValue(vi.fn())
+    mockOptionsController.state.remoteFeatures = {}
+    mockOptionsController.subscribeKey.mockReturnValue(vi.fn())
     localStorage.clear()
   })
 
@@ -107,6 +134,102 @@ describe('appkit-auth-features', () => {
 
     await expect(readyPromise).resolves.toBe(false)
     expect(unsubscribe).toHaveBeenCalled()
+  })
+
+  it('waits for AppKit initialization before reporting readiness', async () => {
+    let resolveReady: (() => void) | undefined
+    const appKit = {
+      ready: vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveReady = resolve
+          })
+      ),
+    }
+
+    const installedPromise = installAppKitReadyWait(appKit)
+    const readyPromise = waitForAppKitReady()
+
+    await Promise.resolve()
+    expect(appKit.ready).toHaveBeenCalled()
+
+    resolveReady?.()
+
+    await expect(installedPromise).resolves.toBe(true)
+    await expect(readyPromise).resolves.toBe(true)
+  })
+
+  it('detects a ready AppKit auth UI when connector, auth features, and adapters are available', async () => {
+    installAppKitReadyWait({ ready: vi.fn().mockResolvedValue(undefined) })
+    mockConnectorController.getAuthConnector.mockReturnValue({ id: 'AUTH' })
+    mockOptionsController.state.remoteFeatures = {
+      email: true,
+      socials: ['google', 'apple'],
+    }
+    mockChainController.state.noAdapters = false
+
+    await expect(waitForAppKitAuthUi()).resolves.toBe(true)
+
+    expect(mockConnectorController.subscribeKey).not.toHaveBeenCalled()
+  })
+
+  it('waits for all AppKit auth UI inputs before resolving', async () => {
+    const unsubscribers = [vi.fn(), vi.fn(), vi.fn(), vi.fn()]
+    const callbacks: Array<() => void> = []
+    mockChainController.state.noAdapters = true
+    mockOptionsController.state.remoteFeatures = { email: false, socials: false }
+    mockConnectorController.getAuthConnector.mockReturnValue(undefined)
+    mockConnectorController.subscribeKey.mockImplementation((_key, callback) => {
+      callbacks.push(callback as () => void)
+      return unsubscribers[0]
+    })
+    mockOptionsController.subscribeKey.mockImplementation((_key, callback) => {
+      callbacks.push(callback as () => void)
+      return unsubscribers[1]
+    })
+    mockChainController.subscribeKey
+      .mockImplementationOnce((_key, callback) => {
+        callbacks.push(callback as () => void)
+        return unsubscribers[2]
+      })
+      .mockImplementationOnce((_key, callback) => {
+        callbacks.push(callback as () => void)
+        return unsubscribers[3]
+      })
+    installAppKitReadyWait({ ready: vi.fn().mockResolvedValue(undefined) })
+
+    const readyPromise = waitForAppKitAuthUi()
+
+    await vi.waitFor(() => {
+      expect(callbacks).toHaveLength(4)
+    })
+
+    mockConnectorController.getAuthConnector.mockReturnValue({ id: 'AUTH' })
+    mockOptionsController.state.remoteFeatures = {
+      email: true,
+      socials: ['google', 'apple'],
+    }
+    mockChainController.state.noAdapters = false
+    callbacks.forEach((callback) => callback())
+
+    await expect(readyPromise).resolves.toBe(true)
+    unsubscribers.forEach((unsubscribe) => {
+      expect(unsubscribe).toHaveBeenCalled()
+    })
+  })
+
+  it('stops waiting for AppKit auth UI when AppKit initialization does not finish', async () => {
+    vi.useFakeTimers()
+    installAppKitReadyWait({
+      ready: vi.fn(() => new Promise(() => undefined)),
+    })
+
+    const readyPromise = waitForAppKitAuthUi(100)
+
+    await vi.advanceTimersByTimeAsync(100)
+
+    await expect(readyPromise).resolves.toBe(false)
+    expect(mockConnectorController.subscribeKey).not.toHaveBeenCalled()
   })
 
   it('reapplies local auth features after remote config removes them', () => {

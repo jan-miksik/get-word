@@ -1,7 +1,11 @@
 'use client'
 
 import type { RemoteFeatures, SocialProvider } from '@reown/appkit/react'
-import { ConnectorController } from '@reown/appkit-controllers'
+import {
+  ChainController,
+  ConnectorController,
+  OptionsController,
+} from '@reown/appkit-controllers'
 import { MAGIC_ACCOUNT_ACCESS_DENIED_EVENT } from '@/lib/magic-rpc'
 
 export const REQUIRED_AUTH_SOCIALS = ['google', 'apple'] as const satisfies readonly SocialProvider[]
@@ -22,8 +26,10 @@ const APPKIT_CONNECTED_CONNECTOR_KEYS = [
   '@appkit/solana:connected_connector_id',
 ] as const
 const AUTH_CONNECTOR_READY_TIMEOUT_MS = 4_000
+const APPKIT_READY_TIMEOUT_MS = 15_000
 
 type AppKitAuthFeatureClient = {
+  ready?: () => Promise<void> | void
   getRemoteFeatures: () => RemoteFeatures | undefined
   updateRemoteFeatures: (newRemoteFeatures: Partial<RemoteFeatures>) => void
   subscribeRemoteFeatures: (
@@ -38,6 +44,105 @@ type EmbeddedAuthProvider = {
 type EmbeddedAuthConnector = {
   provider?: EmbeddedAuthProvider
   getProvider?: () => Promise<EmbeddedAuthProvider> | EmbeddedAuthProvider
+}
+
+let appKitReadyPromise: Promise<boolean> | null = null
+
+function timeoutPromise(ms: number) {
+  return new Promise<false>((resolve) => {
+    window.setTimeout(() => resolve(false), ms)
+  })
+}
+
+function hasReadyAppKitAuthUi() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return (
+    hasAppKitAuthConnector() &&
+    hasRequiredAuthFeatures(OptionsController.state.remoteFeatures) &&
+    ChainController.state.noAdapters !== true
+  )
+}
+
+export function installAppKitReadyWait(appKit: Pick<AppKitAuthFeatureClient, 'ready'>) {
+  if (typeof window === 'undefined') {
+    return Promise.resolve(false)
+  }
+
+  appKitReadyPromise = Promise.resolve()
+    .then(() => appKit.ready?.())
+    .then(() => true)
+    .catch((error) => {
+      console.warn('[AppKit] Initialization did not finish before auth modal prep:', error)
+      return false
+    })
+
+  return appKitReadyPromise
+}
+
+export async function waitForAppKitReady(timeoutMs = APPKIT_READY_TIMEOUT_MS) {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  if (!appKitReadyPromise) {
+    return true
+  }
+
+  return Promise.race([appKitReadyPromise, timeoutPromise(timeoutMs)])
+}
+
+export async function waitForAppKitAuthUi(
+  timeoutMs = AUTH_CONNECTOR_READY_TIMEOUT_MS
+): Promise<boolean> {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  const appKitIsReady = await waitForAppKitReady(timeoutMs)
+
+  if (hasReadyAppKitAuthUi()) {
+    return true
+  }
+
+  if (!appKitIsReady) {
+    return false
+  }
+
+  return new Promise((resolve) => {
+    let settled = false
+    const unsubscribers: Array<() => void> = []
+
+    const finish = (isReady: boolean) => {
+      if (settled) {
+        return
+      }
+
+      settled = true
+      window.clearTimeout(timeoutId)
+      unsubscribers.forEach((unsubscribe) => unsubscribe())
+      resolve(isReady)
+    }
+
+    const checkReady = () => {
+      if (hasReadyAppKitAuthUi()) {
+        finish(true)
+      }
+    }
+
+    const timeoutId = window.setTimeout(() => finish(false), timeoutMs)
+
+    unsubscribers.push(
+      ConnectorController.subscribeKey('connectors', checkReady),
+      OptionsController.subscribeKey('remoteFeatures', checkReady),
+      ChainController.subscribeKey('noAdapters', checkReady),
+      ChainController.subscribeKey('activeChain', checkReady)
+    )
+
+    checkReady()
+  })
 }
 
 export function mergeRequiredAuthSocials(

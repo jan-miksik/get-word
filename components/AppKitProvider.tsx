@@ -9,6 +9,7 @@ import { wagmiAdapter, projectId, networks } from '@/lib/wagmi-config'
 import {
   installAppKitAuthFeatureGuard,
   installAppKitEmbeddedAuthFrameWarmup,
+  installAppKitReadyWait,
 } from '@/components/appkit-auth-features'
 import { installAppKitLabelOverrides } from '@/components/appkit-label-overrides'
 import {
@@ -164,6 +165,7 @@ const appKitConfig: AppKitConfig = {
 }
 
 const appKit = createAppKit(appKitConfig)
+installAppKitReadyWait(appKit)
 installAppKitAuthFeatureGuard(appKit)
 installAppKitEmbeddedAuthFrameWarmup()
 installAppKitLabelOverrides()

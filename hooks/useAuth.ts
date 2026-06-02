@@ -5,7 +5,7 @@ import { useAppKit, useAppKitAccount, useDisconnect } from '@reown/appkit/react'
 import {
   clearStaleAppKitAuthSession,
   warmAppKitEmbeddedAuthFrame,
-  waitForAppKitAuthConnector,
+  waitForAppKitAuthUi,
 } from '@/components/appkit-auth-features'
 import { deleteDeviceId, getDeviceId } from '@/lib/device-id'
 import { clearLearningCache } from '@/lib/local-learning-cache'
@@ -89,33 +89,30 @@ export function useAuth(): UseAuthReturn {
   }, [status])
   const reconnectFallbackFired = useRef(false)
 
-  const openConnectModal = useCallback(async () => {
-    await waitForAppKitAuthConnector()
+  const prepareAuthConnect = useCallback(async () => {
+    await waitForAppKitAuthUi()
+    await warmAppKitEmbeddedAuthFrame()
+  }, [])
+
+  const openConnectModal = useCallback(async (authUiPrepared = false) => {
+    if (!authUiPrepared) {
+      await waitForAppKitAuthUi()
+    }
+
     void open({ view: 'Connect' }).catch((error) => {
       console.error('[useAuth] Failed to open AppKit connect modal:', error)
     })
   }, [open])
 
   const signIn = useCallback(() => {
-    if (statusRef.current !== 'connecting' && statusRef.current !== 'reconnecting') {
-      void warmAppKitEmbeddedAuthFrame().finally(() => {
-        if (statusRef.current === 'connected') {
-          return
-        }
-
-        void openConnectModal()
-      })
-      return
-    }
-
-    void warmAppKitEmbeddedAuthFrame().finally(() => {
+    void prepareAuthConnect().finally(() => {
       if (statusRef.current === 'connected') {
         return
       }
 
-      void openConnectModal()
+      void openConnectModal(true)
     })
-  }, [openConnectModal])
+  }, [openConnectModal, prepareAuthConnect])
 
   const signOut = useCallback(async () => {
     const deviceId = getDeviceId()
