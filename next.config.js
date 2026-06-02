@@ -14,6 +14,15 @@ function createOptionalWalletAliases(emptyModule) {
   );
 }
 
+function getVersionFromBuildNumber(base, buildNumber) {
+  if (!/^\d+$/.test(buildNumber)) {
+    return null;
+  }
+
+  const [major, minor] = base.split('.');
+  return `${major}.${minor}.${buildNumber}`;
+}
+
 function getBuildVersion() {
   const base = require('./package.json').version;
   const explicitVersion = process.env.NEXT_PUBLIC_APP_VERSION || process.env.APP_VERSION;
@@ -21,20 +30,23 @@ function getBuildVersion() {
     return explicitVersion;
   }
 
-  const deployCommitSha = [
-    process.env.VERCEL_GIT_COMMIT_SHA,
-    process.env.GITHUB_SHA,
-    process.env.COMMIT_SHA,
+  const explicitBuildNumber = [
+    process.env.NEXT_PUBLIC_BUILD_NUMBER,
+    process.env.BUILD_NUMBER,
+    process.env.GITHUB_RUN_NUMBER,
+    process.env.CI_PIPELINE_IID,
+    process.env.CIRCLE_BUILD_NUM,
+    process.env.TRAVIS_BUILD_NUMBER,
+    process.env.BITBUCKET_BUILD_NUMBER,
   ]
     .find((value) => typeof value === 'string' && value.trim().length > 0)
-    ?.trim()
-    .slice(0, 7);
+    ?.trim();
 
-  // Hosted deploy providers often use shallow git clones. On Vercel this made
-  // `git rev-list --count HEAD` report values like 10, so use the deployment
-  // commit SHA there instead of showing a misleading sequential version.
-  if (process.env.VERCEL && deployCommitSha) {
-    return `${base}-${deployCommitSha}`;
+  if (explicitBuildNumber) {
+    const versionFromBuildNumber = getVersionFromBuildNumber(base, explicitBuildNumber);
+    if (versionFromBuildNumber) {
+      return versionFromBuildNumber;
+    }
   }
 
   try {
@@ -51,19 +63,6 @@ function getBuildVersion() {
     const [major, minor] = base.split('.');
     return `${major}.${minor}.${count}`;
   } catch {
-    if (deployCommitSha) {
-      return `${base}-${deployCommitSha}`;
-    }
-
-    try {
-      const gitSha = execSync('git rev-parse --short HEAD', { stdio: ['pipe', 'pipe', 'ignore'] })
-        .toString()
-        .trim();
-      return `${base}-${gitSha}`;
-    } catch {
-      // Fall through to package version when git metadata is not available.
-    }
-
     return base;
   }
 }

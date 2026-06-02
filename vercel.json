@@ -1,4 +1,4 @@
 {
   "installCommand": "npm install -g pnpm@8.15.1 && pnpm install --frozen-lockfile",
-  "buildCommand": "pnpm run build"
+  "buildCommand": "if [ \"$(git rev-parse --is-shallow-repository 2>/dev/null)\" = \"true\" ]; then git fetch --unshallow --tags || git fetch --all --tags; fi && pnpm run build"
 }
