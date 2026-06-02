@@ -21,6 +21,7 @@ const APPKIT_CONNECTED_CONNECTOR_KEYS = [
   '@appkit/eip155:connected_connector_id',
   '@appkit/solana:connected_connector_id',
 ] as const
+const AUTH_CONNECTOR_READY_TIMEOUT_MS = 4_000
 
 type AppKitAuthFeatureClient = {
   getRemoteFeatures: () => RemoteFeatures | undefined
@@ -115,6 +116,46 @@ async function getEmbeddedAuthProvider() {
   }
 
   return connector.getProvider?.()
+}
+
+export function hasAppKitAuthConnector() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  return Boolean(ConnectorController.getAuthConnector())
+}
+
+export function waitForAppKitAuthConnector(
+  timeoutMs = AUTH_CONNECTOR_READY_TIMEOUT_MS
+): Promise<boolean> {
+  if (typeof window === 'undefined') {
+    return Promise.resolve(false)
+  }
+
+  if (hasAppKitAuthConnector()) {
+    return Promise.resolve(true)
+  }
+
+  return new Promise((resolve) => {
+    let settled = false
+    const finish = (isReady: boolean) => {
+      if (settled) {
+        return
+      }
+      settled = true
+      window.clearTimeout(timeoutId)
+      unsubscribeConnectors()
+      resolve(isReady)
+    }
+
+    const timeoutId = window.setTimeout(() => finish(false), timeoutMs)
+    const unsubscribeConnectors = ConnectorController.subscribeKey('connectors', () => {
+      if (hasAppKitAuthConnector()) {
+        finish(true)
+      }
+    })
+  })
 }
 
 let embeddedAuthWarmupPromise: Promise<boolean> | null = null

@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
-const { mockWarmAppKitEmbeddedAuthFrame } = vi.hoisted(() => ({
+const { mockWarmAppKitEmbeddedAuthFrame, mockWaitForAppKitAuthConnector } = vi.hoisted(() => ({
   mockWarmAppKitEmbeddedAuthFrame: vi.fn(() => Promise.resolve(false)),
+  mockWaitForAppKitAuthConnector: vi.fn(() => Promise.resolve(true)),
 }))
 
 // Mock the Reown/wagmi hooks before importing useAuth
@@ -33,6 +34,7 @@ vi.mock('@/components/appkit-auth-features', async (importActual) => {
   return {
     ...actual,
     warmAppKitEmbeddedAuthFrame: mockWarmAppKitEmbeddedAuthFrame,
+    waitForAppKitAuthConnector: mockWaitForAppKitAuthConnector,
   }
 })
 
@@ -54,6 +56,7 @@ describe('useAuth', () => {
     vi.stubGlobal('fetch', mockFetch)
     mockFetch.mockResolvedValue({ ok: true })
     mockWarmAppKitEmbeddedAuthFrame.mockResolvedValue(false)
+    mockWaitForAppKitAuthConnector.mockResolvedValue(true)
     localStorage.clear()
     delete (window as typeof window & Partial<Record<typeof MAGIC_ACCOUNT_ACCESS_DENIED_FLAG, number>>)[
       MAGIC_ACCOUNT_ACCESS_DENIED_FLAG
@@ -116,10 +119,15 @@ describe('useAuth', () => {
     const { result } = renderHook(() => useAuth())
     result.current.signIn()
     expect(mockDisconnect).not.toHaveBeenCalled()
-    expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
+    expect(mockWarmAppKitEmbeddedAuthFrame).toHaveBeenCalled()
+
+    await waitFor(() => {
+      expect(mockWaitForAppKitAuthConnector).toHaveBeenCalled()
+      expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
+    })
   })
 
-  it('signIn opens connect during reconnect without clearing the provider session', async () => {
+  it('signIn opens connect during reconnect after AppKit auth connector is ready', async () => {
     mockStatus = 'reconnecting'
     mockOpen.mockResolvedValue(undefined)
     const { result } = renderHook(() => useAuth())
@@ -128,6 +136,7 @@ describe('useAuth', () => {
     expect(mockWarmAppKitEmbeddedAuthFrame).toHaveBeenCalled()
 
     await waitFor(() => {
+      expect(mockWaitForAppKitAuthConnector).toHaveBeenCalled()
       expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
     })
   })
@@ -157,6 +166,27 @@ describe('useAuth', () => {
     expect(mockOpen).not.toHaveBeenCalled()
   })
 
+  it('waits for the AppKit auth connector before opening connect', async () => {
+    let resolveConnectorWait: (value: boolean) => void = () => {}
+    mockOpen.mockResolvedValue(undefined)
+    mockWaitForAppKitAuthConnector.mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        resolveConnectorWait = resolve
+      })
+    )
+    const { result } = renderHook(() => useAuth())
+    result.current.signIn()
+
+    await Promise.resolve()
+    expect(mockOpen).not.toHaveBeenCalled()
+
+    await act(async () => {
+      resolveConnectorWait(true)
+    })
+
+    expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
+  })
+
   it('signOut calls disconnect', async () => {
     localStorage.setItem('get_word_device_id', 'device-123')
     const { result } = renderHook(() => useAuth())
@@ -170,11 +200,13 @@ describe('useAuth', () => {
     expect(mockDisconnect).toHaveBeenCalled()
   })
 
-  it('openAccountMenu calls appKit.open', () => {
+  it('openAccountMenu calls appKit.open', async () => {
     mockOpen.mockResolvedValue(undefined)
     const { result } = renderHook(() => useAuth())
     result.current.openAccountMenu()
-    expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
+    await waitFor(() => {
+      expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
+    })
   })
 
   it('openAccountMenu opens account view when connected', () => {
@@ -205,7 +237,7 @@ describe('useAuth', () => {
     consoleError.mockRestore()
   })
 
-  it('clears a stale reconnect when Magic denies account access', () => {
+  it('clears a stale reconnect when Magic denies account access', async () => {
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     mockStatus = 'reconnecting'
     mockOpen.mockResolvedValue(undefined)
@@ -217,14 +249,16 @@ describe('useAuth', () => {
     })
 
     expect(mockDisconnect).toHaveBeenCalled()
-    expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
+    await waitFor(() => {
+      expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
+    })
     expect(localStorage.getItem('@appkit-wallet/EMAIL_LOGIN_USED_KEY')).toBeNull()
 
     unmount()
     consoleWarn.mockRestore()
   })
 
-  it('clears a stale connect attempt when Magic denies account access', () => {
+  it('clears a stale connect attempt when Magic denies account access', async () => {
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     mockStatus = 'connecting'
     mockOpen.mockResolvedValue(undefined)
@@ -235,13 +269,15 @@ describe('useAuth', () => {
     })
 
     expect(mockDisconnect).toHaveBeenCalled()
-    expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
+    await waitFor(() => {
+      expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
+    })
 
     unmount()
     consoleWarn.mockRestore()
   })
 
-  it('clears a stale connect attempt when Magic denied access before auth mounted', () => {
+  it('clears a stale connect attempt when Magic denied access before auth mounted', async () => {
     const consoleWarn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     mockStatus = 'connecting'
     mockOpen.mockResolvedValue(undefined)
@@ -252,7 +288,9 @@ describe('useAuth', () => {
     const { unmount } = renderHook(() => useAuth())
 
     expect(mockDisconnect).toHaveBeenCalled()
-    expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
+    await waitFor(() => {
+      expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
+    })
 
     unmount()
     consoleWarn.mockRestore()

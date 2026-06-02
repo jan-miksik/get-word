@@ -1,15 +1,32 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import type { RemoteFeatures } from '@reown/appkit/react'
+
+const { mockConnectorController } = vi.hoisted(() => ({
+  mockConnectorController: {
+    getAuthConnector: vi.fn(),
+    subscribeKey: vi.fn(),
+  },
+}))
+
+vi.mock('@reown/appkit-controllers', () => ({
+  ConnectorController: mockConnectorController,
+}))
+
 import {
   clearStaleAppKitAuthSession,
   hasRequiredAuthFeatures,
   installAppKitAuthFeatureGuard,
   mergeRequiredAuthSocials,
+  waitForAppKitAuthConnector,
 } from '@/components/appkit-auth-features'
 import { MAGIC_ACCOUNT_ACCESS_DENIED_EVENT } from '@/lib/magic-rpc'
 
 describe('appkit-auth-features', () => {
   beforeEach(() => {
+    vi.useRealTimers()
+    vi.clearAllMocks()
+    mockConnectorController.getAuthConnector.mockReturnValue(undefined)
+    mockConnectorController.subscribeKey.mockReturnValue(vi.fn())
     localStorage.clear()
   })
 
@@ -49,6 +66,47 @@ describe('appkit-auth-features', () => {
     expect(
       hasRequiredAuthFeatures({ email: false, socials: ['google', 'apple'] })
     ).toBe(false)
+  })
+
+  it('detects an AppKit auth connector immediately when it is already registered', async () => {
+    mockConnectorController.getAuthConnector.mockReturnValue({ id: 'AUTH' })
+
+    await expect(waitForAppKitAuthConnector()).resolves.toBe(true)
+
+    expect(mockConnectorController.subscribeKey).not.toHaveBeenCalled()
+  })
+
+  it('waits for AppKit auth connector registration before resolving', async () => {
+    const unsubscribe = vi.fn()
+    let connectorsCallback: (() => void) | undefined
+    mockConnectorController.getAuthConnector
+      .mockReturnValueOnce(undefined)
+      .mockReturnValue({ id: 'AUTH' })
+    mockConnectorController.subscribeKey.mockImplementation((_key, callback) => {
+      connectorsCallback = callback as () => void
+      return unsubscribe
+    })
+
+    const readyPromise = waitForAppKitAuthConnector()
+    expect(connectorsCallback).toBeDefined()
+
+    connectorsCallback?.()
+
+    await expect(readyPromise).resolves.toBe(true)
+    expect(unsubscribe).toHaveBeenCalled()
+  })
+
+  it('stops waiting for AppKit auth connector after the timeout', async () => {
+    vi.useFakeTimers()
+    const unsubscribe = vi.fn()
+    mockConnectorController.subscribeKey.mockReturnValue(unsubscribe)
+
+    const readyPromise = waitForAppKitAuthConnector(100)
+
+    vi.advanceTimersByTime(100)
+
+    await expect(readyPromise).resolves.toBe(false)
+    expect(unsubscribe).toHaveBeenCalled()
   })
 
   it('reapplies local auth features after remote config removes them', () => {

@@ -5,6 +5,7 @@ import { useAppKit, useAppKitAccount, useDisconnect } from '@reown/appkit/react'
 import {
   clearStaleAppKitAuthSession,
   warmAppKitEmbeddedAuthFrame,
+  waitForAppKitAuthConnector,
 } from '@/components/appkit-auth-features'
 import { deleteDeviceId, getDeviceId } from '@/lib/device-id'
 import { clearLearningCache } from '@/lib/local-learning-cache'
@@ -88,7 +89,8 @@ export function useAuth(): UseAuthReturn {
   }, [status])
   const reconnectFallbackFired = useRef(false)
 
-  const openConnectModal = useCallback(() => {
+  const openConnectModal = useCallback(async () => {
+    await waitForAppKitAuthConnector()
     void open({ view: 'Connect' }).catch((error) => {
       console.error('[useAuth] Failed to open AppKit connect modal:', error)
     })
@@ -96,7 +98,13 @@ export function useAuth(): UseAuthReturn {
 
   const signIn = useCallback(() => {
     if (statusRef.current !== 'connecting' && statusRef.current !== 'reconnecting') {
-      openConnectModal()
+      void warmAppKitEmbeddedAuthFrame().finally(() => {
+        if (statusRef.current === 'connected') {
+          return
+        }
+
+        void openConnectModal()
+      })
       return
     }
 
@@ -105,7 +113,7 @@ export function useAuth(): UseAuthReturn {
         return
       }
 
-      openConnectModal()
+      void openConnectModal()
     })
   }, [openConnectModal])
 
@@ -143,7 +151,7 @@ export function useAuth(): UseAuthReturn {
       } catch (error) {
         console.error('[useAuth] Fallback disconnect threw:', error)
       }
-      openConnectModal()
+      void openConnectModal()
     },
     [disconnect, openConnectModal]
   )
@@ -229,11 +237,9 @@ export function useAuth(): UseAuthReturn {
         console.error('[useAuth] Failed to open AppKit account modal:', error)
       })
     } else {
-      void open({ view: 'Connect' }).catch((error) => {
-        console.error('[useAuth] Failed to open AppKit connect modal:', error)
-      })
+      void openConnectModal()
     }
-  }, [open, isConnected])
+  }, [open, isConnected, openConnectModal])
 
   return {
     isConnected,
