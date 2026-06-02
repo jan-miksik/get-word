@@ -1,6 +1,6 @@
 'use client'
 
-import { useAuth } from '@/hooks/useAuth'
+import { useAuth } from '@/features/auth/client/useAuth'
 import { useI18n } from '@/components/I18nProvider'
 
 interface AuthButtonProps {

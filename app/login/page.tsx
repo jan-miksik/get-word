@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AuthConnectCard } from '@/components/AuthConnectCard';
 import { SpeckledBackground } from '@/components/SpeckledBackground';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/features/auth/client/useAuth';
 import { linkWalletWithRetry } from '@/lib/sync';
 
 function sanitizeNextPath(input: string | null): string {

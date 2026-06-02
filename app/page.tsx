@@ -18,7 +18,7 @@ import {
 } from '@/lib/words';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { useDueTimer } from '@/hooks/useDueTimer';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/features/auth/client/useAuth';
 import { AppStateProvider } from '@/context/AppStateContext';
 import { I18nProvider } from '@/components/I18nProvider';
 import { LearningLanguageOnboarding } from '@/features/learning/onboarding/LearningLanguageOnboarding';

@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { headers } from 'next/headers';
-import { AppKitProvider } from '@/components/AppKitProvider';
+import { AppKitProvider } from '@/features/auth/components/AppKitProvider';
 import { PWARegister } from '@/components/PWARegister';
 import './globals.css';
 import './tailwind.css';

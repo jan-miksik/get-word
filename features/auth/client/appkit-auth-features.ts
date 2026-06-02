@@ -6,7 +6,7 @@ import {
   ConnectorController,
   OptionsController,
 } from '@reown/appkit-controllers'
-import { MAGIC_ACCOUNT_ACCESS_DENIED_EVENT } from '@/lib/magic-rpc'
+import { MAGIC_ACCOUNT_ACCESS_DENIED_EVENT } from '@/features/auth/client/magic-rpc'
 
 export const REQUIRED_AUTH_SOCIALS = ['google', 'apple'] as const satisfies readonly SocialProvider[]
 

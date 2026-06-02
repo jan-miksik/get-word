@@ -130,7 +130,7 @@ In other words:
 
 Important files:
 
-- `hooks/useAuth.ts`
+- `features/auth/client/useAuth.ts`
 - `app/api/auth/link-wallet/route.ts`
 - `app/api/auth/logout/route.ts`
 - `lib/auth.ts`

@@ -5,18 +5,18 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createAppKit } from '@reown/appkit/react'
 import type { AppKitNetwork } from '@reown/appkit/networks'
 import { cookieToInitialState, WagmiProvider, type Config } from 'wagmi'
-import { wagmiAdapter, projectId, networks } from '@/lib/wagmi-config'
+import { wagmiAdapter, projectId, networks } from '@/features/auth/client/wagmi-config'
 import {
   installAppKitAuthFeatureGuard,
   installAppKitEmbeddedAuthFrameWarmup,
   installAppKitReadyWait,
-} from '@/components/appkit-auth-features'
-import { installAppKitLabelOverrides } from '@/components/appkit-label-overrides'
+} from '@/features/auth/client/appkit-auth-features'
+import { installAppKitLabelOverrides } from '@/features/auth/client/appkit-label-overrides'
 import {
   MAGIC_ACCOUNT_ACCESS_DENIED_EVENT,
   isMagicAccountAccessDeniedError,
   markMagicAccountAccessDenied,
-} from '@/lib/magic-rpc'
+} from '@/features/auth/client/magic-rpc'
 
 const appUrl =
   typeof window !== 'undefined' ? window.location.origin : 'https://get-word.vercel.app'

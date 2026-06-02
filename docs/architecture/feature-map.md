@@ -49,12 +49,23 @@ Use `AI_CONTEXT.md` as the first stop for agent sessions. This file is a slightl
 ## Auth
 
 - Start with `features/auth/README.md`
+- Client Reown/AppKit flow:
+  - `features/auth/client/useAuth.ts`
+  - `features/auth/components/AppKitProvider.tsx`
+  - `features/auth/client/appkit-auth-features.ts`
+  - `features/auth/client/wagmi-config.ts`
+- Login/session handoff:
+  - `app/login/page.tsx`
+  - `app/api/auth/link-wallet/route.ts`
+  - `lib/sync.ts`
 - Client identity state:
   - `features/auth/state/userProfile.ts`
 - Route entrypoints:
   - `app/api/auth/link-wallet/route.ts`
   - `app/api/auth/logout/route.ts`
 - Shared session response helpers:
+  - `lib/session.ts`
+  - `lib/auth.ts`
   - `features/shared/routes/session.ts`
 
 ## Audio

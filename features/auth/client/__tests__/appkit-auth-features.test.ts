@@ -40,8 +40,8 @@ import {
   waitForAppKitAuthConnector,
   waitForAppKitAuthUi,
   waitForAppKitReady,
-} from '@/components/appkit-auth-features'
-import { MAGIC_ACCOUNT_ACCESS_DENIED_EVENT } from '@/lib/magic-rpc'
+} from '@/features/auth/client/appkit-auth-features'
+import { MAGIC_ACCOUNT_ACCESS_DENIED_EVENT } from '@/features/auth/client/magic-rpc'
 
 describe('appkit-auth-features', () => {
   beforeEach(() => {
@@ -221,7 +221,7 @@ describe('appkit-auth-features', () => {
   it('stops waiting for AppKit auth UI when AppKit initialization does not finish', async () => {
     vi.useFakeTimers()
     installAppKitReadyWait({
-      ready: vi.fn(() => new Promise(() => undefined)),
+      ready: vi.fn(() => new Promise<void>(() => undefined)),
     })
 
     const readyPromise = waitForAppKitAuthUi(100)

@@ -20,7 +20,7 @@ import { useAppState } from '@/hooks/useAppState';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { EDIT_ONLY_CATEGORIES } from '@/components/EditableWordCard';
 import { useDueTimer } from '@/hooks/useDueTimer';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/features/auth/client/useAuth';
 import { AppStateProvider } from '@/context/AppStateContext';
 import { I18nProvider } from '@/components/I18nProvider';
 

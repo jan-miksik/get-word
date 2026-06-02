@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { installAppKitLabelOverrides } from '@/components/appkit-label-overrides'
+import { installAppKitLabelOverrides } from '@/features/auth/client/appkit-label-overrides'
 
 describe('appkit-label-overrides', () => {
   it('renames Reown connect button defaults to Connect', async () => {

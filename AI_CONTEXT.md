@@ -77,9 +77,11 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 ### Auth and providers
 
 - Auth feature guide: `features/auth/README.md`
-- Client auth hook: `hooks/useAuth.ts`
+- Client auth hook: `features/auth/client/useAuth.ts`
+- Reown/AppKit setup: `features/auth/components/AppKitProvider.tsx`, `features/auth/client/appkit-auth-features.ts`, `features/auth/client/wagmi-config.ts`
+- Login/session handoff: `app/login/page.tsx`, `app/api/auth/link-wallet/route.ts`, `lib/sync.ts`
 - User profile state: `features/auth/state/userProfile.ts`
-- Route auth helpers: `lib/auth.ts`, `features/shared/routes/session.ts`
+- Route auth/session helpers: `lib/auth.ts`, `lib/session.ts`, `lib/device-id.ts`, `features/shared/routes/session.ts`, `proxy.ts`
 - OpenRouter/provider guide: `features/providers/README.md`
 - Provider storage/crypto: `lib/providers/*`
 

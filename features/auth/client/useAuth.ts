@@ -6,13 +6,13 @@ import {
   clearStaleAppKitAuthSession,
   warmAppKitEmbeddedAuthFrame,
   waitForAppKitAuthUi,
-} from '@/components/appkit-auth-features'
+} from '@/features/auth/client/appkit-auth-features'
 import { deleteDeviceId, getDeviceId } from '@/lib/device-id'
 import { clearLearningCache } from '@/lib/local-learning-cache'
 import {
   MAGIC_ACCOUNT_ACCESS_DENIED_EVENT,
   hasRecentMagicAccountAccessDenied,
-} from '@/lib/magic-rpc'
+} from '@/features/auth/client/magic-rpc'
 import { clearPendingSync, resetSyncIdentity } from '@/lib/sync'
 
 type AuthStatus = 'connected' | 'disconnected' | 'connecting' | 'reconnecting'

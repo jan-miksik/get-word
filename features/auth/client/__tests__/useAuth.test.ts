@@ -27,9 +27,9 @@ vi.mock('@reown/appkit/react', () => ({
   useDisconnect: () => ({ disconnect: mockDisconnect }),
 }))
 
-vi.mock('@/components/appkit-auth-features', async (importActual) => {
+vi.mock('@/features/auth/client/appkit-auth-features', async (importActual) => {
   const actual =
-    await importActual<typeof import('@/components/appkit-auth-features')>()
+    await importActual<typeof import('@/features/auth/client/appkit-auth-features')>()
 
   return {
     ...actual,
@@ -44,7 +44,7 @@ import { act, renderHook, waitFor } from '@testing-library/react'
 import {
   MAGIC_ACCOUNT_ACCESS_DENIED_EVENT,
   MAGIC_ACCOUNT_ACCESS_DENIED_FLAG,
-} from '@/lib/magic-rpc'
+} from '@/features/auth/client/magic-rpc'
 
 describe('useAuth', () => {
   beforeEach(() => {

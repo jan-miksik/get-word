@@ -62,7 +62,7 @@ Import directly from feature paths: `features/learning/state/*`, `features/learn
 
 Two layers:
 - **Device auth**: `deviceId` cookie (random UUID, see `lib/device-id.ts`). Every request sends `x-device-id` header. API creates a user on first contact.
-- **Wallet auth**: Reown/WalletConnect via wagmi (`lib/wagmi-config.ts`, `hooks/useAuth.ts`). On connect, calls `/api/auth/link-wallet` to associate wallet with the device user.
+- **Wallet auth**: Reown/WalletConnect via wagmi (`features/auth/client/wagmi-config.ts`, `features/auth/client/useAuth.ts`). On connect, calls `/api/auth/link-wallet` to associate wallet with the device user.
 
 Session is a signed JWT cookie (`GET_WORD_SESSION_COOKIE_NAME`). `userRole: 'user' | 'editor'` controls access to `/edit`.
 
