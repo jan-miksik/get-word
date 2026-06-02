@@ -1,6 +1,7 @@
 'use client'
 
 import type { RemoteFeatures, SocialProvider } from '@reown/appkit/react'
+import { ConnectorController } from '@reown/appkit-controllers'
 import { MAGIC_ACCOUNT_ACCESS_DENIED_EVENT } from '@/lib/magic-rpc'
 
 export const REQUIRED_AUTH_SOCIALS = ['google', 'apple'] as const satisfies readonly SocialProvider[]
@@ -27,6 +28,15 @@ type AppKitAuthFeatureClient = {
   subscribeRemoteFeatures: (
     callback: (newState: RemoteFeatures | undefined) => void
   ) => () => void
+}
+
+type EmbeddedAuthProvider = {
+  init?: () => Promise<void> | void
+}
+
+type EmbeddedAuthConnector = {
+  provider?: EmbeddedAuthProvider
+  getProvider?: () => Promise<EmbeddedAuthProvider> | EmbeddedAuthProvider
 }
 
 export function mergeRequiredAuthSocials(
@@ -80,6 +90,74 @@ export function clearStaleAppKitAuthSession() {
   } catch (error) {
     console.warn('[AppKit] Failed to clear stale embedded auth session:', error)
   }
+}
+
+function hasStoredEmbeddedAuthSession() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  try {
+    return window.localStorage.getItem(`${APPKIT_WALLET_STORAGE_PREFIX}EMAIL_LOGIN_USED_KEY`) === 'true'
+  } catch {
+    return false
+  }
+}
+
+async function getEmbeddedAuthProvider() {
+  const connector = ConnectorController.getAuthConnector() as EmbeddedAuthConnector | undefined
+  if (!connector) {
+    return undefined
+  }
+
+  if (connector.provider) {
+    return connector.provider
+  }
+
+  return connector.getProvider?.()
+}
+
+let embeddedAuthWarmupPromise: Promise<boolean> | null = null
+
+export function warmAppKitEmbeddedAuthFrame(): Promise<boolean> {
+  if (typeof window === 'undefined' || !hasStoredEmbeddedAuthSession()) {
+    return Promise.resolve(false)
+  }
+
+  embeddedAuthWarmupPromise ??= (async () => {
+    const provider = await getEmbeddedAuthProvider()
+    if (!provider?.init) {
+      // The auth connector registers asynchronously after createAppKit returns,
+      // so it is usually missing on the first call. Reset the cache so the
+      // connector-change subscription (and signIn) can retry once it exists,
+      // instead of pinning a permanent "not warmed" result.
+      embeddedAuthWarmupPromise = null
+      return false
+    }
+
+    await provider.init()
+    return true
+  })().catch((error) => {
+    embeddedAuthWarmupPromise = null
+    console.warn('[AppKit] Failed to warm embedded auth frame:', error)
+    return false
+  })
+
+  return embeddedAuthWarmupPromise
+}
+
+export function installAppKitEmbeddedAuthFrameWarmup() {
+  if (typeof window === 'undefined') {
+    return () => undefined
+  }
+
+  void warmAppKitEmbeddedAuthFrame()
+
+  const unsubscribeConnectors = ConnectorController.subscribeKey('connectors', () => {
+    void warmAppKitEmbeddedAuthFrame()
+  })
+
+  return unsubscribeConnectors
 }
 
 function recoverAppKitAuthFeatures(

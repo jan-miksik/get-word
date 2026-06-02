@@ -22,7 +22,7 @@ export default function LoginPage() {
     [searchParams]
   );
 
-  const { isConnected, isAuthLoading, address, email, authProvider, signIn } = useAuth();
+  const { isConnected, address, email, authProvider, signIn } = useAuth();
   const [isLinking, setIsLinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [linkRetryNonce, setLinkRetryNonce] = useState(0);
@@ -69,7 +69,7 @@ export default function LoginPage() {
           title="Sign in"
           description="Continue with email, Google, Apple or crypto wallet"
           buttonLabel="Continue"
-          isBusy={isAuthLoading || isLinking}
+          isBusy={isLinking}
           error={error}
           onSignIn={handleSignIn}
         />

@@ -282,7 +282,7 @@ export default function Home() {
         ) : !isAuthenticated ? (
           <AuthRequiredCard
             onSignIn={hasLinkWalletError && walletAddress ? retryLinkWallet : signIn}
-            isBusy={isAuthLoading || isLinkingWallet}
+            isBusy={isLinkingWallet}
             error={linkWalletError}
           />
         ) : !onboardingCompletedAt || !learningLanguageFrom || !learningLanguageTo ? (

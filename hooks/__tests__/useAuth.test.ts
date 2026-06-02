@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
+const { mockWarmAppKitEmbeddedAuthFrame } = vi.hoisted(() => ({
+  mockWarmAppKitEmbeddedAuthFrame: vi.fn(() => Promise.resolve(false)),
+}))
+
 // Mock the Reown/wagmi hooks before importing useAuth
 const mockOpen = vi.fn()
 const mockDisconnect = vi.fn()
@@ -22,6 +26,16 @@ vi.mock('@reown/appkit/react', () => ({
   useDisconnect: () => ({ disconnect: mockDisconnect }),
 }))
 
+vi.mock('@/components/appkit-auth-features', async (importActual) => {
+  const actual =
+    await importActual<typeof import('@/components/appkit-auth-features')>()
+
+  return {
+    ...actual,
+    warmAppKitEmbeddedAuthFrame: mockWarmAppKitEmbeddedAuthFrame,
+  }
+})
+
 // Must import after mocks
 import { useAuth } from '../useAuth'
 import { act, renderHook, waitFor } from '@testing-library/react'
@@ -39,6 +53,7 @@ describe('useAuth', () => {
     vi.clearAllMocks()
     vi.stubGlobal('fetch', mockFetch)
     mockFetch.mockResolvedValue({ ok: true })
+    mockWarmAppKitEmbeddedAuthFrame.mockResolvedValue(false)
     localStorage.clear()
     delete (window as typeof window & Partial<Record<typeof MAGIC_ACCOUNT_ACCESS_DENIED_FLAG, number>>)[
       MAGIC_ACCOUNT_ACCESS_DENIED_FLAG
@@ -104,36 +119,42 @@ describe('useAuth', () => {
     expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
   })
 
-  it('signIn waits for a persisted reconnect instead of clearing the provider session', async () => {
+  it('signIn opens connect during reconnect without clearing the provider session', async () => {
     mockStatus = 'reconnecting'
     mockOpen.mockResolvedValue(undefined)
-    const { result, rerender } = renderHook(() => useAuth())
+    const { result } = renderHook(() => useAuth())
     result.current.signIn()
     expect(mockDisconnect).not.toHaveBeenCalled()
-    expect(mockOpen).not.toHaveBeenCalled()
+    expect(mockWarmAppKitEmbeddedAuthFrame).toHaveBeenCalled()
+
+    await waitFor(() => {
+      expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
+    })
+  })
+
+  it('does not open connect when auto-restore wins while signIn is warming auth', async () => {
+    let resolveWarmup: (value: boolean) => void = () => {}
+    mockStatus = 'reconnecting'
+    mockOpen.mockResolvedValue(undefined)
+    mockWarmAppKitEmbeddedAuthFrame.mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        resolveWarmup = resolve
+      })
+    )
+    const { result, rerender } = renderHook(() => useAuth())
+    result.current.signIn()
 
     mockIsConnected = true
     mockAddress = '0xABC123'
     mockStatus = 'connected'
     rerender()
 
+    await act(async () => {
+      resolveWarmup(false)
+    })
+
     expect(mockDisconnect).not.toHaveBeenCalled()
     expect(mockOpen).not.toHaveBeenCalled()
-  })
-
-  it('opens connect after a requested sign-in when reconnect finishes disconnected', async () => {
-    mockStatus = 'reconnecting'
-    mockOpen.mockResolvedValue(undefined)
-    const { result, rerender } = renderHook(() => useAuth())
-    result.current.signIn()
-
-    mockStatus = 'disconnected'
-    rerender()
-
-    expect(mockDisconnect).not.toHaveBeenCalled()
-    await waitFor(() => {
-      expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
-    })
   })
 
   it('signOut calls disconnect', async () => {
@@ -245,7 +266,7 @@ describe('useAuth', () => {
     const { unmount } = renderHook(() => useAuth())
 
     await act(async () => {
-      vi.advanceTimersByTime(20_000)
+      vi.advanceTimersByTime(12_000)
     })
 
     expect(mockDisconnect).toHaveBeenCalled()

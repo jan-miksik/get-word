@@ -2,7 +2,10 @@
 
 import { useCallback, useEffect, useRef } from 'react'
 import { useAppKit, useAppKitAccount, useDisconnect } from '@reown/appkit/react'
-import { clearStaleAppKitAuthSession } from '@/components/appkit-auth-features'
+import {
+  clearStaleAppKitAuthSession,
+  warmAppKitEmbeddedAuthFrame,
+} from '@/components/appkit-auth-features'
 import { deleteDeviceId, getDeviceId } from '@/lib/device-id'
 import { clearLearningCache } from '@/lib/local-learning-cache'
 import {
@@ -50,7 +53,7 @@ function withTimeout(promise: Promise<unknown>, ms: number, message: string): Pr
  * the embedded auth frame back after a cold launch, so keep this long enough
  * for a valid social/email session to auto-restore.
  */
-const RECONNECT_TIMEOUT_MS = 20_000
+const RECONNECT_TIMEOUT_MS = 12_000
 
 interface UseAuthReturn {
   isConnected: boolean
@@ -79,7 +82,6 @@ export function useAuth(): UseAuthReturn {
     (embeddedWalletInfo as { user?: { type?: string; loginMethod?: string } } | undefined)?.user?.loginMethod ??
     undefined
   const statusRef = useRef(status)
-  const pendingConnectAfterProviderWaitRef = useRef(false)
 
   useEffect(() => {
     statusRef.current = status
@@ -87,7 +89,6 @@ export function useAuth(): UseAuthReturn {
   const reconnectFallbackFired = useRef(false)
 
   const openConnectModal = useCallback(() => {
-    pendingConnectAfterProviderWaitRef.current = false
     void open({ view: 'Connect' }).catch((error) => {
       console.error('[useAuth] Failed to open AppKit connect modal:', error)
     })
@@ -99,7 +100,13 @@ export function useAuth(): UseAuthReturn {
       return
     }
 
-    pendingConnectAfterProviderWaitRef.current = true
+    void warmAppKitEmbeddedAuthFrame().finally(() => {
+      if (statusRef.current === 'connected') {
+        return
+      }
+
+      openConnectModal()
+    })
   }, [openConnectModal])
 
   const signOut = useCallback(async () => {
@@ -189,16 +196,12 @@ export function useAuth(): UseAuthReturn {
 
   useEffect(() => {
     if (isConnected) {
-      pendingConnectAfterProviderWaitRef.current = false
       reconnectFallbackFired.current = false
       return
     }
 
     if (!isWaitingForWalletProvider()) {
       reconnectFallbackFired.current = false
-      if (pendingConnectAfterProviderWaitRef.current) {
-        openConnectModal()
-      }
       return
     }
     if (reconnectFallbackFired.current) {
