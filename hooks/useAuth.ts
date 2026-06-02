@@ -46,9 +46,11 @@ function withTimeout(promise: Promise<unknown>, ms: number, message: string): Pr
  * to finish reconnecting before treating it as failed and falling back to the
  * Connect flow. Reown / Magic do not always surface the "User denied account
  * access" rejection back into the AppKit state machine, so without this the
- * UI can sit on the loading gate forever.
+ * UI can sit on the loading gate forever. iOS PWAs can take a while to bring
+ * the embedded auth frame back after a cold launch, so keep this long enough
+ * for a valid social/email session to auto-restore.
  */
-const RECONNECT_TIMEOUT_MS = 8000
+const RECONNECT_TIMEOUT_MS = 20_000
 
 interface UseAuthReturn {
   isConnected: boolean
@@ -77,35 +79,28 @@ export function useAuth(): UseAuthReturn {
     (embeddedWalletInfo as { user?: { type?: string; loginMethod?: string } } | undefined)?.user?.loginMethod ??
     undefined
   const statusRef = useRef(status)
+  const pendingConnectAfterProviderWaitRef = useRef(false)
 
   useEffect(() => {
     statusRef.current = status
   }, [status])
   const reconnectFallbackFired = useRef(false)
 
-  const signIn = useCallback(() => {
-    const openConnectModal = () => {
-      void open({ view: 'Connect' }).catch((error) => {
-        console.error('[useAuth] Failed to open AppKit connect modal:', error)
-      })
-    }
+  const openConnectModal = useCallback(() => {
+    pendingConnectAfterProviderWaitRef.current = false
+    void open({ view: 'Connect' }).catch((error) => {
+      console.error('[useAuth] Failed to open AppKit connect modal:', error)
+    })
+  }, [open])
 
+  const signIn = useCallback(() => {
     if (statusRef.current !== 'connecting' && statusRef.current !== 'reconnecting') {
       openConnectModal()
       return
     }
 
-    try {
-      void Promise.resolve(disconnect())
-        .catch((error) => {
-          console.error('[useAuth] Failed to clear stale wallet session before sign-in:', error)
-        })
-        .finally(openConnectModal)
-    } catch (error) {
-      console.error('[useAuth] Failed to clear stale wallet session before sign-in:', error)
-      openConnectModal()
-    }
-  }, [disconnect, open])
+    pendingConnectAfterProviderWaitRef.current = true
+  }, [openConnectModal])
 
   const signOut = useCallback(async () => {
     const deviceId = getDeviceId()
@@ -141,14 +136,9 @@ export function useAuth(): UseAuthReturn {
       } catch (error) {
         console.error('[useAuth] Fallback disconnect threw:', error)
       }
-      void open({ view: 'Connect' }).catch((error) => {
-        console.error(
-          '[useAuth] Failed to open Connect modal after reconnect recovery:',
-          error
-        )
-      })
+      openConnectModal()
     },
-    [disconnect, open]
+    [disconnect, openConnectModal]
   )
 
   const isWaitingForWalletProvider = useCallback(
@@ -160,7 +150,7 @@ export function useAuth(): UseAuthReturn {
   // past the timeout (typical when a Magic embedded-wallet session fails to
   // restore), force-disconnect to clear the stale session and pop the Connect
   // modal so the user can sign in again. This keeps the loading screen up
-  // (no disconnected-to-connected flash) but bounds how long it can show.
+  // during normal auto-restore but bounds how long it can show.
   useEffect(() => {
     const handleMagicAccountAccessDenied = () => {
       clearStaleAppKitAuthSession()
@@ -198,8 +188,17 @@ export function useAuth(): UseAuthReturn {
   }, [clearRejectedReconnect, isWaitingForWalletProvider, status])
 
   useEffect(() => {
+    if (isConnected) {
+      pendingConnectAfterProviderWaitRef.current = false
+      reconnectFallbackFired.current = false
+      return
+    }
+
     if (!isWaitingForWalletProvider()) {
       reconnectFallbackFired.current = false
+      if (pendingConnectAfterProviderWaitRef.current) {
+        openConnectModal()
+      }
       return
     }
     if (reconnectFallbackFired.current) {
@@ -213,7 +212,13 @@ export function useAuth(): UseAuthReturn {
     return () => {
       window.clearTimeout(timeoutId)
     }
-  }, [status, clearRejectedReconnect, isWaitingForWalletProvider])
+  }, [
+    status,
+    isConnected,
+    clearRejectedReconnect,
+    isWaitingForWalletProvider,
+    openConnectModal,
+  ])
 
   const openAccountMenu = useCallback(() => {
     if (isConnected) {

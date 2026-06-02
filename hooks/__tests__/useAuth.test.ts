@@ -104,12 +104,33 @@ describe('useAuth', () => {
     expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
   })
 
-  it('signIn clears stale wallet state when reconnecting before opening AppKit connect modal', async () => {
+  it('signIn waits for a persisted reconnect instead of clearing the provider session', async () => {
     mockStatus = 'reconnecting'
     mockOpen.mockResolvedValue(undefined)
-    const { result } = renderHook(() => useAuth())
+    const { result, rerender } = renderHook(() => useAuth())
     result.current.signIn()
-    expect(mockDisconnect).toHaveBeenCalled()
+    expect(mockDisconnect).not.toHaveBeenCalled()
+    expect(mockOpen).not.toHaveBeenCalled()
+
+    mockIsConnected = true
+    mockAddress = '0xABC123'
+    mockStatus = 'connected'
+    rerender()
+
+    expect(mockDisconnect).not.toHaveBeenCalled()
+    expect(mockOpen).not.toHaveBeenCalled()
+  })
+
+  it('opens connect after a requested sign-in when reconnect finishes disconnected', async () => {
+    mockStatus = 'reconnecting'
+    mockOpen.mockResolvedValue(undefined)
+    const { result, rerender } = renderHook(() => useAuth())
+    result.current.signIn()
+
+    mockStatus = 'disconnected'
+    rerender()
+
+    expect(mockDisconnect).not.toHaveBeenCalled()
     await waitFor(() => {
       expect(mockOpen).toHaveBeenCalledWith({ view: 'Connect' })
     })
@@ -224,7 +245,7 @@ describe('useAuth', () => {
     const { unmount } = renderHook(() => useAuth())
 
     await act(async () => {
-      vi.advanceTimersByTime(8000)
+      vi.advanceTimersByTime(20_000)
     })
 
     expect(mockDisconnect).toHaveBeenCalled()

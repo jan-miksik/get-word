@@ -20,6 +20,19 @@ async function clearGetWordCaches() {
   );
 }
 
+async function requestPersistentStorage() {
+  // Ask the browser to exempt our IndexedDB/cache storage from eviction. On
+  // installed PWAs and engaged sites this is granted silently; SRS progress
+  // that hasn't synced yet must survive storage pressure.
+  if (!navigator.storage?.persist) return;
+  try {
+    if (await navigator.storage.persisted()) return;
+    await navigator.storage.persist();
+  } catch {
+    // Best-effort: storage still works without the persistent grant.
+  }
+}
+
 async function unregisterExistingWorkers() {
   const registrations = await navigator.serviceWorker.getRegistrations();
   await Promise.all(registrations.map((registration) => registration.unregister()));
@@ -50,6 +63,8 @@ export function PWARegister() {
   useEffect(() => {
     // Capture the one-shot Android install prompt before any install UI opens.
     installGlobalPWACapture();
+
+    void requestPersistentStorage();
 
     if (!('serviceWorker' in navigator)) return;
     const serviceWorker = navigator.serviceWorker;
