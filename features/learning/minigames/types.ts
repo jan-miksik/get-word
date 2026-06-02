@@ -4,7 +4,7 @@ export type GameType = 'multipleChoice' | 'typing' | 'matching';
 export type GameDifficultyLevel = 1 | 2;
 export type MinigameFrequencyRange = { min: number; max: number } | 'off';
 
-export const DEFAULT_MINIGAME_FREQUENCY = { min: 1, max: 3 } satisfies Exclude<
+export const DEFAULT_MINIGAME_FREQUENCY = { min: 2, max: 5 } satisfies Exclude<
   MinigameFrequencyRange,
   'off'
 >;

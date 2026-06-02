@@ -639,7 +639,7 @@ export const csMessages: I18nMessages = {
   "stage.5": "14 dní",
   "stage.6": "30 dní",
   "stage.7": "60 dní",
-  "card.tapToReveal": "Klepnutím odkrýt",
+  "card.tapToReveal": "Stisknutím odkrýt",
   "card.memoryHookPlaceholder": "Přidat mnemotechniku...",
   "card.memoryHookInput": "Zadejte paměťový háček...",
   "card.playAudio": "Přehrát zvuk",

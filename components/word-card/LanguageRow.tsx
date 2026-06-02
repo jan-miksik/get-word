@@ -21,7 +21,7 @@ export function LanguageRow({
       <div className="hidden">{hiddenLabel}</div>
       <div className="flex-none w-full text-center font-medium leading-[1.2] sm:leading-[1.25]">
         <div
-          className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${covered ? 'is-covered' : ''}`}
+          className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${covered ? 'is-covered max-sm:py-4' : ''}`}
           data-lang={lang}
         >
           <span className={`lang-text inline-block relative min-h-[1.4em] ${textSizeClass}`}>

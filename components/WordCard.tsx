@@ -212,6 +212,9 @@ export const WordCard = memo(function WordCard({
     STAGES[Math.min(clampedStageIndex + 1, STAGES.length - 1)]?.intervalMs ?? 0,
     t,
   );
+  // While editing the memory hook, keep the answer covered so the "tap to
+  // reveal" hint stays visible — the user can still tap to reveal on demand
+  // rather than having the answer spoiled automatically.
   const coverCz = shouldCover('cz');
   const coverEn = shouldCover('en');
   const coverVi = shouldCover('vi');
@@ -225,7 +228,7 @@ export const WordCard = memo(function WordCard({
   const cardTextSizeClass = getWordTextSize(cardMaxTextLen);
 
   return (
-    <article className={`phrase-card ${isMoved ? 'card-moved' : ''} ${fullscreen ? 'word-card--fullscreen' : ''}`} data-word-id={word.id} data-stage-group={stageGroup}>
+    <article className={`phrase-card ${isMoved ? 'card-moved' : ''} ${fullscreen ? 'word-card--fullscreen' : ''} ${editingHook ? 'phrase-card--editing-hook' : ''}`} data-word-id={word.id} data-stage-group={stageGroup}>
       {/* Category badges */}
       {shouldShowCategoryBadges && orderedDisplayCategories.length > 0 && (
         <div className="word-categories">
