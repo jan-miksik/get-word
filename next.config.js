@@ -16,13 +16,54 @@ function createOptionalWalletAliases(emptyModule) {
 
 function getBuildVersion() {
   const base = require('./package.json').version;
+  const explicitVersion = process.env.NEXT_PUBLIC_APP_VERSION || process.env.APP_VERSION;
+  if (explicitVersion) {
+    return explicitVersion;
+  }
+
+  const deployCommitSha = [
+    process.env.VERCEL_GIT_COMMIT_SHA,
+    process.env.GITHUB_SHA,
+    process.env.COMMIT_SHA,
+  ]
+    .find((value) => typeof value === 'string' && value.trim().length > 0)
+    ?.trim()
+    .slice(0, 7);
+
+  // Hosted deploy providers often use shallow git clones. On Vercel this made
+  // `git rev-list --count HEAD` report values like 10, so use the deployment
+  // commit SHA there instead of showing a misleading sequential version.
+  if (process.env.VERCEL && deployCommitSha) {
+    return `${base}-${deployCommitSha}`;
+  }
+
   try {
+    const isShallow = execSync('git rev-parse --is-shallow-repository', { stdio: ['pipe', 'pipe', 'ignore'] })
+      .toString()
+      .trim();
+    if (isShallow === 'true') {
+      throw new Error('Shallow git repository');
+    }
+
     const count = execSync('git rev-list --count HEAD', { stdio: ['pipe', 'pipe', 'ignore'] })
       .toString()
       .trim();
     const [major, minor] = base.split('.');
     return `${major}.${minor}.${count}`;
   } catch {
+    if (deployCommitSha) {
+      return `${base}-${deployCommitSha}`;
+    }
+
+    try {
+      const gitSha = execSync('git rev-parse --short HEAD', { stdio: ['pipe', 'pipe', 'ignore'] })
+        .toString()
+        .trim();
+      return `${base}-${gitSha}`;
+    } catch {
+      // Fall through to package version when git metadata is not available.
+    }
+
     return base;
   }
 }
