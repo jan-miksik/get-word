@@ -13,13 +13,17 @@ export const projectId = process.env.NEXT_PUBLIC_REOWN_PROJECT_ID || ''
 // Multiple EVM networks so wallet connection works regardless of which chain the user is on
 export const networks = [mainnet, polygon, arbitrum, base, optimism]
 
+type WagmiAdapterConfig = ConstructorParameters<typeof WagmiAdapter>[0]
+
+const adapterStorage = createStorage({
+  storage: cookieStorage,
+}) as NonNullable<WagmiAdapterConfig['storage']>
+
 // WagmiAdapter and config are created even without a project ID so the app
 // can still render (anonymous mode). Auth features simply won't work until
 // a valid NEXT_PUBLIC_REOWN_PROJECT_ID is set.
 export const wagmiAdapter = new WagmiAdapter({
-  storage: createStorage({
-    storage: cookieStorage,
-  }),
+  storage: adapterStorage,
   ssr: true,
   projectId,
   networks,

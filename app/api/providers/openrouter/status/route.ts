@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
   }
 
   const connection = await getProviderConnection(user.id, "openrouter");
-  const pending = parseOAuthState(
+  const pending = await parseOAuthState(
     request.cookies.get(OPENROUTER_OAUTH_COOKIE_NAME)?.value,
   );
 

@@ -7,6 +7,7 @@ import {
   warmAppKitEmbeddedAuthFrame,
   waitForAppKitAuthUi,
 } from '@/features/auth/client/appkit-auth-features'
+import { logAuthBootDebug } from '@/features/auth/client/auth-boot-debug'
 import { deleteDeviceId, getDeviceId } from '@/lib/device-id'
 import { clearLearningCache } from '@/lib/local-learning-cache'
 import {
@@ -86,35 +87,109 @@ export function useAuth(): UseAuthReturn {
 
   useEffect(() => {
     statusRef.current = status
-  }, [status])
+    logAuthBootDebug('use-auth-account-state', {
+      status,
+      isConnected,
+      addressPresent: Boolean(address),
+      emailPresent: Boolean(embeddedWalletInfo?.user?.email),
+      authProvider,
+    })
+  }, [address, authProvider, embeddedWalletInfo?.user?.email, isConnected, status])
   const reconnectFallbackFired = useRef(false)
 
   const prepareAuthConnect = useCallback(async () => {
-    await waitForAppKitAuthUi()
-    await warmAppKitEmbeddedAuthFrame()
+    logAuthBootDebug('prepare-auth-connect-start')
+    const authUiReady = await waitForAppKitAuthUi()
+    const embeddedAuthWarmed = await warmAppKitEmbeddedAuthFrame()
+    logAuthBootDebug('prepare-auth-connect-finished', {
+      authUiReady,
+      embeddedAuthWarmed,
+    })
+    return authUiReady
   }, [])
 
-  const openConnectModal = useCallback(async (authUiPrepared = false) => {
+  const openConnectModal = useCallback(async (
+    authUiPrepared = false,
+    preparedAuthUiReady = authUiPrepared
+  ) => {
+    logAuthBootDebug('connect-modal-open-requested', {
+      authUiPrepared,
+      preparedAuthUiReady,
+      currentStatus: statusRef.current,
+    })
+
+    let authUiReady = preparedAuthUiReady
+
     if (!authUiPrepared) {
-      await waitForAppKitAuthUi()
+      authUiReady = await waitForAppKitAuthUi()
+      logAuthBootDebug('connect-modal-auth-ui-wait-complete', {
+        authUiReady,
+        currentStatus: statusRef.current,
+      })
     }
 
-    void open({ view: 'Connect' }).catch((error) => {
-      console.error('[useAuth] Failed to open AppKit connect modal:', error)
+    if (!authUiReady) {
+      console.warn('[useAuth] Opening AppKit connect modal before auth UI is fully ready')
+      logAuthBootDebug('connect-modal-open-not-fully-ready', {
+        currentStatus: statusRef.current,
+      })
+    }
+
+    logAuthBootDebug('connect-modal-open-before-appkit-open', {
+      currentStatus: statusRef.current,
     })
+    void open({ view: 'Connect' })
+      .then(() => {
+        logAuthBootDebug('connect-modal-open-resolved', {
+          currentStatus: statusRef.current,
+        })
+      })
+      .catch((error) => {
+        console.error('[useAuth] Failed to open AppKit connect modal:', error)
+        logAuthBootDebug('connect-modal-open-error', {
+          error: error instanceof Error ? error.message : String(error),
+          currentStatus: statusRef.current,
+        })
+      })
   }, [open])
 
   const signIn = useCallback(() => {
-    void prepareAuthConnect().finally(() => {
-      if (statusRef.current === 'connected') {
-        return
-      }
-
-      void openConnectModal(true)
+    logAuthBootDebug('sign-in-start', {
+      currentStatus: statusRef.current,
     })
+    void prepareAuthConnect()
+      .catch((error) => {
+        console.warn('[useAuth] AppKit auth UI prep failed before signIn open:', error)
+        logAuthBootDebug('sign-in-prepare-error', {
+          error: error instanceof Error ? error.message : String(error),
+          currentStatus: statusRef.current,
+        })
+        return false
+      })
+      .then((authUiReady) => {
+        logAuthBootDebug('sign-in-prepare-complete', {
+          currentStatus: statusRef.current,
+          authUiReady,
+        })
+        if (statusRef.current === 'connected') {
+          logAuthBootDebug('sign-in-modal-skipped', {
+            reason: 'already-connected',
+          })
+          return
+        }
+
+        if (!authUiReady) {
+          console.warn('[useAuth] AppKit auth UI was not fully ready before signIn open')
+        }
+
+        void openConnectModal(true, authUiReady)
+      })
   }, [openConnectModal, prepareAuthConnect])
 
   const signOut = useCallback(async () => {
+    logAuthBootDebug('sign-out-start', {
+      currentStatus: statusRef.current,
+    })
     const deviceId = getDeviceId()
     try {
       await fetch('/api/auth/logout', {
@@ -131,12 +206,17 @@ export function useAuth(): UseAuthReturn {
     document.cookie = 'get_word_user_role=;path=/;max-age=0;SameSite=Lax'
     await withTimeout(clearLearningCache(), 2000, '[useAuth] clearLearningCache timed out')
     await withTimeout(Promise.resolve(disconnect()), 2000, '[useAuth] wallet disconnect timed out')
+    logAuthBootDebug('sign-out-finished')
   }, [disconnect])
 
   const clearRejectedReconnect = useCallback(
     (message: string) => {
       reconnectFallbackFired.current = true
       console.warn(message)
+      logAuthBootDebug('reconnect-fallback-start', {
+        message,
+        currentStatus: statusRef.current,
+      })
       clearStaleAppKitAuthSession()
       try {
         const result = disconnect() as unknown
@@ -149,6 +229,9 @@ export function useAuth(): UseAuthReturn {
         console.error('[useAuth] Fallback disconnect threw:', error)
       }
       void openConnectModal()
+      logAuthBootDebug('reconnect-fallback-finished', {
+        currentStatus: statusRef.current,
+      })
     },
     [disconnect, openConnectModal]
   )
@@ -165,6 +248,9 @@ export function useAuth(): UseAuthReturn {
   // during normal auto-restore but bounds how long it can show.
   useEffect(() => {
     const handleMagicAccountAccessDenied = () => {
+      logAuthBootDebug('magic-account-access-denied-event', {
+        currentStatus: statusRef.current,
+      })
       clearStaleAppKitAuthSession()
 
       if (!isWaitingForWalletProvider()) {
@@ -213,6 +299,10 @@ export function useAuth(): UseAuthReturn {
       return
     }
     const timeoutId = window.setTimeout(() => {
+      logAuthBootDebug('reconnect-timeout-fired', {
+        currentStatus: statusRef.current,
+        timeoutMs: RECONNECT_TIMEOUT_MS,
+      })
       clearRejectedReconnect(
         `[useAuth] Wallet ${statusRef.current} timed out; clearing session and opening Connect modal`
       )
@@ -229,9 +319,16 @@ export function useAuth(): UseAuthReturn {
   ])
 
   const openAccountMenu = useCallback(() => {
+    logAuthBootDebug('account-menu-open-requested', {
+      isConnected,
+      status,
+    })
     if (isConnected) {
       void open({ view: 'Account' }).catch((error) => {
         console.error('[useAuth] Failed to open AppKit account modal:', error)
+        logAuthBootDebug('account-menu-open-error', {
+          error: error instanceof Error ? error.message : String(error),
+        })
       })
     } else {
       void openConnectModal()

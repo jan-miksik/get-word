@@ -24,14 +24,20 @@ function base64Url(input: Buffer): string {
   return input.toString("base64url");
 }
 
-function hmac(input: string): string {
-  return base64Url(
-    crypto
-      .createHmac("sha256", getSigningSecret())
-      // codeql[js/insufficient-password-hash] HMAC-SHA-256 signs short-lived OAuth state cookies; this is not password hashing.
-      .update(input)
-      .digest(),
+function textBytes(input: string): Uint8Array {
+  return new TextEncoder().encode(input);
+}
+
+async function hmac(input: string): Promise<string> {
+  const key = await crypto.webcrypto.subtle.importKey(
+    "raw",
+    textBytes(getSigningSecret()),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
   );
+  const signature = await crypto.webcrypto.subtle.sign("HMAC", key, textBytes(input));
+  return base64Url(Buffer.from(signature));
 }
 
 function signaturesMatch(expected: string, actual: string): boolean {
@@ -45,14 +51,9 @@ export function randomBase64Url(bytes = 32): string {
   return base64Url(crypto.randomBytes(bytes));
 }
 
-export function createPkceChallenge(codeVerifier: string): string {
-  return base64Url(
-    crypto
-      .createHash("sha256")
-      // codeql[js/insufficient-password-hash] PKCE S256 requires SHA-256 by RFC 7636; the verifier is not stored as a password hash.
-      .update(codeVerifier)
-      .digest(),
-  );
+export async function createPkceChallenge(codeVerifier: string): Promise<string> {
+  const digest = await crypto.webcrypto.subtle.digest("SHA-256", textBytes(codeVerifier));
+  return base64Url(Buffer.from(digest));
 }
 
 export function createOAuthState(input: {
@@ -71,17 +72,17 @@ export function createOAuthState(input: {
   };
 }
 
-export function serializeOAuthState(state: OpenRouterOAuthState): string {
+export async function serializeOAuthState(state: OpenRouterOAuthState): Promise<string> {
   const payload = base64Url(Buffer.from(JSON.stringify(state), "utf8"));
-  const signature = hmac(payload);
+  const signature = await hmac(payload);
   return `${payload}.${signature}`;
 }
 
-export function parseOAuthState(raw: string | undefined): OpenRouterOAuthState | null {
+export async function parseOAuthState(raw: string | undefined): Promise<OpenRouterOAuthState | null> {
   if (!raw) return null;
   const [payload, signature] = raw.split(".");
   if (!payload || !signature) return null;
-  if (!signaturesMatch(hmac(payload), signature)) return null;
+  if (!signaturesMatch(await hmac(payload), signature)) return null;
 
   let parsed: OpenRouterOAuthState;
   try {

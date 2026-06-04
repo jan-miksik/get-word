@@ -6,6 +6,11 @@ import {
   ConnectorController,
   OptionsController,
 } from '@reown/appkit-controllers'
+import {
+  logAuthBootDebug,
+  markAppKitReadyDebugInstalled,
+  markAppKitReadyDebugSettled,
+} from '@/features/auth/client/auth-boot-debug'
 import { MAGIC_ACCOUNT_ACCESS_DENIED_EVENT } from '@/features/auth/client/magic-rpc'
 
 export const REQUIRED_AUTH_SOCIALS = ['google', 'apple'] as const satisfies readonly SocialProvider[]
@@ -26,6 +31,7 @@ const APPKIT_CONNECTED_CONNECTOR_KEYS = [
   '@appkit/solana:connected_connector_id',
 ] as const
 const AUTH_CONNECTOR_READY_TIMEOUT_MS = 4_000
+const AUTH_UI_READY_TIMEOUT_MS = 12_000
 const APPKIT_READY_TIMEOUT_MS = 15_000
 
 type AppKitAuthFeatureClient = {
@@ -71,11 +77,22 @@ export function installAppKitReadyWait(appKit: Pick<AppKitAuthFeatureClient, 're
     return Promise.resolve(false)
   }
 
+  markAppKitReadyDebugInstalled()
+  logAuthBootDebug('appkit-ready-wait-installed')
+
   appKitReadyPromise = Promise.resolve()
     .then(() => appKit.ready?.())
-    .then(() => true)
+    .then(() => {
+      markAppKitReadyDebugSettled(true)
+      logAuthBootDebug('appkit-ready-resolved')
+      return true
+    })
     .catch((error) => {
       console.warn('[AppKit] Initialization did not finish before auth modal prep:', error)
+      markAppKitReadyDebugSettled(false, error)
+      logAuthBootDebug('appkit-ready-rejected', {
+        error: error instanceof Error ? error.message : String(error),
+      })
       return false
     })
 
@@ -91,26 +108,40 @@ export async function waitForAppKitReady(timeoutMs = APPKIT_READY_TIMEOUT_MS) {
     return true
   }
 
-  return Promise.race([appKitReadyPromise, timeoutPromise(timeoutMs)])
+  const result = await Promise.race([appKitReadyPromise, timeoutPromise(timeoutMs)])
+  logAuthBootDebug('appkit-ready-wait-finished', {
+    result,
+    timeoutMs,
+  })
+  return result
 }
 
 export async function waitForAppKitAuthUi(
-  timeoutMs = AUTH_CONNECTOR_READY_TIMEOUT_MS
+  timeoutMs = AUTH_UI_READY_TIMEOUT_MS
 ): Promise<boolean> {
   if (typeof window === 'undefined') {
     return false
   }
 
-  const appKitIsReady = await waitForAppKitReady(timeoutMs)
+  logAuthBootDebug('auth-ui-wait-start', {
+    timeoutMs,
+  })
+
+  const appKitIsReady = await waitForAppKitReady(APPKIT_READY_TIMEOUT_MS)
 
   if (hasReadyAppKitAuthUi()) {
+    logAuthBootDebug('auth-ui-wait-finished', {
+      result: true,
+      reason: 'already-ready',
+      appKitIsReady,
+      timeoutMs,
+    })
     return true
   }
 
-  if (!appKitIsReady) {
-    return false
-  }
-
+  // On iOS standalone cold starts, AppKit's ready() can lag behind auth
+  // connector and remote-feature registration. Keep watching those inputs
+  // instead of opening a wallet-only modal as soon as ready() misses its budget.
   return new Promise((resolve) => {
     let settled = false
     const unsubscribers: Array<() => void> = []
@@ -123,6 +154,12 @@ export async function waitForAppKitAuthUi(
       settled = true
       window.clearTimeout(timeoutId)
       unsubscribers.forEach((unsubscribe) => unsubscribe())
+      logAuthBootDebug('auth-ui-wait-finished', {
+        result: isReady,
+        reason: isReady ? 'controller-ready' : 'timeout',
+        appKitIsReady,
+        timeoutMs,
+      })
       resolve(isReady)
     }
 
@@ -183,6 +220,8 @@ export function clearStaleAppKitAuthSession() {
     return
   }
 
+  logAuthBootDebug('clear-stale-appkit-auth-session-start')
+
   try {
     APPKIT_AUTH_STORAGE_KEYS.forEach((key) => {
       window.localStorage.removeItem(key)
@@ -195,7 +234,13 @@ export function clearStaleAppKitAuthSession() {
     })
   } catch (error) {
     console.warn('[AppKit] Failed to clear stale embedded auth session:', error)
+    logAuthBootDebug('clear-stale-appkit-auth-session-error', {
+      error: error instanceof Error ? error.message : String(error),
+    })
+    return
   }
+
+  logAuthBootDebug('clear-stale-appkit-auth-session-finished')
 }
 
 function hasStoredEmbeddedAuthSession() {
@@ -267,8 +312,13 @@ let embeddedAuthWarmupPromise: Promise<boolean> | null = null
 
 export function warmAppKitEmbeddedAuthFrame(): Promise<boolean> {
   if (typeof window === 'undefined' || !hasStoredEmbeddedAuthSession()) {
+    logAuthBootDebug('embedded-auth-warmup-skipped', {
+      reason: typeof window === 'undefined' ? 'server' : 'no-stored-session',
+    })
     return Promise.resolve(false)
   }
+
+  logAuthBootDebug('embedded-auth-warmup-start')
 
   embeddedAuthWarmupPromise ??= (async () => {
     const provider = await getEmbeddedAuthProvider()
@@ -278,14 +328,24 @@ export function warmAppKitEmbeddedAuthFrame(): Promise<boolean> {
       // connector-change subscription (and signIn) can retry once it exists,
       // instead of pinning a permanent "not warmed" result.
       embeddedAuthWarmupPromise = null
+      logAuthBootDebug('embedded-auth-warmup-finished', {
+        result: false,
+        reason: 'provider-init-missing',
+      })
       return false
     }
 
     await provider.init()
+    logAuthBootDebug('embedded-auth-warmup-finished', {
+      result: true,
+    })
     return true
   })().catch((error) => {
     embeddedAuthWarmupPromise = null
     console.warn('[AppKit] Failed to warm embedded auth frame:', error)
+    logAuthBootDebug('embedded-auth-warmup-error', {
+      error: error instanceof Error ? error.message : String(error),
+    })
     return false
   })
 
@@ -297,9 +357,11 @@ export function installAppKitEmbeddedAuthFrameWarmup() {
     return () => undefined
   }
 
+  logAuthBootDebug('embedded-auth-warmup-installed')
   void warmAppKitEmbeddedAuthFrame()
 
   const unsubscribeConnectors = ConnectorController.subscribeKey('connectors', () => {
+    logAuthBootDebug('connectors-changed')
     void warmAppKitEmbeddedAuthFrame()
   })
 
@@ -310,16 +372,27 @@ function recoverAppKitAuthFeatures(
   appKit: AppKitAuthFeatureClient,
   remoteFeatures: RemoteFeatures | undefined
 ) {
+  logAuthBootDebug('recover-appkit-auth-features-start', {
+    remoteFeatures,
+  })
   clearStaleAppKitAuthSession()
   appKit.updateRemoteFeatures(requiredAuthFeaturePatch(remoteFeatures))
+  logAuthBootDebug('recover-appkit-auth-features-finished')
 }
 
 export function installAppKitAuthFeatureGuard(appKit: AppKitAuthFeatureClient) {
   const applyRequiredAuthFeatures = (remoteFeatures: RemoteFeatures | undefined) => {
     if (hasRequiredAuthFeatures(remoteFeatures)) {
+      logAuthBootDebug('auth-feature-guard-ok', {
+        remoteFeatures,
+      })
       return
     }
 
+    logAuthBootDebug('auth-feature-guard-patching', {
+      remoteFeatures,
+      patch: requiredAuthFeaturePatch(remoteFeatures),
+    })
     appKit.updateRemoteFeatures(requiredAuthFeaturePatch(remoteFeatures))
   }
 

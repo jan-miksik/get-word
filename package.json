@@ -5,6 +5,7 @@
   "license": "Apache-2.0",
   "packageManager": "pnpm@8.15.1",
   "scripts": {
+    "prepare": "git config core.hooksPath .githooks || true",
     "dev": "next dev",
     "dev:fast": "next dev --disable-source-maps",
     "build": "next build",
@@ -56,7 +57,7 @@
     "tailwindcss": "^4.1.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.0",
-    "vitest": "^4.0.18"
+    "vitest": "^4.1.0"
   },
   "pnpm": {
     "overrides": {

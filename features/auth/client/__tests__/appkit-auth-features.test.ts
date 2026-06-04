@@ -218,7 +218,7 @@ describe('appkit-auth-features', () => {
     })
   })
 
-  it('stops waiting for AppKit auth UI when AppKit initialization does not finish', async () => {
+  it('keeps watching auth UI inputs when AppKit initialization does not finish', async () => {
     vi.useFakeTimers()
     installAppKitReadyWait({
       ready: vi.fn(() => new Promise<void>(() => undefined)),
@@ -226,10 +226,12 @@ describe('appkit-auth-features', () => {
 
     const readyPromise = waitForAppKitAuthUi(100)
 
+    await vi.advanceTimersByTimeAsync(15_000)
+    expect(mockConnectorController.subscribeKey).toHaveBeenCalled()
+
     await vi.advanceTimersByTimeAsync(100)
 
     await expect(readyPromise).resolves.toBe(false)
-    expect(mockConnectorController.subscribeKey).not.toHaveBeenCalled()
   })
 
   it('reapplies local auth features after remote config removes them', () => {

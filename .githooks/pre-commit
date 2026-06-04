@@ -1,0 +1,6 @@
+#!/bin/sh
+# Keep version.json in sync with the commit count so deploys don't need full
+# git history. Never block a commit if version generation fails.
+node scripts/write-version.js || exit 0
+[ -f version.json ] && git add version.json
+exit 0

@@ -59,7 +59,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const existing = parseOAuthState(
+  const existing = await parseOAuthState(
     request.cookies.get(OPENROUTER_OAUTH_COOKIE_NAME)?.value,
   );
   if (existing && existing.userId === user.id) {
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
   callback.searchParams.set("state", oauthState.state);
   const authorizeUrl = buildOpenRouterAuthorizeUrl({
     callbackUrl: callback.toString(),
-    codeChallenge: createPkceChallenge(oauthState.codeVerifier),
+    codeChallenge: await createPkceChallenge(oauthState.codeVerifier),
   });
 
   auditInfo({
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
   const response = NextResponse.json({ authorizeUrl });
   response.cookies.set({
     name: OPENROUTER_OAUTH_COOKIE_NAME,
-    value: serializeOAuthState(oauthState),
+    value: await serializeOAuthState(oauthState),
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
   const requestId = crypto.randomUUID();
   const ip = getClientIp(request.headers);
   const rawStateCookie = request.cookies.get(OPENROUTER_OAUTH_COOKIE_NAME)?.value;
-  const parsedState = parseOAuthState(rawStateCookie);
+  const parsedState = await parseOAuthState(rawStateCookie);
 
   const ipRateLimit = await consumeRateLimit({
     key: ip,

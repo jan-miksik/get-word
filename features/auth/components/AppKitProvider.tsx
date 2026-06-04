@@ -1,6 +1,6 @@
 'use client'
 
-import { type ReactNode, useState } from 'react'
+import { type ReactNode, useEffect, useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { createAppKit } from '@reown/appkit/react'
 import type { AppKitNetwork } from '@reown/appkit/networks'
@@ -17,6 +17,7 @@ import {
   isMagicAccountAccessDeniedError,
   markMagicAccountAccessDenied,
 } from '@/features/auth/client/magic-rpc'
+import { logAuthBootDebug } from '@/features/auth/client/auth-boot-debug'
 
 const appUrl =
   typeof window !== 'undefined' ? window.location.origin : 'https://get-word.vercel.app'
@@ -82,6 +83,12 @@ function installMagicRejectionSilencer() {
 
       event.preventDefault()
       event.stopImmediatePropagation()
+      logAuthBootDebug('magic-account-access-denied-unhandled-rejection', {
+        reason:
+          event.reason instanceof Error
+            ? event.reason.message
+            : String(event.reason),
+      })
       markMagicAccountAccessDenied()
       window.dispatchEvent(new CustomEvent(MAGIC_ACCOUNT_ACCESS_DENIED_EVENT))
     },
@@ -165,6 +172,11 @@ const appKitConfig: AppKitConfig = {
 }
 
 const appKit = createAppKit(appKitConfig)
+logAuthBootDebug('appkit-created', {
+  projectIdPresent: projectId.length > 0,
+  enableReconnect: appKitConfig.enableReconnect,
+  features: appKitConfig.features,
+})
 installAppKitReadyWait(appKit)
 installAppKitAuthFeatureGuard(appKit)
 installAppKitEmbeddedAuthFrameWarmup()
@@ -179,6 +191,12 @@ export function AppKitProvider({
 }) {
   // Create QueryClient inside component to avoid sharing state across SSR requests
   const [queryClient] = useState(() => new QueryClient())
+
+  useEffect(() => {
+    logAuthBootDebug('appkit-provider-mounted', {
+      cookiesPresent: Boolean(cookies),
+    })
+  }, [cookies])
 
   // Cast needed: WagmiAdapter.wagmiConfig uses an internal type that is
   // structurally compatible with wagmi's Config but not nominally identical
