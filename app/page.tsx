@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
-import { AuthRequiredCard } from '@/features/learning/components/AuthRequiredCard';
+import { useRouter } from 'next/navigation';
 import { LearningStudyContent } from '@/features/learning/components/LearningStudyContent';
 import { useViewModePreference } from '@/features/learning/app-state/useViewModePreference';
 import { useMinigameFrequencyPreference } from '@/features/learning/hooks/useMinigameFrequencyPreference';
@@ -29,6 +29,7 @@ import { usePWAInstallIntro } from '@/features/learning/hooks/usePWAInstallIntro
 const BOOT_LOADING_TIMEOUT_MS = 12_000;
 
 export default function Home() {
+  const router = useRouter();
   const [loaderDismissed, setLoaderDismissed] = useState(false);
   const [bootTimedOut, setBootTimedOut] = useState(false);
   const [completedDeckWordCards, setCompletedDeckWordCards] = useState(0);
@@ -41,7 +42,6 @@ export default function Home() {
     authProvider,
     address: walletAddress,
     signOut,
-    signIn,
   } = useAuth();
 
   const normalizedWords = useMemo(
@@ -80,8 +80,6 @@ export default function Home() {
     isHydrated,
     isLinkingWallet,
     hasLinkWalletError,
-    linkWalletError,
-    retryLinkWallet,
     setGameScore,
     syncedWords,
     userId,
@@ -199,6 +197,14 @@ export default function Home() {
     setGameScore,
   });
 
+  // No app session: send signed-out visitors straight to the sign-in form.
+  // A soft redirect (vs. an inline form) keeps the round-trip fast and lets the
+  // home page re-mount/re-hydrate cleanly as the account once they return.
+  const needsLogin = !isAuthLoading && !isConnected;
+  useEffect(() => {
+    if (needsLogin) router.replace('/login');
+  }, [needsLogin, router]);
+
   useEffect(() => {
     if (loaderDismissed || (!appReady && !bootTimedOut)) return;
     const timeoutId = window.setTimeout(() => setLoaderDismissed(true), 220);
@@ -280,11 +286,10 @@ export default function Home() {
         {!loaderDismissed ? (
           <LoadingScreen />
         ) : !isAuthenticated ? (
-          <AuthRequiredCard
-            onSignIn={hasLinkWalletError && walletAddress ? retryLinkWallet : signIn}
-            isBusy={isLinkingWallet}
-            error={linkWalletError}
-          />
+          // Signed out → redirecting to /login (see needsLogin effect above);
+          // authed-but-still-hydrating → waiting on userId. Either way, hold the
+          // loading screen rather than flashing app chrome.
+          <LoadingScreen />
         ) : !onboardingCompletedAt || !learningLanguageFrom || !learningLanguageTo ? (
           <LearningLanguageOnboarding
             initialFrom={learningLanguageFrom}

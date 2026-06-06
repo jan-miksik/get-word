@@ -104,6 +104,9 @@ export function SignInForm({ nextPath = '/', initialError = null }: SignInFormPr
         setPhase('awaitingOtp');
         return;
       }
+      // Soft client navigation to `nextPath`. This route differs from `/login`,
+      // so the destination mounts fresh and re-hydrates as the signed-in
+      // account — no full page reload needed.
       router.replace(nextPath);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to verify code');

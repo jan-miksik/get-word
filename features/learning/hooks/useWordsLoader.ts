@@ -2,39 +2,30 @@
 
 import { useEffect, useState } from 'react';
 import type { Word } from '@/lib/words';
-import { stripLegacyLocalSpeechAudioFromWord } from '@/lib/words';
+import { loadWords } from '@/features/learning/data/wordsCache';
 
 export function useWordsLoader() {
   const [words, setWords] = useState<Word[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const WORDS_FETCH_TIMEOUT_MS = 30_000;
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), WORDS_FETCH_TIMEOUT_MS);
-
-    fetch('/api/words', { signal: controller.signal })
-      .then((res) => {
-        if (!res.ok) {
-          throw new Error(`Words API ${res.status}: ${res.statusText}`);
-        }
-        return res.json();
-      })
+    let active = true;
+    // Resolves on the next microtask when the list is already cached, so
+    // remounts — notably landing on the app post-login — skip the multi-second
+    // /api/words round-trip.
+    loadWords()
       .then((data) => {
-        setWords(
-          Array.isArray(data.words)
-            ? data.words.map(stripLegacyLocalSpeechAudioFromWord)
-            : [],
-        );
+        if (active) setWords(data);
       })
       .catch(() => {
-        setWords([]);
+        if (active) setWords([]);
       })
       .finally(() => {
-        clearTimeout(timeoutId);
-        setIsLoading(false);
+        if (active) setIsLoading(false);
       });
+    return () => {
+      active = false;
+    };
   }, []);
 
   return { words, setWords, isLoading };
