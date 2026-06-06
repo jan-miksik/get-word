@@ -5,7 +5,7 @@ export const enMessages = {
   "auth.brand": "Get Word",
   "auth.connectTitle": "Connect",
   "auth.connectDescription":
-    "Continue with email, Google, Apple or crypto wallet",
+    "Continue with email or Google",
   "auth.connectButton": "Connect",
   "auth.accountLinked": "Account linked",
   "auth.signedInAs": "Signed in as {name}. Click for account options.",
@@ -485,7 +485,7 @@ export const csMessages: I18nMessages = {
   "auth.brand": "Get Word",
   "auth.connectTitle": "Připojení",
   "auth.connectDescription":
-    "Pokračujte e-mailem, Googlem, Applem nebo kryptopeněženkou",
+    "Pokračujte e-mailem nebo Googlem",
   "auth.connectButton": "Připojit",
   "auth.accountLinked": "Účet propojen",
   "auth.signedInAs": "Přihlášeno jako {name}. Kliknutím otevřete možnosti účtu.",

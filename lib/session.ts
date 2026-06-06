@@ -8,7 +8,10 @@ export type GetWordSession = {
 };
 
 export const GET_WORD_SESSION_COOKIE_NAME = "get_word_session";
-export const GET_WORD_SESSION_TTL_SECONDS = 60 * 60 * 24 * 30; // 30 days
+// Long-lived rolling session for the learning-app phase: reliable PWA restore
+// matters more than short-lived sessions here. Renewed on normal activity
+// (/api/sync). Revisit when motivational stake/payments are added.
+export const GET_WORD_SESSION_TTL_SECONDS = 60 * 60 * 24 * 365; // 365 days
 
 function getSessionSecret(): string | null {
   const configured = process.env.APP_SESSION_SECRET;

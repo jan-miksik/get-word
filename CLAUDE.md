@@ -62,9 +62,11 @@ Import directly from feature paths: `features/learning/state/*`, `features/learn
 
 Two layers:
 - **Device auth**: `deviceId` cookie (random UUID, see `lib/device-id.ts`). Every request sends `x-device-id` header. API creates a user on first contact.
-- **Wallet auth**: Reown/WalletConnect via wagmi (`features/auth/client/wagmi-config.ts`, `features/auth/client/useAuth.ts`). On connect, calls `/api/auth/link-wallet` to associate wallet with the device user.
+- **Login auth**: Supabase Auth (email one-time code + Google OAuth) acts as a one-shot identity verifier. The browser/server Supabase clients live in `features/auth/supabase/*`; `app/api/auth/callback/route.ts` (OAuth/magic-link) and `app/api/auth/sync-user/route.ts` (email OTP) verify the Supabase user, then `features/auth/server/resolve-supabase-user.ts` resolves/attaches the app `users` row (by `supabase_auth_id` → email → device claim → create). The client hook is `features/auth/client/useAuth.ts`.
 
-Session is a signed JWT cookie (`GET_WORD_SESSION_COOKIE_NAME`). `userRole: 'user' | 'editor'` controls access to `/edit`.
+After verification the app mints its own long-lived signed `get_word_session` cookie (see `lib/session.ts`), which is the trusted session — not Supabase's. `userRole: 'user' | 'editor'` controls access to `/edit`.
+
+Wallet linking is currently disabled (`app/api/auth/link-wallet/route.ts` returns 410); it will return as an additive feature gated behind a signed wallet-ownership challenge for the future stake layer.
 
 ### Database
 
@@ -89,4 +91,7 @@ View mode stored in `localStorage` under `get-word-view-mode`.
   - page state lives in `features/edit/hooks/useEditPageState.ts`
 - `app/api/sync/route.ts` — GET (hydrate) / POST (save) for all user state
 - `app/api/words/route.ts` — GET / POST for word data (editor only)
-- `app/api/auth/link-wallet/route.ts` — POST to link wallet to existing user
+- `app/api/auth/callback/route.ts` — GET; Supabase OAuth/magic-link callback that mints the app session
+- `app/api/auth/sync-user/route.ts` — POST; mints the app session after an email OTP verify
+- `app/api/auth/me/route.ts` — GET; returns the current signed-in identity
+- `app/api/auth/link-wallet/route.ts` — disabled (returns 410); reserved for future wallet ownership verification

@@ -29,13 +29,43 @@ required vs optional and how to generate the app secrets.
 - **Production (Vercel)**: prefer Supabase **Transaction Pooler** for serverless app traffic.
 - `APP_SESSION_SECRET` signs session cookies and OpenRouter OAuth state cookies.
 - `APP_ENCRYPTION_SECRET` encrypts stored provider API keys in the database.
-- `NEXT_PUBLIC_REOWN_PROJECT_ID` is required for wallet connect and embedded Reown email/social auth.
+- `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` enable Supabase-backed login (email one-time code + Google OAuth); without them the login page is disabled.
 - `GOOGLE_TRANSLATE_API_KEY` and `GOOGLE_TTS_API_KEY` enable list translation and pronunciation audio generation.
 - `ARDRIVE_TURBO_WALLET_JWK` funds and signs ArDrive Turbo uploads for generated audio.
 - `ARWEAVE_GATEWAY_URL` and `NEXT_PUBLIC_ARWEAVE_GATEWAY_URL` can override the Arweave playback gateway list.
 
 For details about direct vs pooler URLs, URL-encoding passwords, and
 dump/restore, see [SUPABASE_SETUP.md](SUPABASE_SETUP.md).
+
+## Supabase Auth Setup
+
+Login uses Supabase Auth as a one-shot identity verifier (email one-time code +
+Google OAuth); the app then mints its own `get_word_session` cookie. In the
+Supabase dashboard:
+
+- **Authentication → Providers**: enable **Email** and **Google**.
+- **Authentication → URL Configuration → Redirect URLs**: add
+  `http://localhost:3000/api/auth/callback` and your production equivalent.
+- **Authentication → Sign In / Providers → User Signups**: turn **Confirm email**
+  **off**. The email login is OTP-based, and completing the code already proves
+  inbox ownership, so the separate confirmation step is redundant. With it off,
+  first-time logins use the **Magic Link** template (not **Confirm signup**), so
+  there is only one template to maintain.
+- **Authentication → Emails → Templates → Magic Link**: the default template
+  emails a *link* (`{{ .ConfirmationURL }}`), but the app UI asks for a *code*.
+  Replace the body so it prints the token instead:
+
+  ```html
+  <h2>Your Get Word sign-in code</h2>
+  <p>Enter this code to finish signing in:</p>
+  <p style="font-size:24px;letter-spacing:4px;"><strong>{{ .Token }}</strong></p>
+  ```
+
+  If you leave **Confirm email** on instead, apply the same change to the
+  **Confirm signup** template as well.
+
+The OTP length is whatever Supabase is configured to send (default is 8 digits).
+The app's `verifyOtp` accepts any length, so tuning it needs no app change.
 
 ## OpenRouter OAuth (PKCE)
 
@@ -63,8 +93,9 @@ dump/restore, see [SUPABASE_SETUP.md](SUPABASE_SETUP.md).
 
 ## Database (Drizzle + Supabase)
 
-**Wallet linking and auth require all migrations to be applied.** If you see a
-500 when linking a wallet, run migrations first:
+**Auth requires all migrations to be applied.** If you see a 500 during login
+(the callback attaches the Supabase identity to a `users` row), run migrations
+first:
 
 ```bash
 pnpm run db:migrate     # apply migrations (uses drizzle.config.ts + .env.local)
@@ -134,8 +165,8 @@ This app uses **device-based identification**:
 
 1. Import the repo into Vercel.
 2. Set the same environment variables you use locally.
-   - At minimum, set `DATABASE_URL`, `APP_SESSION_SECRET`, `APP_ENCRYPTION_SECRET`, and `GET_WORD_APP_URL`.
-   - Add `NEXT_PUBLIC_REOWN_PROJECT_ID`, Google API keys, ArDrive, and OpenRouter vars if you use those features.
+   - At minimum, set `DATABASE_URL`, `APP_SESSION_SECRET`, `APP_ENCRYPTION_SECRET`, `GET_WORD_APP_URL`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
+   - Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` to enable login, plus Google API keys, ArDrive, and OpenRouter vars if you use those features.
 3. Deploy.
 
 Notes:

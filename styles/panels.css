@@ -1118,6 +1118,23 @@
   color: var(--ob-surface, #F4EFE2);
 }
 
+/* Featured/recommended interactive option: stays clearly highlighted, but
+   reads as "selected" rather than "hovered". Hover still fills with accent so
+   the affordance is preserved. */
+.onboarding-option-recommended {
+  background: color-mix(in srgb, var(--ob-accent, #1E6FA8) 12%, var(--ob-surface, #F4EFE2));
+  border-color: var(--ob-accent, #1E6FA8);
+  box-shadow: inset 4px 0 0 0 var(--ob-accent, #1E6FA8);
+  color: var(--ob-ink, #2A2218);
+}
+
+.onboarding-option-recommended:hover:not(:disabled) {
+  background: var(--ob-accent, #1E6FA8);
+  border-color: var(--ob-accent, #1E6FA8);
+  box-shadow: none;
+  color: var(--ob-surface, #F4EFE2);
+}
+
 .onboarding-option-secondary {
   background: var(--ob-surface, #F4EFE2);
   border: 2px solid var(--ob-ink, #2A2218);

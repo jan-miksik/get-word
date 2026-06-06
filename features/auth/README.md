@@ -1,41 +1,66 @@
 # Auth Feature
 
-Auth is split between a frontend Reown/AppKit flow, a server session handoff,
-and device-based anonymous identity used by sync before a full sign-in exists.
+Auth is split between a Supabase-backed login flow, a server session handoff that
+mints the app's own trusted session, and device-based anonymous identity used by
+sync before a full sign-in exists.
 
-## Client Reown/AppKit Flow
+Supabase Auth is only a **one-shot identity verifier**. Once the server verifies
+the Supabase user, the app mints and trusts its own signed `get_word_session`
+cookie — Supabase's own session is not the source of truth afterwards.
 
-- `features/auth/components/AppKitProvider.tsx`
-  - Creates the Reown AppKit instance and wraps Wagmi/React Query providers.
-  - Installs AppKit auth feature guards, embedded auth warmup, label overrides,
-    Magic rejection handling, and telemetry no-ops.
+## Client Login Flow
+
+- `app/login/page.tsx`
+  - The sign-in UI. Two methods:
+    - **Google OAuth**: `supabase.auth.signInWithOAuth({ provider: 'google' })`
+      redirects to `/api/auth/callback`.
+    - **Email one-time code**: `signInWithOtp` → `verifyOtp`, then POSTs to
+      `/api/auth/sync-user` to mint the app session.
+  - Before starting OAuth it drops a short-lived `gw_device_claim` cookie so the
+    top-level callback (which can't read `localStorage`) can claim the device's
+    existing progress.
 - `features/auth/client/useAuth.ts`
-  - App-wide React hook for Reown account state.
-  - Exposes `signIn`, `signOut`, `openAccountMenu`, wallet address, email,
-    auth provider, and loading status.
-- `features/auth/client/appkit-auth-features.ts`
-  - Waits for AppKit readiness before opening Connect.
-  - Keeps required email/social features present.
-  - Handles stale embedded-auth storage only on explicit failure paths.
-- `features/auth/client/appkit-label-overrides.ts`
-  - Reown custom element label tweaks.
-- `features/auth/client/magic-rpc.ts`
-  - Magic embedded-wallet access-denial detection and event constants.
-- `features/auth/client/wagmi-config.ts`
-  - Wagmi adapter, Reown project ID, supported networks, and wallet connector setup.
+  - App-wide React hook for auth state. Reads identity from `/api/auth/me`.
+  - Exposes `signIn`, `signOut`, `openAccountMenu`, `email`, `authProvider`, and
+    loading status. `address` is reserved for future wallet linking (always
+    `undefined` for now).
+- `features/auth/supabase/browser.ts` / `server.ts`
+  - Browser and server (cookie-aware) Supabase clients.
+- `features/auth/supabase/env.ts`
+  - Reads `NEXT_PUBLIC_SUPABASE_URL` / `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` and
+    exposes `isSupabaseConfigured()` to gate the login UI.
 
 ## Server Session Handoff
 
-- `app/login/page.tsx` starts Reown sign-in via `useAuth()`.
-- After Reown connects, `lib/sync.ts` calls `/api/auth/link-wallet` with the
-  Reown wallet address plus optional email/auth provider.
-- `app/api/auth/link-wallet/route.ts` resolves the winning user by email,
-  wallet, or device, merges device progress where needed, returns a sync
-  payload, and sets the signed app session cookie.
-- `app/api/auth/logout/route.ts` clears the signed session cookie and detaches
-  the current device from the session user when supplied.
-- `features/shared/routes/session.ts` contains the shared response helper that
-  sets the session cookie.
+- `app/api/auth/callback/route.ts`
+  - Supabase OAuth / magic-link callback. Exchanges the PKCE `code`, verifies the
+    user with `getUser()` (never trusts `getSession()`), resolves/attaches the app
+    user, mints `get_word_session`, and redirects.
+- `app/api/auth/sync-user/route.ts`
+  - Client-initiated mint after an email-OTP verify (or a re-sync). Verifies the
+    already-present Supabase session with `getUser()`, then mints the app session.
+- `features/auth/server/resolve-supabase-user.ts`
+  - Resolves the app `users` row for a verified Supabase identity and attaches
+    `supabase_auth_id`. Priority: existing `supabase_auth_id` → email → device
+    claim → create. Never deletes or merges rows, so owned word lists can't be
+    orphaned.
+- `app/api/auth/me/route.ts`
+  - Lightweight identity check that reads only the app session cookie (no Supabase
+    network call). Returns `{ authenticated: false }` for device-only visitors.
+- `app/api/auth/logout/route.ts`
+  - Clears the signed session cookie and detaches the current device from the
+    session user when supplied.
+- `features/shared/routes/session.ts`
+  - Shared helpers that set the `get_word_session` cookie on a response
+    (`setSessionCookieOnResponse`, `withSessionCookie`).
+
+### Wallet linking (disabled)
+
+- `app/api/auth/link-wallet/route.ts` is intentionally disabled and returns `410`.
+  The previous version trusted client-supplied email/device/wallet input to mint a
+  session, which is an auth bypass now that Supabase is the verifier. Wallet
+  support will return as an additive feature gated behind a signed
+  wallet-ownership challenge for the future stake/payment layer.
 
 ## Device Identity
 
@@ -56,12 +81,13 @@ and device-based anonymous identity used by sync before a full sign-in exists.
   client and mirrors `user_role` into the non-httpOnly `get_word_user_role`
   cookie for client-side editor UI checks.
 - `features/shared/sync/response.ts` defines the user/profile shape returned in
-  sync and link-wallet responses.
+  sync responses.
 
 ## Placement
 
-- Put new frontend auth/Reown/AppKit code in `features/auth/client`.
-- Put auth-specific UI in `features/auth/components`.
+- Put new frontend auth code in `features/auth/client`; Supabase client/config in
+  `features/auth/supabase`.
+- Put server-side identity resolution in `features/auth/server`.
 - Put synced auth identity state in `features/auth/state`.
 - Keep low-level primitives in `lib`: session signing, device ID, session ID,
   request auth helpers, and DB access.
@@ -71,11 +97,7 @@ and device-based anonymous identity used by sync before a full sign-in exists.
 
 ## Tests
 
-- `features/auth/client/__tests__/useAuth.test.ts`
-- `features/auth/client/__tests__/appkit-auth-features.test.ts`
-- `features/auth/client/__tests__/appkit-label-overrides.test.ts`
-- `features/auth/client/__tests__/magic-rpc.test.ts`
-- `app/api/auth/__tests__/link-wallet.test.ts`
+- `features/auth/server/__tests__/resolve-supabase-user.test.ts`
+- `app/api/auth/__tests__/link-wallet.test.ts` (asserts the route is disabled)
 - `lib/__tests__/sync.test.ts`
-- `lib/db/queries/__tests__/link-wallet.test.ts`
 - `__tests__/proxy.test.ts`

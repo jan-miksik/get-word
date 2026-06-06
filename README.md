@@ -11,7 +11,7 @@ Multilingual language learning app for custom language pairs.
 - Play pronunciation audio and reuse already generated audio where possible.
 - Add personal memory hooks.
 - Practice with lightweight minigames mixed into the learning flow.
-- Sign in with Reown email/social/wallet auth.
+- Sign in with email (one-time code) or Google via Supabase Auth.
 - Use the app as an installable PWA.
 
 ## Tech stack
@@ -19,7 +19,7 @@ Multilingual language learning app for custom language pairs.
 - **Next.js 16** (React 19)
 - **Supabase PostgreSQL**
 - **ArDrive Turbo / Arweave** for generated audio storage
-- **Reown + Wagmi/Viem** for authentication and wallet linking
+- **Supabase Auth** for email + Google sign-in (the app mints its own session)
 - **Google TTS (text to speech)**
 - **OpenRouter BYOK (bring your own keys)**
 - **Drizzle ORM** (`drizzle-orm`, `drizzle-kit`)

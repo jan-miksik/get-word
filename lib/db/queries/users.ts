@@ -43,6 +43,18 @@ export async function getUserByEmail(email: string): Promise<User | null> {
   return results[0] || null;
 }
 
+// Get user by Supabase Auth id
+export async function getUserBySupabaseAuthId(
+  supabaseAuthId: string
+): Promise<User | null> {
+  const results = await db
+    .select()
+    .from(users)
+    .where(eq(users.supabaseAuthId, supabaseAuthId))
+    .limit(1);
+  return results[0] || null;
+}
+
 // Get user by wallet address
 export async function getUserByWalletAddress(
   walletAddress: string

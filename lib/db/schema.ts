@@ -173,8 +173,9 @@ export const wordListItems = pgTable(
 export const users = pgTable("users", {
   id: uuid("id").primaryKey().defaultRandom(),
   deviceId: text("device_id").unique(), // Device-based auth
+  supabaseAuthId: text("supabase_auth_id").unique(), // Supabase Auth user id (email/Google/social)
   email: text("email").unique(), // Email (when signed in with email/Google/social)
-  walletAddress: text("wallet_address").unique(), // Web3 embedded wallet
+  walletAddress: text("wallet_address").unique(), // Web3 embedded wallet (dormant; future stake/payment)
   authProvider: text("auth_provider"), // "email" | "google" | "apple" | "wallet" etc.
   role: text("role").notNull().default("languageToLearn"), // "knownLanguage" or "languageToLearn"
   userRole: text("user_role").notNull().default("user"), // "user" or "editor"

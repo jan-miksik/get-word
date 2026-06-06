@@ -1,6 +1,4 @@
 import type { Metadata, Viewport } from 'next';
-import { headers } from 'next/headers';
-import { AppKitProvider } from '@/features/auth/components/AppKitProvider';
 import { PWARegister } from '@/components/PWARegister';
 import './globals.css';
 import './tailwind.css';
@@ -43,21 +41,16 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 };
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const headersList = await headers();
-  const cookies = headersList.get('cookie');
-
   return (
     <html lang="en">
       <body>
-        <AppKitProvider cookies={cookies}>
-          <PWARegister />
-          {children}
-        </AppKitProvider>
+        <PWARegister />
+        {children}
       </body>
     </html>
   );

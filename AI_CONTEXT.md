@@ -78,8 +78,10 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 
 - Auth feature guide: `features/auth/README.md`
 - Client auth hook: `features/auth/client/useAuth.ts`
-- Reown/AppKit setup: `features/auth/components/AppKitProvider.tsx`, `features/auth/client/appkit-auth-features.ts`, `features/auth/client/wagmi-config.ts`
-- Login/session handoff: `app/login/page.tsx`, `app/api/auth/link-wallet/route.ts`, `lib/sync.ts`
+- Supabase clients + config: `features/auth/supabase/browser.ts`, `features/auth/supabase/server.ts`, `features/auth/supabase/env.ts`
+- Identity resolution (Supabase → app user): `features/auth/server/resolve-supabase-user.ts`
+- Login + session handoff: `app/login/page.tsx`, `app/api/auth/callback/route.ts` (OAuth/magic-link), `app/api/auth/sync-user/route.ts` (email OTP), `app/api/auth/me/route.ts`, `lib/sync.ts`
+- Wallet linking (currently disabled, returns 410): `app/api/auth/link-wallet/route.ts`
 - User profile state: `features/auth/state/userProfile.ts`
 - Route auth/session helpers: `lib/auth.ts`, `lib/session.ts`, `lib/device-id.ts`, `features/shared/routes/session.ts`, `proxy.ts`
 - OpenRouter/provider guide: `features/providers/README.md`

@@ -175,9 +175,7 @@ export function LearningLanguageOnboarding({
               </h2>
               {matches.map((list) => {
                 const isRecommended = list.id === recommendedList?.id && recommendedReason !== 'fallback_seed';
-                const optionTextSoftClass = isRecommended
-                  ? 'text-[color:var(--ob-surface)] opacity-[0.85]'
-                  : 'onboarding-text-soft';
+                const optionTextSoftClass = 'onboarding-text-soft';
 
                 return (
                   <div key={list.id} className="flex items-stretch gap-2">
@@ -185,7 +183,7 @@ export function LearningLanguageOnboarding({
                       type="button"
                       className={[
                         'onboarding-option min-w-0 flex-1 px-3 py-2 text-left disabled:opacity-50',
-                        isRecommended ? 'onboarding-option-highlight' : '',
+                        isRecommended ? 'onboarding-option-recommended' : '',
                       ].join(' ')}
                       disabled={workingId === list.id}
                       onClick={() => subscribeToList(list)}
@@ -193,7 +191,7 @@ export function LearningLanguageOnboarding({
                       <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
                         <span className="font-bold">{list.name}</span>
                         {isRecommended ? (
-                          <span className="rounded-full border border-[var(--ob-ink)] bg-[var(--ob-surface)] px-2 py-0.5 text-[10px] font-black uppercase text-[color:var(--ob-ink)]">
+                          <span className="rounded-full border border-[var(--ob-accent)] bg-[var(--ob-surface)] px-2 py-0.5 text-[10px] font-black uppercase text-[color:var(--ob-accent)]">
                             recommended
                           </span>
                         ) : null}
