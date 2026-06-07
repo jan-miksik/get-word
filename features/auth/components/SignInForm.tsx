@@ -240,6 +240,24 @@ export function SignInForm({ nextPath = '/', initialError = null }: SignInFormPr
             {error}
           </p>
         ) : null}
+
+        <p className="m-0 text-center text-xs text-[#6B5E48]">
+          By continuing you agree to our{' '}
+          <a
+            href="/terms"
+            className="underline underline-offset-2 hover:text-[#2A2218]"
+          >
+            Terms of Service
+          </a>{' '}
+          and{' '}
+          <a
+            href="/privacy"
+            className="underline underline-offset-2 hover:text-[#2A2218]"
+          >
+            Privacy Policy
+          </a>
+          .
+        </p>
       </div>
     </div>
   );
