@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/features/auth/supabase/server'
 import { resolveAndAttachSupabaseUser } from '@/features/auth/server/resolve-supabase-user'
 import { setSessionCookieOnResponse } from '@/features/shared/routes/session'
-import { getRequestPublicOrigin } from '@/features/auth/app-url'
+import { getRequestAuthOrigin } from '@/features/auth/app-url'
 
 function sanitizeNext(input: string | null): string {
   if (!input || !input.startsWith('/') || input.startsWith('//')) return '/'
@@ -21,13 +21,25 @@ function sanitizeNext(input: string | null): string {
  * than orphaned, then clear it.
  */
 const DEVICE_CLAIM_COOKIE = 'gw_device_claim'
+
+function getLoginErrorCode(error: Error): string {
+  const maybeCode = 'code' in error && typeof error.code === 'string' ? error.code : null
+  if (
+    maybeCode === 'pkce_code_verifier_not_found' ||
+    error.message.includes('PKCE code verifier')
+  ) {
+    return 'oauth_session_expired'
+  }
+  return error.message
+}
+
 export async function GET(request: NextRequest) {
   const url = request.nextUrl
   const next = sanitizeNext(url.searchParams.get('next'))
   const code = url.searchParams.get('code')
   const oauthError = url.searchParams.get('error_description') || url.searchParams.get('error')
 
-  const publicOrigin = getRequestPublicOrigin(request)
+  const publicOrigin = getRequestAuthOrigin(request)
   const redirectTo = (path: string) => new URL(path, publicOrigin)
 
   if (oauthError) {
@@ -44,7 +56,7 @@ export async function GET(request: NextRequest) {
     const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
     if (exchangeError) {
       return NextResponse.redirect(
-        redirectTo(`/login?error=${encodeURIComponent(exchangeError.message)}`)
+        redirectTo(`/login?error=${encodeURIComponent(getLoginErrorCode(exchangeError))}`)
       )
     }
 

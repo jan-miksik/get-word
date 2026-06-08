@@ -36,9 +36,9 @@ function LoginPageInner() {
   // Already signed in: offer to continue or sign out.
   if (!isAuthLoading && isConnected) {
     return (
-      <main className="app bg-[#dcd1b9] px-4 py-8 sm:px-6 sm:py-10">
+      <main className="app overflow-y-auto overflow-x-hidden bg-[#dcd1b9] px-4 py-8 sm:px-6 sm:py-10">
         <SpeckledBackground />
-        <div className="flex flex-1 items-center justify-center">
+        <div className="flex min-h-full w-full items-center justify-center">
           <div className="w-full max-w-md rounded-[28px] border-2 border-[#2A2218] bg-[#F4EFE2]/95 p-6 text-[#2A2218] sm:p-8">
             <div className="flex flex-col items-center gap-5 text-center">
               <AppLogo size={72} />
@@ -75,9 +75,9 @@ function LoginPageInner() {
   }
 
   return (
-    <main className="app bg-[#dcd1b9] px-4 py-8 sm:px-6 sm:py-10">
+    <main className="app overflow-y-auto overflow-x-hidden bg-[#dcd1b9] px-4 py-8 sm:px-6 sm:py-10">
       <SpeckledBackground />
-      <div className="flex flex-1 items-center justify-center">
+      <div className="flex min-h-full w-full items-center justify-center">
         <SignInForm nextPath={nextPath} initialError={callbackError} />
       </div>
     </main>

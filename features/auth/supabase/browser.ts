@@ -1,6 +1,7 @@
 'use client'
 
 import { createBrowserClient } from '@supabase/ssr'
+import { getSupabaseAuthCookieOptions } from './cookie-options'
 import { getSupabasePublishableKey, getSupabaseUrl } from './env'
 
 /**
@@ -9,5 +10,10 @@ import { getSupabasePublishableKey, getSupabaseUrl } from './env'
  * which exchanges it for the app's own `get_word_session` cookie.
  */
 export function createSupabaseBrowserClient() {
-  return createBrowserClient(getSupabaseUrl(), getSupabasePublishableKey())
+  return createBrowserClient(getSupabaseUrl(), getSupabasePublishableKey(), {
+    auth: {
+      detectSessionInUrl: false,
+    },
+    cookieOptions: getSupabaseAuthCookieOptions(),
+  })
 }

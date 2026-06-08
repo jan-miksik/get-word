@@ -16,6 +16,14 @@ interface SignInFormProps {
   initialError?: string | null;
 }
 
+function formatAuthError(error: string | null): string | null {
+  if (!error) return null;
+  if (error === 'oauth_session_expired') {
+    return 'Your Google sign-in could not be completed. Please start again in this same browser tab.';
+  }
+  return error;
+}
+
 /**
  * The email + Google sign-in card. Shown both at `/login` and inline on the
  * home page for signed-out visitors — email is the primary path, Google the
@@ -28,7 +36,7 @@ export function SignInForm({ nextPath = '/', initialError = null }: SignInFormPr
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [phase, setPhase] = useState<Phase>('idle');
-  const [error, setError] = useState<string | null>(initialError);
+  const [error, setError] = useState<string | null>(formatAuthError(initialError));
 
   const busy = phase === 'sendingOtp' || phase === 'verifying' || phase === 'redirecting';
 
@@ -236,7 +244,7 @@ export function SignInForm({ nextPath = '/', initialError = null }: SignInFormPr
 
         {error ? (
           <p
-            className="m-0 rounded-2xl border border-[#B91C1C]/20 bg-[#B91C1C]/8 px-4 py-3 text-sm text-[#8A1C1C]"
+            className="m-0 select-text whitespace-pre-wrap break-words rounded-2xl border border-[#B91C1C]/20 bg-[#B91C1C]/8 px-4 py-3 text-sm text-[#8A1C1C]"
             role="alert"
           >
             {error}

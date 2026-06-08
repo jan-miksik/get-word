@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { getRequestPublicOrigin } from '@/features/auth/app-url'
+import { getRequestAuthOrigin, getRequestPublicOrigin } from '@/features/auth/app-url'
 
 function requestInput(
   origin: string,
@@ -65,6 +65,26 @@ describe('getRequestPublicOrigin', () => {
     vi.stubEnv('GET_WORD_APP_URL', 'http://localhost:3000')
 
     expect(getRequestPublicOrigin(requestInput('http://127.0.0.1:3000'))).toBe(
+      'http://localhost:3000'
+    )
+  })
+})
+
+describe('getRequestAuthOrigin', () => {
+  it('keeps public auth redirects on the request host even when a canonical app URL is configured', () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    vi.stubEnv('GET_WORD_APP_URL', 'https://www.get-word.example')
+
+    expect(getRequestAuthOrigin(requestInput('https://get-word.example'))).toBe(
+      'https://get-word.example'
+    )
+  })
+
+  it('falls back to configured origin for local development auth redirects', () => {
+    vi.stubEnv('NODE_ENV', 'development')
+    vi.stubEnv('GET_WORD_APP_URL', 'http://localhost:3000')
+
+    expect(getRequestAuthOrigin(requestInput('http://127.0.0.1:3000'))).toBe(
       'http://localhost:3000'
     )
   })

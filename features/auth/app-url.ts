@@ -53,22 +53,37 @@ function getServerConfiguredOrigin(): string | null {
 }
 
 export function getBrowserPublicOrigin(): string {
-  return normalizeOrigin(process.env.NEXT_PUBLIC_GET_WORD_APP_URL) || window.location.origin
+  // OAuth PKCE verifier cookies are scoped to the host that starts the flow.
+  // Keep the callback on that same host so Safari can send the verifier back.
+  return window.location.origin
+}
+
+export function getRequestCurrentOrigin(request: RequestOriginInput): string {
+  return (
+    getForwardedOrigin(request.headers, request.nextUrl.protocol) ||
+    normalizeOrigin(request.nextUrl.origin) ||
+    request.nextUrl.origin
+  )
+}
+
+export function getRequestAuthOrigin(request: RequestOriginInput): string {
+  const currentOrigin = getRequestCurrentOrigin(request)
+  if (!isLocalOrigin(currentOrigin)) return currentOrigin
+  return getRequestPublicOrigin(request)
 }
 
 export function getRequestPublicOrigin(request: RequestOriginInput): string {
   const configured = getServerConfiguredOrigin()
-  const forwarded = getForwardedOrigin(request.headers, request.nextUrl.protocol)
-  const fallback = normalizeOrigin(request.nextUrl.origin) || request.nextUrl.origin
+  const currentOrigin = getRequestCurrentOrigin(request)
 
   if (configured) {
     const productionLocalConfig =
       process.env.NODE_ENV === 'production' &&
       isLocalOrigin(configured) &&
-      !isLocalOrigin(forwarded || fallback)
+      !isLocalOrigin(currentOrigin)
 
     if (!productionLocalConfig) return configured
   }
 
-  return forwarded || fallback
+  return currentOrigin
 }
