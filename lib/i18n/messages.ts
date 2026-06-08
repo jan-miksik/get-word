@@ -150,7 +150,7 @@ export const enMessages = {
   "memory.strategyContext": "Use the word in context until the hook is no longer needed",
   "memory.fast": "Memory hooks should be fast, imperfect, and disposable.",
   "memory.modify": "Memory works best when you modify or create the final hook yourself.",
-  "memory.goal": "The goal is not to remember the hook, but to forget it once the word sticks.",
+  "memory.goal": "The goal is not to remember the hook, but to forget it once the word sticks",
   "stage.0": "New / forgotten",
   "stage.1": "5 minutes",
   "stage.2": "1 day",
