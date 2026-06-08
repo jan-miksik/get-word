@@ -35,7 +35,7 @@ const FEATURES: Feature[] = [
   },
   {
     title: 'Pronunciation audio',
-    body: 'Hear every word and phrase spoken aloud with natural text-to-speech. Learn how the language actually sounds.',
+    body: 'Hear every word and phrase with clear pronunciation audio. Learn how the language actually sounds.',
     accent: 'blue',
     icon: IconSpeaker,
   },
@@ -140,8 +140,7 @@ function Hero() {
           className="lp-display m-0 text-[clamp(2.6rem,7vw,5rem)] font-bold leading-[1.02] tracking-[-0.025em] text-[var(--ink)]"
           style={{ '--i': 0 } as React.CSSProperties}
         >
-          Build vocabulary
-          <br className="hidden sm:block" /> that actually sticks
+          Words that stay
         </h1>
 
         <p
@@ -173,7 +172,7 @@ function Features() {
     <section className="py-12 sm:py-20">
       <SectionHeading
         kicker="What you get"
-        title="A study tool that respects your memory"
+        title="Study less randomly, review when it matters"
       />
       <div className="mt-10 grid grid-cols-1 gap-px overflow-hidden rounded-[26px] border-2 border-[var(--ink)] bg-[var(--ink)] sm:grid-cols-2 lg:grid-cols-3">
         {FEATURES.map((f, i) => (
