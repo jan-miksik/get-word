@@ -75,7 +75,7 @@ export function AppLayout({
       className="app bg-[#dcd1b9]"
       data-view-mode={viewMode}
     >
-      <SpeckledBackground />
+      <SpeckledBackground showRisingLetters={false} />
       {header}
       <header className="app-header-bar" aria-label={t('auth.brand')}>
         <TopMenu
