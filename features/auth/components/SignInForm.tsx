@@ -3,6 +3,7 @@
 import { useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppLogo } from '@/components/AppLogo';
+import { getBrowserPublicOrigin } from '@/features/auth/app-url';
 import { isSupabaseConfigured } from '@/features/auth/supabase/env';
 import { getDeviceId } from '@/lib/device-id';
 
@@ -40,10 +41,11 @@ export function SignInForm({ nextPath = '/', initialError = null }: SignInFormPr
       // access to the localStorage device id. Drop a short-lived, same-site
       // cookie so the callback can claim this device's existing progress.
       document.cookie = `gw_device_claim=${encodeURIComponent(getDeviceId())}; path=/; max-age=600; SameSite=Lax`;
-      const redirectTo = `${window.location.origin}/api/auth/callback?next=${encodeURIComponent(nextPath)}`;
+      const redirectUrl = new URL('/api/auth/callback', getBrowserPublicOrigin());
+      redirectUrl.searchParams.set('next', nextPath);
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
-        options: { redirectTo },
+        options: { redirectTo: redirectUrl.toString() },
       });
       if (oauthError) setError(oauthError.message);
     } catch (err) {

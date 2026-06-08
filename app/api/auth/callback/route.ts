@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/features/auth/supabase/server'
 import { resolveAndAttachSupabaseUser } from '@/features/auth/server/resolve-supabase-user'
 import { setSessionCookieOnResponse } from '@/features/shared/routes/session'
+import { getRequestPublicOrigin } from '@/features/auth/app-url'
 
 function sanitizeNext(input: string | null): string {
   if (!input || !input.startsWith('/') || input.startsWith('//')) return '/'
@@ -26,7 +27,8 @@ export async function GET(request: NextRequest) {
   const code = url.searchParams.get('code')
   const oauthError = url.searchParams.get('error_description') || url.searchParams.get('error')
 
-  const redirectTo = (path: string) => new URL(path, url.origin)
+  const publicOrigin = getRequestPublicOrigin(request)
+  const redirectTo = (path: string) => new URL(path, publicOrigin)
 
   if (oauthError) {
     return NextResponse.redirect(
