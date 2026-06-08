@@ -1,12 +1,14 @@
+import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import type { NextRequest } from 'next/server';
 
 export const runtime = 'nodejs';
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 const BACKGROUND_PATH = join(process.cwd(), 'public', 'backgrounds', 'bg-get-word.svg');
+const SEEDED_CACHE_CONTROL = 'public, max-age=31536000, immutable';
+const RANDOM_CACHE_CONTROL = 'no-store';
+const ERROR_CACHE_CONTROL = 'no-store';
 
 const BASE_SCALE = 7;
 const BASE_TX = 891.6003;
@@ -14,6 +16,22 @@ const BASE_TY = 448.02314;
 const SCALE_JITTER = 2.4;
 const TX_JITTER = 600;
 const TY_JITTER = 480;
+
+let backgroundSvgPromise: Promise<string> | null = null;
+
+async function readBackgroundSvg(): Promise<string> {
+  try {
+    return await readFile(BACKGROUND_PATH, 'utf8');
+  } catch (error) {
+    backgroundSvgPromise = null;
+    throw error;
+  }
+}
+
+function getBackgroundSvg(): Promise<string> {
+  backgroundSvgPromise ??= readBackgroundSvg();
+  return backgroundSvgPromise;
+}
 
 function seedToUint32(seed: string): number {
   let hash = 2166136261;
@@ -57,19 +75,23 @@ function mutateBackgroundSvg(svgText: string, seed: string): string {
 
 export async function GET(request: NextRequest) {
   try {
-    const seed = request.nextUrl.searchParams.get('seed') ?? `${Date.now()}`;
-    const svg = await readFile(BACKGROUND_PATH, 'utf8');
+    const explicitSeed = request.nextUrl.searchParams.get('seed');
+    const seed = explicitSeed ?? randomUUID();
+    const svg = await getBackgroundSvg();
     const randomizedSvg = mutateBackgroundSvg(svg, seed);
 
     return new Response(randomizedSvg, {
       headers: {
         'Content-Type': 'image/svg+xml; charset=utf-8',
-        'Cache-Control': 'no-store, no-cache, must-revalidate',
-        Pragma: 'no-cache',
-        Expires: '0',
+        'Cache-Control': explicitSeed ? SEEDED_CACHE_CONTROL : RANDOM_CACHE_CONTROL,
       },
     });
   } catch {
-    return new Response('Failed to generate background', { status: 500 });
+    return new Response('Failed to generate background', {
+      status: 500,
+      headers: {
+        'Cache-Control': ERROR_CACHE_CONTROL,
+      },
+    });
   }
 }
