@@ -111,7 +111,7 @@ describe('local learning cache preferences', () => {
     ]);
   });
 
-  it('does not start whole-list downloads on cellular data', async () => {
+  it('caches a small list on cellular data', async () => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
     Object.defineProperty(navigator, 'connection', {
       configurable: true,
@@ -121,14 +121,45 @@ describe('local learning cache preferences', () => {
     const cache = {
       keys: vi.fn().mockResolvedValue([]),
       match: vi.fn().mockResolvedValue(undefined),
+      put: vi.fn(),
     };
     vi.stubGlobal('caches', { open: vi.fn().mockResolvedValue(cache) });
-    const fetchMock = vi.fn();
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(new Response('a', { headers: { 'content-length': '1024' } })),
+    );
     vi.stubGlobal('fetch', fetchMock);
 
     await cacheActiveListAudio([audioWord]);
 
-    expect(fetchMock).not.toHaveBeenCalled();
+    // Both word sides download even on metered data because the list is tiny.
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(cache.put).toHaveBeenCalledTimes(2);
+  });
+
+  it('stops caching on cellular once the 10 MB size budget is exceeded', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+    Object.defineProperty(navigator, 'connection', {
+      configurable: true,
+      value: { type: 'cellular', effectiveType: '4g', saveData: false },
+    });
+    setAudioCachePreference(true);
+    const cache = {
+      keys: vi.fn().mockResolvedValue([]),
+      match: vi.fn().mockResolvedValue(undefined),
+      put: vi.fn(),
+    };
+    vi.stubGlobal('caches', { open: vi.fn().mockResolvedValue(cache) });
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(
+        new Response('x', { headers: { 'content-length': String(11 * 1024 * 1024) } }),
+      ),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await cacheActiveListAudio([audioWord]);
+
+    // First download already exceeds the metered budget, so the second is skipped.
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('aborts an active whole-list download when the connection goes offline', async () => {
