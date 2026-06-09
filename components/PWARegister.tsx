@@ -69,13 +69,24 @@ export function PWARegister() {
     if (!('serviceWorker' in navigator)) return;
     const serviceWorker = navigator.serviceWorker;
 
+    // Whether this page was already controlled by a worker when it loaded. On a
+    // first visit it is not, so the brand-new worker's clients.claim() fires
+    // controllerchange — reloading then would needlessly replay the page and
+    // restart its entrance animations (the landing-page "flash" on first load).
+    const wasControlledAtLoad = Boolean(serviceWorker.controller);
+
     let didReload = false;
     const reloadOnce = () => {
       if (didReload) return;
       didReload = true;
       window.location.reload();
     };
-    const handleControllerChange = reloadOnce;
+    // Only reload when an updated worker replaces one that was already in
+    // control; never on the initial claim of a previously-uncontrolled page.
+    const handleControllerChange = () => {
+      if (!wasControlledAtLoad) return;
+      reloadOnce();
+    };
 
     const register = async () => {
       try {
