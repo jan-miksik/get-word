@@ -72,7 +72,6 @@ export function useLearningPageState({
     categoryOrder
   );
   const readyCount = dueWords.length;
-  const dueWordsKey = dueWords.map((word) => word.id).join('|');
 
   const learnedPool = useMemo(
     () => filteredWords.filter((word) => (progress[word.id]?.stageIndex ?? 0) > 0),
@@ -93,7 +92,12 @@ export function useLearningPageState({
     wordsResetKey,
   });
 
-  const deckResetKey = `${selectedCategoriesKey}|${wordsResetKey}|${viewMode}|${dueWordsKey}`;
+  // The card deck is a stable per-session snapshot. It must NOT rebuild just
+  // because the due set changed in the background (e.g. a settling word's review
+  // timer expired) — that would snap the learner back to the first due card
+  // mid-study. Newly due words are picked up on the next genuine reset
+  // (category change, word-list change, view toggle, or reload).
+  const deckResetKey = `${selectedCategoriesKey}|${wordsResetKey}|${viewMode}`;
   if (
     viewMode === 'card' &&
     (!frozenDeckRef.current || frozenDeckRef.current.key !== deckResetKey)
