@@ -3,13 +3,23 @@
 import type { SyncResponse } from '@/lib/sync';
 import type { NormalizedWord } from '@/lib/words';
 import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
-import { canBulkCacheAudio, subscribeAudioNetworkChanges } from '@/lib/audio-network-policy';
+import {
+  canBulkCacheAudio,
+  isAudioNetworkOffline,
+  subscribeAudioNetworkChanges,
+} from '@/lib/audio-network-policy';
 import { DB_NAME, STORE_KV, openDb as openSharedDb } from '@/lib/local-first/db';
 
 const STORE_NAME = STORE_KV;
 const STORAGE_PREF_KEY = 'get-word-local-learning-cache-enabled';
 const AUDIO_PREF_KEY = 'get-word-active-list-audio-cache-enabled';
 const AUDIO_CACHE_NAME = 'get-word-active-list-audio-v1';
+/**
+ * On metered/unknown connections we still cache audio, but only up to this
+ * budget — so short lists are always available offline while large lists never
+ * silently spend cellular data. Unmetered connections cache the whole list.
+ */
+const SMALL_LIST_AUDIO_BUDGET_BYTES = 10 * 1024 * 1024;
 let activeAudioCacheController: AbortController | null = null;
 
 export interface LearningSnapshot {
@@ -63,7 +73,9 @@ export function setStoragePreference(enabled: boolean): void {
 }
 
 function getDefaultAudioCachePreference(): boolean {
-  return canBulkCacheAudio();
+  // Audio caching is on by default. The network budget in cacheActiveListAudio
+  // keeps metered connections from downloading more than a small list's worth.
+  return true;
 }
 
 export function getAudioCachePreference(): boolean {
@@ -194,27 +206,35 @@ export async function cacheActiveListAudio(words: NormalizedWord[]): Promise<Aud
   const supported = typeof caches !== 'undefined' && typeof fetch !== 'undefined';
   const enabled = getAudioCachePreference();
   notifyAudioCachePreference(enabled);
-  if (!supported || !enabled || !canBulkCacheAudio()) {
+  // Offline can't download; otherwise we proceed even on metered connections and
+  // rely on the byte budget below to avoid spending data on large lists.
+  if (!supported || !enabled || isAudioNetworkOffline()) {
     return getAudioCacheStatus();
   }
+
+  // Unmetered (wifi/ethernet/desktop) caches the whole list. Metered/unknown
+  // connections cache only up to a small list's worth of audio.
+  const byteBudget = canBulkCacheAudio() ? Infinity : SMALL_LIST_AUDIO_BUDGET_BYTES;
 
   const controller = new AbortController();
   activeAudioCacheController = controller;
   const unsubscribeNetworkChanges = subscribeAudioNetworkChanges(() => {
-    if (!canBulkCacheAudio()) controller.abort();
+    if (isAudioNetworkOffline()) controller.abort();
   });
   const cache = await caches.open(AUDIO_CACHE_NAME);
   const urls = getAudioUrlsForWords(words);
   let cachedCount = 0;
   let downloadedAny = false;
+  let downloadedBytes = 0;
 
   try {
     for (const url of urls) {
-      if (controller.signal.aborted || !canBulkCacheAudio()) break;
+      if (controller.signal.aborted || isAudioNetworkOffline()) break;
+      if (downloadedBytes >= byteBudget) break;
 
       const candidates = getArweaveGatewayUrlCandidates(url);
       for (const candidate of candidates) {
-        if (controller.signal.aborted || !canBulkCacheAudio()) break;
+        if (controller.signal.aborted || isAudioNetworkOffline()) break;
 
         try {
           const existing = await cache.match(candidate);
@@ -227,6 +247,7 @@ export async function cacheActiveListAudio(words: NormalizedWord[]): Promise<Aud
             signal: controller.signal,
           });
           if (response.ok) {
+            downloadedBytes += await getCachedResponseSizeBytes(response);
             await cache.put(candidate, response.clone());
             downloadedAny = true;
             cachedCount += 1;

@@ -147,7 +147,11 @@ describe('useLearningPageState', () => {
     ]);
   });
 
-  it('refreshes the frozen card deck when a repeat card becomes due', () => {
+  it('keeps the frozen card deck stable when a card becomes due in the background', () => {
+    // Regression guard: a settling card whose review timer expires mid-session
+    // must NOT rebuild the frozen deck — doing so snapped the learner back to
+    // the first due card. Newly due words are only picked up on a genuine reset
+    // (list/category change, view toggle, or reload).
     const now = Date.now();
     const words = [
       makeWord('review-1', 'list-a'),
@@ -188,7 +192,8 @@ describe('useLearningPageState', () => {
 
     rerender({ progress: dueProgress });
 
-    expect(visibleWordIds(result.current.cardDeckGroups)).toEqual(['review-1', 'new-1']);
+    // Deck is unchanged: review-1 is NOT injected mid-session.
+    expect(visibleWordIds(result.current.cardDeckGroups)).toEqual(['new-1']);
   });
 
   it('keeps an early pending minigame available as fresh-user cards are learned on the go', () => {
