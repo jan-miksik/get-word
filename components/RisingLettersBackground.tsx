@@ -69,7 +69,7 @@ function makeParticles(count: number, variant: 'loader' | 'ambient') {
       delay: `${-(r1 * (isAmbient ? 26 : 18)).toFixed(2)}s`,
       duration: `${(isAmbient ? 24 : 18) + r2 * (isAmbient ? 22 : 18)}s`,
       size: `${((isAmbient ? 0.46 : 0.58) + r3 * (isAmbient ? 1.1 : 1.45)).toFixed(3)}rem`,
-      opacity: ((isAmbient ? 0.055 : 0.1) + r2 * (isAmbient ? 0.08 : 0.16)).toFixed(3),
+      opacity: ((isAmbient ? 0.066 : 0.1) + r2 * (isAmbient ? 0.096 : 0.16)).toFixed(3),
       animType: i % 3,
       rotate: Math.floor(r1 * 32 - 16),
     };
