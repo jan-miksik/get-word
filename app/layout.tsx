@@ -3,11 +3,42 @@ import { PWARegister } from '@/components/PWARegister';
 import './globals.css';
 import './tailwind.css';
 
+const SITE_URL = 'https://getword.app';
+const SITE_TITLE = 'Get Word';
+const SITE_DESCRIPTION =
+  'Learn languages with spaced repetition and configurable word lists';
+
 export const metadata: Metadata = {
-  title: 'Get Word',
-  description: 'Learn languages with spaced repetition and configurable word lists',
+  metadataBase: new URL(SITE_URL),
+  title: SITE_TITLE,
+  description: SITE_DESCRIPTION,
   applicationName: 'Get Word',
   manifest: '/manifest.webmanifest',
+  alternates: {
+    canonical: '/',
+  },
+  openGraph: {
+    type: 'website',
+    siteName: SITE_TITLE,
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+    locale: 'en_US',
+    images: [
+      {
+        url: '/og-image.png',
+        width: 1200,
+        height: 630,
+        alt: 'Get Word — learn languages with spaced repetition',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: SITE_TITLE,
+    description: SITE_DESCRIPTION,
+    images: ['/og-image.png'],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
