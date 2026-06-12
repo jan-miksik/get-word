@@ -83,6 +83,7 @@ export function HomeClient() {
     lastMovedId,
     categoryOrder,
     isHydrated,
+    isInitialServerSyncPending,
     isLinkingWallet,
     hasLinkWalletError,
     setGameScore,
@@ -111,6 +112,7 @@ export function HomeClient() {
   );
   const appReady =
     isHydrated &&
+    !isInitialServerSyncPending &&
     !isLoadingWords &&
     !isAuthLoading &&
     !isLinkingWallet &&

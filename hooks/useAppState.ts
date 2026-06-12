@@ -152,7 +152,13 @@ export function useAppState(
     preferences.setRole,
   ]);
 
-  const { isLinkingWallet, hasLinkWalletError, linkWalletError, retryLinkWallet } = useServerSync({
+  const {
+    isInitialServerSyncPending,
+    isLinkingWallet,
+    hasLinkWalletError,
+    linkWalletError,
+    retryLinkWallet,
+  } = useServerSync({
     words,
     isHydrated,
     setIsHydrated,
@@ -186,6 +192,7 @@ export function useAppState(
     setCustomStage,
     lastMovedId,
     isHydrated,
+    isInitialServerSyncPending,
     isLinkingWallet,
     hasLinkWalletError,
     linkWalletError,

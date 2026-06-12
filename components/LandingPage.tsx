@@ -1,6 +1,19 @@
+'use client';
+
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { AppLogo } from '@/components/AppLogo';
 import { SpeckledBackground } from '@/components/SpeckledBackground';
+import {
+  DEFAULT_LANDING_LANG,
+  LANDING_CONTENT,
+  LANDING_LANG_STORAGE_KEY,
+  LANDING_LANGS,
+  detectBrowserLang,
+  resolveLandingLang,
+  type LandingContent,
+  type LandingLang,
+} from '@/components/landing/translations';
 
 /* ------------------------------------------------------------------ *
  * Constants
@@ -8,74 +21,81 @@ import { SpeckledBackground } from '@/components/SpeckledBackground';
 
 const GITHUB_URL = 'https://github.com/jan-miksik/get-word';
 const CONTACT_EMAIL = 'contact@getword.app';
-
 /* ------------------------------------------------------------------ *
  * Data
  * ------------------------------------------------------------------ */
 
-interface Feature {
-  title: string;
-  body: string;
-  icon: (props: { className?: string }) => React.ReactNode;
-  accent: 'blue' | 'rust';
+const FEATURE_ICONS: ((props: { className?: string }) => React.ReactNode)[] = [
+  IconBrain,
+  IconCards,
+  IconSpeaker,
+  IconSpark,
+  IconSync,
+  IconInstall,
+];
+
+const FEATURE_ACCENTS: ('blue' | 'rust')[] = [
+  'blue',
+  'rust',
+  'blue',
+  'rust',
+  'blue',
+  'rust',
+];
+
+const STEP_NUMBERS = ['01', '02', '03'];
+
+/* ------------------------------------------------------------------ *
+ * Language preference
+ * ------------------------------------------------------------------ */
+
+/**
+ * Resolve the visitor's preferred landing language. A manual choice saved in
+ * localStorage wins; otherwise we fall back to the browser language, then to
+ * the default. Runs only on the client (depends on navigator/localStorage).
+ */
+function readPreferredLang(): LandingLang {
+  try {
+    const saved = resolveLandingLang(localStorage.getItem(LANDING_LANG_STORAGE_KEY));
+    if (saved) return saved;
+  } catch {
+    // localStorage may be unavailable (private mode) — fall through.
+  }
+  return detectBrowserLang();
 }
 
-const FEATURES: Feature[] = [
-  {
-    title: 'Spaced repetition',
-    body: 'Words come back right before you would forget them, so review time lands where it actually counts.',
-    accent: 'blue',
-    icon: IconBrain,
-  },
-  {
-    title: 'Your own lists',
-    body: 'Build lists for any language pair. Translations and example phrases are generated for you, ready to study in minutes.',
-    accent: 'rust',
-    icon: IconCards,
-  },
-  {
-    title: 'Pronunciation audio',
-    body: 'Hear every word and phrase with clear pronunciation audio. Learn how the language actually sounds.',
-    accent: 'blue',
-    icon: IconSpeaker,
-  },
-  {
-    title: 'Memory hooks & games',
-    body: 'Lock vocabulary in with personal memory hooks and quick minigames woven right into your study stream.',
-    accent: 'rust',
-    icon: IconSpark,
-  },
-  {
-    title: 'Syncs everywhere',
-    body: 'Sign in once. Your lists, progress, and preferences follow you across phone, tablet, and desktop.',
-    accent: 'blue',
-    icon: IconSync,
-  },
-  {
-    title: 'Install as an app',
-    body: 'Add Get Word to your home screen and study full-screen, offline-friendly — no app store required.',
-    accent: 'rust',
-    icon: IconInstall,
-  },
-];
+/**
+ * Tiny external store for the chosen landing language. Using
+ * `useSyncExternalStore` keeps SSR/hydration honest: the server (and the first
+ * client paint) render the default language, then React re-renders with the
+ * visitor's resolved preference without a hydration mismatch.
+ */
+let currentLang: LandingLang | null = null;
+const langListeners = new Set<() => void>();
 
-const STEPS = [
-  {
-    n: '01',
-    title: 'Pick your pair',
-    body: 'Choose what you speak and what you want to learn, then start from a ready-made list or your own.',
-  },
-  {
-    n: '02',
-    title: 'Study daily',
-    body: 'Flip cards, hear pronunciations, mark what you know. Get Word schedules the rest for you.',
-  },
-  {
-    n: '03',
-    title: 'Remember for good',
-    body: 'Words resurface at just the right moment, moving steadily into your long-term memory.',
-  },
-];
+function getLangSnapshot(): LandingLang {
+  if (currentLang === null) currentLang = readPreferredLang();
+  return currentLang;
+}
+
+function getLangServerSnapshot(): LandingLang {
+  return DEFAULT_LANDING_LANG;
+}
+
+function subscribeLang(onChange: () => void): () => void {
+  langListeners.add(onChange);
+  return () => langListeners.delete(onChange);
+}
+
+function setLandingLang(next: LandingLang) {
+  currentLang = next;
+  try {
+    localStorage.setItem(LANDING_LANG_STORAGE_KEY, next);
+  } catch {
+    // Ignore storage failures — the choice still applies for this session.
+  }
+  langListeners.forEach((l) => l());
+}
 
 /* ------------------------------------------------------------------ *
  * Component
@@ -83,8 +103,9 @@ const STEPS = [
 
 /**
  * Public marketing landing page shown to signed-out visitors at `/`.
- * Server-rendered (its content is crawlable / reviewable without a login)
- * and explains what Get Word does before routing visitors to `/login`.
+ * Server-rendered in English so its content is crawlable / reviewable without
+ * a login, then — on the client — it switches to the visitor's browser
+ * language (or a remembered manual choice) and offers a language switcher.
  *
  * Aesthetic: the app's signature speckled-parchment "frame" (SpeckledBackground)
  * with bordered cream panels and an editorial serif, accented in ink-blue and
@@ -92,20 +113,106 @@ const STEPS = [
  * no-JS crawlers/reviewers.
  */
 export function LandingPage() {
+  // Server + first client paint render the default language so hydration
+  // matches; the store then resolves the visitor's browser/saved preference.
+  const lang = useSyncExternalStore(
+    subscribeLang,
+    getLangSnapshot,
+    getLangServerSnapshot
+  );
+
+  const t = LANDING_CONTENT[lang];
+
   return (
-    <div className="lp-root">
+    <div className="lp-root" lang={t.htmlLang}>
       <LandingStyles />
-      <SpeckledBackground />
+      <SpeckledBackground snapRisingLettersToMouse={false} />
 
       <div className="relative mx-auto flex w-full max-w-5xl flex-col px-4 sm:px-6">
-        <SiteHeader />
-        <Hero />
-        <Features />
-        <HowItWorks />
-        <OpenSource />
-        <FinalCta />
-        <SiteFooter />
+        <SiteHeader t={t} lang={lang} onLangChange={setLandingLang} />
+        <Hero t={t} />
+        <Features t={t} />
+        <HowItWorks t={t} />
+        <OpenSource t={t} />
+        <FinalCta t={t} />
+        <SiteFooter t={t} />
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ *
+ * Language switcher
+ * ------------------------------------------------------------------ */
+
+function LanguageSwitcher({
+  lang,
+  label,
+  onLangChange,
+}: {
+  lang: LandingLang;
+  label: string;
+  onLangChange: (next: LandingLang) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  const current = LANDING_LANGS.find((l) => l.code === lang) ?? LANDING_LANGS[0];
+
+  return (
+    <div ref={ref} className="lp-lang">
+      <button
+        type="button"
+        className="lp-lang-btn"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={label}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="lp-lang-flag" aria-hidden>{current.flag}</span>
+        <span>{current.label}</span>
+        <IconChevron className={`lp-lang-chevron${open ? ' lp-lang-chevron-open' : ''}`} />
+      </button>
+      {open && (
+        <ul className="lp-lang-menu" role="listbox" aria-label={label}>
+          {LANDING_LANGS.map((l) => (
+            <li key={l.code} role="none">
+              <button
+                type="button"
+                role="option"
+                aria-selected={l.code === lang}
+                className={`lp-lang-option${l.code === lang ? ' lp-lang-option-active' : ''}`}
+                onClick={() => {
+                  onLangChange(l.code);
+                  setOpen(false);
+                }}
+              >
+                <span className="lp-lang-row">
+                  <span className="lp-lang-flag" aria-hidden>{l.flag}</span>
+                  {l.label}
+                </span>
+                {l.code === lang && <IconCheck className="lp-lang-check" />}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }
@@ -114,7 +221,15 @@ export function LandingPage() {
  * Sections
  * ------------------------------------------------------------------ */
 
-function SiteHeader() {
+function SiteHeader({
+  t,
+  lang,
+  onLangChange,
+}: {
+  t: LandingContent;
+  lang: LandingLang;
+  onLangChange: (next: LandingLang) => void;
+}) {
   return (
     <header className="flex items-center justify-between py-5 sm:py-6">
       <div className="flex items-center gap-3">
@@ -124,15 +239,20 @@ function SiteHeader() {
         </span>
       </div>
       <nav className="flex items-center gap-1.5 sm:gap-2">
+        <LanguageSwitcher
+          lang={lang}
+          label={t.languagePicker}
+          onLangChange={onLangChange}
+        />
         <Link href="/login" className="lp-btn-ghost">
-          Sign in
+          {t.hero.getStarted}
         </Link>
       </nav>
     </header>
   );
 }
 
-function Hero() {
+function Hero({ t }: { t: LandingContent }) {
   return (
     <section className="lp-fade-in min-w-0 py-10 sm:py-16">
       <div className="lp-stagger">
@@ -140,14 +260,14 @@ function Hero() {
           className="lp-display m-0 text-[clamp(2.6rem,7vw,5rem)] font-bold leading-[1.02] tracking-[-0.025em] text-[var(--ink)]"
           style={{ '--i': 0 } as React.CSSProperties}
         >
-          Words that stay
+          {t.hero.title}
         </h1>
 
         <p
           className="m-0 mt-6 max-w-2xl text-[1.05rem] leading-7 text-[var(--ink-2)] sm:text-[1.2rem] sm:leading-8"
           style={{ '--i': 1 } as React.CSSProperties}
         >
-          Get Word helps you memorize words and phrases with spaced repetition, audio pronunciation, and curated lists or your own custom lists. For any language pair.
+          {t.hero.subtitle}
         </p>
 
         <div
@@ -155,11 +275,8 @@ function Hero() {
           style={{ '--i': 2 } as React.CSSProperties}
         >
           <Link href="/login" className="lp-btn-primary group">
-            Get started
+            {t.hero.getStarted}
             <IconArrow className="lp-btn-arrow" />
-          </Link>
-          <Link href="/login" className="lp-link-quiet">
-            I already have an account
           </Link>
         </div>
       </div>
@@ -167,51 +284,53 @@ function Hero() {
   );
 }
 
-function Features() {
+function Features({ t }: { t: LandingContent }) {
   return (
     <section className="py-12 sm:py-20">
-      <SectionHeading
-        kicker="What you get"
-        title="Study less randomly, review when it matters"
-      />
+      <SectionHeading kicker={t.features.kicker} title={t.features.title} />
       <div className="mt-10 grid grid-cols-1 gap-px overflow-hidden rounded-[26px] border-2 border-[var(--ink)] bg-[var(--ink)] sm:grid-cols-2 lg:grid-cols-3">
-        {FEATURES.map((f, i) => (
-          <article
-            key={f.title}
-            className="lp-reveal lp-feature group"
-            style={{ '--d': `${i * 55}ms` } as React.CSSProperties}
-          >
-            <span className={`lp-feature-icon lp-accent-${f.accent}`}>
-              <f.icon className="h-6 w-6" />
-            </span>
-            <h3 className="lp-display mt-5 text-xl font-semibold text-[var(--ink)]">
-              {f.title}
-            </h3>
-            <p className="mt-2 text-[0.95rem] leading-6 text-[var(--ink-2)]">{f.body}</p>
-          </article>
-        ))}
+        {t.features.items.map((f, i) => {
+          const Icon = FEATURE_ICONS[i];
+          return (
+            <article
+              key={f.title}
+              className="lp-reveal lp-feature group"
+              style={{ '--d': `${i * 55}ms` } as React.CSSProperties}
+            >
+              <span className={`lp-feature-icon lp-accent-${FEATURE_ACCENTS[i]}`}>
+                <Icon className="h-6 w-6" />
+              </span>
+              <h3 className="lp-display mt-5 text-xl font-semibold text-[var(--ink)]">
+                {f.title}
+              </h3>
+              <p className="mt-2 text-[0.95rem] leading-6 text-[var(--ink-2)]">{f.body}</p>
+            </article>
+          );
+        })}
       </div>
     </section>
   );
 }
 
-function HowItWorks() {
+function HowItWorks({ t }: { t: LandingContent }) {
   return (
     <section className="py-12 sm:py-20">
-      <SectionHeading kicker="How it works" title="Three steps to your first words" />
+      <SectionHeading kicker={t.how.kicker} title={t.how.title} />
       <ol className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
-        {STEPS.map((s, i) => (
+        {t.how.steps.map((s, i) => (
           <li
-            key={s.n}
+            key={STEP_NUMBERS[i]}
             className="lp-reveal lp-step"
             style={{ '--d': `${i * 80}ms` } as React.CSSProperties}
           >
-            <span className="lp-step-n lp-display">{s.n}</span>
+            <span className="lp-step-n lp-display">{STEP_NUMBERS[i]}</span>
             <h3 className="lp-display mt-4 text-xl font-semibold text-[var(--ink)]">
               {s.title}
             </h3>
             <p className="mt-2 text-[0.95rem] leading-6 text-[var(--ink-2)]">{s.body}</p>
-            {i < STEPS.length - 1 && <IconArrow className="lp-step-arrow" aria-hidden />}
+            {i < t.how.steps.length - 1 && (
+              <IconArrow className="lp-step-arrow" aria-hidden />
+            )}
           </li>
         ))}
       </ol>
@@ -219,7 +338,7 @@ function HowItWorks() {
   );
 }
 
-function OpenSource() {
+function OpenSource({ t }: { t: LandingContent }) {
   return (
     <section className="lp-reveal py-6 sm:py-10">
       <div className="lp-opensource">
@@ -229,11 +348,10 @@ function OpenSource() {
           </span>
           <div>
             <h3 className="lp-display m-0 text-xl font-semibold text-[var(--ink)] sm:text-2xl">
-              Free, and open source
+              {t.openSource.title}
             </h3>
             <p className="m-0 mt-2 max-w-md text-[0.95rem] leading-6 text-[var(--ink-2)]">
-              Get Word is built as open-source app. Read the code, file an issue, or
-              contribute — it&rsquo;s all on GitHub.
+              {t.openSource.body}
             </p>
           </div>
         </div>
@@ -244,7 +362,7 @@ function OpenSource() {
           className="lp-btn-outline group shrink-0"
         >
           <IconGithub className="h-[1.05rem] w-[1.05rem]" />
-          Star on GitHub
+          {t.openSource.cta}
           <IconArrow className="lp-btn-arrow" />
         </a>
       </div>
@@ -252,7 +370,7 @@ function OpenSource() {
   );
 }
 
-function FinalCta() {
+function FinalCta({ t }: { t: LandingContent }) {
   return (
     <section className="lp-reveal py-12 sm:py-20">
       <div className="lp-cta">
@@ -260,14 +378,14 @@ function FinalCta() {
         <div className="relative flex flex-col items-start gap-6 sm:flex-row sm:items-center sm:justify-between sm:gap-8">
           <div>
             <h2 className="lp-display m-0 text-[clamp(1.7rem,4vw,2.6rem)] font-semibold leading-[1.08] tracking-[-0.02em] text-[var(--card-2)]">
-              Ready to start remembering?
+              {t.cta.title}
             </h2>
             <p className="m-0 mt-3 max-w-md text-[0.98rem] leading-6 text-[rgba(243,234,213,0.72)]">
-              Pick a language pair and study your first words in minutes. Free, no app store required.
+              {t.cta.body}
             </p>
           </div>
           <Link href="/login" className="lp-btn-cream group shrink-0">
-            Start learning
+            {t.cta.button}
             <IconArrow className="lp-btn-arrow" />
           </Link>
         </div>
@@ -276,7 +394,7 @@ function FinalCta() {
   );
 }
 
-function SiteFooter() {
+function SiteFooter({ t }: { t: LandingContent }) {
   return (
     <footer className="flex flex-col gap-5 border-t-2 border-[var(--line-strong)] py-9 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex items-center gap-3">
@@ -286,13 +404,13 @@ function SiteFooter() {
         </span>
       </div>
       <nav className="flex flex-wrap items-center gap-x-5 gap-y-2">
-        <Link href="/login" className="lp-foot-link">Sign in</Link>
+        <Link href="/login" className="lp-foot-link">{t.hero.getStarted}</Link>
         <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="lp-foot-link">
-          GitHub
+          {t.footer.github}
         </a>
-        <a href={`mailto:${CONTACT_EMAIL}`} className="lp-foot-link">Contact</a>
-        <Link href="/privacy" className="lp-foot-link">Privacy</Link>
-        <Link href="/terms" className="lp-foot-link">Terms</Link>
+        <a href={`mailto:${CONTACT_EMAIL}`} className="lp-foot-link">{t.footer.contact}</a>
+        <Link href="/privacy" className="lp-foot-link">{t.footer.privacy}</Link>
+        <Link href="/terms" className="lp-foot-link">{t.footer.terms}</Link>
       </nav>
       <p className="lp-mono m-0 text-[0.72rem] text-[var(--ink-soft)]">
         © {new Date().getFullYear()} Get Word
@@ -414,6 +532,22 @@ function IconGithub({ className }: { className?: string }) {
   );
 }
 
+function IconChevron({ className }: { className?: string }) {
+  return (
+    <svg {...svgProps(className)} aria-hidden>
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  );
+}
+
+function IconCheck({ className }: { className?: string }) {
+  return (
+    <svg {...svgProps(className)} aria-hidden>
+      <path d="m5 12.5 4.5 4.5L19 7" />
+    </svg>
+  );
+}
+
 /* ------------------------------------------------------------------ *
  * Scoped styles — riso/letterpress palette over the speckled "frame".
  * Tailwind handles layout/spacing; this owns the distinctive look that
@@ -481,6 +615,39 @@ function LandingStyles() {
   text-decoration-color:rgba(19,79,120,.4); padding:.4rem .2rem; transition:text-decoration-color .2s,color .2s;
 }
 .lp-link-quiet:hover{ color:var(--rust); text-decoration-color:var(--rust); }
+
+/* --- Language switcher --- */
+.lp-lang{ position:relative; }
+.lp-lang-btn{
+  display:inline-flex; align-items:center; gap:.4rem;
+  background:transparent; color:var(--ink);
+  border:2px solid var(--line-strong); border-radius:999px;
+  padding:.45rem .7rem .45rem .65rem; font-size:.88rem; font-weight:600;
+  cursor:pointer; transition:border-color .18s, background .18s;
+}
+.lp-lang-btn:hover{ border-color:var(--ink); background:var(--card); }
+.lp-lang-flag{ font-size:1.02em; line-height:1; }
+.lp-lang-row{ display:inline-flex; align-items:center; gap:.55rem; }
+.lp-lang-chevron{ width:.85rem; height:.85rem; color:var(--ink-soft); transition:transform .2s ease; }
+.lp-lang-chevron-open{ transform:rotate(180deg); }
+.lp-lang-menu{
+  position:absolute; right:0; top:calc(100% + .45rem); z-index:30;
+  min-width:11rem; margin:0; padding:.35rem; list-style:none;
+  background:var(--card-2); border:2px solid var(--ink); border-radius:16px;
+  box-shadow:0 14px 34px -14px rgba(33,26,15,.5);
+  animation:lp-menu-in .16s ease both;
+}
+@keyframes lp-menu-in{ from{ opacity:0; transform:translateY(-4px) } to{ opacity:1; transform:none } }
+.lp-lang-option{
+  display:flex; align-items:center; justify-content:space-between; gap:.6rem;
+  width:100%; padding:.55rem .7rem; border:0; border-radius:11px;
+  background:transparent; color:var(--ink); font-size:.92rem; font-weight:500;
+  text-align:left; cursor:pointer; transition:background .14s, color .14s;
+}
+.lp-lang-option:hover{ background:var(--card); }
+.lp-lang-option-active{ color:var(--blue-deep); font-weight:600; }
+.lp-lang-check{ width:1rem; height:1rem; color:var(--blue); flex:none; }
+
 /* --- Kicker --- */
 .lp-kicker{
   display:inline-flex; align-items:center; gap:.6rem;

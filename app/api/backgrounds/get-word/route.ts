@@ -9,6 +9,8 @@ const BACKGROUND_PATH = join(process.cwd(), 'public', 'backgrounds', 'bg-get-wor
 const SEEDED_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 const RANDOM_CACHE_CONTROL = 'no-store';
 const ERROR_CACHE_CONTROL = 'no-store';
+const DEVELOPMENT_FRAME_COLOR = '#1E6FA8';
+const PRODUCTION_HOSTNAMES = new Set(['getword.app', 'www.getword.app']);
 
 const BASE_SCALE = 7;
 const BASE_TX = 891.6003;
@@ -52,6 +54,16 @@ function createSeededRandom(seed: string) {
   };
 }
 
+function replaceSnowflakesPattern(
+  svgText: string,
+  replacer: (patternBlock: string) => string
+): string {
+  return svgText.replace(
+    /<pattern\b[^>]*\bid="Snowflakes"[^>]*>[\s\S]*?<\/pattern>/,
+    replacer
+  );
+}
+
 function mutateBackgroundSvg(svgText: string, seed: string): string {
   const random = createSeededRandom(seed);
 
@@ -68,17 +80,46 @@ function mutateBackgroundSvg(svgText: string, seed: string): string {
       `$1${matrix}"`
     )
     .replace(
-      /(id="Snowflakes"[\s\S]*?patternTransform=")translate\([^"]+\)"/,
-      `$1${translate}"`
+      /<pattern\b[^>]*\bid="Snowflakes"[^>]*>[\s\S]*?<\/pattern>/,
+      (patternBlock) =>
+        patternBlock.replace(
+          /(patternTransform=")translate\([^"]+\)"/,
+          `$1${translate}"`
+        )
     );
+}
+
+function colorizeFramePattern(svgText: string, color: string): string {
+  return replaceSnowflakesPattern(
+    svgText,
+    (patternBlock) =>
+      patternBlock.replace(/style="([^"]*)"/g, (_match, style: string) => {
+        const nextStyle = /(?:^|;)fill\s*:/.test(style)
+          ? style.replace(/(^|;)fill\s*:\s*#[0-9A-Fa-f]{6}/, `$1fill:${color}`)
+          : `fill:${color};${style}`;
+
+        return `style="${nextStyle}"`;
+      })
+  );
+}
+
+function usesDevelopmentFrame(request: NextRequest): boolean {
+  if (request.nextUrl.searchParams.get('frame') === 'development') return true;
+
+  const hostname = request.nextUrl.hostname.toLowerCase();
+  return !PRODUCTION_HOSTNAMES.has(hostname);
 }
 
 export async function GET(request: NextRequest) {
   try {
     const explicitSeed = request.nextUrl.searchParams.get('seed');
+    const useDevelopmentFrame = usesDevelopmentFrame(request);
     const seed = explicitSeed ?? randomUUID();
     const svg = await getBackgroundSvg();
-    const randomizedSvg = mutateBackgroundSvg(svg, seed);
+    const frameSvg = useDevelopmentFrame
+      ? colorizeFramePattern(svg, DEVELOPMENT_FRAME_COLOR)
+      : svg;
+    const randomizedSvg = mutateBackgroundSvg(frameSvg, seed);
 
     return new Response(randomizedSvg, {
       headers: {

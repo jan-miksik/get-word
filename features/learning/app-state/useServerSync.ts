@@ -71,6 +71,7 @@ export function useServerSync({
   const [isLinkingWallet, setIsLinkingWallet] = useState(false);
   const [linkWalletError, setLinkWalletError] = useState<string | null>(null);
   const [linkRetryNonce, setLinkRetryNonce] = useState(0);
+  const [isInitialServerSyncPending, setIsInitialServerSyncPending] = useState(true);
   const isHydratedRef = useRef(false);
   const hasLoadedRef = useRef(false);
   const linkedIdentityRef = useRef<string | null>(null);
@@ -206,6 +207,7 @@ export function useServerSync({
       if (!isHydratedRef.current) {
         isHydratedRef.current = true;
         setIsHydrated(true);
+        setIsInitialServerSyncPending(false);
         isUpdatingFromServerRef.current = false;
       }
     }, 15000);
@@ -266,6 +268,7 @@ export function useServerSync({
         applyServerData(overlaidServerData);
         isHydratedRef.current = true;
         setIsHydrated(true);
+        setIsInitialServerSyncPending(false);
         requestAnimationFrame(() => {
           isUpdatingFromServerRef.current = false;
         });
@@ -277,6 +280,7 @@ export function useServerSync({
         }
         isHydratedRef.current = true;
         setIsHydrated(true);
+        setIsInitialServerSyncPending(false);
         isUpdatingFromServerRef.current = false;
       });
 
@@ -379,6 +383,7 @@ export function useServerSync({
   }, [walletAddress]);
 
   return {
+    isInitialServerSyncPending,
     isLinkingWallet,
     hasLinkWalletError: linkWalletError !== null,
     linkWalletError,

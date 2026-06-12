@@ -25,12 +25,14 @@ const FOLLOW_EASE = 0.18;
 const BURST_DECAY = 0.88;
 const IDLE_MOUSE = -10000;
 const RELEASE_COOLDOWN_MS = 220;
+const AMBIENT_OPACITY_MULTIPLIER = 1.3;
 
 type ParticleMotion = { x: number; y: number; vx: number; vy: number; following: boolean };
 
 type RisingLettersBackgroundProps = {
   className?: string;
   count?: number;
+  snapToMouse?: boolean;
   variant?: 'loader' | 'ambient';
 };
 
@@ -69,7 +71,10 @@ function makeParticles(count: number, variant: 'loader' | 'ambient') {
       delay: `${-(r1 * (isAmbient ? 26 : 18)).toFixed(2)}s`,
       duration: `${(isAmbient ? 24 : 18) + r2 * (isAmbient ? 22 : 18)}s`,
       size: `${((isAmbient ? 0.46 : 0.58) + r3 * (isAmbient ? 1.1 : 1.45)).toFixed(3)}rem`,
-      opacity: ((isAmbient ? 0.066 : 0.1) + r2 * (isAmbient ? 0.096 : 0.16)).toFixed(3),
+      opacity: (
+        ((isAmbient ? 0.066 : 0.1) + r2 * (isAmbient ? 0.096 : 0.16))
+        * (isAmbient ? AMBIENT_OPACITY_MULTIPLIER : 1)
+      ).toFixed(3),
       animType: i % 3,
       rotate: Math.floor(r1 * 32 - 16),
     };
@@ -79,6 +84,7 @@ function makeParticles(count: number, variant: 'loader' | 'ambient') {
 export function RisingLettersBackground({
   className = '',
   count,
+  snapToMouse = true,
   variant = 'ambient',
 }: RisingLettersBackgroundProps) {
   const particleRefs = useRef<(HTMLSpanElement | null)[]>([]);
@@ -114,9 +120,9 @@ export function RisingLettersBackground({
       const dy = my - cy;
       const dist = Math.sqrt(dx * dx + dy * dy);
 
-      if (mx !== IDLE_MOUSE && dist < SNAP_RADIUS) motion.following = true;
+      if (snapToMouse && mx !== IDLE_MOUSE && dist < SNAP_RADIUS) motion.following = true;
 
-      if (motion.following && mx !== IDLE_MOUSE) {
+      if (snapToMouse && motion.following && mx !== IDLE_MOUSE) {
         motion.vx = 0;
         motion.vy = 0;
         motion.x += dx * FOLLOW_EASE;
@@ -144,7 +150,7 @@ export function RisingLettersBackground({
     }
 
     rafRef.current = requestAnimationFrame(runAnimation);
-  }, [particles]);
+  }, [particles, snapToMouse]);
 
   useEffect(() => {
     rafRef.current = requestAnimationFrame(animate);
@@ -162,6 +168,11 @@ export function RisingLettersBackground({
   }, []);
 
   useEffect(() => {
+    if (!snapToMouse) {
+      releaseFollowingParticles();
+      return;
+    }
+
     const handlePointerMove = (e: PointerEvent) => {
       if (e.pointerType === 'touch') return;
       if (performance.now() < releaseCooldownUntilRef.current) return;
@@ -192,7 +203,7 @@ export function RisingLettersBackground({
       window.removeEventListener('pointerdown', handlePointerDown);
       document.removeEventListener('mouseleave', handlePointerLeave);
     };
-  }, [releaseFollowingParticles]);
+  }, [releaseFollowingParticles, snapToMouse]);
 
   const cls = [
     'rising-letters-bg pointer-events-none fixed inset-0 overflow-hidden',

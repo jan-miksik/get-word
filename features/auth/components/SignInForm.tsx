@@ -1,8 +1,9 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { Fragment, useCallback, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { AppLogo } from '@/components/AppLogo';
+import { useI18n } from '@/components/I18nProvider';
 import { getBrowserPublicOrigin } from '@/features/auth/app-url';
 import { isSupabaseConfigured } from '@/features/auth/supabase/env';
 import { getDeviceId } from '@/lib/device-id';
@@ -16,14 +17,6 @@ interface SignInFormProps {
   initialError?: string | null;
 }
 
-function formatAuthError(error: string | null): string | null {
-  if (!error) return null;
-  if (error === 'oauth_session_expired') {
-    return 'Your Google sign-in could not be completed. Please start again in this same browser tab.';
-  }
-  return error;
-}
-
 /**
  * The email + Google sign-in card. Shown both at `/login` and inline on the
  * home page for signed-out visitors — email is the primary path, Google the
@@ -31,14 +24,24 @@ function formatAuthError(error: string | null): string | null {
  */
 export function SignInForm({ nextPath = '/', initialError = null }: SignInFormProps) {
   const router = useRouter();
+  const { t } = useI18n();
   const configured = isSupabaseConfigured();
 
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
   const [phase, setPhase] = useState<Phase>('idle');
-  const [error, setError] = useState<string | null>(formatAuthError(initialError));
+  const [error, setError] = useState<string | null>(initialError);
 
   const busy = phase === 'sendingOtp' || phase === 'verifying' || phase === 'redirecting';
+
+  // Known error codes (e.g. from the OAuth callback redirect) get a localized
+  // message; anything else (Supabase provider messages) is shown verbatim.
+  const displayError =
+    error === 'oauth_session_expired' ? t('auth.errorOauthExpired') : error;
+
+  // The legal line embeds two links; split the localized template on its
+  // {terms}/{privacy} placeholders so word order stays correct per language.
+  const legalParts = t('auth.legalNotice').split(/(\{terms\}|\{privacy\})/);
 
   const startGoogle = useCallback(async () => {
     setError(null);
@@ -57,9 +60,9 @@ export function SignInForm({ nextPath = '/', initialError = null }: SignInFormPr
       });
       if (oauthError) setError(oauthError.message);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to start Google sign-in');
+      setError(err instanceof Error ? err.message : t('auth.errorGoogleStart'));
     }
-  }, [nextPath]);
+  }, [nextPath, t]);
 
   const sendOtp = useCallback(async () => {
     if (!email.trim()) return;
@@ -79,10 +82,10 @@ export function SignInForm({ nextPath = '/', initialError = null }: SignInFormPr
       }
       setPhase('awaitingOtp');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to send code');
+      setError(err instanceof Error ? err.message : t('auth.errorSendCode'));
       setPhase('idle');
     }
-  }, [email]);
+  }, [email, t]);
 
   const verifyOtp = useCallback(async () => {
     if (!otp.trim()) return;
@@ -110,7 +113,7 @@ export function SignInForm({ nextPath = '/', initialError = null }: SignInFormPr
         credentials: 'same-origin',
       });
       if (!res.ok) {
-        setError('Signed in, but could not load your account. Please try again.');
+        setError(t('auth.errorAccountLoad'));
         setPhase('awaitingOtp');
         return;
       }
@@ -119,10 +122,10 @@ export function SignInForm({ nextPath = '/', initialError = null }: SignInFormPr
       // account — no full page reload needed.
       router.replace(nextPath);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to verify code');
+      setError(err instanceof Error ? err.message : t('auth.errorVerifyCode'));
       setPhase('awaitingOtp');
     }
-  }, [email, otp, nextPath, router]);
+  }, [email, otp, nextPath, router, t]);
 
   return (
     <div className="w-full max-w-md rounded-[28px] border-2 border-[#2A2218] bg-[#F4EFE2]/95 p-6 text-[#2A2218] backdrop-blur-sm sm:p-8">
@@ -131,21 +134,20 @@ export function SignInForm({ nextPath = '/', initialError = null }: SignInFormPr
           <AppLogo size={72} />
           <div className="space-y-2">
             <p className="m-0 text-[0.72rem] font-semibold uppercase tracking-[0.28em] text-[#6B5E48]">
-              Get Word
+              {t('auth.brand')}
             </p>
             <h1 className="m-0 text-3xl font-semibold tracking-[-0.02em] text-[#2A2218]">
-              Sign in
+              {t('auth.signInTitle')}
             </h1>
             <p className="m-0 text-sm leading-6 text-[#6B5E48]">
-              Continue with your email or Google.
+              {t('auth.signInSubtitle')}
             </p>
           </div>
         </div>
 
         {!configured ? (
           <p className="m-0 rounded-2xl border border-[#B91C1C]/20 bg-[#B91C1C]/8 px-4 py-3 text-sm text-[#8A1C1C]">
-            Authentication is not configured. Set NEXT_PUBLIC_SUPABASE_URL and
-            NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY.
+            {t('auth.notConfigured')}
           </p>
         ) : (
           <div className="flex flex-col gap-3">
@@ -172,7 +174,7 @@ export function SignInForm({ nextPath = '/', initialError = null }: SignInFormPr
                   disabled={busy || !email.trim()}
                   className="inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-[#1E6FA8] bg-[#1E6FA8] px-5 py-3 text-base font-semibold text-[#F4EFE2] hover:bg-[#155987] hover:border-[#155987] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  {phase === 'sendingOtp' ? 'Sending code…' : 'Email me a code'}
+                  {phase === 'sendingOtp' ? t('auth.sendingCode') : t('auth.emailMeCode')}
                 </button>
               </form>
             ) : (
@@ -184,7 +186,7 @@ export function SignInForm({ nextPath = '/', initialError = null }: SignInFormPr
                 className="flex flex-col gap-2"
               >
                 <p className="m-0 text-sm text-[#6B5E48]">
-                  Enter the code sent to {email.trim()}.
+                  {t('auth.enterCodeSentTo', { email: email.trim() })}
                 </p>
                 <input
                   type="text"
@@ -202,10 +204,10 @@ export function SignInForm({ nextPath = '/', initialError = null }: SignInFormPr
                   className="inline-flex min-h-12 items-center justify-center rounded-2xl border-2 border-[#1E6FA8] bg-[#1E6FA8] px-5 py-3 text-base font-semibold text-[#F4EFE2] hover:bg-[#155987] hover:border-[#155987] disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {phase === 'verifying'
-                    ? 'Verifying…'
+                    ? t('auth.verifying')
                     : phase === 'redirecting'
-                      ? 'Signing in…'
-                      : 'Verify & continue'}
+                      ? t('auth.signingIn')
+                      : t('auth.verifyAndContinue')}
                 </button>
                 <button
                   type="button"
@@ -216,7 +218,7 @@ export function SignInForm({ nextPath = '/', initialError = null }: SignInFormPr
                   }}
                   className="text-sm text-[#6B5E48] underline underline-offset-2"
                 >
-                  Use a different email
+                  {t('auth.useDifferentEmail')}
                 </button>
               </form>
             )}
@@ -225,7 +227,7 @@ export function SignInForm({ nextPath = '/', initialError = null }: SignInFormPr
               <>
                 <div className="flex items-center gap-3 text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-[#6B5E48]">
                   <span className="h-px flex-1 bg-[#2A2218]/15" />
-                  or
+                  {t('auth.or')}
                   <span className="h-px flex-1 bg-[#2A2218]/15" />
                 </div>
 
@@ -235,38 +237,48 @@ export function SignInForm({ nextPath = '/', initialError = null }: SignInFormPr
                   disabled={busy}
                   className="inline-flex min-h-12 items-center justify-center gap-2 rounded-2xl border-2 border-[#2A2218] bg-[#FFF8E8] px-5 py-3 text-base font-semibold text-[#2A2218] transition-colors hover:bg-[#FBEFD0] disabled:cursor-not-allowed disabled:opacity-60"
                 >
-                  Continue with Google
+                  {t('auth.continueWithGoogle')}
                 </button>
               </>
             ) : null}
           </div>
         )}
 
-        {error ? (
+        {displayError ? (
           <p
             className="m-0 select-text whitespace-pre-wrap break-words rounded-2xl border border-[#B91C1C]/20 bg-[#B91C1C]/8 px-4 py-3 text-sm text-[#8A1C1C]"
             role="alert"
           >
-            {error}
+            {displayError}
           </p>
         ) : null}
 
         <p className="m-0 text-center text-xs text-[#6B5E48]">
-          By continuing you agree to our{' '}
-          <a
-            href="/terms"
-            className="underline underline-offset-2 hover:text-[#2A2218]"
-          >
-            Terms of Service
-          </a>{' '}
-          and{' '}
-          <a
-            href="/privacy"
-            className="underline underline-offset-2 hover:text-[#2A2218]"
-          >
-            Privacy Policy
-          </a>
-          .
+          {legalParts.map((part, i) => {
+            if (part === '{terms}') {
+              return (
+                <a
+                  key={i}
+                  href="/terms"
+                  className="underline underline-offset-2 hover:text-[#2A2218]"
+                >
+                  {t('auth.termsOfService')}
+                </a>
+              );
+            }
+            if (part === '{privacy}') {
+              return (
+                <a
+                  key={i}
+                  href="/privacy"
+                  className="underline underline-offset-2 hover:text-[#2A2218]"
+                >
+                  {t('auth.privacyPolicy')}
+                </a>
+              );
+            }
+            return <Fragment key={i}>{part}</Fragment>;
+          })}
         </p>
       </div>
     </div>

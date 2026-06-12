@@ -4,6 +4,7 @@ import { RisingLettersBackground } from '@/components/RisingLettersBackground';
 
 interface SpeckledBackgroundProps {
   className?: string;
+  snapRisingLettersToMouse?: boolean;
   showRisingLetters?: boolean;
 }
 
@@ -11,6 +12,7 @@ const RANDOMIZED_BACKGROUND_ENDPOINT = '/api/backgrounds/get-word';
 
 export function SpeckledBackground({
   className = '',
+  snapRisingLettersToMouse = true,
   showRisingLetters = true,
 }: SpeckledBackgroundProps) {
   const cls = [
@@ -31,6 +33,7 @@ export function SpeckledBackground({
         <RisingLettersBackground
           variant="ambient"
           count={64}
+          snapToMouse={snapRisingLettersToMouse}
           className="-z-[9]"
         />
       )}

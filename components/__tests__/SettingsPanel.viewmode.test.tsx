@@ -71,11 +71,12 @@ describe('SettingsPanel settings visibility', () => {
     expect(screen.queryByText(/show in stream/i)).not.toBeInTheDocument();
   });
 
-  it('shows the full wallet address with a copy button', () => {
+  it('does not show wallet addresses in settings for now', () => {
     const address = '0x1234567890abcdef1234567890abcdef12345678';
     render(<SettingsPanel {...baseProps} isAuthenticated authAddress={address} />);
-    expect(screen.getByText(address)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /copy/i })).toBeInTheDocument();
+    expect(screen.queryByText(address)).not.toBeInTheDocument();
+    expect(screen.queryByText(/crypto wallet address/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /copy/i })).not.toBeInTheDocument();
   });
 
   it('does not render the install app section on desktop', () => {

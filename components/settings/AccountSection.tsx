@@ -1,15 +1,11 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { useAppStateContext } from '@/context/AppStateContext';
-import { AddressWithCopy } from './primitives';
-import { copyTextToClipboard } from './format';
 
 export function AccountSection({
   isAuthenticated,
   authEmail,
-  authAddress,
   onSignOut,
 }: {
   isAuthenticated?: boolean;
@@ -18,25 +14,7 @@ export function AccountSection({
   onSignOut?: () => void | Promise<void>;
 }) {
   const { t } = useI18n();
-  const { userId, userWalletAddress, userEmail } = useAppStateContext();
-  const [copiedAddress, setCopiedAddress] = useState<string | null>(null);
-
-  const handleCopyAddress = useCallback(async (address: string) => {
-    try {
-      await copyTextToClipboard(address);
-      setCopiedAddress(address);
-    } catch {
-      // If the browser blocks clipboard access, keep the address visible for manual copy.
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!copiedAddress) return;
-    const timeout = window.setTimeout(() => setCopiedAddress(null), 1800);
-    return () => window.clearTimeout(timeout);
-  }, [copiedAddress]);
-
-  const displayAddress = authAddress || userWalletAddress;
+  const { userId, userEmail } = useAppStateContext();
 
   return (
     <div className="border-t border-border-subtle pt-4 flex flex-col gap-2">
@@ -49,26 +27,10 @@ export function AccountSection({
             <span className="w-2 h-2 rounded-full bg-done shrink-0" />
             {authEmail ? (
               <code className="text-xs text-text-soft truncate font-mono">{authEmail}</code>
-            ) : displayAddress ? (
-              <span className="text-xs text-text-soft">{t('settings.walletConnected')}</span>
             ) : (
               <span className="text-xs text-text-soft">{t('settings.connected')}</span>
             )}
           </div>
-          {displayAddress && (
-            <div className="flex flex-col gap-1">
-              <span className="text-[0.62rem] font-semibold uppercase tracking-wider text-text-soft/60">
-                Crypto wallet address
-              </span>
-              <AddressWithCopy
-                address={displayAddress}
-                copied={copiedAddress === displayAddress}
-                onCopy={handleCopyAddress}
-                copyLabel={t('common.copy')}
-                copiedLabel={t('common.copied')}
-              />
-            </div>
-          )}
           {onSignOut && (
             <button
               type="button"
@@ -84,20 +46,6 @@ export function AccountSection({
           <span className="text-xs text-text-soft">{t('settings.notSignedIn')}</span>
           {userEmail && (
             <code className="text-xs text-text-soft/60 font-mono break-all">{userEmail}</code>
-          )}
-          {userWalletAddress && (
-            <div className="flex flex-col gap-1">
-              <span className="text-[0.62rem] font-semibold uppercase tracking-wider text-text-soft/60">
-                Crypto wallet address
-              </span>
-              <AddressWithCopy
-                address={userWalletAddress}
-                copied={copiedAddress === userWalletAddress}
-                onCopy={handleCopyAddress}
-                copyLabel={t('common.copy')}
-                copiedLabel={t('common.copied')}
-              />
-            </div>
           )}
         </div>
       )}

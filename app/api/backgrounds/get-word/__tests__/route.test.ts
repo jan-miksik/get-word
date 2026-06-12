@@ -38,6 +38,25 @@ describe('GET /api/backgrounds/get-word', () => {
     expect(await first.text()).not.toBe(await second.text());
   });
 
+  it('renders the existing frame pattern in development blue outside production', async () => {
+    const response = await GET(
+      new NextRequest('http://localhost/api/backgrounds/get-word?seed=blue-frame')
+    );
+    const body = await response.text();
+
+    expect(body).toMatch(/style="fill:#1E6FA8"[\s\S]*id="Snowflakes"/);
+    expect(body).toMatch(/id="path48316"[\s\S]*style="fill:#1E6FA8;/);
+  });
+
+  it('keeps the default frame color on the production hostname', async () => {
+    const response = await GET(
+      new NextRequest('https://getword.app/api/backgrounds/get-word?seed=prod-frame')
+    );
+    const body = await response.text();
+
+    expect(body).toMatch(/style="fill:#000000"[\s\S]*id="Snowflakes"/);
+  });
+
   it('randomizes no-seed requests without caching them', async () => {
     const first = await GET(new NextRequest('http://localhost/api/backgrounds/get-word'));
     const second = await GET(new NextRequest('http://localhost/api/backgrounds/get-word'));
