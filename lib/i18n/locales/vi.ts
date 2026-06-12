@@ -309,6 +309,8 @@ export const viMessages: I18nMessages = {
   "pwa.iosDescription": "Dùng menu Chia sẻ của trình duyệt. Nếu cần, Safari luôn hỗ trợ quy trình cài đặt.",
   "pwa.browserMenuInstall": "Dùng menu trình duyệt -> Cài đặt ứng dụng hoặc Thêm vào Màn hình chính.",
   "pwa.installMenuLabel": "Thêm vào màn hình chính",
+  "pwa.updateReady": "Đã có phiên bản Get Word mới.",
+  "pwa.refresh": "Làm mới",
   "lists.backToApp": "Quay lại ứng dụng",
   "lists.cancelCreate": "Hủy",
   "lists.create": "Tạo",
@@ -355,6 +357,9 @@ export const viMessages: I18nMessages = {
   "lists.badgePrivate": "Riêng tư",
   "lists.optionsFor": "Tùy chọn cho {name}",
   "lists.copying": "Đang fork...",
+  "lists.forkProgressTranslating": "Đang dịch {current}/{total}...",
+  "lists.forkProgressSaving": "Đang lưu danh sách...",
+  "lists.translateCategoryNames": "Dịch tên danh mục",
   "lists.edit": "Chỉnh sửa",
   "lists.editList": "Chỉnh sửa danh sách",
   "lists.saveList": "Lưu danh sách",
@@ -459,6 +464,14 @@ export const viMessages: I18nMessages = {
   "lists.openRouterModel": "Mô hình OpenRouter",
   "lists.browseModels": "Duyệt mô hình",
   "lists.customModelName": "Tên mô hình tùy chỉnh",
+  "lists.translationSourceSide": "Phía nguồn",
+  "lists.sourceSideKnown": "NGUỒN: {language}",
+  "lists.sourceSideTarget": "NGUỒN: {language}",
+  "lists.clearTargetTexts": "Xóa văn bản đích",
+  "lists.clearTargetTextsTitle": "Xóa văn bản ngôn ngữ đích?",
+  "lists.clearTargetTextsMessage":
+    "Thao tác này sẽ xóa văn bản đích khỏi {count} dòng và đánh dấu chúng để dịch lại. Văn bản nguồn không thay đổi.",
+  "lists.clearTargetTextsConfirm": "Xóa văn bản đích",
   "lists.translationSourceHintKnown":
     "Bạn đã nhập văn bản bằng {source}. Các dòng mới ở đây sẽ được hoàn thiện với phần {target}.",
   "lists.translationSourceHintTarget":

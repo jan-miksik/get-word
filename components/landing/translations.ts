@@ -282,7 +282,7 @@ const cs: LandingContent = {
   hero: {
     title: 'Slova, která zůstanou',
     subtitle:
-      'Get Word vám pomáhá zapamatovat si slova a fráze pomocí rozloženého opakování, zvukové výslovnosti a připravených nebo vlastních seznamů. Pro libovolnou jazykovou dvojici.',
+      'Get Word pomáhá zapamatovat si slovíčka a fráze pomocí efektivního opakování a audio výslovnosti. Můžete využít hotové seznamy slovíček a frází nebo si vytvořit vlastní. Pro libovolnou kombinaci jazyků.',
     getStarted: 'Začít',
   },
   features: {

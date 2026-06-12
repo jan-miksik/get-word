@@ -157,4 +157,65 @@ describe('TranslationStep Google usage gating', () => {
 
     expect(screen.getByRole('combobox')).toHaveValue('openrouter');
   });
+
+  it('warns before clearing target texts and saves them as empty for regeneration', async () => {
+    const onInputLanguageChange = vi.fn();
+    render(
+      <I18nProvider language="en">
+        <TranslationStep
+          list={{
+            id: 'list-1',
+            ownerId: 'user-1',
+            name: 'My list',
+            description: null,
+            languageFrom: 'cz',
+            languageTo: 'vi',
+            isPublic: false,
+          }}
+          pendingItems={[
+            {
+              id: 'item-1',
+              text_known: 'hello',
+              text_target: 'xin chào',
+              position: 0,
+            },
+          ]}
+          inputLanguage="known"
+          googleUsage={null}
+          onInputLanguageChange={onInputLanguageChange}
+          onComplete={vi.fn(async () => {})}
+          onSkip={vi.fn(async () => {})}
+        />
+      </I18nProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /clear target texts/i }));
+
+    expect(screen.getByText(/mark them for translation again/i)).toBeInTheDocument();
+
+    const buttons = screen.getAllByRole('button', { name: /clear target texts/i });
+    fireEvent.click(buttons[buttons.length - 1]);
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/lists/list-1/items/translations',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            translations: [
+              {
+                id: 'item-1',
+                text_target: null,
+                text_known: 'hello',
+                status: 'manual',
+              },
+            ],
+          }),
+        }),
+      );
+    });
+
+    expect(screen.getByLabelText(/target language: translation/i)).toHaveValue('');
+    expect(onInputLanguageChange).toHaveBeenCalledWith('known');
+  });
 });

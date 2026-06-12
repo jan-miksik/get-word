@@ -31,6 +31,7 @@ interface TranslationStepProps {
   inputLanguage: 'known' | 'target';
   heading?: string;
   googleUsage?: GoogleUsageResponse | null;
+  onInputLanguageChange?: (language: 'known' | 'target') => void;
   onComplete: (rows: CompletedTranslationRow[]) => Promise<void>;
   onSkip: () => Promise<void>;
   onUsageRefresh?: () => Promise<void>;
@@ -95,6 +96,7 @@ export function TranslationStep({
   inputLanguage,
   heading,
   googleUsage,
+  onInputLanguageChange,
   onComplete,
   onSkip,
   onUsageRefresh,
@@ -119,6 +121,7 @@ export function TranslationStep({
   const [openRouterModel, setOpenRouterModel] = useState(
     () => readStoredOpenRouterModel() ?? DEFAULT_OPENROUTER_TRANSLATION_MODEL,
   );
+  const [clearTargetModalOpen, setClearTargetModalOpen] = useState(false);
 
   const needsTranslation = inputLanguage === 'known' ? 'textTarget' : 'textKnown';
   const hasSource = inputLanguage === 'known' ? 'textKnown' : 'textTarget';
@@ -142,6 +145,7 @@ export function TranslationStep({
   }, [t]);
   const sourceLanguageCode = inputLanguage === 'known' ? list.languageFrom : list.languageTo;
   const targetLanguageCode = inputLanguage === 'known' ? list.languageTo : list.languageFrom;
+  const targetRowsWithTextCount = rows.filter((row) => row.textTarget.trim()).length;
 
   const loadOpenRouterStatus = useCallback(async () => {
     setOpenRouterLoading(true);
@@ -190,7 +194,10 @@ export function TranslationStep({
   }, [t]);
 
   useEffect(() => {
-    void loadOpenRouterStatus();
+    const timeoutId = window.setTimeout(() => {
+      void loadOpenRouterStatus();
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
   }, [loadOpenRouterStatus]);
 
   useEffect(() => {
@@ -288,6 +295,7 @@ export function TranslationStep({
     isGooglePaused,
     googlePausedMessage,
     onUsageRefresh,
+    t,
   ]);
 
   const handleOpenRouterModelChange = useCallback((model: string) => {
@@ -359,6 +367,48 @@ export function TranslationStep({
     }
   }, [rows, needsTranslation, list.id, onComplete, t]);
 
+  const handleClearTargetTexts = useCallback(async () => {
+    setConfirming(true);
+    setError(null);
+    try {
+      const translations = rows
+        .filter((row) => row.textTarget.trim())
+        .map((row) => ({
+          id: row.id,
+          text_target: null,
+          text_known: row.textKnown || undefined,
+          status: 'manual' as const,
+        }));
+
+      const res = await listsApiFetch(`/api/lists/${list.id}/items/translations`, {
+        method: 'POST',
+        body: JSON.stringify({ translations }),
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error ?? t('lists.translationSaveFailed'));
+      }
+
+      setRows((prev) =>
+        prev.map((row) => ({
+          ...row,
+          textTarget: '',
+          status: 'pending' as const,
+          error: undefined,
+          source: undefined,
+        })),
+      );
+      setClearTargetModalOpen(false);
+      onInputLanguageChange?.('known');
+      void onUsageRefresh?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('lists.saveFailedShort'));
+    } finally {
+      setConfirming(false);
+    }
+  }, [list.id, onInputLanguageChange, onUsageRefresh, rows, t]);
+
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6">
       <div className="flex items-center justify-between mb-4">
@@ -382,39 +432,110 @@ export function TranslationStep({
 
       {/* Provider selector + auto-translate */}
       <div className="mb-4 p-3 rounded-lg bg-background-elevated border border-border-subtle">
-        <div className="flex items-center gap-3">
-          <select
-            value={provider}
-            onChange={(e) => {
-              const next = e.target.value as TranslationProvider;
-              setProvider(next);
-              if (next === 'openrouter') {
-                void loadOpenRouterStatus();
+        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-medium text-text-soft">{t('lists.translationSourceSide')}</span>
+            <button
+              type="button"
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                inputLanguage === 'known'
+                  ? 'bg-accent text-background'
+                  : 'border border-border-subtle text-text-soft hover:text-text'
+              }`}
+              onClick={() => onInputLanguageChange?.('known')}
+              disabled={!onInputLanguageChange}
+            >
+              {t('lists.sourceSideKnown', { language: formatLanguageLabel(list.languageFrom) })}
+            </button>
+            <button
+              type="button"
+              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                inputLanguage === 'target'
+                  ? 'bg-accent text-background'
+                  : 'border border-border-subtle text-text-soft hover:text-text'
+              }`}
+              onClick={() => onInputLanguageChange?.('target')}
+              disabled={!onInputLanguageChange}
+            >
+              {t('lists.sourceSideTarget', { language: formatLanguageLabel(list.languageTo) })}
+            </button>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={provider}
+              onChange={(e) => {
+                const next = e.target.value as TranslationProvider;
+                setProvider(next);
+                if (next === 'openrouter') {
+                  void loadOpenRouterStatus();
+                }
+              }}
+              className="px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs"
+            >
+              <option value="google">{t('lists.translationProviderGoogle')}</option>
+              <option value="openrouter">{t('lists.translationProviderOpenRouter')}</option>
+            </select>
+            <button
+              type="button"
+              disabled={
+                translating ||
+                pendingCount === 0 ||
+                (provider === 'openrouter' && openRouterState !== 'connected') ||
+                (provider === 'google' && isGooglePaused)
               }
-            }}
-            className="px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs"
-          >
-            <option value="google">{t('lists.translationProviderGoogle')}</option>
-            <option value="openrouter">{t('lists.translationProviderOpenRouter')}</option>
-          </select>
-          <button
-            type="button"
-            disabled={
-              translating ||
-              pendingCount === 0 ||
-              (provider === 'openrouter' && openRouterState !== 'connected') ||
-              (provider === 'google' && isGooglePaused)
-            }
-            className="px-4 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
-            onClick={handleAutoTranslate}
-          >
-            {translating ? t('lists.generating') : t('lists.autoTranslateAction', { count: pendingCount })}
-          </button>
+              className="px-4 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
+              onClick={handleAutoTranslate}
+            >
+              {translating ? t('lists.generating') : t('lists.autoTranslateAction', { count: pendingCount })}
+            </button>
+            <button
+              type="button"
+              disabled={confirming || targetRowsWithTextCount === 0}
+              className="px-4 py-1.5 rounded-lg border border-danger/40 text-danger text-xs font-medium disabled:opacity-50 hover:bg-danger/10 transition-colors"
+              onClick={() => setClearTargetModalOpen(true)}
+            >
+              {t('lists.clearTargetTexts')}
+            </button>
+          </div>
         </div>
         {provider === 'google' && googleTranslateUsage && (
           <GoogleUsageHint scope={googleTranslateUsage} />
         )}
       </div>
+
+      {clearTargetModalOpen && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setClearTargetModalOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-lg border border-border-subtle bg-background p-6 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-base font-semibold text-text">{t('lists.clearTargetTextsTitle')}</h2>
+            <p className="mt-2 text-sm text-text-soft">
+              {t('lists.clearTargetTextsMessage', { count: targetRowsWithTextCount })}
+            </p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-border-subtle px-4 py-2 text-sm font-medium text-text-soft hover:bg-background-elevated transition-colors"
+                onClick={() => setClearTargetModalOpen(false)}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white hover:bg-danger/90 transition-colors disabled:opacity-60"
+                onClick={handleClearTargetTexts}
+                disabled={confirming}
+              >
+                {confirming ? t('common.saving') : t('lists.clearTargetTextsConfirm')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {provider === 'google' && isGooglePaused && (
         <div className="mb-4 rounded-lg border border-danger/30 bg-danger/10 p-3 text-xs text-danger">

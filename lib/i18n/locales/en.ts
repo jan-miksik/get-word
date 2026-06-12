@@ -307,6 +307,8 @@ export const enMessages = {
   "pwa.iosDescription": "Use your browser's Share menu. If needed, Safari will always support the install flow.",
   "pwa.browserMenuInstall": "Use your browser menu -> Install app or Add to Home screen.",
   "pwa.installMenuLabel": "Add to home screen",
+  "pwa.updateReady": "A new version of Get Word is ready.",
+  "pwa.refresh": "Refresh",
   "lists.backToApp": "Back to app",
   "lists.cancelCreate": "Cancel",
   "lists.create": "Create",
@@ -353,6 +355,9 @@ export const enMessages = {
   "lists.badgePrivate": "Private",
   "lists.optionsFor": "Options for {name}",
   "lists.copying": "Forking...",
+  "lists.forkProgressTranslating": "Translating {current} of {total}...",
+  "lists.forkProgressSaving": "Saving list...",
+  "lists.translateCategoryNames": "Translate category names",
   "lists.edit": "Edit",
   "lists.editList": "Edit list",
   "lists.saveList": "Save list",
@@ -457,6 +462,14 @@ export const enMessages = {
   "lists.openRouterModel": "OpenRouter model",
   "lists.browseModels": "Browse models",
   "lists.customModelName": "Custom model name",
+  "lists.translationSourceSide": "Source side",
+  "lists.sourceSideKnown": "SOURCE: {language}",
+  "lists.sourceSideTarget": "SOURCE: {language}",
+  "lists.clearTargetTexts": "Clear target texts",
+  "lists.clearTargetTextsTitle": "Clear target language texts?",
+  "lists.clearTargetTextsMessage":
+    "This will remove target text from {count} rows and mark them for translation again. Source text stays unchanged.",
+  "lists.clearTargetTextsConfirm": "Clear target texts",
   "lists.translationSourceHintKnown":
     "You entered text in {source}. New rows here will be completed with the {target} side.",
   "lists.translationSourceHintTarget":

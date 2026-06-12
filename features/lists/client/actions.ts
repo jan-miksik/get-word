@@ -75,6 +75,20 @@ export async function updateList(
   };
 }
 
+export type ForkProgress = {
+  phase: "translating" | "saving";
+  processed: number;
+  total: number;
+};
+
+export type ForkResult = {
+  list: WordList;
+  copied: number;
+  translated: number;
+  clearedSides: ("known" | "target")[];
+  missingAudio: { known: number; target: number };
+};
+
 export async function forkList(
   listId: string,
   data: {
@@ -83,14 +97,10 @@ export async function forkList(
     translationProvider?: "google" | "openrouter" | "none";
     translationModel?: string;
     sourceLanguage?: string;
+    translateCategoryNames?: boolean;
   },
-): Promise<{
-  list: WordList;
-  copied: number;
-  translated: number;
-  clearedSides: ("known" | "target")[];
-  missingAudio: { known: number; target: number };
-}> {
+  options: { onProgress?: (progress: ForkProgress) => void } = {},
+): Promise<ForkResult> {
   const res = await listsApiFetch(`/api/lists/${listId}/fork`, {
     method: "POST",
     body: JSON.stringify({
@@ -99,24 +109,65 @@ export async function forkList(
       translation_provider: data.translationProvider ?? "none",
       ...(data.translationModel ? { translation_model: data.translationModel } : {}),
       ...(data.sourceLanguage ? { source_language: data.sourceLanguage } : {}),
+      ...(data.translateCategoryNames === false ? { translate_category_names: false } : {}),
     }),
   });
-  const responseData = await res.json();
-  if (!res.ok) throw new Error(responseData.error ?? "Fork failed");
-  return {
-    list: responseData.list,
-    copied: Number(responseData.copied ?? 0),
-    translated: Number(responseData.translated ?? 0),
-    clearedSides: Array.isArray(responseData.cleared_sides)
-      ? responseData.cleared_sides.filter((side: unknown): side is "known" | "target" =>
-          side === "known" || side === "target"
-        )
-      : [],
-    missingAudio: {
-      known: Number(responseData.missing_audio?.known ?? 0),
-      target: Number(responseData.missing_audio?.target ?? 0),
-    },
+
+  // Validation/auth errors (4xx) are returned as plain JSON before any stream starts.
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.error ?? "Fork failed");
+  }
+  if (!res.body) throw new Error("Fork did not complete.");
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let result: ForkResult | null = null;
+
+  const handleLine = (line: string) => {
+    const trimmed = line.trim();
+    if (!trimmed) return;
+    const event = JSON.parse(trimmed);
+    if (event.type === "progress") {
+      options.onProgress?.({
+        phase: event.phase === "saving" ? "saving" : "translating",
+        processed: Number(event.processed ?? 0),
+        total: Number(event.total ?? 0),
+      });
+    } else if (event.type === "error") {
+      throw new Error(event.error ?? "Fork failed");
+    } else if (event.type === "done") {
+      const r = event.result ?? {};
+      result = {
+        list: r.list,
+        copied: Number(r.copied ?? 0),
+        translated: Number(r.translated ?? 0),
+        clearedSides: Array.isArray(r.cleared_sides)
+          ? r.cleared_sides.filter((side: unknown): side is "known" | "target" =>
+              side === "known" || side === "target"
+            )
+          : [],
+        missingAudio: {
+          known: Number(r.missing_audio?.known ?? 0),
+          target: Number(r.missing_audio?.target ?? 0),
+        },
+      };
+    }
   };
+
+  for (;;) {
+    const { value, done } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+    for (const line of lines) handleLine(line);
+  }
+  if (buffer.trim()) handleLine(buffer);
+
+  if (!result) throw new Error("Fork did not complete.");
+  return result;
 }
 
 export async function deleteList(listId: string): Promise<void> {

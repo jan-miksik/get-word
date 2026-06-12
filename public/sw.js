@@ -30,7 +30,6 @@ self.addEventListener('install', (event) => {
         // Some requests (like '/') may fail during install depending on deploy/runtime.
         // This should never block install.
       }
-      self.skipWaiting();
     })()
   );
 });
@@ -58,6 +57,9 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('message', (event) => {
+  // Sent only on an explicit user action (the "new version ready" refresh
+  // banner). Installs stay passive — a fresh worker waits until the user opts
+  // in, so updates never reload the page or replay animations behind their back.
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
     return;

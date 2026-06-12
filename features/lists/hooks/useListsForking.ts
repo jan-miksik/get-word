@@ -36,6 +36,7 @@ export function useListsForking({
   );
   const [pendingFork, setPendingFork] = useState<PendingFork | null>(null);
   const [forkingListId, setForkingListId] = useState<string | null>(null);
+  const [forkProgress, setForkProgress] = useState<listActions.ForkProgress | null>(null);
 
   const clearForkedListPrompt = useCallback((listId?: string | null) => {
     setForkedListPrompt((current) => {
@@ -60,6 +61,7 @@ export function useListsForking({
       provider: 'none',
       sourceLanguage: sourceList.languageFrom,
       translationModel: readStoredOpenRouterModelOrDefault(),
+      translateCategoryNames: true,
     });
   }, [initialCreateLanguageFrom, initialCreateLanguageTo, lists]);
 
@@ -76,26 +78,37 @@ export function useListsForking({
 
   const cancelFork = useCallback(() => {
     setPendingFork(null);
+    setForkProgress(null);
   }, []);
 
   const confirmFork = useCallback(async () => {
     if (!pendingFork || pendingFork.languageFrom === pendingFork.languageTo) return;
     setForkingListId(pendingFork.source.id);
-    const { list: forkedList } = await listActions.forkList(pendingFork.source.id, {
-      languageFrom: pendingFork.languageFrom,
-      languageTo: pendingFork.languageTo,
-      translationProvider: pendingFork.provider,
-      sourceLanguage: pendingFork.sourceLanguage,
-      translationModel: pendingFork.translationModel,
-    });
-    const sourceName = pendingFork.source.name ?? t('lists.anotherList');
-    setForkedListPrompt({ listId: forkedList.id, sourceName });
-    beginDetailsTransition();
-    updateSelectedListUrl(forkedList.id, { sourceName });
-    addListAndSelect(forkedList);
-    onForkSelected?.();
-    setPendingFork(null);
-    setForkingListId(null);
+    setForkProgress(null);
+    try {
+      const { list: forkedList } = await listActions.forkList(
+        pendingFork.source.id,
+        {
+          languageFrom: pendingFork.languageFrom,
+          languageTo: pendingFork.languageTo,
+          translationProvider: pendingFork.provider,
+          sourceLanguage: pendingFork.sourceLanguage,
+          translationModel: pendingFork.translationModel,
+          translateCategoryNames: pendingFork.translateCategoryNames,
+        },
+        { onProgress: setForkProgress },
+      );
+      const sourceName = pendingFork.source.name ?? t('lists.anotherList');
+      setForkedListPrompt({ listId: forkedList.id, sourceName });
+      beginDetailsTransition();
+      updateSelectedListUrl(forkedList.id, { sourceName });
+      addListAndSelect(forkedList);
+      onForkSelected?.();
+      setPendingFork(null);
+    } finally {
+      setForkingListId(null);
+      setForkProgress(null);
+    }
   }, [
     addListAndSelect,
     beginDetailsTransition,
@@ -113,6 +126,7 @@ export function useListsForking({
     forkedListPrompt,
     pendingFork,
     forkingListId,
+    forkProgress,
     clearForkedListPrompt,
     dismissForkNotice,
     startFork,

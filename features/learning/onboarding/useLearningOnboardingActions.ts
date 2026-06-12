@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import * as listActions from '@/features/lists/client/actions';
 import type { WordList, WordListItem } from '@/features/lists/types';
 import { syncUserData } from '@/lib/sync';
 import {
@@ -92,20 +93,28 @@ export function useLearningOnboardingActions({
     let didNavigate = false;
     try {
       if (!(await savePreferencesForListNavigation())) return;
-      const res = await fetch(`/api/lists/${list.id}/fork`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          language_from: languageFrom,
-          language_to: languageTo,
-          translation_provider: 'google',
-          source_language: list.languageFrom,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Fork failed');
+      const result = await listActions.forkList(
+        list.id,
+        {
+          languageFrom,
+          languageTo,
+          translationProvider: 'google',
+          sourceLanguage: list.languageFrom,
+        },
+        {
+          onProgress: (progress) => {
+            setGenerationStatus({
+              title: 'Forking word list',
+              detail:
+                progress.phase === 'saving'
+                  ? `Saving ${list.name}...`
+                  : `Translating ${list.name} (${progress.processed}/${progress.total})...`,
+            });
+          },
+        },
+      );
       const params = new URLSearchParams({
-        selected: data.list.id,
+        selected: result.list.id,
         forked: '1',
         forkedFromName: list.name,
       });

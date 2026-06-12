@@ -309,6 +309,8 @@ export const ukMessages: I18nMessages = {
   "pwa.iosDescription": "Скористайтеся меню Поділитися у браузері. За потреби Safari завжди підтримує встановлення.",
   "pwa.browserMenuInstall": "Скористайтеся меню браузера -> Встановити застосунок або Додати на головний екран.",
   "pwa.installMenuLabel": "Додати на головний екран",
+  "pwa.updateReady": "Готова нова версія Get Word.",
+  "pwa.refresh": "Оновити",
   "lists.backToApp": "Назад до застосунку",
   "lists.cancelCreate": "Скасувати",
   "lists.create": "Створити",
@@ -355,6 +357,9 @@ export const ukMessages: I18nMessages = {
   "lists.badgePrivate": "Приватний",
   "lists.optionsFor": "Параметри для {name}",
   "lists.copying": "Створення форку...",
+  "lists.forkProgressTranslating": "Переклад {current} з {total}...",
+  "lists.forkProgressSaving": "Збереження списку...",
+  "lists.translateCategoryNames": "Перекладати назви категорій",
   "lists.edit": "Редагувати",
   "lists.editList": "Редагувати список",
   "lists.saveList": "Зберегти список",
@@ -459,6 +464,14 @@ export const ukMessages: I18nMessages = {
   "lists.openRouterModel": "Модель OpenRouter",
   "lists.browseModels": "Переглянути моделі",
   "lists.customModelName": "Власна назва моделі",
+  "lists.translationSourceSide": "Сторона джерела",
+  "lists.sourceSideKnown": "ДЖЕРЕЛО: {language}",
+  "lists.sourceSideTarget": "ДЖЕРЕЛО: {language}",
+  "lists.clearTargetTexts": "Очистити цільові тексти",
+  "lists.clearTargetTextsTitle": "Очистити тексти цільової мови?",
+  "lists.clearTargetTextsMessage":
+    "Це видалить цільовий текст із {count} рядків і позначить їх для повторного перекладу. Вихідний текст залишиться без змін.",
+  "lists.clearTargetTextsConfirm": "Очистити цільові тексти",
   "lists.translationSourceHintKnown":
     "Ви ввели текст мовою {source}. Нові рядки тут буде доповнено стороною {target}.",
   "lists.translationSourceHintTarget":

@@ -186,7 +186,7 @@ function LanguageSwitcher({
         onClick={() => setOpen((v) => !v)}
       >
         <span className="lp-lang-flag" aria-hidden>{current.flag}</span>
-        <span>{current.label}</span>
+        <span className="lp-lang-label">{current.label}</span>
         <IconChevron className={`lp-lang-chevron${open ? ' lp-lang-chevron-open' : ''}`} />
       </button>
       {open && (
@@ -231,14 +231,17 @@ function SiteHeader({
   onLangChange: (next: LandingLang) => void;
 }) {
   return (
-    <header className="flex items-center justify-between py-5 sm:py-6">
-      <div className="flex items-center gap-3">
-        <AppLogo size={38} />
-        <span className="lp-display text-lg font-semibold tracking-tight text-[var(--ink)]">
+    <header className="flex items-center justify-between gap-2 py-4 sm:gap-6 sm:py-6">
+      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+        <AppLogo
+          size={38}
+          className="[&>svg]:h-[34px] [&>svg]:w-[34px] sm:[&>svg]:h-[38px] sm:[&>svg]:w-[38px]"
+        />
+        <span className="lp-display whitespace-nowrap text-base font-semibold tracking-tight text-[var(--ink)] sm:text-lg">
           Get&nbsp;Word
         </span>
       </div>
-      <nav className="flex items-center gap-1.5 sm:gap-2">
+      <nav className="flex shrink-0 items-center gap-2.5 sm:gap-3">
         <LanguageSwitcher
           lang={lang}
           label={t.languagePicker}
@@ -605,6 +608,7 @@ function LandingStyles() {
 .lp-btn-outline:hover{ transform:translateY(-2px); background:#fff; }
 .lp-btn-ghost{
   background:transparent; color:var(--ink); padding:.5rem 1.05rem; font-size:.92rem;
+  min-height:2.75rem; white-space:nowrap;
 }
 .lp-btn-ghost:hover{ background:var(--ink); color:var(--card-2); }
 .lp-btn-arrow{ width:1.05rem; height:1.05rem; transition:transform .2s ease; }
@@ -617,16 +621,18 @@ function LandingStyles() {
 .lp-link-quiet:hover{ color:var(--rust); text-decoration-color:var(--rust); }
 
 /* --- Language switcher --- */
-.lp-lang{ position:relative; }
+.lp-lang{ position:relative; min-width:0; }
 .lp-lang-btn{
   display:inline-flex; align-items:center; gap:.4rem;
   background:transparent; color:var(--ink);
   border:2px solid var(--line-strong); border-radius:999px;
   padding:.45rem .7rem .45rem .65rem; font-size:.88rem; font-weight:600;
   cursor:pointer; transition:border-color .18s, background .18s;
+  min-height:2.75rem; max-width:100%; white-space:nowrap;
 }
 .lp-lang-btn:hover{ border-color:var(--ink); background:var(--card); }
 .lp-lang-flag{ font-size:1.02em; line-height:1; }
+.lp-lang-label{ display:inline; }
 .lp-lang-row{ display:inline-flex; align-items:center; gap:.55rem; }
 .lp-lang-chevron{ width:.85rem; height:.85rem; color:var(--ink-soft); transition:transform .2s ease; }
 .lp-lang-chevron-open{ transform:rotate(180deg); }
@@ -647,6 +653,17 @@ function LandingStyles() {
 .lp-lang-option:hover{ background:var(--card); }
 .lp-lang-option-active{ color:var(--blue-deep); font-weight:600; }
 .lp-lang-check{ width:1rem; height:1rem; color:var(--blue); flex:none; }
+
+@media (max-width:639px){
+  .lp-btn-ghost{
+    min-height:2.3rem; padding:.38rem .68rem; font-size:.8rem;
+  }
+  .lp-lang-btn{
+    min-height:2.3rem; gap:0; padding:.38rem .52rem;
+  }
+  .lp-lang-label,.lp-lang-chevron{ display:none; }
+  .lp-lang-flag{ font-size:1.08rem; }
+}
 
 /* --- Kicker --- */
 .lp-kicker{

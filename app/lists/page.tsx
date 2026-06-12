@@ -107,6 +107,7 @@ function ListsPageContent() {
     forkedListPrompt,
     pendingFork,
     forkingListId,
+    forkProgress,
     clearForkedListPrompt,
     dismissForkNotice,
     startFork,
@@ -374,6 +375,7 @@ function ListsPageContent() {
                   : 'lists.translateWords',
               )}
               googleUsage={googleUsage}
+              onInputLanguageChange={wizard.setEditInputLanguage}
               onComplete={wizard.handleTranslationComplete}
               onSkip={wizard.handleSkipTranslation}
               onUsageRefresh={loadGoogleUsage}
@@ -424,6 +426,7 @@ function ListsPageContent() {
         <PendingForkDialog
           pendingFork={pendingFork}
           forkingListId={forkingListId}
+          forkProgress={forkProgress}
           languageOptions={languageOptions}
           onChange={updatePendingFork}
           onModelChange={changeForkModel}

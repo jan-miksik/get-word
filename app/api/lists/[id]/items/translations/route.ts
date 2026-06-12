@@ -10,7 +10,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 
 type TranslationEntry = {
   id: string;
-  text_target?: string;
+  text_target?: string | null;
   text_known?: string;
   status: "translated" | "manual";
 };
@@ -38,9 +38,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  // Filter to entries that have actual translation text
+  // Filter to entries that have a side update. `text_target: null` is an
+  // intentional clear so target text can be regenerated later.
   const valid = translations.filter(
-    (t) => t.id && (t.text_target || t.text_known),
+    (t) =>
+      t.id &&
+      (Object.prototype.hasOwnProperty.call(t, "text_target") ||
+        Object.prototype.hasOwnProperty.call(t, "text_known")),
   );
   const skipped = translations.length - valid.length;
 
@@ -49,15 +53,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
       valid.map((t) => {
         const update: {
           id: string;
-          textTarget?: string;
+          textTarget?: string | null;
           textKnown?: string;
           translationStatus: "translated" | "manual";
         } = {
           id: t.id,
           translationStatus: t.status ?? "manual",
         };
-        if (t.text_target) update.textTarget = t.text_target;
-        if (t.text_known) update.textKnown = t.text_known;
+        if (Object.prototype.hasOwnProperty.call(t, "text_target")) {
+          update.textTarget = t.text_target ?? null;
+        }
+        if (Object.prototype.hasOwnProperty.call(t, "text_known") && t.text_known) {
+          update.textKnown = t.text_known;
+        }
         return update;
       }),
     );

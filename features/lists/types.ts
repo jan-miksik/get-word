@@ -28,6 +28,7 @@ export type PendingFork = {
   provider: TranslationProvider;
   sourceLanguage: string;
   translationModel: string;
+  translateCategoryNames: boolean;
 };
 
 export type WordCategory = {

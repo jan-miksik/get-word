@@ -7,7 +7,7 @@ const mockGetListCategories = vi.fn()
 const mockGetListItems = vi.fn()
 const mockCreateList = vi.fn()
 const mockCreateCategory = vi.fn()
-const mockFindExistingTranslations = vi.fn()
+const mockDeleteList = vi.fn()
 const mockFindMediaByHashes = vi.fn()
 const mockGetMediaAssetsByIds = vi.fn()
 const mockGoogleTranslate = vi.fn()
@@ -32,7 +32,7 @@ vi.mock('@/lib/db', () => ({
   getListItems: (...args: unknown[]) => mockGetListItems(...args),
   createList: (...args: unknown[]) => mockCreateList(...args),
   createCategory: (...args: unknown[]) => mockCreateCategory(...args),
-  findExistingTranslations: (...args: unknown[]) => mockFindExistingTranslations(...args),
+  deleteList: (...args: unknown[]) => mockDeleteList(...args),
   findMediaByHashes: (...args: unknown[]) => mockFindMediaByHashes(...args),
   getMediaAssetsByIds: (...args: unknown[]) => mockGetMediaAssetsByIds(...args),
 }))
@@ -50,6 +50,40 @@ vi.mock('@/lib/translation', () => ({
 }))
 
 import { POST } from '../[id]/fork/route'
+
+// Deterministic translation dictionary keyed by `${text}|${to}`; falls back to
+// `${text}-${to}` so any input always produces an index-aligned result.
+const TRANSLATIONS: Record<string, string> = {
+  'ahoj|fr': 'salut',
+  'ahoj|de': 'hallo',
+  'Basics|fr': 'Bases',
+  'hello|cs': 'ahoj',
+  'hello|fr': 'salut',
+  'Basics|cs': 'Základy',
+  'základ|de': 'Grundlage',
+}
+
+function translateBatch(texts: string[], _from: string, to: string) {
+  return texts.map((text) => ({
+    text,
+    translated: TRANSLATIONS[`${text}|${to}`] ?? `${text}-${to}`,
+    status: 'ok' as const,
+  }))
+}
+
+async function drainStream(res: Response): Promise<{
+  events: Array<Record<string, unknown>>
+  result: Record<string, unknown> | null
+}> {
+  const text = await res.text()
+  const events = text
+    .trim()
+    .split('\n')
+    .filter((line) => line.trim())
+    .map((line) => JSON.parse(line) as Record<string, unknown>)
+  const done = events.find((event) => event.type === 'done')
+  return { events, result: (done?.result as Record<string, unknown>) ?? null }
+}
 
 describe('POST /api/lists/[id]/fork', () => {
   beforeEach(() => {
@@ -88,7 +122,7 @@ describe('POST /api/lists/[id]/fork', () => {
       isPublic: false,
     })
     mockCreateCategory.mockResolvedValue({ id: 'fork-cat-1' })
-    mockFindExistingTranslations.mockResolvedValue([])
+    mockDeleteList.mockResolvedValue(true)
     mockFindMediaByHashes.mockResolvedValue(new Map())
     mockGetMediaAssetsByIds.mockResolvedValue(new Map([
       ['asset-known', {
@@ -105,15 +139,17 @@ describe('POST /api/lists/[id]/fork', () => {
       }],
     ]))
     mockGetUserApiKey.mockResolvedValue('openrouter-key')
-    mockGoogleTranslate.mockResolvedValue([
-      { text: 'ahoj', translated: 'salut', status: 'ok' },
-    ])
-    mockOpenRouterTranslate.mockResolvedValue([
-      { text: 'ahoj', translated: 'salut', status: 'ok' },
-    ])
+    mockGoogleTranslate.mockImplementation(async (texts: string[], from: string, to: string) =>
+      translateBatch(texts, from, to),
+    )
+    mockOpenRouterTranslate.mockImplementation(async (texts: string[], from: string, to: string) =>
+      translateBatch(texts, from, to),
+    )
     mockReturning.mockResolvedValue([
       {
         id: 'new-item-1',
+        textKnown: 'ahoj',
+        textTarget: 'salut',
         knownAudioAssetId: null,
         audioAssetId: null,
       },
@@ -134,10 +170,12 @@ describe('POST /api/lists/[id]/fork', () => {
     })
 
     const res = await POST(req, { params: Promise.resolve({ id: 'seed-list' }) })
-    const body = await res.json()
+    const { result } = await drainStream(res)
 
-    expect(res.status).toBe(201)
-    expect(mockGoogleTranslate).toHaveBeenCalledWith(['ahoj'], 'cs', 'fr')
+    expect(res.status).toBe(200)
+    // Item word + category title are batched into one cs -> fr call.
+    expect(mockGoogleTranslate).toHaveBeenCalledTimes(1)
+    expect(mockGoogleTranslate).toHaveBeenCalledWith(['ahoj', 'Basics'], 'cs', 'fr')
     expect(mockValues).toHaveBeenCalledWith([
       expect.objectContaining({
         textKnown: 'ahoj',
@@ -145,7 +183,99 @@ describe('POST /api/lists/[id]/fork', () => {
         translationStatus: 'translated',
       }),
     ])
-    expect(body.copied).toBe(1)
+    expect(result?.copied).toBe(1)
+  })
+
+  it('builds a bilingual "known - target" category title when translating', async () => {
+    const req = new NextRequest('http://localhost:3000/api/lists/seed-list/fork', {
+      method: 'POST',
+      body: JSON.stringify({
+        language_from: 'cs',
+        language_to: 'fr',
+        translation_provider: 'google',
+        source_language: 'cs',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'seed-list' }) })
+    await drainStream(res)
+
+    // known side is the source language ('Basics'), target side is translated ('Bases').
+    expect(mockCreateCategory).toHaveBeenCalledWith('forked-list', 'Basics - Bases', false)
+  })
+
+  it('extracts one side from an already-bilingual category title instead of re-translating the whole thing', async () => {
+    mockGetListById.mockResolvedValue({
+      id: 'seed-list',
+      ownerId: null,
+      name: 'CS EN seed',
+      description: null,
+      languageFrom: 'cs',
+      languageTo: 'en',
+      isPublic: true,
+    })
+    mockGetListCategories.mockResolvedValue([{ id: 'cat-1', name: 'základ - basic', isSystem: false }])
+    mockGetListItems.mockResolvedValue([
+      { id: 'item-1', categoryId: 'cat-1', textKnown: 'ahoj', textTarget: 'hi', notes: null },
+    ])
+
+    const req = new NextRequest('http://localhost:3000/api/lists/seed-list/fork', {
+      method: 'POST',
+      body: JSON.stringify({
+        language_from: 'cs',
+        language_to: 'de',
+        translation_provider: 'google',
+        source_language: 'cs',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'seed-list' }) })
+    await drainStream(res)
+
+    const calledTexts = mockGoogleTranslate.mock.calls.flatMap(([texts]) => texts as string[])
+    // Only the source-language side ('základ') is translated, never the full title.
+    expect(calledTexts).toContain('základ')
+    expect(calledTexts).not.toContain('základ - basic')
+    expect(mockCreateCategory).toHaveBeenCalledWith('forked-list', 'základ - Grundlage', false)
+  })
+
+  it('copies category titles verbatim when category-name translation is disabled', async () => {
+    mockGetListById.mockResolvedValue({
+      id: 'seed-list',
+      ownerId: null,
+      name: 'CS EN seed',
+      description: null,
+      languageFrom: 'cs',
+      languageTo: 'en',
+      isPublic: true,
+    })
+    mockGetListCategories.mockResolvedValue([{ id: 'cat-1', name: 'základ - basic', isSystem: false }])
+    mockGetListItems.mockResolvedValue([
+      { id: 'item-1', categoryId: 'cat-1', textKnown: 'ahoj', textTarget: 'hi', notes: null },
+    ])
+
+    const req = new NextRequest('http://localhost:3000/api/lists/seed-list/fork', {
+      method: 'POST',
+      body: JSON.stringify({
+        language_from: 'cs',
+        language_to: 'de',
+        translation_provider: 'google',
+        source_language: 'cs',
+        translate_category_names: false,
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'seed-list' }) })
+    await drainStream(res)
+
+    const calledTexts = mockGoogleTranslate.mock.calls.flatMap(([texts]) => texts as string[])
+    // Items are still translated, but the category title is left untouched.
+    expect(calledTexts).toContain('ahoj')
+    expect(calledTexts).not.toContain('základ')
+    expect(mockCreateCategory).toHaveBeenCalledWith('forked-list', 'základ - basic', false)
   })
 
   it('translates both changed languages from the selected source language', async () => {
@@ -167,15 +297,6 @@ describe('POST /api/lists/[id]/fork', () => {
         notes: null,
       },
     ])
-    mockGoogleTranslate.mockImplementation(async (texts: string[], from: string, to: string) => {
-      if (texts[0] === 'hello' && from === 'en' && to === 'cs') {
-        return [{ text: 'hello', translated: 'ahoj', status: 'ok' }]
-      }
-      if (texts[0] === 'hello' && from === 'en' && to === 'fr') {
-        return [{ text: 'hello', translated: 'salut', status: 'ok' }]
-      }
-      return [{ text: texts[0], translated: null, status: 'error' }]
-    })
 
     const req = new NextRequest('http://localhost:3000/api/lists/seed-list/fork', {
       method: 'POST',
@@ -190,10 +311,11 @@ describe('POST /api/lists/[id]/fork', () => {
     })
 
     const res = await POST(req, { params: Promise.resolve({ id: 'seed-list' }) })
+    await drainStream(res)
 
-    expect(res.status).toBe(201)
-    expect(mockGoogleTranslate).toHaveBeenNthCalledWith(1, ['hello'], 'en', 'cs')
-    expect(mockGoogleTranslate).toHaveBeenNthCalledWith(2, ['hello'], 'en', 'fr')
+    expect(res.status).toBe(200)
+    expect(mockGoogleTranslate).toHaveBeenNthCalledWith(1, ['hello', 'Basics'], 'en', 'cs')
+    expect(mockGoogleTranslate).toHaveBeenNthCalledWith(2, ['hello', 'Basics'], 'en', 'fr')
     expect(mockValues).toHaveBeenCalledWith([
       expect.objectContaining({
         textKnown: 'ahoj',
@@ -215,9 +337,9 @@ describe('POST /api/lists/[id]/fork', () => {
     })
 
     const res = await POST(req, { params: Promise.resolve({ id: 'seed-list' }) })
-    const body = await res.json()
+    const { result } = await drainStream(res)
 
-    expect(res.status).toBe(201)
+    expect(res.status).toBe(200)
     expect(mockGoogleTranslate).not.toHaveBeenCalled()
     expect(mockValues).toHaveBeenCalledWith([
       expect.objectContaining({
@@ -229,7 +351,7 @@ describe('POST /api/lists/[id]/fork', () => {
         audioStatus: 'ready',
       }),
     ])
-    expect(body.cleared_sides).toEqual([])
+    expect(result?.cleared_sides).toEqual([])
   })
 
   it('clears the changed target side and audio when no fork translation provider is selected', async () => {
@@ -244,9 +366,15 @@ describe('POST /api/lists/[id]/fork', () => {
     })
 
     const res = await POST(req, { params: Promise.resolve({ id: 'seed-list' }) })
-    const body = await res.json()
+    const { events, result } = await drainStream(res)
 
-    expect(res.status).toBe(201)
+    expect(res.status).toBe(200)
+    expect(mockGoogleTranslate).not.toHaveBeenCalled()
+    // Category copied verbatim when not translating.
+    expect(mockCreateCategory).toHaveBeenCalledWith('forked-list', 'Basics', false)
+    // Stream still reports a saving phase, then completes.
+    expect(events.some((e) => e.type === 'progress' && e.phase === 'saving')).toBe(true)
+    expect(events.at(-1)?.type).toBe('done')
     expect(mockValues).toHaveBeenCalledWith([
       expect.objectContaining({
         textKnown: 'ahoj',
@@ -257,13 +385,10 @@ describe('POST /api/lists/[id]/fork', () => {
         translationStatus: 'pending',
       }),
     ])
-    expect(body.cleared_sides).toEqual(['target'])
+    expect(result?.cleared_sides).toEqual(['target'])
   })
 
   it('translates with OpenRouter BYOK when requested', async () => {
-    mockOpenRouterTranslate.mockResolvedValueOnce([
-      { text: 'ahoj', translated: 'bonjour', status: 'ok' },
-    ])
     const req = new NextRequest('http://localhost:3000/api/lists/seed-list/fork', {
       method: 'POST',
       body: JSON.stringify({
@@ -277,11 +402,12 @@ describe('POST /api/lists/[id]/fork', () => {
     })
 
     const res = await POST(req, { params: Promise.resolve({ id: 'seed-list' }) })
+    await drainStream(res)
 
-    expect(res.status).toBe(201)
+    expect(res.status).toBe(200)
     expect(mockGetUserApiKey).toHaveBeenCalledWith('user-1', 'openrouter')
     expect(mockOpenRouterTranslate).toHaveBeenCalledWith(
-      ['ahoj'],
+      ['ahoj', 'Basics'],
       'cs',
       'fr',
       'openrouter-key',
@@ -290,8 +416,73 @@ describe('POST /api/lists/[id]/fork', () => {
     expect(mockValues).toHaveBeenCalledWith([
       expect.objectContaining({
         textKnown: 'ahoj',
-        textTarget: 'bonjour',
+        textTarget: 'salut',
       }),
     ])
+  })
+
+  it('emits ordered, monotonic progress events that reach the total', async () => {
+    const req = new NextRequest('http://localhost:3000/api/lists/seed-list/fork', {
+      method: 'POST',
+      body: JSON.stringify({
+        language_from: 'cs',
+        language_to: 'fr',
+        translation_provider: 'google',
+        source_language: 'cs',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'seed-list' }) })
+    const { events } = await drainStream(res)
+
+    const progress = events.filter((e) => e.type === 'progress') as Array<{
+      processed: number
+      total: number
+    }>
+    expect(progress.length).toBeGreaterThan(0)
+    expect(events.at(-1)?.type).toBe('done')
+
+    let last = -1
+    for (const event of progress) {
+      expect(event.processed).toBeGreaterThanOrEqual(last)
+      last = event.processed
+    }
+    const final = progress.at(-1)!
+    expect(final.processed).toBe(final.total)
+  })
+
+  it('dedupes repeated source words to one provider call while counting every item side', async () => {
+    mockGetListItems.mockResolvedValue([
+      { id: 'item-1', categoryId: 'cat-1', textKnown: 'ahoj', textTarget: 'xin chao', notes: null },
+      { id: 'item-2', categoryId: 'cat-1', textKnown: 'ahoj', textTarget: 'tam biet', notes: null },
+      { id: 'item-3', categoryId: 'cat-1', textKnown: 'ahoj', textTarget: 'chao', notes: null },
+    ])
+    mockReturning.mockResolvedValue([
+      { id: 'n1', textKnown: 'ahoj', textTarget: 'salut', knownAudioAssetId: null, audioAssetId: null },
+      { id: 'n2', textKnown: 'ahoj', textTarget: 'salut', knownAudioAssetId: null, audioAssetId: null },
+      { id: 'n3', textKnown: 'ahoj', textTarget: 'salut', knownAudioAssetId: null, audioAssetId: null },
+    ])
+
+    const req = new NextRequest('http://localhost:3000/api/lists/seed-list/fork', {
+      method: 'POST',
+      body: JSON.stringify({
+        language_from: 'cs',
+        language_to: 'fr',
+        translation_provider: 'google',
+        source_language: 'cs',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'seed-list' }) })
+    const { result } = await drainStream(res)
+
+    // 'ahoj' appears 3x but is translated once (alongside the 'Basics' category title).
+    expect(mockGoogleTranslate).toHaveBeenCalledTimes(1)
+    expect(mockGoogleTranslate).toHaveBeenCalledWith(['ahoj', 'Basics'], 'cs', 'fr')
+    // Counts still reflect all three item target sides.
+    expect(result?.copied).toBe(3)
+    expect(result?.translated).toBe(3)
   })
 })

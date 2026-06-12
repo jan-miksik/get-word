@@ -309,6 +309,8 @@ export const csMessages: I18nMessages = {
   "pwa.iosDescription": "Použijte nabídku Sdílet v prohlížeči. V případě potřeby Safari instalační postup vždy podporuje.",
   "pwa.browserMenuInstall": "Použijte menu prohlížeče -> Nainstalovat aplikaci nebo Přidat na plochu.",
   "pwa.installMenuLabel": "Přidat na plochu",
+  "pwa.updateReady": "Je připravena nová verze Get Word.",
+  "pwa.refresh": "Obnovit",
   "lists.backToApp": "Zpět do aplikace",
   "lists.cancelCreate": "Zrušit",
   "lists.create": "Vytvořit",
@@ -355,6 +357,9 @@ export const csMessages: I18nMessages = {
   "lists.badgePrivate": "Neveřejný",
   "lists.optionsFor": "Možnosti pro {name}",
   "lists.copying": "Vytvářím fork...",
+  "lists.forkProgressTranslating": "Překládám {current} z {total}...",
+  "lists.forkProgressSaving": "Ukládám seznam...",
+  "lists.translateCategoryNames": "Překládat názvy kategorií",
   "lists.edit": "Upravit",
   "lists.editList": "Upravit seznam",
   "lists.saveList": "Uložit seznam",
@@ -459,6 +464,14 @@ export const csMessages: I18nMessages = {
   "lists.openRouterModel": "Model OpenRouteru",
   "lists.browseModels": "Procházet modely",
   "lists.customModelName": "Vlastní název modelu",
+  "lists.translationSourceSide": "Zdrojová strana",
+  "lists.sourceSideKnown": "ZDROJ: {language}",
+  "lists.sourceSideTarget": "ZDROJ: {language}",
+  "lists.clearTargetTexts": "Vymazat cílové texty",
+  "lists.clearTargetTextsTitle": "Vymazat texty cílového jazyka?",
+  "lists.clearTargetTextsMessage":
+    "Tím odstraníte cílový text u {count} řádků a označíte je k opětovnému překladu. Zdrojový text zůstane beze změny.",
+  "lists.clearTargetTextsConfirm": "Vymazat cílové texty",
   "lists.translationSourceHintKnown":
     "Zadali jste text v jazyce {source}. Nové řádky tady proto dostanou doplněnou stranu {target}.",
   "lists.translationSourceHintTarget":

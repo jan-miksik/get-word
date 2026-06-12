@@ -388,6 +388,27 @@ describe('POST /api/lists/[id]/items/translations', () => {
     ])
   })
 
+  it('supports clearing target-language text for regeneration', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetListById.mockResolvedValue(testList)
+    mockUpdateItemTranslations.mockResolvedValue(undefined)
+    const req = new NextRequest('http://localhost/api/lists/list-1/items/translations', {
+      method: 'POST',
+      body: JSON.stringify({
+        translations: [
+          { id: 'item-1', text_target: null, status: 'manual' },
+        ],
+      }),
+    })
+    const res = await confirmTranslations(req, makeListCtx())
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.updated).toBe(1)
+    expect(mockUpdateItemTranslations).toHaveBeenCalledWith([
+      { id: 'item-1', textTarget: null, translationStatus: 'manual' },
+    ])
+  })
+
   it('skips items with no translation text', async () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
     mockGetListById.mockResolvedValue(testList)

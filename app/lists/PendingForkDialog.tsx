@@ -1,6 +1,7 @@
 'use client';
 
 import { useI18n } from '@/components/I18nProvider';
+import type { ForkProgress } from '@/features/lists/client/actions';
 import type { LearningLanguage, PendingFork, TranslationProvider } from '@/features/lists/types';
 import {
   OPENROUTER_MODELS_URL,
@@ -10,6 +11,7 @@ import {
 type PendingForkDialogProps = {
   pendingFork: PendingFork;
   forkingListId: string | null;
+  forkProgress: ForkProgress | null;
   languageOptions: LearningLanguage[];
   onChange: (updater: (current: PendingFork) => PendingFork) => void;
   onModelChange: (model: string) => void;
@@ -21,6 +23,7 @@ type PendingForkDialogProps = {
 export function PendingForkDialog({
   pendingFork,
   forkingListId,
+  forkProgress,
   languageOptions,
   onChange,
   onModelChange,
@@ -29,11 +32,15 @@ export function PendingForkDialog({
   onError,
 }: PendingForkDialogProps) {
   const { t } = useI18n();
+  const isForking = forkingListId === pendingFork.source.id;
+  const progressPercent = forkProgress && forkProgress.total > 0
+    ? Math.min(100, Math.round((forkProgress.processed / forkProgress.total) * 100))
+    : 0;
 
   return (
     <div
       className="fixed inset-0 z-[70] flex items-center justify-center bg-black/60 p-4"
-      onClick={onCancel}
+      onClick={isForking ? undefined : onCancel}
     >
       <div
         className="w-full max-w-lg rounded-lg border border-border-subtle bg-background p-4 shadow-xl"
@@ -103,6 +110,19 @@ export function PendingForkDialog({
               </select>
             </label>
           )}
+          {pendingFork.provider !== 'none' && (
+            <label className="flex items-center gap-2 text-sm text-text-soft">
+              <input
+                type="checkbox"
+                checked={pendingFork.translateCategoryNames}
+                onChange={(event) =>
+                  onChange((current) => ({ ...current, translateCategoryNames: event.target.checked }))
+                }
+                className="size-4 accent-accent"
+              />
+              {t('lists.translateCategoryNames')}
+            </label>
+          )}
           {pendingFork.provider === 'openrouter' && (
             <div className="grid gap-2 rounded-lg border border-border-subtle bg-background-elevated p-3">
               <div className="flex items-center justify-between gap-3">
@@ -149,17 +169,36 @@ export function PendingForkDialog({
               </div>
             </div>
           )}
+          {isForking && (
+            <div className="grid gap-1.5">
+              <div className="h-2 overflow-hidden rounded-full bg-background-elevated">
+                <div
+                  className="h-full rounded-full bg-accent transition-all duration-200"
+                  style={{ width: `${progressPercent}%` }}
+                />
+              </div>
+              <span className="text-xs text-text-soft">
+                {forkProgress?.phase === 'saving'
+                  ? t('lists.forkProgressSaving')
+                  : t('lists.forkProgressTranslating', {
+                      current: forkProgress?.processed ?? 0,
+                      total: forkProgress?.total ?? 0,
+                    })}
+              </span>
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-1">
             <button
               type="button"
-              className="rounded-lg border border-border-subtle px-3 py-1.5 text-sm text-text-soft"
+              disabled={isForking}
+              className="rounded-lg border border-border-subtle px-3 py-1.5 text-sm text-text-soft disabled:opacity-50"
               onClick={onCancel}
             >
               {t('common.cancel')}
             </button>
             <button
               type="button"
-              disabled={forkingListId === pendingFork.source.id || pendingFork.languageFrom === pendingFork.languageTo}
+              disabled={isForking || pendingFork.languageFrom === pendingFork.languageTo}
               className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-background disabled:opacity-50"
               onClick={() => {
                 void onConfirm().catch((err) => {
@@ -167,7 +206,7 @@ export function PendingForkDialog({
                 });
               }}
             >
-              {forkingListId === pendingFork.source.id ? t('lists.copying') : t('lists.copyList')}
+              {isForking ? t('lists.copying') : t('lists.copyList')}
             </button>
           </div>
         </div>

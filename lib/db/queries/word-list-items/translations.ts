@@ -6,7 +6,7 @@ export async function updateItemTranslations(
   updates: {
     id: string;
     textKnown?: string;
-    textTarget?: string;
+    textTarget?: string | null;
     translationStatus: 'manual' | 'translated' | 'failed';
   }[],
 ): Promise<void> {
