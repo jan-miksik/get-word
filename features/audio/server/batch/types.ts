@@ -2,6 +2,8 @@ export type AudioItem = {
   id: string;
   text: string;
   language: string;
+  /** Optional per-item voice override (used by "Mix voices"); falls back to the batch voice. */
+  voice_id?: string;
 };
 
 export type AudioField = "known" | "target";
@@ -26,6 +28,8 @@ export type GenerationCandidate = {
   item: AudioItem;
   hash: string;
   replaceExisting?: boolean;
+  /** Resolved voice for this item (per-item override or batch default). */
+  voiceId?: string;
 };
 
 export type GeneratedResult = {

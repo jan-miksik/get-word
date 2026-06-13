@@ -15,6 +15,7 @@ import {
 } from '@/features/lists/audio-step/language';
 import { useAudioPlayback } from '@/features/lists/audio-step/useAudioPlayback';
 import { useGoogleTtsVoiceSelection } from '@/features/lists/audio-step/useGoogleTtsVoiceSelection';
+import { formatVoiceLabel } from '@/features/lists/audio-step/voiceMix';
 import { useReusableAudioLookup } from '@/features/lists/audio-step/useReusableAudioLookup';
 import { useAudioGenerationWorkflow } from '@/features/lists/audio-step/useAudioGenerationWorkflow';
 import { AudioStepRow } from '@/features/lists/audio-step/AudioStepRow';
@@ -95,10 +96,18 @@ function AudioStepContent({
   const [error, setError] = useState<string | null>(null);
   const {
     voiceOptions,
-    selectedGoogleVoiceId,
+    voiceGenders,
+    selection,
+    selectionKey,
     loadingVoices,
-    handleGoogleVoiceChange,
+    setSingleVoice,
+    enableMix,
+    toggleMixVoice,
+    resolveVoice,
   } = useGoogleTtsVoiceSelection(activeLanguageCode);
+  const MIX_OPTION_VALUE = '__mix__';
+  const selectValue = selection.mode === 'mix' ? MIX_OPTION_VALUE : selection.voiceId;
+  const mixVoiceIds = selection.mode === 'mix' ? selection.voiceIds : [];
 
   const markRowFailed = useCallback((rowId: string) => {
     setRows((prev) =>
@@ -129,8 +138,6 @@ function AudioStepContent({
     const selected = getSelectedReusableOption(row);
     return Boolean(selected?.audioUrl) && row.audioStatus !== 'ready';
   }).length;
-  const googleVoiceIdForRequest =
-    selectedGoogleVoiceId === 'default' ? undefined : selectedGoogleVoiceId;
   const googleTtsUsage = googleUsage?.account.find((scope) => scope.scope === 'tts');
   const isGoogleTtsPaused = Boolean(googleTtsUsage?.paused);
   const googlePausedMessage = googleTtsUsage?.limit_message
@@ -144,8 +151,8 @@ function AudioStepContent({
     setRows,
     setError,
     audioSide,
-    googleVoiceIdForRequest,
-    selectedGoogleVoiceId,
+    resolveVoice,
+    selectionKey,
     t,
   });
 
@@ -164,7 +171,7 @@ function AudioStepContent({
     preloadAudio,
     pause: handlePause,
     audioSide,
-    googleVoiceIdForRequest,
+    resolveVoice,
     isGoogleTtsPaused,
     googlePausedMessage,
     onUsageRefresh,
@@ -224,17 +231,26 @@ function AudioStepContent({
           <label className="flex min-w-[14rem] flex-col gap-1 text-xs text-text-soft">
             {t('lists.googleVoice')}
             <select
-              value={selectedGoogleVoiceId}
-              onChange={(event) => handleGoogleVoiceChange(event.target.value)}
+              value={selectValue}
+              onChange={(event) => {
+                if (event.target.value === MIX_OPTION_VALUE) {
+                  enableMix();
+                } else {
+                  setSingleVoice(event.target.value);
+                }
+              }}
               disabled={generating || regeneratingIds.size > 0 || loadingVoices}
               className="rounded-lg border border-border-subtle bg-background px-2.5 py-1.5 text-xs text-text disabled:opacity-50"
             >
               <option value="default">
                 {loadingVoices ? t('lists.loadingVoices') : t('lists.defaultGoogleVoice')}
               </option>
+              {voiceOptions.length > 1 && (
+                <option value={MIX_OPTION_VALUE}>{t('lists.mixVoices')}</option>
+              )}
               {voiceOptions.map((voice) => (
                 <option key={voice} value={voice}>
-                  {voice}
+                  {formatVoiceLabel(voice, voiceGenders)}
                 </option>
               ))}
             </select>
@@ -270,6 +286,35 @@ function AudioStepContent({
             </button>
           )}
         </div>
+        {selection.mode === 'mix' && (
+          <div className="mt-3 border-t border-border-subtle pt-3">
+            <p className="mb-2 text-xs text-text-soft">{t('lists.mixVoicesHint')}</p>
+            <div className="flex flex-wrap gap-1.5">
+              {voiceOptions.map((voice) => {
+                const active = mixVoiceIds.length === 0 || mixVoiceIds.includes(voice);
+                return (
+                  <button
+                    key={voice}
+                    type="button"
+                    disabled={generating || regeneratingIds.size > 0}
+                    aria-pressed={active}
+                    onClick={() => toggleMixVoice(voice)}
+                    className={`rounded-full border px-2.5 py-1 text-xs transition-colors disabled:opacity-50 ${
+                      active
+                        ? 'border-accent bg-accent/15 text-text'
+                        : 'border-border-subtle text-text-soft hover:text-text'
+                    }`}
+                  >
+                    {formatVoiceLabel(voice, voiceGenders)}
+                  </button>
+                );
+              })}
+            </div>
+            {mixVoiceIds.length === 0 && (
+              <p className="mt-1.5 text-[11px] text-text-soft/80">{t('lists.mixVoicesAll')}</p>
+            )}
+          </div>
+        )}
         {googleTtsUsage && <GoogleUsageHint scope={googleTtsUsage} />}
       </div>
 

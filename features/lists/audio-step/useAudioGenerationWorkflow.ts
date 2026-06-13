@@ -21,7 +21,7 @@ type UseAudioGenerationWorkflowOptions = {
   preloadAudio: (rowId: string, source: AudioSourceCandidate) => Promise<string>;
   pause: () => void;
   audioSide: AudioSide;
-  googleVoiceIdForRequest: string | undefined;
+  resolveVoice: (text: string) => string | undefined;
   isGoogleTtsPaused: boolean;
   googlePausedMessage: string;
   onUsageRefresh?: () => Promise<void>;
@@ -37,7 +37,7 @@ export function useAudioGenerationWorkflow({
   preloadAudio,
   pause,
   audioSide,
-  googleVoiceIdForRequest,
+  resolveVoice,
   isGoogleTtsPaused,
   googlePausedMessage,
   onUsageRefresh,
@@ -83,13 +83,16 @@ export function useAudioGenerationWorkflow({
         const res = await listsApiFetch('/api/audio/generate/batch', {
           method: 'POST',
           body: JSON.stringify({
-            items: batchRows.map((row) => ({
-              id: row.id,
-              text: row.audioText,
-              language: row.language,
-            })),
+            items: batchRows.map((row) => {
+              const voiceId = resolveVoice(row.audioText);
+              return {
+                id: row.id,
+                text: row.audioText,
+                language: row.language,
+                ...(voiceId ? { voice_id: voiceId } : {}),
+              };
+            }),
             provider: 'google_tts',
-            ...(googleVoiceIdForRequest ? { voice_id: googleVoiceIdForRequest } : {}),
             audio_field: audioSide,
             force,
           }),
@@ -183,7 +186,7 @@ export function useAudioGenerationWorkflow({
   }, [
     audioSide,
     clearCachedAudio,
-    googleVoiceIdForRequest,
+    resolveVoice,
     onUsageRefresh,
     preloadAudio,
     setError,
