@@ -46,40 +46,40 @@ export const csMessages: I18nMessages = {
   "landing.features.title": "Méně náhodného učení, opakování ve správnou chvíli",
   "landing.features.spacedRepetition.title": "Rozložené opakování",
   "landing.features.spacedRepetition.body":
-    "Slova se vrátí těsně předtím, než byste je zapomněli, takže čas na opakování padne přesně tam, kde se to opravdu počítá.",
+    "Slova se vracejí ve chvíli, kdy je dobré si je znovu připomenout. Díky tomu není potřeba opakovat náhodně ani zbytečně často.",
   "landing.features.ownLists.title": "Vlastní seznamy",
   "landing.features.ownLists.body":
-    "Vytvářejte seznamy pro libovolnou jazykovou dvojici. Překlady a ukázkové fráze se vygenerují za vás - připravené ke studiu během několika minut.",
-  "landing.features.audio.title": "Zvuková výslovnost",
+    "Můžete si vytvořit vlastní seznam pro jazykovou kombinaci, kterou právě potřebujete. Překlady a zvukovou výslovnost vám aplikace pomůže připravit, aby se s nimi dalo rovnou pracovat.",
+  "landing.features.audio.title": "Výslovnost",
   "landing.features.audio.body":
-    "Slyšte každé slovo a frázi s jasnou zvukovou výslovností. Naučte se, jak jazyk doopravdy zní.",
-  "landing.features.memoryGames.title": "Paměťové háčky a hry",
+    "Ke slovům a frázím je možné si pustit zvukovou výslovnost. Pomáhá to vnímat nejen význam, ale i to, jak jazyk opravdu zní.",
+  "landing.features.memoryGames.title": "Paměťové pomůcky a krátká cvičení",
   "landing.features.memoryGames.body":
-    "Upevněte si slovní zásobu pomocí osobních paměťových háčků a rychlých miniher vetkaných přímo do vašeho studijního proudu.",
-  "landing.features.sync.title": "Synchronizace všude",
+    "Slova se lépe pamatují, když se spojí s představou, asociací nebo jednoduchou hrou. Ke slovům je možné přidávat mnemotechniky a během opakování se objevují drobná cvičení.",
+  "landing.features.sync.title": "Synchronizace mezi zařízeními",
   "landing.features.sync.body":
-    "Přihlaste se jednou. Vaše seznamy, pokrok a předvolby vás provázejí na telefonu, tabletu i počítači.",
-  "landing.features.install.title": "Nainstalujte jako aplikaci",
+    "Po přihlášení zůstávají seznamy, pokrok i nastavení dostupné na telefonu, tabletu i počítači.",
+  "landing.features.install.title": "Použití jako aplikace",
   "landing.features.install.body":
-    "Přidejte Get Word na plochu a studujte na celou obrazovku, i offline - bez nutnosti obchodu s aplikacemi.",
+    "Get Word si můžete přidat na domovskou obrazovku a používat ho podobně jako běžnou aplikaci. Není potřeba instalace přes app store.",
   "landing.how.kicker": "Jak to funguje",
   "landing.how.title": "Tři kroky k vašim prvním slovům",
-  "landing.how.pickPair.title": "Vyberte si dvojici",
+  "landing.how.pickPair.title": "Výběr jazyků",
   "landing.how.pickPair.body":
-    "Zvolte, jakým jazykem mluvíte a který se chcete učit, a začněte s hotovým nebo vlastním seznamem.",
-  "landing.how.studyDaily.title": "Studujte každý den",
+    "Nejdřív si zvolíte jazyk, který znáte, a jazyk, který se chcete učit. Potom můžete začít z připraveného seznamu, nebo si vytvořit vlastní.",
+  "landing.how.studyDaily.title": "Krátké každodenní studium",
   "landing.how.studyDaily.body":
-    "Otáčejte kartičky, poslouchejte výslovnost, označujte, co znáte. Zbytek za vás naplánuje Get Word.",
-  "landing.how.remember.title": "Zapamatujte si natrvalo",
+    "Slova se učíte pomocí kartiček, výslovnosti a jednoduchého označování toho, co už znáte. Aplikace podle toho plánuje další opakování.",
+  "landing.how.remember.title": "Postupné zapamatování",
   "landing.how.remember.body":
-    "Slova se znovu objeví v ten správný okamžik a postupně přecházejí do vaší dlouhodobé paměti.",
+    "Slova se vracejí opakovaně, ale ne pořád stejně často. Čím lépe je znáte, tím víc se intervaly prodlužují a slovní zásoba se postupně přesouvá do dlouhodobé paměti.",
   "landing.openSource.title": "Open source",
   "landing.openSource.body":
     "Get Word je vytvořen jako open-source aplikace. Přečtěte si kód, nahlaste problém nebo přispějte - vše najdete na GitHubu.",
   "landing.openSource.cta": "Dejte hvězdu na GitHubu",
-  "landing.cta.title": "Připraveni začít si pamatovat?",
+  "landing.cta.title": "Začít se dá během pár minut",
   "landing.cta.body":
-    "Vyberte jazykovou dvojici a naučte se první slova během několika minut. Bez obchodu s aplikacemi.",
+    "Stačí vybrat jazykovou kombinaci a otevřít první seznam. Můžete použít připravený obsah, nebo si vytvořit vlastní.",
   "landing.cta.button": "Začít se učit",
   "landing.footer.github": "GitHub",
   "landing.footer.contact": "Kontakt",

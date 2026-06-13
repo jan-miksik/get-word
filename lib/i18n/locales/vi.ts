@@ -46,40 +46,40 @@ export const viMessages: I18nMessages = {
   "landing.features.title": "Học ít ngẫu nhiên hơn, ôn tập khi thật sự cần",
   "landing.features.spacedRepetition.title": "Lặp lại ngắt quãng",
   "landing.features.spacedRepetition.body":
-    "Từ vựng quay lại ngay trước khi bạn sắp quên, nên thời gian ôn tập rơi đúng vào lúc quan trọng nhất.",
+    "Từ vựng quay lại vào lúc bạn nên ôn lại chúng. Nhờ vậy bạn không cần ôn một cách ngẫu nhiên hay quá thường xuyên.",
   "landing.features.ownLists.title": "Danh sách của riêng bạn",
   "landing.features.ownLists.body":
-    "Tạo danh sách cho mọi cặp ngôn ngữ. Bản dịch và câu ví dụ được tạo sẵn cho bạn, sẵn sàng để học chỉ trong vài phút.",
-  "landing.features.audio.title": "Âm thanh phát âm",
+    "Tạo danh sách riêng cho cặp ngôn ngữ bạn đang cần. Get Word giúp chuẩn bị bản dịch và âm thanh phát âm để bạn có thể dùng danh sách ngay.",
+  "landing.features.audio.title": "Phát âm",
   "landing.features.audio.body":
-    "Nghe từng từ và cụm từ với âm thanh phát âm rõ ràng. Học cách ngôn ngữ thật sự vang lên.",
-  "landing.features.memoryGames.title": "Mẹo ghi nhớ & trò chơi",
+    "Bạn có thể nghe phát âm cho từng từ và cụm từ. Điều này giúp bạn cảm nhận không chỉ nghĩa, mà cả cách ngôn ngữ thật sự vang lên.",
+  "landing.features.memoryGames.title": "Gợi ý ghi nhớ và bài tập ngắn",
   "landing.features.memoryGames.body":
-    "Khắc sâu từ vựng bằng mẹo ghi nhớ cá nhân và các trò chơi nhỏ nhanh gọn đan xen ngay trong dòng học của bạn.",
-  "landing.features.sync.title": "Đồng bộ mọi nơi",
+    "Từ dễ nhớ hơn khi được gắn với hình ảnh, liên tưởng hoặc một trò chơi đơn giản. Bạn có thể thêm mẹo ghi nhớ và gặp các bài tập nhỏ trong lúc ôn.",
+  "landing.features.sync.title": "Đồng bộ giữa các thiết bị",
   "landing.features.sync.body":
-    "Đăng nhập một lần. Danh sách, tiến độ và tùy chọn của bạn theo bạn trên điện thoại, máy tính bảng và máy tính.",
-  "landing.features.install.title": "Cài như một ứng dụng",
+    "Sau khi đăng nhập, danh sách, tiến độ và cài đặt của bạn vẫn có trên điện thoại, máy tính bảng và máy tính.",
+  "landing.features.install.title": "Dùng như một ứng dụng",
   "landing.features.install.body":
-    "Thêm Get Word vào màn hình chính và học toàn màn hình, thân thiện ngoại tuyến - không cần kho ứng dụng.",
+    "Thêm Get Word vào màn hình chính và dùng gần giống một ứng dụng thông thường. Không cần cài qua app store.",
   "landing.how.kicker": "Cách hoạt động",
   "landing.how.title": "Ba bước đến những từ đầu tiên của bạn",
-  "landing.how.pickPair.title": "Chọn cặp ngôn ngữ",
+  "landing.how.pickPair.title": "Chọn ngôn ngữ",
   "landing.how.pickPair.body":
-    "Chọn ngôn ngữ bạn nói và ngôn ngữ bạn muốn học, rồi bắt đầu từ danh sách có sẵn hoặc của riêng bạn.",
-  "landing.how.studyDaily.title": "Học mỗi ngày",
+    "Trước hết, chọn ngôn ngữ bạn biết và ngôn ngữ bạn muốn học. Sau đó bắt đầu từ danh sách có sẵn hoặc tạo danh sách riêng.",
+  "landing.how.studyDaily.title": "Học ngắn mỗi ngày",
   "landing.how.studyDaily.body":
-    "Lật thẻ, nghe phát âm, đánh dấu những gì bạn đã biết. Get Word sắp xếp phần còn lại cho bạn.",
-  "landing.how.remember.title": "Ghi nhớ lâu dài",
+    "Bạn học bằng thẻ, phát âm và cách đánh dấu đơn giản những gì mình đã biết. Ứng dụng dựa vào đó để lên lịch ôn tiếp theo.",
+  "landing.how.remember.title": "Ghi nhớ dần dần",
   "landing.how.remember.body":
-    "Từ vựng xuất hiện lại đúng thời điểm, dần dần đi vào trí nhớ dài hạn của bạn.",
+    "Từ vựng quay lại nhiều lần, nhưng không phải lúc nào cũng với cùng tần suất. Càng nhớ tốt, khoảng cách ôn càng dài hơn và vốn từ dần đi vào trí nhớ dài hạn.",
   "landing.openSource.title": "Mã nguồn mở",
   "landing.openSource.body":
     "Get Word được xây dựng như một ứng dụng mã nguồn mở. Đọc mã, báo lỗi hoặc đóng góp - tất cả đều có trên GitHub.",
   "landing.openSource.cta": "Gắn sao trên GitHub",
-  "landing.cta.title": "Sẵn sàng để bắt đầu ghi nhớ?",
+  "landing.cta.title": "Bạn có thể bắt đầu trong vài phút",
   "landing.cta.body":
-    "Chọn một cặp ngôn ngữ và học những từ đầu tiên chỉ trong vài phút. Không cần kho ứng dụng.",
+    "Chỉ cần chọn cặp ngôn ngữ và mở danh sách đầu tiên. Bạn có thể dùng nội dung có sẵn hoặc tự tạo danh sách riêng.",
   "landing.cta.button": "Bắt đầu học",
   "landing.footer.github": "GitHub",
   "landing.footer.contact": "Liên hệ",

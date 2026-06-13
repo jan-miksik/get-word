@@ -44,40 +44,40 @@ export const enMessages = {
   "landing.features.title": "Study less randomly, review when it matters",
   "landing.features.spacedRepetition.title": "Spaced repetition",
   "landing.features.spacedRepetition.body":
-    "Words come back right before you would forget them, so review time lands where it actually counts.",
+    "Words come back when they are worth seeing again. That means less random drilling and fewer unnecessary reviews.",
   "landing.features.ownLists.title": "Your own lists",
   "landing.features.ownLists.body":
-    "Build lists for any language pair. Translations and example phrases are generated for you, ready to study in minutes.",
-  "landing.features.audio.title": "Pronunciation audio",
+    "Create a list for the language pair you need right now. Get Word helps prepare translations and pronunciation audio so the list is ready to use.",
+  "landing.features.audio.title": "Pronunciation",
   "landing.features.audio.body":
-    "Hear every word and phrase with clear pronunciation audio. Learn how the language actually sounds.",
-  "landing.features.memoryGames.title": "Memory hooks & games",
+    "Play audio for words and phrases whenever you need it. It helps you learn not only what a word means, but how the language actually sounds.",
+  "landing.features.memoryGames.title": "Memory aids and short exercises",
   "landing.features.memoryGames.body":
-    "Lock vocabulary in with personal memory hooks and quick minigames woven right into your study stream.",
-  "landing.features.sync.title": "Syncs everywhere",
+    "Words stick better when they connect to an image, association, or simple game. Add mnemonics to words and meet small exercises during review.",
+  "landing.features.sync.title": "Sync across devices",
   "landing.features.sync.body":
-    "Sign in once. Your lists, progress, and preferences follow you across phone, tablet, and desktop.",
-  "landing.features.install.title": "Install as an app",
+    "After you sign in, your lists, progress, and settings stay available on phone, tablet, and computer.",
+  "landing.features.install.title": "Use it like an app",
   "landing.features.install.body":
-    "Add Get Word to your home screen and study full-screen, offline-friendly - no app store required.",
+    "Add Get Word to your home screen and use it much like a regular app. No app store installation required.",
   "landing.how.kicker": "How it works",
   "landing.how.title": "Three steps to your first words",
-  "landing.how.pickPair.title": "Pick your pair",
+  "landing.how.pickPair.title": "Choose your languages",
   "landing.how.pickPair.body":
-    "Choose what you speak and what you want to learn, then start from a ready-made list or your own.",
-  "landing.how.studyDaily.title": "Study daily",
+    "First choose the language you know and the language you want to learn. Then start from a prepared list or create your own.",
+  "landing.how.studyDaily.title": "Short daily study",
   "landing.how.studyDaily.body":
-    "Flip cards, hear pronunciations, mark what you know. Get Word schedules the rest for you.",
-  "landing.how.remember.title": "Remember for good",
+    "Study with cards, pronunciation, and simple marks for what you already know. Get Word uses that to plan the next reviews.",
+  "landing.how.remember.title": "Gradual remembering",
   "landing.how.remember.body":
-    "Words resurface at just the right moment, moving steadily into your long-term memory.",
+    "Words return again and again, but not always at the same pace. As you know them better, the intervals grow and vocabulary moves into long-term memory.",
   "landing.openSource.title": "Open source",
   "landing.openSource.body":
     "Get Word is built as open-source app. Read the code, file an issue, or contribute - it's all on GitHub.",
   "landing.openSource.cta": "Star on GitHub",
-  "landing.cta.title": "Ready to start remembering?",
+  "landing.cta.title": "You can start in a few minutes",
   "landing.cta.body":
-    "Pick a language pair and study your first words in minutes. No app store required.",
+    "Choose a language pair and open your first list. Use prepared content or make something of your own.",
   "landing.cta.button": "Start learning",
   "landing.footer.github": "GitHub",
   "landing.footer.contact": "Contact",
