@@ -91,8 +91,9 @@ export function useGoogleTtsVoiceSelection(activeLanguageCode: string) {
   }, [updateSelection]);
 
   const enableMix = useCallback(() => {
-    updateSelection({ mode: 'mix', voiceIds: [] });
-  }, [updateSelection]);
+    // Start with every voice selected; users narrow down from there.
+    updateSelection({ mode: 'mix', voiceIds: [...voiceOptions] });
+  }, [updateSelection, voiceOptions]);
 
   const toggleMixVoice = useCallback((voiceId: string) => {
     const current = selection.mode === 'mix' ? selection.voiceIds : [];
@@ -101,6 +102,14 @@ export function useGoogleTtsVoiceSelection(activeLanguageCode: string) {
       : [...current, voiceId];
     updateSelection({ mode: 'mix', voiceIds: next });
   }, [selection, updateSelection]);
+
+  const selectAllMixVoices = useCallback(() => {
+    updateSelection({ mode: 'mix', voiceIds: [...voiceOptions] });
+  }, [updateSelection, voiceOptions]);
+
+  const clearMixVoices = useCallback(() => {
+    updateSelection({ mode: 'mix', voiceIds: [] });
+  }, [updateSelection]);
 
   const selectionKey = useMemo(() => serializeVoiceSelection(selection), [selection]);
 
@@ -118,6 +127,8 @@ export function useGoogleTtsVoiceSelection(activeLanguageCode: string) {
     setSingleVoice,
     enableMix,
     toggleMixVoice,
+    selectAllMixVoices,
+    clearMixVoices,
     resolveVoice,
   };
 }
