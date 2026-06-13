@@ -464,18 +464,13 @@ export const viMessages: I18nMessages = {
   "lists.openRouterModel": "Mô hình OpenRouter",
   "lists.browseModels": "Duyệt mô hình",
   "lists.customModelName": "Tên mô hình tùy chỉnh",
-  "lists.translationSourceSide": "Phía nguồn",
-  "lists.sourceSideKnown": "NGUỒN: {language}",
-  "lists.sourceSideTarget": "NGUỒN: {language}",
-  "lists.clearTargetTexts": "Xóa văn bản đích",
-  "lists.clearTargetTextsTitle": "Xóa văn bản ngôn ngữ đích?",
-  "lists.clearTargetTextsMessage":
-    "Thao tác này sẽ xóa văn bản đích khỏi {count} dòng và đánh dấu chúng để dịch lại. Văn bản nguồn không thay đổi.",
-  "lists.clearTargetTextsConfirm": "Xóa văn bản đích",
-  "lists.translationSourceHintKnown":
-    "Bạn đã nhập văn bản bằng {source}. Các dòng mới ở đây sẽ được hoàn thiện với phần {target}.",
-  "lists.translationSourceHintTarget":
-    "Bạn đã nhập văn bản bằng {source}. Các dòng mới ở đây sẽ được hoàn thiện với phần {target}, nên việc thêm dòng bằng ngôn ngữ nước ngoài có thể tạo ra mục mới ở phía ngôn ngữ đã biết.",
+  "lists.generateTranslationFor": "Tạo bản dịch cho:",
+  "lists.generateTranslationNote": "Dịch tự động sẽ điền cột {to} từ văn bản {from} của bạn.",
+  "lists.clearColumn": "Xóa văn bản {language}",
+  "lists.clearColumnTitle": "Xóa văn bản {language}?",
+  "lists.clearColumnMessage":
+    "Thao tác này sẽ xóa văn bản {language} khỏi {count} dòng và đánh dấu chúng để dịch lại. Cột còn lại không thay đổi.",
+  "lists.clearColumnConfirm": "Xóa văn bản",
   "lists.sourceColumn": "{language} (nguồn)",
   "lists.translationColumn": "{language} (bản dịch)",
   "lists.sourceTextAria": "{language}: văn bản nguồn",

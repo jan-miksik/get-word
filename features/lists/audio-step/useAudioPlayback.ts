@@ -96,6 +96,19 @@ function getLoadErrorMessage(error: unknown, fallbackUrl: string | null, t: Tran
   return error instanceof Error ? error.message : t('lists.audioFileLoadFailed');
 }
 
+function isAppAudioProxyUrl(url: string): boolean {
+  if (url.startsWith('/api/audio/')) return true;
+  try {
+    const parsed = new URL(
+      url,
+      typeof window === 'undefined' ? 'http://localhost' : window.location.origin,
+    );
+    return parsed.pathname.startsWith('/api/audio/');
+  } catch {
+    return false;
+  }
+}
+
 export type UseAudioPlaybackDeps = {
   rows: AudioRow[];
   t: TranslateFn;
@@ -123,13 +136,15 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
       const cached = audioCacheRef.current.get(source.audioUrl);
       if (cached) return cached.objectUrl;
 
-      const candidateUrls = Array.from(
-        new Set([
-          source.audioUrl,
-          ...source.arweaveUrls,
-          ...(source.arweaveUrl ? [source.arweaveUrl] : []),
-        ]),
-      );
+      const candidateUrls = isAppAudioProxyUrl(source.audioUrl)
+        ? [source.audioUrl]
+        : Array.from(
+            new Set([
+              source.audioUrl,
+              ...source.arweaveUrls,
+              ...(source.arweaveUrl ? [source.arweaveUrl] : []),
+            ]),
+          );
 
       let blob: Blob | null = null;
       let responseDetails: {
@@ -282,8 +297,10 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
     let playbackUrl = next.source.audioUrl;
     try {
       playbackUrl = await preloadAudio(row.id, next.source);
-    } catch {
-      // Fall back to the direct media URL if preloading fails.
+    } catch (err) {
+      markPlaybackFailed(row, next.source, err);
+      void playNext();
+      return;
     }
 
     const audio = new Audio(playbackUrl);
@@ -323,8 +340,9 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
       let playbackUrl = source.audioUrl;
       try {
         playbackUrl = await preloadAudio(row.id, source);
-      } catch {
-        // Fall back to the direct media URL if preloading fails.
+      } catch (err) {
+        markPlaybackFailed(row, source, err);
+        return;
       }
 
       const audio = new Audio(playbackUrl);

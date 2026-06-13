@@ -462,18 +462,13 @@ export const enMessages = {
   "lists.openRouterModel": "OpenRouter model",
   "lists.browseModels": "Browse models",
   "lists.customModelName": "Custom model name",
-  "lists.translationSourceSide": "Source side",
-  "lists.sourceSideKnown": "SOURCE: {language}",
-  "lists.sourceSideTarget": "SOURCE: {language}",
-  "lists.clearTargetTexts": "Clear target texts",
-  "lists.clearTargetTextsTitle": "Clear target language texts?",
-  "lists.clearTargetTextsMessage":
-    "This will remove target text from {count} rows and mark them for translation again. Source text stays unchanged.",
-  "lists.clearTargetTextsConfirm": "Clear target texts",
-  "lists.translationSourceHintKnown":
-    "You entered text in {source}. New rows here will be completed with the {target} side.",
-  "lists.translationSourceHintTarget":
-    "You entered text in {source}. New rows here will be completed with the {target} side, so adding rows in the foreign language can create new items on the known side.",
+  "lists.generateTranslationFor": "Generate translation for:",
+  "lists.generateTranslationNote": "Auto-translate fills the {to} column from your {from} text.",
+  "lists.clearColumn": "Clear {language} texts",
+  "lists.clearColumnTitle": "Clear {language} texts?",
+  "lists.clearColumnMessage":
+    "This will remove {language} text from {count} rows and mark them for translation again. The other column stays unchanged.",
+  "lists.clearColumnConfirm": "Clear texts",
   "lists.sourceColumn": "{language} (source)",
   "lists.translationColumn": "{language} (translation)",
   "lists.sourceTextAria": "{language}: source text",

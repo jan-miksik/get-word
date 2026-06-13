@@ -11,7 +11,7 @@ type RouteContext = { params: Promise<{ id: string }> };
 type TranslationEntry = {
   id: string;
   text_target?: string | null;
-  text_known?: string;
+  text_known?: string | null;
   status: "translated" | "manual";
 };
 
@@ -63,8 +63,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
         if (Object.prototype.hasOwnProperty.call(t, "text_target")) {
           update.textTarget = t.text_target ?? null;
         }
-        if (Object.prototype.hasOwnProperty.call(t, "text_known") && t.text_known) {
-          update.textKnown = t.text_known;
+        if (Object.prototype.hasOwnProperty.call(t, "text_known")) {
+          // `text_known` is NOT NULL in the schema; an explicit null is an
+          // intentional clear, stored as an empty string for regeneration.
+          if (t.text_known === null) {
+            update.textKnown = "";
+          } else if (t.text_known) {
+            update.textKnown = t.text_known;
+          }
         }
         return update;
       }),

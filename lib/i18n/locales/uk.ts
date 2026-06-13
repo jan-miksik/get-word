@@ -464,18 +464,13 @@ export const ukMessages: I18nMessages = {
   "lists.openRouterModel": "Модель OpenRouter",
   "lists.browseModels": "Переглянути моделі",
   "lists.customModelName": "Власна назва моделі",
-  "lists.translationSourceSide": "Сторона джерела",
-  "lists.sourceSideKnown": "ДЖЕРЕЛО: {language}",
-  "lists.sourceSideTarget": "ДЖЕРЕЛО: {language}",
-  "lists.clearTargetTexts": "Очистити цільові тексти",
-  "lists.clearTargetTextsTitle": "Очистити тексти цільової мови?",
-  "lists.clearTargetTextsMessage":
-    "Це видалить цільовий текст із {count} рядків і позначить їх для повторного перекладу. Вихідний текст залишиться без змін.",
-  "lists.clearTargetTextsConfirm": "Очистити цільові тексти",
-  "lists.translationSourceHintKnown":
-    "Ви ввели текст мовою {source}. Нові рядки тут буде доповнено стороною {target}.",
-  "lists.translationSourceHintTarget":
-    "Ви ввели текст мовою {source}. Нові рядки тут буде доповнено стороною {target}, тож додавання рядків іноземною мовою може створити нові елементи на відомій стороні.",
+  "lists.generateTranslationFor": "Згенерувати переклад для:",
+  "lists.generateTranslationNote": "Автопереклад заповнить стовпець {to} з вашого тексту мовою {from}.",
+  "lists.clearColumn": "Очистити тексти мовою {language}",
+  "lists.clearColumnTitle": "Очистити тексти мовою {language}?",
+  "lists.clearColumnMessage":
+    "Це видалить текст мовою {language} із {count} рядків і позначить їх для повторного перекладу. Інший стовпець залишиться без змін.",
+  "lists.clearColumnConfirm": "Очистити тексти",
   "lists.sourceColumn": "{language} (джерело)",
   "lists.translationColumn": "{language} (переклад)",
   "lists.sourceTextAria": "{language}: вихідний текст",

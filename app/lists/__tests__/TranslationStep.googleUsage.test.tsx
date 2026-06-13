@@ -1,5 +1,5 @@
 import React from 'react';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { I18nProvider } from '@/components/I18nProvider';
 import { TranslationStep } from '../TranslationStep';
@@ -189,12 +189,14 @@ describe('TranslationStep Google usage gating', () => {
       </I18nProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /clear target texts/i }));
+    fireEvent.click(screen.getByRole('button', { name: /clear vietnamese texts/i }));
 
     expect(screen.getByText(/mark them for translation again/i)).toBeInTheDocument();
 
-    const buttons = screen.getAllByRole('button', { name: /clear target texts/i });
-    fireEvent.click(buttons[buttons.length - 1]);
+    const modal = screen
+      .getByRole('heading', { name: /clear vietnamese texts/i })
+      .closest('div') as HTMLElement;
+    fireEvent.click(within(modal).getByRole('button', { name: /clear texts/i }));
 
     await waitFor(() => {
       expect(global.fetch).toHaveBeenCalledWith(
@@ -206,7 +208,6 @@ describe('TranslationStep Google usage gating', () => {
               {
                 id: 'item-1',
                 text_target: null,
-                text_known: 'hello',
                 status: 'manual',
               },
             ],
@@ -215,7 +216,67 @@ describe('TranslationStep Google usage gating', () => {
       );
     });
 
-    expect(screen.getByLabelText(/target language: translation/i)).toHaveValue('');
+    expect(screen.getByLabelText(/vietnamese: translation/i)).toHaveValue('');
     expect(onInputLanguageChange).toHaveBeenCalledWith('known');
+  });
+
+  it('clears the known column and points generation at it', async () => {
+    const onInputLanguageChange = vi.fn();
+    render(
+      <I18nProvider language="en">
+        <TranslationStep
+          list={{
+            id: 'list-1',
+            ownerId: 'user-1',
+            name: 'My list',
+            description: null,
+            languageFrom: 'cz',
+            languageTo: 'vi',
+            isPublic: false,
+          }}
+          pendingItems={[
+            {
+              id: 'item-1',
+              text_known: 'hello',
+              text_target: 'xin chào',
+              position: 0,
+            },
+          ]}
+          inputLanguage="known"
+          googleUsage={null}
+          onInputLanguageChange={onInputLanguageChange}
+          onComplete={vi.fn(async () => {})}
+          onSkip={vi.fn(async () => {})}
+        />
+      </I18nProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /clear czech texts/i }));
+
+    const modal = screen
+      .getByRole('heading', { name: /clear czech texts/i })
+      .closest('div') as HTMLElement;
+    fireEvent.click(within(modal).getByRole('button', { name: /clear texts/i }));
+
+    await waitFor(() => {
+      expect(global.fetch).toHaveBeenCalledWith(
+        '/api/lists/list-1/items/translations',
+        expect.objectContaining({
+          method: 'POST',
+          body: JSON.stringify({
+            translations: [
+              {
+                id: 'item-1',
+                text_known: null,
+                status: 'manual',
+              },
+            ],
+          }),
+        }),
+      );
+    });
+
+    expect(screen.getByLabelText(/czech: source text/i)).toHaveValue('');
+    expect(onInputLanguageChange).toHaveBeenCalledWith('target');
   });
 });

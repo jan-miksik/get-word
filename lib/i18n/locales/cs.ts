@@ -464,18 +464,13 @@ export const csMessages: I18nMessages = {
   "lists.openRouterModel": "Model OpenRouteru",
   "lists.browseModels": "Procházet modely",
   "lists.customModelName": "Vlastní název modelu",
-  "lists.translationSourceSide": "Zdrojová strana",
-  "lists.sourceSideKnown": "ZDROJ: {language}",
-  "lists.sourceSideTarget": "ZDROJ: {language}",
-  "lists.clearTargetTexts": "Vymazat cílové texty",
-  "lists.clearTargetTextsTitle": "Vymazat texty cílového jazyka?",
-  "lists.clearTargetTextsMessage":
-    "Tím odstraníte cílový text u {count} řádků a označíte je k opětovnému překladu. Zdrojový text zůstane beze změny.",
-  "lists.clearTargetTextsConfirm": "Vymazat cílové texty",
-  "lists.translationSourceHintKnown":
-    "Zadali jste text v jazyce {source}. Nové řádky tady proto dostanou doplněnou stranu {target}.",
-  "lists.translationSourceHintTarget":
-    "Zadali jste text v jazyce {source}. Nové řádky tady proto dostanou doplněnou stranu {target}, takže při přidání řádků v cizím jazyce mohou vzniknout nové položky na známé straně.",
+  "lists.generateTranslationFor": "Vygenerovat překlad do:",
+  "lists.generateTranslationNote": "Automatický překlad doplní sloupec {to} z vašeho textu v jazyce {from}.",
+  "lists.clearColumn": "Vymazat texty v jazyce {language}",
+  "lists.clearColumnTitle": "Vymazat texty v jazyce {language}?",
+  "lists.clearColumnMessage":
+    "Tím odstraníte text v jazyce {language} u {count} řádků a označíte je k opětovnému překladu. Druhý sloupec zůstane beze změny.",
+  "lists.clearColumnConfirm": "Vymazat texty",
   "lists.sourceColumn": "{language} (zdroj)",
   "lists.translationColumn": "{language} (překlad)",
   "lists.sourceTextAria": "{language}: zdrojový text",

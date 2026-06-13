@@ -1,6 +1,7 @@
 import { type Dispatch, type SetStateAction, useCallback, useState } from 'react';
 import { listsApiFetch } from '@/features/lists/api';
 import {
+  chunkArray,
   getErrorFromPayload,
   readDebugResponse,
   type AudioGenerationResult,
@@ -9,6 +10,7 @@ import {
 import type { AudioRow, AudioSide, AudioSourceCandidate } from './rows';
 
 const AUDIO_LOG_PREFIX = '[Get Word audio]';
+const AUDIO_GENERATE_BATCH_SIZE = 200;
 
 type UseAudioGenerationWorkflowOptions = {
   rows: AudioRow[];
@@ -73,77 +75,86 @@ export function useAudioGenerationWorkflow({
     );
 
     try {
-      const res = await listsApiFetch('/api/audio/generate/batch', {
-        method: 'POST',
-        body: JSON.stringify({
-          items: targetRows.map((row) => ({
-            id: row.id,
-            text: row.audioText,
-            language: row.language,
-          })),
-          provider: 'google_tts',
-          ...(googleVoiceIdForRequest ? { voice_id: googleVoiceIdForRequest } : {}),
-          audio_field: audioSide,
-          force,
-        }),
-      });
+      const batches = chunkArray(targetRows, AUDIO_GENERATE_BATCH_SIZE);
+      const allResults: AudioGenerationResult[] = [];
+      let completed = 0;
 
-      const payload = await readDebugResponse(res);
-      if (!res.ok) {
-        throw new Error(getErrorFromPayload(payload, t));
+      for (const batchRows of batches) {
+        const res = await listsApiFetch('/api/audio/generate/batch', {
+          method: 'POST',
+          body: JSON.stringify({
+            items: batchRows.map((row) => ({
+              id: row.id,
+              text: row.audioText,
+              language: row.language,
+            })),
+            provider: 'google_tts',
+            ...(googleVoiceIdForRequest ? { voice_id: googleVoiceIdForRequest } : {}),
+            audio_field: audioSide,
+            force,
+          }),
+        });
+
+        const payload = await readDebugResponse(res);
+        if (!res.ok) {
+          throw new Error(getErrorFromPayload(payload, t));
+        }
+        if (!payload.json || typeof payload.json !== 'object') {
+          throw new Error(t('lists.audioGenerateInvalidResponse'));
+        }
+
+        const data = payload.json as {
+          results?: unknown;
+          quota_warning?: unknown;
+        };
+        const results = (Array.isArray(data.results) ? data.results : []) as AudioGenerationResult[];
+        allResults.push(...results);
+
+        const resultMap = new Map<string, AudioGenerationResult>();
+        for (const result of results) resultMap.set(result.id, result);
+
+        setRows((prev) =>
+          prev.map((row) => {
+            const result = resultMap.get(row.id);
+            if (!result) return row;
+
+            return {
+              ...row,
+              audioAssetId: row.audioAssetId,
+              audioUrl: result.audio_url ?? row.audioUrl,
+              arweaveUrl: result.arweave_url ?? row.arweaveUrl ?? null,
+              arweaveUrls: result.arweave_urls ?? row.arweaveUrls,
+              storageRef: result.storage_ref ?? row.storageRef ?? null,
+              audioStatus: result.status === 'ok' ? 'ready' : 'failed',
+              source: result.source === 'dedup' || result.source === 'generated'
+                ? result.source
+                : undefined,
+            };
+          }),
+        );
+
+        for (const result of results) {
+          if (result.status !== 'ok' || !result.audio_url) continue;
+          void preloadAudio(result.id, {
+            kind: 'linked',
+            audioUrl: result.audio_url,
+            arweaveUrl: result.arweave_url ?? null,
+            arweaveUrls: result.arweave_urls ?? [],
+            storageRef: result.storage_ref ?? null,
+          }).catch(() => {});
+        }
+
+        completed += batchRows.length;
+        setProgress(Math.round((completed / targetRows.length) * 100));
       }
-      if (!payload.json || typeof payload.json !== 'object') {
-        throw new Error(t('lists.audioGenerateInvalidResponse'));
-      }
 
-      const data = payload.json as {
-        results?: unknown;
-        quota_warning?: unknown;
-      };
-      const results = (Array.isArray(data.results) ? data.results : []) as AudioGenerationResult[];
-      const resultMap = new Map<string, AudioGenerationResult>();
-      for (const result of results) resultMap.set(result.id, result);
-
-      setRows((prev) =>
-        prev.map((row) => {
-          const result = resultMap.get(row.id);
-          if (!result) return row;
-
-          return {
-            ...row,
-            audioAssetId: row.audioAssetId,
-            audioUrl: result.audio_url ?? row.audioUrl,
-            arweaveUrl: result.arweave_url ?? row.arweaveUrl ?? null,
-            arweaveUrls: result.arweave_urls ?? row.arweaveUrls,
-            storageRef: result.storage_ref ?? row.storageRef ?? null,
-            audioStatus: result.status === 'ok' ? 'ready' : 'failed',
-            source: result.source === 'dedup' || result.source === 'generated'
-              ? result.source
-              : undefined,
-          };
-        }),
-      );
-
-      const attempted = results.filter((result) =>
+      const attempted = allResults.filter((result) =>
         targetRows.some((target) => target.id === result.id),
       );
       if (attempted.length > 0 && attempted.every((result) => result.status === 'error')) {
         setError(t('lists.audioGenerateFailed', {
           message: attempted[0]?.error ?? t('lists.audioGenerateGenericFailed'),
         }));
-      }
-
-      for (const result of attempted) {
-        if (result.status !== 'ok' || !result.audio_url) continue;
-        const sourceRow = targetRows.find((row) => row.id === result.id);
-        if (!sourceRow) continue;
-        void preloadAudio(result.id, {
-          kind: 'linked',
-          audioUrl: result.audio_url,
-          arweaveUrl: result.arweave_url ?? null,
-          arweaveUrls: result.arweave_urls ?? [],
-          storageRef: result.storage_ref ?? null,
-        }).catch(() => {});
       }
 
       setProgress(100);

@@ -121,7 +121,7 @@ export function TranslationStep({
   const [openRouterModel, setOpenRouterModel] = useState(
     () => readStoredOpenRouterModel() ?? DEFAULT_OPENROUTER_TRANSLATION_MODEL,
   );
-  const [clearTargetModalOpen, setClearTargetModalOpen] = useState(false);
+  const [clearColumn, setClearColumn] = useState<'known' | 'target' | null>(null);
 
   const needsTranslation = inputLanguage === 'known' ? 'textTarget' : 'textKnown';
   const hasSource = inputLanguage === 'known' ? 'textKnown' : 'textTarget';
@@ -134,8 +134,6 @@ export function TranslationStep({
   const googlePausedMessage = googleTranslateUsage?.limit_message
     ?? t('lists.googleLimitReached');
   const resolvedHeading = heading ?? t('lists.translateWords');
-  const sourceLabel = inputLanguage === 'known' ? t('lists.knownLanguage') : t('lists.targetLanguage');
-  const translationLabel = inputLanguage === 'known' ? t('lists.targetLanguage') : t('lists.knownLanguage');
   const formatLanguageLabel = useCallback((code: string) => {
     const normalized = code.toLowerCase();
     if (normalized === 'cs' || normalized === 'cz') return t('languageName.cs');
@@ -145,7 +143,13 @@ export function TranslationStep({
   }, [t]);
   const sourceLanguageCode = inputLanguage === 'known' ? list.languageFrom : list.languageTo;
   const targetLanguageCode = inputLanguage === 'known' ? list.languageTo : list.languageFrom;
+  const knownRowsWithTextCount = rows.filter((row) => row.textKnown.trim()).length;
   const targetRowsWithTextCount = rows.filter((row) => row.textTarget.trim()).length;
+  const clearColumnLanguageLabel =
+    clearColumn === 'known'
+      ? formatLanguageLabel(list.languageFrom)
+      : formatLanguageLabel(list.languageTo);
+  const clearColumnRowCount = clearColumn === 'known' ? knownRowsWithTextCount : targetRowsWithTextCount;
 
   const loadOpenRouterStatus = useCallback(async () => {
     setOpenRouterLoading(true);
@@ -367,18 +371,18 @@ export function TranslationStep({
     }
   }, [rows, needsTranslation, list.id, onComplete, t]);
 
-  const handleClearTargetTexts = useCallback(async () => {
+  const handleClearColumn = useCallback(async (column: 'known' | 'target') => {
+    const field = column === 'known' ? 'textKnown' : 'textTarget';
     setConfirming(true);
     setError(null);
     try {
       const translations = rows
-        .filter((row) => row.textTarget.trim())
-        .map((row) => ({
-          id: row.id,
-          text_target: null,
-          text_known: row.textKnown || undefined,
-          status: 'manual' as const,
-        }));
+        .filter((row) => row[field].trim())
+        .map((row) =>
+          column === 'target'
+            ? { id: row.id, text_target: null, status: 'manual' as const }
+            : { id: row.id, text_known: null, status: 'manual' as const },
+        );
 
       const res = await listsApiFetch(`/api/lists/${list.id}/items/translations`, {
         method: 'POST',
@@ -393,14 +397,15 @@ export function TranslationStep({
       setRows((prev) =>
         prev.map((row) => ({
           ...row,
-          textTarget: '',
+          [field]: '',
           status: 'pending' as const,
           error: undefined,
           source: undefined,
         })),
       );
-      setClearTargetModalOpen(false);
-      onInputLanguageChange?.('known');
+      setClearColumn(null);
+      // Point the generation direction at the column we just cleared.
+      onInputLanguageChange?.(column === 'target' ? 'known' : 'target');
       void onUsageRefresh?.();
     } catch (err) {
       setError(err instanceof Error ? err.message : t('lists.saveFailedShort'));
@@ -432,105 +437,73 @@ export function TranslationStep({
 
       {/* Provider selector + auto-translate */}
       <div className="mb-4 p-3 rounded-lg bg-background-elevated border border-border-subtle">
-        <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-text-soft">{t('lists.translationSourceSide')}</span>
-            <button
-              type="button"
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                inputLanguage === 'known'
-                  ? 'bg-accent text-background'
-                  : 'border border-border-subtle text-text-soft hover:text-text'
-              }`}
-              onClick={() => onInputLanguageChange?.('known')}
-              disabled={!onInputLanguageChange}
-            >
-              {t('lists.sourceSideKnown', { language: formatLanguageLabel(list.languageFrom) })}
-            </button>
-            <button
-              type="button"
-              className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                inputLanguage === 'target'
-                  ? 'bg-accent text-background'
-                  : 'border border-border-subtle text-text-soft hover:text-text'
-              }`}
-              onClick={() => onInputLanguageChange?.('target')}
-              disabled={!onInputLanguageChange}
-            >
-              {t('lists.sourceSideTarget', { language: formatLanguageLabel(list.languageTo) })}
-            </button>
-          </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <select
-              value={provider}
-              onChange={(e) => {
-                const next = e.target.value as TranslationProvider;
-                setProvider(next);
-                if (next === 'openrouter') {
-                  void loadOpenRouterStatus();
-                }
-              }}
-              className="px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs"
-            >
-              <option value="google">{t('lists.translationProviderGoogle')}</option>
-              <option value="openrouter">{t('lists.translationProviderOpenRouter')}</option>
-            </select>
-            <button
-              type="button"
-              disabled={
-                translating ||
-                pendingCount === 0 ||
-                (provider === 'openrouter' && openRouterState !== 'connected') ||
-                (provider === 'google' && isGooglePaused)
+        <div className="flex flex-wrap items-center gap-3">
+          <select
+            value={provider}
+            onChange={(e) => {
+              const next = e.target.value as TranslationProvider;
+              setProvider(next);
+              if (next === 'openrouter') {
+                void loadOpenRouterStatus();
               }
-              className="px-4 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
-              onClick={handleAutoTranslate}
-            >
-              {translating ? t('lists.generating') : t('lists.autoTranslateAction', { count: pendingCount })}
-            </button>
-            <button
-              type="button"
-              disabled={confirming || targetRowsWithTextCount === 0}
-              className="px-4 py-1.5 rounded-lg border border-danger/40 text-danger text-xs font-medium disabled:opacity-50 hover:bg-danger/10 transition-colors"
-              onClick={() => setClearTargetModalOpen(true)}
-            >
-              {t('lists.clearTargetTexts')}
-            </button>
-          </div>
+            }}
+            className="px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs"
+          >
+            <option value="google">{t('lists.translationProviderGoogle')}</option>
+            <option value="openrouter">{t('lists.translationProviderOpenRouter')}</option>
+          </select>
+          <button
+            type="button"
+            disabled={
+              translating ||
+              pendingCount === 0 ||
+              (provider === 'openrouter' && openRouterState !== 'connected') ||
+              (provider === 'google' && isGooglePaused)
+            }
+            className="px-4 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
+            onClick={handleAutoTranslate}
+          >
+            {translating ? t('lists.generating') : t('lists.autoTranslateAction', { count: pendingCount })}
+          </button>
         </div>
         {provider === 'google' && googleTranslateUsage && (
           <GoogleUsageHint scope={googleTranslateUsage} />
         )}
       </div>
 
-      {clearTargetModalOpen && (
+      {clearColumn && (
         <div
           className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setClearTargetModalOpen(false)}
+          onClick={() => setClearColumn(null)}
         >
           <div
             className="w-full max-w-sm rounded-lg border border-border-subtle bg-background p-6 shadow-xl"
             onClick={(event) => event.stopPropagation()}
           >
-            <h2 className="text-base font-semibold text-text">{t('lists.clearTargetTextsTitle')}</h2>
+            <h2 className="text-base font-semibold text-text">
+              {t('lists.clearColumnTitle', { language: clearColumnLanguageLabel })}
+            </h2>
             <p className="mt-2 text-sm text-text-soft">
-              {t('lists.clearTargetTextsMessage', { count: targetRowsWithTextCount })}
+              {t('lists.clearColumnMessage', {
+                language: clearColumnLanguageLabel,
+                count: clearColumnRowCount,
+              })}
             </p>
             <div className="mt-5 flex justify-end gap-2">
               <button
                 type="button"
                 className="rounded-lg border border-border-subtle px-4 py-2 text-sm font-medium text-text-soft hover:bg-background-elevated transition-colors"
-                onClick={() => setClearTargetModalOpen(false)}
+                onClick={() => setClearColumn(null)}
               >
                 {t('common.cancel')}
               </button>
               <button
                 type="button"
                 className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white hover:bg-danger/90 transition-colors disabled:opacity-60"
-                onClick={handleClearTargetTexts}
+                onClick={() => handleClearColumn(clearColumn)}
                 disabled={confirming}
               >
-                {confirming ? t('common.saving') : t('lists.clearTargetTextsConfirm')}
+                {confirming ? t('common.saving') : t('lists.clearColumnConfirm')}
               </button>
             </div>
           </div>
@@ -627,26 +600,81 @@ export function TranslationStep({
         <div className="mb-4 p-3 rounded-lg bg-danger/10 text-danger text-sm">{error}</div>
       )}
 
-      <div className="mb-4 rounded-lg border border-border-subtle bg-background-elevated p-3 text-xs text-text-soft">
-        {inputLanguage === 'target'
-          ? t('lists.translationSourceHintTarget', {
-              source: formatLanguageLabel(sourceLanguageCode),
-              target: formatLanguageLabel(targetLanguageCode),
-            })
-          : t('lists.translationSourceHintKnown', {
-              source: formatLanguageLabel(sourceLanguageCode),
-              target: formatLanguageLabel(targetLanguageCode),
-            })}
+      {/* Which column to generate (step-1 style segmented control) */}
+      <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-background-elevated border border-border-subtle p-3">
+        <span className="text-sm text-text-soft">{t('lists.generateTranslationFor')}</span>
+        <div className="flex rounded-lg border border-border-subtle overflow-hidden">
+          <button
+            type="button"
+            className={`px-3 py-1 text-xs font-medium transition-colors ${
+              inputLanguage === 'target'
+                ? 'bg-accent text-background'
+                : 'text-text-soft hover:text-text'
+            }`}
+            onClick={() => onInputLanguageChange?.('target')}
+            disabled={!onInputLanguageChange}
+          >
+            {formatLanguageLabel(list.languageFrom)}
+          </button>
+          <button
+            type="button"
+            className={`px-3 py-1 text-xs font-medium transition-colors ${
+              inputLanguage === 'known'
+                ? 'bg-accent text-background'
+                : 'text-text-soft hover:text-text'
+            }`}
+            onClick={() => onInputLanguageChange?.('known')}
+            disabled={!onInputLanguageChange}
+          >
+            {formatLanguageLabel(list.languageTo)}
+          </button>
+        </div>
       </div>
+      <p className="mb-2 text-xs text-text-soft">
+        {t('lists.generateTranslationNote', {
+          to: formatLanguageLabel(targetLanguageCode),
+          from: formatLanguageLabel(sourceLanguageCode),
+        })}
+      </p>
 
-      {/* Two-column table */}
+      {/* Two-column table: known language always left, target language always right */}
       <div className="rounded-lg border border-border-subtle overflow-hidden">
         <div className="grid grid-cols-2 gap-0 bg-background-elevated text-xs font-medium text-text-soft uppercase tracking-wide">
-          <div className="px-3 py-2 border-r border-border-subtle">
-            {t('lists.sourceColumn', { language: sourceLabel })}
+          <div className="flex items-center justify-between gap-2 px-3 py-2 border-r border-border-subtle">
+            <span>{formatLanguageLabel(list.languageFrom)}</span>
+            <button
+              type="button"
+              disabled={confirming || knownRowsWithTextCount === 0}
+              className="rounded p-1 text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
+              onClick={() => setClearColumn('known')}
+              title={t('lists.clearColumn', { language: formatLanguageLabel(list.languageFrom) })}
+              aria-label={t('lists.clearColumn', { language: formatLanguageLabel(list.languageFrom) })}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M3 6h18" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <line x1="10" y1="11" x2="10" y2="17" />
+                <line x1="14" y1="11" x2="14" y2="17" />
+              </svg>
+            </button>
           </div>
-          <div className="px-3 py-2">
-            {t('lists.translationColumn', { language: translationLabel })}
+          <div className="flex items-center justify-between gap-2 px-3 py-2">
+            <span>{formatLanguageLabel(list.languageTo)}</span>
+            <button
+              type="button"
+              disabled={confirming || targetRowsWithTextCount === 0}
+              className="rounded p-1 text-danger transition-colors hover:bg-danger/10 disabled:opacity-40"
+              onClick={() => setClearColumn('target')}
+              title={t('lists.clearColumn', { language: formatLanguageLabel(list.languageTo) })}
+              aria-label={t('lists.clearColumn', { language: formatLanguageLabel(list.languageTo) })}
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M3 6h18" />
+                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                <line x1="10" y1="11" x2="10" y2="17" />
+                <line x1="14" y1="11" x2="14" y2="17" />
+              </svg>
+            </button>
           </div>
         </div>
         <div className="divide-y divide-border-subtle max-h-[60vh] overflow-y-auto">
@@ -657,24 +685,33 @@ export function TranslationStep({
                 row.status === 'error' ? 'bg-danger/5' : ''
               }`}
             >
-              <div className="px-3 py-2 border-r border-border-subtle">
+              <div className="px-3 py-2 flex items-start gap-2 border-r border-border-subtle">
                 <TranslationTextarea
-                  value={row[hasSource]}
-                  onChange={(value) => handleCellEdit(row.id, hasSource, value)}
-                  ariaLabel={t('lists.sourceTextAria', { language: sourceLabel })}
+                  value={row.textKnown}
+                  onChange={(value) => handleCellEdit(row.id, 'textKnown', value)}
+                  placeholder={needsTranslation === 'textKnown' ? t('lists.enterTranslation') : undefined}
+                  ariaLabel={t('lists.sourceTextAria', { language: formatLanguageLabel(list.languageFrom) })}
                 />
+                {needsTranslation === 'textKnown' && row.status === 'error' && (
+                  <span className="mt-1 text-danger text-xs shrink-0" title={row.error}>!</span>
+                )}
+                {needsTranslation === 'textKnown' && row.source === 'dedup' && (
+                  <span className="mt-1 text-done text-xs shrink-0" title={t('lists.reusedFromExisting')}>
+                    {t('lists.audioStatusReused')}
+                  </span>
+                )}
               </div>
               <div className="px-3 py-2 flex items-start gap-2">
                 <TranslationTextarea
-                  value={row[needsTranslation]}
-                  onChange={(value) => handleCellEdit(row.id, needsTranslation, value)}
-                  placeholder={t('lists.enterTranslation')}
-                  ariaLabel={t('lists.translationTextAria', { language: translationLabel })}
+                  value={row.textTarget}
+                  onChange={(value) => handleCellEdit(row.id, 'textTarget', value)}
+                  placeholder={needsTranslation === 'textTarget' ? t('lists.enterTranslation') : undefined}
+                  ariaLabel={t('lists.translationTextAria', { language: formatLanguageLabel(list.languageTo) })}
                 />
-                {row.status === 'error' && (
+                {needsTranslation === 'textTarget' && row.status === 'error' && (
                   <span className="mt-1 text-danger text-xs shrink-0" title={row.error}>!</span>
                 )}
-                {row.source === 'dedup' && (
+                {needsTranslation === 'textTarget' && row.source === 'dedup' && (
                   <span className="mt-1 text-done text-xs shrink-0" title={t('lists.reusedFromExisting')}>
                     {t('lists.audioStatusReused')}
                   </span>
