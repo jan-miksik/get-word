@@ -46,7 +46,7 @@ describe('settings language helpers', () => {
     const ordered = orderSettingsLanguages(COMMON_LANGUAGES);
     const codes = ordered.map((language) => normalizeLanguageCode(language.code));
     expect(codes.length).toBe(new Set(codes).size);
-    expect(codes.slice(0, 3)).toEqual(['en', 'es', 'zh-CN']);
+    expect(codes.slice(0, 4)).toEqual(['cs', 'vi', 'en', 'uk']);
   });
 
   it('detects a default settings language from the browser', () => {

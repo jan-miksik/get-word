@@ -20,7 +20,7 @@ const FLAG_EMOJIS: Record<string, string> = {
   ru: '🇷🇺', ja: '🇯🇵', ko: '🇰🇷', 'zh-cn': '🇨🇳', ar: '🇸🇦',
 };
 
-const FEATURED_CODES = ['cs', 'vi', 'en'];
+const FEATURED_CODES = ['cs', 'vi', 'en', 'uk'];
 
 const SCATTER_MT_CLASSES = [
   'mt-0', 'mt-3', 'mt-1', 'mt-4', 'mt-2', 'mt-0', 'mt-3', 'mt-1',

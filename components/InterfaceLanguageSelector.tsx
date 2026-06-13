@@ -23,6 +23,7 @@ interface InterfaceLanguageSelectorProps {
   align?: 'left' | 'right';
   className?: string;
   compact?: boolean;
+  languages?: SupportedLanguage[];
 }
 
 const onboardingVars = {
@@ -39,11 +40,14 @@ export function InterfaceLanguageSelector({
   align = 'left',
   className = '',
   compact = false,
+  languages: providedLanguages,
 }: InterfaceLanguageSelectorProps) {
   const { t, language } = useI18n();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [languages, setLanguages] = useState<SupportedLanguage[]>(COMMON_LANGUAGES);
+  const [languages, setLanguages] = useState<SupportedLanguage[]>(
+    providedLanguages ?? COMMON_LANGUAGES,
+  );
   const [failed, setFailed] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -64,6 +68,11 @@ export function InterfaceLanguageSelector({
   }, [open]);
 
   useEffect(() => {
+    if (providedLanguages) {
+      setFailed(false);
+      setLanguages(providedLanguages);
+      return;
+    }
     if (!open) return;
     let cancelled = false;
     setFailed(false);
@@ -83,7 +92,7 @@ export function InterfaceLanguageSelector({
     return () => {
       cancelled = true;
     };
-  }, [open, language, query]);
+  }, [open, language, providedLanguages, query]);
 
   const normalizedValue = normalizeLanguageCode(value);
   const getDisplayName = useCallback(

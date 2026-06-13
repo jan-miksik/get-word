@@ -38,6 +38,53 @@ export const ukMessages: I18nMessages = {
   "legal.lastUpdated": "Останнє оновлення: {date}",
   "legal.seeAlsoPrivacy": "Дивіться також нашу {privacy}.",
   "legal.seeAlsoTerms": "Дивіться також наші {terms}.",
+  "landing.hero.title": "Слова, що залишаються",
+  "landing.hero.subtitle":
+    "Get Word допомагає запам'ятовувати слова та фрази за допомогою інтервального повторення, аудіовимови та готових або власних списків. Для будь-якої пари мов.",
+  "landing.hero.getStarted": "Почати",
+  "landing.features.kicker": "Що ви отримаєте",
+  "landing.features.title": "Менше хаотичного навчання - повторюйте тоді, коли це важливо",
+  "landing.features.spacedRepetition.title": "Інтервальне повторення",
+  "landing.features.spacedRepetition.body":
+    "Слова повертаються саме перед тим, як ви б їх забули, тож час на повторення витрачається там, де це справді має значення.",
+  "landing.features.ownLists.title": "Власні списки",
+  "landing.features.ownLists.body":
+    "Створюйте списки для будь-якої пари мов. Переклади та приклади фраз генеруються автоматично - готові до навчання за лічені хвилини.",
+  "landing.features.audio.title": "Аудіовимова",
+  "landing.features.audio.body":
+    "Слухайте кожне слово та фразу з чіткою аудіовимовою. Дізнайтеся, як мова звучить насправді.",
+  "landing.features.memoryGames.title": "Мнемонічні підказки та ігри",
+  "landing.features.memoryGames.body":
+    "Закріплюйте лексику персональними мнемонічними підказками та швидкими міні-іграми, вплетеними прямо у ваш потік навчання.",
+  "landing.features.sync.title": "Синхронізація всюди",
+  "landing.features.sync.body":
+    "Увійдіть один раз. Ваші списки, прогрес і налаштування йдуть за вами на телефоні, планшеті та комп'ютері.",
+  "landing.features.install.title": "Встановлюється як застосунок",
+  "landing.features.install.body":
+    "Додайте Get Word на головний екран і навчайтеся на весь екран, навіть офлайн - без жодного app store.",
+  "landing.how.kicker": "Як це працює",
+  "landing.how.title": "Три кроки до ваших перших слів",
+  "landing.how.pickPair.title": "Оберіть пару мов",
+  "landing.how.pickPair.body":
+    "Виберіть, якою мовою розмовляєте та яку хочете вивчати, а потім почніть із готового або власного списку.",
+  "landing.how.studyDaily.title": "Навчайтеся щодня",
+  "landing.how.studyDaily.body":
+    "Гортайте картки, слухайте вимову, позначайте те, що знаєте. Решту Get Word спланує за вас.",
+  "landing.how.remember.title": "Запам'ятайте назавжди",
+  "landing.how.remember.body":
+    "Слова з'являються знову саме в потрібний момент, поступово переходячи у вашу довготривалу пам'ять.",
+  "landing.openSource.title": "З відкритим кодом",
+  "landing.openSource.body":
+    "Get Word створено як застосунок з відкритим кодом. Читайте код, повідомляйте про проблеми або робіть внесок - усе це на GitHub.",
+  "landing.openSource.cta": "Зірка на GitHub",
+  "landing.cta.title": "Готові почати запам'ятовувати?",
+  "landing.cta.body":
+    "Оберіть пару мов і вивчіть перші слова за лічені хвилини. Без app store.",
+  "landing.cta.button": "Почати навчання",
+  "landing.footer.github": "GitHub",
+  "landing.footer.contact": "Контакти",
+  "landing.footer.privacy": "Конфіденційність",
+  "landing.footer.terms": "Умови",
   "terms.title": "Умови надання послуг",
   "terms.intro":
     "Ці Умови надання послуг регулюють використання вами розміщеного застосунку Get Word. Отримуючи доступ до застосунку або використовуючи його, ви погоджуєтеся з цими Умовами. Якщо ви не погоджуєтеся, будь ласка, не використовуйте застосунок. Використання відкритого коду регулюється ліцензією, що міститься в репозиторії проєкту, а не цими Умовами.",
@@ -135,6 +182,7 @@ export const ukMessages: I18nMessages = {
   "language.changeLater": "Це можна змінити пізніше в Налаштуваннях.",
   "language.continueWith": "Продовжити з {name}",
   "language.loading": "Завантаження мов...",
+  "language.loadingInterface": "Завантаження мови...",
   "language.onboardingIntro":
     "Виберіть мову, яку Get Word має використовувати для меню, налаштувань, кнопок і повідомлень.",
   "language.onboardingTitle": "Виберіть мову застосунку",

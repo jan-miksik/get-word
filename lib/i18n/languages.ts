@@ -32,8 +32,13 @@ export const COMMON_LANGUAGES: SupportedLanguage[] = [
 ];
 
 const MOST_USED_SETTINGS_LANGUAGE_CODES = [
+  "cs",
+  "vi",
   "en",
-  ...TOP_PREGENERATED_UI_LANGUAGE_CODES,
+  "uk",
+  ...TOP_PREGENERATED_UI_LANGUAGE_CODES.filter(
+    (code) => !["cs", "vi", "en", "uk"].includes(normalizeLanguageCode(code)),
+  ),
 ] as const;
 
 // Google Cloud Translation NMT supported languages, mirrored from:

@@ -4,6 +4,9 @@ import { LocalizedLegalPage } from '@/app/legal/LocalizedLegalPage';
 export const metadata: Metadata = {
   title: 'Privacy Policy — Get Word',
   description: 'How Get Word collects, uses, and protects your data.',
+  alternates: {
+    canonical: '/privacy',
+  },
 };
 
 export default function PrivacyPolicyPage() {

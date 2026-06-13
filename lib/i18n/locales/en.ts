@@ -36,6 +36,53 @@ export const enMessages = {
   "legal.lastUpdated": "Last updated: {date}",
   "legal.seeAlsoPrivacy": "See also our {privacy}.",
   "legal.seeAlsoTerms": "See also our {terms}.",
+  "landing.hero.title": "Words that stay",
+  "landing.hero.subtitle":
+    "Get Word helps you memorize words and phrases with spaced repetition, audio pronunciation, and curated lists or your own custom lists. For any language pair.",
+  "landing.hero.getStarted": "Get started",
+  "landing.features.kicker": "What you get",
+  "landing.features.title": "Study less randomly, review when it matters",
+  "landing.features.spacedRepetition.title": "Spaced repetition",
+  "landing.features.spacedRepetition.body":
+    "Words come back right before you would forget them, so review time lands where it actually counts.",
+  "landing.features.ownLists.title": "Your own lists",
+  "landing.features.ownLists.body":
+    "Build lists for any language pair. Translations and example phrases are generated for you, ready to study in minutes.",
+  "landing.features.audio.title": "Pronunciation audio",
+  "landing.features.audio.body":
+    "Hear every word and phrase with clear pronunciation audio. Learn how the language actually sounds.",
+  "landing.features.memoryGames.title": "Memory hooks & games",
+  "landing.features.memoryGames.body":
+    "Lock vocabulary in with personal memory hooks and quick minigames woven right into your study stream.",
+  "landing.features.sync.title": "Syncs everywhere",
+  "landing.features.sync.body":
+    "Sign in once. Your lists, progress, and preferences follow you across phone, tablet, and desktop.",
+  "landing.features.install.title": "Install as an app",
+  "landing.features.install.body":
+    "Add Get Word to your home screen and study full-screen, offline-friendly - no app store required.",
+  "landing.how.kicker": "How it works",
+  "landing.how.title": "Three steps to your first words",
+  "landing.how.pickPair.title": "Pick your pair",
+  "landing.how.pickPair.body":
+    "Choose what you speak and what you want to learn, then start from a ready-made list or your own.",
+  "landing.how.studyDaily.title": "Study daily",
+  "landing.how.studyDaily.body":
+    "Flip cards, hear pronunciations, mark what you know. Get Word schedules the rest for you.",
+  "landing.how.remember.title": "Remember for good",
+  "landing.how.remember.body":
+    "Words resurface at just the right moment, moving steadily into your long-term memory.",
+  "landing.openSource.title": "Open source",
+  "landing.openSource.body":
+    "Get Word is built as open-source app. Read the code, file an issue, or contribute - it's all on GitHub.",
+  "landing.openSource.cta": "Star on GitHub",
+  "landing.cta.title": "Ready to start remembering?",
+  "landing.cta.body":
+    "Pick a language pair and study your first words in minutes. No app store required.",
+  "landing.cta.button": "Start learning",
+  "landing.footer.github": "GitHub",
+  "landing.footer.contact": "Contact",
+  "landing.footer.privacy": "Privacy",
+  "landing.footer.terms": "Terms",
   "terms.title": "Terms of Service",
   "terms.intro":
     "These Terms of Service govern your use of the hosted Get Word app. By accessing or using the app, you agree to these Terms. If you do not agree, please do not use the app. Use of the open-source code is governed by the license included in the project repository, not by these Terms.",
@@ -133,6 +180,7 @@ export const enMessages = {
   "language.changeLater": "You can change this later in Settings.",
   "language.continueWith": "Continue with {name}",
   "language.loading": "Loading languages...",
+  "language.loadingInterface": "Loading language...",
   "language.onboardingIntro":
     "Pick the language Get Word should use for menus, settings, buttons, and messages.",
   "language.onboardingTitle": "Choose your app language",

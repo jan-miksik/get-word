@@ -38,6 +38,53 @@ export const csMessages: I18nMessages = {
   "legal.lastUpdated": "Naposledy aktualizováno: {date}",
   "legal.seeAlsoPrivacy": "Viz také naše {privacy}.",
   "legal.seeAlsoTerms": "Viz také naše {terms}.",
+  "landing.hero.title": "Slova, která zůstanou",
+  "landing.hero.subtitle":
+    "Get Word pomáhá zapamatovat si slovíčka a fráze pomocí efektivního opakování a audio výslovnosti. Můžete využít hotové seznamy slovíček a frází nebo si vytvořit vlastní. Pro libovolnou kombinaci jazyků.",
+  "landing.hero.getStarted": "Začít",
+  "landing.features.kicker": "Co získáte",
+  "landing.features.title": "Méně náhodného učení, opakování ve správnou chvíli",
+  "landing.features.spacedRepetition.title": "Rozložené opakování",
+  "landing.features.spacedRepetition.body":
+    "Slova se vrátí těsně předtím, než byste je zapomněli, takže čas na opakování padne přesně tam, kde se to opravdu počítá.",
+  "landing.features.ownLists.title": "Vlastní seznamy",
+  "landing.features.ownLists.body":
+    "Vytvářejte seznamy pro libovolnou jazykovou dvojici. Překlady a ukázkové fráze se vygenerují za vás - připravené ke studiu během několika minut.",
+  "landing.features.audio.title": "Zvuková výslovnost",
+  "landing.features.audio.body":
+    "Slyšte každé slovo a frázi s jasnou zvukovou výslovností. Naučte se, jak jazyk doopravdy zní.",
+  "landing.features.memoryGames.title": "Paměťové háčky a hry",
+  "landing.features.memoryGames.body":
+    "Upevněte si slovní zásobu pomocí osobních paměťových háčků a rychlých miniher vetkaných přímo do vašeho studijního proudu.",
+  "landing.features.sync.title": "Synchronizace všude",
+  "landing.features.sync.body":
+    "Přihlaste se jednou. Vaše seznamy, pokrok a předvolby vás provázejí na telefonu, tabletu i počítači.",
+  "landing.features.install.title": "Nainstalujte jako aplikaci",
+  "landing.features.install.body":
+    "Přidejte Get Word na plochu a studujte na celou obrazovku, i offline - bez nutnosti obchodu s aplikacemi.",
+  "landing.how.kicker": "Jak to funguje",
+  "landing.how.title": "Tři kroky k vašim prvním slovům",
+  "landing.how.pickPair.title": "Vyberte si dvojici",
+  "landing.how.pickPair.body":
+    "Zvolte, jakým jazykem mluvíte a který se chcete učit, a začněte s hotovým nebo vlastním seznamem.",
+  "landing.how.studyDaily.title": "Studujte každý den",
+  "landing.how.studyDaily.body":
+    "Otáčejte kartičky, poslouchejte výslovnost, označujte, co znáte. Zbytek za vás naplánuje Get Word.",
+  "landing.how.remember.title": "Zapamatujte si natrvalo",
+  "landing.how.remember.body":
+    "Slova se znovu objeví v ten správný okamžik a postupně přecházejí do vaší dlouhodobé paměti.",
+  "landing.openSource.title": "Open source",
+  "landing.openSource.body":
+    "Get Word je vytvořen jako open-source aplikace. Přečtěte si kód, nahlaste problém nebo přispějte - vše najdete na GitHubu.",
+  "landing.openSource.cta": "Dejte hvězdu na GitHubu",
+  "landing.cta.title": "Připraveni začít si pamatovat?",
+  "landing.cta.body":
+    "Vyberte jazykovou dvojici a naučte se první slova během několika minut. Bez obchodu s aplikacemi.",
+  "landing.cta.button": "Začít se učit",
+  "landing.footer.github": "GitHub",
+  "landing.footer.contact": "Kontakt",
+  "landing.footer.privacy": "Soukromí",
+  "landing.footer.terms": "Podmínky",
   "terms.title": "Podmínky služby",
   "terms.intro":
     "Tyto Podmínky služby upravují používání hostované aplikace Get Word. Přístupem k aplikaci nebo jejím používáním s těmito Podmínkami souhlasíte. Pokud nesouhlasíte, aplikaci prosím nepoužívejte. Použití open-source kódu se řídí licencí uvedenou v repozitáři projektu, nikoli těmito Podmínkami.",
@@ -135,6 +182,7 @@ export const csMessages: I18nMessages = {
   "language.changeLater": "Později to můžete změnit v Nastavení.",
   "language.continueWith": "Pokračovat s {name}",
   "language.loading": "Načítání jazyků...",
+  "language.loadingInterface": "Načítání jazyka...",
   "language.onboardingIntro":
     "Vyberte jazyk, který má Get Word používat pro menu, nastavení, tlačítka a zprávy.",
   "language.onboardingTitle": "Vyberte jazyk aplikace",
