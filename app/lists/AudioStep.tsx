@@ -103,6 +103,8 @@ function AudioStepContent({
     setSingleVoice,
     enableMix,
     toggleMixVoice,
+    selectAllMixVoices,
+    clearMixVoices,
     resolveVoice,
   } = useGoogleTtsVoiceSelection(activeLanguageCode);
   const MIX_OPTION_VALUE = '__mix__';
@@ -288,10 +290,30 @@ function AudioStepContent({
         </div>
         {selection.mode === 'mix' && (
           <div className="mt-3 border-t border-border-subtle pt-3">
-            <p className="mb-2 text-xs text-text-soft">{t('lists.mixVoicesHint')}</p>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs text-text-soft">{t('lists.mixVoicesHint')}</p>
+              <div className="flex gap-1.5">
+                <button
+                  type="button"
+                  disabled={generating || regeneratingIds.size > 0 || mixVoiceIds.length === voiceOptions.length}
+                  onClick={selectAllMixVoices}
+                  className="rounded-md border border-border-subtle px-2 py-0.5 text-[11px] text-text-soft transition-colors hover:text-text disabled:opacity-40"
+                >
+                  {t('lists.selectAllVoices')}
+                </button>
+                <button
+                  type="button"
+                  disabled={generating || regeneratingIds.size > 0 || mixVoiceIds.length === 0}
+                  onClick={clearMixVoices}
+                  className="rounded-md border border-border-subtle px-2 py-0.5 text-[11px] text-text-soft transition-colors hover:text-text disabled:opacity-40"
+                >
+                  {t('lists.unselectAllVoices')}
+                </button>
+              </div>
+            </div>
             <div className="flex flex-wrap gap-1.5">
               {voiceOptions.map((voice) => {
-                const active = mixVoiceIds.length === 0 || mixVoiceIds.includes(voice);
+                const active = mixVoiceIds.includes(voice);
                 return (
                   <button
                     key={voice}
@@ -311,7 +333,7 @@ function AudioStepContent({
               })}
             </div>
             {mixVoiceIds.length === 0 && (
-              <p className="mt-1.5 text-[11px] text-text-soft/80">{t('lists.mixVoicesAll')}</p>
+              <p className="mt-1.5 text-[11px] text-text-soft/80">{t('lists.mixVoicesNone')}</p>
             )}
           </div>
         )}

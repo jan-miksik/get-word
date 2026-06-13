@@ -3,10 +3,12 @@
  *
  * - `single` covers both the Google default voice (`voiceId === 'default'`) and a
  *   single explicit voice applied to every word.
- * - `mix` spreads several voices across the list. Each word is assigned a voice
- *   deterministically from its text, so the same word always maps to the same
- *   voice. That keeps the dedup cache (`hash(text + voiceId)`) effective across
- *   regenerations and lists, so "Mix" does not cost extra Google synthesis.
+ * - `mix` spreads the explicitly listed voices across the list. Each word is
+ *   assigned a voice deterministically from its text, so the same word always
+ *   maps to the same voice. That keeps the dedup cache (`hash(text + voiceId)`)
+ *   effective across regenerations and lists, so "Mix" does not cost extra
+ *   Google synthesis. An empty `voiceIds` means no voices are selected, so words
+ *   fall back to Google's default voice.
  */
 export type VoiceSelection =
   | { mode: 'single'; voiceId: string }
@@ -37,9 +39,7 @@ export function resolveVoiceForText(
   if (selection.mode === 'single') {
     return selection.voiceId === 'default' ? undefined : selection.voiceId;
   }
-  const pool = selection.voiceIds.length > 0
-    ? selection.voiceIds.filter((voice) => voiceOptions.includes(voice))
-    : voiceOptions;
+  const pool = selection.voiceIds.filter((voice) => voiceOptions.includes(voice));
   if (pool.length === 0) return undefined;
   // Sort so the assignment is independent of checkbox toggle order.
   const ordered = [...pool].sort();

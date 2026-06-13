@@ -22,7 +22,7 @@ describe('resolveVoiceForText', () => {
   });
 
   it('assigns the same word the same voice every time (dedup-stable)', () => {
-    const mix: VoiceSelection = { mode: 'mix', voiceIds: [] };
+    const mix: VoiceSelection = { mode: 'mix', voiceIds: VOICES };
     const first = resolveVoiceForText('kočka', mix, VOICES);
     const second = resolveVoiceForText('kočka', mix, VOICES);
     expect(first).toBe(second);
@@ -36,7 +36,7 @@ describe('resolveVoiceForText', () => {
   });
 
   it('spreads different words across multiple voices', () => {
-    const mix: VoiceSelection = { mode: 'mix', voiceIds: [] };
+    const mix: VoiceSelection = { mode: 'mix', voiceIds: VOICES };
     const used = new Set(
       ['pes', 'kočka', 'strom', 'voda', 'oheň', 'dům', 'kniha', 'auto'].map((w) =>
         resolveVoiceForText(w, mix, VOICES),
@@ -53,8 +53,9 @@ describe('resolveVoiceForText', () => {
     }
   });
 
-  it('falls back to the default voice when no voices are available', () => {
-    expect(resolveVoiceForText('pes', { mode: 'mix', voiceIds: [] }, [])).toBeUndefined();
+  it('falls back to the default voice when no voices are selected', () => {
+    expect(resolveVoiceForText('pes', { mode: 'mix', voiceIds: [] }, VOICES)).toBeUndefined();
+    expect(resolveVoiceForText('pes', { mode: 'mix', voiceIds: VOICES }, [])).toBeUndefined();
   });
 });
 
