@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { installGlobalPWACapture } from '@/lib/pwa-install';
 import { usePreferredPublicLanguage } from '@/lib/i18n/client-language';
-import { enMessages, reviewedMessages, type I18nKey } from '@/lib/i18n/messages';
+import { bundledMessages, enMessages, type I18nKey } from '@/lib/i18n/messages';
 
 const CACHE_PREFIX = 'get-word-';
 const ACTIVE_LIST_AUDIO_CACHE = 'get-word-active-list-audio-v1';
@@ -120,7 +120,7 @@ export function PWARegister() {
 
   const language = usePreferredPublicLanguage();
   const t = (key: I18nKey): string =>
-    reviewedMessages[language]?.[key] ?? enMessages[key] ?? key;
+    bundledMessages[language]?.[key] ?? enMessages[key] ?? key;
 
   useEffect(() => {
     try {

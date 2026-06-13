@@ -22,3 +22,12 @@ export function useAppStateContext(): AppStateContextValue {
   if (!ctx) throw new Error('useAppStateContext must be used within AppStateProvider');
   return ctx;
 }
+
+/**
+ * Non-throwing variant for components that are usually — but not always —
+ * rendered inside an AppStateProvider (e.g. optional chrome that may be mounted
+ * in isolation by tests). Returns null when no provider is present.
+ */
+export function useOptionalAppStateContext(): AppStateContextValue | null {
+  return useContext(AppStateContext);
+}

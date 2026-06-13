@@ -5,7 +5,9 @@ import {
   findBestSupportedLanguage,
   getDetectedSettingsLanguage,
   getLanguageFlag,
+  languageMatchesSearch,
   normalizeLanguageCode,
+  orderSettingsLanguages,
 } from '../languages';
 
 describe('settings language helpers', () => {
@@ -29,6 +31,22 @@ describe('settings language helpers', () => {
     expect(findBestSupportedLanguage(['cs-CZ', 'en-US'], COMMON_LANGUAGES)).toBe('cs');
     expect(findBestSupportedLanguage(['zh-Hans-CN', 'en-US'], COMMON_LANGUAGES)).toBe('zh-CN');
     expect(findBestSupportedLanguage(['xx-YY'], COMMON_LANGUAGES)).toBe('en');
+  });
+
+  it('matches languages by English, native, code, and folded native names', () => {
+    const czech = { code: 'cs', name: 'Czech', flag: '🇨🇿' };
+    expect(languageMatchesSearch(czech, 'Czech')).toBe(true);
+    expect(languageMatchesSearch(czech, 'cs')).toBe(true);
+    expect(languageMatchesSearch(czech, 'č')).toBe(true);
+    expect(languageMatchesSearch(czech, 'čeština')).toBe(true);
+    expect(languageMatchesSearch(czech, 'cestina')).toBe(true);
+  });
+
+  it('orders featured settings languages without duplicating them', () => {
+    const ordered = orderSettingsLanguages(COMMON_LANGUAGES);
+    const codes = ordered.map((language) => normalizeLanguageCode(language.code));
+    expect(codes.length).toBe(new Set(codes).size);
+    expect(codes.slice(0, 3)).toEqual(['en', 'es', 'zh-CN']);
   });
 
   it('detects a default settings language from the browser', () => {

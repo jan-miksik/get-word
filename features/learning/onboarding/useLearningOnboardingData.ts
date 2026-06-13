@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import { readPreferredPublicLanguage } from '@/lib/i18n/client-language';
 import type { WordList, WordListItem } from '@/features/lists/types';
 import {
   pickAutogenerateCommonSeed,
@@ -78,7 +79,12 @@ export function useLearningOnboardingData({
   initialTo,
 }: UseLearningOnboardingDataOptions) {
   const [languages, setLanguages] = useState<LearningLanguage[]>([]);
-  const [languageFrom, setLanguageFrom] = useState(initialFrom ?? 'en');
+  // Default the "I know" language to the visitor's landing-page language choice
+  // (falling back to browser detection) so the pair starts from their native
+  // language. An explicit, previously-synced choice (initialFrom) still wins.
+  const [languageFrom, setLanguageFrom] = useState(
+    () => initialFrom ?? readPreferredPublicLanguage(),
+  );
   const [languageTo, setLanguageTo] = useState(initialTo ?? '');
   const [matchesState, setMatchesState] = useState<MatchesState | null>(null);
   const [loadingLanguages, setLoadingLanguages] = useState(true);

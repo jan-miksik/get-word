@@ -9,9 +9,10 @@ import {
   type ReactNode,
 } from 'react';
 import {
+  bundledMessages,
   enMessages,
+  getLanguageStatus,
   interpolateMessage,
-  reviewedMessages,
   REVIEWED_LANGUAGES,
   type I18nKey,
   type I18nMessages,
@@ -35,17 +36,20 @@ export function I18nProvider({
   children: ReactNode;
 }) {
   const normalizedLanguage = normalizeLanguageCode(language ?? 'en');
-  const reviewed = reviewedMessages[normalizedLanguage];
-  const [messages, setMessages] = useState<I18nMessages>(reviewed ?? enMessages);
+  const bundled = bundledMessages[normalizedLanguage];
+  const [messages, setMessages] = useState<I18nMessages>(bundled ?? enMessages);
   const [status, setStatus] = useState<I18nContextValue['status']>(
-    reviewed ? 'reviewed' : 'fallback',
+    bundled ? getLanguageStatus(normalizedLanguage) : 'fallback',
   );
 
   useEffect(() => {
-    const localReviewed = reviewedMessages[normalizedLanguage];
-    if (localReviewed) {
-      setMessages(localReviewed);
-      setStatus('reviewed');
+    // Bundled dictionaries (en/cs reviewed, uk/vi seed) load instantly from the
+    // local bundle; their status still reflects whether the language is
+    // reviewed, so uk/vi read as "generated".
+    const localBundled = bundledMessages[normalizedLanguage];
+    if (localBundled) {
+      setMessages(localBundled);
+      setStatus(getLanguageStatus(normalizedLanguage));
       return;
     }
 

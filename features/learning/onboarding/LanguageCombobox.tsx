@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useI18n } from '@/components/I18nProvider';
 import type { LearningLanguage } from './types';
 
 function filterLanguages(languages: LearningLanguage[], query: string) {
@@ -29,12 +30,15 @@ export function LanguageCombobox({
   loading,
   onChange,
 }: LanguageComboboxProps) {
+  const { t } = useI18n();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const selectedLanguage = languages.find((language) => language.code === value);
   const hasSelection = Boolean(selectedLanguage || value);
   const shownLanguages = filterLanguages(languages, query);
-  const placeholder = loading ? 'Loading languages...' : 'Search languages';
+  const placeholder = loading
+    ? t('onboarding.loadingLanguages')
+    : t('onboarding.searchLanguages');
 
   function selectLanguage(code: string) {
     onChange(code);
@@ -51,7 +55,7 @@ export function LanguageCombobox({
             {hasSelection ? selectedLanguage?.flag ?? '•' : ''}
           </span>
           <span className={`min-w-0 flex-1 truncate ${hasSelection ? '' : 'onboarding-text-soft'}`}>
-            {hasSelection ? selectedLanguage?.name ?? value.toUpperCase() : 'Select a language'}
+            {hasSelection ? selectedLanguage?.name ?? value.toUpperCase() : t('onboarding.selectLanguage')}
           </span>
         </div>
         <input
@@ -81,7 +85,7 @@ export function LanguageCombobox({
           className="onboarding-combobox-list absolute z-30 mt-2 max-h-72 w-full overflow-y-auto p-1"
         >
           {loading ? (
-            <div className="px-3 py-2 text-sm onboarding-text-soft">Loading languages...</div>
+            <div className="px-3 py-2 text-sm onboarding-text-soft">{t('onboarding.loadingLanguages')}</div>
           ) : shownLanguages.length > 0 ? (
             shownLanguages.map((language) => (
               <button
@@ -101,7 +105,7 @@ export function LanguageCombobox({
               </button>
             ))
           ) : (
-            <div className="px-3 py-2 text-sm onboarding-text-soft">No languages found.</div>
+            <div className="px-3 py-2 text-sm onboarding-text-soft">{t('onboarding.noLanguagesFound')}</div>
           )}
         </div>
       ) : null}

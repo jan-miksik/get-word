@@ -10,7 +10,12 @@ import {
   normalizeLanguageCode,
   type SupportedLanguage,
 } from "./languages";
-import { enMessages, reviewedMessages, type I18nMessages } from "./messages";
+import {
+  bundledMessages,
+  enMessages,
+  getLanguageStatus,
+  type I18nMessages,
+} from "./messages";
 
 export type MessagesResponse = {
   language: string;
@@ -79,9 +84,18 @@ export async function isGoogleSupportedLanguage(language: string): Promise<boole
 export async function getMessagesForLanguage(language: string): Promise<MessagesResponse> {
   const normalized = normalizeLanguageCode(language);
   const sourceHash = getSourceHash();
-  const reviewed = reviewedMessages[normalized];
-  if (reviewed) {
-    return { language: normalized, messages: reviewed, status: "reviewed", sourceHash };
+  // Bundled languages (en/cs reviewed, uk/vi seed) are served from their local
+  // dictionary without a Google round-trip. Their badge status still depends on
+  // whether the language is reviewed, so uk/vi serve instantly but read as
+  // "generated" in the UI.
+  const bundled = bundledMessages[normalized];
+  if (bundled) {
+    return {
+      language: normalized,
+      messages: bundled,
+      status: getLanguageStatus(normalized),
+      sourceHash,
+    };
   }
 
   const [cached] = await db

@@ -4,6 +4,7 @@ import { formatDurationEstimate } from '@/features/learning/onboarding/listRecom
 import { formatNumber } from '@/features/learning/onboarding/commonListAudioGeneration';
 import { useI18n } from '@/components/I18nProvider';
 import { LanguageCombobox } from './LanguageCombobox';
+import { OnboardingLanguageSwitcher } from './OnboardingLanguageSwitcher';
 import { useLearningOnboardingActions } from './useLearningOnboardingActions';
 import { useLearningOnboardingData } from './useLearningOnboardingData';
 
@@ -65,9 +66,13 @@ export function LearningLanguageOnboarding({
     onSelectList,
   });
 
+  function wordUnit(count: number) {
+    return count === 1 ? t('onboarding.wordOne') : t('onboarding.wordOther');
+  }
+
   function getItemCountLabel(count: number | undefined) {
     const safeCount = count ?? 0;
-    return `${safeCount} ${safeCount === 1 ? 'word' : 'words'}`;
+    return `${safeCount} ${wordUnit(safeCount)}`;
   }
 
   const introBlock = (
@@ -97,17 +102,22 @@ export function LearningLanguageOnboarding({
             <p className="mt-2 text-sm leading-relaxed onboarding-text-soft">{generationStatus.detail}</p>
             {generationStatus.estimateSeconds ? (
               <p className="mt-3 text-xs font-bold onboarding-text-soft">
-                Estimated time: {formatDurationEstimate(generationStatus.estimateSeconds)}
+                {t('onboarding.estimatedTime', {
+                  time: formatDurationEstimate(generationStatus.estimateSeconds),
+                })}
               </p>
             ) : null}
           </section>
         </div>
       ) : null}
       <section className="onboarding-card w-full max-w-3xl p-5 sm:p-7">
+        <div className="mb-4 flex justify-end">
+          <OnboardingLanguageSwitcher />
+        </div>
         <div className="grid gap-4 sm:grid-cols-2 sm:items-end">
           <LanguageCombobox
             id="language-from"
-            label="I know"
+            label={t('onboarding.iKnow')}
             value={languageFrom}
             languages={languages}
             loading={loadingLanguages}
@@ -115,7 +125,7 @@ export function LearningLanguageOnboarding({
           />
           <LanguageCombobox
             id="language-to"
-            label="I want to learn"
+            label={t('onboarding.iWantToLearn')}
             value={languageTo}
             languages={languages}
             loading={loadingLanguages}
@@ -125,21 +135,21 @@ export function LearningLanguageOnboarding({
 
         {targetLanguage && !targetLanguage.ttsAvailable ? (
           <p className="onboarding-notice mt-3 rounded-md px-3 py-2 text-xs">
-            {targetLanguage.name} is available for translation. Google TTS voice availability was not found, so audio can be added later if a provider supports it.
+            {t('onboarding.ttsUnavailable', { language: targetLanguage.name })}
           </p>
         ) : null}
 
         {languageFrom === languageTo ? (
-          <p className="onboarding-error mt-3 text-sm">it does not make much sense</p>
+          <p className="onboarding-error mt-3 text-sm">{t('onboarding.samePairWarning')}</p>
         ) : null}
 
         <div className="onboarding-divider mt-6 pt-5">
           {!languageFrom || !languageTo ? (
-            <p className="text-sm onboarding-text-soft">Choose both languages to find matching word lists.</p>
+            <p className="text-sm onboarding-text-soft">{t('onboarding.chooseBothLanguages')}</p>
           ) : loadingMatches ? (
             <div className="space-y-3">
               {introBlock}
-              <p className="text-sm onboarding-text-soft">Looking for existing lists...</p>
+              <p className="text-sm onboarding-text-soft">{t('onboarding.lookingForLists')}</p>
             </div>
           ) : matches.length > 0 ? (
             <div className="space-y-3">
@@ -150,14 +160,14 @@ export function LearningLanguageOnboarding({
                     <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
                       <span className="font-bold">{recommendedList.name}</span>
                       <span className="rounded-full border border-[var(--ob-ink)] bg-[var(--ob-surface)] px-2 py-0.5 text-[10px] font-black uppercase text-[color:var(--ob-ink)]">
-                        seed
+                        {t('onboarding.seedBadge')}
                       </span>
                       <span className="text-xs text-[color:var(--ob-surface)] opacity-[0.85]">
                         {getItemCountLabel(recommendedList.itemCount)}
                       </span>
                     </div>
                     <div className="mt-1 text-xs text-[color:var(--ob-surface)] opacity-[0.85]">
-                      No exact selected list exists yet. Create a fork from this basic seed.
+                      {t('onboarding.noExactCreateFork')}
                     </div>
                   </div>
                   <button
@@ -166,12 +176,12 @@ export function LearningLanguageOnboarding({
                     disabled={workingId === `fork:${recommendedList.id}`}
                     onClick={() => forkList(recommendedList)}
                   >
-                    {workingId === `fork:${recommendedList.id}` ? 'Forking...' : 'Fork'}
+                    {workingId === `fork:${recommendedList.id}` ? t('onboarding.forking') : t('onboarding.fork')}
                   </button>
                 </div>
               ) : null}
               <h2 className="text-sm font-extrabold uppercase tracking-wide">
-                Existing {languagePairLabel} lists
+                {t('onboarding.existingLists', { pair: languagePairLabel })}
               </h2>
               {matches.map((list) => {
                 const isRecommended = list.id === recommendedList?.id && recommendedReason !== 'fallback_seed';
@@ -192,13 +202,13 @@ export function LearningLanguageOnboarding({
                         <span className="font-bold">{list.name}</span>
                         {isRecommended ? (
                           <span className="rounded-full border border-[var(--ob-accent)] bg-[var(--ob-surface)] px-2 py-0.5 text-[10px] font-black uppercase text-[color:var(--ob-accent)]">
-                            recommended
+                            {t('onboarding.recommendedBadge')}
                           </span>
                         ) : null}
                         <span className={`text-xs ${optionTextSoftClass}`}>{getItemCountLabel(list.itemCount)}</span>
                       </div>
                       <div className={`mt-1 text-xs ${optionTextSoftClass}`}>
-                        {list.description?.trim() || (list.isOwner ? 'Your list' : 'Public list')}
+                        {list.description?.trim() || (list.isOwner ? t('onboarding.yourList') : t('onboarding.publicList'))}
                       </div>
                     </button>
                     <button
@@ -207,7 +217,7 @@ export function LearningLanguageOnboarding({
                       disabled={workingId === `fork:${list.id}`}
                       onClick={() => forkList(list)}
                     >
-                      {workingId === `fork:${list.id}` ? 'Forking...' : 'Fork'}
+                      {workingId === `fork:${list.id}` ? t('onboarding.forking') : t('onboarding.fork')}
                     </button>
                   </div>
                 );
@@ -216,7 +226,7 @@ export function LearningLanguageOnboarding({
           ) : hasFallbackSeedRecommendation && recommendedList ? (
             <div className="space-y-3">
               <p className="text-sm onboarding-text-soft">
-                No exact selected list exists yet for {languagePairLabel}. You can create a fork from the basic seed and customize it.
+                {t('onboarding.noExactForPair', { pair: languagePairLabel })}
               </p>
               <div className="flex items-stretch gap-2">
                 <div className="onboarding-option onboarding-option-highlight min-w-0 flex-1 px-3 py-2 text-left">
@@ -230,7 +240,7 @@ export function LearningLanguageOnboarding({
                     </span>
                   </div>
                   <div className="mt-1 text-xs text-[color:var(--ob-surface)] opacity-[0.85]">
-                    {recommendedList.description?.trim() || 'Basic list seed'}
+                    {recommendedList.description?.trim() || t('onboarding.basicListSeed')}
                   </div>
                 </div>
                 <button
@@ -239,14 +249,14 @@ export function LearningLanguageOnboarding({
                   disabled={workingId === `fork:${recommendedList.id}`}
                   onClick={() => forkList(recommendedList)}
                 >
-                  {workingId === `fork:${recommendedList.id}` ? 'Forking...' : 'Fork'}
+                  {workingId === `fork:${recommendedList.id}` ? t('onboarding.forking') : t('onboarding.fork')}
                 </button>
               </div>
             </div>
           ) : (
             <div className="space-y-3">
               <p className="text-sm onboarding-text-soft">
-                No matching lists yet for {languagePairLabel}. You can generate a common list from the best available seed, browse other lists, or start your own.
+                {t('onboarding.noMatchingLists', { pair: languagePairLabel })}
               </p>
             </div>
           )}
@@ -261,16 +271,27 @@ export function LearningLanguageOnboarding({
                   disabled={!canContinue || workingId === 'common'}
                 >
                   <span className="block text-sm font-extrabold">
-                    {workingId === 'common' ? 'Autogenerating...' : 'Autogenerate common list'}
+                    {workingId === 'common'
+                      ? t('onboarding.autogenerating')
+                      : t('onboarding.autogenerateCommonList')}
                   </span>
                   <span className="mt-1 block text-xs onboarding-text-soft">
                     {commonListEstimate?.status === 'loading'
-                      ? 'Checking how many words will be generated...'
+                      ? t('onboarding.checkingWordCount')
                       : commonListEstimate?.status === 'ready'
-                        ? `${formatNumber(commonListEstimate.wordCount ?? 0)} ${commonListEstimate.wordCount === 1 ? 'word' : 'words'} will be generated${commonListEstimate.seedName ? ` from ${commonListEstimate.seedName}` : ''}.`
+                        ? commonListEstimate.seedName
+                          ? t('onboarding.willGenerateWordsFromSeed', {
+                              count: formatNumber(commonListEstimate.wordCount ?? 0),
+                              unit: wordUnit(commonListEstimate.wordCount ?? 0),
+                              seed: commonListEstimate.seedName,
+                            })
+                          : t('onboarding.willGenerateWords', {
+                              count: formatNumber(commonListEstimate.wordCount ?? 0),
+                              unit: wordUnit(commonListEstimate.wordCount ?? 0),
+                            })
                         : commonListEstimate?.status === 'unavailable'
-                          ? 'Word count is not available yet; the best available seed will be used.'
-                          : 'Most used words and phrases from the best available seed list.'}
+                          ? t('onboarding.wordCountUnavailable')
+                          : t('onboarding.mostUsedWordsHint')}
                   </span>
                 </button>
               ) : null}
@@ -281,8 +302,8 @@ export function LearningLanguageOnboarding({
                   onClick={goToListsForExisting}
                   disabled={!canContinue}
                 >
-                  <span className="block text-sm font-extrabold">Go through existing lists</span>
-                  <span className="mt-1 block text-xs onboarding-text-soft">Find what suits you most and fork it.</span>
+                  <span className="block text-sm font-extrabold">{t('onboarding.goThroughExisting')}</span>
+                  <span className="mt-1 block text-xs onboarding-text-soft">{t('onboarding.goThroughExistingHint')}</span>
                 </button>
               ) : null}
               <button
@@ -291,8 +312,8 @@ export function LearningLanguageOnboarding({
                 onClick={createOwnList}
                 disabled={!canContinue}
               >
-                <span className="block text-sm font-extrabold">Create own list</span>
-                <span className="mt-1 block text-xs onboarding-text-soft">Start empty on the lists page.</span>
+                <span className="block text-sm font-extrabold">{t('onboarding.createOwnList')}</span>
+                <span className="mt-1 block text-xs onboarding-text-soft">{t('onboarding.createOwnListHint')}</span>
               </button>
             </div>
           ) : null}

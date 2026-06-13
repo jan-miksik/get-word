@@ -22,6 +22,7 @@
     "db:dump-restore": "bash scripts/dump-and-restore.sh",
     "db:dump-restore-full": "bash scripts/dump-and-restore-full.sh",
     "db:backup": "bash scripts/backup-remote-db.sh",
+    "ui:generate-locales": "tsx scripts/generate-ui-locales.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

@@ -25,4 +25,21 @@ describe('GET /api/settings-languages', () => {
       { code: 'sv', name: 'Swedish', source: 'google', flag: '🇸🇪' },
     ]);
   });
+
+  it('filters by native names and folded diacritics', async () => {
+    mockFetchGoogleSupportedLanguages.mockResolvedValue([
+      { code: 'cs', name: 'Czech', source: 'google' },
+      { code: 'sv', name: 'Swedish', source: 'google' },
+    ]);
+
+    const nativeRes = await GET(new NextRequest('http://localhost/api/settings-languages?target=en&q=%C4%8D'));
+    const foldedRes = await GET(new NextRequest('http://localhost/api/settings-languages?target=en&q=cestina'));
+
+    expect((await nativeRes.json()).languages).toEqual([
+      { code: 'cs', name: 'Czech', flag: '🇨🇿', source: 'common' },
+    ]);
+    expect((await foldedRes.json()).languages).toEqual([
+      { code: 'cs', name: 'Czech', flag: '🇨🇿', source: 'common' },
+    ]);
+  });
 });

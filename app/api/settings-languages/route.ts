@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { COMMON_LANGUAGES, mergeLanguages, normalizeLanguageCode } from "@/lib/i18n/languages";
+import {
+  COMMON_LANGUAGES,
+  getLocalizedLanguageName,
+  languageMatchesSearch,
+  mergeLanguages,
+  normalizeLanguageCode,
+} from "@/lib/i18n/languages";
 import { fetchGoogleSupportedLanguages } from "@/lib/i18n/server";
 
 export async function GET(request: NextRequest) {
@@ -9,12 +15,10 @@ export async function GET(request: NextRequest) {
   const googleLanguages = await fetchGoogleSupportedLanguages(target).catch(() => COMMON_LANGUAGES);
   const languages = mergeLanguages(COMMON_LANGUAGES, googleLanguages).filter((language) => {
     if (!query) return true;
-    return (
-      language.code.toLowerCase().includes(query) ||
-      language.name.toLowerCase().includes(query)
-    );
+    return languageMatchesSearch(language, query, [
+      getLocalizedLanguageName(language.code, target) ?? "",
+    ]);
   });
 
   return NextResponse.json({ languages });
 }
-

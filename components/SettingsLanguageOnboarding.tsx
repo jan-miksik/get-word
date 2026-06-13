@@ -6,6 +6,7 @@ import {
   COMMON_LANGUAGES,
   findBestSupportedLanguage,
   getBrowserLanguageCandidates,
+  languageMatchesSearch,
   mergeLanguages,
   normalizeLanguageCode,
   type SupportedLanguage,
@@ -26,12 +27,7 @@ const SCATTER_MT_CLASSES = [
 ];
 
 function matchesQuery(lang: SupportedLanguage, query: string, displayName: string): boolean {
-  const q = query.trim().toLowerCase();
-  return (
-    lang.name.toLowerCase().includes(q) ||
-    displayName.toLowerCase().includes(q) ||
-    lang.code.toLowerCase().includes(q)
-  );
+  return languageMatchesSearch(lang, query, [displayName]);
 }
 
 export function SettingsLanguageOnboarding() {

@@ -8,7 +8,7 @@ import {
 } from '@/lib/i18n/languages';
 import { PUBLIC_LANGUAGE_STORAGE_KEY } from '@/lib/i18n/public-language';
 
-function readPreferredPublicLanguage(): string {
+export function readPreferredPublicLanguage(): string {
   try {
     const saved = localStorage.getItem(PUBLIC_LANGUAGE_STORAGE_KEY);
     if (saved) return normalizeLanguageCode(saved);

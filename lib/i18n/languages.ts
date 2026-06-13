@@ -1,3 +1,6 @@
+import { PUBLIC_LANGUAGE_STORAGE_KEY } from "@/lib/i18n/public-language";
+import { TOP_PREGENERATED_UI_LANGUAGE_CODES } from "@/lib/i18n/pre-generated-languages";
+
 export type SupportedLanguage = {
   code: string;
   name: string;
@@ -30,15 +33,7 @@ export const COMMON_LANGUAGES: SupportedLanguage[] = [
 
 const MOST_USED_SETTINGS_LANGUAGE_CODES = [
   "en",
-  "zh-CN",
-  "hi",
-  "es",
-  "fr",
-  "ar",
-  "bn",
-  "pt",
-  "ru",
-  "ur",
+  ...TOP_PREGENERATED_UI_LANGUAGE_CODES,
 ] as const;
 
 // Google Cloud Translation NMT supported languages, mirrored from:
@@ -399,6 +394,54 @@ export function getLanguageFlag(code: string): string | null {
   return FLAG_BY_BASE_LANGUAGE[getBaseLanguage(normalized)] ?? null;
 }
 
+export function normalizeLanguageSearchText(value: string): string {
+  return value
+    .trim()
+    .toLocaleLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "");
+}
+
+export function getLocalizedLanguageName(code: string, locale: string): string | null {
+  try {
+    return new Intl.DisplayNames(normalizeLanguageCode(locale), { type: "language" }).of(
+      normalizeLanguageCode(code),
+    ) ?? null;
+  } catch {
+    return null;
+  }
+}
+
+export function getNativeLanguageName(code: string): string | null {
+  const normalized = normalizeLanguageCode(code);
+  return getLocalizedLanguageName(normalized, normalized);
+}
+
+export function languageMatchesSearch(
+  language: SupportedLanguage,
+  query: string,
+  extraNames: readonly string[] = [],
+): boolean {
+  const rawQuery = query.trim().toLocaleLowerCase();
+  if (!rawQuery) return true;
+  const foldedQuery = normalizeLanguageSearchText(query);
+  const code = normalizeLanguageCode(language.code);
+  const names = [
+    language.name,
+    code,
+    getNativeLanguageName(code),
+    ...extraNames,
+  ].filter((value): value is string => Boolean(value && value.trim()));
+
+  return names.some((name) => {
+    const rawName = name.toLocaleLowerCase();
+    return (
+      rawName.includes(rawQuery) ||
+      (foldedQuery.length >= 2 && normalizeLanguageSearchText(name).includes(foldedQuery))
+    );
+  });
+}
+
 export function mergeLanguages(...groups: SupportedLanguage[][]): SupportedLanguage[] {
   const byCode = new Map<string, SupportedLanguage>();
   for (const group of groups) {
@@ -423,7 +466,11 @@ export function orderSettingsLanguages(
     const language = byCode.get(normalizeLanguageCode(code));
     return language ? [language] : [];
   });
-  return [...featured, ...alphabetic];
+  const featuredCodes = new Set(featured.map((language) => normalizeLanguageCode(language.code)));
+  return [
+    ...featured,
+    ...alphabetic.filter((language) => !featuredCodes.has(normalizeLanguageCode(language.code))),
+  ];
 }
 
 export function findBestSupportedLanguage(
@@ -453,10 +500,29 @@ export function getBrowserLanguageCandidates(): string[] {
   return [...languages, navigator.language].filter((value): value is string => Boolean(value));
 }
 
+/**
+ * The language the visitor picked on the public landing page, if any. It is
+ * stored client-side and acts as an explicit, cross-page preference that should
+ * win over passive browser detection when no settings language was chosen yet.
+ */
+function getStoredPublicLanguage(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const value = window.localStorage.getItem(PUBLIC_LANGUAGE_STORAGE_KEY);
+    return value && value.trim() ? value : null;
+  } catch {
+    return null;
+  }
+}
+
 export function getDetectedSettingsLanguage(
   supportedLanguages: readonly SupportedLanguage[] = COMMON_LANGUAGES,
 ): string {
-  return findBestSupportedLanguage(getBrowserLanguageCandidates(), supportedLanguages);
+  const stored = getStoredPublicLanguage();
+  const candidates = stored
+    ? [stored, ...getBrowserLanguageCandidates()]
+    : getBrowserLanguageCandidates();
+  return findBestSupportedLanguage(candidates, supportedLanguages);
 }
 
 export function isSimulatedFirstOpenEnabled(): boolean {
