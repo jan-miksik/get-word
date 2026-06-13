@@ -1,20 +1,37 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  readStoredGoogleVoiceId,
-  writeStoredGoogleVoiceId,
+  readStoredVoiceSelection,
+  writeStoredVoiceSelection,
 } from '@/features/lists/client/storage';
 import { getBaseLanguage, type TtsLanguageOption } from './language';
+import {
+  DEFAULT_VOICE_SELECTION,
+  resolveVoiceForText,
+  serializeVoiceSelection,
+  type VoiceSelection,
+} from './voiceMix';
+
+type LanguageScopedSelection = {
+  languageCode: string;
+  selection: VoiceSelection;
+};
+
+function readSelection(languageCode: string): VoiceSelection {
+  return readStoredVoiceSelection(languageCode) ?? DEFAULT_VOICE_SELECTION;
+}
 
 export function useGoogleTtsVoiceSelection(activeLanguageCode: string) {
   const [voiceOptions, setVoiceOptions] = useState<string[]>([]);
-  const [selectedVoice, setSelectedVoice] = useState(() => ({
+  const [voiceGenders, setVoiceGenders] = useState<Record<string, string>>({});
+  const [scoped, setScoped] = useState<LanguageScopedSelection>(() => ({
     languageCode: activeLanguageCode,
-    voiceId: readStoredGoogleVoiceId(activeLanguageCode),
+    selection: readSelection(activeLanguageCode),
   }));
   const [loadingVoices, setLoadingVoices] = useState(false);
-  const selectedGoogleVoiceId = selectedVoice.languageCode === activeLanguageCode
-    ? selectedVoice.voiceId
-    : readStoredGoogleVoiceId(activeLanguageCode);
+
+  const selection = scoped.languageCode === activeLanguageCode
+    ? scoped.selection
+    : readSelection(activeLanguageCode);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,19 +53,22 @@ export function useGoogleTtsVoiceSelection(activeLanguageCode: string) {
         const voices = Array.from(new Set(language?.ttsVoices ?? []));
         if (cancelled) return;
         setVoiceOptions(voices);
-        setSelectedVoice((current) => {
-          const currentVoiceId = current.languageCode === activeLanguageCode
-            ? current.voiceId
-            : readStoredGoogleVoiceId(activeLanguageCode);
-          const voiceId = currentVoiceId !== 'default' && voices.includes(currentVoiceId)
-            ? currentVoiceId
-            : 'default';
-          return { languageCode: activeLanguageCode, voiceId };
+        setVoiceGenders(language?.ttsVoiceGenders ?? {});
+        setScoped(() => {
+          const stored = readSelection(activeLanguageCode);
+          // Drop a stored single voice that this language no longer offers.
+          const reconciled: VoiceSelection = stored.mode === 'single'
+            && stored.voiceId !== 'default'
+            && !voices.includes(stored.voiceId)
+            ? DEFAULT_VOICE_SELECTION
+            : stored;
+          return { languageCode: activeLanguageCode, selection: reconciled };
         });
       } catch {
         if (cancelled) return;
         setVoiceOptions([]);
-        setSelectedVoice({ languageCode: activeLanguageCode, voiceId: 'default' });
+        setVoiceGenders({});
+        setScoped({ languageCode: activeLanguageCode, selection: DEFAULT_VOICE_SELECTION });
       } finally {
         if (!cancelled) setLoadingVoices(false);
       }
@@ -61,15 +81,43 @@ export function useGoogleTtsVoiceSelection(activeLanguageCode: string) {
     };
   }, [activeLanguageCode]);
 
-  const handleGoogleVoiceChange = useCallback((voiceId: string) => {
-    setSelectedVoice({ languageCode: activeLanguageCode, voiceId });
-    writeStoredGoogleVoiceId(activeLanguageCode, voiceId);
+  const updateSelection = useCallback((next: VoiceSelection) => {
+    setScoped({ languageCode: activeLanguageCode, selection: next });
+    writeStoredVoiceSelection(activeLanguageCode, next);
   }, [activeLanguageCode]);
+
+  const setSingleVoice = useCallback((voiceId: string) => {
+    updateSelection({ mode: 'single', voiceId });
+  }, [updateSelection]);
+
+  const enableMix = useCallback(() => {
+    updateSelection({ mode: 'mix', voiceIds: [] });
+  }, [updateSelection]);
+
+  const toggleMixVoice = useCallback((voiceId: string) => {
+    const current = selection.mode === 'mix' ? selection.voiceIds : [];
+    const next = current.includes(voiceId)
+      ? current.filter((id) => id !== voiceId)
+      : [...current, voiceId];
+    updateSelection({ mode: 'mix', voiceIds: next });
+  }, [selection, updateSelection]);
+
+  const selectionKey = useMemo(() => serializeVoiceSelection(selection), [selection]);
+
+  const resolveVoice = useCallback(
+    (text: string) => resolveVoiceForText(text, selection, voiceOptions),
+    [selection, voiceOptions],
+  );
 
   return {
     voiceOptions,
-    selectedGoogleVoiceId,
+    voiceGenders,
+    selection,
+    selectionKey,
     loadingVoices,
-    handleGoogleVoiceChange,
+    setSingleVoice,
+    enableMix,
+    toggleMixVoice,
+    resolveVoice,
   };
 }

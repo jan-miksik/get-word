@@ -17,6 +17,7 @@ type AudioReuseItem = {
   text: string;
   language: string;
   selected_asset_id?: string;
+  voice_id?: string;
 };
 
 const MAX_ITEMS = 200;
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
 
   const hashes = items.map((item) =>
     computeContentHash(item.text, item.language, provider, {
-      voiceId: voice_id ?? "default",
+      voiceId: item.voice_id ?? voice_id ?? "default",
       audioFormat: AUDIO_FORMAT,
     }),
   );

@@ -22,8 +22,8 @@ type UseReusableAudioLookupOptions = {
   setRows: Dispatch<SetStateAction<AudioRow[]>>;
   setError: Dispatch<SetStateAction<string | null>>;
   audioSide: AudioSide;
-  googleVoiceIdForRequest: string | undefined;
-  selectedGoogleVoiceId: string;
+  resolveVoice: (text: string) => string | undefined;
+  selectionKey: string;
   t: TranslateFn;
 };
 
@@ -32,8 +32,8 @@ export function useReusableAudioLookup({
   setRows,
   setError,
   audioSide,
-  googleVoiceIdForRequest,
-  selectedGoogleVoiceId,
+  resolveVoice,
+  selectionKey,
   t,
 }: UseReusableAudioLookupOptions) {
   const didInitializeVoiceRef = useRef(false);
@@ -56,14 +56,17 @@ export function useReusableAudioLookup({
         const res = await listsApiFetch('/api/audio/reuse/batch', {
           method: 'POST',
           body: JSON.stringify({
-            items: batchRows.map((row) => ({
-              id: row.id,
-              text: row.audioText,
-              language: row.language,
-              selected_asset_id: row.selectedReusableAssetId ?? undefined,
-            })),
+            items: batchRows.map((row) => {
+              const voiceId = resolveVoice(row.audioText);
+              return {
+                id: row.id,
+                text: row.audioText,
+                language: row.language,
+                selected_asset_id: row.selectedReusableAssetId ?? undefined,
+                ...(voiceId ? { voice_id: voiceId } : {}),
+              };
+            }),
             provider: 'google_tts',
-            ...(googleVoiceIdForRequest ? { voice_id: googleVoiceIdForRequest } : {}),
             audio_field: audioSide,
             link,
           }),
@@ -147,7 +150,7 @@ export function useReusableAudioLookup({
         setError(err instanceof Error ? err.message : t('lists.audioUseExistingFailed'));
       }
     }
-  }, [audioSide, googleVoiceIdForRequest, setError, setRows, t]);
+  }, [audioSide, resolveVoice, setError, setRows, t]);
 
   useEffect(() => {
     if (!didInitializeVoiceRef.current) {
@@ -170,7 +173,7 @@ export function useReusableAudioLookup({
       );
     }, 0);
     return () => window.clearTimeout(timeoutId);
-  }, [selectedGoogleVoiceId, setRows]);
+  }, [selectionKey, setRows]);
 
   useEffect(() => {
     const uncheckedRows = rows.filter((row) => row.audioText && row.reuseStatus === 'unchecked');

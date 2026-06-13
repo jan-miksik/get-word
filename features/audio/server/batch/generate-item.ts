@@ -27,10 +27,11 @@ export type GenerateItemContext = {
  * the message that should halt remaining generation.
  */
 export async function generateAudioForItem(
-  { item, hash, replaceExisting }: GenerationCandidate,
+  { item, hash, replaceExisting, voiceId: itemVoiceId }: GenerationCandidate,
   ctx: GenerateItemContext,
 ): Promise<{ result: GeneratedResult; quotaExhausted?: string }> {
-  const { provider, voiceId, encryptedKey, audioField, force } = ctx;
+  const { provider, encryptedKey, audioField, force } = ctx;
+  const voiceId = itemVoiceId ?? ctx.voiceId;
   const audioFieldPatch = audioField === "known" ? { audioField } : {};
 
   try {

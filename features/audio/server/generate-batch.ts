@@ -80,9 +80,10 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
     }
   }
 
+  const resolveItemVoice = (item: AudioItem) => item.voice_id ?? voice_id;
   const hashes = items.map((item) =>
     computeContentHash(item.text, item.language, provider, {
-      voiceId: voice_id ?? "default",
+      voiceId: resolveItemVoice(item) ?? "default",
       audioFormat: AUDIO_FORMAT,
     }),
   );
@@ -118,7 +119,12 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
         storageRef: existing.storageRef,
       });
     } else {
-      needsGeneration.push({ item: items[i], hash, replaceExisting: Boolean(existing) });
+      needsGeneration.push({
+        item: items[i],
+        hash,
+        replaceExisting: Boolean(existing),
+        voiceId: resolveItemVoice(items[i]),
+      });
     }
   }
 

@@ -10,6 +10,8 @@ import { fetchGoogleSupportedLanguages } from "@/lib/i18n/server";
 export type LearningLanguage = SupportedLanguage & {
   ttsAvailable: boolean;
   ttsVoices: string[];
+  /** Voice name → SSML gender ("MALE" | "FEMALE" | "NEUTRAL") when Google reports it. */
+  ttsVoiceGenders: Record<string, string>;
   preferredVoice: string | null;
 };
 
@@ -242,6 +244,13 @@ export async function getLearningLanguageCatalog(target = "en"): Promise<Learnin
         ),
       );
 
+      const ttsVoiceGenders: Record<string, string> = {};
+      for (const voice of voices) {
+        if (voice.name && voice.ssmlGender) {
+          ttsVoiceGenders[voice.name] = voice.ssmlGender;
+        }
+      }
+
       const fallbackTtsAvailable =
         ttsVoices.length === 0 && COMMON_TTS_LANGUAGE_BASES.has(base);
 
@@ -249,6 +258,7 @@ export async function getLearningLanguageCatalog(target = "en"): Promise<Learnin
         ...language,
         ttsAvailable: voiceNames.length > 0 || fallbackTtsAvailable,
         ttsVoices: voiceNames,
+        ttsVoiceGenders,
         preferredVoice: voiceNames[0] ?? null,
       };
     })

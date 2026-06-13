@@ -3,11 +3,17 @@ import {
   OPENROUTER_MODEL_STORAGE_KEY,
   normalizeOpenRouterModel,
 } from '@/lib/openrouter-models';
+import {
+  parseVoiceSelection,
+  serializeVoiceSelection,
+  type VoiceSelection,
+} from '@/features/lists/audio-step/voiceMix';
 
 export type StoredTranslationProvider = 'google' | 'openrouter';
 
 const TRANSLATION_PROVIDER_STORAGE_KEY = 'get-word-list-translation-provider';
 const GOOGLE_TTS_VOICE_STORAGE_PREFIX = 'get-word-list-google-tts-voice';
+const GOOGLE_TTS_VOICE_SELECTION_STORAGE_PREFIX = 'get-word-list-google-tts-voice-selection';
 const ACTIVE_LIST_STORAGE_KEY = 'get-word-active-list';
 
 function readStorageValue(key: string): string | null {
@@ -82,4 +88,24 @@ export function readStoredGoogleVoiceId(languageCode: string): string {
 
 export function writeStoredGoogleVoiceId(languageCode: string, voiceId: string): void {
   writeStorageValue(getGoogleVoiceStorageKey(languageCode), voiceId);
+}
+
+function getGoogleVoiceSelectionStorageKey(languageCode: string): string {
+  return `${GOOGLE_TTS_VOICE_SELECTION_STORAGE_PREFIX}:${languageCode.toLowerCase()}`;
+}
+
+export function readStoredVoiceSelection(languageCode: string): VoiceSelection | null {
+  const stored = parseVoiceSelection(readStorageValue(getGoogleVoiceSelectionStorageKey(languageCode)));
+  if (stored) return stored;
+  // Fall back to the legacy single-voice key so existing choices carry over.
+  const legacy = readStorageValue(getGoogleVoiceStorageKey(languageCode));
+  return legacy ? { mode: 'single', voiceId: legacy } : null;
+}
+
+export function writeStoredVoiceSelection(languageCode: string, selection: VoiceSelection): void {
+  writeStorageValue(getGoogleVoiceSelectionStorageKey(languageCode), serializeVoiceSelection(selection));
+  // Keep the legacy single-voice key roughly in sync for any other readers.
+  if (selection.mode === 'single') {
+    writeStoredGoogleVoiceId(languageCode, selection.voiceId);
+  }
 }

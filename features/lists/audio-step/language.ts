@@ -4,6 +4,7 @@ export type TtsLanguageOption = {
   code: string;
   name: string;
   ttsVoices?: string[];
+  ttsVoiceGenders?: Record<string, string>;
   preferredVoice?: string | null;
 };
 
