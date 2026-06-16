@@ -33,9 +33,10 @@ export function EditHeader({
         <div className="flex gap-2">
           <button
             onClick={onCancel}
-            className="rounded-full border border-border-subtle bg-transparent px-3 py-1.5 text-xs text-text"
+            className="inline-flex items-center gap-2 rounded-full bg-fresh px-5 py-2.5 text-base font-bold text-background shadow-lg ring-2 ring-fresh/50 transition-transform hover:scale-105 hover:shadow-xl"
           >
-            {t('common.cancel')}
+            <span aria-hidden="true" className="text-lg leading-none">←</span>
+            {t('editor.backToApp')}
           </button>
           <button
             onClick={onSave}

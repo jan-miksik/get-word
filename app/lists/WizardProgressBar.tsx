@@ -35,7 +35,7 @@ export function WizardProgressBar({
 
   return (
     <div className="px-4 md:px-6 py-3 border-b border-border-subtle bg-background-elevated">
-      <div className="max-w-4xl mx-auto flex items-center gap-1.5 text-sm">
+      <div className="max-w-4xl mx-auto flex items-center gap-1.5 text-sm overflow-x-auto">
         {steps.map((step, index) => {
           const isAvailable = availableStepSet ? availableStepSet.has(step.id) : true;
           const isPast = index < currentIndex;
@@ -44,7 +44,7 @@ export function WizardProgressBar({
           const isClickable = isAvailable && (isPast || (isFuture && canJumpForward));
 
           return (
-            <div key={step.id} className="flex items-center gap-1.5">
+            <div key={step.id} className="flex items-center gap-1.5 shrink-0">
               {index > 0 && (
                 <span className="text-text-soft text-xs">→</span>
               )}
@@ -53,7 +53,7 @@ export function WizardProgressBar({
                 disabled={!isClickable && !isCurrent}
                 onClick={() => isClickable && onGoToStep(step.id)}
                 className={[
-                  'px-2.5 py-1 rounded-md text-xs transition-colors',
+                  'px-2.5 py-1 rounded-md text-xs transition-colors whitespace-nowrap',
                   isCurrent
                     ? 'bg-accent/15 text-accent font-semibold'
                     : !isAvailable

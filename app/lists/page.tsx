@@ -47,7 +47,7 @@ function ListsPageContent() {
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(initialUrlState?.settingsOpen ?? false);
-  const [openCreateSignal, setOpenCreateSignal] = useState(initialUrlState?.shouldOpenCreate ? 1 : 0);
+  const [openCreateSignal] = useState(initialUrlState?.shouldOpenCreate ? 1 : 0);
   const [initialCreateLanguageFrom] = useState<string | null>(
     initialUrlState?.initialCreateLanguageFrom ?? null,
   );
@@ -214,34 +214,6 @@ function ListsPageContent() {
 
   return (
     <div className="flex h-screen bg-background text-text overflow-hidden overscroll-none">
-      {/* Mobile sidebar toggle */}
-      <button
-        type="button"
-        className="fixed top-4 left-4 z-50 p-2 rounded-lg bg-background-elevated border border-border-subtle md:hidden"
-        onClick={() => setSidebarOpen(!sidebarOpen)}
-        aria-label={t('lists.toggleSidebar')}
-      >
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-text">
-          <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-        </svg>
-      </button>
-
-      {/* Settings button */}
-      <button
-        type="button"
-        className="fixed top-4 right-4 z-50 p-2 rounded-lg bg-background-elevated border border-border-subtle text-text-soft hover:text-text transition-colors"
-        onClick={() => setSettingsOpen(true)}
-        aria-label={t('lists.settings')}
-        title={t('lists.apiKeys')}
-      >
-        {/* Key icon */}
-        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-current">
-          <circle cx="8" cy="8" r="4" stroke="currentColor" strokeWidth="1.5" />
-          <path d="M11.5 11.5L17 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-          <path d="M14.5 14.5L16 13l1 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-
       <ApiKeySettings isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       {/* Sidebar */}
@@ -281,6 +253,37 @@ function ListsPageContent() {
 
       {/* Main content */}
       <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
+        {/* Top bar (static at top, not fixed) */}
+        <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border-subtle bg-background-elevated">
+          <button
+            type="button"
+            className="md:hidden -ml-1 p-2 rounded-lg text-text hover:bg-background/60 transition-colors"
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            aria-label={t('lists.toggleSidebar')}
+          >
+            <svg width="22" height="22" viewBox="0 0 20 20" fill="none" className="text-current">
+              <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+          </button>
+
+          <div className="flex-1" />
+
+          <button
+            type="button"
+            className="p-2 rounded-lg text-text-soft hover:text-text hover:bg-background/60 transition-colors"
+            onClick={() => setSettingsOpen(true)}
+            aria-label={t('lists.settings')}
+            title={t('lists.apiKeys')}
+          >
+            {/* Key icon */}
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" className="text-current">
+              <circle cx="8" cy="8" r="4" stroke="currentColor" strokeWidth="1.5" />
+              <path d="M11.5 11.5L17 17" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              <path d="M14.5 14.5L16 13l1 1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          </button>
+        </div>
+
         {wizard.wizardStep !== 'browse' && selectedList && (
           <WizardProgressBar
             currentStep={wizard.wizardStep as WizardActiveStep}
@@ -408,19 +411,6 @@ function ListsPageContent() {
           ) : null}
         </div>
       </div>
-
-      {!sidebarOpen && (
-        <button
-          type="button"
-          className="fixed right-4 bottom-4 z-20 rounded-full bg-accent text-background px-4 py-2.5 text-sm font-medium shadow-lg md:hidden"
-          onClick={() => {
-            setOpenCreateSignal((prev) => prev + 1);
-            setSidebarOpen(true);
-          }}
-        >
-          + {t('lists.newList')}
-        </button>
-      )}
 
       {pendingFork && (
         <PendingForkDialog

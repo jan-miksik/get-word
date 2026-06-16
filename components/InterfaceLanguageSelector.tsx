@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { PUBLIC_LANGUAGE_STORAGE_KEY } from '@/lib/i18n/public-language';
@@ -45,11 +45,13 @@ export function InterfaceLanguageSelector({
   const { t, language } = useI18n();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [languages, setLanguages] = useState<SupportedLanguage[]>(
-    providedLanguages ?? COMMON_LANGUAGES,
-  );
+  const [fetchedLanguages, setFetchedLanguages] = useState<SupportedLanguage[]>(COMMON_LANGUAGES);
   const [failed, setFailed] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const dropdownShiftRef = useRef(0);
+  const languages = providedLanguages ?? fetchedLanguages;
+  const showFailed = !providedLanguages && failed;
 
   useEffect(() => {
     if (!open) return;
@@ -67,27 +69,58 @@ export function InterfaceLanguageSelector({
     };
   }, [open]);
 
-  useEffect(() => {
-    if (providedLanguages) {
-      setFailed(false);
-      setLanguages(providedLanguages);
+  useLayoutEffect(() => {
+    if (!open) {
+      dropdownShiftRef.current = 0;
       return;
     }
-    if (!open) return;
+
+    function updateDropdownShift() {
+      const node = dropdownRef.current;
+      if (!node) return;
+
+      const viewportPadding = 12;
+      const rect = node.getBoundingClientRect();
+      const baseLeft = rect.left - dropdownShiftRef.current;
+      const baseRight = rect.right - dropdownShiftRef.current;
+      const maxRight = window.innerWidth - viewportPadding;
+      let nextShift = 0;
+
+      if (baseLeft < viewportPadding) {
+        nextShift = viewportPadding - baseLeft;
+      } else if (baseRight > maxRight) {
+        nextShift = maxRight - baseRight;
+      }
+
+      dropdownShiftRef.current = nextShift;
+      node.style.transform = nextShift ? `translateX(${nextShift}px)` : '';
+    }
+
+    updateDropdownShift();
+    window.addEventListener('resize', updateDropdownShift);
+    window.addEventListener('orientationchange', updateDropdownShift);
+    return () => {
+      window.removeEventListener('resize', updateDropdownShift);
+      window.removeEventListener('orientationchange', updateDropdownShift);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (providedLanguages || !open) return;
     let cancelled = false;
-    setFailed(false);
     const params = new URLSearchParams({ target: language });
     if (query.trim()) params.set('q', query.trim());
     fetch(`/api/settings-languages?${params.toString()}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Failed'))))
       .then((data) => {
         if (cancelled) return;
-        setLanguages(mergeLanguages(COMMON_LANGUAGES, data.languages ?? []));
+        setFailed(false);
+        setFetchedLanguages(mergeLanguages(COMMON_LANGUAGES, data.languages ?? []));
       })
       .catch(() => {
         if (cancelled) return;
         setFailed(true);
-        setLanguages(COMMON_LANGUAGES);
+        setFetchedLanguages(COMMON_LANGUAGES);
       });
     return () => {
       cancelled = true;
@@ -133,6 +166,12 @@ export function InterfaceLanguageSelector({
     setOpen(false);
   }
 
+  function toggleOpen() {
+    const opening = !open;
+    if (opening) setFailed(false);
+    setOpen(opening);
+  }
+
   const dropdownAlign = align === 'right' ? 'right-0' : 'left-0';
 
   return (
@@ -147,7 +186,7 @@ export function InterfaceLanguageSelector({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={t('language.selectorLabel')}
-        onClick={() => setOpen((value) => !value)}
+        onClick={toggleOpen}
         className={`inline-flex h-10 max-w-full items-center gap-2 rounded-full border-2 border-[var(--ob-ink)] bg-[var(--ob-surface)] px-3.5 text-xs font-bold text-[color:var(--ob-ink)] transition-colors hover:bg-[var(--ob-surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ob-accent)] ${buttonSizeClass}`}
       >
         <span aria-hidden="true" className="text-base leading-none">{currentFlag}</span>
@@ -166,14 +205,20 @@ export function InterfaceLanguageSelector({
         </svg>
       </button>
       {open ? (
-        <div className={`absolute ${dropdownAlign} z-30 mt-2 w-80 max-w-[82vw]`}>
+        <div
+          ref={dropdownRef}
+          className={`absolute ${dropdownAlign} z-30 mt-2 w-80 max-w-[calc(100vw-1.5rem)]`}
+        >
           <input
             type="search"
             value={query}
             autoFocus
             placeholder={t('onboarding.searchLanguages')}
             aria-label={t('language.selectorLabel')}
-            onChange={(event) => setQuery(event.target.value)}
+            onChange={(event) => {
+              setFailed(false);
+              setQuery(event.target.value);
+            }}
             className="mb-1.5 h-10 w-full rounded-xl border-2 border-[var(--ob-ink)] bg-[var(--ob-surface)] px-3 text-sm text-[color:var(--ob-ink)] outline-none transition-colors placeholder:text-[color:var(--ob-ink-soft)] placeholder:opacity-70 focus:bg-[var(--ob-surface-hover)]"
           />
           <div className="onboarding-combobox-list overflow-hidden">
@@ -182,7 +227,7 @@ export function InterfaceLanguageSelector({
               aria-label={t('language.selectorLabel')}
               className="max-h-80 overflow-y-auto p-1"
             >
-              {failed ? (
+              {showFailed ? (
                 <li className="px-3 py-2 text-xs onboarding-text-soft">
                   {t('language.unavailable')}
                 </li>

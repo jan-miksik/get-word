@@ -33,6 +33,52 @@ describe('InterfaceLanguageSelector', () => {
     expect(screen.getByText(/Auto means the interface translation/i)).toBeInTheDocument();
   });
 
+  it('nudges the dropdown back inside narrow mobile viewports', async () => {
+    const originalInnerWidth = window.innerWidth;
+    const originalGetBoundingClientRect = Element.prototype.getBoundingClientRect;
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 375 });
+    Element.prototype.getBoundingClientRect = function () {
+      const className = String((this as Element).getAttribute('class') ?? '');
+      if (className.includes('absolute') && className.includes('w-80')) {
+        return {
+          x: -8,
+          y: 0,
+          left: -8,
+          right: 312,
+          top: 0,
+          bottom: 300,
+          width: 320,
+          height: 300,
+          toJSON: () => ({}),
+        };
+      }
+      return originalGetBoundingClientRect.call(this);
+    };
+
+    try {
+      render(
+        <I18nProvider language="en">
+          <InterfaceLanguageSelector value="en" onChange={vi.fn()} align="right" />
+        </I18nProvider>,
+      );
+
+      fireEvent.click(screen.getByRole('button', { name: 'App language' }));
+
+      await waitFor(() => {
+        const popup = document
+          .querySelector('[data-testid="interface-language-selector"]')
+          ?.querySelector('.absolute') as HTMLElement | null;
+        expect(popup?.style.transform).toBe('translateX(20px)');
+      });
+    } finally {
+      Object.defineProperty(window, 'innerWidth', {
+        configurable: true,
+        value: originalInnerWidth,
+      });
+      Element.prototype.getBoundingClientRect = originalGetBoundingClientRect;
+    }
+  });
+
   it.each(['Czech', 'č', 'čeština', 'cestina'])('finds Czech by %s', async (query) => {
     render(
       <I18nProvider language="en">

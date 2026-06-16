@@ -253,7 +253,8 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
 
   const providers = [
     { id: 'openrouter', name: 'OpenRouter', description: t('lists.providerDescriptionOpenRouter') },
-    { id: 'elevenlabs', name: 'ElevenLabs', description: t('lists.providerDescriptionElevenLabs') },
+    // ElevenLabs temporarily hidden (mobile + desktop) — re-add when the provider is ready.
+    // { id: 'elevenlabs', name: 'ElevenLabs', description: t('lists.providerDescriptionElevenLabs') },
   ];
 
   return (

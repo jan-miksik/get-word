@@ -761,10 +761,6 @@
     max-height: calc(100dvh - 5rem - env(safe-area-inset-bottom, 0px));
     overflow-y: auto;
   }
-
-  .word-lists-editor-item {
-    display: none;
-  }
 }
 
 /* ─── Account slot: force auth-button into tm-* palette ─── */

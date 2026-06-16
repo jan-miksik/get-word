@@ -418,10 +418,10 @@ export function CategoryBrowser({
             </div>
           </div>
         ) : (
-          <div className="flex items-start justify-between gap-3">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0">
               <h1 className="text-xl font-semibold text-text">{list.name}</h1>
-              <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-text-soft">
+              <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-text-soft">
                 <span>{list.languageFrom} → {list.languageTo}</span>
                 <ListBadges list={list} />
                 <span className="basis-full sm:basis-auto">
@@ -433,7 +433,7 @@ export function CategoryBrowser({
               )}
             </div>
 
-            <div className="hidden md:flex shrink-0 items-center gap-2">
+            <div className="flex shrink-0 items-center gap-2">
               {canEditListMetadata ? (
                 <button
                   type="button"
@@ -502,11 +502,6 @@ export function CategoryBrowser({
         )}
       </div>
 
-      {/* Mobile read-only banner */}
-      <div className="md:hidden mb-4 p-3 rounded-lg bg-accent/10 border border-accent/20">
-        <p className="text-sm text-accent">{t('lists.editOnDesktop')}</p>
-      </div>
-
       {/* Categories */}
       <div className="space-y-2">
         {canEditListContent ? (
@@ -543,7 +538,7 @@ export function CategoryBrowser({
 
             {allWordsExpanded && (
               <div className="border-t border-accent/20 px-4 pb-3">
-                <div className="py-2 hidden md:flex gap-2">
+                <div className="py-2 flex flex-wrap items-center gap-2">
                   <button
                     type="button"
                     className="px-3 py-1.5 rounded-lg bg-accent text-background text-xs font-semibold hover:bg-accent-strong transition-colors"
@@ -554,7 +549,7 @@ export function CategoryBrowser({
                   >
                     {t('lists.reviewAllWords')}
                   </button>
-                  <span className="self-center text-xs text-text-soft">{t('lists.allWordsSafeEditHint')}</span>
+                  <span className="text-xs text-text-soft">{t('lists.allWordsSafeEditHint')}</span>
                 </div>
 
                 {allItems.length === 0 ? (
@@ -653,9 +648,9 @@ export function CategoryBrowser({
               {/* Expanded word list */}
               {isExpanded && (
                 <div className="px-4 pb-3 border-t border-border-subtle">
-                  {/* Edit/Delete buttons - desktop only */}
+                  {/* Edit/Delete buttons */}
                   {canEditListContent && (
-                    <div className="py-2 hidden md:flex gap-2">
+                    <div className="py-2 flex flex-wrap gap-2">
                       <button
                         type="button"
                         className="px-3 py-1.5 rounded-lg bg-accent/10 text-accent text-xs font-medium hover:bg-accent/20 transition-colors"
@@ -685,7 +680,7 @@ export function CategoryBrowser({
                           setDeleteCategoryConfirm(category);
                         }}
                       >
-                        {t('lists.delete')}
+                        {t('lists.deleteCategory')}
                       </button>
                     </div>
                   )}
@@ -716,9 +711,9 @@ export function CategoryBrowser({
         })}
       </div>
 
-      {/* Add category - desktop only */}
+      {/* Add category */}
       {canEditListContent && (
-        <div className="mt-4 hidden md:block">
+        <div className="mt-4">
           {showAddCategory ? (
             <div className="flex gap-2">
               <input
@@ -764,7 +759,7 @@ export function CategoryBrowser({
         isOpen={Boolean(deleteCategoryConfirm)}
         title={t('lists.deleteCategoryTitle', { name: deleteCategoryConfirm?.name ?? '' })}
         message={t('lists.deleteCategoryMessage')}
-        confirmLabel={t('lists.delete')}
+        confirmLabel={t('lists.deleteCategory')}
         onConfirm={() => {
           const id = deleteCategoryConfirm?.id;
           setDeleteCategoryConfirm(null);

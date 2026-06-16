@@ -74,24 +74,33 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     );
   }
 
-  // Get current items in category
+  // Get current items in category (sorted by position asc)
   const currentItems = await getCategoryItems(id, catId);
 
-  // Build lookup from current items by normalized text
+  // Build lookup from current items by normalized text.
+  //
+  // Reordering must be judged by an item's *rank within the category*, not its
+  // raw stored `position`. Stored positions can be global/sparse across the
+  // whole list, so comparing them to the category-local line index would flag
+  // every word as "reordered" even when the order is unchanged. `rank` counts
+  // only items that have text in the input language, mirroring how the textarea
+  // strips empty lines before indexing them.
   const field = input_language === "known" ? "textKnown" : "textTarget";
   const currentByText = new Map<
     string,
-    { id: string; position: number; textKnown: string; textTarget: string | null }
+    { id: string; rank: number; textKnown: string; textTarget: string | null }
   >();
+  let rank = 0;
   for (const item of currentItems) {
     const text = item[field];
-    if (text) {
+    if (text && text.trim().length > 0) {
       currentByText.set(normalize(text), {
         id: item.id,
-        position: item.position,
+        rank,
         textKnown: item.textKnown,
         textTarget: item.textTarget,
       });
+      rank++;
     }
   }
 
@@ -109,11 +118,11 @@ export async function PUT(request: NextRequest, context: RouteContext) {
 
     if (existing) {
       matchedIds.add(existing.id);
-      if (existing.position !== i) {
+      if (existing.rank !== i) {
         reordered.push({
           id: existing.id,
           text: lineText,
-          from_pos: existing.position,
+          from_pos: existing.rank,
           to_pos: i,
         });
       } else {

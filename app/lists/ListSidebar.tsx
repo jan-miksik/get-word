@@ -7,6 +7,7 @@ import type { GoogleUsageResponse, WordList } from '@/features/lists/types';
 import { GoogleUsagePanel } from './GoogleUsagePanel';
 import { useI18n } from '@/components/I18nProvider';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { CreateListModal } from './CreateListModal';
 
 interface ListSidebarProps {
   lists: WordList[];
@@ -88,10 +89,8 @@ export function ListSidebar({
   const { t } = useI18n();
   const [showCreate, setShowCreate] = useState(false);
   const [usageModalOpen, setUsageModalOpen] = useState(false);
-  const [newName, setNewName] = useState('');
   const [newLangFrom, setNewLangFrom] = useState('cs');
   const [newLangTo, setNewLangTo] = useState('vi');
-  const [creating, setCreating] = useState(false);
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [returningToApp, setReturningToApp] = useState(false);
@@ -139,17 +138,11 @@ export function ListSidebar({
     };
   }, [openDropdownId]);
 
-  async function handleCreate() {
-    if (!newName.trim()) return;
-    setCreating(true);
-    try {
-      await onCreateList(newName.trim(), newLangFrom, newLangTo);
-      setNewName('');
-      setShowCreate(false);
-    } finally {
-      setCreating(false);
-    }
-  }
+  const createLanguageOptions = languages.length > 0 ? languages : [
+    { code: 'cs', name: t('languageName.cs') },
+    { code: 'vi', name: t('languageName.vi') },
+    { code: 'en', name: t('languageName.en') },
+  ];
 
   async function handleToggleSubscription(listId: string) {
     setTogglingId(listId);
@@ -208,7 +201,7 @@ export function ListSidebar({
       <div className="p-4 border-b border-border-subtle">
         <Link
           href="/"
-          className="inline-flex items-center gap-1 text-xs text-text-soft hover:text-accent transition-colors mb-2"
+          className="inline-flex items-center gap-1.5 mb-3 px-3.5 py-2 rounded-lg bg-fresh/15 border border-fresh/40 text-sm font-semibold text-fresh hover:bg-fresh/25 transition-colors"
           onClick={(event) => {
             if (
               event.defaultPrevented ||
@@ -223,7 +216,7 @@ export function ListSidebar({
             setReturningToApp(true);
           }}
         >
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
             <path d="M10 4L6 8l4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           {t('lists.backToApp')}
@@ -627,78 +620,23 @@ export function ListSidebar({
       )}
 
       <div className="p-3 border-t border-border-subtle">
-        {showCreate ? (
-          <div className="space-y-2">
-            <input
-              type="text"
-              placeholder={t('lists.listName')}
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              className="w-full px-3 py-2 rounded-lg bg-background border border-border-subtle text-text text-sm focus:outline-none focus:border-accent"
-              autoFocus
-              onKeyDown={(e) => e.key === 'Enter' && handleCreate()}
-            />
-            <div className="flex gap-2">
-              <select
-                value={newLangFrom}
-                onChange={(e) => setNewLangFrom(e.target.value)}
-                className="flex-1 px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs"
-              >
-                {(languages.length > 0 ? languages : [
-                  { code: 'cs', name: t('languageName.cs') },
-                  { code: 'vi', name: t('languageName.vi') },
-                  { code: 'en', name: t('languageName.en') },
-                ]).map((language) => (
-                  <option key={language.code} value={language.code}>
-                    {language.name}
-                  </option>
-                ))}
-              </select>
-              <span className="text-text-soft self-center text-xs">→</span>
-              <select
-                value={newLangTo}
-                onChange={(e) => setNewLangTo(e.target.value)}
-                className="flex-1 px-2 py-1.5 rounded-lg bg-background border border-border-subtle text-text text-xs"
-              >
-                {(languages.length > 0 ? languages : [
-                  { code: 'vi', name: t('languageName.vi') },
-                  { code: 'cs', name: t('languageName.cs') },
-                  { code: 'en', name: t('languageName.en') },
-                ]).map((language) => (
-                  <option key={language.code} value={language.code}>
-                    {language.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                className="flex-1 py-1.5 rounded-lg border border-border-subtle text-text text-xs hover:bg-background/50"
-                onClick={() => setShowCreate(false)}
-              >
-                {t('lists.cancelCreate')}
-              </button>
-              <button
-                type="button"
-                disabled={creating || !newName.trim()}
-                className="flex-1 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-50"
-                onClick={handleCreate}
-              >
-                {creating ? t('lists.creating') : t('lists.create')}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <button
-            type="button"
-            className="w-full py-2 rounded-lg border border-dashed border-border-subtle text-text-soft text-sm hover:border-accent hover:text-accent transition-colors"
-            onClick={() => setShowCreate(true)}
-          >
-            + {t('lists.newList')}
-          </button>
-        )}
+        <button
+          type="button"
+          className="w-full py-2.5 rounded-lg bg-accent text-background text-sm font-semibold shadow-sm hover:bg-accent/90 transition-colors"
+          onClick={() => setShowCreate(true)}
+        >
+          + {t('lists.newList')}
+        </button>
       </div>
+
+      <CreateListModal
+        isOpen={showCreate}
+        languages={createLanguageOptions}
+        initialLangFrom={newLangFrom}
+        initialLangTo={newLangTo}
+        onClose={() => setShowCreate(false)}
+        onCreate={onCreateList}
+      />
 
       <ConfirmModal
         isOpen={Boolean(deleteConfirm)}
