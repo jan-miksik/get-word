@@ -21,6 +21,7 @@ export {
 type Props = {
   initialFrom?: string | null;
   initialTo?: string | null;
+  reason?: 'onboarding' | 'noListSelected';
   onComplete: (languageFrom: string, languageTo: string) => void | Promise<void>;
   onSelectList: (listId: string) => void;
 };
@@ -28,6 +29,7 @@ type Props = {
 export function LearningLanguageOnboarding({
   initialFrom,
   initialTo,
+  reason = 'onboarding',
   onComplete,
   onSelectList,
 }: Props) {
@@ -68,7 +70,7 @@ export function LearningLanguageOnboarding({
     onSelectList,
   });
 
-  const [advancedOpen, setAdvancedOpen] = useState(false);
+  const [advancedOpen, setAdvancedOpen] = useState(reason === 'noListSelected');
 
   // The primary "Continue" button hides the advanced list-setup options and just
   // picks a sensible default, always landing in the learning app (never the
@@ -120,12 +122,36 @@ export function LearningLanguageOnboarding({
             />
             <h2 className="text-base font-extrabold">{generationStatus.title}</h2>
             <p className="mt-2 text-sm leading-relaxed onboarding-text-soft">{generationStatus.detail}</p>
+            {generationStatus.progress ? (
+              <div className="mt-4 text-left">
+                <div className="h-2 overflow-hidden rounded-full bg-[color:var(--ob-border)]">
+                  {typeof generationStatus.progress.value === 'number' ? (
+                    <div
+                      className="h-full rounded-full bg-[color:var(--ob-accent)] transition-[width] duration-300"
+                      style={{
+                        width: `${Math.max(0, Math.min(1, generationStatus.progress.value)) * 100}%`,
+                      }}
+                    />
+                  ) : (
+                    <div className="h-full w-1/3 animate-pulse rounded-full bg-[color:var(--ob-accent)]" />
+                  )}
+                </div>
+                {generationStatus.progress.label ? (
+                  <p className="mt-2 text-center text-xs font-bold onboarding-text-soft">
+                    {generationStatus.progress.label}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
             {generationStatus.estimateSeconds ? (
               <p className="mt-3 text-xs font-bold onboarding-text-soft">
                 {t('onboarding.estimatedTime', {
                   time: formatDurationEstimate(generationStatus.estimateSeconds),
                 })}
               </p>
+            ) : null}
+            {generationStatus.note ? (
+              <p className="mt-3 text-xs leading-relaxed onboarding-text-soft">{generationStatus.note}</p>
             ) : null}
           </section>
         </div>
@@ -134,6 +160,12 @@ export function LearningLanguageOnboarding({
         <div className="mb-4 flex justify-end">
           <OnboardingLanguageSwitcher />
         </div>
+        {reason === 'noListSelected' ? (
+          <div className="onboarding-notice mb-4 rounded-md px-3 py-2 text-sm">
+            <p className="font-extrabold">{t('onboarding.noListSelectedTitle')}</p>
+            <p className="mt-1 text-xs leading-relaxed">{t('onboarding.noListSelectedDescription')}</p>
+          </div>
+        ) : null}
         <div className="grid gap-4 sm:grid-cols-2 sm:items-end">
           <LanguageCombobox
             id="language-from"

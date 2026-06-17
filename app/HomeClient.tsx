@@ -107,6 +107,7 @@ export function HomeClient() {
     setActiveListId,
     setMemoryHooksEnabled,
     setMemoryHooksIntroAnswered,
+    subscribedLists,
   } = appState;
 
   // Use synced words (from word_list_items) when available, otherwise use the fetched words table.
@@ -292,6 +293,12 @@ export function HomeClient() {
   ) : null;
 
   const interstitialCard = memoryHooksIntroCard ?? pwaInstallIntroCard;
+  const hasNoSelectedWordList = Boolean(
+    onboardingCompletedAt &&
+      learningLanguageFrom &&
+      learningLanguageTo &&
+      subscribedLists.length === 0
+  );
 
   return (
     <AppStateProvider value={appState}>
@@ -305,12 +312,13 @@ export function HomeClient() {
           // Authed-but-still-hydrating → waiting on userId. Hold the loading
           // screen rather than flashing app chrome.
           <LoadingScreen />
-        ) : forceOnboarding || !onboardingCompletedAt || !learningLanguageFrom || !learningLanguageTo ? (
+        ) : forceOnboarding || hasNoSelectedWordList || !onboardingCompletedAt || !learningLanguageFrom || !learningLanguageTo ? (
           <LearningLanguageOnboarding
             initialFrom={learningLanguageFrom}
             initialTo={learningLanguageTo}
-            onComplete={(from, to) => {
-              setLearningLanguages(from, to);
+            reason={hasNoSelectedWordList ? 'noListSelected' : 'onboarding'}
+            onComplete={async (from, to) => {
+              await setLearningLanguages(from, to);
               if (forceOnboarding) {
                 setForceOnboarding(false);
                 // Drop the `?onboarding=1` param so a refresh doesn't replay it.

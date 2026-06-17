@@ -72,26 +72,21 @@ export function useLearningOnboardingActions({
         : undefined,
     });
     setError(null);
-    let willReload = false;
     try {
-      if (!(await savePreferences())) return;
-      onSelectList(list.id);
       if (!list.isOwner) {
         const res = await fetch(`/api/lists/${list.id}/subscribe`, { method: 'POST' });
         if (!res.ok && res.status !== 409) {
           const data = await res.json().catch(() => ({}));
           throw new Error(data.error ?? 'Subscribe failed');
         }
-        // Keep the overlay up through the reload rather than briefly revealing
-        // the empty app underneath.
-        willReload = true;
-        window.location.reload();
       }
+      onSelectList(list.id);
+      if (!(await savePreferences())) return;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not select list');
     } finally {
       setWorkingId(null);
-      if (!willReload) setGenerationStatus(null);
+      setGenerationStatus(null);
     }
   }
 
@@ -177,7 +172,9 @@ export function useLearningOnboardingActions({
     setWorkingId('common');
     setGenerationStatus({
       title: 'Preparing common list',
-      detail: 'Generating a recommended common list...',
+      detail:
+        'Finding the best seed list, creating your words, and preparing pronunciation audio. The first step can take a few minutes before detailed progress appears.',
+      note: 'Please keep this tab open. If you close it during setup, the list may be created without all audio attached.',
       // The list-generation request can run for a while before we know the real
       // item count, so show a provisional whole-flow estimate up front to avoid a
       // long gap with no estimate. It is refined once the list is created.
@@ -186,6 +183,7 @@ export function useLearningOnboardingActions({
         audioCharacterCount: 0,
         audioClipCount: PROVISIONAL_COMMON_LIST_ITEM_COUNT * 2,
       }),
+      progress: { label: 'Preparing list...' },
     });
     setError(null);
     let didComplete = false;
@@ -209,6 +207,7 @@ export function useLearningOnboardingActions({
         detail: createData.reused_existing
           ? 'Using the existing recommended list for this language pair.'
           : `Generated ${itemCount || 'the'} common entries. Preparing audio...`,
+        note: 'Please keep this tab open while pronunciation audio is generated.',
         estimateSeconds: itemCount
           ? estimateCommonListGenerationSeconds({
               itemCount,
@@ -216,6 +215,7 @@ export function useLearningOnboardingActions({
               audioClipCount: itemCount * 2,
             })
           : undefined,
+        progress: { label: 'Checking missing audio...' },
       });
       const audioSummary = await generateCommonListAudio({
         list: generatedList,

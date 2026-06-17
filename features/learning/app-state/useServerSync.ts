@@ -115,6 +115,8 @@ export function useServerSync({
         if (!currentId || !isValid) {
           setActiveListId(serverData.lists[0].id);
         }
+      } else {
+        setActiveListId(null);
       }
     }
     if (options.markServerSnapshot ?? true) {

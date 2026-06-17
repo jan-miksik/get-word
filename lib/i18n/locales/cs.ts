@@ -655,6 +655,8 @@ export const csMessages: I18nMessages = {
   "editor.audioFiles": "Zvukové soubory",
   "editor.commaSeparated": "(oddělené čárkou)",
   "onboarding.interfaceLanguageLabel": "Jazyk rozhraní",
+  "onboarding.noListSelectedTitle": "Není vybraný žádný seznam slov",
+  "onboarding.noListSelectedDescription": "Vyberte níže doporučený seznam nebo si jeden vygenerujte a pokračujte v učení.",
   "onboarding.iKnow": "Umím",
   "onboarding.iWantToLearn": "Chci se učit",
   "onboarding.selectLanguage": "Vyberte jazyk",

@@ -30,6 +30,11 @@ export type GenerationStatus = {
   title: string;
   detail: string;
   estimateSeconds?: number;
+  note?: string;
+  progress?: {
+    value?: number;
+    label?: string;
+  };
 };
 
 export type AudioGenerationSummary = {
@@ -111,6 +116,10 @@ function getResponseField(data: Record<string, unknown>, key: string, nestedKey:
   return typeof nestedValue === 'string' ? nestedValue : null;
 }
 
+function hasPlayableAudioUrl(url: string | null | undefined, urls: string[] | undefined) {
+  return Boolean(url) || (Array.isArray(urls) && urls.some(Boolean));
+}
+
 async function loadTtsRemainingQuota(): Promise<number | null> {
   try {
     const usageRes = await fetch('/api/google-usage');
@@ -134,7 +143,7 @@ export async function generateCommonListAudio({
   const audioFailureNotice =
     'The common list is ready, but audio generation could not finish. Audio can be added from the lists editor later.';
 
-  const detailsRes = await fetch(`/api/lists/${list.id}?include_media=false`);
+  const detailsRes = await fetch(`/api/lists/${list.id}`);
   if (!detailsRes.ok) {
     return {
       notice: audioFailureNotice,
@@ -149,8 +158,18 @@ export async function generateCommonListAudio({
 
   const details = await detailsRes.json().catch(() => ({}));
   const items: WordListItem[] = Array.isArray(details.items) ? details.items : [];
-  const targetItems = items.filter((item) => item.textTarget && item.audioStatus !== 'ready');
-  const knownItems = items.filter((item) => item.textKnown && item.knownAudioStatus !== 'ready');
+  const targetItems = items.filter(
+    (item) =>
+      item.textTarget &&
+      (item.audioStatus !== 'ready' ||
+        !hasPlayableAudioUrl(item.audioUrl, item.audioArweaveUrls)),
+  );
+  const knownItems = items.filter(
+    (item) =>
+      item.textKnown &&
+      (item.knownAudioStatus !== 'ready' ||
+        !hasPlayableAudioUrl(item.knownAudioUrl, item.knownAudioArweaveUrls)),
+  );
   const audioClipCount = targetItems.length + knownItems.length;
   const requestedUnits = countTextUnits([
     ...targetItems.map((item) => item.textTarget ?? ''),
@@ -189,7 +208,31 @@ export async function generateCommonListAudio({
       audioCharacterCount: requestedUnits,
       audioClipCount,
     }),
+    note: audioClipCount > 0
+      ? 'Please keep this tab open until audio is finished. Closing it can leave the list partly prepared.'
+      : undefined,
+    progress: audioClipCount > 0
+      ? { value: 0, label: `0/${formatNumber(audioClipCount)} audio clips` }
+      : undefined,
   });
+  let processedClipCount = 0;
+
+  function reportAudioProgress() {
+    setGenerationStatus({
+      title: 'Generating audio',
+      detail: `Generated or checked ${formatNumber(processedClipCount)} of ${formatNumber(audioClipCount)} audio clips.`,
+      estimateSeconds: estimateCommonListGenerationSeconds({
+        itemCount: items.length,
+        audioCharacterCount: requestedUnits,
+        audioClipCount,
+      }),
+      note: 'Please keep this tab open until audio is finished. Closing it can leave the list partly prepared.',
+      progress: {
+        value: audioClipCount > 0 ? processedClipCount / audioClipCount : 1,
+        label: `${formatNumber(processedClipCount)}/${formatNumber(audioClipCount)} audio clips`,
+      },
+    });
+  }
 
   async function generateBatch(
     batchItems: WordListItem[],
@@ -228,6 +271,8 @@ export async function generateCommonListAudio({
         if (audioField === 'target') failedTargetCount += chunk.length;
         else failedKnownCount += chunk.length;
         quotaNotice ??= audioFailureNotice;
+        processedClipCount += chunk.length;
+        reportAudioProgress();
         continue;
       }
       const quotaLimitMessage = getResponseField(data, 'quota_limit', 'message');
@@ -256,6 +301,8 @@ export async function generateCommonListAudio({
         quotaNotice =
           typeof data.error === 'string' ? data.error : getAudioQuotaNotice(requestedUnits, 0);
       }
+      processedClipCount += chunk.length;
+      reportAudioProgress();
     }
   }
 

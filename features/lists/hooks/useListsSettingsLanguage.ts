@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
-import { readPreferredPublicLanguage } from '@/lib/i18n/client-language';
+import { usePreferredPublicLanguage } from '@/lib/i18n/client-language';
 import { fetchUserData } from '@/lib/sync';
 import { subscribeTabMessages } from '@/lib/tab-sync';
 
 export function useListsSettingsLanguage(): string {
-  // Seed from the locally-known interface language so the editor renders in the
-  // user's language immediately instead of flashing English until the synced
-  // settings_language arrives.
-  const [settingsLanguage, setSettingsLanguage] = useState(readPreferredPublicLanguage);
+  // `usePreferredPublicLanguage` deliberately returns the server default for
+  // the hydration render, then updates from localStorage after mount. That keeps
+  // /lists SSR text and the first client text identical while still avoiding a
+  // long English flash once the browser preference is available.
+  const preferredPublicLanguage = usePreferredPublicLanguage();
+  const [syncedSettingsLanguage, setSyncedSettingsLanguage] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -17,7 +19,7 @@ export function useListsSettingsLanguage(): string {
         if (cancelled) return;
         const language = data.user?.settings_language;
         if (typeof language === 'string' && language.trim()) {
-          setSettingsLanguage(language);
+          setSyncedSettingsLanguage(language);
         }
       })
       .catch(() => {
@@ -28,7 +30,7 @@ export function useListsSettingsLanguage(): string {
       if (message.type !== 'preferences_changed') return;
       const language = message.patch.settingsLanguage;
       if (typeof language === 'string' && language.trim()) {
-        setSettingsLanguage(language);
+        setSyncedSettingsLanguage(language);
       }
     });
 
@@ -38,5 +40,5 @@ export function useListsSettingsLanguage(): string {
     };
   }, []);
 
-  return settingsLanguage;
+  return syncedSettingsLanguage ?? preferredPublicLanguage;
 }

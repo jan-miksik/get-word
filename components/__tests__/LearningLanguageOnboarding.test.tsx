@@ -246,6 +246,124 @@ describe('LearningLanguageOnboarding', () => {
     });
   });
 
+  it('continues by subscribing to the recommended list before completing onboarding', async () => {
+    const recommendedList = {
+      id: 'recommended-en-vi',
+      ownerId: null,
+      name: 'Recommended English Vietnamese',
+      description: 'Starter list',
+      languageFrom: 'en',
+      languageTo: 'vi',
+      isPublic: true,
+      isCommon: true,
+      isRecommended: true,
+      itemCount: 100,
+    };
+    const onComplete = vi.fn().mockResolvedValue(undefined);
+    const onSelectList = vi.fn();
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === '/api/languages') {
+        return jsonResponse({
+          languages: [
+            { code: 'en', name: 'English', ttsAvailable: true, preferredVoice: null },
+            { code: 'vi', name: 'Vietnamese', ttsAvailable: true, preferredVoice: null },
+          ],
+        });
+      }
+      if (url.startsWith('/api/lists/matches?from=en&to=vi')) {
+        return jsonResponse({
+          lists: [recommendedList],
+          recommendedList,
+          recommendedReason: 'exact',
+        });
+      }
+      if (url === '/api/lists/recommended-en-vi/subscribe') {
+        return jsonResponse({ subscribed: true }, { status: 201 });
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <LearningLanguageOnboarding
+        initialFrom="en"
+        initialTo="vi"
+        onComplete={onComplete}
+        onSelectList={onSelectList}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/lists/matches?from=en&to=vi',
+        expect.any(Object),
+      );
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+
+    await waitFor(() => {
+      expect(onComplete).toHaveBeenCalledWith('en', 'vi');
+    });
+    expect(onSelectList).toHaveBeenCalledWith('recommended-en-vi');
+    const subscribeCall = fetchMock.mock.calls.findIndex(
+      ([url]) => String(url) === '/api/lists/recommended-en-vi/subscribe',
+    );
+    expect(subscribeCall).toBeGreaterThanOrEqual(0);
+    expect(fetchMock.mock.invocationCallOrder[subscribeCall]).toBeLessThan(
+      onComplete.mock.invocationCallOrder[0],
+    );
+  });
+
+  it('opens directly to list choices when no list is selected', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === '/api/languages') {
+          return jsonResponse({
+            languages: [
+              { code: 'en', name: 'English', ttsAvailable: true, preferredVoice: null },
+              { code: 'vi', name: 'Vietnamese', ttsAvailable: true, preferredVoice: null },
+            ],
+          });
+        }
+        if (url.startsWith('/api/lists/matches?from=en&to=vi')) {
+          return jsonResponse({
+            lists: [
+              {
+                id: 'public-en-vi',
+                ownerId: null,
+                name: 'Public English Vietnamese',
+                description: 'Ready to learn',
+                languageFrom: 'en',
+                languageTo: 'vi',
+                isPublic: true,
+                isCommon: true,
+                itemCount: 80,
+              },
+            ],
+          });
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      }),
+    );
+
+    render(
+      <LearningLanguageOnboarding
+        initialFrom="en"
+        initialTo="vi"
+        reason="noListSelected"
+        onComplete={vi.fn()}
+        onSelectList={vi.fn()}
+      />,
+    );
+
+    expect(screen.getByText('No word list selected')).toBeInTheDocument();
+    expect(await screen.findByText('Public English Vietnamese')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Hide advanced options/i })).toBeInTheDocument();
+  });
+
   it('keeps create-own available when lists exist and offers autogenerate only without a common list', async () => {
     vi.stubGlobal(
       'fetch',
@@ -515,7 +633,7 @@ describe('LearningLanguageOnboarding', () => {
             reused_existing: false,
           });
         }
-        if (url === '/api/lists/generated-list?include_media=false') {
+        if (url === '/api/lists/generated-list') {
           return jsonResponse({
             items: [
               {
@@ -637,7 +755,7 @@ describe('LearningLanguageOnboarding', () => {
             reused_existing: false,
           });
         }
-        if (url === '/api/lists/generated-list?include_media=false') {
+        if (url === '/api/lists/generated-list') {
           return jsonResponse({
             items: [{ id: 'forked-1', textKnown: 'hello', textTarget: 'ahoj', audioStatus: 'none', knownAudioStatus: 'none' }],
           });
@@ -755,7 +873,7 @@ describe('LearningLanguageOnboarding', () => {
             reused_existing: false,
           });
         }
-        if (url === '/api/lists/generated-list?include_media=false') {
+        if (url === '/api/lists/generated-list') {
           return jsonResponse({
             items: [
               {
@@ -763,7 +881,11 @@ describe('LearningLanguageOnboarding', () => {
                 textKnown: 'ahoj',
                 textTarget: 'salut',
                 audioStatus: 'ready',
+                audioUrl: '/api/audio/target-ready',
+                audioArweaveUrls: [],
                 knownAudioStatus: 'ready',
+                knownAudioUrl: '/api/audio/known-ready',
+                knownAudioArweaveUrls: [],
               },
             ],
           });
@@ -848,7 +970,7 @@ describe('LearningLanguageOnboarding', () => {
             reused_existing: false,
           });
         }
-        if (url === '/api/lists/new-generated-list?include_media=false') {
+        if (url === '/api/lists/new-generated-list') {
           return jsonResponse({
             items: [
               {
@@ -856,7 +978,11 @@ describe('LearningLanguageOnboarding', () => {
                 textKnown: 'ahoj',
                 textTarget: 'salut',
                 audioStatus: 'ready',
+                audioUrl: '/api/audio/target-ready',
+                audioArweaveUrls: [],
                 knownAudioStatus: 'ready',
+                knownAudioUrl: '/api/audio/known-ready',
+                knownAudioArweaveUrls: [],
               },
             ],
           });

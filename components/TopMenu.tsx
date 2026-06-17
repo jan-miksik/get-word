@@ -4,6 +4,7 @@ import { ReactNode, useEffect, useRef, useState } from 'react';
 import type { MenuPanel } from '@/hooks/useMenuPanels';
 import { PWAInstallMenuItem } from '@/components/PWAInstallMenuItem';
 import { useI18n } from '@/components/I18nProvider';
+import { SUPPORT_TELEGRAM_URL } from '@/components/SupportButton';
 import {
   CategoryIcon,
   MemoryIcon,
@@ -102,6 +103,14 @@ export function ScoreBadge({ score }: { score: number }) {
         }
       `}</style>
     </span>
+  );
+}
+
+function TelegramIcon({ size = 15 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z" />
+    </svg>
   );
 }
 
@@ -303,7 +312,7 @@ function MenuDropdown({
   }, [open]);
 
   type PanelItem = { kind: 'panel'; icon: ReactNode; label: string; panel: MenuPanel; active: boolean; badge: string | null };
-  type LinkItem = { kind: 'link'; icon: ReactNode; label: string; href: string };
+  type LinkItem = { kind: 'link'; icon: ReactNode; label: string; href: string; external?: boolean };
   type ActionItem = { kind: 'action'; icon: ReactNode; label: string; onSelect: () => void; trailing?: string | null };
   type MenuItem = PanelItem | LinkItem | ActionItem;
 
@@ -363,6 +372,13 @@ function MenuDropdown({
       href: '/lists',
     },
     {
+      kind: 'link',
+      icon: <TelegramIcon size={15} />,
+      label: t('support.chat'),
+      href: SUPPORT_TELEGRAM_URL,
+      external: true,
+    },
+    {
       kind: 'panel',
       icon: <SettingsIcon size={15} />,
       label: t('top.settings'),
@@ -410,6 +426,8 @@ function MenuDropdown({
                   <a
                     key={item.label}
                     href={item.href}
+                    target={item.external ? '_blank' : undefined}
+                    rel={item.external ? 'noopener noreferrer' : undefined}
                     role="menuitem"
                     className="menu-item word-lists-editor-item"
                     onClick={() => setOpen(false)}
