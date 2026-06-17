@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
 // ── mocks ────────────────────────────────────────────────────────────
@@ -76,6 +76,10 @@ describe('POST /api/translate/batch', () => {
       accountLimit: 25000,
       freeMonthlyUnits: 500000,
     })
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('returns 401 if no user', async () => {
@@ -184,6 +188,7 @@ describe('POST /api/translate/batch', () => {
   })
 
   it('returns 400 for openrouter without BYOK key', async () => {
+    vi.stubEnv('OPENROUTER_SERVER_API_KEY', 'server-key-should-not-be-used')
     mockResolveUserFromRequest.mockResolvedValue(testUser)
     mockGetUserApiKey.mockResolvedValue(null)
     const req = new NextRequest('http://localhost/api/translate/batch', {
@@ -197,6 +202,7 @@ describe('POST /api/translate/batch', () => {
     expect(res.status).toBe(400)
     const body = await res.json()
     expect(body.error).toMatch(/api key/i)
+    expect(mockOpenRouterTranslate).not.toHaveBeenCalled()
   })
 
   it('translates items via openrouter provider with BYOK key', async () => {

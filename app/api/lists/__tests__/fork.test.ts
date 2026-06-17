@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { NextRequest } from 'next/server'
 
 const mockResolveUserFromRequest = vi.fn()
@@ -39,7 +39,7 @@ vi.mock('@/lib/db', () => ({
 
 vi.mock('@/lib/db/client', () => ({
   db: {
-    insert: (_table: unknown) => mockInsert(),
+    insert: () => mockInsert(),
   },
 }))
 
@@ -154,6 +154,10 @@ describe('POST /api/lists/[id]/fork', () => {
         audioAssetId: null,
       },
     ])
+  })
+
+  afterEach(() => {
+    vi.unstubAllEnvs()
   })
 
   it('normalizes legacy Czech seed language before translating a cs -> fr fork', async () => {
@@ -419,6 +423,27 @@ describe('POST /api/lists/[id]/fork', () => {
         textTarget: 'salut',
       }),
     ])
+  })
+
+  it('still requires user BYOK for OpenRouter even when a server key exists', async () => {
+    vi.stubEnv('OPENROUTER_SERVER_API_KEY', 'server-key-should-not-be-used')
+    mockGetUserApiKey.mockResolvedValue(null)
+    const req = new NextRequest('http://localhost:3000/api/lists/seed-list/fork', {
+      method: 'POST',
+      body: JSON.stringify({
+        language_from: 'cs',
+        language_to: 'fr',
+        translation_provider: 'openrouter',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'seed-list' }) })
+    const body = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(body.error).toMatch(/api key/i)
+    expect(mockOpenRouterTranslate).not.toHaveBeenCalled()
   })
 
   it('emits ordered, monotonic progress events that reach the total', async () => {
