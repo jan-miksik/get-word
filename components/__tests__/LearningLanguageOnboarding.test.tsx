@@ -31,6 +31,12 @@ function jsonResponse(data: unknown, init: Partial<Response> = {}) {
   } as Response);
 }
 
+// The list-setup options (autogenerate / fork / create-own / existing matches)
+// live behind the "Advanced options" toggle and are aria-hidden until expanded.
+async function openAdvanced() {
+  fireEvent.click(await screen.findByRole('button', { name: 'Advanced options' }));
+}
+
 describe('LearningLanguageOnboarding', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -204,13 +210,17 @@ describe('LearningLanguageOnboarding', () => {
     );
 
     expect(screen.getByText('Select a language')).toBeInTheDocument();
-    expect(screen.getByText('Choose both languages to find matching word lists.')).toBeInTheDocument();
+    // The primary Continue button is shown but disabled until both languages are
+    // chosen; the advanced list-setup options stay hidden from the a11y tree.
+    const continueButton = screen.getByRole('button', { name: 'Continue' });
+    expect(continueButton).toBeInTheDocument();
+    expect(continueButton).toBeDisabled();
     expect(
       screen.queryByText(
         'Choose from existing word lists, create your own, or fork a list and customize it to fit what you want to learn.',
       ),
     ).not.toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Autogenerate common list/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Automatically generate a list of words and phrases/i })).not.toBeInTheDocument();
 
     await waitFor(() => {
       expect(fetch).toHaveBeenCalledWith('/api/languages');
@@ -282,9 +292,10 @@ describe('LearningLanguageOnboarding', () => {
     );
 
     expect(await screen.findByText('Curated Czech Vietnamese')).toBeInTheDocument();
+    await openAdvanced();
     expect(screen.getByRole('button', { name: /Create own list/i })).toBeInTheDocument();
     expect(screen.getByText('recommended')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Autogenerate common list/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Automatically generate a list of words and phrases/i })).toBeInTheDocument();
     expect(
       screen.getByText(
         'Choose from existing word lists, create your own, or fork a list and customize it to fit what you want to learn.',
@@ -340,9 +351,10 @@ describe('LearningLanguageOnboarding', () => {
     );
 
     expect(await screen.findByText('Common Czech Vietnamese')).toBeInTheDocument();
+    await openAdvanced();
     expect(screen.getByText('recommended')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Create own list/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Autogenerate common list/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Automatically generate a list of words and phrases/i })).not.toBeInTheDocument();
   });
 
   it('shows only the no-matches message when no lists exist for the selected languages', async () => {
@@ -431,10 +443,11 @@ describe('LearningLanguageOnboarding', () => {
     );
 
     expect(await screen.findByText('Basic Seed')).toBeInTheDocument();
+    await openAdvanced();
     expect(screen.getByText(/No exact selected list exists yet for English and Japanese/i)).toBeInTheDocument();
     expect(screen.getByText('seed')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /^Fork$/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /Autogenerate common list/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Automatically generate a list of words and phrases/i })).not.toBeInTheDocument();
   });
 
   it('shows the generated word count, autogenerates a common list, and opens the app', async () => {
@@ -551,7 +564,8 @@ describe('LearningLanguageOnboarding', () => {
     );
 
     expect(await screen.findByText('1 word will be generated from Common seed.')).toBeInTheDocument();
-    fireEvent.click(screen.getByRole('button', { name: /Autogenerate common list/i }));
+    await openAdvanced();
+    fireEvent.click(await screen.findByRole('button', { name: /Automatically generate a list of words and phrases/i }));
 
     expect(await screen.findByText('Preparing common list')).toBeInTheDocument();
     await waitFor(() => {
@@ -651,7 +665,8 @@ describe('LearningLanguageOnboarding', () => {
       />,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Autogenerate common list/i }));
+    await openAdvanced();
+    fireEvent.click(await screen.findByRole('button', { name: /Automatically generate a list of words and phrases/i }));
 
     await waitFor(() => {
       expect(onComplete).toHaveBeenCalledWith('en', 'cs');
@@ -769,7 +784,8 @@ describe('LearningLanguageOnboarding', () => {
       />,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Autogenerate common list/i }));
+    await openAdvanced();
+    fireEvent.click(await screen.findByRole('button', { name: /Automatically generate a list of words and phrases/i }));
 
     await waitFor(() => {
       expect(vi.mocked(fetch)).toHaveBeenCalledWith('/api/lists/overlap-public?include_media=false');
@@ -862,7 +878,8 @@ describe('LearningLanguageOnboarding', () => {
       />,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Autogenerate common list/i }));
+    await openAdvanced();
+    fireEvent.click(await screen.findByRole('button', { name: /Automatically generate a list of words and phrases/i }));
 
     await waitFor(() => {
       expect(vi.mocked(fetch)).toHaveBeenCalledWith(
@@ -926,7 +943,8 @@ describe('LearningLanguageOnboarding', () => {
       />,
     );
 
-    fireEvent.click(await screen.findByRole('button', { name: /Autogenerate common list/i }));
+    await openAdvanced();
+    fireEvent.click(await screen.findByRole('button', { name: /Automatically generate a list of words and phrases/i }));
 
     await waitFor(() => {
       expect(screen.getByText(/Translation failed/i)).toBeInTheDocument();
