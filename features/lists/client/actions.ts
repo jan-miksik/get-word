@@ -92,6 +92,7 @@ export type ForkResult = {
 export async function forkList(
   listId: string,
   data: {
+    name?: string;
     languageFrom: string;
     languageTo: string;
     translationProvider?: "google" | "openrouter" | "none";
@@ -104,6 +105,7 @@ export async function forkList(
   const res = await listsApiFetch(`/api/lists/${listId}/fork`, {
     method: "POST",
     body: JSON.stringify({
+      ...(data.name ? { name: data.name } : {}),
       language_from: data.languageFrom,
       language_to: data.languageTo,
       translation_provider: data.translationProvider ?? "none",

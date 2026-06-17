@@ -37,6 +37,15 @@ const BOOT_LOADING_TIMEOUT_MS = 12_000;
 export function HomeClient() {
   const [loaderDismissed, setLoaderDismissed] = useState(false);
   const [bootTimedOut, setBootTimedOut] = useState(false);
+  // Lets an already-onboarded user replay the language-onboarding screen via
+  // `?onboarding=1`. Safe to read in a lazy initializer: the first render is
+  // always the LoadingScreen on both server and client, so this value never
+  // participates in the hydrated tree.
+  const [forceOnboarding, setForceOnboarding] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).get('onboarding') === '1'
+  );
   const [completedDeckWordCards, setCompletedDeckWordCards] = useState(0);
   const [memoryHooksIntroDismissedForSession, setMemoryHooksIntroDismissedForSession] = useState(false);
   const { words, isLoading: isLoadingWords } = useWordsLoader();
@@ -296,11 +305,20 @@ export function HomeClient() {
           // Authed-but-still-hydrating → waiting on userId. Hold the loading
           // screen rather than flashing app chrome.
           <LoadingScreen />
-        ) : !onboardingCompletedAt || !learningLanguageFrom || !learningLanguageTo ? (
+        ) : forceOnboarding || !onboardingCompletedAt || !learningLanguageFrom || !learningLanguageTo ? (
           <LearningLanguageOnboarding
             initialFrom={learningLanguageFrom}
             initialTo={learningLanguageTo}
-            onComplete={setLearningLanguages}
+            onComplete={(from, to) => {
+              setLearningLanguages(from, to);
+              if (forceOnboarding) {
+                setForceOnboarding(false);
+                // Drop the `?onboarding=1` param so a refresh doesn't replay it.
+                const url = new URL(window.location.href);
+                url.searchParams.delete('onboarding');
+                window.history.replaceState(null, '', url.toString());
+              }
+            }}
             onSelectList={setActiveListId}
           />
         ) : (

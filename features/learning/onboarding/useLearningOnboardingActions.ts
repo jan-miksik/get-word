@@ -162,8 +162,6 @@ export function useLearningOnboardingActions({
     });
     setError(null);
     let didComplete = false;
-    let didNavigateToLists = false;
-    let generatedListId: string | null = null;
     try {
       const listsRes = await fetch('/api/lists');
       const listsData = await listsRes.json();
@@ -188,41 +186,55 @@ export function useLearningOnboardingActions({
             audioClipCount: seedItems.length * 2,
           }),
         });
-        const forkRes = await fetch(`/api/lists/${seedList.id}/fork`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
+        // The fork route streams NDJSON progress, so consume it through the
+        // shared action (raw `.json()` would choke on the multi-line stream).
+        const forkResult = await listActions.forkList(
+          seedList.id,
+          {
             name: `Common ${languageFrom.toUpperCase()} / ${languageTo.toUpperCase()}`,
-            language_from: languageFrom,
-            language_to: languageTo,
-            translation_provider: 'google',
-            source_language: seedList.languageFrom,
-          }),
-        });
-        const forkData = await forkRes.json();
-        if (!forkRes.ok) throw new Error(forkData.error ?? 'Could not autogenerate list');
-        generatedListId = forkData.list.id;
-        onSelectList(forkData.list.id);
+            languageFrom,
+            languageTo,
+            translationProvider: 'google',
+            sourceLanguage: seedList.languageFrom,
+          },
+          {
+            onProgress: (progress) => {
+              setGenerationStatus({
+                title: 'Creating common list',
+                detail:
+                  progress.phase === 'saving'
+                    ? 'Saving the common list...'
+                    : `Translating (${progress.processed}/${progress.total})...`,
+              });
+            },
+          },
+        );
+        const newListId = forkResult.list.id;
+        onSelectList(newListId);
+
+        // Generate audio while the learner still owns the list. (The audio
+        // endpoint does not require ownership, so a partial failure here does
+        // not block the promotion step below.)
         const audioSummary = await generateCommonListAudio({
-          list: forkData.list,
+          list: forkResult.list,
           setGenerationStatus,
         });
         if (audioSummary.failedCount > 0) {
-          const notice = getCommonListAudioFailureNotice(audioSummary);
-          setError(notice);
-          setGenerationStatus({
-            title: 'Opening word list editor',
-            detail: 'The common list needs audio repair.',
-          });
-          const params = new URLSearchParams({
-            selected: forkData.list.id,
-            commonListNotice: notice,
-            fixAudio: audioSummary.failedTargetCount > 0 ? 'target' : 'known',
-          });
-          didNavigateToLists = true;
-          router.push(`/lists?${params.toString()}`);
-          return;
+          setError(getCommonListAudioFailureNotice(audioSummary));
         }
+
+        // Promote to the shared, recommended, app-owned common list. Best
+        // effort: if it fails the list still works as the learner's own.
+        setGenerationStatus({
+          title: 'Publishing common list',
+          detail: 'Marking it as a recommended common list...',
+        });
+        try {
+          await fetch(`/api/lists/${newListId}/promote-common`, { method: 'POST' });
+        } catch {
+          // Ignore — promotion is not required for the list to be usable.
+        }
+
         setGenerationStatus({
           title: 'Opening app',
           detail: audioSummary.notice
@@ -234,6 +246,8 @@ export function useLearningOnboardingActions({
         return;
       }
 
+      // No seed available yet — start from an empty list. (LLM word generation
+      // is the next phase.)
       const createRes = await fetch('/api/lists', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -246,7 +260,6 @@ export function useLearningOnboardingActions({
       });
       const createData = await createRes.json();
       if (!createRes.ok) throw new Error(createData.error ?? 'Could not create list');
-      generatedListId = createData.list.id;
       onSelectList(createData.list.id);
       setGenerationStatus({
         title: 'Opening app',
@@ -255,28 +268,15 @@ export function useLearningOnboardingActions({
       await onComplete(languageFrom, languageTo);
       didComplete = true;
     } catch (err) {
-      const notice = getCommonListFailureNotice(
-        err instanceof Error ? err.message : 'Could not autogenerate list',
+      // Stay on the onboarding screen and surface the problem inline rather
+      // than redirecting to the list editor.
+      setError(
+        getCommonListFailureNotice(
+          err instanceof Error ? err.message : 'Could not autogenerate list',
+        ),
       );
-      setError(notice);
-      setGenerationStatus({
-        title: 'Opening word lists',
-        detail: 'The common list needs a manual finish.',
-      });
-      const params = new URLSearchParams({
-        commonListNotice: notice,
-        targetFrom: languageFrom,
-        targetTo: languageTo,
-      });
-      if (generatedListId) {
-        params.set('selected', generatedListId);
-      } else {
-        params.set('sourcePair', 'any');
-      }
-      didNavigateToLists = true;
-      router.push(`/lists?${params.toString()}`);
     } finally {
-      if (!didComplete && !didNavigateToLists) {
+      if (!didComplete) {
         setWorkingId(null);
         setGenerationStatus(null);
       }

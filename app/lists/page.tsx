@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
+import { SupportButton } from '@/components/SupportButton';
 import {
   consumeOneShotListsUrlParams,
   readInitialListsUrlState,
@@ -33,6 +34,7 @@ export default function ListsPage() {
   return (
     <I18nProvider language={settingsLanguage}>
       <ListsPageContent />
+      <SupportButton />
     </I18nProvider>
   );
 }

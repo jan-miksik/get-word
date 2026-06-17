@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { AppLogo } from '@/components/AppLogo';
 import { SpeckledBackground } from '@/components/SpeckledBackground';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
+import { SupportButton } from '@/components/SupportButton';
 import { SignInForm } from '@/features/auth/components/SignInForm';
 import { useAuth } from '@/features/auth/client/useAuth';
 import { prefetchWords } from '@/features/learning/data/wordsCache';
@@ -100,6 +101,7 @@ function LoginPageInner() {
           </div>
         </main>
       )}
+      <SupportButton />
     </I18nProvider>
   );
 }

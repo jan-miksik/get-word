@@ -162,6 +162,7 @@ function AudioStepContent({
     generating,
     regeneratingIds,
     progress,
+    etaSeconds,
     generateAll: handleGenerateAll,
     regenerateRow: handleRegenerateRow,
   } = useAudioGenerationWorkflow({
@@ -347,11 +348,18 @@ function AudioStepContent({
       )}
 
       {generating && (
-        <div className="mb-4 h-1.5 overflow-hidden rounded-full bg-border-subtle">
-          <div
-            className="h-full rounded-full bg-accent transition-all duration-300"
-            style={{ width: `${progress}%` }}
-          />
+        <div className="mb-4">
+          <div className="h-1.5 overflow-hidden rounded-full bg-border-subtle">
+            <div
+              className="h-full rounded-full bg-accent transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          {etaSeconds !== null && etaSeconds >= 45 && (
+            <p className="mt-1.5 text-[11px] text-text-soft">
+              {t('lists.generatingEtaMinutes', { count: Math.ceil(etaSeconds / 60) })}
+            </p>
+          )}
         </div>
       )}
 

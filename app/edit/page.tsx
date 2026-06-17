@@ -23,6 +23,7 @@ import { useDueTimer } from '@/hooks/useDueTimer';
 import { useAuth } from '@/features/auth/client/useAuth';
 import { AppStateProvider } from '@/context/AppStateContext';
 import { I18nProvider } from '@/components/I18nProvider';
+import { SupportButton } from '@/components/SupportButton';
 
 export default function EditPage() {
   const router = useRouter();
@@ -195,6 +196,9 @@ export default function EditPage() {
             onToggleShowNotReady={() => setShowNotReady(!showNotReady)}
             readyCount={readyCount}
           />
+        )}
+        {!isLoading && isHydrated && !isRedirecting && userRole === 'editor' && (
+          <SupportButton />
         )}
       </I18nProvider>
     </AppStateProvider>

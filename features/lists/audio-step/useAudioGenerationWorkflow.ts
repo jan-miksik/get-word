@@ -1,5 +1,6 @@
 import { type Dispatch, type SetStateAction, useCallback, useState } from 'react';
 import { listsApiFetch } from '@/features/lists/api';
+import { GOOGLE_TTS_MAX_RPM } from '@/lib/audio-rate';
 import {
   chunkArray,
   getErrorFromPayload,
@@ -10,7 +11,16 @@ import {
 import type { AudioRow, AudioSide, AudioSourceCandidate } from './rows';
 
 const AUDIO_LOG_PREFIX = '[Get Word audio]';
-const AUDIO_GENERATE_BATCH_SIZE = 200;
+// Smaller than the server's 200-item cap so the progress bar and ETA advance
+// several times across a long, rate-paced run instead of jumping 0 → 100.
+const AUDIO_GENERATE_BATCH_SIZE = 50;
+
+// Upper-bound ETA: every clip is one request paced under the per-minute quota
+// (dedup hits finish sooner, so this overestimates rather than under).
+function estimateRemainingSeconds(remainingClips: number) {
+  if (remainingClips <= 0) return 0;
+  return Math.ceil((remainingClips / GOOGLE_TTS_MAX_RPM) * 60);
+}
 
 type UseAudioGenerationWorkflowOptions = {
   rows: AudioRow[];
@@ -46,6 +56,7 @@ export function useAudioGenerationWorkflow({
   const [generating, setGenerating] = useState(false);
   const [regeneratingIds, setRegeneratingIds] = useState<Set<string>>(() => new Set());
   const [progress, setProgress] = useState(0);
+  const [etaSeconds, setEtaSeconds] = useState<number | null>(null);
 
   const generateRows = useCallback(async (targetRows: AudioRow[], force = false) => {
     if (targetRows.length === 0) return;
@@ -58,6 +69,7 @@ export function useAudioGenerationWorkflow({
 
     setError(null);
     setProgress(0);
+    setEtaSeconds(estimateRemainingSeconds(targetRows.length));
     setPlaybackErrors((prev) => {
       const next = { ...prev };
       for (const row of targetRows) delete next[row.id];
@@ -149,6 +161,7 @@ export function useAudioGenerationWorkflow({
 
         completed += batchRows.length;
         setProgress(Math.round((completed / targetRows.length) * 100));
+        setEtaSeconds(estimateRemainingSeconds(targetRows.length - completed));
       }
 
       const attempted = allResults.filter((result) =>
@@ -161,6 +174,7 @@ export function useAudioGenerationWorkflow({
       }
 
       setProgress(100);
+      setEtaSeconds(0);
     } catch (err) {
       console.error(AUDIO_LOG_PREFIX, 'audio generation failed', err);
       setError(err instanceof Error ? err.message : t('lists.audioGenerateGenericFailed'));
@@ -172,6 +186,7 @@ export function useAudioGenerationWorkflow({
         ),
       );
     } finally {
+      setEtaSeconds(null);
       void onUsageRefresh?.();
       if (force) {
         setRegeneratingIds((prev) => {
@@ -217,6 +232,7 @@ export function useAudioGenerationWorkflow({
     generating,
     regeneratingIds,
     progress,
+    etaSeconds,
     generateAll,
     regenerateRow,
   };

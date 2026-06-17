@@ -14,7 +14,9 @@ const AUTOGENERATE_AUDIO_QUOTA_NOTICE =
   'Audio for this list needs {requested} Google TTS characters, but this account has {remaining} free characters left this month. I generated as much as the free quota allows, so only part of the list may have audio. Contact our tech support and we can help finish it or raise the limit.';
 const AUDIO_REPAIR_INSTRUCTIONS =
   'Or you can try to fix it by yourself, click on category in the list, that should open overview of the words in the list, then click on Edit words and check what step has failures or missing parts. It will be most likely Audio. You can just generate the missing parts and confirm that in the last step.';
-const AUDIO_BATCH_SIZE = 200;
+// Kept small so each request stays well under the serverless timeout now that
+// Google TTS is rate-paced server-side (a 200-clip batch could exceed a minute).
+const AUDIO_BATCH_SIZE = 50;
 
 export type GenerationStatus = {
   title: string;
@@ -43,7 +45,9 @@ export function formatNumber(value: number) {
 export function getCommonListFailureNotice(message: string) {
   const trimmed = message.trim() || 'Could not autogenerate list';
   const punctuation = /[.!?]$/.test(trimmed) ? '' : '.';
-  return `${trimmed}${punctuation} You can finish the failed part manually from the list editor by editing the list and filling in the missing parts.`;
+  // The actionable "contact support / open editor" links are rendered as JSX
+  // next to this message on the onboarding screen.
+  return `${trimmed}${punctuation}`;
 }
 
 export function getCommonListAudioFailureNotice(summary: AudioGenerationSummary) {

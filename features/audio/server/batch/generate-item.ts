@@ -9,6 +9,7 @@ import {
   getAudioUrl,
   GoogleTTSQuotaExhaustedError,
 } from "@/lib/audio";
+import { runGoogleTtsWithRetry } from "@/lib/google-tts-rate-limit";
 import { uploadAudio } from "@/lib/audio-storage";
 import { getErrorDetail } from "./errors";
 import type { AudioField, GenerationCandidate, GeneratedResult } from "./types";
@@ -39,9 +40,11 @@ export async function generateAudioForItem(
 
     if (provider === "google_tts") {
       const googleVoiceId = voiceId?.trim();
-      result = googleVoiceId
-        ? await googleTTS(item.text, item.language, googleVoiceId)
-        : await googleTTS(item.text, item.language);
+      result = await runGoogleTtsWithRetry(() =>
+        googleVoiceId
+          ? googleTTS(item.text, item.language, googleVoiceId)
+          : googleTTS(item.text, item.language),
+      );
     } else if (provider === "elevenlabs" && encryptedKey) {
       result = await elevenLabsTTS(
         item.text,
