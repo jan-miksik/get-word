@@ -364,7 +364,7 @@ describe('LearningLanguageOnboarding', () => {
     expect(screen.getByRole('button', { name: /Hide advanced options/i })).toBeInTheDocument();
   });
 
-  it('keeps create-own available when lists exist and offers autogenerate only without a common list', async () => {
+  it('keeps create-own available and hides autogenerate when a recommendation exists', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((input: RequestInfo | URL) => {
@@ -413,7 +413,7 @@ describe('LearningLanguageOnboarding', () => {
     await openAdvanced();
     expect(screen.getByRole('button', { name: /Create own list/i })).toBeInTheDocument();
     expect(screen.getByText('recommended')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Automatically generate a list of words and phrases/i })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Automatically generate a list of words and phrases/i })).not.toBeInTheDocument();
     expect(
       screen.getByText(
         'Choose from existing word lists, create your own, or fork a list and customize it to fit what you want to learn.',
