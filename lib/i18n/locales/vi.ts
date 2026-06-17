@@ -532,6 +532,8 @@ export const viMessages: I18nMessages = {
   "lists.confirmTranslations": "Xác nhận bản dịch",
   "lists.googleLimitReached":
     "Tài khoản này đã đạt giới hạn Google API miễn phí. Hãy liên hệ với chúng tôi để được nâng giới hạn, hoặc dùng khóa API của riêng bạn.",
+  "lists.openRouterByokQualityNote":
+    "Google Dịch rất nhanh, nhưng có thể gây hiểu nhầm với danh sách nhiều sắc thái. Hãy kết nối khóa riêng và chọn mô hình mạnh để có kết quả tốt hơn:",
   "lists.audioLoadFailed": "Không thể tải {file} ({reason}).",
   "lists.audioFile": "tệp âm thanh",
   "lists.audioPlaybackFailed": "Không thể phát {file} ({reason}).",

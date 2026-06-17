@@ -530,6 +530,8 @@ export const enMessages = {
   "lists.confirmTranslations": "Confirm translations",
   "lists.googleLimitReached":
     "This account has reached the free Google API limit. Contact us for a higher limit, or use your own API keys.",
+  "lists.openRouterByokQualityNote":
+    "Google translation is quick, but can be misleading for nuanced lists. Connect your own key and pick a strong model for better output:",
   "lists.audioLoadFailed": "Could not load {file} ({reason}).",
   "lists.audioFile": "audio file",
   "lists.audioPlaybackFailed": "Could not play {file} ({reason}).",

@@ -532,6 +532,8 @@ export const csMessages: I18nMessages = {
   "lists.confirmTranslations": "Potvrdit překlady",
   "lists.googleLimitReached":
     "Tento účet dosáhl bezplatného limitu Google API. Ozvěte se nám kvůli navýšení, nebo použijte vlastní API klíče.",
+  "lists.openRouterByokQualityNote":
+    "Překlad Google je rychlý, ale u jemnějších seznamů může mást. Připojte vlastní klíč a vyberte silný model pro lepší výstup:",
   "lists.audioLoadFailed": "Nepodařilo se načíst {file} ({reason}).",
   "lists.audioFile": "zvukový soubor",
   "lists.audioPlaybackFailed": "Nepodařilo se přehrát {file} ({reason}).",

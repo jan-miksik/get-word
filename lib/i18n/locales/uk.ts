@@ -532,6 +532,8 @@ export const ukMessages: I18nMessages = {
   "lists.confirmTranslations": "Підтвердити переклади",
   "lists.googleLimitReached":
     "Цей акаунт досяг безкоштовного ліміту Google API. Зв'яжіться з нами для більшого ліміту або використайте власні ключі API.",
+  "lists.openRouterByokQualityNote":
+    "Google Перекладач швидкий, але може вводити в оману для нюансованих списків. Підключіть власний ключ і виберіть сильну модель для кращого результату:",
   "lists.audioLoadFailed": "Не вдалося завантажити {file} ({reason}).",
   "lists.audioFile": "аудіофайл",
   "lists.audioPlaybackFailed": "Не вдалося відтворити {file} ({reason}).",

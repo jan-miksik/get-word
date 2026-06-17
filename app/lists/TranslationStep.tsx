@@ -469,6 +469,19 @@ export function TranslationStep({
         {provider === 'google' && googleTranslateUsage && (
           <GoogleUsageHint scope={googleTranslateUsage} />
         )}
+        {provider === 'google' && openRouterState !== 'connected' && (
+          <p className="mt-2 text-[11px] leading-relaxed text-text-soft">
+            {t('lists.openRouterByokQualityNote')}{' '}
+            <a
+              className="text-accent hover:text-accent-strong"
+              href={OPENROUTER_MODELS_URL}
+              target="_blank"
+              rel="noreferrer"
+            >
+              OpenRouter
+            </a>
+          </p>
+        )}
       </div>
 
       {clearColumn && (
