@@ -58,7 +58,21 @@ export function useLearningOnboardingActions({
 
   async function subscribeToList(list: MatchedWordList) {
     setWorkingId(list.id);
+    // Show the loader overlay (with an estimate) while the list is prepared so
+    // the streamlined Continue flow never flashes an empty app and then reloads.
+    setGenerationStatus({
+      title: 'Opening word list',
+      detail: `Preparing ${list.name}...`,
+      estimateSeconds: list.itemCount
+        ? estimateCommonListGenerationSeconds({
+            itemCount: list.itemCount,
+            audioCharacterCount: 0,
+            audioClipCount: 0,
+          })
+        : undefined,
+    });
     setError(null);
+    let willReload = false;
     try {
       if (!(await savePreferences())) return;
       onSelectList(list.id);
@@ -68,12 +82,16 @@ export function useLearningOnboardingActions({
           const data = await res.json().catch(() => ({}));
           throw new Error(data.error ?? 'Subscribe failed');
         }
+        // Keep the overlay up through the reload rather than briefly revealing
+        // the empty app underneath.
+        willReload = true;
         window.location.reload();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not select list');
     } finally {
       setWorkingId(null);
+      if (!willReload) setGenerationStatus(null);
     }
   }
 
