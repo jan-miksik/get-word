@@ -16,6 +16,17 @@ export type VoiceSelection =
 
 export const DEFAULT_VOICE_SELECTION: VoiceSelection = { mode: 'single', voiceId: 'default' };
 
+export function getChirp3HdVoiceOptions(voiceOptions: string[]): string[] {
+  return voiceOptions.filter((voice) => voice.toLowerCase().includes('chirp3-hd'));
+}
+
+export function getDefaultVoiceSelectionForVoices(voiceOptions: string[]): VoiceSelection {
+  const chirp3HdVoices = getChirp3HdVoiceOptions(voiceOptions);
+  if (chirp3HdVoices.length === 0) return DEFAULT_VOICE_SELECTION;
+  if (chirp3HdVoices.length === 1) return { mode: 'single', voiceId: chirp3HdVoices[0] };
+  return { mode: 'mix', voiceIds: chirp3HdVoices };
+}
+
 /** Deterministic 32-bit string hash (FNV-1a). Stable across runs and machines. */
 function hashString(value: string): number {
   let hash = 0x811c9dc5;

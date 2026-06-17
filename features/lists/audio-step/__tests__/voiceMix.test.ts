@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
   formatVoiceLabel,
   genderMarker,
+  getChirp3HdVoiceOptions,
+  getDefaultVoiceSelectionForVoices,
   parseVoiceSelection,
   resolveVoiceForText,
   serializeVoiceSelection,
@@ -90,5 +92,39 @@ describe('voice labels', () => {
     expect(formatVoiceLabel('cs-CZ-Wavenet-B', genders)).toBe('cs-CZ-Wavenet-B ♂');
     expect(formatVoiceLabel('cs-CZ-Wavenet-C', genders)).toBe('cs-CZ-Wavenet-C');
     expect(formatVoiceLabel('cs-CZ-Wavenet-A')).toBe('cs-CZ-Wavenet-A');
+  });
+});
+
+describe('default voice selection', () => {
+  it('defaults to a mix of Chirp3-HD voices when they are available', () => {
+    const voices = [
+      'cs-CZ-Wavenet-A',
+      'cs-CZ-Chirp3-HD-Achernar',
+      'cs-CZ-Chirp3-HD-Charon',
+      'cs-CZ-Standard-A',
+    ];
+
+    expect(getChirp3HdVoiceOptions(voices)).toEqual([
+      'cs-CZ-Chirp3-HD-Achernar',
+      'cs-CZ-Chirp3-HD-Charon',
+    ]);
+    expect(getDefaultVoiceSelectionForVoices(voices)).toEqual({
+      mode: 'mix',
+      voiceIds: ['cs-CZ-Chirp3-HD-Achernar', 'cs-CZ-Chirp3-HD-Charon'],
+    });
+  });
+
+  it('uses a single Chirp3-HD voice when it is the only available voice', () => {
+    expect(getDefaultVoiceSelectionForVoices(['cs-CZ-Chirp3-HD-Achernar'])).toEqual({
+      mode: 'single',
+      voiceId: 'cs-CZ-Chirp3-HD-Achernar',
+    });
+  });
+
+  it('falls back to the Google default when Chirp3-HD voices are unavailable', () => {
+    expect(getDefaultVoiceSelectionForVoices(VOICES)).toEqual({
+      mode: 'single',
+      voiceId: 'default',
+    });
   });
 });

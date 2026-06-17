@@ -4,6 +4,8 @@ import { getArweaveGatewayUrls } from "@/lib/audio-storage";
 
 type RouteContext = { params: Promise<{ hash: string }> };
 
+const ARWEAVE_AUDIO_GATEWAY_TIMEOUT_MS = 3_500;
+
 /**
  * GET /api/audio/[hash] — serve audio by content hash.
  * Looks up the asset in `media_assets` and streams from the recorded
@@ -28,11 +30,13 @@ export async function GET(_request: NextRequest, context: RouteContext) {
 
     for (const gatewayUrl of gatewayUrls) {
       try {
+        const signal = AbortSignal.timeout(ARWEAVE_AUDIO_GATEWAY_TIMEOUT_MS);
         const response = await fetch(gatewayUrl, {
           headers: {
             Accept: "audio/mpeg,audio/*;q=0.9,*/*;q=0.1",
           },
           cache: "force-cache",
+          signal,
         });
         const contentType = response.headers.get("content-type") ?? "";
         attempts.push({

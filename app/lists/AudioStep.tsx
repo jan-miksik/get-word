@@ -15,7 +15,7 @@ import {
 } from '@/features/lists/audio-step/language';
 import { useAudioPlayback } from '@/features/lists/audio-step/useAudioPlayback';
 import { useGoogleTtsVoiceSelection } from '@/features/lists/audio-step/useGoogleTtsVoiceSelection';
-import { formatVoiceLabel } from '@/features/lists/audio-step/voiceMix';
+import { formatVoiceLabel, getChirp3HdVoiceOptions } from '@/features/lists/audio-step/voiceMix';
 import { useReusableAudioLookup } from '@/features/lists/audio-step/useReusableAudioLookup';
 import { useAudioGenerationWorkflow } from '@/features/lists/audio-step/useAudioGenerationWorkflow';
 import { AudioStepRow } from '@/features/lists/audio-step/AudioStepRow';
@@ -31,6 +31,17 @@ interface AudioStepProps {
   onSkip: () => Promise<void>;
   onUsageRefresh?: () => Promise<void>;
   onBack?: () => void;
+}
+
+const MIX_CHIRP3_HD_OPTION_VALUE = '__mix_chirp3_hd__';
+const MIX_ALL_OPTION_VALUE = '__mix_all__';
+const MIX_CUSTOM_OPTION_VALUE = '__mix_custom__';
+
+function sameVoiceSet(left: string[], right: string[]): boolean {
+  if (left.length !== right.length) return false;
+  const sortedLeft = [...left].sort();
+  const sortedRight = [...right].sort();
+  return sortedLeft.every((voice, index) => voice === sortedRight[index]);
 }
 
 function buildAudioStepResetKey(list: WordList, items: WordListItem[], audioSide: AudioSide) {
@@ -94,6 +105,7 @@ function AudioStepContent({
   const [rows, setRows] = useState<AudioRow[]>(() => buildAudioRows(items, list, audioSide));
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showVoiceOptions, setShowVoiceOptions] = useState(false);
   const {
     voiceOptions,
     voiceGenders,
@@ -101,15 +113,24 @@ function AudioStepContent({
     selectionKey,
     loadingVoices,
     setSingleVoice,
+    enableChirp3HdMix,
     enableMix,
     toggleMixVoice,
     selectAllMixVoices,
     clearMixVoices,
     resolveVoice,
   } = useGoogleTtsVoiceSelection(activeLanguageCode);
-  const MIX_OPTION_VALUE = '__mix__';
-  const selectValue = selection.mode === 'mix' ? MIX_OPTION_VALUE : selection.voiceId;
+  const chirp3HdVoiceIds = useMemo(() => getChirp3HdVoiceOptions(voiceOptions), [voiceOptions]);
   const mixVoiceIds = selection.mode === 'mix' ? selection.voiceIds : [];
+  const isChirp3HdMix = selection.mode === 'mix' && sameVoiceSet(mixVoiceIds, chirp3HdVoiceIds);
+  const isAllVoiceMix = selection.mode === 'mix' && sameVoiceSet(mixVoiceIds, voiceOptions);
+  const selectValue = selection.mode === 'mix'
+    ? isChirp3HdMix
+      ? MIX_CHIRP3_HD_OPTION_VALUE
+      : isAllVoiceMix
+        ? MIX_ALL_OPTION_VALUE
+        : MIX_CUSTOM_OPTION_VALUE
+    : selection.voiceId;
 
   const markRowFailed = useCallback((rowId: string) => {
     setRows((prev) =>
@@ -236,7 +257,9 @@ function AudioStepContent({
             <select
               value={selectValue}
               onChange={(event) => {
-                if (event.target.value === MIX_OPTION_VALUE) {
+                if (event.target.value === MIX_CHIRP3_HD_OPTION_VALUE) {
+                  enableChirp3HdMix();
+                } else if (event.target.value === MIX_ALL_OPTION_VALUE) {
                   enableMix();
                 } else {
                   setSingleVoice(event.target.value);
@@ -245,12 +268,18 @@ function AudioStepContent({
               disabled={generating || regeneratingIds.size > 0 || loadingVoices}
               className="rounded-lg border border-border-subtle bg-background px-2.5 py-1.5 text-xs text-text disabled:opacity-50"
             >
+              {chirp3HdVoiceIds.length > 1 && (
+                <option value={MIX_CHIRP3_HD_OPTION_VALUE}>{t('lists.mixChirp3HdVoices')}</option>
+              )}
+              {voiceOptions.length > 1 && (
+                <option value={MIX_ALL_OPTION_VALUE}>{t('lists.mixVoices')}</option>
+              )}
+              {selection.mode === 'mix' && !isChirp3HdMix && !isAllVoiceMix && (
+                <option value={MIX_CUSTOM_OPTION_VALUE}>{t('lists.customVoiceMix')}</option>
+              )}
               <option value="default">
                 {loadingVoices ? t('lists.loadingVoices') : t('lists.defaultGoogleVoice')}
               </option>
-              {voiceOptions.length > 1 && (
-                <option value={MIX_OPTION_VALUE}>{t('lists.mixVoices')}</option>
-              )}
               {voiceOptions.map((voice) => (
                 <option key={voice} value={voice}>
                   {formatVoiceLabel(voice, voiceGenders)}
@@ -294,46 +323,59 @@ function AudioStepContent({
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
               <p className="text-xs text-text-soft">{t('lists.mixVoicesHint')}</p>
               <div className="flex gap-1.5">
+                {showVoiceOptions && (
+                  <>
+                    <button
+                      type="button"
+                      disabled={generating || regeneratingIds.size > 0 || mixVoiceIds.length === voiceOptions.length}
+                      onClick={selectAllMixVoices}
+                      className="rounded-md border border-border-subtle px-2 py-0.5 text-[11px] text-text-soft transition-colors hover:text-text disabled:opacity-40"
+                    >
+                      {t('lists.selectAllVoices')}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={generating || regeneratingIds.size > 0 || mixVoiceIds.length === 0}
+                      onClick={clearMixVoices}
+                      className="rounded-md border border-border-subtle px-2 py-0.5 text-[11px] text-text-soft transition-colors hover:text-text disabled:opacity-40"
+                    >
+                      {t('lists.unselectAllVoices')}
+                    </button>
+                  </>
+                )}
                 <button
                   type="button"
-                  disabled={generating || regeneratingIds.size > 0 || mixVoiceIds.length === voiceOptions.length}
-                  onClick={selectAllMixVoices}
-                  className="rounded-md border border-border-subtle px-2 py-0.5 text-[11px] text-text-soft transition-colors hover:text-text disabled:opacity-40"
+                  onClick={() => setShowVoiceOptions((current) => !current)}
+                  className="rounded-md border border-border-subtle px-2 py-0.5 text-[11px] text-text-soft transition-colors hover:text-text"
                 >
-                  {t('lists.selectAllVoices')}
-                </button>
-                <button
-                  type="button"
-                  disabled={generating || regeneratingIds.size > 0 || mixVoiceIds.length === 0}
-                  onClick={clearMixVoices}
-                  className="rounded-md border border-border-subtle px-2 py-0.5 text-[11px] text-text-soft transition-colors hover:text-text disabled:opacity-40"
-                >
-                  {t('lists.unselectAllVoices')}
+                  {showVoiceOptions ? t('lists.hideVoiceOptions') : t('lists.showVoiceOptions')}
                 </button>
               </div>
             </div>
-            <div className="flex flex-wrap gap-1.5">
-              {voiceOptions.map((voice) => {
-                const active = mixVoiceIds.includes(voice);
-                return (
-                  <button
-                    key={voice}
-                    type="button"
-                    disabled={generating || regeneratingIds.size > 0}
-                    aria-pressed={active}
-                    onClick={() => toggleMixVoice(voice)}
-                    className={`rounded-full border px-2.5 py-1 text-xs transition-colors disabled:opacity-50 ${
-                      active
-                        ? 'border-accent bg-accent/15 text-text'
-                        : 'border-border-subtle text-text-soft hover:text-text'
-                    }`}
-                  >
-                    {formatVoiceLabel(voice, voiceGenders)}
-                  </button>
-                );
-              })}
-            </div>
-            {mixVoiceIds.length === 0 && (
+            {showVoiceOptions && (
+              <div className="flex flex-wrap gap-1.5">
+                {voiceOptions.map((voice) => {
+                  const active = mixVoiceIds.includes(voice);
+                  return (
+                    <button
+                      key={voice}
+                      type="button"
+                      disabled={generating || regeneratingIds.size > 0}
+                      aria-pressed={active}
+                      onClick={() => toggleMixVoice(voice)}
+                      className={`rounded-full border px-2.5 py-1 text-xs transition-colors disabled:opacity-50 ${
+                        active
+                          ? 'border-accent bg-accent/15 text-text'
+                          : 'border-border-subtle text-text-soft hover:text-text'
+                      }`}
+                    >
+                      {formatVoiceLabel(voice, voiceGenders)}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {showVoiceOptions && mixVoiceIds.length === 0 && (
               <p className="mt-1.5 text-[11px] text-text-soft/80">{t('lists.mixVoicesNone')}</p>
             )}
           </div>

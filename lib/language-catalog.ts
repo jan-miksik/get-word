@@ -167,13 +167,16 @@ async function fetchGoogleTtsVoices(): Promise<GoogleVoice[]> {
 
 function scoreVoice(voice: GoogleVoice): number {
   const name = voice.name ?? "";
+  const normalizedName = name.toLowerCase();
 
-  if (name.includes("Neural2")) return 0;
-  if (name.includes("WaveNet")) return 1;
-  if (name.includes("Studio")) return 2;
-  if (name.includes("Standard")) return 4;
+  if (normalizedName.includes("chirp3-hd")) return 0;
+  if (normalizedName.includes("chirp3")) return 1;
+  if (normalizedName.includes("neural2")) return 2;
+  if (normalizedName.includes("wavenet")) return 3;
+  if (normalizedName.includes("studio")) return 4;
+  if (normalizedName.includes("standard")) return 6;
 
-  return 3;
+  return 5;
 }
 
 function getSpeakerEstimate(code: string): number {

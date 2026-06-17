@@ -130,6 +130,18 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
     audioCacheRef.current.delete(audioUrl);
   }, []);
 
+  const getPlaybackCandidateUrls = useCallback((source: AudioSourceCandidate): string[] => {
+    const cached = audioCacheRef.current.get(source.audioUrl);
+    return Array.from(
+      new Set([
+        ...(cached ? [cached.objectUrl] : []),
+        source.audioUrl,
+        ...source.arweaveUrls,
+        ...(source.arweaveUrl ? [source.arweaveUrl] : []),
+      ]),
+    );
+  }, []);
+
   const preloadAudio = useCallback(
     async (rowId: string, source: AudioSourceCandidate): Promise<string> => {
       void rowId;
@@ -270,6 +282,63 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
     [onLinkedSourceFailed, t],
   );
 
+  const playAudioWithFallback = useCallback(
+    (
+      row: AudioRow,
+      source: AudioSourceCandidate,
+      candidateUrls: string[],
+      onEnded: () => void,
+      onFailed: (details: unknown) => void,
+    ) => {
+      const attempts: {
+        playbackUrl: string;
+        mediaError?: string;
+        mediaMessage?: string | null;
+        networkState?: number;
+        readyState?: number;
+        playError?: unknown;
+      }[] = [];
+
+      const tryCandidate = (index: number) => {
+        const playbackUrl = candidateUrls[index];
+        if (!playbackUrl) {
+          onFailed({ attempts });
+          return;
+        }
+
+        const audio = new Audio(playbackUrl);
+        let handledFailure = false;
+        audio.preload = 'auto';
+        audioRef.current = audio;
+        audio.onended = onEnded;
+
+        const handleCandidateFailed = (playError?: unknown) => {
+          if (handledFailure || audioRef.current !== audio) return;
+          handledFailure = true;
+          attempts.push({
+            playbackUrl,
+            ...(playError ? { playError } : {}),
+            mediaError: getMediaErrorLabel(audio.error),
+            mediaMessage: audio.error?.message ?? null,
+            networkState: audio.networkState,
+            readyState: audio.readyState,
+          });
+          tryCandidate(index + 1);
+        };
+
+        audio.onerror = () => handleCandidateFailed();
+        audio.play().catch((err) => {
+          handleCandidateFailed(err instanceof Error ? err.message : err);
+        });
+      };
+
+      void row;
+      void source;
+      tryCandidate(0);
+    },
+    [],
+  );
+
   // Keep a ref to the latest rows so the queue advancer can resolve them
   // without re-creating playNext each render (which would otherwise tear
   // down audio.onended bindings mid-queue).
@@ -294,81 +363,34 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
     if (audioRef.current) audioRef.current.pause();
 
     setPlayingId(row.id);
-    let playbackUrl = next.source.audioUrl;
-    try {
-      playbackUrl = await preloadAudio(row.id, next.source);
-    } catch (err) {
-      markPlaybackFailed(row, next.source, err);
-      void playNext();
-      return;
-    }
-
-    const audio = new Audio(playbackUrl);
-    audio.preload = 'auto';
-    audioRef.current = audio;
-    audio.onended = () => {
-      setTimeout(() => void playNext(), 1200);
-    };
-    audio.onerror = () => {
-      markPlaybackFailed(row, next.source, {
-        playbackUrl,
-        mediaError: getMediaErrorLabel(audio.error),
-        mediaMessage: audio.error?.message ?? null,
-        networkState: audio.networkState,
-        readyState: audio.readyState,
-      });
-      void playNext();
-    };
-    audio.play().catch((err) => {
-      markPlaybackFailed(row, next.source, {
-        playbackUrl,
-        playError: err instanceof Error ? err.message : err,
-        mediaError: getMediaErrorLabel(audio.error),
-        mediaMessage: audio.error?.message ?? null,
-        networkState: audio.networkState,
-        readyState: audio.readyState,
-      });
-      void playNext();
-    });
-  }, [markPlaybackFailed, preloadAudio]);
+    playAudioWithFallback(
+      row,
+      next.source,
+      getPlaybackCandidateUrls(next.source),
+      () => {
+        setTimeout(() => void playNext(), 1200);
+      },
+      (details) => {
+        markPlaybackFailed(row, next.source, details);
+        void playNext();
+      },
+    );
+  }, [getPlaybackCandidateUrls, markPlaybackFailed, playAudioWithFallback]);
 
   const playSingle = useCallback(
     async (row: AudioRow, source: AudioSourceCandidate) => {
       if (audioRef.current) audioRef.current.pause();
 
       setPlayingId(row.id);
-      let playbackUrl = source.audioUrl;
-      try {
-        playbackUrl = await preloadAudio(row.id, source);
-      } catch (err) {
-        markPlaybackFailed(row, source, err);
-        return;
-      }
-
-      const audio = new Audio(playbackUrl);
-      audio.preload = 'auto';
-      audioRef.current = audio;
-      audio.onended = () => setPlayingId(null);
-      audio.onerror = () =>
-        markPlaybackFailed(row, source, {
-          playbackUrl,
-          mediaError: getMediaErrorLabel(audio.error),
-          mediaMessage: audio.error?.message ?? null,
-          networkState: audio.networkState,
-          readyState: audio.readyState,
-        });
-      audio.play().catch((err) => {
-        markPlaybackFailed(row, source, {
-          playbackUrl,
-          playError: err instanceof Error ? err.message : err,
-          mediaError: getMediaErrorLabel(audio.error),
-          mediaMessage: audio.error?.message ?? null,
-          networkState: audio.networkState,
-          readyState: audio.readyState,
-        });
-      });
+      playAudioWithFallback(
+        row,
+        source,
+        getPlaybackCandidateUrls(source),
+        () => setPlayingId(null),
+        (details) => markPlaybackFailed(row, source, details),
+      );
     },
-    [markPlaybackFailed, preloadAudio],
+    [getPlaybackCandidateUrls, markPlaybackFailed, playAudioWithFallback],
   );
 
   const playQueue = useCallback(

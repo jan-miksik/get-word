@@ -6,6 +6,8 @@ import {
 import { getBaseLanguage, type TtsLanguageOption } from './language';
 import {
   DEFAULT_VOICE_SELECTION,
+  getChirp3HdVoiceOptions,
+  getDefaultVoiceSelectionForVoices,
   resolveVoiceForText,
   serializeVoiceSelection,
   type VoiceSelection,
@@ -18,6 +20,24 @@ type LanguageScopedSelection = {
 
 function readSelection(languageCode: string): VoiceSelection {
   return readStoredVoiceSelection(languageCode) ?? DEFAULT_VOICE_SELECTION;
+}
+
+function reconcileStoredSelection(
+  stored: VoiceSelection | null,
+  voiceOptions: string[],
+): VoiceSelection {
+  const defaultSelection = getDefaultVoiceSelectionForVoices(voiceOptions);
+  if (!stored) return defaultSelection;
+
+  if (stored.mode === 'single') {
+    if (stored.voiceId === 'default' || voiceOptions.includes(stored.voiceId)) return stored;
+    return defaultSelection;
+  }
+
+  const availableVoiceIds = stored.voiceIds.filter((voiceId) => voiceOptions.includes(voiceId));
+  if (availableVoiceIds.length === stored.voiceIds.length) return stored;
+  if (availableVoiceIds.length > 0) return { mode: 'mix', voiceIds: availableVoiceIds };
+  return defaultSelection;
 }
 
 export function useGoogleTtsVoiceSelection(activeLanguageCode: string) {
@@ -55,14 +75,11 @@ export function useGoogleTtsVoiceSelection(activeLanguageCode: string) {
         setVoiceOptions(voices);
         setVoiceGenders(language?.ttsVoiceGenders ?? {});
         setScoped(() => {
-          const stored = readSelection(activeLanguageCode);
-          // Drop a stored single voice that this language no longer offers.
-          const reconciled: VoiceSelection = stored.mode === 'single'
-            && stored.voiceId !== 'default'
-            && !voices.includes(stored.voiceId)
-            ? DEFAULT_VOICE_SELECTION
-            : stored;
-          return { languageCode: activeLanguageCode, selection: reconciled };
+          const stored = readStoredVoiceSelection(activeLanguageCode);
+          return {
+            languageCode: activeLanguageCode,
+            selection: reconcileStoredSelection(stored, voices),
+          };
         });
       } catch {
         if (cancelled) return;
@@ -89,6 +106,19 @@ export function useGoogleTtsVoiceSelection(activeLanguageCode: string) {
   const setSingleVoice = useCallback((voiceId: string) => {
     updateSelection({ mode: 'single', voiceId });
   }, [updateSelection]);
+
+  const enableChirp3HdMix = useCallback(() => {
+    const chirp3HdVoices = getChirp3HdVoiceOptions(voiceOptions);
+    if (chirp3HdVoices.length === 0) {
+      updateSelection(DEFAULT_VOICE_SELECTION);
+      return;
+    }
+    if (chirp3HdVoices.length === 1) {
+      updateSelection({ mode: 'single', voiceId: chirp3HdVoices[0] });
+      return;
+    }
+    updateSelection({ mode: 'mix', voiceIds: chirp3HdVoices });
+  }, [updateSelection, voiceOptions]);
 
   const enableMix = useCallback(() => {
     // Start with every voice selected; users narrow down from there.
@@ -125,6 +155,7 @@ export function useGoogleTtsVoiceSelection(activeLanguageCode: string) {
     selectionKey,
     loadingVoices,
     setSingleVoice,
+    enableChirp3HdMix,
     enableMix,
     toggleMixVoice,
     selectAllMixVoices,
