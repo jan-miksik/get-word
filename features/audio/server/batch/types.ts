@@ -22,6 +22,7 @@ export type DedupLink = {
   arweaveUrl?: string;
   arweaveUrls?: string[];
   storageRef?: string;
+  voiceId?: string | null;
 };
 
 export type GenerationCandidate = {
@@ -40,6 +41,7 @@ export type GeneratedResult = {
   arweaveUrl?: string;
   arweaveUrls?: string[];
   storageRef?: string;
+  voiceId?: string | null;
   sizeBytes?: number;
   error?: string;
 };

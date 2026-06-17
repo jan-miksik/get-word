@@ -140,6 +140,7 @@ export function useAudioGenerationWorkflow({
               arweaveUrl: result.arweave_url ?? row.arweaveUrl ?? null,
               arweaveUrls: result.arweave_urls ?? row.arweaveUrls,
               storageRef: result.storage_ref ?? row.storageRef ?? null,
+              generationVoiceId: result.voice_id ?? row.generationVoiceId ?? null,
               audioStatus: result.status === 'ok' ? 'ready' : 'failed',
               source: result.source === 'dedup' || result.source === 'generated'
                 ? result.source

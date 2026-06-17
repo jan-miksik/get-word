@@ -114,6 +114,7 @@ export async function generateAudioForItem(
         arweaveUrl: storage.gatewayUrl,
         arweaveUrls: storage.gatewayUrls,
         storageRef: storage.storageRef,
+        voiceId: voiceId ?? "default",
         sizeBytes: result.sizeBytes,
       },
     };

@@ -117,6 +117,7 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
             ? getArweaveGatewayUrls(existing.storageRef)
             : undefined,
         storageRef: existing.storageRef,
+        voiceId: resolveItemVoice(items[i]) ?? "default",
       });
     } else {
       needsGeneration.push({
@@ -223,6 +224,7 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
               arweave_url: dedup.arweaveUrl,
               arweave_urls: dedup.arweaveUrls,
               storage_ref: dedup.storageRef,
+              voice_id: dedup.voiceId ?? null,
               status: "ok" as const,
               source: "dedup" as const,
             };

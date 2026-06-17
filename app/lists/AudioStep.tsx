@@ -106,6 +106,7 @@ function AudioStepContent({
   const [completing, setCompleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showVoiceOptions, setShowVoiceOptions] = useState(false);
+  const [showVoiceNotes, setShowVoiceNotes] = useState(false);
   const {
     voiceOptions,
     voiceGenders,
@@ -225,6 +226,27 @@ function AudioStepContent({
     }
   }, [onComplete]);
 
+  const formatGenerationVoice = useCallback((voiceId: string | null | undefined) => {
+    if (!voiceId || voiceId === 'default') return t('lists.defaultGoogleVoice');
+    return formatVoiceLabel(voiceId, voiceGenders);
+  }, [t, voiceGenders]);
+
+  const getVoiceNote = useCallback((row: AudioRow): string | undefined => {
+    if (row.audioStatus === 'ready') {
+      if (row.generationVoiceId) {
+        return t('lists.audioGeneratedWithVoice', {
+          voice: formatGenerationVoice(row.generationVoiceId),
+        });
+      }
+      // Voice not stored for this asset — omit the note rather than show a placeholder.
+      return undefined;
+    }
+
+    return t('lists.audioWillUseVoice', {
+      voice: formatGenerationVoice(resolveVoice(row.audioText) ?? 'default'),
+    });
+  }, [formatGenerationVoice, resolveVoice, t]);
+
   const subtitle = useMemo(() => {
     const parts = [t('lists.audioReadySummary', { ready: readyCount, total: rows.length })];
     if (dedupCount > 0) parts.push(t('lists.reusedCount', { count: dedupCount }));
@@ -317,6 +339,16 @@ function AudioStepContent({
               {playingId ? t('lists.pause') : t('lists.playAll')}
             </button>
           )}
+
+          <label className="flex cursor-pointer items-center gap-1.5 text-xs text-text-soft">
+            <input
+              type="checkbox"
+              checked={showVoiceNotes}
+              onChange={(event) => setShowVoiceNotes(event.target.checked)}
+              className="h-3.5 w-3.5 accent-accent"
+            />
+            {t('lists.showVoiceInfo')}
+          </label>
         </div>
         {selection.mode === 'mix' && (
           <div className="mt-3 border-t border-border-subtle pt-3">
@@ -420,6 +452,7 @@ function AudioStepContent({
               playbackError={playbackErrors[row.id]}
               generating={generating}
               isGoogleTtsPaused={isGoogleTtsPaused}
+              voiceNote={showVoiceNotes ? getVoiceNote(row) : undefined}
               onPlay={(selectedRow) => void handlePlaySingle(selectedRow)}
               onRegenerate={(selectedRow) => void handleRegenerateRow(selectedRow)}
               onReusableSelectionChange={(selectedRow, assetId) =>

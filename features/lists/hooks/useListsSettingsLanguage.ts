@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react';
+import { readPreferredPublicLanguage } from '@/lib/i18n/client-language';
 import { fetchUserData } from '@/lib/sync';
 import { subscribeTabMessages } from '@/lib/tab-sync';
 
 export function useListsSettingsLanguage(): string {
-  const [settingsLanguage, setSettingsLanguage] = useState('en');
+  // Seed from the locally-known interface language so the editor renders in the
+  // user's language immediately instead of flashing English until the synced
+  // settings_language arrives.
+  const [settingsLanguage, setSettingsLanguage] = useState(readPreferredPublicLanguage);
 
   useEffect(() => {
     let cancelled = false;

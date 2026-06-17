@@ -10,6 +10,7 @@ export type AudioGenerationResult = {
   arweave_url?: string | null;
   arweave_urls?: string[];
   storage_ref?: string | null;
+  voice_id?: string | null;
   size_bytes?: number;
   status: string;
   source?: string;
@@ -25,6 +26,7 @@ export type AudioReuseResult = {
   arweave_url?: string | null;
   arweave_urls?: string[];
   storage_ref?: string | null;
+  voice_id?: string | null;
   size_bytes?: number;
   status: 'found' | 'missing' | 'error';
   linked?: boolean;

@@ -132,6 +132,7 @@ export function useReusableAudioLookup({
             arweaveUrl: selectedOption.arweaveUrl ?? null,
             arweaveUrls: selectedOption.arweaveUrls,
             storageRef: selectedOption.storageRef ?? null,
+            generationVoiceId: result.voice_id ?? selectedOption.voiceId ?? null,
             audioStatus: 'ready',
             source: 'dedup',
           };

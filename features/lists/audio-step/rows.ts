@@ -10,6 +10,7 @@ export type AudioVariant = {
   arweaveUrls: string[];
   storageRef?: string | null;
   provider?: string | null;
+  voiceId?: string | null;
   sizeBytes?: number;
 };
 
@@ -25,6 +26,7 @@ export type AudioRow = {
   arweaveUrl?: string | null;
   arweaveUrls: string[];
   storageRef?: string | null;
+  generationVoiceId?: string | null;
   reusableOptions: AudioVariant[];
   selectedReusableAssetId: string | null;
   reuseStatus: 'unchecked' | 'checking' | 'found' | 'missing' | 'error';
@@ -40,6 +42,7 @@ export type AudioReuseMatch = {
   arweave_urls?: string[];
   storage_ref?: string | null;
   provider?: string | null;
+  voice_id?: string | null;
   size_bytes?: number;
 };
 
@@ -60,6 +63,7 @@ export function toAudioVariant(match: AudioReuseMatch): AudioVariant {
     arweaveUrls: match.arweave_urls ?? [],
     storageRef: match.storage_ref ?? null,
     provider: match.provider ?? null,
+    voiceId: match.voice_id ?? null,
     sizeBytes: match.size_bytes,
   };
 }

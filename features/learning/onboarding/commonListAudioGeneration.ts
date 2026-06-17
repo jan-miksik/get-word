@@ -8,6 +8,14 @@ import type {
   WordList,
   WordListItem,
 } from '@/features/lists/types';
+import {
+  getDefaultVoiceSelectionForVoices,
+  resolveVoiceForText,
+} from '@/features/lists/audio-step/voiceMix';
+import {
+  getBaseLanguage,
+  type TtsLanguageOption,
+} from '@/features/lists/audio-step/language';
 import { estimateCommonListGenerationSeconds } from './listRecommendations';
 
 const AUTOGENERATE_AUDIO_QUOTA_NOTICE =
@@ -56,6 +64,38 @@ export function getCommonListAudioFailureNotice(summary: AudioGenerationSummary)
   const base = `The common list was created, but audio generation failed for ${failed} of ${total} clips.`;
   const detail = summary.notice ? ` ${summary.notice}` : '';
   return `${base}${detail} ${AUDIO_REPAIR_INSTRUCTIONS}`;
+}
+
+async function loadTtsLanguageOptions(): Promise<TtsLanguageOption[]> {
+  try {
+    const res = await fetch('/api/languages');
+    if (!res.ok) return [];
+    const data = await res.json().catch(() => ({}));
+    return Array.isArray(data.languages) ? data.languages : [];
+  } catch {
+    return [];
+  }
+}
+
+function findTtsVoicesForLanguage(
+  languages: TtsLanguageOption[],
+  languageCode: string,
+) {
+  const normalized = languageCode.toLowerCase();
+  const base = getBaseLanguage(languageCode);
+  const exact = languages.find((language) => language.code.toLowerCase() === normalized);
+  const matched = exact ?? languages.find((language) => getBaseLanguage(language.code) === base);
+  return Array.from(new Set(matched?.ttsVoices ?? []));
+}
+
+async function createVoiceResolverForLanguage(
+  languagesPromise: Promise<TtsLanguageOption[]>,
+  languageCode: string,
+) {
+  const languages = await languagesPromise;
+  const voiceOptions = findTtsVoicesForLanguage(languages, languageCode);
+  const selection = getDefaultVoiceSelectionForVoices(voiceOptions);
+  return (text: string) => resolveVoiceForText(text, selection, voiceOptions);
 }
 
 function getAudioQuotaNotice(requested: number, remaining: number) {
@@ -125,12 +165,24 @@ export async function generateCommonListAudio({
   let failedCount = 0;
   let failedTargetCount = 0;
   let failedKnownCount = 0;
+  const languagesPromise = loadTtsLanguageOptions();
+  const voiceResolvers = new Map<string, Promise<(text: string) => string | undefined>>();
+
+  function getVoiceResolver(languageCode: string) {
+    const key = languageCode.toLowerCase();
+    let resolver = voiceResolvers.get(key);
+    if (!resolver) {
+      resolver = createVoiceResolverForLanguage(languagesPromise, languageCode);
+      voiceResolvers.set(key, resolver);
+    }
+    return resolver;
+  }
 
   setGenerationStatus({
     title: 'Generating audio',
     detail:
       audioClipCount > 0
-        ? `${formatNumber(audioClipCount)} clips, ${formatNumber(requestedUnits)} Google TTS characters.`
+        ? `${formatNumber(items.length)} words and phrases`
         : 'No missing audio found for this list.',
     estimateSeconds: estimateCommonListGenerationSeconds({
       itemCount: items.length,
@@ -145,6 +197,7 @@ export async function generateCommonListAudio({
     language: string,
   ) {
     if (batchItems.length === 0) return;
+    const resolveVoice = await getVoiceResolver(language);
     for (let i = 0; i < batchItems.length; i += AUDIO_BATCH_SIZE) {
       const chunk = batchItems.slice(i, i + AUDIO_BATCH_SIZE);
       let data: Record<string, unknown> = {};
@@ -157,11 +210,16 @@ export async function generateCommonListAudio({
             provider: 'google_tts',
             allow_partial: true,
             audio_field: audioField,
-            items: chunk.map((item) => ({
-              id: item.id,
-              text: audioField === 'known' ? item.textKnown : item.textTarget ?? '',
-              language,
-            })),
+            items: chunk.map((item) => {
+              const text = audioField === 'known' ? item.textKnown : item.textTarget ?? '';
+              const voiceId = resolveVoice(text);
+              return {
+                id: item.id,
+                text,
+                language,
+                ...(voiceId ? { voice_id: voiceId } : {}),
+              };
+            }),
           }),
         });
         data = await res.json().catch(() => ({}));

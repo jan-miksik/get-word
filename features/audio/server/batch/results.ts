@@ -25,6 +25,7 @@ export function buildBatchResults(
         arweave_url: dedup.arweaveUrl,
         arweave_urls: dedup.arweaveUrls,
         storage_ref: dedup.storageRef,
+        voice_id: dedup.voiceId ?? null,
         status: "ok" as const,
         source: "dedup" as const,
       };
@@ -38,6 +39,7 @@ export function buildBatchResults(
         arweave_url: gen.arweaveUrl,
         arweave_urls: gen.arweaveUrls,
         storage_ref: gen.storageRef,
+        voice_id: gen.voiceId ?? item.voice_id ?? null,
         size_bytes: gen.sizeBytes,
         status: gen.status,
         ...(gen.error ? { error: gen.error } : {}),

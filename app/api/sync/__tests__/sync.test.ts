@@ -227,6 +227,47 @@ describe('GET /api/sync', () => {
     ])
   })
 
+  it('dedupes word list items that are both owned and subscribed', async () => {
+    const duplicateItem = {
+      id: 'item-dup',
+      listId: 'list-generated',
+      categoryId: null,
+      canonicalWordId: null,
+      position: 0,
+      textKnown: 'time',
+      textTarget: 'temps',
+      translationStatus: 'translated',
+      knownAudioAssetId: null,
+      knownAudioStatus: 'none',
+      audioAssetId: null,
+      audioStatus: 'none',
+      notes: null,
+    }
+    mockGetUserSubscribedItems.mockResolvedValue([duplicateItem])
+    mockGetUserOwnListItems.mockResolvedValue([duplicateItem])
+    mockGetWordListsByIds.mockResolvedValue([
+      {
+        id: 'list-generated',
+        languageFrom: 'en',
+        languageTo: 'fr',
+      },
+    ])
+
+    const req = new NextRequest('http://localhost:3000/api/sync?deviceId=dev-123')
+    const res = await GET(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.word_list_items).toHaveLength(1)
+    expect(data.word_list_items[0]).toEqual(expect.objectContaining({
+      id: 'item-dup',
+      textKnown: 'time',
+      textTarget: 'temps',
+      languageFrom: 'en',
+      languageTo: 'fr',
+    }))
+  })
+
   it('returns 401 for device auth without an existing session', async () => {
     mockVerifySession.mockResolvedValue(null)
     const req = new NextRequest('http://localhost:3000/api/sync?deviceId=dev-123')

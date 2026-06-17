@@ -16,6 +16,10 @@ import {
   type MatchedWordList,
 } from './listRecommendations';
 
+// Rough size of a typical recommended common list, used only for the provisional
+// progress estimate shown before the real item count is known.
+const PROVISIONAL_COMMON_LIST_ITEM_COUNT = 200;
+
 type UseLearningOnboardingActionsOptions = {
   languageFrom: string;
   languageTo: string;
@@ -156,6 +160,14 @@ export function useLearningOnboardingActions({
     setGenerationStatus({
       title: 'Preparing common list',
       detail: 'Generating a recommended common list...',
+      // The list-generation request can run for a while before we know the real
+      // item count, so show a provisional whole-flow estimate up front to avoid a
+      // long gap with no estimate. It is refined once the list is created.
+      estimateSeconds: estimateCommonListGenerationSeconds({
+        itemCount: PROVISIONAL_COMMON_LIST_ITEM_COUNT,
+        audioCharacterCount: 0,
+        audioClipCount: PROVISIONAL_COMMON_LIST_ITEM_COUNT * 2,
+      }),
     });
     setError(null);
     let didComplete = false;

@@ -26,6 +26,17 @@ type HydratedWordListItemWithMedia = HydratedWordListItems[number] & {
   audioStorageRef: string | null;
 };
 
+function dedupeById<T extends { id: string }>(items: T[]) {
+  const seen = new Set<string>();
+  const deduped: T[] = [];
+  for (const item of items) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
+    deduped.push(item);
+  }
+  return deduped;
+}
+
 function hydrateSingleAudioAsset(
   audioAssetId: string | null | undefined,
   mediaAssets: Awaited<ReturnType<typeof getMediaAssetsByIds>>,
@@ -98,7 +109,7 @@ export async function getHydratedWordListData(
     getUserOwnListItems(userId),
     getSystemDefaultList(),
   ]);
-  const wordListItems = [...subscribedItems, ...ownItems];
+  const wordListItems = dedupeById([...subscribedItems, ...ownItems]);
   const listIds = [...new Set(wordListItems.map((item) => item.listId))];
   const mediaAssetIds = wordListItems
     .flatMap((item) => [item.knownAudioAssetId, item.audioAssetId])

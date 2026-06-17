@@ -14,6 +14,7 @@ type AudioStepRowProps = {
   playbackError?: string;
   generating: boolean;
   isGoogleTtsPaused: boolean;
+  voiceNote?: string;
   onPlay: (row: AudioRow) => void;
   onRegenerate: (row: AudioRow) => void;
   onReusableSelectionChange: (row: AudioRow, assetId: string) => void;
@@ -26,6 +27,7 @@ export function AudioStepRow({
   playbackError,
   generating,
   isGoogleTtsPaused,
+  voiceNote,
   onPlay,
   onRegenerate,
   onReusableSelectionChange,
@@ -73,6 +75,11 @@ export function AudioStepRow({
           <span className="block break-words text-xs text-text-soft">
             {row.supportingText}
           </span>
+          {voiceNote ? (
+            <span className="mt-1 block break-words text-[11px] text-text-soft/80">
+              {voiceNote}
+            </span>
+          ) : null}
           {playbackError && (
             <span className="mt-1 block break-words text-xs text-danger">
               {playbackError}

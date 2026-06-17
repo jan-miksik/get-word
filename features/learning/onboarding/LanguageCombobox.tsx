@@ -89,8 +89,8 @@ export function LanguageCombobox({
     <label className="relative block min-w-0">
       <span className="mb-2 block text-lg font-extrabold uppercase tracking-wide sm:text-xl">{label}</span>
       <div className="onboarding-combobox min-h-[66px] px-3 py-2">
-        <div className="mb-1 flex min-w-0 items-center gap-2 text-sm font-bold">
-          <span className="inline-flex min-w-6 justify-center text-lg" aria-hidden="true">
+        <div className="mb-1 flex h-7 min-w-0 items-center gap-2 text-sm font-bold">
+          <span className="inline-flex min-w-6 justify-center text-lg leading-none" aria-hidden="true">
             {selectedFlag}
           </span>
           <span className={`min-w-0 flex-1 truncate ${hasSelection ? '' : 'onboarding-text-soft'}`}>

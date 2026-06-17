@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
 
   const results = items.map((item, index) => {
     const hash = hashes[index];
+    const requestedVoiceId = item.voice_id ?? voice_id ?? "default";
     const exactAsset = existingMedia.get(hash);
     const variants =
       reusableVariants.get(`${item.language}\u0000${item.text}`) ?? [];
@@ -148,6 +149,7 @@ export async function POST(request: NextRequest) {
       storage_ref: selectedMatch?.storage_ref ?? null,
       provider: selectedMatch?.provider ?? null,
       size_bytes: selectedMatch?.size_bytes,
+      voice_id: selectedAsset.contentHash === hash ? requestedVoiceId : null,
       asset_id: selectedAsset.id,
       selected_asset_id: selectedAsset.id,
       matches,
