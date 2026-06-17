@@ -2,11 +2,13 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useI18n } from '@/components/I18nProvider';
 import * as listActions from '@/features/lists/client/actions';
 import type { WordList } from '@/features/lists/types';
 import { syncUserData } from '@/lib/sync';
 import {
   generateCommonListAudio,
+  formatNumber,
   getCommonListAudioFailureNotice,
   getCommonListFailureNotice,
   type GenerationStatus,
@@ -36,6 +38,7 @@ export function useLearningOnboardingActions({
   onSelectList,
 }: UseLearningOnboardingActionsOptions) {
   const router = useRouter();
+  const { t } = useI18n();
   const [workingId, setWorkingId] = useState<string | null>(null);
   const [generationStatus, setGenerationStatus] = useState<GenerationStatus | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -171,10 +174,9 @@ export function useLearningOnboardingActions({
   async function autogenerateCommonList() {
     setWorkingId('common');
     setGenerationStatus({
-      title: 'Preparing common list',
-      detail:
-        'Finding the best seed list, creating your words, and preparing pronunciation audio. The first step can take a few minutes before detailed progress appears.',
-      note: 'Please keep this tab open. If you close it during setup, the list may be created without all audio attached.',
+      title: t('onboarding.statusPreparingCommonList'),
+      detail: t('onboarding.commonListSetupDetail'),
+      note: t('onboarding.commonListSetupNote'),
       // The list-generation request can run for a while before we know the real
       // item count, so show a provisional whole-flow estimate up front to avoid a
       // long gap with no estimate. It is refined once the list is created.
@@ -183,7 +185,7 @@ export function useLearningOnboardingActions({
         audioCharacterCount: 0,
         audioClipCount: PROVISIONAL_COMMON_LIST_ITEM_COUNT * 2,
       }),
-      progress: { label: 'Preparing list...' },
+      progress: { label: t('onboarding.commonListPreparingList') },
     });
     setError(null);
     let didComplete = false;
@@ -203,11 +205,15 @@ export function useLearningOnboardingActions({
       const itemCount = Number(createData.item_count ?? 0);
       onSelectList(createData.list.id);
       setGenerationStatus({
-        title: createData.reused_existing ? 'Common list found' : 'Common list created',
+        title: createData.reused_existing
+          ? t('onboarding.statusCommonListFound')
+          : t('onboarding.statusCommonListCreated'),
         detail: createData.reused_existing
-          ? 'Using the existing recommended list for this language pair.'
-          : `Generated ${itemCount || 'the'} common entries. Preparing audio...`,
-        note: 'Please keep this tab open while pronunciation audio is generated.',
+          ? t('onboarding.commonListFoundDetail')
+          : itemCount
+            ? t('onboarding.commonListCreatedDetail', { count: formatNumber(itemCount) })
+            : t('onboarding.commonListCreatedUnknownDetail'),
+        note: t('onboarding.commonListAudioNote'),
         estimateSeconds: itemCount
           ? estimateCommonListGenerationSeconds({
               itemCount,
@@ -215,20 +221,21 @@ export function useLearningOnboardingActions({
               audioClipCount: itemCount * 2,
             })
           : undefined,
-        progress: { label: 'Checking missing audio...' },
+        progress: { label: t('onboarding.commonListCheckingAudio') },
       });
       const audioSummary = await generateCommonListAudio({
         list: generatedList,
         setGenerationStatus,
+        t,
       });
       if (audioSummary.failedCount > 0) {
         setError(getCommonListAudioFailureNotice(audioSummary));
       }
       setGenerationStatus({
-        title: 'Opening app',
+        title: t('onboarding.statusOpeningApp'),
         detail: audioSummary.notice
-          ? 'The common list is ready. Audio can continue from the editor later.'
-          : 'The list and audio are ready.',
+          ? t('onboarding.commonListReadyEditorDetail')
+          : t('onboarding.commonListReadyDetail'),
       });
       await onComplete(languageFrom, languageTo);
       didComplete = true;

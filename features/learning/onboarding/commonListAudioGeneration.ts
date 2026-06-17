@@ -16,6 +16,7 @@ import {
   getBaseLanguage,
   type TtsLanguageOption,
 } from '@/features/lists/audio-step/language';
+import type { I18nKey } from '@/lib/i18n/messages';
 import { estimateCommonListGenerationSeconds } from './listRecommendations';
 
 const AUTOGENERATE_AUDIO_QUOTA_NOTICE =
@@ -25,6 +26,8 @@ const AUDIO_REPAIR_INSTRUCTIONS =
 // Kept small so each request stays well under the serverless timeout now that
 // Google TTS is rate-paced server-side (a 200-clip batch could exceed a minute).
 const AUDIO_BATCH_SIZE = 50;
+
+type Translate = (key: I18nKey, values?: Record<string, string | number>) => string;
 
 export type GenerationStatus = {
   title: string;
@@ -136,9 +139,11 @@ async function loadTtsRemainingQuota(): Promise<number | null> {
 export async function generateCommonListAudio({
   list,
   setGenerationStatus,
+  t,
 }: {
   list: WordList;
   setGenerationStatus: (status: GenerationStatus) => void;
+  t: Translate;
 }): Promise<AudioGenerationSummary> {
   const audioFailureNotice =
     'The common list is ready, but audio generation could not finish. Audio can be added from the lists editor later.';
@@ -198,38 +203,50 @@ export async function generateCommonListAudio({
   }
 
   setGenerationStatus({
-    title: 'Generating audio',
+    title: t('onboarding.statusGeneratingAudio'),
     detail:
       audioClipCount > 0
-        ? `${formatNumber(items.length)} words and phrases`
-        : 'No missing audio found for this list.',
+        ? t('onboarding.commonListAudioInitialDetail', { count: formatNumber(items.length) })
+        : t('onboarding.commonListNoMissingAudio'),
     estimateSeconds: estimateCommonListGenerationSeconds({
       itemCount: items.length,
       audioCharacterCount: requestedUnits,
       audioClipCount,
     }),
     note: audioClipCount > 0
-      ? 'Please keep this tab open until audio is finished. Closing it can leave the list partly prepared.'
+      ? t('onboarding.commonListAudioKeepOpenNote')
       : undefined,
     progress: audioClipCount > 0
-      ? { value: 0, label: `0/${formatNumber(audioClipCount)} audio clips` }
+      ? {
+          value: 0,
+          label: t('onboarding.commonListAudioProgressLabel', {
+            done: 0,
+            total: formatNumber(audioClipCount),
+          }),
+        }
       : undefined,
   });
   let processedClipCount = 0;
 
   function reportAudioProgress() {
     setGenerationStatus({
-      title: 'Generating audio',
-      detail: `Generated or checked ${formatNumber(processedClipCount)} of ${formatNumber(audioClipCount)} audio clips.`,
+      title: t('onboarding.statusGeneratingAudio'),
+      detail: t('onboarding.commonListAudioProgressDetail', {
+        done: formatNumber(processedClipCount),
+        total: formatNumber(audioClipCount),
+      }),
       estimateSeconds: estimateCommonListGenerationSeconds({
         itemCount: items.length,
         audioCharacterCount: requestedUnits,
         audioClipCount,
       }),
-      note: 'Please keep this tab open until audio is finished. Closing it can leave the list partly prepared.',
+      note: t('onboarding.commonListAudioKeepOpenNote'),
       progress: {
         value: audioClipCount > 0 ? processedClipCount / audioClipCount : 1,
-        label: `${formatNumber(processedClipCount)}/${formatNumber(audioClipCount)} audio clips`,
+        label: t('onboarding.commonListAudioProgressLabel', {
+          done: formatNumber(processedClipCount),
+          total: formatNumber(audioClipCount),
+        }),
       },
     });
   }

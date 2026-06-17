@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { generateCommonListAudio } from '../commonListAudioGeneration';
+import { enMessages, interpolateMessage, type I18nKey } from '@/lib/i18n/messages';
 import type { WordList } from '@/features/lists/types';
 
 function jsonResponse(data: unknown, init: Partial<Response> = {}) {
@@ -8,6 +9,10 @@ function jsonResponse(data: unknown, init: Partial<Response> = {}) {
     status: init.status ?? 200,
     json: async () => data,
   } as Response);
+}
+
+function t(key: I18nKey, values?: Record<string, string | number>) {
+  return interpolateMessage(enMessages[key] ?? key, values);
 }
 
 describe('generateCommonListAudio', () => {
@@ -96,6 +101,7 @@ describe('generateCommonListAudio', () => {
         isPublic: true,
       } satisfies WordList,
       setGenerationStatus: vi.fn(),
+      t,
     });
 
     expect(summary.generatedCount).toBe(1);
