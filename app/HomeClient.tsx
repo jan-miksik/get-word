@@ -7,13 +7,11 @@ import { useMinigameFrequencyPreference } from '@/features/learning/hooks/useMin
 import { useLearningPageState } from '@/features/learning/hooks/useLearningPageState';
 import { usePressHandlers } from '@/features/learning/hooks/usePressHandlers';
 import { useLearningRenderers } from '@/features/learning/hooks/useLearningRenderers';
-import { useWordsLoader } from '@/features/learning/hooks/useWordsLoader';
 import { useAppState } from '@/hooks/useAppState';
 import {
   getAvailableCategories,
-  normalizeWords,
   shouldShowMemoryHookForStage,
-  type Word,
+  type NormalizedWord,
 } from '@/lib/words';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { LandingPage } from '@/components/LandingPage';
@@ -27,6 +25,10 @@ import { PWAInstallIntroCard } from '@/features/learning/components/PWAInstallIn
 import { usePWAInstallIntro } from '@/features/learning/hooks/usePWAInstallIntro';
 
 const BOOT_LOADING_TIMEOUT_MS = 12_000;
+
+// The learning app now runs entirely on synced word_list_items; there is no
+// legacy seed word set. Stable identity avoids needless memo recomputes.
+const EMPTY_WORDS: NormalizedWord[] = [];
 
 /**
  * The signed-in learning app shell. Rendered by `app/page.tsx` only for
@@ -48,7 +50,6 @@ export function HomeClient() {
   );
   const [completedDeckWordCards, setCompletedDeckWordCards] = useState(0);
   const [memoryHooksIntroDismissedForSession, setMemoryHooksIntroDismissedForSession] = useState(false);
-  const { words, isLoading: isLoadingWords } = useWordsLoader();
   const {
     isConnected,
     isAuthLoading,
@@ -58,17 +59,12 @@ export function HomeClient() {
     signOut,
   } = useAuth();
 
-  const normalizedWords = useMemo(
-    () => (words.length > 0 ? normalizeWords(words as Word[]) : []),
-    [words]
-  );
-
   const linkPayload = useMemo(
     () => (walletAddress ? { email: email ?? null, authProvider: authProvider ?? null } : undefined),
     [walletAddress, email, authProvider]
   );
 
-  const appState = useAppState(normalizedWords, walletAddress, linkPayload);
+  const appState = useAppState(EMPTY_WORDS, walletAddress, linkPayload);
   const {
     role,
     getWordDisplayMode,
@@ -110,8 +106,8 @@ export function HomeClient() {
     subscribedLists,
   } = appState;
 
-  // Use synced words (from word_list_items) when available, otherwise use the fetched words table.
-  const activeWords = syncedWords ?? normalizedWords;
+  // The app runs on synced words (from word_list_items).
+  const activeWords = syncedWords ?? EMPTY_WORDS;
 
   const isAuthenticated = Boolean(isConnected && userId && !hasLinkWalletError);
   const isWaitingForLinkedProfile = Boolean(
@@ -123,7 +119,6 @@ export function HomeClient() {
   const appReady =
     isHydrated &&
     !isInitialServerSyncPending &&
-    !isLoadingWords &&
     !isAuthLoading &&
     !isLinkingWallet &&
     !isWaitingForLinkedProfile;

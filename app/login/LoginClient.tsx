@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useMemo } from 'react';
+import { Suspense, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { AppLogo } from '@/components/AppLogo';
 import { SpeckledBackground } from '@/components/SpeckledBackground';
@@ -8,7 +8,6 @@ import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { SupportButton } from '@/components/SupportButton';
 import { SignInForm } from '@/features/auth/components/SignInForm';
 import { useAuth } from '@/features/auth/client/useAuth';
-import { prefetchWords } from '@/features/learning/data/wordsCache';
 import { usePreferredPublicLanguage } from '@/lib/i18n/client-language';
 
 function sanitizeNextPath(input: string | null): string {
@@ -80,10 +79,6 @@ function LoginPageInner() {
 
   const { isConnected, email: accountEmail, isAuthLoading, signOut } = useAuth();
   const language = usePreferredPublicLanguage();
-
-  useEffect(() => {
-    prefetchWords();
-  }, []);
 
   return (
     <I18nProvider language={language}>

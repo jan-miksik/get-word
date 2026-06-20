@@ -21,7 +21,7 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 - Page shell: `app/page.tsx`
 - Composition: `features/learning/components/LearningStudyContent.tsx`
 - Page state: `features/learning/hooks/useLearningPageState.ts`
-- Word loading: `features/learning/hooks/useWordsLoader.ts`
+- Synced study-item loading: `features/learning/app-state/useServerSync.ts`
 - Stream/deck grouping: `features/learning/hooks/useLearningStreamGroups.ts`
 - Render callbacks: `features/learning/hooks/useLearningRenderers.tsx`
 - PWA install intro state: `features/learning/hooks/usePWAInstallIntro.ts`
@@ -41,10 +41,12 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 - Sync cursor parsing: `features/shared/sync/cursor.ts`
 - Route database retry helpers: `features/shared/routes/database-retry.ts`
 - Sync payload types: `features/sync/types.ts`
+- Word-list hydration/response assembly: `features/shared/sync/response.ts`
 
 ### Lists editor
 
 - Current page shell and wizard coordinator: `app/lists/page.tsx`
+- Legacy editor redirect: `app/edit/page.tsx` redirects to `/lists`
 - Wizard step state + handlers: `features/lists/hooks/useListsWizard.ts`
 - List API client actions: `features/lists/client/actions.ts`
 - List API fetch wrapper: `features/lists/api.ts`
@@ -93,6 +95,7 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 - Query barrel: `lib/db/index.ts`
 - Entity queries: `lib/db/queries/*`
 - Word-list item queries are split by concern under `lib/db/queries/word-list-items/*`
+- Study vocabulary lives in `word_lists`/`word_list_items`; the legacy `words` table is gone.
 - Canonical and only checked-in migrations: `drizzle/migrations/*`
 - Historical manual Supabase/RLS scripts removed from the old root `migrations/` directory are available through Git history if needed.
 
@@ -132,6 +135,7 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 - Prefer small safe extractions over rewrites.
 - Preserve HTTP routes and response shapes unless a task explicitly allows an API migration.
 - Preserve legacy wordId/itemId sync compatibility unless the task is specifically to remove it.
+- Do not reintroduce the legacy `words` table, `/api/words`, or a seed-word fallback; learning data is hydrated from owned/subscribed lists through `/api/sync`.
 - Do not refactor legacy CSS as part of code-structure work.
 - Add or adjust focused tests when moving state, sync, route, audio, or wizard behavior.
 

@@ -3,4 +3,3 @@ export * from './categories';
 export * from './items';
 export * from './translations';
 export * from './subscriptions';
-export * from './legacy';

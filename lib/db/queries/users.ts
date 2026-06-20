@@ -88,7 +88,7 @@ export async function getOrCreateUserByDeviceId(
 
   const results = await db
     .insert(users)
-    .values({ deviceId, role: "languageToLearn" })
+    .values({ deviceId })
     .returning();
   return results[0];
 }
@@ -97,19 +97,6 @@ export async function getOrCreateUserByDeviceId(
 export async function createUser(user: NewUser): Promise<User> {
   const results = await db.insert(users).values(user).returning();
   return results[0];
-}
-
-// Update user role.
-export async function updateUserRole(
-  userId: string,
-  role: "knownLanguage" | "languageToLearn"
-): Promise<User | null> {
-  const results = await db
-    .update(users)
-    .set({ role, updatedAt: new Date() })
-    .where(eq(users.id, userId))
-    .returning();
-  return results[0] || null;
 }
 
 // Update user display preferences (show_english, show_category_badges, game_score)

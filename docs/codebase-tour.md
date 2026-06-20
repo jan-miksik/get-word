@@ -73,13 +73,13 @@ Important files:
 - `app/page.tsx`
 - `features/learning/components/LearningStudyContent.tsx`
 - `features/learning/hooks/useLearningPageState.ts`
-- `features/learning/hooks/useWordsLoader.ts`
+- `features/learning/app-state/useServerSync.ts`
 - `features/learning/hooks/useWordStream.ts`
 - `hooks/useAppState.ts`
 
 What happens here:
 
-- words are loaded
+- owned and subscribed list items are hydrated through `/api/sync`
 - user state is loaded
 - words are filtered and grouped
 - cards or stream view are rendered
@@ -87,7 +87,7 @@ What happens here:
 
 Why it is split across many files:
 
-- one file loads data
+- one app-state hook hydrates list items and user state
 - one file manages page behavior
 - one file renders the study UI
 - one central hook coordinates shared user state
@@ -384,19 +384,18 @@ It needs to remember:
 
 and it needs to do that reliably.
 
-### Why are there both `words` and `word_list_items` concepts?
+### Where do study words come from?
 
-This is a sign of evolution in the app.
+The canonical vocabulary model is list-based:
 
-Older logic used a more global `words` model.
-Newer logic is more list-based.
+- `word_lists` contain a language pair and list metadata
+- `word_categories` organize sections within a list
+- `word_list_items` are the actual study items
+- `/api/sync` hydrates items from lists the user owns or subscribes to
 
-You can see this in places like `app/api/words/route.ts`, which is now read-only and points people toward list-based editing.
-
-So a very important context point is:
-
-- this repo contains some compatibility code from an older design
-- the direction is clearly toward list-based data
+The old global `words` table, `/api/words` route, and seed-word loader have
+been removed. Nullable legacy `word_id` columns remain in progress, review,
+and memory-hook records only so older sync data can be retained safely.
 
 ## 8. Current hotspots
 
@@ -405,7 +404,7 @@ These are places likely to matter during future work:
 - `app/lists/page.tsx`
 - `app/lists/AudioStep.tsx`
 - `app/api/sync/route.ts`
-- `components/LearningLanguageOnboarding.tsx`
+- `features/learning/onboarding/LearningLanguageOnboarding.tsx`
 
 Why these matter:
 

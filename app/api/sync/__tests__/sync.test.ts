@@ -8,7 +8,6 @@ const mockGetUserMemoryHooks = vi.fn()
 const mockGetUserCategoryFilters = vi.fn()
 const mockBatchUpsertProgress = vi.fn()
 const mockBatchUpsertProgressByItemId = vi.fn()
-const mockUpdateUserRole = vi.fn()
 const mockUpdateUserPreferences = vi.fn()
 const mockUpsertMemoryHook = vi.fn()
 const mockUpsertMemoryHookByItemId = vi.fn()
@@ -19,12 +18,9 @@ const mockGetUserSubscribedItems = vi.fn()
 const mockGetUserOwnListItems = vi.fn()
 const mockGetMediaAssetsByIds = vi.fn()
 const mockGetCategoriesForLists = vi.fn()
-const mockGetSystemDefaultList = vi.fn()
-const mockGetWordIdToItemIdMapping = vi.fn()
 const mockGetWordListsByIds = vi.fn()
 const mockTouchUserDevice = vi.fn()
 const mockApplyNewReviewEvents = vi.fn()
-const mockRecordProcessedClientOps = vi.fn()
 const mockGetUserMemoryHooksDelta = vi.fn()
 const mockGetUserSyncRevision = vi.fn()
 const mockVerifySession = vi.fn()
@@ -44,18 +40,14 @@ vi.mock('@/lib/db', () => ({
   deleteMemoryHookByItemId: (...args: unknown[]) => mockDeleteMemoryHookByItemId(...args),
   getUserCategoryFilters: (...args: unknown[]) => mockGetUserCategoryFilters(...args),
   setUserCategoryFilters: (...args: unknown[]) => mockSetUserCategoryFilters(...args),
-  updateUserRole: (...args: unknown[]) => mockUpdateUserRole(...args),
   updateUserPreferences: (...args: unknown[]) => mockUpdateUserPreferences(...args),
   getUserSubscribedItems: (...args: unknown[]) => mockGetUserSubscribedItems(...args),
   getUserOwnListItems: (...args: unknown[]) => mockGetUserOwnListItems(...args),
   getMediaAssetsByIds: (...args: unknown[]) => mockGetMediaAssetsByIds(...args),
   getCategoriesForLists: (...args: unknown[]) => mockGetCategoriesForLists(...args),
-  getSystemDefaultList: (...args: unknown[]) => mockGetSystemDefaultList(...args),
-  getWordIdToItemIdMapping: (...args: unknown[]) => mockGetWordIdToItemIdMapping(...args),
   getWordListsByIds: (...args: unknown[]) => mockGetWordListsByIds(...args),
   touchUserDevice: (...args: unknown[]) => mockTouchUserDevice(...args),
   applyNewReviewEvents: (...args: unknown[]) => mockApplyNewReviewEvents(...args),
-  recordProcessedClientOps: (...args: unknown[]) => mockRecordProcessedClientOps(...args),
   getUserMemoryHooksDelta: (...args: unknown[]) => mockGetUserMemoryHooksDelta(...args),
   getUserSyncRevision: (...args: unknown[]) => mockGetUserSyncRevision(...args),
 }))
@@ -97,7 +89,6 @@ const baseUser = {
   id: 'uuid-A',
   deviceId: 'dev-123',
   walletAddress: null,
-  role: 'languageToLearn',
   showEnglish: true,
   showCategoryBadges: false,
   memoryHooksEnabled: true,
@@ -134,12 +125,9 @@ describe('GET /api/sync', () => {
     mockGetUserOwnListItems.mockResolvedValue([])
     mockGetMediaAssetsByIds.mockResolvedValue(new Map())
     mockGetCategoriesForLists.mockResolvedValue([])
-    mockGetSystemDefaultList.mockResolvedValue(null)
-    mockGetWordIdToItemIdMapping.mockResolvedValue(new Map())
     mockGetWordListsByIds.mockResolvedValue([])
     mockTouchUserDevice.mockResolvedValue(undefined)
     mockApplyNewReviewEvents.mockResolvedValue([])
-    mockRecordProcessedClientOps.mockResolvedValue(undefined)
     mockGetUserMemoryHooksDelta.mockResolvedValue([])
     mockGetUserSyncRevision.mockResolvedValue(1779480000000)
     mockIsGoogleSupportedLanguage.mockResolvedValue(true)
@@ -159,7 +147,6 @@ describe('GET /api/sync', () => {
     expect(res.status).toBe(200)
     expect(data.success).toBe(true)
     expect(data.user.id).toBe('uuid-A')
-    expect(data.user.role).toBe('languageToLearn')
   })
 
   it('returns game_score in user object', async () => {
@@ -369,12 +356,9 @@ describe('POST /api/sync', () => {
     mockGetUserOwnListItems.mockResolvedValue([])
     mockGetMediaAssetsByIds.mockResolvedValue(new Map())
     mockGetCategoriesForLists.mockResolvedValue([])
-    mockGetSystemDefaultList.mockResolvedValue(null)
-    mockGetWordIdToItemIdMapping.mockResolvedValue(new Map())
     mockGetWordListsByIds.mockResolvedValue([])
     mockTouchUserDevice.mockResolvedValue(undefined)
     mockApplyNewReviewEvents.mockResolvedValue([])
-    mockRecordProcessedClientOps.mockResolvedValue(undefined)
     mockGetUserMemoryHooksDelta.mockResolvedValue([])
     mockGetUserSyncRevision.mockResolvedValue(1779480000000)
     mockIsGoogleSupportedLanguage.mockResolvedValue(true)
@@ -390,7 +374,7 @@ describe('POST /api/sync', () => {
     expect(res.status).toBe(400)
   })
 
-  it('records and echoes client_op_ids on successful sync', async () => {
+  it('echoes client_op_ids on successful sync', async () => {
     const req = new NextRequest('http://localhost:3000/api/sync', {
       method: 'POST',
       body: JSON.stringify({
@@ -405,11 +389,6 @@ describe('POST /api/sync', () => {
 
     expect(res.status).toBe(200)
     expect(data.applied_client_op_ids).toEqual(['op-a', 'op-b'])
-    expect(mockRecordProcessedClientOps).toHaveBeenCalledWith({
-      userId: 'uuid-A',
-      deviceId: 'dev-123',
-      clientOpIds: ['op-a', 'op-b'],
-    })
   })
 
   it('omits malformed client_op_ids entries', async () => {
@@ -428,7 +407,7 @@ describe('POST /api/sync', () => {
     expect(data.applied_client_op_ids).toEqual(['valid-id', 'another-id'])
   })
 
-  it('skips recording when no client_op_ids are provided (legacy sync path)', async () => {
+  it('returns empty applied_client_op_ids when none are provided (legacy sync path)', async () => {
     const req = new NextRequest('http://localhost:3000/api/sync', {
       method: 'POST',
       body: JSON.stringify({
@@ -442,26 +421,6 @@ describe('POST /api/sync', () => {
 
     expect(res.status).toBe(200)
     expect(data.applied_client_op_ids).toEqual([])
-    expect(mockRecordProcessedClientOps).not.toHaveBeenCalled()
-  })
-
-  it('still returns success when recording processed ops fails', async () => {
-    mockRecordProcessedClientOps.mockRejectedValueOnce(new Error('record failed'))
-    const req = new NextRequest('http://localhost:3000/api/sync', {
-      method: 'POST',
-      body: JSON.stringify({
-        deviceId: 'dev-123',
-        game_score: 3,
-        client_op_ids: ['op-x'],
-      }),
-      headers: { 'Content-Type': 'application/json' },
-    })
-    const res = await POST(req)
-    const data = await res.json()
-
-    expect(res.status).toBe(200)
-    expect(data.success).toBe(true)
-    expect(data.applied_client_op_ids).toEqual(['op-x'])
   })
 
   it('syncs progress for authenticated user', async () => {
@@ -559,40 +518,6 @@ describe('POST /api/sync', () => {
     const lastCall = mockBatchUpsertProgress.mock.calls.at(-1)!
     const rows = lastCall[0] as Array<{ updatedAt: Date }>
     expect(rows[0].updatedAt).toEqual(new Date(0))
-  })
-
-  it('ignores unknown role values', async () => {
-    const req = new NextRequest('http://localhost:3000/api/sync', {
-      method: 'POST',
-      body: JSON.stringify({
-        deviceId: 'dev-123',
-        role: 'cz',
-      }),
-      headers: { 'Content-Type': 'application/json' },
-    })
-    const res = await POST(req)
-    const data = await res.json()
-
-    expect(res.status).toBe(200)
-    expect(data.success).toBe(true)
-    expect(mockUpdateUserRole).not.toHaveBeenCalled()
-  })
-
-  it('syncs role change with new LearningRole shape', async () => {
-    const req = new NextRequest('http://localhost:3000/api/sync', {
-      method: 'POST',
-      body: JSON.stringify({
-        deviceId: 'dev-123',
-        role: 'knownLanguage',
-      }),
-      headers: { 'Content-Type': 'application/json' },
-    })
-    const res = await POST(req)
-    const data = await res.json()
-
-    expect(res.status).toBe(200)
-    expect(data.success).toBe(true)
-    expect(mockUpdateUserRole).toHaveBeenCalledWith('uuid-A', 'knownLanguage')
   })
 
   it('syncs preferences for authenticated user', async () => {
@@ -791,32 +716,8 @@ describe('POST /api/sync', () => {
     expect(data.user.category_order).toEqual(['basic', 'cz ≈ en'])
   })
 
-  it('maps UUID memory hook keys to legacy word IDs before upsert', async () => {
+  it('saves UUID memory hook keys as list item hooks', async () => {
     const itemId = '11111111-1111-1111-1111-111111111111'
-    mockGetSystemDefaultList.mockResolvedValue({ id: 'list-system' })
-    mockGetWordIdToItemIdMapping.mockResolvedValue(new Map([['w001', itemId]]))
-
-    const req = new NextRequest('http://localhost:3000/api/sync', {
-      method: 'POST',
-      body: JSON.stringify({
-        deviceId: 'dev-123',
-        memory_hooks: { [itemId]: 'hook text' },
-      }),
-      headers: { 'Content-Type': 'application/json' },
-    })
-
-    const res = await POST(req)
-    const data = await res.json()
-
-    expect(res.status).toBe(200)
-    expect(data.success).toBe(true)
-    expect(mockUpsertMemoryHook).toHaveBeenCalledWith('uuid-A', 'w001', 'hook text')
-  })
-
-  it('saves UUID memory hook keys as list item hooks when no legacy mapping exists', async () => {
-    const itemId = '11111111-1111-1111-1111-111111111111'
-    mockGetSystemDefaultList.mockResolvedValue({ id: 'list-system' })
-    mockGetWordIdToItemIdMapping.mockResolvedValue(new Map())
 
     const req = new NextRequest('http://localhost:3000/api/sync', {
       method: 'POST',

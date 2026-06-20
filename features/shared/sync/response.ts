@@ -1,13 +1,10 @@
 import {
   getMediaAssetsByIds,
   getCategoriesForLists,
-  getSystemDefaultList,
   getUserOwnListItems,
   getUserSubscribedItems,
-  getWordIdToItemIdMapping,
   getWordListsByIds,
 } from '@/lib/db';
-import { rekeyByItemId } from '@/features/shared/sync/identity';
 import { getPlayableAudioFields } from '@/lib/audio-assets';
 import { DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE } from '@/lib/words';
 
@@ -75,7 +72,6 @@ function getHydratedAudioFields(
 
 type SyncUserShape = {
   id: string;
-  role: string;
   userRole?: string | null;
   showEnglish: boolean | null;
   showCategoryBadges: boolean | null;
@@ -104,10 +100,9 @@ export async function getHydratedWordListData(
   categoryLookup: Record<string, { name: string; position: number }>;
   listNameRows: HydratedListNames;
 }> {
-  const [subscribedItems, ownItems, systemList] = await Promise.all([
+  const [subscribedItems, ownItems] = await Promise.all([
     getUserSubscribedItems(userId),
     getUserOwnListItems(userId),
-    getSystemDefaultList(),
   ]);
   const wordListItems = dedupeById([...subscribedItems, ...ownItems]);
   const listIds = [...new Set(wordListItems.map((item) => item.listId))];
@@ -115,12 +110,9 @@ export async function getHydratedWordListData(
     .flatMap((item) => [item.knownAudioAssetId, item.audioAssetId])
     .filter((id): id is string => Boolean(id));
 
-  const [mediaAssets, allCategories, wordIdMapping, listNameRows] = await Promise.all([
+  const [mediaAssets, allCategories, listNameRows] = await Promise.all([
     getMediaAssetsByIds(mediaAssetIds),
     getCategoriesForLists(listIds),
-    systemList
-      ? getWordIdToItemIdMapping(systemList.id)
-      : Promise.resolve(new Map<string, string>()),
     getWordListsByIds(listIds),
   ]);
 
@@ -147,7 +139,7 @@ export async function getHydratedWordListData(
   });
 
   return {
-    rekeyedHooks: rekeyByItemId(memoryHooks, wordIdMapping),
+    rekeyedHooks: memoryHooks,
     wordListItems: hydratedWordListItems,
     categoryLookup,
     listNameRows,
@@ -157,7 +149,6 @@ export async function getHydratedWordListData(
 function buildSyncUser(user: SyncUserShape) {
   return {
     id: user.id,
-    role: user.role,
     user_role: user.userRole ?? 'user',
     show_english: user.showEnglish ?? true,
     show_category_badges: user.showCategoryBadges ?? false,

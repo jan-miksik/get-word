@@ -47,23 +47,6 @@ export const googleApiScopeEnum = pgEnum("google_api_scope", [
   "tts",
 ]);
 
-// Words table - stores all vocabulary
-export const words = pgTable("words", {
-  id: text("id").primaryKey(), // e.g., "w000", "w001"
-  category: text("category").array().notNull(), // ["basic", "phrase"]
-  cz: text("cz").notNull(), // Czech translation
-  en: text("en").notNull(), // English translation
-  vi: text("vi").notNull(), // Vietnamese translation
-  czPron: text("cz_pron"), // Czech pronunciation
-  viPron: text("vi_pron"), // Vietnamese pronunciation
-  czAudio: text("cz_audio"), // Audio file path
-  viAudio: text("vi_audio"), // Audio file path
-  czHint: text("cz_hint"), // Memory hint for Czech
-  viHint: text("vi_hint"), // Memory hint for Vietnamese
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
-});
-
 // Word lists - container for vocabulary sets
 export const wordLists = pgTable(
   "word_lists",
@@ -178,7 +161,6 @@ export const users = pgTable("users", {
   email: text("email").unique(), // Email (when signed in with email/Google/social)
   walletAddress: text("wallet_address").unique(), // Web3 embedded wallet (dormant; future stake/payment)
   authProvider: text("auth_provider"), // "email" | "google" | "apple" | "wallet" etc.
-  role: text("role").notNull().default("languageToLearn"), // "knownLanguage" or "languageToLearn"
   userRole: text("user_role").notNull().default("user"), // "user" or "editor"
   showEnglish: boolean("show_english").default(true).notNull(),
   showCategoryBadges: boolean("show_category_badges").default(false).notNull(),
@@ -220,8 +202,9 @@ export const userProgress = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    wordId: text("word_id")
-      .references(() => words.id, { onDelete: "cascade" }),
+    // Legacy key from the dropped `words` table. Retained (no FK) so historical
+    // word_id-keyed progress is not destroyed; new writes use wordListItemId.
+    wordId: text("word_id"),
     wordListItemId: uuid("word_list_item_id").references(
       () => wordListItems.id,
       { onDelete: "set null" },
@@ -276,7 +259,8 @@ export const reviewEvents = pgTable(
     clientEventId: text("client_event_id").notNull(),
     deviceId: text("device_id"),
     sessionId: text("session_id"),
-    wordId: text("word_id").references(() => words.id, { onDelete: "cascade" }),
+    // Legacy key from the dropped `words` table; retained without FK.
+    wordId: text("word_id"),
     wordListItemId: uuid("word_list_item_id").references(
       () => wordListItems.id,
       { onDelete: "set null" },
@@ -297,31 +281,6 @@ export const reviewEvents = pgTable(
   ],
 );
 
-// Processed client ops - dedup table for idempotent outbox replay.
-//
-// Retention invariant: rows here MUST outlive any client-side outbox op, or a
-// stale client retry can land *after* compaction and re-apply a mutation.
-// See scripts/compact-review-events.ts (>=365 days). Do not shorten without
-// matching the outbox op lifetime.
-export const processedClientOps = pgTable(
-  "processed_client_ops",
-  {
-    id: uuid("id").primaryKey().defaultRandom(),
-    userId: uuid("user_id")
-      .notNull()
-      .references(() => users.id, { onDelete: "cascade" }),
-    deviceId: text("device_id"),
-    clientOpId: text("client_op_id").notNull(),
-    entity: text("entity").notNull(),
-    clientCreatedAt: timestamp("client_created_at"),
-    processedAt: timestamp("processed_at").defaultNow().notNull(),
-  },
-  (table) => [
-    unique("processed_client_ops_user_op_unique").on(table.userId, table.clientOpId),
-    index("processed_client_ops_processed_at_idx").on(table.processedAt),
-  ],
-);
-
 // User memory hooks - custom notes for words
 export const userMemoryHooks = pgTable(
   "user_memory_hooks",
@@ -330,7 +289,8 @@ export const userMemoryHooks = pgTable(
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
-    wordId: text("word_id").references(() => words.id, { onDelete: "cascade" }),
+    // Legacy key from the dropped `words` table; retained without FK.
+    wordId: text("word_id"),
     wordListItemId: uuid("word_list_item_id").references(
       () => wordListItems.id,
       { onDelete: "cascade" },
@@ -457,8 +417,6 @@ export const userListSubscriptions = pgTable(
 );
 
 // Type exports for use in queries
-export type Word = typeof words.$inferSelect;
-export type NewWord = typeof words.$inferInsert;
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
 export type UiTranslationCache = typeof uiTranslationCache.$inferSelect;
@@ -489,5 +447,3 @@ export type GoogleApiUsage = typeof googleApiUsage.$inferSelect;
 export type NewGoogleApiUsage = typeof googleApiUsage.$inferInsert;
 export type UserListSubscription = typeof userListSubscriptions.$inferSelect;
 export type NewUserListSubscription = typeof userListSubscriptions.$inferInsert;
-export type ProcessedClientOp = typeof processedClientOps.$inferSelect;
-export type NewProcessedClientOp = typeof processedClientOps.$inferInsert;

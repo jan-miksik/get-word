@@ -1,6 +1,3 @@
-/** Wire-format learning role. */
-export type UserRole = "knownLanguage" | "languageToLearn";
-
 export type SyncReviewEventAction = "known" | "really_known" | "unknown";
 
 export interface SyncProgressItem {
@@ -35,7 +32,6 @@ export interface SyncRequest {
   deviceId?: string;
   sessionId?: string;
   userId?: string;
-  role?: UserRole;
   show_english?: boolean;
   show_category_badges?: boolean;
   show_pronunciation?: boolean;
@@ -53,9 +49,10 @@ export interface SyncRequest {
   memory_hooks?: Record<string, string | null>;
   category_filters?: string[];
   /**
-   * Stable identifiers for the outbox ops that produced this payload. Server
-   * uses these for idempotent retry handling (processed_client_ops table).
-   * When absent, server falls back to legacy non-idempotent behaviour.
+   * Stable identifiers for the outbox ops that produced this payload. The
+   * server echoes these back as `applied_client_op_ids` so the client can
+   * clear the corresponding ops from its outbox. All mutations are
+   * individually retry-safe (idempotent), so re-sending a batch is harmless.
    */
   client_op_ids?: string[];
 }
@@ -122,7 +119,6 @@ export interface SyncResponse {
   memory_hooks_deleted?: string[];
   user: {
     id: string;
-    role: UserRole;
     user_role?: "user" | "editor";
     show_english?: boolean;
     show_category_badges?: boolean;

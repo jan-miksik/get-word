@@ -67,7 +67,6 @@ export async function resolveAndAttachSupabaseUser(
     ...(email && { email }),
     ...(authProvider && { authProvider }),
     ...(deviceId && { deviceId }),
-    role: 'languageToLearn',
   })
 }
 

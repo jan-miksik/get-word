@@ -12,18 +12,13 @@ import {
   deleteMemoryHookByItemId,
   getUserCategoryFilters,
   setUserCategoryFilters,
-  updateUserRole,
   updateUserPreferences,
-  getSystemDefaultList,
-  getWordIdToItemIdMapping,
   touchUserDevice,
   applyNewReviewEvents,
-  recordProcessedClientOps,
   getUserMemoryHooksDelta,
   getUserSyncRevision,
 } from "@/lib/db";
 import { type User } from "@/lib/db/schema";
-import { isLearningRole } from "@/features/learning/state/learningRole";
 import { withSessionCookie } from "@/features/shared/routes/session";
 import { createRouteTimer } from "@/features/shared/routes/timing";
 import {
@@ -99,7 +94,6 @@ export async function POST(request: NextRequest) {
     const {
       deviceId,
       sessionId,
-      role,
       show_english,
       show_category_badges,
       show_pronunciation,
@@ -179,10 +173,6 @@ export async function POST(request: NextRequest) {
     }
     await touchUserDevice(user.id, deviceId);
     let appliedReviewEventIds: string[] = [];
-
-    if (role && isLearningRole(role) && role !== user.role) {
-      await updateUserRole(user.id, role);
-    }
 
     // Update display preferences + game score if provided
     if (
@@ -266,42 +256,28 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Sync memory hooks
+    // Sync memory hooks. UUID keys are word_list_item ids (the canonical path);
+    // any non-UUID key is a legacy word_id from old clients, stored as-is.
     if (memory_hooks) {
-      const hasItemIdKeys = Object.keys(memory_hooks).some((k) => isUuid(k));
-      let systemItemIdToWordId = new Map<string, string>();
-
-      if (hasItemIdKeys) {
-        const systemList = await getSystemDefaultList();
-        if (systemList) {
-          const wordIdToItemId = await getWordIdToItemIdMapping(systemList.id);
-          systemItemIdToWordId = new Map(
-            [...wordIdToItemId.entries()].map(([wordId, itemId]) => [itemId, wordId])
-          );
-        }
-      }
-
       for (const [key, hookText] of Object.entries(memory_hooks)) {
         // Normalize hookText: treat non-null values as strings and trim
         const trimmed = hookText === null ? null : String(hookText).trim();
-        const legacyWordId = isUuid(key) ? systemItemIdToWordId.get(key) : key;
+        const isEmpty = trimmed === null || trimmed === "";
 
-        if (isUuid(key) && !legacyWordId) {
-          if (trimmed === null || trimmed === "") {
+        if (isUuid(key)) {
+          if (isEmpty) {
             await deleteMemoryHookByItemId(user.id, key);
           } else {
             await upsertMemoryHookByItemId(user.id, key, trimmed);
           }
-        } else if (legacyWordId) {
-          if (trimmed === null || trimmed === "") {
-            await deleteMemoryHook(user.id, legacyWordId);
+        } else if (key) {
+          if (isEmpty) {
+            await deleteMemoryHook(user.id, key);
           } else {
-            await upsertMemoryHook(user.id, legacyWordId, trimmed);
+            await upsertMemoryHook(user.id, key, trimmed);
           }
-        } else {
-          // Ignore malformed empty keys so one bad payload entry does not fail the sync.
-          continue;
         }
+        // Empty keys are ignored so one bad payload entry does not fail the sync.
       }
     }
 
@@ -310,26 +286,6 @@ export async function POST(request: NextRequest) {
       await setUserCategoryFilters(user.id, category_filters);
     }
     timer.mark("apply_mutations");
-
-    // Record applied client_op_ids for idempotent retry handling. Done AFTER
-    // mutations: a failed mutation throws and no ids are recorded, so the
-    // client safely retries the whole batch. Unique constraint on
-    // (userId, clientOpId) silently drops re-records on duplicate retries.
-    if (clientOpIds.length > 0) {
-      try {
-        await recordProcessedClientOps({
-          userId: user.id,
-          deviceId,
-          clientOpIds,
-        });
-      } catch (error) {
-        // Recording is best-effort; mutations already committed. Log and
-        // continue so the client still gets the success response. Worst case
-        // a retry re-applies idempotent mutations.
-        console.error("Failed to record processed_client_ops:", error);
-      }
-    }
-    timer.mark("record_processed_ops");
 
     // Fetch all current data to return
     const [currentProgress, currentHooks, currentFilters] = await Promise.all([

@@ -123,12 +123,6 @@ export function usePreferences(
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
     if (!hasReceivedServerSnapshot()) return;
-    void enqueuePreference('role', role);
-  }, [role, isHydrated, isUpdatingFromServerRef]);
-
-  useEffect(() => {
-    if (!isHydrated || isUpdatingFromServerRef.current) return;
-    if (!hasReceivedServerSnapshot()) return;
     void enqueuePreference('show_english', showEnglish);
   }, [showEnglish, isHydrated, isUpdatingFromServerRef]);
 
@@ -266,7 +260,6 @@ export function usePreferences(
     const simulateLearningOnboarding =
       simulateFirstOpen && !hasCompletedLearningOnboardingInSession();
     const detectedLanguage = normalizeSettingsLanguage(getDetectedSettingsLanguage());
-    if (isLearningRole(user.role)) setRoleState(user.role);
     setShowEnglish(false);
     setShowCategoryBadges(false);
     setShowPronunciation(false);

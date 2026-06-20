@@ -197,6 +197,27 @@
       "when": 1781636376289,
       "tag": "0027_flawless_lake",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1781971080369,
+      "tag": "0028_drop_processed_client_ops",
+      "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1781972274034,
+      "tag": "0029_drop_user_learning_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1781973888608,
+      "tag": "0030_drop_legacy_words_table",
+      "breakpoints": true
     }
   ]
 }

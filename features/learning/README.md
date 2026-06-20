@@ -13,7 +13,6 @@ Owns the main study experience: word stream composition, progress-driven display
 - `features/learning/state/index.ts`
 - `features/learning/state/progress.ts`
 - `features/learning/state/preferences.ts`
-- `features/learning/hooks/useWordsLoader.ts`
 - `features/learning/hooks/useWordStream.ts`
 - `features/learning/hooks/usePressHandlers.ts`
 - `features/learning/hooks/useLearningPageState.ts`
@@ -28,7 +27,6 @@ Owns the main study experience: word stream composition, progress-driven display
 - `features/learning/hooks/useMinigameFrequencyPreference.ts`
 - `features/learning/components/SettlingWordsFooter.tsx`
 - `app/page.tsx`
-- `app/edit/page.tsx`
 - `hooks/useAppState.ts`
 
 ## Notes
@@ -36,7 +34,9 @@ Owns the main study experience: word stream composition, progress-driven display
 - `lib/minigames.ts` is now a compatibility barrel. New code should import from `features/learning/minigames`.
 - App hydration, wallet-link sync, active-list persistence, and view-mode persistence now live under `features/learning/app-state`.
 - Progress, preferences, memory hooks, category filters, and game-score state now live under `features/learning/state`.
-- Word loading, word bucketing, and `.cover-target` press-state wiring now live under `features/learning/hooks`.
+- Study items are hydrated from owned/subscribed `word_list_items` by `features/learning/app-state/useServerSync.ts`; there is no seed-word loader or `/api/words` fallback.
+- Word bucketing and `.cover-target` press-state wiring live under `features/learning/hooks`.
 - Home-page stream/deck orchestration and render callbacks now live under feature hooks/components instead of `app/page.tsx`.
 - The shared minigame preference persistence now lives in `features/learning/hooks/useMinigameFrequencyPreference.ts`.
-- The main remaining hotspots are cross-feature cleanup and reducing remaining compatibility barrels in `hooks/`.
+- Learning-role direction is stored locally per language pair in `features/learning/app-state/storage.ts`, not on the server user row.
+- List creation and editing live under `app/lists` and `features/lists`; `/edit` is only a redirect.

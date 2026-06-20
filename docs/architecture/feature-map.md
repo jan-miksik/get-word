@@ -16,16 +16,12 @@ Use `AI_CONTEXT.md` as the first stop for agent sessions. This file is a slightl
 - Start with `features/learning/README.md`
 - Page entrypoints:
   - `app/page.tsx`
-  - `app/edit/page.tsx`
 - First files to open for page behavior:
-  - `features/learning/hooks/useWordsLoader.ts`
   - `features/learning/hooks/useWordStream.ts`
   - `features/learning/hooks/usePressHandlers.ts`
   - `features/learning/components/LearningStudyContent.tsx`
   - `features/learning/hooks/useLearningPageState.ts`
   - `features/learning/hooks/useLearningRenderers.tsx`
-  - `features/edit/components/EditStudyContent.tsx`
-  - `features/edit/hooks/useEditPageState.ts`
 - Core shared state and sync:
   - `features/learning/app-state/useServerSync.ts`
   - `features/learning/state/index.ts`
@@ -33,6 +29,8 @@ Use `AI_CONTEXT.md` as the first stop for agent sessions. This file is a slightl
   - `app/api/sync/route.ts`
   - `features/shared/sync/response.ts`
 - Compatibility note:
+  - Study items come from owned/subscribed `word_list_items` through `/api/sync`; the legacy `/api/words` loader and editor feature were removed.
+  - `app/edit/page.tsx` redirects old editor links to `/lists`.
   - `lib/minigames.ts` re-exports `@/features/learning/minigames`. Prefer the feature path in new code.
   - The former top-level `hooks/use*` barrels (Progress, Preferences, MemoryHooks, CategoryFilter, GameScore, UserProfile, WordsLoader, WordStream, PressHandlers) were removed — import directly from `features/learning/state/*`, `features/learning/hooks/*`, or `features/auth/state/userProfile`.
 
@@ -45,6 +43,8 @@ Use `AI_CONTEXT.md` as the first stop for agent sessions. This file is a slightl
   - `features/lists/api.ts`
 - Current UI entrypoint:
   - `app/lists/page.tsx`
+- Legacy entrypoint:
+  - `app/edit/page.tsx` redirects to `/lists`
 
 ## Auth
 

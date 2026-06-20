@@ -14,7 +14,7 @@ Use Tailwind for all new styling. Do not refactor existing CSS in `styles/*.css`
 Use this decision tree before adding or moving code:
 
 - `app/*` is for Next.js route entrypoints. Pages should compose feature UI/state; API routes should parse, authorize, call services/helpers, and return responses.
-- `features/<feature>/*` is for product/domain behavior owned by one capability, such as learning, lists, audio, auth, providers, edit, or sync.
+- `features/<feature>/*` is for product/domain behavior owned by one capability, such as learning, lists, audio, auth, providers, or sync.
 - `components/*` is for shared React UI that is reused across features or represents app-wide UI. Feature-only UI should move toward `features/<feature>/components/*`.
 - `lib/*` is for shared non-UI foundations: database access, auth/session helpers, storage, network policy, sync mechanics, reusable pure helpers, and domain primitives used by multiple features.
 - `hooks/*` is for truly app-wide React hooks. Feature workflow hooks belong in `features/<feature>/hooks/*`.
@@ -32,14 +32,15 @@ CSS custom properties are the design system (defined in `styles/tokens.css` and 
 ### Data flow
 
 ```
-/api/words       →  features/learning/hooks/useWordsLoader  →  page.tsx
-                                           ↓
-                                      useAppState   ←→   lib/sync.ts  ←→  /api/sync
-                                           ↓
-                                      AppLayout (useMenuPanels internally)
-                                           ↓
-                                      WordCard / MiniGameCard / CardDeckView
+/api/sync  →  features/learning/app-state/useServerSync  →  useAppState  →  HomeClient
+                                                              ↓
+                                               synced word_list_items
+                                                              ↓
+                                           WordCard / MiniGameCard / CardDeckView
 ```
+
+The learning app has no seed-word fallback or `/api/words` loader. Its study
+items come from subscribed and owned `word_lists`, hydrated through `/api/sync`.
 
 **`useAppState`** (`hooks/useAppState.ts`) is now a thin orchestrator over feature-owned state:
 - `features/learning/app-state/*` for hydration, wallet-link sync, and local UI persistence
@@ -52,7 +53,7 @@ Import directly from feature paths: `features/learning/state/*`, `features/learn
 
 ### Spaced repetition
 
-11 stages (0–10) in `lib/words.ts:STAGES` — 0 = new/forgotten through 10 = 60 days. Progress tracked per (userId, wordId) in `userProgress` table. `isDue()` checks `nextDueAt`. Word stream: due words first, then new words; settling words shown on demand.
+11 stages (0–10) in `lib/words.ts:STAGES` — 0 = new/forgotten through 10 = 60 days. Progress is tracked per `(userId, wordListItemId)` in `user_progress`; the nullable `word_id` column remains only for legacy sync compatibility. `isDue()` checks `nextDueAt`. Word stream: due words first, then new words; settling words shown on demand.
 
 ### Minigames
 
@@ -64,7 +65,11 @@ Two layers:
 - **Device auth**: `deviceId` cookie (random UUID, see `lib/device-id.ts`). Every request sends `x-device-id` header. API creates a user on first contact.
 - **Login auth**: Supabase Auth (email one-time code + Google OAuth) acts as a one-shot identity verifier. The browser/server Supabase clients live in `features/auth/supabase/*`; `app/api/auth/callback/route.ts` (OAuth/magic-link) and `app/api/auth/sync-user/route.ts` (email OTP) verify the Supabase user, then `features/auth/server/resolve-supabase-user.ts` resolves/attaches the app `users` row (by `supabase_auth_id` → email → device claim → create). The client hook is `features/auth/client/useAuth.ts`.
 
-After verification the app mints its own long-lived signed `get_word_session` cookie (see `lib/session.ts`), which is the trusted session — not Supabase's. `userRole: 'user' | 'editor'` controls access to `/edit`.
+After verification the app mints its own long-lived signed `get_word_session` cookie (see `lib/session.ts`), which is the trusted session — not Supabase's. `userRole: 'user' | 'editor'` controls privileged list operations. The old `/edit` route redirects to `/lists`.
+
+The study-side learning role (`knownLanguage` or `languageToLearn`) is a local,
+language-pair-scoped preference in `features/learning/app-state/storage.ts`; it
+is not a column on `users` and is not part of the sync wire format.
 
 Wallet linking is currently disabled (`app/api/auth/link-wallet/route.ts` returns 410); it will return as an additive feature gated behind a signed wallet-ownership challenge for the future stake layer.
 
@@ -72,7 +77,7 @@ Wallet linking is currently disabled (`app/api/auth/link-wallet/route.ts` return
 
 Drizzle ORM + Postgres (Supabase). Schema: `lib/db/schema.ts`. Queries split by entity in `lib/db/queries/`. Client in `lib/db/client.ts`.
 
-Tables: `users`, `words`, `user_progress`, `user_memory_hooks`, `user_category_filters`.
+Core tables: `users`, `word_lists`, `word_categories`, `word_list_items`, `user_list_subscriptions`, `user_progress`, `review_events`, `user_memory_hooks`, and `user_category_filters`. The legacy `words` and `processed_client_ops` tables have been dropped.
 
 ### Views
 
@@ -86,11 +91,10 @@ View mode stored in `localStorage` under `get-word-view-mode`.
 - `app/page.tsx` — thin learning-page composition shell
   - behavior lives in `features/learning/components/LearningStudyContent.tsx`
   - page state lives in `features/learning/hooks/useLearningPageState.ts`
-- `app/edit/page.tsx` — thin editor-page composition shell
-  - behavior lives in `features/edit/components/EditStudyContent.tsx`
-  - page state lives in `features/edit/hooks/useEditPageState.ts`
+- `app/lists/page.tsx` — list browser/editor and creation wizard coordinator
+- `app/edit/page.tsx` — compatibility redirect to `/lists`
 - `app/api/sync/route.ts` — GET (hydrate) / POST (save) for all user state
-- `app/api/words/route.ts` — GET / POST for word data (editor only)
+- `app/api/lists/*` — list, category, item, translation, subscription, and fork APIs
 - `app/api/auth/callback/route.ts` — GET; Supabase OAuth/magic-link callback that mints the app session
 - `app/api/auth/sync-user/route.ts` — POST; mints the app session after an email OTP verify
 - `app/api/auth/me/route.ts` — GET; returns the current signed-in identity

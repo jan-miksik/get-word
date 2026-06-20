@@ -52,7 +52,6 @@ const syncResponse = {
   success: true,
   user: {
     id: 'user-1',
-    role: 'knownLanguage',
     settings_language: 'en',
     language_from: 'en',
     language_to: 'cs',
@@ -114,7 +113,6 @@ describe('useServerSync', () => {
         ...syncResponse,
         user: {
           ...syncResponse.user,
-          role: 'languageToLearn',
           language_from: null,
           language_to: null,
           onboarding_completed_at: null,

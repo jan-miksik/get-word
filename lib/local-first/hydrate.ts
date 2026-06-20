@@ -107,11 +107,6 @@ function applyPendingPreference(
   op: OutboxOp
 ): void {
   switch (payload.field) {
-    case 'role':
-      if (payload.value === 'knownLanguage' || payload.value === 'languageToLearn') {
-        user.role = payload.value;
-      }
-      break;
     case 'show_english':
       if (typeof payload.value === 'boolean') user.show_english = payload.value;
       break;
