@@ -4,6 +4,8 @@ set -euo pipefail
 usage() {
   cat <<'EOF'
 Usage:
+  pnpm run db:prod:backup
+  pnpm run db:prod -- backup [output-file]
   pnpm run db:prod:migrate
   pnpm run db:prod -- migrate
   pnpm run db:prod -- restore <path-to-dev-public-data-backup.sql>
@@ -12,6 +14,8 @@ Usage:
   pnpm run db:prod -- compact [--apply]
 
 Actions:
+  backup [file]    Dump the database with pg_dump to a local file (defaults to
+                   backups/prod_<timestamp>.dump). Run this before migrate.
   migrate          Apply canonical Drizzle migrations from drizzle/migrations/.
   restore <file>   Restore public application data into a new, migrated database.
   sql <file>       Run a reviewed SQL file with psql.
@@ -48,9 +52,19 @@ description=""
 confirmation_phrase=""
 sql_file=""
 restore_file=""
+backup_file=""
 compact_apply=false
 
 case "$action" in
+  backup)
+    if [[ "$#" -eq 2 ]]; then
+      backup_file="$2"
+    elif [[ "$#" -ne 1 ]]; then
+      die "backup accepts only an optional output file path."
+    fi
+    description="dump the production database with pg_dump to a local backup file"
+    confirmation_phrase="BACKUP_PRODUCTION"
+    ;;
   migrate)
     [[ "$#" -eq 1 ]] || die "migrate does not accept arguments."
     description="apply canonical Drizzle migrations from drizzle/migrations/"
@@ -138,7 +152,7 @@ case "$database_host" in
     ;;
   *.pooler.supabase.com:6543)
     printf '%s\n' "Warning: this looks like a Transaction Pooler URL (port 6543)."
-    printf '%s\n' "For migrations and psql operations, prefer Session Pooler on port 5432."
+    printf '%s\n' "For migrations, backups (pg_dump), and psql operations, prefer Session Pooler on port 5432."
     ;;
 esac
 
@@ -154,6 +168,22 @@ export DATABASE_URL
 printf '\nRunning action...\n'
 
 case "$action" in
+  backup)
+    command -v pg_dump >/dev/null 2>&1 || die "pg_dump is required for the backup action."
+    if [[ -z "$backup_file" ]]; then
+      script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+      backup_dir="$script_dir/../backups"
+      mkdir -p "$backup_dir"
+      backup_file="$backup_dir/prod_$(date +%Y%m%d_%H%M%S).dump"
+    else
+      mkdir -p "$(dirname "$backup_file")"
+    fi
+    printf 'Writing compressed pg_dump to: %s\n' "$backup_file"
+    pg_dump "$DATABASE_URL" --no-owner --no-acl -Fc -f "$backup_file"
+    backup_size=$(wc -c < "$backup_file" | tr -d ' ')
+    printf 'Backup complete: %s (%s bytes)\n' "$backup_file" "$backup_size"
+    printf '%s\n' "Restore later with: pg_restore --no-owner --no-acl -d <target-url> '$backup_file'"
+    ;;
   migrate)
     pnpm run db:migrate
     ;;
