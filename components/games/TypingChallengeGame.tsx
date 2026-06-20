@@ -17,6 +17,7 @@ import {
 } from './types';
 import { useI18n } from '@/components/I18nProvider';
 import type { I18nKey } from '@/lib/i18n/messages';
+import { getLocalizedLanguageName } from '@/lib/i18n/languages';
 
 interface Props {
   words: NormalizedWord[];
@@ -35,7 +36,7 @@ export function TypingChallengeGame({
   soundEnabled = false,
   onResult,
 }: Props) {
-  const { t } = useI18n();
+  const { language, t } = useI18n();
   const [value, setValue] = useState('');
   const [result, setResult] = useState<'exact' | 'close' | 'wrong' | null>(null);
   const [hintUsed, setHintUsed] = useState(false);
@@ -75,11 +76,18 @@ export function TypingChallengeGame({
     if (answerLanguageCode) {
       // Dynamic BCP-47 code; the key may or may not exist in the message
       // catalog. t() returns the key itself when missing, which we treat as
-      // "fall back to the legacy label below".
+      // "fall back to Intl.DisplayNames below".
       const key = `languageName.${answerLanguageCode}` as I18nKey;
       const translated = t(key);
       if (translated && translated !== key) return translated;
+
+      const localizedName = getLocalizedLanguageName(answerLanguageCode, language);
+      if (localizedName) return localizedName;
+
+      return answerLanguageCode.toUpperCase();
     }
+    // Only words without language metadata can be legacy Czech/Vietnamese
+    // records. Never use these labels for a known, different language pair.
     return answerSide === 'from' ? t('languageNameIn.cs') : t('languageNameIn.vi');
   })();
 

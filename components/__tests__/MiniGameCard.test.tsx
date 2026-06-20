@@ -71,6 +71,25 @@ describe('MiniGameCard', () => {
     expect(await screen.findByText('⌨️ Type in Vietnamese')).toBeInTheDocument();
   });
 
+  it('uses the selected word-list language in typing games', async () => {
+    const germanFrenchWords = WORDS.map((word) => ({
+      ...word,
+      languageFrom: 'de',
+      languageTo: 'fr',
+    }));
+
+    render(
+      <MiniGameCard
+        config={{ ...config('typing'), words: germanFrenchWords }}
+        role="knownLanguage"
+        onDismiss={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText('⌨️ Type in French')).toBeInTheDocument();
+    expect(screen.queryByText('⌨️ Type in Vietnamese')).not.toBeInTheDocument();
+  });
+
   it('renders MatchingPairsGame for matching type', async () => {
     render(<MiniGameCard config={config('matching')} role="knownLanguage" onDismiss={vi.fn()} />);
     expect(await screen.findByText('🔗 Match')).toBeInTheDocument();
