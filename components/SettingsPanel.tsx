@@ -9,6 +9,7 @@ import { MinigamesSection } from '@/components/settings/MinigamesSection';
 import { AppInstallSection } from '@/components/settings/AppInstallSection';
 import { LocalDataSection } from '@/components/settings/LocalDataSection';
 import { AccountSection } from '@/components/settings/AccountSection';
+import { RevealSection } from '@/components/settings/RevealSection';
 
 interface SettingsPanelProps {
   minigameFrequency: MinigameFrequencyRange;
@@ -62,6 +63,7 @@ export function SettingsPanel({
           </div>
 
           <MemoryHooksSection />
+          <RevealSection />
           <LanguageSection />
           <LearningLanguageSection />
           <MinigamesSection

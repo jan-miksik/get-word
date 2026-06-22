@@ -51,7 +51,7 @@ describe('WordCard fullscreen', () => {
     expect(container.querySelector('.card-time-badge')).toBeNull();
   });
 
-  it('shows a tap-to-reveal hint when a language is covered', () => {
+  it('shows a press-to-reveal hint when a language is covered', () => {
     render(
       <WordCard
         {...baseProps}
@@ -61,7 +61,7 @@ describe('WordCard fullscreen', () => {
       />
     );
 
-    expect(screen.getByText('Tap to reveal')).toBeInTheDocument();
+    expect(screen.getByText('Press to reveal')).toBeInTheDocument();
   });
 
   it('starts editing when the empty fullscreen memory hook is tapped', () => {

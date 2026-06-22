@@ -5,12 +5,17 @@
 
 import { getProviderSecret } from "@/lib/providers/store";
 import { DEFAULT_OPENROUTER_TRANSLATION_MODEL } from "@/lib/openrouter-models";
+import { callOpenRouterChatParsed, OpenRouterChatError, parseJsonLoose } from "@/lib/openrouter-chat";
+import { TRANSLATION_QUALITY_RULES, TRANSLATION_SYSTEM_PROMPT } from "@/lib/translation-prompt";
+import { looksUntranslated } from "@/lib/translation-validate";
 
 export type TranslationResult = {
   text: string;
   translated: string | null;
   status: "ok" | "error";
   error?: string;
+  /** Soft signal: output looks suspicious (e.g. wrong-script) but is kept. */
+  warning?: string;
 };
 
 /**
@@ -116,101 +121,77 @@ export async function openRouterTranslate(
 
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
     const batch = texts.slice(i, i + BATCH_SIZE);
-    try {
-      const prompt = `
-Translate the following words and phrases from ${fromLang} to ${toLang}.
+    const prompt = `
+Translate the following ${batch.length} items from ${fromLang} to ${toLang}.
 
 Rules:
-- If it is a single word, give the most common basic translation.
-- If it is a phrase or sentence, translate it naturally for real-life use.
-- Do not translate word-by-word if that sounds unnatural.
-- Prefer common everyday language.
-- Keep the translation beginner-friendly.
-- If the source phrase is polite, make the translation polite in a natural way.
-- Preserve the exact original text in the "original" field.
-- Return only valid JSON.
-- Do not include markdown or explanations outside the JSON.
+${TRANSLATION_QUALITY_RULES}
+- Translate each item independently and echo its "index" unchanged.
+- Return only valid JSON, with no markdown or commentary.
 
-Return this exact shape:
-[
-  {
-    "original": "source text",
-    "translated": "natural translation",
-    "note": "optional short note if needed"
-  }
-]
+Return JSON with this exact shape:
+{ "items": [ { "index": 1, "translated": "natural translation" } ] }
 
-Words:
+Items:
 ${batch.map((t, idx) => `${idx + 1}. ${t}`).join("\n")}
 `.trim();
 
-      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+    try {
+      // BYOK models vary in structured-output support, so we don't force a
+      // response_format and instead parse the JSON robustly. Index alignment
+      // (with a text fallback) avoids collapsing duplicate source words.
+      const { byIndex, byText } = await callOpenRouterChatParsed(
+        {
+          apiKey,
           model,
+          temperature: 0.1,
           messages: [
-            {
-              role: "system",
-              content: `
-You are a professional translator for a language-learning app.
-You translate meaning, not just words.
-Your translations must sound natural to native speakers.
-Return only valid JSON.
-`.trim(),
-            },
+            { role: "system", content: TRANSLATION_SYSTEM_PROMPT },
             { role: "user", content: prompt },
           ],
-          temperature: 0.1,
-        }),
-      });
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        for (const text of batch) {
-          results.push({
-            text,
-            translated: null,
-            status: "error",
-            error: `OpenRouter API error: ${res.status} ${errorText.slice(0, 200)}`,
-          });
-        }
-        continue;
-      }
-
-      const data = await res.json();
-      const content = data.choices?.[0]?.message?.content ?? "";
-
-      // Parse JSON from the response
-      const jsonMatch = content.match(/\[[\s\S]*\]/);
-      if (!jsonMatch) {
-        for (const text of batch) {
-          results.push({
-            text,
-            translated: null,
-            status: "error",
-            error: "Failed to parse translation response",
-          });
-        }
-        continue;
-      }
-
-      const parsed = JSON.parse(jsonMatch[0]) as {
-        original: string;
-        translated: string;
-        note?: string;
-      }[];
-      const translationMap = new Map(
-        parsed.map((p) => [p.original.toLowerCase().trim(), p.translated]),
+        },
+        (content) => {
+          const parsed = parseJsonLoose(content);
+          const rows = Array.isArray(parsed)
+            ? parsed
+            : Array.isArray((parsed as { items?: unknown } | null)?.items)
+              ? (parsed as { items: unknown[] }).items
+              : [];
+          const byIndex = new Map<number, string>();
+          const byText = new Map<string, string>();
+          for (const row of rows) {
+            if (!row || typeof row !== "object") continue;
+            const translated = (row as { translated?: unknown }).translated;
+            if (typeof translated !== "string" || !translated.trim()) continue;
+            const idx = (row as { index?: unknown }).index;
+            if (typeof idx === "number" && Number.isInteger(idx)) {
+              byIndex.set(idx, translated.trim());
+            }
+            // Tolerate older { original, translated } shapes as a fallback.
+            const original = (row as { original?: unknown }).original;
+            if (typeof original === "string" && original.trim()) {
+              byText.set(original.toLowerCase().trim(), translated.trim());
+            }
+          }
+          if (byIndex.size === 0 && byText.size === 0) {
+            throw new OpenRouterChatError("Failed to parse translation response.", true);
+          }
+          return { byIndex, byText };
+        },
       );
 
-      for (const text of batch) {
-        const translated = translationMap.get(text.toLowerCase().trim());
+      batch.forEach((text, idx) => {
+        const translated =
+          byIndex.get(idx + 1) ?? byText.get(text.toLowerCase().trim()) ?? null;
         if (translated) {
-          results.push({ text, translated, status: "ok" });
+          results.push({
+            text,
+            translated,
+            status: "ok",
+            ...(looksUntranslated(translated, toLang)
+              ? { warning: "Output may be untranslated (unexpected script)." }
+              : {}),
+          });
         } else {
           results.push({
             text,
@@ -219,15 +200,17 @@ Return only valid JSON.
             error: "Translation not found in response",
           });
         }
-      }
+      });
     } catch (err) {
+      // Out of credits is an account-level failure, not a per-word one: bubble
+      // it up so the caller can surface a clear, actionable message.
+      if (err instanceof OpenRouterChatError && err.isOutOfCredits) throw err;
       for (const text of batch) {
         results.push({
           text,
           translated: null,
           status: "error",
-          error:
-            err instanceof Error ? err.message : "Translation request failed",
+          error: err instanceof Error ? err.message : "Translation request failed",
         });
       }
     }

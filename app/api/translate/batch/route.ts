@@ -13,8 +13,10 @@ import {
   googleTranslate,
   openRouterTranslate,
   getUserApiKey,
+  type TranslationResult,
 } from "@/lib/translation";
 import { normalizeOpenRouterModel } from "@/lib/openrouter-models";
+import { OpenRouterChatError } from "@/lib/openrouter-chat";
 import { normalizeLanguageCode } from "@/lib/i18n/languages";
 
 const MAX_ITEMS_PER_REQUEST = 500;
@@ -107,7 +109,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Call translation API for remaining items
-  let apiResults: { text: string; translated: string | null; status: "ok" | "error"; error?: string }[] = [];
+  let apiResults: TranslationResult[] = [];
 
   if (needsApi.length > 0) {
     const textsToTranslate = needsApi.map((i) => i.text);
@@ -140,13 +142,27 @@ export async function POST(request: NextRequest) {
       }
       apiResults = await googleTranslate(textsToTranslate, fromLang, toLang);
     } else if (provider === "openrouter" && openRouterKey) {
-      apiResults = await openRouterTranslate(
-        textsToTranslate,
-        fromLang,
-        toLang,
-        openRouterKey,
-        translationModel,
-      );
+      try {
+        apiResults = await openRouterTranslate(
+          textsToTranslate,
+          fromLang,
+          toLang,
+          openRouterKey,
+          translationModel,
+        );
+      } catch (err) {
+        if (err instanceof OpenRouterChatError && err.isOutOfCredits) {
+          return NextResponse.json(
+            {
+              error:
+                "Your OpenRouter account is out of credits. Add credits to your OpenRouter account, or switch to Google translation.",
+              code: "OPENROUTER_OUT_OF_CREDITS",
+            },
+            { status: 402 },
+          );
+        }
+        throw err;
+      }
     }
   }
 
@@ -171,6 +187,7 @@ export async function POST(request: NextRequest) {
         translated_text: apiResult.translated,
         status: apiResult.status,
         ...(apiResult.error ? { error: apiResult.error } : {}),
+        ...(apiResult.warning ? { warning: apiResult.warning } : {}),
         source: "api" as const,
       };
     }

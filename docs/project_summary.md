@@ -16,7 +16,7 @@ The app started around Czech/Vietnamese learning but is evolving into a broader 
 
 Core user flows:
 
-- Study vocabulary through a fullscreen card deck or a virtualized scrolling stream.
+- Study vocabulary through a fullscreen card deck.
 - Track spaced-repetition progress, due words, forgotten words, and settling words.
 - Practice with minigames such as multiple choice, typing, matching, and listening-oriented prompts when audio exists.
 - Add personal memory hooks and category filters.
@@ -27,7 +27,7 @@ Core user flows:
 
 Tech stack:
 
-- Framework: Next.js 15 with the App Router and React 19.
+- Framework: Next.js 16 with the App Router and React 19.
 - Language: TypeScript.
 - Styling: Tailwind CSS v4 compiled with `@tailwindcss/cli`, plus existing plain CSS modules and CSS custom properties for themes.
 - Database: Supabase Postgres accessed through Drizzle ORM and Drizzle Kit migrations.

@@ -248,7 +248,7 @@ export function TranslationStep({
       }
 
       const data = await res.json();
-      const resultMap = new Map<string, { translated_text: string | null; status: string; source?: string; error?: string }>();
+      const resultMap = new Map<string, { translated_text: string | null; status: string; source?: string; error?: string; warning?: string }>();
       for (const r of data.results) {
         resultMap.set(r.id, r);
       }
@@ -270,6 +270,7 @@ export function TranslationStep({
             updated.source = result.source;
           }
           if (result.error) updated.error = result.error;
+          updated.warning = result.warning ?? undefined;
           return updated;
         })
       );
@@ -335,7 +336,9 @@ export function TranslationStep({
   const handleCellEdit = useCallback((id: string, field: 'textKnown' | 'textTarget', value: string) => {
     setRows((prev) =>
       prev.map((row) =>
-        row.id === id ? { ...row, [field]: value, status: 'manual' as const } : row
+        row.id === id
+          ? { ...row, [field]: value, status: 'manual' as const, warning: undefined }
+          : row
       )
     );
   }, []);
@@ -400,6 +403,7 @@ export function TranslationStep({
           [field]: '',
           status: 'pending' as const,
           error: undefined,
+          warning: undefined,
           source: undefined,
         })),
       );
@@ -708,6 +712,9 @@ export function TranslationStep({
                 {needsTranslation === 'textKnown' && row.status === 'error' && (
                   <span className="mt-1 text-danger text-xs shrink-0" title={row.error}>!</span>
                 )}
+                {needsTranslation === 'textKnown' && row.status !== 'error' && row.warning && (
+                  <span className="mt-1 text-amber-500 text-xs shrink-0" title={row.warning}>?</span>
+                )}
                 {needsTranslation === 'textKnown' && row.source === 'dedup' && (
                   <span className="mt-1 text-done text-xs shrink-0" title={t('lists.reusedFromExisting')}>
                     {t('lists.audioStatusReused')}
@@ -723,6 +730,9 @@ export function TranslationStep({
                 />
                 {needsTranslation === 'textTarget' && row.status === 'error' && (
                   <span className="mt-1 text-danger text-xs shrink-0" title={row.error}>!</span>
+                )}
+                {needsTranslation === 'textTarget' && row.status !== 'error' && row.warning && (
+                  <span className="mt-1 text-amber-500 text-xs shrink-0" title={row.warning}>?</span>
                 )}
                 {needsTranslation === 'textTarget' && row.source === 'dedup' && (
                   <span className="mt-1 text-done text-xs shrink-0" title={t('lists.reusedFromExisting')}>

@@ -25,6 +25,7 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 - Stream/deck grouping: `features/learning/hooks/useLearningStreamGroups.ts`
 - Render callbacks: `features/learning/hooks/useLearningRenderers.tsx`
 - PWA install intro state: `features/learning/hooks/usePWAInstallIntro.ts`
+- Reveal interaction preview: add `?previewRevealFresh=1` to simulate a fresh user without changing stored familiarity
 - Language onboarding UI: `features/learning/onboarding/LearningLanguageOnboarding.tsx`
 - Language onboarding data/loading: `features/learning/onboarding/useLearningOnboardingData.ts`
 - Language onboarding actions/navigation: `features/learning/onboarding/useLearningOnboardingActions.ts`

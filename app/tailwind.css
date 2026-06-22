@@ -35,25 +35,48 @@
   box-sizing: border-box;
 }
 
-/* Reveal hint label — fades out as the user becomes more familiar with
-   pressing to reveal. Lives here (not word-card.css) because the
-   familiarity attribute is new and tied to the React component. */
+/* Reveal hint — fades out AND shrinks as the user becomes more familiar with
+   pressing to reveal, so the prompt gracefully recedes. Lives here (not
+   word-card.css) because the familiarity variables are new and tied to the
+   React component. */
+/* Parent owns the fast press dissolve + the entrance fade-in. */
+.reveal-hint {
+  transition:
+    opacity 0.45s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.42s cubic-bezier(0.16, 1, 0.3, 1);
+  animation: reveal-hint-in 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes reveal-hint-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* Familiarity fade is applied (opacity), but without an animated transition —
+   the text steps to its new opacity instantly on each reveal. Fixed sizes. */
+.reveal-hint__label,
+.reveal-hint__sub {
+  opacity: var(--reveal-hint-opacity, 1);
+}
+
 .reveal-hint__label {
-  transition: opacity 0.5s ease-out;
+  font-size: 1.5rem;
 }
 
-html[data-reveal-familiarity="familiar"] .reveal-hint__label {
-  opacity: 0.58;
+/* Secondary line — rendered only when progressive reveal is on (controlled in
+   RevealHint). Fixed, comfortably readable size; does not shrink with the main line. */
+.reveal-hint__sub {
+  font-size: 0.88rem;
 }
 
-html[data-reveal-familiarity="introduced"] .reveal-hint__label {
-  opacity: 0.78;
-}
-
-html[data-reveal-familiarity="practiced"] .reveal-hint__label {
-  opacity: 0.32;
-}
-
-html[data-reveal-familiarity="fluent"] .reveal-hint__label {
-  opacity: 0;
+@media (prefers-reduced-motion: reduce) {
+  .reveal-hint {
+    animation: none;
+  }
 }

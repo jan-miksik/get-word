@@ -42,6 +42,7 @@ vi.mock('@/lib/translation', () => ({
 
 import { POST as translateBatch } from '../../translate/batch/route'
 import { POST as confirmTranslations } from '../[id]/items/translations/route'
+import { OpenRouterChatError } from '@/lib/openrouter-chat'
 
 // ── fixtures ─────────────────────────────────────────────────────────
 const testUser = { id: 'user-1', deviceId: 'dev-1', role: 'vi', userRole: 'user' }
@@ -230,6 +231,26 @@ describe('POST /api/translate/batch', () => {
       'sk-test-key',
       'google/gemini-2.5-flash-lite',
     )
+  })
+
+  it('returns 402 with a clear code when OpenRouter is out of credits', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetUserApiKey.mockResolvedValue('sk-test-key')
+    mockOpenRouterTranslate.mockRejectedValue(
+      new OpenRouterChatError('OpenRouter API error: 402 insufficient credits', false, 402),
+    )
+    const req = new NextRequest('http://localhost/api/translate/batch', {
+      method: 'POST',
+      body: JSON.stringify({
+        items: [{ id: 'i1', text: 'hello', from_lang: 'cz', to_lang: 'vi' }],
+        provider: 'openrouter',
+      }),
+    })
+    const res = await translateBatch(req)
+    expect(res.status).toBe(402)
+    const body = await res.json()
+    expect(body.code).toBe('OPENROUTER_OUT_OF_CREDITS')
+    expect(body.error).toMatch(/credits/i)
   })
 
   it('passes requested OpenRouter model to translation provider', async () => {

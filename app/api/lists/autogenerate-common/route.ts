@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveUserFromRequest, unauthorizedResponse } from "@/lib/auth";
 import { normalizeLanguageCode } from "@/lib/i18n/languages";
 import { autogenerateCommonWordListForUser } from "@/features/learning/onboarding/server/autogenerate-common-list";
+import { OpenRouterChatError } from "@/lib/openrouter-chat";
 
 export const runtime = "nodejs";
 
@@ -43,6 +44,15 @@ export async function POST(request: NextRequest) {
       reused_existing: result.reusedExisting,
     });
   } catch (err) {
+    // The donated server key is out of credits: this is our problem, not the
+    // user's. Log loudly so we notice, and return a clear "try later" status.
+    if (err instanceof OpenRouterChatError && err.isOutOfCredits) {
+      console.error("[Get Word] OpenRouter server key is out of credits", { error: err.message });
+      return NextResponse.json(
+        { error: "List generation is temporarily unavailable. Please try again later.", code: "OPENROUTER_OUT_OF_CREDITS" },
+        { status: 503 },
+      );
+    }
     const message = err instanceof Error ? err.message : "Could not autogenerate common list";
     const status =
       message.includes("limit reached") || message.includes("try again tomorrow")

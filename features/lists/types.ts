@@ -89,6 +89,7 @@ export type CompletedTranslationRow = {
   textTarget: string;
   status: 'pending' | 'ok' | 'error' | 'manual';
   error?: string;
+  warning?: string;
   source?: 'dedup' | 'api';
 };
 

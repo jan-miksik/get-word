@@ -68,8 +68,10 @@ describe('LearningLanguageOnboarding', () => {
       audioCharacterCount: 2400,
     });
 
-    expect(estimate).toBeGreaterThan(60);
-    expect(formatDurationEstimate(estimate)).toMatch(/about \d+ min/);
+    // Paced under the rate cap (~27s for 80 clips) plus light overhead, not the
+    // older doubled batch+serial-upload estimate.
+    expect(estimate).toBe(51);
+    expect(formatDurationEstimate(estimate)).toBe('about 51 sec');
     expect(formatDurationEstimate(24)).toBe('about 24 sec');
   });
 

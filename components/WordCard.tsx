@@ -226,7 +226,6 @@ export const WordCard = memo(function WordCard({
     word.vi?.length ?? 0,
   );
   const cardTextSizeClass = getWordTextSize(cardMaxTextLen);
-
   return (
     <article className={`phrase-card ${isMoved ? 'card-moved' : ''} ${fullscreen ? 'word-card--fullscreen' : ''} ${editingHook ? 'phrase-card--editing-hook' : ''}`} data-word-id={word.id} data-stage-group={stageGroup}>
       {/* Category badges */}
@@ -251,7 +250,7 @@ export const WordCard = memo(function WordCard({
         </div>
       )}
       <div className={`word-card-content flex flex-col gap-4 ${editingHook ? 'word-card-content--editing-hook' : ''}`}>
-        <LanguageRow hiddenLabel="CZ" lang="cz" covered={coverCz} textSizeClass={cardTextSizeClass}>
+        <LanguageRow hiddenLabel="CZ" lang="cz" covered={coverCz} textSizeClass={cardTextSizeClass} revealText={word.cz}>
           <span>{word.cz}</span>
           {showPronunciation && word.czPron && shouldShowPron('cz') && (
             <span className="text-[1.1rem] sm:text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.czPron}</span>
@@ -259,12 +258,12 @@ export const WordCard = memo(function WordCard({
         </LanguageRow>
 
         {showEnglish && (
-          <LanguageRow hiddenLabel="EN" lang="en" covered={coverEn} textSizeClass={cardTextSizeClass}>
+          <LanguageRow hiddenLabel="EN" lang="en" covered={coverEn} textSizeClass={cardTextSizeClass} revealText={word.en}>
             {word.en}
           </LanguageRow>
         )}
 
-        <LanguageRow hiddenLabel="VI" lang="vi" covered={coverVi} textSizeClass={cardTextSizeClass}>
+        <LanguageRow hiddenLabel="VI" lang="vi" covered={coverVi} textSizeClass={cardTextSizeClass} revealText={word.vi}>
           <span>{word.vi}</span>
           {showPronunciation && word.viPron && shouldShowPron('vi') && (
             <span className="text-[1.1rem] sm:text-[1.5rem] text-inherit opacity-70 ml-1.5">{word.viPron}</span>

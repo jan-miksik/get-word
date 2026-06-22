@@ -158,6 +158,62 @@ describe('TranslationStep Google usage gating', () => {
     expect(screen.getByRole('combobox')).toHaveValue('openrouter');
   });
 
+  it('clears a translation warning after the user edits the result', async () => {
+    global.fetch = vi.fn((input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url.includes('/api/providers/openrouter/status')) {
+        return Promise.resolve(jsonResponse({ state: 'not_connected' }));
+      }
+      if (url.includes('/api/translate/batch')) {
+        return Promise.resolve(jsonResponse({
+          results: [{
+            id: 'item-1',
+            translated_text: 'suspicious result',
+            status: 'ok',
+            source: 'api',
+            warning: 'Output may be untranslated (unexpected script).',
+          }],
+        }));
+      }
+      return Promise.resolve(jsonResponse({}));
+    }) as typeof fetch;
+
+    render(
+      <I18nProvider language="en">
+        <TranslationStep
+          list={{
+            id: 'list-1',
+            ownerId: 'user-1',
+            name: 'My list',
+            description: null,
+            languageFrom: 'cz',
+            languageTo: 'vi',
+            isPublic: false,
+          }}
+          pendingItems={[{
+            id: 'item-1',
+            text_known: 'hello',
+            text_target: null,
+            position: 0,
+          }]}
+          inputLanguage="known"
+          googleUsage={null}
+          onComplete={vi.fn(async () => {})}
+          onSkip={vi.fn(async () => {})}
+        />
+      </I18nProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /auto-translate \(1\)/i }));
+    expect(await screen.findByTitle(/unexpected script/i)).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText(/vietnamese: translation/i), {
+      target: { value: 'corrected result' },
+    });
+
+    expect(screen.queryByTitle(/unexpected script/i)).not.toBeInTheDocument();
+  });
+
   it('warns before clearing target texts and saves them as empty for regeneration', async () => {
     const onInputLanguageChange = vi.fn();
     render(

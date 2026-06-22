@@ -29,14 +29,14 @@ export function estimateCommonListGenerationSeconds({
   const safeItemCount = Math.max(0, itemCount);
   const safeCharacters = Math.max(0, audioCharacterCount);
   const safeClips = Math.max(0, audioClipCount);
-  const translationAndForkSeconds = 4 + safeItemCount * 0.35;
-  // Audio is paced under Google's per-minute request quota, so each clip is one
-  // paced request: large lists are bound by the rate cap, not raw throughput.
+  const translationAndForkSeconds = 4 + safeItemCount * 0.2;
+  // Audio is paced under Google's per-minute request quota, so the rate cap is
+  // the real floor for large lists; clips are issued concurrently up to the cap,
+  // and uploads overlap with generation rather than running serially after it.
   const pacingSeconds = (safeClips / GOOGLE_TTS_MAX_RPM) * 60;
-  const audioBatchSeconds = Math.max(Math.ceil(safeClips / 3) * 2.2, pacingSeconds);
-  const uploadSeconds = safeClips * 0.35;
-  const characterSeconds = safeCharacters / 180;
-  return Math.max(5, Math.ceil(translationAndForkSeconds + audioBatchSeconds + uploadSeconds + characterSeconds));
+  const uploadSeconds = safeClips * 0.1;
+  const characterSeconds = safeCharacters / 600;
+  return Math.max(5, Math.ceil(translationAndForkSeconds + pacingSeconds + uploadSeconds + characterSeconds));
 }
 
 export function formatDurationEstimate(seconds: number) {
