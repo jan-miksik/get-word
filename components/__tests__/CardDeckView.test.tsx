@@ -410,4 +410,38 @@ describe('CardDeckView', () => {
     expect(screen.getByTestId('card-w2')).toBeInTheDocument();
     expect(screen.queryByText(/all done/i)).not.toBeInTheDocument();
   });
+
+  it('keeps the current card visible while prioritizing a newly due card next', async () => {
+    const renderCard = (word: NormalizedWord, _: number, onComplete: (afterExit?: () => void) => void) => (
+      <div>
+        <span data-testid={`card-${word.id}`}>{word.id}</span>
+        <button onClick={() => onComplete()}>Complete</button>
+      </div>
+    );
+    const current = makeWord('current');
+    const later = makeWord('later');
+    const newlyDue = makeWord('newly-due');
+
+    const { rerender } = render(
+      <CardDeckView
+        groupedWords={[[current, later]]}
+        renderCard={renderCard}
+        renderMiniGame={vi.fn()}
+      />
+    );
+
+    rerender(
+      <CardDeckView
+        groupedWords={[[newlyDue, current, later]]}
+        renderCard={renderCard}
+        renderMiniGame={vi.fn()}
+      />
+    );
+
+    expect(screen.getByTestId('card-current')).toBeInTheDocument();
+    expect(screen.queryByTestId('card-newly-due')).not.toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('Complete'));
+    expect(screen.getByTestId('card-newly-due')).toBeInTheDocument();
+  });
 });

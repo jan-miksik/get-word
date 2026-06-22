@@ -20,7 +20,8 @@ export function useWordStream(
   filteredWords: NormalizedWord[],
   progress: Record<string, ProgressData>,
   isHydrated: boolean,
-  categoryOrder: string[] = DEFAULT_CATEGORY_ORDER
+  categoryOrder: string[] = DEFAULT_CATEGORY_ORDER,
+  dueTimerRevision = 0,
 ): WordStream {
   return useMemo(() => {
     if (!isHydrated) {
@@ -54,5 +55,5 @@ export function useWordStream(
     );
 
     return { dueWords: due, newWords, settlingWords: settling };
-  }, [filteredWords, progress, isHydrated, categoryOrder]);
+  }, [filteredWords, progress, isHydrated, categoryOrder, dueTimerRevision]);
 }

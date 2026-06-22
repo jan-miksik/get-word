@@ -112,6 +112,7 @@ export function useProgress(
 ) {
   const [progress, setProgress] = useState<Record<string, ProgressData>>({});
   const progressRef = useRef<Record<string, ProgressData>>({});
+  const displayModeRef = useRef<Map<string, { reviewCount: number; mode: 0 | 1 }>>(new Map());
   const [lastMovedId, setLastMovedId] = useState<string | null>(null);
   const lastMovedTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -317,8 +318,19 @@ export function useProgress(
   const getWordDisplayMode = useCallback(
     (wordId: string): 0 | 1 => {
       const progressEntry = progress[wordId];
-      const total = (progressEntry?.unknownCount ?? 0) + (progressEntry?.knownCount ?? 0);
-      return total % 2 === 0 ? 0 : 1;
+      const reviewCount = (progressEntry?.unknownCount ?? 0) + (progressEntry?.knownCount ?? 0);
+      const current = displayModeRef.current.get(wordId);
+
+      // Pick a side once for this appearance of the word. Keeping the choice
+      // in a ref prevents ordinary React rerenders from moving the cover, while
+      // a later review gets a fresh, unpredictable prompt direction.
+      if (!current || current.reviewCount !== reviewCount) {
+        const mode: 0 | 1 = Math.random() < 0.5 ? 0 : 1;
+        displayModeRef.current.set(wordId, { reviewCount, mode });
+        return mode;
+      }
+
+      return current.mode;
     },
     [progress]
   );

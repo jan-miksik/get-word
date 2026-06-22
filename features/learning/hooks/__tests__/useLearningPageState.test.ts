@@ -147,11 +147,7 @@ describe('useLearningPageState', () => {
     ]);
   });
 
-  it('keeps the frozen card deck stable when a card becomes due in the background', () => {
-    // Regression guard: a settling card whose review timer expires mid-session
-    // must NOT rebuild the frozen deck — doing so snapped the learner back to
-    // the first due card. Newly due words are only picked up on a genuine reset
-    // (list/category change, view toggle, or reload).
+  it('promotes a card when it becomes due in the background', () => {
     const now = Date.now();
     const words = [
       makeWord('review-1', 'list-a'),
@@ -192,8 +188,43 @@ describe('useLearningPageState', () => {
 
     rerender({ progress: dueProgress });
 
-    // Deck is unchanged: review-1 is NOT injected mid-session.
+    expect(visibleWordIds(result.current.cardDeckGroups)).toEqual(['review-1', 'new-1']);
+  });
+
+  it('recalculates due cards on a timer tick without a new progress object', () => {
+    const now = Date.now();
+    const words = [makeWord('review-1', 'list-a'), makeWord('new-1', 'list-a')];
+    const progress: Record<string, ProgressData> = {
+      'review-1': {
+        stageIndex: 1,
+        knownCount: 1,
+        unknownCount: 0,
+        nextDueAt: now + 60_000,
+      },
+    };
+
+    const { result, rerender } = renderHook(
+      ({ dueTimerRevision }) =>
+        useLearningPageState({
+          activeWords: words,
+          filteredWords: words,
+          selectedCategories: new Set<string>(),
+          progress,
+          isHydrated: true,
+          viewMode: 'card',
+          minigameFrequency: 'off',
+          categoryOrder: [],
+          dueTimerRevision,
+        }),
+      { initialProps: { dueTimerRevision: 0 } },
+    );
+
     expect(visibleWordIds(result.current.cardDeckGroups)).toEqual(['new-1']);
+
+    progress['review-1'].nextDueAt = now - 1;
+    rerender({ dueTimerRevision: 1 });
+
+    expect(visibleWordIds(result.current.cardDeckGroups)).toEqual(['review-1', 'new-1']);
   });
 
   it('keeps an early pending minigame available as fresh-user cards are learned on the go', () => {

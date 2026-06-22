@@ -143,7 +143,7 @@ export function HomeClient() {
   }, []);
 
   // Trigger re-render when cards become due for review
-  useDueTimer(progress);
+  const dueTimerRevision = useDueTimer(progress);
 
   // Attach press handlers to cover targets (supports virtualized mounts)
   usePressHandlers(phrasesScrollElement, [selectedCategories, showAll, role]);
@@ -179,6 +179,7 @@ export function HomeClient() {
     viewMode,
     minigameFrequency,
     categoryOrder,
+    dueTimerRevision,
   });
 
   const {

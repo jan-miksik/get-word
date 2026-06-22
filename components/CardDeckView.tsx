@@ -58,6 +58,10 @@ function getAudioUrlsForItem(item: StreamItem): string[] {
   return Array.from(new Set(words.flatMap(getAudioUrlsForWord)));
 }
 
+function getStreamItemKey(item: StreamItem): string {
+  return '_isMinigame' in item ? `minigame-${item.id}` : `word-${item.id}`;
+}
+
 interface CardDeckViewProps {
   groupedWords: (NormalizedWord | MiniGameConfig)[][];
   interstitialCard?: ReactNode | null;
@@ -102,6 +106,10 @@ export function CardDeckView({
   // recover.
   const isExitingRef = useRef(false);
   const exitFallbackTimerRef = useRef<number | null>(null);
+  // Completed items are skipped while they remain in the live queue. Once an
+  // item leaves the queue its key is released, allowing the same word to return
+  // later when its next repetition becomes due.
+  const completedItemKeysRef = useRef<Set<string>>(new Set());
 
   // Store latest values in refs so the advance callback always reads fresh state,
   // even when called from a stale closure captured during an earlier render.
@@ -113,20 +121,32 @@ export function CardDeckView({
   groupedWordsRef.current = groupedWords;
 
   useEffect(() => {
-    setCurrentIndex(0);
-    setExitAnim(null);
-    setEnterAnim(null);
-    setShowDoneOverlay(false);
-    lastItemRef.current = null;
-    lockedItemRef.current = null;
-    lockedStageIndexRef.current = 0;
-    pendingAfterExitRef.current = null;
-    isExitingRef.current = false;
-    if (exitFallbackTimerRef.current !== null) {
-      window.clearTimeout(exitFallbackTimerRef.current);
-      exitFallbackTimerRef.current = null;
+    // The final-card confirmation deliberately keeps showing the completed card
+    // even if the live queue removes it immediately after its review is saved.
+    if (showDoneOverlay) return;
+
+    const availableKeys = new Set(items.map(getStreamItemKey));
+    for (const key of completedItemKeysRef.current) {
+      if (!availableKeys.has(key)) completedItemKeysRef.current.delete(key);
     }
-  }, [groupedWords]);
+
+    if (isExitingRef.current) return;
+    const visibleKey = lastItemRef.current ? getStreamItemKey(lastItemRef.current) : null;
+    const visibleIndex = visibleKey
+      ? items.findIndex((candidate) => getStreamItemKey(candidate) === visibleKey)
+      : -1;
+    if (visibleIndex >= 0 && !completedItemKeysRef.current.has(visibleKey!)) {
+      setCurrentIndex(visibleIndex);
+      return;
+    }
+
+    const nextIndex = items.findIndex(
+      (candidate) => !completedItemKeysRef.current.has(getStreamItemKey(candidate)),
+    );
+    setCurrentIndex(nextIndex >= 0 ? nextIndex : items.length);
+    lastItemRef.current = nextIndex >= 0 ? items[nextIndex] : null;
+    setShowDoneOverlay(false);
+  }, [items, showDoneOverlay]);
 
   // Clear any pending fallback timer on unmount.
   useEffect(() => () => {
@@ -189,7 +209,12 @@ export function CardDeckView({
       pendingAfterExitRef.current();
       pendingAfterExitRef.current = null;
     }
-    setCurrentIndex((i) => i + 1);
+    const currentItems = itemsRef.current;
+    const nextIndex = currentItems.findIndex(
+      (candidate) => !completedItemKeysRef.current.has(getStreamItemKey(candidate)),
+    );
+    setCurrentIndex(nextIndex >= 0 ? nextIndex : currentItems.length);
+    lastItemRef.current = nextIndex >= 0 ? currentItems[nextIndex] : null;
     setEnterAnim(randomEnterAnim());
   }, []);
 
@@ -224,16 +249,22 @@ export function CardDeckView({
     const currentItem = currentItems[idx] ?? lastItemRef.current;
     const isMinigame = currentItem ? '_isMinigame' in currentItem : false;
 
+    if (currentItem) completedItemKeysRef.current.add(getStreamItemKey(currentItem));
+
     if (currentItem && !isMinigame) {
       onWordCardCompleted?.(currentItem as NormalizedWord);
     }
 
     if (process.env.NODE_ENV === 'test' || skip) {
-      setCurrentIndex((i) => i + 1);
       if (pendingAfterExitRef.current) {
         pendingAfterExitRef.current();
         pendingAfterExitRef.current = null;
       }
+      const nextIndex = currentItems.findIndex(
+        (candidate) => !completedItemKeysRef.current.has(getStreamItemKey(candidate)),
+      );
+      setCurrentIndex(nextIndex >= 0 ? nextIndex : currentItems.length);
+      lastItemRef.current = nextIndex >= 0 ? currentItems[nextIndex] : null;
       return;
     }
 
@@ -249,7 +280,10 @@ export function CardDeckView({
       lockedStageIndexRef.current = lockedStage;
     }
 
-    if (last >= 0 && idx >= last) {
+    const hasAnotherItem = currentItems.some(
+      (candidate) => !completedItemKeysRef.current.has(getStreamItemKey(candidate)),
+    );
+    if (last >= 0 && !hasAnotherItem) {
       if (!isMinigame) {
         setShowDoneOverlay(true);
         if (pendingAfterExitRef.current) {
@@ -274,7 +308,14 @@ export function CardDeckView({
     setEnterAnim(null);
   }, []);
 
-  const isDone = items.length === 0 || currentIndex >= items.length;
+  const pinnedItemIndex = !exitAnim && lastItemRef.current
+    ? items.findIndex(
+        (candidate) => getStreamItemKey(candidate) === getStreamItemKey(lastItemRef.current!),
+      )
+    : -1;
+  const effectiveCurrentIndex = pinnedItemIndex >= 0 ? pinnedItemIndex : currentIndex;
+  currentIndexRef.current = effectiveCurrentIndex;
+  const isDone = items.length === 0 || effectiveCurrentIndex >= items.length;
 
   if (interstitialCard) {
     return (
@@ -295,7 +336,7 @@ export function CardDeckView({
   // Use the current item if available, otherwise fall back to the last known item.
   const item = exitAnim
     ? lockedItemRef.current
-    : items[currentIndex] ?? lastItemRef.current;
+    : items[effectiveCurrentIndex] ?? lastItemRef.current;
 
   if (!item) {
     return (
@@ -316,14 +357,12 @@ export function CardDeckView({
     let count = 0;
     for (let g = 0; g < groupedWords.length; g++) {
       count += groupedWords[g].length;
-      if (currentIndex < count) { stageIndex = g; break; }
+      if (effectiveCurrentIndex < count) { stageIndex = g; break; }
     }
   }
 
   const isMinigame = '_isMinigame' in item;
-  const itemKey = isMinigame
-    ? `minigame-${(item as MiniGameConfig).id}`
-    : `word-${(item as NormalizedWord).id}`;
+  const itemKey = getStreamItemKey(item);
   const isExiting = Boolean(exitAnim);
 
   return (

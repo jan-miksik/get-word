@@ -210,4 +210,29 @@ describe('useProgress outbox-aware merge', () => {
       },
     });
   });
+
+  it('randomizes the covered language and keeps it stable through rerenders', () => {
+    const random = vi.spyOn(Math, 'random').mockReturnValueOnce(0.25).mockReturnValueOnce(0.75);
+    const isUpdatingFromServerRef = { current: false };
+    const { result } = renderHook(() => useProgress(true, isUpdatingFromServerRef));
+
+    act(() => {
+      result.current.applyServerProgress(
+        serverProgress([{ id: 'w001', stage: 1, knownCount: 1 }]),
+      );
+    });
+
+    expect(result.current.getWordDisplayMode('w001')).toBe(0);
+    expect(result.current.getWordDisplayMode('w001')).toBe(0);
+    expect(random).toHaveBeenCalledTimes(1);
+
+    act(() => {
+      result.current.applyServerProgress(
+        serverProgress([{ id: 'w001', stage: 2, knownCount: 2 }]),
+      );
+    });
+
+    expect(result.current.getWordDisplayMode('w001')).toBe(1);
+    expect(random).toHaveBeenCalledTimes(2);
+  });
 });
