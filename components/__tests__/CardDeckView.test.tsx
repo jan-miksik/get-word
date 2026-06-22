@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent, act } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { CardDeckView } from '../CardDeckView';
 import type { NormalizedWord } from '@/lib/words';
@@ -241,6 +241,143 @@ describe('CardDeckView', () => {
 
     expect(screen.getByTestId('intro-card')).toBeInTheDocument();
     expect(screen.queryByText(/all done/i)).not.toBeInTheDocument();
+  });
+
+  // The default test env short-circuits the exit animation; these drive the real
+  // animated path (NODE_ENV !== 'test') so the animationend/fallback advance logic
+  // is actually exercised.
+  describe('animated advance (non-test env)', () => {
+    // jsdom doesn't surface `animationName` on a synthetic animationend, so build
+    // the event explicitly to mirror a real browser exit animation completing.
+    const fireExitAnimationEnd = (element: Element) => {
+      const event = new Event('animationend', { bubbles: true });
+      Object.defineProperty(event, 'animationName', { value: 'deck-exit-scale' });
+      fireEvent(element, event);
+    };
+
+    const animatedRenderCard = (
+      word: NormalizedWord,
+      _: number,
+      onComplete: (afterExit?: () => void) => void,
+    ) => (
+      <div>
+        <span data-testid={`card-${word.id}`}>{word.id}</span>
+        <button onClick={() => onComplete(() => {})}>Complete</button>
+      </div>
+    );
+
+    it('advances when the exit animationend fires', () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      try {
+        const { container } = render(
+          <CardDeckView
+            groupedWords={[[makeWord('w1'), makeWord('w2')]]}
+            renderCard={animatedRenderCard}
+            renderMiniGame={vi.fn()}
+          />,
+        );
+
+        fireEvent.click(screen.getByText('Complete'));
+        // Still on w1 while the exit animation plays.
+        expect(screen.getByTestId('card-w1')).toBeInTheDocument();
+
+        const animating = container.querySelector('[class*="animate-deck-exit"]');
+        expect(animating).not.toBeNull();
+        fireExitAnimationEnd(animating!);
+
+        expect(screen.getByTestId('card-w2')).toBeInTheDocument();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('recovers from a missing animationend via the fallback timer', () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      vi.useFakeTimers();
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        render(
+          <CardDeckView
+            groupedWords={[[makeWord('w1'), makeWord('w2')]]}
+            renderCard={animatedRenderCard}
+            renderMiniGame={vi.fn()}
+          />,
+        );
+
+        fireEvent.click(screen.getByText('Complete'));
+        expect(screen.getByTestId('card-w1')).toBeInTheDocument();
+
+        // animationend never fires (e.g. app backgrounded mid-animation); the
+        // fallback timer must still advance the deck instead of freezing.
+        act(() => {
+          vi.advanceTimersByTime(1000);
+        });
+
+        expect(screen.getByTestId('card-w2')).toBeInTheDocument();
+        expect(warn).toHaveBeenCalled();
+      } finally {
+        warn.mockRestore();
+        vi.useRealTimers();
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('ignores a second tap while an exit animation is already in flight', () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      const onWordCardCompleted = vi.fn();
+      try {
+        const { container } = render(
+          <CardDeckView
+            groupedWords={[[makeWord('w1'), makeWord('w2'), makeWord('w3')]]}
+            onWordCardCompleted={onWordCardCompleted}
+            renderCard={animatedRenderCard}
+            renderMiniGame={vi.fn()}
+          />,
+        );
+
+        const completeButton = screen.getByText('Complete');
+        fireEvent.click(completeButton);
+        // Second tap during the exit must be a no-op (no extra completion).
+        fireEvent.click(completeButton);
+        expect(onWordCardCompleted).toHaveBeenCalledTimes(1);
+
+        const animating = container.querySelector('[class*="animate-deck-exit"]');
+        fireExitAnimationEnd(animating!);
+        // Only advanced one card, not two.
+        expect(screen.getByTestId('card-w2')).toBeInTheDocument();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('animates the final card after its completion overlay is confirmed', () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+      try {
+        const { container } = render(
+          <CardDeckView
+            groupedWords={[[makeWord('w1')]]}
+            renderCard={animatedRenderCard}
+            renderMiniGame={vi.fn()}
+          />,
+        );
+
+        fireEvent.click(screen.getByText('Complete'));
+        expect(screen.getByText(/tap to continue/i)).toBeInTheDocument();
+
+        fireEvent.click(screen.getByText(/tap to continue/i));
+        const animating = container.querySelector('[class*="animate-deck-exit"]');
+        expect(animating).not.toBeNull();
+        expect(screen.getByTestId('card-w1')).toBeInTheDocument();
+
+        fireExitAnimationEnd(animating!);
+        expect(screen.getByText(/all done/i)).toBeInTheDocument();
+        expect(warn).not.toHaveBeenCalled();
+      } finally {
+        warn.mockRestore();
+        vi.unstubAllEnvs();
+      }
+    });
   });
 
   it('resets the deck cursor when switching to a different grouped word set', async () => {

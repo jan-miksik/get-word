@@ -31,6 +31,14 @@ const ENTER_ANIMATIONS = [
 
 const AUDIO_LOOKAHEAD_CARDS = 2;
 
+// Safety net: the deck advances when the exit animation fires `animationend`.
+// That event can silently never fire (e.g. the app is backgrounded mid-animation
+// on mobile, or the animation is interrupted), which would otherwise leave the
+// deck frozen — the card stays put and OK/forgotten become no-ops. Exit anims run
+// 0.35–0.45s, so if no `animationend` arrives within this window we force the
+// advance ourselves and log a warning so the stall is visible.
+const EXIT_FALLBACK_MS = 1000;
+
 function randomExitAnim(): string {
   return EXIT_ANIMATIONS[Math.floor(Math.random() * EXIT_ANIMATIONS.length)];
 }
@@ -89,6 +97,11 @@ export function CardDeckView({
   const lockedItemRef = useRef<StreamItem | null>(null);
   const lockedStageIndexRef = useRef<number>(0);
   const pendingAfterExitRef = useRef<(() => void) | null>(null);
+  // True while an exit animation is in flight. Guards against re-entrant advance
+  // calls (double taps) and lets the fallback timer know there's something to
+  // recover.
+  const isExitingRef = useRef(false);
+  const exitFallbackTimerRef = useRef<number | null>(null);
 
   // Store latest values in refs so the advance callback always reads fresh state,
   // even when called from a stale closure captured during an earlier render.
@@ -108,7 +121,20 @@ export function CardDeckView({
     lockedItemRef.current = null;
     lockedStageIndexRef.current = 0;
     pendingAfterExitRef.current = null;
+    isExitingRef.current = false;
+    if (exitFallbackTimerRef.current !== null) {
+      window.clearTimeout(exitFallbackTimerRef.current);
+      exitFallbackTimerRef.current = null;
+    }
   }, [groupedWords]);
+
+  // Clear any pending fallback timer on unmount.
+  useEffect(() => () => {
+    if (exitFallbackTimerRef.current !== null) {
+      window.clearTimeout(exitFallbackTimerRef.current);
+      exitFallbackTimerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => {
     if (!interstitialCard) return;
@@ -146,11 +172,54 @@ export function CardDeckView({
     };
   }, [items, currentIndex, audioNetworkRevision]);
 
+  // Completes an in-flight exit: clears the animation/lock, runs the pending
+  // afterExit (e.g. markKnown), advances to the next card, and starts the enter
+  // animation. Called both by the real `animationend` handler and the fallback
+  // timer, so it must be idempotent — `isExitingRef` makes a second call a no-op.
+  const finishExit = useCallback(() => {
+    if (!isExitingRef.current) return;
+    isExitingRef.current = false;
+    if (exitFallbackTimerRef.current !== null) {
+      window.clearTimeout(exitFallbackTimerRef.current);
+      exitFallbackTimerRef.current = null;
+    }
+    setExitAnim(null);
+    lockedItemRef.current = null;
+    if (pendingAfterExitRef.current) {
+      pendingAfterExitRef.current();
+      pendingAfterExitRef.current = null;
+    }
+    setCurrentIndex((i) => i + 1);
+    setEnterAnim(randomEnterAnim());
+  }, []);
+
+  // Starts an exit animation and arms the fallback timer that recovers the deck
+  // if `animationend` never arrives.
+  const beginExit = useCallback(() => {
+    isExitingRef.current = true;
+    setExitAnim(randomExitAnim());
+    if (exitFallbackTimerRef.current !== null) {
+      window.clearTimeout(exitFallbackTimerRef.current);
+    }
+    exitFallbackTimerRef.current = window.setTimeout(() => {
+      exitFallbackTimerRef.current = null;
+      console.warn(
+        '[CardDeckView] exit animation did not fire animationend within ' +
+          `${EXIT_FALLBACK_MS}ms — forcing advance to avoid a frozen deck`,
+      );
+      finishExit();
+    }, EXIT_FALLBACK_MS);
+  }, [finishExit]);
+
   const advance = useCallback((opts?: { skipAnimation?: boolean; afterExit?: () => void }) => {
     const idx = currentIndexRef.current;
     const currentItems = itemsRef.current;
     const last = currentItems.length > 0 ? currentItems.length - 1 : -1;
     const skip = opts?.skipAnimation ?? false;
+    // Ignore taps while an exit animation is already running — otherwise a second
+    // tap overwrites the pending callback and can re-pick the same animation
+    // class (which React won't restart), stalling the deck.
+    if (isExitingRef.current && !skip && process.env.NODE_ENV !== 'test') return;
     if (opts?.afterExit) pendingAfterExitRef.current = opts.afterExit;
     const currentItem = currentItems[idx] ?? lastItemRef.current;
     const isMinigame = currentItem ? '_isMinigame' in currentItem : false;
@@ -168,17 +237,6 @@ export function CardDeckView({
       return;
     }
 
-    if (last >= 0 && idx >= last) {
-      if (!isMinigame) {
-        setShowDoneOverlay(true);
-        if (pendingAfterExitRef.current) {
-          pendingAfterExitRef.current();
-          pendingAfterExitRef.current = null;
-        }
-        return;
-      }
-    }
-
     if (currentItem) {
       lockedItemRef.current = currentItem;
       let lockedStage = 0;
@@ -190,23 +248,26 @@ export function CardDeckView({
       }
       lockedStageIndexRef.current = lockedStage;
     }
-    const nextExitAnim = randomExitAnim();
-    setExitAnim(nextExitAnim);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [onWordCardCompleted]);
+
+    if (last >= 0 && idx >= last) {
+      if (!isMinigame) {
+        setShowDoneOverlay(true);
+        if (pendingAfterExitRef.current) {
+          pendingAfterExitRef.current();
+          pendingAfterExitRef.current = null;
+        }
+        return;
+      }
+    }
+
+    beginExit();
+  }, [onWordCardCompleted, beginExit]);
 
   const handleAnimationEnd = useCallback((e: AnimationEvent<HTMLDivElement>) => {
+    // `animationend` bubbles, so ignore inner (reveal/entrance) animations.
     if (!e.animationName.startsWith('deck-exit-')) return;
-    setExitAnim(null);
-    lockedItemRef.current = null;
-    if (pendingAfterExitRef.current) {
-      pendingAfterExitRef.current();
-      pendingAfterExitRef.current = null;
-    }
-    setCurrentIndex((i) => i + 1);
-    const nextEnterAnim = randomEnterAnim();
-    setEnterAnim(nextEnterAnim);
-  }, []);
+    finishExit();
+  }, [finishExit]);
 
   const handleEnterAnimationEnd = useCallback((e: AnimationEvent<HTMLDivElement>) => {
     if (!e.animationName.startsWith('deck-enter-')) return;
@@ -287,16 +348,14 @@ export function CardDeckView({
           className="absolute inset-0 z-20 flex flex-col items-center justify-end cursor-pointer"
           onClick={() => {
             setShowDoneOverlay(false);
-            const nextExitAnim = randomExitAnim();
-            setExitAnim(nextExitAnim);
+            beginExit();
           }}
           role="button"
           tabIndex={0}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ' ') {
               setShowDoneOverlay(false);
-              const nextExitAnim = randomExitAnim();
-              setExitAnim(nextExitAnim);
+              beginExit();
             }
           }}
         >
