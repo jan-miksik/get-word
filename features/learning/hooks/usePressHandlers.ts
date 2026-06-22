@@ -29,18 +29,6 @@ export function getRevealHintOpacity(count: number): number {
   return Math.max(0, 1 - Math.max(0, count) / REVEAL_HINT_FADE_PRESSES);
 }
 
-export function getProgressiveRevealMask(text: string, revealedCharacters: number): string {
-  let remaining = Math.max(0, revealedCharacters);
-  return Array.from(text.trim()).map((character) => {
-    if (!/[\p{L}\p{N}]/u.test(character)) return character;
-    if (remaining > 0) {
-      remaining -= 1;
-      return character;
-    }
-    return '•';
-  }).join('');
-}
-
 function resolveContainer(container: PressHandlerContainer): HTMLElement | null {
   if (!container) return null;
   if ('current' in container) return container.current;
@@ -93,8 +81,7 @@ function syncRevealFamiliarityAttribute() {
  */
 export function usePressHandlers(
   containerRef: PressHandlerContainer,
-  deps: React.DependencyList,
-  progressiveRevealEnabled = true
+  deps: React.DependencyList
 ) {
   useEffect(() => {
     const container = resolveContainer(containerRef);
@@ -107,10 +94,6 @@ export function usePressHandlers(
     } else {
       syncRevealFamiliarityAttribute();
     }
-    document.documentElement.dataset.progressiveReveal = progressiveRevealEnabled
-      ? 'enabled'
-      : 'disabled';
-
     const cleanupMap = new Map<HTMLElement, () => void>();
 
     const attachPressHandlers = (element: HTMLElement) => {
@@ -123,62 +106,9 @@ export function usePressHandlers(
       let pressTimeout: number | null = null;
       let hasMoved = false;
       let countedRevealPress = false;
-      let hasRevealedInitial = false;
-      let progressiveRevealTimer: number | null = null;
       let revealOpacityFrame: number | null = null;
-      const SCROLL_THRESHOLD = 5;
+      const SCROLL_THRESHOLD = 10;
       const PRESS_DELAY = 150;
-      const PROGRESSIVE_REVEAL_INTERVAL = 450;
-
-      const clearProgressiveRevealTimer = () => {
-        if (progressiveRevealTimer !== null) {
-          window.clearInterval(progressiveRevealTimer);
-          progressiveRevealTimer = null;
-        }
-      };
-
-      const updateProgressiveMask = (revealedCharacters: number) => {
-        const text = element.dataset.revealText ?? '';
-        const textElement = element.querySelector<HTMLElement>('.lang-text');
-        if (!textElement) return;
-        // Debug/test mirror of the masked string; the rendered spans below are
-        // what the user actually sees.
-        textElement.dataset.revealMask = getProgressiveRevealMask(text, revealedCharacters);
-
-        let maskElement = textElement.querySelector<HTMLElement>('.reveal-mask');
-        if (!maskElement) {
-          maskElement = document.createElement('span');
-          maskElement.className = 'reveal-mask';
-          maskElement.setAttribute('aria-hidden', 'true');
-          textElement.appendChild(maskElement);
-        }
-
-        // Each character is its own span so only the newest revealed letter
-        // animates in, while already-revealed letters and dots stay put.
-        const chars: HTMLSpanElement[] = [];
-        let revealableIndex = 0;
-        for (const character of Array.from(text.trim())) {
-          const span = document.createElement('span');
-          span.className = 'reveal-char';
-          if (/[\p{L}\p{N}]/u.test(character)) {
-            const indexForChar = revealableIndex;
-            revealableIndex += 1;
-            if (indexForChar < revealedCharacters) {
-              span.textContent = character;
-              if (indexForChar === revealedCharacters - 1) {
-                span.classList.add('reveal-char--in');
-              }
-            } else {
-              span.textContent = '•';
-              span.classList.add('reveal-char--dot');
-            }
-          } else {
-            span.textContent = character;
-          }
-          chars.push(span);
-        }
-        maskElement.replaceChildren(...chars);
-      };
 
       const countRevealPress = () => {
         if (countedRevealPress || !element.classList.contains('is-covered')) return;
@@ -202,35 +132,9 @@ export function usePressHandlers(
         const wasPressed = pressed;
         pressed = value;
         if (pressed) {
-          if (
-            progressiveRevealEnabled &&
-            !hasRevealedInitial &&
-            element.classList.contains('is-covered') &&
-            element.dataset.revealText
-          ) {
-            element.classList.add('is-first-letter-reveal');
-            hasRevealedInitial = true;
-            let revealedCharacters = 1;
-            updateProgressiveMask(revealedCharacters);
-            progressiveRevealTimer = window.setInterval(() => {
-              revealedCharacters += 1;
-              updateProgressiveMask(revealedCharacters);
-              const text = element.dataset.revealText ?? '';
-              const revealableCharacters = Array.from(text).filter((character) =>
-                /[\p{L}\p{N}]/u.test(character)
-              ).length;
-              if (revealedCharacters >= revealableCharacters) {
-                clearProgressiveRevealTimer();
-              }
-            }, PROGRESSIVE_REVEAL_INTERVAL);
-          } else {
-            element.classList.remove('is-first-letter-reveal');
-          }
           element.classList.add('is-pressed');
         } else {
-          clearProgressiveRevealTimer();
           element.classList.remove('is-pressed');
-          element.classList.remove('is-first-letter-reveal');
           if (wasPressed) countRevealPress();
         }
       };
@@ -253,20 +157,27 @@ export function usePressHandlers(
       };
 
       const onMove = (event: TouchEvent) => {
-        if (event.touches.length > 0 && touchStartX !== 0) {
-          const deltaX = Math.abs(event.touches[0].clientX - touchStartX);
-          const deltaY = Math.abs(event.touches[0].clientY - touchStartY);
-          if (Math.max(deltaX, deltaY) > SCROLL_THRESHOLD) {
-            hasMoved = true;
-            isScrolling = true;
-            setPressed(false);
-            if (pressTimeout) {
-              clearTimeout(pressTimeout);
-              pressTimeout = null;
-            }
-            return;
+        if (event.touches.length === 0 || touchStartX === 0) return;
+
+        // Once the reveal is active, keep it visible even if the finger jitters.
+        // iOS fires touchmove constantly for a "stationary" finger, so just stop
+        // the page from scrolling underneath the held press.
+        if (pressed) {
+          event.preventDefault();
+          return;
+        }
+
+        const deltaX = Math.abs(event.touches[0].clientX - touchStartX);
+        const deltaY = Math.abs(event.touches[0].clientY - touchStartY);
+        if (Math.max(deltaX, deltaY) > SCROLL_THRESHOLD) {
+          // Moved before the press fired → treat it as a scroll and cancel the
+          // pending press (the delayed setPressed checks these flags too).
+          hasMoved = true;
+          isScrolling = true;
+          if (pressTimeout) {
+            clearTimeout(pressTimeout);
+            pressTimeout = null;
           }
-          if (!isScrolling && pressed) event.preventDefault();
         }
       };
 
@@ -298,7 +209,6 @@ export function usePressHandlers(
         window.removeEventListener('touchend', onUp);
         window.removeEventListener('touchcancel', onUp);
         if (pressTimeout) clearTimeout(pressTimeout);
-        clearProgressiveRevealTimer();
         if (revealOpacityFrame !== null) window.cancelAnimationFrame(revealOpacityFrame);
       });
     };
@@ -334,5 +244,5 @@ export function usePressHandlers(
       cleanupMap.clear();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerRef, progressiveRevealEnabled, ...deps]);
+  }, [containerRef, ...deps]);
 }

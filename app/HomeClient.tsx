@@ -74,7 +74,6 @@ export function HomeClient() {
     showEnglish,
     showCategoryBadges,
     showPronunciation,
-    progressiveRevealEnabled,
     memoryHooksEnabled,
     memoryHooksIntroAnswered,
     memoryHookDisableFromStage,
@@ -147,11 +146,7 @@ export function HomeClient() {
   useDueTimer(progress);
 
   // Attach press handlers to cover targets (supports virtualized mounts)
-  usePressHandlers(
-    phrasesScrollElement,
-    [selectedCategories, showAll, role],
-    progressiveRevealEnabled
-  );
+  usePressHandlers(phrasesScrollElement, [selectedCategories, showAll, role]);
 
   const shouldRenderMemoryHook = useCallback(
     (wordId: string) => {

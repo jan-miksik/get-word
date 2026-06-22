@@ -60,19 +60,9 @@
 
 /* Familiarity fade is applied (opacity), but without an animated transition —
    the text steps to its new opacity instantly on each reveal. Fixed sizes. */
-.reveal-hint__label,
-.reveal-hint__sub {
-  opacity: var(--reveal-hint-opacity, 1);
-}
-
 .reveal-hint__label {
+  opacity: var(--reveal-hint-opacity, 1);
   font-size: 1.5rem;
-}
-
-/* Secondary line — rendered only when progressive reveal is on (controlled in
-   RevealHint). Fixed, comfortably readable size; does not shrink with the main line. */
-.reveal-hint__sub {
-  font-size: 0.88rem;
 }
 
 @media (prefers-reduced-motion: reduce) {

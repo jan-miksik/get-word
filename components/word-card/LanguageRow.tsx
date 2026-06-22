@@ -8,14 +8,12 @@ export function LanguageRow({
   lang,
   covered,
   textSizeClass,
-  revealText,
   children,
 }: {
   hiddenLabel: string;
   lang: string;
   covered: boolean;
   textSizeClass: string;
-  revealText?: string;
   children: ReactNode;
 }) {
   return (
@@ -25,12 +23,8 @@ export function LanguageRow({
         <div
           className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${covered ? 'is-covered max-sm:py-4' : ''}`}
           data-lang={lang}
-          data-reveal-text={revealText}
         >
-          <span
-            className={`lang-text inline-block relative min-h-[1.4em] ${textSizeClass}`}
-            data-reveal-mask=""
-          >
+          <span className={`lang-text inline-block relative min-h-[1.4em] ${textSizeClass}`}>
             {children}
           </span>
           {covered && <RevealHint />}

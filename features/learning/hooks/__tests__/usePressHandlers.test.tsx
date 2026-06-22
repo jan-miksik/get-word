@@ -2,7 +2,6 @@ import { useCallback, useState } from 'react';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  getProgressiveRevealMask,
   isFreshRevealPreviewEnabled,
   getRevealFamiliarityLevel,
   getRevealHintOpacity,
@@ -36,26 +35,23 @@ function DelayedPressTargets() {
 function PressTargets({
   covered = true,
   label = 'hidden word',
-  progressiveRevealEnabled = true,
 }: {
   covered?: boolean;
   label?: string;
-  progressiveRevealEnabled?: boolean;
 }) {
   const [container, setContainer] = useState<HTMLElement | null>(null);
   const bindContainer = useCallback((node: HTMLElement | null) => {
     setContainer(node);
   }, []);
 
-  usePressHandlers(container, [], progressiveRevealEnabled);
+  usePressHandlers(container, []);
 
   return (
     <main ref={bindContainer}>
       <span
         className={`cover-target ${covered ? 'is-covered' : ''}`}
-        data-reveal-text={label}
       >
-        <span className="lang-text" data-reveal-mask="">{label}</span>
+        <span className="lang-text">{label}</span>
       </span>
     </main>
   );
@@ -107,53 +103,72 @@ describe('usePressHandlers', () => {
     expect(window.localStorage.getItem('get-word-reveal-familiarity-count')).toBeNull();
   });
 
-  it('shows only the first letter on the first press and the full word thereafter', () => {
+  it('reveals the full word immediately on every press', () => {
     render(<PressTargets />);
     const target = getCoverTarget('hidden word');
 
     fireEvent.mouseDown(target);
-    expect(target).toHaveClass('is-first-letter-reveal');
+    expect(target).toHaveClass('is-pressed');
+    expect(target).not.toHaveClass('is-first-letter-reveal');
+    expect(target.querySelector('.reveal-mask')).toBeNull();
     fireEvent.mouseUp(window);
 
     fireEvent.mouseDown(target);
+    expect(target).toHaveClass('is-pressed');
     expect(target).not.toHaveClass('is-first-letter-reveal');
   });
 
-  it('masks unrevealed letters while preserving spaces and punctuation', () => {
-    expect(getProgressiveRevealMask('Hello world!', 1)).toBe('H•••• •••••!');
-    expect(getProgressiveRevealMask('Hello world!', 3)).toBe('Hel•• •••••!');
+  it('still reveals the full word after the effect re-runs between presses', () => {
+    function ReRunningPressTargets() {
+      const [container, setContainer] = useState<HTMLElement | null>(null);
+      const [revision, setRevision] = useState(0);
+      const bindContainer = useCallback((node: HTMLElement | null) => {
+        setContainer(node);
+      }, []);
+      usePressHandlers(container, [revision]);
+      return (
+        <main ref={bindContainer}>
+          <button type="button" onClick={() => setRevision((r) => r + 1)}>
+            bump deps
+          </button>
+          <span className="cover-target is-covered">
+            <span className="lang-text">hidden word</span>
+          </span>
+        </main>
+      );
+    }
+
+    render(<ReRunningPressTargets />);
+    const target = getCoverTarget('hidden word');
+
+    fireEvent.mouseDown(target);
+    expect(target).toHaveClass('is-pressed');
+    expect(target.querySelector('.reveal-mask')).toBeNull();
+    fireEvent.mouseUp(window);
+
+    // Force the press-handler effect to tear down and re-attach.
+    fireEvent.click(screen.getByText('bump deps'));
+
+    fireEvent.mouseDown(target);
+    expect(target).toHaveClass('is-pressed');
+    expect(target).not.toHaveClass('is-first-letter-reveal');
+    fireEvent.mouseUp(window);
   });
 
-  it('reveals additional letters while the first press is held', () => {
+  it('keeps the full reveal visible while held if the finger jitters past the threshold', () => {
     vi.useFakeTimers();
     render(<PressTargets label="hello" />);
     const target = getCoverTarget('hello');
-    const text = target.querySelector('.lang-text')!;
 
-    fireEvent.mouseDown(target);
-    expect(text).toHaveAttribute('data-reveal-mask', 'h••••');
-    vi.advanceTimersByTime(450);
-    expect(text).toHaveAttribute('data-reveal-mask', 'he•••');
-  });
+    fireEvent.touchStart(target, { touches: [{ clientX: 50, clientY: 50 }] });
+    vi.advanceTimersByTime(150);
+    expect(target).toHaveClass('is-pressed');
+    expect(target.querySelector('.reveal-mask')).toBeNull();
 
-  it('renders each letter as its own span and animates only the newest one', () => {
-    vi.useFakeTimers();
-    render(<PressTargets label="hi" />);
-    const target = getCoverTarget('hi');
-    const text = target.querySelector('.lang-text')!;
+    // iOS-style jitter beyond the scroll threshold must NOT cancel an active reveal.
+    fireEvent.touchMove(target, { touches: [{ clientX: 63, clientY: 58 }] });
+    expect(target).toHaveClass('is-pressed');
 
-    fireEvent.mouseDown(target);
-    let chars = text.querySelectorAll('.reveal-mask .reveal-char');
-    expect(Array.from(chars).map((c) => c.textContent)).toEqual(['h', '•']);
-    expect(chars[0]).toHaveClass('reveal-char--in');
-    expect(chars[1]).toHaveClass('reveal-char--dot');
-
-    vi.advanceTimersByTime(450);
-    chars = text.querySelectorAll('.reveal-mask .reveal-char');
-    expect(Array.from(chars).map((c) => c.textContent)).toEqual(['h', 'i']);
-    // Only the just-revealed letter carries the entrance animation class.
-    expect(chars[0]).not.toHaveClass('reveal-char--in');
-    expect(chars[1]).toHaveClass('reveal-char--in');
   });
 
   it('does not run progressive reveal on already-shown (uncovered) text', () => {
@@ -164,16 +179,6 @@ describe('usePressHandlers', () => {
 
     expect(target).not.toHaveClass('is-first-letter-reveal');
     expect(target.querySelector('.reveal-mask')).toBeNull();
-  });
-
-  it('reveals the full word immediately when progressive reveal is disabled', () => {
-    render(<PressTargets progressiveRevealEnabled={false} />);
-    const target = getCoverTarget('hidden word');
-
-    fireEvent.mouseDown(target);
-    expect(target).toHaveClass('is-pressed');
-    expect(target).not.toHaveClass('is-first-letter-reveal');
-    expect(document.documentElement.dataset.progressiveReveal).toBe('disabled');
   });
 
   it('does not count a touch reveal when scrolling cancels the press delay', () => {

@@ -743,65 +743,6 @@
   transition: color 0.14s ease, transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
-/* The first progressive press overlays a masked word. Holding the press updates
-   this attribute one character at a time while the original text stays hidden. */
-.cover-target.is-first-letter-reveal.is-pressed .lang-text {
-  color: transparent !important;
-  text-shadow: none !important;
-}
-
-/* Per-letter progressive reveal: each character is its own span (built in JS)
-   so only the newest revealed letter animates in. */
-.reveal-mask {
-  position: absolute;
-  inset: 0;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  color: #1c1410;
-  pointer-events: none;
-}
-
-.cover-target.is-first-letter-reveal.is-pressed .reveal-mask {
-  display: flex;
-}
-
-.reveal-mask .reveal-char {
-  display: inline-block;
-  white-space: pre;
-}
-
-.reveal-mask .reveal-char--dot {
-  color: rgba(28, 20, 16, 0.4);
-}
-
-.reveal-mask .reveal-char--in {
-  animation: reveal-char-in 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
-}
-
-@keyframes reveal-char-in {
-  0% {
-    opacity: 0;
-    transform: translateY(0.28em) scale(0.55);
-    filter: blur(2px);
-  }
-  55% {
-    opacity: 1;
-    filter: blur(0);
-  }
-  100% {
-    opacity: 1;
-    transform: none;
-    filter: blur(0);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .reveal-mask .reveal-char--in {
-    animation: none;
-  }
-}
-
 /* Warm glow behind revealed text */
 .cover-target.is-pressed {
   background: radial-gradient(ellipse at center,
