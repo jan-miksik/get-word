@@ -190,6 +190,82 @@ describe('POST /api/lists/[id]/fork', () => {
     expect(result?.copied).toBe(1)
   })
 
+  it('carries manual comments but drops generated ones when the fork changes the language pair', async () => {
+    const manualComment = {
+      version: 1,
+      text: 'manualni poznamka',
+      source: 'manual',
+      editedAt: '2026-01-01T00:00:00.000Z',
+    }
+    mockGetListItems.mockResolvedValue([
+      { id: 'item-1', categoryId: 'cat-1', textKnown: 'ahoj', textTarget: 'xin chao', notes: null, comment: manualComment },
+      {
+        id: 'item-2',
+        categoryId: 'cat-1',
+        textKnown: 'ahoj',
+        textTarget: 'xin chao',
+        notes: null,
+        comment: { version: 1, text: 'generovana', source: 'generated' },
+      },
+    ])
+
+    const req = new NextRequest('http://localhost:3000/api/lists/seed-list/fork', {
+      method: 'POST',
+      body: JSON.stringify({
+        language_from: 'cs',
+        language_to: 'fr',
+        translation_provider: 'google',
+        source_language: 'cs',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'seed-list' }) })
+    await drainStream(res)
+
+    expect(res.status).toBe(200)
+    expect(mockValues).toHaveBeenCalledWith([
+      expect.objectContaining({ comment: manualComment }),
+      expect.objectContaining({ comment: null }),
+    ])
+  })
+
+  it('carries a generated comment when the fork keeps the same language pair', async () => {
+    // Source and fork are both cs -> fr, so the generated (pair-specific) note carries.
+    mockGetListById.mockResolvedValue({
+      id: 'seed-list',
+      ownerId: null,
+      name: 'CS / FR',
+      description: 'Seed list',
+      languageFrom: 'cs',
+      languageTo: 'fr',
+      isPublic: true,
+    })
+    const generatedComment = { version: 1, text: 'generovana', source: 'generated' }
+    mockGetListItems.mockResolvedValue([
+      { id: 'item-1', categoryId: 'cat-1', textKnown: 'ahoj', textTarget: 'salut', notes: null, comment: generatedComment },
+    ])
+
+    const req = new NextRequest('http://localhost:3000/api/lists/seed-list/fork', {
+      method: 'POST',
+      body: JSON.stringify({
+        language_from: 'cs',
+        language_to: 'fr',
+        translation_provider: 'none',
+        source_language: 'cs',
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req, { params: Promise.resolve({ id: 'seed-list' }) })
+    await drainStream(res)
+
+    expect(res.status).toBe(200)
+    expect(mockValues).toHaveBeenCalledWith([
+      expect.objectContaining({ comment: generatedComment }),
+    ])
+  })
+
   it('builds a bilingual "known - target" category title when translating', async () => {
     const req = new NextRequest('http://localhost:3000/api/lists/seed-list/fork', {
       method: 'POST',

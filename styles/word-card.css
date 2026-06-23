@@ -266,6 +266,116 @@
   pointer-events: auto;
 }
 
+.study-note-shell {
+  align-self: flex-start;
+  position: relative;
+  min-height: 40px;
+  width: 100%;
+  max-width: 100%;
+  text-align: left;
+  z-index: 3;
+}
+
+.study-note-shell--minimized {
+  width: 100%;
+  max-width: 100%;
+}
+
+.study-note-chip {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  --study-note-chip-transform: translateY(0);
+  animation: study-note-chip-in 280ms cubic-bezier(0.2, 0.9, 0.18, 1) both;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
+  transform: var(--study-note-chip-transform);
+  transform-origin: left bottom;
+  will-change: opacity, transform;
+}
+
+.study-note {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  --study-note-transform: translate(0, 0);
+  animation: study-note-open 380ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  width: fit-content;
+  max-width: min(100%, 30rem);
+  transform: var(--study-note-transform);
+  transform-origin: left bottom;
+  will-change: opacity, transform, clip-path, filter;
+}
+
+.study-note-copy {
+  min-width: 0;
+}
+
+.study-note-copy-icon {
+  float: left;
+  margin: 0 10px 2px 0;
+}
+
+.study-note-mentions {
+  clear: both;
+}
+
+@keyframes study-note-open {
+  0% {
+    opacity: 0;
+    clip-path: inset(calc(100% - 40px) calc(100% - 40px) 0 0 round 999px);
+    transform: var(--study-note-transform) translateY(8px) scale(0.86);
+    filter: blur(1.5px);
+  }
+  42% {
+    opacity: 1;
+    clip-path: inset(0 18% 0 0 round 18px);
+    transform: var(--study-note-transform) translateY(-1px) scale(1.01);
+    filter: blur(0);
+  }
+  72% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0 round 18px);
+    transform: var(--study-note-transform) translateY(0) scale(1.004);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    clip-path: inset(0 0 0 0 round 14px);
+    transform: var(--study-note-transform) translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@keyframes study-note-chip-in {
+  0% {
+    opacity: 0;
+    transform: var(--study-note-chip-transform) translateY(4px) scale(0.72, 0.82);
+    filter: blur(1px);
+  }
+  45% {
+    opacity: 1;
+    transform: var(--study-note-chip-transform) translateY(-1px) scale(1.09, 0.96);
+    filter: blur(0);
+  }
+  78% {
+    opacity: 1;
+    transform: var(--study-note-chip-transform) translateY(0) scale(0.98, 1.03);
+    filter: blur(0);
+  }
+  100% {
+    opacity: 1;
+    transform: var(--study-note-chip-transform) translateY(0) scale(1);
+    filter: blur(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .study-note,
+  .study-note-chip {
+    animation: none;
+  }
+}
+
 .progress-btn {
   border-radius: 999px;
   border: 1px solid rgba(148, 163, 184, 0.4);
@@ -806,6 +916,20 @@
   color: rgba(28, 20, 16, 0.7);
 }
 
+.word-card--fullscreen .memory-hook-container {
+  align-self: center;
+  width: min(100%, 42rem);
+}
+
+.word-card--fullscreen .study-note-shell {
+  margin-left: 0;
+  max-width: min(30rem, calc(100% - 5.75rem));
+}
+
+.word-card--fullscreen .study-note-shell--minimized {
+  width: 100%;
+}
+
 /* Push actions to bottom with generous spacing */
 .word-card--fullscreen .card-actions {
   margin-top: auto;
@@ -813,9 +937,40 @@
   padding-top: 16px;
 }
 
+@media (min-width: 768px) {
+  .word-card--fullscreen .study-note-shell {
+    max-width: min(30rem, calc(100% - 8rem));
+  }
+}
+
 @media (max-width: 767px) {
   .word-card--fullscreen.phrase-card .card-actions {
     padding-bottom: max(env(safe-area-inset-bottom, 0px), 16px);
+  }
+
+  .word-card--fullscreen .study-note-shell {
+    margin-left: 16px;
+    max-width: calc(100% - 6.25rem);
+  }
+
+  .word-card--fullscreen .study-note-chip {
+    --study-note-chip-transform: translateY(-18px);
+  }
+
+  .word-card--fullscreen .study-note {
+    --study-note-transform: translate(-10px, -8px);
+    max-width: min(calc(100vw - 7rem), calc(100% + 2rem));
+    padding: 10px 12px;
+  }
+
+  .word-card--fullscreen .study-note-copy {
+    font-size: 12px;
+    line-height: 1.32;
+  }
+
+  .word-card--fullscreen .study-note-copy-icon {
+    margin-right: 9px;
+    margin-bottom: 1px;
   }
 }
 

@@ -12,7 +12,9 @@ import {
 } from '@/lib/i18n/languages';
 import {
   DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
+  DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE,
   normalizeMemoryHookDisableFromStage,
+  normalizeStudyNoteMinimizeFromStage,
 } from '@/lib/words';
 import {
   isLearningRole,
@@ -109,6 +111,10 @@ export function usePreferences(
   const [memoryHookDisableFromStage, setMemoryHookDisableFromStageState] = useState<number>(
     DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE
   );
+  const [studyNotesEnabled, setStudyNotesEnabledState] = useState(false);
+  const [studyNoteMinimizeFromStage, setStudyNoteMinimizeFromStageState] = useState<number>(
+    DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE
+  );
   const [settingsLanguage, setSettingsLanguageState] =
     useState<SettingsLanguage>(DEFAULT_SETTINGS_LANGUAGE);
   const [settingsLanguageSelectedAt, setSettingsLanguageSelectedAt] = useState<string | null>(null);
@@ -186,6 +192,21 @@ export function usePreferences(
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
     if (!hasReceivedServerSnapshot()) return;
+    void enqueuePreference('study_notes_enabled', studyNotesEnabled);
+  }, [studyNotesEnabled, isHydrated, isUpdatingFromServerRef]);
+
+  useEffect(() => {
+    if (!isHydrated || isUpdatingFromServerRef.current) return;
+    if (!hasReceivedServerSnapshot()) return;
+    void enqueuePreference(
+      'study_note_minimize_from_stage',
+      normalizeStudyNoteMinimizeFromStage(studyNoteMinimizeFromStage)
+    );
+  }, [studyNoteMinimizeFromStage, isHydrated, isUpdatingFromServerRef]);
+
+  useEffect(() => {
+    if (!isHydrated || isUpdatingFromServerRef.current) return;
+    if (!hasReceivedServerSnapshot()) return;
     void enqueuePreference('category_order', categoryOrder);
   }, [categoryOrder, isHydrated, isUpdatingFromServerRef]);
 
@@ -228,6 +249,18 @@ export function usePreferences(
     postTabMessage({
       type: 'preferences_changed',
       patch: { memoryHookDisableFromStage: normalized },
+    });
+  }, []);
+  const setStudyNotesEnabled = useCallback((value: boolean) => {
+    setStudyNotesEnabledState(value);
+    postTabMessage({ type: 'preferences_changed', patch: { studyNotesEnabled: value } });
+  }, []);
+  const setStudyNoteMinimizeFromStage = useCallback((stage: number) => {
+    const normalized = normalizeStudyNoteMinimizeFromStage(stage);
+    setStudyNoteMinimizeFromStageState(normalized);
+    postTabMessage({
+      type: 'preferences_changed',
+      patch: { studyNoteMinimizeFromStage: normalized },
     });
   }, []);
   const setCategoryOrder = useCallback((order: string[] | ((prev: string[]) => string[])) => {
@@ -292,6 +325,10 @@ export function usePreferences(
     setMemoryHookDisableFromStageState(
       normalizeMemoryHookDisableFromStage(user.memory_hook_disable_from_stage)
     );
+    setStudyNotesEnabledState(user.study_notes_enabled ?? false);
+    setStudyNoteMinimizeFromStageState(
+      normalizeStudyNoteMinimizeFromStage(user.study_note_minimize_from_stage)
+    );
     const serverSelectedAt = simulateFirstOpen ? null : user.settings_language_selected_at ?? null;
     const localSelectedAt = settingsLanguageSelectedAtRef.current;
     const serverSelectedAtMs = serverSelectedAt ? new Date(serverSelectedAt).getTime() : 0;
@@ -332,6 +369,14 @@ export function usePreferences(
       if (typeof patch.memoryHookDisableFromStage === 'number') {
         setMemoryHookDisableFromStageState(
           normalizeMemoryHookDisableFromStage(patch.memoryHookDisableFromStage)
+        );
+      }
+      if (typeof patch.studyNotesEnabled === 'boolean') {
+        setStudyNotesEnabledState(patch.studyNotesEnabled);
+      }
+      if (typeof patch.studyNoteMinimizeFromStage === 'number') {
+        setStudyNoteMinimizeFromStageState(
+          normalizeStudyNoteMinimizeFromStage(patch.studyNoteMinimizeFromStage)
         );
       }
       if (Array.isArray(patch.categoryOrder)) {
@@ -387,6 +432,10 @@ export function usePreferences(
     setMemoryHooksIntroAnswered: setMemoryHooksIntroAnsweredPreference,
     memoryHookDisableFromStage,
     setMemoryHookDisableFromStage,
+    studyNotesEnabled,
+    setStudyNotesEnabled,
+    studyNoteMinimizeFromStage,
+    setStudyNoteMinimizeFromStage,
     categoryOrder,
     setCategoryOrder,
     settingsLanguage,

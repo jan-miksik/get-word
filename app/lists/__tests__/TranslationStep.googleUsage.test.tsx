@@ -2,6 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { I18nProvider } from '@/components/I18nProvider';
+import { MAX_COMMENT_TEXT_LENGTH } from '@/lib/word-item-comment';
 import { TranslationStep } from '../TranslationStep';
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -334,5 +335,117 @@ describe('TranslationStep Google usage gating', () => {
 
     expect(screen.getByLabelText(/czech: source text/i)).toHaveValue('');
     expect(onInputLanguageChange).toHaveBeenCalledWith('target');
+  });
+
+  it('shows an existing study note and saves an edited note', async () => {
+    render(
+      <I18nProvider language="en">
+        <TranslationStep
+          list={{
+            id: 'list-1',
+            ownerId: 'user-1',
+            name: 'My list',
+            description: null,
+            languageFrom: 'cz',
+            languageTo: 'vi',
+            isPublic: false,
+          }}
+          pendingItems={[
+            {
+              id: 'item-1',
+              text_known: 'hello',
+              text_target: 'xin chào',
+              position: 0,
+              comment: 'Existing note',
+            },
+          ]}
+          inputLanguage="known"
+          googleUsage={null}
+          onComplete={vi.fn(async () => {})}
+          onSkip={vi.fn(async () => {})}
+        />
+      </I18nProvider>,
+    );
+
+    const noteInput = screen.getByLabelText('Study note for this item');
+    expect(noteInput).toHaveValue('Existing note');
+    expect(noteInput).toHaveAttribute('maxLength', String(MAX_COMMENT_TEXT_LENGTH));
+    expect(screen.queryByText(`13 / ${MAX_COMMENT_TEXT_LENGTH} characters`)).not.toBeInTheDocument();
+
+    fireEvent.focus(noteInput);
+    expect(screen.getByText(`13 / ${MAX_COMMENT_TEXT_LENGTH} characters`)).toBeInTheDocument();
+
+    fireEvent.change(noteInput, { target: { value: 'Updated note' } });
+    expect(screen.getByText(`12 / ${MAX_COMMENT_TEXT_LENGTH} characters`)).toBeInTheDocument();
+    fireEvent.blur(noteInput);
+    expect(screen.queryByText(`12 / ${MAX_COMMENT_TEXT_LENGTH} characters`)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: /confirm translations/i }));
+
+    await waitFor(() => {
+      const call = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
+        ([url]) => String(url).includes('/items/translations'),
+      );
+      expect(call).toBeTruthy();
+      const body = JSON.parse((call![1] as RequestInit).body as string);
+      expect(body.translations[0]).toEqual({
+        id: 'item-1',
+        text_target: 'xin chào',
+        text_known: 'hello',
+        status: 'translated',
+        comment: 'Updated note',
+      });
+    });
+  });
+
+  it('limits manually edited study notes to the stored maximum length', async () => {
+    render(
+      <I18nProvider language="en">
+        <TranslationStep
+          list={{
+            id: 'list-1',
+            ownerId: 'user-1',
+            name: 'My list',
+            description: null,
+            languageFrom: 'cz',
+            languageTo: 'vi',
+            isPublic: false,
+          }}
+          pendingItems={[
+            {
+              id: 'item-1',
+              text_known: 'hello',
+              text_target: 'xin chào',
+              position: 0,
+              comment: '',
+            },
+          ]}
+          inputLanguage="known"
+          googleUsage={null}
+          onComplete={vi.fn(async () => {})}
+          onSkip={vi.fn(async () => {})}
+        />
+      </I18nProvider>,
+    );
+
+    const noteInput = screen.getByLabelText('Study note for this item');
+    fireEvent.focus(noteInput);
+    const tooLongNote = 'a'.repeat(MAX_COMMENT_TEXT_LENGTH + 20);
+    fireEvent.change(noteInput, { target: { value: tooLongNote } });
+
+    expect(noteInput).toHaveValue('a'.repeat(MAX_COMMENT_TEXT_LENGTH));
+    expect(
+      screen.getByText(`${MAX_COMMENT_TEXT_LENGTH} / ${MAX_COMMENT_TEXT_LENGTH} characters`),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /confirm translations/i }));
+
+    await waitFor(() => {
+      const call = (global.fetch as ReturnType<typeof vi.fn>).mock.calls.find(
+        ([url]) => String(url).includes('/items/translations'),
+      );
+      expect(call).toBeTruthy();
+      const body = JSON.parse((call![1] as RequestInit).body as string);
+      expect(body.translations[0].comment).toBe('a'.repeat(MAX_COMMENT_TEXT_LENGTH));
+    });
   });
 });

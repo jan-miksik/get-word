@@ -100,6 +100,8 @@ export async function POST(request: NextRequest) {
       memory_hooks_enabled,
       memory_hooks_intro_answered,
       memory_hook_disable_from_stage,
+      study_notes_enabled,
+      study_note_minimize_from_stage,
       settings_language,
       language_from,
       language_to,
@@ -182,6 +184,8 @@ export async function POST(request: NextRequest) {
       memory_hooks_enabled !== undefined ||
       memory_hooks_intro_answered !== undefined ||
       memory_hook_disable_from_stage !== undefined ||
+      study_notes_enabled !== undefined ||
+      study_note_minimize_from_stage !== undefined ||
       settings_language !== undefined ||
       language_from !== undefined ||
       language_to !== undefined ||
@@ -196,6 +200,8 @@ export async function POST(request: NextRequest) {
         memory_hooks_enabled,
         memory_hooks_intro_answered,
         memory_hook_disable_from_stage,
+        study_notes_enabled,
+        study_note_minimize_from_stage,
         settings_language,
         language_from,
         language_to,

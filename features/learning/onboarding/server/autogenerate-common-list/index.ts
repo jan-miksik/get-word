@@ -285,7 +285,7 @@ export async function autogenerateCommonWordListForUser(input: {
     throw new Error("Could not generate any usable words for this language pair.");
   }
 
-  return db.transaction(async (tx) => {
+  const created = await db.transaction(async (tx) => {
     await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${lockKey(languageFrom, languageTo)})::bigint)`);
 
     const existing = await findExistingRecommendedForPair(tx, languageFrom, languageTo);
@@ -354,22 +354,24 @@ export async function autogenerateCommonWordListForUser(input: {
       .returning();
     const categoryByName = new Map(createdCategories.map((category) => [category.name, category.id]));
 
-    await tx.insert(wordListItems).values(
-      prepared.items.map((item, position) => ({
-        listId: list.id,
-        categoryId: categoryByName.get(item.categoryName) ?? null,
-        canonicalWordId: item.canonicalWordId ?? null,
-        position,
-        textKnown: item.textKnown,
-        textTarget: item.textTarget,
-        translationStatus: "translated" as const,
-        knownAudioAssetId: item.knownAudioAssetId ?? null,
-        knownAudioStatus: item.knownAudioAssetId ? item.knownAudioStatus ?? "ready" : "none",
-        audioAssetId: item.audioAssetId ?? null,
-        audioStatus: item.audioAssetId ? item.audioStatus ?? "ready" : "none",
-        notes: item.notes ?? null,
-      })),
-    );
+    await tx
+      .insert(wordListItems)
+      .values(
+        prepared.items.map((item, position) => ({
+          listId: list.id,
+          categoryId: categoryByName.get(item.categoryName) ?? null,
+          canonicalWordId: item.canonicalWordId ?? null,
+          position,
+          textKnown: item.textKnown,
+          textTarget: item.textTarget,
+          translationStatus: "translated" as const,
+          knownAudioAssetId: item.knownAudioAssetId ?? null,
+          knownAudioStatus: item.knownAudioAssetId ? item.knownAudioStatus ?? "ready" : "none",
+          audioAssetId: item.audioAssetId ?? null,
+          audioStatus: item.audioAssetId ? item.audioStatus ?? "ready" : "none",
+          notes: item.notes ?? null,
+        })),
+      );
 
     if (list.ownerId !== input.userId) {
       await subscribeUserToList(tx, input.userId, list.id);
@@ -384,4 +386,6 @@ export async function autogenerateCommonWordListForUser(input: {
       reusedExisting: false,
     };
   });
+
+  return created;
 }

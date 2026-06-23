@@ -6,7 +6,10 @@ import {
   getWordListsByIds,
 } from '@/lib/db';
 import { getPlayableAudioFields } from '@/lib/audio-assets';
-import { DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE } from '@/lib/words';
+import {
+  DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
+  DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE,
+} from '@/lib/words';
 
 type HydratedWordListItems = Awaited<ReturnType<typeof getUserSubscribedItems>>;
 type HydratedListNames = Awaited<ReturnType<typeof getWordListsByIds>>;
@@ -79,6 +82,8 @@ type SyncUserShape = {
   memoryHooksEnabled?: boolean | null;
   memoryHooksIntroAnswered?: boolean | null;
   memoryHookDisableFromStage?: number | null;
+  studyNotesEnabled?: boolean | null;
+  studyNoteMinimizeFromStage?: number | null;
   settingsLanguage?: string | null;
   settingsLanguageSelectedAt?: Date | string | null;
   languageFrom?: string | null;
@@ -157,6 +162,9 @@ function buildSyncUser(user: SyncUserShape) {
     memory_hooks_intro_answered: user.memoryHooksIntroAnswered ?? false,
     memory_hook_disable_from_stage:
       user.memoryHookDisableFromStage ?? DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
+    study_notes_enabled: user.studyNotesEnabled ?? false,
+    study_note_minimize_from_stage:
+      user.studyNoteMinimizeFromStage ?? DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE,
     settings_language: user.settingsLanguage ?? null,
     settings_language_selected_at: user.settingsLanguageSelectedAt
       ? new Date(user.settingsLanguageSelectedAt).toISOString()

@@ -41,6 +41,8 @@ function itemsToPending(items: WordListItem[]): PendingListItems {
     text_known: item.textKnown,
     text_target: item.textTarget ?? null,
     position: item.position,
+    // Surface the existing study-note text so the review editor shows it.
+    comment: item.comment?.text ?? null,
   }));
 }
 

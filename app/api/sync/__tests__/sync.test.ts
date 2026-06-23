@@ -214,6 +214,37 @@ describe('GET /api/sync', () => {
     ])
   })
 
+  it('surfaces a study-note comment on hydrated word list items', async () => {
+    const comment = {
+      version: 1,
+      text: 'pozor na false friend',
+      source: 'generated',
+      mentions: [{ word: 'temps', language: 'to', frequency: 3 }],
+    }
+    mockGetUserOwnListItems.mockResolvedValue([
+      {
+        id: 'item-1',
+        listId: 'list-1',
+        categoryId: null,
+        canonicalWordId: null,
+        position: 0,
+        textKnown: 'cas',
+        textTarget: 'temps',
+        translationStatus: 'translated',
+        audioStatus: 'none',
+        notes: null,
+        comment,
+      },
+    ])
+
+    const req = new NextRequest('http://localhost:3000/api/sync?deviceId=dev-123')
+    const res = await GET(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.word_list_items[0].comment).toEqual(comment)
+  })
+
   it('dedupes word list items that are both owned and subscribed', async () => {
     const duplicateItem = {
       id: 'item-dup',

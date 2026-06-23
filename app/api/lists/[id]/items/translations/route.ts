@@ -4,7 +4,8 @@ import {
   unauthorizedResponse,
   forbiddenResponse,
 } from "@/lib/auth";
-import { getListById, updateItemTranslations } from "@/lib/db";
+import { getListById, setItemComment, updateItemTranslations } from "@/lib/db";
+import { makeManualComment } from "@/lib/word-item-comment";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -13,6 +14,9 @@ type TranslationEntry = {
   text_target?: string | null;
   text_known?: string | null;
   status: "translated" | "manual";
+  // Optional manual study-note edit. A string sets/overwrites the manual
+  // comment; explicit null clears it. Omitted = leave the comment untouched.
+  comment?: string | null;
 };
 
 export async function POST(request: NextRequest, context: RouteContext) {
@@ -38,19 +42,36 @@ export async function POST(request: NextRequest, context: RouteContext) {
     );
   }
 
-  // Filter to entries that have a side update. `text_target: null` is an
-  // intentional clear so target text can be regenerated later.
+  // Filter to entries that have a side update or a comment edit. `text_target:
+  // null` is an intentional clear so target text can be regenerated later.
   const valid = translations.filter(
     (t) =>
       t.id &&
       (Object.prototype.hasOwnProperty.call(t, "text_target") ||
-        Object.prototype.hasOwnProperty.call(t, "text_known")),
+        Object.prototype.hasOwnProperty.call(t, "text_known") ||
+        Object.prototype.hasOwnProperty.call(t, "comment")),
   );
   const skipped = translations.length - valid.length;
 
-  if (valid.length > 0) {
+  // Persist manual study-note edits. A string sets/overwrites the manual
+  // comment (source:"manual", editedAt now); explicit null clears it.
+  const commentEdits = valid.filter((t) =>
+    Object.prototype.hasOwnProperty.call(t, "comment"),
+  );
+  for (const t of commentEdits) {
+    const next =
+      typeof t.comment === "string" ? makeManualComment(t.comment) : null;
+    await setItemComment(t.id, next);
+  }
+
+  const textEdits = valid.filter(
+    (t) =>
+      Object.prototype.hasOwnProperty.call(t, "text_target") ||
+      Object.prototype.hasOwnProperty.call(t, "text_known"),
+  );
+  if (textEdits.length > 0) {
     await updateItemTranslations(
-      valid.map((t) => {
+      textEdits.map((t) => {
         const update: {
           id: string;
           textTarget?: string | null;

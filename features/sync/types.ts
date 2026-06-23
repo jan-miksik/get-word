@@ -1,3 +1,5 @@
+import type { WordItemComment } from "@/lib/word-item-comment";
+
 export type SyncReviewEventAction = "known" | "really_known" | "unknown";
 
 export interface SyncProgressItem {
@@ -38,6 +40,8 @@ export interface SyncRequest {
   memory_hooks_enabled?: boolean;
   memory_hooks_intro_answered?: boolean;
   memory_hook_disable_from_stage?: number;
+  study_notes_enabled?: boolean;
+  study_note_minimize_from_stage?: number;
   settings_language?: string;
   language_from?: string | null;
   language_to?: string | null;
@@ -86,6 +90,7 @@ export interface SyncWordListItem {
   audioArweaveUrls?: string[];
   audioStorageRef?: string | null;
   notes: string | null;
+  comment?: WordItemComment | null;
 }
 
 export interface SyncCategory {
@@ -126,6 +131,8 @@ export interface SyncResponse {
     memory_hooks_enabled?: boolean;
     memory_hooks_intro_answered?: boolean;
     memory_hook_disable_from_stage?: number;
+    study_notes_enabled?: boolean;
+    study_note_minimize_from_stage?: number;
     settings_language?: string | null;
     settings_language_selected_at?: string | null;
     language_from?: string | null;

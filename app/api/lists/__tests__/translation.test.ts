@@ -43,6 +43,7 @@ vi.mock('@/lib/translation', () => ({
 import { POST as translateBatch } from '../../translate/batch/route'
 import { POST as confirmTranslations } from '../[id]/items/translations/route'
 import { OpenRouterChatError } from '@/lib/openrouter-chat'
+import { DEFAULT_OPENROUTER_TRANSLATION_MODEL } from '@/lib/openrouter-models'
 
 // ── fixtures ─────────────────────────────────────────────────────────
 const testUser = { id: 'user-1', deviceId: 'dev-1', role: 'vi', userRole: 'user' }
@@ -229,7 +230,7 @@ describe('POST /api/translate/batch', () => {
       'cs',
       'vi',
       'sk-test-key',
-      'google/gemini-2.5-flash-lite',
+      DEFAULT_OPENROUTER_TRANSLATION_MODEL,
     )
   })
 

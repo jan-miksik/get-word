@@ -1,7 +1,10 @@
 import { asc, eq } from "drizzle-orm";
 import { db } from "../client";
 import { users, type User, type NewUser } from "../schema";
-import { normalizeMemoryHookDisableFromStage } from "@/lib/words";
+import {
+  normalizeMemoryHookDisableFromStage,
+  normalizeStudyNoteMinimizeFromStage,
+} from "@/lib/words";
 
 const LANGUAGE_CODE_PATTERN = /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/;
 
@@ -109,6 +112,8 @@ export async function updateUserPreferences(
     memory_hooks_enabled?: boolean;
     memory_hooks_intro_answered?: boolean;
     memory_hook_disable_from_stage?: number;
+    study_notes_enabled?: boolean;
+    study_note_minimize_from_stage?: number;
     settings_language?: string;
     language_from?: string | null;
     language_to?: string | null;
@@ -124,6 +129,8 @@ export async function updateUserPreferences(
     memoryHooksEnabled?: boolean;
     memoryHooksIntroAnswered?: boolean;
     memoryHookDisableFromStage?: number;
+    studyNotesEnabled?: boolean;
+    studyNoteMinimizeFromStage?: number;
     settingsLanguage?: string;
     settingsLanguageSelectedAt?: Date;
     languageFrom?: string | null;
@@ -145,6 +152,14 @@ export async function updateUserPreferences(
   if (prefs.memory_hook_disable_from_stage !== undefined) {
     updates.memoryHookDisableFromStage = normalizeMemoryHookDisableFromStage(
       prefs.memory_hook_disable_from_stage
+    );
+  }
+  if (prefs.study_notes_enabled !== undefined) {
+    updates.studyNotesEnabled = prefs.study_notes_enabled;
+  }
+  if (prefs.study_note_minimize_from_stage !== undefined) {
+    updates.studyNoteMinimizeFromStage = normalizeStudyNoteMinimizeFromStage(
+      prefs.study_note_minimize_from_stage
     );
   }
   if (prefs.settings_language !== undefined) {

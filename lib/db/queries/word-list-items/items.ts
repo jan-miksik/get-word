@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNull, or, sql } from 'drizzle-orm';
 import { db } from '../../client';
 import {
   wordLists,
@@ -7,6 +7,11 @@ import {
   type WordListItem,
 } from '../../schema';
 import { getUserSubscribedListIds } from './lists';
+import {
+  normalizeWordItemComment,
+  pickWinningComment,
+  type WordItemComment,
+} from '@/lib/word-item-comment';
 
 export async function getListItems(listId: string): Promise<WordListItem[]> {
   return db
@@ -79,6 +84,66 @@ export async function archiveProgressForItems(itemIds: string[]): Promise<void> 
     .update(userProgress)
     .set({ archivedAt: new Date() })
     .where(inArray(userProgress.wordListItemId, itemIds));
+}
+
+/**
+ * Set (or clear) the manual study-note comment on a single item. The value is
+ * normalized before writing; passing null clears it. Manual edits always win
+ * over a prior generated comment, so this overwrites unconditionally.
+ */
+export async function setItemComment(
+  itemId: string,
+  comment: WordItemComment | null,
+): Promise<void> {
+  await db
+    .update(wordListItems)
+    .set({ comment: comment ? normalizeWordItemComment(comment) : null, updatedAt: new Date() })
+    .where(eq(wordListItems.id, itemId));
+}
+
+/**
+ * Idempotently attach generated comments to a list's items. Only fills items
+ * whose comment is empty or already `generated`; rows with a `manual` comment
+ * are skipped so a manual note is never clobbered. Safe to retry / resume.
+ * Returns the number of rows written.
+ */
+export async function applyGeneratedComments(
+  listId: string,
+  byItemId: Map<string, WordItemComment>,
+): Promise<number> {
+  if (byItemId.size === 0) return 0;
+  const itemIds = [...byItemId.keys()];
+  // Fetch only fillable rows: comment is null OR its source is 'generated'.
+  const rows = await db
+    .select({ id: wordListItems.id, comment: wordListItems.comment })
+    .from(wordListItems)
+    .where(
+      and(
+        eq(wordListItems.listId, listId),
+        inArray(wordListItems.id, itemIds),
+        or(
+          isNull(wordListItems.comment),
+          sql`${wordListItems.comment}->>'source' = 'generated'`,
+        ),
+      ),
+    );
+
+  let written = 0;
+  for (const row of rows) {
+    const incoming = byItemId.get(row.id);
+    if (!incoming) continue;
+    const existing = normalizeWordItemComment(row.comment);
+    // existing here is null or generated (manual filtered out by the query),
+    // so the incoming generated comment always wins.
+    const next = pickWinningComment(existing, incoming);
+    if (!next || next === existing) continue;
+    await db
+      .update(wordListItems)
+      .set({ comment: next, updatedAt: new Date() })
+      .where(eq(wordListItems.id, row.id));
+    written += 1;
+  }
+  return written;
 }
 
 export async function getUserOwnListItems(userId: string): Promise<WordListItem[]> {

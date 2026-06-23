@@ -62,6 +62,9 @@ export async function subscribeToList(
     canonicalWordId: item.id,
     knownAudioAssetId: item.knownAudioAssetId,
     audioAssetId: item.audioAssetId,
+    // Same language pair (direct copy), so both manual and generated comments
+    // carry unchanged.
+    comment: item.comment,
   }));
 
   const batchSize = 100;
@@ -81,6 +84,7 @@ export async function subscribeToList(
           translationStatus: item.translationStatus,
           knownAudioAssetId: item.knownAudioAssetId,
           audioAssetId: item.audioAssetId,
+          comment: item.comment,
         })),
       )
       .returning();

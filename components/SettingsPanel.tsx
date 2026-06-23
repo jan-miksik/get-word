@@ -3,6 +3,7 @@
 import type { MinigameFrequencyRange } from '@/lib/minigames';
 import { useI18n } from '@/components/I18nProvider';
 import { MemoryHooksSection } from '@/components/settings/MemoryHooksSection';
+import { StudyNotesSection } from '@/components/settings/StudyNotesSection';
 import { LanguageSection } from '@/components/settings/LanguageSection';
 import { LearningLanguageSection } from '@/components/settings/LearningLanguageSection';
 import { MinigamesSection } from '@/components/settings/MinigamesSection';
@@ -62,6 +63,7 @@ export function SettingsPanel({
           </div>
 
           <MemoryHooksSection />
+          <StudyNotesSection />
           <LanguageSection />
           <LearningLanguageSection />
           <MinigamesSection

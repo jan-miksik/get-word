@@ -1,3 +1,5 @@
+import type { WordItemComment } from "@/lib/word-item-comment";
+
 export type WordList = {
   id: string;
   ownerId: string | null;
@@ -61,6 +63,7 @@ export type WordListItem = {
   audioArweaveUrls?: string[];
   audioStorageRef?: string | null;
   notes: string | null;
+  comment?: WordItemComment | null;
 };
 
 export type DiffResult = {
@@ -80,6 +83,7 @@ export type ConfirmResult = {
     text_known: string;
     text_target: string | null;
     position: number;
+    comment?: string | null;
   }[];
 };
 
@@ -91,6 +95,10 @@ export type CompletedTranslationRow = {
   error?: string;
   warning?: string;
   source?: 'dedup' | 'api';
+  /** Manual study-note text. undefined = untouched; '' = cleared. */
+  comment?: string;
+  /** Tracks whether the user edited the note in this session (controls save). */
+  commentDirty?: boolean;
 };
 
 export type GoogleUsageScope = 'translate' | 'tts';

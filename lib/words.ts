@@ -1,5 +1,7 @@
 // Word normalization and utility functions
 
+import { normalizeWordItemComment, type WordItemComment } from '@/lib/word-item-comment';
+
 export interface Word {
   id: string;
   category: string[];
@@ -23,6 +25,7 @@ export interface NormalizedWord extends Word {
   canonicalWordId?: string | null;
   languageFrom?: string;
   languageTo?: string;
+  comment?: WordItemComment | null;
 }
 
 // Audio used to ship as static files under public/speech/. The app now serves
@@ -101,6 +104,34 @@ export function shouldShowMemoryHookForStage(
   const normalizedStage = Number.isFinite(stageIndex) ? Math.max(0, Math.floor(stageIndex)) : 0;
   const cutoff = normalizeMemoryHookDisableFromStage(memoryHookDisableFromStage);
   return normalizedStage < cutoff;
+}
+
+// Study-note (comment) minimization: once a card reaches this stage the note
+// collapses to a chip by default (doubling as the spoiler control).
+export const STUDY_NOTE_MINIMIZE_STAGE_OPTIONS = [1, 2, 3, 4, 5, 6, 7] as const;
+export type StudyNoteMinimizeFromStage =
+  (typeof STUDY_NOTE_MINIMIZE_STAGE_OPTIONS)[number];
+export const DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE: StudyNoteMinimizeFromStage = 2; // 1 day
+
+export function normalizeStudyNoteMinimizeFromStage(
+  value: unknown
+): StudyNoteMinimizeFromStage {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE;
+  const normalized = Math.floor(parsed) as StudyNoteMinimizeFromStage;
+  return STUDY_NOTE_MINIMIZE_STAGE_OPTIONS.includes(normalized)
+    ? normalized
+    : DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE;
+}
+
+/** Whether a comment should render minimized (collapsed to a chip) by default. */
+export function shouldMinimizeStudyNoteForStage(
+  stageIndex: number,
+  studyNoteMinimizeFromStage: number
+): boolean {
+  const normalizedStage = Number.isFinite(stageIndex) ? Math.max(0, Math.floor(stageIndex)) : 0;
+  const cutoff = normalizeStudyNoteMinimizeFromStage(studyNoteMinimizeFromStage);
+  return normalizedStage >= cutoff;
 }
 
 function inferWordType(entry: Word): 'word' | 'phrase' {
@@ -297,6 +328,7 @@ export function wordListItemsToNormalizedWords(
     languageFrom?: string;
     languageTo?: string;
     notes: string | null;
+    comment?: unknown;
     position: number;
   }>,
   categories: Record<string, { name: string; position: number }>,
@@ -403,6 +435,8 @@ export function wordListItemsToNormalizedWords(
         canonicalWordId: item.canonicalWordId ?? null,
         languageFrom: itemLanguageFrom,
         languageTo: itemLanguageTo,
+        // Defensive normalization on hydrate: drop malformed/legacy comments.
+        comment: normalizeWordItemComment(item.comment),
       } as NormalizedWord;
     });
 }

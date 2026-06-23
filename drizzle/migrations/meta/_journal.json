@@ -218,6 +218,13 @@
       "when": 1781973888608,
       "tag": "0030_drop_legacy_words_table",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "7",
+      "when": 1782149824508,
+      "tag": "0031_word_list_item_comment",
+      "breakpoints": true
     }
   ]
 }

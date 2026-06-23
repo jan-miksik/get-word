@@ -82,6 +82,16 @@ export function MemoryIcon(props: IconProps) {
   );
 }
 
+export function StudyNoteIcon(props: IconProps) {
+  return (
+    <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
+      <path d="M6.25 5.25h8.9a2.85 2.85 0 0 1 2.85 2.85v5.15a2.85 2.85 0 0 1-2.85 2.85H11l-3.55 3.05a.55.55 0 0 1-.9-.42V16.1h-.3a2.85 2.85 0 0 1-2.85-2.85V8.1a2.85 2.85 0 0 1 2.85-2.85Z" />
+      <path d="M8 9h6.25" />
+      <path d="M8 12h4.3" />
+    </Glyph>
+  );
+}
+
 export function WordListsIcon(props: IconProps) {
   return (
     <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>

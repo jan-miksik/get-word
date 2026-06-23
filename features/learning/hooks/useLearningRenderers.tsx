@@ -26,6 +26,8 @@ interface UseLearningRenderersOptions {
   showPronunciation: boolean;
   categoryOrder: string[];
   shouldRenderMemoryHook: (wordId: string) => boolean;
+  studyNotesEnabled: boolean;
+  studyNoteMinimizeFromStage: number;
   dismissedGames: Set<string>;
   setDismissedGames: React.Dispatch<React.SetStateAction<Set<string>>>;
   setGameScore: React.Dispatch<React.SetStateAction<number>>;
@@ -49,6 +51,8 @@ export function useLearningRenderers({
   showPronunciation,
   categoryOrder,
   shouldRenderMemoryHook,
+  studyNotesEnabled,
+  studyNoteMinimizeFromStage,
   dismissedGames,
   setDismissedGames,
   setGameScore,
@@ -80,10 +84,12 @@ export function useLearningRenderers({
           showPronunciation={showPronunciation}
           categoryOrder={categoryOrder}
           showMemoryHook={shouldRenderMemoryHook(word.id)}
+          studyNotesEnabled={studyNotesEnabled}
+          studyNoteMinimizeFromStage={studyNoteMinimizeFromStage}
         />
       </div>
     );
-  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook]);
+  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage]);
 
   const renderMiniGame = useCallback((config: MiniGameConfig) => {
     if (dismissedGames.has(config.id)) return null;
@@ -148,12 +154,14 @@ export function useLearningRenderers({
             showPronunciation={showPronunciation}
             categoryOrder={categoryOrder}
             showMemoryHook={shouldRenderMemoryHook(word.id)}
+            studyNotesEnabled={studyNotesEnabled}
+            studyNoteMinimizeFromStage={studyNoteMinimizeFromStage}
             fullscreen
           />
         </div>
       );
     },
-    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook]
+    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage]
   );
 
   const renderMiniGameForDeck = useCallback(

@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useMemo, memo } from 'react';
 import { playUserInitiatedAudio } from '@/lib/audio-playback';
-import { NormalizedWord, STAGES } from '@/lib/words';
+import { NormalizedWord, STAGES, shouldMinimizeStudyNoteForStage } from '@/lib/words';
 import { ProgressData } from '@/lib/sync';
 import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
 import { useI18n } from '@/components/I18nProvider';
@@ -10,6 +10,7 @@ import type { LearningRole } from '@/features/learning/state/learningRole';
 import { RevealHint } from '@/components/word-card/RevealHint';
 import { LanguageRow } from '@/components/word-card/LanguageRow';
 import { CustomStagePopover } from '@/components/word-card/CustomStagePopover';
+import { CommentBlock } from '@/components/word-card/CommentBlock';
 import {
   formatNextReviewHint,
   getLearningAudioSrc,
@@ -37,6 +38,8 @@ interface WordCardProps {
   showPronunciation?: boolean;
   categoryOrder?: string[];
   showMemoryHook?: boolean;
+  studyNotesEnabled?: boolean;
+  studyNoteMinimizeFromStage?: number;
   fullscreen?: boolean;
 }
 
@@ -61,6 +64,8 @@ export const WordCard = memo(function WordCard({
   showPronunciation = false,
   categoryOrder,
   showMemoryHook = true,
+  studyNotesEnabled = false,
+  studyNoteMinimizeFromStage,
   fullscreen = false,
 }: WordCardProps) {
   const { t } = useI18n();
@@ -304,6 +309,23 @@ export const WordCard = memo(function WordCard({
         </div>
       )}
       </div>
+
+      {/* Study note (comment) — under the memory hook, above the buttons.
+          Precedence: hidden when disabled or empty; otherwise minimized once the
+          card reaches the configured stage (CommentBlock applies any local
+          collapse/expand override on top of that default). Not passed into
+          minigames, so it never renders there. */}
+      {studyNotesEnabled && word.comment && (
+        <CommentBlock
+          comment={word.comment}
+          listId={word.listId}
+          itemId={word.id}
+          defaultMinimized={shouldMinimizeStudyNoteForStage(
+            stageIndex,
+            studyNoteMinimizeFromStage ?? 2,
+          )}
+        />
+      )}
 
       {/* Actions */}
       <div className="card-actions relative mt-8">

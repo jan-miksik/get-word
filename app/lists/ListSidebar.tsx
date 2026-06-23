@@ -8,6 +8,8 @@ import { GoogleUsagePanel } from './GoogleUsagePanel';
 import { useI18n } from '@/components/I18nProvider';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { CreateListModal } from './CreateListModal';
+import { ListFilterModal } from './ListFilterModal';
+import type { LearningLanguage } from '@/features/learning/onboarding/types';
 
 interface ListSidebarProps {
   lists: WordList[];
@@ -104,14 +106,47 @@ export function ListSidebar({
   const [returningToApp, setReturningToApp] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<WordList | null>(null);
+  const [filterOpen, setFilterOpen] = useState(false);
+  const [filterFrom, setFilterFrom] = useState('');
+  const [filterTo, setFilterTo] = useState('');
+  const [recommendedOnly, setRecommendedOnly] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const isOwnedList = (list: WordList) => list.isOwner ?? list.ownerId !== null;
   const canManageSharedList = (list: WordList) => canManageCommonLists && Boolean(list.isCommon);
   const canManageList = (list: WordList) => isOwnedList(list) || canManageSharedList(list);
-  const curatedLists = lists.filter((list) => list.isPublic && Boolean(list.isRecommended));
-  const ownLists = lists.filter((list) => isOwnedList(list) && !curatedLists.some((curated) => curated.id === list.id));
-  const publicLists = lists.filter((list) =>
+
+  // Build the onboarding-style combobox options from the language codes that
+  // actually appear across the lists, so the filter never offers a dead pair.
+  const languageName = (code: string) =>
+    languages.find((language) => language.code === code)?.name ?? code.toUpperCase();
+  const toComboboxLanguages = (codes: string[]): LearningLanguage[] =>
+    Array.from(new Set(codes))
+      .sort((a, b) => languageName(a).localeCompare(languageName(b)))
+      .map((code) => ({ code, name: languageName(code), ttsAvailable: true, preferredVoice: null }));
+  const fromLanguages = toComboboxLanguages(lists.map((list) => list.languageFrom));
+  const toLanguages = toComboboxLanguages(lists.map((list) => list.languageTo));
+
+  const filteredLists = lists.filter((list) => {
+    if (filterFrom && list.languageFrom !== filterFrom) return false;
+    if (filterTo && list.languageTo !== filterTo) return false;
+    if (recommendedOnly && !list.isRecommended) return false;
+    return true;
+  });
+  const hasActiveFilter = Boolean(filterFrom) || Boolean(filterTo) || recommendedOnly;
+  const hasRecommended = lists.some((list) => list.isRecommended);
+  const activeFilterCount = (filterFrom ? 1 : 0) + (filterTo ? 1 : 0) + (recommendedOnly ? 1 : 0);
+  const showFilterBar = fromLanguages.length > 1 || toLanguages.length > 1 || hasRecommended;
+
+  function clearFilters() {
+    setFilterFrom('');
+    setFilterTo('');
+    setRecommendedOnly(false);
+  }
+
+  const curatedLists = filteredLists.filter((list) => list.isPublic && Boolean(list.isRecommended));
+  const ownLists = filteredLists.filter((list) => isOwnedList(list) && !curatedLists.some((curated) => curated.id === list.id));
+  const publicLists = filteredLists.filter((list) =>
     list.isPublic &&
     !list.isRecommended &&
     !isOwnedList(list)
@@ -232,7 +267,53 @@ export function ListSidebar({
         <h2 className="text-lg font-semibold text-text">{t('lists.wordLists')}</h2>
       </div>
 
+      {showFilterBar && (
+        <div className="flex items-center gap-2 border-b border-border-subtle px-3 py-2">
+          <button
+            type="button"
+            className={`flex flex-1 items-center gap-2 rounded-md border px-2.5 py-1.5 text-xs transition-colors ${
+              hasActiveFilter
+                ? 'border-accent/50 bg-accent/10 text-accent'
+                : 'border-border-subtle text-text-soft hover:text-text hover:bg-background/60'
+            }`}
+            onClick={() => setFilterOpen(true)}
+          >
+            <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+              <path d="M3 5h14M6 10h8M9 15h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+            <span className="flex-1 truncate text-left">
+              {hasActiveFilter
+                ? `${filterFrom || '·'} → ${filterTo || '·'}`
+                : t('lists.filterLanguagePair')}
+            </span>
+            {activeFilterCount > 0 && (
+              <span className="rounded-full bg-accent px-1.5 text-[10px] font-bold text-background">
+                {activeFilterCount}
+              </span>
+            )}
+          </button>
+          {hasActiveFilter && (
+            <button
+              type="button"
+              className="shrink-0 rounded-md p-1.5 text-text-soft hover:text-text hover:bg-background/60 transition-colors"
+              onClick={clearFilters}
+              aria-label={t('lists.filterClear')}
+              title={t('lists.filterClear')}
+            >
+              <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto p-2">
+        {hasActiveFilter && filteredLists.length === 0 && (
+          <p className="px-2 py-4 text-center text-xs text-text-soft">
+            {t('lists.filterNoMatches')}
+          </p>
+        )}
         {ownLists.length > 0 && (
           <div className="mb-4">
             <h3 className="px-2 py-1 text-xs font-medium text-text-soft uppercase tracking-wide">
@@ -644,6 +725,23 @@ export function ListSidebar({
         initialLangTo={newLangTo}
         onClose={() => setShowCreate(false)}
         onCreate={onCreateList}
+      />
+
+      <ListFilterModal
+        isOpen={filterOpen}
+        onClose={() => setFilterOpen(false)}
+        fromLanguages={fromLanguages}
+        toLanguages={toLanguages}
+        loadingLanguages={false}
+        filterFrom={filterFrom}
+        filterTo={filterTo}
+        onFilterFromChange={setFilterFrom}
+        onFilterToChange={setFilterTo}
+        hasRecommended={hasRecommended}
+        recommendedOnly={recommendedOnly}
+        onRecommendedOnlyChange={setRecommendedOnly}
+        hasActiveFilter={hasActiveFilter}
+        onClear={clearFilters}
       />
 
       <ConfirmModal

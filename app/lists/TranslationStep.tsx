@@ -22,6 +22,7 @@ import {
   OPENROUTER_TRANSLATION_MODELS,
   normalizeOpenRouterModel,
 } from '@/lib/openrouter-models';
+import { MAX_COMMENT_TEXT_LENGTH } from '@/lib/word-item-comment';
 
 type PendingItem = NonNullable<ConfirmResult['pending_items']>[number];
 
@@ -53,6 +54,9 @@ interface TranslationTextareaProps {
   onChange: (value: string) => void;
   ariaLabel: string;
   placeholder?: string;
+  maxLength?: number;
+  onFocus?: () => void;
+  onBlur?: () => void;
 }
 
 function TranslationTextarea({
@@ -60,6 +64,9 @@ function TranslationTextarea({
   onChange,
   ariaLabel,
   placeholder,
+  maxLength,
+  onFocus,
+  onBlur,
 }: TranslationTextareaProps) {
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -83,6 +90,9 @@ function TranslationTextarea({
       }}
       aria-label={ariaLabel}
       placeholder={placeholder}
+      maxLength={maxLength}
+      onFocus={onFocus}
+      onBlur={onBlur}
       rows={1}
       className="block min-h-7 w-full cursor-text select-text resize-none overflow-hidden bg-transparent text-sm leading-relaxed text-text focus:outline-none placeholder:text-text-soft/50"
       spellCheck={false}
@@ -110,6 +120,7 @@ export function TranslationStep({
       textTarget: item.text_target ?? '',
       // Items that already have both fields are considered translated
       status: (item.text_known && item.text_target ? 'ok' : 'pending') as TranslationRow['status'],
+      comment: item.comment ?? '',
     }))
   );
   const [translating, setTranslating] = useState(false);
@@ -122,6 +133,8 @@ export function TranslationStep({
     () => readStoredOpenRouterModel() ?? DEFAULT_OPENROUTER_TRANSLATION_MODEL,
   );
   const [clearColumn, setClearColumn] = useState<'known' | 'target' | null>(null);
+  const [generatingComments, setGeneratingComments] = useState(false);
+  const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null);
 
   const needsTranslation = inputLanguage === 'known' ? 'textTarget' : 'textKnown';
   const hasSource = inputLanguage === 'known' ? 'textKnown' : 'textTarget';
@@ -343,36 +356,105 @@ export function TranslationStep({
     );
   }, []);
 
+  const handleCommentEdit = useCallback((id: string, value: string) => {
+    const nextValue = value.slice(0, MAX_COMMENT_TEXT_LENGTH);
+    setRows((prev) =>
+      prev.map((row) =>
+        row.id === id ? { ...row, comment: nextValue, commentDirty: true } : row
+      )
+    );
+  }, []);
+
+  // Persist current translation + study-note edits to the DB. Shared by the
+  // confirm action and the note-generation action (which needs saved pairs in
+  // the DB before the server pass runs). Throws on failure.
+  const persistTranslations = useCallback(async () => {
+    type TranslationPayload = {
+      id: string;
+      text_target?: string;
+      text_known?: string;
+      status?: 'translated' | 'manual';
+      comment?: string | null;
+    };
+    const translations = rows
+      .map((r) => {
+        const entry: TranslationPayload = { id: r.id };
+        let touched = false;
+        if (r[needsTranslation]) {
+          entry.text_target = r.textTarget || undefined;
+          entry.text_known = r.textKnown || undefined;
+          entry.status = r.status === 'ok' ? 'translated' : 'manual';
+          touched = true;
+        }
+        // Persist a note edit even on a row that needs no translation. Empty
+        // text clears the note (null); the server wraps it as source:"manual".
+        if (r.commentDirty) {
+          const text = (r.comment ?? '').trim();
+          entry.comment = text ? text : null;
+          touched = true;
+        }
+        return touched ? entry : null;
+      })
+      .filter((entry): entry is TranslationPayload => entry !== null);
+
+    if (translations.length === 0) return;
+
+    const res = await listsApiFetch(`/api/lists/${list.id}/items/translations`, {
+      method: 'POST',
+      body: JSON.stringify({ translations }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json();
+      throw new Error(data.error ?? t('lists.translationSaveFailed'));
+    }
+  }, [rows, needsTranslation, list.id, t]);
+
   const handleConfirmTranslations = useCallback(async () => {
     setConfirming(true);
     setError(null);
     try {
-      const translations = rows
-        .filter((r) => r[needsTranslation])
-        .map((r) => ({
-          id: r.id,
-          text_target: r.textTarget || undefined,
-          text_known: r.textKnown || undefined,
-          status: (r.status === 'ok' ? 'translated' : 'manual') as 'translated' | 'manual',
-        }));
-
-      const res = await listsApiFetch(`/api/lists/${list.id}/items/translations`, {
-        method: 'POST',
-        body: JSON.stringify({ translations }),
-      });
-
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.error ?? t('lists.translationSaveFailed'));
-      }
-
+      await persistTranslations();
       await onComplete(rows);
     } catch (err) {
       setError(err instanceof Error ? err.message : t('lists.saveFailedShort'));
     } finally {
       setConfirming(false);
     }
-  }, [rows, needsTranslation, list.id, onComplete, t]);
+  }, [persistTranslations, rows, onComplete, t]);
+
+  // Save current edits, then ask the server to auto-write short study notes for
+  // any translated pair without a manual note. Manual notes are never touched.
+  const handleGenerateComments = useCallback(async () => {
+    setGeneratingComments(true);
+    setError(null);
+    try {
+      // Generation runs on saved pairs, so flush local edits first.
+      await persistTranslations();
+
+      const res = await listsApiFetch(`/api/lists/${list.id}/generate-comments`, {
+        method: 'POST',
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error ?? t('lists.generateStudyNotesFailed'));
+      }
+
+      const comments = (data.comments ?? {}) as Record<string, string>;
+      // Returned ids are non-manual rows only — safe to merge into the editor.
+      setRows((prev) =>
+        prev.map((row) =>
+          typeof comments[row.id] === 'string'
+            ? { ...row, comment: comments[row.id], commentDirty: false }
+            : row,
+        ),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('lists.generateStudyNotesFailed'));
+    } finally {
+      setGeneratingComments(false);
+    }
+  }, [persistTranslations, list.id, t]);
 
   const handleClearColumn = useCallback(async (column: 'known' | 'target') => {
     const field = column === 'known' ? 'textKnown' : 'textTarget';
@@ -654,6 +736,22 @@ export function TranslationStep({
         })}
       </p>
 
+      {/* Study notes: auto-generate short notes for translated pairs */}
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-background-elevated border border-border-subtle p-3">
+        <span className="flex items-center gap-1.5 text-sm text-text-soft">
+          <span aria-hidden>💬</span>
+          {t('lists.studyNotesGenerateHint')}
+        </span>
+        <button
+          type="button"
+          disabled={generatingComments || confirming || translating || readyCount === 0}
+          className="px-4 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
+          onClick={handleGenerateComments}
+        >
+          {generatingComments ? t('lists.generatingStudyNotes') : t('lists.generateStudyNotes')}
+        </button>
+      </div>
+
       {/* Two-column table: known language always left, target language always right */}
       <div className="rounded-lg border border-border-subtle overflow-hidden">
         <div className="grid grid-cols-2 gap-0 bg-background-elevated text-xs font-medium text-text-soft uppercase tracking-wide">
@@ -739,6 +837,34 @@ export function TranslationStep({
                     {t('lists.audioStatusReused')}
                   </span>
                 )}
+              </div>
+              <div className="col-span-2 flex items-start gap-1.5 border-t border-border-subtle/40 px-3 py-1.5">
+                <span
+                  aria-hidden
+                  className="mt-1 shrink-0 text-xs text-text-soft/60"
+                  title={t('lists.studyNoteLabel')}
+                >
+                  💬
+                </span>
+                <div className="min-w-0 flex-1">
+                  <TranslationTextarea
+                    value={row.comment ?? ''}
+                    onChange={(value) => handleCommentEdit(row.id, value)}
+                    placeholder={t('lists.studyNotePlaceholder')}
+                    ariaLabel={t('lists.studyNoteAria')}
+                    maxLength={MAX_COMMENT_TEXT_LENGTH}
+                    onFocus={() => setFocusedCommentId(row.id)}
+                    onBlur={() => setFocusedCommentId((current) => (current === row.id ? null : current))}
+                  />
+                  {focusedCommentId === row.id && (
+                    <div className="mt-0.5 text-right text-[11px] leading-none text-text-soft/60">
+                      {t('lists.studyNoteCharacterLimit', {
+                        count: (row.comment ?? '').length,
+                        limit: MAX_COMMENT_TEXT_LENGTH,
+                      })}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           ))}
