@@ -24,7 +24,13 @@ export function LanguageRow({
           className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${covered ? 'is-covered max-sm:py-4' : ''}`}
           data-lang={lang}
         >
-          <span className={`lang-text inline-block relative min-h-[1.4em] ${textSizeClass}`}>
+          {/* translate="no" keeps generated study text intact even if the user
+              manually triggers Chrome translation (the page-level guard only
+              blocks the automatic offer). */}
+          <span
+            className={`lang-text notranslate inline-block relative min-h-[1.4em] ${textSizeClass}`}
+            translate="no"
+          >
             {children}
           </span>
           {covered && <RevealHint />}
