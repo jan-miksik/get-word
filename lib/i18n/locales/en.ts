@@ -399,6 +399,7 @@ export const enMessages = {
   "lists.filterDone": "Done",
   "lists.selectWordList": "Select word list",
   "lists.selectWordListTitle": "Choose a word list",
+  "lists.addNewWordList": "Add new word list",
   "lists.suggestedHeading": "Switch to another list",
   "lists.suggestedNote": "To create or edit lists, open this app on a computer.",
   "lists.addingList": "Adding...",

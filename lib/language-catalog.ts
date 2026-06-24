@@ -26,8 +26,23 @@ let ttsVoiceCache: { expiresAt: number; voices: GoogleVoice[] } | null = null;
 
 const EXCLUDED_LEARNING_LANGUAGE_CODES = new Set([
   "pt-PT",
-  "zh-CN",
+  // Google's language list returns both bare "zh" and "zh-CN" for the same
+  // language (Simplified Mandarin). Hide the bare "zh" duplicate and keep the
+  // explicit "zh-CN", which is region-tagged and binds to Mandarin TTS.
+  "zh",
 ]);
+
+/**
+ * Google Cloud TTS reports Mandarin voices under "cmn-*" language codes
+ * (cmn-CN, cmn-TW), while Google Translate — and this catalog — identify
+ * Chinese as "zh" (zh-CN, zh-TW). Without this alias the "cmn" voice bucket
+ * never matches the "zh" lookup, so Chinese looks audio-less even though
+ * Google fully supports it. Cantonese keeps its own "yue" base, which already
+ * matches Translate's "yue".
+ */
+const TTS_BASE_ALIASES: Record<string, string> = {
+  cmn: "zh",
+};
 
 const LANGUAGE_SPEAKER_ESTIMATES: Record<string, number> = {
   en: 1_500_000_000,
@@ -217,7 +232,8 @@ export async function getLearningLanguageCatalog(target = "en"): Promise<Learnin
 
   for (const voice of ttsVoices) {
     for (const code of voice.languageCodes ?? []) {
-      const base = getBaseLanguage(code);
+      const rawBase = getBaseLanguage(code);
+      const base = TTS_BASE_ALIASES[rawBase] ?? rawBase;
       const existing = voicesByBase.get(base) ?? [];
 
       existing.push(voice);

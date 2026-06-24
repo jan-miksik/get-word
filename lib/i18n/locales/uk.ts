@@ -401,6 +401,7 @@ export const ukMessages: I18nMessages = {
   "lists.filterDone": "Готово",
   "lists.selectWordList": "Вибрати список слів",
   "lists.selectWordListTitle": "Виберіть список слів",
+  "lists.addNewWordList": "Додати новий список слів",
   "lists.suggestedHeading": "Перемкнутися на інший список",
   "lists.suggestedNote": "Щоб створювати чи редагувати списки, відкрийте цей застосунок на комп'ютері.",
   "lists.addingList": "Додавання...",

@@ -7,6 +7,7 @@ vi.mock("@/lib/i18n/server", () => ({
     { code: "cs", name: "Czech", source: "google" },
     { code: "hi", name: "Hindi", source: "google" },
     { code: "bn", name: "Bengali", source: "google" },
+    { code: "zh", name: "Chinese (Simplified)", source: "google" },
     { code: "zh-CN", name: "Chinese (Simplified)", source: "google" },
     { code: "pt-PT", name: "Portuguese (Portugal)", source: "google" },
   ]),
@@ -52,7 +53,41 @@ describe("learning language catalog", () => {
 
     const languages = await getLearningLanguageCatalog("en");
 
-    expect(languages.some((language) => language.code === "zh-CN")).toBe(false);
+    // pt-PT is redundant with the base "pt" Portuguese entry, so it stays hidden.
     expect(languages.some((language) => language.code === "pt-PT")).toBe(false);
+    // Bare "zh" duplicates "zh-CN" (both Simplified Mandarin), so it stays hidden.
+    expect(languages.some((language) => language.code === "zh")).toBe(false);
+    // The explicit "zh-CN" entry is the single Simplified-Chinese option we keep.
+    expect(languages.some((language) => language.code === "zh-CN")).toBe(true);
+  });
+
+  it("attaches Google's Mandarin (cmn-*) voices to Chinese (zh-*)", async () => {
+    vi.stubEnv("GOOGLE_TRANSLATE_API_KEY", "");
+    vi.stubEnv("GOOGLE_TTS_API_KEY", "test-key");
+
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          voices: [
+            {
+              name: "cmn-CN-Wavenet-A",
+              languageCodes: ["cmn-CN"],
+              ssmlGender: "FEMALE",
+            },
+          ],
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+
+    try {
+      const languages = await getLearningLanguageCatalog("en");
+      const simplified = languages.find((language) => language.code === "zh-CN");
+
+      expect(simplified?.ttsAvailable).toBe(true);
+      expect(simplified?.preferredVoice).toBe("cmn-CN-Wavenet-A");
+    } finally {
+      fetchSpy.mockRestore();
+    }
   });
 });

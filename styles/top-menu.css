@@ -756,6 +756,40 @@
   opacity: 0.75;
 }
 
+.list-select-footer {
+  border-top: 2px solid var(--tm-ink);
+  flex-shrink: 0;
+}
+
+.list-select-add {
+  appearance: none;
+  width: 100%;
+  border: none;
+  background: var(--tm-surface);
+  color: var(--tm-accent);
+  font-size: 1rem;
+  font-weight: 800;
+  text-align: left;
+  min-height: 56px;
+  padding: 16px 18px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+
+.list-select-add:hover {
+  background: var(--tm-accent);
+  color: var(--tm-surface);
+}
+
+.list-select-add-icon {
+  font-size: 1.25rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
 @media (max-width: 767px) {
   .menu-dropdown-popup {
     max-height: calc(100dvh - 5rem - env(safe-area-inset-bottom, 0px));

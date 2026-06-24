@@ -409,6 +409,11 @@ export function normalizeLanguageSearchText(value: string): string {
 
 export function getLocalizedLanguageName(code: string, locale: string): string | null {
   try {
+    // Default fallback ("code") is intentional: when the UI locale has no name
+    // for this language, Intl.DisplayNames returns the bare code (e.g. "ace").
+    // That is the desired fallback — a translated name is best, the code is an
+    // acceptable "better than nothing" label. We deliberately do NOT fall back
+    // to the English catalog name here.
     return new Intl.DisplayNames(normalizeLanguageCode(locale), { type: "language" }).of(
       normalizeLanguageCode(code),
     ) ?? null;

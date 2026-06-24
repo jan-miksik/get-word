@@ -401,6 +401,7 @@ export const csMessages: I18nMessages = {
   "lists.filterDone": "Hotovo",
   "lists.selectWordList": "Vybrat seznam slov",
   "lists.selectWordListTitle": "Vyberte seznam slov",
+  "lists.addNewWordList": "Přidat nový seznam slov",
   "lists.suggestedHeading": "Přepnout na jiný seznam",
   "lists.suggestedNote": "Pro vytváření nebo úpravu seznamů otevřete tuto aplikaci na počítači.",
   "lists.addingList": "Přidávání...",

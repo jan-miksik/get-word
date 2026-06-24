@@ -401,6 +401,7 @@ export const viMessages: I18nMessages = {
   "lists.filterDone": "Xong",
   "lists.selectWordList": "Chọn danh sách từ",
   "lists.selectWordListTitle": "Chọn một danh sách từ",
+  "lists.addNewWordList": "Thêm danh sách từ mới",
   "lists.suggestedHeading": "Chuyển sang danh sách khác",
   "lists.suggestedNote": "Để tạo hoặc chỉnh sửa danh sách, hãy mở ứng dụng này trên máy tính.",
   "lists.addingList": "Đang thêm...",

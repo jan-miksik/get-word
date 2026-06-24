@@ -266,6 +266,21 @@ function ListSelectModal({
             </div>
           )}
         </div>
+        <div className="list-select-footer">
+          <button
+            type="button"
+            className="list-select-add"
+            onClick={() => {
+              // Reuse the language-onboarding screen as the "create a new list"
+              // entry point: it picks the known/learning languages and then
+              // routes into list selection/creation for that pair.
+              window.location.assign('/?onboarding=1');
+            }}
+          >
+            <span className="list-select-add-icon" aria-hidden="true">+</span>
+            {t('lists.addNewWordList')}
+          </button>
+        </div>
       </div>
     </div>
   );
