@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import {
   getLanguageFlag,
@@ -64,6 +64,7 @@ export function LanguageCombobox({
   const { t, language: uiLanguage } = useI18n();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLLabelElement>(null);
   const selectedLanguage = languages.find((language) => language.code === value);
   const hasSelection = Boolean(selectedLanguage || value);
   const shownLanguages = filterLanguages(languages, query, uiLanguage);
@@ -85,8 +86,22 @@ export function LanguageCombobox({
     setOpen(false);
   }
 
+  // Close only on a genuine click/focus outside the combobox. Relying on the
+  // input's `blur` event closes the dropdown spuriously, because the wrapping
+  // `<label>` re-dispatches clicks to the input (causing a blur→focus bounce).
+  useEffect(() => {
+    if (!open) return;
+    function handlePointerDown(event: PointerEvent) {
+      if (!rootRef.current?.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener('pointerdown', handlePointerDown);
+    return () => document.removeEventListener('pointerdown', handlePointerDown);
+  }, [open]);
+
   return (
-    <label className="relative block min-w-0">
+    <label ref={rootRef} className="relative block min-w-0">
       <span className="mb-2 block text-lg font-extrabold uppercase tracking-wide sm:text-xl">{label}</span>
       <div className="onboarding-combobox min-h-[66px] px-3 py-2">
         <div className="mb-1 flex h-7 min-w-0 items-center gap-2 text-sm font-bold">
@@ -110,10 +125,12 @@ export function LanguageCombobox({
           aria-controls={`${id}-options`}
           className="onboarding-combobox-input w-full bg-transparent text-sm outline-none"
           onFocus={() => setOpen(true)}
-          onBlur={() => window.setTimeout(() => setOpen(false), 120)}
           onChange={(event) => {
             setQuery(event.target.value);
             setOpen(true);
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Escape') setOpen(false);
           }}
         />
       </div>
