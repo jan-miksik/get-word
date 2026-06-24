@@ -28,6 +28,7 @@ describe('TranslationStep Google usage gating', () => {
 
   afterEach(() => {
     global.fetch = originalFetch;
+    vi.unstubAllGlobals();
     window.localStorage.clear();
   });
 
@@ -116,7 +117,7 @@ describe('TranslationStep Google usage gating', () => {
       </I18nProvider>,
     );
 
-    fireEvent.change(screen.getByRole('combobox'), {
+    fireEvent.change(screen.getByRole('combobox', { name: /translation provider/i }), {
       target: { value: 'openrouter' },
     });
 
@@ -156,7 +157,7 @@ describe('TranslationStep Google usage gating', () => {
       </I18nProvider>,
     );
 
-    expect(screen.getByRole('combobox')).toHaveValue('openrouter');
+    expect(screen.getByRole('combobox', { name: /translation provider/i })).toHaveValue('openrouter');
   });
 
   it('clears a translation warning after the user edits the result', async () => {
@@ -335,6 +336,55 @@ describe('TranslationStep Google usage gating', () => {
 
     expect(screen.getByLabelText(/czech: source text/i)).toHaveValue('');
     expect(onInputLanguageChange).toHaveBeenCalledWith('target');
+  });
+
+  it('copies source and translated texts in row order', async () => {
+    const writeText = vi.fn(async () => {});
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      clipboard: { writeText },
+    });
+
+    render(
+      <I18nProvider language="en">
+        <TranslationStep
+          list={{
+            id: 'list-1',
+            ownerId: 'user-1',
+            name: 'My list',
+            description: null,
+            languageFrom: 'cz',
+            languageTo: 'vi',
+            isPublic: false,
+          }}
+          pendingItems={[
+            {
+              id: 'item-1',
+              text_known: 'hello',
+              text_target: 'xin chào',
+              position: 0,
+            },
+            {
+              id: 'item-2',
+              text_known: 'world',
+              text_target: 'thế giới',
+              position: 1,
+            },
+          ]}
+          inputLanguage="known"
+          googleUsage={null}
+          onComplete={vi.fn(async () => {})}
+          onSkip={vi.fn(async () => {})}
+        />
+      </I18nProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /copy source \+ target/i }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('hello\txin chào\nworld\tthế giới');
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('Copied');
   });
 
   it('shows an existing study note and saves an edited note', async () => {

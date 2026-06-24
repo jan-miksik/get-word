@@ -7,15 +7,20 @@ import { getProviderSecret } from "@/lib/providers/store";
 import { DEFAULT_OPENROUTER_TRANSLATION_MODEL } from "@/lib/openrouter-models";
 import { callOpenRouterChatParsed, OpenRouterChatError, parseJsonLoose } from "@/lib/openrouter-chat";
 import { TRANSLATION_QUALITY_RULES, TRANSLATION_SYSTEM_PROMPT } from "@/lib/translation-prompt";
-import { looksUntranslated } from "@/lib/translation-validate";
+import {
+  validateTranslation,
+  type TranslationValidationWarning,
+} from "@/lib/translation-validate";
 
 export type TranslationResult = {
   text: string;
   translated: string | null;
   status: "ok" | "error";
   error?: string;
-  /** Soft signal: output looks suspicious (e.g. wrong-script) but is kept. */
+  /** Soft signal: first warning's message (legacy string field), kept output. */
   warning?: string;
+  /** Structured advisory warnings (register, capitalization, article, script). */
+  validationWarnings?: TranslationValidationWarning[];
 };
 
 /**
@@ -181,15 +186,24 @@ ${batch.map((t, idx) => `${idx + 1}. ${t}`).join("\n")}
       );
 
       batch.forEach((text, idx) => {
-        const translated =
-          byIndex.get(idx + 1) ?? byText.get(text.toLowerCase().trim()) ?? null;
+        const key = text.toLowerCase().trim();
+        const translated = byIndex.get(idx + 1) ?? byText.get(key) ?? null;
         if (translated) {
+          const validationWarnings = validateTranslation({
+            source: text,
+            target: translated,
+            fromLang,
+            toLang,
+          });
           results.push({
             text,
             translated,
             status: "ok",
-            ...(looksUntranslated(translated, toLang)
-              ? { warning: "Output may be untranslated (unexpected script)." }
+            ...(validationWarnings.length > 0
+              ? {
+                  warning: validationWarnings[0].message,
+                  validationWarnings,
+                }
               : {}),
           });
         } else {

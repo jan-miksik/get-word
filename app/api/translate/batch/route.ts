@@ -188,6 +188,9 @@ export async function POST(request: NextRequest) {
         status: apiResult.status,
         ...(apiResult.error ? { error: apiResult.error } : {}),
         ...(apiResult.warning ? { warning: apiResult.warning } : {}),
+        ...(apiResult.validationWarnings?.length
+          ? { validation_warnings: apiResult.validationWarnings }
+          : {}),
         source: "api" as const,
       };
     }

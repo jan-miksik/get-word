@@ -1,0 +1,2 @@
+ALTER TABLE "word_list_items" ADD COLUMN "register" text DEFAULT 'neutral' NOT NULL;--> statement-breakpoint
+ALTER TABLE "word_list_items" ADD CONSTRAINT "word_list_items_register_check" CHECK ("word_list_items"."register" in ('formal', 'informal', 'neutral'));

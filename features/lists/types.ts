@@ -87,6 +87,14 @@ export type ConfirmResult = {
   }[];
 };
 
+/** Structured advisory warning surfaced per row in the editor (see lib/translation-validate.ts). */
+export type ClientValidationWarning = {
+  code: string;
+  severity: string;
+  confidence: string;
+  message: string;
+};
+
 export type CompletedTranslationRow = {
   id: string;
   textKnown: string;
@@ -99,6 +107,8 @@ export type CompletedTranslationRow = {
   comment?: string;
   /** Tracks whether the user edited the note in this session (controls save). */
   commentDirty?: boolean;
+  /** Deterministic quality warnings for this row (advisory). */
+  validationWarnings?: ClientValidationWarning[];
 };
 
 export type GoogleUsageScope = 'translate' | 'tts';

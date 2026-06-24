@@ -225,6 +225,20 @@
       "when": 1782149824508,
       "tag": "0031_word_list_item_comment",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1782286546447,
+      "tag": "0032_word_list_item_register",
+      "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1782296160694,
+      "tag": "0033_free_jocasta",
+      "breakpoints": true
     }
   ]
 }

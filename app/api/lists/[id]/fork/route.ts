@@ -237,6 +237,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
         const requestedSourceSide = sourceLanguage === sourceLanguageFrom ? "known" : "target";
 
         for (const item of sourceItems) {
+          // Invariant: always translate from the original source-side text, never
+          // from a generated target, so register/meaning is never inherited
+          // through a chain (target -> target).
           const requestedSourceText = getItemTextForSide(item, requestedSourceSide);
           if (translationProvider === "none" || !requestedSourceText) continue;
           // Known side needs translation only when the source has no matching language.

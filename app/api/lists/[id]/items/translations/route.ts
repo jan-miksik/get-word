@@ -64,19 +64,19 @@ export async function POST(request: NextRequest, context: RouteContext) {
     await setItemComment(t.id, next);
   }
 
-  const textEdits = valid.filter(
+  const fieldEdits = valid.filter(
     (t) =>
       Object.prototype.hasOwnProperty.call(t, "text_target") ||
       Object.prototype.hasOwnProperty.call(t, "text_known"),
   );
-  if (textEdits.length > 0) {
+  if (fieldEdits.length > 0) {
     await updateItemTranslations(
-      textEdits.map((t) => {
+      fieldEdits.map((t) => {
         const update: {
           id: string;
           textTarget?: string | null;
           textKnown?: string;
-          translationStatus: "translated" | "manual";
+          translationStatus?: "translated" | "manual";
         } = {
           id: t.id,
           translationStatus: t.status ?? "manual",

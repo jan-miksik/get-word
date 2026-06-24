@@ -7,14 +7,14 @@ export async function updateItemTranslations(
     id: string;
     textKnown?: string;
     textTarget?: string | null;
-    translationStatus: 'manual' | 'translated' | 'failed';
+    translationStatus?: 'manual' | 'translated' | 'failed';
   }[],
 ): Promise<void> {
   for (const { id, textKnown, textTarget, translationStatus } of updates) {
     const set: Record<string, unknown> = {
-      translationStatus,
       updatedAt: new Date(),
     };
+    if (translationStatus !== undefined) set.translationStatus = translationStatus;
     if (textTarget !== undefined) set.textTarget = textTarget;
     if (textKnown !== undefined) set.textKnown = textKnown;
     await db

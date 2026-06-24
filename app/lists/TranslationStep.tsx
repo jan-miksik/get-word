@@ -22,6 +22,7 @@ import {
   OPENROUTER_TRANSLATION_MODELS,
   normalizeOpenRouterModel,
 } from '@/lib/openrouter-models';
+import { copyTextToClipboard } from '@/lib/clipboard';
 import { MAX_COMMENT_TEXT_LENGTH } from '@/lib/word-item-comment';
 
 type PendingItem = NonNullable<ConfirmResult['pending_items']>[number];
@@ -135,6 +136,8 @@ export function TranslationStep({
   const [clearColumn, setClearColumn] = useState<'known' | 'target' | null>(null);
   const [generatingComments, setGeneratingComments] = useState(false);
   const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null);
+  const [copiedTranslations, setCopiedTranslations] = useState(false);
+  const copyResetTimeoutRef = useRef<number | null>(null);
 
   const needsTranslation = inputLanguage === 'known' ? 'textTarget' : 'textKnown';
   const hasSource = inputLanguage === 'known' ? 'textKnown' : 'textTarget';
@@ -158,6 +161,14 @@ export function TranslationStep({
   const targetLanguageCode = inputLanguage === 'known' ? list.languageTo : list.languageFrom;
   const knownRowsWithTextCount = rows.filter((row) => row.textKnown.trim()).length;
   const targetRowsWithTextCount = rows.filter((row) => row.textTarget.trim()).length;
+  const pairedTextsToCopy = rows
+    .map((row) => {
+      const source = row[hasSource].trim();
+      const target = row[needsTranslation].trim();
+      return source || target ? `${source}\t${target}` : '';
+    })
+    .filter(Boolean)
+    .join('\n');
   const clearColumnLanguageLabel =
     clearColumn === 'known'
       ? formatLanguageLabel(list.languageFrom)
@@ -218,6 +229,14 @@ export function TranslationStep({
   }, [loadOpenRouterStatus]);
 
   useEffect(() => {
+    return () => {
+      if (copyResetTimeoutRef.current !== null) {
+        window.clearTimeout(copyResetTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     writeStoredTranslationProvider(provider);
   }, [provider]);
 
@@ -237,6 +256,9 @@ export function TranslationStep({
         .filter((r) => !r[needsTranslation] || r.status === 'pending')
         .map((r) => ({
           id: r.id,
+          // Invariant: translate from the source-side text (r[hasSource]), never
+          // from a generated target, so register/meaning is never inherited
+          // through a chain (target -> target).
           text: r[hasSource],
           from_lang: inputLanguage === 'known' ? list.languageFrom : list.languageTo,
           to_lang: inputLanguage === 'known' ? list.languageTo : list.languageFrom,
@@ -261,7 +283,17 @@ export function TranslationStep({
       }
 
       const data = await res.json();
-      const resultMap = new Map<string, { translated_text: string | null; status: string; source?: string; error?: string; warning?: string }>();
+      const resultMap = new Map<
+        string,
+        {
+          translated_text: string | null;
+          status: string;
+          source?: string;
+          error?: string;
+          warning?: string;
+          validation_warnings?: TranslationRow['validationWarnings'];
+        }
+      >();
       for (const r of data.results) {
         resultMap.set(r.id, r);
       }
@@ -284,6 +316,7 @@ export function TranslationStep({
           }
           if (result.error) updated.error = result.error;
           updated.warning = result.warning ?? undefined;
+          updated.validationWarnings = result.validation_warnings ?? undefined;
           return updated;
         })
       );
@@ -500,6 +533,24 @@ export function TranslationStep({
     }
   }, [list.id, onInputLanguageChange, onUsageRefresh, rows, t]);
 
+  const handleCopyTranslatedTexts = useCallback(async () => {
+    if (!pairedTextsToCopy) return;
+    setError(null);
+    try {
+      await copyTextToClipboard(pairedTextsToCopy);
+      setCopiedTranslations(true);
+      if (copyResetTimeoutRef.current !== null) {
+        window.clearTimeout(copyResetTimeoutRef.current);
+      }
+      copyResetTimeoutRef.current = window.setTimeout(() => {
+        setCopiedTranslations(false);
+        copyResetTimeoutRef.current = null;
+      }, 1800);
+    } catch {
+      setError(t('lists.copyTranslatedTextsFailed'));
+    }
+  }, [pairedTextsToCopy, t]);
+
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6">
       <div className="flex items-center justify-between mb-4">
@@ -526,6 +577,7 @@ export function TranslationStep({
         <div className="flex flex-wrap items-center gap-3">
           <select
             value={provider}
+            aria-label={t('lists.translationProviderAria')}
             onChange={(e) => {
               const next = e.target.value as TranslationProvider;
               setProvider(next);
@@ -754,6 +806,28 @@ export function TranslationStep({
 
       {/* Two-column table: known language always left, target language always right */}
       <div className="rounded-lg border border-border-subtle overflow-hidden">
+        <div className="flex min-h-12 flex-wrap items-center justify-end gap-2 border-b border-border-subtle bg-background-elevated/70 px-3 py-2">
+          <div className="flex items-center gap-2">
+            <span
+              className={`min-w-16 text-right text-xs text-done transition-opacity ${
+                copiedTranslations ? 'opacity-100' : 'opacity-0'
+              }`}
+              role="status"
+              aria-live="polite"
+              aria-hidden={!copiedTranslations}
+            >
+              {copiedTranslations ? t('common.copied') : '\u00A0'}
+            </span>
+            <button
+              type="button"
+              disabled={!pairedTextsToCopy}
+              className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-xs font-medium hover:bg-background disabled:opacity-50 transition-colors"
+              onClick={handleCopyTranslatedTexts}
+            >
+              {t('lists.copyTranslatedTexts')}
+            </button>
+          </div>
+        </div>
         <div className="grid grid-cols-2 gap-0 bg-background-elevated text-xs font-medium text-text-soft uppercase tracking-wide">
           <div className="flex items-center justify-between gap-2 px-3 py-2 border-r border-border-subtle">
             <span>{formatLanguageLabel(list.languageFrom)}</span>
@@ -866,6 +940,19 @@ export function TranslationStep({
                   )}
                 </div>
               </div>
+              {row.validationWarnings && row.validationWarnings.length > 0 && (
+                <div className="col-span-2 flex flex-wrap items-center gap-2 border-t border-border-subtle/40 px-3 py-1.5">
+                  {row.validationWarnings.map((w, i) => (
+                    <span
+                      key={`${w.code}-${i}`}
+                      className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-600"
+                      title={w.message}
+                    >
+                      {w.message}
+                    </span>
+                  ))}
+                </div>
+              )}
             </div>
           ))}
         </div>
