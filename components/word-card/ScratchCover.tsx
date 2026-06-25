@@ -152,12 +152,14 @@ export function ScratchCover({ label }: { label: string }) {
       return { x: event.clientX - rect.left, y: event.clientY - rect.top };
     };
 
-    const scratchTo = (event: PointerEvent) => {
+    const inBounds = (x: number, y: number) =>
+      x >= 0 && x <= displayW && y >= 0 && y <= displayH;
+
+    const scratchAt = (x: number, y: number) => {
       if (!countedThisCard) {
         countedThisCard = true;
         incrementScratchFamiliarityCount();
       }
-      const { x, y } = localPoint(event);
       if (hasLast) {
         erodeLine(lastX, lastY, x, y);
       } else {
@@ -168,17 +170,32 @@ export function ScratchCover({ label }: { label: string }) {
       hasLast = true;
     };
 
-    // Scratch on plain movement (no button required) plus the initial contact;
-    // touch only emits pointermove while the finger is down, so this naturally
-    // becomes a drag on touch and a hover on mouse.
+    // Listen on the window, not just the canvas, so a gesture that *starts*
+    // outside the cover still scratches once it travels over it. On touch the
+    // element under the initial contact gets implicit pointer capture, so a
+    // canvas-only listener never sees a move that began on the card body — the
+    // exact iOS case where scratching only worked when the finger started on
+    // the cover. We gate on the pointer being within the canvas bounds and
+    // reset stroke continuity whenever it leaves so re-entry starts cleanly.
+    //
+    // Plain movement scratches with no button required; touch only emits
+    // pointermove while the finger is down, so this is a drag on touch and a
+    // hover on mouse.
     const onPointerMove = (event: PointerEvent) => {
+      const { x, y } = localPoint(event);
+      if (!inBounds(x, y)) {
+        hasLast = false;
+        return;
+      }
       event.preventDefault();
-      scratchTo(event);
+      scratchAt(x, y);
     };
 
     const onPointerDown = (event: PointerEvent) => {
+      const { x, y } = localPoint(event);
+      if (!inBounds(x, y)) return;
       hasLast = false;
-      scratchTo(event);
+      scratchAt(x, y);
     };
 
     const endStroke = () => {
@@ -189,21 +206,17 @@ export function ScratchCover({ label }: { label: string }) {
     const observer = new ResizeObserver(resize);
     observer.observe(parent);
 
-    canvas.addEventListener('pointerdown', onPointerDown);
-    canvas.addEventListener('pointermove', onPointerMove);
-    canvas.addEventListener('pointerenter', endStroke);
-    canvas.addEventListener('pointerleave', endStroke);
-    canvas.addEventListener('pointerup', endStroke);
-    canvas.addEventListener('pointercancel', endStroke);
+    window.addEventListener('pointerdown', onPointerDown);
+    window.addEventListener('pointermove', onPointerMove, { passive: false });
+    window.addEventListener('pointerup', endStroke);
+    window.addEventListener('pointercancel', endStroke);
 
     return () => {
       observer.disconnect();
-      canvas.removeEventListener('pointerdown', onPointerDown);
-      canvas.removeEventListener('pointermove', onPointerMove);
-      canvas.removeEventListener('pointerenter', endStroke);
-      canvas.removeEventListener('pointerleave', endStroke);
-      canvas.removeEventListener('pointerup', endStroke);
-      canvas.removeEventListener('pointercancel', endStroke);
+      window.removeEventListener('pointerdown', onPointerDown);
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', endStroke);
+      window.removeEventListener('pointercancel', endStroke);
     };
   }, [label]);
 

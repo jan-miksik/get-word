@@ -23,6 +23,8 @@ interface InterfaceLanguageSelectorProps {
   align?: 'left' | 'right';
   className?: string;
   compact?: boolean;
+  /** Hide the language name on narrow screens, showing only the flag + chevron. */
+  hideLabelBelowSm?: boolean;
   languages?: SupportedLanguage[];
 }
 
@@ -40,6 +42,7 @@ export function InterfaceLanguageSelector({
   align = 'left',
   className = '',
   compact = false,
+  hideLabelBelowSm = false,
   languages: providedLanguages,
 }: InterfaceLanguageSelectorProps) {
   const { t, language } = useI18n();
@@ -190,7 +193,9 @@ export function InterfaceLanguageSelector({
         className={`inline-flex h-10 max-w-full items-center gap-2 rounded-full border-2 border-[var(--ob-ink)] bg-[var(--ob-surface)] px-3.5 text-xs font-bold text-[color:var(--ob-ink)] transition-colors hover:bg-[var(--ob-surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ob-accent)] ${buttonSizeClass}`}
       >
         <span aria-hidden="true" className="text-base leading-none">{currentFlag}</span>
-        <span className="min-w-0 truncate">{currentName}</span>
+        <span className={`min-w-0 truncate${hideLabelBelowSm ? ' hidden sm:inline' : ''}`}>
+          {currentName}
+        </span>
         <svg
           aria-hidden="true"
           viewBox="0 0 24 24"

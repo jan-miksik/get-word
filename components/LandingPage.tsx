@@ -224,6 +224,7 @@ function LanguageSwitcher({
       value={lang}
       onChange={onLangChange}
       align="right"
+      hideLabelBelowSm
       className="max-w-[46vw] sm:max-w-none"
     />
   );
