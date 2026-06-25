@@ -39,7 +39,6 @@ export function TypingChallengeGame({
   const { language, t } = useI18n();
   const [value, setValue] = useState('');
   const [result, setResult] = useState<'exact' | 'close' | 'wrong' | null>(null);
-  const [hintUsed, setHintUsed] = useState(false);
   const [caretIndex, setCaretIndex] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -61,9 +60,8 @@ export function TypingChallengeGame({
       ? 'audio'
       : 'text';
   const normalizedAnswer = correctAnswer.trim();
-  const firstLetterMatch = normalizedAnswer.match(/\S/);
-  const firstLetter = firstLetterMatch ? firstLetterMatch[0] : '';
   const answerChars = normalizedAnswer.split('');
+  const hintExhausted = answerChars.every((ch, idx) => (value[idx] ?? '') === ch);
   const answerLanguageCode = getWordLanguageCodeForSide(questionWord, answerSide);
   const targetLanguageLabel = (() => {
     if (answerLanguageCode) {
@@ -100,6 +98,35 @@ export function TypingChallengeGame({
       void playClip(learningAudioSrcs);
     }
     onResult?.(delta);
+  };
+
+  // Each press fills the next still-missing letter of the answer (skipping over
+  // and auto-filling any spaces), so repeated presses progressively reveal it.
+  const revealNextLetter = () => {
+    if (result !== null) return;
+    const next = value.split('');
+    let caretPos = -1;
+    for (let idx = 0; idx < answerChars.length; idx++) {
+      while (next.length <= idx) next.push('');
+      const expected = answerChars[idx];
+      if (next[idx] === expected) continue;
+      next[idx] = expected;
+      // Spaces shouldn't consume a hint press — fill them and keep going.
+      if (expected === ' ') continue;
+      caretPos = idx + 1;
+      break;
+    }
+    if (caretPos < 0) return;
+    const nextValue = next.join('');
+    setValue(nextValue);
+    requestAnimationFrame(() => {
+      const input = inputRef.current;
+      if (input) {
+        const pos = Math.min(caretPos, nextValue.length);
+        input.setSelectionRange(pos, pos);
+        updateCaret(input);
+      }
+    });
   };
 
   useEffect(() => {
@@ -222,27 +249,8 @@ export function TypingChallengeGame({
             <button
               type="button"
               className="game-hint-btn"
-              onClick={() => {
-                if (hintUsed) return;
-                if (!firstLetter) { setHintUsed(true); return; }
-                const idx = answerChars.findIndex((ch) => ch !== ' ');
-                if (idx < 0) { setHintUsed(true); return; }
-                const next = value.split('');
-                while (next.length < idx) next.push('');
-                next[idx] = firstLetter;
-                const nextValue = next.join('');
-                setValue(nextValue);
-                setHintUsed(true);
-                requestAnimationFrame(() => {
-                  const input = inputRef.current;
-                  if (input) {
-                    const pos = Math.min(idx + 1, nextValue.length);
-                    input.setSelectionRange(pos, pos);
-                    updateCaret(input);
-                  }
-                });
-              }}
-              disabled={hintUsed}
+              onClick={revealNextLetter}
+              disabled={hintExhausted}
             >
               {t('game.hint')}
             </button>

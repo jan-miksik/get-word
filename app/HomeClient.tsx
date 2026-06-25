@@ -74,6 +74,7 @@ export function HomeClient() {
     showEnglish,
     showCategoryBadges,
     showPronunciation,
+    revealMode,
     memoryHooksEnabled,
     memoryHooksIntroAnswered,
     memoryHookDisableFromStage,
@@ -147,8 +148,11 @@ export function HomeClient() {
   // Trigger re-render when cards become due for review
   const dueTimerRevision = useDueTimer(progress);
 
-  // Attach press handlers to cover targets (supports virtualized mounts)
-  usePressHandlers(phrasesScrollElement, [selectedCategories, showAll, role]);
+  // Attach press handlers to cover targets (supports virtualized mounts).
+  // Disabled in scratch mode, where the canvas overlay owns the reveal gesture.
+  usePressHandlers(phrasesScrollElement, [selectedCategories, showAll, role], {
+    enabled: revealMode === 'press',
+  });
 
   const shouldRenderMemoryHook = useCallback(
     (wordId: string) => {

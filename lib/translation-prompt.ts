@@ -27,7 +27,8 @@ export const TRANSLATION_QUALITY_RULES = `
 - For an ambiguous single word, choose the most common everyday meaning and use the surrounding items as context.
 - If the source omits a noun (e.g. "the white one", "I'll take the small one"), produce a natural, grammatical phrase in the target language, not a bare adjective.
 - Preserve elements that are part of the source item: ellipses ("…" / "..."), names, numbers, and emoji.
-- Do not add romanization, pronunciation, parenthetical glosses, or slash-separated alternatives unless they are part of the original text.
+- A parenthetical in the source — e.g. "English (language)", "you (informal singular)", "light (color)" — is a disambiguation / sense / register hint, NOT text to translate. Use it to choose the correct meaning and register, but NEVER carry it into the target: the target is the plain translation of the core word only ("Inglés", "tú", "luz"), with no parentheses, translated or otherwise. The note can be surfaced later as a separate study comment; it must not appear in the translation.
+- Do not add romanization, pronunciation, parenthetical glosses, or slash-separated alternatives. The target must contain no parentheses unless an actual parenthesis is part of the source word itself (e.g. a name or fixed expression that literally includes one).
 - Never output text in the wrong language and never leave an item untranslated.
 `.trim();
 
@@ -50,6 +51,7 @@ export const COMMENT_GENERATION_RULES = `
   - a surprising usage or a grammar trap,
   - a note about how common/rare a word actually is in everyday speech,
   - a formal/informal address that learners commonly confuse: you MAY note the alternative in one short clause (e.g. the polite/informal form is X) only when it is genuinely useful for this row. Most items should still have no comment, and never add a bare "This is formal."
+  - a disambiguation the source carried in parentheses, e.g. "light (color)" or "you (informal singular)": that hint belongs in the translation card as plain words only, so if the distinction is genuinely useful, restate it here as a short note in {{languageFrom}} rather than echoing the bare label. Skip it when the chosen translation already makes the sense obvious.
 - If nothing useful applies, OMIT the comment property entirely for that item. Do not return empty text and do not invent filler.
 - Write the comment text from the perspective of someone who already knows {{languageFrom}}. The comment text MUST be written in {{languageFrom}}.
 - Treat the note as an extra hint, not a definition. Do not restate the source word or its direct translation from the card.

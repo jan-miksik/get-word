@@ -23,10 +23,12 @@ import {
 
 export type Role = LearningRole;
 export type SettingsLanguage = string;
+export type RevealMode = 'press' | 'scratch';
 
 const DEFAULT_SETTINGS_LANGUAGE = 'en';
 const LEARNING_ONBOARDING_COMPLETED_SESSION_KEY = 'get-word-learning-onboarding-completed';
 const PROGRESSIVE_REVEAL_STORAGE_KEY = 'get-word-progressive-reveal-enabled';
+const REVEAL_MODE_STORAGE_KEY = 'get-word-reveal-mode';
 
 function readProgressiveRevealPreference(): boolean {
   if (typeof window === 'undefined') return true;
@@ -34,6 +36,17 @@ function readProgressiveRevealPreference(): boolean {
     return window.localStorage.getItem(PROGRESSIVE_REVEAL_STORAGE_KEY) !== 'false';
   } catch {
     return true;
+  }
+}
+
+function readRevealModePreference(): RevealMode {
+  if (typeof window === 'undefined') return 'press';
+  try {
+    return window.localStorage.getItem(REVEAL_MODE_STORAGE_KEY) === 'scratch'
+      ? 'scratch'
+      : 'press';
+  } catch {
+    return 'press';
   }
 }
 
@@ -106,6 +119,7 @@ export function usePreferences(
   const [progressiveRevealEnabled, setProgressiveRevealEnabled] = useState(
     readProgressiveRevealPreference
   );
+  const [revealMode, setRevealMode] = useState<RevealMode>(readRevealModePreference);
   const [memoryHooksEnabled, setMemoryHooksEnabled] = useState(true);
   const [memoryHooksIntroAnswered, setMemoryHooksIntroAnswered] = useState(false);
   const [memoryHookDisableFromStage, setMemoryHookDisableFromStageState] = useState<number>(
@@ -137,6 +151,14 @@ export function usePreferences(
       // Keep the in-memory setting usable when storage is unavailable.
     }
   }, [progressiveRevealEnabled]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(REVEAL_MODE_STORAGE_KEY, revealMode);
+    } catch {
+      // Keep the in-memory setting usable when storage is unavailable.
+    }
+  }, [revealMode]);
 
   useEffect(() => {
     if (settingsLanguageSelectedAt) return;
@@ -426,6 +448,8 @@ export function usePreferences(
     setShowPronunciation: setShowPronunciationPreference,
     progressiveRevealEnabled,
     setProgressiveRevealEnabled,
+    revealMode,
+    setRevealMode,
     memoryHooksEnabled,
     setMemoryHooksEnabled: setMemoryHooksEnabledPreference,
     memoryHooksIntroAnswered,

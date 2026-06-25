@@ -61,18 +61,14 @@ export function useLearningOnboardingActions({
 
   async function subscribeToList(list: MatchedWordList) {
     setWorkingId(list.id);
-    // Show the loader overlay (with an estimate) while the list is prepared so
-    // the streamlined Continue flow never flashes an empty app and then reloads.
+    // Show the loader overlay while the list is prepared so the streamlined
+    // Continue flow never flashes an empty app and then reloads. No estimate is
+    // shown: subscribing is a single attach request that finishes in seconds —
+    // it does no translation or audio generation, so the item-count-based
+    // estimate (which assumes that work) would wildly overstate the wait.
     setGenerationStatus({
       title: 'Opening word list',
       detail: `Preparing ${list.name}...`,
-      estimateSeconds: list.itemCount
-        ? estimateCommonListGenerationSeconds({
-            itemCount: list.itemCount,
-            audioCharacterCount: 0,
-            audioClipCount: 0,
-          })
-        : undefined,
     });
     setError(null);
     try {

@@ -862,6 +862,18 @@
   border-radius: 10px;
 }
 
+/* ── Scratch reveal mode ──
+   The answer text stays fully painted; the <canvas> overlay (ScratchCover) sits
+   on top and is erased to reveal it. Give the row a comfortable scratch area
+   and centre the text within it (mirrors the covered layout, minus the
+   text-hiding). */
+.cover-target.is-scratch {
+  min-height: 3.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 /* On mobile: push known/unknown buttons to bottom of card */
 @media (max-width: 767px) {
   .phrase-card .card-actions {

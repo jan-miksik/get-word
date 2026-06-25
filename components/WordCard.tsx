@@ -6,6 +6,7 @@ import { NormalizedWord, STAGES, shouldMinimizeStudyNoteForStage } from '@/lib/w
 import { ProgressData } from '@/lib/sync';
 import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
 import { useI18n } from '@/components/I18nProvider';
+import { useOptionalAppStateContext } from '@/context/AppStateContext';
 import type { LearningRole } from '@/features/learning/state/learningRole';
 import { RevealHint } from '@/components/word-card/RevealHint';
 import { LanguageRow } from '@/components/word-card/LanguageRow';
@@ -69,6 +70,7 @@ export const WordCard = memo(function WordCard({
   fullscreen = false,
 }: WordCardProps) {
   const { t } = useI18n();
+  const revealMode = useOptionalAppStateContext()?.revealMode ?? 'press';
   const [editingHook, setEditingHook] = useState(false);
   const [hookValue, setHookValue] = useState(memoryHook);
   const hookInputRef = useRef<HTMLInputElement>(null);
@@ -223,7 +225,9 @@ export const WordCard = memo(function WordCard({
   const coverCz = shouldCover('cz');
   const coverEn = shouldCover('en');
   const coverVi = shouldCover('vi');
-  const coverMemoryHook = shouldCover('memory-hook');
+  // Scratch mode covers the word answers via a canvas overlay; the memory hook
+  // (which also doubles as a click-to-edit field) is left uncovered there.
+  const coverMemoryHook = revealMode === 'scratch' ? false : shouldCover('memory-hook');
 
   const cardMaxTextLen = Math.max(
     word.cz?.length ?? 0,

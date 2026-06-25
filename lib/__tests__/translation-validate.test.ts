@@ -5,6 +5,7 @@ import {
   looksUntranslated,
   missingArticleForNoun,
   missingTargetCapitalization,
+  parentheticalInTranslation,
   registerMarkerMismatch,
   validateTranslation,
 } from "@/lib/translation-validate";
@@ -141,6 +142,33 @@ describe("missingArticleForNoun (German, conservative)", () => {
   it("flags a bare-noun source whose German target dropped the article", () => {
     const w = missingArticleForNoun("le corps", "Körper", "fr", "de");
     expect(w?.code).toBe("missing_article_for_noun");
+  });
+});
+
+describe("parentheticalInTranslation", () => {
+  it("flags a gloss added to the target when the source has none", () => {
+    const w = parentheticalInTranslation("light", "luz (color)");
+    expect(w?.code).toBe("parenthetical_in_translation");
+    expect(w?.confidence).toBe("high");
+  });
+  it("flags a translated-through gloss (both sides parenthesized)", () => {
+    const w = parentheticalInTranslation("English (language)", "Inglés (idioma)");
+    expect(w?.code).toBe("parenthetical_in_translation");
+    expect(w?.confidence).toBe("medium");
+  });
+  it("handles full-width brackets", () => {
+    expect(parentheticalInTranslation("光", "光（色）")?.code).toBe(
+      "parenthetical_in_translation",
+    );
+  });
+  it("does NOT flag a clean plain-word translation", () => {
+    expect(parentheticalInTranslation("light (color)", "luz")).toBeNull();
+    expect(parentheticalInTranslation("you (informal singular)", "tú")).toBeNull();
+  });
+  it("does NOT flag a parenthesis preserved verbatim from the source", () => {
+    expect(
+      parentheticalInTranslation("Routledge (publisher)", "Routledge (publisher)"),
+    ).toBeNull();
   });
 });
 

@@ -71,6 +71,7 @@ export type TranslationWarningCode =
   | "register_marker_mismatch"
   | "missing_target_capitalization"
   | "missing_article_for_noun"
+  | "parenthetical_in_translation"
   | "looks_untranslated";
 
 export type TranslationValidationWarning = {
@@ -224,6 +225,42 @@ export function missingArticleForNoun(
   };
 }
 
+// Matches a parenthetical group "(…)" — ASCII or full-width brackets — and
+// captures its inner text so we can compare it against the source.
+const PARENTHETICAL_GROUP = /[(（]([^)）]*)[)）]/g;
+
+/**
+ * A disambiguation / sense / register hint the source carried in parentheses
+ * ("light (color)", "you (informal singular)") must never leak into the target:
+ * the translation is the plain word only. Flag any parenthetical in the target
+ * unless that exact inner text is literally part of the source (a name or fixed
+ * expression that genuinely contains parentheses).
+ *
+ * High confidence when the source has no parentheses at all (the gloss was
+ * clearly added); medium when both sides have one (could be legitimate
+ * preservation, but is usually a translated-through gloss).
+ */
+export function parentheticalInTranslation(
+  source: string,
+  target: string,
+): TranslationValidationWarning | null {
+  const matches = [...target.matchAll(PARENTHETICAL_GROUP)];
+  if (matches.length === 0) return null;
+
+  const sourceHasParens = /[(（][^)）]*[)）]/.test(source);
+  // Preserved verbatim from the source → legitimate, don't flag.
+  const allPreserved = matches.every((m) => source.includes(m[0]));
+  if (allPreserved) return null;
+
+  return {
+    code: "parenthetical_in_translation",
+    severity: "warning",
+    confidence: sourceHasParens ? "medium" : "high",
+    message:
+      "Translation contains a parenthetical. A source hint like \"(color)\" or \"(informal)\" is context, not text to translate — keep the target a plain word and move the note to a comment.",
+  };
+}
+
 /**
  * Run all conservative quality checks for one translated row and collect the
  * warnings. Empty array = nothing to flag.
@@ -255,6 +292,9 @@ export function validateTranslation(params: {
 
   const article = missingArticleForNoun(source, target, fromLang, toLang);
   if (article) warnings.push(article);
+
+  const parenthetical = parentheticalInTranslation(source, target);
+  if (parenthetical) warnings.push(parenthetical);
 
   return warnings;
 }

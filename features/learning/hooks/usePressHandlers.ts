@@ -81,9 +81,12 @@ function syncRevealFamiliarityAttribute() {
  */
 export function usePressHandlers(
   containerRef: PressHandlerContainer,
-  deps: React.DependencyList
+  deps: React.DependencyList,
+  options?: { enabled?: boolean }
 ) {
+  const enabled = options?.enabled ?? true;
   useEffect(() => {
+    if (!enabled) return;
     const container = resolveContainer(containerRef);
     if (!container) return;
 
@@ -244,5 +247,5 @@ export function usePressHandlers(
       cleanupMap.clear();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerRef, ...deps]);
+  }, [containerRef, enabled, ...deps]);
 }
