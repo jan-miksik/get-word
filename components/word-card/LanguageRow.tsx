@@ -20,7 +20,7 @@ export function LanguageRow({
   children: ReactNode;
 }) {
   const { t } = useI18n();
-  const revealMode = useOptionalAppStateContext()?.revealMode ?? 'press';
+  const revealMode = useOptionalAppStateContext()?.revealMode ?? 'scratch';
   // Scratch mode keeps the answer text fully painted and lays an opaque canvas
   // on top, so erasing the canvas reveals the real text underneath. Press mode
   // hides the text (is-covered) until held.

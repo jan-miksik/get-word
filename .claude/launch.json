@@ -3,9 +3,9 @@
   "configurations": [
     {
       "name": "dev",
-      "runtimeExecutable": "/Users/janm/.nvm/versions/node/v24.15.0/bin/pnpm",
-      "runtimeArgs": ["exec", "next", "dev", "--turbo", "--port", "3030"],
-      "port": 3030,
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000,
       "autoPort": false
     }
   ]

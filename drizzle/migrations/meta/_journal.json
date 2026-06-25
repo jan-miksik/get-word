@@ -239,6 +239,13 @@
       "when": 1782296160694,
       "tag": "0033_free_jocasta",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "7",
+      "when": 1782386415478,
+      "tag": "0034_shiny_pyro",
+      "breakpoints": true
     }
   ]
 }

@@ -70,7 +70,7 @@ export const WordCard = memo(function WordCard({
   fullscreen = false,
 }: WordCardProps) {
   const { t } = useI18n();
-  const revealMode = useOptionalAppStateContext()?.revealMode ?? 'press';
+  const revealMode = useOptionalAppStateContext()?.revealMode ?? 'scratch';
   const [editingHook, setEditingHook] = useState(false);
   const [hookValue, setHookValue] = useState(memoryHook);
   const hookInputRef = useRef<HTMLInputElement>(null);

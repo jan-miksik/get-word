@@ -147,9 +147,9 @@ export function ScratchCover({ label }: { label: string }) {
       ctx.stroke();
     };
 
-    const localPoint = (event: PointerEvent) => {
+    const clientPoint = (clientX: number, clientY: number) => {
       const rect = canvas.getBoundingClientRect();
-      return { x: event.clientX - rect.left, y: event.clientY - rect.top };
+      return { x: clientX - rect.left, y: clientY - rect.top };
     };
 
     const inBounds = (x: number, y: number) =>
@@ -170,19 +170,24 @@ export function ScratchCover({ label }: { label: string }) {
       hasLast = true;
     };
 
-    // Listen on the window, not just the canvas, so a gesture that *starts*
-    // outside the cover still scratches once it travels over it. On touch the
-    // element under the initial contact gets implicit pointer capture, so a
-    // canvas-only listener never sees a move that began on the card body — the
-    // exact iOS case where scratching only worked when the finger started on
-    // the cover. We gate on the pointer being within the canvas bounds and
-    // reset stroke continuity whenever it leaves so re-entry starts cleanly.
+    const endStroke = () => {
+      hasLast = false;
+    };
+
+    // Touch and mouse are handled by separate event families on purpose.
     //
-    // Plain movement scratches with no button required; touch only emits
-    // pointermove while the finger is down, so this is a drag on touch and a
-    // hover on mouse.
-    const onPointerMove = (event: PointerEvent) => {
-      const { x, y } = localPoint(event);
+    // On iOS, the element under the initial contact gets implicit *pointer*
+    // capture and — worse — if that element allows scrolling, Safari claims the
+    // gesture and never delivers usable `pointermove`s. That's why the previous
+    // window-level pointer listener only worked when the finger started on the
+    // cover. Native `touch` events don't have that problem: we listen on the
+    // window, and once the finger travels over the canvas we `preventDefault`
+    // (non-passive) to keep scratching instead of scrolling. Because we only
+    // cancel while over the canvas, the page still scrolls normally elsewhere.
+    const onTouchPoint = (event: TouchEvent) => {
+      const touch = event.touches[0];
+      if (!touch) return;
+      const { x, y } = clientPoint(touch.clientX, touch.clientY);
       if (!inBounds(x, y)) {
         hasLast = false;
         return;
@@ -191,28 +196,46 @@ export function ScratchCover({ label }: { label: string }) {
       scratchAt(x, y);
     };
 
-    const onPointerDown = (event: PointerEvent) => {
-      const { x, y } = localPoint(event);
-      if (!inBounds(x, y)) return;
-      hasLast = false;
+    // Mouse/pen: plain movement scratches with no button required (a hover),
+    // matching the touch drag. Pointer events of type `touch` are ignored here
+    // so the touch handlers above own that case.
+    const onPointerMove = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return;
+      const { x, y } = clientPoint(event.clientX, event.clientY);
+      if (!inBounds(x, y)) {
+        hasLast = false;
+        return;
+      }
       scratchAt(x, y);
     };
 
-    const endStroke = () => {
+    const onPointerDown = (event: PointerEvent) => {
+      if (event.pointerType === 'touch') return;
+      const { x, y } = clientPoint(event.clientX, event.clientY);
+      if (!inBounds(x, y)) return;
       hasLast = false;
+      scratchAt(x, y);
     };
 
     resize();
     const observer = new ResizeObserver(resize);
     observer.observe(parent);
 
+    window.addEventListener('touchstart', onTouchPoint, { passive: false });
+    window.addEventListener('touchmove', onTouchPoint, { passive: false });
+    window.addEventListener('touchend', endStroke);
+    window.addEventListener('touchcancel', endStroke);
     window.addEventListener('pointerdown', onPointerDown);
-    window.addEventListener('pointermove', onPointerMove, { passive: false });
+    window.addEventListener('pointermove', onPointerMove);
     window.addEventListener('pointerup', endStroke);
     window.addEventListener('pointercancel', endStroke);
 
     return () => {
       observer.disconnect();
+      window.removeEventListener('touchstart', onTouchPoint);
+      window.removeEventListener('touchmove', onTouchPoint);
+      window.removeEventListener('touchend', endStroke);
+      window.removeEventListener('touchcancel', endStroke);
       window.removeEventListener('pointerdown', onPointerDown);
       window.removeEventListener('pointermove', onPointerMove);
       window.removeEventListener('pointerup', endStroke);

@@ -162,7 +162,7 @@ function buildSyncUser(user: SyncUserShape) {
     memory_hooks_intro_answered: user.memoryHooksIntroAnswered ?? false,
     memory_hook_disable_from_stage:
       user.memoryHookDisableFromStage ?? DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
-    study_notes_enabled: user.studyNotesEnabled ?? false,
+    study_notes_enabled: user.studyNotesEnabled ?? true,
     study_note_minimize_from_stage:
       user.studyNoteMinimizeFromStage ?? DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE,
     settings_language: user.settingsLanguage ?? null,

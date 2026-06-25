@@ -1,3 +1,5 @@
+import { createBrowserId } from "./browser-id";
+
 const SESSION_ID_KEY = "get_word_session_id";
 
 let inMemorySessionId: string | null = null;
@@ -17,7 +19,7 @@ export function getSessionId(): string {
 
   if (inMemorySessionId) return inMemorySessionId;
 
-  const sessionId = crypto.randomUUID();
+  const sessionId = createBrowserId("session");
   inMemorySessionId = sessionId;
 
   try {

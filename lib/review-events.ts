@@ -2,6 +2,7 @@ import { appendOp } from "@/lib/local-first/outbox";
 import { scheduleDrain } from "@/lib/local-first/drainer";
 import { isLocalFirstAvailableSync, ensureLocalFirstAvailability } from "@/lib/local-first/availability";
 import { getDeviceId } from "@/lib/device-id";
+import { createBrowserId } from "@/lib/browser-id";
 
 const REVIEW_EVENT_OUTBOX_KEY = "get_word_review_event_outbox";
 
@@ -24,7 +25,7 @@ export function createReviewEvent(
 ): ReviewEventPayload {
   const isItemId = UUID_RE.test(wordId);
   return {
-    client_event_id: crypto.randomUUID(),
+    client_event_id: createBrowserId("review"),
     ...(isItemId ? { word_list_item_id: wordId } : { word_id: wordId }),
     action,
     client_created_at: now,

@@ -51,7 +51,7 @@ describe('WordCard fullscreen', () => {
     expect(container.querySelector('.card-time-badge')).toBeNull();
   });
 
-  it('shows a press-to-reveal hint when a language is covered', () => {
+  it('shows a scratch-to-reveal hint by default when a language is covered', () => {
     render(
       <WordCard
         {...baseProps}
@@ -61,7 +61,9 @@ describe('WordCard fullscreen', () => {
       />
     );
 
-    expect(screen.getByText('Press to reveal')).toBeInTheDocument();
+    const coveredRow = document.querySelector('[data-lang="vi"]');
+    expect(coveredRow).toHaveClass('is-scratch');
+    expect(coveredRow?.querySelector('.scratch-cover')).not.toBeNull();
   });
 
   it('starts editing when the empty fullscreen memory hook is tapped', () => {

@@ -40,13 +40,13 @@ function readProgressiveRevealPreference(): boolean {
 }
 
 function readRevealModePreference(): RevealMode {
-  if (typeof window === 'undefined') return 'press';
+  if (typeof window === 'undefined') return 'scratch';
   try {
-    return window.localStorage.getItem(REVEAL_MODE_STORAGE_KEY) === 'scratch'
-      ? 'scratch'
-      : 'press';
+    return window.localStorage.getItem(REVEAL_MODE_STORAGE_KEY) === 'press'
+      ? 'press'
+      : 'scratch';
   } catch {
-    return 'press';
+    return 'scratch';
   }
 }
 
@@ -125,7 +125,7 @@ export function usePreferences(
   const [memoryHookDisableFromStage, setMemoryHookDisableFromStageState] = useState<number>(
     DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE
   );
-  const [studyNotesEnabled, setStudyNotesEnabledState] = useState(false);
+  const [studyNotesEnabled, setStudyNotesEnabledState] = useState(true);
   const [studyNoteMinimizeFromStage, setStudyNoteMinimizeFromStageState] = useState<number>(
     DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE
   );
@@ -347,7 +347,7 @@ export function usePreferences(
     setMemoryHookDisableFromStageState(
       normalizeMemoryHookDisableFromStage(user.memory_hook_disable_from_stage)
     );
-    setStudyNotesEnabledState(user.study_notes_enabled ?? false);
+    setStudyNotesEnabledState(user.study_notes_enabled ?? true);
     setStudyNoteMinimizeFromStageState(
       normalizeStudyNoteMinimizeFromStage(user.study_note_minimize_from_stage)
     );

@@ -1,0 +1,1 @@
+ALTER TABLE "users" ALTER COLUMN "study_notes_enabled" SET DEFAULT true;

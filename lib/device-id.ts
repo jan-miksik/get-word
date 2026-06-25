@@ -1,3 +1,5 @@
+import { createBrowserId } from './browser-id';
+
 /**
  * Device ID management utilities.
  *
@@ -86,7 +88,7 @@ export function getOrCreateDeviceId(): { id: string; persisted: boolean } {
   }
 
   // Generate new device ID
-  const deviceId = crypto.randomUUID();
+  const deviceId = createBrowserId('device');
   inMemoryId = deviceId; // Store in memory immediately
   
   // Attempt to store device ID
