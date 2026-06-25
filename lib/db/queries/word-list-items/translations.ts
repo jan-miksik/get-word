@@ -1,6 +1,7 @@
 import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../../client';
 import { wordListItems, wordLists } from '../../schema';
+import { isAudioTextEquivalent } from '../../../audio-text-match';
 
 export async function updateItemTranslations(
   updates: {
@@ -10,6 +11,26 @@ export async function updateItemTranslations(
     translationStatus?: 'manual' | 'translated' | 'failed';
   }[],
 ): Promise<void> {
+  // Load the current text + audio link for every item up front so we can tell
+  // when an edit genuinely changes a word (vs. a case/dot-only tweak) and, in
+  // that case, disconnect the now-mismatched audio asset.
+  const ids = updates.map((u) => u.id);
+  const existing = ids.length
+    ? await db
+        .select({
+          id: wordListItems.id,
+          textKnown: wordListItems.textKnown,
+          textTarget: wordListItems.textTarget,
+          audioAssetId: wordListItems.audioAssetId,
+          audioStatus: wordListItems.audioStatus,
+          knownAudioAssetId: wordListItems.knownAudioAssetId,
+          knownAudioStatus: wordListItems.knownAudioStatus,
+        })
+        .from(wordListItems)
+        .where(inArray(wordListItems.id, ids))
+    : [];
+  const existingById = new Map(existing.map((item) => [item.id, item]));
+
   for (const { id, textKnown, textTarget, translationStatus } of updates) {
     const set: Record<string, unknown> = {
       updatedAt: new Date(),
@@ -17,6 +38,29 @@ export async function updateItemTranslations(
     if (translationStatus !== undefined) set.translationStatus = translationStatus;
     if (textTarget !== undefined) set.textTarget = textTarget;
     if (textKnown !== undefined) set.textKnown = textKnown;
+
+    const prev = existingById.get(id);
+    if (prev) {
+      // Target-side word changed beyond case/dots → its audio no longer matches.
+      if (
+        textTarget !== undefined &&
+        !isAudioTextEquivalent(textTarget, prev.textTarget) &&
+        (prev.audioAssetId || prev.audioStatus !== 'none')
+      ) {
+        set.audioAssetId = null;
+        set.audioStatus = 'none';
+      }
+      // Known-side word changed beyond case/dots → its audio no longer matches.
+      if (
+        textKnown !== undefined &&
+        !isAudioTextEquivalent(textKnown, prev.textKnown) &&
+        (prev.knownAudioAssetId || prev.knownAudioStatus !== 'none')
+      ) {
+        set.knownAudioAssetId = null;
+        set.knownAudioStatus = 'none';
+      }
+    }
+
     await db
       .update(wordListItems)
       .set(set)
