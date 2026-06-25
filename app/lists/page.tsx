@@ -385,6 +385,7 @@ function ListsPageContent() {
               onSkip={wizard.handleSkipTranslation}
               onUsageRefresh={loadGoogleUsage}
               onBack={wizard.handleGoBack}
+              onRemoveItem={wizard.markItemRemoved}
             />
           ) : wizard.wizardStep === 'audio-target' ? (
             <AudioStep

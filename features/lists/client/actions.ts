@@ -245,6 +245,26 @@ export async function confirmCategoryItems(
   return res.json();
 }
 
+export type RemoveItemsResult = {
+  removed: string[];
+  merged: { from: string; into: string }[];
+};
+
+export async function removeListItems(
+  listId: string,
+  itemIds: string[],
+): Promise<RemoveItemsResult> {
+  const res = await listsApiFetch(`/api/lists/${listId}/items/remove`, {
+    method: "POST",
+    body: JSON.stringify({ itemIds }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? "Failed to remove items");
+  }
+  return res.json();
+}
+
 export async function createCategory(listId: string, name: string): Promise<void> {
   const res = await listsApiFetch(`/api/lists/${listId}/categories`, {
     method: "POST",

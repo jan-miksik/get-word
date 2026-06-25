@@ -190,7 +190,7 @@ describe('POST /api/lists/[id]/fork', () => {
     expect(result?.copied).toBe(1)
   })
 
-  it('carries manual comments but drops generated ones when the fork changes the language pair', async () => {
+  it('drops both manual and generated comments when the fork changes the language pair', async () => {
     const manualComment = {
       version: 1,
       text: 'manualni poznamka',
@@ -225,7 +225,7 @@ describe('POST /api/lists/[id]/fork', () => {
 
     expect(res.status).toBe(200)
     expect(mockValues).toHaveBeenCalledWith([
-      expect.objectContaining({ comment: manualComment }),
+      expect.objectContaining({ comment: null }),
       expect.objectContaining({ comment: null }),
     ])
   })

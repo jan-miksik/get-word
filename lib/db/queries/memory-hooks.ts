@@ -1,4 +1,4 @@
-import { eq, and, sql, gt, isNull } from "drizzle-orm";
+import { eq, and, sql, gt, isNull, inArray } from "drizzle-orm";
 import { db } from "../client";
 import {
   userMemoryHooks,
@@ -152,6 +152,98 @@ export async function deleteMemoryHookByItemId(
     )
     .returning();
   return results.length > 0;
+}
+
+/**
+ * Bulk soft-delete every live hook attached to the given items, across all
+ * users. Used when items are removed without a surviving twin to rewire to.
+ * Soft-deleting (rather than relying on the FK cascade) tombstones each row so
+ * delta-sync clients drop their cached hooks instead of keeping a stale one
+ * that points at a now-deleted word.
+ */
+export async function softDeleteHooksForItems(itemIds: string[]): Promise<void> {
+  if (itemIds.length === 0) return;
+  const now = new Date();
+  await db
+    .update(userMemoryHooks)
+    .set({ deletedAt: now, updatedAt: now })
+    .where(
+      and(
+        inArray(userMemoryHooks.wordListItemId, itemIds),
+        isNull(userMemoryHooks.deletedAt)
+      )
+    );
+}
+
+/**
+ * Rewire memory hooks from a duplicate item onto the surviving twin before the
+ * duplicate is deleted, so no learner loses their mnemonic.
+ *
+ * For each user with a live hook on `fromItemId`:
+ *  - if they have no live hook on `toItemId` (or theirs there is older), the
+ *    duplicate's hook text wins and is upserted onto the survivor (reviving a
+ *    tombstoned survivor row if needed);
+ *  - if their survivor hook is newer, it is kept untouched (last-writer-wins).
+ * Either way the duplicate's hook is then soft-deleted so its `wordListItemId`
+ * key tombstones for delta sync.
+ *
+ * Done as two operations (upsert survivor + soft-delete source) rather than a
+ * raw repoint UPDATE, because the unique (userId, wordListItemId) constraint
+ * counts tombstoned rows, and a raw update would leave the source key with no
+ * tombstone for clients to drop.
+ */
+export async function mergeHooksToSurvivor(
+  fromItemId: string,
+  toItemId: string
+): Promise<void> {
+  if (fromItemId === toItemId) return;
+  const now = new Date();
+
+  const fromHooks = await db
+    .select()
+    .from(userMemoryHooks)
+    .where(
+      and(
+        eq(userMemoryHooks.wordListItemId, fromItemId),
+        isNull(userMemoryHooks.deletedAt)
+      )
+    );
+  if (fromHooks.length === 0) return;
+
+  // Include tombstoned survivor rows: the unique constraint counts them, so we
+  // must reconcile against them too.
+  const survivorHooks = await db
+    .select()
+    .from(userMemoryHooks)
+    .where(eq(userMemoryHooks.wordListItemId, toItemId));
+  const survivorByUser = new Map(survivorHooks.map((hook) => [hook.userId, hook]));
+
+  for (const from of fromHooks) {
+    const existing = survivorByUser.get(from.userId);
+    const existingIsLive = Boolean(existing && existing.deletedAt === null);
+    // LWW: the duplicate's hook wins when the survivor has no live hook, or the
+    // duplicate's hook was updated more recently.
+    const fromWins = !existingIsLive || from.updatedAt > existing!.updatedAt;
+
+    if (fromWins) {
+      await db
+        .insert(userMemoryHooks)
+        .values({
+          userId: from.userId,
+          wordListItemId: toItemId,
+          hookText: from.hookText,
+        })
+        .onConflictDoUpdate({
+          target: [userMemoryHooks.userId, userMemoryHooks.wordListItemId],
+          set: { hookText: from.hookText, updatedAt: now, deletedAt: null },
+        });
+    }
+
+    await db
+      .update(userMemoryHooks)
+      .set({ deletedAt: now, updatedAt: now })
+      .where(eq(userMemoryHooks.id, from.id));
+  }
 }
 
 // Batch upsert memory hooks

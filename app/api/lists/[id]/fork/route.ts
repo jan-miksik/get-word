@@ -29,17 +29,18 @@ import {
 type RouteContext = { params: Promise<{ id: string }> };
 
 /**
- * Decide which (if any) comment carries to a fork. Manual comments always
- * carry. Generated comments are pair- and perspective-specific, so they carry
- * only when BOTH languages are unchanged; otherwise they're dropped. Fork never
- * auto-regenerates.
+ * Decide which (if any) comment carries to a fork. Comments — manual and
+ * generated alike — are pair- and perspective-specific: a note written for
+ * one direction reads in the wrong language/perspective once the pair changes
+ * (a reversal swaps which side is "known"). So a comment carries only when the
+ * fork keeps BOTH languages unchanged (a same-pair customization fork);
+ * otherwise it's dropped. Fork never auto-regenerates.
  */
 function forkComment(
   source: WordItemComment | null,
   languagesUnchanged: boolean,
 ): WordItemComment | null {
   if (!source) return null;
-  if (source.source === "manual") return source;
   return languagesUnchanged ? source : null;
 }
 

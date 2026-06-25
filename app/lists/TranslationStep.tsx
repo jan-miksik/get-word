@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { listsApiFetch } from '@/features/lists/api';
 import {
@@ -38,6 +38,10 @@ interface TranslationStepProps {
   onSkip: () => Promise<void>;
   onUsageRefresh?: () => Promise<void>;
   onBack?: () => void;
+  // Marks duplicate items for removal (used by the dedupe modal). The delete is
+  // committed by the wizard when this step completes; here we only drop them
+  // from the visible rows.
+  onRemoveItem?: (itemId: string) => void;
 }
 
 type TranslationRow = CompletedTranslationRow;
@@ -112,6 +116,7 @@ export function TranslationStep({
   onSkip,
   onUsageRefresh,
   onBack,
+  onRemoveItem,
 }: TranslationStepProps) {
   const { t } = useI18n();
   const [rows, setRows] = useState<TranslationRow[]>(() =>
@@ -398,6 +403,56 @@ export function TranslationStep({
     );
   }, []);
 
+  // Detect duplicate words across the rows currently in view. In the
+  // edit-all-words flow these are every item in the list, so this is an
+  // effectively list-wide check. Keyed on the source-side word (normalized for
+  // case/whitespace); a group of 2+ rows is a duplicate group.
+  const duplicateGroups = useMemo(() => {
+    const byKey = new Map<string, { key: string; word: string; rows: TranslationRow[] }>();
+    for (const row of rows) {
+      const word = (row[hasSource] ?? '').trim();
+      const key = word.replace(/\s+/g, ' ').toLowerCase();
+      if (!key) continue;
+      const group = byKey.get(key);
+      if (group) group.rows.push(row);
+      else byKey.set(key, { key, word, rows: [row] });
+    }
+    return [...byKey.values()].filter((group) => group.rows.length > 1);
+  }, [rows, hasSource]);
+
+  const duplicateRowIds = useMemo(
+    () => new Set(duplicateGroups.flatMap((group) => group.rows.map((row) => row.id))),
+    [duplicateGroups],
+  );
+  const duplicatesToRemoveCount = duplicateGroups.reduce(
+    (sum, group) => sum + group.rows.length - 1,
+    0,
+  );
+
+  const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
+  // Per group, which row id to keep. Others in the group get removed.
+  const [keepByGroup, setKeepByGroup] = useState<Record<string, string>>({});
+
+  const openDuplicatesModal = useCallback(() => {
+    const defaults: Record<string, string> = {};
+    for (const group of duplicateGroups) defaults[group.key] = group.rows[0].id;
+    setKeepByGroup(defaults);
+    setShowDuplicatesModal(true);
+  }, [duplicateGroups]);
+
+  const handleRemoveAllDuplicates = useCallback(() => {
+    const removeIds = new Set<string>();
+    for (const group of duplicateGroups) {
+      const keepId = keepByGroup[group.key] ?? group.rows[0].id;
+      for (const row of group.rows) {
+        if (row.id !== keepId) removeIds.add(row.id);
+      }
+    }
+    setRows((prev) => prev.filter((row) => !removeIds.has(row.id)));
+    for (const id of removeIds) onRemoveItem?.(id);
+    setShowDuplicatesModal(false);
+  }, [duplicateGroups, keepByGroup, onRemoveItem]);
+
   // Persist current translation + study-note edits to the DB. Shared by the
   // confirm action and the note-generation action (which needs saved pairs in
   // the DB before the server pass runs). Throws on failure.
@@ -661,6 +716,80 @@ export function TranslationStep({
         </div>
       )}
 
+      {showDuplicatesModal && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setShowDuplicatesModal(false)}
+        >
+          <div
+            className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-lg border border-border-subtle bg-background p-6 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-base font-semibold text-text">{t('lists.duplicatesModalTitle')}</h2>
+            <p className="mt-1 text-sm text-text-soft">{t('lists.duplicatesModalHint')}</p>
+            <div className="mt-4 flex-1 divide-y divide-border-subtle overflow-y-auto">
+              {duplicateGroups.map((group) => {
+                const keepId = keepByGroup[group.key] ?? group.rows[0].id;
+                return (
+                  <div key={group.key} className="py-3">
+                    <div className="text-xs font-medium uppercase tracking-wide text-text-soft">
+                      {group.word}
+                    </div>
+                    <div className="mt-1.5 space-y-1">
+                      {group.rows.map((row) => {
+                        const keep = row.id === keepId;
+                        return (
+                          <label
+                            key={row.id}
+                            className={`flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 ${
+                              keep ? 'bg-background-elevated' : 'opacity-70'
+                            }`}
+                          >
+                            <input
+                              type="radio"
+                              name={`keep-${group.key}`}
+                              checked={keep}
+                              onChange={() =>
+                                setKeepByGroup((prev) => ({ ...prev, [group.key]: row.id }))
+                              }
+                              className="accent-accent"
+                            />
+                            <span className="min-w-0 flex-1 break-words text-sm">
+                              <span className="text-text">{row.textKnown || '—'}</span>
+                              <span className="text-text-soft"> → {row.textTarget || '—'}</span>
+                            </span>
+                            <span className={`shrink-0 text-[11px] ${keep ? 'text-done' : 'text-danger'}`}>
+                              {keep ? t('lists.duplicatesKeep') : t('lists.duplicatesRemove')}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-border-subtle px-4 py-2 text-sm font-medium text-text-soft transition-colors hover:bg-background-elevated"
+                onClick={() => setShowDuplicatesModal(false)}
+              >
+                {t('common.cancel')}
+              </button>
+              <button
+                type="button"
+                disabled={duplicatesToRemoveCount === 0}
+                className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-danger/90 disabled:opacity-60"
+                onClick={handleRemoveAllDuplicates}
+              >
+                {t('lists.duplicatesRemoveCta', { count: duplicatesToRemoveCount })}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {provider === 'google' && isGooglePaused && (
         <div className="mb-4 rounded-lg border border-danger/30 bg-danger/10 p-3 text-xs text-danger">
           {googlePausedMessage}
@@ -749,6 +878,21 @@ export function TranslationStep({
 
       {error && (
         <div className="mb-4 p-3 rounded-lg bg-danger/10 text-danger text-sm">{error}</div>
+      )}
+
+      {duplicateGroups.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-600">
+          <span>{t('lists.duplicateWordsWarning', { count: duplicateGroups.length })}</span>
+          {onRemoveItem && (
+            <button
+              type="button"
+              className="shrink-0 rounded-md border border-amber-500/40 px-2.5 py-1 font-medium text-amber-600 transition-colors hover:bg-amber-500/15"
+              onClick={openDuplicatesModal}
+            >
+              {t('lists.duplicatesReview')}
+            </button>
+          )}
+        </div>
       )}
 
       {/* Which column to generate (step-1 style segmented control) */}
@@ -939,6 +1083,16 @@ export function TranslationStep({
                     </div>
                   )}
                 </div>
+                {duplicateRowIds.has(row.id) && (
+                  <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
+                    <span
+                      className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-600"
+                      title={t('lists.duplicateWordBadgeTitle')}
+                    >
+                      {t('lists.duplicateWordBadge')}
+                    </span>
+                  </div>
+                )}
               </div>
               {row.validationWarnings && row.validationWarnings.length > 0 && (
                 <div className="col-span-2 flex flex-wrap items-center gap-2 border-t border-border-subtle/40 px-3 py-1.5">

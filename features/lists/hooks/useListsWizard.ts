@@ -71,6 +71,11 @@ export function useListsWizard({
   const [translateHeadingMode, setTranslateHeadingMode] = useState<TranslateHeadingMode>('translate');
   const [triggerEditSignal, setTriggerEditSignal] = useState(0);
   const [isEditDirty, setIsEditDirty] = useState(false);
+  // Items the user marked for removal in an audio step. Kept here (not in the
+  // items/audioStepItems that drive the AudioStep reset key) so marking one
+  // does not remount the step and wipe in-progress audio generation. The
+  // actual delete is bundled and committed when the audio step completes.
+  const [removedItemIds, setRemovedItemIds] = useState<Set<string>>(new Set());
 
   const buildAudioStepItems = useBuildAudioStepItems({
     editingCategoryId,
@@ -113,6 +118,23 @@ export function useListsWizard({
   const triggerEdit = useCallback(() => {
     setTriggerEditSignal((value) => value + 1);
   }, []);
+
+  const markItemRemoved = useCallback((itemId: string) => {
+    setRemovedItemIds((prev) => {
+      if (prev.has(itemId)) return prev;
+      const next = new Set(prev);
+      next.add(itemId);
+      return next;
+    });
+  }, []);
+
+  // Commit any pending removals before the surrounding step reloads list
+  // details. Deleting first means the reload naturally excludes them.
+  const finalizeRemovals = useCallback(async () => {
+    if (!selectedListId || removedItemIds.size === 0) return;
+    await listActions.removeListItems(selectedListId, [...removedItemIds]);
+    setRemovedItemIds(new Set());
+  }, [removedItemIds, selectedListId]);
 
   // Wizard handlers — referenced by the page render and child components.
   const handleEditCategory = useCallback(
@@ -190,6 +212,7 @@ export function useListsWizard({
 
   const handleTranslationComplete = useCallback(
     async (translationRows: CompletedTranslationRow[]) => {
+      await finalizeRemovals();
       const [freshItems] = await Promise.all([
         reloadListDetails({ includeMedia: true }),
         loadGoogleUsage(),
@@ -205,19 +228,21 @@ export function useListsWizard({
       setAudioStepItems(buildAudioStepItems(freshItems, translationRows));
       setWizardStep('audio-target');
     },
-    [buildAudioStepItems, loadGoogleUsage, pendingItems, reloadListDetails],
+    [buildAudioStepItems, finalizeRemovals, loadGoogleUsage, pendingItems, reloadListDetails],
   );
 
   const handleTargetAudioComplete = useCallback(async () => {
+    await finalizeRemovals();
     const [freshItems] = await Promise.all([
       reloadListDetails({ includeMedia: true }),
       loadGoogleUsage(),
     ]);
     setAudioStepItems(buildAudioStepItems(freshItems));
     setWizardStep('audio-known');
-  }, [buildAudioStepItems, loadGoogleUsage, reloadListDetails]);
+  }, [buildAudioStepItems, finalizeRemovals, loadGoogleUsage, reloadListDetails]);
 
   const handleKnownAudioComplete = useCallback(async () => {
+    await finalizeRemovals();
     await Promise.all([reloadListDetails(), loadGoogleUsage()]);
     setWizardStep('browse');
     setEditingCategoryId(null);
@@ -225,9 +250,10 @@ export function useListsWizard({
     setPendingItems([]);
     setAudioStepItems(null);
     setDiffResult(null);
-  }, [loadGoogleUsage, reloadListDetails]);
+  }, [finalizeRemovals, loadGoogleUsage, reloadListDetails]);
 
   const handleSkipTranslation = useCallback(async () => {
+    await finalizeRemovals();
     if (editingAllWords) {
       const [freshItems] = await Promise.all([
         reloadListDetails({ includeMedia: true }),
@@ -243,7 +269,7 @@ export function useListsWizard({
     setEditingCategoryId(null);
     setEditingAllWords(false);
     setAudioStepItems(null);
-  }, [buildAudioStepItems, editingAllWords, loadGoogleUsage, reloadListDetails]);
+  }, [buildAudioStepItems, editingAllWords, finalizeRemovals, loadGoogleUsage, reloadListDetails]);
 
   const handleCancelWizard = useCallback(() => {
     setWizardStep('browse');
@@ -254,6 +280,8 @@ export function useListsWizard({
     setAudioStepItems(null);
     setTranslateHeadingMode('translate');
     setIsEditDirty(false);
+    // Abandon any uncommitted removals — they were never deleted server-side.
+    setRemovedItemIds(new Set());
   }, []);
 
   const handleGoBack = useCallback(() => {
@@ -333,6 +361,7 @@ export function useListsWizard({
     // Setters used by child components / external code.
     setEditInputLanguage,
     setIsEditDirty,
+    markItemRemoved,
     // External triggers — only call from outside-the-wizard effects.
     resetForListChange,
     showBrowse,
