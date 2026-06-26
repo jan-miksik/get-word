@@ -48,4 +48,7 @@ next-env.d.ts
 # DB backups
 /backups/
 
+# One-off recovery artifacts (contain production data — never commit)
+/recovery/
+
 .arweave-wallet.json

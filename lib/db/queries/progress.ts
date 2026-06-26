@@ -1,11 +1,14 @@
-import { eq, and, lte, or, sql, isNull, gt } from "drizzle-orm";
+import { eq, and, lte, or, sql, isNull, gt, inArray } from "drizzle-orm";
 import { db } from "../client";
 import {
   userProgress,
+  wordListItems,
+  wordLists,
   type UserProgress,
   type NewUserProgress,
 } from "../schema";
 import { STAGES } from "@/lib/words";
+import { computeContentKey } from "@/lib/progress-key";
 
 /**
  * Either the top-level `db` instance or a transaction handle from
@@ -47,6 +50,76 @@ export async function getUserProgress(
   return progressMap;
 }
 
+/** Minimal item shape needed to project content-keyed progress onto items. */
+export type ProgressItemIdentity = {
+  id: string;
+  textKnown: string | null;
+  textTarget: string | null;
+  ignoreCase?: boolean | null;
+  languageFrom?: string | null;
+  languageTo?: string | null;
+};
+
+/**
+ * Build the wire `progress` map keyed by word_list_item id, by projecting the
+ * user's content-keyed progress rows onto the given items.
+ *
+ * This is the read counterpart of the content-keyed write path: each item's
+ * *current* content key is recomputed and used to look up its progress row, so
+ * the same row is shared across every list whose item normalizes to that key,
+ * and an edited item (new key, no row) correctly resets to stage 0 — there is
+ * no stale item-id lookup. Legacy `word_id`-only rows pass through keyed by
+ * word_id. With `since`, only rows changed after the cursor are considered
+ * (delta path); items matching a changed content row are emitted.
+ */
+export async function getProjectedProgress(
+  userId: string,
+  items: ProgressItemIdentity[],
+  options?: { since?: Date }
+): Promise<Record<string, UserProgress>> {
+  const conditions = [
+    eq(userProgress.userId, userId),
+    isNull(userProgress.archivedAt),
+  ];
+  if (options?.since) {
+    conditions.push(gt(userProgress.updatedAt, options.since));
+  }
+  const rows = await db
+    .select()
+    .from(userProgress)
+    .where(and(...conditions));
+
+  const byContentKey = new Map<string, UserProgress>();
+  const result: Record<string, UserProgress> = {};
+  for (const row of rows) {
+    if (row.contentKey) {
+      byContentKey.set(row.contentKey, row);
+    } else if (row.wordId) {
+      // Legacy passthrough (pre-content-key rows).
+      result[row.wordId] = row;
+    }
+  }
+
+  if (byContentKey.size > 0) {
+    await Promise.all(
+      items.map(async (item) => {
+        const key = await computeContentKey({
+          languageFrom: item.languageFrom ?? "",
+          languageTo: item.languageTo ?? "",
+          textKnown: item.textKnown,
+          textTarget: item.textTarget,
+          ignoreCase: item.ignoreCase ?? false,
+        });
+        if (!key) return;
+        const row = byContentKey.get(key);
+        if (row) result[item.id] = row;
+      })
+    );
+  }
+
+  return result;
+}
+
 // Get progress for a specific word
 export async function getWordProgress(
   userId: string,
@@ -79,6 +152,66 @@ export async function getWordProgressByItemId(
     )
     .limit(1);
   return results[0] || null;
+}
+
+export async function getWordProgressByContentKey(
+  userId: string,
+  contentKey: string,
+  executor: Executor = db
+): Promise<UserProgress | null> {
+  const results = await executor
+    .select()
+    .from(userProgress)
+    .where(
+      and(
+        eq(userProgress.userId, userId),
+        eq(userProgress.contentKey, contentKey)
+      )
+    )
+    .limit(1);
+  return results[0] || null;
+}
+
+/**
+ * Server-authoritative content-key resolver. Given word_list_item ids, returns
+ * a map of itemId → content key ("v1:…") or `null` when the item can't form a
+ * key (empty target). Computed from canonical DB item text + list languages +
+ * the item's `ignoreCase`, so a client-sent key is never trusted.
+ */
+export async function getContentKeysForItemIds(
+  itemIds: string[],
+  executor: Executor = db
+): Promise<Map<string, string | null>> {
+  const result = new Map<string, string | null>();
+  const unique = [...new Set(itemIds.filter(Boolean))];
+  if (unique.length === 0) return result;
+
+  const rows = await executor
+    .select({
+      id: wordListItems.id,
+      textKnown: wordListItems.textKnown,
+      textTarget: wordListItems.textTarget,
+      ignoreCase: wordListItems.ignoreCase,
+      languageFrom: wordLists.languageFrom,
+      languageTo: wordLists.languageTo,
+    })
+    .from(wordListItems)
+    .innerJoin(wordLists, eq(wordListItems.listId, wordLists.id))
+    .where(inArray(wordListItems.id, unique));
+
+  await Promise.all(
+    rows.map(async (row) => {
+      const key = await computeContentKey({
+        languageFrom: row.languageFrom,
+        languageTo: row.languageTo,
+        textKnown: row.textKnown,
+        textTarget: row.textTarget,
+        ignoreCase: row.ignoreCase,
+      });
+      result.set(row.id, key);
+    })
+  );
+  return result;
 }
 
 // Get due words for a user (for spaced repetition)
@@ -186,26 +319,32 @@ export async function batchUpsertProgress(
   }
 }
 
-// Batch upsert progress by wordListItemId (new path)
-export async function batchUpsertProgressByItemId(
+// Batch upsert progress by content key (new identity path). Each row MUST carry
+// a non-null `contentKey`; rows without one are dropped (the caller short-circuits
+// items that can't form a key). `wordListItemId` is stamped as informational
+// "last item reviewed" metadata and refreshed on conflict.
+export async function batchUpsertProgressByContentKey(
   progressList: Omit<NewUserProgress, "id" | "createdAt">[],
   executor: Executor = db,
   options: UpsertOptions = {}
 ): Promise<void> {
-  if (progressList.length === 0) return;
+  const rows = progressList.filter((p) => p.contentKey);
+  if (rows.length === 0) return;
 
   const BATCH_SIZE = 100;
   const lww = options.lww === true;
 
-  for (let i = 0; i < progressList.length; i += BATCH_SIZE) {
-    const batch = progressList.slice(i, i + BATCH_SIZE);
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    const batch = rows.slice(i, i + BATCH_SIZE);
 
     await executor
       .insert(userProgress)
       .values(batch)
       .onConflictDoUpdate({
-        target: [userProgress.userId, userProgress.wordListItemId],
+        target: [userProgress.userId, userProgress.contentKey],
+        targetWhere: sql`${userProgress.contentKey} IS NOT NULL`,
         set: {
+          wordListItemId: sql`excluded.word_list_item_id`,
           stageIndex: sql`excluded.stage_index`,
           knownCount: sql`excluded.known_count`,
           unknownCount: sql`excluded.unknown_count`,
@@ -236,8 +375,17 @@ export async function applyReviewEventToProgress(
   const { userId, wordId, wordListItemId, action, occurredAt } = args;
   if (!wordId && !wordListItemId) return;
 
-  const current = wordListItemId
-    ? await getWordProgressByItemId(userId, wordListItemId, executor)
+  // New path: identity is the content key. Resolve it server-side from the item.
+  // If the item can't form a key (empty target), skip progress entirely.
+  let contentKey: string | null = null;
+  if (wordListItemId) {
+    const keys = await getContentKeysForItemIds([wordListItemId], executor);
+    contentKey = keys.get(wordListItemId) ?? null;
+    if (!contentKey) return;
+  }
+
+  const current = contentKey
+    ? await getWordProgressByContentKey(userId, contentKey, executor)
     : await getWordProgress(userId, wordId!, executor);
 
   const currentStageIndex = current?.stageIndex ?? 0;
@@ -271,8 +419,9 @@ export async function applyReviewEventToProgress(
 
   const values = {
     userId,
-    wordId: wordListItemId ? null : wordId!,
+    wordId: contentKey ? null : wordId!,
     wordListItemId: wordListItemId ?? null,
+    contentKey,
     stageIndex,
     knownCount: nextKnownCount,
     unknownCount: nextUnknownCount,
@@ -281,8 +430,8 @@ export async function applyReviewEventToProgress(
     nextDueAt,
   };
 
-  if (wordListItemId) {
-    await batchUpsertProgressByItemId([values], executor);
+  if (contentKey) {
+    await batchUpsertProgressByContentKey([values], executor);
   } else {
     await batchUpsertProgress([values], executor);
   }

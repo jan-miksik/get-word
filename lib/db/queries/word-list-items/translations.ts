@@ -9,6 +9,7 @@ export async function updateItemTranslations(
     textKnown?: string;
     textTarget?: string | null;
     translationStatus?: 'manual' | 'translated' | 'failed';
+    ignoreCase?: boolean;
   }[],
 ): Promise<void> {
   // Load the current text + audio link for every item up front so we can tell
@@ -31,13 +32,16 @@ export async function updateItemTranslations(
     : [];
   const existingById = new Map(existing.map((item) => [item.id, item]));
 
-  for (const { id, textKnown, textTarget, translationStatus } of updates) {
+  for (const { id, textKnown, textTarget, translationStatus, ignoreCase } of updates) {
     const set: Record<string, unknown> = {
       updatedAt: new Date(),
     };
     if (translationStatus !== undefined) set.translationStatus = translationStatus;
     if (textTarget !== undefined) set.textTarget = textTarget;
     if (textKnown !== undefined) set.textKnown = textKnown;
+    // Owner/editor toggle: changes the item's content-key normalization. An
+    // identity-changing edit (see lib/progress-key.ts).
+    if (ignoreCase !== undefined) set.ignoreCase = ignoreCase;
 
     const prev = existingById.get(id);
     if (prev) {

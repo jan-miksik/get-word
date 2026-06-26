@@ -2,9 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   getOrCreateUserByDeviceId,
   getUserById,
-  getUserProgress,
+  getProjectedProgress,
+  getUserItemIdentities,
   batchUpsertProgress,
-  batchUpsertProgressByItemId,
+  batchUpsertProgressByContentKey,
+  getContentKeysForItemIds,
   getUserMemoryHooks,
   upsertMemoryHook,
   upsertMemoryHookByItemId,
@@ -247,18 +249,31 @@ export async function POST(request: NextRequest) {
       }
 
       if (newProgress.length > 0) {
-        const progressData = newProgress.map((p) => ({
-          userId: user.id,
-          wordListItemId: p.word_list_item_id!,
-          stageIndex: p.stage_index,
-          knownCount: p.known_count,
-          unknownCount: p.unknown_count,
-          lastKnownAt: p.last_known_at ? new Date(p.last_known_at) : null,
-          lastUnknownAt: p.last_unknown_at ? new Date(p.last_unknown_at) : null,
-          nextDueAt: p.next_due_at ? new Date(p.next_due_at) : null,
-          updatedAt: getClientProgressUpdatedAt(p),
-        }));
-        await batchUpsertProgressByItemId(progressData, undefined, { lww: true });
+        // Server is authoritative for content_key: recompute it from the canonical
+        // DB item (text + list languages + ignore_case), ignoring any client-sent
+        // key. Items that can't form a key (empty target) are skipped.
+        const contentKeys = await getContentKeysForItemIds(
+          newProgress.map((p) => p.word_list_item_id!)
+        );
+        const progressData = newProgress
+          .map((p) => {
+            const contentKey = contentKeys.get(p.word_list_item_id!) ?? null;
+            if (!contentKey) return null;
+            return {
+              userId: user.id,
+              wordListItemId: p.word_list_item_id!,
+              contentKey,
+              stageIndex: p.stage_index,
+              knownCount: p.known_count,
+              unknownCount: p.unknown_count,
+              lastKnownAt: p.last_known_at ? new Date(p.last_known_at) : null,
+              lastUnknownAt: p.last_unknown_at ? new Date(p.last_unknown_at) : null,
+              nextDueAt: p.next_due_at ? new Date(p.next_due_at) : null,
+              updatedAt: getClientProgressUpdatedAt(p),
+            };
+          })
+          .filter((row): row is NonNullable<typeof row> => row !== null);
+        await batchUpsertProgressByContentKey(progressData, undefined, { lww: true });
       }
     }
 
@@ -294,13 +309,17 @@ export async function POST(request: NextRequest) {
     timer.mark("apply_mutations");
 
     // Fetch all current data to return
-    const [currentProgress, currentHooks, currentFilters] = await Promise.all([
-      getUserProgress(user.id),
+    const [currentHooks, currentFilters] = await Promise.all([
       getUserMemoryHooks(user.id),
       getUserCategoryFilters(user.id),
     ]);
     timer.mark("fetch_user_data");
     const hydratedLists = await getHydratedWordListData(user.id, currentHooks);
+    // Project content-keyed progress onto the items being returned.
+    const currentProgress = await getProjectedProgress(
+      user.id,
+      hydratedLists.wordListItems
+    );
     timer.mark("fetch_list_metadata");
     const syncRevision = await getUserSyncRevision(user.id);
     timer.mark("compute_sync_revision");
@@ -381,11 +400,16 @@ export async function GET(request: NextRequest) {
     await touchUserDevice(user.id, deviceId);
 
     if (since) {
-      const [progress, hookDelta, categoryFilters] = await Promise.all([
-        getUserProgress(user.id, { since }),
+      const [itemIdentities, hookDelta, categoryFilters] = await Promise.all([
+        getUserItemIdentities(user.id),
         getUserMemoryHooksDelta(user.id, since),
         getUserCategoryFilters(user.id),
       ]);
+      // Project content-keyed progress changed since the cursor onto the user's
+      // current items.
+      const progress = await getProjectedProgress(user.id, itemIdentities, {
+        since,
+      });
       timer.mark("fetch_user_data");
 
       const updated: Record<string, string> = {};
@@ -413,13 +437,16 @@ export async function GET(request: NextRequest) {
       return timer.applyHeaders(deltaResponse);
     }
 
-    const [progress, memoryHooks, categoryFilters] = await Promise.all([
-      getUserProgress(user.id),
+    const [memoryHooks, categoryFilters] = await Promise.all([
       getUserMemoryHooks(user.id),
       getUserCategoryFilters(user.id),
     ]);
     timer.mark("fetch_user_data");
     const hydratedLists = await getHydratedWordListData(user.id, memoryHooks);
+    const progress = await getProjectedProgress(
+      user.id,
+      hydratedLists.wordListItems
+    );
     timer.mark("fetch_list_metadata");
     const syncRevision = await getUserSyncRevision(user.id);
     timer.mark("compute_sync_revision");

@@ -34,6 +34,45 @@ export async function getUserSubscribedItems(userId: string): Promise<WordListIt
     .orderBy(asc(wordListItems.position));
 }
 
+/**
+ * Lean item identities (id + text + languages + ignoreCase) for every item in
+ * the user's subscribed or owned lists. Used by the delta sync path to project
+ * content-keyed progress without hydrating media/categories.
+ */
+export async function getUserItemIdentities(userId: string): Promise<
+  Array<{
+    id: string;
+    textKnown: string;
+    textTarget: string | null;
+    ignoreCase: boolean;
+    languageFrom: string;
+    languageTo: string;
+  }>
+> {
+  const subscribedListIds = await getUserSubscribedListIds(userId);
+  const ownedRows = await db
+    .select({ id: wordLists.id })
+    .from(wordLists)
+    .where(eq(wordLists.ownerId, userId));
+  const listIds = [
+    ...new Set([...subscribedListIds, ...ownedRows.map((row) => row.id)]),
+  ];
+  if (listIds.length === 0) return [];
+
+  return db
+    .select({
+      id: wordListItems.id,
+      textKnown: wordListItems.textKnown,
+      textTarget: wordListItems.textTarget,
+      ignoreCase: wordListItems.ignoreCase,
+      languageFrom: wordLists.languageFrom,
+      languageTo: wordLists.languageTo,
+    })
+    .from(wordListItems)
+    .innerJoin(wordLists, eq(wordListItems.listId, wordLists.id))
+    .where(inArray(wordListItems.listId, listIds));
+}
+
 export async function createItems(
   items: {
     listId: string;

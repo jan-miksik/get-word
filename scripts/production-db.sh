@@ -12,6 +12,7 @@ Usage:
   pnpm run db:prod -- sql <path-to-file.sql>
   pnpm run db:prod -- shell
   pnpm run db:prod -- compact [--apply]
+  pnpm run db:prod -- backfill-content-keys [--apply]
 
 Actions:
   backup [file]    Dump the database with pg_dump to a local file (defaults to
@@ -22,6 +23,8 @@ Actions:
   shell            Open an emergency interactive psql session without history.
   compact          Preview old sync/review rows eligible for deletion.
   compact --apply  Delete eligible old sync/review rows.
+  backfill-content-keys           Preview user_progress.content_key backfill.
+  backfill-content-keys --apply   Write content keys + archive duplicate losers.
 
 The production DATABASE_URL is read with hidden input, exported only for the
 selected action, and unset when the action exits. Do not put the URL in action
@@ -54,6 +57,7 @@ sql_file=""
 restore_file=""
 backup_file=""
 compact_apply=false
+backfill_apply=false
 
 case "$action" in
   backup)
@@ -99,6 +103,18 @@ case "$action" in
       confirmation_phrase="PREVIEW_PRODUCTION_ROWS"
     else
       die "compact accepts only the optional --apply flag."
+    fi
+    ;;
+  backfill-content-keys)
+    if [[ "$#" -eq 2 && "$2" == "--apply" ]]; then
+      backfill_apply=true
+      description="backfill user_progress.content_key and archive duplicate losers in production"
+      confirmation_phrase="BACKFILL_PRODUCTION_CONTENT_KEYS"
+    elif [[ "$#" -eq 1 ]]; then
+      description="preview the production user_progress.content_key backfill"
+      confirmation_phrase="PREVIEW_PRODUCTION_CONTENT_KEYS"
+    else
+      die "backfill-content-keys accepts only the optional --apply flag."
     fi
     ;;
   -h|--help|help|"")
@@ -205,6 +221,13 @@ case "$action" in
       pnpm exec tsx scripts/compact-review-events.ts --apply
     else
       pnpm exec tsx scripts/compact-review-events.ts
+    fi
+    ;;
+  backfill-content-keys)
+    if [[ "$backfill_apply" == true ]]; then
+      pnpm exec tsx scripts/backfill-content-keys.ts --apply
+    else
+      pnpm exec tsx scripts/backfill-content-keys.ts
     fi
     ;;
 esac

@@ -17,6 +17,8 @@ type TranslationEntry = {
   // Optional manual study-note edit. A string sets/overwrites the manual
   // comment; explicit null clears it. Omitted = leave the comment untouched.
   comment?: string | null;
+  // Owner/editor toggle for case-insensitive progress matching on this item.
+  ignore_case?: boolean;
 };
 
 export async function POST(request: NextRequest, context: RouteContext) {
@@ -49,7 +51,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
       t.id &&
       (Object.prototype.hasOwnProperty.call(t, "text_target") ||
         Object.prototype.hasOwnProperty.call(t, "text_known") ||
-        Object.prototype.hasOwnProperty.call(t, "comment")),
+        Object.prototype.hasOwnProperty.call(t, "comment") ||
+        Object.prototype.hasOwnProperty.call(t, "ignore_case")),
   );
   const skipped = translations.length - valid.length;
 
@@ -67,19 +70,26 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const fieldEdits = valid.filter(
     (t) =>
       Object.prototype.hasOwnProperty.call(t, "text_target") ||
-      Object.prototype.hasOwnProperty.call(t, "text_known"),
+      Object.prototype.hasOwnProperty.call(t, "text_known") ||
+      Object.prototype.hasOwnProperty.call(t, "ignore_case"),
   );
   if (fieldEdits.length > 0) {
     await updateItemTranslations(
       fieldEdits.map((t) => {
+        const hasTextEdit =
+          Object.prototype.hasOwnProperty.call(t, "text_target") ||
+          Object.prototype.hasOwnProperty.call(t, "text_known");
         const update: {
           id: string;
           textTarget?: string | null;
           textKnown?: string;
           translationStatus?: "translated" | "manual";
+          ignoreCase?: boolean;
         } = {
           id: t.id,
-          translationStatus: t.status ?? "manual",
+          // Only stamp translation status when the text actually changed — an
+          // ignore_case-only toggle must not flip a translated item to manual.
+          ...(hasTextEdit ? { translationStatus: t.status ?? "manual" } : {}),
         };
         if (Object.prototype.hasOwnProperty.call(t, "text_target")) {
           update.textTarget = t.text_target ?? null;
@@ -92,6 +102,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
           } else if (t.text_known) {
             update.textKnown = t.text_known;
           }
+        }
+        if (Object.prototype.hasOwnProperty.call(t, "ignore_case")) {
+          update.ignoreCase = Boolean(t.ignore_case);
         }
         return update;
       }),

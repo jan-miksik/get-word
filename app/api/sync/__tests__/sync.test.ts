@@ -3,11 +3,13 @@ import { NextRequest } from 'next/server'
 
 const mockGetOrCreateUserByDeviceId = vi.fn()
 const mockGetUserById = vi.fn()
-const mockGetUserProgress = vi.fn()
+const mockGetProjectedProgress = vi.fn()
+const mockGetUserItemIdentities = vi.fn(async (..._args: unknown[]) => [] as unknown[])
 const mockGetUserMemoryHooks = vi.fn()
 const mockGetUserCategoryFilters = vi.fn()
 const mockBatchUpsertProgress = vi.fn()
-const mockBatchUpsertProgressByItemId = vi.fn()
+const mockBatchUpsertProgressByContentKey = vi.fn()
+const mockGetContentKeysForItemIds = vi.fn(async (..._args: unknown[]) => new Map<string, string | null>())
 const mockUpdateUserPreferences = vi.fn()
 const mockUpsertMemoryHook = vi.fn()
 const mockUpsertMemoryHookByItemId = vi.fn()
@@ -30,9 +32,11 @@ const mockIsGoogleSupportedLanguage = vi.fn()
 vi.mock('@/lib/db', () => ({
   getOrCreateUserByDeviceId: (...args: unknown[]) => mockGetOrCreateUserByDeviceId(...args),
   getUserById: (...args: unknown[]) => mockGetUserById(...args),
-  getUserProgress: (...args: unknown[]) => mockGetUserProgress(...args),
+  getProjectedProgress: (...args: unknown[]) => mockGetProjectedProgress(...args),
+  getUserItemIdentities: (...args: unknown[]) => mockGetUserItemIdentities(...args),
   batchUpsertProgress: (...args: unknown[]) => mockBatchUpsertProgress(...args),
-  batchUpsertProgressByItemId: (...args: unknown[]) => mockBatchUpsertProgressByItemId(...args),
+  batchUpsertProgressByContentKey: (...args: unknown[]) => mockBatchUpsertProgressByContentKey(...args),
+  getContentKeysForItemIds: (...args: unknown[]) => mockGetContentKeysForItemIds(...args),
   getUserMemoryHooks: (...args: unknown[]) => mockGetUserMemoryHooks(...args),
   upsertMemoryHook: (...args: unknown[]) => mockUpsertMemoryHook(...args),
   upsertMemoryHookByItemId: (...args: unknown[]) => mockUpsertMemoryHookByItemId(...args),
@@ -118,7 +122,7 @@ describe('GET /api/sync', () => {
     mockSignSession.mockResolvedValue('signed-token')
     mockGetOrCreateUserByDeviceId.mockResolvedValue(baseUser)
     mockGetUserById.mockResolvedValue(baseUser)
-    mockGetUserProgress.mockResolvedValue({})
+    mockGetProjectedProgress.mockResolvedValue({})
     mockGetUserMemoryHooks.mockResolvedValue({})
     mockGetUserCategoryFilters.mockResolvedValue([])
     mockGetUserSubscribedItems.mockResolvedValue([])
@@ -325,7 +329,7 @@ describe('GET /api/sync', () => {
       { key: 'word-a', hookText: 'updated', deletedAt: null },
       { key: 'word-b', hookText: 'gone', deletedAt: new Date('2026-05-10T00:00:00Z') },
     ])
-    mockGetUserProgress.mockResolvedValueOnce({
+    mockGetProjectedProgress.mockResolvedValueOnce({
       'word-c': { wordId: 'word-c', stageIndex: 4, knownCount: 2, unknownCount: 0 },
     })
     mockGetUserSyncRevision.mockResolvedValueOnce(1779500000000)
@@ -345,8 +349,12 @@ describe('GET /api/sync', () => {
     expect(data.word_list_items).toBeUndefined()
     expect(data.categories).toBeUndefined()
     expect(data.lists).toBeUndefined()
-    expect(mockGetUserProgress).toHaveBeenCalledWith('uuid-A', { since: expect.any(Date) })
-    const passedSince = mockGetUserProgress.mock.calls[0][1].since as Date
+    expect(mockGetProjectedProgress).toHaveBeenCalledWith(
+      'uuid-A',
+      expect.anything(),
+      { since: expect.any(Date) }
+    )
+    const passedSince = mockGetProjectedProgress.mock.calls[0][2].since as Date
     expect(passedSince.getTime()).toBe(1779400000000)
     expect(mockGetUserMemoryHooks).not.toHaveBeenCalled()
   })
@@ -380,7 +388,7 @@ describe('POST /api/sync', () => {
     mockSignSession.mockResolvedValue('signed-token')
     mockGetOrCreateUserByDeviceId.mockResolvedValue(baseUser)
     mockGetUserById.mockResolvedValue(baseUser)
-    mockGetUserProgress.mockResolvedValue({})
+    mockGetProjectedProgress.mockResolvedValue({})
     mockGetUserMemoryHooks.mockResolvedValue({})
     mockGetUserCategoryFilters.mockResolvedValue([])
     mockGetUserSubscribedItems.mockResolvedValue([])

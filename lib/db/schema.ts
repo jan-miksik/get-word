@@ -127,6 +127,10 @@ export const wordListItems = pgTable(
       .references(() => wordCategories.id, { onDelete: "set null" }),
     canonicalWordId: uuid("canonical_word_id"),
     position: integer("position").notNull().default(0),
+    // Owner/editor decision: when true, this item's text is case-folded when
+    // computing its progress content key (see lib/progress-key.ts). Default
+    // false = case-sensitive. Toggling it is an identity-changing edit.
+    ignoreCase: boolean("ignore_case").notNull().default(false),
     textKnown: text("text_known").notNull(),
     textTarget: text("text_target"),
     translationStatus: translationStatusEnum("translation_status")
@@ -215,6 +219,11 @@ export const userProgress = pgTable(
       () => wordListItems.id,
       { onDelete: "set null" },
     ),
+    // Content identity for progress (see lib/progress-key.ts): "v1:<sha256>" of
+    // the normalized [langFrom, langTo, known, target] pair. Nullable during the
+    // additive rollout; becomes the unique identity in migration B. After that,
+    // word_list_item_id is best-effort/debug metadata only.
+    contentKey: text("content_key"),
     stageIndex: integer("stage_index").notNull().default(0), // 0-7 spaced repetition
     knownCount: integer("known_count").notNull().default(0),
     unknownCount: integer("unknown_count").notNull().default(0),
@@ -228,10 +237,15 @@ export const userProgress = pgTable(
   (table) => [
     index("user_progress_updated_at_idx").on(table.updatedAt),
     unique().on(table.userId, table.wordId),
-    unique("user_progress_user_word_list_item_unique").on(
-      table.userId,
-      table.wordListItemId,
-    ),
+    // Content key is the progress identity (migration B). The old item-id unique
+    // is dropped; word_list_item_id is now best-effort/debug metadata.
+    uniqueIndex("user_progress_user_content_key_unique")
+      .on(table.userId, table.contentKey)
+      .where(sql`${table.contentKey} IS NOT NULL`),
+    // Debug/lookup only — not an identity.
+    index("user_progress_user_item_idx")
+      .on(table.userId, table.wordListItemId)
+      .where(sql`${table.wordListItemId} IS NOT NULL`),
   ],
 );
 

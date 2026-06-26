@@ -246,6 +246,20 @@
       "when": 1782386415478,
       "tag": "0034_shiny_pyro",
       "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "7",
+      "when": 1782479279380,
+      "tag": "0035_content_key_and_ignore_case",
+      "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "7",
+      "when": 1782480320515,
+      "tag": "0036_content_key_identity_flip",
+      "breakpoints": true
     }
   ]
 }
