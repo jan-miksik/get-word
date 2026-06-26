@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
+import { Fragment, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { listsApiFetch } from '@/features/lists/api';
 import {
@@ -24,12 +24,41 @@ import {
 } from '@/lib/openrouter-models';
 import { copyTextToClipboard } from '@/lib/clipboard';
 import { MAX_COMMENT_TEXT_LENGTH } from '@/lib/word-item-comment';
+import {
+  polishPair,
+  type PolishFixCode,
+  type PolishWarningCode,
+} from '@/lib/formatting-polish';
 
 type PendingItem = NonNullable<ConfirmResult['pending_items']>[number];
+
+type PolishField = 'known' | 'target';
+
+type PolishChange = {
+  key: string;
+  rowId: string;
+  field: PolishField;
+  before: string;
+  after: string;
+  fixCodes: PolishFixCode[];
+};
+
+type PolishWarningRow = {
+  key: string;
+  rowId: string;
+  field: PolishField;
+  text: string;
+  code: PolishWarningCode;
+};
+
+type PolishScan = { changes: PolishChange[]; warnings: PolishWarningRow[] };
 
 interface TranslationStepProps {
   list: WordList;
   pendingItems: PendingItem[];
+  // Ids of the rows that were freshly added in this edit pass. They render
+  // first; a spacer separates them from the category's existing words below.
+  newItemIds?: Set<string>;
   inputLanguage: 'known' | 'target';
   heading?: string;
   googleUsage?: GoogleUsageResponse | null;
@@ -108,6 +137,7 @@ function TranslationTextarea({
 export function TranslationStep({
   list,
   pendingItems,
+  newItemIds,
   inputLanguage,
   heading,
   googleUsage,
@@ -143,9 +173,22 @@ export function TranslationStep({
   const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null);
   const [copiedTranslations, setCopiedTranslations] = useState(false);
   const copyResetTimeoutRef = useRef<number | null>(null);
+  const [polishScan, setPolishScan] = useState<PolishScan | null>(null);
+  const [showPolishModal, setShowPolishModal] = useState(false);
+  const [polishSelected, setPolishSelected] = useState<Set<string>>(new Set());
+  const [polishCleanNotice, setPolishCleanNotice] = useState(false);
+  const polishNoticeTimeoutRef = useRef<number | null>(null);
 
   const needsTranslation = inputLanguage === 'known' ? 'textTarget' : 'textKnown';
   const hasSource = inputLanguage === 'known' ? 'textKnown' : 'textTarget';
+
+  // Where to draw the spacer between freshly added words and the category's
+  // existing words. Only when both groups are present in the visible rows.
+  const firstExistingIndex =
+    newItemIds && newItemIds.size > 0
+      ? rows.findIndex((r) => !newItemIds.has(r.id))
+      : -1;
+  const dividerIndex = firstExistingIndex > 0 ? firstExistingIndex : -1;
 
   const pendingCount = rows.filter((r) => !r[needsTranslation] || r.status === 'pending').length;
   const readyCount = rows.filter((r) => r[needsTranslation] && r.status !== 'pending').length;
@@ -237,6 +280,9 @@ export function TranslationStep({
     return () => {
       if (copyResetTimeoutRef.current !== null) {
         window.clearTimeout(copyResetTimeoutRef.current);
+      }
+      if (polishNoticeTimeoutRef.current !== null) {
+        window.clearTimeout(polishNoticeTimeoutRef.current);
       }
     };
   }, []);
@@ -606,6 +652,144 @@ export function TranslationStep({
     }
   }, [pairedTextsToCopy, t]);
 
+  // Scan every row's source + target for mechanical formatting issues. Pure and
+  // local — it never touches the rows, only produces a reviewable report. The
+  // languageFrom/languageTo pairing lets the checker treat a one-word pro-drop
+  // translation as a sentence when its partner clearly is one.
+  const runPolishCheck = useCallback(() => {
+    const changes: PolishChange[] = [];
+    const warnings: PolishWarningRow[] = [];
+    for (const row of rows) {
+      const result = polishPair(
+        { text: row.textKnown, lang: list.languageFrom },
+        { text: row.textTarget, lang: list.languageTo },
+      );
+      const sides: Array<{ field: PolishField; text: string; out: typeof result.source }> = [
+        { field: 'known', text: row.textKnown, out: result.source },
+        { field: 'target', text: row.textTarget, out: result.target },
+      ];
+      for (const { field, text, out } of sides) {
+        if (out.changed) {
+          changes.push({
+            key: `${row.id}:${field}`,
+            rowId: row.id,
+            field,
+            before: text,
+            after: out.fixed,
+            fixCodes: out.fixes.map((fix) => fix.code),
+          });
+        }
+        for (const warning of out.warnings) {
+          warnings.push({
+            key: `${row.id}:${field}:${warning.code}`,
+            rowId: row.id,
+            field,
+            text: out.fixed,
+            code: warning.code,
+          });
+        }
+      }
+    }
+    return { changes, warnings } satisfies PolishScan;
+  }, [rows, list.languageFrom, list.languageTo]);
+
+  const handlePolishCheck = useCallback(() => {
+    const scan = runPolishCheck();
+    if (scan.changes.length === 0 && scan.warnings.length === 0) {
+      setPolishScan(null);
+      setPolishCleanNotice(true);
+      if (polishNoticeTimeoutRef.current !== null) {
+        window.clearTimeout(polishNoticeTimeoutRef.current);
+      }
+      polishNoticeTimeoutRef.current = window.setTimeout(() => {
+        setPolishCleanNotice(false);
+        polishNoticeTimeoutRef.current = null;
+      }, 2400);
+      return;
+    }
+    setPolishScan(scan);
+    setPolishSelected(new Set(scan.changes.map((change) => change.key)));
+    setShowPolishModal(true);
+  }, [runPolishCheck]);
+
+  const handleApplyPolish = useCallback(() => {
+    if (!polishScan) return;
+    const apply = new Map<string, PolishChange>();
+    for (const change of polishScan.changes) {
+      if (polishSelected.has(change.key)) apply.set(change.key, change);
+    }
+    if (apply.size === 0) {
+      setShowPolishModal(false);
+      return;
+    }
+    setRows((prev) =>
+      prev.map((row) => {
+        const known = apply.get(`${row.id}:known`);
+        const target = apply.get(`${row.id}:target`);
+        if (!known && !target) return row;
+        return {
+          ...row,
+          textKnown: known ? known.after : row.textKnown,
+          textTarget: target ? target.after : row.textTarget,
+          // Mark as a manual edit so the fixes persist on confirm.
+          status: 'manual' as const,
+          warning: undefined,
+        };
+      }),
+    );
+    setShowPolishModal(false);
+    setPolishScan(null);
+  }, [polishScan, polishSelected]);
+
+  const togglePolishChange = useCallback((key: string) => {
+    setPolishSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const describePolishFix = useCallback(
+    (code: PolishFixCode) => {
+      switch (code) {
+        case 'trim':
+          return t('lists.polishFixTrim');
+        case 'collapse_spaces':
+          return t('lists.polishFixCollapse');
+        case 'space_before_punctuation':
+          return t('lists.polishFixSpaceBeforePunct');
+        case 'capitalize_sentence':
+          return t('lists.polishFixCapitalize');
+        case 'add_final_period':
+          return t('lists.polishFixPeriod');
+      }
+    },
+    [t],
+  );
+
+  const describePolishWarning = useCallback(
+    (code: PolishWarningCode) => {
+      switch (code) {
+        case 'maybe_question':
+          return t('lists.polishWarningQuestion');
+        case 'maybe_exclamation':
+          return t('lists.polishWarningExclamation');
+      }
+    },
+    [t],
+  );
+
+  const polishFieldLabel = useCallback(
+    (field: PolishField) =>
+      formatLanguageLabel(field === 'known' ? list.languageFrom : list.languageTo),
+    [formatLanguageLabel, list.languageFrom, list.languageTo],
+  );
+
+  const polishSelectedCount = polishScan
+    ? polishScan.changes.filter((change) => polishSelected.has(change.key)).length
+    : 0;
+
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6">
       <div className="flex items-center justify-between mb-4">
@@ -790,6 +974,108 @@ export function TranslationStep({
         </div>
       )}
 
+      {showPolishModal && polishScan && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setShowPolishModal(false)}
+        >
+          <div
+            className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-lg border border-border-subtle bg-background p-6 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-base font-semibold text-text">{t('lists.polishTitle')}</h2>
+            <p className="mt-1 text-sm text-text-soft">{t('lists.polishHint')}</p>
+
+            <div className="mt-4 flex-1 overflow-y-auto">
+              {polishScan.changes.length > 0 && (
+                <div>
+                  <div className="text-xs font-medium uppercase tracking-wide text-text-soft">
+                    {t('lists.polishSuggestedFixes', { count: polishScan.changes.length })}
+                  </div>
+                  <div className="mt-2 space-y-1.5">
+                    {polishScan.changes.map((change) => (
+                      <label
+                        key={change.key}
+                        className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 hover:bg-background-elevated"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={polishSelected.has(change.key)}
+                          onChange={() => togglePolishChange(change.key)}
+                          className="mt-1 accent-accent"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="text-[11px] uppercase tracking-wide text-text-soft/70">
+                            {polishFieldLabel(change.field)}
+                          </span>
+                          <span className="mt-0.5 block break-words text-sm">
+                            <span className="text-text-soft line-through">{change.before}</span>
+                            <span className="text-text-soft"> → </span>
+                            <span className="text-text">{change.after}</span>
+                          </span>
+                          <span className="mt-0.5 flex flex-wrap gap-1">
+                            {change.fixCodes.map((code) => (
+                              <span
+                                key={code}
+                                className="rounded bg-accent/10 px-1.5 py-0.5 text-[10px] text-accent"
+                              >
+                                {describePolishFix(code)}
+                              </span>
+                            ))}
+                          </span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {polishScan.warnings.length > 0 && (
+                <div className={polishScan.changes.length > 0 ? 'mt-4' : ''}>
+                  <div className="text-xs font-medium uppercase tracking-wide text-text-soft">
+                    {t('lists.polishWarnings', { count: polishScan.warnings.length })}
+                  </div>
+                  <div className="mt-2 space-y-1.5">
+                    {polishScan.warnings.map((warning) => (
+                      <div
+                        key={warning.key}
+                        className="rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-600"
+                      >
+                        <span className="text-[11px] uppercase tracking-wide opacity-80">
+                          {polishFieldLabel(warning.field)}
+                        </span>
+                        <span className="ml-1.5 break-words text-text-soft">“{warning.text}”</span>
+                        <div className="mt-0.5">{describePolishWarning(warning.code)}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-border-subtle px-4 py-2 text-sm font-medium text-text-soft transition-colors hover:bg-background-elevated"
+                onClick={() => setShowPolishModal(false)}
+              >
+                {polishScan.changes.length > 0 ? t('common.cancel') : t('common.close')}
+              </button>
+              {polishScan.changes.length > 0 && (
+                <button
+                  type="button"
+                  disabled={polishSelectedCount === 0}
+                  className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-accent-strong disabled:opacity-50"
+                  onClick={handleApplyPolish}
+                >
+                  {t('lists.polishApply', { count: polishSelectedCount })}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {provider === 'google' && isGooglePaused && (
         <div className="mb-4 rounded-lg border border-danger/30 bg-danger/10 p-3 text-xs text-danger">
           {googlePausedMessage}
@@ -948,6 +1234,35 @@ export function TranslationStep({
         </button>
       </div>
 
+      {/* Formatting polish: deterministic capitalization / spacing / sentence
+          punctuation cleanup. Never rewords a translation. */}
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-background-elevated border border-border-subtle p-3">
+        <span className="flex items-center gap-1.5 text-sm text-text-soft">
+          <span aria-hidden>✨</span>
+          {t('lists.polishBarHint')}
+        </span>
+        <div className="flex items-center gap-2">
+          <span
+            className={`text-xs text-done transition-opacity ${
+              polishCleanNotice ? 'opacity-100' : 'opacity-0'
+            }`}
+            role="status"
+            aria-live="polite"
+            aria-hidden={!polishCleanNotice}
+          >
+            {polishCleanNotice ? t('lists.polishNoIssues') : ' '}
+          </span>
+          <button
+            type="button"
+            disabled={confirming || translating || rows.length === 0}
+            className="px-4 py-1.5 rounded-lg border border-border-subtle text-text text-xs font-medium hover:bg-background disabled:opacity-50 transition-colors"
+            onClick={handlePolishCheck}
+          >
+            {t('lists.polishCheck')}
+          </button>
+        </div>
+      </div>
+
       {/* Two-column table: known language always left, target language always right */}
       <div className="rounded-lg border border-border-subtle overflow-hidden">
         <div className="flex min-h-12 flex-wrap items-center justify-end gap-2 border-b border-border-subtle bg-background-elevated/70 px-3 py-2">
@@ -1011,9 +1326,14 @@ export function TranslationStep({
           </div>
         </div>
         <div className="divide-y divide-border-subtle max-h-[60vh] overflow-y-auto">
-          {rows.map((row) => (
+          {rows.map((row, index) => (
+            <Fragment key={row.id}>
+            {index === dividerIndex && (
+              <div className="bg-background-elevated/40 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-text-soft/70">
+                {t('lists.existingCategoryWords')}
+              </div>
+            )}
             <div
-              key={row.id}
               className={`grid grid-cols-2 items-start gap-0 ${
                 row.status === 'error' ? 'bg-danger/5' : ''
               }`}
@@ -1108,6 +1428,7 @@ export function TranslationStep({
                 </div>
               )}
             </div>
+            </Fragment>
           ))}
         </div>
       </div>

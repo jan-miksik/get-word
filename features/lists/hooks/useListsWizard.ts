@@ -67,6 +67,11 @@ export function useListsWizard({
   const [editInputLanguage, setEditInputLanguage] = useState<'known' | 'target'>('known');
   const [diffResult, setDiffResult] = useState<DiffResult | null>(null);
   const [pendingItems, setPendingItems] = useState<PendingListItems>([]);
+  // Ids of words freshly added in this edit pass. The translate step shows them
+  // first, ahead of the category's existing words, with a spacer between the two
+  // groups so the user can see the new words in the context of the whole
+  // category.
+  const [newPendingItemIds, setNewPendingItemIds] = useState<Set<string>>(new Set());
   const [audioStepItems, setAudioStepItems] = useState<WordListItem[] | null>(null);
   const [translateHeadingMode, setTranslateHeadingMode] = useState<TranslateHeadingMode>('translate');
   const [triggerEditSignal, setTriggerEditSignal] = useState(0);
@@ -110,6 +115,7 @@ export function useListsWizard({
       setEditInputLanguage(clearedSides.includes('target') ? 'known' : 'target');
       setTranslateHeadingMode('translate');
       setPendingItems(itemsToPending(freshItems));
+      setNewPendingItemIds(new Set());
       setWizardStep('translate');
     },
     [],
@@ -162,6 +168,7 @@ export function useListsWizard({
     });
     setTranslateHeadingMode('review');
     setPendingItems(itemsToPending(items));
+    setNewPendingItemIds(new Set());
     setIsEditDirty(false);
     setWizardStep('translate');
   }, [items]);
@@ -191,16 +198,24 @@ export function useListsWizard({
       editInputLanguage,
     );
 
+    // Reload first so freshItems includes any just-confirmed new words.
+    const freshItems = await reloadListDetails();
+    const categoryItems = freshItems.filter((i) => i.categoryId === editingCategoryId);
+
     if (result.needs_translation && result.pending_items) {
+      // Show the whole category, with the newly added (untranslated) words first
+      // and the existing words after a spacer for context.
+      const newIds = new Set(result.pending_items.map((item) => item.id));
+      const newItems = categoryItems.filter((i) => newIds.has(i.id));
+      const existingItems = categoryItems.filter((i) => !newIds.has(i.id));
+      setNewPendingItemIds(newIds);
       setTranslateHeadingMode('translate');
-      setPendingItems(result.pending_items);
+      setPendingItems(itemsToPending([...newItems, ...existingItems]));
       setWizardStep('translate');
       return;
     }
 
-    // Reload first so freshItems includes any just-confirmed new words.
-    const freshItems = await reloadListDetails();
-    const categoryItems = freshItems.filter((i) => i.categoryId === editingCategoryId);
+    setNewPendingItemIds(new Set());
     if (categoryItems.length > 0) {
       setTranslateHeadingMode('review');
       setPendingItems(itemsToPending(categoryItems));
@@ -277,6 +292,7 @@ export function useListsWizard({
     setEditingAllWords(false);
     setDiffResult(null);
     setPendingItems([]);
+    setNewPendingItemIds(new Set());
     setAudioStepItems(null);
     setTranslateHeadingMode('translate');
     setIsEditDirty(false);
@@ -326,6 +342,7 @@ export function useListsWizard({
         });
         setTranslateHeadingMode('review');
         setPendingItems(itemsToPending(categoryItems));
+        setNewPendingItemIds(new Set());
       }
 
       if (step === 'audio-target' || step === 'audio-known') {
@@ -354,6 +371,7 @@ export function useListsWizard({
     editInputLanguage,
     diffResult,
     pendingItems,
+    newPendingItemIds,
     audioStepItems,
     translateHeadingMode,
     triggerEditSignal,

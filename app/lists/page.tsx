@@ -373,6 +373,7 @@ function ListsPageContent() {
             <TranslationStep
               list={selectedList}
               pendingItems={wizard.pendingItems ?? []}
+              newItemIds={wizard.newPendingItemIds}
               inputLanguage={wizard.editInputLanguage}
               heading={t(
                 wizard.translateHeadingMode === 'review'
