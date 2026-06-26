@@ -451,20 +451,25 @@ export function TranslationStep({
 
   // Detect duplicate words across the rows currently in view. In the
   // edit-all-words flow these are every item in the list, so this is an
-  // effectively list-wide check. Keyed on the source-side word (normalized for
-  // case/whitespace); a group of 2+ rows is a duplicate group.
+  // effectively list-wide check. A row is a duplicate only when the WHOLE pair
+  // (source word + its translation) is an exact match of another row, ignoring
+  // only upper/lower case. The same source word with two different translations
+  // (e.g. "Không → ne" vs "Không → nula") is NOT a duplicate. We deliberately do
+  // NOT collapse internal whitespace or strip punctuation — anything other than
+  // a case difference is not a dup. A group of 2+ rows is a duplicate group.
   const duplicateGroups = useMemo(() => {
     const byKey = new Map<string, { key: string; word: string; rows: TranslationRow[] }>();
     for (const row of rows) {
       const word = (row[hasSource] ?? '').trim();
-      const key = word.replace(/\s+/g, ' ').toLowerCase();
-      if (!key) continue;
+      const translation = (row[needsTranslation] ?? '').trim();
+      if (!word) continue;
+      const key = `${word.toLowerCase()} ${translation.toLowerCase()}`;
       const group = byKey.get(key);
       if (group) group.rows.push(row);
       else byKey.set(key, { key, word, rows: [row] });
     }
     return [...byKey.values()].filter((group) => group.rows.length > 1);
-  }, [rows, hasSource]);
+  }, [rows, hasSource, needsTranslation]);
 
   const duplicateRowIds = useMemo(
     () => new Set(duplicateGroups.flatMap((group) => group.rows.map((row) => row.id))),

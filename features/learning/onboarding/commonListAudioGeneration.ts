@@ -202,17 +202,26 @@ export async function generateCommonListAudio({
     return resolver;
   }
 
+  // The list is already created by the time audio runs, so the estimate should
+  // reflect only the audio work still left. Scaling by the remaining clip
+  // fraction lets the countdown shrink as batches complete instead of showing a
+  // fixed total the whole time.
+  function estimateRemainingAudioSeconds(remainingClips: number) {
+    const remainingFraction = audioClipCount > 0 ? remainingClips / audioClipCount : 0;
+    return estimateCommonListGenerationSeconds({
+      itemCount: 0,
+      audioCharacterCount: Math.round(requestedUnits * remainingFraction),
+      audioClipCount: remainingClips,
+    });
+  }
+
   setGenerationStatus({
     title: t('onboarding.statusGeneratingAudio'),
     detail:
       audioClipCount > 0
         ? t('onboarding.commonListAudioInitialDetail', { count: formatNumber(items.length) })
         : t('onboarding.commonListNoMissingAudio'),
-    estimateSeconds: estimateCommonListGenerationSeconds({
-      itemCount: items.length,
-      audioCharacterCount: requestedUnits,
-      audioClipCount,
-    }),
+    estimateSeconds: estimateRemainingAudioSeconds(audioClipCount),
     note: audioClipCount > 0
       ? t('onboarding.commonListAudioKeepOpenNote')
       : undefined,
@@ -235,11 +244,9 @@ export async function generateCommonListAudio({
         done: formatNumber(processedClipCount),
         total: formatNumber(audioClipCount),
       }),
-      estimateSeconds: estimateCommonListGenerationSeconds({
-        itemCount: items.length,
-        audioCharacterCount: requestedUnits,
-        audioClipCount,
-      }),
+      estimateSeconds: estimateRemainingAudioSeconds(
+        Math.max(0, audioClipCount - processedClipCount),
+      ),
       note: t('onboarding.commonListAudioKeepOpenNote'),
       progress: {
         value: audioClipCount > 0 ? processedClipCount / audioClipCount : 1,

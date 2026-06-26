@@ -151,7 +151,9 @@ export function LearningLanguageOnboarding({
               </p>
             ) : null}
             {generationStatus.note ? (
-              <p className="mt-3 text-xs leading-relaxed onboarding-text-soft">{generationStatus.note}</p>
+              <p className="onboarding-notice mt-4 rounded-md px-3 py-2 text-xs font-bold leading-relaxed">
+                {generationStatus.note}
+              </p>
             ) : null}
           </section>
         </div>
