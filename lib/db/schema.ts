@@ -436,6 +436,29 @@ export const userListSubscriptions = pgTable(
   ],
 );
 
+// Durable record that a deleted user's Supabase auth identity still needs to be
+// removed. Created inside the account-deletion DB transaction (so it commits
+// atomically with the data erasure and survives a crash before the external
+// Supabase admin call), then deleted once `auth.users` is gone. Holds only the
+// auth id needed to finish erasure — no email or other personal data.
+export const accountDeletionJobs = pgTable(
+  "account_deletion_jobs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    supabaseAuthId: text("supabase_auth_id").notNull().unique(),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [index("account_deletion_jobs_created_at_idx").on(table.createdAt)],
+)
+  // Deny-all RLS: this table is only ever touched server-side via the direct
+  // Postgres connection (table owner, which bypasses RLS). Enabling RLS with no
+  // policies keeps it unreachable through Supabase's PostgREST/anon API, since
+  // it holds auth identifiers and has no reason to be publicly exposed.
+  .enableRLS();
+
 // Type exports for use in queries
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -467,3 +490,5 @@ export type GoogleApiUsage = typeof googleApiUsage.$inferSelect;
 export type NewGoogleApiUsage = typeof googleApiUsage.$inferInsert;
 export type UserListSubscription = typeof userListSubscriptions.$inferSelect;
 export type NewUserListSubscription = typeof userListSubscriptions.$inferInsert;
+export type AccountDeletionJob = typeof accountDeletionJobs.$inferSelect;
+export type NewAccountDeletionJob = typeof accountDeletionJobs.$inferInsert;

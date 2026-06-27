@@ -1,5 +1,6 @@
 import { and, eq, or, sql, inArray, desc } from 'drizzle-orm';
 import { db } from '../../client';
+import type { Executor } from '../executor';
 import {
   wordLists,
   wordListItems,
@@ -231,12 +232,33 @@ export async function updateList(
   });
 }
 
-export async function deleteList(listId: string): Promise<boolean> {
-  const result = await db
+export async function deleteList(
+  listId: string,
+  executor: Executor = db,
+): Promise<boolean> {
+  const result = await executor
     .delete(wordLists)
     .where(eq(wordLists.id, listId))
     .returning({ id: wordLists.id });
   return result.length > 0;
+}
+
+/**
+ * Anonymize a list during account deletion: sever ownership (owner_id = NULL,
+ * i.e. handed to the Get Word system pool) and scrub the free-text description
+ * that may identify the former owner. Unlike `updateList`, this is a single flat
+ * UPDATE with no side effects, so it can safely run inside the deletion
+ * transaction. The list name is intentionally left untouched — it is the list's
+ * identity for subscribers; the delete UI warns owners to rename first.
+ */
+export async function setListOwnerNullAndScrub(
+  listId: string,
+  executor: Executor = db,
+): Promise<void> {
+  await executor
+    .update(wordLists)
+    .set({ ownerId: null, description: null, updatedAt: new Date() })
+    .where(eq(wordLists.id, listId));
 }
 
 export async function getListById(listId: string): Promise<WordList | null> {

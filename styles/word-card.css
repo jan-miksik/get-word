@@ -286,11 +286,9 @@
   bottom: 0;
   left: 0;
   --study-note-chip-transform: translateY(0);
-  animation: study-note-chip-in 280ms cubic-bezier(0.2, 0.9, 0.18, 1) both;
   box-shadow: 0 1px 0 rgba(255, 255, 255, 0.55);
   transform: var(--study-note-chip-transform);
   transform-origin: left bottom;
-  will-change: opacity, transform;
 }
 
 .study-note {
@@ -311,8 +309,7 @@
 }
 
 .study-note-copy-icon {
-  float: left;
-  margin: 0 10px 2px 0;
+  margin-top: 1px;
 }
 
 .study-note-mentions {
@@ -346,32 +343,8 @@
   }
 }
 
-@keyframes study-note-chip-in {
-  0% {
-    opacity: 0;
-    transform: var(--study-note-chip-transform) translateY(4px) scale(0.72, 0.82);
-    filter: blur(1px);
-  }
-  45% {
-    opacity: 1;
-    transform: var(--study-note-chip-transform) translateY(-1px) scale(1.09, 0.96);
-    filter: blur(0);
-  }
-  78% {
-    opacity: 1;
-    transform: var(--study-note-chip-transform) translateY(0) scale(0.98, 1.03);
-    filter: blur(0);
-  }
-  100% {
-    opacity: 1;
-    transform: var(--study-note-chip-transform) translateY(0) scale(1);
-    filter: blur(0);
-  }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .study-note,
-  .study-note-chip {
+  .study-note {
     animation: none;
   }
 }
@@ -981,8 +954,7 @@
   }
 
   .word-card--fullscreen .study-note-copy-icon {
-    margin-right: 9px;
-    margin-bottom: 1px;
+    margin-top: 1px;
   }
 }
 

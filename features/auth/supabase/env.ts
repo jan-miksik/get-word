@@ -22,6 +22,24 @@ export function getSupabasePublishableKey(): string {
   return key
 }
 
+/**
+ * The server-only secret key (`service_role`). Grants admin access to the
+ * Supabase Auth API (e.g. `auth.admin.deleteUser`). Must never be referenced
+ * from client code or a NEXT_PUBLIC_ var.
+ */
+export function getSupabaseServiceRoleKey(): string {
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!key) throw new Error('SUPABASE_SERVICE_ROLE_KEY is not configured')
+  return key
+}
+
+/** True when the service-role key is available (gates admin operations). */
+export function isSupabaseAdminConfigured(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
+  )
+}
+
 /** True when both public Supabase env vars are present (used to gate UI/login). */
 export function isSupabaseConfigured(): boolean {
   return Boolean(

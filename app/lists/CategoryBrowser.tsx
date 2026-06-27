@@ -77,6 +77,14 @@ function ListBadges({ list }: { list: WordList }) {
           {t('lists.badgePrivate')}
         </span>
       )}
+      {list.isPublic && (list.subscriberCount ?? 0) > 0 && (
+        <span
+          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-text-soft/10 text-text-soft border border-border-subtle"
+          title={t('lists.learnerCount', { count: String(list.subscriberCount) })}
+        >
+          👥 {t('lists.learnerCount', { count: String(list.subscriberCount) })}
+        </span>
+      )}
     </>
   );
 }
@@ -367,6 +375,11 @@ export function CategoryBrowser({
                 />
                 {t('lists.publicList')}
               </label>
+              {(listIsPublic || listIsCommon || listIsRecommended) && (
+                <p className="m-0 -mt-1 text-xs leading-relaxed text-text-soft/70">
+                  {t('lists.publicListHelp')}
+                </p>
+              )}
               {isEditor ? (
                 <div className="grid gap-2">
                   <label className="flex items-start gap-2 rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text-soft">

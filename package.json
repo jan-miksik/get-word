@@ -24,6 +24,7 @@
     "db:dump-restore-full": "bash scripts/dump-and-restore-full.sh",
     "db:backup": "bash scripts/backup-remote-db.sh",
     "ui:generate-locales": "tsx scripts/generate-ui-locales.ts",
+    "account:process-deletions": "tsx scripts/process-account-deletion-jobs.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

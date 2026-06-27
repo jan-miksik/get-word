@@ -20,6 +20,12 @@ const AUDIO_CACHE_NAME = 'get-word-active-list-audio-v1';
  * silently spend cellular data. Unmetered connections cache the whole list.
  */
 const SMALL_LIST_AUDIO_BUDGET_BYTES = 10 * 1024 * 1024;
+/**
+ * Max audio downloads in flight when pre-warming the whole list on an unmetered
+ * connection. Browsers cap ~6 connections per origin on HTTP/1.1, so going
+ * higher buys little while risking gateway rate limits.
+ */
+const AUDIO_CACHE_CONCURRENCY = 6;
 let activeAudioCacheController: AbortController | null = null;
 
 export interface LearningSnapshot {
@@ -227,44 +233,66 @@ export async function cacheActiveListAudio(words: NormalizedWord[]): Promise<Aud
   let downloadedAny = false;
   let downloadedBytes = 0;
 
-  try {
-    for (const url of urls) {
-      if (controller.signal.aborted || isAudioNetworkOffline()) break;
-      if (downloadedBytes >= byteBudget) break;
+  // Unmetered connections download the whole list, so fan out concurrently
+  // instead of waiting on each /api/audio round-trip in turn (a single Arweave
+  // hop can take seconds). Metered connections stay single-flight so the byte
+  // budget below is checked precisely after every file rather than overshooting
+  // by up to `concurrency` files in parallel.
+  const concurrency = byteBudget === Infinity ? AUDIO_CACHE_CONCURRENCY : 1;
 
-      const candidates = getArweaveGatewayUrlCandidates(url);
-      for (const candidate of candidates) {
-        if (controller.signal.aborted || isAudioNetworkOffline()) break;
+  const cacheOneUrl = async (url: string): Promise<void> => {
+    const candidates = getArweaveGatewayUrlCandidates(url);
+    for (const candidate of candidates) {
+      if (controller.signal.aborted || isAudioNetworkOffline()) return;
 
-        try {
-          const existing = await cache.match(candidate);
-          if (existing) {
-            cachedCount += 1;
-            break;
-          }
-          const response = await fetch(candidate, {
-            credentials: 'same-origin',
-            signal: controller.signal,
-          });
-          if (response.ok) {
-            downloadedBytes += await getCachedResponseSizeBytes(response);
-            await cache.put(candidate, response.clone());
-            downloadedAny = true;
-            cachedCount += 1;
-            break;
-          }
-          if (response.status === 408 || response.status === 429 || response.status >= 500) {
-            controller.abort();
-            break;
-          }
-        } catch {
-          // Bulk caching is optional: stop after a transport failure rather
-          // than attempting every audio URL while connectivity is degraded.
-          controller.abort();
-          break;
+      try {
+        const existing = await cache.match(candidate);
+        if (existing) {
+          cachedCount += 1;
+          return;
         }
+        const response = await fetch(candidate, {
+          credentials: 'same-origin',
+          signal: controller.signal,
+        });
+        if (response.ok) {
+          downloadedBytes += await getCachedResponseSizeBytes(response);
+          await cache.put(candidate, response.clone());
+          downloadedAny = true;
+          cachedCount += 1;
+          return;
+        }
+        if (response.status === 408 || response.status === 429 || response.status >= 500) {
+          controller.abort();
+          return;
+        }
+      } catch {
+        // Bulk caching is optional: stop after a transport failure rather
+        // than attempting every audio URL while connectivity is degraded.
+        controller.abort();
+        return;
       }
     }
+  };
+
+  // Shared work queue: each worker pulls the next URL until the list is drained,
+  // the budget is hit, or the download is aborted/offline.
+  let nextUrlIndex = 0;
+  const runWorker = async (): Promise<void> => {
+    while (true) {
+      if (controller.signal.aborted || isAudioNetworkOffline()) return;
+      if (downloadedBytes >= byteBudget) return;
+      const index = nextUrlIndex;
+      nextUrlIndex += 1;
+      if (index >= urls.length) return;
+      await cacheOneUrl(urls[index]);
+    }
+  };
+
+  try {
+    await Promise.all(
+      Array.from({ length: Math.min(concurrency, urls.length) }, () => runWorker()),
+    );
   } finally {
     unsubscribeNetworkChanges();
     if (activeAudioCacheController === controller) {

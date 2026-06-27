@@ -165,8 +165,8 @@ export const CommentBlock = memo(function CommentBlock({
         aria-label={t('card.studyNoteCollapse')}
         title={t('card.studyNoteCollapse')}
       >
-        <div className="study-note-copy text-[0.82rem] leading-snug text-[#2A2218]">
-          <StudyNoteIcon size={22} className="study-note-copy-icon" />
+        <div className="study-note-copy flex items-start gap-2.5 text-[0.82rem] leading-snug text-[#2A2218]">
+          <StudyNoteIcon size={22} className="study-note-copy-icon shrink-0" />
           <p className="m-0">
             {comment.text}
           </p>

@@ -1,5 +1,6 @@
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, ne, sql } from 'drizzle-orm';
 import { db } from '../../client';
+import type { Executor } from '../executor';
 import {
   wordLists,
   wordListItems,
@@ -161,4 +162,84 @@ export async function createUserSubscription(
   listId: string,
 ): Promise<void> {
   await db.insert(userListSubscriptions).values({ userId, listId });
+}
+
+/**
+ * Count distinct subscribers per list. Owners can't subscribe to their own list
+ * (the subscribe route 400s that), but `excludeUserId` lets the account-deletion
+ * path exclude the owner explicitly as insurance against future changes.
+ * Returns a Map keyed by listId; lists with zero subscribers are absent.
+ */
+export async function getSubscriberCountsForLists(
+  listIds: string[],
+  executor: Executor = db,
+  opts?: { excludeUserId?: string },
+): Promise<Map<string, number>> {
+  if (listIds.length === 0) return new Map();
+  const conditions = [inArray(userListSubscriptions.listId, listIds)];
+  if (opts?.excludeUserId) {
+    conditions.push(ne(userListSubscriptions.userId, opts.excludeUserId));
+  }
+  const rows = await executor
+    .select({
+      listId: userListSubscriptions.listId,
+      count: sql<number>`count(distinct ${userListSubscriptions.userId})`,
+    })
+    .from(userListSubscriptions)
+    .where(and(...conditions))
+    .groupBy(userListSubscriptions.listId);
+  return new Map(rows.map((row) => [row.listId, Number(row.count)]));
+}
+
+export type OwnedListSubscriberInfo = {
+  listId: string;
+  name: string;
+  description: string | null;
+  isPublic: boolean;
+  isRecommended: boolean;
+  isCommon: boolean;
+  subscriberCount: number;
+};
+
+/**
+ * Lists owned by `ownerId` with their (owner-excluded) subscriber counts. Used
+ * by the account-deletion preview (no lock) and the deletion saga (`lock: true`
+ * issues `SELECT … FOR UPDATE` on the owned list rows inside the transaction so
+ * the keep/delete partition is computed against a stable snapshot).
+ */
+export async function getOwnedListsWithSubscriberCounts(
+  ownerId: string,
+  executor: Executor = db,
+  opts?: { lock?: boolean },
+): Promise<OwnedListSubscriberInfo[]> {
+  const baseQuery = executor
+    .select({
+      id: wordLists.id,
+      name: wordLists.name,
+      description: wordLists.description,
+      isPublic: wordLists.isPublic,
+      isRecommended: wordLists.isRecommended,
+      isCommon: wordLists.isCommon,
+    })
+    .from(wordLists)
+    .where(eq(wordLists.ownerId, ownerId));
+
+  const owned = await (opts?.lock ? baseQuery.for('update') : baseQuery);
+  if (owned.length === 0) return [];
+
+  const counts = await getSubscriberCountsForLists(
+    owned.map((list) => list.id),
+    executor,
+    { excludeUserId: ownerId },
+  );
+
+  return owned.map((list) => ({
+    listId: list.id,
+    name: list.name,
+    description: list.description,
+    isPublic: list.isPublic,
+    isRecommended: list.isRecommended,
+    isCommon: list.isCommon,
+    subscriberCount: counts.get(list.id) ?? 0,
+  }));
 }

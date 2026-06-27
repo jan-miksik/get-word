@@ -1,5 +1,6 @@
 // Re-export all query functions
 export * from "./users";
+export * from "./account-deletion-jobs";
 export * from "./progress";
 export * from "./memory-hooks";
 export * from "./category-filters";

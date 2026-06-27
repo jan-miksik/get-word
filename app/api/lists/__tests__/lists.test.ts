@@ -6,6 +6,7 @@ const mockGetUserListsByLanguagePair = vi.fn()
 const mockGetSystemDefaultList = vi.fn()
 const mockGetWordListItemCountsByListIds = vi.fn()
 const mockGetUserSubscribedListIds = vi.fn()
+const mockGetSubscriberCountsForLists = vi.fn((..._args: unknown[]) => new Map())
 const mockCreateList = vi.fn()
 const mockGetListById = vi.fn()
 const mockUpdateList = vi.fn()
@@ -45,6 +46,7 @@ vi.mock('@/lib/db', () => ({
   },
   getWordListItemCountsByListIds: (...args: unknown[]) => mockGetWordListItemCountsByListIds(...args),
   getUserSubscribedListIds: (...args: unknown[]) => mockGetUserSubscribedListIds(...args),
+  getSubscriberCountsForLists: (...args: unknown[]) => mockGetSubscriberCountsForLists(...args),
   createList: (...args: unknown[]) => mockCreateList(...args),
   getListById: (...args: unknown[]) => mockGetListById(...args),
   updateList: (...args: unknown[]) => mockUpdateList(...args),

@@ -1,5 +1,6 @@
 import { asc, eq } from "drizzle-orm";
 import { db } from "../client";
+import type { Executor } from "./executor";
 import { users, type User, type NewUser } from "../schema";
 import {
   normalizeMemoryHookDisableFromStage,
@@ -308,9 +309,13 @@ export async function updateUserFields(
   return results[0] || null;
 }
 
-// Delete user
-export async function deleteUser(userId: string): Promise<boolean> {
-  const results = await db
+// Delete user. Accepts an optional executor so the account-deletion saga can run
+// it inside its transaction (cascades to all user-owned personal-data tables).
+export async function deleteUser(
+  userId: string,
+  executor: Executor = db,
+): Promise<boolean> {
+  const results = await executor
     .delete(users)
     .where(eq(users.id, userId))
     .returning();

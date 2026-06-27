@@ -664,17 +664,20 @@
   -webkit-backdrop-filter: none;
 }
 
+/* Scoped overrides so Tailwind theme tokens (bg-background-elevated,
+   text-text, border-border-subtle, etc.) resolve to the brutalist panel
+   palette without affecting the global dark theme. `.panel-token-scope` lets
+   surfaces rendered outside a panel (e.g. modals portaled to <body>) adopt the
+   same palette so they don't look like they come from a different app. */
 .settings-panel,
 .progress-panel,
 .category-panel,
-.upcoming-panel {
+.upcoming-panel,
+.panel-token-scope {
   --panel-surface: #F4EFE2;
   --panel-ink: #2A2218;
   --panel-ink-soft: #6B5E48;
 
-  /* Scoped overrides so Tailwind theme tokens (bg-background-elevated,
-     text-text, border-border-subtle, etc.) resolve to brutalist palette
-     inside these panels without affecting the global dark theme. */
   --bg: #F4EFE2;
   --bg-elevated: #FFF8E8;
   --text: #2A2218;
@@ -683,7 +686,12 @@
   --accent: #1E6FA8;
   --accent-soft: rgba(30, 111, 168, 0.12);
   --accent-strong: #1E6FA8;
+}
 
+.settings-panel,
+.progress-panel,
+.category-panel,
+.upcoming-panel {
   background: var(--panel-surface);
   border: 2px solid var(--panel-ink);
   color: var(--panel-ink);

@@ -185,16 +185,16 @@ describe('local learning cache preferences', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     const caching = cacheActiveListAudio([audioWord]);
-    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    // Unmetered connections fan out, so both word sides are in flight at once.
+    await vi.waitFor(() => expect(fetchMock).toHaveBeenCalled());
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
     window.dispatchEvent(new Event('offline'));
     await caching;
 
     expect(attemptedSignal?.aborted).toBe(true);
-    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
-  it('stops optional downloads after a transport failure before offline is reported', async () => {
+  it('stops optional downloads after a transport failure before attempting the whole list', async () => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
     Object.defineProperty(navigator, 'connection', {
       configurable: true,
@@ -210,8 +210,18 @@ describe('local learning cache preferences', () => {
     const fetchMock = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'));
     vi.stubGlobal('fetch', fetchMock);
 
-    await cacheActiveListAudio([audioWord]);
+    // More URLs than the concurrency limit so a failure can stop the remainder.
+    const words: NormalizedWord[] = Array.from({ length: 20 }, (_, index) => ({
+      ...audioWord,
+      id: `word-${index}`,
+      czAudio: [`/api/audio/known-${index}`],
+      viAudio: [`/api/audio/target-${index}`],
+    }));
 
-    expect(fetchMock).toHaveBeenCalledTimes(1);
+    await cacheActiveListAudio(words);
+
+    // The first failures abort the controller, so the remaining URLs are skipped.
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(1);
+    expect(fetchMock.mock.calls.length).toBeLessThan(words.length * 2);
   });
 });

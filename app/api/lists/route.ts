@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getUserLists, getUserSubscribedListIds, createList } from "@/lib/db";
+import {
+  getUserLists,
+  getUserSubscribedListIds,
+  getSubscriberCountsForLists,
+  createList,
+} from "@/lib/db";
 import {
   isEditor,
   resolveUserFromRequest,
@@ -14,10 +19,17 @@ export async function GET(request: NextRequest) {
     getUserLists(user.id),
     getUserSubscribedListIds(user.id),
   ]);
+  // Subscriber counts power the ambient "N other learners" stewardship cue on
+  // public lists. Owners can't subscribe to their own lists, so no per-owner
+  // exclusion is needed here.
+  const subscriberCounts = await getSubscriberCountsForLists(
+    lists.map((list) => list.id),
+  );
   return NextResponse.json({
     lists: lists.map((list) => ({
       ...list,
       isOwner: list.ownerId === user.id,
+      subscriberCount: subscriberCounts.get(list.id) ?? 0,
     })),
     subscribedListIds,
     canManageCommonLists: isEditor(user),
