@@ -1,30 +1,11 @@
 'use client';
 
-import {
-  isLearningRole,
-  type LearningRole,
-} from '@/features/learning/state/learningRole';
 import type { ViewMode } from './types';
 
 const ACTIVE_LIST_STORAGE_KEY = 'get-word-active-list';
 const VIEW_MODE_STORAGE_KEY = 'get-word-view-mode';
 const CATEGORY_FILTERS_STORAGE_KEY = 'get-word-category-filters-by-list';
-const LEARNING_ROLE_BY_PAIR_STORAGE_KEY = 'get-word-learning-role-by-pair';
 const PWA_INSTALL_PROMPT_ANSWERED_KEY = 'get-word-pwa-install-prompt-answered';
-
-type StoredLearningRole = LearningRole;
-
-function normalizePairCode(code: string): string {
-  const trimmed = String(code).trim();
-  if (!trimmed) return '';
-  const [base, region] = trimmed.split('-');
-  if (!region) return base.toLowerCase();
-  return `${base.toLowerCase()}-${region.toUpperCase()}`;
-}
-
-function getLearningPairKey(languageFrom: string, languageTo: string): string {
-  return `${normalizePairCode(languageFrom)}__${normalizePairCode(languageTo)}`;
-}
 
 export function readStoredActiveListId(): string | null {
   if (typeof window === 'undefined') return null;
@@ -45,6 +26,7 @@ export function readStoredViewMode(): ViewMode {
 }
 
 export function persistViewMode(mode: ViewMode): void {
+  void mode;
   if (typeof window === 'undefined') return;
   localStorage.setItem(VIEW_MODE_STORAGE_KEY, 'card');
 }
@@ -76,46 +58,6 @@ export function readStoredCategoryFiltersByList(): Record<string, string[]> {
 export function persistCategoryFiltersByList(value: Record<string, string[]>): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(CATEGORY_FILTERS_STORAGE_KEY, JSON.stringify(value));
-}
-
-export function readStoredLearningRolesByPair(): Record<string, StoredLearningRole> {
-  if (typeof window === 'undefined') return {};
-  const raw = localStorage.getItem(LEARNING_ROLE_BY_PAIR_STORAGE_KEY);
-  if (!raw) return {};
-
-  try {
-    const parsed = JSON.parse(raw);
-    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-      return {};
-    }
-
-    return Object.fromEntries(
-      Object.entries(parsed).flatMap(([key, value]): Array<[string, StoredLearningRole]> =>
-        isLearningRole(value) ? [[key, value]] : [],
-      ),
-    );
-  } catch {
-    return {};
-  }
-}
-
-export function readStoredLearningRoleForPair(
-  languageFrom: string,
-  languageTo: string,
-): StoredLearningRole | null {
-  const roles = readStoredLearningRolesByPair();
-  return roles[getLearningPairKey(languageFrom, languageTo)] ?? null;
-}
-
-export function persistLearningRoleForPair(
-  languageFrom: string,
-  languageTo: string,
-  role: StoredLearningRole,
-): void {
-  if (typeof window === 'undefined') return;
-  const next = readStoredLearningRolesByPair();
-  next[getLearningPairKey(languageFrom, languageTo)] = role;
-  localStorage.setItem(LEARNING_ROLE_BY_PAIR_STORAGE_KEY, JSON.stringify(next));
 }
 
 export function readPWAInstallPromptAnswered(): boolean {

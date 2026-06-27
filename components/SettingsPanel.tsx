@@ -6,7 +6,6 @@ import { MemoryHooksSection } from '@/components/settings/MemoryHooksSection';
 import { StudyNotesSection } from '@/components/settings/StudyNotesSection';
 import { RevealSection } from '@/components/settings/RevealSection';
 import { LanguageSection } from '@/components/settings/LanguageSection';
-import { LearningLanguageSection } from '@/components/settings/LearningLanguageSection';
 import { MinigamesSection } from '@/components/settings/MinigamesSection';
 import { AppInstallSection } from '@/components/settings/AppInstallSection';
 import { LocalDataSection } from '@/components/settings/LocalDataSection';
@@ -66,7 +65,6 @@ export function SettingsPanel({
           <MemoryHooksSection />
           <StudyNotesSection />
           <LanguageSection />
-          <LearningLanguageSection />
           <RevealSection />
           <MinigamesSection
             minigameFrequency={minigameFrequency}

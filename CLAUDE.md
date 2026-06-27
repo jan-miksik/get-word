@@ -67,9 +67,10 @@ Two layers:
 
 After verification the app mints its own long-lived signed `get_word_session` cookie (see `lib/session.ts`), which is the trusted session — not Supabase's. `userRole: 'user' | 'editor'` controls privileged list operations. The old `/edit` route redirects to `/lists`.
 
-The study-side learning role (`knownLanguage` or `languageToLearn`) is a local,
-language-pair-scoped preference in `features/learning/app-state/storage.ts`; it
-is not a column on `users` and is not part of the sync wire format.
+Study direction comes from the selected list: `language_from` is the known/source
+side and `language_to` is the learning/target side. The app no longer lets users
+flip one list locally; a reverse study direction should use or generate a
+separate reversed list.
 
 Wallet linking is currently disabled (`app/api/auth/link-wallet/route.ts` returns 410); it will return as an additive feature gated behind a signed wallet-ownership challenge for the future stake layer.
 

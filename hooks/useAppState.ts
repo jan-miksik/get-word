@@ -9,7 +9,6 @@ import { useServerSync } from '@/features/learning/app-state/useServerSync';
 import { useCategoryFilter, useGameScore, useMemoryHooks, usePreferences, useProgress } from '@/features/learning/state';
 import type { LinkPayload } from '@/features/learning/app-state/types';
 import type { NormalizedWord } from '@/lib/words';
-import { readStoredLearningRoleForPair } from '@/features/learning/app-state/storage';
 import { cacheActiveListAudio } from '@/lib/local-learning-cache';
 import { subscribeAudioNetworkChanges } from '@/lib/audio-network-policy';
 
@@ -36,6 +35,7 @@ export function useAppState(
   const userProfile = useUserProfile();
   const progressState = useProgress(isHydrated, isUpdatingFromServerRef);
   const preferences = usePreferences(isHydrated, isUpdatingFromServerRef);
+  const { role, setRole } = preferences;
   const memoryHooks = useMemoryHooks(isHydrated, isUpdatingFromServerRef, preferences.role);
   const allWords = syncedWords ?? words;
   const progressBindings = useMemo(
@@ -121,36 +121,13 @@ export function useAppState(
   useEffect(() => {
     if (!activeList) return;
 
-    const storedRole = readStoredLearningRoleForPair(activeList.languageFrom, activeList.languageTo);
-    let preferredRole: 'knownLanguage' | 'languageToLearn' | null = storedRole;
-
-    if (!preferredRole && preferences.learningLanguageFrom && preferences.learningLanguageTo) {
-      if (
-        preferences.learningLanguageFrom === activeList.languageFrom &&
-        preferences.learningLanguageTo === activeList.languageTo
-      ) {
-        // User's known language IS the list's from-side.
-        preferredRole = 'knownLanguage';
-      } else if (
-        preferences.learningLanguageFrom === activeList.languageTo &&
-        preferences.learningLanguageTo === activeList.languageFrom
-      ) {
-        // User's known language is the list's to-side: the from-side is what
-        // they're learning toward.
-        preferredRole = 'languageToLearn';
-      }
+    // Lists are directional: languageFrom is the known/source side and
+    // languageTo is the learning/target side. Reversed study now uses a
+    // separate reversed list instead of flipping the active list locally.
+    if (role !== 'knownLanguage') {
+      setRole('knownLanguage');
     }
-
-    if (preferredRole && preferredRole !== preferences.role) {
-      preferences.setRole(preferredRole);
-    }
-  }, [
-    activeList,
-    preferences.learningLanguageFrom,
-    preferences.learningLanguageTo,
-    preferences.role,
-    preferences.setRole,
-  ]);
+  }, [activeList, role, setRole]);
 
   const {
     isInitialServerSyncPending,

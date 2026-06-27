@@ -111,7 +111,7 @@ export function usePreferences(
   isHydrated: boolean,
   isUpdatingFromServerRef: React.MutableRefObject<boolean>
 ) {
-  const [role, setRoleState] = useState<Role>('languageToLearn');
+  const [role, setRoleState] = useState<Role>('knownLanguage');
   const [showAll, setShowAll] = useState(false);
   const [showEnglish, setShowEnglish] = useState(false);
   const [showCategoryBadges, setShowCategoryBadges] = useState(false);
@@ -129,8 +129,9 @@ export function usePreferences(
   const [studyNoteMinimizeFromStage, setStudyNoteMinimizeFromStageState] = useState<number>(
     DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE
   );
-  const [settingsLanguage, setSettingsLanguageState] =
-    useState<SettingsLanguage>(DEFAULT_SETTINGS_LANGUAGE);
+  const [settingsLanguage, setSettingsLanguageState] = useState<SettingsLanguage>(() =>
+    normalizeSettingsLanguage(getDetectedSettingsLanguage())
+  );
   const [settingsLanguageSelectedAt, setSettingsLanguageSelectedAt] = useState<string | null>(null);
   const settingsLanguageSelectedAtRef = useRef<string | null>(null);
   useEffect(() => {
@@ -159,12 +160,6 @@ export function usePreferences(
       // Keep the in-memory setting usable when storage is unavailable.
     }
   }, [revealMode]);
-
-  useEffect(() => {
-    if (settingsLanguageSelectedAt) return;
-    const detectedLanguage = normalizeSettingsLanguage(getDetectedSettingsLanguage());
-    setSettingsLanguageState((current) => (current === detectedLanguage ? current : detectedLanguage));
-  }, [settingsLanguageSelectedAt]);
 
   // Gate sync on hasReceivedServerSnapshot(): without it, a failed initial GET
   // (no session, offline) leaves the local defaults in place, and the next

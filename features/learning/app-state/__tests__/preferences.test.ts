@@ -4,9 +4,7 @@ import { useActiveListState } from '../useActiveListState';
 import { useViewModePreference } from '../useViewModePreference';
 import {
   persistCategoryFiltersByList,
-  persistLearningRoleForPair,
   readStoredCategoryFiltersByList,
-  readStoredLearningRoleForPair,
 } from '../storage';
 
 describe('learning app-state preferences', () => {
@@ -33,7 +31,6 @@ describe('learning app-state preferences', () => {
     localStorage.removeItem('get-word-active-list');
     localStorage.removeItem('get-word-view-mode');
     localStorage.removeItem('get-word-category-filters-by-list');
-    localStorage.removeItem('get-word-learning-role-by-pair');
   });
 
   it('hydrates active list from localStorage and persists updates', () => {
@@ -87,29 +84,5 @@ describe('learning app-state preferences', () => {
       'list-1': ['Basic', 'Travel'],
       'list-2': ['Food'],
     });
-  });
-
-  it('persists the selected learning side for an exact language pair', () => {
-    persistLearningRoleForPair('en', 'fr', 'knownLanguage');
-    persistLearningRoleForPair('fr', 'en', 'languageToLearn');
-
-    expect(readStoredLearningRoleForPair('en', 'fr')).toBe('knownLanguage');
-    expect(readStoredLearningRoleForPair('fr', 'en')).toBe('languageToLearn');
-    expect(readStoredLearningRoleForPair('en', 'de')).toBeNull();
-  });
-
-  it('drops entries with unknown role values on read', () => {
-    localStorage.setItem(
-      'get-word-learning-role-by-pair',
-      JSON.stringify({
-        'en__fr': 'knownLanguage',
-        'es__pt': 'unknown-value',
-        'de__it': 'cz',
-      }),
-    );
-
-    expect(readStoredLearningRoleForPair('en', 'fr')).toBe('knownLanguage');
-    expect(readStoredLearningRoleForPair('es', 'pt')).toBeNull();
-    expect(readStoredLearningRoleForPair('de', 'it')).toBeNull();
   });
 });

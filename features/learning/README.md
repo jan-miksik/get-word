@@ -38,5 +38,5 @@ Owns the main study experience: word stream composition, progress-driven display
 - Word bucketing and `.cover-target` press-state wiring live under `features/learning/hooks`.
 - Home-page stream/deck orchestration and render callbacks now live under feature hooks/components instead of `app/page.tsx`.
 - The shared minigame preference persistence now lives in `features/learning/hooks/useMinigameFrequencyPreference.ts`.
-- Learning-role direction is stored locally per language pair in `features/learning/app-state/storage.ts`, not on the server user row.
+- Study direction is list-defined: `languageFrom` is the known/source side and `languageTo` is the learning/target side. Reverse study should use or generate a separate reversed list.
 - List creation and editing live under `app/lists` and `features/lists`; `/edit` is only a redirect.

@@ -94,9 +94,10 @@ describe('SettingsPanel settings visibility', () => {
     expect(screen.queryByRole('switch', { name: /save learning data locally/i })).not.toBeInTheDocument();
   });
 
-  it('shows the current list languages in the learning section', () => {
+  it('does not render learning-direction controls', () => {
     render(<SettingsPanel {...baseProps} />);
-    expect(screen.getByRole('button', { name: /french/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /english/i })).toBeInTheDocument();
+    expect(screen.queryByText(/i want to learn/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /french/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /english/i })).not.toBeInTheDocument();
   });
 });
