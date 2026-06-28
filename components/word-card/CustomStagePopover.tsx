@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { STAGES } from '@/lib/words';
 import type { I18nKey } from '@/lib/i18n/messages';
 import { useI18n } from '@/components/I18nProvider';
@@ -18,6 +19,46 @@ export function CustomStagePopover({
   const [customOpen, setCustomOpen] = useState(false);
   const customPopoverRef = useRef<HTMLDivElement>(null);
   const customTriggerRef = useRef<HTMLButtonElement>(null);
+  // Tracks the in-flight pointer gesture so we can tell a tap from a scroll.
+  const tapRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+
+  // Activate options on a movement-thresholded pointer gesture rather than the
+  // synthesized `click`. Inside a scrollable popover, iOS frequently cancels the
+  // click when a tap carries the slightest movement (or scroll momentum from
+  // opening the menu), which made selections — most visibly re-picking the
+  // current stage — silently no-op. Pointer events survive that.
+  const TAP_MOVE_THRESHOLD = 10;
+  const tapHandlers = (action: () => void) => ({
+    onPointerDown: (event: ReactPointerEvent) => {
+      tapRef.current = { x: event.clientX, y: event.clientY, moved: false };
+    },
+    onPointerMove: (event: ReactPointerEvent) => {
+      const start = tapRef.current;
+      if (!start) return;
+      if (
+        Math.abs(event.clientX - start.x) > TAP_MOVE_THRESHOLD ||
+        Math.abs(event.clientY - start.y) > TAP_MOVE_THRESHOLD
+      ) {
+        start.moved = true;
+      }
+    },
+    onPointerUp: () => {
+      const start = tapRef.current;
+      tapRef.current = null;
+      if (start && !start.moved) action();
+    },
+    // A scroll fires pointercancel and releases the implicit touch capture;
+    // discard the gesture so it never registers as a tap.
+    onPointerCancel: () => {
+      tapRef.current = null;
+    },
+    onKeyDown: (event: ReactKeyboardEvent) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        action();
+      }
+    },
+  });
 
   useEffect(() => {
     if (!customOpen) return;
@@ -77,11 +118,11 @@ export function CustomStagePopover({
                   type="button"
                   role="option"
                   aria-selected={isCurrent}
-                  onClick={() => {
+                  {...tapHandlers(() => {
                     setCustomOpen(false);
                     onCustomStage?.(idx);
-                  }}
-                  className={`relative flex w-full items-center px-3 py-2 text-left text-[0.9rem] leading-snug transition-colors hover:bg-[#2A2218]/15 active:bg-[#2A2218]/25 ${
+                  })}
+                  className={`relative flex w-full items-center px-3 py-2 text-left text-[0.9rem] leading-snug [touch-action:manipulation] transition-colors hover:bg-[#2A2218]/15 active:bg-[#2A2218]/25 ${
                     isCurrent
                       ? 'bg-[#2A2218]/12 font-semibold before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-r before:bg-[#2A2218]'
                       : stripe
@@ -97,15 +138,15 @@ export function CustomStagePopover({
               type="button"
               role="option"
               aria-selected={false}
-              onClick={() => {
+              {...tapHandlers(() => {
                 setCustomOpen(false);
                 if (onCustomStage) {
                   onCustomStage(STAGES.length - 1, { noRepeat: true });
                 } else {
                   onReallyKnown?.();
                 }
-              }}
-              className="flex w-full items-center px-3 py-2 text-left text-[0.9rem] leading-snug font-medium text-[#12750f] bg-[#12750f]/[0.08] transition-colors hover:bg-[#12750f]/20 active:bg-[#12750f]/30 border-t border-[#2A2218]/20"
+              })}
+              className="flex w-full items-center px-3 py-2 text-left text-[0.9rem] leading-snug font-medium text-[#12750f] bg-[#12750f]/[0.08] [touch-action:manipulation] transition-colors hover:bg-[#12750f]/20 active:bg-[#12750f]/30 border-t border-[#2A2218]/20"
             >
               {t('card.fullyKnownNoRepeat')}
             </button>
