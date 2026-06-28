@@ -686,9 +686,13 @@
   border-bottom: none;
 }
 
-.list-select-option:hover {
-  background: var(--tm-accent);
-  color: var(--tm-surface);
+/* Guard hover behind a real pointer: on touch (iOS) `:hover` sticks to the
+   last-tapped row, making it look selected while you just scroll through. */
+@media (hover: hover) {
+  .list-select-option:hover {
+    background: var(--tm-accent);
+    color: var(--tm-surface);
+  }
 }
 
 .list-select-option.is-active {

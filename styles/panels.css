@@ -1011,6 +1011,14 @@
   --ob-danger: #B91C1C;
   background: #dcd1b9;
   color: var(--ob-ink);
+  /* The onboarding screen renders outside `.app`, and in standalone/PWA mode
+     `html, body` are locked to `overflow: hidden` (see tokens.css). Give this
+     screen its own scroll viewport so taller-than-viewport content (long list
+     of matches, advanced options) stays reachable on iOS. */
+  height: 100dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
 }
 
 .onboarding-overlay {
