@@ -1096,16 +1096,28 @@
   transition: background 0.14s ease, color 0.14s ease;
 }
 
-.onboarding-combobox-option:hover,
 .onboarding-combobox-option[aria-selected="true"] {
   background: var(--ob-accent, #1E6FA8);
   color: var(--ob-surface, #F4EFE2);
 }
 
-.onboarding-combobox-option:hover .onboarding-text-soft,
 .onboarding-combobox-option[aria-selected="true"] .onboarding-text-soft {
   color: var(--ob-surface, #F4EFE2);
   opacity: 0.8;
+}
+
+/* Guard hover behind a real pointer: on touch (iOS) `:hover` sticks to the
+   last-touched option, so it stays highlighted while scrolling the list. */
+@media (hover: hover) {
+  .onboarding-combobox-option:hover {
+    background: var(--ob-accent, #1E6FA8);
+    color: var(--ob-surface, #F4EFE2);
+  }
+
+  .onboarding-combobox-option:hover .onboarding-text-soft {
+    color: var(--ob-surface, #F4EFE2);
+    opacity: 0.8;
+  }
 }
 
 .onboarding-option {
