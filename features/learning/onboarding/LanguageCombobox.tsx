@@ -65,6 +65,7 @@ export function LanguageCombobox({
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLLabelElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const selectedLanguage = languages.find((language) => language.code === value);
   const hasSelection = Boolean(selectedLanguage || value);
   const shownLanguages = filterLanguages(languages, query, uiLanguage);
@@ -84,6 +85,9 @@ export function LanguageCombobox({
     onChange(code);
     setQuery('');
     setOpen(false);
+    // Drop focus from the search input so the mobile keyboard dismisses after
+    // a selection instead of lingering over the rest of the onboarding form.
+    inputRef.current?.blur();
   }
 
   // Close only on a genuine click/focus outside the combobox. Relying on the
@@ -113,6 +117,7 @@ export function LanguageCombobox({
           </span>
         </div>
         <input
+          ref={inputRef}
           id={id}
           type="search"
           role="combobox"
