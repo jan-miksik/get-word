@@ -555,6 +555,7 @@ export const ukMessages: I18nMessages = {
   "lists.studyNoteCharacterLimit": "{count} / {limit} символів",
   "lists.studyNotesGenerateHint": "Автоматично створити короткі примітки для перекладених пар",
   "lists.copyTranslatedTexts": "Копіювати джерело + переклад",
+  "lists.copyTranslatedTextsWithComments": "Копіювати джерело + переклад + нотатки",
   "lists.copyTranslatedTextsFailed": "Не вдалося скопіювати вихідні тексти й переклади",
   "lists.generateStudyNotes": "Створити примітки",
   "lists.generatingStudyNotes": "Створюю примітки…",

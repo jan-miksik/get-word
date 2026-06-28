@@ -555,6 +555,7 @@ export const csMessages: I18nMessages = {
   "lists.studyNoteCharacterLimit": "{count} / {limit} znaků",
   "lists.studyNotesGenerateHint": "Automaticky vytvořit krátké poznámky k přeloženým dvojicím",
   "lists.copyTranslatedTexts": "Kopírovat zdroj + překlad",
+  "lists.copyTranslatedTextsWithComments": "Kopírovat zdroj + překlad + komentáře",
   "lists.copyTranslatedTextsFailed": "Zdrojové texty a překlady se nepodařilo zkopírovat",
   "lists.generateStudyNotes": "Vytvořit poznámky",
   "lists.generatingStudyNotes": "Vytvářím poznámky…",

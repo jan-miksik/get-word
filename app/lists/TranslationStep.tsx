@@ -171,7 +171,7 @@ export function TranslationStep({
   const [clearColumn, setClearColumn] = useState<'known' | 'target' | null>(null);
   const [generatingComments, setGeneratingComments] = useState(false);
   const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null);
-  const [copiedTranslations, setCopiedTranslations] = useState(false);
+  const [copiedMode, setCopiedMode] = useState<'plain' | 'comments' | null>(null);
   const copyResetTimeoutRef = useRef<number | null>(null);
   const [polishScan, setPolishScan] = useState<PolishScan | null>(null);
   const [showPolishModal, setShowPolishModal] = useState(false);
@@ -217,6 +217,16 @@ export function TranslationStep({
     })
     .filter(Boolean)
     .join('\n');
+  const pairedTextsWithCommentsToCopy = rows
+    .map((row) => {
+      const source = row[hasSource].trim();
+      const target = row[needsTranslation].trim();
+      const comment = (row.comment ?? '').trim();
+      return source || target || comment ? `${source}\t${target}\t${comment}` : '';
+    })
+    .filter(Boolean)
+    .join('\n');
+  const hasAnyComment = rows.some((row) => (row.comment ?? '').trim());
   const clearColumnLanguageLabel =
     clearColumn === 'known'
       ? formatLanguageLabel(list.languageFrom)
@@ -639,23 +649,38 @@ export function TranslationStep({
     }
   }, [list.id, onInputLanguageChange, onUsageRefresh, rows, t]);
 
+  const flashCopied = useCallback((mode: 'plain' | 'comments') => {
+    setCopiedMode(mode);
+    if (copyResetTimeoutRef.current !== null) {
+      window.clearTimeout(copyResetTimeoutRef.current);
+    }
+    copyResetTimeoutRef.current = window.setTimeout(() => {
+      setCopiedMode(null);
+      copyResetTimeoutRef.current = null;
+    }, 1800);
+  }, []);
+
   const handleCopyTranslatedTexts = useCallback(async () => {
     if (!pairedTextsToCopy) return;
     setError(null);
     try {
       await copyTextToClipboard(pairedTextsToCopy);
-      setCopiedTranslations(true);
-      if (copyResetTimeoutRef.current !== null) {
-        window.clearTimeout(copyResetTimeoutRef.current);
-      }
-      copyResetTimeoutRef.current = window.setTimeout(() => {
-        setCopiedTranslations(false);
-        copyResetTimeoutRef.current = null;
-      }, 1800);
+      flashCopied('plain');
     } catch {
       setError(t('lists.copyTranslatedTextsFailed'));
     }
-  }, [pairedTextsToCopy, t]);
+  }, [pairedTextsToCopy, flashCopied, t]);
+
+  const handleCopyTranslatedTextsWithComments = useCallback(async () => {
+    if (!pairedTextsWithCommentsToCopy) return;
+    setError(null);
+    try {
+      await copyTextToClipboard(pairedTextsWithCommentsToCopy);
+      flashCopied('comments');
+    } catch {
+      setError(t('lists.copyTranslatedTextsFailed'));
+    }
+  }, [pairedTextsWithCommentsToCopy, flashCopied, t]);
 
   // Scan every row's source + target for mechanical formatting issues. Pure and
   // local — it never touches the rows, only produces a reviewable report. The
@@ -1274,13 +1299,13 @@ export function TranslationStep({
           <div className="flex items-center gap-2">
             <span
               className={`min-w-16 text-right text-xs text-done transition-opacity ${
-                copiedTranslations ? 'opacity-100' : 'opacity-0'
+                copiedMode !== null ? 'opacity-100' : 'opacity-0'
               }`}
               role="status"
               aria-live="polite"
-              aria-hidden={!copiedTranslations}
+              aria-hidden={copiedMode === null}
             >
-              {copiedTranslations ? t('common.copied') : '\u00A0'}
+              {copiedMode !== null ? t('common.copied') : '\u00A0'}
             </span>
             <button
               type="button"
@@ -1289,6 +1314,14 @@ export function TranslationStep({
               onClick={handleCopyTranslatedTexts}
             >
               {t('lists.copyTranslatedTexts')}
+            </button>
+            <button
+              type="button"
+              disabled={!hasAnyComment}
+              className="px-3 py-1.5 rounded-lg border border-border-subtle text-text text-xs font-medium hover:bg-background disabled:opacity-50 transition-colors"
+              onClick={handleCopyTranslatedTextsWithComments}
+            >
+              {t('lists.copyTranslatedTextsWithComments')}
             </button>
           </div>
         </div>

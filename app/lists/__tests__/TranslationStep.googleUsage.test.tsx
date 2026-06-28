@@ -379,10 +379,60 @@ describe('TranslationStep Google usage gating', () => {
       </I18nProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /copy source \+ target/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Copy source + target' }));
 
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith('hello\txin chào\nworld\tthế giới');
+    });
+    expect(screen.getByRole('status')).toHaveTextContent('Copied');
+  });
+
+  it('copies source, translated texts, and notes when notes exist', async () => {
+    const writeText = vi.fn(async () => {});
+    vi.stubGlobal('navigator', {
+      ...navigator,
+      clipboard: { writeText },
+    });
+
+    render(
+      <I18nProvider language="en">
+        <TranslationStep
+          list={{
+            id: 'list-1',
+            ownerId: 'user-1',
+            name: 'My list',
+            description: null,
+            languageFrom: 'cz',
+            languageTo: 'vi',
+            isPublic: false,
+          }}
+          pendingItems={[
+            {
+              id: 'item-1',
+              text_known: 'hello',
+              text_target: 'xin chào',
+              comment: 'a greeting',
+              position: 0,
+            },
+            {
+              id: 'item-2',
+              text_known: 'world',
+              text_target: 'thế giới',
+              position: 1,
+            },
+          ]}
+          inputLanguage="known"
+          googleUsage={null}
+          onComplete={vi.fn(async () => {})}
+          onSkip={vi.fn(async () => {})}
+        />
+      </I18nProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy source + target + notes' }));
+
+    await waitFor(() => {
+      expect(writeText).toHaveBeenCalledWith('hello\txin chào\ta greeting\nworld\tthế giới\t');
     });
     expect(screen.getByRole('status')).toHaveTextContent('Copied');
   });

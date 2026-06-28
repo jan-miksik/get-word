@@ -555,6 +555,7 @@ export const viMessages: I18nMessages = {
   "lists.studyNoteCharacterLimit": "{count} / {limit} ký tự",
   "lists.studyNotesGenerateHint": "Tự động viết ghi chú ngắn cho các cặp đã dịch",
   "lists.copyTranslatedTexts": "Sao chép nguồn + đích",
+  "lists.copyTranslatedTextsWithComments": "Sao chép nguồn + đích + ghi chú",
   "lists.copyTranslatedTextsFailed": "Không thể sao chép văn bản nguồn và đích",
   "lists.generateStudyNotes": "Tạo ghi chú",
   "lists.generatingStudyNotes": "Đang tạo ghi chú…",

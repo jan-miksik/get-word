@@ -576,6 +576,7 @@ export const enMessages = {
   "lists.studyNoteCharacterLimit": "{count} / {limit} characters",
   "lists.studyNotesGenerateHint": "Auto-write short study notes for translated pairs",
   "lists.copyTranslatedTexts": "Copy source + target",
+  "lists.copyTranslatedTextsWithComments": "Copy source + target + notes",
   "lists.copyTranslatedTextsFailed": "Could not copy source and target texts",
   "lists.generateStudyNotes": "Generate notes",
   "lists.generatingStudyNotes": "Generating notes…",

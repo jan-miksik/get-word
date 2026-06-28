@@ -112,7 +112,7 @@ export async function googleTranslate(
 
 /**
  * Translate texts via OpenRouter (BYOK).
- * Batches up to 50 words per prompt.
+ * Batches up to 100 words per prompt.
  */
 export async function openRouterTranslate(
   texts: string[],
@@ -122,7 +122,11 @@ export async function openRouterTranslate(
   model = DEFAULT_OPENROUTER_TRANSLATION_MODEL,
 ): Promise<TranslationResult[]> {
   const results: TranslationResult[] = [];
-  const BATCH_SIZE = 50;
+  // Larger batches give the model more of the list at once (helps teaching-anchor
+  // consistency) without hitting a rate limit. Kept moderate because BYOK runs
+  // arbitrary, sometimes weaker models where long structured output is less
+  // reliable; index-aligned parsing below tolerates a dropped/failed batch.
+  const BATCH_SIZE = 100;
 
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
     const batch = texts.slice(i, i + BATCH_SIZE);

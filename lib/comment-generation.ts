@@ -38,8 +38,13 @@ export type GeneratedComment = {
   mentions?: WordItemCommentMention[];
 };
 
-/** Batch size for the comment pass. Comments are short; keep prompts compact. */
-export const COMMENT_BATCH_SIZE = 40;
+/**
+ * Batch size for the comment pass. Comment output is sparse (most items get no
+ * note), so a large batch rarely approaches the output-token ceiling, and seeing
+ * more of the list at once helps the model spot teaching-anchor mismatches
+ * between related items. A failed batch is skipped, not fatal.
+ */
+export const COMMENT_BATCH_SIZE = 120;
 
 export function buildCommentPrompt(input: {
   languageFrom: string;
@@ -181,7 +186,9 @@ export function makeServerCommentCaller(options: {
           model: options.model,
           apiUrl: options.apiUrl,
           responseFormat: { type: "json_object" as const },
-          maxTokens: 4_000,
+          // Sized for the larger COMMENT_BATCH_SIZE. Comments are sparse, but a
+          // batch where many rows do warrant a note must not truncate mid-array.
+          maxTokens: 8_000,
           temperature: 0.2,
           messages: [
             { role: "system", content: COMMENT_SYSTEM_PROMPT },

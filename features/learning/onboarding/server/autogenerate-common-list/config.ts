@@ -20,5 +20,11 @@ export const OPENROUTER_API_URL = process.env.OPENROUTER_API_BASE_URL?.replace(/
 
 export const MAX_GENERATED_ITEMS = 400;
 export const DEFAULT_LLM_ITEM_COUNT = 120;
-export const OPENROUTER_BATCH_SIZE = 80;
-export const MAX_PROMPT_CHARS = 36_000;
+// Larger batches let the model see related items together, which is what makes
+// teaching-anchor consistency possible (reusing the same target wording for the
+// same beginner meaning across the list). OpenRouter has no Google-style rate
+// limit; the real ceiling is output-token truncation, so this is paired with a
+// generous maxTokens in openrouter.ts. Kept below MAX_GENERATED_ITEMS so a
+// truncated/failed batch never loses the whole list.
+export const OPENROUTER_BATCH_SIZE = 150;
+export const MAX_PROMPT_CHARS = 60_000;
