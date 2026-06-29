@@ -1,5 +1,13 @@
 'use client';
 
+export const AUDIO_R2_STORAGE_EVENT = 'get-word:audio-r2-storage';
+
+export type AudioR2StorageEventDetail = {
+  storage: string;
+  requestedUrl?: string;
+  finalUrl?: string;
+};
+
 function hasPageAudioDebugFlag(): boolean {
   if (typeof window === 'undefined') return false;
   return new URLSearchParams(window.location.search).get('debug') === '1';
@@ -31,4 +39,23 @@ export function withAudioDebugParam(url: string): string {
   } catch {
     return url;
   }
+}
+
+export function reportAudioStorageResponse(
+  response: Response,
+  requestedUrl?: string,
+): void {
+  if (typeof window === 'undefined') return;
+  const storage = response.headers.get('x-audio-storage');
+  if (storage?.toLowerCase() !== 'r2-fallback') return;
+
+  window.dispatchEvent(
+    new CustomEvent<AudioR2StorageEventDetail>(AUDIO_R2_STORAGE_EVENT, {
+      detail: {
+        storage,
+        requestedUrl,
+        finalUrl: response.url || undefined,
+      },
+    }),
+  );
 }

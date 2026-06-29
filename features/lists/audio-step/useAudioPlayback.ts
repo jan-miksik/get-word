@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AudioRow, AudioSourceCandidate } from '@/features/lists/audio-step/rows';
 import type { TranslateFn } from '@/features/lists/audio-step/api';
-import { withAudioDebugParam } from '@/lib/audio-debug';
+import { reportAudioStorageResponse, withAudioDebugParam } from '@/lib/audio-debug';
 
 type CachedAudio = {
   objectUrl: string;
@@ -122,6 +122,7 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioCacheRef = useRef<Map<string, CachedAudio>>(new Map());
   const playQueueRef = useRef<QueuedAudio[]>([]);
+  const playNextRef = useRef<(() => void) | null>(null);
 
   const clearCachedAudio = useCallback((audioUrl: string | null | undefined) => {
     if (!audioUrl) return;
@@ -189,6 +190,7 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
 
         const contentType = response.headers.get('content-type') ?? '';
         const contentLength = response.headers.get('content-length');
+        reportAudioStorageResponse(response, candidateUrl);
         const attemptDetails = {
           requestedUrl: candidateUrl,
           finalUrl: response.url,
@@ -348,17 +350,22 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
     rowsRef.current = rows;
   }, [rows]);
 
-  const playNext = useCallback(async () => {
-    const next = playQueueRef.current.shift();
-    if (!next) {
-      setPlayingId(null);
-      return;
-    }
+  const schedulePlayNext = useCallback(() => {
+    window.setTimeout(() => {
+      playNextRef.current?.();
+    }, 1200);
+  }, []);
 
-    const row = rowsRef.current.find((candidate) => candidate.id === next.rowId);
-    if (!row) {
-      void playNext();
-      return;
+  const playNext = useCallback(async () => {
+    let next: QueuedAudio | undefined;
+    let row: AudioRow | undefined;
+    while (!row) {
+      next = playQueueRef.current.shift();
+      if (!next) {
+        setPlayingId(null);
+        return;
+      }
+      row = rowsRef.current.find((candidate) => candidate.id === next?.rowId);
     }
 
     if (audioRef.current) audioRef.current.pause();
@@ -368,15 +375,19 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
       row,
       next.source,
       getPlaybackCandidateUrls(next.source),
-      () => {
-        setTimeout(() => void playNext(), 1200);
-      },
+      schedulePlayNext,
       (details) => {
         markPlaybackFailed(row, next.source, details);
-        void playNext();
+        playNextRef.current?.();
       },
     );
-  }, [getPlaybackCandidateUrls, markPlaybackFailed, playAudioWithFallback]);
+  }, [getPlaybackCandidateUrls, markPlaybackFailed, playAudioWithFallback, schedulePlayNext]);
+
+  useEffect(() => {
+    playNextRef.current = () => {
+      void playNext();
+    };
+  }, [playNext]);
 
   const playSingle = useCallback(
     async (row: AudioRow, source: AudioSourceCandidate) => {

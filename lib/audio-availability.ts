@@ -1,7 +1,7 @@
 'use client';
 
 import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
-import { withAudioDebugParam } from '@/lib/audio-debug';
+import { reportAudioStorageResponse, withAudioDebugParam } from '@/lib/audio-debug';
 import { isAudioNetworkOffline } from '@/lib/audio-network-policy';
 
 type AudioAvailabilityCacheEntry = {
@@ -36,6 +36,7 @@ async function probeWithTimeout(url: string): Promise<boolean> {
   const timer = setTimeout(() => controller.abort(), GATEWAY_TIMEOUT_MS);
   try {
     const headResponse = await fetch(url, { method: 'HEAD', signal: controller.signal });
+    reportAudioStorageResponse(headResponse, url);
     if (headResponse.ok) return true;
     if (headResponse.status === 404) {
       if (process.env.NODE_ENV === 'development') {
@@ -58,6 +59,7 @@ async function probeWithTimeout(url: string): Promise<boolean> {
   const getTimer = setTimeout(() => getController.abort(), GATEWAY_TIMEOUT_MS);
   try {
     const getResponse = await fetch(url, { method: 'GET', signal: getController.signal });
+    reportAudioStorageResponse(getResponse, url);
     return getResponse.ok;
   } catch {
     return false;

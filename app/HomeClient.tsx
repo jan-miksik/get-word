@@ -15,6 +15,7 @@ import {
 } from '@/lib/words';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { LandingPage } from '@/components/LandingPage';
+import { AudioStorageDebugBadge } from '@/components/AudioStorageDebugBadge';
 import { useDueTimer } from '@/hooks/useDueTimer';
 import { useAuth } from '@/features/auth/client/useAuth';
 import { AppStateProvider } from '@/context/AppStateContext';
@@ -107,6 +108,7 @@ export function HomeClient() {
     setMemoryHooksEnabled,
     setMemoryHooksIntroAnswered,
     subscribedLists,
+    isEditor,
   } = appState;
 
   // The app runs on synced words (from word_list_items).
@@ -307,6 +309,7 @@ export function HomeClient() {
   return (
     <AppStateProvider value={appState}>
       <I18nProvider language={appState.settingsLanguage}>
+        {isEditor ? <AudioStorageDebugBadge /> : null}
         {isSignedOut ? (
           // Public landing page: explains the app without requiring a login.
           <LandingPage />

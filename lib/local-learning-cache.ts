@@ -3,6 +3,7 @@
 import type { SyncResponse } from '@/lib/sync';
 import type { NormalizedWord } from '@/lib/words';
 import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
+import { reportAudioStorageResponse } from '@/lib/audio-debug';
 import {
   canBulkCacheAudio,
   isAudioNetworkOffline,
@@ -255,6 +256,7 @@ export async function cacheActiveListAudio(words: NormalizedWord[]): Promise<Aud
           credentials: 'same-origin',
           signal: controller.signal,
         });
+        reportAudioStorageResponse(response, candidate);
         if (response.ok) {
           downloadedBytes += await getCachedResponseSizeBytes(response);
           await cache.put(candidate, response.clone());
