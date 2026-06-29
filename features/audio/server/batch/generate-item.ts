@@ -1,5 +1,6 @@
 import {
   createMediaAsset,
+  findMediaByHash,
   upsertMediaAsset,
   batchLinkAudioToItems,
 } from "@/lib/db";
@@ -10,7 +11,12 @@ import {
   GoogleTTSQuotaExhaustedError,
 } from "@/lib/audio";
 import { runGoogleTtsWithRetry } from "@/lib/google-tts-rate-limit";
-import { uploadAudio } from "@/lib/audio-storage";
+import {
+  getArweaveGatewayUrl,
+  getArweaveGatewayUrls,
+  uploadAudio,
+} from "@/lib/audio-storage";
+import { putAudio, r2KeyForHash } from "@/lib/r2-storage";
 import { getErrorDetail } from "./errors";
 import type { AudioField, GenerationCandidate, GeneratedResult } from "./types";
 
@@ -21,6 +27,12 @@ export type GenerateItemContext = {
   audioField: AudioField;
   force: boolean;
 };
+
+function hasUsableArweaveRef(
+  asset: Awaited<ReturnType<typeof findMediaByHash>>,
+): asset is NonNullable<typeof asset> {
+  return asset?.storageType === "arweave" && asset.storageRef.trim().length > 0;
+}
 
 /**
  * Generates and stores audio for a single item, linking the resulting asset.
@@ -73,18 +85,52 @@ export async function generateAudioForItem(
       };
     }
 
-    const storage = await uploadAudio(result.audio, {
-      contentHash: hash,
-      language: item.language,
-      textReference: item.text,
-      provider,
-      voiceId: voiceId ?? "default",
-    });
+    let storageType: "arweave" | "r2";
+    let storageRef: string;
+    let gatewayUrl = "";
+    let gatewayUrls: string[] = [];
+
+    try {
+      const storage = await uploadAudio(result.audio, {
+        contentHash: hash,
+        language: item.language,
+        textReference: item.text,
+        provider,
+        voiceId: voiceId ?? "default",
+      });
+
+      storageType = storage.storageType;
+      storageRef = storage.storageRef;
+      gatewayUrl = storage.gatewayUrl;
+      gatewayUrls = storage.gatewayUrls;
+      await putAudio(result.audio, hash);
+    } catch (uploadErr) {
+      const mirrored = await putAudio(result.audio, hash);
+      if (!mirrored) {
+        throw uploadErr;
+      }
+
+      const existing = await findMediaByHash(hash);
+      if (hasUsableArweaveRef(existing)) {
+        storageType = "arweave";
+        storageRef = existing.storageRef;
+        gatewayUrl = getArweaveGatewayUrl(existing.storageRef);
+        gatewayUrls = getArweaveGatewayUrls(existing.storageRef);
+        console.warn("[Get Word audio] R2 mirror refreshed, canonical Arweave ref preserved", {
+          contentHash: hash,
+          storageRef: existing.storageRef,
+          itemId: item.id,
+        });
+      } else {
+        storageType = "r2";
+        storageRef = r2KeyForHash(hash);
+      }
+    }
 
     const mediaAssetData = {
       contentHash: hash,
-      storageType: storage.storageType,
-      storageRef: storage.storageRef,
+      storageType,
+      storageRef,
       mediaType: "audio" as const,
       language: item.language,
       textReference: item.text,
@@ -111,9 +157,9 @@ export async function generateAudioForItem(
         hash,
         status: "ok",
         audioUrl: getAudioUrl(hash),
-        arweaveUrl: storage.gatewayUrl,
-        arweaveUrls: storage.gatewayUrls,
-        storageRef: storage.storageRef,
+        arweaveUrl: gatewayUrl,
+        arweaveUrls: gatewayUrls,
+        storageRef,
         voiceId: voiceId ?? "default",
         sizeBytes: result.sizeBytes,
       },

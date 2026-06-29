@@ -15,11 +15,20 @@ type UploadAudioMetadata = {
   voiceId?: string | null;
 };
 
+export type UploadAudioTag = {
+  name: string;
+  value: string;
+};
+
 type UploadedAudio = {
   storageType: "arweave";
   storageRef: string;
   gatewayUrl: string;
   gatewayUrls: string[];
+};
+
+type UploadAudioOptions = {
+  tags?: UploadAudioTag[];
 };
 
 let turboClient:
@@ -73,21 +82,23 @@ function getTurboClient() {
 export async function uploadAudio(
   audio: Buffer,
   metadata: UploadAudioMetadata,
+  options: UploadAudioOptions = {},
 ): Promise<UploadedAudio> {
   const turbo = getTurboClient();
+  const tags = options.tags ?? [
+    { name: "App-Name", value: "Get Word" },
+    { name: "Content-Type", value: "audio/mpeg" },
+    { name: "Content-Hash", value: metadata.contentHash },
+    { name: "Language", value: metadata.language },
+    { name: "TTS-Provider", value: metadata.provider },
+    ...(metadata.voiceId
+      ? [{ name: "TTS-Voice-Id", value: metadata.voiceId }]
+      : []),
+  ];
   const upload = await turbo.upload({
     data: audio,
     dataItemOpts: {
-      tags: [
-        { name: "App-Name", value: "Get Word" },
-        { name: "Content-Type", value: "audio/mpeg" },
-        { name: "Content-Hash", value: metadata.contentHash },
-        { name: "Language", value: metadata.language },
-        { name: "TTS-Provider", value: metadata.provider },
-        ...(metadata.voiceId
-          ? [{ name: "TTS-Voice-Id", value: metadata.voiceId }]
-          : []),
-      ],
+      tags,
     },
   });
 

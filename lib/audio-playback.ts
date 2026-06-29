@@ -1,6 +1,7 @@
 'use client';
 
 import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
+import { withAudioDebugParam } from '@/lib/audio-debug';
 import { isAudioNetworkOffline } from '@/lib/audio-network-policy';
 
 export type AudioPlaybackResult = {
@@ -17,7 +18,11 @@ function getPlaybackCandidates(audioSrc: string | string[] | null): string[] {
     .filter((src): src is string => Boolean(src));
 
   return Array.from(
-    new Set(sources.flatMap((src) => getArweaveGatewayUrlCandidates(src))),
+    new Set(
+      sources.flatMap((src) =>
+        getArweaveGatewayUrlCandidates(src).map(withAudioDebugParam),
+      ),
+    ),
   );
 }
 

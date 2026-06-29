@@ -13,6 +13,8 @@ Usage:
   pnpm run db:prod -- shell
   pnpm run db:prod -- compact [--apply]
   pnpm run db:prod -- backfill-content-keys [--apply]
+  pnpm run db:prod -- backfill-r2 [--apply] [--limit N] [--batch-size N]
+  pnpm run db:prod -- repair-r2-to-arweave [--apply] [--limit N] [--batch-size N]
 
 Actions:
   backup [file]    Dump the database with pg_dump to a local file (defaults to
@@ -25,6 +27,10 @@ Actions:
   compact --apply  Delete eligible old sync/review rows.
   backfill-content-keys           Preview user_progress.content_key backfill.
   backfill-content-keys --apply   Write content keys + archive duplicate losers.
+  backfill-r2                     Preview mirroring production Arweave audio to R2.
+  backfill-r2 --apply             Mirror production Arweave audio to R2.
+  repair-r2-to-arweave            Preview promoting temporary R2 audio rows to Arweave.
+  repair-r2-to-arweave --apply    Promote temporary R2 audio rows back to Arweave.
 
 The production DATABASE_URL is read with hidden input, exported only for the
 selected action, and unset when the action exits. Do not put the URL in action
@@ -58,6 +64,41 @@ restore_file=""
 backup_file=""
 compact_apply=false
 backfill_apply=false
+audio_apply=false
+audio_args=()
+
+parse_audio_flags() {
+  local command_name="$1"
+  local value
+  shift
+
+  audio_apply=false
+  audio_args=()
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --apply)
+        audio_apply=true
+        shift
+        ;;
+      --limit|--batch-size)
+        [[ "$#" -ge 2 ]] || die "$command_name $1 requires a value."
+        [[ "$2" =~ ^[0-9]+$ ]] || die "$command_name $1 value must be a positive integer."
+        audio_args+=("$1" "$2")
+        shift 2
+        ;;
+      --limit=*|--batch-size=*)
+        value="${1#*=}"
+        [[ "$value" =~ ^[0-9]+$ ]] || die "$command_name ${1%%=*} value must be a positive integer."
+        audio_args+=("$1")
+        shift
+        ;;
+      *)
+        die "$command_name accepts only --apply, --limit, and --batch-size."
+        ;;
+    esac
+  done
+}
 
 case "$action" in
   backup)
@@ -115,6 +156,26 @@ case "$action" in
       confirmation_phrase="PREVIEW_PRODUCTION_CONTENT_KEYS"
     else
       die "backfill-content-keys accepts only the optional --apply flag."
+    fi
+    ;;
+  backfill-r2)
+    parse_audio_flags "$action" "${@:2}"
+    if [[ "$audio_apply" == true ]]; then
+      description="mirror production Arweave audio into Cloudflare R2"
+      confirmation_phrase="BACKFILL_PRODUCTION_R2_AUDIO"
+    else
+      description="preview mirroring production Arweave audio into Cloudflare R2"
+      confirmation_phrase="PREVIEW_PRODUCTION_R2_AUDIO"
+    fi
+    ;;
+  repair-r2-to-arweave)
+    parse_audio_flags "$action" "${@:2}"
+    if [[ "$audio_apply" == true ]]; then
+      description="promote temporary production R2 audio rows back to Arweave"
+      confirmation_phrase="REPAIR_PRODUCTION_R2_AUDIO"
+    else
+      description="preview promoting temporary production R2 audio rows back to Arweave"
+      confirmation_phrase="PREVIEW_PRODUCTION_R2_AUDIO_REPAIR"
     fi
     ;;
   -h|--help|help|"")
@@ -228,6 +289,20 @@ case "$action" in
       pnpm exec tsx scripts/backfill-content-keys.ts --apply
     else
       pnpm exec tsx scripts/backfill-content-keys.ts
+    fi
+    ;;
+  backfill-r2)
+    if [[ "$audio_apply" == true ]]; then
+      pnpm exec tsx scripts/backfill-r2-audio.ts "${audio_args[@]}"
+    else
+      pnpm exec tsx scripts/backfill-r2-audio.ts --dry-run "${audio_args[@]}"
+    fi
+    ;;
+  repair-r2-to-arweave)
+    if [[ "$audio_apply" == true ]]; then
+      pnpm exec tsx scripts/repair-r2-to-arweave.ts "${audio_args[@]}"
+    else
+      pnpm exec tsx scripts/repair-r2-to-arweave.ts --dry-run "${audio_args[@]}"
     fi
     ;;
 esac

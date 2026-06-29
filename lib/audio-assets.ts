@@ -24,7 +24,7 @@ export function isPlayableAudioAsset<T extends AudioAssetLike>(
   if (!asset) return false;
   if (asset.storageType === "arweave") return true;
   if (hasRemoteStorageRef(asset.storageRef)) return true;
-  return asset.storageType === "r2" && Boolean(process.env.MEDIA_PROXY_WORKER_URL);
+  return asset.storageType === "r2";
 }
 
 export function getPlayableAudioFields(

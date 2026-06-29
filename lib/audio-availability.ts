@@ -1,6 +1,7 @@
 'use client';
 
 import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
+import { withAudioDebugParam } from '@/lib/audio-debug';
 import { isAudioNetworkOffline } from '@/lib/audio-network-policy';
 
 type AudioAvailabilityCacheEntry = {
@@ -66,7 +67,7 @@ async function probeWithTimeout(url: string): Promise<boolean> {
 }
 
 async function probeAudioUrl(url: string): Promise<string | null> {
-  const candidates = getArweaveGatewayUrlCandidates(url);
+  const candidates = getArweaveGatewayUrlCandidates(url).map(withAudioDebugParam);
 
   // 1. Cache API hit beats any network attempt.
   const cached = await checkCacheFirst(candidates);
@@ -88,7 +89,9 @@ async function probeAudioUrl(url: string): Promise<string | null> {
 export function checkAudioUrlAvailable(url: string | null): Promise<boolean> {
   if (!url) return Promise.resolve(false);
   if (isAudioNetworkOffline()) {
-    return checkCacheFirst(getArweaveGatewayUrlCandidates(url)).then(Boolean);
+    return checkCacheFirst(
+      getArweaveGatewayUrlCandidates(url).map(withAudioDebugParam),
+    ).then(Boolean);
   }
 
   const cached = audioAvailabilityCache.get(url);
@@ -120,7 +123,7 @@ export function getCachedAudioUrlAvailability(url: string | null): boolean | nul
 export async function getPlayableAudioUrl(url: string | null): Promise<string | null> {
   if (!url) return null;
   if (isAudioNetworkOffline()) {
-    return checkCacheFirst(getArweaveGatewayUrlCandidates(url));
+    return checkCacheFirst(getArweaveGatewayUrlCandidates(url).map(withAudioDebugParam));
   }
 
   const cached = audioAvailabilityCache.get(url);

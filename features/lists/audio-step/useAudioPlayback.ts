@@ -16,6 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AudioRow, AudioSourceCandidate } from '@/features/lists/audio-step/rows';
 import type { TranslateFn } from '@/features/lists/audio-step/api';
+import { withAudioDebugParam } from '@/lib/audio-debug';
 
 type CachedAudio = {
   objectUrl: string;
@@ -135,7 +136,7 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
     return Array.from(
       new Set([
         ...(cached ? [cached.objectUrl] : []),
-        source.audioUrl,
+        withAudioDebugParam(source.audioUrl),
         ...source.arweaveUrls,
         ...(source.arweaveUrl ? [source.arweaveUrl] : []),
       ]),
@@ -149,10 +150,10 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
       if (cached) return cached.objectUrl;
 
       const candidateUrls = isAppAudioProxyUrl(source.audioUrl)
-        ? [source.audioUrl]
+        ? [withAudioDebugParam(source.audioUrl)]
         : Array.from(
             new Set([
-              source.audioUrl,
+              withAudioDebugParam(source.audioUrl),
               ...source.arweaveUrls,
               ...(source.arweaveUrl ? [source.arweaveUrl] : []),
             ]),

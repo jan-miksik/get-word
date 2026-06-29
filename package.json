@@ -25,6 +25,10 @@
     "db:backup": "bash scripts/backup-remote-db.sh",
     "ui:generate-locales": "tsx scripts/generate-ui-locales.ts",
     "account:process-deletions": "tsx scripts/process-account-deletion-jobs.ts",
+    "audio:backfill-r2": "tsx scripts/backfill-r2-audio.ts",
+    "audio:prod:backfill-r2": "bash scripts/production-db.sh backfill-r2",
+    "audio:prod:repair-r2-to-arweave": "bash scripts/production-db.sh repair-r2-to-arweave",
+    "audio:repair-r2-to-arweave": "tsx scripts/repair-r2-to-arweave.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -33,6 +37,7 @@
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.90.1",
     "@tanstack/react-virtual": "^3.13.18",
+    "aws4fetch": "^1.0.20",
     "drizzle-orm": "^0.45.2",
     "next": "16.2.6",
     "postgres": "^3.4.8",

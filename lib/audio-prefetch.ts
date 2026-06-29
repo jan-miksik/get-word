@@ -4,6 +4,7 @@
  */
 
 import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
+import { withAudioDebugParam } from '@/lib/audio-debug';
 import { getAudioPrefetchLimit } from '@/lib/audio-network-policy';
 
 const PREFETCH_COUNT = 10;
@@ -21,7 +22,7 @@ export function prefetchAudio(audioUrls: string[]): void {
   if (prefetchLimit === 0) return;
 
   const toPrefetch = audioUrls
-    .map((url) => getArweaveGatewayUrlCandidates(url)[0])
+    .map((url) => getArweaveGatewayUrlCandidates(url).map(withAudioDebugParam)[0])
     .filter((url): url is string => Boolean(url) && !prefetchedHashes.has(url))
     .slice(0, prefetchLimit);
 
