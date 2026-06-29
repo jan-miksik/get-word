@@ -109,7 +109,7 @@ export function AppLayout({
               ? accountSlotOverride
               : isAuthenticated
               ? (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 w-full">
                     <AuthButton
                       isAuthenticated
                       authEmail={authEmail}
@@ -123,7 +123,7 @@ export function AppLayout({
                           e.stopPropagation();
                           void onSignOut();
                         }}
-                        className="h-9 w-9 inline-flex items-center justify-center rounded-lg bg-transparent border-2 border-[#2A2218] text-[#2A2218] hover:bg-[#1E6FA8] hover:border-[#1E6FA8] hover:text-[#F4EFE2] transition-colors"
+                        className="h-9 w-9 shrink-0 inline-flex items-center justify-center rounded-lg bg-transparent border-2 border-[#2A2218] text-[#2A2218] hover:bg-[#1E6FA8] hover:border-[#1E6FA8] hover:text-[#F4EFE2] transition-colors"
                         aria-label={t('common.signOut')}
                         title={t('common.signOut')}
                       >

@@ -226,7 +226,7 @@ export function CreateListModal({
           </div>
 
           {langFrom === langTo ? (
-            <p className="text-xs text-danger">{t('onboarding.samePairWarning')}</p>
+            <p className="text-xs text-[var(--text-soft)]">{t('onboarding.samePairWarning')}</p>
           ) : null}
         </div>
 

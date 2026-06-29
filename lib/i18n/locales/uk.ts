@@ -713,8 +713,6 @@ export const ukMessages: I18nMessages = {
   "editor.audioFiles": "Аудіофайли",
   "editor.commaSeparated": "(через кому)",
   "onboarding.interfaceLanguageLabel": "Мова інтерфейсу",
-  "onboarding.noListSelectedTitle": "Не вибрано жодного списку слів",
-  "onboarding.noListSelectedDescription": "Виберіть рекомендований список нижче або згенеруйте список, щоб продовжити навчання.",
   "onboarding.iKnow": "Я знаю",
   "onboarding.iWantToLearn": "Я хочу вивчати",
   "onboarding.selectLanguage": "Виберіть мову",

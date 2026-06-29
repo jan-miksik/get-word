@@ -211,7 +211,7 @@
 .menu-dropdown-popup {
   top: calc(100% + 8px);
   bottom: auto;
-  width: 240px;
+  width: 280px;
   border-radius: 14px;
   overflow: hidden;
 
@@ -810,6 +810,18 @@
 
 .menu-dropdown-account .auth-button.is-connected {
   border-color: var(--tm-ink, #2A2218);
+  flex: 1 1 auto;
+  min-width: 0;
+  justify-content: flex-start;
+  padding-inline: 0.75rem;
+}
+
+/* Let the email fill the available pill width and truncate there,
+   instead of clipping at a fixed max-width and crowding the edges. */
+.menu-dropdown-account .auth-label {
+  max-width: none;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .menu-dropdown-account .auth-dot {

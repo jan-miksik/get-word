@@ -713,8 +713,6 @@ export const viMessages: I18nMessages = {
   "editor.audioFiles": "Tệp âm thanh",
   "editor.commaSeparated": "(phân tách bằng dấu phẩy)",
   "onboarding.interfaceLanguageLabel": "Ngôn ngữ giao diện",
-  "onboarding.noListSelectedTitle": "Chưa chọn danh sách từ",
-  "onboarding.noListSelectedDescription": "Chọn danh sách được đề xuất bên dưới hoặc tạo một danh sách để tiếp tục học.",
   "onboarding.iKnow": "Tôi biết",
   "onboarding.iWantToLearn": "Tôi muốn học",
   "onboarding.selectLanguage": "Chọn một ngôn ngữ",

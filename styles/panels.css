@@ -1072,6 +1072,11 @@
   background: var(--ob-surface-hover, #FFF8E8);
 }
 
+.onboarding-combobox-highlight {
+  border-color: var(--ob-accent, #1E6FA8);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ob-accent, #1E6FA8) 22%, transparent);
+}
+
 .onboarding-combobox-input {
   color: var(--ob-ink, #2A2218);
 }

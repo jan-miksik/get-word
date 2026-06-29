@@ -270,24 +270,21 @@ function Hero() {
   const { t } = useI18n();
   return (
     <section className="lp-fade-in min-w-0 py-10 sm:py-16">
-      <div className="lp-stagger">
+      <div>
         <h1
           className="lp-display m-0 text-[clamp(2.6rem,7vw,5rem)] font-bold leading-[1.02] tracking-[-0.025em] text-[var(--ink)]"
-          style={{ '--i': 0 } as React.CSSProperties}
         >
           {t('landing.hero.title')}
         </h1>
 
         <p
           className="m-0 mt-6 max-w-2xl text-[1.05rem] leading-7 text-[var(--ink-2)] sm:text-[1.2rem] sm:leading-8"
-          style={{ '--i': 1 } as React.CSSProperties}
         >
           {t('landing.hero.subtitle')}
         </p>
 
         <div
           className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center"
-          style={{ '--i': 2 } as React.CSSProperties}
         >
           <Link href="/login" className="lp-btn-primary group">
             {t('landing.hero.getStarted')}
@@ -635,7 +632,6 @@ function LandingStyles() {
 .lp-kicker-rule{ width:26px; height:2px; background:var(--rust); }
 
 /* --- Load / reveal animations (pure CSS, no JS) --- */
-.lp-stagger > *{ opacity:0; transform:translateY(16px); animation:lp-rise .8s cubic-bezier(.2,.8,.25,1) both; animation-delay:calc(var(--i,0) * 95ms + 120ms); }
 .lp-fade-in{ opacity:0; animation:lp-fade 1s ease forwards .15s; }
 @keyframes lp-rise{ from{ opacity:0; transform:translateY(24px) } to{ opacity:1; transform:none } }
 @keyframes lp-fade{ to{ opacity:1 } }
@@ -685,7 +681,7 @@ function LandingStyles() {
 .lp-foot-link:hover{ color:var(--rust); }
 
 @media (prefers-reduced-motion:reduce){
-  .lp-stagger > *,.lp-fade-in,.lp-reveal{
+  .lp-fade-in,.lp-reveal{
     animation:none !important; opacity:1 !important; transform:none !important;
   }
 }

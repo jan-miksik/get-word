@@ -162,12 +162,6 @@ export function LearningLanguageOnboarding({
         <div className="mb-4 flex justify-end">
           <OnboardingLanguageSwitcher />
         </div>
-        {reason === 'noListSelected' ? (
-          <div className="onboarding-notice mb-4 rounded-md px-3 py-2 text-sm">
-            <p className="font-extrabold">{t('onboarding.noListSelectedTitle')}</p>
-            <p className="mt-1 text-xs leading-relaxed">{t('onboarding.noListSelectedDescription')}</p>
-          </div>
-        ) : null}
         <div className="grid gap-4 sm:grid-cols-2 sm:items-end">
           <LanguageCombobox
             id="language-from"
@@ -184,6 +178,7 @@ export function LearningLanguageOnboarding({
             languages={languages}
             loading={loadingLanguages}
             onChange={setLanguageTo}
+            highlight
           />
         </div>
 
@@ -194,38 +189,49 @@ export function LearningLanguageOnboarding({
         ) : null}
 
         {languageFrom === languageTo ? (
-          <p className="onboarding-error mt-3 text-sm">{t('onboarding.samePairWarning')}</p>
+          <p className="onboarding-text-soft mt-3 text-sm">{t('onboarding.samePairWarning')}</p>
         ) : null}
 
         <div className="onboarding-divider mt-6 pt-5">
           {!advancedOpen ? (
-            <div className="space-y-3">
-              <button
-                type="button"
-                className="onboarding-option onboarding-option-highlight group flex w-full items-center justify-center gap-2 rounded-xl px-5 py-4 text-center text-lg font-extrabold shadow-sm transition-all duration-150 enabled:hover:-translate-y-0.5 enabled:hover:shadow-lg enabled:hover:brightness-110 enabled:active:translate-y-0 enabled:active:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
-                onClick={handleContinue}
-                disabled={!canContinue || loadingMatches || workingId !== null}
+            <div
+              className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
+                canContinue ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+              }`}
+            >
+              <div
+                className={`min-h-0 overflow-hidden ${canContinue ? '' : 'pointer-events-none'}`}
+                aria-hidden={!canContinue}
               >
-                {workingId !== null ? t('onboarding.autogenerating') : t('onboarding.continue')}
-                {workingId === null ? (
-                  <svg
-                    width="18"
-                    height="18"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    className="transition-transform duration-150 group-enabled:group-hover:translate-x-1"
-                    aria-hidden="true"
+                <div className="space-y-3 px-1 pt-1">
+                  <button
+                    type="button"
+                    className="onboarding-option onboarding-option-highlight group flex w-full items-center justify-center gap-2 rounded-xl px-5 py-4 text-center text-lg font-extrabold shadow-sm transition-all duration-150 enabled:hover:-translate-y-0.5 enabled:hover:shadow-lg enabled:hover:brightness-110 enabled:active:translate-y-0 enabled:active:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
+                    onClick={handleContinue}
+                    disabled={!canContinue || loadingMatches || workingId !== null}
                   >
-                    <path
-                      d="M4 10h11M11 6l4 4-4 4"
-                      stroke="currentColor"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                ) : null}
-              </button>
+                    {workingId !== null ? t('onboarding.autogenerating') : t('onboarding.continue')}
+                    {workingId === null ? (
+                      <svg
+                        width="18"
+                        height="18"
+                        viewBox="0 0 20 20"
+                        fill="none"
+                        className="transition-transform duration-150 group-enabled:group-hover:translate-x-1"
+                        aria-hidden="true"
+                      >
+                        <path
+                          d="M4 10h11M11 6l4 4-4 4"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    ) : null}
+                  </button>
+                </div>
+              </div>
             </div>
           ) : null}
 
@@ -420,30 +426,41 @@ export function LearningLanguageOnboarding({
             </div>
           </div>
 
-          <div className="mt-4 flex justify-center">
-            <button
-              type="button"
-              className="inline-flex items-center gap-1.5 text-xs font-bold underline onboarding-text-soft"
-              onClick={() => setAdvancedOpen((open) => !open)}
+          <div
+            className={`grid transition-[grid-template-rows,opacity] duration-300 ease-in-out ${
+              canContinue || advancedOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+            }`}
+          >
+            <div
+              className={`min-h-0 overflow-hidden ${canContinue || advancedOpen ? '' : 'pointer-events-none'}`}
+              aria-hidden={!canContinue && !advancedOpen}
             >
-              {advancedOpen ? t('onboarding.hideAdvanced') : t('onboarding.advancedOptions')}
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 20 20"
-                fill="none"
-                className={`transition-transform duration-300 ${advancedOpen ? 'rotate-180' : ''}`}
-                aria-hidden="true"
-              >
-                <path
-                  d="M5 8l5 5 5-5"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                />
-              </svg>
-            </button>
+              <div className="mt-4 flex justify-center">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-1.5 text-xs font-bold underline onboarding-text-soft"
+                  onClick={() => setAdvancedOpen((open) => !open)}
+                >
+                  {advancedOpen ? t('onboarding.hideAdvanced') : t('onboarding.advancedOptions')}
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    className={`transition-transform duration-300 ${advancedOpen ? 'rotate-180' : ''}`}
+                    aria-hidden="true"
+                  >
+                    <path
+                      d="M5 8l5 5 5-5"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 

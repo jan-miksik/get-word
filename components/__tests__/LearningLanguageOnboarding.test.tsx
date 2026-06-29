@@ -361,7 +361,6 @@ describe('LearningLanguageOnboarding', () => {
       />,
     );
 
-    expect(screen.getByText('No word list selected')).toBeInTheDocument();
     expect(await screen.findByText('Public English Vietnamese')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Hide advanced options/i })).toBeInTheDocument();
   });

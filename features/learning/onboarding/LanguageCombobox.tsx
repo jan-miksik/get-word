@@ -51,6 +51,10 @@ type LanguageComboboxProps = {
   languages: LearningLanguage[];
   loading: boolean;
   onChange: (value: string) => void;
+  // Draw an accent ring around the field while it is still empty, to point the
+  // user at the input that needs their attention. The cue clears itself once a
+  // language is selected, so both comboboxes look identical once filled.
+  highlight?: boolean;
 };
 
 export function LanguageCombobox({
@@ -60,6 +64,7 @@ export function LanguageCombobox({
   languages,
   loading,
   onChange,
+  highlight = false,
 }: LanguageComboboxProps) {
   const { t, language: uiLanguage } = useI18n();
   const [query, setQuery] = useState('');
@@ -107,12 +112,22 @@ export function LanguageCombobox({
   return (
     <label ref={rootRef} className="relative block min-w-0">
       <span className="mb-2 block text-lg font-extrabold uppercase tracking-wide sm:text-xl">{label}</span>
-      <div className="onboarding-combobox min-h-[66px] px-3 py-2">
+      <div
+        className={`onboarding-combobox min-h-[66px] px-3 py-2 ${
+          highlight && !hasSelection ? 'onboarding-combobox-highlight' : ''
+        }`}
+      >
         <div className="mb-1 flex h-7 min-w-0 items-center gap-2 text-sm font-bold">
-          <span className="inline-flex min-w-6 justify-center text-lg leading-none" aria-hidden="true">
-            {selectedFlag}
-          </span>
-          <span className={`min-w-0 flex-1 truncate ${hasSelection ? '' : 'onboarding-text-soft'}`}>
+          {hasSelection ? (
+            <span className="inline-flex min-w-6 justify-center text-lg leading-none" aria-hidden="true">
+              {selectedFlag}
+            </span>
+          ) : null}
+          <span
+            className={`min-w-0 flex-1 truncate ${
+              hasSelection ? '' : 'onboarding-text-soft text-base'
+            }`}
+          >
             {hasSelection ? selectedPrimary : t('onboarding.selectLanguage')}
           </span>
         </div>

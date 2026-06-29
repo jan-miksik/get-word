@@ -734,8 +734,6 @@ export const enMessages = {
   "editor.audioFiles": "Audio files",
   "editor.commaSeparated": "(comma-separated)",
   "onboarding.interfaceLanguageLabel": "Interface language",
-  "onboarding.noListSelectedTitle": "No word list selected",
-  "onboarding.noListSelectedDescription": "Choose a recommended list below or generate one to continue learning.",
   "onboarding.iKnow": "I know",
   "onboarding.iWantToLearn": "I want to learn",
   "onboarding.selectLanguage": "Select a language",
