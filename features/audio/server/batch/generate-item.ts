@@ -90,26 +90,30 @@ export async function generateAudioForItem(
     let gatewayUrl = "";
     let gatewayUrls: string[] = [];
 
-    try {
-      const storage = await uploadAudio(result.audio, {
+    const [uploadResult, r2MirrorResult] = await Promise.allSettled([
+      uploadAudio(result.audio, {
         contentHash: hash,
         language: item.language,
         textReference: item.text,
         provider,
         voiceId: voiceId ?? "default",
-      });
+      }),
+      putAudio(result.audio, hash),
+    ]);
 
+    const mirroredToR2 =
+      r2MirrorResult.status === "fulfilled" && r2MirrorResult.value === true;
+
+    if (uploadResult.status === "fulfilled") {
+      const storage = uploadResult.value;
       storageType = storage.storageType;
       storageRef = storage.storageRef;
       gatewayUrl = storage.gatewayUrl;
       gatewayUrls = storage.gatewayUrls;
-      await putAudio(result.audio, hash);
-    } catch (uploadErr) {
-      const mirrored = await putAudio(result.audio, hash);
-      if (!mirrored) {
-        throw uploadErr;
+    } else {
+      if (!mirroredToR2) {
+        throw uploadResult.reason;
       }
-
       const existing = await findMediaByHash(hash);
       if (hasUsableArweaveRef(existing)) {
         storageType = "arweave";

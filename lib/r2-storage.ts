@@ -5,6 +5,7 @@ export const R2_AUDIO_KEY_PREFIX = "audio";
 export const R2_AUDIO_EXTENSION = "mp3";
 export const R2_PUT_TIMEOUT_MS = 10_000;
 export const R2_GET_TIMEOUT_MS = 5_000;
+export const R2_HEAD_TIMEOUT_MS = 5_000;
 export const R2_DEFAULT_MAX_AUDIO_BYTES = 1_000_000;
 
 type R2Config = {
@@ -57,6 +58,10 @@ function getR2ObjectUrl(config: R2Config, contentHash: string): string {
   return `${config.endpoint}/${config.bucket}/${r2KeyForHash(contentHash)}`;
 }
 
+function getR2BucketUrl(config: R2Config, params: URLSearchParams): string {
+  return `${config.endpoint}/${config.bucket}?${params.toString()}`;
+}
+
 function toArrayBufferBody(audio: Buffer | ArrayBuffer | Uint8Array): ArrayBuffer {
   if (audio instanceof ArrayBuffer) return audio;
   const body = new Uint8Array(audio.byteLength);
@@ -83,7 +88,7 @@ export function isR2Configured(): boolean {
 }
 
 function logR2Failure(
-  operation: "put" | "get",
+  operation: "put" | "get" | "head" | "list",
   contentHash: string,
   category: string,
   detail?: unknown,
@@ -107,6 +112,37 @@ function categorizeError(err: unknown): string {
   if (err instanceof DOMException && err.name === "TimeoutError") return "timeout";
   if (err instanceof Error && err.name === "AbortError") return "timeout";
   return "network";
+}
+
+function decodeXmlText(text: string): string {
+  return text
+    .replace(/&quot;/g, '"')
+    .replace(/&apos;/g, "'")
+    .replace(/&gt;/g, ">")
+    .replace(/&lt;/g, "<")
+    .replace(/&amp;/g, "&");
+}
+
+function getXmlTagValues(xml: string, tagName: string): string[] {
+  const pattern = new RegExp(`<${tagName}>([\\s\\S]*?)</${tagName}>`, "g");
+  return Array.from(xml.matchAll(pattern), (match) => decodeXmlText(match[1] ?? ""));
+}
+
+function getXmlTagValue(xml: string, tagName: string): string | null {
+  return getXmlTagValues(xml, tagName)[0] ?? null;
+}
+
+function contentHashFromR2Key(key: string): string | null {
+  const prefix = `${R2_AUDIO_KEY_PREFIX}/`;
+  const suffix = `.${R2_AUDIO_EXTENSION}`;
+  if (!key.startsWith(prefix) || !key.endsWith(suffix)) return null;
+
+  const encodedHash = key.slice(prefix.length, -suffix.length);
+  try {
+    return decodeURIComponent(encodedHash);
+  } catch {
+    return encodedHash;
+  }
 }
 
 export async function putAudio(
@@ -191,6 +227,80 @@ export async function getAudio(
     };
   } catch (err) {
     logR2Failure("get", contentHash, categorizeError(err), err);
+    return null;
+  }
+}
+
+export async function hasAudio(contentHash: string): Promise<boolean | null> {
+  const config = getR2Config();
+  if (!config) {
+    logR2Failure("head", contentHash, "unconfigured");
+    return null;
+  }
+
+  try {
+    const response = await getR2Client(config).fetch(getR2ObjectUrl(config, contentHash), {
+      method: "HEAD",
+      signal: AbortSignal.timeout(R2_HEAD_TIMEOUT_MS),
+    });
+
+    if (response.ok) return true;
+    if (response.status === 404) return false;
+
+    logR2Failure("head", contentHash, categorizeStatus(response.status), response.status);
+    return null;
+  } catch (err) {
+    logR2Failure("head", contentHash, categorizeError(err), err);
+    return null;
+  }
+}
+
+export async function listAudioContentHashes(): Promise<Set<string> | null> {
+  const config = getR2Config();
+  if (!config) {
+    logR2Failure("list", "*", "unconfigured");
+    return null;
+  }
+
+  const hashes = new Set<string>();
+  let continuationToken: string | null = null;
+
+  try {
+    do {
+      const params = new URLSearchParams({
+        "list-type": "2",
+        prefix: `${R2_AUDIO_KEY_PREFIX}/`,
+        "max-keys": "1000",
+      });
+      if (continuationToken) {
+        params.set("continuation-token", continuationToken);
+      }
+
+      const response = await getR2Client(config).fetch(getR2BucketUrl(config, params), {
+        method: "GET",
+        signal: AbortSignal.timeout(R2_GET_TIMEOUT_MS),
+      });
+
+      if (!response.ok) {
+        logR2Failure("list", "*", categorizeStatus(response.status), response.status);
+        return null;
+      }
+
+      const xml = await response.text();
+      for (const key of getXmlTagValues(xml, "Key")) {
+        const hash = contentHashFromR2Key(key);
+        if (hash) hashes.add(hash);
+      }
+
+      const isTruncated = getXmlTagValue(xml, "IsTruncated") === "true";
+      continuationToken = isTruncated
+        ? getXmlTagValue(xml, "NextContinuationToken")
+        : null;
+    } while (continuationToken);
+
+    return hashes;
+  } catch (err) {
+    logR2Failure("list", "*", categorizeError(err), err);
     return null;
   }
 }

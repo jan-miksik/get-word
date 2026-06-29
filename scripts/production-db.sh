@@ -13,7 +13,7 @@ Usage:
   pnpm run db:prod -- shell
   pnpm run db:prod -- compact [--apply]
   pnpm run db:prod -- backfill-content-keys [--apply]
-  pnpm run db:prod -- backfill-r2 [--apply] [--limit N] [--batch-size N]
+  pnpm run db:prod -- backfill-r2 [--apply] [--limit N] [--batch-size N] [--concurrency N] [--checkpoint path]
   pnpm run db:prod -- repair-r2-to-arweave [--apply] [--limit N] [--batch-size N]
 
 Actions:
@@ -81,20 +81,32 @@ parse_audio_flags() {
         audio_apply=true
         shift
         ;;
-      --limit|--batch-size)
+      --limit|--batch-size|--concurrency)
         [[ "$#" -ge 2 ]] || die "$command_name $1 requires a value."
         [[ "$2" =~ ^[0-9]+$ ]] || die "$command_name $1 value must be a positive integer."
         audio_args+=("$1" "$2")
         shift 2
         ;;
-      --limit=*|--batch-size=*)
+      --limit=*|--batch-size=*|--concurrency=*)
         value="${1#*=}"
         [[ "$value" =~ ^[0-9]+$ ]] || die "$command_name ${1%%=*} value must be a positive integer."
         audio_args+=("$1")
         shift
         ;;
+      --checkpoint)
+        [[ "$#" -ge 2 ]] || die "$command_name --checkpoint requires a path."
+        [[ -n "$2" ]] || die "$command_name --checkpoint path must not be empty."
+        audio_args+=("$1" "$2")
+        shift 2
+        ;;
+      --checkpoint=*)
+        value="${1#*=}"
+        [[ -n "$value" ]] || die "$command_name --checkpoint path must not be empty."
+        audio_args+=("$1")
+        shift
+        ;;
       *)
-        die "$command_name accepts only --apply, --limit, and --batch-size."
+        die "$command_name accepts only --apply, --limit, --batch-size, --concurrency, and --checkpoint."
         ;;
     esac
   done
@@ -293,16 +305,16 @@ case "$action" in
     ;;
   backfill-r2)
     if [[ "$audio_apply" == true ]]; then
-      pnpm exec tsx scripts/backfill-r2-audio.ts "${audio_args[@]}"
+      pnpm exec tsx scripts/backfill-r2-audio.ts ${audio_args[@]+"${audio_args[@]}"}
     else
-      pnpm exec tsx scripts/backfill-r2-audio.ts --dry-run "${audio_args[@]}"
+      pnpm exec tsx scripts/backfill-r2-audio.ts --dry-run ${audio_args[@]+"${audio_args[@]}"}
     fi
     ;;
   repair-r2-to-arweave)
     if [[ "$audio_apply" == true ]]; then
-      pnpm exec tsx scripts/repair-r2-to-arweave.ts "${audio_args[@]}"
+      pnpm exec tsx scripts/repair-r2-to-arweave.ts ${audio_args[@]+"${audio_args[@]}"}
     else
-      pnpm exec tsx scripts/repair-r2-to-arweave.ts --dry-run "${audio_args[@]}"
+      pnpm exec tsx scripts/repair-r2-to-arweave.ts --dry-run ${audio_args[@]+"${audio_args[@]}"}
     fi
     ;;
 esac

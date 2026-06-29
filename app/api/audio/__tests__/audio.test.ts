@@ -205,6 +205,40 @@ describe('POST /api/audio/generate/batch', () => {
     expect(mockCreateMediaAsset).toHaveBeenCalled()
   })
 
+  it('keeps Arweave canonical when the R2 mirror write fails', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockFindMediaByHashes.mockResolvedValue(new Map())
+    mockGoogleTTS.mockResolvedValue({ audio: Buffer.from('audio-data'), sizeBytes: 10 })
+    mockUploadAudio.mockResolvedValue({
+      storageType: 'arweave',
+      storageRef: 'tx123',
+      gatewayUrl: 'https://turbo-gateway.com/tx123',
+      gatewayUrls: ['https://turbo-gateway.com/tx123', 'https://arweave.net/tx123'],
+    })
+    mockPutR2Audio.mockResolvedValue(false)
+    mockCreateMediaAsset.mockResolvedValue({ id: 'asset-new', contentHash: 'hash_hello_vi_google_tts' })
+    mockBatchLinkAudioToItems.mockResolvedValue(undefined)
+
+    const res = await POST(makeRequest({
+      items: [{ id: 'item-1', text: 'hello', language: 'vi' }],
+      provider: 'google_tts',
+    }))
+
+    expect(res.status).toBe(200)
+    const data = await res.json()
+    expect(data.results[0].status).toBe('ok')
+    expect(data.results[0].storage_ref).toBe('tx123')
+    expect(data.results[0].arweave_url).toBe('https://turbo-gateway.com/tx123')
+    expect(mockCreateMediaAsset).toHaveBeenCalledWith(expect.objectContaining({
+      contentHash: 'hash_hello_vi_google_tts',
+      storageType: 'arweave',
+      storageRef: 'tx123',
+    }))
+    expect(mockBatchLinkAudioToItems).toHaveBeenCalledWith([
+      { itemId: 'item-1', audioAssetId: 'asset-new', audioStatus: 'ready' },
+    ])
+  })
+
   it('passes a selected Google TTS voice through to synthesis', async () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
     mockFindMediaByHashes.mockResolvedValue(new Map())

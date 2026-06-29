@@ -1,7 +1,10 @@
 import * as dotenv from "dotenv";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import path from "node:path";
 import { getArweaveGatewayUrls } from "../lib/audio-storage";
 import {
-  getAudio,
+  hasAudio,
+  listAudioContentHashes,
   putAudio,
   R2_AUDIO_CONTENT_TYPE,
 } from "../lib/r2-storage";
@@ -11,12 +14,27 @@ dotenv.config({ path: ".env.local" });
 const ARWEAVE_FETCH_TIMEOUT_MS = 3_500;
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 const DEFAULT_BATCH_SIZE = 100;
+const DEFAULT_CONCURRENCY = 10;
+const MAX_CONCURRENCY = 16;
 
 type MediaAssetRow = {
   id: string;
   contentHash: string;
   storageRef: string;
+  createdAt: Date;
 };
+
+type Cursor = {
+  createdAt: Date;
+  id: string;
+};
+
+type BackfillResult =
+  | { status: "alreadyPresent" }
+  | { status: "mirrored" }
+  | { status: "dryRunReady" }
+  | { status: "failed" }
+  | { status: "r2ProbeFailed" };
 
 function getFlagValue(name: string): string | undefined {
   const prefix = `${name}=`;
@@ -31,6 +49,51 @@ function getNumberFlag(name: string, fallback: number): number {
   if (!raw) return fallback;
   const parsed = Number.parseInt(raw, 10);
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback;
+}
+
+async function loadCheckpoint(checkpointPath: string): Promise<Cursor | null> {
+  try {
+    const raw = await readFile(checkpointPath, "utf8");
+    const parsed = JSON.parse(raw) as { createdAt?: unknown; id?: unknown };
+    if (typeof parsed.createdAt !== "string" || typeof parsed.id !== "string") {
+      throw new Error("checkpoint must contain createdAt and id strings");
+    }
+
+    const createdAt = new Date(parsed.createdAt);
+    if (Number.isNaN(createdAt.getTime())) {
+      throw new Error("checkpoint createdAt is not a valid date");
+    }
+
+    console.log("[backfill-r2-audio] loaded checkpoint", {
+      checkpointPath,
+      createdAt: createdAt.toISOString(),
+      id: parsed.id,
+    });
+    return { createdAt, id: parsed.id };
+  } catch (err) {
+    if (err && typeof err === "object" && "code" in err && err.code === "ENOENT") {
+      return null;
+    }
+
+    console.warn("[backfill-r2-audio] checkpoint ignored", {
+      checkpointPath,
+      error: err instanceof Error ? err.message : err,
+    });
+    return null;
+  }
+}
+
+async function saveCheckpoint(checkpointPath: string, cursor: Cursor) {
+  await mkdir(path.dirname(checkpointPath), { recursive: true });
+  await writeFile(
+    checkpointPath,
+    `${JSON.stringify({
+      createdAt: cursor.createdAt.toISOString(),
+      id: cursor.id,
+      updatedAt: new Date().toISOString(),
+    }, null, 2)}\n`,
+    "utf8",
+  );
 }
 
 function looksLikeMp3(bytes: Uint8Array): boolean {
@@ -90,10 +153,95 @@ async function fetchArweaveAudio(storageRef: string) {
   return null;
 }
 
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  concurrency: number,
+  mapper: (item: T) => Promise<R>,
+): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  async function worker() {
+    while (nextIndex < items.length) {
+      const index = nextIndex;
+      nextIndex += 1;
+      results[index] = await mapper(items[index]);
+    }
+  }
+
+  const workers = Array.from(
+    { length: Math.min(concurrency, items.length) },
+    () => worker(),
+  );
+  await Promise.all(workers);
+  return results;
+}
+
+async function mirrorAsset(
+  asset: MediaAssetRow,
+  dryRun: boolean,
+  existingR2Hashes: Set<string> | null,
+): Promise<BackfillResult> {
+  if (existingR2Hashes?.has(asset.contentHash)) {
+    console.log("[backfill-r2-audio] mirror already present", {
+      contentHash: asset.contentHash,
+    });
+    return { status: "alreadyPresent" };
+  }
+
+  if (!existingR2Hashes) {
+    const existing = await hasAudio(asset.contentHash);
+    if (existing === true) {
+      console.log("[backfill-r2-audio] mirror already present", {
+        contentHash: asset.contentHash,
+      });
+      return { status: "alreadyPresent" };
+    }
+    if (existing === null) {
+      console.warn("[backfill-r2-audio] could not verify R2 mirror state; skipped to avoid overwrite", {
+        contentHash: asset.contentHash,
+      });
+      return { status: "r2ProbeFailed" };
+    }
+  }
+
+  if (dryRun) {
+    console.log("[backfill-r2-audio] dry-run would mirror", {
+      contentHash: asset.contentHash,
+    });
+    return { status: "dryRunReady" };
+  }
+
+  const audio = await fetchArweaveAudio(asset.storageRef);
+  if (!audio) {
+    console.warn("[backfill-r2-audio] no valid Arweave audio found", {
+      contentHash: asset.contentHash,
+      storageRef: asset.storageRef,
+    });
+    return { status: "failed" };
+  }
+
+  const ok = await putAudio(audio, asset.contentHash, R2_AUDIO_CONTENT_TYPE);
+  if (ok) {
+    console.log("[backfill-r2-audio] mirrored", {
+      contentHash: asset.contentHash,
+      bytes: audio.byteLength,
+    });
+    return { status: "mirrored" };
+  }
+
+  console.warn("[backfill-r2-audio] R2 mirror write failed", {
+    contentHash: asset.contentHash,
+  });
+  return { status: "failed" };
+}
+
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
   const limit = getNumberFlag("--limit", Number.POSITIVE_INFINITY);
   const batchSize = Math.min(getNumberFlag("--batch-size", DEFAULT_BATCH_SIZE), DEFAULT_BATCH_SIZE);
+  const concurrency = Math.min(getNumberFlag("--concurrency", DEFAULT_CONCURRENCY), MAX_CONCURRENCY);
+  const checkpointPath = getFlagValue("--checkpoint");
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     console.error("DATABASE_URL is not set. Add it to .env.local or the environment.");
@@ -101,7 +249,7 @@ async function main() {
   }
 
   const { drizzle } = await import("drizzle-orm/postgres-js");
-  const { and, asc, eq } = await import("drizzle-orm");
+  const { and, asc, eq, gt, or } = await import("drizzle-orm");
   const postgres = (await import("postgres")).default;
   const schema = await import("../lib/db/schema");
   const { normalizeDatabaseUrl } = await import("../lib/db/connection-string");
@@ -113,77 +261,78 @@ async function main() {
     mirrored: 0,
     alreadyPresent: 0,
     skipped: 0,
+    r2ProbeFailed: 0,
     failed: 0,
   };
 
-  console.log("[backfill-r2-audio] starting", { dryRun, limit, batchSize });
+  console.log("[backfill-r2-audio] starting", {
+    dryRun,
+    limit,
+    batchSize,
+    concurrency,
+    checkpointPath: checkpointPath ?? null,
+  });
 
   try {
-    let offset = 0;
+    const existingR2Hashes = await listAudioContentHashes();
+    if (existingR2Hashes) {
+      console.log("[backfill-r2-audio] loaded R2 object inventory", {
+        objects: existingR2Hashes.size,
+      });
+    } else {
+      console.warn("[backfill-r2-audio] could not list R2 inventory; falling back to per-object HEAD checks");
+    }
+
+    let cursor = checkpointPath ? await loadCheckpoint(checkpointPath) : null;
     while (summary.scanned < limit) {
       const rows = await db
         .select({
           id: schema.mediaAssets.id,
           contentHash: schema.mediaAssets.contentHash,
           storageRef: schema.mediaAssets.storageRef,
+          createdAt: schema.mediaAssets.createdAt,
         })
         .from(schema.mediaAssets)
         .where(
           and(
             eq(schema.mediaAssets.storageType, "arweave"),
             eq(schema.mediaAssets.mediaType, "audio"),
+            cursor
+              ? or(
+                  gt(schema.mediaAssets.createdAt, cursor.createdAt),
+                  and(
+                    eq(schema.mediaAssets.createdAt, cursor.createdAt),
+                    gt(schema.mediaAssets.id, cursor.id),
+                  ),
+                )
+              : undefined,
           ),
         )
-        .orderBy(asc(schema.mediaAssets.createdAt))
-        .limit(Math.min(batchSize, limit - summary.scanned))
-        .offset(offset);
+        .orderBy(asc(schema.mediaAssets.createdAt), asc(schema.mediaAssets.id))
+        .limit(Math.min(batchSize, limit - summary.scanned));
 
       if (rows.length === 0) break;
-      offset += rows.length;
 
-      for (const asset of rows as MediaAssetRow[]) {
-        summary.scanned += 1;
-        const existing = await getAudio(asset.contentHash);
-        if (existing) {
-          summary.alreadyPresent += 1;
-          console.log("[backfill-r2-audio] mirror already present", {
-            contentHash: asset.contentHash,
-          });
-          continue;
-        }
+      const assets = rows as MediaAssetRow[];
+      const results = await mapWithConcurrency(
+        assets,
+        concurrency,
+        (asset) => mirrorAsset(asset, dryRun, existingR2Hashes),
+      );
 
-        const audio = await fetchArweaveAudio(asset.storageRef);
-        if (!audio) {
-          summary.failed += 1;
-          console.warn("[backfill-r2-audio] no valid Arweave audio found", {
-            contentHash: asset.contentHash,
-            storageRef: asset.storageRef,
-          });
-          continue;
-        }
+      summary.scanned += assets.length;
+      for (const result of results) {
+        if (result.status === "alreadyPresent") summary.alreadyPresent += 1;
+        else if (result.status === "mirrored") summary.mirrored += 1;
+        else if (result.status === "dryRunReady") summary.skipped += 1;
+        else if (result.status === "r2ProbeFailed") summary.r2ProbeFailed += 1;
+        else summary.failed += 1;
+      }
 
-        if (dryRun) {
-          summary.skipped += 1;
-          console.log("[backfill-r2-audio] dry-run would mirror", {
-            contentHash: asset.contentHash,
-            bytes: audio.byteLength,
-          });
-          continue;
-        }
-
-        const ok = await putAudio(audio, asset.contentHash, R2_AUDIO_CONTENT_TYPE);
-        if (ok) {
-          summary.mirrored += 1;
-          console.log("[backfill-r2-audio] mirrored", {
-            contentHash: asset.contentHash,
-            bytes: audio.byteLength,
-          });
-        } else {
-          summary.failed += 1;
-          console.warn("[backfill-r2-audio] R2 mirror write failed", {
-            contentHash: asset.contentHash,
-          });
-        }
+      const last = assets[assets.length - 1];
+      cursor = { createdAt: last.createdAt, id: last.id };
+      if (checkpointPath && !dryRun) {
+        await saveCheckpoint(checkpointPath, cursor);
       }
     }
   } finally {

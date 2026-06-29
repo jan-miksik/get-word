@@ -357,30 +357,33 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
   }, []);
 
   const playNext = useCallback(async () => {
-    let next: QueuedAudio | undefined;
-    let row: AudioRow | undefined;
-    while (!row) {
-      next = playQueueRef.current.shift();
-      if (!next) {
-        setPlayingId(null);
+    let next = playQueueRef.current.shift();
+    while (next) {
+      const queued = next;
+      const row = rowsRef.current.find((candidate) => candidate.id === queued.rowId);
+      if (row) {
+        const source = queued.source;
+
+        if (audioRef.current) audioRef.current.pause();
+
+        setPlayingId(row.id);
+        playAudioWithFallback(
+          row,
+          source,
+          getPlaybackCandidateUrls(source),
+          schedulePlayNext,
+          (details) => {
+            markPlaybackFailed(row, source, details);
+            playNextRef.current?.();
+          },
+        );
         return;
       }
-      row = rowsRef.current.find((candidate) => candidate.id === next?.rowId);
+
+      next = playQueueRef.current.shift();
     }
 
-    if (audioRef.current) audioRef.current.pause();
-
-    setPlayingId(row.id);
-    playAudioWithFallback(
-      row,
-      next.source,
-      getPlaybackCandidateUrls(next.source),
-      schedulePlayNext,
-      (details) => {
-        markPlaybackFailed(row, next.source, details);
-        playNextRef.current?.();
-      },
-    );
+    setPlayingId(null);
   }, [getPlaybackCandidateUrls, markPlaybackFailed, playAudioWithFallback, schedulePlayNext]);
 
   useEffect(() => {

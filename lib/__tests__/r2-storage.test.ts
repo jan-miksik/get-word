@@ -1,11 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getAudio,
+  hasAudio,
   isR2Configured,
+  listAudioContentHashes,
   putAudio,
   r2KeyForHash,
   R2_DEFAULT_MAX_AUDIO_BYTES,
   R2_GET_TIMEOUT_MS,
+  R2_HEAD_TIMEOUT_MS,
   R2_PUT_TIMEOUT_MS,
 } from "@/lib/r2-storage";
 
@@ -133,6 +136,49 @@ describe("r2-storage", () => {
     expect(getFetchMethod(input, init)).toBe("GET");
   });
 
+  it("checks R2 object presence with HEAD without downloading audio", async () => {
+    configureR2();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(hasAudio("abc123")).resolves.toBe(true);
+
+    const [input, init] = fetchMock.mock.calls[0] as [RequestInfo | URL, RequestInit | undefined];
+    expect(getFetchUrl(input)).toBe("https://account-123.r2.cloudflarestorage.com/tts-audio/audio/abc123.mp3");
+    expect(getFetchMethod(input, init)).toBe("HEAD");
+  });
+
+  it("lists existing R2 audio content hashes from bucket inventory pages", async () => {
+    configureR2();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(new Response(`<?xml version="1.0" encoding="UTF-8"?>
+        <ListBucketResult>
+          <IsTruncated>true</IsTruncated>
+          <Contents><Key>audio/abc123.mp3</Key></Contents>
+          <Contents><Key>audio/abc%2F456.mp3</Key></Contents>
+          <Contents><Key>other/ignored.mp3</Key></Contents>
+          <NextContinuationToken>token&amp;1</NextContinuationToken>
+        </ListBucketResult>`, { status: 200 }))
+      .mockResolvedValueOnce(new Response(`<?xml version="1.0" encoding="UTF-8"?>
+        <ListBucketResult>
+          <IsTruncated>false</IsTruncated>
+          <Contents><Key>audio/final.mp3</Key></Contents>
+        </ListBucketResult>`, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(listAudioContentHashes()).resolves.toEqual(
+      new Set(["abc123", "abc/456", "final"]),
+    );
+
+    const [firstInput, firstInit] = fetchMock.mock.calls[0] as [RequestInfo | URL, RequestInit | undefined];
+    const [secondInput, secondInit] = fetchMock.mock.calls[1] as [RequestInfo | URL, RequestInit | undefined];
+    expect(getFetchMethod(firstInput, firstInit)).toBe("GET");
+    expect(getFetchUrl(firstInput)).toContain("list-type=2");
+    expect(getFetchUrl(firstInput)).toContain("prefix=audio%2F");
+    expect(getFetchUrl(secondInput)).toContain("continuation-token=token%261");
+    expect(getFetchMethod(secondInput, secondInit)).toBe("GET");
+  });
+
   it("refuses to return R2 audio larger than the configured safety cap", async () => {
     configureR2();
     vi.stubEnv("R2_MAX_AUDIO_BYTES", "4");
@@ -179,6 +225,40 @@ describe("r2-storage", () => {
     await expect(getAudio("forbidden")).resolves.toBeNull();
     expect(warnSpy).toHaveBeenLastCalledWith("[Get Word audio] R2 storage failure", expect.objectContaining({
       category: "permission",
+    }));
+    warnSpy.mockRestore();
+  });
+
+  it("returns false for HEAD misses and null when presence cannot be verified", async () => {
+    configureR2();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 404 })));
+    await expect(hasAudio("missing")).resolves.toBe(false);
+
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 403 })));
+    await expect(hasAudio("forbidden")).resolves.toBeNull();
+    expect(warnSpy).toHaveBeenLastCalledWith("[Get Word audio] R2 storage failure", expect.objectContaining({
+      operation: "head",
+      category: "permission",
+    }));
+
+    vi.spyOn(AbortSignal, "timeout").mockReturnValue(AbortSignal.abort());
+    vi.stubGlobal("fetch", neverResolvingFetch());
+    await expect(hasAudio("timeout")).resolves.toBeNull();
+    expect(AbortSignal.timeout).toHaveBeenLastCalledWith(R2_HEAD_TIMEOUT_MS);
+    warnSpy.mockRestore();
+  });
+
+  it("returns null when R2 inventory listing is unavailable", async () => {
+    configureR2();
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("nope", { status: 503 })));
+
+    await expect(listAudioContentHashes()).resolves.toBeNull();
+    expect(warnSpy).toHaveBeenLastCalledWith("[Get Word audio] R2 storage failure", expect.objectContaining({
+      operation: "list",
+      category: "unavailable",
     }));
     warnSpy.mockRestore();
   });
