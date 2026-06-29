@@ -96,6 +96,21 @@ async function saveCheckpoint(checkpointPath: string, cursor: Cursor) {
   );
 }
 
+type UnresolvedAsset = { contentHash: string; status: BackfillResult["status"] };
+
+// The scan cursor always advances to the end of each batch so a checkpointed
+// resume keeps moving forward instead of stalling on a permanently dead
+// Arweave ref. Assets that failed or could not be verified are therefore
+// recorded separately so they are not silently dropped on resume.
+async function saveFailures(failuresPath: string, failures: UnresolvedAsset[]) {
+  await mkdir(path.dirname(failuresPath), { recursive: true });
+  await writeFile(
+    failuresPath,
+    `${JSON.stringify({ updatedAt: new Date().toISOString(), failures }, null, 2)}\n`,
+    "utf8",
+  );
+}
+
 function looksLikeMp3(bytes: Uint8Array): boolean {
   const id3 = bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33;
   const frameSync = bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0;
@@ -223,6 +238,9 @@ async function mirrorAsset(
 
   const ok = await putAudio(audio, asset.contentHash, R2_AUDIO_CONTENT_TYPE);
   if (ok) {
+    // Keep the in-run inventory current so duplicate-contentHash assets later
+    // in the scan are recognised as present instead of re-fetched and re-PUT.
+    existingR2Hashes?.add(asset.contentHash);
     console.log("[backfill-r2-audio] mirrored", {
       contentHash: asset.contentHash,
       bytes: audio.byteLength,
@@ -273,6 +291,8 @@ async function main() {
     checkpointPath: checkpointPath ?? null,
   });
 
+  const unresolved: UnresolvedAsset[] = [];
+
   try {
     const existingR2Hashes = await listAudioContentHashes();
     if (existingR2Hashes) {
@@ -321,13 +341,18 @@ async function main() {
       );
 
       summary.scanned += assets.length;
-      for (const result of results) {
+      results.forEach((result, index) => {
         if (result.status === "alreadyPresent") summary.alreadyPresent += 1;
         else if (result.status === "mirrored") summary.mirrored += 1;
         else if (result.status === "dryRunReady") summary.skipped += 1;
-        else if (result.status === "r2ProbeFailed") summary.r2ProbeFailed += 1;
-        else summary.failed += 1;
-      }
+        else if (result.status === "r2ProbeFailed") {
+          summary.r2ProbeFailed += 1;
+          unresolved.push({ contentHash: assets[index].contentHash, status: result.status });
+        } else {
+          summary.failed += 1;
+          unresolved.push({ contentHash: assets[index].contentHash, status: result.status });
+        }
+      });
 
       const last = assets[assets.length - 1];
       cursor = { createdAt: last.createdAt, id: last.id };
@@ -337,6 +362,14 @@ async function main() {
     }
   } finally {
     await client.end();
+    if (checkpointPath && !dryRun && unresolved.length > 0) {
+      const failuresPath = `${checkpointPath}.failures.json`;
+      await saveFailures(failuresPath, unresolved);
+      console.warn("[backfill-r2-audio] recorded unresolved assets for retry", {
+        failuresPath,
+        count: unresolved.length,
+      });
+    }
   }
 
   console.log("[backfill-r2-audio] summary", summary);
