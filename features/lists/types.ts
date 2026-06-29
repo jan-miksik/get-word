@@ -86,6 +86,10 @@ export type ConfirmResult = {
     text_target: string | null;
     position: number;
     comment?: string | null;
+    // Null = the word currently has no category. Populated only in the
+    // client-built review flow (itemsToPending); the server confirm path omits
+    // it because those items already belong to the edited category.
+    category_id?: string | null;
   }[];
 };
 

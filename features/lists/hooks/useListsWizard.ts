@@ -43,6 +43,8 @@ function itemsToPending(items: WordListItem[]): PendingListItems {
     position: item.position,
     // Surface the existing study-note text so the review editor shows it.
     comment: item.comment?.text ?? null,
+    // Lets the review step flag/fix words that have no category.
+    category_id: item.categoryId ?? null,
   }));
 }
 
@@ -232,13 +234,25 @@ export function useListsWizard({
         reloadListDetails({ includeMedia: true }),
         loadGoogleUsage(),
       ]);
+      // Carry category_id forward (from the reloaded canonical items, falling
+      // back to the prior pending item) so going Back to the review step does
+      // not flag every word as having no category.
+      const categoryById = new Map(freshItems.map((item) => [item.id, item.categoryId ?? null]));
       setPendingItems(
-        translationRows.map((row, index) => ({
-          id: row.id,
-          text_known: row.textKnown,
-          text_target: row.textTarget || null,
-          position: pendingItems.find((item) => item.id === row.id)?.position ?? index,
-        })),
+        translationRows.map((row, index) => {
+          const prior = pendingItems.find((item) => item.id === row.id);
+          return {
+            id: row.id,
+            text_known: row.textKnown,
+            text_target: row.textTarget || null,
+            position: prior?.position ?? index,
+            // Carry the editor's current note forward so Back doesn't blank it.
+            comment: row.comment ?? null,
+            category_id: categoryById.has(row.id)
+              ? categoryById.get(row.id) ?? null
+              : prior?.category_id ?? null,
+          };
+        }),
       );
       setAudioStepItems(buildAudioStepItems(freshItems, translationRows));
       setWizardStep('audio-target');

@@ -125,9 +125,12 @@ export function useAuth(): UseAuthReturn {
     deleteDeviceId()
     document.cookie = 'get_word_user_role=;path=/;max-age=0;SameSite=Lax'
     await withTimeout(clearLearningCache(), 2000, '[useAuth] clearLearningCache timed out')
-    setMe({ authenticated: false })
-    router.replace('/')
-  }, [router])
+    // Hard navigation: discards the entire authed React tree (and its in-memory
+    // caches) in one step. A client-side `setMe` + `router.replace` would instead
+    // flash the signed-out LandingPage — replaying its load animations — before
+    // the route settled, so we go straight to a full reload of the public home.
+    window.location.assign('/')
+  }, [])
 
   const isConnected = Boolean(me?.authenticated)
   const status: AuthStatus = loading ? 'connecting' : isConnected ? 'connected' : 'disconnected'

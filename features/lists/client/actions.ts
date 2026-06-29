@@ -265,6 +265,23 @@ export async function removeListItems(
   return res.json();
 }
 
+export async function assignItemsCategory(
+  listId: string,
+  itemIds: string[],
+  categoryId: string,
+): Promise<string[]> {
+  const res = await listsApiFetch(`/api/lists/${listId}/items/category`, {
+    method: "POST",
+    body: JSON.stringify({ itemIds, categoryId }),
+  });
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    throw new Error(data.error ?? "Failed to assign category");
+  }
+  const data = await res.json().catch(() => ({}));
+  return Array.isArray(data.updated) ? (data.updated as string[]) : [];
+}
+
 export async function createCategory(listId: string, name: string): Promise<void> {
   const res = await listsApiFetch(`/api/lists/${listId}/categories`, {
     method: "POST",

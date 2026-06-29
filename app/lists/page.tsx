@@ -16,6 +16,7 @@ import { useListsDetailsData } from '@/features/lists/hooks/useListsDetailsData'
 import { useListsForking } from '@/features/lists/hooks/useListsForking';
 import { useListsPageActions } from '@/features/lists/hooks/useListsPageActions';
 import { useListsWizard } from '@/features/lists/hooks/useListsWizard';
+import { assignItemsCategory } from '@/features/lists/client/actions';
 import type { WordListItem } from '@/features/lists/types';
 import { ErrorMessage } from './ErrorMessage';
 import { ListSidebar } from './ListSidebar';
@@ -148,6 +149,17 @@ function ListsPageContent() {
   const handleSidesCleared = useCallback((clearedSides: ('known' | 'target')[], freshItems: WordListItem[]) => {
     wizard.startAllWordsReviewAfterSideClear(clearedSides, freshItems);
   }, [wizard]);
+
+  // Persist a single item's category from the review step's ⋮ menu. Throws on
+  // failure so the step can revert its optimistic update. Page-level `items`
+  // refresh naturally on step exit, so no mid-step reload here.
+  const handleAssignItemCategory = useCallback(
+    async (itemId: string, categoryId: string) => {
+      if (!selectedListId) return;
+      await assignItemsCategory(selectedListId, [itemId], categoryId);
+    },
+    [selectedListId],
+  );
 
   const {
     selectList,
@@ -387,6 +399,8 @@ function ListsPageContent() {
               onUsageRefresh={loadGoogleUsage}
               onBack={wizard.handleGoBack}
               onRemoveItem={wizard.markItemRemoved}
+              categories={categories}
+              onAssignCategory={handleAssignItemCategory}
             />
           ) : wizard.wizardStep === 'audio-target' ? (
             <AudioStep

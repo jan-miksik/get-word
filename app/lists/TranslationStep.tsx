@@ -13,6 +13,7 @@ import type {
   CompletedTranslationRow,
   ConfirmResult,
   GoogleUsageResponse,
+  WordCategory,
   WordList,
 } from '@/features/lists/types';
 import { GoogleUsageHint } from './GoogleUsageHint';
@@ -67,10 +68,16 @@ interface TranslationStepProps {
   onSkip: () => Promise<void>;
   onUsageRefresh?: () => Promise<void>;
   onBack?: () => void;
-  // Marks duplicate items for removal (used by the dedupe modal). The delete is
-  // committed by the wizard when this step completes; here we only drop them
-  // from the visible rows.
+  // Marks duplicate items for removal (used by the dedupe modal and the per-row
+  // ⋮ menu). The delete is committed by the wizard when this step completes;
+  // here we only drop them from the visible rows.
   onRemoveItem?: (itemId: string) => void;
+  // Categories of the list, offered in the per-row ⋮ menu so a word can be moved
+  // into (or out of "no category" into) a category.
+  categories?: WordCategory[];
+  // Persists a category change for a single item immediately. Resolves on
+  // success; rejects to let the step revert its optimistic update.
+  onAssignCategory?: (itemId: string, categoryId: string) => Promise<void>;
 }
 
 type TranslationRow = CompletedTranslationRow;
@@ -134,6 +141,130 @@ function TranslationTextarea({
   );
 }
 
+interface RowMenuProps {
+  categories: WordCategory[];
+  currentCategoryId: string | null;
+  canDelete: boolean;
+  canAssign: boolean;
+  busy: boolean;
+  onDelete: () => void;
+  onAssign: (categoryId: string) => void;
+}
+
+function RowMenu({
+  categories,
+  currentCategoryId,
+  canDelete,
+  canAssign,
+  busy,
+  onDelete,
+  onAssign,
+}: RowMenuProps) {
+  const { t } = useI18n();
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handlePointer = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const handleKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', handlePointer);
+    document.addEventListener('keydown', handleKey);
+    return () => {
+      document.removeEventListener('mousedown', handlePointer);
+      document.removeEventListener('keydown', handleKey);
+    };
+  }, [open]);
+
+  const showCategories = canAssign && categories.length > 0;
+
+  return (
+    <div ref={containerRef} className="relative shrink-0">
+      <button
+        type="button"
+        aria-label={t('lists.rowMenuLabel')}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        disabled={busy}
+        onClick={() => setOpen((value) => !value)}
+        className="flex h-6 w-6 items-center justify-center rounded-md text-text-soft transition-colors hover:bg-background-elevated hover:text-text disabled:opacity-40"
+      >
+        {busy ? (
+          <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+          </svg>
+        ) : (
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+            <circle cx="12" cy="5" r="1.6" />
+            <circle cx="12" cy="12" r="1.6" />
+            <circle cx="12" cy="19" r="1.6" />
+          </svg>
+        )}
+      </button>
+      {open && (
+        <div
+          role="menu"
+          className="absolute right-0 z-30 mt-1 w-56 overflow-hidden rounded-lg border border-border-subtle bg-background py-1 shadow-xl"
+        >
+          {canDelete && (
+            <button
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                onDelete();
+              }}
+              className="block w-full px-3 py-1.5 text-left text-sm text-danger transition-colors hover:bg-danger/10"
+            >
+              {t('lists.deleteRow')}
+            </button>
+          )}
+          {showCategories && (
+            <>
+              {canDelete && <div className="my-1 border-t border-border-subtle" />}
+              <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-text-soft/70">
+                {t('lists.moveToCategory')}
+              </div>
+              <div className="max-h-48 overflow-y-auto">
+                {categories.map((category) => {
+                  const active = currentCategoryId === category.id;
+                  return (
+                    <button
+                      key={category.id}
+                      type="button"
+                      role="menuitemradio"
+                      aria-checked={active}
+                      onClick={() => {
+                        setOpen(false);
+                        if (!active) onAssign(category.id);
+                      }}
+                      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-background-elevated ${
+                        active ? 'text-text' : 'text-text-soft hover:text-text'
+                      }`}
+                    >
+                      <span className="w-3 shrink-0 text-accent" aria-hidden>
+                        {active ? '✓' : ''}
+                      </span>
+                      <span className="min-w-0 flex-1 break-words">{category.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function TranslationStep({
   list,
   pendingItems,
@@ -147,6 +278,8 @@ export function TranslationStep({
   onUsageRefresh,
   onBack,
   onRemoveItem,
+  categories = [],
+  onAssignCategory,
 }: TranslationStepProps) {
   const { t } = useI18n();
   const [rows, setRows] = useState<TranslationRow[]>(() =>
@@ -159,6 +292,13 @@ export function TranslationStep({
       comment: item.comment ?? '',
     }))
   );
+  // Per-row category, tracked locally so the ⋮ menu and the "no category"
+  // warning stay in sync after an assignment without a full reload. Seeded from
+  // the pending items; `null` means the word currently has no category.
+  const [categoryByRow, setCategoryByRow] = useState<Record<string, string | null>>(() =>
+    Object.fromEntries(pendingItems.map((item) => [item.id, item.category_id ?? null])),
+  );
+  const [assigningRowId, setAssigningRowId] = useState<string | null>(null);
   const [translating, setTranslating] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -513,6 +653,40 @@ export function TranslationStep({
     for (const id of removeIds) onRemoveItem?.(id);
     setShowDuplicatesModal(false);
   }, [duplicateGroups, keepByGroup, onRemoveItem]);
+
+  // Drop a single row from view and queue its deletion (committed by the wizard
+  // when the step completes), mirroring the dedupe-modal removal path.
+  const handleDeleteRow = useCallback((rowId: string) => {
+    setRows((prev) => prev.filter((row) => row.id !== rowId));
+    onRemoveItem?.(rowId);
+  }, [onRemoveItem]);
+
+  // Persist a category change immediately, optimistically updating local state
+  // and reverting on failure. Independent of the queued removals above.
+  const handleAssignCategory = useCallback(
+    async (rowId: string, categoryId: string) => {
+      if (!onAssignCategory) return;
+      const previous = categoryByRow[rowId] ?? null;
+      setAssigningRowId(rowId);
+      setError(null);
+      setCategoryByRow((prev) => ({ ...prev, [rowId]: categoryId }));
+      try {
+        await onAssignCategory(rowId, categoryId);
+      } catch (err) {
+        setCategoryByRow((prev) => ({ ...prev, [rowId]: previous }));
+        setError(err instanceof Error ? err.message : t('lists.saveFailedShort'));
+      } finally {
+        setAssigningRowId(null);
+      }
+    },
+    [onAssignCategory, categoryByRow, t],
+  );
+
+  // Words with no category — only meaningful when assignment is offered (the
+  // all-words review). The per-category flows always have a category.
+  const uncategorizedCount = onAssignCategory
+    ? rows.filter((row) => !categoryByRow[row.id]).length
+    : 0;
 
   // Persist current translation + study-note edits to the DB. Shared by the
   // confirm action and the note-generation action (which needs saved pairs in
@@ -1211,6 +1385,12 @@ export function TranslationStep({
         </div>
       )}
 
+      {uncategorizedCount > 0 && (
+        <div className="mb-4 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-600">
+          {t('lists.noCategoryWarning', { count: uncategorizedCount })}
+        </div>
+      )}
+
       {/* Which column to generate (step-1 style segmented control) */}
       <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-background-elevated border border-border-subtle p-3">
         <span className="text-sm text-text-soft">{t('lists.generateTranslationFor')}</span>
@@ -1441,16 +1621,35 @@ export function TranslationStep({
                     </div>
                   )}
                 </div>
-                {duplicateRowIds.has(row.id) && (
-                  <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
+                <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
+                  {duplicateRowIds.has(row.id) && (
                     <span
                       className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-600"
                       title={t('lists.duplicateWordBadgeTitle')}
                     >
                       {t('lists.duplicateWordBadge')}
                     </span>
-                  </div>
-                )}
+                  )}
+                  {onAssignCategory && !categoryByRow[row.id] && (
+                    <span
+                      className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-600"
+                      title={t('lists.noCategoryWarning', { count: 1 })}
+                    >
+                      {t('lists.noCategoryBadge')}
+                    </span>
+                  )}
+                  {(onRemoveItem || (onAssignCategory && categories.length > 0)) && (
+                    <RowMenu
+                      categories={categories}
+                      currentCategoryId={categoryByRow[row.id] ?? null}
+                      canDelete={Boolean(onRemoveItem)}
+                      canAssign={Boolean(onAssignCategory)}
+                      busy={assigningRowId === row.id}
+                      onDelete={() => handleDeleteRow(row.id)}
+                      onAssign={(categoryId) => void handleAssignCategory(row.id, categoryId)}
+                    />
+                  )}
+                </div>
               </div>
               {row.validationWarnings && row.validationWarnings.length > 0 && (
                 <div className="col-span-2 flex flex-wrap items-center gap-2 border-t border-border-subtle/40 px-3 py-1.5">

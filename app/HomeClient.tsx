@@ -344,10 +344,7 @@ export function HomeClient() {
             isAuthenticated={isAuthenticated}
             authEmail={displayEmail}
             authAddress={displayAddress}
-            onSignOut={async () => {
-              await signOut();
-              window.location.assign('/');
-            }}
+            onSignOut={signOut}
             categories={categories}
             progressStats={progressStats}
             phrasesCallbackRef={phrasesCallbackRef}

@@ -95,6 +95,37 @@ export async function deleteCategory(
   return result.length > 0;
 }
 
+// Move items into a category. Both the category and the items are scoped to
+// `listId`, so an item can never be reparented into another list's category and
+// a bad/foreign category id simply matches nothing. Only `categoryId` changes —
+// text, position, audio, and the content-keyed progress identity are untouched.
+// Returns the ids that were actually updated.
+export async function assignItemsToCategory(
+  listId: string,
+  itemIds: string[],
+  categoryId: string,
+): Promise<string[]> {
+  if (itemIds.length === 0) return [];
+
+  const [category] = await db
+    .select({ id: wordCategories.id })
+    .from(wordCategories)
+    .where(and(eq(wordCategories.id, categoryId), eq(wordCategories.listId, listId)));
+  if (!category) return [];
+
+  const updated = await db
+    .update(wordListItems)
+    .set({ categoryId, updatedAt: new Date() })
+    .where(
+      and(
+        eq(wordListItems.listId, listId),
+        inArray(wordListItems.id, itemIds),
+      ),
+    )
+    .returning({ id: wordListItems.id });
+  return updated.map((row) => row.id);
+}
+
 export async function getCategoryItems(
   listId: string,
   categoryId: string,
