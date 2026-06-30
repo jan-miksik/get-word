@@ -31,6 +31,26 @@ function jsonResponse(data: unknown, init: Partial<Response> = {}) {
   } as Response);
 }
 
+// The fork endpoint streams newline-delimited JSON; mock it as a readable body
+// the forkList client can drain one chunk per event.
+function ndjsonResponse(events: unknown[]) {
+  const encoder = new TextEncoder();
+  const chunks = events.map((event) => encoder.encode(`${JSON.stringify(event)}\n`));
+  let index = 0;
+  return Promise.resolve({
+    ok: true,
+    status: 200,
+    body: {
+      getReader: () => ({
+        read: async () =>
+          index < chunks.length
+            ? { value: chunks[index++], done: false }
+            : { value: undefined, done: true },
+      }),
+    },
+  } as unknown as Response);
+}
+
 // The list-setup options (autogenerate / fork / create-own / existing matches)
 // live behind the "Advanced options" toggle and are aria-hidden until expanded.
 async function openAdvanced() {
@@ -474,6 +494,83 @@ describe('LearningLanguageOnboarding', () => {
     expect(screen.getByText('recommended')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Create own list/i })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Automatically generate a list of words and phrases/i })).not.toBeInTheDocument();
+  });
+
+  it('reverse-forks a reverse-direction recommendation instead of subscribing', async () => {
+    const reverseList = {
+      id: 'common-cs-vi',
+      ownerId: null,
+      name: 'Common Czech Vietnamese',
+      description: 'Common starter list',
+      // Source list is Czech→Vietnamese; the user wants the opposite direction.
+      languageFrom: 'cs',
+      languageTo: 'vi',
+      isPublic: true,
+      isCommon: true,
+      isRecommended: true,
+      itemCount: 120,
+    };
+    const forkedList = { ...reverseList, id: 'forked-vi-cs', languageFrom: 'vi', languageTo: 'cs' };
+    const onComplete = vi.fn().mockResolvedValue(undefined);
+    const onSelectList = vi.fn();
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url === '/api/languages') {
+        return jsonResponse({
+          languages: [
+            { code: 'cs', name: 'Czech', ttsAvailable: true, preferredVoice: null },
+            { code: 'vi', name: 'Vietnamese', ttsAvailable: true, preferredVoice: null },
+          ],
+        });
+      }
+      if (url.startsWith('/api/lists/matches?from=vi&to=cs')) {
+        return jsonResponse({
+          lists: [reverseList],
+          recommendedList: reverseList,
+          recommendedReason: 'reverse',
+        });
+      }
+      if (url === '/api/lists/common-cs-vi/fork') {
+        const payload = JSON.parse(String(init?.body ?? '{}'));
+        expect(payload.language_from).toBe('vi');
+        expect(payload.language_to).toBe('cs');
+        expect(payload.translation_provider).toBe('none');
+        return ndjsonResponse([
+          { type: 'done', result: { list: forkedList, copied: 120 } },
+        ]);
+      }
+      return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    render(
+      <LearningLanguageOnboarding
+        initialFrom="vi"
+        initialTo="cs"
+        onComplete={onComplete}
+        onSelectList={onSelectList}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/lists/matches?from=vi&to=cs',
+        expect.any(Object),
+      );
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+
+    await waitFor(() => {
+      expect(onComplete).toHaveBeenCalledWith('vi', 'cs');
+    });
+    // The freshly reversed list is selected, and we never plain-subscribed.
+    expect(onSelectList).toHaveBeenCalledWith('forked-vi-cs');
+    expect(
+      fetchMock.mock.calls.some(([url]) => String(url).includes('/subscribe')),
+    ).toBe(false);
+    expect(
+      fetchMock.mock.calls.some(([url]) => String(url) === '/api/lists/common-cs-vi/fork'),
+    ).toBe(true);
   });
 
   it('shows only the no-matches message when no lists exist for the selected languages', async () => {

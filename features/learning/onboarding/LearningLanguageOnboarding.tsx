@@ -57,7 +57,7 @@ export function LearningLanguageOnboarding({
     workingId,
     generationStatus,
     error,
-    subscribeToList,
+    selectMatchedList,
     forkList,
     goToListsForExisting,
     autogenerateCommonList,
@@ -81,9 +81,9 @@ export function LearningLanguageOnboarding({
   function handleContinue() {
     if (!canContinue || loadingMatches || workingId !== null) return;
     if (recommendedList && recommendedReason !== 'fallback_seed') {
-      void subscribeToList(recommendedList);
+      void selectMatchedList(recommendedList);
     } else if (matches.length > 0) {
-      void subscribeToList(matches[0]);
+      void selectMatchedList(matches[0]);
     } else {
       void autogenerateCommonList();
     }
@@ -293,8 +293,8 @@ export function LearningLanguageOnboarding({
                         'onboarding-option min-w-0 flex-1 px-3 py-2 text-left disabled:opacity-50',
                         isRecommended ? 'onboarding-option-recommended' : '',
                       ].join(' ')}
-                      disabled={workingId === list.id}
-                      onClick={() => subscribeToList(list)}
+                      disabled={workingId === list.id || workingId === `reverse:${list.id}`}
+                      onClick={() => selectMatchedList(list)}
                     >
                       <div className="flex min-w-0 flex-wrap items-baseline gap-x-2 gap-y-1">
                         <span className="font-bold">{list.name}</span>

@@ -5,6 +5,23 @@ import { GOOGLE_TTS_MAX_RPM } from '@/lib/audio-rate';
 export type MatchedWordList = WordList & { isOwner?: boolean; itemCount?: number };
 export type RecommendedReason = 'exact' | 'reverse' | 'fallback_seed';
 
+// A matched list is "reverse" when its languages are the requested pair flipped
+// (e.g. an English→Vietnamese list matched for a Vietnamese→English request).
+// Subscribing to such a list would study it in the wrong direction, so it must be
+// reverse-forked into a separate list (which swaps text + audio) instead.
+export function isReverseDirectionList(
+  list: Pick<WordList, 'languageFrom' | 'languageTo'>,
+  languageFrom: string,
+  languageTo: string,
+): boolean {
+  const listFrom = normalizeLanguageCode(list.languageFrom);
+  const listTo = normalizeLanguageCode(list.languageTo);
+  return (
+    listFrom === normalizeLanguageCode(languageTo) &&
+    listTo === normalizeLanguageCode(languageFrom)
+  );
+}
+
 type RankedAutogenerateSeed = {
   list: WordList;
   index: number;

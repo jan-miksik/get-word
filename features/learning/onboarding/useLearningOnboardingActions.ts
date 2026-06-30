@@ -16,6 +16,7 @@ import {
 } from './commonListAudioGeneration';
 import {
   estimateCommonListGenerationSeconds,
+  isReverseDirectionList,
   type MatchedWordList,
 } from './listRecommendations';
 
@@ -88,6 +89,63 @@ export function useLearningOnboardingActions({
       setWorkingId(null);
       setGenerationStatus(null);
     }
+  }
+
+  // A reverse-direction match can't be plain-subscribed (that studies it in the
+  // wrong direction with mismatched audio). Instead fork it into a separate
+  // reversed list: the fork route maps each side by language, so it swaps text
+  // AND audio with no translation or TTS work, then lands in the learning app.
+  async function useReversedList(list: MatchedWordList) {
+    setWorkingId(`reverse:${list.id}`);
+    setGenerationStatus({
+      title: 'Creating reversed list',
+      detail: `Building ${list.name} in your study direction...`,
+    });
+    setError(null);
+    try {
+      if (!(await savePreferencesForListNavigation())) return;
+      const result = await listActions.forkList(list.id, {
+        languageFrom,
+        languageTo,
+        // Both languages already exist in the source list, so no translation is
+        // needed — the route copies the existing sides (and their audio) swapped.
+        translationProvider: 'none',
+        sourceLanguage: list.languageFrom,
+      });
+      onSelectList(result.list.id);
+      logGenerationStats({
+        flow: 'fork',
+        listName: result.list.name,
+        listId: result.list.id,
+        strategy: 'reverse_fork',
+        seedListId: list.id,
+        translations: {
+          reused: result.stats?.translations.reused ?? result.copied,
+          generated: result.stats?.translations.generated ?? 0,
+        },
+        audio: {
+          reused: result.stats?.audio.reused ?? 0,
+          generated: 0,
+          failed: 0,
+        },
+      });
+      if (!(await savePreferences())) return;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not create reversed list');
+    } finally {
+      setWorkingId(null);
+      setGenerationStatus(null);
+    }
+  }
+
+  // Pick the right action for a matched list: a reverse-direction list must be
+  // reverse-forked; an exact-direction list can be subscribed directly.
+  async function selectMatchedList(list: MatchedWordList) {
+    if (isReverseDirectionList(list, languageFrom, languageTo)) {
+      await useReversedList(list);
+      return;
+    }
+    await subscribeToList(list);
   }
 
   async function forkList(list: MatchedWordList) {
@@ -294,6 +352,8 @@ export function useLearningOnboardingActions({
     generationStatus,
     error,
     subscribeToList,
+    selectMatchedList,
+    useReversedList,
     forkList,
     goToListsForExisting,
     autogenerateCommonList,
