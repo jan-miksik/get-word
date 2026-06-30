@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
   }
 
   const lists = await getUserListsByLanguagePair(user.id, languageFrom, languageTo);
-  const recommended = pickRecommendedWordList(lists, languageFrom, languageTo, null);
+  const recommended = pickRecommendedWordList(lists, languageFrom, languageTo, null, user.id);
   const countIds = [...new Set([
     ...lists.map((list) => list.id),
     ...(recommended ? [recommended.list.id] : []),

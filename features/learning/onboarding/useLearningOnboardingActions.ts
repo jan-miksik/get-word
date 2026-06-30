@@ -15,6 +15,7 @@ import {
   type GenerationStatus,
 } from './commonListAudioGeneration';
 import {
+  buildReversedListName,
   estimateCommonListGenerationSeconds,
   isReverseDirectionList,
   type MatchedWordList,
@@ -105,6 +106,9 @@ export function useLearningOnboardingActions({
     try {
       if (!(await savePreferencesForListNavigation())) return;
       const result = await listActions.forkList(list.id, {
+        // Name the reversed list in its own direction (e.g. "Arabic - English"),
+        // not the source name with a "(ar / en)" suffix.
+        name: buildReversedListName(languageFrom, languageTo),
         languageFrom,
         languageTo,
         // Both languages already exist in the source list, so no translation is

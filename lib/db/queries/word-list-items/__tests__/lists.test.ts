@@ -46,6 +46,36 @@ describe('word list language matching', () => {
     expect(result).toMatchObject({ reason: 'reverse', list: { id: 'reverse' } });
   });
 
+  it('prefers a user-owned exact-direction list over a recommended reverse list', () => {
+    const result = pickRecommendedWordList(
+      [
+        { ...baseList, id: 'reverse', ownerId: null, languageFrom: 'cz', languageTo: 'vi', isRecommended: true },
+        { ...baseList, id: 'owned-exact', ownerId: 'user-1', languageFrom: 'vi', languageTo: 'cs', isRecommended: false },
+      ],
+      'vi',
+      'cs',
+      { ...baseList, id: 'seed', isCommon: true },
+      'user-1',
+    );
+
+    expect(result).toMatchObject({ reason: 'exact', list: { id: 'owned-exact' } });
+  });
+
+  it('ignores a non-owned exact-direction list and keeps the reverse recommendation', () => {
+    const result = pickRecommendedWordList(
+      [
+        { ...baseList, id: 'reverse', ownerId: null, languageFrom: 'cz', languageTo: 'vi', isRecommended: true },
+        { ...baseList, id: 'public-exact', ownerId: 'someone-else', languageFrom: 'vi', languageTo: 'cs', isRecommended: false },
+      ],
+      'vi',
+      'cs',
+      null,
+      'user-1',
+    );
+
+    expect(result).toMatchObject({ reason: 'reverse', list: { id: 'reverse' } });
+  });
+
   it('falls back to the seed list when no selected list matches either direction', () => {
     const result = pickRecommendedWordList([
       { ...baseList, id: 'unselected', languageFrom: 'cs', languageTo: 'vi', isRecommended: false },

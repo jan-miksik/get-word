@@ -96,11 +96,24 @@ export function pickRecommendedWordList(
   languageFrom: string,
   languageTo: string,
   fallbackSeed: WordList | null = null,
+  userId: string | null = null,
 ): RecommendedWordListResult | null {
-  const exact = lists.find((list) =>
+  const exactRecommended = lists.find((list) =>
     list.isRecommended && isExactLanguagePair(list, languageFrom, languageTo)
   );
-  if (exact) return { list: exact, reason: 'exact' };
+  if (exactRecommended) return { list: exactRecommended, reason: 'exact' };
+
+  // A list the user already owns in the exact requested direction (e.g. a
+  // reversed list they created earlier) beats a reverse-direction match: it
+  // needs no fork and studies the right way round. Without this, a recommended
+  // reverse list keeps winning and re-forks a duplicate every time this pair is
+  // picked.
+  const exactOwned = userId
+    ? lists.find((list) =>
+        list.ownerId === userId && isExactLanguagePair(list, languageFrom, languageTo)
+      )
+    : undefined;
+  if (exactOwned) return { list: exactOwned, reason: 'exact' };
 
   const reverse = lists.find((list) =>
     list.isRecommended && isReverseLanguagePair(list, languageFrom, languageTo)
@@ -120,7 +133,7 @@ export async function getRecommendedWordListForLanguagePair(
     getUserListsByLanguagePair(userId, languageFrom, languageTo),
     getSystemDefaultList(),
   ]);
-  return pickRecommendedWordList(matchingLists, languageFrom, languageTo, fallbackSeed);
+  return pickRecommendedWordList(matchingLists, languageFrom, languageTo, fallbackSeed, userId);
 }
 
 export async function getUserSubscribedListIds(userId: string): Promise<string[]> {
