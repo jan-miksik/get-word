@@ -1,4 +1,5 @@
 import { listsApiFetch } from "@/features/lists/api";
+import { logGenerationStats } from "@/features/lists/client/generationStatsLog";
 import type {
   ConfirmResult,
   DiffResult,
@@ -87,6 +88,10 @@ export type ForkResult = {
   translated: number;
   clearedSides: ("known" | "target")[];
   missingAudio: { known: number; target: number };
+  stats?: {
+    translations: { reused: number; generated: number };
+    audio: { reused: number; generated: number; missing: number };
+  };
 };
 
 export async function forkList(
@@ -154,6 +159,19 @@ export async function forkList(
           known: Number(r.missing_audio?.known ?? 0),
           target: Number(r.missing_audio?.target ?? 0),
         },
+        stats: r.stats
+          ? {
+              translations: {
+                reused: Number(r.stats.translations?.reused ?? 0),
+                generated: Number(r.stats.translations?.generated ?? 0),
+              },
+              audio: {
+                reused: Number(r.stats.audio?.reused ?? 0),
+                generated: Number(r.stats.audio?.generated ?? 0),
+                missing: Number(r.stats.audio?.missing ?? 0),
+              },
+            }
+          : undefined,
       };
     }
   };
@@ -169,7 +187,24 @@ export async function forkList(
   if (buffer.trim()) handleLine(buffer);
 
   if (!result) throw new Error("Fork did not complete.");
-  return result;
+  const forkResult: ForkResult = result;
+  logGenerationStats({
+    flow: "fork",
+    listName: forkResult.list?.name ?? "",
+    listId: forkResult.list?.id ?? "",
+    strategy: "fork",
+    seedListId: listId,
+    translations: forkResult.stats?.translations ?? {
+      reused: 0,
+      generated: forkResult.translated,
+    },
+    audio: forkResult.stats?.audio ?? {
+      reused: 0,
+      generated: 0,
+      missing: forkResult.missingAudio.known + forkResult.missingAudio.target,
+    },
+  });
+  return forkResult;
 }
 
 export async function deleteList(listId: string): Promise<void> {

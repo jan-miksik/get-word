@@ -473,12 +473,15 @@ export function LearningLanguageOnboarding({
                 href={SUPPORT_TELEGRAM_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="underline"
+                className="font-black text-[color:var(--ob-ink)] underline decoration-[color:var(--ob-accent)] decoration-2 underline-offset-2"
               >
                 {t('onboarding.errorHelpTelegram')}
               </a>{' '}
               {t('onboarding.errorHelpOrFinish')}{' '}
-              <a href="/lists" className="underline">
+              <a
+                href="/lists"
+                className="font-black text-[color:var(--ob-ink)] underline decoration-[color:var(--ob-accent)] decoration-2 underline-offset-2"
+              >
                 {t('onboarding.errorHelpEditor')}
               </a>
               .

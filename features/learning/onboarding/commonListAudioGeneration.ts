@@ -48,6 +48,9 @@ export type AudioGenerationSummary = {
   failedCount: number;
   failedTargetCount: number;
   failedKnownCount: number;
+  // Audio clips (per side) that already had a playable asset, so generation was
+  // skipped. Used for the reuse-vs-generation console log.
+  reusedCount: number;
 };
 
 export function countTextUnits(texts: string[]) {
@@ -158,6 +161,7 @@ export async function generateCommonListAudio({
       failedCount: 0,
       failedTargetCount: 0,
       failedKnownCount: 0,
+      reusedCount: 0,
     };
   }
 
@@ -176,6 +180,12 @@ export async function generateCommonListAudio({
         !hasPlayableAudioUrl(item.knownAudioUrl, item.knownAudioArweaveUrls)),
   );
   const audioClipCount = targetItems.length + knownItems.length;
+  // Sides that already had a playable asset (total sides with text minus the
+  // sides still needing generation) — reported for the reuse-vs-generation log.
+  const knownTotal = items.filter((item) => item.textKnown).length;
+  const targetTotal = items.filter((item) => item.textTarget).length;
+  const reusedCount =
+    knownTotal - knownItems.length + (targetTotal - targetItems.length);
   const requestedUnits = countTextUnits([
     ...targetItems.map((item) => item.textTarget ?? ''),
     ...knownItems.map((item) => item.textKnown),
@@ -344,5 +354,6 @@ export async function generateCommonListAudio({
     failedCount,
     failedTargetCount,
     failedKnownCount,
+    reusedCount,
   };
 }

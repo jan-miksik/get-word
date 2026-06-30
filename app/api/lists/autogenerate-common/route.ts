@@ -42,6 +42,7 @@ export async function POST(request: NextRequest) {
       seed_kind: result.seedKind,
       seed_list_id: result.seedListId,
       reused_existing: result.reusedExisting,
+      translation_stats: result.translationStats,
     });
   } catch (err) {
     // The donated server key is out of credits: this is our problem, not the

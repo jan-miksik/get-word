@@ -60,7 +60,21 @@ describe("reportAudioStorageResponse", () => {
     vi.restoreAllMocks();
   });
 
-  it("logs the B2 object-store source on localhost without any flags", () => {
+  it("logs the B2 object-store fallback on localhost without any flags", () => {
+    stubLocation("http://localhost/");
+    const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+
+    reportAudioStorageResponse(
+      audioResponse({ "x-audio-storage": "object-fallback", "x-audio-storage-provider": "b2" }),
+    );
+
+    expect(infoSpy).toHaveBeenCalledWith(
+      "[Get Word audio] served from object store fallback (b2)",
+      expect.objectContaining({ source: "object store fallback (b2)", provider: "b2" }),
+    );
+  });
+
+  it("does not log a normal object-store serve", () => {
     stubLocation("http://localhost/");
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
 
@@ -68,13 +82,10 @@ describe("reportAudioStorageResponse", () => {
       audioResponse({ "x-audio-storage": "object", "x-audio-storage-provider": "b2" }),
     );
 
-    expect(infoSpy).toHaveBeenCalledWith(
-      "[Get Word audio] served from object store (b2)",
-      expect.objectContaining({ source: "object store (b2)", provider: "b2" }),
-    );
+    expect(infoSpy).not.toHaveBeenCalled();
   });
 
-  it("logs the Arweave gateway host when served from a gateway", () => {
+  it("does not log a normal Arweave gateway serve", () => {
     stubLocation("http://localhost/");
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
 
@@ -82,41 +93,38 @@ describe("reportAudioStorageResponse", () => {
       audioResponse({ "x-audio-gateway": "https://arweave.net/tx123" }),
     );
 
-    expect(infoSpy).toHaveBeenCalledWith(
-      "[Get Word audio] served from Arweave (arweave.net)",
-      expect.objectContaining({ source: "Arweave (arweave.net)", gateway: "https://arweave.net/tx123" }),
-    );
+    expect(infoSpy).not.toHaveBeenCalled();
   });
 
-  it("logs off-localhost when ?debug=1 is set", () => {
+  it("logs the fallback off-localhost when ?debug=1 is set", () => {
     stubLocation("https://getword.app/?debug=1");
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
 
     reportAudioStorageResponse(
-      audioResponse({ "x-audio-storage": "object", "x-audio-storage-provider": "b2" }),
+      audioResponse({ "x-audio-storage": "object-fallback", "x-audio-storage-provider": "b2" }),
     );
 
     expect(infoSpy).toHaveBeenCalled();
   });
 
-  it("logs off-localhost when editor logging is enabled", () => {
+  it("logs the fallback off-localhost when editor logging is enabled", () => {
     stubLocation("https://getword.app/");
     setAudioStorageLoggingEnabled(true);
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
 
     reportAudioStorageResponse(
-      audioResponse({ "x-audio-storage": "object", "x-audio-storage-provider": "b2" }),
+      audioResponse({ "x-audio-storage": "object-fallback", "x-audio-storage-provider": "b2" }),
     );
 
     expect(infoSpy).toHaveBeenCalled();
   });
 
-  it("does not log off-localhost without debug or editor logging", () => {
+  it("does not log the fallback off-localhost without debug or editor logging", () => {
     stubLocation("https://getword.app/");
     const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
 
     reportAudioStorageResponse(
-      audioResponse({ "x-audio-storage": "object", "x-audio-storage-provider": "b2" }),
+      audioResponse({ "x-audio-storage": "object-fallback", "x-audio-storage-provider": "b2" }),
     );
 
     expect(infoSpy).not.toHaveBeenCalled();

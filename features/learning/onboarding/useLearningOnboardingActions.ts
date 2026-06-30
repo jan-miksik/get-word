@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useI18n } from '@/components/I18nProvider';
 import * as listActions from '@/features/lists/client/actions';
+import { logGenerationStats } from '@/features/lists/client/generationStatsLog';
 import type { WordList } from '@/features/lists/types';
 import { syncUserData } from '@/lib/sync';
 import {
@@ -223,6 +224,23 @@ export function useLearningOnboardingActions({
         list: generatedList,
         setGenerationStatus,
         t,
+      });
+      const translationStats = createData.translation_stats ?? { reused: 0, generated: 0 };
+      logGenerationStats({
+        flow: 'autogenerate',
+        listName: generatedList.name,
+        listId: generatedList.id,
+        strategy: [createData.provider, createData.seed_kind].filter(Boolean).join(' / '),
+        seedListId: createData.seed_list_id ?? null,
+        translations: {
+          reused: Number(translationStats.reused ?? 0),
+          generated: Number(translationStats.generated ?? 0),
+        },
+        audio: {
+          reused: audioSummary.reusedCount,
+          generated: audioSummary.generatedCount,
+          failed: audioSummary.failedCount,
+        },
       });
       if (audioSummary.failedCount > 0) {
         setError(getCommonListAudioFailureNotice(audioSummary));

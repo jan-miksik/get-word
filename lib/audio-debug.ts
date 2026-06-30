@@ -127,9 +127,12 @@ export function reportAudioStorageResponse(
     );
   }
 
-  // Per-serve console line showing B2 vs Arweave. Enabled on localhost, for
-  // editor users (via setAudioStorageLoggingEnabled), or with page ?debug=1.
-  if (source && shouldLogAudioStorage()) {
+  // Console line for the noteworthy case only: a fallback to the object store
+  // (B2) after the canonical source was unavailable. Normal serves (canonical
+  // object store or Arweave) are not logged to keep the console quiet. Still
+  // gated to localhost, editor users (setAudioStorageLoggingEnabled), or
+  // ?debug=1.
+  if (source?.storage === 'object-fallback' && shouldLogAudioStorage()) {
     console.info(`[Get Word audio] served from ${source.label}`, {
       source: source.label,
       ...(source.provider ? { provider: source.provider } : {}),

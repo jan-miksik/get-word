@@ -19,6 +19,7 @@ vi.mock('@/features/learning/onboarding/server/autogenerate-common-list', () => 
 }))
 
 import { POST } from '../autogenerate-common/route'
+import { OpenRouterChatError } from '@/lib/openrouter-chat'
 
 describe('POST /api/lists/autogenerate-common', () => {
   beforeEach(() => {
@@ -41,6 +42,7 @@ describe('POST /api/lists/autogenerate-common', () => {
       seedKind: 'llm_generated',
       seedListId: null,
       reusedExisting: false,
+      translationStats: { reused: 0, generated: 120 },
     })
   })
 
@@ -89,5 +91,22 @@ describe('POST /api/lists/autogenerate-common', () => {
     expect(body.list.id).toBe('list-generated')
     expect(body.provider).toBe('openrouter')
     expect(body.item_count).toBe(120)
+  })
+
+  it('returns 503 with a clear code when the server OpenRouter key is out of credits', async () => {
+    mockAutogenerateCommonWordListForUser.mockRejectedValueOnce(
+      new OpenRouterChatError('OpenRouter API error: 402 insufficient credits', false, 402),
+    )
+    const req = new NextRequest('http://localhost:3000/api/lists/autogenerate-common', {
+      method: 'POST',
+      body: JSON.stringify({ language_from: 'cs', language_to: 'vi' }),
+    })
+
+    const res = await POST(req)
+    const body = await res.json()
+
+    expect(res.status).toBe(503)
+    expect(body.code).toBe('OPENROUTER_OUT_OF_CREDITS')
+    expect(body.error).toMatch(/temporarily unavailable/i)
   })
 })

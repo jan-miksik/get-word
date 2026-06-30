@@ -349,6 +349,9 @@ export async function POST(request: NextRequest, context: RouteContext) {
         let translatedCount = 0;
         let clearedKnownCount = 0;
         let clearedTargetCount = 0;
+        // Items that needed at least one translation call (per-word unit), so the
+        // reuse-vs-generation log counts a word once even if both sides were new.
+        const translatedItemIndexes = new Set<number>();
 
         for (const [index, item] of sourceItems.entries()) {
           const requestedSourceText = getItemTextForSide(item, requestedSourceSide);
@@ -366,7 +369,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
             knownAudioStatus = copied.audioAssetId ? copied.audioStatus : "none";
           } else if (translationProvider !== "none" && requestedSourceText) {
             textKnown = lookup(sourceLanguage, languageFrom, requestedSourceText);
-            if (textKnown) translatedCount += 1;
+            if (textKnown) {
+              translatedCount += 1;
+              translatedItemIndexes.add(index);
+            }
           }
 
           if (targetSourceSide && textTarget) {
@@ -375,7 +381,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
             audioStatus = copied.audioAssetId ? copied.audioStatus : "none";
           } else if (translationProvider !== "none" && requestedSourceText) {
             textTarget = lookup(sourceLanguage, languageTo, requestedSourceText);
-            if (textTarget) translatedCount += 1;
+            if (textTarget) {
+              translatedCount += 1;
+              translatedItemIndexes.add(index);
+            }
           }
 
           if (!knownSourceSide && !textKnown) clearedKnownCount += 1;
@@ -467,6 +476,16 @@ export async function POST(request: NextRequest, context: RouteContext) {
               .returning()
           : [];
 
+        const missingAudioKnown = createdItems.filter(
+          (item) => item.textKnown && !item.knownAudioAssetId,
+        ).length;
+        const missingAudioTarget = createdItems.filter(
+          (item) => item.textTarget && !item.audioAssetId,
+        ).length;
+        const reusedAudioClips =
+          createdItems.filter((item) => item.knownAudioAssetId).length +
+          createdItems.filter((item) => item.audioAssetId).length;
+        const generatedTranslationItems = translatedItemIndexes.size;
         send({
           type: "done",
           result: {
@@ -478,10 +497,23 @@ export async function POST(request: NextRequest, context: RouteContext) {
               clearedTargetCount > 0 ? "target" : null,
             ].filter(Boolean),
             missing_audio: {
-              known: createdItems.filter((item) => item.textKnown && !item.knownAudioAssetId).length,
-              target: createdItems.filter((item) => item.textTarget && !item.audioAssetId).length,
+              known: missingAudioKnown,
+              target: missingAudioTarget,
             },
             reused_audio: createdItems.filter((item) => item.knownAudioAssetId || item.audioAssetId).length,
+            // Reuse-vs-generation counts: translations per word/item, audio per
+            // clip. Fork does no TTS, so audio is either reused or still missing.
+            stats: {
+              translations: {
+                reused: createdItems.length - generatedTranslationItems,
+                generated: generatedTranslationItems,
+              },
+              audio: {
+                reused: reusedAudioClips,
+                generated: 0,
+                missing: missingAudioKnown + missingAudioTarget,
+              },
+            },
           },
         });
       } catch (error) {
