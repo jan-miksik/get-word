@@ -24,7 +24,9 @@ export function isPlayableAudioAsset<T extends AudioAssetLike>(
   if (!asset) return false;
   if (asset.storageType === "arweave") return true;
   if (hasRemoteStorageRef(asset.storageRef)) return true;
-  return asset.storageType === "r2";
+  // Legacy "r2" rows are intentionally not playable: R2 has been removed and the
+  // serve route returns 404 for them, so the UI must not offer playback.
+  return asset.storageType === "object_store";
 }
 
 export function getPlayableAudioFields(

@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { findMediaByHash } from "@/lib/db";
 import { getArweaveGatewayUrls } from "@/lib/audio-storage";
-import { getAudio, isR2Configured, r2KeyForHash } from "@/lib/r2-storage";
+import {
+  getActiveObjectStorageProvider,
+  getAudio,
+  isObjectStorageConfigured,
+} from "@/lib/object-storage";
 
 type RouteContext = { params: Promise<{ hash: string }> };
 
@@ -24,6 +28,7 @@ function noStoreJson(body: object, status: number) {
 function audioResponse(
   audio: { body: ArrayBuffer; contentType: string },
   storageHeader: string,
+  provider: string,
 ) {
   return new NextResponse(audio.body, {
     status: 200,
@@ -32,19 +37,26 @@ function audioResponse(
       "Content-Length": String(audio.body.byteLength),
       "Cache-Control": "public, max-age=86400, immutable",
       "X-Audio-Storage": storageHeader,
+      "X-Audio-Storage-Provider": provider,
     },
   });
 }
 
-function shouldLogR2Serve(request: NextRequest) {
+function shouldLogObjectServe(request: NextRequest) {
   return process.env.NODE_ENV !== "production" || request.nextUrl.searchParams.get("debug") === "1";
 }
 
-function logR2Serve(request: NextRequest, contentHash: string, path: "r2-fallback" | "r2-row") {
-  if (!shouldLogR2Serve(request)) return;
-  console.info("[Get Word audio] served audio from R2", {
+function logObjectServe(
+  request: NextRequest,
+  contentHash: string,
+  path: "object-fallback" | "object-row",
+  provider: string,
+) {
+  if (!shouldLogObjectServe(request)) return;
+  console.info("[Get Word audio] served audio from object storage", {
     contentHash,
     path,
+    provider,
   });
 }
 
@@ -112,17 +124,18 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     }
 
-    const r2Audio = await getAudio(asset.contentHash);
-    if (r2Audio) {
-      logR2Serve(request, asset.contentHash, "r2-fallback");
-      return audioResponse(r2Audio, "r2-fallback");
+    const activeProvider = getActiveObjectStorageProvider();
+    const fallbackAudio = await getAudio(asset.contentHash, activeProvider);
+    if (fallbackAudio) {
+      logObjectServe(request, asset.contentHash, "object-fallback", activeProvider);
+      return audioResponse(fallbackAudio, "object-fallback", activeProvider);
     }
 
     console.warn("[Get Word audio] all Arweave audio gateways failed", {
       contentHash: asset.contentHash,
       storageRef: asset.storageRef,
       attempts,
-      r2Fallback: "miss",
+      objectFallback: "miss",
     });
 
     return noStoreJson(
@@ -136,29 +149,38 @@ export async function GET(request: NextRequest, context: RouteContext) {
     );
   }
 
-  if (asset.storageType === "r2" && !/^https?:\/\//.test(asset.storageRef)) {
-    const expectedKey = r2KeyForHash(asset.contentHash);
-    if (asset.storageRef !== expectedKey) {
-      console.warn("[Get Word audio] R2 storageRef mismatch; serving by content hash", {
+  if (asset.storageType === "object_store" && !/^https?:\/\//.test(asset.storageRef)) {
+    const provider = asset.storageProvider;
+    if (!provider) {
+      // Data-integrity guard: object_store rows must record their provider.
+      console.error("[Get Word audio] object_store asset missing storage_provider", {
         contentHash: asset.contentHash,
         storageRef: asset.storageRef,
-        expectedKey,
       });
+      return noStoreJson({ error: "Audio storage provider unresolved" }, 500);
     }
 
-    if (!isR2Configured()) {
+    if (!isObjectStorageConfigured(provider)) {
       if (process.env.NODE_ENV === "production") {
-        return noStoreJson({ error: "R2 storage not configured" }, 503);
+        return noStoreJson({ error: "Object storage not configured" }, 503);
       }
     } else {
-      const r2Audio = await getAudio(asset.contentHash);
-      if (r2Audio) {
-        logR2Serve(request, asset.contentHash, "r2-row");
-        return audioResponse(r2Audio, "r2");
+      const audio = await getAudio(asset.contentHash, provider);
+      if (audio) {
+        logObjectServe(request, asset.contentHash, "object-row", provider);
+        return audioResponse(audio, "object", provider);
       }
 
-      return noStoreJson({ error: "Audio not found in R2" }, 404);
+      return noStoreJson({ error: "Audio not found in object storage" }, 404);
     }
+  }
+
+  // Legacy Cloudflare R2 rows: R2 has been removed, so these are no longer served.
+  if (asset.storageType === "r2" && !/^https?:\/\//.test(asset.storageRef)) {
+    return noStoreJson(
+      { error: "R2 storage removed", content_hash: asset.contentHash },
+      404,
+    );
   }
 
   if (/^https?:\/\//.test(asset.storageRef)) {

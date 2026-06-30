@@ -13,8 +13,8 @@ Usage:
   pnpm run db:prod -- shell
   pnpm run db:prod -- compact [--apply]
   pnpm run db:prod -- backfill-content-keys [--apply]
-  pnpm run db:prod -- backfill-r2 [--apply] [--limit N] [--batch-size N] [--concurrency N] [--checkpoint path]
-  pnpm run db:prod -- repair-r2-to-arweave [--apply] [--limit N] [--batch-size N]
+  pnpm run db:prod -- backfill-object [--apply] [--probe-head] [--provider b2] [--limit N] [--batch-size N] [--concurrency N] [--checkpoint path]
+  pnpm run db:prod -- repair-object-to-arweave [--apply] [--limit N] [--batch-size N]
 
 Actions:
   backup [file]    Dump the database with pg_dump to a local file (defaults to
@@ -27,10 +27,10 @@ Actions:
   compact --apply  Delete eligible old sync/review rows.
   backfill-content-keys           Preview user_progress.content_key backfill.
   backfill-content-keys --apply   Write content keys + archive duplicate losers.
-  backfill-r2                     Preview mirroring production Arweave audio to R2.
-  backfill-r2 --apply             Mirror production Arweave audio to R2.
-  repair-r2-to-arweave            Preview promoting temporary R2 audio rows to Arweave.
-  repair-r2-to-arweave --apply    Promote temporary R2 audio rows back to Arweave.
+  backfill-object                 Preview mirroring production Arweave audio to the object store.
+  backfill-object --apply         Mirror production Arweave audio to the object store.
+  repair-object-to-arweave        Preview promoting temporary object-store audio rows to Arweave.
+  repair-object-to-arweave --apply Promote temporary object-store audio rows back to Arweave.
 
 The production DATABASE_URL is read with hidden input, exported only for the
 selected action, and unset when the action exits. Do not put the URL in action
@@ -81,6 +81,22 @@ parse_audio_flags() {
         audio_apply=true
         shift
         ;;
+      --probe-head)
+        audio_args+=("$1")
+        shift
+        ;;
+      --provider)
+        [[ "$#" -ge 2 ]] || die "$command_name --provider requires a value."
+        [[ -n "$2" ]] || die "$command_name --provider value must not be empty."
+        audio_args+=("$1" "$2")
+        shift 2
+        ;;
+      --provider=*)
+        value="${1#*=}"
+        [[ -n "$value" ]] || die "$command_name --provider value must not be empty."
+        audio_args+=("$1")
+        shift
+        ;;
       --limit|--batch-size|--concurrency)
         [[ "$#" -ge 2 ]] || die "$command_name $1 requires a value."
         [[ "$2" =~ ^[0-9]+$ ]] || die "$command_name $1 value must be a positive integer."
@@ -106,7 +122,7 @@ parse_audio_flags() {
         shift
         ;;
       *)
-        die "$command_name accepts only --apply, --limit, --batch-size, --concurrency, and --checkpoint."
+        die "$command_name accepts only --apply, --probe-head, --provider, --limit, --batch-size, --concurrency, and --checkpoint."
         ;;
     esac
   done
@@ -170,24 +186,24 @@ case "$action" in
       die "backfill-content-keys accepts only the optional --apply flag."
     fi
     ;;
-  backfill-r2)
+  backfill-object)
     parse_audio_flags "$action" "${@:2}"
     if [[ "$audio_apply" == true ]]; then
-      description="mirror production Arweave audio into Cloudflare R2"
-      confirmation_phrase="BACKFILL_PRODUCTION_R2_AUDIO"
+      description="mirror production Arweave audio into the object store"
+      confirmation_phrase="BACKFILL_PRODUCTION_OBJECT_AUDIO"
     else
-      description="preview mirroring production Arweave audio into Cloudflare R2"
-      confirmation_phrase="PREVIEW_PRODUCTION_R2_AUDIO"
+      description="preview mirroring production Arweave audio into the object store"
+      confirmation_phrase="PREVIEW_PRODUCTION_OBJECT_AUDIO"
     fi
     ;;
-  repair-r2-to-arweave)
+  repair-object-to-arweave)
     parse_audio_flags "$action" "${@:2}"
     if [[ "$audio_apply" == true ]]; then
-      description="promote temporary production R2 audio rows back to Arweave"
-      confirmation_phrase="REPAIR_PRODUCTION_R2_AUDIO"
+      description="promote temporary production object-store audio rows back to Arweave"
+      confirmation_phrase="REPAIR_PRODUCTION_OBJECT_AUDIO"
     else
-      description="preview promoting temporary production R2 audio rows back to Arweave"
-      confirmation_phrase="PREVIEW_PRODUCTION_R2_AUDIO_REPAIR"
+      description="preview promoting temporary production object-store audio rows back to Arweave"
+      confirmation_phrase="PREVIEW_PRODUCTION_OBJECT_AUDIO_REPAIR"
     fi
     ;;
   -h|--help|help|"")
@@ -303,18 +319,18 @@ case "$action" in
       pnpm exec tsx scripts/backfill-content-keys.ts
     fi
     ;;
-  backfill-r2)
+  backfill-object)
     if [[ "$audio_apply" == true ]]; then
-      pnpm exec tsx scripts/backfill-r2-audio.ts ${audio_args[@]+"${audio_args[@]}"}
+      pnpm exec tsx scripts/backfill-object-audio.ts ${audio_args[@]+"${audio_args[@]}"}
     else
-      pnpm exec tsx scripts/backfill-r2-audio.ts --dry-run ${audio_args[@]+"${audio_args[@]}"}
+      pnpm exec tsx scripts/backfill-object-audio.ts --dry-run ${audio_args[@]+"${audio_args[@]}"}
     fi
     ;;
-  repair-r2-to-arweave)
+  repair-object-to-arweave)
     if [[ "$audio_apply" == true ]]; then
-      pnpm exec tsx scripts/repair-r2-to-arweave.ts ${audio_args[@]+"${audio_args[@]}"}
+      pnpm exec tsx scripts/repair-object-to-arweave.ts ${audio_args[@]+"${audio_args[@]}"}
     else
-      pnpm exec tsx scripts/repair-r2-to-arweave.ts --dry-run ${audio_args[@]+"${audio_args[@]}"}
+      pnpm exec tsx scripts/repair-object-to-arweave.ts --dry-run ${audio_args[@]+"${audio_args[@]}"}
     fi
     ;;
 esac

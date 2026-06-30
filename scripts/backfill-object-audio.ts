@@ -3,11 +3,12 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { getArweaveGatewayUrls } from "../lib/audio-storage";
 import {
+  getActiveObjectStorageProvider,
   hasAudio,
   listAudioContentHashes,
   putAudio,
-  R2_AUDIO_CONTENT_TYPE,
-} from "../lib/r2-storage";
+  OBJECT_AUDIO_CONTENT_TYPE,
+} from "../lib/object-storage";
 
 dotenv.config({ path: ".env.local" });
 
@@ -34,7 +35,7 @@ type BackfillResult =
   | { status: "mirrored" }
   | { status: "dryRunReady" }
   | { status: "failed" }
-  | { status: "r2ProbeFailed" };
+  | { status: "probeFailed" };
 
 function getFlagValue(name: string): string | undefined {
   const prefix = `${name}=`;
@@ -64,7 +65,7 @@ async function loadCheckpoint(checkpointPath: string): Promise<Cursor | null> {
       throw new Error("checkpoint createdAt is not a valid date");
     }
 
-    console.log("[backfill-r2-audio] loaded checkpoint", {
+    console.log("[backfill-object-audio] loaded checkpoint", {
       checkpointPath,
       createdAt: createdAt.toISOString(),
       id: parsed.id,
@@ -75,7 +76,7 @@ async function loadCheckpoint(checkpointPath: string): Promise<Cursor | null> {
       return null;
     }
 
-    console.warn("[backfill-r2-audio] checkpoint ignored", {
+    console.warn("[backfill-object-audio] checkpoint ignored", {
       checkpointPath,
       error: err instanceof Error ? err.message : err,
     });
@@ -137,7 +138,7 @@ async function fetchArweaveAudio(storageRef: string) {
       });
       const contentType = response.headers.get("content-type") ?? "";
       if (!response.ok || !acceptableContentType(contentType)) {
-        console.warn("[backfill-r2-audio] gateway skipped", {
+        console.warn("[backfill-object-audio] gateway skipped", {
           url,
           status: response.status,
           contentType,
@@ -148,7 +149,7 @@ async function fetchArweaveAudio(storageRef: string) {
       const body = await response.arrayBuffer();
       const bytes = new Uint8Array(body);
       if (bytes.byteLength === 0 || bytes.byteLength > MAX_AUDIO_BYTES || !looksLikeMp3(bytes)) {
-        console.warn("[backfill-r2-audio] gateway returned invalid audio bytes", {
+        console.warn("[backfill-object-audio] gateway returned invalid audio bytes", {
           url,
           byteLength: bytes.byteLength,
           contentType,
@@ -158,7 +159,7 @@ async function fetchArweaveAudio(storageRef: string) {
 
       return Buffer.from(body);
     } catch (err) {
-      console.warn("[backfill-r2-audio] gateway failed", {
+      console.warn("[backfill-object-audio] gateway failed", {
         url,
         error: err instanceof Error ? err.message : err,
       });
@@ -195,33 +196,33 @@ async function mapWithConcurrency<T, R>(
 async function mirrorAsset(
   asset: MediaAssetRow,
   dryRun: boolean,
-  existingR2Hashes: Set<string> | null,
+  existingObjectHashes: Set<string> | null,
 ): Promise<BackfillResult> {
-  if (existingR2Hashes?.has(asset.contentHash)) {
-    console.log("[backfill-r2-audio] mirror already present", {
+  if (existingObjectHashes?.has(asset.contentHash)) {
+    console.log("[backfill-object-audio] mirror already present", {
       contentHash: asset.contentHash,
     });
     return { status: "alreadyPresent" };
   }
 
-  if (!existingR2Hashes) {
+  if (!existingObjectHashes) {
     const existing = await hasAudio(asset.contentHash);
     if (existing === true) {
-      console.log("[backfill-r2-audio] mirror already present", {
+      console.log("[backfill-object-audio] mirror already present", {
         contentHash: asset.contentHash,
       });
       return { status: "alreadyPresent" };
     }
     if (existing === null) {
-      console.warn("[backfill-r2-audio] could not verify R2 mirror state; skipped to avoid overwrite", {
+      console.warn("[backfill-object-audio] could not verify object mirror state; skipped to avoid overwrite", {
         contentHash: asset.contentHash,
       });
-      return { status: "r2ProbeFailed" };
+      return { status: "probeFailed" };
     }
   }
 
   if (dryRun) {
-    console.log("[backfill-r2-audio] dry-run would mirror", {
+    console.log("[backfill-object-audio] dry-run would mirror", {
       contentHash: asset.contentHash,
     });
     return { status: "dryRunReady" };
@@ -229,26 +230,26 @@ async function mirrorAsset(
 
   const audio = await fetchArweaveAudio(asset.storageRef);
   if (!audio) {
-    console.warn("[backfill-r2-audio] no valid Arweave audio found", {
+    console.warn("[backfill-object-audio] no valid Arweave audio found", {
       contentHash: asset.contentHash,
       storageRef: asset.storageRef,
     });
     return { status: "failed" };
   }
 
-  const ok = await putAudio(audio, asset.contentHash, R2_AUDIO_CONTENT_TYPE);
+  const ok = await putAudio(audio, asset.contentHash, OBJECT_AUDIO_CONTENT_TYPE);
   if (ok) {
     // Keep the in-run inventory current so duplicate-contentHash assets later
     // in the scan are recognised as present instead of re-fetched and re-PUT.
-    existingR2Hashes?.add(asset.contentHash);
-    console.log("[backfill-r2-audio] mirrored", {
+    existingObjectHashes?.add(asset.contentHash);
+    console.log("[backfill-object-audio] mirrored", {
       contentHash: asset.contentHash,
       bytes: audio.byteLength,
     });
     return { status: "mirrored" };
   }
 
-  console.warn("[backfill-r2-audio] R2 mirror write failed", {
+  console.warn("[backfill-object-audio] object mirror write failed", {
     contentHash: asset.contentHash,
   });
   return { status: "failed" };
@@ -256,10 +257,24 @@ async function mirrorAsset(
 
 async function main() {
   const dryRun = process.argv.includes("--dry-run");
+  const probeHead = process.argv.includes("--probe-head");
   const limit = getNumberFlag("--limit", Number.POSITIVE_INFINITY);
   const batchSize = Math.min(getNumberFlag("--batch-size", DEFAULT_BATCH_SIZE), DEFAULT_BATCH_SIZE);
   const concurrency = Math.min(getNumberFlag("--concurrency", DEFAULT_CONCURRENCY), MAX_CONCURRENCY);
   const checkpointPath = getFlagValue("--checkpoint");
+
+  // Optional explicit provider override so the run cannot silently target the
+  // wrong store via a half-set env. Must match the configured active provider.
+  const providerFlag = getFlagValue("--provider");
+  const activeProvider = getActiveObjectStorageProvider();
+  if (providerFlag && providerFlag !== activeProvider) {
+    console.error(
+      `--provider=${providerFlag} does not match the configured object store (${activeProvider}). ` +
+        "Set AUDIO_OBJECT_STORE_PROVIDER and the matching credentials.",
+    );
+    process.exit(1);
+  }
+
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) {
     console.error("DATABASE_URL is not set. Add it to .env.local or the environment.");
@@ -279,12 +294,16 @@ async function main() {
     mirrored: 0,
     alreadyPresent: 0,
     skipped: 0,
-    r2ProbeFailed: 0,
+    probeFailed: 0,
     failed: 0,
   };
 
-  console.log("[backfill-r2-audio] starting", {
+  console.log("[backfill-object-audio] starting", {
     dryRun,
+    probeHead,
+    targetProvider: activeProvider,
+    targetBucket: process.env.AUDIO_OBJECT_STORE_BUCKET ?? null,
+    source: "arweave",
     limit,
     batchSize,
     concurrency,
@@ -294,13 +313,25 @@ async function main() {
   const unresolved: UnresolvedAsset[] = [];
 
   try {
-    const existingR2Hashes = await listAudioContentHashes();
-    if (existingR2Hashes) {
-      console.log("[backfill-r2-audio] loaded R2 object inventory", {
-        objects: existingR2Hashes.size,
+    // One paginated ListObjectsV2 sweep (Class C: ~1 op per 1000 objects) builds an
+    // in-memory inventory so presence checks during the scan cost zero B2 ops. If the
+    // listing fails we would otherwise fall back to a per-object HEAD (Class B), which
+    // can blow B2's 2,500/day free Class B cap on a large bucket — so abort by default
+    // and require an explicit --probe-head opt-in for small datasets.
+    const existingObjectHashes = await listAudioContentHashes();
+    if (existingObjectHashes) {
+      console.log("[backfill-object-audio] loaded object inventory", {
+        objects: existingObjectHashes.size,
       });
+    } else if (probeHead) {
+      console.warn("[backfill-object-audio] inventory listing unavailable; --probe-head set, falling back to per-object HEAD (Class B ops)");
     } else {
-      console.warn("[backfill-r2-audio] could not list R2 inventory; falling back to per-object HEAD checks");
+      console.error(
+        "[backfill-object-audio] inventory listing failed and --probe-head was not set. " +
+          "Per-object HEAD checks would consume Class B quota; aborting. " +
+          "Re-run once listing works, or pass --probe-head for a small dataset.",
+      );
+      return;
     }
 
     let cursor = checkpointPath ? await loadCheckpoint(checkpointPath) : null;
@@ -337,7 +368,7 @@ async function main() {
       const results = await mapWithConcurrency(
         assets,
         concurrency,
-        (asset) => mirrorAsset(asset, dryRun, existingR2Hashes),
+        (asset) => mirrorAsset(asset, dryRun, existingObjectHashes),
       );
 
       summary.scanned += assets.length;
@@ -345,8 +376,8 @@ async function main() {
         if (result.status === "alreadyPresent") summary.alreadyPresent += 1;
         else if (result.status === "mirrored") summary.mirrored += 1;
         else if (result.status === "dryRunReady") summary.skipped += 1;
-        else if (result.status === "r2ProbeFailed") {
-          summary.r2ProbeFailed += 1;
+        else if (result.status === "probeFailed") {
+          summary.probeFailed += 1;
           unresolved.push({ contentHash: assets[index].contentHash, status: result.status });
         } else {
           summary.failed += 1;
@@ -365,17 +396,17 @@ async function main() {
     if (checkpointPath && !dryRun && unresolved.length > 0) {
       const failuresPath = `${checkpointPath}.failures.json`;
       await saveFailures(failuresPath, unresolved);
-      console.warn("[backfill-r2-audio] recorded unresolved assets for retry", {
+      console.warn("[backfill-object-audio] recorded unresolved assets for retry", {
         failuresPath,
         count: unresolved.length,
       });
     }
   }
 
-  console.log("[backfill-r2-audio] summary", summary);
+  console.log("[backfill-object-audio] summary", summary);
 }
 
 main().catch((err) => {
-  console.error("[backfill-r2-audio] failed:", err);
+  console.error("[backfill-object-audio] failed:", err);
   process.exit(1);
 });

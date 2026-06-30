@@ -126,6 +126,7 @@ export async function upsertMediaAsset(
       target: mediaAssets.contentHash,
       set: {
         storageType: data.storageType,
+        storageProvider: data.storageProvider,
         storageRef: data.storageRef,
         mediaType: data.mediaType,
         language: data.language,

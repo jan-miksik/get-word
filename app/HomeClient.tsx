@@ -16,6 +16,7 @@ import {
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { LandingPage } from '@/components/LandingPage';
 import { AudioStorageDebugBadge } from '@/components/AudioStorageDebugBadge';
+import { setAudioStorageLoggingEnabled } from '@/lib/audio-debug';
 import { useDueTimer } from '@/hooks/useDueTimer';
 import { useAuth } from '@/features/auth/client/useAuth';
 import { AppStateProvider } from '@/context/AppStateContext';
@@ -236,6 +237,10 @@ export function HomeClient() {
     const timeoutId = window.setTimeout(() => setBootTimedOut(true), BOOT_LOADING_TIMEOUT_MS);
     return () => window.clearTimeout(timeoutId);
   }, [appReady, bootTimedOut, loaderDismissed]);
+
+  useEffect(() => {
+    setAudioStorageLoggingEnabled(isEditor);
+  }, [isEditor]);
 
   const forceShowMemoryHooksIntro = useMemo(() => {
     if (typeof window === 'undefined') return false;

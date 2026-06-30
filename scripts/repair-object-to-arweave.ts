@@ -3,7 +3,11 @@ import {
   uploadAudio,
   type UploadAudioTag,
 } from "../lib/audio-storage";
-import { getAudio, R2_AUDIO_CONTENT_TYPE } from "../lib/r2-storage";
+import {
+  getAudio,
+  OBJECT_AUDIO_CONTENT_TYPE,
+  type ObjectStorageProvider,
+} from "../lib/object-storage";
 
 dotenv.config({ path: ".env.local" });
 
@@ -15,7 +19,14 @@ type MediaAssetRow = {
   language: string;
   textReference: string;
   provider: "google_tts" | "elevenlabs";
-  storageType: "r2";
+  storageType: "object_store";
+  storageProvider: ObjectStorageProvider | null;
+  createdAt: Date;
+};
+
+type Cursor = {
+  createdAt: Date;
+  id: string;
 };
 
 function getFlagValue(name: string): string | undefined {
@@ -36,9 +47,9 @@ function getNumberFlag(name: string, fallback: number): number {
 function buildRepairTags(asset: MediaAssetRow): UploadAudioTag[] {
   const tags: UploadAudioTag[] = [
     { name: "App-Name", value: "Get Word" },
-    { name: "Content-Type", value: R2_AUDIO_CONTENT_TYPE },
+    { name: "Content-Type", value: OBJECT_AUDIO_CONTENT_TYPE },
     { name: "Content-Hash", value: asset.contentHash },
-    { name: "Storage-Repair", value: "r2-to-arweave" },
+    { name: "Storage-Repair", value: "object-to-arweave" },
   ];
 
   if (asset.language) tags.push({ name: "Language", value: asset.language });
@@ -58,7 +69,7 @@ async function main() {
   }
 
   const { drizzle } = await import("drizzle-orm/postgres-js");
-  const { and, asc, eq } = await import("drizzle-orm");
+  const { and, asc, eq, gt, or } = await import("drizzle-orm");
   const postgres = (await import("postgres")).default;
   const schema = await import("../lib/db/schema");
   const { normalizeDatabaseUrl } = await import("../lib/db/connection-string");
@@ -69,15 +80,20 @@ async function main() {
     scanned: 0,
     promoted: 0,
     dryRunReady: 0,
-    missingR2: 0,
+    missingObject: 0,
+    missingProvider: 0,
     skippedConcurrent: 0,
     failed: 0,
   };
 
-  console.log("[repair-r2-to-arweave] starting", { dryRun, limit, batchSize });
+  console.log("[repair-object-to-arweave] starting", { dryRun, limit, batchSize });
 
   try {
-    let offset = 0;
+    // Promoting a row flips storage_type to "arweave", removing it from this
+    // filtered set, so an offset would skip un-promoted rows. Page with a stable
+    // (createdAt, id) cursor that advances past every processed row regardless of
+    // outcome — promoted rows leave the set, failed rows aren't retried in this run.
+    let cursor: Cursor | null = null;
     while (summary.scanned < limit) {
       const rows = await db
         .select({
@@ -87,46 +103,69 @@ async function main() {
           textReference: schema.mediaAssets.textReference,
           provider: schema.mediaAssets.provider,
           storageType: schema.mediaAssets.storageType,
+          storageProvider: schema.mediaAssets.storageProvider,
+          createdAt: schema.mediaAssets.createdAt,
         })
         .from(schema.mediaAssets)
         .where(
           and(
-            eq(schema.mediaAssets.storageType, "r2"),
+            eq(schema.mediaAssets.storageType, "object_store"),
             eq(schema.mediaAssets.mediaType, "audio"),
+            cursor
+              ? or(
+                  gt(schema.mediaAssets.createdAt, cursor.createdAt),
+                  and(
+                    eq(schema.mediaAssets.createdAt, cursor.createdAt),
+                    gt(schema.mediaAssets.id, cursor.id),
+                  ),
+                )
+              : undefined,
           ),
         )
-        .orderBy(asc(schema.mediaAssets.createdAt))
-        .limit(Math.min(batchSize, limit - summary.scanned))
-        .offset(offset);
+        .orderBy(asc(schema.mediaAssets.createdAt), asc(schema.mediaAssets.id))
+        .limit(Math.min(batchSize, limit - summary.scanned));
 
       if (rows.length === 0) break;
-      offset += rows.length;
 
-      for (const asset of rows as MediaAssetRow[]) {
+      const assets = rows as MediaAssetRow[];
+      cursor = { createdAt: assets[assets.length - 1].createdAt, id: assets[assets.length - 1].id };
+
+      for (const asset of assets) {
         summary.scanned += 1;
-        const r2Audio = await getAudio(asset.contentHash);
-        if (!r2Audio) {
-          summary.missingR2 += 1;
-          console.warn("[repair-r2-to-arweave] R2 object missing; row left unchanged", {
+
+        if (!asset.storageProvider) {
+          summary.missingProvider += 1;
+          console.warn("[repair-object-to-arweave] object_store row missing provider; skipped", {
             id: asset.id,
             contentHash: asset.contentHash,
+          });
+          continue;
+        }
+
+        const objectAudio = await getAudio(asset.contentHash, asset.storageProvider);
+        if (!objectAudio) {
+          summary.missingObject += 1;
+          console.warn("[repair-object-to-arweave] object missing; row left unchanged", {
+            id: asset.id,
+            contentHash: asset.contentHash,
+            provider: asset.storageProvider,
           });
           continue;
         }
 
         if (dryRun) {
           summary.dryRunReady += 1;
-          console.log("[repair-r2-to-arweave] dry-run would promote", {
+          console.log("[repair-object-to-arweave] dry-run would promote", {
             id: asset.id,
             contentHash: asset.contentHash,
-            bytes: r2Audio.body.byteLength,
+            bytes: objectAudio.body.byteLength,
           });
           continue;
         }
 
         try {
           const uploaded = await uploadAudio(
-            Buffer.from(r2Audio.body),
+            Buffer.from(objectAudio.body),
             {
               contentHash: asset.contentHash,
               language: asset.language,
@@ -140,12 +179,13 @@ async function main() {
             .update(schema.mediaAssets)
             .set({
               storageType: "arweave",
+              storageProvider: null,
               storageRef: uploaded.storageRef,
             })
             .where(
               and(
                 eq(schema.mediaAssets.id, asset.id),
-                eq(schema.mediaAssets.storageType, "r2"),
+                eq(schema.mediaAssets.storageType, "object_store"),
                 eq(schema.mediaAssets.contentHash, asset.contentHash),
               ),
             )
@@ -153,7 +193,7 @@ async function main() {
 
           if (updated.length === 0) {
             summary.skippedConcurrent += 1;
-            console.warn("[repair-r2-to-arweave] row changed before promotion; skipped", {
+            console.warn("[repair-object-to-arweave] row changed before promotion; skipped", {
               id: asset.id,
               contentHash: asset.contentHash,
               uploadedRef: uploaded.storageRef,
@@ -162,14 +202,14 @@ async function main() {
           }
 
           summary.promoted += 1;
-          console.log("[repair-r2-to-arweave] promoted", {
+          console.log("[repair-object-to-arweave] promoted", {
             id: asset.id,
             contentHash: asset.contentHash,
             storageRef: uploaded.storageRef,
           });
         } catch (err) {
           summary.failed += 1;
-          console.warn("[repair-r2-to-arweave] Arweave upload failed; row left as r2", {
+          console.warn("[repair-object-to-arweave] Arweave upload failed; row left as object_store", {
             id: asset.id,
             contentHash: asset.contentHash,
             error: err instanceof Error ? err.message : err,
@@ -181,10 +221,10 @@ async function main() {
     await client.end();
   }
 
-  console.log("[repair-r2-to-arweave] summary", summary);
+  console.log("[repair-object-to-arweave] summary", summary);
 }
 
 main().catch((err) => {
-  console.error("[repair-r2-to-arweave] failed:", err);
+  console.error("[repair-object-to-arweave] failed:", err);
   process.exit(1);
 });

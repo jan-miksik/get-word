@@ -16,7 +16,11 @@ import {
   getArweaveGatewayUrls,
   uploadAudio,
 } from "@/lib/audio-storage";
-import { putAudio, r2KeyForHash } from "@/lib/r2-storage";
+import {
+  getActiveObjectStorageProvider,
+  objectKeyForHash,
+  putAudio,
+} from "@/lib/object-storage";
 import { getErrorDetail } from "./errors";
 import type { AudioField, GenerationCandidate, GeneratedResult } from "./types";
 
@@ -85,12 +89,13 @@ export async function generateAudioForItem(
       };
     }
 
-    let storageType: "arweave" | "r2";
+    let storageType: "arweave" | "object_store";
+    let storageProvider: "b2" | null = null;
     let storageRef: string;
     let gatewayUrl = "";
     let gatewayUrls: string[] = [];
 
-    const [uploadResult, r2MirrorResult] = await Promise.allSettled([
+    const [uploadResult, objectMirrorResult] = await Promise.allSettled([
       uploadAudio(result.audio, {
         contentHash: hash,
         language: item.language,
@@ -101,8 +106,8 @@ export async function generateAudioForItem(
       putAudio(result.audio, hash),
     ]);
 
-    const mirroredToR2 =
-      r2MirrorResult.status === "fulfilled" && r2MirrorResult.value === true;
+    const mirroredToObjectStore =
+      objectMirrorResult.status === "fulfilled" && objectMirrorResult.value === true;
 
     if (uploadResult.status === "fulfilled") {
       const storage = uploadResult.value;
@@ -111,7 +116,7 @@ export async function generateAudioForItem(
       gatewayUrl = storage.gatewayUrl;
       gatewayUrls = storage.gatewayUrls;
     } else {
-      if (!mirroredToR2) {
+      if (!mirroredToObjectStore) {
         throw uploadResult.reason;
       }
       const existing = await findMediaByHash(hash);
@@ -120,20 +125,22 @@ export async function generateAudioForItem(
         storageRef = existing.storageRef;
         gatewayUrl = getArweaveGatewayUrl(existing.storageRef);
         gatewayUrls = getArweaveGatewayUrls(existing.storageRef);
-        console.warn("[Get Word audio] R2 mirror refreshed, canonical Arweave ref preserved", {
+        console.warn("[Get Word audio] object mirror refreshed, canonical Arweave ref preserved", {
           contentHash: hash,
           storageRef: existing.storageRef,
           itemId: item.id,
         });
       } else {
-        storageType = "r2";
-        storageRef = r2KeyForHash(hash);
+        storageType = "object_store";
+        storageProvider = getActiveObjectStorageProvider();
+        storageRef = objectKeyForHash(hash);
       }
     }
 
     const mediaAssetData = {
       contentHash: hash,
       storageType,
+      storageProvider,
       storageRef,
       mediaType: "audio" as const,
       language: item.language,

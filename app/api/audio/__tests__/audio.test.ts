@@ -15,10 +15,11 @@ const mockElevenLabsTTS = vi.fn()
 const mockUploadAudio = vi.fn()
 const mockComputeContentHash = vi.fn()
 const mockGetAudioUrl = vi.fn()
-const mockPutR2Audio = vi.fn()
-const mockGetR2Audio = vi.fn()
-const mockIsR2Configured = vi.fn()
-const mockR2KeyForHash = vi.fn()
+const mockPutObjectAudio = vi.fn()
+const mockGetObjectAudio = vi.fn()
+const mockIsObjectConfigured = vi.fn()
+const mockObjectKeyForHash = vi.fn()
+const mockGetActiveProvider = vi.fn()
 
 vi.mock('@/lib/auth', () => ({
   resolveUserFromRequest: (...args: unknown[]) => mockResolveUserFromRequest(...args),
@@ -57,11 +58,12 @@ vi.mock('@/lib/audio-storage', () => ({
   ],
 }))
 
-vi.mock('@/lib/r2-storage', () => ({
-  putAudio: (...args: unknown[]) => mockPutR2Audio(...args),
-  getAudio: (...args: unknown[]) => mockGetR2Audio(...args),
-  isR2Configured: (...args: unknown[]) => mockIsR2Configured(...args),
-  r2KeyForHash: (...args: unknown[]) => mockR2KeyForHash(...args),
+vi.mock('@/lib/object-storage', () => ({
+  putAudio: (...args: unknown[]) => mockPutObjectAudio(...args),
+  getAudio: (...args: unknown[]) => mockGetObjectAudio(...args),
+  isObjectStorageConfigured: (...args: unknown[]) => mockIsObjectConfigured(...args),
+  objectKeyForHash: (...args: unknown[]) => mockObjectKeyForHash(...args),
+  getActiveObjectStorageProvider: (...args: unknown[]) => mockGetActiveProvider(...args),
 }))
 
 import { POST } from '../generate/batch/route'
@@ -96,8 +98,9 @@ describe('POST /api/audio/generate/batch', () => {
     vi.clearAllMocks()
     mockComputeContentHash.mockImplementation((text: string, lang: string, provider: string) => `hash_${text}_${lang}_${provider}`)
     mockGetAudioUrl.mockImplementation((hash: string) => `/api/audio/${hash}`)
-    mockPutR2Audio.mockResolvedValue(true)
-    mockR2KeyForHash.mockImplementation((hash: string) => `audio/${hash}.mp3`)
+    mockPutObjectAudio.mockResolvedValue(true)
+    mockObjectKeyForHash.mockImplementation((hash: string) => `audio/${hash}.mp3`)
+    mockGetActiveProvider.mockReturnValue('b2')
     mockReserveGoogleApiUsage.mockResolvedValue({
       allowed: true,
       scope: 'tts',
@@ -201,7 +204,7 @@ describe('POST /api/audio/generate/batch', () => {
       requestCount: 1,
     })
     expect(mockUploadAudio).toHaveBeenCalled()
-    expect(mockPutR2Audio).toHaveBeenCalledWith(Buffer.from('audio-data'), 'hash_hello_vi_google_tts')
+    expect(mockPutObjectAudio).toHaveBeenCalledWith(Buffer.from('audio-data'), 'hash_hello_vi_google_tts')
     expect(mockCreateMediaAsset).toHaveBeenCalled()
   })
 
@@ -215,7 +218,7 @@ describe('POST /api/audio/generate/batch', () => {
       gatewayUrl: 'https://turbo-gateway.com/tx123',
       gatewayUrls: ['https://turbo-gateway.com/tx123', 'https://arweave.net/tx123'],
     })
-    mockPutR2Audio.mockResolvedValue(false)
+    mockPutObjectAudio.mockResolvedValue(false)
     mockCreateMediaAsset.mockResolvedValue({ id: 'asset-new', contentHash: 'hash_hello_vi_google_tts' })
     mockBatchLinkAudioToItems.mockResolvedValue(undefined)
 
@@ -419,7 +422,7 @@ describe('POST /api/audio/generate/batch', () => {
     mockFindMediaByHash.mockResolvedValue(null)
     mockGoogleTTS.mockResolvedValue({ audio: Buffer.from('r2-audio'), sizeBytes: 8 })
     mockUploadAudio.mockRejectedValue(new Error('Turbo unavailable'))
-    mockPutR2Audio.mockResolvedValue(true)
+    mockPutObjectAudio.mockResolvedValue(true)
     mockCreateMediaAsset.mockResolvedValue({ id: 'asset-r2', contentHash: 'hash_hello_vi_google_tts' })
     mockBatchLinkAudioToItems.mockResolvedValue(undefined)
 
@@ -436,7 +439,8 @@ describe('POST /api/audio/generate/batch', () => {
     expect(data.results[0].storage_ref).toBe('audio/hash_hello_vi_google_tts.mp3')
     expect(mockCreateMediaAsset).toHaveBeenCalledWith(expect.objectContaining({
       contentHash: 'hash_hello_vi_google_tts',
-      storageType: 'r2',
+      storageType: 'object_store',
+      storageProvider: 'b2',
       storageRef: 'audio/hash_hello_vi_google_tts.mp3',
     }))
   })
@@ -446,7 +450,7 @@ describe('POST /api/audio/generate/batch', () => {
     mockFindMediaByHashes.mockResolvedValue(new Map())
     mockGoogleTTS.mockResolvedValue({ audio: Buffer.from('audio-data'), sizeBytes: 10 })
     mockUploadAudio.mockRejectedValue(new Error('Turbo unavailable'))
-    mockPutR2Audio.mockResolvedValue(false)
+    mockPutObjectAudio.mockResolvedValue(false)
     mockBatchLinkAudioToItems.mockResolvedValue(undefined)
 
     const res = await POST(makeRequest({
@@ -474,7 +478,7 @@ describe('POST /api/audio/generate/batch', () => {
     })
     mockGoogleTTS.mockResolvedValue({ audio: Buffer.from('fresh-audio'), sizeBytes: 11 })
     mockUploadAudio.mockRejectedValue(new Error('Turbo unavailable'))
-    mockPutR2Audio.mockResolvedValue(true)
+    mockPutObjectAudio.mockResolvedValue(true)
     mockUpsertMediaAsset.mockResolvedValue({ id: 'asset-existing', contentHash: 'hash_hello_vi_google_tts' })
     mockBatchLinkAudioToItems.mockResolvedValue(undefined)
 
@@ -684,14 +688,42 @@ describe('POST /api/audio/reuse/batch', () => {
       { itemId: 'item-1', audioAssetId: 'asset-2', audioStatus: 'ready' },
     ])
   })
+
+  it('does not offer a legacy r2 asset as reusable (R2 removed)', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    const legacyR2Asset = {
+      id: 'asset-r2',
+      contentHash: 'hash_hello_vi_google_tts',
+      storageType: 'r2',
+      storageProvider: null,
+      storageRef: 'audio/hash_hello_vi_google_tts.mp3',
+      provider: 'google_tts',
+      sizeBytes: 123,
+    }
+    mockFindMediaByHashes.mockResolvedValue(new Map([['hash_hello_vi_google_tts', legacyR2Asset]]))
+    mockFindMediaVariantsByText.mockResolvedValue(new Map([['vi hello', [legacyR2Asset]]]))
+
+    const res = await POST_REUSE(makeReuseRequest({
+      items: [{ id: 'item-1', text: 'hello', language: 'vi' }],
+      provider: 'google_tts',
+    }))
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.found_count).toBe(0)
+    expect(data.results[0].status).toBe('missing')
+    expect(data.results[0].audio_url).toBeNull()
+    expect(data.results[0].matches).toEqual([])
+  })
 })
 
 describe('GET /api/audio/[hash]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetR2Audio.mockResolvedValue(null)
-    mockIsR2Configured.mockReturnValue(false)
-    mockR2KeyForHash.mockImplementation((hash: string) => `audio/${hash}.mp3`)
+    mockGetObjectAudio.mockResolvedValue(null)
+    mockIsObjectConfigured.mockReturnValue(false)
+    mockObjectKeyForHash.mockImplementation((hash: string) => `audio/${hash}.mp3`)
+    mockGetActiveProvider.mockReturnValue('b2')
   })
   afterEach(() => {
     vi.unstubAllGlobals()
@@ -705,16 +737,18 @@ describe('GET /api/audio/[hash]', () => {
     expect(res.status).toBe(404)
   })
 
-  it('returns asset metadata for local dev', async () => {
+  it('returns asset metadata for local dev when the object store is unconfigured', async () => {
     mockFindMediaByHash.mockResolvedValue({
       id: 'asset-1',
       contentHash: 'abc123',
-      storageType: 'r2',
+      storageType: 'object_store',
+      storageProvider: 'b2',
       storageRef: 'local:abc123',
       language: 'vi',
       textReference: 'xin chào',
       provider: 'google_tts',
     })
+    mockIsObjectConfigured.mockReturnValue(false)
 
     const req = new NextRequest('http://localhost:3000/api/audio/abc123')
     const res = await GET(req, { params: Promise.resolve({ hash: 'abc123' }) })
@@ -750,7 +784,7 @@ describe('GET /api/audio/[hash]', () => {
     await expect(res.arrayBuffer()).resolves.toHaveProperty('byteLength', 10)
   })
 
-  it('falls back to R2 when all Arweave gateways fail', async () => {
+  it('falls back to the object store when all Arweave gateways fail', async () => {
     mockFindMediaByHash.mockResolvedValue({
       id: 'asset-1',
       contentHash: 'abc123',
@@ -760,8 +794,8 @@ describe('GET /api/audio/[hash]', () => {
       textReference: 'xin chào',
       provider: 'google_tts',
     })
-    mockGetR2Audio.mockResolvedValue({
-      body: await new Response(Buffer.from('r2-audio')).arrayBuffer(),
+    mockGetObjectAudio.mockResolvedValue({
+      body: await new Response(Buffer.from('object-audio')).arrayBuffer(),
       contentType: 'audio/mpeg',
     })
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('nope', { status: 502, headers: { 'content-type': 'text/plain' } })))
@@ -772,15 +806,18 @@ describe('GET /api/audio/[hash]', () => {
 
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toBe('audio/mpeg')
-    expect(res.headers.get('x-audio-storage')).toBe('r2-fallback')
-    expect(infoSpy).toHaveBeenCalledWith('[Get Word audio] served audio from R2', {
+    expect(res.headers.get('x-audio-storage')).toBe('object-fallback')
+    expect(res.headers.get('x-audio-storage-provider')).toBe('b2')
+    expect(mockGetObjectAudio).toHaveBeenCalledWith('abc123', 'b2')
+    expect(infoSpy).toHaveBeenCalledWith('[Get Word audio] served audio from object storage', {
       contentHash: 'abc123',
-      path: 'r2-fallback',
+      path: 'object-fallback',
+      provider: 'b2',
     })
     infoSpy.mockRestore()
   })
 
-  it('returns a no-store 502 when gateways and R2 fallback miss', async () => {
+  it('returns a no-store 502 when gateways and the object fallback miss', async () => {
     mockFindMediaByHash.mockResolvedValue({
       id: 'asset-1',
       contentHash: 'abc123',
@@ -799,19 +836,20 @@ describe('GET /api/audio/[hash]', () => {
     expect(res.headers.get('cache-control')).toBe('no-store')
   })
 
-  it('serves an explicit r2 row from R2 by content hash', async () => {
+  it('serves an object_store row by content hash from its recorded provider', async () => {
     mockFindMediaByHash.mockResolvedValue({
       id: 'asset-1',
       contentHash: 'abc123',
-      storageType: 'r2',
+      storageType: 'object_store',
+      storageProvider: 'b2',
       storageRef: 'audio/abc123.mp3',
       language: 'vi',
       textReference: 'xin chào',
       provider: 'google_tts',
     })
-    mockIsR2Configured.mockReturnValue(true)
-    mockGetR2Audio.mockResolvedValue({
-      body: await new Response(Buffer.from('r2-audio')).arrayBuffer(),
+    mockIsObjectConfigured.mockReturnValue(true)
+    mockGetObjectAudio.mockResolvedValue({
+      body: await new Response(Buffer.from('object-audio')).arrayBuffer(),
       contentType: 'audio/mpeg',
     })
 
@@ -819,52 +857,68 @@ describe('GET /api/audio/[hash]', () => {
     const res = await GET(req, { params: Promise.resolve({ hash: 'abc123' }) })
 
     expect(res.status).toBe(200)
-    expect(res.headers.get('x-audio-storage')).toBe('r2')
-    expect(mockGetR2Audio).toHaveBeenCalledWith('abc123')
+    expect(res.headers.get('x-audio-storage')).toBe('object')
+    expect(res.headers.get('x-audio-storage-provider')).toBe('b2')
+    expect(mockGetObjectAudio).toHaveBeenCalledWith('abc123', 'b2')
   })
 
-  it('warns on an r2 storageRef mismatch but still serves by content hash', async () => {
+  it('returns no-store 500 for an object_store row missing storage_provider', async () => {
     mockFindMediaByHash.mockResolvedValue({
       id: 'asset-1',
       contentHash: 'abc123',
-      storageType: 'r2',
-      storageRef: 'audio/other.mp3',
-      language: 'vi',
-      textReference: 'xin chào',
-      provider: 'google_tts',
-    })
-    mockIsR2Configured.mockReturnValue(true)
-    mockGetR2Audio.mockResolvedValue({
-      body: await new Response(Buffer.from('r2-audio')).arrayBuffer(),
-      contentType: 'audio/mpeg',
-    })
-    const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {})
-
-    const req = new NextRequest('http://localhost:3000/api/audio/abc123')
-    const res = await GET(req, { params: Promise.resolve({ hash: 'abc123' }) })
-
-    expect(res.status).toBe(200)
-    expect(mockGetR2Audio).toHaveBeenCalledWith('abc123')
-    expect(warnSpy).toHaveBeenCalledWith('[Get Word audio] R2 storageRef mismatch; serving by content hash', {
-      contentHash: 'abc123',
-      storageRef: 'audio/other.mp3',
-      expectedKey: 'audio/abc123.mp3',
-    })
-    warnSpy.mockRestore()
-  })
-
-  it('returns no-store 404 for an explicit r2 row when the object is missing', async () => {
-    mockFindMediaByHash.mockResolvedValue({
-      id: 'asset-1',
-      contentHash: 'abc123',
-      storageType: 'r2',
+      storageType: 'object_store',
+      storageProvider: null,
       storageRef: 'audio/abc123.mp3',
       language: 'vi',
       textReference: 'xin chào',
       provider: 'google_tts',
     })
-    mockIsR2Configured.mockReturnValue(true)
-    mockGetR2Audio.mockResolvedValue(null)
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+
+    const req = new NextRequest('http://localhost:3000/api/audio/abc123')
+    const res = await GET(req, { params: Promise.resolve({ hash: 'abc123' }) })
+
+    expect(res.status).toBe(500)
+    expect(res.headers.get('cache-control')).toBe('no-store')
+    expect(mockGetObjectAudio).not.toHaveBeenCalled()
+    errorSpy.mockRestore()
+  })
+
+  it('returns no-store 404 for a legacy r2 row since R2 has been removed', async () => {
+    mockFindMediaByHash.mockResolvedValue({
+      id: 'asset-1',
+      contentHash: 'abc123',
+      storageType: 'r2',
+      storageProvider: null,
+      storageRef: 'audio/abc123.mp3',
+      language: 'vi',
+      textReference: 'xin chào',
+      provider: 'google_tts',
+    })
+
+    const req = new NextRequest('http://localhost:3000/api/audio/abc123')
+    const res = await GET(req, { params: Promise.resolve({ hash: 'abc123' }) })
+
+    expect(res.status).toBe(404)
+    expect(res.headers.get('cache-control')).toBe('no-store')
+    expect(mockGetObjectAudio).not.toHaveBeenCalled()
+    const data = await res.json()
+    expect(data.error).toBe('R2 storage removed')
+  })
+
+  it('returns no-store 404 for an object_store row when the object is missing', async () => {
+    mockFindMediaByHash.mockResolvedValue({
+      id: 'asset-1',
+      contentHash: 'abc123',
+      storageType: 'object_store',
+      storageProvider: 'b2',
+      storageRef: 'audio/abc123.mp3',
+      language: 'vi',
+      textReference: 'xin chào',
+      provider: 'google_tts',
+    })
+    mockIsObjectConfigured.mockReturnValue(true)
+    mockGetObjectAudio.mockResolvedValue(null)
 
     const req = new NextRequest('http://localhost:3000/api/audio/abc123')
     const res = await GET(req, { params: Promise.resolve({ hash: 'abc123' }) })
@@ -873,18 +927,19 @@ describe('GET /api/audio/[hash]', () => {
     expect(res.headers.get('cache-control')).toBe('no-store')
   })
 
-  it('returns no-store 503 for an r2 row without R2 config in production', async () => {
+  it('returns no-store 503 for an object_store row without config in production', async () => {
     vi.stubEnv('NODE_ENV', 'production')
     mockFindMediaByHash.mockResolvedValue({
       id: 'asset-1',
       contentHash: 'abc123',
-      storageType: 'r2',
+      storageType: 'object_store',
+      storageProvider: 'b2',
       storageRef: 'audio/abc123.mp3',
       language: 'vi',
       textReference: 'xin chào',
       provider: 'google_tts',
     })
-    mockIsR2Configured.mockReturnValue(false)
+    mockIsObjectConfigured.mockReturnValue(false)
 
     const req = new NextRequest('http://localhost:3000/api/audio/abc123')
     const res = await GET(req, { params: Promise.resolve({ hash: 'abc123' }) })
@@ -892,23 +947,24 @@ describe('GET /api/audio/[hash]', () => {
     expect(res.status).toBe(503)
     expect(res.headers.get('cache-control')).toBe('no-store')
     const data = await res.json()
-    expect(data.error).toBe('R2 storage not configured')
+    expect(data.error).toBe('Object storage not configured')
   })
 
-  it('logs R2 serves in production only when debug=1 is present', async () => {
+  it('logs object-store serves in production only when debug=1 is present', async () => {
     vi.stubEnv('NODE_ENV', 'production')
     mockFindMediaByHash.mockResolvedValue({
       id: 'asset-1',
       contentHash: 'abc123',
-      storageType: 'r2',
+      storageType: 'object_store',
+      storageProvider: 'b2',
       storageRef: 'audio/abc123.mp3',
       language: 'vi',
       textReference: 'xin chào',
       provider: 'google_tts',
     })
-    mockIsR2Configured.mockReturnValue(true)
-    mockGetR2Audio.mockResolvedValue({
-      body: await new Response(Buffer.from('r2-audio')).arrayBuffer(),
+    mockIsObjectConfigured.mockReturnValue(true)
+    mockGetObjectAudio.mockResolvedValue({
+      body: await new Response(Buffer.from('object-audio')).arrayBuffer(),
       contentType: 'audio/mpeg',
     })
     const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
@@ -919,9 +975,10 @@ describe('GET /api/audio/[hash]', () => {
 
     const debugReq = new NextRequest('http://localhost:3000/api/audio/abc123?debug=1')
     await GET(debugReq, { params: Promise.resolve({ hash: 'abc123' }) })
-    expect(infoSpy).toHaveBeenCalledWith('[Get Word audio] served audio from R2', {
+    expect(infoSpy).toHaveBeenCalledWith('[Get Word audio] served audio from object storage', {
       contentHash: 'abc123',
-      path: 'r2-row',
+      path: 'object-row',
+      provider: 'b2',
     })
     infoSpy.mockRestore()
   })

@@ -1,22 +1,28 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  getActiveObjectStorageProvider,
   getAudio,
   hasAudio,
-  isR2Configured,
+  isObjectStorageConfigured,
   listAudioContentHashes,
+  objectKeyForHash,
   putAudio,
-  r2KeyForHash,
-  R2_DEFAULT_MAX_AUDIO_BYTES,
-  R2_GET_TIMEOUT_MS,
-  R2_HEAD_TIMEOUT_MS,
-  R2_PUT_TIMEOUT_MS,
-} from "@/lib/r2-storage";
+  OBJECT_DEFAULT_MAX_AUDIO_BYTES,
+  OBJECT_GET_TIMEOUT_MS,
+  OBJECT_HEAD_TIMEOUT_MS,
+  OBJECT_PUT_TIMEOUT_MS,
+} from "@/lib/object-storage";
 
-function configureR2() {
-  vi.stubEnv("R2_ACCOUNT_ID", "account-123");
-  vi.stubEnv("R2_ACCESS_KEY_ID", "access-key");
-  vi.stubEnv("R2_SECRET_ACCESS_KEY", "secret-key");
-  vi.stubEnv("R2_BUCKET", "tts-audio");
+const OBJECT_URL =
+  "https://s3.eu-central-003.backblazeb2.com/tts-audio/audio/abc123.mp3";
+
+function configureObjectStore() {
+  vi.stubEnv("AUDIO_OBJECT_STORE_PROVIDER", "b2");
+  vi.stubEnv("AUDIO_OBJECT_STORE_ENDPOINT", "https://s3.eu-central-003.backblazeb2.com");
+  vi.stubEnv("AUDIO_OBJECT_STORE_REGION", "eu-central-003");
+  vi.stubEnv("AUDIO_OBJECT_STORE_ACCESS_KEY_ID", "access-key");
+  vi.stubEnv("AUDIO_OBJECT_STORE_SECRET_ACCESS_KEY", "secret-key");
+  vi.stubEnv("AUDIO_OBJECT_STORE_BUCKET", "tts-audio");
 }
 
 function getFetchUrl(input: RequestInfo | URL): string {
@@ -42,7 +48,7 @@ function neverResolvingFetch() {
   });
 }
 
-describe("r2-storage", () => {
+describe("object-storage", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     vi.unstubAllEnvs();
@@ -56,35 +62,70 @@ describe("r2-storage", () => {
   });
 
   it("builds deterministic mp3 keys from content hashes", () => {
-    expect(r2KeyForHash("abc123")).toBe("audio/abc123.mp3");
-    expect(r2KeyForHash("abc/123")).toBe("audio/abc%2F123.mp3");
+    expect(objectKeyForHash("abc123")).toBe("audio/abc123.mp3");
+    expect(objectKeyForHash("abc/123")).toBe("audio/abc%2F123.mp3");
   });
 
-  it("reports configured only when credentials, bucket, and endpoint inputs exist", () => {
-    expect(isR2Configured()).toBe(false);
-    configureR2();
-    expect(isR2Configured()).toBe(true);
-    vi.stubEnv("R2_ACCOUNT_ID", "");
-    vi.stubEnv("R2_S3_ENDPOINT", "https://r2.example.test");
-    expect(isR2Configured()).toBe(true);
+  it("resolves the active provider from env and falls back to b2", () => {
+    expect(getActiveObjectStorageProvider()).toBe("b2");
+    vi.stubEnv("AUDIO_OBJECT_STORE_PROVIDER", "b2");
+    expect(getActiveObjectStorageProvider()).toBe("b2");
+
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubEnv("AUDIO_OBJECT_STORE_PROVIDER", "nope");
+    expect(getActiveObjectStorageProvider()).toBe("b2");
+    expect(warnSpy).toHaveBeenCalled();
+    warnSpy.mockRestore();
   });
 
-  it("puts audio to the expected signed R2 object URL", async () => {
-    configureR2();
+  it("reports configured only when credentials, bucket, endpoint, and region exist", () => {
+    expect(isObjectStorageConfigured()).toBe(false);
+    configureObjectStore();
+    expect(isObjectStorageConfigured()).toBe(true);
+    vi.stubEnv("AUDIO_OBJECT_STORE_REGION", "");
+    expect(isObjectStorageConfigured()).toBe(false);
+  });
+
+  it("puts audio to the expected signed B2 object URL", async () => {
+    configureObjectStore();
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(putAudio(Buffer.from("audio"), "abc123")).resolves.toBe(true);
 
     const [input, init] = fetchMock.mock.calls[0] as [RequestInfo | URL, RequestInit | undefined];
-    expect(getFetchUrl(input)).toBe("https://account-123.r2.cloudflarestorage.com/tts-audio/audio/abc123.mp3");
+    expect(getFetchUrl(input)).toBe(OBJECT_URL);
     expect(getFetchMethod(input, init)).toBe("PUT");
     expect(getFetchHeader(input, init, "content-type")).toBe("audio/mpeg");
   });
 
-  it("refuses to put audio larger than the configured R2 safety cap", async () => {
-    configureR2();
-    vi.stubEnv("R2_MAX_AUDIO_BYTES", "4");
+  it("signs requests with the configured B2 region", async () => {
+    configureObjectStore();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await putAudio(Buffer.from("audio"), "abc123");
+
+    const [input, init] = fetchMock.mock.calls[0] as [RequestInfo | URL, RequestInit | undefined];
+    const authorization = getFetchHeader(input, init, "authorization") ?? "";
+    expect(authorization).toContain("/eu-central-003/s3/aws4_request");
+  });
+
+  it("returns null when reading a row whose provider is not the active one", async () => {
+    configureObjectStore();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(Buffer.from("audio"), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    // "r2" is not the active/supported provider, so it cannot be served.
+    await expect(getAudio("abc123", "r2" as never)).resolves.toBeNull();
+    expect(fetchMock).not.toHaveBeenCalled();
+    warnSpy.mockRestore();
+  });
+
+  it("refuses to put audio larger than the configured safety cap", async () => {
+    configureObjectStore();
+    vi.stubEnv("AUDIO_OBJECT_STORE_MAX_OBJECT_BYTES", "4");
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
@@ -92,7 +133,7 @@ describe("r2-storage", () => {
     await expect(putAudio(Buffer.from("audio"), "abc123")).resolves.toBe(false);
 
     expect(fetchMock).not.toHaveBeenCalled();
-    expect(warnSpy).toHaveBeenLastCalledWith("[Get Word audio] R2 storage failure", expect.objectContaining({
+    expect(warnSpy).toHaveBeenLastCalledWith("[Get Word audio] object storage failure", expect.objectContaining({
       category: "too_large",
       detail: { byteLength: 5, maxBytes: 4 },
     }));
@@ -103,7 +144,7 @@ describe("r2-storage", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     await expect(putAudio(Buffer.from("audio"), "abc123")).resolves.toBe(false);
 
-    configureR2();
+    configureObjectStore();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("nope", { status: 500 })));
     await expect(putAudio(Buffer.from("audio"), "abc123")).resolves.toBe(false);
 
@@ -113,12 +154,12 @@ describe("r2-storage", () => {
     vi.spyOn(AbortSignal, "timeout").mockReturnValue(AbortSignal.abort());
     vi.stubGlobal("fetch", neverResolvingFetch());
     await expect(putAudio(Buffer.from("audio"), "abc123")).resolves.toBe(false);
-    expect(AbortSignal.timeout).toHaveBeenLastCalledWith(R2_PUT_TIMEOUT_MS);
+    expect(AbortSignal.timeout).toHaveBeenLastCalledWith(OBJECT_PUT_TIMEOUT_MS);
     warnSpy.mockRestore();
   });
 
-  it("gets audio from R2 and returns content type", async () => {
-    configureR2();
+  it("gets audio from object storage and returns content type", async () => {
+    configureObjectStore();
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(Buffer.from("audio"), {
         status: 200,
@@ -132,24 +173,24 @@ describe("r2-storage", () => {
     expect(audio?.contentType).toBe("audio/mpeg");
     expect(audio?.body.byteLength).toBe(5);
     const [input, init] = fetchMock.mock.calls[0] as [RequestInfo | URL, RequestInit | undefined];
-    expect(getFetchUrl(input)).toBe("https://account-123.r2.cloudflarestorage.com/tts-audio/audio/abc123.mp3");
+    expect(getFetchUrl(input)).toBe(OBJECT_URL);
     expect(getFetchMethod(input, init)).toBe("GET");
   });
 
-  it("checks R2 object presence with HEAD without downloading audio", async () => {
-    configureR2();
+  it("checks object presence with HEAD without downloading audio", async () => {
+    configureObjectStore();
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
     await expect(hasAudio("abc123")).resolves.toBe(true);
 
     const [input, init] = fetchMock.mock.calls[0] as [RequestInfo | URL, RequestInit | undefined];
-    expect(getFetchUrl(input)).toBe("https://account-123.r2.cloudflarestorage.com/tts-audio/audio/abc123.mp3");
+    expect(getFetchUrl(input)).toBe(OBJECT_URL);
     expect(getFetchMethod(input, init)).toBe("HEAD");
   });
 
-  it("lists existing R2 audio content hashes from bucket inventory pages", async () => {
-    configureR2();
+  it("lists existing audio content hashes from bucket inventory pages", async () => {
+    configureObjectStore();
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(new Response(`<?xml version="1.0" encoding="UTF-8"?>
         <ListBucketResult>
@@ -179,9 +220,9 @@ describe("r2-storage", () => {
     expect(getFetchMethod(secondInput, secondInit)).toBe("GET");
   });
 
-  it("refuses to return R2 audio larger than the configured safety cap", async () => {
-    configureR2();
-    vi.stubEnv("R2_MAX_AUDIO_BYTES", "4");
+  it("refuses to return audio larger than the configured safety cap", async () => {
+    configureObjectStore();
+    vi.stubEnv("AUDIO_OBJECT_STORE_MAX_OBJECT_BYTES", "4");
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
       new Response(Buffer.from("audio"), {
@@ -194,43 +235,43 @@ describe("r2-storage", () => {
     ));
 
     await expect(getAudio("abc123")).resolves.toBeNull();
-    expect(warnSpy).toHaveBeenLastCalledWith("[Get Word audio] R2 storage failure", expect.objectContaining({
+    expect(warnSpy).toHaveBeenLastCalledWith("[Get Word audio] object storage failure", expect.objectContaining({
       category: "too_large",
       detail: { byteLength: 5, maxBytes: 4 },
     }));
     warnSpy.mockRestore();
   });
 
-  it("falls back to the default R2 audio safety cap when env is invalid", async () => {
-    configureR2();
-    vi.stubEnv("R2_MAX_AUDIO_BYTES", "nope");
+  it("falls back to the default safety cap when env is invalid", async () => {
+    configureObjectStore();
+    vi.stubEnv("AUDIO_OBJECT_STORE_MAX_OBJECT_BYTES", "nope");
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(putAudio(Buffer.alloc(R2_DEFAULT_MAX_AUDIO_BYTES + 1), "abc123")).resolves.toBe(false);
+    await expect(putAudio(Buffer.alloc(OBJECT_DEFAULT_MAX_AUDIO_BYTES + 1), "abc123")).resolves.toBe(false);
     expect(fetchMock).not.toHaveBeenCalled();
   });
 
   it("returns null on get misses and logs 403 separately from 404", async () => {
-    configureR2();
+    configureObjectStore();
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("missing", { status: 404 })));
     await expect(getAudio("missing")).resolves.toBeNull();
-    expect(warnSpy).toHaveBeenLastCalledWith("[Get Word audio] R2 storage failure", expect.objectContaining({
+    expect(warnSpy).toHaveBeenLastCalledWith("[Get Word audio] object storage failure", expect.objectContaining({
       category: "missing",
     }));
 
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("forbidden", { status: 403 })));
     await expect(getAudio("forbidden")).resolves.toBeNull();
-    expect(warnSpy).toHaveBeenLastCalledWith("[Get Word audio] R2 storage failure", expect.objectContaining({
+    expect(warnSpy).toHaveBeenLastCalledWith("[Get Word audio] object storage failure", expect.objectContaining({
       category: "permission",
     }));
     warnSpy.mockRestore();
   });
 
   it("returns false for HEAD misses and null when presence cannot be verified", async () => {
-    configureR2();
+    configureObjectStore();
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 404 })));
@@ -238,7 +279,7 @@ describe("r2-storage", () => {
 
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(null, { status: 403 })));
     await expect(hasAudio("forbidden")).resolves.toBeNull();
-    expect(warnSpy).toHaveBeenLastCalledWith("[Get Word audio] R2 storage failure", expect.objectContaining({
+    expect(warnSpy).toHaveBeenLastCalledWith("[Get Word audio] object storage failure", expect.objectContaining({
       operation: "head",
       category: "permission",
     }));
@@ -246,17 +287,17 @@ describe("r2-storage", () => {
     vi.spyOn(AbortSignal, "timeout").mockReturnValue(AbortSignal.abort());
     vi.stubGlobal("fetch", neverResolvingFetch());
     await expect(hasAudio("timeout")).resolves.toBeNull();
-    expect(AbortSignal.timeout).toHaveBeenLastCalledWith(R2_HEAD_TIMEOUT_MS);
+    expect(AbortSignal.timeout).toHaveBeenLastCalledWith(OBJECT_HEAD_TIMEOUT_MS);
     warnSpy.mockRestore();
   });
 
-  it("returns null when R2 inventory listing is unavailable", async () => {
-    configureR2();
+  it("returns null when inventory listing is unavailable", async () => {
+    configureObjectStore();
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("nope", { status: 503 })));
 
     await expect(listAudioContentHashes()).resolves.toBeNull();
-    expect(warnSpy).toHaveBeenLastCalledWith("[Get Word audio] R2 storage failure", expect.objectContaining({
+    expect(warnSpy).toHaveBeenLastCalledWith("[Get Word audio] object storage failure", expect.objectContaining({
       operation: "list",
       category: "unavailable",
     }));
@@ -267,7 +308,7 @@ describe("r2-storage", () => {
     const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
     await expect(getAudio("abc123")).resolves.toBeNull();
 
-    configureR2();
+    configureObjectStore();
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response("nope", { status: 503 })));
     await expect(getAudio("abc123")).resolves.toBeNull();
 
@@ -277,7 +318,7 @@ describe("r2-storage", () => {
     vi.spyOn(AbortSignal, "timeout").mockReturnValue(AbortSignal.abort());
     vi.stubGlobal("fetch", neverResolvingFetch());
     await expect(getAudio("abc123")).resolves.toBeNull();
-    expect(AbortSignal.timeout).toHaveBeenLastCalledWith(R2_GET_TIMEOUT_MS);
+    expect(AbortSignal.timeout).toHaveBeenLastCalledWith(OBJECT_GET_TIMEOUT_MS);
     warnSpy.mockRestore();
   });
 });

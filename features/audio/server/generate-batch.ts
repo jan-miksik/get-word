@@ -15,6 +15,7 @@ import {
 } from "@/lib/audio";
 import { isPlayableAudioAsset } from "@/lib/audio-assets";
 import { getArweaveGatewayUrls } from "@/lib/audio-storage";
+import { isObjectStorageConfigured } from "@/lib/object-storage";
 import { getUserApiKey } from "@/lib/translation";
 import { getErrorDetail } from "./batch/errors";
 import { generateAudioForItem } from "./batch/generate-item";
@@ -280,6 +281,16 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
 
   const generatedResults: GeneratedResult[] = [];
   let quotaExhaustedMessage: string | null = null;
+
+  // One-shot heads-up per batch: without a configured object store the Arweave
+  // upload has no mirror, so generated audio cannot fall back if gateways fail.
+  if (needsGeneration.length > 0 && !isObjectStorageConfigured()) {
+    console.warn(
+      "[Get Word audio] object storage mirror is not configured — generating " +
+        `${needsGeneration.length} item(s) as Arweave-only with no fallback. ` +
+        "Set AUDIO_OBJECT_STORE_* (provider, endpoint, region, keys, bucket) to enable the mirror.",
+    );
+  }
 
   for (let i = 0; i < needsGeneration.length; i += CONCURRENCY) {
     if (quotaExhaustedMessage) break;

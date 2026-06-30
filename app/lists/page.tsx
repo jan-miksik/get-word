@@ -17,6 +17,7 @@ import { useListsForking } from '@/features/lists/hooks/useListsForking';
 import { useListsPageActions } from '@/features/lists/hooks/useListsPageActions';
 import { useListsWizard } from '@/features/lists/hooks/useListsWizard';
 import { assignItemsCategory } from '@/features/lists/client/actions';
+import { setAudioStorageLoggingEnabled } from '@/lib/audio-debug';
 import type { WordListItem } from '@/features/lists/types';
 import { ErrorMessage } from './ErrorMessage';
 import { ListSidebar } from './ListSidebar';
@@ -137,6 +138,11 @@ function ListsPageContent() {
       window.history.replaceState(null, '', consumeOneShotListsUrlParams(window.location.search));
     }
   }, [initialUrlState]);
+
+  // Editor users keep audio storage source logging in the console off-localhost.
+  useEffect(() => {
+    setAudioStorageLoggingEnabled(canManageCommonLists);
+  }, [canManageCommonLists]);
 
   const wizard = useListsWizard({
     selectedListId,

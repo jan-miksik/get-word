@@ -29,7 +29,9 @@ export const audioStatusEnum = pgEnum("audio_status", [
   "failed",
 ]);
 
-export const storageTypeEnum = pgEnum("storage_type", ["arweave", "r2"]);
+export const storageTypeEnum = pgEnum("storage_type", ["arweave", "r2", "object_store"]);
+
+export const storageProviderEnum = pgEnum("storage_provider", ["b2"]);
 
 export const mediaTypeEnum = pgEnum("media_type", ["audio"]);
 
@@ -104,6 +106,7 @@ export const mediaAssets = pgTable(
     id: uuid("id").primaryKey().defaultRandom(),
     contentHash: text("content_hash").notNull(),
     storageType: storageTypeEnum("storage_type").notNull(),
+    storageProvider: storageProviderEnum("storage_provider"),
     storageRef: text("storage_ref").notNull(),
     mediaType: mediaTypeEnum("media_type").notNull().default("audio"),
     language: text("language").notNull(),
