@@ -69,7 +69,7 @@ export function LanguageCombobox({
   const { t, language: uiLanguage } = useI18n();
   const [query, setQuery] = useState('');
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLLabelElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const selectedLanguage = languages.find((language) => language.code === value);
   const hasSelection = Boolean(selectedLanguage || value);
@@ -96,8 +96,10 @@ export function LanguageCombobox({
   }
 
   // Close only on a genuine click/focus outside the combobox. Relying on the
-  // input's `blur` event closes the dropdown spuriously, because the wrapping
-  // `<label>` re-dispatches clicks to the input (causing a blur→focus bounce).
+  // input's `blur` event closes the dropdown spuriously. The root is a plain
+  // `<div>` (not a wrapping `<label>`) so tapping an option does not get
+  // re-dispatched to the input — on iOS that label→input forwarding refocused
+  // the input after a selection and reopened the dropdown.
   useEffect(() => {
     if (!open) return;
     function handlePointerDown(event: PointerEvent) {
@@ -110,8 +112,17 @@ export function LanguageCombobox({
   }, [open]);
 
   return (
-    <label ref={rootRef} className="relative block min-w-0">
-      <span className="mb-2 block text-lg font-extrabold uppercase tracking-wide sm:text-xl">{label}</span>
+    <div ref={rootRef} className="relative block min-w-0">
+      {/* Plain heading, not a `<label htmlFor>`: associating it would forward
+          clicks to the input and open the dropdown. Tapping the heading should
+          instead dismiss an open dropdown. The input carries its own
+          `aria-label`, so this stays accessible. */}
+      <span
+        className="mb-2 block text-lg font-extrabold uppercase tracking-wide sm:text-xl"
+        onClick={() => setOpen(false)}
+      >
+        {label}
+      </span>
       <div
         className={`onboarding-combobox min-h-[66px] px-3 py-2 ${
           highlight && !hasSelection ? 'onboarding-combobox-highlight' : ''
@@ -196,6 +207,6 @@ export function LanguageCombobox({
           )}
         </div>
       ) : null}
-    </label>
+    </div>
   );
 }

@@ -1079,6 +1079,10 @@
 
 .onboarding-combobox-input {
   color: var(--ob-ink, #2A2218);
+  /* iOS Safari auto-zooms (and stays zoomed) when a focused input is under
+     16px, clipping the page at the sides. Hold it at 16px to prevent that
+     without disabling intentional pinch-zoom via the viewport meta. */
+  font-size: 16px;
 }
 
 .onboarding-combobox-input::placeholder {
