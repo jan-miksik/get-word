@@ -421,7 +421,6 @@ export const enMessages = {
   "lists.selectWordListTitle": "Choose a word list",
   "lists.addNewWordList": "Add new word list",
   "lists.suggestedHeading": "Switch to another list",
-  "lists.suggestedNote": "To create or edit lists, open this app on a computer.",
   "lists.addingList": "Adding...",
   "lists.apiKeys": "API keys",
   "lists.googleApiUsage": "Google API usage",
@@ -800,7 +799,8 @@ export const enMessages = {
   "onboarding.errorHelpEditor": "list editor",
   "onboarding.checkingWordCount": "Checking how many words will be generated...",
   "onboarding.willGenerateWords": "{count} {unit} will be generated.",
-  "onboarding.willGenerateWordsFromSeed": "{count} {unit} will be generated from {seed}.",
+  "onboarding.willFlipWords": "We'll flip {count} {unit} from the {source} list into your study direction.",
+  "onboarding.willFlipWordsUnknown": "We'll flip words from the {source} list into your study direction.",
   "onboarding.wordCountUnavailable":
     "Word count is not available yet; the best available seed will be used.",
   "onboarding.mostUsedWordsHint":

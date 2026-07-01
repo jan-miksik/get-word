@@ -402,7 +402,6 @@ export const viMessages: I18nMessages = {
   "lists.selectWordListTitle": "Chọn một danh sách từ",
   "lists.addNewWordList": "Thêm danh sách từ mới",
   "lists.suggestedHeading": "Chuyển sang danh sách khác",
-  "lists.suggestedNote": "Để tạo hoặc chỉnh sửa danh sách, hãy mở ứng dụng này trên máy tính.",
   "lists.addingList": "Đang thêm...",
   "lists.apiKeys": "Khóa API",
   "lists.googleApiUsage": "Mức dùng Google API",
@@ -779,7 +778,8 @@ export const viMessages: I18nMessages = {
   "onboarding.errorHelpEditor": "trình chỉnh sửa danh sách",
   "onboarding.checkingWordCount": "Đang kiểm tra số từ sẽ được tạo...",
   "onboarding.willGenerateWords": "{count} {unit} sẽ được tạo.",
-  "onboarding.willGenerateWordsFromSeed": "{count} {unit} sẽ được tạo từ {seed}.",
+  "onboarding.willFlipWords": "Chúng tôi sẽ đảo {count} {unit} từ danh sách {source} theo hướng học của bạn.",
+  "onboarding.willFlipWordsUnknown": "Chúng tôi sẽ đảo các từ từ danh sách {source} theo hướng học của bạn.",
   "onboarding.wordCountUnavailable":
     "Số từ chưa có sẵn; mẫu tốt nhất hiện có sẽ được sử dụng.",
   "onboarding.mostUsedWordsHint":

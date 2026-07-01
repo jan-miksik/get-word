@@ -402,7 +402,6 @@ export const csMessages: I18nMessages = {
   "lists.selectWordListTitle": "Vyberte seznam slov",
   "lists.addNewWordList": "Přidat nový seznam slov",
   "lists.suggestedHeading": "Přepnout na jiný seznam",
-  "lists.suggestedNote": "Pro vytváření nebo úpravu seznamů otevřete tuto aplikaci na počítači.",
   "lists.addingList": "Přidávání...",
   "lists.apiKeys": "API klíče",
   "lists.googleApiUsage": "Využití Google API",
@@ -779,7 +778,8 @@ export const csMessages: I18nMessages = {
   "onboarding.errorHelpEditor": "editoru seznamu",
   "onboarding.checkingWordCount": "Zjišťování, kolik slov bude vygenerováno...",
   "onboarding.willGenerateWords": "Bude vygenerováno {count} {unit}.",
-  "onboarding.willGenerateWordsFromSeed": "Bude vygenerováno {count} {unit} z {seed}.",
+  "onboarding.willFlipWords": "Otočíme {count} {unit} ze seznamu {source} do vašeho směru studia.",
+  "onboarding.willFlipWordsUnknown": "Otočíme slova ze seznamu {source} do vašeho směru studia.",
   "onboarding.wordCountUnavailable":
     "Počet slov zatím není k dispozici; použije se nejlepší dostupný vzor.",
   "onboarding.mostUsedWordsHint":

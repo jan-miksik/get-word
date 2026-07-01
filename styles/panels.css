@@ -1079,10 +1079,24 @@
 
 .onboarding-combobox-input {
   color: var(--ob-ink, #2A2218);
+  /* macOS Safari renders `type="search"` with its own inset gray field,
+     ignoring `bg-transparent` and washing out the placeholder. Strip the
+     native appearance so the input inherits the combobox surface. */
+  -webkit-appearance: none;
+  appearance: none;
   /* iOS Safari auto-zooms (and stays zoomed) when a focused input is under
      16px, clipping the page at the sides. Hold it at 16px to prevent that
      without disabling intentional pinch-zoom via the viewport meta. */
   font-size: 16px;
+}
+
+/* Remove the native search decorations (magnifier/clear button) Safari adds. */
+.onboarding-combobox-input::-webkit-search-decoration,
+.onboarding-combobox-input::-webkit-search-cancel-button,
+.onboarding-combobox-input::-webkit-search-results-button,
+.onboarding-combobox-input::-webkit-search-results-decoration {
+  -webkit-appearance: none;
+  appearance: none;
 }
 
 .onboarding-combobox-input::placeholder {

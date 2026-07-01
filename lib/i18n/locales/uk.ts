@@ -402,7 +402,6 @@ export const ukMessages: I18nMessages = {
   "lists.selectWordListTitle": "Виберіть список слів",
   "lists.addNewWordList": "Додати новий список слів",
   "lists.suggestedHeading": "Перемкнутися на інший список",
-  "lists.suggestedNote": "Щоб створювати чи редагувати списки, відкрийте цей застосунок на комп'ютері.",
   "lists.addingList": "Додавання...",
   "lists.apiKeys": "Ключі API",
   "lists.googleApiUsage": "Використання Google API",
@@ -779,7 +778,8 @@ export const ukMessages: I18nMessages = {
   "onboarding.errorHelpEditor": "редакторі списку",
   "onboarding.checkingWordCount": "Перевірка, скільки слів буде згенеровано...",
   "onboarding.willGenerateWords": "Буде згенеровано {count} {unit}.",
-  "onboarding.willGenerateWordsFromSeed": "Буде згенеровано {count} {unit} з {seed}.",
+  "onboarding.willFlipWords": "Розвернемо {count} {unit} зі списку {source} у ваш напрямок навчання.",
+  "onboarding.willFlipWordsUnknown": "Розвернемо слова зі списку {source} у ваш напрямок навчання.",
   "onboarding.wordCountUnavailable":
     "Кількість слів поки недоступна; буде використано найкращу доступну основу.",
   "onboarding.mostUsedWordsHint":

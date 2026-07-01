@@ -262,7 +262,6 @@ function ListSelectModal({
                   </button>
                 );
               })}
-              <p className="list-select-suggested-note">{t('lists.suggestedNote')}</p>
             </div>
           )}
         </div>
