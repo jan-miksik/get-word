@@ -747,6 +747,9 @@ export const viMessages: I18nMessages = {
   "onboarding.advancedOptions": "Tùy chọn nâng cao",
   "onboarding.hideAdvanced": "Ẩn tùy chọn nâng cao",
   "onboarding.autogenerateCommonList": "Tự động tạo danh sách từ và cụm từ",
+  "onboarding.reversedListNote":
+    "Chưa có danh sách {pair}, nhưng chúng tôi có danh sách {source}. Chúng tôi có thể đảo nó theo hướng học của bạn.",
+  "onboarding.autogenerateReversedList": "Đảo danh sách {source} theo hướng của bạn",
   "onboarding.autogenerating": "Đang tạo...",
   "onboarding.statusPreparingCommonList": "Đang chuẩn bị danh sách chung",
   "onboarding.commonListSetupDetail": "Đang tìm danh sách mẫu phù hợp nhất, tạo từ của bạn và chuẩn bị âm thanh phát âm. Bước đầu tiên có thể mất vài phút trước khi có tiến trình chi tiết.",

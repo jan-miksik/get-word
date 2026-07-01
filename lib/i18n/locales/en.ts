@@ -768,6 +768,9 @@ export const enMessages = {
   "onboarding.advancedOptions": "Advanced options",
   "onboarding.hideAdvanced": "Hide advanced options",
   "onboarding.autogenerateCommonList": "Automatically generate a list of words and phrases",
+  "onboarding.reversedListNote":
+    "There's no {pair} list yet, but we have a {source} list. We can flip it into your study direction.",
+  "onboarding.autogenerateReversedList": "Flip the {source} list to your direction",
   "onboarding.autogenerating": "Autogenerating...",
   "onboarding.statusPreparingCommonList": "Preparing common list",
   "onboarding.commonListSetupDetail": "Finding the best seed list, creating your words, and preparing pronunciation audio. The first step can take a few minutes before detailed progress appears.",

@@ -747,6 +747,9 @@ export const ukMessages: I18nMessages = {
   "onboarding.advancedOptions": "Розширені параметри",
   "onboarding.hideAdvanced": "Сховати розширені параметри",
   "onboarding.autogenerateCommonList": "Автоматично згенерувати список слів і фраз",
+  "onboarding.reversedListNote":
+    "Списку для {pair} ще немає, але у нас є список {source}. Ми можемо розвернути його у ваш напрямок навчання.",
+  "onboarding.autogenerateReversedList": "Розвернути список {source} у ваш напрямок",
   "onboarding.autogenerating": "Генерування...",
   "onboarding.statusPreparingCommonList": "Підготовка спільного списку",
   "onboarding.commonListSetupDetail": "Шукаю найкращий базовий список, створюю ваші слова та готую аудіо вимови. Перший крок може тривати кілька хвилин, перш ніж з'явиться детальний прогрес.",

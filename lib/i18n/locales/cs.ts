@@ -747,6 +747,9 @@ export const csMessages: I18nMessages = {
   "onboarding.advancedOptions": "Pokročilé možnosti",
   "onboarding.hideAdvanced": "Skrýt pokročilé možnosti",
   "onboarding.autogenerateCommonList": "Automaticky vygenerovat seznam slovíček a frází",
+  "onboarding.reversedListNote":
+    "Seznam pro {pair} zatím neexistuje, ale máme seznam {source}. Můžeme ho otočit do vašeho směru studia.",
+  "onboarding.autogenerateReversedList": "Otočit seznam {source} do vašeho směru",
   "onboarding.autogenerating": "Generování...",
   "onboarding.statusPreparingCommonList": "Příprava společného seznamu",
   "onboarding.commonListSetupDetail": "Hledám nejlepší vzorový seznam, vytvářím vaše slova a připravuji výslovnost. První krok může trvat několik minut, než se zobrazí podrobný průběh.",

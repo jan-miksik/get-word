@@ -103,11 +103,10 @@ export function pickRecommendedWordList(
   );
   if (exactRecommended) return { list: exactRecommended, reason: 'exact' };
 
-  // A list the user already owns in the exact requested direction (e.g. a
-  // reversed list they created earlier) beats a reverse-direction match: it
-  // needs no fork and studies the right way round. Without this, a recommended
-  // reverse list keeps winning and re-forks a duplicate every time this pair is
-  // picked.
+  // A list the user already owns in the exact requested direction (for example,
+  // a private customize-fork) beats a reverse-direction match: it studies the
+  // right way round. Shared reversed lists are deduped earlier as public
+  // recommended exact-direction lists.
   const exactOwned = userId
     ? lists.find((list) =>
         list.ownerId === userId && isExactLanguagePair(list, languageFrom, languageTo)

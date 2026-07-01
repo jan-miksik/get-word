@@ -7,6 +7,14 @@ export const CATEGORY_TITLE_SEPARATOR = " - ";
 
 type CategoryTranslation = { known: string; target: string };
 
+export function swapBilingualTitle(name: string) {
+  const idx = name.indexOf(CATEGORY_TITLE_SEPARATOR);
+  if (idx === -1) return name;
+  const fromSide = name.slice(0, idx);
+  const toSide = name.slice(idx + CATEGORY_TITLE_SEPARATOR.length);
+  return `${toSide}${CATEGORY_TITLE_SEPARATOR}${fromSide}`;
+}
+
 // Pull the single side to translate out of a (possibly already-bilingual)
 // category title so "základ - basic" is not re-translated as a whole.
 function extractCategorySourceText(

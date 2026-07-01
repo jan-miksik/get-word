@@ -6,7 +6,7 @@ export type GenerationProvider =
   | "google_translate"
   | "seed_copy"
   | "reused_existing";
-export type SeedKind = "exact_pair" | "translation_base" | "llm_generated";
+export type SeedKind = "exact_pair" | "reverse_pair" | "translation_base" | "llm_generated";
 
 export type TranslationStats = { reused: number; generated: number };
 

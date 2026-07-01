@@ -75,6 +75,22 @@ export function pickExactSeed(candidates: SeedCandidate[], languageFrom: string,
     )[0] ?? null;
 }
 
+export function pickRecommendedExactSeed(candidates: SeedCandidate[], languageFrom: string, languageTo: string) {
+  return pickExactSeed(
+    candidates.filter((seed) => seed.isPublic && seed.isRecommended),
+    languageFrom,
+    languageTo,
+  );
+}
+
+export function pickReverseExactSeed(candidates: SeedCandidate[], languageFrom: string, languageTo: string) {
+  return pickExactSeed(
+    candidates.filter((seed) => seed.isPublic && seed.isRecommended),
+    languageTo,
+    languageFrom,
+  );
+}
+
 export function pickTranslationSeed(candidates: SeedCandidate[], languageFrom: string, languageTo: string) {
   return candidates
     .filter((seed) => seed.itemCount > 0)
