@@ -15,6 +15,8 @@ Usage:
   pnpm run db:prod -- backfill-content-keys [--apply]
   pnpm run db:prod -- backfill-object [--apply] [--probe-head] [--provider b2] [--limit N] [--batch-size N] [--concurrency N] [--checkpoint path]
   pnpm run db:prod -- repair-object-to-arweave [--apply] [--limit N] [--batch-size N]
+  pnpm run db:prod -- demo-generate-audio [--apply] [--repair-quiet] [--force] [--langs=cs,vi]
+  pnpm run db:prod -- demo-bundle-audio [--apply] [--force] [--langs=cs,vi]
 
 Actions:
   backup [file]    Dump the database with pg_dump to a local file (defaults to
@@ -31,6 +33,10 @@ Actions:
   backfill-object --apply         Mirror production Arweave audio to the object store.
   repair-object-to-arweave        Preview promoting temporary object-store audio rows to Arweave.
   repair-object-to-arweave --apply Promote temporary object-store audio rows back to Arweave.
+  demo-generate-audio             Preview generating missing landing-demo audio in production.
+  demo-generate-audio --apply      Generate missing/forced landing-demo audio in production.
+  demo-bundle-audio               Preview production-backed public/audio/demo bundle changes.
+  demo-bundle-audio --apply        Download production-backed audio into public/audio/demo.
 
 The production DATABASE_URL is read with hidden input, exported only for the
 selected action, and unset when the action exits. Do not put the URL in action
@@ -66,6 +72,8 @@ compact_apply=false
 backfill_apply=false
 audio_apply=false
 audio_args=()
+demo_apply=false
+demo_args=()
 
 parse_audio_flags() {
   local command_name="$1"
@@ -123,6 +131,43 @@ parse_audio_flags() {
         ;;
       *)
         die "$command_name accepts only --apply, --probe-head, --provider, --limit, --batch-size, --concurrency, and --checkpoint."
+        ;;
+    esac
+  done
+}
+
+parse_demo_flags() {
+  local command_name="$1"
+  local value
+  shift
+
+  demo_apply=false
+  demo_args=()
+
+  while [[ "$#" -gt 0 ]]; do
+    case "$1" in
+      --apply)
+        demo_apply=true
+        shift
+        ;;
+      --repair-quiet|--force)
+        demo_args+=("$1")
+        shift
+        ;;
+      --langs)
+        [[ "$#" -ge 2 ]] || die "$command_name --langs requires a value."
+        [[ -n "$2" ]] || die "$command_name --langs value must not be empty."
+        demo_args+=("$1" "$2")
+        shift 2
+        ;;
+      --langs=*)
+        value="${1#*=}"
+        [[ -n "$value" ]] || die "$command_name --langs value must not be empty."
+        demo_args+=("$1")
+        shift
+        ;;
+      *)
+        die "$command_name accepts only --apply, --repair-quiet, --force, and --langs."
         ;;
     esac
   done
@@ -204,6 +249,26 @@ case "$action" in
     else
       description="preview promoting temporary production object-store audio rows back to Arweave"
       confirmation_phrase="PREVIEW_PRODUCTION_OBJECT_AUDIO_REPAIR"
+    fi
+    ;;
+  demo-generate-audio)
+    parse_demo_flags "$action" "${@:2}"
+    if [[ "$demo_apply" == true ]]; then
+      description="generate or repair production landing-demo audio"
+      confirmation_phrase="GENERATE_PRODUCTION_DEMO_AUDIO"
+    else
+      description="preview production landing-demo audio generation"
+      confirmation_phrase="PREVIEW_PRODUCTION_DEMO_AUDIO"
+    fi
+    ;;
+  demo-bundle-audio)
+    parse_demo_flags "$action" "${@:2}"
+    if [[ "$demo_apply" == true ]]; then
+      description="download production landing-demo audio into public/audio/demo"
+      confirmation_phrase="BUNDLE_PRODUCTION_DEMO_AUDIO"
+    else
+      description="preview production-backed landing-demo audio bundle changes"
+      confirmation_phrase="PREVIEW_PRODUCTION_DEMO_BUNDLE"
     fi
     ;;
   -h|--help|help|"")
@@ -331,6 +396,20 @@ case "$action" in
       pnpm exec tsx scripts/repair-object-to-arweave.ts ${audio_args[@]+"${audio_args[@]}"}
     else
       pnpm exec tsx scripts/repair-object-to-arweave.ts --dry-run ${audio_args[@]+"${audio_args[@]}"}
+    fi
+    ;;
+  demo-generate-audio)
+    if [[ "$demo_apply" == true ]]; then
+      pnpm exec tsx scripts/generate-demo-audio.ts ${demo_args[@]+"${demo_args[@]}"}
+    else
+      pnpm exec tsx scripts/generate-demo-audio.ts --dry-run ${demo_args[@]+"${demo_args[@]}"}
+    fi
+    ;;
+  demo-bundle-audio)
+    if [[ "$demo_apply" == true ]]; then
+      pnpm exec tsx scripts/generate-bundled-demo-audio.ts ${demo_args[@]+"${demo_args[@]}"}
+    else
+      pnpm exec tsx scripts/generate-bundled-demo-audio.ts --dry-run ${demo_args[@]+"${demo_args[@]}"}
     fi
     ;;
 esac

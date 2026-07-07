@@ -42,7 +42,7 @@ export const ukMessages: I18nMessages = {
   "landing.hero.subtitle":
     "Get Word допомагає запам'ятовувати слова та фрази за допомогою інтервального повторення, аудіовимови та готових або власних списків. Для будь-якої пари мов.",
   "landing.hero.getStarted": "Почати",
-  "landing.features.kicker": "Що ви отримаєте",
+  "landing.hero.customListCheckbox": "Я хочу створити власний словниковий список",
   "landing.features.title": "Менше хаотичного навчання - повторюйте тоді, коли це важливо",
   "landing.features.spacedRepetition.title": "Інтервальне повторення",
   "landing.features.spacedRepetition.body":
@@ -61,8 +61,7 @@ export const ukMessages: I18nMessages = {
     "Після входу списки, прогрес і налаштування залишаються доступними на телефоні, планшеті та комп'ютері.",
   "landing.features.install.title": "Використання як застосунок",
   "landing.features.install.body":
-    "Додайте Get Word на головний екран і користуйтеся ним майже як звичайним застосунком. Встановлення через app store не потрібне.",
-  "landing.how.kicker": "Як це працює",
+    "Додайте Get Word на головний екран і користуйтеся ним майже як звичайним застосунком.",
   "landing.how.title": "Три кроки до ваших перших слів",
   "landing.how.pickPair.title": "Вибір мов",
   "landing.how.pickPair.body":
@@ -81,6 +80,22 @@ export const ukMessages: I18nMessages = {
   "landing.cta.body":
     "Достатньо вибрати мовну пару й відкрити перший список. Можна скористатися готовим вмістом або створити власний.",
   "landing.cta.button": "Почати навчання",
+  "landing.demo.title": "Спробуйте самі",
+  "landing.demo.captionIntro": "Спробуйте картку як у застосунку.",
+  "landing.demo.captionScratch": "Зітріть прихований переклад",
+  "landing.demo.captionRest": "і виберіть, через скільки часу слово має повторитися.",
+  "landing.demo.soon": "одразу знову",
+  "landing.demo.comesBack": "«{word}» повернеться через {time}",
+  "landing.demo.againSoon": "«{word}» повернеться за мить",
+  "landing.demo.customSet": "«{word}» перенесено на {time}",
+  "landing.demo.interval1": "5 хвилин",
+  "landing.demo.interval2": "1 день",
+  "landing.demo.interval3": "3 дні",
+  "landing.demo.interval4": "8 днів",
+  "landing.demo.doneTitle": "Готово",
+  "landing.demo.doneBody": "",
+  "landing.demo.continue": "Перейти до застосунку",
+  "landing.demo.replay": "Спробувати ще раз",
   "landing.footer.github": "GitHub",
   "landing.footer.contact": "Контакти",
   "landing.footer.privacy": "Конфіденційність",

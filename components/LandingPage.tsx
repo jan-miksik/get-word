@@ -1,11 +1,20 @@
 'use client';
 
-import { useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { AppLogo } from '@/components/AppLogo';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { InterfaceLanguageSelector } from '@/components/InterfaceLanguageSelector';
+import { LandingPageStyles } from '@/components/landing/LandingPageStyles';
+import { LandingDemoCard } from '@/components/LandingDemoCard';
+import { getLandingDemoFallbackTo } from '@/components/landing-demo/demo-set';
 import { SpeckledBackground } from '@/components/SpeckledBackground';
+import { LanguageCombobox } from '@/features/learning/onboarding/LanguageCombobox';
+import {
+  readLandingLanguagePair,
+  saveLandingLanguagePair,
+} from '@/features/learning/onboarding/landingPairStorage';
+import type { LearningLanguage } from '@/features/learning/onboarding/types';
 import type { I18nKey } from '@/lib/i18n/messages';
 import {
   DEFAULT_SETTINGS_LANGUAGE,
@@ -177,14 +186,62 @@ function LandingPageContent({
   onLangChange: (next: string) => void;
 }) {
   const { t, isLoading } = useI18n();
+  // Keep the hero pair and the app-like demo card in sync. The server snapshot
+  // stays empty to avoid hydration drift; after mount we resolve saved/browser
+  // defaults and then user choices take over.
+  const savedFrom = useSyncExternalStore(
+    noopSubscribe,
+    () => readLandingLanguagePair()?.from ?? readPreferredLang(),
+    () => ''
+  );
+  const [fromOverride, setFromOverride] = useState<string | null>(null);
+  const [toOverride, setToOverride] = useState<string | null>(null);
+  const [wantsOwnList, setWantsOwnList] = useState(false);
+  const languageFrom = fromOverride ?? savedFrom;
+  const languageTo = toOverride ?? '';
+  const effectiveLanguageFrom = languageFrom || lang;
+  const effectiveLanguageTo =
+    languageTo || getLandingDemoFallbackTo(effectiveLanguageFrom);
+
+  function persistLandingPair() {
+    saveLandingLanguagePair({
+      from: languageFrom || effectiveLanguageFrom,
+      to: languageTo || effectiveLanguageTo,
+      wantsOwnList,
+    });
+  }
+
+  function updateLandingPair(next: { from?: string; to?: string }) {
+    if (next.from !== undefined) setFromOverride(next.from);
+    if (next.to !== undefined) setToOverride(next.to);
+  }
+
   return (
     <div className="lp-root" lang={lang}>
-      <LandingStyles />
+      <LandingPageStyles />
       <SpeckledBackground snapRisingLettersToMouse={false} />
 
       <div className="relative mx-auto flex w-full max-w-5xl flex-col px-4 sm:px-6">
-        <SiteHeader lang={lang} onLangChange={onLangChange} />
-        <Hero />
+        <SiteHeader
+          lang={lang}
+          onLangChange={onLangChange}
+          onBeforeLogin={persistLandingPair}
+        />
+        <Hero
+          languageFrom={languageFrom}
+          languageTo={languageTo}
+          effectiveLanguageFrom={effectiveLanguageFrom}
+          wantsOwnList={wantsOwnList}
+          onPairChange={updateLandingPair}
+          onWantsOwnListChange={setWantsOwnList}
+          onBeforeLogin={persistLandingPair}
+        />
+        <TryIt
+          lang={lang}
+          languageFrom={effectiveLanguageFrom}
+          languageTo={effectiveLanguageTo}
+          onBeforeLogin={persistLandingPair}
+        />
         <Features />
         <HowItWorks />
         <OpenSource />
@@ -237,13 +294,15 @@ function LanguageSwitcher({
 function SiteHeader({
   lang,
   onLangChange,
+  onBeforeLogin,
 }: {
   lang: string;
   onLangChange: (next: string) => void;
+  onBeforeLogin: () => void;
 }) {
   const { t } = useI18n();
   return (
-    <header className="flex items-center justify-between gap-2 py-4 sm:gap-6 sm:py-6">
+    <header className="lp-site-header sticky top-0 z-50 -mx-4 flex items-center justify-between gap-2 px-4 py-4 sm:-mx-6 sm:gap-6 sm:px-6 sm:py-6">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
         <AppLogo
           size={38}
@@ -258,7 +317,7 @@ function SiteHeader({
           lang={lang}
           onLangChange={onLangChange}
         />
-        <Link href="/login" className="lp-btn-ghost">
+        <Link href="/login" className="lp-btn-ghost" onClick={onBeforeLogin}>
           {t('landing.hero.getStarted')}
         </Link>
       </nav>
@@ -266,33 +325,213 @@ function SiteHeader({
   );
 }
 
-function Hero() {
+function Hero({
+  languageFrom,
+  languageTo,
+  effectiveLanguageFrom,
+  wantsOwnList,
+  onPairChange,
+  onWantsOwnListChange,
+  onBeforeLogin,
+}: {
+  languageFrom: string;
+  languageTo: string;
+  effectiveLanguageFrom: string;
+  wantsOwnList: boolean;
+  onPairChange: (next: { from?: string; to?: string }) => void;
+  onWantsOwnListChange: (next: boolean) => void;
+  onBeforeLogin: () => void;
+}) {
   const { t } = useI18n();
   return (
-    <section className="lp-fade-in min-w-0 py-10 sm:py-16">
-      <div>
-        <h1
-          className="lp-display m-0 text-[clamp(2.6rem,7vw,5rem)] font-bold leading-[1.02] tracking-[-0.025em] text-[var(--ink)]"
-        >
-          {t('landing.hero.title')}
-        </h1>
+    // `relative z-10`: the hero and the sections below it all create stacking
+    // contexts (CSS load animations), so without an explicit z-index the later
+    // sections paint over the hero's open language dropdowns.
+    <section className="lp-fade-in relative z-10 min-w-0 py-10 sm:py-16">
+      <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:gap-14">
+        <div className="min-w-0">
+          <h1
+            className="lp-display m-0 text-[clamp(2.6rem,7vw,5rem)] font-bold leading-[1.02] tracking-[-0.025em] text-[var(--ink)]"
+          >
+            {t('landing.hero.title')}
+          </h1>
 
-        <p
-          className="m-0 mt-6 max-w-2xl text-[1.05rem] leading-7 text-[var(--ink-2)] sm:text-[1.2rem] sm:leading-8"
-        >
-          {t('landing.hero.subtitle')}
-        </p>
-
-        <div
-          className="mt-8 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center"
-        >
-          <Link href="/login" className="lp-btn-primary group">
-            {t('landing.hero.getStarted')}
-            <IconArrow className="lp-btn-arrow" />
-          </Link>
+          <p
+            className="m-0 mt-6 max-w-2xl text-[1.05rem] leading-7 text-[var(--ink-2)] sm:text-[1.2rem] sm:leading-8"
+          >
+            {t('landing.hero.subtitle')}
+          </p>
         </div>
+
+        <HeroLanguagePicker
+          languageFrom={languageFrom}
+          languageTo={languageTo}
+          effectiveLanguageFrom={effectiveLanguageFrom}
+          wantsOwnList={wantsOwnList}
+          onPairChange={onPairChange}
+          onWantsOwnListChange={onWantsOwnListChange}
+          onBeforeLogin={onBeforeLogin}
+        />
       </div>
     </section>
+  );
+}
+
+/**
+ * "Try it yourself" — the interactive demo card in its own quiet section
+ * under the hero, so the hero stays a two-beat pitch (headline → pickers)
+ * and the card gets room to be played with instead of competing for
+ * attention next to the CTA.
+ */
+function TryIt({
+  lang,
+  languageFrom,
+  languageTo,
+  onBeforeLogin,
+}: {
+  lang: string;
+  languageFrom: string;
+  languageTo: string;
+  onBeforeLogin: () => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <section className="py-12 sm:py-16">
+      <SectionHeading title={t('landing.demo.title')} />
+      <p className="lp-reveal m-0 mt-4 max-w-xl text-[0.98rem] leading-6 text-[var(--ink-2)]">
+        {t('landing.demo.captionIntro')}{' '}
+        <strong className="lp-demo-caption-mark">{t('landing.demo.captionScratch')}</strong>{' '}
+        {t('landing.demo.captionRest')}
+      </p>
+      <div
+        className="lp-reveal mx-auto mt-10 w-full max-w-lg"
+        style={{ '--d': '80ms' } as React.CSSProperties}
+      >
+        <LandingDemoCard
+          key={`${languageFrom}-${languageTo}-${lang}`}
+          lang={lang}
+          fromLang={languageFrom}
+          toLang={languageTo}
+          onContinueToApp={onBeforeLogin}
+        />
+      </div>
+    </section>
+  );
+}
+
+/**
+ * Language-pair pickers in the hero: the visitor's first click on the site is
+ * already "I know X, I want to learn Y". The choice is saved to localStorage
+ * (see landingPairStorage) and read back as the initial pair by the onboarding
+ * screen after login, so it survives the auth redirects.
+ */
+const noopSubscribe = () => () => {};
+
+function HeroLanguagePicker({
+  languageFrom,
+  languageTo,
+  effectiveLanguageFrom,
+  wantsOwnList,
+  onPairChange,
+  onWantsOwnListChange,
+  onBeforeLogin,
+}: {
+  languageFrom: string;
+  languageTo: string;
+  effectiveLanguageFrom: string;
+  wantsOwnList: boolean;
+  onPairChange: (next: { from?: string; to?: string }) => void;
+  onWantsOwnListChange: (next: boolean) => void;
+  onBeforeLogin: () => void;
+}) {
+  const { t } = useI18n();
+  const [languages, setLanguages] = useState<LearningLanguage[]>([]);
+  const [loadingLanguages, setLoadingLanguages] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/languages')
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled) setLanguages(Array.isArray(data.languages) ? data.languages : []);
+      })
+      .catch(() => {
+        if (!cancelled) setLanguages([]);
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingLanguages(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  function updateFrom(code: string) {
+    onPairChange({ from: code });
+    saveLandingLanguagePair({ from: code, to: languageTo, wantsOwnList });
+  }
+
+  function updateTo(code: string) {
+    onPairChange({ to: code });
+    saveLandingLanguagePair({
+      from: languageFrom || effectiveLanguageFrom,
+      to: code,
+      wantsOwnList,
+    });
+  }
+
+  function updateWantsOwnList(next: boolean) {
+    onWantsOwnListChange(next);
+    saveLandingLanguagePair({
+      from: languageFrom || effectiveLanguageFrom,
+      to: languageTo,
+      wantsOwnList: next,
+    });
+  }
+
+  return (
+    <div className="lp-hero-picker mx-auto w-full max-w-md min-w-0 lg:mx-0 lg:max-w-none">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <LanguageCombobox
+          id="landing-language-from"
+          label={t('onboarding.iKnow')}
+          value={languageFrom}
+          languages={languages}
+          loading={loadingLanguages}
+          onChange={updateFrom}
+          disabledCodes={languageTo ? [languageTo] : []}
+        />
+        <LanguageCombobox
+          id="landing-language-to"
+          label={t('onboarding.iWantToLearn')}
+          value={languageTo}
+          languages={languages}
+          loading={loadingLanguages}
+          onChange={updateTo}
+          disabledCodes={languageFrom ? [languageFrom] : []}
+          highlight
+        />
+      </div>
+      <div className="mt-6 flex flex-col items-stretch">
+        <Link
+          href="/login"
+          className="lp-btn-primary lp-btn-hero group"
+          onClick={onBeforeLogin}
+        >
+          {t('landing.hero.getStarted')}
+          <IconArrow className="lp-btn-arrow" />
+        </Link>
+      </div>
+      <label className="mt-4 flex cursor-pointer items-center gap-2 px-3 text-xs font-semibold leading-5 text-[var(--ink)] sm:text-sm">
+        <input
+          type="checkbox"
+          checked={wantsOwnList}
+          onChange={(event) => updateWantsOwnList(event.target.checked)}
+          className="lp-custom-list-checkbox h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4"
+        />
+        <span>{t('landing.hero.customListCheckbox')}</span>
+      </label>
+    </div>
   );
 }
 
@@ -300,7 +539,7 @@ function Features() {
   const { t } = useI18n();
   return (
     <section className="py-12 sm:py-20">
-      <SectionHeading kicker={t('landing.features.kicker')} title={t('landing.features.title')} />
+      <SectionHeading title={t('landing.features.title')} />
       <div className="mt-10 grid grid-cols-1 gap-px overflow-hidden rounded-[26px] border-2 border-[var(--ink)] bg-[var(--ink)] sm:grid-cols-2 lg:grid-cols-3">
         {LANDING_FEATURES.map((f, i) => {
           const Icon = FEATURE_ICONS[i];
@@ -329,7 +568,7 @@ function HowItWorks() {
   const { t } = useI18n();
   return (
     <section className="py-12 sm:py-20">
-      <SectionHeading kicker={t('landing.how.kicker')} title={t('landing.how.title')} />
+      <SectionHeading title={t('landing.how.title')} />
       <ol className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
         {LANDING_STEPS.map((s, i) => (
           <li
@@ -436,13 +675,10 @@ function SiteFooter() {
   );
 }
 
-function SectionHeading({ kicker, title }: { kicker: string; title: string }) {
+function SectionHeading({ title }: { title: string }) {
   return (
-    <div className="lp-reveal flex max-w-2xl flex-col gap-3">
-      <span className="lp-kicker lp-mono">
-        <span className="lp-kicker-rule" /> {kicker}
-      </span>
-      <h2 className="lp-display m-0 text-[clamp(1.9rem,4.5vw,2.9rem)] font-semibold leading-[1.05] tracking-[-0.02em] text-[var(--ink)]">
+    <div className="lp-reveal max-w-2xl">
+      <h2 className="lp-heading-rule lp-display m-0 text-[clamp(1.9rem,4.5vw,2.9rem)] font-semibold leading-[1.05] tracking-[-0.02em] text-[var(--ink)]">
         {title}
       </h2>
     </div>
@@ -546,145 +782,5 @@ function IconGithub({ className }: { className?: string }) {
     <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
       <path d="M12 1.8a10.2 10.2 0 0 0-3.23 19.88c.51.1.7-.22.7-.49l-.01-1.92c-2.84.62-3.44-1.2-3.44-1.2-.46-1.18-1.13-1.5-1.13-1.5-.93-.63.07-.62.07-.62 1.03.07 1.57 1.06 1.57 1.06.91 1.57 2.4 1.12 2.99.85.09-.66.36-1.12.65-1.37-2.27-.26-4.66-1.14-4.66-5.06 0-1.12.4-2.03 1.05-2.74-.1-.26-.46-1.3.1-2.7 0 0 .86-.27 2.82 1.05a9.7 9.7 0 0 1 5.13 0c1.96-1.32 2.81-1.05 2.81-1.05.56 1.4.21 2.44.1 2.7.66.71 1.05 1.62 1.05 2.74 0 3.93-2.39 4.79-4.67 5.05.37.32.69.94.69 1.9l-.01 2.82c0 .27.19.6.71.49A10.2 10.2 0 0 0 12 1.8Z" />
     </svg>
-  );
-}
-
-/* ------------------------------------------------------------------ *
- * Scoped styles — riso/letterpress palette over the speckled "frame".
- * Tailwind handles layout/spacing; this owns the distinctive look that
- * utilities can't express (font bindings, keyframed motion, the cream
- * frame panel). Self-contained — no global CSS is touched.
- * ------------------------------------------------------------------ */
-
-function LandingStyles() {
-  return (
-    <style>{`
-.lp-root{
-  --paper:#dcd1b9;
-  --card:#f3ead5; --card-2:#fbf5e7;
-  --ink:#211a0f; --ink-2:#52462f; --ink-soft:#857449;
-  --blue:#1E6FA8; --blue-deep:#134f78;
-  --rust:#bf472a; --rust-deep:#963620;
-  --line:rgba(33,26,15,0.16); --line-strong:rgba(33,26,15,0.3);
-
-  position:relative;
-  isolation:isolate;
-  min-height:100dvh;
-  width:100%;
-  color:var(--ink);
-  background:var(--paper);
-  font-family:var(--font-hanken),system-ui,sans-serif;
-  -webkit-font-smoothing:antialiased;
-  overflow-x:clip;
-}
-.lp-display{ font-family:system-ui,-apple-system,"Segoe UI",sans-serif; letter-spacing:-0.01em; }
-.lp-mono{ font-family:var(--font-mono-accent),ui-monospace,monospace; }
-.italic{ font-style:italic; }
-.lp-root ::selection{ background:var(--blue); color:var(--card-2); }
-
-/* --- Buttons & links --- */
-.lp-btn-primary,.lp-btn-cream,.lp-btn-ghost,.lp-btn-outline{
-  display:inline-flex; align-items:center; justify-content:center; gap:.55rem;
-  font-weight:600; border-radius:999px; border:2px solid var(--ink);
-  transition:transform .18s cubic-bezier(.2,.8,.3,1), background .18s, color .18s;
-}
-.lp-btn-primary{
-  background:var(--blue); color:var(--card-2); border-color:var(--blue-deep);
-  padding:.85rem 1.5rem; font-size:1rem;
-}
-.lp-btn-primary:hover{ background:var(--blue-deep); transform:translateY(-2px); }
-.lp-btn-primary:active{ transform:translateY(0); }
-.lp-btn-cream{
-  background:var(--card-2); color:var(--ink); border-color:var(--card-2);
-  padding:.85rem 1.6rem; font-size:1.02rem;
-}
-.lp-btn-cream:hover{ transform:translateY(-2px); }
-.lp-btn-cream:active{ transform:translateY(0); }
-.lp-btn-outline{
-  background:var(--card-2); color:var(--ink); padding:.7rem 1.25rem; font-size:.92rem;
-}
-.lp-btn-outline:hover{ transform:translateY(-2px); background:#fff; }
-.lp-btn-ghost{
-  background:transparent; color:var(--ink); padding:.5rem 1.05rem; font-size:.92rem;
-  min-height:2.75rem; white-space:nowrap;
-}
-.lp-btn-ghost:hover{ background:var(--ink); color:var(--card-2); }
-.lp-btn-arrow{ width:1.05rem; height:1.05rem; transition:transform .2s ease; }
-.group:hover .lp-btn-arrow{ transform:translateX(4px); }
-.lp-link-quiet{
-  font-size:.95rem; font-weight:600; color:var(--blue-deep);
-  text-decoration:underline; text-underline-offset:5px; text-decoration-thickness:1.5px;
-  text-decoration-color:rgba(19,79,120,.4); padding:.4rem .2rem; transition:text-decoration-color .2s,color .2s;
-}
-.lp-link-quiet:hover{ color:var(--rust); text-decoration-color:var(--rust); }
-
-@media (max-width:639px){
-  .lp-btn-ghost{
-    min-height:2.3rem; padding:.38rem .68rem; font-size:.8rem;
-  }
-}
-
-/* --- Kicker --- */
-.lp-kicker{
-  display:inline-flex; align-items:center; gap:.6rem;
-  font-size:.74rem; text-transform:uppercase; letter-spacing:.2em; color:var(--ink-soft);
-}
-.lp-kicker-rule{ width:26px; height:2px; background:var(--rust); }
-
-/* --- Load / reveal animations (pure CSS, no JS) --- */
-.lp-fade-in{ opacity:0; animation:lp-fade 1s ease forwards .15s; }
-@keyframes lp-rise{ from{ opacity:0; transform:translateY(24px) } to{ opacity:1; transform:none } }
-@keyframes lp-fade{ to{ opacity:1 } }
-.lp-reveal{ animation:lp-rise .8s cubic-bezier(.2,.8,.25,1) both; animation-delay:var(--d,0ms); }
-
-/* --- Features bento --- */
-.lp-feature{ background:var(--card); padding:1.6rem 1.5rem 1.7rem; transition:background .25s; }
-.lp-feature:hover{ background:var(--card-2); }
-.lp-feature-icon{
-  display:inline-flex; align-items:center; justify-content:center; width:46px; height:46px;
-  border-radius:13px; border:2px solid var(--ink); transition:transform .3s cubic-bezier(.2,.8,.3,1);
-}
-.lp-feature:hover .lp-feature-icon{ transform:translateY(-3px) rotate(-4deg); }
-.lp-accent-blue{ background:rgba(30,111,168,.14); color:var(--blue-deep); }
-.lp-accent-rust{ background:rgba(191,71,42,.14); color:var(--rust-deep); }
-
-/* --- Steps --- */
-.lp-step{ position:relative; background:var(--card); border:2px solid var(--ink); border-radius:20px; padding:1.5rem 1.4rem 1.6rem; }
-.lp-step-n{ font-size:2.4rem; font-weight:700; color:var(--rust); line-height:1; }
-.lp-step-arrow{ position:absolute; right:-26px; top:50%; width:26px; height:26px; color:var(--ink-soft); transform:translateY(-50%); z-index:5; }
-@media (max-width:639px){ .lp-step-arrow{ display:none } }
-
-/* --- Open source band --- */
-.lp-opensource{
-  display:flex; flex-direction:column; gap:1.4rem; align-items:flex-start;
-  background:var(--card); border:2px solid var(--ink); border-radius:24px;
-  padding:clamp(1.5rem,4vw,2.2rem);
-}
-@media (min-width:720px){ .lp-opensource{ flex-direction:row; align-items:center; justify-content:space-between; } }
-
-/* --- Final CTA --- */
-.lp-cta{
-  position:relative; overflow:hidden; border-radius:30px; border:2px solid var(--ink);
-  background:linear-gradient(150deg,#243042,#16202f 60%,#101824);
-  padding:clamp(2.2rem,6vw,4rem);
-}
-.lp-cta-halftone{
-  position:absolute; inset:0; opacity:.5; pointer-events:none;
-  background-image:radial-gradient(rgba(30,111,168,.5) 1.3px, transparent 1.6px);
-  background-size:15px 15px;
-  -webkit-mask-image:radial-gradient(80% 120% at 90% 110%, #000, transparent 70%);
-  mask-image:radial-gradient(80% 120% at 90% 110%, #000, transparent 70%);
-}
-
-/* --- Footer --- */
-.lp-foot-link{ font-size:.9rem; font-weight:500; color:var(--ink-2); text-decoration:none; transition:color .15s; }
-.lp-foot-link:hover{ color:var(--rust); }
-
-@media (prefers-reduced-motion:reduce){
-  .lp-fade-in,.lp-reveal{
-    animation:none !important; opacity:1 !important; transform:none !important;
-  }
-}
-    `}</style>
   );
 }

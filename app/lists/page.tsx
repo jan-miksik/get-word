@@ -17,6 +17,7 @@ import { useListsForking } from '@/features/lists/hooks/useListsForking';
 import { useListsPageActions } from '@/features/lists/hooks/useListsPageActions';
 import { useListsWizard } from '@/features/lists/hooks/useListsWizard';
 import { assignItemsCategory } from '@/features/lists/client/actions';
+import { orderItemsByCategoryDisplay } from '@/features/lists/orderItems';
 import { setAudioStorageLoggingEnabled } from '@/lib/audio-debug';
 import type { WordListItem } from '@/features/lists/types';
 import { ErrorMessage } from './ErrorMessage';
@@ -147,6 +148,7 @@ function ListsPageContent() {
   const wizard = useListsWizard({
     selectedListId,
     items,
+    categories,
     itemsByCategory,
     reloadListDetails,
     loadGoogleUsage,
@@ -225,7 +227,9 @@ function ListsPageContent() {
 
   const editingCategory = categories.find((c) => c.id === wizard.editingCategoryId);
   const editingItems = wizard.editingCategoryId ? itemsByCategory.get(wizard.editingCategoryId) ?? [] : [];
-  const currentAudioItems = wizard.audioStepItems ?? (wizard.editingCategoryId ? editingItems : items);
+  const currentAudioItems =
+    wizard.audioStepItems ??
+    (wizard.editingCategoryId ? editingItems : orderItemsByCategoryDisplay(items, categories));
   const languageOptions = languages.length > 0 ? languages : [
     { code: 'cs', name: t('languageName.cs') },
     { code: 'vi', name: t('languageName.vi') },

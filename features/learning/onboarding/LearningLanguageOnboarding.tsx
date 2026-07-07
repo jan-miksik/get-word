@@ -1,14 +1,12 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  formatDurationEstimate,
-  isReverseDirectionList,
-} from '@/features/learning/onboarding/listRecommendations';
+import { isReverseDirectionList } from '@/features/learning/onboarding/listRecommendations';
 import { formatNumber } from '@/features/learning/onboarding/commonListAudioGeneration';
 import { useI18n } from '@/components/I18nProvider';
 import { RisingLettersBackground } from '@/components/RisingLettersBackground';
 import { SupportButton, SUPPORT_TELEGRAM_URL } from '@/components/SupportButton';
+import { OnboardingGenerationOverlay } from './OnboardingGenerationOverlay';
 import { LanguageCombobox } from './LanguageCombobox';
 import { OnboardingLanguageSwitcher } from './OnboardingLanguageSwitcher';
 import { useLearningOnboardingActions } from './useLearningOnboardingActions';
@@ -24,7 +22,9 @@ export {
 type Props = {
   initialFrom?: string | null;
   initialTo?: string | null;
-  reason?: 'onboarding' | 'noListSelected';
+  reason?: 'onboarding' | 'noListSelected' | 'customList';
+  accountEmail?: string;
+  onSignOut?: () => void | Promise<void>;
   onComplete: (languageFrom: string, languageTo: string) => void | Promise<void>;
   onSelectList: (listId: string) => void;
 };
@@ -33,6 +33,8 @@ export function LearningLanguageOnboarding({
   initialFrom,
   initialTo,
   reason = 'onboarding',
+  accountEmail,
+  onSignOut,
   onComplete,
   onSelectList,
 }: Props) {
@@ -47,6 +49,7 @@ export function LearningLanguageOnboarding({
     matches,
     recommendedList,
     recommendedReason,
+    matchesLoadFailed,
     loadingMatches,
     commonListEstimate,
     targetLanguage,
@@ -75,7 +78,8 @@ export function LearningLanguageOnboarding({
     onSelectList,
   });
 
-  const [advancedOpen, setAdvancedOpen] = useState(reason === 'noListSelected');
+  const [advancedOpen, setAdvancedOpen] = useState(reason !== 'onboarding');
+  const [accountMenuOpen, setAccountMenuOpen] = useState(false);
 
   // Reverse-direction lists are never offered for direct selection: subscribing
   // to one would study it the wrong way round. They are surfaced only as the
@@ -97,7 +101,7 @@ export function LearningLanguageOnboarding({
   // editor with an untranslated list; autogenerate produces a finished list with
   // audio.
   function handleContinue() {
-    if (!canContinue || loadingMatches || workingId !== null) return;
+    if (!canContinue || loadingMatches || matchesLoadFailed || workingId !== null) return;
     if (recommendedList && recommendedReason === 'exact') {
       void selectMatchedList(recommendedList);
     } else {
@@ -129,53 +133,85 @@ export function LearningLanguageOnboarding({
     <div className="onboarding-screen min-h-screen flex items-start justify-center px-4 py-8 sm:py-14">
       <RisingLettersBackground variant="ambient" className="z-0" />
       <SupportButton />
-      {generationStatus ? (
-        <div className="onboarding-overlay fixed inset-0 z-[80] flex items-center justify-center px-4">
-          <section className="onboarding-card w-full max-w-md p-6 text-center">
-            <div
-              className="onboarding-spinner mx-auto mb-4 h-10 w-10 animate-spin rounded-full"
-              aria-hidden="true"
-            />
-            <h2 className="text-base font-extrabold">{generationStatus.title}</h2>
-            <p className="mt-2 text-sm leading-relaxed onboarding-text-soft">{generationStatus.detail}</p>
-            {generationStatus.progress ? (
-              <div className="mt-4 text-left">
-                <div className="h-2 overflow-hidden rounded-full bg-[color:var(--ob-border)]">
-                  {typeof generationStatus.progress.value === 'number' ? (
-                    <div
-                      className="h-full rounded-full bg-[color:var(--ob-accent)] transition-[width] duration-300"
-                      style={{
-                        width: `${Math.max(0, Math.min(1, generationStatus.progress.value)) * 100}%`,
-                      }}
-                    />
-                  ) : (
-                    <div className="h-full w-1/3 animate-pulse rounded-full bg-[color:var(--ob-accent)]" />
-                  )}
-                </div>
-                {generationStatus.progress.label ? (
-                  <p className="mt-2 text-center text-xs font-bold onboarding-text-soft">
-                    {generationStatus.progress.label}
-                  </p>
-                ) : null}
-              </div>
-            ) : null}
-            {generationStatus.estimateSeconds ? (
-              <p className="mt-3 text-xs font-bold onboarding-text-soft">
-                {t('onboarding.estimatedTime', {
-                  time: formatDurationEstimate(generationStatus.estimateSeconds),
-                })}
-              </p>
-            ) : null}
-            {generationStatus.note ? (
-              <p className="onboarding-notice mt-4 rounded-md px-3 py-2 text-xs font-bold leading-relaxed">
-                {generationStatus.note}
-              </p>
-            ) : null}
-          </section>
-        </div>
-      ) : null}
+      {generationStatus ? <OnboardingGenerationOverlay status={generationStatus} /> : null}
       <section className="onboarding-card relative z-10 w-full max-w-3xl p-5 sm:p-7">
-        <div className="mb-4 flex justify-end">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          {accountEmail && onSignOut ? (
+            <div className="relative flex min-w-0 items-center">
+              <button
+                type="button"
+                onClick={() => setAccountMenuOpen((open) => !open)}
+                aria-haspopup="menu"
+                aria-expanded={accountMenuOpen}
+                title={accountEmail}
+                className="flex min-w-0 items-center gap-2 rounded-full px-1.5 py-1 onboarding-text-soft transition-opacity hover:opacity-80"
+              >
+                <span
+                  className="h-2 w-2 shrink-0 rounded-full bg-[color:var(--ob-accent)]"
+                  aria-hidden="true"
+                />
+                <span className="truncate text-xs font-semibold">{accountEmail}</span>
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  className={`shrink-0 transition-transform duration-200 ${accountMenuOpen ? 'rotate-180' : ''}`}
+                  aria-hidden="true"
+                >
+                  <path
+                    d="M5 8l5 5 5-5"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              </button>
+              {accountMenuOpen ? (
+                <>
+                  <button
+                    type="button"
+                    aria-hidden="true"
+                    tabIndex={-1}
+                    className="fixed inset-0 z-[70] cursor-default"
+                    onClick={() => setAccountMenuOpen(false)}
+                  />
+                  <div
+                    role="menu"
+                    className="onboarding-card absolute left-0 top-full z-[71] mt-1 min-w-[8rem] p-1"
+                  >
+                    <button
+                      type="button"
+                      role="menuitem"
+                      onClick={() => {
+                        setAccountMenuOpen(false);
+                        void onSignOut();
+                      }}
+                      className="w-full rounded-md px-3 py-2 text-left text-xs font-bold onboarding-text-soft transition-colors hover:bg-[color:var(--ob-surface-hover)]"
+                    >
+                      {t('common.signOut')}
+                    </button>
+                  </div>
+                </>
+              ) : null}
+            </div>
+          ) : accountEmail ? (
+            <div className="flex min-w-0 items-center gap-2">
+              <span
+                className="h-2 w-2 shrink-0 rounded-full bg-[color:var(--ob-accent)]"
+                aria-hidden="true"
+              />
+              <span
+                className="truncate text-xs font-semibold onboarding-text-soft"
+                title={accountEmail}
+              >
+                {accountEmail}
+              </span>
+            </div>
+          ) : (
+            <span />
+          )}
           <OnboardingLanguageSwitcher />
         </div>
         <div className="grid gap-4 sm:grid-cols-2 sm:items-end">
@@ -186,6 +222,7 @@ export function LearningLanguageOnboarding({
             languages={languages}
             loading={loadingLanguages}
             onChange={setLanguageFrom}
+            disabledCodes={languageTo ? [languageTo] : []}
           />
           <LanguageCombobox
             id="language-to"
@@ -194,6 +231,7 @@ export function LearningLanguageOnboarding({
             languages={languages}
             loading={loadingLanguages}
             onChange={setLanguageTo}
+            disabledCodes={languageFrom ? [languageFrom] : []}
             highlight
           />
         </div>
@@ -224,7 +262,7 @@ export function LearningLanguageOnboarding({
                     type="button"
                     className="onboarding-option onboarding-option-highlight group flex w-full items-center justify-center gap-2 rounded-xl px-5 py-4 text-center text-lg font-extrabold shadow-sm transition-all duration-150 enabled:hover:-translate-y-0.5 enabled:hover:shadow-lg enabled:hover:brightness-110 enabled:active:translate-y-0 enabled:active:brightness-95 disabled:cursor-not-allowed disabled:opacity-50"
                     onClick={handleContinue}
-                    disabled={!canContinue || loadingMatches || workingId !== null}
+                    disabled={!canContinue || loadingMatches || matchesLoadFailed || workingId !== null}
                   >
                     {workingId !== null ? t('onboarding.autogenerating') : t('onboarding.continue')}
                     {workingId === null ? (
@@ -264,6 +302,11 @@ export function LearningLanguageOnboarding({
             <div className="space-y-3">
               {introBlock}
               <p className="text-sm onboarding-text-soft">{t('onboarding.lookingForLists')}</p>
+            </div>
+          ) : matchesLoadFailed ? (
+            <div className="space-y-3">
+              {introBlock}
+              <p className="text-sm onboarding-text-soft">{t('lists.loadFailed')}</p>
             </div>
           ) : exactDirectionMatches.length > 0 ? (
             <div className="space-y-3">
@@ -387,7 +430,7 @@ export function LearningLanguageOnboarding({
 
           {!loadingMatches ? (
             <div className="mt-4 grid gap-3 sm:grid-cols-2">
-              {showAutogenerateCommonList || !canContinue ? (
+              {!matchesLoadFailed && (showAutogenerateCommonList || !canContinue) ? (
                 <button
                   type="button"
                   className="onboarding-option onboarding-option-recommended px-4 py-3 text-left disabled:opacity-50 sm:col-span-2"
@@ -435,7 +478,7 @@ export function LearningLanguageOnboarding({
                   </span>
                 </button>
               ) : null}
-              {matches.length === 0 ? (
+              {!matchesLoadFailed && matches.length === 0 ? (
                 <button
                   type="button"
                   className="onboarding-option px-4 py-3 text-left"

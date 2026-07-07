@@ -70,6 +70,7 @@ export function ListFilterModal({
             languages={fromLanguages}
             loading={loadingLanguages}
             onChange={onFilterFromChange}
+            disabledCodes={filterTo ? [filterTo] : []}
           />
           <LanguageCombobox
             id="list-filter-to"
@@ -78,6 +79,7 @@ export function ListFilterModal({
             languages={toLanguages}
             loading={loadingLanguages}
             onChange={onFilterToChange}
+            disabledCodes={filterFrom ? [filterFrom] : []}
           />
 
           {hasRecommended ? (

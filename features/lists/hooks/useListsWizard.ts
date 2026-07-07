@@ -15,9 +15,11 @@ import { useCallback, useState } from 'react';
 import type { WizardActiveStep } from '@/app/lists/WizardProgressBar';
 import * as listActions from '@/features/lists/client/actions';
 import { useBuildAudioStepItems } from '@/features/lists/hooks/useListWizardItems';
+import { orderItemsByCategoryDisplay } from '@/features/lists/orderItems';
 import type {
   CompletedTranslationRow,
   DiffResult,
+  WordCategory,
   WordListItem,
 } from '@/features/lists/types';
 
@@ -51,6 +53,7 @@ function itemsToPending(items: WordListItem[]): PendingListItems {
 export type UseListsWizardDeps = {
   selectedListId: string | null;
   items: WordListItem[];
+  categories: WordCategory[];
   itemsByCategory: Map<string, WordListItem[]>;
   reloadListDetails: (options?: { includeMedia?: boolean }) => Promise<WordListItem[]>;
   loadGoogleUsage: () => Promise<void> | void;
@@ -59,6 +62,7 @@ export type UseListsWizardDeps = {
 export function useListsWizard({
   selectedListId,
   items,
+  categories,
   itemsByCategory,
   reloadListDetails,
   loadGoogleUsage,
@@ -85,6 +89,7 @@ export function useListsWizard({
   const [removedItemIds, setRemovedItemIds] = useState<Set<string>>(new Set());
 
   const buildAudioStepItems = useBuildAudioStepItems({
+    categories,
     editingCategoryId,
     pendingItems,
     selectedListId,
@@ -116,11 +121,11 @@ export function useListsWizard({
       setDiffResult(null);
       setEditInputLanguage(clearedSides.includes('target') ? 'known' : 'target');
       setTranslateHeadingMode('translate');
-      setPendingItems(itemsToPending(freshItems));
+      setPendingItems(itemsToPending(orderItemsByCategoryDisplay(freshItems, categories)));
       setNewPendingItemIds(new Set());
       setWizardStep('translate');
     },
-    [],
+    [categories],
   );
 
   const triggerEdit = useCallback(() => {
@@ -169,11 +174,11 @@ export function useListsWizard({
       unchanged: items.length,
     });
     setTranslateHeadingMode('review');
-    setPendingItems(itemsToPending(items));
+    setPendingItems(itemsToPending(orderItemsByCategoryDisplay(items, categories)));
     setNewPendingItemIds(new Set());
     setIsEditDirty(false);
     setWizardStep('translate');
-  }, [items]);
+  }, [categories, items]);
 
   const handlePreview = useCallback(
     async (lines: string[]) => {

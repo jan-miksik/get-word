@@ -247,6 +247,53 @@ describe('LearningLanguageOnboarding', () => {
     });
   });
 
+  it('disables the selected known language in the target language picker', async () => {
+    render(
+      <LearningLanguageOnboarding
+        initialFrom="en"
+        onComplete={vi.fn()}
+        onSelectList={vi.fn()}
+      />,
+    );
+
+    fireEvent.focus(screen.getByRole('combobox', { name: /I want to learn language/i }));
+
+    expect(await screen.findByRole('option', { name: /English/i })).toBeDisabled();
+  });
+
+  it('disables the streamlined continue action when loading matching lists fails', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn((input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url === '/api/languages') {
+          return jsonResponse({
+            languages: [
+              { code: 'en', name: 'English', ttsAvailable: true, preferredVoice: null },
+              { code: 'cs', name: 'Czech', ttsAvailable: true, preferredVoice: null },
+            ],
+          });
+        }
+        if (url.startsWith('/api/lists/matches')) {
+          return Promise.reject(new Error('network down'));
+        }
+        return Promise.reject(new Error(`Unexpected fetch: ${url}`));
+      }),
+    );
+
+    render(
+      <LearningLanguageOnboarding
+        initialFrom="en"
+        initialTo="cs"
+        onComplete={vi.fn()}
+        onSelectList={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByRole('button', { name: /^Continue$/i })).toBeDisabled();
+    expect(await screen.findByText('Could not load lists')).toBeInTheDocument();
+  });
+
   it('continues by subscribing to the recommended list before completing onboarding', async () => {
     const recommendedList = {
       id: 'recommended-en-vi',
@@ -362,6 +409,21 @@ describe('LearningLanguageOnboarding', () => {
 
     expect(await screen.findByText('Public English Vietnamese')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Hide advanced options/i })).toBeInTheDocument();
+  });
+
+  it('opens advanced options when the landing flow requests a custom list', async () => {
+    render(
+      <LearningLanguageOnboarding
+        initialFrom="en"
+        initialTo="cs"
+        reason="customList"
+        onComplete={vi.fn()}
+        onSelectList={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByRole('button', { name: /Hide advanced options/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Create own list/i })).toBeInTheDocument();
   });
 
   it('keeps create-own available and hides autogenerate when a recommendation exists', async () => {
@@ -806,7 +868,7 @@ describe('LearningLanguageOnboarding', () => {
       />,
     );
 
-    expect(await screen.findByText('1 word will be generated from Common seed.')).toBeInTheDocument();
+    expect(await screen.findByText('1 word will be generated.')).toBeInTheDocument();
     await openAdvanced();
     fireEvent.click(await screen.findByRole('button', { name: /Automatically generate a list of words and phrases/i }));
 

@@ -51,6 +51,7 @@ type LanguageComboboxProps = {
   languages: LearningLanguage[];
   loading: boolean;
   onChange: (value: string) => void;
+  disabledCodes?: string[];
   // Draw an accent ring around the field while it is still empty, to point the
   // user at the input that needs their attention. The cue clears itself once a
   // language is selected, so both comboboxes look identical once filled.
@@ -64,6 +65,7 @@ export function LanguageCombobox({
   languages,
   loading,
   onChange,
+  disabledCodes = [],
   highlight = false,
 }: LanguageComboboxProps) {
   const { t, language: uiLanguage } = useI18n();
@@ -74,6 +76,7 @@ export function LanguageCombobox({
   const selectedLanguage = languages.find((language) => language.code === value);
   const hasSelection = Boolean(selectedLanguage || value);
   const shownLanguages = filterLanguages(languages, query, uiLanguage);
+  const disabledCodeSet = new Set(disabledCodes.map(normalizeLanguageCode));
   const placeholder = loading
     ? t('onboarding.loadingLanguages')
     : t('onboarding.searchLanguages');
@@ -87,6 +90,7 @@ export function LanguageCombobox({
   const selectedPrimary = selectedNames?.localized ?? value.toUpperCase();
 
   function selectLanguage(code: string) {
+    if (disabledCodeSet.has(normalizeLanguageCode(code))) return;
     onChange(code);
     setQuery('');
     setOpen(false);
@@ -177,13 +181,17 @@ export function LanguageCombobox({
             shownLanguages.map((language) => {
               const { code, localized, native } = resolveNames(language, uiLanguage);
               const flag = language.flag ?? getLanguageFlag(code);
+              const disabled = disabledCodeSet.has(code);
               return (
                 <button
                   key={language.code}
                   type="button"
                   role="option"
                   aria-selected={language.code === value}
-                  className="onboarding-combobox-option flex w-full items-center gap-2 px-3 py-2 text-left text-sm"
+                  disabled={disabled}
+                  className={`onboarding-combobox-option flex w-full items-center gap-2 px-3 py-2 text-left text-sm ${
+                    disabled ? 'cursor-not-allowed opacity-40' : ''
+                  }`}
                   onMouseDown={(event) => event.preventDefault()}
                   onClick={() => selectLanguage(language.code)}
                 >

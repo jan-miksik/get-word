@@ -42,7 +42,7 @@ export const viMessages: I18nMessages = {
   "landing.hero.subtitle":
     "Get Word giúp bạn ghi nhớ từ và cụm từ bằng phương pháp lặp lại ngắt quãng, phát âm bằng âm thanh, cùng các danh sách có sẵn hoặc tự tạo. Cho mọi cặp ngôn ngữ.",
   "landing.hero.getStarted": "Bắt đầu",
-  "landing.features.kicker": "Những gì bạn nhận được",
+  "landing.hero.customListCheckbox": "Tôi muốn tạo danh sách từ vựng của riêng mình",
   "landing.features.title": "Học ít ngẫu nhiên hơn, ôn tập khi thật sự cần",
   "landing.features.spacedRepetition.title": "Lặp lại ngắt quãng",
   "landing.features.spacedRepetition.body":
@@ -61,8 +61,7 @@ export const viMessages: I18nMessages = {
     "Sau khi đăng nhập, danh sách, tiến độ và cài đặt của bạn vẫn có trên điện thoại, máy tính bảng và máy tính.",
   "landing.features.install.title": "Dùng như một ứng dụng",
   "landing.features.install.body":
-    "Thêm Get Word vào màn hình chính và dùng gần giống một ứng dụng thông thường. Không cần cài qua app store.",
-  "landing.how.kicker": "Cách hoạt động",
+    "Thêm Get Word vào màn hình chính và dùng gần giống một ứng dụng thông thường.",
   "landing.how.title": "Ba bước đến những từ đầu tiên của bạn",
   "landing.how.pickPair.title": "Chọn ngôn ngữ",
   "landing.how.pickPair.body":
@@ -81,6 +80,22 @@ export const viMessages: I18nMessages = {
   "landing.cta.body":
     "Chỉ cần chọn cặp ngôn ngữ và mở danh sách đầu tiên. Bạn có thể dùng nội dung có sẵn hoặc tự tạo danh sách riêng.",
   "landing.cta.button": "Bắt đầu học",
+  "landing.demo.title": "Hãy tự thử",
+  "landing.demo.captionIntro": "Thử thẻ học giống trong ứng dụng.",
+  "landing.demo.captionScratch": "Cào lớp phủ để hiện bản dịch",
+  "landing.demo.captionRest": "rồi chọn sau bao lâu từ sẽ được ôn lại.",
+  "landing.demo.soon": "quay lại ngay",
+  "landing.demo.comesBack": "“{word}” sẽ quay lại sau {time}",
+  "landing.demo.againSoon": "“{word}” sẽ sớm quay lại",
+  "landing.demo.customSet": "“{word}” đã được chuyển sang {time}",
+  "landing.demo.interval1": "5 phút",
+  "landing.demo.interval2": "1 ngày",
+  "landing.demo.interval3": "3 ngày",
+  "landing.demo.interval4": "8 ngày",
+  "landing.demo.doneTitle": "Xong",
+  "landing.demo.doneBody": "",
+  "landing.demo.continue": "Tiếp tục vào ứng dụng",
+  "landing.demo.replay": "Thử lại",
   "landing.footer.github": "GitHub",
   "landing.footer.contact": "Liên hệ",
   "landing.footer.privacy": "Quyền riêng tư",

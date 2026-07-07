@@ -42,7 +42,7 @@ export const csMessages: I18nMessages = {
   "landing.hero.subtitle":
     "Get Word pomáhá zapamatovat si slovíčka a fráze pomocí efektivního opakování a audio výslovnosti. Můžete využít hotové seznamy slovíček a frází nebo si vytvořit vlastní. Pro libovolnou kombinaci jazyků.",
   "landing.hero.getStarted": "Začít",
-  "landing.features.kicker": "Co získáte",
+  "landing.hero.customListCheckbox": "Chci si vytvořit vlastní seznam slovíček",
   "landing.features.title": "Méně náhodného učení, opakování ve správnou chvíli",
   "landing.features.spacedRepetition.title": "Rozložené opakování",
   "landing.features.spacedRepetition.body":
@@ -61,8 +61,7 @@ export const csMessages: I18nMessages = {
     "Po přihlášení zůstávají seznamy, pokrok i nastavení dostupné na telefonu, tabletu i počítači.",
   "landing.features.install.title": "Použití jako aplikace",
   "landing.features.install.body":
-    "Get Word si můžete přidat na domovskou obrazovku a používat ho podobně jako běžnou aplikaci. Není potřeba instalace přes app store.",
-  "landing.how.kicker": "Jak to funguje",
+    "Get Word si můžete přidat na domovskou obrazovku a používat ho podobně jako běžnou aplikaci.",
   "landing.how.title": "Tři kroky k vašim prvním slovům",
   "landing.how.pickPair.title": "Výběr jazyků",
   "landing.how.pickPair.body":
@@ -81,6 +80,22 @@ export const csMessages: I18nMessages = {
   "landing.cta.body":
     "Stačí vybrat jazykovou kombinaci a otevřít první seznam. Můžete použít připravený obsah, nebo si vytvořit vlastní.",
   "landing.cta.button": "Začít se učit",
+  "landing.demo.title": "Vyzkoušejte si to",
+  "landing.demo.captionIntro": "Vyzkoušejte si kartičku jako v aplikaci.",
+  "landing.demo.captionScratch": "Setřete zakrytý překlad",
+  "landing.demo.captionRest": "a vyberte, za jak dlouho se má slovíčko zopakovat.",
+  "landing.demo.soon": "hned znovu",
+  "landing.demo.comesBack": "„{word}“ se vrátí za {time}",
+  "landing.demo.againSoon": "„{word}“ se vrátí za chvíli",
+  "landing.demo.customSet": "„{word}“ má vlastní interval {time}",
+  "landing.demo.interval1": "5 minut",
+  "landing.demo.interval2": "1 den",
+  "landing.demo.interval3": "3 dny",
+  "landing.demo.interval4": "8 dní",
+  "landing.demo.doneTitle": "Hotovo",
+  "landing.demo.doneBody": "",
+  "landing.demo.continue": "Pokračovat do aplikace",
+  "landing.demo.replay": "Zkusit znovu",
   "landing.footer.github": "GitHub",
   "landing.footer.contact": "Kontakt",
   "landing.footer.privacy": "Soukromí",

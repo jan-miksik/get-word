@@ -21,7 +21,12 @@ import { useDueTimer } from '@/hooks/useDueTimer';
 import { useAuth } from '@/features/auth/client/useAuth';
 import { AppStateProvider } from '@/context/AppStateContext';
 import { I18nProvider } from '@/components/I18nProvider';
+import { AutoLanguageSetup } from '@/features/learning/onboarding/AutoLanguageSetup';
 import { LearningLanguageOnboarding } from '@/features/learning/onboarding/LearningLanguageOnboarding';
+import {
+  readLandingLanguagePair,
+  markLandingLanguagePairConsumed,
+} from '@/features/learning/onboarding/landingPairStorage';
 import { MemoryHooksIntroCard } from '@/features/learning/components/MemoryHooksIntroCard';
 import { PWAInstallIntroCard } from '@/features/learning/components/PWAInstallIntroCard';
 import { usePWAInstallIntro } from '@/features/learning/hooks/usePWAInstallIntro';
@@ -52,6 +57,10 @@ export function HomeClient() {
   );
   const [completedDeckWordCards, setCompletedDeckWordCards] = useState(0);
   const [memoryHooksIntroDismissedForSession, setMemoryHooksIntroDismissedForSession] = useState(false);
+  const [autoSetupFailed, setAutoSetupFailed] = useState(false);
+  const [landingLanguagePair] = useState(() =>
+    typeof window !== 'undefined' ? readLandingLanguagePair() : null,
+  );
   const {
     isConnected,
     isAuthLoading,
@@ -310,6 +319,38 @@ export function HomeClient() {
       learningLanguageTo &&
       subscribedLists.length === 0
   );
+  const needsLanguageOnboarding = Boolean(
+    forceOnboarding ||
+      hasNoSelectedWordList ||
+      !onboardingCompletedAt ||
+      !learningLanguageFrom ||
+      !learningLanguageTo
+  );
+  const landingPairFrom = landingLanguagePair?.from ?? null;
+  const landingPairTo = landingLanguagePair?.to ?? null;
+  const hasCompleteLandingPair = Boolean(
+    landingPairFrom &&
+      landingPairTo &&
+      landingPairFrom !== landingPairTo
+  );
+  const shouldAutoSetupLandingPair = Boolean(
+    needsLanguageOnboarding &&
+      hasCompleteLandingPair &&
+      landingLanguagePair?.wantsOwnList !== true &&
+      landingLanguagePair?.consumed !== true &&
+      !autoSetupFailed &&
+      !forceOnboarding
+  );
+  const onboardingInitialFrom = learningLanguageFrom ?? landingPairFrom;
+  const onboardingInitialTo = learningLanguageTo ?? landingPairTo;
+
+  // The streamlined post-login auto-setup fires only once: as soon as we commit to
+  // it, flag the stored pair consumed so a refresh before onboarding finishes falls
+  // back to the pre-filled language-onboarding screen instead of silently
+  // restarting the multi-minute list generation.
+  useEffect(() => {
+    if (shouldAutoSetupLandingPair) markLandingLanguagePairConsumed();
+  }, [shouldAutoSetupLandingPair]);
 
   return (
     <AppStateProvider value={appState}>
@@ -324,11 +365,29 @@ export function HomeClient() {
           // Authed-but-still-hydrating → waiting on userId. Hold the loading
           // screen rather than flashing app chrome.
           <LoadingScreen />
-        ) : forceOnboarding || hasNoSelectedWordList || !onboardingCompletedAt || !learningLanguageFrom || !learningLanguageTo ? (
+        ) : shouldAutoSetupLandingPair && landingPairFrom && landingPairTo ? (
+          <AutoLanguageSetup
+            initialFrom={landingPairFrom}
+            initialTo={landingPairTo}
+            onComplete={async (from, to) => {
+              await setLearningLanguages(from, to);
+            }}
+            onSelectList={setActiveListId}
+            onFallbackToOnboarding={() => setAutoSetupFailed(true)}
+          />
+        ) : needsLanguageOnboarding ? (
           <LearningLanguageOnboarding
-            initialFrom={learningLanguageFrom}
-            initialTo={learningLanguageTo}
-            reason={hasNoSelectedWordList ? 'noListSelected' : 'onboarding'}
+            initialFrom={onboardingInitialFrom}
+            initialTo={onboardingInitialTo}
+            accountEmail={displayEmail}
+            onSignOut={signOut}
+            reason={
+              hasNoSelectedWordList ||
+              autoSetupFailed ||
+              (hasCompleteLandingPair && landingLanguagePair?.wantsOwnList)
+                ? 'customList'
+                : 'onboarding'
+            }
             onComplete={async (from, to) => {
               await setLearningLanguages(from, to);
               if (forceOnboarding) {

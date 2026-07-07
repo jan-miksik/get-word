@@ -57,7 +57,7 @@ export async function findMediaByHashes(
   return map;
 }
 
-function getVariantLookupKey(textReference: string, language: string) {
+export function getVariantLookupKey(textReference: string, language: string) {
   return `${language}\u0000${textReference}`;
 }
 

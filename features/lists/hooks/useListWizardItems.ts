@@ -1,7 +1,9 @@
 import { useCallback, useMemo } from "react";
+import { orderItemsByCategoryDisplay } from "@/features/lists/orderItems";
 import type {
   CompletedTranslationRow,
   ConfirmResult,
+  WordCategory,
   WordListItem,
 } from "@/features/lists/types";
 
@@ -21,10 +23,12 @@ export function useItemsByCategory(items: WordListItem[]) {
 }
 
 export function useBuildAudioStepItems({
+  categories,
   editingCategoryId,
   pendingItems,
   selectedListId,
 }: {
+  categories: WordCategory[];
   editingCategoryId: string | null;
   pendingItems: PendingItem[];
   selectedListId: string | null;
@@ -75,8 +79,10 @@ export function useBuildAudioStepItems({
       }));
 
     const result = [...mergedItems, ...fallbackItems];
+    // Single-category edits stay in that category's position order; the
+    // all-words flow is grouped by category to match the app's study order.
     return editingCategoryId
       ? result.sort((a, b) => a.position - b.position)
-      : result;
-  }, [editingCategoryId, pendingItems, selectedListId]);
+      : orderItemsByCategoryDisplay(result, categories);
+  }, [categories, editingCategoryId, pendingItems, selectedListId]);
 }

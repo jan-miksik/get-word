@@ -34,6 +34,7 @@ describe('LandingPage language selector', () => {
               { code: 'en', name: 'English', source: 'common', flag: '🇬🇧' },
               { code: 'cs', name: 'Czech', source: 'common', flag: '🇨🇿' },
               { code: 'es', name: 'Spanish', source: 'google', flag: '🇪🇸' },
+              { code: 'id', name: 'Indonesian', source: 'google', flag: '🇮🇩' },
             ],
           }),
         };
@@ -60,6 +61,93 @@ describe('LandingPage language selector', () => {
 
     expect(await screen.findByRole('heading', { name: 'Palabras que se quedan' })).toBeInTheDocument();
     expect(localStorage.getItem('get-word-landing-lang')).toBe('es');
+  });
+
+  it('keeps the demo card connected to the selected learning pair', async () => {
+    render(<LandingPage />);
+
+    fireEvent.focus(document.getElementById('landing-language-from') as Element);
+    fireEvent.click(await screen.findByRole('option', { name: /cs/i }));
+
+    fireEvent.focus(document.getElementById('landing-language-to') as Element);
+    fireEvent.click(await screen.findByRole('option', { name: /id/i }));
+
+    expect(await screen.findByText('ano')).toBeInTheDocument();
+    expect(screen.getByText('ya')).toBeInTheDocument();
+    expect(localStorage.getItem('get-word-landing-pair')).toBe(
+      JSON.stringify({ from: 'cs', to: 'id' }),
+    );
+  });
+
+  it('disables the language already selected on the other side', async () => {
+    render(<LandingPage />);
+
+    fireEvent.focus(document.getElementById('landing-language-from') as Element);
+    fireEvent.click(await screen.findByRole('option', { name: /cs/i }));
+
+    fireEvent.focus(document.getElementById('landing-language-to') as Element);
+    expect(await screen.findByRole('option', { name: /cs/i })).toBeDisabled();
+  });
+
+  it('does not prefill the target language from a stored pair after reload', async () => {
+    localStorage.setItem('get-word-landing-pair', JSON.stringify({ from: 'cs', to: 'id' }));
+
+    render(<LandingPage />);
+
+    const targetInput = document.getElementById('landing-language-to') as HTMLInputElement;
+    expect(targetInput.parentElement).toHaveClass('onboarding-combobox-highlight');
+    expect(targetInput.parentElement).toHaveTextContent('Select a language');
+    expect(targetInput.parentElement).not.toHaveTextContent('Indonesian');
+  });
+
+  it('saves whether the visitor wants to create a custom list', async () => {
+    render(<LandingPage />);
+
+    const customListCheckbox = screen.getByRole('checkbox', {
+      name: /create my own vocabulary list/i,
+    });
+    expect(customListCheckbox).not.toBeChecked();
+
+    fireEvent.focus(document.getElementById('landing-language-from') as Element);
+    fireEvent.click(await screen.findByRole('option', { name: /cs/i }));
+
+    fireEvent.focus(document.getElementById('landing-language-to') as Element);
+    fireEvent.click(await screen.findByRole('option', { name: /id/i }));
+
+    fireEvent.click(customListCheckbox);
+    fireEvent.click(document.querySelector('.lp-btn-hero') as Element);
+
+    expect(localStorage.getItem('get-word-landing-pair')).toBe(
+      JSON.stringify({ from: 'cs', to: 'id', wantsOwnList: true }),
+    );
+  });
+
+  it('saves the detected-language fallback when target is missing', async () => {
+    render(<LandingPage />);
+
+    await screen.findByText('yes');
+    fireEvent.click(document.querySelector('.lp-btn-hero') as Element);
+
+    const saved = JSON.parse(localStorage.getItem('get-word-landing-pair') ?? '{}') as {
+      from?: string;
+      to?: string;
+    };
+    expect(saved.from).toBeTruthy();
+    expect(saved.to).toBe(saved.from === 'en' ? 'cs' : 'en');
+  });
+
+  it('persists the effective pair when the sticky header CTA is used', async () => {
+    render(<LandingPage />);
+
+    await screen.findByText('yes');
+    fireEvent.click(document.querySelector('.lp-btn-ghost') as Element);
+
+    const saved = JSON.parse(localStorage.getItem('get-word-landing-pair') ?? '{}') as {
+      from?: string;
+      to?: string;
+    };
+    expect(saved.from).toBeTruthy();
+    expect(saved.to).toBe(saved.from === 'en' ? 'cs' : 'en');
   });
 
   it('shows a loading status while generated landing copy loads', async () => {

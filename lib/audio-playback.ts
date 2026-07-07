@@ -9,6 +9,18 @@ export type AudioPlaybackResult = {
   interrupted: boolean;
 };
 
+export type AudioPlaybackDebugEvent =
+  | { type: 'empty' }
+  | { type: 'start'; candidateIndex: number; src: string }
+  | { type: 'success'; candidateIndex: number; src: string }
+  | { type: 'error'; candidateIndex: number; src: string; error: string }
+  | { type: 'rejected'; candidateIndex: number; src: string; error: string }
+  | { type: 'offline'; candidateIndex: number; src: string }
+  | { type: 'exhausted'; candidateIndex: number; src: string }
+  | { type: 'interrupted'; candidateIndex: number; src: string };
+
+export type AudioPlaybackDebugHandler = (event: AudioPlaybackDebugEvent) => void;
+
 type AudioElementRef = {
   current: HTMLAudioElement | null;
 };
@@ -35,9 +47,11 @@ function getPlaybackCandidates(audioSrc: string | string[] | null): string[] {
 export function playUserInitiatedAudio(
   audioRef: AudioElementRef,
   audioSrc: string | string[] | null,
+  options: { onDebug?: AudioPlaybackDebugHandler } = {},
 ): Promise<AudioPlaybackResult> {
   const candidates = getPlaybackCandidates(audioSrc);
   if (candidates.length === 0) {
+    options.onDebug?.({ type: 'empty' });
     return Promise.resolve({ ok: false, interrupted: false });
   }
 
@@ -63,16 +77,31 @@ export function playUserInitiatedAudio(
 
     const tryNextCandidate = () => {
       if (audioRef.current !== audio) {
+        options.onDebug?.({
+          type: 'interrupted',
+          candidateIndex,
+          src: candidates[candidateIndex],
+        });
         done({ ok: false, interrupted: true });
         return;
       }
       if (isAudioNetworkOffline()) {
+        options.onDebug?.({
+          type: 'offline',
+          candidateIndex,
+          src: candidates[candidateIndex],
+        });
         done({ ok: false, interrupted: false });
         return;
       }
 
       candidateIndex += 1;
       if (candidateIndex >= candidates.length) {
+        options.onDebug?.({
+          type: 'exhausted',
+          candidateIndex: candidateIndex - 1,
+          src: candidates[candidateIndex - 1],
+        });
         done({ ok: false, interrupted: false });
         return;
       }
@@ -86,22 +115,57 @@ export function playUserInitiatedAudio(
       const currentAttempt = ++attempt;
       audio.onerror = () => {
         if (currentAttempt !== attempt || settled) return;
+        options.onDebug?.({
+          type: 'error',
+          candidateIndex,
+          src: candidates[candidateIndex],
+          error: audio.error?.message || `media error ${audio.error?.code ?? 'unknown'}`,
+        });
         tryNextCandidate();
       };
 
       try {
+        options.onDebug?.({
+          type: 'start',
+          candidateIndex,
+          src: candidates[candidateIndex],
+        });
         audio.play()
-          .then(() => done({ ok: true, interrupted: false }))
+          .then(() => {
+            options.onDebug?.({
+              type: 'success',
+              candidateIndex,
+              src: candidates[candidateIndex],
+            });
+            done({ ok: true, interrupted: false });
+          })
           .catch((err) => {
             if (currentAttempt !== attempt || settled) return;
             const message = err instanceof Error ? err.message : String(err);
             if (/interrupted by a call to pause/i.test(message)) {
+              options.onDebug?.({
+                type: 'interrupted',
+                candidateIndex,
+                src: candidates[candidateIndex],
+              });
               done({ ok: false, interrupted: true });
               return;
             }
+            options.onDebug?.({
+              type: 'rejected',
+              candidateIndex,
+              src: candidates[candidateIndex],
+              error: message,
+            });
             tryNextCandidate();
           });
-      } catch {
+      } catch (err) {
+        options.onDebug?.({
+          type: 'rejected',
+          candidateIndex,
+          src: candidates[candidateIndex],
+          error: err instanceof Error ? err.message : String(err),
+        });
         tryNextCandidate();
       }
     };

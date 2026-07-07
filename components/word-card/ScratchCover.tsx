@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 // Paint the cover before the browser paints so the answer never flashes
 // uncovered on mount. Falls back to useEffect during SSR to avoid the warning.
@@ -65,6 +65,15 @@ function labelOpacityForCount(count: number): number {
 
 export function ScratchCover({ label }: { label: string }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  // First-time gesture hint: an animated fingertip sweeping over the cover,
+  // shown only while the visitor has never scratched a card on this device.
+  // Set in an effect (not initial state) so SSR/hydration render the same
+  // markup before localStorage is consulted.
+  const [showHint, setShowHint] = useState(false);
+
+  useEffect(() => {
+    if (readScratchFamiliarityCount() === 0) setShowHint(true);
+  }, []);
 
   useIsomorphicLayoutEffect(() => {
     const canvas = canvasRef.current;
@@ -159,6 +168,7 @@ export function ScratchCover({ label }: { label: string }) {
       if (!countedThisCard) {
         countedThisCard = true;
         incrementScratchFamiliarityCount();
+        setShowHint(false);
       }
       if (hasLast) {
         erodeLine(lastX, lastY, x, y);
@@ -244,10 +254,17 @@ export function ScratchCover({ label }: { label: string }) {
   }, [label]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      aria-hidden="true"
-      className="scratch-cover absolute inset-0 z-[4] cursor-pointer touch-none select-none rounded-xl"
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        aria-hidden="true"
+        className="scratch-cover absolute inset-0 z-[4] cursor-pointer touch-none select-none rounded-xl"
+      />
+      {showHint ? (
+        <span className="scratch-hint" aria-hidden="true">
+          👆
+        </span>
+      ) : null}
+    </>
   );
 }

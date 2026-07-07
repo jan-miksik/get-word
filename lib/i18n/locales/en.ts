@@ -40,7 +40,7 @@ export const enMessages = {
   "landing.hero.subtitle":
     "Get Word helps you memorize words and phrases with spaced repetition, audio pronunciation, and curated lists or your own custom lists. For any language pair.",
   "landing.hero.getStarted": "Get started",
-  "landing.features.kicker": "What you get",
+  "landing.hero.customListCheckbox": "I want to create my own vocabulary list",
   "landing.features.title": "Study less randomly, review when it matters",
   "landing.features.spacedRepetition.title": "Spaced repetition",
   "landing.features.spacedRepetition.body":
@@ -59,8 +59,7 @@ export const enMessages = {
     "After you sign in, your lists, progress, and settings stay available on phone, tablet, and computer.",
   "landing.features.install.title": "Use it like an app",
   "landing.features.install.body":
-    "Add Get Word to your home screen and use it much like a regular app. No app store installation required.",
-  "landing.how.kicker": "How it works",
+    "Add Get Word to your home screen and use it much like a regular app.",
   "landing.how.title": "Three steps to your first words",
   "landing.how.pickPair.title": "Choose your languages",
   "landing.how.pickPair.body":
@@ -79,6 +78,22 @@ export const enMessages = {
   "landing.cta.body":
     "Choose a language pair and open your first list. Use prepared content or make something of your own.",
   "landing.cta.button": "Start learning",
+  "landing.demo.title": "Try it yourself",
+  "landing.demo.captionIntro": "Try the app-style study card.",
+  "landing.demo.captionScratch": "Scratch off the covered translation",
+  "landing.demo.captionRest": "and choose how soon the word should come back.",
+  "landing.demo.soon": "right away",
+  "landing.demo.comesBack": "“{word}” comes back in {time}",
+  "landing.demo.againSoon": "“{word}” will come back in a moment",
+  "landing.demo.customSet": "“{word}” was moved to {time}",
+  "landing.demo.interval1": "5 minutes",
+  "landing.demo.interval2": "1 day",
+  "landing.demo.interval3": "3 days",
+  "landing.demo.interval4": "8 days",
+  "landing.demo.doneTitle": "Done",
+  "landing.demo.doneBody": "",
+  "landing.demo.continue": "Continue to the app",
+  "landing.demo.replay": "Try again",
   "landing.footer.github": "GitHub",
   "landing.footer.contact": "Contact",
   "landing.footer.privacy": "Privacy",

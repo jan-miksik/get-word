@@ -969,3 +969,46 @@
     display: none;
   }
 }
+
+/* First-time scratch hint: a fingertip sweeping across the scratch cover
+   (rendered by ScratchCover while the device has never scratched a card).
+   Sits above the cover canvas (z-4) and below nothing interactive. */
+.scratch-hint {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  z-index: 5;
+  font-size: 2rem;
+  line-height: 1;
+  pointer-events: none;
+  user-select: none;
+  filter: drop-shadow(0 3px 6px rgba(20, 15, 5, 0.35));
+  animation: scratch-hint-sweep 2.4s ease-in-out infinite;
+}
+
+@keyframes scratch-hint-sweep {
+  0% {
+    transform: translate(calc(-50% - 3.4rem), 0) rotate(-14deg);
+    opacity: 0;
+  }
+  14% {
+    opacity: 1;
+  }
+  50% {
+    transform: translate(calc(-50% + 3.4rem), -0.45rem) rotate(10deg);
+    opacity: 1;
+  }
+  86% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% - 3.4rem), 0) rotate(-14deg);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scratch-hint {
+    animation: none;
+  }
+}
