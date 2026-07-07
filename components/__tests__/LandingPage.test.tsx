@@ -122,7 +122,7 @@ describe('LandingPage language selector', () => {
     );
   });
 
-  it('saves the detected-language fallback when target is missing', async () => {
+  it('keeps the target language empty when the visitor has not picked one yet', async () => {
     render(<LandingPage />);
 
     await screen.findByText('yes');
@@ -133,10 +133,10 @@ describe('LandingPage language selector', () => {
       to?: string;
     };
     expect(saved.from).toBeTruthy();
-    expect(saved.to).toBe(saved.from === 'en' ? 'cs' : 'en');
+    expect(saved.to).toBeUndefined();
   });
 
-  it('persists the effective pair when the sticky header CTA is used', async () => {
+  it('does not invent a target language when the sticky header CTA is used', async () => {
     render(<LandingPage />);
 
     await screen.findByText('yes');
@@ -147,7 +147,7 @@ describe('LandingPage language selector', () => {
       to?: string;
     };
     expect(saved.from).toBeTruthy();
-    expect(saved.to).toBe(saved.from === 'en' ? 'cs' : 'en');
+    expect(saved.to).toBeUndefined();
   });
 
   it('shows a loading status while generated landing copy loads', async () => {

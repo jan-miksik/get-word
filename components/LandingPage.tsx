@@ -206,7 +206,11 @@ function LandingPageContent({
   function persistLandingPair() {
     saveLandingLanguagePair({
       from: languageFrom || effectiveLanguageFrom,
-      to: languageTo || effectiveLanguageTo,
+      // Keep the demo card personalized with a fallback target language, but do
+      // not treat that fallback as an explicit onboarding choice. If the
+      // visitor never picked "I want to learn", post-login onboarding should
+      // still open on the language-selection step.
+      to: languageTo,
       wantsOwnList,
     });
   }

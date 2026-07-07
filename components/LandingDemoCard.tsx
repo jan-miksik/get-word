@@ -26,8 +26,8 @@ import type { I18nKey } from '@/lib/i18n/messages';
  * deliberately shaped like the real study card: the answer is covered by the
  * same canvas scratch cover the app uses, and the visitor rates themselves
  * with the same two big "Forgotten" / "OK" buttons — the core loop of the app
- * in one scratch. After the second word the demo drops in a small matching
- * round, mirroring how the app injects minigames into the study stream.
+ * in one scratch. After the third card the demo drops in a small matching
+ * round, so visitors first see the core flashcard loop before the minigame.
  *
  * The demo pair follows the landing hero's "I know" / "I want to learn"
  * choices so the card reads like a live slice of the app, not a fixed
@@ -47,9 +47,9 @@ const DEMO_CUSTOM_STAGE_IDS = [0, 1, 2, 3, 4, 5, 6, 7] as const;
 
 const EXIT_DELAY_MS = 380;
 const ENTER_CLEAR_DELAY_MS = 460;
-// The matching round appears after this card is answered correctly, like the
-// inline minigames in the real study stream.
-const MATCH_AFTER_INDEX = 1;
+// The matching round is the fourth demo item overall: three regular cards
+// first, then the minigame.
+const MATCH_AFTER_COMPLETED_CARDS = 3;
 
 // The caller keys this component by interface language and selected pair, so a
 // language change remounts it and the demo restarts from a clean state.
@@ -306,15 +306,8 @@ export function LandingDemoCard({
       const nextCompletedCount = set.words.length - remaining.length;
       setCompletedCount(nextCompletedCount);
       setQueue(remaining);
-      if (remaining.length === 0) {
-        setIsDone(true);
-        setAnimationClass('animate-deck-enter-rise');
-        setPending(false);
-        setPendingAdvances(false);
-        return;
-      }
       if (
-        nextCompletedCount === MATCH_AFTER_INDEX + 1 &&
+        nextCompletedCount === MATCH_AFTER_COMPLETED_CARDS &&
         !matchPlayedRef.current &&
         set.words.length > 2
       ) {
@@ -328,6 +321,13 @@ export function LandingDemoCard({
         }, ENTER_CLEAR_DELAY_MS);
         return;
       }
+      if (remaining.length === 0) {
+        setIsDone(true);
+        setAnimationClass('animate-deck-enter-rise');
+        setPending(false);
+        setPendingAdvances(false);
+        return;
+      }
       setAnimationClass('animate-deck-enter-slide');
       setPending(false);
       setPendingAdvances(false);
@@ -338,8 +338,18 @@ export function LandingDemoCard({
   }
 
   function finishMatchPhase() {
-    // The mastered card was already removed before the round; the queue head
-    // is the next card to study.
+    // When the minigame comes after the last demo card, finishing it should
+    // land straight on the done state. Otherwise the queue head is the next
+    // card to study.
+    if (queue.length === 0) {
+      setPhase('cards');
+      setIsDone(true);
+      setAnimationClass('animate-deck-enter-rise');
+      enterTimer.current = window.setTimeout(() => {
+        setAnimationClass('');
+      }, ENTER_CLEAR_DELAY_MS);
+      return;
+    }
     setPhase('cards');
     setAnimationClass('animate-deck-enter-slide');
     enterTimer.current = window.setTimeout(() => {

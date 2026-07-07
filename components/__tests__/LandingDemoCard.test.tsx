@@ -132,7 +132,6 @@ describe('LandingDemoCard', () => {
     act(() => {
       vi.advanceTimersByTime(450);
     });
-    completeMatchingRound();
 
     // Only the third word is left on the stack.
     expect(screen.getAllByText('thank you').length).toBeGreaterThan(0);
@@ -144,6 +143,7 @@ describe('LandingDemoCard', () => {
 
     // Nothing to hide behind, so it comes straight back — not finished.
     expect(screen.getAllByText('thank you').length).toBeGreaterThan(0);
+    expect(screen.queryByText(/Match/)).not.toBeInTheDocument();
     expect(screen.queryByText('Done')).not.toBeInTheDocument();
   });
 
@@ -189,11 +189,11 @@ describe('LandingDemoCard', () => {
     act(() => {
       vi.advanceTimersByTime(450);
     });
-    completeMatchingRound();
     fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
     act(() => {
       vi.advanceTimersByTime(450);
     });
+    completeMatchingRound();
 
     expect(screen.getByText('Done')).toBeInTheDocument();
     expect(screen.queryByText(/All demo words are scheduled/)).not.toBeInTheDocument();
@@ -222,11 +222,11 @@ describe('LandingDemoCard', () => {
     act(() => {
       vi.advanceTimersByTime(450);
     });
-    completeMatchingRound();
     fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
     act(() => {
       vi.advanceTimersByTime(450);
     });
+    completeMatchingRound();
 
     fireEvent.click(screen.getByRole('link', { name: 'Continue to the app' }));
 
@@ -292,17 +292,13 @@ describe('LandingDemoCard', () => {
   it('can still complete with the regular OK path', () => {
     renderCard();
 
-    for (let i = 0; i < 2; i += 1) {
+    for (let i = 0; i < 3; i += 1) {
       fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
       act(() => {
         vi.advanceTimersByTime(450);
       });
     }
     completeMatchingRound();
-    fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
-    act(() => {
-      vi.advanceTimersByTime(450);
-    });
 
     expect(screen.getByText('Done')).toBeInTheDocument();
     expect(screen.queryByText(/^\d+:\d{2}$/)).not.toBeInTheDocument();
@@ -314,17 +310,15 @@ describe('LandingDemoCard', () => {
     expect(screen.queryByText(/^\d+:\d{2}$/)).not.toBeInTheDocument();
   });
 
-  it('injects a 3-pair matching round after the second word and lets the finished card continue from anywhere', () => {
+  it('injects a 3-pair matching round after the third card and then finishes the demo', () => {
     renderCard();
 
-    fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
-    act(() => {
-      vi.advanceTimersByTime(450);
-    });
-    fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
-    act(() => {
-      vi.advanceTimersByTime(450);
-    });
+    for (let i = 0; i < 3; i += 1) {
+      fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
+      act(() => {
+        vi.advanceTimersByTime(450);
+      });
+    }
 
     // The matching round replaces the card: both columns are on screen and
     // there is no OK button until all pairs are matched.
@@ -353,9 +347,7 @@ describe('LandingDemoCard', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /tap to continue/i }));
 
-    // Matching done → the third word arrives as a normal card.
-    expect(screen.getByRole('button', { name: /^OK/ })).toBeInTheDocument();
-    expect(screen.getAllByText('thank you').length).toBeGreaterThan(0);
+    expect(screen.getByText('Done')).toBeInTheDocument();
   });
 
   it('offers the full custom ladder including 60 days and fully-known', () => {
