@@ -18,9 +18,9 @@ const mockDeleteMemoryHookByItemId = vi.fn()
 const mockSetUserCategoryFilters = vi.fn()
 const mockGetUserSubscribedItems = vi.fn()
 const mockGetUserOwnListItems = vi.fn()
+const mockGetUserStudyLists = vi.fn()
 const mockGetMediaAssetsByIds = vi.fn()
 const mockGetCategoriesForLists = vi.fn()
-const mockGetWordListsByIds = vi.fn()
 const mockTouchUserDevice = vi.fn()
 const mockApplyNewReviewEvents = vi.fn()
 const mockGetUserMemoryHooksDelta = vi.fn()
@@ -47,9 +47,9 @@ vi.mock('@/lib/db', () => ({
   updateUserPreferences: (...args: unknown[]) => mockUpdateUserPreferences(...args),
   getUserSubscribedItems: (...args: unknown[]) => mockGetUserSubscribedItems(...args),
   getUserOwnListItems: (...args: unknown[]) => mockGetUserOwnListItems(...args),
+  getUserStudyLists: (...args: unknown[]) => mockGetUserStudyLists(...args),
   getMediaAssetsByIds: (...args: unknown[]) => mockGetMediaAssetsByIds(...args),
   getCategoriesForLists: (...args: unknown[]) => mockGetCategoriesForLists(...args),
-  getWordListsByIds: (...args: unknown[]) => mockGetWordListsByIds(...args),
   touchUserDevice: (...args: unknown[]) => mockTouchUserDevice(...args),
   applyNewReviewEvents: (...args: unknown[]) => mockApplyNewReviewEvents(...args),
   getUserMemoryHooksDelta: (...args: unknown[]) => mockGetUserMemoryHooksDelta(...args),
@@ -127,9 +127,9 @@ describe('GET /api/sync', () => {
     mockGetUserCategoryFilters.mockResolvedValue([])
     mockGetUserSubscribedItems.mockResolvedValue([])
     mockGetUserOwnListItems.mockResolvedValue([])
+    mockGetUserStudyLists.mockResolvedValue([])
     mockGetMediaAssetsByIds.mockResolvedValue(new Map())
     mockGetCategoriesForLists.mockResolvedValue([])
-    mockGetWordListsByIds.mockResolvedValue([])
     mockTouchUserDevice.mockResolvedValue(undefined)
     mockApplyNewReviewEvents.mockResolvedValue([])
     mockGetUserMemoryHooksDelta.mockResolvedValue([])
@@ -267,11 +267,13 @@ describe('GET /api/sync', () => {
     }
     mockGetUserSubscribedItems.mockResolvedValue([duplicateItem])
     mockGetUserOwnListItems.mockResolvedValue([duplicateItem])
-    mockGetWordListsByIds.mockResolvedValue([
+    mockGetUserStudyLists.mockResolvedValue([
       {
         id: 'list-generated',
+        name: 'Generated',
         languageFrom: 'en',
         languageTo: 'fr',
+        isRecommended: false,
       },
     ])
 
@@ -288,6 +290,32 @@ describe('GET /api/sync', () => {
       languageFrom: 'en',
       languageTo: 'fr',
     }))
+  })
+
+  it('includes empty owned or subscribed lists in the sync list payload', async () => {
+    mockGetUserStudyLists.mockResolvedValue([
+      {
+        id: 'empty-owned-list',
+        name: 'Fresh list',
+        languageFrom: 'en',
+        languageTo: 'fr',
+        isRecommended: false,
+      },
+    ])
+
+    const req = new NextRequest('http://localhost:3000/api/sync?deviceId=dev-123')
+    const res = await GET(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.word_list_items).toEqual([])
+    expect(data.lists).toEqual([
+      expect.objectContaining({
+        id: 'empty-owned-list',
+        name: 'Fresh list',
+      }),
+    ])
+    expect(mockGetCategoriesForLists).toHaveBeenCalledWith(['empty-owned-list'])
   })
 
   it('returns 401 for device auth without an existing session', async () => {
@@ -393,9 +421,9 @@ describe('POST /api/sync', () => {
     mockGetUserCategoryFilters.mockResolvedValue([])
     mockGetUserSubscribedItems.mockResolvedValue([])
     mockGetUserOwnListItems.mockResolvedValue([])
+    mockGetUserStudyLists.mockResolvedValue([])
     mockGetMediaAssetsByIds.mockResolvedValue(new Map())
     mockGetCategoriesForLists.mockResolvedValue([])
-    mockGetWordListsByIds.mockResolvedValue([])
     mockTouchUserDevice.mockResolvedValue(undefined)
     mockApplyNewReviewEvents.mockResolvedValue([])
     mockGetUserMemoryHooksDelta.mockResolvedValue([])

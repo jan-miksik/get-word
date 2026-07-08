@@ -1,6 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import type { CSSProperties } from 'react';
+import { createPortal } from 'react-dom';
 import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { STAGES } from '@/lib/words';
 import type { I18nKey } from '@/lib/i18n/messages';
@@ -19,8 +21,10 @@ export function CustomStagePopover({
   const [customOpen, setCustomOpen] = useState(false);
   const customPopoverRef = useRef<HTMLDivElement>(null);
   const customTriggerRef = useRef<HTMLButtonElement>(null);
+  const [popoverStyle, setPopoverStyle] = useState<CSSProperties | undefined>(undefined);
   // Tracks the in-flight pointer gesture so we can tell a tap from a scroll.
   const tapRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const skipNextClickRef = useRef(false);
 
   // Activate options on a movement-thresholded pointer gesture rather than the
   // synthesized `click`. Inside a scrollable popover, iOS frequently cancels the
@@ -28,6 +32,35 @@ export function CustomStagePopover({
   // opening the menu), which made selections — most visibly re-picking the
   // current stage — silently no-op. Pointer events survive that.
   const TAP_MOVE_THRESHOLD = 10;
+  const updatePopoverPosition = useCallback(() => {
+    const trigger = customTriggerRef.current;
+    if (!trigger || typeof window === 'undefined') return;
+    const rect = trigger.getBoundingClientRect();
+    const margin = 4;
+    const gap = 8;
+    const width = Math.min(240, window.innerWidth - margin * 2);
+    const maxHeight = Math.min(416, Math.max(96, rect.top - gap - margin));
+    const left = Math.min(
+      Math.max(rect.right - width, margin),
+      Math.max(margin, window.innerWidth - width - margin),
+    );
+    setPopoverStyle({
+      position: 'fixed',
+      left,
+      bottom: Math.max(gap, window.innerHeight - rect.top + gap),
+      width,
+      maxHeight,
+    });
+  }, []);
+
+  const preserveMainScroll = useCallback(() => {
+    const scroller = customTriggerRef.current?.closest('main');
+    const scrollTop = scroller?.scrollTop;
+    return () => {
+      if (scroller && scrollTop !== undefined) scroller.scrollTop = scrollTop;
+    };
+  }, []);
+
   const tapHandlers = (action: () => void) => ({
     onPointerDown: (event: ReactPointerEvent) => {
       tapRef.current = { x: event.clientX, y: event.clientY, moved: false };
@@ -45,7 +78,20 @@ export function CustomStagePopover({
     onPointerUp: () => {
       const start = tapRef.current;
       tapRef.current = null;
-      if (start && !start.moved) action();
+      if (start && !start.moved) {
+        skipNextClickRef.current = true;
+        window.setTimeout(() => {
+          skipNextClickRef.current = false;
+        }, 0);
+        action();
+      }
+    },
+    onClick: () => {
+      if (skipNextClickRef.current) {
+        skipNextClickRef.current = false;
+        return;
+      }
+      action();
     },
     // A scroll fires pointercancel and releases the implicit touch capture;
     // discard the gesture so it never registers as a tap.
@@ -62,6 +108,7 @@ export function CustomStagePopover({
 
   useEffect(() => {
     if (!customOpen) return;
+    updatePopoverPosition();
     const handlePointerDown = (event: MouseEvent | TouchEvent) => {
       const target = event.target as Node | null;
       if (!target) return;
@@ -75,12 +122,14 @@ export function CustomStagePopover({
     document.addEventListener('mousedown', handlePointerDown);
     document.addEventListener('touchstart', handlePointerDown);
     document.addEventListener('keydown', handleKey);
+    window.addEventListener('resize', updatePopoverPosition);
     return () => {
       document.removeEventListener('mousedown', handlePointerDown);
       document.removeEventListener('touchstart', handlePointerDown);
       document.removeEventListener('keydown', handleKey);
+      window.removeEventListener('resize', updatePopoverPosition);
     };
-  }, [customOpen]);
+  }, [customOpen, updatePopoverPosition]);
 
   return (
     <div className="relative flex">
@@ -88,7 +137,26 @@ export function CustomStagePopover({
         ref={customTriggerRef}
         type="button"
         className="srs-btn srs-btn--easy !relative w-full"
-        onClick={() => setCustomOpen((open) => !open)}
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => {
+          if (!customOpen) {
+            const restoreScroll = preserveMainScroll();
+            updatePopoverPosition();
+            window.requestAnimationFrame(() => {
+              restoreScroll();
+              updatePopoverPosition();
+            });
+            window.setTimeout(() => {
+              restoreScroll();
+              updatePopoverPosition();
+            }, 0);
+            window.setTimeout(() => {
+              restoreScroll();
+              updatePopoverPosition();
+            }, 80);
+          }
+          setCustomOpen((open) => !open);
+        }}
         title={t('card.pickCustomInterval')}
         aria-label={t('card.customInterval')}
         aria-haspopup="listbox"
@@ -99,16 +167,17 @@ export function CustomStagePopover({
           <span className="srs-btn-hint !opacity-[0.35] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{t('card.custom')}</span>
         </span>
       </button>
-      {customOpen && (
+      {customOpen && typeof document !== 'undefined' && createPortal(
         <div
           ref={customPopoverRef}
           role="listbox"
-          className="absolute right-0 bottom-[calc(100%+0.5rem)] z-50 w-[15rem] max-w-[calc(100vw-2rem)] max-h-[min(70dvh,26rem)] rounded-2xl border-2 border-[#2A2218] bg-[#F4EFE2] text-[#2A2218] shadow-lg overflow-hidden flex flex-col"
+          style={popoverStyle}
+          className="custom-stage-popover z-50 max-w-[calc(100vw-2rem)] rounded-2xl border-2 border-[#2A2218] bg-[#F4EFE2] text-[#2A2218] shadow-lg overflow-hidden flex flex-col"
         >
           <div className="bg-[#F4EFE2] px-3 py-2 text-[0.72rem] font-bold uppercase tracking-[0.12em] text-[#2A2218]/70 border-b border-[#2A2218]/20">
             {t('card.repeatAfter')}
           </div>
-          <div className="overflow-y-auto">
+          <div className="custom-stage-popover-options overflow-y-auto">
             {STAGES.map((stage, idx) => {
               const isCurrent = idx === clampedStageIndex;
               const stripe = idx % 2 === 1;
@@ -151,7 +220,8 @@ export function CustomStagePopover({
               {t('card.fullyKnownNoRepeat')}
             </button>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

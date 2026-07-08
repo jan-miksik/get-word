@@ -9,6 +9,7 @@ const mockGetUserSubscribedListIds = vi.fn()
 const mockGetSubscriberCountsForLists = vi.fn((..._args: unknown[]) => new Map())
 const mockCreateList = vi.fn()
 const mockGetListById = vi.fn()
+const mockIsUserSubscribed = vi.fn((..._args: unknown[]) => false)
 const mockUpdateList = vi.fn()
 const mockDeleteList = vi.fn()
 const mockGetListCategories = vi.fn()
@@ -49,6 +50,7 @@ vi.mock('@/lib/db', () => ({
   getSubscriberCountsForLists: (...args: unknown[]) => mockGetSubscriberCountsForLists(...args),
   createList: (...args: unknown[]) => mockCreateList(...args),
   getListById: (...args: unknown[]) => mockGetListById(...args),
+  isUserSubscribed: (...args: unknown[]) => mockIsUserSubscribed(...args),
   updateList: (...args: unknown[]) => mockUpdateList(...args),
   deleteList: (...args: unknown[]) => mockDeleteList(...args),
   getListCategories: (...args: unknown[]) => mockGetListCategories(...args),
@@ -279,12 +281,28 @@ describe('GET /api/lists/[id]', () => {
     expect(res.status).toBe(404)
   })
 
-  it('returns 403 if list is private and not owned', async () => {
+  it('returns 403 if list is private and not owned nor subscribed', async () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
     mockGetListById.mockResolvedValue({ ...testList, ownerId: 'other-user' })
+    mockIsUserSubscribed.mockResolvedValueOnce(false)
     const req = new NextRequest('http://localhost:3000/api/lists/list-1')
     const res = await GET_DETAIL(req, { params: Promise.resolve({ id: 'list-1' }) })
     expect(res.status).toBe(403)
+  })
+
+  it('allows a subscriber to read a private list (shared via link)', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetListById.mockResolvedValue({ ...testList, ownerId: 'other-user', isPublic: false, shareToken: 'secret' })
+    mockIsUserSubscribed.mockResolvedValueOnce(true)
+    mockGetListCategories.mockResolvedValue([])
+    mockGetListItems.mockResolvedValue([])
+    mockGetMediaAssetsByIds.mockResolvedValue(new Map())
+    const req = new NextRequest('http://localhost:3000/api/lists/list-1')
+    const res = await GET_DETAIL(req, { params: Promise.resolve({ id: 'list-1' }) })
+    expect(res.status).toBe(200)
+    const data = await res.json()
+    // Token is never leaked in the detail response.
+    expect(data.list.shareToken).toBeUndefined()
   })
 
   it('returns list with categories and items', async () => {

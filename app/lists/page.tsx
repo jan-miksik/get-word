@@ -263,6 +263,7 @@ function ListsPageContent() {
           onSubscribe={subscribeToList}
           onUnsubscribe={unsubscribeFromList}
           onFork={startFork}
+          onListUpdated={applyUpdatedList}
           openCreateSignal={openCreateSignal}
         />
       </div>
@@ -372,6 +373,7 @@ function ListsPageContent() {
               onDeleteCategory={deleteCategory}
               onFork={startFork}
               onDeleteList={deleteList}
+              onListUpdated={applyUpdatedList}
             />
           ) : wizard.wizardStep === 'edit' ? (
             <TextareaEditor

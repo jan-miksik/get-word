@@ -87,12 +87,12 @@ export function LearningStudyContent({
       progressStats={progressStats}
     >
       <main
-        className={`block flex-1 min-h-0 min-w-0 w-full ${viewMode === 'card' ? 'overflow-hidden' : 'overflow-y-auto overflow-x-hidden'}`}
+        className={`flex flex-col flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden ${viewMode === 'card' ? 'learning-card-main' : ''}`}
         ref={phrasesCallbackRef}
         aria-live="polite"
       >
         {viewMode === 'card' ? (
-          <div className="relative flex h-full w-full flex-col max-w-[800px] mx-auto">
+          <div className="learning-card-viewport relative flex h-full w-full flex-col max-w-[800px] mx-auto">
             <CardDeckView
               key={`card-${contentResetKey}`}
               groupedWords={cardDeckGroups}

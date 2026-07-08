@@ -319,7 +319,7 @@ export function CardDeckView({
 
   if (interstitialCard) {
     return (
-      <div className="relative flex h-full w-full flex-col overflow-hidden">
+      <div className="card-deck-view relative flex h-full w-full flex-col overflow-visible">
         {interstitialCard}
       </div>
     );
@@ -366,11 +366,11 @@ export function CardDeckView({
   const isExiting = Boolean(exitAnim);
 
   return (
-    <div className="relative flex h-full w-full flex-col overflow-hidden">
+    <div className="card-deck-view relative flex h-full w-full flex-col overflow-visible">
       <div
         key={itemKey}
         className={[
-          'flex h-full w-full flex-col',
+          'card-deck-item flex h-full w-full flex-col',
           exitAnim ?? '',
           enterAnim ?? '',
         ].join(' ')}

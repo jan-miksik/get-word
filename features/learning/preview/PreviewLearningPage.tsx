@@ -298,8 +298,8 @@ function PreviewStudy({
         categories={categories}
         progressStats={progressStats}
       >
-        <main className="block flex-1 min-h-0 min-w-0 w-full overflow-hidden" aria-live="polite">
-          <div className="relative flex h-full w-full flex-col max-w-[800px] mx-auto">
+        <main className="learning-card-main flex flex-col flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden" aria-live="polite">
+          <div className="learning-card-viewport relative flex h-full w-full flex-col max-w-[800px] mx-auto">
             {currentWord ? (
               <div className="h-full flex flex-col justify-end md:justify-start relative">
                 <WordCard

@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import { and, eq, or, sql, inArray, desc } from 'drizzle-orm';
 import { db } from '../../client';
 import type { Executor } from '../executor';
@@ -10,10 +11,25 @@ import {
 } from '../../schema';
 
 export async function getUserLists(userId: string): Promise<WordList[]> {
+  // owned ∪ public ∪ subscribed (including private lists joined via a share
+  // link). The subscribed clause is what lets a shared private list render in
+  // the sidebar — it has no row in the owned/public sets.
   return db
     .select()
     .from(wordLists)
-    .where(sql`${wordLists.ownerId} = ${userId} OR ${wordLists.isPublic} = true`);
+    .where(
+      or(
+        eq(wordLists.ownerId, userId),
+        eq(wordLists.isPublic, true),
+        inArray(
+          wordLists.id,
+          db
+            .select({ id: userListSubscriptions.listId })
+            .from(userListSubscriptions)
+            .where(eq(userListSubscriptions.userId, userId)),
+        ),
+      ),
+    );
 }
 
 export async function getUserListsByLanguagePair(
@@ -282,6 +298,56 @@ export async function getListById(listId: string): Promise<WordList | null> {
   return list ?? null;
 }
 
+/** URL-safe, non-enumerable share token (24 bytes base64url ≈ 32 chars). */
+export function generateShareToken(): string {
+  return crypto.randomBytes(24).toString('base64url');
+}
+
+export async function getListByShareToken(token: string): Promise<WordList | null> {
+  const [list] = await db
+    .select()
+    .from(wordLists)
+    .where(eq(wordLists.shareToken, token))
+    .limit(1);
+  return list ?? null;
+}
+
+export async function setListShareToken(
+  listId: string,
+  token: string | null,
+  executor: Executor = db,
+): Promise<void> {
+  await executor
+    .update(wordLists)
+    .set({ shareToken: token, updatedAt: new Date() })
+    .where(eq(wordLists.id, listId));
+}
+
+/**
+ * Return the list's existing share token, generating and persisting one if
+ * absent. Runs in a transaction with a `FOR UPDATE` row read so concurrent
+ * "copy link" clicks converge on a single token. Assumes the caller already
+ * authorized ownership. Returns null if the list does not exist.
+ */
+export async function getOrCreateListShareToken(
+  listId: string,
+): Promise<string | null> {
+  return db.transaction(async (tx) => {
+    const [list] = await tx
+      .select({ shareToken: wordLists.shareToken })
+      .from(wordLists)
+      .where(eq(wordLists.id, listId))
+      .limit(1)
+      .for('update');
+    if (!list) return null;
+    if (list.shareToken) return list.shareToken;
+
+    const token = generateShareToken();
+    await setListShareToken(listId, token, tx);
+    return token;
+  });
+}
+
 export async function getWordListsByIds(
   ids: string[],
 ): Promise<{
@@ -302,6 +368,38 @@ export async function getWordListsByIds(
     })
     .from(wordLists)
     .where(inArray(wordLists.id, ids));
+}
+
+export async function getUserStudyLists(
+  userId: string,
+): Promise<{
+  id: string;
+  name: string;
+  languageFrom: string;
+  languageTo: string;
+  isRecommended: boolean;
+}[]> {
+  return db
+    .select({
+      id: wordLists.id,
+      name: wordLists.name,
+      languageFrom: wordLists.languageFrom,
+      languageTo: wordLists.languageTo,
+      isRecommended: wordLists.isRecommended,
+    })
+    .from(wordLists)
+    .where(
+      or(
+        eq(wordLists.ownerId, userId),
+        inArray(
+          wordLists.id,
+          db
+            .select({ id: userListSubscriptions.listId })
+            .from(userListSubscriptions)
+            .where(eq(userListSubscriptions.userId, userId)),
+        ),
+      ),
+    );
 }
 
 export async function getWordListItemCountsByListIds(

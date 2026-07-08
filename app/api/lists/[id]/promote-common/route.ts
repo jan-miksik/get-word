@@ -8,6 +8,7 @@ import {
 } from "@/lib/db/queries/word-list-items/lists";
 import { userListSubscriptions, users, wordLists } from "@/lib/db/schema";
 import { resolveUserFromRequest, unauthorizedResponse } from "@/lib/auth";
+import { serializeWordList } from "@/lib/word-list-dto";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
@@ -115,7 +116,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
     return NextResponse.json({
-      list: result.list,
+      list: serializeWordList(result.list),
       reused_existing: result.reusedExisting,
     });
   } catch (err) {
