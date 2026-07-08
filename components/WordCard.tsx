@@ -87,14 +87,13 @@ export const WordCard = memo(function WordCard({
 
   const knownPresses = progress.knownCount ?? 0;
   const unknownPresses = progress.unknownCount ?? 0;
-  const totalInteractions = knownPresses + unknownPresses;
-  const isFirstSeen = totalInteractions === 0;
 
   // Determine which languages should be covered.
   const shouldCover = (lang: string): boolean => {
     if (showAll) return false;
-    // First time seeing this word: show everything without cover.
-    if (isFirstSeen) return false;
+    // New words are covered too: scratching lets the learner self-assess how
+    // well they already know a word from the first encounter, and it surfaces
+    // the scratch interaction on the very first card.
     if (lang === 'memory-hook') {
       if (!showMemoryHook) return false;
       const diff = (progress.knownCount ?? 0) - (progress.unknownCount ?? 0);

@@ -3,7 +3,7 @@ import {
   getCategoriesForLists,
   getUserOwnListItems,
   getUserSubscribedItems,
-  getWordListsByIds,
+  getUserStudyLists,
 } from '@/lib/db';
 import { getPlayableAudioFields } from '@/lib/audio-assets';
 import {
@@ -12,7 +12,7 @@ import {
 } from '@/lib/words';
 
 type HydratedWordListItems = Awaited<ReturnType<typeof getUserSubscribedItems>>;
-type HydratedListNames = Awaited<ReturnType<typeof getWordListsByIds>>;
+type HydratedListNames = Awaited<ReturnType<typeof getUserStudyLists>>;
 type HydratedWordListItemWithMedia = HydratedWordListItems[number] & {
   languageFrom: string;
   languageTo: string;
@@ -105,20 +105,23 @@ export async function getHydratedWordListData(
   categoryLookup: Record<string, { name: string; position: number }>;
   listNameRows: HydratedListNames;
 }> {
-  const [subscribedItems, ownItems] = await Promise.all([
+  const [subscribedItems, ownItems, listNameRows] = await Promise.all([
     getUserSubscribedItems(userId),
     getUserOwnListItems(userId),
+    getUserStudyLists(userId),
   ]);
   const wordListItems = dedupeById([...subscribedItems, ...ownItems]);
-  const listIds = [...new Set(wordListItems.map((item) => item.listId))];
+  const listIds = [...new Set([
+    ...wordListItems.map((item) => item.listId),
+    ...listNameRows.map((list) => list.id),
+  ])];
   const mediaAssetIds = wordListItems
     .flatMap((item) => [item.knownAudioAssetId, item.audioAssetId])
     .filter((id): id is string => Boolean(id));
 
-  const [mediaAssets, allCategories, listNameRows] = await Promise.all([
+  const [mediaAssets, allCategories] = await Promise.all([
     getMediaAssetsByIds(mediaAssetIds),
     getCategoriesForLists(listIds),
-    getWordListsByIds(listIds),
   ]);
 
   const categoryLookup: Record<string, { name: string; position: number }> = {};

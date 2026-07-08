@@ -447,6 +447,32 @@
   color: var(--srs-ink);
 }
 
+.custom-stage-popover {
+  max-height: min(70dvh, 26rem);
+}
+
+.custom-stage-popover-options {
+  min-height: 0;
+}
+
+@media (min-height: 760px) {
+  .custom-stage-popover {
+    max-height: min(64dvh, 26rem);
+  }
+}
+
+@media (max-height: 620px) {
+  .custom-stage-popover {
+    max-height: min(70dvh, 23rem);
+  }
+}
+
+@media (max-height: 480px) {
+  .custom-stage-popover {
+    max-height: min(56dvh, 18rem);
+  }
+}
+
 @media (hover: hover) and (pointer: fine) {
   .srs-btn--forgot:hover,
   .srs-btn--okay:hover,
@@ -867,6 +893,18 @@
   }
 }
 
+.learning-card-viewport,
+.card-deck-view,
+.card-deck-item {
+  flex: 1 0 100%;
+  min-height: 100%;
+}
+
+.card-deck-view,
+.card-deck-item {
+  height: 100%;
+}
+
 /* Fullscreen (card deck) mode: no card chrome, fill height, push buttons to bottom */
 .word-card--fullscreen.phrase-card,
 .word-card--fullscreen.phrase-card:nth-child(odd) {
@@ -878,6 +916,7 @@
   flex-direction: column;
   flex: 1;
   min-height: 0;
+  overflow: visible;
 }
 
 .word-card--fullscreen .word-card-content {
@@ -886,6 +925,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  justify-content: safe center;
 }
 
 /* Dark text on the beige background */
@@ -922,6 +962,95 @@
   padding-top: 16px;
 }
 
+@media (max-height: 650px) {
+  .learning-card-viewport,
+  .card-deck-view,
+  .card-deck-item {
+    min-height: max(100%, calc(100dvh - 8rem));
+  }
+
+  .app > main.learning-card-main {
+    padding-bottom: 0;
+  }
+
+  .word-card--fullscreen.phrase-card,
+  .word-card--fullscreen.phrase-card:nth-child(odd) {
+    gap: 2px;
+    padding-block: clamp(6px, 1.5dvh, 12px) 0;
+  }
+
+  .word-card--fullscreen .word-card-content {
+    flex: 1 1 auto;
+    gap: clamp(8px, 2dvh, 16px);
+    justify-content: flex-start;
+    padding-top: clamp(4px, 1.5dvh, 12px);
+  }
+
+  .word-card--fullscreen .cover-target.is-scratch {
+    min-height: clamp(2.5rem, 10dvh, 3.25rem);
+  }
+
+  .word-card--fullscreen .memory-hook-container {
+    margin-block: 0;
+  }
+
+  .word-card--fullscreen .card-actions {
+    margin-top: auto;
+    padding-top: 4px;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), clamp(8px, 2.5dvh, 18px));
+  }
+
+  .word-card--fullscreen .srs-btn {
+    min-height: clamp(56px, 14dvh, 72px);
+    padding-block: 8px;
+  }
+
+  .word-card--fullscreen .srs-btn-label {
+    font-size: clamp(0.95rem, 3dvh, 1.05rem);
+  }
+
+  .word-card--fullscreen .srs-btn-hint {
+    white-space: normal;
+  }
+
+  .word-card--fullscreen .audio-btn--floating {
+    top: -72px;
+  }
+}
+
+@media (max-height: 480px) {
+  .word-card--fullscreen.phrase-card,
+  .word-card--fullscreen.phrase-card:nth-child(odd) {
+    padding-block-start: 4px;
+  }
+
+  .word-card--fullscreen .cover-target.is-scratch {
+    min-height: clamp(2.25rem, 11dvh, 2.75rem);
+  }
+
+  .word-card--fullscreen .memory-hook-display {
+    font-size: 0.82rem;
+  }
+
+  .word-card--fullscreen .card-actions {
+    padding-top: 2px;
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 6px);
+  }
+
+  .word-card--fullscreen .srs-btn {
+    min-height: 56px;
+    padding-block: 6px;
+  }
+
+  .word-card--fullscreen .srs-btn-copy {
+    gap: 4px;
+  }
+
+  .word-card--fullscreen .srs-btn-hint {
+    font-size: 0.56rem;
+  }
+}
+
 @media (min-width: 768px) {
   .word-card--fullscreen .study-note-shell {
     max-width: min(30rem, calc(100% - 8rem));
@@ -955,6 +1084,66 @@
 
   .word-card--fullscreen .study-note-copy-icon {
     margin-top: 1px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   Desktop (card deck) vertical composition across window heights.
+
+   Loaded after the height/width blocks above, so it wins on source order.
+   Scoped to desktop (>=768px) and card view; mobile keeps its own layout.
+
+   Intent:
+   - Keep the learning word optically centered at every height (no abrupt
+     jump-to-top on shorter windows — overrides the max-height:650 flex-start).
+   - Buttons keep a stable resting gap on tall windows and slide gently toward
+     the bottom as the window shortens, reclaiming vertical room for the word.
+   - The top chrome (beta badge / menu / counters) tightens upward as the
+     window shortens so the card centre tracks the true middle.
+   ────────────────────────────────────────────────────────────────────────── */
+@media (min-width: 768px) {
+  /* Resting gap under the buttons: caps at 9rem on tall windows (~900px+),
+     then shrinks proportionally so the buttons drift toward the bottom as the
+     window gets shorter. */
+  .app > main.learning-card-main {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), clamp(2rem, 16dvh, 9rem));
+  }
+
+  /* Optical centering at every height. `safe` falls back to top-alignment only
+     if a phrase ever grows taller than the available space. */
+  .word-card--fullscreen .word-card-content {
+    justify-content: safe center;
+    padding-top: 0;
+  }
+
+  /* Pull top chrome up as the window shortens (card view only): 32px on tall
+     windows (~800px+), easing down to ~10px on short ones. */
+  .app[data-view-mode="card"] {
+    padding-top: clamp(10px, 4dvh, 32px);
+  }
+
+  /* Reset the mobile `100dvh - 8rem` viewport-height hack (from the
+     max-height:650 block) on desktop — there it inflates the card past the
+     scroll container and introduces an unwanted scrollbar. Desktop just fills
+     the available flex space. */
+  .learning-card-viewport,
+  .card-deck-view,
+  .card-deck-item {
+    min-height: 100%;
+  }
+}
+
+/* Short desktop windows: send the buttons all the way to the bottom and let the
+   word take the freed space, so it sits closer to the true centre. The
+   `.phrase-card` selector beats the shorthand `padding` set for
+   `.word-card--fullscreen` in minigames.css (loaded later). */
+@media (min-width: 768px) and (max-height: 600px) {
+  .app > main.learning-card-main {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.75rem);
+  }
+
+  .word-card--fullscreen.phrase-card {
+    padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.25rem);
   }
 }
 

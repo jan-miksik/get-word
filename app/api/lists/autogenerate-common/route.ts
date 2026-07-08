@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveUserFromRequest, unauthorizedResponse } from "@/lib/auth";
+import { serializeWordList } from "@/lib/word-list-dto";
 import { normalizeLanguageCode } from "@/lib/i18n/languages";
 import { autogenerateCommonWordListForUser } from "@/features/learning/onboarding/server/autogenerate-common-list";
 import { OpenRouterChatError } from "@/lib/openrouter-chat";
@@ -36,7 +37,7 @@ export async function POST(request: NextRequest) {
       languageTo,
     });
     return NextResponse.json({
-      list: result.list,
+      list: serializeWordList(result.list),
       item_count: result.itemCount,
       provider: result.provider,
       seed_kind: result.seedKind,

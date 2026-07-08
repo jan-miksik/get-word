@@ -213,7 +213,13 @@
   bottom: auto;
   width: 280px;
   border-radius: 14px;
-  overflow: hidden;
+  overflow-x: hidden;
+  /* Scroll internally instead of spilling past the bottom of the window
+     (the .app wrapper is overflow:hidden, so overflow would be clipped away).
+     6rem reserves room for the header/menu button above the popup. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  max-height: calc(100dvh - 6rem);
 
   background: var(--tm-surface);
   border: 2px solid var(--tm-ink);
@@ -311,6 +317,26 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   opacity: 0.65;
+}
+
+/* On short windows, compact the menu rows so more of the dropdown fits before
+   it has to scroll. */
+@media (max-height: 720px) {
+  .menu-item {
+    min-height: 46px;
+    padding: 9px 14px;
+  }
+}
+
+@media (max-height: 600px) {
+  .menu-item {
+    min-height: 40px;
+    padding: 7px 14px;
+  }
+
+  .menu-dropdown-account {
+    padding: 6px 12px;
+  }
 }
 
 /* Badge pill */

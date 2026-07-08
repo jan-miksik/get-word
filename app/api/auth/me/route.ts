@@ -18,6 +18,11 @@ export async function GET(request: NextRequest) {
       email: user.email ?? null,
       authProvider: user.authProvider ?? null,
       userRole: user.userRole,
+      languageFrom: user.languageFrom ?? null,
+      languageTo: user.languageTo ?? null,
+      onboardingCompletedAt: user.onboardingCompletedAt
+        ? user.onboardingCompletedAt.toISOString()
+        : null,
     },
     { headers: { 'Cache-Control': 'no-store' } }
   )

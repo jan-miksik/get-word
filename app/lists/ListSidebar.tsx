@@ -9,6 +9,8 @@ import { useI18n } from '@/components/I18nProvider';
 import { ConfirmModal } from '@/components/ConfirmModal';
 import { CreateListModal } from './CreateListModal';
 import { ListFilterModal } from './ListFilterModal';
+import { ShareLinkDialog } from './ShareLinkDialog';
+import { ResetShareLinkDialog } from './ResetShareLinkDialog';
 import type { LearningLanguage } from '@/features/learning/onboarding/types';
 
 interface ListSidebarProps {
@@ -27,6 +29,7 @@ interface ListSidebarProps {
   onSubscribe: (listId: string) => Promise<void>;
   onUnsubscribe: (listId: string) => Promise<void>;
   onFork?: (listId: string) => Promise<void>;
+  onListUpdated?: (list: WordList) => void;
   openCreateSignal?: number;
 }
 
@@ -94,6 +97,7 @@ export function ListSidebar({
   onSubscribe,
   onUnsubscribe,
   onFork,
+  onListUpdated,
   openCreateSignal = 0,
 }: ListSidebarProps) {
   const { t } = useI18n();
@@ -106,6 +110,8 @@ export function ListSidebar({
   const [returningToApp, setReturningToApp] = useState(false);
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<WordList | null>(null);
+  const [shareList, setShareList] = useState<WordList | null>(null);
+  const [resetShareList, setResetShareList] = useState<WordList | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
@@ -115,6 +121,7 @@ export function ListSidebar({
   const isOwnedList = (list: WordList) => list.isOwner ?? list.ownerId !== null;
   const canManageSharedList = (list: WordList) => canManageCommonLists && Boolean(list.isCommon);
   const canManageList = (list: WordList) => isOwnedList(list) || canManageSharedList(list);
+  const canShareList = (list: WordList) => isOwnedList(list) || canManageSharedList(list);
 
   // Build the onboarding-style combobox options from the language codes that
   // actually appear across the lists, so the filter never offers a dead pair.
@@ -150,6 +157,13 @@ export function ListSidebar({
     list.isPublic &&
     !list.isRecommended &&
     !isOwnedList(list)
+  );
+  // Private lists the user joined via a share link: not public, not owned, so
+  // they fall through the sections above. Surface them in their own group.
+  const sharedWithMeLists = filteredLists.filter((list) =>
+    !list.isPublic &&
+    !isOwnedList(list) &&
+    subscribedListIds.has(list.id)
   );
 
   useEffect(() => {
@@ -232,6 +246,16 @@ export function ListSidebar({
     setOpenDropdownId(null);
     onSelectList(listId);
     onEditList?.(listId);
+  }
+
+  function handleShareClick(list: WordList) {
+    setOpenDropdownId(null);
+    setShareList(list);
+  }
+
+  function handleResetShareClick(list: WordList) {
+    setOpenDropdownId(null);
+    setResetShareList(list);
   }
 
   function toggleDropdown(e: React.MouseEvent, listId: string) {
@@ -349,62 +373,97 @@ export function ListSidebar({
                     </div>
                   </button>
 
-                  {/* Three-dots menu */}
-                  <div className="relative shrink-0" ref={isDropdownOpen ? dropdownRef : undefined}>
+                  {/* Row actions: share icon + three-dots menu */}
+                  <div className="flex shrink-0 items-center gap-0.5" ref={isDropdownOpen ? dropdownRef : undefined}>
                     <button
                       type="button"
-                      className="p-1.5 rounded-md text-text-soft opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 group-focus-within:opacity-100 hover:text-text hover:bg-background/80 focus-visible:opacity-100 disabled:opacity-40 data-[open=true]:opacity-100"
-                      data-open={isDropdownOpen}
-                      onClick={(e) => toggleDropdown(e, list.id)}
-                      disabled={deletingId === list.id || isForking}
-                      aria-label={t('lists.optionsFor', { name: list.name })}
+                      className="p-1.5 rounded-md text-text-soft opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 group-focus-within:opacity-100 hover:text-text hover:bg-background/80 focus-visible:opacity-100"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleShareClick(list);
+                      }}
+                      aria-label={t('share.manageTitle')}
+                      title={t('share.manageTitle')}
                     >
-                      <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
-                        <circle cx="10" cy="4" r="1.5" />
-                        <circle cx="10" cy="10" r="1.5" />
-                        <circle cx="10" cy="16" r="1.5" />
+                      <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                        <circle cx="15" cy="5" r="2.25" stroke="currentColor" strokeWidth="1.5" />
+                        <circle cx="5" cy="10" r="2.25" stroke="currentColor" strokeWidth="1.5" />
+                        <circle cx="15" cy="15" r="2.25" stroke="currentColor" strokeWidth="1.5" />
+                        <path d="M13 6.2L7 8.8M7 11.2l6 2.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                       </svg>
                     </button>
 
-                    {isDropdownOpen && (
-                      <div className="absolute right-0 top-full mt-1 z-50 min-w-[130px] rounded-lg border border-border-subtle bg-background shadow-lg py-1">
+                    <div className="relative">
+                      <button
+                        type="button"
+                        className="p-1.5 rounded-md text-text-soft opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 group-focus-within:opacity-100 hover:text-text hover:bg-background/80 focus-visible:opacity-100 disabled:opacity-40 data-[open=true]:opacity-100"
+                        data-open={isDropdownOpen}
+                        onClick={(e) => toggleDropdown(e, list.id)}
+                        disabled={deletingId === list.id || isForking}
+                        aria-label={t('lists.optionsFor', { name: list.name })}
+                      >
+                        <svg width="14" height="14" viewBox="0 0 20 20" fill="currentColor">
+                          <circle cx="10" cy="4" r="1.5" />
+                          <circle cx="10" cy="10" r="1.5" />
+                          <circle cx="10" cy="16" r="1.5" />
+                        </svg>
+                      </button>
+
+                      {isDropdownOpen && (
+                        <div className="absolute right-0 top-full mt-1 z-50 min-w-[170px] overflow-hidden rounded-lg border border-border-subtle bg-background shadow-lg py-1">
                         {onFork && (
                           <button
                             type="button"
-                            className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-background-elevated transition-colors"
+                            className="flex w-full items-center justify-start gap-2.5 px-3 py-2 text-left text-xs text-text transition-colors hover:bg-background-elevated"
                             onClick={() => handleFork(list.id)}
                           >
-                            <ForkIcon />
-                            {t('lists.copyList')}
+                            <span className="shrink-0">
+                              <ForkIcon />
+                            </span>
+                            <span className="min-w-0 flex-1 leading-snug">{t('lists.copyList')}</span>
                           </button>
                         )}
                         <button
                           type="button"
-                          className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-background-elevated transition-colors"
+                          className="flex w-full items-center justify-start gap-2.5 px-3 py-2 text-left text-xs text-text transition-colors hover:bg-background-elevated"
                           onClick={() => handleEditClick(list.id)}
                         >
-                          <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+                          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" className="shrink-0">
                             <path d="M11.5 4.5l4 4L7 17H3v-4L11.5 4.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
-                          {t('lists.edit')}
+                          <span className="min-w-0 flex-1 leading-snug">{t('lists.edit')}</span>
+                        </button>
+                        <button
+                          type="button"
+                          className="flex w-full items-center justify-start gap-2.5 px-3 py-2 text-left text-xs text-text transition-colors hover:bg-background-elevated"
+                          onClick={() => handleResetShareClick(list)}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true" className="shrink-0">
+                            <path d="M5.25 6.25A6 6 0 0115.3 4.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                            <path d="M15.25 2.75v3.75H11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M14.75 13.75A6 6 0 014.7 15.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                            <path d="M4.75 17.25V13.5H8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                          <span className="min-w-0 flex-1 leading-snug">{t('share.resetLink')}</span>
                         </button>
                         {canDelete && (
                           <>
                             <div className="my-1 border-t border-border-subtle" />
                             <button
                               type="button"
-                              className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-danger hover:bg-danger/10 transition-colors"
+                              className="flex w-full items-center justify-start gap-2.5 px-3 py-2 text-left text-xs text-danger transition-colors hover:bg-danger/10"
                               onClick={() => handleDeleteClick(list)}
                             >
-                              <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+                              <svg width="14" height="14" viewBox="0 0 20 20" fill="none" className="shrink-0">
                                 <path d="M4 6h12M8 3h4M7 6v10m6-10v10M6 6l.6 10.2A1 1 0 007.6 17h4.8a1 1 0 001-.8L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                               </svg>
-                              {t('lists.delete')}
+                              <span className="min-w-0 flex-1 leading-snug">{t('lists.delete')}</span>
                             </button>
                           </>
                         )}
-                      </div>
-                    )}
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               );
@@ -422,6 +481,7 @@ export function ListSidebar({
               const canSubscribe = !isOwnedList(list);
               const canEdit = canManageList(list);
               const canDelete = canManageList(list);
+              const canShare = canShareList(list);
               const isToggling = togglingId === list.id;
               const isForking = togglingId === `fork:${list.id}`;
               const isDropdownOpen = openDropdownId === `cur:${list.id}`;
@@ -475,6 +535,26 @@ export function ListSidebar({
                       </button>
                     )}
 
+                    {canShare && (
+                      <button
+                        type="button"
+                        className="shrink-0 rounded-md p-1.5 text-text-soft opacity-0 transition-[opacity,color,background-color] group-hover:opacity-100 group-focus-within:opacity-100 hover:bg-background/80 hover:text-text focus-visible:opacity-100"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleShareClick(list);
+                        }}
+                        aria-label={t('share.manageTitle')}
+                        title={t('share.manageTitle')}
+                      >
+                        <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                          <circle cx="15" cy="5" r="2.25" stroke="currentColor" strokeWidth="1.5" />
+                          <circle cx="5" cy="10" r="2.25" stroke="currentColor" strokeWidth="1.5" />
+                          <circle cx="15" cy="15" r="2.25" stroke="currentColor" strokeWidth="1.5" />
+                          <path d="M13 6.2L7 8.8M7 11.2l6 2.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                      </button>
+                    )}
+
                     {(onFork || canEdit || canDelete) && (
                       <div className="relative shrink-0" ref={isDropdownOpen ? dropdownRef : undefined}>
                         <button
@@ -496,28 +576,30 @@ export function ListSidebar({
                         </button>
 
                         {isDropdownOpen && (
-                          <div className="absolute right-0 top-full mt-1 z-50 min-w-[130px] rounded-lg border border-border-subtle bg-background shadow-lg py-1">
+                          <div className="absolute right-0 top-full mt-1 z-50 min-w-[150px] overflow-hidden rounded-lg border border-border-subtle bg-background shadow-lg py-1">
                             {onFork && (
                               <button
                                 type="button"
-                                className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-background-elevated transition-colors"
+                                className="flex w-full items-center justify-start gap-2.5 px-3 py-2 text-left text-xs text-text transition-colors hover:bg-background-elevated"
                                 onClick={() => handleFork(list.id)}
                                 disabled={isForking}
                               >
-                                <ForkIcon />
-                                {isForking ? t('lists.copying') : t('lists.copyList')}
+                                <span className="shrink-0">
+                                  <ForkIcon />
+                                </span>
+                                <span className="min-w-0 flex-1 leading-snug">{isForking ? t('lists.copying') : t('lists.copyList')}</span>
                               </button>
                             )}
                             {canEdit && (
                               <button
                                 type="button"
-                                className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-background-elevated transition-colors"
+                                className="flex w-full items-center justify-start gap-2.5 px-3 py-2 text-left text-xs text-text transition-colors hover:bg-background-elevated"
                                 onClick={() => handleEditClick(list.id)}
                               >
-                                <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+                                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" className="shrink-0">
                                   <path d="M11.5 4.5l4 4L7 17H3v-4L11.5 4.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                                 </svg>
-                                {t('lists.edit')}
+                                <span className="min-w-0 flex-1 leading-snug">{t('lists.edit')}</span>
                               </button>
                             )}
                             {canDelete && (
@@ -525,13 +607,13 @@ export function ListSidebar({
                                 {(onFork || canEdit) && <div className="my-1 border-t border-border-subtle" />}
                                 <button
                                   type="button"
-                                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-danger hover:bg-danger/10 transition-colors"
+                                  className="flex w-full items-center justify-start gap-2.5 px-3 py-2 text-left text-xs text-danger transition-colors hover:bg-danger/10"
                                   onClick={() => handleDeleteClick(list)}
                                 >
-                                  <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+                                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" className="shrink-0">
                                     <path d="M4 6h12M8 3h4M7 6v10m6-10v10M6 6l.6 10.2A1 1 0 007.6 17h4.8a1 1 0 001-.8L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                                   </svg>
-                                  {t('lists.delete')}
+                                  <span className="min-w-0 flex-1 leading-snug">{t('lists.delete')}</span>
                                 </button>
                               </>
                             )}
@@ -631,28 +713,30 @@ export function ListSidebar({
                         </button>
 
                         {isDropdownOpen && (
-                          <div className="absolute right-0 top-full mt-1 z-50 min-w-[130px] rounded-lg border border-border-subtle bg-background shadow-lg py-1">
+                          <div className="absolute right-0 top-full mt-1 z-50 min-w-[150px] overflow-hidden rounded-lg border border-border-subtle bg-background shadow-lg py-1">
                             {onFork && (
                               <button
                                 type="button"
-                                className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-background-elevated transition-colors"
+                                className="flex w-full items-center justify-start gap-2.5 px-3 py-2 text-left text-xs text-text transition-colors hover:bg-background-elevated"
                                 onClick={() => handleFork(list.id)}
                                 disabled={isForking}
                               >
-                                <ForkIcon />
-                                {isForking ? t('lists.copying') : t('lists.copyList')}
+                                <span className="shrink-0">
+                                  <ForkIcon />
+                                </span>
+                                <span className="min-w-0 flex-1 leading-snug">{isForking ? t('lists.copying') : t('lists.copyList')}</span>
                               </button>
                             )}
                             {canEdit && (
                               <button
                                 type="button"
-                                className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-text hover:bg-background-elevated transition-colors"
+                                className="flex w-full items-center justify-start gap-2.5 px-3 py-2 text-left text-xs text-text transition-colors hover:bg-background-elevated"
                                 onClick={() => handleEditClick(list.id)}
                               >
-                                <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+                                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" className="shrink-0">
                                   <path d="M11.5 4.5l4 4L7 17H3v-4L11.5 4.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                                 </svg>
-                                {t('lists.edit')}
+                                <span className="min-w-0 flex-1 leading-snug">{t('lists.edit')}</span>
                               </button>
                             )}
                             {canDelete && (
@@ -660,13 +744,13 @@ export function ListSidebar({
                                 {(onFork || canEdit) && <div className="my-1 border-t border-border-subtle" />}
                                 <button
                                   type="button"
-                                  className="flex w-full items-center gap-2 px-3 py-1.5 text-xs text-danger hover:bg-danger/10 transition-colors"
+                                  className="flex w-full items-center justify-start gap-2.5 px-3 py-2 text-left text-xs text-danger transition-colors hover:bg-danger/10"
                                   onClick={() => handleDeleteClick(list)}
                                 >
-                                  <svg width="13" height="13" viewBox="0 0 20 20" fill="none">
+                                  <svg width="14" height="14" viewBox="0 0 20 20" fill="none" className="shrink-0">
                                     <path d="M4 6h12M8 3h4M7 6v10m6-10v10M6 6l.6 10.2A1 1 0 007.6 17h4.8a1 1 0 001-.8L14 6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
                                   </svg>
-                                  {t('lists.delete')}
+                                  <span className="min-w-0 flex-1 leading-snug">{t('lists.delete')}</span>
                                 </button>
                               </>
                             )}
@@ -674,6 +758,60 @@ export function ListSidebar({
                         )}
                       </div>
                     )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {sharedWithMeLists.length > 0 && (
+          <div className="mb-4">
+            <h3 className="px-2 py-1 text-xs font-medium text-text-soft uppercase tracking-wide">
+              {t('lists.sharedWithYou')}
+            </h3>
+            {sharedWithMeLists.map((list) => {
+              const isToggling = togglingId === list.id;
+              return (
+                <div
+                  key={list.id}
+                  className={`group flex items-stretch gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                    selectedListId === list.id ? 'bg-accent/15' : 'hover:bg-background/50'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    className={`min-w-0 flex-1 rounded-md px-2 py-1.5 text-left transition-colors ${
+                      selectedListId === list.id
+                        ? 'bg-background/60 text-accent'
+                        : 'text-text hover:bg-background/60'
+                    }`}
+                    onClick={() => onSelectList(list.id)}
+                  >
+                    <div className="font-medium truncate">{list.name}</div>
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1 text-xs text-text-soft">
+                      <span>{list.languageFrom} → {list.languageTo}</span>
+                      <ListBadges list={list} />
+                    </div>
+                  </button>
+
+                  <div className="flex shrink-0 items-center gap-2 border-l border-border-subtle pl-3">
+                    <button
+                      type="button"
+                      disabled={isToggling}
+                      className={`relative h-5 w-10 shrink-0 rounded-full transition-colors bg-accent ${
+                        isToggling ? 'opacity-50' : ''
+                      }`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleToggleSubscription(list.id);
+                      }}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      title={t('lists.unsubscribe')}
+                      aria-label={`${t('lists.unsubscribe')} ${list.name}`}
+                    >
+                      <div className="absolute top-0.5 h-4 w-4 translate-x-5 rounded-full bg-white transition-transform" />
+                    </button>
                   </div>
                 </div>
               );
@@ -752,6 +890,21 @@ export function ListSidebar({
         onConfirm={handleDeleteConfirmed}
         onCancel={() => setDeleteConfirm(null)}
       />
+
+      {shareList && (
+        <ShareLinkDialog
+          list={shareList}
+          onClose={() => setShareList(null)}
+          onListUpdated={onListUpdated}
+        />
+      )}
+
+      {resetShareList && (
+        <ResetShareLinkDialog
+          list={resetShareList}
+          onClose={() => setResetShareList(null)}
+        />
+      )}
 
       {usageModalOpen && googleUsage
         ? createPortal(

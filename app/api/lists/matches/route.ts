@@ -5,6 +5,7 @@ import {
   getWordListItemCountsByListIds,
 } from "@/lib/db";
 import { resolveUserFromRequest, unauthorizedResponse } from "@/lib/auth";
+import { serializeWordList } from "@/lib/word-list-dto";
 import { normalizeLanguageCode } from "@/lib/i18n/languages";
 
 export async function GET(request: NextRequest) {
@@ -37,7 +38,7 @@ export async function GET(request: NextRequest) {
   const itemCounts = await getWordListItemCountsByListIds(countIds);
 
   const serializeList = (list: typeof lists[number]) => ({
-    ...list,
+    ...serializeWordList(list),
     isOwner: list.ownerId === user.id,
     itemCount: itemCounts.get(list.id) ?? 0,
   });

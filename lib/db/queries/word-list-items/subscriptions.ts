@@ -14,6 +14,7 @@ import {
   deleteItems,
   getListItems,
 } from './items';
+import { generateShareToken, setListShareToken } from './lists';
 
 export async function isUserSubscribed(
   userId: string,
@@ -162,6 +163,50 @@ export async function createUserSubscription(
   listId: string,
 ): Promise<void> {
   await db.insert(userListSubscriptions).values({ userId, listId });
+}
+
+/**
+ * Delete every subscription to a list. Used by the share-link reset to cut off
+ * existing students on a private list.
+ */
+export async function deleteListSubscriptions(
+  listId: string,
+  executor: Executor = db,
+): Promise<number> {
+  const deleted = await executor
+    .delete(userListSubscriptions)
+    .where(eq(userListSubscriptions.listId, listId))
+    .returning({ id: userListSubscriptions.id });
+  return deleted.length;
+}
+
+/**
+ * Atomically rotate a list's share token and, for private lists, drop all
+ * subscriptions (cutting off existing students). Public lists keep their
+ * subscribers — the list is still openly available, so only the old URL is
+ * invalidated. Assumes the caller already authorized ownership. Returns the new
+ * token, or null if the list does not exist.
+ */
+export async function resetListShareTokenAndDeleteSubscriptions(
+  listId: string,
+): Promise<{ token: string; revokedSubscribers: number } | null> {
+  return db.transaction(async (tx) => {
+    const [list] = await tx
+      .select({ id: wordLists.id, isPublic: wordLists.isPublic })
+      .from(wordLists)
+      .where(eq(wordLists.id, listId))
+      .limit(1);
+    if (!list) return null;
+
+    const token = generateShareToken();
+    await setListShareToken(listId, token, tx);
+
+    let revokedSubscribers = 0;
+    if (!list.isPublic) {
+      revokedSubscribers = await deleteListSubscriptions(listId, tx);
+    }
+    return { token, revokedSubscribers };
+  });
 }
 
 /**

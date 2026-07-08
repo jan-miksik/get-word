@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db/client";
+import { serializeWordList } from "@/lib/word-list-dto";
 import {
   createCategory,
   createList,
@@ -489,7 +490,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
         send({
           type: "done",
           result: {
-            list: forkedList,
+            list: serializeWordList(forkedList),
             copied: createdItems.length,
             translated: translatedCount,
             cleared_sides: [

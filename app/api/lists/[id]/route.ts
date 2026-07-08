@@ -6,6 +6,7 @@ import {
   updateList,
   deleteList,
   getMediaAssetsByIds,
+  isUserSubscribed,
 } from "@/lib/db";
 import {
   resolveUserFromRequest,
@@ -13,6 +14,7 @@ import {
   forbiddenResponse,
   isEditor,
 } from "@/lib/auth";
+import { serializeWordList } from "@/lib/word-list-dto";
 import { getPlayableAudioFields } from "@/lib/audio-assets";
 import { normalizeLanguageCode } from "@/lib/i18n/languages";
 
@@ -65,7 +67,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
     return NextResponse.json({ error: "List not found" }, { status: 404 });
   }
 
-  if (!list.isPublic && list.ownerId !== user.id) {
+  // Read access: public, owner, or a subscriber (a student who joined a shared
+  // private list via link). Writes below stay owner-only.
+  if (
+    !list.isPublic &&
+    list.ownerId !== user.id &&
+    !(await isUserSubscribed(user.id, id))
+  ) {
     return forbiddenResponse("Not authorized to view this list");
   }
 
@@ -83,7 +91,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     : new Map();
 
   return NextResponse.json({
-    list,
+    list: serializeWordList(list),
     categories,
     items: items.map((item) => ({
       ...item,
@@ -154,7 +162,10 @@ export async function PUT(request: NextRequest, context: RouteContext) {
     languageTo && languageTo !== normalizeLanguageCode(list.languageTo) ? "target" : null,
   ].filter((side): side is "known" | "target" => Boolean(side));
 
-  return NextResponse.json({ list: updated, cleared_sides: clearedSides });
+  return NextResponse.json({
+    list: updated ? serializeWordList(updated) : null,
+    cleared_sides: clearedSides,
+  });
 }
 
 export async function DELETE(request: NextRequest, context: RouteContext) {

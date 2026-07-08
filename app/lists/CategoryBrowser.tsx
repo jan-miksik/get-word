@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import type { WordCategory, WordList, WordListItem } from '@/features/lists/types';
 import { ConfirmModal } from '@/components/ConfirmModal';
+import { ShareLinkDialog } from './ShareLinkDialog';
 
 const ALL_WORDS_CATEGORY_ID = '__all_words__';
 
@@ -31,6 +32,7 @@ interface CategoryBrowserProps {
   onDeleteCategory: (categoryId: string) => Promise<void>;
   onFork?: (listId: string) => Promise<void>;
   onDeleteList?: (listId: string) => Promise<void>;
+  onListUpdated?: (list: WordList) => void;
 }
 
 function ForkIcon() {
@@ -108,6 +110,7 @@ export function CategoryBrowser({
   onDeleteCategory,
   onFork,
   onDeleteList,
+  onListUpdated,
 }: CategoryBrowserProps) {
   const { t } = useI18n();
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
@@ -129,11 +132,13 @@ export function CategoryBrowser({
   const [deleteCategoryConfirm, setDeleteCategoryConfirm] = useState<WordCategory | null>(null);
   const [deleteListConfirm, setDeleteListConfirm] = useState(false);
   const [forkingList, setForkingList] = useState(false);
+  const [shareList, setShareList] = useState<WordList | null>(null);
   const dragItemRef = useRef<string | null>(null);
   const headerMenuRef = useRef<HTMLDivElement>(null);
   const canEditListMetadata = isOwner || isEditor;
   const canEditListContent = isOwner || (isEditor && Boolean(list.isCommon));
   const canDeleteList = isOwner || (isEditor && Boolean(list.isCommon));
+  const canShareList = isOwner || (isEditor && Boolean(list.isCommon));
   const languageOptions = languages.length > 0 ? languages : [
     { code: 'cs', name: t('languageName.cs') },
     { code: 'vi', name: t('languageName.vi') },
@@ -469,6 +474,23 @@ export function CategoryBrowser({
                 </button>
               ) : null}
 
+              {canShareList ? (
+                <button
+                  type="button"
+                  className="rounded-lg border border-border-subtle p-2 text-text-soft transition-colors hover:bg-background-elevated hover:text-text focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                  onClick={() => setShareList(list)}
+                  aria-label={t('share.manageTitle')}
+                  title={t('share.manageTitle')}
+                >
+                  <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                    <circle cx="15" cy="5" r="2.25" stroke="currentColor" strokeWidth="1.5" />
+                    <circle cx="5" cy="10" r="2.25" stroke="currentColor" strokeWidth="1.5" />
+                    <circle cx="15" cy="15" r="2.25" stroke="currentColor" strokeWidth="1.5" />
+                    <path d="M13 6.2L7 8.8M7 11.2l6 2.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                  </svg>
+                </button>
+              ) : null}
+
               {/* Three-dots menu next to Edit list */}
               {(onFork || (canDeleteList && onDeleteList)) && (
                 <div className="relative" ref={headerMenuRef}>
@@ -797,6 +819,14 @@ export function CategoryBrowser({
         onConfirm={handleDeleteListConfirmed}
         onCancel={() => setDeleteListConfirm(false)}
       />
+
+      {shareList && (
+        <ShareLinkDialog
+          list={shareList}
+          onClose={() => setShareList(null)}
+          onListUpdated={onListUpdated}
+        />
+      )}
     </div>
   );
 }

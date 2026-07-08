@@ -10,6 +10,7 @@ import {
   resolveUserFromRequest,
   unauthorizedResponse,
 } from "@/lib/auth";
+import { serializeWordList } from "@/lib/word-list-dto";
 
 export async function GET(request: NextRequest) {
   const user = await resolveUserFromRequest(request);
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
   );
   return NextResponse.json({
     lists: lists.map((list) => ({
-      ...list,
+      ...serializeWordList(list),
       isOwner: list.ownerId === user.id,
       subscriberCount: subscriberCounts.get(list.id) ?? 0,
     })),
@@ -59,5 +60,5 @@ export async function POST(request: NextRequest) {
     isPublic: false,
   });
 
-  return NextResponse.json({ list }, { status: 201 });
+  return NextResponse.json({ list: serializeWordList(list) }, { status: 201 });
 }
