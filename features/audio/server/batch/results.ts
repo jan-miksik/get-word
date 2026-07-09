@@ -43,6 +43,7 @@ export function buildBatchResults(
         size_bytes: gen.sizeBytes,
         status: gen.status,
         ...(gen.audioQualityWarning ? { audio_quality_warning: gen.audioQualityWarning } : {}),
+        ...(gen.audioBase64 ? { audio_base64: gen.audioBase64 } : {}),
         ...(gen.error ? { error: gen.error } : {}),
         source: "generated" as const,
       };

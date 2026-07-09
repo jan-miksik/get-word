@@ -12,6 +12,7 @@ type AudioStepRowProps = {
   isPlaying: boolean;
   isRegenerating: boolean;
   playbackError?: string;
+  qualityWarning?: string;
   generating: boolean;
   isGoogleTtsPaused: boolean;
   voiceNote?: string;
@@ -25,6 +26,7 @@ export function AudioStepRow({
   isPlaying,
   isRegenerating,
   playbackError,
+  qualityWarning,
   generating,
   isGoogleTtsPaused,
   voiceNote,
@@ -83,6 +85,11 @@ export function AudioStepRow({
           {playbackError && (
             <span className="mt-1 block break-words text-xs text-danger">
               {playbackError}
+            </span>
+          )}
+          {!playbackError && qualityWarning && (
+            <span className="mt-1 block break-words text-xs text-amber-500">
+              {t('lists.audioQualityWarning')}
             </span>
           )}
         </div>

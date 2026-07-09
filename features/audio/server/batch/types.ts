@@ -11,6 +11,18 @@ export type AudioField = "known" | "target";
 export const MAX_ITEMS = 200;
 export const CONCURRENCY = 3;
 export const AUDIO_FORMAT = "mp3";
+
+/** Per-clip cap for inlining freshly-synthesized bytes in the response (bytes). */
+export const INLINE_MAX_BYTES = (() => {
+  const raw = Number.parseInt(process.env.AUDIO_INLINE_MAX_BYTES ?? "", 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : 350_000;
+})();
+
+/** Per-response budget for all inlined bytes combined (bytes). */
+export const INLINE_TOTAL_MAX_BYTES = (() => {
+  const raw = Number.parseInt(process.env.AUDIO_INLINE_TOTAL_MAX_BYTES ?? "", 10);
+  return Number.isFinite(raw) && raw > 0 ? raw : 6_000_000;
+})();
 export const PARTIAL_QUOTA_MESSAGE =
   "This list needs more Google TTS characters than this account has left in the free quota. Only part of the list can be generated now. Contact our tech support and we can help finish the list or raise the limit.";
 
@@ -49,6 +61,13 @@ export type GeneratedResult = {
    * storage failure. `status` stays the authoritative durable-storage result.
    */
   audioQualityWarning?: string;
+  /**
+   * Freshly-synthesized bytes (base64) for a durably-stored clip within the per-clip
+   * inline cap, so the editor can play instantly without waiting on Arweave
+   * propagation / the B2 mirror. Omitted for dedup hits and oversized clips; may be
+   * stripped by generate-batch once the per-response budget is spent.
+   */
+  audioBase64?: string;
   error?: string;
 };
 

@@ -27,8 +27,10 @@ type UseAudioGenerationWorkflowOptions = {
   setRows: Dispatch<SetStateAction<AudioRow[]>>;
   setError: Dispatch<SetStateAction<string | null>>;
   setPlaybackErrors: Dispatch<SetStateAction<Record<string, string>>>;
+  setAudioWarnings: Dispatch<SetStateAction<Record<string, string>>>;
   clearCachedAudio: (audioUrl: string | null | undefined) => void;
   preloadAudio: (rowId: string, source: AudioSourceCandidate) => Promise<string>;
+  storeGeneratedAudio: (audioUrl: string, base64: string, contentType?: string) => string | null;
   pause: () => void;
   audioSide: AudioSide;
   resolveVoice: (text: string) => string | undefined;
@@ -43,8 +45,10 @@ export function useAudioGenerationWorkflow({
   setRows,
   setError,
   setPlaybackErrors,
+  setAudioWarnings,
   clearCachedAudio,
   preloadAudio,
+  storeGeneratedAudio,
   pause,
   audioSide,
   resolveVoice,
@@ -71,6 +75,11 @@ export function useAudioGenerationWorkflow({
     setProgress(0);
     setEtaSeconds(estimateRemainingSeconds(targetRows.length));
     setPlaybackErrors((prev) => {
+      const next = { ...prev };
+      for (const row of targetRows) delete next[row.id];
+      return next;
+    });
+    setAudioWarnings((prev) => {
       const next = { ...prev };
       for (const row of targetRows) delete next[row.id];
       return next;
@@ -151,13 +160,25 @@ export function useAudioGenerationWorkflow({
 
         for (const result of results) {
           if (result.status !== 'ok' || !result.audio_url) continue;
-          void preloadAudio(result.id, {
-            kind: 'linked',
-            audioUrl: result.audio_url,
-            arweaveUrl: result.arweave_url ?? null,
-            arweaveUrls: result.arweave_urls ?? [],
-            storageRef: result.storage_ref ?? null,
-          }).catch(() => {});
+
+          // Seed the local cache: instantly from inline bytes when present (no
+          // network), else warm it via the proxy fetch path.
+          if (result.audio_base64) {
+            storeGeneratedAudio(result.audio_url, result.audio_base64);
+          } else {
+            void preloadAudio(result.id, {
+              kind: 'linked',
+              audioUrl: result.audio_url,
+              arweaveUrl: result.arweave_url ?? null,
+              arweaveUrls: result.arweave_urls ?? [],
+              storageRef: result.storage_ref ?? null,
+            }).catch(() => {});
+          }
+
+          // Quality warning is a soft note, not a playback error.
+          if (result.audio_quality_warning) {
+            setAudioWarnings((prev) => ({ ...prev, [result.id]: result.audio_quality_warning as string }));
+          }
         }
 
         completed += batchRows.length;
@@ -205,8 +226,10 @@ export function useAudioGenerationWorkflow({
     resolveVoice,
     onUsageRefresh,
     preloadAudio,
+    storeGeneratedAudio,
     setError,
     setPlaybackErrors,
+    setAudioWarnings,
     setRows,
     t,
   ]);

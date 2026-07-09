@@ -25,7 +25,12 @@ import {
   putAudio,
 } from "@/lib/object-storage";
 import { getErrorDetail } from "./errors";
-import type { AudioField, GenerationCandidate, GeneratedResult } from "./types";
+import {
+  INLINE_MAX_BYTES,
+  type AudioField,
+  type GenerationCandidate,
+  type GeneratedResult,
+} from "./types";
 
 export type GenerateItemContext = {
   provider: string;
@@ -324,6 +329,11 @@ export async function generateAudioForItem(
         voiceId: actualVoiceUsed ?? "default",
         sizeBytes: result.sizeBytes,
         ...(audioQualityWarning ? { audioQualityWarning } : {}),
+        // Inline the bytes for instant local playback, but only for clips within the
+        // per-clip cap. The whole-batch budget is enforced later in generate-batch.
+        ...(result.sizeBytes <= INLINE_MAX_BYTES
+          ? { audioBase64: result.audio.toString("base64") }
+          : {}),
       },
     };
   } catch (err) {

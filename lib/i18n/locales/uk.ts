@@ -620,6 +620,7 @@ export const ukMessages: I18nMessages = {
   "lists.audioStatusFailed": "не вдалося",
   "lists.audioStatusNone": "без аудіо",
   "lists.audioGeneratedWithVoice": "Згенеровано голосом {voice}",
+  "lists.audioQualityWarning": "Згенеровано, але перевірте, будь ласка, звук.",
   "lists.audioWillUseVoice": "Наступна генерація: {voice}",
   "lists.showVoiceInfo": "Показати інформацію про голос",
   "lists.audioGenerateFailed": "Генерація аудіо не вдалася: {message}",

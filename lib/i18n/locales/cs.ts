@@ -620,6 +620,7 @@ export const csMessages: I18nMessages = {
   "lists.audioStatusFailed": "selhalo",
   "lists.audioStatusNone": "bez zvuku",
   "lists.audioGeneratedWithVoice": "Vygenerováno hlasem {voice}",
+  "lists.audioQualityWarning": "Vygenerováno, ale prosím zkontroluj zvuk.",
   "lists.audioWillUseVoice": "Další generování: {voice}",
   "lists.showVoiceInfo": "Zobrazit informace o hlasu",
   "lists.audioGenerateFailed": "Generování zvuku selhalo: {message}",

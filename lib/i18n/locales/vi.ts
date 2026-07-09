@@ -620,6 +620,7 @@ export const viMessages: I18nMessages = {
   "lists.audioStatusFailed": "thất bại",
   "lists.audioStatusNone": "không có âm thanh",
   "lists.audioGeneratedWithVoice": "Đã tạo bằng giọng {voice}",
+  "lists.audioQualityWarning": "Đã tạo, nhưng vui lòng kiểm tra âm thanh.",
   "lists.audioWillUseVoice": "Lần tạo tiếp theo: {voice}",
   "lists.showVoiceInfo": "Hiện thông tin giọng",
   "lists.audioGenerateFailed": "Tạo âm thanh thất bại: {message}",

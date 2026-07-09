@@ -23,6 +23,7 @@ import { buildBatchResults } from "./batch/results";
 import {
   AUDIO_FORMAT,
   CONCURRENCY,
+  INLINE_TOTAL_MAX_BYTES,
   MAX_ITEMS,
   PARTIAL_QUOTA_MESSAGE,
   type AudioItem,
@@ -340,6 +341,19 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
       },
       { status: 429 },
     );
+  }
+
+  // Enforce the whole-response inline-bytes budget: keep inlined audio in order
+  // until the budget is spent, then strip the rest (the client falls back to
+  // fetching those through the audio proxy). Per-clip cap already applied upstream.
+  let inlineBudget = INLINE_TOTAL_MAX_BYTES;
+  for (const gen of generatedResults) {
+    if (!gen.audioBase64) continue;
+    if (gen.sizeBytes && gen.sizeBytes <= inlineBudget) {
+      inlineBudget -= gen.sizeBytes;
+    } else {
+      delete gen.audioBase64;
+    }
   }
 
   const results = buildBatchResults(items, dedupLinks, generatedResults, quotaLimit);
