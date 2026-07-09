@@ -252,6 +252,16 @@ export function useAudioGenerationWorkflow({
     await generateRows([row], true);
   }, [generateRows, googlePausedMessage, isGoogleTtsPaused, pause, setError]);
 
+  const regenerateRows = useCallback(async (targetRows: AudioRow[]) => {
+    if (targetRows.length === 0) return;
+    if (isGoogleTtsPaused) {
+      setError(googlePausedMessage);
+      return;
+    }
+    pause();
+    await generateRows(targetRows, true);
+  }, [generateRows, googlePausedMessage, isGoogleTtsPaused, pause, setError]);
+
   return {
     generating,
     regeneratingIds,
@@ -259,5 +269,6 @@ export function useAudioGenerationWorkflow({
     etaSeconds,
     generateAll,
     regenerateRow,
+    regenerateRows,
   };
 }
