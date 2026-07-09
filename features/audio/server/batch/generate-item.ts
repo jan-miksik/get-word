@@ -22,7 +22,7 @@ import {
 import {
   getActiveObjectStorageProvider,
   objectKeyForHash,
-  putAudio,
+  putAudioResult,
 } from "@/lib/object-storage";
 import { getErrorDetail } from "./errors";
 import {
@@ -257,11 +257,17 @@ export async function generateAudioForItem(
         provider,
         voiceId: voiceId ?? "default",
       }),
-      putAudio(result.audio, hash),
+      putAudioResult(result.audio, hash),
     ]);
 
-    const mirroredToObjectStore =
-      objectMirrorResult.status === "fulfilled" && objectMirrorResult.value === true;
+    const mirrorOutcome =
+      objectMirrorResult.status === "fulfilled"
+        ? objectMirrorResult.value
+        : { ok: false, category: "exception" as string };
+    const mirroredToObjectStore = mirrorOutcome.ok;
+    // Category surfaced when the durable ref is Arweave but the B2 mirror failed,
+    // so the batch can report *why* (permission/too_large/timeout/network/…).
+    const mirrorFailureCategory = mirrorOutcome.ok ? undefined : mirrorOutcome.category;
 
     if (uploadResult.status === "fulfilled") {
       const storage = uploadResult.value;
@@ -328,6 +334,11 @@ export async function generateAudioForItem(
         storageRef,
         voiceId: actualVoiceUsed ?? "default",
         sizeBytes: result.sizeBytes,
+        // Durable via Arweave, but the B2 mirror failed — report the reason so the
+        // batch can warn without failing the item.
+        ...(storageType === "arweave" && mirrorFailureCategory
+          ? { mirrorFailedCategory: mirrorFailureCategory }
+          : {}),
         ...(audioQualityWarning ? { audioQualityWarning } : {}),
         // Inline the bytes for instant local playback, but only for clips within the
         // per-clip cap. The whole-batch budget is enforced later in generate-batch.

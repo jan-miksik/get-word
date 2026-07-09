@@ -68,6 +68,12 @@ export type GeneratedResult = {
    * stripped by generate-batch once the per-response budget is spent.
    */
   audioBase64?: string;
+  /**
+   * Set when the clip is durable via Arweave but the B2 mirror upload failed; carries
+   * the failure category (permission/too_large/timeout/network/…) so generate-batch
+   * can surface a non-fatal object_mirror_warning.
+   */
+  mirrorFailedCategory?: string;
   error?: string;
 };
 
