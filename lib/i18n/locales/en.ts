@@ -641,6 +641,7 @@ export const enMessages = {
   "lists.audioStatusFailed": "failed",
   "lists.audioStatusNone": "no audio",
   "lists.audioGeneratedWithVoice": "Generated with {voice}",
+  "lists.audioQualityWarning": "Generated, but please check the audio.",
   "lists.audioWillUseVoice": "Next generation: {voice}",
   "lists.showVoiceInfo": "Show voice info",
   "lists.audioGenerateFailed": "Audio generation failed: {message}",

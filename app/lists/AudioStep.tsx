@@ -108,6 +108,9 @@ function AudioStepContent({
   const [error, setError] = useState<string | null>(null);
   const [showVoiceOptions, setShowVoiceOptions] = useState(false);
   const [showVoiceNotes, setShowVoiceNotes] = useState(false);
+  // Soft "please check the audio" notes from the quality autofix — distinct from
+  // playbackErrors (which mean "cannot play").
+  const [audioWarnings, setAudioWarnings] = useState<Record<string, string>>({});
   const {
     voiceOptions,
     voiceGenders,
@@ -148,6 +151,7 @@ function AudioStepContent({
     setPlaybackErrors,
     clearCachedAudio,
     preloadAudio,
+    storeGeneratedAudio,
     playSingle,
     playQueue,
     pause: handlePause,
@@ -193,8 +197,10 @@ function AudioStepContent({
     setRows,
     setError,
     setPlaybackErrors,
+    setAudioWarnings,
     clearCachedAudio,
     preloadAudio,
+    storeGeneratedAudio,
     pause: handlePause,
     audioSide,
     resolveVoice,
@@ -453,6 +459,7 @@ function AudioStepContent({
               isPlaying={playingId === row.id}
               isRegenerating={regeneratingIds.has(row.id)}
               playbackError={playbackErrors[row.id]}
+              qualityWarning={audioWarnings[row.id]}
               generating={generating}
               isGoogleTtsPaused={isGoogleTtsPaused}
               voiceNote={showVoiceNotes ? getVoiceNote(row) : undefined}

@@ -17,6 +17,19 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import type { AudioRow, AudioSourceCandidate } from '@/features/lists/audio-step/rows';
 import type { TranslateFn } from '@/features/lists/audio-step/api';
 import { reportAudioStorageResponse, withAudioDebugParam } from '@/lib/audio-debug';
+import {
+  cleanupClips,
+  getClip,
+  hashFromAudioUrl,
+  putClip,
+} from '@/features/lists/audio-step/audioBlobStore';
+
+function base64ToBlob(base64: string, contentType: string): Blob {
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new Blob([bytes], { type: contentType });
+}
 
 type CachedAudio = {
   objectUrl: string;
@@ -144,11 +157,52 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
     );
   }, []);
 
+  // Store an object URL + metadata in the in-memory cache keyed by the source URL.
+  const cacheObjectUrl = useCallback((audioUrl: string, blob: Blob, finalUrl: string) => {
+    const objectUrl = URL.createObjectURL(blob);
+    audioCacheRef.current.set(audioUrl, {
+      objectUrl,
+      contentType: blob.type || 'unknown',
+      finalUrl,
+      sizeBytes: blob.size,
+    });
+    return objectUrl;
+  }, []);
+
+  // Seed the cache directly from bytes returned by the generation response — instant
+  // playback with zero network round-trip, and persisted to IndexedDB for reloads.
+  const storeGeneratedAudio = useCallback(
+    (audioUrl: string, base64: string, contentType = 'audio/mpeg'): string | null => {
+      try {
+        const existing = audioCacheRef.current.get(audioUrl);
+        if (existing) return existing.objectUrl;
+        const blob = base64ToBlob(base64, contentType);
+        if (blob.size === 0) return null;
+        const objectUrl = cacheObjectUrl(audioUrl, blob, audioUrl);
+        const hash = hashFromAudioUrl(audioUrl);
+        if (hash) void putClip(hash, blob);
+        return objectUrl;
+      } catch {
+        return null;
+      }
+    },
+    [cacheObjectUrl],
+  );
+
   const preloadAudio = useCallback(
     async (rowId: string, source: AudioSourceCandidate): Promise<string> => {
       void rowId;
       const cached = audioCacheRef.current.get(source.audioUrl);
       if (cached) return cached.objectUrl;
+
+      // IndexedDB (persists across reloads). Only proxy URLs carry a content hash.
+      const hash = hashFromAudioUrl(source.audioUrl);
+      if (hash) {
+        const storedBlob = await getClip(hash);
+        if (storedBlob && storedBlob.size > 0) {
+          return cacheObjectUrl(source.audioUrl, storedBlob, source.audioUrl);
+        }
+      }
 
       const candidateUrls = isAppAudioProxyUrl(source.audioUrl)
         ? [withAudioDebugParam(source.audioUrl)]
@@ -244,17 +298,13 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
         throw new AudioLoadError(t('lists.audioGatewayLoadFailed'), failedAttempts);
       }
 
-      const objectUrl = URL.createObjectURL(blob);
-      audioCacheRef.current.set(source.audioUrl, {
-        objectUrl,
-        contentType: blob.type || responseDetails.contentType || 'unknown',
-        finalUrl: responseDetails.finalUrl,
-        sizeBytes: blob.size,
-      });
+      const objectUrl = cacheObjectUrl(source.audioUrl, blob, responseDetails.finalUrl);
+      // Persist so a page reload plays instantly without re-fetching.
+      if (hash) void putClip(hash, blob);
 
       return objectUrl;
     },
-    [t],
+    [cacheObjectUrl, t],
   );
 
   const markPlaybackFailed = useCallback(
@@ -430,6 +480,11 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
     setPlaybackErrors({});
   }, []);
 
+  // Opportunistic IndexedDB cleanup once per mount (best-effort, non-blocking).
+  useEffect(() => {
+    void cleanupClips();
+  }, []);
+
   // Unmount cleanup: stop audio and revoke every cached object URL.
   useEffect(() => {
     const cache = audioCacheRef.current;
@@ -448,6 +503,7 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
     setPlaybackErrors,
     clearCachedAudio,
     preloadAudio,
+    storeGeneratedAudio,
     playSingle,
     playQueue,
     pause,

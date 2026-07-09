@@ -16,6 +16,8 @@ export type AudioGenerationResult = {
   source?: string;
   /** Soft "please check the audio" note from the quality autofix; not a failure. */
   audio_quality_warning?: string;
+  /** Freshly-synthesized bytes (base64) for instant local playback; may be absent. */
+  audio_base64?: string;
   error?: string;
 };
 
