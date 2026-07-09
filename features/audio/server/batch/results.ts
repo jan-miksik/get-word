@@ -42,6 +42,7 @@ export function buildBatchResults(
         voice_id: gen.voiceId ?? item.voice_id ?? null,
         size_bytes: gen.sizeBytes,
         status: gen.status,
+        ...(gen.audioQualityWarning ? { audio_quality_warning: gen.audioQualityWarning } : {}),
         ...(gen.error ? { error: gen.error } : {}),
         source: "generated" as const,
       };
