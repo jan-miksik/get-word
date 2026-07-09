@@ -198,22 +198,29 @@ function contentHashFromObjectKey(key: string): string | null {
   }
 }
 
-export async function putAudio(
+export type PutAudioResult = { ok: boolean; category?: string };
+
+/**
+ * Like `putAudio` but reports the failure category so callers can surface *why* the
+ * mirror upload failed (unconfigured / too_large / permission / timeout / network /
+ * unavailable) instead of only logging it.
+ */
+export async function putAudioResult(
   audio: Buffer | ArrayBuffer | Uint8Array,
   contentHash: string,
   contentType = OBJECT_AUDIO_CONTENT_TYPE,
-): Promise<boolean> {
+): Promise<PutAudioResult> {
   const config = getObjectStorageConfig();
   if (!config) {
     logObjectFailure("put", contentHash, "unconfigured");
-    return false;
+    return { ok: false, category: "unconfigured" };
   }
 
   const byteLength = getAudioByteLength(audio);
   const maxBytes = getMaxAudioBytes();
   if (byteLength > maxBytes) {
     logObjectFailure("put", contentHash, "too_large", { byteLength, maxBytes });
-    return false;
+    return { ok: false, category: "too_large" };
   }
 
   try {
@@ -232,15 +239,25 @@ export async function putAudio(
     });
 
     if (!response.ok) {
-      logObjectFailure("put", contentHash, categorizeStatus(response.status), response.status);
-      return false;
+      const category = categorizeStatus(response.status);
+      logObjectFailure("put", contentHash, category, response.status);
+      return { ok: false, category };
     }
 
-    return true;
+    return { ok: true };
   } catch (err) {
-    logObjectFailure("put", contentHash, categorizeError(err), err);
-    return false;
+    const category = categorizeError(err);
+    logObjectFailure("put", contentHash, category, err);
+    return { ok: false, category };
   }
+}
+
+export async function putAudio(
+  audio: Buffer | ArrayBuffer | Uint8Array,
+  contentHash: string,
+  contentType = OBJECT_AUDIO_CONTENT_TYPE,
+): Promise<boolean> {
+  return (await putAudioResult(audio, contentHash, contentType)).ok;
 }
 
 export async function getAudio(

@@ -356,6 +356,27 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
     }
   }
 
+  // Non-fatal heads-up: some clips are durable on Arweave but their B2 mirror upload
+  // failed. Report how many and the categories so the failure is visible (the mirror
+  // silently returned false before) without failing the request.
+  const mirrorFailures = generatedResults.filter((r) => r.mirrorFailedCategory);
+  const objectMirrorWarning =
+    mirrorFailures.length > 0
+      ? {
+          code: "OBJECT_MIRROR_UPLOAD_FAILED",
+          detail:
+            `${mirrorFailures.length} clip(s) saved to Arweave only — the B2 mirror upload failed ` +
+            `(${Array.from(new Set(mirrorFailures.map((r) => r.mirrorFailedCategory))).join(", ")}). ` +
+            `Playback still works via Arweave; check AUDIO_OBJECT_STORE_* and server logs.`,
+          failed_count: mirrorFailures.length,
+          categories: Array.from(new Set(mirrorFailures.map((r) => r.mirrorFailedCategory))),
+        }
+      : undefined;
+
+  if (objectMirrorWarning) {
+    console.warn("[Get Word audio] object mirror upload failed for some clips", objectMirrorWarning);
+  }
+
   const results = buildBatchResults(items, dedupLinks, generatedResults, quotaLimit);
 
   return NextResponse.json({
@@ -364,5 +385,6 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
     generated_count: generatedResults.filter((r) => r.status === "ok").length,
     ...(quotaLimit ? { quota_limit: quotaLimit } : {}),
     ...(quotaWarning ? { quota_warning: quotaWarning } : {}),
+    ...(objectMirrorWarning ? { object_mirror_warning: objectMirrorWarning } : {}),
   });
 }
