@@ -168,10 +168,25 @@ export function analyzeMp3(input: Buffer | Uint8Array | ArrayBuffer): Mp3Analysi
 }
 
 /** Count characters that a TTS engine would actually voice (letters/digits). */
-function countVisibleChars(text: string): number {
+export function countVisibleChars(text: string): number {
   // Strip whitespace and common punctuation; keep letters/digits across scripts.
   const stripped = text.replace(/[\s\p{P}\p{S}]+/gu, "");
   return Array.from(stripped).length;
+}
+
+/**
+ * Cheap size-only heuristic for the repair scan's DB pass: is a stored clip's byte
+ * size suspiciously small for its text? Deliberately lenient — a hit only makes the
+ * clip a *candidate* for the deep (frame-level) pass, never a direct "broken" verdict,
+ * because legitimately tiny clips ("hi", "no", "a", numbers) are expected.
+ */
+export function isSuspiciousSizeForText(sizeBytes: number | null | undefined, text: string): boolean {
+  if (sizeBytes == null) return true; // unknown size — inspect it
+  const visibleChars = countVisibleChars(text);
+  // ~24 kbps MP3 ≈ 3 KB/s; a plausible clip is at least a few hundred bytes plus a
+  // little per character. Below this floor, look closer.
+  const floor = 600 + 180 * visibleChars;
+  return sizeBytes < floor;
 }
 
 /**

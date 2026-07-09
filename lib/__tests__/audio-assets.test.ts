@@ -18,6 +18,7 @@ describe("audio asset playability", () => {
       arweaveUrl: null,
       arweaveUrls: [],
       storageRef: "audio/abc123.mp3",
+      voiceId: null,
     });
   });
 
@@ -34,6 +35,7 @@ describe("audio asset playability", () => {
       arweaveUrl: null,
       arweaveUrls: [],
       storageRef: "audio/abc123.mp3",
+      voiceId: null,
     });
   });
 });

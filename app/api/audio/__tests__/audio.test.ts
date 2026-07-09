@@ -47,6 +47,7 @@ vi.mock('@/lib/audio', () => ({
   elevenLabsTTS: (...args: unknown[]) => mockElevenLabsTTS(...args),
   getAudioUrl: (...args: unknown[]) => mockGetAudioUrl(...args),
   GoogleTTSQuotaExhaustedError: class GoogleTTSQuotaExhaustedError extends Error {},
+  DEFAULT_GOOGLE_TTS_VOICE_ID: 'google:default:female',
 }))
 
 vi.mock('@/lib/audio-storage', () => ({
@@ -60,10 +61,23 @@ vi.mock('@/lib/audio-storage', () => ({
 
 vi.mock('@/lib/object-storage', () => ({
   putAudio: (...args: unknown[]) => mockPutObjectAudio(...args),
+  putAudioResult: async (...args: unknown[]) => ({ ok: await mockPutObjectAudio(...args) }),
   getAudio: (...args: unknown[]) => mockGetObjectAudio(...args),
   isObjectStorageConfigured: (...args: unknown[]) => mockIsObjectConfigured(...args),
   objectKeyForHash: (...args: unknown[]) => mockObjectKeyForHash(...args),
   getActiveObjectStorageProvider: (...args: unknown[]) => mockGetActiveProvider(...args),
+}))
+
+// Avoid loading the real language catalog (pulls in the DB client at import time)
+// and neutralize the quality analyzer — this suite tests batch orchestration, and
+// the autofix/analyzer have their own unit tests (lib/__tests__/audio-quality).
+vi.mock('@/lib/language-catalog', () => ({
+  getGoogleFallbackVoices: async () => ({ studio: null, standard: null }),
+}))
+vi.mock('@/lib/audio-quality', () => ({
+  analyzeMp3: () => ({ durationMs: 1000, frameCount: 10 }),
+  assessClipPlausibility: () => ({ plausible: true }),
+  isSuspiciousSizeForText: () => false,
 }))
 
 import { POST } from '../generate/batch/route'

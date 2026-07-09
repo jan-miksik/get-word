@@ -19,8 +19,11 @@ import { formatVoiceLabel, getChirp3HdVoiceOptions } from '@/features/lists/audi
 import { useReusableAudioLookup } from '@/features/lists/audio-step/useReusableAudioLookup';
 import { useAudioGenerationWorkflow } from '@/features/lists/audio-step/useAudioGenerationWorkflow';
 import { AudioStepRow } from '@/features/lists/audio-step/AudioStepRow';
+import { listsApiFetch } from '@/features/lists/api';
 import { DEFAULT_GOOGLE_TTS_VOICE_ID } from '@/lib/audio-constants';
 import { GoogleUsageHint } from './GoogleUsageHint';
+
+type ScanFlaggedItem = { itemId: string; side: string; text: string; reason: string };
 
 interface AudioStepProps {
   list: WordList;
@@ -111,6 +114,12 @@ function AudioStepContent({
   // Soft "please check the audio" notes from the quality autofix — distinct from
   // playbackErrors (which mean "cannot play").
   const [audioWarnings, setAudioWarnings] = useState<Record<string, string>>({});
+  // ⋯ menu → scan/repair broken clips on the current side.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [scanning, setScanning] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
+  const [scanFlagged, setScanFlagged] = useState<ScanFlaggedItem[] | null>(null);
+  const [scanSelected, setScanSelected] = useState<Set<string>>(() => new Set());
   const {
     voiceOptions,
     voiceGenders,
@@ -192,6 +201,7 @@ function AudioStepContent({
     etaSeconds,
     generateAll: handleGenerateAll,
     regenerateRow: handleRegenerateRow,
+    regenerateRows: handleRegenerateRows,
   } = useAudioGenerationWorkflow({
     rows,
     setRows,
@@ -223,6 +233,49 @@ function AudioStepContent({
     });
     playQueue(queue);
   }, [playQueue, rows]);
+
+  const handleScanForProblems = useCallback(async () => {
+    setMenuOpen(false);
+    setScanning(true);
+    setScanError(null);
+    setScanFlagged(null);
+    try {
+      const res = await listsApiFetch(`/api/lists/${list.id}/audio/scan`, {
+        method: 'POST',
+        body: JSON.stringify({ side: audioSide }),
+      });
+      if (!res.ok) {
+        throw new Error(t('lists.audioScanFailed'));
+      }
+      const data = (await res.json()) as { flagged?: ScanFlaggedItem[] };
+      const flagged = (data.flagged ?? []).filter((f) => f.side === audioSide);
+      setScanFlagged(flagged);
+      setScanSelected(new Set(flagged.map((f) => f.itemId))); // default-selected
+    } catch (err) {
+      setScanError(err instanceof Error ? err.message : t('lists.audioScanFailed'));
+    } finally {
+      setScanning(false);
+    }
+  }, [audioSide, list.id, t]);
+
+  const handleAutoRepair = useCallback(async () => {
+    if (!scanFlagged) return;
+    const selectedIds = new Set(
+      scanFlagged.filter((f) => scanSelected.has(f.itemId)).map((f) => f.itemId),
+    );
+    const targetRows = rows.filter((row) => selectedIds.has(row.id));
+    setScanFlagged(null);
+    await handleRegenerateRows(targetRows);
+  }, [handleRegenerateRows, rows, scanFlagged, scanSelected]);
+
+  const toggleScanSelected = useCallback((itemId: string) => {
+    setScanSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(itemId)) next.delete(itemId);
+      else next.add(itemId);
+      return next;
+    });
+  }, []);
 
   const handleComplete = useCallback(async () => {
     setCompleting(true);
@@ -272,14 +325,86 @@ function AudioStepContent({
             {t('lists.audioForLanguage', { summary: subtitle, language: activeLanguageLabel })}
           </p>
         </div>
-        <button
-          type="button"
-          className="rounded-lg border border-border-subtle px-3 py-1.5 text-sm text-text-soft transition-colors hover:text-text"
-          onClick={onSkip}
-        >
-          {t('lists.skip')}
-        </button>
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <button
+              type="button"
+              aria-label={t('lists.audioMoreActions')}
+              className="rounded-lg border border-border-subtle px-3 py-1.5 text-sm text-text-soft transition-colors hover:text-text"
+              onClick={() => setMenuOpen((open) => !open)}
+            >
+              ⋯
+            </button>
+            {menuOpen && (
+              <div className="absolute right-0 z-10 mt-1 w-52 rounded-lg border border-border-subtle bg-background-elevated py-1 shadow-lg">
+                <button
+                  type="button"
+                  disabled={scanning}
+                  className="block w-full px-3 py-2 text-left text-sm text-text transition-colors hover:bg-accent/10 disabled:opacity-60"
+                  onClick={() => void handleScanForProblems()}
+                >
+                  {scanning ? t('lists.audioScanning') : t('lists.audioScanForProblems')}
+                </button>
+              </div>
+            )}
+          </div>
+          <button
+            type="button"
+            className="rounded-lg border border-border-subtle px-3 py-1.5 text-sm text-text-soft transition-colors hover:text-text"
+            onClick={onSkip}
+          >
+            {t('lists.skip')}
+          </button>
+        </div>
       </div>
+
+      {scanError && (
+        <div className="mb-4 rounded-lg bg-danger/10 p-3 text-sm text-danger">{scanError}</div>
+      )}
+
+      {scanFlagged && (
+        <div className="mb-4 rounded-lg border border-border-subtle bg-background-elevated p-3">
+          {scanFlagged.length === 0 ? (
+            <p className="text-sm text-text-soft">{t('lists.audioScanClean')}</p>
+          ) : (
+            <>
+              <p className="mb-2 text-sm font-medium text-text">
+                {t('lists.audioScanFound', { count: scanFlagged.length })}
+              </p>
+              <div className="max-h-48 space-y-1 overflow-y-auto">
+                {scanFlagged.map((flag) => (
+                  <label key={flag.itemId} className="flex items-center gap-2 text-sm text-text">
+                    <input
+                      type="checkbox"
+                      checked={scanSelected.has(flag.itemId)}
+                      onChange={() => toggleScanSelected(flag.itemId)}
+                    />
+                    <span className="min-w-0 flex-1 truncate">{flag.text}</span>
+                    <span className="shrink-0 text-xs text-text-soft">{flag.reason}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="mt-3 flex gap-2">
+                <button
+                  type="button"
+                  disabled={scanSelected.size === 0 || generating}
+                  className="rounded-lg bg-accent px-3 py-1.5 text-sm font-medium text-background transition-colors hover:bg-accent-strong disabled:opacity-60"
+                  onClick={() => void handleAutoRepair()}
+                >
+                  {t('lists.audioAutoRepair', { count: scanSelected.size })}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-lg border border-border-subtle px-3 py-1.5 text-sm text-text-soft transition-colors hover:text-text"
+                  onClick={() => setScanFlagged(null)}
+                >
+                  {t('common.cancel')}
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       <div className="mb-4 rounded-lg border border-border-subtle bg-background-elevated p-3">
         <div className="flex flex-wrap items-center gap-3">
