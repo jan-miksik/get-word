@@ -30,6 +30,7 @@ function hydrateSingleAudioAsset(
       arweaveUrl: null,
       arweaveUrls: [] as string[],
       storageRef: null,
+      voiceId: null,
     };
   }
 
@@ -49,10 +50,12 @@ function getHydratedAudioFields(
     knownAudioArweaveUrl: known.arweaveUrl,
     knownAudioArweaveUrls: known.arweaveUrls,
     knownAudioStorageRef: known.storageRef,
+    knownAudioVoiceId: known.voiceId,
     audioUrl: target.url,
     audioArweaveUrl: target.arweaveUrl,
     audioArweaveUrls: target.arweaveUrls,
     audioStorageRef: target.storageRef,
+    audioVoiceId: target.voiceId,
   };
 }
 
@@ -102,10 +105,12 @@ export async function GET(request: NextRequest, context: RouteContext) {
             knownAudioArweaveUrl: null,
             knownAudioArweaveUrls: [],
             knownAudioStorageRef: null,
+            knownAudioVoiceId: null,
             audioUrl: null,
             audioArweaveUrl: null,
             audioArweaveUrls: [],
             audioStorageRef: null,
+            audioVoiceId: null,
           }),
     })),
   });

@@ -1,5 +1,10 @@
 import crypto from "crypto";
 
+// Re-exported for server callers that already import from "@/lib/audio". Client
+// components should import it from "@/lib/audio-constants" to avoid pulling in
+// node-only dependencies (crypto).
+export { DEFAULT_GOOGLE_TTS_VOICE_ID } from "./audio-constants";
+
 export class GoogleTTSQuotaExhaustedError extends Error {
   readonly code = "RESOURCE_EXHAUSTED" as const;
   constructor(detail: string) {

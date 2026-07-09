@@ -132,6 +132,7 @@ export async function upsertMediaAsset(
         language: data.language,
         textReference: data.textReference,
         provider: data.provider,
+        voiceId: data.voiceId,
         sizeBytes: data.sizeBytes,
       },
     })

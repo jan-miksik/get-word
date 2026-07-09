@@ -19,6 +19,7 @@ import { formatVoiceLabel, getChirp3HdVoiceOptions } from '@/features/lists/audi
 import { useReusableAudioLookup } from '@/features/lists/audio-step/useReusableAudioLookup';
 import { useAudioGenerationWorkflow } from '@/features/lists/audio-step/useAudioGenerationWorkflow';
 import { AudioStepRow } from '@/features/lists/audio-step/AudioStepRow';
+import { DEFAULT_GOOGLE_TTS_VOICE_ID } from '@/lib/audio-constants';
 import { GoogleUsageHint } from './GoogleUsageHint';
 
 interface AudioStepProps {
@@ -227,7 +228,9 @@ function AudioStepContent({
   }, [onComplete]);
 
   const formatGenerationVoice = useCallback((voiceId: string | null | undefined) => {
-    if (!voiceId || voiceId === 'default') return t('lists.defaultGoogleVoice');
+    if (!voiceId || voiceId === 'default' || voiceId === DEFAULT_GOOGLE_TTS_VOICE_ID) {
+      return t('lists.defaultGoogleVoice');
+    }
     return formatVoiceLabel(voiceId, voiceGenders);
   }, [t, voiceGenders]);
 

@@ -58,12 +58,14 @@ export type WordListItem = {
   knownAudioArweaveUrl?: string | null;
   knownAudioArweaveUrls?: string[];
   knownAudioStorageRef?: string | null;
+  knownAudioVoiceId?: string | null;
   audioAssetId?: string | null;
   audioStatus: string;
   audioUrl?: string | null;
   audioArweaveUrl?: string | null;
   audioArweaveUrls?: string[];
   audioStorageRef?: string | null;
+  audioVoiceId?: string | null;
   notes: string | null;
   comment?: WordItemComment | null;
 };

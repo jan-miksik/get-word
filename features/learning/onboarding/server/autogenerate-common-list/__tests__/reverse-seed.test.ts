@@ -50,6 +50,7 @@ function playableAsset(id: string): MediaAsset {
     provider: "google_tts",
     language: "cs",
     textReference: "text",
+    voiceId: null,
     sizeBytes: null,
     createdAt: new Date("2026-01-01T00:00:00.000Z"),
   };

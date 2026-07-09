@@ -9,6 +9,7 @@ import {
   elevenLabsTTS,
   getAudioUrl,
   GoogleTTSQuotaExhaustedError,
+  DEFAULT_GOOGLE_TTS_VOICE_ID,
 } from "@/lib/audio";
 import { runGoogleTtsWithRetry } from "@/lib/google-tts-rate-limit";
 import {
@@ -50,6 +51,17 @@ export async function generateAudioForItem(
   const { provider, encryptedKey, audioField, force } = ctx;
   const voiceId = itemVoiceId ?? ctx.voiceId;
   const audioFieldPatch = audioField === "known" ? { audioField } : {};
+
+  // The voice that actually produced the stored audio. For Google's default
+  // name-less path we record a canonical sentinel so the editor can label it
+  // (rather than null, which means "unknown / pre-migration").
+  const requestedVoiceLabel = voiceId?.trim();
+  const actualVoiceUsed =
+    provider === "google_tts"
+      ? !requestedVoiceLabel || requestedVoiceLabel === "default"
+        ? DEFAULT_GOOGLE_TTS_VOICE_ID
+        : requestedVoiceLabel
+      : requestedVoiceLabel || null;
 
   try {
     let result: { audio: Buffer; sizeBytes: number } | null = null;
@@ -146,6 +158,7 @@ export async function generateAudioForItem(
       language: item.language,
       textReference: item.text,
       provider: provider as "google_tts" | "elevenlabs",
+      voiceId: actualVoiceUsed,
       sizeBytes: result.sizeBytes,
     };
 

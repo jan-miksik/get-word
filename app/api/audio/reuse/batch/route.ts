@@ -131,6 +131,7 @@ export async function POST(request: NextRequest) {
         arweave_urls: arweaveUrls,
         storage_ref: asset.storageRef,
         provider: asset.provider,
+        voice_id: asset.voiceId ?? null,
         size_bytes: asset.sizeBytes,
       };
     });
@@ -149,7 +150,11 @@ export async function POST(request: NextRequest) {
       storage_ref: selectedMatch?.storage_ref ?? null,
       provider: selectedMatch?.provider ?? null,
       size_bytes: selectedMatch?.size_bytes,
-      voice_id: selectedAsset.contentHash === hash ? requestedVoiceId : null,
+      // Prefer the voice actually stored on the asset; fall back to the requested
+      // voice only for pre-migration rows (null voiceId) whose hash matches.
+      voice_id:
+        selectedAsset.voiceId
+        ?? (selectedAsset.contentHash === hash ? requestedVoiceId : null),
       asset_id: selectedAsset.id,
       selected_asset_id: selectedAsset.id,
       matches,

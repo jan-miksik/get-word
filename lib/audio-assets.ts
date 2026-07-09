@@ -5,6 +5,7 @@ type AudioAssetLike = {
   contentHash: string;
   storageType: string;
   storageRef: string;
+  voiceId?: string | null;
 };
 
 export type PlayableAudioFields = {
@@ -12,6 +13,7 @@ export type PlayableAudioFields = {
   arweaveUrl: string | null;
   arweaveUrls: string[];
   storageRef: string | null;
+  voiceId: string | null;
 };
 
 function hasRemoteStorageRef(storageRef: string): boolean {
@@ -33,12 +35,14 @@ export function getPlayableAudioFields(
   asset: AudioAssetLike | null | undefined,
 ): PlayableAudioFields {
   const storageRef = asset?.storageRef ?? null;
+  const voiceId = asset?.voiceId ?? null;
   if (!isPlayableAudioAsset(asset)) {
     return {
       url: null,
       arweaveUrl: null,
       arweaveUrls: [],
       storageRef,
+      voiceId,
     };
   }
 
@@ -52,5 +56,6 @@ export function getPlayableAudioFields(
     arweaveUrl: arweaveUrls[0] ?? null,
     arweaveUrls,
     storageRef: asset.storageRef,
+    voiceId,
   };
 }
