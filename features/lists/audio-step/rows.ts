@@ -88,6 +88,7 @@ export function buildAudioRows(items: WordListItem[], list: WordList, audioSide:
         arweaveUrl: isKnownSide ? item.knownAudioArweaveUrl ?? null : item.audioArweaveUrl ?? null,
         arweaveUrls: isKnownSide ? item.knownAudioArweaveUrls ?? [] : item.audioArweaveUrls ?? [],
         storageRef: isKnownSide ? item.knownAudioStorageRef ?? null : item.audioStorageRef ?? null,
+        generationVoiceId: isKnownSide ? item.knownAudioVoiceId ?? null : item.audioVoiceId ?? null,
         reusableOptions: [],
         selectedReusableAssetId: isKnownSide ? item.knownAudioAssetId ?? null : item.audioAssetId ?? null,
         reuseStatus: 'unchecked',

@@ -119,6 +119,11 @@ export const mediaAssets = pgTable(
     language: text("language").notNull(),
     textReference: text("text_reference").notNull(),
     provider: ttsProviderEnum("provider").notNull(),
+    // The voice that ACTUALLY produced this asset (may be an autofix fallback, not
+    // the requested voice). Null on legacy rows created before this column — the UI
+    // treats null as "unknown", not "default". The default name-less Google voice is
+    // stored as the DEFAULT_GOOGLE_TTS_VOICE_ID sentinel, not null.
+    voiceId: text("voice_id"),
     sizeBytes: integer("size_bytes"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
