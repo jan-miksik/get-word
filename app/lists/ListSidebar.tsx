@@ -7,10 +7,9 @@ import type { GoogleUsageResponse, WordList } from '@/features/lists/types';
 import { GoogleUsagePanel } from './GoogleUsagePanel';
 import { useI18n } from '@/components/I18nProvider';
 import { ConfirmModal } from '@/components/ConfirmModal';
-import { CreateListModal } from './CreateListModal';
+import { CreateListModal, type CreateListOptions } from './CreateListModal';
 import { ListFilterModal } from './ListFilterModal';
-import { ShareLinkDialog } from './ShareLinkDialog';
-import { ResetShareLinkDialog } from './ResetShareLinkDialog';
+import { ShareVisibilityDialog } from './ShareVisibilityDialog';
 import type { LearningLanguage } from '@/features/learning/onboarding/types';
 
 interface ListSidebarProps {
@@ -23,7 +22,12 @@ interface ListSidebarProps {
   initialCreateLanguageFrom?: string | null;
   initialCreateLanguageTo?: string | null;
   onSelectList: (id: string) => void;
-  onCreateList: (name: string, langFrom: string, langTo: string) => Promise<void>;
+  onCreateList: (
+    name: string,
+    langFrom: string,
+    langTo: string,
+    options: CreateListOptions,
+  ) => Promise<void>;
   onDeleteList: (listId: string) => Promise<void>;
   onEditList?: (listId: string) => void;
   onSubscribe: (listId: string) => Promise<void>;
@@ -111,7 +115,6 @@ export function ListSidebar({
   const [openDropdownId, setOpenDropdownId] = useState<string | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<WordList | null>(null);
   const [shareList, setShareList] = useState<WordList | null>(null);
-  const [resetShareList, setResetShareList] = useState<WordList | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const [filterFrom, setFilterFrom] = useState('');
   const [filterTo, setFilterTo] = useState('');
@@ -121,7 +124,8 @@ export function ListSidebar({
   const isOwnedList = (list: WordList) => list.isOwner ?? list.ownerId !== null;
   const canManageSharedList = (list: WordList) => canManageCommonLists && Boolean(list.isCommon);
   const canManageList = (list: WordList) => isOwnedList(list) || canManageSharedList(list);
-  const canShareList = (list: WordList) => isOwnedList(list) || canManageSharedList(list);
+  // Managers can change visibility/reset; a public list's link is copyable by anyone.
+  const canShareList = (list: WordList) => canManageList(list) || Boolean(list.isPublic);
 
   // Build the onboarding-style combobox options from the language codes that
   // actually appear across the lists, so the filter never offers a dead pair.
@@ -251,11 +255,6 @@ export function ListSidebar({
   function handleShareClick(list: WordList) {
     setOpenDropdownId(null);
     setShareList(list);
-  }
-
-  function handleResetShareClick(list: WordList) {
-    setOpenDropdownId(null);
-    setResetShareList(list);
   }
 
   function toggleDropdown(e: React.MouseEvent, listId: string) {
@@ -432,19 +431,6 @@ export function ListSidebar({
                             <path d="M11.5 4.5l4 4L7 17H3v-4L11.5 4.5z" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                           <span className="min-w-0 flex-1 leading-snug">{t('lists.edit')}</span>
-                        </button>
-                        <button
-                          type="button"
-                          className="flex w-full items-center justify-start gap-2.5 px-3 py-2 text-left text-xs text-text transition-colors hover:bg-background-elevated"
-                          onClick={() => handleResetShareClick(list)}
-                        >
-                          <svg width="14" height="14" viewBox="0 0 20 20" fill="none" aria-hidden="true" className="shrink-0">
-                            <path d="M5.25 6.25A6 6 0 0115.3 4.6" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                            <path d="M15.25 2.75v3.75H11.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                            <path d="M14.75 13.75A6 6 0 014.7 15.4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-                            <path d="M4.75 17.25V13.5H8.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
-                          <span className="min-w-0 flex-1 leading-snug">{t('share.resetLink')}</span>
                         </button>
                         {canDelete && (
                           <>
@@ -892,17 +878,11 @@ export function ListSidebar({
       />
 
       {shareList && (
-        <ShareLinkDialog
+        <ShareVisibilityDialog
           list={shareList}
+          canManage={canManageList(shareList)}
           onClose={() => setShareList(null)}
           onListUpdated={onListUpdated}
-        />
-      )}
-
-      {resetShareList && (
-        <ResetShareLinkDialog
-          list={resetShareList}
-          onClose={() => setResetShareList(null)}
         />
       )}
 

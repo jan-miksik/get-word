@@ -1,5 +1,6 @@
 import { useCallback } from 'react';
 import * as listActions from '@/features/lists/client/actions';
+import type { CreateListOptions } from '@/features/lists/client/actions';
 import type { WordList, WordListItem } from '@/features/lists/types';
 
 type UpdateListData = Pick<WordList, 'name' | 'description' | 'isPublic'> & {
@@ -62,8 +63,13 @@ export function useListsPageActions({
     updateSelectedListUrl,
   ]);
 
-  const createList = useCallback(async (name: string, langFrom: string, langTo: string) => {
-    const list = await listActions.createList(name, langFrom, langTo);
+  const createList = useCallback(async (
+    name: string,
+    langFrom: string,
+    langTo: string,
+    options: CreateListOptions,
+  ) => {
+    const list = await listActions.createList(name, langFrom, langTo, options);
     clearForkedListPrompt();
     beginDetailsTransition();
     updateSelectedListUrl(list.id, null);

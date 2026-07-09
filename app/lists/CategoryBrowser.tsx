@@ -4,7 +4,7 @@ import { useState, useCallback, useEffect, useRef } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import type { WordCategory, WordList, WordListItem } from '@/features/lists/types';
 import { ConfirmModal } from '@/components/ConfirmModal';
-import { ShareLinkDialog } from './ShareLinkDialog';
+import { ShareVisibilityDialog } from './ShareVisibilityDialog';
 
 const ALL_WORDS_CATEGORY_ID = '__all_words__';
 
@@ -19,7 +19,7 @@ interface CategoryBrowserProps {
   triggerEditSignal?: number;
   onEditCategory: (categoryId: string, inputLang: 'known' | 'target') => void;
   onEditAllWords: () => void;
-  onCreateCategory: (name: string) => Promise<void>;
+  onCreateCategory: (name: string) => Promise<string | null | void>;
   onUpdateList: (listId: string, data: Pick<WordList, 'name' | 'description' | 'isPublic'> & {
     isCommon?: boolean;
     isRecommended?: boolean;
@@ -138,7 +138,10 @@ export function CategoryBrowser({
   const canEditListMetadata = isOwner || isEditor;
   const canEditListContent = isOwner || (isEditor && Boolean(list.isCommon));
   const canDeleteList = isOwner || (isEditor && Boolean(list.isCommon));
-  const canShareList = isOwner || (isEditor && Boolean(list.isCommon));
+  // Owner (and editors of common lists) can change visibility and reset the
+  // link; anyone can copy the link of a public list.
+  const canManageVisibility = isOwner || (isEditor && Boolean(list.isCommon));
+  const canShareList = canManageVisibility || list.isPublic;
   const languageOptions = languages.length > 0 ? languages : [
     { code: 'cs', name: t('languageName.cs') },
     { code: 'vi', name: t('languageName.vi') },
@@ -211,9 +214,13 @@ export function CategoryBrowser({
 
   async function handleAddCategory() {
     if (!newCategoryName.trim()) return;
-    await onCreateCategory(newCategoryName.trim());
+    const newCategoryId = await onCreateCategory(newCategoryName.trim());
     setNewCategoryName('');
     setShowAddCategory(false);
+    // Jump straight into the "add words" edit step for the freshly created category.
+    if (newCategoryId) {
+      onEditCategory(newCategoryId, 'known');
+    }
   }
 
   async function handleListMetadataSubmit() {
@@ -370,20 +377,24 @@ export function CategoryBrowser({
                   </select>
                 </label>
               </div>
-              <label className="flex items-center gap-2 text-sm text-text-soft">
-                <input
-                  type="checkbox"
-                  checked={listIsPublic || listIsCommon || listIsRecommended}
-                  disabled={listIsCommon || listIsRecommended}
-                  onChange={(e) => setListIsPublic(e.target.checked)}
-                  className="size-4 accent-accent"
-                />
-                {t('lists.publicList')}
-              </label>
-              {(listIsPublic || listIsCommon || listIsRecommended) && (
-                <p className="m-0 -mt-1 text-xs leading-relaxed text-text-soft/70">
-                  {t('lists.publicListHelp')}
-                </p>
+              {canManageVisibility && (
+                <div className="flex flex-wrap items-center gap-1.5 text-sm text-text-soft">
+                  <span aria-hidden>{list.isPublic ? '🌐' : '🔒'}</span>
+                  <span>
+                    {list.isPublic
+                      ? t('lists.visibilityRowPublic')
+                      : t('lists.visibilityRowPrivate')}
+                  </span>
+                  {!listIsCommon && !listIsRecommended && (
+                    <button
+                      type="button"
+                      className="rounded text-accent underline-offset-2 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/40"
+                      onClick={() => setShareList(list)}
+                    >
+                      {t('lists.visibilityRowEdit')}
+                    </button>
+                  )}
+                </div>
               )}
               {isEditor ? (
                 <div className="grid gap-2">
@@ -821,8 +832,9 @@ export function CategoryBrowser({
       />
 
       {shareList && (
-        <ShareLinkDialog
+        <ShareVisibilityDialog
           list={shareList}
+          canManage={canManageVisibility}
           onClose={() => setShareList(null)}
           onListUpdated={onListUpdated}
         />

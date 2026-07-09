@@ -42,7 +42,7 @@ export async function POST(request: NextRequest) {
   if (!user) return unauthorizedResponse();
 
   const body = await request.json();
-  const { name, language_from, language_to, description } = body;
+  const { name, language_from, language_to, description, is_public } = body;
 
   if (!name || !language_from || !language_to) {
     return NextResponse.json(
@@ -54,10 +54,10 @@ export async function POST(request: NextRequest) {
   const list = await createList({
     ownerId: user.id,
     name,
-    description: description ?? null,
+    description: description ? String(description).trim() || null : null,
     languageFrom: language_from,
     languageTo: language_to,
-    isPublic: false,
+    isPublic: is_public === true,
   });
 
   return NextResponse.json({ list: serializeWordList(list) }, { status: 201 });

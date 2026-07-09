@@ -52,12 +52,22 @@ describe('POST /api/lists/[id]/share', () => {
     expect(res.status).toBe(401)
   })
 
-  it('403 for a non-owner', async () => {
+  it('403 for a non-owner of a private list', async () => {
     mockResolveUserFromRequest.mockResolvedValue({ id: 'someone-else' })
     mockGetListById.mockResolvedValue(list)
     const res = await SHARE(req('list-1'), params('list-1'))
     expect(res.status).toBe(403)
     expect(mockGetOrCreateListShareToken).not.toHaveBeenCalled()
+  })
+
+  it('lets any signed-in user fetch the link of a public list', async () => {
+    mockResolveUserFromRequest.mockResolvedValue({ id: 'someone-else' })
+    mockGetListById.mockResolvedValue({ ...list, ownerId: 'teacher-1', isPublic: true })
+    mockGetOrCreateListShareToken.mockResolvedValue('tok-public')
+    const res = await SHARE(req('list-1'), params('list-1'))
+    expect(res.status).toBe(200)
+    const data = await res.json()
+    expect(data.url).toBe('https://getword.app/join/tok-public')
   })
 
   it('returns the /join link for the owner', async () => {

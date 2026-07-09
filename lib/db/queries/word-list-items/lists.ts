@@ -221,10 +221,25 @@ export async function updateList(
     const languageToChanged =
       data.languageTo !== undefined &&
       normalizeListLanguageCode(data.languageTo) !== normalizeListLanguageCode(current.languageTo);
+    // Common/recommended lists are always public — coerce isPublic true even
+    // when a plain visibility toggle tries to flip an existing common list to
+    // private without re-sending the isCommon flag.
     const shouldRemainRecommended = data.isRecommended ?? current.isRecommended;
+    const shouldRemainCommon = data.isCommon ?? current.isCommon;
+    const nextIsPublic =
+      shouldRemainCommon || shouldRemainRecommended
+        ? true
+        : data.isPublic ?? current.isPublic;
+    // Going public → private rotates the share token. While a list is public
+    // anyone can copy its /join token; that token would otherwise survive the
+    // switch and keep granting access to the now-private list. Rotating kills
+    // every leaked link. Existing subscribers keep access (their rows are
+    // untouched) — dropping them is the separate, heavier "reset link" action.
+    const goingPrivate = current.isPublic && !nextIsPublic;
     const updateData = {
       ...data,
-      ...(data.isCommon === true || shouldRemainRecommended ? { isPublic: true } : {}),
+      isPublic: nextIsPublic,
+      ...(goingPrivate ? { shareToken: generateShareToken() } : {}),
       updatedAt: new Date(),
     };
 

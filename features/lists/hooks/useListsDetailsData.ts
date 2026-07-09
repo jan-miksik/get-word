@@ -71,10 +71,11 @@ export function useListsDetailsData({
     }
   }, [beginDetailsTransition, selectedListId, setError, t]);
 
-  const createCategory = useCallback(async (name: string) => {
-    if (!selectedListId) return;
-    await listActions.createCategory(selectedListId, name);
+  const createCategory = useCallback(async (name: string): Promise<string | null> => {
+    if (!selectedListId) return null;
+    const newCategoryId = await listActions.createCategory(selectedListId, name);
     await reloadListDetails();
+    return newCategoryId;
   }, [reloadListDetails, selectedListId]);
 
   const reorderCategories = useCallback(async (orderedIds: string[]) => {

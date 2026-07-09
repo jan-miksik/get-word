@@ -29,14 +29,26 @@ export async function fetchListDetails(
   };
 }
 
+export type CreateListOptions = {
+  description: string;
+  isPublic: boolean;
+};
+
 export async function createList(
   name: string,
   languageFrom: string,
   languageTo: string,
+  options: CreateListOptions = { description: "", isPublic: false },
 ): Promise<WordList> {
   const res = await listsApiFetch("/api/lists", {
     method: "POST",
-    body: JSON.stringify({ name, language_from: languageFrom, language_to: languageTo }),
+    body: JSON.stringify({
+      name,
+      language_from: languageFrom,
+      language_to: languageTo,
+      description: options.description,
+      is_public: options.isPublic,
+    }),
   });
   if (!res.ok) throw new Error("Failed to create list");
   const data = await res.json();
@@ -317,12 +329,14 @@ export async function assignItemsCategory(
   return Array.isArray(data.updated) ? (data.updated as string[]) : [];
 }
 
-export async function createCategory(listId: string, name: string): Promise<void> {
+export async function createCategory(listId: string, name: string): Promise<string | null> {
   const res = await listsApiFetch(`/api/lists/${listId}/categories`, {
     method: "POST",
     body: JSON.stringify({ name }),
   });
   if (!res.ok) throw new Error("Failed to create category");
+  const data = await res.json().catch(() => ({}));
+  return data?.category?.id ?? null;
 }
 
 export async function reorderCategories(listId: string, orderedIds: string[]): Promise<void> {

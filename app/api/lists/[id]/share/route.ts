@@ -16,11 +16,15 @@ function buildShareUrl(request: NextRequest, token: string): string {
 }
 
 /**
- * POST /api/lists/[id]/share — list-owner access, plus editors for common
- * lists. Returns the list's share link, generating a token on first call
- * (get-or-create, transactional so a double-click can't mint two tokens).
- * Never exposes the token in any other response; this endpoint is the only
- * read path for it.
+ * POST /api/lists/[id]/share — returns the list's share link, generating a
+ * token on first call (get-or-create, transactional so a double-click can't
+ * mint two tokens). Never exposes the token in any other response; this
+ * endpoint is the only read path for it.
+ *
+ * Access: the owner (and editors for common lists) can always fetch it. A
+ * public list's link is fetchable by anyone signed in — the list is already
+ * openly readable, so the /join link is a discovery aid, not a secret. Private
+ * lists stay owner/editor-only, where the token is a real access capability.
  */
 export async function POST(request: NextRequest, context: RouteContext) {
   const user = await resolveUserFromRequest(request);
@@ -31,7 +35,10 @@ export async function POST(request: NextRequest, context: RouteContext) {
   if (!list) {
     return NextResponse.json({ error: "List not found" }, { status: 404 });
   }
-  const canShare = list.ownerId === user.id || (list.isCommon && isEditor(user));
+  const canShare =
+    list.isPublic ||
+    list.ownerId === user.id ||
+    (list.isCommon && isEditor(user));
   if (!canShare) {
     return forbiddenResponse("Only the list owner can share this list");
   }
