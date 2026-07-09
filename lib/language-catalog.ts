@@ -198,6 +198,39 @@ function getSpeakerEstimate(code: string): number {
   return LANGUAGE_SPEAKER_ESTIMATES[getBaseLanguage(code)] ?? 0;
 }
 
+/**
+ * Resolve concrete Google voice names to fall back to when a generated clip looks
+ * broken. Returns the best Studio voice and the best Standard voice for the
+ * language's base (or null when Google offers none — e.g. Vietnamese/Czech have no
+ * Studio voice, so the autofix chain skips straight to Standard/default).
+ *
+ * Reuses the shared voice cache + `scoreVoice`; result is per-base and cheap.
+ */
+export async function getGoogleFallbackVoices(
+  languageCode: string,
+): Promise<{ studio: string | null; standard: string | null }> {
+  const voices = await fetchGoogleTtsVoices().catch(() => []);
+  const base = getBaseLanguage(languageCode);
+
+  const forBase = voices.filter((voice) =>
+    (voice.languageCodes ?? []).some((code) => {
+      const rawBase = getBaseLanguage(code);
+      return (TTS_BASE_ALIASES[rawBase] ?? rawBase) === base;
+    }),
+  );
+
+  const pick = (marker: string): string | null => {
+    const matches = forBase
+      .filter((voice) => (voice.name ?? "").toLowerCase().includes(marker))
+      .sort(
+        (a, b) => scoreVoice(a) - scoreVoice(b) || String(a.name).localeCompare(String(b.name)),
+      );
+    return matches[0]?.name ?? null;
+  };
+
+  return { studio: pick("studio"), standard: pick("standard") };
+}
+
 function compareLearningLanguages(left: LearningLanguage, right: LearningLanguage): number {
   const leftFeaturedRank = getFeaturedRank(left.code);
   const rightFeaturedRank = getFeaturedRank(right.code);

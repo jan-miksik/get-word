@@ -12,6 +12,8 @@ import {
   DEFAULT_GOOGLE_TTS_VOICE_ID,
 } from "@/lib/audio";
 import { runGoogleTtsWithRetry } from "@/lib/google-tts-rate-limit";
+import { analyzeMp3, assessClipPlausibility } from "@/lib/audio-quality";
+import { getGoogleFallbackVoices } from "@/lib/language-catalog";
 import {
   getArweaveGatewayUrl,
   getArweaveGatewayUrls,
@@ -39,6 +41,132 @@ function hasUsableArweaveRef(
   return asset?.storageType === "arweave" && asset.storageRef.trim().length > 0;
 }
 
+type GoogleAttempt = {
+  audio: Buffer;
+  sizeBytes: number;
+  frameCount: number;
+  durationMs: number;
+  voiceLabel: string;
+};
+
+type GoogleAutofixResult = {
+  audio: Buffer;
+  sizeBytes: number;
+  actualVoiceUsed: string;
+  qualityWarning?: string;
+  fallbackUsed: boolean;
+};
+
+/**
+ * Generate Google TTS audio and, when the clip looks broken (empty / truncated /
+ * suspiciously short — see lib/audio-quality), automatically re-generate with a
+ * Studio voice, then Google's default voice, keeping the first plausible result.
+ * The content hash / dedup identity is unchanged — the requested voice stays the
+ * cache key; we just store the best audio we could synthesize under it.
+ */
+async function generateGoogleAudioWithAutofix(
+  text: string,
+  language: string,
+  requestedVoiceLabel: string | undefined,
+): Promise<GoogleAutofixResult | null> {
+  const requestedNamedVoice =
+    requestedVoiceLabel && requestedVoiceLabel !== "default" ? requestedVoiceLabel : undefined;
+
+  // Ordered, deduped candidate voices. Each entry's `voiceParam` is what we pass to
+  // googleTTS (undefined = default name-less female); `label` is what we persist.
+  const candidates: { voiceParam: string | undefined; label: string }[] = [
+    {
+      voiceParam: requestedNamedVoice,
+      label: requestedNamedVoice ?? DEFAULT_GOOGLE_TTS_VOICE_ID,
+    },
+  ];
+
+  const runAttempt = async (
+    voiceParam: string | undefined,
+    label: string,
+  ): Promise<GoogleAttempt | null> => {
+    const clip = await runGoogleTtsWithRetry(() =>
+      voiceParam ? googleTTS(text, language, voiceParam) : googleTTS(text, language),
+    );
+    if (!clip) return null;
+    const { durationMs, frameCount } = analyzeMp3(clip.audio);
+    return { ...clip, durationMs, frameCount, voiceLabel: label };
+  };
+
+  const attempts: GoogleAttempt[] = [];
+  const first = await runAttempt(candidates[0].voiceParam, candidates[0].label);
+  if (!first) return null;
+  attempts.push(first);
+
+  let verdict = assessClipPlausibility({
+    buffer: first.audio,
+    text,
+    durationMs: first.durationMs,
+    frameCount: first.frameCount,
+  });
+
+  if (verdict.plausible) {
+    return {
+      audio: first.audio,
+      sizeBytes: first.sizeBytes,
+      actualVoiceUsed: first.voiceLabel,
+      fallbackUsed: false,
+    };
+  }
+
+  // Suspect — build the fallback chain (Studio → Standard → default), skipping any
+  // voice we've already tried.
+  const { studio, standard } = await getGoogleFallbackVoices(language);
+  const fallbackCandidates: { voiceParam: string | undefined; label: string }[] = [];
+  const tried = new Set(candidates.map((c) => c.label));
+  const consider = (voiceParam: string | undefined, label: string) => {
+    if (tried.has(label)) return;
+    tried.add(label);
+    fallbackCandidates.push({ voiceParam, label });
+  };
+  if (studio) consider(studio, studio);
+  if (standard) consider(standard, standard);
+  consider(undefined, DEFAULT_GOOGLE_TTS_VOICE_ID);
+
+  const firstReason = verdict.reason;
+  const attemptedLabels = [first.voiceLabel];
+
+  for (const candidate of fallbackCandidates) {
+    const attempt = await runAttempt(candidate.voiceParam, candidate.label);
+    if (!attempt) continue;
+    attempts.push(attempt);
+    attemptedLabels.push(attempt.voiceLabel);
+    verdict = assessClipPlausibility({
+      buffer: attempt.audio,
+      text,
+      durationMs: attempt.durationMs,
+      frameCount: attempt.frameCount,
+    });
+    if (verdict.plausible) {
+      return {
+        audio: attempt.audio,
+        sizeBytes: attempt.sizeBytes,
+        actualVoiceUsed: attempt.voiceLabel,
+        fallbackUsed: true,
+      };
+    }
+  }
+
+  // Nothing passed. Keep the best-effort attempt (longest with real frames) but flag
+  // it — never silently pass off a suspect clip as fully good.
+  const playable = attempts.filter((a) => a.frameCount > 0);
+  if (playable.length === 0) return null; // caller turns this into status:"error"
+
+  const best = playable.reduce((a, b) => (b.durationMs > a.durationMs ? b : a));
+  return {
+    audio: best.audio,
+    sizeBytes: best.sizeBytes,
+    actualVoiceUsed: best.voiceLabel,
+    fallbackUsed: true,
+    qualityWarning: `low-quality (${firstReason ?? "suspect"}); tried voices: ${attemptedLabels.join(", ")}`,
+  };
+}
+
 /**
  * Generates and stores audio for a single item, linking the resulting asset.
  * Returns the per-item result plus, when Google's quota is exhausted mid-run,
@@ -51,28 +179,37 @@ export async function generateAudioForItem(
   const { provider, encryptedKey, audioField, force } = ctx;
   const voiceId = itemVoiceId ?? ctx.voiceId;
   const audioFieldPatch = audioField === "known" ? { audioField } : {};
-
-  // The voice that actually produced the stored audio. For Google's default
-  // name-less path we record a canonical sentinel so the editor can label it
-  // (rather than null, which means "unknown / pre-migration").
   const requestedVoiceLabel = voiceId?.trim();
-  const actualVoiceUsed =
-    provider === "google_tts"
-      ? !requestedVoiceLabel || requestedVoiceLabel === "default"
-        ? DEFAULT_GOOGLE_TTS_VOICE_ID
-        : requestedVoiceLabel
-      : requestedVoiceLabel || null;
 
   try {
     let result: { audio: Buffer; sizeBytes: number } | null = null;
+    // The voice that actually produced the stored audio (may differ from requested
+    // after an autofix fallback). Google default → sentinel; ElevenLabs → its voice.
+    let actualVoiceUsed: string | null =
+      requestedVoiceLabel && requestedVoiceLabel !== "default" ? requestedVoiceLabel : null;
+    let audioQualityWarning: string | undefined;
 
     if (provider === "google_tts") {
-      const googleVoiceId = voiceId?.trim();
-      result = await runGoogleTtsWithRetry(() =>
-        googleVoiceId
-          ? googleTTS(item.text, item.language, googleVoiceId)
-          : googleTTS(item.text, item.language),
+      const autofixed = await generateGoogleAudioWithAutofix(
+        item.text,
+        item.language,
+        requestedVoiceLabel,
       );
+      if (autofixed) {
+        result = { audio: autofixed.audio, sizeBytes: autofixed.sizeBytes };
+        actualVoiceUsed = autofixed.actualVoiceUsed;
+        audioQualityWarning = autofixed.qualityWarning;
+        if (autofixed.fallbackUsed) {
+          console.info("[Get Word audio] quality autofix applied", {
+            itemId: item.id,
+            text: item.text,
+            language: item.language,
+            requestedVoice: requestedVoiceLabel ?? DEFAULT_GOOGLE_TTS_VOICE_ID,
+            actualVoiceUsed: autofixed.actualVoiceUsed,
+            qualityWarning: autofixed.qualityWarning ?? null,
+          });
+        }
+      }
     } else if (provider === "elevenlabs" && encryptedKey) {
       result = await elevenLabsTTS(
         item.text,
@@ -184,8 +321,9 @@ export async function generateAudioForItem(
         arweaveUrl: gatewayUrl,
         arweaveUrls: gatewayUrls,
         storageRef,
-        voiceId: voiceId ?? "default",
+        voiceId: actualVoiceUsed ?? "default",
         sizeBytes: result.sizeBytes,
+        ...(audioQualityWarning ? { audioQualityWarning } : {}),
       },
     };
   } catch (err) {

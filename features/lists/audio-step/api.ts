@@ -14,6 +14,8 @@ export type AudioGenerationResult = {
   size_bytes?: number;
   status: string;
   source?: string;
+  /** Soft "please check the audio" note from the quality autofix; not a failure. */
+  audio_quality_warning?: string;
   error?: string;
 };
 

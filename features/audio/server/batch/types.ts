@@ -43,6 +43,12 @@ export type GeneratedResult = {
   storageRef?: string;
   voiceId?: string | null;
   sizeBytes?: number;
+  /**
+   * Set on a durably-stored ("ok") clip when the quality autofix could not produce
+   * a clip that passes the plausibility check — a soft "please check" signal, NOT a
+   * storage failure. `status` stays the authoritative durable-storage result.
+   */
+  audioQualityWarning?: string;
   error?: string;
 };
 
