@@ -59,6 +59,7 @@ export type WordListItem = {
   knownAudioArweaveUrls?: string[];
   knownAudioStorageRef?: string | null;
   knownAudioVoiceId?: string | null;
+  knownAudioCreatedAt?: string | null;
   audioAssetId?: string | null;
   audioStatus: string;
   audioUrl?: string | null;
@@ -66,6 +67,7 @@ export type WordListItem = {
   audioArweaveUrls?: string[];
   audioStorageRef?: string | null;
   audioVoiceId?: string | null;
+  audioCreatedAt?: string | null;
   notes: string | null;
   comment?: WordItemComment | null;
 };

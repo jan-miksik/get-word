@@ -134,6 +134,7 @@ export async function upsertMediaAsset(
         provider: data.provider,
         voiceId: data.voiceId,
         sizeBytes: data.sizeBytes,
+        createdAt: new Date(),
       },
     })
     .returning();

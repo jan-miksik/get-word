@@ -138,6 +138,7 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
             : undefined,
         storageRef: existing.storageRef,
         voiceId: resolveItemVoice(items[i]) ?? "default",
+        createdAt: existing.createdAt ? new Date(existing.createdAt).toISOString() : null,
       });
     } else {
       needsGeneration.push({
@@ -245,6 +246,7 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
               arweave_urls: dedup.arweaveUrls,
               storage_ref: dedup.storageRef,
               voice_id: dedup.voiceId ?? null,
+              created_at: dedup.createdAt ?? null,
               status: "ok" as const,
               source: "dedup" as const,
             };

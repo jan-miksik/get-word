@@ -11,6 +11,7 @@ export type AudioGenerationResult = {
   arweave_urls?: string[];
   storage_ref?: string | null;
   voice_id?: string | null;
+  created_at?: string | null;
   size_bytes?: number;
   status: string;
   source?: string;

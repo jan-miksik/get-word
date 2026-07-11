@@ -26,6 +26,7 @@ export function buildBatchResults(
         arweave_urls: dedup.arweaveUrls,
         storage_ref: dedup.storageRef,
         voice_id: dedup.voiceId ?? null,
+        created_at: dedup.createdAt ?? null,
         status: "ok" as const,
         source: "dedup" as const,
       };
@@ -40,6 +41,7 @@ export function buildBatchResults(
         arweave_urls: gen.arweaveUrls,
         storage_ref: gen.storageRef,
         voice_id: gen.voiceId ?? item.voice_id ?? null,
+        created_at: gen.createdAt ?? null,
         size_bytes: gen.sizeBytes,
         status: gen.status,
         ...(gen.audioQualityWarning ? { audio_quality_warning: gen.audioQualityWarning } : {}),

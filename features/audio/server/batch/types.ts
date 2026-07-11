@@ -35,6 +35,7 @@ export type DedupLink = {
   arweaveUrls?: string[];
   storageRef?: string;
   voiceId?: string | null;
+  createdAt?: string | null;
 };
 
 export type GenerationCandidate = {
@@ -54,6 +55,7 @@ export type GeneratedResult = {
   arweaveUrls?: string[];
   storageRef?: string;
   voiceId?: string | null;
+  createdAt?: string | null;
   sizeBytes?: number;
   /**
    * Set on a durably-stored ("ok") clip when the quality autofix could not produce

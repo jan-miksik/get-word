@@ -354,6 +354,7 @@ export async function generateAudioForItem(
         arweaveUrls: gatewayUrls,
         storageRef,
         voiceId: actualVoiceUsed ?? "default",
+        createdAt: asset.createdAt ? new Date(asset.createdAt).toISOString() : new Date().toISOString(),
         sizeBytes: result.sizeBytes,
         // Durable via Arweave, but the B2 mirror failed — report the reason so the
         // batch can warn without failing the item.

@@ -5,10 +5,12 @@ import { useI18n } from '@/components/I18nProvider';
 import type { GoogleUsageResponse, WordList, WordListItem } from '@/features/lists/types';
 import {
   buildAudioRows,
+  compareAudioRows,
   getPreviewSource,
   getSelectedReusableOption,
   type AudioRow,
   type AudioSide,
+  type AudioSortMode,
 } from '@/features/lists/audio-step/rows';
 import {
   formatLanguage,
@@ -61,9 +63,11 @@ function buildAudioStepResetKey(list: WordList, items: WordListItem[], audioSide
       item.knownAudioAssetId ?? '',
       item.knownAudioStatus ?? '',
       item.knownAudioUrl ?? '',
+      item.knownAudioCreatedAt ?? '',
       item.audioAssetId ?? '',
       item.audioStatus,
       item.audioUrl ?? '',
+      item.audioCreatedAt ?? '',
     ].join(':')).join('|'),
   ].join('::');
 }
@@ -120,6 +124,7 @@ function AudioStepContent({
   const [scanError, setScanError] = useState<string | null>(null);
   const [scanFlagged, setScanFlagged] = useState<ScanFlaggedItem[] | null>(null);
   const [scanSelected, setScanSelected] = useState<Set<string>>(() => new Set());
+  const [sortMode, setSortMode] = useState<AudioSortMode>('default');
   const {
     voiceOptions,
     voiceGenders,
@@ -226,13 +231,31 @@ function AudioStepContent({
     await playSingle(row, source);
   }, [playSingle]);
 
+  const repairIds = useMemo(
+    () => new Set((scanFlagged ?? []).map((flag) => flag.itemId)),
+    [scanFlagged],
+  );
+
+  const sortedRows = useMemo(() => {
+    if (sortMode === 'default') return rows;
+    const originalOrder = new Map(rows.map((row, index) => [row.id, index]));
+    return [...rows].sort((left, right) => {
+      const result = compareAudioRows(left, right, sortMode, {
+        repairIds,
+        playbackErrors,
+        qualityWarnings: audioWarnings,
+      });
+      return result || ((originalOrder.get(left.id) ?? 0) - (originalOrder.get(right.id) ?? 0));
+    });
+  }, [audioWarnings, playbackErrors, repairIds, rows, sortMode]);
+
   const handlePlayAll = useCallback(() => {
-    const queue = rows.flatMap((row) => {
+    const queue = sortedRows.flatMap((row) => {
       const source = getPreviewSource(row);
       return source ? [{ rowId: row.id, source }] : [];
     });
     playQueue(queue);
-  }, [playQueue, rows]);
+  }, [playQueue, sortedRows]);
 
   const handleScanForProblems = useCallback(async () => {
     setMenuOpen(false);
@@ -372,17 +395,48 @@ function AudioStepContent({
                 {t('lists.audioScanFound', { count: scanFlagged.length })}
               </p>
               <div className="max-h-48 space-y-1 overflow-y-auto">
-                {scanFlagged.map((flag) => (
-                  <label key={flag.itemId} className="flex items-center gap-2 text-sm text-text">
-                    <input
-                      type="checkbox"
-                      checked={scanSelected.has(flag.itemId)}
-                      onChange={() => toggleScanSelected(flag.itemId)}
-                    />
-                    <span className="min-w-0 flex-1 truncate">{flag.text}</span>
-                    <span className="shrink-0 text-xs text-text-soft">{flag.reason}</span>
-                  </label>
-                ))}
+                {scanFlagged.map((flag) => {
+                  const flaggedRow = rows.find((row) => row.id === flag.itemId);
+                  const canPlayFlagged = Boolean(flaggedRow && getPreviewSource(flaggedRow));
+                  return (
+                    <div key={flag.itemId} className="flex items-center gap-2 text-sm text-text">
+                      <input
+                        type="checkbox"
+                        aria-label={flag.text}
+                        checked={scanSelected.has(flag.itemId)}
+                        onChange={() => toggleScanSelected(flag.itemId)}
+                      />
+                      <button
+                        type="button"
+                        disabled={!canPlayFlagged}
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full transition-colors ${
+                          canPlayFlagged
+                            ? playingId === flag.itemId
+                              ? 'bg-accent text-background'
+                              : 'bg-accent/10 text-accent hover:bg-accent/20'
+                            : 'bg-border-subtle text-text-soft'
+                        }`}
+                        title={t('lists.playAudio')}
+                        onClick={() => {
+                          if (flaggedRow) void handlePlaySingle(flaggedRow);
+                        }}
+                      >
+                        {playingId === flag.itemId ? (
+                          <svg width="12" height="12" viewBox="0 0 12 12">
+                            <rect x="2" y="2" width="3" height="8" fill="currentColor" rx="0.5" />
+                            <rect x="7" y="2" width="3" height="8" fill="currentColor" rx="0.5" />
+                          </svg>
+                        ) : (
+                          <svg width="12" height="12" viewBox="0 0 12 12">
+                            <path d="M3 1.5v9l7.5-4.5L3 1.5z" fill="currentColor" />
+                          </svg>
+                        )}
+                      </button>
+                      <span className="min-w-0 flex-1 truncate">{flag.text}</span>
+                      <span className="shrink-0 text-xs text-text-soft">{flag.reason}</span>
+                    </div>
+                  );
+                })}
               </div>
               <div className="mt-3 flex gap-2">
                 <button
@@ -441,6 +495,20 @@ function AudioStepContent({
                   {formatVoiceLabel(voice, voiceGenders)}
                 </option>
               ))}
+            </select>
+          </label>
+
+          <label className="flex min-w-[12rem] flex-col gap-1 text-xs text-text-soft">
+            {t('lists.audioSortLabel')}
+            <select
+              value={sortMode}
+              onChange={(event) => setSortMode(event.target.value as AudioSortMode)}
+              className="rounded-lg border border-border-subtle bg-background px-2.5 py-1.5 text-xs text-text"
+            >
+              <option value="default">{t('lists.audioSortDefault')}</option>
+              <option value="repair">{t('lists.audioSortRepair')}</option>
+              <option value="missing">{t('lists.audioSortMissing')}</option>
+              <option value="latest">{t('lists.audioSortLatest')}</option>
             </select>
           </label>
 
@@ -577,7 +645,7 @@ function AudioStepContent({
 
       <div className="overflow-hidden rounded-lg border border-border-subtle">
         <div className="max-h-[60vh] divide-y divide-border-subtle overflow-y-auto">
-          {rows.map((row) => (
+          {sortedRows.map((row) => (
             <AudioStepRow
               key={row.id}
               row={row}

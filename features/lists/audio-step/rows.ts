@@ -1,6 +1,7 @@
 import type { WordList, WordListItem } from '@/features/lists/types';
 
 export type AudioSide = 'target' | 'known';
+export type AudioSortMode = 'default' | 'repair' | 'missing' | 'latest';
 
 export type AudioVariant = {
   assetId: string;
@@ -27,6 +28,7 @@ export type AudioRow = {
   arweaveUrls: string[];
   storageRef?: string | null;
   generationVoiceId?: string | null;
+  audioCreatedAt?: string | null;
   reusableOptions: AudioVariant[];
   selectedReusableAssetId: string | null;
   reuseStatus: 'unchecked' | 'checking' | 'found' | 'missing' | 'error';
@@ -89,6 +91,7 @@ export function buildAudioRows(items: WordListItem[], list: WordList, audioSide:
         arweaveUrls: isKnownSide ? item.knownAudioArweaveUrls ?? [] : item.audioArweaveUrls ?? [],
         storageRef: isKnownSide ? item.knownAudioStorageRef ?? null : item.audioStorageRef ?? null,
         generationVoiceId: isKnownSide ? item.knownAudioVoiceId ?? null : item.audioVoiceId ?? null,
+        audioCreatedAt: isKnownSide ? item.knownAudioCreatedAt ?? null : item.audioCreatedAt ?? null,
         reusableOptions: [],
         selectedReusableAssetId: isKnownSide ? item.knownAudioAssetId ?? null : item.audioAssetId ?? null,
         reuseStatus: 'unchecked',
@@ -128,4 +131,43 @@ export function getPreviewSource(row: AudioRow): AudioSourceCandidate | null {
     arweaveUrls: selectedOption.arweaveUrls,
     storageRef: selectedOption.storageRef ?? null,
   };
+}
+
+function dateValue(value: string | null | undefined): number {
+  if (!value) return 0;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+export function compareAudioRows(
+  left: AudioRow,
+  right: AudioRow,
+  mode: AudioSortMode,
+  context: {
+    repairIds?: Set<string>;
+    playbackErrors?: Record<string, string>;
+    qualityWarnings?: Record<string, string>;
+  } = {},
+): number {
+  if (mode === 'repair') {
+    const repairRank = (row: AudioRow) => {
+      if (context.repairIds?.has(row.id)) return 0;
+      if (row.audioStatus === 'failed') return 1;
+      if (context.playbackErrors?.[row.id]) return 2;
+      if (context.qualityWarnings?.[row.id]) return 3;
+      return 4;
+    };
+    return repairRank(left) - repairRank(right);
+  }
+
+  if (mode === 'missing') {
+    const missingRank = (row: AudioRow) => (row.audioStatus === 'none' ? 0 : 1);
+    return missingRank(left) - missingRank(right);
+  }
+
+  if (mode === 'latest') {
+    return dateValue(right.audioCreatedAt) - dateValue(left.audioCreatedAt);
+  }
+
+  return 0;
 }

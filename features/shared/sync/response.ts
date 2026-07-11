@@ -20,10 +20,12 @@ type HydratedWordListItemWithMedia = HydratedWordListItems[number] & {
   knownAudioArweaveUrl: string | null;
   knownAudioArweaveUrls: string[];
   knownAudioStorageRef: string | null;
+  knownAudioCreatedAt: string | null;
   audioUrl: string | null;
   audioArweaveUrl: string | null;
   audioArweaveUrls: string[];
   audioStorageRef: string | null;
+  audioCreatedAt: string | null;
 };
 
 function dedupeById<T extends { id: string }>(items: T[]) {
@@ -47,6 +49,7 @@ function hydrateSingleAudioAsset(
       arweaveUrl: null,
       arweaveUrls: [] as string[],
       storageRef: null,
+      createdAt: null,
     };
   }
 
@@ -66,10 +69,12 @@ function getHydratedAudioFields(
     knownAudioArweaveUrl: known.arweaveUrl,
     knownAudioArweaveUrls: known.arweaveUrls,
     knownAudioStorageRef: known.storageRef,
+    knownAudioCreatedAt: known.createdAt,
     audioUrl: target.url,
     audioArweaveUrl: target.arweaveUrl,
     audioArweaveUrls: target.arweaveUrls,
     audioStorageRef: target.storageRef,
+    audioCreatedAt: target.createdAt,
   };
 }
 

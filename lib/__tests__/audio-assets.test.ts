@@ -19,6 +19,7 @@ describe("audio asset playability", () => {
       arweaveUrls: [],
       storageRef: "audio/abc123.mp3",
       voiceId: null,
+      createdAt: null,
     });
   });
 
@@ -27,6 +28,7 @@ describe("audio asset playability", () => {
       contentHash: "abc123",
       storageType: "r2",
       storageRef: "audio/abc123.mp3",
+      createdAt: new Date("2026-01-02T03:04:05.000Z"),
     };
 
     expect(isPlayableAudioAsset(asset)).toBe(false);
@@ -36,6 +38,7 @@ describe("audio asset playability", () => {
       arweaveUrls: [],
       storageRef: "audio/abc123.mp3",
       voiceId: null,
+      createdAt: "2026-01-02T03:04:05.000Z",
     });
   });
 });
