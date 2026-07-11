@@ -7,6 +7,7 @@ import { StudyNotesSection } from '@/components/settings/StudyNotesSection';
 import { RevealSection } from '@/components/settings/RevealSection';
 import { LanguageSection } from '@/components/settings/LanguageSection';
 import { MinigamesSection } from '@/components/settings/MinigamesSection';
+import { FrontierFeaturesSection } from '@/components/settings/FrontierFeaturesSection';
 import { AppInstallSection } from '@/components/settings/AppInstallSection';
 import { LocalDataSection } from '@/components/settings/LocalDataSection';
 import { AccountSection } from '@/components/settings/AccountSection';
@@ -70,6 +71,7 @@ export function SettingsPanel({
             minigameFrequency={minigameFrequency}
             onMinigameFrequencyChange={onMinigameFrequencyChange}
           />
+          <FrontierFeaturesSection />
           <AppInstallSection />
           <LocalDataSection isOpen={isOpen} />
           <AccountSection

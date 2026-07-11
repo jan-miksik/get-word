@@ -40,8 +40,9 @@ export function CustomStagePopover({
     const gap = 8;
     const width = Math.min(240, window.innerWidth - margin * 2);
     const maxHeight = Math.min(416, Math.max(96, rect.top - gap - margin));
+    const triggerCenter = rect.left + rect.width / 2;
     const left = Math.min(
-      Math.max(rect.right - width, margin),
+      Math.max(triggerCenter - width / 2, margin),
       Math.max(margin, window.innerWidth - width - margin),
     );
     setPopoverStyle({
@@ -163,8 +164,10 @@ export function CustomStagePopover({
         aria-expanded={customOpen}
       >
         <span className="srs-btn-copy">
-          <span className="srs-btn-label">⋯</span>
-          <span className="srs-btn-hint !opacity-[0.35] !whitespace-normal max-sm:!text-[0.55rem] max-sm:!leading-[1.1] max-sm:!tracking-[0.04em]">{t('card.custom')}</span>
+          <span className="srs-btn-label" aria-hidden="true">...</span>
+          <span className="srs-btn-hint !opacity-[0.45] !whitespace-normal max-sm:!text-[0.54rem] max-sm:!leading-[1.05] max-sm:!tracking-[0.04em]">
+            {t('card.repeatAfter')}
+          </span>
         </span>
       </button>
       {customOpen && typeof document !== 'undefined' && createPortal(

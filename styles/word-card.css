@@ -514,6 +514,38 @@
   }
 }
 
+@media (max-width: 767px) {
+  .card-actions-row--mobile-custom-only {
+    grid-template-columns: minmax(5.75rem, min(8rem, 36vw));
+    justify-content: center;
+  }
+
+  .card-actions-row--mobile-custom-only .srs-btn--forgot,
+  .card-actions-row--mobile-custom-only .srs-btn--okay {
+    display: none;
+  }
+
+  .card-actions-row--mobile-custom-only .srs-btn--easy {
+    min-height: 42px;
+    border-radius: 14px;
+    padding: 6px 10px;
+  }
+
+  .card-actions-row--mobile-custom-only .srs-btn-copy {
+    gap: 2px;
+  }
+
+  .card-actions-row--mobile-custom-only .srs-btn-label {
+    font-size: 1rem;
+    line-height: 0.9;
+  }
+
+  .card-actions-row--mobile-custom-only .srs-btn-hint {
+    font-size: 0.52rem;
+    line-height: 1;
+  }
+}
+
 .progress-btn span.count {
   font-size: 1rem;
   opacity: 0.8;
@@ -715,6 +747,38 @@
     transform: scaleY(0) scaleX(0.6);
     filter: brightness(3) blur(6px);
     opacity: 0;
+  }
+}
+
+/* ── Swipe: card flies off in the drag direction (frontier swipe-cards) ──
+   The from/to transforms arrive as inline custom properties set by
+   useSwipeGesture at commit time, so the animation continues seamlessly from
+   wherever the finger released the card. */
+.animate-deck-exit-swipe {
+  animation: deck-exit-swipe 0.3s cubic-bezier(0.3, 0.7, 0.4, 1) both;
+}
+
+.animate-deck-exit-swipe > .card-deck-swipe-content {
+  animation: deck-exit-swipe-content 0.3s cubic-bezier(0.3, 0.7, 0.4, 1) both;
+}
+
+@keyframes deck-exit-swipe {
+  from {
+    transform: translate(var(--swipe-from-x, 0px), var(--swipe-from-y, 0px))
+      rotate(var(--swipe-from-rot, 0deg));
+  }
+  to {
+    transform: translate(var(--swipe-to-x, 0px), var(--swipe-to-y, 0px))
+      rotate(var(--swipe-to-rot, 0deg));
+  }
+}
+
+@keyframes deck-exit-swipe-content {
+  from {
+    opacity: var(--swipe-from-opacity, 1);
+  }
+  to {
+    opacity: var(--swipe-to-opacity, 0);
   }
 }
 

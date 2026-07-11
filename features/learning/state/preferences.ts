@@ -29,6 +29,7 @@ const DEFAULT_SETTINGS_LANGUAGE = 'en';
 const LEARNING_ONBOARDING_COMPLETED_SESSION_KEY = 'get-word-learning-onboarding-completed';
 const PROGRESSIVE_REVEAL_STORAGE_KEY = 'get-word-progressive-reveal-enabled';
 const REVEAL_MODE_STORAGE_KEY = 'get-word-reveal-mode';
+const SWIPE_CARDS_STORAGE_KEY = 'get-word-swipe-cards-enabled';
 
 function readProgressiveRevealPreference(): boolean {
   if (typeof window === 'undefined') return true;
@@ -36,6 +37,15 @@ function readProgressiveRevealPreference(): boolean {
     return window.localStorage.getItem(PROGRESSIVE_REVEAL_STORAGE_KEY) !== 'false';
   } catch {
     return true;
+  }
+}
+
+function readSwipeCardsPreference(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(SWIPE_CARDS_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
   }
 }
 
@@ -120,6 +130,7 @@ export function usePreferences(
     readProgressiveRevealPreference
   );
   const [revealMode, setRevealMode] = useState<RevealMode>(readRevealModePreference);
+  const [swipeCardsEnabled, setSwipeCardsEnabled] = useState(readSwipeCardsPreference);
   const [memoryHooksEnabled, setMemoryHooksEnabled] = useState(true);
   const [memoryHooksIntroAnswered, setMemoryHooksIntroAnswered] = useState(false);
   const [memoryHookDisableFromStage, setMemoryHookDisableFromStageState] = useState<number>(
@@ -160,6 +171,14 @@ export function usePreferences(
       // Keep the in-memory setting usable when storage is unavailable.
     }
   }, [revealMode]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(SWIPE_CARDS_STORAGE_KEY, String(swipeCardsEnabled));
+    } catch {
+      // Keep the in-memory setting usable when storage is unavailable.
+    }
+  }, [swipeCardsEnabled]);
 
   // Gate sync on hasReceivedServerSnapshot(): without it, a failed initial GET
   // (no session, offline) leaves the local defaults in place, and the next
@@ -445,6 +464,8 @@ export function usePreferences(
     setProgressiveRevealEnabled,
     revealMode,
     setRevealMode,
+    swipeCardsEnabled,
+    setSwipeCardsEnabled,
     memoryHooksEnabled,
     setMemoryHooksEnabled: setMemoryHooksEnabledPreference,
     memoryHooksIntroAnswered,

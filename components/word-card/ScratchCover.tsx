@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { isCardSwipeActive } from '@/lib/swipe-gesture-state';
 
 // Paint the cover before the browser paints so the answer never flashes
 // uncovered on mount. Falls back to useEffect during SSR to avoid the warning.
@@ -195,6 +196,12 @@ export function ScratchCover({ label }: { label: string }) {
     // (non-passive) to keep scratching instead of scrolling. Because we only
     // cancel while over the canvas, the page still scrolls normally elsewhere.
     const onTouchPoint = (event: TouchEvent) => {
+      // A committed card swipe owns the touch; crossing the canvas mid-swipe
+      // must not scratch it.
+      if (isCardSwipeActive()) {
+        hasLast = false;
+        return;
+      }
       const touch = event.touches[0];
       if (!touch) return;
       const { x, y } = clientPoint(touch.clientX, touch.clientY);
@@ -211,6 +218,10 @@ export function ScratchCover({ label }: { label: string }) {
     // so the touch handlers above own that case.
     const onPointerMove = (event: PointerEvent) => {
       if (event.pointerType === 'touch') return;
+      if (isCardSwipeActive()) {
+        hasLast = false;
+        return;
+      }
       const { x, y } = clientPoint(event.clientX, event.clientY);
       if (!inBounds(x, y)) {
         hasLast = false;
@@ -221,6 +232,7 @@ export function ScratchCover({ label }: { label: string }) {
 
     const onPointerDown = (event: PointerEvent) => {
       if (event.pointerType === 'touch') return;
+      if (isCardSwipeActive()) return;
       const { x, y } = clientPoint(event.clientX, event.clientY);
       if (!inBounds(x, y)) return;
       hasLast = false;

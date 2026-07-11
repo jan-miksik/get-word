@@ -1,8 +1,8 @@
 'use client';
 
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
-import type { AnimationEvent, ReactNode } from 'react';
-import type { NormalizedWord } from '@/lib/words';
+import type { AnimationEvent, CSSProperties, ReactNode } from 'react';
+import { STAGES, type NormalizedWord } from '@/lib/words';
 import type { MiniGameConfig } from '@/lib/minigames';
 import { checkAudioUrlAvailable } from '@/lib/audio-availability';
 import { prefetchAudio } from '@/lib/audio-prefetch';
@@ -12,6 +12,8 @@ import {
 } from '@/lib/audio-network-policy';
 import { getWordAudioSrcBySide, type WordSide } from './games/types';
 import { useI18n } from '@/components/I18nProvider';
+import { formatInterval } from '@/components/word-card/helpers';
+import { useSwipeGesture } from './card-deck/useSwipeGesture';
 
 type StreamItem = NormalizedWord | MiniGameConfig;
 
@@ -30,6 +32,12 @@ const ENTER_ANIMATIONS = [
 ] as const;
 
 const AUDIO_LOOKAHEAD_CARDS = 2;
+
+const SWIPE_BADGE_STYLE = {
+  backgroundColor: '#1e6fa8',
+  borderColor: '#1e6fa8',
+  color: '#ffffff',
+} satisfies CSSProperties;
 
 // Safety net: the deck advances when the exit animation fires `animationend`.
 // That event can silently never fire (e.g. the app is backgrounded mid-animation
@@ -62,10 +70,21 @@ function getStreamItemKey(item: StreamItem): string {
   return '_isMinigame' in item ? `minigame-${item.id}` : `word-${item.id}`;
 }
 
+export interface CardDeckSwipeActions {
+  markKnown: (wordId: string) => void;
+  markUnknown: (wordId: string) => void;
+  /** Up-swipe: fully known, clears future repeats. */
+  markFullyKnown: (wordId: string) => void;
+  /** Current SRS stage of a word, used for the "repeat in X" badge labels. */
+  getStageIndex: (wordId: string) => number;
+}
+
 interface CardDeckViewProps {
   groupedWords: (NormalizedWord | MiniGameConfig)[][];
   interstitialCard?: ReactNode | null;
   onWordCardCompleted?: (word: NormalizedWord) => void;
+  /** When set, word cards can be swiped right = known / left = forgotten (frontier feature). */
+  swipeActions?: CardDeckSwipeActions;
   renderCard: (
     word: NormalizedWord,
     stageIndex: number,
@@ -79,6 +98,7 @@ export function CardDeckView({
   groupedWords,
   interstitialCard = null,
   onWordCardCompleted,
+  swipeActions,
   renderCard,
   renderMiniGame,
 }: CardDeckViewProps) {
@@ -205,10 +225,11 @@ export function CardDeckView({
     }
     setExitAnim(null);
     lockedItemRef.current = null;
-    if (pendingAfterExitRef.current) {
-      pendingAfterExitRef.current();
-      pendingAfterExitRef.current = null;
-    }
+    // Clear before invoking so a throwing callback can't stay armed for a
+    // later finishExit.
+    const afterExit = pendingAfterExitRef.current;
+    pendingAfterExitRef.current = null;
+    afterExit?.();
     const currentItems = itemsRef.current;
     const nextIndex = currentItems.findIndex(
       (candidate) => !completedItemKeysRef.current.has(getStreamItemKey(candidate)),
@@ -220,9 +241,9 @@ export function CardDeckView({
 
   // Starts an exit animation and arms the fallback timer that recovers the deck
   // if `animationend` never arrives.
-  const beginExit = useCallback(() => {
+  const beginExit = useCallback((exitAnimClass?: string) => {
     isExitingRef.current = true;
-    setExitAnim(randomExitAnim());
+    setExitAnim(exitAnimClass ?? randomExitAnim());
     if (exitFallbackTimerRef.current !== null) {
       window.clearTimeout(exitFallbackTimerRef.current);
     }
@@ -236,7 +257,17 @@ export function CardDeckView({
     }, EXIT_FALLBACK_MS);
   }, [finishExit]);
 
-  const advance = useCallback((opts?: { skipAnimation?: boolean; afterExit?: () => void }) => {
+  // afterExit contract, by return value:
+  //   'exit'    — runs exactly once when the exit animation ends (or the
+  //               EXIT_FALLBACK_MS timer fires).
+  //   'overlay' — last-card path: runs synchronously, then the done overlay shows.
+  //   'skipped' — test/skipAnimation path: runs synchronously.
+  //   'ignored' — re-entrant call rejected before afterExit is stashed: never runs.
+  const advance = useCallback((opts?: {
+    skipAnimation?: boolean;
+    afterExit?: () => void;
+    exitAnim?: string;
+  }): 'exit' | 'overlay' | 'skipped' | 'ignored' => {
     const idx = currentIndexRef.current;
     const currentItems = itemsRef.current;
     const last = currentItems.length > 0 ? currentItems.length - 1 : -1;
@@ -244,7 +275,7 @@ export function CardDeckView({
     // Ignore taps while an exit animation is already running — otherwise a second
     // tap overwrites the pending callback and can re-pick the same animation
     // class (which React won't restart), stalling the deck.
-    if (isExitingRef.current && !skip && process.env.NODE_ENV !== 'test') return;
+    if (isExitingRef.current && !skip && process.env.NODE_ENV !== 'test') return 'ignored';
     if (opts?.afterExit) pendingAfterExitRef.current = opts.afterExit;
     const currentItem = currentItems[idx] ?? lastItemRef.current;
     const isMinigame = currentItem ? '_isMinigame' in currentItem : false;
@@ -256,16 +287,15 @@ export function CardDeckView({
     }
 
     if (process.env.NODE_ENV === 'test' || skip) {
-      if (pendingAfterExitRef.current) {
-        pendingAfterExitRef.current();
-        pendingAfterExitRef.current = null;
-      }
+      const afterExit = pendingAfterExitRef.current;
+      pendingAfterExitRef.current = null;
+      afterExit?.();
       const nextIndex = currentItems.findIndex(
         (candidate) => !completedItemKeysRef.current.has(getStreamItemKey(candidate)),
       );
       setCurrentIndex(nextIndex >= 0 ? nextIndex : currentItems.length);
       lastItemRef.current = nextIndex >= 0 ? currentItems[nextIndex] : null;
-      return;
+      return 'skipped';
     }
 
     if (currentItem) {
@@ -286,15 +316,15 @@ export function CardDeckView({
     if (last >= 0 && !hasAnotherItem) {
       if (!isMinigame) {
         setShowDoneOverlay(true);
-        if (pendingAfterExitRef.current) {
-          pendingAfterExitRef.current();
-          pendingAfterExitRef.current = null;
-        }
-        return;
+        const afterExit = pendingAfterExitRef.current;
+        pendingAfterExitRef.current = null;
+        afterExit?.();
+        return 'overlay';
       }
     }
 
-    beginExit();
+    beginExit(opts?.exitAnim);
+    return 'exit';
   }, [onWordCardCompleted, beginExit]);
 
   const handleAnimationEnd = useCallback((e: AnimationEvent<HTMLDivElement>) => {
@@ -302,6 +332,36 @@ export function CardDeckView({
     if (!e.animationName.startsWith('deck-exit-')) return;
     finishExit();
   }, [finishExit]);
+
+  // Swipe-to-answer (frontier feature). Pointerdown reads the currently visible
+  // item from the same refs used by deck advancement, so a mid-drag rerender
+  // cannot retarget the commit.
+  const getCurrentSwipeWordId = useCallback(() => {
+    const currentItems = itemsRef.current;
+    const currentItem = currentItems[currentIndexRef.current] ?? lastItemRef.current;
+    if (!currentItem || '_isMinigame' in currentItem) return null;
+    return currentItem.id;
+  }, []);
+  const swipeConfigured = Boolean(swipeActions);
+  const swipeEnabled = swipeConfigured && !interstitialCard && !showDoneOverlay && !exitAnim;
+  const swipe = useSwipeGesture({
+    enabled: swipeEnabled,
+    getWordId: getCurrentSwipeWordId,
+    onCommit: (direction, wordId) => {
+      if (!swipeActions) return;
+      const result = advance({
+        afterExit: () => {
+          if (direction === 'up') swipeActions.markFullyKnown(wordId);
+          else if (direction === 'right') swipeActions.markKnown(wordId);
+          else swipeActions.markUnknown(wordId);
+        },
+        exitAnim: 'animate-deck-exit-swipe',
+      });
+      // No exit animation started (last-card overlay, re-entrant call): keep
+      // the card visible and spring it back under the overlay.
+      if (result !== 'exit') swipe.reset();
+    },
+  });
 
   const handleEnterAnimationEnd = useCallback((e: AnimationEvent<HTMLDivElement>) => {
     if (!e.animationName.startsWith('deck-enter-')) return;
@@ -364,22 +424,86 @@ export function CardDeckView({
   const isMinigame = '_isMinigame' in item;
   const itemKey = getStreamItemKey(item);
   const isExiting = Boolean(exitAnim);
+  const swipeActive = swipeConfigured && !isMinigame;
+
+  // Swipe badges show when the word comes back rather than a right/wrong
+  // verdict — deliberately neutral so a left swipe doesn't read as "mistake".
+  // Mirrors the okay/forgot hint math in WordCard. Note: `stageIndex` above is
+  // a stream-section index (due/new), not the SRS stage — ask the caller.
+  const swipeWordStage =
+    swipeActive && swipeActions ? swipeActions.getStageIndex((item as NormalizedWord).id) : 0;
+  const repeatNowLabel = t('card.repeatShortNow');
+  const swipeKnownLabel = `↺ ${
+    formatInterval(STAGES[Math.min(swipeWordStage + 1, STAGES.length - 1)]?.intervalMs ?? 0, t) ||
+    repeatNowLabel
+  }`;
+  const swipeUnknownLabel = `↺ ${
+    formatInterval(STAGES[Math.max(swipeWordStage - 1, 0)]?.intervalMs ?? 0, t) || repeatNowLabel
+  }`;
+  const swipeFullyKnownLabel = t('card.fullyKnownNoRepeat');
 
   return (
     <div className="card-deck-view relative flex h-full w-full flex-col overflow-visible">
       <div
         key={itemKey}
+        ref={swipeActive ? swipe.cardRef : undefined}
+        onPointerDown={swipeActive ? swipe.onPointerDown : undefined}
         className={[
-          'card-deck-item flex h-full w-full flex-col',
+          'card-deck-item relative flex h-full w-full flex-col overflow-visible',
+          swipeActive ? 'touch-none' : '',
           exitAnim ?? '',
           enterAnim ?? '',
         ].join(' ')}
         onAnimationEnd={exitAnim ? handleAnimationEnd : enterAnim ? handleEnterAnimationEnd : undefined}
       >
-        {isMinigame
-          ? renderMiniGame(item as MiniGameConfig, () => advance())
-          : renderCard(item as NormalizedWord, stageIndex, (afterExit) => advance({ afterExit }), { isExiting })}
+        <div
+          ref={swipeActive ? swipe.contentRef : undefined}
+          className="card-deck-swipe-content flex h-full w-full flex-col"
+        >
+          {isMinigame
+            ? renderMiniGame(item as MiniGameConfig, () => advance())
+            : renderCard(item as NormalizedWord, stageIndex, (afterExit) => advance({ afterExit }), { isExiting })}
+        </div>
+        {swipeActive && (
+          <>
+            {/* Inline color avoids relying on arbitrary Tailwind color emission here. */}
+            <div
+              ref={swipe.leftBadgeRef}
+              aria-hidden="true"
+              className="pointer-events-none absolute right-4 top-16 z-10 whitespace-nowrap rounded-full border-2 px-5 py-2 text-center text-xl font-black tracking-wide opacity-0"
+              style={SWIPE_BADGE_STYLE}
+            >
+              {swipeUnknownLabel}
+            </div>
+            <div
+              ref={swipe.rightBadgeRef}
+              aria-hidden="true"
+              className="pointer-events-none absolute left-4 top-16 z-10 whitespace-nowrap rounded-full border-2 px-5 py-2 text-center text-xl font-black tracking-wide opacity-0"
+              style={SWIPE_BADGE_STYLE}
+            >
+              {swipeKnownLabel}
+            </div>
+          </>
+        )}
       </div>
+      {swipeActive && (
+        <div
+          ref={swipe.topBadgeRef}
+          aria-hidden="true"
+          className="pointer-events-none absolute z-10 whitespace-normal rounded-full border-2 px-5 py-2 text-center text-xl font-black tracking-wide opacity-0"
+          style={{
+            ...SWIPE_BADGE_STYLE,
+            boxSizing: 'border-box',
+            left: '50%',
+            maxWidth: 'min(24rem, calc(100vw - 2rem))',
+            top: 'calc(env(safe-area-inset-top, 0px) + 4.25rem)',
+            transform: 'translate3d(-50%, clamp(-2rem, var(--swipe-top-badge-y, 0px), 0px), 0)',
+            width: 'max-content',
+          }}
+        >
+          {swipeFullyKnownLabel}
+        </div>
+      )}
 
       {/* Overlay shown after the last card completes — waits for an explicit tap */}
       {showDoneOverlay && (

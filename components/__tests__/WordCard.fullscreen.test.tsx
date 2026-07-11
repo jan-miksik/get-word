@@ -127,6 +127,22 @@ describe('WordCard fullscreen', () => {
     expect(onReallyKnown).toHaveBeenCalledTimes(1);
   });
 
+  it('marks the action row for custom-only mobile layout when requested', () => {
+    const { container } = render(
+      <WordCard
+        {...baseProps}
+        onCustomStage={vi.fn()}
+        mobileCustomActionOnly
+        fullscreen
+      />
+    );
+
+    expect(container.querySelector('.card-actions-row')).toHaveClass(
+      'card-actions-row--mobile-custom-only'
+    );
+    expect(screen.getByRole('button', { name: /custom interval/i })).toBeInTheDocument();
+  });
+
   it('starts stored audio synchronously from the larger floating audio button', () => {
     const play = vi.fn(() => Promise.resolve());
     const pause = vi.fn();

@@ -11,6 +11,7 @@ import { useAppState } from '@/hooks/useAppState';
 import {
   getAvailableCategories,
   shouldShowMemoryHookForStage,
+  STAGES,
   type NormalizedWord,
 } from '@/lib/words';
 import { LoadingScreen } from '@/components/LoadingScreen';
@@ -91,6 +92,7 @@ export function HomeClient() {
     memoryHookDisableFromStage,
     studyNotesEnabled,
     studyNoteMinimizeFromStage,
+    swipeCardsEnabled,
     markKnown,
     markReallyKnown,
     markUnknown,
@@ -123,6 +125,24 @@ export function HomeClient() {
 
   // The app runs on synced words (from word_list_items).
   const activeWords = syncedWords ?? EMPTY_WORDS;
+
+  // Swipe-to-answer (frontier feature): right = known, left = forgotten,
+  // up = fully known / no repeat. getStageIndex feeds the deck's "repeat in X"
+  // badges; the deck's own group index is a stream-section index (due/new), not
+  // the SRS stage.
+  const deckSwipeActions = useMemo(
+    () =>
+      swipeCardsEnabled
+        ? {
+            markKnown,
+            markUnknown,
+            markFullyKnown: (wordId: string) =>
+              setCustomStage(wordId, STAGES.length - 1, { noRepeat: true }),
+            getStageIndex: (wordId: string) => progress[wordId]?.stageIndex ?? 0,
+          }
+        : undefined,
+    [swipeCardsEnabled, markKnown, markUnknown, setCustomStage, progress]
+  );
 
   const isAuthenticated = Boolean(isConnected && userId && !hasLinkWalletError);
   const isWaitingForLinkedProfile = Boolean(
@@ -225,6 +245,7 @@ export function HomeClient() {
     shouldRenderMemoryHook,
     studyNotesEnabled,
     studyNoteMinimizeFromStage,
+    swipeCardsEnabled,
     dismissedGames,
     setDismissedGames,
     setGameScore,
@@ -419,6 +440,7 @@ export function HomeClient() {
             filteredWords={filteredWords}
             interstitialCard={interstitialCard}
             onDeckWordCardCompleted={() => setCompletedDeckWordCards((count) => count + 1)}
+            deckSwipeActions={deckSwipeActions}
             cardDeckGroups={cardDeckGroups}
             streamGroupedWords={streamGroupedWords}
             renderCardForDeck={renderCardForDeck}

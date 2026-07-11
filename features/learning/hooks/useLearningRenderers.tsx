@@ -28,6 +28,7 @@ interface UseLearningRenderersOptions {
   shouldRenderMemoryHook: (wordId: string) => boolean;
   studyNotesEnabled: boolean;
   studyNoteMinimizeFromStage: number;
+  swipeCardsEnabled: boolean;
   dismissedGames: Set<string>;
   setDismissedGames: React.Dispatch<React.SetStateAction<Set<string>>>;
   setGameScore: React.Dispatch<React.SetStateAction<number>>;
@@ -53,6 +54,7 @@ export function useLearningRenderers({
   shouldRenderMemoryHook,
   studyNotesEnabled,
   studyNoteMinimizeFromStage,
+  swipeCardsEnabled,
   dismissedGames,
   setDismissedGames,
   setGameScore,
@@ -156,12 +158,13 @@ export function useLearningRenderers({
             showMemoryHook={shouldRenderMemoryHook(word.id)}
             studyNotesEnabled={studyNotesEnabled}
             studyNoteMinimizeFromStage={studyNoteMinimizeFromStage}
+            mobileCustomActionOnly={swipeCardsEnabled}
             fullscreen
           />
         </div>
       );
     },
-    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage]
+    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, swipeCardsEnabled]
   );
 
   const renderMiniGameForDeck = useCallback(

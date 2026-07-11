@@ -1,7 +1,7 @@
 'use client';
 
 import { AppLayout } from '@/components/AppLayout';
-import { CardDeckView } from '@/components/CardDeckView';
+import { CardDeckView, type CardDeckSwipeActions } from '@/components/CardDeckView';
 import { VirtualizedWordList } from '@/components/VirtualizedWordList';
 import { SettlingWordsFooter } from './SettlingWordsFooter';
 import { useI18n } from '@/components/I18nProvider';
@@ -26,6 +26,7 @@ interface LearningStudyContentProps {
   filteredWords: NormalizedWord[];
   interstitialCard?: React.ReactNode;
   onDeckWordCardCompleted?: (word: NormalizedWord) => void;
+  deckSwipeActions?: CardDeckSwipeActions;
   cardDeckGroups: (NormalizedWord | MiniGameConfig)[][];
   streamGroupedWords: (NormalizedWord | MiniGameConfig)[][];
   renderCardForDeck: (
@@ -59,6 +60,7 @@ export function LearningStudyContent({
   filteredWords,
   interstitialCard,
   onDeckWordCardCompleted,
+  deckSwipeActions,
   cardDeckGroups,
   streamGroupedWords,
   renderCardForDeck,
@@ -98,6 +100,7 @@ export function LearningStudyContent({
               groupedWords={cardDeckGroups}
               interstitialCard={interstitialCard}
               onWordCardCompleted={onDeckWordCardCompleted}
+              swipeActions={deckSwipeActions}
               renderCard={renderCardForDeck}
               renderMiniGame={renderMiniGameForDeck}
             />

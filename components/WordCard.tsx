@@ -42,6 +42,7 @@ interface WordCardProps {
   studyNotesEnabled?: boolean;
   studyNoteMinimizeFromStage?: number;
   fullscreen?: boolean;
+  mobileCustomActionOnly?: boolean;
 }
 
 export const WordCard = memo(function WordCard({
@@ -68,6 +69,7 @@ export const WordCard = memo(function WordCard({
   studyNotesEnabled = false,
   studyNoteMinimizeFromStage,
   fullscreen = false,
+  mobileCustomActionOnly = false,
 }: WordCardProps) {
   const { t } = useI18n();
   const revealMode = useOptionalAppStateContext()?.revealMode ?? 'scratch';
@@ -186,6 +188,7 @@ export const WordCard = memo(function WordCard({
     clampedStageIndex <= 6 ? 'seasoned' :
     'mastered';
   const hasCustomStageActions = Boolean(onCustomStage || onReallyKnown);
+  const useMobileCustomActionOnly = mobileCustomActionOnly && hasCustomStageActions;
 
   // Get categories to display (exclude "to fix" unless in edit mode)
   const displayCategories = word.category?.filter(
@@ -343,7 +346,13 @@ export const WordCard = memo(function WordCard({
             <SpeakerIcon size={23} />
           </button>
         )}
-        <div className={`card-actions-row ${hasCustomStageActions ? 'card-actions-row--three' : 'card-actions-row--two'}`}>
+        <div
+          className={[
+            'card-actions-row',
+            hasCustomStageActions ? 'card-actions-row--three' : 'card-actions-row--two',
+            useMobileCustomActionOnly ? 'card-actions-row--mobile-custom-only' : '',
+          ].join(' ')}
+        >
           <button
             type="button"
             className="srs-btn srs-btn--forgot !relative !opacity-80 max-md:!pb-0"

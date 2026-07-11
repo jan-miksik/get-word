@@ -4,6 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { CardDeckView } from '../CardDeckView';
 import type { NormalizedWord } from '@/lib/words';
 import type { MiniGameConfig } from '@/lib/minigames';
+import { firePointer, swipeRight, swipeLeft, swipeUp } from '../card-deck/__tests__/pointer-test-utils';
 
 const {
   checkAudioUrlAvailableMock,
@@ -375,6 +376,231 @@ describe('CardDeckView', () => {
         expect(warn).not.toHaveBeenCalled();
       } finally {
         warn.mockRestore();
+        vi.unstubAllEnvs();
+      }
+    });
+  });
+
+  describe('swipe to answer (frontier feature)', () => {
+    const makeSwipeActions = (stageIndex = 0) => ({
+      markKnown: vi.fn(),
+      markUnknown: vi.fn(),
+      markFullyKnown: vi.fn(),
+      getStageIndex: vi.fn(() => stageIndex),
+    });
+
+    const swipeRenderCard = (
+      word: NormalizedWord,
+      _: number,
+      onComplete: (afterExit?: () => void) => void,
+    ) => (
+      <div>
+        <span data-testid={`card-${word.id}`}>{word.id}</span>
+        <button onClick={() => onComplete()}>Complete</button>
+      </div>
+    );
+
+    const getDeckItem = (container: HTMLElement) =>
+      container.querySelector('.card-deck-item') as HTMLElement;
+
+    it('renders the direction badges only when swipe actions are provided', () => {
+      const { container, rerender } = render(
+        <CardDeckView
+          groupedWords={[[makeWord('w1')]]}
+          renderCard={swipeRenderCard}
+          renderMiniGame={vi.fn()}
+        />
+      );
+      expect(container.querySelector('[aria-hidden="true"]')).toBeNull();
+
+      rerender(
+        <CardDeckView
+          groupedWords={[[makeWord('w1')]]}
+          swipeActions={makeSwipeActions()}
+          renderCard={swipeRenderCard}
+          renderMiniGame={vi.fn()}
+        />
+      );
+      // Stage 0 word: right swipe schedules stage 1 (5 minutes), up marks as
+      // fully known/no repeat, left stays at stage 0 (due now). Neutral labels,
+      // no right/wrong verdict.
+      expect(screen.getByText('↺ 5 minutes')).toBeInTheDocument();
+      expect(screen.getByText('Fully known - no repeat')).toBeInTheDocument();
+      expect(screen.getByText('↺ now')).toBeInTheDocument();
+    });
+
+    it('shows the neighbouring stage intervals for a mid-stage word', () => {
+      const swipeActions = makeSwipeActions(3);
+      render(
+        <CardDeckView
+          groupedWords={[[makeWord('w1')]]}
+          swipeActions={swipeActions}
+          renderCard={swipeRenderCard}
+          renderMiniGame={vi.fn()}
+        />
+      );
+      // Stage 3 word: right -> stage 4 (7 days), up -> fully known/no repeat,
+      // left -> stage 2 (1 day).
+      expect(swipeActions.getStageIndex).toHaveBeenCalledWith('w1');
+      expect(screen.getByText('↺ 7 days')).toBeInTheDocument();
+      expect(screen.getByText('Fully known - no repeat')).toBeInTheDocument();
+      expect(screen.getByText('↺ 1 day')).toBeInTheDocument();
+    });
+
+    it('does not render badges or swipe touch handling on minigame cards', () => {
+      const renderMiniGame = (config: MiniGameConfig) => (
+        <div data-testid={`game-${config.id}`} />
+      );
+      const { container } = render(
+        <CardDeckView
+          groupedWords={[[makeGame('g1')]]}
+          swipeActions={makeSwipeActions()}
+          renderCard={vi.fn()}
+          renderMiniGame={renderMiniGame}
+        />
+      );
+      expect(screen.queryByText(/↺/)).not.toBeInTheDocument();
+      expect(getDeckItem(container).className).not.toContain('touch-none');
+    });
+
+    it('marks the word known exactly once and advances on a right swipe', () => {
+      const swipeActions = makeSwipeActions();
+      const { container } = render(
+        <CardDeckView
+          groupedWords={[[makeWord('w1'), makeWord('w2')]]}
+          swipeActions={swipeActions}
+          renderCard={swipeRenderCard}
+          renderMiniGame={vi.fn()}
+        />
+      );
+      swipeRight(getDeckItem(container));
+      expect(swipeActions.markKnown).toHaveBeenCalledTimes(1);
+      expect(swipeActions.markKnown).toHaveBeenCalledWith('w1');
+      expect(swipeActions.markUnknown).not.toHaveBeenCalled();
+      expect(swipeActions.markFullyKnown).not.toHaveBeenCalled();
+      expect(screen.getByTestId('card-w2')).toBeInTheDocument();
+    });
+
+    it('marks the word forgotten on a left swipe', () => {
+      const swipeActions = makeSwipeActions();
+      const { container } = render(
+        <CardDeckView
+          groupedWords={[[makeWord('w1'), makeWord('w2')]]}
+          swipeActions={swipeActions}
+          renderCard={swipeRenderCard}
+          renderMiniGame={vi.fn()}
+        />
+      );
+      swipeLeft(getDeckItem(container));
+      expect(swipeActions.markUnknown).toHaveBeenCalledTimes(1);
+      expect(swipeActions.markUnknown).toHaveBeenCalledWith('w1');
+      expect(swipeActions.markKnown).not.toHaveBeenCalled();
+      expect(swipeActions.markFullyKnown).not.toHaveBeenCalled();
+      expect(screen.getByTestId('card-w2')).toBeInTheDocument();
+    });
+
+    it('marks the word fully known on an up swipe', () => {
+      const swipeActions = makeSwipeActions();
+      const { container } = render(
+        <CardDeckView
+          groupedWords={[[makeWord('w1'), makeWord('w2')]]}
+          swipeActions={swipeActions}
+          renderCard={swipeRenderCard}
+          renderMiniGame={vi.fn()}
+        />
+      );
+      swipeUp(getDeckItem(container));
+      expect(swipeActions.markFullyKnown).toHaveBeenCalledTimes(1);
+      expect(swipeActions.markFullyKnown).toHaveBeenCalledWith('w1');
+      expect(swipeActions.markKnown).not.toHaveBeenCalled();
+      expect(swipeActions.markUnknown).not.toHaveBeenCalled();
+      expect(screen.getByTestId('card-w2')).toBeInTheDocument();
+    });
+
+    it('does not mark anything on a sub-threshold drag', () => {
+      const swipeActions = makeSwipeActions();
+      const { container } = render(
+        <CardDeckView
+          groupedWords={[[makeWord('w1'), makeWord('w2')]]}
+          swipeActions={swipeActions}
+          renderCard={swipeRenderCard}
+          renderMiniGame={vi.fn()}
+        />
+      );
+      const deckItem = getDeckItem(container);
+      firePointer(deckItem, 'pointerdown', { clientX: 100, clientY: 200, timeStamp: 1000 });
+      firePointer(window, 'pointermove', { clientX: 130, clientY: 202, timeStamp: 1050 });
+      firePointer(window, 'pointerup', { clientX: 150, clientY: 202, timeStamp: 1100 });
+      expect(swipeActions.markKnown).not.toHaveBeenCalled();
+      expect(swipeActions.markUnknown).not.toHaveBeenCalled();
+      expect(swipeActions.markFullyKnown).not.toHaveBeenCalled();
+      expect(screen.getByTestId('card-w1')).toBeInTheDocument();
+    });
+
+    it('does not start a swipe from the card buttons', () => {
+      const swipeActions = makeSwipeActions();
+      const { container } = render(
+        <CardDeckView
+          groupedWords={[[makeWord('w1'), makeWord('w2')]]}
+          swipeActions={swipeActions}
+          renderCard={swipeRenderCard}
+          renderMiniGame={vi.fn()}
+        />
+      );
+      swipeRight(screen.getByText('Complete'));
+      expect(swipeActions.markKnown).not.toHaveBeenCalled();
+      expect(screen.getByTestId('card-w1')).toBeInTheDocument();
+      expect(getDeckItem(container).style.transform).toBe('');
+    });
+
+    it('uses the dedicated swipe exit animation and defers the mark to animationend', () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      const swipeActions = makeSwipeActions();
+      try {
+        const { container } = render(
+          <CardDeckView
+            groupedWords={[[makeWord('w1'), makeWord('w2')]]}
+            swipeActions={swipeActions}
+            renderCard={swipeRenderCard}
+            renderMiniGame={vi.fn()}
+          />
+        );
+        swipeRight(getDeckItem(container));
+        const animating = container.querySelector('.animate-deck-exit-swipe');
+        expect(animating).not.toBeNull();
+        expect(swipeActions.markKnown).not.toHaveBeenCalled();
+
+        const event = new Event('animationend', { bubbles: true });
+        Object.defineProperty(event, 'animationName', { value: 'deck-exit-swipe' });
+        fireEvent(animating!, event);
+
+        expect(swipeActions.markKnown).toHaveBeenCalledTimes(1);
+        expect(swipeActions.markKnown).toHaveBeenCalledWith('w1');
+        expect(screen.getByTestId('card-w2')).toBeInTheDocument();
+      } finally {
+        vi.unstubAllEnvs();
+      }
+    });
+
+    it('marks the last card exactly once and keeps it visible under the done overlay', () => {
+      vi.stubEnv('NODE_ENV', 'development');
+      const swipeActions = makeSwipeActions();
+      try {
+        const { container } = render(
+          <CardDeckView
+            groupedWords={[[makeWord('w1')]]}
+            swipeActions={swipeActions}
+            renderCard={swipeRenderCard}
+            renderMiniGame={vi.fn()}
+          />
+        );
+        swipeRight(getDeckItem(container));
+        expect(swipeActions.markKnown).toHaveBeenCalledTimes(1);
+        expect(screen.getByText(/tap to continue/i)).toBeInTheDocument();
+        expect(screen.getByTestId('card-w1')).toBeInTheDocument();
+        // No exit animation ran: the card springs back under the overlay.
+        expect(container.querySelector('.animate-deck-exit-swipe')).toBeNull();
+      } finally {
         vi.unstubAllEnvs();
       }
     });
