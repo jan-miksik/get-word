@@ -20,7 +20,15 @@ export function LandingPageStyles() {
   background:var(--paper);
   font-family:var(--font-hanken),system-ui,sans-serif;
   -webkit-font-smoothing:antialiased;
-  overflow-x:clip;
+  overflow-x:hidden;
+}
+
+@media (display-mode: standalone), (display-mode: fullscreen){
+  .lp-root{
+    height:100dvh;
+    overflow-y:auto;
+    -webkit-overflow-scrolling:touch;
+  }
 }
 .lp-display{ font-family:system-ui,-apple-system,"Segoe UI",sans-serif; letter-spacing:-0.01em; }
 .lp-mono{ font-family:var(--font-mono-accent),ui-monospace,monospace; }
