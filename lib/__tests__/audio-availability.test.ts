@@ -9,6 +9,7 @@ describe('audio availability', () => {
   beforeEach(() => {
     clearAudioAvailabilityCache();
     vi.restoreAllMocks();
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
   });
 
   afterEach(() => {
@@ -20,7 +21,7 @@ describe('audio availability', () => {
   it('logs missing audio files in development when HEAD returns 404', async () => {
     vi.stubEnv('NODE_ENV', 'development');
     const logSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
-    global.fetch = vi.fn(async () => ({ ok: false, status: 404 } as Response));
+    global.fetch = vi.fn(async () => new Response(null, { status: 404 }));
 
     await expect(checkAudioUrlAvailable('/speech/cz/missing.mp3')).resolves.toBe(false);
 
@@ -39,7 +40,7 @@ describe('audio availability', () => {
   });
 
   it('returns null for playback when availability has already been cached as missing', async () => {
-    global.fetch = vi.fn(async () => ({ ok: false, status: 404 } as Response));
+    global.fetch = vi.fn(async () => new Response(null, { status: 404 }));
 
     await expect(checkAudioUrlAvailable('/speech/cz/missing.mp3')).resolves.toBe(false);
     await expect(getPlayableAudioUrl('/speech/cz/missing.mp3')).resolves.toBeNull();
@@ -65,10 +66,9 @@ describe('audio availability', () => {
   it('falls back from a broken Arweave gateway URL to the next configured gateway', async () => {
     global.fetch = vi.fn(async (input) => {
       const url = String(input);
-      return {
-        ok: url.startsWith('https://turbo-gateway.com/'),
+      return new Response(null, {
         status: url.startsWith('https://turbo-gateway.com/') ? 200 : 404,
-      } as Response;
+      });
     });
 
     await expect(getPlayableAudioUrl('https://ar-io.net/tx123')).resolves.toBe(

@@ -613,7 +613,7 @@ export function TranslationStep({
       const word = (row[hasSource] ?? '').trim();
       const translation = (row[needsTranslation] ?? '').trim();
       if (!word) continue;
-      const key = `${word.toLowerCase()} ${translation.toLowerCase()}`;
+      const key = `${word.toLowerCase()}\u0000${translation.toLowerCase()}`;
       const group = byKey.get(key);
       if (group) group.rows.push(row);
       else byKey.set(key, { key, word, rows: [row] });

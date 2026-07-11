@@ -17,6 +17,18 @@ const AUDIO_CACHE_NAME = 'get-word-active-list-audio-v1';
 // AbortController gives us a hard cutoff that works on both fetch implementations.
 const GATEWAY_TIMEOUT_MS = 1500;
 
+function getCandidateUrls(url: string): string[] {
+  return getArweaveGatewayUrlCandidates(url).map(withAudioDebugParam);
+}
+
+function getCacheKey(url: string): string {
+  return getCandidateUrls(url)[0] ?? url;
+}
+
+function shouldLogMissingAudioFile(): boolean {
+  return typeof process !== 'undefined' && process.env['NODE_ENV'] === 'development';
+}
+
 async function checkCacheFirst(candidates: string[]): Promise<string | null> {
   if (typeof caches === 'undefined') return null;
   try {
@@ -39,7 +51,7 @@ async function probeWithTimeout(url: string): Promise<boolean> {
     reportAudioStorageResponse(headResponse, url);
     if (headResponse.ok) return true;
     if (headResponse.status === 404) {
-      if (process.env.NODE_ENV === 'development') {
+      if (shouldLogMissingAudioFile()) {
         console.log('[AudioAvailability] Missing audio file', {
           url,
           method: 'HEAD',
@@ -69,7 +81,7 @@ async function probeWithTimeout(url: string): Promise<boolean> {
 }
 
 async function probeAudioUrl(url: string): Promise<string | null> {
-  const candidates = getArweaveGatewayUrlCandidates(url).map(withAudioDebugParam);
+  const candidates = getCandidateUrls(url);
 
   // 1. Cache API hit beats any network attempt.
   const cached = await checkCacheFirst(candidates);
@@ -90,13 +102,12 @@ async function probeAudioUrl(url: string): Promise<string | null> {
 
 export function checkAudioUrlAvailable(url: string | null): Promise<boolean> {
   if (!url) return Promise.resolve(false);
+  const cacheKey = getCacheKey(url);
   if (isAudioNetworkOffline()) {
-    return checkCacheFirst(
-      getArweaveGatewayUrlCandidates(url).map(withAudioDebugParam),
-    ).then(Boolean);
+    return checkCacheFirst(getCandidateUrls(url)).then(Boolean);
   }
 
-  const cached = audioAvailabilityCache.get(url);
+  const cached = audioAvailabilityCache.get(cacheKey);
   if (cached) return cached.promise.then(Boolean);
 
   const entry: AudioAvailabilityCacheEntry = {
@@ -111,24 +122,25 @@ export function checkAudioUrlAvailable(url: string | null): Promise<boolean> {
     return playableUrl;
   });
 
-  audioAvailabilityCache.set(url, entry);
+  audioAvailabilityCache.set(cacheKey, entry);
   return entry.promise.then(Boolean);
 }
 
 export function getCachedAudioUrlAvailability(url: string | null): boolean | null {
   if (!url) return false;
-  const cached = audioAvailabilityCache.get(url);
+  const cached = audioAvailabilityCache.get(getCacheKey(url));
   if (!cached || !cached.settled) return null;
   return Boolean(cached.value);
 }
 
 export async function getPlayableAudioUrl(url: string | null): Promise<string | null> {
   if (!url) return null;
+  const cacheKey = getCacheKey(url);
   if (isAudioNetworkOffline()) {
-    return checkCacheFirst(getArweaveGatewayUrlCandidates(url).map(withAudioDebugParam));
+    return checkCacheFirst(getCandidateUrls(url));
   }
 
-  const cached = audioAvailabilityCache.get(url);
+  const cached = audioAvailabilityCache.get(cacheKey);
   if (cached?.settled) return cached.value;
 
   if (cached) return cached.promise;
@@ -145,7 +157,7 @@ export async function getPlayableAudioUrl(url: string | null): Promise<string | 
     return playableUrl;
   });
 
-  audioAvailabilityCache.set(url, entry);
+  audioAvailabilityCache.set(cacheKey, entry);
   return entry.promise;
 }
 

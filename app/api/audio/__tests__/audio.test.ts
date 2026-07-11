@@ -824,7 +824,7 @@ describe('POST /api/audio/reuse/batch', () => {
       sizeBytes: 123,
     }
     mockFindMediaByHashes.mockResolvedValue(new Map([['hash_hello_vi_google_tts', legacyR2Asset]]))
-    mockFindMediaVariantsByText.mockResolvedValue(new Map([['vi hello', [legacyR2Asset]]]))
+    mockFindMediaVariantsByText.mockResolvedValue(new Map([['vi\u0000hello', [legacyR2Asset]]]))
 
     const res = await POST_REUSE(makeReuseRequest({
       items: [{ id: 'item-1', text: 'hello', language: 'vi' }],

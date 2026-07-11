@@ -18,8 +18,8 @@ const makeWord = (id: string, cz: string, vi: string): NormalizedWord => ({
   vi,
   en: '',
   category: ['word'],
-  czAudio: 'speech/cz/sample.mp3',
-  viAudio: 'speech/vi/sample.mp3',
+  czAudio: '/speech/cz/sample.mp3',
+  viAudio: '/speech/vi/sample.mp3',
 });
 
 const WORDS = [
@@ -38,6 +38,8 @@ const config = (gameType: MiniGameConfig['gameType']): MiniGameConfig => ({
 
 beforeEach(() => {
   clearAudioAvailabilityCache();
+  localStorage.clear();
+  Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
   vi.stubGlobal(
     'Audio',
     vi.fn().mockImplementation(function FakeAudio(this: { play: () => Promise<void>; pause: () => void }, _src: string) {
@@ -45,7 +47,7 @@ beforeEach(() => {
       this.pause = () => {};
     }),
   );
-  global.fetch = vi.fn(async () => ({ ok: true, status: 200 } as Response));
+  global.fetch = vi.fn(async () => new Response(null, { status: 200 }));
 });
 
 describe('MiniGameCard', () => {
@@ -121,7 +123,7 @@ describe('MiniGameCard', () => {
     const fallbackWords: NormalizedWord[] = WORDS.map((word) => ({
       ...word,
       czAudio: undefined,
-      viAudio: 'speech/vi/sample.mp3',
+      viAudio: '/speech/vi/sample.mp3',
     }));
     render(
       <MiniGameCard
@@ -140,7 +142,7 @@ describe('MiniGameCard', () => {
     const fallbackWords: NormalizedWord[] = WORDS.map((word) => ({
       ...word,
       czAudio: undefined,
-      viAudio: 'speech/vi/sample.mp3',
+      viAudio: '/speech/vi/sample.mp3',
     }));
     render(
       <MiniGameCard
@@ -193,12 +195,12 @@ describe('MiniGameCard', () => {
     global.fetch = vi.fn(async (input: RequestInfo | URL) => {
       const url = String(input);
       const ok = url.includes('/speech/vi/sample.mp3');
-      return { ok, status: ok ? 200 : 404 } as Response;
+      return new Response(null, { status: ok ? 200 : 404 });
     });
 
     const brokenPromptWords: NormalizedWord[] = WORDS.map((word, index) => ({
       ...word,
-      czAudio: index === 0 ? 'speech/cz/missing.mp3' : word.czAudio,
+      czAudio: index === 0 ? '/speech/cz/missing.mp3' : word.czAudio,
       viAudio: undefined,
     }));
 

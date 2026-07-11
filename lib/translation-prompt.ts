@@ -109,8 +109,6 @@ export const LIST_GENERATION_RULES = `
 - Before returning the list, silently review whether essential new words are introduced, each example demonstrates its intended item, parallel sections are visibly parallel, any sentence could be shorter without losing its teaching point, and no target added meaning absent from the source.
 `.trim();
 
-export const BEGINNER_LIST_GENERATION_RULES = LIST_GENERATION_RULES;
-
 /** System message for the (separate) comment-generation pass. */
 export const COMMENT_SYSTEM_PROMPT = `
 You are a concise language tutor for a language-learning app.
