@@ -16,10 +16,8 @@ function canRepairList(
 ) {
   // The owner can scan/repair their own list; curated/recommended global lists are
   // editor-only. A bare listId (e.g. a subscriber) never grants access.
-  return (
-    list.ownerId === user.id ||
-    ((list.isCommon || list.isRecommended) && isEditor(user))
-  );
+  if (list.isCommon || list.isRecommended) return isEditor(user);
+  return list.ownerId === user.id;
 }
 
 function parseSide(value: unknown): AudioSide | "both" {

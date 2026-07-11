@@ -4,7 +4,7 @@ import {
   getMediaAssetsByIds,
 } from "@/lib/db";
 import type { MediaAsset, WordListItem } from "@/lib/db/schema";
-import { computeContentHash } from "@/lib/audio";
+import { computeContentHash, DEFAULT_GOOGLE_TTS_VOICE_ID } from "@/lib/audio";
 import { analyzeMp3, assessClipPlausibility, isSuspiciousSizeForText } from "@/lib/audio-quality";
 import { getArweaveGatewayUrls } from "@/lib/audio-storage";
 import { getAudio } from "@/lib/object-storage";
@@ -195,8 +195,15 @@ export async function repairListAudio(
           existingAssetId && assets.get(existingAssetId)?.voiceId
             ? assets.get(existingAssetId)!.voiceId
             : undefined;
+        // Persisted default-voice clips store the sentinel (google:default:female),
+        // not a real Google voice name — treat both it and the legacy "default"
+        // string as "use the name-less default", never as a named voice to request.
         const requestVoice =
-          existingVoice && existingVoice !== "default" ? existingVoice : undefined;
+          existingVoice &&
+          existingVoice !== "default" &&
+          existingVoice !== DEFAULT_GOOGLE_TTS_VOICE_ID
+            ? existingVoice
+            : undefined;
         const hash = computeContentHash(text, language, provider, {
           voiceId: requestVoice ?? "default",
           audioFormat: AUDIO_FORMAT,

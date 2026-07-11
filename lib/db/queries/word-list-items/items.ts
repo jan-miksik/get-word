@@ -21,6 +21,34 @@ export async function getListItems(listId: string): Promise<WordListItem[]> {
     .orderBy(asc(wordListItems.position));
 }
 
+export type ItemListAuthz = {
+  itemId: string;
+  listId: string;
+  ownerId: string | null;
+  isCommon: boolean;
+  isRecommended: boolean;
+};
+
+/**
+ * For each given item id, resolve the owning list plus the flags needed to decide
+ * whether a caller may mutate that item's audio. Items that don't exist are simply
+ * absent from the result, so callers must treat "not returned" as "not authorized".
+ */
+export async function getItemListAuthz(itemIds: string[]): Promise<ItemListAuthz[]> {
+  if (itemIds.length === 0) return [];
+  return db
+    .select({
+      itemId: wordListItems.id,
+      listId: wordLists.id,
+      ownerId: wordLists.ownerId,
+      isCommon: wordLists.isCommon,
+      isRecommended: wordLists.isRecommended,
+    })
+    .from(wordListItems)
+    .innerJoin(wordLists, eq(wordListItems.listId, wordLists.id))
+    .where(inArray(wordListItems.id, itemIds));
+}
+
 export async function getUserSubscribedItems(userId: string): Promise<WordListItem[]> {
   const listIds = await getUserSubscribedListIds(userId);
   if (listIds.length === 0) return [];

@@ -6,7 +6,10 @@
 import { getProviderSecret } from "@/lib/providers/store";
 import { DEFAULT_OPENROUTER_TRANSLATION_MODEL } from "@/lib/openrouter-models";
 import { callOpenRouterChatParsed, OpenRouterChatError, parseJsonLoose } from "@/lib/openrouter-chat";
-import { TRANSLATION_QUALITY_RULES, TRANSLATION_SYSTEM_PROMPT } from "@/lib/translation-prompt";
+import {
+  buildOpenRouterTranslationPrompt,
+  TRANSLATION_SYSTEM_PROMPT,
+} from "@/lib/translation-prompt";
 import {
   validateTranslation,
   type TranslationValidationWarning,
@@ -22,6 +25,8 @@ export type TranslationResult = {
   /** Structured advisory warnings (register, capitalization, article, script). */
   validationWarnings?: TranslationValidationWarning[];
 };
+
+const OPENROUTER_TRANSLATION_BATCH_SIZE = 100;
 
 /**
  * Translate texts via Google Cloud Translation API v2.
@@ -126,24 +131,21 @@ export async function openRouterTranslate(
   // consistency) without hitting a rate limit. Kept moderate because BYOK runs
   // arbitrary, sometimes weaker models where long structured output is less
   // reliable; index-aligned parsing below tolerates a dropped/failed batch.
-  const BATCH_SIZE = 100;
 
-  for (let i = 0; i < texts.length; i += BATCH_SIZE) {
-    const batch = texts.slice(i, i + BATCH_SIZE);
-    const prompt = `
-Translate the following ${batch.length} items from ${fromLang} to ${toLang}.
-
-Rules:
-${TRANSLATION_QUALITY_RULES}
-- Translate each item independently and echo its "index" unchanged.
-- Return only valid JSON, with no markdown or commentary.
-
-Return JSON with this exact shape:
-{ "items": [ { "index": 1, "translated": "natural translation" } ] }
-
-Items:
-${batch.map((t, idx) => `${idx + 1}. ${t}`).join("\n")}
-`.trim();
+  for (let i = 0; i < texts.length; i += OPENROUTER_TRANSLATION_BATCH_SIZE) {
+    const batch = texts.slice(i, i + OPENROUTER_TRANSLATION_BATCH_SIZE);
+    const previousPairs = results
+      .flatMap((result) =>
+        result.status === "ok" && result.translated
+          ? [{ source: result.text, target: result.translated }]
+          : [],
+      );
+    const prompt = buildOpenRouterTranslationPrompt({
+      texts: batch,
+      fromLang,
+      toLang,
+      previousPairs,
+    });
 
     try {
       // BYOK models vary in structured-output support, so we don't force a

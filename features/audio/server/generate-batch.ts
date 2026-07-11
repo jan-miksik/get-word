@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   resolveUserFromRequest,
   unauthorizedResponse,
+  forbiddenResponse,
 } from "@/lib/auth";
 import {
   countGoogleApiTextUnits,
   findMediaByHashes,
   batchLinkAudioToItems,
+  recordGoogleApiUsage,
   reserveGoogleApiUsage,
 } from "@/lib/db";
 import {
+  DEFAULT_GOOGLE_TTS_VOICE_ID,
   computeContentHash,
   getAudioUrl,
 } from "@/lib/audio";
@@ -20,6 +23,7 @@ import { getUserApiKey } from "@/lib/translation";
 import { getErrorDetail } from "./batch/errors";
 import { generateAudioForItem } from "./batch/generate-item";
 import { buildBatchResults } from "./batch/results";
+import { findUnauthorizedAudioItemIds } from "./list-authz";
 import {
   AUDIO_FORMAT,
   CONCURRENCY,
@@ -64,6 +68,18 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
     );
   }
 
+  // Audio generation mutates the media asset linked to each item id, so the caller
+  // must be allowed to edit every item's list — a bare item id (e.g. from a
+  // subscriber, or a probe against a curated list) must never grant a write. This
+  // mirrors the scan/repair route authz: owner, or editor for curated/recommended.
+  const unauthorized = await findUnauthorizedAudioItemIds(
+    items.map((item) => item.id),
+    user,
+  );
+  if (unauthorized.length > 0) {
+    return forbiddenResponse("Not authorized to generate audio for one or more items");
+  }
+
   if (!provider || !["google_tts", "elevenlabs"].includes(provider)) {
     return NextResponse.json(
       { error: "provider must be 'google_tts' or 'elevenlabs'" },
@@ -82,7 +98,9 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
     }
   }
 
-  const resolveItemVoice = (item: AudioItem) => item.voice_id ?? voice_id;
+  const normalizeRequestedVoice = (value: string | undefined) =>
+    value && value !== "default" && value !== DEFAULT_GOOGLE_TTS_VOICE_ID ? value : undefined;
+  const resolveItemVoice = (item: AudioItem) => normalizeRequestedVoice(item.voice_id ?? voice_id);
   const hashes = items.map((item) =>
     computeContentHash(item.text, item.language, provider, {
       voiceId: resolveItemVoice(item) ?? "default",
@@ -341,6 +359,31 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
       },
       { status: 429 },
     );
+  }
+
+  // True up quota: the reservation above counted one Google call per item, but the
+  // quality autofix can fire extra fallback calls on suspect clips. Record the surplus
+  // best-effort — the calls already happened, so account for them even if the total
+  // has crossed the monthly cap (the next reservation will then correctly refuse).
+  if (provider === "google_tts") {
+    const extraUnits = generatedResults.reduce((sum, r) => sum + (r.extraGoogleUnits ?? 0), 0);
+    const extraRequests = generatedResults.reduce((sum, r) => sum + (r.extraGoogleRequests ?? 0), 0);
+    if (extraUnits > 0 || extraRequests > 0) {
+      try {
+        await recordGoogleApiUsage({
+          userId: user.id,
+          scope: "tts",
+          units: extraUnits,
+          requestCount: extraRequests,
+        });
+      } catch (err) {
+        console.error("[Get Word audio] failed to record autofix retry usage", {
+          extraUnits,
+          extraRequests,
+          error: err instanceof Error ? err.message : err,
+        });
+      }
+    }
   }
 
   // Enforce the whole-response inline-bytes budget: keep inlined audio in order

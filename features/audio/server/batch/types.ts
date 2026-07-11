@@ -74,6 +74,14 @@ export type GeneratedResult = {
    * can surface a non-fatal object_mirror_warning.
    */
   mirrorFailedCategory?: string;
+  /**
+   * Extra Google TTS usage the quality autofix incurred *beyond* the single call the
+   * batch reserved for this item (each fallback attempt is one more call). generate-batch
+   * trues up the quota with these so autofix retries aren't undercounted. Internal —
+   * not mapped into the JSON response.
+   */
+  extraGoogleUnits?: number;
+  extraGoogleRequests?: number;
   error?: string;
 };
 

@@ -5,12 +5,14 @@ import {
   findMediaVariantsByText,
 } from "@/lib/db";
 import {
+  forbiddenResponse,
   resolveUserFromRequest,
   unauthorizedResponse,
 } from "@/lib/auth";
-import { computeContentHash, getAudioUrl } from "@/lib/audio";
+import { DEFAULT_GOOGLE_TTS_VOICE_ID, computeContentHash, getAudioUrl } from "@/lib/audio";
 import { getArweaveGatewayUrls } from "@/lib/audio-storage";
 import { isPlayableAudioAsset } from "@/lib/audio-assets";
+import { findUnauthorizedAudioItemIds } from "@/features/audio/server/list-authz";
 
 type AudioReuseItem = {
   id: string;
@@ -24,6 +26,10 @@ const MAX_ITEMS = 200;
 const AUDIO_FORMAT = "mp3";
 
 export const runtime = "nodejs";
+
+function normalizeRequestedVoice(value: string | undefined): string | undefined {
+  return value && value !== "default" && value !== DEFAULT_GOOGLE_TTS_VOICE_ID ? value : undefined;
+}
 
 export async function POST(request: NextRequest) {
   const user = await resolveUserFromRequest(request);
@@ -61,9 +67,19 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  if (shouldLink) {
+    const unauthorized = await findUnauthorizedAudioItemIds(
+      items.map((item) => item.id),
+      user,
+    );
+    if (unauthorized.length > 0) {
+      return forbiddenResponse("Not authorized to link audio for one or more items");
+    }
+  }
+
   const hashes = items.map((item) =>
     computeContentHash(item.text, item.language, provider, {
-      voiceId: item.voice_id ?? voice_id ?? "default",
+      voiceId: normalizeRequestedVoice(item.voice_id ?? voice_id) ?? "default",
       audioFormat: AUDIO_FORMAT,
     }),
   );
@@ -83,7 +99,7 @@ export async function POST(request: NextRequest) {
 
   const results = items.map((item, index) => {
     const hash = hashes[index];
-    const requestedVoiceId = item.voice_id ?? voice_id ?? "default";
+    const requestedVoiceId = normalizeRequestedVoice(item.voice_id ?? voice_id) ?? "default";
     const exactAsset = existingMedia.get(hash);
     const variants =
       reusableVariants.get(`${item.language}\u0000${item.text}`) ?? [];

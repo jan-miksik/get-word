@@ -73,6 +73,18 @@ function isSameOrigin(url) {
   return url.origin === self.location.origin;
 }
 
+// The Cache API rejects partial (206) responses and only stores basic/cors/
+// default response types. Range requests (audio/video seeking) yield 206, so
+// guard every cache.put with this to avoid unhandled "put on Cache" rejections.
+function isCacheable(response) {
+  return (
+    !!response &&
+    response.status === 200 &&
+    response.type !== 'opaqueredirect' &&
+    response.type !== 'partial'
+  );
+}
+
 function isApiPath(pathname) {
   return pathname.startsWith('/api/') || pathname.startsWith('/api');
 }
@@ -110,7 +122,7 @@ self.addEventListener('fetch', (event) => {
         if (cached) return cached;
         try {
           const response = await fetch(request);
-          if (response.ok) {
+          if (isCacheable(response)) {
             await cache.put(request, response.clone());
           }
           return response;
@@ -129,8 +141,10 @@ self.addEventListener('fetch', (event) => {
       (async () => {
         try {
           const response = await fetch(request);
-          const cache = await caches.open(PAGES_CACHE);
-          cache.put(request, response.clone());
+          if (isCacheable(response)) {
+            const cache = await caches.open(PAGES_CACHE);
+            cache.put(request, response.clone());
+          }
           return response;
         } catch {
           const cache = await caches.open(PAGES_CACHE);
@@ -149,8 +163,10 @@ self.addEventListener('fetch', (event) => {
         const cached = await caches.match(request);
         if (cached) return cached;
         const response = await fetch(request);
-        const cache = await caches.open(STATIC_CACHE);
-        cache.put(request, response.clone());
+        if (isCacheable(response)) {
+          const cache = await caches.open(STATIC_CACHE);
+          cache.put(request, response.clone());
+        }
         return response;
       })()
     );
@@ -164,7 +180,9 @@ self.addEventListener('fetch', (event) => {
       const cached = await cache.match(request);
       const fetchPromise = fetch(request)
         .then((response) => {
-          cache.put(request, response.clone());
+          if (isCacheable(response)) {
+            cache.put(request, response.clone());
+          }
           return response;
         })
         .catch(() => null);

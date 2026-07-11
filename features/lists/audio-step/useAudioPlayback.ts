@@ -19,6 +19,7 @@ import type { TranslateFn } from '@/features/lists/audio-step/api';
 import { reportAudioStorageResponse, withAudioDebugParam } from '@/lib/audio-debug';
 import {
   cleanupClips,
+  deleteClip,
   getClip,
   hashFromAudioUrl,
   putClip,
@@ -137,12 +138,19 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
   const playQueueRef = useRef<QueuedAudio[]>([]);
   const playNextRef = useRef<(() => void) | null>(null);
 
-  const clearCachedAudio = useCallback((audioUrl: string | null | undefined) => {
+  const clearCachedAudio = useCallback(async (audioUrl: string | null | undefined) => {
     if (!audioUrl) return;
     const cached = audioCacheRef.current.get(audioUrl);
-    if (!cached) return;
-    URL.revokeObjectURL(cached.objectUrl);
-    audioCacheRef.current.delete(audioUrl);
+    if (cached) {
+      URL.revokeObjectURL(cached.objectUrl);
+      audioCacheRef.current.delete(audioUrl);
+    }
+    // Also drop any persisted copy — same text+voice yields the same content hash on
+    // regeneration, so without this a force-regen with no inline bytes would replay
+    // the stale IndexedDB clip (possibly after a reload, where the in-memory map is
+    // empty). Best-effort; no-op when the hash isn't a proxy URL or IDB is blocked.
+    const hash = hashFromAudioUrl(audioUrl);
+    if (hash) await deleteClip(hash);
   }, []);
 
   const getPlaybackCandidateUrls = useCallback((source: AudioSourceCandidate): string[] => {

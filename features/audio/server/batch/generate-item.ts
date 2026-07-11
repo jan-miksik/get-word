@@ -3,6 +3,7 @@ import {
   findMediaByHash,
   upsertMediaAsset,
   batchLinkAudioToItems,
+  countGoogleApiTextUnits,
 } from "@/lib/db";
 import {
   googleTTS,
@@ -60,6 +61,9 @@ type GoogleAutofixResult = {
   actualVoiceUsed: string;
   qualityWarning?: string;
   fallbackUsed: boolean;
+  // Google TTS calls made *beyond* the first (the autofix fallback attempts). Used
+  // to true up quota accounting, since the batch only reserved one call per item.
+  extraAttempts: number;
 };
 
 /**
@@ -74,8 +78,14 @@ async function generateGoogleAudioWithAutofix(
   language: string,
   requestedVoiceLabel: string | undefined,
 ): Promise<GoogleAutofixResult | null> {
+  // "default" (legacy) and the DEFAULT_GOOGLE_TTS_VOICE_ID sentinel both mean the
+  // name-less default voice — never pass either to Google as a real voice name.
   const requestedNamedVoice =
-    requestedVoiceLabel && requestedVoiceLabel !== "default" ? requestedVoiceLabel : undefined;
+    requestedVoiceLabel &&
+    requestedVoiceLabel !== "default" &&
+    requestedVoiceLabel !== DEFAULT_GOOGLE_TTS_VOICE_ID
+      ? requestedVoiceLabel
+      : undefined;
 
   // Ordered, deduped candidate voices. Each entry's `voiceParam` is what we pass to
   // googleTTS (undefined = default name-less female); `label` is what we persist.
@@ -116,6 +126,7 @@ async function generateGoogleAudioWithAutofix(
       sizeBytes: first.sizeBytes,
       actualVoiceUsed: first.voiceLabel,
       fallbackUsed: false,
+      extraAttempts: 0,
     };
   }
 
@@ -153,6 +164,7 @@ async function generateGoogleAudioWithAutofix(
         sizeBytes: attempt.sizeBytes,
         actualVoiceUsed: attempt.voiceLabel,
         fallbackUsed: true,
+        extraAttempts: attempts.length - 1,
       };
     }
   }
@@ -168,6 +180,7 @@ async function generateGoogleAudioWithAutofix(
     sizeBytes: best.sizeBytes,
     actualVoiceUsed: best.voiceLabel,
     fallbackUsed: true,
+    extraAttempts: attempts.length - 1,
     qualityWarning: `low-quality (${firstReason ?? "suspect"}); tried voices: ${attemptedLabels.join(", ")}`,
   };
 }
@@ -193,6 +206,10 @@ export async function generateAudioForItem(
     let actualVoiceUsed: string | null =
       requestedVoiceLabel && requestedVoiceLabel !== "default" ? requestedVoiceLabel : null;
     let audioQualityWarning: string | undefined;
+    // Extra Google TTS calls the autofix made beyond the one the batch reserved, so
+    // generate-batch can true up the quota (each fallback attempt is one more call).
+    let extraGoogleUnits = 0;
+    let extraGoogleRequests = 0;
 
     if (provider === "google_tts") {
       const autofixed = await generateGoogleAudioWithAutofix(
@@ -204,6 +221,10 @@ export async function generateAudioForItem(
         result = { audio: autofixed.audio, sizeBytes: autofixed.sizeBytes };
         actualVoiceUsed = autofixed.actualVoiceUsed;
         audioQualityWarning = autofixed.qualityWarning;
+        if (autofixed.extraAttempts > 0) {
+          extraGoogleRequests = autofixed.extraAttempts;
+          extraGoogleUnits = countGoogleApiTextUnits([item.text]) * autofixed.extraAttempts;
+        }
         if (autofixed.fallbackUsed) {
           console.info("[Get Word audio] quality autofix applied", {
             itemId: item.id,
@@ -340,6 +361,7 @@ export async function generateAudioForItem(
           ? { mirrorFailedCategory: mirrorFailureCategory }
           : {}),
         ...(audioQualityWarning ? { audioQualityWarning } : {}),
+        ...(extraGoogleRequests > 0 ? { extraGoogleUnits, extraGoogleRequests } : {}),
         // Inline the bytes for instant local playback, but only for clips within the
         // per-clip cap. The whole-batch budget is enforced later in generate-batch.
         ...(result.sizeBytes <= INLINE_MAX_BYTES

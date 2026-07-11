@@ -221,3 +221,50 @@ export async function reserveGoogleApiUsage(input: {
     freeMonthlyUnits,
   };
 }
+
+/**
+ * Record usage that has already happened. Unlike `reserveGoogleApiUsage`, this does
+ * not enforce the account cap: it is used to true up best-effort retry/fallback calls
+ * after they have already been sent to Google, so the next reservation sees reality.
+ */
+export async function recordGoogleApiUsage(input: {
+  userId: string;
+  scope: GoogleApiScope;
+  units: number;
+  requestCount?: number;
+  periodStart?: Date;
+}): Promise<void> {
+  const units = Math.max(0, Math.floor(input.units));
+  const requestCount = Math.max(0, Math.floor(input.requestCount ?? 0));
+  if (units === 0 && requestCount === 0) return;
+
+  const periodStart = input.periodStart ?? getCurrentGoogleApiPeriodStart();
+  const periodStartSql = periodStart.toISOString();
+  await db.execute(
+    sql`
+      INSERT INTO google_api_usage (
+        user_id,
+        scope,
+        period_start,
+        units,
+        request_count,
+        created_at,
+        updated_at
+      )
+      VALUES (
+        ${input.userId},
+        ${input.scope},
+        ${periodStartSql}::timestamp,
+        ${units},
+        ${requestCount},
+        now(),
+        now()
+      )
+      ON CONFLICT (user_id, scope, period_start)
+      DO UPDATE SET
+        units = google_api_usage.units + EXCLUDED.units,
+        request_count = google_api_usage.request_count + EXCLUDED.request_count,
+        updated_at = now()
+    `,
+  );
+}

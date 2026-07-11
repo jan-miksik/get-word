@@ -126,6 +126,7 @@ async function main() {
   );
 
   let repairedTotal = 0;
+  let attemptedTotal = 0;
   let flaggedTotal = 0;
 
   for (const listId of listIds) {
@@ -149,12 +150,15 @@ async function main() {
 
     if (!args.apply) continue;
 
-    const remaining = args.limit - repairedTotal;
+    // --limit caps *attempted* items (i.e. TTS regenerations), not just successes —
+    // otherwise a run with many failures could fire far more calls than requested.
+    const remaining = args.limit - attemptedTotal;
     if (remaining <= 0) {
       console.log("  reached --limit; stopping.");
       break;
     }
     const toRepair = flagged.slice(0, remaining).map((f) => ({ itemId: f.itemId, side: f.side }));
+    attemptedTotal += toRepair.length;
     const outcomes = await repairListAudio(listId, toRepair, { concurrency: args.concurrency });
     const ok = outcomes.filter((o) => o.status === "ok").length;
     const failed = outcomes.length - ok;

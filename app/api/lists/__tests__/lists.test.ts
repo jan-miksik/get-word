@@ -19,6 +19,7 @@ const mockCreateCategory = vi.fn()
 const mockReorderCategories = vi.fn()
 const mockDeleteCategory = vi.fn()
 const mockResolveUserFromRequest = vi.fn()
+const mockScanListAudio = vi.fn()
 
 vi.mock('@/lib/db', () => ({
   getUserLists: (...args: unknown[]) => mockGetUserLists(...args),
@@ -68,11 +69,16 @@ vi.mock('@/lib/auth', () => ({
   forbiddenResponse: () => new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { 'content-type': 'application/json' } }),
 }))
 
+vi.mock('@/features/audio/server/repair/scan-list-audio', () => ({
+  scanListAudio: (...args: unknown[]) => mockScanListAudio(...args),
+}))
+
 import { GET, POST } from '../route'
 import { GET as GET_MATCHES } from '../matches/route'
 import { GET as GET_DETAIL, PUT, DELETE } from '../[id]/route'
 import { GET as GET_CATS, POST as POST_CAT, PUT as PUT_CATS } from '../[id]/categories/route'
 import { DELETE as DELETE_CAT } from '../[id]/categories/[catId]/route'
+import { POST as POST_AUDIO_SCAN } from '../[id]/audio/scan/route'
 
 const testUser = {
   id: 'user-1',
@@ -135,6 +141,53 @@ describe('GET /api/lists', () => {
     const data = await res.json()
     expect(res.status).toBe(200)
     expect(data.canManageCommonLists).toBe(true)
+  })
+})
+
+describe('POST /api/lists/[id]/audio/scan', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockScanListAudio.mockResolvedValue([])
+  })
+
+  function scanRequest() {
+    return new NextRequest('http://localhost:3000/api/lists/list-1/audio/scan', {
+      method: 'POST',
+      body: JSON.stringify({ side: 'target' }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  const scanContext = { params: Promise.resolve({ id: 'list-1' }) }
+
+  it('allows the owner to scan a regular list', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetListById.mockResolvedValue(testList)
+
+    const res = await POST_AUDIO_SCAN(scanRequest(), scanContext)
+
+    expect(res.status).toBe(200)
+    expect(mockScanListAudio).toHaveBeenCalledWith('list-1', { side: 'target' })
+  })
+
+  it('rejects a non-editor owner for a curated list', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetListById.mockResolvedValue({ ...testList, isCommon: true })
+
+    const res = await POST_AUDIO_SCAN(scanRequest(), scanContext)
+
+    expect(res.status).toBe(403)
+    expect(mockScanListAudio).not.toHaveBeenCalled()
+  })
+
+  it('allows an editor to scan a curated list', async () => {
+    mockResolveUserFromRequest.mockResolvedValue({ ...testUser, userRole: 'editor' })
+    mockGetListById.mockResolvedValue({ ...testList, ownerId: 'other-user', isRecommended: true })
+
+    const res = await POST_AUDIO_SCAN(scanRequest(), scanContext)
+
+    expect(res.status).toBe(200)
+    expect(mockScanListAudio).toHaveBeenCalledWith('list-1', { side: 'target' })
   })
 })
 

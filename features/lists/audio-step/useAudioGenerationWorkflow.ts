@@ -28,7 +28,7 @@ type UseAudioGenerationWorkflowOptions = {
   setError: Dispatch<SetStateAction<string | null>>;
   setPlaybackErrors: Dispatch<SetStateAction<Record<string, string>>>;
   setAudioWarnings: Dispatch<SetStateAction<Record<string, string>>>;
-  clearCachedAudio: (audioUrl: string | null | undefined) => void;
+  clearCachedAudio: (audioUrl: string | null | undefined) => Promise<void>;
   preloadAudio: (rowId: string, source: AudioSourceCandidate) => Promise<string>;
   storeGeneratedAudio: (audioUrl: string, base64: string, contentType?: string) => string | null;
   pause: () => void;
@@ -85,7 +85,7 @@ export function useAudioGenerationWorkflow({
       return next;
     });
 
-    for (const row of targetRows) clearCachedAudio(row.audioUrl);
+    await Promise.all(targetRows.map((row) => clearCachedAudio(row.audioUrl)));
 
     setRows((prev) =>
       prev.map((row) =>

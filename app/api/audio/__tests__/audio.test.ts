@@ -10,6 +10,8 @@ const mockUpsertMediaAsset = vi.fn()
 const mockBatchLinkAudioToItems = vi.fn()
 const mockGetUserApiKey = vi.fn()
 const mockReserveGoogleApiUsage = vi.fn()
+const mockRecordGoogleApiUsage = vi.fn()
+const mockGetItemListAuthz = vi.fn()
 const mockGoogleTTS = vi.fn()
 const mockElevenLabsTTS = vi.fn()
 const mockUploadAudio = vi.fn()
@@ -24,6 +26,8 @@ const mockGetActiveProvider = vi.fn()
 vi.mock('@/lib/auth', () => ({
   resolveUserFromRequest: (...args: unknown[]) => mockResolveUserFromRequest(...args),
   unauthorizedResponse: () => new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: { 'content-type': 'application/json' } }),
+  forbiddenResponse: (message = 'Editor role required') => new Response(JSON.stringify({ error: message }), { status: 403, headers: { 'content-type': 'application/json' } }),
+  isEditor: (user: { userRole?: string }) => user?.userRole === 'editor',
 }))
 
 vi.mock('@/lib/db', () => ({
@@ -35,6 +39,8 @@ vi.mock('@/lib/db', () => ({
   upsertMediaAsset: (...args: unknown[]) => mockUpsertMediaAsset(...args),
   batchLinkAudioToItems: (...args: unknown[]) => mockBatchLinkAudioToItems(...args),
   reserveGoogleApiUsage: (...args: unknown[]) => mockReserveGoogleApiUsage(...args),
+  recordGoogleApiUsage: (...args: unknown[]) => mockRecordGoogleApiUsage(...args),
+  getItemListAuthz: (...args: unknown[]) => mockGetItemListAuthz(...args),
 }))
 
 vi.mock('@/lib/translation', () => ({
@@ -115,6 +121,17 @@ describe('POST /api/audio/generate/batch', () => {
     mockPutObjectAudio.mockResolvedValue(true)
     mockObjectKeyForHash.mockImplementation((hash: string) => `audio/${hash}.mp3`)
     mockGetActiveProvider.mockReturnValue('b2')
+    mockRecordGoogleApiUsage.mockResolvedValue(undefined)
+    // By default authorize every requested item as owned by the test user (user-1).
+    mockGetItemListAuthz.mockImplementation((itemIds: string[]) =>
+      itemIds.map((itemId) => ({
+        itemId,
+        listId: 'list-1',
+        ownerId: 'user-1',
+        isCommon: false,
+        isRecommended: false,
+      })),
+    )
     mockReserveGoogleApiUsage.mockResolvedValue({
       allowed: true,
       scope: 'tts',
@@ -148,6 +165,68 @@ describe('POST /api/audio/generate/batch', () => {
     mockResolveUserFromRequest.mockResolvedValue(testUser)
     const res = await POST(makeRequest({ items: [{ id: '1', text: 'hello', language: 'vi' }], provider: 'invalid' }))
     expect(res.status).toBe(400)
+  })
+
+  it('returns 403 when an item belongs to a list the user does not own', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetItemListAuthz.mockResolvedValue([
+      { itemId: 'item-1', listId: 'list-9', ownerId: 'someone-else', isCommon: false, isRecommended: false },
+    ])
+    const res = await POST(makeRequest({
+      items: [{ id: 'item-1', text: 'hello', language: 'vi' }],
+      provider: 'google_tts',
+    }))
+    expect(res.status).toBe(403)
+    expect(mockGoogleTTS).not.toHaveBeenCalled()
+  })
+
+  it('returns 403 when an item id does not resolve to any list', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetItemListAuthz.mockResolvedValue([]) // unknown item id
+    const res = await POST(makeRequest({
+      items: [{ id: 'ghost', text: 'hello', language: 'vi' }],
+      provider: 'google_tts',
+    }))
+    expect(res.status).toBe(403)
+    expect(mockGoogleTTS).not.toHaveBeenCalled()
+  })
+
+  it('allows an editor to generate audio for a curated list they do not own', async () => {
+    mockResolveUserFromRequest.mockResolvedValue({ ...testUser, userRole: 'editor' })
+    mockGetItemListAuthz.mockResolvedValue([
+      { itemId: 'item-1', listId: 'list-9', ownerId: 'someone-else', isCommon: true, isRecommended: false },
+    ])
+    mockFindMediaByHashes.mockResolvedValue(new Map())
+    mockGoogleTTS.mockResolvedValue({ audio: Buffer.from('audio-data'), sizeBytes: 10 })
+    mockUploadAudio.mockResolvedValue({
+      storageType: 'arweave',
+      storageRef: 'tx-1',
+      gatewayUrl: 'https://turbo-gateway.com/tx-1',
+      gatewayUrls: ['https://turbo-gateway.com/tx-1'],
+    })
+    mockUpsertMediaAsset.mockResolvedValue({ id: 'asset-1' })
+    mockCreateMediaAsset.mockResolvedValue({ id: 'asset-1' })
+    mockBatchLinkAudioToItems.mockResolvedValue(undefined)
+
+    const res = await POST(makeRequest({
+      items: [{ id: 'item-1', text: 'hello', language: 'vi' }],
+      provider: 'google_tts',
+    }))
+    expect(res.status).toBe(200)
+    expect(mockGoogleTTS).toHaveBeenCalled()
+  })
+
+  it('rejects a non-editor owner attempting to generate audio for a curated list', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetItemListAuthz.mockResolvedValue([
+      { itemId: 'item-1', listId: 'list-9', ownerId: 'user-1', isCommon: true, isRecommended: false },
+    ])
+    const res = await POST(makeRequest({
+      items: [{ id: 'item-1', text: 'hello', language: 'vi' }],
+      provider: 'google_tts',
+    }))
+    expect(res.status).toBe(403)
+    expect(mockGoogleTTS).not.toHaveBeenCalled()
   })
 
   it('returns 400 if elevenlabs without BYOK key', async () => {
@@ -601,6 +680,15 @@ describe('POST /api/audio/reuse/batch', () => {
     mockComputeContentHash.mockImplementation((text: string, lang: string, provider: string) => `hash_${text}_${lang}_${provider}`)
     mockGetAudioUrl.mockImplementation((hash: string) => `/api/audio/${hash}`)
     mockFindMediaVariantsByText.mockResolvedValue(new Map())
+    mockGetItemListAuthz.mockImplementation((itemIds: string[]) =>
+      itemIds.map((itemId) => ({
+        itemId,
+        listId: 'list-1',
+        ownerId: 'user-1',
+        isCommon: false,
+        isRecommended: false,
+      })),
+    )
   })
 
   it('returns reusable audio candidates without linking by default', async () => {
@@ -633,6 +721,7 @@ describe('POST /api/audio/reuse/batch', () => {
       'https://turbo-gateway.com/tx-existing',
       'https://arweave.net/tx-existing',
     ])
+    expect(mockGetItemListAuthz).not.toHaveBeenCalled()
     expect(mockBatchLinkAudioToItems).not.toHaveBeenCalled()
   })
 
@@ -663,6 +752,26 @@ describe('POST /api/audio/reuse/batch', () => {
     expect(mockBatchLinkAudioToItems).toHaveBeenCalledWith([
       { itemId: 'item-1', audioAssetId: 'asset-existing', audioStatus: 'ready' },
     ])
+  })
+
+  it('returns 403 before linking reusable audio to an item the user cannot edit', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetItemListAuthz.mockResolvedValue([
+      { itemId: 'victim-item', listId: 'list-9', ownerId: 'someone-else', isCommon: false, isRecommended: false },
+    ])
+
+    const res = await POST_REUSE(makeReuseRequest({
+      items: [{ id: 'victim-item', text: 'hello', language: 'vi' }],
+      provider: 'google_tts',
+      link: true,
+    }))
+    const data = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(data.error).toBe('Not authorized to link audio for one or more items')
+    expect(mockFindMediaByHashes).not.toHaveBeenCalled()
+    expect(mockFindMediaVariantsByText).not.toHaveBeenCalled()
+    expect(mockBatchLinkAudioToItems).not.toHaveBeenCalled()
   })
 
   it('links the selected reusable version when multiple matches exist', async () => {

@@ -417,9 +417,13 @@
 .srs-btn-label {
   font-size: 1.05rem;
   font-weight: 900;
-  line-height: 1;
+  line-height: 1.05;
   letter-spacing: 0.01em;
-  overflow-wrap: anywhere;
+  /* Long single words (e.g. "Zapomenuto") should stay whole — the small-screen
+     font-size below keeps them on one line. break-word is only a last-resort
+     fallback so an oversized word wraps gracefully instead of overflowing. */
+  overflow-wrap: break-word;
+  hyphens: none;
 }
 
 .srs-btn-hint {
@@ -500,7 +504,9 @@
   }
 
   .srs-btn-label {
-    font-size: clamp(0.95rem, 2.4vw, 1.1rem);
+    font-size: clamp(0.72rem, 3.6vw, 1.05rem);
+    font-weight: 800;
+    letter-spacing: 0;
   }
 
   .srs-btn-hint {

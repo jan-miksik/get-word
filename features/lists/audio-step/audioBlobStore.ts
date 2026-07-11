@@ -133,6 +133,23 @@ export async function putClip(hash: string, blob: Blob): Promise<void> {
   }
 }
 
+/** Delete a cached clip by hash (e.g. on force regeneration). No-op on failure. */
+export async function deleteClip(hash: string): Promise<void> {
+  const db = await openDb();
+  if (!db) return;
+  try {
+    const tx = db.transaction(STORE, 'readwrite');
+    tx.objectStore(STORE).delete(hash);
+    await new Promise<void>((resolve) => {
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => resolve();
+      tx.onabort = () => resolve();
+    });
+  } catch {
+    // ignore — cache is best-effort
+  }
+}
+
 /**
  * Opportunistic cleanup: drop clips older than MAX_AGE_MS, then evict
  * least-recently-accessed clips until under MAX_TOTAL_BYTES. Safe to call on init;
