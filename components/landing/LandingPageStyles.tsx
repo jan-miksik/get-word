@@ -30,6 +30,16 @@ export function LandingPageStyles() {
     -webkit-overflow-scrolling:touch;
   }
 }
+@media (max-width:639px){
+  .lp-frame-background{
+    display:none;
+  }
+}
+@media (max-width:639px) and (display-mode: standalone), (max-width:639px) and (display-mode: fullscreen){
+  .lp-frame-background{
+    display:block;
+  }
+}
 .lp-display{ font-family:system-ui,-apple-system,"Segoe UI",sans-serif; letter-spacing:-0.01em; }
 .lp-mono{ font-family:var(--font-mono-accent),ui-monospace,monospace; }
 .italic{ font-style:italic; }

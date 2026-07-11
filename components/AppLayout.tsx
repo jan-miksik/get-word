@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { TopMenu } from '@/components/TopMenu';
 import { AuthButton } from '@/components/AuthButton';
 import { SettingsPanel } from '@/components/SettingsPanel';
@@ -15,6 +15,10 @@ import { PWAInstallBanner } from '@/components/PWAInstallBanner';
 import { SpeckledBackground } from '@/components/SpeckledBackground';
 import { useI18n } from '@/components/I18nProvider';
 import type { ProgressStats } from '@/lib/progress-stats';
+import {
+  clearPendingCommonListAudio,
+  readPendingCommonListAudio,
+} from '@/features/learning/onboarding/pendingCommonListAudio';
 
 interface AppLayoutProps {
   // Page-level UI state (localStorage-only, not in context)
@@ -63,12 +67,53 @@ export function AppLayout({
     closeAll,
   } = useMenuPanels();
 
-  const { showAll, setShowAll, selectedCategories, gameScore, subscribedLists, activeListId, setActiveListId } = useAppStateContext();
+  const {
+    showAll,
+    setShowAll,
+    selectedCategories,
+    gameScore,
+    subscribedLists,
+    activeListId,
+    setActiveListId,
+    syncedWords,
+  } = useAppStateContext();
+  const [pendingAudioListId, setPendingAudioListId] = useState<string | null>(() =>
+    readPendingCommonListAudio()?.listId ?? null,
+  );
 
   const activeList = subscribedLists.find((list) => list.id === activeListId) ?? null;
   const activeListLanguagePair = activeList
     ? { from: activeList.languageFrom, to: activeList.languageTo }
     : null;
+  const listsWithAudioMarkers = useMemo(
+    () =>
+      subscribedLists.map((list) => ({
+        ...list,
+        audioIncomplete: list.id === pendingAudioListId,
+      })),
+    [pendingAudioListId, subscribedLists],
+  );
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      const pending = readPendingCommonListAudio();
+      setPendingAudioListId(pending?.listId ?? null);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [activeListId, subscribedLists]);
+
+  useEffect(() => {
+    if (!pendingAudioListId || activeListId !== pendingAudioListId || !syncedWords?.length) return;
+    const hasAudio = (value: string | string[] | undefined) =>
+      Array.isArray(value) ? value.some(Boolean) : Boolean(value);
+    const hasMissingAudio = syncedWords.some(
+      (word) => !hasAudio(word.czAudio) || !hasAudio(word.viAudio),
+    );
+    if (hasMissingAudio) return;
+    clearPendingCommonListAudio(pendingAudioListId);
+    const timeoutId = window.setTimeout(() => setPendingAudioListId(null), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [activeListId, pendingAudioListId, syncedWords]);
 
   return (
     <div
@@ -86,7 +131,7 @@ export function AppLayout({
           categoryActive={categories.length > 0 && selectedCategories.size < categories.length}
           progressActive={progressOpen}
           score={gameScore}
-          lists={subscribedLists.length > 0 ? subscribedLists : undefined}
+          lists={listsWithAudioMarkers.length > 0 ? listsWithAudioMarkers : undefined}
           activeListId={activeListId}
           onListChange={setActiveListId}
           activeListLanguagePair={activeListLanguagePair}

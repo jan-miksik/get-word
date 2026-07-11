@@ -115,6 +115,8 @@ function AudioStepContent({
   const [error, setError] = useState<string | null>(null);
   const [showVoiceOptions, setShowVoiceOptions] = useState(false);
   const [showVoiceNotes, setShowVoiceNotes] = useState(false);
+  const [applyingExistingAudio, setApplyingExistingAudio] = useState(false);
+  const [applyingExistingCount, setApplyingExistingCount] = useState(0);
   // Soft "please check the audio" notes from the quality autofix — distinct from
   // playbackErrors (which mean "cannot play").
   const [audioWarnings, setAudioWarnings] = useState<Record<string, string>>({});
@@ -256,6 +258,17 @@ function AudioStepContent({
     });
     playQueue(queue);
   }, [playQueue, sortedRows]);
+
+  const handleUseSelectedExisting = useCallback(async () => {
+    setApplyingExistingCount(selectedReusableCount);
+    setApplyingExistingAudio(true);
+    try {
+      await handleUseAllExisting();
+    } finally {
+      setApplyingExistingAudio(false);
+      setApplyingExistingCount(0);
+    }
+  }, [handleUseAllExisting, selectedReusableCount]);
 
   const handleScanForProblems = useCallback(async () => {
     setMenuOpen(false);
@@ -475,7 +488,7 @@ function AudioStepContent({
                   setSingleVoice(event.target.value);
                 }
               }}
-              disabled={generating || regeneratingIds.size > 0 || loadingVoices}
+              disabled={generating || applyingExistingAudio || regeneratingIds.size > 0 || loadingVoices}
               className="rounded-lg border border-border-subtle bg-background px-2.5 py-1.5 text-xs text-text disabled:opacity-50"
             >
               {chirp3HdVoiceIds.length > 1 && (
@@ -515,17 +528,25 @@ function AudioStepContent({
           {selectedReusableCount > 0 && (
             <button
               type="button"
-              disabled={generating || regeneratingIds.size > 0}
-              className="rounded-lg bg-done px-4 py-1.5 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-50"
-              onClick={handleUseAllExisting}
+              disabled={generating || applyingExistingAudio || regeneratingIds.size > 0}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-done px-4 py-1.5 text-xs font-medium text-background transition-opacity hover:opacity-90 disabled:opacity-60"
+              onClick={() => void handleUseSelectedExisting()}
             >
-              {t('lists.useSelectedExisting', { count: selectedReusableCount })}
+              {applyingExistingAudio && (
+                <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden>
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              )}
+              {applyingExistingAudio
+                ? t('lists.applyingExistingAudio')
+                : t('lists.useSelectedExisting', { count: selectedReusableCount })}
             </button>
           )}
 
           <button
             type="button"
-            disabled={generating || needsGenCount === 0 || isGoogleTtsPaused}
+            disabled={generating || applyingExistingAudio || needsGenCount === 0 || isGoogleTtsPaused}
             className="rounded-lg bg-accent px-4 py-1.5 text-xs font-medium text-background transition-colors hover:bg-accent-strong disabled:opacity-50"
             onClick={handleGenerateAll}
           >
@@ -561,7 +582,7 @@ function AudioStepContent({
                   <>
                     <button
                       type="button"
-                      disabled={generating || regeneratingIds.size > 0 || mixVoiceIds.length === voiceOptions.length}
+                      disabled={generating || applyingExistingAudio || regeneratingIds.size > 0 || mixVoiceIds.length === voiceOptions.length}
                       onClick={selectAllMixVoices}
                       className="rounded-md border border-border-subtle px-2 py-0.5 text-[11px] text-text-soft transition-colors hover:text-text disabled:opacity-40"
                     >
@@ -569,7 +590,7 @@ function AudioStepContent({
                     </button>
                     <button
                       type="button"
-                      disabled={generating || regeneratingIds.size > 0 || mixVoiceIds.length === 0}
+                      disabled={generating || applyingExistingAudio || regeneratingIds.size > 0 || mixVoiceIds.length === 0}
                       onClick={clearMixVoices}
                       className="rounded-md border border-border-subtle px-2 py-0.5 text-[11px] text-text-soft transition-colors hover:text-text disabled:opacity-40"
                     >
@@ -594,7 +615,7 @@ function AudioStepContent({
                     <button
                       key={voice}
                       type="button"
-                      disabled={generating || regeneratingIds.size > 0}
+                      disabled={generating || applyingExistingAudio || regeneratingIds.size > 0}
                       aria-pressed={active}
                       onClick={() => toggleMixVoice(voice)}
                       className={`rounded-full border px-2.5 py-1 text-xs transition-colors disabled:opacity-50 ${
@@ -620,6 +641,16 @@ function AudioStepContent({
       {isGoogleTtsPaused && (
         <div className="mb-4 rounded-lg border border-danger/30 bg-danger/10 p-3 text-xs text-danger">
           {googlePausedMessage}
+        </div>
+      )}
+
+      {applyingExistingAudio && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="mb-4 rounded-lg border border-done/30 bg-done/10 p-3 text-xs text-done"
+        >
+          {t('lists.applyingExistingAudioDetail', { count: applyingExistingCount })}
         </div>
       )}
 
@@ -653,7 +684,7 @@ function AudioStepContent({
               isRegenerating={regeneratingIds.has(row.id)}
               playbackError={playbackErrors[row.id]}
               qualityWarning={audioWarnings[row.id]}
-              generating={generating}
+              generating={generating || applyingExistingAudio}
               isGoogleTtsPaused={isGoogleTtsPaused}
               voiceNote={showVoiceNotes ? getVoiceNote(row) : undefined}
               onPlay={(selectedRow) => void handlePlaySingle(selectedRow)}

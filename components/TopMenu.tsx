@@ -30,7 +30,7 @@ interface TopMenuProps {
   accountSlot?: ReactNode;
   /** Hide the monkey button in the top bar on mobile (card view shows it on the card) */
   hideMonkeyOnMobile?: boolean;
-  lists?: { id: string; name: string }[];
+  lists?: { id: string; name: string; audioIncomplete?: boolean }[];
   activeListId?: string | null;
   onListChange?: (id: string | null) => void;
   /** Language pair of the active list, used to suggest other lists to switch to. */
@@ -115,7 +115,7 @@ function TelegramIcon({ size = 15 }: { size?: number }) {
 }
 
 interface ListSelectModalProps {
-  lists: { id: string; name: string }[];
+  lists: { id: string; name: string; audioIncomplete?: boolean }[];
   activeListId: string | null | undefined;
   onListChange: (id: string | null) => void;
   onClose: () => void;
@@ -229,6 +229,9 @@ function ListSelectModal({
                 }}
               >
                 <span className="list-select-option-name">{shortenListName(list.name)}</span>
+                {list.audioIncomplete && (
+                  <span className="list-select-option-badge">{t('lists.badgeAudioMissing')}</span>
+                )}
                 {active && <span className="list-select-option-check" aria-hidden="true">✓</span>}
               </button>
             );
@@ -292,7 +295,7 @@ interface MenuDropdownProps {
   progressActive: boolean;
   /** When logged in, render account button at top of dropdown */
   accountSlot?: ReactNode;
-  lists?: { id: string; name: string }[];
+  lists?: { id: string; name: string; audioIncomplete?: boolean }[];
   activeListId?: string | null;
   onListChange?: (id: string | null) => void;
   activeListLanguagePair?: { from: string; to: string } | null;
@@ -343,7 +346,9 @@ function MenuDropdown({
             onSelect: () => {
               setListModalOpen(true);
             },
-            trailing: activeList ? shortenListName(activeList.name) : null,
+            trailing: activeList
+              ? `${shortenListName(activeList.name)}${activeList.audioIncomplete ? ` · ${t('lists.badgeAudioMissing')}` : ''}`
+              : null,
           },
         ]
       : []),

@@ -20,6 +20,10 @@ import { assignItemsCategory } from '@/features/lists/client/actions';
 import { orderItemsByCategoryDisplay } from '@/features/lists/orderItems';
 import { setAudioStorageLoggingEnabled } from '@/lib/audio-debug';
 import type { WordListItem } from '@/features/lists/types';
+import {
+  clearPendingCommonListAudio,
+  readPendingCommonListAudio,
+} from '@/features/learning/onboarding/pendingCommonListAudio';
 import { ErrorMessage } from './ErrorMessage';
 import { ListSidebar } from './ListSidebar';
 import { CategoryBrowser } from './CategoryBrowser';
@@ -60,6 +64,9 @@ function ListsPageContent() {
     initialUrlState?.initialCreateLanguageTo ?? null,
   );
   const [existingListsHint, setExistingListsHint] = useState(initialUrlState?.existingListsHint ?? false);
+  const [pendingAudioListId, setPendingAudioListId] = useState<string | null>(() =>
+    readPendingCommonListAudio()?.listId ?? null,
+  );
   const languages = useLearningLanguages();
   const { googleUsage, loadGoogleUsage } = useGoogleUsage();
   const {
@@ -81,6 +88,20 @@ function ListsPageContent() {
     loadGoogleUsage,
     setError,
   });
+  const markedLists = useMemo(
+    () =>
+      lists.map((list) => ({
+        ...list,
+        audioIncomplete: list.id === pendingAudioListId,
+      })),
+    [lists, pendingAudioListId],
+  );
+  const markedSelectedList = selectedList
+    ? {
+        ...selectedList,
+        audioIncomplete: selectedList.id === pendingAudioListId,
+      }
+    : null;
   const [initialAudioFixStep, setInitialAudioFixStep] = useState<'audio-target' | 'audio-known' | null>(
     initialUrlState?.initialAudioFixStep ?? null,
   );
@@ -144,6 +165,28 @@ function ListsPageContent() {
   useEffect(() => {
     setAudioStorageLoggingEnabled(canManageCommonLists);
   }, [canManageCommonLists]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setPendingAudioListId(readPendingCommonListAudio()?.listId ?? null);
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [selectedListId]);
+
+  useEffect(() => {
+    if (!pendingAudioListId || selectedListId !== pendingAudioListId || items.length === 0) return;
+    const hasAudio = (url: string | null | undefined, urls: string[] | undefined) =>
+      Boolean(url) || Boolean(urls?.some(Boolean));
+    const hasMissingAudio = items.some(
+      (item) =>
+        !hasAudio(item.knownAudioUrl, item.knownAudioArweaveUrls) ||
+        !hasAudio(item.audioUrl, item.audioArweaveUrls),
+    );
+    if (hasMissingAudio) return;
+    clearPendingCommonListAudio(pendingAudioListId);
+    const timeoutId = window.setTimeout(() => setPendingAudioListId(null), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [items, pendingAudioListId, selectedListId]);
 
   const wizard = useListsWizard({
     selectedListId,
@@ -248,7 +291,7 @@ function ListsPageContent() {
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
       `}>
         <ListSidebar
-          lists={lists}
+          lists={markedLists}
           selectedListId={selectedListId}
           subscribedListIds={subscribedListIds}
           googleUsage={googleUsage}
@@ -309,7 +352,7 @@ function ListsPageContent() {
           </button>
         </div>
 
-        {wizard.wizardStep !== 'browse' && selectedList && (
+        {wizard.wizardStep !== 'browse' && markedSelectedList && (
           <WizardProgressBar
             currentStep={wizard.wizardStep as WizardActiveStep}
             onGoToStep={wizard.handleGoToStep}
@@ -345,7 +388,7 @@ function ListsPageContent() {
             </div>
           )}
 
-          {!selectedList ? (
+          {!markedSelectedList ? (
             <div className="flex items-center justify-center h-full">
               <p className="text-text-soft">{t('lists.startBySelecting')}</p>
             </div>
@@ -355,13 +398,13 @@ function ListsPageContent() {
             </div>
           ) : wizard.wizardStep === 'browse' ? (
             <CategoryBrowser
-              list={selectedList}
+              list={markedSelectedList}
               categories={categories}
               itemsByCategory={itemsByCategory}
               languages={languages}
               isOwner={isOwner}
               isEditor={canManageCommonLists}
-              forkedFromListName={forkedListPrompt?.listId === selectedList.id ? forkedListPrompt.sourceName : null}
+              forkedFromListName={forkedListPrompt?.listId === markedSelectedList.id ? forkedListPrompt.sourceName : null}
               triggerEditSignal={wizard.triggerEditSignal}
               onEditCategory={wizard.handleEditCategory}
               onEditAllWords={wizard.handleEditAllWords}
@@ -395,7 +438,7 @@ function ListsPageContent() {
             />
           ) : wizard.wizardStep === 'translate' ? (
             <TranslationStep
-              list={selectedList}
+              list={markedSelectedList}
               pendingItems={wizard.pendingItems ?? []}
               newItemIds={wizard.newPendingItemIds}
               inputLanguage={wizard.editInputLanguage}
@@ -416,7 +459,7 @@ function ListsPageContent() {
             />
           ) : wizard.wizardStep === 'audio-target' ? (
             <AudioStep
-              list={selectedList}
+              list={markedSelectedList}
               items={currentAudioItems}
               audioSide="target"
               title={t('lists.audioTarget')}
@@ -428,7 +471,7 @@ function ListsPageContent() {
             />
           ) : wizard.wizardStep === 'audio-known' ? (
             <AudioStep
-              list={selectedList}
+              list={markedSelectedList}
               items={currentAudioItems}
               audioSide="known"
               title={t('lists.audioKnown')}

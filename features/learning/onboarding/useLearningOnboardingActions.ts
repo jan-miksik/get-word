@@ -15,6 +15,10 @@ import {
   type GenerationStatus,
 } from './commonListAudioGeneration';
 import {
+  clearPendingCommonListAudio,
+  savePendingCommonListAudio,
+} from './pendingCommonListAudio';
+import {
   estimateCommonListGenerationSeconds,
   isReverseDirectionList,
   type MatchedWordList,
@@ -212,6 +216,12 @@ export function useLearningOnboardingActions({
       const generatedList: WordList = createData.list;
       const itemCount = Number(createData.item_count ?? 0);
       onSelectList(createData.list.id);
+      savePendingCommonListAudio({
+        listId: generatedList.id,
+        languageFrom,
+        languageTo,
+        notice: t('onboarding.commonListAudioInterruptedNotice'),
+      });
       setGenerationStatus({
         title: createData.reused_existing
           ? t('onboarding.statusCommonListFound')
@@ -256,11 +266,19 @@ export function useLearningOnboardingActions({
       if (audioSummary.failedCount > 0) {
         setError(getCommonListAudioFailureNotice(audioSummary));
       }
+      if (audioSummary.failedCount > 0) {
+        setGenerationStatus({
+          title: t('onboarding.statusOpeningApp'),
+          detail: t('onboarding.commonListReadyAudioMissingDetail'),
+        });
+        await onComplete(languageFrom, languageTo);
+        didComplete = true;
+        return;
+      }
+      clearPendingCommonListAudio(generatedList.id);
       setGenerationStatus({
         title: t('onboarding.statusOpeningApp'),
-        detail: audioSummary.notice
-          ? t('onboarding.commonListReadyEditorDetail')
-          : t('onboarding.commonListReadyDetail'),
+        detail: t('onboarding.commonListReadyDetail'),
       });
       await onComplete(languageFrom, languageTo);
       didComplete = true;

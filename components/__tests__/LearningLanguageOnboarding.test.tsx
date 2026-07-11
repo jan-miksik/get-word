@@ -40,6 +40,7 @@ async function openAdvanced() {
 describe('LearningLanguageOnboarding', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     mocks.syncUserData.mockResolvedValue(undefined);
     vi.stubGlobal(
       'fetch',
@@ -885,7 +886,7 @@ describe('LearningLanguageOnboarding', () => {
     expect(onSelectList).toHaveBeenCalledWith('generated-list');
   });
 
-  it('shows inline repair guidance when common list audio generation fails', async () => {
+  it('opens the app and marks the list when common list audio generation fails', async () => {
     vi.stubGlobal(
       'fetch',
       vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
@@ -977,9 +978,11 @@ describe('LearningLanguageOnboarding', () => {
       expect(onComplete).toHaveBeenCalledWith('en', 'cs');
     });
     expect(mocks.push).not.toHaveBeenCalled();
-    expect(await screen.findByText(/audio generation failed for 2 of 2 clips/i)).toBeInTheDocument();
-    expect(screen.getByText(/Contact our tech support/i)).toBeInTheDocument();
-    expect(screen.getByText(/click on Edit words/i)).toBeInTheDocument();
+    const pendingAudio = JSON.parse(
+      localStorage.getItem('get-word-pending-common-list-audio') ?? '{}',
+    ) as { listId?: string; notice?: string };
+    expect(pendingAudio.listId).toBe('generated-list');
+    expect(pendingAudio.notice).toContain('Audio setup was interrupted');
   });
 
   it('uses the best overlapping reusable seed when autogenerating a common list', async () => {

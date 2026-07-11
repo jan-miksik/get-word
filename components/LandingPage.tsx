@@ -223,7 +223,10 @@ function LandingPageContent({
   return (
     <div className="lp-root" lang={lang}>
       <LandingPageStyles />
-      <SpeckledBackground snapRisingLettersToMouse={false} />
+      <SpeckledBackground
+        className="lp-frame-background"
+        snapRisingLettersToMouse={false}
+      />
 
       <div className="relative mx-auto flex w-full max-w-5xl flex-col px-4 sm:px-6">
         <SiteHeader
