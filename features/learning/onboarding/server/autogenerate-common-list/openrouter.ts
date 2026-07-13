@@ -213,6 +213,154 @@ ${JSON.stringify(items)}
 `.trim();
 }
 
+function buildKnownSideRepairPrompt(input: {
+  languageFrom: string;
+  languageTo: string;
+  sourceLanguage: string;
+  items: Array<{
+    index: number;
+    source: string;
+    currentKnown: string;
+    currentTarget: string;
+    category: string;
+  }>;
+}) {
+  return `
+Repair these beginner word-list rows.
+
+Each row's "source" is the actual concept to translate from ${input.sourceLanguage}.
+The current "known" field may accidentally contain the category label. Do not translate or copy the category as the word/phrase.
+
+Rules:
+${TRANSLATION_QUALITY_RULES}
+- "known" must be the ${input.languageFrom} translation of "source".
+- "target" must be the ${input.languageTo} translation of "source".
+- Echo each item's "index" unchanged.
+
+Return JSON with this exact shape:
+{ "items": [ { "index": 0, "known": "translation in ${input.languageFrom}", "target": "translation in ${input.languageTo}" } ] }
+
+Items:
+${JSON.stringify(input.items)}
+`.trim();
+}
+
+function normalizedGeneratedText(value: string | null | undefined) {
+  return cleanText(value).toLowerCase();
+}
+
+function findKnownSideLeakIndexes(items: GeneratedCommonItem[]) {
+  const indexes = new Set<number>();
+  const byKnown = new Map<string, GeneratedCommonItem[]>();
+
+  items.forEach((item) => {
+    const known = normalizedGeneratedText(item.known);
+    if (!known) return;
+    if (known === normalizedGeneratedText(item.category ?? "")) {
+      indexes.add(item.sourceIndex ?? -1);
+    }
+    byKnown.set(known, [...(byKnown.get(known) ?? []), item]);
+  });
+
+  for (const rows of byKnown.values()) {
+    const targets = new Set(rows.map((row) => normalizedGeneratedText(row.target)).filter(Boolean));
+    if (rows.length > 1 && targets.size > 1) {
+      for (const row of rows) indexes.add(row.sourceIndex ?? -1);
+    }
+  }
+
+  indexes.delete(-1);
+  return indexes;
+}
+
+async function repairKnownSideLeaks(
+  items: GeneratedCommonItem[],
+  input: {
+    languageFrom: string;
+    languageTo: string;
+    sourceLanguage: string;
+    sourceItems: SeedSourceItem[];
+  },
+): Promise<GeneratedCommonItem[]> {
+  const flaggedIndexes = findKnownSideLeakIndexes(items);
+  if (flaggedIndexes.size === 0) return items;
+
+  const sourceByIndex = new Map(input.sourceItems.map((item) => [item.sourceIndex, item]));
+  const flagged = items
+    .map((item, index) => ({ index, item, source: sourceByIndex.get(item.sourceIndex ?? -1) }))
+    .filter(({ item, source }) => source && flaggedIndexes.has(item.sourceIndex ?? -1));
+  if (flagged.length === 0) return items;
+
+  console.warn("[Get Word onboarding] repairing likely category leakage in known-side translations", {
+    flagged: flagged.length,
+    total: items.length,
+    languageFrom: input.languageFrom,
+    languageTo: input.languageTo,
+    repairModel: SERVER_AUTOGENERATE_REPAIR_MODEL,
+  });
+
+  try {
+    const prompt = buildKnownSideRepairPrompt({
+      languageFrom: input.languageFrom,
+      languageTo: input.languageTo,
+      sourceLanguage: input.sourceLanguage,
+      items: flagged.map(({ index, item, source }) => ({
+        index,
+        source: source!.source,
+        currentKnown: item.known,
+        currentTarget: item.target,
+        category: source!.category,
+      })),
+    });
+    const byIndex = await callOpenRouterChatParsed(
+      serverChatOptions(prompt, SERVER_AUTOGENERATE_REPAIR_MODEL),
+      (content) => {
+        const map = new Map<number, { known: string; target: string }>();
+        for (const row of extractItemsArray(parseJsonLoose(content))) {
+          if (!row || typeof row !== "object") continue;
+          const idx = (row as { index?: unknown }).index;
+          const known = cleanText((row as { known?: unknown }).known);
+          const target = cleanText((row as { target?: unknown }).target);
+          if (typeof idx === "number" && Number.isInteger(idx) && known && target) {
+            map.set(idx, { known, target });
+          }
+        }
+        if (map.size === 0) {
+          throw new OpenRouterChatError("Known-side repair returned no usable items.", true);
+        }
+        return map;
+      },
+    );
+
+    const repaired = items.slice();
+    let fixed = 0;
+    for (const { index, item } of flagged) {
+      const candidate = byIndex.get(index);
+      if (!candidate) continue;
+      const stillLooksLikeCategory = normalizedGeneratedText(candidate.known) === normalizedGeneratedText(item.category ?? "");
+      if (
+        stillLooksLikeCategory ||
+        looksUntranslated(candidate.known, input.languageFrom) ||
+        looksUntranslated(candidate.target, input.languageTo)
+      ) {
+        continue;
+      }
+      repaired[index] = { ...item, known: candidate.known, target: candidate.target };
+      fixed += 1;
+    }
+    console.warn("[Get Word onboarding] known-side category leakage repair complete", {
+      fixed,
+      stillFlagged: flagged.length - fixed,
+    });
+    return repaired;
+  } catch (err) {
+    console.warn("[Get Word onboarding] known-side category leakage repair failed; keeping originals", {
+      error: err instanceof Error ? err.message : err,
+    });
+    return items;
+  }
+}
+
 // Re-translates rows whose target looks untranslated (wrong-script) using a
 // different strong model, so the primary model's mistake is not simply repeated.
 // Best-effort: any failure leaves the original rows untouched.
@@ -392,7 +540,8 @@ export async function generateFromOpenRouterSeed(input: {
     input.languageFrom,
     input.languageTo,
   );
-  return logTranslationQualityWarnings(repaired, input.languageFrom, input.languageTo);
+  const knownSideRepaired = await repairKnownSideLeaks(repaired, input);
+  return logTranslationQualityWarnings(knownSideRepaired, input.languageFrom, input.languageTo);
 }
 
 export async function generateNewOpenRouterList(languageFrom: string, languageTo: string) {

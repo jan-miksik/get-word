@@ -4,9 +4,9 @@ import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { TopMenu } from '@/components/TopMenu';
 import { AuthButton } from '@/components/AuthButton';
 import { SettingsPanel } from '@/components/SettingsPanel';
+import { LearningSettingsPanel } from '@/components/LearningSettingsPanel';
 import { CategoryPanel } from '@/components/CategoryPanel';
 import { MemoryHooksPanel } from '@/components/MemoryHooksPanel';
-import { ProgressPanel } from '@/components/ProgressPanel';
 import { ProgressSummary } from '@/components/ProgressSummary';
 import { UpcomingPanel } from '@/components/UpcomingPanel';
 import { useMenuPanels } from '@/hooks/useMenuPanels';
@@ -23,7 +23,6 @@ import {
 interface AppLayoutProps {
   // Page-level UI state (localStorage-only, not in context)
   viewMode: 'card' | 'stream';
-  onViewModeChange: (mode: 'card' | 'stream') => void;
   minigameFrequency: import('@/lib/minigames').MinigameFrequencyRange;
   onMinigameFrequencyChange: (value: import('@/lib/minigames').MinigameFrequencyRange) => void;
   // Auth (from useAuth, not useAppState)
@@ -43,7 +42,6 @@ interface AppLayoutProps {
 
 export function AppLayout({
   viewMode,
-  onViewModeChange,
   minigameFrequency,
   onMinigameFrequencyChange,
   isAuthenticated,
@@ -59,7 +57,7 @@ export function AppLayout({
   const { t } = useI18n();
   const {
     settingsOpen,
-    progressOpen,
+    learningOpen,
     categoryOpen,
     memoryHooksOpen,
     upcomingOpen,
@@ -129,7 +127,6 @@ export function AppLayout({
           onMenuAction={toggle}
           categoryCount={selectedCategories.size}
           categoryActive={categories.length > 0 && selectedCategories.size < categories.length}
-          progressActive={progressOpen}
           score={gameScore}
           lists={listsWithAudioMarkers.length > 0 ? listsWithAudioMarkers : undefined}
           activeListId={activeListId}
@@ -205,16 +202,18 @@ export function AppLayout({
         />
       </header>
       <SettingsPanel
-        minigameFrequency={minigameFrequency}
-        onMinigameFrequencyChange={onMinigameFrequencyChange}
-        viewMode={viewMode}
-        onViewModeChange={onViewModeChange}
         isOpen={settingsOpen}
         onClose={closeAll}
         isAuthenticated={isAuthenticated}
         authEmail={authEmail}
         authAddress={authAddress}
         onSignOut={onSignOut}
+      />
+      <LearningSettingsPanel
+        minigameFrequency={minigameFrequency}
+        onMinigameFrequencyChange={onMinigameFrequencyChange}
+        isOpen={learningOpen}
+        onClose={closeAll}
       />
       <CategoryPanel
         isOpen={categoryOpen}
@@ -225,12 +224,7 @@ export function AppLayout({
         isOpen={memoryHooksOpen}
         onClose={closeAll}
       />
-      <ProgressPanel
-        isOpen={progressOpen}
-        progressStats={progressStats}
-        onClose={closeAll}
-      />
-      <UpcomingPanel isOpen={upcomingOpen} onClose={closeAll} />
+      <UpcomingPanel isOpen={upcomingOpen} onClose={closeAll} progressStats={progressStats} />
 
       <PWAInstallBanner />
       {children}

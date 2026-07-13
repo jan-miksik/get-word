@@ -5,6 +5,8 @@ import { AppLayout } from '@/components/AppLayout';
 import { I18nProvider } from '@/components/I18nProvider';
 import { WordCard } from '@/components/WordCard';
 import { AppStateProvider, type AppStateContextValue } from '@/context/AppStateContext';
+import { TypingStudyCard } from '@/features/learning/components/TypingStudyCard';
+import type { TypingWriteIn } from '@/features/learning/state/preferences';
 import type { LearningRole } from '@/features/learning/state/learningRole';
 import type { ProgressData } from '@/lib/sync';
 import type { MinigameFrequencyRange } from '@/lib/minigames';
@@ -149,6 +151,13 @@ function PreviewStudy({
     DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
   );
   const [showAll, setShowAll] = useState(false);
+  const [typingModeEnabled, setTypingModeEnabled] = useState(false);
+  const [typingWriteIn, setTypingWriteIn] = useState<TypingWriteIn>('foreign');
+  const [typingAudioPromptEnabled, setTypingAudioPromptEnabled] = useState(true);
+  const [typingPrefillPunctuation, setTypingPrefillPunctuation] = useState(true);
+  // Remounts the typing card after each answer so the preview can be exercised
+  // repeatedly (the real app advances the stream instead).
+  const [typingRound, setTypingRound] = useState(0);
   const [gameScore, setGameScore] = useState(12);
   const [minigameFrequency, setMinigameFrequency] = useState<MinigameFrequencyRange>({
     min: 2,
@@ -238,6 +247,14 @@ function PreviewStudy({
     setMemoryHooksIntroAnswered: () => undefined,
     memoryHookDisableFromStage,
     setMemoryHookDisableFromStage,
+    typingModeEnabled,
+    setTypingModeEnabled,
+    typingWriteIn,
+    setTypingWriteIn,
+    typingAudioPromptEnabled,
+    setTypingAudioPromptEnabled,
+    typingPrefillPunctuation,
+    setTypingPrefillPunctuation,
     settingsLanguage,
     settingsLanguageSelectedAt: null,
     setSettingsLanguage: onSettingsLanguageChange,
@@ -284,7 +301,6 @@ function PreviewStudy({
     <AppStateProvider value={previewState}>
       <AppLayout
         viewMode="card"
-        onViewModeChange={() => undefined}
         minigameFrequency={minigameFrequency}
         onMinigameFrequencyChange={setMinigameFrequency}
         isAuthenticated
@@ -300,7 +316,35 @@ function PreviewStudy({
       >
         <main className="learning-card-main flex flex-col flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden" aria-live="polite">
           <div className="learning-card-viewport relative flex h-full w-full flex-col max-w-[800px] mx-auto">
-            {currentWord ? (
+            {currentWord && typingModeEnabled ? (
+              <div className="h-full flex flex-col justify-end md:justify-start relative">
+                <TypingStudyCard
+                  key={`typing-${currentWord.id}-${typingRound}`}
+                  word={currentWord}
+                  progress={progress[currentWord.id]}
+                  role={role}
+                  writeIn={typingWriteIn}
+                  audioPromptEnabled={typingAudioPromptEnabled}
+                  prefillPunctuation={typingPrefillPunctuation}
+                  modeIndex={(typingRound % 2) as 0 | 1}
+                  onOutcome={(outcome, points) => {
+                    setGameScore((score) => Math.max(0, score + points));
+                    if (outcome === 'known') changeProgress(currentWord.id, 'known');
+                    else if (outcome === 'unknown') changeProgress(currentWord.id, 'unknown');
+                    else
+                      changeProgress(currentWord.id, {
+                        stageIndex: progress[currentWord.id]?.stageIndex ?? 0,
+                      });
+                    setTypingRound((round) => round + 1);
+                  }}
+                  onCustomStage={(stageIndex, opts) => {
+                    changeProgress(currentWord.id, { stageIndex, noRepeat: opts?.noRepeat });
+                    setTypingRound((round) => round + 1);
+                  }}
+                  fullscreen
+                />
+              </div>
+            ) : currentWord ? (
               <div className="h-full flex flex-col justify-end md:justify-start relative">
                 <WordCard
                   word={currentWord}

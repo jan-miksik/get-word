@@ -19,6 +19,7 @@ interface UseLearningPageStateOptions {
   minigameFrequency: MinigameFrequencyRange;
   categoryOrder: string[];
   dueTimerRevision?: number;
+  typingModeEnabled?: boolean;
 }
 
 export function useLearningPageState({
@@ -30,6 +31,7 @@ export function useLearningPageState({
   minigameFrequency,
   categoryOrder,
   dueTimerRevision = 0,
+  typingModeEnabled = false,
 }: UseLearningPageStateOptions) {
   const [showNotReady, setShowNotReady] = useState(false);
   const [dismissedGames, setDismissedGames] = useState<Set<string>>(new Set());
@@ -87,6 +89,9 @@ export function useLearningPageState({
     minigameSeed,
     selectedCategoriesKey,
     wordsResetKey,
+    // The typing quiz duplicates the main card while typing mode is on; the
+    // other quizzes keep rotating between cards.
+    excludeGameTypes: typingModeEnabled ? ['typing'] : [],
   });
 
   const progressStats = useMemo(

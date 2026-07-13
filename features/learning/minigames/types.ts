@@ -26,6 +26,8 @@ export type StreamItem = NormalizedWord | MiniGameConfig;
 export interface InjectMinigamesOptions {
   minInterval?: number;
   maxInterval?: number;
+  /** Game types that must not be scheduled (e.g. 'typing' while typing mode is the main card). */
+  excludeGameTypes?: GameType[];
 }
 
 export interface GameAnchor {

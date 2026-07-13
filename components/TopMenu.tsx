@@ -9,9 +9,9 @@ import {
   CategoryIcon,
   MemoryIcon,
   MenuIcon,
-  ProgressIcon,
   SettingsIcon,
   StarIcon,
+  TuneIcon,
   UpcomingIcon,
   WordListsIcon,
 } from '@/components/icons/AppIcons';
@@ -22,7 +22,6 @@ interface TopMenuProps {
   showAll: boolean;
   categoryCount: number;
   categoryActive: boolean;
-  progressActive: boolean;
   score?: number;
   /** Rendered in center of bar (e.g. repeat count or Sign in button) */
   centerContent?: ReactNode;
@@ -292,7 +291,6 @@ interface MenuDropdownProps {
   onMenuAction: (panel: MenuPanel) => void;
   categoryActive: boolean;
   categoryCount: number;
-  progressActive: boolean;
   /** When logged in, render account button at top of dropdown */
   accountSlot?: ReactNode;
   lists?: { id: string; name: string; audioIncomplete?: boolean }[];
@@ -305,7 +303,6 @@ function MenuDropdown({
   onMenuAction,
   categoryActive,
   categoryCount,
-  progressActive,
   accountSlot,
   lists,
   activeListId,
@@ -362,14 +359,6 @@ function MenuDropdown({
     },
     {
       kind: 'panel',
-      icon: <ProgressIcon size={15} />,
-      label: t('top.progress'),
-      panel: 'progress',
-      active: progressActive,
-      badge: null,
-    },
-    {
-      kind: 'panel',
       icon: <UpcomingIcon size={15} />,
       label: t('top.upcoming'),
       panel: 'upcoming',
@@ -399,6 +388,14 @@ function MenuDropdown({
     },
     {
       kind: 'panel',
+      icon: <TuneIcon size={15} />,
+      label: t('top.learningSettings'),
+      panel: 'learning',
+      active: false,
+      badge: null,
+    },
+    {
+      kind: 'panel',
       icon: <SettingsIcon size={15} />,
       label: t('top.settings'),
       panel: 'settings',
@@ -407,7 +404,7 @@ function MenuDropdown({
     },
   ];
 
-  const hasActiveItem = categoryActive || progressActive;
+  const hasActiveItem = categoryActive;
 
   return (
     <>
@@ -523,7 +520,6 @@ export function TopMenu({
   showAll,
   categoryCount,
   categoryActive,
-  progressActive,
   score,
   centerContent,
   accountSlot,
@@ -547,7 +543,6 @@ export function TopMenu({
           onMenuAction={onMenuAction}
           categoryActive={categoryActive}
           categoryCount={categoryCount}
-          progressActive={progressActive}
           accountSlot={accountSlot}
           lists={lists}
           activeListId={activeListId}

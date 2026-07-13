@@ -5,7 +5,7 @@ import { useMenuPanels } from '../useMenuPanels';
 import { OPEN_MEMORY_HOOKS_PANEL_EVENT } from '@/lib/ui-events';
 
 function MenuPanelsHarness() {
-  const { settingsOpen, memoryHooksOpen, toggle } = useMenuPanels();
+  const { settingsOpen, learningOpen, memoryHooksOpen, toggle } = useMenuPanels();
   const [menuOpen, setMenuOpen] = useState(true);
 
   return (
@@ -23,6 +23,16 @@ function MenuPanelsHarness() {
             >
               Settings
             </button>
+            <button
+              type="button"
+              className="menu-item"
+              onClick={() => {
+                toggle('learning');
+                setMenuOpen(false);
+              }}
+            >
+              Learning settings
+            </button>
           </div>
         )}
       </div>
@@ -30,6 +40,13 @@ function MenuPanelsHarness() {
         aria-label="Settings"
         className={`settings-panel ${settingsOpen ? 'is-open' : ''}`}
       />
+      <section
+        aria-label="Learning settings"
+        className={`learning-settings-panel ${learningOpen ? 'is-open' : ''}`}
+      >
+        <button type="button">Inside learning panel</button>
+      </section>
+      <button type="button">Outside area</button>
       <button
         type="button"
         data-memory-hooks-learn-more
@@ -49,9 +66,22 @@ describe('useMenuPanels', () => {
   it('keeps a panel open when selected from an unmounting menu item', () => {
     render(<MenuPanelsHarness />);
 
-    fireEvent.click(screen.getByRole('button', { name: /settings/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^settings$/i }));
 
-    expect(screen.getByLabelText(/settings/i)).toHaveClass('is-open');
+    expect(screen.getByLabelText(/^settings$/i)).toHaveClass('is-open');
+  });
+
+  it('keeps the learning panel open on inside clicks and closes it on outside clicks', () => {
+    render(<MenuPanelsHarness />);
+
+    fireEvent.click(screen.getByRole('button', { name: /^learning settings$/i }));
+    expect(screen.getByLabelText(/^learning settings$/i)).toHaveClass('is-open');
+
+    fireEvent.click(screen.getByRole('button', { name: /inside learning panel/i }));
+    expect(screen.getByLabelText(/^learning settings$/i)).toHaveClass('is-open');
+
+    fireEvent.click(screen.getByRole('button', { name: /outside area/i }));
+    expect(screen.getByLabelText(/^learning settings$/i)).not.toHaveClass('is-open');
   });
 
   it('keeps the memory hooks panel open when opened from a page click event', () => {

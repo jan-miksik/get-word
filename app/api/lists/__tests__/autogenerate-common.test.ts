@@ -24,7 +24,7 @@ import { OpenRouterChatError } from '@/lib/openrouter-chat'
 describe('POST /api/lists/autogenerate-common', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockResolveUserFromRequest.mockResolvedValue({ id: 'user-1' })
+    mockResolveUserFromRequest.mockResolvedValue({ id: 'user-1', userRole: 'user' })
     mockAutogenerateCommonWordListForUser.mockResolvedValue({
       list: {
         id: 'list-generated',
@@ -85,6 +85,7 @@ describe('POST /api/lists/autogenerate-common', () => {
     expect(res.status).toBe(200)
     expect(mockAutogenerateCommonWordListForUser).toHaveBeenCalledWith({
       userId: 'user-1',
+      userRole: 'user',
       languageFrom: 'cs',
       languageTo: 'vi',
     })

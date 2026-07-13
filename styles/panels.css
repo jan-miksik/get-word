@@ -82,7 +82,6 @@
   }
 }
 
-.progress-panel,
 .upcoming-panel {
   margin-top: 4px;
   border-radius: 18px;
@@ -97,7 +96,6 @@
   box-shadow: var(--shadow-soft);
 }
 
-.progress-panel.is-open,
 .upcoming-panel.is-open {
   display: block;
   position: fixed;
@@ -110,7 +108,6 @@
   z-index: 550;
 }
 
-.progress-panel.is-open .panel-backdrop,
 .upcoming-panel.is-open .panel-backdrop {
   display: block;
   position: absolute;
@@ -120,7 +117,6 @@
   -webkit-backdrop-filter: blur(12px);
 }
 
-.progress-panel.is-open .panel-content,
 .upcoming-panel.is-open .panel-content {
   position: absolute;
   top: 4rem;
@@ -138,7 +134,6 @@
 }
 
 @media (min-width: 768px) {
-  .progress-panel.is-open,
   .upcoming-panel.is-open {
     inset: auto;
     bottom: auto;
@@ -152,12 +147,10 @@
     border: 1px solid rgba(148, 163, 184, 0.35);
   }
 
-  .progress-panel.is-open .panel-backdrop,
   .upcoming-panel.is-open .panel-backdrop {
     display: none;
   }
 
-  .progress-panel.is-open .panel-content,
   .upcoming-panel.is-open .panel-content {
     position: static;
     max-height: 80vh;
@@ -483,7 +476,6 @@
 
 @media (min-width: 640px) {
   .settings-panel.is-open,
-  .progress-panel.is-open,
   .category-panel.is-open,
   .upcoming-panel.is-open {
     /* right: auto; */
@@ -493,7 +485,6 @@
 
 @media (max-width: 767px) {
   .settings-panel.is-open,
-  .progress-panel.is-open,
   .category-panel.is-open,
   .upcoming-panel.is-open {
     inset: 0;
@@ -506,7 +497,6 @@
   }
 
   .settings-panel.is-open .panel-content,
-  .progress-panel.is-open .panel-content,
   .category-panel.is-open .panel-content,
   .upcoming-panel.is-open .panel-content {
     left: 1px;
@@ -651,12 +641,11 @@
 }
 
 /* ─── Neo-brutalist panel overrides ──────────────────────── */
-/* Applies to settings, progress, category, and upcoming panels.
+/* Applies to settings (incl. learning settings), category, and upcoming panels.
    Memory-hooks panel has its own self-contained design above.
    Cream surface + dark ink border, no offset shadows. */
 
 .settings-panel.is-open .panel-backdrop,
-.progress-panel.is-open .panel-backdrop,
 .category-panel.is-open .panel-backdrop,
 .upcoming-panel.is-open .panel-backdrop {
   background: rgba(30, 111, 168, 0.55);
@@ -670,7 +659,6 @@
    surfaces rendered outside a panel (e.g. modals portaled to <body>) adopt the
    same palette so they don't look like they come from a different app. */
 .settings-panel,
-.progress-panel,
 .category-panel,
 .upcoming-panel,
 .panel-token-scope {
@@ -689,7 +677,6 @@
 }
 
 .settings-panel,
-.progress-panel,
 .category-panel,
 .upcoming-panel {
   background: var(--panel-surface);
@@ -700,7 +687,6 @@
 }
 
 .settings-panel.is-open .panel-content,
-.progress-panel.is-open .panel-content,
 .category-panel.is-open .panel-content,
 .upcoming-panel.is-open .panel-content {
   background: var(--panel-surface, #F4EFE2);
@@ -712,7 +698,6 @@
 
 @media (min-width: 768px) {
   .settings-panel.is-open,
-  .progress-panel.is-open,
   .category-panel.is-open,
   .upcoming-panel.is-open {
     background: transparent;
@@ -720,7 +705,6 @@
   }
 
   .settings-panel.is-open .panel-content,
-  .progress-panel.is-open .panel-content,
   .category-panel.is-open .panel-content,
   .upcoming-panel.is-open .panel-content {
     background: var(--panel-surface, #F4EFE2);
@@ -731,7 +715,6 @@
 
 /* Text inside panels picks up the dark ink */
 .settings-panel .panel-content,
-.progress-panel .panel-content,
 .category-panel .panel-content,
 .upcoming-panel .panel-content {
   color: var(--panel-ink, #2A2218);
@@ -855,110 +838,110 @@
    We override the generated utilities directly inside the panel scope. */
 
 .settings-panel .bg-background,
-.progress-panel .bg-background,
+.upcoming-panel .bg-background,
 .memory-hooks-panel .bg-background,
 .category-panel .bg-background {
   background-color: #F4EFE2;
 }
 
 .settings-panel .bg-background-elevated,
-.progress-panel .bg-background-elevated,
+.upcoming-panel .bg-background-elevated,
 .memory-hooks-panel .bg-background-elevated,
 .category-panel .bg-background-elevated,
 .settings-panel [class*="bg-background-elevated/"],
-.progress-panel [class*="bg-background-elevated/"],
+.upcoming-panel [class*="bg-background-elevated/"],
 .memory-hooks-panel [class*="bg-background-elevated/"],
 .category-panel [class*="bg-background-elevated/"] {
   background-color: #FFF8E8;
 }
 
 .settings-panel .text-text,
-.progress-panel .text-text,
+.upcoming-panel .text-text,
 .memory-hooks-panel .text-text,
 .category-panel .text-text {
   color: #2A2218;
 }
 
 .settings-panel .text-text-soft,
-.progress-panel .text-text-soft,
+.upcoming-panel .text-text-soft,
 .memory-hooks-panel .text-text-soft,
 .category-panel .text-text-soft,
 .settings-panel [class*="text-text-soft/"],
-.progress-panel [class*="text-text-soft/"],
+.upcoming-panel [class*="text-text-soft/"],
 .memory-hooks-panel [class*="text-text-soft/"],
 .category-panel [class*="text-text-soft/"] {
   color: #6B5E48;
 }
 
 .settings-panel .text-accent,
-.progress-panel .text-accent,
+.upcoming-panel .text-accent,
 .memory-hooks-panel .text-accent,
 .category-panel .text-accent {
   color: #1E6FA8;
 }
 
 .settings-panel .text-fresh,
-.progress-panel .text-fresh,
+.upcoming-panel .text-fresh,
 .memory-hooks-panel .text-fresh,
 .category-panel .text-fresh {
   color: #B45309;
 }
 
 .settings-panel .text-done,
-.progress-panel .text-done,
+.upcoming-panel .text-done,
 .memory-hooks-panel .text-done,
 .category-panel .text-done {
   color: #15803D;
 }
 
 .settings-panel .text-danger,
-.progress-panel .text-danger,
+.upcoming-panel .text-danger,
 .memory-hooks-panel .text-danger,
 .category-panel .text-danger {
   color: #B91C1C;
 }
 
 .settings-panel .border-border-subtle,
-.progress-panel .border-border-subtle,
+.upcoming-panel .border-border-subtle,
 .memory-hooks-panel .border-border-subtle,
 .category-panel .border-border-subtle,
 .settings-panel [class*="border-border-subtle/"],
-.progress-panel [class*="border-border-subtle/"],
+.upcoming-panel [class*="border-border-subtle/"],
 .memory-hooks-panel [class*="border-border-subtle/"],
 .category-panel [class*="border-border-subtle/"] {
   border-color: #2A2218;
 }
 
 .settings-panel .border-accent-strong,
-.progress-panel .border-accent-strong,
+.upcoming-panel .border-accent-strong,
 .memory-hooks-panel .border-accent-strong,
 .category-panel .border-accent-strong {
   border-color: #1E6FA8;
 }
 
 .settings-panel .bg-border-subtle,
-.progress-panel .bg-border-subtle,
+.upcoming-panel .bg-border-subtle,
 .memory-hooks-panel .bg-border-subtle,
 .category-panel .bg-border-subtle {
   background-color: rgba(30, 111, 168, 0.2);
 }
 
 .settings-panel .bg-accent,
-.progress-panel .bg-accent,
+.upcoming-panel .bg-accent,
 .memory-hooks-panel .bg-accent,
 .category-panel .bg-accent {
   background-color: #1E6FA8;
 }
 
 .settings-panel .bg-done,
-.progress-panel .bg-done,
+.upcoming-panel .bg-done,
 .memory-hooks-panel .bg-done,
 .category-panel .bg-done {
   background-color: #15803D;
 }
 
 .settings-panel .bg-fresh,
-.progress-panel .bg-fresh,
+.upcoming-panel .bg-fresh,
 .memory-hooks-panel .bg-fresh,
 .category-panel .bg-fresh {
   background-color: #B45309;
@@ -982,14 +965,14 @@
 
 /* Scrollbar inside brutalist panels */
 .settings-panel .custom-scrollbar,
-.progress-panel .custom-scrollbar,
+.upcoming-panel .custom-scrollbar,
 .memory-hooks-panel .custom-scrollbar,
 .category-panel .custom-scrollbar {
   scrollbar-color: rgba(30, 111, 168, 0.4) transparent;
 }
 
 .settings-panel .custom-scrollbar::-webkit-scrollbar-thumb,
-.progress-panel .custom-scrollbar::-webkit-scrollbar-thumb,
+.upcoming-panel .custom-scrollbar::-webkit-scrollbar-thumb,
 .memory-hooks-panel .custom-scrollbar::-webkit-scrollbar-thumb,
 .category-panel .custom-scrollbar::-webkit-scrollbar-thumb {
   background: rgba(30, 111, 168, 0.4);

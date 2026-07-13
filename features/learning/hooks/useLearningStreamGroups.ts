@@ -8,6 +8,7 @@ import {
   enforceMinigameMinGap,
   pruneAnchorsForCurrentSize,
   type GameAnchor,
+  type GameType,
   type MiniGameConfig,
   type MinigameFrequencyRange,
 } from '@/features/learning/minigames';
@@ -49,6 +50,7 @@ type UseLearningStreamGroupsArgs = {
   minigameSeed: number;
   selectedCategoriesKey: string;
   wordsResetKey: string;
+  excludeGameTypes?: GameType[];
 };
 
 export function useLearningStreamGroups({
@@ -63,6 +65,7 @@ export function useLearningStreamGroups({
   minigameSeed,
   selectedCategoriesKey,
   wordsResetKey,
+  excludeGameTypes,
 }: UseLearningStreamGroupsArgs) {
   const stableMinigamePlansRef = useRef<Record<SegmentKind, SegmentPlan | null>>(
     emptySegmentPlans()
@@ -71,6 +74,14 @@ export function useLearningStreamGroups({
   const combined = useMemo(
     () => [...dueWords, ...(showNotReady ? settlingWords : []), ...newWords],
     [dueWords, settlingWords, newWords, showNotReady],
+  );
+
+  // Key the exclusion by value so a fresh array identity per render doesn't
+  // recompute plans, while an actual toggle (e.g. typing mode) does.
+  const excludeGameTypesKey = (excludeGameTypes ?? []).slice().sort().join(',');
+  const stableExcludeGameTypes = useMemo(
+    () => (excludeGameTypesKey ? (excludeGameTypesKey.split(',') as GameType[]) : []),
+    [excludeGameTypesKey],
   );
 
   const streamGroupedWords = useMemo(() => {
@@ -101,7 +112,7 @@ export function useLearningStreamGroups({
           if (words.length === 0) return [] as (NormalizedWord | MiniGameConfig)[];
 
           const seed = segmentSeed(kind);
-          const configKey = `${seed}|${min}|${max}`;
+          const configKey = `${seed}|${min}|${max}|${excludeGameTypesKey}`;
           const resetKey = `${baseResetKey}|${kind}`;
           if (!isSegmentPlans(stableMinigamePlansRef.current)) {
             stableMinigamePlansRef.current = emptySegmentPlans();
@@ -136,6 +147,7 @@ export function useLearningStreamGroups({
             plan.anchors = computeGameAnchors(plan.originalWords, learnedPool, seed, {
               minInterval: min,
               maxInterval: max,
+              excludeGameTypes: stableExcludeGameTypes,
             });
           }
 
@@ -194,6 +206,8 @@ export function useLearningStreamGroups({
     combined,
     dismissedGames,
     dueWords,
+    excludeGameTypesKey,
+    stableExcludeGameTypes,
     isHydrated,
     learnedPool,
     minigameFrequency,

@@ -166,8 +166,14 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Build unified results array preserving original item order
-  const apiResultMap = new Map(apiResults.map((r) => [r.text, r]));
+  // Build unified results array preserving original item order. Match API
+  // results back through the `needsApi` index instead of source text so repeated
+  // anchors such as "time" or "color" do not collapse into one translation.
+  const apiResultById = new Map<string, TranslationResult>();
+  needsApi.forEach((item, index) => {
+    const result = apiResults[index];
+    if (result) apiResultById.set(item.id, result);
+  });
 
   const results = items.map((item) => {
     const dedup = dedupResults.find((d) => d.id === item.id);
@@ -180,7 +186,7 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    const apiResult = apiResultMap.get(item.text);
+    const apiResult = apiResultById.get(item.id);
     if (apiResult) {
       return {
         id: item.id,

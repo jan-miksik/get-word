@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { useAppStateContext } from '@/context/AppStateContext';
 import { useI18n } from '@/components/I18nProvider';
 import { useWordStream } from '@/features/learning/hooks/useWordStream';
+import { ProgressStatsContent } from '@/components/progress/ProgressStatsContent';
+import type { ProgressStats } from '@/lib/progress-stats';
 import type { NormalizedWord } from '@/lib/words';
 import type { ProgressData } from '@/lib/sync';
 import type { Role } from '@/features/learning/state';
@@ -11,6 +13,7 @@ import type { Role } from '@/features/learning/state';
 interface UpcomingPanelProps {
   isOpen: boolean;
   onClose: () => void;
+  progressStats: ProgressStats;
 }
 
 function formatRelativeDue(nextDueAt: number | undefined, now: number): string | null {
@@ -103,7 +106,7 @@ function Section({
   );
 }
 
-export function UpcomingPanel({ isOpen, onClose }: UpcomingPanelProps) {
+export function UpcomingPanel({ isOpen, onClose, progressStats }: UpcomingPanelProps) {
   const { t } = useI18n();
   const { filteredWords, progress, isHydrated, role, categoryOrder } = useAppStateContext();
   const { dueWords, newWords, settlingWords } = useWordStream(
@@ -113,6 +116,9 @@ export function UpcomingPanel({ isOpen, onClose }: UpcomingPanelProps) {
     categoryOrder
   );
 
+  // Initialized collapsed; intentionally not reset when the panel closes,
+  // so it stays expanded for the rest of the session once opened.
+  const [progressExpanded, setProgressExpanded] = useState(false);
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!isOpen) return;
@@ -169,6 +175,28 @@ export function UpcomingPanel({ isOpen, onClose }: UpcomingPanelProps) {
             </button>
           </div>
           <div className="flex-1 overflow-y-auto -mx-1 px-1" style={{ WebkitOverflowScrolling: 'touch' }}>
+            <div className="mb-3">
+              <button
+                type="button"
+                onClick={() => setProgressExpanded((v) => !v)}
+                aria-expanded={progressExpanded}
+                aria-controls="upcoming-progress-stats"
+                className="w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-[10px] border-2 border-[#2A2218] bg-[#FFF8E8] text-[0.875rem] font-semibold text-[#2A2218] cursor-pointer"
+              >
+                <span>📊 {t('progress.title')}</span>
+                <span
+                  aria-hidden
+                  className={`text-[0.75rem] transition-transform duration-150 ${progressExpanded ? 'rotate-90' : ''}`}
+                >
+                  ▸
+                </span>
+              </button>
+              {progressExpanded && (
+                <div id="upcoming-progress-stats" className="mt-2">
+                  <ProgressStatsContent progressStats={progressStats} />
+                </div>
+              )}
+            </div>
             {total === 0 ? (
               <p className="m-0 text-text-soft">{t('upcoming.empty')}</p>
             ) : (

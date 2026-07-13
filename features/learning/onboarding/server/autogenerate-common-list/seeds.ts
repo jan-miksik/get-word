@@ -9,7 +9,8 @@ import { MAX_GENERATED_ITEMS } from "./config";
 import { getResourceRank } from "./helpers";
 import type { SeedCandidate } from "./types";
 
-export async function findSeedCandidates() {
+export async function findSeedCandidates(options: { excludeListIds?: string[] } = {}) {
+  const excluded = new Set(options.excludeListIds ?? []);
   const itemCounts = db
     .select({
       listId: wordListItems.listId,
@@ -19,7 +20,7 @@ export async function findSeedCandidates() {
     .groupBy(wordListItems.listId)
     .as("item_counts");
 
-  return db
+  const rows = await db
     .select({
       id: wordLists.id,
       ownerId: wordLists.ownerId,
@@ -41,6 +42,7 @@ export async function findSeedCandidates() {
     .where(eq(wordLists.isPublic, true))
     .orderBy(desc(wordLists.isCommon), desc(wordLists.isRecommended), desc(wordLists.updatedAt))
     .limit(80);
+  return excluded.size > 0 ? rows.filter((row) => !excluded.has(row.id)) : rows;
 }
 
 function scoreTranslationSeed(seed: SeedCandidate, languageFrom: string, languageTo: string) {

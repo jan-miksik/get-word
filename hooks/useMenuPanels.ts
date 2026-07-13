@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { OPEN_MEMORY_HOOKS_PANEL_EVENT } from '@/lib/ui-events';
 
-export type MenuPanel = 'settings' | 'progress' | 'category' | 'memoryHooks' | 'upcoming';
+export type MenuPanel = 'settings' | 'learning' | 'category' | 'memoryHooks' | 'upcoming';
 
 export function useMenuPanels() {
   const [openPanel, setOpenPanel] = useState<MenuPanel | null>(null);
@@ -24,7 +24,7 @@ export function useMenuPanels() {
       const target = e.target as HTMLElement;
       if (
         !target.closest('.settings-panel') &&
-        !target.closest('.progress-panel') &&
+        !target.closest('.learning-settings-panel') &&
         !target.closest('.category-panel') &&
         !target.closest('.memory-hooks-panel') &&
         !target.closest('.upcoming-panel') &&
@@ -54,7 +54,7 @@ export function useMenuPanels() {
 
   return {
     settingsOpen: openPanel === 'settings',
-    progressOpen: openPanel === 'progress',
+    learningOpen: openPanel === 'learning',
     categoryOpen: openPanel === 'category',
     memoryHooksOpen: openPanel === 'memoryHooks',
     upcomingOpen: openPanel === 'upcoming',

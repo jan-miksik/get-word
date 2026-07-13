@@ -93,6 +93,10 @@ export function HomeClient() {
     studyNotesEnabled,
     studyNoteMinimizeFromStage,
     swipeCardsEnabled,
+    typingModeEnabled,
+    typingWriteIn,
+    typingAudioPromptEnabled,
+    typingPrefillPunctuation,
     markKnown,
     markReallyKnown,
     markUnknown,
@@ -161,7 +165,7 @@ export function HomeClient() {
   const displayAddress = userWalletAddress ?? walletAddress ?? undefined;
 
   const { minigameFrequency, setMinigameFrequency } = useMinigameFrequencyPreference();
-  const { viewMode, setViewMode } = useViewModePreference();
+  const { viewMode } = useViewModePreference();
 
   const categories = useMemo(
     () => getAvailableCategories(activeWords),
@@ -218,6 +222,7 @@ export function HomeClient() {
     minigameFrequency,
     categoryOrder,
     dueTimerRevision,
+    typingModeEnabled,
   });
 
   const {
@@ -246,6 +251,10 @@ export function HomeClient() {
     studyNotesEnabled,
     studyNoteMinimizeFromStage,
     swipeCardsEnabled,
+    typingModeEnabled,
+    typingWriteIn,
+    typingAudioPromptEnabled,
+    typingPrefillPunctuation,
     dismissedGames,
     setDismissedGames,
     setGameScore,
@@ -426,7 +435,6 @@ export function HomeClient() {
             // Force card view when previewing the PWA install screen — the
             // interstitial only renders inside the card deck.
             viewMode={isPreviewPWAActive ? 'card' : viewMode}
-            onViewModeChange={setViewMode}
             minigameFrequency={minigameFrequency}
             onMinigameFrequencyChange={(f) => setMinigameFrequency(f)}
             isAuthenticated={isAuthenticated}

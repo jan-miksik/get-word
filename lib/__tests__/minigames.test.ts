@@ -399,3 +399,39 @@ describe('enforceMinigameMinGap', () => {
     expect(out.map(i => ('_isMinigame' in i ? i.id : i.id))).toEqual(['g1', 'w', 'g2']);
   });
 });
+
+describe('computeGameAnchors excludeGameTypes', () => {
+  const words = Array.from({ length: 40 }, (_, i) =>
+    makeWord(`w${i}`, `cz${i}`, `vi${i}`)
+  );
+
+  it('never schedules an excluded game type (typing mode keeps the other quizzes)', () => {
+    for (const seed of [1, 7, 42, 99, 12345]) {
+      const anchors = computeGameAnchors(words, [], seed, {
+        minInterval: 2,
+        maxInterval: 3,
+        excludeGameTypes: ['typing'],
+      });
+      expect(anchors.length).toBeGreaterThan(0);
+      expect(anchors.every((anchor) => anchor.gameType !== 'typing')).toBe(true);
+    }
+  });
+
+  it('returns no anchors when every game type is excluded', () => {
+    const anchors = computeGameAnchors(words, [], 42, {
+      minInterval: 2,
+      maxInterval: 3,
+      excludeGameTypes: ['typing', 'multipleChoice', 'matching'],
+    });
+    expect(anchors).toEqual([]);
+  });
+
+  it('schedules all game types when nothing is excluded', () => {
+    const anchors = computeGameAnchors(words, [], 42, {
+      minInterval: 2,
+      maxInterval: 2,
+    });
+    const types = new Set(anchors.map((anchor) => anchor.gameType));
+    expect(types.size).toBeGreaterThan(1);
+  });
+});

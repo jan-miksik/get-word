@@ -7,7 +7,6 @@ import { matchAnswer } from '@/lib/minigames';
 import {
   flipSide,
   getWordAudioSrcsBySide,
-  getWordLanguageCodeForSide,
   getWordTextBySide,
   knownSideForRole,
   learningSideForRole,
@@ -15,9 +14,12 @@ import {
   type PromptMode,
   type WordSide,
 } from './types';
+import { getTypingTargetLanguageLabel } from './target-language-label';
 import { useI18n } from '@/components/I18nProvider';
-import type { I18nKey } from '@/lib/i18n/messages';
-import { getLocalizedLanguageName } from '@/lib/i18n/languages';
+
+// Case/accent-insensitive single-character compare for per-slot feedback.
+const normalizeChar = (ch: string) =>
+  ch.normalize('NFD').replace(/\p{M}+/gu, '').toLowerCase();
 
 interface Props {
   words: NormalizedWord[];
@@ -62,32 +64,7 @@ export function TypingChallengeGame({
   const normalizedAnswer = correctAnswer.trim();
   const answerChars = normalizedAnswer.split('');
   const hintExhausted = answerChars.every((ch, idx) => (value[idx] ?? '') === ch);
-  const answerLanguageCode = getWordLanguageCodeForSide(questionWord, answerSide);
-  const targetLanguageLabel = (() => {
-    if (answerLanguageCode) {
-      const key = `languageNameIn.${answerLanguageCode}` as I18nKey;
-      const translated = t(key);
-      if (translated && translated !== key) return translated;
-    }
-    // BCP-47-driven lookup; falls back to the legacy cz/vi labels for words
-    // that pre-date the languageFrom/languageTo metadata.
-    if (answerLanguageCode) {
-      // Dynamic BCP-47 code; the key may or may not exist in the message
-      // catalog. t() returns the key itself when missing, which we treat as
-      // "fall back to Intl.DisplayNames below".
-      const key = `languageName.${answerLanguageCode}` as I18nKey;
-      const translated = t(key);
-      if (translated && translated !== key) return translated;
-
-      const localizedName = getLocalizedLanguageName(answerLanguageCode, language);
-      if (localizedName) return localizedName;
-
-      return answerLanguageCode.toUpperCase();
-    }
-    // Only words without language metadata can be legacy Czech/Vietnamese
-    // records. Never use these labels for a known, different language pair.
-    return answerSide === 'from' ? t('languageNameIn.cs') : t('languageNameIn.vi');
-  })();
+  const targetLanguageLabel = getTypingTargetLanguageLabel(questionWord, answerSide, t, language);
 
   const check = () => {
     if (result !== null || !value.trim()) return;
@@ -200,23 +177,52 @@ export function TypingChallengeGame({
           ].filter(Boolean).join(' ')}
         >
           <div className="game-typing-mask" aria-hidden="true">
-            {answerChars.map((ch, idx) => {
-              const typedChar = value[idx] ?? '';
-              const isSpace = ch === ' ';
-              const isActive = idx === caretIndex;
-              return (
-                <span
-                  key={`ch-${idx}`}
-                  className={[
-                    'game-typing-slot',
-                    isSpace ? 'game-typing-slot--space' : '',
-                    isActive ? 'is-active' : '',
-                  ].join(' ')}
-                >
-                  {typedChar ? typedChar : '_'}
-                </span>
-              );
-            })}
+            {(() => {
+              const groups: React.ReactNode[] = [];
+              let word: React.ReactNode[] = [];
+              let key = 0;
+              const flush = () => {
+                if (word.length === 0) return;
+                groups.push(
+                  <span key={`w-${key++}`} className="game-typing-word">
+                    {word}
+                  </span>,
+                );
+                word = [];
+              };
+              answerChars.forEach((ch, idx) => {
+                const typedChar = value[idx] ?? '';
+                const isSpace = ch === ' ';
+                const isActive = idx === caretIndex;
+                const charState =
+                  result === null || isSpace
+                    ? ''
+                    : normalizeChar(typedChar) === normalizeChar(ch)
+                      ? 'game-typing-slot--correct'
+                      : 'game-typing-slot--bad';
+                const span = (
+                  <span
+                    key={`ch-${idx}`}
+                    className={[
+                      'game-typing-slot',
+                      isSpace ? 'game-typing-slot--space' : '',
+                      charState,
+                      isActive ? 'is-active' : '',
+                    ].filter(Boolean).join(' ')}
+                  >
+                    {typedChar ? typedChar : '_'}
+                  </span>
+                );
+                if (isSpace) {
+                  flush();
+                  groups.push(span);
+                } else {
+                  word.push(span);
+                }
+              });
+              flush();
+              return groups;
+            })()}
           </div>
           <input
             ref={inputRef}

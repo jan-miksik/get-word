@@ -3,6 +3,8 @@
 import { useCallback, useRef } from 'react';
 import { WordCard } from '@/components/WordCard';
 import { MiniGameCard } from '@/components/MiniGameCard';
+import { TypingStudyCard, type TypingOutcome } from '@/features/learning/components/TypingStudyCard';
+import type { TypingWriteIn } from '@/features/learning/state/preferences';
 import type { ProgressData } from '@/lib/sync';
 import type { MiniGameConfig } from '@/lib/minigames';
 import type { NormalizedWord } from '@/lib/words';
@@ -29,6 +31,10 @@ interface UseLearningRenderersOptions {
   studyNotesEnabled: boolean;
   studyNoteMinimizeFromStage: number;
   swipeCardsEnabled: boolean;
+  typingModeEnabled: boolean;
+  typingWriteIn: TypingWriteIn;
+  typingAudioPromptEnabled: boolean;
+  typingPrefillPunctuation: boolean;
   dismissedGames: Set<string>;
   setDismissedGames: React.Dispatch<React.SetStateAction<Set<string>>>;
   setGameScore: React.Dispatch<React.SetStateAction<number>>;
@@ -55,6 +61,10 @@ export function useLearningRenderers({
   studyNotesEnabled,
   studyNoteMinimizeFromStage,
   swipeCardsEnabled,
+  typingModeEnabled,
+  typingWriteIn,
+  typingAudioPromptEnabled,
+  typingPrefillPunctuation,
   dismissedGames,
   setDismissedGames,
   setGameScore,
@@ -63,8 +73,40 @@ export function useLearningRenderers({
     new Map()
   );
 
+  // Typing mode wires quiz-style results into the spaced-repetition stages:
+  // clean success advances, a hinted/near answer reschedules at the same
+  // stage, and a failure steps the word down.
+  const applyTypingOutcome = useCallback(
+    (wordId: string, stageIndex: number, outcome: TypingOutcome, points: number) => {
+      if (points > 0) setGameScore((prev) => Math.max(0, prev + points));
+      if (outcome === 'known') markKnown(wordId);
+      else if (outcome === 'unknown') markUnknown(wordId);
+      else setCustomStage(wordId, stageIndex);
+    },
+    [markKnown, markUnknown, setCustomStage, setGameScore]
+  );
+
   const renderCard = useCallback((word: NormalizedWord, _stageIndex?: number) => {
     const prog = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
+    if (typingModeEnabled) {
+      return (
+        <div key={word.id} className="pt-8">
+          <TypingStudyCard
+            word={word}
+            progress={prog}
+            role={role}
+            writeIn={typingWriteIn}
+            audioPromptEnabled={typingAudioPromptEnabled}
+            prefillPunctuation={typingPrefillPunctuation}
+            modeIndex={getWordDisplayMode(word.id)}
+            onOutcome={(outcome, points) =>
+              applyTypingOutcome(word.id, prog.stageIndex, outcome, points)
+            }
+            onCustomStage={(stageIndex, opts) => setCustomStage(word.id, stageIndex, opts)}
+          />
+        </div>
+      );
+    }
     return (
       <div key={word.id} className="pt-8">
         <WordCard
@@ -91,7 +133,7 @@ export function useLearningRenderers({
         />
       </div>
     );
-  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage]);
+  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, typingModeEnabled, typingWriteIn, typingAudioPromptEnabled, typingPrefillPunctuation, applyTypingOutcome]);
 
   const renderMiniGame = useCallback((config: MiniGameConfig) => {
     if (dismissedGames.has(config.id)) return null;
@@ -135,6 +177,31 @@ export function useLearningRenderers({
         : null;
       const prog = cardState?.progress ?? liveProg;
       const modeIndex = cardState?.modeIndex ?? liveModeIndex;
+      if (typingModeEnabled) {
+        return (
+          <div key={word.id} className="h-full flex flex-col justify-end md:justify-start relative">
+            <TypingStudyCard
+              word={word}
+              progress={prog}
+              role={role}
+              writeIn={typingWriteIn}
+              audioPromptEnabled={typingAudioPromptEnabled}
+              prefillPunctuation={typingPrefillPunctuation}
+              modeIndex={modeIndex as 0 | 1}
+              onOutcome={(outcome, points) => {
+                onComplete(() =>
+                  applyTypingOutcome(word.id, prog.stageIndex, outcome, points)
+                );
+              }}
+              onCustomStage={(stageIndex, opts) => {
+                onComplete(() => setCustomStage(word.id, stageIndex, opts));
+              }}
+              fullscreen
+              autoFocus={!isExiting}
+            />
+          </div>
+        );
+      }
       return (
         <div key={word.id} className="h-full flex flex-col justify-end md:justify-start relative">
           <WordCard
@@ -164,7 +231,7 @@ export function useLearningRenderers({
         </div>
       );
     },
-    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, swipeCardsEnabled]
+    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, swipeCardsEnabled, typingModeEnabled, typingWriteIn, typingAudioPromptEnabled, typingPrefillPunctuation, applyTypingOutcome]
   );
 
   const renderMiniGameForDeck = useCallback(

@@ -84,4 +84,36 @@ describe("generateFromOpenRouterSeed", () => {
     expect(result.map((item) => item.sourceIndex)).toEqual([0]);
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
+
+  it("repairs known-side category leakage from seed generation", async () => {
+    global.fetch = vi.fn()
+      .mockResolvedValueOnce(openRouterResponse([
+        { sourceIndex: 0, known: "แนะนำตัว", target: "请说慢一点。", category: "แนะนำตัว" },
+        { sourceIndex: 1, known: "แนะนำตัว", target: "请再说一遍。", category: "แนะนำตัว" },
+        { sourceIndex: 2, known: "ขอบคุณ", target: "谢谢", category: "พื้นฐาน" },
+      ]))
+      .mockResolvedValueOnce(openRouterResponse([
+        { index: 0, known: "กรุณาพูดช้าๆ", target: "请说慢一点。" },
+        { index: 1, known: "กรุณาพูดอีกครั้ง", target: "请再说一遍。" },
+      ])) as typeof fetch;
+
+    const result = await generateFromOpenRouterSeed({
+      languageFrom: "th",
+      languageTo: "zh",
+      sourceLanguage: "en",
+      sourceList: { id: "seed", name: "Seed" } as WordList,
+      sourceItems: [
+        { sourceIndex: 0, source: "Please speak slowly.", category: "Introduction" },
+        { sourceIndex: 1, source: "Please say it again.", category: "Introduction" },
+        { sourceIndex: 2, source: "Thank you.", category: "Basics" },
+      ],
+    });
+
+    expect(result.map((item) => item.known)).toEqual([
+      "กรุณาพูดช้าๆ",
+      "กรุณาพูดอีกครั้ง",
+      "ขอบคุณ",
+    ]);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
 });

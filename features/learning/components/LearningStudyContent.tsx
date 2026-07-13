@@ -12,7 +12,6 @@ import type { ViewMode } from '../app-state/types';
 
 interface LearningStudyContentProps {
   viewMode: ViewMode;
-  onViewModeChange: (mode: ViewMode) => void;
   minigameFrequency: MinigameFrequencyRange;
   onMinigameFrequencyChange: (value: MinigameFrequencyRange) => void;
   isAuthenticated: boolean;
@@ -46,7 +45,6 @@ interface LearningStudyContentProps {
 
 export function LearningStudyContent({
   viewMode,
-  onViewModeChange,
   minigameFrequency,
   onMinigameFrequencyChange,
   isAuthenticated,
@@ -78,7 +76,6 @@ export function LearningStudyContent({
   return (
     <AppLayout
       viewMode={viewMode}
-      onViewModeChange={onViewModeChange}
       minigameFrequency={minigameFrequency}
       onMinigameFrequencyChange={onMinigameFrequencyChange}
       isAuthenticated={isAuthenticated}

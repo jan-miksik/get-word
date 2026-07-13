@@ -302,4 +302,46 @@ describe('useLearningPageState', () => {
 
     expect(gameAnchors).toEqual([1, 3, 5, 7, 9]);
   });
+
+  it('recomputes the minigame plan without typing quizzes when typing mode toggles on', () => {
+    // Enough anchors (~30) that the seeded no-repeat rotation is virtually
+    // guaranteed to include a typing quiz in the default configuration.
+    const words = Array.from({ length: 60 }, (_, index) =>
+      makeWord(`new-${index}`, 'list-a', 'basics', 0, index)
+    );
+
+    const { result, rerender } = renderHook(
+      ({ typingModeEnabled }) =>
+        useLearningPageState({
+          activeWords: words,
+          filteredWords: words,
+          selectedCategories: new Set<string>(),
+          progress: {},
+          isHydrated: true,
+          viewMode: 'stream',
+          minigameFrequency: { min: 2, max: 2 },
+          categoryOrder: [],
+          typingModeEnabled,
+        }),
+      { initialProps: { typingModeEnabled: false } }
+    );
+
+    const gamesOf = (groups: ReturnType<typeof useLearningPageState>['streamGroupedWords']) =>
+      groups.flat().filter((item): item is MiniGameConfig => '_isMinigame' in item);
+
+    // Enough anchors with a tight interval that the default rotation includes typing.
+    expect(gamesOf(result.current.streamGroupedWords).some((game) => game.gameType === 'typing'))
+      .toBe(true);
+
+    rerender({ typingModeEnabled: true });
+
+    const typingModeGames = gamesOf(result.current.streamGroupedWords);
+    expect(typingModeGames.length).toBeGreaterThan(0);
+    expect(typingModeGames.every((game) => game.gameType !== 'typing')).toBe(true);
+
+    rerender({ typingModeEnabled: false });
+
+    expect(gamesOf(result.current.streamGroupedWords).some((game) => game.gameType === 'typing'))
+      .toBe(true);
+  });
 });

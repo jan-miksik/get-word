@@ -57,19 +57,6 @@ export function CategoryIcon(props: IconProps) {
   );
 }
 
-export function ProgressIcon(props: IconProps) {
-  return (
-    <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
-      <path d="M4.5 18.5h15" />
-      <path d="M6 15.5l3.5-4 3.25 2.75L18 7.5" />
-      <circle cx="6" cy="15.5" r="1" fill="currentColor" stroke="none" />
-      <circle cx="9.5" cy="11.5" r="1" fill="currentColor" stroke="none" />
-      <circle cx="12.75" cy="14.25" r="1" fill="currentColor" stroke="none" />
-      <circle cx="18" cy="7.5" r="1" fill="currentColor" stroke="none" />
-    </Glyph>
-  );
-}
-
 export function MemoryIcon(props: IconProps) {
   return (
     <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
@@ -113,7 +100,7 @@ export function UpcomingIcon(props: IconProps) {
   );
 }
 
-export function SettingsIcon(props: IconProps) {
+export function TuneIcon(props: IconProps) {
   return (
     <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
       <path d="M5 7h8.5" />
@@ -125,6 +112,15 @@ export function SettingsIcon(props: IconProps) {
       <path d="M5 17h7.5" />
       <path d="M16 17h3" />
       <circle cx="14.25" cy="17" r="1.75" />
+    </Glyph>
+  );
+}
+
+export function SettingsIcon(props: IconProps) {
+  return (
+    <Glyph {...props} strokeWidth={props.strokeWidth ?? 1.8}>
+      <circle cx="12" cy="12" r="2.75" />
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z" />
     </Glyph>
   );
 }

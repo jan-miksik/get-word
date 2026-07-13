@@ -106,6 +106,10 @@ export function computeGameAnchors(
     maxInterval = Math.max(minInterval, Math.min(100, Math.floor(maxRaw)));
   }
 
+  const excludedTypes = new Set(options?.excludeGameTypes ?? []);
+  const availableGameTypes = GAME_TYPES.filter((type) => !excludedTypes.has(type));
+  if (availableGameTypes.length === 0) return [];
+
   const randGap = createRng(baseSeed);
   const pickGap = () =>
     minInterval + Math.floor(randGap() * (maxInterval - minInterval + 1));
@@ -115,8 +119,14 @@ export function computeGameAnchors(
     previousType: GameType | null,
     rand: () => number,
   ): GameType => {
-    const options = previousType ? GAME_TYPES.filter((type) => type !== previousType) : GAME_TYPES;
-    return options[Math.floor(rand() * options.length)] ?? GAME_TYPES[slotIndex % GAME_TYPES.length];
+    const candidates =
+      previousType && availableGameTypes.length > 1
+        ? availableGameTypes.filter((type) => type !== previousType)
+        : availableGameTypes;
+    return (
+      candidates[Math.floor(rand() * candidates.length)] ??
+      availableGameTypes[slotIndex % availableGameTypes.length]
+    );
   };
 
   const anchorIndices: number[] = [];

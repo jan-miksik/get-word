@@ -24,12 +24,17 @@ import {
 export type Role = LearningRole;
 export type SettingsLanguage = string;
 export type RevealMode = 'press' | 'scratch';
+export type TypingWriteIn = 'foreign' | 'both' | 'known';
 
 const DEFAULT_SETTINGS_LANGUAGE = 'en';
 const LEARNING_ONBOARDING_COMPLETED_SESSION_KEY = 'get-word-learning-onboarding-completed';
 const PROGRESSIVE_REVEAL_STORAGE_KEY = 'get-word-progressive-reveal-enabled';
 const REVEAL_MODE_STORAGE_KEY = 'get-word-reveal-mode';
 const SWIPE_CARDS_STORAGE_KEY = 'get-word-swipe-cards-enabled';
+const TYPING_MODE_STORAGE_KEY = 'get-word-typing-mode-enabled';
+const TYPING_WRITE_IN_STORAGE_KEY = 'get-word-typing-write-in';
+const TYPING_AUDIO_PROMPT_STORAGE_KEY = 'get-word-typing-audio-prompt-enabled';
+const TYPING_PREFILL_PUNCTUATION_STORAGE_KEY = 'get-word-typing-prefill-punctuation';
 
 function readProgressiveRevealPreference(): boolean {
   if (typeof window === 'undefined') return true;
@@ -57,6 +62,43 @@ function readRevealModePreference(): RevealMode {
       : 'scratch';
   } catch {
     return 'scratch';
+  }
+}
+
+function readTypingModePreference(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(TYPING_MODE_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function readTypingWriteInPreference(): TypingWriteIn {
+  if (typeof window === 'undefined') return 'foreign';
+  try {
+    const stored = window.localStorage.getItem(TYPING_WRITE_IN_STORAGE_KEY);
+    return stored === 'both' || stored === 'known' ? stored : 'foreign';
+  } catch {
+    return 'foreign';
+  }
+}
+
+function readTypingAudioPromptPreference(): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    return window.localStorage.getItem(TYPING_AUDIO_PROMPT_STORAGE_KEY) !== 'false';
+  } catch {
+    return true;
+  }
+}
+
+function readTypingPrefillPunctuationPreference(): boolean {
+  if (typeof window === 'undefined') return true;
+  try {
+    return window.localStorage.getItem(TYPING_PREFILL_PUNCTUATION_STORAGE_KEY) !== 'false';
+  } catch {
+    return true;
   }
 }
 
@@ -131,6 +173,14 @@ export function usePreferences(
   );
   const [revealMode, setRevealMode] = useState<RevealMode>(readRevealModePreference);
   const [swipeCardsEnabled, setSwipeCardsEnabled] = useState(readSwipeCardsPreference);
+  const [typingModeEnabled, setTypingModeEnabled] = useState(readTypingModePreference);
+  const [typingWriteIn, setTypingWriteIn] = useState<TypingWriteIn>(readTypingWriteInPreference);
+  const [typingAudioPromptEnabled, setTypingAudioPromptEnabled] = useState(
+    readTypingAudioPromptPreference
+  );
+  const [typingPrefillPunctuation, setTypingPrefillPunctuation] = useState(
+    readTypingPrefillPunctuationPreference
+  );
   const [memoryHooksEnabled, setMemoryHooksEnabled] = useState(true);
   const [memoryHooksIntroAnswered, setMemoryHooksIntroAnswered] = useState(false);
   const [memoryHookDisableFromStage, setMemoryHookDisableFromStageState] = useState<number>(
@@ -179,6 +229,44 @@ export function usePreferences(
       // Keep the in-memory setting usable when storage is unavailable.
     }
   }, [swipeCardsEnabled]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(TYPING_MODE_STORAGE_KEY, String(typingModeEnabled));
+    } catch {
+      // Keep the in-memory setting usable when storage is unavailable.
+    }
+  }, [typingModeEnabled]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(TYPING_WRITE_IN_STORAGE_KEY, typingWriteIn);
+    } catch {
+      // Keep the in-memory setting usable when storage is unavailable.
+    }
+  }, [typingWriteIn]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        TYPING_AUDIO_PROMPT_STORAGE_KEY,
+        String(typingAudioPromptEnabled)
+      );
+    } catch {
+      // Keep the in-memory setting usable when storage is unavailable.
+    }
+  }, [typingAudioPromptEnabled]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        TYPING_PREFILL_PUNCTUATION_STORAGE_KEY,
+        String(typingPrefillPunctuation)
+      );
+    } catch {
+      // Keep the in-memory setting usable when storage is unavailable.
+    }
+  }, [typingPrefillPunctuation]);
 
   // Gate sync on hasReceivedServerSnapshot(): without it, a failed initial GET
   // (no session, offline) leaves the local defaults in place, and the next
@@ -466,6 +554,14 @@ export function usePreferences(
     setRevealMode,
     swipeCardsEnabled,
     setSwipeCardsEnabled,
+    typingModeEnabled,
+    setTypingModeEnabled,
+    typingWriteIn,
+    setTypingWriteIn,
+    typingAudioPromptEnabled,
+    setTypingAudioPromptEnabled,
+    typingPrefillPunctuation,
+    setTypingPrefillPunctuation,
     memoryHooksEnabled,
     setMemoryHooksEnabled: setMemoryHooksEnabledPreference,
     memoryHooksIntroAnswered,

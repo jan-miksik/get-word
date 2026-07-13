@@ -1,22 +1,12 @@
 'use client';
 
-import type { MinigameFrequencyRange } from '@/lib/minigames';
 import { useI18n } from '@/components/I18nProvider';
-import { MemoryHooksSection } from '@/components/settings/MemoryHooksSection';
-import { StudyNotesSection } from '@/components/settings/StudyNotesSection';
-import { RevealSection } from '@/components/settings/RevealSection';
 import { LanguageSection } from '@/components/settings/LanguageSection';
-import { MinigamesSection } from '@/components/settings/MinigamesSection';
-import { FrontierFeaturesSection } from '@/components/settings/FrontierFeaturesSection';
 import { AppInstallSection } from '@/components/settings/AppInstallSection';
 import { LocalDataSection } from '@/components/settings/LocalDataSection';
 import { AccountSection } from '@/components/settings/AccountSection';
 
 interface SettingsPanelProps {
-  minigameFrequency: MinigameFrequencyRange;
-  onMinigameFrequencyChange: (value: MinigameFrequencyRange) => void;
-  viewMode: 'card' | 'stream';
-  onViewModeChange: (mode: 'card' | 'stream') => void;
   isOpen: boolean;
   onClose?: () => void;
   isAuthenticated?: boolean;
@@ -26,8 +16,6 @@ interface SettingsPanelProps {
 }
 
 export function SettingsPanel({
-  minigameFrequency,
-  onMinigameFrequencyChange,
   isOpen,
   onClose,
   isAuthenticated,
@@ -63,15 +51,7 @@ export function SettingsPanel({
             )}
           </div>
 
-          <MemoryHooksSection />
-          <StudyNotesSection />
           <LanguageSection />
-          <RevealSection />
-          <MinigamesSection
-            minigameFrequency={minigameFrequency}
-            onMinigameFrequencyChange={onMinigameFrequencyChange}
-          />
-          <FrontierFeaturesSection />
           <AppInstallSection />
           <LocalDataSection isOpen={isOpen} />
           <AccountSection

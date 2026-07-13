@@ -310,6 +310,7 @@ export async function batchUpsertProgress(
           lastKnownAt: sql`excluded.last_known_at`,
           lastUnknownAt: sql`excluded.last_unknown_at`,
           nextDueAt: sql`excluded.next_due_at`,
+          archivedAt: null,
           updatedAt: lww ? sql`excluded.updated_at` : new Date(),
         },
         ...(lww
@@ -351,6 +352,7 @@ export async function batchUpsertProgressByContentKey(
           lastKnownAt: sql`excluded.last_known_at`,
           lastUnknownAt: sql`excluded.last_unknown_at`,
           nextDueAt: sql`excluded.next_due_at`,
+          archivedAt: null,
           updatedAt: lww ? sql`excluded.updated_at` : new Date(),
         },
         ...(lww

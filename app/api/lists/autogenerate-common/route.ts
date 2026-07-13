@@ -33,6 +33,7 @@ export async function POST(request: NextRequest) {
   try {
     const result = await autogenerateCommonWordListForUser({
       userId: user.id,
+      userRole: user.userRole === "editor" ? "editor" : "user",
       languageFrom,
       languageTo,
     });

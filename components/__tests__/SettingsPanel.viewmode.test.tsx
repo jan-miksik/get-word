@@ -36,11 +36,7 @@ vi.mock('@/components/SettingsLanguagePicker', () => ({
 }));
 
 const baseProps = {
-  minigameFrequency: { min: 2, max: 4 } as const,
-  onMinigameFrequencyChange: vi.fn(),
   isOpen: true,
-  viewMode: 'card' as const,
-  onViewModeChange: vi.fn(),
 };
 
 describe('SettingsPanel settings visibility', () => {
@@ -50,7 +46,7 @@ describe('SettingsPanel settings visibility', () => {
   });
 
   it('does not render display toggles', () => {
-    render(<SettingsPanel {...baseProps} viewMode="card" />);
+    render(<SettingsPanel {...baseProps} />);
     expect(screen.queryByText(/show english/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/category badges/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/show pronunciation/i)).not.toBeInTheDocument();
@@ -64,11 +60,13 @@ describe('SettingsPanel settings visibility', () => {
     expect(screen.queryByRole('button', { name: /calm theme/i })).not.toBeInTheDocument();
   });
 
-  it('keeps the mini-games switch on the section label without the old stream text', () => {
+  it('does not render learning-method sections (moved to Learning settings)', () => {
     render(<SettingsPanel {...baseProps} />);
-    expect(screen.getByText(/mini-games/i)).toBeInTheDocument();
-    expect(screen.getByRole('switch', { name: /mini-games/i })).toBeInTheDocument();
-    expect(screen.queryByText(/show in stream/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/memory hooks/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/study notes/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/how to reveal words/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/quizzes/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/frontier features/i)).not.toBeInTheDocument();
   });
 
   it('does not show wallet addresses in settings for now', () => {
