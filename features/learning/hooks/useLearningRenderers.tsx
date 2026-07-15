@@ -35,6 +35,8 @@ interface UseLearningRenderersOptions {
   typingWriteIn: TypingWriteIn;
   typingPrefillPunctuation: boolean;
   typingMobileKeyboardAutoFocus: boolean;
+  typingPlayAudioAfterCheck: boolean;
+  typingCheckButtonEnabled: boolean;
   dismissedGames: Set<string>;
   setDismissedGames: React.Dispatch<React.SetStateAction<Set<string>>>;
   setGameScore: React.Dispatch<React.SetStateAction<number>>;
@@ -65,6 +67,8 @@ export function useLearningRenderers({
   typingWriteIn,
   typingPrefillPunctuation,
   typingMobileKeyboardAutoFocus,
+  typingPlayAudioAfterCheck,
+  typingCheckButtonEnabled,
   dismissedGames,
   setDismissedGames,
   setGameScore,
@@ -107,6 +111,8 @@ export function useLearningRenderers({
             writeIn={typingWriteIn}
             audioPromptEnabled={false}
             prefillPunctuation={typingPrefillPunctuation}
+            playAudioAfterCheck={typingPlayAudioAfterCheck}
+            checkButtonEnabled={typingCheckButtonEnabled}
             modeIndex={getWordDisplayMode(word.id)}
             onScore={applyTypingScore}
             onOutcome={(outcome) =>
@@ -147,7 +153,7 @@ export function useLearningRenderers({
         />
       </div>
     );
-  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, typingModeEnabled, typingWriteIn, typingPrefillPunctuation, applyTypingScore, applyTypingOutcome]);
+  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, typingModeEnabled, typingWriteIn, typingPrefillPunctuation, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyTypingScore, applyTypingOutcome]);
 
   const renderMiniGame = useCallback((config: MiniGameConfig) => {
     if (dismissedGames.has(config.id)) return null;
@@ -201,6 +207,8 @@ export function useLearningRenderers({
               writeIn={typingWriteIn}
               audioPromptEnabled={false}
               prefillPunctuation={typingPrefillPunctuation}
+              playAudioAfterCheck={typingPlayAudioAfterCheck}
+              checkButtonEnabled={typingCheckButtonEnabled}
               modeIndex={modeIndex as 0 | 1}
               onScore={applyTypingScore}
               onOutcome={(outcome) => {
@@ -217,7 +225,7 @@ export function useLearningRenderers({
               showMemoryHook={shouldRenderMemoryHook(word.id)}
               fullscreen
               autoFocus={!isExiting}
-              autoFocusOnMobile={typingMobileKeyboardAutoFocus && !isExiting}
+              autoFocusOnMobile={typingMobileKeyboardAutoFocus}
             />
           </div>
         );
@@ -251,7 +259,7 @@ export function useLearningRenderers({
         </div>
       );
     },
-    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, swipeCardsEnabled, typingModeEnabled, typingWriteIn, typingPrefillPunctuation, typingMobileKeyboardAutoFocus, applyTypingScore, applyTypingOutcome]
+    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, swipeCardsEnabled, typingModeEnabled, typingWriteIn, typingPrefillPunctuation, typingMobileKeyboardAutoFocus, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyTypingScore, applyTypingOutcome]
   );
 
   const renderMiniGameForDeck = useCallback(

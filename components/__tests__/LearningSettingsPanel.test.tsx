@@ -28,6 +28,10 @@ vi.mock('@/context/AppStateContext', () => ({
     setTypingPrefillPunctuation: vi.fn(),
     typingMobileKeyboardAutoFocus: false,
     setTypingMobileKeyboardAutoFocus: vi.fn(),
+    typingPlayAudioAfterCheck: false,
+    setTypingPlayAudioAfterCheck: vi.fn(),
+    typingCheckButtonEnabled: false,
+    setTypingCheckButtonEnabled: vi.fn(),
     ...contextOverrides,
   }),
 }));
@@ -92,6 +96,12 @@ describe('LearningSettingsPanel', () => {
     expect(
       screen.queryByRole('switch', { name: /autofocus keyboard on mobile/i }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('switch', { name: /play audio after checking/i }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('switch', { name: /show check button/i }),
+    ).not.toBeInTheDocument();
   });
 
   it('shows the write-in radio and typing options without audio prompts', () => {
@@ -112,5 +122,9 @@ describe('LearningSettingsPanel', () => {
     expect(
       screen.getByRole('switch', { name: /autofocus keyboard on mobile/i }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole('switch', { name: /play audio after checking/i }),
+    ).not.toBeChecked();
+    expect(screen.getByRole('switch', { name: /show check button/i })).not.toBeChecked();
   });
 });

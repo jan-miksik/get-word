@@ -52,6 +52,8 @@ interface TypingStudyCardProps {
   writeIn: TypingWriteIn;
   audioPromptEnabled: boolean;
   prefillPunctuation: boolean;
+  playAudioAfterCheck?: boolean;
+  checkButtonEnabled?: boolean;
   /** Stable per-appearance coin flip (getWordDisplayMode); picks the side in 'both'. */
   modeIndex: 0 | 1;
   /** Fires as soon as the answer is checked, so the score updates immediately. */
@@ -126,6 +128,8 @@ export function TypingStudyCard({
   writeIn,
   audioPromptEnabled,
   prefillPunctuation,
+  playAudioAfterCheck = false,
+  checkButtonEnabled = false,
   modeIndex,
   onScore,
   onOutcome,
@@ -186,7 +190,9 @@ export function TypingStudyCard({
   // explicit check instead of auto-check on the last slot).
   const useFreeAnswerInput = requiresExplicitTypingCheck(answerCandidates);
   const manualCheck =
-    usesMultiKeyInput(getWordLanguageCodeForSide(word, answerSide)) || useFreeAnswerInput;
+    checkButtonEnabled ||
+    usesMultiKeyInput(getWordLanguageCodeForSide(word, answerSide)) ||
+    useFreeAnswerInput;
   const displayedAnswer = result?.matchedAnswer ?? correctAnswer;
   const slots = splitGraphemes(displayedAnswer);
   const fixedFlags = slots.map((ch) => prefillPunctuation && PREFILL_CHAR_RE.test(ch));
@@ -212,6 +218,7 @@ export function TypingStudyCard({
   // playback itself can still try every configured fallback source.
   const hasAudioSource = promptAudioSrcs.length > 0;
   const usesAudioPrompt = audioPromptEnabled && hasAudioSource;
+  const keepMobileKeyboardOpen = autoFocusOnMobile === true && isMobileLayout();
 
   useEffect(() => {
     // focus() raises onFocus, which flips isFocused.
@@ -230,12 +237,13 @@ export function TypingStudyCard({
     };
   }, []);
 
-  // Move focus to the continue control so Enter/Space advances and the mobile
-  // keyboard can close once the input is disabled.
+  // Move focus to the continue control so Enter/Space advances. With mobile
+  // keyboard persistence enabled, keep the input focused between cards instead.
   useEffect(() => {
     if (!result) return;
+    if (keepMobileKeyboardOpen) return;
     compactContinueRef.current?.focus();
-  }, [result]);
+  }, [keepMobileKeyboardOpen, result]);
 
   const playClip = (audioSrc: string | string[] | null) =>
     playUserInitiatedAudio(audioRef, audioSrc);
@@ -281,6 +289,8 @@ export function TypingStudyCard({
       isAlternative: match.isAlternative,
     };
     setResult(nextResult);
+    if (keepMobileKeyboardOpen) inputRef.current?.focus({ preventScroll: true });
+    if (playAudioAfterCheck) void playClip(promptAudioSrcs);
     // Score lands the moment the answer is checked; only the SR stage waits
     // for the continue tap.
     if (nextResult.points > 0) onScore?.(nextResult.points);
@@ -408,6 +418,7 @@ export function TypingStudyCard({
   const handleContinue = () => {
     if (!result || continuedRef.current) return;
     continuedRef.current = true;
+    if (keepMobileKeyboardOpen) inputRef.current?.focus({ preventScroll: true });
     onOutcome(result.outcome);
   };
 
@@ -442,7 +453,7 @@ export function TypingStudyCard({
   const targetLanguageLabel = getTypingTargetLanguageLabel(word, answerSide, t, language);
   const showWriteInBadge = writeIn !== 'foreign';
   const showTypingAudio = hasAudioSource && !usesAudioPrompt;
-  const displayHook = memoryHook || (suggestedHook ? `💡 ${suggestedHook}` : `💭 ${t('card.memoryHookPlaceholder')}`);
+  const displayHook = memoryHook || (suggestedHook ? `💡 ${suggestedHook}` : null);
 
   const startEditingHook = () => {
     if (!onMemoryHookChange) return;
@@ -650,7 +661,8 @@ export function TypingStudyCard({
                   }}
                   onFocus={() => setIsFocused(true)}
                   onBlur={() => setIsFocused(false)}
-                  disabled={result !== null}
+                  disabled={result !== null && !keepMobileKeyboardOpen}
+                  aria-disabled={result !== null}
                   autoComplete="off"
                   autoCorrect="off"
                   autoCapitalize="off"
@@ -704,7 +716,8 @@ export function TypingStudyCard({
                     onSelect={(e) => updateCaret(e.currentTarget)}
                     onFocus={() => setIsFocused(true)}
                     onBlur={() => setIsFocused(false)}
-                    disabled={result !== null}
+                    disabled={result !== null && !keepMobileKeyboardOpen}
+                    aria-disabled={result !== null}
                     autoComplete="off"
                     autoCorrect="off"
                     autoCapitalize="off"
@@ -737,7 +750,7 @@ export function TypingStudyCard({
         </div>
 
         {showMemoryHook && (
-          <div className={`memory-hook-container mt-1 mb-0 ${editingHook ? 'editing' : ''}`}>
+          <div className={`memory-hook-container mt-1 mb-0 max-md:!ml-4 max-md:!mr-auto max-md:!w-[calc(100%-5.5rem)] max-md:!max-w-72 max-md:!self-start ${editingHook ? 'editing' : ''}`}>
             <div
               className="memory-hook-display relative cursor-pointer touch-manipulation select-none max-sm:w-full !text-[#2A2218] hover:!bg-[#2A2218]/5"
               data-lang="memory-hook"
@@ -745,14 +758,19 @@ export function TypingStudyCard({
               onClick={handleHookTap}
             >
               <span className={`memory-hook-text relative inline-block min-h-[1.4em] !text-[#2A2218] ${!memoryHook ? 'opacity-60 italic' : ''}`}>
-                {displayHook}
+                {displayHook ?? (
+                  <>
+                    <span className="sm:hidden">💭 {t('card.memoryHookPlaceholderMobile')}</span>
+                    <span className="hidden sm:inline">💭 {t('card.memoryHookPlaceholder')}</span>
+                  </>
+                )}
               </span>
             </div>
             <input
               ref={hookInputRef}
               type="text"
               className="memory-hook-input !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] placeholder:!text-[#2A2218]/50 focus:!border-[#1E6FA8] focus:!shadow-none"
-              placeholder={t('card.memoryHookInput')}
+              placeholder={t('card.memoryHookPlaceholderMobile')}
               value={hookValue}
               maxLength={MEMORY_HOOK_MAX_LENGTH}
               onChange={(e) => setHookValue(limitMemoryHookLength(e.target.value))}

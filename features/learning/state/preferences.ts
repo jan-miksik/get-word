@@ -38,6 +38,9 @@ const TYPING_AUDIO_PROMPT_STORAGE_KEY = 'get-word-typing-audio-prompt-enabled';
 const TYPING_PREFILL_PUNCTUATION_STORAGE_KEY = 'get-word-typing-prefill-punctuation';
 const TYPING_MOBILE_KEYBOARD_AUTOFOCUS_STORAGE_KEY =
   'get-word-typing-mobile-keyboard-autofocus';
+const TYPING_PLAY_AUDIO_AFTER_CHECK_STORAGE_KEY =
+  'get-word-typing-play-audio-after-check';
+const TYPING_CHECK_BUTTON_STORAGE_KEY = 'get-word-typing-check-button-enabled';
 
 function readProgressiveRevealPreference(): boolean {
   if (typeof window === 'undefined') return true;
@@ -125,6 +128,24 @@ function readTypingMobileKeyboardAutoFocusPreference(): boolean {
   }
 }
 
+function readTypingPlayAudioAfterCheckPreference(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(TYPING_PLAY_AUDIO_AFTER_CHECK_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function readTypingCheckButtonPreference(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(TYPING_CHECK_BUTTON_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
 function normalizeSettingsLanguage(value: unknown): SettingsLanguage {
   if (typeof value !== 'string') return DEFAULT_SETTINGS_LANGUAGE;
   const trimmed = value.trim();
@@ -207,6 +228,12 @@ export function usePreferences(
   );
   const [typingMobileKeyboardAutoFocus, setTypingMobileKeyboardAutoFocus] = useState(
     readTypingMobileKeyboardAutoFocusPreference
+  );
+  const [typingPlayAudioAfterCheck, setTypingPlayAudioAfterCheck] = useState(
+    readTypingPlayAudioAfterCheckPreference
+  );
+  const [typingCheckButtonEnabled, setTypingCheckButtonEnabled] = useState(
+    readTypingCheckButtonPreference
   );
   const [memoryHooksEnabled, setMemoryHooksEnabled] = useState(true);
   const [memoryHooksIntroAnswered, setMemoryHooksIntroAnswered] = useState(false);
@@ -313,6 +340,28 @@ export function usePreferences(
       // Keep the in-memory setting usable when storage is unavailable.
     }
   }, [typingMobileKeyboardAutoFocus]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        TYPING_PLAY_AUDIO_AFTER_CHECK_STORAGE_KEY,
+        String(typingPlayAudioAfterCheck)
+      );
+    } catch {
+      // Keep the in-memory setting usable when storage is unavailable.
+    }
+  }, [typingPlayAudioAfterCheck]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        TYPING_CHECK_BUTTON_STORAGE_KEY,
+        String(typingCheckButtonEnabled)
+      );
+    } catch {
+      // Keep the in-memory setting usable when storage is unavailable.
+    }
+  }, [typingCheckButtonEnabled]);
 
   // Gate sync on hasReceivedServerSnapshot(): without it, a failed initial GET
   // (no session, offline) leaves the local defaults in place, and the next
@@ -612,6 +661,10 @@ export function usePreferences(
     setTypingPrefillPunctuation,
     typingMobileKeyboardAutoFocus,
     setTypingMobileKeyboardAutoFocus,
+    typingPlayAudioAfterCheck,
+    setTypingPlayAudioAfterCheck,
+    typingCheckButtonEnabled,
+    setTypingCheckButtonEnabled,
     memoryHooksEnabled,
     setMemoryHooksEnabled: setMemoryHooksEnabledPreference,
     memoryHooksIntroAnswered,
