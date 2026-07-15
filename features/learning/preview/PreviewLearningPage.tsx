@@ -164,7 +164,8 @@ function PreviewStudy({
   const [typingModeEnabled, setTypingModeEnabled] = useState(false);
   const [typingWriteIn, setTypingWriteIn] = useState<TypingWriteIn>('foreign');
   const [typingAudioPromptEnabled, setTypingAudioPromptEnabled] = useState(false);
-  const [typingPrefillPunctuation, setTypingPrefillPunctuation] = useState(true);
+  const [typingPrefillPunctuation, setTypingPrefillPunctuation] = useState(false);
+  const [typingMobileKeyboardAutoFocus, setTypingMobileKeyboardAutoFocus] = useState(false);
   // Remounts the typing card after each answer so the preview can be exercised
   // repeatedly (the real app advances the stream instead).
   const [typingRound, setTypingRound] = useState(0);
@@ -265,6 +266,8 @@ function PreviewStudy({
     setTypingAudioPromptEnabled,
     typingPrefillPunctuation,
     setTypingPrefillPunctuation,
+    typingMobileKeyboardAutoFocus,
+    setTypingMobileKeyboardAutoFocus,
     settingsLanguage,
     settingsLanguageSelectedAt: null,
     setSettingsLanguage: onSettingsLanguageChange,
@@ -356,6 +359,7 @@ function PreviewStudy({
                   onMemoryHookChange={(hook) => setMemoryHook(currentWord, hook)}
                   showMemoryHook={memoryHooksEnabled && progress[currentWord.id].stageIndex < memoryHookDisableFromStage}
                   fullscreen
+                  autoFocusOnMobile={typingMobileKeyboardAutoFocus}
                 />
               </div>
             ) : currentWord ? (

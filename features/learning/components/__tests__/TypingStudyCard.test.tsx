@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { TypingStudyCard } from '../TypingStudyCard';
 import type { ProgressData } from '@/lib/sync';
@@ -62,6 +62,10 @@ beforeEach(() => {
   );
 });
 
+afterEach(() => {
+  vi.unstubAllGlobals();
+});
+
 function renderCard(props?: Partial<React.ComponentProps<typeof TypingStudyCard>>) {
   const onOutcome = vi.fn();
   const onScore = vi.fn();
@@ -91,7 +95,41 @@ const continueOverlay = () => screen.getAllByRole('button', { name: /continue/i 
 const queryContinueOverlay = () =>
   screen.queryAllByRole('button', { name: /continue/i })[0] ?? null;
 
+function stubMobileLayout(matches: boolean) {
+  vi.stubGlobal(
+    'matchMedia',
+    vi.fn().mockImplementation((query: string) => ({
+      matches: query === '(max-width: 767px)' && matches,
+      media: query,
+      onchange: null,
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  );
+}
+
 describe('TypingStudyCard', () => {
+  it('keeps desktop autofocus while allowing mobile autofocus to be disabled', () => {
+    stubMobileLayout(false);
+    renderCard({ autoFocus: true, autoFocusOnMobile: false });
+    expect(input()).toHaveFocus();
+  });
+
+  it('does not autofocus the mobile keyboard by default', () => {
+    stubMobileLayout(true);
+    renderCard({ autoFocus: true, autoFocusOnMobile: false });
+    expect(input()).not.toHaveFocus();
+  });
+
+  it('autofocuses the mobile keyboard after an explicit opt-in', () => {
+    stubMobileLayout(true);
+    renderCard({ autoFocus: true, autoFocusOnMobile: true });
+    expect(input()).toHaveFocus();
+  });
+
   it('auto-checks on the last character, scores immediately, and reports known only after tapping continue', () => {
     const { onOutcome, onScore } = renderCard();
     // Space is prefilled, so only the letters are typed.
@@ -418,7 +456,7 @@ describe('TypingStudyCard', () => {
     expect(repeatWrapper?.className).toContain('max-md:-translate-y-[64px]');
   });
 
-  it('selects one clicked character so the next keystroke can replace it', () => {
+  it('selects one tapped character on pointer down so the caret does not jump after the click', () => {
     renderCard({ word: VI_WORD });
     fireEvent.change(input(), { target: { value: 'conchó' } });
     const editableSlots = Array.from(
@@ -438,9 +476,37 @@ describe('TypingStudyCard', () => {
       });
     });
 
-    fireEvent.click(input(), { clientX: 45, clientY: 10 });
+    fireEvent.pointerDown(input(), { clientX: 45, clientY: 10 });
     expect(input()).toHaveProperty('selectionStart', 2);
     expect(input()).toHaveProperty('selectionEnd', 3);
+    expect(input()).toHaveFocus();
+  });
+
+  it('keeps the visual caret at the real insertion point when tapping ahead of typed text', () => {
+    renderCard({ word: VI_WORD });
+    fireEvent.change(input(), { target: { value: 'co' } });
+    const editableSlots = Array.from(
+      document.querySelectorAll<HTMLElement>('[data-editable-index]'),
+    );
+    editableSlots.forEach((slot, index) => {
+      vi.spyOn(slot, 'getBoundingClientRect').mockReturnValue({
+        x: index * 20,
+        y: 0,
+        left: index * 20,
+        top: 0,
+        right: (index * 20) + 10,
+        bottom: 20,
+        width: 10,
+        height: 20,
+        toJSON: () => ({}),
+      });
+    });
+
+    fireEvent.pointerDown(input(), { clientX: 95, clientY: 10 });
+    expect(input()).toHaveProperty('selectionStart', 2);
+    expect(input()).toHaveProperty('selectionEnd', 2);
+    expect(document.querySelector('[data-editable-index="2"]')).toHaveClass('is-active');
+    expect(document.querySelector('[data-editable-index="4"]')).not.toHaveClass('is-active');
   });
 
   it('uses only a black caret at the beginning of the active underscore', () => {

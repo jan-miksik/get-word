@@ -281,6 +281,7 @@ export const enMessages = {
   "settings.typingWriteInKnown": "Known language only",
   "settings.typingAudioPrompt": "Audio prompts",
   "settings.typingPrefillPunctuation": "Prefill commas, periods and spaces",
+  "settings.typingMobileKeyboardAutoFocus": "Autofocus keyboard on mobile",
   "settings.progressiveReveal": "Reveal the first letter first",
   "settings.progressiveRevealNotice": "Press once to see the first letter and hidden dots. Keep holding to uncover more letters. Release and press again to see the whole word.",
   "settings.localData": "Local data & sync",

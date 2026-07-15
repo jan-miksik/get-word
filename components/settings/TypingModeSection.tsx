@@ -14,6 +14,8 @@ export function TypingModeSection() {
     setTypingWriteIn,
     typingPrefillPunctuation,
     setTypingPrefillPunctuation,
+    typingMobileKeyboardAutoFocus,
+    setTypingMobileKeyboardAutoFocus,
   } = useAppStateContext();
 
   const writeInOptions: { value: TypingWriteIn; label: string }[] = [
@@ -68,6 +70,14 @@ export function TypingModeSection() {
               checked={typingPrefillPunctuation}
               onChange={setTypingPrefillPunctuation}
               ariaLabel={t('settings.typingPrefillPunctuation')}
+            />
+          </div>
+          <div className="flex items-center justify-between py-0.5">
+            <span className="text-sm text-text">{t('settings.typingMobileKeyboardAutoFocus')}</span>
+            <ToggleSwitch
+              checked={typingMobileKeyboardAutoFocus}
+              onChange={setTypingMobileKeyboardAutoFocus}
+              ariaLabel={t('settings.typingMobileKeyboardAutoFocus')}
             />
           </div>
         </>

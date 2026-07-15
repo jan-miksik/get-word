@@ -34,6 +34,7 @@ interface UseLearningRenderersOptions {
   typingModeEnabled: boolean;
   typingWriteIn: TypingWriteIn;
   typingPrefillPunctuation: boolean;
+  typingMobileKeyboardAutoFocus: boolean;
   dismissedGames: Set<string>;
   setDismissedGames: React.Dispatch<React.SetStateAction<Set<string>>>;
   setGameScore: React.Dispatch<React.SetStateAction<number>>;
@@ -63,6 +64,7 @@ export function useLearningRenderers({
   typingModeEnabled,
   typingWriteIn,
   typingPrefillPunctuation,
+  typingMobileKeyboardAutoFocus,
   dismissedGames,
   setDismissedGames,
   setGameScore,
@@ -93,6 +95,7 @@ export function useLearningRenderers({
   );
 
   const renderCard = useCallback((word: NormalizedWord, _stageIndex?: number) => {
+    void _stageIndex;
     const prog = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
     if (typingModeEnabled) {
       return (
@@ -214,6 +217,7 @@ export function useLearningRenderers({
               showMemoryHook={shouldRenderMemoryHook(word.id)}
               fullscreen
               autoFocus={!isExiting}
+              autoFocusOnMobile={typingMobileKeyboardAutoFocus && !isExiting}
             />
           </div>
         );
@@ -247,7 +251,7 @@ export function useLearningRenderers({
         </div>
       );
     },
-    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, swipeCardsEnabled, typingModeEnabled, typingWriteIn, typingPrefillPunctuation, applyTypingScore, applyTypingOutcome]
+    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, swipeCardsEnabled, typingModeEnabled, typingWriteIn, typingPrefillPunctuation, typingMobileKeyboardAutoFocus, applyTypingScore, applyTypingOutcome]
   );
 
   const renderMiniGameForDeck = useCallback(

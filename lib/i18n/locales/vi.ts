@@ -262,6 +262,7 @@ export const viMessages: I18nMessages = {
   "settings.typingWriteInKnown": "chỉ ngôn ngữ đã biết",
   "settings.typingAudioPrompt": "Đề bài bằng âm thanh",
   "settings.typingPrefillPunctuation": "Tự điền dấu phẩy, dấu chấm và khoảng trắng",
+  "settings.typingMobileKeyboardAutoFocus": "Tự động mở bàn phím trên di động",
   "settings.progressiveReveal": "Hiện chữ cái đầu tiên trước",
   "settings.progressiveRevealNotice": "Nhấn một lần để xem chữ cái đầu và các dấu chấm ẩn. Tiếp tục giữ để mở thêm chữ. Thả ra rồi nhấn lại để xem toàn bộ từ.",
   "settings.localData": "Dữ liệu cục bộ & đồng bộ",

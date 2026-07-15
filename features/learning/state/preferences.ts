@@ -36,6 +36,8 @@ const TYPING_MODE_STORAGE_KEY = 'get-word-typing-mode-enabled';
 const TYPING_WRITE_IN_STORAGE_KEY = 'get-word-typing-write-in';
 const TYPING_AUDIO_PROMPT_STORAGE_KEY = 'get-word-typing-audio-prompt-enabled';
 const TYPING_PREFILL_PUNCTUATION_STORAGE_KEY = 'get-word-typing-prefill-punctuation';
+const TYPING_MOBILE_KEYBOARD_AUTOFOCUS_STORAGE_KEY =
+  'get-word-typing-mobile-keyboard-autofocus';
 
 function readProgressiveRevealPreference(): boolean {
   if (typeof window === 'undefined') return true;
@@ -106,11 +108,20 @@ function readTypingAudioPromptPreference(): boolean {
 }
 
 function readTypingPrefillPunctuationPreference(): boolean {
-  if (typeof window === 'undefined') return true;
+  if (typeof window === 'undefined') return false;
   try {
-    return window.localStorage.getItem(TYPING_PREFILL_PUNCTUATION_STORAGE_KEY) !== 'false';
+    return window.localStorage.getItem(TYPING_PREFILL_PUNCTUATION_STORAGE_KEY) === 'true';
   } catch {
-    return true;
+    return false;
+  }
+}
+
+function readTypingMobileKeyboardAutoFocusPreference(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(TYPING_MOBILE_KEYBOARD_AUTOFOCUS_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
   }
 }
 
@@ -193,6 +204,9 @@ export function usePreferences(
   );
   const [typingPrefillPunctuation, setTypingPrefillPunctuation] = useState(
     readTypingPrefillPunctuationPreference
+  );
+  const [typingMobileKeyboardAutoFocus, setTypingMobileKeyboardAutoFocus] = useState(
+    readTypingMobileKeyboardAutoFocusPreference
   );
   const [memoryHooksEnabled, setMemoryHooksEnabled] = useState(true);
   const [memoryHooksIntroAnswered, setMemoryHooksIntroAnswered] = useState(false);
@@ -288,6 +302,17 @@ export function usePreferences(
       // Keep the in-memory setting usable when storage is unavailable.
     }
   }, [typingPrefillPunctuation]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(
+        TYPING_MOBILE_KEYBOARD_AUTOFOCUS_STORAGE_KEY,
+        String(typingMobileKeyboardAutoFocus)
+      );
+    } catch {
+      // Keep the in-memory setting usable when storage is unavailable.
+    }
+  }, [typingMobileKeyboardAutoFocus]);
 
   // Gate sync on hasReceivedServerSnapshot(): without it, a failed initial GET
   // (no session, offline) leaves the local defaults in place, and the next
@@ -585,6 +610,8 @@ export function usePreferences(
     setTypingAudioPromptEnabled,
     typingPrefillPunctuation,
     setTypingPrefillPunctuation,
+    typingMobileKeyboardAutoFocus,
+    setTypingMobileKeyboardAutoFocus,
     memoryHooksEnabled,
     setMemoryHooksEnabled: setMemoryHooksEnabledPreference,
     memoryHooksIntroAnswered,

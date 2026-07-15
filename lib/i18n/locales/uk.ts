@@ -262,6 +262,7 @@ export const ukMessages: I18nMessages = {
   "settings.typingWriteInKnown": "лише відомою мовою",
   "settings.typingAudioPrompt": "Звукове завдання для письма",
   "settings.typingPrefillPunctuation": "Заповнювати коми, крапки та пробіли",
+  "settings.typingMobileKeyboardAutoFocus": "Автоматично відкривати клавіатуру на мобільному",
   "settings.progressiveReveal": "Спочатку показувати першу літеру",
   "settings.progressiveRevealNotice": "Натисніть один раз, щоб побачити першу літеру й приховані крапки. Утримуйте, щоб відкрити більше літер. Відпустіть і натисніть знову, щоб побачити ціле слово.",
   "settings.localData": "Локальні дані та синхронізація",

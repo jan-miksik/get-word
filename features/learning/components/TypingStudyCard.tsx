@@ -61,6 +61,8 @@ interface TypingStudyCardProps {
   onCustomStage?: (stageIndex: number, opts?: { noRepeat?: boolean }) => void;
   fullscreen?: boolean;
   autoFocus?: boolean;
+  /** Overrides autoFocus on mobile; when omitted, autoFocus applies everywhere. */
+  autoFocusOnMobile?: boolean;
   memoryHook?: string;
   suggestedHook?: string;
   onMemoryHookChange?: (hook: string) => void;
@@ -78,6 +80,10 @@ const MULTI_KEY_INPUT_LANGUAGES = new Set(['vi']);
 
 const usesMultiKeyInput = (code: string | null): boolean =>
   code !== null && MULTI_KEY_INPUT_LANGUAGES.has(code.toLowerCase().split('-')[0]);
+
+const isMobileLayout = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia?.('(max-width: 767px)').matches === true;
 
 // Case/accent-insensitive single-character compare for per-slot feedback.
 // Mirrors matchAnswer's strip (incl. đ→d) so slot colours match the verdict.
@@ -126,6 +132,7 @@ export function TypingStudyCard({
   onCustomStage,
   fullscreen = false,
   autoFocus = false,
+  autoFocusOnMobile,
   memoryHook = '',
   suggestedHook = '',
   onMemoryHookChange,
@@ -208,8 +215,11 @@ export function TypingStudyCard({
 
   useEffect(() => {
     // focus() raises onFocus, which flips isFocused.
-    if (autoFocus) inputRef.current?.focus();
-  }, [autoFocus]);
+    const shouldAutoFocus = isMobileLayout()
+      ? (autoFocusOnMobile ?? autoFocus)
+      : autoFocus;
+    if (shouldAutoFocus) inputRef.current?.focus();
+  }, [autoFocus, autoFocusOnMobile]);
 
   useEffect(() => {
     return () => {
@@ -346,12 +356,13 @@ export function TypingStudyCard({
       }
     }
 
-    const editableIndex = Number(closest?.dataset.editableIndex);
-    if (!Number.isInteger(editableIndex)) {
+    const requestedEditableIndex = Number(closest?.dataset.editableIndex);
+    if (!Number.isInteger(requestedEditableIndex)) {
       updateCaret(target);
       return;
     }
     const valueChars = splitGraphemes(target.value);
+    const editableIndex = Math.min(requestedEditableIndex, valueChars.length);
     const selectionStart = valueChars.slice(0, editableIndex).join('').length;
     const selectedChar = valueChars[editableIndex] ?? '';
     const selectionEnd = selectionStart + selectedChar.length;
@@ -448,10 +459,6 @@ export function TypingStudyCard({
     setEditingHook(false);
     setHookValue(memoryHook);
   };
-
-  const isMobileLayout = () =>
-    typeof window !== 'undefined' &&
-    window.matchMedia?.('(max-width: 767px)').matches === true;
 
   // A single tap opened the editor too easily on touch layouts (stray taps
   // started typing over the hook), so mobile needs a quick double tap. The
@@ -686,7 +693,13 @@ export function TypingStudyCard({
                         submitCheck();
                       }
                     }}
-                    onClick={(e) => selectSlotFromPointer(e.currentTarget, e.clientX, e.clientY)}
+                    onPointerDown={(e) => {
+                      // Resolve the masked caret before the browser briefly
+                      // paints its own caret at the raw pointer position.
+                      e.preventDefault();
+                      e.currentTarget.focus({ preventScroll: true });
+                      selectSlotFromPointer(e.currentTarget, e.clientX, e.clientY);
+                    }}
                     onKeyUp={(e) => updateCaret(e.currentTarget)}
                     onSelect={(e) => updateCaret(e.currentTarget)}
                     onFocus={() => setIsFocused(true)}

@@ -26,6 +26,8 @@ vi.mock('@/context/AppStateContext', () => ({
     setTypingAudioPromptEnabled: vi.fn(),
     typingPrefillPunctuation: true,
     setTypingPrefillPunctuation: vi.fn(),
+    typingMobileKeyboardAutoFocus: false,
+    setTypingMobileKeyboardAutoFocus: vi.fn(),
     ...contextOverrides,
   }),
 }));
@@ -87,9 +89,12 @@ describe('LearningSettingsPanel', () => {
     expect(
       screen.queryByRole('switch', { name: /prefill commas, periods and spaces/i }),
     ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole('switch', { name: /autofocus keyboard on mobile/i }),
+    ).not.toBeInTheDocument();
   });
 
-  it('shows the write-in radio and punctuation option without audio prompts', () => {
+  it('shows the write-in radio and typing options without audio prompts', () => {
     contextOverrides.typingModeEnabled = true;
     render(<LearningSettingsPanel {...baseProps} />);
     const radios = screen.getAllByRole('radio');
@@ -103,6 +108,9 @@ describe('LearningSettingsPanel', () => {
     expect(screen.queryByRole('switch', { name: /audio prompts/i })).not.toBeInTheDocument();
     expect(
       screen.getByRole('switch', { name: /prefill commas, periods and spaces/i }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('switch', { name: /autofocus keyboard on mobile/i }),
     ).toBeInTheDocument();
   });
 });

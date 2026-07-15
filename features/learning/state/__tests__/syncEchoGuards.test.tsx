@@ -67,6 +67,40 @@ describe('server sync echo guards', () => {
     mockSyncUserData.mockResolvedValue(undefined);
   });
 
+  it('does not prefill punctuation and spaces by default, while preserving an explicit opt-in', () => {
+    const isUpdatingFromServerRef = { current: false };
+    const { result, unmount } = renderHook(() =>
+      usePreferences(false, isUpdatingFromServerRef)
+    );
+
+    expect(result.current.typingPrefillPunctuation).toBe(false);
+    unmount();
+
+    localStorage.setItem('get-word-typing-prefill-punctuation', 'true');
+    const storedPreference = renderHook(() =>
+      usePreferences(false, isUpdatingFromServerRef)
+    );
+
+    expect(storedPreference.result.current.typingPrefillPunctuation).toBe(true);
+  });
+
+  it('does not autofocus the mobile typing keyboard by default, while preserving an explicit opt-in', () => {
+    const isUpdatingFromServerRef = { current: false };
+    const { result, unmount } = renderHook(() =>
+      usePreferences(false, isUpdatingFromServerRef)
+    );
+
+    expect(result.current.typingMobileKeyboardAutoFocus).toBe(false);
+    unmount();
+
+    localStorage.setItem('get-word-typing-mobile-keyboard-autofocus', 'true');
+    const storedPreference = renderHook(() =>
+      usePreferences(false, isUpdatingFromServerRef)
+    );
+
+    expect(storedPreference.result.current.typingMobileKeyboardAutoFocus).toBe(true);
+  });
+
   it('does not re-sync unchanged server category order payloads', () => {
     const isUpdatingFromServerRef = { current: false };
     const { result, rerender } = renderHook(

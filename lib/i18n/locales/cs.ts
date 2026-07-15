@@ -262,6 +262,7 @@ export const csMessages: I18nMessages = {
   "settings.typingWriteInKnown": "jenom ve známém jazyce",
   "settings.typingAudioPrompt": "Zadání psaní zvukem",
   "settings.typingPrefillPunctuation": "Předvyplnit čárky, tečky a mezery",
+  "settings.typingMobileKeyboardAutoFocus": "Automaticky otevřít klávesnici na mobilu",
   "settings.progressiveReveal": "Nejprve odkrýt první písmeno",
   "settings.progressiveRevealNotice": "Jedním stiskem zobrazíte první písmeno a skryté tečky. Podržením odkryjete další písmena. Po uvolnění dalším stiskem zobrazíte celé slovo.",
   "settings.localData": "Místní data a synchronizace",
