@@ -556,15 +556,16 @@ describe('TypingStudyCard', () => {
     expect(document.querySelector('[data-editable-index="4"]')).not.toHaveClass('is-active');
   });
 
-  it('uses the compact mnemonic label and leaves mobile space for the audio button', () => {
+  it('centres the mnemonic editor without taking space from the audio button', () => {
     renderCard({ showMemoryHook: true });
 
     expect(screen.getByText('💭 Add memory hook')).toBeInTheDocument();
     const hookInput = screen.getByPlaceholderText('Add memory hook');
     expect(hookInput.parentElement).toHaveClass(
-      'max-md:!ml-4',
-      'max-md:!w-[calc(100%-5.5rem)]',
-      'max-md:!max-w-72',
+      'mx-auto',
+      'w-[calc(100%-2rem)]',
+      'max-w-md',
+      'self-center',
     );
   });
 
@@ -617,6 +618,8 @@ describe('TypingStudyCard', () => {
     nowSpy.mockReturnValue(2_200);
     fireEvent.click(screen.getByText('existing hook'));
     expect(hookInput).toHaveFocus();
+    expect(hookInput.closest('article')).not.toHaveClass('phrase-card--editing-hook');
+    expect(hookInput.closest('.word-card-content')).not.toHaveClass('word-card-content--editing-hook');
     expect(hookInput).toHaveAttribute('maxLength', '160');
     nowSpy.mockRestore();
 

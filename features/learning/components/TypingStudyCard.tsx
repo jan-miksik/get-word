@@ -590,12 +590,12 @@ export function TypingStudyCard({
 
   return (
     <article
-      className={`phrase-card relative ${fullscreen ? 'word-card--fullscreen' : ''} ${editingHook ? 'phrase-card--editing-hook' : ''}`}
+      className={`phrase-card relative ${fullscreen ? 'word-card--fullscreen' : ''}`}
       style={GAME_PALETTE}
       data-word-id={word.id}
       data-stage-group={stageGroup}
     >
-      <div className={`word-card-content flex flex-col gap-2 md:[@media(max-height:800px)]:gap-1 ${fullscreen ? 'md:translate-y-4 md:[@media(max-height:800px)]:!translate-y-0' : ''} ${editingHook ? 'word-card-content--editing-hook' : ''}`}>
+      <div className={`word-card-content flex flex-col gap-2 md:[@media(max-height:800px)]:gap-1 ${fullscreen ? 'md:translate-y-4 md:[@media(max-height:800px)]:!translate-y-0' : ''}`}>
         <div
           role={result ? 'status' : undefined}
           aria-hidden={result ? undefined : true}
@@ -750,7 +750,7 @@ export function TypingStudyCard({
         </div>
 
         {showMemoryHook && (
-          <div className={`memory-hook-container mt-1 mb-0 max-md:!ml-4 max-md:!mr-auto max-md:!w-[calc(100%-5.5rem)] max-md:!max-w-72 max-md:!self-start ${editingHook ? 'editing' : ''}`}>
+          <div className={`memory-hook-container mx-auto mt-1 mb-0 w-[calc(100%-2rem)] max-w-md self-center ${editingHook ? 'editing' : ''}`}>
             <div
               className="memory-hook-display relative cursor-pointer touch-manipulation select-none max-sm:w-full !text-[#2A2218] hover:!bg-[#2A2218]/5"
               data-lang="memory-hook"

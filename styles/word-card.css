@@ -948,13 +948,6 @@
   .phrase-card .card-actions {
     margin-top: auto;
   }
-
-  /* While typing a memory hook, hide the grade buttons so the on-screen
-     keyboard (which shrinks the visual viewport on iOS) can't push them
-     over the input field. */
-  .phrase-card--editing-hook .card-actions {
-    visibility: hidden;
-  }
 }
 
 @media (min-width: 640px) {

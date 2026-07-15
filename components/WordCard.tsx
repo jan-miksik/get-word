@@ -260,7 +260,7 @@ export const WordCard = memo(function WordCard({
   );
   const cardTextSizeClass = getWordTextSize(cardMaxTextLen);
   return (
-    <article className={`phrase-card ${isMoved ? 'card-moved' : ''} ${fullscreen ? 'word-card--fullscreen' : ''} ${editingHook ? 'phrase-card--editing-hook' : ''}`} data-word-id={word.id} data-stage-group={stageGroup}>
+    <article className={`phrase-card ${isMoved ? 'card-moved' : ''} ${fullscreen ? 'word-card--fullscreen' : ''}`} data-word-id={word.id} data-stage-group={stageGroup}>
       {/* Category badges */}
       {shouldShowCategoryBadges && orderedDisplayCategories.length > 0 && (
         <div className="word-categories">
@@ -282,7 +282,7 @@ export const WordCard = memo(function WordCard({
           })}
         </div>
       )}
-      <div className={`word-card-content flex flex-col gap-4 ${editingHook ? 'word-card-content--editing-hook' : ''}`}>
+      <div className="word-card-content flex flex-col gap-4">
         <LanguageRow hiddenLabel="CZ" lang="cz" covered={coverCz} textSizeClass={cardTextSizeClass}>
           <span>{word.cz}</span>
           {showPronunciation && word.czPron && shouldShowPron('cz') && (

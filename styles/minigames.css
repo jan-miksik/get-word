@@ -527,10 +527,6 @@
     min-height: 0;
   }
 
-  .word-card--fullscreen .word-card-content.word-card-content--editing-hook {
-    justify-content: flex-start;
-  }
-
   .word-card--fullscreen .card-actions {
     margin: 0;
     padding: 0.5rem;
