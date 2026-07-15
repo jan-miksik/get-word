@@ -92,8 +92,13 @@ export function TypingModeSection() {
               ariaLabel={t('settings.typingPlayAudioAfterCheck')}
             />
           </div>
-          <div className="flex items-center justify-between py-0.5">
-            <span className="text-sm text-text">{t('settings.typingCheckButton')}</span>
+          <div className="flex items-start justify-between gap-3 py-0.5">
+            <div className="min-w-0">
+              <p className="m-0 text-sm text-text">{t('settings.typingCheckButton')}</p>
+              <p className="m-0 mt-0.5 text-xs leading-snug text-text-soft/80">
+                {t('settings.typingCheckButtonNotice')}
+              </p>
+            </div>
             <ToggleSwitch
               checked={typingCheckButtonEnabled}
               onChange={setTypingCheckButtonEnabled}

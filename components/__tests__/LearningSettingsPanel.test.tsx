@@ -125,6 +125,11 @@ describe('LearningSettingsPanel', () => {
     expect(
       screen.getByRole('switch', { name: /play audio after checking/i }),
     ).not.toBeChecked();
-    expect(screen.getByRole('switch', { name: /show check button/i })).not.toBeChecked();
+    expect(
+      screen.getByRole('switch', { name: /check the answer with a button/i }),
+    ).not.toBeChecked();
+    expect(
+      screen.getByText(/the answer is not checked automatically after you type the last letter/i),
+    ).toBeInTheDocument();
   });
 });
