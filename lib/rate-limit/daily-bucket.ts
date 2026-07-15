@@ -6,6 +6,8 @@ export type DailyBucket = {
   key: string;
   limit: number;
   message: string;
+  /** Units to reserve in one call (default 1). */
+  count?: number;
 };
 
 export class DailyLimitError extends Error {
@@ -32,6 +34,10 @@ export async function reserveDailyBuckets(buckets: DailyBucket[]): Promise<void>
 
   await db.transaction(async (tx) => {
     for (const bucket of buckets) {
+      const count = Math.max(1, Math.floor(bucket.count ?? 1));
+      if (count > bucket.limit) {
+        throw new DailyLimitError(bucket.message);
+      }
       const rows = await tx.execute(
         sql`
           INSERT INTO ${oauthRateLimits} (
@@ -41,12 +47,12 @@ export async function reserveDailyBuckets(buckets: DailyBucket[]): Promise<void>
             created_at,
             updated_at
           )
-          VALUES (${bucket.key}, ${bucketStartSql}::timestamp, 1, now(), now())
+          VALUES (${bucket.key}, ${bucketStartSql}::timestamp, ${count}, now(), now())
           ON CONFLICT (bucket_key, bucket_start)
           DO UPDATE SET
-            request_count = ${oauthRateLimits.requestCount} + 1,
+            request_count = ${oauthRateLimits.requestCount} + ${count},
             updated_at = now()
-          WHERE ${oauthRateLimits.requestCount} < ${bucket.limit}
+          WHERE ${oauthRateLimits.requestCount} + ${count} <= ${bucket.limit}
           RETURNING request_count
         `,
       );

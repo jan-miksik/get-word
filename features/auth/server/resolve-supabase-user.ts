@@ -64,6 +64,7 @@ export async function resolveAndAttachSupabaseUser(
 
   return createUser({
     supabaseAuthId,
+    registeredAt: new Date(),
     ...(email && { email }),
     ...(authProvider && { authProvider }),
     ...(deviceId && { deviceId }),
@@ -82,6 +83,10 @@ async function applyIdentityFields(
   const patch: Partial<User> = {}
   if (user.supabaseAuthId !== fields.supabaseAuthId) {
     patch.supabaseAuthId = fields.supabaseAuthId
+    // First attachment of a verified identity to this row = registration moment.
+    if (user.supabaseAuthId === null) {
+      patch.registeredAt = user.registeredAt ?? new Date()
+    }
   }
   // Only set email if the row has none, to avoid clobbering / unique conflicts.
   if (fields.email && !user.email) {

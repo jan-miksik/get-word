@@ -24,6 +24,7 @@ function user(overrides: Record<string, unknown> = {}) {
     email: null,
     walletAddress: null,
     authProvider: null,
+    registeredAt: null,
     userRole: 'user',
     ...overrides,
   }
@@ -131,5 +132,36 @@ describe('resolveAndAttachSupabaseUser', () => {
 
   it('throws when supabaseAuthId is missing', async () => {
     await expect(resolveAndAttachSupabaseUser({ supabaseAuthId: '' })).rejects.toThrow()
+  })
+
+  it('sets registeredAt when attaching identity to a previously anonymous row', async () => {
+    const deviceUser = user({ id: 'dev-user', deviceId: 'dev-123' })
+    mockGetUserByDeviceId.mockResolvedValue(deviceUser)
+
+    await resolveAndAttachSupabaseUser({ supabaseAuthId: 'sb-2', deviceId: 'dev-123' })
+
+    const patch = mockUpdateUserFields.mock.calls[0][1]
+    expect(patch.registeredAt).toBeInstanceOf(Date)
+  })
+
+  it('does not touch registeredAt for an already-registered returning user', async () => {
+    const registeredAt = new Date('2026-01-01T00:00:00Z')
+    const existing = user({ id: 'u', supabaseAuthId: 'sb-9', email: 'a@b.com', registeredAt })
+    mockGetUserBySupabaseAuthId.mockResolvedValue(existing)
+
+    const result = await resolveAndAttachSupabaseUser({ supabaseAuthId: 'sb-9', email: 'a@b.com' })
+
+    expect(mockUpdateUserFields).not.toHaveBeenCalled()
+    expect(result.registeredAt).toBe(registeredAt)
+  })
+
+  it('includes registeredAt when creating a brand-new user', async () => {
+    mockCreateUser.mockImplementation(async (fields: Record<string, unknown>) =>
+      user({ id: 'created', ...fields })
+    )
+
+    await resolveAndAttachSupabaseUser({ supabaseAuthId: 'sb-3', email: 'fresh@user.com' })
+
+    expect(mockCreateUser.mock.calls[0][0].registeredAt).toBeInstanceOf(Date)
   })
 })

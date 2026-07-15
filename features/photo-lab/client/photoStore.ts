@@ -136,6 +136,31 @@ export async function putSession(session: PhotoLabSession): Promise<boolean> {
   }
 }
 
+/**
+ * Merge audio hashes into a stored session. Read-modify-write of the latest
+ * stored row — never write a session object captured before the audio request
+ * resolved, or it would clobber newer data. No-op when the session is gone.
+ */
+export async function updateSessionAudioHashes(
+  sessionId: string,
+  audioHashes: Record<string, string>,
+): Promise<boolean> {
+  const db = await openDb();
+  if (!db) return false;
+  try {
+    const tx = db.transaction(SESSIONS_STORE, 'readwrite');
+    const store = tx.objectStore(SESSIONS_STORE);
+    const session = (await promisifyRequest(store.get(sessionId))) as
+      | PhotoLabSession
+      | undefined;
+    if (!session) return false;
+    store.put({ ...session, audioHashes });
+    return await awaitTx(tx);
+  } catch {
+    return false;
+  }
+}
+
 /** All sessions, newest first. Empty on failure. */
 export async function listSessions(): Promise<PhotoLabSession[]> {
   const db = await openDb();

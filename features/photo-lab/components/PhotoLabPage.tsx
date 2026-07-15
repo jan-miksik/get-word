@@ -1,14 +1,17 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { useListsSettingsLanguage } from '@/features/lists/hooks/useListsSettingsLanguage';
 // TODO: lift useLearningLanguages out of features/lists into a shared location.
 import { useLearningLanguages } from '@/features/lists/hooks/useLearningLanguages';
 import { readPhotoLabPreference } from '@/features/learning/state/preferences';
+import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
+import { getLanguageFlag, getLocalizedLanguageName } from '@/lib/i18n/languages';
 import { getPrefsRow } from '@/lib/local-first/stores';
 import { requestPhotoAnalysis, PhotoLabRequestError, type PhotoLabErrorCode } from '../client/analyze';
+import { requestPhotoLabAudio } from '../client/audio';
 import { downscalePhoto, type DownscaledPhoto } from '../client/downscale';
 import {
   cleanupPhotoLab,
@@ -17,9 +20,11 @@ import {
   listSessions,
   putPhoto,
   putSession,
+  updateSessionAudioHashes,
 } from '../client/photoStore';
 import type { PhotoLabSession } from '../types';
 import { LabeledPhoto } from './LabeledPhoto';
+import { LanguagePairModal } from './LanguagePairModal';
 
 const LANGS_STORAGE_KEY = 'get-word-photo-lab-langs';
 const HISTORY_LIMIT = 20;
@@ -56,12 +61,26 @@ function storeLanguagePair(pair: Partial<LanguagePair>): void {
   }
 }
 
+/** Full-bleed warm background; the app body is dark navy. */
+function PhotoLabShell({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      style={warmPaletteVars}
+      className="min-h-dvh bg-[var(--ob-surface)] text-[color:var(--ob-ink)]"
+    >
+      {children}
+    </div>
+  );
+}
+
 export function PhotoLabPage() {
   const settingsLanguage = useListsSettingsLanguage();
 
   return (
     <I18nProvider language={settingsLanguage}>
-      <PhotoLabContent />
+      <PhotoLabShell>
+        <PhotoLabContent />
+      </PhotoLabShell>
     </I18nProvider>
   );
 }
@@ -72,17 +91,18 @@ function PhotoLabContent() {
   const [enabled, setEnabled] = useState<boolean | null>(null);
 
   useEffect(() => {
-    setEnabled(readPhotoLabPreference());
+    const timeoutId = window.setTimeout(() => setEnabled(readPhotoLabPreference()), 0);
     void cleanupPhotoLab();
+    return () => window.clearTimeout(timeoutId);
   }, []);
 
   if (enabled === null) return null;
   if (!enabled) {
     return (
-      <main className="flex min-h-screen items-center justify-center p-6">
-        <div className="flex max-w-sm flex-col gap-3 rounded-xl border border-border-subtle p-6 text-center">
-          <p className="m-0 text-sm text-text">{t('photoLab.enableHint')}</p>
-          <Link href="/" className="text-sm text-accent underline">
+      <main className="flex min-h-dvh items-center justify-center p-6">
+        <div className="flex max-w-sm flex-col gap-3 rounded-xl border-2 border-[color:var(--ob-ink)] p-6 text-center">
+          <p className="m-0 text-sm">{t('photoLab.enableHint')}</p>
+          <Link href="/" className="text-sm text-[color:var(--ob-accent)] underline">
             ← Get Word
           </Link>
         </div>
@@ -92,12 +112,51 @@ function PhotoLabContent() {
   return <PhotoLabStudio />;
 }
 
+function LanguagePairSummary({
+  from,
+  to,
+  onOpen,
+}: {
+  from: string;
+  to: string;
+  onOpen: () => void;
+}) {
+  const { t, language: uiLanguage } = useI18n();
+
+  const describe = (code: string, fallbackLabel: string) => {
+    if (!code) return fallbackLabel;
+    const flag = getLanguageFlag(code);
+    const name = getLocalizedLanguageName(code, uiLanguage) ?? code.toUpperCase();
+    return flag ? `${flag} ${name}` : name;
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={onOpen}
+      aria-label={t('photoLab.changeLanguages')}
+      title={t('photoLab.changeLanguages')}
+      className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[color:var(--ob-ink)] bg-[var(--ob-surface)] px-3 py-2.5 text-sm font-semibold transition-colors hover:bg-[var(--ob-surface-hover)]"
+    >
+      <span className="truncate">{describe(from, t('photoLab.knownLanguage'))}</span>
+      <span aria-hidden="true" className="text-[color:var(--ob-ink-soft)]">
+        →
+      </span>
+      <span className="truncate">{describe(to, t('photoLab.targetLanguage'))}</span>
+      <span aria-hidden="true" className="text-xs text-[color:var(--ob-ink-soft)]">
+        ✎
+      </span>
+    </button>
+  );
+}
+
 function PhotoLabStudio() {
   const { t } = useI18n();
   const languages = useLearningLanguages();
 
   const [langFrom, setLangFrom] = useState('');
   const [langTo, setLangTo] = useState('');
+  const [langModalOpen, setLangModalOpen] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [errorCode, setErrorCode] = useState<PhotoLabErrorCode | null>(null);
   const [current, setCurrent] = useState<{ session: PhotoLabSession; imageUrl: string } | null>(
@@ -113,29 +172,72 @@ function PhotoLabStudio() {
   const [pendingPhoto, setPendingPhoto] = useState<DownscaledPhoto | null>(null);
   const createdUrlsRef = useRef<string[]>([]);
 
+  // LanguageCombobox expects the onboarding language shape.
+  const onboardingLanguages = useMemo(
+    () =>
+      languages.map((language) => ({
+        ...language,
+        ttsAvailable: language.ttsAvailable ?? false,
+        preferredVoice: null,
+      })),
+    [languages],
+  );
+
   // Default language pair: last used here, else the learning pair cached from sync.
   useEffect(() => {
     let cancelled = false;
     const stored = readStoredLanguagePair();
-    if (stored.from) setLangFrom(stored.from);
-    if (stored.to) setLangTo(stored.to);
-    if (stored.from && stored.to) return;
+    const timeoutId = window.setTimeout(() => {
+      if (cancelled) return;
+      if (stored.from) setLangFrom(stored.from);
+      if (stored.to) setLangTo(stored.to);
+      if (stored.from && stored.to) return;
 
-    void getPrefsRow<{ language_from?: string | null; language_to?: string | null }>('user').then(
-      (row) => {
-        if (cancelled || !row?.value) return;
-        if (!stored.from && row.value.language_from) setLangFrom(row.value.language_from);
-        if (!stored.to && row.value.language_to) setLangTo(row.value.language_to);
-      },
-    );
+      void getPrefsRow<{ language_from?: string | null; language_to?: string | null }>('user').then(
+        (row) => {
+          if (cancelled || !row?.value) return;
+          if (!stored.from && row.value.language_from) setLangFrom(row.value.language_from);
+          if (!stored.to && row.value.language_to) setLangTo(row.value.language_to);
+        },
+      );
+    }, 0);
     return () => {
       cancelled = true;
+      window.clearTimeout(timeoutId);
     };
   }, []);
+
+  const changeLanguagePair = useCallback((pair: LanguagePair) => {
+    setLangFrom(pair.from);
+    setLangTo(pair.to);
+    storeLanguagePair({ from: pair.from || undefined, to: pair.to || undefined });
+  }, []);
+  const closeLanguageModal = useCallback(() => setLangModalOpen(false), []);
 
   const trackUrl = useCallback((url: string) => {
     createdUrlsRef.current.push(url);
     return url;
+  }, []);
+
+  const requestSessionAudio = useCallback((session: PhotoLabSession) => {
+    if (session.audioHashes !== undefined) return;
+
+    void requestPhotoLabAudio(session.id, session.labels, session.languageTo).then(
+      async (result) => {
+        if (!result.ok) return;
+        await updateSessionAudioHashes(session.id, result.hashes);
+        const withAudio = (candidate: PhotoLabSession): PhotoLabSession =>
+          candidate.id === session.id
+            ? { ...candidate, audioHashes: result.hashes }
+            : candidate;
+        setCurrent((value) =>
+          value?.session.id === session.id
+            ? { ...value, session: withAudio(value.session) }
+            : value,
+        );
+        setHistory((items) => items.map(withAudio));
+      },
+    );
   }, []);
 
   const refreshHistory = useCallback(async () => {
@@ -212,13 +314,14 @@ function PhotoLabStudio() {
         }
         setPendingPhoto(null);
         setCurrent({ session, imageUrl: photo.dataUrl });
+        requestSessionAudio(session);
       } catch (err) {
         setErrorCode(err instanceof PhotoLabRequestError ? err.code : 'generic');
       } finally {
         setAnalyzing(false);
       }
     },
-    [langFrom, langTo, refreshHistory],
+    [langFrom, langTo, refreshHistory, requestSessionAudio],
   );
 
   const handleFileChange = useCallback(
@@ -243,14 +346,16 @@ function PhotoLabStudio() {
       const knownUrl = thumbUrls.get(session.id);
       if (knownUrl) {
         setCurrent({ session, imageUrl: knownUrl });
+        requestSessionAudio(session);
         return;
       }
       const blob = await getPhoto(session.photoHash);
       if (blob) {
         setCurrent({ session, imageUrl: trackUrl(URL.createObjectURL(blob)) });
+        requestSessionAudio(session);
       }
     },
-    [thumbUrls, trackUrl],
+    [thumbUrls, trackUrl, requestSessionAudio],
   );
 
   const removeSession = useCallback(
@@ -265,53 +370,27 @@ function PhotoLabStudio() {
   const languagesReady = Boolean(langFrom && langTo && langFrom !== langTo);
 
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-xl flex-col gap-5 p-4 pb-10">
-      <header className="flex items-center justify-between">
-        <h1 className="m-0 text-lg font-semibold text-text">{t('photoLab.title')}</h1>
-        <Link href="/" className="text-sm text-accent underline">
+    <main className="mx-auto flex min-h-dvh w-full max-w-3xl flex-col gap-5 p-4 pb-10">
+      <header className="mx-auto flex w-full max-w-xl items-center justify-between">
+        <h1 className="m-0 text-lg font-semibold">{t('photoLab.title')}</h1>
+        <Link href="/" className="text-sm text-[color:var(--ob-accent)] underline">
           ← Get Word
         </Link>
       </header>
 
-      <section className="flex items-end gap-2">
-        <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs text-text-soft">
-          {t('photoLab.knownLanguage')}
-          <select
-            value={langFrom}
-            onChange={(event) => {
-              setLangFrom(event.target.value);
-              storeLanguagePair({ from: event.target.value, to: langTo || undefined });
-            }}
-            className="w-full rounded-lg border border-border-subtle bg-transparent px-2 py-1.5 text-sm text-text"
-          >
-            <option value="" disabled />
-            {languages.map((language) => (
-              <option key={language.code} value={language.code}>
-                {language.name}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span className="pb-1.5 text-text-soft">→</span>
-        <label className="flex min-w-0 flex-1 flex-col gap-1 text-xs text-text-soft">
-          {t('photoLab.targetLanguage')}
-          <select
-            value={langTo}
-            onChange={(event) => {
-              setLangTo(event.target.value);
-              storeLanguagePair({ from: langFrom || undefined, to: event.target.value });
-            }}
-            className="w-full rounded-lg border border-border-subtle bg-transparent px-2 py-1.5 text-sm text-text"
-          >
-            <option value="" disabled />
-            {languages.map((language) => (
-              <option key={language.code} value={language.code}>
-                {language.name}
-              </option>
-            ))}
-          </select>
-        </label>
+      <section className="mx-auto w-full max-w-xl">
+        <LanguagePairSummary from={langFrom} to={langTo} onOpen={() => setLangModalOpen(true)} />
       </section>
+
+      <LanguagePairModal
+        isOpen={langModalOpen}
+        languages={onboardingLanguages}
+        loading={languages.length === 0}
+        from={langFrom}
+        to={langTo}
+        onChange={changeLanguagePair}
+        onClose={closeLanguageModal}
+      />
 
       <input
         ref={fileInputRef}
@@ -321,29 +400,31 @@ function PhotoLabStudio() {
         className="hidden"
         onChange={handleFileChange}
       />
-      <button
-        type="button"
-        disabled={!languagesReady || analyzing}
-        onClick={() => fileInputRef.current?.click()}
-        className="rounded-xl bg-accent px-4 py-3 text-sm font-medium text-white disabled:opacity-40"
-      >
-        📷 {t('photoLab.pickPhoto')}
-      </button>
+      <div className="mx-auto w-full max-w-xl">
+        <button
+          type="button"
+          disabled={!languagesReady || analyzing}
+          onClick={() => fileInputRef.current?.click()}
+          className="w-full rounded-xl bg-[var(--ob-accent)] px-4 py-3 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:opacity-40"
+        >
+          📷 {t('photoLab.pickPhoto')}
+        </button>
+      </div>
 
       {analyzing && (
-        <p className="m-0 animate-pulse text-center text-sm text-text-soft">
+        <p className="m-0 animate-pulse text-center text-sm text-[color:var(--ob-ink-soft)]">
           {t('photoLab.analyzing')}
         </p>
       )}
 
       {errorCode && !analyzing && (
-        <div className="flex flex-col items-center gap-2 rounded-xl border border-border-subtle p-4">
-          <p className="m-0 text-center text-sm text-text">{t(ERROR_MESSAGE_KEYS[errorCode])}</p>
+        <div className="mx-auto flex w-full max-w-xl flex-col items-center gap-2 rounded-xl border-2 border-[color:var(--ob-ink)] p-4">
+          <p className="m-0 text-center text-sm">{t(ERROR_MESSAGE_KEYS[errorCode])}</p>
           {pendingPhoto && errorCode !== 'limit' && errorCode !== 'tooLarge' && (
             <button
               type="button"
               onClick={() => void analyze(pendingPhoto)}
-              className="rounded-lg border border-border-subtle px-3 py-1.5 text-sm text-text"
+              className="rounded-lg border-2 border-[color:var(--ob-ink)] px-3 py-1.5 text-sm transition-colors hover:bg-[var(--ob-surface-hover)]"
             >
               {t('photoLab.retry')}
             </button>
@@ -352,13 +433,22 @@ function PhotoLabStudio() {
       )}
 
       {current && !analyzing && (
-        <LabeledPhoto imageUrl={current.imageUrl} labels={current.session.labels} />
+        <LabeledPhoto
+          key={current.session.id}
+          imageUrl={current.imageUrl}
+          labels={current.session.labels}
+          audioHashes={current.session.audioHashes}
+        />
       )}
 
-      <section className="flex flex-col gap-2">
-        <h2 className="m-0 text-sm font-medium text-text-soft">{t('photoLab.history')}</h2>
+      <section className="mx-auto flex w-full max-w-xl flex-col gap-2">
+        <h2 className="m-0 text-sm font-medium text-[color:var(--ob-ink-soft)]">
+          {t('photoLab.history')}
+        </h2>
         {history.length === 0 ? (
-          <p className="m-0 text-xs text-text-soft/70">{t('photoLab.historyEmpty')}</p>
+          <p className="m-0 text-xs text-[color:var(--ob-ink-soft)]/70">
+            {t('photoLab.historyEmpty')}
+          </p>
         ) : (
           <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
             {history.map((session) => (
@@ -366,7 +456,7 @@ function PhotoLabStudio() {
                 <button
                   type="button"
                   onClick={() => void openSession(session)}
-                  className="block w-full overflow-hidden rounded-lg border border-border-subtle"
+                  className="block w-full overflow-hidden rounded-lg border-2 border-[color:var(--ob-ink)]/25 transition-colors hover:border-[color:var(--ob-ink)]"
                 >
                   {thumbUrls.get(session.id) ? (
                     // eslint-disable-next-line @next/next/no-img-element -- local blob URL
@@ -376,9 +466,9 @@ function PhotoLabStudio() {
                       className="block aspect-square w-full object-cover"
                     />
                   ) : (
-                    <span className="block aspect-square w-full bg-border-subtle/40" />
+                    <span className="block aspect-square w-full bg-[color:var(--ob-ink)]/10" />
                   )}
-                  <span className="block truncate px-1 py-0.5 text-[10px] text-text-soft">
+                  <span className="block truncate px-1 py-0.5 text-[10px] text-[color:var(--ob-ink-soft)]">
                     {session.languageFrom}→{session.languageTo} · {session.labels.length}
                   </span>
                 </button>

@@ -31,4 +31,10 @@ export type PhotoLabSession = {
   /** SHA-256 of the downscaled photo blob; key into the photos store. */
   photoHash: string;
   labels: PhotoLabLabel[];
+  /**
+   * label.id → TTS audio content hash (served by /api/audio/[hash]).
+   * Absent = audio was never successfully requested; `{}` = requested but
+   * nothing was available. Filled in asynchronously after analysis.
+   */
+  audioHashes?: Record<string, string>;
 };
