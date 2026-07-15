@@ -97,6 +97,8 @@ export function HomeClient() {
     typingWriteIn,
     typingPrefillPunctuation,
     typingMobileKeyboardAutoFocus,
+    typingPlayAudioAfterCheck,
+    typingCheckButtonEnabled,
     markKnown,
     markReallyKnown,
     markUnknown,
@@ -131,12 +133,12 @@ export function HomeClient() {
   const activeWords = syncedWords ?? EMPTY_WORDS;
 
   // Swipe-to-answer (frontier feature): right = known, left = forgotten,
-  // up = fully known / no repeat. getStageIndex feeds the deck's "repeat in X"
-  // badges; the deck's own group index is a stream-section index (due/new), not
-  // the SRS stage.
+  // up = fully known / no repeat. Typing mode disables the gesture entirely so
+  // vertical movement with the mobile keyboard cannot discard a word. The
+  // deck's own group index is a stream-section index (due/new), not the SRS stage.
   const deckSwipeActions = useMemo(
     () =>
-      swipeCardsEnabled
+      swipeCardsEnabled && !typingModeEnabled
         ? {
             markKnown,
             markUnknown,
@@ -145,7 +147,7 @@ export function HomeClient() {
             getStageIndex: (wordId: string) => progress[wordId]?.stageIndex ?? 0,
           }
         : undefined,
-    [swipeCardsEnabled, markKnown, markUnknown, setCustomStage, progress]
+    [swipeCardsEnabled, typingModeEnabled, markKnown, markUnknown, setCustomStage, progress]
   );
 
   const isAuthenticated = Boolean(isConnected && userId && !hasLinkWalletError);
@@ -255,6 +257,8 @@ export function HomeClient() {
     typingWriteIn,
     typingPrefillPunctuation,
     typingMobileKeyboardAutoFocus,
+    typingPlayAudioAfterCheck,
+    typingCheckButtonEnabled,
     dismissedGames,
     setDismissedGames,
     setGameScore,

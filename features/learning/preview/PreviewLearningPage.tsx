@@ -166,6 +166,8 @@ function PreviewStudy({
   const [typingAudioPromptEnabled, setTypingAudioPromptEnabled] = useState(false);
   const [typingPrefillPunctuation, setTypingPrefillPunctuation] = useState(false);
   const [typingMobileKeyboardAutoFocus, setTypingMobileKeyboardAutoFocus] = useState(false);
+  const [typingPlayAudioAfterCheck, setTypingPlayAudioAfterCheck] = useState(false);
+  const [typingCheckButtonEnabled, setTypingCheckButtonEnabled] = useState(false);
   // Remounts the typing card after each answer so the preview can be exercised
   // repeatedly (the real app advances the stream instead).
   const [typingRound, setTypingRound] = useState(0);
@@ -268,6 +270,10 @@ function PreviewStudy({
     setTypingPrefillPunctuation,
     typingMobileKeyboardAutoFocus,
     setTypingMobileKeyboardAutoFocus,
+    typingPlayAudioAfterCheck,
+    setTypingPlayAudioAfterCheck,
+    typingCheckButtonEnabled,
+    setTypingCheckButtonEnabled,
     settingsLanguage,
     settingsLanguageSelectedAt: null,
     setSettingsLanguage: onSettingsLanguageChange,
@@ -339,6 +345,8 @@ function PreviewStudy({
                   writeIn={typingWriteIn}
                   audioPromptEnabled={false}
                   prefillPunctuation={typingPrefillPunctuation}
+                  playAudioAfterCheck={typingPlayAudioAfterCheck}
+                  checkButtonEnabled={typingCheckButtonEnabled}
                   modeIndex={(typingRound % 2) as 0 | 1}
                   onScore={(points) => setGameScore((score) => Math.max(0, score + points))}
                   onOutcome={(outcome) => {

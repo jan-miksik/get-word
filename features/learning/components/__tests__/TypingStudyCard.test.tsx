@@ -130,6 +130,17 @@ describe('TypingStudyCard', () => {
     expect(input()).toHaveFocus();
   });
 
+  it('keeps the focused mobile input enabled after checking so the keyboard can stay open', () => {
+    stubMobileLayout(true);
+    renderCard({ autoFocus: true, autoFocusOnMobile: true });
+    fireEvent.change(input(), { target: { value: 'conchó' } });
+
+    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    expect(input()).toHaveFocus();
+    expect(input()).not.toBeDisabled();
+    expect(input()).toHaveAttribute('aria-disabled', 'true');
+  });
+
   it('auto-checks on the last character, scores immediately, and reports known only after tapping continue', () => {
     const { onOutcome, onScore } = renderCard();
     // Space is prefilled, so only the letters are typed.
@@ -143,6 +154,42 @@ describe('TypingStudyCard', () => {
     expect(onOutcome).toHaveBeenCalledTimes(1);
     expect(onOutcome).toHaveBeenCalledWith('known');
     expect(onScore).toHaveBeenCalledTimes(1);
+  });
+
+  it('plays the word audio after checking only when enabled', () => {
+    renderCard({ playAudioAfterCheck: true });
+    fireEvent.change(input(), { target: { value: 'conchó' } });
+
+    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    expect(playCalls).toBe(1);
+    expect(audioSources).toContain('/speech/vi/con-cho.mp3');
+  });
+
+  it('waits for the check button when explicit checking is enabled', () => {
+    renderCard({ checkButtonEnabled: true });
+    fireEvent.change(input(), { target: { value: 'conchó' } });
+
+    expect(screen.queryByText('✓ Perfect!')).not.toBeInTheDocument();
+    const checkButton = screen.getByRole('button', { name: 'Check' });
+    expect(checkButton).toBeEnabled();
+    fireEvent.click(checkButton);
+    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+  });
+
+  it('restores mobile input focus when checking explicitly', () => {
+    stubMobileLayout(true);
+    renderCard({
+      autoFocus: true,
+      autoFocusOnMobile: true,
+      checkButtonEnabled: true,
+    });
+    fireEvent.change(input(), { target: { value: 'conchó' } });
+    const checkButton = screen.getByRole('button', { name: 'Check' });
+    checkButton.focus();
+    fireEvent.click(checkButton);
+
+    expect(input()).toHaveFocus();
+    expect(input()).not.toBeDisabled();
   });
 
   it('reports the outcome only once on a rapid double tap', () => {
@@ -509,6 +556,18 @@ describe('TypingStudyCard', () => {
     expect(document.querySelector('[data-editable-index="4"]')).not.toHaveClass('is-active');
   });
 
+  it('uses the compact mnemonic label and leaves mobile space for the audio button', () => {
+    renderCard({ showMemoryHook: true });
+
+    expect(screen.getByText('💭 Add memory hook')).toBeInTheDocument();
+    const hookInput = screen.getByPlaceholderText('Add memory hook');
+    expect(hookInput.parentElement).toHaveClass(
+      'max-md:!ml-4',
+      'max-md:!w-[calc(100%-5.5rem)]',
+      'max-md:!max-w-72',
+    );
+  });
+
   it('uses only a black caret at the beginning of the active underscore', () => {
     renderCard({ word: VI_WORD });
     fireEvent.focus(input());
@@ -544,7 +603,7 @@ describe('TypingStudyCard', () => {
     });
 
     const nowSpy = vi.spyOn(Date, 'now');
-    const hookInput = screen.getByPlaceholderText('Enter memory hook...');
+    const hookInput = screen.getByPlaceholderText('Add memory hook');
 
     nowSpy.mockReturnValue(1_000);
     fireEvent.click(screen.getByText('existing hook'));

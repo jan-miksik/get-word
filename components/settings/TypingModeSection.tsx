@@ -16,6 +16,10 @@ export function TypingModeSection() {
     setTypingPrefillPunctuation,
     typingMobileKeyboardAutoFocus,
     setTypingMobileKeyboardAutoFocus,
+    typingPlayAudioAfterCheck,
+    setTypingPlayAudioAfterCheck,
+    typingCheckButtonEnabled,
+    setTypingCheckButtonEnabled,
   } = useAppStateContext();
 
   const writeInOptions: { value: TypingWriteIn; label: string }[] = [
@@ -78,6 +82,22 @@ export function TypingModeSection() {
               checked={typingMobileKeyboardAutoFocus}
               onChange={setTypingMobileKeyboardAutoFocus}
               ariaLabel={t('settings.typingMobileKeyboardAutoFocus')}
+            />
+          </div>
+          <div className="flex items-center justify-between py-0.5">
+            <span className="text-sm text-text">{t('settings.typingPlayAudioAfterCheck')}</span>
+            <ToggleSwitch
+              checked={typingPlayAudioAfterCheck}
+              onChange={setTypingPlayAudioAfterCheck}
+              ariaLabel={t('settings.typingPlayAudioAfterCheck')}
+            />
+          </div>
+          <div className="flex items-center justify-between py-0.5">
+            <span className="text-sm text-text">{t('settings.typingCheckButton')}</span>
+            <ToggleSwitch
+              checked={typingCheckButtonEnabled}
+              onChange={setTypingCheckButtonEnabled}
+              ariaLabel={t('settings.typingCheckButton')}
             />
           </div>
         </>
