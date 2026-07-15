@@ -50,6 +50,8 @@ interface GestureSession {
 
 export interface UseSwipeGestureOptions {
   enabled: boolean;
+  /** Keep upward swipe available while ignoring left/right drags. */
+  allowHorizontal?: boolean;
   /** Read at pointerdown; the gesture keeps this id so a mid-drag rerender can't retarget the mark. */
   getWordId: () => string | null;
   onCommit: (direction: SwipeDirection, wordId: string) => void;
@@ -68,6 +70,7 @@ export interface UseSwipeGestureResult {
 
 export function useSwipeGesture({
   enabled,
+  allowHorizontal = true,
   getWordId,
   onCommit,
 }: UseSwipeGestureOptions): UseSwipeGestureResult {
@@ -85,10 +88,12 @@ export function useSwipeGesture({
 
   // Latest-value refs so the stable event handlers never act on stale props.
   const enabledRef = useRef(enabled);
+  const allowHorizontalRef = useRef(allowHorizontal);
   const getWordIdRef = useRef(getWordId);
   const onCommitRef = useRef(onCommit);
   useEffect(() => {
     enabledRef.current = enabled;
+    allowHorizontalRef.current = allowHorizontal;
     getWordIdRef.current = getWordId;
     onCommitRef.current = onCommit;
   });
@@ -313,6 +318,14 @@ export function useSwipeGesture({
           sessionRef.current = null;
           return;
         }
+        if (axis === 'horizontal' && !allowHorizontalRef.current) {
+          // Typing cards still support the deliberate up-swipe action, but a
+          // sideways drag must never grade or move the current card.
+          detachPointerTracking();
+          stateRef.current = 'idle';
+          sessionRef.current = null;
+          return;
+        }
         if (axis === 'horizontal' || axis === 'vertical') {
           const node = nodeRef.current;
           if (!node) return;
@@ -495,6 +508,11 @@ export function useSwipeGesture({
     if (stateRef.current !== 'tracking' && stateRef.current !== 'dragging') return;
     resetGesture({ springBack: true });
   }, [enabled, resetGesture]);
+
+  useEffect(() => {
+    if (allowHorizontal || sessionRef.current?.claimed !== 'horizontal') return;
+    resetGesture({ springBack: true });
+  }, [allowHorizontal, resetGesture]);
 
   useEffect(
     () => () => {

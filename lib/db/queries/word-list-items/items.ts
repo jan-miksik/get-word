@@ -12,6 +12,7 @@ import {
   pickWinningComment,
   type WordItemComment,
 } from '@/lib/word-item-comment';
+import { normalizeAcceptedAnswersForSave } from '@/lib/word-item-accepted-answers';
 
 export async function getListItems(listId: string): Promise<WordListItem[]> {
   return db
@@ -107,6 +108,8 @@ export async function createItems(
     categoryId: string;
     textKnown: string;
     textTarget: string | null;
+    acceptedKnown?: string[];
+    acceptedTarget?: string[];
     position: number;
     translationStatus?: 'manual' | 'pending' | 'translated' | 'failed';
   }[],
@@ -120,6 +123,8 @@ export async function createItems(
         categoryId: item.categoryId,
         textKnown: item.textKnown,
         textTarget: item.textTarget,
+        acceptedKnown: normalizeAcceptedAnswersForSave(item.acceptedKnown ?? [], item.textKnown),
+        acceptedTarget: normalizeAcceptedAnswersForSave(item.acceptedTarget ?? [], item.textTarget),
         position: item.position,
         translationStatus: item.translationStatus ?? 'manual',
       })),

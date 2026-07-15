@@ -26,6 +26,7 @@ interface LearningStudyContentProps {
   interstitialCard?: React.ReactNode;
   onDeckWordCardCompleted?: (word: NormalizedWord) => void;
   deckSwipeActions?: CardDeckSwipeActions;
+  deckHorizontalSwipeEnabled?: boolean;
   cardDeckGroups: (NormalizedWord | MiniGameConfig)[][];
   streamGroupedWords: (NormalizedWord | MiniGameConfig)[][];
   renderCardForDeck: (
@@ -59,6 +60,7 @@ export function LearningStudyContent({
   interstitialCard,
   onDeckWordCardCompleted,
   deckSwipeActions,
+  deckHorizontalSwipeEnabled = true,
   cardDeckGroups,
   streamGroupedWords,
   renderCardForDeck,
@@ -71,7 +73,6 @@ export function LearningStudyContent({
   onToggleShowNotReady,
 }: LearningStudyContentProps) {
   const { t } = useI18n();
-  const contentResetKey = `${filteredWords.length}:${filteredWords.map((word) => word.id).join('|')}`;
 
   return (
     <AppLayout
@@ -93,11 +94,11 @@ export function LearningStudyContent({
         {viewMode === 'card' ? (
           <div className="learning-card-viewport relative flex h-full w-full flex-col max-w-[800px] mx-auto">
             <CardDeckView
-              key={`card-${contentResetKey}`}
               groupedWords={cardDeckGroups}
               interstitialCard={interstitialCard}
               onWordCardCompleted={onDeckWordCardCompleted}
               swipeActions={deckSwipeActions}
+              allowHorizontalSwipe={deckHorizontalSwipeEnabled}
               renderCard={renderCardForDeck}
               renderMiniGame={renderMiniGameForDeck}
             />
@@ -108,7 +109,6 @@ export function LearningStudyContent({
               <div className="p-8 text-center text-text-soft">{t('learning.noFilterMatches')}</div>
             ) : (
               <VirtualizedWordList
-                key={`stream-${contentResetKey}`}
                 dataTab="stream"
                 groupedWords={streamGroupedWords}
                 renderCard={renderCard}

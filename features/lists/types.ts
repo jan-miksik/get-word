@@ -52,6 +52,8 @@ export type WordListItem = {
   position: number;
   textKnown: string;
   textTarget: string | null;
+  acceptedKnown?: string[];
+  acceptedTarget?: string[];
   translationStatus: string;
   knownAudioAssetId?: string | null;
   knownAudioStatus?: string;
@@ -89,6 +91,8 @@ export type ConfirmResult = {
     id: string;
     text_known: string;
     text_target: string | null;
+    accepted_known?: string[];
+    accepted_target?: string[];
     position: number;
     comment?: string | null;
     // Null = the word currently has no category. Populated only in the
@@ -114,6 +118,8 @@ export type CompletedTranslationRow = {
   error?: string;
   warning?: string;
   source?: 'dedup' | 'api';
+  acceptedKnown?: string[];
+  acceptedTarget?: string[];
   /** Manual study-note text. undefined = untouched; '' = cleared. */
   comment?: string;
   /** Tracks whether the user edited the note in this session (controls save). */

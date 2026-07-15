@@ -1,4 +1,11 @@
-export { matchAnswer } from './answer-match';
+export {
+  alternativesAreSlotCompatible,
+  getAcceptedAnswerCandidates,
+  matchAnswer,
+  matchAnswerAgainstCandidates,
+  requiresExplicitTypingCheck,
+} from './answer-match';
+export type { AnswerCandidate, AnswerMatchResult } from './answer-match';
 export {
   persistMinigameFrequency,
   readStoredMinigameFrequency,

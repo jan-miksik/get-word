@@ -29,6 +29,13 @@ export function getWordTextBySide(word: NormalizedWord, side: WordSide): string 
   return side === 'from' ? word.cz : word.vi;
 }
 
+export function getWordAcceptedAnswersBySide(
+  word: NormalizedWord,
+  side: WordSide,
+): string[] {
+  return side === 'from' ? word.acceptedKnown ?? [] : word.acceptedTarget ?? [];
+}
+
 export function normalizeAudioPath(path: string): string {
   const pathStr = path.trim();
   if (/^(https?:)?\/\//i.test(pathStr) || /^(data|blob):/i.test(pathStr)) {
@@ -74,4 +81,3 @@ export function getWordLanguageCodeForSide(
   const trimmed = String(code).trim();
   return trimmed ? trimmed : null;
 }
-

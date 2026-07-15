@@ -94,6 +94,10 @@ function getItemTextForSide(item: SourceItem, side: ListSide): string | null {
   return side === "known" ? item.textKnown : item.textTarget;
 }
 
+function getItemAcceptedAnswersForSide(item: SourceItem, side: ListSide): string[] {
+  return side === "known" ? item.acceptedKnown ?? [] : item.acceptedTarget ?? [];
+}
+
 function getItemAudioForSide(
   item: SourceItem,
   side: ListSide,
@@ -363,11 +367,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
           let knownAudioStatus: "none" | "pending" | "ready" | "failed" = "none";
           let audioAssetId: string | null = null;
           let audioStatus: "none" | "pending" | "ready" | "failed" = "none";
+          let acceptedKnown: string[] = [];
+          let acceptedTarget: string[] = [];
 
           if (knownSourceSide && textKnown) {
             const copied = getItemAudioForSide(item, knownSourceSide, sourceAudioAssets);
             knownAudioAssetId = copied.audioAssetId ?? null;
             knownAudioStatus = copied.audioAssetId ? copied.audioStatus : "none";
+            acceptedKnown = getItemAcceptedAnswersForSide(item, knownSourceSide);
           } else if (translationProvider !== "none" && requestedSourceText) {
             textKnown = lookup(sourceLanguage, languageFrom, requestedSourceText);
             if (textKnown) {
@@ -380,6 +387,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
             const copied = getItemAudioForSide(item, targetSourceSide, sourceAudioAssets);
             audioAssetId = copied.audioAssetId ?? null;
             audioStatus = copied.audioAssetId ? copied.audioStatus : "none";
+            acceptedTarget = getItemAcceptedAnswersForSide(item, targetSourceSide);
           } else if (translationProvider !== "none" && requestedSourceText) {
             textTarget = lookup(sourceLanguage, languageTo, requestedSourceText);
             if (textTarget) {
@@ -414,6 +422,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
             position: index,
             textKnown: textKnown ?? "",
             textTarget,
+            acceptedKnown,
+            acceptedTarget,
             translationStatus: textKnown && textTarget ? "translated" as const : "pending" as const,
             knownHash,
             targetHash,
@@ -444,6 +454,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
                   position: item.position,
                   textKnown: item.textKnown,
                   textTarget: item.textTarget,
+                  acceptedKnown: item.acceptedKnown,
+                  acceptedTarget: item.acceptedTarget,
                   translationStatus: item.translationStatus,
                   knownAudioAssetId:
                     item.knownAudioAssetId ??

@@ -14,7 +14,7 @@ vi.mock('@/lib/tab-sync', () => ({
   subscribeTabMessages: (listener: unknown) => mockSubscribeTabMessages(listener),
 }));
 
-import { useMemoryHooks } from '../memoryHooks';
+import { MEMORY_HOOK_MAX_LENGTH, useMemoryHooks } from '../memoryHooks';
 
 describe('useMemoryHooks', () => {
   beforeEach(() => {
@@ -79,6 +79,26 @@ describe('useMemoryHooks', () => {
         wordId: 'source-item-id',
         hook: 'hook text',
         updatedAt: expect.any(Number),
+      })
+    );
+  });
+
+  it('limits saved hooks before updating local and synced state', () => {
+    const isUpdatingFromServerRef = { current: false };
+    const { result } = renderHook(() =>
+      useMemoryHooks(true, isUpdatingFromServerRef, 'languageToLearn')
+    );
+    const longHook = 'a'.repeat(MEMORY_HOOK_MAX_LENGTH + 40);
+
+    act(() => {
+      result.current.setMemoryHook('w001', longHook);
+    });
+
+    const limitedHook = 'a'.repeat(MEMORY_HOOK_MAX_LENGTH);
+    expect(result.current.getMemoryHook('w001')).toBe(limitedHook);
+    expect(mockEnqueueOp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: { id: 'w001', text: limitedHook },
       })
     );
   });

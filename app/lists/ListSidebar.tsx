@@ -21,7 +21,7 @@ interface ListSidebarProps {
   canManageCommonLists?: boolean;
   initialCreateLanguageFrom?: string | null;
   initialCreateLanguageTo?: string | null;
-  onSelectList: (id: string) => void;
+  onSelectList: (id: string, intent?: 'select' | 'edit') => boolean | void;
   onCreateList: (
     name: string,
     langFrom: string,
@@ -256,7 +256,7 @@ export function ListSidebar({
 
   function handleEditClick(listId: string) {
     setOpenDropdownId(null);
-    onSelectList(listId);
+    if (onSelectList(listId, 'edit') === false) return;
     onEditList?.(listId);
   }
 

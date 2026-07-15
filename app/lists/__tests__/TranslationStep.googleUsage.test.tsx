@@ -266,6 +266,7 @@ describe('TranslationStep Google usage gating', () => {
               {
                 id: 'item-1',
                 text_target: null,
+                accepted_target: [],
                 status: 'manual',
               },
             ],
@@ -326,6 +327,7 @@ describe('TranslationStep Google usage gating', () => {
               {
                 id: 'item-1',
                 text_known: null,
+                accepted_known: [],
                 status: 'manual',
               },
             ],
@@ -491,6 +493,8 @@ describe('TranslationStep Google usage gating', () => {
         id: 'item-1',
         text_target: 'xin chào',
         text_known: 'hello',
+        accepted_known: [],
+        accepted_target: [],
         status: 'translated',
         comment: 'Updated note',
       });

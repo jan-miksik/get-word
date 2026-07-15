@@ -258,9 +258,21 @@
   color: var(--game-correct);
 }
 
+.game-typing-slot--close {
+  /* Amber darkened toward the ink so the glyph stays readable on the light surface. */
+  color: color-mix(in srgb, var(--fresh) 55%, var(--game-ink, var(--text)));
+  background: color-mix(in srgb, var(--fresh) 22%, transparent);
+}
+
 .game-typing-slot--bad {
   color: var(--game-wrong);
   background: color-mix(in srgb, var(--game-wrong) 16%, transparent);
+}
+
+/* Correction row: the expected character shown under a wrong/close slot
+   after the check; always the "correct" green regardless of the slot state. */
+.game-typing-correction {
+  color: var(--game-correct);
 }
 
 .game-typing-slot.is-active::after {

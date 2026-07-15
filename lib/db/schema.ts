@@ -148,6 +148,8 @@ export const wordListItems = pgTable(
     ignoreCase: boolean("ignore_case").notNull().default(false),
     textKnown: text("text_known").notNull(),
     textTarget: text("text_target"),
+    acceptedKnown: text("accepted_known").array().notNull().default(sql`'{}'::text[]`),
+    acceptedTarget: text("accepted_target").array().notNull().default(sql`'{}'::text[]`),
     translationStatus: translationStatusEnum("translation_status")
       .notNull()
       .default("manual"),

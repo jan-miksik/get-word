@@ -24,7 +24,8 @@ export const DEFAULT_LLM_ITEM_COUNT = 120;
 // teaching-anchor consistency possible (reusing the same target wording for the
 // same beginner meaning across the list). OpenRouter has no Google-style rate
 // limit; the real ceiling is output-token truncation, so this is paired with a
-// generous maxTokens in openrouter.ts. Kept below MAX_GENERATED_ITEMS so a
-// truncated/failed batch never loses the whole list.
-export const OPENROUTER_BATCH_SIZE = 150;
+// batch-derived maxTokens in openrouter.ts. Autogeneration currently emits only
+// the primary pair/category (accepted variants are a separate BYOK workflow),
+// so 100 rows remain comfortably bounded while reducing request count.
+export const OPENROUTER_BATCH_SIZE = 100;
 export const MAX_PROMPT_CHARS = 60_000;

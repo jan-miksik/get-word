@@ -95,7 +95,6 @@ export function HomeClient() {
     swipeCardsEnabled,
     typingModeEnabled,
     typingWriteIn,
-    typingAudioPromptEnabled,
     typingPrefillPunctuation,
     markKnown,
     markReallyKnown,
@@ -253,7 +252,6 @@ export function HomeClient() {
     swipeCardsEnabled,
     typingModeEnabled,
     typingWriteIn,
-    typingAudioPromptEnabled,
     typingPrefillPunctuation,
     dismissedGames,
     setDismissedGames,
@@ -449,6 +447,7 @@ export function HomeClient() {
             interstitialCard={interstitialCard}
             onDeckWordCardCompleted={() => setCompletedDeckWordCards((count) => count + 1)}
             deckSwipeActions={deckSwipeActions}
+            deckHorizontalSwipeEnabled={!typingModeEnabled}
             cardDeckGroups={cardDeckGroups}
             streamGroupedWords={streamGroupedWords}
             renderCardForDeck={renderCardForDeck}

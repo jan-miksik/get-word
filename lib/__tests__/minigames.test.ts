@@ -1,6 +1,10 @@
 import { describe, it, expect } from 'vitest';
 import {
+  alternativesAreSlotCompatible,
   matchAnswer,
+  getAcceptedAnswerCandidates,
+  matchAnswerAgainstCandidates,
+  requiresExplicitTypingCheck,
   injectMinigames,
   computeGameAnchors,
   composeStream,
@@ -36,6 +40,85 @@ describe('matchAnswer', () => {
   });
   it('trims whitespace', () => {
     expect(matchAnswer('  pes  ', 'pes')).toBe('exact');
+  });
+});
+
+describe('matchAnswerAgainstCandidates', () => {
+  it('accepts stored alternatives and reports the matched candidate', () => {
+    const result = matchAnswerAgainstCandidates(
+      'dobře',
+      getAcceptedAnswerCandidates('dobrý', ['dobrá', 'dobré', 'dobře']),
+    );
+    expect(result).toEqual({
+      verdict: 'exact',
+      matchedAnswer: 'dobře',
+      isAlternative: true,
+    });
+  });
+
+  it('prefers exact over earlier close alternatives', () => {
+    const result = matchAnswerAgainstCandidates(
+      'dobré',
+      getAcceptedAnswerCandidates('dobrý', ['dobre', 'dobré']),
+    );
+    expect(result).toEqual({
+      verdict: 'exact',
+      matchedAnswer: 'dobré',
+      isAlternative: true,
+    });
+  });
+
+  it('prefers primary answer on tied verdicts', () => {
+    const result = matchAnswerAgainstCandidates(
+      'dobry',
+      getAcceptedAnswerCandidates('dobrý', ['dobrý-ish']),
+    );
+    expect(result).toEqual({
+      verdict: 'close',
+      matchedAnswer: 'dobrý',
+      isAlternative: false,
+    });
+  });
+
+  it('uses nearest wrong candidate only for presentation', () => {
+    const result = matchAnswerAgainstCandidates(
+      'dobra',
+      getAcceptedAnswerCandidates('špatný', ['dobrá']),
+    );
+    expect(result).toEqual({
+      verdict: 'close',
+      matchedAnswer: 'dobrá',
+      isAlternative: true,
+    });
+    const wrong = matchAnswerAgainstCandidates(
+      'dobrx',
+      getAcceptedAnswerCandidates('špatný', ['dobrá']),
+    );
+    expect(wrong.verdict).toBe('wrong');
+    expect(wrong.matchedAnswer).toBe('dobrá');
+  });
+
+  it('requires explicit typing only for slot-incompatible alternatives', () => {
+    expect(requiresExplicitTypingCheck(getAcceptedAnswerCandidates('dobrý', []))).toBe(false);
+    // Same grapheme count, no punctuation mismatch → mask + auto-check stay on.
+    expect(requiresExplicitTypingCheck(getAcceptedAnswerCandidates('dobrý', ['dobrá']))).toBe(
+      false,
+    );
+    // Different length → free input with an explicit check.
+    expect(
+      requiresExplicitTypingCheck(getAcceptedAnswerCandidates('dobrý', ['dobřejší'])),
+    ).toBe(true);
+    // One incompatible alternative flips the whole card.
+    expect(
+      requiresExplicitTypingCheck(getAcceptedAnswerCandidates('dobrý', ['dobrá', 'dobr'])),
+    ).toBe(true);
+  });
+
+  it('checks slot compatibility against the primary answer', () => {
+    expect(alternativesAreSlotCompatible('dobrý', [])).toBe(true);
+    expect(alternativesAreSlotCompatible('dobrý', ['dobrá', 'dobré'])).toBe(true);
+    expect(alternativesAreSlotCompatible('ice cream', ['icecreams'])).toBe(false);
+    expect(alternativesAreSlotCompatible('dobrý', ['dobrá', 'dobřejší'])).toBe(false);
   });
 });
 

@@ -1,6 +1,7 @@
 // Word normalization and utility functions
 
 import { normalizeWordItemComment, type WordItemComment } from '@/lib/word-item-comment';
+import { normalizeAcceptedAnswersForDisplay } from '@/lib/word-item-accepted-answers';
 
 export interface Word {
   id: string;
@@ -25,6 +26,8 @@ export interface NormalizedWord extends Word {
   canonicalWordId?: string | null;
   languageFrom?: string;
   languageTo?: string;
+  acceptedKnown?: string[];
+  acceptedTarget?: string[];
   comment?: WordItemComment | null;
 }
 
@@ -319,6 +322,8 @@ export function wordListItemsToNormalizedWords(
     categoryId: string | null;
     textKnown: string;
     textTarget: string | null;
+    acceptedKnown?: string[];
+    acceptedTarget?: string[];
     knownAudioUrl?: string | null;
     knownAudioArweaveUrl?: string | null;
     knownAudioArweaveUrls?: string[];
@@ -435,6 +440,8 @@ export function wordListItemsToNormalizedWords(
         canonicalWordId: item.canonicalWordId ?? null,
         languageFrom: itemLanguageFrom,
         languageTo: itemLanguageTo,
+        acceptedKnown: normalizeAcceptedAnswersForDisplay(item.acceptedKnown, item.textKnown),
+        acceptedTarget: normalizeAcceptedAnswersForDisplay(item.acceptedTarget, item.textTarget),
         // Defensive normalization on hydrate: drop malformed/legacy comments.
         comment: normalizeWordItemComment(item.comment),
       } as NormalizedWord;

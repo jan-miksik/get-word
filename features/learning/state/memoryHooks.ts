@@ -8,6 +8,12 @@ import type { Role } from './preferences';
 
 type MemoryHookTarget = string | Pick<NormalizedWord, 'id' | 'canonicalWordId'>;
 
+export const MEMORY_HOOK_MAX_LENGTH = 160;
+
+export function limitMemoryHookLength(value: string): string {
+  return Array.from(value).slice(0, MEMORY_HOOK_MAX_LENGTH).join('');
+}
+
 function getMemoryHookAliases(target: MemoryHookTarget): string[] {
   if (typeof target === 'string') return [target];
 
@@ -122,7 +128,7 @@ export function useMemoryHooks(
   }, [memoryHooks]);
 
   const setMemoryHook = useCallback((target: MemoryHookTarget, hook: string) => {
-    const trimmed = hook.trim();
+    const trimmed = limitMemoryHookLength(hook.trim());
     const aliases = getMemoryHookAliases(target);
     const syncKey = getPrimaryMemoryHookKey(target);
 

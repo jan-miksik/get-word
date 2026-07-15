@@ -3,9 +3,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { playUserInitiatedAudio } from '@/lib/audio-playback';
 import type { NormalizedWord } from '@/lib/words';
-import { matchAnswer } from '@/lib/minigames';
+import {
+  getAcceptedAnswerCandidates,
+  matchAnswerAgainstCandidates,
+  requiresExplicitTypingCheck,
+} from '@/lib/minigames';
+import { splitGraphemes } from '@/lib/answer-normalization';
 import {
   flipSide,
+  getWordAcceptedAnswersBySide,
   getWordAudioSrcsBySide,
   getWordTextBySide,
   knownSideForRole,
@@ -18,8 +24,17 @@ import { getTypingTargetLanguageLabel } from './target-language-label';
 import { useI18n } from '@/components/I18nProvider';
 
 // Case/accent-insensitive single-character compare for per-slot feedback.
+// Mirrors matchAnswer's strip (incl. đ→d) so slot colours match the verdict.
 const normalizeChar = (ch: string) =>
-  ch.normalize('NFD').replace(/\p{M}+/gu, '').toLowerCase();
+  ch.normalize('NFD').replace(/\p{M}+/gu, '').toLowerCase().replace(/đ/g, 'd');
+
+// Three-state slot verdict, mirroring matchAnswer: exact (case-insensitive)
+// → correct, accent-only difference → close, anything else → bad.
+const slotState = (typed: string, expected: string): 'correct' | 'close' | 'bad' => {
+  if (typed.toLowerCase() === expected.toLowerCase()) return 'correct';
+  if (normalizeChar(typed) === normalizeChar(expected)) return 'close';
+  return 'bad';
+};
 
 interface Props {
   words: NormalizedWord[];
@@ -52,6 +67,13 @@ export function TypingChallengeGame({
   const answerSide: WordSide = flipSide(promptSide);
   const prompt = getWordTextBySide(questionWord, promptSide);
   const correctAnswer = getWordTextBySide(questionWord, answerSide);
+  const answerCandidates = getAcceptedAnswerCandidates(
+    correctAnswer,
+    getWordAcceptedAnswersBySide(questionWord, answerSide),
+  );
+  // Only an alternative that doesn't fit the primary's slot mask forces the
+  // free-text input; slot-compatible alternatives keep the letter-count mask.
+  const useFreeAnswerInput = requiresExplicitTypingCheck(answerCandidates);
   const promptAudioSrcs = getWordAudioSrcsBySide(questionWord, promptSide);
   const learningAudioSrcs = getWordAudioSrcsBySide(questionWord, learningSide);
   const [hasAudioPlaybackError, setHasAudioPlaybackError] = useState(false);
@@ -61,16 +83,19 @@ export function TypingChallengeGame({
     !hasAudioPlaybackError
       ? 'audio'
       : 'text';
-  const normalizedAnswer = correctAnswer.trim();
-  const answerChars = normalizedAnswer.split('');
-  const hintExhausted = answerChars.every((ch, idx) => (value[idx] ?? '') === ch);
+  const [matchedAnswer, setMatchedAnswer] = useState(correctAnswer);
+  const normalizedAnswer = (result ? matchedAnswer : correctAnswer).trim();
+  const answerChars = splitGraphemes(normalizedAnswer);
+  const typedChars = splitGraphemes(value);
+  const hintExhausted = answerChars.every((ch, idx) => (typedChars[idx] ?? '') === ch);
   const targetLanguageLabel = getTypingTargetLanguageLabel(questionWord, answerSide, t, language);
 
   const check = () => {
     if (result !== null || !value.trim()) return;
-    const r = matchAnswer(value, correctAnswer);
-    setResult(r);
-    const delta = r === 'exact' ? 2 : r === 'close' ? 1 : 0;
+    const r = matchAnswerAgainstCandidates(value, answerCandidates);
+    setMatchedAnswer(r.matchedAnswer);
+    setResult(r.verdict);
+    const delta = r.verdict === 'exact' ? 2 : r.verdict === 'close' ? 1 : 0;
     if (delta > 0 && soundEnabled) {
       void playClip(learningAudioSrcs);
     }
@@ -81,7 +106,7 @@ export function TypingChallengeGame({
   // and auto-filling any spaces), so repeated presses progressively reveal it.
   const revealNextLetter = () => {
     if (result !== null) return;
-    const next = value.split('');
+    const next = splitGraphemes(value);
     let caretPos = -1;
     for (let idx = 0; idx < answerChars.length; idx++) {
       while (next.length <= idx) next.push('');
@@ -99,7 +124,8 @@ export function TypingChallengeGame({
     requestAnimationFrame(() => {
       const input = inputRef.current;
       if (input) {
-        const pos = Math.min(caretPos, nextValue.length);
+        // caretPos counts graphemes; setSelectionRange wants UTF-16 units.
+        const pos = next.slice(0, caretPos).join('').length;
         input.setSelectionRange(pos, pos);
         updateCaret(input);
       }
@@ -121,8 +147,8 @@ export function TypingChallengeGame({
   }, []);
 
   const updateCaret = (target: HTMLInputElement) => {
-    const next = target.selectionStart ?? value.length;
-    setCaretIndex(next);
+    const selectionStart = target.selectionStart ?? target.value.length;
+    setCaretIndex(splitGraphemes(target.value.slice(0, selectionStart)).length);
   };
 
   const playClip = async (
@@ -141,12 +167,12 @@ export function TypingChallengeGame({
     exact: `✓ ${t('game.perfect')}`,
     close: (
       <>
-        ~ {t('game.close')} <strong>{correctAnswer}</strong>
+        ~ {t('game.close')} <strong>{matchedAnswer}</strong>
       </>
     ),
     wrong: (
       <>
-        ✗ {t('game.correctAnswer')} <strong>{correctAnswer}</strong>
+        ✗ {t('game.correctAnswer')} <strong>{matchedAnswer}</strong>
       </>
     ),
   };
@@ -176,7 +202,7 @@ export function TypingChallengeGame({
             isFocused ? 'is-focused' : '',
           ].filter(Boolean).join(' ')}
         >
-          <div className="game-typing-mask" aria-hidden="true">
+          {!useFreeAnswerInput && <div className="game-typing-mask" aria-hidden="true">
             {(() => {
               const groups: React.ReactNode[] = [];
               let word: React.ReactNode[] = [];
@@ -190,27 +216,37 @@ export function TypingChallengeGame({
                 );
                 word = [];
               };
+              // After a non-perfect check every slot gains a small second
+              // row: the expected character under each wrong/close letter
+              // (blank elsewhere, kept for equal slot heights).
+              const showCorrections = result !== null && result !== 'exact';
               answerChars.forEach((ch, idx) => {
-                const typedChar = value[idx] ?? '';
+                const typedChar = typedChars[idx] ?? '';
                 const isSpace = ch === ' ';
                 const isActive = idx === caretIndex;
-                const charState =
-                  result === null || isSpace
-                    ? ''
-                    : normalizeChar(typedChar) === normalizeChar(ch)
-                      ? 'game-typing-slot--correct'
-                      : 'game-typing-slot--bad';
+                const state =
+                  result === null || isSpace ? null : slotState(typedChar, ch);
+                const needsCorrection =
+                  showCorrections && state !== null && state !== 'correct';
                 const span = (
                   <span
                     key={`ch-${idx}`}
                     className={[
                       'game-typing-slot',
                       isSpace ? 'game-typing-slot--space' : '',
-                      charState,
+                      state ? `game-typing-slot--${state}` : '',
                       isActive ? 'is-active' : '',
+                      showCorrections ? 'flex-col items-center' : '',
                     ].filter(Boolean).join(' ')}
                   >
                     {typedChar ? typedChar : '_'}
+                    {showCorrections && (
+                      <span
+                        className={`game-typing-correction text-[0.58em] font-bold leading-[1.2]${needsCorrection ? '' : ' invisible'}`}
+                      >
+                        {needsCorrection ? ch : '\u00A0'}
+                      </span>
+                    )}
                   </span>
                 );
                 if (isSpace) {
@@ -223,11 +259,13 @@ export function TypingChallengeGame({
               flush();
               return groups;
             })()}
-          </div>
+          </div>}
           <input
             ref={inputRef}
             type="text"
-            className={`game-input game-input--masked${result ? ` game-input--${result}` : ''}`}
+            className={useFreeAnswerInput
+              ? `game-input${result ? ` game-input--${result}` : ''}`
+              : `game-input game-input--masked${result ? ` game-input--${result}` : ''}`}
             placeholder={t('game.typeTranslation')}
             value={value}
             onChange={e => {

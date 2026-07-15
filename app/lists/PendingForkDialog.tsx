@@ -4,6 +4,7 @@ import { useI18n } from '@/components/I18nProvider';
 import type { ForkProgress } from '@/features/lists/client/actions';
 import type { LearningLanguage, PendingFork, TranslationProvider } from '@/features/lists/types';
 import {
+  DEFAULT_OPENROUTER_TRANSLATION_MODEL,
   OPENROUTER_MODELS_URL,
   OPENROUTER_TRANSLATION_MODELS,
 } from '@/lib/openrouter-models';
@@ -154,7 +155,11 @@ export function PendingForkDialog({
                 >
                   {OPENROUTER_TRANSLATION_MODELS.map((model) => (
                     <option key={model.id} value={model.id}>
-                      {model.name} - {model.price}
+                      {model.name}
+                      {model.id === DEFAULT_OPENROUTER_TRANSLATION_MODEL
+                        ? ` (${t('lists.modelRecommended')})`
+                        : ''}
+                      {' - '}{model.price}
                     </option>
                   ))}
                   <option value="custom">{t('lists.customModelName')}</option>

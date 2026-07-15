@@ -69,6 +69,16 @@ export async function GET(request: NextRequest, context: RouteContext) {
   }
 
   if (asset.storageType === "arweave") {
+    // Newly generated clips are mirrored to B2. Serve that mirror first: it is
+    // the fast, controlled path and avoids sending the browser through an
+    // unreliable public gateway before checking the copy we own.
+    const activeProvider = getActiveObjectStorageProvider();
+    const mirroredAudio = await getAudio(asset.contentHash, activeProvider);
+    if (mirroredAudio) {
+      logObjectServe(request, asset.contentHash, "object-fallback", activeProvider);
+      return audioResponse(mirroredAudio, "object-fallback", activeProvider);
+    }
+
     const gatewayUrls = getArweaveGatewayUrls(asset.storageRef);
     const attempts: {
       url: string;
@@ -124,18 +134,11 @@ export async function GET(request: NextRequest, context: RouteContext) {
       }
     }
 
-    const activeProvider = getActiveObjectStorageProvider();
-    const fallbackAudio = await getAudio(asset.contentHash, activeProvider);
-    if (fallbackAudio) {
-      logObjectServe(request, asset.contentHash, "object-fallback", activeProvider);
-      return audioResponse(fallbackAudio, "object-fallback", activeProvider);
-    }
-
     console.warn("[Get Word audio] all Arweave audio gateways failed", {
       contentHash: asset.contentHash,
       storageRef: asset.storageRef,
       attempts,
-      objectFallback: "miss",
+      objectFallback: "miss-before-gateway-fallback",
     });
 
     return noStoreJson(

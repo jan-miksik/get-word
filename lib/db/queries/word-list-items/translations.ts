@@ -2,6 +2,10 @@ import { and, eq, inArray, sql } from 'drizzle-orm';
 import { db } from '../../client';
 import { wordListItems, wordLists } from '../../schema';
 import { isAudioTextEquivalent } from '../../../audio-text-match';
+import { areAnswersEquivalent } from '@/lib/answer-normalization';
+import {
+  normalizeAcceptedAnswersForSave,
+} from '@/lib/word-item-accepted-answers';
 
 export async function updateItemTranslations(
   updates: {
@@ -10,6 +14,8 @@ export async function updateItemTranslations(
     textTarget?: string | null;
     translationStatus?: 'manual' | 'translated' | 'failed';
     ignoreCase?: boolean;
+    acceptedKnown?: string[];
+    acceptedTarget?: string[];
   }[],
 ): Promise<void> {
   // Load the current text + audio link for every item up front so we can tell
@@ -22,6 +28,8 @@ export async function updateItemTranslations(
           id: wordListItems.id,
           textKnown: wordListItems.textKnown,
           textTarget: wordListItems.textTarget,
+          acceptedKnown: wordListItems.acceptedKnown,
+          acceptedTarget: wordListItems.acceptedTarget,
           audioAssetId: wordListItems.audioAssetId,
           audioStatus: wordListItems.audioStatus,
           knownAudioAssetId: wordListItems.knownAudioAssetId,
@@ -32,7 +40,15 @@ export async function updateItemTranslations(
     : [];
   const existingById = new Map(existing.map((item) => [item.id, item]));
 
-  for (const { id, textKnown, textTarget, translationStatus, ignoreCase } of updates) {
+  for (const {
+    id,
+    textKnown,
+    textTarget,
+    translationStatus,
+    ignoreCase,
+    acceptedKnown,
+    acceptedTarget,
+  } of updates) {
     const set: Record<string, unknown> = {
       updatedAt: new Date(),
     };
@@ -42,8 +58,20 @@ export async function updateItemTranslations(
     // Owner/editor toggle: changes the item's content-key normalization. An
     // identity-changing edit (see lib/progress-key.ts).
     if (ignoreCase !== undefined) set.ignoreCase = ignoreCase;
-
     const prev = existingById.get(id);
+    const nextTextKnown = textKnown ?? prev?.textKnown ?? '';
+    const nextTextTarget = textTarget === undefined ? prev?.textTarget ?? null : textTarget;
+    if (acceptedKnown !== undefined) {
+      set.acceptedKnown = normalizeAcceptedAnswersForSave(acceptedKnown, nextTextKnown);
+    } else if (textKnown !== undefined && prev && !areAnswersEquivalent(prev.textKnown, textKnown)) {
+      set.acceptedKnown = [];
+    }
+    if (acceptedTarget !== undefined) {
+      set.acceptedTarget = normalizeAcceptedAnswersForSave(acceptedTarget, nextTextTarget);
+    } else if (textTarget !== undefined && prev && !areAnswersEquivalent(prev.textTarget, textTarget)) {
+      set.acceptedTarget = [];
+    }
+
     if (prev) {
       // Target-side word changed beyond case/dots → its audio no longer matches.
       if (

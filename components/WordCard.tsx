@@ -17,6 +17,10 @@ import {
   getLearningAudioSrc,
   getWordTextSize,
 } from '@/components/word-card/helpers';
+import {
+  limitMemoryHookLength,
+  MEMORY_HOOK_MAX_LENGTH,
+} from '@/features/learning/state/memoryHooks';
 
 interface WordCardProps {
   word: NormalizedWord;
@@ -176,6 +180,24 @@ export const WordCard = memo(function WordCard({
     setHookValue(memoryHook);
   };
 
+  const isMobileLayout = () =>
+    typeof window !== 'undefined' &&
+    window.matchMedia?.('(max-width: 767px)').matches === true;
+
+  // A single tap opened the editor too easily on touch layouts (stray taps
+  // started typing over the hook), so mobile needs a quick double tap. The
+  // dblclick event is unreliable on touch, hence the manual timestamp check.
+  const lastHookTapAtRef = useRef(0);
+  const handleHookTap = () => {
+    if (!isMobileLayout()) {
+      if (!memoryHook) startEditing();
+      return;
+    }
+    const isSecondTap = Date.now() - lastHookTapAtRef.current < 350;
+    lastHookTapAtRef.current = Date.now();
+    if (isSecondTap) startEditing();
+  };
+
   const displayHook = memoryHook || (suggestedHook ? `💡 ${suggestedHook}` : `💭 ${t('card.memoryHookPlaceholder')}`);
 
   // Stage index / group
@@ -289,7 +311,9 @@ export const WordCard = memo(function WordCard({
             className={`memory-hook-display cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full !text-[#2A2218] hover:!bg-[#2A2218]/5 ${coverMemoryHook ? 'is-covered' : ''}`}
             data-lang="memory-hook"
             onDoubleClick={startEditing}
-            onClick={() => !memoryHook && !coverMemoryHook && startEditing()}
+            onClick={() => {
+              if (!coverMemoryHook) handleHookTap();
+            }}
           >
             <span className={`memory-hook-text relative inline-block min-h-[1.4em] ${coverMemoryHook ? '[.is-pressed_&]:!text-[#2A2218]' : '!text-[#2A2218]'} ${!memoryHook ? 'opacity-60 italic' : ''}`}>
               {displayHook}
@@ -302,7 +326,8 @@ export const WordCard = memo(function WordCard({
             className={`memory-hook-input !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] placeholder:!text-[#2A2218]/50 focus:!border-[#1E6FA8] focus:!shadow-none`}
             placeholder={t('card.memoryHookInput')}
             value={hookValue}
-            onChange={(e) => setHookValue(e.target.value)}
+            maxLength={MEMORY_HOOK_MAX_LENGTH}
+            onChange={(e) => setHookValue(limitMemoryHookLength(e.target.value))}
             onBlur={finishEditing}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {

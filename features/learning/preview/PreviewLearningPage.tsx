@@ -32,6 +32,8 @@ const PREVIEW_WORDS: NormalizedWord[] = [
     category: ['zvířata', 'word'],
     categoryPositions: { zvířata: 0 },
     listPosition: 0,
+    languageFrom: 'cs',
+    languageTo: 'vi',
     cz: 'pes',
     en: 'dog',
     vi: 'con chó',
@@ -44,6 +46,8 @@ const PREVIEW_WORDS: NormalizedWord[] = [
     category: ['jídlo', 'word'],
     categoryPositions: { jídlo: 1 },
     listPosition: 1,
+    languageFrom: 'cs',
+    languageTo: 'vi',
     cz: 'jíst',
     en: 'to eat',
     vi: 'ăn',
@@ -56,6 +60,8 @@ const PREVIEW_WORDS: NormalizedWord[] = [
     category: ['konverzace', 'phrase'],
     categoryPositions: { konverzace: 2 },
     listPosition: 2,
+    languageFrom: 'cs',
+    languageTo: 'vi',
     cz: 'děkuji',
     en: 'thank you',
     vi: 'cảm ơn',
@@ -67,6 +73,8 @@ const PREVIEW_WORDS: NormalizedWord[] = [
     category: ['doprava', 'word'],
     categoryPositions: { doprava: 0 },
     listPosition: 0,
+    languageFrom: 'cs',
+    languageTo: 'vi',
     cz: 'nádraží',
     en: 'station',
     vi: 'nhà ga',
@@ -78,6 +86,8 @@ const PREVIEW_WORDS: NormalizedWord[] = [
     category: ['doprava', 'word'],
     categoryPositions: { doprava: 0 },
     listPosition: 1,
+    languageFrom: 'cs',
+    languageTo: 'vi',
     cz: 'jízdenka',
     en: 'ticket',
     vi: 'vé',
@@ -153,7 +163,7 @@ function PreviewStudy({
   const [showAll, setShowAll] = useState(false);
   const [typingModeEnabled, setTypingModeEnabled] = useState(false);
   const [typingWriteIn, setTypingWriteIn] = useState<TypingWriteIn>('foreign');
-  const [typingAudioPromptEnabled, setTypingAudioPromptEnabled] = useState(true);
+  const [typingAudioPromptEnabled, setTypingAudioPromptEnabled] = useState(false);
   const [typingPrefillPunctuation, setTypingPrefillPunctuation] = useState(true);
   // Remounts the typing card after each answer so the preview can be exercised
   // repeatedly (the real app advances the stream instead).
@@ -324,11 +334,11 @@ function PreviewStudy({
                   progress={progress[currentWord.id]}
                   role={role}
                   writeIn={typingWriteIn}
-                  audioPromptEnabled={typingAudioPromptEnabled}
+                  audioPromptEnabled={false}
                   prefillPunctuation={typingPrefillPunctuation}
                   modeIndex={(typingRound % 2) as 0 | 1}
-                  onOutcome={(outcome, points) => {
-                    setGameScore((score) => Math.max(0, score + points));
+                  onScore={(points) => setGameScore((score) => Math.max(0, score + points))}
+                  onOutcome={(outcome) => {
                     if (outcome === 'known') changeProgress(currentWord.id, 'known');
                     else if (outcome === 'unknown') changeProgress(currentWord.id, 'unknown');
                     else
@@ -341,6 +351,10 @@ function PreviewStudy({
                     changeProgress(currentWord.id, { stageIndex, noRepeat: opts?.noRepeat });
                     setTypingRound((round) => round + 1);
                   }}
+                  memoryHook={memoryHooks[currentWord.id] ?? ''}
+                  suggestedHook={currentWord.czHint ?? ''}
+                  onMemoryHookChange={(hook) => setMemoryHook(currentWord, hook)}
+                  showMemoryHook={memoryHooksEnabled && progress[currentWord.id].stageIndex < memoryHookDisableFromStage}
                   fullscreen
                 />
               </div>

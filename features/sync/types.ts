@@ -76,6 +76,8 @@ export interface SyncWordListItem {
   position: number;
   textKnown: string;
   textTarget: string | null;
+  acceptedKnown?: string[];
+  acceptedTarget?: string[];
   translationStatus: string;
   knownAudioAssetId: string | null;
   knownAudioStatus: string;

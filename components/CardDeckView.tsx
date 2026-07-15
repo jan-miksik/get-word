@@ -85,6 +85,8 @@ interface CardDeckViewProps {
   onWordCardCompleted?: (word: NormalizedWord) => void;
   /** When set, word cards can be swiped right = known / left = forgotten (frontier feature). */
   swipeActions?: CardDeckSwipeActions;
+  /** False keeps only the upward fully-known gesture. */
+  allowHorizontalSwipe?: boolean;
   renderCard: (
     word: NormalizedWord,
     stageIndex: number,
@@ -99,6 +101,7 @@ export function CardDeckView({
   interstitialCard = null,
   onWordCardCompleted,
   swipeActions,
+  allowHorizontalSwipe = true,
   renderCard,
   renderMiniGame,
 }: CardDeckViewProps) {
@@ -346,6 +349,7 @@ export function CardDeckView({
   const swipeEnabled = swipeConfigured && !interstitialCard && !showDoneOverlay && !exitAnim;
   const swipe = useSwipeGesture({
     enabled: swipeEnabled,
+    allowHorizontal: allowHorizontalSwipe,
     getWordId: getCurrentSwipeWordId,
     onCommit: (direction, wordId) => {
       if (!swipeActions) return;
@@ -425,13 +429,16 @@ export function CardDeckView({
   const itemKey = getStreamItemKey(item);
   const isExiting = Boolean(exitAnim);
   const swipeActive = swipeConfigured && !isMinigame;
+  const horizontalSwipeActive = swipeActive && allowHorizontalSwipe;
 
   // Swipe badges show when the word comes back rather than a right/wrong
   // verdict — deliberately neutral so a left swipe doesn't read as "mistake".
   // Mirrors the okay/forgot hint math in WordCard. Note: `stageIndex` above is
   // a stream-section index (due/new), not the SRS stage — ask the caller.
   const swipeWordStage =
-    swipeActive && swipeActions ? swipeActions.getStageIndex((item as NormalizedWord).id) : 0;
+    horizontalSwipeActive && swipeActions
+      ? swipeActions.getStageIndex((item as NormalizedWord).id)
+      : 0;
   const repeatNowLabel = t('card.repeatShortNow');
   const swipeKnownLabel = `↺ ${
     formatInterval(STAGES[Math.min(swipeWordStage + 1, STAGES.length - 1)]?.intervalMs ?? 0, t) ||
@@ -464,7 +471,7 @@ export function CardDeckView({
             ? renderMiniGame(item as MiniGameConfig, () => advance())
             : renderCard(item as NormalizedWord, stageIndex, (afterExit) => advance({ afterExit }), { isExiting })}
         </div>
-        {swipeActive && (
+        {horizontalSwipeActive && (
           <>
             {/* Inline color avoids relying on arbitrary Tailwind color emission here. */}
             <div

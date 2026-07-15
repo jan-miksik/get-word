@@ -288,6 +288,13 @@
       "when": 1783606814279,
       "tag": "0040_good_gorilla_man",
       "breakpoints": true
+    },
+    {
+      "idx": 41,
+      "version": "7",
+      "when": 1784073600000,
+      "tag": "0041_word_item_accepted_answers",
+      "breakpoints": true
     }
   ]
 }

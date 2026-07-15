@@ -12,8 +12,6 @@ export function TypingModeSection() {
     setTypingModeEnabled,
     typingWriteIn,
     setTypingWriteIn,
-    typingAudioPromptEnabled,
-    setTypingAudioPromptEnabled,
     typingPrefillPunctuation,
     setTypingPrefillPunctuation,
   } = useAppStateContext();
@@ -63,14 +61,6 @@ export function TypingModeSection() {
                 );
               })}
             </div>
-          </div>
-          <div className="flex items-center justify-between py-0.5">
-            <span className="text-sm text-text">{t('settings.typingAudioPrompt')}</span>
-            <ToggleSwitch
-              checked={typingAudioPromptEnabled}
-              onChange={setTypingAudioPromptEnabled}
-              ariaLabel={t('settings.typingAudioPrompt')}
-            />
           </div>
           <div className="flex items-center justify-between py-0.5">
             <span className="text-sm text-text">{t('settings.typingPrefillPunctuation')}</span>

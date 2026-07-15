@@ -104,7 +104,7 @@ describe('local learning cache preferences', () => {
     expect(status.cachedSizeBytes).toBe(1536);
   });
 
-  it('caches only the preferred source instead of each gateway fallback', () => {
+  it('caches the API proxy so Arweave-backed audio can use its B2 mirror', () => {
     expect(getAudioUrlsForWords([audioWord])).toEqual([
       '/api/audio/hash-known',
       '/api/audio/hash-target',

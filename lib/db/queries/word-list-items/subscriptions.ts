@@ -64,6 +64,8 @@ export async function subscribeToList(
     canonicalWordId: item.id,
     knownAudioAssetId: item.knownAudioAssetId,
     audioAssetId: item.audioAssetId,
+    acceptedKnown: item.acceptedKnown,
+    acceptedTarget: item.acceptedTarget,
     // Same language pair (direct copy), so both manual and generated comments
     // carry unchanged.
     comment: item.comment,
@@ -86,6 +88,8 @@ export async function subscribeToList(
           translationStatus: item.translationStatus,
           knownAudioAssetId: item.knownAudioAssetId,
           audioAssetId: item.audioAssetId,
+          acceptedKnown: item.acceptedKnown,
+          acceptedTarget: item.acceptedTarget,
           comment: item.comment,
         })),
       )

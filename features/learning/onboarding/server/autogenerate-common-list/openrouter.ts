@@ -118,10 +118,9 @@ function serverChatOptions(prompt: string, model = SERVER_AUTOGENERATE_MODEL) {
     maxAttempts: OPENROUTER_MAX_ATTEMPTS,
     retryBaseDelayMs: OPENROUTER_RETRY_BASE_DELAY_MS,
     responseFormat: { type: "json_object" as const },
-    // Sized for the larger OPENROUTER_BATCH_SIZE: output is ~as large as input
-    // (one target per item), so this must comfortably exceed a full batch of
-    // rows to avoid mid-array truncation (which would invalidate the JSON).
-    maxTokens: 24_000,
+    // Batch-derived output budget for the primary pair + category only.
+    // Accepted variants are intentionally generated later through BYOK.
+    maxTokens: Math.min(24_000, 140 * OPENROUTER_BATCH_SIZE + 1_000),
     temperature: 0.2,
     messages: [
       { role: "system" as const, content: SYSTEM_MESSAGE },
@@ -345,7 +344,14 @@ async function repairKnownSideLeaks(
       ) {
         continue;
       }
-      repaired[index] = { ...item, known: candidate.known, target: candidate.target };
+      // Both texts changed → any generated variants no longer match them.
+      repaired[index] = {
+        ...item,
+        known: candidate.known,
+        target: candidate.target,
+        acceptedKnown: undefined,
+        acceptedTarget: undefined,
+      };
       fixed += 1;
     }
     console.warn("[Get Word onboarding] known-side category leakage repair complete", {
@@ -413,7 +419,8 @@ async function repairWrongScriptItems(
       const candidate = byIndex.get(index);
       // Only accept the repair if it actually fixed the script problem.
       if (candidate && !looksUntranslated(candidate, languageTo)) {
-        repaired[index] = { ...item, target: candidate };
+        // The target text changed → its generated variants no longer match.
+        repaired[index] = { ...item, target: candidate, acceptedTarget: undefined };
         fixed += 1;
       }
     }

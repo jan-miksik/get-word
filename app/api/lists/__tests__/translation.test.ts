@@ -6,6 +6,7 @@ const mockResolveUserFromRequest = vi.fn()
 const mockGetListById = vi.fn()
 const mockFindExistingTranslations = vi.fn()
 const mockUpdateItemTranslations = vi.fn()
+const mockSetItemComment = vi.fn()
 const mockGetUserApiKey = vi.fn()
 const mockReserveGoogleApiUsage = vi.fn()
 
@@ -14,6 +15,7 @@ vi.mock('@/lib/db', () => ({
   getListById: (...args: unknown[]) => mockGetListById(...args),
   findExistingTranslations: (...args: unknown[]) => mockFindExistingTranslations(...args),
   updateItemTranslations: (...args: unknown[]) => mockUpdateItemTranslations(...args),
+  setItemComment: (...args: unknown[]) => mockSetItemComment(...args),
   reserveGoogleApiUsage: (...args: unknown[]) => mockReserveGoogleApiUsage(...args),
 }))
 
@@ -455,6 +457,28 @@ describe('POST /api/lists/[id]/items/translations', () => {
     const body = await res.json()
     expect(body.updated).toBe(1)
     expect(body.skipped).toBe(1)
+  })
+
+  it('rejects invalid accepted answers before persisting any part of the request', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetListById.mockResolvedValue(testList)
+    const req = new NextRequest('http://localhost/api/lists/list-1/items/translations', {
+      method: 'POST',
+      body: JSON.stringify({
+        translations: [{
+          id: 'item-1',
+          comment: 'must not be saved',
+          accepted_target: Array.from({ length: 11 }, (_, index) => `answer-${index}`),
+          status: 'manual',
+        }],
+      }),
+    })
+
+    const res = await confirmTranslations(req, makeListCtx())
+
+    expect(res.status).toBe(400)
+    expect(mockSetItemComment).not.toHaveBeenCalled()
+    expect(mockUpdateItemTranslations).not.toHaveBeenCalled()
   })
 })
 

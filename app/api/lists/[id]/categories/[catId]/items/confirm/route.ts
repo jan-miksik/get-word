@@ -89,6 +89,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
         id: item.id,
         text_known: item.textKnown,
         text_target: item.textTarget,
+        accepted_known: item.acceptedKnown ?? [],
+        accepted_target: item.acceptedTarget ?? [],
         position: item.position,
       })),
     });

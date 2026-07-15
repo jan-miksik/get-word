@@ -32,6 +32,11 @@ export function toPreparedItems(
       categoryName,
       canonicalWordId: seedItem?.id ?? null,
       notes: seedItem?.notes ?? null,
+      // Variants generated alongside the texts. Seed accepted answers are NOT
+      // carried here: translation-base seeds re-generate both texts, so the
+      // seed's variants can't be assumed valid for the new pair.
+      acceptedKnown: item.acceptedKnown,
+      acceptedTarget: item.acceptedTarget,
     };
 
     if (seedItem && options.seedSide && options.seedLanguage) {

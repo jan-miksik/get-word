@@ -37,9 +37,13 @@ export class OpenRouterChatError extends Error {
   }
 }
 
+export type OpenRouterContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
 export type OpenRouterMessage = {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: string | OpenRouterContentPart[];
 };
 
 export interface OpenRouterChatOptions {
@@ -48,6 +52,8 @@ export interface OpenRouterChatOptions {
   messages: OpenRouterMessage[];
   /** Passed through as `response_format` (e.g. json_object or strict json_schema). */
   responseFormat?: Record<string, unknown>;
+  /** Unified OpenRouter reasoning control (enabled/effort/max_tokens/exclude). */
+  reasoning?: Record<string, unknown>;
   maxTokens?: number;
   temperature?: number;
   topP?: number;
@@ -83,6 +89,7 @@ async function callOnce(options: OpenRouterChatOptions): Promise<string> {
         model: options.model,
         messages: options.messages,
         ...(options.responseFormat ? { response_format: options.responseFormat } : {}),
+        ...(options.reasoning ? { reasoning: options.reasoning } : {}),
         ...(options.maxTokens != null ? { max_tokens: options.maxTokens } : {}),
         ...(options.temperature != null ? { temperature: options.temperature } : {}),
         ...(options.topP != null ? { top_p: options.topP } : {}),

@@ -1,0 +1,1457 @@
+
+Výraz	Úroveň	Typ	Slovní druh	Rod	Číslo	Vid	Kapitoly
+a	A1	slovo	konjunkce				4.8.1; 5.3.22; 5.4.4; 6.1.7; 6.2.6; 6.8.1
+adresa	A1	slovo	substantivum	femininum	singulár		6.1.3
+adresát	A1	slovo	substantivum	maskulinum	singulár		6.8.11
+advokát	A1	slovo	substantivum	maskulinum	singulár		6.11.8
+advokátka	A1	slovo	substantivum	femininum	singulár		6.11.8
+aerobik	A1	slovo	substantivum	maskulinum	singulár		6.5.7
+ahoj	A1	slovo	interjekce				5.5.15; 5.5.24; 5.5.37; 5.6.2
+ale	A1	slovo	konjunkce				4.8.4
+ale ano	A1	slovo	partikule				5.2.6
+alkohol	A1	slovo	substantivum	maskulinum	singulár		6.3.14; 6.9.6
+angličtina	A1	slovo	substantivum	femininum	singulár		6.10.7
+ano	A1	slovo	partikule				5.2.1; 5.4.9; 5.4.17; 5.4.19; 5.5.6; 5.5.9; 5.6.6
+asi	A1	slovo	partikule				4.2.6; 5.2.19
+asistent	A1	slovo	substantivum	maskulinum	singulár		6.6.1; 6.10.4
+asistentka	A1	slovo	substantivum	femininum	singulár		6.6.1; 6.10.4
+au	A1	slovo	interjekce				5.3.33
+auto	A1	slovo	substantivum	neutrum	singulár		6.9.1; 6.9.5
+autobus	A1	slovo	substantivum	maskulinum	singulár		6.9.1; 6.9.8
+automat	A1	slovo	substantivum	maskulinum	singulár		6.9.8
+autoservis	A1	slovo	substantivum	maskulinum	singulár		6.9.5
+babička	A1	slovo	substantivum	femininum	singulár		6.1.13
+bál	A1	slovo	substantivum	maskulinum	singulár		6.5.11
+balík	A1	slovo	substantivum	maskulinum	singulár		4.2.3; 6.8.11
+balon	A1	slovo	substantivum	maskulinum	singulár		6.5.9
+banán	A1	slovo	substantivum	maskulinum	singulár		6.3.10
+banka	A1	slovo	substantivum	femininum	singulár		6.6.3; 6.8.8; 6.8.12
+bankomat	A1	slovo	substantivum	maskulinum	singulár		6.8.12
+barva	A1	slovo	substantivum	femininum	singulár		4.6.8; 6.8.5
+basketbal	A1	slovo	substantivum	maskulinum	singulár		6.5.7
+bát se	A1	slovo	verbum			imperfektivní	5.3.30; 5.3.31
+bavlna	A1	slovo	substantivum	femininum	singulár		4.6.9
+bazén	A1	slovo	substantivum	maskulinum	singulár		6.2.3; 6.5.9
+benzin	A1	slovo	substantivum	maskulinum	singulár		6.9.5
+benzinka	A1	slovo	substantivum	femininum	singulár		6.9.5
+benzinový	A1	slovo	adjektivum				6.9.5
+bílý	A1	slovo	adjektivum				4.6.8; 6.3.14
+blahopřát	A1	slovo	verbum			imperfektivní	5.5.25
+blond	A1	slovo	adjektivum				6.1.14
+blůza	A1	slovo	substantivum	femininum	singulár		6.8.3
+bod	A1	slovo	substantivum	maskulinum	singulár		6.10.8
+bohužel	A1	slovo	partikule				5.3.21; 5.3.27; 5.4.10; 5.5.7
+bolet	A1	slovo	verbum			imperfektivní	5.3.32; 5.3.33; 6.7.2
+bonbon	A1	slovo	substantivum	maskulinum	singulár		6.3.9
+boty	A1	slovo	substantivum	femininum	plurál		6.6.5; 6.8.2; 6.8.3
+brambory	A1	slovo	substantivum	maskulinum	plurál		6.3.8
+brát	A1	slovo	verbum			imperfektivní	6.6.6; 6.7.4; 6.8.6; 6.11.4
+bratr	A1	slovo	substantivum	maskulinum	singulár		6.1.13
+brigáda	A1	slovo	substantivum	femininum	singulár		6.6.5
+bruslit	A1	slovo	verbum			imperfektivní	6.5.7
+brýle	A1	slovo	substantivum	femininum	pluralium tantum		6.1.14; 6.6.5
+brzo	A1	slovo	adverbium				4.5.8
+březen	A1	slovo	substantivum	maskulinum	singulár		4.5.1
+břicho	A1	slovo	substantivum	neutrum	singulár		6.7.1
+bunda	A1	slovo	substantivum	femininum	singulár		6.8.3
+bydlet	A1	slovo	verbum			imperfektivní	6.1.3; 6.2.1
+bydliště	A1	slovo	substantivum	neutrum	singulár		6.1.3
+být	A1	slovo	verbum			imperfektivní	4.1.1; 4.1.3; 4.3.4; 4.4.1; 4.5.1; 4.5.12; 5.1.1; 5.2.1; 5.3.31; 5.4.2; 5.4.4; 5.4.5; 5.4.9; 5.5.1; 5.5.18; 5.6.9; 6.6.1
+byt	A1	slovo	substantivum	maskulinum	singulár		6.2.1; 6.2.6
+byt 3+1	A1	slovo	substantivum	maskulinum	singulár		6.2.1
+CD	A1	slovo	substantivum	neutrum	singulár		6.5.5
+cédéčko	A1	slovo	substantivum	neutrum	singulár		6.5.5
+celý	A1	slovo	adjektivum				4.2.3; 6.6.5
+cena	A1	slovo	substantivum	femininum	singulár		4.6.12; 6.8.4; 6.8.6
+centimetr	A1	slovo	substantivum	maskulinum	singulár		4.3.2; 4.3.3
+cesta	A1	slovo	substantivum	femininum	singulár		6.9.12
+cestovat	A1	slovo	verbum			imperfektivní	6.5.2; 6.5.6
+cestující	A1	slovo	substantivum	maskulinum	singulár		6.9.8
+cibule	A1	slovo	substantivum	femininum	singulár		6.3.10
+cirkus	A1	slovo	substantivum	maskulinum	singulár		6.5.10
+cítit	A1	slovo	verbum			imperfektivní	4.6.7
+citron	A1	slovo	substantivum	maskulinum	singulár		6.3.10
+cizí	A1	slovo	adjektivum				4.8.9; 6.14.1
+cizinec	A1	slovo	substantivum	maskulinum	singulár		6.1.9; 6.11.6; 6.14.2
+cizinecký	A1	slovo	adjektivum				6.12.1
+cizinka	A1	slovo	substantivum	femininum	singulár		6.1.9; 6.14.2
+co	A1	slovo	pronomen				4.6.9; 5.1.8; 5.2.30; 5.2.35; 5.3.4; 5.3.22; 5.33.29; 5.4.8; 5.7.1
+cukr	A1	slovo	substantivum	maskulinum	singulár		6.3.13
+cukrárna	A1	slovo	substantivum	femininum	singulár		6.8.1
+cukrovka (nemoc)	A1	slovo	substantivum	femininum	singulár		6.7.5
+cvičení	A1	slovo	substantivum	neutrum	singulár		6.10.5; 6.10.6
+cvičit	A1	slovo	verbum			imperfektivní	6.5.7; 6.10.5
+čaj	A1	slovo	substantivum	maskulinum	singulár		6.3.14
+čas	A1	slovo	substantivum	maskulinum	singulár		4.5.1
+časopis	A1	slovo	substantivum	maskulinum	singulár		6.5.14
+často	A1	slovo	adverbium				4.5.13; 5.1.8
+čau	A1	slovo	interjekce				5.5.15
+čekárna	A1	slovo	substantivum	femininum	singulár		6.7.7; 6.9.10
+čekat	A1	slovo	verbum			imperfektivní	6.9.10
+čepice	A1	slovo	substantivum	femininum	singulár		6.8.3
+černý	A1	slovo	adjektivum				4.6.8
+čerstvý	A1	slovo	adjektivum				6.3.7
+červen	A1	slovo	substantivum	maskulinum	singulár		4.5.1
+červenec	A1	slovo	substantivum	maskulinum	singulár		4.5.1
+červený	A1	slovo	adjektivum				4.6.8; 6.3.14
+česat se	A1	slovo	verbum			imperfektivní	6.4.2
+česky	A1	slovo	adverbium				5.7.9; 6.14.1
+česnek	A1	slovo	substantivum	maskulinum	singulár		6.3.10
+čeština	A1	slovo	substantivum	femininum	singulár		6.10.7; 6.14.1
+čí	A1	slovo	pronomen				4.8.9; 5.1.8
+číslo	A1	slovo	substantivum	neutrum	singulár		4.2.1; 4.3.1; 5.6.11; 5.6.15; 6.1.3; 6.1.4; 6.1.12; 6.8.5
+číst	A1	slovo	verbum			imperfektivní	6.5.2; 6.5.14; 6.10.5; 6.14.1
+čistírna	A1	slovo	substantivum	femininum	singulár		6.8.8
+čistit	A1	slovo	verbum			imperfektivní	4.6.3; 6.4.2; 6.4.3; 6.8.9
+čistý	A1	slovo	adjektivum				4.6.3; 6.6.6
+číšnice	A1	slovo	substantivum	femininum	singulár		6.3.3; 6.6.1
+číšník	A1	slovo	substantivum	maskulinum	singulár		6.3.3; 6.6.1
+člověk	A1	slovo	substantivum	maskulinum	singulár		6.1.15
+čokoláda	A1	slovo	substantivum	femininum	singulár		6.3.9
+čtvrtek	A1	slovo	substantivum	maskulinum	singulár		4.5.1
+daleko	A1	slovo	adverbium				4.3.4; 5.1.8
+dálnice	A1	slovo	substantivum	femininum	singulár		6.9.4
+další	A1	slovo	adjektivum				4.2.4
+dámy (označení toalety)	A1	slovo	substantivum	femininum	plurál		6.1.7
+dárek	A1	slovo	substantivum	maskulinum	singulár		6.8.2
+dát	A1	slovo	verbum			perfektivní	4.4.7; 4.4.14; 6.6.5; 6.7.4
+dát si	A1	slovo	verbum			perfektivní	5.5.8; 6.3.3; 6.8.4
+datum	A1	slovo	substantivum	neutrum	singulár		4.5.1; 6.1.5
+dcera	A1	slovo	substantivum	femininum	singulár		6.1.13
+dědeček	A1	slovo	substantivum	maskulinum	singulár		6.1.13
+děkovat	A1	slovo	verbum			imperfektivní	5.4.19; 5.4.20; 5.5.3; 5.5.6; 5.5.9; 5.5.10; 5.5.21; 5.5.26; 5.5.28; 5.6.19; 5.6.20
+děkuju	A1	slovo	verbum			imperfektivní	5.5.3; 5.5.21; 5.5.23; 5.6.20
+dělat sport	A1	slovo	verbum			imperfektivní	6.5.7
+dělnice	A1	slovo	substantivum	femininum	singulár		6.6.1
+dělník	A1	slovo	substantivum	maskulinum	singulár		6.6.1
+demokratický	A1	slovo	adjektivum				6.14.4
+den	A1	slovo	substantivum	maskulinum	singulár		4.5.1; 5.5.14; 5.6.1
+denně	A1	slovo	adverbium				4.5.13
+deset	A1	slovo	numerále				4.2.1
+déšť	A1	slovo	substantivum	maskulinum	singulár		6.13.3
+deštník	A1	slovo	substantivum	maskulinum	singulár		6.8.3
+děti	A1	slovo	substantivum	femininum	plurál		6.1.6; 6.1.13
+dévédéčko	A1	slovo	substantivum	neutrum	singulár		6.5.5
+dezert	A1	slovo	substantivum	maskulinum	singulár		6.3.5; 6.3.9
+diplom	A1	slovo	substantivum	maskulinum	singulár		6.10.9
+diskotéka	A1	slovo	substantivum	femininum	singulár		6.5.11
+dítě	A1	slovo	substantivum	neutrum	singulár		4.6.13; 6.1.6; 6.1.13; 6.7.13; 6.11.5
+divadlo	A1	slovo	substantivum	neutrum	singulár		6.5.10
+dívat se	A1	slovo	verbum			imperfektivní	4.6.4; 6.5.2; 6.8.5
+dívka	A1	slovo	substantivum	femininum	singulár		6.1.7
+dlouho	A1	slovo	adverbium				4.5.12; 5.1.8
+dlouhodobý	A1	slovo	adjektivum				6.11.6
+dlouhý	A1	slovo	adjektivum				4.3.3; 4.5.12; 6.1.14
+dnes	A1	slovo	adverbium				4.5.3
+do	A1	slovo	prepozice				5.1.9; 5.6.12; 6.2.6; 6.6.5
+doba	A1	slovo	substantivum	femininum	singulár		4.5.1; 6.6.5; 6.8.4
+dobrý	A1	slovo	adjektivum				4.7.1; 4.7.4; 5.4.3; 5.4.9; 5.5.14; 5.5.26; 5.6.1
+dobře	A1	slovo	adverbium				5.4.2; 5.4.9
+dohromady	A1	slovo	adverbium				6.3.3
+doklad	A1	slovo	substantivum	maskulinum	singulár		6.1.12; 6.9.6; 6.11.1
+dole	A1	slovo	adverbium				4.4.2
+dolů	A1	slovo	adverbium				4.4.19
+doma	A1	slovo	adverbium				4.4.2
+domácí	A1	slovo	adjektivum				6.2.5; 6.4.3; 6.8.1
+domácnost	A1	slovo	substantivum	femininum	singulár		6.6.2
+domů	A1	slovo	adverbium				4.4.19
+dopis	A1	slovo	substantivum	maskulinum	singulár		6.8.11
+dopoledne	A1	slovo	adverbium				4.5.1
+doporučit	A1	slovo	verbum			perfektivní	6.3.3; 6.8.6
+doprava	A1	slovo	adverbium				4.4.19
+dopředu	A1	slovo	adverbium				4.4.19
+dort	A1	slovo	substantivum	maskulinum	singulár		6.3.9
+dospělý	A1	slovo	substantivum	maskulinum	singulár		4.6.13; 6.1.6
+dovolená	A1	slovo	substantivum	femininum	singulár		6.5.1; 6.6.2; 6.11.4
+dozadu	A1	slovo	adverbium				4.4.19
+drahý	A1	slovo	adjektivum				4.6.12; 6.2.2; 6.8.4
+drobné (peníze)	A1	slovo	substantivum	neutrum	plurál		6.8.7
+drogerie	A1	slovo	substantivum	femininum	singulár		6.8.1
+drůbež	A1	slovo	substantivum	femininum	singulár		6.3.7
+druhý	A1	slovo	numerále				4.2.4
+duben	A1	slovo	substantivum	maskulinum	singulár		4.5.1
+důchod	A1	slovo	substantivum	maskulinum	singulár		6.11.4
+důchodce	A1	slovo	substantivum	maskulinum	singulár		6.6.2; 6.11.4
+důchodkyně	A1	slovo	substantivum	femininum	singulár		6.6.2; 6.11.4
+důležitý	A1	slovo	adjektivum				4.7.6
+dům	A1	slovo	substantivum	maskulinum	singulár		6.1.3; 6.2.1; 6.5.10
+dva	A1	slovo	numerále				4.2.1
+dvacet	A1	slovo	numerále				4.2.1
+dvakrát	A1	slovo	numerále				4.5.13
+DVD	A1	slovo	substantivum	neutrum	singulár		6.5.5
+dveře	A1	slovo	substantivum	femininum	pluralium tantum		6.2.3
+dýchat	A1	slovo	verbum			imperfektivní	6.7.2; 6.7.4
+džus	A1	slovo	substantivum	maskulinum	singulár		6.3.14
+e-mail	A1	slovo	substantivum	maskulinum	singulár		6.1.4
+ekonomie	A1	slovo	substantivum	femininum	singulár		6.10.7
+elektřina	A1	slovo	substantivum	femininum	singulár		6.2.5; 6.2.6
+empétrojka	A1	slovo	substantivum	femininum	singulár		6.5.5
+evropský	A1	slovo	adjektivum				6.14.3
+fakulta	A1	slovo	substantivum	femininum	singulár		6.10.1
+farma	A1	slovo	substantivum	femininum	singulár		6.6.3
+farmář	A1	slovo	substantivum	maskulinum	singulár		6.6.1
+farmářka	A1	slovo	substantivum	femininum	singulár		6.6.1
+fax	A1	slovo	substantivum	maskulinum	singulár		6.1.4
+fialový	A1	slovo	adjektivum				4.6.8
+film	A1	slovo	substantivum	maskulinum	singulár		6.5.3; 6.5.6; 6.5.10
+firma	A1	slovo	substantivum	femininum	singulár		6.6.3
+fitness	A1	slovo	substantivum	neutrum	singulár		6.5.9
+fotbal	A1	slovo	substantivum	maskulinum	singulár		6.5.7
+fotbalista	A1	slovo	substantivum	maskulinum	singulár		6.5.7
+fotografovat	A1	slovo	verbum			imperfektivní	6.5.6
+foukat	A1	slovo	verbum			imperfektivní	6.13.3
+fungovat	A1	slovo	verbum			imperfektivní	4.6.11; 6.2.5
+fyzika	A1	slovo	substantivum	femininum	singulár		6.10.7
+galerie	A1	slovo	substantivum	femininum	singulár		6.5.10
+garáž	A1	slovo	substantivum	femininum	singulár		6.2.3
+gauč	A1	slovo	substantivum	maskulinum	singulár		6.2.4
+gram	A1	slovo	substantivum	maskulinum	singulár		4.3.6
+guláš	A1	slovo	substantivum	maskulinum	singulár		6.3.6
+gynekolog	A1	slovo	substantivum	maskulinum	singulár		6.7.6
+gynekoložka	A1	slovo	substantivum	femininum	singulár		6.7.6
+haló	A1	slovo	interjekce				5.5.11; 5.6.6; 5.6.16
+hasič	A1	slovo	substantivum	maskulinum	singulár		6.12.2
+herec	A1	slovo	substantivum	maskulinum	singulár		6.5.12
+herečka	A1	slovo	substantivum	femininum	singulár		6.5.12
+hezký	A1	slovo	adjektivum				5.3.2; 5.4.2; 5.4.3; 5.5.33 6.1.14
+hlad	A1	slovo	substantivum	maskulinum	singulár		6.3.1
+hláskovat	A1	slovo	verbum			imperfektivní	5.7.8
+hlava	A1	slovo	substantivum	femininum	singulár		6.7.1
+hlavní	A1	slovo	adjektivum				6.3.5; 6.9.4; 6.14.4
+hledat	A1	slovo	verbum			imperfektivní	6.6.7
+hloupý	A1	slovo	adjektivum				6.1.15
+hluk	A1	slovo	substantivum	maskulinum	singulár		4.6.5
+hned	A1	slovo	adverbium				4.3.4; 4.5.7; 5.4.17
+hnědý	A1	slovo	adjektivum				4.6.8
+hobby	A1	slovo	substantivum	neutrum	singulár		6.5.6
+hodina	A1	slovo	substantivum	femininum	singulár		4.5.1; 6.7.4; 6.10.6
+hodiny	A1	slovo	substantivum	femininum	plurál		6.11.1
+hodně	A1	slovo	adverbium				4.2.3; 4.2.8; 5.5.33
+hodný	A1	slovo	adjektivum				5.4.4; 5.4.5; 6.1.15; 6.10.4
+hokej	A1	slovo	substantivum	maskulinum	singulár		6.5.7
+hokejista	A1	slovo	substantivum	maskulinum	singulár		6.5.7
+holič	A1	slovo	substantivum	maskulinum	singulár		6.8.10
+holičství	A1	slovo	substantivum	neutrum	singulár		6.8.8
+holka	A1	slovo	substantivum	femininum	singulár		6.1.7
+hora	A1	slovo	substantivum	femininum	singulár		6.13.1
+horko	A1	slovo	adverbium				4.3.9
+horký	A1	slovo	adjektivum				4.3.9
+hory	A1	slovo	substantivum	femininum	plurál		6.13.1
+hořčice	A1	slovo	substantivum	femininum	singulár		6.3.13
+hořet	A1	slovo	verbum			imperfektivní	6.12.2
+hospoda	A1	slovo	substantivum	femininum	singulár		6.3.2; 6.5.2
+host	A1	slovo	substantivum	maskulinum	singulár		6.14.2
+hotově	A1	slovo	adverbium				6.3.3; 6.8.7
+houska	A1	slovo	substantivum	femininum	singulár		6.3.11
+hovězí	A1	slovo	adjektivum				6.3.7
+hra	A1	slovo	substantivum	femininum	singulár		6.5.5; 6.5.10
+hranolky	A1	slovo	substantivum	maskulinum	plurál		6.3.8; 6.5.10
+hrát	A1	slovo	verbum			imperfektivní	6.5.5; 6.5.6; 6.5.7; 6.5.8
+hruška	A1	slovo	substantivum	femininum	singulár		6.3.10
+hřiště	A1	slovo	substantivum	neutrum	singulár		6.5.6; 6.5.9
+hubený	A1	slovo	adjektivum				6.1.14
+hudba	A1	slovo	substantivum	femininum	singulár		6.5.4; 6.5.6; 6.5.15; 6.1.14
+hudebnice	A1	slovo	substantivum	femininum	singulár		6.5.12
+hudebník	A1	slovo	substantivum	maskulinum	singulár		6.5.12
+hypermarket	A1	slovo	substantivum	maskulinum	singulár		6.8.1
+chata	A1	slovo	substantivum	femininum	singulár		6.5.2
+chladno	A1	slovo	adverbium				4.3.9; 6.13.3
+chladný	A1	slovo	adjektivum				4.3.9
+chlapec	A1	slovo	substantivum	maskulinum	singulár		6.1.7
+chleba	A1	slovo	substantivum	maskulinum	singulár		6.3.11
+chodit	A1	slovo	verbum			imperfektivní	4.4.4; 6.4.1; 6.5.2; 6.5.6; 6.5.11
+chřipka	A1	slovo	substantivum	femininum	singulár		6.7.5
+chtít	A1	slovo	verbum			imperfektivní	5.2.30; 5.2.35; 5.2.36; 5.2.38; 5.3.10; 5.3.11; 5.3.29; 5.4.8; 5.5.5
+chutnat	A1	slovo	verbum			imperfektivní	4.6.6; 5.3.4; 5.3.5; 5.3.6; 5.7.6
+chvíle	A1	slovo	substantivum	femininum	singulár		4.5.1
+chyba	A1	slovo	substantivum	femininum	singulár		4.7.2; 5.3.4; 6.8.7; 6.10.8
+chytrý	A1	slovo	adjektivum				6.1.15
+i	A1	slovo	konjunkce				4.8.1
+infarkt	A1	slovo	substantivum	maskulinum	singulár		6.7.5
+informace	A1	slovo	substantivum	femininum	singulár		6.9.10
+informatik	A1	slovo	substantivum	maskulinum	singulár		6.6.1
+informatika	A1	slovo	substantivum	femininum	singulár		6.10.7
+informovat	A1	slovo	verbum			imperfektivní	6.6.1
+Ing.	A1	slovo	substantivum	maskulinum / femininum	singulár		6.1.2
+injekce	A1	slovo	substantivum	femininum	singulár		6.7.4; 6.7.8
+inzerát	A1	slovo	substantivum	maskulinum	singulár		6.6.7
+já	A1	slovo	pronomen				5.6.16
+jablko	A1	slovo	substantivum	neutrum	singulár		6.3.10
+jak	A1	slovo	adverbium				4.3.2; 4.3.4; 5.1.8; 5.1.9
+jako	A1	slovo	adverbium				4.8.8
+jaký	A1	slovo	pronomen				5.1.8; 5.3.32
+jaro	A1	slovo	substantivum	neutrum	singulár		4.5.1
+jasno	A1	slovo	adverbium				4.6.4; 6.13.3
+jazyk (část těla)	A1	slovo	substantivum	maskulinum	singulár		6.7.1
+jazyk (řeč)	A1	slovo	substantivum	maskulinum	singulár		6.14.1
+jazykový	A1	slovo	adjektivum				6.10.1
+jazyky	A1	slovo	substantivum	maskulinum	plurál		6.10.7
+jazz	A1	slovo	substantivum	maskulinum	singulár		6.5.15
+jeden	A1	slovo	numerále				4.2.1
+jednou	A1	slovo	numerále				4.5.13; 5.7.3
+jen	A1	slovo	adverbium				4.2.7; 5.4.15
+jenom	A1	slovo	adverbium				4.2.7
+ještě	A1	slovo	adverbium				4.5.11; 4.5.13; 5.7.3
+jet	A1	slovo	verbum			imperfektivní	4.4.4; 6.9.1; 6.9.4
+jezdit	A1	slovo	verbum			imperfektivní	4.4.4; 6.9.1
+jídelna	A1	slovo	substantivum	femininum	singulár		6.3.2; 6.10.2
+jídelní	A1	slovo	adjektivum				6.3.3; 6.9.10
+jídlo	A1	slovo	substantivum	neutrum	singulár		6.3.1; 6.3.5
+jih	A1	slovo	substantivum	maskulinum	singulár		4.4.3
+jiný	A1	slovo	adjektivum				4.8.8
+jíst	A1	slovo	verbum			imperfektivní	6.3.1
+jít	A1	slovo	verbum			imperfektivní	4.4.4; 6.4.1; 6.5.11; 6.7.4; 5.3.34; 5.4.8
+jízdenka	A1	slovo	substantivum	femininum	singulár		6.9.8
+jízdní	A1	slovo	adjektivum				6.9.9
+jméno	A1	slovo	substantivum	neutrum	singulár		6.1.1
+jmenovat se	A1	slovo	verbum			imperfektivní	5.5.19; 5.7.9; 6.1.1
+jogurt	A1	slovo	substantivum	maskulinum	singulár		6.3.12
+kabát	A1	slovo	substantivum	maskulinum	singulár		6.8.3
+kabinka	A1	slovo	substantivum	femininum	singulár		6.8.5
+kadeřnice	A1	slovo	substantivum	femininum	singulár		6.6.1; 6.8.10
+kadeřnictví	A1	slovo	substantivum	neutrum	singulár		6.8.8
+kafe	A1	slovo	substantivum	neutrum	singulár		6.3.14
+kakao	A1	slovo	substantivum	neutrum	singulár		6.3.14
+kalhoty	A1	slovo	substantivum	femininum	pluralium tantum		6.8.3
+kam	A1	slovo	adverbium				4.4.3; 4.4.4; 4.4.5; 4.4.6; 4.4.7; 4.4.8; 4.4.9; 4.4.10; 4.4.11; 4.4.13; 4.4.14; 4.4.17; 5.1.8; 5.1.9
+kamarád	A1	slovo	substantivum	maskulinum	singulár		6.14.2
+kamarádka	A1	slovo	substantivum	femininum	singulár		6.14.2
+kámen	A1	slovo	substantivum	maskulinum	singulár		4.6.9
+kancelář	A1	slovo	substantivum	femininum	singulár		6.8.8
+karta	A1	slovo	substantivum	femininum	singulár		6.5.6; 6.7.11; 6.8.7; 6.8.12; 6.11.5
+kartáček	A1	slovo	substantivum	maskulinum	singulár		6.4.2
+karty	A1	slovo	substantivum	femininum	plurál		6.5.6
+kašel	A1	slovo	substantivum	maskulinum	singulár		6.7.2
+kašlat	A1	slovo	verbum			imperfektivní	6.7.2
+káva	A1	slovo	substantivum	femininum	singulár		6.3.14
+každý	A1	slovo	pronomen				4.4.4; 4.5.13
+kde	A1	slovo	adverbium				4.4.1; 4.4.2; 4.4.3; 4.4.18; 5.1.8; 5.1.9; 5.6.10
+kdo	A1	slovo	pronomen				5.1.8
+kdy	A1	slovo	adverbium				4.5.1; 4.5.3; 4.5.4; 4.5.9; 4.5.10; 5.1.8
+kečup	A1	slovo	substantivum	maskulinum	singulár		6.3.13
+kilo	A1	slovo	substantivum	neutrum	singulár		4.2.3; 4.3.6
+kilogram	A1	slovo	substantivum	maskulinum	singulár		4.3.6
+kilometr	A1	slovo	substantivum	maskulinum	singulár		4.3.3; 4.3.7
+kino	A1	slovo	substantivum	neutrum	singulár		6.5.10
+klasický	A1	slovo	adjektivum				6.5.15
+klid	A1	slovo	substantivum	maskulinum	singulár		4.6.5; 5.3.35
+klidný	A1	slovo	adjektivum				4.6.5; 6.1.14
+kluk	A1	slovo	substantivum	maskulinum	singulár		6.1.7
+knedlík	A1	slovo	substantivum	maskulinum	singulár		5.3.4; 6.3.8
+kniha	A1	slovo	substantivum	femininum	singulár		6.5.14; 6.10.2
+kočka	A1	slovo	substantivum	femininum	singulár		6.13.2
+kojit	A1	slovo	verbum			imperfektivní	6.7.10
+kola	A1	slovo	substantivum	femininum	singulár		6.3.14
+kolej (doprava)	A1	slovo	substantivum	femininum	singulár		6.9.10
+kolek	A1	slovo	substantivum	maskulinum	singulár		6.8.11
+koleno	A1	slovo	substantivum	neutrum	singulár		6.7.1
+kolik	A1	slovo	numerále				4.2.1; 4.2.3; 4.2.4; 4.5.1; 4.6.13; 5.1.8
+kolikátý	A1	slovo	numerále				4.2.4
+kolikrát	A1	slovo	numerále				4.5.13
+kolo (jízdní kolo)	A1	slovo	substantivum	neutrum	singulár		6.5.6; 6.5.9; 6.9.1
+komedie	A1	slovo	substantivum	femininum	singulár		6.5.11
+koncert	A1	slovo	substantivum	maskulinum	singulár		6.5.11
+končit	A1	slovo	verbum			imperfektivní	4.5.10; 6.5.11
+konec	A1	slovo	substantivum	maskulinum	singulár		4.5.10
+konečný	A1	slovo	adjektivum				6.9.8
+kontaktní	A1	slovo	adjektivum				6.1.3
+kontrola	A1	slovo	substantivum	femininum	singulár		6.7.4; 6.9.6
+kontrolovat	A1	slovo	verbum			imperfektivní	6.12.1
+konverzace	A1	slovo	substantivum	femininum	singulár		6.10.6
+kopec	A1	slovo	substantivum	maskulinum	singulár		6.13.1
+kosmetička	A1	slovo	substantivum	femininum	singulár		6.8.10
+kosmetika	A1	slovo	substantivum	femininum	singulár		6.8.8
+kostel	A1	slovo	substantivum	maskulinum	singulár		6.1.11
+košile	A1	slovo	substantivum	femininum	singulár		6.8.3
+koupat se	A1	slovo	verbum			imperfektivní	6.4.2
+koupelna	A1	slovo	substantivum	femininum	singulár		6.2.3
+koupit	A1	slovo	verbum			perfektivní	6.2.2; 6.8.4
+kov	A1	slovo	substantivum	maskulinum	singulár		4.6.9
+kožený	A1	slovo	adjektivum				4.6.9; 6.8.1
+kraj (správní jednotka)	A1	slovo	substantivum	maskulinum	singulár		6.14.4
+krajský	A1	slovo	adjektivum				6.14.4
+krásný	A1	slovo	adjektivum				6.1.14
+krátký	A1	slovo	adjektivum				4.3.3; 4.5.12; 6.1.14
+krém	A1	slovo	substantivum	maskulinum	singulár		6.4.2
+kreslit	A1	slovo	verbum			imperfektivní	6.10.5
+krev	A1	slovo	substantivum	femininum	singulár		6.7.4
+krk	A1	slovo	substantivum	maskulinum	singulár		5.3.34; 6.7.1
+křestní	A1	slovo	adjektivum				6.1.1
+křižovatka	A1	slovo	substantivum	femininum	singulár		6.9.4
+který	A1	slovo	pronomen				4.5.1; 5.1.8
+kuchař	A1	slovo	substantivum	maskulinum	singulár		6.3.3
+kuchařka	A1	slovo	substantivum	femininum	singulár		6.3.3
+kuchyň/kuchyně	A1	slovo	substantivum	femininum	singulár		6.2.3; 6.3.3
+kupovat	A1	slovo	verbum			imperfektivní	6.2.2; 6.8.4
+kurz (vyučovací kurz)	A1	slovo	substantivum	maskulinum	singulár		6.10.1
+kuře	A1	slovo	substantivum	neutrum	singulár		6.3.7
+kůže (materiál)	A1	slovo	substantivum	femininum	singulár		4.6.9
+květen	A1	slovo	substantivum	maskulinum	singulár		4.5.1
+květina	A1	slovo	substantivum	femininum	singulár		6.13.2
+laboratoř	A1	slovo	substantivum	maskulinum	singulár		6.7.4; 6.7.7; 6.7.11
+lampa	A1	slovo	substantivum	femininum	singulár		6.2.5
+leden	A1	slovo	substantivum	maskulinum	singulár		4.5.1
+lednička	A1	slovo	substantivum	femininum	singulár		6.2.5
+lehký	A1	slovo	adjektivum				4.3.6; 4.7.5; 6.6.5
+lék	A1	slovo	substantivum	maskulinum	singulár		6.7.4; 6.8.6
+lékárna	A1	slovo	substantivum	femininum	singulár		6.8.1
+lékárnice	A1	slovo	substantivum	femininum	singulár		6.8.6
+lékárník	A1	slovo	substantivum	maskulinum	singulár		6.8.6
+lékař	A1	slovo	substantivum	maskulinum	singulár		6.6.1; 6.7.6
+lékařka	A1	slovo	substantivum	femininum	singulár		6.6.1; 6.7.6
+lékařský	A1	slovo	adjektivum				6.7.11
+les	A1	slovo	substantivum	maskulinum	singulár		6.13.1
+léta (rok)	A1	slovo	substantivum	neutrum	plurál		6.1.6
+letadlo	A1	slovo	substantivum	neutrum	singulár		6.9.1
+letenka	A1	slovo	substantivum	femininum	singulár		6.9.11
+letět	A1	slovo	verbum			imperfektivní	4.4.4
+letiště	A1	slovo	substantivum	neutrum	singulár		6.9.11
+léto	A1	slovo	substantivum	neutrum	singulár		4.5.1
+levný	A1	slovo	adjektivum				4.6.12; 6.2.2; 6.8.4
+ležet	A1	slovo	verbum			imperfektivní	4.4.1; 6.7.4
+líbit se	A1	slovo	verbum			imperfektivní	5.3.1; 5.3.2; 5.3.3
+limonáda	A1	slovo	substantivum	femininum	singulár		6.3.14
+linka (telefonní linka)	A1	slovo	substantivum	femininum	singulár		5.6.11; 6.1.4; 6.2.5; 6.2.6; 6.9.8; 6.12.2
+líný	A1	slovo	adjektivum				6.1.15
+lístek	A1	slovo	substantivum	maskulinum	singulár		6.3.3; 6.5.13; 6.6.6; 6.9.11; 6.11.5
+listopad	A1	slovo	substantivum	maskulinum	singulár		4.5.1
+litr	A1	slovo	substantivum	maskulinum	singulár		4.2.3; 4.3.8
+lyžování	A1	slovo	substantivum	neutrum	singulár		6.5.7
+lyžovat	A1	slovo	verbum			imperfektivní	6.5.7
+majitelka	A1	slovo	substantivum	femininum	singulár		6.2.2
+málo	A1	slovo	adverbium				4.2.3
+malý	A1	slovo	adjektivum				4.3.1; 4.3.2; 4.3.3; 4.3.8; 6.1.14
+máma	A1	slovo	substantivum	femininum	singulár		6.1.13
+maminka	A1	slovo	substantivum	femininum	singulár		6.1.13
+manžel	A1	slovo	substantivum	maskulinum	singulár		6.1.8
+manželka	A1	slovo	substantivum	femininum	singulár		6.1.8
+mapa	A1	slovo	substantivum	femininum	singulár		6.10.3
+máslo	A1	slovo	substantivum	neutrum	singulár		6.3.12
+maso	A1	slovo	substantivum	neutrum	singulár		6.3.7
+matematika	A1	slovo	substantivum	femininum	singulár		6.10.7
+matka	A1	slovo	substantivum	femininum	singulár		6.1.1; 6.1.13
+medicína	A1	slovo	substantivum	femininum	singulár		6.10.7
+měkký	A1	slovo	adjektivum				4.6.10
+menu	A1	slovo	substantivum	neutrum	singulár		6.3.3; 6.3.5
+měřit	A1	slovo	verbum			imperfektivní	4.3.2; 4.3.3; 4.3.7; 4.3.9; 6.1.14; 6.7.4; 6.7.10; 6.8.9
+měsíc	A1	slovo	substantivum	maskulinum	singulár		4.5.1
+město	A1	slovo	substantivum	neutrum	singulár		6.14.4
+městský	A1	slovo	adjektivum				6.9.6; 6.11.1; 6.14.4
+metr	A1	slovo	substantivum	maskulinum	singulár		4.2.3; 4.3.2; 4.3.3; 4.3.7; 4.3.8
+metro	A1	slovo	substantivum	neutrum	singulár		6.9.8
+Mgr.	A1	slovo	substantivum	maskulinum / femininum	singulár		6.1.2
+míč	A1	slovo	substantivum	maskulinum	singulár		6.5.9
+milý	A1	slovo	adjektivum				5.5.21; 5.6.2
+mince	A1	slovo	substantivum	femininum	singulár		6.8.7
+minerálka	A1	slovo	substantivum	femininum	singulár		6.3.14
+ministerstvo	A1	slovo	substantivum	neutrum	singulár		6.14.3
+minulý	A1	slovo	adjektivum				4.5.2
+minus	A1	slovo	substantivum	neutrum	singulár		4.3.9
+minuta	A1	slovo	substantivum	femininum	singulár		4.5.1
+místnost	A1	slovo	substantivum	femininum	singulár		6.2.3
+místo	A1	slovo	substantivum	neutrum	singulár		4.4.1; 4.4.14; 6.1.5; 6.5.13; 6.9.10
+mít	A1	slovo	verbum			imperfektivní	4.6.1; 4.7.6; 4.8.9; 5.2.1; 5.2.32; 5.3.1; 5.3.2; 5.3.4; 5.3.5; 5.3.6; 5.3.7; 5.3.8; 5.3.9; 5.3.11; 5.3.12; 5.3.13; 5.3.14; 5.3.15; 5.3.16; 5.3.18; 5.3.22; 5.3.30; 5.3.31; 5.3.32; 5.3.34; 5.5.5; 5.5.10; 5.7.6; 6.1.9; 6.1.14; 6.3.1; 6.5.1; 6.5.6; 6.5.13; 6.7.2
+mít se	A1	slovo	verbum			imperfektivní	5.5.29
+mladší	A1	slovo	adjektivum				6.1.13
+mladý	A1	slovo	adjektivum				4.6.13; 5.5.13; 6.1.14
+mléko	A1	slovo	substantivum	neutrum	singulár		6.3.14
+mluvit	A1	slovo	verbum			imperfektivní	5.7.4; 6.14.1
+mobil	A1	slovo	substantivum	maskulinum	singulár		6.1.4
+moc	A1	slovo	adverbium				4.2.3; 4.2.8
+moct	A1	slovo	verbum			imperfektivní	5.2.23; 5.2.28; 5.2.29; 5.4.7; 5.6.11; 5.7.3; 5.7.4; 5.7.8
+moč	A1	slovo	substantivum	femininum	singulár		6.7.4
+moderní	A1	slovo	adjektivum				4.6.13; 6.5.15
+modrý	A1	slovo	adjektivum				4.6.8; 6.11.5
+mokrý	A1	slovo	adjektivum				4.6.2
+Mongol	A1	slovo	substantivum	maskulinum	singulár		6.1.9
+Mongolka	A1	slovo	substantivum	femininum	singulár		6.1.9
+moře	A1	slovo	substantivum	neutrum	singulár		6.9.12
+most	A1	slovo	substantivum	maskulinum	singulár		6.9.4
+motor	A1	slovo	substantivum	maskulinum	singulár		6.9.3
+MP3	A1	slovo	substantivum	femininum	singulár		6.5.5
+mráz	A1	slovo	substantivum	maskulinum	singulár		4.3.9; 6.13.3
+mrkev	A1	slovo	substantivum	femininum	singulár		6.3.10
+mrtvý	A1	slovo	adjektivum				4.1.4; 6.1.8; 6.9.7
+mrznout	A1	slovo	verbum			imperfektivní	6.13.3
+MUDr.	A1	slovo	substantivum	maskulinum / femininum	singulár		6.1.2
+muset	A1	slovo	verbum			imperfektivní	5.2.32; 5.2.33; 5.2.34; 5.4.11; 5.6.15
+muzeum	A1	slovo	substantivum	neutrum	singulár		6.5.10
+muzikál	A1	slovo	substantivum	maskulinum	singulár		6.5.11
+muž	A1	slovo	substantivum	maskulinum	singulár		6.1.7; 6.1.8; 6.6.2
+myčka	A1	slovo	substantivum	femininum	singulár		6.2.5; 6.9.5
+mýdlo	A1	slovo	substantivum	neutrum	singulár		6.4.2
+mýt	A1	slovo	verbum			imperfektivní	4.6.3; 6.4.3
+mýt se	A1	slovo	verbum			imperfektivní	6.4.2
+mzda	A1	slovo	substantivum	femininum	singulár		6.6.6
+na	A1	slovo	prepozice				4.4.14; 5.3.4; 5.3.34; 5.5.24; 5.5.30; 5.5.31; 5.6.11; 5.6.12; 5.6.15; 6.1.14; 6.2.5; 6.2.6; 6.3.5; 6.4.2; 6.6.2; 6.6.5; 6.7.13; 6.9.6; 6.11.5
+nabízet	A1	slovo	verbum			imperfektivní	6.8.4
+nábytek (věci, obchod)	A1	slovo	substantivum	maskulinum	singulár		6.2.4; 6.8.1
+nádobí	A1	slovo	substantivum	neutrum	singulár		6.2.5; 6.3.16; 6.8.2
+nádraží	A1	slovo	substantivum	neutrum	singulár		6.9.9; 6.9.10
+nafta	A1	slovo	substantivum	femininum	singulár		6.9.5
+nahoru	A1	slovo	adverbium				4.4.19
+nahoře	A1	slovo	adverbium				4.4.2
+nájemné	A1	slovo	substantivum	neutrum	singulár		6.2.6
+nájemnice	A1	slovo	substantivum	femininum	singulár		6.2.2
+nájemník	A1	slovo	substantivum	maskulinum	singulár		6.2.2
+náklady	A1	slovo	substantivum	maskulinum	plurál		6.2.6
+nakonec	A1	slovo	adverbium				4.5.10
+nákup	A1	slovo	substantivum	maskulinum	singulár		6.5.2
+nakupovat	A1	slovo	verbum			imperfektivní	6.4.1
+nalevo	A1	slovo	adverbium				4.4.2
+náměstí	A1	slovo	substantivum	neutrum	singulár		6.1.3
+nápad	A1	slovo	substantivum	maskulinum	singulár		5.4.3; 5.4.9
+nápodobně	A1	slovo	adverbium				5.5.32
+nápoj	A1	slovo	substantivum	maskulinum	singulár		6.3.5
+napravo	A1	slovo	adverbium				4.4.2
+napsat	A1	slovo	verbum			perfektivní	5.7.8; 6.7.4; 6.10.5; 6.14.1
+narodit se	A1	slovo	verbum			perfektivní	4.1.4; 6.1.5
+narození	A1	slovo	substantivum	neutrum	singulár		4.1.4; 6.1.5
+nastoupit (nastoupit do pracovního procesu)	A1	slovo	verbum			perfektivní	6.6.5
+nástupiště	A1	slovo	substantivum	neutrum	singulár		6.9.10
+nastupovat (do dopravního prostředku)	A1	slovo	verbum			imperfektivní	6.9.8
+naučit se	A1	slovo	verbum			perfektivní	6.10.5
+navštěvovat	A1	slovo	verbum			imperfektivní	6.5.2; 6.5.11; 6.14.2
+ne	A1	slovo	partikule				5.4.20; 5.5.10
+nebezpečí	A1	slovo	substantivum	neutrum	singulár		6.12.3
+nebo	A1	slovo	konjunkce				4.8.3; 5.3.10
+něco	A1	slovo	pronomen				4.2.3
+neděle	A1	slovo	substantivum	femininum	singulár		4.5.1
+nehoda	A1	slovo	substantivum	femininum	singulár		6.7.3; 6.9.7; 6.12.3
+nehodit se	A1	slovo	verbum			imperfektivní	5.4.10
+nejdříve	A1	slovo	adverbium				4.5.9
+nejen, ale i	A1	slovo	konjunkce				4.8.2
+nejlepší	A1	slovo	adjektivum				5.5.20
+někam	A1	slovo	adverbium				4.4.19
+někde	A1	slovo	adverbium				4.4.2
+někdy	A1	slovo	adverbium				4.5.13
+několik	A1	slovo	numerále				4.2.3
+nemoc	A1	slovo	substantivum	femininum	singulár		6.7.4
+nemocenská (dávka)	A1	slovo	substantivum	femininum	singulár		6.7.13; 6.11.4
+nemocnice	A1	slovo	substantivum	femininum	singulár		6.6.3; 6.7.4; 6.7.7
+nemocný	A1	slovo	adjektivum				6.7.2
+nepořádek	A1	slovo	substantivum	maskulinum	singulár		4.6.3
+nerad/a/i	A1	slovo	adjektivum				5.3.3
+neschopenka	A1	slovo	substantivum	femininum	singulár		6.7.4; 6.7.11
+nesmět	A1	slovo	verbum			imperfektivní	5.2.31
+nést	A1	slovo	verbum			imperfektivní	4.4.5
+neudělat	A1	slovo	verbum			perfektivní	6.10.8
+neumět	A1	slovo	verbum			imperfektivní	5.2.27
+nezaměstnaný	A1	slovo	substantivum	maskulinum	singulár		6.6.2
+nezařízený	A1	slovo	adjektivum				6.2.1
+než	A1	slovo	konjunkce				4.8.8
+nic	A1	slovo	pronomen				4.2.3; 5.2.12; 5.2.13; 5.3.31; 5.4.20; 5.5.2
+nikam	A1	slovo	adverbium				4.4.19
+nikdy	A1	slovo	adverbium				4.5.13
+nízko	A1	slovo	adverbium				4.3.2; 4.3.3
+nízký	A1	slovo	adjektivum				4.3.2; 4.3.3; 4.3.9; 4.6.12
+noc	A1	slovo	substantivum	femininum	singulár		4.5.1; 5.5.14
+normálně	A1	slovo	adverbium				4.7.7
+normální	A1	slovo	adjektivum				4.7.7
+nos	A1	slovo	substantivum	maskulinum	singulár		6.7.1
+nosit	A1	slovo	verbum			imperfektivní	6.1.14
+novinář	A1	slovo	substantivum	maskulinum	singulár		6.6.1
+novinářka	A1	slovo	substantivum	femininum	singulár		6.6.1
+noviny	A1	slovo	substantivum	femininum	pluralium tantum		6.5.14
+nový	A1	slovo	adjektivum				4.6.13
+nula	A1	slovo	numerále				4.2.1; 4.3.9
+obecní	A1	slovo	adjektivum				6.11.1; 6.14.4
+oběd	A1	slovo	substantivum	maskulinum	singulár		6.3.4
+obědvat	A1	slovo	verbum			imperfektivní	6.3.4
+obchod	A1	slovo	substantivum	maskulinum	singulár		6.6.3; 6.8.1
+objednat se	A1	slovo	verbum			perfektivní	6.7.4
+oblečení	A1	slovo	substantivum	neutrum	singulár		6.8.2; 6.8.8
+oblékat se	A1	slovo	verbum			imperfektivní	6.4.1
+obličej	A1	slovo	substantivum	maskulinum	singulár		6.7.1
+obor	A1	slovo	substantivum	maskulinum	singulár		6.10.7
+obuv (obchod)	A1	slovo	substantivum	femininum	singulár		6.8.1
+obyčejně (obvykle)	A1	slovo	adverbium				4.7.7; 6.8.11
+oči	A1	slovo	substantivum	femininum	plurál		6.1.14; 6.7.1
+očkování	A1	slovo	substantivum	neutrum	singulár		6.7.4; 6.7.10
+odejít	A1	slovo	verbum			perfektivní	4.4.8
+odesílatel	A1	slovo	substantivum	maskulinum	singulár		6.8.11
+oděvy	A1	slovo	substantivum	maskulinum	plurál		6.8.1
+odcházet	A1	slovo	verbum			imperfektivní	4.4.8
+odjet	A1	slovo	verbum			perfektivní	4.4.8; 6.9.10
+odjezd	A1	slovo	substantivum	maskulinum	singulár		4.4.8
+odjíždět	A1	slovo	verbum			imperfektivní	4.4.8; 6.9.10
+odkdy	A1	slovo	adverbium				4.5.9; 4.5.12; 5.1.8
+odkud	A1	slovo	adverbium				4.4.8; 4.4.9; 4.4.10; 5.1.8; 5.1.9
+odložit si	A1	slovo	verbum			perfektivní	6.7.4
+odpad	A1	slovo	substantivum	maskulinum	singulár		6.2.6
+odpočívat	A1	slovo	verbum			imperfektivní	6.4.1
+odpoledne	A1	slovo	adverbium				4.5.1
+odpovědět	A1	slovo	verbum			perfektivní	6.10.5
+odpovídat	A1	slovo	verbum			imperfektivní	6.10.5
+okno	A1	slovo	substantivum	neutrum	singulár		6.2.3
+oko	A1	slovo	substantivum	neutrum	singulár		6.7.1
+okurka	A1	slovo	substantivum	femininum	singulár		6.3.10
+omáčka	A1	slovo	substantivum	femininum	singulár		6.3.6
+omlouvat se	A1	slovo	verbum			imperfektivní	5.5.1; 5.6.14
+opakovat	A1	slovo	verbum			imperfektivní	6.10.5; 6.10.8
+operace	A1	slovo	substantivum	femininum	singulár		6.7.4
+oprava	A1	slovo	substantivum	femininum	singulár		6.2.6; 6.9.5
+opravář	A1	slovo	substantivum	maskulinum	singulár		6.8.10
+opravdu	A1	slovo	adverbium				5.2.15
+opravit	A1	slovo	verbum			perfektivní	4.7.2; 6.2.5; 6.8.9; 6.9.5
+opravovat	A1	slovo	verbum			imperfektivní	6.2.5; 6.8.9; 6.9.5
+oranžový	A1	slovo	adjektivum				4.6.8
+ordinace	A1	slovo	substantivum	femininum	singulár		6.7.7
+ordinační	A1	slovo	adjektivum				6.7.4
+orchestr	A1	slovo	substantivum	maskulinum	singulár		6.5.12
+osobně	A1	slovo	adverbium				6.11.6
+osobní	A1	slovo	adjektivum				6.1.12; 6.6.6; 6.9.1; 6.11.1
+ošklivý	A1	slovo	adjektivum				6.1.14
+otec	A1	slovo	substantivum	maskulinum	singulár		6.1.1; 6.1.13
+otevírat	A1	slovo	verbum			imperfektivní	7.1
+otevřeno	A1	slovo	verbum			perfektivní	6.5.13
+otevřít	A1	slovo	verbum			perfektivní	6.7.4; 6.8.12
+ovoce	A1	slovo	substantivum	neutrum	singulár		6.3.10; 6.8.1
+padesát	A1	slovo	numerále				4.2.1
+pak	A1	slovo	adverbium				4.5.7
+pan	A1	slovo	substantivum	maskulinum	singulár		5.5.13; 5.6.1; 6.1.2
+páni (označení toalety)	A1	slovo	substantivum	maskulinum	plurál		6.1.7
+paní	A1	slovo	substantivum	femininum	singulár		5.5.12; 5.5.13; 5.6.1; 6.1.2; 6.7.6; 6.8.6
+papír	A1	slovo	substantivum	maskulinum	singulár		4.6.9; 6.4.2; 6.10.3
+pardon	A1	slovo	substantivum	maskulinum	singulár		5.5.11
+párek	A1	slovo	substantivum	maskulinum	singulár		6.3.7
+parkovat	A1	slovo	verbum			imperfektivní	6.9.5
+parkoviště	A1	slovo	substantivum	neutrum	singulár		6.9.5
+pas	A1	slovo	substantivum	maskulinum	singulár		6.1.12
+pasta	A1	slovo	substantivum	femininum	singulár		6.4.2
+pátek	A1	slovo	substantivum	maskulinum	singulár		4.5.1
+pátý	A1	slovo	numerále				4.2.4
+pekařství	A1	slovo	substantivum	neutrum	singulár		6.8.1
+pěkný	A1	slovo	adjektivum				5.3.2
+peníze	A1	slovo	substantivum	maskulinum	pluralium tantum		6.8.6; 6.8.12
+pes	A1	slovo	substantivum	maskulinum	singulár		6.13.2
+PIN	A1	slovo	substantivum	maskulinum	singulár		6.8.7
+písemný	A1	slovo	adjektivum				6.10.8
+pít	A1	slovo	verbum			imperfektivní	6.3.1
+pití	A1	slovo	substantivum	neutrum	singulár		6.3.1
+pivo	A1	slovo	substantivum	neutrum	singulár		6.3.14
+pizza	A1	slovo	substantivum	femininum	singulár		6.3.6
+plat	A1	slovo	substantivum	maskulinum	singulár		6.6.6; 6.9.6; 6.11.3
+platit	A1	slovo	verbum			imperfektivní	6.2.6; 6.3.3; 6.6.6; 6.7.12; 6.8.6; 6.8.7; 6.9.6; 6.11.4
+plavání	A1	slovo	substantivum	neutrum	singulár		6.5.7
+plavat	A1	slovo	verbum			imperfektivní	4.4.4; 6.5.6; 6.5.7
+ples	A1	slovo	substantivum	maskulinum	singulár		6.5.11
+plný	A1	slovo	adjektivum				4.2.3
+plus	A1	slovo	substantivum	neutrum	singulár		4.3.9
+plyn	A1	slovo	substantivum	maskulinum	singulár		6.2.5; 6.2.6
+pobyt	A1	slovo	substantivum	maskulinum	singulár		6.1.12; 6.11.6
+počasí	A1	slovo	substantivum	neutrum	singulár		6.5.3; 6.5.4; 6.13.3
+počítač	A1	slovo	substantivum	maskulinum	singulár		6.2.5; 6.5.2
+počítačový	A1	slovo	adjektivum				6.5.5
+počítat	A1	slovo	verbum			imperfektivní	4.2.2; 6.10.5
+podepsat	A1	slovo	verbum			perfektivní	6.1.12; 6.6.5
+podnik	A1	slovo	substantivum	maskulinum	singulár		6.6.3
+podnikat	A1	slovo	verbum			imperfektivní	6.6.8
+podnikatel	A1	slovo	substantivum	maskulinum	singulár		6.6.1
+podnikatelka	A1	slovo	substantivum	femininum	singulár		6.6.1
+podpis	A1	slovo	substantivum	maskulinum	singulár		6.1.12
+podzim	A1	slovo	substantivum	maskulinum	singulár		4.5.1
+pohlednice	A1	slovo	substantivum	femininum	singulár		6.8.11
+pohotovost	A1	slovo	substantivum	femininum	singulár		6.7.7
+pojistit	A1	slovo	verbum			perfektivní	6.8.14; 6.11.4
+pojištěnec	A1	slovo	substantivum	maskulinum	singulár		6.7.11
+pojištění	A1	slovo	substantivum	neutrum	singulár		6.1.12; 6.7.12; 6.7.13; 6.8.14; 6.9.2; 6.11.4
+pokladna	A1	slovo	substantivum	femininum	singulár		6.5.13; 6.8.7; 6.9.10
+pokladní	A1	slovo	substantivum	maskulinum / femininum	singulár		6.8.10
+pokoj	A1	slovo	substantivum	maskulinum	singulár		6.2.3; 6.7.7
+pokračovat	A1	slovo	verbum			imperfektivní	4.5.11
+poledne	A1	slovo	substantivum	neutrum	singulár		4.5.1
+polévka	A1	slovo	substantivum	femininum	singulár		6.3.5
+policie	A1	slovo	substantivum	femininum	singulár		6.9.6; 6.12.1; 6.14.4
+policista	A1	slovo	substantivum	maskulinum	singulár		6.6.1; 6.12.1
+policistka	A1	slovo	substantivum	femininum	singulár		6.6.1; 6.12.1
+poliklinika	A1	slovo	substantivum	femininum	singulár		6.7.7
+polyester	A1	slovo	substantivum	maskulinum	singulár		4.6.9
+pomáhat	A1	slovo	verbum			imperfektivní	6.14.2
+pomalu	A1	slovo	adverbium				4.3.5; 5.7.4
+pomalý	A1	slovo	adjektivum				4.3.5
+pomeranč	A1	slovo	substantivum	maskulinum	singulár		6.3.10
+pomoc	A1	slovo	substantivum	femininum	singulár		6.11.5
+pomoct	A1	slovo	verbum			imperfektivní	5.4.16; 5.4.18; 6.12.2
+pondělí	A1	slovo	substantivum	neutrum	singulár		4.5.1
+pop	A1	slovo	substantivum	maskulinum	singulár		6.5.15
+poplatek	A1	slovo	substantivum	maskulinum	singulár		6.2.6; 6.7.4; 6.8.13; 6.11.1; 6.11.6
+poplatky	A1	slovo	substantivum	maskulinum	plurál		6.2.6
+porucha	A1	slovo	substantivum	femininum	singulár		4.6.11; 6.12.3
+pořád	A1	slovo	adverbium				4.5.11
+pořádek	A1	slovo	substantivum	maskulinum	singulár		4.6.3; 5.5.2
+poschodí	A1	slovo	substantivum	neutrum	singulár		6.2.1
+posilovna	A1	slovo	substantivum	femininum	singulár		6.5.9
+poslat	A1	slovo	verbum			perfektivní	4.4.7; 6.5.5; 6.7.4; 6.8.11
+poslední	A1	slovo	numerále				4.2.4
+poslouchat	A1	slovo	verbum			imperfektivní	4.6.5; 6.5.2
+postel	A1	slovo	substantivum	femininum	singulár		6.2.4
+pošta	A1	slovo	substantivum	femininum	singulár		6.1.3; 6.8.8
+potom	A1	slovo	adverbium				4.5.7
+potraviny	A1	slovo	substantivum	femininum	plurál		6.8.2
+potřebovat	A1	slovo	verbum			imperfektivní	4.7.4; 5.2.32; 5.2.33; 5.2.34; 5.4.18; 5.4.20; 6.8.4
+potvrzení	A1	slovo	substantivum	neutrum	singulár		6.7.11
+poukaz	A1	slovo	substantivum	maskulinum	singulár		6.11.6
+povolání	A1	slovo	substantivum	neutrum	singulár		6.6.1
+povolení	A1	slovo	substantivum	neutrum	singulár		6.1.12; 6.11.5; 6.11.6
+pozdě	A1	slovo	adverbium				4.5.8
+pozdrav	A1	slovo	substantivum	maskulinum	singulár		5.6.3
+pozor	A1	slovo	substantivum	maskulinum	singulár		5.4.13; 6.10.5
+práce	A1	slovo	substantivum	femininum	singulár		6.4.3; 6.6.5; 6.6.7
+pracovat	A1	slovo	verbum			imperfektivní	6.6.5
+pracoviště	A1	slovo	substantivum	neutrum	singulár		6.6.3
+pračka	A1	slovo	substantivum	femininum	singulár		6.2.5
+prádelna	A1	slovo	substantivum	femininum	singulár		6.8.8
+praktický	A1	slovo	adjektivum				4.7.4; 6.7.6
+prát	A1	slovo	verbum			imperfektivní	4.6.3; 6.4.3; 6.8.9
+pravda	A1	slovo	substantivum	femininum	singulár		5.2.1
+právnička	A1	slovo	substantivum	femininum	singulár		6.6.1
+právník	A1	slovo	substantivum	maskulinum	singulár		6.6.1
+právo	A1	slovo	substantivum	neutrum	singulár		6.10.7
+praxe	A1	slovo	substantivum	femininum	singulár		6.6.7
+prázdniny	A1	slovo	substantivum	femininum	pluralium tantum		6.5.1
+prázdný	A1	slovo	adjektivum				4.2.3
+prezident	A1	slovo	substantivum	maskulinum	singulár		6.14.3
+prezidentka	A1	slovo	substantivum	femininum	singulár		6.14.3
+problém	A1	slovo	substantivum	maskulinum	singulár		4.7.5; 5.3.32
+procento	A1	slovo	substantivum	neutrum	singulár		4.2.3
+prodat	A1	slovo	verbum			perfektivní	6.2.2; 6.8.4
+prodavač	A1	slovo	substantivum	maskulinum	singulár		6.6.1; 6.8.9
+prodavačka	A1	slovo	substantivum	femininum	singulár		6.6.1; 6.8.9
+prodávat	A1	slovo	verbum			imperfektivní	6.2.2; 6.8.4
+profesor	A1	slovo	substantivum	maskulinum	singulár		6.10.4
+profesorka	A1	slovo	substantivum	femininum	singulár		6.10.4
+program (v televizi)	A1	slovo	substantivum	maskulinum	singulár		6.5.3
+prohlédnout	A1	slovo	verbum			perfektivní	6.7.4
+prohlídka (lékařská prohlídka)	A1	slovo	substantivum	femininum	singulár		6.7.10; 6.7.11
+procházet se	A1	slovo	verbum			imperfektivní	6.5.2
+procházka	A1	slovo	substantivum	femininum	singulár		6.5.2
+prominout	A1	slovo	verbum			perfektivní	5.4.7; 5.5.1; 5.5.11; 5.6.14; 5.6.15; 5.7.1; 5.7.3
+pronájem	A1	slovo	substantivum	maskulinum	singulár		6.2.2
+pronajímat si	A1	slovo	verbum			imperfektivní	6.2.2
+pronajmout	A1	slovo	verbum			perfektivní	6.2.2
+propiska	A1	slovo	substantivum	femininum	singulár		6.10.3
+prosinec	A1	slovo	substantivum	maskulinum	singulár		4.5.1
+prosit	A1	slovo	verbum			imperfektivní	5.4.4; 5.4.5; 5.4.6; 5.4.16; 5.5.2; 5.5.4; 5.5.11; 5.6.6; 5.6.10; 5.6.11; 5.7.1; 5.7.4
+protože	A1	slovo	konjunkce				4.8.5; 5.1.9
+prst	A1	slovo	substantivum	maskulinum	singulár		6.7.1
+pršet	A1	slovo	verbum			imperfektivní	6.13.3
+průjem	A1	slovo	substantivum	maskulinum	singulár		6.7.2
+průkaz	A1	slovo	substantivum	maskulinum	singulár		6.7.11; 6.9.2; 6.11.6
+průvodce	A1	slovo	substantivum	maskulinum	singulár		6.9.12
+průvodčí	A1	slovo	substantivum	maskulinum / femininum	singulár		6.9.10
+průvodkyně	A1	slovo	substantivum	femininum	singulár		6.9.12
+první	A1	slovo	numerále				4.2.4
+pryč	A1	slovo	adverbium				4.4.19
+přát si	A1	slovo	verbum			imperfektivní	5.2.37; 5.2.38; 6.8.4
+předevčírem	A1	slovo	adverbium				4.5.2; 5.7.1
+předložit	A1	slovo	verbum			perfektivní	6.11.7
+předpověď	A1	slovo	substantivum	femininum	singulár		6.5.3; 6.13.3
+představit	A1	slovo	verbum			perfektivní	5.5.19
+přechodný	A1	slovo	adjektivum				6.1.3
+překládat	A1	slovo	verbum			imperfektivní	6.14.1
+přeložit	A1	slovo	verbum			perfektivní	6.14.1
+přesně (míra)	A1	slovo	adverbium				4.2.6; 5.2.1
+přestávka	A1	slovo	substantivum	femininum	singulár		4.5.10; 6.10.6
+přestoupit	A1	slovo	verbum			perfektivní	6.9.8
+přestupovat	A1	slovo	verbum			imperfektivní	6.9.8
+příbor	A1	slovo	substantivum	maskulinum	singulár		6.3.16
+přihlásit se	A1	slovo	verbum			perfektivní	6.10.1
+přihláška	A1	slovo	substantivum	femininum	singulár		6.10.1
+přicházet	A1	slovo	verbum			imperfektivní	4.4.8
+příjemnou zábavu	A1	slovo	fráze				5.5.33
+příjemný	A1	slovo	adjektivum				5.5.33
+přijet	A1	slovo	verbum			perfektivní	4.4.8; 6.9.10
+příjezd	A1	slovo	substantivum	maskulinum	singulár		4.4.8
+přijít	A1	slovo	verbum			perfektivní	4.4.8
+přijíždět	A1	slovo	verbum			imperfektivní	4.4.8; 6.9.10
+příjmení	A1	slovo	substantivum	neutrum	singulár		6.1.1
+příklad	A1	slovo	substantivum	maskulinum	singulár		6.10.5
+příloha	A1	slovo	substantivum	femininum	singulár		6.3.5
+připravovat	A1	slovo	verbum			imperfektivní	6.3.15
+příroda	A1	slovo	substantivum	femininum	singulár		6.13.1
+příští	A1	slovo	adjektivum				4.5.4
+přítel	A1	slovo	substantivum	maskulinum	singulár		6.1.8; 6.14.2
+přítelkyně	A1	slovo	substantivum	femininum	singulár		6.1.8; 6.14.2
+přízemí	A1	slovo	substantivum	neutrum	singulár		6.2.1
+psát	A1	slovo	verbum			imperfektivní	5.7.8; 6.10.5; 6.14.1
+půjčit	A1	slovo	verbum			perfektivní	6.5.14; 6.8.9; 6.8.12; 6.9.5
+půjčit si	A1	slovo	verbum			perfektivní	6.9.5
+půlnoc	A1	slovo	substantivum	femininum	singulár		4.5.1
+pumpa	A1	slovo	substantivum	femininum	singulár		6.9.5
+rád	A1	slovo	adjektivum				5.3.1; 5.3.2; 5.3.4; 5.3.5; 5.3.7; 5.3.8; 5.3.9; 5.5.6; 5.5.9
+rádio	A1	slovo	substantivum	neutrum	singulár		6.2.5; 6.5.2; 6.5.4
+radost	A1	slovo	substantivum	femininum	singulár		5.3.18
+rajče	A1	slovo	substantivum	neutrum	singulár		6.3.10
+ráno	A1	slovo	adverbium, substantivum				4.5.1; 5.5.14
+recept (v lékárně)	A1	slovo	substantivum	maskulinum	singulár		6.8.6
+rentgen	A1	slovo	substantivum	maskulinum	singulár		6.7.4; 6.7.8
+republika	A1	slovo	substantivum	femininum	singulár		6.14.4
+restaurace	A1	slovo	substantivum	femininum	singulár		6.3.2
+rezavý	A1	slovo	adjektivum				6.1.14
+rezervovat	A1	slovo	verbum			imperfektivní	6.9.9
+rezervovat si	A1	slovo	verbum			imperfektivní	6.5.13
+režisér	A1	slovo	substantivum	maskulinum	singulár		6.5.12
+režisérka	A1	slovo	substantivum	femininum	singulár		6.5.12
+rock	A1	slovo	substantivum	maskulinum	singulár		6.5.15
+ročník	A1	slovo	substantivum	maskulinum	singulár		6.10.1
+rodič	A1	slovo	substantivum	maskulinum	singulár		6.10.4
+rodiče	A1	slovo	substantivum	maskulinum	plurál		6.10.4
+rodina	A1	slovo	substantivum	femininum	singulár		6.1.13
+rohlík	A1	slovo	substantivum	maskulinum	singulár		6.3.11
+rok	A1	slovo	substantivum	maskulinum	singulár		4.5.1; 6.1.6
+rovně	A1	slovo	adverbium				4.4.21
+rovný (o vlasech)	A1	slovo	adjektivum				6.1.14
+rozbitý	A1	slovo	adjektivum				4.6.11; 6.2.5
+rozhlas	A1	slovo	substantivum	maskulinum	singulár		6.2.6; 6.5.2; 6.5.4
+rozumět	A1	slovo	verbum			imperfektivní	5.7.1; 5.7.2; 6.14.1
+rozvedená	A1	slovo	adjektivum				6.1.8
+rozvedený	A1	slovo	adjektivum				6.1.8
+ručník	A1	slovo	substantivum	maskulinum	singulár		6.4.2
+ruka	A1	slovo	substantivum	femininum	singulár		6.7.1
+rukavice	A1	slovo	substantivum	femininum	singulár		6.6.5; 6.8.3
+Rus	A1	slovo	substantivum	maskulinum	singulár		6.1.9
+Ruska	A1	slovo	substantivum	femininum	singulár		6.1.9
+rušno	A1	slovo	adverbium				4.6.5
+různý	A1	slovo	adjektivum				4.8.8
+růžový	A1	slovo	adjektivum				4.6.8
+ryba	A1	slovo	substantivum	femininum	singulár		6.3.7
+rybník	A1	slovo	substantivum	maskulinum	singulár		6.13.1
+rychle	A1	slovo	adverbium				4.3.5
+rychlík	A1	slovo	substantivum	maskulinum	singulár		6.9.1
+rychlý	A1	slovo	adjektivum				4.3.5; 6.3.2
+rýma	A1	slovo	substantivum	femininum	singulár		6.7.2
+rýže	A1	slovo	substantivum	femininum	singulár		6.3.8
+řád (vlakový, autobusový)	A1	slovo	substantivum	maskulinum	singulár		6.9.9; 6.9.11
+řada	A1	slovo	substantivum	femininum	singulár		6.5.13
+ředitel	A1	slovo	substantivum	maskulinum	singulár		6.6.4; 6.10.4
+ředitelka	A1	slovo	substantivum	femininum	singulár		6.6.4; 6.10.4
+řeka	A1	slovo	substantivum	femininum	singulár		6.13.1
+řemeslník	A1	slovo	substantivum	maskulinum	singulár		6.6.1
+řeznictví	A1	slovo	substantivum	neutrum	singulár		6.8.1
+říct	A1	slovo	verbum			perfektivní	5.7.1; 5.7.3; 5.7.9
+řidič	A1	slovo	substantivum	maskulinum	singulár		6.6.1; 6.9.9; 6.11.1
+řidička	A1	slovo	substantivum	femininum	singulár		6.6.1; 6.9.9
+řidičský	A1	slovo	adjektivum				6.9.2
+řídit	A1	slovo	verbum			imperfektivní	6.9.2
+říjen	A1	slovo	substantivum	maskulinum	singulár		4.5.1
+říkat	A1	slovo	verbum			imperfektivní	5.2.2; 5.2.21; 5.7.1
+řízek	A1	slovo	substantivum	maskulinum	singulár		6.3.6
+sako	A1	slovo	substantivum	neutrum	singulár		6.8.3
+salám	A1	slovo	substantivum	maskulinum	singulár		6.3.7
+salát	A1	slovo	substantivum	maskulinum	singulár		6.3.5
+salát	A1	slovo	substantivum	maskulinum	singulár		6.3.10
+samozřejmě	A1	slovo	adverbium				5.2.1; 5.4.6; 5.4.17
+sedadlo	A1	slovo	substantivum	neutrum	singulár		6.5.13; 6.9.9
+sedět (na židli)	A1	slovo	verbum			imperfektivní	4.4.1
+sejít se	A1	slovo	verbum			perfektivní	6.14.2
+sekretářka	A1	slovo	substantivum	femininum	singulár		6.6.1
+sem	A1	slovo	adverbium				4.4.19
+seriál	A1	slovo	substantivum	maskulinum	singulár		6.5.3
+sestra	A1	slovo	substantivum	femininum	singulár		6.1.13
+sestřička	A1	slovo	substantivum	femininum	singulár		6.7.6
+sešit	A1	slovo	substantivum	maskulinum	singulár		6.10.3
+sever	A1	slovo	substantivum	maskulinum	singulár		4.4.3
+silnice	A1	slovo	substantivum	femininum	singulár		6.9.4
+silný	A1	slovo	adjektivum				4.6.10
+sklo	A1	slovo	substantivum	neutrum	singulár		4.6.9
+skříň	A1	slovo	substantivum	femininum	singulár		6.2.4
+sladký	A1	slovo	adjektivum				4.6.6; 6.3.5
+slaný	A1	slovo	adjektivum				4.6.6
+slečna	A1	slovo	substantivum	femininum	singulár		5.5.13; 6.1.2
+sleva	A1	slovo	substantivum	femininum	singulár		6.8.4; 6.9.10
+slovník	A1	slovo	substantivum	maskulinum	singulár		6.5.14; 6.10.3
+slovo	A1	slovo	substantivum	neutrum	singulár		5.7.6; 5.7.7
+slunce	A1	slovo	substantivum	neutrum	singulár		6.13.3
+slyšet	A1	slovo	verbum			imperfektivní	4.6.5; 5.6.16; 5.6.17; 5.6.18; 6.2.3
+smažený	A1	slovo	adjektivum				6.3.6
+směna	A1	slovo	substantivum	femininum	singulár		6.6.5
+smět	A1	slovo	verbum			imperfektivní	5.2.28; 5.2.29; 5.2.31
+smlouva	A1	slovo	substantivum	femininum	singulár		6.6.5
+smutný	A1	slovo	adjektivum				6.1.15
+sněžit	A1	slovo	verbum			imperfektivní	6.13.3
+snídaně	A1	slovo	substantivum	femininum	singulár		6.3.4
+snídat	A1	slovo	verbum			imperfektivní	6.3.4
+sníh	A1	slovo	substantivum	maskulinum	singulár		6.13.3
+sobota	A1	slovo	substantivum	femininum	singulár		4.5.1
+součet	A1	slovo	substantivum	maskulinum	singulár		4.2.2
+soudní	A1	slovo	adjektivum				6.11.8
+soused	A1	slovo	substantivum	maskulinum	singulár		6.2.2; 6.14.2
+sousedka	A1	slovo	substantivum	femininum	singulár		6.2.2; 6.14.2
+sousední	A1	slovo	adjektivum				6.14.4
+soustrast	A1	slovo	substantivum	femininum	singulár		5.5.22
+spadnout	A1	slovo	verbum			perfektivní	4.4.11; 6.7.3
+spát	A1	slovo	verbum			imperfektivní	6.4.1
+specialista	A1	slovo	substantivum	maskulinum	singulár		6.7.6
+spisovatel	A1	slovo	substantivum	maskulinum	singulár		6.5.14
+spisovatelka	A1	slovo	substantivum	femininum	singulár		6.5.14
+společně	A1	slovo	adverbium				4.8.1
+spolu	A1	slovo	adverbium				4.8.1
+sporák	A1	slovo	substantivum	maskulinum	singulár		6.2.5
+sport	A1	slovo	substantivum	maskulinum	singulár		6.5.3
+sportovat	A1	slovo	verbum			imperfektivní	6.5.6
+sportovec	A1	slovo	substantivum	maskulinum	singulár		6.5.7
+sportovkyně	A1	slovo	substantivum	femininum	singulár		6.5.7
+spotřebič	A1	slovo	substantivum	maskulinum	singulár		6.2.5; 6.8.2
+správně	A1	slovo	adverbium				4.7.2
+správný	A1	slovo	adjektivum				4.7.2
+sprcha	A1	slovo	substantivum	femininum	singulár		6.2.4
+sprchovat se	A1	slovo	verbum			imperfektivní	6.4.2
+srdce	A1	slovo	substantivum	neutrum	singulár		6.7.1; 6.12.2
+srdečně	A1	slovo	adverbium				5.6.4
+srpen	A1	slovo	substantivum	maskulinum	singulár		4.5.1
+stačit	A1	slovo	verbum			imperfektivní	4.2.3
+stadion	A1	slovo	substantivum	maskulinum	singulár		6.5.9
+stanice	A1	slovo	substantivum	femininum	singulár		6.5.4; 6.9.5; 6.9.8
+starší	A1	slovo	adjektivum				6.1.13
+starý	A1	slovo	adjektivum				4.6.13; 6.1.14
+stát (kde)	A1	slovo	verbum			imperfektivní	4.4.1; 4.4.18; 6.9.4
+stejný	A1	slovo	adjektivum				4.8.8
+sto	A1	slovo	numerále				4.2.1
+stolice	A1	slovo	substantivum	femininum	singulár		6.7.2; 6.7.4
+strach	A1	slovo	substantivum	maskulinum	singulár		5.3.30; 5.3.31
+strom	A1	slovo	substantivum	maskulinum	singulár		6.13.2
+strýc	A1	slovo	substantivum	maskulinum	singulár		6.1.13
+středa	A1	slovo	substantivum	femininum	singulár		4.5.1
+student	A1	slovo	substantivum	maskulinum	singulár		6.6.2; 6.10.4
+studentka	A1	slovo	substantivum	femininum	singulár		6.6.2; 6.10.4
+studený	A1	slovo	adjektivum				4.3.9; 6.3.14
+studovat	A1	slovo	verbum			imperfektivní	6.10.1
+stůl	A1	slovo	substantivum	maskulinum	singulár		6.2.4
+suchý	A1	slovo	adjektivum				4.6.2
+sukně	A1	slovo	substantivum	femininum	singulár		6.8.3
+sůl	A1	slovo	substantivum	femininum	singulár		6.3.13
+super	A1	slovo	adverbium				5.3.26
+supermarket	A1	slovo	substantivum	maskulinum	singulár		6.8.1
+svátek	A1	slovo	substantivum	maskulinum	singulár		6.5.1; 6.11.7
+světlo (lampa)	A1	slovo	substantivum	neutrum	singulár		6.2.3; 6.2.5
+světlý	A1	slovo	adjektivum				4.6.4; 4.6.8; 6.2.3; 6.3.14
+svetr	A1	slovo	substantivum	maskulinum	singulár		6.8.3
+svítit	A1	slovo	verbum			imperfektivní	6.2.5; 6.13.3
+svléknout se	A1	slovo	verbum			perfektivní	6.7.4
+svobodný	A1	slovo	adjektivum				6.1.8
+sympatický	A1	slovo	adjektivum				5.3.7; 5.3.8; 5.3.9; 6.1.15
+syn	A1	slovo	substantivum	maskulinum	singulár		6.1.13
+sýr	A1	slovo	substantivum	maskulinum	singulár		6.3.6; 6.3.12
+šachy	A1	slovo	substantivum	maskulinum	pluralium tantum		6.5.6
+šaty	A1	slovo	substantivum	maskulinum	pluralium tantum		6.8.3
+šedivý	A1	slovo	adjektivum				6.1.14
+šedý	A1	slovo	adjektivum				4.6.8
+široký	A1	slovo	adjektivum				4.3.3
+škola	A1	slovo	substantivum	femininum	singulár		6.6.3; 6.10.1; 6.10.9
+špagety	A1	slovo	substantivum	maskulinum	pluralium tantum		6.3.8
+špatně	A1	slovo	adverbium				4.7.2
+špatný	A1	slovo	adjektivum				4.7.1; 4.7.2
+špinavý	A1	slovo	adjektivum				4.6.3
+šťastnou cestu	A1	slovo	fráze				5.5.33
+šťastný	A1	slovo	adjektivum				5.5.33
+štíhlý	A1	slovo	adjektivum				6.1.14
+štvát	A1	slovo	verbum			imperfektivní	5.3.34
+šunka	A1	slovo	substantivum	femininum	singulár		6.3.7
+tabule	A1	slovo	substantivum	femininum	singulár		6.10.3
+tady	A1	slovo	adverbium				4.4.2; 5.6.8
+tak	A1	slovo	adverbium				5.2.1; 5.2.7; 5.2.30; 5.4.4; 5.4.5; 5.4.9
+talíř	A1	slovo	substantivum	maskulinum	singulár		4.2.3; 6.3.16
+tam	A1	slovo	adverbium				4.4.2; 4.4.19; 5.7.8
+tamhle	A1	slovo	adverbium				4.4.2
+tancovat	A1	slovo	verbum			imperfektivní	6.5.6
+taška	A1	slovo	substantivum	femininum	singulár		6.8.3
+táta	A1	slovo	substantivum	maskulinum	singulár		6.1.13
+tatínek	A1	slovo	substantivum	maskulinum	singulár		6.1.13
+taxík	A1	slovo	substantivum	maskulinum	singulár		6.9.1
+teď	A1	slovo	adverbium				4.5.3
+těhotná	A1	slovo	adjektivum				6.7.4; 6.7.9
+technický	A1	slovo	adjektivum				6.9.2; 6.9.6; 6.10.7
+technička	A1	slovo	substantivum	femininum	singulár		6.6.1
+technik	A1	slovo	substantivum	maskulinum	singulár		6.6.1
+telefon	A1	slovo	substantivum	maskulinum	singulár		5.6.7; 6.1.4
+telefonovat	A1	slovo	verbum			imperfektivní	7.1
+televize	A1	slovo	substantivum	femininum	singulár		6.2.6; 6.5.2
+televizor	A1	slovo	substantivum	maskulinum	singulár		6.2.5
+tělo	A1	slovo	substantivum	neutrum	singulár		6.7.1
+tenhle	A1	slovo	pronomen				5.1.1
+tenis	A1	slovo	substantivum	maskulinum	singulár		6.5.7
+tento	A1	slovo	pronomen				5.1.1
+teplo	A1	slovo	adverbium				4.3.9; 6.2.6; 6.13.3
+teplota	A1	slovo	substantivum	femininum	singulár		4.3.9; 6.7.2; 6.13.3
+teplý	A1	slovo	adjektivum				4.3.9; 6.3.14
+test	A1	slovo	substantivum	maskulinum	singulár		6.9.6; 6.10.8
+teta	A1	slovo	substantivum	femininum	singulár		6.1.13
+textil	A1	slovo	substantivum	maskulinum	singulár		6.8.1
+textilní	A1	slovo	adjektivum				4.6.9
+těžký	A1	slovo	adjektivum				4.3.6; 4.7.5; 6.6.5
+ticho	A1	slovo	substantivum	neutrum	singulár		4.6.5
+tichý	A1	slovo	adjektivum				4.6.5
+tisíc	A1	slovo	numerále				4.2.1
+tlak	A1	slovo	substantivum	maskulinum	singulár		6.7.2; 6.7.5
+tlumočit	A1	slovo	verbum			imperfektivní	6.14.1
+tlumočnice	A1	slovo	substantivum	femininum	singulár		6.11.8; 6.14.1
+tlumočník	A1	slovo	substantivum	maskulinum	singulár		6.11.8; 6.14.1
+tlustý	A1	slovo	adjektivum				6.1.14; 4.6.10
+tma	A1	slovo	substantivum	femininum	singulár		4.6.4
+tmavý	A1	slovo	adjektivum				4.6.4; 4.6.8; 6.3.14
+to	A1	slovo	pronomen				5.1.1; 5.2.2; 5.2.7; 5.2.12; 5.2.13; 5.3.31; 5.3.34; 5.4.2; 5.4.3; 5.4.9; 5.5.2; 5.5.4; 5.5.7; 5.5.18; 5.6.9; 5.7.3
+toaletní	A1	slovo	adjektivum				6.4.2
+tohle	A1	slovo	pronomen				5.1.1
+topení	A1	slovo	substantivum	neutrum	singulár		6.2.5
+továrna	A1	slovo	substantivum	femininum	singulár		6.6.3
+tramvaj	A1	slovo	substantivum	femininum	singulár		6.9.1; 6.9.8
+trasa	A1	slovo	substantivum	femininum	singulár		6.9.8
+trh	A1	slovo	substantivum	maskulinum	singulár		6.8.1
+tričko	A1	slovo	substantivum	neutrum	singulár		6.8.3
+trochu	A1	slovo	adverbium				4.2.3; 4.2.8
+trolejbus	A1	slovo	substantivum	maskulinum	singulár		6.9.1; 6.9.8
+trvalý	A1	slovo	adjektivum				6.1.3; 6.11.6
+trvat	A1	slovo	verbum			imperfektivní	4.5.12
+třešeň	A1	slovo	substantivum	femininum	singulár		6.3.10
+třetí	A1	slovo	numerále				4.2.4
+tři	A1	slovo	numerále				4.2.1
+třicátý	A1	slovo	numerále				4.2.4
+turista	A1	slovo	substantivum	maskulinum	singulár		6.9.12
+tužka	A1	slovo	substantivum	femininum	singulár		6.10.3
+tvrdý	A1	slovo	adjektivum				4.6.10
+týden	A1	slovo	substantivum	maskulinum	singulár		4.5.1
+ubytovna	A1	slovo	substantivum	femininum	singulár		6.2.1
+učebnice	A1	slovo	substantivum	femininum	singulár		6.5.14; 6.10.3
+účet	A1	slovo	substantivum	maskulinum	singulár		6.8.12
+učit	A1	slovo	verbum			imperfektivní	6.10.4
+učit se	A1	slovo	verbum			imperfektivní	6.10.5
+učitel	A1	slovo	substantivum	maskulinum	singulár		6.6.1; 6.10.4
+učitelka	A1	slovo	substantivum	femininum	singulár		6.6.1; 6.10.4
+udělat	A1	slovo	verbum			perfektivní	6.10.8
+ucho	A1	slovo	substantivum	neutrum	singulár		6.7.1
+ukázat	A1	slovo	verbum			perfektivní	6.7.4; 6.8.4; 6.8.5
+uklízečka	A1	slovo	substantivum	femininum	singulár		6.10.4
+uklízet	A1	slovo	verbum			imperfektivní	4.6.3; 6.4.3
+úkol	A1	slovo	substantivum	maskulinum	singulár		6.10.5
+Ukrajinec	A1	slovo	substantivum	maskulinum	singulár		6.1.9
+Ukrajinka	A1	slovo	substantivum	femininum	singulár		6.1.9
+ukrást	A1	slovo	verbum			perfektivní	6.12.1
+ulice	A1	slovo	substantivum	femininum	singulár		6.1.3
+umělec	A1	slovo	substantivum	maskulinum	singulár		6.5.12
+umělkyně	A1	slovo	substantivum	femininum	singulár		6.5.12
+umět	A1	slovo	verbum			imperfektivní	5.2.26; 5.2.27
+umyvadlo	A1	slovo	substantivum	neutrum	singulár		6.2.4
+unavený	A1	slovo	adjektivum				6.7.2
+unie	A1	slovo	substantivum	femininum	singulár		6.14.3
+univerzita	A1	slovo	substantivum	femininum	singulár		6.10.1
+únor	A1	slovo	substantivum	maskulinum	singulár		4.5.1
+upřímný	A1	slovo	adjektivum				5.5.27
+úřad	A1	slovo	substantivum	maskulinum	singulár		6.6.3; 6.6.7; 6.11.1; 6.11.2; 6.11.4; 6.11.5
+úřední	A1	slovo	adjektivum				6.11.1; 6.11.6
+úřednice	A1	slovo	substantivum	femininum	singulár		6.6.1; 6.11.1
+úředník	A1	slovo	substantivum	maskulinum	singulár		6.6.1; 6.11.1
+ústní	A1	slovo	adjektivum				6.10.8
+uši	A1	slovo	substantivum	femininum	plurál		6.7.1
+úterý	A1	slovo	substantivum	neutrum	singulár		4.5.1
+uzenina	A1	slovo	substantivum	femininum	singulár		6.3.7
+už	A1	slovo	adverbium				4.5.5
+v	A1	slovo	prepozice				5.2.5; 5.2.36; 5.5.2; 5.6.12; 6.6.2; 6.9.2; 6.11.5
+vadit	A1	slovo	verbum			imperfektivní	5.5.2
+vagon	A1	slovo	substantivum	maskulinum	singulár		6.9.10
+vana	A1	slovo	substantivum	femininum	singulár		6.2.4
+Vánoce	A1	slovo	substantivum	maskulinum	plurál		5.5.33
+vařit	A1	slovo	verbum			imperfektivní	6.3.15; 6.5.6
+vážený	A1	slovo	adjektivum				5.6.1
+vážit	A1	slovo	verbum			imperfektivní	4.3.6; 6.1.14; 6.7.10
+včas	A1	slovo	adverbium				4.5.8
+včera	A1	slovo	adverbium				4.5.2
+vdaná	A1	slovo	adjektivum				6.1.8
+večer	A1	slovo	adverbium, substantivum				4.5.1; 5.5.14
+večeře	A1	slovo	substantivum	femininum	singulár		6.3.4
+večeřet	A1	slovo	verbum			imperfektivní	6.3.4
+vědět	A1	slovo	verbum			imperfektivní	5.2.8; 5.2.9; 5.2.12; 5.2.13; 5.2.16; 5.4.8
+vedle	A1	slovo	adverbium				4.3.4; 4.4.2
+vedoucí	A1	slovo	substantivum	maskulinum / femininum	singulár		6.6.4
+vejce	A1	slovo	substantivum	neutrum	singulár		6.3.13
+věk	A1	slovo	substantivum	maskulinum	singulár		4.6.13; 6.1.6
+Velikonoce	A1	slovo	substantivum	maskulinum	plurál		5.5.33
+velikost	A1	slovo	substantivum	femininum	singulár		4.3.1; 4.3.2; 6.8.5
+velký	A1	slovo	adjektivum				4.3.1; 4.3.2; 4.3.3; 4.3.8
+vepředu	A1	slovo	adverbium				4.4.2
+vepřový	A1	slovo	adjektivum				6.3.7
+věřící	A1	slovo	substantivum	maskulinum / femininum	singulár		6.1.11
+veselý	A1	slovo	adjektivum				6.1.15
+vesnice	A1	slovo	substantivum	femininum	singulár		6.14.4
+vchod	A1	slovo	substantivum	maskulinum	singulár		4.4.10
+video	A1	slovo	substantivum	neutrum	singulár		6.5.5
+vidět	A1	slovo	verbum			imperfektivní	4.6.4
+Vietnamec	A1	slovo	substantivum	maskulinum	singulár		6.1.9
+Vietnamka	A1	slovo	substantivum	femininum	singulár		6.1.9
+víkend	A1	slovo	substantivum	maskulinum	singulár		4.5.1; 6.5.1
+víno	A1	slovo	substantivum	neutrum	singulár		6.3.10; 6.3.14
+viróza	A1	slovo	substantivum	femininum	singulár		6.7.5
+vitamin	A1	slovo	substantivum	maskulinum	singulár		6.8.6
+vítr	A1	slovo	substantivum	maskulinum	singulár		6.13.3
+vízum	A1	slovo	substantivum	neutrum	singulár		6.1.12; 6.9.12
+vlak	A1	slovo	substantivum	maskulinum	singulár		6.9.1
+vlasy	A1	slovo	substantivum	maskulinum	plurál		6.1.14
+vlna	A1	slovo	substantivum	femininum	singulár		4.6.9
+vnitro	A1	slovo	substantivum	neutrum	singulár		6.14.3
+voda	A1	slovo	substantivum	femininum	singulár		6.2.6; 6.3.14
+volat	A1	slovo	verbum			imperfektivní	5.6.10; 5.6.15; 6.12.2
+volejbal	A1	slovo	substantivum	maskulinum	singulár		6.5.7
+volno	A1	slovo	adverbium				6.5.1
+volný	A1	slovo	adjektivum				6.5.1
+vousy	A1	slovo	substantivum	maskulinum	plurál		6.1.14
+vracet se	A1	slovo	verbum			imperfektivní	4.4.13; 6.4.1
+vrátit	A1	slovo	verbum			perfektivní	4.4.14; 6.5.14; 6.8.7
+vrátit se	A1	slovo	verbum			perfektivní	4.4.13; 4.4.14; 6.4.1
+vrchní	A1	slovo	substantivum	maskulinum / femininum	singulár		6.3.3
+vstávat (ráno)	A1	slovo	verbum			imperfektivní	6.4.1
+vstupenka	A1	slovo	substantivum	femininum	singulár		6.5.13; 6.9.11
+všechno	A1	slovo	pronomen				4.2.3; 5.5.20
+vůbec	A1	slovo	partikule				5.6.18
+vy	A1	slovo	pronomen				5.5.16
+vyčistit si	A1	slovo	verbum			perfektivní	6.4.2
+vydělávat	A1	slovo	verbum			imperfektivní	6.6.6
+východ (světová strana)	A1	slovo	substantivum	maskulinum	singulár		4.4.3
+východ (místo v budově)	A1	slovo	substantivum	maskulinum	singulár		4.4.10
+výlet	A1	slovo	substantivum	maskulinum	singulár		6.5.2; 6.9.12
+vyměnit (oblečení, olej)	A1	slovo	verbum			perfektivní	6.8.5; 6.9.5
+vyměnit (peníze)	A1	slovo	verbum			perfektivní	6.8.13
+vypnout	A1	slovo	verbum			perfektivní	6.2.5
+vypočítat	A1	slovo	verbum			perfektivní	6.10.5
+vyprat	A1	slovo	verbum			perfektivní	4.6.3; 6.4.3; 6.8.9
+vyslovovat	A1	slovo	verbum			imperfektivní	5.7.7
+vysoký	A1	slovo	adjektivum				4.3.2; 4.3.3; 4.3.9; 4.6.12; 6.1.14; 6.7.5; 6.10.1
+vystudovat	A1	slovo	verbum			perfektivní	6.10.9
+vysvětlit	A1	slovo	verbum			perfektivní	6.10.5
+výtah	A1	slovo	substantivum	maskulinum	singulár		6.2.1
+vyučování	A1	slovo	substantivum	neutrum	singulár		6.10.6
+vzadu	A1	slovo	adverbium				4.4.2
+vzdělání	A1	slovo	substantivum	neutrum	singulár		6.10.9
+WC	A1	slovo	substantivum	neutrum	singulár		6.2.3
+webový	A1	slovo	adjektivum				6.1.4
+z	A1	slovo	prepozice				4.6.9; 5.3.18; 6.7.11; 6.8.12
+zablokovat	A1	slovo	verbum			perfektivní	6.8.12
+zácpa	A1	slovo	substantivum	femininum	singulár		6.7.2
+začátečnice	A1	slovo	substantivum	femininum	singulár		6.14.1
+začátečník	A1	slovo	substantivum	maskulinum	singulár		6.14.1
+začátek	A1	slovo	substantivum	maskulinum	singulár		4.5.9
+začínat	A1	slovo	verbum			imperfektivní	4.5.9; 6.5.11
+záda	A1	slovo	substantivum	neutrum	pluralium tantum		6.7.1
+zadarmo	A1	slovo	adverbium				6.8.4
+zadat	A1	slovo	verbum			perfektivní	6.8.7
+zahnout	A1	slovo	verbum			perfektivní	4.4.17; 6.9.4
+zahrada	A1	slovo	substantivum	femininum	singulár		6.2.3; 6.5.6; 6.13.2
+záchod	A1	slovo	substantivum	maskulinum	singulár		6.2.3
+záchranka	A1	slovo	substantivum	femininum	singulár		6.12.2
+zajímavý	A1	slovo	adjektivum				6.5.3
+zákaz	A1	slovo	substantivum	maskulinum	singulár		5.2.31; 6.9.4
+základní	A1	slovo	adjektivum				6.6.6; 6.10.1; 6.10.9
+zákusek	A1	slovo	substantivum	maskulinum	singulár		6.3.5; 6.3.9
+zaměstnanec	A1	slovo	substantivum	maskulinum	singulár		6.6.4
+zaměstnání	A1	slovo	substantivum	neutrum	singulár		6.6.1; 6.11.5
+zaměstnankyně	A1	slovo	substantivum	femininum	singulár		6.6.4
+zaměstnavatel	A1	slovo	substantivum	maskulinum	singulár		6.6.4
+západ	A1	slovo	substantivum	maskulinum	singulár		4.4.3
+zaplatit	A1	slovo	verbum			perfektivní	6.2.6; 6.3.3; 6.6.6; 6.7.12; 6.8.6; 6.8.7; 6.9.6; 6.11.4
+zapnout	A1	slovo	verbum			perfektivní	6.2.5
+září	A1	slovo	substantivum	neutrum	singulár		4.5.1
+zařízený	A1	slovo	adjektivum				6.2.1
+zase	A1	slovo	adverbium				4.5.13
+zastavit	A1	slovo	verbum			perfektivní	4.4.18; 6.2.5; 6.9.4; 6.9.6
+zastávka	A1	slovo	substantivum	femininum	singulár		6.9.8; 6.9.9
+zavináč	A1	slovo	substantivum	maskulinum	singulár		6.1.4
+zavírat	A1	slovo	verbum			imperfektivní	7.1
+zavřeno	A1	slovo	verbum			perfektivní	6.5.13
+zavřít	A1	slovo	verbum			perfektivní	7.1
+zboží	A1	slovo	substantivum	neutrum	singulár		6.8.1; 6.8.2
+zdravit	A1	slovo	verbum			imperfektivní	5.6.4
+zdravotní	A1	slovo	adjektivum				6.7.6; 6.7.11; 6.7.12; 6.8.14
+zdravý	A1	slovo	adjektivum				6.7.2
+zedník	A1	slovo	substantivum	maskulinum	singulár		6.6.1
+zelenina	A1	slovo	substantivum	femininum	singulár		6.3.10; 6.8.1
+zelený	A1	slovo	adjektivum				4.6.8; 6.11.5
+zelí	A1	slovo	substantivum	neutrum	singulár		6.3.10
+zemřít	A1	slovo	verbum			perfektivní	4.1.4; 6.1.8
+zima	A1	slovo	substantivum	femininum	singulár		4.5.1; 6.13.3
+zítra	A1	slovo	adverbium				4.5.1; 4.5.4
+zkouška	A1	slovo	substantivum	femininum	singulár		6.9.2; 6.10.8
+zkusit	A1	slovo	verbum			perfektivní	6.9.2
+zkusit si	A1	slovo	verbum			perfektivní	6.8.5
+zlý	A1	slovo	adjektivum				6.1.14
+změnit	A1	slovo	verbum			perfektivní	6.1.3
+zmrzlina	A1	slovo	substantivum	femininum	singulár		6.3.9
+značka	A1	slovo	substantivum	femininum	singulár		6.9.3; 6.9.4
+známka	A1	slovo	substantivum	femininum	singulár		6.8.11; 6.10.8
+znát	A1	slovo	verbum			imperfektivní	5.2.8; 5.2.9
+zopakovat	A1	slovo	verbum			perfektivní	5.7.3; 6.10.5; 6.10.8
+zpáteční	A1	slovo	adjektivum				6.9.10
+zpěvačka	A1	slovo	substantivum	femininum	singulár		6.5.12
+zpěvák	A1	slovo	substantivum	maskulinum	singulár		6.5.12
+zpívat	A1	slovo	verbum			imperfektivní	6.5.6; 6.10.5
+zpoždění	A1	slovo	substantivum	neutrum	singulár		6.9.10
+zprávy	A1	slovo	substantivum	femininum	plurál		6.5.3; 6.5.4; 6.5.14
+zrak	A1	slovo	substantivum	maskulinum	singulár		4.6.4
+zraněný	A1	slovo	adjektivum				6.7.3; 6.9.7; 6.12.2
+ztratit	A1	slovo	verbum			perfektivní	6.1.12; 6.12.1
+zub	A1	slovo	substantivum	maskulinum	singulár		6.4.2; 6.7.1
+zubař	A1	slovo	substantivum	maskulinum	singulár		6.7.6
+zubařka	A1	slovo	substantivum	femininum	singulár		6.7.6
+zubní	A1	slovo	adjektivum				6.7.6
+zvát	A1	slovo	verbum			imperfektivní	6.14.2
+zvíře	A1	slovo	substantivum	neutrum	singulár		6.13.2
+zvlášť	A1	slovo	adverbium				6.3.3
+zvláštní	A1	slovo	adjektivum				4.7.7; 6.6.6;
+zvracet	A1	slovo	verbum			imperfektivní	6.7.2
+žák	A1	slovo	substantivum	maskulinum	singulár		6.10.4
+žákyně	A1	slovo	substantivum	femininum	singulár		6.10.4
+žaludek	A1	slovo	substantivum	maskulinum	singulár		6.7.1
+žena	A1	slovo	substantivum	femininum	singulár		6.1.7; 6.1.8; 6.6.2
+ženatý	A1	slovo	adjektivum				6.1.8
+židle	A1	slovo	substantivum	femininum	singulár		6.2.4
+žít	A1	slovo	verbum			imperfektivní	4.1.4; 6.1.3; 6.1.8
+žízeň	A1	slovo	substantivum	femininum	singulár		6.3.1
+žlutý	A1	slovo	adjektivum				4.6.8
+asi ano	A1	fráze					5.2.2
+asi ne	A1	fráze					5.2.4
+bohužel, nemůžu	A1	fráze					5.4.10; 5.5.7
+bude mi x let	A1	fráze					6.1.6
+buďte tak hodný	A1	fráze					5.4.4; 5.4.5; 5.4.19
+být hodný, že	A1	fráze					5.4.2
+být rád/a/rádi, že	A1	fráze					5.3.18
+být zajímavé	A1	fráze					5.3.14; 5.3.15
+co máš/máte rád/a/rádi	A1	fráze					5.3.4
+co rád/a jíš/jíte	A1	fráze					5.3.4
+co rád/a piješ/pijete	A1	fráze					5.3.4
+co rád/a/nerad/a děláš/děláte	A1	fráze					5.3.1
+co rádi jíte	A1	fráze					5.3.4
+co rádi pijete	A1	fráze					5.3.4
+co rádi/neradi děláš/děláte	A1	fráze					5.3.1
+co se ti/vám (ne)líbí	A1	fráze					5.3.1
+co tě/vás bolí	A1	fráze					5.3.32
+co ti/vám (ne)chutná	A1	fráze					5.3.4
+co znamená	A1	fráze					5.7.6
+děkuju, rád/a	A1	fráze					5.5.6; 5.5.9
+dobré ráno	A1	fráze					5.5.14
+dobrou chuť	A1	fráze					5.5.31
+dobrou noc	A1	fráze					5.5.14
+dobrý den	A1	fráze					5.5.14; 5.6.1
+dobrý večer	A1	fráze					5.5.14
+dýchejte zhluboka	A1	fráze					6.7.4
+haló, slyšíš/slyšíte mě?	A1	fráze					5.6.16
+hezké Velikonoce	A1	fráze					5.5.33
+hezký den	A1	fráze					5.5.33
+hodně štěstí	A1	fráze					5.5.33
+jak se čte	A1	fráze					5.7.7
+jak se píše	A1	fráze					5.7.8
+jak se řekne česky	A1	fráze					5.7.9
+jak se správně vyslovuje slovo	A1	fráze					5.7.7
+jak se ti/vám líbí	A1	fráze					5.3.1
+jak se vyslovuje	A1	fráze					5.7.7
+jak ti/vám chutná	A1	fráze					5.3.4
+je chyba, že	A1	fráze					5.4.3
+je od tebe/vás hezké	A1	fráze					5.5.21
+je škoda, že	A1	fráze					6.9.7
+je to dobře	A1	fráze					5.3.23; 5.3.24; 5.4.2
+je to fajn	A1	fráze					5.3.26
+je to O.K.	A1	fráze					5.3.23; 5.3.24
+je to pravda	A1	fráze					5.2.7; 5.3.28
+je to v pořádku	A1	fráze					4.6.11; 5.3.23; 5.3.24
+kdo volá, prosím	A1	fráze					5.6.10
+linku číslo X, prosím (telefonní linka)	A1	fráze					5.6.11
+mějte se hezky	A1	fráze					5.5.33
+můžeš/můžete mi to hláskovat	A1	fráze					5.7.8
+můžeš/můžete mi to napsat	A1	fráze					5.7.8
+můžete mluvit pomaleji, prosím	A1	fráze					5.7.4
+můžete to říct ještě jednou?	A1	fráze					5.7.3
+myslel/a jsi/jste + tohle	A1	fráze					5.7.5
+na shledanou	A1	fráze					5.5.36
+na zdraví	A1	fráze					5.5.30
+ne, děkuju	A1	fráze					5.4.20; 5.5.10
+neboj/te se	A1	fráze					5.3.31
+nedáš/nedáte si	A1	fráze					5.5.8
+nechcete pomoct	A1	fráze					5.4.18
+neměj/te strach	A1	fráze					5.3.31
+nemůžu ti/vám pomoct	A1	fráze					5.4.18
+není to dobré	A1	fráze					5.3.6
+není to pravda	A1	fráze					5.2.7; 5.3.28
+není to správně	A1	fráze					5.3.25
+není to v pořádku	A1	fráze					5.3.25
+není zač	A1	fráze					5.5.4
+nepotřebujete pomoc	A1	fráze					5.4.18
+pane	A1	fráze					5.5.12; 5.5.13; 6.1.2
+pane doktore	A1	fráze					6.7.6
+pane inženýre	A1	fráze					6.1.2
+pane magistře	A1	fráze					6.8.6
+páni a dámy (označení toalety)	A1	fráze					6.1.7
+paní doktorko	A1	fráze					6.7.6
+paní inženýrko	A1	fráze					6.1.2
+paní magistro	A1	fráze					6.8.6
+píše se tam	A1	fráze					5.7.8
+pomoz/te prosím	A1	fráze					5.4.16
+poslouchám tě/vás	A1	fráze					5.6.17
+proč ne	A1	fráze					5.4.9
+promiň, co jsi/jste říkal/a?	A1	fráze					5.7.1
+promiň, nemůžeš/nemůžete to zopakova	A1	fráze					5.7.3
+promiň/te, nemůžu	A1	fráze					5.4.7
+promiň/te, nerozumím	A1	fráze					5.7.1
+promiňte	A1	fráze					5.5.11; 5.6.14
+prosím	A1	fráze					5.4.4; 5.4.5; 5.4.6; 5.4.16; 5.5.2; 5.5.11; 5.6.6; 5.7.1
+prosím tě/vás	A1	fráze					5.4.5; 5.5.11
+rád bych se vám představil/a	A1	fráze					5.5.19
+s pozdravem	A1	fráze					5.6.3
+slečno (oslovení)	A1	fráze					5.5.13; 6.1.2
+srdečně Tě zdraví	A1	fráze					5.6.4
+tak dobře	A1	fráze					5.4.9
+tak jo	A1	fráze					5.2.30
+těší mě	A1	fráze					5.5.21
+to je	A1	fráze					5.5.23; 5.6.9
+to je dobrý nápad	A1	fráze					5.4.9
+to je dobře, že	A1	fráze					5.4.2
+to je omyl	A1	fráze					5.6.14
+to je v pořádku	A1	fráze					5.5.2
+to nevadí	A1	fráze					5.5.2
+to nic není	A1	fráze					5.3.31
+u telefonu (mluví X.Y.)	A1	fráze					5.6.7
+upřímnou soustrast	A1	fráze					5.5.27
+vážená paní	A1	fráze					5.6.1
+vážený pane	A1	fráze					5.6.1
+veselé Vánoce	A1	fráze					5.5.33
+všechno nejlepší	A1	fráze					5.5.25
+vůbec ne	A1	fráze					5.2.5
+zdraví Tě	A1	fráze					5.6.4
+automat na jízdenky	A1	sousloví					6.9.8
+benzinová pumpa	A1	sousloví					6.9.5
+bezmasé jídlo	A1	sousloví					6.3.5
+být rád/a/rádi	A1	sousloví					5.3.26
+být v provozu	A1	sousloví					4.6.11
+co je to	A1	sousloví					5.7.6
+čistit si zuby	A1	sousloví					6.4.2
+čistý plat	A1	sousloví					6.6.6
+datum narození	A1	sousloví					6.1.5
+dětský lékař	A1	sousloví					6.7.6
+doklad o pojištění	A1	sousloví					6.1.12
+domácí práce	A1	sousloví					6.4.1; 6.4.3
+domácí spotřebič	A1	sousloví					6.2.5
+dopravní značka	A1	sousloví					6.9.4
+DPČ	A1	sousloví					6.6.5
+DPH	A1	sousloví					6.8.7; 6.11.3
+DPP	A1	sousloví					6.6.5
+Evropská unie	A1	sousloví					6.14.3
+hlavní jídlo	A1	sousloví					6.3.5
+hovězí maso	A1	sousloví					6.3.7
+hrubá mzda	A1	sousloví					6.6.6
+chodit spát	A1	sousloví					6.4.1
+IČO	A1	sousloví					6.6.8
+jak často	A1	sousloví					4.5.13; 5.1.8
+jak daleko	A1	sousloví					4.3.4; 5.1.8
+jak dlouho	A1	sousloví					4.5.12; 5.1.8
+jak rychle	A1	sousloví					4.3.5
+jak starý	A1	sousloví					4.6.13
+jak vysoký	A1	sousloví					4.3.2
+je mi x let	A1	sousloví					4.6.13
+je zavřeno	A1	sousloví					6.5.10
+jídelní lístek	A1	sousloví					6.3.3
+jít do školy	A1	sousloví					6.4.1
+jít spát	A1	sousloví					6.4.1
+jízdní řád	A1	sousloví					6.9.9
+karta pojištěnce	A1	sousloví					6.7.11
+křestní jméno	A1	sousloví					6.1.1
+lékařské potvrzení	A1	sousloví					6.7.11
+mateřská škola	A1	sousloví					6.10.1
+městský úřad	A1	sousloví					6.11.1
+metr čtvereční	A1	sousloví					4.3.7
+ministerstvo vnitra	A1	sousloví					6.14.3
+místo narození	A1	sousloví					6.1.5
+mít barvu	A1	sousloví					4.6.8
+mít hlad	A1	sousloví					6.3.1
+mít na sobě	A1	sousloví					6.1.14
+mít otevřeno	A1	sousloví					6.5.13
+mít pravdu	A1	sousloví					5.2.1
+mít problém(y)	A1	sousloví					5.3.32
+mít rád/a/i	A1	sousloví					5.3.1; 5.3.2; 5.3.4; 5.3.7; 5.3.8; 5.3.9
+mít strach	A1	sousloví					5.3.30
+mít volno	A1	sousloví					6.5.1
+mit zavřeno	A1	sousloví					6.5.13
+mít žízeň	A1	sousloví					6.3.1
+modrá karta	A1	sousloví					6.11.5
+myčka nádobí	A1	sousloví					6.2.5
+náklady na byt	A1	sousloví					6.2.6
+nemocenské pojištění	A1	sousloví					6.7.13; 6.11.4
+OAMP	A1	sousloví					6.11.6
+obecní úřad	A1	sousloví					6.11.1
+oddělení pobytu cizinců	A1	sousloví					6.11.6
+ordinační hodiny	A1	sousloví					6.7.4
+osobní doklad	A1	sousloví					6.1.12; 6.11.1
+OSVČ	A1	sousloví					6.6.8
+otevřít účet	A1	sousloví					6.8.12
+ovoce a zelenina	A1	sousloví					6.8.1
+označit křížkem	A1	sousloví					6.10.18
+pasta na zuby	A1	sousloví					6.4.2
+pevná linka	A1	sousloví					6.1.4, 6. 2.5
+poplatek za elektřinu	A1	sousloví					6.2.6
+poplatek za plyn	A1	sousloví					6.2.6
+poplatek za televizi a rozhlas	A1	sousloví					6.2.6
+poplatek za teplo	A1	sousloví					6.2.6
+poplatek za vodu	A1	sousloví					6.2.6
+poplatky za odpad	A1	sousloví					6.2.6
+poštovní poukázka	A1	sousloví					6.8.11
+potvrzení o preventivní prohlídce	A1	sousloví					6.7.11
+povolení k pobytu	A1	sousloví					6.1.12; 6.11.6
+povolení k zaměstnání	A1	sousloví					6.11.5
+prací prášek	A1	sousloví					6.4.3
+pracovní doba	A1	sousloví					6.6.5
+pracovní smlouva	A1	sousloví					6.6.5
+praktická lékařka	A1	sousloví					6.7.6
+praktický lékař	A1	sousloví					6.7.6
+předpověď počasí	A1	sousloví					6.5.3; 6.13.3
+PSČ	A1	sousloví					6.1.3
+realitní kancelář	A1	sousloví					6.8.8
+rodné číslo	A1	sousloví					6.1.12
+řidičský průkaz	A1	sousloví					6.9.2
+s. r. o.	A1	sousloví					6.6.8
+smažený sýr	A1	sousloví					6.3.6
+soudní tlumočnice	A1	sousloví					6.11.7
+soudní tlumočník	A1	sousloví					6.11.7
+SPZ	A1	sousloví					6.9.3
+stanice metra	A1	sousloví					6.9.8
+státní příslušnost	A1	sousloví					6.1.9
+střední škola	A1	sousloví					6.10.1; 6.10.9
+středoškolské vzdělání (druhý stupeň vzdělání)	A1	sousloví					6.10.9
+technický obor	A1	sousloví					6.10.7
+technický průkaz	A1	sousloví					6.9.2; 6.10.7
+toaletní papír	A1	sousloví					6.4.2
+topení na elektřinu	A1	sousloví					6.2.5
+topení na plyn	A1	sousloví					6.2.5
+úřad práce	A1	sousloví					6.6.7; 6.11.5
+úřední hodiny	A1	sousloví					6.11.1
+vepřové maso	A1	sousloví					6.3.7
+vyčistit si zuby	A1	sousloví					6.4.2
+webová stránka	A1	sousloví					6.1.4
+zablokovat účet	A1	sousloví					6.8.12
+zadat PIN	A1	sousloví					6.8.7
+základní škola	A1	sousloví					6.10.1; 6.10.9
+zdravotní pojištění	A1	sousloví					6.7.12
+zdravotní sestra	A1	sousloví					6.7.6
+zelená karta	A1	sousloví					6.11.5
+změnit adresu	A1	sousloví					6.1.3
+zubní lékař	A1	sousloví					6.7.6
+žena v domácnosti	A1	sousloví					6.6.2
+živnostenský list	A1	sousloví					6.6.8; 6.11.2
+být z	A1	vazba					6.1.10
+děkuju za	A1	vazba					5.5.3
+dobrý na	A1	vazba					4.7.4
+chodit do	A1	vazba					6.4.1
+chodit na	A1	vazba					6.5.2
+chtěl/a bych + infinitiv	A1	vazba					5.2.38
+chtít + infinitiv	A1	vazba					5.2.30; 5.2.35; 5.2.36; 5.2.38; 5.3.10; 5.3.11; 5.3.29; 5.4.8; 5.5.5
+jet do	A1	vazba					6.4.1
+jet na	A1	vazba					6.9.1
+jezdit do	A1	vazba					6.4.1
+jezdit na	A1	vazba					6.5.2; 6.5.6; 6.9.1
+jiný než	A1	vazba					4.8.8
+jít do	A1	vazba					6.4.1
+mít radost z	A1	vazba					5.3.18
+moct + infinitiv	A1	vazba					5.2.23; 5.2.28; 5.2.29; 5.4.7; 5.6.11; 5.7.3; 5.7.4; 5.7.8
+muset + infinitiv	A1	vazba					5.2.32; 5.2.33; 5.2.34; 5.4.11; 5.6.15
+nerad/a/i + verbum	A1	vazba					5.3.6
+nesmět + infinitiv	A1	vazba					5.2.31
+pozor na	A1	vazba					5.4.13
+pracovat jako	A1	vazba					6.6.1
+přál bych si + akuzativ/infinitiv	A1	vazba					5.2.38
+rád + sloveso	A1	vazba					5.3.5
+radost z	A1	vazba					5.3.18
+stejný jako	A1	vazba					4.8.8

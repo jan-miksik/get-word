@@ -485,6 +485,9 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
                       {OPENROUTER_TRANSLATION_MODELS.map((model) => (
                         <option key={model.id} value={model.id}>
                           {model.name}
+                          {model.id === DEFAULT_OPENROUTER_TRANSLATION_MODEL
+                            ? ` (${t('lists.modelRecommended')})`
+                            : ''}
                         </option>
                       ))}
                       <option value="custom">{t('lists.customModel')}</option>

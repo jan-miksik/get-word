@@ -85,6 +85,41 @@ describe("generateFromOpenRouterSeed", () => {
     expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 
+  it("ignores accepted-answer variants returned during autogeneration", async () => {
+    global.fetch = vi.fn().mockResolvedValueOnce(
+      openRouterResponse([
+        {
+          sourceIndex: 0,
+          known: "one",
+          target: "một",
+          category: "Numbers",
+          // Even if a model adds legacy/unrequested variant fields, this flow
+          // must not persist them; variants are generated separately via BYOK.
+          acceptedKnown: ["uno", "single", "ona", "oen"],
+          acceptedTarget: ["mốt"],
+        },
+        // No accepted fields at all — older-style responses must still parse.
+        { sourceIndex: 1, known: "two", target: "hai", category: "Numbers" },
+      ]),
+    ) as typeof fetch;
+
+    const result = await generateFromOpenRouterSeed({
+      languageFrom: "en",
+      languageTo: "vi",
+      sourceLanguage: "en",
+      sourceList: { id: "seed", name: "Seed" } as WordList,
+      sourceItems: [
+        { sourceIndex: 0, source: "one", category: "Numbers" },
+        { sourceIndex: 1, source: "two", category: "Numbers" },
+      ],
+    });
+
+    expect(result[0].acceptedKnown).toBeUndefined();
+    expect(result[0].acceptedTarget).toBeUndefined();
+    expect(result[1].acceptedKnown).toBeUndefined();
+    expect(result[1].acceptedTarget).toBeUndefined();
+  });
+
   it("repairs known-side category leakage from seed generation", async () => {
     global.fetch = vi.fn()
       .mockResolvedValueOnce(openRouterResponse([

@@ -42,6 +42,8 @@ function itemsToPending(items: WordListItem[]): PendingListItems {
     id: item.id,
     text_known: item.textKnown,
     text_target: item.textTarget ?? null,
+    accepted_known: item.acceptedKnown ?? [],
+    accepted_target: item.acceptedTarget ?? [],
     position: item.position,
     // Surface the existing study-note text so the review editor shows it.
     comment: item.comment?.text ?? null,
@@ -250,6 +252,8 @@ export function useListsWizard({
             id: row.id,
             text_known: row.textKnown,
             text_target: row.textTarget || null,
+            accepted_known: row.acceptedKnown ?? [],
+            accepted_target: row.acceptedTarget ?? [],
             position: prior?.position ?? index,
             // Carry the editor's current note forward so Back doesn't blank it.
             comment: row.comment ?? null,

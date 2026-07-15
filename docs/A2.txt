@@ -1,0 +1,1684 @@
+
+Výraz	Úroveň	Typ	Slovní druh	Rod	Číslo	Vid	Kapitoly
+a proto	A2	slovo	konjunkce				4.8.6
+aby	A2	slovo	konjunkce				5.5.16
+adoptivní	A2	slovo	adjektivum				6.1.13
+agentura	A2	slovo	substantivum	femininum	singulár		6.11.5
+AIDS	A2	slovo	substantivum	maskulinum	singulár		6.7.5
+akce	A2	slovo	substantivum	femininum			6.8.4
+aktovka	A2	slovo	substantivum	femininum	singulár		6.8.3; 6.10.3
+ale jo	A2	slovo	partikule				5.2.6
+alergie	A2	slovo	substantivum	femininum	singulár		6.7.4
+alespoň	A2	slovo	partikule				4.2.7
+ambulance	A2	slovo	substantivum	femininum	singulár		6.7.7
+angína	A2	slovo	substantivum	femininum	singulár		6.7.5
+ani, ani	A2	slovo	konjunkce				4.8.1
+antibiotika	A2	slovo	substantivum	neutrum	plurál		6.8.6
+antikoncepce	A2	slovo	substantivum	femininum	singulár		6.7.9
+aperitiv	A2	slovo	substantivum	maskulinum	singulár		6.3.5
+apostila	A2	slovo	substantivum	femininum	singulár		6.11.6
+asijský	A2	slovo	adjektivum				6.1.14
+ať	A2	slovo	partikule				5.5.35
+ateista	A2	slovo	substantivum	maskulinum	singulár		6.1.11
+ateistka	A2	slovo	substantivum	femininum	singulár		6.1.11
+atletika	A2	slovo	substantivum	femininum	singulár		6.5.7
+aula	A2	slovo	substantivum	femininum	singulár		6.10.2
+autobazar	A2	slovo	substantivum	maskulinum	singulár		6.9.5
+autobusový	A2	slovo	adjektivum				6.9.9
+autodíl	A2	slovo	substantivum	maskulinum	singulár		6.9.5
+autosedačka	A2	slovo	substantivum	femininum	singulár		6.9.3
+autoškola	A2	slovo	substantivum	femininum	singulár		6.9.2
+balet	A2	slovo	substantivum	maskulinum	singulár		6.5.11
+balíček	A2	slovo	substantivum	maskulinum	singulár		4.2.3
+barvit	A2	slovo	verbum			imperfektivní	6.8.9
+báseň	A2	slovo	substantivum	femininum	singulár		6.5.14
+básník	A2	slovo	substantivum	maskulinum	singulár		6.5.14
+básnířka	A2	slovo	substantivum	femininum	singulár		6.5.14
+batoh	A2	slovo	substantivum	maskulinum	singulár		6.8.3
+bavit	A2	slovo	verbum			imperfektivní	5.3.15; 6.5.6
+bavit se	A2	slovo	verbum			imperfektivní	6.5.2
+bavlněný	A2	slovo	adjektivum				4.6.9
+Bc.	A2	slovo	substantivum	maskulinum	singulár		6.1.2
+běh	A2	slovo	substantivum	maskulinum	singulár		4.4.4
+běhat	A2	slovo	verbum			imperfektivní	4.4.4; 6.5.7
+becherovka	A2	slovo	substantivum	femininum	singulár		6.3.14
+běloch	A2	slovo	substantivum	maskulinum	singulár		6.1.14
+běloška	A2	slovo	substantivum	femininum	singulár		6.1.14
+beton	A2	slovo	substantivum	maskulinum	singulár		4.6.9
+bez	A2	slovo	prepozice				6.8.3
+bezpečnost	A2	slovo	substantivum	femininum	singulár		6.6.5
+bezpečnostní	A2	slovo	adjektivum				6.9.3
+běžet	A2	slovo	verbum			imperfektivní	4.4.4
+biologie	A2	slovo	substantivum	femininum	singulár		6.10.7
+blbý	A2	slovo	adjektivum				4.7.1
+blízko	A2	slovo	adverbium, prepozice				4.3.4
+blog	A2	slovo	substantivum	maskulinum	singulár		6.5.5
+bojler	A2	slovo	substantivum	maskulinum	singulár		6.2.5
+bolest	A2	slovo	substantivum	femininum	singulár		6.7.2
+bouřka	A2	slovo	substantivum	femininum	singulár		6.13.3
+bowling	A2	slovo	substantivum	maskulinum	singulár		6.5.6
+bramborový	A2	slovo	adjektivum				6.3.8
+bratranec	A2	slovo	substantivum	maskulinum	singulár		6.1.13
+brigádnice	A2	slovo	substantivum	femininum	singulár		6.6.2
+brigádník	A2	slovo	substantivum	maskulinum	singulár		6.6.2
+bronchitida	A2	slovo	substantivum	femininum	singulár		6.7.5
+broskev	A2	slovo	substantivum	femininum	singulár		6.3.10
+brusle	A2	slovo	substantivum	femininum	plurál		6.5.9
+březnový	A2	slovo	adjektivum				4.5.1
+buddhista	A2	slovo	substantivum	maskulinum	singulár		6.1.11
+buddhistka	A2	slovo	substantivum	femininum	singulár		6.1.11
+budík	A2	slovo	substantivum	maskulinum	singulár		6.4.1
+budit se	A2	slovo	verbum			imperfektivní	6.4.1
+budoucnost	A2	slovo	substantivum	femininum	singulár		4.5.4
+budova	A2	slovo	substantivum	femininum	singulár		6.10.2
+budvar	A2	slovo	substantivum	maskulinum	singulár		6.3.14
+bydlení	A2	slovo	substantivum	neutrum	singulár		6.2.6; 6.11.5; 6.2.2
+cela	A2	slovo	substantivum	femininum	singulár		6.12.1
+celer	A2	slovo	substantivum	maskulinum	singulár		6.3.10
+celní	A2	slovo	adjektivum				6.9.12
+celnice	A2	slovo	substantivum	femininum	singulár		6.9.12
+centrum	A2	slovo	substantivum	neutrum	singulár		6.8.1
+certifikovaný	A2	slovo	adjektivum				6.10.8
+cestovní	A2	slovo	adjektivum				6.8.8
+cyklistika	A2	slovo	substantivum	femininum	singulár		6.5.7
+cyklostezka	A2	slovo	substantivum	femininum	singulár		6.9.4
+čára	A2	slovo	substantivum	femininum	singulár		4.6.1
+časový	A2	slovo	adjektivum				6.9.8
+část	A2	slovo	substantivum	femininum	singulár		4.2.3
+čelo	A2	slovo	substantivum	neutrum	singulár		6.7.1
+černoch	A2	slovo	substantivum	maskulinum	singulár		6.1.14
+černoška	A2	slovo	substantivum	femininum	singulár		6.1.14
+čerpací	A2	slovo	adjektivum				6.9.5
+červená (barva na semaforu)	A2	slovo	substantivum	femininum	singulár		6.9.4
+činnost	A2	slovo	substantivum	femininum	singulár		6.6.5
+číslice	A2	slovo	substantivum	femininum	singulár		4.2.1
+čisticí	A2	slovo	adjektivum				6.4.3
+čisto	A2	slovo	adverbium				4.6.3
+článek (napsaný text)	A2	slovo	substantivum	maskulinum	singulár		6.5.14
+člen	A2	slovo	substantivum	maskulinum	singulár		6.14.2
+členka	A2	slovo	substantivum	femininum	singulár		6.14.2
+čtenář	A2	slovo	substantivum	maskulinum	singulár		6.5.14
+čtenářka	A2	slovo	substantivum	femininum	singulár		6.5.14
+čtverec	A2	slovo	substantivum	maskulinum	singulár		4.6.1
+čtvereční	A2	slovo	adjektivum				4.3.7
+čtvrt (část celku)	A2	slovo	substantivum	femininum	singulár		4.2.3; 4.5.1
+čtvrtka (část celku)	A2	slovo	substantivum	femininum	singulár		4.2.3; 4.5.1
+dámský	A2	slovo	adjektivum				6.4.2
+daň	A2	slovo	substantivum	femininum	singulár		6.11.3
+daňový	A2	slovo	adjektivum				6.11.3
+datový	A2	slovo	adjektivum				6.8.11; 6.10.3
+dávat	A2	slovo	verbum			imperfektivní	4.4.7; 6.5.3; 6.5.10
+dávka	A2	slovo	substantivum	femininum	singulár		6.11.5
+deci	A2	slovo	substantivum	neutrum	singulár		4.3.8
+decilitr	A2	slovo	substantivum	maskulinum	singulár		4.3.8
+dějepis	A2	slovo	substantivum	maskulinum	singulár		6.10.7
+dekagram	A2	slovo	substantivum	maskulinum	singulár		4.3.6
+deko	A2	slovo	substantivum	neutrum	singulár		4.3.6
+dělat	A2	slovo	verbum			imperfektivní	5.1.8; 5.2.30; 5.3.22; 5.3.29; 6.4.1; 6.5.7; 6.10.8
+dělat rád	A2	slovo	verbum			imperfektivní	5.3.10
+dělat si	A2	slovo	verbum			imperfektivní	5.3.31
+délka	A2	slovo	substantivum	femininum	singulár		4.3.3
+denní	A2	slovo	adjektivum				4.5.1; 6.3.5
+detektivka	A2	slovo	substantivum	femininum	singulár		6.5.3; 6.5.14
+dětský	A2	slovo	adjektivum				6.2.3; 6.7.6
+diabetička	A2	slovo	substantivum	femininum	singulár		6.7.11
+diabetik	A2	slovo	substantivum	maskulinum	singulár		6.7.11
+dieta	A2	slovo	substantivum	femininum	singulár		6.7.4
+dík(y)	A2	slovo	interjekce				5.5.3
+diskusní	A2	slovo	adjektivum				6.5.3
+diskžokej	A2	slovo	substantivum	maskulinum	singulár		6.5.12
+dít se	A2	slovo	verbum			imperfektivní	4.1.3
+divák	A2	slovo	substantivum	maskulinum	singulár		6.5.8
+divný	A2	slovo	adjektivum				4.7.7
+dnešní	A2	slovo	adjektivum				4.5.3
+dobírka	A2	slovo	substantivum	femininum	singulár		6.8.7
+docela	A2	slovo	adverbium				4.2.8
+docent	A2	slovo	substantivum	maskulinum	singulár		6.10.4
+docentka	A2	slovo	substantivum	femininum	singulár		6.10.4
+dodržovat	A2	slovo	verbum			imperfektivní	6.6.5
+dohoda	A2	slovo	substantivum	femininum	singulár		6.6.5
+dokdy	A2	slovo	adverbium				4.5.10; 5.1.8
+dokument	A2	slovo	substantivum	maskulinum	singulár		6.5.3
+doleva	A2	slovo	adverbium				4.4.19
+dolní	A2	slovo	adjektivum				4.4.2
+doplácet	A2	slovo	verbum			imperfektivní	6.8.6
+doplatek	A2	slovo	substantivum	maskulinum	singulár		6.2.6
+doplatit	A2	slovo	verbum			perfektivní	6.8.6
+dopolední	A2	slovo	adjektivum				4.5.1
+doporučeně	A2	slovo	adverbium				6.8.11
+doporučený	A2	slovo	adjektivum				6.8.11
+doporučovat	A2	slovo	verbum			imperfektivní	6.3.3
+doprava	A2	slovo	substantivum	femininum	singulár		6.5.4
+dopravní	A2	slovo	adjektivum				6.9.1; 6.9.4; 6.9.6
+doprostřed	A2	slovo	adverbium				4.4.19
+dost	A2	slovo	adverbium				4.2.3; 4.2.8; 5.3.34
+dostat	A2	slovo	verbum			perfektivní	6.6.5; 6.10.8; 6.11.1
+dostavit se	A2	slovo	verbum			perfektivní	6.11.8
+doufat	A2	slovo	verbum			imperfektivní	5.3.37
+dovnitř	A2	slovo	adverbium				4.4.19
+dovolit	A2	slovo	verbum			perfektivní	5.4.20; 5.5.16
+dres	A2	slovo	substantivum	maskulinum	singulár		6.5.9
+drobný	A2	slovo	adjektivum				6.1.14
+droga	A2	slovo	substantivum	femininum	singulár		6.9.6
+druh (druh a družka)	A2	slovo	substantivum	maskulinum	singulár		6.1.8
+družka	A2	slovo	substantivum	femininum	singulár		6.1.8
+družstvo (tým)	A2	slovo	substantivum	neutrum	singulár		6.5.8
+držet	A2	slovo	verbum			imperfektivní	6.7.4
+dřevěný	A2	slovo	adjektivum				4.6.9
+dřevo	A2	slovo	substantivum	neutrum	singulár		4.6.9; 6.2.5
+dřez	A2	slovo	substantivum	maskulinum	singulár		6.2.4
+dříve	A2	slovo	adverbium				4.5.2
+důchodový	A2	slovo	adjektivum				6.11.4
+dusit	A2	slovo	verbum			imperfektivní	6.3.15
+dušený	A2	slovo	adjektivum				6.3.7
+dvůr	A2	slovo	substantivum	maskulinum	singulár		6.2.3
+džem	A2	slovo	substantivum	maskulinum	singulár		6.3.13
+džíny	A2	slovo	substantivum	maskulinum	pluralium tantum		6.8.3
+e-mailový	A2	slovo	adjektivum				6.1.4
+elektrický	A2	slovo	adjektivum				6.2.5; 6.8.2
+elektrikář	A2	slovo	substantivum	maskulinum	singulár		6.8.10
+elektronický	A2	slovo	adjektivum				6.5.15
+elektronika	A2	slovo	substantivum	femininum	singulár		6.8.1
+expres (rychlá služba)	A2	slovo	substantivum	maskulinum	singulár		6.8.11
+facebook	A2	slovo	substantivum	maskulinum	singulár		6.1.4; 6.5.5
+fakt	A2	slovo	substantivum	maskulinum	singulár		5.2.1; 5.2.17
+fandit	A2	slovo	verbum			imperfektivní	6.5.8
+fanoušek	A2	slovo	substantivum	maskulinum	singulár		6.5.8
+fast food	A2	slovo	substantivum	maskulinum	singulár		6.3.2
+fén	A2	slovo	substantivum	maskulinum	singulár		6.4.2
+fix	A2	slovo	substantivum	maskulinum	singulár		6.10.3
+fond	A2	slovo	substantivum	maskulinum	singulár		6.2.6
+formulář	A2	slovo	substantivum	maskulinum	singulár		6.11.6
+fyzický	A2	slovo	adjektivum				6.6.8
+garsonka	A2	slovo	substantivum	femininum	singulár		6.2.1
+GPS	A2	slovo	substantivum	femininum	singulár		6.1.3; 6.9.3
+gratulovat	A2	slovo	verbum			imperfektivní	5.5.25
+grilovaný	A2	slovo	adjektivum				6.3.7
+grilovat	A2	slovo	verbum			imperfektivní	6.3.15
+guma	A2	slovo	substantivum	femininum	singulár		4.6.9
+gymnastika	A2	slovo	substantivum	femininum	singulár		6.5.7
+halenka	A2	slovo	substantivum	femininum	singulár		6.8.3
+hele	A2	slovo	interjekce				5.5.11
+hi-fi	A2	slovo	substantivum	neutrum			6.2.5
+hladký	A2	slovo	adjektivum				6.3.13
+hlas	A2	slovo	substantivum	maskulinum	singulár		4.6.5
+hlasovat	A2	slovo	verbum			imperfektivní	6.14.3
+hlasový	A2	slovo	adjektivum				5.6.13
+hloubka	A2	slovo	substantivum	femininum	singulár		4.3.3
+hluboko	A2	slovo	adverbium				4.3.3
+hluboký	A2	slovo	adjektivum				4.3.3
+hlučný	A2	slovo	adjektivum				4.6.5
+hmotný	A2	slovo	adjektivum				6.11.5
+hmyz	A2	slovo	substantivum	maskulinum	singulár		6.13.2
+hnusný	A2	slovo	adjektivum				5.3.3
+hodit se	A2	slovo	verbum			imperfektivní	4.7.3; 5.5.7
+holicí	A2	slovo	adjektivum				6.4.2
+holit se	A2	slovo	verbum			imperfektivní	6.4.2
+horečka	A2	slovo	substantivum	femininum	singulár		6.7.2
+horní	A2	slovo	adjektivum				4.4.2
+hořký	A2	slovo	adjektivum				4.6.6
+hotový	A2	slovo	adjektivum				6.3.5
+housle	A2	slovo	substantivum	femininum	pluralium tantum		6.5.6; 6.5.11
+hranice	A2	slovo	substantivum	femininum	singulár		6.9.12
+hrášek	A2	slovo	substantivum	maskulinum	singulár		6.3.10
+hrnec	A2	slovo	substantivum	maskulinum	singulár		6.3.16
+hrnek	A2	slovo	substantivum	maskulinum	singulár		4.2.3
+hrozit	A2	slovo	verbum			imperfektivní	6.12.3
+hroznový	A2	slovo	adjektivum				6.3.10
+hrubý	A2	slovo	adjektivum				4.6.10; 6.3.13; 6.6.6
+hřeben	A2	slovo	substantivum	maskulinum	singulár		6.4.2
+hudební	A2	slovo	adjektivum				6.5.3; 6.5.6
+hvězda	A2	slovo	substantivum	femininum	singulár		6.13.1
+hygienický	A2	slovo	adjektivum				6.8.2
+chalupa	A2	slovo	substantivum	femininum	singulár		6.5.2
+chápat	A2	slovo	verbum			imperfektivní	5.3.36
+charita	A2	slovo	substantivum	femininum	singulár		6.14.2
+chat	A2	slovo	substantivum	maskulinum	singulár		6.5.5
+chatovat	A2	slovo	verbum			imperfektivní	6.5.5
+chemie	A2	slovo	substantivum	femininum	singulár		6.10.7
+chirurg	A2	slovo	substantivum	maskulinum	singulár		6.7.6
+chirurgický	A2	slovo	adjektivum				6.7.7
+chodba	A2	slovo	substantivum	femininum	singulár		6.2.3
+chodník	A2	slovo	substantivum	maskulinum	singulár		6.9.4
+chovat (chovat zvíře)	A2	slovo	verbum			imperfektivní	6.5.6; 6.13.2
+chrám	A2	slovo	substantivum	maskulinum	singulár		6.1.11
+chuť	A2	slovo	substantivum	femininum	singulár		4.6.6; 5.3.4; 5.3.5; 5.3.6; 5.3.11; 5.5.5; 5.5.26
+chutný	A2	slovo	adjektivum				4.6.6
+chybět	A2	slovo	verbum			imperfektivní	4.1.1; 4.1.2
+chytat	A2	slovo	verbum			imperfektivní	6.5.6
+informatička	A2	slovo	substantivum	femininum	singulár		6.6.1
+instalatér	A2	slovo	substantivum	maskulinum	singulár		6.8.10
+inteligentní	A2	slovo	adjektivum				6.1.15
+internet	A2	slovo	substantivum	maskulinum	singulár		6.2.5; 6.2.6
+internetový	A2	slovo	adjektivum				6.8.1; 6.8.12
+interní	A2	slovo	adjektivum				6.7.7
+invalidní	A2	slovo	adjektivum				6.11.4
+jakž takž	A2	slovo	adverbium				5.5.17
+jarní	A2	slovo	adjektivum				4.5.1
+jasný	A2	slovo	adjektivum				4.6.4; 5.7.2;
+játra	A2	slovo	substantivum	neutrum	pluralium tantum		6.7.1
+jazzový	A2	slovo	adjektivum				6.5.15
+jednatel	A2	slovo	substantivum	maskulinum	singulár		6.6.8
+jednatelka	A2	slovo	substantivum	femininum	singulár		6.6.8
+jemný	A2	slovo	adjektivum				4.6.6; 4.6.10
+jesle	A2	slovo	substantivum	femininum	pluralium tantum		6.10.1
+jestli	A2	slovo	konjunkce				4.8.7; 5.1.7; 6.10.5
+jezero	A2	slovo	substantivum	neutrum	singulár		6.13.1
+jinam	A2	slovo	adverbium				4.4.19
+jinde	A2	slovo	adverbium				4.4.2
+jistě	A2	slovo	adverbium				5.2.16
+jižní	A2	slovo	adjektivum				4.4.3
+jo	A2	slovo	partikule				5.2.1; 5.2.30
+JUDr.	A2	slovo	substantivum	maskulinum / femininum	singulár		6.1.2
+k	A2	slovo	prepozice				6.1.11; 6.1.12; 6.2.5
+kabelka	A2	slovo	substantivum	femininum	singulár		6.8.3
+kadeřník	A2	slovo	substantivum	maskulinum	singulár		6.6.1
+kachna	A2	slovo	substantivum	femininum	singulár		6.3.7
+kamion	A2	slovo	substantivum	maskulinum	singulár		6.9.1
+kapela	A2	slovo	substantivum	femininum	singulár		6.5.12
+kapesník	A2	slovo	substantivum	maskulinum	singulár		6.4.2
+kapky	A2	slovo	substantivum	femininum	pluralium tantum		6.8.6
+kapr	A2	slovo	substantivum	maskulinum	singulár		6.3.7; 6.7.11
+kapusta	A2	slovo	substantivum	femininum	singulár		6.3.10
+kardiolog	A2	slovo	substantivum	maskulinum	singulár		6.7.6
+kartáč	A2	slovo	substantivum	maskulinum	singulár		6.4.2
+kaše	A2	slovo	substantivum	femininum	singulár		6.3.8
+katolička	A2	slovo	substantivum	femininum	singulár		6.1.11
+katolík	A2	slovo	substantivum	maskulinum	singulár		6.1.11
+kdysi	A2	slovo	adverbium				4.5.2
+když	A2	slovo	konjunkce				4.8.7
+keř	A2	slovo	substantivum	maskulinum	singulár		6.13.2
+klávesnice	A2	slovo	substantivum	femininum	singulár		6.5.5
+klenotnictví	A2	slovo	substantivum	neutrum	singulár		6.8.1
+klesat	A2	slovo	verbum			imperfektivní	4.3.9
+klesnout	A2	slovo	verbum			perfektivní	4.3.9
+klidně	A2	slovo	adverbium				5.2.29
+klobouk	A2	slovo	substantivum	maskulinum	singulár		6.8.3
+klub	A2	slovo	substantivum	maskulinum	singulár		6.14.2
+knihkupectví	A2	slovo	substantivum	neutrum	singulár		6.8.1
+knihovna	A2	slovo	substantivum	femininum	singulár		6.2.4; 6.5.14; 6.10.2
+knír	A2	slovo	substantivum	maskulinum	singulár		6.1.14
+koberec	A2	slovo	substantivum	maskulinum	singulár		6.2.4
+kofola	A2	slovo	substantivum	femininum	singulár		6.3.14
+koláč	A2	slovo	substantivum	maskulinum	singulár		6.3.11
+kolej (ubytování)	A2	slovo	substantivum	femininum	singulár		6.2.1
+kolo (kolo u auta)	A2	slovo	substantivum	neutrum	singulár		6.9.3
+komerční	A2	slovo	adjektivum				6.7.12
+konat se	A2	slovo	verbum			imperfektivní	6.5.11
+koncertní	A2	slovo	adjektivum				6.5.10
+koníček	A2	slovo	substantivum	maskulinum	singulár		6.5.2; 6.5.6
+konvice	A2	slovo	substantivum	femininum	singulár		6.2.5
+konzultace	A2	slovo	substantivum	femininum	singulár		6.10.6
+koření	A2	slovo	substantivum	neutrum	singulár		6.3.13
+kost	A2	slovo	substantivum	femininum	singulár		6.7.1
+kostým	A2	slovo	substantivum	maskulinum	singulár		6.8.3
+košík	A2	slovo	substantivum	maskulinum	singulár		6.8.4
+kotel	A2	slovo	substantivum	maskulinum	singulár		6.2.5
+kotník	A2	slovo	substantivum	maskulinum	singulár		6.7.1
+kousek	A2	slovo	substantivum	maskulinum	singulár		4.2.3
+kout	A2	slovo	substantivum	maskulinum	singulár		6.2.3; 6.2.4
+kovový	A2	slovo	adjektivum				4.6.9
+krabice	A2	slovo	substantivum	femininum	singulár		4.2.3
+krabička	A2	slovo	substantivum	femininum	singulár		4.2.3
+krádež	A2	slovo	substantivum	femininum	singulár		6.12.1
+kraj (místo)	A2	slovo	substantivum	maskulinum	singulár		4.4.2
+krájet	A2	slovo	verbum			imperfektivní	6.3.15
+krajina	A2	slovo	substantivum	femininum	singulár		6.13.1
+krátce	A2	slovo	adverbium				4.5.12
+kravata	A2	slovo	substantivum	femininum	singulár		6.8.3
+krb	A2	slovo	substantivum	maskulinum	singulár		6.2.5
+krejčí	A2	slovo	substantivum	maskulinum	singulár		6.8.10
+krejčovství	A2	slovo	substantivum	neutrum	singulár		6.8.8
+krize	A2	slovo	substantivum	femininum	singulár		6.12.3
+kruh	A2	slovo	substantivum	maskulinum	singulár		4.6.1
+kruhový	A2	slovo	adjektivum				6.9.4
+krvácet	A2	slovo	verbum			imperfektivní	6.7.2
+krychlový	A2	slovo	adjektivum				4.3.8
+křehký	A2	slovo	adjektivum				4.6.10
+křeslo	A2	slovo	substantivum	neutrum	singulár		6.2.4
+křesťan	A2	slovo	substantivum	maskulinum	singulár		6.1.11
+křesťanka	A2	slovo	substantivum	femininum	singulár		6.1.11
+křesťanský	A2	slovo	adjektivum				6.1.11
+křivý	A2	slovo	adjektivum				4.6.1
+kudrnatý	A2	slovo	adjektivum				6.1.14
+kudy	A2	slovo	adverbium				4.4.4; 4.4.15; 4.4.16; 5.1.8; 5.1.9
+kufr	A2	slovo	substantivum	maskulinum	singulár		6.8.3; 6.9.12
+kuchařka (kniha)	A2	slovo	substantivum	femininum	singulár		6.3.15
+kuchyňský	A2	slovo	adjektivum				6.2.3
+kulatý	A2	slovo	adjektivum				4.6.1
+kulečník	A2	slovo	substantivum	maskulinum	singulár		6.5.6
+kulturní	A2	slovo	adjektivum				6.5.10
+kůň	A2	slovo	substantivum	maskulinum	singulár		6.13.2
+kupé	A2	slovo	substantivum	neutrum	singulár		6.9.10
+kurt	A2	slovo	substantivum	maskulinum	singulár		6.5.9
+kurz (kurz peněz)	A2	slovo	substantivum	maskulinum	singulár		6.8.13
+kuřecí	A2	slovo	adjektivum				6.3.7
+kus	A2	slovo	substantivum	maskulinum	singulár		4.2.3
+kůže (kůže na těle)	A2	slovo	substantivum	femininum	singulár		6.7.1
+kvalita	A2	slovo	substantivum	femininum	singulár		4.7.1
+kvalitní	A2	slovo	adjektivum				4.7.1
+květinářství	A2	slovo	substantivum	neutrum	singulár		6.8.1
+kyselý	A2	slovo	adjektivum				4.6.6
+láhev	A2	slovo	substantivum	femininum	singulár		4.2.3; 4.3.8
+látka	A2	slovo	substantivum	femininum	singulár		4.6.9
+léčit	A2	slovo	verbum			imperfektivní	6.7.6
+léčit se	A2	slovo	verbum			imperfektivní	6.7.4
+lednový	A2	slovo	adjektivum				4.5.1
+ledviny	A2	slovo	substantivum	femininum	plurál		6.7.1
+lehat si	A2	slovo	verbum			imperfektivní	4.4.6
+lehce	A2	slovo	adverbium				4.7.5
+lehnout si	A2	slovo	verbum			perfektivní	4.4.6
+lékárnička	A2	slovo	substantivum	femininum	singulár		6.9.3
+let	A2	slovo	substantivum	maskulinum	singulár		4.4.4; 6.9.11
+létat	A2	slovo	verbum			imperfektivní	4.4.4
+letecky	A2	slovo	adverbium				6.8.11
+letní	A2	slovo	adjektivum				4.5.1
+letos	A2	slovo	adverbium				4.5.3
+letový	A2	slovo	adjektivum				6.9.11
+letuška	A2	slovo	substantivum	femininum	singulár		6.9.11
+levý	A2	slovo	adjektivum				4.4.2
+lézt	A2	slovo	verbum			imperfektivní	4.4.4
+lidový	A2	slovo	adjektivum				6.5.15
+linka (kuchyňská linka)	A2	slovo	substantivum	femininum	singulár		6.2.4
+listonoš	A2	slovo	substantivum	maskulinum	singulár		6.8.10
+listonoška	A2	slovo	substantivum	femininum	singulár		6.8.10
+lít	A2	slovo	verbum			imperfektivní	4.4.5
+literatura	A2	slovo	substantivum	femininum	singulár		6.5.14
+líto	A2	slovo	adverbium				5.5.1
+litovat	A2	slovo	verbum			imperfektivní	5.3.21; 5.4.7; 5.4.10
+loď	A2	slovo	substantivum	femininum	singulár		6.9.1
+loket	A2	slovo	substantivum	maskulinum	singulár		6.7.1
+loni	A2	slovo	adverbium				4.5.2
+ložnice	A2	slovo	substantivum	femininum	singulár		6.2.3
+lux	A2	slovo	substantivum	maskulinum	singulár		6.4.3
+luxovat	A2	slovo	verbum			imperfektivní	6.4.3
+lůžko	A2	slovo	substantivum	neutrum	singulár		6.7.7
+lyžař	A2	slovo	substantivum	maskulinum	singulár		6.5.7
+lyžařka	A2	slovo	substantivum	femininum	singulár		6.5.7
+lyže	A2	slovo	substantivum	femininum	pluralium tantum		6.5.9
+lžíce	A2	slovo	substantivum	femininum	singulár		4.2.3; 6.3.16
+majetek	A2	slovo	substantivum	maskulinum	singulár		4.8.9
+majitel	A2	slovo	substantivum	maskulinum	singulár		4.8.9; 6.2.2
+makléř	A2	slovo	substantivum	maskulinum	singulár		6.8.10
+maličkost	A2	slovo	substantivum	femininum	singulár		5.5.4
+malíř	A2	slovo	substantivum	maskulinum	singulár		6.5.12
+malířka	A2	slovo	substantivum	femininum	singulár		6.5.12
+malovat	A2	slovo	verbum			imperfektivní	6.5.6
+malovat se	A2	slovo	verbum			imperfektivní	6.4.2
+mandarinka	A2	slovo	substantivum	femininum	singulár		6.3.10
+manikúra	A2	slovo	substantivum	femininum	singulár		6.8.8
+masáž	A2	slovo	substantivum	femininum	singulár		6.12.2
+masáže	A2	slovo	substantivum	femininum	plurál		6.8.8
+masírovat	A2	slovo	verbum			imperfektivní	6.8.9
+mast	A2	slovo	substantivum	femininum	singulár		6.8.6
+mateřská	A2	slovo	substantivum	femininum	singulár		6.11.4
+mateřský	A2	slovo	adjektivum				6.6.2; 6.10.1; 6.11.4; 6.14.1
+matrika	A2	slovo	substantivum	femininum	singulár		6.11.1
+maturita	A2	slovo	substantivum	femininum	singulár		6.10.9
+maturitní	A2	slovo	adjektivum				6.10.8
+med	A2	slovo	substantivum	maskulinum	singulár		6.3.13
+měna	A2	slovo	substantivum	femininum	singulár		6.8.13
+menstruace	A2	slovo	substantivum	femininum	singulár		6.7.9
+menší	A2	slovo	adjektivum				4.3.1
+menza	A2	slovo	substantivum	femininum	singulár		6.3.2; 6.10.2
+meruňka	A2	slovo	substantivum	femininum	singulár		6.3.10
+Měsíc	A2	slovo	substantivum	maskulinum	singulár		6.13.1
+měsíčně	A2	slovo	adverbium				4.5.13
+měsíční	A2	slovo	adjektivum				4.5.1
+mešita	A2	slovo	substantivum	femininum	singulár		6.1.11
+metalový	A2	slovo	adjektivum				6.5.15
+mezinárodní	A2	slovo	adjektivum				6.9.9
+míchat	A2	slovo	verbum			imperfektivní	6.3.15
+mikrovlnka	A2	slovo	substantivum	femininum	singulár		6.2.5
+milimetr	A2	slovo	substantivum	maskulinum	singulár		4.3.3
+minimální	A2	slovo	adjektivum				6.6.6
+ministr	A2	slovo	substantivum	maskulinum	singulár		6.14.3
+ministryně	A2	slovo	substantivum	femininum	singulár		6.14.3
+minulost	A2	slovo	substantivum	femininum	singulár		4.5.2
+místenka	A2	slovo	substantivum	femininum	singulár		6.9.9
+mistrovství	A2	slovo	substantivum	neutrum	singulár		6.5.8
+mladě	A2	slovo	adverbium				4.6.13
+mládež	A2	slovo	substantivum	femininum	singulár		4.6.13
+mlha	A2	slovo	substantivum	femininum	singulár		6.13.3
+mnoho	A2	slovo	numerále				4.2.3
+mnohokrát	A2	slovo	numerále				4.5.13
+model	A2	slovo	substantivum	maskulinum	singulár		6.8.5
+moderně	A2	slovo	adverbium				4.6.13
+mokro	A2	slovo	adverbium				4.6.2
+monitor	A2	slovo	substantivum	maskulinum	singulár		6.5.5
+motorka	A2	slovo	substantivum	femininum	singulár		6.9.1
+mouka	A2	slovo	substantivum	femininum	singulár		6.3.13
+možná	A2	slovo	adverbium				5.2.19
+možný	A2	slovo	adjektivum				5.2.20; 5.2.23; 5.3.28
+mrak	A2	slovo	substantivum	maskulinum	singulár		6.13.3
+muslim	A2	slovo	substantivum	maskulinum	singulár		6.1.11
+muslimka	A2	slovo	substantivum	femininum	singulár		6.1.11
+mužský	A2	slovo	adjektivum				6.1.7
+myslet	A2	slovo	verbum			imperfektivní	5.2.4; 5.2.20; 5.7.5
+myš	A2	slovo	substantivum	femininum	singulár		6.5.5
+nabídka	A2	slovo	substantivum	femininum	singulár		6.3.5
+nabídnout	A2	slovo	verbum			perfektivní	6.8.4
+náboženský	A2	slovo	adjektivum				6.1.11
+náboženství	A2	slovo	substantivum	neutrum	singulár		6.1.11
+nadřízený	A2	slovo	substantivum	maskulinum	singulár		6.6.4
+najíst se	A2	slovo	verbum			perfektivní	6.3.1
+najít	A2	slovo	verbum			perfektivní	6.6.7
+nákladní	A2	slovo	adjektivum				6.9.1
+nakoupit	A2	slovo	verbum			perfektivní	6.4.1
+nakrájet	A2	slovo	verbum			perfektivní	6.3.15
+nakreslit	A2	slovo	verbum			perfektivní	6.10.5
+nákupní	A2	slovo	adjektivum				6.8.1
+nalít	A2	slovo	verbum			perfektivní	4.4.5
+namalovat se	A2	slovo	verbum			perfektivní	6.4.2
+namasírovat	A2	slovo	verbum			perfektivní	6.8.9
+naobědvat se	A2	slovo	verbum			perfektivní	6.3.4
+napít se	A2	slovo	verbum			perfektivní	5.4.9; 6.3.1
+nápojový	A2	slovo	adjektivum				6.3.3
+naprosto	A2	slovo	adverbium				5.2.16
+naproti	A2	slovo	adverbium, prepozice				4.4.2
+napřed	A2	slovo	adverbium				4.5.8
+národnost	A2	slovo	substantivum	femininum	singulár		6.1.9
+nasnídat se	A2	slovo	verbum			perfektivní	6.3.4
+nastoupit (nastoupit do dopravního prostředku)	A2	slovo	verbum			perfektivní	6.9.8
+nástroj	A2	slovo	substantivum	maskulinum	singulár		6.5.6
+nasvačit se	A2	slovo	verbum			perfektivní	6.3.4
+nasypat	A2	slovo	verbum			perfektivní	4.4.5
+natankovat	A2	slovo	verbum			perfektivní	6.9.5
+navečeřet se	A2	slovo	verbum			perfektivní	6.3.4
+navigace	A2	slovo	substantivum	femininum	singulár		6.9.3
+navigace GPS	A2	slovo	substantivum	femininum	singulár		6.9.3
+návštěva	A2	slovo	substantivum	femininum	singulár		6.5.2; 6.10.1
+navštívit	A2	slovo	verbum			perfektivní	6.5.2; 6.5.11; 6.9.12; 6.14.2
+nebavit	A2	slovo	verbum			imperfektivní	5.3.16
+nebe	A2	slovo	substantivum	neutrum	singulár		6.13.1
+nebezpečný	A2	slovo	adjektivum				6.6.5
+nedaleko	A2	slovo	adverbium				4.3.4
+nedávno	A2	slovo	adverbium				4.5.2
+nehtový	A2	slovo	adjektivum				6.8.8
+nejraději	A2	slovo	adjektivum				5.3.13
+někudy	A2	slovo	adverbium				4.4.21
+nepamatovat si	A2	slovo	verbum			imperfektivní	5.2.13
+neperlivý	A2	slovo	adjektivum				6.3.14
+nepřestupní	A2	slovo	adjektivum				6.9.8
+nerozhodně	A2	slovo	adverbium				6.5.8
+nervózní	A2	slovo	adjektivum				6.1.15
+nervy	A2	slovo	substantivum	maskulinum	plurál		5.3.34
+nesnášet	A2	slovo	verbum			imperfektivní	5.3.9
+nesympatický	A2	slovo	adjektivum				5.3.9
+neurčitý	A2	slovo	adjektivum				6.6.5
+nevědět	A2	slovo	verbum			imperfektivní	5.2.13
+nevhodný	A2	slovo	adjektivum				4.7.3
+nevlastní	A2	slovo	adjektivum				6.1.13
+nevzpomenout si	A2	slovo	verbum			perfektivní	5.2.11; 5.2.13
+nevzpomínat si	A2	slovo	verbum			imperfektivní	5.2.11; 5.2.13
+nezajímat	A2	slovo	verbum			imperfektivní	5.3.16; 5.3.29
+nezaměstnanost	A2	slovo	substantivum	femininum	singulár		6.11.5
+nezapomenout	A2	slovo	verbum			perfektivní	5.2.11; 5.2.12
+neziskový	A2	slovo	adjektivum				6.14.2
+noční	A2	slovo	adjektivum				4.5.1
+nostrifikace	A2	slovo	substantivum	femininum	singulár		6.10.9
+notebook	A2	slovo	substantivum	maskulinum	singulár		6.10.3
+nouze	A2	slovo	substantivum	femininum	singulár		6.11.5
+nově	A2	slovo	adverbium				4.6.13
+nůž	A2	slovo	substantivum	maskulinum	singulár		6.3.16
+o	A2	slovo	prepozice				5.3.16; 6.1.9; 6.5.4; 6.7.11
+obarvit	A2	slovo	verbum			perfektivní	6.8.9
+občan	A2	slovo	substantivum	maskulinum	singulár		6.14.3
+občanka	A2	slovo	substantivum	femininum	singulár		6.14.3
+občanství	A2	slovo	substantivum	neutrum	singulár		6.1.9
+občerstvení	A2	slovo	substantivum	neutrum	singulár		6.3.2
+obec	A2	slovo	substantivum	femininum	singulár		6.1.3
+obézní	A2	slovo	adjektivum				6.1.14
+obchodnice	A2	slovo	substantivum	femininum	singulár		6.8.10
+obchodník	A2	slovo	substantivum	maskulinum	singulár		6.8.10
+objednat si	A2	slovo	verbum			perfektivní	6.3.3
+objednávka	A2	slovo	substantivum	femininum	singulár		6.3.5
+objem	A2	slovo	substantivum	maskulinum	singulár		4.3.8
+objet	A2	slovo	verbum			perfektivní	4.4.16; 6.9.4
+objezd	A2	slovo	substantivum	maskulinum	singulár		4.4.16; 6.9.4
+objíždět	A2	slovo	verbum			imperfektivní	4.4.16; 6.9.4
+objížďka	A2	slovo	substantivum	femininum	singulár		4.4.16; 6.9.4
+oblek	A2	slovo	substantivum	maskulinum	singulár		6.8.3
+obléknout se	A2	slovo	verbum			perfektivní	6.4.1
+obsluha	A2	slovo	substantivum	femininum	singulár		6.3.3
+obuv (oblečení)	A2	slovo	substantivum	femininum	singulár		6.8.2; 6.8.8
+obviněný (na policii)	A2	slovo	substantivum	maskulinum	singulár		6.12.1
+obvykle	A2	slovo	adverbium				4.7.7
+obyčejně (poslat dopis na poště)	A2	slovo	adverbium				6.8.11
+obyčejný	A2	slovo	adjektivum				4.7.7; 6.8.11
+obývací	A2	slovo	adjektivum				6.2.3
+obývák	A2	slovo	substantivum	maskulinum	singulár		6.2.3
+obžalovaný	A2	slovo	substantivum	maskulinum	singulár		6.11.8
+ocel	A2	slovo	substantivum	femininum	singulár		4.6.9
+očkovací	A2	slovo	adjektivum				6.7.11
+oční	A2	slovo	adjektivum				6.7.6
+od	A2	slovo	prepozice				5.1.9
+odbavení	A2	slovo	substantivum	neutrum	singulár		6.9.11
+odbavit se	A2	slovo	verbum			perfektivní	6.9.11
+odbočit	A2	slovo	verbum			perfektivní	4.4.17
+odbočka	A2	slovo	substantivum	femininum	singulár		4.4.17
+odbočovat	A2	slovo	verbum			imperfektivní	4.4.17
+odbor	A2	slovo	substantivum	maskulinum	singulár		6.11.1
+odborný	A2	slovo	adjektivum				6.7.6; 6.10.1; 6.10.9
+oddělení	A2	slovo	substantivum	neutrum	singulár		6.7.7; 6.8.1
+oděv	A2	slovo	substantivum	maskulinum	singulár		6.8.8
+odlet	A2	slovo	substantivum	maskulinum	singulár		4.4.8
+odletět	A2	slovo	verbum			perfektivní	4.4.8; 6.9.11
+odměna	A2	slovo	substantivum	femininum	singulár		6.6.6
+odněkud	A2	slovo	adverbium				4.4.20
+odnést	A2	slovo	verbum			perfektivní	4.4.9
+odnikud	A2	slovo	adverbium				4.4.20
+odpočinout si	A2	slovo	verbum			perfektivní	6.4.1
+odpolední	A2	slovo	adjektivum				4.5.1
+odtamtud	A2	slovo	adverbium				4.4.20
+odtud	A2	slovo	adverbium				4.4.20
+odvážný	A2	slovo	adjektivum				6.1.15
+odvést	A2	slovo	verbum			perfektivní	4.4.9
+odvézt	A2	slovo	verbum			perfektivní	4.4.9
+ohlásit	A2	slovo	verbum			perfektivní	6.11.6; 6.12.1
+oholit se	A2	slovo	verbum			perfektivní	6.4.2
+ochutnat	A2	slovo	verbum			perfektivní	4.6.6
+ojetý	A2	slovo	adjektivum				6.9.5
+okresní	A2	slovo	adjektivum				6.14.4
+olej	A2	slovo	substantivum	maskulinum	singulár		6.3.13
+olympiáda	A2	slovo	substantivum	femininum	singulár		6.5.8
+omezený	A2	slovo	adjektivum				6.6.8
+opera	A2	slovo	substantivum	femininum	singulár		6.5.11
+operovat	A2	slovo	verbum			imperfektivní	6.7.4
+opoziční	A2	slovo	adjektivum				6.14.3
+opravna	A2	slovo	substantivum	femininum	singulár		6.8.8
+optika	A2	slovo	substantivum	femininum	singulár		6.8.8
+optimista	A2	slovo	substantivum	maskulinum	singulár		6.1.15
+optimistka	A2	slovo	substantivum	femininum	singulár		6.1.15
+oranžová (barva na semaforu)	A2	slovo	substantivum	femininum	singulár		6.9.4
+ordinovat	A2	slovo	verbum			imperfektivní	6.7.4
+organizace	A2	slovo	substantivum	femininum	singulár		6.14.2
+orientační	A2	slovo	adjektivum				6.1.3
+osmažit	A2	slovo	verbum			perfektivní	6.3.15
+osoba	A2	slovo	substantivum	femininum	singulár		6.6.8
+osprchovat se	A2	slovo	verbum			perfektivní	6.4.2
+ostrý	A2	slovo	adjektivum				4.6.6
+ostříhat	A2	slovo	verbum			perfektivní	6.8.9
+ošetřit	A2	slovo	verbum			perfektivní	6.8.9
+ošetřovat	A2	slovo	verbum			imperfektivní	6.8.9
+ošetřovatel	A2	slovo	substantivum	maskulinum	singulár		6.7.6
+ošetřovatelka	A2	slovo	substantivum	femininum	singulár		6.7.6
+ošetřovné	A2	slovo	substantivum	neutrum	singulár		6.7.13
+otáčet se	A2	slovo	verbum			imperfektivní	4.4.6
+oteklý	A2	slovo	adjektivum				6.7.2
+otočit se	A2	slovo	verbum			perfektivní	4.4.6
+ověřený	A2	slovo	adjektivum				6.11.7
+ověřit	A2	slovo	verbum			perfektivní	6.11.7
+ověřovat	A2	slovo	verbum			imperfektivní	6.11.7
+ovocný	A2	slovo	adjektivum				6.3.10
+označit	A2	slovo	verbum			perfektivní	6.9.8
+oznámení	A2	slovo	substantivum	neutrum	singulár		6.11.8
+oženit se	A2	slovo	verbum			perfektivní	6.1.8
+P.O. box	A2	slovo	substantivum	maskulinum	singulár		6.1.3
+padat	A2	slovo	verbum			imperfektivní	4.4.11
+páchnout	A2	slovo	verbum			imperfektivní	4.6.7
+palačinka	A2	slovo	substantivum	femininum	singulár		6.3.9
+pálivý	A2	slovo	adjektivum				4.6.6
+památka	A2	slovo	substantivum	femininum	singulár		6.5.2; 6.9.12
+památky	A2	slovo	substantivum	femininum	plurál		6.5.2
+pamatovat si	A2	slovo	verbum			imperfektivní	5.2.11; 5.2.12; 5.2.13; 5.2.14
+panel	A2	slovo	substantivum	maskulinum	singulár		6.2.5
+pánev	A2	slovo	substantivum	femininum	singulár		6.3.16
+pantofle	A2	slovo	substantivum	maskulinum	plurál		6.8.3
+papírnictví	A2	slovo	substantivum	neutrum	singulár		6.8.1
+papírový	A2	slovo	adjektivum				4.6.9
+paprika	A2	slovo	substantivum	femininum	singulár		6.3.10
+parlament	A2	slovo	substantivum	maskulinum	singulár		6.14.3
+partner	A2	slovo	substantivum	maskulinum	singulár		6.1.8
+partnerka	A2	slovo	substantivum	femininum	singulár		6.1.8
+pás	A2	slovo	substantivum	maskulinum	singulár		6.9.3
+paštika	A2	slovo	substantivum	femininum	singulár		6.3.7
+patro	A2	slovo	substantivum	neutrum	singulár		6.2.1
+patřit	A2	slovo	verbum			imperfektivní	4.8.9
+péct	A2	slovo	verbum			imperfektivní	6.3.15
+pečivo	A2	slovo	substantivum	neutrum	singulár		6.3.11
+pedikúra	A2	slovo	substantivum	femininum	singulár		6.8.8
+pekáč	A2	slovo	substantivum	maskulinum	singulár		6.3.16
+pepř	A2	slovo	substantivum	maskulinum	singulár		6.3.13
+perlivý	A2	slovo	adjektivum				6.3.14
+pesimista	A2	slovo	substantivum	maskulinum	singulár		6.1.15
+pesimistka	A2	slovo	substantivum	femininum	singulár		6.1.15
+pěstovat	A2	slovo	verbum			imperfektivní	6.13.2
+pěší	A2	slovo	adjektivum				6.9.4
+petržel	A2	slovo	substantivum	maskulinum	singulár		6.3.10
+pevný	A2	slovo	adjektivum				4.6.10
+piano	A2	slovo	substantivum	neutrum	singulár		6.5.6
+píchnout	A2	slovo	verbum			perfektivní	6.7.4
+plán	A2	slovo	substantivum	maskulinum	singulár		5.2.36
+plast	A2	slovo	substantivum	maskulinum	singulár		4.6.9
+plastový	A2	slovo	adjektivum				4.6.9
+pláštěnka	A2	slovo	substantivum	femininum	singulár		6.8.3
+platný	A2	slovo	adjektivum				6.1.12
+plavky	A2	slovo	substantivum	femininum	pluralium tantum		6.5.9
+pleš	A2	slovo	substantivum	femininum	singulár		6.1.14
+plíce	A2	slovo	substantivum	femininum	pluralium tantum		6.7.1; 6.7.5
+plnoštíhlý	A2	slovo	adjektivum				6.1.14
+plomba	A2	slovo	substantivum	femininum	singulár		6.7.8
+plombovat	A2	slovo	verbum			imperfektivní	6.7.8
+plzeňské (plzeňské pivo)	A2	slovo	substantivum	neutrum	singulár		6.3.14
+pneumatika	A2	slovo	substantivum	femininum	singulár		6.9.3
+pneuservis	A2	slovo	substantivum	maskulinum	singulár		6.9.5
+po	A2	slovo	prepozice				5.3.34
+počet	A2	slovo	substantivum	maskulinum	singulár		4.2.1
+počkat	A2	slovo	verbum			perfektivní	5.4.18; 6.9.10
+podání	A2	slovo	substantivum	neutrum	singulár		6.12.1
+podat	A2	slovo	verbum			perfektivní	6.11.3; 6.11.7
+podezřelý (být podezřelý)	A2	slovo	substantivum	maskulinum	singulár		6.12.1
+podívat se	A2	slovo	verbum			perfektivní	4.6.4; 6.5.2; 6.8.5
+podlaha	A2	slovo	substantivum	femininum	singulár		6.2.3
+podnájem	A2	slovo	substantivum	maskulinum	singulár		6.2.2
+podnikový	A2	slovo	adjektivum				6.3.2
+podobný	A2	slovo	adjektivum				4.8.8
+podpatek	A2	slovo	substantivum	maskulinum	singulár		6.8.3
+podpora	A2	slovo	substantivum	femininum	singulár		6.11.5
+podřízený	A2	slovo	substantivum	maskulinum	singulár		6.6.4
+podzimní	A2	slovo	adjektivum				4.5.1
+poezie	A2	slovo	substantivum	femininum	singulár		6.5.14
+pohádka	A2	slovo	substantivum	femininum	singulár		6.5.3; 6.5.14
+pohlaví	A2	slovo	substantivum	neutrum	singulár		6.1.7
+pohodlný	A2	slovo	adjektivum				6.2.4
+pochybovat	A2	slovo	verbum			imperfektivní	5.2.18
+pojistit se	A2	slovo	verbum			perfektivní	6.7.12; 6.11.4
+pojistné	A2	slovo	substantivum	neutrum	singulár		6.7.12; 6.8.14; 6.11.4
+pojištěný	A2	slovo	adjektivum				6.7.12
+pojišťovatel	A2	slovo	substantivum	maskulinum	singulár		6.8.10
+pojišťovatelka	A2	slovo	substantivum	femininum	singulár		6.8.10
+pojišťovna	A2	slovo	substantivum	femininum	singulár		6.7.12; 6.8.6; 6.8.8; 6.8.14
+pokládat	A2	slovo	verbum			imperfektivní	4.4.7
+pokračování	A2	slovo	substantivum	neutrum	singulár		4.5.11
+pokuta	A2	slovo	substantivum	femininum	singulár		6.9.6
+pole	A2	slovo	substantivum	neutrum	singulár		6.13.1
+policejní	A2	slovo	adjektivum				6.12.1
+polička	A2	slovo	substantivum	femininum	singulár		6.2.4
+politický	A2	slovo	adjektivum				6.14.3
+politička	A2	slovo	substantivum	femininum	singulár		6.14.3
+politik	A2	slovo	substantivum	maskulinum	singulár		6.14.3
+politika	A2	slovo	substantivum	femininum	singulár		6.5.6
+polojasno	A2	slovo	adverbium				6.13.3
+polovina	A2	slovo	substantivum	femininum	singulár		4.2.3
+položit	A2	slovo	verbum			perfektivní	4.4.7; 6.2.4
+pomůcka	A2	slovo	substantivum	femininum	singulár		6.6.5
+pondělní	A2	slovo	adjektivum				4.5.1
+ponožky	A2	slovo	substantivum	femininum	plurál		6.8.3
+popisný	A2	slovo	adjektivum				6.1.3
+porcelán	A2	slovo	substantivum	maskulinum	singulár		4.6.9
+porcelánový	A2	slovo	adjektivum				4.6.9
+porod	A2	slovo	substantivum	maskulinum	singulár		6.7.9
+porodné	A2	slovo	substantivum	neutrum	singulár		6.11.5
+porodnice	A2	slovo	substantivum	femininum	singulár		6.7.7; 6.7.9
+porozumět	A2	slovo	verbum			perfektivní	7.1
+pořad	A2	slovo	substantivum	maskulinum	singulár		6.5.3
+posadit	A2	slovo	verbum			perfektivní	4.4.7
+posílat	A2	slovo	verbum			imperfektivní	4.4.7; 6.5.5; 6.7.4; 6.8.11
+poslanec	A2	slovo	substantivum	maskulinum	singulár		6.14.3
+poslanecký	A2	slovo	adjektivum				6.14.3
+poslankyně	A2	slovo	substantivum	femininum	singulár		6.14.3
+poslechnout si	A2	slovo	verbum			perfektivní	4.6.5; 6.5.2
+pospíchat	A2	slovo	verbum			imperfektivní	4.3.5
+postava	A2	slovo	substantivum	femininum	singulár		6.1.14
+postavit	A2	slovo	verbum			perfektivní	4.4.7
+postižený	A2	slovo	substantivum	maskulinum	singulár		6.11.4; 6.11.5
+poškozený (být poškozený)	A2	slovo	adjektivum				4.6.11
+poštovné	A2	slovo	substantivum	neutrum	singulár		6.8.11
+poštovní	A2	slovo	adjektivum				6.8.11
+potok	A2	slovo	substantivum	maskulinum	singulár		6.13.1
+potrat	A2	slovo	substantivum	maskulinum	singulár		6.7.9
+potřeba	A2	slovo	substantivum	femininum	singulár		6.8.1; 6.8.2
+potřebný	A2	slovo	adjektivum				4.7.4
+pouštět si	A2	slovo	verbum			imperfektivní	6.5.5
+použít	A2	slovo	verbum			perfektivní	4.7.4
+používat	A2	slovo	verbum			imperfektivní	4.7.4
+povaha	A2	slovo	substantivum	femininum	singulár		6.1.15
+pověsit	A2	slovo	verbum			perfektivní	4.4.7
+povídat si o	A2	slovo	verbum			imperfektivní	7.1
+povodeň	A2	slovo	substantivum	femininum	singulár		6.12.3
+později	A2	slovo	adverbium				4.5.7
+pozítří	A2	slovo	adverbium				4.5.4
+poznávat	A2	slovo	verbum			imperfektivní	5.5.17
+pozvat	A2	slovo	verbum			perfektivní	6.14.2
+požádat	A2	slovo	verbum			perfektivní	6.1.9; 6.11.1; 6.11.2; 6.11.4; 6.11.5
+požár	A2	slovo	substantivum	maskulinum	singulár		6.12.3
+prací	A2	slovo	adjektivum				6.4.3
+pracovitý	A2	slovo	adjektivum				6.1.15
+pracovní	A2	slovo	adjektivum				6.6.5; 6.11.5
+prádlo	A2	slovo	substantivum	neutrum	singulár		6.8.2; 6.8.3
+prarodič	A2	slovo	substantivum	maskulinum	singulár		6.1.13
+prášek	A2	slovo	substantivum	maskulinum	singulár		6.4.3
+prášky	A2	slovo	substantivum	maskulinum	plurál		6.8.6
+právě	A2	slovo	adverbium				4.5.3
+pravidelně	A2	slovo	adverbium				4.5.13
+právnický	A2	slovo	adjektivum				6.6.8
+pravoslavný	A2	slovo	adjektivum				6.1.11
+pravý	A2	slovo	adjektivum				4.4.2; 6.1.12
+preventivní	A2	slovo	adjektivum				6.7.10; 6.7.11
+primátor	A2	slovo	substantivum	maskulinum	singulár		6.11.1
+primátorka	A2	slovo	substantivum	femininum	singulár		6.11.1
+pro	A2	slovo	prepozice				6.11.5
+probudit se	A2	slovo	verbum			perfektivní	6.4.1
+proč	A2	slovo	adverbium				5.1.8
+prodejný	A2	slovo	adjektivum				6.8.6
+profese	A2	slovo	substantivum	femininum	singulár		6.6.1
+program (kulturní program)	A2	slovo	substantivum	maskulinum	singulár		6.5.5
+prohlédnout si	A2	slovo	verbum			perfektivní	6.9.12
+prohlídka (technická prohlídka auta)	A2	slovo	substantivum	femininum	singulár		6.9.2
+prohlížeč	A2	slovo	substantivum	maskulinum	singulár		6.5.5
+prohlížet si	A2	slovo	verbum			imperfektivní	6.9.12
+prohrát	A2	slovo	verbum			perfektivní	6.5.8
+prohrávat	A2	slovo	verbum			imperfektivní	6.5.8
+projektor	A2	slovo	substantivum	maskulinum	singulár		6.10.3
+projet	A2	slovo	verbum			perfektivní	4.4.15; 6.9.4
+projít	A2	slovo	verbum			perfektivní	6.9.12
+projít se	A2	slovo	verbum			perfektivní	6.5.2
+projíždět	A2	slovo	verbum			imperfektivní	4.4.15; 6.9.4
+pronajímat	A2	slovo	verbum			imperfektivní	6.2.2
+pronajmout si	A2	slovo	verbum			perfektivní	6.2.2
+prostor	A2	slovo	substantivum	maskulinum	singulár		6.14.3
+prostředek	A2	slovo	substantivum	maskulinum	singulár		6.4.3; 6.9.1
+prostřední	A2	slovo	adjektivum				4.4.2
+proti	A2	slovo	prepozice				6.8.6
+provedení	A2	slovo	substantivum	neutrum	singulár		6.6.5
+průměrný	A2	slovo	adjektivum				4.7.1; 6.6.6
+prý	A2	slovo	partikule				5.2.21
+přát	A2	slovo	verbum			imperfektivní	5.5.25
+přečíst	A2	slovo	verbum			perfektivní	6.5.2; 6.5.14; 6.10.5; 6.14.1
+předat	A2	slovo	verbum			perfektivní	5.6.15
+předčasný	A2	slovo	adjektivum				6.11.4
+předepsat	A2	slovo	verbum			perfektivní	6.7.4
+předchozí	A2	slovo	adjektivum				6.1.1
+předjet	A2	slovo	verbum			perfektivní	4.4.12
+předjíždět	A2	slovo	verbum			imperfektivní	4.4.12
+předkrm	A2	slovo	substantivum	maskulinum	singulár		6.3.5
+předmět	A2	slovo	substantivum	maskulinum	singulár		6.10.7
+přednáška	A2	slovo	substantivum	femininum	singulár		6.10.6
+přední	A2	slovo	adjektivum				4.4.2
+předplatné	A2	slovo	substantivum	neutrum	singulár		6.5.13
+předposlední	A2	slovo	numerále				4.2.4
+předprodej	A2	slovo	substantivum	maskulinum	singulár		6.5.13
+předsíň	A2	slovo	substantivum	femininum	singulár		6.2.3
+představení	A2	slovo	substantivum	neutrum	singulár		6.5.11
+předtím	A2	slovo	adverbium				4.5.5
+předvolba	A2	slovo	substantivum	femininum	singulár		6.1.4
+přehled	A2	slovo	substantivum	maskulinum	singulár		6.11.4
+přecházet	A2	slovo	verbum			imperfektivní	4.4.15
+přechod	A2	slovo	substantivum	maskulinum	singulár		4.4.15
+přejet	A2	slovo	verbum			perfektivní	6.9.4
+přejezd	A2	slovo	substantivum	maskulinum	singulár		6.9.4
+přejít	A2	slovo	verbum			perfektivní	4.4.15
+přejíždět	A2	slovo	verbum			imperfektivní	6.9.4
+překlad	A2	slovo	substantivum	maskulinum	singulár		6.11.6
+překladatel	A2	slovo	substantivum	maskulinum	singulár		6.14.1
+překladatelka	A2	slovo	substantivum	femininum	singulár		6.14.1
+přepadení	A2	slovo	substantivum	neutrum	singulár		6.12.1
+přepážka	A2	slovo	substantivum	femininum	singulár		6.8.11
+přeplatek	A2	slovo	substantivum	maskulinum	singulár		6.2.6
+přepočítat	A2	slovo	verbum			perfektivní	6.8.7
+přepojit	A2	slovo	verbum			perfektivní	5.6.11; 5.6.15
+přesčas	A2	slovo	substantivum	maskulinum	singulár		6.6.5
+přesnídávka	A2	slovo	substantivum	femininum	singulár		6.3.4
+přestat	A2	slovo	verbum			perfektivní	4.5.10
+přestávat	A2	slovo	verbum			imperfektivní	4.5.10
+přestěhovat se	A2	slovo	verbum			perfektivní	6.1.3
+přestupek	A2	slovo	substantivum	maskulinum	singulár		6.11.1
+přestupní	A2	slovo	adjektivum				6.9.8
+převod	A2	slovo	substantivum	maskulinum	singulár		6.8.7; 6.8.12
+příbuzná	A2	slovo	substantivum	femininum	singulár		6.1.13
+příbuzný	A2	slovo	substantivum	maskulinum	singulár		6.1.13
+přidat	A2	slovo	verbum			perfektivní	4.2.3; 6.3.15
+přídavek	A2	slovo	substantivum	maskulinum	singulár		6.11.5
+příchod	A2	slovo	substantivum	maskulinum	singulár		4.4.8
+příjem	A2	slovo	substantivum	maskulinum	singulár		6.11.3
+přijímací	A2	slovo	adjektivum				6.10.8
+přílet	A2	slovo	substantivum	maskulinum	singulár		4.4.8
+přiletět	A2	slovo	verbum			perfektivní	4.4.8; 6.9.11
+příliš	A2	slovo	adverbium				4.2.8
+přinést	A2	slovo	verbum			perfektivní	4.4.9; 6.3.3
+případ	A2	slovo	substantivum	maskulinum	singulár		5.2.5
+příplatek	A2	slovo	substantivum	maskulinum	singulár		6.6.6
+připojení	A2	slovo	substantivum	neutrum	singulár		6.2.5
+připravit	A2	slovo	verbum			perfektivní	6.3.15
+příruční	A2	slovo	adjektivum				6.9.11
+příslušnost	A2	slovo	substantivum	femininum	singulár		6.1.9
+přísný	A2	slovo	adjektivum				6.10.4
+příspěvek	A2	slovo	substantivum	maskulinum	singulár		6.2.6; 6.11.5
+příště	A2	slovo	adverbium				4.5.4
+přivést	A2	slovo	verbum			perfektivní	4.4.9
+přivézt	A2	slovo	verbum			perfektivní	4.4.9
+přiznání	A2	slovo	substantivum	neutrum	singulár		6.11.3
+psychiatr	A2	slovo	substantivum	maskulinum	singulár		6.7.6
+psychiatrička	A2	slovo	substantivum	femininum	singulár		6.7.6
+ptát se	A2	slovo	verbum			imperfektivní	5.1.7; 5.1.11; 6.10.5
+půjčka	A2	slovo	substantivum	femininum	singulár		6.8.12
+půjčovat	A2	slovo	verbum			imperfektivní	6.5.14; 6.8.9; 6.9.5
+půjčovat si	A2	slovo	verbum			imperfektivní	6.9.5
+půjčovna	A2	slovo	substantivum	femininum	singulár		6.8.8; 6.9.5
+půl	A2	slovo	numerále				4.2.3; 4.5.1; 6.6.5
+půlka	A2	slovo	substantivum	femininum	singulár		4.2.3
+punčocháče	A2	slovo	substantivum	maskulinum	pluralium tantum		6.8.3
+punčochy	A2	slovo	substantivum	femininum	plurál		6.8.3
+pustit (pustit vodu)	A2	slovo	verbum			perfektivní	6.2.5
+pustit si (pustit si hudbu)	A2	slovo	verbum			perfektivní	6.5.5
+původ	A2	slovo	substantivum	maskulinum	singulár		6.1.10
+pyžamo	A2	slovo	substantivum	neutrum	singulár		6.8.3
+raději	A2	slovo	adjektivum				5.4.15
+raketa	A2	slovo	substantivum	femininum	singulár		6.5.9
+rakovina	A2	slovo	substantivum	femininum	singulár		6.7.5
+rána	A2	slovo	substantivum	femininum	singulár		6.7.3
+ranní	A2	slovo	adjektivum				4.5.1
+realitní	A2	slovo	adjektivum				6.8.8; 6.8.10
+recept (na vaření)	A2	slovo	substantivum	maskulinum	singulár		6.3.15; 6.7.4
+registr	A2	slovo	substantivum	maskulinum	singulár		6.11.1
+rehabilitace	A2	slovo	substantivum	femininum	singulár		6.7.7
+rejstřík	A2	slovo	substantivum	maskulinum	singulár		6.11.2; 6.11.7
+reklama	A2	slovo	substantivum	femininum	singulár		6.5.3
+reklamovat	A2	slovo	verbum			imperfektivní	6.8.4
+revizor	A2	slovo	substantivum	maskulinum	singulár		6.9.8
+revizorka	A2	slovo	substantivum	femininum	singulár		6.9.8
+rockový	A2	slovo	adjektivum				6.5.15
+roční	A2	slovo	adjektivum				4.5.1
+rodičovský	A2	slovo	adjektivum				6.6.2; 6.11.5
+rodit	A2	slovo	verbum			imperfektivní	6.7.9
+rodný	A2	slovo	adjektivum				6.1.1; 6.1.12
+román	A2	slovo	substantivum	maskulinum	singulár		6.5.14
+rostlina	A2	slovo	substantivum	femininum	singulár		6.13.2
+rovina	A2	slovo	substantivum	femininum	singulár		6.13.1
+rovný (ne křivý)	A2	slovo	adjektivum				4.6.1
+rozdíl	A2	slovo	substantivum	maskulinum	singulár		4.8.8
+rozhlasový	A2	slovo	adjektivum				6.5.4
+rozhodně	A2	slovo	adverbium				5.2.17
+rozloha	A2	slovo	substantivum	femininum	singulár		4.3.7
+rozloučení	A2	slovo	substantivum	neutrum	singulár		5.6.19
+rozměr	A2	slovo	substantivum	maskulinum	singulár		4.3.3
+rozsudek	A2	slovo	substantivum	maskulinum	singulár		6.11.8
+rozsvítit	A2	slovo	verbum			perfektivní	6.2.5
+rozvádět se	A2	slovo	verbum			imperfektivní	6.1.8
+rozvést se	A2	slovo	verbum			perfektivní	6.1.8
+rozvod	A2	slovo	substantivum	maskulinum	singulár		6.1.8
+rozvrh	A2	slovo	substantivum	maskulinum	singulár		6.10.6
+ručení	A2	slovo	substantivum	neutrum	singulár		6.6.8
+rum	A2	slovo	substantivum	maskulinum	singulár		6.3.14
+růst	A2	slovo	verbum			imperfektivní	4.4.4
+růže	A2	slovo	substantivum	femininum	singulár		6.13.2
+rychlost	A2	slovo	substantivum	maskulinum	singulár		4.3.5
+řezník	A2	slovo	substantivum	maskulinum	singulár		6.8.10
+říznout se	A2	slovo	verbum			perfektivní	6.7.3
+s	A2	slovo	prepozice				5.2.1; 5.2.7; 5.6.3; 6.1.8; 6.3.3; 6.8.1; 6.8.3
+s sebou	A2	slovo	pronomen				6.3.3
+sádra	A2	slovo	substantivum	femininum	singulár		6.7.3
+sál	A2	slovo	substantivum	maskulinum	singulár		6.5.10
+samostatný	A2	slovo	adjektivum				6.2.2
+sbírat	A2	slovo	verbum			imperfektivní	6.5.6
+sci-fi	A2	slovo	substantivum	femininum	singulár		6.5.14
+sedat si	A2	slovo	verbum			imperfektivní	4.4.6
+sedět (o oblečení)	A2	slovo	verbum			imperfektivní	6.8.5
+sednout si	A2	slovo	verbum			perfektivní	4.4.6
+sejít	A2	slovo	verbum			perfektivní	4.4.11
+sekunda	A2	slovo	substantivum	femininum	singulár		4.5.1
+semafor	A2	slovo	substantivum	maskulinum	singulár		6.9.4
+seminář	A2	slovo	substantivum	maskulinum	singulár		6.10.6
+Senát	A2	slovo	substantivum	maskulinum	singulár		6.14.3
+senátor	A2	slovo	substantivum	maskulinum	singulár		6.14.3
+senátorka	A2	slovo	substantivum	femininum	singulár		6.14.3
+senior	A2	slovo	substantivum	maskulinum	singulár		6.1.6
+seniorka	A2	slovo	substantivum	femininum	singulár		6.1.6
+servírka	A2	slovo	substantivum	femininum	singulár		6.3.3; 6.6.1
+sestřenice	A2	slovo	substantivum	femininum	singulár		6.1.13
+severní	A2	slovo	adjektivum				4.4.3
+seznámit se	A2	slovo	verbum			perfektivní	7.1
+seznamovat se	A2	slovo	verbum			imperfektivní	7.1
+scházet se	A2	slovo	verbum			imperfektivní	6.14.2
+schod	A2	slovo	substantivum	maskulinum	singulár		6.2.3
+schodiště	A2	slovo	substantivum	neutrum	singulár		6.2.3
+schránka	A2	slovo	substantivum	femininum	singulár		5.6.13; 6.8.11
+schvalovat	A2	slovo	verbum			imperfektivní	5.4.1
+silniční	A2	slovo	adjektivum				6.11.3
+sjet	A2	slovo	verbum			perfektivní	4.4.11
+skleněný	A2	slovo	adjektivum				4.6.9
+sklenice	A2	slovo	substantivum	femininum	singulár		4.2.3; 4.3.8; 6.3.16
+sklep	A2	slovo	substantivum	maskulinum	singulár		6.2.3
+skončit	A2	slovo	verbum			perfektivní	4.5.10; 6.5.11
+skoro	A2	slovo	adverbium				4.2.6
+skupina	A2	slovo	substantivum	femininum	singulár		6.5.12
+skype	A2	slovo	substantivum	maskulinum	singulár		6.1.4
+skypovat	A2	slovo	verbum			imperfektivní	6.5.5
+slabý	A2	slovo	adjektivum				4.6.10
+složenka	A2	slovo	substantivum	femininum	singulár		6.8.11
+sluch	A2	slovo	substantivum	maskulinum	singulár		4.6.5
+slušet	A2	slovo	verbum			imperfektivní	6.8.5
+služby	A2	slovo	substantivum	femininum	plurál		6.8.8
+smažit	A2	slovo	verbum			imperfektivní	6.3.15
+směnárna	A2	slovo	substantivum	femininum	singulár		6.8.8
+směr	A2	slovo	substantivum	maskulinum	singulár		4.4.3
+smetana	A2	slovo	substantivum	femininum	singulár		6.3.12
+smíchat	A2	slovo	verbum			perfektivní	6.3.15
+smrt	A2	slovo	substantivum	femininum	singulár		4.1.4
+snad	A2	slovo	adverbium				5.2.19
+snadno	A2	slovo	adverbium				4.7.5
+snadný	A2	slovo	adjektivum				4.7.5
+snacha	A2	slovo	substantivum	femininum	singulár		6.1.13
+snášet	A2	slovo	verbum			imperfektivní	5.3.9
+sňatek	A2	slovo	substantivum	maskulinum	singulár		6.1.8
+sněmovna	A2	slovo	substantivum	femininum	singulár		6.14.3
+sníst	A2	slovo	verbum			perfektivní	6.3.1; 6.7.3
+sociální	A2	slovo	adjektivum				6.8.14; 6.11.4
+sochař	A2	slovo	substantivum	maskulinum	singulár		6.5.12
+sochařka	A2	slovo	substantivum	femininum	singulár		6.5.12
+solární	A2	slovo	adjektivum				6.2.5
+soud	A2	slovo	substantivum	maskulinum	singulár		6.11.8
+soudce	A2	slovo	substantivum	maskulinum	singulár		6.6.1; 6.11.7
+soudkyně	A2	slovo	substantivum	femininum	singulár		6.6.1; 6.11.7
+souhlasit	A2	slovo	verbum			imperfektivní	5.2.1; 5.2.7
+soukromý	A2	slovo	adjektivum				6.10.1
+sourozenec	A2	slovo	substantivum	maskulinum	singulár		6.1.13
+soutěž	A2	slovo	substantivum	femininum	singulár		6.5.3; 6.5.8
+soutěžit	A2	slovo	verbum			imperfektivní	6.5.8
+spáchat	A2	slovo	verbum			perfektivní	6.12.1
+spálit se	A2	slovo	verbum			perfektivní	6.7.3
+spánek	A2	slovo	substantivum	maskulinum	singulár		6.4.1
+spěšný	A2	slovo	adjektivum				6.9.1
+splátka	A2	slovo	substantivum	femininum	singulár		6.8.7
+spočítat	A2	slovo	verbum			perfektivní	4.2.2
+spodní	A2	slovo	adjektivum				6.8.3
+spojení	A2	slovo	substantivum	neutrum	singulár		6.9.9
+spokojený	A2	slovo	adjektivum				5.3.26
+společnost	A2	slovo	substantivum	femininum	singulár		6.6.8; 6.14.2
+spolubydlící	A2	slovo	substantivum	maskulinum / femininum	singulár		6.2.2; 6.5.7; 6.5.9
+sportovní	A2	slovo	adjektivum				6.5.3; 6.8.1
+spotřební	A2	slovo	adjektivum				6.11.3
+spousta	A2	slovo	substantivum	femininum	singulár		4.2.3
+sprchový	A2	slovo	adjektivum				6.2.4
+spropitné	A2	slovo	substantivum	neutrum	singulár		6.3.3
+srazit se	A2	slovo	verbum			perfektivní	6.9.7
+srážka	A2	slovo	substantivum	femininum	singulár		6.13.3
+stáhnout	A2	slovo	verbum			perfektivní	6.5.5
+stahovat	A2	slovo	verbum			imperfektivní	6.5.5
+stánek	A2	slovo	substantivum	maskulinum	singulár		6.3.2; 6.8.1
+stání	A2	slovo	substantivum	neutrum	singulár		6.9.4
+stanoviště	A2	slovo	substantivum	neutrum	singulár		6.9.8
+starobní	A2	slovo	adjektivum				6.11.4
+starost	A2	slovo	substantivum	femininum	singulár		5.3.31
+starosta	A2	slovo	substantivum	maskulinum	singulár		6.11.1
+starostka	A2	slovo	substantivum	femininum	singulár		6.11.1
+stát se	A2	slovo	verbum			perfektivní	4.1.3; 5.1.8; 5.5.2; 6.12.3
+státní	A2	slovo	adjektivum				6.1.9; 6.10.8; 6.11.7
+stav	A2	slovo	substantivum	maskulinum	singulár		6.9.6
+stavba	A2	slovo	substantivum	femininum	singulár		6.6.3
+stážista	A2	slovo	substantivum	maskulinum	singulár		6.6.2
+stážistka	A2	slovo	substantivum	femininum	singulár		6.6.2
+stejk	A2	slovo	substantivum	maskulinum	singulár		6.3.6
+stejně	A2	slovo	adverbium				4.8.8
+stěna	A2	slovo	substantivum	femininum	singulár		6.2.3
+stisknout	A2	slovo	verbum			perfektivní	5.6.12
+stočné	A2	slovo	substantivum	neutrum	singulár		6.2.6
+stoupat	A2	slovo	verbum			imperfektivní	4.3.9
+stoupnout	A2	slovo	verbum			perfektivní	4.3.9
+strana (politická strana)	A2	slovo	substantivum	femininum	singulár		6.14.3
+strana (směr)	A2	slovo	substantivum	femininum	singulár		4.4.2
+stránka	A2	slovo	substantivum	femininum	singulár		6.1.4
+stravovat se	A2	slovo	verbum			imperfektivní	6.3.2
+strojek	A2	slovo	substantivum	maskulinum	singulár		6.4.2
+strop	A2	slovo	substantivum	maskulinum	singulár		6.2.3
+střed	A2	slovo	substantivum	maskulinum	singulár		4.4.2
+středeční	A2	slovo	adjektivum				4.5.1
+střední (postava)	A2	slovo	adjektivum				6.1.14
+stříbrný	A2	slovo	adjektivum				4.6.9
+stříbro	A2	slovo	substantivum	neutrum	singulár		4.6.9
+střih	A2	slovo	substantivum	maskulinum	singulár		6.8.5
+stříhat	A2	slovo	verbum			imperfektivní	6.8.9
+studio	A2	slovo	substantivum	neutrum	singulár		6.8.8
+studovna	A2	slovo	substantivum	femininum	singulár		6.2.4; 6.10.2
+stupeň	A2	slovo	substantivum	maskulinum	singulár		4.3.9
+stý	A2	slovo	numerále				4.2.4
+sucho	A2	slovo	adverbium				4.6.2
+superlegalizace	A2	slovo	substantivum	femininum	singulár		6.11.6
+sušička	A2	slovo	substantivum	femininum	singulár		6.2.5
+sušit	A2	slovo	verbum			imperfektivní	4.6.2
+svačina	A2	slovo	substantivum	femininum	singulár		6.3.4
+svačit	A2	slovo	verbum			imperfektivní	6.3.4
+svědek	A2	slovo	substantivum	maskulinum	singulár		6.11.8
+svědkyně	A2	slovo	substantivum	femininum	singulár		6.11.8
+světle	A2	slovo	adverbium				4.6.8
+světlo (u auta)	A2	slovo	substantivum	neutrum	singulár		4.6.4; 6.2.5; 6.9.3
+svíčková	A2	slovo	substantivum	femininum	singulár		6.3.6
+sypat	A2	slovo	verbum			imperfektivní	4.4.5
+sýrový	A2	slovo	adjektivum				6.3.12
+šála	A2	slovo	substantivum	femininum	singulár		6.8.3
+šálek	A2	slovo	substantivum	maskulinum	singulár		4.2.3; 6.3.16
+šampon	A2	slovo	substantivum	maskulinum	singulár		6.4.2
+šátek	A2	slovo	substantivum	maskulinum	singulár		6.8.3
+šatna	A2	slovo	substantivum	femininum	singulár		6.10.2
+šestinedělí	A2	slovo	substantivum	neutrum	singulár		6.7.9
+šířka	A2	slovo	substantivum	femininum	singulár		4.3.3
+šít	A2	slovo	verbum			imperfektivní	6.8.9
+škoda	A2	slovo	substantivum	femininum	singulár		6.9.7
+školní	A2	slovo	adjektivum				6.3.2; 6.8.2; 6.10.2
+školnice	A2	slovo	substantivum	femininum	singulár		6.10.4
+školník	A2	slovo	substantivum	maskulinum	singulár		6.10.4
+špenát	A2	slovo	substantivum	maskulinum	singulár		6.3.10
+šperk	A2	slovo	substantivum	maskulinum	singulár		6.8.3
+špína	A2	slovo	substantivum	femininum	singulár		4.6.3
+švadlena	A2	slovo	substantivum	femininum	singulár		6.8.10
+švagr	A2	slovo	substantivum	maskulinum	singulár		6.1.13
+švagrová	A2	slovo	substantivum	femininum	singulár		6.1.13
+švestka	A2	slovo	substantivum	femininum	singulár		6.3.10
+tablet	A2	slovo	substantivum	maskulinum	singulár		6.10.3
+tableta	A2	slovo	substantivum	femininum	singulár		6.8.6
+tamten	A2	slovo	pronomen				5.1.1
+tamto	A2	slovo	pronomen				5.1.1
+tamtudy	A2	slovo	adverbium				4.4.21
+tankovat	A2	slovo	verbum			imperfektivní	6.9.5
+taxi	A2	slovo	substantivum	neutrum	singulár		6.9.8
+téct	A2	slovo	verbum			imperfektivní	4.4.4; 6.2.5
+těhotenský	A2	slovo	adjektivum				6.7.11
+těhotenství	A2	slovo	substantivum	neutrum	singulár		6.7.9
+telecí	A2	slovo	adjektivum				6.3.7
+televizní	A2	slovo	adjektivum				6.5.3
+tělocvična	A2	slovo	substantivum	femininum	singulár		6.5.9; 6.10.2
+tělocvik	A2	slovo	substantivum	maskulinum	singulár		6.10.7
+temperamentní	A2	slovo	adjektivum				6.1.15
+tenký	A2	slovo	adjektivum				4.6.10
+tepláky	A2	slovo	substantivum	maskulinum	pluralium tantum		6.5.9; 6.13.3
+těstoviny	A2	slovo	substantivum	femininum	plurál		6.3.8
+těšit	A2	slovo	verbum			imperfektivní	5.5.21
+tchán	A2	slovo	substantivum	maskulinum	singulár		6.1.13
+tchýně	A2	slovo	substantivum	femininum	singulár		6.1.13
+tlačit	A2	slovo	verbum			imperfektivní	4.4.5
+tmavě	A2	slovo	adverbium				4.6.8
+točený	A2	slovo	adjektivum				6.3.14
+topit	A2	slovo	verbum			imperfektivní	6.2.5
+toto	A2	slovo	pronomen				5.1.1
+trápit	A2	slovo	verbum			imperfektivní	5.3.32
+trať	A2	slovo	substantivum	femininum	singulár		6.9.10
+trenér	A2	slovo	substantivum	maskulinum	singulár		6.5.7
+trenérka	A2	slovo	substantivum	femininum	singulár		6.5.7
+trénovat	A2	slovo	verbum			imperfektivní	6.5.7
+trest	A2	slovo	substantivum	maskulinum	singulár		6.11.8
+trestní	A2	slovo	adjektivum				6.11.7; 6.11.8
+trhat	A2	slovo	verbum			imperfektivní	6.7.8
+tržnice	A2	slovo	substantivum	femininum	singulár		6.8.1
+tudy	A2	slovo	adverbium				4.4.21
+tvar	A2	slovo	substantivum	maskulinum	singulár		4.6.1
+tvaroh	A2	slovo	substantivum	maskulinum	singulár		6.3.12
+tvář	A2	slovo	substantivum	femininum	singulár		6.7.1
+tweet	A2	slovo	substantivum	maskulinum	singulár		6.5.5
+tweetovat	A2	slovo	verbum			imperfektivní	6.5.5
+týdenní	A2	slovo	adjektivum				4.5.1
+týdně	A2	slovo	adverbium				4.5.13
+tým	A2	slovo	substantivum	maskulinum	singulár		6.5.8
+účastnit se	A2	slovo	verbum			imperfektivní	7.1
+učebna	A2	slovo	substantivum	femininum	singulár		6.10.2
+učesat se	A2	slovo	verbum			perfektivní	6.4.2
+účetní	A2	slovo	substantivum	maskulinum / femininum	singulár		6.6.1
+učiliště	A2	slovo	substantivum	neutrum	singulár		6.10.1
+účtenka	A2	slovo	substantivum	femininum	singulár		6.8.7
+událost	A2	slovo	substantivum	femininum	singulár		4.1.3
+uhlí	A2	slovo	substantivum	neutrum	singulár		6.2.5
+ukazovat	A2	slovo	verbum			imperfektivní	7.1
+uklidit	A2	slovo	verbum			perfektivní	4.6.3; 6.4.3
+uklidnit se	A2	slovo	verbum			perfektivní	5.3.35
+ukončit	A2	slovo	verbum			perfektivní	6.6.5
+uložit	A2	slovo	verbum			perfektivní	6.8.12
+ultrazvuk	A2	slovo	substantivum	maskulinum	singulár		6.7.4
+umělecký	A2	slovo	adjektivum				6.10.1
+umělý	A2	slovo	adjektivum				6.7.8
+úmrtí	A2	slovo	substantivum	neutrum	singulár		6.1.8
+umýt	A2	slovo	verbum			perfektivní	4.6.3; 6.4.3
+umýt se	A2	slovo	verbum			perfektivní	6.4.2
+univerzitní	A2	slovo	adjektivum				6.10.2
+únorový	A2	slovo	adjektivum				4.5.1
+upéct	A2	slovo	verbum			perfektivní	6.3.15
+úplně	A2	slovo	adverbium				4.2.8
+uprostřed	A2	slovo	adverbium				4.4.2
+úraz	A2	slovo	substantivum	maskulinum	singulár		6.7.3; 6.7.4
+úrazový	A2	slovo	adjektivum				6.8.14
+určitě	A2	slovo	adverbium				5.2.1; 5.2.17
+určitý	A2	slovo	adjektivum				6.6.5
+úschovna	A2	slovo	substantivum	femininum	singulár		6.9.10
+ústa	A2	slovo	substantivum	neutrum	pluralium tantum		6.7.1
+ústřední	A2	slovo	adjektivum				6.2.5
+usušit	A2	slovo	verbum			perfektivní	4.6.2
+ušít	A2	slovo	verbum			perfektivní	6.8.9
+úterní	A2	slovo	adjektivum				4.5.1
+uvařit	A2	slovo	verbum			perfektivní	6.3.15; 6.5.6
+úvazek	A2	slovo	substantivum	maskulinum	singulár		6.6.5
+uvidět	A2	slovo	verbum			perfektivní	4.6.4
+uvnitř	A2	slovo	adverbium				4.4.2
+uzavřít	A2	slovo	verbum			perfektivní	6.8.14
+úzký	A2	slovo	adjektivum				4.3.3
+uznat	A2	slovo	verbum			perfektivní	6.10.9
+uznávat	A2	slovo	verbum			imperfektivní	6.10.9
+užívat	A2	slovo	verbum			imperfektivní	6.8.6
+váha	A2	slovo	substantivum	femininum	singulár		4.3.6
+válka	A2	slovo	substantivum	femininum	singulár		6.12.3
+vařič	A2	slovo	substantivum	maskulinum	singulár		6.2.5
+vazba (vězení)	A2	slovo	substantivum	femininum	singulár		6.11.8
+vážný	A2	slovo	adjektivum				6.1.14; 6.1.15; 6.7.5
+včerejší	A2	slovo	adjektivum				4.5.2
+vdát se	A2	slovo	verbum			perfektivní	6.1.8
+vdova	A2	slovo	substantivum	femininum	singulár		6.1.8
+vdovec	A2	slovo	substantivum	maskulinum	singulár		6.1.8
+večerní	A2	slovo	adjektivum				4.5.1
+vedlejší	A2	slovo	adjektivum				4.4.2; 6.9.4
+velmi	A2	slovo	adverbium				4.2.8
+ven	A2	slovo	adverbium				4.4.2; 4.4.19
+venku	A2	slovo	adverbium				4.4.2
+veřejný	A2	slovo	adjektivum				6.7.12; 6.10.1
+věřit	A2	slovo	verbum			imperfektivní	6.1.11
+vést	A2	slovo	verbum			imperfektivní	4.4.5
+veterinář	A2	slovo	substantivum	maskulinum	singulár		6.13.2
+veterinářka	A2	slovo	substantivum	femininum	singulár		6.13.2
+větší	A2	slovo	adjektivum				4.3.1
+vězení	A2	slovo	substantivum	neutrum	singulár		6.11.8
+vézt	A2	slovo	verbum			imperfektivní	4.4.5
+věž	A2	slovo	substantivum	femininum	singulár		6.2.5
+vhodný	A2	slovo	adjektivum				4.7.3
+vidlička	A2	slovo	substantivum	femininum	singulár		6.3.16
+viset	A2	slovo	verbum			imperfektivní	4.4.1
+vítat	A2	slovo	verbum			imperfektivní	5.5.18
+vjet	A2	slovo	verbum			perfektivní	4.4.10; 6.9.4
+vjezd	A2	slovo	substantivum	maskulinum	singulár		4.4.10
+vjíždět	A2	slovo	verbum			imperfektivní	4.4.10; 6.9.4
+vláda	A2	slovo	substantivum	femininum	singulár		6.14.3
+vládní	A2	slovo	adjektivum				6.14.3
+vládnout	A2	slovo	verbum			imperfektivní	6.14.3
+vlastní	A2	slovo	adjektivum				4.8.9; 6.1.13; 6.2.2
+vlažný	A2	slovo	adjektivum				4.3.9
+vlevo	A2	slovo	adverbium				4.4.2; 4.4.19
+vlhko	A2	slovo	adverbium				4.6.2; 6.13.3
+vlhkost	A2	slovo	substantivum	femininum	singulár		4.6.2
+vlhký	A2	slovo	adjektivum				4.6.2
+vlněný	A2	slovo	adjektivum				4.6.9
+vložka	A2	slovo	substantivum	femininum	singulár		6.4.2
+vnitrostátní	A2	slovo	adjektivum				6.9.9
+vodit	A2	slovo	verbum			imperfektivní	4.4.5
+vodné	A2	slovo	substantivum	neutrum	singulár		6.2.6
+volant	A2	slovo	substantivum	maskulinum	singulár		6.9.3
+volaný	A2	slovo	substantivum	maskulinum	singulár		5.6.13
+volby	A2	slovo	substantivum	femininum	plurál		6.14.3
+volit	A2	slovo	verbum			imperfektivní	6.14.3
+volně	A2	slovo	adverbium				6.8.6
+vonět	A2	slovo	verbum			imperfektivní	4.6.7
+vozidlo	A2	slovo	substantivum	neutrum	singulár		6.11.1
+vozík	A2	slovo	substantivum	maskulinum	singulár		6.8.4
+vozit	A2	slovo	verbum			imperfektivní	4.4.5
+vpravo	A2	slovo	adverbium				4.4.2; 4.4.19
+vracet	A2	slovo	verbum			imperfektivní	6.5.14; 6.8.7
+vrátnice	A2	slovo	substantivum	femininum	singulár		6.10.2
+vrtulník	A2	slovo	substantivum	maskulinum	singulár		6.9.1
+vstát (změna polohy)	A2	slovo	verbum			perfektivní	4.4.6; 6.4.1
+vstoupit	A2	slovo	verbum			perfektivní	4.4.10
+vstupovat	A2	slovo	verbum			imperfektivní	4.4.10
+všichni	A2	slovo	pronomen				5.6.13
+všude	A2	slovo	adverbium				4.4.2
+vůně	A2	slovo	substantivum	femininum	singulár		4.6.7
+vůz	A2	slovo	substantivum	maskulinum	singulár		6.9.10
+vybavený	A2	slovo	adjektivum				6.2.1
+vybírat	A2	slovo	verbum			imperfektivní	6.8.12
+výborný	A2	slovo	adjektivum				4.7.1
+vybrat	A2	slovo	verbum			perfektivní	6.8.12
+vybuchnout	A2	slovo	verbum			perfektivní	6.12.3
+vyčistit	A2	slovo	verbum			perfektivní	4.6.3; 6.4.3; 6.8.9
+vydělat	A2	slovo	verbum			perfektivní	6.6.6
+vyhovovat	A2	slovo	verbum			imperfektivní	4.7.3
+vyhrát	A2	slovo	verbum			perfektivní	6.5.8
+vyhrávat	A2	slovo	verbum			imperfektivní	6.5.8
+východní	A2	slovo	adjektivum				4.4.3
+vyjet	A2	slovo	verbum			perfektivní	4.4.10; 4.4.11; 6.9.4
+výjezd	A2	slovo	substantivum	maskulinum	singulár		4.4.10
+vyjít	A2	slovo	verbum			perfektivní	4.4.11
+vyjíždět	A2	slovo	verbum			imperfektivní	4.4.10; 6.9.4
+vyjmenovat	A2	slovo	verbum			perfektivní	4.2.5
+vykoupat se	A2	slovo	verbum			perfektivní	6.4.2
+vyluxovat	A2	slovo	verbum			perfektivní	6.4.3
+vyměňovat	A2	slovo	verbum			imperfektivní	6.8.13; 6.9.5
+vypadat	A2	slovo	verbum			imperfektivní	6.2.5
+vypínat	A2	slovo	verbum			imperfektivní	6.2.5
+výpis	A2	slovo	substantivum	maskulinum	singulár		6.11.7
+vypít	A2	slovo	verbum			perfektivní	6.3.1; 6.7.3
+výplata	A2	slovo	substantivum	femininum	singulár		6.6.6; 6.11.4
+výplatní	A2	slovo	adjektivum				6.6.6; 6.11.5
+vyplnit	A2	slovo	verbum			perfektivní	6.8.11; 6.10.8; 6.11.4; 6.11.5
+vyplňovat	A2	slovo	verbum			imperfektivní	6.8.11; 6.10.8; 6.11.4; 6.11.5
+výpověď	A2	slovo	substantivum	femininum	singulár		6.6.5
+vyprávět	A2	slovo	verbum			imperfektivní	6.10.5
+vyprodáno	A2	slovo	verbum			imperfektivní	6.5.13
+vyrážka	A2	slovo	substantivum	femininum	singulár		6.7.2
+vysavač	A2	slovo	substantivum	maskulinum	singulár		6.4.3
+výsledek	A2	slovo	substantivum	maskulinum	singulár		6.7.11
+výslech	A2	slovo	substantivum	maskulinum	singulár		6.12.1
+vysoko	A2	slovo	adverbium				4.3.2; 4.3.3
+vysokoškolský	A2	slovo	adjektivum				6.10.9
+výstava	A2	slovo	substantivum	femininum	singulár		6.5.11
+vystoupit	A2	slovo	verbum			perfektivní	6.9.8
+vystupovat	A2	slovo	verbum			imperfektivní	6.9.8
+vysvědčení	A2	slovo	substantivum	neutrum	singulár		6.10.9
+vysvětlení	A2	slovo	substantivum	neutrum	singulár		6.12.1
+vysvětlovat	A2	slovo	verbum			imperfektivní	6.10.5
+vyšetření	A2	slovo	substantivum	neutrum	singulár		6.7.4
+vyšetřit	A2	slovo	verbum			perfektivní	6.7.4
+výška	A2	slovo	substantivum	femininum	singulár		4.3.2; 4.3.3
+vytrhnout	A2	slovo	verbum			perfektivní	6.7.8
+vyučit se	A2	slovo	verbum			perfektivní	6.10.9
+výuční	A2	slovo	adjektivum				6.10.9
+vyučovat	A2	slovo	verbum			imperfektivní	6.10.4
+význam	A2	slovo	substantivum	maskulinum	singulár		4.7.6; 5.7.6
+vyznání	A2	slovo	substantivum	neutrum	singulár		6.1.11
+vyžehlit	A2	slovo	verbum			perfektivní	6.4.3
+vzdálenost	A2	slovo	substantivum	femininum	singulár		4.3.4
+vzhled	A2	slovo	substantivum	maskulinum	singulár		6.1.14
+vzít si (při nákupu)	A2	slovo	verbum			perfektivní	6.8.4
+vzpomenout si	A2	slovo	verbum			perfektivní	5.2.11; 5.2.13
+vzpomínat si	A2	slovo	verbum			imperfektivní	5.2.11; 5.2.13
+vždycky	A2	slovo	adverbium				4.5.13
+za	A2	slovo	prepozice				4.2.5; 5.5.3; 5.5.4; 6.1.1; 6.2.6
+zabalit	A2	slovo	verbum			perfektivní	6.8.4
+zaběhat si	A2	slovo	verbum			perfektivní	6.5.7
+zabezpečení	A2	slovo	substantivum	neutrum	singulár		6.11.4; 10.11.4
+zabruslit si	A2	slovo	verbum			perfektivní	6.5.7
+záclona	A2	slovo	substantivum	femininum	singulár		6.2.4
+zacvičit si	A2	slovo	verbum			perfektivní	6.5.7; 6.10.5
+začít	A2	slovo	verbum			perfektivní	4.5.9; 6.5.11
+zadní	A2	slovo	adjektivum				4.4.2
+zahrát si	A2	slovo	verbum			perfektivní	6.5.7
+zahýbat	A2	slovo	verbum			imperfektivní	6.9.4
+zachránit	A2	slovo	verbum			perfektivní	6.12.2
+zájem	A2	slovo	substantivum	maskulinum	singulár		6.5.6
+zájezd	A2	slovo	substantivum	maskulinum	singulár		6.9.12
+zajímat	A2	slovo	verbum			imperfektivní	5.3.14; 5.3.15; 5.3.16; 5.3.29
+zákon	A2	slovo	substantivum	maskulinum	singulár		6.14.3
+záloha	A2	slovo	substantivum	femininum	singulár		6.11.3
+západní	A2	slovo	adjektivum				4.4.3
+zápach	A2	slovo	substantivum	maskulinum	singulár		4.6.7
+zápal	A2	slovo	substantivum	maskulinum	singulár		6.7.5
+zaparkovat	A2	slovo	verbum			perfektivní	6.9.5
+zápas	A2	slovo	substantivum	maskulinum	singulár		6.5.8
+zapínat	A2	slovo	verbum			imperfektivní	6.2.5
+zápis	A2	slovo	substantivum	maskulinum	singulár		6.10.1
+zapisovat	A2	slovo	verbum			imperfektivní	6.10.1
+zapisovat se	A2	slovo	verbum			imperfektivní	6.10.1
+zaplavat si	A2	slovo	verbum			perfektivní	6.5.6; 6.5.7
+zaplombovat	A2	slovo	verbum			perfektivní	6.7.8
+zapomenout	A2	slovo	verbum			perfektivní	5.2.11; 5.2.12; 5.2.13
+zapsat	A2	slovo	verbum			perfektivní	6.10.1; 6.11.1
+zapsat se	A2	slovo	verbum			perfektivní	6.10.1
+zarezervovat si	A2	slovo	verbum			perfektivní	6.5.13
+zároveň	A2	slovo	adverbium				4.5.6
+záruční	A2	slovo	adjektivum				6.8.4
+zastavení	A2	slovo	substantivum	neutrum	singulár		6.9.4
+zastavovat	A2	slovo	verbum			imperfektivní	4.4.18; 6.9.4; 6.9.6
+zastupitelství	A2	slovo	substantivum	neutrum	singulár		6.11.8
+zaškrtnout	A2	slovo	verbum			perfektivní	6.10.8
+zatáčka	A2	slovo	substantivum	femininum	singulár		4.4.17
+zataženo	A2	slovo	adverbium				6.13.3
+zavazadlo	A2	slovo	substantivum	neutrum	singulár		6.9.11
+zavazadlový	A2	slovo	adjektivum				6.9.11
+závod (továrna)	A2	slovo	substantivum	maskulinum	singulár		6.6.3
+závod (sportovní akce)	A2	slovo	substantivum	maskulinum	singulár		6.5.8
+závodnice	A2	slovo	substantivum	femininum	singulár		6.5.8
+závodník	A2	slovo	substantivum	maskulinum	singulár		6.5.8
+zavolání	A2	slovo	substantivum	neutrum	singulár		5.6.19
+zavolat	A2	slovo	verbum			perfektivní	5.6.20; 6.12.2
+zazpívat	A2	slovo	verbum			perfektivní	6.5.6
+zbytečný	A2	slovo	adjektivum				4.7.4
+zdravotně	A2	slovo	adverbium				6.11.4; 6.11.5
+zelená (barva na semaforu)	A2	slovo	substantivum	femininum	singulár		6.9.4
+zeleninový	A2	slovo	adjektivum				6.3.10
+zeměpis	A2	slovo	substantivum	maskulinum	singulár		6.10.7
+zeptat se	A2	slovo	verbum			perfektivní	5.1.7; 5.1.11
+zeť	A2	slovo	substantivum	maskulinum	singulár		6.1.13
+zhasnout	A2	slovo	verbum			perfektivní	6.2.5
+zimní	A2	slovo	adjektivum				4.5.1
+zkušební	A2	slovo	adjektivum				6.6.5
+zlato	A2	slovo	substantivum	neutrum	singulár		4.6.9
+zlatý	A2	slovo	adjektivum				4.6.9
+zleva	A2	slovo	adverbium				4.4.20
+zlobit se	A2	slovo	verbum			imperfektivní	5.5.1
+zlomenina	A2	slovo	substantivum	femininum	singulár		6.7.5
+změna	A2	slovo	substantivum	femininum	singulár		6.11.6
+změřit	A2	slovo	verbum			perfektivní	4.3.2; 4.3.3; 4.3.7; 4.3.9; 6.7.4; 6.8.9
+známá	A2	slovo	substantivum	femininum	singulár		6.14.2
+známý	A2	slovo	substantivum	maskulinum	singulár		6.14.2
+známý	A2	slovo	adjektivum				6.14.2
+znovu	A2	slovo	adverbium				4.5.13
+zóna	A2	slovo	substantivum	femininum	singulár		6.9.4
+zoo	A2	slovo	substantivum	neutrum	singulár		6.13.2
+zpátky	A2	slovo	adverbium				4.4.14
+zpráva	A2	slovo	substantivum	femininum	singulár		6.7.4; 6.7.11
+zprava	A2	slovo	adverbium				4.4.20
+zranit se	A2	slovo	verbum			perfektivní	6.7.3
+zrovna	A2	slovo	adverbium				4.5.3
+zúčastnit se	A2	slovo	verbum			perfektivní	6.5.8
+zůstat	A2	slovo	verbum			perfektivní	4.4.18; 4.5.12
+zvážit	A2	slovo	verbum			perfektivní	4.3.6; 6.1.14; 6.7.10
+zvítězit	A2	slovo	verbum			perfektivní	6.5.8
+zvláštně	A2	slovo	adverbium				4.7.7
+zvolit	A2	slovo	verbum			perfektivní	6.14.3
+zvuk	A2	slovo	substantivum	maskulinum	singulár		4.6.5
+žádat	A2	slovo	verbum			imperfektivní	6.1.9; 6.11.1; 6.11.2; 6.11.4; 6.11.5
+žádný	A2	slovo	pronomen				4.2.3; 5.2.5
+žádost	A2	slovo	substantivum	femininum	singulár		6.11.6
+žaloba	A2	slovo	substantivum	femininum	singulár		6.11.8
+že	A2	slovo	konjunkce				5.1.2; 5.1.5; 5.2.14; 5.2.15; 5.2.16; 5.2.18; 5.2.19; 5.2.20; 5.2.21; 5.3.18; 5.3.21; 5.3.30; 5.4.3; 5.5.1; 5.5.3; 5.5.17; 5.4.2
+žehlička	A2	slovo	substantivum	femininum	singulár		6.4.3
+žehlit	A2	slovo	verbum			imperfektivní	6.4.3
+železniční	A2	slovo	adjektivum				6.9.4
+železo	A2	slovo	substantivum	neutrum	singulár		4.6.9
+ženský	A2	slovo	adjektivum				6.1.7
+život	A2	slovo	substantivum	maskulinum	singulár		4.1.4
+životopis	A2	slovo	substantivum	maskulinum	singulár		6.6.7
+a co mám/e dělat	A2	fráze					5.3.22
+asi jo	A2	fráze					5.2.2
+bavte se dobře	A2	fráze					5.5.33
+brzo se uzdravte	A2	fráze					5.5.34
+buď tak hodný	A2	fráze					5.4.5
+buďte tak hodný a	A2	fráze					5.4.4
+být … roků/let	A2	fráze					4.6.13
+být líto	A2	fráze					5.5.1
+být nudné	A2	fráze					5.3.16
+být šťastný, že	A2	fráze					5.3.18
+co mám dělat	A2	fráze					5.4.14
+co máš/máte nejraději	A2	fráze					5.3.10
+co se děje	A2	fráze					4.1.3; 5.1.8; 5.5.2
+co si o tom myslíš/myslíte	A2	fráze					5.4.1
+co tě/vás trápí	A2	fráze					5.3.32
+co tomu říkáš/říkáte	A2	fráze					5.4.1
+dávej/te pozor, ať	A2	fráze					5.4.13
+dej/te pozor, ať	A2	fráze					5.4.13
+děkujeme za zavolání + rozloučení	A2	fráze					5.6.19
+dělej(te) si, co chceš/chcete	A2	fráze					5.2.30; 5.3.29
+dovolte, abych vám představil/a	A2	fráze					5.5.20
+chápu tě/vás	A2	fráze					5.3.36
+já nerad/a	A2	fráze					5.5.1
+jak se jmenuje	A2	fráze					5.7.9
+jaký význam má slovo	A2	fráze					5.7.6
+jde to	A2	fráze					5.5.17
+je jasné, co říkám	A2	fráze					5.7.2
+je mi to líto	A2	fráze					5.3.21; 5.5.1
+je od tebe/vás milé	A2	fráze					5.5.21
+je od vás hezké, že	A2	fráze					5.4.2
+je to jedno	A2	fráze					5.3.29
+je to milé	A2	fráze					5.5.21
+je to možné	A2	fráze					5.2.20; 5.2.23; 5.3.28
+je to nudné	A2	fráze					5.3.16
+je to tak	A2	fráze					5.2.1; 5.2.7
+jít na nervy	A2	fráze					5.3.34
+jsem rád/a, že vás poznávám	A2	fráze					5.5.17
+když myslíte	A2	fráze					5.2.4
+když to říkáte	A2	fráze					5.2.2
+lituju, ale	A2	fráze					5.4.10
+lituju, nemůžu	A2	fráze					5.4.7
+mít toho dost	A2	fráze					5.3.34
+mít toho po krk	A2	fráze					5.3.34
+mladá paní	A2	fráze					5.5.13
+můžete mě přepojit na	A2	fráze					5.6.11
+myslíte (?)	A2	fráze					5.2.4
+na co máš/máte chuť	A2	fráze					5.3.4
+nedá se nic dělat	A2	fráze					5.3.22
+nedělejte si starosti	A2	fráze					5.3.31
+nehodí se mi to	A2	fráze					5.5.7
+nemohl byste + infinitiv	A2	fráze					5.4.4
+není mi líto	A2	fráze					5.3.20
+není to možné	A2	fráze					5.3.28
+není to tak	A2	fráze					5.2.7
+nezapomeň/te, že	A2	fráze					5.2.14
+nezlob/te se, že	A2	fráze					5.5.1
+nic se neděje	A2	fráze					5.5.2
+nic se nestalo	A2	fráze					5.5.2
+omlouvám se	A2	fráze					5.6.14
+pamatuj/te si, že	A2	fráze					5.2.14
+počkej/te, pomůžu ti/vám	A2	fráze					5.4.18
+přeju všechno nejlepší	A2	fráze					5.5.20
+přepojím vás na	A2	fráze					5.6.15
+přesně tak (souhlas)	A2	fráze					5.2.1
+rád vás poznávám	A2	fráze					5.5.21
+říkají, že	A2	fráze					5.2.21
+těší mě, že vás poznávám	A2	fráze					5.5.21
+to je maličkost	A2	fráze					5.5.4
+to je od vás hezké	A2	fráze					5.4.2; 5.4.3; 5.5.26; 5.5.4; 5.5.7
+to je od vás milé	A2	fráze					5.5.26
+to je překvapení	A2	fráze					5.3.28
+to není dobrý nápad	A2	fráze					5.4.3
+to od vás není hezké	A2	fráze					5.4.3
+v žádném případě	A2	fráze					5.2.5
+vědět naprosto jistě, že	A2	fráze					5.2.16
+víš, co	A2	fráze					5.4.8
+vítejte v/na	A2	fráze					5.5.18
+za málo	A2	fráze					5.5.4
+že ano	A2	fráze					5.1.5
+že jo	A2	fráze					5.1.5
+že ne	A2	fráze					5.1.5
+a. s.	A2	sousloví					6.6.8
+akciová společnost	A2	sousloví					6.6.8
+bezpečnost práce	A2	sousloví					6.6.5
+bezpečnostní pás	A2	sousloví					6.9.3
+bramborová kaše	A2	sousloví					6.3.8
+celý úvazek	A2	sousloví					6.6.5
+cestovní kancelář	A2	sousloví					6.8.8
+čerpací stanice	A2	sousloví					6.9.5
+čisticí prostředek	A2	sousloví					6.4.3
+čtvrt hodiny	A2	sousloví					4.5.1
+dámské vložky	A2	sousloví					6.4.2
+daň z příjmu	A2	sousloví					6.11.3
+daňové přiznání	A2	sousloví					6.11.3
+dát pozor	A2	sousloví					6.10.5
+dát výpověď	A2	sousloví					6.6.5
+datová schránka	A2	sousloví					6.8.11
+datový projektor	A2	sousloví					6.10.3
+dávat pozor	A2	sousloví					6.10.5
+dávka pro zdravotně postižené	A2	sousloví					6.11.5
+denní nabídka	A2	sousloví					6.3.5
+dešťové srážky	A2	sousloví					6.13.3
+dětský pokoj	A2	sousloví					6.2.3
+doba neurčitá	A2	sousloví					6.6.5
+doba určitá	A2	sousloví					6.6.5
+dohoda o pracovní činnosti	A2	sousloví					6.6.5
+dohoda o provedení práce	A2	sousloví					6.6.5
+domácí potřeby	A2	sousloví					6.8.1
+dopravní prostředek	A2	sousloví					6.9.1
+dostat výpověď	A2	sousloví					6.6.5
+druhý stupeň	A2	sousloví					6.10.1
+elektrický spotřebič	A2	sousloví					6.8.2
+fyzická osoba	A2	sousloví					6.6.8
+hi-fi věž	A2	sousloví					6.2.5
+hladká mouka	A2	sousloví					6.3.13
+hlasová schránka	A2	sousloví					5.6.13
+hmotná nouze	A2	sousloví					6.11.5
+hned vedle	A2	sousloví					4.3.4
+holicí strojek	A2	sousloví					6.4.2
+hotové jídlo	A2	sousloví					6.3.5
+houskový knedlík	A2	sousloví					6.3.8
+hroznové víno	A2	sousloví					6.3.10
+hrubá mouka	A2	sousloví					6.3.13
+hudební nástroj	A2	sousloví					6.5.6
+hygienické potřeby	A2	sousloví					6.8.2
+internetové bankovnictví	A2	sousloví					6.8.12
+jak vysoko	A2	sousloví					4.3.2
+je (po)třeba	A2	sousloví					5.2.32
+je třeba	A2	sousloví					5.2.32
+je zakázáno	A2	sousloví					5.2.31
+jídelní vůz	A2	sousloví					6.9.10
+jídlo na objednávku	A2	sousloví					6.3.5
+jméno matky	A2	sousloví					6.1.1
+jméno otce	A2	sousloví					6.1.1
+jméno za svobodna	A2	sousloví					6.1.1
+kilometr čtvereční	A2	sousloví					4.3.7
+koncertní sál	A2	sousloví					6.5.10
+kotel na dřevo	A2	sousloví					6.2.5
+kotel na uhlí	A2	sousloví					6.2.5
+kožené zboží	A2	sousloví					6.8.1
+kruhový objezd	A2	sousloví					6.9.4
+kuchyňská linka	A2	sousloví					6.2.4
+kuchyňský kout	A2	sousloví					6.2.3
+kulturní dům	A2	sousloví					6.5.10
+letový řád	A2	sousloví					6.9.11
+masáž srdce	A2	sousloví					6.12.2
+mateřská dovolená	A2	sousloví					6.6.2; 6.11.4
+městská policie	A2	sousloví					6.14.4
+metr krychlový	A2	sousloví					4.3.8
+MHD	A2	sousloví					6.9.8
+mít chuť	A2	sousloví					5.3.4; 5.3.11
+mít nejraději	A2	sousloví					5.3.13
+mít občanství	A2	sousloví					6.1.9
+mít v plánu	A2	sousloví					5.2.36
+mít význam	A2	sousloví					4.7.6
+mít zájem	A2	sousloví					6.5.6
+muž na rodičovské dovolené	A2	sousloví					6.6.2
+nákupní centrum	A2	sousloví					6.8.1
+nápojový lístek	A2	sousloví					6.3.3
+nealkoholický nápoj	A2	sousloví					6.3.14
+nehtové studio	A2	sousloví					6.8.8
+nezisková organizace	A2	sousloví					6.14.2
+obchod s elektronikou	A2	sousloví					6.8.1
+obuv bez podpatku	A2	sousloví					6.8.3
+obuv s podpatkem	A2	sousloví					6.8.3
+obývací pokoj	A2	sousloví					6.2.3
+očkovací průkaz	A2	sousloví					6.7.11
+oční lékař	A2	sousloví					6.7.6
+odborný lékař	A2	sousloví					6.7.6
+odpovědní list	A2	sousloví					6.10.8
+opravna obuvi	A2	sousloví					6.8.8
+opravna oděvů	A2	sousloví					6.8.8
+ošetřovné na dítě	A2	sousloví					6.7.13
+označit jízdenku	A2	sousloví					6.9.8
+palubní vstupenka	A2	sousloví					6.9.11
+pěší zóna	A2	sousloví					6.9.4
+podání vysvětlení	A2	sousloví					6.12.1
+podpora v nezaměstnanosti	A2	sousloví					6.11.5
+policejní cela	A2	sousloví					6.12.1
+pomoc v hmotné nouzi	A2	sousloví					6.11.5
+poplatek do fondu oprav	A2	sousloví					6.2.6
+poplatek za internet	A2	sousloví					6.2.6
+poplatek za pevnou linku	A2	sousloví					6.2.6
+Poslanecká sněmovna	A2	sousloví					6.14.3
+poštovní schránka	A2	sousloví					6.8.11
+požádat o občanství	A2	sousloví					6.1.9
+práce přesčas	A2	sousloví					6.6.5
+pracovní agentura	A2	sousloví					6.11.5
+pracovní pomůcky	A2	sousloví					6.6.5
+právnická osoba	A2	sousloví					6.6.8
+průkaz diabetika	A2	sousloví					6.7.11
+první stupeň	A2	sousloví					6.10.1
+předchozí příjmení	A2	sousloví					6.1.1
+přídavek na dítě	A2	sousloví					6.11.5
+připojení k internetu	A2	sousloví					6.2.5
+příspěvek na bydlení	A2	sousloví					6.2.6; 6.11.5
+půjčovna aut	A2	sousloví					6.9.5
+půjčovna oblečení	A2	sousloví					6.8.8
+půl úvazku	A2	sousloví					6.6.5
+realitní makléř	A2	sousloví					6.8.10
+registr řidičů	A2	sousloví					6.11.1
+registr vozidel	A2	sousloví					6.11.1
+rodičovská dovolená	A2	sousloví					6.6.2
+rodičovský příspěvek	A2	sousloví					6.11.5
+rodné příjmení	A2	sousloví					6.1.1
+rozvrh hodin	A2	sousloví					6.10.6
+ručení omezené	A2	sousloví					6.6.8
+rychlé občerstvení	A2	sousloví					6.3.2
+rychlovarná konvice	A2	sousloví					6.2.5
+sci-fi litertura	A2	sousloví					6.5.14
+Schengenský prostor	A2	sousloví					6.14.3
+skopové maso	A2	sousloví					6.3.7
+smlouva na dobu neurčitou	A2	sousloví					6.6.5
+smlouva na dobu určitou	A2	sousloví					6.6.5
+sociální pojištění	A2	sousloví					6.8.14
+solární panel	A2	sousloví					6.2.5
+spodní prádlo	A2	sousloví					6.8.3
+společnost s ručením omezeným	A2	sousloví					6.6.8
+sportovní potřeby	A2	sousloví					6.8.1
+sprchový kout	A2	sousloví					6.2.4
+stanoviště taxi	A2	sousloví					6.9.8
+státní občanství	A2	sousloví					6.1.9
+státní zastupitelství	A2	sousloví					6.11.7
+stupeň Celsia	A2	sousloví					4.3.9
+školní potřeby	A2	sousloví					6.8.2
+těhotenský průkaz	A2	sousloví					6.7.11
+technická prohlídka	A2	sousloví					6.9.2; 6.9.6
+technický stav	A2	sousloví					6.9.6
+telecí řízek	A2	sousloví					6.3.7
+test na alkohol	A2	sousloví					6.9.6
+test na drogy	A2	sousloví					6.9.6
+tísňová linka	A2	sousloví					6.12.2
+trestní oznámení	A2	sousloví					6.11.8
+trestný čin	A2	sousloví					6.12.1
+úřad sociálního zabezpečení	A2	sousloví					6.11.4
+úřední překlad	A2	sousloví					6.11.6
+ústřední topení	A2	sousloví					6.2.5
+vážná hudba	A2	sousloví					6.1.14; 6.5.15
+volně prodejný	A2	sousloví					6.8.6
+vybírat peníze	A2	sousloví					6.8.12
+vybrat peníze	A2	sousloví					6.8.12
+výpis z trestního rejstříku	A2	sousloví					6.11.7
+výpis z účtu	A2	sousloví					6.8.12
+výplatní lístek	A2	sousloví					6.6.6; 6.11.5
+výsledky z laboratoře	A2	sousloví					6.7.11
+vysoký tlak	A2	sousloví					6.7.5
+výuční list	A2	sousloví					6.10.9
+vzít si s sebou	A2	sousloví					6.3.3
+za druhé	A2	sousloví					4.2.5
+za prvé	A2	sousloví					4.2.5
+za svobodna	A2	sousloví					6.1.1
+zákaz stání	A2	sousloví					6.9.4
+zákaz zastavení	A2	sousloví					6.9.4
+základní plat	A2	sousloví					6.6.6
+zápal plic	A2	sousloví					6.7.5
+záruční doba	A2	sousloví					6.8.4
+zavazadlový lístek	A2	sousloví					6.9.11
+zdravotně postižený	A2	sousloví					6.11.4
+zdravotní pojišťovna	A2	sousloví					6.7.12
+zdravotní průkaz	A2	sousloví					6.7.11
+zkouška v autoškole	A2	sousloví					6.9.2
+zkušební doba	A2	sousloví					6.6.5
+zoologická zahrada	A2	sousloví					6.13.2
+zůstat stát	A2	sousloví					4.4.18
+železniční přejezd	A2	sousloví					6.9.4
+žena na mateřské dovolené	A2	sousloví					6.6.2
+žena na rodičovské dovolené	A2	sousloví					6.6.2
+živnostenský rejstřík	A2	sousloví					6.11.2
+živnostenský úřad	A2	sousloví					6.11.2
+bát se, že	A2	vazba					5.3.30
+bydlet u	A2	vazba					6.1.3; 6.2.2
+dát na místo	A2	vazba					4.4.14
+dík(y) za	A2	vazba					5.5.3
+dík(y), že	A2	vazba					5.5.3
+dovolat se do	A2	vazba					5.6.12
+hrát na	A2	vazba					6.5.2; 6.5.6; 6.5.7
+hrát proti	A2	vazba					7.1
+chce se + dativ zájmena + infinitiv	A2	vazba					5.3.11
+chuť na	A2	vazba					5.3.4; 5.3.5; 5.3.6
+informace o	A2	vazba					6.5.4
+je možné, že	A2	vazba					5.2.20; 5.2.23
+měl/a by ses + infinitiv	A2	vazba					5.4.15
+mít + infinitiv	A2	vazba					5.2.32
+mít chuť na	A2	vazba					5.3.4; 5.3.5
+mít raději … než	A2	vazba					5.3.12
+mít radost, že	A2	vazba					5.3.18
+mít strach, že	A2	vazba					5.3.30
+mít zájem o	A2	vazba					5.3.14; 5.3.15
+mluvit o, s	A2	vazba					5.6.9
+možná, že	A2	vazba					5.2.19
+myslet (si), že	A2	vazba					5.2.15
+myslet, že	A2	vazba					5.2.20
+nemít zájem o	A2	vazba					5.3.16
+nezajímat se o	A2	vazba					5.3.16
+pochybovat, že	A2	vazba					5.2.18
+pojďme + infinitiv	A2	vazba					5.4.8
+pozor, ať	A2	vazba					5.4.13
+ptát se, jestli	A2	vazba					5.1.7; 5.1.11; 6.10.5
+raději … než	A2	vazba					5.3.12
+slyšet o	A2	vazba					5.2.8; 5.2.9
+souhlasit s	A2	vazba					5.2.1; 5.2.7
+spokojený s	A2	vazba					5.3.23; 5.3.24
+stejně jako	A2	vazba					4.8.8
+špatný pro	A2	vazba					4.7.4
+vést na	A2	vazba					6.2.3
+zájem o	A2	vazba					5.3.14; 5.3.15; 5.3.16
+zajímat se o	A2	vazba					5.3.14; 5.3.15; 5.3.16; 6.5.6
+zapomenout, že	A2	vazba					5.2.14
+zeptat se, jestli	A2	vazba					5.1.7; 5.1.11; 6.10.5
+zlobit se, že	A2	vazba					5.5.1
+žádat o	A2	vazba					5.4.4
+žít s	A2	vazba					6.1.8

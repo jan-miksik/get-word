@@ -517,6 +517,34 @@ describe('CardDeckView', () => {
       expect(screen.getByTestId('card-w2')).toBeInTheDocument();
     });
 
+    it('can disable horizontal grading while retaining the up-swipe action', () => {
+      const swipeActions = makeSwipeActions();
+      const { container } = render(
+        <CardDeckView
+          groupedWords={[[makeWord('w1'), makeWord('w2')]]}
+          swipeActions={swipeActions}
+          allowHorizontalSwipe={false}
+          renderCard={swipeRenderCard}
+          renderMiniGame={vi.fn()}
+        />
+      );
+      const deckItem = getDeckItem(container);
+
+      expect(screen.queryByText('↺ 5 minutes')).not.toBeInTheDocument();
+      expect(screen.queryByText('↺ now')).not.toBeInTheDocument();
+      expect(screen.getByText('Fully known - no repeat')).toBeInTheDocument();
+
+      swipeRight(deckItem);
+      swipeLeft(deckItem);
+      expect(swipeActions.markKnown).not.toHaveBeenCalled();
+      expect(swipeActions.markUnknown).not.toHaveBeenCalled();
+      expect(screen.getByTestId('card-w1')).toBeInTheDocument();
+
+      swipeUp(deckItem);
+      expect(swipeActions.markFullyKnown).toHaveBeenCalledWith('w1');
+      expect(screen.getByTestId('card-w2')).toBeInTheDocument();
+    });
+
     it('does not mark anything on a sub-threshold drag', () => {
       const swipeActions = makeSwipeActions();
       const { container } = render(

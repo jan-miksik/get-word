@@ -89,7 +89,7 @@ describe('LearningSettingsPanel', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('shows the write-in radio and both checkboxes once typing mode is on', () => {
+  it('shows the write-in radio and punctuation option without audio prompts', () => {
     contextOverrides.typingModeEnabled = true;
     render(<LearningSettingsPanel {...baseProps} />);
     const radios = screen.getAllByRole('radio');
@@ -100,7 +100,7 @@ describe('LearningSettingsPanel', () => {
     expect(
       writeInRadios.find((radio) => /foreign language only/i.test(radio.textContent ?? '')),
     ).toHaveAttribute('aria-checked', 'true');
-    expect(screen.getByRole('switch', { name: /audio prompts/i })).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: /audio prompts/i })).not.toBeInTheDocument();
     expect(
       screen.getByRole('switch', { name: /prefill commas, periods and spaces/i }),
     ).toBeInTheDocument();

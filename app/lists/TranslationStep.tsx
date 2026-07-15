@@ -25,6 +25,13 @@ import {
 } from '@/lib/openrouter-models';
 import { copyTextToClipboard } from '@/lib/clipboard';
 import { MAX_COMMENT_TEXT_LENGTH } from '@/lib/word-item-comment';
+import { areAnswersEquivalent, normalizeAnswerExactKey } from '@/lib/answer-normalization';
+import {
+  BULK_ACCEPTED_ANSWERS_CONCURRENCY,
+  BULK_ACCEPTED_ANSWERS_CHUNK_SIZE,
+  MAX_ACCEPTED_ANSWER_LENGTH,
+  MAX_ACCEPTED_ANSWERS,
+} from '@/lib/word-item-accepted-answers';
 import {
   polishPair,
   type PolishFixCode,
@@ -54,6 +61,23 @@ type PolishWarningRow = {
 
 type PolishScan = { changes: PolishChange[]; warnings: PolishWarningRow[] };
 
+type BulkAcceptedEntry = {
+  key: string;
+  rowId: string;
+  side: AcceptedSide;
+  value: string;
+};
+
+type BulkAcceptedScan = {
+  entries: BulkAcceptedEntry[];
+  // Invalid/stale rows skipped by an otherwise successful server request.
+  skippedCount: number;
+  // Rows contained in requests that failed completely.
+  failedCount: number;
+  // First concrete server/provider error, so a failed batch is diagnosable.
+  failureMessage: string | null;
+};
+
 interface TranslationStepProps {
   list: WordList;
   pendingItems: PendingItem[];
@@ -78,9 +102,13 @@ interface TranslationStepProps {
   // Persists a category change for a single item immediately. Resolves on
   // success; rejects to let the step revert its optimistic update.
   onAssignCategory?: (itemId: string, categoryId: string) => Promise<void>;
+  // Lets the page protect navigation outside this component (sidebar and the
+  // wizard progress bar) while generated results still exist only in memory.
+  onGenerationActiveChange?: (active: boolean) => void;
 }
 
 type TranslationRow = CompletedTranslationRow;
+type AcceptedSide = 'known' | 'target';
 
 type OpenRouterUiState =
   | 'not_connected'
@@ -98,6 +126,101 @@ interface TranslationTextareaProps {
   maxLength?: number;
   onFocus?: () => void;
   onBlur?: () => void;
+}
+
+function mergeAcceptedAnswers(current: string[], incoming: string[], primary: string): string[] {
+  const seen = new Set(current.map((answer) => normalizeAnswerExactKey(answer)));
+  const primaryKey = normalizeAnswerExactKey(primary);
+  const next = [...current];
+  for (const raw of incoming) {
+    const answer = raw.normalize('NFC').trim();
+    if (!answer || answer.length > MAX_ACCEPTED_ANSWER_LENGTH) continue;
+    const key = normalizeAnswerExactKey(answer);
+    if (!key || key === primaryKey || seen.has(key)) continue;
+    seen.add(key);
+    next.push(answer);
+    if (next.length >= MAX_ACCEPTED_ANSWERS) break;
+  }
+  return next;
+}
+
+interface AcceptedAnswersEditorProps {
+  values: string[];
+  primary: string;
+  label: string;
+  onChange: (values: string[]) => void;
+}
+
+function AcceptedAnswersEditor({
+  values,
+  primary,
+  label,
+  onChange,
+}: AcceptedAnswersEditorProps) {
+  const [draft, setDraft] = useState('');
+
+  const addDraft = useCallback((raw: string) => {
+    const pieces = raw.split(/\r?\n/);
+    const next = mergeAcceptedAnswers(values, pieces, primary);
+    onChange(next);
+    setDraft('');
+  }, [onChange, primary, values]);
+
+  const removeAt = useCallback((index: number) => {
+    onChange(values.filter((_, idx) => idx !== index));
+  }, [onChange, values]);
+
+  return (
+    <div className="mt-1.5 space-y-1">
+      <div className="flex flex-wrap items-center gap-1.5">
+        {values.map((value, index) => (
+          <span
+            key={`${value}-${index}`}
+            className="inline-flex max-w-full items-center gap-1 rounded-md bg-background-elevated px-1.5 py-0.5 text-[11px] text-text"
+          >
+            <span className="min-w-0 truncate">{value}</span>
+            <button
+              type="button"
+              className="text-text-soft hover:text-danger"
+              aria-label={`${label}: ${value}`}
+              onClick={() => removeAt(index)}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <input
+          type="text"
+          value={draft}
+          maxLength={MAX_ACCEPTED_ANSWER_LENGTH}
+          disabled={values.length >= MAX_ACCEPTED_ANSWERS}
+          aria-label={label}
+          placeholder={label}
+          onChange={(event) => setDraft(event.target.value)}
+          onPaste={(event) => {
+            const text = event.clipboardData.getData('text');
+            if (text.includes('\n')) {
+              event.preventDefault();
+              addDraft(text);
+            }
+          }}
+          onKeyDown={(event) => {
+            if (event.key === 'Enter') {
+              event.preventDefault();
+              addDraft(draft);
+            } else if (event.key === 'Escape') {
+              event.preventDefault();
+              setDraft('');
+            }
+          }}
+          onBlur={() => {
+            if (draft.trim()) addDraft(draft);
+          }}
+          className="min-w-36 flex-1 rounded-md border border-border-subtle bg-background px-2 py-1 text-[11px] text-text outline-none placeholder:text-text-soft/60 focus:border-accent disabled:opacity-40"
+        />
+      </div>
+    </div>
+  );
 }
 
 function TranslationTextarea({
@@ -144,9 +267,11 @@ function TranslationTextarea({
 interface RowMenuProps {
   categories: WordCategory[];
   currentCategoryId: string | null;
+  acceptedCount: number;
   canDelete: boolean;
   canAssign: boolean;
   busy: boolean;
+  onEditAccepted: () => void;
   onDelete: () => void;
   onAssign: (categoryId: string) => void;
 }
@@ -154,9 +279,11 @@ interface RowMenuProps {
 function RowMenu({
   categories,
   currentCategoryId,
+  acceptedCount,
   canDelete,
   canAssign,
   busy,
+  onEditAccepted,
   onDelete,
   onAssign,
 }: RowMenuProps) {
@@ -213,6 +340,23 @@ function RowMenu({
           role="menu"
           className="absolute right-0 z-30 mt-1 w-56 overflow-hidden rounded-lg border border-border-subtle bg-background py-1 shadow-xl"
         >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              onEditAccepted();
+            }}
+            className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm text-text-soft transition-colors hover:bg-background-elevated hover:text-text"
+          >
+            <span>{t('lists.acceptedAnswersLabel')}</span>
+            {acceptedCount > 0 && (
+              <span className="min-w-5 rounded-full bg-accent/15 px-1.5 text-center text-[11px] font-medium text-accent">
+                {acceptedCount}
+              </span>
+            )}
+          </button>
+          {(canDelete || showCategories) && <div className="my-1 border-t border-border-subtle" />}
           {canDelete && (
             <button
               type="button"
@@ -280,6 +424,7 @@ export function TranslationStep({
   onRemoveItem,
   categories = [],
   onAssignCategory,
+  onGenerationActiveChange,
 }: TranslationStepProps) {
   const { t } = useI18n();
   const [rows, setRows] = useState<TranslationRow[]>(() =>
@@ -287,6 +432,8 @@ export function TranslationStep({
       id: item.id,
       textKnown: item.text_known ?? '',
       textTarget: item.text_target ?? '',
+      acceptedKnown: item.accepted_known ?? [],
+      acceptedTarget: item.accepted_target ?? [],
       // Items that already have both fields are considered translated
       status: (item.text_known && item.text_target ? 'ok' : 'pending') as TranslationRow['status'],
       comment: item.comment ?? '',
@@ -299,6 +446,7 @@ export function TranslationStep({
     Object.fromEntries(pendingItems.map((item) => [item.id, item.category_id ?? null])),
   );
   const [assigningRowId, setAssigningRowId] = useState<string | null>(null);
+  const [acceptedAnswersRowId, setAcceptedAnswersRowId] = useState<string | null>(null);
   const [translating, setTranslating] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -308,6 +456,7 @@ export function TranslationStep({
   const [openRouterModel, setOpenRouterModel] = useState(
     () => readStoredOpenRouterModel() ?? DEFAULT_OPENROUTER_TRANSLATION_MODEL,
   );
+  const [dirtyRowIds, setDirtyRowIds] = useState<Set<string>>(new Set());
   const [clearColumn, setClearColumn] = useState<'known' | 'target' | null>(null);
   const [generatingComments, setGeneratingComments] = useState(false);
   const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null);
@@ -318,6 +467,50 @@ export function TranslationStep({
   const [polishSelected, setPolishSelected] = useState<Set<string>>(new Set());
   const [polishCleanNotice, setPolishCleanNotice] = useState(false);
   const polishNoticeTimeoutRef = useRef<number | null>(null);
+  const [bulkAcceptedScan, setBulkAcceptedScan] = useState<BulkAcceptedScan | null>(null);
+  const [showBulkAcceptedModal, setShowBulkAcceptedModal] = useState(false);
+  const [bulkAcceptedSelected, setBulkAcceptedSelected] = useState<Set<string>>(new Set());
+  const [bulkAcceptedProgress, setBulkAcceptedProgress] = useState<
+    { done: number; total: number } | null
+  >(null);
+  const [bulkAcceptedApplying, setBulkAcceptedApplying] = useState(false);
+  const [bulkAcceptedCopied, setBulkAcceptedCopied] = useState(false);
+  const [bulkAcceptedNoneNotice, setBulkAcceptedNoneNotice] = useState(false);
+  const bulkAcceptedNoticeTimeoutRef = useRef<number | null>(null);
+
+  const generationActive =
+    translating
+    || generatingComments
+    || bulkAcceptedProgress !== null
+    || bulkAcceptedApplying
+    || bulkAcceptedScan !== null;
+
+  useEffect(() => {
+    onGenerationActiveChange?.(generationActive);
+    return () => onGenerationActiveChange?.(false);
+  }, [generationActive, onGenerationActiveChange]);
+
+  useEffect(() => {
+    if (!generationActive) return;
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [generationActive]);
+
+  const confirmGenerationLeave = useCallback(() => (
+    !generationActive || window.confirm(t('lists.generationLeaveWarning'))
+  ), [generationActive, t]);
+
+  const handleSkipWithGenerationGuard = useCallback(() => {
+    if (confirmGenerationLeave()) void onSkip();
+  }, [confirmGenerationLeave, onSkip]);
+
+  const handleBackWithGenerationGuard = useCallback(() => {
+    if (confirmGenerationLeave()) onBack?.();
+  }, [confirmGenerationLeave, onBack]);
 
   const needsTranslation = inputLanguage === 'known' ? 'textTarget' : 'textKnown';
   const hasSource = inputLanguage === 'known' ? 'textKnown' : 'textTarget';
@@ -367,6 +560,9 @@ export function TranslationStep({
     .filter(Boolean)
     .join('\n');
   const hasAnyComment = rows.some((row) => (row.comment ?? '').trim());
+  const openRouterModelLabel =
+    OPENROUTER_TRANSLATION_MODELS.find((model) => model.id === openRouterModel)?.name
+    ?? openRouterModel;
   const clearColumnLanguageLabel =
     clearColumn === 'known'
       ? formatLanguageLabel(list.languageFrom)
@@ -434,6 +630,9 @@ export function TranslationStep({
       if (polishNoticeTimeoutRef.current !== null) {
         window.clearTimeout(polishNoticeTimeoutRef.current);
       }
+      if (bulkAcceptedNoticeTimeoutRef.current !== null) {
+        window.clearTimeout(bulkAcceptedNoticeTimeoutRef.current);
+      }
     };
   }, []);
 
@@ -498,6 +697,11 @@ export function TranslationStep({
       for (const r of data.results) {
         resultMap.set(r.id, r);
       }
+      setDirtyRowIds((prev) => {
+        const next = new Set(prev);
+        for (const id of resultMap.keys()) next.add(id);
+        return next;
+      });
 
       setRows((prev) =>
         prev.map((row) => {
@@ -506,8 +710,14 @@ export function TranslationStep({
           const updated = { ...row };
           if (result.translated_text) {
             if (needsTranslation === 'textTarget') {
+              if (!areAnswersEquivalent(updated.textTarget, result.translated_text)) {
+                updated.acceptedTarget = [];
+              }
               updated.textTarget = result.translated_text;
             } else {
+              if (!areAnswersEquivalent(updated.textKnown, result.translated_text)) {
+                updated.acceptedKnown = [];
+              }
               updated.textKnown = result.translated_text;
             }
           }
@@ -581,17 +791,61 @@ export function TranslationStep({
   }, [openRouterModel, t]);
 
   const handleCellEdit = useCallback((id: string, field: 'textKnown' | 'textTarget', value: string) => {
+    setDirtyRowIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+    setRows((prev) =>
+      prev.map((row) => {
+        if (row.id !== id) return row;
+        const next: TranslationRow = {
+          ...row,
+          [field]: value,
+          status: 'manual' as const,
+          warning: undefined,
+        };
+        if (field === 'textKnown' && !areAnswersEquivalent(row.textKnown, value)) {
+          next.acceptedKnown = [];
+        }
+        if (field === 'textTarget' && !areAnswersEquivalent(row.textTarget, value)) {
+          next.acceptedTarget = [];
+        }
+        return next;
+      })
+    );
+  }, []);
+
+  const handleAcceptedAnswersChange = useCallback((
+    id: string,
+    side: AcceptedSide,
+    values: string[],
+  ) => {
+    setDirtyRowIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
     setRows((prev) =>
       prev.map((row) =>
         row.id === id
-          ? { ...row, [field]: value, status: 'manual' as const, warning: undefined }
-          : row
-      )
+          ? {
+              ...row,
+              [side === 'known' ? 'acceptedKnown' : 'acceptedTarget']: values,
+              status: 'manual' as const,
+            }
+          : row,
+      ),
     );
   }, []);
 
   const handleCommentEdit = useCallback((id: string, value: string) => {
     const nextValue = value.slice(0, MAX_COMMENT_TEXT_LENGTH);
+    setDirtyRowIds((prev) => {
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
     setRows((prev) =>
       prev.map((row) =>
         row.id === id ? { ...row, comment: nextValue, commentDirty: true } : row
@@ -697,16 +951,20 @@ export function TranslationStep({
       text_target?: string;
       text_known?: string;
       status?: 'translated' | 'manual';
+      accepted_known?: string[];
+      accepted_target?: string[];
       comment?: string | null;
     };
     const translations = rows
       .map((r) => {
         const entry: TranslationPayload = { id: r.id };
         let touched = false;
-        if (r[needsTranslation]) {
+        if (r[needsTranslation] || dirtyRowIds.has(r.id)) {
           entry.text_target = r.textTarget || undefined;
           entry.text_known = r.textKnown || undefined;
           entry.status = r.status === 'ok' ? 'translated' : 'manual';
+          entry.accepted_known = r.acceptedKnown ?? [];
+          entry.accepted_target = r.acceptedTarget ?? [];
           touched = true;
         }
         // Persist a note edit even on a row that needs no translation. Empty
@@ -731,9 +989,24 @@ export function TranslationStep({
       const data = await res.json();
       throw new Error(data.error ?? t('lists.translationSaveFailed'));
     }
-  }, [rows, needsTranslation, list.id, t]);
+    setDirtyRowIds((prev) => {
+      if (prev.size === 0) return prev;
+      const saved = new Set(translations.map((entry) => entry.id));
+      const next = new Set(prev);
+      for (const id of saved) next.delete(id);
+      return next;
+    });
+    setRows((prev) =>
+      prev.map((row) =>
+        translations.some((entry) => entry.id === row.id)
+          ? { ...row, commentDirty: false }
+          : row,
+      ),
+    );
+  }, [rows, needsTranslation, dirtyRowIds, list.id, t]);
 
   const handleConfirmTranslations = useCallback(async () => {
+    if (!confirmGenerationLeave()) return;
     setConfirming(true);
     setError(null);
     try {
@@ -744,7 +1017,7 @@ export function TranslationStep({
     } finally {
       setConfirming(false);
     }
-  }, [persistTranslations, rows, onComplete, t]);
+  }, [confirmGenerationLeave, persistTranslations, rows, onComplete, t]);
 
   // Save current edits, then ask the server to auto-write short study notes for
   // any translated pair without a manual note. Manual notes are never touched.
@@ -779,6 +1052,195 @@ export function TranslationStep({
     }
   }, [persistTranslations, list.id, t]);
 
+  // Whole-list AI pass over both sides: save edits, chunk the saved items
+  // through the bulk-suggest route, then review everything in a modal before
+  // anything is written. A failed chunk never discards earlier results.
+  const handleBulkSuggestAcceptedAnswers = useCallback(async () => {
+    if (openRouterState !== 'connected') return;
+    setBulkAcceptedProgress({ done: 0, total: 0 });
+    setError(null);
+    try {
+      // Generation runs on saved pairs, so flush local edits first.
+      await persistTranslations();
+
+      const eligibleIds = rows
+        .filter((row) => row.textKnown.trim() && row.textTarget.trim())
+        .map((row) => row.id);
+      const chunks: string[][] = [];
+      for (let i = 0; i < eligibleIds.length; i += BULK_ACCEPTED_ANSWERS_CHUNK_SIZE) {
+        chunks.push(eligibleIds.slice(i, i + BULK_ACCEPTED_ANSWERS_CHUNK_SIZE));
+      }
+      setBulkAcceptedProgress({ done: 0, total: chunks.length });
+      setBulkAcceptedCopied(false);
+
+      const entries: BulkAcceptedEntry[] = [];
+      let skippedCount = 0;
+      let failedCount = 0;
+      let failureMessage: string | null = null;
+      let completedChunks = 0;
+      for (
+        let waveStart = 0;
+        waveStart < chunks.length;
+        waveStart += BULK_ACCEPTED_ANSWERS_CONCURRENCY
+      ) {
+        const wave = chunks.slice(
+          waveStart,
+          waveStart + BULK_ACCEPTED_ANSWERS_CONCURRENCY,
+        );
+        const results = await Promise.all(
+          wave.map(async (chunk) => {
+            const chunkEntries: BulkAcceptedEntry[] = [];
+            try {
+              const res = await listsApiFetch(
+                `/api/lists/${list.id}/accepted-answers/bulk-suggest`,
+                {
+                  method: 'POST',
+                  body: JSON.stringify({
+                    item_ids: chunk,
+                    translation_model: openRouterModel,
+                  }),
+                },
+              );
+              const data = await res.json().catch(() => ({}));
+              if (!res.ok) {
+                throw new Error(data.error ?? t('lists.acceptedAnswersSuggestFailed'));
+              }
+              const suggestions = Array.isArray(data.suggestions) ? data.suggestions : [];
+              for (const suggestion of suggestions) {
+                const rowId = typeof suggestion?.item_id === 'string' ? suggestion.item_id : null;
+                if (!rowId) continue;
+                for (const side of ['known', 'target'] as const) {
+                  const values = Array.isArray(suggestion[side]) ? suggestion[side] : [];
+                  for (const value of values) {
+                    if (typeof value !== 'string' || !value) continue;
+                    chunkEntries.push({ key: `${rowId}:${side}:${value}`, rowId, side, value });
+                  }
+                }
+              }
+              return {
+                entries: chunkEntries,
+                skippedCount: Array.isArray(data.skipped_item_ids)
+                  ? data.skipped_item_ids.length
+                  : 0,
+                failedCount: 0,
+                failureMessage: null,
+              };
+            } catch (err) {
+              return {
+                entries: chunkEntries,
+                skippedCount: 0,
+                failedCount: chunk.length,
+                failureMessage:
+                  err instanceof Error ? err.message : t('lists.acceptedAnswersSuggestFailed'),
+              };
+            }
+          }),
+        );
+        for (const result of results) {
+          entries.push(...result.entries);
+          skippedCount += result.skippedCount;
+          failedCount += result.failedCount;
+          failureMessage ??= result.failureMessage;
+        }
+        completedChunks += wave.length;
+        setBulkAcceptedProgress({ done: completedChunks, total: chunks.length });
+      }
+
+      if (entries.length === 0 && skippedCount === 0 && failedCount === 0) {
+        setBulkAcceptedNoneNotice(true);
+        if (bulkAcceptedNoticeTimeoutRef.current !== null) {
+          window.clearTimeout(bulkAcceptedNoticeTimeoutRef.current);
+        }
+        bulkAcceptedNoticeTimeoutRef.current = window.setTimeout(() => {
+          setBulkAcceptedNoneNotice(false);
+          bulkAcceptedNoticeTimeoutRef.current = null;
+        }, 2400);
+        return;
+      }
+      setBulkAcceptedScan({ entries, skippedCount, failedCount, failureMessage });
+      setBulkAcceptedSelected(new Set(entries.map((entry) => entry.key)));
+      setShowBulkAcceptedModal(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('lists.acceptedAnswersSuggestFailed'));
+    } finally {
+      setBulkAcceptedProgress(null);
+    }
+  }, [openRouterState, persistTranslations, rows, list.id, openRouterModel, t]);
+
+  const toggleBulkAcceptedEntry = useCallback((key: string) => {
+    setBulkAcceptedSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const cancelBulkAcceptedReview = useCallback(() => {
+    setShowBulkAcceptedModal(false);
+    setBulkAcceptedScan(null);
+    setBulkAcceptedSelected(new Set());
+  }, []);
+
+  // Sends only the picked suggestions; the server merges them into the current
+  // stored answers, so edits made elsewhere between preview and apply survive.
+  const handleApplyBulkAccepted = useCallback(async () => {
+    if (!bulkAcceptedScan) return;
+    const byRow = new Map<string, { known: string[]; target: string[] }>();
+    for (const entry of bulkAcceptedScan.entries) {
+      if (!bulkAcceptedSelected.has(entry.key)) continue;
+      const bucket = byRow.get(entry.rowId) ?? { known: [], target: [] };
+      bucket[entry.side].push(entry.value);
+      byRow.set(entry.rowId, bucket);
+    }
+    if (byRow.size === 0) {
+      setShowBulkAcceptedModal(false);
+      setBulkAcceptedScan(null);
+      return;
+    }
+    setBulkAcceptedApplying(true);
+    setError(null);
+    try {
+      const res = await listsApiFetch(`/api/lists/${list.id}/accepted-answers/bulk-apply`, {
+        method: 'POST',
+        body: JSON.stringify({
+          items: Array.from(byRow.entries()).map(([itemId, sides]) => ({
+            item_id: itemId,
+            known: sides.known,
+            target: sides.target,
+          })),
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data.error ?? t('lists.acceptedAnswersSuggestFailed'));
+      }
+      // Mirror the merged server state; the values are persisted already, so
+      // the rows stay clean (no dirty flag).
+      const merged = new Map<string, { known?: string[]; target?: string[] }>();
+      for (const item of Array.isArray(data.items) ? data.items : []) {
+        if (typeof item?.item_id === 'string') merged.set(item.item_id, item);
+      }
+      setRows((prev) =>
+        prev.map((row) => {
+          const update = merged.get(row.id);
+          if (!update) return row;
+          return {
+            ...row,
+            acceptedKnown: Array.isArray(update.known) ? update.known : row.acceptedKnown,
+            acceptedTarget: Array.isArray(update.target) ? update.target : row.acceptedTarget,
+          };
+        }),
+      );
+      setShowBulkAcceptedModal(false);
+      setBulkAcceptedScan(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t('lists.acceptedAnswersSuggestFailed'));
+    } finally {
+      setBulkAcceptedApplying(false);
+    }
+  }, [bulkAcceptedScan, bulkAcceptedSelected, list.id, t]);
+
   const handleClearColumn = useCallback(async (column: 'known' | 'target') => {
     const field = column === 'known' ? 'textKnown' : 'textTarget';
     setConfirming(true);
@@ -788,8 +1250,8 @@ export function TranslationStep({
         .filter((row) => row[field].trim())
         .map((row) =>
           column === 'target'
-            ? { id: row.id, text_target: null, status: 'manual' as const }
-            : { id: row.id, text_known: null, status: 'manual' as const },
+            ? { id: row.id, text_target: null, accepted_target: [], status: 'manual' as const }
+            : { id: row.id, text_known: null, accepted_known: [], status: 'manual' as const },
         );
 
       const res = await listsApiFetch(`/api/lists/${list.id}/items/translations`, {
@@ -810,6 +1272,7 @@ export function TranslationStep({
           error: undefined,
           warning: undefined,
           source: undefined,
+          ...(column === 'target' ? { acceptedTarget: [] } : { acceptedKnown: [] }),
         })),
       );
       setClearColumn(null);
@@ -994,6 +1457,42 @@ export function TranslationStep({
     ? polishScan.changes.filter((change) => polishSelected.has(change.key)).length
     : 0;
 
+  const bulkAcceptedSelectedCount = bulkAcceptedScan
+    ? bulkAcceptedScan.entries.filter((entry) => bulkAcceptedSelected.has(entry.key)).length
+    : 0;
+  // Modal groups follow the row order of the table; each group carries the
+  // row's texts so a suggestion is reviewable without scrolling back.
+  const bulkAcceptedGroups = bulkAcceptedScan
+    ? rows
+        .map((row) => ({
+          row,
+          entries: bulkAcceptedScan.entries.filter((entry) => entry.rowId === row.id),
+        }))
+        .filter((group) => group.entries.length > 0)
+    : [];
+  const bulkAcceptedSummaryToCopy = bulkAcceptedGroups
+    .map((group) => [
+      `${group.row.textKnown} → ${group.row.textTarget}`,
+      ...group.entries.map(
+        (entry) => `${polishFieldLabel(entry.side)}: ${entry.value}`,
+      ),
+    ].join('\n'))
+    .join('\n\n');
+  const acceptedAnswersEditRow = acceptedAnswersRowId
+    ? rows.find((row) => row.id === acceptedAnswersRowId) ?? null
+    : null;
+
+  const handleCopyBulkAcceptedSummary = async () => {
+    if (!bulkAcceptedSummaryToCopy) return;
+    setError(null);
+    try {
+      await copyTextToClipboard(bulkAcceptedSummaryToCopy);
+      setBulkAcceptedCopied(true);
+    } catch {
+      setError(t('lists.acceptedAnswersBulkCopyFailed'));
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-6">
       <div className="flex items-center justify-between mb-4">
@@ -1009,7 +1508,7 @@ export function TranslationStep({
         <button
           type="button"
           className="px-3 py-1.5 rounded-lg border border-border-subtle text-text-soft text-sm hover:text-text transition-colors"
-          onClick={onSkip}
+          onClick={handleSkipWithGenerationGuard}
         >
           {t('lists.skip')}
         </button>
@@ -1064,6 +1563,72 @@ export function TranslationStep({
           </p>
         )}
       </div>
+
+      {acceptedAnswersEditRow && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setAcceptedAnswersRowId(null)}
+        >
+          <div
+            className="w-full max-w-md rounded-lg border border-border-subtle bg-background p-6 shadow-xl"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="accepted-answers-editor-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="accepted-answers-editor-title" className="text-base font-semibold text-text">
+              {t('lists.acceptedAnswersLabel')}
+            </h2>
+            <p className="mt-1 text-sm text-text-soft">
+              {t('lists.acceptedAnswersEditorHint')}
+            </p>
+            <div className="mt-5 space-y-4">
+              {([
+                {
+                  side: 'known' as const,
+                  language: formatLanguageLabel(list.languageFrom),
+                  primary: acceptedAnswersEditRow.textKnown,
+                  values: acceptedAnswersEditRow.acceptedKnown ?? [],
+                },
+                {
+                  side: 'target' as const,
+                  language: formatLanguageLabel(list.languageTo),
+                  primary: acceptedAnswersEditRow.textTarget,
+                  values: acceptedAnswersEditRow.acceptedTarget ?? [],
+                },
+              ]).map((field) => (
+                <div key={field.side}>
+                  <div className="text-[11px] font-medium uppercase tracking-wide text-text-soft">
+                    {field.language}
+                  </div>
+                  <div className="mt-1 break-words rounded-md bg-background-elevated px-2.5 py-2 text-sm text-text">
+                    {field.primary}
+                  </div>
+                  <AcceptedAnswersEditor
+                    values={field.values}
+                    primary={field.primary}
+                    label={t('lists.acceptedAnswersAddPlaceholder')}
+                    onChange={(values) => handleAcceptedAnswersChange(
+                      acceptedAnswersEditRow.id,
+                      field.side,
+                      values,
+                    )}
+                  />
+                </div>
+              ))}
+            </div>
+            <div className="mt-5 flex justify-end">
+              <button
+                type="button"
+                className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-accent-strong"
+                onClick={() => setAcceptedAnswersRowId(null)}
+              >
+                {t('common.close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {clearColumn && (
         <div
@@ -1280,6 +1845,132 @@ export function TranslationStep({
         </div>
       )}
 
+      {showBulkAcceptedModal && bulkAcceptedScan && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
+          onClick={cancelBulkAcceptedReview}
+        >
+          <div
+            className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-lg border border-border-subtle bg-background p-6 shadow-xl"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 className="text-base font-semibold text-text">
+              {t('lists.acceptedAnswersBulkTitle')}
+            </h2>
+            <p className="mt-1 text-sm text-text-soft">{t('lists.acceptedAnswersBulkMessage')}</p>
+
+            {bulkAcceptedScan.failedCount > 0 && (
+              <div className="mt-3 rounded-md border border-danger/30 bg-danger/10 px-2.5 py-1.5 text-xs text-danger">
+                <p>
+                  {t('lists.acceptedAnswersBulkFailed', {
+                    count: bulkAcceptedScan.failedCount,
+                  })}
+                </p>
+                {bulkAcceptedScan.failureMessage && (
+                  <p className="mt-1 break-words opacity-90">{bulkAcceptedScan.failureMessage}</p>
+                )}
+              </div>
+            )}
+            {bulkAcceptedScan.skippedCount > 0 && (
+              <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1.5 text-xs text-amber-600">
+                {t('lists.acceptedAnswersBulkSkipped', {
+                  count: bulkAcceptedScan.skippedCount,
+                })}
+              </div>
+            )}
+
+            {bulkAcceptedScan.entries.length > 0 && (
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+                <button
+                  type="button"
+                  className="rounded border border-border-subtle px-2 py-1 text-text-soft transition-colors hover:bg-background-elevated"
+                  onClick={() => void handleCopyBulkAcceptedSummary()}
+                >
+                  {bulkAcceptedCopied ? t('common.copied') : t('lists.acceptedAnswersBulkCopy')}
+                </button>
+                <button
+                  type="button"
+                  className="rounded border border-border-subtle px-2 py-1 text-text-soft transition-colors hover:bg-background-elevated"
+                  onClick={() =>
+                    setBulkAcceptedSelected(
+                      new Set(bulkAcceptedScan.entries.map((entry) => entry.key)),
+                    )
+                  }
+                >
+                  {t('lists.acceptedAnswersBulkSelectAll')}
+                </button>
+                <button
+                  type="button"
+                  className="rounded border border-border-subtle px-2 py-1 text-text-soft transition-colors hover:bg-background-elevated"
+                  onClick={() => setBulkAcceptedSelected(new Set())}
+                >
+                  {t('lists.acceptedAnswersBulkSelectNone')}
+                </button>
+                <span className="text-text-soft">
+                  {t('lists.acceptedAnswersBulkSelectedCount', {
+                    selected: bulkAcceptedSelectedCount,
+                    total: bulkAcceptedScan.entries.length,
+                  })}
+                </span>
+              </div>
+            )}
+
+            <div className="mt-4 flex-1 space-y-3 overflow-y-auto">
+              {bulkAcceptedGroups.map((group) => (
+                <div key={group.row.id} className="rounded-md border border-border-subtle p-2.5">
+                  <div className="break-words text-sm font-medium text-text">
+                    {group.row.textKnown}
+                    <span className="text-text-soft"> → </span>
+                    {group.row.textTarget}
+                  </div>
+                  <div className="mt-1.5 space-y-1">
+                    {group.entries.map((entry) => (
+                      <label
+                        key={entry.key}
+                        className="flex cursor-pointer items-start gap-2 rounded-md px-2 py-1 hover:bg-background-elevated"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={bulkAcceptedSelected.has(entry.key)}
+                          onChange={() => toggleBulkAcceptedEntry(entry.key)}
+                          className="mt-0.5 accent-accent"
+                        />
+                        <span className="min-w-0 flex-1">
+                          <span className="text-[11px] uppercase tracking-wide text-text-soft/70">
+                            {polishFieldLabel(entry.side)}
+                          </span>
+                          <span className="ml-1.5 break-words text-sm text-text">{entry.value}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                type="button"
+                className="rounded-lg border border-border-subtle px-4 py-2 text-sm font-medium text-text-soft transition-colors hover:bg-background-elevated"
+                onClick={cancelBulkAcceptedReview}
+              >
+                {bulkAcceptedScan.entries.length > 0 ? t('common.cancel') : t('common.close')}
+              </button>
+              {bulkAcceptedScan.entries.length > 0 && (
+                <button
+                  type="button"
+                  disabled={bulkAcceptedSelectedCount === 0 || bulkAcceptedApplying}
+                  className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-accent-strong disabled:opacity-50"
+                  onClick={handleApplyBulkAccepted}
+                >
+                  {t('lists.acceptedAnswersBulkApply', { count: bulkAcceptedSelectedCount })}
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {provider === 'google' && isGooglePaused && (
         <div className="mb-4 rounded-lg border border-danger/30 bg-danger/10 p-3 text-xs text-danger">
           {googlePausedMessage}
@@ -1341,7 +2032,11 @@ export function TranslationStep({
             >
               {OPENROUTER_TRANSLATION_MODELS.map((model) => (
                 <option key={model.id} value={model.id}>
-                  {model.name} - {model.price}
+                  {model.name}
+                  {model.id === DEFAULT_OPENROUTER_TRANSLATION_MODEL
+                    ? ` (${t('lists.modelRecommended')})`
+                    : ''}
+                  {' - '}{model.price}
                 </option>
               ))}
               <option value="custom">{t('lists.customModelName')}</option>
@@ -1428,50 +2123,111 @@ export function TranslationStep({
         })}
       </p>
 
-      {/* Study notes: auto-generate short notes for translated pairs */}
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-background-elevated border border-border-subtle p-3">
-        <span className="flex items-center gap-1.5 text-sm text-text-soft">
-          <span aria-hidden>💬</span>
-          {t('lists.studyNotesGenerateHint')}
-        </span>
-        <button
-          type="button"
-          disabled={generatingComments || confirming || translating || readyCount === 0}
-          className="px-4 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
-          onClick={handleGenerateComments}
-        >
-          {generatingComments ? t('lists.generatingStudyNotes') : t('lists.generateStudyNotes')}
-        </button>
-      </div>
-
-      {/* Formatting polish: deterministic capitalization / spacing / sentence
-          punctuation cleanup. Never rewords a translation. */}
-      <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-background-elevated border border-border-subtle p-3">
-        <span className="flex items-center gap-1.5 text-sm text-text-soft">
-          <span aria-hidden>✨</span>
-          {t('lists.polishBarHint')}
-        </span>
-        <div className="flex items-center gap-2">
+      <details className="group mb-2 overflow-hidden rounded-lg border border-border-subtle bg-background-elevated">
+        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-2.5 text-sm font-medium text-text marker:content-none">
+          <span>{t('lists.moreOptions')}</span>
           <span
-            className={`text-xs text-done transition-opacity ${
-              polishCleanNotice ? 'opacity-100' : 'opacity-0'
-            }`}
-            role="status"
-            aria-live="polite"
-            aria-hidden={!polishCleanNotice}
+            aria-hidden
+            className="text-text-soft transition-transform group-open:rotate-180"
           >
-            {polishCleanNotice ? t('lists.polishNoIssues') : ' '}
+           ⌄
           </span>
-          <button
-            type="button"
-            disabled={confirming || translating || rows.length === 0}
-            className="px-4 py-1.5 rounded-lg border border-border-subtle text-text text-xs font-medium hover:bg-background disabled:opacity-50 transition-colors"
-            onClick={handlePolishCheck}
-          >
-            {t('lists.polishCheck')}
-          </button>
+        </summary>
+        <div className="max-h-72 space-y-2 overflow-y-auto border-t border-border-subtle p-2">
+          {/* Study notes: auto-generate short notes for translated pairs */}
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border-subtle bg-background p-3">
+            <span className="flex items-center gap-1.5 text-sm text-text-soft">
+              <span aria-hidden>💬</span>
+              {t('lists.studyNotesGenerateHint')}
+            </span>
+            <button
+              type="button"
+              disabled={generatingComments || confirming || translating || readyCount === 0}
+              className="rounded-lg bg-accent px-4 py-1.5 text-xs font-medium text-background transition-colors hover:bg-accent-strong disabled:opacity-50"
+              onClick={handleGenerateComments}
+            >
+              {generatingComments ? t('lists.generatingStudyNotes') : t('lists.generateStudyNotes')}
+            </button>
+          </div>
+
+          {/* Formatting polish: deterministic capitalization / spacing / sentence
+              punctuation cleanup. Never rewords a translation. */}
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border-subtle bg-background p-3">
+            <span className="flex items-center gap-1.5 text-sm text-text-soft">
+              <span aria-hidden>✨</span>
+              {t('lists.polishBarHint')}
+            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className={`text-xs text-done transition-opacity ${
+                  polishCleanNotice ? 'opacity-100' : 'opacity-0'
+                }`}
+                role="status"
+                aria-live="polite"
+                aria-hidden={!polishCleanNotice}
+              >
+                {polishCleanNotice ? t('lists.polishNoIssues') : ' '}
+              </span>
+              <button
+                type="button"
+                disabled={confirming || translating || rows.length === 0}
+                className="rounded-lg border border-border-subtle px-4 py-1.5 text-xs font-medium text-text transition-colors hover:bg-background-elevated disabled:opacity-50"
+                onClick={handlePolishCheck}
+              >
+                {t('lists.polishCheck')}
+              </button>
+            </div>
+          </div>
+
+          {/* AI suggestions for the whole list, reviewed before anything is saved. */}
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border-subtle bg-background p-3">
+            <span className="flex min-w-0 items-start gap-1.5 text-sm text-text-soft">
+              <span aria-hidden>✅</span>
+              <span>
+                <span className="block">{t('lists.acceptedAnswersBulkHint')}</span>
+                <span className="mt-0.5 block text-[11px] text-text-soft/65">
+                  {t('lists.acceptedAnswersBulkModel', { model: openRouterModelLabel })}
+                </span>
+              </span>
+            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className={`text-xs text-done transition-opacity ${
+                  bulkAcceptedNoneNotice ? 'opacity-100' : 'opacity-0'
+                }`}
+                role="status"
+                aria-live="polite"
+                aria-hidden={!bulkAcceptedNoneNotice}
+              >
+                {bulkAcceptedNoneNotice ? t('lists.acceptedAnswersBulkNone') : ' '}
+              </span>
+              <button
+                type="button"
+                disabled={
+                  bulkAcceptedProgress !== null ||
+                  generatingComments ||
+                  confirming ||
+                  translating ||
+                  openRouterState !== 'connected' ||
+                  readyCount === 0
+                }
+                title={
+                  openRouterState !== 'connected' ? t('lists.openRouterNotConnected') : undefined
+                }
+                className="rounded-lg bg-accent px-4 py-1.5 text-xs font-medium text-background transition-colors hover:bg-accent-strong disabled:opacity-50"
+                onClick={handleBulkSuggestAcceptedAnswers}
+              >
+                {bulkAcceptedProgress !== null
+                  ? t('lists.acceptedAnswersBulkProgress', {
+                      done: bulkAcceptedProgress.done,
+                      total: Math.max(bulkAcceptedProgress.total, 1),
+                    })
+                  : t('lists.acceptedAnswersBulk')}
+              </button>
+            </div>
+          </div>
         </div>
-      </div>
+      </details>
 
       {/* Two-column table: known language always left, target language always right */}
       <div className="rounded-lg border border-border-subtle overflow-hidden">
@@ -1557,12 +2313,34 @@ export function TranslationStep({
               }`}
             >
               <div className="px-3 py-2 flex items-start gap-2 border-r border-border-subtle">
-                <TranslationTextarea
-                  value={row.textKnown}
-                  onChange={(value) => handleCellEdit(row.id, 'textKnown', value)}
-                  placeholder={needsTranslation === 'textKnown' ? t('lists.enterTranslation') : undefined}
-                  ariaLabel={t('lists.sourceTextAria', { language: formatLanguageLabel(list.languageFrom) })}
-                />
+                <div className="min-w-0 flex-1">
+                  <TranslationTextarea
+                    value={row.textKnown}
+                    onChange={(value) => handleCellEdit(row.id, 'textKnown', value)}
+                    placeholder={needsTranslation === 'textKnown' ? t('lists.enterTranslation') : undefined}
+                    ariaLabel={t('lists.sourceTextAria', { language: formatLanguageLabel(list.languageFrom) })}
+                  />
+                  {(row.acceptedKnown?.length ?? 0) > 0 && (
+                    <button
+                      type="button"
+                      className="mt-1 flex max-w-full flex-wrap items-center gap-1 text-left"
+                      aria-label={`${t('lists.acceptedAnswersLabel')}: ${(row.acceptedKnown ?? []).join(', ')}`}
+                      onClick={() => setAcceptedAnswersRowId(row.id)}
+                    >
+                      <span className="mr-0.5 text-[11px] text-text-soft/70">
+                        {t('lists.acceptedAnswersExistingLabel')}
+                      </span>
+                      {(row.acceptedKnown ?? []).map((answer) => (
+                        <span
+                          key={answer}
+                          className="max-w-full truncate rounded bg-accent/10 px-1.5 py-0.5 text-[11px] text-accent"
+                        >
+                          {answer}
+                        </span>
+                      ))}
+                    </button>
+                  )}
+                </div>
                 {needsTranslation === 'textKnown' && row.status === 'error' && (
                   <span className="mt-1 text-danger text-xs shrink-0" title={row.error}>!</span>
                 )}
@@ -1576,12 +2354,34 @@ export function TranslationStep({
                 )}
               </div>
               <div className="px-3 py-2 flex items-start gap-2">
-                <TranslationTextarea
-                  value={row.textTarget}
-                  onChange={(value) => handleCellEdit(row.id, 'textTarget', value)}
-                  placeholder={needsTranslation === 'textTarget' ? t('lists.enterTranslation') : undefined}
-                  ariaLabel={t('lists.translationTextAria', { language: formatLanguageLabel(list.languageTo) })}
-                />
+                <div className="min-w-0 flex-1">
+                  <TranslationTextarea
+                    value={row.textTarget}
+                    onChange={(value) => handleCellEdit(row.id, 'textTarget', value)}
+                    placeholder={needsTranslation === 'textTarget' ? t('lists.enterTranslation') : undefined}
+                    ariaLabel={t('lists.translationTextAria', { language: formatLanguageLabel(list.languageTo) })}
+                  />
+                  {(row.acceptedTarget?.length ?? 0) > 0 && (
+                    <button
+                      type="button"
+                      className="mt-1 flex max-w-full flex-wrap items-center gap-1 text-left"
+                      aria-label={`${t('lists.acceptedAnswersLabel')}: ${(row.acceptedTarget ?? []).join(', ')}`}
+                      onClick={() => setAcceptedAnswersRowId(row.id)}
+                    >
+                      <span className="mr-0.5 text-[11px] text-text-soft/70">
+                        {t('lists.acceptedAnswersExistingLabel')}
+                      </span>
+                      {(row.acceptedTarget ?? []).map((answer) => (
+                        <span
+                          key={answer}
+                          className="max-w-full truncate rounded bg-accent/10 px-1.5 py-0.5 text-[11px] text-accent"
+                        >
+                          {answer}
+                        </span>
+                      ))}
+                    </button>
+                  )}
+                </div>
                 {needsTranslation === 'textTarget' && row.status === 'error' && (
                   <span className="mt-1 text-danger text-xs shrink-0" title={row.error}>!</span>
                 )}
@@ -1638,17 +2438,19 @@ export function TranslationStep({
                       {t('lists.noCategoryBadge')}
                     </span>
                   )}
-                  {(onRemoveItem || (onAssignCategory && categories.length > 0)) && (
-                    <RowMenu
-                      categories={categories}
-                      currentCategoryId={categoryByRow[row.id] ?? null}
-                      canDelete={Boolean(onRemoveItem)}
-                      canAssign={Boolean(onAssignCategory)}
-                      busy={assigningRowId === row.id}
-                      onDelete={() => handleDeleteRow(row.id)}
-                      onAssign={(categoryId) => void handleAssignCategory(row.id, categoryId)}
-                    />
-                  )}
+                  <RowMenu
+                    categories={categories}
+                    currentCategoryId={categoryByRow[row.id] ?? null}
+                    acceptedCount={
+                      (row.acceptedKnown?.length ?? 0) + (row.acceptedTarget?.length ?? 0)
+                    }
+                    canDelete={Boolean(onRemoveItem)}
+                    canAssign={Boolean(onAssignCategory)}
+                    busy={assigningRowId === row.id}
+                    onEditAccepted={() => setAcceptedAnswersRowId(row.id)}
+                    onDelete={() => handleDeleteRow(row.id)}
+                    onAssign={(categoryId) => void handleAssignCategory(row.id, categoryId)}
+                  />
                 </div>
               </div>
               {row.validationWarnings && row.validationWarnings.length > 0 && (
@@ -1676,7 +2478,7 @@ export function TranslationStep({
           <button
             type="button"
           className="px-4 py-2 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
-          onClick={onBack}
+          onClick={handleBackWithGenerationGuard}
         >
             {`\u2190 ${t('lists.back')}`}
           </button>
@@ -1685,7 +2487,7 @@ export function TranslationStep({
         <button
           type="button"
           className="px-4 py-2 rounded-lg border border-border-subtle text-text text-sm hover:bg-background-elevated transition-colors"
-          onClick={onSkip}
+          onClick={handleSkipWithGenerationGuard}
         >
           {t('lists.skipTranslations')}
         </button>

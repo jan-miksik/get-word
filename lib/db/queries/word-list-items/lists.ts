@@ -256,11 +256,13 @@ export async function updateList(
       };
       if (languageFromChanged) {
         itemUpdate.textKnown = '';
+        itemUpdate.acceptedKnown = [];
         itemUpdate.knownAudioAssetId = null;
         itemUpdate.knownAudioStatus = 'none';
       }
       if (languageToChanged) {
         itemUpdate.textTarget = null;
+        itemUpdate.acceptedTarget = [];
         itemUpdate.audioAssetId = null;
         itemUpdate.audioStatus = 'none';
       }

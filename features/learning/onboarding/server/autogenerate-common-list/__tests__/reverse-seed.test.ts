@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import type { MediaAsset, WordCategory, WordListItem } from "@/lib/db/schema";
-import { prepareReverseSeedItems } from "../index";
+import {
+  acceptedAnswersForRepairedSide,
+  prepareReverseSeedItems,
+} from "../index";
 import { pickRecommendedExactSeed, pickReverseExactSeed } from "../seeds";
 import type { SeedCandidate } from "../types";
 
@@ -27,6 +30,8 @@ function item(input: Partial<WordListItem> & Pick<WordListItem, "id" | "textKnow
     ignoreCase: input.ignoreCase ?? false,
     textKnown: input.textKnown,
     textTarget: input.textTarget,
+    acceptedKnown: input.acceptedKnown ?? [],
+    acceptedTarget: input.acceptedTarget ?? [],
     translationStatus: input.translationStatus ?? "translated",
     knownAudioAssetId: input.knownAudioAssetId ?? null,
     knownAudioStatus: input.knownAudioStatus ?? "none",
@@ -147,6 +152,44 @@ describe("prepareReverseSeedItems", () => {
         audioStatus: "none",
       }),
     ]);
+  });
+
+  it("swaps accepted answers along with the texts", () => {
+    const result = prepareReverseSeedItems({
+      categories: [category("cat-1", "Plain", 0)],
+      mediaById: new Map(),
+      items: [
+        item({
+          id: "item-1",
+          categoryId: "cat-1",
+          textKnown: "hello",
+          textTarget: "ahoj",
+          acceptedKnown: ["howdy"],
+          acceptedTarget: ["čau", "nazdar"],
+        }),
+      ],
+    });
+
+    expect(result.items).toEqual([
+      expect.objectContaining({
+        textKnown: "ahoj",
+        textTarget: "hello",
+        // The reversed known side accepts what the seed's target side accepted,
+        // and vice versa.
+        acceptedKnown: ["čau", "nazdar"],
+        acceptedTarget: ["howdy"],
+      }),
+    ]);
+  });
+});
+
+describe("acceptedAnswersForRepairedSide", () => {
+  it("preserves variants only when that side's primary text is unchanged", () => {
+    expect(acceptedAnswersForRepairedSide("hello", "hello", ["hi", "hello"])).toEqual(["hi"]);
+    expect(acceptedAnswersForRepairedSide("hello", "HELLO", ["hi"])).toEqual(["hi"]);
+    expect(
+      acceptedAnswersForRepairedSide("hello", "goodbye", ["hi"], ["bye", "goodbye"]),
+    ).toEqual(["bye"]);
   });
 });
 

@@ -58,6 +58,7 @@ function ListsPageContent() {
     return readInitialListsUrlState(window.location.search);
   }, []);
   const [error, setError] = useState<string | null>(initialUrlState?.notice ?? null);
+  const [translationGenerationActive, setTranslationGenerationActive] = useState(false);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(initialUrlState?.settingsOpen ?? false);
@@ -258,6 +259,25 @@ function ListsPageContent() {
     forkedListPrompt,
   });
 
+  const confirmLeavingGeneration = useCallback(() => (
+    !translationGenerationActive || window.confirm(t('lists.generationLeaveWarning'))
+  ), [t, translationGenerationActive]);
+
+  const selectListWithGenerationGuard = useCallback((
+    listId: string,
+    intent: 'select' | 'edit' = 'select',
+  ) => {
+    const leavesCurrentStep = listId !== selectedListId || intent === 'edit';
+    if (leavesCurrentStep && !confirmLeavingGeneration()) return false;
+    selectList(listId);
+    return true;
+  }, [confirmLeavingGeneration, selectList, selectedListId]);
+
+  const goToStepWithGenerationGuard = useCallback((step: WizardActiveStep) => {
+    if (step !== 'translate' && !confirmLeavingGeneration()) return;
+    void wizard.handleGoToStep(step);
+  }, [confirmLeavingGeneration, wizard]);
+
   // Fetch list details when selected list changes.
   useEffect(() => {
     if (!selectedListId) return;
@@ -303,7 +323,28 @@ function ListsPageContent() {
   ];
 
   return (
-    <div className="flex h-screen bg-background text-text overflow-hidden overscroll-none">
+    <div
+      className="flex h-screen bg-background text-text overflow-hidden overscroll-none"
+      onClickCapture={(event) => {
+        if (!translationGenerationActive || event.defaultPrevented) return;
+        const target = event.target;
+        const anchor = target instanceof Element ? target.closest('a[href]') : null;
+        if (
+          !anchor
+          || anchor.getAttribute('target') === '_blank'
+          || event.metaKey
+          || event.altKey
+          || event.ctrlKey
+          || event.shiftKey
+        ) {
+          return;
+        }
+        if (!confirmLeavingGeneration()) {
+          event.preventDefault();
+          event.stopPropagation();
+        }
+      }}
+    >
       <ApiKeySettings isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       {/* Sidebar */}
@@ -322,7 +363,7 @@ function ListsPageContent() {
           canManageCommonLists={canManageCommonLists}
           initialCreateLanguageFrom={initialCreateLanguageFrom}
           initialCreateLanguageTo={initialCreateLanguageTo}
-          onSelectList={selectList}
+          onSelectList={selectListWithGenerationGuard}
           onCreateList={createList}
           onDeleteList={deleteList}
           onEditList={editList}
@@ -378,7 +419,7 @@ function ListsPageContent() {
         {wizard.wizardStep !== 'browse' && markedSelectedList && (
           <WizardProgressBar
             currentStep={wizard.wizardStep as WizardActiveStep}
-            onGoToStep={wizard.handleGoToStep}
+            onGoToStep={goToStepWithGenerationGuard}
             canJumpForward={!wizard.isEditDirty}
             availableSteps={wizard.editingAllWords ? ['translate', 'audio-target', 'audio-known'] : undefined}
           />
@@ -481,6 +522,7 @@ function ListsPageContent() {
               onRemoveItem={wizard.markItemRemoved}
               categories={categories}
               onAssignCategory={handleAssignItemCategory}
+              onGenerationActiveChange={setTranslationGenerationActive}
             />
           ) : wizard.wizardStep === 'audio-target' ? (
             <AudioStep

@@ -74,6 +74,40 @@ describe('WordCard fullscreen', () => {
     expect(screen.getByPlaceholderText('Enter memory hook...')).toBeVisible();
   });
 
+  it('starts editing an existing memory hook with a quick double tap at mobile width', () => {
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn().mockImplementation((query: string) => ({
+        matches: query === '(max-width: 767px)',
+        media: query,
+        onchange: null,
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    );
+    render(<WordCard {...baseProps} memoryHook="existing hook" fullscreen />);
+
+    const nowSpy = vi.spyOn(Date, 'now');
+    const hookInput = screen.getByPlaceholderText('Enter memory hook...');
+
+    nowSpy.mockReturnValue(1_000);
+    fireEvent.click(screen.getByText('existing hook'));
+    expect(hookInput).not.toHaveFocus();
+
+    // A second tap arriving too late counts as a fresh first tap.
+    nowSpy.mockReturnValue(2_000);
+    fireEvent.click(screen.getByText('existing hook'));
+    expect(hookInput).not.toHaveFocus();
+
+    nowSpy.mockReturnValue(2_200);
+    fireEvent.click(screen.getByText('existing hook'));
+    expect(hookInput).toHaveFocus();
+    nowSpy.mockRestore();
+  });
+
   it('does not show the speaker button when stored audio is missing', () => {
     Object.defineProperty(window, 'speechSynthesis', {
       value: { cancel: vi.fn(), speak: vi.fn() },

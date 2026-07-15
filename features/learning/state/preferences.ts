@@ -31,6 +31,7 @@ const LEARNING_ONBOARDING_COMPLETED_SESSION_KEY = 'get-word-learning-onboarding-
 const PROGRESSIVE_REVEAL_STORAGE_KEY = 'get-word-progressive-reveal-enabled';
 const REVEAL_MODE_STORAGE_KEY = 'get-word-reveal-mode';
 const SWIPE_CARDS_STORAGE_KEY = 'get-word-swipe-cards-enabled';
+const PHOTO_LAB_STORAGE_KEY = 'get-word-photo-lab-enabled';
 const TYPING_MODE_STORAGE_KEY = 'get-word-typing-mode-enabled';
 const TYPING_WRITE_IN_STORAGE_KEY = 'get-word-typing-write-in';
 const TYPING_AUDIO_PROMPT_STORAGE_KEY = 'get-word-typing-audio-prompt-enabled';
@@ -49,6 +50,17 @@ function readSwipeCardsPreference(): boolean {
   if (typeof window === 'undefined') return false;
   try {
     return window.localStorage.getItem(SWIPE_CARDS_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+// Exported so the standalone /photo-lab page (rendered outside AppStateProvider)
+// can gate itself on the same preference.
+export function readPhotoLabPreference(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(PHOTO_LAB_STORAGE_KEY) === 'true';
   } catch {
     return false;
   }
@@ -85,11 +97,11 @@ function readTypingWriteInPreference(): TypingWriteIn {
 }
 
 function readTypingAudioPromptPreference(): boolean {
-  if (typeof window === 'undefined') return true;
+  if (typeof window === 'undefined') return false;
   try {
-    return window.localStorage.getItem(TYPING_AUDIO_PROMPT_STORAGE_KEY) !== 'false';
+    return window.localStorage.getItem(TYPING_AUDIO_PROMPT_STORAGE_KEY) === 'true';
   } catch {
-    return true;
+    return false;
   }
 }
 
@@ -173,6 +185,7 @@ export function usePreferences(
   );
   const [revealMode, setRevealMode] = useState<RevealMode>(readRevealModePreference);
   const [swipeCardsEnabled, setSwipeCardsEnabled] = useState(readSwipeCardsPreference);
+  const [photoLabEnabled, setPhotoLabEnabled] = useState(readPhotoLabPreference);
   const [typingModeEnabled, setTypingModeEnabled] = useState(readTypingModePreference);
   const [typingWriteIn, setTypingWriteIn] = useState<TypingWriteIn>(readTypingWriteInPreference);
   const [typingAudioPromptEnabled, setTypingAudioPromptEnabled] = useState(
@@ -229,6 +242,14 @@ export function usePreferences(
       // Keep the in-memory setting usable when storage is unavailable.
     }
   }, [swipeCardsEnabled]);
+
+  useEffect(() => {
+    try {
+      window.localStorage.setItem(PHOTO_LAB_STORAGE_KEY, String(photoLabEnabled));
+    } catch {
+      // Keep the in-memory setting usable when storage is unavailable.
+    }
+  }, [photoLabEnabled]);
 
   useEffect(() => {
     try {
@@ -554,6 +575,8 @@ export function usePreferences(
     setRevealMode,
     swipeCardsEnabled,
     setSwipeCardsEnabled,
+    photoLabEnabled,
+    setPhotoLabEnabled,
     typingModeEnabled,
     setTypingModeEnabled,
     typingWriteIn,

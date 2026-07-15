@@ -881,7 +881,7 @@ describe('GET /api/audio/[hash]', () => {
     expect(data.language).toBe('vi')
   })
 
-  it('proxies audio from the first working Arweave gateway', async () => {
+  it('proxies audio from the first working Arweave gateway when its B2 mirror is absent', async () => {
     mockFindMediaByHash.mockResolvedValue({
       id: 'asset-1',
       contentHash: 'abc123',
@@ -902,12 +902,13 @@ describe('GET /api/audio/[hash]', () => {
     expect(res.status).toBe(200)
     expect(res.headers.get('content-type')).toBe('audio/mpeg')
     expect(res.headers.get('x-audio-gateway')).toBe('https://arweave.net/tx123')
+    expect(mockGetObjectAudio).toHaveBeenCalledWith('abc123', 'b2')
     expect(fetchMock).toHaveBeenNthCalledWith(1, 'https://turbo-gateway.com/tx123', expect.any(Object))
     expect(fetchMock).toHaveBeenNthCalledWith(2, 'https://arweave.net/tx123', expect.any(Object))
     await expect(res.arrayBuffer()).resolves.toHaveProperty('byteLength', 10)
   })
 
-  it('falls back to the object store when all Arweave gateways fail', async () => {
+  it('serves the B2 mirror before probing any Arweave gateway', async () => {
     mockFindMediaByHash.mockResolvedValue({
       id: 'asset-1',
       contentHash: 'abc123',
@@ -921,7 +922,8 @@ describe('GET /api/audio/[hash]', () => {
       body: await new Response(Buffer.from('object-audio')).arrayBuffer(),
       contentType: 'audio/mpeg',
     })
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('nope', { status: 502, headers: { 'content-type': 'text/plain' } })))
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
     const infoSpy = vi.spyOn(console, 'info').mockImplementation(() => {})
 
     const req = new NextRequest('http://localhost:3000/api/audio/abc123')
@@ -937,6 +939,7 @@ describe('GET /api/audio/[hash]', () => {
       path: 'object-fallback',
       provider: 'b2',
     })
+    expect(fetchMock).not.toHaveBeenCalled()
     infoSpy.mockRestore()
   })
 

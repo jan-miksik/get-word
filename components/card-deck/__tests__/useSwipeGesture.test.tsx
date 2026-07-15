@@ -6,10 +6,11 @@ import { firePointer, swipeRight, swipeUp } from './pointer-test-utils';
 
 function Host({
   enabled = true,
+  allowHorizontal = true,
   getWordId = () => 'w1',
   onCommit,
 }: Partial<UseSwipeGestureOptions> & Pick<UseSwipeGestureOptions, 'onCommit'>) {
-  const swipe = useSwipeGesture({ enabled, getWordId, onCommit });
+  const swipe = useSwipeGesture({ enabled, allowHorizontal, getWordId, onCommit });
   return (
     <div data-testid="card" ref={swipe.cardRef} onPointerDown={swipe.onPointerDown}>
       <div ref={swipe.contentRef} data-testid="content">
@@ -59,6 +60,19 @@ describe('useSwipeGesture', () => {
 
   it('commits an upward swipe as fully known', () => {
     const { onCommit, card } = setup();
+    swipeUp(card);
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith('up', 'w1');
+  });
+
+  it('ignores left/right drags when horizontal swipe is disabled but keeps up-swipe', () => {
+    const { onCommit, card } = setup({ allowHorizontal: false });
+
+    swipeRight(card);
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(card.style.transform).toBe('');
+    expect(isCardSwipeActive()).toBe(false);
+
     swipeUp(card);
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith('up', 'w1');
