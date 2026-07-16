@@ -1,5 +1,13 @@
-import { sql } from 'drizzle-orm';
+import { sql, type SQL } from 'drizzle-orm';
 import { db } from '../client';
+
+export type ActivityWindow = 'rolling' | 'calendar';
+
+export interface UsageStatsOptions {
+  activityWindow?: ActivityWindow;
+  excludedUserIds?: string[];
+  excludedUserEmails?: string[];
+}
 
 export interface UsageWeekBucket {
   weekStart: string; // YYYY-MM-DD (UTC Monday)
@@ -30,11 +38,15 @@ export interface UsageStats {
     weekly: UsageWeekBucket[];
   };
   activity: {
+    window: ActivityWindow;
     dau: number;
     wau: number;
     mau: number;
+    yau: number;
     mauRegistered: number;
     mauAnonymous: number;
+    yauRegistered: number;
+    yauAnonymous: number;
   };
   study: {
     known30d: number;
@@ -65,6 +77,26 @@ export interface UsageStats {
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const TREND_WEEKS = 12;
 
+function parseEnvList(value: string | undefined, normalize: (item: string) => string = (item) => item): string[] {
+  if (!value) return [];
+  return Array.from(
+    new Set(
+      value
+        .split(/[\s,;]+/)
+        .map((item) => normalize(item.trim()))
+        .filter(Boolean)
+    )
+  );
+}
+
+function getEnvExcludedUserIds(): string[] {
+  return parseEnvList(process.env.ADMIN_STATS_EXCLUDED_USER_IDS);
+}
+
+function getEnvExcludedUserEmails(): string[] {
+  return parseEnvList(process.env.ADMIN_STATS_EXCLUDED_USER_EMAILS, (email) => email.toLowerCase());
+}
+
 function numberFromRow(row: Record<string, unknown>, key: string): number {
   return Number(row[key] ?? 0) || 0;
 }
@@ -83,6 +115,14 @@ function getUtcMonday(date: Date): Date {
 
 function toDateString(date: Date): string {
   return date.toISOString().slice(0, 10);
+}
+
+function getUtcMonthStart(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+}
+
+function getUtcYearStart(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
 }
 
 /** Exactly TREND_WEEKS week-start strings ending with the current (partial) week. */
@@ -104,6 +144,31 @@ function zeroFillWeeks<T extends { weekStart: string }>(
   })) as (T & { partial?: boolean })[];
 }
 
+function sqlTextArray(values: string[]): SQL {
+  return sql`ARRAY[${sql.join(values.map((value) => sql`${value}`), sql`, `)}]::text[]`;
+}
+
+function excludedUserCondition(alias: string, options: Required<Pick<UsageStatsOptions, 'excludedUserIds' | 'excludedUserEmails'>>): SQL {
+  const checks: SQL[] = [];
+  const quotedAlias = sql.raw(alias);
+  if (options.excludedUserIds.length > 0) {
+    checks.push(sql`${quotedAlias}.id::text = ANY(${sqlTextArray(options.excludedUserIds)})`);
+  }
+  if (options.excludedUserEmails.length > 0) {
+    checks.push(sql`lower(coalesce(${quotedAlias}.email, '')) = ANY(${sqlTextArray(options.excludedUserEmails)})`);
+  }
+  if (checks.length === 0) return sql`false`;
+  return sql`coalesce((${sql.join(checks, sql` OR `)}), false)`;
+}
+
+function includedUserCondition(alias: string, options: Required<Pick<UsageStatsOptions, 'excludedUserIds' | 'excludedUserEmails'>>): SQL {
+  return sql`NOT (${excludedUserCondition(alias, options)})`;
+}
+
+function normalizeActivityWindow(value: ActivityWindow | undefined): ActivityWindow {
+  return value === 'calendar' ? 'calendar' : 'rolling';
+}
+
 /**
  * Aggregate usage statistics for the admin dashboard.
  *
@@ -115,12 +180,23 @@ function zeroFillWeeks<T extends { weekStart: string }>(
  *   study activity from the append-only review_events table instead.
  * - Retention is rolling ("returned after N+ days"): of registered users old
  *   enough, share with >=1 review event >= N days after registered_at.
+ *
+ * Test accounts can be excluded without a DB migration:
+ * - ADMIN_STATS_EXCLUDED_USER_EMAILS: comma/space/semicolon-separated emails.
+ * - ADMIN_STATS_EXCLUDED_USER_IDS: comma/space/semicolon-separated app user UUIDs.
  */
-export async function getUsageStats(): Promise<UsageStats> {
+export async function getUsageStats(options: UsageStatsOptions = {}): Promise<UsageStats> {
   const generatedAt = new Date();
+  const activityWindow = normalizeActivityWindow(options.activityWindow);
+  const exclusionOptions = {
+    excludedUserIds: options.excludedUserIds ?? getEnvExcludedUserIds(),
+    excludedUserEmails: (options.excludedUserEmails ?? getEnvExcludedUserEmails()).map((email) => email.toLowerCase()),
+  };
+
   const dayAgo = new Date(generatedAt.getTime() - 24 * 60 * 60 * 1000).toISOString();
   const weekAgo = new Date(generatedAt.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const monthAgo = new Date(generatedAt.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+  const yearAgo = new Date(generatedAt.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString();
   const d1Cutoff = dayAgo;
   const d7Cutoff = weekAgo;
   const d30Cutoff = monthAgo;
@@ -131,6 +207,12 @@ export async function getUsageStats(): Promise<UsageStats> {
   const weekWindowFrom = oldestWeekStart.toISOString();
   const weekWindowTo = nextWeekStart.toISOString();
   const starts = weekStarts(currentWeekStart);
+  const activityDayStart = activityWindow === 'calendar'
+    ? new Date(Date.UTC(generatedAt.getUTCFullYear(), generatedAt.getUTCMonth(), generatedAt.getUTCDate())).toISOString()
+    : dayAgo;
+  const activityWeekStart = activityWindow === 'calendar' ? currentWeekStart.toISOString() : weekAgo;
+  const activityMonthStart = activityWindow === 'calendar' ? getUtcMonthStart(generatedAt).toISOString() : monthAgo;
+  const activityYearStart = activityWindow === 'calendar' ? getUtcYearStart(generatedAt).toISOString() : yearAgo;
 
   const registrationRows = await db.execute(sql`
     SELECT
@@ -140,14 +222,16 @@ export async function getUsageStats(): Promise<UsageStats> {
       count(*) FILTER (WHERE supabase_auth_id IS NOT NULL
         AND coalesce(auth_provider, 'unknown') NOT IN ('email', 'google'))::int AS registered_other,
       count(*) FILTER (WHERE supabase_auth_id IS NULL)::int AS anonymous_total
-    FROM users
+    FROM users u
+    WHERE ${includedUserCondition('u', exclusionOptions)}
   `);
 
   const registrationWeeklyRows = await db.execute(sql`
     SELECT date_trunc('week', registered_at)::date::text AS week_start,
            count(*)::int AS registrations
-    FROM users
-    WHERE supabase_auth_id IS NOT NULL
+    FROM users u
+    WHERE ${includedUserCondition('u', exclusionOptions)}
+      AND supabase_auth_id IS NOT NULL
       AND registered_at IS NOT NULL
       AND registered_at >= ${weekWindowFrom}::timestamp
       AND registered_at < ${weekWindowTo}::timestamp
@@ -157,44 +241,68 @@ export async function getUsageStats(): Promise<UsageStats> {
 
   const activityRows = await db.execute(sql`
     SELECT
-      count(DISTINCT ud.user_id) FILTER (WHERE ud.last_seen_at >= ${dayAgo}::timestamp)::int AS dau,
-      count(DISTINCT ud.user_id) FILTER (WHERE ud.last_seen_at >= ${weekAgo}::timestamp)::int AS wau,
-      count(DISTINCT ud.user_id) FILTER (WHERE ud.last_seen_at >= ${monthAgo}::timestamp)::int AS mau,
-      count(DISTINCT ud.user_id) FILTER (WHERE ud.last_seen_at >= ${monthAgo}::timestamp
+      count(DISTINCT ud.user_id) FILTER (WHERE ud.last_seen_at >= ${activityDayStart}::timestamp)::int AS dau,
+      count(DISTINCT ud.user_id) FILTER (WHERE ud.last_seen_at >= ${activityWeekStart}::timestamp)::int AS wau,
+      count(DISTINCT ud.user_id) FILTER (WHERE ud.last_seen_at >= ${activityMonthStart}::timestamp)::int AS mau,
+      count(DISTINCT ud.user_id) FILTER (WHERE ud.last_seen_at >= ${activityYearStart}::timestamp)::int AS yau,
+      count(DISTINCT ud.user_id) FILTER (WHERE ud.last_seen_at >= ${activityMonthStart}::timestamp
         AND u.supabase_auth_id IS NOT NULL)::int AS mau_registered,
-      count(DISTINCT ud.user_id) FILTER (WHERE ud.last_seen_at >= ${monthAgo}::timestamp
-        AND u.supabase_auth_id IS NULL)::int AS mau_anonymous
+      count(DISTINCT ud.user_id) FILTER (WHERE ud.last_seen_at >= ${activityMonthStart}::timestamp
+        AND u.supabase_auth_id IS NULL)::int AS mau_anonymous,
+      count(DISTINCT ud.user_id) FILTER (WHERE ud.last_seen_at >= ${activityYearStart}::timestamp
+        AND u.supabase_auth_id IS NOT NULL)::int AS yau_registered,
+      count(DISTINCT ud.user_id) FILTER (WHERE ud.last_seen_at >= ${activityYearStart}::timestamp
+        AND u.supabase_auth_id IS NULL)::int AS yau_anonymous
     FROM user_devices ud
     JOIN users u ON u.id = ud.user_id
+    WHERE ${includedUserCondition('u', exclusionOptions)}
   `);
 
   const studyRows = await db.execute(sql`
     SELECT
-      count(*) FILTER (WHERE action = 'known')::int AS known_30d,
-      count(*) FILTER (WHERE action = 'really_known')::int AS really_known_30d,
-      count(*) FILTER (WHERE action = 'unknown')::int AS unknown_30d,
-      count(DISTINCT user_id)::int AS studying_users_30d
-    FROM review_events
-    WHERE server_created_at >= ${monthAgo}::timestamp
+      count(*) FILTER (WHERE re.action = 'known')::int AS known_30d,
+      count(*) FILTER (WHERE re.action = 'really_known')::int AS really_known_30d,
+      count(*) FILTER (WHERE re.action = 'unknown')::int AS unknown_30d,
+      count(DISTINCT re.user_id)::int AS studying_users_30d
+    FROM review_events re
+    JOIN users u ON u.id = re.user_id
+    WHERE ${includedUserCondition('u', exclusionOptions)}
+      AND re.server_created_at >= ${monthAgo}::timestamp
   `);
 
   const studyWeeklyRows = await db.execute(sql`
-    SELECT date_trunc('week', server_created_at)::date::text AS week_start,
+    SELECT date_trunc('week', re.server_created_at)::date::text AS week_start,
            count(*)::int AS reviews,
-           count(DISTINCT user_id)::int AS active_users
-    FROM review_events
-    WHERE server_created_at >= ${weekWindowFrom}::timestamp
-      AND server_created_at < ${weekWindowTo}::timestamp
+           count(DISTINCT re.user_id)::int AS active_users
+    FROM review_events re
+    JOIN users u ON u.id = re.user_id
+    WHERE ${includedUserCondition('u', exclusionOptions)}
+      AND re.server_created_at >= ${weekWindowFrom}::timestamp
+      AND re.server_created_at < ${weekWindowTo}::timestamp
     GROUP BY 1
     ORDER BY 1
   `);
 
   const contentRows = await db.execute(sql`
     SELECT
-      count(*)::int AS total_lists,
-      count(*) FILTER (WHERE is_public)::int AS public_lists,
-      (SELECT count(*) FROM user_list_subscriptions)::int AS total_subscriptions
-    FROM word_lists
+      (
+        SELECT count(*)::int
+        FROM word_lists wl
+        LEFT JOIN users owner ON owner.id = wl.owner_id
+        WHERE ${includedUserCondition('owner', exclusionOptions)}
+      ) AS total_lists,
+      (
+        SELECT count(*)::int
+        FROM word_lists wl
+        LEFT JOIN users owner ON owner.id = wl.owner_id
+        WHERE ${includedUserCondition('owner', exclusionOptions)} AND wl.is_public
+      ) AS public_lists,
+      (
+        SELECT count(*)::int
+        FROM user_list_subscriptions s
+        JOIN users u ON u.id = s.user_id
+        WHERE ${includedUserCondition('u', exclusionOptions)}
+      ) AS total_subscriptions
   `);
 
   const topListRows = await db.execute(sql`
@@ -205,6 +313,10 @@ export async function getUsageStats(): Promise<UsageStats> {
            count(s.id)::int AS subscriber_count
     FROM word_lists wl
     JOIN user_list_subscriptions s ON s.list_id = wl.id
+    JOIN users u ON u.id = s.user_id
+    LEFT JOIN users owner ON owner.id = wl.owner_id
+    WHERE ${includedUserCondition('u', exclusionOptions)}
+      AND ${includedUserCondition('owner', exclusionOptions)}
     GROUP BY wl.id, wl.name, wl.language_from, wl.language_to
     ORDER BY subscriber_count DESC, wl.name ASC
     LIMIT 10
@@ -221,7 +333,8 @@ export async function getUsageStats(): Promise<UsageStats> {
              coalesce(bool_or(re.server_created_at >= u.registered_at + interval '30 days'), false) AS returned_d30
       FROM users u
       LEFT JOIN review_events re ON re.user_id = u.id
-      WHERE u.supabase_auth_id IS NOT NULL AND u.registered_at IS NOT NULL
+      WHERE ${includedUserCondition('u', exclusionOptions)}
+        AND u.supabase_auth_id IS NOT NULL AND u.registered_at IS NOT NULL
       GROUP BY u.id, u.registered_at
     )
     SELECT
@@ -268,11 +381,15 @@ export async function getUsageStats(): Promise<UsageStats> {
       weekly: zeroFillWeeks<UsageWeekBucket>(starts, registrationWeekMap, { count: 0 }),
     },
     activity: {
+      window: activityWindow,
       dau: numberFromRow(activity, 'dau'),
       wau: numberFromRow(activity, 'wau'),
       mau: numberFromRow(activity, 'mau'),
+      yau: numberFromRow(activity, 'yau'),
       mauRegistered: numberFromRow(activity, 'mau_registered'),
       mauAnonymous: numberFromRow(activity, 'mau_anonymous'),
+      yauRegistered: numberFromRow(activity, 'yau_registered'),
+      yauAnonymous: numberFromRow(activity, 'yau_anonymous'),
     },
     study: {
       known30d: numberFromRow(study, 'known_30d'),

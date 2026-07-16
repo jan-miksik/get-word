@@ -4,7 +4,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type { AnimationEvent, CSSProperties, ReactNode } from 'react';
 import { STAGES, type NormalizedWord } from '@/lib/words';
 import type { MiniGameConfig } from '@/lib/minigames';
-import { checkAudioUrlAvailable } from '@/lib/audio-availability';
+import { getPlayableAudioUrl } from '@/lib/audio-availability';
 import { prefetchAudio } from '@/lib/audio-prefetch';
 import {
   getAudioWarmupLookahead,
@@ -31,7 +31,7 @@ const ENTER_ANIMATIONS = [
   'animate-deck-enter-unfurl',
 ] as const;
 
-const AUDIO_LOOKAHEAD_CARDS = 2;
+const AUDIO_LOOKAHEAD_CARDS = 5;
 
 const SWIPE_BADGE_STYLE = {
   backgroundColor: '#1e6fa8',
@@ -90,7 +90,10 @@ interface CardDeckViewProps {
   renderCard: (
     word: NormalizedWord,
     stageIndex: number,
-    onComplete: (afterExit?: () => void) => void,
+    onComplete: (
+      afterExit?: () => void,
+      options?: { skipAnimation?: boolean },
+    ) => void,
     opts?: { isExiting: boolean }
   ) => ReactNode;
   renderMiniGame: (config: MiniGameConfig, onComplete: () => void) => ReactNode;
@@ -196,23 +199,12 @@ export function CardDeckView({
     const audioUrls = Array.from(new Set(lookaheadItems.flatMap(getAudioUrlsForItem)));
     if (audioUrls.length === 0) return;
 
-    let cancelled = false;
-
-    void (async () => {
-      const availability = await Promise.all(
-        audioUrls.map(async (url) => ({
-          url,
-          ok: await checkAudioUrlAvailable(url),
-        })),
-      );
-
-      if (cancelled) return;
-      prefetchAudio(availability.filter((entry) => entry.ok).map((entry) => entry.url));
-    })();
-
-    return () => {
-      cancelled = true;
-    };
+    // Start downloading immediately. Availability probing continues in the
+    // background and also warms the actual working gateway when it differs.
+    void prefetchAudio(audioUrls);
+    void Promise.all(audioUrls.map(getPlayableAudioUrl)).then((playableUrls) => {
+      void prefetchAudio(playableUrls.filter((url): url is string => Boolean(url)));
+    });
   }, [items, currentIndex, audioNetworkRevision]);
 
   // Completes an in-flight exit: clears the animation/lock, runs the pending
@@ -468,8 +460,21 @@ export function CardDeckView({
           className="card-deck-swipe-content flex h-full w-full flex-col"
         >
           {isMinigame
-            ? renderMiniGame(item as MiniGameConfig, () => advance())
-            : renderCard(item as NormalizedWord, stageIndex, (afterExit) => advance({ afterExit }), { isExiting })}
+            ? renderMiniGame(
+                item as MiniGameConfig,
+                // Mount the next card during the dismiss tap. iOS otherwise
+                // loses user activation before its typing autofocus can run.
+                () => advance({ skipAnimation: true }),
+              )
+            : renderCard(
+                item as NormalizedWord,
+                stageIndex,
+                (afterExit, options) => advance({
+                  afterExit,
+                  skipAnimation: options?.skipAnimation,
+                }),
+                { isExiting },
+              )}
         </div>
         {horizontalSwipeActive && (
           <>

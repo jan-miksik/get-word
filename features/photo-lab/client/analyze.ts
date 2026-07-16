@@ -5,6 +5,7 @@ import type { PhotoLabLabel } from '@/features/photo-lab/types';
 
 export type PhotoLabErrorCode =
   | 'limit'
+  | 'imageProcessing'
   | 'tooLarge'
   | 'unauthorized'
   | 'generic';

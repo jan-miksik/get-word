@@ -28,8 +28,7 @@ const WORD_WITHOUT_FOREIGN_AUDIO = makeWord('a', 'pes', 'con chó', {
   viAudio: undefined,
 });
 
-// Same word with language metadata: a Vietnamese ('vi') answer side switches
-// the card to manual (Telex-safe) checking.
+// Same word with language metadata for Vietnamese ('vi') answer-side coverage.
 const VI_WORD = makeWord('a', 'pes', 'con chó', {
   czAudio: 'speech/cz/pes.mp3',
   viAudio: 'speech/vi/con-cho.mp3',
@@ -124,20 +123,160 @@ describe('TypingStudyCard', () => {
     expect(input()).not.toHaveFocus();
   });
 
-  it('autofocuses the mobile keyboard after an explicit opt-in', () => {
+  it('autofocuses the mobile keyboard after an explicit opt-in on card mount', () => {
     stubMobileLayout(true);
     renderCard({ autoFocus: true, autoFocusOnMobile: true });
     expect(input()).toHaveFocus();
   });
 
-  it('keeps the focused mobile input enabled after checking so the keyboard can stay open', () => {
+  it('does not open the mobile keyboard when the autofocus preference changes on the visible card', () => {
+    stubMobileLayout(true);
+    const onOutcome = vi.fn();
+    const { rerender } = render(
+      <TypingStudyCard
+        word={WORD}
+        progress={PROGRESS}
+        role="knownLanguage"
+        writeIn="foreign"
+        audioPromptEnabled={false}
+        prefillPunctuation
+        modeIndex={0}
+        onOutcome={onOutcome}
+        autoFocus
+        autoFocusOnMobile={false}
+      />,
+    );
+    expect(input()).not.toHaveFocus();
+
+    rerender(
+      <TypingStudyCard
+        word={WORD}
+        progress={PROGRESS}
+        role="knownLanguage"
+        writeIn="foreign"
+        audioPromptEnabled={false}
+        prefillPunctuation
+        modeIndex={0}
+        onOutcome={onOutcome}
+        autoFocus
+        autoFocusOnMobile
+      />,
+    );
+
+    expect(input()).not.toHaveFocus();
+  });
+
+  it('leaves mobile keyboard positioning to the browser without translating the card', () => {
+    stubMobileLayout(true);
+    renderCard();
+    fireEvent.focus(input());
+
+    expect((document.querySelector('article') as HTMLElement).style.transform).toBe('');
+  });
+
+  it('hides only Repeat after actions while the mobile typing keyboard is active', () => {
+    stubMobileLayout(true);
+    renderCard();
+
+    fireEvent.focus(input());
+    expect(document.querySelector('[data-typing-secondary-actions]'))
+      .toHaveClass('max-md:invisible');
+    expect(document.querySelector('.card-actions')).not.toHaveClass('max-md:invisible');
+
+    fireEvent.blur(input());
+    expect(document.querySelector('[data-typing-secondary-actions]'))
+      .not.toHaveClass('max-md:invisible');
+  });
+
+  it('centers the input between the top of the study area and the iOS keyboard', async () => {
+    stubMobileLayout(true);
+    vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue('iPhone');
+    const visualViewport = Object.assign(new EventTarget(), {
+      height: 800,
+      offsetTop: 0,
+    });
+    vi.stubGlobal('visualViewport', visualViewport);
+    vi.stubGlobal('innerHeight', 800);
+
+    render(
+      <main className="learning-card-main">
+        <TypingStudyCard
+          word={WORD}
+          progress={PROGRESS}
+          role="knownLanguage"
+          writeIn="foreign"
+          audioPromptEnabled={false}
+          prefillPunctuation
+          modeIndex={0}
+          onOutcome={vi.fn()}
+        />
+      </main>,
+    );
+
+    const main = document.querySelector('.learning-card-main') as HTMLElement;
+    const scrollIntoView = vi.fn();
+    input().scrollIntoView = scrollIntoView;
+
+    fireEvent.focus(input());
+    visualViewport.height = 500;
+    visualViewport.dispatchEvent(new Event('resize'));
+
+    await waitFor(() => expect(main.style.paddingBottom).toBe('364px'));
+    expect(main.style.scrollPaddingBottom).toBe('364px');
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(1));
+    expect(scrollIntoView).toHaveBeenCalledWith({
+      behavior: 'auto',
+      block: 'center',
+      inline: 'nearest',
+    });
+
+    fireEvent.blur(input());
+    expect(main.style.paddingBottom).toBe('');
+    expect(main.style.scrollPaddingBottom).toBe('');
+  });
+
+  it('lets Android resize the page without applying a second keyboard scroll', async () => {
+    stubMobileLayout(true);
+    vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue('Android');
+    const visualViewport = Object.assign(new EventTarget(), {
+      height: 500,
+      offsetTop: 0,
+    });
+    vi.stubGlobal('visualViewport', visualViewport);
+    const scrollIntoView = vi.fn();
+
+    render(
+      <main className="learning-card-main">
+        <TypingStudyCard
+          word={WORD}
+          progress={PROGRESS}
+          role="knownLanguage"
+          writeIn="foreign"
+          audioPromptEnabled={false}
+          prefillPunctuation
+          modeIndex={0}
+          onOutcome={vi.fn()}
+        />
+      </main>,
+    );
+    input().scrollIntoView = scrollIntoView;
+    fireEvent.focus(input());
+    visualViewport.dispatchEvent(new Event('resize'));
+
+    await new Promise((resolve) => window.setTimeout(resolve, 180));
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    expect((document.querySelector('.learning-card-main') as HTMLElement).style.paddingBottom)
+      .toBe('');
+  });
+
+  it('blurs and disables the mobile input after checking so the keyboard can close', () => {
     stubMobileLayout(true);
     renderCard({ autoFocus: true, autoFocusOnMobile: true });
     fireEvent.change(input(), { target: { value: 'conchó' } });
 
     expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
-    expect(input()).toHaveFocus();
-    expect(input()).not.toBeDisabled();
+    expect(input()).not.toHaveFocus();
+    expect(input()).toBeDisabled();
     expect(input()).toHaveAttribute('aria-disabled', 'true');
   });
 
@@ -176,7 +315,7 @@ describe('TypingStudyCard', () => {
     expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
   });
 
-  it('restores mobile input focus when checking explicitly', () => {
+  it('closes the mobile input after an explicit check', () => {
     stubMobileLayout(true);
     renderCard({
       autoFocus: true,
@@ -188,8 +327,8 @@ describe('TypingStudyCard', () => {
     checkButton.focus();
     fireEvent.click(checkButton);
 
-    expect(input()).toHaveFocus();
-    expect(input()).not.toBeDisabled();
+    expect(input()).not.toHaveFocus();
+    expect(input()).toBeDisabled();
   });
 
   it('reports the outcome only once on a rapid double tap', () => {
@@ -210,6 +349,44 @@ describe('TypingStudyCard', () => {
     expect(onOutcome).not.toHaveBeenCalled();
     fireEvent.click(continueOverlay());
     expect(onOutcome).toHaveBeenCalledWith('stay');
+  });
+
+  it('keeps the mobile keyboard focused when a hint is tapped', () => {
+    stubMobileLayout(true);
+    renderCard();
+    const typingInput = input();
+    const hintButton = screen.getByRole('button', { name: /hint/i });
+    typingInput.focus();
+    expect(typingInput).toHaveFocus();
+    const focusSpy = vi.spyOn(typingInput, 'focus');
+
+    fireEvent.pointerDown(hintButton);
+    expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
+    fireEvent.click(hintButton);
+
+    expect(typingInput).toHaveFocus();
+    expect(typingInput).toHaveValue('c');
+  });
+
+  it('keeps the mobile keyboard focused while playing the word audio', () => {
+    stubMobileLayout(true);
+    renderCard();
+    const typingInput = input();
+    const audioButton = screen.getByRole('button', { name: 'Play audio' });
+    typingInput.focus();
+    const focusSpy = vi.spyOn(typingInput, 'focus');
+
+    const touchStartWasNotCancelled = fireEvent.touchStart(audioButton);
+    // Reproduce Safari trying to focus the button after pointer/touch start.
+    audioButton.focus();
+    const touchEndWasNotCancelled = fireEvent.touchEnd(audioButton);
+    fireEvent.click(audioButton);
+
+    expect(touchStartWasNotCancelled).toBe(false);
+    expect(touchEndWasNotCancelled).toBe(false);
+    expect(focusSpy).toHaveBeenCalledWith({ preventScroll: true });
+    expect(typingInput).toHaveFocus();
+    expect(playCalls).toBe(1);
   });
 
   it('places the caret after a revealed multi-code-unit grapheme', async () => {
@@ -434,23 +611,25 @@ describe('TypingStudyCard', () => {
     expect(document.querySelectorAll('.game-typing-correction')).toHaveLength(0);
   });
 
-  it('does not auto-check a Vietnamese (multi-key input) answer when the slots fill up', () => {
+  it('auto-checks a Vietnamese answer when the check button is disabled', () => {
     const { onScore } = renderCard({ word: VI_WORD });
     fireEvent.change(input(), { target: { value: 'conchó' } });
-    expect(queryContinueOverlay()).not.toBeInTheDocument();
-    expect(onScore).not.toHaveBeenCalled();
+    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /check/i })).not.toBeInTheDocument();
+    expect(onScore).toHaveBeenCalledWith(2);
   });
 
-  it('checks a Vietnamese answer on Enter', () => {
-    const { onScore } = renderCard({ word: VI_WORD });
+  it('checks a Vietnamese answer on Enter when the check button is enabled', () => {
+    const { onScore } = renderCard({ word: VI_WORD, checkButtonEnabled: true });
     fireEvent.change(input(), { target: { value: 'conchó' } });
+    expect(queryContinueOverlay()).not.toBeInTheDocument();
     fireEvent.keyDown(input(), { key: 'Enter' });
     expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
     expect(onScore).toHaveBeenCalledWith(2);
   });
 
   it('checks a Vietnamese answer via the check button, disabled while empty', () => {
-    renderCard({ word: VI_WORD });
+    renderCard({ word: VI_WORD, checkButtonEnabled: true });
     const checkButton = screen.getByRole('button', { name: /check/i });
     const hintButtons = screen.getAllByRole('button', { name: /hint/i });
     expect(hintButtons).toHaveLength(1);
@@ -472,7 +651,8 @@ describe('TypingStudyCard', () => {
     expect(continueButtons[1]).toHaveTextContent(/repeat/i);
   });
 
-  it('moves only the repeat action on mobile after evaluation, leaving audio anchored', () => {
+  it('keeps the repeat action in flow below the memory hook after mobile evaluation', () => {
+    stubMobileLayout(true);
     const { container } = render(
       <TypingStudyCard
         word={VI_WORD}
@@ -484,6 +664,9 @@ describe('TypingStudyCard', () => {
         modeIndex={0}
         onOutcome={vi.fn()}
         onCustomStage={vi.fn()}
+        checkButtonEnabled
+        showMemoryHook
+        memoryHook="dog with a cone"
       />,
     );
     const cardActions = container.querySelector('.card-actions');
@@ -495,16 +678,22 @@ describe('TypingStudyCard', () => {
     expect(audioButton).toHaveClass('audio-btn--floating');
     expect(repeatWrapper?.className).toContain('max-md:-translate-y-1');
 
-    fireEvent.change(input(), { target: { value: 'conchó' } });
+    fireEvent.change(screen.getByPlaceholderText('Type translation...'), {
+      target: { value: 'conchó' },
+    });
     fireEvent.click(screen.getByRole('button', { name: /check/i }));
 
     expect(cardActions?.className).not.toContain('translate-y');
     expect(audioButton).toBeInTheDocument();
-    expect(repeatWrapper?.className).toContain('max-md:-translate-y-[64px]');
+    expect(repeatWrapper?.className).not.toContain('max-md:-translate-y-[64px]');
+    expect(container.querySelector('[data-mobile-result-actions-spacer]')).toBeInTheDocument();
+    expect(
+      screen.getByText('dog with a cone').compareDocumentPosition(repeatWrapper as Node),
+    ).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
   });
 
   it('selects one tapped character on pointer down so the caret does not jump after the click', () => {
-    renderCard({ word: VI_WORD });
+    renderCard({ word: VI_WORD, checkButtonEnabled: true });
     fireEvent.change(input(), { target: { value: 'conchó' } });
     const editableSlots = Array.from(
       document.querySelectorAll<HTMLElement>('[data-editable-index]'),
@@ -648,6 +837,7 @@ describe('TypingStudyCard', () => {
     // spaces must survive the prefill sanitization.
     renderCard({
       word: makeWord('alt', 'pes', 'con chó', { acceptedTarget: ['see you later'] }),
+      checkButtonEnabled: true,
     });
     expect(document.querySelector('.game-typing-mask')).not.toBeInTheDocument();
     fireEvent.change(input(), { target: { value: 'see you later' } });
@@ -661,12 +851,11 @@ describe('TypingStudyCard', () => {
     });
     expect(document.querySelector('.game-typing-mask')).not.toBeInTheDocument();
     fireEvent.change(input(), { target: { value: 'cya' } });
-    fireEvent.keyDown(input(), { key: 'Enter' });
     expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
   });
 
   it('lets a Telex intermediate value exceed the slot count before the manual check', () => {
-    renderCard({ word: VI_WORD });
+    renderCard({ word: VI_WORD, checkButtonEnabled: true });
     // "con chos" mid-Telex (the tone key not yet applied) — nothing fires…
     fireEvent.change(input(), { target: { value: 'conchos' } });
     expect(queryContinueOverlay()).not.toBeInTheDocument();

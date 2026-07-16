@@ -5,6 +5,7 @@ import { I18nProvider } from '@/components/I18nProvider';
 import type { NormalizedWord } from '@/lib/words';
 
 vi.mock('@/lib/audio-availability', () => ({
+  getCachedPlayableAudioUrl: () => null,
   getPlayableAudioUrl: (url: string | null) => Promise.resolve(url),
 }));
 

@@ -11,6 +11,7 @@ import {
 } from "@/lib/db";
 import { AUDIO_FORMAT } from "@/features/audio/server/batch/types";
 import { runGoogleTtsWithRetry } from "@/lib/google-tts-rate-limit";
+import { getGoogleChirp3HdVoices } from "@/lib/language-catalog";
 import {
   getActiveObjectStorageProvider,
   objectKeyForHash,
@@ -20,12 +21,25 @@ import { DailyLimitError, reservePhotoLabAudioRateLimit } from "./rate-limit";
 
 const CONCURRENCY = 3;
 const PROVIDER = "google_tts" as const;
-// Must exactly match the batch route's hash parameters so photo-lab words
-// dedupe against the whole existing word-list audio corpus.
-const HASH_OPTIONS = { voiceId: "default", audioFormat: AUDIO_FORMAT } as const;
+const DEFAULT_VOICE_ID = "default";
 
 export type PhotoLabAudioItem = { id: string; text: string };
 export type PhotoLabAudioResult = { id: string; hash: string | null };
+
+/**
+ * Deterministic voice per word: the same text always maps to the same
+ * Chirp3-HD voice, so clips stay cacheable across users and sessions while the
+ * overall photo still gets a mix of voices. FNV-1a keeps it dependency-free.
+ */
+export function pickVoiceForText(text: string, voices: string[]): string {
+  if (voices.length === 0) return DEFAULT_VOICE_ID;
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return voices[(hash >>> 0) % voices.length];
+}
 
 /**
  * Generate (or find) TTS audio for photo-lab labels. Items are grouped by
@@ -42,25 +56,32 @@ export async function generatePhotoLabAudio({
   language: string;
   items: PhotoLabAudioItem[];
 }): Promise<{ results: PhotoLabAudioResult[] }> {
-  const groups = new Map<string, { text: string; ids: string[] }>();
+  // Chirp3-HD voice mix; an unavailable catalog degrades to the default voice.
+  const chirpVoices = await getGoogleChirp3HdVoices(language).catch(() => []);
+
+  const groups = new Map<string, { text: string; voiceId: string; ids: string[] }>();
   for (const item of items) {
-    const hash = computeContentHash(item.text, language, PROVIDER, HASH_OPTIONS);
+    const voiceId = pickVoiceForText(item.text, chirpVoices);
+    const hash = computeContentHash(item.text, language, PROVIDER, {
+      voiceId,
+      audioFormat: AUDIO_FORMAT,
+    });
     const group = groups.get(hash);
     if (group) {
       group.ids.push(item.id);
     } else {
-      groups.set(hash, { text: item.text, ids: [item.id] });
+      groups.set(hash, { text: item.text, voiceId, ids: [item.id] });
     }
   }
 
   const existing = await findMediaByHashes([...groups.keys()]);
   const resolved = new Map<string, string | null>();
-  const missing: { hash: string; text: string }[] = [];
+  const missing: { hash: string; text: string; voiceId: string }[] = [];
   for (const [hash, group] of groups) {
     if (isPlayableAudioAsset(existing.get(hash))) {
       resolved.set(hash, hash);
     } else {
-      missing.push({ hash, text: group.text });
+      missing.push({ hash, text: group.text, voiceId: group.voiceId });
     }
   }
 
@@ -73,7 +94,7 @@ export async function generatePhotoLabAudio({
       const outcomes = await Promise.all(
         batch.map(async (candidate) => {
           if (halted) return { hash: candidate.hash, ok: false, halt: false };
-          return generateClip(candidate.hash, candidate.text, language);
+          return generateClip(candidate.hash, candidate.text, language, candidate.voiceId);
         }),
       );
       for (const outcome of outcomes) {
@@ -133,9 +154,11 @@ async function generateClip(
   hash: string,
   text: string,
   language: string,
+  voiceId: string,
 ): Promise<ClipOutcome> {
+  const namedVoice = voiceId !== DEFAULT_VOICE_ID ? voiceId : undefined;
   try {
-    const result = await runGoogleTtsWithRetry(() => googleTTS(text, language));
+    const result = await runGoogleTtsWithRetry(() => googleTTS(text, language, namedVoice));
     if (!result) return { hash, ok: false, halt: false };
 
     const [uploadResult, mirrorResult] = await Promise.allSettled([
@@ -144,7 +167,7 @@ async function generateClip(
         language,
         textReference: text,
         provider: PROVIDER,
-        voiceId: "default",
+        voiceId,
       }),
       putAudioResult(result.audio, hash),
     ]);
@@ -182,7 +205,7 @@ async function generateClip(
       language,
       textReference: text,
       provider: PROVIDER,
-      voiceId: null,
+      voiceId: namedVoice ?? null,
       sizeBytes: result.sizeBytes,
     } as const;
 

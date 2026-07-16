@@ -45,13 +45,13 @@ export function isAudioNetworkConstrained(): boolean {
  */
 export function getAudioWarmupLookahead(defaultLookahead: number): number {
   if (isAudioNetworkOffline()) return -1;
-  if (isAudioNetworkConstrained()) return Math.min(defaultLookahead, 1);
+  if (isAudioNetworkConstrained()) return Math.min(defaultLookahead, 3);
   return defaultLookahead;
 }
 
 export function getAudioPrefetchLimit(defaultLimit: number): number {
   if (isAudioNetworkOffline()) return 0;
-  if (isAudioNetworkConstrained()) return Math.min(defaultLimit, 4);
+  if (isAudioNetworkConstrained()) return Math.min(defaultLimit, 8);
   return defaultLimit;
 }
 

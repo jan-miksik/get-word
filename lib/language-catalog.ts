@@ -231,6 +231,30 @@ export async function getGoogleFallbackVoices(
   return { studio: pick("studio"), standard: pick("standard") };
 }
 
+/**
+ * All Chirp3-HD voice names for a language's base, stably sorted. Photo-lab
+ * mixes these per word; empty when the language has none (caller falls back to
+ * the default voice). Reuses the shared 24h voice cache.
+ */
+export async function getGoogleChirp3HdVoices(languageCode: string): Promise<string[]> {
+  const voices = await fetchGoogleTtsVoices().catch(() => []);
+  const base = getBaseLanguage(languageCode);
+
+  const names = voices
+    .filter(
+      (voice) =>
+        (voice.name ?? "").toLowerCase().includes("chirp3-hd") &&
+        (voice.languageCodes ?? []).some((code) => {
+          const rawBase = getBaseLanguage(code);
+          return (TTS_BASE_ALIASES[rawBase] ?? rawBase) === base;
+        }),
+    )
+    .map((voice) => voice.name)
+    .filter((name): name is string => Boolean(name));
+
+  return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
+}
+
 function compareLearningLanguages(left: LearningLanguage, right: LearningLanguage): number {
   const leftFeaturedRank = getFeaturedRank(left.code);
   const rightFeaturedRank = getFeaturedRank(right.code);

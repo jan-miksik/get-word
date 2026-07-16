@@ -19,7 +19,7 @@ const OLDEST_WEEK = '2026-04-27'; // 11 weeks before current
 function mockAllQueries({
   registrations = [{ registered_total: 10, registered_email: 6, registered_google: 3, registered_other: 1, anonymous_total: 40 }],
   registrationsWeekly = [] as Record<string, unknown>[],
-  activity = [{ dau: 3, wau: 8, mau: 20, mau_registered: 9, mau_anonymous: 11 }],
+  activity = [{ dau: 3, wau: 8, mau: 20, yau: 30, mau_registered: 9, mau_anonymous: 11, yau_registered: 14, yau_anonymous: 16 }],
   study = [{ known_30d: 100, really_known_30d: 30, unknown_30d: 50, studying_users_30d: 7 }],
   studyWeekly = [] as Record<string, unknown>[],
   content = [{ total_lists: 12, public_lists: 5, total_subscriptions: 25 }],
@@ -72,11 +72,15 @@ describe('getUsageStats', () => {
       anonymous: 40,
     });
     expect(stats.activity).toEqual({
+      window: 'rolling',
       dau: 3,
       wau: 8,
       mau: 20,
+      yau: 30,
       mauRegistered: 9,
       mauAnonymous: 11,
+      yauRegistered: 14,
+      yauAnonymous: 16,
     });
     expect(stats.study).toMatchObject({
       known30d: 100,
@@ -129,7 +133,17 @@ describe('getUsageStats', () => {
     const stats = await getUsageStats();
 
     expect(stats.registrations).toMatchObject({ total: 0, email: 0, google: 0, other: 0, anonymous: 0 });
-    expect(stats.activity).toEqual({ dau: 0, wau: 0, mau: 0, mauRegistered: 0, mauAnonymous: 0 });
+    expect(stats.activity).toEqual({
+      window: 'rolling',
+      dau: 0,
+      wau: 0,
+      mau: 0,
+      yau: 0,
+      mauRegistered: 0,
+      mauAnonymous: 0,
+      yauRegistered: 0,
+      yauAnonymous: 0,
+    });
     expect(stats.study).toMatchObject({ known30d: 0, reallyKnown30d: 0, unknown30d: 0, studyingUsers30d: 0 });
     expect(stats.content).toEqual({ totalLists: 0, publicLists: 0, totalSubscriptions: 0, topLists: [] });
     expect(stats.retention).toEqual({
@@ -151,11 +165,21 @@ describe('getUsageStats', () => {
       stats.registrations.total
     );
     expect(stats.activity.mauRegistered + stats.activity.mauAnonymous).toBe(stats.activity.mau);
+    expect(stats.activity.yauRegistered + stats.activity.yauAnonymous).toBe(stats.activity.yau);
     expect(stats.activity.dau).toBeLessThanOrEqual(stats.activity.wau);
     expect(stats.activity.wau).toBeLessThanOrEqual(stats.activity.mau);
+    expect(stats.activity.mau).toBeLessThanOrEqual(stats.activity.yau);
     expect(stats.content.publicLists).toBeLessThanOrEqual(stats.content.totalLists);
     for (const bucket of [stats.retention.d1, stats.retention.d7, stats.retention.d30]) {
       expect(bucket.returned).toBeLessThanOrEqual(bucket.eligible);
     }
+  });
+
+  it('marks calendar activity windows when requested', async () => {
+    mockAllQueries();
+
+    const stats = await getUsageStats({ activityWindow: 'calendar' });
+
+    expect(stats.activity.window).toBe('calendar');
   });
 });

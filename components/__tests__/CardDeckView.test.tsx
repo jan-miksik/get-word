@@ -7,15 +7,15 @@ import type { MiniGameConfig } from '@/lib/minigames';
 import { firePointer, swipeRight, swipeLeft, swipeUp } from '../card-deck/__tests__/pointer-test-utils';
 
 const {
-  checkAudioUrlAvailableMock,
+  getPlayableAudioUrlMock,
   prefetchAudioMock,
 } = vi.hoisted(() => ({
-  checkAudioUrlAvailableMock: vi.fn(() => Promise.resolve(true)),
+  getPlayableAudioUrlMock: vi.fn((url: string | null) => Promise.resolve(url)),
   prefetchAudioMock: vi.fn(),
 }));
 
 vi.mock('@/lib/audio-availability', () => ({
-  checkAudioUrlAvailable: checkAudioUrlAvailableMock,
+  getPlayableAudioUrl: getPlayableAudioUrlMock,
 }));
 
 vi.mock('@/lib/audio-prefetch', () => ({
@@ -32,6 +32,12 @@ const makeWord = (id: string): NormalizedWord => ({
   viAudio: 'speech/vi/sample.mp3',
 });
 
+const makeWordWithUniqueAudio = (id: string): NormalizedWord => ({
+  ...makeWord(id),
+  czAudio: `speech/cz/${id}.mp3`,
+  viAudio: `speech/vi/${id}.mp3`,
+});
+
 const makeGame = (id: string): MiniGameConfig => ({
   _isMinigame: true,
   id,
@@ -43,17 +49,23 @@ describe('CardDeckView', () => {
   beforeEach(() => {
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
     Reflect.deleteProperty(navigator, 'connection');
-    checkAudioUrlAvailableMock.mockClear();
+    getPlayableAudioUrlMock.mockClear();
     prefetchAudioMock.mockClear();
   });
 
-  it('warms audio availability and prefetches for the current and next 2 items', async () => {
+  it('starts preloading audio for the current and next 5 cards before probes finish', async () => {
     const groupedWords = [[
-      makeWord('w1'),
-      makeGame('g1'),
-      makeWord('w2'),
-      makeWord('w3'),
+      makeWordWithUniqueAudio('w1'),
+      makeWordWithUniqueAudio('w2'),
+      makeWordWithUniqueAudio('w3'),
+      makeWordWithUniqueAudio('w4'),
+      makeWordWithUniqueAudio('w5'),
+      makeWordWithUniqueAudio('w6'),
+      makeWordWithUniqueAudio('w7'),
     ]];
+    const expectedUrls = groupedWords[0]
+      .slice(0, 6)
+      .flatMap((word) => [`/speech/cz/${word.id}.mp3`, `/speech/vi/${word.id}.mp3`]);
 
     render(
       <CardDeckView
@@ -64,14 +76,9 @@ describe('CardDeckView', () => {
     );
 
     await waitFor(() => {
-      expect(prefetchAudioMock).toHaveBeenCalledWith([
-        '/speech/cz/sample.mp3',
-        '/speech/vi/sample.mp3',
-      ]);
+      expect(prefetchAudioMock).toHaveBeenNthCalledWith(1, expectedUrls);
     });
-    expect(checkAudioUrlAvailableMock).toHaveBeenCalledTimes(2);
-    expect(checkAudioUrlAvailableMock).toHaveBeenNthCalledWith(1, '/speech/cz/sample.mp3');
-    expect(checkAudioUrlAvailableMock).toHaveBeenNthCalledWith(2, '/speech/vi/sample.mp3');
+    await waitFor(() => expect(getPlayableAudioUrlMock).toHaveBeenCalledTimes(12));
   });
 
   it('does not issue audio warmup probes while offline', async () => {
@@ -86,7 +93,7 @@ describe('CardDeckView', () => {
     );
 
     await Promise.resolve();
-    expect(checkAudioUrlAvailableMock).not.toHaveBeenCalled();
+    expect(getPlayableAudioUrlMock).not.toHaveBeenCalled();
     expect(prefetchAudioMock).not.toHaveBeenCalled();
   });
 
@@ -143,6 +150,63 @@ describe('CardDeckView', () => {
       />
     );
     expect(screen.getByTestId('game-g1')).toBeInTheDocument();
+  });
+
+  it('mounts and focuses the next typing card during the minigame dismiss action', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    try {
+      const renderMiniGame = (_: MiniGameConfig, onComplete: () => void) => (
+        <button onClick={onComplete}>Finish game</button>
+      );
+
+      render(
+        <CardDeckView
+          groupedWords={[[makeGame('g1'), makeWord('w1')]]}
+          renderCard={() => <input aria-label="Typing answer" autoFocus />}
+          renderMiniGame={renderMiniGame}
+        />
+      );
+
+      await userEvent.click(screen.getByRole('button', { name: 'Finish game' }));
+
+      expect(screen.getByRole('textbox', { name: 'Typing answer' })).toHaveFocus();
+    } finally {
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it('can mount and focus the next word during the current Continue action', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    try {
+      const renderCard = (
+        word: NormalizedWord,
+        _: number,
+        onComplete: (
+          afterExit?: () => void,
+          options?: { skipAnimation?: boolean },
+        ) => void,
+      ) => word.id === 'w1' ? (
+        <button onClick={() => onComplete(undefined, { skipAnimation: true })}>
+          Continue typing
+        </button>
+      ) : (
+        <input aria-label="Next typing answer" autoFocus />
+      );
+
+      render(
+        <CardDeckView
+          groupedWords={[[makeWord('w1'), makeWord('w2')]]}
+          renderCard={renderCard}
+          renderMiniGame={vi.fn()}
+        />
+      );
+
+      await userEvent.click(screen.getByRole('button', { name: 'Continue typing' }));
+
+      expect(screen.getByRole('textbox', { name: 'Next typing answer' })).toHaveFocus();
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it('flattens multi-group stream in order', () => {

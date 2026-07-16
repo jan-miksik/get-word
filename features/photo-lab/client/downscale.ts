@@ -69,11 +69,53 @@ function toDataUrl(blob: Blob): Promise<string> {
   });
 }
 
-async function sha256Hex(blob: Blob): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', await blob.arrayBuffer());
-  return Array.from(new Uint8Array(digest))
-    .map((byte) => byte.toString(16).padStart(2, '0'))
-    .join('');
+/**
+ * Deterministic non-cryptographic fallback for insecure development origins.
+ * Android exposes Web Crypto on HTTPS and device-local localhost, but not when
+ * a dev server is opened over plain HTTP on a LAN address. The hash is only an
+ * IndexedDB dedupe key; it is never used as a security boundary.
+ */
+export function fallbackPhotoHash(bytes: Uint8Array): string {
+  const seeds = [
+    0x811c9dc5, 0x9e3779b9, 0x85ebca6b, 0xc2b2ae35,
+    0x27d4eb2f, 0x165667b1, 0xd3a2646c, 0xfd7046c5,
+  ];
+  const hashes = seeds.map((seed) => seed >>> 0);
+  for (const byte of bytes) {
+    for (let index = 0; index < hashes.length; index += 1) {
+      hashes[index] = Math.imul(hashes[index] ^ (byte + index), 0x01000193) >>> 0;
+    }
+  }
+  return hashes.map((hash) => hash.toString(16).padStart(8, '0')).join('');
+}
+
+function readBlobArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
+  if (typeof blob.arrayBuffer === 'function') return blob.arrayBuffer();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () =>
+      reader.result instanceof ArrayBuffer
+        ? resolve(reader.result)
+        : reject(new Error('Could not read image.'));
+    reader.onerror = () => reject(new Error('Could not read image.'));
+    reader.readAsArrayBuffer(blob);
+  });
+}
+
+export async function hashPhotoBlob(blob: Blob): Promise<string> {
+  const buffer = await readBlobArrayBuffer(blob);
+  const subtle = globalThis.crypto?.subtle;
+  if (subtle) {
+    try {
+      const digest = await subtle.digest('SHA-256', buffer);
+      return Array.from(new Uint8Array(digest))
+        .map((byte) => byte.toString(16).padStart(2, '0'))
+        .join('');
+    } catch {
+      // Fall through for partially implemented mobile Web Crypto APIs.
+    }
+  }
+  return fallbackPhotoHash(new Uint8Array(buffer));
 }
 
 /**
@@ -94,7 +136,7 @@ export async function downscalePhoto(file: File): Promise<DownscaledPhoto> {
     ctx.drawImage(source, 0, 0, canvas.width, canvas.height);
 
     const blob = await toJpegBlob(canvas);
-    const [dataUrl, hash] = await Promise.all([toDataUrl(blob), sha256Hex(blob)]);
+    const [dataUrl, hash] = await Promise.all([toDataUrl(blob), hashPhotoBlob(blob)]);
     return { blob, dataUrl, hash };
   } finally {
     cleanup();

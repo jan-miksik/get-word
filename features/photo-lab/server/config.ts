@@ -1,5 +1,7 @@
+// Default to the advanced pro-tier vision model — label quality (and Gemini's
+// point-in-image grounding) matters more here than per-request cost.
 export const PHOTO_LAB_MODEL =
-  process.env.OPENROUTER_PHOTO_LAB_MODEL || "google/gemini-2.5-pro";
+  process.env.OPENROUTER_PHOTO_LAB_MODEL || "google/gemini-3.1-pro-preview";
 
 // ~2 MB of binary image once base64 overhead (4/3) is accounted for. The client
 // downscales to ≤1280px JPEG before upload, so hitting this means the client
@@ -10,7 +12,9 @@ export const MAX_LABELS = 25;
 export const PHOTO_LAB_MAX_TOKENS = 4000;
 
 export const PHOTO_LAB_RATE_BUCKET_PREFIX = "photo_lab_analyze";
+// Editors keep a daily allowance; regular users get a small weekly one.
 export const DEFAULT_USER_DAILY_LIMIT = 10;
+export const DEFAULT_USER_WEEKLY_LIMIT = 5;
 export const DEFAULT_GLOBAL_DAILY_LIMIT = 100;
 
 // Label TTS: counted per generated clip (cache hits are free), so the budget

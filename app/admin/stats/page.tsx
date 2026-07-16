@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { useListsSettingsLanguage } from '@/features/lists/hooks/useListsSettingsLanguage';
-import type { UsageStats } from '@/lib/db/queries/usage-stats';
+import type { ActivityWindow, UsageStats } from '@/lib/db/queries/usage-stats';
 
 export default function AdminStatsPage() {
   const settingsLanguage = useListsSettingsLanguage();
@@ -26,11 +26,13 @@ type LoadState =
 function AdminStatsContent() {
   const { t } = useI18n();
   const [state, setState] = useState<LoadState>({ status: 'loading' });
+  const [activityWindow, setActivityWindow] = useState<ActivityWindow>('rolling');
 
   // The initial state is already 'loading'; only retry/refresh resets it.
   const load = useCallback(async () => {
     try {
-      const response = await fetch('/api/admin/stats', { credentials: 'same-origin' });
+      const params = new URLSearchParams({ activityWindow });
+      const response = await fetch(`/api/admin/stats?${params}`, { credentials: 'same-origin' });
       if (response.status === 401) return setState({ status: 'unauthorized' });
       if (response.status === 403) return setState({ status: 'forbidden' });
       if (!response.ok) return setState({ status: 'error' });
@@ -38,7 +40,7 @@ function AdminStatsContent() {
     } catch {
       setState({ status: 'error' });
     }
-  }, []);
+  }, [activityWindow]);
 
   const reload = useCallback(() => {
     setState({ status: 'loading' });
@@ -89,6 +91,7 @@ function AdminStatsContent() {
     { label: t('adminStats.returnedAfter7'), bucket: stats.retention.d7 },
     { label: t('adminStats.returnedAfter30'), bucket: stats.retention.d30 },
   ];
+  const isCalendarActivity = stats.activity.window === 'calendar';
 
   return (
     <div className="min-h-screen bg-background text-text">
@@ -135,17 +138,43 @@ function AdminStatsContent() {
           />
         </Section>
 
-        <Section title={t('adminStats.sectionActivity')} note={t('adminStats.activityNote')}>
+        <Section
+          title={t('adminStats.sectionActivity')}
+          note={isCalendarActivity ? t('adminStats.activityNoteCalendar') : t('adminStats.activityNoteRolling')}
+          actions={
+            <ActivityWindowToggle
+              value={activityWindow}
+              onChange={(value) => {
+                setActivityWindow(value);
+                setState({ status: 'loading' });
+              }}
+            />
+          }
+        >
           <CardGrid>
-            <StatCard label={t('adminStats.dau')} value={stats.activity.dau} />
-            <StatCard label={t('adminStats.wau')} value={stats.activity.wau} />
             <StatCard
-              label={t('adminStats.mau')}
+              label={t(isCalendarActivity ? 'adminStats.dauCalendar' : 'adminStats.dau')}
+              value={stats.activity.dau}
+            />
+            <StatCard
+              label={t(isCalendarActivity ? 'adminStats.wauCalendar' : 'adminStats.wau')}
+              value={stats.activity.wau}
+            />
+            <StatCard
+              label={t(isCalendarActivity ? 'adminStats.mauCalendar' : 'adminStats.mau')}
               value={stats.activity.mau}
               highlight
               note={t('adminStats.mauSplit', {
                 registered: stats.activity.mauRegistered,
                 anonymous: stats.activity.mauAnonymous,
+              })}
+            />
+            <StatCard
+              label={t(isCalendarActivity ? 'adminStats.yauCalendar' : 'adminStats.yau')}
+              value={stats.activity.yau}
+              note={t('adminStats.yauSplit', {
+                registered: stats.activity.yauRegistered,
+                anonymous: stats.activity.yauAnonymous,
               })}
             />
           </CardGrid>
@@ -238,17 +267,22 @@ function AdminStatsContent() {
 function Section({
   title,
   note,
+  actions,
   children,
 }: {
   title: string;
   note?: string;
+  actions?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <section className="space-y-4">
-      <div>
-        <h2 className="text-lg font-semibold">{title}</h2>
-        {note && <p className="text-xs text-text-soft mt-1">{note}</p>}
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">{title}</h2>
+          {note && <p className="text-xs text-text-soft mt-1">{note}</p>}
+        </div>
+        {actions}
       </div>
       {children}
     </section>
@@ -277,6 +311,47 @@ function StatCard({
         {value}
       </div>
       {note && <div className="text-[11px] text-text-soft mt-1">{note}</div>}
+    </div>
+  );
+}
+
+function ActivityWindowToggle({
+  value,
+  onChange,
+}: {
+  value: ActivityWindow;
+  onChange: (value: ActivityWindow) => void;
+}) {
+  const { t } = useI18n();
+  const options: { value: ActivityWindow; label: string }[] = [
+    { value: 'rolling', label: t('adminStats.activityWindowRolling') },
+    { value: 'calendar', label: t('adminStats.activityWindowCalendar') },
+  ];
+
+  return (
+    <div
+      className="inline-flex rounded-lg border border-border-subtle bg-background-elevated p-1 text-xs"
+      role="group"
+      aria-label={t('adminStats.activityWindowAria')}
+    >
+      {options.map((option) => {
+        const selected = value === option.value;
+        return (
+          <button
+            key={option.value}
+            type="button"
+            className={`rounded-md px-3 py-1.5 transition-colors ${
+              selected ? 'bg-accent text-white' : 'text-text-soft hover:text-text'
+            }`}
+            aria-pressed={selected}
+            onClick={() => {
+              if (!selected) onChange(option.value);
+            }}
+          >
+            {option.label}
+          </button>
+        );
+      })}
     </div>
   );
 }

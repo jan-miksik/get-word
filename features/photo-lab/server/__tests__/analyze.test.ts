@@ -82,6 +82,25 @@ describe("parsePhotoLabels", () => {
     ).toEqual([]);
   });
 
+  it("prefers a valid point inside the box as the chip anchor", () => {
+    const labels = parsePhotoLabels(
+      JSON.stringify([labelJson({ point: [150, 250] })]),
+    );
+    expect(labels[0].x).toBe(250 / 1000);
+    expect(labels[0].y).toBe(150 / 1000);
+    // Size still comes from the box.
+    expect(labels[0].w).toBe((400 - 200) / 1000);
+    expect(labels[0].h).toBe((300 - 100) / 1000);
+  });
+
+  it("falls back to the box center for a missing, malformed, or out-of-box point", () => {
+    for (const point of [undefined, [150], [150, "a"], [50, 250], [150, 900]]) {
+      const labels = parsePhotoLabels(JSON.stringify([labelJson({ point })]));
+      expect(labels[0].x).toBe((200 + 400) / 2000);
+      expect(labels[0].y).toBe((100 + 300) / 2000);
+    }
+  });
+
   it("dedupes labels by lowercased target", () => {
     const labels = parsePhotoLabels(
       JSON.stringify([labelJson(), labelJson({ target: "STŮL", known: "desk" })]),

@@ -133,6 +133,12 @@ export function getCachedAudioUrlAvailability(url: string | null): boolean | nul
   return Boolean(cached.value);
 }
 
+export function getCachedPlayableAudioUrl(url: string | null): string | null {
+  if (!url) return null;
+  const cached = audioAvailabilityCache.get(getCacheKey(url));
+  return cached?.settled ? cached.value : null;
+}
+
 export async function getPlayableAudioUrl(url: string | null): Promise<string | null> {
   if (!url) return null;
   const cacheKey = getCacheKey(url);

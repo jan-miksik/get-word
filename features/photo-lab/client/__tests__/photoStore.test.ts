@@ -80,11 +80,75 @@ function installIndexedDbStub() {
     configurable: true,
     value: indexedDb as unknown as IDBFactory,
   });
+
+  return { stores };
+}
+
+// jsdom's Blob has no arrayBuffer(); FileReader works in both jsdom and node.
+function readBytes(blob: Blob): Promise<Uint8Array> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(new Uint8Array(reader.result as ArrayBuffer));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(blob);
+  });
 }
 
 afterEach(() => {
   Reflect.deleteProperty(globalThis, 'indexedDB');
   vi.resetModules();
+});
+
+describe('photo persistence', () => {
+  it('stores bytes (not the Blob) and restores an equal blob on read', async () => {
+    const { stores } = installIndexedDbStub();
+    const { getPhoto, putPhoto } = await import('../photoStore');
+    const payload = new Uint8Array([1, 2, 3, 4]);
+    const blob = new Blob([payload], { type: 'image/jpeg' });
+
+    expect(await putPhoto('hash-1', blob)).toBe(true);
+
+    // iOS WebKit drops Blob data persisted in IndexedDB, so the record must
+    // hold a copied ArrayBuffer instead of the Blob itself.
+    const stored = stores.get('photos')?.get('hash-1') as {
+      bytes?: ArrayBuffer;
+      blob?: Blob;
+      sizeBytes: number;
+    };
+    expect(stored.blob).toBeUndefined();
+    // instanceof ArrayBuffer is unreliable across the jsdom/node realm boundary.
+    expect(stored.bytes?.byteLength).toBe(payload.byteLength);
+    expect(stored.sizeBytes).toBe(payload.byteLength);
+
+    const restored = await getPhoto('hash-1');
+    expect(restored).toBeInstanceOf(Blob);
+    expect(restored!.type).toBe('image/jpeg');
+    expect(await readBytes(restored!)).toEqual(payload);
+  });
+
+  it('still reads legacy records that stored the Blob directly', async () => {
+    const { stores } = installIndexedDbStub();
+    const { getPhoto } = await import('../photoStore');
+    expect(await getPhoto('missing')).toBeNull(); // opens the DB so stores exist
+    const payload = new Uint8Array([9, 8, 7]);
+    stores.get('photos')!.set('legacy', {
+      hash: 'legacy',
+      blob: new Blob([payload], { type: 'image/jpeg' }),
+      sizeBytes: payload.byteLength,
+      createdAt: 1,
+      lastAccessedAt: 1,
+    });
+
+    const restored = await getPhoto('legacy');
+    expect(restored).toBeInstanceOf(Blob);
+    expect(await readBytes(restored!)).toEqual(payload);
+
+    // The read heals the legacy record into the ArrayBuffer format.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const healed = stores.get('photos')?.get('legacy') as { bytes?: ArrayBuffer; blob?: Blob };
+    expect(healed.blob).toBeUndefined();
+    expect(healed.bytes?.byteLength).toBe(payload.byteLength);
+  });
 });
 
 describe('updateSessionAudioHashes', () => {

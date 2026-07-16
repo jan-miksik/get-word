@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   runGoogleTtsWithRetry: vi.fn(),
   putAudioResult: vi.fn(),
   reservePhotoLabAudioRateLimit: vi.fn(),
+  getGoogleChirp3HdVoices: vi.fn(),
 }));
 
 vi.mock('@/lib/audio', () => ({
@@ -36,6 +37,9 @@ vi.mock('@/lib/db', () => ({
 vi.mock('@/lib/google-tts-rate-limit', () => ({
   runGoogleTtsWithRetry: mocks.runGoogleTtsWithRetry,
 }));
+vi.mock('@/lib/language-catalog', () => ({
+  getGoogleChirp3HdVoices: mocks.getGoogleChirp3HdVoices,
+}));
 vi.mock('@/lib/object-storage', () => ({
   getActiveObjectStorageProvider: () => 'b2',
   objectKeyForHash: (hash: string) => `audio/${hash}.mp3`,
@@ -46,7 +50,23 @@ vi.mock('../rate-limit', () => ({
   reservePhotoLabAudioRateLimit: mocks.reservePhotoLabAudioRateLimit,
 }));
 
-import { generatePhotoLabAudio } from '../audio';
+import { generatePhotoLabAudio, pickVoiceForText } from '../audio';
+
+describe('pickVoiceForText', () => {
+  it('is deterministic and returns "default" without voices', () => {
+    const voices = ['cs-CZ-Chirp3-HD-Aoede', 'cs-CZ-Chirp3-HD-Puck', 'cs-CZ-Chirp3-HD-Kore'];
+    expect(pickVoiceForText('pes', voices)).toBe(pickVoiceForText('pes', voices));
+    expect(voices).toContain(pickVoiceForText('pes', voices));
+    expect(pickVoiceForText('pes', [])).toBe('default');
+  });
+
+  it('spreads different words across the voice list', () => {
+    const voices = ['a', 'b', 'c', 'd', 'e', 'f'];
+    const words = ['pes', 'kočka', 'stůl', 'židle', 'okno', 'lampa', 'hrnek', 'kniha'];
+    const chosen = new Set(words.map((word) => pickVoiceForText(word, voices)));
+    expect(chosen.size).toBeGreaterThan(1);
+  });
+});
 
 describe('generatePhotoLabAudio', () => {
   beforeEach(() => {
@@ -54,6 +74,7 @@ describe('generatePhotoLabAudio', () => {
     mocks.computeContentHash.mockImplementation((text: string, language: string) =>
       `${language}:${text}`,
     );
+    mocks.getGoogleChirp3HdVoices.mockResolvedValue([]);
     mocks.findMediaByHashes.mockResolvedValue(new Map());
     mocks.findMediaByHash.mockResolvedValue(null);
     mocks.isPlayableAudioAsset.mockImplementation(
@@ -126,6 +147,46 @@ describe('generatePhotoLabAudio', () => {
     expect(result.results).toEqual([{ id: 'a', hash: null }]);
     expect(mocks.createMediaAsset).not.toHaveBeenCalled();
     expect(mocks.upsertMediaAsset).not.toHaveBeenCalled();
+  });
+
+  it('generates with a named Chirp3-HD voice and records it on the media row', async () => {
+    const voices = ['cs-CZ-Chirp3-HD-Aoede', 'cs-CZ-Chirp3-HD-Puck'];
+    mocks.getGoogleChirp3HdVoices.mockResolvedValue(voices);
+
+    await generatePhotoLabAudio({
+      userId: 'user-5',
+      language: 'cs',
+      items: [{ id: 'a', text: 'pes' }],
+    });
+
+    const expectedVoice = pickVoiceForText('pes', voices);
+    expect(mocks.googleTTS).toHaveBeenCalledWith('pes', 'cs', expectedVoice);
+    expect(mocks.computeContentHash).toHaveBeenCalledWith(
+      'pes',
+      'cs',
+      'google_tts',
+      expect.objectContaining({ voiceId: expectedVoice }),
+    );
+    expect(mocks.uploadAudio).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ voiceId: expectedVoice }),
+    );
+    expect(mocks.createMediaAsset).toHaveBeenCalledWith(
+      expect.objectContaining({ voiceId: expectedVoice }),
+    );
+  });
+
+  it('falls back to the default voice when the catalog has no Chirp3-HD voices', async () => {
+    await generatePhotoLabAudio({
+      userId: 'user-6',
+      language: 'cs',
+      items: [{ id: 'a', text: 'pes' }],
+    });
+
+    expect(mocks.googleTTS).toHaveBeenCalledWith('pes', 'cs', undefined);
+    expect(mocks.createMediaAsset).toHaveBeenCalledWith(
+      expect.objectContaining({ voiceId: null }),
+    );
   });
 
   it('repairs an unplayable legacy row before returning its hash', async () => {

@@ -6,6 +6,7 @@ import {
   forbiddenResponse,
 } from "@/lib/auth";
 import { getUsageStats } from "@/lib/db";
+import type { ActivityWindow } from "@/lib/db/queries/usage-stats";
 
 export const dynamic = "force-dynamic";
 
@@ -22,8 +23,11 @@ export async function GET(request: NextRequest) {
   if (!user) return withNoStore(unauthorizedResponse());
   if (!isEditor(user)) return withNoStore(forbiddenResponse());
 
+  const activityWindow: ActivityWindow =
+    request.nextUrl.searchParams.get("activityWindow") === "calendar" ? "calendar" : "rolling";
+
   try {
-    const stats = await getUsageStats();
+    const stats = await getUsageStats({ activityWindow });
     return NextResponse.json(stats, { headers: NO_STORE });
   } catch (error) {
     console.error("Failed to get usage stats", error);

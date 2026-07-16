@@ -52,7 +52,6 @@ export function usePhotoZoom(viewportRef: React.RefObject<HTMLDivElement | null>
   );
 
   const pointersRef = useRef(new Map<number, Point>());
-  const pointersStartedOnLabelRef = useRef(new Set<number>());
   const pinchRef = useRef<{ mid: Point; dist: number } | null>(null);
   const movedPxRef = useRef(0);
   const isGesturingRef = useRef(false);
@@ -109,11 +108,14 @@ export function usePhotoZoom(viewportRef: React.RefObject<HTMLDivElement | null>
         isGesturingRef.current = false;
         movedPxRef.current = 0;
       }
-      pointersRef.current.set(e.pointerId, localPoint(e.clientX, e.clientY));
       const target = e.target as HTMLElement | null;
-      if (target?.closest('[data-photo-label]')) {
-        pointersStartedOnLabelRef.current.add(e.pointerId);
+      // Pointer capture retargets the following click to the viewport in desktop
+      // browsers. Interactive children must keep native pointer ownership so
+      // label buttons can reveal/focus and form controls can accept typing.
+      if (target?.closest('button, input, textarea, select, a, [data-photo-label], [data-photo-control]')) {
+        return;
       }
+      pointersRef.current.set(e.pointerId, localPoint(e.clientX, e.clientY));
       try {
         e.currentTarget.setPointerCapture(e.pointerId);
       } catch {
@@ -166,7 +168,6 @@ export function usePhotoZoom(viewportRef: React.RefObject<HTMLDivElement | null>
     (e: React.PointerEvent<HTMLDivElement>, cancelled: boolean) => {
       const pointers = pointersRef.current;
       if (!pointers.has(e.pointerId)) return;
-      const startedOnLabel = pointersStartedOnLabelRef.current.delete(e.pointerId);
       pointers.delete(e.pointerId);
 
       if (pointers.size < 2) pinchRef.current = null;
@@ -185,7 +186,7 @@ export function usePhotoZoom(viewportRef: React.RefObject<HTMLDivElement | null>
       // Clean tap: double-tap zoom, except on label chips (their second tap
       // must keep toggling/typing, never zoom).
       const target = e.target as HTMLElement | null;
-      if (startedOnLabel || target?.closest('[data-photo-label]')) {
+      if (target?.closest('[data-photo-label]')) {
         lastTapRef.current = null;
         return;
       }

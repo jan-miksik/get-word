@@ -34,12 +34,9 @@ export function LanguagePairModal({
   useEffect(() => {
     if (!isOpen) return;
     const previouslyFocused = document.activeElement as HTMLElement | null;
-    const firstCombobox = document.getElementById('photo-lab-language-from');
-    if (firstCombobox instanceof HTMLInputElement) {
-      firstCombobox.focus();
-    } else {
-      dialogRef.current?.focus();
-    }
+    // Focus the dialog, not a combobox. Focusing the text input immediately
+    // opens the software keyboard on mobile before the user asks to search.
+    dialogRef.current?.focus({ preventScroll: true });
     function handleKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
     }

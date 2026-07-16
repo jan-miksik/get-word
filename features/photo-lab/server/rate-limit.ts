@@ -1,12 +1,15 @@
 import {
+  getDailyBucketUsage,
   parsePositiveIntEnv,
   reserveDailyBuckets,
+  type BucketPeriod,
 } from "@/lib/rate-limit/daily-bucket";
 import {
   DEFAULT_AUDIO_GLOBAL_DAILY_LIMIT,
   DEFAULT_AUDIO_USER_DAILY_LIMIT,
   DEFAULT_GLOBAL_DAILY_LIMIT,
   DEFAULT_USER_DAILY_LIMIT,
+  DEFAULT_USER_WEEKLY_LIMIT,
   PHOTO_LAB_AUDIO_RATE_BUCKET_PREFIX,
   PHOTO_LAB_RATE_BUCKET_PREFIX,
 } from "./config";
@@ -43,16 +46,39 @@ export async function reservePhotoLabAudioRateLimit(
   ]);
 }
 
-export async function reservePhotoLabRateLimit(userId: string): Promise<void> {
-  await reserveDailyBuckets([
-    {
+/**
+ * Editors keep a daily allowance; regular users get a small weekly one.
+ * Separate bucket keys per period so a role change never mixes windows.
+ */
+function userAnalysisBucket(userId: string, isEditor: boolean) {
+  if (isEditor) {
+    return {
       key: `${PHOTO_LAB_RATE_BUCKET_PREFIX}:user:${userId}`,
+      period: "day" as BucketPeriod,
       limit: parsePositiveIntEnv(
         process.env.OPENROUTER_PHOTO_LAB_USER_DAILY_LIMIT,
         DEFAULT_USER_DAILY_LIMIT,
       ),
       message: "Daily photo analysis limit reached for this account.",
-    },
+    };
+  }
+  return {
+    key: `${PHOTO_LAB_RATE_BUCKET_PREFIX}:user-week:${userId}`,
+    period: "week" as BucketPeriod,
+    limit: parsePositiveIntEnv(
+      process.env.OPENROUTER_PHOTO_LAB_USER_WEEKLY_LIMIT,
+      DEFAULT_USER_WEEKLY_LIMIT,
+    ),
+    message: "Weekly photo analysis limit reached for this account.",
+  };
+}
+
+export async function reservePhotoLabRateLimit(
+  userId: string,
+  isEditor: boolean,
+): Promise<void> {
+  await reserveDailyBuckets([
+    userAnalysisBucket(userId, isEditor),
     {
       key: `${PHOTO_LAB_RATE_BUCKET_PREFIX}:global`,
       limit: parsePositiveIntEnv(
@@ -62,4 +88,16 @@ export async function reservePhotoLabRateLimit(userId: string): Promise<void> {
       message: "Daily photo analysis limit reached. Please try again tomorrow.",
     },
   ]);
+}
+
+export async function getPhotoLabUsage(userId: string, isEditor: boolean) {
+  const bucket = userAnalysisBucket(userId, isEditor);
+  const usage = await getDailyBucketUsage(bucket.key, bucket.period);
+  return {
+    used: usage.used,
+    limit: bucket.limit,
+    remaining: Math.max(0, bucket.limit - usage.used),
+    resetAt: usage.resetAt,
+    period: bucket.period,
+  };
 }

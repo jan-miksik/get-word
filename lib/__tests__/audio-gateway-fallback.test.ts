@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   clearAudioAvailabilityCache,
+  getCachedPlayableAudioUrl,
   getPlayableAudioUrl,
 } from '../audio-availability';
 
@@ -56,6 +57,8 @@ describe('audio availability resolver', () => {
 
     const result = await getPlayableAudioUrl('https://turbo-gateway.com/tx-abc');
     expect(result).toBe('https://ar-io.net/tx-abc');
+    expect(getCachedPlayableAudioUrl('https://turbo-gateway.com/tx-abc'))
+      .toBe('https://ar-io.net/tx-abc');
     const calledUrls = fetchMock.mock.calls.map(([req]) =>
       typeof req === 'string' ? req : (req as Request).url,
     );

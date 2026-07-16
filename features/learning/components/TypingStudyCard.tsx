@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { playUserInitiatedAudio } from '@/lib/audio-playback';
 import { STAGES, type NormalizedWord } from '@/lib/words';
 import type { ProgressData } from '@/lib/sync';
@@ -14,7 +14,6 @@ import {
   flipSide,
   getWordAcceptedAnswersBySide,
   getWordAudioSrcsBySide,
-  getWordLanguageCodeForSide,
   getWordTextBySide,
   knownSideForRole,
   learningSideForRole,
@@ -74,18 +73,19 @@ interface TypingStudyCardProps {
 // Strip variant of the shared PREFILL_CHAR_RE (lib/answer-normalization.ts).
 const PREFILL_STRIP_RE = /[\s\p{P}]+/gu;
 
-// Languages typed via multi-keystroke schemes (Vietnamese Telex/VNI: "chào" is
-// c-h-a-o-f, the tone key arriving after every slot is already filled).
-// Auto-checking on the last slot would fire mid-word there, so these answers
-// are confirmed explicitly with the check button / Enter.
-const MULTI_KEY_INPUT_LANGUAGES = new Set(['vi']);
-
-const usesMultiKeyInput = (code: string | null): boolean =>
-  code !== null && MULTI_KEY_INPUT_LANGUAGES.has(code.toLowerCase().split('-')[0]);
-
 const isMobileLayout = () =>
   typeof window !== 'undefined' &&
   window.matchMedia?.('(max-width: 767px)').matches === true;
+
+const isIOSBrowser = () => {
+  if (typeof navigator === 'undefined') return false;
+  return /iPad|iPhone|iPod/i.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+};
+
+// iOS does not consistently subtract the keyboard suggestion/accessory bar
+// from visualViewport.height. Reserve enough room for that bar explicitly.
+const MOBILE_KEYBOARD_ACCESSORY_RESERVE_PX = 64;
 
 // Case/accent-insensitive single-character compare for per-slot feedback.
 // Mirrors matchAnswer's strip (incl. đ→d) so slot colours match the verdict.
@@ -149,13 +149,18 @@ export function TypingStudyCard({
   const [result, setResult] = useState<TypingResult | null>(null);
   const [caretIndex, setCaretIndex] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
+  const articleRef = useRef<HTMLElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const audioButtonRef = useRef<HTMLButtonElement>(null);
   const compactContinueRef = useRef<HTMLButtonElement>(null);
   const hookInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioPressStartedAtRef = useRef(Number.NEGATIVE_INFINITY);
+  const audioTouchActiveRef = useRef(false);
   const isComposingRef = useRef(false);
   const hintsRef = useRef(0);
   const continuedRef = useRef(false);
+  const autoFocusedWordIdRef = useRef<string | null>(null);
   const [editingHook, setEditingHook] = useState(false);
   const [hookValue, setHookValue] = useState(memoryHook);
 
@@ -177,8 +182,6 @@ export function TypingStudyCard({
           ? foreignSide
           : knownSideForRole(role);
   const promptTextSide: WordSide = flipSide(answerSide);
-  // Telex-style answers keep changing after the slot count is full, so the
-  // check is explicit (button / Enter) instead of firing on the last slot.
   const correctAnswer = getWordTextBySide(word, answerSide).trim().normalize('NFC');
   const answerCandidates = getAcceptedAnswerCandidates(
     correctAnswer,
@@ -186,13 +189,9 @@ export function TypingStudyCard({
   );
   // Alternatives that fit the primary's slot mask (same grapheme count, same
   // punctuation slots) keep the masked input; only an incompatible alternative
-  // forces the free-text fallback (and, via requiresExplicitTypingCheck, an
-  // explicit check instead of auto-check on the last slot).
+  // forces the free-text fallback.
   const useFreeAnswerInput = requiresExplicitTypingCheck(answerCandidates);
-  const manualCheck =
-    checkButtonEnabled ||
-    usesMultiKeyInput(getWordLanguageCodeForSide(word, answerSide)) ||
-    useFreeAnswerInput;
+  const manualCheck = checkButtonEnabled;
   const displayedAnswer = result?.matchedAnswer ?? correctAnswer;
   const slots = splitGraphemes(displayedAnswer);
   const fixedFlags = slots.map((ch) => prefillPunctuation && PREFILL_CHAR_RE.test(ch));
@@ -218,15 +217,80 @@ export function TypingStudyCard({
   // playback itself can still try every configured fallback source.
   const hasAudioSource = promptAudioSrcs.length > 0;
   const usesAudioPrompt = audioPromptEnabled && hasAudioSource;
-  const keepMobileKeyboardOpen = autoFocusOnMobile === true && isMobileLayout();
-
-  useEffect(() => {
-    // focus() raises onFocus, which flips isFocused.
+  useLayoutEffect(() => {
+    if (autoFocusedWordIdRef.current === word.id) return;
+    autoFocusedWordIdRef.current = word.id;
+    // focus() raises onFocus, which flips isFocused. This is keyed by word id
+    // so toggling the preference in settings does not open the mobile keyboard
+    // for the already-visible card.
     const shouldAutoFocus = isMobileLayout()
       ? (autoFocusOnMobile ?? autoFocus)
       : autoFocus;
-    if (shouldAutoFocus) inputRef.current?.focus();
-  }, [autoFocus, autoFocusOnMobile]);
+    if (shouldAutoFocus) inputRef.current?.focus({ preventScroll: true });
+  }, [autoFocus, autoFocusOnMobile, word.id]);
+
+  useEffect(() => {
+    if (!isFocused || result !== null || !isMobileLayout() || !isIOSBrowser()) return;
+    const article = articleRef.current;
+    const input = inputRef.current;
+    const scrollContainer = article?.closest<HTMLElement>('.learning-card-main');
+    if (!article || !input || !scrollContainer) return;
+
+    const viewport = window.visualViewport;
+    const owner = `${word.id}-${Date.now()}`;
+    scrollContainer.dataset.typingKeyboardOwner = owner;
+    let settleTimerId = 0;
+
+    const alignTypingRegion = () => {
+      const layoutHeight = Math.max(
+        window.innerHeight,
+        document.documentElement.clientHeight,
+      );
+      const viewportTop = viewport?.offsetTop ?? 0;
+      const viewportHeight = viewport?.height ?? window.innerHeight;
+      const viewportBottom = viewportTop + viewportHeight;
+      const keyboardInset = Math.max(0, layoutHeight - viewportBottom);
+
+      // Shrink this scroll surface by exactly the keyboard overlap. The card
+      // can then reflow naturally instead of being translated as a whole. The
+      // extra reserve accounts for the iOS accessory bar above the keys.
+      scrollContainer.style.paddingBottom = `${Math.ceil(
+        keyboardInset + MOBILE_KEYBOARD_ACCESSORY_RESERVE_PX,
+      )}px`;
+      scrollContainer.style.scrollPaddingBottom = `${Math.ceil(
+        keyboardInset + MOBILE_KEYBOARD_ACCESSORY_RESERVE_PX,
+      )}px`;
+
+      // Apply the final layout and scroll before the browser paints. A smooth
+      // scroll here creates a second visible movement after the keyboard.
+      input.scrollIntoView({
+        behavior: 'auto',
+        block: 'center',
+        inline: 'nearest',
+      });
+    };
+
+    const scheduleAlignment = (delay = 120) => {
+      window.clearTimeout(settleTimerId);
+      settleTimerId = window.setTimeout(alignTypingRegion, delay);
+    };
+
+    const scheduleAfterResize = () => scheduleAlignment(120);
+    scheduleAlignment(450);
+    window.addEventListener('resize', scheduleAfterResize);
+    viewport?.addEventListener('resize', scheduleAfterResize);
+
+    return () => {
+      window.clearTimeout(settleTimerId);
+      window.removeEventListener('resize', scheduleAfterResize);
+      viewport?.removeEventListener('resize', scheduleAfterResize);
+      if (scrollContainer.dataset.typingKeyboardOwner !== owner) return;
+      delete scrollContainer.dataset.typingKeyboardOwner;
+      scrollContainer.style.removeProperty('padding-bottom');
+      scrollContainer.style.removeProperty('scroll-padding-bottom');
+      scrollContainer.scrollTop = 0;
+    };
+  }, [isFocused, result, word.id]);
 
   useEffect(() => {
     return () => {
@@ -237,13 +301,11 @@ export function TypingStudyCard({
     };
   }, []);
 
-  // Move focus to the continue control so Enter/Space advances. With mobile
-  // keyboard persistence enabled, keep the input focused between cards instead.
+  // Move focus to the continue control so Enter/Space advances.
   useEffect(() => {
     if (!result) return;
-    if (keepMobileKeyboardOpen) return;
     compactContinueRef.current?.focus();
-  }, [keepMobileKeyboardOpen, result]);
+  }, [result]);
 
   const playClip = (audioSrc: string | string[] | null) =>
     playUserInitiatedAudio(audioRef, audioSrc);
@@ -252,8 +314,89 @@ export function TypingStudyCard({
     void playClip(promptAudioSrcs);
   };
 
+  const refocusTypingInput = () => {
+    inputRef.current?.focus({ preventScroll: true });
+  };
+
+  const startAudioWithoutDroppingTypingFocus = (
+    event: Pick<Event, 'preventDefault' | 'timeStamp'>,
+  ) => {
+    if (
+      !isMobileLayout()
+      || result !== null
+      || (!isFocused && document.activeElement !== inputRef.current)
+    ) return;
+
+    event.preventDefault();
+    audioTouchActiveRef.current = true;
+    refocusTypingInput();
+    // iOS may emit touchstart followed by pointerdown for the same tap.
+    if (event.timeStamp - audioPressStartedAtRef.current < 250) return;
+    audioPressStartedAtRef.current = event.timeStamp;
+    replayPrompt();
+  };
+
+  const handleAudioClick = (event: React.MouseEvent<HTMLButtonElement>) => {
+    // A mobile touch already played synchronously in touchstart/pointerdown.
+    if (event.timeStamp - audioPressStartedAtRef.current < 1000) {
+      event.preventDefault();
+      refocusTypingInput();
+      audioTouchActiveRef.current = false;
+      return;
+    }
+    replayPrompt();
+  };
+
+  const handleTypingBlur = () => {
+    if (audioTouchActiveRef.current && isMobileLayout() && result === null) {
+      refocusTypingInput();
+      return;
+    }
+    setIsFocused(false);
+  };
+
+  useEffect(() => {
+    const button = audioButtonRef.current;
+    if (!button) return;
+    const handleTouchStart = (event: TouchEvent) => {
+      if (
+        !isMobileLayout()
+        || result !== null
+        || (!isFocused && document.activeElement !== inputRef.current)
+      ) return;
+      event.preventDefault();
+      audioTouchActiveRef.current = true;
+      refocusTypingInput();
+      if (event.timeStamp - audioPressStartedAtRef.current < 250) return;
+      audioPressStartedAtRef.current = event.timeStamp;
+      void playUserInitiatedAudio(
+        audioRef,
+        getWordAudioSrcsBySide(word, foreignSide),
+      );
+    };
+    const handleTouchEnd = (event: TouchEvent) => {
+      if (!audioTouchActiveRef.current) return;
+      event.preventDefault();
+      refocusTypingInput();
+      audioTouchActiveRef.current = false;
+    };
+    const handleTouchCancel = () => {
+      if (!audioTouchActiveRef.current) return;
+      refocusTypingInput();
+      audioTouchActiveRef.current = false;
+    };
+    button.addEventListener('touchstart', handleTouchStart, { passive: false });
+    button.addEventListener('touchend', handleTouchEnd, { passive: false });
+    button.addEventListener('touchcancel', handleTouchCancel);
+    return () => {
+      button.removeEventListener('touchstart', handleTouchStart);
+      button.removeEventListener('touchend', handleTouchEnd);
+      button.removeEventListener('touchcancel', handleTouchCancel);
+    };
+  }, [foreignSide, isFocused, result, word]);
+
   const typedChars = splitGraphemes(value);
-  const minimumManualAnswerLength = useFreeAnswerInput
+  const minimumAnswerLengthForCheck = useFreeAnswerInput
     ? Math.min(
         ...answerCandidates
           .map((candidate) => splitGraphemes(candidate.answer.trim()).length)
@@ -261,7 +404,7 @@ export function TypingStudyCard({
       )
     : editableCount;
   const isManualAnswerComplete =
-    minimumManualAnswerLength > 0 && typedChars.length >= minimumManualAnswerLength;
+    minimumAnswerLengthForCheck > 0 && typedChars.length >= minimumAnswerLengthForCheck;
 
   const buildMergedAnswer = (typed: string[]): string => {
     let editableIdx = 0;
@@ -288,19 +431,21 @@ export function TypingStudyCard({
       matchedAnswer: match.matchedAnswer,
       isAlternative: match.isAlternative,
     };
+    // A checked card no longer needs the keyboard. Blur synchronously so mobile
+    // browsers start closing it before the result layout is painted.
+    inputRef.current?.blur();
     setResult(nextResult);
-    if (keepMobileKeyboardOpen) inputRef.current?.focus({ preventScroll: true });
     if (playAudioAfterCheck) void playClip(promptAudioSrcs);
     // Score lands the moment the answer is checked; only the SR stage waits
     // for the continue tap.
     if (nextResult.points > 0) onScore?.(nextResult.points);
   };
 
-  // Auto path: fires when the last editable slot is filled. Manual-check
-  // languages skip this and confirm via submitCheck instead.
+  // Auto path: fires when enough editable text is present. The check button
+  // preference is the single switch that opts into explicit confirmation.
   const finishCheck = (nextValue: string) => {
     if (manualCheck) return;
-    if (splitGraphemes(nextValue).length < editableCount) return;
+    if (splitGraphemes(nextValue).length < minimumAnswerLengthForCheck) return;
     evaluateAnswer(nextValue);
   };
 
@@ -415,10 +560,15 @@ export function TypingStudyCard({
     (slotIdx, editableIdx) => (typedChars[editableIdx] ?? '') === slots[slotIdx],
   );
 
+  const preserveTypingFocus = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (!isMobileLayout() || document.activeElement !== inputRef.current) return;
+    event.preventDefault();
+    inputRef.current?.focus({ preventScroll: true });
+  };
+
   const handleContinue = () => {
     if (!result || continuedRef.current) return;
     continuedRef.current = true;
-    if (keepMobileKeyboardOpen) inputRef.current?.focus({ preventScroll: true });
     onOutcome(result.outcome);
   };
 
@@ -580,6 +730,7 @@ export function TypingStudyCard({
       type="button"
       className="game-hint-btn !flex !h-11 !min-h-11 !w-11 !min-w-11 !items-center !justify-center !rounded-full !border-0 !bg-[#F4EFE2] !p-0 !text-2xl !font-bold !normal-case !tracking-normal !text-[#2A2218] shadow-none hover:!bg-[#FFF8E8] disabled:!opacity-50"
       onClick={revealNextLetter}
+      onPointerDown={preserveTypingFocus}
       disabled={hintExhausted}
       aria-label={t('game.hint')}
       title={t('game.hint')}
@@ -590,6 +741,7 @@ export function TypingStudyCard({
 
   return (
     <article
+      ref={articleRef}
       className={`phrase-card relative ${fullscreen ? 'word-card--fullscreen' : ''}`}
       style={GAME_PALETTE}
       data-word-id={word.id}
@@ -611,9 +763,11 @@ export function TypingStudyCard({
         {usesAudioPrompt ? (
           <div className="flex flex-col items-center gap-2 py-1">
             <button
+              ref={audioButtonRef}
               type="button"
               className="!h-16 !min-h-16 !w-16 !min-w-16 flex items-center justify-center !rounded-full !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] !shadow-none hover:!bg-[#1E6FA8] hover:!border-[#1E6FA8] hover:!text-[#F4EFE2] active:!bg-[#1E6FA8] active:!border-[#1E6FA8] active:!text-[#F4EFE2] cursor-pointer"
-              onClick={replayPrompt}
+              onClick={handleAudioClick}
+              onPointerDown={startAudioWithoutDroppingTypingFocus}
               aria-label={t('game.replayPromptAudio')}
             >
               <SpeakerIcon size={23} />
@@ -660,8 +814,8 @@ export function TypingStudyCard({
                     }
                   }}
                   onFocus={() => setIsFocused(true)}
-                  onBlur={() => setIsFocused(false)}
-                  disabled={result !== null && !keepMobileKeyboardOpen}
+                  onBlur={handleTypingBlur}
+                  disabled={result !== null}
                   aria-disabled={result !== null}
                   autoComplete="off"
                   autoCorrect="off"
@@ -715,8 +869,8 @@ export function TypingStudyCard({
                     onKeyUp={(e) => updateCaret(e.currentTarget)}
                     onSelect={(e) => updateCaret(e.currentTarget)}
                     onFocus={() => setIsFocused(true)}
-                    onBlur={() => setIsFocused(false)}
-                    disabled={result !== null && !keepMobileKeyboardOpen}
+                    onBlur={handleTypingBlur}
+                    disabled={result !== null}
                     aria-disabled={result !== null}
                     autoComplete="off"
                     autoCorrect="off"
@@ -790,9 +944,11 @@ export function TypingStudyCard({
       <div className="card-actions relative mt-6 md:[@media(max-height:800px)]:!mt-2">
         {showTypingAudio && (
           <button
+            ref={audioButtonRef}
             type="button"
             className="audio-btn audio-btn--floating !h-16 !min-h-16 !w-16 !min-w-16 !rounded-full !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] !shadow-none hover:!border-[#1E6FA8] hover:!bg-[#1E6FA8] hover:!text-[#F4EFE2] active:!border-[#1E6FA8] active:!bg-[#1E6FA8] active:!text-[#F4EFE2] max-md:!top-[-90px] md:[@media(max-height:800px)]:!top-[-82px]"
-            onClick={replayPrompt}
+            onClick={handleAudioClick}
+            onPointerDown={startAudioWithoutDroppingTypingFocus}
             aria-label={t('card.playAudio')}
           >
             <SpeakerIcon size={23} />
@@ -812,12 +968,22 @@ export function TypingStudyCard({
               </span>
             </button>
           )}
-          <div className={`mx-auto w-full !max-w-md max-md:!h-11 max-md:!w-32 max-md:!max-w-32 max-md:transition-transform max-md:duration-300 max-md:ease-out max-md:[&_.srs-btn]:!h-11 max-md:[&_.srs-btn]:!min-h-11 max-md:[&_.srs-btn]:!px-2 max-md:[&_.srs-btn]:!py-1 md:absolute md:left-0 md:top-0 md:mx-0 md:!h-[72px] md:!w-64 md:!max-w-64 md:transition-transform md:duration-500 md:ease-[cubic-bezier(0.22,1,0.36,1)] md:[&_.srs-btn]:!h-[72px] md:[&_.srs-btn]:!min-h-[72px] md:[@media(max-height:800px)]:!h-14 md:[@media(max-height:800px)]:[&_.srs-btn]:!h-14 md:[@media(max-height:800px)]:[&_.srs-btn]:!min-h-14 ${result ? 'max-md:-translate-y-[64px] md:translate-x-0' : 'max-md:-translate-y-1 md:translate-x-[136px]'}`}>
+          <div
+            data-typing-secondary-actions
+            className={`mx-auto w-full !max-w-md max-md:!h-11 max-md:!w-32 max-md:!max-w-32 max-md:transition-transform max-md:duration-300 max-md:ease-out max-md:[&_.srs-btn]:!h-11 max-md:[&_.srs-btn]:!min-h-11 max-md:[&_.srs-btn]:!px-2 max-md:[&_.srs-btn]:!py-1 md:absolute md:left-0 md:top-0 md:mx-0 md:!h-[72px] md:!w-64 md:!max-w-64 md:transition-transform md:duration-500 md:ease-[cubic-bezier(0.22,1,0.36,1)] md:[&_.srs-btn]:!h-[72px] md:[&_.srs-btn]:!min-h-[72px] md:[@media(max-height:800px)]:!h-14 md:[@media(max-height:800px)]:[&_.srs-btn]:!h-14 md:[@media(max-height:800px)]:[&_.srs-btn]:!min-h-14 ${result ? 'md:translate-x-0' : 'max-md:-translate-y-1 md:translate-x-[136px]'} ${isFocused && result === null ? 'max-md:invisible max-md:pointer-events-none' : ''}`}
+          >
             <CustomStagePopover
               clampedStageIndex={clampedStageIndex}
               onCustomStage={handleCustomStage}
             />
           </div>
+          {result && (
+            <div
+              data-mobile-result-actions-spacer
+              aria-hidden="true"
+              className="h-[calc(60px+env(safe-area-inset-bottom,0px))] shrink-0 md:hidden"
+            />
+          )}
         </div>
         <style>{`
           @keyframes typing-continue-enter {
@@ -845,6 +1011,7 @@ export function TypingStudyCard({
               animation: none;
             }
           }
+
         `}</style>
       </div>
       {result && (

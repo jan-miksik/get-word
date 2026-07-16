@@ -4,6 +4,7 @@ import { MatchingPairsGame } from '../MatchingPairsGame';
 import type { NormalizedWord } from '@/lib/words';
 
 vi.mock('@/lib/audio-availability', () => ({
+  getCachedPlayableAudioUrl: () => null,
   getPlayableAudioUrl: (url: string | null) => Promise.resolve(url),
 }));
 

@@ -35,8 +35,9 @@ function buildUserPrompt(languageFrom: string, languageTo: string): string {
   return [
     `Label up to ${MAX_LABELS} objects in this photo.`,
     "Each array element must be:",
-    `{"known": "<object name in ${describeLanguage(languageFrom)}>", "target": "<object name in ${describeLanguage(languageTo)}>", "box_2d": [ymin, xmin, ymax, xmax]}`,
-    "box_2d values are integers 0-1000 relative to the image height and width.",
+    `{"known": "<object name in ${describeLanguage(languageFrom)}>", "target": "<object name in ${describeLanguage(languageTo)}>", "box_2d": [ymin, xmin, ymax, xmax], "point": [y, x]}`,
+    "box_2d and point values are integers 0-1000 relative to the image height and width.",
+    '"point" is the exact spot where a small label chip should sit: on the object itself, at its visually most recognizable part.',
     "Use everyday single words or short noun phrases. One label per object.",
     `"known" must be written only in ${describeLanguage(languageFrom)} and "target" only in ${describeLanguage(languageTo)}.`,
   ].join("\n");
@@ -71,11 +72,31 @@ function parseLabel(raw: unknown): ParsedPhotoLabel | null {
   const [ymin, xmin, ymax, xmax] = numbers.map(clamp01k);
   if (ymax <= ymin || xmax <= xmin) return null;
 
+  // The chip anchor prefers the model's point (box centers drift off large or
+  // irregular objects); a point outside the box is treated as noise.
+  let anchorX = (xmin + xmax) / 2;
+  let anchorY = (ymin + ymax) / 2;
+  const point = record.point;
+  if (Array.isArray(point) && point.length === 2) {
+    const [py, px] = point.map((value) => Number(value));
+    if (
+      Number.isFinite(py) &&
+      Number.isFinite(px) &&
+      py >= ymin &&
+      py <= ymax &&
+      px >= xmin &&
+      px <= xmax
+    ) {
+      anchorX = px;
+      anchorY = py;
+    }
+  }
+
   return {
     known,
     target,
-    x: (xmin + xmax) / 2000,
-    y: (ymin + ymax) / 2000,
+    x: anchorX / 1000,
+    y: anchorY / 1000,
     w: (xmax - xmin) / 1000,
     h: (ymax - ymin) / 1000,
   };

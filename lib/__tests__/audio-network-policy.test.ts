@@ -44,8 +44,8 @@ describe('audio network policy', () => {
     setConnection({ type: 'cellular', effectiveType: '4g', saveData: false });
 
     expect(isAudioNetworkConstrained()).toBe(true);
-    expect(getAudioWarmupLookahead(2)).toBe(1);
-    expect(getAudioPrefetchLimit(10)).toBe(4);
+    expect(getAudioWarmupLookahead(5)).toBe(3);
+    expect(getAudioPrefetchLimit(10)).toBe(8);
     expect(canBulkCacheAudio()).toBe(false);
   });
 

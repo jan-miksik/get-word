@@ -1,6 +1,6 @@
 import { randomUUID } from "crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { resolveUserFromRequest, unauthorizedResponse } from "@/lib/auth";
+import { isEditor, resolveUserFromRequest, unauthorizedResponse } from "@/lib/auth";
 import { OpenRouterChatError } from "@/lib/openrouter-chat";
 import { normalizeLanguageCode } from "@/lib/i18n/languages";
 import { analyzePhoto } from "@/features/photo-lab/server/analyze";
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    await reservePhotoLabRateLimit(user.id);
+    await reservePhotoLabRateLimit(user.id, isEditor(user));
   } catch (err) {
     if (err instanceof DailyLimitError) {
       return NextResponse.json(
@@ -125,6 +125,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ labels });
   } catch (err) {
     if (err instanceof OpenRouterChatError) {
+      console.error("[photo-lab] OpenRouter analysis failed", err);
       if (err.isOutOfCredits) {
         return NextResponse.json(
           {

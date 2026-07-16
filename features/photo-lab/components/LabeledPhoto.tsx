@@ -41,6 +41,7 @@ type ChipState = 'hidden' | 'active' | 'revealed' | 'solved';
 function LabelChip({
   label,
   state,
+  isFront,
   counterScale,
   audioHash,
   playAudioLabel,
@@ -49,6 +50,7 @@ function LabelChip({
 }: {
   label: PhotoLabLabel;
   state: ChipState;
+  isFront: boolean;
   counterScale: number;
   audioHash: string | undefined;
   playAudioLabel: string;
@@ -56,30 +58,33 @@ function LabelChip({
   onPlayAudio: (hash: string) => void;
 }) {
   const showTarget = state === 'revealed' || state === 'solved';
+  // Literal palette colors (not var + opacity modifier): Tailwind compiles
+  // var-based opacity to color-mix(), which older iOS Safari drops entirely.
   const surface =
     state === 'solved'
-      ? 'bg-[var(--ob-correct)]/90'
+      ? 'bg-[#15803D]/90'
       : state === 'revealed'
-        ? 'bg-[var(--ob-accent)]/90'
+        ? 'bg-[#1E6FA8]/90'
         : 'bg-black/60';
   return (
     <div
       data-photo-label
-      className={`absolute flex max-w-48 items-center rounded-full shadow backdrop-blur-sm transition-colors ${surface} ${
+      className={`absolute flex max-w-48 items-center rounded-full border border-white/25 shadow backdrop-blur-sm transition-colors sm:max-w-64 ${surface} ${
         state === 'active' ? 'ring-2 ring-[var(--ob-accent)]' : ''
-      }`}
+      } ${showTarget ? 'animate-[photo-lab-chip-pop_240ms_ease-out] motion-reduce:animate-none' : ''}`}
       style={{
         left: `${label.x * 100}%`,
         top: `${label.y * 100}%`,
         transform: `translate(-50%, -50%) scale(${counterScale})`,
+        zIndex: isFront ? 20 : 1,
       }}
     >
       <button
         type="button"
         onClick={onPress}
         aria-pressed={showTarget}
-        className={`min-w-0 truncate py-1 pl-2.5 text-xs text-white ${
-          showTarget && audioHash ? 'pr-1' : 'pr-2.5'
+        className={`min-w-0 truncate py-1 pl-2.5 text-xs text-white sm:py-1.5 sm:pl-3 sm:text-base ${
+          showTarget && audioHash ? 'pr-1 sm:pr-1.5' : 'pr-2.5 sm:pr-3'
         }`}
       >
         {showTarget ? label.target : label.known}
@@ -95,9 +100,9 @@ function LabelChip({
             e.stopPropagation();
             onPlayAudio(audioHash);
           }}
-          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white/90 hover:text-white"
+          className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-white/90 hover:text-white sm:h-7 sm:w-7"
         >
-          <SpeakerIcon size={14} />
+          <SpeakerIcon size={14} className="sm:h-4 sm:w-4" />
         </button>
       )}
     </div>
@@ -119,6 +124,7 @@ export function LabeledPhoto({
   const [revealedIds, setRevealedIds] = useState<Set<string>>(() => new Set());
   const [solvedIds, setSolvedIds] = useState<Set<string>>(() => new Set());
   const [activeLabelId, setActiveLabelId] = useState<string | null>(null);
+  const [frontLabelId, setFrontLabelId] = useState<string | null>(null);
   const [typed, setTyped] = useState('');
   const [feedback, setFeedback] = useState<TypeFeedback>(null);
 
@@ -157,6 +163,9 @@ export function LabeledPhoto({
     if (next === mode) return;
     storeMode(next);
     closeAnswerBar();
+    // Entering type mode flips every revealed chip back to the known language
+    // so it becomes practicable again; solved answers stay earned.
+    if (next === 'type') setRevealedIds(new Set());
     setMode(next);
   };
 
@@ -173,6 +182,7 @@ export function LabeledPhoto({
   };
 
   const pressChip = (label: PhotoLabLabel) => {
+    setFrontLabelId(label.id);
     if (mode === 'reveal') {
       toggleReveal(label.id);
       return;
@@ -234,81 +244,92 @@ export function LabeledPhoto({
   };
 
   return (
-    <div className="flex flex-col gap-2">
-      <div
-        role="group"
-        aria-label={t('photoLab.title')}
-        className="flex gap-1 self-center rounded-xl border-2 border-[color:var(--ob-ink)] p-1"
-      >
-        {(['reveal', 'type'] as const).map((option) => (
-          <button
-            key={option}
-            type="button"
-            aria-pressed={mode === option}
-            onClick={() => switchMode(option)}
-            className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
-              mode === option
-                ? 'bg-[var(--ob-accent)] text-white'
-                : 'text-[color:var(--ob-ink-soft)] hover:bg-[var(--ob-surface-hover)]'
-            }`}
-          >
-            {option === 'reveal' ? t('photoLab.modeReveal') : t('photoLab.modeType')}
-          </button>
-        ))}
-      </div>
-
-      <div
-        ref={viewportRef}
-        {...handlers}
-        className={`relative -mx-4 select-none overflow-hidden sm:mx-0 sm:rounded-xl ${
-          transform.scale > 1 ? 'touch-none' : 'touch-pan-y'
-        }`}
-      >
+    <section className="flex w-full flex-col gap-3 animate-[photo-lab-rise_0.45s_ease-out_both] motion-reduce:animate-none">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div
-          style={{
-            transform: `translate(${transform.tx}px, ${transform.ty}px) scale(${transform.scale})`,
-            transformOrigin: '0 0',
-            transition: animating ? 'transform 200ms ease-out' : 'none',
-          }}
+          role="group"
+          aria-label={t('photoLab.title')}
+          className="flex gap-1 rounded-2xl border-2 border-[color:var(--ob-ink)]/60 p-1"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element -- local blob/data URL, next/image cannot optimize it */}
-          <img src={imageUrl} alt="" draggable={false} className="block w-full" />
-          {placedLabels.map((label) => (
-            <LabelChip
-              key={label.id}
-              label={label}
-              state={chipState(label)}
-              counterScale={1 / transform.scale}
-              audioHash={audioHashes?.[label.id]}
-              playAudioLabel={t('photoLab.playAudio')}
-              onPress={() => pressChip(label)}
-              onPlayAudio={playAudio}
-            />
+          {(['reveal', 'type'] as const).map((option) => (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={mode === option}
+              onClick={() => switchMode(option)}
+              className={`rounded-xl px-3 py-2 text-xs font-bold transition-colors sm:text-sm ${
+                mode === option
+                  ? 'bg-[var(--ob-ink)] text-[var(--ob-surface)]'
+                  : 'text-[color:var(--ob-ink-soft)] hover:bg-[#2A2218]/8'
+              }`}
+            >
+              {option === 'reveal' ? t('photoLab.modeReveal') : t('photoLab.modeType')}
+            </button>
           ))}
         </div>
-        {mode === 'type' && activeLabel && (
-          <TypeAnswerBar
-            label={activeLabel}
-            value={typed}
-            feedback={feedback}
-            inputRef={inputRef}
-            onChange={(value) => {
-              setTyped(value);
-              if (feedback === 'wrong') setFeedback(null);
-            }}
-            onSubmit={submitAnswer}
-            onShowAnswer={showAnswer}
-          />
+
+        {labels.length > 0 && (
+          <p className="m-0 text-xs text-[color:var(--ob-ink-soft)] sm:text-base">
+            {mode === 'type' ? t('photoLab.typeHint') : t('photoLab.tapToReveal')}
+          </p>
         )}
       </div>
 
-      {labels.length === 0 ? (
+      <div className="relative grid items-end">
+        <div
+          ref={viewportRef}
+          {...handlers}
+          className={`relative -mx-3 select-none overflow-hidden bg-black/5 shadow-lg [grid-area:1/1] sm:mx-0 sm:rounded-2xl sm:border-2 sm:border-[color:var(--ob-ink)] sm:shadow-xl sm:shadow-[#2A2218]/10 ${
+            transform.scale > 1 ? 'touch-none' : 'touch-pan-y'
+          }`}
+        >
+          <div
+            style={{
+              transform: `translate(${transform.tx}px, ${transform.ty}px) scale(${transform.scale})`,
+              transformOrigin: '0 0',
+              transition: animating ? 'transform 200ms ease-out' : 'none',
+            }}
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element -- local blob/data URL, next/image cannot optimize it */}
+            <img src={imageUrl} alt="" draggable={false} className="block w-full" />
+            {placedLabels.map((label) => (
+              <LabelChip
+                key={label.id}
+                label={label}
+                state={chipState(label)}
+                isFront={frontLabelId === label.id}
+                counterScale={1 / transform.scale}
+                audioHash={audioHashes?.[label.id]}
+                playAudioLabel={t('photoLab.playAudio')}
+                onPress={() => pressChip(label)}
+                onPlayAudio={playAudio}
+              />
+            ))}
+          </div>
+        </div>
+        {mode === 'type' && activeLabel && (
+          <div className="pointer-events-none sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 mx-auto w-full max-w-2xl self-end px-2 pb-3 [grid-area:1/1] sm:bottom-4 sm:px-4 sm:pb-4">
+            <div className="pointer-events-auto">
+              <TypeAnswerBar
+                label={activeLabel}
+                value={typed}
+                feedback={feedback}
+                inputRef={inputRef}
+                onChange={(value) => {
+                  setTyped(value);
+                  if (feedback === 'wrong') setFeedback(null);
+                }}
+                onSubmit={submitAnswer}
+                onShowAnswer={showAnswer}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      {labels.length === 0 && (
         <p className="m-0 text-sm text-[color:var(--ob-ink-soft)]">{t('photoLab.noLabels')}</p>
-      ) : (
-        <p className="m-0 text-xs text-[color:var(--ob-ink-soft)]/80">
-          {mode === 'type' ? t('photoLab.typeHint') : t('photoLab.tapToReveal')}
-        </p>
       )}
-    </div>
+    </section>
   );
 }

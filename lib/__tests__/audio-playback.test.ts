@@ -1,8 +1,21 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { clearAudioAvailabilityCache, getPlayableAudioUrl } from '../audio-availability';
 import { playUserInitiatedAudio } from '../audio-playback';
+import { clearPrefetchCache, prefetchAudio } from '../audio-prefetch';
 
 describe('playUserInitiatedAudio', () => {
+  beforeEach(() => {
+    clearAudioAvailabilityCache();
+  });
+
+  afterEach(() => {
+    clearPrefetchCache();
+    clearAudioAvailabilityCache();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
   it('calls play synchronously while the triggering interaction is active', () => {
     let userActivation = true;
     const play = vi.fn(() => {
@@ -23,7 +36,6 @@ describe('playUserInitiatedAudio', () => {
     userActivation = false;
 
     expect(play).toHaveBeenCalledTimes(1);
-    vi.unstubAllGlobals();
   });
 
   it('reuses the activated audio element for a later source after a load failure', async () => {
@@ -61,6 +73,82 @@ describe('playUserInitiatedAudio', () => {
       '/speech/vi/missing.mp3',
       '/speech/vi/dog.mp3',
     ]);
-    vi.unstubAllGlobals();
+  });
+
+  it('starts playback with the gateway already verified by warmup', async () => {
+    vi.stubGlobal('caches', {
+      open: async () => ({ match: async () => undefined }),
+    });
+    vi.stubGlobal('fetch', vi.fn(async (input: Request | string) => {
+      const url = typeof input === 'string' ? input : input.url;
+      return new Response(null, { status: url.includes('ar-io.net') ? 200 : 503 });
+    }));
+
+    const originalUrl = 'https://turbo-gateway.com/tx-warmed';
+    await getPlayableAudioUrl(originalUrl);
+
+    const attemptedSources: string[] = [];
+    vi.stubGlobal(
+      'Audio',
+      vi.fn().mockImplementation(function FakeAudio(this: {
+        src: string;
+        play: () => Promise<void>;
+        pause: () => void;
+      }, src: string) {
+        this.src = src;
+        this.play = () => {
+          attemptedSources.push(this.src);
+          return Promise.resolve();
+        };
+        this.pause = () => {};
+      }),
+    );
+
+    await playUserInitiatedAudio({ current: null }, originalUrl);
+
+    expect(attemptedSources[0]).toBe('https://ar-io.net/tx-warmed');
+  });
+
+  it('starts playback from a fully downloaded local blob when available', async () => {
+    vi.stubGlobal('caches', {
+      open: async () => ({
+        match: async () => undefined,
+        put: async () => undefined,
+      }),
+    });
+    vi.stubGlobal('fetch', vi.fn(async () => (
+      new Response(new Blob(['audio-bytes'], { type: 'audio/mpeg' }), { status: 200 })
+    )));
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:ready-audio');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+
+    const attemptedSources: string[] = [];
+    vi.stubGlobal(
+      'Audio',
+      vi.fn().mockImplementation(function FakeAudio(this: {
+        src: string;
+        preload: string;
+        play: () => Promise<void>;
+        pause: () => void;
+        load: () => void;
+        removeAttribute: () => void;
+      }, src = '') {
+        this.src = src;
+        this.preload = '';
+        this.play = () => {
+          attemptedSources.push(this.src);
+          return Promise.resolve();
+        };
+        this.pause = () => {};
+        this.load = () => {};
+        this.removeAttribute = () => {};
+      }),
+    );
+
+    const source = '/speech/vi/ready.mp3';
+    await prefetchAudio([source]);
+    await playUserInitiatedAudio({ current: null }, source);
+
+    expect(attemptedSources[0]).toBe('blob:ready-audio');
   });
 });

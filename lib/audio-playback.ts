@@ -1,8 +1,10 @@
 'use client';
 
 import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
+import { getCachedPlayableAudioUrl } from '@/lib/audio-availability';
 import { withAudioDebugParam } from '@/lib/audio-debug';
 import { isAudioNetworkOffline } from '@/lib/audio-network-policy';
+import { getPrefetchedAudioUrl } from '@/lib/audio-prefetch';
 
 export type AudioPlaybackResult = {
   ok: boolean;
@@ -28,12 +30,23 @@ type AudioElementRef = {
 function getPlaybackCandidates(audioSrc: string | string[] | null): string[] {
   const sources = (Array.isArray(audioSrc) ? audioSrc : [audioSrc])
     .filter((src): src is string => Boolean(src));
+  const gatewayCandidates = sources.flatMap((src) =>
+    getArweaveGatewayUrlCandidates(src).map(withAudioDebugParam),
+  );
+  const warmedCandidates = sources
+    .map(getCachedPlayableAudioUrl)
+    .filter((src): src is string => Boolean(src));
+  const downloadedCandidates = [...warmedCandidates, ...gatewayCandidates]
+    .map(getPrefetchedAudioUrl)
+    .filter((src): src is string => Boolean(src));
 
   return Array.from(
     new Set(
-      sources.flatMap((src) =>
-        getArweaveGatewayUrlCandidates(src).map(withAudioDebugParam),
-      ),
+      [
+        ...downloadedCandidates,
+        ...warmedCandidates,
+        ...gatewayCandidates,
+      ],
     ),
   );
 }

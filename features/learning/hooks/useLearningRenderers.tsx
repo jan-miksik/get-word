@@ -10,6 +10,10 @@ import type { MiniGameConfig } from '@/lib/minigames';
 import type { NormalizedWord } from '@/lib/words';
 import type { LearningRole } from '@/features/learning/state/learningRole';
 
+const isMobileLayout = () =>
+  typeof window !== 'undefined' &&
+  window.matchMedia?.('(max-width: 767px)').matches === true;
+
 interface UseLearningRenderersOptions {
   progress: Record<string, ProgressData>;
   role: LearningRole;
@@ -175,7 +179,10 @@ export function useLearningRenderers({
     (
       word: NormalizedWord,
       _stageIndex: number,
-      onComplete: (afterExit?: () => void) => void,
+      onComplete: (
+        afterExit?: () => void,
+        options?: { skipAnimation?: boolean },
+      ) => void,
       opts?: { isExiting: boolean }
     ) => {
       const liveProg = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
@@ -212,12 +219,22 @@ export function useLearningRenderers({
               modeIndex={modeIndex as 0 | 1}
               onScore={applyTypingScore}
               onOutcome={(outcome) => {
-                onComplete(() =>
-                  applyTypingOutcome(word.id, prog.stageIndex, outcome)
+                onComplete(
+                  () => applyTypingOutcome(word.id, prog.stageIndex, outcome),
+                  {
+                    // iOS only raises the keyboard reliably while the Continue
+                    // tap is still active, so mobile typing skips the deck exit.
+                    skipAnimation: typingMobileKeyboardAutoFocus && isMobileLayout(),
+                  },
                 );
               }}
               onCustomStage={(stageIndex, opts) => {
-                onComplete(() => setCustomStage(word.id, stageIndex, opts));
+                onComplete(
+                  () => setCustomStage(word.id, stageIndex, opts),
+                  {
+                    skipAnimation: typingMobileKeyboardAutoFocus && isMobileLayout(),
+                  },
+                );
               }}
               memoryHook={getMemoryHook(word)}
               suggestedHook={getSuggestedMemoryHook(word)}

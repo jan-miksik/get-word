@@ -32,7 +32,10 @@ interface LearningStudyContentProps {
   renderCardForDeck: (
     word: NormalizedWord,
     stageIndex: number,
-    onComplete: (afterExit?: () => void) => void,
+    onComplete: (
+      afterExit?: () => void,
+      options?: { skipAnimation?: boolean },
+    ) => void,
     opts?: { isExiting: boolean }
   ) => React.ReactNode;
   renderMiniGameForDeck: (config: MiniGameConfig, onComplete: () => void) => React.ReactNode;

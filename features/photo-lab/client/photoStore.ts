@@ -21,11 +21,33 @@ const MAX_AGE_MS = 90 * 24 * 60 * 60 * 1000; // 90 days
 
 type PhotoRecord = {
   hash: string;
-  blob: Blob;
+  /**
+   * JPEG bytes + mime type. Stored as ArrayBuffer instead of Blob because iOS
+   * WebKit can silently drop the file-backed data of Blobs kept in IndexedDB —
+   * the record survives the next visit but the Blob reads as empty, rendering
+   * broken images. Buffers are copied into the database, so they persist.
+   */
+  bytes?: ArrayBuffer;
+  type?: string;
+  /** Legacy records (DB v1 writes before the ArrayBuffer switch) stored the Blob itself. */
+  blob?: Blob;
   sizeBytes: number;
   createdAt: number;
   lastAccessedAt: number;
 };
+
+function readBlobBytes(blob: Blob): Promise<ArrayBuffer> {
+  if (typeof blob.arrayBuffer === 'function') return blob.arrayBuffer();
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () =>
+      reader.result instanceof ArrayBuffer
+        ? resolve(reader.result)
+        : reject(new Error('Could not read photo blob.'));
+    reader.onerror = () => reject(new Error('Could not read photo blob.'));
+    reader.readAsArrayBuffer(blob);
+  });
+}
 
 let availability: boolean | null = null;
 let dbPromise: Promise<IDBDatabase | null> | null = null;
@@ -93,7 +115,22 @@ export async function getPhoto(hash: string): Promise<Blob | null> {
     if (!record) return null;
     record.lastAccessedAt = Date.now();
     store.put(record);
-    return record.blob;
+    if (record.bytes) return new Blob([record.bytes], { type: record.type || 'image/jpeg' });
+    if (!(record.blob instanceof Blob)) return null;
+    // Legacy record storing the Blob itself. Reading the bytes both validates
+    // it (iOS WebKit can have dropped the data, which would render as a broken
+    // image) and lets us heal it into the ArrayBuffer format.
+    try {
+      const bytes = await readBlobBytes(record.blob);
+      const type = record.blob.type || 'image/jpeg';
+      const healed: PhotoRecord = { ...record, bytes, type };
+      delete healed.blob;
+      const healTx = db.transaction(PHOTOS_STORE, 'readwrite');
+      healTx.objectStore(PHOTOS_STORE).put(healed);
+      return new Blob([bytes], { type });
+    } catch {
+      return null;
+    }
   } catch {
     return null;
   }
@@ -104,11 +141,16 @@ export async function putPhoto(hash: string, blob: Blob): Promise<boolean> {
   const db = await openDb();
   if (!db) return false;
   try {
+    // Copy the bytes out before opening the transaction — the async read would
+    // auto-close an already-open one, and Blobs must not be stored directly
+    // (see PhotoRecord).
+    const bytes = await readBlobBytes(blob);
     const now = Date.now();
     const record: PhotoRecord = {
       hash,
-      blob,
-      sizeBytes: blob.size,
+      bytes,
+      type: blob.type || 'image/jpeg',
+      sizeBytes: bytes.byteLength,
       createdAt: now,
       lastAccessedAt: now,
     };

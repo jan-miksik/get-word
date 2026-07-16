@@ -26,7 +26,7 @@ vi.mock('@/lib/db', () => ({
 
 import { GET } from '../route';
 
-const request = () => new NextRequest('http://localhost/api/admin/stats');
+const request = (url = 'http://localhost/api/admin/stats') => new NextRequest(url);
 
 describe('GET /api/admin/stats', () => {
   beforeEach(() => {
@@ -65,6 +65,18 @@ describe('GET /api/admin/stats', () => {
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('no-store');
     expect(await response.json()).toEqual(stats);
+    expect(mockGetUsageStats).toHaveBeenCalledWith({ activityWindow: 'rolling' });
+  });
+
+  it('passes the calendar activity window through to the stats query', async () => {
+    mockResolveAuthenticatedUser.mockResolvedValue({ id: 'e1', userRole: 'editor' });
+    mockIsEditor.mockReturnValue(true);
+    mockGetUsageStats.mockResolvedValue({ generatedAt: '2026-07-15T12:00:00.000Z' });
+
+    const response = await GET(request('http://localhost/api/admin/stats?activityWindow=calendar'));
+
+    expect(response.status).toBe(200);
+    expect(mockGetUsageStats).toHaveBeenCalledWith({ activityWindow: 'calendar' });
   });
 
   it('returns a generic 500 when the stats query fails', async () => {

@@ -71,6 +71,7 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
+  interactiveWidget: 'resizes-content',
   themeColor: '#0b1220',
   // Allow content to fill under the notch/home-indicator so env(safe-area-inset-*)
   // give the real inset values instead of 0.
