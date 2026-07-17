@@ -876,8 +876,8 @@ describe('TypingStudyCard', () => {
   it('renders only the repeat-after action, without the Forgotten/OK buttons', () => {
     renderCard();
     expect(screen.getByRole('button', { name: /custom interval/i })).toBeInTheDocument();
-    expect(screen.queryByText('Forgotten')).not.toBeInTheDocument();
-    expect(screen.queryByText('OK')).not.toBeInTheDocument();
+    expect(screen.queryByText("Don't know")).not.toBeInTheDocument();
+    expect(screen.queryByText('I know')).not.toBeInTheDocument();
     expect(screen.queryByText('Check')).not.toBeInTheDocument();
   });
 });

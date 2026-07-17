@@ -75,7 +75,7 @@ describe('LandingDemoCard', () => {
   it('shows the growing interval after a correct answer and advances to the next word', () => {
     const { container } = renderCard();
 
-    fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^I know/ }));
 
     act(() => {
       vi.advanceTimersByTime(450);
@@ -93,7 +93,7 @@ describe('LandingDemoCard', () => {
     expect(currentDots()).toHaveLength(1);
     expect([...container.querySelectorAll('.lp-demo-dot')].indexOf(currentDots()[0])).toBe(0);
 
-    fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^I know/ }));
 
     act(() => {
       vi.advanceTimersByTime(450);
@@ -107,7 +107,7 @@ describe('LandingDemoCard', () => {
   it('sends a forgotten card to the back of the stack and shows the next one', () => {
     const { container } = renderCard();
 
-    fireEvent.click(screen.getByRole('button', { name: /Forgotten/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Don't know/ }));
 
     act(() => {
       vi.advanceTimersByTime(450);
@@ -124,11 +124,11 @@ describe('LandingDemoCard', () => {
   it('replays the last remaining card in place when forgotten', () => {
     renderCard();
 
-    fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^I know/ }));
     act(() => {
       vi.advanceTimersByTime(450);
     });
-    fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^I know/ }));
     act(() => {
       vi.advanceTimersByTime(450);
     });
@@ -136,7 +136,7 @@ describe('LandingDemoCard', () => {
     // Only the third word is left on the stack.
     expect(screen.getAllByText('thank you').length).toBeGreaterThan(0);
 
-    fireEvent.click(screen.getByRole('button', { name: /Forgotten/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Don't know/ }));
     act(() => {
       vi.advanceTimersByTime(450);
     });
@@ -179,17 +179,17 @@ describe('LandingDemoCard', () => {
   it('shows a completed state without the old explanatory timer copy', () => {
     renderCard();
 
-    fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^I know/ }));
     act(() => {
       vi.advanceTimersByTime(450);
       vi.advanceTimersByTime(10_000);
     });
 
-    fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^I know/ }));
     act(() => {
       vi.advanceTimersByTime(450);
     });
-    fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^I know/ }));
     act(() => {
       vi.advanceTimersByTime(450);
     });
@@ -213,16 +213,16 @@ describe('LandingDemoCard', () => {
       </I18nProvider>
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^I know/ }));
     act(() => {
       vi.advanceTimersByTime(450);
       vi.advanceTimersByTime(10_000);
     });
-    fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^I know/ }));
     act(() => {
       vi.advanceTimersByTime(450);
     });
-    fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
+    fireEvent.click(screen.getByRole('button', { name: /^I know/ }));
     act(() => {
       vi.advanceTimersByTime(450);
     });
@@ -293,7 +293,7 @@ describe('LandingDemoCard', () => {
     renderCard();
 
     for (let i = 0; i < 3; i += 1) {
-      fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
+      fireEvent.click(screen.getByRole('button', { name: /^I know/ }));
       act(() => {
         vi.advanceTimersByTime(450);
       });
@@ -314,7 +314,7 @@ describe('LandingDemoCard', () => {
     renderCard();
 
     for (let i = 0; i < 3; i += 1) {
-      fireEvent.click(screen.getByRole('button', { name: /^OK/ }));
+      fireEvent.click(screen.getByRole('button', { name: /^I know/ }));
       act(() => {
         vi.advanceTimersByTime(450);
       });
@@ -323,7 +323,7 @@ describe('LandingDemoCard', () => {
     // The matching round replaces the card: both columns are on screen and
     // there is no OK button until all pairs are matched.
     expect(screen.getByText(/Match/)).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^OK/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^I know/ })).not.toBeInTheDocument();
 
     // A wrong pair flashes and unlocks again.
     fireEvent.click(screen.getByRole('button', { name: 'yes' }));
@@ -343,7 +343,7 @@ describe('LandingDemoCard', () => {
     // The matched result stays on screen; continuing takes one more tap.
     expect(screen.getByText(/All matched!/)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /tap to continue/i })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /^OK/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /^I know/ })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: /tap to continue/i }));
 

@@ -134,8 +134,8 @@ describe('WordCard fullscreen', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /forgotten/i }));
-    fireEvent.click(screen.getByRole('button', { name: /^ok/i }));
+    fireEvent.click(screen.getByRole('button', { name: /don't know/i }));
+    fireEvent.click(screen.getByRole('button', { name: /^i know/i }));
     fireEvent.click(screen.getByRole('button', { name: /custom interval/i }));
     fireEvent.click(screen.getByRole('option', { name: /fully known/i }));
 

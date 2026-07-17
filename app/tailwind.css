@@ -78,6 +78,19 @@
   min-height: 100dvh;
 }
 
+/* Installed-PWA mode locks html/body scrolling globally (tokens.css); the
+   photo lab page relies on document scroll, so the shell must become its own
+   scroll container there or the page cannot scroll at all. */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  .photo-lab-shell {
+    height: 100vh;
+    height: 100dvh;
+    overflow-y: auto;
+    overscroll-behavior-y: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
 /* Photo lab motion. The scan line sweeps the photo while analysis runs; chips
    pop when revealed. chip-pop animates the standalone `scale` property so it
    composes with the chip's inline positioning transform. */

@@ -57,7 +57,7 @@ export function TypeAnswerBar({
         </p>
       )}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <span className="max-w-full truncate text-sm font-semibold text-[color:var(--ob-ink)] sm:max-w-[25%] sm:text-base">
+        <span className="max-w-full truncate text-lg font-semibold text-[color:var(--ob-ink)] sm:max-w-[25%]">
           {label.known}
         </span>
         <input

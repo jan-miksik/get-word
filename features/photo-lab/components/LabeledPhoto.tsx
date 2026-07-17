@@ -75,7 +75,10 @@ function LabelChip({
       style={{
         left: `${label.x * 100}%`,
         top: `${label.y * 100}%`,
-        transform: `translate(-50%, -50%) scale(${counterScale})`,
+        // Anchor slides with the position (center at 0.5, chip edge at 0/1),
+        // so chips near the photo edge stay fully inside instead of being
+        // clipped by the viewport's overflow-hidden.
+        transform: `translate(${label.x * -100}%, ${label.y * -100}%) scale(${counterScale})`,
         zIndex: isFront ? 20 : 1,
       }}
     >
@@ -308,7 +311,11 @@ export function LabeledPhoto({
           </div>
         </div>
         {mode === 'type' && activeLabel && (
-          <div className="pointer-events-none sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 mx-auto w-full max-w-2xl self-end px-2 pb-3 [grid-area:1/1] sm:bottom-4 sm:px-4 sm:pb-4">
+          // Mobile: in flow below the photo, sticky-pinned to the viewport
+          // bottom until its resting place scrolls into view — so it floats
+          // over at most the photo's bottom edge instead of covering it.
+          // sm+: sticky overlay pinned to the photo's bottom edge.
+          <div className="pointer-events-none sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-30 mx-auto w-full max-w-2xl pt-2 sm:bottom-4 sm:self-end sm:px-4 sm:pb-4 sm:pt-0 sm:[grid-area:1/1]">
             <div className="pointer-events-auto">
               <TypeAnswerBar
                 label={activeLabel}

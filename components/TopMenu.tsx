@@ -351,6 +351,14 @@ function MenuDropdown({
       : []),
     {
       kind: 'panel',
+      icon: <TuneIcon size={15} />,
+      label: t('top.learningSettings'),
+      panel: 'learning',
+      active: false,
+      badge: null,
+    },
+    {
+      kind: 'panel',
       icon: <CategoryIcon size={15} />,
       label: t('top.categories'),
       panel: 'category',
@@ -385,14 +393,6 @@ function MenuDropdown({
       label: t('support.chat'),
       href: SUPPORT_TELEGRAM_URL,
       external: true,
-    },
-    {
-      kind: 'panel',
-      icon: <TuneIcon size={15} />,
-      label: t('top.learningSettings'),
-      panel: 'learning',
-      active: false,
-      badge: null,
     },
     {
       kind: 'panel',
