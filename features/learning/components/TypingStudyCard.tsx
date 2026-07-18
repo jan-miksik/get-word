@@ -6,9 +6,8 @@ import { STAGES, type NormalizedWord } from '@/lib/words';
 import type { ProgressData } from '@/lib/sync';
 import {
   getAcceptedAnswerCandidates,
-  matchAnswerAgainstCandidates,
   requiresExplicitTypingCheck,
-} from '@/lib/minigames';
+} from '@/features/learning/minigames';
 import { PREFILL_CHAR_RE, splitGraphemes } from '@/lib/answer-normalization';
 import {
   flipSide,
@@ -19,30 +18,24 @@ import {
   learningSideForRole,
   type LearningRole,
   type WordSide,
-} from '@/components/games/types';
-import { getTypingTargetLanguageLabel } from '@/components/games/target-language-label';
-import { CustomStagePopover } from '@/components/word-card/CustomStagePopover';
-import { formatNextReviewHint, getWordTextSize } from '@/components/word-card/helpers';
-import { ClipboardCheckIcon } from '@/components/icons/ClipboardCheckIcon';
-import { LightbulbIcon } from '@/components/icons/LightbulbIcon';
+} from './games/types';
+import { getTypingTargetLanguageLabel } from './games/target-language-label';
+import { CustomStagePopover } from './word-card/CustomStagePopover';
+import { formatNextReviewHint, getWordTextSize } from './word-card/helpers';
 import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
 import { useI18n } from '@/components/I18nProvider';
 import type { TypingWriteIn } from '@/features/learning/state/preferences';
+import { TypingMemoryHook } from './typing-study/TypingMemoryHook';
+import { TypingAnswerInput } from './typing-study/TypingAnswerInput';
+
 import {
-  limitMemoryHookLength,
-  MEMORY_HOOK_MAX_LENGTH,
-} from '@/features/learning/state/memoryHooks';
+  evaluateTypingAnswer,
+  getMinimumTypingAnswerLength,
+  type TypingOutcome,
+  type TypingResult,
+} from './typing-study/evaluation';
 
-export type TypingOutcome = 'known' | 'stay' | 'unknown';
-
-interface TypingResult {
-  match: 'exact' | 'close' | 'wrong';
-  matchedAnswer: string;
-  isAlternative: boolean;
-  outcome: TypingOutcome;
-  points: number;
-}
-type TypingOutcomeResult = Pick<TypingResult, 'match' | 'outcome' | 'points'>;
+export type { TypingOutcome } from './typing-study/evaluation';
 
 interface TypingStudyCardProps {
   word: NormalizedWord;
@@ -113,14 +106,6 @@ const GAME_PALETTE = {
   '--game-wrong': '#B91C1C',
 } as React.CSSProperties;
 
-function computeOutcome(match: 'exact' | 'close' | 'wrong', hints: number): TypingOutcomeResult {
-  if (match === 'exact' && hints === 0) return { match, outcome: 'known', points: 2 };
-  if ((match === 'exact' || match === 'close') && hints <= 1) {
-    return { match, outcome: 'stay', points: 1 };
-  }
-  return { match, outcome: 'unknown', points: 0 };
-}
-
 export function TypingStudyCard({
   word,
   progress,
@@ -153,7 +138,6 @@ export function TypingStudyCard({
   const inputRef = useRef<HTMLInputElement>(null);
   const audioButtonRef = useRef<HTMLButtonElement>(null);
   const compactContinueRef = useRef<HTMLButtonElement>(null);
-  const hookInputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioPressStartedAtRef = useRef(Number.NEGATIVE_INFINITY);
   const audioTouchActiveRef = useRef(false);
@@ -161,16 +145,6 @@ export function TypingStudyCard({
   const hintsRef = useRef(0);
   const continuedRef = useRef(false);
   const autoFocusedWordIdRef = useRef<string | null>(null);
-  const [editingHook, setEditingHook] = useState(false);
-  const [hookValue, setHookValue] = useState(memoryHook);
-
-  useEffect(() => {
-    setHookValue(memoryHook);
-  }, [memoryHook]);
-
-  useEffect(() => {
-    if (!showMemoryHook) setEditingHook(false);
-  }, [showMemoryHook]);
 
   const foreignSide: WordSide = learningSideForRole(role);
   const answerSide: WordSide =
@@ -396,13 +370,11 @@ export function TypingStudyCard({
   }, [foreignSide, isFocused, result, word]);
 
   const typedChars = splitGraphemes(value);
-  const minimumAnswerLengthForCheck = useFreeAnswerInput
-    ? Math.min(
-        ...answerCandidates
-          .map((candidate) => splitGraphemes(candidate.answer.trim()).length)
-          .filter((length) => length > 0),
-      )
-    : editableCount;
+  const minimumAnswerLengthForCheck = getMinimumTypingAnswerLength(
+    answerCandidates,
+    useFreeAnswerInput,
+    editableCount,
+  );
   const isManualAnswerComplete =
     minimumAnswerLengthForCheck > 0 && typedChars.length >= minimumAnswerLengthForCheck;
 
@@ -424,13 +396,7 @@ export function TypingStudyCard({
     if (typed.length === 0 || editableCount === 0) return;
     const merged =
       useFreeAnswerInput || typed.length > editableCount ? nextValue : buildMergedAnswer(typed);
-    const match = matchAnswerAgainstCandidates(merged, answerCandidates);
-    const nextOutcome = computeOutcome(match.verdict, hintsRef.current);
-    const nextResult = {
-      ...nextOutcome,
-      matchedAnswer: match.matchedAnswer,
-      isAlternative: match.isAlternative,
-    };
+    const nextResult = evaluateTypingAnswer(merged, answerCandidates, hintsRef.current);
     // A checked card no longer needs the keyboard. Blur synchronously so mobile
     // browsers start closing it before the result layout is painted.
     inputRef.current?.blur();
@@ -603,38 +569,6 @@ export function TypingStudyCard({
   const targetLanguageLabel = getTypingTargetLanguageLabel(word, answerSide, t, language);
   const showWriteInBadge = writeIn !== 'foreign';
   const showTypingAudio = hasAudioSource && !usesAudioPrompt;
-  const displayHook = memoryHook || (suggestedHook ? `💡 ${suggestedHook}` : null);
-
-  const startEditingHook = () => {
-    if (!onMemoryHookChange) return;
-    setEditingHook(true);
-    hookInputRef.current?.focus();
-  };
-
-  const finishEditingHook = () => {
-    setEditingHook(false);
-    onMemoryHookChange?.(hookValue);
-  };
-
-  const cancelEditingHook = () => {
-    setEditingHook(false);
-    setHookValue(memoryHook);
-  };
-
-  // A single tap opened the editor too easily on touch layouts (stray taps
-  // started typing over the hook), so mobile needs a quick double tap. The
-  // dblclick event is unreliable on touch, hence the manual timestamp check.
-  const lastHookTapAtRef = useRef(0);
-  const handleHookTap = () => {
-    if (!isMobileLayout()) {
-      if (!memoryHook) startEditingHook();
-      return;
-    }
-    const isSecondTap = Date.now() - lastHookTapAtRef.current < 350;
-    lastHookTapAtRef.current = Date.now();
-    if (isSecondTap) startEditingHook();
-  };
-
   // Which slot the caret sits in (fixed slots are skipped by mapping the caret
   // through the editable slot list).
   const activeSlotIndex =
@@ -725,20 +659,6 @@ export function TypingStudyCard({
         ? '!border-[#B91C1C]/30 !bg-[#B91C1C]/10 !text-[#8F1515]'
         : '!text-[#187A43]';
 
-  const hintButton = result === null ? (
-    <button
-      type="button"
-      className="game-hint-btn !flex !h-11 !min-h-11 !w-11 !min-w-11 !items-center !justify-center !rounded-full !border-0 !bg-[#F4EFE2] !p-0 !text-2xl !font-bold !normal-case !tracking-normal !text-[#2A2218] shadow-none hover:!bg-[#FFF8E8] disabled:!opacity-50"
-      onClick={revealNextLetter}
-      onPointerDown={preserveTypingFocus}
-      disabled={hintExhausted}
-      aria-label={t('game.hint')}
-      title={t('game.hint')}
-    >
-      <LightbulbIcon size={24} />
-    </button>
-  ) : null;
-
   return (
     <article
       ref={articleRef}
@@ -787,157 +707,33 @@ export function TypingStudyCard({
             </div>
           </div>
         )}
-        <div className="game-typing-area !gap-2">
-          <div className="relative mx-auto w-fit max-w-full">
-            <div className={`min-w-0 mx-auto ${useFreeAnswerInput ? 'w-[min(26rem,calc(100vw-7rem))]' : 'w-fit max-w-full'}`}>
-              {useFreeAnswerInput ? (
-                <input
-                  ref={inputRef}
-                  type="text"
-                  className={`w-full rounded-xl border-2 border-[#2A2218] bg-[#FFF8E8] px-4 py-2 text-center !text-[1.5rem] sm:!text-[2.5rem] font-bold text-[#2A2218] outline-none transition-colors focus:border-[#1E6FA8] disabled:opacity-80 ${
-                    result ? `game-input--${result.match}` : ''
-                  }`}
-                  placeholder={t('game.typeTranslation')}
-                  value={value}
-                  onChange={(e) => applyInputValue(e.target.value)}
-                  onCompositionStart={() => {
-                    isComposingRef.current = true;
-                  }}
-                  onCompositionEnd={(e) => {
-                    isComposingRef.current = false;
-                    applyInputValue(e.currentTarget.value);
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !isComposingRef.current) {
-                      e.preventDefault();
-                      submitCheck();
-                    }
-                  }}
-                  onFocus={() => setIsFocused(true)}
-                  onBlur={handleTypingBlur}
-                  disabled={result !== null}
-                  aria-disabled={result !== null}
-                  autoComplete="off"
-                  autoCorrect="off"
-                  autoCapitalize="off"
-                  spellCheck={false}
-                />
-              ) : (
-                <div
-                  className={[
-                    'game-typing-input-wrap !w-fit !max-w-full',
-                    result ? `game-typing-input-wrap--${result.match}` : '',
-                    isFocused ? 'is-focused' : '',
-                  ].filter(Boolean).join(' ')}
-                >
-                  {/* !text size must match the invisible input below so click→caret
-                      mapping stays aligned with the visible letters. */}
-                  <div className="game-typing-mask !px-2 !py-1 !text-[1.5rem] sm:!text-[2.5rem] md:[@media(max-height:800px)]:!min-h-[2.7em] md:[@media(max-height:800px)]:!text-[2rem]" aria-hidden="true">
-                    {maskGroups}
-                  </div>
-                  <input
-                    ref={inputRef}
-                    type="text"
-                    className={`game-input game-input--masked selection:bg-transparent selection:text-transparent !px-2 !py-1 !text-[1.5rem] sm:!text-[2.5rem] md:[@media(max-height:800px)]:!text-[2rem]${result ? ` game-input--${result.match}` : ''}`}
-                    placeholder={t('game.typeTranslation')}
-                    value={value}
-                    onChange={(e) => {
-                      applyInputValue(e.target.value);
-                      updateCaret(e.target);
-                    }}
-                    onCompositionStart={() => {
-                      isComposingRef.current = true;
-                    }}
-                    onCompositionEnd={(e) => {
-                      isComposingRef.current = false;
-                      applyInputValue(e.currentTarget.value);
-                      updateCaret(e.currentTarget);
-                    }}
-                    onKeyDown={(e) => {
-                      if (manualCheck && e.key === 'Enter' && !isComposingRef.current) {
-                        e.preventDefault();
-                        submitCheck();
-                      }
-                    }}
-                    onPointerDown={(e) => {
-                      // Resolve the masked caret before the browser briefly
-                      // paints its own caret at the raw pointer position.
-                      e.preventDefault();
-                      e.currentTarget.focus({ preventScroll: true });
-                      selectSlotFromPointer(e.currentTarget, e.clientX, e.clientY);
-                    }}
-                    onKeyUp={(e) => updateCaret(e.currentTarget)}
-                    onSelect={(e) => updateCaret(e.currentTarget)}
-                    onFocus={() => setIsFocused(true)}
-                    onBlur={handleTypingBlur}
-                    disabled={result !== null}
-                    aria-disabled={result !== null}
-                    autoComplete="off"
-                    autoCorrect="off"
-                    autoCapitalize="off"
-                    spellCheck={false}
-                  />
-                </div>
-              )}
-            </div>
-            {!manualCheck && (
-              <div className={`mx-auto mt-3 min-h-11 w-11 md:absolute md:left-[calc(100%+2.5rem)] md:top-1/2 md:mt-0 md:min-h-0 md:-translate-y-1/2 ${result ? 'invisible' : ''}`}>
-                {hintButton}
-              </div>
-            )}
-            {manualCheck && (
-              <div className={`game-typing-actions mx-auto mt-3 !w-fit !gap-3 md:absolute md:left-[calc(100%+1.5rem)] md:top-1/2 md:mt-0 md:-translate-y-1/2 ${result ? 'invisible pointer-events-none' : ''}`}>
-                {hintButton}
-                <button
-                  type="button"
-                  className="game-check-btn !flex !h-11 !min-h-11 !w-11 !min-w-11 items-center justify-center !rounded-full !p-0 disabled:cursor-default disabled:opacity-50"
-                  onClick={submitCheck}
-                  disabled={!isManualAnswerComplete}
-                  aria-label={t('game.check')}
-                  title={t('game.check')}
-                >
-                  <ClipboardCheckIcon size={22} />
-                </button>
-              </div>
-            )}
-          </div>
-        </div>
+        <TypingAnswerInput
+          inputRef={inputRef}
+          isComposingRef={isComposingRef}
+          useFreeAnswerInput={useFreeAnswerInput}
+          result={result}
+          value={value}
+          manualCheck={manualCheck}
+          isFocused={isFocused}
+          mask={maskGroups}
+          isManualAnswerComplete={isManualAnswerComplete}
+          hintExhausted={hintExhausted}
+          onApplyValue={applyInputValue}
+          onSubmit={submitCheck}
+          onFocus={() => setIsFocused(true)}
+          onBlur={handleTypingBlur}
+          onUpdateCaret={updateCaret}
+          onSelectSlot={selectSlotFromPointer}
+          onReveal={revealNextLetter}
+          onPreserveFocus={preserveTypingFocus}
+        />
 
         {showMemoryHook && (
-          <div className={`memory-hook-container mx-auto mt-1 mb-0 w-[calc(100%-2rem)] max-w-md self-center ${editingHook ? 'editing' : ''}`}>
-            <div
-              className="memory-hook-display relative cursor-pointer touch-manipulation select-none max-sm:w-full !text-[#2A2218] hover:!bg-[#2A2218]/5"
-              data-lang="memory-hook"
-              onDoubleClick={startEditingHook}
-              onClick={handleHookTap}
-            >
-              <span className={`memory-hook-text relative inline-block min-h-[1.4em] !text-[#2A2218] ${!memoryHook ? 'opacity-60 italic' : ''}`}>
-                {displayHook ?? (
-                  <>
-                    <span className="sm:hidden">💭 {t('card.memoryHookPlaceholderMobile')}</span>
-                    <span className="hidden sm:inline">💭 {t('card.memoryHookPlaceholder')}</span>
-                  </>
-                )}
-              </span>
-            </div>
-            <input
-              ref={hookInputRef}
-              type="text"
-              className="memory-hook-input !border-2 !border-[#2A2218] !bg-[#F4EFE2] !text-[#2A2218] placeholder:!text-[#2A2218]/50 focus:!border-[#1E6FA8] focus:!shadow-none"
-              placeholder={t('card.memoryHookPlaceholderMobile')}
-              value={hookValue}
-              maxLength={MEMORY_HOOK_MAX_LENGTH}
-              onChange={(e) => setHookValue(limitMemoryHookLength(e.target.value))}
-              onBlur={finishEditingHook}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  finishEditingHook();
-                } else if (e.key === 'Escape') {
-                  cancelEditingHook();
-                }
-              }}
-            />
-          </div>
+          <TypingMemoryHook
+            memoryHook={memoryHook}
+            suggestedHook={suggestedHook}
+            onChange={onMemoryHookChange}
+          />
         )}
       </div>
 

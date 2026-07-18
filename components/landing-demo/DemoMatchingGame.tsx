@@ -23,7 +23,7 @@ function buildRightOrder(count: number): number[] {
 
 /**
  * Compact 3-pair version of the app's matching minigame
- * (components/games/MatchingPairsGame.tsx), scoped to the landing palette.
+ * (features/learning/components/games/MatchingPairsGame.tsx), scoped to the landing palette.
  * Pairs are identified by their index in the demo word set.
  */
 export function DemoMatchingGame({

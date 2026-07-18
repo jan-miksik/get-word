@@ -11,7 +11,8 @@ import {
   type MatchedWordList,
   type RecommendedReason,
 } from './listRecommendations';
-import type { LearningLanguage } from './types';
+import type { LearningLanguage } from '@/features/shared/languages/types';
+import { useSupportedLanguages } from '@/features/shared/languages/useSupportedLanguages';
 
 type CommonListEstimate = {
   status: 'loading' | 'ready' | 'unavailable';
@@ -81,7 +82,7 @@ export function useLearningOnboardingData({
   initialFrom,
   initialTo,
 }: UseLearningOnboardingDataOptions) {
-  const [languages, setLanguages] = useState<LearningLanguage[]>([]);
+  const { languages, loading: loadingLanguages } = useSupportedLanguages();
   // Default the pair from, in order: an explicit previously-synced choice
   // (initialFrom/initialTo), then the pair the visitor picked on the public
   // landing page before logging in, then the landing-page interface language
@@ -93,28 +94,8 @@ export function useLearningOnboardingData({
     () => initialTo ?? readLandingLanguagePair()?.to ?? '',
   );
   const [matchesState, setMatchesState] = useState<MatchesState | null>(null);
-  const [loadingLanguages, setLoadingLanguages] = useState(true);
   const [commonListEstimateState, setCommonListEstimateState] =
     useState<CommonListEstimateState | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/languages')
-      .then((res) => res.json())
-      .then((data) => {
-        if (cancelled) return;
-        setLanguages(Array.isArray(data.languages) ? data.languages : []);
-      })
-      .catch(() => {
-        if (!cancelled) setLanguages([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingLanguages(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
 
   const validLanguagePair = Boolean(languageFrom && languageTo && languageFrom !== languageTo);
   const languagePairKey = validLanguagePair ? `${languageFrom}|${languageTo}` : null;

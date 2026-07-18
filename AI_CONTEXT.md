@@ -35,7 +35,8 @@ subsystem decisions and data-model notes.
 - Language onboarding data/loading: `features/learning/onboarding/useLearningOnboardingData.ts`
 - Language onboarding actions/navigation: `features/learning/onboarding/useLearningOnboardingActions.ts`
 - Onboarding recommendations/estimates: `features/learning/onboarding/listRecommendations.ts`
-- Onboarding language picker: `features/learning/onboarding/LanguageCombobox.tsx`
+- Shared language picker: `features/shared/languages/LanguageCombobox.tsx`
+- Supported-language client loading: `features/shared/languages/useSupportedLanguages.ts`
 
 ### Learning state and sync
 
@@ -59,7 +60,8 @@ subsystem decisions and data-model notes.
 - Canonical list types: `features/lists/types.ts`
 - URL state helpers: `features/lists/client/url-state.ts`
 - Local preference storage: `features/lists/client/storage.ts`
-- Language helpers/loading: `features/lists/languages.ts`, `features/lists/hooks/useLearningLanguages.ts`
+- List-direction helpers: `features/lists/languages.ts`
+- Shared language picker/loading/settings-language/types: `features/shared/languages/*`
 - Google usage loading: `features/lists/hooks/useGoogleUsage.ts`
 - Lists page data/loading/subscriptions: `features/lists/hooks/useListsPageData.ts`
 - Lists detail loading/category mutations: `features/lists/hooks/useListsDetailsData.ts`
@@ -131,7 +133,8 @@ subsystem decisions and data-model notes.
 - New feature-specific types belong in `features/<feature>/types.ts`, not page files.
 - New list browser HTTP calls should go through `features/lists/api.ts` or `features/lists/client/actions.ts`.
 - New learning state belongs under `features/learning/state` or `features/learning/app-state`.
-- `lib/minigames.ts` is a compatibility barrel — prefer `@/features/learning/minigames` in new code.
+- Import minigame domain logic directly from `@/features/learning/minigames`; learning game/deck/stream/card UI belongs under `features/learning/components`.
+- `usePreferences` remains the learning-state façade. Browser-only learning preference storage lives in `features/learning/state/localPreferences.ts`; Photo Lab owns its flag storage in `features/photo-lab/client/preferences.ts`.
 - The former `hooks/use{Progress,Preferences,MemoryHooks,CategoryFilter,GameScore,UserProfile,WordsLoader,WordStream,PressHandlers}.ts` barrels were removed; import directly from `features/learning/state/*`, `features/learning/hooks/*`, and `features/auth/state/userProfile`.
 
 ## Refactor Rules

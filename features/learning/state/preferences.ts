@@ -20,132 +20,33 @@ import {
   isLearningRole,
   type LearningRole,
 } from '@/features/learning/state/learningRole';
+import {
+  readPhotoLabPreference,
+  storePhotoLabPreference,
+} from '@/features/photo-lab/client/preferences';
+import {
+  LEARNING_LOCAL_PREFERENCE_KEYS,
+  readProgressiveRevealPreference,
+  readRevealModePreference,
+  readSwipeCardsPreference,
+  readTypingAudioPromptPreference,
+  readTypingCheckButtonPreference,
+  readTypingMobileKeyboardAutoFocusPreference,
+  readTypingModePreference,
+  readTypingPlayAudioAfterCheckPreference,
+  readTypingPrefillPunctuationPreference,
+  readTypingWriteInPreference,
+  storeLearningLocalPreference,
+  type RevealMode,
+  type TypingWriteIn,
+} from './localPreferences';
 
 export type Role = LearningRole;
 export type SettingsLanguage = string;
-export type RevealMode = 'press' | 'scratch';
-export type TypingWriteIn = 'foreign' | 'both' | 'known';
+export type { RevealMode, TypingWriteIn } from './localPreferences';
 
 const DEFAULT_SETTINGS_LANGUAGE = 'en';
 const LEARNING_ONBOARDING_COMPLETED_SESSION_KEY = 'get-word-learning-onboarding-completed';
-const PROGRESSIVE_REVEAL_STORAGE_KEY = 'get-word-progressive-reveal-enabled';
-const REVEAL_MODE_STORAGE_KEY = 'get-word-reveal-mode';
-const SWIPE_CARDS_STORAGE_KEY = 'get-word-swipe-cards-enabled';
-const PHOTO_LAB_STORAGE_KEY = 'get-word-photo-lab-enabled';
-const TYPING_MODE_STORAGE_KEY = 'get-word-typing-mode-enabled';
-const TYPING_WRITE_IN_STORAGE_KEY = 'get-word-typing-write-in';
-const TYPING_AUDIO_PROMPT_STORAGE_KEY = 'get-word-typing-audio-prompt-enabled';
-const TYPING_PREFILL_PUNCTUATION_STORAGE_KEY = 'get-word-typing-prefill-punctuation';
-const TYPING_MOBILE_KEYBOARD_AUTOFOCUS_STORAGE_KEY =
-  'get-word-typing-mobile-keyboard-autofocus';
-const TYPING_PLAY_AUDIO_AFTER_CHECK_STORAGE_KEY =
-  'get-word-typing-play-audio-after-check';
-const TYPING_CHECK_BUTTON_STORAGE_KEY = 'get-word-typing-check-button-enabled';
-
-function readProgressiveRevealPreference(): boolean {
-  if (typeof window === 'undefined') return true;
-  try {
-    return window.localStorage.getItem(PROGRESSIVE_REVEAL_STORAGE_KEY) !== 'false';
-  } catch {
-    return true;
-  }
-}
-
-function readSwipeCardsPreference(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.localStorage.getItem(SWIPE_CARDS_STORAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-// Exported so the standalone /photo-lab page (rendered outside AppStateProvider)
-// can gate itself on the same preference.
-export function readPhotoLabPreference(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.localStorage.getItem(PHOTO_LAB_STORAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-function readRevealModePreference(): RevealMode {
-  if (typeof window === 'undefined') return 'scratch';
-  try {
-    return window.localStorage.getItem(REVEAL_MODE_STORAGE_KEY) === 'press'
-      ? 'press'
-      : 'scratch';
-  } catch {
-    return 'scratch';
-  }
-}
-
-function readTypingModePreference(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.localStorage.getItem(TYPING_MODE_STORAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-function readTypingWriteInPreference(): TypingWriteIn {
-  if (typeof window === 'undefined') return 'foreign';
-  try {
-    const stored = window.localStorage.getItem(TYPING_WRITE_IN_STORAGE_KEY);
-    return stored === 'both' || stored === 'known' ? stored : 'foreign';
-  } catch {
-    return 'foreign';
-  }
-}
-
-function readTypingAudioPromptPreference(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.localStorage.getItem(TYPING_AUDIO_PROMPT_STORAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-function readTypingPrefillPunctuationPreference(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.localStorage.getItem(TYPING_PREFILL_PUNCTUATION_STORAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-function readTypingMobileKeyboardAutoFocusPreference(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.localStorage.getItem(TYPING_MOBILE_KEYBOARD_AUTOFOCUS_STORAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-function readTypingPlayAudioAfterCheckPreference(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.localStorage.getItem(TYPING_PLAY_AUDIO_AFTER_CHECK_STORAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-function readTypingCheckButtonPreference(): boolean {
-  if (typeof window === 'undefined') return false;
-  try {
-    return window.localStorage.getItem(TYPING_CHECK_BUTTON_STORAGE_KEY) === 'true';
-  } catch {
-    return false;
-  }
-}
-
 function normalizeSettingsLanguage(value: unknown): SettingsLanguage {
   if (typeof value !== 'string') return DEFAULT_SETTINGS_LANGUAGE;
   const trimmed = value.trim();
@@ -258,109 +159,65 @@ export function usePreferences(
   const [categoryOrder, setCategoryOrderState] = useState<string[]>([]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(
-        PROGRESSIVE_REVEAL_STORAGE_KEY,
-        String(progressiveRevealEnabled)
-      );
-    } catch {
-      // Keep the in-memory setting usable when storage is unavailable.
-    }
+    storeLearningLocalPreference(
+      LEARNING_LOCAL_PREFERENCE_KEYS.progressiveReveal,
+      progressiveRevealEnabled,
+    );
   }, [progressiveRevealEnabled]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(REVEAL_MODE_STORAGE_KEY, revealMode);
-    } catch {
-      // Keep the in-memory setting usable when storage is unavailable.
-    }
+    storeLearningLocalPreference(LEARNING_LOCAL_PREFERENCE_KEYS.revealMode, revealMode);
   }, [revealMode]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(SWIPE_CARDS_STORAGE_KEY, String(swipeCardsEnabled));
-    } catch {
-      // Keep the in-memory setting usable when storage is unavailable.
-    }
+    storeLearningLocalPreference(LEARNING_LOCAL_PREFERENCE_KEYS.swipeCards, swipeCardsEnabled);
   }, [swipeCardsEnabled]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(PHOTO_LAB_STORAGE_KEY, String(photoLabEnabled));
-    } catch {
-      // Keep the in-memory setting usable when storage is unavailable.
-    }
+    storePhotoLabPreference(photoLabEnabled);
   }, [photoLabEnabled]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(TYPING_MODE_STORAGE_KEY, String(typingModeEnabled));
-    } catch {
-      // Keep the in-memory setting usable when storage is unavailable.
-    }
+    storeLearningLocalPreference(LEARNING_LOCAL_PREFERENCE_KEYS.typingMode, typingModeEnabled);
   }, [typingModeEnabled]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(TYPING_WRITE_IN_STORAGE_KEY, typingWriteIn);
-    } catch {
-      // Keep the in-memory setting usable when storage is unavailable.
-    }
+    storeLearningLocalPreference(LEARNING_LOCAL_PREFERENCE_KEYS.typingWriteIn, typingWriteIn);
   }, [typingWriteIn]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(
-        TYPING_AUDIO_PROMPT_STORAGE_KEY,
-        String(typingAudioPromptEnabled)
-      );
-    } catch {
-      // Keep the in-memory setting usable when storage is unavailable.
-    }
+    storeLearningLocalPreference(
+      LEARNING_LOCAL_PREFERENCE_KEYS.typingAudioPrompt,
+      typingAudioPromptEnabled,
+    );
   }, [typingAudioPromptEnabled]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(
-        TYPING_PREFILL_PUNCTUATION_STORAGE_KEY,
-        String(typingPrefillPunctuation)
-      );
-    } catch {
-      // Keep the in-memory setting usable when storage is unavailable.
-    }
+    storeLearningLocalPreference(
+      LEARNING_LOCAL_PREFERENCE_KEYS.typingPrefillPunctuation,
+      typingPrefillPunctuation,
+    );
   }, [typingPrefillPunctuation]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(
-        TYPING_MOBILE_KEYBOARD_AUTOFOCUS_STORAGE_KEY,
-        String(typingMobileKeyboardAutoFocus)
-      );
-    } catch {
-      // Keep the in-memory setting usable when storage is unavailable.
-    }
+    storeLearningLocalPreference(
+      LEARNING_LOCAL_PREFERENCE_KEYS.typingMobileKeyboardAutoFocus,
+      typingMobileKeyboardAutoFocus,
+    );
   }, [typingMobileKeyboardAutoFocus]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(
-        TYPING_PLAY_AUDIO_AFTER_CHECK_STORAGE_KEY,
-        String(typingPlayAudioAfterCheck)
-      );
-    } catch {
-      // Keep the in-memory setting usable when storage is unavailable.
-    }
+    storeLearningLocalPreference(
+      LEARNING_LOCAL_PREFERENCE_KEYS.typingPlayAudioAfterCheck,
+      typingPlayAudioAfterCheck,
+    );
   }, [typingPlayAudioAfterCheck]);
 
   useEffect(() => {
-    try {
-      window.localStorage.setItem(
-        TYPING_CHECK_BUTTON_STORAGE_KEY,
-        String(typingCheckButtonEnabled)
-      );
-    } catch {
-      // Keep the in-memory setting usable when storage is unavailable.
-    }
+    storeLearningLocalPreference(
+      LEARNING_LOCAL_PREFERENCE_KEYS.typingCheckButton,
+      typingCheckButtonEnabled,
+    );
   }, [typingCheckButtonEnabled]);
 
   // Gate sync on hasReceivedServerSnapshot(): without it, a failed initial GET

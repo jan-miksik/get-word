@@ -7,7 +7,7 @@ import { useI18n } from '@/components/I18nProvider';
 import { RisingLettersBackground } from '@/components/RisingLettersBackground';
 import { SupportButton, SUPPORT_TELEGRAM_URL } from '@/components/SupportButton';
 import { OnboardingGenerationOverlay } from './OnboardingGenerationOverlay';
-import { LanguageCombobox } from './LanguageCombobox';
+import { LanguageCombobox } from '@/features/shared/languages/LanguageCombobox';
 import { OnboardingLanguageSwitcher } from './OnboardingLanguageSwitcher';
 import { useLearningOnboardingActions } from './useLearningOnboardingActions';
 import { useLearningOnboardingData } from './useLearningOnboardingData';

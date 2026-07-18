@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n } from '@/components/I18nProvider';
-import { MemoryHooksPanel } from '@/components/MemoryHooksPanel';
+import { MemoryHooksPanel } from './MemoryHooksPanel';
 import { getMemoryHooksIntroCopy } from './memoryHooksCopy';
 
 interface MemoryHooksIntroCardProps {

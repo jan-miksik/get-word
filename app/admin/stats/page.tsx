@@ -3,11 +3,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
-import { useListsSettingsLanguage } from '@/features/lists/hooks/useListsSettingsLanguage';
+import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLanguage';
 import type { ActivityWindow, UsageStats } from '@/lib/db/queries/usage-stats';
 
 export default function AdminStatsPage() {
-  const settingsLanguage = useListsSettingsLanguage();
+  const settingsLanguage = useSettingsLanguage();
 
   return (
     <I18nProvider language={settingsLanguage}>

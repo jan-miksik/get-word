@@ -8,8 +8,8 @@ import {
   readInitialListsUrlState,
   selectedListUrl,
 } from '@/features/lists/client/url-state';
-import { useLearningLanguages } from '@/features/lists/hooks/useLearningLanguages';
-import { useListsSettingsLanguage } from '@/features/lists/hooks/useListsSettingsLanguage';
+import { useSupportedLanguages } from '@/features/shared/languages/useSupportedLanguages';
+import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLanguage';
 import { useGoogleUsage } from '@/features/lists/hooks/useGoogleUsage';
 import { useListsPageData } from '@/features/lists/hooks/useListsPageData';
 import { useListsDetailsData } from '@/features/lists/hooks/useListsDetailsData';
@@ -33,7 +33,7 @@ import { PendingForkDialog } from '@/features/lists/components/PendingForkDialog
 import { WizardProgressBar } from '@/features/lists/components/WizardProgressBar';
 
 export default function ListsPage() {
-  const settingsLanguage = useListsSettingsLanguage();
+  const settingsLanguage = useSettingsLanguage();
 
   return (
     <I18nProvider language={settingsLanguage}>
@@ -62,7 +62,7 @@ function ListsPageContent() {
     initialUrlState?.initialCreateLanguageTo ?? null,
   );
   const [existingListsHint, setExistingListsHint] = useState(initialUrlState?.existingListsHint ?? false);
-  const languages = useLearningLanguages();
+  const { languages } = useSupportedLanguages();
   const { googleUsage, loadGoogleUsage } = useGoogleUsage();
   const {
     lists,

@@ -10,7 +10,7 @@ Owns list browsing, category editing, translation review, audio generation flow,
 - `features/lists/api.ts`
 - `features/lists/client/actions.ts`
 - `features/lists/hooks/useListWizardItems.ts`
-- `features/lists/hooks/useLearningLanguages.ts`
+- `features/shared/languages/useSupportedLanguages.ts`
 - `features/lists/hooks/useGoogleUsage.ts`
 - `features/lists/hooks/useListsPageData.ts`
 - `features/lists/hooks/useListsDetailsData.ts`
@@ -26,6 +26,7 @@ Owns list browsing, category editing, translation review, audio generation flow,
 - URL state helpers: `features/lists/client/url-state.ts`
 - Local preference storage: `features/lists/client/storage.ts`
 - Language helpers: `features/lists/languages.ts`
+- Shared language picker/loading/settings-language/types: `features/shared/languages/*`
 - Google usage loading: `features/lists/hooks/useGoogleUsage.ts`
 - Lists page data/loading/subscriptions: `features/lists/hooks/useListsPageData.ts`
 - Lists detail loading/category mutations: `features/lists/hooks/useListsDetailsData.ts`

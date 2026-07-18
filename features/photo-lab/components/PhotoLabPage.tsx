@@ -1,13 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
-import { useListsSettingsLanguage } from '@/features/lists/hooks/useListsSettingsLanguage';
-// TODO: lift useLearningLanguages out of features/lists into a shared location.
-import { useLearningLanguages } from '@/features/lists/hooks/useLearningLanguages';
-import { readPhotoLabPreference } from '@/features/learning/state/preferences';
+import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLanguage';
+import { useSupportedLanguages } from '@/features/shared/languages/useSupportedLanguages';
+import { readPhotoLabPreference } from '@/features/photo-lab/client/preferences';
 import { WARM_PALETTE, warmPaletteVars } from '@/features/shared/theme/warm-palette';
 import { createBrowserId } from '@/lib/browser-id';
 import { getLanguageFlag, getLocalizedLanguageName } from '@/lib/i18n/languages';
@@ -96,7 +95,7 @@ function PhotoLabShell({ children }: { children: React.ReactNode }) {
 }
 
 export function PhotoLabPage() {
-  const settingsLanguage = useListsSettingsLanguage();
+  const settingsLanguage = useSettingsLanguage();
 
   return (
     <I18nProvider language={settingsLanguage}>
@@ -237,7 +236,7 @@ function DeletePhotoConfirmModal({
 
 function PhotoLabStudio() {
   const { t } = useI18n();
-  const languages = useLearningLanguages();
+  const { languages } = useSupportedLanguages();
 
   const [langFrom, setLangFrom] = useState('');
   const [langTo, setLangTo] = useState('');
@@ -268,17 +267,6 @@ function PhotoLabStudio() {
     analysisElapsedSeconds < ANALYSIS_ESTIMATE_SECONDS
       ? t('photoLab.analyzingWithEta', { seconds: analysisRemainingSeconds })
       : t('photoLab.analyzingTakingLonger');
-
-  // LanguageCombobox expects the onboarding language shape.
-  const onboardingLanguages = useMemo(
-    () =>
-      languages.map((language) => ({
-        ...language,
-        ttsAvailable: language.ttsAvailable ?? false,
-        preferredVoice: null,
-      })),
-    [languages],
-  );
 
   // Default language pair: last used here, else the learning pair cached from sync.
   useEffect(() => {
@@ -529,7 +517,7 @@ function PhotoLabStudio() {
 
       <LanguagePairModal
         isOpen={langModalOpen}
-        languages={onboardingLanguages}
+        languages={languages}
         loading={languages.length === 0}
         from={langFrom}
         to={langTo}

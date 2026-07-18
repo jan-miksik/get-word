@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import Link from 'next/link';
 import { AppLogo } from '@/components/AppLogo';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
@@ -9,12 +9,12 @@ import { LandingPageStyles } from '@/components/landing/LandingPageStyles';
 import { LandingDemoCard } from '@/components/LandingDemoCard';
 import { getLandingDemoFallbackTo } from '@/components/landing-demo/demo-set';
 import { SpeckledBackground } from '@/components/SpeckledBackground';
-import { LanguageCombobox } from '@/features/learning/onboarding/LanguageCombobox';
+import { LanguageCombobox } from '@/features/shared/languages/LanguageCombobox';
+import { useSupportedLanguages } from '@/features/shared/languages/useSupportedLanguages';
 import {
   readLandingLanguagePair,
   saveLandingLanguagePair,
 } from '@/features/learning/onboarding/landingPairStorage';
-import type { LearningLanguage } from '@/features/learning/onboarding/types';
 import type { I18nKey } from '@/lib/i18n/messages';
 import {
   DEFAULT_SETTINGS_LANGUAGE,
@@ -452,26 +452,7 @@ function HeroLanguagePicker({
   onBeforeLogin: () => void;
 }) {
   const { t } = useI18n();
-  const [languages, setLanguages] = useState<LearningLanguage[]>([]);
-  const [loadingLanguages, setLoadingLanguages] = useState(true);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetch('/api/languages')
-      .then((res) => res.json())
-      .then((data) => {
-        if (!cancelled) setLanguages(Array.isArray(data.languages) ? data.languages : []);
-      })
-      .catch(() => {
-        if (!cancelled) setLanguages([]);
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingLanguages(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { languages, loading: loadingLanguages } = useSupportedLanguages();
 
   function updateFrom(code: string) {
     onPairChange({ from: code });

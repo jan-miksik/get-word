@@ -3,13 +3,13 @@
 import { useCallback, useMemo, useState } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { I18nProvider } from '@/components/I18nProvider';
-import { WordCard } from '@/components/WordCard';
+import { WordCard } from '@/features/learning/components/WordCard';
 import { AppStateProvider, type AppStateContextValue } from '@/context/AppStateContext';
 import { TypingStudyCard } from '@/features/learning/components/TypingStudyCard';
 import type { TypingWriteIn } from '@/features/learning/state/preferences';
 import type { LearningRole } from '@/features/learning/state/learningRole';
 import type { ProgressData } from '@/lib/sync';
-import type { MinigameFrequencyRange } from '@/lib/minigames';
+import type { MinigameFrequencyRange } from '@/features/learning/minigames';
 import {
   DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
   STAGES,

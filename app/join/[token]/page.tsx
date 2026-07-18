@@ -7,7 +7,7 @@ import { AppLogo } from '@/components/AppLogo';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { SpeckledBackground } from '@/components/SpeckledBackground';
-import { useListsSettingsLanguage } from '@/features/lists/hooks/useListsSettingsLanguage';
+import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLanguage';
 import { deviceJsonFetch } from '@/features/shared/http/device-json-fetch';
 import { persistActiveListId } from '@/features/learning/app-state/storage';
 
@@ -53,7 +53,7 @@ function shouldAutoAcceptShare(authState: AuthState, autoRequested: boolean): bo
 }
 
 export default function JoinPage() {
-  const settingsLanguage = useListsSettingsLanguage();
+  const settingsLanguage = useSettingsLanguage();
   return (
     <I18nProvider language={settingsLanguage}>
       <JoinContent />

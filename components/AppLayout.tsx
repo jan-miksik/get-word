@@ -4,11 +4,11 @@ import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { TopMenu } from '@/components/TopMenu';
 import { AuthButton } from '@/components/AuthButton';
 import { SettingsPanel } from '@/components/SettingsPanel';
-import { LearningSettingsPanel } from '@/components/LearningSettingsPanel';
-import { CategoryPanel } from '@/components/CategoryPanel';
-import { MemoryHooksPanel } from '@/components/MemoryHooksPanel';
-import { ProgressSummary } from '@/components/ProgressSummary';
-import { UpcomingPanel } from '@/components/UpcomingPanel';
+import { LearningSettingsPanel } from '@/features/learning/components/LearningSettingsPanel';
+import { CategoryPanel } from '@/features/learning/components/CategoryPanel';
+import { MemoryHooksPanel } from '@/features/learning/components/MemoryHooksPanel';
+import { ProgressSummary } from '@/features/learning/components/ProgressSummary';
+import { UpcomingPanel } from '@/features/learning/components/UpcomingPanel';
 import { useMenuPanels } from '@/hooks/useMenuPanels';
 import { useAppStateContext } from '@/context/AppStateContext';
 import { PWAInstallBanner } from '@/components/PWAInstallBanner';
@@ -23,8 +23,10 @@ import {
 interface AppLayoutProps {
   // Page-level UI state (localStorage-only, not in context)
   viewMode: 'card' | 'stream';
-  minigameFrequency: import('@/lib/minigames').MinigameFrequencyRange;
-  onMinigameFrequencyChange: (value: import('@/lib/minigames').MinigameFrequencyRange) => void;
+  minigameFrequency: import('@/features/learning/minigames').MinigameFrequencyRange;
+  onMinigameFrequencyChange: (
+    value: import('@/features/learning/minigames').MinigameFrequencyRange
+  ) => void;
   // Auth (from useAuth, not useAppState)
   isAuthenticated?: boolean;
   authEmail?: string;

@@ -1,0 +1,172 @@
+'use client';
+
+import type { MutableRefObject, PointerEvent, ReactNode, RefObject } from 'react';
+import { useI18n } from '@/components/I18nProvider';
+import { ClipboardCheckIcon } from '@/components/icons/ClipboardCheckIcon';
+import { LightbulbIcon } from '@/components/icons/LightbulbIcon';
+import type { TypingResult } from './evaluation';
+
+type TypingAnswerInputProps = {
+  inputRef: RefObject<HTMLInputElement | null>;
+  isComposingRef: MutableRefObject<boolean>;
+  useFreeAnswerInput: boolean;
+  result: TypingResult | null;
+  value: string;
+  manualCheck: boolean;
+  isFocused: boolean;
+  mask: ReactNode;
+  isManualAnswerComplete: boolean;
+  hintExhausted: boolean;
+  onApplyValue: (value: string) => void;
+  onSubmit: () => void;
+  onFocus: () => void;
+  onBlur: () => void;
+  onUpdateCaret: (input: HTMLInputElement) => void;
+  onSelectSlot: (input: HTMLInputElement, clientX: number, clientY: number) => void;
+  onReveal: () => void;
+  onPreserveFocus: (event: PointerEvent<HTMLButtonElement>) => void;
+};
+
+export function TypingAnswerInput({
+  inputRef,
+  isComposingRef,
+  useFreeAnswerInput,
+  result,
+  value,
+  manualCheck,
+  isFocused,
+  mask,
+  isManualAnswerComplete,
+  hintExhausted,
+  onApplyValue,
+  onSubmit,
+  onFocus,
+  onBlur,
+  onUpdateCaret,
+  onSelectSlot,
+  onReveal,
+  onPreserveFocus,
+}: TypingAnswerInputProps) {
+  const { t } = useI18n();
+  const hintButton = result === null ? (
+    <button
+      type="button"
+      className="game-hint-btn !flex !h-11 !min-h-11 !w-11 !min-w-11 !items-center !justify-center !rounded-full !border-0 !bg-[#F4EFE2] !p-0 !text-2xl !font-bold !normal-case !tracking-normal !text-[#2A2218] shadow-none hover:!bg-[#FFF8E8] disabled:!opacity-50"
+      onClick={onReveal}
+      onPointerDown={onPreserveFocus}
+      disabled={hintExhausted}
+      aria-label={t('game.hint')}
+      title={t('game.hint')}
+    >
+      <LightbulbIcon size={24} />
+    </button>
+  ) : null;
+
+  const commonInputProps = {
+    value,
+    onFocus,
+    onBlur,
+    disabled: result !== null,
+    'aria-disabled': result !== null,
+    autoComplete: 'off',
+    autoCorrect: 'off',
+    autoCapitalize: 'off',
+    spellCheck: false,
+  } as const;
+
+  return (
+    <div className="game-typing-area !gap-2">
+      <div className="relative mx-auto w-fit max-w-full">
+        <div className={`min-w-0 mx-auto ${useFreeAnswerInput ? 'w-[min(26rem,calc(100vw-7rem))]' : 'w-fit max-w-full'}`}>
+          {useFreeAnswerInput ? (
+            <input
+              ref={inputRef}
+              type="text"
+              className={`w-full rounded-xl border-2 border-[#2A2218] bg-[#FFF8E8] px-4 py-2 text-center !text-[1.5rem] sm:!text-[2.5rem] font-bold text-[#2A2218] outline-none transition-colors focus:border-[#1E6FA8] disabled:opacity-80 ${result ? `game-input--${result.match}` : ''}`}
+              placeholder={t('game.typeTranslation')}
+              onChange={(event) => onApplyValue(event.target.value)}
+              onCompositionStart={() => {
+                isComposingRef.current = true;
+              }}
+              onCompositionEnd={(event) => {
+                isComposingRef.current = false;
+                onApplyValue(event.currentTarget.value);
+              }}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' && !isComposingRef.current) {
+                  event.preventDefault();
+                  onSubmit();
+                }
+              }}
+              {...commonInputProps}
+            />
+          ) : (
+            <div
+              className={[
+                'game-typing-input-wrap !w-fit !max-w-full',
+                result ? `game-typing-input-wrap--${result.match}` : '',
+                isFocused ? 'is-focused' : '',
+              ].filter(Boolean).join(' ')}
+            >
+              <div className="game-typing-mask !px-2 !py-1 !text-[1.5rem] sm:!text-[2.5rem] md:[@media(max-height:800px)]:!min-h-[2.7em] md:[@media(max-height:800px)]:!text-[2rem]" aria-hidden="true">
+                {mask}
+              </div>
+              <input
+                ref={inputRef}
+                type="text"
+                className={`game-input game-input--masked selection:bg-transparent selection:text-transparent !px-2 !py-1 !text-[1.5rem] sm:!text-[2.5rem] md:[@media(max-height:800px)]:!text-[2rem]${result ? ` game-input--${result.match}` : ''}`}
+                placeholder={t('game.typeTranslation')}
+                onChange={(event) => {
+                  onApplyValue(event.target.value);
+                  onUpdateCaret(event.target);
+                }}
+                onCompositionStart={() => {
+                  isComposingRef.current = true;
+                }}
+                onCompositionEnd={(event) => {
+                  isComposingRef.current = false;
+                  onApplyValue(event.currentTarget.value);
+                  onUpdateCaret(event.currentTarget);
+                }}
+                onKeyDown={(event) => {
+                  if (manualCheck && event.key === 'Enter' && !isComposingRef.current) {
+                    event.preventDefault();
+                    onSubmit();
+                  }
+                }}
+                onPointerDown={(event) => {
+                  event.preventDefault();
+                  event.currentTarget.focus({ preventScroll: true });
+                  onSelectSlot(event.currentTarget, event.clientX, event.clientY);
+                }}
+                onKeyUp={(event) => onUpdateCaret(event.currentTarget)}
+                onSelect={(event) => onUpdateCaret(event.currentTarget)}
+                {...commonInputProps}
+              />
+            </div>
+          )}
+        </div>
+        {!manualCheck && (
+          <div className={`mx-auto mt-3 min-h-11 w-11 md:absolute md:left-[calc(100%+2.5rem)] md:top-1/2 md:mt-0 md:min-h-0 md:-translate-y-1/2 ${result ? 'invisible' : ''}`}>
+            {hintButton}
+          </div>
+        )}
+        {manualCheck && (
+          <div className={`game-typing-actions mx-auto mt-3 !w-fit !gap-3 md:absolute md:left-[calc(100%+1.5rem)] md:top-1/2 md:mt-0 md:-translate-y-1/2 ${result ? 'invisible pointer-events-none' : ''}`}>
+            {hintButton}
+            <button
+              type="button"
+              className="game-check-btn !flex !h-11 !min-h-11 !w-11 !min-w-11 items-center justify-center !rounded-full !p-0 disabled:cursor-default disabled:opacity-50"
+              onClick={onSubmit}
+              disabled={!isManualAnswerComplete}
+              aria-label={t('game.check')}
+              title={t('game.check')}
+            >
+              <ClipboardCheckIcon size={22} />
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

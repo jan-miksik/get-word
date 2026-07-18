@@ -10,7 +10,7 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { CreateListModal, type CreateListOptions } from '../CreateListModal';
 import { ListFilterModal } from '../ListFilterModal';
 import { ShareVisibilityDialog } from '../ShareVisibilityDialog';
-import type { LearningLanguage } from '@/features/learning/onboarding/types';
+import type { LearningLanguage } from '@/features/shared/languages/types';
 import { ForkIcon, ListSidebarItemButton } from './ListSidebarItem';
 import { useCreateListWorkflow } from './useCreateListWorkflow';
 

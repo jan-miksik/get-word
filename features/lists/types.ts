@@ -19,12 +19,6 @@ export type WordList = {
   updatedAt?: string | Date;
 };
 
-export type LearningLanguage = {
-  code: string;
-  name: string;
-  ttsAvailable?: boolean;
-};
-
 export type TranslationProvider = 'google' | 'openrouter' | 'none';
 
 export type WizardActiveStep =

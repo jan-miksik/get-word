@@ -2,8 +2,8 @@
 
 import { createPortal } from 'react-dom';
 import { useI18n } from '@/components/I18nProvider';
-import { LanguageCombobox } from '@/features/learning/onboarding/LanguageCombobox';
-import type { LearningLanguage } from '@/features/learning/onboarding/types';
+import { LanguageCombobox } from '@/features/shared/languages/LanguageCombobox';
+import type { LearningLanguage } from '@/features/shared/languages/types';
 
 type ListFilterModalProps = {
   isOpen: boolean;

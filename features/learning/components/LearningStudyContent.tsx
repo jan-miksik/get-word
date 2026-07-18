@@ -1,11 +1,11 @@
 'use client';
 
 import { AppLayout } from '@/components/AppLayout';
-import { CardDeckView, type CardDeckSwipeActions } from '@/components/CardDeckView';
-import { VirtualizedWordList } from '@/components/VirtualizedWordList';
+import { CardDeckView, type CardDeckSwipeActions } from './CardDeckView';
+import { VirtualizedWordList } from './VirtualizedWordList';
 import { SettlingWordsFooter } from './SettlingWordsFooter';
 import { useI18n } from '@/components/I18nProvider';
-import type { MinigameFrequencyRange, MiniGameConfig } from '@/lib/minigames';
+import type { MinigameFrequencyRange, MiniGameConfig } from '@/features/learning/minigames';
 import type { NormalizedWord } from '@/lib/words';
 import type { ProgressStats } from '@/lib/progress-stats';
 import type { ViewMode } from '../app-state/types';

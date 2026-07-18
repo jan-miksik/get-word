@@ -69,7 +69,7 @@ Import directly from feature paths: `features/learning/state/*`, `features/learn
 
 ### Minigames
 
-`lib/minigames.ts` is a compatibility barrel. New minigame work should start in `features/learning/minigames/*`. Games are anchored by `anchorOriginalIndex` in the original word snapshot so they stay stable as words are removed from the active stream. Game word sets are locked in a ref on first generation and only reset when category filters change.
+Minigame domain logic lives in `features/learning/minigames/*`; learning-owned game, deck, stream, and word-card UI lives in `features/learning/components/*`. Import those paths directly—there is no `lib/minigames.ts` compatibility barrel. Games are anchored by `anchorOriginalIndex` in the original word snapshot so they stay stable as words are removed from the active stream. Game word sets are locked in a ref on first generation and only reset when category filters change.
 
 ### Auth
 

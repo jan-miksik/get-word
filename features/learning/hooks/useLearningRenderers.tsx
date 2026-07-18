@@ -1,12 +1,12 @@
 'use client';
 
 import { useCallback, useRef } from 'react';
-import { WordCard } from '@/components/WordCard';
-import { MiniGameCard } from '@/components/MiniGameCard';
+import { WordCard } from '@/features/learning/components/WordCard';
+import { MiniGameCard } from '@/features/learning/components/MiniGameCard';
 import { TypingStudyCard, type TypingOutcome } from '@/features/learning/components/TypingStudyCard';
 import type { TypingWriteIn } from '@/features/learning/state/preferences';
 import type { ProgressData } from '@/lib/sync';
-import type { MiniGameConfig } from '@/lib/minigames';
+import type { MiniGameConfig } from '@/features/learning/minigames';
 import type { NormalizedWord } from '@/lib/words';
 import type { LearningRole } from '@/features/learning/state/learningRole';
 

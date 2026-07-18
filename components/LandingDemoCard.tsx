@@ -11,7 +11,7 @@ import {
 } from '@/components/landing-demo/demo-set';
 import { logLandingDemoAudio } from '@/components/landing-demo/audio';
 import type { DemoAudioSource } from '@/components/landing-demo/types';
-import { ScratchCover } from '@/components/word-card/ScratchCover';
+import { ScratchCover } from '@/components/ScratchCover';
 import { playUserInitiatedAudio } from '@/lib/audio-playback';
 import { normalizeLanguageCode } from '@/lib/i18n/languages';
 import {

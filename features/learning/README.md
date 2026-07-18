@@ -19,6 +19,11 @@ Owns the main study experience: word stream composition, progress-driven display
 - `features/learning/hooks/useLearningRenderers.tsx`
 - `features/learning/hooks/usePWAInstallIntro.ts`
 - `features/learning/components/LearningStudyContent.tsx`
+- `features/learning/components/CardDeckView.tsx`
+- `features/learning/components/VirtualizedWordList.tsx`
+- `features/learning/components/WordCard.tsx`
+- `features/learning/components/MiniGameCard.tsx`
+- `features/learning/components/typing-study/*`
 - `features/learning/onboarding/LearningLanguageOnboarding.tsx`
 - `features/learning/onboarding/useLearningOnboardingData.ts`
 - `features/learning/onboarding/useLearningOnboardingActions.ts`
@@ -30,7 +35,10 @@ Owns the main study experience: word stream composition, progress-driven display
 
 ## Notes
 
-- `lib/minigames.ts` is now a compatibility barrel. New code should import from `features/learning/minigames`.
+- Import minigame domain logic directly from `features/learning/minigames`; the old `lib/minigames.ts` compatibility barrel has been removed.
+- Deck, stream, word-card, minigame, learning-panel, and learning-settings UI are feature-owned under `features/learning/components`.
+- `usePreferences` preserves its façade contract while local browser preference storage is isolated in `features/learning/state/localPreferences.ts`.
+- The reusable language picker, supported-language hook, and canonical UI language type live in `features/shared/languages`.
 - App hydration, wallet-link sync, active-list persistence, and view-mode persistence now live under `features/learning/app-state`.
 - Progress, preferences, memory hooks, category filters, and game-score state now live under `features/learning/state`.
 - Study items are hydrated from owned/subscribed `word_list_items` by `features/learning/app-state/useServerSync.ts`; there is no seed-word loader or `/api/words` fallback.

@@ -2,7 +2,8 @@
 
 import { useI18n } from '@/components/I18nProvider';
 import type { ForkProgress } from '@/features/lists/client/actions';
-import type { LearningLanguage, PendingFork, TranslationProvider } from '@/features/lists/types';
+import type { PendingFork, TranslationProvider } from '@/features/lists/types';
+import type { LearningLanguage } from '@/features/shared/languages/types';
 import {
   DEFAULT_OPENROUTER_TRANSLATION_MODEL,
   OPENROUTER_MODELS_URL,

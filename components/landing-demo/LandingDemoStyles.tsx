@@ -138,7 +138,7 @@ export function LandingDemoStyles() {
   transition:opacity .18s ease;
 }
 .lp-demo-match-feedback.is-on{ opacity:1; }
-/* Mirrors the app's finished overlay (components/MiniGameCard.tsx): a
+/* Mirrors the app's finished overlay (features/learning/components/MiniGameCard.tsx): a
    transparent, full-area tap target that keeps the matched result visible and
    only paints a slide-up continue bar pinned to the bottom edge. */
 .lp-demo-match-continue{

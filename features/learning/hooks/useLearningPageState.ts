@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { ProgressData } from '@/lib/sync';
 import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-stats';
 import type { NormalizedWord } from '@/lib/words';
-import type { MinigameFrequencyRange } from '@/lib/minigames';
+import type { MinigameFrequencyRange } from '@/features/learning/minigames';
 import { useLearningStreamGroups } from './useLearningStreamGroups';
 import { useWordStream } from './useWordStream';
 import type { ViewMode } from '../app-state/types';
