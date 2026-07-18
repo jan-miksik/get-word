@@ -110,7 +110,27 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
 
   const url = new URL(request.url);
-  if (!isSameOrigin(url)) return;
+  if (!isSameOrigin(url)) {
+    // Whole-list warming stores successful Arweave responses directly under
+    // their gateway URLs. Media elements issue a new cross-origin request on
+    // playback; without this branch that request bypasses Cache API and hits
+    // the gateway again. Serve only real audio subresource requests here so
+    // unrelated cross-origin traffic keeps the browser's default behavior.
+    if (request.destination !== 'audio' || !audioCacheEnabled) return;
+    event.respondWith(
+      (async () => {
+        try {
+          const cache = await caches.open(ACTIVE_LIST_AUDIO_CACHE);
+          const cached = await cache.match(request, { ignoreVary: true });
+          if (cached) return cached;
+        } catch {
+          // Cache API can fail in private mode; keep normal media loading.
+        }
+        return fetch(request).catch(() => Response.error());
+      })()
+    );
+    return;
+  }
   if (isAudioApiPath(url.pathname)) {
     event.respondWith(
       (async () => {

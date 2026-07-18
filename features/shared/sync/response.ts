@@ -217,6 +217,42 @@ export function buildSyncSuccessPayload(
 }
 
 /**
+ * Minimal response for a conditional GET whose `since` and `contentRev`
+ * cursors both match current server state: nothing to send, keep everything.
+ * The user block stays included (SyncResponse requires it and it is tiny).
+ */
+export function buildSyncUnchangedPayload(
+  user: SyncUserShape,
+  extra: Record<string, unknown> = {}
+) {
+  return {
+    ...extra,
+    success: true,
+    is_delta: true,
+    unchanged: true,
+    user: buildSyncUser(user),
+  };
+}
+
+/**
+ * Mutation acknowledgement only. It intentionally carries no sync cursor:
+ * POST does not read and return concurrent server changes, so advancing the
+ * client's GET cursor here could permanently skip fresher rows from another
+ * device (or a server-side LWW winner).
+ */
+export function buildSyncAckPayload(
+  user: SyncUserShape,
+  extra: Record<string, unknown> = {}
+) {
+  return {
+    ...extra,
+    success: true,
+    is_delta: true,
+    user: buildSyncUser(user),
+  };
+}
+
+/**
  * Delta variant for GET /api/sync?since=<cursor>. Returns only rows that
  * changed since the cursor plus the always-included tail (user prefs +
  * category_filters are tiny). Word list items, categories, and lists are

@@ -82,7 +82,10 @@ async function ensureMetaRow(db: IDBDatabase): Promise<void> {
       const getRequest = store.get(META_KEY);
       getRequest.onsuccess = () => {
         const existing = getRequest.result as MetaRow | undefined;
+        // Spread existing first so fields added to MetaRow later (e.g.
+        // lastContentRevision) survive the availability probe.
         const next: MetaRow = {
+          ...existing,
           schemaVersion: META_SCHEMA_VERSION,
           deviceId: existing?.deviceId ?? null,
           lastSinceCursor: existing?.lastSinceCursor ?? null,

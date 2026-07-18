@@ -76,10 +76,16 @@ describe('audio availability', () => {
     );
     await expect(checkAudioUrlAvailable('https://ar-io.net/tx123')).resolves.toBe(true);
 
+    // arweave.net is probed first (and 404s in this mock) before the fallback
+    // gateway answers.
+    expect(global.fetch).toHaveBeenCalledWith(
+      'https://arweave.net/tx123',
+      expect.objectContaining({ method: 'HEAD' }),
+    );
     expect(global.fetch).toHaveBeenCalledWith(
       'https://turbo-gateway.com/tx123',
       expect.objectContaining({ method: 'HEAD' }),
     );
-    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledTimes(2);
   });
 });

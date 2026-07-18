@@ -286,8 +286,15 @@ export async function applyPendingOutboxToSyncResponse(
         const id = typeof op.payload.id === 'string' ? op.payload.id : null;
         if (!id) break;
         const text = typeof op.payload.text === 'string' ? op.payload.text : null;
-        if (text === null) delete next.memory_hooks[id];
-        else next.memory_hooks[id] = text;
+        if (text === null) {
+          delete next.memory_hooks[id];
+          if (!next.memory_hooks_deleted?.includes(id)) {
+            next.memory_hooks_deleted = [...(next.memory_hooks_deleted ?? []), id];
+          }
+        } else {
+          next.memory_hooks[id] = text;
+          next.memory_hooks_deleted = next.memory_hooks_deleted?.filter((key) => key !== id);
+        }
         break;
       }
       case 'category_filters':
@@ -388,15 +395,65 @@ export async function loadAllDomainsFromIdb(): Promise<IdbHydration | null> {
 }
 
 /**
- * Best-effort write-through: mirror the server snapshot into per-domain rows
- * so a tab close mid-hydration still leaves a coherent warm-load source.
- * Caller decides whether to await; failures are swallowed.
+ * Write-through for a full server snapshot. Returns false if any domain write
+ * fails so the caller can keep the previous cursor and safely retry later.
  */
-export async function persistDomainsToIdb(data: SyncResponse): Promise<void> {
+export async function persistDomainsToIdb(data: SyncResponse): Promise<boolean> {
   const available = await ensureLocalFirstAvailability();
-  if (!available) return;
+  if (!available) return false;
 
   const writes: Promise<unknown>[] = [];
+
+  if (data.progress) {
+    for (const [id, entry] of Object.entries(data.progress)) {
+      writes.push(
+        putProgressRow(id, entry, { updatedAt: entry?.updatedAt }).catch(() => false)
+      );
+    }
+  }
+
+  if (data.memory_hooks) {
+    const currentKeys = new Set(Object.keys(data.memory_hooks));
+    const existingRows = await getAllMemoryHookRows<string>().catch(() => []);
+    for (const { key, row } of existingRows) {
+      if (!row.deletedAt && !currentKeys.has(key)) {
+        writes.push(
+          putMemoryHookRow(key, '', {
+            deletedAt: new Date().toISOString(),
+          }).catch(() => false)
+        );
+      }
+    }
+    for (const [id, text] of Object.entries(data.memory_hooks)) {
+      writes.push(putMemoryHookRow(id, text).catch(() => false));
+    }
+  }
+
+  if (Array.isArray(data.category_filters)) {
+    writes.push(putCategoryFilterRow('all', data.category_filters).catch(() => false));
+  }
+
+  if (data.user) {
+    writes.push(putPrefsRow('user', data.user).catch(() => false));
+  }
+
+  const results = await Promise.all(writes);
+  return results.every((result) => result === true);
+}
+
+/**
+ * Durably apply a server delta before advancing its cursor.
+ *
+ * Each domain write is committed by its own IndexedDB transaction. The cursor
+ * is deliberately written last: a tab closing during the domain writes can
+ * cause a harmless replay on the next GET, while writing the cursor first
+ * could make the partially persisted delta impossible to fetch again.
+ */
+export async function persistDeltaToIdb(data: SyncResponse): Promise<boolean> {
+  const available = await ensureLocalFirstAvailability();
+  if (!available) return false;
+
+  const writes: Promise<boolean>[] = [];
 
   if (data.progress) {
     for (const [id, entry] of Object.entries(data.progress)) {
@@ -412,6 +469,14 @@ export async function persistDomainsToIdb(data: SyncResponse): Promise<void> {
     }
   }
 
+  for (const id of data.memory_hooks_deleted ?? []) {
+    writes.push(
+      putMemoryHookRow(id, '', {
+        deletedAt: new Date().toISOString(),
+      }).catch(() => false)
+    );
+  }
+
   if (Array.isArray(data.category_filters)) {
     writes.push(putCategoryFilterRow('all', data.category_filters).catch(() => false));
   }
@@ -420,7 +485,12 @@ export async function persistDomainsToIdb(data: SyncResponse): Promise<void> {
     writes.push(putPrefsRow('user', data.user).catch(() => false));
   }
 
-  writes.push(putMeta({ schemaVersion: META_SCHEMA_VERSION }).catch(() => false));
+  const results = await Promise.all(writes);
+  if (results.some((result) => result !== true)) return false;
 
-  await Promise.all(writes);
+  if (typeof data.sync_revision !== 'number') return true;
+  return putMeta({
+    schemaVersion: META_SCHEMA_VERSION,
+    lastSinceCursor: String(data.sync_revision),
+  }).catch(() => false);
 }

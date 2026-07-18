@@ -39,6 +39,8 @@ export interface MetaRow {
   schemaVersion: number;
   deviceId: string | null;
   lastSinceCursor: string | null;
+  /** content_revision from the last applied FULL snapshot; enables conditional syncs. */
+  lastContentRevision?: string | null;
 }
 
 function hasIndexedDb(): boolean {

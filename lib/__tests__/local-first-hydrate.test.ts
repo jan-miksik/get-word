@@ -46,6 +46,7 @@ import { listOps } from '../local-first/outbox';
 import {
   applyPendingOutboxToSyncResponse,
   loadAllDomainsFromIdb,
+  persistDeltaToIdb,
   persistDomainsToIdb,
 } from '../local-first/hydrate';
 
@@ -211,7 +212,7 @@ describe('persistDomainsToIdb', () => {
       category_filters: ['food'],
     };
 
-    await persistDomainsToIdb(data);
+    await expect(persistDomainsToIdb(data)).resolves.toBe(true);
 
     expect(mockPutProgressRow).toHaveBeenCalledWith('w-1', data.progress['w-1'], {
       updatedAt: '2026-05-01T00:00:00Z',
@@ -219,19 +220,102 @@ describe('persistDomainsToIdb', () => {
     expect(mockPutMemoryHookRow).toHaveBeenCalledWith('w-1', 'hook');
     expect(mockPutCategoryFilterRow).toHaveBeenCalledWith('all', ['food']);
     expect(mockPutPrefsRow).toHaveBeenCalledWith('user', data.user);
-    expect(mockPutMeta).toHaveBeenCalledWith({ schemaVersion: META_SCHEMA_VERSION });
+    expect(mockPutMeta).not.toHaveBeenCalled();
   });
 
   it('does nothing when local-first is unavailable', async () => {
     mockEnsure.mockResolvedValueOnce(false);
-    await persistDomainsToIdb({
+    await expect(persistDomainsToIdb({
       success: true,
       user: { id: 'u-1', role: 'knownLanguage' } as SyncResponse['user'],
       progress: {},
       memory_hooks: {},
       category_filters: [],
-    });
+    })).resolves.toBe(false);
     expect(mockPutProgressRow).not.toHaveBeenCalled();
+    expect(mockPutMeta).not.toHaveBeenCalled();
+  });
+
+  it('tombstones memory hooks missing from an authoritative full snapshot', async () => {
+    mockGetAllMemoryHookRows.mockResolvedValueOnce([
+      {
+        key: 'removed-hook',
+        row: {
+          schemaVersion: META_SCHEMA_VERSION,
+          updatedAt: '2026-05-01T00:00:00Z',
+          value: 'stale text',
+        },
+      },
+    ]);
+
+    await expect(persistDomainsToIdb({
+      success: true,
+      user: { id: 'u-1' } as SyncResponse['user'],
+      progress: {},
+      memory_hooks: {},
+      category_filters: [],
+    })).resolves.toBe(true);
+
+    expect(mockPutMemoryHookRow).toHaveBeenCalledWith(
+      'removed-hook',
+      '',
+      expect.objectContaining({ deletedAt: expect.any(String) }),
+    );
+  });
+});
+
+describe('persistDeltaToIdb', () => {
+  it('persists changed rows and tombstones before advancing the cursor', async () => {
+    const delta: SyncResponse = {
+      success: true,
+      is_delta: true,
+      sync_revision: 1779500000000,
+      user: { id: 'u-1', role: 'knownLanguage' } as SyncResponse['user'],
+      progress: {
+        'w-1': {
+          updatedAt: '2026-05-01T00:00:00Z',
+          wordId: 'w-1',
+          stageIndex: 3,
+        } as unknown as SyncResponse['progress'][string],
+      },
+      memory_hooks: { 'w-1': 'fresh hook' },
+      memory_hooks_deleted: ['w-2'],
+      category_filters: ['food'],
+    };
+
+    await expect(persistDeltaToIdb(delta)).resolves.toBe(true);
+
+    expect(mockPutProgressRow).toHaveBeenCalledWith('w-1', delta.progress['w-1'], {
+      updatedAt: '2026-05-01T00:00:00Z',
+    });
+    expect(mockPutMemoryHookRow).toHaveBeenCalledWith('w-1', 'fresh hook');
+    expect(mockPutMemoryHookRow).toHaveBeenCalledWith(
+      'w-2',
+      '',
+      expect.objectContaining({ deletedAt: expect.any(String) }),
+    );
+    expect(mockPutMeta).toHaveBeenCalledWith({
+      schemaVersion: META_SCHEMA_VERSION,
+      lastSinceCursor: '1779500000000',
+    });
+    expect(mockPutMeta.mock.invocationCallOrder[0]).toBeGreaterThan(
+      mockPutMemoryHookRow.mock.invocationCallOrder.at(-1) ?? 0,
+    );
+  });
+
+  it('does not advance the cursor when a delta row fails to persist', async () => {
+    mockPutMemoryHookRow.mockResolvedValueOnce(false);
+
+    await expect(persistDeltaToIdb({
+      success: true,
+      is_delta: true,
+      sync_revision: 1779500000000,
+      user: { id: 'u-1' } as SyncResponse['user'],
+      progress: {},
+      memory_hooks: { 'w-1': 'fresh hook' },
+      category_filters: [],
+    })).resolves.toBe(false);
+
     expect(mockPutMeta).not.toHaveBeenCalled();
   });
 });

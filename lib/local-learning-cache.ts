@@ -198,12 +198,29 @@ function normalizeAudioValue(value: unknown): string[] {
   return typeof value === 'string' && value.length > 0 ? [value] : [];
 }
 
-export function getAudioUrlsForWords(words: NormalizedWord[]): string[] {
-  const urls = words.flatMap((word) => [
-    normalizeAudioValue(word.czAudio)[0],
-    normalizeAudioValue(word.viAudio)[0],
-  ]).filter((url): url is string => Boolean(url));
-  return Array.from(new Set(urls));
+/**
+ * Per-clip candidate groups: every source URL of a word side expanded to its
+ * gateway candidates, deduped, in priority order — Arweave gateways first,
+ * the /api/audio object-store mirror as last resort (the same order playback
+ * uses, so cache keys line up with what playback looks for). Groups are
+ * deduped by their primary URL so audio shared across words downloads once.
+ */
+export function getAudioCandidateGroupsForWords(words: NormalizedWord[]): string[][] {
+  const groups: string[][] = [];
+  const seen = new Set<string>();
+  for (const word of words) {
+    for (const side of [word.czAudio, word.viAudio]) {
+      const sources = normalizeAudioValue(side);
+      if (sources.length === 0) continue;
+      const candidates = Array.from(
+        new Set(sources.flatMap((src) => getArweaveGatewayUrlCandidates(src))),
+      );
+      if (candidates.length === 0 || seen.has(candidates[0])) continue;
+      seen.add(candidates[0]);
+      groups.push(candidates);
+    }
+  }
+  return groups;
 }
 
 export async function cacheActiveListAudio(words: NormalizedWord[]): Promise<AudioCacheStatus> {
@@ -229,10 +246,15 @@ export async function cacheActiveListAudio(words: NormalizedWord[]): Promise<Aud
     if (isAudioNetworkOffline()) controller.abort();
   });
   const cache = await caches.open(AUDIO_CACHE_NAME);
-  const urls = getAudioUrlsForWords(words);
+  const groups = getAudioCandidateGroupsForWords(words);
   let cachedCount = 0;
   let downloadedAny = false;
   let downloadedBytes = 0;
+  // A few clips failing on every source usually means connectivity is degraded;
+  // individual failures must NOT stop the run (one flaky gateway or missing
+  // file would otherwise leave the rest of the list uncached).
+  const MAX_CONSECUTIVE_CLIP_FAILURES = 3;
+  let consecutiveClipFailures = 0;
 
   // Unmetered connections download the whole list, so fan out concurrently
   // instead of waiting on each /api/audio round-trip in turn (a single Arweave
@@ -241,17 +263,23 @@ export async function cacheActiveListAudio(words: NormalizedWord[]): Promise<Aud
   // by up to `concurrency` files in parallel.
   const concurrency = byteBudget === Infinity ? AUDIO_CACHE_CONCURRENCY : 1;
 
-  const cacheOneUrl = async (url: string): Promise<void> => {
-    const candidates = getArweaveGatewayUrlCandidates(url);
-    for (const candidate of candidates) {
-      if (controller.signal.aborted || isAudioNetworkOffline()) return;
-
-      try {
+  const cacheOneGroup = async (candidates: string[]): Promise<'cached' | 'failed' | 'stopped'> => {
+    try {
+      for (const candidate of candidates) {
         const existing = await cache.match(candidate);
         if (existing) {
           cachedCount += 1;
-          return;
+          return 'cached';
         }
+      }
+    } catch {
+      // Cache read failure — fall through to the network attempts.
+    }
+
+    for (const candidate of candidates) {
+      if (controller.signal.aborted || isAudioNetworkOffline()) return 'stopped';
+
+      try {
         const response = await fetch(candidate, {
           credentials: 'same-origin',
           signal: controller.signal,
@@ -262,38 +290,46 @@ export async function cacheActiveListAudio(words: NormalizedWord[]): Promise<Aud
           await cache.put(candidate, response.clone());
           downloadedAny = true;
           cachedCount += 1;
-          return;
+          return 'cached';
         }
-        if (response.status === 408 || response.status === 429 || response.status >= 500) {
-          controller.abort();
-          return;
-        }
+        // Non-OK (404/429/5xx…): try the clip's next source; the group's tail
+        // ends at the /api/audio mirror, so one flaky gateway costs nothing.
       } catch {
-        // Bulk caching is optional: stop after a transport failure rather
-        // than attempting every audio URL while connectivity is degraded.
-        controller.abort();
-        return;
+        if (controller.signal.aborted) return 'stopped';
+        // Transport failure on this candidate; try the next one.
       }
     }
+    return 'failed';
   };
 
-  // Shared work queue: each worker pulls the next URL until the list is drained,
-  // the budget is hit, or the download is aborted/offline.
-  let nextUrlIndex = 0;
+  // Shared work queue: each worker pulls the next clip until the list is
+  // drained, the budget is hit, the download is aborted/offline, or several
+  // clips in a row failed on every source (connectivity likely degraded).
+  let nextGroupIndex = 0;
   const runWorker = async (): Promise<void> => {
     while (true) {
       if (controller.signal.aborted || isAudioNetworkOffline()) return;
       if (downloadedBytes >= byteBudget) return;
-      const index = nextUrlIndex;
-      nextUrlIndex += 1;
-      if (index >= urls.length) return;
-      await cacheOneUrl(urls[index]);
+      const index = nextGroupIndex;
+      nextGroupIndex += 1;
+      if (index >= groups.length) return;
+      const result = await cacheOneGroup(groups[index]);
+      if (result === 'stopped') return;
+      if (result === 'failed') {
+        consecutiveClipFailures += 1;
+        if (consecutiveClipFailures >= MAX_CONSECUTIVE_CLIP_FAILURES) {
+          controller.abort();
+          return;
+        }
+      } else {
+        consecutiveClipFailures = 0;
+      }
     }
   };
 
   try {
     await Promise.all(
-      Array.from({ length: Math.min(concurrency, urls.length) }, () => runWorker()),
+      Array.from({ length: Math.min(concurrency, groups.length) }, () => runWorker()),
     );
   } finally {
     unsubscribeNetworkChanges();

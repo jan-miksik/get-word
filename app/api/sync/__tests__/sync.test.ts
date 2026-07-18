@@ -25,6 +25,7 @@ const mockTouchUserDevice = vi.fn()
 const mockApplyNewReviewEvents = vi.fn()
 const mockGetUserMemoryHooksDelta = vi.fn()
 const mockGetUserSyncRevision = vi.fn()
+const mockGetContentRevision = vi.fn()
 const mockVerifySession = vi.fn()
 const mockSignSession = vi.fn()
 const mockIsGoogleSupportedLanguage = vi.fn()
@@ -54,6 +55,7 @@ vi.mock('@/lib/db', () => ({
   applyNewReviewEvents: (...args: unknown[]) => mockApplyNewReviewEvents(...args),
   getUserMemoryHooksDelta: (...args: unknown[]) => mockGetUserMemoryHooksDelta(...args),
   getUserSyncRevision: (...args: unknown[]) => mockGetUserSyncRevision(...args),
+  getContentRevision: (...args: unknown[]) => mockGetContentRevision(...args),
 }))
 
 vi.mock('@/lib/session', () => ({
@@ -134,6 +136,7 @@ describe('GET /api/sync', () => {
     mockApplyNewReviewEvents.mockResolvedValue([])
     mockGetUserMemoryHooksDelta.mockResolvedValue([])
     mockGetUserSyncRevision.mockResolvedValue(1779480000000)
+    mockGetContentRevision.mockResolvedValue('v1:content-rev-1')
     mockIsGoogleSupportedLanguage.mockResolvedValue(true)
   })
 
@@ -208,10 +211,10 @@ describe('GET /api/sync', () => {
       expect.objectContaining({
         id: 'item-1',
         audioUrl: '/api/audio/hash-123',
-        audioArweaveUrl: 'https://turbo-gateway.com/tx-123',
+        audioArweaveUrl: 'https://arweave.net/tx-123',
         audioArweaveUrls: expect.arrayContaining([
-          'https://turbo-gateway.com/tx-123',
           'https://arweave.net/tx-123',
+          'https://turbo-gateway.com/tx-123',
         ]),
         audioStorageRef: 'tx-123',
       }),
@@ -352,7 +355,7 @@ describe('GET /api/sync', () => {
     consoleSpy.mockRestore()
   })
 
-  it('serves a delta response when ?since= is provided', async () => {
+  it('serves a delta response when ?since= and matching ?contentRev= are provided', async () => {
     mockGetUserMemoryHooksDelta.mockResolvedValueOnce([
       { key: 'word-a', hookText: 'updated', deletedAt: null },
       { key: 'word-b', hookText: 'gone', deletedAt: new Date('2026-05-10T00:00:00Z') },
@@ -363,13 +366,14 @@ describe('GET /api/sync', () => {
     mockGetUserSyncRevision.mockResolvedValueOnce(1779500000000)
 
     const req = new NextRequest(
-      'http://localhost:3000/api/sync?deviceId=dev-123&since=1779400000000'
+      'http://localhost:3000/api/sync?deviceId=dev-123&since=1779400000000&contentRev=v1%3Acontent-rev-1'
     )
     const res = await GET(req)
     const data = await res.json()
 
     expect(res.status).toBe(200)
     expect(data.is_delta).toBe(true)
+    expect(data.unchanged).toBeUndefined()
     expect(data.memory_hooks).toEqual({ 'word-a': 'updated' })
     expect(data.memory_hooks_deleted).toEqual(['word-b'])
     expect(data.progress['word-c'].stageIndex).toBe(4)
@@ -387,9 +391,44 @@ describe('GET /api/sync', () => {
     expect(mockGetUserMemoryHooks).not.toHaveBeenCalled()
   })
 
-  it('falls back to full snapshot when ?since= is malformed', async () => {
+  it('returns a tiny unchanged response when both cursors match current state', async () => {
+    mockGetUserSyncRevision.mockResolvedValueOnce(1779400000000)
+
     const req = new NextRequest(
-      'http://localhost:3000/api/sync?deviceId=dev-123&since=not-a-date'
+      'http://localhost:3000/api/sync?deviceId=dev-123&since=1779400000000&contentRev=v1%3Acontent-rev-1'
+    )
+    const res = await GET(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.is_delta).toBe(true)
+    expect(data.unchanged).toBe(true)
+    expect(data.sync_revision).toBe(1779400000000)
+    expect(data.progress).toBeUndefined()
+    expect(data.word_list_items).toBeUndefined()
+    expect(mockGetUserItemIdentities).not.toHaveBeenCalled()
+    expect(mockGetProjectedProgress).not.toHaveBeenCalled()
+    expect(mockGetUserMemoryHooks).not.toHaveBeenCalled()
+    expect(mockGetUserMemoryHooksDelta).not.toHaveBeenCalled()
+  })
+
+  it('returns the full snapshot when ?contentRev= no longer matches', async () => {
+    const req = new NextRequest(
+      'http://localhost:3000/api/sync?deviceId=dev-123&since=1779400000000&contentRev=v1%3Astale'
+    )
+    const res = await GET(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.is_delta).toBeUndefined()
+    expect(data.content_revision).toBe('v1:content-rev-1')
+    expect(mockGetUserMemoryHooks).toHaveBeenCalled()
+    expect(mockGetUserMemoryHooksDelta).not.toHaveBeenCalled()
+  })
+
+  it('returns the full snapshot when ?since= is provided without ?contentRev=', async () => {
+    const req = new NextRequest(
+      'http://localhost:3000/api/sync?deviceId=dev-123&since=1779400000000'
     )
     const res = await GET(req)
     const data = await res.json()
@@ -400,12 +439,26 @@ describe('GET /api/sync', () => {
     expect(mockGetUserMemoryHooks).toHaveBeenCalled()
   })
 
-  it('uses getUserSyncRevision for sync_revision in full responses', async () => {
+  it('falls back to full snapshot when ?since= is malformed', async () => {
+    const req = new NextRequest(
+      'http://localhost:3000/api/sync?deviceId=dev-123&since=not-a-date&contentRev=v1%3Acontent-rev-1'
+    )
+    const res = await GET(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.is_delta).toBeUndefined()
+    expect(mockGetUserMemoryHooksDelta).not.toHaveBeenCalled()
+    expect(mockGetUserMemoryHooks).toHaveBeenCalled()
+  })
+
+  it('uses getUserSyncRevision for sync_revision and includes content_revision in full responses', async () => {
     mockGetUserSyncRevision.mockResolvedValueOnce(1779600000000)
     const req = new NextRequest('http://localhost:3000/api/sync?deviceId=dev-123')
     const res = await GET(req)
     const data = await res.json()
     expect(data.sync_revision).toBe(1779600000000)
+    expect(data.content_revision).toBe('v1:content-rev-1')
   })
 })
 
@@ -428,6 +481,7 @@ describe('POST /api/sync', () => {
     mockApplyNewReviewEvents.mockResolvedValue([])
     mockGetUserMemoryHooksDelta.mockResolvedValue([])
     mockGetUserSyncRevision.mockResolvedValue(1779480000000)
+    mockGetContentRevision.mockResolvedValue('v1:content-rev-1')
     mockIsGoogleSupportedLanguage.mockResolvedValue(true)
   })
 
@@ -456,6 +510,34 @@ describe('POST /api/sync', () => {
 
     expect(res.status).toBe(200)
     expect(data.applied_client_op_ids).toEqual(['op-a', 'op-b'])
+  })
+
+  it('returns an ack-only delta payload without advancing the GET cursor', async () => {
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: 'dev-123',
+        game_score: 42,
+        client_op_ids: ['op-a'],
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.is_delta).toBe(true)
+    expect(data.sync_revision).toBeUndefined()
+    expect(data.word_list_items).toBeUndefined()
+    expect(data.categories).toBeUndefined()
+    expect(data.lists).toBeUndefined()
+    expect(data.progress).toBeUndefined()
+    expect(mockGetUserSubscribedItems).not.toHaveBeenCalled()
+    expect(mockGetUserOwnListItems).not.toHaveBeenCalled()
+    expect(mockGetUserMemoryHooks).not.toHaveBeenCalled()
+    expect(mockGetProjectedProgress).not.toHaveBeenCalled()
+    expect(mockGetUserCategoryFilters).not.toHaveBeenCalled()
+    expect(mockGetUserSyncRevision).not.toHaveBeenCalled()
   })
 
   it('omits malformed client_op_ids entries', async () => {
@@ -739,7 +821,7 @@ describe('POST /api/sync', () => {
       ]),
     })
     expect(data.applied_review_event_ids).toEqual(['event-1'])
-    expect(typeof data.sync_revision).toBe('number')
+    expect(data.sync_revision).toBeUndefined()
   })
 
   it('tracks user device without rewriting the user device id', async () => {

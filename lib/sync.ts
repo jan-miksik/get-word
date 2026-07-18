@@ -130,9 +130,13 @@ export function markServerSnapshotApplied(): void {
 }
 
 // Fetch data from server (DB-only; no localStorage).
-// When `since` is provided, the server returns a delta response (is_delta=true)
-// containing only rows changed after the cursor + memory hook tombstones.
-export async function fetchUserData(options?: { since?: number | string }): Promise<SyncResponse> {
+// When `since` AND `contentRev` are provided, the server may answer with a
+// delta (is_delta=true, only rows changed after the cursor) or a tiny
+// "unchanged" response; without both cursors it returns the full snapshot.
+export async function fetchUserData(options?: {
+  since?: number | string;
+  contentRev?: string;
+}): Promise<SyncResponse> {
   const deviceId = getDeviceId();
   const sessionId = getSessionId();
   const params = new URLSearchParams();
@@ -141,6 +145,9 @@ export async function fetchUserData(options?: { since?: number | string }): Prom
   if (lastKnownUserId) params.set('userId', lastKnownUserId);
   if (options?.since !== undefined && options.since !== null && options.since !== '') {
     params.set('since', String(options.since));
+  }
+  if (options?.contentRev) {
+    params.set('contentRev', options.contentRev);
   }
 
   try {

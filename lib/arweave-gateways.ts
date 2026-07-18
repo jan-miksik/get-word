@@ -1,6 +1,10 @@
+// arweave.net first: measured from the browser it is the only default gateway
+// that reliably serves audio with CORS headers (turbo-gateway.com and
+// ar-io.net fail cross-origin fetches, each wasting seconds before fallback).
+// They remain as fallbacks and for server-side fetches, which have no CORS.
 const DEFAULT_ARWEAVE_GATEWAYS = [
-  "https://turbo-gateway.com",
   "https://arweave.net",
+  "https://turbo-gateway.com",
   "https://ar-io.net",
 ];
 

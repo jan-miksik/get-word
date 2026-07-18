@@ -13,6 +13,7 @@ import { startDrainer } from '@/lib/local-first/drainer';
 import {
   applyPendingOutboxToSyncResponse,
   loadAllDomainsFromIdb,
+  persistDeltaToIdb,
   persistDomainsToIdb,
 } from '@/lib/local-first/hydrate';
 import { getMeta, putMeta } from '@/lib/local-first/stores';
@@ -22,6 +23,10 @@ import type { NormalizedWord } from '@/lib/words';
 import { wordListItemsToNormalizedWords } from '@/lib/words';
 import { readStoredActiveListId } from './storage';
 import type { LinkPayload } from './types';
+
+// Collapses the focus/visibilitychange/pageshow event burst (returning to the
+// app fires all three) into one conditional refetch.
+const REFETCH_THROTTLE_MS = 10_000;
 
 interface UseServerSyncOptions {
   words: NormalizedWord[];
@@ -74,6 +79,7 @@ export function useServerSync({
   const [isInitialServerSyncPending, setIsInitialServerSyncPending] = useState(true);
   const isHydratedRef = useRef(false);
   const hasLoadedRef = useRef(false);
+  const lastRefetchAtRef = useRef(0);
   const linkedIdentityRef = useRef<string | null>(null);
   const linkAttemptRef = useRef(0);
   const applyCachedActiveListId = useCallback((cachedActiveListId: string | null | undefined) => {
@@ -82,10 +88,10 @@ export function useServerSync({
     setActiveListId(cachedActiveListId);
   }, [setActiveListId]);
 
-  const applyServerData = useCallback((
+  const applyServerData = useCallback(async (
     serverData: SyncResponse,
     options: { clearPending?: boolean; persistSnapshot?: boolean; markServerSnapshot?: boolean; persistDomains?: boolean } = {}
-  ) => {
+  ): Promise<void> => {
     if (options.clearPending ?? true) {
       clearPendingSync();
     }
@@ -122,14 +128,35 @@ export function useServerSync({
     if (options.markServerSnapshot ?? true) {
       markServerSnapshotApplied();
     }
-    if (options.persistSnapshot ?? true) {
-      void saveSnapshot(serverData, readStoredActiveListId()).catch(() => undefined);
-    }
-    if ((options.persistDomains ?? true) && getStoragePreference()) {
-      void persistDomainsToIdb(serverData).catch(() => undefined);
-    }
-    if (typeof serverData.sync_revision === 'number' && getStoragePreference()) {
-      void putMeta({ lastSinceCursor: String(serverData.sync_revision) }).catch(() => undefined);
+    if (getStoragePreference()) {
+      const shouldPersistSnapshot = options.persistSnapshot ?? true;
+      const shouldPersistDomains = options.persistDomains ?? true;
+      const [snapshotSaved, domainsSaved] = await Promise.all([
+        shouldPersistSnapshot
+          ? saveSnapshot(serverData, readStoredActiveListId()).catch(() => false)
+          : Promise.resolve(true),
+        shouldPersistDomains
+          ? persistDomainsToIdb(serverData).catch(() => false)
+          : Promise.resolve(true),
+      ]);
+
+      // A cursor may only describe data that is already durable. If either
+      // persistence path failed, retain the old cursor so the next GET safely
+      // replays the snapshot/delta instead of reporting unchanged.
+      if (!snapshotSaved || !domainsSaved) return;
+
+      const metaPatch: { lastSinceCursor?: string; lastContentRevision?: string } = {};
+      if (typeof serverData.sync_revision === 'number') {
+        metaPatch.lastSinceCursor = String(serverData.sync_revision);
+      }
+      // Only full snapshots carry content_revision; storing it marks the
+      // cached word lists as matching that server state.
+      if (typeof serverData.content_revision === 'string') {
+        metaPatch.lastContentRevision = serverData.content_revision;
+      }
+      if (Object.keys(metaPatch).length > 0) {
+        await putMeta(metaPatch).catch(() => false);
+      }
     }
   }, [
     applyServerCategories,
@@ -144,7 +171,7 @@ export function useServerSync({
     words,
   ]);
 
-  const applyServerDelta = useCallback((delta: SyncResponse) => {
+  const applyServerDelta = useCallback(async (delta: SyncResponse): Promise<void> => {
     if (delta.progress) mergeServerProgress(delta.progress);
     mergeServerMemoryHooks(delta.memory_hooks ?? {}, delta.memory_hooks_deleted ?? []);
     if (delta.category_filters) applyServerCategories(delta.category_filters);
@@ -155,8 +182,8 @@ export function useServerSync({
     if (delta.user?.game_score !== undefined) {
       applyServerGameScore(delta.user.game_score);
     }
-    if (typeof delta.sync_revision === 'number' && getStoragePreference()) {
-      void putMeta({ lastSinceCursor: String(delta.sync_revision) }).catch(() => undefined);
+    if (getStoragePreference()) {
+      await persistDeltaToIdb(delta).catch(() => false);
     }
   }, [
     applyServerCategories,
@@ -174,9 +201,9 @@ export function useServerSync({
       serverData.submitted_review_events ?? []
     ).catch(() => serverData);
     if (serverData.is_delta) {
-      applyServerDelta(overlaidServerData);
+      await applyServerDelta(overlaidServerData);
     } else {
-      applyServerData(overlaidServerData, { clearPending: false });
+      await applyServerData(overlaidServerData, { clearPending: false });
     }
     requestAnimationFrame(() => {
       isUpdatingFromServerRef.current = false;
@@ -185,13 +212,20 @@ export function useServerSync({
 
   const refetchServerData = useCallback(() => {
     if (!isHydratedRef.current) return;
+    // Returning to the app fires focus + visibilitychange + pageshow at once;
+    // collapse the burst into a single conditional fetch.
+    const now = Date.now();
+    if (now - lastRefetchAtRef.current < REFETCH_THROTTLE_MS) return;
+    lastRefetchAtRef.current = now;
     (async () => {
       let since: string | undefined;
+      let contentRev: string | undefined;
       if (getStoragePreference()) {
         const meta = await getMeta().catch(() => null);
         if (meta?.lastSinceCursor) since = meta.lastSinceCursor;
+        if (meta?.lastContentRevision) contentRev = meta.lastContentRevision;
       }
-      return fetchUserData(since ? { since } : undefined);
+      return fetchUserData(since ? { since, contentRev } : undefined);
     })()
       .then(applyFreshServerData)
       .catch((error) => {
@@ -215,82 +249,101 @@ export function useServerSync({
     }, 15000);
 
     let cancelled = false;
-    if (getStoragePreference()) {
-      const warmFromIdb = async () => {
-        const idbHydration = await loadAllDomainsFromIdb().catch(() => null);
-        if (cancelled || isHydratedRef.current) return true;
-        if (idbHydration) {
-          isUpdatingFromServerRef.current = true;
-          applyServerData(idbHydration.syncResponse, {
-            clearPending: false,
-            persistSnapshot: false,
-            persistDomains: false,
-            markServerSnapshot: false,
-          });
-          applyCachedActiveListId(idbHydration.activeListId);
-          isHydratedRef.current = true;
-          setIsHydrated(true);
-          requestAnimationFrame(() => {
-            isUpdatingFromServerRef.current = false;
-          });
-          return true;
-        }
-        return false;
-      };
 
-      void warmFromIdb().then((warmed) => {
-        if (warmed || cancelled || isHydratedRef.current) return;
-        return getSnapshot()
-          .then((snapshot) => {
-            if (cancelled || !snapshot || isHydratedRef.current) return;
-            isUpdatingFromServerRef.current = true;
-            applyServerData(
-              { success: true, ...snapshot.data } as SyncResponse,
-              { clearPending: false, persistSnapshot: false, persistDomains: false, markServerSnapshot: false }
-            );
-            applyCachedActiveListId(snapshot.activeListId);
-            isHydratedRef.current = true;
-            setIsHydrated(true);
-            requestAnimationFrame(() => {
-              isUpdatingFromServerRef.current = false;
-            });
-          })
-          .catch(() => undefined);
-      });
-    }
-
-    fetchUserData()
-      .then(async (serverData) => {
-        clearTimeout(hydrationTimeout);
+    const warmFromIdb = async () => {
+      const idbHydration = await loadAllDomainsFromIdb().catch(() => null);
+      if (cancelled || isHydratedRef.current) return true;
+      if (idbHydration) {
         isUpdatingFromServerRef.current = true;
-        const overlaidServerData = await applyPendingOutboxToSyncResponse(
-          serverData,
-          serverData.submitted_review_events ?? []
-        ).catch(() => serverData);
-        applyServerData(overlaidServerData);
+        await applyServerData(idbHydration.syncResponse, {
+          clearPending: false,
+          persistSnapshot: false,
+          persistDomains: false,
+          markServerSnapshot: false,
+        });
+        applyCachedActiveListId(idbHydration.activeListId);
         isHydratedRef.current = true;
         setIsHydrated(true);
-        setIsInitialServerSyncPending(false);
         requestAnimationFrame(() => {
           isUpdatingFromServerRef.current = false;
         });
-      })
-      .catch((error) => {
-        clearTimeout(hydrationTimeout);
-        if (!isAuthRequiredError(error)) {
-          console.error('[useServerSync] Failed to fetch:', error);
+        return true;
+      }
+      return false;
+    };
+
+    const boot = async () => {
+      // When the cache warm-start succeeds, the boot fetch can be conditional:
+      // the server sends the full snapshot only if the cursors no longer match.
+      let conditional: { since: string; contentRev: string } | undefined;
+      if (getStoragePreference()) {
+        const warmed = await warmFromIdb().catch(() => false);
+        if (!warmed && !cancelled && !isHydratedRef.current) {
+          await getSnapshot()
+            .then(async (snapshot) => {
+              if (cancelled || !snapshot || isHydratedRef.current) return;
+              isUpdatingFromServerRef.current = true;
+              await applyServerData(
+                { success: true, ...snapshot.data } as SyncResponse,
+                { clearPending: false, persistSnapshot: false, persistDomains: false, markServerSnapshot: false }
+              );
+              applyCachedActiveListId(snapshot.activeListId);
+              isHydratedRef.current = true;
+              setIsHydrated(true);
+              requestAnimationFrame(() => {
+                isUpdatingFromServerRef.current = false;
+              });
+            })
+            .catch(() => undefined);
         }
-        isHydratedRef.current = true;
-        setIsHydrated(true);
-        setIsInitialServerSyncPending(false);
+        if (warmed && !cancelled) {
+          const meta = await getMeta().catch(() => null);
+          if (meta?.lastSinceCursor && meta.lastContentRevision) {
+            conditional = {
+              since: meta.lastSinceCursor,
+              contentRev: meta.lastContentRevision,
+            };
+          }
+        }
+      }
+      if (cancelled) return;
+
+      const serverData = await fetchUserData(conditional);
+      clearTimeout(hydrationTimeout);
+      isUpdatingFromServerRef.current = true;
+      const overlaidServerData = await applyPendingOutboxToSyncResponse(
+        serverData,
+        serverData.submitted_review_events ?? []
+      ).catch(() => serverData);
+      if (serverData.is_delta) {
+        await applyServerDelta(overlaidServerData);
+      } else {
+        await applyServerData(overlaidServerData);
+      }
+      isHydratedRef.current = true;
+      setIsHydrated(true);
+      setIsInitialServerSyncPending(false);
+      requestAnimationFrame(() => {
         isUpdatingFromServerRef.current = false;
       });
+    };
+
+    boot().catch((error) => {
+      clearTimeout(hydrationTimeout);
+      if (!isAuthRequiredError(error)) {
+        console.error('[useServerSync] Failed to fetch:', error);
+      }
+      isHydratedRef.current = true;
+      setIsHydrated(true);
+      setIsInitialServerSyncPending(false);
+      isUpdatingFromServerRef.current = false;
+    });
 
     return () => {
       cancelled = true;
       clearTimeout(hydrationTimeout);
     };
-  }, [applyCachedActiveListId, applyServerData, isUpdatingFromServerRef, setIsHydrated]);
+  }, [applyCachedActiveListId, applyServerData, applyServerDelta, isUpdatingFromServerRef, setIsHydrated]);
 
   useEffect(() => {
     if (!isHydrated) return;
@@ -354,9 +407,9 @@ export function useServerSync({
       email: linkPayload?.email ?? undefined,
       authProvider: linkPayload?.authProvider ?? undefined,
     })
-      .then((serverData) => {
+      .then(async (serverData) => {
         if (linkAttemptRef.current !== attemptId) return;
-        applyServerData(serverData);
+        await applyServerData(serverData);
         requestAnimationFrame(() => {
           if (linkAttemptRef.current !== attemptId) return;
           isUpdatingFromServerRef.current = false;
@@ -379,16 +432,16 @@ export function useServerSync({
     if (!walletAddress) {
       linkAttemptRef.current += 1;
       linkedIdentityRef.current = null;
-      setIsLinkingWallet(false);
-      setLinkWalletError(null);
     }
   }, [walletAddress]);
 
+  const visibleLinkWalletError = walletAddress ? linkWalletError : null;
+
   return {
     isInitialServerSyncPending,
-    isLinkingWallet,
-    hasLinkWalletError: linkWalletError !== null,
-    linkWalletError,
+    isLinkingWallet: Boolean(walletAddress) && isLinkingWallet,
+    hasLinkWalletError: visibleLinkWalletError !== null,
+    linkWalletError: visibleLinkWalletError,
     retryLinkWallet,
   };
 }

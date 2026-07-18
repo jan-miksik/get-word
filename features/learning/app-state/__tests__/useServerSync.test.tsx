@@ -4,16 +4,22 @@ import { useState } from 'react';
 
 import type { SyncResponse } from '@/lib/sync';
 
-const mockFetchUserData = vi.fn<() => Promise<SyncResponse>>();
+const mockFetchUserData = vi.fn<(options?: { since?: number | string; contentRev?: string }) => Promise<SyncResponse>>();
 const mockApplyPendingOutboxToSyncResponse = vi.fn(async (data: SyncResponse) => data);
 const mockLoadAllDomainsFromIdb = vi.fn<() => Promise<{ syncResponse: SyncResponse; activeListId: string | null } | null>>();
-const mockPersistDomainsToIdb = vi.fn<() => Promise<void>>(async () => undefined);
+const mockPersistDomainsToIdb = vi.fn<() => Promise<boolean>>(async () => true);
+const mockPersistDeltaToIdb = vi.fn<(_data: SyncResponse) => Promise<boolean>>(async () => true);
 const mockGetStoragePreference = vi.fn(() => false);
 const mockGetSnapshot = vi.fn(async () => null);
 const mockSaveSnapshot = vi.fn(async () => true);
+const mockGetMeta = vi.fn(async () => null as {
+  lastSinceCursor?: string | null;
+  lastContentRevision?: string | null;
+} | null);
+const mockPutMeta = vi.fn<(_patch: unknown) => Promise<boolean>>(async () => true);
 
 vi.mock('@/lib/sync', () => ({
-  fetchUserData: () => mockFetchUserData(),
+  fetchUserData: (options?: { since?: number | string; contentRev?: string }) => mockFetchUserData(options),
   linkWalletWithRetry: vi.fn(),
   clearPendingSync: vi.fn(),
   isAuthRequiredError: vi.fn(() => false),
@@ -33,11 +39,12 @@ vi.mock('@/lib/local-first/hydrate', () => ({
     mockApplyPendingOutboxToSyncResponse(data),
   loadAllDomainsFromIdb: () => mockLoadAllDomainsFromIdb(),
   persistDomainsToIdb: () => mockPersistDomainsToIdb(),
+  persistDeltaToIdb: (data: SyncResponse) => mockPersistDeltaToIdb(data),
 }));
 
 vi.mock('@/lib/local-first/stores', () => ({
-  getMeta: vi.fn(async () => null),
-  putMeta: vi.fn(async () => true),
+  getMeta: () => mockGetMeta(),
+  putMeta: (patch: unknown) => mockPutMeta(patch),
 }));
 
 vi.mock('@/lib/local-learning-cache', () => ({
@@ -101,6 +108,7 @@ describe('useServerSync', () => {
     vi.clearAllMocks();
     mockGetStoragePreference.mockReturnValue(false);
     mockGetSnapshot.mockResolvedValue(null);
+    mockGetMeta.mockResolvedValue(null);
     mockLoadAllDomainsFromIdb.mockResolvedValue(null);
     mockFetchUserData.mockResolvedValue(syncResponse);
     window.requestAnimationFrame = (callback) => window.setTimeout(callback, 0);
@@ -130,6 +138,68 @@ describe('useServerSync', () => {
 
     serverFetch.resolve(syncResponse);
 
+    await waitFor(() => expect(result.current.isInitialServerSyncPending).toBe(false));
+  });
+
+  it('durably persists a boot delta before considering the server sync complete', async () => {
+    mockGetStoragePreference.mockReturnValue(true);
+    mockGetMeta.mockResolvedValue({
+      lastSinceCursor: '1779400000000',
+      lastContentRevision: 'v2:content-rev-1',
+    });
+    mockLoadAllDomainsFromIdb.mockResolvedValueOnce({
+      syncResponse,
+      activeListId: null,
+    });
+    const delta: SyncResponse = {
+      ...syncResponse,
+      is_delta: true,
+      sync_revision: 1779500000001,
+      progress: {
+        'word-a': { wordId: 'word-a', stageIndex: 4 } as unknown as SyncResponse['progress'][string],
+      },
+      memory_hooks: {},
+      memory_hooks_deleted: ['word-b'],
+    };
+    mockFetchUserData.mockResolvedValueOnce(delta);
+    const persistence = deferred<boolean>();
+    mockPersistDeltaToIdb.mockReturnValueOnce(persistence.promise);
+
+    const { result } = renderHook(() => useServerSyncHarness());
+
+    await waitFor(() => expect(mockPersistDeltaToIdb).toHaveBeenCalledWith(delta));
+    expect(mockFetchUserData).toHaveBeenCalledWith({
+      since: '1779400000000',
+      contentRev: 'v2:content-rev-1',
+    });
+    expect(result.current.isInitialServerSyncPending).toBe(true);
+
+    persistence.resolve(true);
+    await waitFor(() => expect(result.current.isInitialServerSyncPending).toBe(false));
+  });
+
+  it('stores full-snapshot cursors only after the snapshot and domains are durable', async () => {
+    mockGetStoragePreference.mockReturnValue(true);
+    const fullResponse: SyncResponse = {
+      ...syncResponse,
+      sync_revision: 1779600000000,
+      content_revision: 'v2:content-rev-2',
+    };
+    mockFetchUserData.mockResolvedValueOnce(fullResponse);
+    const snapshotPersistence = deferred<boolean>();
+    mockSaveSnapshot.mockReturnValueOnce(snapshotPersistence.promise);
+
+    const { result } = renderHook(() => useServerSyncHarness());
+
+    await waitFor(() => expect(mockSaveSnapshot).toHaveBeenCalled());
+    expect(mockPutMeta).not.toHaveBeenCalled();
+    expect(result.current.isInitialServerSyncPending).toBe(true);
+
+    snapshotPersistence.resolve(true);
+    await waitFor(() => expect(mockPutMeta).toHaveBeenCalledWith({
+      lastSinceCursor: '1779600000000',
+      lastContentRevision: 'v2:content-rev-2',
+    }));
     await waitFor(() => expect(result.current.isInitialServerSyncPending).toBe(false));
   });
 });

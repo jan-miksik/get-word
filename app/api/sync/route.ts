@@ -19,6 +19,7 @@ import {
   applyNewReviewEvents,
   getUserMemoryHooksDelta,
   getUserSyncRevision,
+  getContentRevision,
 } from "@/lib/db";
 import { type User } from "@/lib/db/schema";
 import { withSessionCookie } from "@/features/shared/routes/session";
@@ -29,8 +30,10 @@ import {
   withRetryOnRecoverableDatabaseError,
 } from "@/features/shared/routes/database-retry";
 import {
+  buildSyncAckPayload,
   buildSyncDeltaPayload,
   buildSyncSuccessPayload,
+  buildSyncUnchangedPayload,
   getHydratedWordListData,
 } from "@/features/shared/sync/response";
 import { isUuid } from "@/features/shared/sync/identity";
@@ -308,34 +311,14 @@ export async function POST(request: NextRequest) {
     }
     timer.mark("apply_mutations");
 
-    // Fetch all current data to return
-    const [currentHooks, currentFilters] = await Promise.all([
-      getUserMemoryHooks(user.id),
-      getUserCategoryFilters(user.id),
-    ]);
-    timer.mark("fetch_user_data");
-    const hydratedLists = await getHydratedWordListData(user.id, currentHooks);
-    // Project content-keyed progress onto the items being returned.
-    const currentProgress = await getProjectedProgress(
-      user.id,
-      hydratedLists.wordListItems
-    );
-    timer.mark("fetch_list_metadata");
-    const syncRevision = await getUserSyncRevision(user.id);
-    timer.mark("compute_sync_revision");
+    // Ack only: the client already holds the mutations it sent. Crucially this
+    // response has no sync_revision — POST does not fetch concurrent changes,
+    // so it must not advance the GET cursor past data the client never saw.
     const response = await withSessionCookie(
-      buildSyncSuccessPayload(
-        user,
-        currentProgress,
-        currentHooks,
-        currentFilters,
-        hydratedLists,
-        {
-          applied_review_event_ids: appliedReviewEventIds,
-          applied_client_op_ids: clientOpIds,
-          sync_revision: syncRevision,
-        }
-      ),
+      buildSyncAckPayload(user, {
+        applied_review_event_ids: appliedReviewEventIds,
+        applied_client_op_ids: clientOpIds,
+      }),
       user.id,
       user.userRole
     );
@@ -364,6 +347,7 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get("userId"); // Optional: fallback user ID
     const sinceParam = searchParams.get("since");
     const since = parseSinceCursor(sinceParam);
+    const contentRev = searchParams.get("contentRev");
 
     if (!deviceId && !userId) {
       return NextResponse.json(
@@ -399,44 +383,72 @@ export async function GET(request: NextRequest) {
     }
     await touchUserDevice(user.id, deviceId);
 
-    if (since) {
-      const [itemIdentities, hookDelta, categoryFilters] = await Promise.all([
-        getUserItemIdentities(user.id),
-        getUserMemoryHooksDelta(user.id, since),
-        getUserCategoryFilters(user.id),
+    // Conditional sync: requires BOTH cursors. `since` alone can't prove the
+    // client's cached word lists are current (list edits/subscriptions don't
+    // move sync_revision), so since-only requests get the full snapshot.
+    if (since && contentRev) {
+      const [currentContentRev, syncRevision] = await Promise.all([
+        getContentRevision(user.id),
+        getUserSyncRevision(user.id),
       ]);
-      // Project content-keyed progress changed since the cursor onto the user's
-      // current items.
-      const progress = await getProjectedProgress(user.id, itemIdentities, {
-        since,
-      });
-      timer.mark("fetch_user_data");
-
-      const updated: Record<string, string> = {};
-      const deleted: string[] = [];
-      for (const row of hookDelta) {
-        if (row.deletedAt) deleted.push(row.key);
-        else updated[row.key] = row.hookText;
-      }
-
-      const syncRevision = await getUserSyncRevision(user.id);
       timer.mark("compute_sync_revision");
-      const deltaResponse = await withSessionCookie(
-        buildSyncDeltaPayload(
-          user,
-          progress,
-          updated,
-          deleted,
-          categoryFilters,
-          { sync_revision: syncRevision }
-        ),
-        user.id,
-        user.userRole
-      );
-      timer.mark("build_response");
-      return timer.applyHeaders(deltaResponse);
+
+      if (currentContentRev === contentRev) {
+        if (syncRevision <= since.getTime()) {
+          const unchangedResponse = await withSessionCookie(
+            buildSyncUnchangedPayload(user, { sync_revision: syncRevision }),
+            user.id,
+            user.userRole
+          );
+          timer.mark("build_response");
+          return timer.applyHeaders(unchangedResponse);
+        }
+
+        const [itemIdentities, hookDelta, categoryFilters] = await Promise.all([
+          getUserItemIdentities(user.id),
+          getUserMemoryHooksDelta(user.id, since),
+          getUserCategoryFilters(user.id),
+        ]);
+        // Project content-keyed progress changed since the cursor onto the
+        // user's current items.
+        const progress = await getProjectedProgress(user.id, itemIdentities, {
+          since,
+        });
+        timer.mark("fetch_user_data");
+
+        const updated: Record<string, string> = {};
+        const deleted: string[] = [];
+        for (const row of hookDelta) {
+          if (row.deletedAt) deleted.push(row.key);
+          else updated[row.key] = row.hookText;
+        }
+
+        const deltaResponse = await withSessionCookie(
+          buildSyncDeltaPayload(
+            user,
+            progress,
+            updated,
+            deleted,
+            categoryFilters,
+            { sync_revision: syncRevision }
+          ),
+          user.id,
+          user.userRole
+        );
+        timer.mark("build_response");
+        return timer.applyHeaders(deltaResponse);
+      }
+      // Content changed — fall through to the full snapshot.
     }
 
+    // Cursors are computed BEFORE the reads: a row written mid-read then shows
+    // up as newer than the cursor and is re-sent on the next conditional GET,
+    // instead of being silently marked as already delivered.
+    const [syncRevision, contentRevision] = await Promise.all([
+      getUserSyncRevision(user.id),
+      getContentRevision(user.id),
+    ]);
+    timer.mark("compute_sync_revision");
     const [memoryHooks, categoryFilters] = await Promise.all([
       getUserMemoryHooks(user.id),
       getUserCategoryFilters(user.id),
@@ -448,8 +460,6 @@ export async function GET(request: NextRequest) {
       hydratedLists.wordListItems
     );
     timer.mark("fetch_list_metadata");
-    const syncRevision = await getUserSyncRevision(user.id);
-    timer.mark("compute_sync_revision");
     const response = await withSessionCookie(
       buildSyncSuccessPayload(
         user,
@@ -457,7 +467,7 @@ export async function GET(request: NextRequest) {
         memoryHooks,
         categoryFilters,
         hydratedLists,
-        { sync_revision: syncRevision }
+        { sync_revision: syncRevision, content_revision: contentRevision }
       ),
       user.id,
       user.userRole

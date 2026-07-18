@@ -1,6 +1,6 @@
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { db } from "../client";
-import { userCategoryFilters, type UserCategoryFilter } from "../schema";
+import { userCategoryFilters, users, type UserCategoryFilter } from "../schema";
 
 // Get category filters for a user
 export async function getUserCategoryFilters(
@@ -49,6 +49,16 @@ export async function setUserCategoryFilters(
           )
         );
     }
+  }
+
+  // Filter rows carry no updated_at, so move the user's sync_revision instead —
+  // otherwise other devices' conditional syncs would report "unchanged" and
+  // never pick this change up.
+  if (toAdd.length > 0 || toRemove.length > 0) {
+    await db
+      .update(users)
+      .set({ updatedAt: new Date() })
+      .where(eq(users.id, userId));
   }
 }
 

@@ -124,6 +124,14 @@ export interface SyncResponse {
    */
   is_delta?: boolean;
   memory_hooks_deleted?: string[];
+  /**
+   * Signature of the user's word-list content (lists/items/categories). Only
+   * present on full snapshots; the client echoes it as `contentRev` so the
+   * server can skip re-hydrating unchanged lists.
+   */
+  content_revision?: string;
+  /** True when a conditional GET confirmed nothing changed server-side. */
+  unchanged?: boolean;
   user: {
     id: string;
     user_role?: "user" | "editor";

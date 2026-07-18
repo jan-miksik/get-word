@@ -412,9 +412,12 @@ export function wordListItemsToNormalizedWords(
       const media = canUseLegacyMediaFallback
         ? mediaByPair.get(pairKey(cz, vi)) ?? mediaByPair.get(pairKey(vi, cz))
         : undefined;
-      const generatedKnownAudio = [item.knownAudioUrl, ...(item.knownAudioArweaveUrls ?? [])]
+      // Arweave gateways first; the app's /api/audio proxy (object-store
+      // mirror) is the last resort, so B2 egress is only spent when the
+      // permanent copies are unreachable or the asset has no Arweave copy.
+      const generatedKnownAudio = [...(item.knownAudioArweaveUrls ?? []), item.knownAudioUrl]
         .filter((url): url is string => Boolean(url));
-      const generatedTargetAudio = [item.audioUrl, ...(item.audioArweaveUrls ?? [])]
+      const generatedTargetAudio = [...(item.audioArweaveUrls ?? []), item.audioUrl]
         .filter((url): url is string => Boolean(url));
 
       return {

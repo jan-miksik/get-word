@@ -3,9 +3,21 @@ import { db } from '../../client';
 import {
   wordCategories,
   wordListItems,
+  wordLists,
   type WordCategory,
   type WordListItem,
 } from '../../schema';
+
+/**
+ * Category rows have no updated_at, so category mutations bump the parent
+ * list's updated_at instead — that is what the sync content revision watches.
+ */
+async function touchListForCategoryChange(listId: string): Promise<void> {
+  await db
+    .update(wordLists)
+    .set({ updatedAt: new Date() })
+    .where(eq(wordLists.id, listId));
+}
 
 export async function getListCategories(listId: string): Promise<WordCategory[]> {
   return db
@@ -59,6 +71,7 @@ export async function reorderCategories(
         )
       );
   }
+  await touchListForCategoryChange(listId);
 }
 
 export async function renameCategory(
@@ -76,6 +89,7 @@ export async function renameCategory(
       )
     )
     .returning();
+  if (updated) await touchListForCategoryChange(listId);
   return updated ?? null;
 }
 
