@@ -344,4 +344,38 @@ describe('useLearningPageState', () => {
     expect(gamesOf(result.current.streamGroupedWords).some((game) => game.gameType === 'typing'))
       .toBe(true);
   });
+
+  it('temporarily schedules only tiltChoice while its frontier toggle is enabled', () => {
+    const words = Array.from({ length: 60 }, (_, index) =>
+      makeWord(`new-${index}`, 'list-a', 'basics', 0, index)
+    );
+
+    const { result, rerender } = renderHook(
+      ({ tiltGameEnabled }) =>
+        useLearningPageState({
+          activeWords: words,
+          filteredWords: words,
+          selectedCategories: new Set<string>(),
+          progress: {},
+          isHydrated: true,
+          viewMode: 'stream',
+          minigameFrequency: { min: 2, max: 2 },
+          categoryOrder: [],
+          tiltGameEnabled,
+        }),
+      { initialProps: { tiltGameEnabled: false } },
+    );
+
+    const gamesOf = (groups: ReturnType<typeof useLearningPageState>['streamGroupedWords']) =>
+      groups.flat().filter((item): item is MiniGameConfig => '_isMinigame' in item);
+
+    expect(gamesOf(result.current.streamGroupedWords).some((game) => game.gameType !== 'tiltChoice'))
+      .toBe(true);
+
+    rerender({ tiltGameEnabled: true });
+
+    const tiltOnlyGames = gamesOf(result.current.streamGroupedWords);
+    expect(tiltOnlyGames.length).toBeGreaterThan(0);
+    expect(tiltOnlyGames.every((game) => game.gameType === 'tiltChoice')).toBe(true);
+  });
 });

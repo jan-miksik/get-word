@@ -144,9 +144,14 @@ export function useLearningPageState({
     minigameSeed,
     selectedCategoriesKey,
     wordsResetKey,
-    // The typing quiz duplicates the main card while typing mode is on; the
-    // other quizzes keep rotating between cards.
-    excludeGameTypes: typingModeEnabled ? ['typing'] : [],
+    // Temporary QA mode: enabling the frontier tilt quiz makes it the only
+    // scheduled minigame. Turning it off restores the normal rotation (with
+    // typing still excluded when typing is the primary study mode).
+    excludeGameTypes: tiltGameEnabled
+      ? ['multipleChoice', 'typing', 'matching']
+      : typingModeEnabled
+        ? ['typing']
+        : [],
     includeGameTypes: tiltGameEnabled ? ['tiltChoice'] : [],
     getStageIndex,
     progressPlanRevision,
