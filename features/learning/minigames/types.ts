@@ -1,6 +1,6 @@
 import type { NormalizedWord } from '@/lib/words';
 
-export type GameType = 'multipleChoice' | 'typing' | 'matching';
+export type GameType = 'multipleChoice' | 'typing' | 'matching' | 'tiltChoice';
 export type GameDifficultyLevel = 1 | 2;
 export type MinigameFrequencyRange = { min: number; max: number } | 'off';
 
@@ -27,7 +27,11 @@ export interface InjectMinigamesOptions {
   minInterval?: number;
   maxInterval?: number;
   /** Game types that must not be scheduled (e.g. 'typing' while typing mode is the main card). */
-  excludeGameTypes?: GameType[];
+  excludeGameTypes?: readonly GameType[];
+  /** Experimental game types added to the stable base rotation. */
+  includeGameTypes?: readonly GameType[];
+  /** Snapshot of the current SRS stage, used only to choose game difficulty. */
+  getStageIndex?: (wordId: string) => number;
 }
 
 export interface GameAnchor {

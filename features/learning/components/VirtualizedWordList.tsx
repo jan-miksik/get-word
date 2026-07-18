@@ -19,7 +19,7 @@ type VirtualItem =
 interface VirtualizedWordListProps {
   groupedWords: (NormalizedWord | MiniGameConfig)[][];
   renderCard: (word: NormalizedWord, stageIndex: number) => ReactNode;
-  renderMiniGame?: (config: MiniGameConfig) => ReactNode;
+  renderMiniGame?: (config: MiniGameConfig, isActive: boolean) => ReactNode;
   stageFooter?: (stageIndex: number) => ReactNode | null;
   className?: string;
   emptyMessage?: string;
@@ -44,6 +44,7 @@ export function VirtualizedWordList({
   const containerRef = useRef<HTMLDivElement>(null);
   const stickyHeaderRef = useRef<HTMLDivElement>(null);
   const [activeStageIndex, setActiveStageIndex] = useState(0);
+  const [activeMiniGameId, setActiveMiniGameId] = useState<string | null>(null);
 
   // Flatten items: headers (optional) + cards + optional footers
   const items = useMemo(() => {
@@ -161,6 +162,21 @@ export function VirtualizedWordList({
         setActiveStageIndex(item.stageIndex);
       }
     }
+
+    const viewportBottom = scrollTop + el.clientHeight;
+    let bestGame: { id: string; overlap: number } | null = null;
+    for (const visibleItem of visibleItems) {
+      const item = items[visibleItem.index];
+      if (item?.type !== 'minigame') continue;
+      const overlap = Math.max(
+        0,
+        Math.min(visibleItem.end, viewportBottom) - Math.max(visibleItem.start, stickyBottom),
+      );
+      if (overlap > 0 && (!bestGame || overlap > bestGame.overlap)) {
+        bestGame = { id: item.config.id, overlap };
+      }
+    }
+    setActiveMiniGameId(bestGame?.id ?? null);
   }, [virtualizer, items, scrollElement]);
 
   useEffect(() => {
@@ -378,7 +394,7 @@ export function VirtualizedWordList({
                   willChange: 'transform',
                 }}
               >
-                {renderMiniGame?.(item.config) ?? null}
+                {renderMiniGame?.(item.config, activeMiniGameId === item.config.id) ?? null}
               </div>
             );
           }

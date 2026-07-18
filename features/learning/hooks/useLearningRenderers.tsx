@@ -159,7 +159,7 @@ export function useLearningRenderers({
     );
   }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, typingModeEnabled, typingWriteIn, typingPrefillPunctuation, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyTypingScore, applyTypingOutcome]);
 
-  const renderMiniGame = useCallback((config: MiniGameConfig) => {
+  const renderMiniGame = useCallback((config: MiniGameConfig, isActive = false) => {
     if (dismissedGames.has(config.id)) return null;
     return (
       <div key={config.id} className="pt-8 h-full min-h-0 flex flex-col">
@@ -169,6 +169,7 @@ export function useLearningRenderers({
             role={role}
             onDismiss={() => setDismissedGames((prev) => new Set([...prev, config.id]))}
             onResult={(delta) => setGameScore((prev) => Math.max(0, prev + delta))}
+            isActive={isActive}
           />
         </div>
       </div>
@@ -292,6 +293,7 @@ export function useLearningRenderers({
           onResult={(delta) => {
             setGameScore((prev) => Math.max(0, prev + delta));
           }}
+          isActive
         />
       </div>
     ),

@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
+import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import type { ProgressData } from '@/features/sync/types';
 import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-stats';
 import type { NormalizedWord } from '@/lib/words';
@@ -20,6 +20,8 @@ interface UseLearningPageStateOptions {
   categoryOrder: string[];
   dueTimerRevision?: number;
   typingModeEnabled?: boolean;
+  tiltGameEnabled?: boolean;
+  progressPlanRevision?: string | number;
 }
 
 type LearningUiState = {
@@ -78,6 +80,8 @@ export function useLearningPageState({
   categoryOrder,
   dueTimerRevision = 0,
   typingModeEnabled = false,
+  tiltGameEnabled = false,
+  progressPlanRevision = 0,
 }: UseLearningPageStateOptions) {
   const [minigameSeed] = useState<number>(() => Math.floor(Math.random() * 1_000_000_000));
   const selectedCategoriesKey = Array.from(selectedCategories).sort().join('|');
@@ -123,6 +127,10 @@ export function useLearningPageState({
     () => filteredWords.filter((word) => (progress[word.id]?.stageIndex ?? 0) > 0),
     [filteredWords, progress]
   );
+  const getStageIndex = useCallback(
+    (wordId: string) => progress[wordId]?.stageIndex ?? 0,
+    [progress],
+  );
 
   const { streamGroupedWords } = useLearningStreamGroups({
     dueWords,
@@ -139,6 +147,9 @@ export function useLearningPageState({
     // The typing quiz duplicates the main card while typing mode is on; the
     // other quizzes keep rotating between cards.
     excludeGameTypes: typingModeEnabled ? ['typing'] : [],
+    includeGameTypes: tiltGameEnabled ? ['tiltChoice'] : [],
+    getStageIndex,
+    progressPlanRevision,
   });
 
   const progressStats = useMemo(

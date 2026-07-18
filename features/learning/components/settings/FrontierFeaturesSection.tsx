@@ -6,8 +6,14 @@ import { Section, ToggleSwitch } from '@/components/settings/primitives';
 
 export function FrontierFeaturesSection() {
   const { t } = useI18n();
-  const { swipeCardsEnabled, setSwipeCardsEnabled, photoLabEnabled, setPhotoLabEnabled } =
-    useAppStateContext();
+  const {
+    swipeCardsEnabled,
+    setSwipeCardsEnabled,
+    tiltGameEnabled,
+    setTiltGameEnabled,
+    photoLabEnabled,
+    setPhotoLabEnabled,
+  } = useAppStateContext();
 
   return (
     <Section label={t('settings.frontierFeatures')}>
@@ -23,6 +29,17 @@ export function FrontierFeaturesSection() {
           />
         </div>
         <p className="m-0 text-xs text-text-soft/60">{t('settings.swipeCardsNotice')}</p>
+      </div>
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center justify-between py-0.5">
+          <span className="text-sm text-text">{t('settings.tiltGame')}</span>
+          <ToggleSwitch
+            checked={tiltGameEnabled}
+            onChange={setTiltGameEnabled}
+            ariaLabel={t('settings.tiltGame')}
+          />
+        </div>
+        <p className="m-0 text-xs text-text-soft/60">{t('settings.tiltGameNotice')}</p>
       </div>
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center justify-between py-0.5">

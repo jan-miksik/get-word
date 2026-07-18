@@ -9,7 +9,32 @@ import type {
 } from './types';
 
 const GAME_TYPES: GameType[] = ['multipleChoice', 'typing', 'matching'];
+const MIN_POOL_SIZE: Record<GameType, number> = {
+  multipleChoice: 4,
+  typing: 4,
+  matching: 4,
+  tiltChoice: 2,
+};
 const STRUCTURAL_CATEGORIES = new Set(['word', 'phrase']);
+
+function visibleAnswerSignature(value: string): string {
+  const normalized = value
+    .trim()
+    .toLocaleLowerCase()
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\p{L}\p{N}]+/gu, '');
+  return normalized || value.trim().toLocaleLowerCase();
+}
+
+function hasDistinctVisibleAnswers(left: NormalizedWord, right: NormalizedWord): boolean {
+  // MiniGameCard chooses either study direction deterministically. Requiring
+  // both sides to differ guarantees that the distractor is valid either way.
+  return (
+    visibleAnswerSignature(left.cz) !== visibleAnswerSignature(right.cz) &&
+    visibleAnswerSignature(left.vi) !== visibleAnswerSignature(right.vi)
+  );
+}
 
 function getLearningCategories(word: NormalizedWord): string[] {
   return word.category.filter((category) => !STRUCTURAL_CATEGORIES.has(category));
@@ -107,7 +132,9 @@ export function computeGameAnchors(
   }
 
   const excludedTypes = new Set(options?.excludeGameTypes ?? []);
-  const availableGameTypes = GAME_TYPES.filter((type) => !excludedTypes.has(type));
+  const availableGameTypes = Array.from(
+    new Set([...GAME_TYPES, ...(options?.includeGameTypes ?? [])]),
+  ).filter((type) => !excludedTypes.has(type));
   if (availableGameTypes.length === 0) return [];
 
   const randGap = createRng(baseSeed);
@@ -118,14 +145,15 @@ export function computeGameAnchors(
     slotIndex: number,
     previousType: GameType | null,
     rand: () => number,
+    candidatesForPool: GameType[],
   ): GameType => {
     const candidates =
-      previousType && availableGameTypes.length > 1
-        ? availableGameTypes.filter((type) => type !== previousType)
-        : availableGameTypes;
+      previousType && candidatesForPool.length > 1
+        ? candidatesForPool.filter((type) => type !== previousType)
+        : candidatesForPool;
     return (
       candidates[Math.floor(rand() * candidates.length)] ??
-      availableGameTypes[slotIndex % availableGameTypes.length]
+      candidatesForPool[slotIndex % candidatesForPool.length]
     );
   };
 
@@ -193,21 +221,61 @@ export function computeGameAnchors(
     return hasAtLeastOneSimilarPair(output) ? output : null;
   };
 
+  const pickTiltChoiceWords = (
+    pool: NormalizedWord[],
+    similarPairs: Array<[number, number]>,
+    rand: () => number,
+  ): { words: NormalizedWord[]; level: GameDifficultyLevel } | null => {
+    if (pool.length < MIN_POOL_SIZE.tiltChoice) return null;
+
+    const firstCorrectIndex = Math.floor(rand() * pool.length);
+    for (let offset = 0; offset < pool.length; offset += 1) {
+      const correctIndex = (firstCorrectIndex + offset) % pool.length;
+      const correct = pool[correctIndex];
+      const validPartners = similarPairs
+        .flatMap(([left, right]) => {
+          if (left === correctIndex) return [right];
+          if (right === correctIndex) return [left];
+          return [];
+        })
+        .filter((index) => hasDistinctVisibleAnswers(correct, pool[index]));
+
+      if ((options?.getStageIndex?.(correct.id) ?? 0) >= 3 && validPartners.length > 0) {
+        const partnerIndex = validPartners[Math.floor(rand() * validPartners.length)];
+        return { words: [correct, pool[partnerIndex]], level: 2 };
+      }
+
+      const validDistractors = pool
+        .map((_, index) => index)
+        .filter(
+          (index) => index !== correctIndex && hasDistinctVisibleAnswers(correct, pool[index]),
+        );
+      if (validDistractors.length > 0) {
+        const distractorIndex = validDistractors[Math.floor(rand() * validDistractors.length)];
+        return { words: [correct, pool[distractorIndex]], level: 1 };
+      }
+    }
+
+    return null;
+  };
+
   let lastSignature: string | null = null;
   let lastGameType: GameType | null = null;
   const anchors: Array<GameAnchor | null> = [];
 
   for (let slotIndex = 0; slotIndex < anchorIndices.length; slotIndex += 1) {
     const anchorIndex = anchorIndices[slotIndex];
-    const randType = createRng(mixSeed(baseSeed, mixSeed(anchorIndex + 1, 8000 + slotIndex)));
-    const gameType = pickGameType(slotIndex, lastGameType, randType);
-
     const pool = buildGameWordPool(originalWords, anchorIndex, streamAboveWindow);
-
-    if (pool.length < 4) {
+    const candidatesForPool = availableGameTypes.filter(
+      (type) => pool.length >= MIN_POOL_SIZE[type],
+    );
+    if (candidatesForPool.length === 0) {
       anchors.push(null);
       continue;
     }
+
+    const randType = createRng(mixSeed(baseSeed, mixSeed(anchorIndex + 1, 8000 + slotIndex)));
+    const gameType = pickGameType(slotIndex, lastGameType, randType, candidatesForPool);
 
     const anchorId = `game-${originalWords[anchorIndex].id}-s${baseSeed}`;
     const similarPairs = buildSimilarPairs(pool);
@@ -222,6 +290,18 @@ export function computeGameAnchors(
 
     while (attempt < 4) {
       const randPick = createRng(mixSeed(baseSeed, mixSeed(anchorIndex + 1, attempt + 1)));
+      if (gameType === 'tiltChoice') {
+        const tiltCandidate = pickTiltChoiceWords(pool, similarPairs, randPick);
+        if (!tiltCandidate) break;
+        chosen = tiltCandidate.words;
+        chosenLevel = tiltCandidate.level;
+        signature = signatureOf(chosen);
+        if (signature !== lastSignature) break;
+        chosen = null;
+        attempt += 1;
+        continue;
+      }
+
       const randLevel = createRng(mixSeed(baseSeed, mixSeed(anchorIndex + 1, 5000 + attempt)));
       const shouldAttemptLevel2 = level2Eligible && randLevel() < 0.5;
       const level2Candidate = shouldAttemptLevel2
@@ -242,10 +322,21 @@ export function computeGameAnchors(
 
     if (!chosen) {
       const randPick = createRng(mixSeed(baseSeed, mixSeed(anchorIndex + 1, 999)));
-      const fallback = pickDistinctWords(pool, randPick);
-      chosen = fallback;
-      signature = signatureOf(fallback);
-      chosenLevel = 1;
+      if (gameType === 'tiltChoice') {
+        const fallback = pickTiltChoiceWords(pool, similarPairs, randPick);
+        if (!fallback) {
+          anchors.push(null);
+          continue;
+        }
+        chosen = fallback.words;
+        signature = signatureOf(fallback.words);
+        chosenLevel = fallback.level;
+      } else {
+        const fallback = pickDistinctWords(pool, randPick);
+        chosen = fallback;
+        signature = signatureOf(fallback);
+        chosenLevel = 1;
+      }
     }
 
     lastSignature = signature;

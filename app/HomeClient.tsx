@@ -93,6 +93,7 @@ export function HomeClient() {
     studyNotesEnabled,
     studyNoteMinimizeFromStage,
     swipeCardsEnabled,
+    tiltGameEnabled,
     typingModeEnabled,
     typingWriteIn,
     typingPrefillPunctuation,
@@ -225,6 +226,8 @@ export function HomeClient() {
     categoryOrder,
     dueTimerRevision,
     typingModeEnabled,
+    tiltGameEnabled,
+    progressPlanRevision: isInitialServerSyncPending ? 'pending' : 'ready',
   });
 
   const {

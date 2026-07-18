@@ -62,6 +62,9 @@ type UseLearningStreamGroupsArgs = {
   selectedCategoriesKey: string;
   wordsResetKey: string;
   excludeGameTypes?: GameType[];
+  includeGameTypes?: GameType[];
+  getStageIndex?: (wordId: string) => number;
+  progressPlanRevision?: string | number;
 };
 
 export function useLearningStreamGroups({
@@ -77,6 +80,9 @@ export function useLearningStreamGroups({
   selectedCategoriesKey,
   wordsResetKey,
   excludeGameTypes,
+  includeGameTypes,
+  getStageIndex,
+  progressPlanRevision = 0,
 }: UseLearningStreamGroupsArgs) {
   const [planCache] = useState(() => new SegmentPlanCache());
 
@@ -91,6 +97,11 @@ export function useLearningStreamGroups({
   const stableExcludeGameTypes = useMemo(
     () => (excludeGameTypesKey ? (excludeGameTypesKey.split(',') as GameType[]) : []),
     [excludeGameTypesKey],
+  );
+  const includeGameTypesKey = Array.from(new Set(includeGameTypes ?? [])).sort().join(',');
+  const stableIncludeGameTypes = useMemo(
+    () => (includeGameTypesKey ? (includeGameTypesKey.split(',') as GameType[]) : []),
+    [includeGameTypesKey],
   );
 
   const streamGroupedWords = useMemo(() => {
@@ -121,7 +132,7 @@ export function useLearningStreamGroups({
           if (words.length === 0) return [] as (NormalizedWord | MiniGameConfig)[];
 
           const seed = segmentSeed(kind);
-          const configKey = `${seed}|${min}|${max}|${excludeGameTypesKey}`;
+          const configKey = `${seed}|${min}|${max}|${excludeGameTypesKey}|${includeGameTypesKey}|${progressPlanRevision}`;
           const resetKey = `${baseResetKey}|${kind}`;
           const existing = planCache.get(kind);
 
@@ -154,6 +165,8 @@ export function useLearningStreamGroups({
               minInterval: min,
               maxInterval: max,
               excludeGameTypes: stableExcludeGameTypes,
+              includeGameTypes: stableIncludeGameTypes,
+              getStageIndex,
             });
           }
 
@@ -213,13 +226,17 @@ export function useLearningStreamGroups({
     dismissedGames,
     dueWords,
     excludeGameTypesKey,
+    includeGameTypesKey,
     stableExcludeGameTypes,
+    stableIncludeGameTypes,
+    getStageIndex,
     isHydrated,
     learnedPool,
     minigameFrequency,
     minigameSeed,
     newWords,
     planCache,
+    progressPlanRevision,
     selectedCategoriesKey,
     settlingWords,
     showNotReady,

@@ -10,6 +10,7 @@ import type { NormalizedWord } from '@/lib/words';
 import { MultipleChoiceGame } from './games/MultipleChoiceGame';
 import { TypingChallengeGame } from './games/TypingChallengeGame';
 import { MatchingPairsGame } from './games/MatchingPairsGame';
+import { TiltChoiceGame } from './games/TiltChoiceGame';
 import {
   getWordAudioSrcBySide,
   type LearningRole,
@@ -58,6 +59,7 @@ interface Props {
   role: LearningRole;
   onDismiss: () => void;
   onResult?: (delta: number) => void;
+  isActive?: boolean;
 }
 
 function hashString(input: string): number {
@@ -163,7 +165,7 @@ function pickCachedVerifiedAudioSideForMatching(
   return null;
 }
 
-export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
+export function MiniGameCard({ config, role, onDismiss, onResult, isActive = true }: Props) {
   const { t } = useI18n();
   const [finished, setFinished] = useState<{ delta: number } | null>(null);
   const [skipSound, setSkipSound] = useState<boolean>(() => readSkipSound());
@@ -287,6 +289,17 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
         {...(matchingPromptMode === 'audio'
           ? { sourceLang: verifiedMatchingAudioSide!, promptMode: 'audio' as const }
           : { promptMode: 'text' as const })}
+      />
+    );
+  } else if (config.gameType === 'tiltChoice') {
+    game = (
+      <TiltChoiceGame
+        key={config.id}
+        {...gameProps}
+        sourceLang={typingAndChoicePromptSide}
+        promptMode={typingAndChoicePromptMode}
+        soundEnabled={!skipSound}
+        isActive={isActive}
       />
     );
   }

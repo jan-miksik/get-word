@@ -92,6 +92,22 @@
 .game-card--choice::before  { background: var(--game-accent); }
 .game-card--typing::before  { background: var(--fresh); }
 .game-card--matching::before { background: var(--game-correct); }
+.game-card--tilt::before     { background: var(--game-accent); }
+
+/* word-card.css gives odd .phrase-card children a transparent background with
+   higher selector specificity; keep the tilt surface readable in either slot. */
+.phrase-card.game-card--tilt {
+  background: var(--game-surface);
+}
+
+.tilt-choice-fill {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, var(--game-accent) 24%, transparent);
+  transform: scaleX(0);
+  transform-origin: left center;
+  pointer-events: none;
+}
 
 .game-badge {
   display: inline-flex;

@@ -29,6 +29,7 @@ import {
   readProgressiveRevealPreference,
   readRevealModePreference,
   readSwipeCardsPreference,
+  readTiltGamePreference,
   readTypingAudioPromptPreference,
   readTypingCheckButtonPreference,
   readTypingMobileKeyboardAutoFocusPreference,
@@ -118,6 +119,7 @@ export function usePreferences(
   );
   const [revealMode, setRevealMode] = useState<RevealMode>(readRevealModePreference);
   const [swipeCardsEnabled, setSwipeCardsEnabled] = useState(readSwipeCardsPreference);
+  const [tiltGameEnabled, setTiltGameEnabled] = useState(readTiltGamePreference);
   const [photoLabEnabled, setPhotoLabEnabled] = useState(readPhotoLabPreference);
   const [typingModeEnabled, setTypingModeEnabled] = useState(readTypingModePreference);
   const [typingWriteIn, setTypingWriteIn] = useState<TypingWriteIn>(readTypingWriteInPreference);
@@ -172,6 +174,10 @@ export function usePreferences(
   useEffect(() => {
     storeLearningLocalPreference(LEARNING_LOCAL_PREFERENCE_KEYS.swipeCards, swipeCardsEnabled);
   }, [swipeCardsEnabled]);
+
+  useEffect(() => {
+    storeLearningLocalPreference(LEARNING_LOCAL_PREFERENCE_KEYS.tiltGame, tiltGameEnabled);
+  }, [tiltGameEnabled]);
 
   useEffect(() => {
     storePhotoLabPreference(photoLabEnabled);
@@ -506,6 +512,8 @@ export function usePreferences(
     setRevealMode,
     swipeCardsEnabled,
     setSwipeCardsEnabled,
+    tiltGameEnabled,
+    setTiltGameEnabled,
     photoLabEnabled,
     setPhotoLabEnabled,
     typingModeEnabled,

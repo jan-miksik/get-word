@@ -97,6 +97,19 @@ describe('MiniGameCard', () => {
     expect(await screen.findByText('🔗 Match')).toBeInTheDocument();
   });
 
+  it('renders TiltChoiceGame for tiltChoice type', async () => {
+    render(
+      <MiniGameCard
+        config={{ ...config('tiltChoice'), words: WORDS.slice(0, 2) }}
+        role="knownLanguage"
+        onDismiss={vi.fn()}
+      />,
+    );
+    expect(await screen.findByText(/tilt to choose/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'con chó' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'con mèo' })).toBeInTheDocument();
+  });
+
   it('passes role to the game component', async () => {
     render(<MiniGameCard config={config('multipleChoice')} role="languageToLearn" onDismiss={vi.fn()} />);
     const shouldUseAudio = shouldUseDeterministicAudioPromptForGameId('test-multipleChoice');

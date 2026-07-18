@@ -518,3 +518,117 @@ describe('computeGameAnchors excludeGameTypes', () => {
     expect(types.size).toBeGreaterThan(1);
   });
 });
+
+describe('computeGameAnchors tiltChoice opt-in', () => {
+  const onlyTilt = {
+    includeGameTypes: ['tiltChoice'] as const,
+    excludeGameTypes: ['multipleChoice', 'typing', 'matching'] as const,
+  };
+  const words = Array.from({ length: 12 }, (_, i) =>
+    makeWord(`w${i}`, `source-${i}`, `answer-${i}`),
+  );
+
+  it('never schedules tiltChoice unless it is explicitly included', () => {
+    const anchors = computeGameAnchors(words, [], 42, { minInterval: 2, maxInterval: 2 });
+    expect(anchors.every((anchor) => anchor.gameType !== 'tiltChoice')).toBe(true);
+  });
+
+  it('creates deterministic two-answer games when included', () => {
+    const options = { ...onlyTilt, minInterval: 2, maxInterval: 2 };
+    const first = computeGameAnchors(words, [], 42, options);
+    const second = computeGameAnchors(words, [], 42, options);
+
+    expect(first).toEqual(second);
+    expect(first.length).toBeGreaterThan(0);
+    first.forEach((anchor) => {
+      expect(anchor.gameType).toBe('tiltChoice');
+      expect(anchor.words).toHaveLength(2);
+      expect(anchor.words[0].id).not.toBe(anchor.words[1].id);
+    });
+  });
+
+  it('lets excludeGameTypes override an included tiltChoice', () => {
+    const anchors = computeGameAnchors(words, [], 42, {
+      includeGameTypes: ['tiltChoice'],
+      excludeGameTypes: ['tiltChoice'],
+      minInterval: 2,
+      maxInterval: 2,
+    });
+    expect(anchors.every((anchor) => anchor.gameType !== 'tiltChoice')).toBe(true);
+  });
+
+  it('uses stage 3+ for level 2 when a valid similar partner exists', () => {
+    const similarWords = [
+      makeWord('a', 'cat', 'mèo'),
+      makeWord('b', 'bat', 'chó'),
+      makeWord('c', 'hat', 'nhà'),
+      makeWord('d', 'mat', 'nước'),
+    ];
+    const anchors = computeGameAnchors(similarWords, [], 7, {
+      ...onlyTilt,
+      minInterval: 2,
+      maxInterval: 2,
+      getStageIndex: () => 3,
+    });
+    expect(anchors.length).toBeGreaterThan(0);
+    expect(anchors.every((anchor) => anchor.level === 2)).toBe(true);
+  });
+
+  it('uses level 1 below stage 3 and falls back to it without a similar partner', () => {
+    const lowStage = computeGameAnchors(words, [], 7, {
+      ...onlyTilt,
+      minInterval: 2,
+      maxInterval: 2,
+      getStageIndex: () => 2,
+    });
+    const nonSimilar = [
+      makeWord('a', 'alpha', 'river'),
+      makeWord('b', 'bravo', 'mountain'),
+      makeWord('c', 'charlie', 'window'),
+      makeWord('d', 'delta', 'kitchen'),
+    ];
+    const highButDistinct = computeGameAnchors(nonSimilar, [], 7, {
+      ...onlyTilt,
+      minInterval: 2,
+      maxInterval: 2,
+      getStageIndex: () => 7,
+    });
+    expect(lowStage.every((anchor) => anchor.level === 1)).toBe(true);
+    expect(highButDistinct.every((anchor) => anchor.level === 1)).toBe(true);
+  });
+
+  it('supports pools of two and three words', () => {
+    for (const size of [2, 3]) {
+      const shortPool = words.slice(0, size);
+      const anchors = computeGameAnchors(shortPool, [], 9, {
+        ...onlyTilt,
+        minInterval: size,
+        maxInterval: size,
+      });
+      expect(anchors).toHaveLength(1);
+      expect(anchors[0].words).toHaveLength(2);
+    }
+  });
+
+  it('never pairs visually identical answers even when word ids differ', () => {
+    const duplicateAnswers = [
+      makeWord('a', 'alpha', 'stejná odpověď'),
+      makeWord('b', 'beta', 'Stejna odpoved!'),
+      makeWord('c', 'gamma', 'jiná odpověď'),
+      makeWord('d', 'delta', 'čtvrtá odpověď'),
+    ];
+    const anchors = computeGameAnchors(duplicateAnswers, [], 13, {
+      ...onlyTilt,
+      minInterval: 2,
+      maxInterval: 2,
+      getStageIndex: () => 5,
+    });
+
+    for (const anchor of anchors) {
+      const normalized = anchor.words.map((word) =>
+        word.vi.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/\W/g, '').toLowerCase(),
+      );
+      expect(normalized[0]).not.toBe(normalized[1]);
+    }
+  });
+});

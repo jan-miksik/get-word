@@ -5,6 +5,7 @@ export const LEARNING_LOCAL_PREFERENCE_KEYS = {
   progressiveReveal: 'get-word-progressive-reveal-enabled',
   revealMode: 'get-word-reveal-mode',
   swipeCards: 'get-word-swipe-cards-enabled',
+  tiltGame: 'get-word-tilt-game-enabled',
   typingMode: 'get-word-typing-mode-enabled',
   typingWriteIn: 'get-word-typing-write-in',
   typingAudioPrompt: 'get-word-typing-audio-prompt-enabled',
@@ -37,6 +38,9 @@ export const readProgressiveRevealPreference = () =>
 
 export const readSwipeCardsPreference = () =>
   readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.swipeCards) === 'true';
+
+export const readTiltGamePreference = () =>
+  readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.tiltGame) === 'true';
 
 export const readRevealModePreference = (): RevealMode =>
   readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.revealMode) === 'press' ? 'press' : 'scratch';

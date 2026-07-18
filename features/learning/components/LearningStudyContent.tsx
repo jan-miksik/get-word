@@ -40,7 +40,7 @@ interface LearningStudyContentProps {
   ) => React.ReactNode;
   renderMiniGameForDeck: (config: MiniGameConfig, onComplete: () => void) => React.ReactNode;
   renderCard: (word: NormalizedWord, stageIndex?: number) => React.ReactNode;
-  renderMiniGame: (config: MiniGameConfig) => React.ReactNode;
+  renderMiniGame: (config: MiniGameConfig, isActive: boolean) => React.ReactNode;
   dueWordsCount: number;
   showNotReady: boolean;
   settlingCount: number;
