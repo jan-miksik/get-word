@@ -81,10 +81,11 @@ export function useCategoryFilter(
     persistCategoryFiltersByList(selectedCategoriesByScope);
   }, [selectedCategoriesByScope]);
 
-  const applyServerCategories = useCallback((_categories: string[]) => {
+  const applyServerCategories = useCallback((categories: string[]) => {
     // Category visibility is list-scoped client UI state. The current server payload
     // stores only flat category names, which cannot safely distinguish same-named
     // categories across different lists.
+    void categories;
   }, []);
 
   const toggleCategory = useCallback((category: string) => {

@@ -6,7 +6,7 @@ import {
   LearningLanguageOnboarding,
   pickAutogenerateCommonSeed,
   sortMatchedWordLists,
-} from '../LearningLanguageOnboarding';
+} from '@/features/learning/onboarding/LearningLanguageOnboarding';
 
 const mocks = vi.hoisted(() => ({
   push: vi.fn(),

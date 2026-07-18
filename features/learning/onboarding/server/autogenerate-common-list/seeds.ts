@@ -61,7 +61,7 @@ function scoreTranslationSeed(seed: SeedCandidate, languageFrom: string, languag
   return score;
 }
 
-export function pickExactSeed(candidates: SeedCandidate[], languageFrom: string, languageTo: string) {
+function pickExactSeed(candidates: SeedCandidate[], languageFrom: string, languageTo: string) {
   const fromVariants = getListLanguageCodeVariants(languageFrom);
   const toVariants = getListLanguageCodeVariants(languageTo);
   return candidates

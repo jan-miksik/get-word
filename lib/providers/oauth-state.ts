@@ -47,7 +47,7 @@ function signaturesMatch(expected: string, actual: string): boolean {
   return crypto.timingSafeEqual(expectedBytes, actualBytes);
 }
 
-export function randomBase64Url(bytes = 32): string {
+function randomBase64Url(bytes = 32): string {
   return base64Url(crypto.randomBytes(bytes));
 }
 

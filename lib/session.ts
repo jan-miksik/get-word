@@ -33,7 +33,6 @@ function base64UrlEncodeBytes(bytes: Uint8Array): string {
 
   let binary = "";
   for (let i = 0; i < bytes.length; i++) binary += String.fromCharCode(bytes[i]);
-  // eslint-disable-next-line no-undef
   return btoa(binary).replaceAll("+", "-").replaceAll("/", "_").replaceAll("=", "");
 }
 
@@ -44,7 +43,6 @@ function base64UrlDecodeToBytes(s: string): Uint8Array {
     return new Uint8Array(Buffer.from(padded, "base64"));
   }
 
-  // eslint-disable-next-line no-undef
   const binary = atob(padded);
   const out = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) out[i] = binary.charCodeAt(i);

@@ -103,7 +103,7 @@ export type ConfirmResult = {
 };
 
 /** Structured advisory warning surfaced per row in the editor (see lib/translation-validate.ts). */
-export type ClientValidationWarning = {
+type ClientValidationWarning = {
   code: string;
   severity: string;
   confidence: string;

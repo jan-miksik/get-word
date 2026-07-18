@@ -44,7 +44,7 @@ export type GeneratedComment = {
  * more of the list at once helps the model spot teaching-anchor mismatches
  * between related items. A failed batch is skipped, not fatal.
  */
-export const COMMENT_BATCH_SIZE = 120;
+const COMMENT_BATCH_SIZE = 120;
 
 export function buildCommentPrompt(input: {
   languageFrom: string;

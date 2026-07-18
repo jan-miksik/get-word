@@ -1,8 +1,8 @@
 import { AwsClient } from "aws4fetch";
 
 export const OBJECT_AUDIO_CONTENT_TYPE = "audio/mpeg";
-export const OBJECT_AUDIO_KEY_PREFIX = "audio";
-export const OBJECT_AUDIO_EXTENSION = "mp3";
+const OBJECT_AUDIO_KEY_PREFIX = "audio";
+const OBJECT_AUDIO_EXTENSION = "mp3";
 export const OBJECT_PUT_TIMEOUT_MS = 10_000;
 export const OBJECT_GET_TIMEOUT_MS = 5_000;
 export const OBJECT_HEAD_TIMEOUT_MS = 5_000;

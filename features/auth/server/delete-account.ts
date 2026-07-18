@@ -11,7 +11,7 @@ import {
 } from '@/lib/db'
 import { deleteSupabaseAuthUser } from '../supabase/admin'
 
-export type DeleteAccountStatus = 'deleted' | 'completing'
+type DeleteAccountStatus = 'deleted' | 'completing'
 export interface DeleteAccountResult {
   status: DeleteAccountStatus
 }

@@ -1,7 +1,5 @@
 import { TurboFactory, type ArweaveJWK } from "@ardrive/turbo-sdk";
 export {
-  getArweaveGatewayBaseUrl,
-  getArweaveGatewayBaseUrls,
   getArweaveGatewayUrl,
   getArweaveGatewayUrls,
 } from "@/lib/arweave-gateways";

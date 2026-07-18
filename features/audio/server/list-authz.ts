@@ -1,7 +1,7 @@
 import { isEditor } from "@/lib/auth";
 import { getItemListAuthz, type ItemListAuthz, type User } from "@/lib/db";
 
-export function canEditAudioForItemList(row: ItemListAuthz, user: User) {
+function canEditAudioForItemList(row: ItemListAuthz, user: User) {
   return row.isCommon || row.isRecommended
     ? isEditor(user)
     : row.ownerId === user.id;

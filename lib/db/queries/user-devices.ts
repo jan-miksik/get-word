@@ -1,4 +1,4 @@
-import { eq, and, sql } from "drizzle-orm";
+import { sql } from "drizzle-orm";
 import { db } from "../client";
 import { userDevices } from "../schema";
 
@@ -21,16 +21,4 @@ export async function touchUserDevice(
       target: [userDevices.userId, userDevices.deviceId],
       set: { lastSeenAt: sql`now()` },
     });
-}
-
-export async function getUserDevice(
-  userId: string,
-  deviceId: string
-) {
-  const results = await db
-    .select()
-    .from(userDevices)
-    .where(and(eq(userDevices.userId, userId), eq(userDevices.deviceId, deviceId)))
-    .limit(1);
-  return results[0] ?? null;
 }

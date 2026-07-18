@@ -12,9 +12,9 @@
  * `source: "generated"` (drop, never repair).
  */
 
-export type WordItemCommentSource = "manual" | "generated";
+type WordItemCommentSource = "manual" | "generated";
 
-export type WordItemCommentMentionLanguage = "from" | "to";
+type WordItemCommentMentionLanguage = "from" | "to";
 
 export type WordItemCommentMention = {
   word: string;

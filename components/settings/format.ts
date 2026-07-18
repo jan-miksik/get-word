@@ -1,5 +1,4 @@
 import type { I18nKey } from '@/lib/i18n/messages';
-export { copyTextToClipboard } from '@/lib/clipboard';
 
 export function formatSyncTime(
   timestamp: number | null,
@@ -29,19 +28,4 @@ export function formatByteSize(bytes: number, locale: string): string {
 
   const maximumFractionDigits = unitIndex === 0 || value >= 10 ? 0 : 1;
   return `${new Intl.NumberFormat(locale, { maximumFractionDigits }).format(value)} ${units[unitIndex]}`;
-}
-
-export function formatLanguageLabel(code: string, language: string): string {
-  if (language.toLowerCase().startsWith('cs')) {
-    const normalized = code.toLowerCase().split('-')[0];
-    if (normalized === 'cs' || normalized === 'cz') return 'Češtinu';
-    if (normalized === 'vi') return 'Vietnamštinu';
-  }
-
-  try {
-    const display = new Intl.DisplayNames(language, { type: 'language' });
-    return display.of(code) ?? code.toUpperCase();
-  } catch {
-    return code.toUpperCase();
-  }
 }

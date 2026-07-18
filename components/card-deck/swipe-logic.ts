@@ -7,12 +7,12 @@ export type SwipeAxis = 'undecided' | 'horizontal' | 'vertical';
 /** Pointer travel before the gesture is claimed as horizontal or released as vertical. */
 export const AXIS_LOCK_DISTANCE = 12;
 /** |dx| must beat |dy| by this factor to claim the gesture; otherwise scroll wins. */
-export const HORIZONTAL_DOMINANCE = 1.2;
+const HORIZONTAL_DOMINANCE = 1.2;
 /** Release past this fraction of the card width commits the swipe. */
 export const COMMIT_DISTANCE_RATIO = 0.35;
 /** A flick commits with less travel when it's fast enough in the same direction. */
-export const FLICK_MIN_DISTANCE = 40;
-export const FLICK_MIN_VELOCITY = 0.6; // px/ms
+const FLICK_MIN_DISTANCE = 40;
+const FLICK_MIN_VELOCITY = 0.6; // px/ms
 export const MAX_DRAG_ROTATION_DEG = 10;
 /** jsdom and pre-layout nodes report zero width; keep the math sane. */
 export const FALLBACK_CARD_WIDTH = 320;

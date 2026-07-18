@@ -24,9 +24,6 @@ import {
 import { cleanCategory, cleanText } from "./helpers";
 import type { GeneratedCommonItem } from "./types";
 
-// Re-exported for callers that catch generation failures (e.g. categories.ts).
-export { OpenRouterChatError } from "@/lib/openrouter-chat";
-
 export type SeedSourceItem = {
   sourceIndex: number;
   source: string;

@@ -67,7 +67,7 @@ export function looksUntranslated(text: string, targetLanguage: string): boolean
  * advisory (editor-facing), never auto-applied.
  * ------------------------------------------------------------------ */
 
-export type TranslationWarningCode =
+type TranslationWarningCode =
   | "register_marker_mismatch"
   | "missing_target_capitalization"
   | "missing_article_for_noun"

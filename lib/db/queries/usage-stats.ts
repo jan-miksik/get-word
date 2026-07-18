@@ -9,20 +9,20 @@ export interface UsageStatsOptions {
   excludedUserEmails?: string[];
 }
 
-export interface UsageWeekBucket {
+interface UsageWeekBucket {
   weekStart: string; // YYYY-MM-DD (UTC Monday)
   count: number;
   partial?: boolean; // current, still-running week
 }
 
-export interface StudyWeekBucket {
+interface StudyWeekBucket {
   weekStart: string;
   reviews: number;
   activeUsers: number;
   partial?: boolean;
 }
 
-export interface RetentionBucket {
+interface RetentionBucket {
   eligible: number;
   returned: number;
 }

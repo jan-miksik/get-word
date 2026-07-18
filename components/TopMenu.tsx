@@ -43,7 +43,7 @@ function shortenListName(name: string): string {
     .replace(/Czech[–\-\s]*Vietnamese/i, 'cz - vi');
 }
 
-export function BetaBadge() {
+function BetaBadge() {
   return (
     <span
       className="inline-flex items-center rounded-full border border-[#2A2218]/70 bg-[#F4EFE2] px-2 py-0.5 text-[10px] font-extrabold uppercase tracking-[0.14em] text-[#2A2218] shadow-[0_1px_0_rgba(0,0,0,0.04)]"
@@ -55,7 +55,7 @@ export function BetaBadge() {
   );
 }
 
-export function ScoreBadge({ score }: { score: number }) {
+function ScoreBadge({ score }: { score: number }) {
   const { t } = useI18n();
   const prevScore = useRef(score);
   const [delta, setDelta] = useState<{ value: number; key: number } | null>(null);
@@ -515,9 +515,7 @@ function MenuDropdown({
 }
 
 export function TopMenu({
-  onShowAll,
   onMenuAction,
-  showAll,
   categoryCount,
   categoryActive,
   score,

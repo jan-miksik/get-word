@@ -9,7 +9,8 @@ import { NextResponse, type NextRequest } from 'next/server'
 // Wallet linking will return as a separate, additive feature gated behind a
 // signed wallet-ownership challenge (for the future stake/payment layer). Until
 // then this endpoint is intentionally gone.
-export async function POST(_request: NextRequest) {
+export async function POST(request: NextRequest) {
+  void request
   return NextResponse.json(
     {
       success: false,

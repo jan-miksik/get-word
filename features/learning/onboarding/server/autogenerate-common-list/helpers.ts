@@ -15,7 +15,7 @@ const RESOURCE_LANGUAGE_RANKS = new Map([
   ["vi", 8],
 ]);
 
-export function pairKey(languageFrom: string, languageTo: string) {
+function pairKey(languageFrom: string, languageTo: string) {
   return `${normalizeListLanguageCode(languageFrom)}:${normalizeListLanguageCode(languageTo)}`;
 }
 

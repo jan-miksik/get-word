@@ -53,7 +53,7 @@ export type AudioGenerationSummary = {
   reusedCount: number;
 };
 
-export function countTextUnits(texts: string[]) {
+function countTextUnits(texts: string[]) {
   return texts.reduce((total, text) => total + Array.from(text).length, 0);
 }
 

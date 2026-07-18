@@ -10,8 +10,8 @@ export type Size = { width: number; height: number };
 
 export const IDENTITY_TRANSFORM: ZoomTransform = { scale: 1, tx: 0, ty: 0 };
 
-export const MIN_SCALE = 1;
-export const MAX_SCALE = 4;
+const MIN_SCALE = 1;
+const MAX_SCALE = 4;
 /** Below this the transform snaps back to identity when a gesture ends. */
 export const SNAP_BACK_SCALE = 1.05;
 

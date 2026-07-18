@@ -5,10 +5,7 @@ import {
   wordLists,
   wordListItems,
   userListSubscriptions,
-  userProgress,
-  type WordListItem,
 } from '../../schema';
-import { createCategory, getListCategories } from './categories';
 import {
   archiveProgressForItems,
   deleteItems,
@@ -31,88 +28,6 @@ export async function isUserSubscribed(
     )
     .limit(1);
   return !!row;
-}
-
-export async function subscribeToList(
-  userId: string,
-  sourceListId: string,
-  userListId: string,
-): Promise<{ copied: number }> {
-  await db.insert(userListSubscriptions).values({
-    userId,
-    listId: sourceListId,
-  });
-
-  const sourceItems = await getListItems(sourceListId);
-  const sourceCategories = await getListCategories(sourceListId);
-
-  if (sourceItems.length === 0) return { copied: 0 };
-
-  const categoryMap = new Map<string, string>();
-  for (const sourceCategory of sourceCategories) {
-    const userCategory = await createCategory(userListId, sourceCategory.name, false);
-    categoryMap.set(sourceCategory.id, userCategory.id);
-  }
-
-  const itemsToCopy = sourceItems.map((item, index) => ({
-    listId: userListId,
-    categoryId: item.categoryId ? categoryMap.get(item.categoryId) ?? null : null,
-    textKnown: item.textKnown,
-    textTarget: item.textTarget,
-    position: index,
-    translationStatus: item.translationStatus as 'manual' | 'pending' | 'translated' | 'failed',
-    canonicalWordId: item.id,
-    knownAudioAssetId: item.knownAudioAssetId,
-    audioAssetId: item.audioAssetId,
-    acceptedKnown: item.acceptedKnown,
-    acceptedTarget: item.acceptedTarget,
-    // Same language pair (direct copy), so both manual and generated comments
-    // carry unchanged.
-    comment: item.comment,
-  }));
-
-  const batchSize = 100;
-  const created: WordListItem[] = [];
-  for (let index = 0; index < itemsToCopy.length; index += batchSize) {
-    const batch = itemsToCopy.slice(index, index + batchSize);
-    const rows = await db
-      .insert(wordListItems)
-      .values(
-        batch.map((item) => ({
-          listId: item.listId,
-          categoryId: item.categoryId,
-          canonicalWordId: item.canonicalWordId,
-          textKnown: item.textKnown,
-          textTarget: item.textTarget,
-          position: item.position,
-          translationStatus: item.translationStatus,
-          knownAudioAssetId: item.knownAudioAssetId,
-          audioAssetId: item.audioAssetId,
-          acceptedKnown: item.acceptedKnown,
-          acceptedTarget: item.acceptedTarget,
-          comment: item.comment,
-        })),
-      )
-      .returning();
-    created.push(...rows);
-  }
-
-  if (created.length > 0) {
-    const progressBatch = created.map((item) => ({
-      userId,
-      wordListItemId: item.id,
-      stageIndex: 0,
-      knownCount: 0,
-      unknownCount: 0,
-    }));
-
-    for (let index = 0; index < progressBatch.length; index += batchSize) {
-      const batch = progressBatch.slice(index, index + batchSize);
-      await db.insert(userProgress).values(batch);
-    }
-  }
-
-  return { copied: created.length };
 }
 
 export async function unsubscribeFromList(
@@ -173,7 +88,7 @@ export async function createUserSubscription(
  * Delete every subscription to a list. Used by the share-link reset to cut off
  * existing students on a private list.
  */
-export async function deleteListSubscriptions(
+async function deleteListSubscriptions(
   listId: string,
   executor: Executor = db,
 ): Promise<number> {

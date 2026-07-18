@@ -37,10 +37,10 @@ export type PolishFixCode =
 
 export type PolishWarningCode = "maybe_question" | "maybe_exclamation";
 
-export type PolishFix = { code: PolishFixCode };
-export type PolishWarning = { code: PolishWarningCode };
+type PolishFix = { code: PolishFixCode };
+type PolishWarning = { code: PolishWarningCode };
 
-export type FieldPolish = {
+type FieldPolish = {
   original: string;
   /** Text after applying all safe fixes. Equals `original` when nothing changed. */
   fixed: string;

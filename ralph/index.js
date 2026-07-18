@@ -67,7 +67,7 @@ for (let iteration = 1; iteration <= maxIterations; iteration++) {
   const progressSummary = getRecentSummary(ROOT_DIR, 3);
 
   const startedAt = new Date().toISOString();
-  const { success, complete, output, error } = await executeTask(task, progressSummary, ROOT_DIR);
+  const { success, complete, error } = await executeTask(task, progressSummary, ROOT_DIR);
 
   // Record structured progress
   recordRun(ROOT_DIR, {

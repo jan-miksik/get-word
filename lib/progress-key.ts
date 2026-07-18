@@ -11,7 +11,7 @@
  * and browsers produce identical digests. See docs/content-keyed-progress.md.
  */
 
-export const CONTENT_KEY_VERSION = "v1";
+const CONTENT_KEY_VERSION = "v1";
 
 const CONTENT_KEY_REGEX = /^v1:[a-f0-9]{64}$/;
 

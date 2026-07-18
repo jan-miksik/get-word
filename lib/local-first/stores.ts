@@ -100,28 +100,6 @@ async function writeOne<T>(store: StoreName, key: string, row: DomainRow<T>): Pr
   });
 }
 
-async function deleteOne(store: StoreName, key: string): Promise<boolean> {
-  const db = await openDb();
-  if (!db) return false;
-  return new Promise((resolve) => {
-    try {
-      const tx = db.transaction(store, 'readwrite');
-      tx.objectStore(store).delete(key);
-      tx.oncomplete = () => {
-        db.close();
-        resolve(true);
-      };
-      tx.onerror = () => {
-        db.close();
-        resolve(false);
-      };
-    } catch {
-      db.close();
-      resolve(false);
-    }
-  });
-}
-
 function stamp<T>(value: T, options?: { updatedAt?: string; deletedAt?: string | null }): DomainRow<T> {
   return {
     schemaVersion: META_SCHEMA_VERSION,
@@ -132,23 +110,13 @@ function stamp<T>(value: T, options?: { updatedAt?: string; deletedAt?: string |
 }
 
 // Progress (keyed by wordListItemId or wordId — caller decides)
-export function getProgressRow<T>(id: string) {
-  return readOne<T>(STORE_PROGRESS, id);
-}
 export function getAllProgressRows<T>() {
   return readAll<T>(STORE_PROGRESS);
 }
 export function putProgressRow<T>(id: string, value: T, options?: { updatedAt?: string }) {
   return writeOne(STORE_PROGRESS, id, stamp(value, options));
 }
-export function deleteProgressRow(id: string) {
-  return deleteOne(STORE_PROGRESS, id);
-}
-
 // Memory hooks
-export function getMemoryHookRow<T>(id: string) {
-  return readOne<T>(STORE_MEMORY_HOOKS, id);
-}
 export function getAllMemoryHookRows<T>() {
   return readAll<T>(STORE_MEMORY_HOOKS);
 }

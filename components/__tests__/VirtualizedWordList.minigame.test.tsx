@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { VirtualizedWordList } from '../VirtualizedWordList';
 import type { NormalizedWord } from '@/lib/words';

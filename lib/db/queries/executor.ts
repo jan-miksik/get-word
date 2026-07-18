@@ -8,5 +8,5 @@ import { db } from "../client";
  * derived from drizzle's own callback signature to stay in sync with the
  * installed version.
  */
-export type TxHandle = Parameters<Parameters<typeof db.transaction>[0]>[0];
+type TxHandle = Parameters<Parameters<typeof db.transaction>[0]>[0];
 export type Executor = typeof db | TxHandle;

@@ -45,7 +45,7 @@ function isReviewTargetForeignKeyViolation(error: unknown): boolean {
   return constraintName?.startsWith("review_events_word") === true;
 }
 
-export async function recordReviewEventIfNew(
+async function recordReviewEventIfNew(
   args: {
     userId: string;
     deviceId?: string | null;

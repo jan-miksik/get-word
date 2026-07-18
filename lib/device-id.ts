@@ -64,7 +64,7 @@ export function getDeviceId(): string {
  * @returns Object with id (the device ID) and persisted (true if successfully stored, false otherwise).
  *          Returns { id: '', persisted: false } on server.
  */
-export function getOrCreateDeviceId(): { id: string; persisted: boolean } {
+function getOrCreateDeviceId(): { id: string; persisted: boolean } {
   if (typeof window === 'undefined') {
     return { id: '', persisted: false };
   }

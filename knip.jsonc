@@ -1,0 +1,33 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "entry": [
+    "public/sw.js",
+    "scripts/**/*.{ts,js}",
+    "ralph/index.js"
+  ],
+  "project": [
+    "**/*.{ts,tsx,js,mjs,cjs}",
+    "!**/.claude/**",
+    "!**/.next*/**",
+    "!**/.pnpm-store/**",
+    "!**/.worktrees/**",
+    "!app/.generated/**",
+    "!coverage/**"
+  ],
+  // Operator audio scripts invoke these system tools through child_process.
+  "ignoreBinaries": ["ffmpeg", "ffprobe"],
+  "ignore": [
+    "lib/i18n/generated-bundled-messages.ts"
+  ],
+  // These files belong to the concurrent sync/cache work that wave 1 must not
+  // edit. Re-audit and remove these temporary suppressions once that work lands.
+  "ignoreIssues": {
+    "features/sync/types.ts": ["exports", "types"],
+    "lib/arweave-gateways.ts": ["exports", "types"],
+    "lib/db/queries/category-filters.ts": ["exports", "types"],
+    "lib/local-first/db.ts": ["exports", "types"],
+    "lib/local-learning-cache.ts": ["exports", "types"],
+    "lib/sync.ts": ["exports", "types"],
+    "lib/words.ts": ["exports", "types"]
+  }
+}

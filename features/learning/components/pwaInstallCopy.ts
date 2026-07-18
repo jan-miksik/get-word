@@ -1,6 +1,6 @@
 import { normalizeLanguageCode } from '@/lib/i18n/languages';
 
-export type PWAInstallBenefit = { title: string; description: string };
+type PWAInstallBenefit = { title: string; description: string };
 
 export type PWAInstallIntroCopy = {
   iosTitle: string;

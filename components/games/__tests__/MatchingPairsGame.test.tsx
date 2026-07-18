@@ -150,7 +150,7 @@ describe('MatchingPairsGame', () => {
   it('falls back to text prompts when audio playback fails at runtime', async () => {
     vi.stubGlobal(
       'Audio',
-      vi.fn().mockImplementation(function FakeAudio(this: { play: () => Promise<void>; pause: () => void }, _src: string) {
+      vi.fn().mockImplementation(function FakeAudio(this: { play: () => Promise<void>; pause: () => void }) {
         this.play = () => Promise.reject(new Error('playback failed'));
         this.pause = () => {};
       }),

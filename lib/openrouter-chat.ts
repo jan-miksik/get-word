@@ -41,7 +41,7 @@ export type OpenRouterContentPart =
   | { type: "text"; text: string }
   | { type: "image_url"; image_url: { url: string } };
 
-export type OpenRouterMessage = {
+type OpenRouterMessage = {
   role: "system" | "user" | "assistant";
   content: string | OpenRouterContentPart[];
 };
@@ -167,16 +167,6 @@ export async function callOpenRouterChatParsed<T>(
     }
   }
   throw lastError ?? new OpenRouterChatError("OpenRouter request failed.", true);
-}
-
-/**
- * Calls OpenRouter, retrying transient failures, and returns the raw assistant
- * message content.
- */
-export function callOpenRouterChat(
-  options: OpenRouterChatOptions,
-): Promise<string> {
-  return callOpenRouterChatParsed(options, (content) => content);
 }
 
 /**

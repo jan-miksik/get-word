@@ -4,63 +4,6 @@
  */
 
 /**
- * Generate the planning prompt for a given task.
- * Claude produces a concise implementation plan before touching code.
- * @param {object} task
- * @param {string} progressSummary
- */
-export function buildPlanningPrompt(task, progressSummary) {
-  return `You are implementing a feature for the Get Word codebase (Next.js + Drizzle ORM + Postgres).
-
-TASK: ${task.description} (category: ${task.category})
-
-STEPS TO COMPLETE:
-${task.steps.map((s, i) => `${i + 1}. ${s}`).join('\n')}
-
-RECENT PROGRESS:
-${progressSummary || 'No prior context.'}
-
-PHASE: PLANNING
-Before touching any code, output a concise implementation plan:
-1. List the files you will modify or create
-2. Describe the key design decisions
-3. Identify any risks or blockers
-4. Confirm you understand the task scope
-
-Output the plan in <plan> tags. Do NOT write code yet.`;
-}
-
-/**
- * Generate the implementation prompt for a given task.
- * Uses the plan as context and drives Claude to implement.
- * @param {object} task
- * @param {string} plan - from buildPlanningPrompt output
- * @param {string} progressSummary
- */
-export function buildImplementationPrompt(task, plan, progressSummary) {
-  return `You are implementing a feature for the Get Word codebase (Next.js + Drizzle ORM + Postgres).
-
-TASK: ${task.description} (category: ${task.category})
-
-IMPLEMENTATION PLAN (already approved):
-${plan}
-
-RECENT PROGRESS:
-${progressSummary || 'No prior context.'}
-
-PHASE: IMPLEMENTING
-Follow the plan above. Implement each step using targeted edits (not full file rewrites).
-
-Rules:
-- Use Edit tool for targeted changes, Write only for new files
-- Run pnpm run build to verify TypeScript after changes
-- Run pnpm test to verify correctness
-- After completing all steps: mark passes=true in prd.json, update agent-progress.txt, git commit
-
-When ALL tasks in prd.json have passes=true, output: <complete>ALL_TASKS_DONE</complete>`;
-}
-
-/**
  * Generate the verification prompt — checks build + tests after implementation.
  * @param {object} task
  * @param {string} errorOutput - output from failed build/test

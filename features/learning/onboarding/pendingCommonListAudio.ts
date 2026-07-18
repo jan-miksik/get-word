@@ -71,9 +71,3 @@ export function readPendingCommonListAudio(): PendingCommonListAudio | null {
     return null;
   }
 }
-
-export function consumePendingCommonListAudio(): PendingCommonListAudio | null {
-  const pending = readPendingCommonListAudio();
-  if (pending) clearPendingCommonListAudio(pending.listId);
-  return pending;
-}

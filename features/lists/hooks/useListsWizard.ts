@@ -423,5 +423,3 @@ export function useListsWizard({
     handleGoToStep,
   } as const;
 }
-
-export type ListsWizard = ReturnType<typeof useListsWizard>;

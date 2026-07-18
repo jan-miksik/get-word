@@ -82,11 +82,7 @@ function getGoogleVoiceStorageKey(languageCode: string): string {
   return `${GOOGLE_TTS_VOICE_STORAGE_PREFIX}:${languageCode.toLowerCase()}`;
 }
 
-export function readStoredGoogleVoiceId(languageCode: string): string {
-  return readStorageValue(getGoogleVoiceStorageKey(languageCode)) || 'default';
-}
-
-export function writeStoredGoogleVoiceId(languageCode: string, voiceId: string): void {
+function writeStoredGoogleVoiceId(languageCode: string, voiceId: string): void {
   writeStorageValue(getGoogleVoiceStorageKey(languageCode), voiceId);
 }
 

@@ -5,11 +5,9 @@ export {
   matchAnswerAgainstCandidates,
   requiresExplicitTypingCheck,
 } from './answer-match';
-export type { AnswerCandidate, AnswerMatchResult } from './answer-match';
 export {
   persistMinigameFrequency,
   readStoredMinigameFrequency,
-  sanitizeMinigameFrequency,
 } from './frequency';
 export { computeGameAnchors } from './anchors';
 export { hasAtLeastOneSimilarPair } from './similarity';
@@ -21,12 +19,9 @@ export {
 } from './stream';
 export type {
   GameAnchor,
-  GameDifficultyLevel,
   GameType,
-  InjectMinigamesOptions,
   MiniGameConfig,
   MinigameFrequencyRange,
-  StreamItem,
 } from './types';
 export {
   DEFAULT_MINIGAME_FREQUENCY,

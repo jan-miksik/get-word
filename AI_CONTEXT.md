@@ -4,7 +4,11 @@ Use this file as the first stop for Codex, Claude Code, and other coding agents.
 
 ## Project
 
-Get Word is a Next.js multilingual language-learning app with device/session auth, wallet linking, spaced repetition, list editing, translation, and generated pronunciation audio. It supports configurable language pairs backed by Google-supported translation languages, with Czech/Vietnamese as historical/default featured languages rather than a hard product boundary. PostgreSQL access goes through Drizzle in `lib/db`.
+Get Word is a Next.js multilingual language-learning app with device/session auth, spaced repetition, list editing, translation, and generated pronunciation audio. Wallet linking is currently disabled and reserved for a future ownership-verification flow. The app supports configurable language pairs backed by Google-supported translation languages, with Czech/Vietnamese as historical/default featured languages rather than a hard product boundary. PostgreSQL access goes through Drizzle in `lib/db`.
+
+`CLAUDE.md` and this file are the only general repository maps. Feature-specific
+details belong in `features/*/README.md`; `docs/` is reserved for durable
+subsystem decisions and data-model notes.
 
 ## Placement Cheat Sheet
 
@@ -13,6 +17,7 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 - `components/*`: shared React UI. If UI is feature-specific, prefer `features/<feature>/components/*` during refactors.
 - `lib/*`: shared non-UI foundations such as DB, auth/session, storage, network helpers, sync mechanics, and reusable pure helpers.
 - `hooks/*`: truly app-wide hooks only. Feature workflow hooks belong under `features/<feature>/hooks/*`.
+- `context/*`: app-wide React providers only; feature providers belong with their feature.
 
 ## Start Here By Task
 
@@ -105,21 +110,19 @@ Get Word is a Next.js multilingual language-learning app with device/session aut
 - `.claude/worktrees/`: local worktree copies and stale duplicate app files.
 - `.next/`, `.next-dev/`, `out/`, `build/`, `coverage/`: generated output.
 - `.pnpm-store/`, `node_modules/`: dependencies.
-- `public/speech/`: static audio assets; read only for asset inventory tasks.
 - `wordbook/`: source word-list scratch/import material; read only for data import tasks.
 - `drizzle/migrations/meta/*.json`: generated snapshots; read only for migration debugging.
 - `styles/*.css`: legacy styling. New styling should use Tailwind. Read these only when modifying existing legacy classes.
 - `ralph/`: autonomous CLI orchestrator (`planner.js`/`executor.js`/`progress.js`). Unrelated to the runtime app.
 - `schema_only.sql`: historical schema snapshot. Source of truth is `lib/db/schema.ts`.
 - `lib/i18n/messages.ts`: ~940-line translation table; treat as data.
-- `docs/plans/archive/`: completed refactor plans kept for history.
 
 ## Current Hotspots
 
 - `app/lists/page.tsx` is the lists coordinator. Wizard step state lives in `features/lists/hooks/useListsWizard.ts`; the page owns list/category/items, sidebar, settings, subscriptions, google-usage, error, and fork state. Extract more focused hooks rather than adding new state in the page.
 - `app/lists/AudioStep.tsx` still owns row state, generation, voice selection, and the JSX surface. Playback/cache/error machinery lives in `features/lists/audio-step/useAudioPlayback.ts`; pure row/source and API parsing helpers live under `features/lists/audio-step/*`.
 - `app/api/sync/route.ts` is behaviorally central and contains legacy compatibility paths. Keep route shape stable and extract internals carefully.
-- `features/learning/onboarding/LearningLanguageOnboarding.tsx` is now mostly the onboarding UI shell. Data loading and derived list state live in `features/learning/onboarding/useLearningOnboardingData.ts`; subscribe/fork/create/autogenerate navigation actions live in `features/learning/onboarding/useLearningOnboardingActions.ts`. The old `components/LearningLanguageOnboarding.tsx` path is a compatibility export only.
+- `features/learning/onboarding/LearningLanguageOnboarding.tsx` is now mostly the onboarding UI shell. Data loading and derived list state live in `features/learning/onboarding/useLearningOnboardingData.ts`; subscribe/fork/create/autogenerate navigation actions live in `features/learning/onboarding/useLearningOnboardingActions.ts`.
 
 ## Boundary Rules
 

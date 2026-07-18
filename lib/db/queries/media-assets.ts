@@ -146,19 +146,6 @@ export async function upsertMediaAsset(
   return asset;
 }
 
-/** Link a media asset to a word_list_item and update audio status. */
-export async function linkAudioToItem(
-  itemId: string,
-  audioAssetId: string | null,
-  audioStatus: "none" | "pending" | "ready" | "failed" = "ready",
-  audioField: AudioLinkField = "target",
-): Promise<void> {
-  await db
-    .update(wordListItems)
-    .set(getAudioLinkUpdate(audioAssetId, audioStatus, audioField))
-    .where(eq(wordListItems.id, itemId));
-}
-
 /** Batch link audio assets to word_list_items. */
 export async function batchLinkAudioToItems(
   updates: {
@@ -174,16 +161,6 @@ export async function batchLinkAudioToItems(
       .set(getAudioLinkUpdate(audioAssetId, audioStatus, audioField))
       .where(eq(wordListItems.id, itemId));
   }
-}
-
-/** Get a media asset by ID. */
-export async function getMediaAsset(id: string): Promise<MediaAsset | null> {
-  const [row] = await db
-    .select()
-    .from(mediaAssets)
-    .where(eq(mediaAssets.id, id))
-    .limit(1);
-  return row ?? null;
 }
 
 /** Get media assets by ID. */

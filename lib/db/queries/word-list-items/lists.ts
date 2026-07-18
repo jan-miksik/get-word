@@ -1,5 +1,5 @@
 import crypto from 'node:crypto';
-import { and, eq, or, sql, inArray, desc } from 'drizzle-orm';
+import { and, eq, or, sql, inArray } from 'drizzle-orm';
 import { db } from '../../client';
 import type { Executor } from '../executor';
 import {
@@ -100,7 +100,7 @@ function isReverseLanguagePair(
   );
 }
 
-export type RecommendedWordListReason = 'exact' | 'reverse' | 'fallback_seed';
+type RecommendedWordListReason = 'exact' | 'reverse' | 'fallback_seed';
 
 export type RecommendedWordListResult = {
   list: WordList;
@@ -139,41 +139,12 @@ export function pickRecommendedWordList(
   return null;
 }
 
-export async function getRecommendedWordListForLanguagePair(
-  userId: string,
-  languageFrom: string,
-  languageTo: string,
-): Promise<RecommendedWordListResult | null> {
-  const [matchingLists, fallbackSeed] = await Promise.all([
-    getUserListsByLanguagePair(userId, languageFrom, languageTo),
-    getSystemDefaultList(),
-  ]);
-  return pickRecommendedWordList(matchingLists, languageFrom, languageTo, fallbackSeed, userId);
-}
-
 export async function getUserSubscribedListIds(userId: string): Promise<string[]> {
   const subs = await db
     .select({ listId: userListSubscriptions.listId })
     .from(userListSubscriptions)
     .where(eq(userListSubscriptions.userId, userId));
   return subs.map((subscription) => subscription.listId);
-}
-
-export async function getSystemDefaultList(): Promise<WordList | null> {
-  const commonResults = await db
-    .select()
-    .from(wordLists)
-    .where(and(eq(wordLists.isCommon, true), eq(wordLists.isPublic, true)))
-    .orderBy(desc(wordLists.updatedAt))
-    .limit(1);
-  if (commonResults[0]) return commonResults[0];
-
-  const results = await db
-    .select()
-    .from(wordLists)
-    .where(sql`${wordLists.ownerId} IS NULL AND ${wordLists.isPublic} = true`)
-    .limit(1);
-  return results[0] ?? null;
 }
 
 export async function createList(data: NewWordList): Promise<WordList> {
@@ -365,28 +336,6 @@ export async function getOrCreateListShareToken(
   });
 }
 
-export async function getWordListsByIds(
-  ids: string[],
-): Promise<{
-  id: string;
-  name: string;
-  languageFrom: string;
-  languageTo: string;
-  isRecommended: boolean;
-}[]> {
-  if (ids.length === 0) return [];
-  return db
-    .select({
-      id: wordLists.id,
-      name: wordLists.name,
-      languageFrom: wordLists.languageFrom,
-      languageTo: wordLists.languageTo,
-      isRecommended: wordLists.isRecommended,
-    })
-    .from(wordLists)
-    .where(inArray(wordLists.id, ids));
-}
-
 export async function getUserStudyLists(
   userId: string,
 ): Promise<{
@@ -434,33 +383,4 @@ export async function getWordListItemCountsByListIds(
     .groupBy(wordListItems.listId);
 
   return new Map(rows.map((row) => [row.listId, row.itemCount]));
-}
-
-export async function getOrCreateUserList(
-  userId: string,
-  languageFrom = 'cs',
-  languageTo = 'vi',
-): Promise<WordList> {
-  const [existing] = await db
-    .select()
-    .from(wordLists)
-    .where(
-      and(
-        eq(wordLists.ownerId, userId),
-        eq(wordLists.languageFrom, languageFrom),
-        eq(wordLists.languageTo, languageTo),
-      ),
-    )
-    .limit(1);
-
-  if (existing) return existing;
-
-  return createList({
-    ownerId: userId,
-    name: 'My Words',
-    description: null,
-    languageFrom,
-    languageTo,
-    isPublic: false,
-  });
 }

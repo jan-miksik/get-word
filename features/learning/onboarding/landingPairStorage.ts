@@ -10,7 +10,7 @@ import { normalizeLanguageCode } from '@/lib/i18n/languages';
  * The value is only ever a fallback: an explicitly synced pair (a returning
  * user's `learningLanguageFrom/To`) always wins, so a stale entry is harmless.
  */
-export const LANDING_PAIR_STORAGE_KEY = 'get-word-landing-pair';
+const LANDING_PAIR_STORAGE_KEY = 'get-word-landing-pair';
 
 export type LandingLanguagePair = {
   from?: string;

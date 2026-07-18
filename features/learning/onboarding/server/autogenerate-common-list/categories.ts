@@ -3,7 +3,7 @@ import { cleanCategory, cleanText } from "./helpers";
 import { callOpenRouterJson } from "./openrouter";
 
 // Matches the fork route's bilingual "<known> - <target>" category title format.
-export const CATEGORY_TITLE_SEPARATOR = " - ";
+const CATEGORY_TITLE_SEPARATOR = " - ";
 
 type CategoryTranslation = { known: string; target: string };
 
@@ -19,7 +19,6 @@ export function swapBilingualTitle(name: string) {
 // category title so "základ - basic" is not re-translated as a whole.
 function extractCategorySourceText(
   name: string,
-  seedLanguageFrom: string,
   seedLanguageTo: string,
   sourceLanguage: string,
 ): string {
@@ -84,7 +83,6 @@ async function translateCategoryTitles(input: {
 // origin names if translation is disabled or the LLM call fails.
 export async function buildSeedCategoryMapping(input: {
   categories: WordCategory[];
-  seedLanguageFrom: string;
   seedLanguageTo: string;
   sourceLanguage: string;
   languageFrom: string;
@@ -105,7 +103,6 @@ export async function buildSeedCategoryMapping(input: {
       name,
       extractCategorySourceText(
         name,
-        input.seedLanguageFrom,
         input.seedLanguageTo,
         input.sourceLanguage,
       ),

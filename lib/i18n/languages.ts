@@ -504,7 +504,7 @@ export function findBestSupportedLanguage(
   return DEFAULT_SETTINGS_LANGUAGE;
 }
 
-export function getBrowserLanguageCandidates(): string[] {
+function getBrowserLanguageCandidates(): string[] {
   if (typeof navigator === "undefined") return [DEFAULT_SETTINGS_LANGUAGE];
   const languages = Array.isArray(navigator.languages) ? navigator.languages : [];
   return [...languages, navigator.language].filter((value): value is string => Boolean(value));

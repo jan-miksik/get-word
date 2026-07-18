@@ -31,12 +31,10 @@ const WORDS = [
 ];
 
 let playCalls = 0;
-let pauseCalls = 0;
 let audioSources: string[] = [];
 
 beforeEach(() => {
   playCalls = 0;
-  pauseCalls = 0;
   audioSources = [];
   vi.stubGlobal(
     'Audio',
@@ -47,9 +45,7 @@ beforeEach(() => {
         playCalls += 1;
         return Promise.resolve();
       };
-      this.pause = () => {
-        pauseCalls += 1;
-      };
+      this.pause = () => {};
     }),
   );
 });

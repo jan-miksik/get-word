@@ -27,7 +27,7 @@ function delay(ms: number) {
  * Reserve the next evenly-spaced request slot, waiting until it is due.
  * Spacing requests by `SLOT_INTERVAL_MS` keeps throughput at or below MAX_RPM.
  */
-export async function acquireGoogleTtsSlot(): Promise<void> {
+async function acquireGoogleTtsSlot(): Promise<void> {
   const now = Date.now();
   const scheduledAt = Math.max(now, nextSlotAt);
   nextSlotAt = scheduledAt + SLOT_INTERVAL_MS;

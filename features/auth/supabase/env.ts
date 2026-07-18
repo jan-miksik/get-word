@@ -33,13 +33,6 @@ export function getSupabaseServiceRoleKey(): string {
   return key
 }
 
-/** True when the service-role key is available (gates admin operations). */
-export function isSupabaseAdminConfigured(): boolean {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY
-  )
-}
-
 /** True when both public Supabase env vars are present (used to gate UI/login). */
 export function isSupabaseConfigured(): boolean {
   return Boolean(

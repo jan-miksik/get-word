@@ -22,7 +22,6 @@ Owns the main study experience: word stream composition, progress-driven display
 - `features/learning/onboarding/LearningLanguageOnboarding.tsx`
 - `features/learning/onboarding/useLearningOnboardingData.ts`
 - `features/learning/onboarding/useLearningOnboardingActions.ts`
-- `features/learning/components/AuthRequiredCard.tsx`
 - `features/learning/hooks/useLearningStreamGroups.ts`
 - `features/learning/hooks/useMinigameFrequencyPreference.ts`
 - `features/learning/components/SettlingWordsFooter.tsx`

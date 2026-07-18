@@ -3,8 +3,6 @@
  * Implements the state machine: planning → implementing → verifying → fixing → done
  */
 import { execSync, spawnSync } from 'child_process';
-import { readFileSync, existsSync } from 'fs';
-import { join } from 'path';
 import { buildSimplePrompt, buildFixPrompt } from './prompts.js';
 
 const COMPLETE_SIGNAL = '<complete>ALL_TASKS_DONE</complete>';
@@ -21,7 +19,7 @@ const MAX_FIX_ATTEMPTS = 2;
  * @param {string} rootDir
  * @returns {{ output: string, exitCode: number }}
  */
-export function runClaude(prompt, rootDir) {
+function runClaude(prompt, rootDir) {
   const result = spawnSync(
     'claude',
     ['--dangerously-skip-permissions', '-p', prompt],
@@ -42,7 +40,7 @@ export function runClaude(prompt, rootDir) {
  * @param {string} rootDir
  * @returns {{ ok: boolean, output: string }}
  */
-export function runVerification(rootDir) {
+function runVerification(rootDir) {
   try {
     const buildOutput = execSync('pnpm run build 2>&1', { cwd: rootDir, encoding: 'utf-8', timeout: 120_000 });
     const testOutput = execSync('pnpm test 2>&1', { cwd: rootDir, encoding: 'utf-8', timeout: 120_000 });

@@ -6,11 +6,11 @@ import { NormalizedWord, STAGES } from '@/lib/words';
 import type { MiniGameConfig } from '@/lib/minigames';
 
 /** Fixed height for minigame rows so completion state (feedback + overlay) doesn't cause layout jump. */
-export const MINIGAME_ROW_HEIGHT = 520;
+const MINIGAME_ROW_HEIGHT = 520;
 
-export type Stage = (typeof STAGES)[number];
+type Stage = (typeof STAGES)[number];
 
-export type VirtualItem =
+type VirtualItem =
   | { type: 'header'; stage: Stage; stageIndex: number }
   | { type: 'card'; word: NormalizedWord; stageIndex: number }
   | { type: 'minigame'; config: MiniGameConfig; stageIndex: number }

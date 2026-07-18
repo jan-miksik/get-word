@@ -22,7 +22,7 @@ export function scheduleDrain(): void {
   }, DEBOUNCE_MS);
 }
 
-export async function drainOnce(): Promise<void> {
+async function drainOnce(): Promise<void> {
   if (drainInFlight) return drainInFlight;
   drainInFlight = doDrain().finally(() => {
     drainInFlight = null;

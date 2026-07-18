@@ -10,7 +10,6 @@ export type PromptMode = 'text' | 'audio';
 export type { LearningRole, WordSide } from '@/features/learning/state/learningRole';
 export {
   flipSide,
-  isLearningRole,
   knownSideForRole,
   learningSideForRole,
 } from '@/features/learning/state/learningRole';

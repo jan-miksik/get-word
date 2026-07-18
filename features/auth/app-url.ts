@@ -58,7 +58,7 @@ export function getBrowserPublicOrigin(): string {
   return window.location.origin
 }
 
-export function getRequestCurrentOrigin(request: RequestOriginInput): string {
+function getRequestCurrentOrigin(request: RequestOriginInput): string {
   return (
     getForwardedOrigin(request.headers, request.nextUrl.protocol) ||
     normalizeOrigin(request.nextUrl.origin) ||

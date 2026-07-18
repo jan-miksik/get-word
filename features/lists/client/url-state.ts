@@ -1,4 +1,4 @@
-export type InitialAudioFixStep = "audio-target" | "audio-known";
+type InitialAudioFixStep = "audio-target" | "audio-known";
 
 export type InitialListsUrlState = {
   settingsOpen: boolean;

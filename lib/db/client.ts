@@ -25,6 +25,3 @@ const client = postgres(normalizeDatabaseUrl(connectionString), {
 
 // Create drizzle instance with schema for relational queries
 export const db = drizzle(client, { schema });
-
-// Export types
-export type Database = typeof db;

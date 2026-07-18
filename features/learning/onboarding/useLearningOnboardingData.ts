@@ -13,7 +13,7 @@ import {
 } from './listRecommendations';
 import type { LearningLanguage } from './types';
 
-export type CommonListEstimate = {
+type CommonListEstimate = {
   status: 'loading' | 'ready' | 'unavailable';
   wordCount: number | null;
   seedName: string | null;

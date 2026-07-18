@@ -1,11 +1,14 @@
 import type { Metadata, Viewport } from 'next';
-import { Unbounded } from 'next/font/google';
+import localFont from 'next/font/local';
 import { PhotoLabPage } from '@/features/photo-lab/components/PhotoLabPage';
 
 // Display font for Photo Lab headings only; subsets cover every UI locale
-// (cs/en latin-ext, uk cyrillic, vi vietnamese). Self-hosted by next/font.
-const displayFont = Unbounded({
-  subsets: ['latin', 'latin-ext', 'cyrillic', 'vietnamese'],
+// (cs/en latin-ext, uk cyrillic, vi vietnamese). The official variable font
+// is checked in so production builds do not depend on Google Fonts networking.
+const displayFont = localFont({
+  src: './fonts/Unbounded-VariableFont_wght.ttf',
+  weight: '200 900',
+  display: 'swap',
   variable: '--font-photo-display',
 });
 

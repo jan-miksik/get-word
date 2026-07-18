@@ -12,7 +12,6 @@ import type { NormalizedWord } from '@/lib/words';
 import { cacheActiveListAudio } from '@/lib/local-learning-cache';
 import { subscribeAudioNetworkChanges } from '@/lib/audio-network-policy';
 
-export type { Role } from '@/features/learning/state';
 export type { LinkPayload } from '@/features/learning/app-state/types';
 
 export function useAppState(

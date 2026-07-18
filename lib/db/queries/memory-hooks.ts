@@ -49,24 +49,6 @@ export async function getUserMemoryHooksDelta(
   return out;
 }
 
-// Get memory hook for a specific word
-export async function getWordMemoryHook(
-  userId: string,
-  wordId: string
-): Promise<string | null> {
-  const results = await db
-    .select()
-    .from(userMemoryHooks)
-    .where(
-      and(
-        eq(userMemoryHooks.userId, userId),
-        eq(userMemoryHooks.wordId, wordId)
-      )
-    )
-    .limit(1);
-  return results[0]?.hookText || null;
-}
-
 // Upsert memory hook. Clears any prior soft-delete tombstone so a re-create
 // after delete reuses the existing row.
 export async function upsertMemoryHook(

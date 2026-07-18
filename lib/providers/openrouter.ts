@@ -4,7 +4,7 @@ const DEFAULT_AUTH_URL = "https://openrouter.ai/auth";
 const DEFAULT_API_BASE = "https://openrouter.ai/api/v1";
 const DEFAULT_EXCHANGE_URL = `${DEFAULT_API_BASE}/auth/keys`;
 
-export function getOpenRouterConfig() {
+function getOpenRouterConfig() {
   return {
     authUrl: process.env.OPENROUTER_AUTH_URL ?? DEFAULT_AUTH_URL,
     apiBaseUrl: process.env.OPENROUTER_API_BASE_URL ?? DEFAULT_API_BASE,

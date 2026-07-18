@@ -168,7 +168,7 @@ export function analyzeMp3(input: Buffer | Uint8Array | ArrayBuffer): Mp3Analysi
 }
 
 /** Count characters that a TTS engine would actually voice (letters/digits). */
-export function countVisibleChars(text: string): number {
+function countVisibleChars(text: string): number {
   // Strip whitespace and common punctuation; keep letters/digits across scripts.
   const stripped = text.replace(/[\s\p{P}\p{S}]+/gu, "");
   return Array.from(stripped).length;

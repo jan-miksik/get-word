@@ -69,7 +69,6 @@ function translationKey(from: string, to: string, text: string): string {
 // category title, so a "základ - basic" title is not re-translated as a whole.
 function extractCategorySourceText(
   name: string,
-  sourceLanguageFrom: string,
   sourceLanguageTo: string,
   sourceLanguage: string,
 ): string {
@@ -258,7 +257,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
             if (!category.name) continue;
             const base = extractCategorySourceText(
               category.name,
-              sourceLanguageFrom,
               sourceLanguageTo,
               sourceLanguage,
             );
@@ -331,7 +329,6 @@ export async function POST(request: NextRequest, context: RouteContext) {
           if (translateCategoryNames) {
             const base = extractCategorySourceText(
               category.name,
-              sourceLanguageFrom,
               sourceLanguageTo,
               sourceLanguage,
             );

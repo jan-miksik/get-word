@@ -39,16 +39,6 @@ function notifyStatusChanged(): void {
   });
 }
 
-export function subscribeOutboxStatus(listener: StatusListener): () => void {
-  statusListeners.add(listener);
-  // Emit the current snapshot so subscribers don't have to also call
-  // getOutboxStatus() on mount.
-  void getOutboxStatus().then((status) => listener(status));
-  return () => {
-    statusListeners.delete(listener);
-  };
-}
-
 function randomId(): string {
   if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
     return crypto.randomUUID();
@@ -152,14 +142,14 @@ export async function peekReadyOps(limit: number, now: number = Date.now()): Pro
  * the UI without exposing the raw outbox shape. Mirrors the semantics used by
  * `peekReadyOps`/`markFailed` so the counts move when those functions do.
  */
-export interface OutboxStatus {
+interface OutboxStatus {
   total: number;
   ready: number;
   inBackoff: number;
   abandoned: number;
 }
 
-export async function getOutboxStatus(now: number = Date.now()): Promise<OutboxStatus> {
+async function getOutboxStatus(now: number = Date.now()): Promise<OutboxStatus> {
   const all = await listOps();
   let abandoned = 0;
   let inBackoff = 0;
@@ -245,28 +235,3 @@ export async function markFailed(
     }
   });
 }
-
-export async function clearAllOps(): Promise<void> {
-  const db = await openDb();
-  if (!db) return;
-  return new Promise((resolve) => {
-    try {
-      const tx = db.transaction(STORE_OUTBOX, 'readwrite');
-      tx.objectStore(STORE_OUTBOX).clear();
-      tx.oncomplete = () => {
-        db.close();
-        notifyStatusChanged();
-        resolve();
-      };
-      tx.onerror = () => {
-        db.close();
-        resolve();
-      };
-    } catch {
-      db.close();
-      resolve();
-    }
-  });
-}
-
-export { MAX_ATTEMPTS_PER_SESSION };

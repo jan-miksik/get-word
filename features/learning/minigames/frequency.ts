@@ -5,7 +5,7 @@ import {
   type MinigameFrequencyRange,
 } from './types';
 
-export const MINIGAME_FREQUENCY_STORAGE_KEY = 'get-word-minigame-frequency';
+const MINIGAME_FREQUENCY_STORAGE_KEY = 'get-word-minigame-frequency';
 
 const LEGACY_MINIGAME_FREQUENCIES: Record<string, Exclude<MinigameFrequencyRange, 'off'>> = {
   '2-5': { min: 2, max: 5 },
@@ -13,7 +13,7 @@ const LEGACY_MINIGAME_FREQUENCIES: Record<string, Exclude<MinigameFrequencyRange
   '5-10': { min: 5, max: 10 },
 };
 
-export function sanitizeMinigameFrequency(
+function sanitizeMinigameFrequency(
   range: MinigameFrequencyRange,
 ): MinigameFrequencyRange {
   if (range === 'off') return 'off';

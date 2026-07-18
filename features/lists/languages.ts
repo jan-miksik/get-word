@@ -1,6 +1,6 @@
 import type { WordList } from './types';
 
-export function normalizeListLanguageCode(code: string): string {
+function normalizeListLanguageCode(code: string): string {
   const [base, region] = String(code).trim().split('-');
   const normalizedBase = (base ?? '').toLowerCase();
   if (normalizedBase === 'cs' || normalizedBase === 'cz') return 'cs';

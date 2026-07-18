@@ -2,6 +2,18 @@
 
 > Architecture and conventions live here. Task-oriented navigation ("where do I look for X?") lives in [`AI_CONTEXT.md`](AI_CONTEXT.md). Codex/AGENTS readers: see [`AGENTS.md`](AGENTS.md) — it points back to these two files.
 
+These two files are the authoritative general repository documentation. Keep
+feature-specific detail in `features/*/README.md` and durable subsystem design
+notes in `docs/`; do not add another general codebase map.
+
+## Verification
+
+- `pnpm run typecheck` — TypeScript without emitting or updating incremental state.
+- `pnpm run lint` — repository ESLint baseline.
+- `pnpm test` — complete Vitest suite.
+- `pnpm run check:dead-code` — report-only Knip analysis; never use automated deletion.
+- `pnpm run check` — full local verification, including the production build.
+
 ## Styling
 
 Use Tailwind for all new styling. Do not refactor existing CSS in `styles/*.css` — that is a separate future task.

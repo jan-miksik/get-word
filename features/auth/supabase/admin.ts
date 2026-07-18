@@ -8,7 +8,7 @@ import { getSupabaseServiceRoleKey, getSupabaseUrl } from './env'
  * deletion. No cookies / no session persistence: this is a bare service client,
  * never tied to a browser session. NEVER import this from client code.
  */
-export function createSupabaseAdminClient(): SupabaseClient {
+function createSupabaseAdminClient(): SupabaseClient {
   return createClient(getSupabaseUrl(), getSupabaseServiceRoleKey(), {
     auth: {
       autoRefreshToken: false,

@@ -1,4 +1,4 @@
-import { eq, and, lte, or, sql, isNull, gt, inArray } from "drizzle-orm";
+import { eq, and, sql, isNull, gt, inArray } from "drizzle-orm";
 import { db } from "../client";
 import {
   userProgress,
@@ -20,35 +20,6 @@ import { computeContentKey } from "@/lib/progress-key";
  */
 type TxHandle = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Executor = typeof db | TxHandle;
-
-/**
- * Get all progress for a user, keyed by wordListItemId (preferred) or wordId (legacy).
- * Excludes archived entries. When `since` is provided, returns only rows whose
- * updatedAt is strictly greater than the cursor (delta fetch path).
- */
-export async function getUserProgress(
-  userId: string,
-  options?: { since?: Date }
-): Promise<Record<string, UserProgress>> {
-  const conditions = [eq(userProgress.userId, userId), isNull(userProgress.archivedAt)];
-  if (options?.since) {
-    conditions.push(gt(userProgress.updatedAt, options.since));
-  }
-  const results = await db
-    .select()
-    .from(userProgress)
-    .where(and(...conditions));
-
-  const progressMap: Record<string, UserProgress> = {};
-  for (const row of results) {
-    // Key by wordListItemId (new) with wordId fallback (legacy)
-    const key = row.wordListItemId ?? row.wordId;
-    if (key) {
-      progressMap[key] = row;
-    }
-  }
-  return progressMap;
-}
 
 /** Minimal item shape needed to project content-keyed progress onto items. */
 export type ProgressItemIdentity = {
@@ -121,7 +92,7 @@ export async function getProjectedProgress(
 }
 
 // Get progress for a specific word
-export async function getWordProgress(
+async function getWordProgress(
   userId: string,
   wordId: string,
   executor: Executor = db
@@ -136,25 +107,7 @@ export async function getWordProgress(
   return results[0] || null;
 }
 
-export async function getWordProgressByItemId(
-  userId: string,
-  wordListItemId: string,
-  executor: Executor = db
-): Promise<UserProgress | null> {
-  const results = await executor
-    .select()
-    .from(userProgress)
-    .where(
-      and(
-        eq(userProgress.userId, userId),
-        eq(userProgress.wordListItemId, wordListItemId)
-      )
-    )
-    .limit(1);
-  return results[0] || null;
-}
-
-export async function getWordProgressByContentKey(
+async function getWordProgressByContentKey(
   userId: string,
   contentKey: string,
   executor: Executor = db
@@ -212,46 +165,6 @@ export async function getContentKeysForItemIds(
     })
   );
   return result;
-}
-
-// Get due words for a user (for spaced repetition)
-export async function getDueWords(userId: string): Promise<UserProgress[]> {
-  const now = new Date();
-  return db
-    .select()
-    .from(userProgress)
-    .where(
-      and(
-        eq(userProgress.userId, userId),
-        or(
-          eq(userProgress.stageIndex, 0), // New words are always due
-          lte(userProgress.nextDueAt, now) // Or words past their due date
-        )
-      )
-    );
-}
-
-// Upsert progress for a word
-export async function upsertProgress(
-  progress: Omit<NewUserProgress, "id" | "createdAt" | "updatedAt">
-): Promise<UserProgress> {
-  const results = await db
-    .insert(userProgress)
-    .values(progress)
-    .onConflictDoUpdate({
-      target: [userProgress.userId, userProgress.wordId],
-      set: {
-        stageIndex: progress.stageIndex,
-        knownCount: progress.knownCount,
-        unknownCount: progress.unknownCount,
-        lastKnownAt: progress.lastKnownAt,
-        lastUnknownAt: progress.lastUnknownAt,
-        nextDueAt: progress.nextDueAt,
-        updatedAt: new Date(),
-      },
-    })
-    .returning();
-  return results[0];
 }
 
 /**
@@ -437,27 +350,4 @@ export async function applyReviewEventToProgress(
   } else {
     await batchUpsertProgress([values], executor);
   }
-}
-
-// Delete progress for a word
-export async function deleteProgress(
-  userId: string,
-  wordId: string
-): Promise<boolean> {
-  const results = await db
-    .delete(userProgress)
-    .where(
-      and(eq(userProgress.userId, userId), eq(userProgress.wordId, wordId))
-    )
-    .returning();
-  return results.length > 0;
-}
-
-// Reset all progress for a user
-export async function resetUserProgress(userId: string): Promise<number> {
-  const results = await db
-    .delete(userProgress)
-    .where(eq(userProgress.userId, userId))
-    .returning();
-  return results.length;
 }

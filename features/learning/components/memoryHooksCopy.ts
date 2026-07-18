@@ -1,6 +1,6 @@
 import { normalizeLanguageCode } from '@/lib/i18n/languages';
 
-export type MemoryHookExample = {
+type MemoryHookExample = {
   source: string;
   target: string;
   hook: string;
