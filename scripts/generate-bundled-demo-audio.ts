@@ -17,10 +17,15 @@
  */
 
 import * as dotenv from "dotenv";
-import { spawnSync } from "node:child_process";
-import { mkdir, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
-import os from "node:os";
+import { mkdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import path from "node:path";
+import {
+  analyzeAudioBuffer,
+  analyzeAudioFile,
+  formatAudioQuality,
+  MIN_AUDIO_BYTES,
+  type AudioQuality,
+} from "./lib/audio-quality";
 
 dotenv.config({ path: ".env.local" });
 
@@ -30,13 +35,6 @@ const AUDIO_LANGUAGES_OUTPUT_PATH = path.join(
   "lib",
   "landing-demo-audio-languages.ts",
 );
-const MIN_AUDIO_BYTES = 1_000;
-const MIN_DURATION_SECONDS = 0.25;
-const MIN_MAX_VOLUME_DB = -35;
-// Whole-clip loudness. Near-silent "blip" renders keep a loud transient that
-// clears MIN_MAX_VOLUME_DB, so max volume alone misses them; their mean volume
-// collapses to -35..-50 dB while healthy demo clips sit at -16..-26 dB.
-const MIN_MEAN_VOLUME_DB = -30;
 
 function parseArgs(argv: string[]) {
   const langsArg = argv.find((arg) => arg.startsWith("--langs="));
@@ -51,18 +49,6 @@ function parseArgs(argv: string[]) {
           .filter(Boolean)
       : null,
   };
-}
-
-async function analyzeAudioBuffer(audio: Buffer): Promise<AudioQuality> {
-  const tmpDir = await mkdir(path.join(os.tmpdir(), "get-word-demo-audio"), { recursive: true })
-    .then(() => path.join(os.tmpdir(), "get-word-demo-audio"));
-  const tmpFile = path.join(tmpDir, `bundle-quality-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`);
-  await writeFile(tmpFile, audio);
-  try {
-    return analyzeAudioFile(tmpFile);
-  } finally {
-    await rm(tmpFile, { force: true });
-  }
 }
 
 async function exists(filePath: string): Promise<boolean> {
@@ -109,75 +95,6 @@ async function assertNonEmptyAudio(filePath: string) {
   }
 }
 
-type AudioQuality = {
-  ok: boolean;
-  durationSeconds: number;
-  sizeBytes: number;
-  meanVolumeDb: number | null;
-  maxVolumeDb: number | null;
-  reason: string | null;
-};
-
-function analyzeAudioFile(filePath: string): AudioQuality {
-  const probe = spawnSync("ffprobe", [
-    "-v",
-    "error",
-    "-show_entries",
-    "format=duration,size",
-    "-of",
-    "json",
-    filePath,
-  ], { encoding: "utf8" });
-  const parsed = JSON.parse(probe.stdout || "{}") as {
-    format?: { duration?: string; size?: string };
-  };
-  const durationSeconds = Number(parsed.format?.duration ?? 0);
-  const sizeBytes = Number(parsed.format?.size ?? 0);
-  const ffmpeg = spawnSync("ffmpeg", [
-    "-hide_banner",
-    "-nostats",
-    "-i",
-    filePath,
-    "-af",
-    "volumedetect",
-    "-f",
-    "null",
-    "-",
-  ], { encoding: "utf8" });
-  const output = `${ffmpeg.stdout}\n${ffmpeg.stderr}`;
-  const meanVolumeDb = Number(output.match(/mean_volume: (-?\d+(?:\.\d+)?) dB/)?.[1]);
-  const maxVolumeDb = Number(output.match(/max_volume: (-?\d+(?:\.\d+)?) dB/)?.[1]);
-  const normalizedMean = Number.isFinite(meanVolumeDb) ? meanVolumeDb : null;
-  const normalizedMax = Number.isFinite(maxVolumeDb) ? maxVolumeDb : null;
-  const reason =
-    sizeBytes < MIN_AUDIO_BYTES
-      ? `too small (${sizeBytes} bytes)`
-      : durationSeconds < MIN_DURATION_SECONDS
-        ? `too short (${durationSeconds.toFixed(3)}s)`
-        : normalizedMax === null
-          ? "could not measure volume"
-          : normalizedMax < MIN_MAX_VOLUME_DB
-            ? `too quiet (max ${normalizedMax.toFixed(1)} dB)`
-            : normalizedMean !== null && normalizedMean < MIN_MEAN_VOLUME_DB
-              ? `too quiet (mean ${normalizedMean.toFixed(1)} dB)`
-              : null;
-
-  return {
-    ok: reason === null,
-    durationSeconds,
-    sizeBytes,
-    meanVolumeDb: normalizedMean,
-    maxVolumeDb: normalizedMax,
-    reason,
-  };
-}
-
-function formatQuality(quality: AudioQuality): string {
-  const max = quality.maxVolumeDb === null ? "n/a" : `${quality.maxVolumeDb.toFixed(1)} dB`;
-  const mean = quality.meanVolumeDb === null ? "n/a" : `${quality.meanVolumeDb.toFixed(1)} dB`;
-  return `${quality.durationSeconds.toFixed(3)}s, max ${max}, mean ${mean}, ${quality.sizeBytes} bytes`;
-}
-
 async function fetchAudioUrl(url: string): Promise<Buffer | null> {
   try {
     const response = await fetch(url, {
@@ -207,7 +124,7 @@ async function writeAudioFile(outFile: string, audio: Buffer): Promise<AudioQual
   await assertNonEmptyAudio(tmpFile);
   const quality = analyzeAudioFile(tmpFile);
   if (!quality.ok) {
-    throw new Error(`downloaded audio is ${quality.reason} (${formatQuality(quality)})`);
+    throw new Error(`downloaded audio is ${quality.reason} (${formatAudioQuality(quality)})`);
   }
   await rename(tmpFile, outFile);
   await assertNonEmptyAudio(outFile);
@@ -308,12 +225,12 @@ async function main() {
 
       try {
         if (dryRun) {
-          const quality = await analyzeAudioBuffer(audio);
+          const quality = await analyzeAudioBuffer(audio, "bundle-quality");
           if (!quality.ok) {
-            throw new Error(`downloaded audio is ${quality.reason} (${formatQuality(quality)})`);
+            throw new Error(`downloaded audio is ${quality.reason} (${formatAudioQuality(quality)})`);
           }
           console.log(
-            `  + ${index + 1}.mp3 "${word.text}" — would write ${playable.provider} ${playable.contentHash} (${formatQuality(quality)}) ← ${source}`,
+            `  + ${index + 1}.mp3 "${word.text}" — would write ${playable.provider} ${playable.contentHash} (${formatAudioQuality(quality)}) ← ${source}`,
           );
           written += 1;
           continue;
@@ -321,7 +238,7 @@ async function main() {
 
         const quality = await writeAudioFile(outFile, audio);
         console.log(
-          `  ✓ ${index + 1}.mp3 "${word.text}" — ${playable.provider} ${playable.contentHash} (${formatQuality(quality)}) ← ${source}`,
+          `  ✓ ${index + 1}.mp3 "${word.text}" — ${playable.provider} ${playable.contentHash} (${formatAudioQuality(quality)}) ← ${source}`,
         );
         written += 1;
       } catch (err) {

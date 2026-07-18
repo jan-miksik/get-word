@@ -6,7 +6,7 @@ import {
   forbiddenResponse,
 } from "@/lib/auth";
 import { getUsageStats } from "@/lib/db";
-import type { ActivityWindow } from "@/lib/db/queries/usage-stats";
+import type { ActivityWindow } from "@/features/admin/types";
 
 export const dynamic = "force-dynamic";
 

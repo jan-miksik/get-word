@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
@@ -8,28 +8,12 @@ import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLang
 import { useSupportedLanguages } from '@/features/shared/languages/useSupportedLanguages';
 import { readPhotoLabPreference } from '@/features/photo-lab/client/preferences';
 import { WARM_PALETTE, warmPaletteVars } from '@/features/shared/theme/warm-palette';
-import { createBrowserId } from '@/lib/browser-id';
 import { getLanguageFlag, getLocalizedLanguageName } from '@/lib/i18n/languages';
-import { getPrefsRow } from '@/lib/local-first/stores';
-import { requestPhotoAnalysis, PhotoLabRequestError, type PhotoLabErrorCode } from '../client/analyze';
-import { requestPhotoLabAudio } from '../client/audio';
-import { downscalePhoto, type DownscaledPhoto } from '../client/downscale';
-import { requestPhotoLabUsage, type PhotoLabUsage } from '../client/usage';
-import {
-  cleanupPhotoLab,
-  deleteSession,
-  getPhoto,
-  listSessions,
-  putPhoto,
-  putSession,
-  updateSessionAudioHashes,
-} from '../client/photoStore';
-import type { PhotoLabSession } from '../types';
+import { cleanupPhotoLab } from '../client/photoStore';
 import { LabeledPhoto } from './LabeledPhoto';
 import { LanguagePairModal } from './LanguagePairModal';
+import { usePhotoLabStudio } from './usePhotoLabStudio';
 
-const LANGS_STORAGE_KEY = 'get-word-photo-lab-langs';
-const HISTORY_LIMIT = 20;
 // Calibrated to the pro-tier vision model (see PHOTO_LAB_MODEL).
 const ANALYSIS_ESTIMATE_SECONDS = 25;
 
@@ -40,31 +24,6 @@ const ERROR_MESSAGE_KEYS = {
   unauthorized: 'photoLab.errorUnauthorized',
   generic: 'photoLab.errorGeneric',
 } as const;
-
-type LanguagePair = { from: string; to: string };
-
-function readStoredLanguagePair(): Partial<LanguagePair> {
-  if (typeof window === 'undefined') return {};
-  try {
-    const raw = window.localStorage.getItem(LANGS_STORAGE_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Partial<LanguagePair>;
-    return {
-      from: typeof parsed.from === 'string' ? parsed.from : undefined,
-      to: typeof parsed.to === 'string' ? parsed.to : undefined,
-    };
-  } catch {
-    return {};
-  }
-}
-
-function storeLanguagePair(pair: Partial<LanguagePair>): void {
-  try {
-    window.localStorage.setItem(LANGS_STORAGE_KEY, JSON.stringify(pair));
-  } catch {
-    // Preference persistence is best-effort.
-  }
-}
 
 /** Full-bleed warm background; the app body is dark navy. */
 function PhotoLabShell({ children }: { children: React.ReactNode }) {
@@ -237,28 +196,31 @@ function DeletePhotoConfirmModal({
 function PhotoLabStudio() {
   const { t } = useI18n();
   const { languages } = useSupportedLanguages();
-
-  const [langFrom, setLangFrom] = useState('');
-  const [langTo, setLangTo] = useState('');
-  const [langModalOpen, setLangModalOpen] = useState(false);
-  const [analysisStartedAt, setAnalysisStartedAt] = useState<number | null>(null);
-  const [analysisElapsedSeconds, setAnalysisElapsedSeconds] = useState(0);
-  const [errorCode, setErrorCode] = useState<PhotoLabErrorCode | null>(null);
-  const [usage, setUsage] = useState<PhotoLabUsage | null>(null);
-  const [current, setCurrent] = useState<{ session: PhotoLabSession; imageUrl: string } | null>(
-    null,
-  );
-  const [history, setHistory] = useState<PhotoLabSession[]>([]);
-  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
-  const thumbUrlsRef = useRef<Map<string, string>>(new Map());
-  const historyRefreshIdRef = useRef(0);
-  const [thumbUrls, setThumbUrls] = useState<Map<string, string>>(() => new Map());
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  // Held for "try again" so a failed analysis doesn't force re-picking the photo.
-  const [pendingPhoto, setPendingPhoto] = useState<DownscaledPhoto | null>(null);
-  const createdUrlsRef = useRef<string[]>([]);
-  const analyzing = analysisStartedAt !== null;
+  const {
+    langFrom,
+    langTo,
+    langModalOpen,
+    analysisElapsedSeconds,
+    analyzing,
+    errorCode,
+    usage,
+    current,
+    history,
+    confirmDeleteId,
+    thumbUrls,
+    fileInputRef,
+    pendingPhoto,
+    languagesReady,
+    changeLanguagePair,
+    openLanguageModal,
+    closeLanguageModal,
+    analyze,
+    handleFileChange,
+    openSession,
+    removeSession,
+    requestDelete,
+    cancelDelete,
+  } = usePhotoLabStudio();
   const analysisRemainingSeconds = Math.max(
     1,
     ANALYSIS_ESTIMATE_SECONDS - analysisElapsedSeconds,
@@ -267,230 +229,6 @@ function PhotoLabStudio() {
     analysisElapsedSeconds < ANALYSIS_ESTIMATE_SECONDS
       ? t('photoLab.analyzingWithEta', { seconds: analysisRemainingSeconds })
       : t('photoLab.analyzingTakingLonger');
-
-  // Default language pair: last used here, else the learning pair cached from sync.
-  useEffect(() => {
-    let cancelled = false;
-    const stored = readStoredLanguagePair();
-    const timeoutId = window.setTimeout(() => {
-      if (cancelled) return;
-      if (stored.from) setLangFrom(stored.from);
-      if (stored.to) setLangTo(stored.to);
-      if (stored.from && stored.to) return;
-
-      void getPrefsRow<{ language_from?: string | null; language_to?: string | null }>('user').then(
-        (row) => {
-          if (cancelled || !row?.value) return;
-          if (!stored.from && row.value.language_from) setLangFrom(row.value.language_from);
-          if (!stored.to && row.value.language_to) setLangTo(row.value.language_to);
-        },
-      );
-    }, 0);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timeoutId);
-    };
-  }, []);
-
-  const changeLanguagePair = useCallback((pair: LanguagePair) => {
-    setLangFrom(pair.from);
-    setLangTo(pair.to);
-    storeLanguagePair({ from: pair.from || undefined, to: pair.to || undefined });
-  }, []);
-  const closeLanguageModal = useCallback(() => setLangModalOpen(false), []);
-  const startAnalyzing = useCallback(() => {
-    setAnalysisStartedAt((startedAt) => startedAt ?? Date.now());
-    setAnalysisElapsedSeconds(0);
-  }, []);
-  const stopAnalyzing = useCallback(() => setAnalysisStartedAt(null), []);
-  const loadUsage = useCallback(async () => {
-    const next = await requestPhotoLabUsage();
-    if (next) setUsage(next);
-  }, []);
-
-  useEffect(() => {
-    if (analysisStartedAt === null) return undefined;
-    const updateElapsed = () =>
-      setAnalysisElapsedSeconds(Math.floor((Date.now() - analysisStartedAt) / 1000));
-    updateElapsed();
-    const intervalId = window.setInterval(updateElapsed, 1000);
-    return () => window.clearInterval(intervalId);
-  }, [analysisStartedAt]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => void loadUsage(), 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [loadUsage]);
-
-  const trackUrl = useCallback((url: string) => {
-    createdUrlsRef.current.push(url);
-    return url;
-  }, []);
-
-  const requestSessionAudio = useCallback((session: PhotoLabSession) => {
-    if (session.audioHashes !== undefined) return;
-
-    void requestPhotoLabAudio(session.id, session.labels, session.languageTo).then(
-      async (result) => {
-        if (!result.ok) return;
-        await updateSessionAudioHashes(session.id, result.hashes);
-        const withAudio = (candidate: PhotoLabSession): PhotoLabSession =>
-          candidate.id === session.id
-            ? { ...candidate, audioHashes: result.hashes }
-            : candidate;
-        setCurrent((value) =>
-          value?.session.id === session.id
-            ? { ...value, session: withAudio(value.session) }
-            : value,
-        );
-        setHistory((items) => items.map(withAudio));
-      },
-    );
-  }, []);
-
-  const refreshHistory = useCallback(async () => {
-    const refreshId = historyRefreshIdRef.current + 1;
-    historyRefreshIdRef.current = refreshId;
-    const sessions = (await listSessions()).slice(0, HISTORY_LIMIT);
-    const knownIds = new Set(thumbUrlsRef.current.keys());
-    const entries = await Promise.all(
-      sessions.filter((session) => !knownIds.has(session.id)).map(async (session) => {
-        const blob = await getPhoto(session.photoHash);
-        return blob ? ([session.id, URL.createObjectURL(blob)] as const) : null;
-      }),
-    );
-    if (refreshId !== historyRefreshIdRef.current) {
-      for (const entry of entries) {
-        if (entry) URL.revokeObjectURL(entry[1]);
-      }
-      return;
-    }
-    setHistory(sessions);
-    setThumbUrls((previous) => {
-      const next = new Map(previous);
-      const activeIds = new Set(sessions.map((session) => session.id));
-      for (const [id, url] of next) {
-        if (activeIds.has(id)) continue;
-        URL.revokeObjectURL(url);
-        next.delete(id);
-      }
-      for (const entry of entries) {
-        if (!entry) continue;
-        if (next.has(entry[0])) {
-          // A concurrent refresh won the race after this URL was created.
-          URL.revokeObjectURL(entry[1]);
-          continue;
-        }
-        next.set(entry[0], trackUrl(entry[1]));
-      }
-      thumbUrlsRef.current = next;
-      return next;
-    });
-  }, [trackUrl]);
-
-  useEffect(() => {
-    void refreshHistory();
-    const urls = createdUrlsRef.current;
-    return () => {
-      historyRefreshIdRef.current += 1;
-      for (const url of urls) URL.revokeObjectURL(url);
-    };
-  }, [refreshHistory]);
-
-  const analyze = useCallback(
-    async (photo: DownscaledPhoto) => {
-      startAnalyzing();
-      setErrorCode(null);
-      setCurrent(null);
-      try {
-        const labels = await requestPhotoAnalysis(photo.dataUrl, langFrom, langTo);
-        const session: PhotoLabSession = {
-          id: createBrowserId('photo-lab-session'),
-          createdAt: Date.now(),
-          languageFrom: langFrom,
-          languageTo: langTo,
-          photoHash: photo.hash,
-          labels,
-        };
-        setPendingPhoto(null);
-        setCurrent({ session, imageUrl: photo.dataUrl });
-        // Audio and local persistence continue after labels are visible. Neither
-        // should keep the user behind the analyzing state.
-        requestSessionAudio(session);
-        void (async () => {
-          try {
-            // The photo blob must land before the session row so history never
-            // references a missing image.
-            if (await putPhoto(photo.hash, photo.blob)) {
-              await putSession(session);
-              await cleanupPhotoLab();
-              void refreshHistory();
-            }
-          } catch {
-            // The analyzed session remains usable in memory if persistence fails.
-          }
-        })();
-      } catch (err) {
-        console.error('[photo-lab] analysis failed', err);
-        setErrorCode(err instanceof PhotoLabRequestError ? err.code : 'generic');
-      } finally {
-        stopAnalyzing();
-        void loadUsage();
-      }
-    },
-    [langFrom, langTo, loadUsage, refreshHistory, requestSessionAudio, startAnalyzing, stopAnalyzing],
-  );
-
-  const handleFileChange = useCallback(
-    async (event: React.ChangeEvent<HTMLInputElement>) => {
-      const file = event.target.files?.[0];
-      event.target.value = '';
-      if (!file) return;
-      startAnalyzing();
-      setErrorCode(null);
-      setCurrent(null);
-      try {
-        const photo = await downscalePhoto(file);
-        setPendingPhoto(photo);
-        await analyze(photo);
-      } catch (err) {
-        console.error('[photo-lab] image preparation failed', err);
-        setErrorCode('imageProcessing');
-        stopAnalyzing();
-      }
-    },
-    [analyze, startAnalyzing, stopAnalyzing],
-  );
-
-  const openSession = useCallback(
-    async (session: PhotoLabSession) => {
-      setErrorCode(null);
-      const knownUrl = thumbUrls.get(session.id);
-      if (knownUrl) {
-        setCurrent({ session, imageUrl: knownUrl });
-        requestSessionAudio(session);
-        return;
-      }
-      const blob = await getPhoto(session.photoHash);
-      if (blob) {
-        setCurrent({ session, imageUrl: trackUrl(URL.createObjectURL(blob)) });
-        requestSessionAudio(session);
-      }
-    },
-    [thumbUrls, trackUrl, requestSessionAudio],
-  );
-
-  const removeSession = useCallback(
-    async (id: string) => {
-      setConfirmDeleteId(null);
-      await deleteSession(id);
-      setCurrent((value) => (value?.session.id === id ? null : value));
-      void refreshHistory();
-    },
-    [refreshHistory],
-  );
-
-  const languagesReady = Boolean(langFrom && langTo && langFrom !== langTo);
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[1800px] flex-col gap-4 px-3 pb-[max(3rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:pt-6 lg:px-8">
@@ -502,7 +240,7 @@ function PhotoLabStudio() {
           >
             ← {t('photoLab.back')}
           </Link>
-          <LanguagePairSummary from={langFrom} to={langTo} onOpen={() => setLangModalOpen(true)} />
+          <LanguagePairSummary from={langFrom} to={langTo} onOpen={openLanguageModal} />
         </div>
         <div className="flex flex-col gap-2.5">
           <h1 className="m-0 text-3xl font-bold tracking-tight [font-family:var(--font-photo-display),system-ui] sm:text-5xl">
@@ -691,7 +429,7 @@ function PhotoLabStudio() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setConfirmDeleteId(session.id)}
+                  onClick={() => requestDelete(session.id)}
                   aria-label={t('photoLab.deletePhoto')}
                   className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-white/40 bg-black/60 text-[11px] text-white transition hover:bg-black/80"
                 >
@@ -706,7 +444,7 @@ function PhotoLabStudio() {
       {confirmDeleteId && (
         <DeletePhotoConfirmModal
           onConfirm={() => void removeSession(confirmDeleteId)}
-          onCancel={() => setConfirmDeleteId(null)}
+          onCancel={cancelDelete}
         />
       )}
     </main>

@@ -3,14 +3,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
-import { DemoMatchingGame } from '@/components/landing-demo/DemoMatchingGame';
-import { LandingDemoStyles } from '@/components/landing-demo/LandingDemoStyles';
+import { DemoMatchingGame } from './demo/DemoMatchingGame';
+import { LandingDemoStyles } from './demo/LandingDemoStyles';
 import {
   buildDemoSet,
   getLandingDemoFallbackTo,
-} from '@/components/landing-demo/demo-set';
-import { logLandingDemoAudio } from '@/components/landing-demo/audio';
-import type { DemoAudioSource } from '@/components/landing-demo/types';
+} from './demo/demo-set';
+import { logLandingDemoAudio } from './demo/audio';
+import type { DemoAudioSource } from './demo/types';
 import { ScratchCover } from '@/components/ScratchCover';
 import { playUserInitiatedAudio } from '@/lib/audio-playback';
 import { normalizeLanguageCode } from '@/lib/i18n/languages';

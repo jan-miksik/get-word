@@ -106,6 +106,10 @@ View mode stored in `localStorage` under `get-word-view-mode`.
   - page state lives in `features/learning/hooks/useLearningPageState.ts`
 - `app/lists/page.tsx` — list browser/editor and creation wizard coordinator
 - `app/edit/page.tsx` — compatibility redirect to `/lists`
+- `app/admin/stats/page.tsx` — thin shell for `features/admin/components/AdminStatsPage.tsx`
+- `app/photo-lab/page.tsx` — metadata/font shell for `features/photo-lab/components/PhotoLabPage.tsx`
+- signed-out landing UI — `features/landing/components/*`; `app/page.tsx` selects it by session
+- `app/api/audio/demo/route.ts` — public HTTP/cache shell for `features/landing/server/getDemoAudio.ts`
 - `app/api/sync/route.ts` — HTTP/auth shell for GET hydration and POST acknowledgements
   - mutation application: `features/sync/server/apply-mutations.ts`
   - conditional/full payload reads: `features/sync/server/read-payload.ts`

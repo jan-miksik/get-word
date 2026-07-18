@@ -2,7 +2,9 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
     "public/sw.js",
-    "scripts/**/*.{ts,js}",
+    // Operator-facing commands are entrypoints; modules under scripts/lib are
+    // regular project files and must remain reachable from one of these commands.
+    "scripts/*.{ts,js}",
     "ralph/index.js"
   ],
   "project": [
@@ -16,18 +18,18 @@
   ],
   // Operator audio scripts invoke these system tools through child_process.
   "ignoreBinaries": ["ffmpeg", "ffprobe"],
+  // Generated locale data is selected through a runtime language-code lookup,
+  // which Knip cannot follow as a static import graph.
   "ignore": [
     "lib/i18n/generated-bundled-messages.ts"
   ],
-  // These files belong to the concurrent sync/cache work that wave 1 must not
-  // edit. Re-audit and remove these temporary suppressions once that work lands.
+  // These named item/category shapes are intentionally exported as the stable
+  // serialized SyncResponse contract. Current consumers read them through the
+  // parent response type, so Knip cannot observe a direct type import. The two
+  // lib/sync exports remain part of its runtime transport compatibility surface
+  // while wallet linking is disabled and no in-repo UI calls them directly.
   "ignoreIssues": {
-    "features/sync/types.ts": ["exports", "types"],
-    "lib/arweave-gateways.ts": ["exports", "types"],
-    "lib/db/queries/category-filters.ts": ["exports", "types"],
-    "lib/local-first/db.ts": ["exports", "types"],
-    "lib/local-learning-cache.ts": ["exports", "types"],
-    "lib/sync.ts": ["exports", "types"],
-    "lib/words.ts": ["exports", "types"]
+    "features/sync/types.ts": ["types"],
+    "lib/sync.ts": ["exports"]
   }
 }

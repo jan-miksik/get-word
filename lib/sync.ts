@@ -8,16 +8,6 @@ import type {
   SyncResponse,
 } from "@/features/sync/types";
 
-export type {
-  ProgressData,
-  SyncMutationPayload,
-  SyncProgressItem,
-  SyncRequest,
-  SyncResponse,
-  SyncCategory,
-  SyncWordListItem,
-} from "@/features/sync/types";
-
 // In-memory only: set from API responses, passed as hint to API. No localStorage.
 let lastKnownUserId: string | null = null;
 let authRequired = false;

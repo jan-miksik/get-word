@@ -1,7 +1,7 @@
 'use client';
 
 export const DB_NAME = 'get-word-learning-cache';
-export const DB_VERSION = 2;
+const DB_VERSION = 2;
 
 export const STORE_KV = 'kv';
 export const STORE_PROGRESS = 'progress';
@@ -12,11 +12,11 @@ export const STORE_OUTBOX = 'outbox';
 export const STORE_META = 'meta';
 
 export const META_KEY = 'meta';
-export const LEGACY_SNAPSHOT_KEY = 'learning-snapshot';
+const LEGACY_SNAPSHOT_KEY = 'learning-snapshot';
 
 export const META_SCHEMA_VERSION = 2;
 
-export const ALL_STORES = [
+const ALL_STORES = [
   STORE_KV,
   STORE_PROGRESS,
   STORE_MEMORY_HOOKS,
@@ -47,7 +47,7 @@ function hasIndexedDb(): boolean {
   return typeof indexedDB !== 'undefined';
 }
 
-export interface LegacySnapshotData {
+interface LegacySnapshotData {
   user?: unknown;
   progress?: unknown[];
   memory_hooks?: Record<string, unknown>;
@@ -58,7 +58,7 @@ export interface LegacySnapshotData {
   sync_revision?: number | string;
 }
 
-export interface LegacySnapshot {
+interface LegacySnapshot {
   savedAt: number;
   activeListId: string | null;
   data: LegacySnapshotData;
@@ -166,44 +166,5 @@ export function openDb(): Promise<IDBDatabase | null> {
     request.onsuccess = () => resolve(request.result);
     request.onerror = () => resolve(null);
     request.onblocked = () => resolve(null);
-  });
-}
-
-export async function withStore<T>(
-  store: StoreName,
-  mode: IDBTransactionMode,
-  fn: (objectStore: IDBObjectStore) => T | Promise<T>
-): Promise<T | null> {
-  const db = await openDb();
-  if (!db) return null;
-  return new Promise((resolve) => {
-    let result: T | null = null;
-    try {
-      const tx = db.transaction(store, mode);
-      const objectStore = tx.objectStore(store);
-      Promise.resolve(fn(objectStore)).then(
-        (value) => {
-          result = value ?? null;
-        },
-        () => {
-          result = null;
-        }
-      );
-      tx.oncomplete = () => {
-        db.close();
-        resolve(result);
-      };
-      tx.onerror = () => {
-        db.close();
-        resolve(null);
-      };
-      tx.onabort = () => {
-        db.close();
-        resolve(null);
-      };
-    } catch {
-      db.close();
-      resolve(null);
-    }
   });
 }

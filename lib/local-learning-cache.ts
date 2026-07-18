@@ -175,7 +175,7 @@ function deleteIndexedDb(): Promise<void> {
   });
 }
 
-export async function clearAudioCache(): Promise<void> {
+async function clearAudioCache(): Promise<void> {
   if (typeof caches === 'undefined') return;
   await caches.delete(AUDIO_CACHE_NAME).catch(() => undefined);
   if (storageAvailable()) {

@@ -27,23 +27,16 @@
  */
 
 import * as dotenv from "dotenv";
-import { spawnSync } from "node:child_process";
-import { mkdir, rm, writeFile } from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
+import {
+  analyzeAudioBuffer,
+  formatAudioQuality,
+  type AudioQuality,
+} from "./lib/audio-quality";
 
 dotenv.config({ path: ".env.local" });
 
 const PROVIDER = "google_tts";
 const AUDIO_FORMAT = "mp3";
-const MIN_AUDIO_BYTES = 1_000;
-const MIN_DURATION_SECONDS = 0.25;
-const MIN_MAX_VOLUME_DB = -35;
-// Whole-clip loudness. Near-silent "blip" renders (a short word the voice
-// barely voiced) keep a loud transient that clears MIN_MAX_VOLUME_DB, so max
-// volume alone misses them; their mean volume collapses to -35..-50 dB while
-// healthy demo clips sit at -16..-26 dB.
-const MIN_MEAN_VOLUME_DB = -30;
 
 // Google TTS lists some languages under different base codes than the app.
 const TTS_BASE_ALIASES: Record<string, string[]> = {
@@ -90,86 +83,6 @@ function parseArgs(argv: string[]) {
           .filter(Boolean)
       : null,
   };
-}
-
-type AudioQuality = {
-  ok: boolean;
-  durationSeconds: number;
-  sizeBytes: number;
-  meanVolumeDb: number | null;
-  maxVolumeDb: number | null;
-  reason: string | null;
-};
-
-async function analyzeAudioQuality(audio: Buffer): Promise<AudioQuality> {
-  const tmpDir = await mkdir(path.join(os.tmpdir(), "get-word-demo-audio"), { recursive: true })
-    .then(() => path.join(os.tmpdir(), "get-word-demo-audio"));
-  const tmpFile = path.join(tmpDir, `quality-${process.pid}-${Date.now()}-${Math.random().toString(36).slice(2)}.mp3`);
-  await writeFile(tmpFile, audio);
-
-  try {
-    const probe = spawnSync("ffprobe", [
-      "-v",
-      "error",
-      "-show_entries",
-      "format=duration,size",
-      "-of",
-      "json",
-      tmpFile,
-    ], { encoding: "utf8" });
-    const parsed = JSON.parse(probe.stdout || "{}") as {
-      format?: { duration?: string; size?: string };
-    };
-    const durationSeconds = Number(parsed.format?.duration ?? 0);
-    const sizeBytes = Number(parsed.format?.size ?? audio.byteLength);
-
-    const ffmpeg = spawnSync("ffmpeg", [
-      "-hide_banner",
-      "-nostats",
-      "-i",
-      tmpFile,
-      "-af",
-      "volumedetect",
-      "-f",
-      "null",
-      "-",
-    ], { encoding: "utf8" });
-    const output = `${ffmpeg.stdout}\n${ffmpeg.stderr}`;
-    const meanVolumeDb = Number(output.match(/mean_volume: (-?\d+(?:\.\d+)?) dB/)?.[1]);
-    const maxVolumeDb = Number(output.match(/max_volume: (-?\d+(?:\.\d+)?) dB/)?.[1]);
-    const normalizedMean = Number.isFinite(meanVolumeDb) ? meanVolumeDb : null;
-    const normalizedMax = Number.isFinite(maxVolumeDb) ? maxVolumeDb : null;
-
-    const reason =
-      sizeBytes < MIN_AUDIO_BYTES
-        ? `too small (${sizeBytes} bytes)`
-        : durationSeconds < MIN_DURATION_SECONDS
-          ? `too short (${durationSeconds.toFixed(3)}s)`
-          : normalizedMax === null
-            ? "could not measure volume"
-            : normalizedMax < MIN_MAX_VOLUME_DB
-              ? `too quiet (max ${normalizedMax.toFixed(1)} dB)`
-              : normalizedMean !== null && normalizedMean < MIN_MEAN_VOLUME_DB
-                ? `too quiet (mean ${normalizedMean.toFixed(1)} dB)`
-                : null;
-
-    return {
-      ok: reason === null,
-      durationSeconds,
-      sizeBytes,
-      meanVolumeDb: normalizedMean,
-      maxVolumeDb: normalizedMax,
-      reason,
-    };
-  } finally {
-    await rm(tmpFile, { force: true });
-  }
-}
-
-function formatQuality(quality: AudioQuality): string {
-  const max = quality.maxVolumeDb === null ? "n/a" : `${quality.maxVolumeDb.toFixed(1)} dB`;
-  const mean = quality.meanVolumeDb === null ? "n/a" : `${quality.meanVolumeDb.toFixed(1)} dB`;
-  return `${quality.durationSeconds.toFixed(3)}s, max ${max}, mean ${mean}, ${quality.sizeBytes} bytes`;
 }
 
 async function fetchGoogleVoices(apiKey: string): Promise<GoogleVoice[]> {
@@ -342,13 +255,13 @@ async function main() {
         }
 
         if (existingAudio) {
-          const quality = await analyzeAudioQuality(existingAudio);
+          const quality = await analyzeAudioBuffer(existingAudio);
           if (quality.ok) {
-            console.log(`  = "${word.text}" — existing audio OK (${formatQuality(quality)})`);
+            console.log(`  = "${word.text}" — existing audio OK (${formatAudioQuality(quality)})`);
             skipped += 1;
             continue;
           }
-          console.warn(`  ! "${word.text}" — existing audio ${quality.reason}; regenerating (${formatQuality(quality)})`);
+          console.warn(`  ! "${word.text}" — existing audio ${quality.reason}; regenerating (${formatAudioQuality(quality)})`);
         } else {
           console.warn(`  ! "${word.text}" — existing audio could not be downloaded for quality check; regenerating`);
         }
@@ -374,10 +287,10 @@ async function main() {
             continue;
           }
 
-          const quality = await analyzeAudioQuality(candidate.audio);
+          const quality = await analyzeAudioBuffer(candidate.audio);
           if (!quality.ok) {
             console.warn(
-              `  ! "${word.text}" — ${candidateVoiceId} rejected: ${quality.reason} (${formatQuality(quality)})`,
+              `  ! "${word.text}" — ${candidateVoiceId} rejected: ${quality.reason} (${formatAudioQuality(quality)})`,
             );
             continue;
           }
@@ -444,7 +357,7 @@ async function main() {
             ? getArweaveGatewayUrl(storageRef)
             : `${storageProvider}:${storageRef}`;
         console.log(
-          `  ✓ "${word.text}" — ${selectedVoiceId}${mirrored ? " (+mirror)" : ""} (${formatQuality(selectedQuality)}) → ${location}`,
+          `  ✓ "${word.text}" — ${selectedVoiceId}${mirrored ? " (+mirror)" : ""} (${formatAudioQuality(selectedQuality)}) → ${location}`,
         );
         generated += 1;
       } catch (err) {

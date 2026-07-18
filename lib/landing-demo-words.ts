@@ -6,7 +6,7 @@ import type { LandingDemoLexeme } from "@/lib/landing-demo-types";
 /**
  * Fixed word set for the public landing-page demo card: "yes",
  * "I don't understand", "thank you" — three phrases a beginner reaches for
- * first. Shared between the client card (`components/LandingDemoCard.tsx`),
+ * first. Shared between the client card (`features/landing/components/LandingDemoCard.tsx`),
  * the public demo-audio endpoint (`app/api/audio/demo/route.ts`), which only
  * serves audio for texts on this whitelist, and the pre-generation script
  * (`scripts/generate-demo-audio.ts`).

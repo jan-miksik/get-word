@@ -6,7 +6,7 @@ Owns external provider connections such as OpenRouter and key-management flows u
 
 ## Read First
 
-- `app/lists/ApiKeySettings.tsx`
+- `features/lists/components/ApiKeySettings.tsx`
 - `app/api/providers/openrouter/status/route.ts`
 - `app/api/providers/openrouter/callback/route.ts`
 - `lib/providers/*`

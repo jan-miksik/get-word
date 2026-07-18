@@ -1,5 +1,5 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LandingPage } from '../LandingPage';
 
 vi.mock('@/components/SpeckledBackground', () => ({
@@ -7,7 +7,14 @@ vi.mock('@/components/SpeckledBackground', () => ({
 }));
 
 describe('LandingPage language selector', () => {
+  const preventJsdomNavigation = (event: MouseEvent) => {
+    if (event.target instanceof Element && event.target.closest('a[href]')) {
+      event.preventDefault();
+    }
+  };
+
   beforeEach(() => {
+    document.addEventListener('click', preventJsdomNavigation);
     localStorage.clear();
     vi.stubGlobal(
       'fetch',
@@ -41,6 +48,8 @@ describe('LandingPage language selector', () => {
       }),
     );
   });
+
+  afterEach(() => document.removeEventListener('click', preventJsdomNavigation));
 
   it('uses the shared interface selector with the full language list', async () => {
     render(<LandingPage />);

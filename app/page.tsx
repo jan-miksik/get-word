@@ -1,6 +1,6 @@
 import { cookies } from 'next/headers';
 import { GET_WORD_SESSION_COOKIE_NAME, verifySession } from '@/lib/session';
-import { LandingPage } from '@/components/LandingPage';
+import { LandingPage } from '@/features/landing/components/LandingPage';
 import { HomeClient } from './HomeClient';
 
 /**

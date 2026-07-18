@@ -37,6 +37,18 @@ subsystem decisions and data-model notes.
 - Onboarding recommendations/estimates: `features/learning/onboarding/listRecommendations.ts`
 - Shared language picker: `features/shared/languages/LanguageCombobox.tsx`
 - Supported-language client loading: `features/shared/languages/useSupportedLanguages.ts`
+- Pre-login language-pair hand-off: `features/shared/languages/landingPairStorage.ts`
+
+### Public landing
+
+- Feature guide: `features/landing/README.md`
+- Signed-out route selection: `app/page.tsx`
+- Page composition: `features/landing/components/LandingPage.tsx`
+- Static marketing sections/icons: `features/landing/components/LandingSections.tsx`, `LandingIcons.tsx`
+- Interactive demo: `features/landing/components/LandingDemoCard.tsx`, `features/landing/components/demo/*`
+- Public UI-language state: `features/landing/client/useLandingLanguage.ts`
+- Demo-audio server assembly: `features/landing/server/getDemoAudio.ts`
+- Generated/shared demo data: `lib/landing-demo-word-data.ts`, `lib/landing-demo-words.ts`
 
 ### Learning state and sync
 
@@ -104,6 +116,24 @@ subsystem decisions and data-model notes.
 - OpenRouter/provider guide: `features/providers/README.md`
 - Provider storage/crypto: `lib/providers/*`
 
+### Photo Lab
+
+- Feature guide: `features/photo-lab/README.md`
+- Route/font shell: `app/photo-lab/page.tsx`
+- UI composition: `features/photo-lab/components/PhotoLabPage.tsx`
+- Client workflow/history lifecycle: `features/photo-lab/components/usePhotoLabStudio.ts`
+- Client API/storage: `features/photo-lab/client/*`
+- Analysis/audio/rate-limit services: `features/photo-lab/server/*`
+- HTTP shells: `app/api/photo-lab/*/route.ts`
+
+### Admin and maintenance
+
+- Admin guide and DTOs: `features/admin/README.md`, `features/admin/types.ts`
+- Admin page + loading workflow: `features/admin/components/AdminStatsPage.tsx`, `features/admin/client/useAdminStats.ts`
+- Admin API shell and DB aggregation: `app/api/admin/stats/route.ts`, `lib/db/queries/usage-stats.ts`
+- Operator script map: `scripts/README.md`
+- Shared demo-audio tooling policy: `scripts/lib/audio-quality.ts`
+
 ### Database
 
 - Schema: `lib/db/schema.ts`
@@ -132,6 +162,12 @@ subsystem decisions and data-model notes.
 - `features/lists/components/translation-step/TranslationStep.tsx` remains the largest lists shell. Provider workflow, pure transformations, row UI, editors, and dialogs are separate modules in the same folder; extend those modules instead of adding another responsibility to the shell.
 - `app/api/sync/route.ts` is the stable HTTP/auth shell. Legacy item/word ID mutation compatibility lives in `features/sync/server/apply-mutations.ts`; conditional/delta/full reads live in `features/sync/server/read-payload.ts`.
 - `features/learning/onboarding/LearningLanguageOnboarding.tsx` is now mostly the onboarding UI shell. Data loading and derived list state live in `features/learning/onboarding/useLearningOnboardingData.ts`; subscribe/fork/create/autogenerate navigation actions live in `features/learning/onboarding/useLearningOnboardingActions.ts`.
+- `features/photo-lab/components/PhotoLabPage.tsx` is the render shell; analysis,
+  local persistence, history refresh, audio enrichment, and blob URL cleanup live
+  in `usePhotoLabStudio.ts`.
+- Landing demo data is intentionally large/generated. Extend UI under
+  `features/landing`, but regenerate `lib/landing-demo-word-data.ts` instead of
+  hand-splitting or hand-editing it.
 
 ## Boundary Rules
 
@@ -163,3 +199,4 @@ subsystem decisions and data-model notes.
 - Audio: `app/api/audio/__tests__`, `lib/__tests__/audio*.test.ts`
 - Sync: `app/api/sync/__tests__/sync.test.ts`, `lib/__tests__/sync*.test.ts`, `features/learning/state/__tests__`
 - Auth/providers: `app/api/auth/__tests__`, `app/api/providers/openrouter/__tests__`, `lib/providers/__tests__`
+- Landing/Photo Lab/admin: `features/landing/**/__tests__`, `features/photo-lab/**/__tests__`, `features/admin/**/__tests__`, `app/api/audio/demo/__tests__`, `app/api/admin/stats/__tests__`

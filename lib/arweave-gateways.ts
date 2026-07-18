@@ -24,7 +24,7 @@ function normalizeAudioUrl(url: string): string {
   return trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
 }
 
-export function getArweaveGatewayBaseUrls(): string[] {
+function getArweaveGatewayBaseUrls(): string[] {
   const env = typeof process !== "undefined" ? process.env : undefined;
   const configured =
     (env?.NEXT_PUBLIC_ARWEAVE_GATEWAY_URL ?? env?.ARWEAVE_GATEWAY_URL)
@@ -35,7 +35,7 @@ export function getArweaveGatewayBaseUrls(): string[] {
   return Array.from(new Set([...configured, ...DEFAULT_ARWEAVE_GATEWAYS]));
 }
 
-export function getArweaveGatewayBaseUrl(): string {
+function getArweaveGatewayBaseUrl(): string {
   return getArweaveGatewayBaseUrls()[0];
 }
 

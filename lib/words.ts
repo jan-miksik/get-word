@@ -73,16 +73,6 @@ export const STAGES = [
   { id: 7, name: "60 days", intervalMs: 60 * 24 * 60 * 60 * 1000 },
 ];
 
-export function remapLegacyStageIndex(stageIndex: unknown): number {
-  const parsed = Number(stageIndex);
-  if (!Number.isFinite(parsed)) return 0;
-  const normalized = Math.floor(parsed);
-  if (normalized <= 0) return 0;
-  if (normalized <= 4) return 1;
-  if (normalized >= 10) return STAGES.length - 1;
-  return normalized - 3;
-}
-
 export const MEMORY_HOOK_DISABLE_STAGE_OPTIONS = [2, 3, 4, 5, 6, 7] as const;
 export type MemoryHookDisableFromStage = (typeof MEMORY_HOOK_DISABLE_STAGE_OPTIONS)[number];
 export const DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE: MemoryHookDisableFromStage = 5; // 14 days
@@ -135,33 +125,6 @@ export function shouldMinimizeStudyNoteForStage(
   const normalizedStage = Number.isFinite(stageIndex) ? Math.max(0, Math.floor(stageIndex)) : 0;
   const cutoff = normalizeStudyNoteMinimizeFromStage(studyNoteMinimizeFromStage);
   return normalizedStage >= cutoff;
-}
-
-function inferWordType(entry: Word): 'word' | 'phrase' {
-  const explicit = Array.isArray(entry.category)
-    ? entry.category.find((tag) => tag === "word" || tag === "phrase")
-    : null;
-  if (explicit === 'word' || explicit === 'phrase') return explicit;
-
-  // Strip non-letter/number characters (emojis, punctuation) for a fair token count
-  const normalized = (entry.cz || "")
-    .replace(/[^\p{L}\p{N}]+/gu, " ")
-    .trim();
-  if (!normalized) return "word";
-
-  const tokenCount = normalized.split(/\s+/).filter(Boolean).length;
-  return tokenCount > 1 ? "phrase" : "word";
-}
-
-export function normalizeWords(words: Word[]): NormalizedWord[] {
-  return words.map((entry) => {
-    const baseTags = Array.isArray(entry.category)
-      ? entry.category.filter((tag) => tag !== "word" && tag !== "phrase")
-      : [];
-    const typeTag = inferWordType(entry);
-    const category = [...new Set([...baseTags, typeTag])];
-    return { ...entry, category };
-  });
 }
 
 export function getAvailableCategories(
@@ -257,41 +220,6 @@ export function createWordCategoryOrderComparer(categoryOrder: string[] = []) {
     if (rightPosition !== undefined) return 1;
     return 0;
   };
-}
-
-// Get all categories from allWords, but count occurrences in filteredWords
-// This allows showing categories with 0 count in edit mode
-export function getAllCategoriesWithCounts(
-  allWords: NormalizedWord[],
-  filteredWords: NormalizedWord[],
-  additionalCategories: string[] = []
-): Array<{ name: string; count: number }> {
-  // Start with additional categories first (like edit-only categories)
-  // This ensures they're always included even if no words have them
-  const allCategories = new Set<string>(additionalCategories);
-  
-  // Get all unique categories from all words
-  allWords.forEach((word) => {
-    word.category.forEach((cat) => {
-      if (cat !== "word" && cat !== "phrase") {
-        allCategories.add(cat);
-      }
-    });
-  });
-
-  // Count occurrences in filtered words
-  const counts = new Map<string, number>();
-  filteredWords.forEach((word) => {
-    word.category.forEach((cat) => {
-      if (cat === "word" || cat === "phrase") return;
-      counts.set(cat, (counts.get(cat) || 0) + 1);
-    });
-  });
-
-  // Return all categories with their counts (0 if not in filtered words)
-  return Array.from(allCategories)
-    .map((name) => ({ name, count: counts.get(name) || 0 }))
-    .sort((a, b) => a.name.localeCompare(b.name));
 }
 
 export function matchesCategoryFilter(word: NormalizedWord, selectedCategories: Set<string>): boolean {

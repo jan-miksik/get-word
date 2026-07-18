@@ -15,7 +15,7 @@ import {
   type NormalizedWord,
 } from '@/lib/words';
 import { LoadingScreen } from '@/components/LoadingScreen';
-import { LandingPage } from '@/components/LandingPage';
+import { LandingPage } from '@/features/landing/components/LandingPage';
 import { AudioStorageDebugBadge } from '@/components/AudioStorageDebugBadge';
 import { setAudioStorageLoggingEnabled } from '@/lib/audio-debug';
 import { useDueTimer } from '@/hooks/useDueTimer';
@@ -27,7 +27,7 @@ import { LearningLanguageOnboarding } from '@/features/learning/onboarding/Learn
 import {
   readLandingLanguagePair,
   markLandingLanguagePairConsumed,
-} from '@/features/learning/onboarding/landingPairStorage';
+} from '@/features/shared/languages/landingPairStorage';
 import { MemoryHooksIntroCard } from '@/features/learning/components/MemoryHooksIntroCard';
 import { PWAInstallIntroCard } from '@/features/learning/components/PWAInstallIntroCard';
 import { usePWAInstallIntro } from '@/features/learning/hooks/usePWAInstallIntro';

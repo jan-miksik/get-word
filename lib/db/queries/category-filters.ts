@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import { db } from "../client";
-import { userCategoryFilters, users, type UserCategoryFilter } from "../schema";
+import { userCategoryFilters, users } from "../schema";
 
 // Get category filters for a user
 export async function getUserCategoryFilters(
@@ -60,59 +60,4 @@ export async function setUserCategoryFilters(
       .set({ updatedAt: new Date() })
       .where(eq(users.id, userId));
   }
-}
-
-// Add a category filter
-export async function addCategoryFilter(
-  userId: string,
-  category: string
-): Promise<UserCategoryFilter> {
-  const results = await db
-    .insert(userCategoryFilters)
-    .values({ userId, category })
-    .onConflictDoNothing()
-    .returning();
-
-  // If conflict (already exists), fetch the existing one
-  if (results.length === 0) {
-    const existing = await db
-      .select()
-      .from(userCategoryFilters)
-      .where(
-        and(
-          eq(userCategoryFilters.userId, userId),
-          eq(userCategoryFilters.category, category)
-        )
-      )
-      .limit(1);
-    return existing[0];
-  }
-
-  return results[0];
-}
-
-// Remove a category filter
-export async function removeCategoryFilter(
-  userId: string,
-  category: string
-): Promise<boolean> {
-  const results = await db
-    .delete(userCategoryFilters)
-    .where(
-      and(
-        eq(userCategoryFilters.userId, userId),
-        eq(userCategoryFilters.category, category)
-      )
-    )
-    .returning();
-  return results.length > 0;
-}
-
-// Clear all category filters for a user
-export async function clearUserCategoryFilters(userId: string): Promise<number> {
-  const results = await db
-    .delete(userCategoryFilters)
-    .where(eq(userCategoryFilters.userId, userId))
-    .returning();
-  return results.length;
 }

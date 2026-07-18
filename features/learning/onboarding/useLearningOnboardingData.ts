@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { readPreferredPublicLanguage } from '@/lib/i18n/client-language';
-import { readLandingLanguagePair } from './landingPairStorage';
+import { readLandingLanguagePair } from '@/features/shared/languages/landingPairStorage';
 import type { WordList, WordListItem } from '@/features/lists/types';
 import {
   pickAutogenerateCommonSeed,
