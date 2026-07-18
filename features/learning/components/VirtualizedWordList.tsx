@@ -108,6 +108,9 @@ export function VirtualizedWordList({
     return () => ro.disconnect();
   }, [scrollElement]);
 
+  // TanStack Virtual returns mutable imperative functions by design; React
+  // Compiler deliberately skips this component while the virtualizer owns them.
+  // eslint-disable-next-line react-hooks/incompatible-library
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => scrollElement ?? containerRef.current,

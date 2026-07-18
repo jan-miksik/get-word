@@ -40,6 +40,23 @@ export function ShareVisibilityDialog({
   onClose,
   onListUpdated,
 }: ShareVisibilityDialogProps) {
+  return (
+    <ShareVisibilityDialogContent
+      key={list.id}
+      list={list}
+      canManage={canManage}
+      onClose={onClose}
+      onListUpdated={onListUpdated}
+    />
+  );
+}
+
+function ShareVisibilityDialogContent({
+  list,
+  canManage,
+  onClose,
+  onListUpdated,
+}: ShareVisibilityDialogProps) {
   const { t } = useI18n();
   const [url, setUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,8 +70,6 @@ export function ShareVisibilityDialog({
 
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-    setError(false);
     void deviceJsonFetch(`/api/lists/${list.id}/share`, { method: 'POST' })
       .then(async (res) => {
         if (cancelled) return;

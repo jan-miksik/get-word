@@ -167,12 +167,6 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
   const { t } = useI18n();
   const [finished, setFinished] = useState<{ delta: number } | null>(null);
   const [skipSound, setSkipSound] = useState<boolean>(() => readSkipSound());
-  const [verifiedQuestionAudioSide, setVerifiedQuestionAudioSide] = useState<WordSide | null>(() =>
-    pickCachedVerifiedAudioSideForQuestion(config.words[0]),
-  );
-  const [verifiedMatchingAudioSide, setVerifiedMatchingAudioSide] = useState<WordSide | null>(() =>
-    pickCachedVerifiedAudioSideForMatching(config.words),
-  );
   const level = config.level ?? 1;
 
   const toggleSkipSound = useCallback(() => {
@@ -202,6 +196,17 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
     () => (shouldUseAudioPrompt ? pickAudioSideForQuestion(questionWord) : null),
     [shouldUseAudioPrompt, questionWord],
   );
+  const questionAudioKey = `${config.id}:${questionWord?.id ?? 'none'}:${requestedQuestionAudioSide ?? 'none'}`;
+  const cachedQuestionAudioSide = requestedQuestionAudioSide
+    ? pickCachedVerifiedAudioSideForQuestion(questionWord)
+    : null;
+  const [questionAudioResult, setQuestionAudioResult] = useState<{
+    key: string;
+    side: WordSide | null;
+  }>(() => ({ key: questionAudioKey, side: cachedQuestionAudioSide }));
+  const verifiedQuestionAudioSide = questionAudioResult.key === questionAudioKey
+    ? questionAudioResult.side
+    : cachedQuestionAudioSide;
   const typingAndChoicePromptSide: WordSide = verifiedQuestionAudioSide ?? randomPromptSide;
   const typingAndChoicePromptMode: PromptMode =
     !skipSound && verifiedQuestionAudioSide ? 'audio' : 'text';
@@ -210,59 +215,53 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
     () => (shouldUseAudioPrompt ? pickAudioSideForMatching(config.words) : null),
     [config.words, shouldUseAudioPrompt],
   );
+  const matchingAudioKey = `${config.id}:${requestedMatchingAudioSide ?? 'none'}`;
+  const cachedMatchingAudioSide = requestedMatchingAudioSide
+    ? pickCachedVerifiedAudioSideForMatching(config.words)
+    : null;
+  const [matchingAudioResult, setMatchingAudioResult] = useState<{
+    key: string;
+    side: WordSide | null;
+  }>(() => ({ key: matchingAudioKey, side: cachedMatchingAudioSide }));
+  const verifiedMatchingAudioSide = matchingAudioResult.key === matchingAudioKey
+    ? matchingAudioResult.side
+    : cachedMatchingAudioSide;
   const matchingPromptMode: PromptMode =
     !skipSound && verifiedMatchingAudioSide ? 'audio' : 'text';
 
   useEffect(() => {
+    if (!requestedQuestionAudioSide) return;
     let cancelled = false;
-    const cachedSide = pickCachedVerifiedAudioSideForQuestion(questionWord);
-
-    if (!requestedQuestionAudioSide) {
-      setVerifiedQuestionAudioSide(null);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    setVerifiedQuestionAudioSide(cachedSide);
     void pickVerifiedAudioSideForQuestion(questionWord).then((side) => {
       if (!cancelled) {
-        setVerifiedQuestionAudioSide(side);
+        setQuestionAudioResult({ key: questionAudioKey, side });
       }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [questionWord, requestedQuestionAudioSide]);
+  }, [questionAudioKey, questionWord, requestedQuestionAudioSide]);
 
   useEffect(() => {
+    if (!requestedMatchingAudioSide) return;
     let cancelled = false;
-    const cachedSide = pickCachedVerifiedAudioSideForMatching(config.words);
-
-    if (!requestedMatchingAudioSide) {
-      setVerifiedMatchingAudioSide(null);
-      return () => {
-        cancelled = true;
-      };
-    }
-
-    setVerifiedMatchingAudioSide(cachedSide);
     void pickVerifiedAudioSideForMatching(config.words).then((side) => {
       if (!cancelled) {
-        setVerifiedMatchingAudioSide(side);
+        setMatchingAudioResult({ key: matchingAudioKey, side });
       }
     });
 
     return () => {
       cancelled = true;
     };
-  }, [config.words, requestedMatchingAudioSide]);
+  }, [config.words, matchingAudioKey, requestedMatchingAudioSide]);
 
   let game = null;
   if (config.gameType === 'multipleChoice') {
     game = (
       <MultipleChoiceGame
+        key={config.id}
         {...gameProps}
         sourceLang={typingAndChoicePromptSide}
         promptMode={typingAndChoicePromptMode}
@@ -272,6 +271,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
   } else if (config.gameType === 'typing') {
     game = (
       <TypingChallengeGame
+        key={config.id}
         {...gameProps}
         sourceLang={typingAndChoicePromptSide}
         promptMode={typingAndChoicePromptMode}
@@ -281,6 +281,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult }: Props) {
   } else if (config.gameType === 'matching') {
     game = (
       <MatchingPairsGame
+        key={config.id}
         {...gameProps}
         soundEnabled={!skipSound}
         {...(matchingPromptMode === 'audio'

@@ -1,44 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { installGlobalPWACapture, isStandalone, openPWAInstallHelp } from '@/lib/pwa-install';
+import { openPWAInstallHelp } from '@/lib/pwa-install';
 import { InstallAppIcon } from '@/components/icons/AppIcons';
 import { useI18n } from '@/components/I18nProvider';
+import { useMobileViewport, useStandaloneStatus } from '@/hooks/usePWAInstallState';
 
 export function PWAInstallMenuItem({ onClick }: { onClick?: () => void }) {
   const { t } = useI18n();
-  const [installed, setInstalled] = useState(false);
-  const [hydrated, setHydrated] = useState(false);
-  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const installed = useStandaloneStatus();
+  const isMobileViewport = useMobileViewport();
 
-  useEffect(() => {
-    // 900px keeps us in lockstep with isSmallScreen() and the install overlay
-    // gate in PWAInstallBanner — so the menu entry and the modal agree on the
-    // "is this a mobile viewport" question.
-    const mobileQuery = window.matchMedia?.('(max-width: 900px)');
-    const syncMobileViewport = () => setIsMobileViewport(mobileQuery?.matches === true);
-
-    // Catch `beforeinstallprompt` as early as possible — it fires once near
-    // page load, long before the user opens the install modal. Without this
-    // the Android install button never shows up because the modal's own
-    // listener is registered too late.
-    installGlobalPWACapture();
-
-    syncMobileViewport();
-    setInstalled(isStandalone());
-    setHydrated(true);
-
-    const onAppInstalled = () => setInstalled(true);
-
-    mobileQuery?.addEventListener('change', syncMobileViewport);
-    window.addEventListener('appinstalled', onAppInstalled);
-    return () => {
-      mobileQuery?.removeEventListener('change', syncMobileViewport);
-      window.removeEventListener('appinstalled', onAppInstalled);
-    };
-  }, []);
-
-  if (!hydrated || !isMobileViewport || installed) return null;
+  if (!isMobileViewport || installed) return null;
 
   const handleClick = () => {
     // Always open the in-app guide modal; the modal itself picks the right

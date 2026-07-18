@@ -24,6 +24,9 @@ export function useWordStream(
   dueTimerRevision = 0,
 ): WordStream {
   return useMemo(() => {
+    // The revision intentionally invalidates this time-sensitive bucketing even
+    // when the word/progress object identities are unchanged.
+    void dueTimerRevision;
     if (!isHydrated) {
       return { dueWords: [], newWords: [], settlingWords: [] };
     }

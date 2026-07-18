@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useMemo, useState } from 'react';
 
 import {
   composeStream,
@@ -33,9 +33,20 @@ function emptySegmentPlans(): Record<SegmentKind, SegmentPlan | null> {
   };
 }
 
-function isSegmentPlans(value: unknown): value is Record<SegmentKind, SegmentPlan | null> {
-  if (!value || typeof value !== 'object') return false;
-  return 'repeat' in value && 'settling' in value && 'new' in value;
+class SegmentPlanCache {
+  private plans = emptySegmentPlans();
+
+  get(kind: SegmentKind): SegmentPlan | null {
+    return this.plans[kind];
+  }
+
+  set(kind: SegmentKind, plan: SegmentPlan): void {
+    this.plans[kind] = plan;
+  }
+
+  reset(): void {
+    this.plans = emptySegmentPlans();
+  }
 }
 
 type UseLearningStreamGroupsArgs = {
@@ -67,9 +78,7 @@ export function useLearningStreamGroups({
   wordsResetKey,
   excludeGameTypes,
 }: UseLearningStreamGroupsArgs) {
-  const stableMinigamePlansRef = useRef<Record<SegmentKind, SegmentPlan | null>>(
-    emptySegmentPlans()
-  );
+  const [planCache] = useState(() => new SegmentPlanCache());
 
   const combined = useMemo(
     () => [...dueWords, ...(showNotReady ? settlingWords : []), ...newWords],
@@ -114,10 +123,7 @@ export function useLearningStreamGroups({
           const seed = segmentSeed(kind);
           const configKey = `${seed}|${min}|${max}|${excludeGameTypesKey}`;
           const resetKey = `${baseResetKey}|${kind}`;
-          if (!isSegmentPlans(stableMinigamePlansRef.current)) {
-            stableMinigamePlansRef.current = emptySegmentPlans();
-          }
-          const existing = stableMinigamePlansRef.current[kind];
+          const existing = planCache.get(kind);
 
           const plan =
             existing &&
@@ -151,7 +157,7 @@ export function useLearningStreamGroups({
             });
           }
 
-          stableMinigamePlansRef.current[kind] = plan;
+          planCache.set(kind, plan);
 
           let maxOrigIdx = Number.NEGATIVE_INFINITY;
           for (const word of words) {
@@ -213,6 +219,7 @@ export function useLearningStreamGroups({
     minigameFrequency,
     minigameSeed,
     newWords,
+    planCache,
     selectedCategoriesKey,
     settlingWords,
     showNotReady,
@@ -221,7 +228,7 @@ export function useLearningStreamGroups({
 
   return {
     resetStablePlans() {
-      stableMinigamePlansRef.current = emptySegmentPlans();
+      planCache.reset();
     },
     streamGroupedWords,
   };

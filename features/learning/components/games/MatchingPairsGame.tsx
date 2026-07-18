@@ -15,6 +15,7 @@ import {
   type WordSide,
 } from './types';
 import { useI18n } from '@/components/I18nProvider';
+import { shuffleGameItems } from '@/features/learning/minigames';
 
 interface Props {
   words: NormalizedWord[];
@@ -39,10 +40,12 @@ export function MatchingPairsGame({
   onResult,
 }: Props) {
   const { t } = useI18n();
+  const [rightOrderIds] = useState(() => shuffleGameItems(words.map((word) => word.id)));
   const rightOrder = useMemo(
-    () => [...words].sort(() => Math.random() - 0.5),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [words]
+    () => rightOrderIds
+      .map((id) => words.find((word) => word.id === id))
+      .filter((word): word is NormalizedWord => Boolean(word)),
+    [rightOrderIds, words],
   );
 
   const [leftSelected, setLeftSelected] = useState<string | null>(null);

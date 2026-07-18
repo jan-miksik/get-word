@@ -11,14 +11,22 @@ function Host({
   onCommit,
 }: Partial<UseSwipeGestureOptions> & Pick<UseSwipeGestureOptions, 'onCommit'>) {
   const swipe = useSwipeGesture({ enabled, allowHorizontal, getWordId, onCommit });
+  const {
+    cardRef,
+    contentRef,
+    leftBadgeRef,
+    rightBadgeRef,
+    topBadgeRef,
+    onPointerDown,
+  } = swipe;
   return (
-    <div data-testid="card" ref={swipe.cardRef} onPointerDown={swipe.onPointerDown}>
-      <div ref={swipe.contentRef} data-testid="content">
+    <div data-testid="card" ref={cardRef} onPointerDown={onPointerDown}>
+      <div ref={contentRef} data-testid="content">
         <button data-testid="inner-button">action</button>
       </div>
-      <div ref={swipe.rightBadgeRef} data-testid="right-badge" />
-      <div ref={swipe.leftBadgeRef} data-testid="left-badge" />
-      <div ref={swipe.topBadgeRef} data-testid="top-badge" />
+      <div ref={rightBadgeRef} data-testid="right-badge" />
+      <div ref={leftBadgeRef} data-testid="left-badge" />
+      <div ref={topBadgeRef} data-testid="top-badge" />
     </div>
   );
 }

@@ -12,7 +12,17 @@ export const PWA_INSTALL_HELP_EVENT = 'get-word:pwa-install-help-open';
 // already open (rare in practice).
 let capturedBeforeInstallPrompt: BeforeInstallPromptEvent | null = null;
 let globalCaptureInstalled = false;
-const beforeInstallPromptListeners = new Set<(e: BeforeInstallPromptEvent) => void>();
+const beforeInstallPromptListeners = new Set<() => void>();
+
+function notifyBeforeInstallPromptListeners() {
+  for (const listener of beforeInstallPromptListeners) {
+    try {
+      listener();
+    } catch {
+      // One subscriber must not prevent the remaining subscribers from updating.
+    }
+  }
+}
 
 export function installGlobalPWACapture() {
   if (typeof window === 'undefined') return;
@@ -21,16 +31,11 @@ export function installGlobalPWACapture() {
   window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
     capturedBeforeInstallPrompt = e as BeforeInstallPromptEvent;
-    for (const fn of beforeInstallPromptListeners) {
-      try {
-        fn(capturedBeforeInstallPrompt);
-      } catch {
-        // ignore listener errors so one bad subscriber can't break the others
-      }
-    }
+    notifyBeforeInstallPromptListeners();
   });
   window.addEventListener('appinstalled', () => {
     capturedBeforeInstallPrompt = null;
+    notifyBeforeInstallPromptListeners();
   });
 }
 
@@ -40,9 +45,10 @@ export function getCapturedBeforeInstallPrompt(): BeforeInstallPromptEvent | nul
 
 export function clearCapturedBeforeInstallPrompt() {
   capturedBeforeInstallPrompt = null;
+  notifyBeforeInstallPromptListeners();
 }
 
-export function onBeforeInstallPromptCaptured(fn: (e: BeforeInstallPromptEvent) => void): () => void {
+export function onBeforeInstallPromptCaptured(fn: () => void): () => void {
   beforeInstallPromptListeners.add(fn);
   return () => {
     beforeInstallPromptListeners.delete(fn);

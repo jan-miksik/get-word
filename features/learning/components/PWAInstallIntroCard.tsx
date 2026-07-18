@@ -1,18 +1,17 @@
 'use client';
 
-import { CSSProperties, Fragment, ReactNode, useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
+import { CSSProperties, Fragment, ReactNode, useEffect, useMemo } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import {
-  BeforeInstallPromptEvent,
   clearCapturedBeforeInstallPrompt,
-  getCapturedBeforeInstallPrompt,
   getInstallPlatform,
-  installGlobalPWACapture,
   isStandalone,
-  onBeforeInstallPromptCaptured,
+  type BeforeInstallPromptEvent,
   type SimulatedPlatform,
 } from '@/lib/pwa-install';
 import { getPWAInstallIntroCopy, type PWAInstallIntroCopy } from './pwaInstallCopy';
+import { useCapturedInstallPrompt } from '@/hooks/usePWAInstallState';
 
 interface PWAInstallIntroCardProps {
   onDismiss: () => void;
@@ -39,7 +38,8 @@ export function PWAInstallIntroCard({ onDismiss, simulatedPlatform }: PWAInstall
     () => getInstallPlatform(simulatedPlatform ?? null),
     [simulatedPlatform]
   );
-  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const capturedPrompt = useCapturedInstallPrompt();
+  const deferredPrompt = simulatedPlatform ? null : capturedPrompt;
 
   useEffect(() => {
     if (simulatedPlatform) return;
@@ -48,23 +48,9 @@ export function PWAInstallIntroCard({ onDismiss, simulatedPlatform }: PWAInstall
       return;
     }
 
-    // Make sure the global capture is installed before we read it, in case
-    // the modal opens before any other entry point has mounted.
-    installGlobalPWACapture();
-
-    // Seed from any `beforeinstallprompt` that was captured before the modal
-    // opened — this is the common case on Android Chrome, where the event
-    // fires near page load.
-    const captured = getCapturedBeforeInstallPrompt();
-    if (captured) setDeferredPrompt(captured);
-
-    // Stay subscribed for the rare case the event fires while the modal is
-    // already open.
-    const unsubscribe = onBeforeInstallPromptCaptured((e) => setDeferredPrompt(e));
     const onAppInstalled = () => onDismiss();
     window.addEventListener('appinstalled', onAppInstalled);
     return () => {
-      unsubscribe();
       window.removeEventListener('appinstalled', onAppInstalled);
     };
   }, [onDismiss, simulatedPlatform]);
@@ -75,7 +61,6 @@ export function PWAInstallIntroCard({ onDismiss, simulatedPlatform }: PWAInstall
       await deferredPrompt.prompt();
       await deferredPrompt.userChoice;
     } finally {
-      setDeferredPrompt(null);
       // The browser will not re-fire `beforeinstallprompt` for this event, so
       // drop the global slot to avoid handing out a stale, already-consumed
       // prompt to a future modal open.
@@ -134,12 +119,13 @@ function AppLogo({ size = 56, radius = 14 }: { size?: number; radius?: number })
         background: '#fff',
       }}
     >
-      <img
+      <Image
         src="/icons/icon-192.png"
         alt=""
         aria-hidden
         width={size}
         height={size}
+        unoptimized
         style={{ width: '100%', height: '100%', display: 'block', objectFit: 'cover' }}
       />
     </div>

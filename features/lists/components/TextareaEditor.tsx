@@ -23,24 +23,44 @@ export function TextareaEditor({
   onCancel,
   onDirtyChange,
 }: TextareaEditorProps) {
-  const { t } = useI18n();
   const initialText = useMemo(() => {
-    return items
+    return [...items]
       .sort((a, b) => a.position - b.position)
       .map((item) => (inputLanguage === 'known' ? item.textKnown : item.textTarget) ?? '')
       .filter((t) => t.length > 0)
       .join('\n');
   }, [items, inputLanguage]);
 
+  return (
+    <TextareaEditorContent
+      key={initialText}
+      category={category}
+      inputLanguage={inputLanguage}
+      initialText={initialText}
+      onInputLanguageChange={onInputLanguageChange}
+      onPreview={onPreview}
+      onCancel={onCancel}
+      onDirtyChange={onDirtyChange}
+    />
+  );
+}
+
+function TextareaEditorContent({
+  category,
+  inputLanguage,
+  initialText,
+  onInputLanguageChange,
+  onPreview,
+  onCancel,
+  onDirtyChange,
+}: Omit<TextareaEditorProps, 'items'> & { initialText: string }) {
+  const { t } = useI18n();
+
   const [text, setText] = useState(initialText);
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [previewing, setPreviewing] = useState(false);
 
   const lineCount = text.split('\n').filter((l) => l.trim().length > 0).length;
-
-  useEffect(() => {
-    setText(initialText);
-  }, [initialText]);
 
   useEffect(() => {
     onDirtyChange?.(text !== initialText);

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { listsApiFetch } from '@/features/lists/api';
 import {
@@ -35,22 +35,20 @@ interface ApiKeySettingsProps {
 }
 
 export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
-  const { t } = useI18n();
-  const [keys, setKeys] = useState<StoredKey[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [addingProvider, setAddingProvider] = useState<string | null>(null);
-  const [newKey, setNewKey] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  const [busyAction, setBusyAction] = useState<string | null>(null);
-  // Start as 'checking' to avoid flash of "Not connected" before data loads
-  const [openRouterState, setOpenRouterState] = useState<OpenRouterUiState>('checking');
-  const [statusNotice, setStatusNotice] = useState<string | null>(null);
-  const [openRouterModel, setOpenRouterModel] = useState(DEFAULT_OPENROUTER_TRANSLATION_MODEL);
-  // Custom model: separate from the dropdown selection
-  const [customModelInput, setCustomModelInput] = useState('');
-  const [customModelSaved, setCustomModelSaved] = useState('');
+  if (!isOpen) return null;
+  return <ApiKeySettingsContent onClose={onClose} />;
+}
 
-  const reasonMessages: Record<string, string> = {
+function readOpenRouterReturn() {
+  if (typeof window === 'undefined') return { result: null, reason: null };
+  const params = new URLSearchParams(window.location.search);
+  return { result: params.get('openrouter'), reason: params.get('reason') };
+}
+
+function ApiKeySettingsContent({ onClose }: Pick<ApiKeySettingsProps, 'onClose'>) {
+  const { t } = useI18n();
+  const [oauthReturn] = useState(readOpenRouterReturn);
+  const reasonMessages = useMemo<Record<string, string>>(() => ({
     invalid_state: t('lists.invalidReturnState'),
     missing_code: t('lists.openRouterMissingCode'),
     code_expired: t('lists.openRouterCodeExpired'),
@@ -62,7 +60,32 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
     test_failed: t('lists.openRouterTestFailed'),
     unauthorized: t('lists.openRouterUnauthorized'),
     rate_limited: t('lists.openRouterRateLimited'),
-  };
+  }), [t]);
+  const [keys, setKeys] = useState<StoredKey[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [addingProvider, setAddingProvider] = useState<string | null>(null);
+  const [newKey, setNewKey] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busyAction, setBusyAction] = useState<string | null>(null);
+  // Start as 'checking' to avoid flash of "Not connected" before data loads
+  const [openRouterState, setOpenRouterState] = useState<OpenRouterUiState>(() =>
+    oauthReturn.result === 'connected'
+      ? 'connected'
+      : oauthReturn.result === 'failed'
+        ? 'failed_retryable'
+        : 'checking',
+  );
+  const [statusNotice, setStatusNotice] = useState<string | null>(() => {
+    if (oauthReturn.result === 'connected') return t('lists.statusNoticeOpenRouterConnected');
+    if (oauthReturn.result !== 'failed') return null;
+    return oauthReturn.reason
+      ? (reasonMessages[oauthReturn.reason] ?? t('lists.statusNoticeOpenRouterFailed'))
+      : t('lists.statusNoticeOpenRouterFailed');
+  });
+  const [openRouterModel, setOpenRouterModel] = useState(DEFAULT_OPENROUTER_TRANSLATION_MODEL);
+  // Custom model: separate from the dropdown selection
+  const [customModelInput, setCustomModelInput] = useState('');
+  const [customModelSaved, setCustomModelSaved] = useState('');
 
   function applyModelState(model: string) {
     const normalized = normalizeOpenRouterModel(model);
@@ -116,7 +139,6 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
   }, []);
 
   const loadKeys = useCallback(async () => {
-    setLoading(true);
     try {
       const res = await listsApiFetch('/api/keys');
       if (res.ok) {
@@ -142,32 +164,23 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
   }, []);
 
   useEffect(() => {
-    if (isOpen) {
+    const timer = window.setTimeout(() => {
       void loadKeys();
       void loadOpenRouterStatus();
-    }
-  }, [isOpen, loadKeys, loadOpenRouterStatus]);
+    }, 0);
+    return () => window.clearTimeout(timer);
+  }, [loadKeys, loadOpenRouterStatus]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;
     const params = new URLSearchParams(window.location.search);
-    const result = params.get('openrouter');
-    const reason = params.get('reason');
-    if (!result) return;
-
-    if (result === 'connected') {
-      setStatusNotice(t('lists.statusNoticeOpenRouterConnected'));
-      setOpenRouterState('connected');
-    } else if (result === 'failed') {
-      setOpenRouterState('failed_retryable');
-      setStatusNotice(reason ? (reasonMessages[reason] ?? t('lists.statusNoticeOpenRouterFailed')) : t('lists.statusNoticeOpenRouterFailed'));
-    }
+    if (!params.has('openrouter')) return;
 
     params.delete('openrouter');
     params.delete('reason');
     const clean = `${window.location.pathname}${params.toString() ? `?${params.toString()}` : ''}${window.location.hash}`;
     window.history.replaceState({}, '', clean);
-  }, [reasonMessages, t]);
+  }, []);
 
   async function handleSaveKey(provider: string) {
     if (!newKey.trim()) return;
@@ -248,8 +261,6 @@ export function ApiKeySettings({ isOpen, onClose }: ApiKeySettingsProps) {
       setBusyAction(null);
     }
   }
-
-  if (!isOpen) return null;
 
   const providers = [
     { id: 'openrouter', name: 'OpenRouter', description: t('lists.providerDescriptionOpenRouter') },

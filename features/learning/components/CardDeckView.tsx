@@ -121,11 +121,12 @@ export function CardDeckView({
 
   // Keep a snapshot of the last successfully rendered item so we can still
   // show it after items[] shrinks (words are removed from the queue once marked).
+  const [lastItem, setLastItem] = useState<StreamItem | null>(null);
   const lastItemRef = useRef<StreamItem | null>(null);
   // Lock the card being animated out so its content doesn't swap mid-animation
   // if the underlying item list changes after the word is marked.
-  const lockedItemRef = useRef<StreamItem | null>(null);
-  const lockedStageIndexRef = useRef<number>(0);
+  const [lockedItem, setLockedItem] = useState<StreamItem | null>(null);
+  const [lockedStageIndex, setLockedStageIndex] = useState(0);
   const pendingAfterExitRef = useRef<(() => void) | null>(null);
   // True while an exit animation is in flight. Guards against re-entrant advance
   // calls (double taps) and lets the fallback timer know there's something to
@@ -140,11 +141,19 @@ export function CardDeckView({
   // Store latest values in refs so the advance callback always reads fresh state,
   // even when called from a stale closure captured during an earlier render.
   const currentIndexRef = useRef(currentIndex);
-  currentIndexRef.current = currentIndex;
   const itemsRef = useRef(items);
-  itemsRef.current = items;
   const groupedWordsRef = useRef(groupedWords);
-  groupedWordsRef.current = groupedWords;
+
+  useEffect(() => {
+    currentIndexRef.current = currentIndex;
+    itemsRef.current = items;
+    groupedWordsRef.current = groupedWords;
+  }, [currentIndex, groupedWords, items]);
+
+  const updateLastItem = useCallback((item: StreamItem | null) => {
+    lastItemRef.current = item;
+    setLastItem(item);
+  }, []);
 
   useEffect(() => {
     // The final-card confirmation deliberately keeps showing the completed card
@@ -170,9 +179,9 @@ export function CardDeckView({
       (candidate) => !completedItemKeysRef.current.has(getStreamItemKey(candidate)),
     );
     setCurrentIndex(nextIndex >= 0 ? nextIndex : items.length);
-    lastItemRef.current = nextIndex >= 0 ? items[nextIndex] : null;
+    updateLastItem(nextIndex >= 0 ? items[nextIndex] : null);
     setShowDoneOverlay(false);
-  }, [items, showDoneOverlay]);
+  }, [items, showDoneOverlay, updateLastItem]);
 
   // Clear any pending fallback timer on unmount.
   useEffect(() => () => {
@@ -181,11 +190,6 @@ export function CardDeckView({
       exitFallbackTimerRef.current = null;
     }
   }, []);
-
-  useEffect(() => {
-    if (!interstitialCard) return;
-    setShowDoneOverlay(false);
-  }, [interstitialCard]);
 
   useEffect(() => {
     return subscribeAudioNetworkChanges(() => setAudioNetworkRevision((revision) => revision + 1));
@@ -219,7 +223,7 @@ export function CardDeckView({
       exitFallbackTimerRef.current = null;
     }
     setExitAnim(null);
-    lockedItemRef.current = null;
+    setLockedItem(null);
     // Clear before invoking so a throwing callback can't stay armed for a
     // later finishExit.
     const afterExit = pendingAfterExitRef.current;
@@ -230,9 +234,9 @@ export function CardDeckView({
       (candidate) => !completedItemKeysRef.current.has(getStreamItemKey(candidate)),
     );
     setCurrentIndex(nextIndex >= 0 ? nextIndex : currentItems.length);
-    lastItemRef.current = nextIndex >= 0 ? currentItems[nextIndex] : null;
+    updateLastItem(nextIndex >= 0 ? currentItems[nextIndex] : null);
     setEnterAnim(randomEnterAnim());
-  }, []);
+  }, [updateLastItem]);
 
   // Starts an exit animation and arms the fallback timer that recovers the deck
   // if `animationend` never arrives.
@@ -289,12 +293,12 @@ export function CardDeckView({
         (candidate) => !completedItemKeysRef.current.has(getStreamItemKey(candidate)),
       );
       setCurrentIndex(nextIndex >= 0 ? nextIndex : currentItems.length);
-      lastItemRef.current = nextIndex >= 0 ? currentItems[nextIndex] : null;
+      updateLastItem(nextIndex >= 0 ? currentItems[nextIndex] : null);
       return 'skipped';
     }
 
     if (currentItem) {
-      lockedItemRef.current = currentItem;
+      setLockedItem(currentItem);
       let lockedStage = 0;
       let count = 0;
       const grouped = groupedWordsRef.current;
@@ -302,7 +306,7 @@ export function CardDeckView({
         count += grouped[g].length;
         if (idx < count) { lockedStage = g; break; }
       }
-      lockedStageIndexRef.current = lockedStage;
+      setLockedStageIndex(lockedStage);
     }
 
     const hasAnotherItem = currentItems.some(
@@ -320,7 +324,18 @@ export function CardDeckView({
 
     beginExit(opts?.exitAnim);
     return 'exit';
-  }, [onWordCardCompleted, beginExit]);
+  }, [onWordCardCompleted, beginExit, updateLastItem]);
+
+  const handleMiniGameComplete = useCallback(() => {
+    advance({ skipAnimation: true });
+  }, [advance]);
+
+  const handleCardComplete = useCallback((
+    afterExit?: () => void,
+    options?: { skipAnimation?: boolean },
+  ) => {
+    advance({ afterExit, skipAnimation: options?.skipAnimation });
+  }, [advance]);
 
   const handleAnimationEnd = useCallback((e: AnimationEvent<HTMLDivElement>) => {
     // `animationend` bubbles, so ignore inner (reveal/entrance) animations.
@@ -358,20 +373,34 @@ export function CardDeckView({
       if (result !== 'exit') swipe.reset();
     },
   });
+  const {
+    cardRef: swipeCardRef,
+    contentRef: swipeContentRef,
+    leftBadgeRef: swipeLeftBadgeRef,
+    rightBadgeRef: swipeRightBadgeRef,
+    topBadgeRef: swipeTopBadgeRef,
+    onPointerDown: handleSwipePointerDown,
+  } = swipe;
 
   const handleEnterAnimationEnd = useCallback((e: AnimationEvent<HTMLDivElement>) => {
     if (!e.animationName.startsWith('deck-enter-')) return;
     setEnterAnim(null);
   }, []);
 
-  const pinnedItemIndex = !exitAnim && lastItemRef.current
+  const pinnedItemIndex = !exitAnim && lastItem
     ? items.findIndex(
-        (candidate) => getStreamItemKey(candidate) === getStreamItemKey(lastItemRef.current!),
+        (candidate) => getStreamItemKey(candidate) === getStreamItemKey(lastItem),
       )
     : -1;
   const effectiveCurrentIndex = pinnedItemIndex >= 0 ? pinnedItemIndex : currentIndex;
-  currentIndexRef.current = effectiveCurrentIndex;
   const isDone = items.length === 0 || effectiveCurrentIndex >= items.length;
+  const item = exitAnim
+    ? lockedItem
+    : items[effectiveCurrentIndex] ?? lastItem;
+
+  useEffect(() => {
+    currentIndexRef.current = effectiveCurrentIndex;
+  }, [effectiveCurrentIndex]);
 
   if (interstitialCard) {
     return (
@@ -389,11 +418,6 @@ export function CardDeckView({
     );
   }
 
-  // Use the current item if available, otherwise fall back to the last known item.
-  const item = exitAnim
-    ? lockedItemRef.current
-    : items[effectiveCurrentIndex] ?? lastItemRef.current;
-
   if (!item) {
     return (
       <div className="flex h-full items-center justify-center">
@@ -402,13 +426,10 @@ export function CardDeckView({
     );
   }
 
-  // Keep the ref up to date while we have a valid item.
-  lastItemRef.current = item;
-
   // Determine stageIndex from which group currentIndex falls into
   let stageIndex = 0;
-  if (exitAnim && lockedItemRef.current) {
-    stageIndex = lockedStageIndexRef.current;
+  if (exitAnim && lockedItem) {
+    stageIndex = lockedStageIndex;
   } else {
     let count = 0;
     for (let g = 0; g < groupedWords.length; g++) {
@@ -445,8 +466,8 @@ export function CardDeckView({
     <div className="card-deck-view relative flex h-full w-full flex-col overflow-visible">
       <div
         key={itemKey}
-        ref={swipeActive ? swipe.cardRef : undefined}
-        onPointerDown={swipeActive ? swipe.onPointerDown : undefined}
+        ref={swipeActive ? swipeCardRef : undefined}
+        onPointerDown={swipeActive ? handleSwipePointerDown : undefined}
         className={[
           'card-deck-item relative flex h-full w-full flex-col overflow-visible',
           swipeActive ? 'touch-none' : '',
@@ -456,7 +477,7 @@ export function CardDeckView({
         onAnimationEnd={exitAnim ? handleAnimationEnd : enterAnim ? handleEnterAnimationEnd : undefined}
       >
         <div
-          ref={swipeActive ? swipe.contentRef : undefined}
+          ref={swipeActive ? swipeContentRef : undefined}
           className="card-deck-swipe-content flex h-full w-full flex-col"
         >
           {isMinigame
@@ -464,15 +485,14 @@ export function CardDeckView({
                 item as MiniGameConfig,
                 // Mount the next card during the dismiss tap. iOS otherwise
                 // loses user activation before its typing autofocus can run.
-                () => advance({ skipAnimation: true }),
+                // eslint-disable-next-line react-hooks/refs -- The render contract passes this callback to an event prop; it is never invoked during render.
+                handleMiniGameComplete,
               )
             : renderCard(
                 item as NormalizedWord,
                 stageIndex,
-                (afterExit, options) => advance({
-                  afterExit,
-                  skipAnimation: options?.skipAnimation,
-                }),
+                // eslint-disable-next-line react-hooks/refs -- The render contract passes this callback to an event prop; it is never invoked during render.
+                handleCardComplete,
                 { isExiting },
               )}
         </div>
@@ -480,7 +500,7 @@ export function CardDeckView({
           <>
             {/* Inline color avoids relying on arbitrary Tailwind color emission here. */}
             <div
-              ref={swipe.leftBadgeRef}
+              ref={swipeLeftBadgeRef}
               aria-hidden="true"
               className="pointer-events-none absolute right-4 top-16 z-10 whitespace-nowrap rounded-full border-2 px-5 py-2 text-center text-xl font-black tracking-wide opacity-0"
               style={SWIPE_BADGE_STYLE}
@@ -488,7 +508,7 @@ export function CardDeckView({
               {swipeUnknownLabel}
             </div>
             <div
-              ref={swipe.rightBadgeRef}
+              ref={swipeRightBadgeRef}
               aria-hidden="true"
               className="pointer-events-none absolute left-4 top-16 z-10 whitespace-nowrap rounded-full border-2 px-5 py-2 text-center text-xl font-black tracking-wide opacity-0"
               style={SWIPE_BADGE_STYLE}
@@ -500,7 +520,7 @@ export function CardDeckView({
       </div>
       {swipeActive && (
         <div
-          ref={swipe.topBadgeRef}
+          ref={swipeTopBadgeRef}
           aria-hidden="true"
           className="pointer-events-none absolute z-10 whitespace-normal rounded-full border-2 px-5 py-2 text-center text-xl font-black tracking-wide opacity-0"
           style={{

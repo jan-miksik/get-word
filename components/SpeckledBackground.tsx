@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { RisingLettersBackground } from '@/components/RisingLettersBackground';
 
 interface SpeckledBackgroundProps {
@@ -22,12 +23,16 @@ export function SpeckledBackground({
 
   return (
     <>
-      <img
+      <Image
         aria-hidden="true"
         alt=""
         className={cls}
         style={{ height: 'calc(100dvh + env(safe-area-inset-bottom, 0px))' }}
         src={RANDOMIZED_BACKGROUND_ENDPOINT}
+        width={1920}
+        height={1080}
+        sizes="100vw"
+        unoptimized
       />
       {showRisingLetters && (
         <RisingLettersBackground

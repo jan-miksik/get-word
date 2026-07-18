@@ -122,9 +122,12 @@ export function UpcomingPanel({ isOpen, onClose, progressStats }: UpcomingPanelP
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     if (!isOpen) return;
-    setNow(Date.now());
+    const refreshId = window.setTimeout(() => setNow(Date.now()), 0);
     const id = setInterval(() => setNow(Date.now()), 30_000);
-    return () => clearInterval(id);
+    return () => {
+      window.clearTimeout(refreshId);
+      clearInterval(id);
+    };
   }, [isOpen]);
 
   const { upcoming, done } = useMemo(() => {

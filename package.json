@@ -10,7 +10,7 @@
     "dev:fast": "next dev --disable-source-maps",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint .",
+    "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit --incremental false",
     "check:dead-code": "knip",
     "check": "pnpm run typecheck && pnpm run lint && pnpm test && pnpm run check:dead-code && pnpm run build",

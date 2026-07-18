@@ -39,6 +39,11 @@ function clearGetWordLocalStorage() {
 }
 
 export function DeleteAccountModal({ isOpen, onClose, authEmail }: DeleteAccountModalProps) {
+  if (!isOpen) return null;
+  return <DeleteAccountModalContent onClose={onClose} authEmail={authEmail} />;
+}
+
+function DeleteAccountModalContent({ onClose, authEmail }: Omit<DeleteAccountModalProps, 'isOpen'>) {
   const { t } = useI18n();
   const [preview, setPreview] = useState<Preview | null>(null);
   const [confirmation, setConfirmation] = useState('');
@@ -47,10 +52,6 @@ export function DeleteAccountModal({ isOpen, onClose, authEmail }: DeleteAccount
   const expected = authEmail ?? 'DELETE';
 
   useEffect(() => {
-    if (!isOpen) return;
-    setPreview(null);
-    setConfirmation('');
-    setPhase('confirm');
     let cancelled = false;
     deviceJsonFetch('/api/auth/account/deletion-preview')
       .then((res) => (res.ok ? res.json() : null))
@@ -63,18 +64,17 @@ export function DeleteAccountModal({ isOpen, onClose, authEmail }: DeleteAccount
     return () => {
       cancelled = true;
     };
-  }, [isOpen]);
+  }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
     function handleKey(e: KeyboardEvent) {
       if (e.key === 'Escape' && phase === 'confirm') onClose();
     }
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
-  }, [isOpen, onClose, phase]);
+  }, [onClose, phase]);
 
-  if (!isOpen || typeof document === 'undefined') return null;
+  if (typeof document === 'undefined') return null;
 
   async function handleDelete() {
     setPhase('deleting');

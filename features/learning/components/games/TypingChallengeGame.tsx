@@ -134,7 +134,6 @@ export function TypingChallengeGame({
 
   useEffect(() => {
     inputRef.current?.focus();
-    setIsFocused(true);
   }, []);
 
   useEffect(() => {

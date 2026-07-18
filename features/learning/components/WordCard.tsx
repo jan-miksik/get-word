@@ -212,13 +212,11 @@ export const WordCard = memo(function WordCard({
   const hasCustomStageActions = Boolean(onCustomStage || onReallyKnown);
   const useMobileCustomActionOnly = mobileCustomActionOnly && hasCustomStageActions;
 
-  // Get categories to display (exclude "to fix" unless in edit mode)
-  const displayCategories = word.category?.filter(
-    (cat) => cat !== 'to fix' || isEditMode
-  ) || [];
-
   const orderedDisplayCategories = useMemo(() => {
-    if (!Array.isArray(displayCategories) || displayCategories.length === 0) return [];
+    const displayCategories = word.category?.filter(
+      (category) => category !== 'to fix' || isEditMode,
+    ) ?? [];
+    if (displayCategories.length === 0) return [];
     const order = Array.isArray(categoryOrder) ? categoryOrder : [];
     if (order.length === 0) return displayCategories;
     const orderIndex = new Map<string, number>();
@@ -234,7 +232,7 @@ export const WordCard = memo(function WordCard({
       if (bi !== undefined) return 1;
       return (originalIndex.get(a) ?? 0) - (originalIndex.get(b) ?? 0);
     });
-  }, [displayCategories, categoryOrder]);
+  }, [categoryOrder, isEditMode, word.category]);
 
   // In edit mode, always show category badges; otherwise use the setting
   const shouldShowCategoryBadges = isEditMode || showCategoryBadges;

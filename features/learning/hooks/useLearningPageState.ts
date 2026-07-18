@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import type { ProgressData } from '@/lib/sync';
 import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-stats';
 import type { NormalizedWord } from '@/lib/words';
@@ -22,6 +22,52 @@ interface UseLearningPageStateOptions {
   typingModeEnabled?: boolean;
 }
 
+type LearningUiState = {
+  resetKey: string;
+  showNotReady: boolean;
+  dismissedGames: Set<string>;
+};
+
+function resolveStateAction<T>(action: SetStateAction<T>, previous: T): T {
+  return typeof action === 'function' ? (action as (value: T) => T)(previous) : action;
+}
+
+function useResettableLearningUiState(resetKey: string): {
+  showNotReady: boolean;
+  setShowNotReady: Dispatch<SetStateAction<boolean>>;
+  dismissedGames: Set<string>;
+  setDismissedGames: Dispatch<SetStateAction<Set<string>>>;
+} {
+  const [stored, setStored] = useState<LearningUiState>(() => ({
+    resetKey,
+    showNotReady: false,
+    dismissedGames: new Set(),
+  }));
+  const current = stored.resetKey === resetKey
+    ? stored
+    : { resetKey, showNotReady: false, dismissedGames: new Set<string>() };
+
+  const setShowNotReady: Dispatch<SetStateAction<boolean>> = (action) => {
+    setStored((previous) => {
+      const base = previous.resetKey === resetKey ? previous : current;
+      return { ...base, showNotReady: resolveStateAction(action, base.showNotReady) };
+    });
+  };
+  const setDismissedGames: Dispatch<SetStateAction<Set<string>>> = (action) => {
+    setStored((previous) => {
+      const base = previous.resetKey === resetKey ? previous : current;
+      return { ...base, dismissedGames: resolveStateAction(action, base.dismissedGames) };
+    });
+  };
+
+  return {
+    showNotReady: current.showNotReady,
+    setShowNotReady,
+    dismissedGames: current.dismissedGames,
+    setDismissedGames,
+  };
+}
+
 export function useLearningPageState({
   activeWords,
   filteredWords,
@@ -33,8 +79,6 @@ export function useLearningPageState({
   dueTimerRevision = 0,
   typingModeEnabled = false,
 }: UseLearningPageStateOptions) {
-  const [showNotReady, setShowNotReady] = useState(false);
-  const [dismissedGames, setDismissedGames] = useState<Set<string>>(new Set());
   const [minigameSeed] = useState<number>(() => Math.floor(Math.random() * 1_000_000_000));
   const selectedCategoriesKey = Array.from(selectedCategories).sort().join('|');
   const categoryOrderKey = categoryOrder.join('|');
@@ -53,10 +97,13 @@ export function useLearningPageState({
     return `${filteredWords.length}:${hash}:${categoryOrderKey}`;
   }, [categoryOrderKey, filteredWords]);
 
-  useEffect(() => {
-    setShowNotReady(false);
-    setDismissedGames(new Set());
-  }, [selectedCategoriesKey, wordsResetKey]);
+  const uiResetKey = `${selectedCategoriesKey}::${wordsResetKey}`;
+  const {
+    showNotReady,
+    setShowNotReady,
+    dismissedGames,
+    setDismissedGames,
+  } = useResettableLearningUiState(uiResetKey);
 
   const statsWords = useMemo(
     () => getProgressStatsWords(activeWords, selectedCategories),

@@ -15,6 +15,7 @@ import {
   type WordSide,
 } from './types';
 import { useI18n } from '@/components/I18nProvider';
+import { shuffleGameItems } from '@/features/learning/minigames';
 
 interface Props {
   words: NormalizedWord[];
@@ -37,27 +38,29 @@ export function MultipleChoiceGame({
 }: Props) {
   const { t } = useI18n();
   const [selected, setSelected] = useState<string | null>(null);
+  const [optionOrder] = useState(() => shuffleGameItems(words.map((word) => word.id)));
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   const questionWord = words[0];
   const promptSide: WordSide = sourceLang ?? knownSideForRole(role);
   const learningSide: WordSide = learningSideForRole(role);
   const answerSide: WordSide = flipSide(promptSide);
-  const getOption = (w: NormalizedWord) => getWordTextBySide(w, answerSide);
   const prompt = getWordTextBySide(questionWord, promptSide);
-  const correctAnswer = getOption(questionWord);
+  const correctAnswer = getWordTextBySide(questionWord, answerSide);
   const promptAudioSrc = getWordAudioSrcBySide(questionWord, promptSide);
   const effectivePromptMode: PromptMode = promptMode === 'audio' && promptAudioSrc ? 'audio' : 'text';
 
   const options = useMemo(
-    () => [...words].sort(() => Math.random() - 0.5).map(w => ({
+    () => optionOrder
+      .map((id) => words.find((word) => word.id === id))
+      .filter((word): word is NormalizedWord => Boolean(word))
+      .map((w) => ({
       id: w.id,
-      label: getOption(w),
+      label: getWordTextBySide(w, answerSide),
       answerAudioSrcs: getWordAudioSrcsBySide(w, learningSide),
       isCorrect: w.id === questionWord.id,
     })),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [words, answerSide, learningSide, questionWord.id]
+    [answerSide, learningSide, optionOrder, questionWord.id, words]
   );
 
   const answered = selected !== null;

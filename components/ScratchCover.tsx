@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { isCardSwipeActive } from '@/lib/swipe-gesture-state';
 
 // Paint the cover before the browser paints so the answer never flashes
@@ -70,11 +70,13 @@ export function ScratchCover({ label }: { label: string }) {
   // shown only while the visitor has never scratched a card on this device.
   // Set in an effect (not initial state) so SSR/hydration render the same
   // markup before localStorage is consulted.
-  const [showHint, setShowHint] = useState(false);
-
-  useEffect(() => {
-    if (readScratchFamiliarityCount() === 0) setShowHint(true);
-  }, []);
+  const startsUnfamiliar = useSyncExternalStore(
+    () => () => {},
+    () => readScratchFamiliarityCount() === 0,
+    () => false,
+  );
+  const [hintDismissed, setHintDismissed] = useState(false);
+  const showHint = startsUnfamiliar && !hintDismissed;
 
   useIsomorphicLayoutEffect(() => {
     const canvas = canvasRef.current;
@@ -169,7 +171,7 @@ export function ScratchCover({ label }: { label: string }) {
       if (!countedThisCard) {
         countedThisCard = true;
         incrementScratchFamiliarityCount();
-        setShowHint(false);
+        setHintDismissed(true);
       }
       if (hasLast) {
         erodeLine(lastX, lastY, x, y);

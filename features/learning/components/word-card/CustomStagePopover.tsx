@@ -1,12 +1,66 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { CSSProperties } from 'react';
+import type { ButtonHTMLAttributes, CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
-import type { KeyboardEvent as ReactKeyboardEvent, PointerEvent as ReactPointerEvent } from 'react';
 import { STAGES } from '@/lib/words';
 import type { I18nKey } from '@/lib/i18n/messages';
 import { useI18n } from '@/components/I18nProvider';
+
+const TAP_MOVE_THRESHOLD = 10;
+
+function TapOptionButton({
+  onTap,
+  ...props
+}: Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'onClick'> & { onTap: () => void }) {
+  const tapRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
+  const skipNextClickRef = useRef(false);
+
+  return (
+    <button
+      {...props}
+      onPointerDown={(event) => {
+        tapRef.current = { x: event.clientX, y: event.clientY, moved: false };
+      }}
+      onPointerMove={(event) => {
+        const start = tapRef.current;
+        if (!start) return;
+        if (
+          Math.abs(event.clientX - start.x) > TAP_MOVE_THRESHOLD ||
+          Math.abs(event.clientY - start.y) > TAP_MOVE_THRESHOLD
+        ) {
+          start.moved = true;
+        }
+      }}
+      onPointerUp={() => {
+        const start = tapRef.current;
+        tapRef.current = null;
+        if (!start || start.moved) return;
+        skipNextClickRef.current = true;
+        window.setTimeout(() => {
+          skipNextClickRef.current = false;
+        }, 0);
+        onTap();
+      }}
+      onClick={() => {
+        if (skipNextClickRef.current) {
+          skipNextClickRef.current = false;
+          return;
+        }
+        onTap();
+      }}
+      onPointerCancel={() => {
+        tapRef.current = null;
+      }}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault();
+          onTap();
+        }
+      }}
+    />
+  );
+}
 
 export function CustomStagePopover({
   clampedStageIndex,
@@ -22,16 +76,11 @@ export function CustomStagePopover({
   const customPopoverRef = useRef<HTMLDivElement>(null);
   const customTriggerRef = useRef<HTMLButtonElement>(null);
   const [popoverStyle, setPopoverStyle] = useState<CSSProperties | undefined>(undefined);
-  // Tracks the in-flight pointer gesture so we can tell a tap from a scroll.
-  const tapRef = useRef<{ x: number; y: number; moved: boolean } | null>(null);
-  const skipNextClickRef = useRef(false);
-
   // Activate options on a movement-thresholded pointer gesture rather than the
   // synthesized `click`. Inside a scrollable popover, iOS frequently cancels the
   // click when a tap carries the slightest movement (or scroll momentum from
   // opening the menu), which made selections — most visibly re-picking the
   // current stage — silently no-op. Pointer events survive that.
-  const TAP_MOVE_THRESHOLD = 10;
   const updatePopoverPosition = useCallback(() => {
     const trigger = customTriggerRef.current;
     if (!trigger || typeof window === 'undefined') return;
@@ -61,51 +110,6 @@ export function CustomStagePopover({
       if (scroller && scrollTop !== undefined) scroller.scrollTop = scrollTop;
     };
   }, []);
-
-  const tapHandlers = (action: () => void) => ({
-    onPointerDown: (event: ReactPointerEvent) => {
-      tapRef.current = { x: event.clientX, y: event.clientY, moved: false };
-    },
-    onPointerMove: (event: ReactPointerEvent) => {
-      const start = tapRef.current;
-      if (!start) return;
-      if (
-        Math.abs(event.clientX - start.x) > TAP_MOVE_THRESHOLD ||
-        Math.abs(event.clientY - start.y) > TAP_MOVE_THRESHOLD
-      ) {
-        start.moved = true;
-      }
-    },
-    onPointerUp: () => {
-      const start = tapRef.current;
-      tapRef.current = null;
-      if (start && !start.moved) {
-        skipNextClickRef.current = true;
-        window.setTimeout(() => {
-          skipNextClickRef.current = false;
-        }, 0);
-        action();
-      }
-    },
-    onClick: () => {
-      if (skipNextClickRef.current) {
-        skipNextClickRef.current = false;
-        return;
-      }
-      action();
-    },
-    // A scroll fires pointercancel and releases the implicit touch capture;
-    // discard the gesture so it never registers as a tap.
-    onPointerCancel: () => {
-      tapRef.current = null;
-    },
-    onKeyDown: (event: ReactKeyboardEvent) => {
-      if (event.key === 'Enter' || event.key === ' ') {
-        event.preventDefault();
-        action();
-      }
-    },
-  });
 
   useEffect(() => {
     if (!customOpen) return;
@@ -185,15 +189,15 @@ export function CustomStagePopover({
               const isCurrent = idx === clampedStageIndex;
               const stripe = idx % 2 === 1;
               return (
-                <button
+                <TapOptionButton
                   key={stage.id}
                   type="button"
                   role="option"
                   aria-selected={isCurrent}
-                  {...tapHandlers(() => {
+                  onTap={() => {
                     setCustomOpen(false);
                     onCustomStage?.(idx);
-                  })}
+                  }}
                   className={`relative flex w-full items-center px-3 py-2 text-left text-[0.9rem] leading-snug [touch-action:manipulation] transition-colors hover:bg-[#2A2218]/15 active:bg-[#2A2218]/25 ${
                     isCurrent
                       ? 'bg-[#2A2218]/12 font-semibold before:absolute before:inset-y-1 before:left-0 before:w-[3px] before:rounded-r before:bg-[#2A2218]'
@@ -203,25 +207,25 @@ export function CustomStagePopover({
                   }`}
                 >
                   {t(`stage.${stage.id}` as I18nKey)}
-                </button>
+                </TapOptionButton>
               );
             })}
-            <button
+            <TapOptionButton
               type="button"
               role="option"
               aria-selected={false}
-              {...tapHandlers(() => {
+              onTap={() => {
                 setCustomOpen(false);
                 if (onCustomStage) {
                   onCustomStage(STAGES.length - 1, { noRepeat: true });
                 } else {
                   onReallyKnown?.();
                 }
-              })}
+              }}
               className="flex w-full items-center px-3 py-2 text-left text-[0.9rem] leading-snug font-medium text-[#12750f] bg-[#12750f]/[0.08] [touch-action:manipulation] transition-colors hover:bg-[#12750f]/20 active:bg-[#12750f]/30 border-t border-[#2A2218]/20"
             >
               {t('card.fullyKnownNoRepeat')}
-            </button>
+            </TapOptionButton>
           </div>
         </div>,
         document.body,

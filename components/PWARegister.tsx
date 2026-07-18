@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { installGlobalPWACapture } from '@/lib/pwa-install';
 import { usePreferredPublicLanguage } from '@/lib/i18n/client-language';
 import { bundledMessages, enMessages, type I18nKey } from '@/lib/i18n/messages';
+import { useRefreshBannerPreview } from '@/hooks/usePWAInstallState';
 
 const CACHE_PREFIX = 'get-word-';
 const ACTIVE_LIST_AUDIO_CACHE = 'get-word-active-list-audio-v1';
@@ -114,7 +115,9 @@ export function PWARegister() {
   const [updateReady, setUpdateReady] = useState(false);
   // Force the refresh banner visible for design review, e.g. `/?pwaBanner=1`.
   // There is no waiting worker behind it, so Refresh just dismisses.
-  const [previewBanner, setPreviewBanner] = useState(false);
+  const previewRequested = useRefreshBannerPreview();
+  const [previewDismissed, setPreviewDismissed] = useState(false);
+  const previewBanner = previewRequested && !previewDismissed;
   const waitingWorkerRef = useRef<ServiceWorker | null>(null);
   const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -123,14 +126,6 @@ export function PWARegister() {
     bundledMessages[language]?.[key] ?? enMessages[key] ?? key;
 
   useEffect(() => {
-    try {
-      if (new URLSearchParams(window.location.search).has('pwaBanner')) {
-        setPreviewBanner(true);
-      }
-    } catch {
-      // No URL access (very old runtime); the preview override is optional.
-    }
-
     // Capture the one-shot Android install prompt before any install UI opens.
     installGlobalPWACapture();
 
@@ -240,7 +235,7 @@ export function PWARegister() {
   const handleRefresh = () => {
     const worker = waitingWorkerRef.current;
     setUpdateReady(false);
-    setPreviewBanner(false);
+    setPreviewDismissed(true);
     if (!worker || !('serviceWorker' in navigator)) {
       // No real update behind the banner (e.g. the `?pwaBanner` preview) —
       // just dismiss rather than pointlessly reloading.

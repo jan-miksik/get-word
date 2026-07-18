@@ -218,6 +218,25 @@ export function CreateListModal({
   onClose,
   onCreate,
 }: CreateListModalProps) {
+  if (!isOpen) return null;
+  return (
+    <CreateListModalContent
+      languages={languages}
+      initialLangFrom={initialLangFrom}
+      initialLangTo={initialLangTo}
+      onClose={onClose}
+      onCreate={onCreate}
+    />
+  );
+}
+
+function CreateListModalContent({
+  languages,
+  initialLangFrom,
+  initialLangTo,
+  onClose,
+  onCreate,
+}: Omit<CreateListModalProps, 'isOpen'>) {
   const { t } = useI18n();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -228,27 +247,17 @@ export function CreateListModal({
   const nameRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (isOpen) {
-      setName('');
-      setDescription('');
-      setIsPublic(false);
-      setLangFrom(initialLangFrom);
-      setLangTo(initialLangTo);
-      const id = window.setTimeout(() => nameRef.current?.focus(), 50);
-      return () => window.clearTimeout(id);
-    }
-  }, [isOpen, initialLangFrom, initialLangTo]);
+    const id = window.setTimeout(() => nameRef.current?.focus(), 50);
+    return () => window.clearTimeout(id);
+  }, []);
 
   useEffect(() => {
-    if (!isOpen) return;
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') onClose();
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
+  }, [onClose]);
 
   const canCreate = name.trim().length > 0 && langFrom !== langTo && !creating;
 

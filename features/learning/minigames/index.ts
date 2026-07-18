@@ -11,6 +11,7 @@ export {
 } from './frequency';
 export { computeGameAnchors } from './anchors';
 export { hasAtLeastOneSimilarPair } from './similarity';
+export { shuffleGameItems } from './shuffle';
 export {
   composeStream,
   enforceMinigameMinGap,

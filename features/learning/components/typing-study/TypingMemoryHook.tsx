@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import {
   limitMemoryHookLength,
@@ -24,29 +24,26 @@ export function TypingMemoryHook({
 }: TypingMemoryHookProps) {
   const { t } = useI18n();
   const [editing, setEditing] = useState(false);
-  const [value, setValue] = useState(memoryHook);
+  const [draft, setDraft] = useState('');
+  const value = editing ? draft : memoryHook;
   const inputRef = useRef<HTMLInputElement>(null);
   const lastTapAtRef = useRef(0);
   const displayHook = memoryHook || (suggestedHook ? `💡 ${suggestedHook}` : null);
 
-  useEffect(() => {
-    setValue(memoryHook);
-  }, [memoryHook]);
-
   const startEditing = () => {
     if (!onChange) return;
+    setDraft(memoryHook);
     setEditing(true);
     inputRef.current?.focus();
   };
 
   const finishEditing = () => {
     setEditing(false);
-    onChange?.(value);
+    onChange?.(draft);
   };
 
   const cancelEditing = () => {
     setEditing(false);
-    setValue(memoryHook);
   };
 
   const handleTap = () => {
@@ -83,7 +80,7 @@ export function TypingMemoryHook({
         placeholder={t('card.memoryHookPlaceholderMobile')}
         value={value}
         maxLength={MEMORY_HOOK_MAX_LENGTH}
-        onChange={(event) => setValue(limitMemoryHookLength(event.target.value))}
+        onChange={(event) => setDraft(limitMemoryHookLength(event.target.value))}
         onBlur={finishEditing}
         onKeyDown={(event) => {
           if (event.key === 'Enter') finishEditing();

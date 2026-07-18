@@ -1,6 +1,15 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useState } from 'react';
+
+type WorkflowState = {
+  openSignal: number;
+  initialLanguageFrom?: string | null;
+  initialLanguageTo?: string | null;
+  isOpen: boolean;
+  languageFrom: string;
+  languageTo: string;
+};
 
 export function useCreateListWorkflow({
   openSignal,
@@ -11,24 +20,36 @@ export function useCreateListWorkflow({
   initialLanguageFrom?: string | null;
   initialLanguageTo?: string | null;
 }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [languageFrom, setLanguageFrom] = useState('cs');
-  const [languageTo, setLanguageTo] = useState('vi');
+  const [stored, setStored] = useState<WorkflowState>(() => ({
+    openSignal,
+    initialLanguageFrom,
+    initialLanguageTo,
+    isOpen: openSignal > 0,
+    languageFrom: initialLanguageFrom ?? 'cs',
+    languageTo: initialLanguageTo ?? 'vi',
+  }));
 
-  useEffect(() => {
-    if (openSignal > 0) setIsOpen(true);
-  }, [openSignal]);
-
-  useEffect(() => {
-    if (initialLanguageFrom) setLanguageFrom(initialLanguageFrom);
-    if (initialLanguageTo) setLanguageTo(initialLanguageTo);
-  }, [initialLanguageFrom, initialLanguageTo]);
+  const inputsChanged =
+    stored.openSignal !== openSignal ||
+    stored.initialLanguageFrom !== initialLanguageFrom ||
+    stored.initialLanguageTo !== initialLanguageTo;
+  const state = inputsChanged
+    ? {
+        ...stored,
+        openSignal,
+        initialLanguageFrom,
+        initialLanguageTo,
+        isOpen: openSignal > stored.openSignal ? true : stored.isOpen,
+        languageFrom: initialLanguageFrom ?? stored.languageFrom,
+        languageTo: initialLanguageTo ?? stored.languageTo,
+      }
+    : stored;
 
   return {
-    isOpen,
-    languageFrom,
-    languageTo,
-    open: useCallback(() => setIsOpen(true), []),
-    close: useCallback(() => setIsOpen(false), []),
+    isOpen: state.isOpen,
+    languageFrom: state.languageFrom,
+    languageTo: state.languageTo,
+    open: () => setStored({ ...state, isOpen: true }),
+    close: () => setStored({ ...state, isOpen: false }),
   };
 }
