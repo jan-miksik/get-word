@@ -18,7 +18,7 @@ import {
 } from '@/lib/local-first/hydrate';
 import { getMeta, putMeta } from '@/lib/local-first/stores';
 import { getSnapshot, getStoragePreference, saveSnapshot } from '@/lib/local-learning-cache';
-import type { SyncResponse } from '@/lib/sync';
+import type { SyncResponse } from '@/features/sync/types';
 import type { NormalizedWord } from '@/lib/words';
 import { wordListItemsToNormalizedWords } from '@/lib/words';
 import { readStoredActiveListId } from './storage';

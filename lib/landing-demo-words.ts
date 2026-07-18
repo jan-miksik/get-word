@@ -1,6 +1,7 @@
 import { getBaseLanguage, normalizeLanguageCode } from "@/lib/i18n/languages";
 import { LANDING_DEMO_AUDIO_LANGUAGE_CODES } from "@/lib/landing-demo-audio-languages";
 import { LANDING_DEMO_WORD_DATA } from "@/lib/landing-demo-word-data";
+import type { LandingDemoLexeme } from "@/lib/landing-demo-types";
 
 /**
  * Fixed word set for the public landing-page demo card: "yes",
@@ -13,10 +14,6 @@ import { LANDING_DEMO_WORD_DATA } from "@/lib/landing-demo-word-data";
  * Word order must match across languages — index N in one language is the
  * translation of index N in every other.
  */
-
-export type LandingDemoLexeme = {
-  text: string;
-};
 
 export const LANDING_DEMO_WORDS: Record<string, LandingDemoLexeme[]> = LANDING_DEMO_WORD_DATA;
 

@@ -2,7 +2,7 @@ import { renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useState } from 'react';
 
-import type { SyncResponse } from '@/lib/sync';
+import type { SyncResponse } from '@/features/sync/types';
 
 const mockFetchUserData = vi.fn<(options?: { since?: number | string; contentRev?: string }) => Promise<SyncResponse>>();
 const mockApplyPendingOutboxToSyncResponse = vi.fn(async (data: SyncResponse) => data);

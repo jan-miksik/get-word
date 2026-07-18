@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import type { ProgressData } from '@/lib/sync';
+import type { ProgressData } from '@/features/sync/types';
 import { createWordCategoryOrderComparer, isDue, type NormalizedWord } from '@/lib/words';
 
 export interface WordStream {

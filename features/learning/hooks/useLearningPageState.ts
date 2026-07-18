@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState, type Dispatch, type SetStateAction } from 'react';
-import type { ProgressData } from '@/lib/sync';
+import type { ProgressData } from '@/features/sync/types';
 import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-stats';
 import type { NormalizedWord } from '@/lib/words';
 import type { MinigameFrequencyRange } from '@/features/learning/minigames';

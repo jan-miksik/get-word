@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import { buildProgressBindings } from "../progressBindings";
 import type { NormalizedWord } from "@/lib/words";
-import type { ProgressData } from "@/lib/sync";
+import type { ProgressData } from "@/features/sync/types";
 
 function makeWord(overrides: Partial<NormalizedWord>): NormalizedWord {
   return {

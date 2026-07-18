@@ -44,10 +44,14 @@ subsystem decisions and data-model notes.
 - Server hydration/link sync: `features/learning/app-state/useServerSync.ts`
 - Progress/preferences/hooks/filter state: `features/learning/state/*`
 - Sync API route: `app/api/sync/route.ts`
+- Sync mutation service: `features/sync/server/apply-mutations.ts`
+- Sync read/payload service: `features/sync/server/read-payload.ts`
+- Sync identity resolution: `features/sync/server/resolve-user.ts`
 - Sync response assembly: `features/shared/sync/response.ts`
 - Sync cursor parsing: `features/shared/sync/cursor.ts`
 - Route database retry helpers: `features/shared/routes/database-retry.ts`
 - Sync payload types: `features/sync/types.ts`
+- Review-event local outbox operations: `features/sync/review-event-outbox.ts`
 - Word-list hydration/response assembly: `features/shared/sync/response.ts`
 
 ### Lists editor
@@ -57,6 +61,7 @@ subsystem decisions and data-model notes.
 - Wizard step state + handlers: `features/lists/hooks/useListsWizard.ts`
 - List API client actions: `features/lists/client/actions.ts`
 - List API fetch wrapper: `features/lists/api.ts`
+- Translation batch service: `features/translation/server/translate-batch.ts`
 - Canonical list types: `features/lists/types.ts`
 - URL state helpers: `features/lists/client/url-state.ts`
 - Local preference storage: `features/lists/client/storage.ts`
@@ -66,6 +71,7 @@ subsystem decisions and data-model notes.
 - Lists page data/loading/subscriptions: `features/lists/hooks/useListsPageData.ts`
 - Lists detail loading/category mutations: `features/lists/hooks/useListsDetailsData.ts`
 - Lists fork dialog/state/actions: `features/lists/hooks/useListsForking.ts`
+- Lists server operations: `features/lists/server/*` (fork, accepted answers, item translation persistence)
 - Lists page select/create/update/edit actions: `features/lists/hooks/useListsPageActions.ts`
 - Audio-step row UI: `features/lists/audio-step/AudioStepRow.tsx`
 - Audio-step row/source mapping: `features/lists/audio-step/rows.ts`
@@ -82,6 +88,7 @@ subsystem decisions and data-model notes.
 - Client list audio workflow and shell: `features/lists/audio-step/*`
 - Batch generation route shell: `app/api/audio/generate/batch/route.ts`
 - Batch generation service: `features/audio/server/generate-batch.ts`
+- Audio lookup/reuse and serving services: `features/audio/server/reuse-batch.ts`, `features/audio/server/serve-audio.ts`
 - Audio lookup/storage helpers: `lib/audio.ts`, `lib/audio-assets.ts`, `lib/audio-storage.ts`, `lib/audio-availability.ts`
 
 ### Auth and providers
@@ -123,13 +130,14 @@ subsystem decisions and data-model notes.
 
 - `app/lists/page.tsx` is a route composition shell. Lists UI lives under `features/lists/components`, while page data, maintenance actions, pending-audio state, forking, and wizard state live in focused `features/lists/hooks/*` hooks.
 - `features/lists/components/translation-step/TranslationStep.tsx` remains the largest lists shell. Provider workflow, pure transformations, row UI, editors, and dialogs are separate modules in the same folder; extend those modules instead of adding another responsibility to the shell.
-- `app/api/sync/route.ts` is behaviorally central and contains legacy compatibility paths. Keep route shape stable and extract internals carefully.
+- `app/api/sync/route.ts` is the stable HTTP/auth shell. Legacy item/word ID mutation compatibility lives in `features/sync/server/apply-mutations.ts`; conditional/delta/full reads live in `features/sync/server/read-payload.ts`.
 - `features/learning/onboarding/LearningLanguageOnboarding.tsx` is now mostly the onboarding UI shell. Data loading and derived list state live in `features/learning/onboarding/useLearningOnboardingData.ts`; subscribe/fork/create/autogenerate navigation actions live in `features/learning/onboarding/useLearningOnboardingActions.ts`.
 
 ## Boundary Rules
 
 - `app/*/page.tsx` files should stay composition shells.
 - API route files should parse requests, authorize, call feature/server services, and return responses.
+- Import sync payload types directly from `features/sync/types`; `lib/sync.ts` is the runtime client transport compatibility surface.
 - New feature-specific types belong in `features/<feature>/types.ts`, not page files.
 - New list browser HTTP calls should go through `features/lists/api.ts` or `features/lists/client/actions.ts`.
 - New learning state belongs under `features/learning/state` or `features/learning/app-state`.

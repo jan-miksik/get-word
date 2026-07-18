@@ -1,6 +1,6 @@
 'use client';
 
-import type { SyncResponse } from '@/lib/sync';
+import type { SyncResponse } from '@/features/sync/types';
 import type { SyncReviewEventItem } from '@/features/sync/types';
 import { getSnapshot } from '@/lib/local-learning-cache';
 import { STAGES } from '@/lib/words';

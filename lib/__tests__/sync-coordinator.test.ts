@@ -3,8 +3,8 @@ import {
   clearAppliedReviewEvents,
   enqueueReviewEvent,
   getPendingReviewEvents,
-  type ReviewEventPayload,
 } from '../review-events';
+import type { SyncReviewEventItem } from '@/features/sync/types';
 
 const mockSyncUserData = vi.fn();
 const mockIsLocalFirstAvailableSync = vi.fn<() => boolean>(() => false);
@@ -38,14 +38,14 @@ import {
   requestSync,
 } from '../sync-coordinator';
 
-const event1: ReviewEventPayload = {
+const event1: SyncReviewEventItem = {
   client_event_id: 'event-1',
   word_id: 'w001',
   action: 'known',
   client_created_at: 1776944510000,
 };
 
-const event2: ReviewEventPayload = {
+const event2: SyncReviewEventItem = {
   client_event_id: 'event-2',
   word_id: 'w002',
   action: 'unknown',

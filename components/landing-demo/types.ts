@@ -1,4 +1,4 @@
-import type { LandingDemoLexeme } from '@/lib/landing-demo-words';
+import type { LandingDemoLexeme } from '@/lib/landing-demo-types';
 
 export type DemoWord = {
   front: LandingDemoLexeme;

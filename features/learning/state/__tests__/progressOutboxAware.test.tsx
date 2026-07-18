@@ -1,7 +1,6 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { ReviewEventPayload } from '@/lib/review-events';
-import type { SyncResponse } from '@/lib/sync';
+import type { SyncResponse, SyncReviewEventItem } from '@/features/sync/types';
 
 vi.mock('@/lib/local-first/enqueue', () => ({
   enqueueOp: vi.fn(() => Promise.resolve(null)),
@@ -21,15 +20,15 @@ import { useProgress } from '../progress';
 
 const REVIEW_EVENT_OUTBOX_KEY = 'get_word_review_event_outbox';
 
-function seedOutbox(events: ReviewEventPayload[]): void {
+function seedOutbox(events: SyncReviewEventItem[]): void {
   localStorage.setItem(REVIEW_EVENT_OUTBOX_KEY, JSON.stringify(events));
 }
 
 function event(
   wordId: string,
-  action: ReviewEventPayload['action'],
+  action: SyncReviewEventItem['action'],
   clientCreatedAt = 1_900_000_000_000,
-): ReviewEventPayload {
+): SyncReviewEventItem {
   return {
     client_event_id: `evt-${wordId}-${action}-${clientCreatedAt}`,
     word_id: wordId,

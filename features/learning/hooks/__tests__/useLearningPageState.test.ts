@@ -2,7 +2,7 @@ import { renderHook } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import { useLearningPageState } from '../useLearningPageState';
-import type { ProgressData } from '@/lib/sync';
+import type { ProgressData } from '@/features/sync/types';
 import type { MiniGameConfig } from '@/features/learning/minigames';
 import type { NormalizedWord } from '@/lib/words';
 

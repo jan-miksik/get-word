@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { ProgressData, SyncResponse } from '@/lib/sync';
+import type { ProgressData, SyncResponse, SyncReviewEventItem } from '@/features/sync/types';
 import { enqueueOp } from '@/lib/local-first/enqueue';
 import { STAGES } from '@/lib/words';
 import { requestSync } from '@/lib/sync-coordinator';
@@ -10,7 +10,6 @@ import {
   enqueueReviewEvent,
   getPendingReviewEvents,
   getReviewEventTargetId,
-  type ReviewEventPayload,
 } from '@/lib/review-events';
 import { postTabMessage, subscribeTabMessages } from '@/lib/tab-sync';
 
@@ -23,7 +22,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
  */
 function applyEventToEntry(
   current: ProgressData | undefined,
-  event: ReviewEventPayload,
+  event: SyncReviewEventItem,
 ): ProgressData {
   const base: ProgressData = current ?? { stageIndex: 0, knownCount: 0, unknownCount: 0 };
   const now = event.client_created_at;
@@ -199,7 +198,7 @@ export function useProgress(
   }, [isHydrated, isUpdatingFromServerRef]);
 
   const applyLocalReviewEvent = useCallback(
-    (event: ReviewEventPayload) => {
+    (event: SyncReviewEventItem) => {
       const wordId = getReviewEventTargetId(event);
       if (!wordId) return;
 
@@ -217,7 +216,7 @@ export function useProgress(
   );
 
   const recordReviewEvent = useCallback(
-    (wordId: string, action: ReviewEventPayload['action']) => {
+    (wordId: string, action: SyncReviewEventItem['action']) => {
       const event = createReviewEvent(wordId, action);
       applyLocalReviewEvent(event);
       enqueueReviewEvent(event);

@@ -91,7 +91,7 @@ async function googleTranslateTexts(texts: string[], fromLang: string, toLang: s
 }
 
 function toTs(data: Record<string, { text: string }[]>): string {
-  return `import type { LandingDemoLexeme } from "@/lib/landing-demo-words";
+  return `import type { LandingDemoLexeme } from "@/lib/landing-demo-types";
 
 // Generated/updated by \`pnpm demo:generate-words\`.
 // Word order must match across languages.

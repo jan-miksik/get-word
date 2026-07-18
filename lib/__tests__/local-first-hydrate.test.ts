@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { SyncResponse } from '@/lib/sync';
+import type { SyncResponse } from '@/features/sync/types';
 import { META_SCHEMA_VERSION } from '../local-first/db';
 
 vi.mock('../local-first/availability', () => ({

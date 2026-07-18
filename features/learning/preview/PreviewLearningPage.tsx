@@ -8,7 +8,7 @@ import { AppStateProvider, type AppStateContextValue } from '@/context/AppStateC
 import { TypingStudyCard } from '@/features/learning/components/TypingStudyCard';
 import type { TypingWriteIn } from '@/features/learning/state/preferences';
 import type { LearningRole } from '@/features/learning/state/learningRole';
-import type { ProgressData } from '@/lib/sync';
+import type { ProgressData } from '@/features/sync/types';
 import type { MinigameFrequencyRange } from '@/features/learning/minigames';
 import {
   DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,

@@ -22,7 +22,7 @@ vi.mock('@/lib/tab-sync', () => ({
 
 import { useCategoryFilter } from '../categoryFilter';
 import { usePreferences } from '../preferences';
-import type { SyncResponse } from '@/lib/sync';
+import type { SyncResponse } from '@/features/sync/types';
 import type { NormalizedWord } from '@/lib/words';
 
 const baseUser = {

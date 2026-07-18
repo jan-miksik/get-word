@@ -1,10 +1,10 @@
 import { getSessionId } from "./session-id";
-import type { ReviewEventPayload } from "./review-events";
+import type { SyncReviewEventItem } from "@/features/sync/types";
 
 const CHANNEL_NAME = "get-word-sync";
 
 export type GetWordTabMessage =
-  | { type: "review_event"; sessionId: string; event: ReviewEventPayload }
+  | { type: "review_event"; sessionId: string; event: SyncReviewEventItem }
   | {
       type: "memory_hook_changed";
       sessionId: string;

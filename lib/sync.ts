@@ -1,12 +1,10 @@
 // Client-side sync utilities
 import { getDeviceId } from "./device-id";
 import { getSessionId } from "./session-id";
-import {
-  clearAppliedReviewEvents,
-  type ReviewEventPayload,
-} from "./review-events";
+import { clearAppliedReviewEvents } from "@/features/sync/review-event-outbox";
 import type {
   SyncMutationPayload,
+  SyncReviewEventItem,
   SyncResponse,
 } from "@/features/sync/types";
 
@@ -270,7 +268,7 @@ export async function linkWalletWithRetry(
 
 // Sync data to server (DB-only; no localStorage).
 export async function syncUserData(
-  data: SyncMutationPayload & { review_events?: ReviewEventPayload[] }
+  data: SyncMutationPayload & { review_events?: SyncReviewEventItem[] }
 ): Promise<SyncResponse> {
   if (authRequired) {
     throw new AuthRequiredError("Failed to sync data");

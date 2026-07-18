@@ -3,7 +3,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { playUserInitiatedAudio } from '@/lib/audio-playback';
 import { STAGES, type NormalizedWord } from '@/lib/words';
-import type { ProgressData } from '@/lib/sync';
+import type { ProgressData } from '@/features/sync/types';
 import {
   getAcceptedAnswerCandidates,
   requiresExplicitTypingCheck,

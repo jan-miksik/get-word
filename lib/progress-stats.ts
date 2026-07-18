@@ -1,5 +1,5 @@
 import { STAGES, matchesCategoryFilter } from '@/lib/words';
-import type { ProgressData } from '@/lib/sync';
+import type { ProgressData } from '@/features/sync/types';
 import type { NormalizedWord } from '@/lib/words';
 
 export interface ProgressStats {

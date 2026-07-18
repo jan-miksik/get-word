@@ -1,6 +1,6 @@
 'use client';
 
-import type { SyncResponse } from '@/lib/sync';
+import type { SyncResponse } from '@/features/sync/types';
 import type { NormalizedWord } from '@/lib/words';
 import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
 import { reportAudioStorageResponse } from '@/lib/audio-debug';

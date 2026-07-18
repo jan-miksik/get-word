@@ -106,7 +106,10 @@ View mode stored in `localStorage` under `get-word-view-mode`.
   - page state lives in `features/learning/hooks/useLearningPageState.ts`
 - `app/lists/page.tsx` — list browser/editor and creation wizard coordinator
 - `app/edit/page.tsx` — compatibility redirect to `/lists`
-- `app/api/sync/route.ts` — GET (hydrate) / POST (save) for all user state
+- `app/api/sync/route.ts` — HTTP/auth shell for GET hydration and POST acknowledgements
+  - mutation application: `features/sync/server/apply-mutations.ts`
+  - conditional/full payload reads: `features/sync/server/read-payload.ts`
+  - session/device identity fallback: `features/sync/server/resolve-user.ts`
 - `app/api/lists/*` — list, category, item, translation, subscription, and fork APIs
 - `app/api/auth/callback/route.ts` — GET; Supabase OAuth/magic-link callback that mints the app session
 - `app/api/auth/sync-user/route.ts` — POST; mints the app session after an email OTP verify

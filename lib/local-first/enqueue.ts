@@ -1,7 +1,8 @@
 'use client';
 
 import { getDeviceId } from '@/lib/device-id';
-import { debouncedSync, type SyncMutationPayload } from '@/lib/sync';
+import { debouncedSync } from '@/lib/sync';
+import type { SyncMutationPayload } from '@/features/sync/types';
 import { appendOp, type OutboxEntity, type OutboxOp } from './outbox';
 import { ensureLocalFirstAvailability, isLocalFirstAvailableSync } from './availability';
 import { scheduleDrain } from './drainer';

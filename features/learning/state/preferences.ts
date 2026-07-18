@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { SyncResponse } from '@/lib/sync';
+import type { SyncResponse } from '@/features/sync/types';
 import { hasReceivedServerSnapshot, syncUserData } from '@/lib/sync';
 import { enqueueOp } from '@/lib/local-first/enqueue';
 import type { SyncMutationPayload } from '@/features/sync/types';

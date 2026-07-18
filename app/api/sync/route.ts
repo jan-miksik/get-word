@@ -1,27 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  getOrCreateUserByDeviceId,
-  getUserById,
-  getProjectedProgress,
-  getUserItemIdentities,
-  batchUpsertProgress,
-  batchUpsertProgressByContentKey,
-  getContentKeysForItemIds,
-  getUserMemoryHooks,
-  upsertMemoryHook,
-  upsertMemoryHookByItemId,
-  deleteMemoryHook,
-  deleteMemoryHookByItemId,
-  getUserCategoryFilters,
-  setUserCategoryFilters,
-  updateUserPreferences,
-  touchUserDevice,
-  applyNewReviewEvents,
-  getUserMemoryHooksDelta,
-  getUserSyncRevision,
-  getContentRevision,
-} from "@/lib/db";
-import { type User } from "@/lib/db/schema";
+import { touchUserDevice } from "@/lib/db";
 import { withSessionCookie } from "@/features/shared/routes/session";
 import { createRouteTimer } from "@/features/shared/routes/timing";
 import {
@@ -29,66 +7,43 @@ import {
   isTransientDatabaseError,
   withRetryOnRecoverableDatabaseError,
 } from "@/features/shared/routes/database-retry";
-import {
-  buildSyncAckPayload,
-  buildSyncDeltaPayload,
-  buildSyncSuccessPayload,
-  buildSyncUnchangedPayload,
-  getHydratedWordListData,
-} from "@/features/shared/sync/response";
-import { isUuid } from "@/features/shared/sync/identity";
+import { buildSyncAckPayload } from "@/features/shared/sync/response";
 import { parseSinceCursor } from "@/features/shared/sync/cursor";
 import type { SyncRequest } from "@/features/sync/types";
+import { applySyncMutations } from "@/features/sync/server/apply-mutations";
+import { readSyncPayload } from "@/features/sync/server/read-payload";
+import { resolveSyncUser } from "@/features/sync/server/resolve-user";
 import {
   GET_WORD_SESSION_COOKIE_NAME,
   verifySession,
 } from "@/lib/session";
 import { isGoogleSupportedLanguage } from "@/lib/i18n/server";
 
-/** Prefers a verified session; otherwise bootstraps from device auth. */
-async function resolveUser(
-  deviceId: string | null,
-  userId: string | null,
-  sessionUserId: string | null
-): Promise<User | null> {
-  if (sessionUserId) {
-    const sessionUser = await getUserById(sessionUserId);
-    if (sessionUser) return sessionUser;
-
-    if (userId) {
-      const user = await getUserById(userId);
-      if (user) return user;
+async function validateSyncLanguages(body: SyncRequest): Promise<NextResponse | null> {
+  if (body.settings_language !== undefined) {
+    const supported = await isGoogleSupportedLanguage(body.settings_language).catch(() => false);
+    if (!supported) {
+      return NextResponse.json(
+        { error: "settings_language must be supported by Google Translate" },
+        { status: 400 },
+      );
     }
   }
-  if (deviceId) return await getOrCreateUserByDeviceId(deviceId);
-  return null;
-}
 
-function toFiniteDate(value: unknown): Date | null {
-  if (typeof value !== "number" || !Number.isFinite(value)) return null;
-  return new Date(value);
-}
-
-function getClientProgressUpdatedAt(progress: {
-  client_updated_at?: number;
-  last_known_at: number | null;
-  last_unknown_at: number | null;
-}): Date {
-  const explicit = toFiniteDate(progress.client_updated_at);
-  if (explicit) return explicit;
-
-  const inferred = Math.max(
-    progress.last_known_at ?? 0,
-    progress.last_unknown_at ?? 0
-  );
-  if (Number.isFinite(inferred) && inferred > 0) {
-    return new Date(inferred);
+  for (const [field, value] of [
+    ["language_from", body.language_from],
+    ["language_to", body.language_to],
+  ] as const) {
+    if (value === undefined || value === null) continue;
+    const supported = await isGoogleSupportedLanguage(value).catch(() => false);
+    if (!supported) {
+      return NextResponse.json(
+        { error: `${field} must be supported by Google Translate` },
+        { status: 400 },
+      );
+    }
   }
-
-  // Missing timestamps are legacy/stale-client writes. Use the oldest possible
-  // client write time so they can insert a missing row but cannot overwrite
-  // fresher progress already produced by review events or another device.
-  return new Date(0);
+  return null;
 }
 
 export async function POST(request: NextRequest) {
@@ -96,39 +51,11 @@ export async function POST(request: NextRequest) {
   try {
     const body: SyncRequest = await request.json();
     timer.mark("parse_body");
-    const {
-      deviceId,
-      sessionId,
-      show_english,
-      show_category_badges,
-      show_pronunciation,
-      memory_hooks_enabled,
-      memory_hooks_intro_answered,
-      memory_hook_disable_from_stage,
-      study_notes_enabled,
-      study_note_minimize_from_stage,
-      settings_language,
-      language_from,
-      language_to,
-      onboarding_completed,
-      game_score,
-      category_order,
-      progress,
-      review_events,
-      memory_hooks,
-      category_filters,
-      client_op_ids,
-    } = body;
-    const userId = body.userId as string | undefined; // Optional compatibility hint from client
-    const clientOpIds = Array.isArray(client_op_ids)
-      ? client_op_ids.filter((id): id is string => typeof id === "string" && id.length > 0)
-      : [];
+    const deviceId = body.deviceId;
+    const userId = body.userId;
 
     if (!deviceId && !userId) {
-      return NextResponse.json(
-        { error: "deviceId or userId is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "deviceId or userId is required" }, { status: 400 });
     }
 
     const sessionToken = request.cookies.get(GET_WORD_SESSION_COOKIE_NAME)?.value;
@@ -137,190 +64,39 @@ export async function POST(request: NextRequest) {
     if (!session?.userId) {
       const unauthorized = NextResponse.json(
         { success: false, error: "Authentication required" },
-        { status: 401 }
+        { status: 401 },
       );
       timer.mark("return_unauthorized");
       return timer.applyHeaders(unauthorized);
     }
 
-    if (settings_language !== undefined) {
-      const supported = await isGoogleSupportedLanguage(settings_language).catch(() => false);
-      if (!supported) {
-        return NextResponse.json(
-          { error: "settings_language must be supported by Google Translate" },
-          { status: 400 }
-        );
-      }
-    }
-    for (const [field, value] of [
-      ["language_from", language_from],
-      ["language_to", language_to],
-    ] as const) {
-      if (value === undefined || value === null) continue;
-      const supported = await isGoogleSupportedLanguage(value).catch(() => false);
-      if (!supported) {
-        return NextResponse.json(
-          { error: `${field} must be supported by Google Translate` },
-          { status: 400 }
-        );
-      }
-    }
+    const languageError = await validateSyncLanguages(body);
+    if (languageError) return languageError;
 
-    let user = await withRetryOnRecoverableDatabaseError(() =>
-      resolveUser(deviceId || null, userId || null, session?.userId ?? null)
+    const resolvedUser = await withRetryOnRecoverableDatabaseError(() =>
+      resolveSyncUser(deviceId || null, userId || null, session.userId),
     );
     timer.mark("resolve_user");
-    if (!user) {
+    if (!resolvedUser) {
       const failed = NextResponse.json(
         { error: "Failed to get or create user" },
-        { status: 500 }
+        { status: 500 },
       );
       timer.mark("return_user_error");
       return timer.applyHeaders(failed);
     }
-    await touchUserDevice(user.id, deviceId);
-    let appliedReviewEventIds: string[] = [];
 
-    // Update display preferences + game score if provided
-    if (
-      show_english !== undefined ||
-      show_category_badges !== undefined ||
-      show_pronunciation !== undefined ||
-      memory_hooks_enabled !== undefined ||
-      memory_hooks_intro_answered !== undefined ||
-      memory_hook_disable_from_stage !== undefined ||
-      study_notes_enabled !== undefined ||
-      study_note_minimize_from_stage !== undefined ||
-      settings_language !== undefined ||
-      language_from !== undefined ||
-      language_to !== undefined ||
-      onboarding_completed !== undefined ||
-      game_score !== undefined ||
-      category_order !== undefined
-    ) {
-      const updated = await updateUserPreferences(user.id, {
-        show_english,
-        show_category_badges,
-        show_pronunciation,
-        memory_hooks_enabled,
-        memory_hooks_intro_answered,
-        memory_hook_disable_from_stage,
-        study_notes_enabled,
-        study_note_minimize_from_stage,
-        settings_language,
-        language_from,
-        language_to,
-        onboarding_completed,
-        game_score: game_score === undefined
-          ? undefined
-          : Math.max(user.gameScore ?? 0, game_score),
-        category_order,
-      });
-      if (updated) user = updated;
-    }
-
-    if (review_events && review_events.length > 0) {
-      appliedReviewEventIds = await applyNewReviewEvents({
-        userId: user.id,
-        deviceId,
-        sessionId,
-        events: review_events,
-      });
-    }
-
-    // Sync progress — route to legacy (wordId) or new (wordListItemId) upsert
-    if (progress && progress.length > 0) {
-      const legacyProgress = progress.filter((p) => p.word_id && !p.word_list_item_id);
-      const newProgress = progress.filter((p) => p.word_list_item_id);
-
-      if (legacyProgress.length > 0) {
-        const progressData = legacyProgress.map((p) => ({
-          userId: user.id,
-          wordId: p.word_id!,
-          stageIndex: p.stage_index,
-          knownCount: p.known_count,
-          unknownCount: p.unknown_count,
-          lastKnownAt: p.last_known_at ? new Date(p.last_known_at) : null,
-          lastUnknownAt: p.last_unknown_at ? new Date(p.last_unknown_at) : null,
-          nextDueAt: p.next_due_at ? new Date(p.next_due_at) : null,
-          // Forward client-side wall time so batchUpsertProgress can enforce
-          // LWW. Older queued ops infer from their review timestamps and fall
-          // back to epoch so they cannot clobber fresher review-event writes.
-          updatedAt: getClientProgressUpdatedAt(p),
-        }));
-        await batchUpsertProgress(progressData, undefined, { lww: true });
-      }
-
-      if (newProgress.length > 0) {
-        // Server is authoritative for content_key: recompute it from the canonical
-        // DB item (text + list languages + ignore_case), ignoring any client-sent
-        // key. Items that can't form a key (empty target) are skipped.
-        const contentKeys = await getContentKeysForItemIds(
-          newProgress.map((p) => p.word_list_item_id!)
-        );
-        const progressData = newProgress
-          .map((p) => {
-            const contentKey = contentKeys.get(p.word_list_item_id!) ?? null;
-            if (!contentKey) return null;
-            return {
-              userId: user.id,
-              wordListItemId: p.word_list_item_id!,
-              contentKey,
-              stageIndex: p.stage_index,
-              knownCount: p.known_count,
-              unknownCount: p.unknown_count,
-              lastKnownAt: p.last_known_at ? new Date(p.last_known_at) : null,
-              lastUnknownAt: p.last_unknown_at ? new Date(p.last_unknown_at) : null,
-              nextDueAt: p.next_due_at ? new Date(p.next_due_at) : null,
-              updatedAt: getClientProgressUpdatedAt(p),
-            };
-          })
-          .filter((row): row is NonNullable<typeof row> => row !== null);
-        await batchUpsertProgressByContentKey(progressData, undefined, { lww: true });
-      }
-    }
-
-    // Sync memory hooks. UUID keys are word_list_item ids (the canonical path);
-    // any non-UUID key is a legacy word_id from old clients, stored as-is.
-    if (memory_hooks) {
-      for (const [key, hookText] of Object.entries(memory_hooks)) {
-        // Normalize hookText: treat non-null values as strings and trim
-        const trimmed = hookText === null ? null : String(hookText).trim();
-        const isEmpty = trimmed === null || trimmed === "";
-
-        if (isUuid(key)) {
-          if (isEmpty) {
-            await deleteMemoryHookByItemId(user.id, key);
-          } else {
-            await upsertMemoryHookByItemId(user.id, key, trimmed);
-          }
-        } else if (key) {
-          if (isEmpty) {
-            await deleteMemoryHook(user.id, key);
-          } else {
-            await upsertMemoryHook(user.id, key, trimmed);
-          }
-        }
-        // Empty keys are ignored so one bad payload entry does not fail the sync.
-      }
-    }
-
-    // Sync category filters
-    if (category_filters !== undefined) {
-      await setUserCategoryFilters(user.id, category_filters);
-    }
+    await touchUserDevice(resolvedUser.id, deviceId);
+    const result = await applySyncMutations({ user: resolvedUser, request: body });
     timer.mark("apply_mutations");
 
-    // Ack only: the client already holds the mutations it sent. Crucially this
-    // response has no sync_revision — POST does not fetch concurrent changes,
-    // so it must not advance the GET cursor past data the client never saw.
     const response = await withSessionCookie(
-      buildSyncAckPayload(user, {
-        applied_review_event_ids: appliedReviewEventIds,
-        applied_client_op_ids: clientOpIds,
+      buildSyncAckPayload(result.user, {
+        applied_review_event_ids: result.appliedReviewEventIds,
+        applied_client_op_ids: result.clientOpIds,
       }),
-      user.id,
-      user.userRole
+      result.user.id,
+      result.user.userRole,
     );
     timer.mark("build_response");
     return timer.applyHeaders(response);
@@ -331,11 +107,9 @@ export async function POST(request: NextRequest) {
     }
     console.error("Sync error:", error);
     const errorMessage = error instanceof Error ? error.message : "Failed to sync data";
-    const failed = NextResponse.json(
-      { success: false, error: errorMessage },
-      { status: 500 }
+    return timer.applyHeaders(
+      NextResponse.json({ success: false, error: errorMessage }, { status: 500 }),
     );
-    return timer.applyHeaders(failed);
   }
 }
 
@@ -344,15 +118,14 @@ export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams;
     const deviceId = searchParams.get("deviceId");
-    const userId = searchParams.get("userId"); // Optional: fallback user ID
-    const sinceParam = searchParams.get("since");
-    const since = parseSinceCursor(sinceParam);
+    const userId = searchParams.get("userId");
+    const since = parseSinceCursor(searchParams.get("since"));
     const contentRev = searchParams.get("contentRev");
 
     if (!deviceId && !userId) {
       return NextResponse.json(
         { success: false, error: "deviceId or userId is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -362,116 +135,34 @@ export async function GET(request: NextRequest) {
     if (!session?.userId) {
       const unauthorized = NextResponse.json(
         { success: false, error: "Authentication required" },
-        { status: 401 }
+        { status: 401 },
       );
       timer.mark("return_unauthorized");
       return timer.applyHeaders(unauthorized);
     }
 
     const user = await withRetryOnRecoverableDatabaseError(() =>
-      resolveUser(deviceId || null, userId || null, session?.userId ?? null)
+      resolveSyncUser(deviceId, userId, session.userId),
     );
     timer.mark("resolve_user");
     if (!user) {
       console.error("Failed to resolve user", { deviceId, userId });
       const failed = NextResponse.json(
         { success: false, error: "Failed to get or create user" },
-        { status: 500 }
+        { status: 500 },
       );
       timer.mark("return_user_error");
       return timer.applyHeaders(failed);
     }
+
     await touchUserDevice(user.id, deviceId);
-
-    // Conditional sync: requires BOTH cursors. `since` alone can't prove the
-    // client's cached word lists are current (list edits/subscriptions don't
-    // move sync_revision), so since-only requests get the full snapshot.
-    if (since && contentRev) {
-      const [currentContentRev, syncRevision] = await Promise.all([
-        getContentRevision(user.id),
-        getUserSyncRevision(user.id),
-      ]);
-      timer.mark("compute_sync_revision");
-
-      if (currentContentRev === contentRev) {
-        if (syncRevision <= since.getTime()) {
-          const unchangedResponse = await withSessionCookie(
-            buildSyncUnchangedPayload(user, { sync_revision: syncRevision }),
-            user.id,
-            user.userRole
-          );
-          timer.mark("build_response");
-          return timer.applyHeaders(unchangedResponse);
-        }
-
-        const [itemIdentities, hookDelta, categoryFilters] = await Promise.all([
-          getUserItemIdentities(user.id),
-          getUserMemoryHooksDelta(user.id, since),
-          getUserCategoryFilters(user.id),
-        ]);
-        // Project content-keyed progress changed since the cursor onto the
-        // user's current items.
-        const progress = await getProjectedProgress(user.id, itemIdentities, {
-          since,
-        });
-        timer.mark("fetch_user_data");
-
-        const updated: Record<string, string> = {};
-        const deleted: string[] = [];
-        for (const row of hookDelta) {
-          if (row.deletedAt) deleted.push(row.key);
-          else updated[row.key] = row.hookText;
-        }
-
-        const deltaResponse = await withSessionCookie(
-          buildSyncDeltaPayload(
-            user,
-            progress,
-            updated,
-            deleted,
-            categoryFilters,
-            { sync_revision: syncRevision }
-          ),
-          user.id,
-          user.userRole
-        );
-        timer.mark("build_response");
-        return timer.applyHeaders(deltaResponse);
-      }
-      // Content changed — fall through to the full snapshot.
-    }
-
-    // Cursors are computed BEFORE the reads: a row written mid-read then shows
-    // up as newer than the cursor and is re-sent on the next conditional GET,
-    // instead of being silently marked as already delivered.
-    const [syncRevision, contentRevision] = await Promise.all([
-      getUserSyncRevision(user.id),
-      getContentRevision(user.id),
-    ]);
-    timer.mark("compute_sync_revision");
-    const [memoryHooks, categoryFilters] = await Promise.all([
-      getUserMemoryHooks(user.id),
-      getUserCategoryFilters(user.id),
-    ]);
-    timer.mark("fetch_user_data");
-    const hydratedLists = await getHydratedWordListData(user.id, memoryHooks);
-    const progress = await getProjectedProgress(
-      user.id,
-      hydratedLists.wordListItems
-    );
-    timer.mark("fetch_list_metadata");
-    const response = await withSessionCookie(
-      buildSyncSuccessPayload(
-        user,
-        progress,
-        memoryHooks,
-        categoryFilters,
-        hydratedLists,
-        { sync_revision: syncRevision, content_revision: contentRevision }
-      ),
-      user.id,
-      user.userRole
-    );
+    const payload = await readSyncPayload({
+      user,
+      since,
+      contentRev,
+      mark: (name) => timer.mark(name),
+    });
+    const response = await withSessionCookie(payload, user.id, user.userRole);
     timer.mark("build_response");
     return timer.applyHeaders(response);
   } catch (error) {
@@ -481,10 +172,8 @@ export async function GET(request: NextRequest) {
     }
     console.error("Fetch error:", error);
     const errorMessage = error instanceof Error ? error.message : "Failed to fetch data";
-    const failed = NextResponse.json(
-      { success: false, error: errorMessage },
-      { status: 500 }
+    return timer.applyHeaders(
+      NextResponse.json({ success: false, error: errorMessage }, { status: 500 }),
     );
-    return timer.applyHeaders(failed);
   }
 }

@@ -1,10 +1,8 @@
 'use client';
 
 import { getDeviceId } from '@/lib/device-id';
-import {
-  getPendingReviewEvents,
-  type ReviewEventPayload,
-} from '@/lib/review-events';
+import { getPendingReviewEvents } from '@/features/sync/review-event-outbox';
+import type { SyncReviewEventItem } from '@/features/sync/types';
 import { getSessionId } from '@/lib/session-id';
 import { isAuthRequiredError, syncUserData } from '@/lib/sync';
 import { isLocalFirstAvailableSync } from '@/lib/local-first/availability';
@@ -173,7 +171,7 @@ async function normalFlush(reason: SyncReason): Promise<void> {
   return inFlight;
 }
 
-function makeUrgentPayload(events: ReviewEventPayload[]): Blob | null {
+function makeUrgentPayload(events: SyncReviewEventItem[]): Blob | null {
   const payload = JSON.stringify({
     deviceId: getDeviceId(),
     sessionId: getSessionId(),

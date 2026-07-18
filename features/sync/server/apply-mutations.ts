@@ -1,0 +1,175 @@
+import {
+  applyNewReviewEvents,
+  batchUpsertProgress,
+  batchUpsertProgressByContentKey,
+  deleteMemoryHook,
+  deleteMemoryHookByItemId,
+  getContentKeysForItemIds,
+  setUserCategoryFilters,
+  updateUserPreferences,
+  upsertMemoryHook,
+  upsertMemoryHookByItemId,
+} from '@/lib/db';
+import type { User } from '@/lib/db/schema';
+import { isUuid } from '@/features/shared/sync/identity';
+import type { SyncProgressItem, SyncRequest } from '@/features/sync/types';
+
+function toFiniteDate(value: unknown): Date | null {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return null;
+  return new Date(value);
+}
+
+function getClientProgressUpdatedAt(progress: SyncProgressItem): Date {
+  const explicit = toFiniteDate(progress.client_updated_at);
+  if (explicit) return explicit;
+  const inferred = Math.max(progress.last_known_at ?? 0, progress.last_unknown_at ?? 0);
+  if (Number.isFinite(inferred) && inferred > 0) return new Date(inferred);
+  return new Date(0);
+}
+
+export async function applySyncMutations(input: {
+  user: User;
+  request: SyncRequest;
+}): Promise<{ user: User; appliedReviewEventIds: string[]; clientOpIds: string[] }> {
+  let { user } = input;
+  const body = input.request;
+  const {
+    deviceId,
+    sessionId,
+    show_english,
+    show_category_badges,
+    show_pronunciation,
+    memory_hooks_enabled,
+    memory_hooks_intro_answered,
+    memory_hook_disable_from_stage,
+    study_notes_enabled,
+    study_note_minimize_from_stage,
+    settings_language,
+    language_from,
+    language_to,
+    onboarding_completed,
+    game_score,
+    category_order,
+    progress,
+    review_events,
+    memory_hooks,
+    category_filters,
+    client_op_ids,
+  } = body;
+  const clientOpIds = Array.isArray(client_op_ids)
+    ? client_op_ids.filter((id): id is string => typeof id === 'string' && id.length > 0)
+    : [];
+
+  if (
+    show_english !== undefined ||
+    show_category_badges !== undefined ||
+    show_pronunciation !== undefined ||
+    memory_hooks_enabled !== undefined ||
+    memory_hooks_intro_answered !== undefined ||
+    memory_hook_disable_from_stage !== undefined ||
+    study_notes_enabled !== undefined ||
+    study_note_minimize_from_stage !== undefined ||
+    settings_language !== undefined ||
+    language_from !== undefined ||
+    language_to !== undefined ||
+    onboarding_completed !== undefined ||
+    game_score !== undefined ||
+    category_order !== undefined
+  ) {
+    const updated = await updateUserPreferences(user.id, {
+      show_english,
+      show_category_badges,
+      show_pronunciation,
+      memory_hooks_enabled,
+      memory_hooks_intro_answered,
+      memory_hook_disable_from_stage,
+      study_notes_enabled,
+      study_note_minimize_from_stage,
+      settings_language,
+      language_from,
+      language_to,
+      onboarding_completed,
+      game_score: game_score === undefined ? undefined : Math.max(user.gameScore ?? 0, game_score),
+      category_order,
+    });
+    if (updated) user = updated;
+  }
+
+  let appliedReviewEventIds: string[] = [];
+  if (review_events && review_events.length > 0) {
+    appliedReviewEventIds = await applyNewReviewEvents({
+      userId: user.id,
+      deviceId,
+      sessionId,
+      events: review_events,
+    });
+  }
+
+  if (progress && progress.length > 0) {
+    const legacyProgress = progress.filter((row) => row.word_id && !row.word_list_item_id);
+    const itemProgress = progress.filter((row) => row.word_list_item_id);
+
+    if (legacyProgress.length > 0) {
+      await batchUpsertProgress(
+        legacyProgress.map((row) => ({
+          userId: user.id,
+          wordId: row.word_id!,
+          stageIndex: row.stage_index,
+          knownCount: row.known_count,
+          unknownCount: row.unknown_count,
+          lastKnownAt: row.last_known_at ? new Date(row.last_known_at) : null,
+          lastUnknownAt: row.last_unknown_at ? new Date(row.last_unknown_at) : null,
+          nextDueAt: row.next_due_at ? new Date(row.next_due_at) : null,
+          updatedAt: getClientProgressUpdatedAt(row),
+        })),
+        undefined,
+        { lww: true },
+      );
+    }
+
+    if (itemProgress.length > 0) {
+      const contentKeys = await getContentKeysForItemIds(
+        itemProgress.map((row) => row.word_list_item_id!),
+      );
+      const rows = itemProgress
+        .map((row) => {
+          const contentKey = contentKeys.get(row.word_list_item_id!) ?? null;
+          if (!contentKey) return null;
+          return {
+            userId: user.id,
+            wordListItemId: row.word_list_item_id!,
+            contentKey,
+            stageIndex: row.stage_index,
+            knownCount: row.known_count,
+            unknownCount: row.unknown_count,
+            lastKnownAt: row.last_known_at ? new Date(row.last_known_at) : null,
+            lastUnknownAt: row.last_unknown_at ? new Date(row.last_unknown_at) : null,
+            nextDueAt: row.next_due_at ? new Date(row.next_due_at) : null,
+            updatedAt: getClientProgressUpdatedAt(row),
+          };
+        })
+        .filter((row): row is NonNullable<typeof row> => row !== null);
+      await batchUpsertProgressByContentKey(rows, undefined, { lww: true });
+    }
+  }
+
+  if (memory_hooks) {
+    for (const [key, hookText] of Object.entries(memory_hooks)) {
+      const trimmed = hookText === null ? null : String(hookText).trim();
+      const isEmpty = trimmed === null || trimmed === '';
+      if (isUuid(key)) {
+        if (isEmpty) await deleteMemoryHookByItemId(user.id, key);
+        else await upsertMemoryHookByItemId(user.id, key, trimmed);
+      } else if (key) {
+        if (isEmpty) await deleteMemoryHook(user.id, key);
+        else await upsertMemoryHook(user.id, key, trimmed);
+      }
+    }
+  }
+
+  if (category_filters !== undefined) {
+    await setUserCategoryFilters(user.id, category_filters);
+  }
+
+  return { user, appliedReviewEventIds, clientOpIds };
+}
