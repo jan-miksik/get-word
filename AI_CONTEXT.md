@@ -72,12 +72,12 @@ subsystem decisions and data-model notes.
 - Audio-step Google TTS voice selection: `features/lists/audio-step/useGoogleTtsVoiceSelection.ts`
 - Audio-step reusable audio lookup/linking: `features/lists/audio-step/useReusableAudioLookup.ts`
 - Wizard item selectors: `features/lists/hooks/useListWizardItems.ts`
-- Main list UI pieces: `app/lists/ListSidebar.tsx`, `app/lists/CategoryBrowser.tsx`, `app/lists/TextareaEditor.tsx`, `app/lists/TranslationStep.tsx`, `app/lists/AudioStep.tsx`, `app/lists/PendingForkDialog.tsx`
+- Main list UI pieces: `features/lists/components/list-sidebar/ListSidebar.tsx`, `features/lists/components/category-browser/CategoryBrowser.tsx`, `features/lists/components/TextareaEditor.tsx`, `features/lists/components/translation-step/TranslationStep.tsx`, `features/lists/audio-step/AudioStep.tsx`, `features/lists/components/PendingForkDialog.tsx`
 
 ### Audio
 
 - Audio feature guide: `features/audio/README.md`
-- Client list audio workflow: `app/lists/AudioStep.tsx`
+- Client list audio workflow and shell: `features/lists/audio-step/*`
 - Batch generation route shell: `app/api/audio/generate/batch/route.ts`
 - Batch generation service: `features/audio/server/generate-batch.ts`
 - Audio lookup/storage helpers: `lib/audio.ts`, `lib/audio-assets.ts`, `lib/audio-storage.ts`, `lib/audio-availability.ts`
@@ -119,8 +119,8 @@ subsystem decisions and data-model notes.
 
 ## Current Hotspots
 
-- `app/lists/page.tsx` is the lists coordinator. Wizard step state lives in `features/lists/hooks/useListsWizard.ts`; the page owns list/category/items, sidebar, settings, subscriptions, google-usage, error, and fork state. Extract more focused hooks rather than adding new state in the page.
-- `app/lists/AudioStep.tsx` still owns row state, generation, voice selection, and the JSX surface. Playback/cache/error machinery lives in `features/lists/audio-step/useAudioPlayback.ts`; pure row/source and API parsing helpers live under `features/lists/audio-step/*`.
+- `app/lists/page.tsx` is a route composition shell. Lists UI lives under `features/lists/components`, while page data, maintenance actions, pending-audio state, forking, and wizard state live in focused `features/lists/hooks/*` hooks.
+- `features/lists/components/translation-step/TranslationStep.tsx` remains the largest lists shell. Provider workflow, pure transformations, row UI, editors, and dialogs are separate modules in the same folder; extend those modules instead of adding another responsibility to the shell.
 - `app/api/sync/route.ts` is behaviorally central and contains legacy compatibility paths. Keep route shape stable and extract internals carefully.
 - `features/learning/onboarding/LearningLanguageOnboarding.tsx` is now mostly the onboarding UI shell. Data loading and derived list state live in `features/learning/onboarding/useLearningOnboardingData.ts`; subscribe/fork/create/autogenerate navigation actions live in `features/learning/onboarding/useLearningOnboardingActions.ts`.
 
@@ -148,7 +148,7 @@ subsystem decisions and data-model notes.
 - General: `pnpm test`
 - Lint: `pnpm run lint`
 - Learning state/minigames: `features/learning/**/__tests__`, `lib/__tests__/minigames.test.ts`
-- Lists: `app/lists/__tests__`, `app/api/lists/__tests__`
+- Lists: `features/lists/**/__tests__`, `app/api/lists/__tests__`
 - Audio: `app/api/audio/__tests__`, `lib/__tests__/audio*.test.ts`
 - Sync: `app/api/sync/__tests__/sync.test.ts`, `lib/__tests__/sync*.test.ts`, `features/learning/state/__tests__`
 - Auth/providers: `app/api/auth/__tests__`, `app/api/providers/openrouter/__tests__`, `lib/providers/__tests__`

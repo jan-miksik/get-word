@@ -23,7 +23,7 @@ import { useAudioGenerationWorkflow } from '@/features/lists/audio-step/useAudio
 import { AudioStepRow } from '@/features/lists/audio-step/AudioStepRow';
 import { listsApiFetch } from '@/features/lists/api';
 import { DEFAULT_GOOGLE_TTS_VOICE_ID } from '@/lib/audio-constants';
-import { GoogleUsageHint } from './GoogleUsageHint';
+import { GoogleUsageHint } from '../components/GoogleUsageHint';
 
 type ScanFlaggedItem = { itemId: string; side: string; text: string; reason: string };
 

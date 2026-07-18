@@ -1,13 +1,7 @@
 'use client';
 
 import { useI18n } from '@/components/I18nProvider';
-
-export type WizardActiveStep =
-  | 'edit'
-  | 'preview'
-  | 'translate'
-  | 'audio-target'
-  | 'audio-known';
+import type { WizardActiveStep } from '@/features/lists/types';
 
 interface WizardProgressBarProps {
   currentStep: WizardActiveStep;

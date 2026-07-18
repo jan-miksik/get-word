@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/rea
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { I18nProvider } from '@/components/I18nProvider';
 import { MAX_COMMENT_TEXT_LENGTH } from '@/lib/word-item-comment';
-import { TranslationStep } from '../TranslationStep';
+import { TranslationStep } from '../translation-step/TranslationStep';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {

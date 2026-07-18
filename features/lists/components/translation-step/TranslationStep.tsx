@@ -3,411 +3,41 @@
 import { Fragment, useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { listsApiFetch } from '@/features/lists/api';
-import {
-  readStoredOpenRouterModel,
-  readStoredTranslationProvider,
-  writeStoredOpenRouterModel,
-  writeStoredTranslationProvider,
-} from '@/features/lists/client/storage';
-import type {
-  CompletedTranslationRow,
-  ConfirmResult,
-  GoogleUsageResponse,
-  WordCategory,
-  WordList,
-} from '@/features/lists/types';
-import { GoogleUsageHint } from './GoogleUsageHint';
+import { GoogleUsageHint } from '../GoogleUsageHint';
 import {
   DEFAULT_OPENROUTER_TRANSLATION_MODEL,
   OPENROUTER_MODELS_URL,
   OPENROUTER_TRANSLATION_MODELS,
-  normalizeOpenRouterModel,
 } from '@/lib/openrouter-models';
 import { copyTextToClipboard } from '@/lib/clipboard';
 import { MAX_COMMENT_TEXT_LENGTH } from '@/lib/word-item-comment';
-import { areAnswersEquivalent, normalizeAnswerExactKey } from '@/lib/answer-normalization';
+import { areAnswersEquivalent } from '@/lib/answer-normalization';
 import {
   BULK_ACCEPTED_ANSWERS_CONCURRENCY,
   BULK_ACCEPTED_ANSWERS_CHUNK_SIZE,
-  MAX_ACCEPTED_ANSWER_LENGTH,
-  MAX_ACCEPTED_ANSWERS,
 } from '@/lib/word-item-accepted-answers';
+import type { PolishFixCode, PolishWarningCode } from '@/lib/formatting-polish';
+import { AcceptedAnswersDialog } from './AcceptedAnswersDialog';
+import { ClearTranslationColumnDialog, DuplicateRowsDialog } from './TranslationDialogs';
+import { TranslationRow as TranslationRowView } from './TranslationRow';
+import { useTranslationWorkflow } from './useTranslationWorkflow';
 import {
-  polishPair,
-  type PolishFixCode,
-  type PolishWarningCode,
-} from '@/lib/formatting-polish';
-
-type PendingItem = NonNullable<ConfirmResult['pending_items']>[number];
-
-type PolishField = 'known' | 'target';
-
-type PolishChange = {
-  key: string;
-  rowId: string;
-  field: PolishField;
-  before: string;
-  after: string;
-  fixCodes: PolishFixCode[];
-};
-
-type PolishWarningRow = {
-  key: string;
-  rowId: string;
-  field: PolishField;
-  text: string;
-  code: PolishWarningCode;
-};
-
-type PolishScan = { changes: PolishChange[]; warnings: PolishWarningRow[] };
-
-type BulkAcceptedEntry = {
-  key: string;
-  rowId: string;
-  side: AcceptedSide;
-  value: string;
-};
-
-type BulkAcceptedScan = {
-  entries: BulkAcceptedEntry[];
-  // Invalid/stale rows skipped by an otherwise successful server request.
-  skippedCount: number;
-  // Rows contained in requests that failed completely.
-  failedCount: number;
-  // First concrete server/provider error, so a failed batch is diagnosable.
-  failureMessage: string | null;
-};
-
-interface TranslationStepProps {
-  list: WordList;
-  pendingItems: PendingItem[];
-  // Ids of the rows that were freshly added in this edit pass. They render
-  // first; a spacer separates them from the category's existing words below.
-  newItemIds?: Set<string>;
-  inputLanguage: 'known' | 'target';
-  heading?: string;
-  googleUsage?: GoogleUsageResponse | null;
-  onInputLanguageChange?: (language: 'known' | 'target') => void;
-  onComplete: (rows: CompletedTranslationRow[]) => Promise<void>;
-  onSkip: () => Promise<void>;
-  onUsageRefresh?: () => Promise<void>;
-  onBack?: () => void;
-  // Marks duplicate items for removal (used by the dedupe modal and the per-row
-  // ⋮ menu). The delete is committed by the wizard when this step completes;
-  // here we only drop them from the visible rows.
-  onRemoveItem?: (itemId: string) => void;
-  // Categories of the list, offered in the per-row ⋮ menu so a word can be moved
-  // into (or out of "no category" into) a category.
-  categories?: WordCategory[];
-  // Persists a category change for a single item immediately. Resolves on
-  // success; rejects to let the step revert its optimistic update.
-  onAssignCategory?: (itemId: string, categoryId: string) => Promise<void>;
-  // Lets the page protect navigation outside this component (sidebar and the
-  // wizard progress bar) while generated results still exist only in memory.
-  onGenerationActiveChange?: (active: boolean) => void;
-}
-
-type TranslationRow = CompletedTranslationRow;
-type AcceptedSide = 'known' | 'target';
-
-type OpenRouterUiState =
-  | 'not_connected'
-  | 'connecting'
-  | 'connected'
-  | 'failed_retryable';
-
-type TranslationProvider = 'google' | 'openrouter';
-
-interface TranslationTextareaProps {
-  value: string;
-  onChange: (value: string) => void;
-  ariaLabel: string;
-  placeholder?: string;
-  maxLength?: number;
-  onFocus?: () => void;
-  onBlur?: () => void;
-}
-
-function mergeAcceptedAnswers(current: string[], incoming: string[], primary: string): string[] {
-  const seen = new Set(current.map((answer) => normalizeAnswerExactKey(answer)));
-  const primaryKey = normalizeAnswerExactKey(primary);
-  const next = [...current];
-  for (const raw of incoming) {
-    const answer = raw.normalize('NFC').trim();
-    if (!answer || answer.length > MAX_ACCEPTED_ANSWER_LENGTH) continue;
-    const key = normalizeAnswerExactKey(answer);
-    if (!key || key === primaryKey || seen.has(key)) continue;
-    seen.add(key);
-    next.push(answer);
-    if (next.length >= MAX_ACCEPTED_ANSWERS) break;
-  }
-  return next;
-}
-
-interface AcceptedAnswersEditorProps {
-  values: string[];
-  primary: string;
-  label: string;
-  onChange: (values: string[]) => void;
-}
-
-function AcceptedAnswersEditor({
-  values,
-  primary,
-  label,
-  onChange,
-}: AcceptedAnswersEditorProps) {
-  const [draft, setDraft] = useState('');
-
-  const addDraft = useCallback((raw: string) => {
-    const pieces = raw.split(/\r?\n/);
-    const next = mergeAcceptedAnswers(values, pieces, primary);
-    onChange(next);
-    setDraft('');
-  }, [onChange, primary, values]);
-
-  const removeAt = useCallback((index: number) => {
-    onChange(values.filter((_, idx) => idx !== index));
-  }, [onChange, values]);
-
-  return (
-    <div className="mt-1.5 space-y-1">
-      <div className="flex flex-wrap items-center gap-1.5">
-        {values.map((value, index) => (
-          <span
-            key={`${value}-${index}`}
-            className="inline-flex max-w-full items-center gap-1 rounded-md bg-background-elevated px-1.5 py-0.5 text-[11px] text-text"
-          >
-            <span className="min-w-0 truncate">{value}</span>
-            <button
-              type="button"
-              className="text-text-soft hover:text-danger"
-              aria-label={`${label}: ${value}`}
-              onClick={() => removeAt(index)}
-            >
-              ×
-            </button>
-          </span>
-        ))}
-        <input
-          type="text"
-          value={draft}
-          maxLength={MAX_ACCEPTED_ANSWER_LENGTH}
-          disabled={values.length >= MAX_ACCEPTED_ANSWERS}
-          aria-label={label}
-          placeholder={label}
-          onChange={(event) => setDraft(event.target.value)}
-          onPaste={(event) => {
-            const text = event.clipboardData.getData('text');
-            if (text.includes('\n')) {
-              event.preventDefault();
-              addDraft(text);
-            }
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter') {
-              event.preventDefault();
-              addDraft(draft);
-            } else if (event.key === 'Escape') {
-              event.preventDefault();
-              setDraft('');
-            }
-          }}
-          onBlur={() => {
-            if (draft.trim()) addDraft(draft);
-          }}
-          className="min-w-36 flex-1 rounded-md border border-border-subtle bg-background px-2 py-1 text-[11px] text-text outline-none placeholder:text-text-soft/60 focus:border-accent disabled:opacity-40"
-        />
-      </div>
-    </div>
-  );
-}
-
-function TranslationTextarea({
-  value,
-  onChange,
-  ariaLabel,
-  placeholder,
-  maxLength,
-  onFocus,
-  onBlur,
-}: TranslationTextareaProps) {
-  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
-
-  const resizeToContent = useCallback((element: HTMLTextAreaElement) => {
-    element.style.height = '0px';
-    element.style.height = `${element.scrollHeight}px`;
-  }, []);
-
-  useEffect(() => {
-    if (!textareaRef.current) return;
-    resizeToContent(textareaRef.current);
-  }, [resizeToContent, value]);
-
-  return (
-    <textarea
-      ref={textareaRef}
-      value={value}
-      onChange={(e) => {
-        onChange(e.target.value);
-        resizeToContent(e.currentTarget);
-      }}
-      aria-label={ariaLabel}
-      placeholder={placeholder}
-      maxLength={maxLength}
-      onFocus={onFocus}
-      onBlur={onBlur}
-      rows={1}
-      className="block min-h-7 w-full cursor-text select-text resize-none overflow-hidden bg-transparent text-sm leading-relaxed text-text focus:outline-none placeholder:text-text-soft/50"
-      spellCheck={false}
-    />
-  );
-}
-
-interface RowMenuProps {
-  categories: WordCategory[];
-  currentCategoryId: string | null;
-  acceptedCount: number;
-  canDelete: boolean;
-  canAssign: boolean;
-  busy: boolean;
-  onEditAccepted: () => void;
-  onDelete: () => void;
-  onAssign: (categoryId: string) => void;
-}
-
-function RowMenu({
-  categories,
-  currentCategoryId,
-  acceptedCount,
-  canDelete,
-  canAssign,
-  busy,
-  onEditAccepted,
-  onDelete,
-  onAssign,
-}: RowMenuProps) {
-  const { t } = useI18n();
-  const [open, setOpen] = useState(false);
-  const containerRef = useRef<HTMLDivElement | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handlePointer = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    const handleKey = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setOpen(false);
-    };
-    document.addEventListener('mousedown', handlePointer);
-    document.addEventListener('keydown', handleKey);
-    return () => {
-      document.removeEventListener('mousedown', handlePointer);
-      document.removeEventListener('keydown', handleKey);
-    };
-  }, [open]);
-
-  const showCategories = canAssign && categories.length > 0;
-
-  return (
-    <div ref={containerRef} className="relative shrink-0">
-      <button
-        type="button"
-        aria-label={t('lists.rowMenuLabel')}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        disabled={busy}
-        onClick={() => setOpen((value) => !value)}
-        className="flex h-6 w-6 items-center justify-center rounded-md text-text-soft transition-colors hover:bg-background-elevated hover:text-text disabled:opacity-40"
-      >
-        {busy ? (
-          <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" aria-hidden>
-            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-        ) : (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-            <circle cx="12" cy="5" r="1.6" />
-            <circle cx="12" cy="12" r="1.6" />
-            <circle cx="12" cy="19" r="1.6" />
-          </svg>
-        )}
-      </button>
-      {open && (
-        <div
-          role="menu"
-          className="absolute right-0 z-30 mt-1 w-56 overflow-hidden rounded-lg border border-border-subtle bg-background py-1 shadow-xl"
-        >
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              setOpen(false);
-              onEditAccepted();
-            }}
-            className="flex w-full items-center justify-between gap-2 px-3 py-1.5 text-left text-sm text-text-soft transition-colors hover:bg-background-elevated hover:text-text"
-          >
-            <span>{t('lists.acceptedAnswersLabel')}</span>
-            {acceptedCount > 0 && (
-              <span className="min-w-5 rounded-full bg-accent/15 px-1.5 text-center text-[11px] font-medium text-accent">
-                {acceptedCount}
-              </span>
-            )}
-          </button>
-          {(canDelete || showCategories) && <div className="my-1 border-t border-border-subtle" />}
-          {canDelete && (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setOpen(false);
-                onDelete();
-              }}
-              className="block w-full px-3 py-1.5 text-left text-sm text-danger transition-colors hover:bg-danger/10"
-            >
-              {t('lists.deleteRow')}
-            </button>
-          )}
-          {showCategories && (
-            <>
-              {canDelete && <div className="my-1 border-t border-border-subtle" />}
-              <div className="px-3 py-1 text-[11px] uppercase tracking-wide text-text-soft/70">
-                {t('lists.moveToCategory')}
-              </div>
-              <div className="max-h-48 overflow-y-auto">
-                {categories.map((category) => {
-                  const active = currentCategoryId === category.id;
-                  return (
-                    <button
-                      key={category.id}
-                      type="button"
-                      role="menuitemradio"
-                      aria-checked={active}
-                      onClick={() => {
-                        setOpen(false);
-                        if (!active) onAssign(category.id);
-                      }}
-                      className={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm transition-colors hover:bg-background-elevated ${
-                        active ? 'text-text' : 'text-text-soft hover:text-text'
-                      }`}
-                    >
-                      <span className="w-3 shrink-0 text-accent" aria-hidden>
-                        {active ? '✓' : ''}
-                      </span>
-                      <span className="min-w-0 flex-1 break-words">{category.name}</span>
-                    </button>
-                  );
-                })}
-              </div>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+  createCategoryByRow,
+  createTranslationRows,
+  findDuplicateGroups,
+  scanTranslationPolish,
+} from './transformations';
+import type {
+  AcceptedSide,
+  BulkAcceptedEntry,
+  BulkAcceptedScan,
+  PolishChange,
+  PolishField,
+  PolishScan,
+  TranslationProvider,
+  TranslationRow,
+  TranslationStepProps,
+} from './types';
 
 export function TranslationStep({
   list,
@@ -427,35 +57,30 @@ export function TranslationStep({
   onGenerationActiveChange,
 }: TranslationStepProps) {
   const { t } = useI18n();
-  const [rows, setRows] = useState<TranslationRow[]>(() =>
-    pendingItems.map((item) => ({
-      id: item.id,
-      textKnown: item.text_known ?? '',
-      textTarget: item.text_target ?? '',
-      acceptedKnown: item.accepted_known ?? [],
-      acceptedTarget: item.accepted_target ?? [],
-      // Items that already have both fields are considered translated
-      status: (item.text_known && item.text_target ? 'ok' : 'pending') as TranslationRow['status'],
-      comment: item.comment ?? '',
-    }))
-  );
+  const [rows, setRows] = useState<TranslationRow[]>(() => createTranslationRows(pendingItems));
   // Per-row category, tracked locally so the ⋮ menu and the "no category"
   // warning stay in sync after an assignment without a full reload. Seeded from
   // the pending items; `null` means the word currently has no category.
-  const [categoryByRow, setCategoryByRow] = useState<Record<string, string | null>>(() =>
-    Object.fromEntries(pendingItems.map((item) => [item.id, item.category_id ?? null])),
+  const [categoryByRow, setCategoryByRow] = useState<Record<string, string | null>>(
+    () => createCategoryByRow(pendingItems),
   );
   const [assigningRowId, setAssigningRowId] = useState<string | null>(null);
   const [acceptedAnswersRowId, setAcceptedAnswersRowId] = useState<string | null>(null);
   const [translating, setTranslating] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [provider, setProvider] = useState<TranslationProvider>(() => readStoredTranslationProvider());
-  const [openRouterState, setOpenRouterState] = useState<OpenRouterUiState>('not_connected');
-  const [openRouterLoading, setOpenRouterLoading] = useState(false);
-  const [openRouterModel, setOpenRouterModel] = useState(
-    () => readStoredOpenRouterModel() ?? DEFAULT_OPENROUTER_TRANSLATION_MODEL,
-  );
+  const {
+    provider,
+    setProvider,
+    openRouterState,
+    openRouterLoading,
+    openRouterModel,
+    openRouterModelLabel,
+    refreshOpenRouterStatus: loadOpenRouterStatus,
+    connectOpenRouter: handleConnectOpenRouter,
+    changeOpenRouterModel: handleOpenRouterModelChange,
+    saveOpenRouterModel: handleOpenRouterModelSave,
+  } = useTranslationWorkflow({ t, onError: setError });
   const [dirtyRowIds, setDirtyRowIds] = useState<Set<string>>(new Set());
   const [clearColumn, setClearColumn] = useState<'known' | 'target' | null>(null);
   const [generatingComments, setGeneratingComments] = useState(false);
@@ -560,67 +185,11 @@ export function TranslationStep({
     .filter(Boolean)
     .join('\n');
   const hasAnyComment = rows.some((row) => (row.comment ?? '').trim());
-  const openRouterModelLabel =
-    OPENROUTER_TRANSLATION_MODELS.find((model) => model.id === openRouterModel)?.name
-    ?? openRouterModel;
   const clearColumnLanguageLabel =
     clearColumn === 'known'
       ? formatLanguageLabel(list.languageFrom)
       : formatLanguageLabel(list.languageTo);
   const clearColumnRowCount = clearColumn === 'known' ? knownRowsWithTextCount : targetRowsWithTextCount;
-
-  const loadOpenRouterStatus = useCallback(async () => {
-    setOpenRouterLoading(true);
-    try {
-      const res = await listsApiFetch('/api/providers/openrouter/status');
-      if (!res.ok) {
-        setOpenRouterState('not_connected');
-        return;
-      }
-      const data = await res.json();
-      setOpenRouterState((data.state as OpenRouterUiState) ?? 'not_connected');
-      setOpenRouterModel(readStoredOpenRouterModel() ?? normalizeOpenRouterModel(data.connection?.translationModel));
-    } catch {
-      setOpenRouterState('not_connected');
-    } finally {
-      setOpenRouterLoading(false);
-    }
-  }, []);
-
-  const handleConnectOpenRouter = useCallback(async () => {
-    setError(null);
-    setOpenRouterLoading(true);
-    try {
-      const returnTo =
-        typeof window !== 'undefined'
-          ? `${window.location.pathname}${window.location.search}`
-          : '/lists';
-      const res = await listsApiFetch('/api/providers/openrouter/connect/start', {
-        method: 'POST',
-        body: JSON.stringify({ returnTo }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error ?? t('lists.openRouterConnectStartFailed'));
-      }
-      if (!data.authorizeUrl || typeof data.authorizeUrl !== 'string') {
-        throw new Error(t('lists.openRouterMissingAuthorizeUrl'));
-      }
-      setOpenRouterState('connecting');
-      window.location.assign(data.authorizeUrl);
-    } catch (err) {
-      setOpenRouterState('failed_retryable');
-      setError(err instanceof Error ? err.message : t('lists.openRouterConnectStartFailed'));
-      setOpenRouterLoading(false);
-    }
-  }, [t]);
-
-  useEffect(() => {
-    const timeoutId = window.setTimeout(() => {
-      void loadOpenRouterStatus();
-    }, 0);
-    return () => window.clearTimeout(timeoutId);
-  }, [loadOpenRouterStatus]);
 
   useEffect(() => {
     return () => {
@@ -635,10 +204,6 @@ export function TranslationStep({
       }
     };
   }, []);
-
-  useEffect(() => {
-    writeStoredTranslationProvider(provider);
-  }, [provider]);
 
   const handleAutoTranslate = useCallback(async () => {
     if (provider === 'google' && isGooglePaused) {
@@ -760,36 +325,6 @@ export function TranslationStep({
     t,
   ]);
 
-  const handleOpenRouterModelChange = useCallback((model: string) => {
-    setOpenRouterModel(model);
-    writeStoredOpenRouterModel(model);
-  }, []);
-
-  const handleOpenRouterModelSave = useCallback(async () => {
-    const model = normalizeOpenRouterModel(openRouterModel);
-    setOpenRouterModel(model);
-    writeStoredOpenRouterModel(model);
-    setError(null);
-    setOpenRouterLoading(true);
-    try {
-      const res = await listsApiFetch('/api/providers/openrouter', {
-        method: 'PATCH',
-        body: JSON.stringify({ translation_model: model }),
-      });
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(data.error ?? t('lists.openRouterModelSaveFailed'));
-      }
-      const savedModel = normalizeOpenRouterModel(data.connection?.translationModel);
-      setOpenRouterModel(savedModel);
-      writeStoredOpenRouterModel(savedModel);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : t('lists.openRouterModelSaveFailed'));
-    } finally {
-      setOpenRouterLoading(false);
-    }
-  }, [openRouterModel, t]);
-
   const handleCellEdit = useCallback((id: string, field: 'textKnown' | 'textTarget', value: string) => {
     setDirtyRowIds((prev) => {
       const next = new Set(prev);
@@ -861,19 +396,10 @@ export function TranslationStep({
   // (e.g. "Không → ne" vs "Không → nula") is NOT a duplicate. We deliberately do
   // NOT collapse internal whitespace or strip punctuation — anything other than
   // a case difference is not a dup. A group of 2+ rows is a duplicate group.
-  const duplicateGroups = useMemo(() => {
-    const byKey = new Map<string, { key: string; word: string; rows: TranslationRow[] }>();
-    for (const row of rows) {
-      const word = (row[hasSource] ?? '').trim();
-      const translation = (row[needsTranslation] ?? '').trim();
-      if (!word) continue;
-      const key = `${word.toLowerCase()}\u0000${translation.toLowerCase()}`;
-      const group = byKey.get(key);
-      if (group) group.rows.push(row);
-      else byKey.set(key, { key, word, rows: [row] });
-    }
-    return [...byKey.values()].filter((group) => group.rows.length > 1);
-  }, [rows, hasSource, needsTranslation]);
+  const duplicateGroups = useMemo(
+    () => findDuplicateGroups(rows, hasSource, needsTranslation),
+    [rows, hasSource, needsTranslation],
+  );
 
   const duplicateRowIds = useMemo(
     () => new Set(duplicateGroups.flatMap((group) => group.rows.map((row) => row.id))),
@@ -1323,42 +849,10 @@ export function TranslationStep({
   // local — it never touches the rows, only produces a reviewable report. The
   // languageFrom/languageTo pairing lets the checker treat a one-word pro-drop
   // translation as a sentence when its partner clearly is one.
-  const runPolishCheck = useCallback(() => {
-    const changes: PolishChange[] = [];
-    const warnings: PolishWarningRow[] = [];
-    for (const row of rows) {
-      const result = polishPair(
-        { text: row.textKnown, lang: list.languageFrom },
-        { text: row.textTarget, lang: list.languageTo },
-      );
-      const sides: Array<{ field: PolishField; text: string; out: typeof result.source }> = [
-        { field: 'known', text: row.textKnown, out: result.source },
-        { field: 'target', text: row.textTarget, out: result.target },
-      ];
-      for (const { field, text, out } of sides) {
-        if (out.changed) {
-          changes.push({
-            key: `${row.id}:${field}`,
-            rowId: row.id,
-            field,
-            before: text,
-            after: out.fixed,
-            fixCodes: out.fixes.map((fix) => fix.code),
-          });
-        }
-        for (const warning of out.warnings) {
-          warnings.push({
-            key: `${row.id}:${field}:${warning.code}`,
-            rowId: row.id,
-            field,
-            text: out.fixed,
-            code: warning.code,
-          });
-        }
-      }
-    }
-    return { changes, warnings } satisfies PolishScan;
-  }, [rows, list.languageFrom, list.languageTo]);
+  const runPolishCheck = useCallback(
+    () => scanTranslationPolish(rows, list.languageFrom, list.languageTo),
+    [rows, list.languageFrom, list.languageTo],
+  );
 
   const handlePolishCheck = useCallback(() => {
     const scan = runPolishCheck();
@@ -1565,182 +1059,41 @@ export function TranslationStep({
       </div>
 
       {acceptedAnswersEditRow && (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setAcceptedAnswersRowId(null)}
-        >
-          <div
-            className="w-full max-w-md rounded-lg border border-border-subtle bg-background p-6 shadow-xl"
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="accepted-answers-editor-title"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2 id="accepted-answers-editor-title" className="text-base font-semibold text-text">
-              {t('lists.acceptedAnswersLabel')}
-            </h2>
-            <p className="mt-1 text-sm text-text-soft">
-              {t('lists.acceptedAnswersEditorHint')}
-            </p>
-            <div className="mt-5 space-y-4">
-              {([
-                {
-                  side: 'known' as const,
-                  language: formatLanguageLabel(list.languageFrom),
-                  primary: acceptedAnswersEditRow.textKnown,
-                  values: acceptedAnswersEditRow.acceptedKnown ?? [],
-                },
-                {
-                  side: 'target' as const,
-                  language: formatLanguageLabel(list.languageTo),
-                  primary: acceptedAnswersEditRow.textTarget,
-                  values: acceptedAnswersEditRow.acceptedTarget ?? [],
-                },
-              ]).map((field) => (
-                <div key={field.side}>
-                  <div className="text-[11px] font-medium uppercase tracking-wide text-text-soft">
-                    {field.language}
-                  </div>
-                  <div className="mt-1 break-words rounded-md bg-background-elevated px-2.5 py-2 text-sm text-text">
-                    {field.primary}
-                  </div>
-                  <AcceptedAnswersEditor
-                    values={field.values}
-                    primary={field.primary}
-                    label={t('lists.acceptedAnswersAddPlaceholder')}
-                    onChange={(values) => handleAcceptedAnswersChange(
-                      acceptedAnswersEditRow.id,
-                      field.side,
-                      values,
-                    )}
-                  />
-                </div>
-              ))}
-            </div>
-            <div className="mt-5 flex justify-end">
-              <button
-                type="button"
-                className="rounded-lg bg-accent px-4 py-2 text-sm font-medium text-background transition-colors hover:bg-accent-strong"
-                onClick={() => setAcceptedAnswersRowId(null)}
-              >
-                {t('common.close')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <AcceptedAnswersDialog
+          row={acceptedAnswersEditRow}
+          languageFromLabel={formatLanguageLabel(list.languageFrom)}
+          languageToLabel={formatLanguageLabel(list.languageTo)}
+          onChange={(side, values) => handleAcceptedAnswersChange(
+            acceptedAnswersEditRow.id,
+            side,
+            values,
+          )}
+          onClose={() => setAcceptedAnswersRowId(null)}
+        />
       )}
 
       {clearColumn && (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setClearColumn(null)}
-        >
-          <div
-            className="w-full max-w-sm rounded-lg border border-border-subtle bg-background p-6 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2 className="text-base font-semibold text-text">
-              {t('lists.clearColumnTitle', { language: clearColumnLanguageLabel })}
-            </h2>
-            <p className="mt-2 text-sm text-text-soft">
-              {t('lists.clearColumnMessage', {
-                language: clearColumnLanguageLabel,
-                count: clearColumnRowCount,
-              })}
-            </p>
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-lg border border-border-subtle px-4 py-2 text-sm font-medium text-text-soft hover:bg-background-elevated transition-colors"
-                onClick={() => setClearColumn(null)}
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
-                className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white hover:bg-danger/90 transition-colors disabled:opacity-60"
-                onClick={() => handleClearColumn(clearColumn)}
-                disabled={confirming}
-              >
-                {confirming ? t('common.saving') : t('lists.clearColumnConfirm')}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ClearTranslationColumnDialog
+          language={clearColumnLanguageLabel}
+          count={clearColumnRowCount}
+          confirming={confirming}
+          onConfirm={() => handleClearColumn(clearColumn)}
+          onClose={() => setClearColumn(null)}
+        />
       )}
 
       {showDuplicatesModal && (
-        <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setShowDuplicatesModal(false)}
-        >
-          <div
-            className="flex max-h-[80vh] w-full max-w-lg flex-col rounded-lg border border-border-subtle bg-background p-6 shadow-xl"
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2 className="text-base font-semibold text-text">{t('lists.duplicatesModalTitle')}</h2>
-            <p className="mt-1 text-sm text-text-soft">{t('lists.duplicatesModalHint')}</p>
-            <div className="mt-4 flex-1 divide-y divide-border-subtle overflow-y-auto">
-              {duplicateGroups.map((group) => {
-                const keepId = keepByGroup[group.key] ?? group.rows[0].id;
-                return (
-                  <div key={group.key} className="py-3">
-                    <div className="text-xs font-medium uppercase tracking-wide text-text-soft">
-                      {group.word}
-                    </div>
-                    <div className="mt-1.5 space-y-1">
-                      {group.rows.map((row) => {
-                        const keep = row.id === keepId;
-                        return (
-                          <label
-                            key={row.id}
-                            className={`flex cursor-pointer items-center gap-2 rounded-md px-2 py-1.5 ${
-                              keep ? 'bg-background-elevated' : 'opacity-70'
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name={`keep-${group.key}`}
-                              checked={keep}
-                              onChange={() =>
-                                setKeepByGroup((prev) => ({ ...prev, [group.key]: row.id }))
-                              }
-                              className="accent-accent"
-                            />
-                            <span className="min-w-0 flex-1 break-words text-sm">
-                              <span className="text-text">{row.textKnown || '—'}</span>
-                              <span className="text-text-soft"> → {row.textTarget || '—'}</span>
-                            </span>
-                            <span className={`shrink-0 text-[11px] ${keep ? 'text-done' : 'text-danger'}`}>
-                              {keep ? t('lists.duplicatesKeep') : t('lists.duplicatesRemove')}
-                            </span>
-                          </label>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            <div className="mt-5 flex justify-end gap-2">
-              <button
-                type="button"
-                className="rounded-lg border border-border-subtle px-4 py-2 text-sm font-medium text-text-soft transition-colors hover:bg-background-elevated"
-                onClick={() => setShowDuplicatesModal(false)}
-              >
-                {t('common.cancel')}
-              </button>
-              <button
-                type="button"
-                disabled={duplicatesToRemoveCount === 0}
-                className="rounded-lg bg-danger px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-danger/90 disabled:opacity-60"
-                onClick={handleRemoveAllDuplicates}
-              >
-                {t('lists.duplicatesRemoveCta', { count: duplicatesToRemoveCount })}
-              </button>
-            </div>
-          </div>
-        </div>
+        <DuplicateRowsDialog
+          groups={duplicateGroups}
+          keepByGroup={keepByGroup}
+          removeCount={duplicatesToRemoveCount}
+          onKeep={(groupKey, rowId) => setKeepByGroup((previous) => ({
+            ...previous,
+            [groupKey]: rowId,
+          }))}
+          onConfirm={handleRemoveAllDuplicates}
+          onClose={() => setShowDuplicatesModal(false)}
+        />
       )}
 
       {showPolishModal && polishScan && (
@@ -2302,171 +1655,31 @@ export function TranslationStep({
         <div className="divide-y divide-border-subtle max-h-[60vh] overflow-y-auto">
           {rows.map((row, index) => (
             <Fragment key={row.id}>
-            {index === dividerIndex && (
-              <div className="bg-background-elevated/40 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-text-soft/70">
-                {t('lists.existingCategoryWords')}
-              </div>
-            )}
-            <div
-              className={`grid grid-cols-2 items-start gap-0 ${
-                row.status === 'error' ? 'bg-danger/5' : ''
-              }`}
-            >
-              <div className="px-3 py-2 flex items-start gap-2 border-r border-border-subtle">
-                <div className="min-w-0 flex-1">
-                  <TranslationTextarea
-                    value={row.textKnown}
-                    onChange={(value) => handleCellEdit(row.id, 'textKnown', value)}
-                    placeholder={needsTranslation === 'textKnown' ? t('lists.enterTranslation') : undefined}
-                    ariaLabel={t('lists.sourceTextAria', { language: formatLanguageLabel(list.languageFrom) })}
-                  />
-                  {(row.acceptedKnown?.length ?? 0) > 0 && (
-                    <button
-                      type="button"
-                      className="mt-1 flex max-w-full flex-wrap items-center gap-1 text-left"
-                      aria-label={`${t('lists.acceptedAnswersLabel')}: ${(row.acceptedKnown ?? []).join(', ')}`}
-                      onClick={() => setAcceptedAnswersRowId(row.id)}
-                    >
-                      <span className="mr-0.5 text-[11px] text-text-soft/70">
-                        {t('lists.acceptedAnswersExistingLabel')}
-                      </span>
-                      {(row.acceptedKnown ?? []).map((answer) => (
-                        <span
-                          key={answer}
-                          className="max-w-full truncate rounded bg-accent/10 px-1.5 py-0.5 text-[11px] text-accent"
-                        >
-                          {answer}
-                        </span>
-                      ))}
-                    </button>
-                  )}
-                </div>
-                {needsTranslation === 'textKnown' && row.status === 'error' && (
-                  <span className="mt-1 text-danger text-xs shrink-0" title={row.error}>!</span>
-                )}
-                {needsTranslation === 'textKnown' && row.status !== 'error' && row.warning && (
-                  <span className="mt-1 text-amber-500 text-xs shrink-0" title={row.warning}>?</span>
-                )}
-                {needsTranslation === 'textKnown' && row.source === 'dedup' && (
-                  <span className="mt-1 text-done text-xs shrink-0" title={t('lists.reusedFromExisting')}>
-                    {t('lists.audioStatusReused')}
-                  </span>
-                )}
-              </div>
-              <div className="px-3 py-2 flex items-start gap-2">
-                <div className="min-w-0 flex-1">
-                  <TranslationTextarea
-                    value={row.textTarget}
-                    onChange={(value) => handleCellEdit(row.id, 'textTarget', value)}
-                    placeholder={needsTranslation === 'textTarget' ? t('lists.enterTranslation') : undefined}
-                    ariaLabel={t('lists.translationTextAria', { language: formatLanguageLabel(list.languageTo) })}
-                  />
-                  {(row.acceptedTarget?.length ?? 0) > 0 && (
-                    <button
-                      type="button"
-                      className="mt-1 flex max-w-full flex-wrap items-center gap-1 text-left"
-                      aria-label={`${t('lists.acceptedAnswersLabel')}: ${(row.acceptedTarget ?? []).join(', ')}`}
-                      onClick={() => setAcceptedAnswersRowId(row.id)}
-                    >
-                      <span className="mr-0.5 text-[11px] text-text-soft/70">
-                        {t('lists.acceptedAnswersExistingLabel')}
-                      </span>
-                      {(row.acceptedTarget ?? []).map((answer) => (
-                        <span
-                          key={answer}
-                          className="max-w-full truncate rounded bg-accent/10 px-1.5 py-0.5 text-[11px] text-accent"
-                        >
-                          {answer}
-                        </span>
-                      ))}
-                    </button>
-                  )}
-                </div>
-                {needsTranslation === 'textTarget' && row.status === 'error' && (
-                  <span className="mt-1 text-danger text-xs shrink-0" title={row.error}>!</span>
-                )}
-                {needsTranslation === 'textTarget' && row.status !== 'error' && row.warning && (
-                  <span className="mt-1 text-amber-500 text-xs shrink-0" title={row.warning}>?</span>
-                )}
-                {needsTranslation === 'textTarget' && row.source === 'dedup' && (
-                  <span className="mt-1 text-done text-xs shrink-0" title={t('lists.reusedFromExisting')}>
-                    {t('lists.audioStatusReused')}
-                  </span>
-                )}
-              </div>
-              <div className="col-span-2 flex items-start gap-1.5 border-t border-border-subtle/40 px-3 py-1.5">
-                <span
-                  aria-hidden
-                  className="mt-1 shrink-0 text-xs text-text-soft/60"
-                  title={t('lists.studyNoteLabel')}
-                >
-                  💬
-                </span>
-                <div className="min-w-0 flex-1">
-                  <TranslationTextarea
-                    value={row.comment ?? ''}
-                    onChange={(value) => handleCommentEdit(row.id, value)}
-                    placeholder={t('lists.studyNotePlaceholder')}
-                    ariaLabel={t('lists.studyNoteAria')}
-                    maxLength={MAX_COMMENT_TEXT_LENGTH}
-                    onFocus={() => setFocusedCommentId(row.id)}
-                    onBlur={() => setFocusedCommentId((current) => (current === row.id ? null : current))}
-                  />
-                  {focusedCommentId === row.id && (
-                    <div className="mt-0.5 text-right text-[11px] leading-none text-text-soft/60">
-                      {t('lists.studyNoteCharacterLimit', {
-                        count: (row.comment ?? '').length,
-                        limit: MAX_COMMENT_TEXT_LENGTH,
-                      })}
-                    </div>
-                  )}
-                </div>
-                <div className="flex shrink-0 items-center gap-1.5 pt-0.5">
-                  {duplicateRowIds.has(row.id) && (
-                    <span
-                      className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-600"
-                      title={t('lists.duplicateWordBadgeTitle')}
-                    >
-                      {t('lists.duplicateWordBadge')}
-                    </span>
-                  )}
-                  {onAssignCategory && !categoryByRow[row.id] && (
-                    <span
-                      className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-600"
-                      title={t('lists.noCategoryWarning', { count: 1 })}
-                    >
-                      {t('lists.noCategoryBadge')}
-                    </span>
-                  )}
-                  <RowMenu
-                    categories={categories}
-                    currentCategoryId={categoryByRow[row.id] ?? null}
-                    acceptedCount={
-                      (row.acceptedKnown?.length ?? 0) + (row.acceptedTarget?.length ?? 0)
-                    }
-                    canDelete={Boolean(onRemoveItem)}
-                    canAssign={Boolean(onAssignCategory)}
-                    busy={assigningRowId === row.id}
-                    onEditAccepted={() => setAcceptedAnswersRowId(row.id)}
-                    onDelete={() => handleDeleteRow(row.id)}
-                    onAssign={(categoryId) => void handleAssignCategory(row.id, categoryId)}
-                  />
-                </div>
-              </div>
-              {row.validationWarnings && row.validationWarnings.length > 0 && (
-                <div className="col-span-2 flex flex-wrap items-center gap-2 border-t border-border-subtle/40 px-3 py-1.5">
-                  {row.validationWarnings.map((w, i) => (
-                    <span
-                      key={`${w.code}-${i}`}
-                      className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] text-amber-600"
-                      title={w.message}
-                    >
-                      {w.message}
-                    </span>
-                  ))}
+              {index === dividerIndex && (
+                <div className="bg-background-elevated/40 px-3 py-1.5 text-[11px] font-medium uppercase tracking-wide text-text-soft/70">
+                  {t('lists.existingCategoryWords')}
                 </div>
               )}
-            </div>
+              <TranslationRowView
+                row={row}
+                needsTranslation={needsTranslation}
+                languageFromLabel={formatLanguageLabel(list.languageFrom)}
+                languageToLabel={formatLanguageLabel(list.languageTo)}
+                categories={categories}
+                currentCategoryId={categoryByRow[row.id] ?? null}
+                duplicate={duplicateRowIds.has(row.id)}
+                canDelete={Boolean(onRemoveItem)}
+                canAssign={Boolean(onAssignCategory)}
+                busy={assigningRowId === row.id}
+                focusedComment={focusedCommentId === row.id}
+                onCellEdit={(field, value) => handleCellEdit(row.id, field, value)}
+                onCommentEdit={(value) => handleCommentEdit(row.id, value)}
+                onCommentFocus={() => setFocusedCommentId(row.id)}
+                onCommentBlur={() => setFocusedCommentId((current) => current === row.id ? null : current)}
+                onEditAccepted={() => setAcceptedAnswersRowId(row.id)}
+                onDelete={() => handleDeleteRow(row.id)}
+                onAssign={(categoryId) => void handleAssignCategory(row.id, categoryId)}
+              />
             </Fragment>
           ))}
         </div>

@@ -2,7 +2,7 @@ import React from 'react';
 import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest';
 import { I18nProvider } from '@/components/I18nProvider';
-import { TranslationStep } from '../TranslationStep';
+import { TranslationStep } from '../translation-step/TranslationStep';
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {

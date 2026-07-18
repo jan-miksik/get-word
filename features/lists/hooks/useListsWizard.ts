@@ -1,6 +1,6 @@
 'use client';
 
-// Owns wizard-only state and handlers for `app/lists/page.tsx`.
+// Owns wizard-only state and handlers for the lists page composition shell.
 //
 // The page coordinates lists/categories/items/error/sidebar/google-usage
 // concerns; this hook isolates the inner wizard flow: which step the user is
@@ -12,13 +12,13 @@
 // after `handleUpdateList`, initial URL-triggered audio fix).
 
 import { useCallback, useState } from 'react';
-import type { WizardActiveStep } from '@/app/lists/WizardProgressBar';
 import * as listActions from '@/features/lists/client/actions';
 import { useBuildAudioStepItems } from '@/features/lists/hooks/useListWizardItems';
 import { orderItemsByCategoryDisplay } from '@/features/lists/orderItems';
 import type {
   CompletedTranslationRow,
   DiffResult,
+  WizardActiveStep,
   WordCategory,
   WordListItem,
 } from '@/features/lists/types';

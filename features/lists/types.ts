@@ -27,6 +27,13 @@ export type LearningLanguage = {
 
 export type TranslationProvider = 'google' | 'openrouter' | 'none';
 
+export type WizardActiveStep =
+  | 'edit'
+  | 'preview'
+  | 'translate'
+  | 'audio-target'
+  | 'audio-known';
+
 export type PendingFork = {
   source: WordList;
   languageFrom: string;
