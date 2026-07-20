@@ -80,8 +80,9 @@ export function setStoragePreference(enabled: boolean): void {
 }
 
 function getDefaultAudioCachePreference(): boolean {
-  // Audio caching is on by default. The network budget in cacheActiveListAudio
-  // keeps metered connections from downloading more than a small list's worth.
+  // Whole-list audio caching is on by default. The network policy keeps
+  // metered/unknown connections within a small-list budget, while unmetered
+  // connections warm the whole active list for offline study.
   return true;
 }
 

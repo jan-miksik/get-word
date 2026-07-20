@@ -5,6 +5,7 @@ import type { I18nKey } from '@/lib/i18n/messages';
 import { useI18n } from '@/components/I18nProvider';
 import { useAppStateContext } from '@/context/AppStateContext';
 import { Section, ToggleSwitch } from '@/components/settings/primitives';
+import { OPEN_MEMORY_HOOKS_PANEL_EVENT } from '@/lib/ui-events';
 
 export function MemoryHooksSection() {
   const { t } = useI18n();
@@ -42,6 +43,13 @@ export function MemoryHooksSection() {
           </select>
         </label>
       )}
+      <button
+        type="button"
+        onClick={() => window.dispatchEvent(new Event(OPEN_MEMORY_HOOKS_PANEL_EVENT))}
+        className="self-start bg-transparent border-none p-0 text-xs text-accent underline cursor-pointer"
+      >
+        {t('settings.memoryHooksLearnMore')}
+      </button>
     </Section>
   );
 }

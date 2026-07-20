@@ -31,7 +31,7 @@ const ENTER_ANIMATIONS = [
   'animate-deck-enter-unfurl',
 ] as const;
 
-const AUDIO_LOOKAHEAD_CARDS = 5;
+const AUDIO_LOOKAHEAD_CARDS = 1;
 
 const SWIPE_BADGE_STYLE = {
   backgroundColor: '#1e6fa8',

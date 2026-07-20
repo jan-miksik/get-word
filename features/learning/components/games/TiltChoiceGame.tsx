@@ -24,9 +24,24 @@ import {
   type WordSide,
 } from './types';
 
-const DWELL_THRESHOLD = 0.6;
-const DWELL_MS = 400;
 const SMOOTHING = 0.18;
+const MAX_TILT_DEG = 16;
+// The selection is position-based and reversible: the option underline fills in
+// sync with the tilt between FILL_START and COMMIT_AT, and backing off rewinds
+// it. Only reaching COMMIT_AT locks the answer in.
+const FILL_START = 0.15;
+const COMMIT_AT = 0.78;
+// Past the plank end the word overhangs and tips over before falling off.
+const OVERHANG_PX = 44;
+const TIP_DEG = 24;
+// Free-fall physics for the committed word: it drops off the plank end along a
+// parabola aimed below the chosen option, tumbles in the air, bounces with
+// damping, and comes to rest on the stage floor.
+const GRAVITY_PX_S2 = 2600;
+const TUMBLE_DEG_S = 170;
+const BOUNCE_MIN_VY = 170;
+const BOUNCE_DAMPING = 0.36;
+const FALL_MAX_SIM_S = 2.5;
 
 interface Props {
   words: NormalizedWord[];
@@ -66,10 +81,12 @@ export function TiltChoiceGame({
   const optionOrder = useMemo(() => deterministicOptionOrder(words), [words]);
   const [reducedMotion, setReducedMotion] = useState(false);
   const cardRef = useRef<HTMLElement | null>(null);
-  const trackRef = useRef<HTMLDivElement | null>(null);
+  const plankRef = useRef<HTMLDivElement | null>(null);
   const promptRef = useRef<HTMLDivElement | null>(null);
   const leftOptionRef = useRef<HTMLButtonElement | null>(null);
   const rightOptionRef = useRef<HTMLButtonElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const fallFrameRef = useRef<number | null>(null);
   const leftFillRef = useRef<HTMLSpanElement | null>(null);
   const rightFillRef = useRef<HTMLSpanElement | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -108,21 +125,133 @@ export function TiltChoiceGame({
     [options],
   );
 
-  const answerOnce = useCallback(
+  const setFillTransforms = useCallback((side: Side | null, progress: number) => {
+    if (leftFillRef.current) {
+      leftFillRef.current.style.transform = `scaleX(${side === 'left' ? progress : 0})`;
+    }
+    if (rightFillRef.current) {
+      rightFillRef.current.style.transform = `scaleX(${side === 'right' ? progress : 0})`;
+    }
+  }, []);
+
+  const finishAnswer = useCallback(
     (side: Side) => {
-      if (answeredRef.current) return;
       const option = optionForSide(side);
       if (!option) return;
-      answeredRef.current = true;
+      setFillTransforms(null, 0);
       setSelected(option.id);
       if (option.isCorrect && soundEnabled) {
-        // Sensor/dwell completion may not retain browser user activation. Audio
-        // is best-effort and never blocks recording the answer.
+        // Sensor-driven completion may not retain browser user activation.
+        // Audio is best-effort and never blocks recording the answer.
         void playUserInitiatedAudio(audioRef, option.answerAudioSrcs).catch(() => undefined);
       }
       onResult?.(option.isCorrect ? (level === 2 ? 2 : 1) : -1);
     },
-    [level, onResult, optionForSide, soundEnabled],
+    [level, onResult, optionForSide, setFillTransforms, soundEnabled],
+  );
+
+  const startFall = useCallback(
+    (side: Side): boolean => {
+      const promptElement = promptRef.current;
+      const optionElement = side === 'left' ? leftOptionRef.current : rightOptionRef.current;
+      const stageElement = stageRef.current;
+      if (!promptElement || !optionElement || !stageElement) return false;
+      const promptRect = promptElement.getBoundingClientRect();
+      const optionRect = optionElement.getBoundingClientRect();
+      const stageRect = stageElement.getBoundingClientRect();
+      if (promptRect.width === 0 || optionRect.width === 0 || stageRect.height === 0) {
+        return false;
+      }
+
+      // The plank freezes at the commit angle, so the page→local conversion is
+      // a constant rotation for the whole fall.
+      const theta = (displayedRef.current * MAX_TILT_DEG * Math.PI) / 180;
+      const cos = Math.cos(theta);
+      const sin = Math.sin(theta);
+      const travel = displayedRef.current * (maxShiftRef.current + OVERHANG_PX);
+      const overhang = Math.max(0, Math.abs(travel) - maxShiftRef.current);
+      const tip = (overhang / OVERHANG_PX) * TIP_DEG * Math.sign(travel);
+
+      const startX = promptRect.left + promptRect.width / 2;
+      const startY = promptRect.top + promptRect.height / 2;
+      const groundY = stageRect.bottom - promptRect.height / 2 - 2;
+      const targetX = optionRect.left + optionRect.width / 2;
+      const drop = Math.max(40, groundY - startY);
+
+      // Horizontal speed is chosen so the parabola's first impact lands right
+      // below the chosen option; gravity does the rest.
+      const timeToImpact = Math.sqrt((2 * drop) / GRAVITY_PX_S2);
+      let vx = (targetX - startX) / timeToImpact;
+      let vy = 0;
+      let omega = (side === 'left' ? -1 : 1) * TUMBLE_DEG_S;
+      let x = startX;
+      let y = startY;
+      let rotation = 0;
+      let simTime = 0;
+      let last: number | null = null;
+      let startedAt: number | null = null;
+
+      const step = (now: number) => {
+        // Throttled tabs deliver animation frames sparsely; past a wall-clock
+        // budget the word snaps to rest instead of simulating forever.
+        startedAt ??= now;
+        const outOfTime = now - startedAt > 3000;
+        const dt = Math.min(0.04, last === null ? 0.016 : Math.max(0.001, (now - last) / 1000));
+        last = now;
+        simTime += dt;
+        vy += GRAVITY_PX_S2 * dt;
+        x += vx * dt;
+        y += vy * dt;
+        rotation += omega * dt;
+
+        let resting = false;
+        if (y >= groundY) {
+          y = groundY;
+          if (vy > BOUNCE_MIN_VY && simTime < FALL_MAX_SIM_S) {
+            vy = -vy * BOUNCE_DAMPING;
+            vx *= 0.6;
+            omega *= 0.45;
+          } else {
+            resting = true;
+          }
+        }
+        if (simTime >= FALL_MAX_SIM_S || outOfTime) {
+          y = groundY;
+          resting = true;
+        }
+
+        const dxPage = x - startX;
+        const dyPage = y - startY;
+        const localX = travel + dxPage * cos + dyPage * sin;
+        const localY = -dxPage * sin + dyPage * cos;
+        promptElement.style.transform =
+          `translate3d(${localX}px, ${localY}px, 0) rotate(${tip + rotation}deg)`;
+
+        if (resting) {
+          fallFrameRef.current = null;
+          finishAnswer(side);
+          return;
+        }
+        fallFrameRef.current = window.requestAnimationFrame(step);
+      };
+
+      setFillTransforms(side, 1);
+      fallFrameRef.current = window.requestAnimationFrame(step);
+      return true;
+    },
+    [finishAnswer, setFillTransforms],
+  );
+
+  const commitAnswer = useCallback(
+    (side: Side) => {
+      if (answeredRef.current) return;
+      if (!optionForSide(side)) return;
+      answeredRef.current = true;
+      if (reducedMotion || !startFall(side)) {
+        finishAnswer(side);
+      }
+    },
+    [finishAnswer, optionForSide, reducedMotion, startFall],
   );
 
   useEffect(() => {
@@ -139,42 +268,25 @@ export function TiltChoiceGame({
 
   useEffect(() => {
     const measure = () => {
-      const track = trackRef.current;
+      const plank = plankRef.current;
       const promptElement = promptRef.current;
-      if (!track || !promptElement) return;
-      const optionWidth = Math.max(
-        leftOptionRef.current?.offsetWidth ?? 0,
-        rightOptionRef.current?.offsetWidth ?? 0,
-      );
+      if (!plank || !promptElement) return;
       maxShiftRef.current = Math.max(
         0,
-        track.clientWidth / 2 - promptElement.offsetWidth / 2 - optionWidth - 20,
+        plank.clientWidth / 2 - promptElement.offsetWidth / 2 - 8,
       );
     };
     measure();
     const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(measure);
-    if (trackRef.current) observer?.observe(trackRef.current);
+    if (plankRef.current) observer?.observe(plankRef.current);
     if (promptRef.current) observer?.observe(promptRef.current);
     return () => observer?.disconnect();
   }, [effectivePromptMode, options]);
 
   useEffect(() => {
     let frame = 0;
-    let dwellSide: Side | null = null;
-    let dwellStartedAt = 0;
-    const leftFill = leftFillRef.current;
-    const rightFill = rightFillRef.current;
 
-    const setFill = (side: Side | null, progress: number) => {
-      if (leftFill) {
-        leftFill.style.transform = `scaleX(${side === 'left' ? progress : 0})`;
-      }
-      if (rightFill) {
-        rightFill.style.transform = `scaleX(${side === 'right' ? progress : 0})`;
-      }
-    };
-
-    const tick = (now: number) => {
+    const tick = () => {
       if (answeredRef.current) return;
 
       const sensorTarget = sensorTargetRef.current;
@@ -184,28 +296,30 @@ export function TiltChoiceGame({
           : 0;
       const displayed = displayedRef.current + (target - displayedRef.current) * SMOOTHING;
       displayedRef.current = Math.abs(displayed) < 0.001 ? 0 : displayed;
+      const value = displayedRef.current;
+
+      // The plank rotates like a seesaw while the word slides along it toward
+      // the lower end; past the end it overhangs and tips over the edge.
+      if (plankRef.current) {
+        plankRef.current.style.transform = `rotate(${value * MAX_TILT_DEG}deg)`;
+      }
+      const travel = value * (maxShiftRef.current + OVERHANG_PX);
+      const overhang = Math.max(0, Math.abs(travel) - maxShiftRef.current);
+      const tip = (overhang / OVERHANG_PX) * TIP_DEG * Math.sign(travel);
       if (promptRef.current) {
-        promptRef.current.style.transform =
-          `translate3d(${displayedRef.current * maxShiftRef.current}px, 0, 0)`;
+        promptRef.current.style.transform = `translate3d(${travel}px, 0, 0) rotate(${tip}deg)`;
       }
 
-      const canDwell = isActive && !reducedMotion && maxShiftRef.current > 0;
-      if (canDwell && Math.abs(displayedRef.current) >= DWELL_THRESHOLD) {
-        const nextSide: Side = displayedRef.current < 0 ? 'left' : 'right';
-        if (dwellSide !== nextSide) {
-          dwellSide = nextSide;
-          dwellStartedAt = now;
-        }
-        const progress = Math.min(1, (now - dwellStartedAt) / DWELL_MS);
-        setFill(dwellSide, progress);
-        if (progress >= 1) {
-          answerOnce(dwellSide);
-          return;
-        }
-      } else {
-        dwellSide = null;
-        dwellStartedAt = 0;
-        setFill(null, 0);
+      const side: Side = value < 0 ? 'left' : 'right';
+      const progress = Math.min(
+        1,
+        Math.max(0, (Math.abs(value) - FILL_START) / (COMMIT_AT - FILL_START)),
+      );
+      setFillTransforms(progress > 0 ? side : null, progress);
+
+      if (isActive && !reducedMotion && maxShiftRef.current > 0 && Math.abs(value) >= COMMIT_AT) {
+        commitAnswer(side);
+        return;
       }
 
       frame = window.requestAnimationFrame(tick);
@@ -214,15 +328,14 @@ export function TiltChoiceGame({
     frame = window.requestAnimationFrame(tick);
     return () => {
       window.cancelAnimationFrame(frame);
-      if (leftFill) leftFill.style.transform = 'scaleX(0)';
-      if (rightFill) rightFill.style.transform = 'scaleX(0)';
     };
-  }, [answerOnce, isActive, reducedMotion]);
+  }, [commitAnswer, isActive, reducedMotion, setFillTransforms]);
 
   useEffect(
     () => () => {
       audioRef.current?.pause();
       audioRef.current = null;
+      if (fallFrameRef.current !== null) window.cancelAnimationFrame(fallFrameRef.current);
     },
     [],
   );
@@ -273,9 +386,40 @@ export function TiltChoiceGame({
             {t('game.tiltEnable')}
           </button>
         )}
+        {support === 'insecure' && isActive && (
+          <span className="text-xs font-semibold text-[var(--game-ink-soft)]">
+            {t('game.tiltNeedsHttps')}
+          </span>
+        )}
       </div>
 
-      <div ref={trackRef} className="relative flex min-h-[300px] flex-1 items-center justify-center">
+      <div ref={stageRef} className="relative min-h-[320px] flex-1">
+        <div
+          ref={plankRef}
+          className="absolute inset-x-0 top-[34%] mx-auto w-[58%] origin-bottom will-change-transform"
+        >
+          <div className="flex justify-center">
+            <div
+              ref={promptRef}
+              className="game-prompt relative z-[1] max-w-[70%] pb-1.5 will-change-transform"
+            >
+              {effectivePromptMode === 'audio' ? (
+                <button
+                  type="button"
+                  className="game-audio-btn"
+                  onClick={() => void playUserInitiatedAudio(audioRef, promptAudioSrc)}
+                  aria-label={t('game.replayPromptAudio')}
+                >
+                  🔊
+                </button>
+              ) : (
+                prompt
+              )}
+            </div>
+          </div>
+          <div className="tilt-plank" aria-hidden="true" />
+        </div>
+
         {options.map((option, index) => {
           const side: Side = index === 0 ? 'left' : 'right';
           return (
@@ -283,10 +427,10 @@ export function TiltChoiceGame({
               key={option.id}
               ref={side === 'left' ? leftOptionRef : rightOptionRef}
               type="button"
-              className={`game-option game-option--${optionState(option.id, option.isCorrect)} absolute top-1/2 z-[2] max-w-[34%] -translate-y-1/2 overflow-hidden ${
-                side === 'left' ? 'left-0' : 'right-0'
+              className={`tilt-option tilt-option--${optionState(option.id, option.isCorrect)} absolute bottom-14 z-[2] max-w-[42%] ${
+                side === 'left' ? 'left-1' : 'right-1'
               }`}
-              onClick={() => answerOnce(side)}
+              onClick={() => commitAnswer(side)}
               disabled={Boolean(selected)}
             >
               <span
@@ -298,24 +442,6 @@ export function TiltChoiceGame({
             </button>
           );
         })}
-
-        <div
-          ref={promptRef}
-          className="game-prompt relative z-[1] max-w-[42%] will-change-transform"
-        >
-          {effectivePromptMode === 'audio' ? (
-            <button
-              type="button"
-              className="game-audio-btn"
-              onClick={() => void playUserInitiatedAudio(audioRef, promptAudioSrc)}
-              aria-label={t('game.replayPromptAudio')}
-            >
-              🔊
-            </button>
-          ) : (
-            prompt
-          )}
-        </div>
       </div>
 
       {selected ? (

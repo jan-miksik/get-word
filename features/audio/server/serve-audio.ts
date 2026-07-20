@@ -7,6 +7,7 @@ import {
 } from "@/lib/object-storage";
 
 const ARWEAVE_AUDIO_GATEWAY_TIMEOUT_MS = 3_500;
+const HASHED_AUDIO_CACHE_CONTROL = "public, max-age=31536000, immutable";
 
 export type AudioServeResult =
   | { kind: "json"; body: object; status: number; cacheControl: string }
@@ -39,7 +40,7 @@ function audioResponse(
     headers: {
       "Content-Type": audio.contentType || "audio/mpeg",
       "Content-Length": String(audio.body.byteLength),
-      "Cache-Control": "public, max-age=86400, immutable",
+      "Cache-Control": HASHED_AUDIO_CACHE_CONTROL,
       "X-Audio-Storage": storageHeader,
       "X-Audio-Storage-Provider": provider,
     },
@@ -125,7 +126,7 @@ export async function serveAudioByHash(hash: string, debug = false): Promise<Aud
           headers: {
             "Content-Type": contentType || "audio/mpeg",
             "Content-Length": String(audio.byteLength),
-            "Cache-Control": "public, max-age=86400, immutable",
+            "Cache-Control": HASHED_AUDIO_CACHE_CONTROL,
             "X-Audio-Gateway": gatewayUrl,
             "X-Audio-Storage-Ref": asset.storageRef,
           },
@@ -194,7 +195,7 @@ export async function serveAudioByHash(hash: string, debug = false): Promise<Aud
     return {
       kind: "redirect",
       url: asset.storageRef,
-      cacheControl: "public, max-age=86400, immutable",
+      cacheControl: HASHED_AUDIO_CACHE_CONTROL,
     };
   }
 

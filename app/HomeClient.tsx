@@ -191,6 +191,11 @@ export function HomeClient() {
   // Disabled in scratch mode, where the canvas overlay owns the reveal gesture.
   usePressHandlers(phrasesScrollElement, [selectedCategories, showAll, role], {
     enabled: revealMode === 'press',
+    // The card deck can't scroll, so skip the scroll-vs-press delay and reveal on
+    // contact — the stream view keeps the default delay to guard scrolling. When
+    // swipe-to-grade is active, keep the delay so a swipe cancels the pending
+    // press via move-detection instead of flashing the answer on gesture start.
+    pressDelayMs: viewMode === 'card' && !deckSwipeActions ? 0 : 150,
   });
 
   const shouldRenderMemoryHook = useCallback(

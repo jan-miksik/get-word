@@ -82,9 +82,13 @@ function syncRevealFamiliarityAttribute() {
 export function usePressHandlers(
   containerRef: PressHandlerContainer,
   deps: React.DependencyList,
-  options?: { enabled?: boolean }
+  options?: { enabled?: boolean; pressDelayMs?: number }
 ) {
   const enabled = options?.enabled ?? true;
+  // Touch reveals wait this long before showing, so the start of a scroll isn't
+  // mistaken for a press. The card deck can't scroll, so it passes 0 to reveal on
+  // contact instead of after a lag.
+  const pressDelayMs = options?.pressDelayMs ?? 150;
   useEffect(() => {
     if (!enabled) return;
     const container = resolveContainer(containerRef);
@@ -111,7 +115,7 @@ export function usePressHandlers(
       let countedRevealPress = false;
       let revealOpacityFrame: number | null = null;
       const SCROLL_THRESHOLD = 10;
-      const PRESS_DELAY = 150;
+      const PRESS_DELAY = pressDelayMs;
 
       const countRevealPress = () => {
         if (countedRevealPress || !element.classList.contains('is-covered')) return;
@@ -149,6 +153,11 @@ export function usePressHandlers(
           touchStartY = event.touches[0].clientY;
           isScrolling = false;
           hasMoved = false;
+          if (PRESS_DELAY <= 0) {
+            // No scroll to disambiguate (card deck): reveal on contact.
+            setPressed(true);
+            return;
+          }
           pressTimeout = window.setTimeout(() => {
             if (!isScrolling && !hasMoved) setPressed(true);
           }, PRESS_DELAY);
@@ -247,5 +256,5 @@ export function usePressHandlers(
       cleanupMap.clear();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [containerRef, enabled, ...deps]);
+  }, [containerRef, enabled, pressDelayMs, ...deps]);
 }

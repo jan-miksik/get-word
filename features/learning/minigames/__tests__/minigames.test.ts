@@ -610,6 +610,33 @@ describe('computeGameAnchors tiltChoice opt-in', () => {
     }
   });
 
+  it('only schedules words whose both sides fit the tilt layout', () => {
+    const longWords = Array.from({ length: 8 }, (_, i) =>
+      makeWord(`long${i}`, `tohle je dlouhá věta číslo ${i}`, `câu trả lời rất dài số ${i}`),
+    );
+    const longOnly = computeGameAnchors(longWords, [], 42, {
+      ...onlyTilt,
+      minInterval: 2,
+      maxInterval: 2,
+    });
+    expect(longOnly).toEqual([]);
+
+    const mixed = [makeWord('short-a', 'pes', 'chó'), makeWord('short-b', 'kočka', 'mèo'), ...longWords];
+    for (const seed of [7, 42, 99]) {
+      const anchors = computeGameAnchors(mixed, [], seed, {
+        ...onlyTilt,
+        minInterval: 2,
+        maxInterval: 2,
+      });
+      for (const anchor of anchors) {
+        for (const word of anchor.words) {
+          expect(word.cz.length).toBeLessThanOrEqual(18);
+          expect(word.vi.length).toBeLessThanOrEqual(18);
+        }
+      }
+    }
+  });
+
   it('never pairs visually identical answers even when word ids differ', () => {
     const duplicateAnswers = [
       makeWord('a', 'alpha', 'stejná odpověď'),

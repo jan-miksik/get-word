@@ -110,7 +110,7 @@ describe('sync coordinator', () => {
     requestSync('review_event');
     expect(mockSyncUserData).not.toHaveBeenCalled();
 
-    await vi.advanceTimersByTimeAsync(7_500);
+    await vi.advanceTimersByTimeAsync(30_000);
     await vi.waitFor(() => expect(mockSyncUserData).toHaveBeenCalledTimes(1));
 
     const failedStatus = getSyncStatus();
@@ -148,7 +148,7 @@ describe('sync coordinator', () => {
     mockSyncUserData.mockResolvedValue({ success: true, applied_review_event_ids: ['event-1'] });
 
     requestSync('review_event');
-    await vi.advanceTimersByTimeAsync(7_500);
+    await vi.advanceTimersByTimeAsync(30_000);
     await vi.waitFor(() => expect(mockSyncUserData).toHaveBeenCalledTimes(1));
 
     expect(mockSyncUserData).toHaveBeenCalledWith({ review_events: [event1] });

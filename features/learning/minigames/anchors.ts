@@ -17,6 +17,18 @@ const MIN_POOL_SIZE: Record<GameType, number> = {
 };
 const STRUCTURAL_CATEGORIES = new Set(['word', 'phrase']);
 
+// The tilt card renders the prompt on the seesaw plank and both answers in the
+// bottom corners, so long phrases overflow the layout. Either study direction
+// may be shown, which is why both sides must stay short.
+const TILT_MAX_TEXT_LENGTH = 18;
+
+function isTiltEligibleWord(word: NormalizedWord): boolean {
+  return (
+    word.cz.trim().length <= TILT_MAX_TEXT_LENGTH &&
+    word.vi.trim().length <= TILT_MAX_TEXT_LENGTH
+  );
+}
+
 function visibleAnswerSignature(value: string): string {
   const normalized = value
     .trim()
@@ -226,11 +238,15 @@ export function computeGameAnchors(
     similarPairs: Array<[number, number]>,
     rand: () => number,
   ): { words: NormalizedWord[]; level: GameDifficultyLevel } | null => {
-    if (pool.length < MIN_POOL_SIZE.tiltChoice) return null;
+    const eligibleIndexes = pool
+      .map((_, index) => index)
+      .filter((index) => isTiltEligibleWord(pool[index]));
+    if (eligibleIndexes.length < MIN_POOL_SIZE.tiltChoice) return null;
+    const eligibleSet = new Set(eligibleIndexes);
 
-    const firstCorrectIndex = Math.floor(rand() * pool.length);
-    for (let offset = 0; offset < pool.length; offset += 1) {
-      const correctIndex = (firstCorrectIndex + offset) % pool.length;
+    const firstCorrectOffset = Math.floor(rand() * eligibleIndexes.length);
+    for (let offset = 0; offset < eligibleIndexes.length; offset += 1) {
+      const correctIndex = eligibleIndexes[(firstCorrectOffset + offset) % eligibleIndexes.length];
       const correct = pool[correctIndex];
       const validPartners = similarPairs
         .flatMap(([left, right]) => {
@@ -238,18 +254,18 @@ export function computeGameAnchors(
           if (right === correctIndex) return [left];
           return [];
         })
-        .filter((index) => hasDistinctVisibleAnswers(correct, pool[index]));
+        .filter(
+          (index) => eligibleSet.has(index) && hasDistinctVisibleAnswers(correct, pool[index]),
+        );
 
       if ((options?.getStageIndex?.(correct.id) ?? 0) >= 3 && validPartners.length > 0) {
         const partnerIndex = validPartners[Math.floor(rand() * validPartners.length)];
         return { words: [correct, pool[partnerIndex]], level: 2 };
       }
 
-      const validDistractors = pool
-        .map((_, index) => index)
-        .filter(
-          (index) => index !== correctIndex && hasDistinctVisibleAnswers(correct, pool[index]),
-        );
+      const validDistractors = eligibleIndexes.filter(
+        (index) => index !== correctIndex && hasDistinctVisibleAnswers(correct, pool[index]),
+      );
       if (validDistractors.length > 0) {
         const distractorIndex = validDistractors[Math.floor(rand() * validDistractors.length)];
         return { words: [correct, pool[distractorIndex]], level: 1 };

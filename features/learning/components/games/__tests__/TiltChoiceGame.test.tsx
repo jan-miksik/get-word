@@ -100,9 +100,16 @@ function prepareMouseGame(onResult = vi.fn(), isActive = true) {
   return { ...view, article, onResult };
 }
 
-function reachRightDwell(article: Element) {
-  movePointer(article, 'mouse', 400);
-  for (const now of [0, 20, 40, 60, 80]) runNextFrame(now);
+// Eased displacement toward a full-right mouse target crosses COMMIT_AT (0.78)
+// on the 8th frame: displayed_n = 1 - 0.82^n.
+function runFrames(count: number, start = 0) {
+  for (let i = 0; i < count; i += 1) runNextFrame(start + i * 16);
+}
+
+function runPendingFrames(maxFrames: number, start = 1000) {
+  for (let i = 0; i < maxFrames && frames.size > 0; i += 1) {
+    runNextFrame(start + i * 16);
+  }
 }
 
 describe('TiltChoiceGame', () => {
@@ -147,44 +154,45 @@ describe('TiltChoiceGame', () => {
     expect(screen.getByText(/✗\s+con chó/)).toBeInTheDocument();
   });
 
-  it('answers once only after 400 ms beyond the displayed threshold', () => {
+  it('commits only after the displacement eases past the commit threshold', () => {
     const { article, onResult } = prepareMouseGame();
-    reachRightDwell(article);
-    runNextFrame(479);
-    expect(onResult).not.toHaveBeenCalled();
-    runNextFrame(480);
-    expect(onResult).toHaveBeenCalledTimes(1);
-  });
-
-  it('resets dwell after returning below the threshold', () => {
-    const { article, onResult } = prepareMouseGame();
-    reachRightDwell(article);
-    movePointer(article, 'mouse', 200);
-    runNextFrame(100);
     movePointer(article, 'mouse', 400);
-    for (const now of [120, 140, 160, 180]) runNextFrame(now);
-    runNextFrame(499);
+    runFrames(7);
     expect(onResult).not.toHaveBeenCalled();
-  });
-
-  it('restarts dwell when the direction changes', () => {
-    const { article, onResult } = prepareMouseGame();
-    reachRightDwell(article);
-    movePointer(article, 'mouse', 0);
-    for (const now of [100, 120, 140, 160, 180, 200, 220, 240]) runNextFrame(now);
-    runNextFrame(480);
-    expect(onResult).not.toHaveBeenCalled();
-    runNextFrame(640);
+    runPendingFrames(5, 200);
     expect(onResult).toHaveBeenCalledTimes(1);
   });
 
-  it('does not let a click race with an in-progress dwell', () => {
+  it('rewinds the option fill and never commits when the tilt backs off', () => {
+    const { article, container, onResult } = prepareMouseGame();
+    const rightFill = container.querySelectorAll<HTMLElement>('.tilt-choice-fill')[1];
+    movePointer(article, 'mouse', 400);
+    runFrames(5);
+    expect(onResult).not.toHaveBeenCalled();
+    expect(rightFill.style.transform).not.toBe('scaleX(0)');
+
+    movePointer(article, 'mouse', 200);
+    runFrames(15, 200);
+    expect(onResult).not.toHaveBeenCalled();
+    expect(rightFill.style.transform).toBe('scaleX(0)');
+  });
+
+  it('commits the other side after the direction flips', () => {
     const { article, onResult } = prepareMouseGame();
-    reachRightDwell(article);
+    movePointer(article, 'mouse', 400);
+    runFrames(5);
+    movePointer(article, 'mouse', 0);
+    runPendingFrames(30, 200);
+    expect(onResult).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not let a click race with in-progress tilt motion', () => {
+    const { article, onResult } = prepareMouseGame();
+    movePointer(article, 'mouse', 400);
+    runFrames(5);
     fireEvent.click(screen.getByRole('button', { name: 'con chó' }));
     expect(onResult).toHaveBeenCalledTimes(1);
-    expect(frames.size).toBeGreaterThan(0);
-    runNextFrame(480);
+    runPendingFrames(5, 200);
     expect(onResult).toHaveBeenCalledTimes(1);
   });
 

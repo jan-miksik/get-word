@@ -6,19 +6,14 @@ import { Section, ToggleSwitch } from '@/components/settings/primitives';
 
 export function FrontierFeaturesSection() {
   const { t } = useI18n();
-  const {
-    swipeCardsEnabled,
-    setSwipeCardsEnabled,
-    tiltGameEnabled,
-    setTiltGameEnabled,
-    photoLabEnabled,
-    setPhotoLabEnabled,
-  } = useAppStateContext();
+  const { swipeCardsEnabled, setSwipeCardsEnabled } = useAppStateContext();
 
   return (
     <Section label={t('settings.frontierFeatures')}>
       <p className="m-0 text-xs text-text-soft/80">{t('settings.frontierFeaturesNotice')}</p>
-      {/* One row per experimental feature; new frontier toggles slot in below. */}
+      {/* Swipe cards still has an on/off toggle. Photo lab graduated to the main
+          menu (always on), so it keeps only a description + link here, no toggle;
+          the tilt quiz was retired entirely. */}
       <div className="flex flex-col gap-0.5">
         <div className="flex items-center justify-between py-0.5">
           <span className="text-sm text-text">{t('settings.swipeCards')}</span>
@@ -29,33 +24,14 @@ export function FrontierFeaturesSection() {
           />
         </div>
         <p className="m-0 text-xs text-text-soft/60">{t('settings.swipeCardsNotice')}</p>
+        <p className="m-0 text-xs font-medium text-text-soft/70">{t('settings.swipeCardsMobileOnly')}</p>
       </div>
       <div className="flex flex-col gap-0.5">
-        <div className="flex items-center justify-between py-0.5">
-          <span className="text-sm text-text">{t('settings.tiltGame')}</span>
-          <ToggleSwitch
-            checked={tiltGameEnabled}
-            onChange={setTiltGameEnabled}
-            ariaLabel={t('settings.tiltGame')}
-          />
-        </div>
-        <p className="m-0 text-xs text-text-soft/60">{t('settings.tiltGameNotice')}</p>
-      </div>
-      <div className="flex flex-col gap-0.5">
-        <div className="flex items-center justify-between py-0.5">
-          <span className="text-sm text-text">{t('settings.photoLab')}</span>
-          <ToggleSwitch
-            checked={photoLabEnabled}
-            onChange={setPhotoLabEnabled}
-            ariaLabel={t('settings.photoLab')}
-          />
-        </div>
+        <span className="text-sm text-text">{t('settings.photoLab')}</span>
         <p className="m-0 text-xs text-text-soft/60">{t('settings.photoLabNotice')}</p>
-        {photoLabEnabled && (
-          <a href="/photo-lab" className="text-xs text-accent underline">
-            {t('settings.photoLabOpen')}
-          </a>
-        )}
+        <a href="/photo-lab" className="text-xs text-accent underline">
+          {t('settings.photoLabOpen')}
+        </a>
       </div>
     </Section>
   );

@@ -7,8 +7,8 @@ import { useI18n } from '@/components/I18nProvider';
 import { SUPPORT_TELEGRAM_URL } from '@/components/SupportButton';
 import {
   CategoryIcon,
-  MemoryIcon,
   MenuIcon,
+  PhotoLabIcon,
   SettingsIcon,
   StarIcon,
   TuneIcon,
@@ -34,6 +34,8 @@ interface TopMenuProps {
   onListChange?: (id: string | null) => void;
   /** Language pair of the active list, used to suggest other lists to switch to. */
   activeListLanguagePair?: { from: string; to: string } | null;
+  /** When the photo-lab beta is enabled, surface it as a main-menu destination. */
+  photoLabEnabled?: boolean;
 }
 
 function shortenListName(name: string): string {
@@ -297,6 +299,7 @@ interface MenuDropdownProps {
   activeListId?: string | null;
   onListChange?: (id: string | null) => void;
   activeListLanguagePair?: { from: string; to: string } | null;
+  photoLabEnabled?: boolean;
 }
 
 function MenuDropdown({
@@ -308,6 +311,7 @@ function MenuDropdown({
   activeListId,
   onListChange,
   activeListLanguagePair,
+  photoLabEnabled,
 }: MenuDropdownProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -357,6 +361,16 @@ function MenuDropdown({
       active: false,
       badge: null,
     },
+    ...(photoLabEnabled
+      ? [
+          {
+            kind: 'link' as const,
+            icon: <PhotoLabIcon size={15} />,
+            label: t('top.photoLab'),
+            href: '/photo-lab',
+          },
+        ]
+      : []),
     {
       kind: 'panel',
       icon: <CategoryIcon size={15} />,
@@ -370,14 +384,6 @@ function MenuDropdown({
       icon: <UpcomingIcon size={15} />,
       label: t('top.upcoming'),
       panel: 'upcoming',
-      active: false,
-      badge: null,
-    },
-    {
-      kind: 'panel',
-      icon: <MemoryIcon size={15} />,
-      label: t('top.memory'),
-      panel: 'memoryHooks',
       active: false,
       badge: null,
     },
@@ -525,6 +531,7 @@ export function TopMenu({
   activeListId,
   onListChange,
   activeListLanguagePair,
+  photoLabEnabled,
 }: TopMenuProps) {
   return (
     <div className="top-menu" aria-label="Top menu">
@@ -546,6 +553,7 @@ export function TopMenu({
           activeListId={activeListId}
           onListChange={onListChange}
           activeListLanguagePair={activeListLanguagePair}
+          photoLabEnabled={photoLabEnabled}
         />
       </div>
     </div>

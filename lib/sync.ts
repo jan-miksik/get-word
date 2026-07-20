@@ -313,7 +313,7 @@ let pendingPromise: Promise<void> | null = null;
 let resolvePending: (() => void) | null = null;
 let rejectPending: ((error: unknown) => void) | null = null;
 let latestData: Parameters<typeof syncUserData>[0] | null = null;
-const SYNC_DELAY = 2500; // 2.5 seconds
+const SYNC_DELAY = 30_000;
 
 /** Clears any pending debounced sync so the next sync uses fresh state (e.g. after user switch). */
 export function clearPendingSync(): void {

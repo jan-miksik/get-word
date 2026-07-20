@@ -8,8 +8,8 @@ import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
 import { reportAudioStorageResponse, withAudioDebugParam } from '@/lib/audio-debug';
 import { getAudioPrefetchLimit } from '@/lib/audio-network-policy';
 
-const PREFETCH_COUNT = 10;
-const MAX_RETAINED_AUDIO = 24;
+const PREFETCH_COUNT = 4;
+const MAX_RETAINED_AUDIO = 12;
 const AUDIO_CACHE_NAME = 'get-word-active-list-audio-v1';
 
 type PrefetchedAudioEntry = {

@@ -19,6 +19,17 @@ class FakeDeviceOrientationEvent extends Event {
 
 const orientation = Object.assign(new EventTarget(), { angle: 0 });
 
+// jsdom does not guarantee an own `isSecureContext` value across versions, so
+// the suite pins it explicitly and restores whatever was there before.
+const originalSecureContextDescriptor = Object.getOwnPropertyDescriptor(
+  window,
+  'isSecureContext',
+);
+
+function setSecureContext(value: boolean) {
+  Object.defineProperty(window, 'isSecureContext', { configurable: true, value });
+}
+
 function installOrientationConstructor(
   requestPermission?: () => Promise<'granted' | 'denied'>,
 ) {
@@ -40,6 +51,7 @@ function dispatchOrientation(beta: number | null, gamma: number | null) {
 beforeEach(() => {
   resetDeviceTiltStoreForTests();
   orientation.angle = 0;
+  setSecureContext(true);
   Object.defineProperty(window.screen, 'orientation', {
     configurable: true,
     value: orientation,
@@ -50,6 +62,11 @@ beforeEach(() => {
 afterEach(() => {
   resetDeviceTiltStoreForTests();
   vi.restoreAllMocks();
+  if (originalSecureContextDescriptor) {
+    Object.defineProperty(window, 'isSecureContext', originalSecureContextDescriptor);
+  } else {
+    Reflect.deleteProperty(window, 'isSecureContext');
+  }
 });
 
 describe('useDeviceTilt', () => {
@@ -127,6 +144,34 @@ describe('useDeviceTilt', () => {
 
     const second = renderHook(() => useDeviceTilt());
     expect(second.result.current.support).toBe('denied');
+  });
+
+  it('reports an insecure origin without touching listeners or the permission API', async () => {
+    setSecureContext(false);
+    const permission = vi.fn(async () => 'granted' as const);
+    installOrientationConstructor(permission);
+    const addListener = vi.spyOn(window, 'addEventListener');
+
+    const { result } = renderHook(() => useDeviceTilt());
+    expect(result.current.support).toBe('insecure');
+
+    await act(async () => {
+      expect(await result.current.requestPermission()).toBe(false);
+    });
+    expect(result.current.support).toBe('insecure');
+    expect(permission).not.toHaveBeenCalled();
+    expect(addListener).not.toHaveBeenCalledWith('deviceorientation', expect.anything());
+  });
+
+  it('reports insecure even when the constructor is missing (WebKit hides it on http)', () => {
+    setSecureContext(false);
+    Object.defineProperty(window, 'DeviceOrientationEvent', {
+      configurable: true,
+      value: undefined,
+    });
+
+    const { result } = renderHook(() => useDeviceTilt());
+    expect(result.current.support).toBe('insecure');
   });
 
   it('removes the shared device listener after the final subscriber unmounts', () => {

@@ -69,6 +69,16 @@ export function MemoryIcon(props: IconProps) {
   );
 }
 
+export function PhotoLabIcon(props: IconProps) {
+  return (
+    <Glyph {...props} strokeWidth={props.strokeWidth ?? 1.8}>
+      <rect x="3" y="6.5" width="18" height="13" rx="2.5" />
+      <path d="M8.5 6.5l1.1-2.1a1 1 0 0 1 .9-.55h3a1 1 0 0 1 .9.55L15.5 6.5" />
+      <circle cx="12" cy="13" r="3.25" />
+    </Glyph>
+  );
+}
+
 export function StudyNoteIcon(props: IconProps) {
   return (
     <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>

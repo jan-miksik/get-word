@@ -26,7 +26,7 @@ import type { LinkPayload } from './types';
 
 // Collapses the focus/visibilitychange/pageshow event burst (returning to the
 // app fires all three) into one conditional refetch.
-const REFETCH_THROTTLE_MS = 10_000;
+const REFETCH_THROTTLE_MS = 5 * 60_000;
 
 interface UseServerSyncOptions {
   words: NormalizedWord[];

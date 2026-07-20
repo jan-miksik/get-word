@@ -76,6 +76,7 @@ export function AppLayout({
     activeListId,
     setActiveListId,
     syncedWords,
+    photoLabEnabled,
   } = useAppStateContext();
   const [pendingAudioListId, setPendingAudioListId] = useState<string | null>(() =>
     readPendingCommonListAudio()?.listId ?? null,
@@ -134,6 +135,7 @@ export function AppLayout({
           activeListId={activeListId}
           onListChange={setActiveListId}
           activeListLanguagePair={activeListLanguagePair}
+          photoLabEnabled={photoLabEnabled}
           centerContent={
             isAuthenticated
               ? <ProgressSummary progressStats={progressStats} />

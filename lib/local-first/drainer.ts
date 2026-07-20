@@ -6,8 +6,8 @@ import { deleteOps, markFailed, peekReadyOps } from './outbox';
 import { ensureLocalFirstAvailability } from './availability';
 
 const MAX_BATCH = 25;
-const DEBOUNCE_MS = 2500;
-const PERIODIC_DRAIN_MS = 60_000;
+const DEBOUNCE_MS = 30_000;
+const PERIODIC_DRAIN_MS = 10 * 60_000;
 
 let debounceTimer: ReturnType<typeof setTimeout> | null = null;
 let drainInFlight: Promise<void> | null = null;

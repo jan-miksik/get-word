@@ -55,17 +55,17 @@ describe('audio prefetch', () => {
     const urls = Array.from({ length: 12 }, (_, index) => `/speech/vi/${index}.mp3`);
 
     await prefetchAudio(urls);
-    expect(Audio).toHaveBeenCalledTimes(10);
-    expect(load).toHaveBeenCalledTimes(10);
-    expect(fetch).toHaveBeenCalledTimes(10);
-    expect(cachePut).toHaveBeenCalledTimes(10);
+    expect(Audio).toHaveBeenCalledTimes(4);
+    expect(load).toHaveBeenCalledTimes(4);
+    expect(fetch).toHaveBeenCalledTimes(4);
+    expect(cachePut).toHaveBeenCalledTimes(4);
     expect(getPrefetchedAudioUrl(urls[0])).toBe('blob:audio-1');
 
     await prefetchAudio(urls);
 
-    expect(Audio).toHaveBeenCalledTimes(12);
-    expect(load).toHaveBeenCalledTimes(12);
-    expect(fetch).toHaveBeenCalledTimes(12);
+    expect(Audio).toHaveBeenCalledTimes(8);
+    expect(load).toHaveBeenCalledTimes(8);
+    expect(fetch).toHaveBeenCalledTimes(8);
   });
 
   it('keeps only a bounded window of media elements alive', async () => {
@@ -77,8 +77,8 @@ describe('audio prefetch', () => {
 
     clearPrefetchCache();
 
-    expect(Audio).toHaveBeenCalledTimes(30);
-    expect(pause).toHaveBeenCalledTimes(30);
-    expect(URL.revokeObjectURL).toHaveBeenCalledTimes(30);
+    expect(Audio).toHaveBeenCalledTimes(12);
+    expect(pause).toHaveBeenCalledTimes(12);
+    expect(URL.revokeObjectURL).toHaveBeenCalledTimes(12);
   });
 });

@@ -2,7 +2,7 @@
 
 import { useSyncExternalStore } from 'react';
 
-type TiltSupport = 'granted' | 'needs-permission' | 'denied' | 'unsupported';
+type TiltSupport = 'granted' | 'needs-permission' | 'denied' | 'unsupported' | 'insecure';
 
 type TiltSnapshot = {
   tilt: number | null;
@@ -102,7 +102,21 @@ function attachListeners(): void {
 }
 
 function detectSupport(): void {
-  if (typeof window === 'undefined' || typeof window.DeviceOrientationEvent === 'undefined') {
+  if (typeof window === 'undefined') {
+    publish({ tilt: null, support: 'unsupported' });
+    return;
+  }
+
+  // Secure context has to be checked before the constructor: the Device
+  // Orientation API is spec-gated to HTTPS, and newer WebKit does not expose
+  // DeviceOrientationEvent on insecure origins at all — probing the
+  // constructor first would misreport this as 'unsupported'.
+  if (!window.isSecureContext) {
+    publish({ tilt: null, support: 'insecure' });
+    return;
+  }
+
+  if (typeof window.DeviceOrientationEvent === 'undefined') {
     publish({ tilt: null, support: 'unsupported' });
     return;
   }
@@ -136,7 +150,19 @@ function getSnapshot(): TiltSnapshot {
 }
 
 async function requestDeviceTiltPermission(): Promise<boolean> {
-  if (typeof window === 'undefined' || typeof window.DeviceOrientationEvent === 'undefined') {
+  if (typeof window === 'undefined') {
+    publish({ tilt: null, support: 'unsupported' });
+    return false;
+  }
+
+  // Insecure origins must not fall through to 'denied' — the user never
+  // rejected anything — and must not touch listeners or the permission API.
+  if (!window.isSecureContext) {
+    publish({ tilt: null, support: 'insecure' });
+    return false;
+  }
+
+  if (typeof window.DeviceOrientationEvent === 'undefined') {
     publish({ tilt: null, support: 'unsupported' });
     return false;
   }

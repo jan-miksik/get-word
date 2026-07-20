@@ -755,7 +755,7 @@ export function TypingStudyCard({
             <button
               ref={compactContinueRef}
               type="button"
-              className="typing-continue-enter srs-btn srs-btn--okay mx-auto !hidden w-full !max-w-md items-center justify-center rounded-xl border-2 border-[#2A2218] bg-[#F4EFE2] px-3 text-[#2A2218] shadow-none hover:border-[#1E6FA8] hover:bg-[#1E6FA8] hover:text-[#F4EFE2] focus-visible:border-[#1E6FA8] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1E6FA8] md:absolute md:right-0 md:top-0 md:mx-0 md:!flex md:!h-[72px] md:!min-h-[72px] md:!w-64 md:!max-w-64 md:[@media(max-height:800px)]:!h-14 md:[@media(max-height:800px)]:!min-h-14"
+              className="typing-continue-enter srs-btn srs-btn--okay mx-auto !hidden w-full !max-w-md items-center justify-center rounded-xl border-2 !border-[#1E6FA8] !bg-[#1E6FA8] px-3 !text-[#F4EFE2] shadow-none hover:!border-[#17608f] hover:!bg-[#17608f] hover:!text-[#F4EFE2] focus-visible:!border-[#17608f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1E6FA8] md:absolute md:right-0 md:top-0 md:mx-0 md:!flex md:!h-[72px] md:!min-h-[72px] md:!w-64 md:!max-w-64 md:[@media(max-height:800px)]:!h-14 md:[@media(max-height:800px)]:!min-h-14"
               onClick={handleContinue}
             >
               <span className="srs-btn-copy">
@@ -813,7 +813,7 @@ export function TypingStudyCard({
       {result && (
         <button
           type="button"
-          className="typing-mobile-continue-enter absolute inset-x-0 bottom-0 z-10 flex min-h-[60px] w-full items-center justify-center border-0 border-t-2 border-[#2A2218] bg-[#2A2218] px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] text-[#F4EFE2] shadow-[0_-6px_18px_rgba(0,0,0,0.18)] md:hidden"
+          className="typing-mobile-continue-enter absolute inset-x-0 bottom-0 z-10 flex min-h-[60px] w-full items-center justify-center border-0 border-t-2 border-[#1E6FA8] bg-[#1E6FA8] px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] text-[#F4EFE2] shadow-[0_-6px_18px_rgba(0,0,0,0.18)] md:hidden"
           onClick={handleContinue}
         >
           <span className="srs-btn-copy gap-1">

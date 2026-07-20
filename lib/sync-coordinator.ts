@@ -34,8 +34,8 @@ export interface SyncStatus {
 type Listener = (status: SyncStatus) => void;
 
 const LAST_SYNCED_AT_KEY = 'get-word-last-synced-at';
-const NORMAL_SYNC_DEBOUNCE_MS = 7_500;
-const PERIODIC_SYNC_MS = 5 * 60 * 1000;
+const NORMAL_SYNC_DEBOUNCE_MS = 30_000;
+const PERIODIC_SYNC_MS = 10 * 60 * 1000;
 const RETRY_DELAYS_MS = [10_000, 30_000, 2 * 60_000, 5 * 60_000];
 const KEEPALIVE_MAX_BYTES = 60 * 1024;
 

@@ -53,7 +53,7 @@ describe('CardDeckView', () => {
     prefetchAudioMock.mockClear();
   });
 
-  it('starts preloading audio for the current and next 5 cards before probes finish', async () => {
+  it('starts preloading audio for the current and next card before probes finish', async () => {
     const groupedWords = [[
       makeWordWithUniqueAudio('w1'),
       makeWordWithUniqueAudio('w2'),
@@ -64,7 +64,7 @@ describe('CardDeckView', () => {
       makeWordWithUniqueAudio('w7'),
     ]];
     const expectedUrls = groupedWords[0]
-      .slice(0, 6)
+      .slice(0, 2)
       .flatMap((word) => [`/speech/cz/${word.id}.mp3`, `/speech/vi/${word.id}.mp3`]);
 
     render(
@@ -78,7 +78,7 @@ describe('CardDeckView', () => {
     await waitFor(() => {
       expect(prefetchAudioMock).toHaveBeenNthCalledWith(1, expectedUrls);
     });
-    await waitFor(() => expect(getPlayableAudioUrlMock).toHaveBeenCalledTimes(12));
+    await waitFor(() => expect(getPlayableAudioUrlMock).toHaveBeenCalledTimes(4));
   });
 
   it('does not issue audio warmup probes while offline', async () => {
