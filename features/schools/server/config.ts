@@ -13,9 +13,13 @@ export const SCHOOL_PLAN_LIMITS: Record<SchoolPlan, Record<SchoolRole, SchoolBen
       translationItemsMonthlyLimit: 1000,
       translationItemMaxChars: 160,
     },
+    // A teacher prepares material for a whole class, so their allowance covers
+    // the class rather than one learner's own studying. `translationItemsMonthly`
+    // doubles as the per-request ceiling, which is what makes translating a
+    // full list in one go possible for a teacher and not for a student.
     teacher: {
-      photoLabMonthlyLimit: 25,
-      translationItemsMonthlyLimit: 1000,
+      photoLabMonthlyLimit: 50,
+      translationItemsMonthlyLimit: 5000,
       translationItemMaxChars: 160,
     },
   },

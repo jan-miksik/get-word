@@ -1,4 +1,4 @@
-import { createHmac, randomBytes } from 'crypto';
+import { createHash, randomBytes } from 'crypto';
 import {
   SCHOOL_CODE_MAX_LENGTH,
   SCHOOL_CODE_MIN_LENGTH,
@@ -23,24 +23,28 @@ export function assertUsableSchoolCode(code: string) {
 }
 
 /**
- * Derived from the session secret rather than a dedicated variable: one fewer
- * thing to configure, and it cannot be missing in production (login already
- * requires it). The `school-code-v1:` prefix keeps this hash domain-separated
- * from session cookie signing even though both share key material.
+ * Unkeyed on purpose. What the stored hash has to guarantee is that read access
+ * to the database does not hand out redeemable codes — that is preimage
+ * resistance, and SHA-256 gives it outright. A key would only add resistance to
+ * precomputation, which needs guessable inputs to matter; `generateSchoolCode`
+ * emits 20 symbols from a 32-symbol alphabet, so there is nothing to precompute
+ * against. Codes an operator types by hand are the exception, which is why
+ * issuing one is restricted to non-production databases in
+ * `scripts/school-access.ts` rather than papered over with a key here.
  *
- * Changing either the secret or the prefix invalidates every issued code, so
- * treat the version tag as the migration hook if this ever needs to move.
+ * A key also made the hash environment-bound: a code issued against production
+ * from a shell holding any other secret was written happily and then rejected
+ * at redeem as invalid, and rotating the session secret silently killed every
+ * `/school/redeem` link already in teachers' hands. Neither is a trade worth
+ * making for protection that high-entropy codes do not need.
+ *
+ * The `school-code-v2:` prefix keeps the digest domain-separated and marks the
+ * scheme; bump it if the input format ever changes, and treat that bump as
+ * invalidating every issued code.
  */
-function getSchoolCodeSecret(): string {
-  const configured = process.env.APP_SESSION_SECRET;
-  if (configured && configured.length > 0) return configured;
-  if (process.env.NODE_ENV !== 'production') return 'dev-only-insecure-secret';
-  throw new Error('APP_SESSION_SECRET is required to hash school access codes.');
-}
-
 export function hashSchoolCode(code: string) {
-  return createHmac('sha256', getSchoolCodeSecret())
-    .update(`school-code-v1:${normalizeSchoolCode(code)}`)
+  return createHash('sha256')
+    .update(`school-code-v2:${normalizeSchoolCode(code)}`)
     .digest('hex');
 }
 

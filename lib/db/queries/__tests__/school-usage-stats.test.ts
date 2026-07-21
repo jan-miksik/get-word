@@ -232,12 +232,15 @@ describe('getSchoolUsageStats', () => {
   });
 
   it('counts members at their own role limit', async () => {
-    // pilot_v1 grants 1000 translation items and 25 photo analyses per member.
+    // pilot_v1 grants a student 1000 translation items and 25 photo analyses;
+    // a teacher gets 5000 and 50. The third member spends exactly a student's
+    // allowance, which for a teacher is nowhere near the limit — so a role-blind
+    // comparison would wrongly report them as capped.
     mockQueries({
       membersAtLimit: [
         { role: 'student', translation_used: 1000, photo_lab_used: 3 },
         { role: 'student', translation_used: 4, photo_lab_used: 25 },
-        { role: 'teacher', translation_used: 999, photo_lab_used: 24 },
+        { role: 'teacher', translation_used: 1000, photo_lab_used: 25 },
       ],
     });
 
@@ -247,7 +250,7 @@ describe('getSchoolUsageStats', () => {
     expect(stats?.ai.photoLab.membersAtLimit).toBe(1);
     expect(stats?.ai.limits).toEqual({
       student: { translationItemsMonthly: 1000, photoLabMonthly: 25 },
-      teacher: { translationItemsMonthly: 1000, photoLabMonthly: 25 },
+      teacher: { translationItemsMonthly: 5000, photoLabMonthly: 50 },
     });
   });
 

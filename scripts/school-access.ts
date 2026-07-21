@@ -4,8 +4,10 @@
  * Usage examples:
  *   pnpm tsx scripts/school-access.ts create-school --name "Pilot School"
  *   pnpm tsx scripts/school-access.ts create-code --school <uuid> --role student
- *   pnpm tsx scripts/school-access.ts create-code --school <uuid> --role student --code TEST-SCHOOL-2026
+ *   pnpm tsx scripts/school-access.ts create-code --school <uuid> --role student --code TEST-SCHOOL-2026  (local databases only)
  *   pnpm tsx scripts/school-access.ts school-status --school <uuid>
+ *   pnpm tsx scripts/school-access.ts set-expiry --school <uuid> --expires 2027-06-30 --codes
+ *   pnpm tsx scripts/school-access.ts set-expiry --school <uuid> --clear
  *   pnpm tsx scripts/school-access.ts rotate-code --code <code>
  *   pnpm tsx scripts/school-access.ts revoke-membership --user <uuid>
  *   pnpm tsx scripts/school-access.ts change-membership-role --user <uuid> --role teacher
@@ -20,7 +22,14 @@ import {
   hashSchoolCode,
 } from "../features/schools/server/code";
 
-if (!process.env.DATABASE_URL) {
+/**
+ * An inherited DATABASE_URL means someone else picked the database — in
+ * practice `production-db.sh`. That makes it the closest thing this script has
+ * to "am I pointed at production", used below to keep hand-written codes out,
+ * and it means `.env.local` should stay out of the way here.
+ */
+const inheritedDatabaseUrl = Boolean(process.env.DATABASE_URL);
+if (!inheritedDatabaseUrl) {
   dotenv.config({ path: ".env.local" });
 }
 
@@ -84,6 +93,15 @@ async function createCode(input: {
   expiresAt: string | null;
   code?: string;
 }) {
+  // A hand-written code is a testing convenience, and it is the one input the
+  // stored hash cannot protect: `TEST-SCHOOL-2026` survives a database leak
+  // only until someone guesses it. Generated codes carry ~100 bits, so the
+  // restriction costs nothing where it matters.
+  if (input.code !== undefined && inheritedDatabaseUrl) {
+    throw new Error(
+      "--code is for local databases only; omit it so a random code is generated.",
+    );
+  }
   const code = input.code ?? generateSchoolCode();
   if (!assertUsableSchoolCode(code)) throw new Error("Invalid --code");
   await sql`
@@ -122,6 +140,103 @@ async function schoolStatus(args: Map<string, string | true>) {
     GROUP BY s.id
   `;
   console.log(JSON.stringify(rows[0] ?? null, null, 2));
+}
+
+/**
+ * Print the wall clock that is actually stored in the column, whether the value
+ * came back from postgres or came in on argv.
+ *
+ * `pilot_expires_at` is `timestamp` without a time zone, so the driver reads it
+ * as a local-time Date while argv arrives as a UTC ISO string. Rendering either
+ * one through `toISOString()` shifts it by the operator's offset — setting
+ * `2027-06-30` and reading back `2027-06-29T22:00Z` looks like the command
+ * missed, and the obvious reaction is to write again with a "corrected" date.
+ */
+function formatExpiry(value: Date | string | null): string {
+  if (value === null) return "no expiry";
+  if (value instanceof Date) {
+    if (Number.isNaN(value.getTime())) return String(value);
+    const pad = (part: number) => String(part).padStart(2, "0");
+    return (
+      `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}` +
+      ` ${pad(value.getHours())}:${pad(value.getMinutes())}:${pad(value.getSeconds())}`
+    );
+  }
+  return value.replace("T", " ").replace(/\.\d+Z?$/, "").replace(/Z$/, "");
+}
+
+/**
+ * Move a school's pilot window, forwards or backwards.
+ *
+ * `pilot_expires_at` is evaluated per request and nothing caches it, so both
+ * directions take effect immediately. Expiry never revokes memberships either,
+ * which is what makes a reopened pilot pick up exactly where it left off — no
+ * one has to redeem a code again.
+ *
+ * Access codes carry their own `expires_at` and are deliberately left alone
+ * unless `--codes` is passed: reopening a pilot for the class that is already
+ * in it is a different decision from letting new members join, and the two
+ * should not be conflated by a single flag-less command.
+ */
+async function setExpiry(args: Map<string, string | true>) {
+  const schoolId = required(args, "school");
+  const clear = args.get("clear") === true;
+  const expiresAt = clear ? null : optionalDateSql(args, "expires");
+  if (!clear && !expiresAt) {
+    throw new Error("Pass --expires <date>, or --clear to remove the expiry");
+  }
+  const alsoCodes = args.get("codes") === true;
+  const label = formatExpiry(expiresAt);
+
+  await sql.begin(async (rawTx) => {
+    const tx = rawTx as unknown as QueryFn;
+    const schools = await tx<{ id: string; name: string; pilot_expires_at: Date | null }[]>`
+      SELECT id, name, pilot_expires_at
+      FROM schools
+      WHERE id = ${schoolId}
+      FOR UPDATE
+    `;
+    const school = schools[0];
+    if (!school) throw new Error("School not found");
+
+    await tx`
+      UPDATE schools
+      SET pilot_expires_at = ${expiresAt}::timestamp, updated_at = now()
+      WHERE id = ${school.id}
+    `;
+    console.log(
+      `[school] ${school.name}: pilot ${formatExpiry(school.pilot_expires_at)} -> ${label}`,
+    );
+
+    if (alsoCodes) {
+      const codes = await tx<{ id: string }[]>`
+        UPDATE school_access_codes
+        SET expires_at = ${expiresAt}::timestamp, updated_at = now()
+        WHERE school_id = ${school.id}
+          AND revoked_at IS NULL
+        RETURNING id
+      `;
+      console.log(`[school] moved ${codes.length} active code(s) to ${label}`);
+      return;
+    }
+
+    // Warn rather than act: a school whose window now outlasts its codes still
+    // serves its current members but silently turns away new ones, and that is
+    // hard to tell apart from a wrong code when a student reports it.
+    const stale = await tx<{ count: number }[]>`
+      SELECT count(*)::int AS count
+      FROM school_access_codes
+      WHERE school_id = ${school.id}
+        AND revoked_at IS NULL
+        AND expires_at IS NOT NULL
+        AND (${expiresAt}::timestamp IS NULL OR expires_at < ${expiresAt}::timestamp)
+    `;
+    if (stale[0].count > 0) {
+      console.log(
+        `[school] ${stale[0].count} active code(s) still expire earlier; re-run with --codes to move them too.`,
+      );
+    }
+  });
 }
 
 async function createCodeCommand(args: Map<string, string | true>) {
@@ -279,6 +394,9 @@ async function main() {
         break;
       case "school-status":
         await schoolStatus(args);
+        break;
+      case "set-expiry":
+        await setExpiry(args);
         break;
       case "create-code":
         await createCodeCommand(args);
