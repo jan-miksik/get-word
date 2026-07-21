@@ -1170,6 +1170,8 @@ export const enMessages = {
   "schoolStats.schoolsError": "Failed to load schools.",
   "schoolStats.schoolsTableName": "School",
   "schoolStats.backToAdminStats": "Back to usage statistics",
+  "schoolStats.backToApp": "Back to app",
+  "schoolStats.backToSchools": "Back to schools",
 } as const;
 
 export type I18nKey = keyof typeof enMessages;

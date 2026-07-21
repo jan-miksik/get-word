@@ -143,6 +143,7 @@ export function useAppState(
     isUpdatingFromServerRef,
     applyServerProgress: progressState.applyServerProgress,
     mergeServerProgress: progressState.mergeServerProgress,
+    reconcileServerProgress: progressState.reconcileServerProgress,
     applyServerMemoryHooks: memoryHooks.applyServerMemoryHooks,
     mergeServerMemoryHooks: memoryHooks.mergeServerMemoryHooks,
     applyServerCategories: categories.applyServerCategories,

@@ -12,23 +12,40 @@ import {
 import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLanguage';
 import { useSchoolStats } from '@/features/schools/client/useSchoolStats';
 import type { SchoolMemberUsageRow } from '@/features/schools/types';
+import type { I18nKey } from '@/lib/i18n/locales/en';
+
+type SchoolStatsPageProps = {
+  endpoint: string;
+  /** Where the page leads back to, so no state of it is a dead end. */
+  backHref: string;
+  backLabelKey: I18nKey;
+};
 
 /**
  * One school's usage dashboard, shared by the teacher-facing `/school/overview`
  * and the editor-facing `/admin/schools/[id]`. Member rows are pseudonymized —
  * see `lib/db/queries/school-usage-stats.ts`.
  */
-export function SchoolStatsPage({ endpoint }: { endpoint: string }) {
+export function SchoolStatsPage(props: SchoolStatsPageProps) {
   const settingsLanguage = useSettingsLanguage();
 
   return (
     <I18nProvider language={settingsLanguage}>
-      <SchoolStatsContent endpoint={endpoint} />
+      <SchoolStatsContent {...props} />
     </I18nProvider>
   );
 }
 
-function SchoolStatsContent({ endpoint }: { endpoint: string }) {
+function BackLink({ href, labelKey }: { href: string; labelKey: I18nKey }) {
+  const { t } = useI18n();
+  return (
+    <Link href={href} className="text-sm text-accent underline">
+      ← {t(labelKey)}
+    </Link>
+  );
+}
+
+function SchoolStatsContent({ endpoint, backHref, backLabelKey }: SchoolStatsPageProps) {
   const { t } = useI18n();
   const { state, activityWindow, reload, changeActivityWindow } = useSchoolStats(endpoint);
 
@@ -55,6 +72,11 @@ function SchoolStatsContent({ endpoint }: { endpoint: string }) {
               </button>
             </>
           )}
+          {state.status !== 'loading' && (
+            <p>
+              <BackLink href={backHref} labelKey={backLabelKey} />
+            </p>
+          )}
         </div>
       </div>
     );
@@ -69,7 +91,8 @@ function SchoolStatsContent({ endpoint }: { endpoint: string }) {
       <div className="max-w-4xl mx-auto px-4 py-8 space-y-10">
         <header className="flex flex-wrap items-baseline justify-between gap-2">
           <div>
-            <h1 className="text-2xl font-semibold">{stats.school.name}</h1>
+            <BackLink href={backHref} labelKey={backLabelKey} />
+            <h1 className="mt-1 text-2xl font-semibold">{stats.school.name}</h1>
             <p className="text-sm text-text-soft">{t('schoolStats.title')}</p>
           </div>
           <div className="flex items-baseline gap-3 text-sm text-text-soft">

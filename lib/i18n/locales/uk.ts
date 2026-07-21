@@ -1170,6 +1170,8 @@ export const ukMessages: I18nMessages = {
   "schoolStats.schoolsError": "Не вдалося завантажити школи.",
   "schoolStats.schoolsTableName": "Школа",
   "schoolStats.backToAdminStats": "Назад до статистики використання",
+  "schoolStats.backToApp": "Назад до застосунку",
+  "schoolStats.backToSchools": "Назад до списку шкіл",
   "adminStats.partialWeek": "поточний тиждень (неповний)",
   "adminStats.noData": "Даних поки немає",
 };

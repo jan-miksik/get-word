@@ -1172,4 +1172,6 @@ export const csMessages: I18nMessages = {
   "schoolStats.schoolsError": "Školy se nepodařilo načíst.",
   "schoolStats.schoolsTableName": "Škola",
   "schoolStats.backToAdminStats": "Zpět na statistiky používání",
+  "schoolStats.backToApp": "Zpět do aplikace",
+  "schoolStats.backToSchools": "Zpět na seznam škol",
 };

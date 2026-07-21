@@ -22,6 +22,22 @@ export function scheduleDrain(): void {
   }, DEBOUNCE_MS);
 }
 
+/**
+ * Push everything the outbox is holding and resolve once the server has
+ * answered, joining a drain that is already running rather than starting a
+ * second one.
+ *
+ * Callers that are about to *read* from the server use this to order the two
+ * halves of a sync: a GET issued while a POST is still in flight is answered
+ * from pre-mutation state, and by the time it lands the acknowledged ops are
+ * gone from the outbox, so the stale rows arrive unmasked. Draining first
+ * keeps the read behind the write. Never rejects — a failed drain leaves the
+ * ops queued for the next attempt and must not block the read.
+ */
+export async function flushOutboxBeforeRead(): Promise<void> {
+  await drainOnce().catch(() => undefined);
+}
+
 async function drainOnce(): Promise<void> {
   if (drainInFlight) return drainInFlight;
   drainInFlight = doDrain().finally(() => {

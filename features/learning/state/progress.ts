@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { ProgressData, SyncResponse, SyncReviewEventItem } from '@/features/sync/types';
 import { enqueueOp } from '@/lib/local-first/enqueue';
+import { progressActivityAt } from '@/lib/progress-freshness';
 import { STAGES } from '@/lib/words';
 import { requestSync } from '@/lib/sync-coordinator';
 import {
@@ -83,6 +84,37 @@ function withPendingEventsApplied(
   return next;
 }
 
+function toIsoOrNull(value: number | undefined): string | null {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? new Date(value).toISOString()
+    : null;
+}
+
+/** Render a locally held progress row in the wire shape a server payload uses. */
+function toServerShape(
+  key: string,
+  local: ProgressData,
+  existing: SyncResponse['progress'][string] | undefined,
+  userId: string
+): SyncResponse['progress'][string] {
+  const isUuid = UUID_RE.test(key);
+  const updatedAt = new Date(progressActivityAt(local)).toISOString();
+  return {
+    id: existing?.id ?? key,
+    userId: existing?.userId ?? userId,
+    wordId: existing?.wordId ?? (isUuid ? null : key),
+    wordListItemId: existing?.wordListItemId ?? (isUuid ? key : null),
+    stageIndex: local.stageIndex,
+    knownCount: local.knownCount,
+    unknownCount: local.unknownCount,
+    lastKnownAt: toIsoOrNull(local.lastKnownAt),
+    lastUnknownAt: toIsoOrNull(local.lastUnknownAt),
+    nextDueAt: toIsoOrNull(local.nextDueAt),
+    createdAt: existing?.createdAt ?? updatedAt,
+    updatedAt,
+  };
+}
+
 export function serializeProgressForSync(
   progress: Record<string, ProgressData>,
   clientUpdatedAt: number = Date.now(),
@@ -125,7 +157,7 @@ export function useProgress(
 
   const applyServerProgress = useCallback(
     (serverProgress: SyncResponse['progress']) => {
-      if (!serverProgress || Object.keys(serverProgress).length === 0) return;
+      if (!serverProgress) return;
       const next: Record<string, ProgressData> = {};
       for (const [wordId, progressEntry] of Object.entries(serverProgress)) {
         next[wordId] = {
@@ -174,6 +206,46 @@ export function useProgress(
     },
     []
   );
+
+  /**
+   * Repair a server payload that is older than this device before anything
+   * consumes it.
+   *
+   * A GET issued while a POST is still in flight is answered from database
+   * state that predates the mutation. By the time that answer arrives the
+   * drainer has been acknowledged and has dropped the outbox entries that
+   * would otherwise have masked it, so nothing else stands between the stale
+   * rows and the user: the word just marked known drops back a stage with a
+   * `nextDueAt` already in the past, and the study stream serves it again.
+   * Both /api/sync GETs and the drainer POST fire on focus, visibilitychange
+   * and online, so the two run concurrently by design.
+   *
+   * The caller applies this before writing state *and* before persisting to
+   * IndexedDB, so a stale row can't be resurrected by the next warm boot
+   * either.
+   */
+  const reconcileServerProgress = useCallback((data: SyncResponse): SyncResponse => {
+    const serverProgress = data.progress;
+    if (!serverProgress) return data;
+    const local = progressRef.current;
+    // A delta only describes rows that changed, so a missing key says nothing
+    // there. Only a full snapshot claims to be the complete set, and only then
+    // does an absent row mean "the server has no progress for this word".
+    const keys = data.is_delta ? Object.keys(serverProgress) : Object.keys(local);
+
+    let reconciled: SyncResponse['progress'] | null = null;
+    for (const key of keys) {
+      const localEntry = local[key];
+      if (!localEntry) continue;
+      const localAt = progressActivityAt(localEntry);
+      if (localAt === 0) continue;
+      if (localAt <= progressActivityAt(serverProgress[key])) continue;
+      reconciled = reconciled ?? { ...serverProgress };
+      reconciled[key] = toServerShape(key, localEntry, serverProgress[key], data.user.id);
+    }
+
+    return reconciled ? { ...data, progress: reconciled } : data;
+  }, []);
 
   const setLastMoved = useCallback((wordId: string) => {
     setLastMovedId(wordId);
@@ -345,5 +417,6 @@ export function useProgress(
     getWordDisplayMode,
     applyServerProgress,
     mergeServerProgress,
+    reconcileServerProgress,
   };
 }

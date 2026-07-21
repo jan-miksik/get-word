@@ -1170,6 +1170,8 @@ export const viMessages: I18nMessages = {
   "schoolStats.schoolsError": "Không tải được danh sách trường.",
   "schoolStats.schoolsTableName": "Trường",
   "schoolStats.backToAdminStats": "Quay lại thống kê sử dụng",
+  "schoolStats.backToApp": "Quay lại ứng dụng",
+  "schoolStats.backToSchools": "Quay lại danh sách trường",
   "adminStats.partialWeek": "tuần hiện tại (chưa đủ)",
   "adminStats.noData": "Chưa có dữ liệu",
 };

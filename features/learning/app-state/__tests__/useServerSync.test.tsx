@@ -89,6 +89,7 @@ function useServerSyncHarness() {
     isUpdatingFromServerRef: { current: false },
     applyServerProgress: vi.fn(),
     mergeServerProgress: vi.fn(),
+    reconcileServerProgress: (data: SyncResponse) => data,
     applyServerMemoryHooks: vi.fn(),
     mergeServerMemoryHooks: vi.fn(),
     applyServerCategories: vi.fn(),

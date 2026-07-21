@@ -7,6 +7,10 @@ export default async function AdminSchoolStatsRoute({
 }) {
   const { schoolId } = await params;
   return (
-    <SchoolStatsPage endpoint={`/api/admin/schools/${encodeURIComponent(schoolId)}/stats`} />
+    <SchoolStatsPage
+      endpoint={`/api/admin/schools/${encodeURIComponent(schoolId)}/stats`}
+      backHref="/admin/schools"
+      backLabelKey="schoolStats.backToSchools"
+    />
   );
 }

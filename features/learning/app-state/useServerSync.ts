@@ -9,7 +9,7 @@ import {
   markServerSnapshotApplied,
 } from '@/lib/sync';
 import { installSyncLifecycle } from '@/lib/sync-coordinator';
-import { startDrainer } from '@/lib/local-first/drainer';
+import { flushOutboxBeforeRead, startDrainer } from '@/lib/local-first/drainer';
 import {
   applyPendingOutboxToSyncResponse,
   loadAllDomainsFromIdb,
@@ -55,6 +55,7 @@ interface UseServerSyncOptions {
   isUpdatingFromServerRef: React.MutableRefObject<boolean>;
   applyServerProgress: (progress: SyncResponse['progress']) => void;
   mergeServerProgress: (progress: SyncResponse['progress']) => void;
+  reconcileServerProgress: (data: SyncResponse) => SyncResponse;
   applyServerMemoryHooks: (memoryHooks: SyncResponse['memory_hooks']) => void;
   mergeServerMemoryHooks: (updated: SyncResponse['memory_hooks'], deleted: string[]) => void;
   applyServerCategories: (categories: SyncResponse['category_filters']) => void;
@@ -81,6 +82,7 @@ export function useServerSync({
   isUpdatingFromServerRef,
   applyServerProgress,
   mergeServerProgress,
+  reconcileServerProgress,
   applyServerMemoryHooks,
   mergeServerMemoryHooks,
   applyServerCategories,
@@ -219,15 +221,19 @@ export function useServerSync({
       serverData,
       serverData.submitted_review_events ?? []
     ).catch(() => serverData);
+    // The outbox overlay only covers mutations still waiting to be sent. Rows
+    // whose ops were already acknowledged are protected by the reconciliation
+    // instead, which compares the payload against what this device holds.
+    const freshServerData = reconcileServerProgress(overlaidServerData);
     if (serverData.is_delta) {
-      await applyServerDelta(overlaidServerData);
+      await applyServerDelta(freshServerData);
     } else {
-      await applyServerData(overlaidServerData, { clearPending: false });
+      await applyServerData(freshServerData, { clearPending: false });
     }
     requestAnimationFrame(() => {
       isUpdatingFromServerRef.current = false;
     });
-  }, [applyServerData, applyServerDelta, isUpdatingFromServerRef]);
+  }, [applyServerData, applyServerDelta, isUpdatingFromServerRef, reconcileServerProgress]);
 
   const refetchServerData = useCallback(() => {
     if (!isHydratedRef.current) return;
@@ -237,6 +243,10 @@ export function useServerSync({
     if (now - lastRefetchAtRef.current < REFETCH_THROTTLE_MS) return;
     lastRefetchAtRef.current = now;
     (async () => {
+      // Send before reading: the drainer answers the same focus/visibility
+      // events this refetch does, and a read that overtakes the write comes
+      // back describing state from before the user's last review.
+      await flushOutboxBeforeRead();
       let since: string | undefined;
       let contentRev: string | undefined;
       if (getStoragePreference()) {
@@ -346,10 +356,11 @@ export function useServerSync({
         serverData,
         serverData.submitted_review_events ?? []
       ).catch(() => serverData);
+      const freshServerData = reconcileServerProgress(overlaidServerData);
       if (serverData.is_delta) {
-        await applyServerDelta(overlaidServerData);
+        await applyServerDelta(freshServerData);
       } else {
-        await applyServerData(overlaidServerData);
+        await applyServerData(freshServerData);
       }
       isHydratedRef.current = true;
       setIsHydrated(true);
@@ -370,7 +381,14 @@ export function useServerSync({
       isUpdatingFromServerRef.current = false;
     });
 
-  }, [applyCachedActiveListId, applyServerData, applyServerDelta, isUpdatingFromServerRef, setIsHydrated]);
+  }, [
+    applyCachedActiveListId,
+    applyServerData,
+    applyServerDelta,
+    isUpdatingFromServerRef,
+    reconcileServerProgress,
+    setIsHydrated,
+  ]);
 
   useEffect(() => {
     if (!isHydrated) return;
