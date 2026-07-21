@@ -3,6 +3,12 @@ import { NextRequest } from 'next/server';
 
 const mockResolveAuthenticatedUser = vi.fn();
 const mockRedeemSchoolCode = vi.fn();
+const mockConsumeRateLimit = vi.fn();
+
+vi.mock('@/lib/providers/rate-limit', () => ({
+  consumeRateLimit: (...args: unknown[]) => mockConsumeRateLimit(...args),
+  getClientIp: () => '203.0.113.7',
+}));
 
 vi.mock('@/lib/auth', () => ({
   resolveAuthenticatedUser: (...args: unknown[]) => mockResolveAuthenticatedUser(...args),
@@ -33,7 +39,46 @@ import { POST } from '../redeem/route';
 import { SchoolRedeemError } from '@/features/schools/server/redeem';
 
 describe('POST /api/schools/redeem', () => {
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockConsumeRateLimit.mockResolvedValue({ allowed: true, count: 1, retryAfterSeconds: 1 });
+  });
+
+  it('throttles guessing before touching the redeem logic', async () => {
+    mockResolveAuthenticatedUser.mockResolvedValue({ id: 'user-1' });
+    mockConsumeRateLimit.mockResolvedValueOnce({
+      allowed: false,
+      count: 21,
+      retryAfterSeconds: 900,
+    });
+
+    const response = await POST(new NextRequest('http://localhost/api/schools/redeem', {
+      method: 'POST',
+      body: JSON.stringify({ code: 'SCHOOLCODE' }),
+    }));
+
+    expect(response.status).toBe(429);
+    expect(response.headers.get('Retry-After')).toBe('900');
+    expect(mockRedeemSchoolCode).not.toHaveBeenCalled();
+    // The IP bucket runs before the session lookup, so an unauthenticated
+    // flood is rejected without a database read for the user.
+    expect(mockResolveAuthenticatedUser).not.toHaveBeenCalled();
+  });
+
+  it('throttles a single account walking the code space from many IPs', async () => {
+    mockResolveAuthenticatedUser.mockResolvedValue({ id: 'user-1' });
+    mockConsumeRateLimit
+      .mockResolvedValueOnce({ allowed: true, count: 1, retryAfterSeconds: 1 })
+      .mockResolvedValueOnce({ allowed: false, count: 11, retryAfterSeconds: 600 });
+
+    const response = await POST(new NextRequest('http://localhost/api/schools/redeem', {
+      method: 'POST',
+      body: JSON.stringify({ code: 'SCHOOLCODE' }),
+    }));
+
+    expect(response.status).toBe(429);
+    expect(mockRedeemSchoolCode).not.toHaveBeenCalled();
+  });
 
   it('requires a signed-in account', async () => {
     mockResolveAuthenticatedUser.mockResolvedValue(null);

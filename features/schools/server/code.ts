@@ -1,4 +1,4 @@
-import { createHash, createHmac, randomBytes } from 'crypto';
+import { createHmac, randomBytes } from 'crypto';
 import {
   SCHOOL_CODE_MAX_LENGTH,
   SCHOOL_CODE_MIN_LENGTH,
@@ -22,13 +22,26 @@ export function assertUsableSchoolCode(code: string) {
   return normalized;
 }
 
+/**
+ * Derived from the session secret rather than a dedicated variable: one fewer
+ * thing to configure, and it cannot be missing in production (login already
+ * requires it). The `school-code-v1:` prefix keeps this hash domain-separated
+ * from session cookie signing even though both share key material.
+ *
+ * Changing either the secret or the prefix invalidates every issued code, so
+ * treat the version tag as the migration hook if this ever needs to move.
+ */
+function getSchoolCodeSecret(): string {
+  const configured = process.env.APP_SESSION_SECRET;
+  if (configured && configured.length > 0) return configured;
+  if (process.env.NODE_ENV !== 'production') return 'dev-only-insecure-secret';
+  throw new Error('APP_SESSION_SECRET is required to hash school access codes.');
+}
+
 export function hashSchoolCode(code: string) {
-  const normalized = normalizeSchoolCode(code);
-  const secret = process.env.SCHOOL_CODE_HASH_SECRET;
-  if (secret) {
-    return createHmac('sha256', secret).update(normalized).digest('hex');
-  }
-  return createHash('sha256').update(normalized).digest('hex');
+  return createHmac('sha256', getSchoolCodeSecret())
+    .update(`school-code-v1:${normalizeSchoolCode(code)}`)
+    .digest('hex');
 }
 
 export function generateSchoolCode(length = 20) {
