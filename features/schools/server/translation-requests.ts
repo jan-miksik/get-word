@@ -522,15 +522,12 @@ export async function translateWithSchoolOpenRouter(input: {
       error: err instanceof Error ? err.message : 'School AI translation failed.',
       code: err instanceof OpenRouterChatError ? 'SCHOOL_AI_PROVIDER_FAILED' : 'SCHOOL_AI_TRANSLATION_FAILED',
     };
-    if (
-      err instanceof OpenRouterChatError &&
-      err.retryable &&
-      err.message.startsWith('Translation response')
-    ) {
-      await releaseRequest({ userId: input.userId, requestId, error: body });
-      throw new SchoolTranslationError(body, 502);
-    }
-    if (err instanceof OpenRouterChatError && err.retryable) {
+    // Charge the reservation only when we cannot tell whether the provider ran.
+    // Any observed response — an HTTP error, a truncated body, an unparseable
+    // payload — means this batch produced nothing the student can use, so the
+    // quota goes back. Only a transport failure is genuinely ambiguous, and
+    // that one parks the request for `resolve-translation-request`.
+    if (err instanceof OpenRouterChatError && err.kind === 'transport') {
       await markUnknown({ userId: input.userId, requestId, error: body });
       throw new SchoolTranslationError(
         { error: 'School AI translation provider status is unknown.', code: 'TRANSLATION_REQUEST_STATUS_UNKNOWN' },

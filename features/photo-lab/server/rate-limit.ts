@@ -78,7 +78,9 @@ export async function reservePhotoLabRateLimit(
   userId: string,
   isEditor: boolean,
 ): Promise<void> {
-  const entitlement = await getActiveSchoolEntitlement(userId);
+  // Editors already have a larger daily allowance than any school plan grants,
+  // so the school bucket applies only where it is an upgrade.
+  const entitlement = isEditor ? null : await getActiveSchoolEntitlement(userId);
   if (entitlement) {
     await reserveDailyBuckets([
       {
@@ -113,7 +115,8 @@ export async function reservePhotoLabRateLimit(
 }
 
 export async function getPhotoLabUsage(userId: string, isEditor: boolean) {
-  const entitlement = await getActiveSchoolEntitlement(userId);
+  // Mirrors the bucket choice in reservePhotoLabRateLimit.
+  const entitlement = isEditor ? null : await getActiveSchoolEntitlement(userId);
   if (entitlement) {
     const usage = await getDailyBucketUsage(
       `${PHOTO_LAB_RATE_BUCKET_PREFIX}:school-user:${userId}`,

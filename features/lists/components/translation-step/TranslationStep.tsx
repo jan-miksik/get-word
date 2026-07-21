@@ -39,6 +39,24 @@ import type {
   TranslationStepProps,
 } from './types';
 
+/**
+ * School translations are metered per item against a shared monthly budget, so
+ * a retry of the *same* batch must reuse its idempotency key — otherwise the
+ * server reserves quota a second time for work the student already paid for.
+ * The key is therefore tied to the batch content: identical items keep the key,
+ * an edited batch earns a new one.
+ */
+function buildTranslationRequestSignature(items: { id: string; text: string }[]) {
+  return JSON.stringify(items.map((item) => [item.id, item.text]));
+}
+
+function createTranslationRequestId() {
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  );
+}
+
 export function TranslationStep({
   list,
   pendingItems,
@@ -89,6 +107,7 @@ export function TranslationStep({
   const [focusedCommentId, setFocusedCommentId] = useState<string | null>(null);
   const [copiedMode, setCopiedMode] = useState<'plain' | 'comments' | null>(null);
   const copyResetTimeoutRef = useRef<number | null>(null);
+  const schoolRequestRef = useRef<{ signature: string; id: string } | null>(null);
   const [polishScan, setPolishScan] = useState<PolishScan | null>(null);
   const [showPolishModal, setShowPolishModal] = useState(false);
   const [polishSelected, setPolishSelected] = useState<Set<string>>(new Set());
@@ -217,7 +236,7 @@ export function TranslationStep({
       return;
     }
     if (provider === 'school_openrouter' && !schoolEntitlement) {
-      setError(t('lists.translationFailed'));
+      setError(t('lists.schoolAiUnavailable'));
       return;
     }
     setTranslating(true);
@@ -237,19 +256,22 @@ export function TranslationStep({
 
       if (itemsToTranslate.length === 0) return;
 
+      let schoolRequestId: string | null = null;
+      if (provider === 'school_openrouter') {
+        const signature = buildTranslationRequestSignature(itemsToTranslate);
+        if (schoolRequestRef.current?.signature !== signature) {
+          schoolRequestRef.current = { signature, id: createTranslationRequestId() };
+        }
+        schoolRequestId = schoolRequestRef.current.id;
+      }
+
       const res = await listsApiFetch('/api/translate/batch', {
         method: 'POST',
         body: JSON.stringify({
           items: itemsToTranslate,
           provider,
           ...(provider === 'openrouter' ? { translation_model: openRouterModel } : {}),
-          ...(provider === 'school_openrouter'
-            ? {
-                request_id:
-                  globalThis.crypto?.randomUUID?.() ??
-                  `${Date.now()}-${Math.random().toString(36).slice(2)}`,
-              }
-            : {}),
+          ...(schoolRequestId ? { request_id: schoolRequestId } : {}),
           list_id: list.id,
           input_language: inputLanguage,
         }),
@@ -259,6 +281,10 @@ export function TranslationStep({
         const data = await res.json();
         throw new Error(data.error ?? t('lists.translationFailed'));
       }
+
+      // The batch was accepted and settled server-side; a later identical batch
+      // is new work and must not replay this key.
+      schoolRequestRef.current = null;
 
       const data = await res.json();
       const resultMap = new Map<
@@ -1044,7 +1070,7 @@ export function TranslationStep({
             <option value="google">{t('lists.translationProviderGoogle')}</option>
             <option value="openrouter">{t('lists.translationProviderOpenRouter')}</option>
             {schoolEntitlement && (
-              <option value="school_openrouter">School AI</option>
+              <option value="school_openrouter">{t('lists.translationProviderSchool')}</option>
             )}
           </select>
           <button
@@ -1080,7 +1106,10 @@ export function TranslationStep({
         )}
         {provider === 'school_openrouter' && schoolEntitlement && (
           <p className="mt-2 text-[11px] leading-relaxed text-text-soft">
-            School AI included by {schoolEntitlement.schoolName}. {schoolEntitlement.translationItemsRemaining} translations left this month.
+            {t('lists.schoolAiRemaining', {
+              school: schoolEntitlement.schoolName,
+              remaining: schoolEntitlement.translationItemsRemaining,
+            })}
           </p>
         )}
       </div>

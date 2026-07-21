@@ -20,12 +20,24 @@ const DEFAULT_MAX_ATTEMPTS = 3;
 const DEFAULT_RETRY_BASE_DELAY_MS = 600;
 const DEFAULT_TIMEOUT_MS = 60_000;
 
+/**
+ * Whether the request reached OpenRouter at all.
+ *
+ * "transport" means no response was ever observed (timeout, aborted, socket
+ * error), so the provider may or may not have processed the call. Everything
+ * else — an HTTP error, a truncated body, an unusable payload — is a "response":
+ * we know what happened. Callers that meter a shared budget need this
+ * distinction to decide whether a failed call must still be charged.
+ */
+export type OpenRouterFailureKind = "transport" | "response";
+
 export class OpenRouterChatError extends Error {
   constructor(
     message: string,
     readonly retryable: boolean,
     /** HTTP status when the failure came from an OpenRouter API response. */
     readonly status?: number,
+    readonly kind: OpenRouterFailureKind = "response",
   ) {
     super(message);
     this.name = "OpenRouterChatError";
@@ -105,11 +117,13 @@ async function callOnce(options: OpenRouterChatOptions): Promise<{ content: stri
     });
   } catch (err) {
     if (err instanceof Error && err.name === "AbortError") {
-      throw new OpenRouterChatError("OpenRouter request timed out.", true);
+      throw new OpenRouterChatError("OpenRouter request timed out.", true, undefined, "transport");
     }
     throw new OpenRouterChatError(
       err instanceof Error ? err.message : "OpenRouter request failed.",
       true,
+      undefined,
+      "transport",
     );
   } finally {
     clearTimeout(timeout);
