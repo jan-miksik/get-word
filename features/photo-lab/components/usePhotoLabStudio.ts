@@ -224,6 +224,14 @@ export function usePhotoLabStudio() {
       const file = event.target.files?.[0];
       event.target.value = '';
       if (!file) return;
+      // The button is disabled once the allowance is spent, but a stale usage
+      // read (or a second tab) can still get a file here. Refuse before the
+      // spinner starts rather than after a pointless upload.
+      if (usage && usage.remaining <= 0) {
+        setErrorCode('limit');
+        void loadUsage();
+        return;
+      }
       startAnalyzing();
       setErrorCode(null);
       setCurrent(null);
@@ -237,7 +245,7 @@ export function usePhotoLabStudio() {
         stopAnalyzing();
       }
     },
-    [analyze, startAnalyzing, stopAnalyzing],
+    [analyze, loadUsage, startAnalyzing, stopAnalyzing, usage],
   );
 
   const openSession = useCallback(
@@ -282,6 +290,9 @@ export function usePhotoLabStudio() {
     thumbUrls,
     fileInputRef,
     pendingPhoto,
+    // Unknown usage (offline, first load) must not block the button — the
+    // server is still the authority and answers with a 429.
+    limitReached: usage ? usage.remaining <= 0 : false,
     languagesReady: Boolean(langFrom && langTo && langFrom !== langTo),
     changeLanguagePair,
     openLanguageModal,

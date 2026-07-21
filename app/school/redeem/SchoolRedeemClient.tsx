@@ -8,6 +8,7 @@ import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLang
 import type { I18nKey } from '@/lib/i18n/locales/en';
 
 const STORED_CODE_KEY = 'get-word-school-redeem-code';
+const STORED_LIST_KEY = 'get-word-school-redeem-list';
 
 type RedeemState =
   | { status: 'loading' }
@@ -43,22 +44,46 @@ function redeemMessageKey(code: unknown): I18nKey | null {
   return typeof code === 'string' ? REDEEM_ERROR_MESSAGE_KEYS[code] ?? null : null;
 }
 
-function readCodeFromHashOrStorage() {
-  if (typeof window === 'undefined') return '';
-  const hashCode = window.location.hash.startsWith('#')
-    ? decodeURIComponent(window.location.hash.slice(1)).trim()
+type RedeemLink = { code: string; listId: string };
+
+/**
+ * Read `#CODE` or `#CODE?list=<uuid>`.
+ *
+ * Both parts ride in the fragment so neither reaches a server log or a Referer
+ * header on the way in. That means the `?list=` is not a real query string and
+ * `useSearchParams` will never see it — it has to be split off by hand here.
+ *
+ * Whatever arrives is mirrored into session storage, because the redeem may
+ * bounce through sign-in and the fragment is stripped from the URL on arrival:
+ * after the round trip this is the only surviving copy of the link.
+ */
+function readLinkFromHashOrStorage(): RedeemLink {
+  if (typeof window === 'undefined') return { code: '', listId: '' };
+  const fragment = window.location.hash.startsWith('#')
+    ? window.location.hash.slice(1)
     : '';
-  if (hashCode) {
-    window.sessionStorage.setItem(STORED_CODE_KEY, hashCode);
-    window.history.replaceState(null, '', '/school/redeem');
-    return hashCode;
+  if (fragment) {
+    const [rawCode, rawQuery] = fragment.split('?', 2);
+    const code = decodeURIComponent(rawCode).trim();
+    const listId = new URLSearchParams(rawQuery ?? '').get('list')?.trim() ?? '';
+    if (code) {
+      window.sessionStorage.setItem(STORED_CODE_KEY, code);
+      if (listId) window.sessionStorage.setItem(STORED_LIST_KEY, listId);
+      else window.sessionStorage.removeItem(STORED_LIST_KEY);
+      window.history.replaceState(null, '', '/school/redeem');
+      return { code, listId };
+    }
   }
-  return window.sessionStorage.getItem(STORED_CODE_KEY)?.trim() ?? '';
+  return {
+    code: window.sessionStorage.getItem(STORED_CODE_KEY)?.trim() ?? '',
+    listId: window.sessionStorage.getItem(STORED_LIST_KEY)?.trim() ?? '',
+  };
 }
 
 function clearStoredCode() {
   try {
     window.sessionStorage.removeItem(STORED_CODE_KEY);
+    window.sessionStorage.removeItem(STORED_LIST_KEY);
   } catch {
     // Best effort only.
   }
@@ -79,7 +104,7 @@ function SchoolRedeemContent() {
   const [state, setState] = useState<RedeemState>({ status: 'loading' });
 
   useEffect(() => {
-    const code = readCodeFromHashOrStorage();
+    const { code, listId } = readLinkFromHashOrStorage();
     if (!code) {
       queueMicrotask(() => setState({ status: 'missing' }));
       return;
@@ -91,7 +116,7 @@ function SchoolRedeemContent() {
       credentials: 'same-origin',
       cache: 'no-store',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ code }),
+      body: JSON.stringify(listId ? { code, listId } : { code }),
     })
       .then(async (response) => {
         const data = await response.json().catch(() => ({}));
@@ -161,7 +186,11 @@ function SchoolRedeemContent() {
               <button
                 type="button"
                 className="mt-5 rounded-xl bg-[#1E6FA8] px-4 py-2 text-sm font-semibold text-white"
-                onClick={() => router.push('/lists')}
+                // Both roles land in the app itself. A student has nothing to
+                // edit, and a teacher who wants the list editor can reach it
+                // from the menu — arriving in an editor makes the product look
+                // like a data-entry tool rather than something to study with.
+                onClick={() => router.push('/')}
               >
                 {t('school.continue')}
               </button>

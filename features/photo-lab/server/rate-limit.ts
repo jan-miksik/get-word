@@ -58,28 +58,44 @@ export async function reservePhotoLabAudioRateLimit(
 }
 
 /**
+ * An operator-set per-account allowance (`users.photo_lab_limit_override`).
+ * It replaces the limit on whichever path the account takes — school quota
+ * included — so there is a single answer to "how many may this person run".
+ * 0 is a meaningful value (photo analysis off), hence the `>= 0` check rather
+ * than a truthiness test.
+ */
+function normalizeLimitOverride(limitOverride: number | null | undefined): number | null {
+  if (typeof limitOverride !== "number" || !Number.isFinite(limitOverride)) return null;
+  return limitOverride >= 0 ? Math.floor(limitOverride) : null;
+}
+
+/**
  * Editors keep a daily allowance; regular users get a small weekly one.
  * Separate bucket keys per period so a role change never mixes windows.
  */
-function userAnalysisBucket(userId: string, isEditor: boolean) {
+function userAnalysisBucket(userId: string, isEditor: boolean, limitOverride: number | null) {
   if (isEditor) {
     return {
       key: `${PHOTO_LAB_RATE_BUCKET_PREFIX}:user:${userId}`,
       period: "day" as BucketPeriod,
-      limit: parsePositiveIntEnv(
-        process.env.OPENROUTER_PHOTO_LAB_USER_DAILY_LIMIT,
-        DEFAULT_USER_DAILY_LIMIT,
-      ),
+      limit:
+        limitOverride ??
+        parsePositiveIntEnv(
+          process.env.OPENROUTER_PHOTO_LAB_USER_DAILY_LIMIT,
+          DEFAULT_USER_DAILY_LIMIT,
+        ),
       message: "Daily photo analysis limit reached for this account.",
     };
   }
   return {
     key: `${PHOTO_LAB_RATE_BUCKET_PREFIX}:user-week:${userId}`,
     period: "week" as BucketPeriod,
-    limit: parsePositiveIntEnv(
-      process.env.OPENROUTER_PHOTO_LAB_USER_WEEKLY_LIMIT,
-      DEFAULT_USER_WEEKLY_LIMIT,
-    ),
+    limit:
+      limitOverride ??
+      parsePositiveIntEnv(
+        process.env.OPENROUTER_PHOTO_LAB_USER_WEEKLY_LIMIT,
+        DEFAULT_USER_WEEKLY_LIMIT,
+      ),
     message: "Weekly photo analysis limit reached for this account.",
   };
 }
@@ -115,7 +131,9 @@ export type PhotoLabReservation =
 export async function reservePhotoLabRateLimit(
   userId: string,
   isEditor: boolean,
+  limitOverride?: number | null,
 ): Promise<PhotoLabReservation> {
+  const override = normalizeLimitOverride(limitOverride);
   // Editors already have a larger daily allowance than any school plan grants,
   // so the school bucket applies only where it is an upgrade.
   const entitlement = isEditor ? null : await getActiveSchoolEntitlement(userId);
@@ -132,7 +150,7 @@ export async function reservePhotoLabRateLimit(
       feature: "photo_lab",
       periodStart,
       count: 1,
-      limit: entitlement.limits.photoLabMonthlyLimit,
+      limit: override ?? entitlement.limits.photoLabMonthlyLimit,
     });
     if (!reservation.reserved) {
       throw new DailyLimitError(
@@ -142,7 +160,12 @@ export async function reservePhotoLabRateLimit(
     return { source: "school", userId, periodStart };
   }
 
-  await reserveDailyBuckets([userAnalysisBucket(userId, isEditor), globalAnalysisBucket()]);
+  // The global bucket applies even to an overridden account: it is the ceiling
+  // on what the shared server key can spend in a day, not a per-user allowance.
+  await reserveDailyBuckets([
+    userAnalysisBucket(userId, isEditor, override),
+    globalAnalysisBucket(),
+  ]);
   return { source: "default" };
 }
 
@@ -167,15 +190,21 @@ export async function releasePhotoLabReservation(
   });
 }
 
-export async function getPhotoLabUsage(userId: string, isEditor: boolean) {
+export async function getPhotoLabUsage(
+  userId: string,
+  isEditor: boolean,
+  limitOverride?: number | null,
+) {
+  const override = normalizeLimitOverride(limitOverride);
   // Mirrors the bucket choice in reservePhotoLabRateLimit.
   const entitlement = isEditor ? null : await getActiveSchoolEntitlement(userId);
   if (entitlement) {
     const usage = await getSchoolFeatureUsage({ userId, feature: "photo_lab" });
+    const limit = override ?? entitlement.limits.photoLabMonthlyLimit;
     return {
       used: usage.used,
-      limit: entitlement.limits.photoLabMonthlyLimit,
-      remaining: Math.max(0, entitlement.limits.photoLabMonthlyLimit - usage.used),
+      limit,
+      remaining: Math.max(0, limit - usage.used),
       resetAt: usage.resetAt,
       period: "month" as BucketPeriod,
       source: "school" as const,
@@ -183,7 +212,7 @@ export async function getPhotoLabUsage(userId: string, isEditor: boolean) {
     };
   }
 
-  const bucket = userAnalysisBucket(userId, isEditor);
+  const bucket = userAnalysisBucket(userId, isEditor, override);
   const usage = await getDailyBucketUsage(bucket.key, bucket.period);
   return {
     used: usage.used,

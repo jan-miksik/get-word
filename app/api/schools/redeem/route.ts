@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
   if (!userRate.allowed) return tooManyRequests(userRate.retryAfterSeconds);
 
   const body = await request.json().catch(() => null);
-  const code = (body as { code?: unknown } | null)?.code;
+  const { code, listId } = (body ?? {}) as { code?: unknown; listId?: unknown };
   if (typeof code !== 'string') {
     return NextResponse.json(
       { error: 'Invalid school code.', code: 'INVALID_SCHOOL_CODE' },
@@ -50,7 +50,13 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    return NextResponse.json(await redeemSchoolCode({ user, code }));
+    return NextResponse.json(
+      await redeemSchoolCode({
+        user,
+        code,
+        listId: typeof listId === 'string' ? listId : null,
+      }),
+    );
   } catch (err) {
     if (err instanceof SchoolRedeemError) {
       return NextResponse.json(

@@ -120,7 +120,32 @@ describe('POST /api/schools/redeem', () => {
       teacher_limit: 5,
       active_teachers: 0,
     });
-    expect(mockRedeemSchoolCode).toHaveBeenCalledWith({ user, code: 'SCHOOLCODE' });
+    expect(mockRedeemSchoolCode).toHaveBeenCalledWith({
+      user,
+      code: 'SCHOOLCODE',
+      listId: null,
+    });
+  });
+
+  it('passes the link’s list through, and only when it is a string', async () => {
+    mockResolveAuthenticatedUser.mockResolvedValue({ id: 'user-1' });
+    mockRedeemSchoolCode.mockResolvedValue({});
+
+    await POST(new NextRequest('http://localhost/api/schools/redeem', {
+      method: 'POST',
+      body: JSON.stringify({ code: 'SCHOOLCODE', listId: 'list-1' }),
+    }));
+    expect(mockRedeemSchoolCode).toHaveBeenCalledWith(
+      expect.objectContaining({ listId: 'list-1' }),
+    );
+
+    await POST(new NextRequest('http://localhost/api/schools/redeem', {
+      method: 'POST',
+      body: JSON.stringify({ code: 'SCHOOLCODE', listId: { nested: 'object' } }),
+    }));
+    expect(mockRedeemSchoolCode).toHaveBeenLastCalledWith(
+      expect.objectContaining({ listId: null }),
+    );
   });
 
   it('returns school-specific error codes', async () => {

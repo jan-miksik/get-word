@@ -15,6 +15,35 @@ allowances, and the per-school usage dashboard.
   stays in the route shells (`app/api/schools/me/stats`,
   `app/api/admin/schools/*`).
 
+## Access codes
+
+Codes are stored only as an unkeyed SHA-256 digest (`server/code.ts`). No secret
+keys the hash: a generated code carries ~100 bits, so a key would only add
+precomputation resistance that nothing here needs, while making the digest
+environment-bound — a code issued from a shell holding the wrong secret used to
+be written happily and then rejected at redeem as invalid. Hand-written `--code`
+values are the one guessable input, so `scripts/school-access.ts` refuses them
+against a production database.
+
+A redeem link may name a list: `/school/redeem#CODE?list=<list-uuid>`. Redeeming
+it also subscribes the new member to that list and sets their study direction
+from it, so a class link opens on the right material instead of an empty app.
+One code can therefore serve several classes — the code grants the seat, the
+link decides the material. Without the parameter the redeem is exactly the plain
+join it always was.
+
+The list id is in the fragment, next to the code, so neither reaches a server
+log or a `Referer` header; it is not a real query string and `useSearchParams`
+never sees it.
+
+Because the id comes from the URL, it is chosen by whoever follows the link, and
+subscribing through it bypasses the public/owner visibility check. `redeem.ts`
+therefore accepts a list only if it is public or **owned by a teacher of the
+school being joined** — otherwise a school code would be a key to any private
+list whose id leaked. Anything that does not line up (unknown id, deleted list,
+the redeemer's own list, a list from elsewhere) is a silent no-op: the seat is
+what the code grants and must not depend on the rest.
+
 ## Metering
 
 `school_feature_usage` is the single source of truth for per-member monthly

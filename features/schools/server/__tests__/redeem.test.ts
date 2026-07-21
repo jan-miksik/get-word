@@ -51,24 +51,40 @@ function codeRow(overrides: Record<string, unknown> = {}) {
 }
 
 /**
+ * Flatten a drizzle `sql` template back into something greppable. Only the
+ * literal chunks matter here — the tests ask which table a statement touched,
+ * never which values it bound.
+ */
+function statementText(query: unknown): string {
+  const chunks = (query as { queryChunks?: { value?: unknown }[] })?.queryChunks ?? [];
+  return chunks
+    .map((chunk) => (Array.isArray(chunk?.value) ? chunk.value.join(' ') : ''))
+    .join(' ');
+}
+
+/**
  * `redeemSchoolCode` runs a fixed sequence of statements inside one
  * transaction: code lookup, school lookup (FOR UPDATE), the caller's existing
- * membership, seat counts, then the insert. Feeding rows positionally keeps the
- * tests readable; `executed` records how far the sequence actually got, which
- * is how we assert that a rejection happened before the INSERT.
+ * membership, seat counts, then the insert, then anything the linked list
+ * needs. Feeding rows positionally keeps the tests readable; `executed` records
+ * how far the sequence actually got, which is how we assert that a rejection
+ * happened before the INSERT.
  */
 function stubTransaction(rows: unknown[][]) {
-  const executed: number[] = [];
+  const executed: string[] = [];
   mockDbTransaction.mockImplementation(async (run: (tx: unknown) => Promise<unknown>) => {
     let step = 0;
     return run({
-      execute: async () => {
-        executed.push(step);
+      execute: async (query: unknown) => {
+        executed.push(statementText(query));
         return rows[step++] ?? [];
       },
     });
   });
-  return { statementCount: () => executed.length };
+  return {
+    statementCount: () => executed.length,
+    touched: (table: string) => executed.some((text) => text.includes(table)),
+  };
 }
 
 describe('redeemSchoolCode', () => {
@@ -122,6 +138,94 @@ describe('redeemSchoolCode', () => {
       active_teachers: 1,
     });
     expect(tx.statementCount()).toBe(5);
+    expect(tx.touched('user_list_subscriptions')).toBe(false);
+  });
+
+  describe('link that names a list', () => {
+    const LIST_ID = '11111111-2222-4333-8444-555555555555';
+
+    function listRow(overrides: Record<string, unknown> = {}) {
+      return {
+        id: LIST_ID,
+        owner_id: 'teacher-9',
+        is_public: false,
+        language_from: 'cs',
+        language_to: 'vi',
+        owned_by_school_teacher: true,
+        ...overrides,
+      };
+    }
+
+    function joinRows(list: unknown[]) {
+      return [
+        [codeRow()],
+        [schoolRow()],
+        [], // no existing membership
+        [{ active_student_seats: 0, active_teachers: 0 }],
+        [], // INSERT membership
+        list,
+        [], // INSERT subscription
+        [], // UPDATE users
+      ];
+    }
+
+    it('subscribes the new member and points the study direction at the list', async () => {
+      const tx = stubTransaction(joinRows([listRow()]));
+
+      await redeemSchoolCode({ user: linkedUser, code: CODE, listId: LIST_ID });
+
+      expect(tx.touched('user_list_subscriptions')).toBe(true);
+      expect(tx.statementCount()).toBe(8);
+    });
+
+    // The list id comes from the URL, so it is chosen by whoever follows the
+    // link. Subscribing bypasses the usual visibility check, so without this a
+    // school code would be a key to any private list whose id leaked.
+    it('ignores a private list belonging to nobody in this school', async () => {
+      const tx = stubTransaction(
+        joinRows([listRow({ owner_id: 'stranger-1', owned_by_school_teacher: false })]),
+      );
+
+      const result = await redeemSchoolCode({ user: linkedUser, code: CODE, listId: LIST_ID });
+
+      expect(result.role).toBe('student');
+      expect(tx.touched('user_list_subscriptions')).toBe(false);
+    });
+
+    it('accepts a public list even though no teacher here owns it', async () => {
+      const tx = stubTransaction(
+        joinRows([listRow({ owner_id: 'stranger-1', is_public: true, owned_by_school_teacher: false })]),
+      );
+
+      await redeemSchoolCode({ user: linkedUser, code: CODE, listId: LIST_ID });
+
+      expect(tx.touched('user_list_subscriptions')).toBe(true);
+    });
+
+    // The list is the teacher's own. Subscribing an owner to their own list
+    // would show it twice, and rewriting their study direction from a link they
+    // wrote for their class is not something they asked for.
+    it('leaves the list owner alone', async () => {
+      const tx = stubTransaction(joinRows([listRow({ owner_id: linkedUser.id })]));
+
+      await redeemSchoolCode({ user: linkedUser, code: CODE, listId: LIST_ID });
+
+      expect(tx.touched('user_list_subscriptions')).toBe(false);
+    });
+
+    // A mistyped or stale link must not cost the seat, which is the part the
+    // code actually grants.
+    it.each([
+      ['a list that no longer exists', LIST_ID, [] as unknown[]],
+      ['an id that is not a uuid', 'not-a-uuid', [listRow()] as unknown[]],
+    ])('still grants the seat for %s', async (_label, listId, list) => {
+      const tx = stubTransaction(joinRows(list));
+
+      const result = await redeemSchoolCode({ user: linkedUser, code: CODE, listId });
+
+      expect(result.active_student_seats).toBe(1);
+      expect(tx.touched('user_list_subscriptions')).toBe(false);
+    });
   });
 
   it('refuses a student seat when the school is full', async () => {

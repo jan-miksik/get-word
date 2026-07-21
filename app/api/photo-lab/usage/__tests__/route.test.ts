@@ -43,7 +43,7 @@ describe('GET /api/photo-lab/usage', () => {
       reset_at: '2026-07-20T00:00:00.000Z',
       period: 'week',
     });
-    expect(mockGetPhotoLabUsage).toHaveBeenCalledWith('user-1', false);
+    expect(mockGetPhotoLabUsage).toHaveBeenCalledWith('user-1', false, undefined);
   });
 
   it('returns the daily analysis allowance for an editor', async () => {
@@ -66,7 +66,7 @@ describe('GET /api/photo-lab/usage', () => {
       reset_at: '2026-07-16T00:00:00.000Z',
       period: 'day',
     });
-    expect(mockGetPhotoLabUsage).toHaveBeenCalledWith('user-2', true);
+    expect(mockGetPhotoLabUsage).toHaveBeenCalledWith('user-2', true, undefined);
   });
 
   it('requires an authenticated device', async () => {

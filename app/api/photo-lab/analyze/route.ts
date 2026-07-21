@@ -6,6 +6,7 @@ import { normalizeLanguageCode } from "@/lib/i18n/languages";
 import { analyzePhoto } from "@/features/photo-lab/server/analyze";
 import {
   DailyLimitError,
+  getPhotoLabUsage,
   releasePhotoLabReservation,
   reservePhotoLabRateLimit,
   type PhotoLabReservation,
@@ -49,9 +50,24 @@ function photoTooLargeResponse() {
   );
 }
 
+function limitReachedResponse(message: string) {
+  return NextResponse.json(
+    { error: message, code: "PHOTO_LAB_LIMIT_REACHED" },
+    { status: 429 },
+  );
+}
+
 export async function POST(request: NextRequest) {
   const user = await resolveUserFromRequest(request);
   if (!user) return unauthorizedResponse();
+
+  // Reject an exhausted account before the ~2 MB upload is read. The atomic
+  // reservation below is still what enforces the limit; this only avoids
+  // making an already-refused client wait out the whole body transfer.
+  const usage = await getPhotoLabUsage(user.id, isEditor(user), user.photoLabLimitOverride);
+  if (usage.remaining <= 0) {
+    return limitReachedResponse("Photo analysis limit reached for this account.");
+  }
 
   let body: unknown | null = null;
   try {
@@ -106,13 +122,14 @@ export async function POST(request: NextRequest) {
 
   let reservation: PhotoLabReservation;
   try {
-    reservation = await reservePhotoLabRateLimit(user.id, isEditor(user));
+    reservation = await reservePhotoLabRateLimit(
+      user.id,
+      isEditor(user),
+      user.photoLabLimitOverride,
+    );
   } catch (err) {
     if (err instanceof DailyLimitError) {
-      return NextResponse.json(
-        { error: err.message, code: "PHOTO_LAB_LIMIT_REACHED" },
-        { status: 429 },
-      );
+      return limitReachedResponse(err.message);
     }
     throw err;
   }

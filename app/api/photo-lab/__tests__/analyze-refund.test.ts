@@ -6,6 +6,7 @@ const mockResolveUserFromRequest = vi.fn();
 const mockAnalyzePhoto = vi.fn();
 const mockReservePhotoLabRateLimit = vi.fn();
 const mockReleasePhotoLabReservation = vi.fn();
+const mockGetPhotoLabUsage = vi.fn();
 
 vi.mock('@/lib/auth', () => ({
   resolveUserFromRequest: (...args: unknown[]) => mockResolveUserFromRequest(...args),
@@ -21,6 +22,7 @@ vi.mock('@/features/photo-lab/server/rate-limit', () => ({
   DailyLimitError: class extends Error {},
   reservePhotoLabRateLimit: (...args: unknown[]) => mockReservePhotoLabRateLimit(...args),
   releasePhotoLabReservation: (...args: unknown[]) => mockReleasePhotoLabReservation(...args),
+  getPhotoLabUsage: (...args: unknown[]) => mockGetPhotoLabUsage(...args),
 }));
 
 import { POST } from '../analyze/route';
@@ -49,6 +51,7 @@ describe('POST /api/photo-lab/analyze — school allowance on failure', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     mockResolveUserFromRequest.mockResolvedValue({ id: 'user-1' });
     mockReservePhotoLabRateLimit.mockResolvedValue(SCHOOL_RESERVATION);
+    mockGetPhotoLabUsage.mockResolvedValue({ used: 1, limit: 25, remaining: 24 });
     process.env.OPENROUTER_SERVER_API_KEY = 'test-key';
   });
 

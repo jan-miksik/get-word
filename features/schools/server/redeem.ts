@@ -94,6 +94,82 @@ function serialize(
   };
 }
 
+/**
+ * Put the redeemer into the list the link named, if it named one.
+ *
+ * The list id travels in the link rather than on the code, so one class code
+ * can be handed out as several links, one per class — but it also means the
+ * value is attacker-chosen, and subscribing bypasses the public/owner check
+ * that the ordinary subscribe route enforces (a class list is normally
+ * private, which is the whole reason this path exists). What keeps that from
+ * becoming "anyone holding a school code can read any private list" is the
+ * check below: the list must be public, or belong to a teacher of the very
+ * school being joined. Knowing a list id is then not enough.
+ *
+ * Study direction follows the list, because a student arriving from a school
+ * link has no other way to pick one and a mismatched pair renders the list
+ * unreadable.
+ *
+ * Everything that does not line up — list deleted between sending the link and
+ * following it, redeemer owns it already, id that points somewhere they have no
+ * business seeing — is a silent no-op. They still get the seat, which is what
+ * the code actually grants; failing the redeem over the extra would turn a
+ * mistyped link into a lost student.
+ */
+async function applyLinkedList(
+  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+  userId: string,
+  schoolId: string,
+  listId: string,
+): Promise<void> {
+  const listRows = await tx.execute(sql`
+    SELECT
+      l.id,
+      l.owner_id,
+      l.is_public,
+      l.language_from,
+      l.language_to,
+      EXISTS (
+        SELECT 1
+        FROM school_memberships m
+        WHERE m.user_id = l.owner_id
+          AND m.school_id = ${schoolId}
+          AND m.role = 'teacher'
+          AND m.revoked_at IS NULL
+      ) AS owned_by_school_teacher
+    FROM word_lists l
+    WHERE l.id = ${listId}
+    LIMIT 1
+  `);
+  const list = listRows[0] as
+    | {
+        id: string;
+        owner_id: string | null;
+        is_public: boolean;
+        language_from: string;
+        language_to: string;
+        owned_by_school_teacher: boolean;
+      }
+    | undefined;
+  if (!list || list.owner_id === userId) return;
+  if (!list.is_public && !list.owned_by_school_teacher) return;
+
+  await tx.execute(sql`
+    INSERT INTO user_list_subscriptions (user_id, list_id)
+    VALUES (${userId}, ${listId})
+    ON CONFLICT DO NOTHING
+  `);
+
+  await tx.execute(sql`
+    UPDATE users
+    SET language_from = ${list.language_from},
+        language_to = ${list.language_to},
+        onboarding_completed_at = coalesce(onboarding_completed_at, now()),
+        updated_at = now()
+    WHERE id = ${userId}
+  `);
+}
+
 async function countActiveSeats(
   tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
   schoolId: string,
@@ -113,9 +189,17 @@ async function countActiveSeats(
   };
 }
 
+const LIST_ID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function redeemSchoolCode(input: {
   user: User;
   code: string;
+  /**
+   * Optional list from the link. Junk is dropped rather than rejected — the
+   * seat must not depend on the decoration.
+   */
+  listId?: string | null;
 }): Promise<SchoolRedeemSuccess> {
   if (!isSchoolLinkedAccountUser(input.user)) {
     throw new SchoolRedeemError(
@@ -129,6 +213,10 @@ export async function redeemSchoolCode(input: {
     throw new SchoolRedeemError('INVALID_SCHOOL_CODE', 404, 'Invalid school code.');
   }
   const codeHash = hashSchoolCode(normalized);
+  const linkedListId =
+    typeof input.listId === 'string' && LIST_ID_PATTERN.test(input.listId.trim())
+      ? input.listId.trim()
+      : null;
   const now = new Date();
 
   return db.transaction(async (tx) => {
@@ -204,6 +292,10 @@ export async function redeemSchoolCode(input: {
       )
       VALUES (${school.id}, ${input.user.id}, ${code.role}, now(), now(), now())
     `);
+
+    if (linkedListId) {
+      await applyLinkedList(tx, input.user.id, school.id, linkedListId);
+    }
 
     return serialize(school, code.role, {
       active_student_seats: counts.active_student_seats + (code.role === 'student' ? 1 : 0),

@@ -211,6 +211,10 @@ export const users = pgTable("users", {
   authProvider: text("auth_provider"), // "email" | "google" | "apple" | "wallet" etc.
   registeredAt: timestamp("registered_at"), // set once when supabase_auth_id is first attached (created_at = first app use, which may be earlier)
   userRole: text("user_role").notNull().default("user"), // "user" or "editor"
+  // Operator-set photo-lab allowance. NULL = whatever the account's normal path
+  // grants; a number replaces that limit (school quota included). See
+  // scripts/user-limits.ts and features/photo-lab/server/rate-limit.ts.
+  photoLabLimitOverride: integer("photo_lab_limit_override"),
   showEnglish: boolean("show_english").default(true).notNull(),
   showCategoryBadges: boolean("show_category_badges").default(false).notNull(),
   showPronunciation: boolean("show_pronunciation").default(false).notNull(),

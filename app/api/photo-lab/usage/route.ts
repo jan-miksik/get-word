@@ -6,7 +6,7 @@ export async function GET(request: NextRequest) {
   const user = await resolveUserFromRequest(request);
   if (!user) return unauthorizedResponse();
 
-  const usage = await getPhotoLabUsage(user.id, isEditor(user));
+  const usage = await getPhotoLabUsage(user.id, isEditor(user), user.photoLabLimitOverride);
   return NextResponse.json({
     used: usage.used,
     limit: usage.limit,

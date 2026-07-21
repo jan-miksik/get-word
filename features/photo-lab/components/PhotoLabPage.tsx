@@ -22,8 +22,35 @@ const ERROR_MESSAGE_KEYS = {
   imageProcessing: 'photoLab.errorImageProcessing',
   tooLarge: 'photoLab.errorTooLarge',
   unauthorized: 'photoLab.errorUnauthorized',
+  timeout: 'photoLab.errorTimeout',
   generic: 'photoLab.errorGeneric',
 } as const;
+
+/** The remaining-analyses badge, rendered under the photo history. */
+function UsageBadge({ usage }: { usage: NonNullable<ReturnType<typeof usePhotoLabStudio>['usage']> }) {
+  const { t } = useI18n();
+  const messageKey =
+    usage.remaining <= 0
+      ? 'photoLab.usageExhausted'
+      : usage.period === 'week'
+        ? 'photoLab.usageRemainingWeek'
+        : usage.period === 'month'
+          ? 'photoLab.usageRemainingMonth'
+          : 'photoLab.usageRemaining';
+
+  return (
+    <p
+      className={`m-0 text-xs ${
+        usage.remaining <= 0
+          ? 'font-medium text-[#B91C1C]'
+          : 'text-[color:var(--ob-ink-soft)]'
+      }`}
+      aria-live="polite"
+    >
+      {t(messageKey, { remaining: usage.remaining, limit: usage.limit })}
+    </p>
+  );
+}
 
 /** Full-bleed warm background; the app body is dark navy. */
 function PhotoLabShell({ children }: { children: React.ReactNode }) {
@@ -210,6 +237,7 @@ function PhotoLabStudio() {
     thumbUrls,
     fileInputRef,
     pendingPhoto,
+    limitReached,
     languagesReady,
     changeLanguagePair,
     openLanguageModal,
@@ -274,28 +302,18 @@ function PhotoLabStudio() {
       <div className="flex flex-wrap items-center gap-2 animate-[photo-lab-rise_0.5s_ease-out_80ms_both] motion-reduce:animate-none sm:gap-3">
         <button
           type="button"
-          disabled={!languagesReady || analyzing}
+          // Once the allowance is spent the analysis can only fail, so the
+          // button stops here instead of starting a doomed upload.
+          disabled={!languagesReady || analyzing || limitReached}
+          title={limitReached ? t('photoLab.limitReachedHint') : undefined}
           onClick={() => fileInputRef.current?.click()}
           className="rounded-2xl border-2 border-[color:var(--ob-ink)] bg-[var(--ob-accent)] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-[#1E6FA8]/25 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#1E6FA8]/30 active:translate-y-0 active:shadow-md disabled:translate-y-0 disabled:opacity-40 disabled:shadow-none sm:text-base"
         >
           📷 {t('photoLab.pickPhoto')}
         </button>
-        {usage && (
-          <span
-            className="rounded-full border border-[color:var(--ob-ink)]/25 bg-white/40 px-3 py-1.5 text-xs font-medium text-[color:var(--ob-ink-soft)] sm:text-sm"
-            aria-live="polite"
-          >
-            {t(
-              usage.period === 'week'
-                ? 'photoLab.usageRemainingWeek'
-                : usage.period === 'month'
-                  ? 'photoLab.usageRemainingMonth'
-                : 'photoLab.usageRemaining',
-              {
-                remaining: usage.remaining,
-                limit: usage.limit,
-              },
-            )}
+        {limitReached && (
+          <span className="text-xs font-medium text-[#B91C1C] sm:text-sm">
+            {t('photoLab.limitReachedHint')}
           </span>
         )}
       </div>
@@ -441,6 +459,7 @@ function PhotoLabStudio() {
             ))}
           </div>
         )}
+        {usage && <UsageBadge usage={usage} />}
       </section>
 
       {confirmDeleteId && (

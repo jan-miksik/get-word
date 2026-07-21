@@ -8,7 +8,15 @@ export type PhotoLabErrorCode =
   | 'imageProcessing'
   | 'tooLarge'
   | 'unauthorized'
+  | 'timeout'
   | 'generic';
+
+/**
+ * Hard ceiling on one analysis round-trip. The model itself takes ~25s, but a
+ * mobile upload that stalls mid-flight never rejects on its own — without this
+ * the spinner would run forever with no way back to the retry button.
+ */
+export const PHOTO_LAB_ANALYZE_TIMEOUT_MS = 90_000;
 
 export class PhotoLabRequestError extends Error {
   constructor(readonly code: PhotoLabErrorCode) {
@@ -29,26 +37,35 @@ export async function requestPhotoAnalysis(
   languageFrom: string,
   languageTo: string,
 ): Promise<PhotoLabLabel[]> {
-  let response: Response;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), PHOTO_LAB_ANALYZE_TIMEOUT_MS);
+
+  // The timeout covers the body read too, not just the headers: the abort
+  // signal rejects an in-flight `response.json()` as well, so a response that
+  // stops mid-JSON cannot hang the caller either.
   try {
-    response = await deviceJsonFetch('/api/photo-lab/analyze', {
+    const response = await deviceJsonFetch('/api/photo-lab/analyze', {
       method: 'POST',
+      signal: controller.signal,
       body: JSON.stringify({
         image: dataUrl,
         language_from: languageFrom,
         language_to: languageTo,
       }),
     });
-  } catch {
-    throw new PhotoLabRequestError('generic');
-  }
 
-  const body = (await response.json().catch(() => null)) as
-    | { labels?: PhotoLabLabel[]; code?: string }
-    | null;
+    const body = (await response.json().catch(() => null)) as
+      | { labels?: PhotoLabLabel[]; code?: string }
+      | null;
 
-  if (!response.ok) {
-    throw new PhotoLabRequestError(codeForResponse(response.status, body));
+    if (!response.ok) {
+      throw new PhotoLabRequestError(codeForResponse(response.status, body));
+    }
+    return Array.isArray(body?.labels) ? body.labels : [];
+  } catch (error) {
+    if (error instanceof PhotoLabRequestError) throw error;
+    throw new PhotoLabRequestError(controller.signal.aborted ? 'timeout' : 'generic');
+  } finally {
+    clearTimeout(timeoutId);
   }
-  return Array.isArray(body?.labels) ? body.labels : [];
 }
