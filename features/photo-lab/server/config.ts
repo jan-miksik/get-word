@@ -15,7 +15,10 @@ export const PHOTO_LAB_RATE_BUCKET_PREFIX = "photo_lab_analyze";
 // Editors keep a daily allowance; regular users get a small weekly one.
 export const DEFAULT_USER_DAILY_LIMIT = 10;
 export const DEFAULT_USER_WEEKLY_LIMIT = 5;
-export const DEFAULT_GLOBAL_DAILY_LIMIT = 100;
+// Abuse ceiling for the free path only — school members are exempt (see
+// reservePhotoLabRateLimit). At roughly $0.015 per analysis this caps a runaway
+// day at about $15 on the shared server key.
+export const DEFAULT_GLOBAL_DAILY_LIMIT = 1000;
 
 // Label TTS: counted per generated clip (cache hits are free), so the budget
 // covers a full day of analyses (user limit × MAX_LABELS) plus retries.

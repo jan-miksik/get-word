@@ -1,22 +1,11 @@
-export type ActivityWindow = 'rolling' | 'calendar';
+import type { ActivityWindow, StudyWeekBucket, UsageWeekBucket } from '@/lib/stats/types';
+
+export type { ActivityWindow, StudyWeekBucket, UsageWeekBucket };
 
 export interface UsageStatsOptions {
   activityWindow?: ActivityWindow;
   excludedUserIds?: string[];
   excludedUserEmails?: string[];
-}
-
-export interface UsageWeekBucket {
-  weekStart: string;
-  count: number;
-  partial?: boolean;
-}
-
-export interface StudyWeekBucket {
-  weekStart: string;
-  reviews: number;
-  activeUsers: number;
-  partial?: boolean;
 }
 
 interface RetentionBucket {

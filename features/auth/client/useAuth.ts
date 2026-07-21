@@ -17,6 +17,8 @@ interface UseAuthReturn {
   email: string | undefined
   /** Auth provider, e.g. "google" | "email". */
   authProvider: string | undefined
+  /** Active school membership, or null when the account belongs to no school. */
+  school: SchoolMembership | null
   status: AuthStatus
   isAuthLoading: boolean
   /** Navigate to the login page. */
@@ -53,11 +55,18 @@ function withTimeout(promise: Promise<unknown>, ms: number, message: string): Pr
   })
 }
 
+export interface SchoolMembership {
+  id: string
+  name: string
+  role: 'student' | 'teacher'
+}
+
 interface MeResponse {
   authenticated: boolean
   email?: string | null
   authProvider?: string | null
   userRole?: string | null
+  school?: SchoolMembership | null
 }
 
 export function useAuth(): UseAuthReturn {
@@ -140,6 +149,7 @@ export function useAuth(): UseAuthReturn {
     address: undefined,
     email: me?.email ?? undefined,
     authProvider: me?.authProvider ?? undefined,
+    school: me?.school ?? null,
     status,
     isAuthLoading: loading,
     signIn,

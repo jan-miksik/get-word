@@ -15,6 +15,7 @@ import {
   getSchoolOpenRouterModel,
 } from './config';
 import { getCurrentSchoolFeaturePeriod } from './entitlements';
+import { refundSchoolFeatureUsage, reserveSchoolFeatureUsage } from './feature-usage';
 
 type SchoolTranslateItem = {
   id: string;
@@ -211,40 +212,15 @@ async function reserveRequest(input: {
       `);
     }
 
-    await tx.execute(sql`
-      INSERT INTO school_feature_usage (
-        user_id,
-        school_id,
-        feature,
-        period_start,
-        used,
-        created_at,
-        updated_at
-      )
-      VALUES (
-        ${input.userId},
-        ${input.entitlement.schoolId},
-        'ai_translation',
-        ${periodStart.toISOString()}::timestamp,
-        0,
-        now(),
-        now()
-      )
-      ON CONFLICT (user_id, feature, period_start) DO NOTHING
-    `);
-
-    const usageRows = await tx.execute(sql`
-      UPDATE school_feature_usage
-      SET used = used + ${input.itemCount},
-          school_id = ${input.entitlement.schoolId},
-          updated_at = now()
-      WHERE user_id = ${input.userId}
-        AND feature = 'ai_translation'
-        AND period_start = ${periodStart.toISOString()}::timestamp
-        AND used + ${input.itemCount} <= ${input.entitlement.limits.translationItemsMonthlyLimit}
-      RETURNING used
-    `);
-    if (usageRows.length === 0) {
+    const reservation = await reserveSchoolFeatureUsage(tx, {
+      userId: input.userId,
+      schoolId: input.entitlement.schoolId,
+      feature: 'ai_translation',
+      periodStart,
+      count: input.itemCount,
+      limit: input.entitlement.limits.translationItemsMonthlyLimit,
+    });
+    if (!reservation.reserved) {
       throw new SchoolTranslationError(
         {
           error: 'Monthly school AI translation limit reached.',
@@ -280,14 +256,12 @@ async function releaseRequest(input: {
           updated_at = now()
       WHERE id = ${row.id}
     `);
-    await tx.execute(sql`
-      UPDATE school_feature_usage
-      SET used = greatest(0, used - ${Number(row.item_count)}),
-          updated_at = now()
-      WHERE user_id = ${input.userId}
-        AND feature = 'ai_translation'
-        AND period_start = ${row.period_start.toISOString()}::timestamp
-    `);
+    await refundSchoolFeatureUsage(tx, {
+      userId: input.userId,
+      feature: 'ai_translation',
+      periodStart: row.period_start,
+      count: Number(row.item_count),
+    });
   });
 }
 

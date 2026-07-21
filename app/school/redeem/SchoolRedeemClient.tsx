@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { AppLogo } from '@/components/AppLogo';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLanguage';
+import type { I18nKey } from '@/lib/i18n/locales/en';
 
 const STORED_CODE_KEY = 'get-word-school-redeem-code';
 
@@ -13,7 +14,7 @@ type RedeemState =
   | { status: 'missing' }
   | { status: 'success'; schoolName: string; role: string }
   | { status: 'signInRequired' }
-  | { status: 'error'; message: string | null };
+  | { status: 'error'; messageKey: I18nKey | null };
 
 /**
  * Codes that can never succeed on a retry. Everything else is recoverable —
@@ -23,6 +24,24 @@ type RedeemState =
  * on arrival, and the student has no other copy of it.
  */
 const TERMINAL_REDEEM_CODES = new Set(['INVALID_SCHOOL_CODE', 'SCHOOL_CODE_EXPIRED']);
+
+/**
+ * Server error messages are English and meant for operators. Students see a
+ * localized explanation of what to do next instead.
+ */
+const REDEEM_ERROR_MESSAGE_KEYS: Record<string, I18nKey> = {
+  INVALID_SCHOOL_CODE: 'school.errorInvalidCode',
+  SCHOOL_CODE_EXPIRED: 'school.errorCodeExpired',
+  SCHOOL_INACTIVE: 'school.errorSchoolInactive',
+  SCHOOL_PILOT_EXPIRED: 'school.errorPilotExpired',
+  SCHOOL_SEATS_FULL: 'school.errorSeatsFull',
+  SCHOOL_TEACHERS_FULL: 'school.errorTeachersFull',
+  SCHOOL_MEMBERSHIP_ALREADY_EXISTS: 'school.errorAlreadyMember',
+};
+
+function redeemMessageKey(code: unknown): I18nKey | null {
+  return typeof code === 'string' ? REDEEM_ERROR_MESSAGE_KEYS[code] ?? null : null;
+}
 
 function readCodeFromHashOrStorage() {
   if (typeof window === 'undefined') return '';
@@ -83,19 +102,16 @@ function SchoolRedeemContent() {
           return;
         }
         if (!response.ok) {
-          if (TERMINAL_REDEEM_CODES.has(String(data.code))) {
-            clearStoredCode();
-          }
           if (data.code === 'LINKED_ACCOUNT_REQUIRED') {
             // Signed in by device only. The code survives the sign-in round
             // trip, so returning here re-runs the redeem automatically.
             setState({ status: 'signInRequired' });
             return;
           }
-          setState({
-            status: 'error',
-            message: typeof data.error === 'string' ? data.error : null,
-          });
+          if (TERMINAL_REDEEM_CODES.has(String(data.code))) {
+            clearStoredCode();
+          }
+          setState({ status: 'error', messageKey: redeemMessageKey(data.code) });
           return;
         }
         clearStoredCode();
@@ -107,7 +123,7 @@ function SchoolRedeemContent() {
       })
       .catch(() => {
         if (!cancelled) {
-          setState({ status: 'error', message: null });
+          setState({ status: 'error', messageKey: null });
         }
       });
 
@@ -170,7 +186,7 @@ function SchoolRedeemContent() {
             <>
               <h1 className="m-0 text-xl font-semibold">{t('school.errorTitle')}</h1>
               <p className="mt-3 text-sm text-[#6B5E48]">
-                {state.message ?? t('school.errorBody')}
+                {t(state.messageKey ?? 'school.errorBody')}
               </p>
             </>
           )}

@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect, useMemo, useState } from 'react';
 import { TopMenu } from '@/components/TopMenu';
+import type { SchoolMembership } from '@/features/auth/client/useAuth';
 import { AuthButton } from '@/components/AuthButton';
 import { SettingsPanel } from '@/components/SettingsPanel';
 import { LearningSettingsPanel } from '@/features/learning/components/LearningSettingsPanel';
@@ -34,6 +35,8 @@ interface AppLayoutProps {
   onSignOut?: () => void | Promise<void>;
   /** Optional inert account display for isolated UI previews. */
   accountSlotOverride?: ReactNode;
+  /** Active school membership, surfaced in the menu. */
+  school?: SchoolMembership | null;
   // Page-computed values (differ between main and edit page)
   categories: Array<{ name: string; count: number }>;
   progressStats: ProgressStats;
@@ -51,6 +54,7 @@ export function AppLayout({
   authAddress,
   onSignOut,
   accountSlotOverride,
+  school,
   categories,
   progressStats,
   header,
@@ -136,6 +140,7 @@ export function AppLayout({
           onListChange={setActiveListId}
           activeListLanguagePair={activeListLanguagePair}
           photoLabEnabled={photoLabEnabled}
+          school={school}
           centerContent={
             isAuthenticated
               ? <ProgressSummary progressStats={progressStats} />

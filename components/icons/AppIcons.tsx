@@ -110,6 +110,17 @@ export function UpcomingIcon(props: IconProps) {
   );
 }
 
+/** Graduation cap — school membership and the school dashboard. */
+export function SchoolIcon(props: IconProps) {
+  return (
+    <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
+      <path d="M12 5 2.5 9.5 12 14l9.5-4.5L12 5Z" />
+      <path d="M6.5 11.75v4.5c0 1.1 2.46 2.25 5.5 2.25s5.5-1.15 5.5-2.25v-4.5" />
+      <path d="M21.5 9.5v5" />
+    </Glyph>
+  );
+}
+
 export function TuneIcon(props: IconProps) {
   return (
     <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>

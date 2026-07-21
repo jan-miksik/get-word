@@ -4,6 +4,7 @@ import { AppLayout } from '@/components/AppLayout';
 import { CardDeckView, type CardDeckSwipeActions } from './CardDeckView';
 import { VirtualizedWordList } from './VirtualizedWordList';
 import { SettlingWordsFooter } from './SettlingWordsFooter';
+import type { SchoolMembership } from '@/features/auth/client/useAuth';
 import { useI18n } from '@/components/I18nProvider';
 import type { MinigameFrequencyRange, MiniGameConfig } from '@/features/learning/minigames';
 import type { NormalizedWord } from '@/lib/words';
@@ -16,6 +17,7 @@ interface LearningStudyContentProps {
   onMinigameFrequencyChange: (value: MinigameFrequencyRange) => void;
   isAuthenticated: boolean;
   authEmail?: string;
+  school?: SchoolMembership | null;
   authAddress?: string;
   onSignOut: () => void | Promise<void>;
   categories: Array<{ name: string; count: number }>;
@@ -53,6 +55,7 @@ export function LearningStudyContent({
   onMinigameFrequencyChange,
   isAuthenticated,
   authEmail,
+  school,
   authAddress,
   onSignOut,
   categories,
@@ -84,6 +87,7 @@ export function LearningStudyContent({
       onMinigameFrequencyChange={onMinigameFrequencyChange}
       isAuthenticated={isAuthenticated}
       authEmail={authEmail}
+      school={school}
       authAddress={authAddress}
       onSignOut={onSignOut}
       categories={categories}

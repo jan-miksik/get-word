@@ -250,6 +250,18 @@
   justify-content: center;
 }
 
+/* Non-interactive row confirming which school the account belongs to. */
+.menu-dropdown-school {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-bottom: 2px solid var(--tm-ink);
+  color: var(--tm-ink);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
 /* ─── Menu items ─────────────────────────────────────────── */
 .menu-item {
   position: relative;

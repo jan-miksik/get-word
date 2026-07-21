@@ -11,4 +11,5 @@ export * from "./review-events";
 export * from "./google-api-usage";
 export * from "./multi-device-insights";
 export * from "./usage-stats";
+export * from "./school-usage-stats";
 export * from "./sync-revision";

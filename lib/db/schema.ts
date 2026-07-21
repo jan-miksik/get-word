@@ -65,6 +65,7 @@ export const schoolRoleEnum = pgEnum("school_role", [
 
 export const schoolFeatureEnum = pgEnum("school_feature", [
   "ai_translation",
+  "photo_lab",
 ]);
 
 export const schoolTranslationRequestStatusEnum = pgEnum(
@@ -294,7 +295,7 @@ export const schoolMemberships = pgTable(
       .on(table.userId)
       .where(sql`${table.revokedAt} is null`),
     index("school_memberships_active_school_role_idx")
-      .on(table.schoolId, table.role)
+      .on(table.schoolId, table.role, table.claimedAt)
       .where(sql`${table.revokedAt} is null`),
   ],
 );
@@ -354,6 +355,7 @@ export const schoolTranslationRequests = pgTable(
     ),
     index("school_translation_requests_user_created_idx").on(table.userId, table.createdAt),
     index("school_translation_requests_status_created_idx").on(table.status, table.createdAt),
+    index("school_translation_requests_school_created_idx").on(table.schoolId, table.createdAt),
     check("school_translation_requests_item_count_nonnegative", sql`${table.itemCount} >= 0`),
     check("school_translation_requests_character_count_nonnegative", sql`${table.characterCount} >= 0`),
   ],

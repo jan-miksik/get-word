@@ -2,6 +2,7 @@
 
 import { ReactNode, useEffect, useRef, useState } from 'react';
 import type { MenuPanel } from '@/hooks/useMenuPanels';
+import type { SchoolMembership } from '@/features/auth/client/useAuth';
 import { PWAInstallMenuItem } from '@/components/PWAInstallMenuItem';
 import { useI18n } from '@/components/I18nProvider';
 import { SUPPORT_TELEGRAM_URL } from '@/components/SupportButton';
@@ -9,6 +10,7 @@ import {
   CategoryIcon,
   MenuIcon,
   PhotoLabIcon,
+  SchoolIcon,
   SettingsIcon,
   StarIcon,
   TuneIcon,
@@ -36,6 +38,8 @@ interface TopMenuProps {
   activeListLanguagePair?: { from: string; to: string } | null;
   /** When the photo-lab beta is enabled, surface it as a main-menu destination. */
   photoLabEnabled?: boolean;
+  /** Active school membership; drives the school row and the teacher dashboard link. */
+  school?: SchoolMembership | null;
 }
 
 function shortenListName(name: string): string {
@@ -300,6 +304,7 @@ interface MenuDropdownProps {
   onListChange?: (id: string | null) => void;
   activeListLanguagePair?: { from: string; to: string } | null;
   photoLabEnabled?: boolean;
+  school?: SchoolMembership | null;
 }
 
 function MenuDropdown({
@@ -312,6 +317,7 @@ function MenuDropdown({
   onListChange,
   activeListLanguagePair,
   photoLabEnabled,
+  school,
 }: MenuDropdownProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -393,6 +399,16 @@ function MenuDropdown({
       label: t('lists.wordLists'),
       href: '/lists',
     },
+    ...(school?.role === 'teacher'
+      ? [
+          {
+            kind: 'link' as const,
+            icon: <SchoolIcon size={15} />,
+            label: t('top.schoolOverview'),
+            href: '/school/overview',
+          },
+        ]
+      : []),
     {
       kind: 'link',
       icon: <TelegramIcon size={15} />,
@@ -440,6 +456,19 @@ function MenuDropdown({
             {accountSlot != null && (
               <div className="menu-dropdown-account">
                 {accountSlot}
+              </div>
+            )}
+            {school && (
+              <div className="menu-dropdown-school" role="presentation">
+                <span className="menu-item-icon"><SchoolIcon size={15} /></span>
+                <span className="menu-item-label">
+                  {t(
+                    school.role === 'teacher'
+                      ? 'top.schoolMemberTeacher'
+                      : 'top.schoolMemberStudent',
+                    { school: school.name },
+                  )}
+                </span>
               </div>
             )}
             {items.map((item) => {
@@ -532,6 +561,7 @@ export function TopMenu({
   onListChange,
   activeListLanguagePair,
   photoLabEnabled,
+  school,
 }: TopMenuProps) {
   return (
     <div className="top-menu" aria-label="Top menu">
@@ -554,6 +584,7 @@ export function TopMenu({
           onListChange={onListChange}
           activeListLanguagePair={activeListLanguagePair}
           photoLabEnabled={photoLabEnabled}
+          school={school}
         />
       </div>
     </div>

@@ -6,7 +6,9 @@ import { normalizeLanguageCode } from "@/lib/i18n/languages";
 import { analyzePhoto } from "@/features/photo-lab/server/analyze";
 import {
   DailyLimitError,
+  releasePhotoLabReservation,
   reservePhotoLabRateLimit,
+  type PhotoLabReservation,
 } from "@/features/photo-lab/server/rate-limit";
 import { MAX_IMAGE_BASE64_CHARS } from "@/features/photo-lab/server/config";
 
@@ -102,8 +104,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  let reservation: PhotoLabReservation;
   try {
-    await reservePhotoLabRateLimit(user.id, isEditor(user));
+    reservation = await reservePhotoLabRateLimit(user.id, isEditor(user));
   } catch (err) {
     if (err instanceof DailyLimitError) {
       return NextResponse.json(
@@ -124,6 +127,16 @@ export async function POST(request: NextRequest) {
     const labels = parsedLabels.map((label) => ({ id: randomUUID(), ...label }));
     return NextResponse.json({ labels });
   } catch (err) {
+    // Charge the reservation only when we cannot tell whether the provider ran.
+    // Any observed failure — an HTTP error, a truncated body, an unparseable
+    // payload — produced nothing the user can use, so the reservation goes back.
+    // Only a transport failure is genuinely ambiguous. Mirrors the
+    // release/unknown split in features/schools/server/translation-requests.
+    const isAmbiguous = err instanceof OpenRouterChatError && err.kind === "transport";
+    if (!isAmbiguous) {
+      await releasePhotoLabReservation(reservation);
+    }
+
     if (err instanceof OpenRouterChatError) {
       console.error("[photo-lab] OpenRouter analysis failed", err);
       if (err.isOutOfCredits) {

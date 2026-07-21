@@ -1,15 +1,22 @@
 import { sql, type SQL } from 'drizzle-orm';
 import type {
-  ActivityWindow,
   StudyWeekBucket,
   UsageStats,
   UsageStatsOptions,
   UsageWeekBucket,
 } from '@/features/admin/types';
 import { db } from '../client';
-
-const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
-const TREND_WEEKS = 12;
+import {
+  TREND_WEEKS,
+  WEEK_MS,
+  firstRow,
+  getActivityWindowStarts,
+  getUtcMonday,
+  normalizeActivityWindow,
+  numberFromRow,
+  weekStarts,
+  zeroFillWeeks,
+} from './stats-shared';
 
 function parseEnvList(value: string | undefined, normalize: (item: string) => string = (item) => item): string[] {
   if (!value) return [];
@@ -31,53 +38,6 @@ function getEnvExcludedUserEmails(): string[] {
   return parseEnvList(process.env.ADMIN_STATS_EXCLUDED_USER_EMAILS, (email) => email.toLowerCase());
 }
 
-function numberFromRow(row: Record<string, unknown>, key: string): number {
-  return Number(row[key] ?? 0) || 0;
-}
-
-function firstRow(rows: unknown[]): Record<string, unknown> {
-  return (rows[0] ?? {}) as Record<string, unknown>;
-}
-
-/** UTC Monday 00:00 of the week containing `date`. */
-function getUtcMonday(date: Date): Date {
-  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
-  const dayFromMonday = (d.getUTCDay() + 6) % 7;
-  d.setUTCDate(d.getUTCDate() - dayFromMonday);
-  return d;
-}
-
-function toDateString(date: Date): string {
-  return date.toISOString().slice(0, 10);
-}
-
-function getUtcMonthStart(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
-}
-
-function getUtcYearStart(date: Date): Date {
-  return new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
-}
-
-/** Exactly TREND_WEEKS week-start strings ending with the current (partial) week. */
-function weekStarts(currentWeekStart: Date): string[] {
-  return Array.from({ length: TREND_WEEKS }, (_, i) =>
-    toDateString(new Date(currentWeekStart.getTime() - (TREND_WEEKS - 1 - i) * WEEK_MS))
-  );
-}
-
-function zeroFillWeeks<T extends { weekStart: string }>(
-  starts: string[],
-  rows: Map<string, Omit<T, 'weekStart' | 'partial'>>,
-  empty: Omit<T, 'weekStart' | 'partial'>
-): (T & { partial?: boolean })[] {
-  return starts.map((weekStart, i) => ({
-    weekStart,
-    ...(rows.get(weekStart) ?? empty),
-    ...(i === starts.length - 1 ? { partial: true } : {}),
-  })) as (T & { partial?: boolean })[];
-}
-
 function sqlTextArray(values: string[]): SQL {
   return sql`ARRAY[${sql.join(values.map((value) => sql`${value}`), sql`, `)}]::text[]`;
 }
@@ -97,10 +57,6 @@ function excludedUserCondition(alias: string, options: Required<Pick<UsageStatsO
 
 function includedUserCondition(alias: string, options: Required<Pick<UsageStatsOptions, 'excludedUserIds' | 'excludedUserEmails'>>): SQL {
   return sql`NOT (${excludedUserCondition(alias, options)})`;
-}
-
-function normalizeActivityWindow(value: ActivityWindow | undefined): ActivityWindow {
-  return value === 'calendar' ? 'calendar' : 'rolling';
 }
 
 /**
@@ -130,7 +86,6 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
   const dayAgo = new Date(generatedAt.getTime() - 24 * 60 * 60 * 1000).toISOString();
   const weekAgo = new Date(generatedAt.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
   const monthAgo = new Date(generatedAt.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
-  const yearAgo = new Date(generatedAt.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString();
   const d1Cutoff = dayAgo;
   const d7Cutoff = weekAgo;
   const d30Cutoff = monthAgo;
@@ -141,12 +96,11 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
   const weekWindowFrom = oldestWeekStart.toISOString();
   const weekWindowTo = nextWeekStart.toISOString();
   const starts = weekStarts(currentWeekStart);
-  const activityDayStart = activityWindow === 'calendar'
-    ? new Date(Date.UTC(generatedAt.getUTCFullYear(), generatedAt.getUTCMonth(), generatedAt.getUTCDate())).toISOString()
-    : dayAgo;
-  const activityWeekStart = activityWindow === 'calendar' ? currentWeekStart.toISOString() : weekAgo;
-  const activityMonthStart = activityWindow === 'calendar' ? getUtcMonthStart(generatedAt).toISOString() : monthAgo;
-  const activityYearStart = activityWindow === 'calendar' ? getUtcYearStart(generatedAt).toISOString() : yearAgo;
+  const activityStarts = getActivityWindowStarts(activityWindow, generatedAt);
+  const activityDayStart = activityStarts.day.toISOString();
+  const activityWeekStart = activityStarts.week.toISOString();
+  const activityMonthStart = activityStarts.month.toISOString();
+  const activityYearStart = activityStarts.year.toISOString();
 
   const registrationRows = await db.execute(sql`
     SELECT

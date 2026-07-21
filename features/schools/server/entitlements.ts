@@ -45,6 +45,12 @@ export async function getActiveSchoolEntitlement(
       AND m.revoked_at IS NULL
       AND s.status = 'active'
       AND (s.pilot_expires_at IS NULL OR s.pilot_expires_at > now())
+    -- A partial unique index allows only one active membership per user, so
+    -- this normally matches a single row. The ordering is insurance: should a
+    -- second one ever appear (manual fix, future multi-school support), the
+    -- newest membership wins deterministically instead of the row order
+    -- flipping between requests and billing two schools at random.
+    ORDER BY m.claimed_at DESC, m.id DESC
     LIMIT 1
   `);
   const row = rows[0] as EntitlementRow | undefined;

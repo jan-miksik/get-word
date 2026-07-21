@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { resolveAuthenticatedUser } from '@/lib/auth'
+import { getActiveSchoolEntitlement } from '@/features/schools/server/entitlements'
 
 /**
  * Lightweight identity check for the client. Reads the app session cookie
@@ -12,9 +13,16 @@ export async function GET(request: NextRequest) {
   if (!user) {
     return NextResponse.json({ authenticated: false }, { headers: { 'Cache-Control': 'no-store' } })
   }
+  // Rides along here rather than on its own endpoint: the client needs it on
+  // every load to show school membership in the menu, and this response is
+  // already fetched once at startup for signed-in users only.
+  const school = await getActiveSchoolEntitlement(user.id)
   return NextResponse.json(
     {
       authenticated: true,
+      school: school
+        ? { id: school.schoolId, name: school.schoolName, role: school.role }
+        : null,
       email: user.email ?? null,
       authProvider: user.authProvider ?? null,
       userRole: user.userRole,

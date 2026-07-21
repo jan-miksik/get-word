@@ -68,6 +68,7 @@ export function HomeClient() {
     email,
     authProvider,
     address: walletAddress,
+    school,
     signOut,
   } = useAuth();
 
@@ -451,6 +452,7 @@ export function HomeClient() {
             onMinigameFrequencyChange={(f) => setMinigameFrequency(f)}
             isAuthenticated={isAuthenticated}
             authEmail={displayEmail}
+            school={school}
             authAddress={displayAddress}
             onSignOut={signOut}
             categories={categories}
