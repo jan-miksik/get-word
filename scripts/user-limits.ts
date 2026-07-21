@@ -10,11 +10,15 @@
  * current window: raising it takes effect immediately, lowering it below what
  * someone already spent leaves them at zero remaining until the window resets.
  *
- * Usage examples:
+ * Usage examples (development database, from .env.local):
  *   pnpm tsx scripts/user-limits.ts show --user <uuid|email>
  *   pnpm tsx scripts/user-limits.ts set-photo-limit --user <uuid|email> --limit 50
  *   pnpm tsx scripts/user-limits.ts clear-photo-limit --user <uuid|email>
  *   pnpm tsx scripts/user-limits.ts list-photo-limits
+ *
+ * Against production, go through the wrapper so the URL stays out of the shell
+ * history and the confirmation prompt applies:
+ *   pnpm run db:prod -- user-limits set-photo-limit --user <uuid|email> --limit 50
  */
 
 import * as dotenv from "dotenv";

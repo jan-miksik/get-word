@@ -18,6 +18,7 @@ Usage:
   pnpm run db:prod -- demo-generate-audio [--apply] [--repair-quiet] [--force] [--langs=cs,vi]
   pnpm run db:prod -- demo-bundle-audio [--apply] [--force] [--langs=cs,vi]
   pnpm run db:prod -- school-access <school-access-command> [args...]
+  pnpm run db:prod -- user-limits <user-limits-command> [args...]
 
 Actions:
   backup [file]    Dump the database with pg_dump to a local file (defaults to
@@ -39,6 +40,7 @@ Actions:
   demo-bundle-audio               Preview production-backed public/audio/demo bundle changes.
   demo-bundle-audio --apply        Download production-backed audio into public/audio/demo.
   school-access                    Run scripts/school-access.ts against production with hidden DATABASE_URL.
+  user-limits                      Run scripts/user-limits.ts against production with hidden DATABASE_URL.
 
 The production DATABASE_URL is read with hidden input, exported only for the
 selected action, and unset when the action exits. Do not put the URL in action
@@ -77,6 +79,7 @@ audio_args=()
 demo_apply=false
 demo_args=()
 school_access_args=()
+user_limits_args=()
 
 parse_audio_flags() {
   local command_name="$1"
@@ -280,6 +283,12 @@ case "$action" in
     description="run school access operator command in production: ${school_access_args[*]}"
     confirmation_phrase="RUN_PRODUCTION_SCHOOL_ACCESS"
     ;;
+  user-limits)
+    [[ "$#" -ge 2 ]] || die "user-limits requires a subcommand, e.g. show."
+    user_limits_args=("${@:2}")
+    description="run per-account limit operator command in production: ${user_limits_args[*]}"
+    confirmation_phrase="RUN_PRODUCTION_USER_LIMITS"
+    ;;
   -h|--help|help|"")
     usage
     exit 0
@@ -423,6 +432,9 @@ case "$action" in
     ;;
   school-access)
     pnpm exec tsx scripts/school-access.ts "${school_access_args[@]}"
+    ;;
+  user-limits)
+    pnpm exec tsx scripts/user-limits.ts "${user_limits_args[@]}"
     ;;
 esac
 

@@ -16,6 +16,7 @@ operator workflows share the behavior.
 - Data maintenance: `backfill-content-keys.ts`, `compact-review-events.ts`,
   `process-account-deletion-jobs.ts`
 - School pilot access: `school-access.ts`
+- Per-account feature limits: `user-limits.ts`
 
 `scripts/lib/audio-quality.ts` is the canonical ffprobe/ffmpeg quality policy for
 both landing-audio generators. Scripts may perform destructive production work;
