@@ -121,6 +121,18 @@ export function markServerSnapshotApplied(): void {
 // When `since` AND `contentRev` are provided, the server may answer with a
 // delta (is_delta=true, only rows changed after the cursor) or a tiny
 // "unchanged" response; without both cursors it returns the full snapshot.
+/**
+ * Cap on the hydration fetch. Without it a stalled connection (captive portal,
+ * dropped NAT mapping, slow database) leaves the promise pending forever and
+ * the caller never learns the boot failed.
+ */
+const SYNC_FETCH_TIMEOUT_MS = 20_000;
+
+function isAbortLike(error: unknown): boolean {
+  const name = (error as { name?: unknown } | null)?.name;
+  return name === 'TimeoutError' || name === 'AbortError';
+}
+
 export async function fetchUserData(options?: {
   since?: number | string;
   contentRev?: string;
@@ -139,7 +151,9 @@ export async function fetchUserData(options?: {
   }
 
   try {
-    const response = await fetch(`/api/sync?${params.toString()}`);
+    const response = await fetch(`/api/sync?${params.toString()}`, {
+      signal: AbortSignal.timeout(SYNC_FETCH_TIMEOUT_MS),
+    });
 
     if (!response.ok) {
       if (response.status === 401) {
@@ -163,6 +177,13 @@ export async function fetchUserData(options?: {
     }
     return data;
   } catch (error) {
+    // Checked before the `instanceof Error` narrowing below: the abort reason
+    // is a DOMException, which is not an Error subclass everywhere.
+    if (isAbortLike(error)) {
+      throw new Error(
+        `Failed to fetch user data: timed out after ${SYNC_FETCH_TIMEOUT_MS}ms`
+      );
+    }
     if (error instanceof Error) {
       throw error;
     }

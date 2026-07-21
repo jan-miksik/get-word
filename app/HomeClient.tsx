@@ -15,6 +15,7 @@ import {
   type NormalizedWord,
 } from '@/lib/words';
 import { LoadingScreen } from '@/components/LoadingScreen';
+import { BootErrorScreen } from '@/components/BootErrorScreen';
 import { LandingPage } from '@/features/landing/components/LandingPage';
 import { AudioStorageDebugBadge } from '@/components/AudioStorageDebugBadge';
 import { setAudioStorageLoggingEnabled } from '@/lib/audio-debug';
@@ -69,6 +70,8 @@ export function HomeClient() {
     authProvider,
     address: walletAddress,
     school,
+    hasAuthError,
+    retryAuth,
     signOut,
   } = useAuth();
 
@@ -276,7 +279,25 @@ export function HomeClient() {
   // No app session: signed-out visitors see the public landing page (below),
   // which explains the app and routes them to /login. The home page must stay
   // viewable without an account so its purpose is clear before signing in.
-  const isSignedOut = !isAuthLoading && !isConnected;
+  // A failed identity check is *not* a signed-out state — it means we do not
+  // know — so it gets the error screen rather than the landing page.
+  const isSignedOut = !isAuthLoading && !isConnected && !hasAuthError;
+
+  // The boot needs both an identity and a first sync payload. When the boot
+  // timeout fires and we still have neither, no later state can rescue the
+  // render, so stop waiting and let the visitor retry.
+  const bootFailed = hasAuthError || (bootTimedOut && !isAuthenticated);
+
+  const retryBoot = useCallback(() => {
+    if (hasAuthError) {
+      retryAuth();
+      return;
+    }
+    // A stalled sync leaves hydration state spread across this tree, IndexedDB
+    // warm-start, and module-level sync identity; a full reload is the only
+    // way to re-run boot from a known-clean state.
+    window.location.reload();
+  }, [hasAuthError, retryAuth]);
 
   useEffect(() => {
     if (loaderDismissed || (!appReady && !bootTimedOut)) return;
@@ -399,14 +420,17 @@ export function HomeClient() {
     <AppStateProvider value={appState}>
       <I18nProvider language={appState.settingsLanguage}>
         {isEditor ? <AudioStorageDebugBadge /> : null}
-        {isSignedOut ? (
+        {bootFailed ? (
+          <BootErrorScreen onRetry={retryBoot} />
+        ) : isSignedOut ? (
           // Public landing page: explains the app without requiring a login.
           <LandingPage />
         ) : !loaderDismissed ? (
           <LoadingScreen />
         ) : !isAuthenticated ? (
           // Authed-but-still-hydrating → waiting on userId. Hold the loading
-          // screen rather than flashing app chrome.
+          // screen rather than flashing app chrome; `bootFailed` above breaks
+          // the tie if it never arrives.
           <LoadingScreen />
         ) : shouldAutoSetupLandingPair && landingPairFrom && landingPairTo ? (
           <AutoLanguageSetup

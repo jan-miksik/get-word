@@ -21,6 +21,14 @@ interface UseAuthReturn {
   school: SchoolMembership | null
   status: AuthStatus
   isAuthLoading: boolean
+  /**
+   * True when the identity check failed or timed out, so we genuinely do not
+   * know whether the visitor is signed in. Distinct from a confirmed
+   * signed-out state: callers must not show the signed-out landing page here.
+   */
+  hasAuthError: boolean
+  /** Re-run the identity check after a failure. */
+  retryAuth: () => void
   /** Navigate to the login page. */
   signIn: () => void
   /** Clear the app session + local caches and return to home. */
@@ -69,21 +77,40 @@ interface MeResponse {
   school?: SchoolMembership | null
 }
 
+/**
+ * Cap on the identity check. `/api/auth/me` reads the session cookie and the
+ * caller's school membership, so it touches the database — on a flaky network
+ * the request can otherwise hang indefinitely and leave the app stuck on its
+ * loading screen with no way out.
+ */
+const ME_FETCH_TIMEOUT_MS = 8_000
+
 export function useAuth(): UseAuthReturn {
   const router = useRouter()
   const [me, setMe] = useState<MeResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const [hasAuthError, setHasAuthError] = useState(false)
+  const [attempt, setAttempt] = useState(0)
   const signingOut = useRef(false)
 
   useEffect(() => {
     let active = true
-    fetch('/api/auth/me', { credentials: 'same-origin' })
+    fetch('/api/auth/me', {
+      credentials: 'same-origin',
+      signal: AbortSignal.timeout(ME_FETCH_TIMEOUT_MS),
+    })
       .then((res) => (res.ok ? res.json() : { authenticated: false }))
       .then((data: MeResponse) => {
         if (active) setMe(data)
       })
-      .catch(() => {
-        if (active) setMe({ authenticated: false })
+      .catch((error) => {
+        // Unreachable or too slow: we cannot tell signed-in from signed-out, so
+        // surface an error instead of guessing "signed out" and showing the
+        // landing page to someone who is actually logged in.
+        if (!active) return
+        console.error('[useAuth] Identity check failed:', error)
+        setMe(null)
+        setHasAuthError(true)
       })
       .finally(() => {
         if (active) setLoading(false)
@@ -91,6 +118,14 @@ export function useAuth(): UseAuthReturn {
     return () => {
       active = false
     }
+  }, [attempt])
+
+  // Resets live here rather than at the top of the effect: doing it there would
+  // set state synchronously on every mount and cascade an extra render.
+  const retryAuth = useCallback(() => {
+    setLoading(true)
+    setHasAuthError(false)
+    setAttempt((value) => value + 1)
   }, [])
 
   const signIn = useCallback(() => {
@@ -152,6 +187,8 @@ export function useAuth(): UseAuthReturn {
     school: me?.school ?? null,
     status,
     isAuthLoading: loading,
+    hasAuthError,
+    retryAuth,
     signIn,
     signOut,
     openAccountMenu,

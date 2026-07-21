@@ -48,6 +48,18 @@ describe('sync client errors', () => {
     );
   });
 
+  it('bounds the hydration fetch so a stalled request cannot hang the boot', async () => {
+    // A stalled request used to leave the promise pending forever, which held
+    // the app on its loading screen with no way out.
+    const fetchMock = vi.fn(async (_url: string, _init?: RequestInit) => {
+      throw new DOMException('The operation timed out.', 'TimeoutError');
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(fetchUserData()).rejects.toThrow(/timed out after \d+ms/);
+    expect(fetchMock.mock.calls[0]?.[1]?.signal).toBeInstanceOf(AbortSignal);
+  });
+
   it('includes submitted review events in the local server-sync event detail', async () => {
     const reviewEvent = {
       client_event_id: 'event-1',
