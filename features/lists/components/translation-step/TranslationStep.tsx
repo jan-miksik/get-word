@@ -45,9 +45,18 @@ import type {
  * server reserves quota a second time for work the student already paid for.
  * The key is therefore tied to the batch content: identical items keep the key,
  * an edited batch earns a new one.
+ *
+ * The fields here must mirror what the server hashes into `request_hash`
+ * (features/schools/server/translation-requests.ts). Leaving the languages out
+ * would let a flipped study direction reuse a key the server considers to be
+ * different content, which it rejects as IDEMPOTENCY_KEY_REUSED.
  */
-function buildTranslationRequestSignature(items: { id: string; text: string }[]) {
-  return JSON.stringify(items.map((item) => [item.id, item.text]));
+function buildTranslationRequestSignature(
+  items: { id: string; text: string; from_lang: string; to_lang: string }[],
+) {
+  return JSON.stringify(
+    items.map((item) => [item.id, item.text, item.from_lang, item.to_lang]),
+  );
 }
 
 function createTranslationRequestId() {

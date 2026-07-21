@@ -12,7 +12,17 @@ type RedeemState =
   | { status: 'loading' }
   | { status: 'missing' }
   | { status: 'success'; schoolName: string; role: string }
+  | { status: 'signInRequired' }
   | { status: 'error'; message: string | null };
+
+/**
+ * Codes that can never succeed on a retry. Everything else is recoverable —
+ * the account still has to link an email, a teacher can free up a seat, an
+ * operator can reactivate the school — so the code stays in session storage
+ * for the next attempt. It has to: the URL fragment carrying it was stripped
+ * on arrival, and the student has no other copy of it.
+ */
+const TERMINAL_REDEEM_CODES = new Set(['INVALID_SCHOOL_CODE', 'SCHOOL_CODE_EXPIRED']);
 
 function readCodeFromHashOrStorage() {
   if (typeof window === 'undefined') return '';
@@ -73,9 +83,15 @@ function SchoolRedeemContent() {
           return;
         }
         if (!response.ok) {
-          // A code the server rejected keeps failing, so drop it instead of
-          // silently retrying it on every later visit to this page.
-          clearStoredCode();
+          if (TERMINAL_REDEEM_CODES.has(String(data.code))) {
+            clearStoredCode();
+          }
+          if (data.code === 'LINKED_ACCOUNT_REQUIRED') {
+            // Signed in by device only. The code survives the sign-in round
+            // trip, so returning here re-runs the redeem automatically.
+            setState({ status: 'signInRequired' });
+            return;
+          }
           setState({
             status: 'error',
             message: typeof data.error === 'string' ? data.error : null,
@@ -132,6 +148,21 @@ function SchoolRedeemContent() {
                 onClick={() => router.push('/lists')}
               >
                 {t('school.continue')}
+              </button>
+            </>
+          )}
+          {state.status === 'signInRequired' && (
+            <>
+              <h1 className="m-0 text-xl font-semibold">{t('school.signInTitle')}</h1>
+              <p className="mt-3 text-sm text-[#6B5E48]">{t('school.signInBody')}</p>
+              <button
+                type="button"
+                className="mt-5 rounded-xl bg-[#1E6FA8] px-4 py-2 text-sm font-semibold text-white"
+                onClick={() =>
+                  router.push(`/login?next=${encodeURIComponent('/school/redeem')}`)
+                }
+              >
+                {t('school.signIn')}
               </button>
             </>
           )}
