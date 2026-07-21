@@ -14,7 +14,11 @@ import {
   OPENROUTER_TRANSLATION_MODELS,
   normalizeOpenRouterModel,
 } from '@/lib/openrouter-models';
-import type { OpenRouterUiState, TranslationProvider } from './types';
+import type {
+  OpenRouterUiState,
+  SchoolTranslationEntitlement,
+  TranslationProvider,
+} from './types';
 
 type Translate = (key: I18nKey, values?: Record<string, string | number>) => string;
 
@@ -33,6 +37,8 @@ export function useTranslationWorkflow({
   const [openRouterModel, setOpenRouterModel] = useState(
     () => readStoredOpenRouterModel() ?? DEFAULT_OPENROUTER_TRANSLATION_MODEL,
   );
+  const [schoolEntitlement, setSchoolEntitlement] =
+    useState<SchoolTranslationEntitlement | null>(null);
 
   const loadOpenRouterStatus = useCallback(async () => {
     setOpenRouterLoading(true);
@@ -52,6 +58,35 @@ export function useTranslationWorkflow({
       setOpenRouterState('not_connected');
     } finally {
       setOpenRouterLoading(false);
+    }
+  }, []);
+
+  const loadSchoolEntitlement = useCallback(async () => {
+    try {
+      const response = await listsApiFetch('/api/schools/me');
+      if (!response.ok) {
+        setSchoolEntitlement(null);
+        setProvider((current) => current === 'school_openrouter' ? 'google' : current);
+        return;
+      }
+      const data = await response.json();
+      const entitlement = data.entitlement;
+      if (!entitlement) {
+        setSchoolEntitlement(null);
+        setProvider((current) => current === 'school_openrouter' ? 'google' : current);
+        return;
+      }
+      setSchoolEntitlement({
+        schoolName: String(entitlement.school_name ?? ''),
+        role: entitlement.role === 'teacher' ? 'teacher' : 'student',
+        translationItemsLimit: Number(entitlement.limits?.translation_items_monthly_limit ?? 0),
+        translationItemsRemaining: Number(entitlement.usage?.ai_translation?.remaining ?? 0),
+        translationItemMaxChars: Number(entitlement.limits?.translation_item_max_chars ?? 160),
+        resetAt: String(entitlement.usage?.ai_translation?.reset_at ?? ''),
+      });
+    } catch {
+      setSchoolEntitlement(null);
+      setProvider((current) => current === 'school_openrouter' ? 'google' : current);
     }
   }, []);
 
@@ -114,6 +149,11 @@ export function useTranslationWorkflow({
   }, [loadOpenRouterStatus]);
 
   useEffect(() => {
+    const timeoutId = window.setTimeout(() => void loadSchoolEntitlement(), 0);
+    return () => window.clearTimeout(timeoutId);
+  }, [loadSchoolEntitlement]);
+
+  useEffect(() => {
     writeStoredTranslationProvider(provider);
   }, [provider]);
 
@@ -128,6 +168,8 @@ export function useTranslationWorkflow({
     openRouterLoading,
     openRouterModel,
     openRouterModelLabel,
+    schoolEntitlement,
+    refreshSchoolEntitlement: loadSchoolEntitlement,
     refreshOpenRouterStatus: loadOpenRouterStatus,
     connectOpenRouter,
     changeOpenRouterModel,

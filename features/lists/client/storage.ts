@@ -9,7 +9,7 @@ import {
   type VoiceSelection,
 } from '@/features/lists/audio-step/voiceMix';
 
-export type StoredTranslationProvider = 'google' | 'openrouter';
+export type StoredTranslationProvider = 'google' | 'openrouter' | 'school_openrouter';
 
 const TRANSLATION_PROVIDER_STORAGE_KEY = 'get-word-list-translation-provider';
 const GOOGLE_TTS_VOICE_STORAGE_PREFIX = 'get-word-list-google-tts-voice';
@@ -44,9 +44,8 @@ function removeStorageValue(key: string): void {
 }
 
 export function readStoredTranslationProvider(): StoredTranslationProvider {
-  return readStorageValue(TRANSLATION_PROVIDER_STORAGE_KEY) === 'openrouter'
-    ? 'openrouter'
-    : 'google';
+  const stored = readStorageValue(TRANSLATION_PROVIDER_STORAGE_KEY);
+  return stored === 'openrouter' || stored === 'school_openrouter' ? stored : 'google';
 }
 
 export function writeStoredTranslationProvider(provider: StoredTranslationProvider): void {

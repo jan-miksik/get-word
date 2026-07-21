@@ -76,6 +76,8 @@ export function TranslationStep({
     openRouterLoading,
     openRouterModel,
     openRouterModelLabel,
+    schoolEntitlement,
+    refreshSchoolEntitlement,
     refreshOpenRouterStatus: loadOpenRouterStatus,
     connectOpenRouter: handleConnectOpenRouter,
     changeOpenRouterModel: handleOpenRouterModelChange,
@@ -214,6 +216,10 @@ export function TranslationStep({
       setError(t('lists.openRouterConnectFirst'));
       return;
     }
+    if (provider === 'school_openrouter' && !schoolEntitlement) {
+      setError(t('lists.translationFailed'));
+      return;
+    }
     setTranslating(true);
     setError(null);
     try {
@@ -237,6 +243,13 @@ export function TranslationStep({
           items: itemsToTranslate,
           provider,
           ...(provider === 'openrouter' ? { translation_model: openRouterModel } : {}),
+          ...(provider === 'school_openrouter'
+            ? {
+                request_id:
+                  globalThis.crypto?.randomUUID?.() ??
+                  `${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              }
+            : {}),
           list_id: list.id,
           input_language: inputLanguage,
         }),
@@ -309,6 +322,9 @@ export function TranslationStep({
       if (provider === 'google') {
         void onUsageRefresh?.();
       }
+      if (provider === 'school_openrouter') {
+        void refreshSchoolEntitlement();
+      }
     }
   }, [
     rows,
@@ -319,6 +335,8 @@ export function TranslationStep({
     list,
     inputLanguage,
     openRouterState,
+    schoolEntitlement,
+    refreshSchoolEntitlement,
     isGooglePaused,
     googlePausedMessage,
     onUsageRefresh,
@@ -1025,6 +1043,9 @@ export function TranslationStep({
           >
             <option value="google">{t('lists.translationProviderGoogle')}</option>
             <option value="openrouter">{t('lists.translationProviderOpenRouter')}</option>
+            {schoolEntitlement && (
+              <option value="school_openrouter">School AI</option>
+            )}
           </select>
           <button
             type="button"
@@ -1032,6 +1053,7 @@ export function TranslationStep({
               translating ||
               pendingCount === 0 ||
               (provider === 'openrouter' && openRouterState !== 'connected') ||
+              (provider === 'school_openrouter' && !schoolEntitlement) ||
               (provider === 'google' && isGooglePaused)
             }
             className="px-4 py-1.5 rounded-lg bg-accent text-background text-xs font-medium disabled:opacity-50 hover:bg-accent-strong transition-colors"
@@ -1054,6 +1076,11 @@ export function TranslationStep({
             >
               OpenRouter
             </a>
+          </p>
+        )}
+        {provider === 'school_openrouter' && schoolEntitlement && (
+          <p className="mt-2 text-[11px] leading-relaxed text-text-soft">
+            School AI included by {schoolEntitlement.schoolName}. {schoolEntitlement.translationItemsRemaining} translations left this month.
           </p>
         )}
       </div>

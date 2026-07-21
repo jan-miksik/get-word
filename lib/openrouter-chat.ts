@@ -54,6 +54,8 @@ export interface OpenRouterChatOptions {
   responseFormat?: Record<string, unknown>;
   /** Unified OpenRouter reasoning control (enabled/effort/max_tokens/exclude). */
   reasoning?: Record<string, unknown>;
+  /** Provider routing options, e.g. require_parameters for structured outputs. */
+  provider?: Record<string, unknown>;
   maxTokens?: number;
   temperature?: number;
   topP?: number;
@@ -69,7 +71,12 @@ function isRetryableStatus(status: number): boolean {
   return status === 408 || status === 409 || status === 429 || status >= 500;
 }
 
-async function callOnce(options: OpenRouterChatOptions): Promise<string> {
+export type OpenRouterChatMeta = {
+  id?: string;
+  usage?: Record<string, unknown>;
+};
+
+async function callOnce(options: OpenRouterChatOptions): Promise<{ content: string; meta: OpenRouterChatMeta }> {
   const controller = new AbortController();
   const timeout = setTimeout(
     () => controller.abort(),
@@ -90,6 +97,7 @@ async function callOnce(options: OpenRouterChatOptions): Promise<string> {
         messages: options.messages,
         ...(options.responseFormat ? { response_format: options.responseFormat } : {}),
         ...(options.reasoning ? { reasoning: options.reasoning } : {}),
+        ...(options.provider ? { provider: options.provider } : {}),
         ...(options.maxTokens != null ? { max_tokens: options.maxTokens } : {}),
         ...(options.temperature != null ? { temperature: options.temperature } : {}),
         ...(options.topP != null ? { top_p: options.topP } : {}),
@@ -134,7 +142,15 @@ async function callOnce(options: OpenRouterChatOptions): Promise<string> {
   if (typeof content !== "string" || content.trim() === "") {
     throw new OpenRouterChatError("OpenRouter returned no content.", true);
   }
-  return content;
+  return {
+    content,
+    meta: {
+      id: typeof data?.id === "string" ? data.id : undefined,
+      usage: data?.usage && typeof data.usage === "object"
+        ? data.usage as Record<string, unknown>
+        : undefined,
+    },
+  };
 }
 
 /**
@@ -148,14 +164,22 @@ export async function callOpenRouterChatParsed<T>(
   options: OpenRouterChatOptions,
   parse: (content: string) => T,
 ): Promise<T> {
+  const result = await callOpenRouterChatParsedWithMeta(options, parse);
+  return result.value;
+}
+
+export async function callOpenRouterChatParsedWithMeta<T>(
+  options: OpenRouterChatOptions,
+  parse: (content: string) => T,
+): Promise<{ value: T; meta: OpenRouterChatMeta }> {
   const maxAttempts = options.maxAttempts ?? DEFAULT_MAX_ATTEMPTS;
   const baseDelay = options.retryBaseDelayMs ?? DEFAULT_RETRY_BASE_DELAY_MS;
 
   let lastError: OpenRouterChatError | null = null;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
-      const content = await callOnce(options);
-      return parse(content);
+      const { content, meta } = await callOnce(options);
+      return { value: parse(content), meta };
     } catch (err) {
       if (!(err instanceof OpenRouterChatError) || !err.retryable) throw err;
       lastError = err;

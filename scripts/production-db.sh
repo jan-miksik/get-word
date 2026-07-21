@@ -17,6 +17,7 @@ Usage:
   pnpm run db:prod -- repair-object-to-arweave [--apply] [--limit N] [--batch-size N]
   pnpm run db:prod -- demo-generate-audio [--apply] [--repair-quiet] [--force] [--langs=cs,vi]
   pnpm run db:prod -- demo-bundle-audio [--apply] [--force] [--langs=cs,vi]
+  pnpm run db:prod -- school-access <school-access-command> [args...]
 
 Actions:
   backup [file]    Dump the database with pg_dump to a local file (defaults to
@@ -37,6 +38,7 @@ Actions:
   demo-generate-audio --apply      Generate missing/forced landing-demo audio in production.
   demo-bundle-audio               Preview production-backed public/audio/demo bundle changes.
   demo-bundle-audio --apply        Download production-backed audio into public/audio/demo.
+  school-access                    Run scripts/school-access.ts against production with hidden DATABASE_URL.
 
 The production DATABASE_URL is read with hidden input, exported only for the
 selected action, and unset when the action exits. Do not put the URL in action
@@ -74,6 +76,7 @@ audio_apply=false
 audio_args=()
 demo_apply=false
 demo_args=()
+school_access_args=()
 
 parse_audio_flags() {
   local command_name="$1"
@@ -271,6 +274,12 @@ case "$action" in
       confirmation_phrase="PREVIEW_PRODUCTION_DEMO_BUNDLE"
     fi
     ;;
+  school-access)
+    [[ "$#" -ge 2 ]] || die "school-access requires a subcommand, e.g. create-school."
+    school_access_args=("${@:2}")
+    description="run school access operator command in production: ${school_access_args[*]}"
+    confirmation_phrase="RUN_PRODUCTION_SCHOOL_ACCESS"
+    ;;
   -h|--help|help|"")
     usage
     exit 0
@@ -411,6 +420,9 @@ case "$action" in
     else
       pnpm exec tsx scripts/generate-bundled-demo-audio.ts --dry-run ${demo_args[@]+"${demo_args[@]}"}
     fi
+    ;;
+  school-access)
+    pnpm exec tsx scripts/school-access.ts "${school_access_args[@]}"
     ;;
 esac
 

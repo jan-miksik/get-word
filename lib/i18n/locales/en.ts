@@ -289,6 +289,7 @@ export const enMessages = {
   "photoLab.playAudio": "Play pronunciation",
   "photoLab.usageRemaining": "{remaining} of {limit} analyses left today",
   "photoLab.usageRemainingWeek": "{remaining} of {limit} analyses left this week",
+  "photoLab.usageRemainingMonth": "{remaining} of {limit} analyses left this month",
   "photoLab.historyNote": "Photos are stored only on this device. For analysis, a photo is sent once to the AI service; it is not stored on our servers.",
   "photoLab.deleteConfirm": "Really delete this photo?",
   "settings.memoryHooks": "Memory Hooks",

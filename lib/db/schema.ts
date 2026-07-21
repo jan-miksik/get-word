@@ -8,6 +8,7 @@ import {
   unique,
   uniqueIndex,
   index,
+  check,
   pgEnum,
   jsonb,
 } from "drizzle-orm/pg-core";
@@ -49,6 +50,27 @@ export const googleApiScopeEnum = pgEnum("google_api_scope", [
   "translate",
   "tts",
 ]);
+
+export const schoolPlanEnum = pgEnum("school_plan", ["pilot_v1"]);
+
+export const schoolStatusEnum = pgEnum("school_status", [
+  "active",
+  "inactive",
+]);
+
+export const schoolRoleEnum = pgEnum("school_role", [
+  "student",
+  "teacher",
+]);
+
+export const schoolFeatureEnum = pgEnum("school_feature", [
+  "ai_translation",
+]);
+
+export const schoolTranslationRequestStatusEnum = pgEnum(
+  "school_translation_request_status",
+  ["reserved", "completed", "released", "unknown", "failed_charged"],
+);
 
 // Word lists - container for vocabulary sets
 export const wordLists = pgTable(
@@ -206,6 +228,136 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const schools = pgTable(
+  "schools",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    plan: schoolPlanEnum("plan").notNull().default("pilot_v1"),
+    status: schoolStatusEnum("status").notNull().default("active"),
+    studentSeatLimit: integer("student_seat_limit").notNull().default(30),
+    teacherLimit: integer("teacher_limit").notNull().default(5),
+    pilotExpiresAt: timestamp("pilot_expires_at"),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("schools_status_idx").on(table.status),
+    check("schools_student_seat_limit_nonnegative", sql`${table.studentSeatLimit} >= 0`),
+    check("schools_teacher_limit_nonnegative", sql`${table.teacherLimit} >= 0`),
+  ],
+);
+
+export const schoolAccessCodes = pgTable(
+  "school_access_codes",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    schoolId: uuid("school_id")
+      .notNull()
+      .references(() => schools.id, { onDelete: "cascade" }),
+    codeHash: text("code_hash").notNull(),
+    role: schoolRoleEnum("role").notNull(),
+    expiresAt: timestamp("expires_at"),
+    revokedAt: timestamp("revoked_at"),
+    createdBy: uuid("created_by").references(() => users.id, { onDelete: "set null" }),
+    revokedBy: uuid("revoked_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    unique("school_access_codes_code_hash_unique").on(table.codeHash),
+    index("school_access_codes_school_role_idx").on(table.schoolId, table.role),
+  ],
+);
+
+export const schoolMemberships = pgTable(
+  "school_memberships",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    schoolId: uuid("school_id")
+      .notNull()
+      .references(() => schools.id, { onDelete: "cascade" }),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: schoolRoleEnum("role").notNull(),
+    claimedAt: timestamp("claimed_at").defaultNow().notNull(),
+    revokedAt: timestamp("revoked_at"),
+    revokedBy: uuid("revoked_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    uniqueIndex("school_memberships_one_active_user_unique")
+      .on(table.userId)
+      .where(sql`${table.revokedAt} is null`),
+    index("school_memberships_active_school_role_idx")
+      .on(table.schoolId, table.role)
+      .where(sql`${table.revokedAt} is null`),
+  ],
+);
+
+export const schoolFeatureUsage = pgTable(
+  "school_feature_usage",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    schoolId: uuid("school_id").references(() => schools.id, { onDelete: "set null" }),
+    feature: schoolFeatureEnum("feature").notNull(),
+    periodStart: timestamp("period_start").notNull(),
+    used: integer("used").notNull().default(0),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    unique("school_feature_usage_user_feature_period_unique").on(
+      table.userId,
+      table.feature,
+      table.periodStart,
+    ),
+    index("school_feature_usage_school_period_idx").on(table.schoolId, table.periodStart),
+    check("school_feature_usage_used_nonnegative", sql`${table.used} >= 0`),
+  ],
+);
+
+export const schoolTranslationRequests = pgTable(
+  "school_translation_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    schoolId: uuid("school_id").references(() => schools.id, { onDelete: "set null" }),
+    periodStart: timestamp("period_start").notNull(),
+    requestId: text("request_id").notNull(),
+    requestHash: text("request_hash").notNull(),
+    status: schoolTranslationRequestStatusEnum("status").notNull().default("reserved"),
+    itemCount: integer("item_count").notNull(),
+    characterCount: integer("character_count").notNull(),
+    model: text("model").notNull(),
+    providerGenerationId: text("provider_generation_id"),
+    providerUsage: jsonb("provider_usage").$type<Record<string, unknown>>(),
+    resultJson: jsonb("result_json").$type<Record<string, unknown>>(),
+    errorJson: jsonb("error_json").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    completedAt: timestamp("completed_at"),
+  },
+  (table) => [
+    unique("school_translation_requests_user_request_unique").on(
+      table.userId,
+      table.requestId,
+    ),
+    index("school_translation_requests_user_created_idx").on(table.userId, table.createdAt),
+    index("school_translation_requests_status_created_idx").on(table.status, table.createdAt),
+    check("school_translation_requests_item_count_nonnegative", sql`${table.itemCount} >= 0`),
+    check("school_translation_requests_character_count_nonnegative", sql`${table.characterCount} >= 0`),
+  ],
+);
 
 export const uiTranslationCache = pgTable(
   "ui_translation_cache",
@@ -502,6 +654,16 @@ export type MediaAsset = typeof mediaAssets.$inferSelect;
 export type NewMediaAsset = typeof mediaAssets.$inferInsert;
 export type UserApiKey = typeof userApiKeys.$inferSelect;
 export type NewUserApiKey = typeof userApiKeys.$inferInsert;
+export type School = typeof schools.$inferSelect;
+export type NewSchool = typeof schools.$inferInsert;
+export type SchoolAccessCode = typeof schoolAccessCodes.$inferSelect;
+export type NewSchoolAccessCode = typeof schoolAccessCodes.$inferInsert;
+export type SchoolMembership = typeof schoolMemberships.$inferSelect;
+export type NewSchoolMembership = typeof schoolMemberships.$inferInsert;
+export type SchoolFeatureUsage = typeof schoolFeatureUsage.$inferSelect;
+export type NewSchoolFeatureUsage = typeof schoolFeatureUsage.$inferInsert;
+export type SchoolTranslationRequest = typeof schoolTranslationRequests.$inferSelect;
+export type NewSchoolTranslationRequest = typeof schoolTranslationRequests.$inferInsert;
 export type OAuthRateLimit = typeof oauthRateLimits.$inferSelect;
 export type NewOAuthRateLimit = typeof oauthRateLimits.$inferInsert;
 export type GoogleApiUsage = typeof googleApiUsage.$inferSelect;

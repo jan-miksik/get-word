@@ -270,6 +270,7 @@ export const viMessages: I18nMessages = {
   "photoLab.playAudio": "Nghe phát âm",
   "photoLab.usageRemaining": "Hôm nay còn {remaining}/{limit} lượt phân tích",
   "photoLab.usageRemainingWeek": "Tuần này còn {remaining}/{limit} lượt phân tích",
+  "photoLab.usageRemainingMonth": "Tháng này còn {remaining}/{limit} lượt phân tích",
   "photoLab.historyNote": "Ảnh chỉ được lưu trên thiết bị này. Khi phân tích, ảnh được gửi một lần đến dịch vụ AI và không được lưu trên máy chủ của chúng tôi.",
   "photoLab.deleteConfirm": "Bạn có chắc muốn xóa ảnh này?",
   "settings.memoryHooks": "Mẹo ghi nhớ",

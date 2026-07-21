@@ -15,6 +15,7 @@ operator workflows share the behavior.
   `repair-list-audio.ts`, `repair-object-to-arweave.ts`
 - Data maintenance: `backfill-content-keys.ts`, `compact-review-events.ts`,
   `process-account-deletion-jobs.ts`
+- School pilot access: `school-access.ts`
 
 `scripts/lib/audio-quality.ts` is the canonical ffprobe/ffmpeg quality policy for
 both landing-audio generators. Scripts may perform destructive production work;

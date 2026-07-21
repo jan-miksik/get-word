@@ -7,8 +7,13 @@ export type PhotoLabUsage = {
   limit: number;
   remaining: number;
   reset_at: string;
-  period: 'day' | 'week';
+  period: 'day' | 'week' | 'month';
+  source?: 'default' | 'school';
 };
+
+function normalizeUsagePeriod(period: unknown): PhotoLabUsage['period'] {
+  return period === 'week' || period === 'month' ? period : 'day';
+}
 
 export async function requestPhotoLabUsage(): Promise<PhotoLabUsage | null> {
   try {
@@ -23,7 +28,7 @@ export async function requestPhotoLabUsage(): Promise<PhotoLabUsage | null> {
     ) {
       return null;
     }
-    return { ...body, period: body.period === 'week' ? 'week' : 'day' } as PhotoLabUsage;
+    return { ...body, period: normalizeUsagePeriod(body.period) } as PhotoLabUsage;
   } catch {
     return null;
   }

@@ -270,6 +270,7 @@ export const ukMessages: I18nMessages = {
   "photoLab.playAudio": "Відтворити вимову",
   "photoLab.usageRemaining": "Сьогодні залишилося {remaining} із {limit} аналізів",
   "photoLab.usageRemainingWeek": "Цього тижня залишилося {remaining} із {limit} аналізів",
+  "photoLab.usageRemainingMonth": "Цього місяця залишилося {remaining} із {limit} аналізів",
   "photoLab.historyNote": "Фото зберігаються лише на цьому пристрої. Для аналізу фото одноразово надсилається до сервісу ШІ; на наших серверах воно не зберігається.",
   "photoLab.deleteConfirm": "Справді видалити це фото?",
   "settings.memoryHooks": "Мнемонічні підказки",

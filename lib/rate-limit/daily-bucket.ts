@@ -2,7 +2,7 @@ import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { oauthRateLimits } from "@/lib/db/schema";
 
-export type BucketPeriod = "day" | "week";
+export type BucketPeriod = "day" | "week" | "month";
 
 export type DailyBucket = {
   key: string;
@@ -10,7 +10,7 @@ export type DailyBucket = {
   message: string;
   /** Units to reserve in one call (default 1). */
   count?: number;
-  /** Window the limit applies to (default "day"). Weeks start Monday UTC. */
+/** Window the limit applies to (default "day"). Weeks start Monday UTC; months are calendar months UTC. */
   period?: BucketPeriod;
 };
 
@@ -34,6 +34,13 @@ function getUtcWeekStart(date = new Date()) {
 }
 
 function getBucketWindow(period: BucketPeriod, date = new Date()) {
+  if (period === "month") {
+    const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
+    return {
+      start,
+      resetAt: new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1)),
+    };
+  }
   const start = period === "week" ? getUtcWeekStart(date) : getUtcDayStart(date);
   const days = period === "week" ? 7 : 1;
   return { start, resetAt: new Date(start.getTime() + days * 24 * 60 * 60 * 1000) };

@@ -13,5 +13,6 @@ export async function GET(request: NextRequest) {
     remaining: usage.remaining,
     reset_at: usage.resetAt.toISOString(),
     period: usage.period,
+    source: usage.source,
   });
 }

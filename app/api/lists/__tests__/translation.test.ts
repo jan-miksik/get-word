@@ -9,6 +9,8 @@ const mockUpdateItemTranslations = vi.fn()
 const mockSetItemComment = vi.fn()
 const mockGetUserApiKey = vi.fn()
 const mockReserveGoogleApiUsage = vi.fn()
+const mockGetActiveSchoolEntitlement = vi.fn()
+const mockTranslateWithSchoolOpenRouter = vi.fn()
 
 vi.mock('@/lib/db', () => ({
   countGoogleApiTextUnits: (texts: string[]) => texts.join('').length,
@@ -32,6 +34,25 @@ vi.mock('@/lib/auth', () => ({
       headers: { 'content-type': 'application/json' },
     }),
 }))
+
+vi.mock('@/features/schools/server/entitlements', () => ({
+  getActiveSchoolEntitlement: (...args: unknown[]) => mockGetActiveSchoolEntitlement(...args),
+}))
+
+vi.mock('@/features/schools/server/translation-requests', () => {
+  class SchoolTranslationError extends Error {
+    constructor(
+      readonly body: Record<string, unknown>,
+      readonly status: number,
+    ) {
+      super(String(body.error ?? 'School translation failed'))
+    }
+  }
+  return {
+    SchoolTranslationError,
+    translateWithSchoolOpenRouter: (...args: unknown[]) => mockTranslateWithSchoolOpenRouter(...args),
+  }
+})
 
 const mockGoogleTranslate = vi.fn()
 const mockOpenRouterTranslate = vi.fn()
@@ -80,6 +101,8 @@ describe('POST /api/translate/batch', () => {
       accountLimit: 25000,
       freeMonthlyUnits: 500000,
     })
+    mockGetActiveSchoolEntitlement.mockResolvedValue(null)
+    mockTranslateWithSchoolOpenRouter.mockReset()
   })
 
   afterEach(() => {
@@ -304,6 +327,74 @@ describe('POST /api/translate/batch', () => {
     expect(body.results[0].status).toBe('ok')
     expect(body.results[1].status).toBe('error')
     expect(body.results[1].error).toBe('Translation failed')
+  })
+
+  it('rejects school OpenRouter without an active school entitlement', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetActiveSchoolEntitlement.mockResolvedValue(null)
+    const req = new NextRequest('http://localhost/api/translate/batch', {
+      method: 'POST',
+      body: JSON.stringify({
+        items: [{ id: 'i1', text: 'hello', from_lang: 'cz', to_lang: 'vi' }],
+        provider: 'school_openrouter',
+        request_id: 'req-1',
+      }),
+    })
+
+    const res = await translateBatch(req)
+    const body = await res.json()
+
+    expect(res.status).toBe(403)
+    expect(body.error).toMatch(/school/i)
+    expect(mockTranslateWithSchoolOpenRouter).not.toHaveBeenCalled()
+  })
+
+  it('translates via school OpenRouter using the school entitlement service', async () => {
+    const entitlement = {
+      schoolId: 'school-1',
+      schoolName: 'Pilot',
+      plan: 'pilot_v1',
+      role: 'student',
+      limits: {
+        photoLabMonthlyLimit: 25,
+        translationItemsMonthlyLimit: 1000,
+        translationItemMaxChars: 160,
+      },
+    }
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetActiveSchoolEntitlement.mockResolvedValue(entitlement)
+    mockTranslateWithSchoolOpenRouter.mockResolvedValue({
+      results: [
+        { id: 'i1', translated_text: 'xin chào', status: 'ok', source: 'api' },
+      ],
+    })
+    const req = new NextRequest('http://localhost/api/translate/batch', {
+      method: 'POST',
+      body: JSON.stringify({
+        items: [{ id: 'i1', text: 'hello', from_lang: 'cz', to_lang: 'vi' }],
+        provider: 'school_openrouter',
+        request_id: 'req-1',
+      }),
+    })
+
+    const res = await translateBatch(req)
+    const body = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(body.results[0]).toEqual({
+      id: 'i1',
+      translated_text: 'xin chào',
+      status: 'ok',
+      source: 'api',
+    })
+    expect(mockTranslateWithSchoolOpenRouter).toHaveBeenCalledWith({
+      userId: 'user-1',
+      entitlement,
+      requestId: 'req-1',
+      items: [{ id: 'i1', text: 'hello', from_lang: 'cz', to_lang: 'vi' }],
+      fromLang: 'cs',
+      toLang: 'vi',
+    })
   })
 
   it('enforces daily limit of 500 translations per user', async () => {

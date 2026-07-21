@@ -13,6 +13,11 @@ import {
 import { normalizeOpenRouterModel } from "@/lib/openrouter-models";
 import { OpenRouterChatError } from "@/lib/openrouter-chat";
 import { normalizeLanguageCode } from "@/lib/i18n/languages";
+import { getActiveSchoolEntitlement } from "@/features/schools/server/entitlements";
+import {
+  SchoolTranslationError,
+  translateWithSchoolOpenRouter,
+} from "@/features/schools/server/translation-requests";
 
 const MAX_ITEMS_PER_REQUEST = 500;
 
@@ -44,6 +49,7 @@ export async function translateBatch(input: {
     list_id?: string;
     input_language?: "known" | "target";
     translation_model?: string;
+    request_id?: string;
   };
   const translationModel = normalizeOpenRouterModel(body.translation_model);
 
@@ -61,9 +67,9 @@ export async function translateBatch(input: {
     );
   }
 
-  if (!provider || !["google", "openrouter"].includes(provider)) {
+  if (!provider || !["google", "openrouter", "school_openrouter"].includes(provider)) {
     throw new TranslateBatchError(
-      { error: "provider must be 'google' or 'openrouter'" },
+      { error: "provider must be 'google', 'openrouter', or 'school_openrouter'" },
       400,
     );
   }
@@ -78,6 +84,16 @@ export async function translateBatch(input: {
         400,
       );
     }
+  }
+  const schoolEntitlement =
+    provider === "school_openrouter"
+      ? await getActiveSchoolEntitlement(userId)
+      : null;
+  if (provider === "school_openrouter" && !schoolEntitlement) {
+    throw new TranslateBatchError(
+      { error: "School AI translation requires an active school membership." },
+      403,
+    );
   }
 
   // DB dedup: look for existing translations
@@ -165,6 +181,44 @@ export async function translateBatch(input: {
             },
             402,
           );
+        }
+        throw err;
+      }
+    } else if (provider === "school_openrouter" && schoolEntitlement) {
+      try {
+        const response = await translateWithSchoolOpenRouter({
+          userId,
+          entitlement: schoolEntitlement,
+          requestId: body.request_id,
+          items: needsApi,
+          fromLang,
+          toLang,
+        });
+        const schoolResultById = new Map(response.results.map((result) => [result.id, result]));
+        apiResults = needsApi.map((item) => {
+          const result = schoolResultById.get(item.id);
+          if (!result) {
+            return {
+              text: item.text,
+              translated: null,
+              status: "error" as const,
+              error: "Translation not processed",
+            };
+          }
+          return {
+            text: item.text,
+            translated: result.translated_text,
+            status: result.status,
+            ...(result.error ? { error: result.error } : {}),
+            ...(result.warning ? { warning: result.warning } : {}),
+            ...(result.validation_warnings?.length
+              ? { validationWarnings: result.validation_warnings }
+              : {}),
+          };
+        });
+      } catch (err) {
+        if (err instanceof SchoolTranslationError) {
+          throw new TranslateBatchError(err.body, err.status);
         }
         throw err;
       }

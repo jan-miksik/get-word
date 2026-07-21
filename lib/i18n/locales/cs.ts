@@ -270,6 +270,7 @@ export const csMessages: I18nMessages = {
   "photoLab.playAudio": "Přehrát výslovnost",
   "photoLab.usageRemaining": "Dnes zbývá {remaining} z {limit} analýz",
   "photoLab.usageRemainingWeek": "Tento týden zbývá {remaining} z {limit} analýz",
+  "photoLab.usageRemainingMonth": "Tento měsíc zbývá {remaining} z {limit} analýz",
   "photoLab.historyNote": "Fotky se ukládají jen v tomto zařízení. K analýze se fotka jednorázově odešle AI službě, na našich serverech se neukládá.",
   "photoLab.deleteConfirm": "Opravdu smazat tuto fotku?",
   "settings.memoryHooks": "Mnemotechniky",

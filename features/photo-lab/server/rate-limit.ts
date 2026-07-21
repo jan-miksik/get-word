@@ -4,6 +4,7 @@ import {
   reserveDailyBuckets,
   type BucketPeriod,
 } from "@/lib/rate-limit/daily-bucket";
+import { getActiveSchoolEntitlement } from "@/features/schools/server/entitlements";
 import {
   DEFAULT_AUDIO_GLOBAL_DAILY_LIMIT,
   DEFAULT_AUDIO_USER_DAILY_LIMIT,
@@ -77,6 +78,27 @@ export async function reservePhotoLabRateLimit(
   userId: string,
   isEditor: boolean,
 ): Promise<void> {
+  const entitlement = await getActiveSchoolEntitlement(userId);
+  if (entitlement) {
+    await reserveDailyBuckets([
+      {
+        key: `${PHOTO_LAB_RATE_BUCKET_PREFIX}:school-user:${userId}`,
+        period: "month",
+        limit: entitlement.limits.photoLabMonthlyLimit,
+        message: "Monthly school photo analysis limit reached for this account.",
+      },
+      {
+        key: `${PHOTO_LAB_RATE_BUCKET_PREFIX}:global`,
+        limit: parsePositiveIntEnv(
+          process.env.OPENROUTER_PHOTO_LAB_GLOBAL_DAILY_LIMIT,
+          DEFAULT_GLOBAL_DAILY_LIMIT,
+        ),
+        message: "Daily photo analysis limit reached. Please try again tomorrow.",
+      },
+    ]);
+    return;
+  }
+
   await reserveDailyBuckets([
     userAnalysisBucket(userId, isEditor),
     {
@@ -91,6 +113,23 @@ export async function reservePhotoLabRateLimit(
 }
 
 export async function getPhotoLabUsage(userId: string, isEditor: boolean) {
+  const entitlement = await getActiveSchoolEntitlement(userId);
+  if (entitlement) {
+    const usage = await getDailyBucketUsage(
+      `${PHOTO_LAB_RATE_BUCKET_PREFIX}:school-user:${userId}`,
+      "month",
+    );
+    return {
+      used: usage.used,
+      limit: entitlement.limits.photoLabMonthlyLimit,
+      remaining: Math.max(0, entitlement.limits.photoLabMonthlyLimit - usage.used),
+      resetAt: usage.resetAt,
+      period: "month" as BucketPeriod,
+      source: "school" as const,
+      schoolId: entitlement.schoolId,
+    };
+  }
+
   const bucket = userAnalysisBucket(userId, isEditor);
   const usage = await getDailyBucketUsage(bucket.key, bucket.period);
   return {
@@ -99,5 +138,6 @@ export async function getPhotoLabUsage(userId: string, isEditor: boolean) {
     remaining: Math.max(0, bucket.limit - usage.used),
     resetAt: usage.resetAt,
     period: bucket.period,
+    source: "default" as const,
   };
 }

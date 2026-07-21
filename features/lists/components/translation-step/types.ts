@@ -10,12 +10,21 @@ import type { PolishFixCode, PolishWarningCode } from '@/lib/formatting-polish';
 export type PendingTranslationItem = NonNullable<ConfirmResult['pending_items']>[number];
 export type TranslationRow = CompletedTranslationRow;
 export type AcceptedSide = 'known' | 'target';
-export type TranslationProvider = 'google' | 'openrouter';
+export type TranslationProvider = 'google' | 'openrouter' | 'school_openrouter';
 export type OpenRouterUiState =
   | 'not_connected'
   | 'connecting'
   | 'connected'
   | 'failed_retryable';
+
+export type SchoolTranslationEntitlement = {
+  schoolName: string;
+  role: 'student' | 'teacher';
+  translationItemsLimit: number;
+  translationItemsRemaining: number;
+  translationItemMaxChars: number;
+  resetAt: string;
+};
 
 export type PolishField = 'known' | 'target';
 

@@ -288,6 +288,8 @@ function PhotoLabStudio() {
             {t(
               usage.period === 'week'
                 ? 'photoLab.usageRemainingWeek'
+                : usage.period === 'month'
+                  ? 'photoLab.usageRemainingMonth'
                 : 'photoLab.usageRemaining',
               {
                 remaining: usage.remaining,
