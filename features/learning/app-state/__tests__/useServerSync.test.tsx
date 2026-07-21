@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useState } from 'react';
 
@@ -53,7 +53,7 @@ vi.mock('@/lib/local-learning-cache', () => ({
   saveSnapshot: () => mockSaveSnapshot(),
 }));
 
-import { useServerSync } from '../useServerSync';
+import { useServerSync, WARM_START_SYNC_GRACE_MS } from '../useServerSync';
 
 const syncResponse = {
   success: true,
@@ -139,6 +139,33 @@ describe('useServerSync', () => {
     serverFetch.resolve(syncResponse);
 
     await waitFor(() => expect(result.current.isInitialServerSyncPending).toBe(false));
+  });
+
+  it('stops waiting on a stalled server fetch once the warm cache has hydrated', async () => {
+    mockGetStoragePreference.mockReturnValue(true);
+    mockLoadAllDomainsFromIdb.mockResolvedValueOnce({ syncResponse, activeListId: null });
+    // Never settles: the connection is up but the response never arrives, which
+    // is what a captive portal or a dropped NAT mapping looks like.
+    mockFetchUserData.mockReturnValueOnce(deferred<SyncResponse>().promise);
+
+    vi.useFakeTimers();
+    try {
+      const { result } = renderHook(() => useServerSyncHarness());
+
+      // Drain the cache read without letting the grace period elapse.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(0);
+      });
+      expect(result.current.isHydrated).toBe(true);
+      expect(result.current.isInitialServerSyncPending).toBe(true);
+
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(WARM_START_SYNC_GRACE_MS + 1);
+      });
+      expect(result.current.isInitialServerSyncPending).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('durably persists a boot delta before considering the server sync complete', async () => {

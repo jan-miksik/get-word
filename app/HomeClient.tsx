@@ -155,7 +155,17 @@ export function HomeClient() {
     [swipeCardsEnabled, typingModeEnabled, markKnown, markUnknown, setCustomStage, progress]
   );
 
-  const isAuthenticated = Boolean(isConnected && userId && !hasLinkWalletError);
+  // A cached profile means this device completed a sync while signed in, and
+  // sign-out wipes that cache. So when the identity check merely *failed* (as
+  // opposed to answering "signed out"), trust the cache and run offline rather
+  // than locking out a user whose session is almost certainly still valid. Any
+  // write that needs the server will still get a 401 and re-prompt.
+  // Safe while the check is still in flight too: a confirmed signed-out visitor
+  // is routed to the landing page below before this ever gates a render.
+  const hasOfflineSession = Boolean(userId && (hasAuthError || isAuthLoading));
+  const isAuthenticated = Boolean(
+    (isConnected || hasOfflineSession) && userId && !hasLinkWalletError
+  );
   const isWaitingForLinkedProfile = Boolean(
     isConnected &&
       walletAddress &&
@@ -165,7 +175,7 @@ export function HomeClient() {
   const appReady =
     isHydrated &&
     !isInitialServerSyncPending &&
-    !isAuthLoading &&
+    (!isAuthLoading || hasOfflineSession) &&
     !isLinkingWallet &&
     !isWaitingForLinkedProfile;
   const displayEmail = userEmail ?? email ?? undefined;
@@ -283,10 +293,10 @@ export function HomeClient() {
   // know — so it gets the error screen rather than the landing page.
   const isSignedOut = !isAuthLoading && !isConnected && !hasAuthError;
 
-  // The boot needs both an identity and a first sync payload. When the boot
-  // timeout fires and we still have neither, no later state can rescue the
-  // render, so stop waiting and let the visitor retry.
-  const bootFailed = hasAuthError || (bootTimedOut && !isAuthenticated);
+  // The boot needs both an identity and a first sync payload. The error screen
+  // is the last resort: only when neither the network nor the local cache can
+  // supply them, since `isAuthenticated` already covers the offline case.
+  const bootFailed = (hasAuthError || bootTimedOut) && !isAuthenticated;
 
   const retryBoot = useCallback(() => {
     if (hasAuthError) {

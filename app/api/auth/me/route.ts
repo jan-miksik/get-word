@@ -16,7 +16,13 @@ export async function GET(request: NextRequest) {
   // Rides along here rather than on its own endpoint: the client needs it on
   // every load to show school membership in the menu, and this response is
   // already fetched once at startup for signed-in users only.
-  const school = await getActiveSchoolEntitlement(user.id)
+  //
+  // Never fatal: this response gates the whole client boot, and a missing
+  // school badge is a far smaller failure than an app that will not start.
+  const school = await getActiveSchoolEntitlement(user.id).catch((error) => {
+    console.error('[api/auth/me] School entitlement lookup failed:', error)
+    return null
+  })
   return NextResponse.json(
     {
       authenticated: true,

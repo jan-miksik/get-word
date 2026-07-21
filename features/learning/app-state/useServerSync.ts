@@ -28,6 +28,24 @@ import type { LinkPayload } from './types';
 // app fires all three) into one conditional refetch.
 const REFETCH_THROTTLE_MS = 5 * 60_000;
 
+// Cold boot with nothing cached: how long we wait for the server before giving
+// up and letting the app render whatever local state it has.
+const HYDRATION_TIMEOUT_MS = 15_000;
+
+// Warm boot: the IndexedDB cache already produced a complete, usable state, so
+// the server fetch only has this long to improve on it before we stop waiting.
+export const WARM_START_SYNC_GRACE_MS = 4_000;
+
+type BootTimers = {
+  hydration?: ReturnType<typeof setTimeout>;
+  warmFallback?: ReturnType<typeof setTimeout>;
+};
+
+function clearBootTimers(timers: BootTimers): void {
+  clearTimeout(timers.hydration);
+  clearTimeout(timers.warmFallback);
+}
+
 interface UseServerSyncOptions {
   words: NormalizedWord[];
   isHydrated: boolean;
@@ -79,6 +97,7 @@ export function useServerSync({
   const [isInitialServerSyncPending, setIsInitialServerSyncPending] = useState(true);
   const isHydratedRef = useRef(false);
   const hasLoadedRef = useRef(false);
+  const bootTimersRef = useRef<BootTimers>({});
   const lastRefetchAtRef = useRef(0);
   const linkedIdentityRef = useRef<string | null>(null);
   const linkAttemptRef = useRef(0);
@@ -239,20 +258,24 @@ export function useServerSync({
     if (hasLoadedRef.current) return;
     hasLoadedRef.current = true;
 
-    const hydrationTimeout = setTimeout(() => {
+    // Timer handles live in a ref, not in this closure. `hasLoadedRef` makes
+    // the boot a singleton, but the effect's deps still change (applyServerData
+    // is memoized on `words`), so it re-runs — and a cleanup that owned these
+    // handles would clear the very safety nets meant to unstick a stalled boot.
+    const timers = bootTimersRef.current;
+
+    timers.hydration = setTimeout(() => {
       if (!isHydratedRef.current) {
         isHydratedRef.current = true;
         setIsHydrated(true);
         setIsInitialServerSyncPending(false);
         isUpdatingFromServerRef.current = false;
       }
-    }, 15000);
-
-    let cancelled = false;
+    }, HYDRATION_TIMEOUT_MS);
 
     const warmFromIdb = async () => {
       const idbHydration = await loadAllDomainsFromIdb().catch(() => null);
-      if (cancelled || isHydratedRef.current) return true;
+      if (isHydratedRef.current) return true;
       if (idbHydration) {
         isUpdatingFromServerRef.current = true;
         await applyServerData(idbHydration.syncResponse, {
@@ -264,6 +287,15 @@ export function useServerSync({
         applyCachedActiveListId(idbHydration.activeListId);
         isHydratedRef.current = true;
         setIsHydrated(true);
+        // Deliberately do NOT release `isInitialServerSyncPending` here: the
+        // study plan is memoized on it, so starting from the cache and then
+        // reshuffling once the server answers would move cards under the user.
+        // Instead shorten the ceiling — the cache is a complete, usable state,
+        // so there is no reason to wait the full cold-boot budget for a network
+        // that may never answer.
+        timers.warmFallback = setTimeout(() => {
+          setIsInitialServerSyncPending(false);
+        }, WARM_START_SYNC_GRACE_MS);
         requestAnimationFrame(() => {
           isUpdatingFromServerRef.current = false;
         });
@@ -278,10 +310,10 @@ export function useServerSync({
       let conditional: { since: string; contentRev: string } | undefined;
       if (getStoragePreference()) {
         const warmed = await warmFromIdb().catch(() => false);
-        if (!warmed && !cancelled && !isHydratedRef.current) {
+        if (!warmed && !isHydratedRef.current) {
           await getSnapshot()
             .then(async (snapshot) => {
-              if (cancelled || !snapshot || isHydratedRef.current) return;
+              if (!snapshot || isHydratedRef.current) return;
               isUpdatingFromServerRef.current = true;
               await applyServerData(
                 { success: true, ...snapshot.data } as SyncResponse,
@@ -296,7 +328,7 @@ export function useServerSync({
             })
             .catch(() => undefined);
         }
-        if (warmed && !cancelled) {
+        if (warmed) {
           const meta = await getMeta().catch(() => null);
           if (meta?.lastSinceCursor && meta.lastContentRevision) {
             conditional = {
@@ -306,10 +338,9 @@ export function useServerSync({
           }
         }
       }
-      if (cancelled) return;
 
       const serverData = await fetchUserData(conditional);
-      clearTimeout(hydrationTimeout);
+      clearBootTimers(timers);
       isUpdatingFromServerRef.current = true;
       const overlaidServerData = await applyPendingOutboxToSyncResponse(
         serverData,
@@ -329,7 +360,7 @@ export function useServerSync({
     };
 
     boot().catch((error) => {
-      clearTimeout(hydrationTimeout);
+      clearBootTimers(timers);
       if (!isAuthRequiredError(error)) {
         console.error('[useServerSync] Failed to fetch:', error);
       }
@@ -339,10 +370,6 @@ export function useServerSync({
       isUpdatingFromServerRef.current = false;
     });
 
-    return () => {
-      cancelled = true;
-      clearTimeout(hydrationTimeout);
-    };
   }, [applyCachedActiveListId, applyServerData, applyServerDelta, isUpdatingFromServerRef, setIsHydrated]);
 
   useEffect(() => {
