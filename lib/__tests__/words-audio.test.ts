@@ -66,12 +66,20 @@ describe('wordListItemsToNormalizedWords audio', () => {
     expect(word.czPron).toBe('odpoved');
   });
 
-  it('keeps generated arweave/api audio', () => {
+  it('keeps generated api audio before arweave fallbacks', () => {
     const [word] = wordListItemsToNormalizedWords(
-      [{ ...items[0], knownAudioUrl: '/api/audio/hash', audioArweaveUrls: ['https://arweave.net/tx'] }],
+      [
+        {
+          ...items[0],
+          knownAudioUrl: '/api/audio/known-hash',
+          knownAudioArweaveUrls: ['https://arweave.net/known-tx'],
+          audioUrl: '/api/audio/target-hash',
+          audioArweaveUrls: ['https://arweave.net/target-tx'],
+        },
+      ],
       {},
     );
-    expect(word.czAudio).toEqual(['/api/audio/hash']);
-    expect(word.viAudio).toEqual(['https://arweave.net/tx']);
+    expect(word.czAudio).toEqual(['/api/audio/known-hash', 'https://arweave.net/known-tx']);
+    expect(word.viAudio).toEqual(['/api/audio/target-hash', 'https://arweave.net/target-tx']);
   });
 });

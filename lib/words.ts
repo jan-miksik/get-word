@@ -340,12 +340,14 @@ export function wordListItemsToNormalizedWords(
       const media = canUseLegacyMediaFallback
         ? mediaByPair.get(pairKey(cz, vi)) ?? mediaByPair.get(pairKey(vi, cz))
         : undefined;
-      // Arweave gateways first; the app's /api/audio proxy (object-store
-      // mirror) is the last resort, so B2 egress is only spent when the
-      // permanent copies are unreachable or the asset has no Arweave copy.
-      const generatedKnownAudio = [...(item.knownAudioArweaveUrls ?? []), item.knownAudioUrl]
+      // Prefer the app's /api/audio proxy. Some Arweave gateways expose
+      // non-Ed25519 HTTP Signature headers that Chrome reports as
+      // signature-based integrity issues; the proxy serves the same bytes
+      // without forwarding those gateway-specific headers. Gateway URLs remain
+      // as fallbacks if the proxy is unavailable.
+      const generatedKnownAudio = [item.knownAudioUrl, ...(item.knownAudioArweaveUrls ?? [])]
         .filter((url): url is string => Boolean(url));
-      const generatedTargetAudio = [...(item.audioArweaveUrls ?? []), item.audioUrl]
+      const generatedTargetAudio = [item.audioUrl, ...(item.audioArweaveUrls ?? [])]
         .filter((url): url is string => Boolean(url));
 
       return {

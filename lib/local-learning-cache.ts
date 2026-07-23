@@ -201,10 +201,10 @@ function normalizeAudioValue(value: unknown): string[] {
 
 /**
  * Per-clip candidate groups: every source URL of a word side expanded to its
- * gateway candidates, deduped, in priority order — Arweave gateways first,
- * the /api/audio object-store mirror as last resort (the same order playback
- * uses, so cache keys line up with what playback looks for). Groups are
- * deduped by their primary URL so audio shared across words downloads once.
+ * gateway candidates and deduped in the same priority order playback uses.
+ * The normalized word data puts /api/audio first so browsers avoid direct
+ * Arweave Signature headers unless the app proxy fails. Groups are deduped by
+ * their primary URL so audio shared across words downloads once.
  */
 export function getAudioCandidateGroupsForWords(words: NormalizedWord[]): string[][] {
   const groups: string[][] = [];

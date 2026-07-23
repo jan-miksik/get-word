@@ -216,19 +216,19 @@ export function LandingDemoCard({
       return;
     }
     preloadedAudioRef.current.forEach((el) => el.pause());
-    preloadedAudioRef.current = [...demoAudio.values()].flatMap((srcs) =>
-      srcs.map((source) => {
-        const el = new Audio();
-        el.preload = 'auto';
-        el.src = source.url;
-        try {
-          el.load();
-        } catch {
-          // Best-effort cache warming; playback still retries candidates.
-        }
-        return el;
-      }),
-    );
+    preloadedAudioRef.current = [...demoAudio.values()].flatMap((srcs) => {
+      const source = srcs[0];
+      if (!source) return [];
+      const el = new Audio();
+      el.preload = 'auto';
+      el.src = source.url;
+      try {
+        el.load();
+      } catch {
+        // Best-effort cache warming; playback still retries candidates.
+      }
+      return [el];
+    });
     return () => {
       preloadedAudioRef.current.forEach((el) => el.pause());
       preloadedAudioRef.current = [];

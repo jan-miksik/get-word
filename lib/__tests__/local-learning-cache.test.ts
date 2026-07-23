@@ -17,8 +17,8 @@ const audioWord: NormalizedWord = {
   vi: 'xin chao',
   en: '',
   category: [],
-  czAudio: ['https://turbo-gateway.com/known', '/api/audio/hash-known'],
-  viAudio: ['https://turbo-gateway.com/target', '/api/audio/hash-target'],
+  czAudio: ['/api/audio/hash-known', 'https://turbo-gateway.com/known'],
+  viAudio: ['/api/audio/hash-target', 'https://turbo-gateway.com/target'],
 };
 
 describe('local learning cache preferences', () => {
@@ -104,19 +104,19 @@ describe('local learning cache preferences', () => {
     expect(status.cachedSizeBytes).toBe(1536);
   });
 
-  it('builds gateway-first candidate groups with the API mirror as last resort', () => {
+  it('builds API-first candidate groups with gateways as fallbacks', () => {
     expect(getAudioCandidateGroupsForWords([audioWord])).toEqual([
       [
+        '/api/audio/hash-known',
         'https://arweave.net/known',
         'https://turbo-gateway.com/known',
         'https://ar-io.net/known',
-        '/api/audio/hash-known',
       ],
       [
+        '/api/audio/hash-target',
         'https://arweave.net/target',
         'https://turbo-gateway.com/target',
         'https://ar-io.net/target',
-        '/api/audio/hash-target',
       ],
     ]);
   });

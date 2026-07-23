@@ -74,6 +74,18 @@ async function main() {
       `,
     });
     await page.waitForTimeout(800);
+    try {
+      await page.getByLabel(/I WANT TO LEARN language/i).click({ timeout: 2500 });
+      await page.getByRole("combobox", { name: /I WANT TO LEARN language/i }).last().fill("Czech");
+      await page.getByRole("option", { name: /Czech/i }).first().click();
+      await page.evaluate(() => {
+        const active = document.activeElement;
+        if (active instanceof HTMLElement) active.blur();
+      });
+      await page.waitForTimeout(350);
+    } catch (error) {
+      console.warn(`${slot.dir}: could not preselect Czech`, error);
+    }
 
     for (const frame of frames) {
       if (frame.heading === null) {
