@@ -6,7 +6,10 @@ import {
   getDetectedSettingsLanguage,
   normalizeLanguageCode,
 } from '@/lib/i18n/languages';
-import { PUBLIC_LANGUAGE_STORAGE_KEY } from '@/lib/i18n/public-language';
+import {
+  PUBLIC_LANGUAGE_STORAGE_KEY,
+  writePreferredPublicLanguage,
+} from '@/lib/i18n/public-language';
 
 function readPreferredLanguage(): string {
   try {
@@ -34,11 +37,7 @@ function subscribe(onChange: () => void): () => void {
 function setLanguage(next: string): void {
   const normalized = normalizeLanguageCode(next);
   currentLanguage = normalized;
-  try {
-    localStorage.setItem(PUBLIC_LANGUAGE_STORAGE_KEY, normalized);
-  } catch {
-    // The choice still applies to this browser session.
-  }
+  writePreferredPublicLanguage(normalized);
   listeners.forEach((listener) => listener());
 }
 

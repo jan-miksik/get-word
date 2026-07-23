@@ -167,6 +167,17 @@ export function ScratchCover({ label }: { label: string }) {
     const inBounds = (x: number, y: number) =>
       x >= 0 && x <= displayW && y >= 0 && y <= displayH;
 
+    // Geometry alone can't tell whether the canvas is actually the surface
+    // under the finger: an open top menu, a modal, or the type answer bar may
+    // be layered above it while still overlapping the canvas's rectangle. If we
+    // scratched (and, on touch, preventDefault'd) purely on `inBounds`, a tap on
+    // one of those overlays over the card would be swallowed — and on iOS a
+    // preventDefault'd `touchstart` also cancels the synthesized click, so the
+    // overlay's button never fires. Confirm the canvas is the topmost element at
+    // the point (the pointer-events:none hint never intercepts) before acting.
+    const isCanvasTopmost = (clientX: number, clientY: number) =>
+      document.elementFromPoint(clientX, clientY) === canvas;
+
     const scratchAt = (x: number, y: number) => {
       if (!countedThisCard) {
         countedThisCard = true;
@@ -207,7 +218,7 @@ export function ScratchCover({ label }: { label: string }) {
       const touch = event.touches[0];
       if (!touch) return;
       const { x, y } = clientPoint(touch.clientX, touch.clientY);
-      if (!inBounds(x, y)) {
+      if (!inBounds(x, y) || !isCanvasTopmost(touch.clientX, touch.clientY)) {
         hasLast = false;
         return;
       }
@@ -225,7 +236,7 @@ export function ScratchCover({ label }: { label: string }) {
         return;
       }
       const { x, y } = clientPoint(event.clientX, event.clientY);
-      if (!inBounds(x, y)) {
+      if (!inBounds(x, y) || !isCanvasTopmost(event.clientX, event.clientY)) {
         hasLast = false;
         return;
       }
@@ -236,7 +247,7 @@ export function ScratchCover({ label }: { label: string }) {
       if (event.pointerType === 'touch') return;
       if (isCardSwipeActive()) return;
       const { x, y } = clientPoint(event.clientX, event.clientY);
-      if (!inBounds(x, y)) return;
+      if (!inBounds(x, y) || !isCanvasTopmost(event.clientX, event.clientY)) return;
       hasLast = false;
       scratchAt(x, y);
     };

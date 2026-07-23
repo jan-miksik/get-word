@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react';
 import { usePreferredPublicLanguage } from '@/lib/i18n/client-language';
+import { readPreferredPublicLanguageSelectedAt } from '@/lib/i18n/public-language';
 import { fetchUserData } from '@/lib/sync';
 import { subscribeTabMessages } from '@/lib/tab-sync';
+
+function timestampMs(value: string | null | undefined): number {
+  if (!value) return 0;
+  const time = new Date(value).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
 
 export function useSettingsLanguage(): string {
   // `usePreferredPublicLanguage` deliberately returns the server default for
@@ -19,6 +26,9 @@ export function useSettingsLanguage(): string {
         if (cancelled) return;
         const language = data.user?.settings_language;
         if (typeof language === 'string' && language.trim()) {
+          const serverSelectedAt = data.user?.settings_language_selected_at ?? null;
+          const localSelectedAt = readPreferredPublicLanguageSelectedAt();
+          if (timestampMs(serverSelectedAt) < timestampMs(localSelectedAt)) return;
           setSyncedSettingsLanguage(language);
         }
       })

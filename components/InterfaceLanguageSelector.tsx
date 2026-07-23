@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import type { CSSProperties } from 'react';
 import { useI18n } from '@/components/I18nProvider';
-import { PUBLIC_LANGUAGE_STORAGE_KEY } from '@/lib/i18n/public-language';
+import { writePreferredPublicLanguage } from '@/lib/i18n/public-language';
 import {
   COMMON_LANGUAGES,
   getLanguageFlag,
@@ -160,11 +160,7 @@ export function InterfaceLanguageSelector({
   function choose(code: string) {
     const normalized = normalizeLanguageCode(code);
     onChange(normalized);
-    try {
-      localStorage.setItem(PUBLIC_LANGUAGE_STORAGE_KEY, normalized);
-    } catch {
-      // Storage can be unavailable; the in-app state still updates immediately.
-    }
+    writePreferredPublicLanguage(normalized);
     setQuery('');
     setOpen(false);
   }
