@@ -12,9 +12,11 @@ import {
   batchUpsertProgressByContentKey,
 } from "@/lib/db/queries/progress";
 
+type ConflictConfig = { set: Record<string, unknown>; setWhere?: unknown };
+
 function makeExecutor() {
-  let conflictConfig: { set: Record<string, unknown> } | undefined;
-  const onConflictDoUpdate = vi.fn(async (config: { set: Record<string, unknown> }) => {
+  let conflictConfig: ConflictConfig | undefined;
+  const onConflictDoUpdate = vi.fn(async (config: ConflictConfig) => {
     conflictConfig = config;
   });
   const values = vi.fn(() => ({ onConflictDoUpdate }));
@@ -57,5 +59,42 @@ describe("progress upserts", () => {
 
     expect(onConflictDoUpdate).toHaveBeenCalledTimes(1);
     expect(getConflictConfig()?.set.archivedAt).toBeNull();
+  });
+
+  it("overwrites unconditionally by default (no LWW guard)", async () => {
+    const { executor, getConflictConfig } = makeExecutor();
+
+    await batchUpsertProgress([progressRow], executor as never);
+
+    const config = getConflictConfig();
+    expect(config?.setWhere).toBeUndefined();
+    expect(config?.set.updatedAt).toBeInstanceOf(Date);
+  });
+
+  it("guards client LWW writes and stamps the client's updatedAt", async () => {
+    const { executor, getConflictConfig } = makeExecutor();
+
+    await batchUpsertProgress([progressRow], executor as never, { lww: true });
+
+    const config = getConflictConfig();
+    expect(config?.setWhere).toBeDefined();
+    // LWW stores the client's own timestamp, so `updatedAt` is `excluded.*`
+    // SQL rather than a server-clock Date.
+    expect(config?.set.updatedAt).not.toBeInstanceOf(Date);
+  });
+
+  it("guards event folds against reverting a newer write but keeps a server updatedAt", async () => {
+    const { executor, getConflictConfig } = makeExecutor();
+
+    await batchUpsertProgressByContentKey([progressRow], executor as never, {
+      eventOccurredAt: new Date("2026-01-01T00:00:00.000Z"),
+    });
+
+    const config = getConflictConfig();
+    // A stale event must be skippable via setWhere...
+    expect(config?.setWhere).toBeDefined();
+    // ...yet an applied fold still bumps updatedAt to the server clock so the
+    // delta cursor surfaces it to other devices.
+    expect(config?.set.updatedAt).toBeInstanceOf(Date);
   });
 });

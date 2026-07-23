@@ -178,13 +178,20 @@ export async function getContentKeysForItemIds(
  * where a stale outbox replay could otherwise clobber fresher state from
  * another tab or device.
  *
- * When `lww` is unset/false, the upsert overwrites unconditionally and stamps
- * `updatedAt = now()` server-side. This is the right mode for server-driven
- * writes (event-sourced `applyReviewEventToProgress`) where the row's prior
- * state has already been folded into the new values inside a transaction —
- * the new write is, by construction, the freshest truth.
+ * When `eventOccurredAt` is set, the upsert is a server-driven event fold
+ * (`applyReviewEventToProgress`) that must NOT clobber a newer client write.
+ * The row's prior state has already been folded into the new values inside a
+ * transaction, but a review event whose `occurredAt` predates the row's latest
+ * recorded activity is stale relative to a later manual interval selection
+ * (`setCustomStage`) — applying it would silently revert the user's chosen
+ * "repeat in 1 day" back to a short "5 minutes". The guard skips the write in
+ * that case; otherwise it applies and stamps `updatedAt = now()` (server clock)
+ * so the delta cursor still surfaces the change to other devices.
+ *
+ * When both `lww` and `eventOccurredAt` are unset/false, the upsert overwrites
+ * unconditionally and stamps `updatedAt = now()` server-side.
  */
-type UpsertOptions = { lww?: boolean };
+type UpsertOptions = { lww?: boolean; eventOccurredAt?: Date };
 
 function progressLwwSetWhere() {
   return sql`excluded.updated_at > CASE
@@ -197,6 +204,38 @@ function progressLwwSetWhere() {
   END`;
 }
 
+// Guard for the event-fold path: apply only when this event is at least as
+// recent as the row's latest recorded activity. `occurredAt` (the event's own
+// timestamp) is compared directly rather than via `excluded.*`, because the
+// folded row carries the *other* activity timestamp forward from the current
+// row, so `GREATEST(excluded.last_known_at, excluded.last_unknown_at)` would
+// mask a stale event behind the newer write it is trying to revert.
+function progressEventGuardSetWhere(occurredAt: Date) {
+  return sql`${occurredAt.toISOString()}::timestamp >= GREATEST(
+    COALESCE(${userProgress.lastKnownAt}, 'epoch'::timestamp),
+    COALESCE(${userProgress.lastUnknownAt}, 'epoch'::timestamp)
+  )`;
+}
+
+// Resolve the `updatedAt` value and optional `setWhere` for an upsert's
+// ON CONFLICT DO UPDATE from the three reconciliation modes, keeping both
+// batch upserters in sync.
+function progressConflictReconciliation(options: UpsertOptions): {
+  updatedAt: ReturnType<typeof sql> | Date;
+  setWhere?: ReturnType<typeof sql>;
+} {
+  if (options.eventOccurredAt) {
+    return {
+      updatedAt: new Date(),
+      setWhere: progressEventGuardSetWhere(options.eventOccurredAt),
+    };
+  }
+  if (options.lww === true) {
+    return { updatedAt: sql`excluded.updated_at`, setWhere: progressLwwSetWhere() };
+  }
+  return { updatedAt: new Date() };
+}
+
 // Batch upsert progress (legacy: conflicts on userId + wordId)
 export async function batchUpsertProgress(
   progressList: Omit<NewUserProgress, "id" | "createdAt">[],
@@ -206,7 +245,7 @@ export async function batchUpsertProgress(
   if (progressList.length === 0) return;
 
   const BATCH_SIZE = 100;
-  const lww = options.lww === true;
+  const { updatedAt, setWhere } = progressConflictReconciliation(options);
 
   for (let i = 0; i < progressList.length; i += BATCH_SIZE) {
     const batch = progressList.slice(i, i + BATCH_SIZE);
@@ -224,11 +263,9 @@ export async function batchUpsertProgress(
           lastUnknownAt: sql`excluded.last_unknown_at`,
           nextDueAt: sql`excluded.next_due_at`,
           archivedAt: null,
-          updatedAt: lww ? sql`excluded.updated_at` : new Date(),
+          updatedAt,
         },
-        ...(lww
-          ? { setWhere: progressLwwSetWhere() }
-          : {}),
+        ...(setWhere ? { setWhere } : {}),
       });
   }
 }
@@ -246,7 +283,7 @@ export async function batchUpsertProgressByContentKey(
   if (rows.length === 0) return;
 
   const BATCH_SIZE = 100;
-  const lww = options.lww === true;
+  const { updatedAt, setWhere } = progressConflictReconciliation(options);
 
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const batch = rows.slice(i, i + BATCH_SIZE);
@@ -266,11 +303,9 @@ export async function batchUpsertProgressByContentKey(
           lastUnknownAt: sql`excluded.last_unknown_at`,
           nextDueAt: sql`excluded.next_due_at`,
           archivedAt: null,
-          updatedAt: lww ? sql`excluded.updated_at` : new Date(),
+          updatedAt,
         },
-        ...(lww
-          ? { setWhere: progressLwwSetWhere() }
-          : {}),
+        ...(setWhere ? { setWhere } : {}),
       });
   }
 }
@@ -345,9 +380,16 @@ export async function applyReviewEventToProgress(
     nextDueAt,
   };
 
+  // Guard the fold against reverting a newer client write (e.g. a manual
+  // `setCustomStage` "repeat in 1 day" that landed after this event was
+  // created but before it reached the server). Without this, a stale review
+  // event would drop the stage a notch and recompute `nextDueAt` from its own
+  // older timestamp — the reported "1 day silently becomes 5 minutes" bug.
   if (contentKey) {
-    await batchUpsertProgressByContentKey([values], executor);
+    await batchUpsertProgressByContentKey([values], executor, {
+      eventOccurredAt: occurredAt,
+    });
   } else {
-    await batchUpsertProgress([values], executor);
+    await batchUpsertProgress([values], executor, { eventOccurredAt: occurredAt });
   }
 }

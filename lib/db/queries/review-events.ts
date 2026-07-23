@@ -92,7 +92,16 @@ export async function applyNewReviewEvents(args: {
 }): Promise<string[]> {
   const applied: string[] = [];
 
-  for (const event of args.events) {
+  // Fold events oldest-first. Each fold reads the current row and the
+  // content-key guard in `applyReviewEventToProgress` only lets a write through
+  // when it is at least as recent as the row's latest activity, so an
+  // out-of-order (older) event later in the batch must not be applied before a
+  // newer one — sort here to keep the event-sourced composition deterministic.
+  const events = [...args.events].sort(
+    (a, b) => (a.client_created_at ?? 0) - (b.client_created_at ?? 0),
+  );
+
+  for (const event of events) {
     const clientEventId = String(event.client_event_id ?? "").trim();
 
     // Insert + progress upsert run together in a transaction so a failure
