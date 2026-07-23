@@ -189,7 +189,19 @@ function applyPendingReviewEvent(
   if (overridingProgressWriteAt >= event.client_created_at) return;
   if (hasReviewEventAlreadyApplied(existing, event)) return;
 
-  const currentStageIndex = existing?.stageIndex ?? 0;
+  // Absence of the row is not "stage 0". An ack-only POST response (is_delta,
+  // no progress) or a delta that didn't change this word carries no row for it,
+  // yet the word may sit at any stage. Folding from an assumed stage 0 here is
+  // what turned a manually set "1 day"/"3 days" into "5 minutes": a `known`
+  // fold from 0 lands on stage 1, which then overwrote the correct value via the
+  // delta merge. Without the true baseline we must not invent one — the locally
+  // held optimistic row already reflects this event, and the server's
+  // authoritative row arrives on the next full snapshot. Only a full snapshot
+  // legitimately means "new at stage 0" by omission, and there the locally held
+  // state (re-added by reconciliation) already covers a first offline review.
+  if (!existing) return;
+
+  const currentStageIndex = existing.stageIndex ?? 0;
   const nextStageIndex =
     event.action === 'known'
       ? Math.min(currentStageIndex + 1, STAGES.length - 1)

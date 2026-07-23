@@ -541,4 +541,34 @@ describe('applyPendingOutboxToSyncResponse', () => {
     expect(result.progress['w-1'].knownCount).toBe(1);
     expect(result.progress['w-1'].nextDueAt).toBe(new Date(customAt + 5 * 60 * 1000).toISOString());
   });
+
+  it('does not fold a submitted review event from a stage-0 baseline when the response omits the row', async () => {
+    // The ack-only POST response carries no `progress` (is_delta: true), so a
+    // just-swiped word whose real stage is 3 has no row here. Folding the echoed
+    // `known` event from an assumed stage 0 would land it on stage 1 = 5 min and
+    // then overwrite the correct value via the delta merge — the reported bug.
+    const clientCreatedAt = 1_779_625_000_000;
+    const ackResponse: SyncResponse = {
+      success: true,
+      is_delta: true,
+      user: { id: 'u-1', role: 'languageToLearn' } as SyncResponse['user'],
+      progress: {},
+      memory_hooks: {},
+      category_filters: [],
+    };
+    mockListOps.mockResolvedValueOnce([]);
+
+    const result = await applyPendingOutboxToSyncResponse(ackResponse, [
+      {
+        client_event_id: 'review-1',
+        word_list_item_id: 'item-1',
+        action: 'known',
+        client_created_at: clientCreatedAt,
+      },
+    ]);
+
+    // The word must be left untouched (no invented stage-1 row); the locally
+    // held optimistic state already reflects the review.
+    expect(result.progress['item-1']).toBeUndefined();
+  });
 });
