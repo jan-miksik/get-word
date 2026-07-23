@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { installGlobalPWACapture } from '@/lib/pwa-install';
 import { usePreferredPublicLanguage } from '@/lib/i18n/client-language';
 import { bundledMessages, enMessages, type I18nKey } from '@/lib/i18n/messages';
@@ -9,57 +9,7 @@ import { useRefreshBannerPreview } from '@/hooks/usePWAInstallState';
 const CACHE_PREFIX = 'get-word-';
 const ACTIVE_LIST_AUDIO_CACHE = 'get-word-active-list-audio-v1';
 const APP_VERSION_STORAGE_KEY = 'get-word-pwa-app-version';
-const UPDATE_SEEN_AT_STORAGE_KEY = 'get-word-pwa-update-seen-at';
 const FALLBACK_APP_VERSION = 'dev';
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-const DEFAULT_REFRESH_DELAY_DAYS = 3;
-
-// How long an update may sit waiting before we surface the refresh banner. Most
-// users close and reopen the app within a few days, which activates the waiting
-// worker silently — so we only nag the long-lived sessions. Override per deploy
-// with NEXT_PUBLIC_PWA_REFRESH_AFTER_DAYS (e.g. "0" to show immediately).
-function refreshDelayMs(): number {
-  const raw = process.env.NEXT_PUBLIC_PWA_REFRESH_AFTER_DAYS;
-  if (raw == null || raw === '') return DEFAULT_REFRESH_DELAY_DAYS * DAY_MS;
-  const days = Number(raw);
-  if (!Number.isFinite(days) || days < 0) return DEFAULT_REFRESH_DELAY_DAYS * DAY_MS;
-  return days * DAY_MS;
-}
-
-// Set NEXT_PUBLIC_PWA_REFRESH_URGENT="true" for a critical fix that should skip
-// the waiting period and prompt every open session right away.
-function isUrgentRefresh(): boolean {
-  const raw = process.env.NEXT_PUBLIC_PWA_REFRESH_URGENT;
-  return raw === 'true' || raw === '1';
-}
-
-function readUpdateSeenAt(): number | null {
-  try {
-    const raw = window.localStorage.getItem(UPDATE_SEEN_AT_STORAGE_KEY);
-    if (!raw) return null;
-    const value = Number(raw);
-    return Number.isFinite(value) ? value : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeUpdateSeenAt(timestamp: number): void {
-  try {
-    window.localStorage.setItem(UPDATE_SEEN_AT_STORAGE_KEY, String(timestamp));
-  } catch {
-    // The delay is best-effort; without storage the banner just shows sooner.
-  }
-}
-
-function clearUpdateSeenAt(): void {
-  try {
-    window.localStorage.removeItem(UPDATE_SEEN_AT_STORAGE_KEY);
-  } catch {
-    // Ignore: a stale timestamp only affects when the banner next appears.
-  }
-}
 
 async function clearGetWordCaches() {
   if (!('caches' in window)) return;
@@ -112,14 +62,12 @@ export function PWARegister() {
     controlled: boolean;
     cachesCleared: number;
   } | null>(null);
-  const [updateReady, setUpdateReady] = useState(false);
   // Force the refresh banner visible for design review, e.g. `/?pwaBanner=1`.
-  // There is no waiting worker behind it, so Refresh just dismisses.
+  // Production updates are silent (see below), so this is the only path that
+  // ever renders the banner and Refresh just dismisses it.
   const previewRequested = useRefreshBannerPreview();
   const [previewDismissed, setPreviewDismissed] = useState(false);
   const previewBanner = previewRequested && !previewDismissed;
-  const waitingWorkerRef = useRef<ServiceWorker | null>(null);
-  const bannerTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const language = usePreferredPublicLanguage();
   const t = (key: I18nKey): string =>
@@ -133,37 +81,60 @@ export function PWARegister() {
 
     if (!('serviceWorker' in navigator)) return;
     const serviceWorker = navigator.serviceWorker;
+    let pageLoadedFreshBuild = false;
+    let updateArmed = false;
+    let removeForegroundListener: (() => void) | null = null;
 
-    // Surface a passive "new version ready" prompt instead of force-reloading.
-    // Only when an updated worker is waiting while an old one already controls
-    // the page — never on the initial install of a previously-uncontrolled page.
-    const promptUpdate = (worker: ServiceWorker | null) => {
+    // Reload the page once the waiting worker takes control, so the running app
+    // swaps to the freshly-activated build's assets. Guarded to fire once.
+    const reloadOnControllerChange = () => {
+      let reloaded = false;
+      serviceWorker.addEventListener('controllerchange', () => {
+        if (reloaded) return;
+        reloaded = true;
+        window.location.reload();
+      });
+    };
+
+    const activateAlreadyLoadedUpdate = (worker: ServiceWorker) => {
+      // The user has already loaded the new client bundle, usually via a manual
+      // browser refresh, so the waiting worker can take over without another
+      // reload — the page is already running the new code.
+      worker.postMessage({ type: 'SKIP_WAITING' });
+    };
+
+    // The page is still running the previous bundle. Swap to the new one at a
+    // non-disruptive moment — the next time the app returns to the foreground —
+    // so a long-lived open session picks up the change without being yanked
+    // mid-interaction.
+    const applyUpdateWhenSafe = (worker: ServiceWorker) => {
+      if (updateArmed) return;
+      updateArmed = true;
+
+      const onForeground = () => {
+        if (document.visibilityState !== 'visible') return;
+        removeForegroundListener?.();
+        removeForegroundListener = null;
+        reloadOnControllerChange();
+        worker.postMessage({ type: 'SKIP_WAITING' });
+      };
+      // `visibilitychange` fires on real transitions, so arming while visible
+      // means the update applies only after the user leaves and comes back.
+      document.addEventListener('visibilitychange', onForeground);
+      removeForegroundListener = () =>
+        document.removeEventListener('visibilitychange', onForeground);
+    };
+
+    // Decide how to apply an installed/waiting worker. Only when an updated
+    // worker is waiting while an old one already controls the page — never on
+    // the initial install of a previously-uncontrolled page.
+    const handleWaitingWorker = (worker: ServiceWorker | null) => {
       if (!worker || !serviceWorker.controller) return;
-      waitingWorkerRef.current = worker;
-
-      // Urgent deploys (or a zero delay) prompt right away.
-      const delay = refreshDelayMs();
-      if (isUrgentRefresh() || delay <= 0) {
-        setUpdateReady(true);
+      if (pageLoadedFreshBuild) {
+        activateAlreadyLoadedUpdate(worker);
         return;
       }
-
-      // Otherwise let the waiting worker age: record when it first appeared
-      // (persisting across reloads/sessions) and only prompt once the delay
-      // has elapsed — by then most users will have applied it by reopening.
-      const now = Date.now();
-      let seenAt = readUpdateSeenAt();
-      if (seenAt == null) {
-        seenAt = now;
-        writeUpdateSeenAt(seenAt);
-      }
-      const remaining = seenAt + delay - now;
-      if (remaining <= 0) {
-        setUpdateReady(true);
-        return;
-      }
-      // Still within the window — show it later if this session stays open.
-      bannerTimerRef.current = setTimeout(() => setUpdateReady(true), remaining);
+      applyUpdateWhenSafe(worker);
     };
 
     const register = async () => {
@@ -191,6 +162,7 @@ export function PWARegister() {
 
         const buildVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? FALLBACK_APP_VERSION;
         const previousBuildVersion = readStoredAppVersion();
+        pageLoadedFreshBuild = previousBuildVersion !== null && previousBuildVersion !== buildVersion;
         const registration = await serviceWorker.register(
           `/sw.js?build=${encodeURIComponent(buildVersion)}`,
           { scope: '/', updateViaCache: 'none' }
@@ -199,11 +171,7 @@ export function PWARegister() {
 
         // A newer worker may already be installed and waiting from a prior visit.
         if (registration.waiting) {
-          promptUpdate(registration.waiting);
-        } else {
-          // No update pending right now — reset the aging clock so a future
-          // update starts fresh rather than inheriting an old timestamp.
-          clearUpdateSeenAt();
+          handleWaitingWorker(registration.waiting);
         }
 
         registration.addEventListener('updatefound', () => {
@@ -212,7 +180,7 @@ export function PWARegister() {
 
           installing.addEventListener('statechange', () => {
             if (installing.state === 'installed') {
-              promptUpdate(installing);
+              handleWaitingWorker(installing);
             }
           });
         });
@@ -228,28 +196,14 @@ export function PWARegister() {
     void register();
 
     return () => {
-      if (bannerTimerRef.current) clearTimeout(bannerTimerRef.current);
+      removeForegroundListener?.();
     };
   }, []);
 
-  const handleRefresh = () => {
-    const worker = waitingWorkerRef.current;
-    setUpdateReady(false);
+  const handleDismissPreview = () => {
+    // Only the `?pwaBanner` design preview reaches this button; real updates
+    // apply silently, so there is nothing to reload here.
     setPreviewDismissed(true);
-    if (!worker || !('serviceWorker' in navigator)) {
-      // No real update behind the banner (e.g. the `?pwaBanner` preview) —
-      // just dismiss rather than pointlessly reloading.
-      return;
-    }
-    // Reload once the waiting worker takes control so the page picks up the
-    // fresh assets. This runs only because the user clicked Refresh.
-    let reloaded = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (reloaded) return;
-      reloaded = true;
-      window.location.reload();
-    });
-    worker.postMessage({ type: 'SKIP_WAITING' });
   };
 
   if (
@@ -268,13 +222,13 @@ export function PWARegister() {
     );
   }
 
-  if (updateReady || previewBanner) {
+  if (previewBanner) {
     return (
       <div className="fixed inset-x-0 bottom-3 z-[400] mx-auto flex w-[min(calc(100vw-1rem),28rem)] items-center gap-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg)]/95 px-4 py-2.5 text-sm text-[var(--text)] shadow-lg backdrop-blur">
         <span className="flex-1">{t('pwa.updateReady')}</span>
         <button
           type="button"
-          onClick={handleRefresh}
+          onClick={handleDismissPreview}
           className="shrink-0 rounded-lg bg-[var(--accent)] px-3 py-1.5 font-semibold text-white"
         >
           {t('pwa.refresh')}

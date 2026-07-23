@@ -57,9 +57,10 @@ self.addEventListener('activate', (event) => {
 });
 
 self.addEventListener('message', (event) => {
-  // Sent only on an explicit user action (the "new version ready" refresh
-  // banner). Installs stay passive — a fresh worker waits until the user opts
-  // in, so updates never reload the page or replay animations behind their back.
+  // Sent by the client once it's safe to swap in the new build: when the page
+  // already loaded the new bundle, or when a long-lived session returns to the
+  // foreground. Installs stay passive, so updates never reload the page or
+  // replay animations mid-interaction.
   if (event.data && event.data.type === 'SKIP_WAITING') {
     self.skipWaiting();
     return;
