@@ -135,6 +135,22 @@ export function isMobileDevice() {
   return false;
 }
 
+export function isAndroid() {
+  if (typeof navigator === 'undefined') return false;
+  return /Android/i.test(navigator.userAgent);
+}
+
+// Affirmative Firefox check. Desktop/Android Firefox carries a `Firefox/` token;
+// the iOS build (which is a WebKit wrapper, not Gecko) carries `FxiOS/`. SeaMonkey
+// shares the `Firefox/` token but is a distinct browser, so exclude it. No other
+// mainstream browser sets these tokens, so this stays false for Chromium-based
+// browsers (Chrome, Edge, Opera, Brave, Samsung Internet) and Safari.
+export function isFirefox() {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  return /Firefox\/|FxiOS\//i.test(ua) && !/Seamonkey/i.test(ua);
+}
+
 export function openPWAInstallHelp() {
   if (typeof window === 'undefined') return;
   window.dispatchEvent(new Event(PWA_INSTALL_HELP_EVENT));

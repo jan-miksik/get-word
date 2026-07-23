@@ -49,7 +49,25 @@ describe('LandingPage language selector', () => {
     );
   });
 
-  afterEach(() => document.removeEventListener('click', preventJsdomNavigation));
+  afterEach(() => {
+    document.removeEventListener('click', preventJsdomNavigation);
+    vi.unstubAllGlobals();
+  });
+
+  const stubCoarsePointer = () =>
+    vi.stubGlobal(
+      'matchMedia',
+      vi.fn((query: string) => ({
+        matches: query.includes('coarse'),
+        media: query,
+        onchange: null,
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+        addListener: vi.fn(),
+        removeListener: vi.fn(),
+        dispatchEvent: vi.fn(),
+      })),
+    );
 
   it('uses the shared interface selector with the full language list', async () => {
     render(<LandingPage />);
@@ -86,6 +104,143 @@ describe('LandingPage language selector', () => {
     expect(localStorage.getItem('get-word-landing-pair')).toBe(
       JSON.stringify({ from: 'cs', to: 'id' }),
     );
+  });
+
+  it('keeps the hero language list open while a touch gesture scrolls it', async () => {
+    render(<LandingPage />);
+
+    const knownLanguageInput = screen.getByRole('combobox', { name: /I know language/i });
+    fireEvent.focus(knownLanguageInput);
+
+    const listbox = await screen.findByRole('listbox');
+    const czechOption = await screen.findByRole('option', { name: /cs/i });
+    expect(czechOption).toBeInTheDocument();
+
+    fireEvent.pointerDown(czechOption, {
+      pointerType: 'touch',
+      clientX: 40,
+      clientY: 120,
+    });
+    fireEvent.pointerMove(czechOption, {
+      pointerType: 'touch',
+      clientX: 40,
+      clientY: 40,
+    });
+    fireEvent.scroll(listbox);
+    fireEvent.pointerUp(czechOption, {
+      pointerType: 'touch',
+      clientX: 40,
+      clientY: 40,
+    });
+
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+
+    fireEvent.click(document.body);
+
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    });
+  });
+
+  it('does not open the hero language list from the label tap target', async () => {
+    render(<LandingPage />);
+
+    fireEvent.pointerDown(screen.getAllByText('I know')[0]);
+
+    expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+
+    fireEvent.focus(screen.getByRole('combobox', { name: /I know language/i }));
+    expect(await screen.findByRole('listbox')).toBeInTheDocument();
+
+    fireEvent.pointerDown(screen.getAllByText('I know')[0]);
+
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    });
+  });
+
+  it('selects a hero language after a completed tap', async () => {
+    render(<LandingPage />);
+
+    fireEvent.focus(screen.getByRole('combobox', { name: /I know language/i }));
+    const czechOption = await screen.findByRole('option', { name: /cs/i });
+
+    fireEvent.click(czechOption);
+
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    });
+    expect(localStorage.getItem('get-word-landing-pair')).toBe(
+      JSON.stringify({ from: 'cs' }),
+    );
+  });
+
+  it('reopens the hero language list when the focused input is tapped again', async () => {
+    render(<LandingPage />);
+
+    const knownLanguageInput = screen.getByRole('combobox', { name: /I know language/i });
+    fireEvent.click(knownLanguageInput);
+    expect(await screen.findByRole('listbox')).toBeInTheDocument();
+
+    fireEvent.keyDown(knownLanguageInput, { key: 'Escape' });
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    });
+
+    fireEvent.pointerDown(knownLanguageInput);
+    expect(await screen.findByRole('listbox')).toBeInTheDocument();
+
+    fireEvent.click(knownLanguageInput);
+    expect(screen.getByRole('listbox')).toBeInTheDocument();
+  });
+
+  it('opens a keyboardless bottom sheet for the hero picker on touch devices', async () => {
+    stubCoarsePointer();
+    render(<LandingPage />);
+
+    // The closed field is a button, not a focusable text input, so tapping it
+    // never raises the on-screen keyboard.
+    const field = await screen.findByRole('button', { name: /I know language/i });
+    expect(field.tagName).toBe('BUTTON');
+
+    fireEvent.click(field);
+
+    const listbox = await screen.findByRole('listbox');
+    expect(listbox).toBeInTheDocument();
+    // Opening the sheet must not auto-focus the search input.
+    expect(document.activeElement?.tagName).not.toBe('INPUT');
+
+    // The search input lives inside the sheet and still filters the list.
+    const search = screen.getByRole('combobox', { name: /I know language/i });
+    fireEvent.change(search, { target: { value: 'span' } });
+    const filtered = screen.getAllByRole('option');
+    expect(filtered).toHaveLength(1);
+    expect(filtered[0]).toHaveTextContent(/es/i);
+
+    fireEvent.click(filtered[0]);
+
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    });
+    expect(localStorage.getItem('get-word-landing-pair')).toBe(
+      JSON.stringify({ from: 'es' }),
+    );
+  });
+
+  it('dismisses the touch sheet when the backdrop is tapped', async () => {
+    stubCoarsePointer();
+    render(<LandingPage />);
+
+    fireEvent.click(await screen.findByRole('button', { name: /I know language/i }));
+    const listbox = await screen.findByRole('listbox');
+
+    // The backdrop is the sheet list's fixed ancestor; tapping it closes.
+    const backdrop = listbox.closest('.onboarding-combobox-backdrop') as HTMLElement;
+    fireEvent.click(backdrop);
+
+    await waitFor(() => {
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
+    });
   });
 
   it('disables the language already selected on the other side', async () => {

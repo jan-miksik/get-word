@@ -138,20 +138,18 @@ export async function fetchUserData(options?: {
   contentRev?: string;
 }): Promise<SyncResponse> {
   const deviceId = getDeviceId();
-  const sessionId = getSessionId();
   const params = new URLSearchParams();
-  if (deviceId) params.set('deviceId', deviceId);
-  if (sessionId) params.set('sessionId', sessionId);
-  if (lastKnownUserId) params.set('userId', lastKnownUserId);
   if (options?.since !== undefined && options.since !== null && options.since !== '') {
     params.set('since', String(options.since));
   }
   if (options?.contentRev) {
     params.set('contentRev', options.contentRev);
   }
+  const query = params.toString();
 
   try {
-    const response = await fetch(`/api/sync?${params.toString()}`, {
+    const response = await fetch(query ? `/api/sync?${query}` : '/api/sync', {
+      headers: deviceId ? { 'x-device-id': deviceId } : undefined,
       signal: AbortSignal.timeout(SYNC_FETCH_TIMEOUT_MS),
     });
 

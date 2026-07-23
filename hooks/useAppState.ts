@@ -131,6 +131,7 @@ export function useAppState(
   const {
     isInitialServerSyncPending,
     isLinkingWallet,
+    isListRefreshPending,
     hasLinkWalletError,
     linkWalletError,
     retryLinkWallet,
@@ -171,6 +172,7 @@ export function useAppState(
     isHydrated,
     isInitialServerSyncPending,
     isLinkingWallet,
+    isListRefreshPending,
     hasLinkWalletError,
     linkWalletError,
     retryLinkWallet,

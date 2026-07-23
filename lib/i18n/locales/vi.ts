@@ -32,6 +32,7 @@ export const viMessages: I18nMessages = {
     "Không thể hoàn tất đăng nhập bằng Google. Vui lòng bắt đầu lại trong chính tab trình duyệt này.",
   "auth.errorGoogleStart": "Không thể bắt đầu đăng nhập bằng Google",
   "auth.errorSendCode": "Không thể gửi mã",
+  "auth.errorOtpSessionExpired": "Phiên đăng nhập đã hết hạn. Nhập email để nhận mã mới.",
   "auth.errorVerifyCode": "Không thể xác minh mã",
   "auth.errorAccountLoad": "Đã đăng nhập, nhưng không thể tải tài khoản của bạn. Vui lòng thử lại.",
   "legal.backHome": "Quay lại Get Word",
@@ -96,6 +97,9 @@ export const viMessages: I18nMessages = {
   "landing.demo.doneBody": "",
   "landing.demo.continue": "Tiếp tục vào ứng dụng",
   "landing.demo.replay": "Thử lại",
+  "landing.firefoxUnsupportedTitle": "Firefox trên Android không được hỗ trợ",
+  "landing.firefoxUnsupportedBody":
+    "Một số tính năng, bao gồm đăng nhập, không hoạt động trên Firefox cho Android. Vui lòng mở Get Word bằng trình duyệt dựa trên Chromium như Chrome, Edge hoặc Brave.",
   "landing.footer.github": "GitHub",
   "landing.footer.contact": "Liên hệ",
   "landing.footer.privacy": "Quyền riêng tư",
@@ -144,8 +148,10 @@ export const viMessages: I18nMessages = {
     "Dữ liệu học tập. Danh sách từ, tiến độ học, các giai đoạn lặp lại ngắt quãng, mẹo ghi nhớ và tùy chọn ứng dụng của bạn để việc học được đồng bộ giữa các thiết bị.",
   "privacy.infoDevice":
     "Mã định danh thiết bị. Một ID thiết bị ngẫu nhiên được lưu trên thiết bị của bạn để liên kết tiến độ trước và sau khi bạn đăng nhập.",
+  "privacy.infoSession":
+    "Phiên và lưu trữ cục bộ. Chúng tôi dùng cookie cần thiết và bộ nhớ trình duyệt để giữ bạn đăng nhập, ghi nhớ thiết bị, hỗ trợ học ngoại tuyến và lưu cache dữ liệu ứng dụng. Cookie phiên Get Word đã ký có thể tồn tại tới 365 ngày và được gia hạn khi bạn dùng ứng dụng bình thường.",
   "privacy.infoContent":
-    "Nội dung bạn gửi. Từ, cụm từ và danh sách bạn nhập hoặc dịch. Để cung cấp bản dịch, âm thanh phát âm và tính năng hỗ trợ AI, văn bản này có thể được gửi đến nhà cung cấp bên thứ ba.",
+    "Nội dung bạn gửi. Từ, cụm từ, danh sách và ảnh bạn chọn phân tích trong Photo Lab. Để cung cấp bản dịch, âm thanh phát âm, nhãn ảnh và tính năng hỗ trợ AI, nội dung này có thể được gửi đến nhà cung cấp bên thứ ba.",
   "privacy.infoProviders":
     "Tài khoản nhà cung cấp đã kết nối và khóa API. Nếu bạn kết nối tài khoản nhà cung cấp AI của riêng mình hoặc dùng khóa API riêng để thực hiện yêu cầu thay mặt bạn, chúng tôi lưu thông tin xác thực cần thiết. Khóa API được mã hóa trước khi lưu. Chúng tôi không thấy mật khẩu nhà cung cấp của bạn.",
   "privacy.useTitle": "Cách chúng tôi sử dụng thông tin của bạn",
@@ -153,12 +159,21 @@ export const viMessages: I18nMessages = {
   "privacy.useSync": "Để lưu và đồng bộ tiến độ học cùng tùy chọn của bạn.",
   "privacy.useOperate": "Để vận hành, duy trì và cải thiện ứng dụng.",
   "privacy.useNoSell": "Chúng tôi không bán thông tin cá nhân của bạn và không dùng thông tin đó cho quảng cáo.",
+  "privacy.legalBasisTitle": "Cơ sở pháp lý",
+  "privacy.legalBasisBody":
+    "Khi GDPR áp dụng, chúng tôi xử lý dữ liệu tài khoản, phiên, học tập và nội dung do người dùng gửi chủ yếu để cung cấp ứng dụng và dịch vụ đồng bộ bạn yêu cầu (thực hiện hợp đồng), giữ dịch vụ an toàn và đáng tin cậy (lợi ích hợp pháp), tuân thủ nghĩa vụ pháp lý, và với tính năng tùy chọn như kết nối nhà cung cấp hoặc bật tính năng thử nghiệm, dựa trên lựa chọn hoặc sự đồng ý của bạn khi cần.",
   "privacy.storageTitle": "Cách dữ liệu của bạn được lưu trữ",
   "privacy.storageBody":
-    "Dữ liệu tài khoản và học tập của bạn được lưu trong cơ sở dữ liệu PostgreSQL được quản lý (Supabase), và xác thực được xử lý qua Supabase Auth. Chúng tôi giữ dữ liệu của bạn trong thời gian tài khoản còn hoạt động.",
+    "Dữ liệu tài khoản và học tập của bạn được lưu trong cơ sở dữ liệu PostgreSQL được quản lý (Supabase), và xác thực được xử lý qua Supabase Auth. Dữ liệu học ngoại tuyến, âm thanh được cache và lịch sử Photo Lab cũng có thể được lưu cục bộ trong trình duyệt của bạn. Chúng tôi giữ dữ liệu tài khoản phía máy chủ trong thời gian tài khoản còn hoạt động, trừ khi cần thời hạn ngắn hơn hoặc dài hơn vì lý do bảo mật, pháp lý, sao lưu hoặc chống lạm dụng.",
+  "privacy.retentionTitle": "Thời gian lưu giữ",
+  "privacy.retentionBody":
+    "Hầu hết dữ liệu tài khoản và học tập được giữ cho đến khi bạn xóa dữ liệu đó hoặc xóa tài khoản. Cache cục bộ trong trình duyệt có thể được xóa trong cài đặt ứng dụng hoặc bằng cách xóa dữ liệu trình duyệt. Nhật ký vận hành, bản sao lưu, bản ghi giới hạn tần suất và bản ghi chống lạm dụng có thể còn lại trong một thời gian giới hạn sau khi xóa nếu cần cho bảo mật, độ tin cậy, tuân thủ pháp luật hoặc xử lý tranh chấp.",
   "privacy.thirdPartyTitle": "Dịch vụ bên thứ ba",
   "privacy.thirdPartyBody":
-    "Chúng tôi dùng nhà cung cấp bên thứ ba để vận hành ứng dụng, bao gồm lưu trữ (Vercel), cơ sở dữ liệu và xác thực (Supabase), dịch thuật và chuyển văn bản thành giọng nói (Google Cloud), và tạo nội dung AI (OpenRouter). Tùy tính năng bạn dùng, văn bản hoặc âm thanh bạn gửi có thể được gửi đến các nhà cung cấp này để họ cung cấp chức năng được yêu cầu. Chúng tôi có thể tiết lộ thông tin nếu pháp luật yêu cầu.",
+    "Chúng tôi dùng nhà cung cấp bên thứ ba để vận hành ứng dụng, bao gồm lưu trữ (Vercel), cơ sở dữ liệu và xác thực (Supabase), dịch thuật và chuyển văn bản thành giọng nói (Google Cloud), lưu trữ đối tượng cho âm thanh, và tạo nội dung/phân tích ảnh bằng AI (OpenRouter). Tùy tính năng bạn dùng, văn bản, âm thanh hoặc ảnh bạn gửi có thể được gửi đến các nhà cung cấp này để họ cung cấp chức năng được yêu cầu. Chúng tôi có thể tiết lộ thông tin nếu pháp luật yêu cầu.",
+  "privacy.transfersTitle": "Chuyển dữ liệu quốc tế",
+  "privacy.transfersBody":
+    "Một số nhà cung cấp có thể xử lý dữ liệu bên ngoài quốc gia của bạn hoặc bên ngoài Khu vực Kinh tế Châu Âu. Khi cần, chúng tôi dựa vào điều khoản xử lý dữ liệu của nhà cung cấp, biện pháp bảo đảm chuyển dữ liệu phù hợp như điều khoản hợp đồng tiêu chuẩn, hoặc cơ chế chuyển dữ liệu hợp lệ khác.",
   "privacy.publicTitle": "Lưu trữ công khai và lâu dài",
   "privacy.publicBody":
     "Một số nội dung, như âm thanh phát âm hoặc tài nguyên danh sách từ công khai, có thể được lưu trên mạng lưu trữ phi tập trung hoặc lâu dài như Arweave. Nội dung lưu theo cách này có thể truy cập công khai và có thể không thể được chúng tôi xóa hoàn toàn khỏi mạng nền tảng. Vui lòng không đưa thông tin cá nhân riêng tư hoặc nhạy cảm vào nội dung bạn chọn xuất bản hoặc tạo để lưu trữ công khai.",
@@ -979,6 +994,11 @@ export const viMessages: I18nMessages = {
   "account.deletedTitle": "Tài khoản của bạn đã được xóa.",
   "account.completingTitle": "Dữ liệu ứng dụng của bạn đã được xóa. Chúng tôi đang hoàn tất việc xóa danh tính đăng nhập của bạn — bạn không cần làm gì cả.",
   "account.deletePrivacyLink": "Cách chúng tôi xử lý dữ liệu của bạn",
+  "account.dataExport": "Xuất dữ liệu",
+  "account.dataExportNotice": "Tải xuống bản sao JSON của tài khoản, tiến độ học, danh sách, siêu dữ liệu kết nối nhà cung cấp, bản ghi sử dụng và dữ liệu Get Word được lưu trong trình duyệt này.",
+  "account.exportData": "Xuất dữ liệu của tôi",
+  "account.exportingData": "Đang chuẩn bị bản xuất…",
+  "account.exportDataError": "Không thể chuẩn bị bản xuất. Vui lòng thử lại.",
   "account.dangerZone": "Vùng nguy hiểm",
   "account.dangerZoneNotice": "Xóa vĩnh viễn tài khoản và dữ liệu học tập của bạn. Không thể hoàn tác.",
   "settings.deleteAccount": "Xóa tài khoản",

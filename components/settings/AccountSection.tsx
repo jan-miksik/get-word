@@ -4,6 +4,42 @@ import { useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { useAppStateContext } from '@/context/AppStateContext';
 import { DeleteAccountModal } from '@/components/settings/DeleteAccountModal';
+import { listSessions } from '@/features/photo-lab/client/photoStore';
+import { deviceJsonFetch } from '@/features/shared/http/device-json-fetch';
+import { getSnapshot } from '@/lib/local-learning-cache';
+
+function getGetWordLocalStorage() {
+  const values: Record<string, string> = {};
+  try {
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const key = localStorage.key(i);
+      if (key && (key.startsWith('get_word') || key.startsWith('get-word'))) {
+        values[key] = localStorage.getItem(key) ?? '';
+      }
+    }
+  } catch {
+    // Storage can be blocked in privacy modes. The server export still works.
+  }
+  return values;
+}
+
+function downloadJson(filename: string, data: unknown) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], {
+    type: 'application/json;charset=utf-8',
+  });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(url);
+}
+
+function exportFilename() {
+  return `get-word-personal-data-${new Date().toISOString().slice(0, 10)}.json`;
+}
 
 export function AccountSection({
   isAuthenticated,
@@ -18,6 +54,36 @@ export function AccountSection({
   const { t } = useI18n();
   const { userId, userEmail } = useAppStateContext();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState(false);
+
+  async function handleExportData() {
+    setExporting(true);
+    setExportError(false);
+    try {
+      const [serverResponse, localLearningSnapshot, photoLabSessions] = await Promise.all([
+        deviceJsonFetch('/api/auth/account/export'),
+        getSnapshot().catch(() => null),
+        listSessions().catch(() => []),
+      ]);
+      if (!serverResponse.ok) throw new Error('Export failed');
+      const serverData = await serverResponse.json();
+      downloadJson(exportFilename(), {
+        ...serverData,
+        localDeviceData: {
+          exportedAt: new Date().toISOString(),
+          localStorage: getGetWordLocalStorage(),
+          learningSnapshot: localLearningSnapshot,
+          photoLabSessions,
+          note: 'Photo Lab image blobs are stored only in this browser and are not embedded in this export.',
+        },
+      });
+    } catch {
+      setExportError(true);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <div className="border-t border-border-subtle pt-4 flex flex-col gap-4">
@@ -57,6 +123,26 @@ export function AccountSection({
           <code className="text-[0.6rem] text-text-soft/40 font-mono break-all">
             {userId}
           </code>
+        )}
+      </div>
+
+      <div className="rounded-xl border border-border-subtle bg-background p-4 flex flex-col gap-2">
+        <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft/70">
+          {t('account.dataExport')}
+        </p>
+        <p className="m-0 text-xs leading-relaxed text-text-soft">
+          {t('account.dataExportNotice')}
+        </p>
+        <button
+          type="button"
+          onClick={() => void handleExportData()}
+          disabled={exporting}
+          className="self-start rounded-lg border border-border-subtle bg-background-elevated px-3 py-2 text-xs font-semibold text-text-soft transition-colors hover:border-accent/50 hover:text-text focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {exporting ? t('account.exportingData') : t('account.exportData')}
+        </button>
+        {exportError && (
+          <p className="m-0 text-xs text-danger">{t('account.exportDataError')}</p>
         )}
       </div>
 

@@ -53,6 +53,7 @@ vi.mock('@/lib/local-learning-cache', () => ({
   saveSnapshot: () => mockSaveSnapshot(),
 }));
 
+import { markListsChangedForLearningSync } from '@/features/shared/sync/list-refresh-marker';
 import { useServerSync, WARM_START_SYNC_GRACE_MS } from '../useServerSync';
 
 const syncResponse = {
@@ -80,7 +81,7 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-function useServerSyncHarness() {
+function useServerSyncHarness(overrides: { setActiveListId?: (id: string | null) => void } = {}) {
   const [isHydrated, setIsHydrated] = useState(false);
   const result = useServerSync({
     words: [],
@@ -98,7 +99,7 @@ function useServerSyncHarness() {
     applyServerGameScore: vi.fn(),
     setSyncedWords: vi.fn(),
     setSubscribedLists: vi.fn(),
-    setActiveListId: vi.fn(),
+    setActiveListId: overrides.setActiveListId ?? vi.fn(),
   });
 
   return { isHydrated, ...result };
@@ -112,6 +113,7 @@ describe('useServerSync', () => {
     mockGetMeta.mockResolvedValue(null);
     mockLoadAllDomainsFromIdb.mockResolvedValue(null);
     mockFetchUserData.mockResolvedValue(syncResponse);
+    window.sessionStorage.clear();
     window.requestAnimationFrame = (callback) => window.setTimeout(callback, 0);
   });
 
@@ -204,6 +206,23 @@ describe('useServerSync', () => {
 
     persistence.resolve(true);
     await waitFor(() => expect(result.current.isInitialServerSyncPending).toBe(false));
+  });
+
+  it('uses a full boot snapshot after returning from list editing', async () => {
+    mockGetStoragePreference.mockReturnValue(true);
+    mockGetMeta.mockResolvedValue({
+      lastSinceCursor: '1779400000000',
+      lastContentRevision: 'v2:content-rev-1',
+    });
+    mockLoadAllDomainsFromIdb.mockResolvedValueOnce({ syncResponse, activeListId: null });
+    const setActiveListId = vi.fn();
+
+    markListsChangedForLearningSync('new-list');
+    renderHook(() => useServerSyncHarness({ setActiveListId }));
+
+    await waitFor(() => expect(mockFetchUserData).toHaveBeenCalledWith(undefined));
+    expect(mockGetMeta).not.toHaveBeenCalled();
+    expect(setActiveListId).toHaveBeenCalledWith('new-list');
   });
 
   it('stores full-snapshot cursors only after the snapshot and domains are durable', async () => {

@@ -76,6 +76,10 @@ function LoginPageInner() {
     [searchParams],
   );
   const callbackError = searchParams.get('error');
+  // The OTP step lives in the URL (`?step=code`), not just in React state, so it
+  // survives a Firefox-Android tab-restore: the browser always restores the tab's
+  // URL, whereas in-memory state and even storage can be dropped.
+  const initialCodeStep = searchParams.get('step') === 'code';
 
   const { isConnected, email: accountEmail, isAuthLoading, signOut } = useAuth();
   const language = usePreferredPublicLanguage();
@@ -92,7 +96,11 @@ function LoginPageInner() {
         <main className="app overflow-y-auto overflow-x-hidden bg-[#dcd1b9] px-4 py-8 sm:px-6 sm:py-10">
           <SpeckledBackground />
           <div className="flex min-h-full w-full items-center justify-center">
-            <SignInForm nextPath={nextPath} initialError={callbackError} />
+            <SignInForm
+              nextPath={nextPath}
+              initialError={callbackError}
+              initialCodeStep={initialCodeStep}
+            />
           </div>
         </main>
       )}

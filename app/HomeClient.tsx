@@ -117,6 +117,7 @@ export function HomeClient() {
     isHydrated,
     isInitialServerSyncPending,
     isLinkingWallet,
+    isListRefreshPending,
     hasLinkWalletError,
     setGameScore,
     syncedWords,
@@ -441,6 +442,8 @@ export function HomeClient() {
           // Authed-but-still-hydrating → waiting on userId. Hold the loading
           // screen rather than flashing app chrome; `bootFailed` above breaks
           // the tie if it never arrives.
+          <LoadingScreen />
+        ) : isListRefreshPending ? (
           <LoadingScreen />
         ) : shouldAutoSetupLandingPair && landingPairFrom && landingPairTo ? (
           <AutoLanguageSetup

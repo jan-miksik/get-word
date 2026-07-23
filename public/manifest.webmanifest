@@ -1,7 +1,7 @@
 {
   "name": "Get Word",
   "short_name": "Get Word",
-  "description": "Learn Czech and Vietnamese with spaced repetition",
+  "description": "Learn languages with spaced repetition, audio practice, and visual study tools",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",

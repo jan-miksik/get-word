@@ -20,7 +20,11 @@ export function LandingPageStyles() {
   background:var(--paper);
   font-family:var(--font-hanken),system-ui,sans-serif;
   -webkit-font-smoothing:antialiased;
-  overflow-x:hidden;
+  /* overflow-x hidden computes the other axis to auto, which makes this a second
+     vertical scroller in Firefox. That nested scroller jumps when the Android
+     keyboard changes the visual viewport. clip prevents horizontal paint
+     overflow without taking ownership of vertical scrolling. */
+  overflow-x:clip;
 }
 
 @media (display-mode: standalone), (display-mode: fullscreen){

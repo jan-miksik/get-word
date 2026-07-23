@@ -25,6 +25,7 @@ import {
   saveLandingLanguagePair,
 } from '@/features/shared/languages/landingPairStorage';
 import { useLandingLanguage } from '@/features/landing/client/useLandingLanguage';
+import { isAndroid, isFirefox } from '@/lib/pwa-install';
 
 /* ------------------------------------------------------------------ *
  * Component
@@ -59,6 +60,13 @@ function LandingPageContent({
   onLangChange: (next: string) => void;
 }) {
   const { t, isLoading } = useI18n();
+  // Firefox on Android can't run the app reliably (PWA install, canvas/scratch,
+  // and the OTP tab-restore flow all break). Rather than ship broken sign-in, we
+  // show an unsupported notice and hide every login CTA for those visitors,
+  // steering them to a Chromium browser (and later the Play Store). Detection is
+  // client-only, so the server snapshot is false — no hydration drift, the CTAs
+  // render on the server and are removed after mount only on Firefox-Android.
+  const isFirefoxAndroid = useIsFirefoxAndroid();
   // Keep the hero pair and the app-like demo card in sync. The server snapshot
   // stays empty to avoid hydration drift; after mount we resolve saved/browser
   // defaults and then user choices take over.
@@ -106,7 +114,9 @@ function LandingPageContent({
           lang={lang}
           onLangChange={onLangChange}
           onBeforeLogin={persistLandingPair}
+          showLogin={!isFirefoxAndroid}
         />
+        {isFirefoxAndroid ? <FirefoxUnsupportedNotice /> : null}
         <Hero
           languageFrom={languageFrom}
           languageTo={languageTo}
@@ -115,18 +125,21 @@ function LandingPageContent({
           onPairChange={updateLandingPair}
           onWantsOwnListChange={setWantsOwnList}
           onBeforeLogin={persistLandingPair}
+          showLogin={!isFirefoxAndroid}
         />
-        <TryIt
-          lang={lang}
-          languageFrom={effectiveLanguageFrom}
-          languageTo={effectiveLanguageTo}
-          onBeforeLogin={persistLandingPair}
-        />
+        {isFirefoxAndroid ? null : (
+          <TryIt
+            lang={lang}
+            languageFrom={effectiveLanguageFrom}
+            languageTo={effectiveLanguageTo}
+            onBeforeLogin={persistLandingPair}
+          />
+        )}
         <Features />
         <HowItWorks />
         <OpenSource />
-        <FinalCta />
-        <SiteFooter />
+        {isFirefoxAndroid ? null : <FinalCta />}
+        <SiteFooter showLogin={!isFirefoxAndroid} />
       </div>
       {isLoading ? (
         <div
@@ -171,14 +184,59 @@ function LanguageSwitcher({
  * Sections
  * ------------------------------------------------------------------ */
 
+/**
+ * Firefox on Android can't run the app reliably — PWA install, canvas/scratch,
+ * and the OTP tab-restore sign-in flow all break — so instead of shipping broken
+ * login we mark it unsupported and steer visitors to a Chromium browser (and,
+ * later, the Play Store). Scoped to Android on purpose: iOS Firefox (FxiOS) is a
+ * WebKit wrapper, not Gecko, and behaves like Safari. Detection is client-only,
+ * so the server snapshot is false (SSR/first paint renders as a supported
+ * browser, no hydration drift) and the true value takes over after mount.
+ */
+function useIsFirefoxAndroid(): boolean {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => isAndroid() && isFirefox(),
+    () => false
+  );
+}
+
+/**
+ * Fixed (non-dismissible) unsupported-browser notice, shown only to Firefox on
+ * Android. The gating happens in the parent; this is purely presentational.
+ */
+function FirefoxUnsupportedNotice() {
+  const { t } = useI18n();
+  return (
+    <div
+      role="alert"
+      className="lp-reveal mt-4 flex items-start gap-3 rounded-2xl border-2 border-[var(--rust)] bg-[var(--card-2)] px-5 py-4 text-sm leading-6 text-[var(--ink)] shadow-[0_16px_34px_-28px_rgba(33,26,15,.5)]"
+    >
+      <span aria-hidden="true" className="mt-0.5 shrink-0 text-lg leading-6">
+        🦊
+      </span>
+      <div className="min-w-0 flex-1">
+        <p className="m-0 font-semibold text-[var(--ink)]">
+          {t('landing.firefoxUnsupportedTitle')}
+        </p>
+        <p className="m-0 mt-1 text-[var(--ink-2)]">
+          {t('landing.firefoxUnsupportedBody')}
+        </p>
+      </div>
+    </div>
+  );
+}
+
 function SiteHeader({
   lang,
   onLangChange,
   onBeforeLogin,
+  showLogin,
 }: {
   lang: string;
   onLangChange: (next: string) => void;
   onBeforeLogin: () => void;
+  showLogin: boolean;
 }) {
   const { t } = useI18n();
   return (
@@ -197,9 +255,11 @@ function SiteHeader({
           lang={lang}
           onLangChange={onLangChange}
         />
-        <Link href="/login" className="lp-btn-ghost" onClick={onBeforeLogin}>
-          {t('landing.hero.getStarted')}
-        </Link>
+        {showLogin ? (
+          <Link href="/login" className="lp-btn-ghost" onClick={onBeforeLogin}>
+            {t('landing.hero.getStarted')}
+          </Link>
+        ) : null}
       </nav>
     </header>
   );
@@ -213,6 +273,7 @@ function Hero({
   onPairChange,
   onWantsOwnListChange,
   onBeforeLogin,
+  showLogin,
 }: {
   languageFrom: string;
   languageTo: string;
@@ -221,6 +282,7 @@ function Hero({
   onPairChange: (next: { from?: string; to?: string }) => void;
   onWantsOwnListChange: (next: boolean) => void;
   onBeforeLogin: () => void;
+  showLogin: boolean;
 }) {
   const { t } = useI18n();
   return (
@@ -228,7 +290,15 @@ function Hero({
     // contexts (CSS load animations), so without an explicit z-index the later
     // sections paint over the hero's open language dropdowns.
     <section className="lp-fade-in relative z-10 min-w-0 py-10 sm:py-16">
-      <div className="grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:gap-14">
+      {/* On unsupported browsers (Firefox-Android) the language pickers and their
+          login CTA are hidden, so the hero collapses to just the pitch. */}
+      <div
+        className={
+          showLogin
+            ? 'grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:gap-14'
+            : ''
+        }
+      >
         <div className="min-w-0">
           <h1
             className="lp-display m-0 text-[clamp(2.6rem,7vw,5rem)] font-bold leading-[1.02] tracking-[-0.025em] text-[var(--ink)]"
@@ -243,15 +313,17 @@ function Hero({
           </p>
         </div>
 
-        <HeroLanguagePicker
-          languageFrom={languageFrom}
-          languageTo={languageTo}
-          effectiveLanguageFrom={effectiveLanguageFrom}
-          wantsOwnList={wantsOwnList}
-          onPairChange={onPairChange}
-          onWantsOwnListChange={onWantsOwnListChange}
-          onBeforeLogin={onBeforeLogin}
-        />
+        {showLogin ? (
+          <HeroLanguagePicker
+            languageFrom={languageFrom}
+            languageTo={languageTo}
+            effectiveLanguageFrom={effectiveLanguageFrom}
+            wantsOwnList={wantsOwnList}
+            onPairChange={onPairChange}
+            onWantsOwnListChange={onWantsOwnListChange}
+            onBeforeLogin={onBeforeLogin}
+          />
+        ) : null}
       </div>
     </section>
   );

@@ -160,7 +160,7 @@ export function FinalCta() {
   );
 }
 
-export function SiteFooter() {
+export function SiteFooter({ showLogin = true }: { showLogin?: boolean }) {
   const { t } = useI18n();
   return (
     <footer className="flex flex-col gap-5 border-t-2 border-[var(--line-strong)] py-9 sm:flex-row sm:items-center sm:justify-between">
@@ -169,7 +169,9 @@ export function SiteFooter() {
         <span className="lp-display text-sm font-semibold text-[var(--ink)]">Get&nbsp;Word</span>
       </div>
       <nav className="flex flex-wrap items-center gap-x-5 gap-y-2">
-        <Link href="/login" className="lp-foot-link">{t('landing.hero.getStarted')}</Link>
+        {showLogin ? (
+          <Link href="/login" className="lp-foot-link">{t('landing.hero.getStarted')}</Link>
+        ) : null}
         <a href={GITHUB_URL} target="_blank" rel="noopener noreferrer" className="lp-foot-link">
           {t('landing.footer.github')}
         </a>

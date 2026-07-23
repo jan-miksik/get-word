@@ -30,6 +30,7 @@ export const enMessages = {
     "Your Google sign-in could not be completed. Please start again in this same browser tab.",
   "auth.errorGoogleStart": "Failed to start Google sign-in",
   "auth.errorSendCode": "Failed to send code",
+  "auth.errorOtpSessionExpired": "Your sign-in session expired. Enter your email to get a new code.",
   "auth.errorVerifyCode": "Failed to verify code",
   "auth.errorAccountLoad": "Signed in, but could not load your account. Please try again.",
   "legal.backHome": "Back to Get Word",
@@ -94,6 +95,9 @@ export const enMessages = {
   "landing.demo.doneBody": "",
   "landing.demo.continue": "Continue to the app",
   "landing.demo.replay": "Try again",
+  "landing.firefoxUnsupportedTitle": "Firefox on Android isn't supported",
+  "landing.firefoxUnsupportedBody":
+    "Some features, including sign-in, don't work in Firefox on Android. Please open Get Word in a Chromium-based browser like Chrome, Edge or Brave.",
   "landing.footer.github": "GitHub",
   "landing.footer.contact": "Contact",
   "landing.footer.privacy": "Privacy",
@@ -142,8 +146,10 @@ export const enMessages = {
     "Learning data. Your word lists, study progress, spaced-repetition stages, memory hooks, and app preferences, so your learning syncs across devices.",
   "privacy.infoDevice":
     "Device identifier. A random device ID stored on your device to associate your progress before and after you sign in.",
+  "privacy.infoSession":
+    "Session and local storage. We use essential cookies and browser storage to keep you signed in, remember your device, support offline study, and cache app data. The signed Get Word session cookie can last up to 365 days and is renewed during normal app activity.",
   "privacy.infoContent":
-    "Content you submit. Words, phrases, and lists you enter or translate. To provide translation, pronunciation audio, and AI-assisted features, this text may be sent to third-party providers.",
+    "Content you submit. Words, phrases, lists, and photos you choose to analyze in Photo Lab. To provide translation, pronunciation audio, photo labels, and AI-assisted features, this content may be sent to third-party providers.",
   "privacy.infoProviders":
     "Connected provider accounts and API keys. If you connect your own AI provider account or bring your own API key to make requests on your behalf, we store the credential needed to do so. API keys are encrypted before storage. We do not see your provider password.",
   "privacy.useTitle": "How we use your information",
@@ -151,12 +157,21 @@ export const enMessages = {
   "privacy.useSync": "To save and sync your learning progress and preferences.",
   "privacy.useOperate": "To operate, maintain, and improve the app.",
   "privacy.useNoSell": "We do not sell your personal information, and we do not use it for advertising.",
+  "privacy.legalBasisTitle": "Legal bases",
+  "privacy.legalBasisBody":
+    "Where GDPR applies, we process account, session, learning, and user-submitted content mainly to provide the app and sync service you request (performance of a contract), to keep the service secure and reliable (legitimate interests), to comply with legal obligations, and, where a feature asks for an optional choice such as connecting a provider or enabling an experimental feature, based on that choice or consent where required.",
   "privacy.storageTitle": "How your data is stored",
   "privacy.storageBody":
-    "Your account and learning data are stored in a managed PostgreSQL database (Supabase), and authentication is handled through Supabase Auth. We retain your data for as long as your account is active.",
+    "Your account and learning data are stored in a managed PostgreSQL database (Supabase), and authentication is handled through Supabase Auth. Offline learning data, cached audio, and Photo Lab history may also be stored locally in your browser. We retain server-side account data for as long as your account is active, unless a shorter or longer period is required for security, legal, backup, or abuse-prevention reasons.",
+  "privacy.retentionTitle": "Retention",
+  "privacy.retentionBody":
+    "Most account and learning data is kept until you delete it or delete your account. Local browser caches can be cleared from the app settings or by clearing browser data. Operational logs, backups, rate-limit records, and abuse-prevention records may remain for a limited period after deletion when needed for security, reliability, legal compliance, or dispute handling.",
   "privacy.thirdPartyTitle": "Third-party services",
   "privacy.thirdPartyBody":
-    "We use third-party providers to operate the app, including hosting (Vercel), database and authentication (Supabase), translation and text-to-speech (Google Cloud), and AI generation (OpenRouter). Depending on the feature you use, the text or audio you submit may be sent to these providers so they can provide the requested functionality. We may disclose information if required by law.",
+    "We use third-party providers to operate the app, including hosting (Vercel), database and authentication (Supabase), translation and text-to-speech (Google Cloud), object storage for audio, and AI generation/photo analysis (OpenRouter). Depending on the feature you use, the text, audio, or photo you submit may be sent to these providers so they can provide the requested functionality. We may disclose information if required by law.",
+  "privacy.transfersTitle": "International transfers",
+  "privacy.transfersBody":
+    "Some providers may process data outside your country or outside the European Economic Area. Where required, we rely on provider data-processing terms, appropriate transfer safeguards such as standard contractual clauses, or another valid transfer mechanism.",
   "privacy.publicTitle": "Public and permanent storage",
   "privacy.publicBody":
     "Some content, such as pronunciation audio or public word-list assets, may be stored on decentralized or permanent storage networks such as Arweave. Content stored this way may be publicly accessible and may not be possible for us to fully delete from the underlying network. Please do not include private or sensitive personal information in content that you choose to publish or generate for public storage.",
@@ -239,6 +254,11 @@ export const enMessages = {
   "account.deletedTitle": "Your account has been deleted.",
   "account.completingTitle": "Your app data has been removed. We're finishing deletion of your sign-in identity — you don't need to do anything.",
   "account.deletePrivacyLink": "How we handle your data",
+  "account.dataExport": "Data export",
+  "account.dataExportNotice": "Download a JSON copy of your account, learning progress, lists, provider connection metadata, usage records, and Get Word data stored in this browser.",
+  "account.exportData": "Export my data",
+  "account.exportingData": "Preparing export…",
+  "account.exportDataError": "The export could not be prepared. Please try again.",
   "account.dangerZone": "Danger zone",
   "account.dangerZoneNotice": "Permanently delete your account and learning data. This can't be undone.",
   "settings.account": "Account",

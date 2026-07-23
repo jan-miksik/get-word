@@ -4,6 +4,7 @@ import { listsApiFetch } from '@/features/lists/api';
 import * as listActions from '@/features/lists/client/actions';
 import { readStoredSelectedListId, writeStoredSelectedListId } from '@/features/lists/client/storage';
 import { isSameListDirection } from '@/features/lists/languages';
+import { markListsChangedForLearningSync } from '@/features/shared/sync/list-refresh-marker';
 import type { WordList } from '@/features/lists/types';
 
 type UseListsPageDataOptions = {
@@ -82,6 +83,7 @@ export function useListsPageData({
 
   const setSelectedListId = useCallback((listId: string | null) => {
     writeStoredSelectedListId(listId);
+    markListsChangedForLearningSync(listId);
     setSelectedListIdState(listId);
   }, []);
 

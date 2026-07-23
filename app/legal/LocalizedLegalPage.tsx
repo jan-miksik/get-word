@@ -6,7 +6,7 @@ import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { usePreferredPublicLanguage } from '@/lib/i18n/client-language';
 import type { I18nKey } from '@/lib/i18n/messages';
 
-const LAST_UPDATED_DATE = new Date('2026-06-06T00:00:00.000Z');
+const LAST_UPDATED_DATE = new Date('2026-07-22T00:00:00.000Z');
 const SUPPORT_EMAIL = 'support@getword.app';
 
 type LegalPageKind = 'terms' | 'privacy';
@@ -36,6 +36,7 @@ const PRIVACY_SECTIONS: TextSection[] = [
       'privacy.infoAccount',
       'privacy.infoLearning',
       'privacy.infoDevice',
+      'privacy.infoSession',
       'privacy.infoContent',
       'privacy.infoProviders',
     ],
@@ -45,8 +46,11 @@ const PRIVACY_SECTIONS: TextSection[] = [
     bullets: ['privacy.useAuth', 'privacy.useSync', 'privacy.useOperate'],
     paragraphs: ['privacy.useNoSell'],
   },
+  { title: 'privacy.legalBasisTitle', paragraphs: ['privacy.legalBasisBody'] },
   { title: 'privacy.storageTitle', paragraphs: ['privacy.storageBody'] },
+  { title: 'privacy.retentionTitle', paragraphs: ['privacy.retentionBody'] },
   { title: 'privacy.thirdPartyTitle', paragraphs: ['privacy.thirdPartyBody'] },
+  { title: 'privacy.transfersTitle', paragraphs: ['privacy.transfersBody'] },
   { title: 'privacy.publicTitle', paragraphs: ['privacy.publicBody'] },
   { title: 'privacy.rightsTitle', paragraphs: ['privacy.rightsBody1', 'privacy.rightsBody2'] },
   { title: 'privacy.childrenTitle', paragraphs: ['privacy.childrenBody'] },

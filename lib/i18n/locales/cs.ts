@@ -32,6 +32,7 @@ export const csMessages: I18nMessages = {
     "Přihlášení přes Google se nepodařilo dokončit. Začněte prosím znovu na stejné kartě prohlížeče.",
   "auth.errorGoogleStart": "Přihlášení přes Google se nepodařilo spustit",
   "auth.errorSendCode": "Kód se nepodařilo odeslat",
+  "auth.errorOtpSessionExpired": "Přihlašovací relace vypršela. Zadejte e-mail a pošlete si nový kód.",
   "auth.errorVerifyCode": "Kód se nepodařilo ověřit",
   "auth.errorAccountLoad": "Přihlášeno, ale účet se nepodařilo načíst. Zkuste to prosím znovu.",
   "legal.backHome": "Zpět na Get Word",
@@ -96,6 +97,9 @@ export const csMessages: I18nMessages = {
   "landing.demo.doneBody": "",
   "landing.demo.continue": "Pokračovat do aplikace",
   "landing.demo.replay": "Zkusit znovu",
+  "landing.firefoxUnsupportedTitle": "Firefox na Androidu není podporován",
+  "landing.firefoxUnsupportedBody":
+    "Některé funkce včetně přihlášení ve Firefoxu na Androidu nefungují. Otevři prosím Get Word v prohlížeči založeném na Chromiu, jako je Chrome, Edge nebo Brave.",
   "landing.footer.github": "GitHub",
   "landing.footer.contact": "Kontakt",
   "landing.footer.privacy": "Soukromí",
@@ -144,8 +148,10 @@ export const csMessages: I18nMessages = {
     "Učební data. Vaše seznamy slov, studijní pokrok, fáze rozloženého opakování, mnemotechnické pomůcky a nastavení aplikace, aby se vaše učení synchronizovalo mezi zařízeními.",
   "privacy.infoDevice":
     "Identifikátor zařízení. Náhodné ID zařízení uložené ve vašem zařízení, které slouží k propojení vašeho pokroku před přihlášením a po něm.",
+  "privacy.infoSession":
+    "Relace a místní úložiště. Používáme nezbytné cookies a úložiště prohlížeče, abychom vás udrželi přihlášené, zapamatovali si vaše zařízení, umožnili offline učení a ukládali cache aplikace. Podepsaná session cookie Get Word může platit až 365 dní a při běžném používání aplikace se obnovuje.",
   "privacy.infoContent":
-    "Obsah, který zadáte. Slova, fráze a seznamy, které vložíte nebo překládáte. Kvůli překladům, výslovnostnímu audiu a funkcím s AI může být tento text odeslán poskytovatelům třetích stran.",
+    "Obsah, který zadáte. Slova, fráze, seznamy a fotky, které se rozhodnete analyzovat ve Foto laboratoři. Kvůli překladům, výslovnostnímu audiu, popiskům fotek a funkcím s AI může být tento obsah odeslán poskytovatelům třetích stran.",
   "privacy.infoProviders":
     "Připojené účty poskytovatelů a API klíče. Pokud připojíte vlastní účet poskytovatele AI nebo přinesete vlastní API klíč pro požadavky vaším jménem, uložíme přihlašovací údaj potřebný k jejich provedení. API klíče jsou před uložením šifrovány. Vaše heslo k poskytovateli nevidíme.",
   "privacy.useTitle": "Jak vaše informace používáme",
@@ -153,12 +159,21 @@ export const csMessages: I18nMessages = {
   "privacy.useSync": "K ukládání a synchronizaci vašeho učebního pokroku a nastavení.",
   "privacy.useOperate": "K provozu, údržbě a zlepšování aplikace.",
   "privacy.useNoSell": "Vaše osobní údaje neprodáváme a nepoužíváme je k reklamě.",
+  "privacy.legalBasisTitle": "Právní základy",
+  "privacy.legalBasisBody":
+    "Pokud se použije GDPR, zpracováváme údaje o účtu, relaci, učení a uživatelem zadaný obsah hlavně proto, abychom poskytli aplikaci a synchronizační službu, kterou používáte (plnění smlouvy), udrželi službu bezpečnou a spolehlivou (oprávněný zájem), splnili právní povinnosti a u volitelných funkcí, jako je připojení poskytovatele nebo zapnutí experimentální funkce, na základě vaší volby nebo souhlasu tam, kde je vyžadován.",
   "privacy.storageTitle": "Jak jsou vaše data uložena",
   "privacy.storageBody":
-    "Údaje o účtu a učení jsou uloženy ve spravované databázi PostgreSQL (Supabase) a ověřování zajišťuje Supabase Auth. Data uchováváme po dobu, kdy je váš účet aktivní.",
+    "Údaje o účtu a učení jsou uloženy ve spravované databázi PostgreSQL (Supabase) a ověřování zajišťuje Supabase Auth. Offline učicí data, uložené audio a historie Foto laboratoře mohou být také uloženy místně ve vašem prohlížeči. Serverová data účtu uchováváme po dobu, kdy je váš účet aktivní, pokud není z bezpečnostních, právních, zálohovacích nebo protiabuzních důvodů nutná kratší či delší doba.",
+  "privacy.retentionTitle": "Doba uchování",
+  "privacy.retentionBody":
+    "Většinu údajů o účtu a učení uchováváme, dokud je nesmažete nebo dokud nesmažete účet. Místní cache prohlížeče lze smazat v nastavení aplikace nebo vymazáním dat prohlížeče. Provozní logy, zálohy, záznamy o rate-limitech a protiabuzní záznamy mohou po smazání zůstat po omezenou dobu, pokud jsou potřeba pro bezpečnost, spolehlivost, právní povinnosti nebo řešení sporů.",
   "privacy.thirdPartyTitle": "Služby třetích stran",
   "privacy.thirdPartyBody":
-    "K provozu aplikace používáme poskytovatele třetích stran, včetně hostingu (Vercel), databáze a ověřování (Supabase), překladu a převodu textu na řeč (Google Cloud) a generování pomocí AI (OpenRouter). Podle používané funkce může být text nebo audio, které odešlete, předáno těmto poskytovatelům, aby mohli poskytnout požadovanou funkci. Informace můžeme zveřejnit, pokud to vyžaduje zákon.",
+    "K provozu aplikace používáme poskytovatele třetích stran, včetně hostingu (Vercel), databáze a ověřování (Supabase), překladu a převodu textu na řeč (Google Cloud), objektového úložiště pro audio a AI generování či analýzy fotek (OpenRouter). Podle používané funkce může být text, audio nebo fotka, které odešlete, předána těmto poskytovatelům, aby mohli poskytnout požadovanou funkci. Informace můžeme zveřejnit, pokud to vyžaduje zákon.",
+  "privacy.transfersTitle": "Mezinárodní přenosy",
+  "privacy.transfersBody":
+    "Někteří poskytovatelé mohou data zpracovávat mimo vaši zemi nebo mimo Evropský hospodářský prostor. Tam, kde je to vyžadováno, se opíráme o podmínky zpracování dat daného poskytovatele, vhodné záruky pro přenosy, například standardní smluvní doložky, nebo jiný platný mechanismus přenosu.",
   "privacy.publicTitle": "Veřejné a trvalé úložiště",
   "privacy.publicBody":
     "Některý obsah, například výslovnostní audio nebo veřejné assety seznamů slov, může být uložen na decentralizovaných nebo trvalých úložných sítích, jako je Arweave. Takto uložený obsah může být veřejně dostupný a nemusí být možné jej z podkladové sítě zcela odstranit. Do obsahu, který se rozhodnete publikovat nebo generovat pro veřejné úložiště, prosím nevkládejte soukromé ani citlivé osobní údaje.",
@@ -979,6 +994,11 @@ export const csMessages: I18nMessages = {
   "account.deletedTitle": "Váš účet byl smazán.",
   "account.completingTitle": "Vaše data v aplikaci byla odstraněna. Dokončujeme smazání vaší přihlašovací identity — nemusíte nic dělat.",
   "account.deletePrivacyLink": "Jak nakládáme s vašimi daty",
+  "account.dataExport": "Export dat",
+  "account.dataExportNotice": "Stáhněte si JSON kopii svého účtu, pokroku v učení, seznamů, metadat připojených poskytovatelů, záznamů o využití a dat Get Word uložených v tomto prohlížeči.",
+  "account.exportData": "Exportovat moje data",
+  "account.exportingData": "Připravuji export…",
+  "account.exportDataError": "Export se nepodařilo připravit. Zkuste to prosím znovu.",
   "account.dangerZone": "Nebezpečná zóna",
   "account.dangerZoneNotice": "Trvale smažete svůj účet a data o učení. Tuto akci nelze vrátit zpět.",
   "settings.deleteAccount": "Smazat účet",

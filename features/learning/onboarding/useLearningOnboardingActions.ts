@@ -6,7 +6,7 @@ import { useI18n } from '@/components/I18nProvider';
 import * as listActions from '@/features/lists/client/actions';
 import { logGenerationStats } from '@/features/lists/client/generationStatsLog';
 import type { WordList } from '@/features/lists/types';
-import { syncUserData } from '@/lib/sync';
+import { fetchUserData, syncUserData } from '@/lib/sync';
 import {
   generateCommonListAudio,
   formatNumber,
@@ -27,6 +27,27 @@ import {
 // Rough size of a typical recommended common list, used only for the provisional
 // progress estimate shown before the real item count is known.
 const PROVISIONAL_COMMON_LIST_ITEM_COUNT = 200;
+
+// After an onboarding action commits (subscribe or autogenerate) the new list
+// exists on the server, but the client's sync layer has not seen it yet:
+// subscribing hits a separate endpoint, and the /api/sync POST returns an ack
+// only (no lists). Pull one full snapshot and feed it through the normal
+// server-sync listener so `subscribedLists` includes the new list before the
+// onboarding gate re-evaluates. Without this the app stays stuck on the language
+// step with an empty list set until an unrelated tab refocus triggers a refetch.
+// Must run AFTER the languages/onboarding flag are saved, so the fetched snapshot
+// is internally consistent (has the languages, the completed flag, and the list).
+async function refreshListsAfterCommit(): Promise<void> {
+  try {
+    const fresh = await fetchUserData();
+    if (typeof window !== 'undefined' && fresh?.success) {
+      window.dispatchEvent(new CustomEvent('get-word:server-sync', { detail: fresh }));
+    }
+  } catch (err) {
+    // Non-fatal: a later focus/visibility/online refetch reconciles eventually.
+    console.error('[onboarding] Failed to refresh lists after commit:', err);
+  }
+}
 
 type UseLearningOnboardingActionsOptions = {
   languageFrom: string;
@@ -87,6 +108,7 @@ export function useLearningOnboardingActions({
       }
       onSelectList(list.id);
       if (!(await savePreferences())) return;
+      await refreshListsAfterCommit();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not select list');
     } finally {
@@ -272,6 +294,7 @@ export function useLearningOnboardingActions({
           detail: t('onboarding.commonListReadyAudioMissingDetail'),
         });
         await onComplete(languageFrom, languageTo);
+        await refreshListsAfterCommit();
         didComplete = true;
         return;
       }
@@ -281,6 +304,7 @@ export function useLearningOnboardingActions({
         detail: t('onboarding.commonListReadyDetail'),
       });
       await onComplete(languageFrom, languageTo);
+      await refreshListsAfterCommit();
       didComplete = true;
     } catch (err) {
       // Stay on the onboarding screen and surface the problem inline rather

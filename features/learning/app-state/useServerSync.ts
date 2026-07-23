@@ -18,6 +18,7 @@ import {
 } from '@/lib/local-first/hydrate';
 import { getMeta, putMeta } from '@/lib/local-first/stores';
 import { getSnapshot, getStoragePreference, saveSnapshot } from '@/lib/local-learning-cache';
+import { consumeListsChangedForLearningSync } from '@/features/shared/sync/list-refresh-marker';
 import type { SyncResponse } from '@/features/sync/types';
 import type { NormalizedWord } from '@/lib/words';
 import { wordListItemsToNormalizedWords } from '@/lib/words';
@@ -97,6 +98,7 @@ export function useServerSync({
   const [linkWalletError, setLinkWalletError] = useState<string | null>(null);
   const [linkRetryNonce, setLinkRetryNonce] = useState(0);
   const [isInitialServerSyncPending, setIsInitialServerSyncPending] = useState(true);
+  const [isListRefreshPending, setIsListRefreshPending] = useState(false);
   const isHydratedRef = useRef(false);
   const hasLoadedRef = useRef(false);
   const bootTimersRef = useRef<BootTimers>({});
@@ -237,11 +239,19 @@ export function useServerSync({
 
   const refetchServerData = useCallback(() => {
     if (!isHydratedRef.current) return;
+    const listRefreshMarker = consumeListsChangedForLearningSync();
+    const forceFullRefresh = Boolean(listRefreshMarker);
+    if (listRefreshMarker?.listId) {
+      setActiveListId(listRefreshMarker.listId);
+    }
     // Returning to the app fires focus + visibilitychange + pageshow at once;
     // collapse the burst into a single conditional fetch.
     const now = Date.now();
-    if (now - lastRefetchAtRef.current < REFETCH_THROTTLE_MS) return;
+    if (!forceFullRefresh && now - lastRefetchAtRef.current < REFETCH_THROTTLE_MS) return;
     lastRefetchAtRef.current = now;
+    if (forceFullRefresh) {
+      setIsListRefreshPending(true);
+    }
     (async () => {
       // Send before reading: the drainer answers the same focus/visibility
       // events this refetch does, and a read that overtakes the write comes
@@ -254,15 +264,20 @@ export function useServerSync({
         if (meta?.lastSinceCursor) since = meta.lastSinceCursor;
         if (meta?.lastContentRevision) contentRev = meta.lastContentRevision;
       }
-      return fetchUserData(since ? { since, contentRev } : undefined);
+      return fetchUserData(!forceFullRefresh && since ? { since, contentRev } : undefined);
     })()
       .then(applyFreshServerData)
       .catch((error) => {
         if (!isAuthRequiredError(error)) {
           console.error('[useServerSync] Failed to refresh:', error);
         }
+      })
+      .finally(() => {
+        if (forceFullRefresh) {
+          setIsListRefreshPending(false);
+        }
       });
-  }, [applyFreshServerData]);
+  }, [applyFreshServerData, setActiveListId]);
 
   useEffect(() => {
     if (hasLoadedRef.current) return;
@@ -318,6 +333,10 @@ export function useServerSync({
       // When the cache warm-start succeeds, the boot fetch can be conditional:
       // the server sends the full snapshot only if the cursors no longer match.
       let conditional: { since: string; contentRev: string } | undefined;
+      const listRefreshMarker = consumeListsChangedForLearningSync();
+      if (listRefreshMarker?.listId) {
+        setActiveListId(listRefreshMarker.listId);
+      }
       if (getStoragePreference()) {
         const warmed = await warmFromIdb().catch(() => false);
         if (!warmed && !isHydratedRef.current) {
@@ -338,7 +357,7 @@ export function useServerSync({
             })
             .catch(() => undefined);
         }
-        if (warmed) {
+        if (warmed && !listRefreshMarker) {
           const meta = await getMeta().catch(() => null);
           if (meta?.lastSinceCursor && meta.lastContentRevision) {
             conditional = {
@@ -387,6 +406,7 @@ export function useServerSync({
     applyServerDelta,
     isUpdatingFromServerRef,
     reconcileServerProgress,
+    setActiveListId,
     setIsHydrated,
   ]);
 
@@ -488,5 +508,6 @@ export function useServerSync({
     hasLinkWalletError: visibleLinkWalletError !== null,
     linkWalletError: visibleLinkWalletError,
     retryLinkWallet,
+    isListRefreshPending,
   };
 }

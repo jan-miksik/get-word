@@ -117,7 +117,8 @@ export async function GET(request: NextRequest) {
   const timer = createRouteTimer();
   try {
     const searchParams = request.nextUrl.searchParams;
-    const deviceId = searchParams.get("deviceId");
+    const deviceId =
+      request.headers.get("x-device-id") || searchParams.get("deviceId");
     const userId = searchParams.get("userId");
     const since = parseSinceCursor(searchParams.get("since"));
     const contentRev = searchParams.get("contentRev");
@@ -146,7 +147,10 @@ export async function GET(request: NextRequest) {
     );
     timer.mark("resolve_user");
     if (!user) {
-      console.error("Failed to resolve user", { deviceId, userId });
+      console.error("Failed to resolve user", {
+        hasDeviceId: Boolean(deviceId),
+        hasUserId: Boolean(userId),
+      });
       const failed = NextResponse.json(
         { success: false, error: "Failed to get or create user" },
         { status: 500 },
