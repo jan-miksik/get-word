@@ -72,16 +72,8 @@ export async function serveAudioByHash(hash: string, debug = false): Promise<Aud
   }
 
   if (asset.storageType === "arweave") {
-    // Newly generated clips are mirrored to B2. Serve that mirror first: it is
-    // the fast, controlled path and avoids sending the browser through an
-    // unreliable public gateway before checking the copy we own.
-    const activeProvider = getActiveObjectStorageProvider();
-    const mirroredAudio = await getAudio(asset.contentHash, activeProvider);
-    if (mirroredAudio) {
-      logObjectServe(debug, asset.contentHash, "object-fallback", activeProvider);
-      return audioResponse(mirroredAudio, "object-fallback", activeProvider);
-    }
-
+    // Arweave is the canonical durable source. Only hit the B2 mirror after all
+    // configured gateways fail, so normal playback does not spend B2 Class B ops.
     const gatewayUrls = getArweaveGatewayUrls(asset.storageRef);
     const attempts: {
       url: string;
@@ -139,11 +131,18 @@ export async function serveAudioByHash(hash: string, debug = false): Promise<Aud
       }
     }
 
+    const activeProvider = getActiveObjectStorageProvider();
+    const mirroredAudio = await getAudio(asset.contentHash, activeProvider);
+    if (mirroredAudio) {
+      logObjectServe(debug, asset.contentHash, "object-fallback", activeProvider);
+      return audioResponse(mirroredAudio, "object-fallback", activeProvider);
+    }
+
     console.warn("[Get Word audio] all Arweave audio gateways failed", {
       contentHash: asset.contentHash,
       storageRef: asset.storageRef,
       attempts,
-      objectFallback: "miss-before-gateway-fallback",
+      objectFallback: "miss-after-gateway-fallback",
     });
 
     return noStoreJson(
