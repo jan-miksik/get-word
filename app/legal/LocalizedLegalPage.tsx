@@ -26,6 +26,7 @@ const TERMS_SECTIONS: TextSection[] = [
   { title: 'terms.availabilityTitle', paragraphs: ['terms.availabilityBody'] },
   { title: 'terms.liabilityTitle', paragraphs: ['terms.liabilityBody'] },
   { title: 'terms.terminationTitle', paragraphs: ['terms.terminationBody'] },
+  { title: 'terms.governingTitle', paragraphs: ['terms.governingBody'] },
   { title: 'terms.changesTitle', paragraphs: ['terms.changesBody'] },
 ];
 
@@ -186,6 +187,7 @@ function formatLastUpdated(language: string): string {
   try {
     return new Intl.DateTimeFormat(language, { dateStyle: 'long' }).format(LAST_UPDATED_DATE);
   } catch {
-    return 'June 6, 2026';
+    // Derive from the constant so the fallback can never drift out of sync.
+    return LAST_UPDATED_DATE.toISOString().slice(0, 10);
   }
 }

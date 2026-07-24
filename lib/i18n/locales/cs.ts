@@ -133,6 +133,9 @@ export const csMessages: I18nMessages = {
   "terms.terminationTitle": "Ukončení",
   "terms.terminationBody":
     "Aplikaci můžete kdykoli přestat používat. Přístup můžeme pozastavit nebo ukončit, pokud porušíte tyto Podmínky nebo používáte aplikaci způsobem, který by mohl způsobit škodu.",
+  "terms.governingTitle": "Rozhodné právo",
+  "terms.governingBody":
+    "Tyto Podmínky se řídí právem České republiky, bez ohledu na kolizní normy. Pokud aplikaci používáte jako spotřebitel, nejste tím zbaveni ochrany, kterou vám poskytují kogentní předpisy na ochranu spotřebitele země, kde žijete, a můžete mít rovněž právo řešit spory prostřednictvím místních orgánů na ochranu spotřebitele.",
   "terms.changesTitle": "Změny těchto Podmínek",
   "terms.changesBody":
     "Tyto Podmínky můžeme čas od času aktualizovat. Podstatné změny se projeví v datu Naposledy aktualizováno výše. Další používání aplikace po změnách znamená, že aktualizované Podmínky přijímáte.",
@@ -172,19 +175,19 @@ export const csMessages: I18nMessages = {
     "Údaje o účtu a učení jsou uloženy ve spravované databázi PostgreSQL (Supabase) a ověřování zajišťuje Supabase Auth. Offline učicí data, uložené audio a historie Foto laboratoře mohou být také uloženy místně ve vašem prohlížeči. Serverová data účtu uchováváme po dobu, kdy je váš účet aktivní, pokud není z bezpečnostních, právních, zálohovacích nebo protiabuzních důvodů nutná kratší či delší doba.",
   "privacy.retentionTitle": "Doba uchování",
   "privacy.retentionBody":
-    "Většinu údajů o účtu a učení uchováváme, dokud je nesmažete nebo dokud nesmažete účet. Místní cache prohlížeče lze smazat v nastavení aplikace nebo vymazáním dat prohlížeče. Provozní logy, zálohy, záznamy o rate-limitech a protiabuzní záznamy mohou po smazání zůstat po omezenou dobu, pokud jsou potřeba pro bezpečnost, spolehlivost, právní povinnosti nebo řešení sporů.",
+    "Většinu údajů o účtu a učení uchováváme, dokud je nesmažete nebo dokud nesmažete účet. Místní cache prohlížeče lze smazat v nastavení aplikace nebo vymazáním dat prohlížeče. Po smazání mohou některé záznamy — provozní a chybové logy, zálohy, počítadla rate-limitů a protiabuzní záznamy — po omezenou dobu přetrvávat a jsou odstraněny, jakmile už nejsou potřeba k účelu, pro který byly uchovávány, nebo jakmile starší zálohy vyprší v rámci našeho rotačního cyklu záloh. Takové záznamy uchováváme jen po dobu nezbytně nutnou pro bezpečnost, spolehlivost, plnění právních povinností nebo řešení sporů.",
   "privacy.thirdPartyTitle": "Služby třetích stran",
   "privacy.thirdPartyBody":
-    "K provozu aplikace používáme poskytovatele třetích stran, včetně hostingu (Vercel), databáze a ověřování (Supabase), překladu a převodu textu na řeč (Google Cloud), objektového úložiště pro audio (Backblaze B2) a AI generování či analýzy fotek (OpenRouter). Podle používané funkce může být text, audio nebo fotka, které odešlete, předána těmto poskytovatelům, aby mohli poskytnout požadovanou funkci. Informace můžeme zveřejnit, pokud to vyžaduje zákon.",
+    "K provozu aplikace používáme poskytovatele třetích stran, včetně hostingu (Vercel), databáze a ověřování (Supabase), překladu a převodu textu na řeč (Google Cloud), trvalého úložiště pro generované audio (ArDrive Turbo / Arweave, s Backblaze B2 jako zrcadlem) a AI generování či analýzy fotek (OpenRouter). Podle používané funkce může být text, audio nebo fotka, které odešlete, předána těmto poskytovatelům, aby mohli poskytnout požadovanou funkci. Informace můžeme zveřejnit, pokud to vyžaduje zákon.",
   "privacy.transfersTitle": "Mezinárodní přenosy",
   "privacy.transfersBody":
     "Někteří poskytovatelé mohou data zpracovávat mimo vaši zemi nebo mimo Evropský hospodářský prostor. Tam, kde je to vyžadováno, se opíráme o podmínky zpracování dat daného poskytovatele, vhodné záruky pro přenosy, například standardní smluvní doložky, nebo jiný platný mechanismus přenosu.",
   "privacy.publicTitle": "Veřejné a trvalé úložiště",
   "privacy.publicBody":
-    "Některý veřejný obsah, například sdílené výslovnostní audio nebo veřejné assety seznamů slov, může být uložen na decentralizovaných nebo trvalých úložných sítích, jako je Arweave, kde může být veřejně dostupný a nemusí být možné jej z podkladové sítě zcela odstranit. Na trvalá úložiště neukládáme obsah spojený s vaším účtem.",
+    "Některý obsah je uložen na decentralizovaných nebo trvalých sítích, jako je Arweave — konkrétně výslovnostní audio generované pro slova a fráze ve vašich seznamech a pro popisky ve Foto laboratoři. Toto audio je adresované obsahem (content-addressed) a nenese žádnou vazbu na váš účet, ale jakmile je uloženo, může být veřejně dostupné a nemusí být možné jej z podkladové sítě zcela odstranit. Na tyto sítě nikdy neukládáme údaje o vašem účtu, profil ani učební pokrok. Protože generované audio může být veřejné a trvalé, prosím nevkládejte soukromé ani citlivé osobní údaje do obsahu, ke kterému generujete audio.",
   "privacy.rightsTitle": "Vaše možnosti a práva",
   "privacy.rightsBody1":
-    "Podle toho, kde žijete, můžete mít právo na přístup, opravu, výmaz, export, omezení nebo námitku proti zpracování svých osobních údajů. Můžete mít také právo podat stížnost u místního úřadu pro ochranu osobních údajů. Pro uplatnění těchto práv nás kontaktujte na adrese níže.",
+    "Podle toho, kde žijete, můžete mít právo na přístup, opravu, výmaz, export, omezení nebo námitku proti zpracování svých osobních údajů. Pokud je zpracování založeno na vašem souhlasu, můžete tento souhlas kdykoli odvolat — například vypnutím příslušné volitelné funkce nebo tím, že nás kontaktujete — aniž by tím byla dotčena zákonnost zpracování provedeného před odvoláním. Můžete mít také právo podat stížnost u místního úřadu pro ochranu osobních údajů (v České republice ÚOOÚ). Pro uplatnění těchto práv nás kontaktujte pomocí kontaktních údajů níže.",
   "privacy.rightsBody2":
     "Smazání účtu odstraní nebo anonymizuje osobní údaje spojené s vaším účtem tam, kde je to rozumně možné, kromě případů, kdy musíme uchovat omezené záznamy z právních, bezpečnostních, zálohovacích nebo protiabuzních důvodů. Veřejný nebo decentralizovaný obsah může zůstat dostupný, pokud už byl publikován nebo uložen na trvalých sítích.",
   "privacy.childrenTitle": "Soukromí dětí",

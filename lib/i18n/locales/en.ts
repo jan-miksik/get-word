@@ -131,6 +131,9 @@ export const enMessages = {
   "terms.terminationTitle": "Termination",
   "terms.terminationBody":
     "You may stop using the app at any time. We may suspend or terminate access if you violate these Terms or use the app in a way that could cause harm.",
+  "terms.governingTitle": "Governing law",
+  "terms.governingBody":
+    "These Terms are governed by the laws of the Czech Republic, without regard to conflict-of-law rules. If you use the app as a consumer, this does not deprive you of the protection of mandatory consumer-protection rules of the country where you live, and you may also have the right to resolve disputes through your local consumer-protection authorities.",
   "terms.changesTitle": "Changes to these Terms",
   "terms.changesBody":
     "We may update these Terms from time to time. Material changes will be reflected by the Last updated date above. Continued use of the app after changes means you accept the updated Terms.",
@@ -170,19 +173,19 @@ export const enMessages = {
     "Your account and learning data are stored in a managed PostgreSQL database (Supabase), and authentication is handled through Supabase Auth. Offline learning data, cached audio, and Photo Lab history may also be stored locally in your browser. We retain server-side account data for as long as your account is active, unless a shorter or longer period is required for security, legal, backup, or abuse-prevention reasons.",
   "privacy.retentionTitle": "Retention",
   "privacy.retentionBody":
-    "Most account and learning data is kept until you delete it or delete your account. Local browser caches can be cleared from the app settings or by clearing browser data. Operational logs, backups, rate-limit records, and abuse-prevention records may remain for a limited period after deletion when needed for security, reliability, legal compliance, or dispute handling.",
+    "Most account and learning data is kept until you delete it or delete your account. Local browser caches can be cleared from the app settings or by clearing browser data. After deletion, some records — operational and error logs, backups, rate-limit counters, and abuse-prevention records — may persist for a limited time and are removed once they are no longer needed for the purpose they were kept for, or as older backups age out of our rotating backup cycle. We keep such records no longer than necessary for security, reliability, legal compliance, or dispute handling.",
   "privacy.thirdPartyTitle": "Third-party services",
   "privacy.thirdPartyBody":
-    "We use third-party providers to operate the app, including hosting (Vercel), database and authentication (Supabase), translation and text-to-speech (Google Cloud), object storage for audio (Backblaze B2), and AI generation/photo analysis (OpenRouter). Depending on the feature you use, the text, audio, or photo you submit may be sent to these providers so they can provide the requested functionality. We may disclose information if required by law.",
+    "We use third-party providers to operate the app, including hosting (Vercel), database and authentication (Supabase), translation and text-to-speech (Google Cloud), permanent storage for generated audio (ArDrive Turbo / Arweave, with Backblaze B2 as a mirror), and AI generation/photo analysis (OpenRouter). Depending on the feature you use, the text, audio, or photo you submit may be sent to these providers so they can provide the requested functionality. We may disclose information if required by law.",
   "privacy.transfersTitle": "International transfers",
   "privacy.transfersBody":
     "Some providers may process data outside your country or outside the European Economic Area. Where required, we rely on provider data-processing terms, appropriate transfer safeguards such as standard contractual clauses, or another valid transfer mechanism.",
   "privacy.publicTitle": "Public and permanent storage",
   "privacy.publicBody":
-    "Some public assets, such as shared pronunciation audio or public word-list content, may be stored on decentralized or permanent storage networks such as Arweave, where content can be publicly accessible and may not be possible for us to fully delete from the underlying network. We do not store content tied to your account on permanent storage networks.",
+    "Some content is stored on decentralized or permanent networks such as Arweave — specifically the pronunciation audio generated for the words and phrases in your lists and for Photo Lab labels. This audio is content-addressed and carries no link to your account, but once stored it can be publicly accessible and may not be possible for us to fully delete from the underlying network. We never place your account details, profile, or learning progress on these networks. Because generated audio can be public and permanent, please avoid putting private or sensitive personal information into content you generate audio for.",
   "privacy.rightsTitle": "Your choices and rights",
   "privacy.rightsBody1":
-    "Depending on where you live, you may have rights to access, correct, delete, export, restrict, or object to the processing of your personal data. You may also have the right to lodge a complaint with your local data protection authority. To exercise these rights, contact us at the address below.",
+    "Depending on where you live, you may have rights to access, correct, delete, export, restrict, or object to the processing of your personal data. Where processing is based on your consent, you can withdraw that consent at any time — for example by turning off the relevant optional feature or contacting us — without affecting the lawfulness of processing carried out before withdrawal. You may also have the right to lodge a complaint with your local data protection authority. To exercise these rights, contact us using the contact details below.",
   "privacy.rightsBody2":
     "Deleting your account removes or anonymizes personal data associated with your account where reasonably possible, except where we need to keep limited records for legal, security, backup, or abuse-prevention purposes. Public or decentralized content may remain available if it has already been published or stored on permanent networks.",
   "privacy.childrenTitle": "Children's privacy",

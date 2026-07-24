@@ -133,6 +133,9 @@ export const viMessages: I18nMessages = {
   "terms.terminationTitle": "Chấm dứt",
   "terms.terminationBody":
     "Bạn có thể ngừng sử dụng ứng dụng bất cứ lúc nào. Chúng tôi có thể tạm dừng hoặc chấm dứt quyền truy cập nếu bạn vi phạm các Điều khoản này hoặc sử dụng ứng dụng theo cách có thể gây hại.",
+  "terms.governingTitle": "Luật điều chỉnh",
+  "terms.governingBody":
+    "Các Điều khoản này được điều chỉnh bởi luật pháp của Cộng hòa Séc, không xét đến các quy tắc xung đột pháp luật. Nếu bạn dùng ứng dụng với tư cách người tiêu dùng, điều này không tước đi sự bảo vệ mà các quy định bắt buộc về bảo vệ người tiêu dùng của quốc gia nơi bạn sống dành cho bạn, và bạn cũng có thể có quyền giải quyết tranh chấp thông qua cơ quan bảo vệ người tiêu dùng địa phương.",
   "terms.changesTitle": "Thay đổi các Điều khoản này",
   "terms.changesBody":
     "Chúng tôi có thể cập nhật các Điều khoản này theo thời gian. Những thay đổi quan trọng sẽ được thể hiện bằng ngày Cập nhật lần cuối ở trên. Việc tiếp tục sử dụng ứng dụng sau khi có thay đổi có nghĩa là bạn chấp nhận Điều khoản đã cập nhật.",
@@ -172,19 +175,19 @@ export const viMessages: I18nMessages = {
     "Dữ liệu tài khoản và học tập của bạn được lưu trong cơ sở dữ liệu PostgreSQL được quản lý (Supabase), và xác thực được xử lý qua Supabase Auth. Dữ liệu học ngoại tuyến, âm thanh được cache và lịch sử Photo Lab cũng có thể được lưu cục bộ trong trình duyệt của bạn. Chúng tôi giữ dữ liệu tài khoản phía máy chủ trong thời gian tài khoản còn hoạt động, trừ khi cần thời hạn ngắn hơn hoặc dài hơn vì lý do bảo mật, pháp lý, sao lưu hoặc chống lạm dụng.",
   "privacy.retentionTitle": "Thời gian lưu giữ",
   "privacy.retentionBody":
-    "Hầu hết dữ liệu tài khoản và học tập được giữ cho đến khi bạn xóa dữ liệu đó hoặc xóa tài khoản. Cache cục bộ trong trình duyệt có thể được xóa trong cài đặt ứng dụng hoặc bằng cách xóa dữ liệu trình duyệt. Nhật ký vận hành, bản sao lưu, bản ghi giới hạn tần suất và bản ghi chống lạm dụng có thể còn lại trong một thời gian giới hạn sau khi xóa nếu cần cho bảo mật, độ tin cậy, tuân thủ pháp luật hoặc xử lý tranh chấp.",
+    "Hầu hết dữ liệu tài khoản và học tập được giữ cho đến khi bạn xóa dữ liệu đó hoặc xóa tài khoản. Cache cục bộ trong trình duyệt có thể được xóa trong cài đặt ứng dụng hoặc bằng cách xóa dữ liệu trình duyệt. Sau khi xóa, một số bản ghi — nhật ký vận hành và lỗi, bản sao lưu, bộ đếm giới hạn tần suất và bản ghi chống lạm dụng — có thể tồn tại trong thời gian giới hạn và được xóa khi không còn cần cho mục đích đã lưu giữ, hoặc khi các bản sao lưu cũ hết hạn theo chu kỳ sao lưu luân phiên của chúng tôi. Chúng tôi giữ các bản ghi như vậy không lâu hơn mức cần thiết cho bảo mật, độ tin cậy, tuân thủ pháp luật hoặc xử lý tranh chấp.",
   "privacy.thirdPartyTitle": "Dịch vụ bên thứ ba",
   "privacy.thirdPartyBody":
-    "Chúng tôi dùng nhà cung cấp bên thứ ba để vận hành ứng dụng, bao gồm lưu trữ (Vercel), cơ sở dữ liệu và xác thực (Supabase), dịch thuật và chuyển văn bản thành giọng nói (Google Cloud), lưu trữ đối tượng cho âm thanh (Backblaze B2), và tạo nội dung/phân tích ảnh bằng AI (OpenRouter). Tùy tính năng bạn dùng, văn bản, âm thanh hoặc ảnh bạn gửi có thể được gửi đến các nhà cung cấp này để họ cung cấp chức năng được yêu cầu. Chúng tôi có thể tiết lộ thông tin nếu pháp luật yêu cầu.",
+    "Chúng tôi dùng nhà cung cấp bên thứ ba để vận hành ứng dụng, bao gồm lưu trữ (Vercel), cơ sở dữ liệu và xác thực (Supabase), dịch thuật và chuyển văn bản thành giọng nói (Google Cloud), lưu trữ lâu dài cho âm thanh được tạo (ArDrive Turbo / Arweave, với Backblaze B2 làm bản sao), và tạo nội dung/phân tích ảnh bằng AI (OpenRouter). Tùy tính năng bạn dùng, văn bản, âm thanh hoặc ảnh bạn gửi có thể được gửi đến các nhà cung cấp này để họ cung cấp chức năng được yêu cầu. Chúng tôi có thể tiết lộ thông tin nếu pháp luật yêu cầu.",
   "privacy.transfersTitle": "Chuyển dữ liệu quốc tế",
   "privacy.transfersBody":
     "Một số nhà cung cấp có thể xử lý dữ liệu bên ngoài quốc gia của bạn hoặc bên ngoài Khu vực Kinh tế Châu Âu. Khi cần, chúng tôi dựa vào điều khoản xử lý dữ liệu của nhà cung cấp, biện pháp bảo đảm chuyển dữ liệu phù hợp như điều khoản hợp đồng tiêu chuẩn, hoặc cơ chế chuyển dữ liệu hợp lệ khác.",
   "privacy.publicTitle": "Lưu trữ công khai và lâu dài",
   "privacy.publicBody":
-    "Một số tài nguyên công khai, như âm thanh phát âm được chia sẻ hoặc nội dung danh sách từ công khai, có thể được lưu trên mạng lưu trữ phi tập trung hoặc lâu dài như Arweave, nơi nội dung có thể truy cập công khai và có thể không thể được chúng tôi xóa hoàn toàn khỏi mạng nền tảng. Chúng tôi không lưu nội dung gắn với tài khoản của bạn trên các mạng lưu trữ lâu dài.",
+    "Một số nội dung được lưu trên mạng phi tập trung hoặc lâu dài như Arweave — cụ thể là âm thanh phát âm được tạo cho các từ và cụm từ trong danh sách của bạn và cho nhãn trong Photo Lab. Âm thanh này được định địa chỉ theo nội dung (content-addressed) và không liên kết với tài khoản của bạn, nhưng sau khi lưu thì có thể truy cập công khai và có thể không thể được chúng tôi xóa hoàn toàn khỏi mạng nền tảng. Chúng tôi không bao giờ đặt thông tin tài khoản, hồ sơ hoặc tiến độ học của bạn lên các mạng này. Vì âm thanh được tạo có thể công khai và tồn tại lâu dài, vui lòng không đưa thông tin cá nhân riêng tư hoặc nhạy cảm vào nội dung mà bạn tạo âm thanh.",
   "privacy.rightsTitle": "Lựa chọn và quyền của bạn",
   "privacy.rightsBody1":
-    "Tùy nơi bạn sống, bạn có thể có quyền truy cập, chỉnh sửa, xóa, xuất, hạn chế hoặc phản đối việc xử lý dữ liệu cá nhân của mình. Bạn cũng có thể có quyền khiếu nại với cơ quan bảo vệ dữ liệu địa phương. Để thực hiện các quyền này, hãy liên hệ với chúng tôi theo địa chỉ bên dưới.",
+    "Tùy nơi bạn sống, bạn có thể có quyền truy cập, chỉnh sửa, xóa, xuất, hạn chế hoặc phản đối việc xử lý dữ liệu cá nhân của mình. Khi việc xử lý dựa trên sự đồng ý của bạn, bạn có thể rút lại sự đồng ý đó bất cứ lúc nào — ví dụ bằng cách tắt tính năng tùy chọn liên quan hoặc liên hệ với chúng tôi — mà không ảnh hưởng đến tính hợp pháp của việc xử lý được thực hiện trước khi rút lại. Bạn cũng có thể có quyền khiếu nại với cơ quan bảo vệ dữ liệu địa phương. Để thực hiện các quyền này, hãy liên hệ với chúng tôi qua thông tin liên hệ bên dưới.",
   "privacy.rightsBody2":
     "Việc xóa tài khoản sẽ xóa hoặc ẩn danh dữ liệu cá nhân liên quan đến tài khoản của bạn khi hợp lý có thể, trừ khi chúng tôi cần giữ hồ sơ giới hạn vì lý do pháp lý, bảo mật, sao lưu hoặc phòng chống lạm dụng. Nội dung công khai hoặc phi tập trung có thể vẫn khả dụng nếu đã được xuất bản hoặc lưu trên mạng lâu dài.",
   "privacy.childrenTitle": "Quyền riêng tư của trẻ em",
