@@ -158,6 +158,8 @@ export const csMessages: I18nMessages = {
   "privacy.useAuth": "K ověření vaší totožnosti a udržení přihlášení.",
   "privacy.useSync": "K ukládání a synchronizaci vašeho učebního pokroku a nastavení.",
   "privacy.useOperate": "K provozu, údržbě a zlepšování aplikace.",
+  "privacy.useFeedback":
+    "K pochopení, jak se aplikace používá, a k oslovení uživatelů se žádostí o zpětnou vazbu (oprávněný zájem).",
   "privacy.useNoSell": "Vaše osobní údaje neprodáváme a nepoužíváme je k reklamě.",
   "privacy.legalBasisTitle": "Právní základy",
   "privacy.legalBasisBody":
@@ -170,13 +172,13 @@ export const csMessages: I18nMessages = {
     "Většinu údajů o účtu a učení uchováváme, dokud je nesmažete nebo dokud nesmažete účet. Místní cache prohlížeče lze smazat v nastavení aplikace nebo vymazáním dat prohlížeče. Provozní logy, zálohy, záznamy o rate-limitech a protiabuzní záznamy mohou po smazání zůstat po omezenou dobu, pokud jsou potřeba pro bezpečnost, spolehlivost, právní povinnosti nebo řešení sporů.",
   "privacy.thirdPartyTitle": "Služby třetích stran",
   "privacy.thirdPartyBody":
-    "K provozu aplikace používáme poskytovatele třetích stran, včetně hostingu (Vercel), databáze a ověřování (Supabase), překladu a převodu textu na řeč (Google Cloud), objektového úložiště pro audio a AI generování či analýzy fotek (OpenRouter). Podle používané funkce může být text, audio nebo fotka, které odešlete, předána těmto poskytovatelům, aby mohli poskytnout požadovanou funkci. Informace můžeme zveřejnit, pokud to vyžaduje zákon.",
+    "K provozu aplikace používáme poskytovatele třetích stran, včetně hostingu (Vercel), databáze a ověřování (Supabase), překladu a převodu textu na řeč (Google Cloud), objektového úložiště pro audio (Backblaze B2) a AI generování či analýzy fotek (OpenRouter). Podle používané funkce může být text, audio nebo fotka, které odešlete, předána těmto poskytovatelům, aby mohli poskytnout požadovanou funkci. Informace můžeme zveřejnit, pokud to vyžaduje zákon.",
   "privacy.transfersTitle": "Mezinárodní přenosy",
   "privacy.transfersBody":
     "Někteří poskytovatelé mohou data zpracovávat mimo vaši zemi nebo mimo Evropský hospodářský prostor. Tam, kde je to vyžadováno, se opíráme o podmínky zpracování dat daného poskytovatele, vhodné záruky pro přenosy, například standardní smluvní doložky, nebo jiný platný mechanismus přenosu.",
   "privacy.publicTitle": "Veřejné a trvalé úložiště",
   "privacy.publicBody":
-    "Některý obsah, například výslovnostní audio nebo veřejné assety seznamů slov, může být uložen na decentralizovaných nebo trvalých úložných sítích, jako je Arweave. Takto uložený obsah může být veřejně dostupný a nemusí být možné jej z podkladové sítě zcela odstranit. Do obsahu, který se rozhodnete publikovat nebo generovat pro veřejné úložiště, prosím nevkládejte soukromé ani citlivé osobní údaje.",
+    "Některý veřejný obsah, například sdílené výslovnostní audio nebo veřejné assety seznamů slov, může být uložen na decentralizovaných nebo trvalých úložných sítích, jako je Arweave, kde může být veřejně dostupný a nemusí být možné jej z podkladové sítě zcela odstranit. Na trvalá úložiště neukládáme obsah spojený s vaším účtem.",
   "privacy.rightsTitle": "Vaše možnosti a práva",
   "privacy.rightsBody1":
     "Podle toho, kde žijete, můžete mít právo na přístup, opravu, výmaz, export, omezení nebo námitku proti zpracování svých osobních údajů. Můžete mít také právo podat stížnost u místního úřadu pro ochranu osobních údajů. Pro uplatnění těchto práv nás kontaktujte na adrese níže.",

@@ -158,6 +158,8 @@ export const viMessages: I18nMessages = {
   "privacy.useAuth": "Để xác thực bạn và giữ bạn đăng nhập.",
   "privacy.useSync": "Để lưu và đồng bộ tiến độ học cùng tùy chọn của bạn.",
   "privacy.useOperate": "Để vận hành, duy trì và cải thiện ứng dụng.",
+  "privacy.useFeedback":
+    "Để hiểu ứng dụng được sử dụng như thế nào và liên hệ với người dùng để xin phản hồi (lợi ích hợp pháp).",
   "privacy.useNoSell": "Chúng tôi không bán thông tin cá nhân của bạn và không dùng thông tin đó cho quảng cáo.",
   "privacy.legalBasisTitle": "Cơ sở pháp lý",
   "privacy.legalBasisBody":
@@ -170,13 +172,13 @@ export const viMessages: I18nMessages = {
     "Hầu hết dữ liệu tài khoản và học tập được giữ cho đến khi bạn xóa dữ liệu đó hoặc xóa tài khoản. Cache cục bộ trong trình duyệt có thể được xóa trong cài đặt ứng dụng hoặc bằng cách xóa dữ liệu trình duyệt. Nhật ký vận hành, bản sao lưu, bản ghi giới hạn tần suất và bản ghi chống lạm dụng có thể còn lại trong một thời gian giới hạn sau khi xóa nếu cần cho bảo mật, độ tin cậy, tuân thủ pháp luật hoặc xử lý tranh chấp.",
   "privacy.thirdPartyTitle": "Dịch vụ bên thứ ba",
   "privacy.thirdPartyBody":
-    "Chúng tôi dùng nhà cung cấp bên thứ ba để vận hành ứng dụng, bao gồm lưu trữ (Vercel), cơ sở dữ liệu và xác thực (Supabase), dịch thuật và chuyển văn bản thành giọng nói (Google Cloud), lưu trữ đối tượng cho âm thanh, và tạo nội dung/phân tích ảnh bằng AI (OpenRouter). Tùy tính năng bạn dùng, văn bản, âm thanh hoặc ảnh bạn gửi có thể được gửi đến các nhà cung cấp này để họ cung cấp chức năng được yêu cầu. Chúng tôi có thể tiết lộ thông tin nếu pháp luật yêu cầu.",
+    "Chúng tôi dùng nhà cung cấp bên thứ ba để vận hành ứng dụng, bao gồm lưu trữ (Vercel), cơ sở dữ liệu và xác thực (Supabase), dịch thuật và chuyển văn bản thành giọng nói (Google Cloud), lưu trữ đối tượng cho âm thanh (Backblaze B2), và tạo nội dung/phân tích ảnh bằng AI (OpenRouter). Tùy tính năng bạn dùng, văn bản, âm thanh hoặc ảnh bạn gửi có thể được gửi đến các nhà cung cấp này để họ cung cấp chức năng được yêu cầu. Chúng tôi có thể tiết lộ thông tin nếu pháp luật yêu cầu.",
   "privacy.transfersTitle": "Chuyển dữ liệu quốc tế",
   "privacy.transfersBody":
     "Một số nhà cung cấp có thể xử lý dữ liệu bên ngoài quốc gia của bạn hoặc bên ngoài Khu vực Kinh tế Châu Âu. Khi cần, chúng tôi dựa vào điều khoản xử lý dữ liệu của nhà cung cấp, biện pháp bảo đảm chuyển dữ liệu phù hợp như điều khoản hợp đồng tiêu chuẩn, hoặc cơ chế chuyển dữ liệu hợp lệ khác.",
   "privacy.publicTitle": "Lưu trữ công khai và lâu dài",
   "privacy.publicBody":
-    "Một số nội dung, như âm thanh phát âm hoặc tài nguyên danh sách từ công khai, có thể được lưu trên mạng lưu trữ phi tập trung hoặc lâu dài như Arweave. Nội dung lưu theo cách này có thể truy cập công khai và có thể không thể được chúng tôi xóa hoàn toàn khỏi mạng nền tảng. Vui lòng không đưa thông tin cá nhân riêng tư hoặc nhạy cảm vào nội dung bạn chọn xuất bản hoặc tạo để lưu trữ công khai.",
+    "Một số tài nguyên công khai, như âm thanh phát âm được chia sẻ hoặc nội dung danh sách từ công khai, có thể được lưu trên mạng lưu trữ phi tập trung hoặc lâu dài như Arweave, nơi nội dung có thể truy cập công khai và có thể không thể được chúng tôi xóa hoàn toàn khỏi mạng nền tảng. Chúng tôi không lưu nội dung gắn với tài khoản của bạn trên các mạng lưu trữ lâu dài.",
   "privacy.rightsTitle": "Lựa chọn và quyền của bạn",
   "privacy.rightsBody1":
     "Tùy nơi bạn sống, bạn có thể có quyền truy cập, chỉnh sửa, xóa, xuất, hạn chế hoặc phản đối việc xử lý dữ liệu cá nhân của mình. Bạn cũng có thể có quyền khiếu nại với cơ quan bảo vệ dữ liệu địa phương. Để thực hiện các quyền này, hãy liên hệ với chúng tôi theo địa chỉ bên dưới.",

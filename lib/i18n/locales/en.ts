@@ -156,6 +156,8 @@ export const enMessages = {
   "privacy.useAuth": "To authenticate you and keep you signed in.",
   "privacy.useSync": "To save and sync your learning progress and preferences.",
   "privacy.useOperate": "To operate, maintain, and improve the app.",
+  "privacy.useFeedback":
+    "To understand how the app is used and to reach out to users with requests for feedback (legitimate interest).",
   "privacy.useNoSell": "We do not sell your personal information, and we do not use it for advertising.",
   "privacy.legalBasisTitle": "Legal bases",
   "privacy.legalBasisBody":
@@ -168,13 +170,13 @@ export const enMessages = {
     "Most account and learning data is kept until you delete it or delete your account. Local browser caches can be cleared from the app settings or by clearing browser data. Operational logs, backups, rate-limit records, and abuse-prevention records may remain for a limited period after deletion when needed for security, reliability, legal compliance, or dispute handling.",
   "privacy.thirdPartyTitle": "Third-party services",
   "privacy.thirdPartyBody":
-    "We use third-party providers to operate the app, including hosting (Vercel), database and authentication (Supabase), translation and text-to-speech (Google Cloud), object storage for audio, and AI generation/photo analysis (OpenRouter). Depending on the feature you use, the text, audio, or photo you submit may be sent to these providers so they can provide the requested functionality. We may disclose information if required by law.",
+    "We use third-party providers to operate the app, including hosting (Vercel), database and authentication (Supabase), translation and text-to-speech (Google Cloud), object storage for audio (Backblaze B2), and AI generation/photo analysis (OpenRouter). Depending on the feature you use, the text, audio, or photo you submit may be sent to these providers so they can provide the requested functionality. We may disclose information if required by law.",
   "privacy.transfersTitle": "International transfers",
   "privacy.transfersBody":
     "Some providers may process data outside your country or outside the European Economic Area. Where required, we rely on provider data-processing terms, appropriate transfer safeguards such as standard contractual clauses, or another valid transfer mechanism.",
   "privacy.publicTitle": "Public and permanent storage",
   "privacy.publicBody":
-    "Some content, such as pronunciation audio or public word-list assets, may be stored on decentralized or permanent storage networks such as Arweave. Content stored this way may be publicly accessible and may not be possible for us to fully delete from the underlying network. Please do not include private or sensitive personal information in content that you choose to publish or generate for public storage.",
+    "Some public assets, such as shared pronunciation audio or public word-list content, may be stored on decentralized or permanent storage networks such as Arweave, where content can be publicly accessible and may not be possible for us to fully delete from the underlying network. We do not store content tied to your account on permanent storage networks.",
   "privacy.rightsTitle": "Your choices and rights",
   "privacy.rightsBody1":
     "Depending on where you live, you may have rights to access, correct, delete, export, restrict, or object to the processing of your personal data. You may also have the right to lodge a complaint with your local data protection authority. To exercise these rights, contact us at the address below.",

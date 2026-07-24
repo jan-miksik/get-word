@@ -5,9 +5,9 @@
     ],
     "target": {
       "namespace": "android_app",
-      "package_name": "app.getword.mobile",
+      "package_name": "app.getword",
       "sha256_cert_fingerprints": [
-        "REPLACE_WITH_PLAY_APP_SIGNING_SHA_256_CERTIFICATE"
+        "6E:26:B8:9E:AF:2B:F0:E8:D1:7F:77:BB:2E:E7:6C:5F:DF:A2:F4:D3:0D:E6:97:03:80:99:67:C7:A5:DE:A1:31"
       ]
     }
   }

@@ -6,7 +6,7 @@ import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { usePreferredPublicLanguage } from '@/lib/i18n/client-language';
 import type { I18nKey } from '@/lib/i18n/messages';
 
-const LAST_UPDATED_DATE = new Date('2026-07-22T00:00:00.000Z');
+const LAST_UPDATED_DATE = new Date('2026-07-24T00:00:00.000Z');
 const SUPPORT_EMAIL = 'support@getword.app';
 
 type LegalPageKind = 'terms' | 'privacy';
@@ -43,7 +43,7 @@ const PRIVACY_SECTIONS: TextSection[] = [
   },
   {
     title: 'privacy.useTitle',
-    bullets: ['privacy.useAuth', 'privacy.useSync', 'privacy.useOperate'],
+    bullets: ['privacy.useAuth', 'privacy.useSync', 'privacy.useOperate', 'privacy.useFeedback'],
     paragraphs: ['privacy.useNoSell'],
   },
   { title: 'privacy.legalBasisTitle', paragraphs: ['privacy.legalBasisBody'] },
@@ -135,14 +135,14 @@ function LegalArticle({ kind }: { kind: LegalPageKind }) {
               template={t('legal.seeAlsoPrivacy')}
               marker="{privacy}"
               href="/privacy"
-              label={t('auth.privacyPolicy')}
+              label={t('privacy.title')}
             />
           ) : (
             <LinkedTemplate
               template={t('legal.seeAlsoTerms')}
               marker="{terms}"
               href="/terms"
-              label={t('auth.termsOfService')}
+              label={t('terms.title')}
             />
           )}
         </footer>
