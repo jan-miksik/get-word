@@ -1,10 +1,16 @@
 import { sql, type SQL } from 'drizzle-orm';
 import type {
+  ActivityHeatmapDay,
+  AdminUserRow,
+  PhotoUsageWeekBucket,
   StudyWeekBucket,
   UsageStats,
   UsageStatsOptions,
   UsageWeekBucket,
+  UserActivityDay,
 } from '@/features/admin/types';
+import { PHOTO_ANALYSIS_TRACKING_STARTED_AT } from '@/features/photo-lab/server/analysis-events';
+import { userHandle } from '@/features/admin/server/userHandle';
 import { db } from '../client';
 import {
   TREND_WEEKS,
@@ -17,6 +23,18 @@ import {
   weekStarts,
   zeroFillWeeks,
 } from './stats-shared';
+
+/**
+ * Cap on the gap between two consecutive answers in a study session when
+ * estimating active study time. A longer pause counts as a break, not study —
+ * this keeps a session that survives a multi-day background gap from reporting
+ * days of "study". The cap is deliberately coarse; `activeDays` is the primary,
+ * background-proof engagement signal and this is only a supplement.
+ */
+const STUDY_INACTIVITY_CAP_SECONDS = 300;
+
+/** Weeks shown in the GitHub-style activity heatmap (≈ one year). */
+const HEATMAP_WEEKS = 53;
 
 function parseEnvList(value: string | undefined, normalize: (item: string) => string = (item) => item): string[] {
   if (!value) return [];
@@ -95,6 +113,11 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
   const nextWeekStart = new Date(currentWeekStart.getTime() + WEEK_MS);
   const weekWindowFrom = oldestWeekStart.toISOString();
   const weekWindowTo = nextWeekStart.toISOString();
+  // GitHub-style activity heatmap window: HEATMAP_WEEKS full Monday-aligned weeks
+  // back through the current (partial) week.
+  const heatmapFrom = new Date(
+    currentWeekStart.getTime() - (HEATMAP_WEEKS - 1) * WEEK_MS
+  ).toISOString();
   const starts = weekStarts(currentWeekStart);
   const activityStarts = getActivityWindowStarts(activityWindow, generatedAt);
   const activityDayStart = activityStarts.day.toISOString();
@@ -171,6 +194,20 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
     ORDER BY 1
   `);
 
+  // App-wide GitHub-style heatmap: distinct study-active users per calendar day
+  // (UTC) over the heatmap window. Uses review_events — the only per-day history
+  // (user_devices keeps only the latest open).
+  const activityHeatmapRows = await db.execute(sql`
+    SELECT (re.server_created_at)::date::text AS day,
+           count(DISTINCT re.user_id)::int AS active_users
+    FROM review_events re
+    JOIN users u ON u.id = re.user_id
+    WHERE ${includedUserCondition('u', exclusionOptions)}
+      AND re.server_created_at >= ${heatmapFrom}::timestamp
+    GROUP BY 1
+    ORDER BY 1
+  `);
+
   const contentRows = await db.execute(sql`
     SELECT
       (
@@ -193,12 +230,23 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
       ) AS total_subscriptions
   `);
 
+  // active_subscriber_count = subscribers who actually studied the list in the
+  // last 30 days (>=1 review event on one of the list's items), vs the raw
+  // subscriber_count (who added it). The join path
+  // review_events -> word_list_items -> word_lists is confirmed present.
   const topListRows = await db.execute(sql`
     SELECT wl.id::text AS id,
            wl.name AS name,
            wl.language_from AS language_from,
            wl.language_to AS language_to,
-           count(s.id)::int AS subscriber_count
+           count(s.id)::int AS subscriber_count,
+           count(DISTINCT s.user_id) FILTER (WHERE EXISTS (
+             SELECT 1 FROM review_events re
+             JOIN word_list_items wli ON wli.id = re.word_list_item_id
+             WHERE re.user_id = s.user_id
+               AND wli.list_id = wl.id
+               AND re.server_created_at >= ${monthAgo}::timestamp
+           ))::int AS active_subscriber_count
     FROM word_lists wl
     JOIN user_list_subscriptions s ON s.list_id = wl.id
     JOIN users u ON u.id = s.user_id
@@ -235,6 +283,120 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
     FROM per_user
   `);
 
+  // Photo-lab aggregate. Includes all included users (even anonymous/device),
+  // unlike the per-user "who to write to" table below which is registered-only.
+  const photoRows = await db.execute(sql`
+    WITH included_users AS (
+      SELECT u.id FROM users u WHERE ${includedUserCondition('u', exclusionOptions)}
+    ),
+    per_user AS (
+      SELECT pae.user_id,
+             count(*) AS cnt,
+             min(pae.occurred_at) AS first_at
+      FROM photo_analysis_events pae
+      JOIN included_users iu ON iu.id = pae.user_id
+      GROUP BY pae.user_id
+    )
+    SELECT
+      coalesce(sum(cnt), 0)::int AS total_analyses,
+      count(*)::int AS photo_users,
+      count(*) FILTER (WHERE cnt >= 2)::int AS repeat_users,
+      min(first_at) AS first_event_at
+    FROM per_user
+  `);
+
+  const photoWeeklyRows = await db.execute(sql`
+    SELECT date_trunc('week', pae.occurred_at)::date::text AS week_start,
+           count(*)::int AS analyses,
+           count(DISTINCT pae.user_id)::int AS users
+    FROM photo_analysis_events pae
+    JOIN users u ON u.id = pae.user_id
+    WHERE ${includedUserCondition('u', exclusionOptions)}
+      AND pae.occurred_at >= ${weekWindowFrom}::timestamp
+      AND pae.occurred_at < ${weekWindowTo}::timestamp
+    GROUP BY 1
+    ORDER BY 1
+  `);
+
+  // Per-user "who to write to" rows: registered users with an e-mail, including
+  // one-time users (no activity filter). Each behavioural source is aggregated
+  // to one row per user BEFORE the joins, so a user with several devices,
+  // reviews, and photos cannot multiply and inflate the counts.
+  const userRows = await db.execute(sql`
+    WITH included_registered AS (
+      SELECT u.id, u.email, u.created_at, u.registered_at
+      FROM users u
+      WHERE ${includedUserCondition('u', exclusionOptions)}
+        AND u.supabase_auth_id IS NOT NULL
+        AND u.email IS NOT NULL
+    ),
+    device_last_seen AS (
+      SELECT user_id, max(last_seen_at) AS last_seen_at
+      FROM user_devices GROUP BY user_id
+    ),
+    review_counts AS (
+      SELECT user_id,
+             count(*) AS review_count,
+             count(DISTINCT (server_created_at)::date) AS active_days
+      FROM review_events GROUP BY user_id
+    ),
+    session_gaps AS (
+      SELECT user_id,
+             server_created_at,
+             lead(server_created_at) OVER (
+               PARTITION BY user_id, session_id ORDER BY server_created_at
+             ) AS next_at,
+             session_id
+      FROM review_events
+      WHERE session_id IS NOT NULL
+    ),
+    session_stats AS (
+      SELECT user_id,
+             count(DISTINCT session_id) AS study_sessions,
+             coalesce(sum(
+               LEAST(EXTRACT(EPOCH FROM (next_at - server_created_at)), ${STUDY_INACTIVITY_CAP_SECONDS})
+             ) FILTER (WHERE next_at IS NOT NULL), 0) AS est_active_seconds
+      FROM session_gaps GROUP BY user_id
+    ),
+    photo_counts AS (
+      SELECT user_id, count(*) AS photo_analyses
+      FROM photo_analysis_events GROUP BY user_id
+    )
+    SELECT ir.id::text AS id,
+           ir.email AS email,
+           ir.created_at AS first_seen_at,
+           ir.registered_at AS registered_at,
+           dls.last_seen_at AS last_seen_at,
+           coalesce(rc.review_count, 0)::int AS review_count,
+           coalesce(rc.active_days, 0)::int AS active_days,
+           coalesce(ss.study_sessions, 0)::int AS study_sessions,
+           coalesce(ss.est_active_seconds, 0)::int AS est_active_study_seconds,
+           coalesce(pc.photo_analyses, 0)::int AS photo_analyses
+    FROM included_registered ir
+    LEFT JOIN device_last_seen dls ON dls.user_id = ir.id
+    LEFT JOIN review_counts rc ON rc.user_id = ir.id
+    LEFT JOIN session_stats ss ON ss.user_id = ir.id
+    LEFT JOIN photo_counts pc ON pc.user_id = ir.id
+    ORDER BY dls.last_seen_at DESC NULLS LAST, ir.created_at DESC
+    LIMIT 500
+  `);
+
+  // Per-user daily review counts for the mini heatmaps, restricted to exactly
+  // the users returned above. Empty ARRAY is valid, so this always runs (keeps
+  // the query sequence deterministic) and simply returns nothing when there are
+  // no users.
+  const userRowIds = userRows.map((raw) => String((raw as Record<string, unknown>).id ?? ''));
+  const userDailyRows = await db.execute(sql`
+    SELECT re.user_id::text AS user_id,
+           (re.server_created_at)::date::text AS day,
+           count(*)::int AS reviews
+    FROM review_events re
+    WHERE re.user_id::text = ANY(${sqlTextArray(userRowIds)})
+      AND re.server_created_at >= ${heatmapFrom}::timestamp
+    GROUP BY 1, 2
+    ORDER BY 1, 2
+  `);
+
   const registration = firstRow(registrationRows);
   const activity = firstRow(activityRows);
   const study = firstRow(studyRows);
@@ -257,6 +419,57 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
       activeUsers: numberFromRow(row, 'active_users'),
     });
   }
+
+  const photo = firstRow(photoRows);
+  const photoUsers = numberFromRow(photo, 'photo_users');
+  const photoRepeatUsers = numberFromRow(photo, 'repeat_users');
+
+  const photoWeekMap = new Map<string, { analyses: number; users: number }>();
+  for (const raw of photoWeeklyRows) {
+    const row = raw as Record<string, unknown>;
+    photoWeekMap.set(String(row.week_start ?? ''), {
+      analyses: numberFromRow(row, 'analyses'),
+      users: numberFromRow(row, 'users'),
+    });
+  }
+
+  const toIso = (value: unknown): string | null => {
+    if (value == null) return null;
+    const date = value instanceof Date ? value : new Date(String(value));
+    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+  };
+
+  const dailyActivityByUser = new Map<string, UserActivityDay[]>();
+  for (const raw of userDailyRows) {
+    const row = raw as Record<string, unknown>;
+    const userId = String(row.user_id ?? '');
+    const list = dailyActivityByUser.get(userId) ?? [];
+    list.push({ date: String(row.day ?? ''), count: numberFromRow(row, 'reviews') });
+    dailyActivityByUser.set(userId, list);
+  }
+
+  const users: AdminUserRow[] = userRows.map((raw) => {
+    const row = raw as Record<string, unknown>;
+    const id = String(row.id ?? '');
+    return {
+      handle: userHandle(id),
+      email: String(row.email ?? ''),
+      firstSeenAt: toIso(row.first_seen_at) ?? '',
+      registeredAt: toIso(row.registered_at),
+      lastSeenAt: toIso(row.last_seen_at),
+      reviewCount: numberFromRow(row, 'review_count'),
+      activeDays: numberFromRow(row, 'active_days'),
+      studySessions: numberFromRow(row, 'study_sessions'),
+      estActiveStudySeconds: numberFromRow(row, 'est_active_study_seconds'),
+      photoAnalyses: numberFromRow(row, 'photo_analyses'),
+      dailyActivity: dailyActivityByUser.get(id) ?? [],
+    };
+  });
+
+  const activityHeatmap: ActivityHeatmapDay[] = activityHeatmapRows.map((raw) => {
+    const row = raw as Record<string, unknown>;
+    return { date: String(row.day ?? ''), activeUsers: numberFromRow(row, 'active_users') };
+  });
 
   return {
     generatedAt: generatedAt.toISOString(),
@@ -298,6 +511,7 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
           languageFrom: String(row.language_from ?? ''),
           languageTo: String(row.language_to ?? ''),
           subscriberCount: numberFromRow(row, 'subscriber_count'),
+          activeSubscriberCount: numberFromRow(row, 'active_subscriber_count'),
         };
       }),
     },
@@ -315,5 +529,16 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
         returned: numberFromRow(retention, 'd30_returned'),
       },
     },
+    photo: {
+      totalAnalyses: numberFromRow(photo, 'total_analyses'),
+      users: photoUsers,
+      repeatUsers: photoRepeatUsers,
+      repeatRate: photoUsers === 0 ? 0 : photoRepeatUsers / photoUsers,
+      trackedSince: PHOTO_ANALYSIS_TRACKING_STARTED_AT,
+      firstEventAt: toIso(photo.first_event_at),
+      weekly: zeroFillWeeks<PhotoUsageWeekBucket>(starts, photoWeekMap, { analyses: 0, users: 0 }),
+    },
+    activityHeatmap,
+    users,
   };
 }

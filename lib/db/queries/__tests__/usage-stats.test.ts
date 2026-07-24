@@ -25,6 +25,11 @@ function mockAllQueries({
   content = [{ total_lists: 12, public_lists: 5, total_subscriptions: 25 }],
   topLists = [] as Record<string, unknown>[],
   retention = [{ d1_eligible: 10, d1_returned: 6, d7_eligible: 9, d7_returned: 4, d30_eligible: 8, d30_returned: 2 }],
+  activityHeatmap = [] as Record<string, unknown>[],
+  photo = [{ total_analyses: 0, photo_users: 0, repeat_users: 0, first_event_at: null }] as Record<string, unknown>[],
+  photoWeekly = [] as Record<string, unknown>[],
+  users = [] as Record<string, unknown>[],
+  userDaily = [] as Record<string, unknown>[],
 } = {}) {
   mockExecute
     .mockResolvedValueOnce(registrations)
@@ -32,9 +37,14 @@ function mockAllQueries({
     .mockResolvedValueOnce(activity)
     .mockResolvedValueOnce(study)
     .mockResolvedValueOnce(studyWeekly)
+    .mockResolvedValueOnce(activityHeatmap)
     .mockResolvedValueOnce(content)
     .mockResolvedValueOnce(topLists)
-    .mockResolvedValueOnce(retention);
+    .mockResolvedValueOnce(retention)
+    .mockResolvedValueOnce(photo)
+    .mockResolvedValueOnce(photoWeekly)
+    .mockResolvedValueOnce(users)
+    .mockResolvedValueOnce(userDaily);
 }
 
 describe('getUsageStats', () => {
@@ -56,13 +66,13 @@ describe('getUsageStats', () => {
       ],
       studyWeekly: [{ week_start: CURRENT_WEEK, reviews: 42, active_users: 4 }],
       topLists: [
-        { id: 'l1', name: 'Basics', language_from: 'cs', language_to: 'en', subscriber_count: 9 },
+        { id: 'l1', name: 'Basics', language_from: 'cs', language_to: 'en', subscriber_count: 9, active_subscriber_count: 4 },
       ],
     });
 
     const stats = await getUsageStats();
 
-    expect(mockExecute).toHaveBeenCalledTimes(8);
+    expect(mockExecute).toHaveBeenCalledTimes(13);
     expect(stats.generatedAt).toBe(NOW.toISOString());
     expect(stats.registrations).toMatchObject({
       total: 10,
@@ -93,7 +103,7 @@ describe('getUsageStats', () => {
       publicLists: 5,
       totalSubscriptions: 25,
       topLists: [
-        { id: 'l1', name: 'Basics', languageFrom: 'cs', languageTo: 'en', subscriberCount: 9 },
+        { id: 'l1', name: 'Basics', languageFrom: 'cs', languageTo: 'en', subscriberCount: 9, activeSubscriberCount: 4 },
       ],
     });
     expect(stats.retention).toEqual({
@@ -181,5 +191,94 @@ describe('getUsageStats', () => {
     const stats = await getUsageStats({ activityWindow: 'calendar' });
 
     expect(stats.activity.window).toBe('calendar');
+  });
+
+  it('maps photo aggregates and derives repeat rate', async () => {
+    mockAllQueries({
+      photo: [{ total_analyses: 30, photo_users: 8, repeat_users: 2, first_event_at: '2026-07-01T00:00:00.000Z' }],
+      photoWeekly: [{ week_start: CURRENT_WEEK, analyses: 5, users: 3 }],
+    });
+
+    const stats = await getUsageStats();
+
+    expect(stats.photo).toMatchObject({
+      totalAnalyses: 30,
+      users: 8,
+      repeatUsers: 2,
+      repeatRate: 0.25,
+      firstEventAt: '2026-07-01T00:00:00.000Z',
+    });
+    expect(typeof stats.photo.trackedSince).toBe('string');
+    expect(stats.photo.weekly).toHaveLength(12);
+    expect(stats.photo.weekly[11]).toEqual({
+      weekStart: CURRENT_WEEK,
+      analyses: 5,
+      users: 3,
+      partial: true,
+    });
+  });
+
+  it('guards repeat rate against zero photo users', async () => {
+    mockAllQueries({ photo: [{ total_analyses: 0, photo_users: 0, repeat_users: 0, first_event_at: null }] });
+
+    const stats = await getUsageStats();
+
+    expect(stats.photo.repeatRate).toBe(0);
+    expect(stats.photo.firstEventAt).toBeNull();
+  });
+
+  it('maps per-user rows to a pseudonymous handle, keeping the e-mail and nullable timestamps', async () => {
+    mockAllQueries({
+      users: [
+        {
+          id: '11111111-1111-1111-1111-111111111111',
+          email: 'a@example.com',
+          first_seen_at: '2026-07-01T00:00:00.000Z',
+          registered_at: '2026-07-02T00:00:00.000Z',
+          last_seen_at: null,
+          review_count: 1,
+          active_days: 1,
+          study_sessions: 1,
+          est_active_study_seconds: 120,
+          photo_analyses: 2,
+        },
+      ],
+      userDaily: [
+        { user_id: '11111111-1111-1111-1111-111111111111', day: '2026-07-02', reviews: 3 },
+      ],
+    });
+
+    const stats = await getUsageStats();
+
+    expect(stats.users).toHaveLength(1);
+    const row = stats.users[0];
+    expect(row.handle).toMatch(/^user_[0-9a-f]{12}$/);
+    expect(row.handle).not.toContain('11111111');
+    expect(row.email).toBe('a@example.com');
+    expect(row.registeredAt).toBe('2026-07-02T00:00:00.000Z');
+    expect(row.lastSeenAt).toBeNull();
+    expect(row).toMatchObject({ reviewCount: 1, activeDays: 1, studySessions: 1, estActiveStudySeconds: 120, photoAnalyses: 2 });
+    expect(row.dailyActivity).toEqual([{ date: '2026-07-02', count: 3 }]);
+  });
+
+  it('maps the app-wide activity heatmap and leaves it empty when there is no data', async () => {
+    mockAllQueries({
+      activityHeatmap: [
+        { day: '2026-07-01', active_users: 4 },
+        { day: '2026-07-02', active_users: 7 },
+      ],
+    });
+
+    const stats = await getUsageStats();
+
+    expect(stats.activityHeatmap).toEqual([
+      { date: '2026-07-01', activeUsers: 4 },
+      { date: '2026-07-02', activeUsers: 7 },
+    ]);
+
+    mockExecute.mockReset();
+    mockAllQueries();
+    const empty = await getUsageStats();
+    expect(empty.activityHeatmap).toEqual([]);
   });
 });

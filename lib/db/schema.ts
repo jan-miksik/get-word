@@ -477,6 +477,34 @@ export const reviewEvents = pgTable(
   ],
 );
 
+// Photo-lab analysis events — one row per successfully returned photo analysis.
+// Behaviour only: never the image or the produced vocabulary text, just a count.
+// Powers the admin dashboard's photo metrics (how many people used it, and how
+// many more than once); ON DELETE CASCADE so account erasure removes the trace.
+export const photoAnalysisEvents = pgTable(
+  "photo_analysis_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    occurredAt: timestamp("occurred_at").defaultNow().notNull(),
+    // Number of labels in the final (filtered/deduped) result; 0 is valid.
+    labelCount: integer("label_count").notNull().default(0),
+    // Normalized language codes (see lib/i18n/languages normalizeLanguageCode).
+    languageFrom: text("language_from"),
+    languageTo: text("language_to"),
+  },
+  (table) => [
+    index("photo_analysis_events_user_occurred_idx").on(
+      table.userId,
+      table.occurredAt,
+    ),
+    index("photo_analysis_events_occurred_idx").on(table.occurredAt),
+    check("photo_analysis_events_label_count_nonnegative", sql`${table.labelCount} >= 0`),
+  ],
+);
+
 // User memory hooks - custom notes for words
 export const userMemoryHooks = pgTable(
   "user_memory_hooks",

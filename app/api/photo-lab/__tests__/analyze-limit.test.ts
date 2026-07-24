@@ -17,6 +17,10 @@ vi.mock('@/features/photo-lab/server/analyze', () => ({
   analyzePhoto: (...args: unknown[]) => mockAnalyzePhoto(...args),
 }));
 
+vi.mock('@/features/photo-lab/server/analysis-events', () => ({
+  recordPhotoAnalysisEvent: vi.fn().mockResolvedValue(undefined),
+}));
+
 vi.mock('@/features/photo-lab/server/rate-limit', () => ({
   DailyLimitError: class extends Error {},
   reservePhotoLabRateLimit: (...args: unknown[]) => mockReservePhotoLabRateLimit(...args),

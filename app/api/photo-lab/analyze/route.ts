@@ -4,6 +4,7 @@ import { isEditor, resolveUserFromRequest, unauthorizedResponse } from "@/lib/au
 import { OpenRouterChatError } from "@/lib/openrouter-chat";
 import { normalizeLanguageCode } from "@/lib/i18n/languages";
 import { analyzePhoto } from "@/features/photo-lab/server/analyze";
+import { recordPhotoAnalysisEvent } from "@/features/photo-lab/server/analysis-events";
 import {
   DailyLimitError,
   getPhotoLabUsage,
@@ -142,6 +143,14 @@ export async function POST(request: NextRequest) {
       languageTo,
     });
     const labels = parsedLabels.map((label) => ({ id: randomUUID(), ...label }));
+    // Behaviour-only usage event (count, not content). Best-effort: never let a
+    // logging failure fail the analysis the user already received.
+    await recordPhotoAnalysisEvent({
+      userId: user.id,
+      labelCount: labels.length,
+      languageFrom,
+      languageTo,
+    });
     return NextResponse.json({ labels });
   } catch (err) {
     // Charge the reservation only when we cannot tell whether the provider ran.
