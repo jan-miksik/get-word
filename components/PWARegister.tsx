@@ -10,6 +10,7 @@ const CACHE_PREFIX = 'get-word-';
 const ACTIVE_LIST_AUDIO_CACHE = 'get-word-active-list-audio-v1';
 const APP_VERSION_STORAGE_KEY = 'get-word-pwa-app-version';
 const FALLBACK_APP_VERSION = 'dev';
+const FOREGROUND_UPDATE_APPLY_WINDOW_MS = 15_000;
 
 async function clearGetWordCaches() {
   if (!('caches' in window)) return;
@@ -57,6 +58,21 @@ function writeStoredAppVersion(version: string): void {
   }
 }
 
+async function fetchLatestAppVersion(): Promise<string | null> {
+  try {
+    const response = await fetch(`/api/version?pwa-check=${Date.now()}`, {
+      cache: 'no-store',
+    });
+    if (!response.ok) return null;
+    const payload = await response.json();
+    return typeof payload.version === 'string' && payload.version.trim()
+      ? payload.version.trim()
+      : null;
+  } catch {
+    return null;
+  }
+}
+
 export function PWARegister() {
   const [devStatus, setDevStatus] = useState<{
     controlled: boolean;
@@ -83,11 +99,21 @@ export function PWARegister() {
     const serviceWorker = navigator.serviceWorker;
     let pageLoadedFreshBuild = false;
     let updateArmed = false;
+    let reloadArmed = false;
+    let foregroundUpdateSafeUntil = 0;
+    let foregroundUpdateCheckPending = false;
+    let activeRegistration: ServiceWorkerRegistration | null = null;
+    let registeredBuildVersion = '';
+    const observedRegistrations = new WeakSet<ServiceWorkerRegistration>();
+    const observedInstallingWorkers = new WeakSet<ServiceWorker>();
     let removeForegroundListener: (() => void) | null = null;
+    let removeUpdateCheckListeners: (() => void) | null = null;
 
     // Reload the page once the waiting worker takes control, so the running app
     // swaps to the freshly-activated build's assets. Guarded to fire once.
     const reloadOnControllerChange = () => {
+      if (reloadArmed) return;
+      reloadArmed = true;
       let reloaded = false;
       serviceWorker.addEventListener('controllerchange', () => {
         if (reloaded) return;
@@ -103,26 +129,43 @@ export function PWARegister() {
       worker.postMessage({ type: 'SKIP_WAITING' });
     };
 
+    const canApplyDuringForegroundCheck = () =>
+      Date.now() <= foregroundUpdateSafeUntil && document.visibilityState === 'visible';
+
+    const applyUpdateNow = (worker: ServiceWorker) => {
+      removeForegroundListener?.();
+      removeForegroundListener = null;
+      reloadOnControllerChange();
+      worker.postMessage({ type: 'SKIP_WAITING' });
+    };
+
     // The page is still running the previous bundle. Swap to the new one at a
     // non-disruptive moment — the next time the app returns to the foreground —
     // so a long-lived open session picks up the change without being yanked
     // mid-interaction.
-    const applyUpdateWhenSafe = (worker: ServiceWorker) => {
+    const applyUpdateWhenSafe = (worker: ServiceWorker, applyImmediately = false) => {
       if (updateArmed) return;
       updateArmed = true;
 
+      if (applyImmediately) {
+        applyUpdateNow(worker);
+        return;
+      }
+
       const onForeground = () => {
         if (document.visibilityState !== 'visible') return;
-        removeForegroundListener?.();
-        removeForegroundListener = null;
-        reloadOnControllerChange();
-        worker.postMessage({ type: 'SKIP_WAITING' });
+        applyUpdateNow(worker);
       };
-      // `visibilitychange` fires on real transitions, so arming while visible
-      // means the update applies only after the user leaves and comes back.
+      // Installed PWAs do not report every app restore the same way across
+      // platforms, so listen to the common foreground signals.
       document.addEventListener('visibilitychange', onForeground);
-      removeForegroundListener = () =>
+      window.addEventListener('focus', onForeground);
+      window.addEventListener('pageshow', onForeground);
+      removeForegroundListener = () => {
         document.removeEventListener('visibilitychange', onForeground);
+        window.removeEventListener('focus', onForeground);
+        window.removeEventListener('pageshow', onForeground);
+      };
     };
 
     // Decide how to apply an installed/waiting worker. Only when an updated
@@ -134,7 +177,101 @@ export function PWARegister() {
         activateAlreadyLoadedUpdate(worker);
         return;
       }
-      applyUpdateWhenSafe(worker);
+      applyUpdateWhenSafe(worker, canApplyDuringForegroundCheck());
+    };
+
+    const observeInstallingWorker = (worker: ServiceWorker | null) => {
+      if (!worker || observedInstallingWorkers.has(worker)) return;
+      observedInstallingWorkers.add(worker);
+
+      if (worker.state === 'installed') {
+        handleWaitingWorker(worker);
+        return;
+      }
+
+      worker.addEventListener('statechange', () => {
+        if (worker.state === 'installed') {
+          handleWaitingWorker(worker);
+        }
+      });
+    };
+
+    const observeRegistrationUpdates = (registration: ServiceWorkerRegistration) => {
+      observeInstallingWorker(registration.installing);
+      if (observedRegistrations.has(registration)) return;
+      observedRegistrations.add(registration);
+
+      registration.addEventListener('updatefound', () => {
+        observeInstallingWorker(registration.installing);
+      });
+    };
+
+    const registerWorkerForBuild = async (version: string) => {
+      const registration = await serviceWorker.register(
+        `/sw.js?build=${encodeURIComponent(version)}`,
+        { scope: '/', updateViaCache: 'none' }
+      );
+      activeRegistration = registration;
+      registeredBuildVersion = version;
+      observeRegistrationUpdates(registration);
+      return registration;
+    };
+
+    const installForegroundUpdateChecks = () => {
+      const checkForUpdate = () => {
+        if (document.visibilityState !== 'visible' || foregroundUpdateCheckPending) {
+          return;
+        }
+
+        foregroundUpdateSafeUntil = Date.now() + FOREGROUND_UPDATE_APPLY_WINDOW_MS;
+        foregroundUpdateCheckPending = true;
+
+        void (async () => {
+          try {
+            let registration = activeRegistration;
+
+            if (!registration) {
+              return;
+            }
+
+            if (registration.waiting) {
+              handleWaitingWorker(registration.waiting);
+              return;
+            }
+
+            const latestBuildVersion = await fetchLatestAppVersion();
+            if (
+              latestBuildVersion &&
+              latestBuildVersion !== registeredBuildVersion
+            ) {
+              registration = await registerWorkerForBuild(latestBuildVersion);
+            }
+
+            if (registration.waiting) {
+              handleWaitingWorker(registration.waiting);
+              return;
+            }
+
+            await registration.update();
+            if (registration.waiting) {
+              handleWaitingWorker(registration.waiting);
+            }
+          } catch {
+            // Foreground update checks are best-effort.
+          } finally {
+            foregroundUpdateCheckPending = false;
+          }
+        })();
+      };
+
+      document.addEventListener('visibilitychange', checkForUpdate);
+      window.addEventListener('focus', checkForUpdate);
+      window.addEventListener('pageshow', checkForUpdate);
+      removeUpdateCheckListeners = () => {
+        document.removeEventListener('visibilitychange', checkForUpdate);
+        window.removeEventListener('focus', checkForUpdate);
+        window.removeEventListener('pageshow', checkForUpdate);
+      };
     };
 
     const register = async () => {
@@ -163,27 +300,14 @@ export function PWARegister() {
         const buildVersion = process.env.NEXT_PUBLIC_APP_VERSION ?? FALLBACK_APP_VERSION;
         const previousBuildVersion = readStoredAppVersion();
         pageLoadedFreshBuild = previousBuildVersion !== null && previousBuildVersion !== buildVersion;
-        const registration = await serviceWorker.register(
-          `/sw.js?build=${encodeURIComponent(buildVersion)}`,
-          { scope: '/', updateViaCache: 'none' }
-        );
+        const registration = await registerWorkerForBuild(buildVersion);
         void registration.update().catch(() => undefined);
+        installForegroundUpdateChecks();
 
         // A newer worker may already be installed and waiting from a prior visit.
         if (registration.waiting) {
           handleWaitingWorker(registration.waiting);
         }
-
-        registration.addEventListener('updatefound', () => {
-          const installing = registration.installing;
-          if (!installing) return;
-
-          installing.addEventListener('statechange', () => {
-            if (installing.state === 'installed') {
-              handleWaitingWorker(installing);
-            }
-          });
-        });
 
         if (previousBuildVersion !== buildVersion) {
           writeStoredAppVersion(buildVersion);
@@ -197,6 +321,7 @@ export function PWARegister() {
 
     return () => {
       removeForegroundListener?.();
+      removeUpdateCheckListeners?.();
     };
   }, []);
 

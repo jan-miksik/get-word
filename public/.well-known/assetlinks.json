@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "app.getword",
+        "sha256_cert_fingerprints": ["92:03:02:20:92:EE:D4:9E:D0:25:B5:B2:CC:E4:BE:10:60:FD:62:00:33:30:ED:14:FE:84:84:B7:66:54:A3:4A"]
+      }
+    }]

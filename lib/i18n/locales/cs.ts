@@ -141,6 +141,9 @@ export const csMessages: I18nMessages = {
   "privacy.title": "Zásady ochrany soukromí",
   "privacy.intro":
     "Get Word je aplikace pro učení jazyků, která vám pomáhá studovat slovní zásobu pomocí rozloženého opakování. Tyto Zásady ochrany soukromí vysvětlují, jaké informace shromažďujeme, jak je používáme a jaké máte možnosti.",
+  "privacy.controllerTitle": "Správce údajů",
+  "privacy.controllerBody":
+    "Správcem vašich osobních údajů je Jan Mikšík, podnikající fyzická osoba (OSVČ) zapsaná v České republice pod IČO 09802681. Správce můžete kontaktovat pomocí kontaktních údajů na konci těchto zásad.",
   "privacy.infoTitle": "Informace, které shromažďujeme",
   "privacy.infoAccount":
     "Údaje o účtu. Když se přihlásíte e-mailem nebo přes Google, obdržíme a uložíme vaši e-mailovou adresu. Při přihlášení přes Google obdržíme vaši e-mailovou adresu a základní identifikátor profilu od Googlu. Vaše heslo ke Googlu nezískáváme.",

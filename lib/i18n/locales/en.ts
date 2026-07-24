@@ -139,6 +139,9 @@ export const enMessages = {
   "privacy.title": "Privacy Policy",
   "privacy.intro":
     "Get Word is a language-learning application that helps you study vocabulary with spaced repetition. This Privacy Policy explains what information we collect, how we use it, and the choices you have.",
+  "privacy.controllerTitle": "Data controller",
+  "privacy.controllerBody":
+    "The controller of your personal data is Jan Mikšík, a sole trader registered in the Czech Republic under company ID (IČO) 09802681. You can reach the controller using the contact details at the end of this policy.",
   "privacy.infoTitle": "Information we collect",
   "privacy.infoAccount":
     "Account information. When you sign in with email or Google, we receive and store your email address. If you use Google Sign-In, we receive your email address and basic profile identifier from Google. We do not receive your Google password.",

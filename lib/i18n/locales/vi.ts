@@ -141,6 +141,9 @@ export const viMessages: I18nMessages = {
   "privacy.title": "Chính sách quyền riêng tư",
   "privacy.intro":
     "Get Word là ứng dụng học ngôn ngữ giúp bạn học từ vựng bằng phương pháp lặp lại ngắt quãng. Chính sách quyền riêng tư này giải thích thông tin chúng tôi thu thập, cách chúng tôi sử dụng và các lựa chọn của bạn.",
+  "privacy.controllerTitle": "Đơn vị kiểm soát dữ liệu",
+  "privacy.controllerBody":
+    "Đơn vị kiểm soát dữ liệu cá nhân của bạn là Jan Mikšík, một cá nhân kinh doanh đăng ký tại Cộng hòa Séc với mã số doanh nghiệp (IČO) 09802681. Bạn có thể liên hệ đơn vị kiểm soát qua thông tin liên hệ ở cuối chính sách này.",
   "privacy.infoTitle": "Thông tin chúng tôi thu thập",
   "privacy.infoAccount":
     "Thông tin tài khoản. Khi bạn đăng nhập bằng email hoặc Google, chúng tôi nhận và lưu địa chỉ email của bạn. Nếu bạn dùng Đăng nhập Google, chúng tôi nhận địa chỉ email và mã định danh hồ sơ cơ bản từ Google. Chúng tôi không nhận mật khẩu Google của bạn.",

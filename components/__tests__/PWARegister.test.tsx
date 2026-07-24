@@ -18,6 +18,7 @@ describe('PWARegister', () => {
 
   afterEach(() => {
     vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
     window.localStorage.clear();
     Reflect.deleteProperty(globalThis, 'caches');
     Reflect.deleteProperty(navigator, 'serviceWorker');
@@ -257,6 +258,129 @@ describe('PWARegister', () => {
       expect.any(Function)
     );
     expect(screen.queryByRole('button', { name: 'Refresh' })).not.toBeInTheDocument();
+  });
+
+  it('checks the deployed version on app foreground and registers the newer worker URL', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_APP_VERSION', '1.0.123');
+    // Same stored build: the open tab has not loaded the new client bundle yet.
+    window.localStorage.setItem('get-word-pwa-app-version', '1.0.123');
+    const fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ version: '1.0.124' }),
+    });
+    vi.stubGlobal('fetch', fetch);
+
+    const waitingWorker = { postMessage: vi.fn() };
+    const oldRegistration = {
+      waiting: null,
+      installing: null,
+      addEventListener: vi.fn(),
+      update: vi.fn().mockResolvedValue(undefined),
+    };
+    const newRegistration = {
+      waiting: waitingWorker,
+      installing: null,
+      addEventListener: vi.fn(),
+      update: vi.fn().mockResolvedValue(undefined),
+    };
+    const register = vi.fn().mockImplementation((url: string) =>
+      Promise.resolve(url.includes('1.0.124') ? newRegistration : oldRegistration)
+    );
+    const swAddEventListener = vi.fn();
+
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {
+        register,
+        getRegistrations: vi.fn(),
+        addEventListener: swAddEventListener,
+        removeEventListener: vi.fn(),
+        controller: { state: 'activated' },
+      },
+    });
+
+    render(<PWARegister />);
+
+    await waitFor(() => {
+      expect(oldRegistration.update).toHaveBeenCalledTimes(1);
+    });
+
+    window.dispatchEvent(new Event('focus'));
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        expect.stringMatching(/^\/api\/version\?pwa-check=/),
+        { cache: 'no-store' }
+      );
+      expect(register).toHaveBeenCalledWith('/sw.js?build=1.0.124', {
+        scope: '/',
+        updateViaCache: 'none',
+      });
+      expect(waitingWorker.postMessage).toHaveBeenCalledWith({ type: 'SKIP_WAITING' });
+    });
+    expect(swAddEventListener).toHaveBeenCalledWith(
+      'controllerchange',
+      expect.any(Function)
+    );
+    expect(screen.queryByRole('button', { name: 'Refresh' })).not.toBeInTheDocument();
+  });
+
+  it('falls back to registration.update when the deployed version check fails', async () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_APP_VERSION', '1.0.123');
+    window.localStorage.setItem('get-word-pwa-app-version', '1.0.123');
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
+
+    const waitingWorker = { postMessage: vi.fn() };
+    let updateCalls = 0;
+    const registration: {
+      waiting: null | typeof waitingWorker;
+      installing: null;
+      addEventListener: ReturnType<typeof vi.fn>;
+      update: ReturnType<typeof vi.fn>;
+    } = {
+      waiting: null,
+      installing: null,
+      addEventListener: vi.fn(),
+      update: vi.fn().mockImplementation(() => {
+        updateCalls += 1;
+        if (updateCalls === 2) {
+          registration.waiting = waitingWorker;
+        }
+        return Promise.resolve();
+      }),
+    };
+    const register = vi.fn().mockResolvedValue(registration);
+    const swAddEventListener = vi.fn();
+
+    Object.defineProperty(navigator, 'serviceWorker', {
+      configurable: true,
+      value: {
+        register,
+        getRegistrations: vi.fn(),
+        addEventListener: swAddEventListener,
+        removeEventListener: vi.fn(),
+        controller: { state: 'activated' },
+      },
+    });
+
+    render(<PWARegister />);
+
+    await waitFor(() => {
+      expect(registration.update).toHaveBeenCalledTimes(1);
+    });
+
+    window.dispatchEvent(new Event('focus'));
+
+    await waitFor(() => {
+      expect(registration.update).toHaveBeenCalledTimes(2);
+      expect(waitingWorker.postMessage).toHaveBeenCalledWith({ type: 'SKIP_WAITING' });
+    });
+    expect(swAddEventListener).toHaveBeenCalledWith(
+      'controllerchange',
+      expect.any(Function)
+    );
   });
 
   it('does not apply an update on a first, uncontrolled install', async () => {

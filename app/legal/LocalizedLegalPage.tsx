@@ -30,6 +30,7 @@ const TERMS_SECTIONS: TextSection[] = [
 ];
 
 const PRIVACY_SECTIONS: TextSection[] = [
+  { title: 'privacy.controllerTitle', paragraphs: ['privacy.controllerBody'] },
   {
     title: 'privacy.infoTitle',
     bullets: [
