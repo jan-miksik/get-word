@@ -11,7 +11,7 @@ import {
   sendChatMessage,
   translateSelection,
 } from '../client/api';
-import { forgetClip, storeClipBytes } from '../client/clip-playback';
+import { forgetClip, prefetchClips, storeClipBytes } from '../client/clip-playback';
 import { clearDraft, loadDraft, saveDraft } from '../client/storage';
 import type { CallDiagnostics } from '../client/api';
 import type { ProposedItem, ReviewItem, WordChatMessage } from '../types';
@@ -251,6 +251,14 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
     reviewItems,
     isPublic,
   ]);
+
+  // A restored draft lands straight on Review with hashes but no bytes — the
+  // session that generated them is gone. Warm those too; already-cached clips
+  // cost nothing to ask for.
+  useEffect(() => {
+    if (step !== 'review' || reviewItems.length === 0) return;
+    void prefetchClips(reviewItems.map((row) => row.audioHash));
+  }, [step, reviewItems]);
 
   // Load the brief once per open. No model call, so it costs nothing to ask, and
   // the answer decides whether the learner sees an opener or a follow-up.
@@ -583,6 +591,12 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
       setReviewItems(rows);
       translatedSignatureRef.current = signature;
 
+      // Reused rows arrive already voiced, as a hash pointing at a clip we do
+      // not have the bytes for. Start fetching them now, while the remaining
+      // rows are still being generated, so Review opens with playable audio
+      // instead of a proxy round trip per press.
+      void prefetchClips(rows.map((row) => row.audioHash));
+
       // Audio is best-effort, but transient TTS/storage failures get up to three
       // attempts before Review opens. Reused corpus rows usually arrive voiced.
       const needsAudio = rows
@@ -627,6 +641,10 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
   /**
    * Editing the target text invalidates that row's audio — the clip no longer
    * says what the row says. Editing the source leaves it alone.
+   *
+   * Either edit drops `corpusItemId`. The row was a copy of an existing item;
+   * once the learner changes a side of the pair it is their own text, and the
+   * link would record a provenance that is no longer true.
    */
   const updateReviewItem = useCallback(
     (index: number, patch: Partial<Pick<ReviewItem, 'textKnown' | 'textTarget'>>) => {
@@ -635,12 +653,16 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
           if (rowIndex !== index) return row;
           const targetChanged =
             patch.textTarget !== undefined && patch.textTarget !== row.textTarget;
+          const knownChanged =
+            patch.textKnown !== undefined && patch.textKnown !== row.textKnown;
           if (targetChanged) forgetClip(row.audioHash);
-          return {
+          const next = {
             ...row,
             ...patch,
             ...(targetChanged ? { audioAssetId: null, audioHash: null } : {}),
           };
+          if (targetChanged || knownChanged) delete next.corpusItemId;
+          return next;
         }),
       );
     },

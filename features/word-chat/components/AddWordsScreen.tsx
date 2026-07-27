@@ -29,9 +29,14 @@ export function AddWordsScreen({ languageFrom, languageTo, onClose, onCommitted 
   const [step, setStep] = useState<WordChatStep>('chat');
 
   return (
-    <div className="onboarding-screen flex min-h-screen items-start justify-center px-4 py-8 sm:py-14">
+    // Full-bleed on a phone: the card frame costs ~36px of horizontal room on
+    // each side, which the word rows and the chat need more than the framing.
+    // From `sm` up it becomes a card again, centred on the background.
+    <div className="onboarding-screen flex min-h-screen items-start justify-center sm:px-4 sm:py-14">
       <RisingLettersBackground variant="ambient" className="z-0" />
-      <section className="onboarding-card relative z-10 w-full max-w-3xl p-5 sm:p-7">
+      {/* `.onboarding-card` lives outside Tailwind's layers, so its border and
+          radius beat plain utilities — dropping the frame needs `!`. */}
+      <section className="onboarding-card relative z-10 min-h-screen w-full max-w-3xl rounded-none! border-0! p-4 sm:min-h-0 sm:rounded-2xl! sm:border-2! sm:p-7">
         <div className="mb-4 flex items-center justify-between gap-3">
           {/* Every step past the chat carries its own heading. */}
           {step === 'chat' ? (

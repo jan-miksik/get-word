@@ -7,6 +7,7 @@ import { SelectStep } from './SelectStep';
 import { ReviewStep } from './ReviewStep';
 import { WordChatDebugPanel } from './WordChatDebugPanel';
 import { useWordChat, type WordChatStep } from '../hooks/useWordChat';
+import { personalListName } from '../personal-list-name';
 
 type Props = {
   languageFrom: string;
@@ -38,6 +39,8 @@ export function WordChatFlow({
 }: Props) {
   const { t } = useI18n();
   const chat = useWordChat({ languageFrom, languageTo, onCommitted });
+  // Same name the server gives the row, so the screens and the saved list agree.
+  const listName = personalListName(languageFrom, languageTo);
 
   useEffect(() => {
     onStepChange?.(chat.step);
@@ -136,6 +139,7 @@ export function WordChatFlow({
       {chat.step === 'select' ? (
         <SelectStep
           languageFrom={languageFrom}
+          listName={listName}
           proposals={chat.proposals}
           isSelected={chat.isSelected}
           onToggle={chat.toggleSelected}
@@ -165,6 +169,8 @@ export function WordChatFlow({
       {chat.step === 'review' || chat.step === 'done' ? (
         <ReviewStep
           items={chat.reviewItems}
+          listName={listName}
+          categoryName={chat.categoryName}
           warningsByKnown={chat.warningsByKnown}
           translationDiagnostics={chat.translationDiagnostics}
           isPublic={chat.isPublic}

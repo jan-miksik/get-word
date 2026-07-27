@@ -28,6 +28,7 @@ function item(input: Partial<WordListItem> & Pick<WordListItem, "id" | "textKnow
     listId: "seed-list",
     categoryId: input.categoryId ?? null,
     canonicalWordId: input.canonicalWordId ?? null,
+    sourceItemId: input.sourceItemId ?? null,
     position: input.position ?? 0,
     ignoreCase: input.ignoreCase ?? false,
     textKnown: input.textKnown,

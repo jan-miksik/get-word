@@ -1,68 +1,57 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/db/client", () => ({ db: {} }));
 
-// `vi.mock` is hoisted above imports, so the spy has to be created inside the
-// factory and pulled back out afterwards.
-vi.mock("../server/corpus", async () => {
-  const actual = await vi.importActual<typeof import("../server/corpus")>("../server/corpus");
-  return { ...actual, loadCorpusItems: vi.fn() };
-});
-
 import {
+  corpusPoolByText,
   materializeProposedItems,
-  selectPromptCorpusPool,
   selectPromptExclusions,
 } from "../server/propose";
-import { dedupKey, loadCorpusItems } from "../server/corpus";
+import { dedupKey, type CorpusEntry } from "../server/corpus";
 
-const loadCorpusItemsMock = vi.mocked(loadCorpusItems);
-
-function corpusRow(id: string, textKnown: string) {
+function corpusEntry(
+  id: string,
+  text: string,
+  options: { verified?: boolean; categoryName?: string | null } = {},
+): CorpusEntry {
   return {
     id,
-    textKnown,
-    textTarget: "translated",
-    audioAssetId: "asset-1",
-    audioHash: "hash-1",
-    knownAudioAssetId: null,
+    text,
+    categoryName: options.categoryName ?? null,
+    verified: options.verified ?? true,
   };
 }
 
-function corpusEntry(id: string, text: string, categoryName: string | null = null) {
-  return { id, text, categoryName };
-}
-
-describe("selectPromptCorpusPool", () => {
-  it("puts relevant verified rows first before trimming the prompt pool", () => {
-    const selected = selectPromptCorpusPool({
-      pool: [
-        corpusEntry("general-1", "čas", "Základy"),
-        corpusEntry("cafe-1", "účet, prosím", "Kavárna"),
-        corpusEntry("doctor-1", "bolí mě hlava", "Lékař"),
-        corpusEntry("cafe-2", "kávu s mlékem", "Kavárna"),
-      ],
-      messages: [{ role: "user", content: "Chci slovíčka do kavárny." }],
-      brief: null,
-      limit: 2,
-    });
-
-    expect(selected.map((entry) => entry.id)).toEqual(["cafe-1", "cafe-2"]);
+describe("dedupKey", () => {
+  it("ignores case, whitespace and surrounding punctuation", () => {
+    // These are the near-misses that stop a model proposal from matching an
+    // item the app already holds.
+    expect(dedupKey("Kolik to stojí?")).toBe(dedupKey("kolik to stojí"));
+    expect(dedupKey("  Dobrý   den!  ")).toBe(dedupKey("dobrý den"));
+    expect(dedupKey("„účet, prosím“")).toBe(dedupKey("účet, prosím"));
   });
 
-  it("backfills from curated order when the conversation is vague", () => {
-    const selected = selectPromptCorpusPool({
-      pool: [
-        corpusEntry("first", "dobrý den"),
-        corpusEntry("second", "prosím"),
-        corpusEntry("third", "děkuji"),
-      ],
-      messages: [{ role: "user", content: "Jen základy." }],
-      brief: null,
-      limit: 2,
-    });
+  it("does not fold diacritics", () => {
+    // `byt` and `být` are different words; a key loose enough to merge them
+    // would silently substitute the wrong item.
+    expect(dedupKey("být")).not.toBe(dedupKey("byt"));
+  });
+});
 
-    expect(selected.map((entry) => entry.id)).toEqual(["first", "second"]);
+describe("corpusPoolByText", () => {
+  it("lets the curated row win when both tiers hold the same text", () => {
+    // `loadCorpusPool` orders verified rows first, so first-write-wins is what
+    // prefers the reviewed translation.
+    const byText = corpusPoolByText([
+      corpusEntry("curated", "dobrý den", { verified: true }),
+      corpusEntry("public", "Dobrý den!", { verified: false }),
+    ]);
+
+    expect(byText.size).toBe(1);
+    expect(byText.get(dedupKey("dobrý den"))).toMatchObject({
+      id: "curated",
+      verified: true,
+    });
   });
 });
 
@@ -80,16 +69,11 @@ describe("selectPromptExclusions", () => {
 });
 
 describe("materializeProposedItems", () => {
-  beforeEach(() => {
-    loadCorpusItemsMock.mockReset();
-    loadCorpusItemsMock.mockResolvedValue(new Map());
-  });
-
-  it("keeps generated items, normalizes whitespace, and defaults confidence", async () => {
-    const items = await materializeProposedItems({
+  it("keeps generated items, normalizes whitespace, and defaults confidence", () => {
+    const items = materializeProposedItems({
       raw: [
-        { kind: "sentence", source: "generated", text: "  Kolik   to stojí?  ", confidence: 0.9 },
-        { kind: "word", source: "generated", text: "stojí" },
+        { kind: "sentence", text: "  Kolik   to stojí?  ", confidence: 0.9 },
+        { kind: "word", text: "stojí" },
       ],
       exclusionKeys: new Set(),
     });
@@ -105,86 +89,64 @@ describe("materializeProposedItems", () => {
     expect(items[1].confidence).toBe(0.5);
   });
 
-  it("maps the prompt's short refs back to real corpus ids", async () => {
-    // The prompt lists entries as c1/c2/… because a UUID per line was most of
-    // that block's tokens; the model never sees a real id.
-    loadCorpusItemsMock.mockResolvedValue(
-      new Map([["real-id", corpusRow("real-id", "dobrý den")]]),
-    );
-
-    const items = await materializeProposedItems({
-      raw: [{ kind: "word", source: "corpus", corpusItemId: "c1", confidence: 0.8 }],
+  it("snaps a proposal onto an existing item and adopts its exact spelling", () => {
+    // The saved pair has to be the pair that was translated and voiced, so the
+    // stored row's text replaces the model's near-miss.
+    const items = materializeProposedItems({
+      raw: [{ kind: "word", text: "Chtít.", confidence: 0.8 }],
       exclusionKeys: new Set(),
-      corpusRefs: new Map([["c1", "real-id"]]),
+      corpusTextRefs: corpusPoolByText([corpusEntry("common-chtit", "chtít")]),
     });
 
-    expect(loadCorpusItemsMock).toHaveBeenCalledWith(["real-id"]);
-    expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({ source: "corpus", corpusItemId: "real-id" });
+    expect(items).toEqual([
+      {
+        kind: "word",
+        confidence: 0.8,
+        source: "corpus",
+        corpusItemId: "common-chtit",
+        verified: true,
+        text: "chtít",
+      },
+    ]);
   });
 
-  it("promotes generated text that exactly matches a verified corpus row", async () => {
-    loadCorpusItemsMock.mockResolvedValue(
-      new Map([["common-chtit", corpusRow("common-chtit", "chtít")]]),
-    );
-
-    const items = await materializeProposedItems({
-      raw: [{ kind: "word", source: "generated", text: "Chtít.", confidence: 0.8 }],
+  it("reuses an unverified public row but records that it is unverified", () => {
+    // Reuse is deliberate — a fresh translation would usually land on much the
+    // same answer, and a match brings the audio with it — but the tier has to
+    // survive to commit or the pair can never be found again.
+    const items = materializeProposedItems({
+      raw: [{ kind: "word", text: "kavárna", confidence: 0.7 }],
       exclusionKeys: new Set(),
-      corpusTextRefs: new Map([[dedupKey("chtít"), "common-chtit"]]),
+      corpusTextRefs: corpusPoolByText([
+        corpusEntry("public-kavarna", "kavárna", { verified: false }),
+      ]),
     });
 
-    expect(loadCorpusItemsMock).toHaveBeenCalledWith(["common-chtit"]);
-    expect(items).toHaveLength(1);
     expect(items[0]).toMatchObject({
       source: "corpus",
-      corpusItemId: "common-chtit",
-      verified: true,
-      text: "chtít",
+      corpusItemId: "public-kavarna",
+      verified: false,
     });
   });
 
-  it("drops a ref that was never offered", async () => {
-    loadCorpusItemsMock.mockResolvedValue(new Map());
-
-    const items = await materializeProposedItems({
-      raw: [{ kind: "word", source: "corpus", corpusItemId: "c99", confidence: 0.8 }],
+  it("leaves text generated when nothing matches", () => {
+    const items = materializeProposedItems({
+      raw: [{ kind: "sentence", text: "Nemám drobné.", confidence: 0.6 }],
       exclusionKeys: new Set(),
-      corpusRefs: new Map([["c1", "real-id"]]),
+      corpusTextRefs: corpusPoolByText([corpusEntry("other", "dobrý den")]),
     });
 
-    expect(items).toHaveLength(0);
+    expect(items[0]).toMatchObject({ source: "generated", text: "Nemám drobné." });
+    expect(items[0]).not.toHaveProperty("corpusItemId");
   });
 
-  it("drops corpus items whose id does not resolve, rather than guessing text", async () => {
-    loadCorpusItemsMock.mockResolvedValue(new Map([["real-id", corpusRow("real-id", "dobrý den")]]));
-
-    const items = await materializeProposedItems({
-      raw: [
-        { kind: "word", source: "corpus", corpusItemId: "real-id", confidence: 0.8 },
-        // Hallucinated / deleted id: the model meant something specific and we
-        // have no idea what, so there is nothing safe to fall back to.
-        { kind: "word", source: "corpus", corpusItemId: "ghost-id", text: "made up", confidence: 0.8 },
-      ],
-      exclusionKeys: new Set(),
-    });
-
-    expect(items).toHaveLength(1);
-    expect(items[0]).toMatchObject({
-      source: "corpus",
-      corpusItemId: "real-id",
-      verified: true,
-      text: "dobrý den",
-    });
-  });
-
-  it("re-applies the exclusion list server-side, case-insensitively", async () => {
+  it("re-applies the exclusion list server-side, case-insensitively", () => {
     // The prompt tells the model not to repeat these. That is a hint, not a
     // guarantee — this is the guarantee.
-    const items = await materializeProposedItems({
+    const items = materializeProposedItems({
       raw: [
-        { kind: "word", source: "generated", text: "Dobrý den", confidence: 0.9 },
-        { kind: "word", source: "generated", text: "na shledanou", confidence: 0.9 },
+        { kind: "word", text: "Dobrý den", confidence: 0.9 },
+        { kind: "word", text: "na shledanou", confidence: 0.9 },
       ],
       exclusionKeys: new Set([dedupKey("dobrý den")]),
     });
@@ -192,11 +154,23 @@ describe("materializeProposedItems", () => {
     expect(items.map((item) => item.text)).toEqual(["na shledanou"]);
   });
 
-  it("drops duplicates within one proposal", async () => {
-    const items = await materializeProposedItems({
+  it("excludes an item the learner already studies even when it matched the pool", () => {
+    // Matching must not smuggle a duplicate past the exclusion check: the key is
+    // recomputed from the row's own spelling, after the swap.
+    const items = materializeProposedItems({
+      raw: [{ kind: "word", text: "Dobrý den!", confidence: 0.9 }],
+      exclusionKeys: new Set([dedupKey("dobrý den")]),
+      corpusTextRefs: corpusPoolByText([corpusEntry("common-hello", "dobrý den")]),
+    });
+
+    expect(items).toHaveLength(0);
+  });
+
+  it("drops duplicates within one proposal", () => {
+    const items = materializeProposedItems({
       raw: [
-        { kind: "word", source: "generated", text: "kavárna", confidence: 0.9 },
-        { kind: "word", source: "generated", text: "Kavárna.", confidence: 0.8 },
+        { kind: "word", text: "kavárna", confidence: 0.9 },
+        { kind: "word", text: "Kavárna.", confidence: 0.8 },
       ],
       exclusionKeys: new Set(),
     });
@@ -204,15 +178,14 @@ describe("materializeProposedItems", () => {
     expect(items).toHaveLength(1);
   });
 
-  it("clamps to the requested maximum", async () => {
+  it("clamps to the requested maximum", () => {
     const raw = Array.from({ length: 40 }, (_, index) => ({
       kind: "word" as const,
-      source: "generated" as const,
       text: `slovo-${index}`,
       confidence: 0.5,
     }));
 
-    const items = await materializeProposedItems({
+    const items = materializeProposedItems({
       raw,
       exclusionKeys: new Set(),
       maxItems: 14,
@@ -221,11 +194,11 @@ describe("materializeProposedItems", () => {
     expect(items).toHaveLength(14);
   });
 
-  it("clamps confidence into 0..1", async () => {
-    const items = await materializeProposedItems({
+  it("clamps confidence into 0..1", () => {
+    const items = materializeProposedItems({
       raw: [
-        { kind: "word", source: "generated", text: "a", confidence: 5 },
-        { kind: "word", source: "generated", text: "b", confidence: -2 },
+        { kind: "word", text: "a", confidence: 5 },
+        { kind: "word", text: "b", confidence: -2 },
       ],
       exclusionKeys: new Set(),
     });

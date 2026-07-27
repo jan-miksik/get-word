@@ -8,6 +8,8 @@ import type { WordChatLimits } from '../hooks/useWordChat';
 
 type Props = {
   languageFrom: string;
+  /** The personal list these words are saved into, by name. */
+  listName: string;
   proposals: ProposedItem[];
   isSelected: (item: ProposedItem) => boolean;
   onToggle: (item: ProposedItem) => void;
@@ -35,6 +37,7 @@ type Props = {
 
 export function SelectStep({
   languageFrom,
+  listName,
   proposals,
   isSelected,
   onToggle,
@@ -232,9 +235,12 @@ export function SelectStep({
 
       {askVisibility ? (
         <fieldset className="space-y-2">
-          <legend className="mb-1 text-xs font-bold uppercase tracking-wide onboarding-text-soft">
+          <legend className="text-xs font-bold uppercase tracking-wide onboarding-text-soft">
             {t('wordChat.visibilityTitle')}
           </legend>
+          {/* Which list, by name. The choice is made once and then belongs to
+              this list forever, so "this list" should not be an abstraction. */}
+          <p className="mb-1 text-sm font-bold">{listName}</p>
           {[false, true].map((value) => (
             <button
               key={String(value)}
@@ -247,15 +253,8 @@ export function SelectStep({
                 isPublic === value ? 'onboarding-option-highlight' : '',
               ].join(' ')}
             >
-              <span className="flex flex-wrap items-center gap-2">
-                <span className="text-sm font-extrabold">
-                  {value ? t('wordChat.visibilityPublic') : t('wordChat.visibilityPrivate')}
-                </span>
-                {value ? null : (
-                  <span className="rounded-full border border-current px-2 py-0.5 text-[10px] font-black uppercase opacity-80">
-                    {t('wordChat.visibilityRecommended')}
-                  </span>
-                )}
+              <span className="block text-sm font-extrabold">
+                {value ? t('wordChat.visibilityPublic') : t('wordChat.visibilityPrivate')}
               </span>
               <span className="mt-1 block text-xs leading-relaxed onboarding-text-soft">
                 {value

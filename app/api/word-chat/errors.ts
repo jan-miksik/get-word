@@ -85,15 +85,29 @@ export function wordChatErrorResponse(
     );
   }
 
+  // Anything reaching here is a bug or an infrastructure failure, and the
+  // message alone rarely identifies either. Postgres puts the useful part in
+  // `code`/`detail`/`constraint`, so log those when they exist — a rejected
+  // foreign key and a cancelled statement read identically without them.
+  const pg = err as { code?: unknown; detail?: unknown; constraint?: unknown };
   console.error("[word-chat] unexpected failure", {
     error: err instanceof Error ? err.message : String(err),
+    ...(typeof pg?.code === "string" ? { pgCode: pg.code } : {}),
+    ...(typeof pg?.detail === "string" ? { pgDetail: pg.detail } : {}),
+    ...(typeof pg?.constraint === "string" ? { pgConstraint: pg.constraint } : {}),
+    stack: err instanceof Error ? err.stack : undefined,
   });
   return NextResponse.json(
     {
       error: "Something went wrong. Please try again.",
       code: "WORD_CHAT_FAILED",
       retryable: true,
-      ...(options.includeDetail && err instanceof Error ? { detail: err.message } : {}),
+      ...(options.includeDetail && err instanceof Error
+        ? {
+            detail:
+              typeof pg?.code === "string" ? `${pg.code}: ${err.message}` : err.message,
+          }
+        : {}),
     },
     { status: 500 },
   );

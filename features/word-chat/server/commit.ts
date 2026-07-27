@@ -3,7 +3,7 @@ import { db } from "@/lib/db/client";
 import type { Executor } from "@/lib/db/queries/executor";
 import { users, wordCategories, wordListItems, wordLists } from "@/lib/db/schema";
 import { normalizeLanguageCode } from "@/lib/i18n/languages";
-import { getLocalizedLanguageName } from "@/lib/i18n/languages";
+import { personalListName } from "../personal-list-name";
 import type { LearnerBrief } from "@/lib/learner-brief";
 import { MAX_ITEMS_PER_SESSION } from "./config";
 import { regenerateLearnerBrief } from "./brief";
@@ -25,9 +25,31 @@ export class WordChatCommitError extends Error {
   }
 }
 
-function personalListName(languageFrom: string, languageTo: string): string {
-  const target = getLocalizedLanguageName(languageTo, languageFrom);
-  return target ? `My words — ${target}` : "My words";
+/**
+ * Postgres/driver failures that say "the database was momentarily unavailable",
+ * not "this write is wrong": serialization conflicts, deadlocks, a statement
+ * cancelled by `statement_timeout`, an exhausted or dropped connection.
+ *
+ * Everything else — a rejected foreign key, a violated constraint — is
+ * deterministic and must surface immediately rather than be tried twice.
+ */
+const TRANSIENT_DB_CODES = new Set([
+  "40001", // serialization_failure
+  "40P01", // deadlock_detected
+  "53300", // too_many_connections
+  "57014", // query_canceled (statement_timeout)
+  "08000", // connection_exception
+  "08003", // connection_does_not_exist
+  "08006", // connection_failure
+  "CONNECTION_CLOSED",
+  "CONNECTION_ENDED",
+  "CONNECTION_DESTROYED",
+  "CONNECT_TIMEOUT",
+]);
+
+function isTransientDbError(err: unknown): boolean {
+  const code = (err as { code?: unknown } | null)?.code;
+  return typeof code === "string" && TRANSIENT_DB_CODES.has(code);
 }
 
 /** Drop empties, duplicates, and anything over the session cap. */
@@ -176,7 +198,7 @@ export async function commitWordChatSession(input: {
     committedTopic: categoryName,
   });
 
-  const result = await db.transaction(async (tx) => {
+  const runCommitTransaction = () => db.transaction(async (tx) => {
     // Re-check inside the transaction: two tabs can both pass the pre-check.
     const raced = await findCommittedCategory(tx, creationKey);
     if (raced) {
@@ -239,6 +261,10 @@ export async function commitWordChatSession(input: {
         position: basePosition + index,
         textKnown: item.textKnown,
         textTarget: item.textTarget,
+        // Set only when this row reused an existing item's pair. Kept so an
+        // item translated by nobody — reused from an unreviewed public list —
+        // can still be found once translations carry verification tiers.
+        sourceItemId: item.corpusItemId ?? null,
         // Everything here came out of the translation step, machine-generated
         // and not human-checked. `translated` is the honest status; the review
         // notice in the UI is what tells the learner it is unvalidated.
@@ -280,6 +306,26 @@ export async function commitWordChatSession(input: {
 
     return { listId: list.id, categoryId: category.id, alreadyCommitted: false };
   });
+
+  // One automatic retry, for transient failures only.
+  //
+  // This is the moment the learner has already paid for: the conversation, the
+  // proposal, the translation and the audio are all done, and a dropped
+  // connection or a cancelled statement here throws the whole session back at
+  // them. The transaction is all-or-nothing and the creation key makes it
+  // idempotent, so re-running it cannot produce a second list or a double
+  // charge. Deterministic errors are rethrown untouched.
+  let result: Awaited<ReturnType<typeof runCommitTransaction>>;
+  try {
+    result = await runCommitTransaction();
+  } catch (err) {
+    if (!isTransientDbError(err)) throw err;
+    console.warn("[word-chat] commit transaction failed transiently, retrying once", {
+      error: err instanceof Error ? err.message : String(err),
+      code: (err as { code?: unknown }).code,
+    });
+    result = await runCommitTransaction();
+  }
 
   const usage = await getMonthlyItemUsage({ userId: input.userId, role: input.role });
 

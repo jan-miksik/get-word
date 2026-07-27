@@ -111,23 +111,19 @@ export const GLOBAL_CHAT_TURNS_PER_DAY = parsePositiveIntEnv(
 /** Longest single learner message accepted, in characters. */
 export const MAX_USER_MESSAGE_CHARS = 1_000;
 
-/** How many verified corpus entries are offered to the proposal call. */
+/**
+ * How many existing items are loaded as reuse candidates.
+ *
+ * None of these reach the model — the proposal prompt no longer carries a
+ * corpus block — so this bounds a match table, not prompt size, and can be
+ * generous. In-memory matching against a few thousand short strings is faster
+ * than a round-trip; once one language pair outgrows that, the fix is an
+ * indexed normalized-key column and a lookup on the ~14 proposed texts, not a
+ * bigger number here.
+ */
 export const CORPUS_POOL_LIMIT = parsePositiveIntEnv(
   process.env.WORD_CHAT_CORPUS_POOL_LIMIT,
-  300,
-);
-
-/**
- * How many verified corpus entries are actually shown to the proposal model.
- *
- * The database pool may stay wider so local scoring has something to choose
- * from, but the prompt should be much smaller than "the first 300 common
- * words". Translation/audio reuse still works because the server maps short
- * refs back to real rows after the model replies.
- */
-export const CORPUS_PROMPT_LIMIT = parsePositiveIntEnv(
-  process.env.WORD_CHAT_CORPUS_PROMPT_LIMIT,
-  120,
+  5_000,
 );
 
 /** Hard cap on existing items loaded for server-side duplicate rejection. */

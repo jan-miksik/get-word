@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { resolveUserFromRequest, unauthorizedResponse } from "@/lib/auth";
 import { commitWordChatSession } from "@/features/word-chat/server/commit";
 import { sanitizeMessages } from "@/features/word-chat/server/chat";
+import { canSeeWordChatDiagnostics } from "@/features/word-chat/server/config";
 import { wordChatErrorResponse } from "../errors";
 import type { ReviewItem } from "@/features/word-chat/types";
 
@@ -51,10 +52,13 @@ export async function POST(request: NextRequest) {
     .map(toReviewItem)
     .filter((item): item is ReviewItem => item !== null);
 
+  const role = user.userRole === "editor" ? "editor" : "user";
+  const canDebug = canSeeWordChatDiagnostics(role);
+
   try {
     const result = await commitWordChatSession({
       userId: user.id,
-      role: user.userRole === "editor" ? "editor" : "user",
+      role,
       request: {
         creationKey,
         sessionId,
@@ -79,6 +83,9 @@ export async function POST(request: NextRequest) {
       monthly_limit: result.monthlyLimit,
     });
   } catch (err) {
-    return wordChatErrorResponse(err);
+    // Commit is the one step where a failure costs the learner everything they
+    // just reviewed, so the cause has to reach whoever is debugging it — the
+    // generic sentence alone left "it fell over on save" uninvestigable.
+    return wordChatErrorResponse(err, { includeDetail: canDebug });
   }
 }

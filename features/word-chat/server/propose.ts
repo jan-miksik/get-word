@@ -10,7 +10,6 @@ import {
   OPENROUTER_MAX_ATTEMPTS,
   OPENROUTER_RETRY_BASE_DELAY_MS,
   OPENROUTER_TIMEOUT_MS,
-  CORPUS_PROMPT_LIMIT,
   EXCLUSION_PROMPT_LIMIT,
   PROPOSAL_MAX_TOKENS,
   TARGET_ITEM_COUNT,
@@ -21,13 +20,7 @@ import {
 import { WordChatUnavailableError } from "./chat";
 import { buildProposalPrompt } from "./prompt";
 import { buildCallDiagnostics, type WordChatCallDiagnostics } from "./diagnostics";
-import {
-  dedupKey,
-  loadCorpusItems,
-  loadCorpusPool,
-  loadExclusions,
-  type CorpusEntry,
-} from "./corpus";
+import { dedupKey, loadCorpusPool, loadExclusions, type CorpusEntry } from "./corpus";
 import { recordWordChatUsage } from "./usage";
 import type { ProposalResult, ProposedItem, WordChatMessage } from "../types";
 
@@ -36,9 +29,7 @@ const MAX_ITEM_CHARS = 200;
 
 type RawItem = {
   kind?: unknown;
-  source?: unknown;
   text?: unknown;
-  corpusItemId?: unknown;
   confidence?: unknown;
 };
 
@@ -168,28 +159,13 @@ function rankPromptTexts<T>(
 }
 
 /**
- * Keep the model-facing corpus small without losing deterministic reuse.
+ * Choose which of the learner's existing items the model is warned about.
  *
- * The DB query intentionally loads a wider curated/common pool. This step uses
- * the learner's current conversation and bounded brief to put relevant entries
- * first, then backfills from curated order so a vague "basics" request still has
- * high-quality reusable material.
+ * The full exclusion set is enforced server-side afterwards, so this only
+ * decides prompt size. Relevant entries come first — a learner with 3000 words
+ * would otherwise spend the whole block on items unrelated to what they just
+ * asked for, and the model would propose duplicates we then have to drop.
  */
-export function selectPromptCorpusPool(input: {
-  pool: CorpusEntry[];
-  messages: WordChatMessage[];
-  brief: LearnerBrief | null;
-  limit?: number;
-}): CorpusEntry[] {
-  const terms = searchTerms({ messages: input.messages, brief: input.brief });
-  return rankPromptTexts(
-    input.pool,
-    (entry) => `${entry.categoryName ?? ""} ${entry.text}`,
-    terms,
-    input.limit ?? CORPUS_PROMPT_LIMIT,
-  );
-}
-
 export function selectPromptExclusions(input: {
   exclusions: string[];
   messages: WordChatMessage[];
@@ -220,12 +196,17 @@ function cleanItemText(value: unknown): string {
   return typeof value === "string" ? value.trim().replace(/\s+/g, " ").slice(0, MAX_ITEM_CHARS) : "";
 }
 
-function corpusPoolByText(pool: CorpusEntry[]): Map<string, string> {
-  const byText = new Map<string, string>();
+/** Reuse lookup: comparison key → the row to snap a matching proposal onto. */
+export type CorpusMatch = { id: string; text: string; verified: boolean };
+
+export function corpusPoolByText(pool: CorpusEntry[]): Map<string, CorpusMatch> {
+  const byText = new Map<string, CorpusMatch>();
   for (const entry of pool) {
     const key = dedupKey(entry.text);
+    // `loadCorpusPool` orders curated rows first, so the first row to claim a
+    // key is the best-reviewed one holding that text.
     if (!key || byText.has(key)) continue;
-    byText.set(key, entry.id);
+    byText.set(key, { id: entry.id, text: entry.text, verified: entry.verified });
   }
   return byText;
 }
@@ -250,43 +231,26 @@ function parseProposal(content: string): {
 /**
  * Turn raw model output into items we are willing to show.
  *
- * This is where the model's promises get checked rather than trusted: corpus
- * ids must resolve to rows that still exist, the exclusion list is re-applied
- * after normalization (case-folded), duplicates within the batch are dropped,
- * and the result is clamped. A prompt rule is a quality hint; this is the
- * guarantee.
+ * Two jobs. First, the guarantee the prompt cannot give: the exclusion list is
+ * re-applied after normalization, duplicates within the batch are dropped, and
+ * the result is clamped. A prompt rule is a hint; this is the check.
+ *
+ * Second, reuse. The model was told nothing about existing content, so every
+ * item arrives as free text; anything whose comparison key matches an existing
+ * item is snapped onto that row. The row's own spelling wins, which is what
+ * makes the reused translation and audio downstream safe to attach.
  */
-export async function materializeProposedItems(input: {
+export function materializeProposedItems(input: {
   raw: RawItem[];
   exclusionKeys: Set<string>;
   maxItems?: number;
   /**
-   * Text-key lookup for verified corpus rows. The model sometimes repeats an
-   * offered corpus text as a "generated" item instead of returning its ref; when
-   * the text is an exact normalized match, promote it back to corpus so the
-   * reviewed translation/audio are reused.
+   * Comparison key → existing row, built from `loadCorpusPool`. Absent in tests
+   * and when the pair has no content yet, in which case everything stays
+   * generated and gets a fresh translation.
    */
-  corpusTextRefs?: Map<string, string>;
-  /**
-   * Maps the short refs the prompt used (`c7`) back to real item ids. Absent in
-   * tests and whenever the pool was empty, in which case the model's value is
-   * taken at face value and simply has to resolve.
-   */
-  corpusRefs?: Map<string, string>;
-}): Promise<ProposedItem[]> {
-  const resolveRef = (ref: string): string | null =>
-    input.corpusRefs ? input.corpusRefs.get(ref) ?? null : ref;
-
-  const corpusIds = input.raw
-    .filter((item) => item.source === "corpus" && typeof item.corpusItemId === "string")
-    .map((item) => resolveRef(item.corpusItemId as string))
-    .filter((id): id is string => Boolean(id));
-  const generatedCorpusIds = input.raw
-    .filter((item) => item.source !== "corpus")
-    .map((item) => input.corpusTextRefs?.get(dedupKey(cleanItemText(item.text))))
-    .filter((id): id is string => Boolean(id));
-  const corpusItems = await loadCorpusItems([...new Set([...corpusIds, ...generatedCorpusIds])]);
-
+  corpusTextRefs?: Map<string, CorpusMatch>;
+}): ProposedItem[] {
   const seen = new Set<string>();
   const items: ProposedItem[] = [];
   const limit = input.maxItems ?? MAX_ITEMS_PER_SESSION;
@@ -295,37 +259,29 @@ export async function materializeProposedItems(input: {
     const kind = entry.kind === "sentence" ? "sentence" : "word";
     const confidence = normalizeConfidence(entry.confidence);
 
-    let text: string;
-    let corpusItemId: string | undefined;
-
-    if (entry.source === "corpus" && typeof entry.corpusItemId === "string") {
-      const resolvedId = resolveRef(entry.corpusItemId);
-      const row = resolvedId ? corpusItems.get(resolvedId) : undefined;
-      // A hallucinated or deleted id is dropped, not silently downgraded to a
-      // generated item: the model was told to reuse something specific, and we
-      // have no idea what it meant.
-      if (!row) continue;
-      text = row.textKnown;
-      corpusItemId = row.id;
-    } else {
-      text = cleanItemText(entry.text);
-      const matchedCorpusId = input.corpusTextRefs?.get(dedupKey(text));
-      const row = matchedCorpusId ? corpusItems.get(matchedCorpusId) : undefined;
-      if (row) {
-        text = row.textKnown;
-        corpusItemId = row.id;
-      }
-    }
-
+    let text = cleanItemText(entry.text);
     if (!text) continue;
+
+    const match = input.corpusTextRefs?.get(dedupKey(text));
+    // The existing row's exact text replaces the model's near-miss ("Chtít." →
+    // "chtít"), so the pair the learner saves is the pair that was translated
+    // and voiced, character for character.
+    if (match) text = match.text;
 
     const key = dedupKey(text);
     if (!key || seen.has(key) || input.exclusionKeys.has(key)) continue;
     seen.add(key);
 
     items.push(
-      corpusItemId
-        ? { kind, confidence, source: "corpus", corpusItemId, verified: true, text }
+      match
+        ? {
+            kind,
+            confidence,
+            source: "corpus",
+            corpusItemId: match.id,
+            verified: match.verified,
+            text,
+          }
         : { kind, confidence, source: "generated", text },
     );
 
@@ -336,9 +292,12 @@ export async function materializeProposedItems(input: {
 }
 
 /**
- * Build the proposal: conversation + verified corpus pool + exclusions in, ~10
- * known-language items out. Nothing is written to the database here — the whole
- * proposal is draft state until the learner confirms in Review.
+ * Build the proposal: conversation + exclusions in, ~10 known-language items
+ * out, then matched against existing content on the way back.
+ *
+ * The reuse pool is loaded in parallel with the model call's inputs but never
+ * sent to it — see `buildProposalPrompt`. Nothing is written to the database
+ * here; the whole proposal is draft state until the learner confirms in Review.
  */
 export async function proposeItems(input: {
   userId: string;
@@ -359,40 +318,33 @@ export async function proposeItems(input: {
   const model = input.model || WORD_CHAT_PROPOSAL_MODEL;
   const startedAt = Date.now();
 
-  const [corpusPool, exclusions] = await Promise.all([
-    loadCorpusPool({
-      languageFrom: input.languageFrom,
-      languageTo: input.languageTo,
-    }),
-    loadExclusions({
-      userId: input.userId,
-      languageFrom: input.languageFrom,
-      languageTo: input.languageTo,
-    }),
-  ]);
+  // The reuse pool is not part of the prompt any more, so it does not have to
+  // be ready before the model call — only before the reply is processed. It
+  // loads alongside the call instead of ahead of it, which is what keeps a
+  // widening pool off the learner's critical path.
+  //
+  // A failure here degrades rather than fails the session: every item stays
+  // "generated" and gets a fresh translation, which is what would have happened
+  // without a pool anyway.
+  const corpusPoolPromise = loadCorpusPool({
+    languageFrom: input.languageFrom,
+    languageTo: input.languageTo,
+  }).catch((err): CorpusEntry[] => {
+    console.error("[word-chat] reuse pool unavailable, proposing without it", err);
+    return [];
+  });
+
+  const exclusions = await loadExclusions({
+    userId: input.userId,
+    languageFrom: input.languageFrom,
+    languageTo: input.languageTo,
+  });
 
   const exclusionKeys = new Set(exclusions.map(dedupKey).filter(Boolean));
-  // A corpus entry the learner already studies is not reuse material.
-  const offeredPool = corpusPool.filter((entry) => !exclusionKeys.has(dedupKey(entry.text)));
-  const corpusTextRefs = corpusPoolByText(offeredPool);
-  const promptPool = selectPromptCorpusPool({
-    pool: offeredPool,
-    messages: input.messages,
-    brief: input.brief,
-  });
   const promptExclusions = selectPromptExclusions({
     exclusions,
     messages: input.messages,
     brief: input.brief,
-  });
-
-  // Short refs in the prompt, real ids on the way back. The pool is the single
-  // biggest part of this request, and UUIDs were most of it.
-  const corpusRefs = new Map<string, string>();
-  const offeredEntries = promptPool.map((entry, index) => {
-    const ref = `c${index + 1}`;
-    corpusRefs.set(ref, entry.id);
-    return { ref, text: entry.text };
   });
 
   const { system, user } = buildProposalPrompt({
@@ -401,7 +353,6 @@ export async function proposeItems(input: {
     chatLanguage: input.chatLanguage,
     messages: input.messages,
     brief: input.brief,
-    corpusPool: offeredEntries,
     exclusions: promptExclusions,
   });
 
@@ -426,11 +377,16 @@ export async function proposeItems(input: {
     parseProposal,
   );
 
-  const items = await materializeProposedItems({
+  // An entry the learner already studies is not reuse material: matching onto it
+  // would only produce an item the exclusion check drops a line later.
+  const corpusTextRefs = corpusPoolByText(
+    (await corpusPoolPromise).filter((entry) => !exclusionKeys.has(dedupKey(entry.text))),
+  );
+
+  const items = materializeProposedItems({
     raw: value.raw,
     exclusionKeys,
     corpusTextRefs,
-    corpusRefs,
     // Ask for ~10 but accept a couple more rather than discarding good items;
     // the session cap is enforced separately, on what the learner keeps.
     maxItems: Math.min(TARGET_ITEM_COUNT + 4, MAX_ITEMS_PER_SESSION),

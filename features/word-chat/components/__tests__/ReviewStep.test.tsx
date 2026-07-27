@@ -10,7 +10,9 @@ describe('ReviewStep', () => {
     render(
       <I18nProvider language="en">
         <ReviewStep
-          items={[
+          listName="Moje slovíčka — Vietnamština"
+        categoryName="Rodina"
+        items={[
             {
               kind: 'sentence',
               textKnown: 'Počkejte pět minut.',
@@ -65,7 +67,9 @@ describe('ReviewStep', () => {
     render(
       <I18nProvider language="en">
         <ReviewStep
-          items={[
+          listName="Moje slovíčka — Vietnamština"
+        categoryName="Rodina"
+        items={[
             {
               kind: 'word',
               textKnown: 'karta',
@@ -102,7 +106,9 @@ describe('ReviewStep', () => {
     render(
       <I18nProvider language="en">
         <ReviewStep
-          items={[
+          listName="Moje slovíčka — Vietnamština"
+        categoryName="Rodina"
+        items={[
             { kind: 'sentence', textKnown: 'Dobrý den.', textTarget: 'Good day.' },
             { kind: 'word', textKnown: 'karta', textTarget: 'card' },
           ]}

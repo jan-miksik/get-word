@@ -8,6 +8,10 @@ import type { ReviewItem } from '../types';
 
 type Props = {
   items: ReviewItem[];
+  /** The personal list these rows are saved into, by name. */
+  listName: string;
+  /** What the learner called this batch; shown so the target is not a mystery. */
+  categoryName: string;
   warningsByKnown: Record<string, string[]>;
   translationDiagnostics: TranslationDiagnostics | null;
   isPublic: boolean | null;
@@ -28,6 +32,8 @@ type Props = {
  */
 export function ReviewStep({
   items,
+  listName,
+  categoryName,
   warningsByKnown,
   translationDiagnostics,
   isPublic,
@@ -87,6 +93,9 @@ export function ReviewStep({
             {copied ? t('wordChat.copiedAll') : t('wordChat.copyAll')}
           </button>
         </div>
+        <p className="mt-1 text-sm font-bold">
+          {categoryName ? `${listName} · ${categoryName}` : listName}
+        </p>
         <p className="onboarding-notice mt-2 rounded-md px-3 py-2 text-xs leading-relaxed">
           {t('wordChat.reviewNotice')}
           {isPublic ? ` ${t('wordChat.reviewNoticePublic')}` : ''}

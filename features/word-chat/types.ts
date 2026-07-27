@@ -9,10 +9,10 @@ export type WordChatMessage = {
  * happens later, in one batch, so learner-typed additions travel through the
  * same quality pipeline as model-proposed ones.
  *
- * `corpus` items reference an existing verified item by id rather than repeating
- * its text: asking a model to reproduce a source string verbatim (punctuation
- * included) is fragile, and an id also carries the reviewed translation and the
- * already-generated audio asset across for free.
+ * The model always writes free text; `corpus` means the server recognized that
+ * text as an item the app already holds and snapped it onto that row. The id
+ * carries the existing translation and the already-generated audio asset across
+ * for free, and `text` is the existing row's spelling, not the model's.
  */
 type ProposedItemBase = {
   kind: "sentence" | "word";
@@ -22,7 +22,19 @@ type ProposedItemBase = {
 
 export type ProposedItem = ProposedItemBase &
   (
-    | { source: "corpus"; corpusItemId: string; verified: true; text: string }
+    | {
+        source: "corpus";
+        corpusItemId: string;
+        /**
+         * True when the matched row came from a curated (recommended/common)
+         * list, i.e. its translation was reviewed. False means it was reused
+         * from an ordinary public list and has not been checked by anyone —
+         * recorded rather than blocked, so the reuse rate and its quality can be
+         * judged from real sessions.
+         */
+        verified: boolean;
+        text: string;
+      }
     | { source: "generated"; text: string }
   );
 

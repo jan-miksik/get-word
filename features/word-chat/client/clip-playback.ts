@@ -49,6 +49,65 @@ export function forgetClip(contentHash: string | null | undefined): void {
   }
 }
 
+/** Hashes currently being warmed, so two callers cannot fetch the same clip. */
+const prefetching = new Set<string>();
+
+/**
+ * Warm the cache for clips we did not generate ourselves.
+ *
+ * A reused clip arrives as a content hash and nothing else, so the first press
+ * of ▶ pays for the whole proxy round trip — gateway walk included — while the
+ * learner waits. Fetching in the background the moment the hashes are known
+ * turns that into an instant play, and costs nothing when the bytes are already
+ * here: cached hashes are skipped without a request.
+ *
+ * Best-effort throughout. A clip that fails to warm is simply played through
+ * the proxy later, exactly as before.
+ */
+export async function prefetchClips(
+  contentHashes: (string | null | undefined)[],
+  concurrency = 3,
+): Promise<void> {
+  const pending = Array.from(
+    new Set(
+      contentHashes.filter(
+        (hash): hash is string =>
+          Boolean(hash) && !objectUrls.has(hash as string) && !prefetching.has(hash as string),
+      ),
+    ),
+  );
+  if (pending.length === 0) return;
+
+  for (const hash of pending) prefetching.add(hash);
+
+  const queue = [...pending];
+  const worker = async () => {
+    for (let hash = queue.shift(); hash; hash = queue.shift()) {
+      try {
+        const stored = await getClip(hash);
+        if (stored && stored.size > 0) {
+          if (!objectUrls.has(hash)) objectUrls.set(hash, URL.createObjectURL(stored));
+          continue;
+        }
+        const response = await fetch(`/api/audio/${hash}`);
+        if (!response.ok) continue;
+        const blob = await response.blob();
+        if (blob.size === 0) continue;
+        if (!objectUrls.has(hash)) objectUrls.set(hash, URL.createObjectURL(blob));
+        void putClip(hash, blob);
+      } catch {
+        // Nothing to do: playback falls back to the proxy.
+      } finally {
+        prefetching.delete(hash);
+      }
+    }
+  };
+
+  await Promise.all(
+    Array.from({ length: Math.min(concurrency, queue.length) }, () => worker()),
+  );
+}
+
 /**
  * Best source for a clip, in order: this session's object URL, the persisted
  * IndexedDB copy, then the audio proxy.

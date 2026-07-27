@@ -71,18 +71,22 @@ Set "readyToPropose" to true as soon as you know enough to choose useful words.
 `.trim();
 }
 
+/**
+ * The proposal prompt carries NO reuse corpus.
+ *
+ * Shipping a pool of existing items made this the most expensive call in the
+ * feature and bought little: the model writes its own sentences anyway, and
+ * reuse is recovered deterministically afterwards by matching the returned text
+ * against every candidate in the pair (see `loadCorpusPool`), which searches far
+ * more rows than a prompt could ever hold. What is left here is the
+ * conversation, the brief, and the items the learner already studies.
+ */
 export function buildProposalPrompt(input: {
   languageFrom: string;
   languageTo: string;
   chatLanguage: string;
   messages: WordChatMessage[];
   brief: LearnerBrief | null;
-  /**
-   * Reusable entries, keyed by a SHORT reference (`c1`, `c2`, …) rather than a
-   * UUID. A 36-character id per line was ~80% of this block's tokens and the
-   * model never needs the real key — the server maps the reference back.
-   */
-  corpusPool: { ref: string; text: string }[];
   exclusions: string[];
 }): { system: string; user: string } {
   const target = languageName(input.languageTo, input.chatLanguage);
@@ -99,7 +103,7 @@ Additional rules for this task:
 - The word items MUST be content words taken from the sentences you propose. Never add vocabulary that does not appear in them.
 - Order every item by how likely this specific learner is to actually need it, most likely first.
 - Write EVERY item in ${known}, the language the learner already knows. Do not translate anything; a later step does that.
-- Prefer an entry from the verified corpus when it genuinely fits, and put its ref (e.g. "c7") in "corpusItemId" instead of retyping the text. Reuse is better than a near-duplicate. Never invent a ref that is not in the list.
+- Prefer the ordinary, canonical way to say something over a clever or unusual phrasing. Write what a phrasebook would write.
 - Never propose anything in the exclusion list, and never propose two items with the same meaning.
 - "confidence" is your estimate of how useful the item is for THIS learner, between 0 and 1.
 - "categoryName" is a short label (2-4 words) in ${known} for what this set is about.
@@ -110,8 +114,8 @@ Return only valid JSON, no markdown:
   "categoryName": "...",
   "reviewLabel": "...",
   "items": [
-    { "kind": "sentence", "source": "generated", "text": "...", "confidence": 0.9 },
-    { "kind": "word", "source": "corpus", "corpusItemId": "c7", "confidence": 0.8 }
+    { "kind": "sentence", "text": "...", "confidence": 0.9 },
+    { "kind": "word", "text": "...", "confidence": 0.8 }
   ]
 }
 `.trim();
@@ -119,13 +123,6 @@ Return only valid JSON, no markdown:
   const conversation = input.messages
     .map((message) => `${message.role === "user" ? "Learner" : "You"}: ${message.content}`)
     .join("\n");
-
-  const corpusBlock =
-    input.corpusPool.length > 0
-      ? `\n\nVerified corpus you may reuse (ref — text in ${known}):\n${input.corpusPool
-          .map((entry) => `${entry.ref} — ${entry.text}`)
-          .join("\n")}`
-      : "";
 
   const exclusionBlock =
     input.exclusions.length > 0
@@ -136,7 +133,7 @@ Return only valid JSON, no markdown:
 
   return {
     system,
-    user: `Conversation:\n${conversation}${briefText ? `\n${briefText}` : ""}${corpusBlock}${exclusionBlock}`.trim(),
+    user: `Conversation:\n${conversation}${briefText ? `\n${briefText}` : ""}${exclusionBlock}`.trim(),
   };
 }
 

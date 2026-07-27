@@ -19,6 +19,7 @@ describe('SelectStep', () => {
       <I18nProvider language="en">
         <SelectStep
           languageFrom="cs"
+        listName="Moje slovíčka — Vietnamština"
           proposals={[
             { kind: 'sentence', source: 'generated', text: 'Dám si kávu.', confidence: 0.9 },
             {
@@ -73,6 +74,7 @@ describe('SelectStep', () => {
       <I18nProvider language="en">
         <SelectStep
           languageFrom="cs"
+        listName="Moje slovíčka — Vietnamština"
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}

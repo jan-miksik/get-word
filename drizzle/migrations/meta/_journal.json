@@ -344,6 +344,13 @@
       "when": 1784937600000,
       "tag": "0048_word_chat_personal_lists",
       "breakpoints": true
+    },
+    {
+      "idx": 49,
+      "version": "7",
+      "when": 1785024000000,
+      "tag": "0049_word_chat_reuse_provenance",
+      "breakpoints": true
     }
   ]
 }

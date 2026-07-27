@@ -212,6 +212,10 @@ export const wordListItems = pgTable(
     categoryId: uuid("category_id")
       .references(() => wordCategories.id, { onDelete: "set null" }),
     canonicalWordId: uuid("canonical_word_id"),
+    // The item this row was copied from, when word chat matched a proposal onto
+    // existing content. Provenance only — nothing reads it at runtime; it is
+    // what makes "which pairs came from an unreviewed list" answerable later.
+    sourceItemId: uuid("source_item_id"),
     position: integer("position").notNull().default(0),
     // Owner/editor decision: when true, this item's text is case-folded when
     // computing its progress content key (see lib/progress-key.ts). Default
@@ -246,6 +250,7 @@ export const wordListItems = pgTable(
       table.categoryId,
       table.position,
     ),
+    index("word_list_items_source_item_idx").on(table.sourceItemId),
   ],
 );
 
