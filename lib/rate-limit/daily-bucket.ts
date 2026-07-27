@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
+import type { Executor } from "@/lib/db/queries/executor";
 import { oauthRateLimits } from "@/lib/db/schema";
 
 export type BucketPeriod = "day" | "week" | "month";
@@ -73,11 +74,20 @@ export async function getDailyBucketUsage(
  * window (day or week). All increments run in a single transaction, so an
  * exhausted later bucket (e.g. the global one) rolls back the earlier
  * increments — a rejected request never consumes part of a caller's allowance.
+ *
+ * Pass `executor` to join a transaction the caller already opened. That is what
+ * lets a quota be reserved in the SAME transaction as the work it pays for, so
+ * a crash cannot leave a charged quota with nothing saved (see the word-chat
+ * commit). Without it, the reservation would run on its own connection and the
+ * two would not roll back together.
  */
-export async function reserveDailyBuckets(buckets: DailyBucket[]): Promise<void> {
+export async function reserveDailyBuckets(
+  buckets: DailyBucket[],
+  executor?: Executor,
+): Promise<void> {
   const now = new Date();
 
-  await db.transaction(async (tx) => {
+  const run = async (tx: Executor) => {
     for (const bucket of buckets) {
       const bucketStartSql = getBucketWindow(bucket.period ?? "day", now).start.toISOString();
       const count = Math.max(1, Math.floor(bucket.count ?? 1));
@@ -106,7 +116,13 @@ export async function reserveDailyBuckets(buckets: DailyBucket[]): Promise<void>
         throw new DailyLimitError(bucket.message);
       }
     }
-  });
+  };
+
+  if (executor) {
+    await run(executor);
+    return;
+  }
+  await db.transaction(run);
 }
 
 export function parsePositiveIntEnv(value: string | undefined, fallback: number) {

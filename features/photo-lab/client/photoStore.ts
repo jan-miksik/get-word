@@ -4,7 +4,7 @@
 // content hash plus the analysis sessions that reference them. Nothing here is
 // synced to the server.
 //
-// Best-effort like audioBlobStore: IndexedDB may be unavailable or blocked
+// Best-effort like lib/audio-clip-cache: IndexedDB may be unavailable or blocked
 // (private mode, restrictive browsers, iOS eviction). Every helper
 // short-circuits to null / no-op on failure, so a freshly analyzed photo still
 // renders from memory even when persistence fails — only history is lost.

@@ -166,11 +166,19 @@ function startsLowercase(text: string): boolean {
   return firstLetter === lower;
 }
 
-/** A full sentence in a cased script must start with a capital letter. */
+/**
+ * A full sentence in a cased script must start with a capital letter.
+ *
+ * `isSentence` lets a caller that KNOWS the item's kind skip the shape
+ * heuristic. It guesses "sentence" at four words or a terminal mark, which is
+ * right for an editor pasting a list but wrong for a vocabulary item whose
+ * translation happens to be long ("to lie down on the couch").
+ */
 export function missingTargetCapitalization(
   target: string,
+  isSentence?: boolean,
 ): TranslationValidationWarning | null {
-  if (!isLikelySentence(target)) return null;
+  if (!(isSentence ?? isLikelySentence(target))) return null;
   if (!startsLowercase(target)) return null;
   return {
     code: "missing_target_capitalization",
@@ -270,8 +278,10 @@ export function validateTranslation(params: {
   target: string;
   fromLang: string;
   toLang: string;
+  /** Known item kind, when the caller has one. Overrides the shape heuristic. */
+  isSentence?: boolean;
 }): TranslationValidationWarning[] {
-  const { source, target, fromLang, toLang } = params;
+  const { source, target, fromLang, toLang, isSentence } = params;
   const warnings: TranslationValidationWarning[] = [];
   if (!target?.trim()) return warnings;
 
@@ -287,7 +297,7 @@ export function validateTranslation(params: {
   const register = registerMarkerMismatch(source, target, fromLang, toLang);
   if (register) warnings.push(register);
 
-  const capitalization = missingTargetCapitalization(target);
+  const capitalization = missingTargetCapitalization(target, isSentence);
   if (capitalization) warnings.push(capitalization);
 
   const article = missingArticleForNoun(source, target, fromLang, toLang);

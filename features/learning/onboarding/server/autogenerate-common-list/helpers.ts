@@ -27,7 +27,10 @@ export function getTextForSide(item: WordListItem, side: SourceSide) {
   return side === "known" ? item.textKnown : item.textTarget;
 }
 
-export function getLanguageForSide(list: WordList, side: SourceSide) {
+export function getLanguageForSide(
+  list: Pick<WordList, "languageFrom" | "languageTo">,
+  side: SourceSide,
+) {
   return normalizeLanguageCode(side === "known" ? list.languageFrom : list.languageTo);
 }
 
@@ -39,7 +42,11 @@ export function getResourceRank(code: string) {
   return RESOURCE_LANGUAGE_RANKS.get(getBaseLanguage(code)) ?? 100;
 }
 
-export function chooseSourceSide(seed: WordList, targetFrom: string, targetTo: string): SourceSide {
+export function chooseSourceSide(
+  seed: Pick<WordList, "languageFrom" | "languageTo">,
+  targetFrom: string,
+  targetTo: string,
+): SourceSide {
   const seedFrom = normalizeLanguageCode(seed.languageFrom);
   const seedTo = normalizeLanguageCode(seed.languageTo);
   if (seedFrom === targetFrom || seedFrom === targetTo) return "known";

@@ -159,6 +159,9 @@ export function usePreferences(
   const [learningLanguageTo, setLearningLanguageTo] = useState<string | null>(null);
   const [onboardingCompletedAt, setOnboardingCompletedAt] = useState<string | null>(null);
   const [categoryOrder, setCategoryOrderState] = useState<string[]>([]);
+  // Server-owned: written by a word-chat commit, never enqueued back as a
+  // preference. The client only reads it to order the study stream.
+  const [pinnedCategoryIds, setPinnedCategoryIdsState] = useState<string[]>([]);
 
   useEffect(() => {
     storeLearningLocalPreference(
@@ -428,6 +431,12 @@ export function usePreferences(
     setCategoryOrderState((prev) =>
       areStringArraysEqual(prev, nextCategoryOrder) ? prev : nextCategoryOrder
     );
+    const nextPinned = Array.isArray(user.pinned_category_ids)
+      ? user.pinned_category_ids.filter((id): id is string => typeof id === 'string')
+      : [];
+    setPinnedCategoryIdsState((prev) =>
+      areStringArraysEqual(prev, nextPinned) ? prev : nextPinned
+    );
   }, []);
 
   useEffect(() => {
@@ -542,6 +551,7 @@ export function usePreferences(
     setStudyNoteMinimizeFromStage,
     categoryOrder,
     setCategoryOrder,
+    pinnedCategoryIds,
     settingsLanguage,
     settingsLanguageSelectedAt,
     setSettingsLanguage,

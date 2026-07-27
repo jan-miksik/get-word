@@ -40,6 +40,8 @@ interface TopMenuProps {
   photoLabEnabled?: boolean;
   /** Active school membership; drives the school row and the teacher dashboard link. */
   school?: SchoolMembership | null;
+  /** Opens the word chat in place. Falls back to a full page load when absent. */
+  onOpenWordChat?: () => void;
 }
 
 function shortenListName(name: string): string {
@@ -305,6 +307,7 @@ interface MenuDropdownProps {
   activeListLanguagePair?: { from: string; to: string } | null;
   photoLabEnabled?: boolean;
   school?: SchoolMembership | null;
+  onOpenWordChat?: () => void;
 }
 
 function MenuDropdown({
@@ -318,6 +321,7 @@ function MenuDropdown({
   activeListLanguagePair,
   photoLabEnabled,
   school,
+  onOpenWordChat,
 }: MenuDropdownProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -359,6 +363,22 @@ function MenuDropdown({
           },
         ]
       : []),
+    {
+      kind: 'action',
+      icon: <WordListsIcon size={15} />,
+      label: t('wordChat.addWords'),
+      // An in-app action, not a link: the learning page reads `?wordChat=1` once
+      // on mount, so a client-side navigation to it from inside the app changes
+      // the URL and nothing else. The URL stays as the fallback for hosts that
+      // do not own the flow (and for a fresh load).
+      onSelect: () => {
+        if (onOpenWordChat) {
+          onOpenWordChat();
+          return;
+        }
+        window.location.assign('/?onboarding=1&wordChat=1');
+      },
+    },
     {
       kind: 'panel',
       icon: <TuneIcon size={15} />,
@@ -562,6 +582,7 @@ export function TopMenu({
   activeListLanguagePair,
   photoLabEnabled,
   school,
+  onOpenWordChat,
 }: TopMenuProps) {
   return (
     <div className="top-menu" aria-label="Top menu">
@@ -585,6 +606,7 @@ export function TopMenu({
           activeListLanguagePair={activeListLanguagePair}
           photoLabEnabled={photoLabEnabled}
           school={school}
+          onOpenWordChat={onOpenWordChat}
         />
       </div>
     </div>

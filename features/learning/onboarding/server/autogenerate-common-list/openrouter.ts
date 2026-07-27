@@ -144,7 +144,7 @@ function buildSeedPrompt(input: {
   languageFrom: string;
   languageTo: string;
   sourceLanguage: string;
-  sourceList: WordList;
+  sourceList: Pick<WordList, "name">;
   items: SeedSourceItem[];
 }) {
   return `
@@ -471,7 +471,7 @@ export async function generateFromOpenRouterSeed(input: {
   languageFrom: string;
   languageTo: string;
   sourceLanguage: string;
-  sourceList: WordList;
+  sourceList: Pick<WordList, "name">;
   sourceItems: SeedSourceItem[];
 }) {
   const generated: GeneratedCommonItem[] = [];

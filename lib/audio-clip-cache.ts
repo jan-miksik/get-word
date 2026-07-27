@@ -1,6 +1,8 @@
 'use client';
 
-// Optional IndexedDB cache for editor audio clips, keyed by content hash.
+// Optional IndexedDB cache for audio clips, keyed by content hash. Shared by the
+// list editor's audio step and the word chat's review step — one store, so a clip
+// generated in either place plays instantly in the other.
 //
 // This is a best-effort accelerator, never a dependency: IndexedDB may be
 // unavailable or blocked (private mode, restrictive/enterprise browsers, storage

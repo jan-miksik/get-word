@@ -96,6 +96,7 @@ type SyncUserShape = {
   onboardingCompletedAt?: Date | string | null;
   gameScore: number | null;
   categoryOrder?: string[] | null;
+  pinnedCategoryIds?: string[] | null;
   walletAddress: string | null;
   email: string | null;
   authProvider: string | null;
@@ -184,6 +185,8 @@ function buildSyncUser(user: SyncUserShape) {
       : null,
     game_score: user.gameScore ?? 0,
     category_order: user.categoryOrder ?? [],
+    // Server-owned: set by a word-chat commit, read-only on the client.
+    pinned_category_ids: user.pinnedCategoryIds ?? [],
     wallet_address: user.walletAddress ?? null,
     email: user.email ?? null,
     auth_provider: user.authProvider ?? null,

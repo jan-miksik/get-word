@@ -241,13 +241,22 @@ function applyWhitespaceFixes(text: string, lang: string): { value: string; fixe
 export function polishPair(
   source: PolishFieldInput,
   target: PolishFieldInput,
+  options?: {
+    /**
+     * Override the sentence/word guess when the caller actually knows. The
+     * word chat does: it asked for N sentences and M words and keeps that on
+     * each item, so it should not be second-guessed by a shape heuristic.
+     */
+    isSentence?: boolean;
+  },
 ): PolishPairResult {
   const cleanedSource = applyWhitespaceFixes(source.text, source.lang);
   const cleanedTarget = applyWhitespaceFixes(target.text, target.lang);
 
   const pairIsSentence =
-    isAuthoredSentence(cleanedSource.value, source.lang) ||
-    isAuthoredSentence(cleanedTarget.value, target.lang);
+    options?.isSentence ??
+    (isAuthoredSentence(cleanedSource.value, source.lang) ||
+      isAuthoredSentence(cleanedTarget.value, target.lang));
 
   return {
     source: polishField(source, cleanedSource, {

@@ -18,6 +18,8 @@ interface UseLearningPageStateOptions {
   viewMode: ViewMode;
   minigameFrequency: MinigameFrequencyRange;
   categoryOrder: string[];
+  /** Categories whose words lead the stream; server-owned, see lib/words.ts. */
+  pinnedCategoryIds?: string[];
   dueTimerRevision?: number;
   typingModeEnabled?: boolean;
   tiltGameEnabled?: boolean;
@@ -78,6 +80,7 @@ export function useLearningPageState({
   isHydrated,
   minigameFrequency,
   categoryOrder,
+  pinnedCategoryIds,
   dueTimerRevision = 0,
   typingModeEnabled = false,
   tiltGameEnabled = false,
@@ -114,14 +117,18 @@ export function useLearningPageState({
     [activeWords, selectedCategories]
   );
 
-  const { dueWords, newWords, settlingWords } = useWordStream(
+  const { priorityWords, priorityDueCount, dueWords, newWords, settlingWords } = useWordStream(
     filteredWords,
     progress,
     isHydrated,
     categoryOrder,
     dueTimerRevision,
+    pinnedCategoryIds,
   );
-  const readyCount = dueWords.length;
+  // "Review due" means repeats. The learner's own words lead the stream, but a
+  // word they have never studied is not something to review, so only the pinned
+  // words that are genuinely due count here.
+  const readyCount = priorityDueCount + dueWords.length;
 
   const learnedPool = useMemo(
     () => filteredWords.filter((word) => (progress[word.id]?.stageIndex ?? 0) > 0),
@@ -133,6 +140,7 @@ export function useLearningPageState({
   );
 
   const { streamGroupedWords } = useLearningStreamGroups({
+    priorityWords,
     dueWords,
     newWords,
     settlingWords,

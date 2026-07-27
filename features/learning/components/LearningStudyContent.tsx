@@ -20,6 +20,8 @@ interface LearningStudyContentProps {
   school?: SchoolMembership | null;
   authAddress?: string;
   onSignOut: () => void | Promise<void>;
+  /** Opens the word chat from the menu, in place. */
+  onOpenWordChat?: () => void;
   categories: Array<{ name: string; count: number }>;
   progressStats: ProgressStats;
   phrasesCallbackRef: (node: HTMLElement | null) => void;
@@ -58,6 +60,7 @@ export function LearningStudyContent({
   school,
   authAddress,
   onSignOut,
+  onOpenWordChat,
   categories,
   progressStats,
   phrasesCallbackRef,
@@ -90,6 +93,7 @@ export function LearningStudyContent({
       school={school}
       authAddress={authAddress}
       onSignOut={onSignOut}
+      onOpenWordChat={onOpenWordChat}
       categories={categories}
       progressStats={progressStats}
     >

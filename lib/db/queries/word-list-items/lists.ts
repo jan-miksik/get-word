@@ -14,13 +14,18 @@ export async function getUserLists(userId: string): Promise<WordList[]> {
   // owned ∪ public ∪ subscribed (including private lists joined via a share
   // link). The subscribed clause is what lets a shared private list render in
   // the sidebar — it has no row in the owned/public sets.
+  //
+  // Personal word-chat lists are excluded from the PUBLIC clause only: their
+  // owner still sees them (owned clause) and anyone who deliberately subscribed
+  // still sees them (subscribed clause), but a public personal list must never
+  // land in every other user's sidebar just for being public.
   return db
     .select()
     .from(wordLists)
     .where(
       or(
         eq(wordLists.ownerId, userId),
-        eq(wordLists.isPublic, true),
+        and(eq(wordLists.isPublic, true), eq(wordLists.isPersonal, false)),
         inArray(
           wordLists.id,
           db
@@ -55,7 +60,12 @@ export async function getUserListsByLanguagePair(
             inArray(wordLists.languageTo, fromVariants),
           ),
         ),
-        or(eq(wordLists.ownerId, userId), eq(wordLists.isPublic, true)),
+        // Same rule as getUserLists: someone else's personal list is not a
+        // "matching list for this language pair", even when it is public.
+        or(
+          eq(wordLists.ownerId, userId),
+          and(eq(wordLists.isPublic, true), eq(wordLists.isPersonal, false)),
+        ),
       ),
     );
 }

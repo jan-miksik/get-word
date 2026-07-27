@@ -50,7 +50,8 @@ vi.mock('../rate-limit', () => ({
   reservePhotoLabAudioRateLimit: mocks.reservePhotoLabAudioRateLimit,
 }));
 
-import { generatePhotoLabAudio, pickVoiceForText } from '../audio';
+import { generatePhotoLabAudio } from '../audio';
+import { pickVoiceForText } from '@/lib/tts-voice-mix';
 
 describe('pickVoiceForText', () => {
   it('is deterministic and returns "default" without voices', () => {

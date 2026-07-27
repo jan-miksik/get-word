@@ -23,8 +23,8 @@ import { useDueTimer } from '@/hooks/useDueTimer';
 import { useAuth } from '@/features/auth/client/useAuth';
 import { AppStateProvider } from '@/context/AppStateContext';
 import { I18nProvider } from '@/components/I18nProvider';
-import { AutoLanguageSetup } from '@/features/learning/onboarding/AutoLanguageSetup';
 import { LearningLanguageOnboarding } from '@/features/learning/onboarding/LearningLanguageOnboarding';
+import { AddWordsScreen } from '@/features/word-chat/components/AddWordsScreen';
 import {
   readLandingLanguagePair,
   markLandingLanguagePairConsumed,
@@ -32,6 +32,7 @@ import {
 import { MemoryHooksIntroCard } from '@/features/learning/components/MemoryHooksIntroCard';
 import { PWAInstallIntroCard } from '@/features/learning/components/PWAInstallIntroCard';
 import { usePWAInstallIntro } from '@/features/learning/hooks/usePWAInstallIntro';
+import { refreshListsAfterCommit } from '@/lib/sync';
 
 const BOOT_LOADING_TIMEOUT_MS = 12_000;
 
@@ -53,13 +54,19 @@ export function HomeClient() {
   // always the LoadingScreen on both server and client, so this value never
   // participates in the hydrated tree.
   const [forceOnboarding, setForceOnboarding] = useState(
+    () => {
+      if (typeof window === 'undefined') return false;
+      const params = new URLSearchParams(window.location.search);
+      return params.get('onboarding') === '1' || params.get('wordChat') === '1';
+    }
+  );
+  const [forceWordChat, setForceWordChat] = useState(
     () =>
       typeof window !== 'undefined' &&
-      new URLSearchParams(window.location.search).get('onboarding') === '1'
+      new URLSearchParams(window.location.search).get('wordChat') === '1',
   );
   const [completedDeckWordCards, setCompletedDeckWordCards] = useState(0);
   const [memoryHooksIntroDismissedForSession, setMemoryHooksIntroDismissedForSession] = useState(false);
-  const [autoSetupFailed, setAutoSetupFailed] = useState(false);
   const [landingLanguagePair] = useState(() =>
     typeof window !== 'undefined' ? readLandingLanguagePair() : null,
   );
@@ -114,6 +121,7 @@ export function HomeClient() {
     getSuggestedMemoryHook,
     lastMovedId,
     categoryOrder,
+    pinnedCategoryIds,
     isHydrated,
     isInitialServerSyncPending,
     isLinkingWallet,
@@ -244,6 +252,7 @@ export function HomeClient() {
     viewMode,
     minigameFrequency,
     categoryOrder,
+    pinnedCategoryIds,
     dueTimerRevision,
     typingModeEnabled,
     tiltGameEnabled,
@@ -394,12 +403,23 @@ export function HomeClient() {
       learningLanguageTo &&
       subscribedLists.length === 0
   );
+  // "Add words" from the app menu: same chat, different screen. Someone who is
+  // already studying has answered everything onboarding asks, so they get the
+  // chat alone rather than the whole first-run flow around it.
+  const showAddWords = Boolean(
+    forceWordChat &&
+      onboardingCompletedAt &&
+      learningLanguageFrom &&
+      learningLanguageTo &&
+      !hasNoSelectedWordList
+  );
   const needsLanguageOnboarding = Boolean(
-    forceOnboarding ||
-      hasNoSelectedWordList ||
-      !onboardingCompletedAt ||
-      !learningLanguageFrom ||
-      !learningLanguageTo
+    !showAddWords &&
+      (forceOnboarding ||
+        hasNoSelectedWordList ||
+        !onboardingCompletedAt ||
+        !learningLanguageFrom ||
+        !learningLanguageTo)
   );
   const landingPairFrom = landingLanguagePair?.from ?? null;
   const landingPairTo = landingLanguagePair?.to ?? null;
@@ -408,24 +428,22 @@ export function HomeClient() {
       landingPairTo &&
       landingPairFrom !== landingPairTo
   );
-  const shouldAutoSetupLandingPair = Boolean(
+  const shouldOpenWordChatFromLandingPair = Boolean(
     needsLanguageOnboarding &&
       hasCompleteLandingPair &&
       landingLanguagePair?.wantsOwnList !== true &&
       landingLanguagePair?.consumed !== true &&
-      !autoSetupFailed &&
       !forceOnboarding
   );
   const onboardingInitialFrom = learningLanguageFrom ?? landingPairFrom;
   const onboardingInitialTo = learningLanguageTo ?? landingPairTo;
 
-  // The streamlined post-login auto-setup fires only once: as soon as we commit to
-  // it, flag the stored pair consumed so a refresh before onboarding finishes falls
-  // back to the pre-filled language-onboarding screen instead of silently
-  // restarting the multi-minute list generation.
+  // The landing-page hand-off fires only once: as soon as we act on it, flag the
+  // stored pair consumed so a later refresh lands on the normal pre-filled
+  // language screen instead of jumping the learner back into the chat.
   useEffect(() => {
-    if (shouldAutoSetupLandingPair) markLandingLanguagePairConsumed();
-  }, [shouldAutoSetupLandingPair]);
+    if (shouldOpenWordChatFromLandingPair) markLandingLanguagePairConsumed();
+  }, [shouldOpenWordChatFromLandingPair]);
 
   return (
     <AppStateProvider value={appState}>
@@ -445,15 +463,23 @@ export function HomeClient() {
           <LoadingScreen />
         ) : isListRefreshPending ? (
           <LoadingScreen />
-        ) : shouldAutoSetupLandingPair && landingPairFrom && landingPairTo ? (
-          <AutoLanguageSetup
-            initialFrom={landingPairFrom}
-            initialTo={landingPairTo}
-            onComplete={async (from, to) => {
-              await setLearningLanguages(from, to);
+        ) : showAddWords ? (
+          <AddWordsScreen
+            languageFrom={learningLanguageFrom as string}
+            languageTo={learningLanguageTo as string}
+            onClose={() => {
+              setForceWordChat(false);
+              setForceOnboarding(false);
             }}
-            onSelectList={setActiveListId}
-            onFallbackToOnboarding={() => setAutoSetupFailed(true)}
+            onCommitted={async (result) => {
+              setActiveListId(result.listId);
+              // The commit went through its own endpoint, so pull a fresh
+              // snapshot before dropping back into the study view — otherwise
+              // the new category is invisible until an unrelated refetch.
+              await refreshListsAfterCommit();
+              setForceWordChat(false);
+              setForceOnboarding(false);
+            }}
           />
         ) : needsLanguageOnboarding ? (
           <LearningLanguageOnboarding
@@ -461,12 +487,21 @@ export function HomeClient() {
             initialTo={onboardingInitialTo}
             accountEmail={displayEmail}
             onSignOut={signOut}
-            reason={
-              hasNoSelectedWordList ||
-              autoSetupFailed ||
-              (hasCompleteLandingPair && landingLanguagePair?.wantsOwnList)
-                ? 'customList'
-                : 'onboarding'
+            // Someone who already chose their languages on the landing page has
+            // answered the only question this screen asks, so skip straight to
+            // the word chat instead of showing the pickers again. It is the same
+            // destination as pressing Continue — the landing page just gets
+            // there in one step.
+            autoOpenWordChat={shouldOpenWordChatFromLandingPair || forceWordChat}
+            // Only someone who is already set up can walk away from this screen;
+            // for everyone else it is the required first step.
+            onExit={
+              hasNoSelectedWordList || !onboardingCompletedAt
+                ? undefined
+                : () => {
+                    setForceWordChat(false);
+                    setForceOnboarding(false);
+                  }
             }
             onComplete={async (from, to) => {
               await setLearningLanguages(from, to);
@@ -475,6 +510,7 @@ export function HomeClient() {
                 // Drop the `?onboarding=1` param so a refresh doesn't replay it.
                 const url = new URL(window.location.href);
                 url.searchParams.delete('onboarding');
+                url.searchParams.delete('wordChat');
                 window.history.replaceState(null, '', url.toString());
               }
             }}
@@ -492,6 +528,13 @@ export function HomeClient() {
             school={school}
             authAddress={displayAddress}
             onSignOut={signOut}
+            // "Add words" from the menu. The `?wordChat=1` params are read once,
+            // on mount, so switching here in state is what actually opens the
+            // chat for someone already inside the app.
+            onOpenWordChat={() => {
+              setForceWordChat(true);
+              setForceOnboarding(true);
+            }}
             categories={categories}
             progressStats={progressStats}
             phrasesCallbackRef={phrasesCallbackRef}

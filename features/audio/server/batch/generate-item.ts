@@ -39,6 +39,11 @@ export type GenerateItemContext = {
   encryptedKey: string | null;
   audioField: AudioField;
   force: boolean;
+  /**
+   * Draft flows can generate into the shared media pool before a word-list item
+   * exists. In that case return the asset but do not try to update a fake item id.
+   */
+  linkToItem?: boolean;
 };
 
 function hasUsableArweaveRef(
@@ -195,6 +200,7 @@ export async function generateAudioForItem(
   ctx: GenerateItemContext,
 ): Promise<{ result: GeneratedResult; quotaExhausted?: string }> {
   const { provider, encryptedKey, audioField, force } = ctx;
+  const linkToItem = ctx.linkToItem !== false;
   const voiceId = itemVoiceId ?? ctx.voiceId;
   const audioFieldPatch = audioField === "known" ? { audioField } : {};
   const requestedVoiceLabel = voiceId?.trim();
@@ -246,14 +252,16 @@ export async function generateAudioForItem(
     }
 
     if (!result) {
-      await batchLinkAudioToItems([
-        {
-          itemId: item.id,
-          audioAssetId: null,
-          audioStatus: "failed",
-          ...audioFieldPatch,
-        },
-      ]);
+      if (linkToItem) {
+        await batchLinkAudioToItems([
+          {
+            itemId: item.id,
+            audioAssetId: null,
+            audioStatus: "failed",
+            ...audioFieldPatch,
+          },
+        ]);
+      }
       return {
         result: {
           itemId: item.id,
@@ -335,14 +343,16 @@ export async function generateAudioForItem(
       ? await upsertMediaAsset(mediaAssetData)
       : await createMediaAsset(mediaAssetData);
 
-    await batchLinkAudioToItems([
-      {
-        itemId: item.id,
-        audioAssetId: asset.id,
-        audioStatus: "ready",
-        ...audioFieldPatch,
-      },
-    ]);
+    if (linkToItem) {
+      await batchLinkAudioToItems([
+        {
+          itemId: item.id,
+          audioAssetId: asset.id,
+          audioStatus: "ready",
+          ...audioFieldPatch,
+        },
+      ]);
+    }
 
     return {
       result: {
@@ -381,14 +391,16 @@ export async function generateAudioForItem(
       detail,
       error: err instanceof Error ? err.message : err,
     });
-    await batchLinkAudioToItems([
-      {
-        itemId: item.id,
-        audioAssetId: null,
-        audioStatus: "failed",
-        ...audioFieldPatch,
-      },
-    ]);
+    if (linkToItem) {
+      await batchLinkAudioToItems([
+        {
+          itemId: item.id,
+          audioAssetId: null,
+          audioStatus: "failed",
+          ...audioFieldPatch,
+        },
+      ]);
+    }
     return {
       result: {
         itemId: item.id,

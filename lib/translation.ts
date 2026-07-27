@@ -5,7 +5,12 @@
 
 import { getProviderSecret } from "@/lib/providers/store";
 import { DEFAULT_OPENROUTER_TRANSLATION_MODEL } from "@/lib/openrouter-models";
-import { callOpenRouterChatParsed, OpenRouterChatError, parseJsonLoose } from "@/lib/openrouter-chat";
+import {
+  callOpenRouterChatParsedWithMeta,
+  OpenRouterChatError,
+  parseJsonLoose,
+  type OpenRouterChatMeta,
+} from "@/lib/openrouter-chat";
 import {
   buildOpenRouterTranslationPrompt,
   TRANSLATION_SYSTEM_PROMPT,
@@ -125,6 +130,7 @@ export async function openRouterTranslate(
   toLang: string,
   apiKey: string,
   model = DEFAULT_OPENROUTER_TRANSLATION_MODEL,
+  onMeta?: (meta: OpenRouterChatMeta) => void,
 ): Promise<TranslationResult[]> {
   const results: TranslationResult[] = [];
   // Larger batches give the model more of the list at once (helps teaching-anchor
@@ -151,7 +157,7 @@ export async function openRouterTranslate(
       // BYOK models vary in structured-output support, so we don't force a
       // response_format and instead parse the JSON robustly. Index alignment
       // (with a text fallback) avoids collapsing duplicate source words.
-      const { byIndex, byText } = await callOpenRouterChatParsed(
+      const { value: { byIndex, byText }, meta } = await callOpenRouterChatParsedWithMeta(
         {
           apiKey,
           model,
@@ -190,6 +196,7 @@ export async function openRouterTranslate(
           return { byIndex, byText };
         },
       );
+      onMeta?.(meta);
 
       batch.forEach((text, idx) => {
         const key = text.toLowerCase().trim();

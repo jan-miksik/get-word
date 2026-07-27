@@ -23,7 +23,7 @@ import {
   getClip,
   hashFromAudioUrl,
   putClip,
-} from '@/features/lists/audio-step/audioBlobStore';
+} from '@/lib/audio-clip-cache';
 
 function base64ToBlob(base64: string, contentType: string): Blob {
   const binary = atob(base64);

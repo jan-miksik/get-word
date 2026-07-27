@@ -337,6 +337,13 @@
       "when": 1784851200000,
       "tag": "0047_photo_analysis_events",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "7",
+      "when": 1784937600000,
+      "tag": "0048_word_chat_personal_lists",
+      "breakpoints": true
     }
   ]
 }

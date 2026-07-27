@@ -14,7 +14,7 @@ import {
 } from '@/features/learning/minigames';
 import { STAGES, type NormalizedWord } from '@/lib/words';
 
-type SegmentKind = 'repeat' | 'settling' | 'new';
+type SegmentKind = 'priority' | 'repeat' | 'settling' | 'new';
 
 type SegmentPlan = {
   resetKey: string;
@@ -27,6 +27,7 @@ type SegmentPlan = {
 
 function emptySegmentPlans(): Record<SegmentKind, SegmentPlan | null> {
   return {
+    priority: null,
     repeat: null,
     settling: null,
     new: null,
@@ -50,6 +51,8 @@ class SegmentPlanCache {
 }
 
 type UseLearningStreamGroupsArgs = {
+  /** The learner's own pinned-category words; served before due repeats. */
+  priorityWords: NormalizedWord[];
   dueWords: NormalizedWord[];
   newWords: NormalizedWord[];
   settlingWords: NormalizedWord[];
@@ -68,6 +71,7 @@ type UseLearningStreamGroupsArgs = {
 };
 
 export function useLearningStreamGroups({
+  priorityWords,
   dueWords,
   newWords,
   settlingWords,
@@ -87,8 +91,8 @@ export function useLearningStreamGroups({
   const [planCache] = useState(() => new SegmentPlanCache());
 
   const combined = useMemo(
-    () => [...dueWords, ...(showNotReady ? settlingWords : []), ...newWords],
-    [dueWords, settlingWords, newWords, showNotReady],
+    () => [...priorityWords, ...dueWords, ...(showNotReady ? settlingWords : []), ...newWords],
+    [priorityWords, dueWords, settlingWords, newWords, showNotReady],
   );
 
   // Key the exclusion by value so a fresh array identity per render doesn't
@@ -123,6 +127,7 @@ export function useLearningStreamGroups({
           .join(',')}`;
 
         const segmentSeed = (kind: SegmentKind) => {
+          if (kind === 'priority') return minigameSeed + 30013;
           if (kind === 'repeat') return minigameSeed;
           if (kind === 'settling') return minigameSeed + 10007;
           return minigameSeed + 20011;
@@ -195,6 +200,7 @@ export function useLearningStreamGroups({
         };
 
         wordStream = [
+          ...injectSegment('priority', priorityWords),
           ...injectSegment('repeat', dueWords),
           ...injectSegment('settling', showNotReady ? settlingWords : []),
           ...injectSegment('new', newWords),
@@ -212,7 +218,11 @@ export function useLearningStreamGroups({
       wordStream = enforceMinigameMinGap(wordStream, minigameFrequency.min);
     }
 
-    const repeatCount = dueWords.length + (showNotReady ? settlingWords.length : 0);
+    // Priority words head the "ready now" group: they are what the learner just
+    // asked for, so burying them under a "new words" heading would defeat the
+    // point of prioritising them at all.
+    const repeatCount =
+      priorityWords.length + dueWords.length + (showNotReady ? settlingWords.length : 0);
     let wordsSeen = 0;
     for (const item of wordStream) {
       if (!('_isMinigame' in item)) wordsSeen += 1;
@@ -236,6 +246,7 @@ export function useLearningStreamGroups({
     minigameSeed,
     newWords,
     planCache,
+    priorityWords,
     progressPlanRevision,
     selectedCategoriesKey,
     settlingWords,

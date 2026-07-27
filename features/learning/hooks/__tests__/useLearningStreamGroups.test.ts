@@ -20,6 +20,7 @@ function games(groups: ReturnType<typeof useLearningStreamGroups>['streamGrouped
 }
 
 const baseArgs = {
+  priorityWords: [] as NormalizedWord[],
   dueWords: [] as NormalizedWord[],
   newWords: words,
   settlingWords: [] as NormalizedWord[],

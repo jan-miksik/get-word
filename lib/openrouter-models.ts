@@ -24,10 +24,16 @@ export const OPENROUTER_TRANSLATION_MODELS = [
     note: "Fast high-volume extraction",
   },
   {
+    id: "anthropic/claude-opus-5",
+    name: "Claude Opus 5",
+    price: "$5/M input, $25/M output",
+    note: "Strongest quality for difficult lists",
+  },
+  {
     id: "anthropic/claude-opus-4.8",
     name: "Claude Opus 4.8",
     price: "$5/M input, $25/M output",
-    note: "Premium fallback for difficult lists",
+    note: "Previous Opus generation",
   },
   {
     id: "openai/gpt-5.6-luna",

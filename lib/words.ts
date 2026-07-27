@@ -21,6 +21,11 @@ export interface NormalizedWord extends Word {
   id: string;
   category: string[];
   categoryPositions?: Record<string, number>;
+  /**
+   * Stable category id. Used for study priority — ids, not names, because names
+   * are editable, repeat across lists, and differ per language.
+   */
+  categoryId?: string | null;
   listPosition?: number;
   listId?: string;
   canonicalWordId?: string | null;
@@ -222,6 +227,26 @@ export function createWordCategoryOrderComparer(categoryOrder: string[] = []) {
   };
 }
 
+/**
+ * The single place that decides study priority.
+ *
+ * Words the learner created for themselves through the word chat lead the
+ * stream — ahead even of due repeats — because someone who just talked about
+ * their café job expects to practise those words now, not in three days. That
+ * is a deliberate product bet against textbook spaced repetition, and it is
+ * kept in one function so it can be measured and changed in one place.
+ *
+ * The likely successor is a decaying `priorityScore` (high on creation, fading
+ * over a week or two) rather than a permanent boolean pin. Replacing the
+ * predicate below is all that would take.
+ */
+export function createPriorityPredicate(pinnedCategoryIds: readonly string[] = []) {
+  const pinned = new Set(pinnedCategoryIds);
+  if (pinned.size === 0) return () => false;
+  return (word: NormalizedWord): boolean =>
+    Boolean(word.categoryId && pinned.has(word.categoryId));
+}
+
 export function matchesCategoryFilter(word: NormalizedWord, selectedCategories: Set<string>): boolean {
   const filterableCategories = word.category.filter((cat) => cat !== "word" && cat !== "phrase");
   if (filterableCategories.length === 0) {
@@ -357,6 +382,7 @@ export function wordListItemsToNormalizedWords(
           catName && typeof catPosition === 'number' && Number.isFinite(catPosition)
             ? { [catName]: catPosition }
             : undefined,
+        categoryId: item.categoryId ?? null,
         listPosition: item.position,
         cz,
         en,

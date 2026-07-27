@@ -37,6 +37,8 @@ interface AppLayoutProps {
   accountSlotOverride?: ReactNode;
   /** Active school membership, surfaced in the menu. */
   school?: SchoolMembership | null;
+  /** Opens the word chat from the menu without a full page load. */
+  onOpenWordChat?: () => void;
   // Page-computed values (differ between main and edit page)
   categories: Array<{ name: string; count: number }>;
   progressStats: ProgressStats;
@@ -55,6 +57,7 @@ export function AppLayout({
   onSignOut,
   accountSlotOverride,
   school,
+  onOpenWordChat,
   categories,
   progressStats,
   header,
@@ -141,6 +144,7 @@ export function AppLayout({
           activeListLanguagePair={activeListLanguagePair}
           photoLabEnabled={photoLabEnabled}
           school={school}
+          onOpenWordChat={onOpenWordChat}
           centerContent={
             isAuthenticated
               ? <ProgressSummary progressStats={progressStats} />

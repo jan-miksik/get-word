@@ -326,6 +326,27 @@ export async function syncUserData(
   return result;
 }
 
+/**
+ * Pull one full snapshot and feed it through the normal server-sync listener.
+ *
+ * Needed after any write that creates or subscribes a list: those go through
+ * their own endpoints, and the `/api/sync` POST returns an ack only, so the
+ * client's `subscribedLists` would not include the new list until an unrelated
+ * refocus triggered a refetch — leaving the app on the onboarding gate with an
+ * empty list set. Non-fatal on failure: a later focus/visibility/online refetch
+ * reconciles eventually.
+ */
+export async function refreshListsAfterCommit(): Promise<void> {
+  try {
+    const fresh = await fetchUserData();
+    if (typeof window !== "undefined" && fresh?.success) {
+      window.dispatchEvent(new CustomEvent("get-word:server-sync", { detail: fresh }));
+    }
+  } catch (err) {
+    console.error("[sync] Failed to refresh lists after commit:", err);
+  }
+}
+
 // Debounced sync helper
 let syncTimeout: number | null = null;
 let pendingPromise: Promise<void> | null = null;

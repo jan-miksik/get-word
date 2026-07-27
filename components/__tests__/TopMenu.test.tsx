@@ -55,6 +55,27 @@ describe('TopMenu', () => {
     expect(screen.queryByRole('menuitem', { name: /^progress$/i })).not.toBeInTheDocument();
   });
 
+  it('opens the word chat in place from the app menu', () => {
+    // A link would only change the URL: the learning page reads `?wordChat=1`
+    // once on mount, so an in-app navigation to it does nothing visible.
+    const onOpenWordChat = vi.fn();
+    render(
+      <TopMenu
+        showAll={false}
+        onShowAll={vi.fn()}
+        onMenuAction={vi.fn()}
+        categoryCount={0}
+        categoryActive={false}
+        onOpenWordChat={onOpenWordChat}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /open menu/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Add words/i }));
+
+    expect(onOpenWordChat).toHaveBeenCalledTimes(1);
+  });
+
   it('confirms school membership and links teachers to the dashboard', () => {
     render(
       <TopMenu

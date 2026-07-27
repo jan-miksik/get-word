@@ -12,6 +12,7 @@ import {
 import { AUDIO_FORMAT } from "@/features/audio/server/batch/types";
 import { runGoogleTtsWithRetry } from "@/lib/google-tts-rate-limit";
 import { getGoogleChirp3HdVoices } from "@/lib/language-catalog";
+import { pickVoiceForText } from "@/lib/tts-voice-mix";
 import {
   getActiveObjectStorageProvider,
   objectKeyForHash,
@@ -25,21 +26,6 @@ const DEFAULT_VOICE_ID = "default";
 
 export type PhotoLabAudioItem = { id: string; text: string };
 export type PhotoLabAudioResult = { id: string; hash: string | null };
-
-/**
- * Deterministic voice per word: the same text always maps to the same
- * Chirp3-HD voice, so clips stay cacheable across users and sessions while the
- * overall photo still gets a mix of voices. FNV-1a keeps it dependency-free.
- */
-export function pickVoiceForText(text: string, voices: string[]): string {
-  if (voices.length === 0) return DEFAULT_VOICE_ID;
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) {
-    hash ^= text.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return voices[(hash >>> 0) % voices.length];
-}
 
 /**
  * Generate (or find) TTS audio for photo-lab labels. Items are grouped by

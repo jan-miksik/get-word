@@ -1,0 +1,285 @@
+import { findExistingTranslations } from "@/lib/db";
+import { openRouterTranslate } from "@/lib/translation";
+import { OpenRouterChatError } from "@/lib/openrouter-chat";
+import { normalizeLanguageCode } from "@/lib/i18n/languages";
+import { DailyLimitError, reserveDailyBuckets } from "@/lib/rate-limit/daily-bucket";
+import { validateTranslation } from "@/lib/translation-validate";
+import { polishPair } from "@/lib/formatting-polish";
+import {
+  TRANSLATION_SYSTEM_PROMPT,
+  buildOpenRouterTranslationPrompt,
+} from "@/lib/translation-prompt";
+import {
+  MAX_ITEMS_PER_SESSION,
+  SESSIONS_PER_DAY,
+  EDITOR_SESSIONS_PER_DAY,
+  WORD_CHAT_TRANSLATION_MODEL,
+  getServerApiKey,
+} from "./config";
+import { WordChatUnavailableError } from "./chat";
+import { loadCorpusItems } from "./corpus";
+import { buildCallDiagnostics, type WordChatCallDiagnostics } from "./diagnostics";
+import { recordWordChatUsage } from "./usage";
+import { getMonthlyItemUsage, type WordChatRole } from "./rate-limit";
+import type { ReviewItem } from "../types";
+
+/**
+ * Translation for word-chat runs on the donated server key, so it is metered
+ * here rather than exposed as a provider on the public `/api/translate/batch`
+ * route: an unmetered "use the donated key" provider on a general endpoint is
+ * free unlimited Opus for anyone who finds it.
+ *
+ * Re-translation during Review is normal (the learner edits a source line), so
+ * the daily allowance is a multiple of what one session's worth of items costs.
+ */
+const RETRANSLATE_ALLOWANCE = 3;
+
+function dailyTranslationBucket(userId: string, role: WordChatRole) {
+  const sessions = role === "editor" ? EDITOR_SESSIONS_PER_DAY : SESSIONS_PER_DAY;
+  return {
+    key: `word_chat:translate:user:${userId}`,
+    limit: sessions * MAX_ITEMS_PER_SESSION * RETRANSLATE_ALLOWANCE,
+    message: "You've translated a lot today. Please try again tomorrow.",
+  };
+}
+
+export type TranslatedRow = ReviewItem & {
+  /** Advisory quality warnings; never blocking, surfaced in the Review step. */
+  warnings: string[];
+  /** True when the pair came from an existing item instead of a model call. */
+  reused: boolean;
+};
+
+export type TranslationDiagnostics = WordChatCallDiagnostics;
+
+/**
+ * Translate a selected set into review rows.
+ *
+ * Everything travels in ONE batch — model proposals and learner-typed additions
+ * alike — so `buildOpenRouterTranslationPrompt`'s `previousPairs` context keeps
+ * anchors, register and parallel phrasing consistent across the whole set. A
+ * per-item call would lose exactly the consistency this set needs.
+ *
+ * Nothing is written to the database here. The rows are draft state until the
+ * learner confirms in Review.
+ */
+export async function translateSelection(input: {
+  userId: string;
+  role: WordChatRole;
+  sessionId: string;
+  languageFrom: string;
+  languageTo: string;
+  items: { kind: "sentence" | "word"; text: string; corpusItemId?: string }[];
+  /** Editor override from the debug panel; falls back to the configured model. */
+  model?: string;
+  /** Include the exact request in the diagnostics. Editors only. */
+  includeRequest?: boolean;
+}): Promise<{ rows: TranslatedRow[]; diagnostics: TranslationDiagnostics }> {
+  const apiKey = getServerApiKey();
+  if (!apiKey) throw new WordChatUnavailableError();
+
+  const model = input.model || WORD_CHAT_TRANSLATION_MODEL;
+  const startedAt = Date.now();
+
+  const languageFrom = normalizeLanguageCode(input.languageFrom);
+  const languageTo = normalizeLanguageCode(input.languageTo);
+
+  const items = input.items
+    .map((item) => ({ ...item, text: item.text.trim().replace(/\s+/g, " ") }))
+    .filter((item) => item.text)
+    .slice(0, MAX_ITEMS_PER_SESSION);
+  if (items.length === 0) {
+    return {
+      rows: [],
+      diagnostics: buildCallDiagnostics({
+        callType: "translation",
+        model,
+        startedAt,
+      }),
+    };
+  }
+
+  const monthlyUsage = await getMonthlyItemUsage({ userId: input.userId, role: input.role });
+  const remaining = Math.max(0, monthlyUsage.limit - monthlyUsage.used);
+  if (items.length > remaining) {
+    throw new DailyLimitError(
+      remaining > 0
+        ? `You have ${remaining} new words left this month. Select ${remaining} or fewer.`
+        : `You've reached this month's limit of ${monthlyUsage.limit} new words.`,
+    );
+  }
+
+  await reserveDailyBuckets([
+    { ...dailyTranslationBucket(input.userId, input.role), count: items.length },
+  ]);
+
+  // 1. Corpus rows arrive already translated AND already voiced. Free, and
+  //    human-reviewed wherever the pool is.
+  const corpusIds = items
+    .map((item) => item.corpusItemId)
+    .filter((id): id is string => Boolean(id));
+  const corpusItems = await loadCorpusItems([...new Set(corpusIds)]);
+
+  const resolved = new Map<string, TranslatedRow>();
+  const pending: typeof items = [];
+  let inputTokens = 0;
+  let outputTokens = 0;
+
+  for (const item of items) {
+    const corpusRow = item.corpusItemId ? corpusItems.get(item.corpusItemId) : undefined;
+    // Only trust the corpus row when the learner did not edit the text.
+    if (corpusRow?.textTarget && corpusRow.textKnown.trim() === item.text) {
+      resolved.set(item.text, {
+        kind: item.kind,
+        textKnown: item.text,
+        textTarget: corpusRow.textTarget,
+        corpusItemId: corpusRow.id,
+        audioAssetId: corpusRow.audioAssetId,
+        audioHash: corpusRow.audioHash,
+        knownAudioAssetId: corpusRow.knownAudioAssetId,
+        warnings: [],
+        reused: true,
+      });
+      continue;
+    }
+    pending.push(item);
+  }
+
+  // 2. Whatever is left may still exist elsewhere in the same direction.
+  if (pending.length > 0) {
+    const existing = await findExistingTranslations(
+      pending.map((item) => item.text),
+      "textKnown",
+      languageFrom,
+      languageTo,
+    );
+    const existingByText = new Map(existing.map((row) => [row.text, row.translatedText]));
+    for (let index = pending.length - 1; index >= 0; index -= 1) {
+      const item = pending[index];
+      const translated = existingByText.get(item.text);
+      if (!translated) continue;
+      resolved.set(item.text, {
+        kind: item.kind,
+        textKnown: item.text,
+        textTarget: translated,
+        warnings: [],
+        reused: true,
+      });
+      pending.splice(index, 1);
+    }
+  }
+
+  // 3. Only genuinely new text reaches the model.
+  if (pending.length > 0) {
+    try {
+      const results = await openRouterTranslate(
+        pending.map((item) => item.text),
+        languageFrom,
+        languageTo,
+        apiKey,
+        model,
+        (meta) => {
+          const promptTokens = Number(meta.usage?.prompt_tokens ?? 0);
+          const completionTokens = Number(meta.usage?.completion_tokens ?? 0);
+          if (Number.isFinite(promptTokens) && promptTokens > 0) inputTokens += promptTokens;
+          if (Number.isFinite(completionTokens) && completionTokens > 0) {
+            outputTokens += completionTokens;
+          }
+        },
+      );
+      pending.forEach((item, index) => {
+        const result = results[index];
+        const target = result?.translated?.trim() ?? "";
+        if (!target) return;
+
+        // Deterministic formatting first, warnings second: a missing capital or
+        // final period on a sentence is a thing we can just fix, and the item's
+        // own kind decides whether sentence rules apply at all — never the
+        // "does it look like a sentence" heuristic, which flags a word whose
+        // translation happens to run long.
+        const isSentence = item.kind === "sentence";
+        const polished = polishPair(
+          { text: item.text, lang: languageFrom },
+          { text: target, lang: languageTo },
+          { isSentence },
+        );
+
+        const validation = validateTranslation({
+          source: polished.source.fixed,
+          target: polished.target.fixed,
+          fromLang: languageFrom,
+          toLang: languageTo,
+          isSentence,
+        });
+        resolved.set(item.text, {
+          kind: item.kind,
+          textKnown: polished.source.fixed,
+          textTarget: polished.target.fixed,
+          warnings: validation.map((warning) => warning.message),
+          reused: false,
+        });
+      });
+    } catch (err) {
+      if (err instanceof OpenRouterChatError && err.isOutOfCredits) {
+        throw new WordChatUnavailableError(
+          "Translation is temporarily unavailable. Please try again later.",
+        );
+      }
+      throw err;
+    }
+  }
+
+  await recordWordChatUsage({
+    userId: input.userId,
+    sessionId: input.sessionId,
+    callType: "translation",
+    stage: "review_completed",
+    model,
+    meta: {
+      usage: {
+        prompt_tokens: inputTokens,
+        completion_tokens: outputTokens,
+      },
+    },
+    itemCount: pending.length,
+  });
+
+  // Preserve the learner's ordering; drop anything that failed to translate
+  // rather than showing an empty row they cannot act on.
+  const rows = items
+    .map((item) => resolved.get(item.text))
+    .filter((row): row is TranslatedRow => Boolean(row));
+
+  return {
+    rows,
+    diagnostics: buildCallDiagnostics({
+      callType: "translation",
+      model,
+      meta: { usage: { prompt_tokens: inputTokens, completion_tokens: outputTokens } },
+      startedAt,
+      // `openRouterTranslate` builds and batches its own prompts; rebuilding the
+      // first batch here is the honest way to show what was sent without
+      // reaching into its internals.
+      ...(input.includeRequest && pending.length > 0
+        ? {
+            request: {
+              maxTokens: 0,
+              provider: null,
+              messages: [
+                { role: "system", content: TRANSLATION_SYSTEM_PROMPT },
+                {
+                  role: "user",
+                  content: buildOpenRouterTranslationPrompt({
+                    texts: pending.map((item) => item.text),
+                    fromLang: languageFrom,
+                    toLang: languageTo,
+                    previousPairs: [],
+                  }),
+                },
+              ],
+            },
+          }
+        : {}),
+    }),
+  };
+}

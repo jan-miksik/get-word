@@ -153,6 +153,8 @@ export interface SyncResponse {
     auth_provider?: string | null;
     game_score?: number;
     category_order?: string[];
+    /** Categories whose words lead the study stream. Server-owned. */
+    pinned_category_ids?: string[];
   };
   progress: Record<
     string,
