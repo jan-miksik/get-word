@@ -38,6 +38,7 @@ export async function regenerateLearnerBrief(input: {
   previousBrief: LearnerBrief | null;
   messages: WordChatMessage[];
   committedTopic: string;
+  chatLanguage: string;
 }): Promise<LearnerBrief> {
   const fallback = withCoveredTopic(input.previousBrief, input.committedTopic);
 
@@ -49,6 +50,7 @@ export async function regenerateLearnerBrief(input: {
       previousBrief: input.previousBrief,
       messages: input.messages,
       committedTopic: input.committedTopic,
+      chatLanguage: input.chatLanguage,
     });
 
     const { value, meta } = await callOpenRouterChatParsedWithMeta(

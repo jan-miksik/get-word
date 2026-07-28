@@ -642,6 +642,8 @@ export const csMessages: I18nMessages = {
   "lists.toggleSidebar": "Přepnout boční panel",
   "lists.audioTarget": "Zvuk - cizí jazyk",
   "lists.audioKnown": "Zvuk - známý jazyk",
+  "lists.preparingStudy": "Připravujeme procvičování",
+  "lists.preparingStudyDescription": "Nová slovíčka jsou připravená. Otevíráme první procvičování...",
   "lists.previewFailed": "Náhled se nepodařil",
   "lists.editCategoryTitle": "Upravit: {name}",
   "lists.onePerLine": "Jedno slovo nebo fráze na řádek",

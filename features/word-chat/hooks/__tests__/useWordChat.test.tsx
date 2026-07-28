@@ -780,7 +780,7 @@ describe('useWordChat', () => {
 
     const { result } = renderHook(
       () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted }),
-      { wrapper },
+      { wrapper: czechUiWrapper },
     );
     await waitForPreferences(result);
 
@@ -794,6 +794,7 @@ describe('useWordChat', () => {
 
     expect(mocks.commitSession.mock.calls[0][0]).toMatchObject({
       listName: 'Úřední vietnamština',
+      chatLanguage: 'cs',
     });
     expect(onCommitted).toHaveBeenCalledWith({
       listId: 'list-1',

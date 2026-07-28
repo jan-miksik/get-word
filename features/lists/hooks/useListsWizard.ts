@@ -280,6 +280,7 @@ export function useListsWizard({
   }, [buildAudioStepItems, finalizeRemovals, loadGoogleUsage, reloadListDetails]);
 
   const handleKnownAudioComplete = useCallback(async () => {
+    const shouldOpenStudy = (diffResult?.added.length ?? 0) > 0;
     await finalizeRemovals();
     await Promise.all([reloadListDetails(), loadGoogleUsage()]);
     setWizardStep('browse');
@@ -288,7 +289,8 @@ export function useListsWizard({
     setPendingItems([]);
     setAudioStepItems(null);
     setDiffResult(null);
-  }, [finalizeRemovals, loadGoogleUsage, reloadListDetails]);
+    return shouldOpenStudy;
+  }, [diffResult, finalizeRemovals, loadGoogleUsage, reloadListDetails]);
 
   const handleSkipTranslation = useCallback(async () => {
     await finalizeRemovals();

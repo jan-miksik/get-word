@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { SupportButton } from '@/components/SupportButton';
 import {
@@ -30,6 +31,7 @@ import { TranslationStep } from '@/features/lists/components/translation-step/Tr
 import { AudioStep } from '@/features/lists/audio-step/AudioStep';
 import { ApiKeySettings } from '@/features/lists/components/ApiKeySettings';
 import { PendingForkDialog } from '@/features/lists/components/PendingForkDialog';
+import { PreparingStudyScreen } from '@/features/lists/components/PreparingStudyScreen';
 import { WizardProgressBar } from '@/features/lists/components/WizardProgressBar';
 
 export default function ListsPage() {
@@ -45,12 +47,14 @@ export default function ListsPage() {
 
 function ListsPageContent() {
   const { t } = useI18n();
+  const router = useRouter();
   const initialUrlState = useMemo(() => {
     if (typeof window === 'undefined') return null;
     return readInitialListsUrlState(window.location.search);
   }, []);
   const [error, setError] = useState<string | null>(initialUrlState?.notice ?? null);
   const [translationGenerationActive, setTranslationGenerationActive] = useState(false);
+  const [preparingStudy, setPreparingStudy] = useState(false);
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [settingsOpen, setSettingsOpen] = useState(initialUrlState?.settingsOpen ?? false);
@@ -222,6 +226,16 @@ function ListsPageContent() {
     void wizard.handleGoToStep(step);
   }, [confirmLeavingGeneration, wizard]);
 
+  const handleKnownAudioComplete = useCallback(async () => {
+    const shouldOpenStudy = await wizard.handleKnownAudioComplete();
+    if (!shouldOpenStudy) return;
+    setPreparingStudy(true);
+    await new Promise<void>((resolve) => {
+      window.setTimeout(resolve, 350);
+    });
+    router.replace('/');
+  }, [router, wizard]);
+
   // Fetch list details when selected list changes.
   useEffect(() => {
     if (!selectedListId) return;
@@ -253,6 +267,10 @@ function ListsPageContent() {
         <div className="text-text-soft">{t('common.loadingLists')}</div>
       </div>
     );
+  }
+
+  if (preparingStudy) {
+    return <PreparingStudyScreen />;
   }
 
   const editingCategory = categories.find((c) => c.id === wizard.editingCategoryId);
@@ -487,8 +505,8 @@ function ListsPageContent() {
               audioSide="known"
               title={t('lists.audioKnown')}
               googleUsage={googleUsage}
-              onComplete={wizard.handleKnownAudioComplete}
-              onSkip={wizard.handleKnownAudioComplete}
+              onComplete={handleKnownAudioComplete}
+              onSkip={handleKnownAudioComplete}
               onUsageRefresh={loadGoogleUsage}
               onBack={wizard.handleGoBack}
             />

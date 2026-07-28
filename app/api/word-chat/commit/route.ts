@@ -92,6 +92,7 @@ export async function POST(request: NextRequest) {
         sessionId,
         languageFrom: typeof body.language_from === "string" ? body.language_from : "",
         languageTo: typeof body.language_to === "string" ? body.language_to : "",
+        chatLanguage: typeof body.chat_language === "string" ? body.chat_language : undefined,
         baseListId: typeof body.base_list_id === "string" ? body.base_list_id : undefined,
         listName: typeof body.list_name === "string" ? body.list_name : undefined,
         categoryName: typeof body.category_name === "string" ? body.category_name : "",

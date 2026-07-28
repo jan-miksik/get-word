@@ -282,13 +282,16 @@ export function buildBriefPrompt(input: {
   previousBrief: LearnerBrief | null;
   messages: WordChatMessage[];
   committedTopic: string;
+  chatLanguage: string;
 }): { system: string; user: string } {
+  const visibleLanguage = languageName(input.chatLanguage, input.chatLanguage);
   const system = `
 You maintain a small structured profile of a language learner, used only to make their next session start with context.
 
 Rules:
 - Return the COMPLETE replacement profile, not a diff. Anything you omit is forgotten.
 - Every entry is a short topical label under 80 characters. At most 12 entries per array.
+- Write every visible topical label in ${visibleLanguage}. These labels are shown back to the learner as chips in the next session. Translate or rewrite older profile entries into ${visibleLanguage} instead of keeping English.
 - NEVER include names, addresses, employers, contact details, health details, or anything that identifies a person. Write "partner's family", not "Anna's parents". Write "medical appointments", not a diagnosis.
 - "coveredTopics" must include the topic just committed.
 - "missingTopics" holds things the learner said they want but has not studied yet. Omit it when empty.

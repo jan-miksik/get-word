@@ -668,6 +668,8 @@ export const enMessages = {
   "lists.toggleSidebar": "Toggle sidebar",
   "lists.audioTarget": "Audio - target language",
   "lists.audioKnown": "Audio - known language",
+  "lists.preparingStudy": "Preparing your practice",
+  "lists.preparingStudyDescription": "Your new words are ready. Opening the first practice session now...",
   "lists.previewFailed": "Preview failed",
   "lists.editCategoryTitle": "Edit: {name}",
   "lists.onePerLine": "One word or phrase per line",

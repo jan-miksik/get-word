@@ -642,6 +642,8 @@ export const viMessages: I18nMessages = {
   "lists.toggleSidebar": "Bật/tắt thanh bên",
   "lists.audioTarget": "Âm thanh - ngôn ngữ đích",
   "lists.audioKnown": "Âm thanh - ngôn ngữ đã biết",
+  "lists.preparingStudy": "Đang chuẩn bị luyện tập",
+  "lists.preparingStudyDescription": "Từ mới của bạn đã sẵn sàng. Đang mở buổi luyện tập đầu tiên...",
   "lists.previewFailed": "Xem trước thất bại",
   "lists.editCategoryTitle": "Chỉnh sửa: {name}",
   "lists.onePerLine": "Một từ hoặc cụm từ mỗi dòng",

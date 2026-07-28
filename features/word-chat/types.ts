@@ -124,6 +124,8 @@ export type CommitRequest = {
   sessionId: string;
   languageFrom: string;
   languageTo: string;
+  /** Language used for visible chat/brief labels. */
+  chatLanguage?: string;
   /** Active non-personal study list, used only for deterministic source priority. */
   baseListId?: string;
   /** Optional custom name for the learner's personal word-chat list. */

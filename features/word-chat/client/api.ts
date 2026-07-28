@@ -465,6 +465,7 @@ export function commitSession(input: {
   sessionId: string;
   languageFrom: string;
   languageTo: string;
+  chatLanguage: string;
   baseListId?: string;
   listName: string;
   categoryName: string;
@@ -478,6 +479,7 @@ export function commitSession(input: {
     session_id: input.sessionId,
     language_from: input.languageFrom,
     language_to: input.languageTo,
+    chat_language: input.chatLanguage,
     base_list_id: input.baseListId ?? null,
     list_name: input.listName,
     category_name: input.categoryName,

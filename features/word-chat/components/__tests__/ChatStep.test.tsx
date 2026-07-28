@@ -180,6 +180,18 @@ describe('ChatStep', () => {
     );
   });
 
+  it('renders starter chips in Czech when the UI and known language are Czech', () => {
+    const { onSend } = renderChatStep({ uiLanguage: 'cs', languageFrom: 'cs' });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Mluvení se zákazníky' }));
+
+    expect(screen.queryByRole('button', { name: 'Talking to customers' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Na úřadě' })).toBeInTheDocument();
+    expect(onSend).toHaveBeenCalledWith(
+      'Pracuju se zákazníky — salon, obchod, kavárna — a chci s nimi mluvit pořádně.',
+    );
+  });
+
   it('keeps starter chips the same for every language level', () => {
     renderChatStep({ languageLevel: 'A0' });
 

@@ -642,6 +642,8 @@ export const ukMessages: I18nMessages = {
   "lists.toggleSidebar": "Перемкнути бічну панель",
   "lists.audioTarget": "Аудіо - цільова мова",
   "lists.audioKnown": "Аудіо - відома мова",
+  "lists.preparingStudy": "Готуємо вправу",
+  "lists.preparingStudyDescription": "Нові слова готові. Відкриваємо перше тренування...",
   "lists.previewFailed": "Попередній перегляд не вдався",
   "lists.editCategoryTitle": "Редагувати: {name}",
   "lists.onePerLine": "Одне слово або фраза на рядок",

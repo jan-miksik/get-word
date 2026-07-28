@@ -236,6 +236,7 @@ export async function commitWordChatSession(input: {
   const { request } = input;
   const languageFrom = normalizeLanguageCode(request.languageFrom);
   const languageTo = normalizeLanguageCode(request.languageTo);
+  const chatLanguage = normalizeLanguageCode(request.chatLanguage) || languageFrom;
   if (!languageFrom || !languageTo || languageFrom === languageTo) {
     throw new WordChatCommitError("A valid language pair is required.");
   }
@@ -271,6 +272,7 @@ export async function commitWordChatSession(input: {
     previousBrief,
     messages: request.messages ?? [],
     committedTopic: categoryName,
+    chatLanguage,
   });
 
   const runCommitTransaction = () =>
