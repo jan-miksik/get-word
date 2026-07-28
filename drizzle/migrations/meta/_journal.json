@@ -337,6 +337,13 @@
       "when": 1784851200000,
       "tag": "0047_photo_analysis_events",
       "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1785196800000,
+      "tag": "0053_admin_device_profile",
+      "breakpoints": true
     }
   ]
 }

@@ -156,6 +156,22 @@ describe('GET /api/sync', () => {
     expect(data.user.id).toBe('uuid-A')
   })
 
+  it('tracks coarse device profile from GET headers', async () => {
+    const req = new NextRequest('http://localhost:3000/api/sync?deviceId=dev-123', {
+      headers: {
+        'x-device-platform': 'android',
+        'x-device-form-factor': 'mobile',
+      },
+    })
+
+    await GET(req)
+
+    expect(mockTouchUserDevice).toHaveBeenCalledWith('uuid-A', 'dev-123', {
+      platform: 'android',
+      formFactor: 'mobile',
+    })
+  })
+
   it('returns game_score in user object', async () => {
     mockGetUserById.mockResolvedValue({ ...baseUser, gameScore: 7 })
     const req = new NextRequest('http://localhost:3000/api/sync?deviceId=dev-123')
@@ -833,7 +849,28 @@ describe('POST /api/sync', () => {
 
     await POST(req)
 
-    expect(mockTouchUserDevice).toHaveBeenCalledWith('uuid-A', 'dev-new')
+    expect(mockTouchUserDevice).toHaveBeenCalledWith('uuid-A', 'dev-new', {
+      platform: undefined,
+      formFactor: undefined,
+    })
+  })
+
+  it('tracks coarse device profile from POST body', async () => {
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: 'dev-new',
+        deviceProfile: { platform: 'ios', formFactor: 'mobile' },
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    await POST(req)
+
+    expect(mockTouchUserDevice).toHaveBeenCalledWith('uuid-A', 'dev-new', {
+      platform: 'ios',
+      formFactor: 'mobile',
+    })
   })
 
   it('returns updated game_score in response', async () => {

@@ -12,7 +12,49 @@ import {
   TrendBars,
 } from '@/components/stats/StatsPrimitives';
 import { useAdminStats } from '@/features/admin/client/useAdminStats';
+import type { AdminUserRow, DeviceFormFactor, DevicePlatform } from '@/features/admin/types';
 import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLanguage';
+
+type SortDirection = 'asc' | 'desc';
+type UserSortKey =
+  | 'lastSeenAt'
+  | 'firstSeenAt'
+  | 'reviewCount'
+  | 'activeDays'
+  | 'studySessions'
+  | 'estActiveStudySeconds'
+  | 'photoAnalyses'
+  | 'gameScore'
+  | 'deviceCount';
+type ListSortKey = 'name' | 'subscriberCount' | 'activeSubscriberCount';
+
+function SortHeader({
+  active,
+  direction,
+  onClick,
+  children,
+  className = '',
+  title,
+}: {
+  active: boolean;
+  direction: SortDirection;
+  onClick: () => void;
+  children: React.ReactNode;
+  className?: string;
+  title?: string;
+}) {
+  return (
+    <button
+      type="button"
+      className={`inline-flex items-center gap-1 hover:text-text ${className}`}
+      onClick={onClick}
+      title={title}
+    >
+      <span>{children}</span>
+      <span className="text-[10px]">{active ? (direction === 'asc' ? '▲' : '▼') : '↕'}</span>
+    </button>
+  );
+}
 
 export function AdminStatsPage() {
   const settingsLanguage = useSettingsLanguage();
@@ -29,6 +71,17 @@ function AdminStatsContent() {
   const { state, activityWindow, reload, changeActivityWindow } = useAdminStats();
   const [revealedEmails, setRevealedEmails] = useState<Set<string>>(new Set());
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  const [userSearch, setUserSearch] = useState('');
+  const [userPlatformFilter, setUserPlatformFilter] = useState<DevicePlatform | 'all'>('all');
+  const [userFormFactorFilter, setUserFormFactorFilter] = useState<DeviceFormFactor | 'all'>('all');
+  const [userSort, setUserSort] = useState<{ key: UserSortKey; direction: SortDirection }>({
+    key: 'lastSeenAt',
+    direction: 'desc',
+  });
+  const [listSort, setListSort] = useState<{ key: ListSortKey; direction: SortDirection }>({
+    key: 'subscriberCount',
+    direction: 'desc',
+  });
 
   const revealEmail = (handle: string) =>
     setRevealedEmails((prev) => new Set(prev).add(handle));
@@ -51,6 +104,50 @@ function AdminStatsContent() {
     const hours = Math.floor(minutes / 60);
     return `${hours} h ${minutes % 60} min`;
   };
+
+  const platformLabel = (platform: DevicePlatform) => {
+    switch (platform) {
+      case 'ios':
+        return t('adminStats.devicePlatformIos');
+      case 'android':
+        return t('adminStats.devicePlatformAndroid');
+      case 'macos':
+        return t('adminStats.devicePlatformMacos');
+      case 'windows':
+        return t('adminStats.devicePlatformWindows');
+      case 'linux':
+        return t('adminStats.devicePlatformLinux');
+      case 'other':
+        return t('adminStats.devicePlatformOther');
+      case 'unknown':
+        return t('adminStats.devicePlatformUnknown');
+    }
+  };
+
+  const formFactorLabel = (formFactor: DeviceFormFactor) => {
+    switch (formFactor) {
+      case 'mobile':
+        return t('adminStats.deviceFormMobile');
+      case 'tablet':
+        return t('adminStats.deviceFormTablet');
+      case 'desktop':
+        return t('adminStats.deviceFormDesktop');
+      case 'unknown':
+        return t('adminStats.deviceFormUnknown');
+    }
+  };
+
+  const toggleUserSort = (key: UserSortKey) =>
+    setUserSort((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc',
+    }));
+
+  const toggleListSort = (key: ListSortKey) =>
+    setListSort((prev) => ({
+      key,
+      direction: prev.key === key && prev.direction === 'desc' ? 'asc' : 'desc',
+    }));
 
   if (state.status !== 'ready') {
     return (
@@ -90,6 +187,54 @@ function AdminStatsContent() {
     { label: t('adminStats.returnedAfter30'), bucket: stats.retention.d30 },
   ];
   const isCalendarActivity = stats.activity.window === 'calendar';
+  const sortedTopLists = [...stats.content.topLists].sort((a, b) => {
+    const av = a[listSort.key];
+    const bv = b[listSort.key];
+    const result =
+      typeof av === 'string' && typeof bv === 'string'
+        ? av.localeCompare(bv)
+        : Number(av) - Number(bv);
+    return listSort.direction === 'asc' ? result : -result;
+  });
+  const query = userSearch.trim().toLowerCase();
+  const valueForUserSort = (user: AdminUserRow): number => {
+    switch (userSort.key) {
+      case 'lastSeenAt':
+        return user.lastSeenAt ? new Date(user.lastSeenAt).getTime() : 0;
+      case 'firstSeenAt':
+        return user.firstSeenAt ? new Date(user.firstSeenAt).getTime() : 0;
+      case 'reviewCount':
+        return user.reviewCount;
+      case 'activeDays':
+        return user.activeDays;
+      case 'studySessions':
+        return user.studySessions;
+      case 'estActiveStudySeconds':
+        return user.estActiveStudySeconds;
+      case 'photoAnalyses':
+        return user.photoAnalyses;
+      case 'gameScore':
+        return user.gameScore;
+      case 'deviceCount':
+        return user.deviceCount;
+    }
+  };
+  const visibleUsers = stats.users
+    .filter((user) => {
+      const matchesSearch =
+        !query ||
+        user.handle.toLowerCase().includes(query) ||
+        user.email.toLowerCase().includes(query);
+      const matchesPlatform =
+        userPlatformFilter === 'all' || user.lastDevicePlatform === userPlatformFilter;
+      const matchesFormFactor =
+        userFormFactorFilter === 'all' || user.lastDeviceFormFactor === userFormFactorFilter;
+      return matchesSearch && matchesPlatform && matchesFormFactor;
+    })
+    .sort((a, b) => {
+      const result = valueForUserSort(a) - valueForUserSort(b);
+      return userSort.direction === 'asc' ? result : -result;
+    });
 
   return (
     <div className="min-h-screen bg-background text-text">
@@ -181,6 +326,52 @@ function AdminStatsContent() {
           </CardGrid>
         </Section>
 
+        <Section title={t('adminStats.sectionDevices')} note={t('adminStats.devicesNote')}>
+          <CardGrid>
+            <StatCard
+              label={t('adminStats.devicesActive30d')}
+              value={stats.devices.activeDevices30d}
+              highlight
+              note={t('adminStats.devicesKnownNote', {
+                known: stats.devices.knownDevices30d,
+              })}
+            />
+            <StatCard label={t('adminStats.devicesIosUsers')} value={stats.devices.iosUsers30d} />
+            <StatCard label={t('adminStats.devicesAndroidUsers')} value={stats.devices.androidUsers30d} />
+            <StatCard label={t('adminStats.devicesMobileUsers')} value={stats.devices.mobileUsers30d} />
+            <StatCard label={t('adminStats.devicesDesktopUsers')} value={stats.devices.desktopUsers30d} />
+            <StatCard label={t('adminStats.devicesMultiUsers')} value={stats.devices.multiDeviceUsers30d} />
+          </CardGrid>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="rounded-lg border border-border-subtle bg-background-elevated p-4">
+              <h3 className="text-sm font-medium text-text-soft mb-2">
+                {t('adminStats.devicesPlatformBreakdown')}
+              </h3>
+              <div className="space-y-1 text-sm">
+                {stats.devices.platformBreakdown30d.map((bucket) => (
+                  <div key={bucket.key} className="flex items-center justify-between gap-3">
+                    <span>{platformLabel(bucket.key as DevicePlatform)}</span>
+                    <span className="tabular-nums text-text-soft">{bucket.users}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="rounded-lg border border-border-subtle bg-background-elevated p-4">
+              <h3 className="text-sm font-medium text-text-soft mb-2">
+                {t('adminStats.devicesFormFactorBreakdown')}
+              </h3>
+              <div className="space-y-1 text-sm">
+                {stats.devices.formFactorBreakdown30d.map((bucket) => (
+                  <div key={bucket.key} className="flex items-center justify-between gap-3">
+                    <span>{formFactorLabel(bucket.key as DeviceFormFactor)}</span>
+                    <span className="tabular-nums text-text-soft">{bucket.users}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </Section>
+
         <Section title={t('adminStats.sectionHeatmap')} note={t('adminStats.heatmapNote')}>
           <ActivityHeatmap
             days={stats.activityHeatmap.map((day) => ({ date: day.date, value: day.activeUsers }))}
@@ -258,19 +449,44 @@ function AdminStatsContent() {
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-text-soft bg-background-elevated">
-                      <th className="px-3 py-2 font-medium">{t('adminStats.tableList')}</th>
+                      <th className="px-3 py-2 font-medium">
+                        <SortHeader
+                          active={listSort.key === 'name'}
+                          direction={listSort.direction}
+                          onClick={() => toggleListSort('name')}
+                        >
+                          {t('adminStats.tableList')}
+                        </SortHeader>
+                      </th>
                       <th className="px-3 py-2 font-medium">{t('adminStats.tableLanguages')}</th>
-                      <th className="px-3 py-2 font-medium text-right">{t('adminStats.tableSubscribers')}</th>
+                      <th className="px-3 py-2 font-medium text-right">
+                        <SortHeader
+                          active={listSort.key === 'subscriberCount'}
+                          direction={listSort.direction}
+                          onClick={() => toggleListSort('subscriberCount')}
+                          className="justify-end"
+                        >
+                          {t('adminStats.tableSubscribers')}
+                        </SortHeader>
+                      </th>
                       <th
                         className="px-3 py-2 font-medium text-right"
                         title={t('adminStats.tableActiveSubscribersHint')}
                       >
-                        {t('adminStats.tableActiveSubscribers')}
+                        <SortHeader
+                          active={listSort.key === 'activeSubscriberCount'}
+                          direction={listSort.direction}
+                          onClick={() => toggleListSort('activeSubscriberCount')}
+                          className="justify-end"
+                          title={t('adminStats.tableActiveSubscribersHint')}
+                        >
+                          {t('adminStats.tableActiveSubscribers')}
+                        </SortHeader>
                       </th>
                     </tr>
                   </thead>
                   <tbody>
-                    {stats.content.topLists.map((list) => (
+                    {sortedTopLists.map((list) => (
                       <tr key={list.id} className="border-t border-border-subtle">
                         <td className="px-3 py-2">{list.name}</td>
                         <td className="px-3 py-2 text-text-soft whitespace-nowrap">
@@ -311,93 +527,228 @@ function AdminStatsContent() {
           {stats.users.length === 0 ? (
             <p className="text-sm text-text-soft">{t('adminStats.usersEmpty')}</p>
           ) : (
-            <div className="overflow-x-auto rounded-lg border border-border-subtle">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-text-soft bg-background-elevated">
-                    <th className="px-3 py-2 font-medium">{t('adminStats.userHandle')}</th>
-                    <th className="px-3 py-2 font-medium">{t('adminStats.userLastSeen')}</th>
-                    <th className="px-3 py-2 font-medium">{t('adminStats.userFirstSeen')}</th>
-                    <th className="px-3 py-2 font-medium text-right" title={t('adminStats.userReviewsHint')}>
-                      {t('adminStats.userReviews')}
-                    </th>
-                    <th className="px-3 py-2 font-medium text-right" title={t('adminStats.userActiveDaysHint')}>
-                      {t('adminStats.userActiveDays')}
-                    </th>
-                    <th className="px-3 py-2 font-medium text-right" title={t('adminStats.userSessionsHint')}>
-                      {t('adminStats.userSessions')}
-                    </th>
-                    <th className="px-3 py-2 font-medium text-right" title={t('adminStats.userStudyTimeHint')}>
-                      {t('adminStats.userStudyTime')}
-                    </th>
-                    <th className="px-3 py-2 font-medium text-right">{t('adminStats.userPhotos')}</th>
-                    <th className="px-3 py-2 font-medium">{t('adminStats.userEmail')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {stats.users.map((user) => {
-                    const expanded = expandedRows.has(user.handle);
-                    return (
-                      <Fragment key={user.handle}>
-                        <tr className="border-t border-border-subtle">
-                          <td className="px-3 py-2 whitespace-nowrap">
-                            <button
-                              type="button"
-                              className="inline-flex items-center gap-1 font-mono text-xs text-text hover:text-accent"
-                              onClick={() => toggleRow(user.handle)}
-                              aria-expanded={expanded}
-                              title={t('adminStats.userHeatmapToggle')}
-                            >
-                              <span className="text-text-soft">{expanded ? '▾' : '▸'}</span>
-                              {user.handle}
-                            </button>
-                          </td>
-                          <td className="px-3 py-2 text-text-soft whitespace-nowrap">{formatDate(user.lastSeenAt)}</td>
-                          <td className="px-3 py-2 text-text-soft whitespace-nowrap">{formatDate(user.firstSeenAt)}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{user.reviewCount}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{user.activeDays}</td>
-                          <td className="px-3 py-2 text-right tabular-nums">{user.studySessions}</td>
-                          <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
-                            {formatStudyTime(user.estActiveStudySeconds)}
-                          </td>
-                          <td className="px-3 py-2 text-right tabular-nums">{user.photoAnalyses}</td>
-                          <td className="px-3 py-2 whitespace-nowrap">
-                            {revealedEmails.has(user.handle) ? (
-                              <span className="select-all">{user.email}</span>
-                            ) : (
-                              <button
-                                type="button"
-                                className="text-accent underline"
-                                onClick={() => revealEmail(user.handle)}
-                              >
-                                {t('adminStats.revealEmail')}
-                              </button>
+            <>
+              <div className="grid gap-3 rounded-lg border border-border-subtle bg-background-elevated p-3 text-sm sm:grid-cols-3">
+                <label className="space-y-1">
+                  <span className="block text-xs text-text-soft">{t('adminStats.userFilterSearch')}</span>
+                  <input
+                    type="search"
+                    value={userSearch}
+                    onChange={(event) => setUserSearch(event.target.value)}
+                    className="w-full rounded-md border border-border-subtle bg-background px-3 py-2 text-text"
+                    placeholder={t('adminStats.userFilterSearchPlaceholder')}
+                  />
+                </label>
+                <label className="space-y-1">
+                  <span className="block text-xs text-text-soft">{t('adminStats.userFilterPlatform')}</span>
+                  <select
+                    value={userPlatformFilter}
+                    onChange={(event) => setUserPlatformFilter(event.target.value as DevicePlatform | 'all')}
+                    className="w-full rounded-md border border-border-subtle bg-background px-3 py-2 text-text"
+                  >
+                    <option value="all">{t('adminStats.filterAll')}</option>
+                    {(['ios', 'android', 'macos', 'windows', 'linux', 'other', 'unknown'] as DevicePlatform[]).map(
+                      (platform) => (
+                        <option key={platform} value={platform}>
+                          {platformLabel(platform)}
+                        </option>
+                      )
+                    )}
+                  </select>
+                </label>
+                <label className="space-y-1">
+                  <span className="block text-xs text-text-soft">{t('adminStats.userFilterDeviceType')}</span>
+                  <select
+                    value={userFormFactorFilter}
+                    onChange={(event) => setUserFormFactorFilter(event.target.value as DeviceFormFactor | 'all')}
+                    className="w-full rounded-md border border-border-subtle bg-background px-3 py-2 text-text"
+                  >
+                    <option value="all">{t('adminStats.filterAll')}</option>
+                    {(['mobile', 'tablet', 'desktop', 'unknown'] as DeviceFormFactor[]).map((formFactor) => (
+                      <option key={formFactor} value={formFactor}>
+                        {formFactorLabel(formFactor)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+              {visibleUsers.length === 0 ? (
+                <p className="text-sm text-text-soft">{t('adminStats.usersFilteredEmpty')}</p>
+              ) : (
+                <div className="overflow-x-auto rounded-lg border border-border-subtle">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="text-left text-text-soft bg-background-elevated">
+                        <th className="px-3 py-2 font-medium">{t('adminStats.userHandle')}</th>
+                        <th className="px-3 py-2 font-medium">
+                          <SortHeader
+                            active={userSort.key === 'lastSeenAt'}
+                            direction={userSort.direction}
+                            onClick={() => toggleUserSort('lastSeenAt')}
+                          >
+                            {t('adminStats.userLastSeen')}
+                          </SortHeader>
+                        </th>
+                        <th className="px-3 py-2 font-medium">
+                          <SortHeader
+                            active={userSort.key === 'firstSeenAt'}
+                            direction={userSort.direction}
+                            onClick={() => toggleUserSort('firstSeenAt')}
+                          >
+                            {t('adminStats.userFirstSeen')}
+                          </SortHeader>
+                        </th>
+                        <th className="px-3 py-2 font-medium">{t('adminStats.userDevice')}</th>
+                        <th className="px-3 py-2 font-medium text-right">
+                          <SortHeader
+                            active={userSort.key === 'deviceCount'}
+                            direction={userSort.direction}
+                            onClick={() => toggleUserSort('deviceCount')}
+                            className="justify-end"
+                            title={t('adminStats.userDeviceCountHint')}
+                          >
+                            {t('adminStats.userDeviceCount')}
+                          </SortHeader>
+                        </th>
+                        <th className="px-3 py-2 font-medium text-right">
+                          <SortHeader
+                            active={userSort.key === 'gameScore'}
+                            direction={userSort.direction}
+                            onClick={() => toggleUserSort('gameScore')}
+                            className="justify-end"
+                            title={t('adminStats.userGameScoreHint')}
+                          >
+                            {t('adminStats.userGameScore')}
+                          </SortHeader>
+                        </th>
+                        <th className="px-3 py-2 font-medium text-right">
+                          <SortHeader
+                            active={userSort.key === 'reviewCount'}
+                            direction={userSort.direction}
+                            onClick={() => toggleUserSort('reviewCount')}
+                            className="justify-end"
+                            title={t('adminStats.userReviewsHint')}
+                          >
+                            {t('adminStats.userReviews')}
+                          </SortHeader>
+                        </th>
+                        <th className="px-3 py-2 font-medium text-right">
+                          <SortHeader
+                            active={userSort.key === 'activeDays'}
+                            direction={userSort.direction}
+                            onClick={() => toggleUserSort('activeDays')}
+                            className="justify-end"
+                            title={t('adminStats.userActiveDaysHint')}
+                          >
+                            {t('adminStats.userActiveDays')}
+                          </SortHeader>
+                        </th>
+                        <th className="px-3 py-2 font-medium text-right">
+                          <SortHeader
+                            active={userSort.key === 'studySessions'}
+                            direction={userSort.direction}
+                            onClick={() => toggleUserSort('studySessions')}
+                            className="justify-end"
+                            title={t('adminStats.userSessionsHint')}
+                          >
+                            {t('adminStats.userSessions')}
+                          </SortHeader>
+                        </th>
+                        <th className="px-3 py-2 font-medium text-right">
+                          <SortHeader
+                            active={userSort.key === 'estActiveStudySeconds'}
+                            direction={userSort.direction}
+                            onClick={() => toggleUserSort('estActiveStudySeconds')}
+                            className="justify-end"
+                            title={t('adminStats.userStudyTimeHint')}
+                          >
+                            {t('adminStats.userStudyTime')}
+                          </SortHeader>
+                        </th>
+                        <th className="px-3 py-2 font-medium text-right">
+                          <SortHeader
+                            active={userSort.key === 'photoAnalyses'}
+                            direction={userSort.direction}
+                            onClick={() => toggleUserSort('photoAnalyses')}
+                            className="justify-end"
+                          >
+                            {t('adminStats.userPhotos')}
+                          </SortHeader>
+                        </th>
+                        <th className="px-3 py-2 font-medium">{t('adminStats.userEmail')}</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleUsers.map((user) => {
+                        const expanded = expandedRows.has(user.handle);
+                        return (
+                          <Fragment key={user.handle}>
+                            <tr className="border-t border-border-subtle">
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                <button
+                                  type="button"
+                                  className="inline-flex items-center gap-1 font-mono text-xs text-text hover:text-accent"
+                                  onClick={() => toggleRow(user.handle)}
+                                  aria-expanded={expanded}
+                                  title={t('adminStats.userHeatmapToggle')}
+                                >
+                                  <span className="text-text-soft">{expanded ? '▾' : '▸'}</span>
+                                  {user.handle}
+                                </button>
+                              </td>
+                              <td className="px-3 py-2 text-text-soft whitespace-nowrap">{formatDate(user.lastSeenAt)}</td>
+                              <td className="px-3 py-2 text-text-soft whitespace-nowrap">{formatDate(user.firstSeenAt)}</td>
+                              <td className="px-3 py-2 text-text-soft whitespace-nowrap">
+                                {platformLabel(user.lastDevicePlatform)} / {formFactorLabel(user.lastDeviceFormFactor)}
+                              </td>
+                              <td className="px-3 py-2 text-right tabular-nums">{user.deviceCount}</td>
+                              <td className="px-3 py-2 text-right tabular-nums">{user.gameScore}</td>
+                              <td className="px-3 py-2 text-right tabular-nums">{user.reviewCount}</td>
+                              <td className="px-3 py-2 text-right tabular-nums">{user.activeDays}</td>
+                              <td className="px-3 py-2 text-right tabular-nums">{user.studySessions}</td>
+                              <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
+                                {formatStudyTime(user.estActiveStudySeconds)}
+                              </td>
+                              <td className="px-3 py-2 text-right tabular-nums">{user.photoAnalyses}</td>
+                              <td className="px-3 py-2 whitespace-nowrap">
+                                {revealedEmails.has(user.handle) ? (
+                                  <span className="select-all">{user.email}</span>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    className="text-accent underline"
+                                    onClick={() => revealEmail(user.handle)}
+                                  >
+                                    {t('adminStats.revealEmail')}
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                            {expanded && (
+                              <tr className="bg-background-elevated/50">
+                                <td colSpan={12} className="px-3 py-3">
+                                  <ActivityHeatmap
+                                    compact
+                                    days={user.dailyActivity.map((day) => ({ date: day.date, value: day.count }))}
+                                    endDate={new Date(stats.generatedAt)}
+                                    emptyLabel={t('adminStats.userHeatmapEmpty')}
+                                    lessLabel={t('adminStats.heatmapLess')}
+                                    moreLabel={t('adminStats.heatmapMore')}
+                                    formatTooltip={(date, value) =>
+                                      t('adminStats.userHeatmapTooltip', { date, count: value })
+                                    }
+                                  />
+                                </td>
+                              </tr>
                             )}
-                          </td>
-                        </tr>
-                        {expanded && (
-                          <tr className="bg-background-elevated/50">
-                            <td colSpan={9} className="px-3 py-3">
-                              <ActivityHeatmap
-                                compact
-                                days={user.dailyActivity.map((day) => ({ date: day.date, value: day.count }))}
-                                endDate={new Date(stats.generatedAt)}
-                                emptyLabel={t('adminStats.userHeatmapEmpty')}
-                                lessLabel={t('adminStats.heatmapLess')}
-                                moreLabel={t('adminStats.heatmapMore')}
-                                formatTooltip={(date, value) =>
-                                  t('adminStats.userHeatmapTooltip', { date, count: value })
-                                }
-                              />
-                            </td>
-                          </tr>
-                        )}
-                      </Fragment>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
+                          </Fragment>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </>
           )}
         </Section>
       </div>

@@ -20,6 +20,9 @@ function mockAllQueries({
   registrations = [{ registered_total: 10, registered_email: 6, registered_google: 3, registered_other: 1, anonymous_total: 40 }],
   registrationsWeekly = [] as Record<string, unknown>[],
   activity = [{ dau: 3, wau: 8, mau: 20, yau: 30, mau_registered: 9, mau_anonymous: 11, yau_registered: 14, yau_anonymous: 16 }],
+  deviceSummary = [{ active_devices_30d: 12, known_devices_30d: 9, ios_users_30d: 3, android_users_30d: 4, mobile_users_30d: 7, desktop_users_30d: 2, multi_device_users_30d: 2 }],
+  devicePlatforms = [{ bucket: 'android', users: 4 }, { bucket: 'ios', users: 3 }, { bucket: 'unknown', users: 1 }] as Record<string, unknown>[],
+  deviceFormFactors = [{ bucket: 'mobile', users: 5 }, { bucket: 'desktop', users: 2 }] as Record<string, unknown>[],
   study = [{ known_30d: 100, really_known_30d: 30, unknown_30d: 50, studying_users_30d: 7 }],
   studyWeekly = [] as Record<string, unknown>[],
   content = [{ total_lists: 12, public_lists: 5, total_subscriptions: 25 }],
@@ -35,6 +38,9 @@ function mockAllQueries({
     .mockResolvedValueOnce(registrations)
     .mockResolvedValueOnce(registrationsWeekly)
     .mockResolvedValueOnce(activity)
+    .mockResolvedValueOnce(deviceSummary)
+    .mockResolvedValueOnce(devicePlatforms)
+    .mockResolvedValueOnce(deviceFormFactors)
     .mockResolvedValueOnce(study)
     .mockResolvedValueOnce(studyWeekly)
     .mockResolvedValueOnce(activityHeatmap)
@@ -58,7 +64,7 @@ describe('getUsageStats', () => {
     vi.useRealTimers();
   });
 
-  it('assembles all sections from the eight queries', async () => {
+  it('assembles all sections from the usage queries', async () => {
     mockAllQueries({
       registrationsWeekly: [
         { week_start: PREVIOUS_WEEK, registrations: 2 },
@@ -72,7 +78,7 @@ describe('getUsageStats', () => {
 
     const stats = await getUsageStats();
 
-    expect(mockExecute).toHaveBeenCalledTimes(13);
+    expect(mockExecute).toHaveBeenCalledTimes(16);
     expect(stats.generatedAt).toBe(NOW.toISOString());
     expect(stats.registrations).toMatchObject({
       total: 10,
@@ -91,6 +97,24 @@ describe('getUsageStats', () => {
       mauAnonymous: 11,
       yauRegistered: 14,
       yauAnonymous: 16,
+    });
+    expect(stats.devices).toEqual({
+      activeDevices30d: 12,
+      knownDevices30d: 9,
+      iosUsers30d: 3,
+      androidUsers30d: 4,
+      mobileUsers30d: 7,
+      desktopUsers30d: 2,
+      multiDeviceUsers30d: 2,
+      platformBreakdown30d: [
+        { key: 'android', users: 4 },
+        { key: 'ios', users: 3 },
+        { key: 'unknown', users: 1 },
+      ],
+      formFactorBreakdown30d: [
+        { key: 'mobile', users: 5 },
+        { key: 'desktop', users: 2 },
+      ],
     });
     expect(stats.study).toMatchObject({
       known30d: 100,
@@ -153,6 +177,17 @@ describe('getUsageStats', () => {
       mauAnonymous: 0,
       yauRegistered: 0,
       yauAnonymous: 0,
+    });
+    expect(stats.devices).toEqual({
+      activeDevices30d: 0,
+      knownDevices30d: 0,
+      iosUsers30d: 0,
+      androidUsers30d: 0,
+      mobileUsers30d: 0,
+      desktopUsers30d: 0,
+      multiDeviceUsers30d: 0,
+      platformBreakdown30d: [],
+      formFactorBreakdown30d: [],
     });
     expect(stats.study).toMatchObject({ known30d: 0, reallyKnown30d: 0, unknown30d: 0, studyingUsers30d: 0 });
     expect(stats.content).toEqual({ totalLists: 0, publicLists: 0, totalSubscriptions: 0, topLists: [] });
@@ -236,6 +271,10 @@ describe('getUsageStats', () => {
           first_seen_at: '2026-07-01T00:00:00.000Z',
           registered_at: '2026-07-02T00:00:00.000Z',
           last_seen_at: null,
+          last_device_platform: 'ios',
+          last_device_form_factor: 'mobile',
+          device_count: 2,
+          game_score: 17,
           review_count: 1,
           active_days: 1,
           study_sessions: 1,
@@ -257,7 +296,17 @@ describe('getUsageStats', () => {
     expect(row.email).toBe('a@example.com');
     expect(row.registeredAt).toBe('2026-07-02T00:00:00.000Z');
     expect(row.lastSeenAt).toBeNull();
-    expect(row).toMatchObject({ reviewCount: 1, activeDays: 1, studySessions: 1, estActiveStudySeconds: 120, photoAnalyses: 2 });
+    expect(row).toMatchObject({
+      lastDevicePlatform: 'ios',
+      lastDeviceFormFactor: 'mobile',
+      deviceCount: 2,
+      gameScore: 17,
+      reviewCount: 1,
+      activeDays: 1,
+      studySessions: 1,
+      estActiveStudySeconds: 120,
+      photoAnalyses: 2,
+    });
     expect(row.dailyActivity).toEqual([{ date: '2026-07-02', count: 3 }]);
   });
 

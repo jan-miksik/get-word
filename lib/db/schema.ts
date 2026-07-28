@@ -435,6 +435,8 @@ export const userDevices = pgTable(
     deviceId: text("device_id").notNull(),
     firstSeenAt: timestamp("first_seen_at").defaultNow().notNull(),
     lastSeenAt: timestamp("last_seen_at").defaultNow().notNull(),
+    platform: text("platform"),
+    formFactor: text("form_factor"),
   },
   (table) => [unique("user_devices_user_device_unique").on(table.userId, table.deviceId)]
 );
