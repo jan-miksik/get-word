@@ -18,6 +18,7 @@ import {
   verifySession,
 } from "@/lib/session";
 import { isGoogleSupportedLanguage } from "@/lib/i18n/server";
+import type { DeviceProfile } from "@/features/admin/types";
 
 async function validateSyncLanguages(body: SyncRequest): Promise<NextResponse | null> {
   if (body.settings_language !== undefined) {
@@ -44,6 +45,19 @@ async function validateSyncLanguages(body: SyncRequest): Promise<NextResponse | 
     }
   }
   return null;
+}
+
+function readDeviceProfile(request: NextRequest, body?: SyncRequest): DeviceProfile {
+  return {
+    platform:
+      body?.deviceProfile?.platform ??
+      (request.headers.get("x-device-platform") as DeviceProfile["platform"] | null) ??
+      undefined,
+    formFactor:
+      body?.deviceProfile?.formFactor ??
+      (request.headers.get("x-device-form-factor") as DeviceProfile["formFactor"] | null) ??
+      undefined,
+  };
 }
 
 export async function POST(request: NextRequest) {
@@ -86,7 +100,7 @@ export async function POST(request: NextRequest) {
       return timer.applyHeaders(failed);
     }
 
-    await touchUserDevice(resolvedUser.id, deviceId);
+    await touchUserDevice(resolvedUser.id, deviceId, readDeviceProfile(request, body));
     const result = await applySyncMutations({ user: resolvedUser, request: body });
     timer.mark("apply_mutations");
 
@@ -159,7 +173,7 @@ export async function GET(request: NextRequest) {
       return timer.applyHeaders(failed);
     }
 
-    await touchUserDevice(user.id, deviceId);
+    await touchUserDevice(user.id, deviceId, readDeviceProfile(request));
     const payload = await readSyncPayload({
       user,
       since,

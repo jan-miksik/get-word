@@ -147,6 +147,35 @@ describe('useLearningPageState', () => {
     ]);
   });
 
+  it('orders same-named categories independently by their namespaced keys', () => {
+    const first = {
+      ...makeWord('first', 'list-a', 'basics', 0, 0),
+      categoryKey: 'list-a:category-a',
+    };
+    const second = {
+      ...makeWord('second', 'list-b', 'basics', 0, 0),
+      categoryKey: 'list-b:category-b',
+    };
+
+    const { result } = renderHook(() =>
+      useLearningPageState({
+        activeWords: [first, second],
+        filteredWords: [first, second],
+        selectedCategories: new Set<string>(),
+        progress: {},
+        isHydrated: true,
+        viewMode: 'card',
+        minigameFrequency: 'off',
+        categoryOrder: ['list-b:category-b', 'list-a:category-a'],
+      })
+    );
+
+    expect(visibleWordIds(result.current.cardDeckGroups)).toEqual([
+      'second',
+      'first',
+    ]);
+  });
+
   it('promotes a card when it becomes due in the background', () => {
     const now = Date.now();
     const words = [

@@ -1,4 +1,7 @@
 import type { WordItemComment } from "@/lib/word-item-comment";
+import type { DeviceProfile } from "@/features/admin/types";
+
+export type { DeviceProfile };
 
 export type SyncReviewEventAction = "known" | "really_known" | "unknown";
 
@@ -32,6 +35,7 @@ export interface SyncReviewEventItem {
 
 export interface SyncRequest {
   deviceId?: string;
+  deviceProfile?: DeviceProfile;
   sessionId?: string;
   userId?: string;
   show_english?: boolean;
@@ -63,7 +67,7 @@ export interface SyncRequest {
 
 export type SyncMutationPayload = Omit<
   SyncRequest,
-  "deviceId" | "sessionId" | "userId"
+  "deviceId" | "deviceProfile" | "sessionId" | "userId"
 >;
 
 export interface SyncWordListItem {
@@ -73,7 +77,10 @@ export interface SyncWordListItem {
   languageTo?: string;
   categoryId: string | null;
   canonicalWordId?: string | null;
+  sourceItemId?: string | null;
+  takeoverSourceItemId?: string | null;
   position: number;
+  ignoreCase?: boolean;
   textKnown: string;
   textTarget: string | null;
   acceptedKnown?: string[];
@@ -183,5 +190,7 @@ export interface SyncResponse {
     languageFrom: string;
     languageTo: string;
     isRecommended?: boolean;
+    isPersonal?: boolean;
+    isOwnedPersonal?: boolean;
   }[];
 }

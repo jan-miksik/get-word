@@ -102,7 +102,7 @@ describe('LandingPage language selector', () => {
     expect(await screen.findByText('ano')).toBeInTheDocument();
     expect(screen.getByText('ya')).toBeInTheDocument();
     expect(localStorage.getItem('get-word-landing-pair')).toBe(
-      JSON.stringify({ from: 'cs', to: 'id' }),
+      JSON.stringify({ from: 'cs', to: 'id', wantsOwnList: true }),
     );
   });
 
@@ -171,7 +171,7 @@ describe('LandingPage language selector', () => {
       expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
     });
     expect(localStorage.getItem('get-word-landing-pair')).toBe(
-      JSON.stringify({ from: 'cs' }),
+      JSON.stringify({ from: 'cs', wantsOwnList: true }),
     );
   });
 
@@ -223,7 +223,7 @@ describe('LandingPage language selector', () => {
       expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
     });
     expect(localStorage.getItem('get-word-landing-pair')).toBe(
-      JSON.stringify({ from: 'es' }),
+      JSON.stringify({ from: 'es', wantsOwnList: true }),
     );
   });
 
@@ -264,13 +264,12 @@ describe('LandingPage language selector', () => {
     expect(targetInput.parentElement).not.toHaveTextContent('Indonesian');
   });
 
-  it('saves whether the visitor wants to create a custom list', async () => {
+  it('treats creating a custom list as the default landing path', async () => {
     render(<LandingPage />);
 
-    const customListCheckbox = screen.getByRole('checkbox', {
-      name: /create my own vocabulary list/i,
-    });
-    expect(customListCheckbox).not.toBeChecked();
+    expect(
+      screen.queryByRole('checkbox', { name: /create my own vocabulary list/i }),
+    ).not.toBeInTheDocument();
 
     fireEvent.focus(document.getElementById('landing-language-from') as Element);
     fireEvent.click(await screen.findByRole('option', { name: /cs/i }));
@@ -278,7 +277,6 @@ describe('LandingPage language selector', () => {
     fireEvent.focus(document.getElementById('landing-language-to') as Element);
     fireEvent.click(await screen.findByRole('option', { name: /id/i }));
 
-    fireEvent.click(customListCheckbox);
     fireEvent.click(document.querySelector('.lp-btn-hero') as Element);
 
     expect(localStorage.getItem('get-word-landing-pair')).toBe(

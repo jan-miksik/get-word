@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getRequestPublicOrigin } from "@/features/auth/app-url";
 import { auditError, auditInfo, auditWarn } from "@/lib/providers/audit-log";
 import { openRouterAdapter } from "@/lib/providers/openrouter";
 import {
@@ -9,11 +10,6 @@ import { consumeRateLimit, getClientIp } from "@/lib/providers/rate-limit";
 import { upsertProviderSecret } from "@/lib/providers/store";
 
 type CallbackStatus = "connected" | "failed";
-
-function getAppBaseUrl(request: NextRequest): string {
-  if (process.env.NODE_ENV !== "production") return request.nextUrl.origin;
-  return process.env.GET_WORD_APP_URL?.trim() || request.nextUrl.origin;
-}
 
 function normalizeReturnTo(value: string | undefined): string {
   if (!value || !value.startsWith("/")) return "/lists";
@@ -26,7 +22,7 @@ function buildRedirectUrl(input: {
   status: CallbackStatus;
   reason?: string;
 }): URL {
-  const url = new URL(normalizeReturnTo(input.returnTo), getAppBaseUrl(input.request));
+  const url = new URL(normalizeReturnTo(input.returnTo), getRequestPublicOrigin(input.request));
   url.searchParams.set("openrouter", input.status);
   if (input.reason) {
     url.searchParams.set("reason", input.reason);

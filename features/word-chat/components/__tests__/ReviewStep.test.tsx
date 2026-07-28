@@ -99,6 +99,57 @@ describe('ReviewStep', () => {
     vi.unstubAllGlobals();
   });
 
+  it('keeps a sound control in place while audio is prepared', () => {
+    const props = {
+      listName: 'My words',
+      categoryName: 'Coffee',
+      warningsByKnown: {},
+      translationDiagnostics: null,
+      isPublic: false,
+      busy: false,
+      onUpdate: vi.fn(),
+      onRemove: vi.fn(),
+      onEnsureAudio: vi.fn(),
+      onBack: vi.fn(),
+      onSave: vi.fn(),
+    };
+    const pendingItem = {
+      kind: 'word' as const,
+      textKnown: 'káva',
+      textTarget: 'coffee',
+      audioStatus: 'pending' as const,
+      audioAssetId: null,
+      audioHash: null,
+    };
+    const { rerender } = render(
+      <I18nProvider language="en">
+        <ReviewStep {...props} items={[pendingItem]} />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole('status', { name: 'Preparing audio…' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Play' })).not.toBeInTheDocument();
+
+    rerender(
+      <I18nProvider language="en">
+        <ReviewStep
+          {...props}
+          items={[
+            {
+              ...pendingItem,
+              audioStatus: 'ready',
+              audioAssetId: 'asset-1',
+              audioHash: 'hash-1',
+            },
+          ]}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.queryByRole('status', { name: 'Preparing audio…' })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Play' })).toBeInTheDocument();
+  });
+
   it('copies the whole set as source/translation pairs', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
     vi.stubGlobal('navigator', { clipboard: { writeText } });

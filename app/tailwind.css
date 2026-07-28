@@ -125,3 +125,57 @@
     transform: none;
   }
 }
+
+/* Word-chat Review audio: rows appear before best-effort TTS has finished.
+   The waveform occupies the future play button's exact footprint, then the
+   completed control lands with one quiet confirmation ripple. */
+@keyframes word-chat-audio-bar {
+  0%,
+  100% {
+    opacity: 0.48;
+    transform: scaleY(0.38);
+  }
+  50% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+}
+
+@keyframes word-chat-audio-ring {
+  0% {
+    opacity: 0;
+    transform: scale(0.78);
+  }
+  35% {
+    opacity: 0.55;
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.38);
+  }
+}
+
+@keyframes word-chat-audio-ready {
+  0% {
+    opacity: 0.2;
+    transform: scale(0.72) rotate(-8deg);
+  }
+  68% {
+    opacity: 1;
+    transform: scale(1.1) rotate(2deg);
+  }
+  100% {
+    transform: scale(1) rotate(0);
+  }
+}
+
+@keyframes word-chat-audio-ready-ring {
+  from {
+    opacity: 0.58;
+    transform: scale(0.72);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}

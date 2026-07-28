@@ -53,6 +53,24 @@ describe("corpusPoolByText", () => {
       verified: true,
     });
   });
+
+  it("carries a connected-list match only as a takeover candidate", () => {
+    const byText = corpusPoolByText([
+      {
+        ...corpusEntry("connected", "dobrý den"),
+        listId: "base",
+        listName: "Starter",
+        takeoverEligible: true,
+      },
+    ]);
+
+    expect(byText.get(dedupKey("dobrý den"))).toMatchObject({
+      takeoverCandidate: {
+        sourceItemId: "connected",
+        sourceListName: "Starter",
+      },
+    });
+  });
 });
 
 describe("selectPromptExclusions", () => {

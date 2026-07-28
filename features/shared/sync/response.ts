@@ -10,6 +10,7 @@ import {
   DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
   DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE,
 } from '@/lib/words';
+import { applyPersonalLearningOverlay } from './personal-overlay';
 
 type HydratedWordListItems = Awaited<ReturnType<typeof getUserSubscribedItems>>;
 type HydratedListNames = Awaited<ReturnType<typeof getUserStudyLists>>;
@@ -116,7 +117,10 @@ export async function getHydratedWordListData(
     getUserOwnListItems(userId),
     getUserStudyLists(userId),
   ]);
-  const wordListItems = dedupeById([...subscribedItems, ...ownItems]);
+  const wordListItems = await applyPersonalLearningOverlay(
+    dedupeById([...subscribedItems, ...ownItems]),
+    listNameRows,
+  );
   const listIds = [...new Set([
     ...wordListItems.map((item) => item.listId),
     ...listNameRows.map((list) => list.id),

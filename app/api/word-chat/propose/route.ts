@@ -19,9 +19,12 @@ import {
   resolveSelectedModel,
 } from "@/features/word-chat/server/config";
 import { serializeDiagnostics } from "@/features/word-chat/server/diagnostics";
+import { readLanguageLevel } from "@/features/word-chat/preferences";
 import { wordChatErrorResponse } from "../errors";
 
 export const runtime = "nodejs";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function POST(request: NextRequest) {
   const user = await resolveUserFromRequest(request);
@@ -67,8 +70,13 @@ export async function POST(request: NextRequest) {
       languageFrom,
       languageTo,
       chatLanguage: normalizeLanguageCode(body.chat_language) || languageFrom,
+      languageLevel: readLanguageLevel(body.language_level) ?? "A0",
       brief,
       messages,
+      baseListId:
+        typeof body.base_list_id === "string" && UUID_RE.test(body.base_list_id)
+          ? body.base_list_id
+          : undefined,
       model: canDebug ? resolveSelectedModel(body.model, WORD_CHAT_PROPOSAL_MODEL) : undefined,
       includeRequest: canDebug,
     });

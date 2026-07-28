@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mockResolveUserFromRequest = vi.fn();
@@ -35,6 +35,10 @@ describe("POST /api/providers/openrouter/connect/start", () => {
       count: 1,
       retryAfterSeconds: 30,
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("returns 401 when user is missing", async () => {
@@ -87,5 +91,35 @@ describe("POST /api/providers/openrouter/connect/start", () => {
 
     const setCookie = res.headers.get("set-cookie");
     expect(setCookie).toContain("get_word_openrouter_oauth=");
+  });
+
+  it("uses the forwarded deployment origin when production env still points at localhost", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("GET_WORD_APP_URL", "http://localhost:3000");
+    vi.stubEnv("APP_SESSION_SECRET", "test-production-secret");
+    mockResolveUserFromRequest.mockResolvedValue({
+      id: "user-1",
+      email: "user@example.com",
+      walletAddress: null,
+    });
+
+    const req = new NextRequest("http://localhost:3000/api/providers/openrouter/connect/start", {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        "x-device-id": "device-1",
+        "x-forwarded-host": "dev.getword.app",
+        "x-forwarded-proto": "https",
+      },
+      body: JSON.stringify({ returnTo: "/lists" }),
+    });
+
+    const res = await POST(req);
+    const body = await res.json();
+    const authorizeUrl = new URL(body.authorizeUrl);
+    const callbackUrl = new URL(authorizeUrl.searchParams.get("callback_url") ?? "");
+
+    expect(callbackUrl.origin).toBe("https://dev.getword.app");
+    expect(callbackUrl.pathname).toBe("/api/providers/openrouter/callback");
   });
 });

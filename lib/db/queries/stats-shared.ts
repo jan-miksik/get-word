@@ -25,11 +25,11 @@ export function toDateString(date: Date): string {
   return date.toISOString().slice(0, 10);
 }
 
-export function getUtcMonthStart(date: Date): Date {
+function getUtcMonthStart(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), 1));
 }
 
-export function getUtcYearStart(date: Date): Date {
+function getUtcYearStart(date: Date): Date {
   return new Date(Date.UTC(date.getUTCFullYear(), 0, 1));
 }
 

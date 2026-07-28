@@ -57,24 +57,24 @@ export function CategoryIcon(props: IconProps) {
   );
 }
 
-export function MemoryIcon(props: IconProps) {
-  return (
-    <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
-      <path d="M8.6 18.25c-2.15-.75-3.6-2.7-3.6-5.15 0-2.35 1.18-4.02 3.1-4.7.18-1.88 1.64-3.15 3.5-3.15 1.48 0 2.62.72 3.2 1.9 2.45.3 4.2 2.23 4.2 4.9 0 2.86-1.9 5.06-4.65 5.55" />
-      <path d="M9 9.7c.8-.45 1.75-.48 2.55.05" />
-      <path d="M14.6 10.25c.68-.18 1.45-.02 2.05.45" />
-      <path d="M12 13.25v6" />
-      <path d="M9.55 15.1 12 13.25l2.45 1.85" />
-    </Glyph>
-  );
-}
-
 export function PhotoLabIcon(props: IconProps) {
   return (
     <Glyph {...props} strokeWidth={props.strokeWidth ?? 1.8}>
       <rect x="3" y="6.5" width="18" height="13" rx="2.5" />
       <path d="M8.5 6.5l1.1-2.1a1 1 0 0 1 .9-.55h3a1 1 0 0 1 .9.55L15.5 6.5" />
       <circle cx="12" cy="13" r="3.25" />
+    </Glyph>
+  );
+}
+
+/** Speech bubble with a plus — "add words by chatting", distinct from the
+    plain bubble StudyNoteIcon uses for per-item notes. */
+export function WordChatIcon(props: IconProps) {
+  return (
+    <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
+      <path d="M6.25 5.25h8.9a2.85 2.85 0 0 1 2.85 2.85v5.15a2.85 2.85 0 0 1-2.85 2.85H11l-3.55 3.05a.55.55 0 0 1-.9-.42V16.1h-.3a2.85 2.85 0 0 1-2.85-2.85V8.1a2.85 2.85 0 0 1 2.85-2.85Z" />
+      <path d="M10.7 10.6h3.9" />
+      <path d="M12.65 8.65v3.9" />
     </Glyph>
   );
 }

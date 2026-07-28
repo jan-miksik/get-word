@@ -44,6 +44,18 @@ async function openAdvanced() {
   fireEvent.click(await screen.findByRole('button', { name: 'Advanced options' }));
 }
 
+async function completeWordChatProfile() {
+  const beginnerLevel = await screen.findByRole('button', { name: /^A0\b/i });
+  const casualAddress = screen.queryByRole('button', { name: /Use casual address/i });
+  if (casualAddress) fireEvent.click(casualAddress);
+  const neutralSalutation = screen.queryByRole('button', { name: /^Neutral$/i });
+  if (neutralSalutation) fireEvent.click(neutralSalutation);
+  fireEvent.click(beginnerLevel);
+  const continueButton = screen.getByRole('button', { name: /^Continue$/i });
+  await waitFor(() => expect(continueButton).toBeEnabled());
+  fireEvent.click(continueButton);
+}
+
 describe('LearningLanguageOnboarding', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -360,8 +372,9 @@ describe('LearningLanguageOnboarding', () => {
     // recommended exact-direction list — is the chat's ready-made escape hatch,
     // which must still work and must still subscribe before completing.
     fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+    await completeWordChatProfile();
     fireEvent.click(
-      screen.getByRole('button', { name: /Use a ready-made list instead/i }),
+      await screen.findByRole('button', { name: /Use a ready-made list instead/i }),
     );
 
     await waitFor(() => {
@@ -667,8 +680,9 @@ describe('LearningLanguageOnboarding', () => {
     // Continue opens the word chat; the ready-made escape hatch is what falls
     // through to autogeneration when there is no exact-direction recommendation.
     fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
+    await completeWordChatProfile();
     fireEvent.click(
-      screen.getByRole('button', { name: /Use a ready-made list instead/i }),
+      await screen.findByRole('button', { name: /Use a ready-made list instead/i }),
     );
 
     await waitFor(() => {

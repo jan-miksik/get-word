@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getRequestPublicOrigin } from "@/features/auth/app-url";
 import {
   forbiddenResponse,
   resolveUserFromRequest,
@@ -15,11 +16,6 @@ import {
 } from "@/lib/providers/oauth-state";
 import { consumeRateLimit, getClientIp } from "@/lib/providers/rate-limit";
 import { isLinkedAccountUser } from "@/lib/providers/user";
-
-function getAppBaseUrl(request: NextRequest): string {
-  if (process.env.NODE_ENV !== "production") return request.nextUrl.origin;
-  return process.env.GET_WORD_APP_URL?.trim() || request.nextUrl.origin;
-}
 
 export async function POST(request: NextRequest) {
   const requestId = crypto.randomUUID();
@@ -78,7 +74,10 @@ export async function POST(request: NextRequest) {
     returnTo: returnToRaw,
   });
 
-  const callback = new URL("/api/providers/openrouter/callback", getAppBaseUrl(request));
+  const callback = new URL(
+    "/api/providers/openrouter/callback",
+    getRequestPublicOrigin(request),
+  );
   callback.searchParams.set("state", oauthState.state);
   const authorizeUrl = buildOpenRouterAuthorizeUrl({
     callbackUrl: callback.toString(),

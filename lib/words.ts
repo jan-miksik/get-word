@@ -26,6 +26,9 @@ export interface NormalizedWord extends Word {
    * are editable, repeat across lists, and differ per language.
    */
   categoryId?: string | null;
+  /** Namespaced filter identity; never use the display name as identity. */
+  categoryKey?: string | null;
+  categorySourceName?: string;
   listPosition?: number;
   listId?: string;
   canonicalWordId?: string | null;
@@ -134,22 +137,31 @@ export function shouldMinimizeStudyNoteForStage(
 
 export function getAvailableCategories(
   words: NormalizedWord[]
-): Array<{ name: string; count: number; position?: number }> {
+): Array<{ key: string; name: string; sourceName?: string; count: number; position?: number }> {
   const counts = new Map<string, number>();
   const positions = new Map<string, number>();
+  const labels = new Map<string, { name: string; sourceName?: string }>();
   words.forEach((word) => {
     word.category.forEach((cat) => {
       if (cat === "word" || cat === "phrase") return;
-      counts.set(cat, (counts.get(cat) || 0) + 1);
+      const key = word.categoryKey ?? cat;
+      counts.set(key, (counts.get(key) || 0) + 1);
+      labels.set(key, { name: cat, sourceName: word.categorySourceName });
       const position = word.categoryPositions?.[cat];
       if (typeof position === 'number' && Number.isFinite(position)) {
-        const current = positions.get(cat);
-        positions.set(cat, current === undefined ? position : Math.min(current, position));
+        const current = positions.get(key);
+        positions.set(key, current === undefined ? position : Math.min(current, position));
       }
     });
   });
   return Array.from(counts.entries())
-    .map(([name, count]) => ({ name, count, position: positions.get(name) }))
+    .map(([key, count]) => ({
+      key,
+      name: labels.get(key)?.name ?? key,
+      sourceName: labels.get(key)?.sourceName,
+      count,
+      position: positions.get(key),
+    }))
     .sort((a, b) => {
       const aPosition = a.position;
       const bPosition = b.position;
@@ -180,7 +192,9 @@ function getWordCategorySortKey(
 
   let best: CategorySortKey | null = null;
   for (const category of categories) {
-    const userIndex = categoryOrderIndex.get(category);
+    const userIndex =
+      categoryOrderIndex.get(word.categoryKey ?? category) ??
+      categoryOrderIndex.get(category);
     const key =
       userIndex !== undefined
         ? { source: 0, value: userIndex }
@@ -253,6 +267,7 @@ export function matchesCategoryFilter(word: NormalizedWord, selectedCategories: 
     return selectedCategories.size === 0;
   }
   if (!selectedCategories.size) return false;
+  if (word.categoryKey) return selectedCategories.has(word.categoryKey);
   return filterableCategories.some((cat) => selectedCategories.has(cat));
 }
 
@@ -288,12 +303,14 @@ export function wordListItemsToNormalizedWords(
     notes: string | null;
     comment?: unknown;
     position: number;
+    ignoreCase?: boolean;
   }>,
   categories: Record<string, { name: string; position: number }>,
   opts?: {
     mediaFallbackWords?: Array<
       Pick<NormalizedWord, 'cz' | 'vi' | 'czPron' | 'viPron' | 'czAudio' | 'viAudio'>
     >;
+    listNamesById?: Record<string, string>;
   },
 ): NormalizedWord[] {
   const normalizePairKeyPart = (value: string) =>
@@ -383,6 +400,9 @@ export function wordListItemsToNormalizedWords(
             ? { [catName]: catPosition }
             : undefined,
         categoryId: item.categoryId ?? null,
+        categoryKey:
+          item.listId && item.categoryId ? `${item.listId}:${item.categoryId}` : catName ?? null,
+        categorySourceName: item.listId ? opts?.listNamesById?.[item.listId] : undefined,
         listPosition: item.position,
         cz,
         en,

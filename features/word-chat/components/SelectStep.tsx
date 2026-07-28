@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { getLocalizedLanguageName } from '@/lib/i18n/languages';
 import type { ProposedItem } from '../types';
@@ -10,9 +10,11 @@ type Props = {
   languageFrom: string;
   /** The personal list these words are saved into, by name. */
   listName: string;
+  onListNameChange: (value: string) => void;
   proposals: ProposedItem[];
   isSelected: (item: ProposedItem) => boolean;
   onToggle: (item: ProposedItem) => void;
+  onUpdateProposal: (item: ProposedItem, text: string) => void;
   onSelectAll: () => void;
   onClearSelection: () => void;
   customItems: { kind: 'sentence' | 'word'; text: string }[];
@@ -35,12 +37,18 @@ type Props = {
   onContinue: () => void;
 };
 
+function getProposalKey(item: ProposedItem) {
+  return item.source === 'corpus' ? `corpus:${item.corpusItemId}` : `gen:${item.draftId ?? item.text}`;
+}
+
 export function SelectStep({
   languageFrom,
   listName,
+  onListNameChange,
   proposals,
   isSelected,
   onToggle,
+  onUpdateProposal,
   onSelectAll,
   onClearSelection,
   customItems,
@@ -64,6 +72,8 @@ export function SelectStep({
 }: Props) {
   const { t, language: uiLanguage } = useI18n();
   const [customInput, setCustomInput] = useState('');
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const editInputRef = useRef<HTMLInputElement | null>(null);
 
   const knownName =
     getLocalizedLanguageName(languageFrom, languageFrom || uiLanguage) ??
@@ -81,12 +91,31 @@ export function SelectStep({
     setCustomInput('');
   }
 
+  useEffect(() => {
+    if (!editingKey) return;
+    editInputRef.current?.focus();
+    editInputRef.current?.select();
+  }, [editingKey]);
+
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-base font-extrabold">{t('wordChat.selectTitle')}</h2>
         <p className="mt-1 text-sm onboarding-text-soft">{t('wordChat.selectHint')}</p>
       </div>
+
+      <label className="block">
+        <span className="mb-1 block text-xs font-bold uppercase tracking-wide onboarding-text-soft">
+          {t('wordChat.listNameLabel')}
+        </span>
+        <input
+          type="text"
+          value={listName}
+          onChange={(event) => onListNameChange(event.target.value)}
+          maxLength={80}
+          className="word-chat-input w-full rounded-xl px-3 py-2.5 text-sm font-bold"
+        />
+      </label>
 
       <label className="block">
         <span className="mb-1 block text-xs font-bold uppercase tracking-wide onboarding-text-soft">
@@ -123,38 +152,92 @@ export function SelectStep({
       <ul className="space-y-2">
         {proposals.map((item) => {
           const selected = isSelected(item);
-          const key = item.source === 'corpus' ? item.corpusItemId : item.text;
+          const key = getProposalKey(item);
+          const editing = editingKey === key;
           return (
             <li key={key}>
-              <button
-                type="button"
-                onClick={() => onToggle(item)}
-                role="checkbox"
-                aria-checked={selected}
-                disabled={!selected && atSelectionLimit}
+              <div
                 className={[
-                  'onboarding-option flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left disabled:opacity-40',
+                  'onboarding-option flex w-full items-center gap-2 rounded-xl p-1.5 pl-3 text-left',
                   selected ? 'onboarding-option-highlight' : '',
                 ].join(' ')}
               >
-                <span
-                  aria-hidden
-                  className={[
-                    'word-chat-checkbox',
-                    selected ? 'word-chat-checkbox-checked' : '',
-                  ].join(' ')}
-                >
-                  {selected ? '✓' : ''}
-                </span>
-                <span className="min-w-0 flex-1 text-sm leading-snug">{item.text}</span>
+                {editing ? (
+                  <>
+                    <span
+                      className={[
+                        'word-chat-checkbox',
+                        selected ? 'word-chat-checkbox-checked' : '',
+                      ].join(' ')}
+                      aria-hidden="true"
+                    >
+                      {selected ? '✓' : ''}
+                    </span>
+                    <input
+                      ref={editInputRef}
+                      type="text"
+                      value={item.text}
+                      onChange={(event) => onUpdateProposal(item, event.target.value)}
+                      onBlur={() => setEditingKey(null)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === 'Escape') {
+                          event.currentTarget.blur();
+                        }
+                      }}
+                      maxLength={200}
+                      className="word-chat-input min-w-0 flex-1 rounded-lg px-2 py-1.5 text-sm font-bold"
+                    />
+                  </>
+                ) : (
+                  <button
+                    type="button"
+                    role="checkbox"
+                    aria-checked={selected}
+                    onClick={() => onToggle(item)}
+                    disabled={!selected && atSelectionLimit}
+                    className="flex min-h-10 min-w-0 flex-1 items-center gap-3 rounded-lg py-1 pr-1 text-left disabled:cursor-not-allowed disabled:opacity-50"
+                    aria-label={item.text}
+                  >
+                    <span
+                      className={[
+                        'word-chat-checkbox',
+                        selected ? 'word-chat-checkbox-checked' : '',
+                      ].join(' ')}
+                      aria-hidden="true"
+                    >
+                      {selected ? '✓' : ''}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate text-sm leading-snug">
+                      {item.text}
+                    </span>
+                  </button>
+                )}
                 {/* Provenance, not content: a quiet badge on the right rather
                     than a second line under the text. */}
                 {item.source === 'corpus' ? (
                   <span className="shrink-0 rounded-full border border-current px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide opacity-60">
-                    {t('wordChat.badgeReused')}
+                    {item.takeoverCandidate
+                      ? t('wordChat.badgeTakeoverCandidate')
+                      : t('wordChat.badgeReused')}
                   </span>
                 ) : null}
-              </button>
+                {!editing ? (
+                  <button
+                    type="button"
+                    onClick={() => setEditingKey(key)}
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full opacity-70 transition-opacity hover:bg-black/10 hover:opacity-100 focus:opacity-100"
+                    aria-label={`${t('lists.edit')}: ${item.text}`}
+                    title={t('lists.edit')}
+                  >
+                    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                      <path
+                        d="M4 14.5V16h1.5L14.2 7.3l-1.5-1.5L4 14.5zM13.5 5l1.5-1.5 1.5 1.5L15 6.5 13.5 5z"
+                        fill="currentColor"
+                      />
+                    </svg>
+                  </button>
+                ) : null}
+              </div>
             </li>
           );
         })}
@@ -283,6 +366,7 @@ export function SelectStep({
           onClick={onContinue}
           disabled={
             busy ||
+            !listName.trim() ||
             selectedCount === 0 ||
             !visibilityAnswered ||
             monthlyExhausted ||

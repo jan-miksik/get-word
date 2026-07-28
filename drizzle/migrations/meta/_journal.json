@@ -351,6 +351,34 @@
       "when": 1785024000000,
       "tag": "0049_word_chat_reuse_provenance",
       "breakpoints": true
+    },
+    {
+      "idx": 50,
+      "version": "7",
+      "when": 1785110400000,
+      "tag": "0050_word_chat_address_register",
+      "breakpoints": true
+    },
+    {
+      "idx": 51,
+      "version": "7",
+      "when": 1785200400000,
+      "tag": "0051_word_chat_personal_overlay",
+      "breakpoints": true
+    },
+    {
+      "idx": 52,
+      "version": "7",
+      "when": 1785286800000,
+      "tag": "0052_word_chat_learner_preferences",
+      "breakpoints": true
+    },
+    {
+      "idx": 53,
+      "version": "7",
+      "when": 1785373200000,
+      "tag": "0053_admin_device_profile",
+      "breakpoints": true
     }
   ]
 }

@@ -3,6 +3,7 @@ import { getDeviceId } from "./device-id";
 import { getSessionId } from "./session-id";
 import { clearAppliedReviewEvents } from "@/features/sync/review-event-outbox";
 import type {
+  DeviceProfile,
   SyncMutationPayload,
   SyncReviewEventItem,
   SyncResponse,
@@ -128,6 +129,44 @@ export function markServerSnapshotApplied(): void {
  */
 const SYNC_FETCH_TIMEOUT_MS = 20_000;
 
+function getClientDeviceProfile(): DeviceProfile {
+  if (typeof navigator === "undefined") return {};
+  const userAgent = navigator.userAgent || "";
+  const platform = navigator.platform || "";
+  const maxTouchPoints = navigator.maxTouchPoints || 0;
+  const isIpadOs = platform === "MacIntel" && maxTouchPoints > 1;
+  const isAndroid = /Android/i.test(userAgent);
+  const isIos = /iPad|iPhone|iPod/i.test(userAgent) || isIpadOs;
+  const mobileUa = /Mobile|Android|iPhone|iPod/i.test(userAgent);
+
+  const devicePlatform = isIos
+    ? "ios"
+    : isAndroid
+      ? "android"
+      : /Win/i.test(platform)
+        ? "windows"
+        : /Mac/i.test(platform)
+          ? "macos"
+          : /Linux/i.test(platform)
+            ? "linux"
+            : "unknown";
+
+  const formFactor = isIpadOs || /iPad|Tablet/i.test(userAgent)
+    ? "tablet"
+    : mobileUa
+      ? "mobile"
+      : "desktop";
+
+  return { platform: devicePlatform, formFactor };
+}
+
+function deviceProfileHeaders(profile = getClientDeviceProfile()): Record<string, string> {
+  const headers: Record<string, string> = {};
+  if (profile.platform) headers["x-device-platform"] = profile.platform;
+  if (profile.formFactor) headers["x-device-form-factor"] = profile.formFactor;
+  return headers;
+}
+
 function isAbortLike(error: unknown): boolean {
   const name = (error as { name?: unknown } | null)?.name;
   return name === 'TimeoutError' || name === 'AbortError';
@@ -148,8 +187,11 @@ export async function fetchUserData(options?: {
   const query = params.toString();
 
   try {
+    const profile = getClientDeviceProfile();
     const response = await fetch(query ? `/api/sync?${query}` : '/api/sync', {
-      headers: deviceId ? { 'x-device-id': deviceId } : undefined,
+      headers: deviceId
+        ? { 'x-device-id': deviceId, ...deviceProfileHeaders(profile) }
+        : deviceProfileHeaders(profile),
       signal: AbortSignal.timeout(SYNC_FETCH_TIMEOUT_MS),
     });
 
@@ -284,12 +326,14 @@ export async function syncUserData(
   }
   const deviceId = getDeviceId();
   const sessionId = getSessionId();
+  const deviceProfile = getClientDeviceProfile();
 
   const response = await fetch("/api/sync", {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    headers: { "Content-Type": "application/json", ...deviceProfileHeaders(deviceProfile) },
     body: JSON.stringify({
       deviceId,
+      deviceProfile,
       sessionId,
       userId: lastKnownUserId,
       ...data,

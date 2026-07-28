@@ -216,6 +216,10 @@ export const wordListItems = pgTable(
     // existing content. Provenance only — nothing reads it at runtime; it is
     // what makes "which pairs came from an unreviewed list" answerable later.
     sourceItemId: uuid("source_item_id"),
+    // Durable per-user overlay identity. Unlike `sourceItemId`, this is
+    // deliberately NOT a foreign key: deleting a legacy/public source must not
+    // erase the fact that the learner explicitly took that item over.
+    takeoverSourceItemId: uuid("takeover_source_item_id"),
     position: integer("position").notNull().default(0),
     // Owner/editor decision: when true, this item's text is case-folded when
     // computing its progress content key (see lib/progress-key.ts). Default
@@ -251,6 +255,9 @@ export const wordListItems = pgTable(
       table.position,
     ),
     index("word_list_items_source_item_idx").on(table.sourceItemId),
+    uniqueIndex("word_list_items_personal_takeover_unique")
+      .on(table.listId, table.takeoverSourceItemId)
+      .where(sql`${table.takeoverSourceItemId} is not null`),
   ],
 );
 
@@ -281,6 +288,12 @@ export const users = pgTable("users", {
   languageFrom: text("language_from"),
   languageTo: text("language_to"),
   onboardingCompletedAt: timestamp("onboarding_completed_at"),
+  // How the word chat addresses the learner. Persisted independently from a
+  // draft so every new category (and every device) keeps the earlier choice.
+  wordChatAddressRegister: text("word_chat_address_register"),
+  // Optional onboarding/chat preferences that avoid re-asking the same setup
+  // questions and keep generated prompts calibrated to the learner.
+  wordChatSalutationGender: text("word_chat_salutation_gender"),
   gameScore: integer("game_score").notNull().default(0),
   categoryOrder: text("category_order").array().notNull().default(sql`'{}'::text[]`),
   // Categories whose items lead the study stream, ahead even of due repeats.
@@ -294,6 +307,29 @@ export const users = pgTable("users", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
+
+export const userLanguagePreferences = pgTable(
+  "user_language_preferences",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    languageTo: text("language_to").notNull(),
+    languageLevel: text("language_level").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    unique("user_language_preferences_user_language_unique").on(
+      table.userId,
+      table.languageTo,
+    ),
+    check(
+      "user_language_preferences_language_level_check",
+      sql`${table.languageLevel} in ('A0', 'A1', 'A2', 'B1', 'B2')`,
+    ),
+  ],
+);
 
 export const schools = pgTable(
   "schools",
@@ -496,6 +532,8 @@ export const userDevices = pgTable(
     deviceId: text("device_id").notNull(),
     firstSeenAt: timestamp("first_seen_at").defaultNow().notNull(),
     lastSeenAt: timestamp("last_seen_at").defaultNow().notNull(),
+    platform: text("platform"),
+    formFactor: text("form_factor"),
   },
   (table) => [unique("user_devices_user_device_unique").on(table.userId, table.deviceId)]
 );
@@ -602,6 +640,38 @@ export const wordChatUsage = pgTable(
     check(
       "word_chat_usage_tokens_nonnegative",
       sql`${table.inputTokens} >= 0 and ${table.outputTokens} >= 0`,
+    ),
+  ],
+);
+
+// Stable idempotency result for one word-chat commit. Category rows remain
+// editable/deletable product data, so the creation key and original counters
+// live here instead of being reconstructed from whatever the category contains
+// at retry time. list/category ids are durable result values, intentionally not
+// foreign keys.
+export const wordChatCommits = pgTable(
+  "word_chat_commits",
+  {
+    creationKey: text("creation_key").primaryKey(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    sessionId: text("session_id").notNull(),
+    listId: uuid("list_id"),
+    categoryId: uuid("category_id"),
+    itemCount: integer("item_count").notNull().default(0),
+    takeoverCount: integer("takeover_count").notNull().default(0),
+    upgradedTakeoverCount: integer("upgraded_takeover_count").notNull().default(0),
+    committedAt: timestamp("committed_at"),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("word_chat_commits_user_created_idx").on(table.userId, table.createdAt),
+    check(
+      "word_chat_commits_counts_nonnegative",
+      sql`${table.itemCount} >= 0
+        and ${table.takeoverCount} >= 0
+        and ${table.upgradedTakeoverCount} >= 0`,
     ),
   ],
 );
@@ -767,6 +837,8 @@ export const accountDeletionJobs = pgTable(
 // Type exports for use in queries
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
+export type UserLanguagePreference = typeof userLanguagePreferences.$inferSelect;
+export type NewUserLanguagePreference = typeof userLanguagePreferences.$inferInsert;
 export type UiTranslationCache = typeof uiTranslationCache.$inferSelect;
 export type NewUiTranslationCache = typeof uiTranslationCache.$inferInsert;
 export type UserProgress = typeof userProgress.$inferSelect;
@@ -809,3 +881,5 @@ export type AccountDeletionJob = typeof accountDeletionJobs.$inferSelect;
 export type NewAccountDeletionJob = typeof accountDeletionJobs.$inferInsert;
 export type WordChatUsage = typeof wordChatUsage.$inferSelect;
 export type NewWordChatUsage = typeof wordChatUsage.$inferInsert;
+export type WordChatCommit = typeof wordChatCommits.$inferSelect;
+export type NewWordChatCommit = typeof wordChatCommits.$inferInsert;

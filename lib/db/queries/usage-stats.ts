@@ -2,6 +2,9 @@ import { sql, type SQL } from 'drizzle-orm';
 import type {
   ActivityHeatmapDay,
   AdminUserRow,
+  DeviceBreakdownBucket,
+  DeviceFormFactor,
+  DevicePlatform,
   PhotoUsageWeekBucket,
   StudyWeekBucket,
   UsageStats,
@@ -35,6 +38,8 @@ const STUDY_INACTIVITY_CAP_SECONDS = 300;
 
 /** Weeks shown in the GitHub-style activity heatmap (≈ one year). */
 const HEATMAP_WEEKS = 53;
+const DEVICE_PLATFORMS: DevicePlatform[] = ['ios', 'android', 'macos', 'windows', 'linux', 'other', 'unknown'];
+const DEVICE_FORM_FACTORS: DeviceFormFactor[] = ['mobile', 'tablet', 'desktop', 'unknown'];
 
 function parseEnvList(value: string | undefined, normalize: (item: string) => string = (item) => item): string[] {
   if (!value) return [];
@@ -58,6 +63,20 @@ function getEnvExcludedUserEmails(): string[] {
 
 function sqlTextArray(values: string[]): SQL {
   return sql`ARRAY[${sql.join(values.map((value) => sql`${value}`), sql`, `)}]::text[]`;
+}
+
+function normalizeDevicePlatform(value: unknown): DevicePlatform {
+  const normalized = String(value ?? 'unknown').toLowerCase();
+  return DEVICE_PLATFORMS.includes(normalized as DevicePlatform)
+    ? (normalized as DevicePlatform)
+    : 'unknown';
+}
+
+function normalizeDeviceFormFactor(value: unknown): DeviceFormFactor {
+  const normalized = String(value ?? 'unknown').toLowerCase();
+  return DEVICE_FORM_FACTORS.includes(normalized as DeviceFormFactor)
+    ? (normalized as DeviceFormFactor)
+    : 'unknown';
 }
 
 function excludedUserCondition(alias: string, options: Required<Pick<UsageStatsOptions, 'excludedUserIds' | 'excludedUserEmails'>>): SQL {
@@ -167,6 +186,54 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
     FROM user_devices ud
     JOIN users u ON u.id = ud.user_id
     WHERE ${includedUserCondition('u', exclusionOptions)}
+  `);
+
+  const deviceSummaryRows = await db.execute(sql`
+    WITH active_devices AS (
+      SELECT ud.user_id,
+             ud.device_id,
+             lower(coalesce(ud.platform, 'unknown')) AS platform,
+             lower(coalesce(ud.form_factor, 'unknown')) AS form_factor
+      FROM user_devices ud
+      JOIN users u ON u.id = ud.user_id
+      WHERE ${includedUserCondition('u', exclusionOptions)}
+        AND ud.last_seen_at >= ${monthAgo}::timestamp
+    ),
+    per_user AS (
+      SELECT user_id, count(DISTINCT device_id) AS device_count
+      FROM active_devices
+      GROUP BY user_id
+    )
+    SELECT
+      (SELECT count(*) FROM active_devices)::int AS active_devices_30d,
+      (SELECT count(*) FROM active_devices WHERE platform <> 'unknown' OR form_factor <> 'unknown')::int AS known_devices_30d,
+      (SELECT count(DISTINCT user_id) FROM active_devices WHERE platform = 'ios')::int AS ios_users_30d,
+      (SELECT count(DISTINCT user_id) FROM active_devices WHERE platform = 'android')::int AS android_users_30d,
+      (SELECT count(DISTINCT user_id) FROM active_devices WHERE form_factor IN ('mobile', 'tablet'))::int AS mobile_users_30d,
+      (SELECT count(DISTINCT user_id) FROM active_devices WHERE form_factor = 'desktop')::int AS desktop_users_30d,
+      (SELECT count(*) FROM per_user WHERE device_count >= 2)::int AS multi_device_users_30d
+  `);
+
+  const devicePlatformRows = await db.execute(sql`
+    SELECT lower(coalesce(ud.platform, 'unknown')) AS bucket,
+           count(DISTINCT ud.user_id)::int AS users
+    FROM user_devices ud
+    JOIN users u ON u.id = ud.user_id
+    WHERE ${includedUserCondition('u', exclusionOptions)}
+      AND ud.last_seen_at >= ${monthAgo}::timestamp
+    GROUP BY 1
+    ORDER BY users DESC, bucket ASC
+  `);
+
+  const deviceFormFactorRows = await db.execute(sql`
+    SELECT lower(coalesce(ud.form_factor, 'unknown')) AS bucket,
+           count(DISTINCT ud.user_id)::int AS users
+    FROM user_devices ud
+    JOIN users u ON u.id = ud.user_id
+    WHERE ${includedUserCondition('u', exclusionOptions)}
+      AND ud.last_seen_at >= ${monthAgo}::timestamp
+    GROUP BY 1
+    ORDER BY users DESC, bucket ASC
   `);
 
   const studyRows = await db.execute(sql`
@@ -324,15 +391,26 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
   // reviews, and photos cannot multiply and inflate the counts.
   const userRows = await db.execute(sql`
     WITH included_registered AS (
-      SELECT u.id, u.email, u.created_at, u.registered_at
+      SELECT u.id, u.email, u.created_at, u.registered_at, u.game_score
       FROM users u
       WHERE ${includedUserCondition('u', exclusionOptions)}
         AND u.supabase_auth_id IS NOT NULL
         AND u.email IS NOT NULL
     ),
-    device_last_seen AS (
-      SELECT user_id, max(last_seen_at) AS last_seen_at
-      FROM user_devices GROUP BY user_id
+    device_summary AS (
+      SELECT user_id,
+             max(last_seen_at) AS last_seen_at,
+             count(DISTINCT device_id) AS device_count
+      FROM user_devices
+      GROUP BY user_id
+    ),
+    latest_device AS (
+      SELECT DISTINCT ON (user_id)
+             user_id,
+             lower(coalesce(platform, 'unknown')) AS platform,
+             lower(coalesce(form_factor, 'unknown')) AS form_factor
+      FROM user_devices
+      ORDER BY user_id, last_seen_at DESC NULLS LAST, first_seen_at DESC
     ),
     review_counts AS (
       SELECT user_id,
@@ -366,18 +444,23 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
            ir.email AS email,
            ir.created_at AS first_seen_at,
            ir.registered_at AS registered_at,
-           dls.last_seen_at AS last_seen_at,
+           ir.game_score AS game_score,
+           ds.last_seen_at AS last_seen_at,
+           coalesce(ds.device_count, 0)::int AS device_count,
+           coalesce(ld.platform, 'unknown') AS last_device_platform,
+           coalesce(ld.form_factor, 'unknown') AS last_device_form_factor,
            coalesce(rc.review_count, 0)::int AS review_count,
            coalesce(rc.active_days, 0)::int AS active_days,
            coalesce(ss.study_sessions, 0)::int AS study_sessions,
            coalesce(ss.est_active_seconds, 0)::int AS est_active_study_seconds,
            coalesce(pc.photo_analyses, 0)::int AS photo_analyses
     FROM included_registered ir
-    LEFT JOIN device_last_seen dls ON dls.user_id = ir.id
+    LEFT JOIN device_summary ds ON ds.user_id = ir.id
+    LEFT JOIN latest_device ld ON ld.user_id = ir.id
     LEFT JOIN review_counts rc ON rc.user_id = ir.id
     LEFT JOIN session_stats ss ON ss.user_id = ir.id
     LEFT JOIN photo_counts pc ON pc.user_id = ir.id
-    ORDER BY dls.last_seen_at DESC NULLS LAST, ir.created_at DESC
+    ORDER BY ds.last_seen_at DESC NULLS LAST, ir.created_at DESC
     LIMIT 500
   `);
 
@@ -399,6 +482,7 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
 
   const registration = firstRow(registrationRows);
   const activity = firstRow(activityRows);
+  const deviceSummary = firstRow(deviceSummaryRows);
   const study = firstRow(studyRows);
   const content = firstRow(contentRows);
   const retention = firstRow(retentionRows);
@@ -457,12 +541,32 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
       firstSeenAt: toIso(row.first_seen_at) ?? '',
       registeredAt: toIso(row.registered_at),
       lastSeenAt: toIso(row.last_seen_at),
+      lastDevicePlatform: normalizeDevicePlatform(row.last_device_platform),
+      lastDeviceFormFactor: normalizeDeviceFormFactor(row.last_device_form_factor),
+      deviceCount: numberFromRow(row, 'device_count'),
+      gameScore: numberFromRow(row, 'game_score'),
       reviewCount: numberFromRow(row, 'review_count'),
       activeDays: numberFromRow(row, 'active_days'),
       studySessions: numberFromRow(row, 'study_sessions'),
       estActiveStudySeconds: numberFromRow(row, 'est_active_study_seconds'),
       photoAnalyses: numberFromRow(row, 'photo_analyses'),
       dailyActivity: dailyActivityByUser.get(id) ?? [],
+    };
+  });
+
+  const platformBreakdown30d: DeviceBreakdownBucket[] = devicePlatformRows.map((raw) => {
+    const row = raw as Record<string, unknown>;
+    return {
+      key: normalizeDevicePlatform(row.bucket),
+      users: numberFromRow(row, 'users'),
+    };
+  });
+
+  const formFactorBreakdown30d: DeviceBreakdownBucket[] = deviceFormFactorRows.map((raw) => {
+    const row = raw as Record<string, unknown>;
+    return {
+      key: normalizeDeviceFormFactor(row.bucket),
+      users: numberFromRow(row, 'users'),
     };
   });
 
@@ -491,6 +595,17 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
       mauAnonymous: numberFromRow(activity, 'mau_anonymous'),
       yauRegistered: numberFromRow(activity, 'yau_registered'),
       yauAnonymous: numberFromRow(activity, 'yau_anonymous'),
+    },
+    devices: {
+      activeDevices30d: numberFromRow(deviceSummary, 'active_devices_30d'),
+      knownDevices30d: numberFromRow(deviceSummary, 'known_devices_30d'),
+      iosUsers30d: numberFromRow(deviceSummary, 'ios_users_30d'),
+      androidUsers30d: numberFromRow(deviceSummary, 'android_users_30d'),
+      mobileUsers30d: numberFromRow(deviceSummary, 'mobile_users_30d'),
+      desktopUsers30d: numberFromRow(deviceSummary, 'desktop_users_30d'),
+      multiDeviceUsers30d: numberFromRow(deviceSummary, 'multi_device_users_30d'),
+      platformBreakdown30d,
+      formFactorBreakdown30d,
     },
     study: {
       known30d: numberFromRow(study, 'known_30d'),

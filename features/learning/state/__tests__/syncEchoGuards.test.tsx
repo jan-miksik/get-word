@@ -335,4 +335,34 @@ describe('server sync echo guards', () => {
     expect(Array.from(result.current.selectedCategories)).toEqual(['animals']);
     expect(result.current.filteredWords.map((word) => word.id)).toEqual(['word-1']);
   });
+
+  it('filters same-named categories from different lists independently', () => {
+    const isUpdatingFromServerRef = { current: false };
+    const sameNamed = [
+      {
+        id: 'public-word',
+        category: ['Basic', 'word'],
+        categoryKey: 'public:cat',
+        cz: 'ahoj',
+        en: '',
+        vi: 'xin chào',
+      },
+      {
+        id: 'personal-word',
+        category: ['Basic', 'word'],
+        categoryKey: 'personal:cat',
+        cz: 'děkuji',
+        en: '',
+        vi: 'cảm ơn',
+      },
+    ] as NormalizedWord[];
+    const { result } = renderHook(() =>
+      useCategoryFilter(sameNamed, true, isUpdatingFromServerRef, 'combined')
+    );
+
+    act(() => result.current.toggleCategory('public:cat'));
+
+    expect(Array.from(result.current.selectedCategories)).toEqual(['personal:cat']);
+    expect(result.current.filteredWords.map((word) => word.id)).toEqual(['personal-word']);
+  });
 });

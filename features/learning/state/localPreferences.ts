@@ -6,6 +6,7 @@ export const LEARNING_LOCAL_PREFERENCE_KEYS = {
   revealMode: 'get-word-reveal-mode',
   swipeCards: 'get-word-swipe-cards-enabled',
   tiltGame: 'get-word-tilt-game-enabled',
+  quickAdd: 'get-word-quick-add-enabled',
   typingMode: 'get-word-typing-mode-enabled',
   typingWriteIn: 'get-word-typing-write-in',
   typingAudioPrompt: 'get-word-typing-audio-prompt-enabled',
@@ -41,6 +42,12 @@ export const readSwipeCardsPreference = () =>
 
 export const readTiltGamePreference = () =>
   readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.tiltGame) === 'true';
+
+// Shortcut icons for the two word-input paths (chat, photo lab) in the top bar.
+// Opt-in while we watch whether the top bar is the right home for them; the
+// menu entries stay in place either way.
+export const readQuickAddPreference = () =>
+  readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.quickAdd) === 'true';
 
 export const readRevealModePreference = (): RevealMode =>
   readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.revealMode) === 'press' ? 'press' : 'scratch';

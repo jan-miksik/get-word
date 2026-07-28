@@ -1,13 +1,21 @@
-import { eq, sql } from "drizzle-orm";
+import { and, eq, getTableColumns, inArray, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import type { Executor } from "@/lib/db/queries/executor";
-import { users, wordCategories, wordListItems, wordLists } from "@/lib/db/schema";
+import {
+  userListSubscriptions,
+  users,
+  wordCategories,
+  wordChatCommits,
+  wordListItems,
+  wordLists,
+  type WordListItem,
+} from "@/lib/db/schema";
 import { normalizeLanguageCode } from "@/lib/i18n/languages";
+import { buildContentKeyInput, computeContentKey } from "@/lib/progress-key";
 import { personalListName } from "../personal-list-name";
 import type { LearnerBrief } from "@/lib/learner-brief";
 import { MAX_ITEMS_PER_SESSION } from "./config";
 import { regenerateLearnerBrief } from "./brief";
-import { dedupKey } from "./corpus";
 import { getPersonalList } from "./personal-list";
 import {
   getMonthlyItemUsage,
@@ -25,22 +33,14 @@ export class WordChatCommitError extends Error {
   }
 }
 
-/**
- * Postgres/driver failures that say "the database was momentarily unavailable",
- * not "this write is wrong": serialization conflicts, deadlocks, a statement
- * cancelled by `statement_timeout`, an exhausted or dropped connection.
- *
- * Everything else — a rejected foreign key, a violated constraint — is
- * deterministic and must surface immediately rather than be tried twice.
- */
 const TRANSIENT_DB_CODES = new Set([
-  "40001", // serialization_failure
-  "40P01", // deadlock_detected
-  "53300", // too_many_connections
-  "57014", // query_canceled (statement_timeout)
-  "08000", // connection_exception
-  "08003", // connection_does_not_exist
-  "08006", // connection_failure
+  "40001",
+  "40P01",
+  "53300",
+  "57014",
+  "08000",
+  "08003",
+  "08006",
   "CONNECTION_CLOSED",
   "CONNECTION_ENDED",
   "CONNECTION_DESTROYED",
@@ -52,15 +52,19 @@ function isTransientDbError(err: unknown): boolean {
   return typeof code === "string" && TRANSIENT_DB_CODES.has(code);
 }
 
-/** Drop empties, duplicates, and anything over the session cap. */
+/** Drop empty and exact duplicate pairs before entering the transaction. */
 export function sanitizeReviewItems(items: ReviewItem[]): ReviewItem[] {
   const seen = new Set<string>();
   const result: ReviewItem[] = [];
   for (const item of items) {
     const textKnown = item.textKnown?.trim().replace(/\s+/g, " ") ?? "";
     const textTarget = item.textTarget?.trim().replace(/\s+/g, " ") ?? "";
-    if (!textKnown || !textTarget) continue;
-    const key = dedupKey(textKnown);
+    const key = buildContentKeyInput({
+      languageFrom: "_from",
+      languageTo: "_to",
+      textKnown,
+      textTarget,
+    });
     if (!key || seen.has(key)) continue;
     seen.add(key);
     result.push({ ...item, textKnown, textTarget });
@@ -69,48 +73,70 @@ export function sanitizeReviewItems(items: ReviewItem[]): ReviewItem[] {
   return result;
 }
 
-async function findCommittedCategory(executor: Executor, creationKey: string) {
+async function findCommit(executor: Executor, creationKey: string) {
   const [row] = await executor
-    .select({
-      id: wordCategories.id,
-      listId: wordCategories.listId,
-    })
-    .from(wordCategories)
-    .where(eq(wordCategories.creationKey, creationKey))
+    .select()
+    .from(wordChatCommits)
+    .where(eq(wordChatCommits.creationKey, creationKey))
     .limit(1);
   return row ?? null;
 }
 
-/**
- * Find or create the learner's single personal list for this direction.
- *
- * `word_lists_personal_pair_unique` guarantees there is at most one, which is
- * what makes this safe with two tabs open: the loser of the insert race sees a
- * conflict, does nothing, and re-reads the winner's row.
- */
+async function committedResult(input: {
+  creationKey: string;
+  userId: string;
+  role: WordChatRole;
+}): Promise<CommitResult | null> {
+  const row = await findCommit(db, input.creationKey);
+  if (!row?.committedAt || !row.listId) return null;
+  if (row.userId !== input.userId) {
+    throw new WordChatCommitError("This creation key belongs to another user.");
+  }
+  const usage = await getMonthlyItemUsage({ userId: input.userId, role: input.role });
+  return {
+    listId: row.listId,
+    categoryId: row.categoryId,
+    itemCount: row.itemCount,
+    takeoverCount: row.takeoverCount,
+    upgradedTakeoverCount: row.upgradedTakeoverCount,
+    alreadyCommitted: true,
+    monthlyUsed: usage.used,
+    monthlyLimit: usage.limit,
+  };
+}
+
 async function findOrCreatePersonalList(
   executor: Executor,
   input: {
     userId: string;
     languageFrom: string;
     languageTo: string;
+    listName: string;
     isPublic: boolean;
     reviewOptIn: boolean;
   },
 ) {
   const existing = await getPersonalList(input, executor);
-  if (existing) return existing;
+  if (existing) {
+    if (existing.name !== input.listName) {
+      const [updated] = await executor
+        .update(wordLists)
+        .set({ name: input.listName, updatedAt: new Date() })
+        .where(eq(wordLists.id, existing.id))
+        .returning();
+      return updated ?? existing;
+    }
+    return existing;
+  }
 
   await executor
     .insert(wordLists)
     .values({
       ownerId: input.userId,
-      name: personalListName(input.languageFrom, input.languageTo),
+      name: input.listName,
       languageFrom: input.languageFrom,
       languageTo: input.languageTo,
       isPersonal: true,
-      // Visibility is decided once, on the first session, and belongs to the
-      // list from then on. Later sessions add categories and never re-ask.
       isPublic: input.isPublic,
       reviewOptIn: input.reviewOptIn,
     })
@@ -123,20 +149,78 @@ async function findOrCreatePersonalList(
   return created;
 }
 
+type SourceRow = WordListItem & {
+  listName: string;
+  languageFrom: string;
+  languageTo: string;
+  ownerId: string | null;
+  isPersonal: boolean;
+  eligible: boolean;
+};
+
+async function loadSources(
+  executor: Executor,
+  input: { userId: string; ids: string[] },
+): Promise<Map<string, SourceRow>> {
+  if (input.ids.length === 0) return new Map();
+  const rows = await executor
+    .select({
+      ...getTableColumns(wordListItems),
+      listName: wordLists.name,
+      languageFrom: wordLists.languageFrom,
+      languageTo: wordLists.languageTo,
+      ownerId: wordLists.ownerId,
+      isPersonal: wordLists.isPersonal,
+      eligible: sql<boolean>`(
+        ${wordLists.ownerId} = ${input.userId}
+        or exists (
+          select 1
+          from ${userListSubscriptions}
+          where ${userListSubscriptions.userId} = ${input.userId}
+            and ${userListSubscriptions.listId} = ${wordLists.id}
+        )
+      )`,
+    })
+    .from(wordListItems)
+    .innerJoin(wordLists, eq(wordListItems.listId, wordLists.id))
+    .where(inArray(wordListItems.id, input.ids));
+
+  return new Map(
+    rows.map((row) => [
+      row.id,
+      {
+        ...row,
+        listName: row.listName,
+        languageFrom: row.languageFrom,
+        languageTo: row.languageTo,
+        ownerId: row.ownerId,
+        isPersonal: row.isPersonal,
+        eligible: Boolean(row.eligible),
+      },
+    ]),
+  );
+}
+
+async function contentKeyForItem(
+  item: Pick<WordListItem, "textKnown" | "textTarget" | "ignoreCase">,
+  languageFrom: string,
+  languageTo: string,
+) {
+  return computeContentKey({
+    languageFrom,
+    languageTo,
+    textKnown: item.textKnown,
+    textTarget: item.textTarget,
+    ignoreCase: item.ignoreCase,
+  });
+}
+
 /**
- * Save a reviewed word-chat session.
+ * Commit reviewed rows into the canonical personal list.
  *
- * Idempotent: `word_categories.creation_key` is unique, so a double-click, a
- * reload, or a retry with the same key produces one category and one quota
- * charge. The key is checked before any model call so a retry is also free.
- *
- * Atomic: list, category, items, quota, brief and study priority all land in one
- * transaction. A crash halfway must leave nothing — not a category with no quota
- * charged, and not a quota charged with no items.
- *
- * The one honest exception is audio: assets are created during Review, into the
- * content-addressed media pool. Walking away leaves an unreferenced asset that
- * is reusable by content hash and cleanable later.
+ * The commit ledger owns idempotency. The personal-list row lock serializes
+ * content-key checks, while the two partial unique indexes are the final guard
+ * against concurrent first-list creation and duplicate takeover identities.
  */
 export async function commitWordChatSession(input: {
   userId: string;
@@ -151,36 +235,23 @@ export async function commitWordChatSession(input: {
   }
 
   const creationKey = request.creationKey?.trim();
-  if (!creationKey) {
-    throw new WordChatCommitError("A creation key is required.");
-  }
+  if (!creationKey) throw new WordChatCommitError("A creation key is required.");
 
-  // Cheap pre-check outside the transaction: an already-committed key must not
-  // pay for brief regeneration on the way to discovering it has nothing to do.
-  const alreadyCommitted = await findCommittedCategory(db, creationKey);
-  if (alreadyCommitted) {
-    const usage = await getMonthlyItemUsage({ userId: input.userId, role: input.role });
-    const existingCount = await db
-      .select({ count: sql<number>`count(*)::int` })
-      .from(wordListItems)
-      .where(eq(wordListItems.categoryId, alreadyCommitted.id));
-    return {
-      listId: alreadyCommitted.listId,
-      categoryId: alreadyCommitted.id,
-      itemCount: Number(existingCount[0]?.count ?? 0),
-      alreadyCommitted: true,
-      monthlyUsed: usage.used,
-      monthlyLimit: usage.limit,
-    };
-  }
+  const existingCommit = await committedResult({
+    creationKey,
+    userId: input.userId,
+    role: input.role,
+  });
+  if (existingCommit) return existingCommit;
 
   const items = sanitizeReviewItems(request.items ?? []);
-  if (items.length === 0) {
-    throw new WordChatCommitError("There is nothing to save.");
-  }
+  if (items.length === 0) throw new WordChatCommitError("There is nothing to save.");
 
   const categoryName = request.categoryName?.trim().slice(0, 60) || "My words";
   const reviewLabel = request.reviewLabel?.trim().slice(0, 60) || null;
+  const listName =
+    request.listName?.trim().replace(/\s+/g, " ").slice(0, 80) ||
+    personalListName(languageFrom, languageTo);
 
   const existingList = await getPersonalList({
     userId: input.userId,
@@ -188,8 +259,6 @@ export async function commitWordChatSession(input: {
     languageTo,
   });
   const previousBrief: LearnerBrief | null = existingList?.learnerBrief ?? null;
-
-  // Model call FIRST, transaction second.
   const brief = await regenerateLearnerBrief({
     userId: input.userId,
     sessionId: request.sessionId,
@@ -198,123 +267,298 @@ export async function commitWordChatSession(input: {
     committedTopic: categoryName,
   });
 
-  const runCommitTransaction = () => db.transaction(async (tx) => {
-    // Re-check inside the transaction: two tabs can both pass the pre-check.
-    const raced = await findCommittedCategory(tx, creationKey);
-    if (raced) {
-      return { listId: raced.listId, categoryId: raced.id, alreadyCommitted: true };
-    }
+  const runCommitTransaction = () =>
+    db.transaction(async (tx) => {
+      const [claim] = await tx
+        .insert(wordChatCommits)
+        .values({
+          creationKey,
+          userId: input.userId,
+          sessionId: request.sessionId,
+        })
+        .onConflictDoNothing()
+        .returning();
 
-    const list = await findOrCreatePersonalList(tx, {
-      userId: input.userId,
-      languageFrom,
-      languageTo,
-      isPublic: request.isPublic === true,
-      reviewOptIn: request.reviewOptIn !== false,
+      if (!claim) {
+        const winner = await findCommit(tx, creationKey);
+        if (!winner?.committedAt || !winner.listId) {
+          throw new WordChatCommitError("Could not resolve this saved set. Please try again.");
+        }
+        if (winner.userId !== input.userId) {
+          throw new WordChatCommitError("This creation key belongs to another user.");
+        }
+        return {
+          listId: winner.listId,
+          categoryId: winner.categoryId,
+          itemCount: winner.itemCount,
+          takeoverCount: winner.takeoverCount,
+          upgradedTakeoverCount: winner.upgradedTakeoverCount,
+          alreadyCommitted: true,
+        };
+      }
+
+      const list = await findOrCreatePersonalList(tx, {
+        userId: input.userId,
+        languageFrom,
+        languageTo,
+        listName,
+        isPublic: request.isPublic === true,
+        reviewOptIn: request.reviewOptIn !== false,
+      });
+
+      await tx
+        .select({ id: wordLists.id })
+        .from(wordLists)
+        .where(eq(wordLists.id, list.id))
+        .for("update");
+
+      const sourceIds = [
+        ...new Set(
+          items.flatMap((item) =>
+            [item.corpusItemId, item.takeover?.sourceItemId].filter(
+              (id): id is string => Boolean(id),
+            ),
+          ),
+        ),
+      ];
+      const [sourceRows, existingRows] = await Promise.all([
+        loadSources(tx, { userId: input.userId, ids: sourceIds }),
+        tx.select().from(wordListItems).where(eq(wordListItems.listId, list.id)),
+      ]);
+
+      const existingByKey = new Map<string, WordListItem>();
+      const existingByTakeover = new Map<string, WordListItem>();
+      for (const row of existingRows) {
+        const key = await contentKeyForItem(row, languageFrom, languageTo);
+        if (key && !existingByKey.has(key)) existingByKey.set(key, row);
+        if (row.takeoverSourceItemId) existingByTakeover.set(row.takeoverSourceItemId, row);
+      }
+
+      type Prepared = {
+        item: ReviewItem;
+        key: string;
+        source: SourceRow | null;
+        takeover: SourceRow | null;
+      };
+      const inserts: Prepared[] = [];
+      let takeoverCount = 0;
+      let upgradedTakeoverCount = 0;
+
+      for (const item of items) {
+        const corpusSource = item.corpusItemId
+          ? sourceRows.get(item.corpusItemId) ?? null
+          : null;
+        let provenance: SourceRow | null = null;
+        if (
+          corpusSource &&
+          !corpusSource.isPersonal &&
+          normalizeLanguageCode(corpusSource.languageFrom) === languageFrom &&
+          normalizeLanguageCode(corpusSource.languageTo) === languageTo
+        ) {
+          const [sourceKey, reviewKey] = await Promise.all([
+            contentKeyForItem(
+              corpusSource,
+              corpusSource.languageFrom,
+              corpusSource.languageTo,
+            ),
+            computeContentKey({
+              languageFrom,
+              languageTo,
+              textKnown: item.textKnown,
+              textTarget: item.textTarget,
+              ignoreCase: corpusSource.ignoreCase,
+            }),
+          ]);
+          if (sourceKey && sourceKey === reviewKey) provenance = corpusSource;
+        }
+
+        const requestedTakeoverId = item.takeover?.sourceItemId;
+        const requestedSource = requestedTakeoverId
+          ? sourceRows.get(requestedTakeoverId) ?? null
+          : null;
+        let takeover: SourceRow | null = null;
+
+        if (
+          requestedSource &&
+          requestedSource.eligible &&
+          !requestedSource.isPersonal &&
+          normalizeLanguageCode(requestedSource.languageFrom) === languageFrom &&
+          normalizeLanguageCode(requestedSource.languageTo) === languageTo
+        ) {
+          const [sourceKey, reviewKey] = await Promise.all([
+            contentKeyForItem(
+              requestedSource,
+              requestedSource.languageFrom,
+              requestedSource.languageTo,
+            ),
+            computeContentKey({
+              languageFrom,
+              languageTo,
+              textKnown: item.textKnown,
+              textTarget: item.textTarget,
+              ignoreCase: requestedSource.ignoreCase,
+            }),
+          ]);
+          if (sourceKey && sourceKey === reviewKey) takeover = requestedSource;
+        }
+
+        const key = await computeContentKey({
+          languageFrom,
+          languageTo,
+          textKnown: item.textKnown,
+          textTarget: item.textTarget,
+          ignoreCase: takeover?.ignoreCase ?? false,
+        });
+        if (!key) continue;
+
+        const existing = existingByKey.get(key);
+        if (existing) {
+          if (
+            takeover &&
+            !existing.takeoverSourceItemId &&
+            !existingByTakeover.has(takeover.id)
+          ) {
+            await tx
+              .update(wordListItems)
+              .set({
+                takeoverSourceItemId: takeover.id,
+                updatedAt: new Date(),
+              })
+              .where(
+                and(
+                  eq(wordListItems.id, existing.id),
+                  sql`${wordListItems.takeoverSourceItemId} is null`,
+                ),
+              );
+            existing.takeoverSourceItemId = takeover.id;
+            existingByTakeover.set(takeover.id, existing);
+            takeoverCount += 1;
+            upgradedTakeoverCount += 1;
+          }
+          continue;
+        }
+        if (takeover && existingByTakeover.has(takeover.id)) continue;
+
+        const source = provenance ?? takeover;
+        const prepared = { item, key, source, takeover };
+        inserts.push(prepared);
+        // Reserve the key immediately so two rows that normalize identically
+        // after source metadata is applied cannot enter this same batch twice.
+        existingByKey.set(key, {
+          id: `pending:${inserts.length}`,
+        } as WordListItem);
+        if (takeover) {
+          existingByTakeover.set(takeover.id, {
+            id: `pending:${inserts.length}`,
+          } as WordListItem);
+          takeoverCount += 1;
+        }
+      }
+
+      let categoryId: string | null = null;
+      if (inserts.length > 0) {
+        await reserveMonthlyItems({
+          userId: input.userId,
+          role: input.role,
+          count: inserts.length,
+          executor: tx,
+        });
+
+        const [{ nextPosition }] = await tx
+          .select({
+            nextPosition: sql<number>`coalesce(max(${wordCategories.position}), -1) + 1`,
+          })
+          .from(wordCategories)
+          .where(eq(wordCategories.listId, list.id));
+        const [category] = await tx
+          .insert(wordCategories)
+          .values({
+            listId: list.id,
+            name: categoryName,
+            position: Number(nextPosition ?? 0),
+            creationKey,
+            reviewLabel,
+          })
+          .returning();
+        if (!category) throw new WordChatCommitError("Could not create the category.");
+        categoryId = category.id;
+
+        const [{ nextItemPosition }] = await tx
+          .select({
+            nextItemPosition: sql<number>`coalesce(max(${wordListItems.position}), -1) + 1`,
+          })
+          .from(wordListItems)
+          .where(eq(wordListItems.listId, list.id));
+        const basePosition = Number(nextItemPosition ?? 0);
+
+        await tx.insert(wordListItems).values(
+          inserts.map(({ item, source, takeover }, index) => ({
+            listId: list.id,
+            categoryId,
+            position: basePosition + index,
+            textKnown: item.textKnown,
+            textTarget: item.textTarget,
+            sourceItemId: source?.id ?? null,
+            takeoverSourceItemId: takeover?.id ?? null,
+            ignoreCase: takeover?.ignoreCase ?? false,
+            acceptedKnown: takeover?.acceptedKnown ?? [],
+            acceptedTarget: takeover?.acceptedTarget ?? [],
+            notes: takeover?.notes ?? null,
+            comment: takeover?.comment ?? null,
+            translationStatus: "translated" as const,
+            audioAssetId: item.audioAssetId ?? takeover?.audioAssetId ?? null,
+            audioStatus:
+              item.audioAssetId || takeover?.audioAssetId
+                ? ("ready" as const)
+                : ("none" as const),
+            knownAudioAssetId:
+              item.knownAudioAssetId ?? takeover?.knownAudioAssetId ?? null,
+            knownAudioStatus:
+              item.knownAudioAssetId || takeover?.knownAudioAssetId
+                ? ("ready" as const)
+                : ("none" as const),
+          })),
+        );
+
+        await tx
+          .update(users)
+          .set({
+            pinnedCategoryIds: sql`(
+              select array_agg(distinct id)
+              from unnest(array[${categoryId}::uuid] || ${users.pinnedCategoryIds}) as id
+            )`,
+            updatedAt: new Date(),
+          })
+          .where(eq(users.id, input.userId));
+      }
+
+      await tx
+        .update(wordLists)
+        .set({ learnerBrief: brief, updatedAt: new Date() })
+        .where(eq(wordLists.id, list.id));
+
+      await tx
+        .update(wordChatCommits)
+        .set({
+          listId: list.id,
+          categoryId,
+          itemCount: inserts.length,
+          takeoverCount,
+          upgradedTakeoverCount,
+          committedAt: new Date(),
+        })
+        .where(eq(wordChatCommits.creationKey, creationKey));
+
+      return {
+        listId: list.id,
+        categoryId,
+        itemCount: inserts.length,
+        takeoverCount,
+        upgradedTakeoverCount,
+        alreadyCommitted: false,
+      };
     });
 
-    const [{ nextPosition }] = await tx
-      .select({
-        nextPosition: sql<number>`coalesce(max(${wordCategories.position}), -1) + 1`,
-      })
-      .from(wordCategories)
-      .where(eq(wordCategories.listId, list.id));
-
-    const [category] = await tx
-      .insert(wordCategories)
-      .values({
-        listId: list.id,
-        name: categoryName,
-        position: Number(nextPosition ?? 0),
-        creationKey,
-        reviewLabel,
-      })
-      // The unique index is PARTIAL (`where creation_key is not null`), so the
-      // same predicate has to be repeated here — without it Postgres cannot
-      // infer an arbiter index and rejects the statement outright (42P10).
-      .onConflictDoNothing({
-        target: wordCategories.creationKey,
-        where: sql`${wordCategories.creationKey} is not null`,
-      })
-      .returning();
-
-    // The unique index rejected the insert: another tab committed this key
-    // between the re-check and here. Nothing else in this transaction has run.
-    if (!category) {
-      const winner = await findCommittedCategory(tx, creationKey);
-      if (!winner) throw new WordChatCommitError("Could not save this set. Please try again.");
-      return { listId: winner.listId, categoryId: winner.id, alreadyCommitted: true };
-    }
-
-    const [{ nextItemPosition }] = await tx
-      .select({
-        nextItemPosition: sql<number>`coalesce(max(${wordListItems.position}), -1) + 1`,
-      })
-      .from(wordListItems)
-      .where(eq(wordListItems.listId, list.id));
-
-    const basePosition = Number(nextItemPosition ?? 0);
-    await tx.insert(wordListItems).values(
-      items.map((item, index) => ({
-        listId: list.id,
-        categoryId: category.id,
-        position: basePosition + index,
-        textKnown: item.textKnown,
-        textTarget: item.textTarget,
-        // Set only when this row reused an existing item's pair. Kept so an
-        // item translated by nobody — reused from an unreviewed public list —
-        // can still be found once translations carry verification tiers.
-        sourceItemId: item.corpusItemId ?? null,
-        // Everything here came out of the translation step, machine-generated
-        // and not human-checked. `translated` is the honest status; the review
-        // notice in the UI is what tells the learner it is unvalidated.
-        translationStatus: "translated" as const,
-        audioAssetId: item.audioAssetId ?? null,
-        audioStatus: item.audioAssetId ? ("ready" as const) : ("none" as const),
-        knownAudioAssetId: item.knownAudioAssetId ?? null,
-        knownAudioStatus: item.knownAudioAssetId ? ("ready" as const) : ("none" as const),
-      })),
-    );
-
-    // Charged for what was actually saved, in the same transaction that saved
-    // it. Throws DailyLimitError over budget, which rolls everything back.
-    await reserveMonthlyItems({
-      userId: input.userId,
-      role: input.role,
-      count: items.length,
-      executor: tx,
-    });
-
-    await tx
-      .update(wordLists)
-      .set({ learnerBrief: brief, updatedAt: new Date() })
-      .where(eq(wordLists.id, list.id));
-
-    // Own words lead the study stream. Pinned categories are peers with each
-    // other; the only product guarantee is that they come before subscribed-list
-    // words. Dedupe in SQL so a re-pin cannot grow the array without bound.
-    await tx
-      .update(users)
-      .set({
-        pinnedCategoryIds: sql`(
-          select array_agg(distinct id)
-          from unnest(array[${category.id}::uuid] || ${users.pinnedCategoryIds}) as id
-        )`,
-        updatedAt: new Date(),
-      })
-      .where(eq(users.id, input.userId));
-
-    return { listId: list.id, categoryId: category.id, alreadyCommitted: false };
-  });
-
-  // One automatic retry, for transient failures only.
-  //
-  // This is the moment the learner has already paid for: the conversation, the
-  // proposal, the translation and the audio are all done, and a dropped
-  // connection or a cancelled statement here throws the whole session back at
-  // them. The transaction is all-or-nothing and the creation key makes it
-  // idempotent, so re-running it cannot produce a second list or a double
-  // charge. Deterministic errors are rethrown untouched.
   let result: Awaited<ReturnType<typeof runCommitTransaction>>;
   try {
     result = await runCommitTransaction();
@@ -328,7 +572,6 @@ export async function commitWordChatSession(input: {
   }
 
   const usage = await getMonthlyItemUsage({ userId: input.userId, role: input.role });
-
   if (!result.alreadyCommitted) {
     await recordWordChatUsage({
       userId: input.userId,
@@ -336,15 +579,12 @@ export async function commitWordChatSession(input: {
       callType: "proposal",
       stage: "committed",
       model: "n/a",
-      itemCount: items.length,
+      itemCount: result.itemCount,
     });
   }
 
   return {
-    listId: result.listId,
-    categoryId: result.categoryId,
-    itemCount: result.alreadyCommitted ? 0 : items.length,
-    alreadyCommitted: result.alreadyCommitted,
+    ...result,
     monthlyUsed: usage.used,
     monthlyLimit: usage.limit,
   };

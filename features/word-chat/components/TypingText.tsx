@@ -15,19 +15,45 @@ import { useEffect, useRef, useState } from 'react';
 export function TypingText({
   text,
   animate,
+  animationKey = text,
   charsPerTick = 2,
   tickMs = 16,
   onTick,
 }: {
   text: string;
   animate: boolean;
+  /** Changes when this particular string should animate again. */
+  animationKey?: string;
   charsPerTick?: number;
   tickMs?: number;
   /** Called as characters appear, so a scroll container can follow along. */
   onTick?: () => void;
 }) {
-  const [shown, setShown] = useState(() => (animate ? '' : text));
-  const animatedRef = useRef(!animate);
+  if (!animate) return <>{text}</>;
+
+  return (
+    <AnimatedTypingText
+      key={animationKey}
+      text={text}
+      charsPerTick={charsPerTick}
+      tickMs={tickMs}
+      onTick={onTick}
+    />
+  );
+}
+
+function AnimatedTypingText({
+  text,
+  charsPerTick,
+  tickMs,
+  onTick,
+}: {
+  text: string;
+  charsPerTick: number;
+  tickMs: number;
+  onTick?: () => void;
+}) {
+  const [shown, setShown] = useState('');
   const onTickRef = useRef(onTick);
 
   useEffect(() => {
@@ -35,12 +61,9 @@ export function TypingText({
   }, [onTick]);
 
   useEffect(() => {
-    if (!animate || animatedRef.current) {
-      setShown(text);
-      return;
-    }
-    animatedRef.current = true;
-
+    // React Strict Mode mounts, cleans up and runs this effect again in
+    // development. Both passes start a timer, so the second one still writes
+    // the complete response after the first timer is cleaned up.
     let index = 0;
     const timer = setInterval(() => {
       index = Math.min(text.length, index + charsPerTick);
@@ -50,16 +73,9 @@ export function TypingText({
     }, tickMs);
 
     return () => clearInterval(timer);
-  }, [animate, charsPerTick, text, tickMs]);
+  }, [charsPerTick, text, tickMs]);
 
-  return (
-    <>
-      {shown}
-      {shown.length < text.length ? (
-        <span className="word-chat-caret" aria-hidden="true" />
-      ) : null}
-    </>
-  );
+  return <>{shown}</>;
 }
 
 /** Three-dot "working on it" indicator, used while a model call is in flight. */

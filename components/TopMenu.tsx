@@ -15,8 +15,12 @@ import {
   StarIcon,
   TuneIcon,
   UpcomingIcon,
+  WordChatIcon,
   WordListsIcon,
 } from '@/components/icons/AppIcons';
+
+/** Photo lab is its own page; `from=study` tells it to go back rather than to `/`. */
+const PHOTO_LAB_FROM_STUDY_HREF = '/photo-lab?from=study';
 
 interface TopMenuProps {
   onShowAll: () => void;
@@ -42,6 +46,10 @@ interface TopMenuProps {
   school?: SchoolMembership | null;
   /** Opens the word chat in place. Falls back to a full page load when absent. */
   onOpenWordChat?: () => void;
+  /** Opens photo lab in place. Falls back to the `/photo-lab` route when absent. */
+  onOpenPhotoLab?: () => void;
+  /** Mirrors the two word-input paths as icons in the centre of the bar. */
+  quickAddEnabled?: boolean;
 }
 
 function shortenListName(name: string): string {
@@ -118,6 +126,71 @@ function TelegramIcon({ size = 15 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
       <path d="M9.78 18.65l.28-4.23 7.68-6.92c.34-.31-.07-.46-.52-.19L7.74 13.3 3.64 12c-.88-.25-.89-.86.2-1.3l15.97-6.16c.73-.33 1.43.18 1.15 1.3l-2.72 12.81c-.19.91-.74 1.13-1.5.71L12.6 16.3l-1.99 1.93c-.23.23-.42.42-.83.42z" />
     </svg>
+  );
+}
+
+// Deliberately quieter than the menu button next to them: bare glyphs, no
+// chrome at all, soft ink. The generous box is touch target only — it stays
+// invisible until hover. The `--tm-*` vars are scoped to `.top-menu`.
+const QUICK_ADD_BUTTON_CLASS =
+  'inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-[var(--tm-ink-soft)] transition-colors hover:bg-[var(--tm-surface)] hover:text-[var(--tm-ink)]';
+
+interface QuickAddButtonsProps {
+  photoLabEnabled?: boolean;
+  onOpenWordChat?: () => void;
+  onOpenPhotoLab?: () => void;
+}
+
+/**
+ * The two ways new words enter the app, surfaced next to the study view instead
+ * of only inside the menu. Behind a settings toggle while we decide whether the
+ * top bar is where they belong.
+ */
+function QuickAddButtons({
+  photoLabEnabled,
+  onOpenWordChat,
+  onOpenPhotoLab,
+}: QuickAddButtonsProps) {
+  const { t } = useI18n();
+
+  return (
+    <div className="flex items-center gap-1.5">
+      <button
+        type="button"
+        className={QUICK_ADD_BUTTON_CLASS}
+        aria-label={t('top.quickAddChat')}
+        title={t('top.quickAddChat')}
+        onClick={() => {
+          if (onOpenWordChat) {
+            onOpenWordChat();
+            return;
+          }
+          window.location.assign('/?onboarding=1&wordChat=1');
+        }}
+      >
+        <WordChatIcon size={25} />
+      </button>
+      {photoLabEnabled && (
+        <a
+          href={PHOTO_LAB_FROM_STUDY_HREF}
+          className={QUICK_ADD_BUTTON_CLASS}
+          aria-label={t('top.quickAddPhoto')}
+          title={t('top.quickAddPhoto')}
+          // Stays an anchor so a modifier click still opens the lab in its own
+          // tab; a plain click opens it over the study view instead, leaving
+          // the deck running behind it.
+          onClick={(event) => {
+            if (!onOpenPhotoLab) return;
+            if (event.defaultPrevented || event.button !== 0) return;
+            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+            event.preventDefault();
+            onOpenPhotoLab();
+          }}
+        >
+          <PhotoLabIcon size={25} />
+        </a>
+      )}
+    </div>
   );
 }
 
@@ -308,6 +381,7 @@ interface MenuDropdownProps {
   photoLabEnabled?: boolean;
   school?: SchoolMembership | null;
   onOpenWordChat?: () => void;
+  onOpenPhotoLab?: () => void;
 }
 
 function MenuDropdown({
@@ -322,6 +396,7 @@ function MenuDropdown({
   photoLabEnabled,
   school,
   onOpenWordChat,
+  onOpenPhotoLab,
 }: MenuDropdownProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -390,10 +465,20 @@ function MenuDropdown({
     ...(photoLabEnabled
       ? [
           {
-            kind: 'link' as const,
+            kind: 'action' as const,
             icon: <PhotoLabIcon size={15} />,
             label: t('top.photoLab'),
-            href: '/photo-lab',
+            // Opened over the study view, like the word chat — a route
+            // navigation would tear the deck down and strand the learner in a
+            // page that no longer looks like the app. The URL stays as the
+            // fallback for hosts that do not own the flow.
+            onSelect: () => {
+              if (onOpenPhotoLab) {
+                onOpenPhotoLab();
+                return;
+              }
+              window.location.assign(PHOTO_LAB_FROM_STUDY_HREF);
+            },
           },
         ]
       : []),
@@ -583,17 +668,44 @@ export function TopMenu({
   photoLabEnabled,
   school,
   onOpenWordChat,
+  onOpenPhotoLab,
+  quickAddEnabled,
 }: TopMenuProps) {
   return (
     <div className="top-menu" aria-label="Top menu">
-      <div className="top-menu-left flex flex-col items-start gap-1 min-w-0">
+      {/* The stats block is `flex-shrink: 0` by default and eats the whole bar
+          on a narrow phone. When the shortcuts are on it has to give way — the
+          score/due chips wrap instead, which is the cheaper loss. */}
+      <div
+        className={`top-menu-left flex flex-col items-start gap-1 min-w-0 ${
+          quickAddEnabled ? '!shrink' : ''
+        }`}
+      >
         <BetaBadge />
         <div className="top-menu-stats">
           {score !== undefined && <ScoreBadge score={score} />}
           {centerContent}
         </div>
       </div>
-      <div className="top-menu-center flex items-center justify-center min-w-0 flex-1 gap-1" />
+      {/* Empty by default, so the CSS lets it collapse to nothing. With buttons
+          in it, `min-width: 0` would starve them into the `overflow: hidden`
+          clip on a narrow phone — a content floor keeps them whole and still
+          lets the slot grow to centre them when the bar has room. */}
+      <div
+        className={`top-menu-center flex items-center justify-center min-w-0 flex-1 gap-1 ${
+          quickAddEnabled
+            ? '!min-w-fit !overflow-visible self-start -mt-2 md:-mt-8'
+            : ''
+        }`}
+      >
+        {quickAddEnabled && (
+          <QuickAddButtons
+            photoLabEnabled={photoLabEnabled}
+            onOpenWordChat={onOpenWordChat}
+            onOpenPhotoLab={onOpenPhotoLab}
+          />
+        )}
+      </div>
       <div className="top-menu-right flex items-center gap-2 ml-auto">
         <MenuDropdown
           onMenuAction={onMenuAction}
@@ -607,6 +719,7 @@ export function TopMenu({
           photoLabEnabled={photoLabEnabled}
           school={school}
           onOpenWordChat={onOpenWordChat}
+          onOpenPhotoLab={onOpenPhotoLab}
         />
       </div>
     </div>

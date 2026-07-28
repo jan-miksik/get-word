@@ -23,6 +23,52 @@ type Props = {
   onSave: () => void;
 };
 
+function PreparingAudio({ label }: { label: string }) {
+  return (
+    <span
+      role="status"
+      aria-label={label}
+      title={label}
+      className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-accent/30 bg-accent/10 text-accent"
+    >
+      <span
+        aria-hidden="true"
+        className="absolute inset-0 rounded-full border border-accent/40 motion-safe:animate-[word-chat-audio-ring_1.8s_ease-out_infinite] motion-reduce:hidden"
+      />
+      <span aria-hidden="true" className="flex h-4 items-center gap-[3px]">
+        <span className="h-2.5 w-[3px] rounded-full bg-current motion-safe:animate-[word-chat-audio-bar_900ms_ease-in-out_infinite] motion-safe:[animation-delay:-300ms]" />
+        <span className="h-4 w-[3px] rounded-full bg-current motion-safe:animate-[word-chat-audio-bar_900ms_ease-in-out_infinite] motion-safe:[animation-delay:-150ms]" />
+        <span className="h-3 w-[3px] rounded-full bg-current motion-safe:animate-[word-chat-audio-bar_900ms_ease-in-out_infinite]" />
+      </span>
+    </span>
+  );
+}
+
+function MissingAudio() {
+  return (
+    <span
+      aria-hidden="true"
+      className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border-subtle bg-background/30 text-text-soft/55"
+    >
+      <svg width="17" height="17" viewBox="0 0 18 18" fill="none">
+        <path
+          d="M3.25 7.15v3.7h2.6L9 13.35v-3.1M9 7.75v-3.1L7.55 5.8"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+        <path
+          d="M3 3l12 12"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+        />
+      </svg>
+    </span>
+  );
+}
+
 /**
  * The single confirmation step. Translations and audio are already generated;
  * the learner edits anything that looks wrong and saves once.
@@ -135,13 +181,30 @@ export function ReviewStep({
                   <button
                     type="button"
                     onClick={() => void play(item.audioHash as string)}
-                    className="onboarding-option-secondary flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold"
+                    className="onboarding-option-secondary relative flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-bold motion-safe:animate-[word-chat-audio-ready_420ms_ease-out_both]"
                     aria-label={t('wordChat.play')}
                     title={t('wordChat.play')}
                   >
-                    ▶
+                    <span
+                      aria-hidden="true"
+                      className="pointer-events-none absolute inset-0 rounded-full border border-accent/50 motion-safe:animate-[word-chat-audio-ready-ring_650ms_ease-out_both] motion-reduce:hidden"
+                    />
+                    <svg
+                      aria-hidden="true"
+                      width="14"
+                      height="14"
+                      viewBox="0 0 14 14"
+                      fill="none"
+                      className="translate-x-px"
+                    >
+                      <path d="M3.5 2.15v9.7L11.6 7 3.5 2.15Z" fill="currentColor" />
+                    </svg>
                   </button>
-                ) : null}
+                ) : item.audioStatus === 'pending' ? (
+                  <PreparingAudio label={t('wordChat.audioPreparing')} />
+                ) : (
+                  <MissingAudio />
+                )}
 
                 <div className="min-w-0 flex-1 space-y-1.5">
                   <input
@@ -170,9 +233,20 @@ export function ReviewStep({
                 </p>
               ) : null}
 
-              {!item.audioAssetId ? (
-                <span className="mt-2 block text-[11px] onboarding-text-soft">
-                  {t('wordChat.noAudio')}
+              {item.takeover ? (
+                <span className="mt-2 inline-block rounded-full border border-current px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide opacity-60">
+                  {t('wordChat.badgeTakeover')}
+                </span>
+              ) : null}
+
+              {!item.audioHash ? (
+                <span
+                  aria-live="polite"
+                  className="mt-2 block text-[11px] onboarding-text-soft"
+                >
+                  {item.audioStatus === 'pending'
+                    ? t('wordChat.audioPreparing')
+                    : t('wordChat.noAudio')}
                 </span>
               ) : null}
             </li>

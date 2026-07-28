@@ -21,7 +21,8 @@ import { loadCorpusItems } from "./corpus";
 import { buildCallDiagnostics, type WordChatCallDiagnostics } from "./diagnostics";
 import { recordWordChatUsage } from "./usage";
 import { getMonthlyItemUsage, type WordChatRole } from "./rate-limit";
-import type { ReviewItem } from "../types";
+import { computeContentKey } from "@/lib/progress-key";
+import type { ReviewItem, TakeoverReference } from "../types";
 
 /**
  * Translation for word-chat runs on the donated server key, so it is metered
@@ -69,7 +70,12 @@ export async function translateSelection(input: {
   sessionId: string;
   languageFrom: string;
   languageTo: string;
-  items: { kind: "sentence" | "word"; text: string; corpusItemId?: string }[];
+  items: {
+    kind: "sentence" | "word";
+    text: string;
+    corpusItemId?: string;
+    takeoverCandidate?: TakeoverReference;
+  }[];
   /** Editor override from the debug panel; falls back to the configured model. */
   model?: string;
   /** Include the exact request in the diagnostics. Editors only. */
@@ -118,7 +124,15 @@ export async function translateSelection(input: {
   const corpusIds = items
     .map((item) => item.corpusItemId)
     .filter((id): id is string => Boolean(id));
-  const corpusItems = await loadCorpusItems([...new Set(corpusIds)]);
+  const [corpusItems, existing] = await Promise.all([
+    loadCorpusItems([...new Set(corpusIds)]),
+    findExistingTranslations(
+      items.map((item) => item.text),
+      "textKnown",
+      languageFrom,
+      languageTo,
+    ),
+  ]);
 
   const resolved = new Map<string, TranslatedRow>();
   const pending: typeof items = [];
@@ -129,6 +143,28 @@ export async function translateSelection(input: {
     const corpusRow = item.corpusItemId ? corpusItems.get(item.corpusItemId) : undefined;
     // Only trust the corpus row when the learner did not edit the text.
     if (corpusRow?.textTarget && corpusRow.textKnown.trim() === item.text) {
+      const [reviewKey, sourceKey] = await Promise.all([
+        computeContentKey({
+          languageFrom,
+          languageTo,
+          textKnown: item.text,
+          textTarget: corpusRow.textTarget,
+          ignoreCase: corpusRow.ignoreCase,
+        }),
+        computeContentKey({
+          languageFrom: corpusRow.languageFrom,
+          languageTo: corpusRow.languageTo,
+          textKnown: corpusRow.textKnown,
+          textTarget: corpusRow.textTarget,
+          ignoreCase: corpusRow.ignoreCase,
+        }),
+      ]);
+      const takeover =
+        item.takeoverCandidate?.sourceItemId === corpusRow.id &&
+        reviewKey !== null &&
+        reviewKey === sourceKey
+          ? item.takeoverCandidate
+          : undefined;
       resolved.set(item.text, {
         kind: item.kind,
         textKnown: item.text,
@@ -137,6 +173,7 @@ export async function translateSelection(input: {
         audioAssetId: corpusRow.audioAssetId,
         audioHash: corpusRow.audioHash,
         knownAudioAssetId: corpusRow.knownAudioAssetId,
+        ...(takeover ? { takeover } : {}),
         warnings: [],
         reused: true,
       });
@@ -147,12 +184,6 @@ export async function translateSelection(input: {
 
   // 2. Whatever is left may still exist elsewhere in the same direction.
   if (pending.length > 0) {
-    const existing = await findExistingTranslations(
-      pending.map((item) => item.text),
-      "textKnown",
-      languageFrom,
-      languageTo,
-    );
     const existingByText = new Map(existing.map((row) => [row.text, row.translatedText]));
     for (let index = pending.length - 1; index >= 0; index -= 1) {
       const item = pending[index];

@@ -5,7 +5,7 @@ export const PUBLIC_LANGUAGE_STORAGE_KEY = 'get-word-landing-lang';
 // a last-write-wins comparison against the server's settings_language_selected_at
 // (see useSettingsLanguage). Otherwise a route that re-fetches the server value
 // (e.g. Photo Lab) would show a stale language until the mutation is synced.
-export const PUBLIC_LANGUAGE_SELECTED_AT_STORAGE_KEY = 'get-word-landing-lang-selected-at';
+const PUBLIC_LANGUAGE_SELECTED_AT_STORAGE_KEY = 'get-word-landing-lang-selected-at';
 
 /** Persist an explicit UI-language choice together with the moment it was made. */
 export function writePreferredPublicLanguage(normalized: string): void {

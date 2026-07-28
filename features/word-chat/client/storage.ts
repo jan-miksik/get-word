@@ -1,4 +1,11 @@
-import type { ProposedItem, ReviewItem, WordChatMessage } from '../types';
+import type {
+  ProposedItem,
+  ReviewItem,
+  WordChatAddressRegister,
+  WordChatLanguageLevel,
+  WordChatMessage,
+  WordChatSalutationGender,
+} from '../types';
 
 /**
  * Draft persistence for an in-progress word-chat session.
@@ -12,8 +19,8 @@ import type { ProposedItem, ReviewItem, WordChatMessage } from '../types';
  */
 
 const STORAGE_PREFIX = 'get-word-word-chat-draft';
-// v2: review rows carry the audio content hash, not just the asset id.
-const SCHEMA_VERSION = 2;
+// v4: first-chat preferences include register, salutation gender, and level.
+const SCHEMA_VERSION = 4;
 const TTL_MS = 24 * 60 * 60 * 1000;
 
 type WordChatDraftStep = 'chat' | 'select' | 'review';
@@ -25,6 +32,10 @@ export type WordChatDraft = {
   creationKey: string;
   step: WordChatDraftStep;
   messages: WordChatMessage[];
+  addressRegister: WordChatAddressRegister | null;
+  salutationGender: WordChatSalutationGender | null;
+  languageLevel: WordChatLanguageLevel | null;
+  listName: string;
   categoryName: string;
   reviewLabel: string;
   proposals: ProposedItem[];

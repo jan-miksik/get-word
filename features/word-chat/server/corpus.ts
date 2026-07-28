@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, or, sql } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, or, sql } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import {
   mediaAssets,
@@ -42,6 +42,9 @@ export type CorpusEntry = {
   id: string;
   text: string;
   categoryName: string | null;
+  listId?: string;
+  listName?: string;
+  takeoverEligible?: boolean;
   /**
    * True when the source list is curated (recommended/common), i.e. its
    * translation has been through review. False entries are reused too — see
@@ -121,10 +124,9 @@ export async function loadCorpusPool(input: {
 }
 
 /**
- * Every known-language text the learner already studies, in this direction —
- * from lists they own and lists they subscribe to. Sent to the model as "never
- * propose these", and re-checked server-side afterwards because the model's
- * compliance is a quality hint, not a guarantee.
+ * Known-language text already present in the learner's canonical personal list.
+ * Non-personal study lists are takeover candidates rather than exclusions.
+ * Sent to the model as "never propose these", then re-checked server-side.
  */
 export async function loadExclusions(input: {
   userId: string;
@@ -143,16 +145,8 @@ export async function loadExclusions(input: {
       and(
         inArray(wordLists.languageFrom, fromVariants),
         inArray(wordLists.languageTo, toVariants),
-        or(
-          eq(wordLists.ownerId, input.userId),
-          inArray(
-            wordLists.id,
-            db
-              .select({ id: userListSubscriptions.listId })
-              .from(userListSubscriptions)
-              .where(eq(userListSubscriptions.userId, input.userId)),
-          ),
-        ),
+        eq(wordLists.ownerId, input.userId),
+        eq(wordLists.isPersonal, true),
       ),
     )
     .orderBy(desc(wordListItems.createdAt))
@@ -170,6 +164,69 @@ export async function loadExclusions(input: {
 }
 
 /**
+ * Non-personal rows the learner can explicitly take over. Public visibility is
+ * deliberately insufficient: the list must be owned or actively subscribed.
+ * Ordering is stable and puts the active base list first.
+ */
+export async function loadTakeoverCandidates(input: {
+  userId: string;
+  languageFrom: string;
+  languageTo: string;
+  baseListId?: string;
+  limit?: number;
+}): Promise<CorpusEntry[]> {
+  const fromVariants = getListLanguageCodeVariants(input.languageFrom);
+  const toVariants = getListLanguageCodeVariants(input.languageTo);
+  const subscribed = db
+    .select({ id: userListSubscriptions.listId })
+    .from(userListSubscriptions)
+    .where(eq(userListSubscriptions.userId, input.userId));
+
+  const rows = await db
+    .select({
+      id: wordListItems.id,
+      text: wordListItems.textKnown,
+      categoryName: wordCategories.name,
+      listId: wordLists.id,
+      listName: wordLists.name,
+      verified: sql<boolean>`(${wordLists.isRecommended} or ${wordLists.isCommon})`,
+      itemPosition: wordListItems.position,
+    })
+    .from(wordListItems)
+    .innerJoin(wordLists, eq(wordListItems.listId, wordLists.id))
+    .leftJoin(wordCategories, eq(wordListItems.categoryId, wordCategories.id))
+    .where(
+      and(
+        inArray(wordLists.languageFrom, fromVariants),
+        inArray(wordLists.languageTo, toVariants),
+        eq(wordLists.isPersonal, false),
+        or(eq(wordLists.ownerId, input.userId), inArray(wordLists.id, subscribed)),
+        sql`${wordListItems.textTarget} is not null and ${wordListItems.textTarget} <> ''`,
+      ),
+    )
+    .orderBy(
+      input.baseListId
+        ? sql`case when ${wordLists.id} = ${input.baseListId}::uuid then 0 else 1 end`
+        : sql`1`,
+      desc(wordLists.isRecommended),
+      asc(wordLists.id),
+      asc(wordListItems.position),
+      asc(wordListItems.id),
+    )
+    .limit(input.limit ?? CORPUS_POOL_LIMIT);
+
+  return rows.map((row) => ({
+    id: row.id,
+    text: row.text,
+    categoryName: row.categoryName,
+    listId: row.listId,
+    listName: row.listName,
+    takeoverEligible: true,
+    verified: Boolean(row.verified),
+  }));
+}
+
+/**
  * Resolve corpus ids the model referenced back to real, still-existing rows.
  *
  * The audio content hash comes along because Review plays clips through
@@ -184,6 +241,15 @@ export async function loadCorpusItems(ids: string[]) {
     audioAssetId: string | null;
     audioHash: string | null;
     knownAudioAssetId: string | null;
+    listId: string;
+    listName: string;
+    languageFrom: string;
+    languageTo: string;
+    ignoreCase: boolean;
+    acceptedKnown: string[];
+    acceptedTarget: string[];
+    notes: string | null;
+    comment: typeof wordListItems.$inferSelect.comment;
   }>();
 
   const rows = await db
@@ -194,8 +260,18 @@ export async function loadCorpusItems(ids: string[]) {
       audioAssetId: wordListItems.audioAssetId,
       audioHash: mediaAssets.contentHash,
       knownAudioAssetId: wordListItems.knownAudioAssetId,
+      listId: wordLists.id,
+      listName: wordLists.name,
+      languageFrom: wordLists.languageFrom,
+      languageTo: wordLists.languageTo,
+      ignoreCase: wordListItems.ignoreCase,
+      acceptedKnown: wordListItems.acceptedKnown,
+      acceptedTarget: wordListItems.acceptedTarget,
+      notes: wordListItems.notes,
+      comment: wordListItems.comment,
     })
     .from(wordListItems)
+    .innerJoin(wordLists, eq(wordListItems.listId, wordLists.id))
     .leftJoin(mediaAssets, eq(wordListItems.audioAssetId, mediaAssets.id))
     .where(inArray(wordListItems.id, ids));
 

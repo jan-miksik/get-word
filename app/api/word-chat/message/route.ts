@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveUserFromRequest, unauthorizedResponse } from "@/lib/auth";
 import { normalizeLanguageCode } from "@/lib/i18n/languages";
-import { runChatTurn, sanitizeMessages } from "@/features/word-chat/server/chat";
+import {
+  runChatTurn,
+  sanitizeAddressRegister,
+  sanitizeLanguageLevel,
+  sanitizeMessages,
+  sanitizeSalutationGender,
+  streamChatTurn,
+} from "@/features/word-chat/server/chat";
 import { loadLearnerBrief } from "@/features/word-chat/server/personal-list";
 import { reserveChatTurn } from "@/features/word-chat/server/rate-limit";
 import { serializeDiagnostics } from "@/features/word-chat/server/diagnostics";
@@ -13,6 +20,16 @@ import {
 import { wordChatErrorResponse } from "../errors";
 
 export const runtime = "nodejs";
+
+function streamErrorEvent(err: unknown) {
+  console.error("[word-chat] stream failed", err);
+  return {
+    type: "error",
+    error: "The word chat could not answer just now. Please try again.",
+    code: "WORD_CHAT_TEMPORARY",
+    retryable: true,
+  };
+}
 
 export async function POST(request: NextRequest) {
   const user = await resolveUserFromRequest(request);
@@ -49,6 +66,65 @@ export async function POST(request: NextRequest) {
     await reserveChatTurn({ userId: user.id, sessionId, role });
 
     const brief = await loadLearnerBrief({ userId: user.id, languageFrom, languageTo });
+    if (body.stream === true) {
+      const stream = await streamChatTurn({
+        userId: user.id,
+        sessionId,
+        languageFrom,
+        languageTo,
+        chatLanguage: normalizeLanguageCode(body.chat_language) || languageFrom,
+        addressRegister: sanitizeAddressRegister(body.address_register),
+        salutationGender: sanitizeSalutationGender(body.salutation_gender),
+        languageLevel: sanitizeLanguageLevel(body.language_level),
+        brief,
+        messages,
+        model: canDebug ? resolveSelectedModel(body.model, WORD_CHAT_CHAT_MODEL) : undefined,
+        includeRequest: canDebug,
+        signal: request.signal,
+      });
+      const encoder = new TextEncoder();
+      let done = false;
+      return new Response(
+        new ReadableStream<Uint8Array>({
+          async start(controller) {
+            const send = (event: unknown) => {
+              if (done) return;
+              controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
+            };
+            try {
+              for await (const event of stream) {
+                if (event.type === "delta") {
+                  send({ type: "delta", text: event.text });
+                  continue;
+                }
+                send({
+                  type: "done",
+                  reply: event.reply,
+                  suggestions: event.suggestions,
+                  ready_to_propose: event.readyToPropose,
+                  metadata_valid: event.metadataValid,
+                  diagnostics: canDebug ? serializeDiagnostics(event.diagnostics) : null,
+                });
+                done = true;
+                break;
+              }
+            } catch (err) {
+              send(streamErrorEvent(err));
+            } finally {
+              done = true;
+              controller.close();
+            }
+          },
+        }),
+        {
+          headers: {
+            "Content-Type": "application/x-ndjson; charset=utf-8",
+            "Cache-Control": "no-cache, no-transform",
+          },
+        },
+      );
+    }
+
     const result = await runChatTurn({
       userId: user.id,
       sessionId,
@@ -56,6 +132,9 @@ export async function POST(request: NextRequest) {
       languageTo,
       // The chat is written in the language the learner already knows.
       chatLanguage: normalizeLanguageCode(body.chat_language) || languageFrom,
+      addressRegister: sanitizeAddressRegister(body.address_register),
+      salutationGender: sanitizeSalutationGender(body.salutation_gender),
+      languageLevel: sanitizeLanguageLevel(body.language_level),
       brief,
       messages,
       model: canDebug ? resolveSelectedModel(body.model, WORD_CHAT_CHAT_MODEL) : undefined,

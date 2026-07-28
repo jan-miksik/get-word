@@ -1,4 +1,4 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 
 const mockParseOAuthState = vi.fn();
@@ -40,6 +40,10 @@ describe("GET /api/providers/openrouter/callback", () => {
       count: 1,
       retryAfterSeconds: 20,
     });
+  });
+
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
   it("redirects with invalid_state when state payload is missing", async () => {
@@ -94,5 +98,31 @@ describe("GET /api/providers/openrouter/callback", () => {
     expect(mockUpsertProviderSecret).toHaveBeenCalled();
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toContain("openrouter=connected");
+  });
+
+  it("redirects back to the forwarded deployment origin when production env still points at localhost", async () => {
+    vi.stubEnv("NODE_ENV", "production");
+    vi.stubEnv("GET_WORD_APP_URL", "http://localhost:3000");
+    mockParseOAuthState.mockReturnValue({
+      userId: "user-1",
+      state: "expected",
+      returnTo: "/lists",
+    });
+
+    const req = new NextRequest(
+      "http://localhost:3000/api/providers/openrouter/callback?state=expected",
+      {
+        headers: {
+          "x-forwarded-host": "dev.getword.app",
+          "x-forwarded-proto": "https",
+        },
+      },
+    );
+    const res = await GET(req);
+
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe(
+      "https://dev.getword.app/lists?openrouter=failed&reason=missing_code",
+    );
   });
 });

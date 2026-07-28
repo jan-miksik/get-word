@@ -118,37 +118,6 @@ export function LandingPageStyles() {
 .lp-hero-picker .onboarding-combobox:focus-within{
   background:var(--card-2);
 }
-.lp-custom-list-checkbox{
-  appearance:none;
-  display:grid;
-  place-content:center;
-  border:1.5px solid var(--line-strong);
-  border-radius:3px;
-  background:var(--paper);
-  color:var(--blue);
-  transition:background .15s, border-color .15s, box-shadow .15s;
-}
-.lp-custom-list-checkbox::before{
-  content:"";
-  width:.62rem;
-  height:.38rem;
-  border:solid currentColor;
-  border-width:0 0 2px 2px;
-  transform:translateY(-.05rem) rotate(-45deg) scale(0);
-  transform-origin:center;
-  transition:transform .12s ease;
-}
-.lp-custom-list-checkbox:checked{
-  background:var(--paper);
-  border-color:var(--blue-deep);
-}
-.lp-custom-list-checkbox:checked::before{
-  transform:translateY(-.05rem) rotate(-45deg) scale(1);
-}
-.lp-custom-list-checkbox:focus-visible{
-  outline:none;
-  box-shadow:0 0 0 3px rgba(30,111,168,.2);
-}
 
 .lp-heading-rule::after{
   content:""; display:block; width:44px; height:3px; margin-top:.8rem;

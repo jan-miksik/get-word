@@ -16,6 +16,7 @@ type IncomingItem = {
   kind?: unknown;
   text?: unknown;
   corpus_item_id?: unknown;
+  takeover_candidate?: unknown;
 };
 
 export async function POST(request: NextRequest) {
@@ -44,6 +45,17 @@ export async function POST(request: NextRequest) {
       text: typeof item.text === "string" ? item.text : "",
       ...(typeof item.corpus_item_id === "string"
         ? { corpusItemId: item.corpus_item_id }
+        : {}),
+      ...(item.takeover_candidate &&
+      typeof item.takeover_candidate === "object" &&
+      typeof (item.takeover_candidate as Record<string, unknown>).sourceItemId === "string" &&
+      typeof (item.takeover_candidate as Record<string, unknown>).sourceListName === "string"
+        ? {
+            takeoverCandidate: {
+              sourceItemId: (item.takeover_candidate as Record<string, string>).sourceItemId,
+              sourceListName: (item.takeover_candidate as Record<string, string>).sourceListName,
+            },
+          }
         : {}),
     }))
     .filter((item) => item.text.trim().length > 0);
@@ -80,6 +92,7 @@ export async function POST(request: NextRequest) {
         known_audio_asset_id: row.knownAudioAssetId ?? null,
         warnings: row.warnings,
         reused: row.reused,
+        takeover: row.takeover ?? null,
       })),
       // The learner-facing line in Review only needs model + cost; the editor
       // panel gets the full record, prompts included.

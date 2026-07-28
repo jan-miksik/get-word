@@ -11,6 +11,7 @@ import type { LinkPayload } from '@/features/learning/app-state/types';
 import type { NormalizedWord } from '@/lib/words';
 import { cacheActiveListAudio } from '@/lib/local-learning-cache';
 import { subscribeAudioNetworkChanges } from '@/lib/audio-network-policy';
+import { normalizeLanguageCode } from '@/lib/i18n/languages';
 
 export type { LinkPayload } from '@/features/learning/app-state/types';
 
@@ -27,6 +28,8 @@ export function useAppState(
     languageFrom: string;
     languageTo: string;
     isRecommended?: boolean;
+    isPersonal?: boolean;
+    isOwnedPersonal?: boolean;
   }[]>([]);
   const isUpdatingFromServerRef = useRef(false);
   const { activeListId, setActiveListId } = useActiveListState();
@@ -86,12 +89,35 @@ export function useAppState(
     }
     return progressState.lastMovedId;
   }, [allWords, progressBindings, progressState.lastMovedId]);
+  const activeList = useMemo(
+    () => subscribedLists.find((list) => list.id === activeListId) ?? null,
+    [activeListId, subscribedLists],
+  );
+  const personalOverlayListIds = useMemo(() => {
+    if (!activeList || activeList.isOwnedPersonal) return new Set<string>();
+    const from = normalizeLanguageCode(activeList.languageFrom);
+    const to = normalizeLanguageCode(activeList.languageTo);
+    return new Set(
+      subscribedLists
+        .filter(
+          (list) =>
+            list.isOwnedPersonal &&
+            normalizeLanguageCode(list.languageFrom) === from &&
+            normalizeLanguageCode(list.languageTo) === to,
+        )
+        .map((list) => list.id),
+    );
+  }, [activeList, subscribedLists]);
   const filteredSyncedWords = useMemo(
     () =>
       activeListId && syncedWords
-        ? syncedWords.filter((w) => w.listId === activeListId)
+        ? syncedWords.filter(
+            (word) =>
+              word.listId === activeListId ||
+              Boolean(word.listId && personalOverlayListIds.has(word.listId)),
+          )
         : syncedWords,
-    [activeListId, syncedWords]
+    [activeListId, personalOverlayListIds, syncedWords],
   );
   const activeWords = filteredSyncedWords ?? words;
   const categoryScopeKey = activeListId ?? '__default__';
@@ -102,11 +128,6 @@ export function useAppState(
     categoryScopeKey
   );
   const gameScore = useGameScore(isHydrated, isUpdatingFromServerRef);
-
-  const activeList = useMemo(
-    () => subscribedLists.find((list) => list.id === activeListId) ?? null,
-    [activeListId, subscribedLists],
-  );
 
   // Warm the active list only on a suitable network, resuming after reconnect
   // or a switch back to an unmetered connection.
@@ -135,6 +156,7 @@ export function useAppState(
     hasLinkWalletError,
     linkWalletError,
     retryLinkWallet,
+    refreshFullSnapshot,
   } = useServerSync({
     words,
     isHydrated,
@@ -176,7 +198,9 @@ export function useAppState(
     hasLinkWalletError,
     linkWalletError,
     retryLinkWallet,
+    refreshFullSnapshot,
     syncedWords: filteredSyncedWords,
+    allSyncedWords: syncedWords,
     subscribedLists,
     activeList,
     activeListId,

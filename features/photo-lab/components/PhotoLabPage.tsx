@@ -80,19 +80,28 @@ function PhotoLabShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function PhotoLabPage() {
+type PhotoLabPageProps = {
+  /**
+   * Present when the lab is open in place over the study view: closing returns
+   * to the deck instead of navigating. Absent on the standalone `/photo-lab`
+   * route, where back is a plain link home.
+   */
+  onClose?: () => void;
+};
+
+export function PhotoLabPage({ onClose }: PhotoLabPageProps) {
   const settingsLanguage = useSettingsLanguage();
 
   return (
     <I18nProvider language={settingsLanguage}>
       <PhotoLabShell>
-        <PhotoLabContent />
+        <PhotoLabContent onClose={onClose} />
       </PhotoLabShell>
     </I18nProvider>
   );
 }
 
-function PhotoLabContent() {
+function PhotoLabContent({ onClose }: PhotoLabPageProps) {
   const { t } = useI18n();
   // null = not yet known (first client render); avoids a hydration mismatch.
   const [enabled, setEnabled] = useState<boolean | null>(null);
@@ -109,14 +118,78 @@ function PhotoLabContent() {
       <main className="flex min-h-dvh items-center justify-center p-6">
         <div className="flex max-w-sm flex-col gap-3 rounded-xl border-2 border-[color:var(--ob-ink)] p-6 text-center">
           <p className="m-0 text-sm">{t('photoLab.enableHint')}</p>
-          <Link href="/" className="text-sm text-[color:var(--ob-accent)] underline">
-            ← Get Word
-          </Link>
+          {onClose ? (
+            <button
+              type="button"
+              onClick={onClose}
+              className="text-sm text-[color:var(--ob-accent)] underline"
+            >
+              ← Get Word
+            </button>
+          ) : (
+            <Link href="/" className="text-sm text-[color:var(--ob-accent)] underline">
+              ← Get Word
+            </Link>
+          )}
         </div>
       </main>
     );
   }
-  return <PhotoLabStudio />;
+  return <PhotoLabStudio onClose={onClose} />;
+}
+
+const BACK_LINK_CLASS =
+  'shrink-0 rounded-full border-2 border-[color:var(--ob-ink)]/60 bg-[#F4EFE2]/70 px-3.5 py-2 text-sm font-semibold text-[color:var(--ob-ink)] transition hover:-translate-y-0.5 hover:border-[color:var(--ob-ink)] hover:bg-[var(--ob-surface-hover)] hover:shadow-md hover:shadow-[#2A2218]/10 sm:text-base';
+
+/**
+ * Back out of the lab.
+ *
+ * Opened in place over the study view (`onClose`), this is a plain button: the
+ * deck is still mounted behind it, so there is nothing to navigate back to.
+ *
+ * On the standalone route it is a link home, except when `?from=study` says the
+ * learner arrived from a live deck — then back pops history instead of loading
+ * `/` fresh, which lets the browser restore the deck rather than rebuilding it.
+ * Without that param — a bookmark, a shared link, a new tab — the plain link
+ * home is still the right answer.
+ */
+export function BackLink({ onClose }: { onClose?: () => void }) {
+  const { t } = useI18n();
+  const [fromStudy, setFromStudy] = useState(false);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setFromStudy(new URLSearchParams(window.location.search).get('from') === 'study');
+    }, 0);
+    return () => window.clearTimeout(timeoutId);
+  }, []);
+
+  if (onClose) {
+    return (
+      <button type="button" onClick={onClose} className={BACK_LINK_CLASS}>
+        ← {t('photoLab.backToStudy')}
+      </button>
+    );
+  }
+
+  return (
+    <Link
+      href="/"
+      className={BACK_LINK_CLASS}
+      onClick={(event) => {
+        // Only intercept a plain left click; modifier/middle clicks should keep
+        // opening `/` in a new tab as the href promises.
+        if (!fromStudy) return;
+        if (event.defaultPrevented || event.button !== 0) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        if (window.history.length <= 1) return;
+        event.preventDefault();
+        window.history.back();
+      }}
+    >
+      ← {t(fromStudy ? 'photoLab.backToStudy' : 'photoLab.back')}
+    </Link>
+  );
 }
 
 function LanguagePairSummary({
@@ -220,7 +293,7 @@ function DeletePhotoConfirmModal({
   );
 }
 
-function PhotoLabStudio() {
+function PhotoLabStudio({ onClose }: PhotoLabPageProps) {
   const { t } = useI18n();
   const { languages } = useSupportedLanguages();
   const {
@@ -262,12 +335,7 @@ function PhotoLabStudio() {
     <main className="mx-auto flex min-h-dvh w-full max-w-[1800px] flex-col gap-4 px-3 pb-[max(3rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:pt-6 lg:px-8">
       <header className="flex w-full flex-col gap-5 animate-[photo-lab-rise_0.5s_ease-out_both] motion-reduce:animate-none">
         <div className="flex items-center justify-between gap-3">
-          <Link
-            href="/"
-            className="shrink-0 rounded-full border-2 border-[color:var(--ob-ink)]/60 bg-[#F4EFE2]/70 px-3.5 py-2 text-sm font-semibold text-[color:var(--ob-ink)] transition hover:-translate-y-0.5 hover:border-[color:var(--ob-ink)] hover:bg-[var(--ob-surface-hover)] hover:shadow-md hover:shadow-[#2A2218]/10 sm:text-base"
-          >
-            ← {t('photoLab.back')}
-          </Link>
+          <BackLink onClose={onClose} />
           <LanguagePairSummary from={langFrom} to={langTo} onOpen={openLanguageModal} />
         </div>
         <div className="flex flex-col gap-2.5">

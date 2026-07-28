@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers';
 import { GET_WORD_SESSION_COOKIE_NAME, verifySession } from '@/lib/session';
 import { LandingPage } from '@/features/landing/components/LandingPage';
+import { photoDisplayFont } from '@/features/photo-lab/font';
 import { HomeClient } from './HomeClient';
 
 /**
@@ -19,5 +20,8 @@ export default async function Home() {
     return <LandingPage />;
   }
 
-  return <HomeClient />;
+  // The photo-lab display font is declared here, in a server component, because
+  // `next/font` cannot be called from the client tree that opens the lab.
+  // `preload: false` keeps the file off this page's critical path.
+  return <HomeClient photoDisplayFontClass={photoDisplayFont.variable} />;
 }

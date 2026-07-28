@@ -1192,6 +1192,12 @@
   color: var(--ob-surface, #F4EFE2);
 }
 
+.onboarding-option-highlight .onboarding-text-soft,
+.onboarding-option-highlight:hover:not(:disabled) .onboarding-text-soft {
+  color: var(--ob-surface, #F4EFE2);
+  opacity: 0.82;
+}
+
 /* Featured/recommended interactive option: stays clearly highlighted, but
    reads as "selected" rather than "hovered". Hover still fills with accent so
    the affordance is preserved. */
@@ -1247,6 +1253,23 @@
   outline: none;
 }
 
+.word-chat-assistant-message {
+  background: var(--ob-surface, #F4EFE2);
+  border: 2px solid var(--ob-ink, #2A2218);
+  color: var(--ob-ink, #2A2218);
+}
+
+.word-chat-stream-caret {
+  display: inline-block;
+  width: 0.45em;
+  height: 1em;
+  margin-left: 0.12em;
+  border-radius: 999px;
+  background: currentColor;
+  transform: translateY(0.16em);
+  animation: word-chat-caret-blink 1s steps(2, jump-none) infinite;
+}
+
 /* Word chat: the tick on a proposed item.
    The whole row is the hit target, so this is presentation only — but it has to
    read as a checkbox at a glance, on both a plain and a selected (accent-filled)
@@ -1271,27 +1294,7 @@
   color: var(--ob-accent, #1E6FA8);
 }
 
-/* Word chat: typing indicators.
-   The chat endpoint returns a whole reply rather than a token stream, so the
-   caret and dots are presentation — they make a wait that is genuinely 5-40s
-   long read as "being written" instead of "frozen". Both respect
-   prefers-reduced-motion. */
-.word-chat-caret {
-  display: inline-block;
-  width: 0.5ch;
-  height: 1em;
-  margin-left: 1px;
-  vertical-align: text-bottom;
-  background: currentColor;
-  opacity: 0.7;
-  animation: word-chat-caret-blink 1s steps(2, start) infinite;
-}
-
-@keyframes word-chat-caret-blink {
-  0%, 100% { opacity: 0.7; }
-  50% { opacity: 0; }
-}
-
+/* Word chat: working indicator shown while a model call is in flight. */
 .word-chat-dot {
   display: inline-block;
   width: 0.4rem;
@@ -1305,14 +1308,30 @@
 .word-chat-dot:nth-child(2) { animation-delay: 0.18s; }
 .word-chat-dot:nth-child(3) { animation-delay: 0.36s; }
 
+@keyframes word-chat-message-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
 @keyframes word-chat-dot-pulse {
   0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
   40% { opacity: 0.9; transform: translateY(-2px); }
 }
 
+@keyframes word-chat-caret-blink {
+  0%, 55% { opacity: 0.75; }
+  56%, 100% { opacity: 0; }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .word-chat-caret,
-  .word-chat-dot {
+  .word-chat-dot,
+  .word-chat-stream-caret {
     animation: none;
     opacity: 0.6;
   }

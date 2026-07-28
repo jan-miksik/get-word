@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import type { NormalizedWord } from '@/lib/words';
 import { matchesCategoryFilter } from '@/lib/words';
 import { postTabMessage, subscribeTabMessages } from '@/lib/tab-sync';
@@ -32,28 +32,43 @@ function areCategoryArraysEqual(left: string[] | undefined, right: string[]): bo
   return true;
 }
 
-function getFilterableCategories(words: NormalizedWord[]): string[] {
+function getFilterableCategories(words: NormalizedWord[]): Array<{ key: string; name: string }> {
+  const byKey = new Map<string, string>();
+  for (const word of words) {
+    for (const category of word.category) {
+      if (category === 'word' || category === 'phrase') continue;
+      byKey.set(word.categoryKey ?? category, category);
+    }
+  }
   return Array.from(
-    new Set(
-      words.flatMap((word) =>
-        word.category.filter((category) => category !== 'word' && category !== 'phrase')
-      )
-    )
-  ).sort((left, right) => left.localeCompare(right));
+    byKey,
+    ([key, name]) => ({ key, name }),
+  ).sort((left, right) => left.name.localeCompare(right.name) || left.key.localeCompare(right.key));
 }
 
 function resolveVisibleCategories(
   storedCategories: string[] | undefined,
-  availableCategories: string[]
+  availableCategories: Array<{ key: string; name: string }>
 ): string[] {
   if (availableCategories.length === 0) return [];
   if (storedCategories === undefined) {
-    return availableCategories;
+    return availableCategories.map((category) => category.key);
   }
 
-  const availableSet = new Set(availableCategories);
-  return normalizeCategoryValues(storedCategories).filter((category) =>
-    availableSet.has(category)
+  const availableSet = new Set(availableCategories.map((category) => category.key));
+  const keysByLegacyName = new Map<string, string[]>();
+  for (const category of availableCategories) {
+    keysByLegacyName.set(category.name, [
+      ...(keysByLegacyName.get(category.name) ?? []),
+      category.key,
+    ]);
+  }
+  return Array.from(
+    new Set(
+      normalizeCategoryValues(storedCategories).flatMap((value) =>
+        availableSet.has(value) ? [value] : keysByLegacyName.get(value) ?? [],
+      ),
+    ),
   );
 }
 
@@ -66,6 +81,9 @@ export function useCategoryFilter(
   const [selectedCategoriesByScope, setSelectedCategoriesByScope] = useState<Record<string, string[]>>(
     () => readStoredCategoryFiltersByList()
   );
+  const previousAvailableByScope = useRef<
+    Record<string, Array<{ key: string; name: string }>>
+  >({});
 
   const availableCategories = useMemo(() => getFilterableCategories(words), [words]);
   const selectedCategoryValues = useMemo(
@@ -76,6 +94,29 @@ export function useCategoryFilter(
     () => createCategorySet(selectedCategoryValues),
     [selectedCategoryValues]
   );
+
+  useEffect(() => {
+    const previous = previousAvailableByScope.current[scopeKey];
+    previousAvailableByScope.current[scopeKey] = availableCategories;
+    if (!previous || previous.length === 0) return;
+
+    const stored = selectedCategoriesByScope[scopeKey];
+    const previousSelected = resolveVisibleCategories(stored, previous);
+    const previouslyAllSelected = previous.every((category) =>
+      previousSelected.includes(category.key),
+    );
+    const currentKeys = availableCategories.map((category) => category.key);
+    if (
+      !previouslyAllSelected ||
+      currentKeys.every((key) => previousSelected.includes(key))
+    ) {
+      return;
+    }
+    setSelectedCategoriesByScope((current) => ({
+      ...current,
+      [scopeKey]: currentKeys,
+    }));
+  }, [availableCategories, scopeKey, selectedCategoriesByScope]);
 
   useEffect(() => {
     persistCategoryFiltersByList(selectedCategoriesByScope);

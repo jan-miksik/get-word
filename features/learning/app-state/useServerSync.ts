@@ -70,6 +70,8 @@ interface UseServerSyncOptions {
     languageFrom: string;
     languageTo: string;
     isRecommended?: boolean;
+    isPersonal?: boolean;
+    isOwnedPersonal?: boolean;
   }[]>>;
   setActiveListId: (id: string | null) => void;
 }
@@ -132,7 +134,12 @@ export function useServerSync({
       const converted = wordListItemsToNormalizedWords(
         serverData.word_list_items,
         serverData.categories,
-        { mediaFallbackWords: words }
+        {
+          mediaFallbackWords: words,
+          listNamesById: Object.fromEntries(
+            (serverData.lists ?? []).map((list) => [list.id, list.name]),
+          ),
+        }
       );
       setSyncedWords(converted);
     }
@@ -278,6 +285,13 @@ export function useServerSync({
         }
       });
   }, [applyFreshServerData, setActiveListId]);
+
+  /** Awaited, unconditional snapshot used after a successful word-chat commit. */
+  const refreshFullSnapshot = useCallback(async () => {
+    await flushOutboxBeforeRead();
+    const serverData = await fetchUserData();
+    await applyFreshServerData(serverData);
+  }, [applyFreshServerData]);
 
   useEffect(() => {
     if (hasLoadedRef.current) return;
@@ -509,5 +523,6 @@ export function useServerSync({
     linkWalletError: visibleLinkWalletError,
     retryLinkWallet,
     isListRefreshPending,
+    refreshFullSnapshot,
   };
 }

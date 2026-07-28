@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, useMemo, useCallback } from 'react';
+import dynamic from 'next/dynamic';
 import { LearningStudyContent } from '@/features/learning/components/LearningStudyContent';
 import { useViewModePreference } from '@/features/learning/app-state/useViewModePreference';
 import { useMinigameFrequencyPreference } from '@/features/learning/hooks/useMinigameFrequencyPreference';
@@ -31,14 +32,77 @@ import {
 } from '@/features/shared/languages/landingPairStorage';
 import { MemoryHooksIntroCard } from '@/features/learning/components/MemoryHooksIntroCard';
 import { PWAInstallIntroCard } from '@/features/learning/components/PWAInstallIntroCard';
+import { AddPersonalWordsPrompt } from '@/features/learning/components/AddPersonalWordsPrompt';
 import { usePWAInstallIntro } from '@/features/learning/hooks/usePWAInstallIntro';
-import { refreshListsAfterCommit } from '@/lib/sync';
+import { shouldOfferMorePersonalWords } from '@/features/learning/personalWordsPrompt';
 
 const BOOT_LOADING_TIMEOUT_MS = 12_000;
+
+// Photo lab is a whole second UI (camera flow, IndexedDB store, zoom canvas).
+// Opening it in place must not put any of that in the study page's bundle, so
+// it is fetched the first time a learner actually opens it.
+const PhotoLabPage = dynamic(
+  () => import('@/features/photo-lab/components/PhotoLabPage').then((m) => m.PhotoLabPage),
+  { ssr: false, loading: () => null },
+);
+
+/** History state marker for the in-place photo lab; see `usePhotoLabOverlay`. */
+const PHOTO_LAB_HISTORY_MARKER = 'photo-lab';
+
+/**
+ * Opens photo lab over the study view and gives it its own history entry, so
+ * the phone's back gesture (and the browser's back button) closes the lab
+ * instead of leaving the app. Closing pops that entry back off.
+ */
+function usePhotoLabOverlay() {
+  const [isOpen, setIsOpen] = useState(false);
+  // Survives the effect re-run that Strict Mode does on mount, so one open
+  // never stacks up two history entries.
+  const pushedEntryRef = useRef(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (!pushedEntryRef.current) {
+      window.history.pushState(
+        { ...window.history.state, getWordOverlay: PHOTO_LAB_HISTORY_MARKER },
+        '',
+      );
+      pushedEntryRef.current = true;
+    }
+    const handlePopState = () => {
+      pushedEntryRef.current = false;
+      setIsOpen(false);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [isOpen]);
+
+  const close = useCallback(() => {
+    // Leaving our own entry behind would mean back "returns" to the study view
+    // the learner is already looking at. The popstate handler above is what
+    // actually closes the lab.
+    if (pushedEntryRef.current) {
+      window.history.back();
+      return;
+    }
+    setIsOpen(false);
+  }, []);
+
+  return { isOpen, open: useCallback(() => setIsOpen(true), []), close };
+}
 
 // The learning app now runs entirely on synced word_list_items; there is no
 // legacy seed word set. Stable identity avoids needless memo recomputes.
 const EMPTY_WORDS: NormalizedWord[] = [];
+
+type HomeClientProps = {
+  /**
+   * `next/font` class for the photo-lab display font, loaded in the server
+   * route and handed down because font loaders cannot run in a client
+   * component. Only matters while the lab is open.
+   */
+  photoDisplayFontClass?: string;
+};
 
 /**
  * The signed-in learning app shell. Rendered by `app/page.tsx` only for
@@ -46,7 +110,7 @@ const EMPTY_WORDS: NormalizedWord[] = [];
  * server-rendered `LandingPage` instead. The `isSignedOut` branch below is a
  * defensive fallback for the brief client window after a sign-out.
  */
-export function HomeClient() {
+export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   const [loaderDismissed, setLoaderDismissed] = useState(false);
   const [bootTimedOut, setBootTimedOut] = useState(false);
   // Lets an already-onboarded user replay the language-onboarding screen via
@@ -65,8 +129,18 @@ export function HomeClient() {
       typeof window !== 'undefined' &&
       new URLSearchParams(window.location.search).get('wordChat') === '1',
   );
+  // Photo lab used to be a plain link to `/photo-lab`, which swapped out the
+  // whole app and left no obvious way back. Like the word chat, it now opens
+  // over the study view and closes back onto the deck it left running.
+  const {
+    isOpen: showPhotoLab,
+    open: openPhotoLab,
+    close: closePhotoLab,
+  } = usePhotoLabOverlay();
   const [completedDeckWordCards, setCompletedDeckWordCards] = useState(0);
   const [memoryHooksIntroDismissedForSession, setMemoryHooksIntroDismissedForSession] = useState(false);
+  const [addWordsPromptDismissedForSession, setAddWordsPromptDismissedForSession] =
+    useState(false);
   const [landingLanguagePair] = useState(() =>
     typeof window !== 'undefined' ? readLandingLanguagePair() : null,
   );
@@ -129,6 +203,7 @@ export function HomeClient() {
     hasLinkWalletError,
     setGameScore,
     syncedWords,
+    allSyncedWords,
     userId,
     userEmail,
     userWalletAddress,
@@ -141,6 +216,7 @@ export function HomeClient() {
     setMemoryHooksIntroAnswered,
     subscribedLists,
     isEditor,
+    refreshFullSnapshot,
   } = appState;
 
   // The app runs on synced words (from word_list_items).
@@ -396,7 +472,47 @@ export function HomeClient() {
     />
   ) : null;
 
-  const interstitialCard = memoryHooksIntroCard ?? pwaInstallIntroCard;
+  const personalListIds = useMemo(
+    () =>
+      new Set(
+        subscribedLists
+          .filter(
+            (list) =>
+              list.isPersonal === true &&
+              list.languageFrom === learningLanguageFrom &&
+              list.languageTo === learningLanguageTo,
+          )
+          .map((list) => list.id),
+      ),
+    [learningLanguageFrom, learningLanguageTo, subscribedLists],
+  );
+  const shouldShowAddWordsPrompt = useMemo(
+    () =>
+      !addWordsPromptDismissedForSession &&
+      Boolean(allSyncedWords) &&
+      shouldOfferMorePersonalWords({
+        words: allSyncedWords ?? EMPTY_WORDS,
+        progress,
+        personalListIds,
+      }),
+    [
+      addWordsPromptDismissedForSession,
+      allSyncedWords,
+      personalListIds,
+      progress,
+    ],
+  );
+  const addWordsPrompt = shouldShowAddWordsPrompt ? (
+    <AddPersonalWordsPrompt
+      onAddWords={() => {
+        setForceWordChat(true);
+        setForceOnboarding(true);
+      }}
+      onDismiss={() => setAddWordsPromptDismissedForSession(true)}
+    />
+  ) : null;
+  const interstitialCard =
+    memoryHooksIntroCard ?? pwaInstallIntroCard ?? addWordsPrompt;
   const hasNoSelectedWordList = Boolean(
     onboardingCompletedAt &&
       learningLanguageFrom &&
@@ -467,19 +583,15 @@ export function HomeClient() {
           <AddWordsScreen
             languageFrom={learningLanguageFrom as string}
             languageTo={learningLanguageTo as string}
+            baseListId={
+              appState.activeList?.isOwnedPersonal ? null : appState.activeListId
+            }
+            refreshAfterCommit={refreshFullSnapshot}
             onClose={() => {
               setForceWordChat(false);
               setForceOnboarding(false);
             }}
-            onCommitted={async (result) => {
-              setActiveListId(result.listId);
-              // The commit went through its own endpoint, so pull a fresh
-              // snapshot before dropping back into the study view — otherwise
-              // the new category is invisible until an unrelated refetch.
-              await refreshListsAfterCommit();
-              setForceWordChat(false);
-              setForceOnboarding(false);
-            }}
+            onCommitted={() => undefined}
           />
         ) : needsLanguageOnboarding ? (
           <LearningLanguageOnboarding
@@ -517,44 +629,56 @@ export function HomeClient() {
             onSelectList={setActiveListId}
           />
         ) : (
-          <LearningStudyContent
-            // Force card view when previewing the PWA install screen — the
-            // interstitial only renders inside the card deck.
-            viewMode={isPreviewPWAActive ? 'card' : viewMode}
-            minigameFrequency={minigameFrequency}
-            onMinigameFrequencyChange={(f) => setMinigameFrequency(f)}
-            isAuthenticated={isAuthenticated}
-            authEmail={displayEmail}
-            school={school}
-            authAddress={displayAddress}
-            onSignOut={signOut}
-            // "Add words" from the menu. The `?wordChat=1` params are read once,
-            // on mount, so switching here in state is what actually opens the
-            // chat for someone already inside the app.
-            onOpenWordChat={() => {
-              setForceWordChat(true);
-              setForceOnboarding(true);
-            }}
-            categories={categories}
-            progressStats={progressStats}
-            phrasesCallbackRef={phrasesCallbackRef}
-            phrasesScrollElement={phrasesScrollElement}
-            filteredWords={filteredWords}
-            interstitialCard={interstitialCard}
-            onDeckWordCardCompleted={() => setCompletedDeckWordCards((count) => count + 1)}
-            deckSwipeActions={deckSwipeActions}
-            deckHorizontalSwipeEnabled={!typingModeEnabled}
-            cardDeckGroups={cardDeckGroups}
-            streamGroupedWords={streamGroupedWords}
-            renderCardForDeck={renderCardForDeck}
-            renderMiniGameForDeck={renderMiniGameForDeck}
-            renderCard={renderCard}
-            renderMiniGame={renderMiniGame}
-            dueWordsCount={dueWords.length}
-            showNotReady={showNotReady}
-            settlingCount={settlingWords.length}
-            onToggleShowNotReady={() => setShowNotReady(!showNotReady)}
-          />
+          <>
+            <LearningStudyContent
+              // Force card view when previewing the PWA install screen — the
+              // interstitial only renders inside the card deck.
+              viewMode={isPreviewPWAActive ? 'card' : viewMode}
+              minigameFrequency={minigameFrequency}
+              onMinigameFrequencyChange={(f) => setMinigameFrequency(f)}
+              isAuthenticated={isAuthenticated}
+              authEmail={displayEmail}
+              school={school}
+              authAddress={displayAddress}
+              onSignOut={signOut}
+              // "Add words" from the menu. The `?wordChat=1` params are read once,
+              // on mount, so switching here in state is what actually opens the
+              // chat for someone already inside the app.
+              onOpenWordChat={() => {
+                setForceWordChat(true);
+                setForceOnboarding(true);
+              }}
+              onOpenPhotoLab={openPhotoLab}
+              categories={categories}
+              progressStats={progressStats}
+              phrasesCallbackRef={phrasesCallbackRef}
+              phrasesScrollElement={phrasesScrollElement}
+              filteredWords={filteredWords}
+              interstitialCard={interstitialCard}
+              onDeckWordCardCompleted={() => setCompletedDeckWordCards((count) => count + 1)}
+              deckSwipeActions={deckSwipeActions}
+              deckHorizontalSwipeEnabled={!typingModeEnabled}
+              cardDeckGroups={cardDeckGroups}
+              streamGroupedWords={streamGroupedWords}
+              renderCardForDeck={renderCardForDeck}
+              renderMiniGameForDeck={renderMiniGameForDeck}
+              renderCard={renderCard}
+              renderMiniGame={renderMiniGame}
+              dueWordsCount={dueWords.length}
+              showNotReady={showNotReady}
+              settlingCount={settlingWords.length}
+              onToggleShowNotReady={() => setShowNotReady(!showNotReady)}
+            />
+            {showPhotoLab ? (
+              <div
+                className={`fixed inset-0 z-[100] overflow-y-auto bg-[#F4EFE2] ${
+                  photoDisplayFontClass ?? ''
+                }`}
+              >
+                <PhotoLabPage onClose={closePhotoLab} />
+              </div>
+            ) : null}
+          </>
         )}
       </I18nProvider>
     </AppStateProvider>

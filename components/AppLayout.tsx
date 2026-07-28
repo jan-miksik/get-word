@@ -39,6 +39,8 @@ interface AppLayoutProps {
   school?: SchoolMembership | null;
   /** Opens the word chat from the menu without a full page load. */
   onOpenWordChat?: () => void;
+  /** Opens photo lab in place, the same way. */
+  onOpenPhotoLab?: () => void;
   // Page-computed values (differ between main and edit page)
   categories: Array<{ name: string; count: number }>;
   progressStats: ProgressStats;
@@ -58,6 +60,7 @@ export function AppLayout({
   accountSlotOverride,
   school,
   onOpenWordChat,
+  onOpenPhotoLab,
   categories,
   progressStats,
   header,
@@ -84,6 +87,7 @@ export function AppLayout({
     setActiveListId,
     syncedWords,
     photoLabEnabled,
+    quickAddEnabled,
   } = useAppStateContext();
   const [pendingAudioListId, setPendingAudioListId] = useState<string | null>(() =>
     readPendingCommonListAudio()?.listId ?? null,
@@ -145,6 +149,8 @@ export function AppLayout({
           photoLabEnabled={photoLabEnabled}
           school={school}
           onOpenWordChat={onOpenWordChat}
+          onOpenPhotoLab={onOpenPhotoLab}
+          quickAddEnabled={quickAddEnabled}
           centerContent={
             isAuthenticated
               ? <ProgressSummary progressStats={progressStats} />

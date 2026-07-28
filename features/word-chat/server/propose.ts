@@ -20,9 +20,20 @@ import {
 import { WordChatUnavailableError } from "./chat";
 import { buildProposalPrompt } from "./prompt";
 import { buildCallDiagnostics, type WordChatCallDiagnostics } from "./diagnostics";
-import { dedupKey, loadCorpusPool, loadExclusions, type CorpusEntry } from "./corpus";
+import {
+  dedupKey,
+  loadCorpusPool,
+  loadExclusions,
+  loadTakeoverCandidates,
+  type CorpusEntry,
+} from "./corpus";
 import { recordWordChatUsage } from "./usage";
-import type { ProposalResult, ProposedItem, WordChatMessage } from "../types";
+import type {
+  ProposalResult,
+  ProposedItem,
+  WordChatLanguageLevel,
+  WordChatMessage,
+} from "../types";
 
 const MAX_CATEGORY_NAME_CHARS = 60;
 const MAX_ITEM_CHARS = 200;
@@ -197,7 +208,12 @@ function cleanItemText(value: unknown): string {
 }
 
 /** Reuse lookup: comparison key → the row to snap a matching proposal onto. */
-export type CorpusMatch = { id: string; text: string; verified: boolean };
+export type CorpusMatch = {
+  id: string;
+  text: string;
+  verified: boolean;
+  takeoverCandidate?: { sourceItemId: string; sourceListName: string };
+};
 
 export function corpusPoolByText(pool: CorpusEntry[]): Map<string, CorpusMatch> {
   const byText = new Map<string, CorpusMatch>();
@@ -206,7 +222,19 @@ export function corpusPoolByText(pool: CorpusEntry[]): Map<string, CorpusMatch> 
     // `loadCorpusPool` orders curated rows first, so the first row to claim a
     // key is the best-reviewed one holding that text.
     if (!key || byText.has(key)) continue;
-    byText.set(key, { id: entry.id, text: entry.text, verified: entry.verified });
+    byText.set(key, {
+      id: entry.id,
+      text: entry.text,
+      verified: entry.verified,
+      ...(entry.takeoverEligible && entry.listName
+        ? {
+            takeoverCandidate: {
+              sourceItemId: entry.id,
+              sourceListName: entry.listName,
+            },
+          }
+        : {}),
+    });
   }
   return byText;
 }
@@ -281,6 +309,9 @@ export function materializeProposedItems(input: {
             corpusItemId: match.id,
             verified: match.verified,
             text,
+            ...(match.takeoverCandidate
+              ? { takeoverCandidate: match.takeoverCandidate }
+              : {}),
           }
         : { kind, confidence, source: "generated", text },
     );
@@ -305,8 +336,10 @@ export async function proposeItems(input: {
   languageFrom: string;
   languageTo: string;
   chatLanguage: string;
+  languageLevel: WordChatLanguageLevel;
   brief: LearnerBrief | null;
   messages: WordChatMessage[];
+  baseListId?: string;
   /** Editor override from the debug panel; falls back to the configured model. */
   model?: string;
   /** Include the exact request in the diagnostics. Editors only. */
@@ -326,13 +359,23 @@ export async function proposeItems(input: {
   // A failure here degrades rather than fails the session: every item stays
   // "generated" and gets a fresh translation, which is what would have happened
   // without a pool anyway.
-  const corpusPoolPromise = loadCorpusPool({
-    languageFrom: input.languageFrom,
-    languageTo: input.languageTo,
-  }).catch((err): CorpusEntry[] => {
-    console.error("[word-chat] reuse pool unavailable, proposing without it", err);
-    return [];
-  });
+  const corpusPoolPromise = Promise.all([
+    loadTakeoverCandidates({
+      userId: input.userId,
+      languageFrom: input.languageFrom,
+      languageTo: input.languageTo,
+      baseListId: input.baseListId,
+    }),
+    loadCorpusPool({
+      languageFrom: input.languageFrom,
+      languageTo: input.languageTo,
+    }),
+  ])
+    .then(([takeover, corpus]) => [...takeover, ...corpus])
+    .catch((err): CorpusEntry[] => {
+      console.error("[word-chat] reuse pool unavailable, proposing without it", err);
+      return [];
+    });
 
   const exclusions = await loadExclusions({
     userId: input.userId,
@@ -351,6 +394,7 @@ export async function proposeItems(input: {
     languageFrom: input.languageFrom,
     languageTo: input.languageTo,
     chatLanguage: input.chatLanguage,
+    languageLevel: input.languageLevel,
     messages: input.messages,
     brief: input.brief,
     exclusions: promptExclusions,

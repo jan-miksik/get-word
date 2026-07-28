@@ -5,12 +5,25 @@ and keeps a bounded device-local history.
 
 ## Read First
 
-- Route shell and local font: `app/photo-lab/page.tsx`
+- Route shell: `app/photo-lab/page.tsx`; shared display font: `features/photo-lab/font.ts`
 - UI composition: `features/photo-lab/components/PhotoLabPage.tsx`
 - Client workflow and blob URL lifecycle: `features/photo-lab/components/usePhotoLabStudio.ts`
 - IndexedDB history: `features/photo-lab/client/photoStore.ts`
 - Analysis/audio services: `features/photo-lab/server/analyze.ts`, `audio.ts`
 - Thin HTTP routes: `app/api/photo-lab/*/route.ts`
+
+## Entry points
+
+The study view (`app/HomeClient.tsx`) opens the lab **in place**, the way it
+opens the word chat: `PhotoLabPage` replaces the study tree, gets its own
+history entry so the phone's back gesture closes it, and `onClose` drops back
+onto the deck that kept running behind it. The page is loaded lazily, so none of
+this feature ships in the study bundle until it is opened.
+
+`/photo-lab` stays the standalone entry for bookmarks, shared links, the
+settings link, and a modifier-click on the top-bar shortcut. There `onClose` is
+absent and back is a link home — or a history pop when `?from=study` says a live
+deck was left behind.
 
 ## Allowances
 

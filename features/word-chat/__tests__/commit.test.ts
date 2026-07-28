@@ -22,14 +22,23 @@ describe("sanitizeReviewItems", () => {
     expect(result.map((row) => row.textKnown)).toEqual(["dobrý den"]);
   });
 
-  it("collapses whitespace and drops case-insensitive duplicates", () => {
+  it("collapses whitespace but keeps case-sensitive content-key variants", () => {
     const result = sanitizeReviewItems([
       item("Kolik   to  stojí?"),
       item("kolik to stojí?"),
     ]);
 
-    expect(result).toHaveLength(1);
+    expect(result).toHaveLength(2);
     expect(result[0].textKnown).toBe("Kolik to stojí?");
+  });
+
+  it("drops duplicate full pairs after content-key normalization", () => {
+    expect(
+      sanitizeReviewItems([
+        item("Kolik   to stojí?", "Bao nhiêu?"),
+        item("Kolik to stojí?", "Bao   nhiêu?"),
+      ]),
+    ).toHaveLength(1);
   });
 
   it("enforces the per-session cap", () => {

@@ -7,7 +7,12 @@ import {
   TARGET_SENTENCE_COUNT,
   TARGET_WORD_COUNT,
 } from "./config";
-import type { WordChatMessage } from "../types";
+import type {
+  WordChatAddressRegister,
+  WordChatLanguageLevel,
+  WordChatMessage,
+  WordChatSalutationGender,
+} from "../types";
 
 function languageName(code: string, locale: string): string {
   return getLocalizedLanguageName(code, locale) ?? code.toUpperCase();
@@ -29,14 +34,50 @@ ${lines.map((line) => `- ${line}`).join("\n")}
 Open with that context instead of asking from scratch. Confirm briefly, do not re-interview.`;
 }
 
+function salutationGenderLine(gender: WordChatSalutationGender | null): string {
+  if (gender === "female") {
+    return "- When direct address in the chat language has grammatical gender, use feminine forms for the learner.";
+  }
+  if (gender === "male") {
+    return "- When direct address in the chat language has grammatical gender, use masculine forms for the learner.";
+  }
+  if (gender === "neutral") {
+    return "- When direct address in the chat language has grammatical gender, avoid gendered wording for the learner where natural.";
+  }
+  return "";
+}
+
+function levelDescription(level: WordChatLanguageLevel): string {
+  switch (level) {
+    case "A0":
+      return "A0: they understand almost nothing; use survival basics and very short patterns.";
+    case "A1":
+      return "A1: they know a few basic phrases; stay with simple, common phrases.";
+    case "A2":
+      return "A2: they can manage simple situations; include practical everyday sentences.";
+    case "B1":
+      return "B1: they can handle ordinary conversation; include natural standalone sentences.";
+    case "B2":
+      return "B2: they speak fluently and want nuance; include natural phrasing, register, and useful subtleties.";
+  }
+}
+
 export function buildChatSystemPrompt(input: {
   languageFrom: string;
   languageTo: string;
   chatLanguage: string;
+  addressRegister: WordChatAddressRegister;
+  salutationGender: WordChatSalutationGender | null;
+  languageLevel: WordChatLanguageLevel;
   brief: LearnerBrief | null;
 }): string {
   const target = languageName(input.languageTo, input.chatLanguage);
   const known = languageName(input.languageFrom, input.chatLanguage);
+  const addressLine = hasRegisterDistinction(input.chatLanguage)
+    ? input.addressRegister === "formal"
+      ? `- Address the learner with polite/formal second-person forms in ${languageName(input.chatLanguage, input.chatLanguage)} (vykání or the closest local equivalent). Keep this consistent.`
+      : `- Address the learner with casual/informal second-person forms in ${languageName(input.chatLanguage, input.chatLanguage)} (tykání or the closest local equivalent). Keep this consistent.`
+    : "";
   const registerLine = hasRegisterDistinction(input.languageTo)
     ? `- ${target} separates polite and casual speech. Raise it ONCE, as an aside, and accept "you choose" — then use the learner-safe neutral form. Never make it a blocking question.`
     : `- Do not ask about politeness levels; ${target} does not need that distinction here.`;
@@ -57,16 +98,19 @@ Tone — plain and matter-of-fact, like a colleague who knows the language well:
 Rules:
 - Ask at most TWO short follow-up questions in the whole conversation, then say you are ready to suggest words. You are not conducting an interview.
 - A vague answer is enough. If the learner says "just the basics" or gives one word, do not push for detail — work with it.
+${addressLine}
+${salutationGenderLine(input.salutationGender)}
+Learner level in ${target}: ${levelDescription(input.languageLevel)}
 ${registerLine}
 - Stay on the topic of learning ${target}. If asked for anything else, say in one line that you only help pick words, and return to the question.
 - Never list the proposed words in chat. A separate step does that.
 - Do not promise anything about pricing, accounts, or app features.
 ${briefBlock(input.brief)}
 
-Return only valid JSON with this exact shape, no markdown:
+Return only valid JSON with this exact shape and put "reply" first, no markdown:
 { "reply": "your message", "suggestions": ["short chip", "short chip"], "readyToPropose": false }
 
-"suggestions" holds at most three tappable answers to your own question, each under 40 characters, written in ${languageName(input.chatLanguage, input.chatLanguage)}. Use [] when a free-text answer fits better.
+"suggestions" holds at most three tappable answers to your own question, each under 40 characters, written in ${languageName(input.chatLanguage, input.chatLanguage)}. Make them concrete continuations of the learner's latest situation and your latest question; never use generic domain chips such as travel, work, family, customers, food, or office unless the learner just mentioned that exact context. Use [] when a free-text answer fits better.
 Set "readyToPropose" to true as soon as you know enough to choose useful words.
 `.trim();
 }
@@ -85,6 +129,7 @@ export function buildProposalPrompt(input: {
   languageFrom: string;
   languageTo: string;
   chatLanguage: string;
+  languageLevel: WordChatLanguageLevel;
   messages: WordChatMessage[];
   brief: LearnerBrief | null;
   exclusions: string[];
@@ -108,6 +153,7 @@ Additional rules for this task:
 - "confidence" is your estimate of how useful the item is for THIS learner, between 0 and 1.
 - "categoryName" is a short label (2-4 words) in ${known} for what this set is about.
 - "reviewLabel" is a NEUTRAL English topic label for an internal reviewer, e.g. "Doctor appointment" or "Salon small talk". It must contain no names, employers, addresses, health details, or anything identifying. It is not the learner's category name.
+- Calibrate difficulty to this level: ${levelDescription(input.languageLevel)}
 
 Return only valid JSON, no markdown:
 {

@@ -2,19 +2,31 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
+import { hasRegisterDistinction } from '../registerLanguages';
 import {
   WordChatApiError,
   commitSession,
   fetchWordChatContext,
   generateAudio,
   requestProposal,
-  sendChatMessage,
+  saveWordChatPreferences,
+  sendChatMessageStream,
   translateSelection,
 } from '../client/api';
 import { forgetClip, prefetchClips, storeClipBytes } from '../client/clip-playback';
 import { clearDraft, loadDraft, saveDraft } from '../client/storage';
 import type { CallDiagnostics } from '../client/api';
-import type { ProposedItem, ReviewItem, WordChatMessage } from '../types';
+import { personalListName } from '../personal-list-name';
+import type {
+  CommitResult,
+  ProposedItem,
+  ReviewItem,
+  WordChatAddressRegister,
+  WordChatLanguageLevel,
+  WordChatMessage,
+  WordChatSalutationGender,
+} from '../types';
+import { hasGenderedSalutation } from '../preferences';
 
 export type WordChatStep = 'chat' | 'select' | 'review' | 'done';
 
@@ -37,6 +49,12 @@ export type WordChatHistory = {
   goals: string[];
   coveredTopics: string[];
   missingTopics: string[];
+};
+
+export type WordChatPreferencePatch = {
+  addressRegister?: WordChatAddressRegister;
+  salutationGender?: WordChatSalutationGender;
+  languageLevel?: WordChatLanguageLevel;
 };
 
 /** Model routing an editor can override from the debug panel. */
@@ -84,12 +102,22 @@ const DEFAULT_LIMITS: WordChatLimits = {
 
 /** Stable identity for a proposal row, so selection survives reordering. */
 function proposalKey(item: ProposedItem): string {
-  return item.source === 'corpus' ? `corpus:${item.corpusItemId}` : `gen:${item.text}`;
+  return item.source === 'corpus' ? `corpus:${item.corpusItemId}` : `gen:${item.draftId ?? item.text}`;
 }
 
 function newId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function withDraftIds(items: ProposedItem[]): ProposedItem[] {
+  return items.map((item) => (item.draftId ? item : { ...item, draftId: newId() }));
+}
+
+function completeTranscript(messages: WordChatMessage[]): WordChatMessage[] {
+  return messages
+    .filter((message) => !message.incomplete)
+    .map((message) => ({ role: message.role, content: message.content }));
 }
 
 /** Both identifiers of one generated clip: the id is saved, the hash is played. */
@@ -138,26 +166,52 @@ async function generateAudioWithRetries(
 export type UseWordChatOptions = {
   languageFrom: string;
   languageTo: string;
+  baseListId?: string | null;
   /** Called after a successful commit so the caller can refresh and navigate. */
-  onCommitted: (result: { listId: string; categoryId: string; itemCount: number }) => void;
+  onCommitted: (result: {
+    listId: string;
+    categoryId: string | null;
+    itemCount: number;
+    takeoverCount: number;
+    upgradedTakeoverCount: number;
+  }) => void;
+  /** In-app only: refresh the learning snapshot after the commit is known saved. */
+  refreshAfterCommit?: () => Promise<void>;
 };
 
-export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordChatOptions) {
+export function useWordChat({
+  languageFrom,
+  languageTo,
+  baseListId,
+  onCommitted,
+  refreshAfterCommit,
+}: UseWordChatOptions) {
   const { t, language: uiLanguage } = useI18n();
 
   const [step, setStep] = useState<WordChatStep>('chat');
   const [messages, setMessages] = useState<WordChatMessage[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [addressRegister, setAddressRegister] =
+    useState<WordChatAddressRegister | null>(null);
+  const [salutationGender, setSalutationGender] =
+    useState<WordChatSalutationGender | null>(null);
+  const [languageLevel, setLanguageLevel] = useState<WordChatLanguageLevel | null>(null);
+  const [loadedPreferencesKey, setLoadedPreferencesKey] = useState<string | null>(null);
+  const [preferencesSaving, setPreferencesSaving] = useState(false);
 
   const [proposals, setProposals] = useState<ProposedItem[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [customItems, setCustomItems] = useState<{ kind: 'sentence' | 'word'; text: string }[]>([]);
+  const [listName, setListName] = useState(() => personalListName(languageFrom, languageTo));
   const [categoryName, setCategoryName] = useState('');
   const [reviewLabel, setReviewLabel] = useState('');
   const [askVisibility, setAskVisibility] = useState(false);
   const [isPublic, setIsPublic] = useState<boolean | null>(null);
 
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
+  const [commitResult, setCommitResult] = useState<CommitResult | null>(null);
+  const [refreshStatus, setRefreshStatus] =
+    useState<'idle' | 'pending' | 'success' | 'error'>('idle');
   // Which selection the rows in `reviewItems` were produced from. Going Back and
   // straight forward again must not pay for a second translation batch.
   const translatedSignatureRef = useRef<string | null>(null);
@@ -184,6 +238,8 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
   // and the count must survive the re-render each failure causes.
   const retryTargetRef = useRef<RetryTarget | null>(null);
   const failureCountRef = useRef(0);
+  const activeChatAbortRef = useRef<AbortController | null>(null);
+  const activeAssistantIdRef = useRef<string | null>(null);
 
   // One session id and one creation key for the whole flow, held in state (with
   // a lazy initializer) so they are generated once and are honest dependencies.
@@ -193,6 +249,18 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
   const [creationKey, setCreationKey] = useState(newId);
 
   const chatLanguage = languageFrom || uiLanguage;
+  const addressRegisterApplies = hasRegisterDistinction(chatLanguage);
+  const salutationGenderApplies = hasGenderedSalutation(chatLanguage);
+  const preferencesKey = `${baseListId ?? ''}\u0000${languageFrom}\u0000${languageTo}`;
+  const preferencesLoaded = loadedPreferencesKey === preferencesKey;
+  const currentLanguageLevel = preferencesLoaded ? languageLevel : null;
+  const preferencesComplete = Boolean(
+    currentLanguageLevel !== null &&
+      (!addressRegisterApplies || addressRegister) &&
+      (!salutationGenderApplies || salutationGender),
+  );
+  const effectiveAddressRegister: WordChatAddressRegister = addressRegister ?? 'formal';
+  const effectiveLanguageLevel: WordChatLanguageLevel = currentLanguageLevel ?? 'A0';
 
   // Restore an interrupted session once, on mount.
   const restoredRef = useRef(false);
@@ -207,10 +275,14 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
     setSessionId(draft.sessionId);
     setCreationKey(draft.creationKey);
     setStep(draft.step);
-    setMessages(draft.messages);
-    setProposals(draft.proposals);
+    setMessages(completeTranscript(draft.messages));
+    setAddressRegister(draft.addressRegister ?? null);
+    setSalutationGender(draft.salutationGender ?? null);
+    setLanguageLevel(draft.languageLevel ?? null);
+    setProposals(withDraftIds(draft.proposals));
     setSelectedKeys(draft.selectedKeys);
     setCustomItems(draft.customItems);
+    setListName(draft.listName || personalListName(languageFrom, languageTo));
     setCategoryName(draft.categoryName);
     setReviewLabel(draft.reviewLabel);
     setReviewItems(draft.reviewItems);
@@ -227,7 +299,11 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
       sessionId,
       creationKey,
       step,
-      messages,
+      messages: completeTranscript(messages),
+      addressRegister,
+      salutationGender,
+      languageLevel: currentLanguageLevel,
+      listName,
       categoryName,
       reviewLabel,
       proposals,
@@ -243,6 +319,10 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
     languageTo,
     step,
     messages,
+    addressRegister,
+    salutationGender,
+    currentLanguageLevel,
+    listName,
     categoryName,
     reviewLabel,
     proposals,
@@ -264,8 +344,9 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
   // the answer decides whether the learner sees an opener or a follow-up.
   useEffect(() => {
     if (!languageFrom || !languageTo) return;
+    const defaultListName = personalListName(languageFrom, languageTo);
     let cancelled = false;
-    void fetchWordChatContext({ languageFrom, languageTo })
+    void fetchWordChatContext({ languageFrom, languageTo, baseListId })
       .then((context) => {
         if (cancelled) return;
         setHistory({
@@ -274,11 +355,39 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
           coveredTopics: context.covered_topics,
           missingTopics: context.missing_topics,
         });
+        if (
+          context.address_register === 'casual' ||
+          context.address_register === 'formal'
+        ) {
+          setAddressRegister(context.address_register);
+        }
+        if (
+          context.salutation_gender === 'female' ||
+          context.salutation_gender === 'male' ||
+          context.salutation_gender === 'neutral'
+        ) {
+          setSalutationGender(context.salutation_gender);
+        }
+        const savedLanguageLevel =
+          context.language_level === 'A0' ||
+          context.language_level === 'A1' ||
+          context.language_level === 'A2' ||
+          context.language_level === 'B1' ||
+          context.language_level === 'B2'
+            ? context.language_level
+            : null;
+        setLanguageLevel(savedLanguageLevel);
         setLimits((current) => ({
           ...current,
           monthlyUsed: context.monthly_used,
           monthlyLimit: context.monthly_limit,
         }));
+        const existingListName = context.personal_list_name;
+        if (existingListName) {
+          setListName((current) =>
+            current === defaultListName ? existingListName : current,
+          );
+        }
         setIsEditor(context.is_editor === true);
         setModelSettings(
           context.models
@@ -295,11 +404,14 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
       })
       .catch(() => {
         // Context is an optimization, never a gate on starting the chat.
+      })
+      .finally(() => {
+        if (!cancelled) setLoadedPreferencesKey(preferencesKey);
       });
     return () => {
       cancelled = true;
     };
-  }, [languageFrom, languageTo]);
+  }, [baseListId, languageFrom, languageTo, preferencesKey]);
 
   // The panel is a log, not a summary: keep every call in order so an editor can
   // see the sequence, not just the total.
@@ -351,14 +463,24 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
     [t],
   );
 
+  useEffect(() => {
+    return () => {
+      activeChatAbortRef.current?.abort();
+    };
+  }, []);
+
   const selectedItems = useMemo(() => {
     const keys = new Set(selectedKeys);
     const fromProposals = proposals
       .filter((item) => keys.has(proposalKey(item)))
+      .filter((item) => item.text.trim().length > 0)
       .map((item) => ({
         kind: item.kind,
-        text: item.text,
+        text: item.text.trim().replace(/\s+/g, ' '),
         ...(item.source === 'corpus' ? { corpusItemId: item.corpusItemId } : {}),
+        ...(item.source === 'corpus' && item.takeoverCandidate
+          ? { takeoverCandidate: item.takeoverCandidate }
+          : {}),
       }));
     return [...fromProposals, ...customItems];
   }, [proposals, selectedKeys, customItems]);
@@ -379,13 +501,15 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
         languageFrom,
         languageTo,
         chatLanguage,
+        languageLevel: effectiveLanguageLevel,
         messages: conversation,
+        baseListId,
         model: modelOverrides.proposal,
       });
       noteSuccess();
       recordDiagnostics(response.diagnostics);
       translatedSignatureRef.current = null;
-      setProposals(response.items);
+      setProposals(withDraftIds(response.items));
       // Suggestions start neutral. The learner can select individual items or
       // use the explicit select-all action without the UI deciding for them.
       setSelectedKeys([]);
@@ -409,6 +533,8 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
     }
   }, [
     chatLanguage,
+    effectiveLanguageLevel,
+    baseListId,
     handleError,
     languageFrom,
     languageTo,
@@ -425,16 +551,51 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
    * answer it twice.
    */
   const runChatTurn = useCallback(async (conversation: WordChatMessage[]) => {
+    activeChatAbortRef.current?.abort();
+    const controller = new AbortController();
+    activeChatAbortRef.current = controller;
+    const assistantId = newId();
+    activeAssistantIdRef.current = assistantId;
     setBusy('chat');
+    setMessages([
+      ...conversation,
+      { role: 'assistant', content: '', id: assistantId, incomplete: true },
+    ]);
+    let pendingDelta = '';
+    let flushTimer: ReturnType<typeof setTimeout> | null = null;
+    const flushDelta = () => {
+      flushTimer = null;
+      if (!pendingDelta || controller.signal.aborted) return;
+      const text = pendingDelta;
+      pendingDelta = '';
+      setMessages((current) =>
+        current.map((message) =>
+          message.id === assistantId && message.incomplete
+            ? { ...message, content: `${message.content}${text}` }
+            : message,
+        ),
+      );
+    };
     try {
-      const response = await sendChatMessage({
+      const response = await sendChatMessageStream({
         sessionId,
         languageFrom,
         languageTo,
         chatLanguage,
+        addressRegister: effectiveAddressRegister,
+        salutationGender: salutationGenderApplies ? salutationGender : null,
+        languageLevel: effectiveLanguageLevel,
         messages: conversation,
         model: modelOverrides.chat,
+        signal: controller.signal,
+      }, {
+        onDelta: (text) => {
+          pendingDelta += text;
+          if (!flushTimer) flushTimer = setTimeout(flushDelta, 32);
+        },
       });
+      if (flushTimer) clearTimeout(flushTimer);
+      flushDelta();
       noteSuccess();
       recordDiagnostics(response.diagnostics);
       const conversationWithReply: WordChatMessage[] = [
@@ -447,16 +608,26 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
       // The model has already decided it knows enough. Continue in the same
       // event-driven request chain instead of bouncing through an effect that
       // synchronously mutates state and can retrigger on unrelated renders.
-      if (response.ready_to_propose) {
+      if (response.ready_to_propose && response.metadata_valid) {
         await proposeMessages(conversationWithReply);
       }
     } catch (err) {
+      if (flushTimer) clearTimeout(flushTimer);
+      flushDelta();
+      if (err instanceof WordChatApiError && err.code === 'WORD_CHAT_ABORTED') return;
       handleError(err, { kind: 'chat', conversation });
     } finally {
+      if (flushTimer) clearTimeout(flushTimer);
+      if (activeAssistantIdRef.current === assistantId) {
+        activeAssistantIdRef.current = null;
+        activeChatAbortRef.current = null;
+      }
       setBusy(null);
     }
   }, [
     chatLanguage,
+    effectiveAddressRegister,
+    effectiveLanguageLevel,
     handleError,
     languageFrom,
     languageTo,
@@ -464,20 +635,25 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
     noteSuccess,
     proposeMessages,
     recordDiagnostics,
+    salutationGender,
+    salutationGenderApplies,
     sessionId,
   ]);
 
   const sendMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || busy) return;
+      if (!trimmed || busy || !preferencesComplete) return;
       setError(null);
-      const nextMessages: WordChatMessage[] = [...messages, { role: 'user', content: trimmed }];
+      const nextMessages: WordChatMessage[] = [
+        ...completeTranscript(messages),
+        { role: 'user', content: trimmed },
+      ];
       setMessages(nextMessages);
       setSuggestions([]);
       await runChatTurn(nextMessages);
     },
-    [busy, messages, runChatTurn],
+    [busy, messages, preferencesComplete, runChatTurn],
   );
 
   const toggleSelected = useCallback(
@@ -501,11 +677,36 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
 
   const selectAll = useCallback(() => {
     const available = Math.max(0, selectionLimit - customItems.length);
-    setSelectedKeys(proposals.slice(0, available).map(proposalKey));
+    setSelectedKeys(proposals.filter((item) => item.text.trim()).slice(0, available).map(proposalKey));
   }, [customItems.length, proposals, selectionLimit]);
 
   const clearSelection = useCallback(() => {
     setSelectedKeys([]);
+  }, []);
+
+  const updateProposal = useCallback((item: ProposedItem, text: string) => {
+    const oldKey = proposalKey(item);
+    const draftId = item.draftId ?? newId();
+    const nextText = text.slice(0, 200);
+    const nextKind: 'sentence' | 'word' =
+      /\s/.test(nextText.trim()) && nextText.trim().length > 20 ? 'sentence' : item.kind;
+    const nextItem: ProposedItem = {
+      kind: nextKind,
+      source: 'generated',
+      text: nextText,
+      confidence: item.confidence,
+      draftId,
+    };
+    const nextKey = proposalKey(nextItem);
+
+    setProposals((current) =>
+      current.map((entry) => (proposalKey(entry) === oldKey ? nextItem : entry)),
+    );
+    setSelectedKeys((current) =>
+      current.includes(oldKey)
+        ? current.map((entry) => (entry === oldKey ? nextKey : entry))
+        : current,
+    );
   }, []);
 
   const addCustomItem = useCallback(
@@ -572,11 +773,13 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
         estimatedCostUsd: translated.translation_diagnostics.estimated_cost_usd,
       });
 
-      let rows: ReviewItem[] = translated.items.map((row) => ({
+      const rows: ReviewItem[] = translated.items.map((row) => ({
         kind: row.kind,
         textKnown: row.text_known,
         textTarget: row.text_target,
         ...(row.corpus_item_id ? { corpusItemId: row.corpus_item_id } : {}),
+        ...(row.takeover ? { takeover: row.takeover } : {}),
+        audioStatus: row.audio_asset_id ? 'ready' : 'pending',
         audioAssetId: row.audio_asset_id,
         audioHash: row.audio_hash,
         knownAudioAssetId: row.known_audio_asset_id,
@@ -597,28 +800,49 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
       // instead of a proxy round trip per press.
       void prefetchClips(rows.map((row) => row.audioHash));
 
-      // Audio is best-effort, but transient TTS/storage failures get up to three
-      // attempts before Review opens. Reused corpus rows usually arrive voiced.
+      setStep('review');
+
+      // Audio is best-effort. Review should not wait for fresh TTS/storage: the
+      // learner can already check translations while clips are generated in the
+      // background. Reused corpus rows usually arrive voiced.
       const needsAudio = rows
         .map((row, index) => ({ row, index }))
         .filter(({ row }) => !row.audioAssetId);
       if (needsAudio.length > 0) {
-        const assets = await generateAudioWithRetries(
-          needsAudio.map(({ row, index }) => ({
-            key: String(index),
-            text: row.textTarget,
-            language: languageTo,
+        const audioRequests = needsAudio.map(({ row, index }) => ({
+          key: String(index),
+          text: row.textTarget,
+          language: languageTo,
+          textKnown: row.textKnown,
+          textTarget: row.textTarget,
+        }));
+        void generateAudioWithRetries(
+          audioRequests.map(({ key, text, language }) => ({
+            key,
+            text,
+            language,
           })),
-        );
-        rows = rows.map((row, index) => {
-          const clip = assets.get(String(index));
-          return clip
-            ? { ...row, audioAssetId: clip.assetId, audioHash: clip.contentHash }
-            : row;
+        ).then((assets) => {
+          setReviewItems((current) =>
+            current.map((row) => {
+              const request = audioRequests.find(
+                (entry) =>
+                  entry.textKnown === row.textKnown && entry.textTarget === row.textTarget,
+              );
+              const clip = request ? assets.get(request.key) : undefined;
+              if (!request || row.audioAssetId) return row;
+              return clip
+                ? {
+                    ...row,
+                    audioStatus: 'ready',
+                    audioAssetId: clip.assetId,
+                    audioHash: clip.contentHash,
+                  }
+                : { ...row, audioStatus: 'failed' };
+            }),
+          );
         });
-        setReviewItems(rows);
       }
-      setStep('review');
     } catch (err) {
       handleError(err, { kind: 'translate' });
     } finally {
@@ -659,9 +883,14 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
           const next = {
             ...row,
             ...patch,
-            ...(targetChanged ? { audioAssetId: null, audioHash: null } : {}),
+            ...(targetChanged
+              ? { audioStatus: 'idle' as const, audioAssetId: null, audioHash: null }
+              : {}),
           };
-          if (targetChanged || knownChanged) delete next.corpusItemId;
+          if (targetChanged || knownChanged) {
+            delete next.corpusItemId;
+            delete next.takeover;
+          }
           return next;
         }),
       );
@@ -677,15 +906,26 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
     async (index: number) => {
       const row = reviewItems[index];
       if (!row?.textTarget) return;
+      setReviewItems((current) =>
+        current.map((entry, entryIndex) =>
+          entryIndex === index ? { ...entry, audioStatus: 'pending' } : entry,
+        ),
+      );
       const assets = await generateAudioWithRetries([
         { key: String(index), text: row.textTarget, language: languageTo },
       ]);
       const clip = assets.get(String(index));
-      if (!clip) return;
       setReviewItems((current) =>
         current.map((entry, entryIndex) =>
           entryIndex === index
-            ? { ...entry, audioAssetId: clip.assetId, audioHash: clip.contentHash }
+            ? clip
+              ? {
+                  ...entry,
+                  audioStatus: 'ready',
+                  audioAssetId: clip.assetId,
+                  audioHash: clip.contentHash,
+                }
+              : { ...entry, audioStatus: 'failed' }
             : entry,
         ),
       );
@@ -703,20 +943,46 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
         sessionId,
         languageFrom,
         languageTo,
+        baseListId: baseListId ?? undefined,
+        listName,
         categoryName,
         reviewLabel,
         isPublic: isPublic === true,
         items: reviewItems,
-        messages,
+        messages: completeTranscript(messages),
       });
       noteSuccess();
       clearDraft(languageFrom, languageTo);
+      const savedResult: CommitResult = {
+        listId: result.list_id,
+        categoryId: result.category_id,
+        itemCount: result.item_count,
+        takeoverCount: result.takeover_count ?? 0,
+        upgradedTakeoverCount: result.upgraded_takeover_count ?? 0,
+        alreadyCommitted: result.already_committed,
+        monthlyUsed: result.monthly_used,
+        monthlyLimit: result.monthly_limit,
+      };
+      setCommitResult(savedResult);
       setStep('done');
       onCommitted({
         listId: result.list_id,
         categoryId: result.category_id,
         itemCount: result.item_count,
+        takeoverCount: result.takeover_count ?? 0,
+        upgradedTakeoverCount: result.upgraded_takeover_count ?? 0,
       });
+      if (refreshAfterCommit) {
+        setRefreshStatus('pending');
+        try {
+          await refreshAfterCommit();
+          setRefreshStatus('success');
+        } catch {
+          setRefreshStatus('error');
+        }
+      } else {
+        setRefreshStatus('success');
+      }
     } catch (err) {
       // Commit is idempotent through `creationKey`, so retrying a failed save
       // cannot produce a second list.
@@ -726,19 +992,33 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
     }
   }, [
     busy,
+    baseListId,
     categoryName,
     creationKey,
     handleError,
     isPublic,
     languageFrom,
     languageTo,
+    listName,
     messages,
     noteSuccess,
     onCommitted,
     reviewItems,
     reviewLabel,
+    refreshAfterCommit,
     sessionId,
   ]);
+
+  const retryRefresh = useCallback(async () => {
+    if (!refreshAfterCommit || refreshStatus === 'pending') return;
+    setRefreshStatus('pending');
+    try {
+      await refreshAfterCommit();
+      setRefreshStatus('success');
+    } catch {
+      setRefreshStatus('error');
+    }
+  }, [refreshAfterCommit, refreshStatus]);
 
   /**
    * Run the failed step again, from wherever the learner already was. Nothing
@@ -763,6 +1043,9 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
 
   const reset = useCallback(() => {
     clearDraft(languageFrom, languageTo);
+    activeChatAbortRef.current?.abort();
+    activeChatAbortRef.current = null;
+    activeAssistantIdRef.current = null;
     setSessionId(newId());
     setCreationKey(newId());
     translatedSignatureRef.current = null;
@@ -772,11 +1055,14 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
     setProposals([]);
     setSelectedKeys([]);
     setCustomItems([]);
+    setListName(personalListName(languageFrom, languageTo));
     setCategoryName('');
     setReviewLabel('');
     setAskVisibility(false);
     setIsPublic(null);
     setReviewItems([]);
+    setCommitResult(null);
+    setRefreshStatus('idle');
     setWarningsByKnown({});
     setTranslationDiagnostics(null);
     setLimits(DEFAULT_LIMITS);
@@ -788,13 +1074,47 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
     failureCountRef.current = 0;
   }, [languageFrom, languageTo]);
 
+  const savePreferences = useCallback(
+    async (patch: WordChatPreferencePatch) => {
+      if (patch.addressRegister) setAddressRegister(patch.addressRegister);
+      if (patch.salutationGender) setSalutationGender(patch.salutationGender);
+      if (patch.languageLevel) setLanguageLevel(patch.languageLevel);
+      setPreferencesSaving(true);
+      setError(null);
+      try {
+        await saveWordChatPreferences({
+          ...patch,
+          languageFrom,
+          languageTo,
+          baseListId,
+        });
+      } catch {
+        setError(t('wordChat.errorTemporary'));
+      } finally {
+        setPreferencesSaving(false);
+      }
+    },
+    [baseListId, languageFrom, languageTo, t],
+  );
+
   return {
     step,
     messages,
     suggestions,
+    addressRegister,
+    salutationGender,
+    languageLevel: currentLanguageLevel,
+    preferencesComplete,
+    preferencesLoading: !preferencesLoaded,
+    preferencesSaving,
+    addressRegisterApplies,
+    salutationGenderApplies,
+    savePreferences,
     proposals,
     selectedKeys,
     customItems,
+    listName,
+    setListName,
     categoryName,
     setCategoryName,
     askVisibility,
@@ -826,6 +1146,7 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
     isSelected,
     selectAll,
     clearSelection,
+    updateProposal,
     addCustomItem,
     removeCustomItem,
     continueToReview,
@@ -833,6 +1154,9 @@ export function useWordChat({ languageFrom, languageTo, onCommitted }: UseWordCh
     removeReviewItem,
     regenerateAudio,
     commit,
+    commitResult,
+    refreshStatus,
+    retryRefresh,
     backToSelect,
     reset,
   };

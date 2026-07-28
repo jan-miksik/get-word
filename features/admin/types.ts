@@ -8,9 +8,30 @@ export interface UsageStatsOptions {
   excludedUserEmails?: string[];
 }
 
+export type DevicePlatform =
+  | 'ios'
+  | 'android'
+  | 'macos'
+  | 'windows'
+  | 'linux'
+  | 'other'
+  | 'unknown';
+
+export type DeviceFormFactor = 'mobile' | 'tablet' | 'desktop' | 'unknown';
+
+export interface DeviceProfile {
+  platform?: DevicePlatform;
+  formFactor?: DeviceFormFactor;
+}
+
 interface RetentionBucket {
   eligible: number;
   returned: number;
+}
+
+export interface DeviceBreakdownBucket {
+  key: DevicePlatform | DeviceFormFactor;
+  users: number;
 }
 
 export interface PhotoUsageWeekBucket {
@@ -43,6 +64,10 @@ export interface AdminUserRow {
   firstSeenAt: string;
   registeredAt: string | null;
   lastSeenAt: string | null;
+  lastDevicePlatform: DevicePlatform;
+  lastDeviceFormFactor: DeviceFormFactor;
+  deviceCount: number;
+  gameScore: number;
   reviewCount: number;
   activeDays: number;
   studySessions: number;
@@ -71,6 +96,17 @@ export interface UsageStats {
     mauAnonymous: number;
     yauRegistered: number;
     yauAnonymous: number;
+  };
+  devices: {
+    activeDevices30d: number;
+    knownDevices30d: number;
+    iosUsers30d: number;
+    androidUsers30d: number;
+    mobileUsers30d: number;
+    desktopUsers30d: number;
+    multiDeviceUsers30d: number;
+    platformBreakdown30d: DeviceBreakdownBucket[];
+    formFactorBreakdown30d: DeviceBreakdownBucket[];
   };
   study: {
     known30d: number;

@@ -354,6 +354,8 @@ export async function getUserStudyLists(
   languageFrom: string;
   languageTo: string;
   isRecommended: boolean;
+  isPersonal: boolean;
+  isOwnedPersonal: boolean;
 }[]> {
   return db
     .select({
@@ -362,6 +364,10 @@ export async function getUserStudyLists(
       languageFrom: wordLists.languageFrom,
       languageTo: wordLists.languageTo,
       isRecommended: wordLists.isRecommended,
+      isPersonal: wordLists.isPersonal,
+      isOwnedPersonal: sql<boolean>`(
+        ${wordLists.isPersonal} = true and ${wordLists.ownerId} = ${userId}
+      )`,
     })
     .from(wordLists)
     .where(

@@ -19,7 +19,8 @@ describe('SelectStep', () => {
       <I18nProvider language="en">
         <SelectStep
           languageFrom="cs"
-        listName="Moje slovíčka — Vietnamština"
+          listName="Moje slovíčka — Vietnamština"
+          onListNameChange={vi.fn()}
           proposals={[
             { kind: 'sentence', source: 'generated', text: 'Dám si kávu.', confidence: 0.9 },
             {
@@ -33,6 +34,7 @@ describe('SelectStep', () => {
           ]}
           isSelected={() => false}
           onToggle={vi.fn()}
+          onUpdateProposal={vi.fn()}
           onSelectAll={onSelectAll}
           onClearSelection={onClearSelection}
           customItems={[]}
@@ -74,10 +76,12 @@ describe('SelectStep', () => {
       <I18nProvider language="en">
         <SelectStep
           languageFrom="cs"
-        listName="Moje slovíčka — Vietnamština"
+          listName="Moje slovíčka — Vietnamština"
+          onListNameChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
+          onUpdateProposal={vi.fn()}
           onSelectAll={vi.fn()}
           onClearSelection={vi.fn()}
           customItems={[]}
@@ -104,5 +108,63 @@ describe('SelectStep', () => {
 
     expect(screen.getByText(/You have 2 new words left this month/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Translate and continue/i })).toBeDisabled();
+  });
+
+  it('uses the row as the selection target and keeps editing behind an explicit button', () => {
+    const onToggle = vi.fn();
+    const onUpdateProposal = vi.fn();
+    const proposal = {
+      kind: 'word' as const,
+      source: 'generated' as const,
+      text: 'káva',
+      confidence: 0.8,
+    };
+
+    render(
+      <I18nProvider language="en">
+        <SelectStep
+          languageFrom="cs"
+          listName="Moje slovíčka — Vietnamština"
+          onListNameChange={vi.fn()}
+          proposals={[proposal]}
+          isSelected={() => true}
+          onToggle={onToggle}
+          onUpdateProposal={onUpdateProposal}
+          onSelectAll={vi.fn()}
+          onClearSelection={vi.fn()}
+          customItems={[]}
+          onAddCustom={vi.fn()}
+          onRemoveCustom={vi.fn()}
+          categoryName="Café"
+          onCategoryNameChange={vi.fn()}
+          askVisibility={false}
+          isPublic={false}
+          onVisibilityChange={vi.fn()}
+          limits={limits}
+          selectedCount={1}
+          overSoftLimit={false}
+          atHardCap={false}
+          monthlyRemaining={60}
+          overMonthlyLimit={false}
+          atSelectionLimit={false}
+          busy={false}
+          onBack={vi.fn()}
+          onContinue={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.queryByDisplayValue('káva')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('checkbox', { name: 'káva' }));
+    expect(onToggle).toHaveBeenCalledWith(proposal);
+    expect(onUpdateProposal).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit: káva' }));
+    expect(onToggle).toHaveBeenCalledOnce();
+
+    fireEvent.change(screen.getByDisplayValue('káva'), { target: { value: 'silná káva' } });
+
+    expect(onUpdateProposal).toHaveBeenCalledWith(proposal, 'silná káva');
   });
 });

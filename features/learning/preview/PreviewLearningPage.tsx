@@ -126,7 +126,7 @@ function getListWords(listId: string): NormalizedWord[] {
 }
 
 function getInitialCategorySelection(listId: string): Set<string> {
-  return new Set(getAvailableCategories(getListWords(listId)).map((category) => category.name));
+  return new Set(getAvailableCategories(getListWords(listId)).map((category) => category.key));
 }
 
 export function PreviewLearningPage() {
@@ -274,6 +274,11 @@ function PreviewStudy({
     setTypingPlayAudioAfterCheck,
     typingCheckButtonEnabled,
     setTypingCheckButtonEnabled,
+    // Chrome the preview is there to show; the real page reads these from the
+    // learner's local preferences.
+    photoLabEnabled: true,
+    quickAddEnabled: true,
+    setQuickAddEnabled: () => undefined,
     settingsLanguage,
     settingsLanguageSelectedAt: null,
     setSettingsLanguage: onSettingsLanguageChange,

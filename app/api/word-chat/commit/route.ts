@@ -13,6 +13,7 @@ type IncomingItem = {
   text_known?: unknown;
   text_target?: unknown;
   corpus_item_id?: unknown;
+  takeover?: unknown;
   audio_asset_id?: unknown;
   known_audio_asset_id?: unknown;
 };
@@ -26,6 +27,17 @@ function toReviewItem(item: IncomingItem): ReviewItem | null {
     textKnown,
     textTarget,
     ...(typeof item.corpus_item_id === "string" ? { corpusItemId: item.corpus_item_id } : {}),
+    ...(item.takeover &&
+    typeof item.takeover === "object" &&
+    typeof (item.takeover as Record<string, unknown>).sourceItemId === "string" &&
+    typeof (item.takeover as Record<string, unknown>).sourceListName === "string"
+      ? {
+          takeover: {
+            sourceItemId: (item.takeover as Record<string, string>).sourceItemId,
+            sourceListName: (item.takeover as Record<string, string>).sourceListName,
+          },
+        }
+      : {}),
     audioAssetId: typeof item.audio_asset_id === "string" ? item.audio_asset_id : null,
     knownAudioAssetId:
       typeof item.known_audio_asset_id === "string" ? item.known_audio_asset_id : null,
@@ -64,6 +76,8 @@ export async function POST(request: NextRequest) {
         sessionId,
         languageFrom: typeof body.language_from === "string" ? body.language_from : "",
         languageTo: typeof body.language_to === "string" ? body.language_to : "",
+        baseListId: typeof body.base_list_id === "string" ? body.base_list_id : undefined,
+        listName: typeof body.list_name === "string" ? body.list_name : undefined,
         categoryName: typeof body.category_name === "string" ? body.category_name : "",
         reviewLabel: typeof body.review_label === "string" ? body.review_label : undefined,
         isPublic: body.is_public === true,
@@ -78,6 +92,8 @@ export async function POST(request: NextRequest) {
       list_id: result.listId,
       category_id: result.categoryId,
       item_count: result.itemCount,
+      takeover_count: result.takeoverCount,
+      upgraded_takeover_count: result.upgradedTakeoverCount,
       already_committed: result.alreadyCommitted,
       monthly_used: result.monthlyUsed,
       monthly_limit: result.monthlyLimit,

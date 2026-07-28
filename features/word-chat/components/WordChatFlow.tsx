@@ -5,13 +5,16 @@ import { useI18n } from '@/components/I18nProvider';
 import { ChatStep } from './ChatStep';
 import { SelectStep } from './SelectStep';
 import { ReviewStep } from './ReviewStep';
+import { DoneStep } from './DoneStep';
 import { WordChatDebugPanel } from './WordChatDebugPanel';
 import { useWordChat, type WordChatStep } from '../hooks/useWordChat';
-import { personalListName } from '../personal-list-name';
 
 type Props = {
   languageFrom: string;
   languageTo: string;
+  baseListId?: string | null;
+  refreshAfterCommit?: () => Promise<void>;
+  onDone?: () => void;
   /**
    * The escape hatch: subscribe to the ready-made list for this pair. Owned by
    * the caller (onboarding already has the matched-list data loaded) and used
@@ -22,25 +25,40 @@ type Props = {
    * has lists, and offering them a starter pack there is noise.
    */
   onUseReadyMade?: () => void;
-  onCommitted: (result: { listId: string; categoryId: string; itemCount: number }) => void;
+  onCommitted: (result: {
+    listId: string;
+    categoryId: string | null;
+    itemCount: number;
+    takeoverCount: number;
+    upgradedTakeoverCount: number;
+  }) => void;
   /**
    * Lets the host chrome follow the flow — every step after the chat carries its
    * own heading, so the outer screen title would only repeat it.
    */
   onStepChange?: (step: WordChatStep) => void;
+  settingsPlacement?: 'inline' | 'screen-header';
 };
 
 export function WordChatFlow({
   languageFrom,
   languageTo,
+  baseListId,
+  refreshAfterCommit,
+  onDone,
   onUseReadyMade,
   onCommitted,
   onStepChange,
+  settingsPlacement,
 }: Props) {
   const { t } = useI18n();
-  const chat = useWordChat({ languageFrom, languageTo, onCommitted });
-  // Same name the server gives the row, so the screens and the saved list agree.
-  const listName = personalListName(languageFrom, languageTo);
+  const chat = useWordChat({
+    languageFrom,
+    languageTo,
+    baseListId,
+    onCommitted,
+    refreshAfterCommit,
+  });
 
   useEffect(() => {
     onStepChange?.(chat.step);
@@ -129,6 +147,16 @@ export function WordChatFlow({
           languageTo={languageTo}
           messages={chat.messages}
           suggestions={chat.suggestions}
+          addressRegister={chat.addressRegister}
+          salutationGender={chat.salutationGender}
+          languageLevel={chat.languageLevel}
+          preferencesComplete={chat.preferencesComplete}
+          preferencesLoading={chat.preferencesLoading}
+          preferencesSaving={chat.preferencesSaving}
+          addressRegisterApplies={chat.addressRegisterApplies}
+          salutationGenderApplies={chat.salutationGenderApplies}
+          onPreferencesChange={chat.savePreferences}
+          settingsPlacement={settingsPlacement}
           busy={chat.busy === 'chat' || chat.busy === 'propose' ? chat.busy : null}
           history={chat.history}
           onSend={chat.sendMessage}
@@ -139,10 +167,12 @@ export function WordChatFlow({
       {chat.step === 'select' ? (
         <SelectStep
           languageFrom={languageFrom}
-          listName={listName}
+          listName={chat.listName}
+          onListNameChange={chat.setListName}
           proposals={chat.proposals}
           isSelected={chat.isSelected}
           onToggle={chat.toggleSelected}
+          onUpdateProposal={chat.updateProposal}
           onSelectAll={chat.selectAll}
           onClearSelection={chat.clearSelection}
           customItems={chat.customItems}
@@ -166,20 +196,29 @@ export function WordChatFlow({
         />
       ) : null}
 
-      {chat.step === 'review' || chat.step === 'done' ? (
+      {chat.step === 'review' ? (
         <ReviewStep
           items={chat.reviewItems}
-          listName={listName}
+          listName={chat.listName}
           categoryName={chat.categoryName}
           warningsByKnown={chat.warningsByKnown}
           translationDiagnostics={chat.translationDiagnostics}
           isPublic={chat.isPublic}
-          busy={chat.busy === 'commit' || chat.step === 'done'}
+          busy={chat.busy === 'commit'}
           onUpdate={chat.updateReviewItem}
           onRemove={chat.removeReviewItem}
           onEnsureAudio={chat.regenerateAudio}
           onBack={chat.backToSelect}
           onSave={chat.commit}
+        />
+      ) : null}
+
+      {chat.step === 'done' && chat.commitResult ? (
+        <DoneStep
+          result={chat.commitResult}
+          refreshStatus={chat.refreshStatus}
+          onRetryRefresh={chat.retryRefresh}
+          onDone={onDone}
         />
       ) : null}
     </div>

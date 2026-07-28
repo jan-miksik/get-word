@@ -17,6 +17,9 @@ describe('buildChatSystemPrompt', () => {
       languageFrom: 'cs',
       languageTo: 'vi',
       chatLanguage: 'cs',
+      addressRegister: 'casual',
+      salutationGender: 'neutral',
+      languageLevel: 'A0',
       brief: null,
     });
 
@@ -24,6 +27,23 @@ describe('buildChatSystemPrompt', () => {
     expect(prompt).toContain('Never praise the learner or their answer');
     expect(prompt).toContain('Do not add a validation phrase before it');
     expect(prompt).toContain('Friendly is fine; eager is not');
+    expect(prompt).toContain("Make them concrete continuations of the learner's latest situation");
+    expect(prompt).toContain('never use generic domain chips');
+  });
+
+  it('pins formal chat address when the learner chooses it', () => {
+    const prompt = buildChatSystemPrompt({
+      languageFrom: 'cs',
+      languageTo: 'vi',
+      chatLanguage: 'cs',
+      addressRegister: 'formal',
+      salutationGender: 'female',
+      languageLevel: 'B1',
+      brief: null,
+    });
+
+    expect(prompt).toContain('polite/formal second-person forms');
+    expect(prompt).toContain('use feminine forms');
   });
 
   it('asks for three sentences and seven supporting words', () => {
@@ -31,6 +51,7 @@ describe('buildChatSystemPrompt', () => {
       languageFrom: 'cs',
       languageTo: 'vi',
       chatLanguage: 'cs',
+      languageLevel: 'A0',
       messages: [{ role: 'user', content: 'Kavárna' }],
       brief: null,
       exclusions: [],
@@ -49,6 +70,7 @@ describe('buildChatSystemPrompt', () => {
       languageFrom: 'cs',
       languageTo: 'vi',
       chatLanguage: 'cs',
+      languageLevel: 'A2',
       messages: [{ role: 'user', content: 'Kavárna' }],
       brief: null,
       exclusions: ['dobrý den'],

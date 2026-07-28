@@ -1,7 +1,11 @@
 import { deviceJsonFetch } from '@/features/shared/http/device-json-fetch';
 import type {
+  WordChatAddressRegister,
+  WordChatLanguageLevel,
   ProposedItem,
   ReviewItem,
+  WordChatSalutationGender,
+  TakeoverReference,
   WordChatMessage,
 } from '../types';
 
@@ -104,6 +108,14 @@ export type WordChatContextResponse = {
   goals: string[];
   covered_topics: string[];
   missing_topics: string[];
+  personal_list_name: string | null;
+  address_register: WordChatAddressRegister | null;
+  salutation_gender: WordChatSalutationGender | null;
+  language_level: WordChatLanguageLevel | null;
+  preferences_complete: {
+    global: boolean;
+    language: boolean;
+  };
   monthly_used: number;
   monthly_limit: number;
   is_editor: boolean;
@@ -124,39 +136,200 @@ export type WordChatContextResponse = {
 export async function fetchWordChatContext(input: {
   languageFrom: string;
   languageTo: string;
+  baseListId?: string | null;
 }): Promise<WordChatContextResponse> {
+  const params = new URLSearchParams({
+    from: input.languageFrom,
+    to: input.languageTo,
+  });
+  if (input.baseListId) params.set('base_list_id', input.baseListId);
   const response = await deviceJsonFetch(
-    `/api/word-chat/context?from=${encodeURIComponent(input.languageFrom)}&to=${encodeURIComponent(input.languageTo)}`,
+    `/api/word-chat/context?${params.toString()}`,
   );
   const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
   if (!response.ok) throw toApiError(data, response.status);
   return data as WordChatContextResponse;
 }
 
-export type ChatMessageResponse = {
+export function saveWordChatPreferences(input: {
+  addressRegister?: WordChatAddressRegister;
+  salutationGender?: WordChatSalutationGender;
+  languageLevel?: WordChatLanguageLevel;
+  languageFrom: string;
+  languageTo: string;
+  baseListId?: string | null;
+}) {
+  return post<{
+    address_register: WordChatAddressRegister | null;
+    salutation_gender: WordChatSalutationGender | null;
+    language_level: WordChatLanguageLevel | null;
+    preferences_complete: {
+      global: boolean;
+      language: boolean;
+    };
+  }>(
+    '/api/word-chat/context',
+    {
+      ...(input.addressRegister ? { address_register: input.addressRegister } : {}),
+      ...(input.salutationGender ? { salutation_gender: input.salutationGender } : {}),
+      ...(input.languageLevel ? { language_level: input.languageLevel } : {}),
+      language_from: input.languageFrom,
+      language_to: input.languageTo,
+      ...(input.baseListId ? { base_list_id: input.baseListId } : {}),
+    },
+  );
+}
+
+type ChatMessageResponse = {
   reply: string;
   suggestions: string[];
   ready_to_propose: boolean;
   diagnostics: CallDiagnostics | null;
 };
 
-export function sendChatMessage(input: {
-  sessionId: string;
-  languageFrom: string;
-  languageTo: string;
-  chatLanguage: string;
-  messages: WordChatMessage[];
-  /** Editor-only model override; ignored by the server for everyone else. */
-  model?: string | null;
-}) {
-  return post<ChatMessageResponse>('/api/word-chat/message', {
-    session_id: input.sessionId,
-    language_from: input.languageFrom,
-    language_to: input.languageTo,
-    chat_language: input.chatLanguage,
-    messages: input.messages,
-    ...(input.model ? { model: input.model } : {}),
-  });
+export type ChatMessageStreamResponse = ChatMessageResponse & {
+  metadata_valid: boolean;
+};
+
+type RawChatStreamEvent =
+  | { type: 'delta'; text?: unknown }
+  | {
+      type: 'done';
+      reply?: unknown;
+      suggestions?: unknown;
+      ready_to_propose?: unknown;
+      metadata_valid?: unknown;
+      diagnostics?: unknown;
+    }
+  | { type: 'error'; error?: unknown; code?: unknown; retryable?: unknown };
+
+export async function readNdjsonStream<T>(
+  body: ReadableStream<Uint8Array>,
+  onEvent: (event: T) => void,
+): Promise<void> {
+  const reader = body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = '';
+  const handleLine = (line: string) => {
+    const trimmed = line.endsWith('\r') ? line.slice(0, -1).trim() : line.trim();
+    if (!trimmed) return;
+    onEvent(JSON.parse(trimmed) as T);
+  };
+
+  try {
+    for (;;) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() ?? '';
+      for (const line of lines) handleLine(line);
+    }
+    buffer += decoder.decode();
+    if (buffer.trim()) handleLine(buffer);
+  } finally {
+    reader.releaseLock();
+  }
+}
+
+export async function sendChatMessageStream(
+  input: {
+    sessionId: string;
+    languageFrom: string;
+    languageTo: string;
+    chatLanguage: string;
+    addressRegister: WordChatAddressRegister;
+    salutationGender: WordChatSalutationGender | null;
+    languageLevel: WordChatLanguageLevel;
+    messages: WordChatMessage[];
+    model?: string | null;
+    signal?: AbortSignal;
+  },
+  handlers: { onDelta: (text: string) => void },
+): Promise<ChatMessageStreamResponse> {
+  let response: Response;
+  try {
+    response = await deviceJsonFetch('/api/word-chat/message', {
+      method: 'POST',
+      signal: input.signal,
+      body: JSON.stringify({
+        stream: true,
+        session_id: input.sessionId,
+        language_from: input.languageFrom,
+        language_to: input.languageTo,
+        chat_language: input.chatLanguage,
+        address_register: input.addressRegister,
+        salutation_gender: input.salutationGender,
+        language_level: input.languageLevel,
+        messages: input.messages,
+        ...(input.model ? { model: input.model } : {}),
+      }),
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new WordChatApiError('Request cancelled', 'WORD_CHAT_ABORTED', 0, false);
+    }
+    throw new WordChatApiError(
+      err instanceof Error ? err.message : 'Network request failed',
+      'WORD_CHAT_NETWORK',
+      0,
+      true,
+    );
+  }
+
+  if (!response.ok) {
+    const data = (await response.json().catch(() => ({}))) as Record<string, unknown>;
+    throw toApiError(data, response.status);
+  }
+  if (!response.body) {
+    throw new WordChatApiError('Stream did not start', 'WORD_CHAT_TEMPORARY', 503, true);
+  }
+
+  const result: { done?: ChatMessageStreamResponse } = {};
+  try {
+    await readNdjsonStream<RawChatStreamEvent>(response.body, (event) => {
+      if (event.type === 'delta') {
+        if (typeof event.text === 'string' && event.text) handlers.onDelta(event.text);
+        return;
+      }
+      if (event.type === 'error') {
+        throw new WordChatApiError(
+          typeof event.error === 'string' ? event.error : 'The word chat could not answer.',
+          typeof event.code === 'string' ? event.code : 'WORD_CHAT_TEMPORARY',
+          503,
+          event.retryable !== false,
+        );
+      }
+      if (event.type === 'done') {
+        result.done = {
+          reply: typeof event.reply === 'string' ? event.reply : '',
+          suggestions: Array.isArray(event.suggestions)
+            ? event.suggestions.filter((entry): entry is string => typeof entry === 'string')
+            : [],
+          ready_to_propose: event.ready_to_propose === true,
+          metadata_valid: event.metadata_valid === true,
+          diagnostics: event.diagnostics as CallDiagnostics | null,
+        };
+      }
+    });
+  } catch (err) {
+    if (err instanceof WordChatApiError) throw err;
+    if (err instanceof Error && err.name === 'AbortError') {
+      throw new WordChatApiError('Request cancelled', 'WORD_CHAT_ABORTED', 0, false);
+    }
+    throw new WordChatApiError(
+      'The word chat stream could not be read.',
+      'WORD_CHAT_TEMPORARY',
+      503,
+      true,
+    );
+  }
+
+  const done = result.done;
+  if (!done?.reply) {
+    throw new WordChatApiError('Stream did not finish', 'WORD_CHAT_TEMPORARY', 503, true);
+  }
+  return done;
 }
 
 export type ProposeResponse = {
@@ -179,7 +352,9 @@ export function requestProposal(input: {
   languageFrom: string;
   languageTo: string;
   chatLanguage: string;
+  languageLevel: WordChatLanguageLevel;
   messages: WordChatMessage[];
+  baseListId?: string | null;
   model?: string | null;
 }) {
   return post<ProposeResponse>('/api/word-chat/propose', {
@@ -187,7 +362,9 @@ export function requestProposal(input: {
     language_from: input.languageFrom,
     language_to: input.languageTo,
     chat_language: input.chatLanguage,
+    language_level: input.languageLevel,
     messages: input.messages,
+    ...(input.baseListId ? { base_list_id: input.baseListId } : {}),
     ...(input.model ? { model: input.model } : {}),
   });
 }
@@ -203,6 +380,7 @@ export type TranslateResponse = {
     known_audio_asset_id: string | null;
     warnings: string[];
     reused: boolean;
+    takeover: ReviewItem['takeover'] | null;
   }[];
   translation_diagnostics: {
     model: string;
@@ -217,7 +395,12 @@ export function translateSelection(input: {
   sessionId: string;
   languageFrom: string;
   languageTo: string;
-  items: { kind: 'sentence' | 'word'; text: string; corpusItemId?: string }[];
+  items: {
+    kind: 'sentence' | 'word';
+    text: string;
+    corpusItemId?: string;
+    takeoverCandidate?: TakeoverReference;
+  }[];
   model?: string | null;
 }) {
   return post<TranslateResponse>('/api/word-chat/translate', {
@@ -229,6 +412,7 @@ export function translateSelection(input: {
       kind: item.kind,
       text: item.text,
       corpus_item_id: item.corpusItemId ?? null,
+      takeover_candidate: item.takeoverCandidate ?? null,
     })),
   });
 }
@@ -254,8 +438,10 @@ export function generateAudio(input: {
 
 export type CommitResponse = {
   list_id: string;
-  category_id: string;
+  category_id: string | null;
   item_count: number;
+  takeover_count: number;
+  upgraded_takeover_count: number;
   already_committed: boolean;
   monthly_used: number;
   monthly_limit: number;
@@ -266,6 +452,8 @@ export function commitSession(input: {
   sessionId: string;
   languageFrom: string;
   languageTo: string;
+  baseListId?: string;
+  listName: string;
   categoryName: string;
   reviewLabel: string;
   isPublic: boolean;
@@ -277,6 +465,8 @@ export function commitSession(input: {
     session_id: input.sessionId,
     language_from: input.languageFrom,
     language_to: input.languageTo,
+    base_list_id: input.baseListId ?? null,
+    list_name: input.listName,
     category_name: input.categoryName,
     review_label: input.reviewLabel,
     is_public: input.isPublic,
@@ -286,6 +476,7 @@ export function commitSession(input: {
       text_known: item.textKnown,
       text_target: item.textTarget,
       corpus_item_id: item.corpusItemId ?? null,
+      takeover: item.takeover ?? null,
       audio_asset_id: item.audioAssetId ?? null,
       known_audio_asset_id: item.knownAudioAssetId ?? null,
     })),

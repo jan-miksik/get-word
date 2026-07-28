@@ -2,7 +2,20 @@
 export type WordChatMessage = {
   role: "user" | "assistant";
   content: string;
+  /** Client-only id used to attach streaming deltas to the right draft. */
+  id?: string;
+  /** Client-only marker: partial streamed assistant replies are not sent back. */
+  incomplete?: boolean;
 };
+
+/** How the assistant addresses the learner in the chat itself. */
+export type WordChatAddressRegister = "casual" | "formal";
+
+/** Grammatical form to use when the chat language genders direct address. */
+export type WordChatSalutationGender = "female" | "male" | "neutral";
+
+/** Learner's current knowledge of the target language. */
+export type WordChatLanguageLevel = "A0" | "A1" | "A2" | "B1" | "B2";
 
 /**
  * One proposed study item, in the learner's KNOWN language only. Translation
@@ -18,6 +31,13 @@ type ProposedItemBase = {
   kind: "sentence" | "word";
   /** The model's usefulness estimate for THIS learner, 0–1. Drives ranking later. */
   confidence: number;
+  /** Client-only stable id: generated rows remain selectable while their text is edited. */
+  draftId?: string;
+};
+
+export type TakeoverReference = {
+  sourceItemId: string;
+  sourceListName: string;
 };
 
 export type ProposedItem = ProposedItemBase &
@@ -34,6 +54,12 @@ export type ProposedItem = ProposedItemBase &
          */
         verified: boolean;
         text: string;
+        /**
+         * A study-list match is only a candidate here. Translation may change
+         * the target side, so the server confirms the takeover afterwards
+         * using the full content key.
+         */
+        takeoverCandidate?: TakeoverReference;
       }
     | { source: "generated"; text: string }
   );
@@ -64,6 +90,14 @@ export type ReviewItem = {
   textKnown: string;
   textTarget: string;
   corpusItemId?: string;
+  /** Confirmed full-pair match. Commit still revalidates access and content. */
+  takeover?: TakeoverReference;
+  /**
+   * Client-side lifecycle for the Review sound control. It keeps the layout
+   * stable while fresh TTS finishes in the background and lets a failed
+   * best-effort request stop animating honestly.
+   */
+  audioStatus?: "idle" | "pending" | "ready" | "failed";
   /** Content-addressed audio already in the media pool, if any. */
   audioAssetId?: string | null;
   /**
@@ -84,6 +118,10 @@ export type CommitRequest = {
   sessionId: string;
   languageFrom: string;
   languageTo: string;
+  /** Active non-personal study list, used only for deterministic source priority. */
+  baseListId?: string;
+  /** Optional custom name for the learner's personal word-chat list. */
+  listName?: string;
   categoryName: string;
   reviewLabel?: string;
   /** Only asked on the first session; ignored once the personal list exists. */
@@ -96,8 +134,10 @@ export type CommitRequest = {
 
 export type CommitResult = {
   listId: string;
-  categoryId: string;
+  categoryId: string | null;
   itemCount: number;
+  takeoverCount: number;
+  upgradedTakeoverCount: number;
   /** True when this key had already been committed and nothing new was written. */
   alreadyCommitted: boolean;
   monthlyUsed: number;

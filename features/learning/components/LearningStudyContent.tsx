@@ -22,6 +22,8 @@ interface LearningStudyContentProps {
   onSignOut: () => void | Promise<void>;
   /** Opens the word chat from the menu, in place. */
   onOpenWordChat?: () => void;
+  /** Opens photo lab over the study view instead of navigating to `/photo-lab`. */
+  onOpenPhotoLab?: () => void;
   categories: Array<{ name: string; count: number }>;
   progressStats: ProgressStats;
   phrasesCallbackRef: (node: HTMLElement | null) => void;
@@ -61,6 +63,7 @@ export function LearningStudyContent({
   authAddress,
   onSignOut,
   onOpenWordChat,
+  onOpenPhotoLab,
   categories,
   progressStats,
   phrasesCallbackRef,
@@ -94,6 +97,7 @@ export function LearningStudyContent({
       authAddress={authAddress}
       onSignOut={onSignOut}
       onOpenWordChat={onOpenWordChat}
+      onOpenPhotoLab={onOpenPhotoLab}
       categories={categories}
       progressStats={progressStats}
     >
@@ -116,6 +120,11 @@ export function LearningStudyContent({
           </div>
         ) : (
           <div className="app-content-column flex flex-col gap-[18px] flex-1 min-h-0">
+            {interstitialCard ? (
+              <div className="shrink-0">
+                {interstitialCard}
+              </div>
+            ) : null}
             {filteredWords.length === 0 ? (
               <div className="p-8 text-center text-text-soft">{t('learning.noFilterMatches')}</div>
             ) : (

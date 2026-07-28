@@ -1,16 +1,6 @@
 import type { Metadata, Viewport } from 'next';
-import localFont from 'next/font/local';
+import { photoDisplayFont } from '@/features/photo-lab/font';
 import { PhotoLabPage } from '@/features/photo-lab/components/PhotoLabPage';
-
-// Display font for Photo Lab headings only; subsets cover every UI locale
-// (cs/en latin-ext, uk cyrillic, vi vietnamese). The official variable font
-// is checked in so production builds do not depend on Google Fonts networking.
-const displayFont = localFont({
-  src: './fonts/Unbounded-VariableFont_wght.ttf',
-  weight: '200 900',
-  display: 'swap',
-  variable: '--font-photo-display',
-});
 
 export const metadata: Metadata = {
   title: 'Photo lab',
@@ -27,9 +17,14 @@ export const viewport: Viewport = {
   themeColor: '#F4EFE2',
 };
 
+/**
+ * Standalone entry: bookmarks, shared links, and the settings link. Opening the
+ * lab from the study view renders the same page in place instead (see
+ * `app/HomeClient.tsx`), so the deck is still there on the way back.
+ */
 export default function PhotoLabRoute() {
   return (
-    <div className={displayFont.variable}>
+    <div className={photoDisplayFont.variable}>
       <PhotoLabPage />
     </div>
   );

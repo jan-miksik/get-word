@@ -6,7 +6,8 @@ import { Section, ToggleSwitch } from '@/components/settings/primitives';
 
 export function FrontierFeaturesSection() {
   const { t } = useI18n();
-  const { swipeCardsEnabled, setSwipeCardsEnabled } = useAppStateContext();
+  const { swipeCardsEnabled, setSwipeCardsEnabled, quickAddEnabled, setQuickAddEnabled } =
+    useAppStateContext();
 
   return (
     <Section label={t('settings.frontierFeatures')}>
@@ -25,6 +26,17 @@ export function FrontierFeaturesSection() {
         </div>
         <p className="m-0 text-xs text-text-soft/60">{t('settings.swipeCardsNotice')}</p>
         <p className="m-0 text-xs font-medium text-text-soft/70">{t('settings.swipeCardsMobileOnly')}</p>
+      </div>
+      <div className="flex flex-col gap-0.5">
+        <div className="flex items-center justify-between py-0.5">
+          <span className="text-sm text-text">{t('settings.quickAdd')}</span>
+          <ToggleSwitch
+            checked={quickAddEnabled}
+            onChange={setQuickAddEnabled}
+            ariaLabel={t('settings.quickAdd')}
+          />
+        </div>
+        <p className="m-0 text-xs text-text-soft/60">{t('settings.quickAddNotice')}</p>
       </div>
       <div className="flex flex-col gap-0.5">
         <span className="text-sm text-text">{t('settings.photoLab')}</span>

@@ -28,6 +28,7 @@ import {
   LEARNING_LOCAL_PREFERENCE_KEYS,
   readProgressiveRevealPreference,
   readRevealModePreference,
+  readQuickAddPreference,
   readSwipeCardsPreference,
   readTiltGamePreference,
   readTypingAudioPromptPreference,
@@ -121,6 +122,7 @@ export function usePreferences(
   const [swipeCardsEnabled, setSwipeCardsEnabled] = useState(readSwipeCardsPreference);
   const [tiltGameEnabled, setTiltGameEnabled] = useState(readTiltGamePreference);
   const [photoLabEnabled, setPhotoLabEnabled] = useState(readPhotoLabPreference);
+  const [quickAddEnabled, setQuickAddEnabled] = useState(readQuickAddPreference);
   const [typingModeEnabled, setTypingModeEnabled] = useState(readTypingModePreference);
   const [typingWriteIn, setTypingWriteIn] = useState<TypingWriteIn>(readTypingWriteInPreference);
   const [typingAudioPromptEnabled, setTypingAudioPromptEnabled] = useState(
@@ -185,6 +187,10 @@ export function usePreferences(
   useEffect(() => {
     storePhotoLabPreference(photoLabEnabled);
   }, [photoLabEnabled]);
+
+  useEffect(() => {
+    storeLearningLocalPreference(LEARNING_LOCAL_PREFERENCE_KEYS.quickAdd, quickAddEnabled);
+  }, [quickAddEnabled]);
 
   useEffect(() => {
     storeLearningLocalPreference(LEARNING_LOCAL_PREFERENCE_KEYS.typingMode, typingModeEnabled);
@@ -525,6 +531,8 @@ export function usePreferences(
     setTiltGameEnabled,
     photoLabEnabled,
     setPhotoLabEnabled,
+    quickAddEnabled,
+    setQuickAddEnabled,
     typingModeEnabled,
     setTypingModeEnabled,
     typingWriteIn,

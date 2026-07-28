@@ -1,11 +1,12 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@/components/I18nProvider';
 import type { ReactNode } from 'react';
 
 const mocks = vi.hoisted(() => ({
   fetchWordChatContext: vi.fn(),
-  sendChatMessage: vi.fn(),
+  saveWordChatPreferences: vi.fn(),
+  sendChatMessageStream: vi.fn(),
   requestProposal: vi.fn(),
   translateSelection: vi.fn(),
   generateAudio: vi.fn(),
@@ -22,7 +23,8 @@ vi.mock('../../client/api', async () => {
   return {
     WordChatApiError: actual.WordChatApiError,
     fetchWordChatContext: mocks.fetchWordChatContext,
-    sendChatMessage: mocks.sendChatMessage,
+    saveWordChatPreferences: mocks.saveWordChatPreferences,
+    sendChatMessageStream: mocks.sendChatMessageStream,
     requestProposal: mocks.requestProposal,
     translateSelection: mocks.translateSelection,
     generateAudio: mocks.generateAudio,
@@ -48,6 +50,10 @@ function terminalFailure() {
 
 function wrapper({ children }: { children: ReactNode }) {
   return <I18nProvider language="en">{children}</I18nProvider>;
+}
+
+async function waitForPreferences(result: { current: { preferencesLoading: boolean } }) {
+  await waitFor(() => expect(result.current.preferencesLoading).toBe(false));
 }
 
 function proposal() {
@@ -78,17 +84,33 @@ describe('useWordChat', () => {
       goals: [],
       covered_topics: [],
       missing_topics: [],
+      personal_list_name: null,
+      address_register: 'casual',
+      salutation_gender: 'neutral',
+      language_level: 'A0',
+      preferences_complete: { global: true, language: true },
       monthly_used: 0,
       monthly_limit: 60,
       is_editor: false,
       models: null,
     });
-    mocks.sendChatMessage.mockResolvedValue({
-      reply: 'Připravím návrh.',
-      suggestions: [],
-      ready_to_propose: true,
+    mocks.sendChatMessageStream.mockImplementation(async (_input, handlers) => {
+      handlers.onDelta('Připravím návrh.');
+      return {
+        reply: 'Připravím návrh.',
+        suggestions: [],
+        ready_to_propose: true,
+        metadata_valid: true,
+        diagnostics: null,
+      };
     });
     mocks.requestProposal.mockResolvedValue(proposal());
+    mocks.saveWordChatPreferences.mockResolvedValue({
+      address_register: 'casual',
+      salutation_gender: 'neutral',
+      language_level: 'A0',
+      preferences_complete: { global: true, language: true },
+    });
   });
 
   it('starts a proposal with nothing selected and supports select/clear all', async () => {
@@ -96,6 +118,7 @@ describe('useWordChat', () => {
       () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
       { wrapper },
     );
+    await waitForPreferences(result);
 
     await act(() => result.current.sendMessage('Kavárna'));
 
@@ -107,6 +130,129 @@ describe('useWordChat', () => {
 
     act(() => result.current.clearSelection());
     expect(result.current.selectedCount).toBe(0);
+  });
+
+  it('sends the chosen chat preferences to the chat endpoint', async () => {
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+
+    await act(() =>
+      result.current.savePreferences({
+        addressRegister: 'formal',
+        salutationGender: 'neutral',
+        languageLevel: 'A1',
+      }),
+    );
+    expect(mocks.saveWordChatPreferences).toHaveBeenCalledWith({
+      addressRegister: 'formal',
+      salutationGender: 'neutral',
+      languageLevel: 'A1',
+      languageFrom: 'cs',
+      languageTo: 'vi',
+      baseListId: undefined,
+    });
+    await act(() => result.current.sendMessage('Kavárna'));
+
+    expect(mocks.sendChatMessageStream.mock.calls[0][0]).toMatchObject({
+      addressRegister: 'formal',
+      salutationGender: 'neutral',
+      languageLevel: 'A1',
+    });
+  });
+
+  it('restores the saved chat preferences without asking again', async () => {
+    mocks.fetchWordChatContext.mockResolvedValue({
+      has_history: true,
+      goals: [],
+      covered_topics: ['Úřad'],
+      missing_topics: [],
+      personal_list_name: 'Moje slovíčka',
+      address_register: 'formal',
+      salutation_gender: 'female',
+      language_level: 'B1',
+      preferences_complete: { global: true, language: true },
+      monthly_used: 0,
+      monthly_limit: 60,
+      is_editor: false,
+      models: null,
+    });
+
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
+      { wrapper },
+    );
+
+    await waitFor(() => expect(result.current.preferencesLoading).toBe(false));
+    expect(result.current.addressRegister).toBe('formal');
+    expect(result.current.salutationGender).toBe('female');
+    expect(result.current.languageLevel).toBe('B1');
+    expect(result.current.preferencesComplete).toBe(true);
+  });
+
+  it('reloads the per-target language level when the active list changes', async () => {
+    mocks.fetchWordChatContext
+      .mockResolvedValueOnce({
+        has_history: false,
+        goals: [],
+        covered_topics: [],
+        missing_topics: [],
+        personal_list_name: null,
+        address_register: 'formal',
+        salutation_gender: 'neutral',
+        language_level: 'A0',
+        preferences_complete: { global: true, language: true },
+        monthly_used: 0,
+        monthly_limit: 60,
+        is_editor: false,
+        models: null,
+      })
+      .mockResolvedValueOnce({
+        has_history: false,
+        goals: [],
+        covered_topics: [],
+        missing_topics: [],
+        personal_list_name: null,
+        address_register: 'formal',
+        salutation_gender: 'neutral',
+        language_level: 'B1',
+        preferences_complete: { global: true, language: true },
+        monthly_used: 0,
+        monthly_limit: 60,
+        is_editor: false,
+        models: null,
+      });
+
+    const { result, rerender } = renderHook(
+      ({ languageTo, baseListId }) =>
+        useWordChat({
+          languageFrom: 'cs',
+          languageTo,
+          baseListId,
+          onCommitted: vi.fn(),
+        }),
+      {
+        initialProps: { languageTo: 'vi', baseListId: 'list-vi' },
+        wrapper,
+      },
+    );
+
+    await waitFor(() => expect(result.current.languageLevel).toBe('A0'));
+    rerender({ languageTo: 'de', baseListId: 'list-de' });
+    await waitFor(() => expect(result.current.languageLevel).toBe('B1'));
+
+    expect(mocks.fetchWordChatContext).toHaveBeenNthCalledWith(1, {
+      languageFrom: 'cs',
+      languageTo: 'vi',
+      baseListId: 'list-vi',
+    });
+    expect(mocks.fetchWordChatContext).toHaveBeenNthCalledWith(2, {
+      languageFrom: 'cs',
+      languageTo: 'de',
+      baseListId: 'list-de',
+    });
   });
 
   it('caps selection to the monthly remainder before review work starts', async () => {
@@ -123,6 +269,7 @@ describe('useWordChat', () => {
       () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
       { wrapper },
     );
+    await waitForPreferences(result);
 
     await act(() => result.current.sendMessage('Kavárna'));
 
@@ -135,7 +282,60 @@ describe('useWordChat', () => {
     expect(result.current.selectedCount).toBe(1);
   });
 
-  it('retries transient audio errors before opening review', async () => {
+  it('keeps a selected proposal selected when its text is edited', async () => {
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+
+    await act(() => result.current.sendMessage('Kavárna'));
+    act(() => result.current.toggleSelected(result.current.proposals[1]));
+    expect(result.current.selectedCount).toBe(1);
+
+    act(() => result.current.updateProposal(result.current.proposals[1], 'silná káva'));
+
+    expect(result.current.proposals[1].text).toBe('silná káva');
+    expect(result.current.selectedCount).toBe(1);
+  });
+
+  it('turns an edited reused proposal into a generated proposal', async () => {
+    mocks.requestProposal.mockResolvedValue({
+      ...proposal(),
+      items: [
+        {
+          kind: 'word',
+          source: 'corpus',
+          corpusItemId: 'corpus-1',
+          verified: true,
+          text: 'káva',
+          confidence: 0.8,
+        },
+      ],
+    });
+
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+
+    await act(() => result.current.sendMessage('Kavárna'));
+    act(() => result.current.toggleSelected(result.current.proposals[0]));
+    act(() => result.current.updateProposal(result.current.proposals[0], 'silná káva'));
+
+    expect(result.current.proposals[0]).toMatchObject({
+      source: 'generated',
+      text: 'silná káva',
+    });
+    expect(result.current.selectedCount).toBe(1);
+  });
+
+  it('opens review while fresh audio is still generating in the background', async () => {
+    let resolveAudio: (value: unknown) => void = () => {};
+    const audioPromise = new Promise((resolve) => {
+      resolveAudio = resolve;
+    });
     mocks.translateSelection.mockResolvedValue({
       items: [
         {
@@ -144,6 +344,7 @@ describe('useWordChat', () => {
           text_target: 'cà phê',
           corpus_item_id: null,
           audio_asset_id: null,
+          audio_hash: null,
           known_audio_asset_id: null,
           warnings: [],
           reused: false,
@@ -156,55 +357,86 @@ describe('useWordChat', () => {
         estimated_cost_usd: 0.000013,
       },
     });
-    mocks.generateAudio
-      .mockResolvedValueOnce({
-        results: [{ key: '0', status: 'error', asset_id: null, error: 'temporary' }],
+    mocks.generateAudio.mockReturnValue(audioPromise);
+
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+
+    await act(() => result.current.sendMessage('Kavárna'));
+    act(() => result.current.toggleSelected(result.current.proposals[1]));
+    await act(() => result.current.continueToReview());
+
+    expect(result.current.step).toBe('review');
+    expect(result.current.reviewItems[0].audioAssetId).toBeNull();
+    expect(result.current.reviewItems[0].audioStatus).toBe('pending');
+    expect(result.current.translationDiagnostics?.model).toBe(
+      'deepseek/deepseek-v4-flash',
+    );
+
+    await act(async () => {
+      resolveAudio({
+        results: [
+          {
+            key: '0',
+            status: 'ok',
+            asset_id: 'asset-1',
+            content_hash: 'hash-1',
+            audio_base64: null,
+            error: null,
+          },
+        ],
         quota_exhausted: null,
-      })
-      .mockResolvedValueOnce({
-        results: [{ key: '0', status: 'ok', asset_id: 'asset-1', error: null }],
-        quota_exhausted: null,
+      });
+      await audioPromise;
+      await Promise.resolve();
+    });
+
+    expect(mocks.generateAudio).toHaveBeenCalledTimes(1);
+    expect(result.current.reviewItems[0].audioAssetId).toBe('asset-1');
+    expect(result.current.reviewItems[0].audioHash).toBe('hash-1');
+    expect(result.current.reviewItems[0].audioStatus).toBe('ready');
+  });
+
+  it('keeps the conversation and offers a retry after a transient failure', async () => {
+    mocks.sendChatMessageStream.mockReset();
+    mocks.sendChatMessageStream
+      .mockRejectedValueOnce(temporaryFailure())
+      .mockImplementationOnce(async (_input, handlers) => {
+        handlers.onDelta('Připravím návrh.');
+        return {
+          reply: 'Připravím návrh.',
+          suggestions: [],
+          ready_to_propose: true,
+          metadata_valid: true,
+          diagnostics: null,
+        };
       });
 
     const { result } = renderHook(
       () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
       { wrapper },
     );
-
-    await act(() => result.current.sendMessage('Kavárna'));
-    act(() => result.current.toggleSelected(result.current.proposals[1]));
-    await act(() => result.current.continueToReview());
-
-    expect(mocks.generateAudio).toHaveBeenCalledTimes(2);
-    expect(result.current.step).toBe('review');
-    expect(result.current.reviewItems[0].audioAssetId).toBe('asset-1');
-    expect(result.current.translationDiagnostics?.model).toBe(
-      'deepseek/deepseek-v4-flash',
-    );
-  });
-
-  it('keeps the conversation and offers a retry after a transient failure', async () => {
-    mocks.sendChatMessage.mockReset();
-    mocks.sendChatMessage
-      .mockRejectedValueOnce(temporaryFailure())
-      .mockResolvedValueOnce({ reply: 'Připravím návrh.', suggestions: [], ready_to_propose: true });
-
-    const { result } = renderHook(
-      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
-      { wrapper },
-    );
+    await waitForPreferences(result);
 
     await act(() => result.current.sendMessage('Kavárna'));
 
     expect(result.current.unavailable).toBe(false);
     expect(result.current.canRetry).toBe(true);
-    expect(result.current.messages).toHaveLength(1);
+    expect(result.current.messages).toHaveLength(2);
+    expect(result.current.messages[1]).toMatchObject({
+      role: 'assistant',
+      content: '',
+      incomplete: true,
+    });
 
     await act(() => result.current.retry());
 
     // The retry re-sends the same turn instead of asking the model to answer a
     // duplicated learner message.
-    expect(mocks.sendChatMessage.mock.calls[1][0].messages).toEqual([
+    expect(mocks.sendChatMessageStream.mock.calls[1][0].messages).toEqual([
       { role: 'user', content: 'Kavárna' },
     ]);
     expect(result.current.step).toBe('select');
@@ -213,13 +445,14 @@ describe('useWordChat', () => {
   });
 
   it('offers the ready-made list immediately when the failure is terminal', async () => {
-    mocks.sendChatMessage.mockReset();
-    mocks.sendChatMessage.mockRejectedValue(terminalFailure());
+    mocks.sendChatMessageStream.mockReset();
+    mocks.sendChatMessageStream.mockRejectedValue(terminalFailure());
 
     const { result } = renderHook(
       () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
       { wrapper },
     );
+    await waitForPreferences(result);
 
     await act(() => result.current.sendMessage('Kavárna'));
 
@@ -228,13 +461,14 @@ describe('useWordChat', () => {
   });
 
   it('gives up after three transient failures in a row', async () => {
-    mocks.sendChatMessage.mockReset();
-    mocks.sendChatMessage.mockRejectedValue(temporaryFailure());
+    mocks.sendChatMessageStream.mockReset();
+    mocks.sendChatMessageStream.mockRejectedValue(temporaryFailure());
 
     const { result } = renderHook(
       () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
       { wrapper },
     );
+    await waitForPreferences(result);
 
     await act(() => result.current.sendMessage('Kavárna'));
     expect(result.current.unavailable).toBe(false);
@@ -275,6 +509,7 @@ describe('useWordChat', () => {
       () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
       { wrapper },
     );
+    await waitForPreferences(result);
 
     await act(() => result.current.sendMessage('Kavárna'));
     act(() => result.current.toggleSelected(result.current.proposals[1]));
@@ -293,5 +528,129 @@ describe('useWordChat', () => {
     act(() => result.current.toggleSelected(result.current.proposals[0]));
     await act(() => result.current.continueToReview());
     expect(mocks.translateSelection).toHaveBeenCalledTimes(2);
+  });
+
+  it('commits a renamed personal dictionary name', async () => {
+    const onCommitted = vi.fn();
+    mocks.translateSelection.mockResolvedValue({
+      items: [
+        {
+          kind: 'word',
+          text_known: 'káva',
+          text_target: 'cà phê',
+          corpus_item_id: null,
+          audio_asset_id: 'asset-1',
+          audio_hash: 'hash-1',
+          known_audio_asset_id: null,
+          warnings: [],
+          reused: false,
+        },
+      ],
+      translation_diagnostics: {
+        model: 'deepseek/deepseek-v4-flash',
+        input_tokens: 100,
+        output_tokens: 20,
+        estimated_cost_usd: 0.000013,
+      },
+    });
+    mocks.commitSession.mockResolvedValue({
+      list_id: 'list-1',
+      category_id: 'category-1',
+      item_count: 1,
+      already_committed: false,
+      monthly_used: 1,
+      monthly_limit: 60,
+    });
+
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+
+    await act(() => result.current.sendMessage('Kavárna'));
+    act(() => {
+      result.current.setListName('Úřední vietnamština');
+      result.current.toggleSelected(result.current.proposals[1]);
+    });
+    await act(() => result.current.continueToReview());
+    await act(() => result.current.commit());
+
+    expect(mocks.commitSession.mock.calls[0][0]).toMatchObject({
+      listName: 'Úřední vietnamština',
+    });
+    expect(onCommitted).toHaveBeenCalledWith({
+      listId: 'list-1',
+      categoryId: 'category-1',
+      itemCount: 1,
+      takeoverCount: 0,
+      upgradedTakeoverCount: 0,
+    });
+  });
+
+  it('retries only the snapshot after a successful commit', async () => {
+    const refreshAfterCommit = vi
+      .fn<() => Promise<void>>()
+      .mockRejectedValueOnce(new Error('offline'))
+      .mockResolvedValueOnce(undefined);
+    mocks.translateSelection.mockResolvedValue({
+      items: [
+        {
+          kind: 'word',
+          text_known: 'káva',
+          text_target: 'cà phê',
+          corpus_item_id: null,
+          audio_asset_id: 'asset-1',
+          audio_hash: 'hash-1',
+          known_audio_asset_id: null,
+          warnings: [],
+          reused: false,
+          takeover: null,
+        },
+      ],
+      translation_diagnostics: {
+        model: 'test',
+        input_tokens: 1,
+        output_tokens: 1,
+        estimated_cost_usd: 0,
+      },
+    });
+    mocks.commitSession.mockResolvedValue({
+      list_id: 'personal-list',
+      category_id: 'category-1',
+      item_count: 1,
+      takeover_count: 0,
+      upgraded_takeover_count: 0,
+      already_committed: false,
+      monthly_used: 1,
+      monthly_limit: 60,
+    });
+
+    const { result } = renderHook(
+      () =>
+        useWordChat({
+          languageFrom: 'cs',
+          languageTo: 'vi',
+          onCommitted: vi.fn(),
+          refreshAfterCommit,
+      }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+
+    await act(() => result.current.sendMessage('Kavárna'));
+    act(() => result.current.toggleSelected(result.current.proposals[1]));
+    await act(() => result.current.continueToReview());
+    await act(() => result.current.commit());
+
+    expect(result.current.step).toBe('done');
+    expect(result.current.refreshStatus).toBe('error');
+    expect(mocks.commitSession).toHaveBeenCalledTimes(1);
+
+    await act(() => result.current.retryRefresh());
+
+    expect(result.current.refreshStatus).toBe('success');
+    expect(refreshAfterCommit).toHaveBeenCalledTimes(2);
+    expect(mocks.commitSession).toHaveBeenCalledTimes(1);
   });
 });

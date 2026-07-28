@@ -77,7 +77,6 @@ function LandingPageContent({
   );
   const [fromOverride, setFromOverride] = useState<string | null>(null);
   const [toOverride, setToOverride] = useState<string | null>(null);
-  const [wantsOwnList, setWantsOwnList] = useState(false);
   const languageFrom = fromOverride ?? savedFrom;
   const languageTo = toOverride ?? '';
   const effectiveLanguageFrom = languageFrom || lang;
@@ -92,7 +91,7 @@ function LandingPageContent({
       // visitor never picked "I want to learn", post-login onboarding should
       // still open on the language-selection step.
       to: languageTo,
-      wantsOwnList,
+      wantsOwnList: true,
     });
   }
 
@@ -121,9 +120,7 @@ function LandingPageContent({
           languageFrom={languageFrom}
           languageTo={languageTo}
           effectiveLanguageFrom={effectiveLanguageFrom}
-          wantsOwnList={wantsOwnList}
           onPairChange={updateLandingPair}
-          onWantsOwnListChange={setWantsOwnList}
           onBeforeLogin={persistLandingPair}
           showLogin={!isFirefoxAndroid}
         />
@@ -269,18 +266,14 @@ function Hero({
   languageFrom,
   languageTo,
   effectiveLanguageFrom,
-  wantsOwnList,
   onPairChange,
-  onWantsOwnListChange,
   onBeforeLogin,
   showLogin,
 }: {
   languageFrom: string;
   languageTo: string;
   effectiveLanguageFrom: string;
-  wantsOwnList: boolean;
   onPairChange: (next: { from?: string; to?: string }) => void;
-  onWantsOwnListChange: (next: boolean) => void;
   onBeforeLogin: () => void;
   showLogin: boolean;
 }) {
@@ -318,9 +311,7 @@ function Hero({
             languageFrom={languageFrom}
             languageTo={languageTo}
             effectiveLanguageFrom={effectiveLanguageFrom}
-            wantsOwnList={wantsOwnList}
             onPairChange={onPairChange}
-            onWantsOwnListChange={onWantsOwnListChange}
             onBeforeLogin={onBeforeLogin}
           />
         ) : null}
@@ -383,17 +374,13 @@ function HeroLanguagePicker({
   languageFrom,
   languageTo,
   effectiveLanguageFrom,
-  wantsOwnList,
   onPairChange,
-  onWantsOwnListChange,
   onBeforeLogin,
 }: {
   languageFrom: string;
   languageTo: string;
   effectiveLanguageFrom: string;
-  wantsOwnList: boolean;
   onPairChange: (next: { from?: string; to?: string }) => void;
-  onWantsOwnListChange: (next: boolean) => void;
   onBeforeLogin: () => void;
 }) {
   const { t } = useI18n();
@@ -401,7 +388,7 @@ function HeroLanguagePicker({
 
   function updateFrom(code: string) {
     onPairChange({ from: code });
-    saveLandingLanguagePair({ from: code, to: languageTo, wantsOwnList });
+    saveLandingLanguagePair({ from: code, to: languageTo, wantsOwnList: true });
   }
 
   function updateTo(code: string) {
@@ -409,16 +396,7 @@ function HeroLanguagePicker({
     saveLandingLanguagePair({
       from: languageFrom || effectiveLanguageFrom,
       to: code,
-      wantsOwnList,
-    });
-  }
-
-  function updateWantsOwnList(next: boolean) {
-    onWantsOwnListChange(next);
-    saveLandingLanguagePair({
-      from: languageFrom || effectiveLanguageFrom,
-      to: languageTo,
-      wantsOwnList: next,
+      wantsOwnList: true,
     });
   }
 
@@ -455,15 +433,6 @@ function HeroLanguagePicker({
           <IconArrow className="lp-btn-arrow" />
         </Link>
       </div>
-      <label className="mt-4 flex cursor-pointer items-center gap-2 px-3 text-xs font-semibold leading-5 text-[var(--ink)] sm:text-sm">
-        <input
-          type="checkbox"
-          checked={wantsOwnList}
-          onChange={(event) => updateWantsOwnList(event.target.checked)}
-          className="lp-custom-list-checkbox h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4"
-        />
-        <span>{t('landing.hero.customListCheckbox')}</span>
-      </label>
     </div>
   );
 }
