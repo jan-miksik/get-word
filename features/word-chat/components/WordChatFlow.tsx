@@ -15,6 +15,7 @@ type Props = {
   baseListId?: string | null;
   refreshAfterCommit?: () => Promise<void>;
   onDone?: () => void;
+  doneActionLabel?: string;
   /**
    * The escape hatch: subscribe to the ready-made list for this pair. Owned by
    * the caller (onboarding already has the matched-list data loaded) and used
@@ -25,6 +26,8 @@ type Props = {
    * has lists, and offering them a starter pack there is noise.
    */
   onUseReadyMade?: () => void;
+  /** Changes the known/target pair from settings or an explicit bot action. */
+  onLanguagePairChange: (pair: { from: string; to: string }) => void | Promise<void>;
   onCommitted: (result: {
     listId: string;
     categoryId: string | null;
@@ -53,7 +56,9 @@ export function WordChatFlow({
   baseListId,
   refreshAfterCommit,
   onDone,
+  doneActionLabel,
   onUseReadyMade,
+  onLanguagePairChange,
   onCommitted,
   onStepChange,
   onHeaderBackActionChange,
@@ -66,6 +71,7 @@ export function WordChatFlow({
     languageFrom,
     languageTo,
     baseListId,
+    onLanguagePairChange,
     onCommitted,
     refreshAfterCommit,
   });
@@ -89,12 +95,14 @@ export function WordChatFlow({
   useEffect(() => {
     if (chat.step !== 'done' || chat.refreshStatus !== 'success' || !onDone) return;
 
-    // The in-app surface stays mounted after it is hidden. Reset before
-    // returning to study so reopening "Add words" starts with a fresh chat
-    // instead of the previous session's completion screen.
     resetChat();
     onDone();
   }, [chat.refreshStatus, chat.step, onDone, resetChat]);
+
+  const completeDoneStep = () => {
+    resetChat();
+    onDone?.();
+  };
 
   if (chat.unavailable) {
     return (
@@ -188,10 +196,12 @@ export function WordChatFlow({
           addressRegisterApplies={chat.addressRegisterApplies}
           salutationGenderApplies={chat.salutationGenderApplies}
           onPreferencesChange={chat.savePreferences}
+          onLanguagePairChange={chat.changeLanguagePair}
           settingsPlacement={settingsPlacement}
           busy={chat.busy === 'chat' || chat.busy === 'propose' ? chat.busy : null}
           history={chat.history}
           onSend={chat.sendMessage}
+          onStartManualEntry={chat.startManualEntry}
           active={active}
           embedded={embedded}
         />
@@ -199,6 +209,7 @@ export function WordChatFlow({
 
       {chat.step === 'select' ? (
         <SelectStep
+          mode={chat.proposals.length === 0 ? 'manual' : 'suggestions'}
           languageFrom={languageFrom}
           listName={chat.listName}
           onListNameChange={chat.setListName}
@@ -251,7 +262,8 @@ export function WordChatFlow({
           result={chat.commitResult}
           refreshStatus={chat.refreshStatus}
           onRetryRefresh={chat.retryRefresh}
-          onDone={onDone}
+          onDone={onDone ? completeDoneStep : undefined}
+          doneLabel={doneActionLabel}
         />
       ) : null}
     </div>

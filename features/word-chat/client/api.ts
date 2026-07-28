@@ -106,6 +106,7 @@ export type CallDiagnostics = {
 export type WordChatContextResponse = {
   has_history: boolean;
   goals: string[];
+  situations: string[];
   covered_topics: string[];
   missing_topics: string[];
   personal_list_name: string | null;
@@ -184,6 +185,7 @@ type ChatMessageResponse = {
   reply: string;
   suggestions: string[];
   ready_to_propose: boolean;
+  language_change: { from: string; to: string } | null;
   diagnostics: CallDiagnostics | null;
 };
 
@@ -198,6 +200,7 @@ type RawChatStreamEvent =
       reply?: unknown;
       suggestions?: unknown;
       ready_to_propose?: unknown;
+      language_change?: unknown;
       metadata_valid?: unknown;
       diagnostics?: unknown;
     }
@@ -301,12 +304,22 @@ export async function sendChatMessageStream(
         );
       }
       if (event.type === 'done') {
+        const rawLanguageChange =
+          event.language_change && typeof event.language_change === 'object'
+            ? (event.language_change as { from?: unknown; to?: unknown })
+            : null;
         result.done = {
           reply: typeof event.reply === 'string' ? event.reply : '',
           suggestions: Array.isArray(event.suggestions)
             ? event.suggestions.filter((entry): entry is string => typeof entry === 'string')
             : [],
           ready_to_propose: event.ready_to_propose === true,
+          language_change:
+            rawLanguageChange &&
+            typeof rawLanguageChange.from === 'string' &&
+            typeof rawLanguageChange.to === 'string'
+              ? { from: rawLanguageChange.from, to: rawLanguageChange.to }
+              : null,
           metadata_valid: event.metadata_valid === true,
           diagnostics: event.diagnostics as CallDiagnostics | null,
         };

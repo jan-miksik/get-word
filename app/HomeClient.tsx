@@ -35,6 +35,8 @@ import { AddPersonalWordsPrompt } from '@/features/learning/components/AddPerson
 import { usePWAInstallIntro } from '@/features/learning/hooks/usePWAInstallIntro';
 import { shouldOfferMorePersonalWords } from '@/features/learning/personalWordsPrompt';
 import { useAppSurface } from '@/features/workspace/useAppSurface';
+import { migrateDraftToLanguagePair } from '@/features/word-chat/client/storage';
+import { normalizeLanguageCode } from '@/lib/i18n/languages';
 
 const BOOT_LOADING_TIMEOUT_MS = 12_000;
 
@@ -191,6 +193,41 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     returnToStudy,
     visitedSurfaces,
   } = useAppSurface(photoLabEnabled);
+  const activeListMatchesLearningPair = Boolean(
+    appState.activeList &&
+      learningLanguageFrom &&
+      learningLanguageTo &&
+      normalizeLanguageCode(appState.activeList.languageFrom) ===
+        normalizeLanguageCode(learningLanguageFrom) &&
+      normalizeLanguageCode(appState.activeList.languageTo) ===
+        normalizeLanguageCode(learningLanguageTo),
+  );
+  const changeLearningLanguagePair = useCallback(
+    async ({ from, to }: { from: string; to: string }) => {
+      if (learningLanguageFrom && learningLanguageTo) {
+        migrateDraftToLanguagePair(
+          learningLanguageFrom,
+          learningLanguageTo,
+          from,
+          to,
+        );
+      }
+      await setLearningLanguages(from, to);
+      const matchingList = subscribedLists.find(
+        (list) =>
+          normalizeLanguageCode(list.languageFrom) === normalizeLanguageCode(from) &&
+          normalizeLanguageCode(list.languageTo) === normalizeLanguageCode(to),
+      );
+      if (matchingList) setActiveListId(matchingList.id);
+    },
+    [
+      learningLanguageFrom,
+      learningLanguageTo,
+      setActiveListId,
+      setLearningLanguages,
+      subscribedLists,
+    ],
+  );
 
   // The app runs on synced words (from word_list_items).
   const activeWords = syncedWords ?? EMPTY_WORDS;
@@ -611,12 +648,22 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
                     languageFrom={learningLanguageFrom as string}
                     languageTo={learningLanguageTo as string}
                     baseListId={
-                      appState.activeList?.isOwnedPersonal ? null : appState.activeListId
+                      activeListMatchesLearningPair &&
+                      !appState.activeList?.isOwnedPersonal
+                        ? appState.activeListId
+                        : null
                     }
                     refreshAfterCommit={refreshFullSnapshot}
+                    onLanguagePairChange={changeLearningLanguagePair}
                     onClose={returnToStudy}
                     active={activeSurface === 'chat'}
-                    onCommitted={() => undefined}
+                    onCommitted={(result) => {
+                      // Normally personal words overlay the current base list,
+                      // so keep studying that base. After a pair change with no
+                      // existing matching list, the newly created personal list
+                      // is the first valid study surface for the new pair.
+                      if (!activeListMatchesLearningPair) setActiveListId(result.listId);
+                    }}
                   />
                 ) : undefined
               }
@@ -627,6 +674,9 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
                       onClose={returnToStudy}
                       variant="embedded"
                       active={activeSurface === 'photo'}
+                      languageFrom={learningLanguageFrom as string}
+                      languageTo={learningLanguageTo as string}
+                      onLanguagePairChange={changeLearningLanguagePair}
                     />
                   </div>
                 ) : undefined

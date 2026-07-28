@@ -51,4 +51,32 @@ describe("sendChatMessageStream", () => {
     });
     await expect(promise).rejects.toBeInstanceOf(WordChatApiError);
   });
+
+  it("reads a language-pair action from the completed stream", async () => {
+    mocks.deviceJsonFetch.mockResolvedValue({
+      ok: true,
+      body: streamFromText([
+        '{"type":"done","reply":"Switching languages.",',
+        '"suggestions":[],"ready_to_propose":false,',
+        '"language_change":{"from":"cs","to":"es"},',
+        '"metadata_valid":true,"diagnostics":null}\n',
+      ]),
+    });
+
+    const result = await sendChatMessageStream(
+      {
+        sessionId: "session-1",
+        languageFrom: "fr",
+        languageTo: "vi",
+        chatLanguage: "en",
+        addressRegister: "casual",
+        salutationGender: null,
+        languageLevel: "A0",
+        messages: [{ role: "user", content: "I know Czech and want Spanish." }],
+      },
+      { onDelta: vi.fn() },
+    );
+
+    expect(result.language_change).toEqual({ from: "cs", to: "es" });
+  });
 });

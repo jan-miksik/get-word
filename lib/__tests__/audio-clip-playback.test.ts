@@ -30,6 +30,21 @@ describe('shared audio clip playback cache', () => {
     expect(getWarmedClipUrl('hash-1')).toBe('blob:warmed-clip');
   });
 
+  it('re-reads an evicted clip from IndexedDB instead of pinning every blob', async () => {
+    cacheMocks.getClip.mockResolvedValue(new Blob(['cached'], { type: 'audio/mpeg' }));
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => undefined);
+    const { getLocalClipUrl, getWarmedClipUrl, prefetchClips } = await import(
+      '../audio-clip-playback'
+    );
+
+    await prefetchClips(Array.from({ length: 70 }, (_, index) => `hash-${index}`));
+
+    // The oldest entries are released; their bytes still live in IndexedDB.
+    expect(getWarmedClipUrl('hash-0')).toBeNull();
+    expect(getWarmedClipUrl('hash-69')).toBe('blob:warmed-clip');
+    await expect(getLocalClipUrl('hash-0')).resolves.toBe('blob:warmed-clip');
+  });
+
   it('uses IndexedDB without another network request when already cached', async () => {
     cacheMocks.getClip.mockResolvedValue(new Blob(['cached'], { type: 'audio/mpeg' }));
     const { getWarmedClipUrl, prefetchClips } = await import('../audio-clip-playback');

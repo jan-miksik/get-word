@@ -88,6 +88,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       has_history: hasHistory,
       goals: brief?.goals ?? [],
+      situations: brief?.situations ?? [],
       covered_topics: brief?.coveredTopics ?? [],
       missing_topics: brief?.missingTopics ?? [],
       personal_list_name: personalList?.name ?? null,

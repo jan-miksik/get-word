@@ -3,6 +3,7 @@
 import type { SyncResponse } from '@/features/sync/types';
 import type { NormalizedWord } from '@/lib/words';
 import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
+import { getClipForAudioUrl } from '@/lib/audio-clip-cache';
 import { reportAudioStorageResponse } from '@/lib/audio-debug';
 import {
   canBulkCacheAudio,
@@ -275,6 +276,31 @@ export async function cacheActiveListAudio(words: NormalizedWord[]): Promise<Aud
       }
     } catch {
       // Cache read failure — fall through to the network attempts.
+    }
+
+    // Clips generated in this browser are already in the shared IndexedDB store.
+    // Copying those bytes across costs no network and no metered budget, and it
+    // is the only source that works for an upload the gateways cannot serve yet.
+    for (const candidate of candidates) {
+      let localBlob: Blob | null = null;
+      try {
+        localBlob = await getClipForAudioUrl(candidate);
+      } catch {
+        break; // Local store unavailable; the network attempts still apply.
+      }
+      if (!localBlob || localBlob.size === 0) continue;
+      try {
+        await cache.put(
+          candidate,
+          new Response(localBlob, {
+            headers: { 'Content-Type': localBlob.type || 'audio/mpeg' },
+          }),
+        );
+        cachedCount += 1;
+        return 'cached';
+      } catch {
+        break;
+      }
     }
 
     for (const candidate of candidates) {

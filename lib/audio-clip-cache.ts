@@ -92,6 +92,16 @@ export function hashFromAudioUrl(url: string): string | null {
   }
 }
 
+/**
+ * Read a cached clip straight from an app audio-proxy URL. Null for any other
+ * URL (a raw gateway link carries no content hash) and for a cache miss.
+ */
+export async function getClipForAudioUrl(url: string): Promise<Blob | null> {
+  const hash = hashFromAudioUrl(url);
+  if (!hash) return null;
+  return getClip(hash);
+}
+
 /** Read a cached clip by hash, bumping its lastAccessedAt. Null when missing/unavailable. */
 export async function getClip(hash: string): Promise<Blob | null> {
   const db = await openDb();

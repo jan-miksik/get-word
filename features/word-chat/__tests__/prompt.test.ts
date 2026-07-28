@@ -34,6 +34,9 @@ describe('buildChatSystemPrompt', () => {
     expect(prompt).toContain('Friendly is fine; eager is not');
     expect(prompt).toContain("Make them concrete continuations of the learner's latest situation");
     expect(prompt).toContain('never use generic domain chips');
+    expect(prompt).toContain('You can also change the study pair');
+    expect(prompt).toContain('"languageChange": null');
+    expect(prompt).toContain('only for an explicit language-setting request');
   });
 
   it('pins formal chat address when the learner chooses it', () => {

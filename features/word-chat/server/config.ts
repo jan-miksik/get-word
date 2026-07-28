@@ -80,8 +80,22 @@ export const CHAT_RESPONSE_FORMAT = {
           items: { type: "string" },
         },
         readyToPropose: { type: "boolean" },
+        languageChange: {
+          anyOf: [
+            {
+              type: "object",
+              properties: {
+                from: { type: "string" },
+                to: { type: "string" },
+              },
+              required: ["from", "to"],
+              additionalProperties: false,
+            },
+            { type: "null" },
+          ],
+        },
       },
-      required: ["reply", "suggestions", "readyToPropose"],
+      required: ["reply", "suggestions", "readyToPropose", "languageChange"],
       additionalProperties: false,
     },
   },

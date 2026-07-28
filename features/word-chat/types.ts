@@ -82,6 +82,12 @@ export type ChatTurnResult = {
   suggestions: string[];
   /** True once the model has enough to propose; the UI surfaces the button. */
   readyToPropose: boolean;
+  /**
+   * A reversible app action requested explicitly by the learner. The model may
+   * suggest words for the current pair, but it may only populate this field
+   * when the learner asks to change the known/target languages themselves.
+   */
+  languageChange: { from: string; to: string } | null;
 };
 
 /** A row as it exists during Review: translated, possibly with audio, all draft. */

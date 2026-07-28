@@ -30,8 +30,10 @@ interface MemoryHookOpPayload {
 }
 
 interface PreferenceOpPayload {
-  field: keyof SyncMutationPayload;
-  value: unknown;
+  field?: keyof SyncMutationPayload;
+  value?: unknown;
+  /** Several preferences that must reach the server atomically. */
+  values?: Partial<SyncMutationPayload>;
 }
 
 interface CategoryFiltersOpPayload {
@@ -168,6 +170,10 @@ function applyPreferenceOp(
 ): void {
   if (!isObject(op.payload)) return;
   const p = op.payload as Partial<PreferenceOpPayload>;
+  if (isObject(p.values)) {
+    Object.assign(payload, p.values);
+    return;
+  }
   if (typeof p.field !== 'string') return;
   // Trust caller-typed shape; this is a controlled internal API.
   (payload as Record<string, unknown>)[p.field] = p.value;

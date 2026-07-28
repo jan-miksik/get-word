@@ -4,6 +4,8 @@ import { act, renderHook, waitFor } from '@testing-library/react';
 const mockRequestPhotoLabUsage = vi.fn();
 const mockRequestPhotoAnalysis = vi.fn();
 const mockDownscalePhoto = vi.fn();
+const mockQueuePendingLearningLanguagePair = vi.fn();
+const mockStoreLearningLanguagePair = vi.fn();
 
 vi.mock('../../client/usage', () => ({
   requestPhotoLabUsage: (...args: unknown[]) => mockRequestPhotoLabUsage(...args),
@@ -24,9 +26,14 @@ vi.mock('../../client/downscale', () => ({
 
 vi.mock('../../client/audio', () => ({ requestPhotoLabAudio: vi.fn() }));
 
-vi.mock('../../client/languagePair', () => ({
-  readPhotoLabLanguagePair: () => ({ from: 'cs', to: 'en' }),
-  storePhotoLabLanguagePair: vi.fn(),
+vi.mock('@/features/shared/languages/learningPairStorage', () => ({
+  readLearningLanguagePair: () => ({ from: 'cs', to: 'en' }),
+  storeLearningLanguagePair: (...args: unknown[]) =>
+    mockStoreLearningLanguagePair(...args),
+}));
+vi.mock('@/features/shared/languages/learningPairSync', () => ({
+  queuePendingLearningLanguagePair: (...args: unknown[]) =>
+    mockQueuePendingLearningLanguagePair(...args),
 }));
 
 vi.mock('../../client/photoStore', () => ({
@@ -54,6 +61,7 @@ describe('usePhotoLabStudio allowance gating', () => {
     vi.clearAllMocks();
     mockDownscalePhoto.mockResolvedValue({ blob: new Blob(), dataUrl: 'data:,', hash: 'h1' });
     mockRequestPhotoAnalysis.mockResolvedValue([]);
+    mockQueuePendingLearningLanguagePair.mockResolvedValue(undefined);
   });
 
   it('reports the allowance as spent once nothing remains', async () => {
@@ -106,6 +114,47 @@ describe('usePhotoLabStudio allowance gating', () => {
     });
 
     expect(mockRequestPhotoAnalysis).toHaveBeenCalled();
+  });
+
+  it('shares controlled language changes with the app and follows changes from chat', async () => {
+    mockRequestPhotoLabUsage.mockResolvedValue(null);
+    const onLanguagePairChange = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ from, to }) =>
+        usePhotoLabStudio(true, {
+          languageFrom: from,
+          languageTo: to,
+          onLanguagePairChange,
+        }),
+      { initialProps: { from: 'fr', to: 'es' } },
+    );
+
+    expect(result.current.langFrom).toBe('fr');
+    expect(result.current.langTo).toBe('es');
+
+    act(() => result.current.changeLanguagePair({ from: 'cs', to: 'vi' }));
+    expect(result.current.langFrom).toBe('cs');
+    expect(result.current.langTo).toBe('vi');
+    expect(onLanguagePairChange).toHaveBeenCalledWith({ from: 'cs', to: 'vi' });
+
+    rerender({ from: 'de', to: 'en' });
+    expect(result.current.langFrom).toBe('de');
+    expect(result.current.langTo).toBe('en');
+  });
+
+  it('persists standalone language changes as the shared app preference', async () => {
+    mockRequestPhotoLabUsage.mockResolvedValue(null);
+    const { result } = renderHook(() => usePhotoLabStudio());
+    await waitFor(() => expect(result.current.languagesReady).toBe(true));
+
+    act(() => result.current.changeLanguagePair({ from: 'fr', to: 'es' }));
+
+    expect(mockStoreLearningLanguagePair).toHaveBeenCalledWith({ from: 'fr', to: 'es' });
+    expect(mockQueuePendingLearningLanguagePair).toHaveBeenCalledWith({
+      from: 'fr',
+      to: 'es',
+      changedAt: expect.any(String),
+    });
   });
 
   it('pauses the ETA timer while hidden but lets one analysis finish in the background', async () => {

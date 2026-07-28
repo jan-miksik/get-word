@@ -13,6 +13,7 @@ import {
   SchoolIcon,
   SettingsIcon,
   StarIcon,
+  StudyIcon,
   TuneIcon,
   UpcomingIcon,
   WordChatIcon,
@@ -20,6 +21,7 @@ import {
 } from '@/components/icons/AppIcons';
 import type { AppSurface } from '@/features/workspace/surface-history';
 
+const STUDY_SURFACE_HREF = '/';
 const CHAT_SURFACE_HREF = '/?surface=chat';
 const PHOTO_SURFACE_HREF = '/?surface=photo';
 
@@ -142,6 +144,50 @@ const QUICK_ADD_BUTTON_CLASS =
 const QUICK_ADD_BUTTON_ACTIVE_CLASS =
   '!bg-[var(--tm-accent)] !text-[var(--tm-surface)] shadow-[0_2px_0_rgba(42,34,24,0.18)]';
 
+interface SurfaceNavLinkProps {
+  href: string;
+  surface: AppSurface;
+  activeSurface: AppSurface;
+  label: string;
+  /** Fallback when the host cannot swap surfaces in place; absent for study,
+      whose href already lands on the study view. */
+  onOpen?: () => void;
+  onSurfaceChange?: (surface: AppSurface) => void;
+  children: ReactNode;
+}
+
+function SurfaceNavLink({
+  href,
+  surface,
+  activeSurface,
+  label,
+  onOpen,
+  onSurfaceChange,
+  children,
+}: SurfaceNavLinkProps) {
+  const current = activeSurface === surface;
+  return (
+    <a
+      href={href}
+      className={`${QUICK_ADD_BUTTON_CLASS} ${current ? QUICK_ADD_BUTTON_ACTIVE_CLASS : ''}`}
+      aria-current={current ? 'page' : undefined}
+      aria-label={label}
+      title={label}
+      onClick={(event) => {
+        if (!onSurfaceChange && !onOpen) return;
+        if (event.defaultPrevented || event.button !== 0) return;
+        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        event.preventDefault();
+        if (current) return;
+        if (onSurfaceChange) onSurfaceChange(surface);
+        else onOpen?.();
+      }}
+    >
+      {children}
+    </a>
+  );
+}
+
 interface QuickAddButtonsProps {
   photoLabEnabled?: boolean;
   onOpenWordChat?: () => void;
@@ -151,11 +197,13 @@ interface QuickAddButtonsProps {
 }
 
 /**
- * The two ways new words enter the app, surfaced next to the study view instead
- * of only inside the menu. Behind a settings toggle while we decide whether the
- * top bar is where they belong.
+ * The app's surfaces as icons: studying itself, plus the two ways new words get
+ * into it. Study leads because a learner who wandered into the chat or the
+ * photo lab needs the way back to be as obvious as the way in — the Back button
+ * inside those screens is the only other route. Behind a settings toggle while
+ * we decide whether the top bar is where they belong.
  */
-function QuickAddButtons({
+function SurfaceNavButtons({
   photoLabEnabled,
   onOpenWordChat,
   onOpenPhotoLab,
@@ -165,48 +213,37 @@ function QuickAddButtons({
   const { t } = useI18n();
 
   return (
-    <nav className="flex items-center gap-1.5" aria-label={t('top.quickAddLabel')}>
-      <a
+    <nav className="flex items-center gap-1.5" aria-label={t('top.surfaceNavLabel')}>
+      <SurfaceNavLink
+        href={STUDY_SURFACE_HREF}
+        surface="study"
+        activeSurface={activeSurface}
+        label={t('top.surfaceStudy')}
+        onSurfaceChange={onSurfaceChange}
+      >
+        <StudyIcon size={25} />
+      </SurfaceNavLink>
+      <SurfaceNavLink
         href={CHAT_SURFACE_HREF}
-        className={`${QUICK_ADD_BUTTON_CLASS} ${
-          activeSurface === 'chat' ? QUICK_ADD_BUTTON_ACTIVE_CLASS : ''
-        }`}
-        aria-current={activeSurface === 'chat' ? 'page' : undefined}
-        aria-label={t('top.quickAddChat')}
-        title={t('top.quickAddChat')}
-        onClick={(event) => {
-          if (!onSurfaceChange && !onOpenWordChat) return;
-          if (event.defaultPrevented || event.button !== 0) return;
-          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-          event.preventDefault();
-          if (activeSurface === 'chat') return;
-          if (onSurfaceChange) onSurfaceChange('chat');
-          else onOpenWordChat?.();
-        }}
+        surface="chat"
+        activeSurface={activeSurface}
+        label={t('top.quickAddChat')}
+        onOpen={onOpenWordChat}
+        onSurfaceChange={onSurfaceChange}
       >
         <WordChatIcon size={25} />
-      </a>
+      </SurfaceNavLink>
       {photoLabEnabled && (
-        <a
+        <SurfaceNavLink
           href={PHOTO_SURFACE_HREF}
-          className={`${QUICK_ADD_BUTTON_CLASS} ${
-            activeSurface === 'photo' ? QUICK_ADD_BUTTON_ACTIVE_CLASS : ''
-          }`}
-          aria-current={activeSurface === 'photo' ? 'page' : undefined}
-          aria-label={t('top.quickAddPhoto')}
-          title={t('top.quickAddPhoto')}
-          onClick={(event) => {
-            if (!onSurfaceChange && !onOpenPhotoLab) return;
-            if (event.defaultPrevented || event.button !== 0) return;
-            if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-            event.preventDefault();
-            if (activeSurface === 'photo') return;
-            if (onSurfaceChange) onSurfaceChange('photo');
-            else onOpenPhotoLab?.();
-          }}
+          surface="photo"
+          activeSurface={activeSurface}
+          label={t('top.quickAddPhoto')}
+          onOpen={onOpenPhotoLab}
+          onSurfaceChange={onSurfaceChange}
         >
           <PhotoLabIcon size={25} />
-        </a>
+        </SurfaceNavLink>
       )}
     </nav>
   );
@@ -714,7 +751,7 @@ export function TopMenu({
   school,
   onOpenWordChat,
   onOpenPhotoLab,
-  quickAddEnabled,
+  quickAddEnabled = true,
   activeSurface = 'study',
   onSurfaceChange,
 }: TopMenuProps) {
@@ -743,7 +780,7 @@ export function TopMenu({
           lets the slot grow to centre them when the bar has room. */}
       <div className={`top-menu-center ${quickAddEnabled ? 'top-menu-center--quick-add' : ''}`}>
         {quickAddEnabled && (
-          <QuickAddButtons
+          <SurfaceNavButtons
             photoLabEnabled={photoLabEnabled}
             onOpenWordChat={onOpenWordChat}
             onOpenPhotoLab={onOpenPhotoLab}

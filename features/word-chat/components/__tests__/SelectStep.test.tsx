@@ -12,6 +12,56 @@ const limits = {
 };
 
 describe('SelectStep', () => {
+  it('opens a focused manual-entry surface without proposal controls', () => {
+    const onAddCustom = vi.fn();
+    render(
+      <I18nProvider language="en">
+        <SelectStep
+          mode="manual"
+          languageFrom="cs"
+          listName="Moje slovíčka — Vietnamština"
+          onListNameChange={vi.fn()}
+          proposals={[]}
+          isSelected={() => false}
+          onToggle={vi.fn()}
+          onUpdateProposal={vi.fn()}
+          onSelectAll={vi.fn()}
+          onClearSelection={vi.fn()}
+          customItems={[]}
+          onAddCustom={onAddCustom}
+          onRemoveCustom={vi.fn()}
+          categoryName="My words"
+          onCategoryNameChange={vi.fn()}
+          askVisibility={false}
+          isPublic={false}
+          onVisibilityChange={vi.fn()}
+          limits={limits}
+          selectedCount={0}
+          overSoftLimit={false}
+          atHardCap={false}
+          monthlyRemaining={60}
+          overMonthlyLimit={false}
+          atSelectionLimit={false}
+          busy={false}
+          onBack={vi.fn()}
+          onContinue={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.getByRole('heading', { name: 'Add your own words' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Select all' })).not.toBeInTheDocument();
+
+    const input = screen.getByPlaceholderText('One word or sentence per line');
+    expect(input).toHaveFocus();
+
+    fireEvent.change(input, { target: { value: 'káva\nmléko' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
+    expect(onAddCustom).toHaveBeenCalledWith('káva');
+    expect(onAddCustom).toHaveBeenCalledWith('mléko');
+  });
+
   it('offers explicit bulk selection without word and sentence badges', () => {
     const onSelectAll = vi.fn();
     const onClearSelection = vi.fn();

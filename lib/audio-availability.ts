@@ -1,6 +1,8 @@
 'use client';
 
 import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
+import { hashFromAudioUrl } from '@/lib/audio-clip-cache';
+import { getLocalClipUrl } from '@/lib/audio-clip-playback';
 import { reportAudioStorageResponse, withAudioDebugParam } from '@/lib/audio-debug';
 import { isAudioNetworkOffline } from '@/lib/audio-network-policy';
 
@@ -43,6 +45,26 @@ async function checkCacheFirst(candidates: string[]): Promise<string | null> {
   return null;
 }
 
+/**
+ * Bytes this browser already holds for a clip, as a playable object URL.
+ * Covers clips generated here (word chat, list editor), which the proxy cannot
+ * serve yet — a fresh Arweave upload takes a while to appear on the gateways.
+ */
+async function checkLocalClipsFirst(candidates: string[]): Promise<string | null> {
+  for (const candidate of candidates) {
+    const hash = hashFromAudioUrl(candidate);
+    if (!hash) continue;
+    const localUrl = await getLocalClipUrl(hash);
+    if (localUrl) return localUrl;
+  }
+  return null;
+}
+
+/** Any locally held copy: Cache API entry first, then the IndexedDB clip store. */
+async function findLocalPlayableUrl(candidates: string[]): Promise<string | null> {
+  return (await checkCacheFirst(candidates)) ?? (await checkLocalClipsFirst(candidates));
+}
+
 async function probeWithTimeout(url: string): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), GATEWAY_TIMEOUT_MS);
@@ -83,9 +105,9 @@ async function probeWithTimeout(url: string): Promise<boolean> {
 async function probeAudioUrl(url: string): Promise<string | null> {
   const candidates = getCandidateUrls(url);
 
-  // 1. Cache API hit beats any network attempt.
-  const cached = await checkCacheFirst(candidates);
-  if (cached) return cached;
+  // 1. Any local copy (Cache API entry or IndexedDB clip) beats a network attempt.
+  const local = await findLocalPlayableUrl(candidates);
+  if (local) return local;
   if (isAudioNetworkOffline()) return null;
 
   // 2. Iterate gateway candidates with a per-attempt timeout so a single
@@ -104,7 +126,7 @@ export function checkAudioUrlAvailable(url: string | null): Promise<boolean> {
   if (!url) return Promise.resolve(false);
   const cacheKey = getCacheKey(url);
   if (isAudioNetworkOffline()) {
-    return checkCacheFirst(getCandidateUrls(url)).then(Boolean);
+    return findLocalPlayableUrl(getCandidateUrls(url)).then(Boolean);
   }
 
   const cached = audioAvailabilityCache.get(cacheKey);
@@ -143,7 +165,7 @@ export async function getPlayableAudioUrl(url: string | null): Promise<string | 
   if (!url) return null;
   const cacheKey = getCacheKey(url);
   if (isAudioNetworkOffline()) {
-    return checkCacheFirst(getCandidateUrls(url));
+    return findLocalPlayableUrl(getCandidateUrls(url));
   }
 
   const cached = audioAvailabilityCache.get(cacheKey);

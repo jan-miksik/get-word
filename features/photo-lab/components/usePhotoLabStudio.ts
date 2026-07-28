@@ -4,17 +4,18 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent } from 'reac
 import { createBrowserId } from '@/lib/browser-id';
 import { getPrefsRow } from '@/lib/local-first/stores';
 import {
+  readLearningLanguagePair,
+  storeLearningLanguagePair,
+  type LearningLanguagePair,
+} from '@/features/shared/languages/learningPairStorage';
+import { queuePendingLearningLanguagePair } from '@/features/shared/languages/learningPairSync';
+import {
   PhotoLabRequestError,
   requestPhotoAnalysis,
   type PhotoLabErrorCode,
 } from '../client/analyze';
 import { requestPhotoLabAudio } from '../client/audio';
 import { downscalePhoto, type DownscaledPhoto } from '../client/downscale';
-import {
-  readPhotoLabLanguagePair,
-  storePhotoLabLanguagePair,
-  type PhotoLabLanguagePair,
-} from '../client/languagePair';
 import {
   cleanupPhotoLab,
   deleteSession,
@@ -29,9 +30,36 @@ import type { PhotoLabSession } from '../types';
 
 const HISTORY_LIMIT = 20;
 
-export function usePhotoLabStudio(active = true) {
-  const [langFrom, setLangFrom] = useState('');
-  const [langTo, setLangTo] = useState('');
+type SharedLanguagePairOptions = {
+  languageFrom?: string;
+  languageTo?: string;
+  onLanguagePairChange?: (pair: LearningLanguagePair) => void | Promise<void>;
+};
+
+export function usePhotoLabStudio(
+  active = true,
+  {
+    languageFrom: sharedLanguageFrom,
+    languageTo: sharedLanguageTo,
+    onLanguagePairChange,
+  }: SharedLanguagePairOptions = {},
+) {
+  const [langFrom, setLangFrom] = useState(sharedLanguageFrom ?? '');
+  const [langTo, setLangTo] = useState(sharedLanguageTo ?? '');
+  const [lastSharedPair, setLastSharedPair] = useState({
+    from: sharedLanguageFrom ?? '',
+    to: sharedLanguageTo ?? '',
+  });
+  if (
+    sharedLanguageFrom &&
+    sharedLanguageTo &&
+    (lastSharedPair.from !== sharedLanguageFrom ||
+      lastSharedPair.to !== sharedLanguageTo)
+  ) {
+    setLastSharedPair({ from: sharedLanguageFrom, to: sharedLanguageTo });
+    setLangFrom(sharedLanguageFrom);
+    setLangTo(sharedLanguageTo);
+  }
   const [langModalOpen, setLangModalOpen] = useState(false);
   const [analysisStartedAt, setAnalysisStartedAt] = useState<number | null>(null);
   const [analysisElapsedSeconds, setAnalysisElapsedSeconds] = useState(0);
@@ -50,10 +78,13 @@ export function usePhotoLabStudio(active = true) {
   const [pendingPhoto, setPendingPhoto] = useState<DownscaledPhoto | null>(null);
   const createdUrlsRef = useRef<string[]>([]);
 
-  // Default language pair: last used here, else the learning pair cached from sync.
+  // Embedded Photo Lab receives the shared app pair. The standalone route keeps
+  // the historical local fallback, then falls back again to the pair cached
+  // from sync.
   useEffect(() => {
+    if (sharedLanguageFrom && sharedLanguageTo) return;
     let cancelled = false;
-    const stored = readPhotoLabLanguagePair();
+    const stored = readLearningLanguagePair();
     const timeoutId = window.setTimeout(() => {
       if (cancelled) return;
       if (stored.from) setLangFrom(stored.from);
@@ -72,13 +103,27 @@ export function usePhotoLabStudio(active = true) {
       cancelled = true;
       window.clearTimeout(timeoutId);
     };
-  }, []);
+  }, [sharedLanguageFrom, sharedLanguageTo]);
 
-  const changeLanguagePair = useCallback((pair: PhotoLabLanguagePair) => {
-    setLangFrom(pair.from);
-    setLangTo(pair.to);
-    storePhotoLabLanguagePair({ from: pair.from || undefined, to: pair.to || undefined });
-  }, []);
+  const changeLanguagePair = useCallback(
+    (pair: LearningLanguagePair) => {
+      setLangFrom(pair.from);
+      setLangTo(pair.to);
+      storeLearningLanguagePair({ from: pair.from || undefined, to: pair.to || undefined });
+      if (onLanguagePairChange) {
+        void Promise.resolve(onLanguagePairChange(pair)).catch(() => undefined);
+      } else {
+        // The standalone `/photo-lab` route has no HomeClient state provider,
+        // but the pair is still the same server-owned app preference.
+        void queuePendingLearningLanguagePair({
+          from: pair.from,
+          to: pair.to,
+          changedAt: new Date().toISOString(),
+        });
+      }
+    },
+    [onLanguagePairChange],
+  );
   const openLanguageModal = useCallback(() => setLangModalOpen(true), []);
   const closeLanguageModal = useCallback(() => setLangModalOpen(false), []);
   const startAnalyzing = useCallback(() => {

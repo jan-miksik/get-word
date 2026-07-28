@@ -7,6 +7,7 @@ import type {
   WordChatSalutationGender,
 } from '../types';
 import { proposalDifficultyIssue } from '../difficulty';
+import { personalListName } from '../personal-list-name';
 
 /**
  * Draft persistence for an in-progress word-chat session.
@@ -51,6 +52,17 @@ export type WordChatDraft = {
 
 function storageKey(languageFrom: string, languageTo: string) {
   return `${STORAGE_PREFIX}:${languageFrom}:${languageTo}`;
+}
+
+function draftId(): string {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
+  return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function proposalStorageKey(item: ProposedItem): string {
+  return item.source === 'corpus'
+    ? `corpus:${item.corpusItemId}`
+    : `gen:${item.draftId ?? item.text}`;
 }
 
 export function loadDraft(
@@ -115,4 +127,60 @@ export function clearDraft(languageFrom: string, languageTo: string): void {
   } catch {
     // Ignore: nothing useful to do, and the TTL will expire it anyway.
   }
+}
+
+/**
+ * Preserve an interrupted selection when another app surface changes the
+ * shared language pair. The source-language text remains useful, but corpus
+ * matches, translations and audio belong to the old direction and must not be
+ * reused for the new one.
+ */
+export function migrateDraftToLanguagePair(
+  sourceFrom: string,
+  sourceTo: string,
+  targetFrom: string,
+  targetTo: string,
+): boolean {
+  if (
+    !sourceFrom ||
+    !sourceTo ||
+    !targetFrom ||
+    !targetTo ||
+    (sourceFrom === targetFrom && sourceTo === targetTo)
+  ) {
+    return false;
+  }
+  const source = loadDraft(sourceFrom, sourceTo);
+  if (!source || loadDraft(targetFrom, targetTo)) return false;
+
+  const selected = new Set(source.selectedKeys);
+  const migratedSelectedKeys: string[] = [];
+  const migratedProposals: ProposedItem[] = source.proposals.map((item) => {
+    const migrated: ProposedItem = {
+      kind: item.kind,
+      source: 'generated',
+      text: item.text,
+      confidence: item.confidence,
+      draftId: item.draftId ?? draftId(),
+    };
+    if (selected.has(proposalStorageKey(item))) {
+      migratedSelectedKeys.push(proposalStorageKey(migrated));
+    }
+    return migrated;
+  });
+
+  saveDraft(targetFrom, targetTo, {
+    ...source,
+    sessionId: draftId(),
+    creationKey: draftId(),
+    step:
+      migratedProposals.length > 0 || source.customItems.length > 0
+        ? 'select'
+        : 'chat',
+    listName: personalListName(targetFrom, targetTo),
+    proposals: migratedProposals,
+    selectedKeys: migratedSelectedKeys,
+    reviewItems: [],
+  });
+  return true;
 }

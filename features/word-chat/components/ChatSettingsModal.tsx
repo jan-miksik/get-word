@@ -1,21 +1,108 @@
 'use client';
 
-import { useEffect, useId, useRef } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n } from '@/components/I18nProvider';
 import { AppInterfaceLanguageSelector } from '@/features/shared/languages/AppInterfaceLanguageSelector';
+import { LanguageCombobox } from '@/features/shared/languages/LanguageCombobox';
+import { useSupportedLanguages } from '@/features/shared/languages/useSupportedLanguages';
 import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
 import type { WordChatPreferencePatch } from '../hooks/useWordChat';
 import { splitWordChatLevelLabel, wordChatLevelLabelKey } from '../levelLabels';
 import { WORD_CHAT_LANGUAGE_LEVELS } from '../preferences';
+import { SalutationGenderIcon } from './SalutationGenderIcon';
 import type {
   WordChatAddressRegister,
   WordChatLanguageLevel,
   WordChatSalutationGender,
 } from '../types';
 
+type LanguagePairSettingsProps = {
+  languageFrom: string;
+  languageTo: string;
+  onLanguagePairChange: (pair: { from: string; to: string }) => void | Promise<void>;
+  onClose: () => void;
+};
+
+function LanguagePairSettings({
+  languageFrom,
+  languageTo,
+  onLanguagePairChange,
+  onClose,
+}: LanguagePairSettingsProps) {
+  const { t } = useI18n();
+  const { languages, loading: languagesLoading } = useSupportedLanguages();
+  const [draftFrom, setDraftFrom] = useState(languageFrom);
+  const [draftTo, setDraftTo] = useState(languageTo);
+  const [pairSaving, setPairSaving] = useState(false);
+  const [pairError, setPairError] = useState(false);
+
+  return (
+    <section className="space-y-3">
+      <div className="grid gap-4 sm:grid-cols-2">
+        <LanguageCombobox
+          id="word-chat-language-from"
+          label={t('photoLab.knownLanguage')}
+          value={draftFrom}
+          languages={languages}
+          loading={languagesLoading}
+          onChange={setDraftFrom}
+          disabledCodes={draftTo ? [draftTo] : []}
+        />
+        <LanguageCombobox
+          id="word-chat-language-to"
+          label={t('photoLab.targetLanguage')}
+          value={draftTo}
+          languages={languages}
+          loading={languagesLoading}
+          onChange={setDraftTo}
+          disabledCodes={draftFrom ? [draftFrom] : []}
+        />
+      </div>
+      <p className="m-0 text-xs leading-relaxed onboarding-text-soft">
+        {t('wordChat.studyPairHint')}
+      </p>
+      {pairError ? (
+        <p className="onboarding-error m-0 text-xs" role="alert">
+          {t('wordChat.languageChangeFailed')}
+        </p>
+      ) : null}
+      <button
+        type="button"
+        disabled={
+          pairSaving ||
+          languagesLoading ||
+          !draftFrom ||
+          !draftTo ||
+          draftFrom === draftTo ||
+          (draftFrom === languageFrom && draftTo === languageTo)
+        }
+        onClick={async () => {
+          setPairSaving(true);
+          setPairError(false);
+          try {
+            await onLanguagePairChange({ from: draftFrom, to: draftTo });
+            onClose();
+          } catch {
+            setPairError(true);
+          } finally {
+            setPairSaving(false);
+          }
+        }}
+        className="onboarding-option onboarding-option-highlight min-h-11 rounded-xl px-4 py-2.5 text-sm font-extrabold disabled:opacity-50"
+      >
+        {pairSaving
+          ? t('wordChat.profileSaving')
+          : t('wordChat.applyLanguagePair')}
+      </button>
+    </section>
+  );
+}
+
 type Props = {
   isOpen: boolean;
+  languageFrom: string;
+  languageTo: string;
   addressRegister: WordChatAddressRegister | null;
   salutationGender: WordChatSalutationGender | null;
   languageLevel: WordChatLanguageLevel | null;
@@ -23,11 +110,14 @@ type Props = {
   salutationGenderApplies: boolean;
   saving: boolean;
   onChange: (patch: WordChatPreferencePatch) => void | Promise<void>;
+  onLanguagePairChange: (pair: { from: string; to: string }) => void | Promise<void>;
   onClose: () => void;
 };
 
 export function ChatSettingsModal({
   isOpen,
+  languageFrom,
+  languageTo,
   addressRegister,
   salutationGender,
   languageLevel,
@@ -35,6 +125,7 @@ export function ChatSettingsModal({
   salutationGenderApplies,
   saving,
   onChange,
+  onLanguagePairChange,
   onClose,
 }: Props) {
   const { t } = useI18n();
@@ -132,6 +223,14 @@ export function ChatSettingsModal({
               <AppInterfaceLanguageSelector compact className="w-full" />
             </section>
 
+            <LanguagePairSettings
+              key={`${languageFrom}\u0000${languageTo}`}
+              languageFrom={languageFrom}
+              languageTo={languageTo}
+              onLanguagePairChange={onLanguagePairChange}
+              onClose={onClose}
+            />
+
             {addressRegisterApplies ? (
               <section
                 role="radiogroup"
@@ -183,15 +282,23 @@ export function ChatSettingsModal({
                       disabled={saving}
                       onClick={() => void onChange({ salutationGender: value })}
                       className={[
-                        'onboarding-option min-h-12 rounded-xl px-4 py-3 text-left text-sm font-extrabold disabled:opacity-50',
+                        'onboarding-option flex min-h-12 items-center gap-2.5 rounded-xl px-4 py-3 text-left text-sm font-extrabold disabled:opacity-50',
                         salutationGender === value ? 'onboarding-option-highlight' : '',
                       ].join(' ')}
                     >
-                      {value === 'female'
-                        ? t('wordChat.salutationFemale')
-                        : value === 'male'
-                          ? t('wordChat.salutationMale')
-                          : t('wordChat.salutationNeutral')}
+                      <span
+                        aria-hidden="true"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--ob-accent)_14%,transparent)] text-[var(--ob-accent)]"
+                      >
+                        <SalutationGenderIcon gender={value} />
+                      </span>
+                      <span className="min-w-0">
+                        {value === 'female'
+                          ? t('wordChat.salutationFemale')
+                          : value === 'male'
+                            ? t('wordChat.salutationMale')
+                            : t('wordChat.salutationNeutral')}
+                      </span>
                     </button>
                   ))}
                 </div>
@@ -227,8 +334,10 @@ export function ChatSettingsModal({
                         languageLevel === value ? 'onboarding-option-highlight' : '',
                       ].join(' ')}
                     >
-                      <span className="block text-sm font-black">{levelLabel.code}</span>
-                      <span className="mt-0.5 block text-xs font-bold leading-snug onboarding-text-soft">
+                      <span className="block text-[11px] font-bold uppercase tracking-wide onboarding-text-soft">
+                        {levelLabel.code}
+                      </span>
+                      <span className="mt-0.5 block text-sm font-extrabold leading-snug sm:text-base">
                         {levelLabel.description}
                       </span>
                     </button>

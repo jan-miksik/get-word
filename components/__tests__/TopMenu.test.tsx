@@ -76,7 +76,7 @@ describe('TopMenu', () => {
     expect(onOpenWordChat).toHaveBeenCalledTimes(1);
   });
 
-  it('keeps the top bar clear of the add-words shortcuts until they are enabled', () => {
+  it('shows the study and chat shortcuts by default', () => {
     render(
       <TopMenu
         showAll={false}
@@ -89,8 +89,9 @@ describe('TopMenu', () => {
       />
     );
 
-    expect(screen.queryByRole('link', { name: /Add words by chatting/i })).toBeNull();
-    expect(screen.queryByRole('link', { name: /Add words from a photo/i })).toBeNull();
+    expect(screen.getByRole('link', { name: /Study words/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Add words by chatting/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Add words from a photo/i })).toBeInTheDocument();
   });
 
   it('opens the word chat in place from the top-bar shortcut', () => {
@@ -110,6 +111,29 @@ describe('TopMenu', () => {
     fireEvent.click(screen.getByRole('link', { name: /Add words by chatting/i }));
 
     expect(onOpenWordChat).toHaveBeenCalledTimes(1);
+  });
+
+  it('offers the way back to studying next to the add-words shortcuts', () => {
+    const onSurfaceChange = vi.fn();
+    render(
+      <TopMenu
+        showAll={false}
+        onShowAll={vi.fn()}
+        onMenuAction={vi.fn()}
+        categoryCount={0}
+        categoryActive={false}
+        quickAddEnabled
+        activeSurface="chat"
+        onSurfaceChange={onSurfaceChange}
+      />
+    );
+
+    const study = screen.getByRole('link', { name: /Study words/i });
+    expect(study).toHaveAttribute('href', '/');
+    expect(study).not.toHaveAttribute('aria-current');
+
+    fireEvent.click(study);
+    expect(onSurfaceChange).toHaveBeenCalledWith('study');
   });
 
   it('uses the canonical integrated photo-lab URL', () => {

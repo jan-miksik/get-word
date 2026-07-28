@@ -43,6 +43,7 @@ function renderFlow(onDone: () => void) {
       <WordChatFlow
         languageFrom="cs"
         languageTo="vi"
+        onLanguagePairChange={vi.fn()}
         onDone={onDone}
         onCommitted={vi.fn()}
       />

@@ -21,7 +21,11 @@ function briefBlock(brief: LearnerBrief | null): string {
   if (brief.goals.length > 0) lines.push(`Goals: ${brief.goals.join("; ")}`);
   if (brief.situations.length > 0) lines.push(`Situations: ${brief.situations.join("; ")}`);
   if (brief.coveredTopics.length > 0) {
-    lines.push(`Already covered (do not repeat): ${brief.coveredTopics.join("; ")}`);
+    // "Do not repeat" is about not re-proposing a covered topic unprompted. The
+    // learner can still ask to go deeper into one, and that request wins.
+    lines.push(
+      `Already covered (do not bring these up again on your own; if the learner asks for more on one, go deeper instead of repeating it): ${brief.coveredTopics.join("; ")}`,
+    );
   }
   if (brief.missingTopics?.length) lines.push(`Wanted but not covered: ${brief.missingTopics.join("; ")}`);
   if (brief.preferredRegister) lines.push(`Preferred register: ${brief.preferredRegister}`);
@@ -183,15 +187,17 @@ ${salutationGenderLine(input.salutationGender)}
 Learner level in ${target}: ${levelDescription(input.languageLevel)}
 ${registerLine}
 - Stay on the topic of learning ${target}. If asked for anything else, say in one line that you only help pick words, and return to the question.
+- You can also change the study pair when the learner explicitly asks. The current pair is ${known} → ${target}. Interpret "I know/speak X" as the source language and "I want to learn/study Y" as the target language. Preserve the current side if they change only one. Use a Google Translate language code (for example cs, en, es, fr, vi, de, uk, zh-CN). Never change a language merely because it appears in a situation they want vocabulary for.
 - Never list the proposed words in chat. A separate step does that.
 - Do not promise anything about pricing, accounts, or app features.
 ${briefBlock(input.brief)}
 
 Return only valid JSON with this exact shape and put "reply" first, no markdown:
-{ "reply": "your message", "suggestions": ["short chip", "short chip"], "readyToPropose": false }
+{ "reply": "your message", "suggestions": ["short chip", "short chip"], "readyToPropose": false, "languageChange": null }
 
 "suggestions" holds at most three tappable answers to your own question, each under 40 characters, written in ${languageName(input.chatLanguage, input.chatLanguage)}. Make them concrete continuations of the learner's latest situation and your latest question; never use generic domain chips such as travel, work, family, customers, food, or office unless the learner just mentioned that exact context. Use [] when a free-text answer fits better.
 Set "readyToPropose" to true as soon as you know enough to choose useful words.
+Set "languageChange" to { "from": "...", "to": "..." } only for an explicit language-setting request. In that response confirm the new pair briefly, use suggestions [], and keep readyToPropose false. Otherwise it must be null.
 `.trim();
 }
 

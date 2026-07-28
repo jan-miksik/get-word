@@ -389,6 +389,44 @@ describe('applyPendingOutboxToSyncResponse', () => {
     expect(serverData.progress['w-1'].stageIndex).toBe(2);
   });
 
+  it('overlays one pending atomic language-pair write on a stale snapshot', async () => {
+    const serverData: SyncResponse = {
+      success: true,
+      user: {
+        id: 'u-1',
+        language_from: 'fr',
+        language_to: 'es',
+        onboarding_completed_at: '2026-05-01T00:00:00.000Z',
+      } as SyncResponse['user'],
+      progress: {},
+      memory_hooks: {},
+      category_filters: [],
+    };
+    mockListOps.mockResolvedValueOnce([
+      {
+        clientOpId: 'pair-1',
+        entity: 'preference',
+        opType: 'set_language_pair',
+        payload: {
+          values: {
+            language_from: 'cs',
+            language_to: 'vi',
+            onboarding_completed: true,
+          },
+        },
+        clientCreatedAt: '2026-05-24T12:00:00.000Z',
+        deviceId: 'dev-1',
+        attempts: 0,
+      },
+    ]);
+
+    const result = await applyPendingOutboxToSyncResponse(serverData);
+
+    expect(result.user.language_from).toBe('cs');
+    expect(result.user.language_to).toBe('vi');
+    expect(result.user.onboarding_completed_at).toBe('2026-05-24T12:00:00.000Z');
+  });
+
   it('replays a submitted review event when the server snapshot is still stale', async () => {
     const serverData: SyncResponse = {
       success: true,

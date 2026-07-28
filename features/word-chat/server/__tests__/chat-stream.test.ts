@@ -159,4 +159,32 @@ describe("streamChatTurn", () => {
       OpenRouterChatError,
     );
   });
+
+  it("returns a validated language-pair action after the reply", async () => {
+    const events = await collectTurn([
+      '{"reply":"Přepínám na češtinu a španělštinu.",',
+      '"suggestions":[],"readyToPropose":false,',
+      '"languageChange":{"from":"cs","to":"es"}}',
+    ]);
+
+    expect(events.at(-1)).toMatchObject({
+      type: "done",
+      languageChange: { from: "cs", to: "es" },
+      readyToPropose: false,
+      metadataValid: true,
+    });
+  });
+
+  it("drops a malformed language action instead of defaulting it to English", async () => {
+    const events = await collectTurn([
+      '{"reply":"Nemohu ten jazyk rozpoznat.",',
+      '"suggestions":[],"readyToPropose":false,',
+      '"languageChange":{"from":"not a code","to":"es"}}',
+    ]);
+
+    expect(events.at(-1)).toMatchObject({
+      type: "done",
+      languageChange: null,
+    });
+  });
 });

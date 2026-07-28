@@ -10,6 +10,23 @@ import { getClip, putClip } from '@/lib/audio-clip-cache';
  */
 const objectUrls = new Map<string, string>();
 
+/**
+ * Every live object URL pins its blob in memory, and the learning view can walk
+ * a whole list's worth of locally stored clips. Keep the newest ones and let the
+ * rest be re-created from IndexedDB on demand.
+ */
+const MAX_WARM_CLIPS = 64;
+
+function rememberObjectUrl(contentHash: string, objectUrl: string): void {
+  objectUrls.set(contentHash, objectUrl);
+  while (objectUrls.size > MAX_WARM_CLIPS) {
+    const oldest = objectUrls.keys().next();
+    if (oldest.done || oldest.value === contentHash) break;
+    URL.revokeObjectURL(objectUrls.get(oldest.value) as string);
+    objectUrls.delete(oldest.value);
+  }
+}
+
 function base64ToBlob(base64: string, contentType = 'audio/mpeg'): Blob {
   const binary = atob(base64);
   const bytes = new Uint8Array(binary.length);
@@ -25,7 +42,7 @@ export function storeClipBytes(contentHash: string, base64: string): void {
   try {
     const blob = base64ToBlob(base64);
     if (blob.size === 0) return;
-    objectUrls.set(contentHash, URL.createObjectURL(blob));
+    rememberObjectUrl(contentHash, URL.createObjectURL(blob));
     void putClip(contentHash, blob);
   } catch {
     // A failed cache write only costs a proxy fetch later.
@@ -75,14 +92,14 @@ export async function prefetchClips(
       try {
         const stored = await getClip(hash);
         if (stored && stored.size > 0) {
-          if (!objectUrls.has(hash)) objectUrls.set(hash, URL.createObjectURL(stored));
+          if (!objectUrls.has(hash)) rememberObjectUrl(hash, URL.createObjectURL(stored));
           continue;
         }
         const response = await fetch(`/api/audio/${hash}`);
         if (!response.ok) continue;
         const blob = await response.blob();
         if (blob.size === 0) continue;
-        if (!objectUrls.has(hash)) objectUrls.set(hash, URL.createObjectURL(blob));
+        if (!objectUrls.has(hash)) rememberObjectUrl(hash, URL.createObjectURL(blob));
         void putClip(hash, blob);
       } catch {
         // Playback retains its existing proxy fallback.
@@ -97,21 +114,36 @@ export async function prefetchClips(
   );
 }
 
-/** Resolve the best source for components that can await before assigning src. */
-export async function resolveClipUrl(contentHash: string): Promise<string> {
+/**
+ * Object URL for bytes we already hold locally, or null when this clip has
+ * never been cached here.
+ *
+ * Callers should prefer this over `/api/audio/[hash]` for anything that may be
+ * freshly generated: an Arweave upload is not servable from the gateways for a
+ * while, so the proxy walks the whole gateway list and only then reaches the B2
+ * mirror — seconds of latency for bytes this browser already has.
+ */
+export async function getLocalClipUrl(contentHash: string): Promise<string | null> {
+  if (!contentHash) return null;
+
   const cached = objectUrls.get(contentHash);
   if (cached) return cached;
 
   try {
     const stored = await getClip(contentHash);
-    if (stored && stored.size > 0) {
-      const objectUrl = URL.createObjectURL(stored);
-      objectUrls.set(contentHash, objectUrl);
-      return objectUrl;
-    }
+    if (!stored || stored.size === 0) return null;
+    // Another await may have warmed the same hash in the meantime.
+    const warmed = objectUrls.get(contentHash);
+    if (warmed) return warmed;
+    const objectUrl = URL.createObjectURL(stored);
+    rememberObjectUrl(contentHash, objectUrl);
+    return objectUrl;
   } catch {
-    // Fall through to the proxy.
+    return null;
   }
+}
 
-  return `/api/audio/${contentHash}`;
+/** Resolve the best source for components that can await before assigning src. */
+export async function resolveClipUrl(contentHash: string): Promise<string> {
+  return (await getLocalClipUrl(contentHash)) ?? `/api/audio/${contentHash}`;
 }

@@ -1,5 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { loadDraft } from "../storage";
+import {
+  loadDraft,
+  migrateDraftToLanguagePair,
+  saveDraft,
+} from "../storage";
 
 const STORAGE_KEY = "get-word-word-chat-draft:cs:en";
 
@@ -71,5 +75,59 @@ describe("word-chat draft migration", () => {
       proposals: [{ text: "jízdenka" }],
     });
     expect(window.localStorage.getItem(STORAGE_KEY)).not.toBeNull();
+  });
+
+  it("carries selected source text to a newly selected language pair", () => {
+    saveDraft("cs", "en", {
+      sessionId: "session",
+      creationKey: "creation",
+      step: "review",
+      messages: [{ role: "user", content: "Letiště a doprava" }],
+      addressRegister: "casual",
+      salutationGender: "male",
+      languageLevel: "B1",
+      listName: "Moje slovíčka",
+      categoryName: "Letiště",
+      reviewLabel: "Airport travel",
+      proposals: [
+        {
+          kind: "word",
+          source: "corpus",
+          corpusItemId: "corpus-ticket",
+          verified: true,
+          text: "jízdenka",
+          confidence: 0.9,
+        },
+      ],
+      selectedKeys: ["corpus:corpus-ticket"],
+      customItems: [],
+      reviewItems: [
+        {
+          kind: "word",
+          textKnown: "jízdenka",
+          textTarget: "ticket",
+          audioStatus: "ready",
+          audioAssetId: "audio-old",
+          audioHash: "hash-old",
+          knownAudioAssetId: null,
+        },
+      ],
+      isPublic: null,
+    });
+
+    expect(migrateDraftToLanguagePair("cs", "en", "cs", "vi")).toBe(true);
+    expect(loadDraft("cs", "vi")).toMatchObject({
+      step: "select",
+      proposals: [
+        {
+          source: "generated",
+          text: "jízdenka",
+        },
+      ],
+      reviewItems: [],
+    });
+    expect(loadDraft("cs", "vi")?.selectedKeys).toHaveLength(1);
+    // The old pair remains recoverable too.
+    expect(loadDraft("cs", "en")?.selectedKeys).toEqual(["corpus:corpus-ticket"]);
   });
 });

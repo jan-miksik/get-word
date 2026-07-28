@@ -5,6 +5,7 @@
  */
 
 import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
+import { getClipForAudioUrl } from '@/lib/audio-clip-cache';
 import { reportAudioStorageResponse, withAudioDebugParam } from '@/lib/audio-debug';
 import { getAudioPrefetchLimit } from '@/lib/audio-network-policy';
 
@@ -37,6 +38,25 @@ async function readAudioResponse(url: string): Promise<Response | null> {
     } catch {
       // Cache API is unavailable on some iOS/private/insecure contexts.
     }
+  }
+
+  // Clips generated in this browser (word chat, list editor) live in the shared
+  // IndexedDB store keyed by content hash. Serving them from there is the whole
+  // point for anything just generated: `/api/audio/[hash]` cannot reach a fresh
+  // Arweave upload yet, so it walks every gateway before falling back to B2.
+  try {
+    const localClip = await getClipForAudioUrl(url);
+    if (localClip && localClip.size > 0) {
+      const localResponse = new Response(localClip, {
+        headers: { 'Content-Type': localClip.type || 'audio/mpeg' },
+      });
+      if (cache) {
+        void cache.put(url, localResponse.clone()).catch(() => undefined);
+      }
+      return localResponse;
+    }
+  } catch {
+    // Local store unavailable — the network path below still applies.
   }
 
   try {

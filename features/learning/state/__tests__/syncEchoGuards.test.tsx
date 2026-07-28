@@ -1,8 +1,9 @@
-import { act, renderHook } from '@testing-library/react';
+import { act, renderHook, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mockEnqueueOp = vi.fn<(input: unknown) => Promise<null>>(() => Promise.resolve(null));
-const mockSyncUserData = vi.fn<(data: unknown) => Promise<void>>(() => Promise.resolve());
+const mockSyncUserData =
+  vi.fn<(data: unknown) => Promise<SyncResponse | undefined>>(() => Promise.resolve(undefined));
 const mockPostTabMessage = vi.fn<(message: unknown) => void>();
 const mockSubscribeTabMessages = vi.fn<(listener: unknown) => () => void>(() => () => {});
 
@@ -205,11 +206,143 @@ describe('server sync echo guards', () => {
       language_to: 'cs',
       onboarding_completed: true,
     });
+    expect(mockEnqueueOp).toHaveBeenCalledWith({
+      entity: 'preference',
+      opType: 'set_language_pair',
+      payload: {
+        values: {
+          language_from: 'en',
+          language_to: 'cs',
+          onboarding_completed: true,
+        },
+      },
+      legacyPayload: {
+        language_from: 'en',
+        language_to: 'cs',
+        onboarding_completed: true,
+      },
+    });
     expect(mockEnqueueOp).not.toHaveBeenCalledWith(
       expect.objectContaining({
         payload: expect.objectContaining({ field: 'onboarding_completed' }),
       })
     );
+  });
+
+  it('does not let an older focus snapshot roll back a confirmed language pair', async () => {
+    mockSyncUserData.mockResolvedValueOnce({
+      success: true,
+      user: {
+        id: 'user-1',
+        language_from: 'cs',
+        language_to: 'vi',
+        onboarding_completed_at: '2026-07-28T12:00:00.000Z',
+      },
+    } as SyncResponse);
+    const isUpdatingFromServerRef = { current: false };
+    const { result } = renderHook(() => usePreferences(true, isUpdatingFromServerRef));
+
+    await act(async () => {
+      await result.current.setLearningLanguages('cs', 'vi');
+    });
+
+    act(() => {
+      result.current.applyServerPreferences({
+        ...baseUser,
+        language_from: 'fr',
+        language_to: 'es',
+        onboarding_completed_at: '2026-07-27T12:00:00.000Z',
+      });
+    });
+
+    expect(result.current.learningLanguageFrom).toBe('cs');
+    expect(result.current.learningLanguageTo).toBe('vi');
+
+    // A genuinely newer change from another device must still be accepted.
+    act(() => {
+      result.current.applyServerPreferences({
+        ...baseUser,
+        language_from: 'de',
+        language_to: 'en',
+        onboarding_completed_at: '2026-07-29T12:00:00.000Z',
+      });
+    });
+    expect(result.current.learningLanguageFrom).toBe('de');
+    expect(result.current.learningLanguageTo).toBe('en');
+  });
+
+  it('keeps the optimistic pair while its save and a focus refresh overlap', async () => {
+    let finishSync: (response: SyncResponse) => void = () => {};
+    mockSyncUserData.mockReturnValueOnce(
+      new Promise<SyncResponse>((resolve) => {
+        finishSync = resolve;
+      }),
+    );
+    const isUpdatingFromServerRef = { current: false };
+    const { result } = renderHook(() => usePreferences(true, isUpdatingFromServerRef));
+
+    let save: Promise<void> | undefined;
+    act(() => {
+      save = result.current.setLearningLanguages('cs', 'vi');
+    });
+    expect(result.current.learningLanguageFrom).toBe('cs');
+    expect(result.current.learningLanguageTo).toBe('vi');
+
+    act(() => {
+      result.current.applyServerPreferences({
+        ...baseUser,
+        language_from: 'fr',
+        language_to: 'es',
+        onboarding_completed_at: '2026-07-27T12:00:00.000Z',
+      });
+    });
+    expect(result.current.learningLanguageFrom).toBe('cs');
+    expect(result.current.learningLanguageTo).toBe('vi');
+
+    await act(async () => {
+      finishSync({
+        success: true,
+        user: {
+          id: 'user-1',
+          language_from: 'cs',
+          language_to: 'vi',
+          onboarding_completed_at: '2026-07-28T12:00:00.000Z',
+        },
+      } as SyncResponse);
+      await save;
+    });
+  });
+
+  it('restores an unconfirmed pair after a remount and rejects the old snapshot', async () => {
+    localStorage.setItem(
+      'get-word-pending-learning-language-pair',
+      JSON.stringify({
+        from: 'cs',
+        to: 'vi',
+        changedAt: '2026-07-28T12:00:00.000Z',
+      }),
+    );
+    mockSyncUserData.mockRejectedValueOnce(new Error('offline'));
+    const isUpdatingFromServerRef = { current: false };
+    const { result } = renderHook(() => usePreferences(true, isUpdatingFromServerRef));
+
+    await waitFor(() => {
+      expect(result.current.learningLanguageFrom).toBe('cs');
+      expect(result.current.learningLanguageTo).toBe('vi');
+    });
+
+    act(() => {
+      result.current.applyServerPreferences({
+        ...baseUser,
+        language_from: 'fr',
+        language_to: 'es',
+        onboarding_completed_at: '2026-07-27T12:00:00.000Z',
+      });
+    });
+
+    expect(result.current.learningLanguageFrom).toBe('cs');
+    expect(result.current.learningLanguageTo).toBe('vi');
+    expect(localStorage.getItem('get-word-pending-learning-language-pair')).not.toBeNull();
   });
 
   it('ignores saved onboarding markers when simulate first open is enabled', () => {

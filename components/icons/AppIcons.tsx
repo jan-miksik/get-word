@@ -79,6 +79,20 @@ export function WordChatIcon(props: IconProps) {
   );
 }
 
+/** A deck of word cards — the study flow itself, next to the two ways words
+    get *into* it (chat, photo). Deliberately a stack rather than the single
+    sheet WordListsIcon uses, so "where I learn" reads apart from "my lists". */
+export function StudyIcon(props: IconProps) {
+  return (
+    <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
+      <path d="M8.5 6.25h8.25A2.75 2.75 0 0 1 19.5 9v7.75" />
+      <rect x="3.5" y="8.75" width="12.75" height="10.75" rx="2.5" />
+      <path d="M6.75 12.5h6.25" />
+      <path d="M6.75 15.75h3.75" />
+    </Glyph>
+  );
+}
+
 export function StudyNoteIcon(props: IconProps) {
   return (
     <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
@@ -162,6 +176,40 @@ export function InstallAppIcon(props: IconProps) {
       <path d="M12 8.5v5.5" />
       <path d="m9.75 11.75 2.25 2.25 2.25-2.25" />
       <path d="M10 17.1h4" />
+    </Glyph>
+  );
+}
+
+export function VenusIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <circle cx="12" cy="9" r="5" />
+      <path d="M12 14v7.25" />
+      <path d="M8.75 18.25h6.5" />
+    </Glyph>
+  );
+}
+
+export function MarsIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <circle cx="10" cy="14" r="5" />
+      <path d="m13.54 10.46 5.71-5.71" />
+      <path d="M14.75 4.75h4.5v4.5" />
+    </Glyph>
+  );
+}
+
+/**
+ * The gender-neutral symbol: Venus without the cross, Mars without the arrow.
+ * Stands for "no gendered form", which is what the salutation step actually
+ * asks about — not for trans identity, which ⚧ would specifically denote.
+ */
+export function GenderNeutralIcon(props: IconProps) {
+  return (
+    <Glyph {...props}>
+      <circle cx="12" cy="9" r="5" />
+      <path d="M12 14v7.25" />
     </Glyph>
   );
 }

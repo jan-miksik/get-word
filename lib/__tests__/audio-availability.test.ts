@@ -5,10 +5,19 @@ import {
   getPlayableAudioUrl,
 } from '../audio-availability';
 
+const clipPlaybackMocks = vi.hoisted(() => ({
+  getWarmedClipUrl: vi.fn(),
+  getLocalClipUrl: vi.fn(),
+}));
+
+vi.mock('@/lib/audio-clip-playback', () => clipPlaybackMocks);
+
 describe('audio availability', () => {
   beforeEach(() => {
     clearAudioAvailabilityCache();
     vi.restoreAllMocks();
+    clipPlaybackMocks.getLocalClipUrl.mockReset();
+    clipPlaybackMocks.getLocalClipUrl.mockResolvedValue(null);
     Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
   });
 
@@ -60,6 +69,17 @@ describe('audio availability', () => {
 
     await expect(getPlayableAudioUrl(cachedUrl)).resolves.toBe(cachedUrl);
     await expect(checkAudioUrlAvailable(cachedUrl)).resolves.toBe(true);
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it('plays a locally stored clip without probing the proxy or the gateways', async () => {
+    clipPlaybackMocks.getLocalClipUrl.mockResolvedValue('blob:local-clip');
+    global.fetch = vi.fn();
+
+    await expect(getPlayableAudioUrl('/api/audio/hash-fresh')).resolves.toBe('blob:local-clip');
+    await expect(checkAudioUrlAvailable('/api/audio/hash-fresh')).resolves.toBe(true);
+
+    expect(clipPlaybackMocks.getLocalClipUrl).toHaveBeenCalledWith('hash-fresh');
     expect(global.fetch).not.toHaveBeenCalled();
   });
 

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@/components/I18nProvider';
 import {
@@ -8,8 +8,21 @@ import {
 import type { WordChatPreferencePatch } from '../../hooks/useWordChat';
 import { ChatSettingsModal } from '../ChatSettingsModal';
 
+vi.mock('@/features/shared/languages/useSupportedLanguages', () => ({
+  useSupportedLanguages: () => ({
+    loading: false,
+    languages: [
+      { code: 'cs', name: 'Czech', flag: '🇨🇿' },
+      { code: 'es', name: 'Spanish', flag: '🇪🇸' },
+      { code: 'vi', name: 'Vietnamese', flag: '🇻🇳' },
+    ],
+  }),
+}));
+
 function renderModal() {
   const onChange = vi.fn<(patch: WordChatPreferencePatch) => void>();
+  const onLanguagePairChange =
+    vi.fn<(pair: { from: string; to: string }) => void>();
   const onClose = vi.fn<() => void>();
   const appState = {
     settingsLanguage: 'cs',
@@ -21,6 +34,8 @@ function renderModal() {
       <I18nProvider language="cs">
         <ChatSettingsModal
           isOpen
+          languageFrom="cs"
+          languageTo="es"
           addressRegister="formal"
           salutationGender="male"
           languageLevel="B1"
@@ -28,13 +43,14 @@ function renderModal() {
           salutationGenderApplies
           saving={false}
           onChange={onChange}
+          onLanguagePairChange={onLanguagePairChange}
           onClose={onClose}
         />
       </I18nProvider>
     </AppStateProvider>,
   );
 
-  return { onChange, onClose };
+  return { onChange, onLanguagePairChange, onClose };
 }
 
 describe('ChatSettingsModal', () => {
@@ -47,6 +63,14 @@ describe('ChatSettingsModal', () => {
     expect(dialog).toHaveStyle('--ob-surface: #F4EFE2');
     expect(screen.getByText('Jazyk rozhraní')).toBeInTheDocument();
     expect(screen.getByTestId('interface-language-selector')).toBeInTheDocument();
+    expect(screen.queryByText('Studijní jazyky')).not.toBeInTheDocument();
+    expect(screen.getByText('Znám')).toBeInTheDocument();
+    expect(screen.getByText('Učím se')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('group', {
+        name: 'Znám: čeština. Učím se: španělština.',
+      }),
+    ).not.toBeInTheDocument();
     expect(
       screen.getByRole('radiogroup', { name: 'Oslovení v chatu' }),
     ).toBeInTheDocument();
@@ -70,5 +94,18 @@ describe('ChatSettingsModal', () => {
     fireEvent.keyDown(document, { key: 'Escape' });
 
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it('changes the study pair directly from chat settings', async () => {
+    const { onLanguagePairChange } = renderModal();
+
+    const targetPicker = screen.getByRole('combobox', { name: 'Učím se language' });
+    fireEvent.focus(targetPicker);
+    fireEvent.click(screen.getByRole('option', { name: /vietnamština/i }));
+    fireEvent.click(screen.getByRole('button', { name: 'Použít tyto jazyky' }));
+
+    await waitFor(() => {
+      expect(onLanguagePairChange).toHaveBeenCalledWith({ from: 'cs', to: 'vi' });
+    });
   });
 });

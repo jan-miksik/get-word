@@ -106,6 +106,7 @@ export async function POST(request: NextRequest) {
                   reply: event.reply,
                   suggestions: event.suggestions,
                   ready_to_propose: event.readyToPropose,
+                  language_change: event.languageChange,
                   metadata_valid: event.metadataValid,
                   diagnostics: canDebug ? serializeDiagnostics(event.diagnostics) : null,
                 });
@@ -149,6 +150,7 @@ export async function POST(request: NextRequest) {
       reply: result.reply,
       suggestions: result.suggestions,
       ready_to_propose: result.readyToPropose,
+      language_change: result.languageChange,
       diagnostics: canDebug ? serializeDiagnostics(result.diagnostics) : null,
     });
   } catch (err) {

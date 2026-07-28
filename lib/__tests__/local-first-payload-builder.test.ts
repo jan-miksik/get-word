@@ -57,6 +57,28 @@ describe('payload builder', () => {
     expect(built?.payload.memory_hooks_intro_answered).toBe(true);
   });
 
+  it('keeps a language-pair preference atomic in one outbox op', () => {
+    const built = buildPayloadFromOps([
+      makeOp({
+        entity: 'preference',
+        opType: 'set_language_pair',
+        payload: {
+          values: {
+            language_from: 'cs',
+            language_to: 'vi',
+            onboarding_completed: true,
+          },
+        },
+      }),
+    ]);
+
+    expect(built?.payload).toMatchObject({
+      language_from: 'cs',
+      language_to: 'vi',
+      onboarding_completed: true,
+    });
+  });
+
   it('keeps the last value when the same preference field is set twice', () => {
     const built = buildPayloadFromOps([
       makeOp({ entity: 'preference', opType: 'set', payload: { field: 'show_english', value: false }, clientCreatedAt: '2026-01-01T00:00:00Z' }),

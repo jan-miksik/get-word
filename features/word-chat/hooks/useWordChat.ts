@@ -49,6 +49,7 @@ export type WordChatLimits = {
 export type WordChatHistory = {
   hasHistory: boolean;
   goals: string[];
+  situations: string[];
   coveredTopics: string[];
   missingTopics: string[];
 };
@@ -176,6 +177,8 @@ export type UseWordChatOptions = {
   languageFrom: string;
   languageTo: string;
   baseListId?: string | null;
+  /** Applies an explicit language-pair change requested inside the conversation. */
+  onLanguagePairChange?: (pair: { from: string; to: string }) => void | Promise<void>;
   /** Called after a successful commit so the caller can refresh and navigate. */
   onCommitted: (result: {
     listId: string;
@@ -192,6 +195,7 @@ export function useWordChat({
   languageFrom,
   languageTo,
   baseListId,
+  onLanguagePairChange,
   onCommitted,
   refreshAfterCommit,
 }: UseWordChatOptions) {
@@ -216,6 +220,7 @@ export function useWordChat({
   const [reviewLabel, setReviewLabel] = useState('');
   const [askVisibility, setAskVisibility] = useState(false);
   const [isPublic, setIsPublic] = useState<boolean | null>(null);
+  const [hasPersonalList, setHasPersonalList] = useState<boolean | null>(null);
 
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
   const [commitResult, setCommitResult] = useState<CommitResult | null>(null);
@@ -257,7 +262,14 @@ export function useWordChat({
   const [sessionId, setSessionId] = useState(newId);
   const [creationKey, setCreationKey] = useState(newId);
 
-  const chatLanguage = languageFrom || uiLanguage;
+  // The interface language, not the study pair's source language. Every other
+  // word on this screen — the opener, the chips, the buttons — is rendered from
+  // the i18n catalog, so a reply written in `languageFrom` was the one foreign
+  // thing on an otherwise Czech (or Ukrainian, or Vietnamese) page whenever the
+  // two differed. The learner picked the interface language explicitly; the
+  // study pair's source side is a property of the list, not a statement about
+  // what they read comfortably.
+  const chatLanguage = uiLanguage || languageFrom;
   const addressRegisterApplies = hasRegisterDistinction(chatLanguage);
   const salutationGenderApplies = hasGenderedSalutation(chatLanguage);
   const preferencesKey = `${baseListId ?? ''}\u0000${languageFrom}\u0000${languageTo}`;
@@ -341,6 +353,131 @@ export function useWordChat({
     isPublic,
   ]);
 
+  /**
+   * A pair change remounts the flow so requests cannot accidentally mix two
+   * language directions. Persist the current draft synchronously first and,
+   * when the destination pair has no draft of its own, seed it with the
+   * learner's conversation and selected source-language text. Corpus
+   * references and completed translations are pair-specific, so those are
+   * deliberately downgraded/cleared while the actual selection is preserved.
+   */
+  const stageDraftForLanguagePair = useCallback(
+    (
+      pair: { from: string; to: string },
+      conversation: WordChatMessage[] = messages,
+    ) => {
+      if (!languageFrom || !languageTo || step === 'done') return;
+      const hasWork =
+        conversation.length > 0 ||
+        proposals.length > 0 ||
+        customItems.length > 0 ||
+        reviewItems.length > 0;
+      if (!hasWork) return;
+
+      const currentMessages = completeTranscript(conversation);
+      saveDraft(languageFrom, languageTo, {
+        sessionId,
+        creationKey,
+        step,
+        messages: currentMessages,
+        addressRegister,
+        salutationGender,
+        languageLevel: currentLanguageLevel,
+        listName,
+        categoryName,
+        reviewLabel,
+        proposals,
+        selectedKeys,
+        customItems,
+        reviewItems,
+        isPublic,
+      });
+
+      // Never overwrite another interrupted session for the destination pair.
+      if (loadDraft(pair.from, pair.to)) return;
+
+      const selected = new Set(selectedKeys);
+      const migratedSelectedKeys: string[] = [];
+      const migratedProposals: ProposedItem[] = proposals.map((item) => {
+        const migrated: ProposedItem = {
+          kind: item.kind,
+          source: 'generated',
+          text: item.text,
+          confidence: item.confidence,
+          draftId: item.draftId ?? newId(),
+        };
+        if (selected.has(proposalKey(item))) {
+          migratedSelectedKeys.push(proposalKey(migrated));
+        }
+        return migrated;
+      });
+
+      saveDraft(pair.from, pair.to, {
+        sessionId: newId(),
+        creationKey: newId(),
+        step:
+          migratedProposals.length > 0 || customItems.length > 0
+            ? 'select'
+            : 'chat',
+        messages: currentMessages,
+        addressRegister,
+        salutationGender,
+        languageLevel: currentLanguageLevel,
+        listName: personalListName(pair.from, pair.to),
+        categoryName,
+        reviewLabel,
+        proposals: migratedProposals,
+        selectedKeys: migratedSelectedKeys,
+        customItems,
+        // These rows contain translations and audio for the previous target.
+        reviewItems: [],
+        isPublic,
+      });
+    },
+    [
+      addressRegister,
+      categoryName,
+      creationKey,
+      currentLanguageLevel,
+      customItems,
+      isPublic,
+      languageFrom,
+      languageTo,
+      listName,
+      messages,
+      proposals,
+      reviewItems,
+      reviewLabel,
+      salutationGender,
+      selectedKeys,
+      sessionId,
+      step,
+    ],
+  );
+
+  const changeLanguagePair = useCallback(
+    async (
+      pair: { from: string; to: string },
+      conversation: WordChatMessage[] = messages,
+    ) => {
+      if (
+        !onLanguagePairChange ||
+        (pair.from === languageFrom && pair.to === languageTo)
+      ) {
+        return;
+      }
+      stageDraftForLanguagePair(pair, conversation);
+      await onLanguagePairChange(pair);
+    },
+    [
+      languageFrom,
+      languageTo,
+      messages,
+      onLanguagePairChange,
+      stageDraftForLanguagePair,
+    ],
+  );
+
   // A restored draft lands straight on Review with hashes but no bytes — the
   // session that generated them is gone. Warm those too; already-cached clips
   // cost nothing to ask for.
@@ -361,6 +498,7 @@ export function useWordChat({
         setHistory({
           hasHistory: context.has_history,
           goals: context.goals,
+          situations: context.situations ?? [],
           coveredTopics: context.covered_topics,
           missingTopics: context.missing_topics,
         });
@@ -393,6 +531,7 @@ export function useWordChat({
           monthlyLimit: context.monthly_limit,
         }));
         const existingListName = context.personal_list_name;
+        setHasPersonalList(Boolean(existingListName));
         if (existingListName) {
           setListName((current) =>
             current === defaultListName ? existingListName : current,
@@ -608,12 +747,28 @@ export function useWordChat({
       flushDelta();
       noteSuccess();
       recordDiagnostics(response.diagnostics);
+      // Same id as the streamed placeholder: the reply keeps its React identity
+      // when the parsed text replaces the deltas, so the bubble is updated in
+      // place instead of being remounted with the full answer at once.
       const conversationWithReply: WordChatMessage[] = [
         ...conversation,
-        { role: 'assistant', content: response.reply },
+        { role: 'assistant', content: response.reply, id: assistantId },
       ];
       setMessages(conversationWithReply);
       setSuggestions(response.suggestions);
+
+      if (
+        response.language_change &&
+        response.metadata_valid &&
+        onLanguagePairChange
+      ) {
+        try {
+          await changeLanguagePair(response.language_change, conversationWithReply);
+        } catch {
+          setError(t('wordChat.languageChangeFailed'));
+        }
+        return;
+      }
 
       // The model has already decided it knows enough. Continue in the same
       // event-driven request chain instead of bouncing through an effect that
@@ -643,11 +798,14 @@ export function useWordChat({
     languageTo,
     modelOverrides.chat,
     noteSuccess,
+    changeLanguagePair,
+    onLanguagePairChange,
     proposeMessages,
     recordDiagnostics,
     salutationGender,
     salutationGenderApplies,
     sessionId,
+    t,
   ]);
 
   const sendMessage = useCallback(
@@ -739,6 +897,26 @@ export function useWordChat({
   const removeCustomItem = useCallback((text: string) => {
     setCustomItems((current) => current.filter((entry) => entry.text !== text));
   }, []);
+
+  const startManualEntry = useCallback(() => {
+    activeChatAbortRef.current?.abort();
+    activeChatAbortRef.current = null;
+    activeAssistantIdRef.current = null;
+    translatedSignatureRef.current = null;
+    setBusy(null);
+    setError(null);
+    setUnavailable(false);
+    setCanRetry(false);
+    retryTargetRef.current = null;
+    setProposals([]);
+    setSelectedKeys([]);
+    setCategoryName((current) =>
+      current.trim() ? current : t('wordChat.manualCategoryName'),
+    );
+    setReviewLabel('Manual entry');
+    setAskVisibility(hasPersonalList !== true);
+    setStep('select');
+  }, [hasPersonalList, t]);
 
   /**
    * Translate everything, then voice it, then show Review. One step from the
@@ -1135,6 +1313,7 @@ export function useWordChat({
     addressRegisterApplies,
     salutationGenderApplies,
     savePreferences,
+    changeLanguagePair,
     proposals,
     selectedKeys,
     customItems,
@@ -1174,6 +1353,7 @@ export function useWordChat({
     updateProposal,
     addCustomItem,
     removeCustomItem,
+    startManualEntry,
     continueToReview,
     updateReviewItem,
     removeReviewItem,

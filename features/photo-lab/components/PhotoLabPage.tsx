@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
+import { LanguagePairSummary } from '@/features/shared/languages/LanguagePairSummary';
 import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLanguage';
 import { useSupportedLanguages } from '@/features/shared/languages/useSupportedLanguages';
 import {
@@ -12,7 +13,7 @@ import {
 } from '@/features/shared/user-preferences/address-register';
 import { readPhotoLabPreference } from '@/features/photo-lab/client/preferences';
 import { WARM_PALETTE, warmPaletteVars } from '@/features/shared/theme/warm-palette';
-import { getLanguageFlag, getLocalizedLanguageName } from '@/lib/i18n/languages';
+import { getLanguageFlag } from '@/lib/i18n/languages';
 import { cleanupPhotoLab } from '../client/photoStore';
 import { LabeledPhoto } from './LabeledPhoto';
 import { LanguagePairModal } from './LanguagePairModal';
@@ -94,15 +95,31 @@ type PhotoLabPageProps = {
   variant?: 'standalone' | 'embedded';
   /** Mounted workspace panels stay alive; visual-only effects pause while hidden. */
   active?: boolean;
+  /** App-wide pair supplied by the embedded study workspace. */
+  languageFrom?: string;
+  languageTo?: string;
+  onLanguagePairChange?: (pair: { from: string; to: string }) => void | Promise<void>;
 };
 
 export function PhotoLabPage({
   onClose,
   variant = 'standalone',
   active = true,
+  languageFrom,
+  languageTo,
+  onLanguagePairChange,
 }: PhotoLabPageProps) {
   const settingsLanguage = useSettingsLanguage();
-  const content = <PhotoLabContent onClose={onClose} variant={variant} active={active} />;
+  const content = (
+    <PhotoLabContent
+      onClose={onClose}
+      variant={variant}
+      active={active}
+      languageFrom={languageFrom}
+      languageTo={languageTo}
+      onLanguagePairChange={onLanguagePairChange}
+    />
+  );
 
   return (
     <I18nProvider language={settingsLanguage}>
@@ -115,6 +132,9 @@ function PhotoLabContent({
   onClose,
   variant = 'standalone',
   active = true,
+  languageFrom,
+  languageTo,
+  onLanguagePairChange,
 }: PhotoLabPageProps) {
   const { t } = useI18n();
   // null = not yet known (first client render); avoids a hydration mismatch.
@@ -153,7 +173,16 @@ function PhotoLabContent({
       </div>
     );
   }
-  return <PhotoLabStudio onClose={onClose} variant={variant} active={active} />;
+  return (
+    <PhotoLabStudio
+      onClose={onClose}
+      variant={variant}
+      active={active}
+      languageFrom={languageFrom}
+      languageTo={languageTo}
+      onLanguagePairChange={onLanguagePairChange}
+    />
+  );
 }
 
 const BACK_LINK_CLASS =
@@ -211,48 +240,6 @@ export function BackLink({
     >
       ← {t(fromStudy ? 'photoLab.backToStudy' : 'photoLab.back')}
     </Link>
-  );
-}
-
-function LanguagePairSummary({
-  from,
-  to,
-  onOpen,
-}: {
-  from: string;
-  to: string;
-  onOpen: () => void;
-}) {
-  const { t, language: uiLanguage } = useI18n();
-
-  const describe = (code: string, fallbackLabel: string) => {
-    if (!code) return { flag: '🌐', name: fallbackLabel };
-    const flag = getLanguageFlag(code);
-    const name = getLocalizedLanguageName(code, uiLanguage) ?? code.toUpperCase();
-    return { flag, name };
-  };
-  const source = describe(from, t('photoLab.knownLanguage'));
-  const target = describe(to, t('photoLab.targetLanguage'));
-
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      aria-label={t('photoLab.changeLanguages')}
-      title={t('photoLab.changeLanguages')}
-      className="flex max-w-full items-center gap-1 rounded-full border-2 border-[color:var(--ob-ink)]/60 bg-[#F4EFE2]/70 px-3.5 py-2 text-sm font-semibold text-[color:var(--ob-ink)] transition hover:-translate-y-0.5 hover:border-[color:var(--ob-ink)] hover:bg-[var(--ob-surface-hover)] hover:shadow-md hover:shadow-[#2A2218]/10 sm:gap-2"
-    >
-      <span aria-hidden="true">{source.flag}</span>
-      <span className="hidden truncate sm:inline">{source.name}</span>
-      <span aria-hidden="true" className="text-[color:var(--ob-ink-soft)]">
-        →
-      </span>
-      <span aria-hidden="true">{target.flag}</span>
-      <span className="hidden truncate sm:inline">{target.name}</span>
-      <span aria-hidden="true" className="text-xs text-[color:var(--ob-ink-soft)]">
-        ✎
-      </span>
-    </button>
   );
 }
 
@@ -319,6 +306,9 @@ function PhotoLabStudio({
   onClose,
   variant = 'standalone',
   active = true,
+  languageFrom,
+  languageTo,
+  onLanguagePairChange,
 }: PhotoLabPageProps) {
   const { t } = useI18n();
   const { languages } = useSupportedLanguages();
@@ -349,7 +339,11 @@ function PhotoLabStudio({
     removeSession,
     requestDelete,
     cancelDelete,
-  } = usePhotoLabStudio(active);
+  } = usePhotoLabStudio(active, {
+    languageFrom,
+    languageTo,
+    onLanguagePairChange,
+  });
   const analysisRemainingSeconds = Math.max(
     1,
     ANALYSIS_ESTIMATE_SECONDS - analysisElapsedSeconds,

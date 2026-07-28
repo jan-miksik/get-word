@@ -11,6 +11,10 @@ import {
 } from '../local-learning-cache';
 import type { NormalizedWord } from '../words';
 
+const clipCacheMocks = vi.hoisted(() => ({ getClipForAudioUrl: vi.fn() }));
+
+vi.mock('@/lib/audio-clip-cache', () => clipCacheMocks);
+
 const audioWord: NormalizedWord = {
   id: 'word-a',
   cz: 'hello',
@@ -24,6 +28,8 @@ const audioWord: NormalizedWord = {
 describe('local learning cache preferences', () => {
   beforeEach(() => {
     localStorage.clear();
+    clipCacheMocks.getClipForAudioUrl.mockReset();
+    clipCacheMocks.getClipForAudioUrl.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -144,6 +150,32 @@ describe('local learning cache preferences', () => {
     // Both word sides download even on metered data because the list is tiny.
     expect(fetchMock).toHaveBeenCalledTimes(2);
     expect(cache.put).toHaveBeenCalledTimes(2);
+  });
+
+  it('fills the offline cache from locally stored clips instead of downloading them', async () => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: true });
+    setAudioCachePreference(true);
+    const cache = {
+      keys: vi.fn().mockResolvedValue([]),
+      match: vi.fn().mockResolvedValue(undefined),
+      put: vi.fn(),
+    };
+    vi.stubGlobal('caches', { open: vi.fn().mockResolvedValue(cache) });
+    clipCacheMocks.getClipForAudioUrl.mockImplementation(async (url: string) =>
+      url === '/api/audio/hash-known' ? new Blob(['local'], { type: 'audio/mpeg' }) : null,
+    );
+    const fetchMock = vi.fn(() =>
+      Promise.resolve(new Response('a', { headers: { 'content-length': '1024' } })),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+
+    await cacheActiveListAudio([audioWord]);
+
+    // The known side comes from the clip store; only the target side downloads.
+    expect(cache.put).toHaveBeenCalledTimes(2);
+    expect(cache.put).toHaveBeenCalledWith('/api/audio/hash-known', expect.any(Response));
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith('/api/audio/hash-target', expect.anything());
   });
 
   it('stops caching on cellular once the 10 MB size budget is exceeded', async () => {

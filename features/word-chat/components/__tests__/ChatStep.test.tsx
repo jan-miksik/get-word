@@ -23,6 +23,7 @@ function renderChatStep({
   messages = [],
   busy = null,
   onSend,
+  onStartManualEntry,
   onPreferencesChange,
   active = true,
   embedded = false,
@@ -42,6 +43,7 @@ function renderChatStep({
   }>;
   busy?: 'chat' | 'propose' | null;
   onSend?: (text: string) => void;
+  onStartManualEntry?: () => void;
   onPreferencesChange?: (patch: WordChatPreferencePatch) => void;
   active?: boolean;
   embedded?: boolean;
@@ -64,9 +66,11 @@ function renderChatStep({
         addressRegisterApplies={languageFrom === 'cs'}
         salutationGenderApplies={languageFrom === 'cs'}
         onPreferencesChange={changePreferences}
+        onLanguagePairChange={vi.fn()}
         busy={busy}
         history={history}
         onSend={send}
+        onStartManualEntry={onStartManualEntry}
         active={active}
         embedded={embedded}
       />
@@ -89,6 +93,8 @@ describe('ChatStep', () => {
     });
 
     expect(screen.queryByPlaceholderText('Tell me about your situation…')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Chat settings' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /I know: Czech/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Use casual address' })).not.toHaveClass(
       'onboarding-option-highlight',
     );
@@ -162,13 +168,15 @@ describe('ChatStep', () => {
     );
   });
 
-  it('sends a starter brief in the known language even when the UI is English', () => {
-    const { onSend } = renderChatStep();
+  it('sends a starter brief in the interface language, whatever the pair is', () => {
+    // The chat answers in the interface language, so the message the chip puts
+    // in the learner's mouth has to be in that same language.
+    const { onSend } = renderChatStep({ uiLanguage: 'en', languageFrom: 'fr' });
 
     fireEvent.click(screen.getByRole('button', { name: 'Talking to customers' }));
 
     expect(onSend).toHaveBeenCalledWith(
-      'Pracuju se zákazníky — salon, obchod, kavárna — a chci s nimi mluvit pořádně.',
+      'I work with clients — salon, shop, café — and I want to talk to them properly.',
     );
   });
 
@@ -187,6 +195,30 @@ describe('ChatStep', () => {
     expect(screen.getByRole('button', { name: 'At the office' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: "My partner's family" })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Vacation abroad' })).toBeInTheDocument();
+  });
+
+  it('lets the learner skip the AI suggestions and enter words manually', () => {
+    const onStartManualEntry = vi.fn();
+    renderChatStep({ onStartManualEntry });
+
+    fireEvent.click(screen.getByRole('button', { name: 'I already have my own words' }));
+
+    expect(onStartManualEntry).toHaveBeenCalledOnce();
+  });
+
+  it('does not require chat preference setup before manual entry', () => {
+    const onStartManualEntry = vi.fn();
+    renderChatStep({
+      addressRegister: null,
+      salutationGender: null,
+      languageLevel: null,
+      preferencesComplete: false,
+      onStartManualEntry,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'I already have my own words' }));
+
+    expect(onStartManualEntry).toHaveBeenCalledOnce();
   });
 
   it('does not show the ready-made list shortcut in the normal chat', () => {
@@ -264,6 +296,7 @@ describe('ChatStep', () => {
       history: {
         hasHistory: true,
         goals: [],
+        situations: [],
         coveredTopics: ['Úřední slovníček'],
         missingTopics: [],
       },
@@ -273,11 +306,27 @@ describe('ChatStep', () => {
     expect(screen.queryByText(/Napiš mi, co potřebuješ teď/)).not.toBeInTheDocument();
   });
 
+  it('keeps the opener above the transcript once the conversation starts', () => {
+    renderChatStep({
+      messages: [
+        { role: 'user', content: 'Talking to my partner' },
+        { role: 'assistant', content: 'Everyday chit-chat or affectionate words?' },
+      ],
+    });
+
+    // Without it the learner is left looking at a bare exchange with nothing
+    // saying what the chat is for or which language it is about.
+    expect(screen.getByText(/What would you most like to do in Vietnamese/)).toBeInTheDocument();
+    // The longer explainer is only useful before the first message.
+    expect(screen.queryByText(/Tell me about a real situation/)).not.toBeInTheDocument();
+  });
+
   it('picks a returning learner up from the last session instead of introducing the feature', () => {
     const { onSend } = renderChatStep({
       history: {
         hasHistory: true,
         goals: ['talk to salon clients'],
+        situations: [],
         coveredTopics: ['Salon small talk'],
         missingTopics: ['Booking appointments'],
       },
@@ -292,6 +341,42 @@ describe('ChatStep', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Booking appointments' }));
     expect(onSend).toHaveBeenCalledWith("I'd like to work on: Booking appointments");
+  });
+
+  it('builds returning chips from the situations and goals in the brief', () => {
+    renderChatStep({
+      history: {
+        hasHistory: true,
+        goals: ['Talk to salon clients'],
+        situations: ['Doctor visits'],
+        coveredTopics: ['Salon small talk'],
+        missingTopics: [],
+      },
+    });
+
+    expect(screen.getByRole('button', { name: 'Doctor visits' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Talk to salon clients' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Vacation abroad' })).not.toBeInTheDocument();
+  });
+
+  it('offers a deeper pass over the last topic when the brief has nothing else', () => {
+    const { onSend } = renderChatStep({
+      history: {
+        hasHistory: true,
+        goals: [],
+        situations: [],
+        coveredTopics: ['Small talk', 'Morals and ethics'],
+        missingTopics: [],
+      },
+    });
+
+    // The generic starters are for someone who has never been here before.
+    expect(screen.queryByRole('button', { name: 'Talking to customers' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'More on Morals and ethics' }));
+    expect(onSend).toHaveBeenCalledWith(
+      "Let's stay with Morals and ethics — suggest more words and phrases we haven't done yet.",
+    );
   });
 
   it('autofocuses a field that is visually distinct from the option buttons', () => {

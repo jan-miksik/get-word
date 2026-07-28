@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import type { SyncResponse } from '@/features/sync/types';
-import { hasReceivedServerSnapshot, syncUserData } from '@/lib/sync';
+import { hasReceivedServerSnapshot } from '@/lib/sync';
 import { enqueueOp } from '@/lib/local-first/enqueue';
 import type { SyncMutationPayload } from '@/features/sync/types';
 import { postTabMessage, subscribeTabMessages } from '@/lib/tab-sync';
@@ -24,6 +24,14 @@ import {
   readPhotoLabPreference,
   storePhotoLabPreference,
 } from '@/features/photo-lab/client/preferences';
+import {
+  clearPendingLearningLanguagePair,
+  readPendingLearningLanguagePair,
+  storeLearningLanguagePair,
+  storePendingLearningLanguagePair,
+  type PendingLearningLanguagePair,
+} from '@/features/shared/languages/learningPairStorage';
+import { queuePendingLearningLanguagePair } from '@/features/shared/languages/learningPairSync';
 import {
   LEARNING_LOCAL_PREFERENCE_KEYS,
   readProgressiveRevealPreference,
@@ -160,6 +168,15 @@ export function usePreferences(
   const [learningLanguageFrom, setLearningLanguageFrom] = useState<string | null>(null);
   const [learningLanguageTo, setLearningLanguageTo] = useState<string | null>(null);
   const [onboardingCompletedAt, setOnboardingCompletedAt] = useState<string | null>(null);
+  // A language-pair save stays pending until a server snapshot confirms it.
+  // Persisting that intent outside React is essential: Fast Refresh, a page
+  // remount or a focus-triggered GET must not resurrect an older server value.
+  const learningLanguageFromRef = useRef<string | null>(null);
+  const learningLanguageToRef = useRef<string | null>(null);
+  const learningPairRevisionMsRef = useRef(0);
+  const pendingLearningPairRef = useRef<PendingLearningLanguagePair | null>(
+    readPendingLearningLanguagePair(),
+  );
   const [categoryOrder, setCategoryOrderState] = useState<string[]>([]);
   // Server-owned: written by a word-chat commit, never enqueued back as a
   // preference. The client only reads it to order the study stream.
@@ -377,31 +394,68 @@ export function usePreferences(
     });
   }, []);
 
-  const setLearningLanguages = useCallback(async (languageFrom: string, languageTo: string) => {
-    const normalizedFrom = normalizeSettingsLanguage(languageFrom);
-    const normalizedTo = normalizeSettingsLanguage(languageTo);
-    const completedAt = new Date().toISOString();
-    if (hasReceivedServerSnapshot()) {
-      await syncUserData({
-        language_from: normalizedFrom,
-        language_to: normalizedTo,
-        onboarding_completed: true,
-      });
-    }
+  const queueLearningLanguagePair = useCallback(
+    async (pair: PendingLearningLanguagePair) => {
+      await queuePendingLearningLanguagePair(pair);
+      if (
+        !readPendingLearningLanguagePair() &&
+        pendingLearningPairRef.current?.from === pair.from &&
+        pendingLearningPairRef.current.to === pair.to
+      ) {
+        pendingLearningPairRef.current = null;
+        const confirmedAtMs = new Date(pair.changedAt).getTime();
+        if (Number.isFinite(confirmedAtMs)) {
+          learningPairRevisionMsRef.current = Math.max(
+            learningPairRevisionMsRef.current,
+            confirmedAtMs,
+          );
+        }
+      }
+    },
+    [],
+  );
 
-    setLearningLanguageFrom(normalizedFrom);
-    setLearningLanguageTo(normalizedTo);
-    setOnboardingCompletedAt(completedAt);
-    markLearningOnboardingCompletedInSession();
-    postTabMessage({
-      type: 'preferences_changed',
-      patch: {
-        learningLanguageFrom: normalizedFrom,
-        learningLanguageTo: normalizedTo,
-        onboardingCompletedAt: completedAt,
-      },
-    });
-  }, []);
+  const setLearningLanguages = useCallback(
+    async (languageFrom: string, languageTo: string) => {
+      const pending: PendingLearningLanguagePair = {
+        from: normalizeSettingsLanguage(languageFrom),
+        to: normalizeSettingsLanguage(languageTo),
+        changedAt: new Date().toISOString(),
+      };
+      pendingLearningPairRef.current = pending;
+      storePendingLearningLanguagePair(pending);
+      learningLanguageFromRef.current = pending.from;
+      learningLanguageToRef.current = pending.to;
+      setLearningLanguageFrom(pending.from);
+      setLearningLanguageTo(pending.to);
+      storeLearningLanguagePair({ from: pending.from, to: pending.to });
+      setOnboardingCompletedAt(pending.changedAt);
+      markLearningOnboardingCompletedInSession();
+      postTabMessage({
+        type: 'preferences_changed',
+        patch: {
+          learningLanguageFrom: pending.from,
+          learningLanguageTo: pending.to,
+          onboardingCompletedAt: pending.changedAt,
+          learningPairPending: true,
+        },
+      });
+      await queueLearningLanguagePair(pending);
+    },
+    [queueLearningLanguagePair],
+  );
+
+  useEffect(() => {
+    const pending = pendingLearningPairRef.current;
+    if (!pending) return;
+    learningLanguageFromRef.current = pending.from;
+    learningLanguageToRef.current = pending.to;
+    setLearningLanguageFrom(pending.from);
+    setLearningLanguageTo(pending.to);
+    setOnboardingCompletedAt(pending.changedAt);
+    storeLearningLanguagePair({ from: pending.from, to: pending.to });
+    void queueLearningLanguagePair(pending);
+  }, [queueLearningLanguagePair]);
 
   const applyServerPreferences = useCallback((user: SyncResponse['user']) => {
     const simulateFirstOpen = isSimulatedFirstOpenEnabled();
@@ -430,9 +484,62 @@ export function usePreferences(
       );
       setSettingsLanguageSelectedAt(serverSelectedAt);
     }
-    setLearningLanguageFrom(simulateLearningOnboarding ? null : user.language_from ?? null);
-    setLearningLanguageTo(simulateLearningOnboarding ? null : user.language_to ?? null);
-    setOnboardingCompletedAt(simulateLearningOnboarding ? null : user.onboarding_completed_at ?? null);
+    const incomingFrom = simulateLearningOnboarding ? null : user.language_from ?? null;
+    const incomingTo = simulateLearningOnboarding ? null : user.language_to ?? null;
+    const incomingCompletedAt =
+      simulateLearningOnboarding ? null : user.onboarding_completed_at ?? null;
+    const incomingRevisionMs = incomingCompletedAt
+      ? new Date(incomingCompletedAt).getTime()
+      : 0;
+    const pendingPair = pendingLearningPairRef.current;
+    const conflictsWithPendingPair = Boolean(
+      pendingPair &&
+        (incomingFrom !== pendingPair.from || incomingTo !== pendingPair.to),
+    );
+    const confirmsPendingPair = Boolean(
+      pendingPair &&
+        incomingFrom === pendingPair.from &&
+        incomingTo === pendingPair.to,
+    );
+    if (confirmsPendingPair) {
+      pendingLearningPairRef.current = null;
+      clearPendingLearningLanguagePair();
+    }
+    const changesConfirmedPair =
+      incomingFrom !== learningLanguageFromRef.current ||
+      incomingTo !== learningLanguageToRef.current;
+    const predatesConfirmedPair =
+      changesConfirmedPair &&
+      learningPairRevisionMsRef.current > 0 &&
+      (!Number.isFinite(incomingRevisionMs) ||
+        incomingRevisionMs < learningPairRevisionMsRef.current);
+    if (conflictsWithPendingPair && pendingPair) {
+      learningLanguageFromRef.current = pendingPair.from;
+      learningLanguageToRef.current = pendingPair.to;
+      setLearningLanguageFrom(pendingPair.from);
+      setLearningLanguageTo(pendingPair.to);
+      setOnboardingCompletedAt(pendingPair.changedAt);
+      storeLearningLanguagePair({
+        from: pendingPair.from,
+        to: pendingPair.to,
+      });
+    } else if (!predatesConfirmedPair) {
+      learningLanguageFromRef.current = incomingFrom;
+      learningLanguageToRef.current = incomingTo;
+      if (Number.isFinite(incomingRevisionMs)) {
+        learningPairRevisionMsRef.current = Math.max(
+          learningPairRevisionMsRef.current,
+          incomingRevisionMs,
+        );
+      }
+      setLearningLanguageFrom(incomingFrom);
+      setLearningLanguageTo(incomingTo);
+      setOnboardingCompletedAt(incomingCompletedAt);
+      storeLearningLanguagePair({
+        from: incomingFrom ?? undefined,
+        to: incomingTo ?? undefined,
+      });
+    }
     const nextCategoryOrder = normalizeCategoryOrderValue(user.category_order);
     setCategoryOrderState((prev) =>
       areStringArraysEqual(prev, nextCategoryOrder) ? prev : nextCategoryOrder
@@ -498,13 +605,61 @@ export function usePreferences(
           setSettingsLanguageSelectedAt(patchSelectedAt);
         }
       }
-      if (typeof patch.learningLanguageFrom === 'string' || patch.learningLanguageFrom === null) {
-        setLearningLanguageFrom(patch.learningLanguageFrom);
+      const patchFrom =
+        typeof patch.learningLanguageFrom === 'string'
+          ? patch.learningLanguageFrom
+          : null;
+      const patchTo =
+        typeof patch.learningLanguageTo === 'string'
+          ? patch.learningLanguageTo
+          : null;
+      const hasPairPatch =
+        Object.hasOwn(patch, 'learningLanguageFrom') &&
+        Object.hasOwn(patch, 'learningLanguageTo');
+      const pendingFromOtherTab =
+        patch.learningPairPending === true &&
+        patchFrom &&
+        patchTo &&
+        typeof patch.onboardingCompletedAt === 'string'
+          ? {
+              from: patchFrom,
+              to: patchTo,
+              changedAt: patch.onboardingCompletedAt,
+            }
+          : null;
+      if (pendingFromOtherTab) {
+        pendingLearningPairRef.current = pendingFromOtherTab;
+        storePendingLearningLanguagePair(pendingFromOtherTab);
       }
-      if (typeof patch.learningLanguageTo === 'string' || patch.learningLanguageTo === null) {
-        setLearningLanguageTo(patch.learningLanguageTo);
+      const protectedPending = pendingLearningPairRef.current;
+      const pairPatchConflicts =
+        hasPairPatch &&
+        protectedPending &&
+        (patchFrom !== protectedPending.from || patchTo !== protectedPending.to);
+      if (hasPairPatch && !pairPatchConflicts) {
+        learningLanguageFromRef.current = patchFrom;
+        learningLanguageToRef.current = patchTo;
+        setLearningLanguageFrom(patchFrom);
+        setLearningLanguageTo(patchTo);
+        storeLearningLanguagePair({
+          from: patchFrom ?? undefined,
+          to: patchTo ?? undefined,
+        });
       }
-      if (typeof patch.onboardingCompletedAt === 'string' || patch.onboardingCompletedAt === null) {
+      if (
+        (typeof patch.onboardingCompletedAt === 'string' ||
+          patch.onboardingCompletedAt === null) &&
+        !pairPatchConflicts
+      ) {
+        const patchRevisionMs = patch.onboardingCompletedAt
+          ? new Date(patch.onboardingCompletedAt).getTime()
+          : 0;
+        if (Number.isFinite(patchRevisionMs)) {
+          learningPairRevisionMsRef.current = Math.max(
+            learningPairRevisionMsRef.current,
+            patchRevisionMs,
+          );
+        }
         setOnboardingCompletedAt(patch.onboardingCompletedAt);
       }
     });

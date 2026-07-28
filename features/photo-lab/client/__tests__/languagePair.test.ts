@@ -3,6 +3,11 @@ import {
   readPhotoLabLanguagePair,
   storePhotoLabLanguagePair,
 } from '@/features/photo-lab/client/languagePair';
+import {
+  clearPendingLearningLanguagePair,
+  readPendingLearningLanguagePair,
+  storePendingLearningLanguagePair,
+} from '@/features/shared/languages/learningPairStorage';
 
 describe('Photo Lab language-pair storage', () => {
   beforeEach(() => localStorage.clear());
@@ -22,5 +27,18 @@ describe('Photo Lab language-pair storage', () => {
 
     localStorage.setItem('get-word-photo-lab-langs', '{bad json');
     expect(readPhotoLabLanguagePair()).toEqual({});
+  });
+
+  it('keeps an unconfirmed pair across a remount until it is cleared', () => {
+    const pending = {
+      from: 'cs',
+      to: 'vi',
+      changedAt: '2026-07-28T12:00:00.000Z',
+    };
+    storePendingLearningLanguagePair(pending);
+
+    expect(readPendingLearningLanguagePair()).toEqual(pending);
+    clearPendingLearningLanguagePair();
+    expect(readPendingLearningLanguagePair()).toBeNull();
   });
 });

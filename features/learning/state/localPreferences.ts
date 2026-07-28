@@ -43,11 +43,9 @@ export const readSwipeCardsPreference = () =>
 export const readTiltGamePreference = () =>
   readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.tiltGame) === 'true';
 
-// Shortcut icons for the two word-input paths (chat, photo lab) in the top bar.
-// They are part of the main workspace by default; an explicit stored `false`
-// still respects someone who turned them off.
-export const readQuickAddPreference = () =>
-  readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.quickAdd) !== 'false';
+// Shortcut icons for the app surfaces are now part of the main top bar. Keep
+// this reader as a compatibility shim for older state callers.
+export const readQuickAddPreference = () => true;
 
 export const readRevealModePreference = (): RevealMode =>
   readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.revealMode) === 'press' ? 'press' : 'scratch';

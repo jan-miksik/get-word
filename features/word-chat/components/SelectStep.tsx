@@ -8,6 +8,7 @@ import type { ProposedItem } from '../types';
 import type { WordChatLimits } from '../hooks/useWordChat';
 
 type Props = {
+  mode?: 'suggestions' | 'manual';
   languageFrom: string;
   /** The personal list these words are saved into, by name. */
   listName: string;
@@ -43,6 +44,7 @@ function getProposalKey(item: ProposedItem) {
 }
 
 export function SelectStep({
+  mode = 'suggestions',
   languageFrom,
   listName,
   onListNameChange,
@@ -74,6 +76,8 @@ export function SelectStep({
   const { t, language: uiLanguage } = useI18n();
   const [customInput, setCustomInput] = useState('');
   const [editingKey, setEditingKey] = useState<string | null>(null);
+  const customTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const customInputRef = useRef<HTMLInputElement | null>(null);
   const editInputRef = useRef<HTMLInputElement | null>(null);
 
   const knownName =
@@ -84,13 +88,27 @@ export function SelectStep({
   // the list from then on. Nothing may be saved before it is answered.
   const visibilityAnswered = !askVisibility || isPublic !== null;
   const monthlyExhausted = monthlyRemaining <= 0;
+  const remainingSelections = Math.max(
+    0,
+    Math.min(limits.maxItemsPerSession, monthlyRemaining) - selectedCount,
+  );
 
   function submitCustom(event: FormEvent) {
     event.preventDefault();
     if (!customInput.trim() || atSelectionLimit) return;
-    onAddCustom(customInput);
+    const entries = customInput
+      .split(/\r?\n/)
+      .map((entry) => entry.trim())
+      .filter(Boolean)
+      .slice(0, Math.max(1, remainingSelections));
+    for (const entry of entries) onAddCustom(entry);
     setCustomInput('');
   }
+
+  useEffect(() => {
+    if (mode !== 'manual') return;
+    customTextareaRef.current?.focus();
+  }, [mode]);
 
   useEffect(() => {
     if (!editingKey) return;
@@ -101,8 +119,12 @@ export function SelectStep({
   return (
     <div className="space-y-4">
       <div>
-        <h2 className="text-base font-extrabold">{t('wordChat.selectTitle')}</h2>
-        <p className="mt-1 text-sm onboarding-text-soft">{t('wordChat.selectHint')}</p>
+        <h2 className="text-base font-extrabold">
+          {t(mode === 'manual' ? 'wordChat.manualTitle' : 'wordChat.selectTitle')}
+        </h2>
+        <p className="mt-1 text-sm onboarding-text-soft">
+          {t(mode === 'manual' ? 'wordChat.manualHint' : 'wordChat.selectHint')}
+        </p>
       </div>
 
       <label className="block">
@@ -131,24 +153,28 @@ export function SelectStep({
         />
       </label>
 
-      {/* Bulk actions sit where the checkboxes do — left edge, reading order —
-          and look like the buttons they are. */}
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onSelectAll}
-          className="onboarding-option-secondary rounded-full px-3 py-1.5 text-xs font-bold"
-        >
-          {t('wordChat.selectAll')}
-        </button>
-        <button
-          type="button"
-          onClick={onClearSelection}
-          className="onboarding-option-secondary rounded-full px-3 py-1.5 text-xs font-bold"
-        >
-          {t('wordChat.clearAll')}
-        </button>
-      </div>
+      {proposals.length > 0 ? (
+        <>
+          {/* Bulk actions sit where the checkboxes do — left edge, reading order —
+              and look like the buttons they are. */}
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onSelectAll}
+              className="onboarding-option-secondary rounded-full px-3 py-1.5 text-xs font-bold"
+            >
+              {t('wordChat.selectAll')}
+            </button>
+            <button
+              type="button"
+              onClick={onClearSelection}
+              className="onboarding-option-secondary rounded-full px-3 py-1.5 text-xs font-bold"
+            >
+              {t('wordChat.clearAll')}
+            </button>
+          </div>
+        </>
+      ) : null}
 
       <ul className="space-y-2">
         {proposals.map((item) => {
@@ -264,15 +290,29 @@ export function SelectStep({
           {t('wordChat.addOwnLabel', { language: knownName })}
         </span>
         <div className="flex gap-2">
-          <input
-            type="text"
-            value={customInput}
-            onChange={(event) => setCustomInput(event.target.value)}
-            placeholder={t('wordChat.addOwnPlaceholder')}
-            disabled={atSelectionLimit}
-            maxLength={200}
-            className="word-chat-input min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm disabled:opacity-50"
-          />
+          {mode === 'manual' ? (
+            <textarea
+              ref={customTextareaRef}
+              value={customInput}
+              onChange={(event) => setCustomInput(event.target.value)}
+              placeholder={t('wordChat.manualAddPlaceholder')}
+              disabled={atSelectionLimit}
+              maxLength={1200}
+              rows={4}
+              className="word-chat-input min-w-0 flex-1 resize-y rounded-xl px-3 py-2.5 text-sm disabled:opacity-50"
+            />
+          ) : (
+            <input
+              ref={customInputRef}
+              type="text"
+              value={customInput}
+              onChange={(event) => setCustomInput(event.target.value)}
+              placeholder={t('wordChat.addOwnPlaceholder')}
+              disabled={atSelectionLimit}
+              maxLength={200}
+              className="word-chat-input min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm disabled:opacity-50"
+            />
+          )}
           <button
             type="submit"
             disabled={atSelectionLimit || !customInput.trim()}

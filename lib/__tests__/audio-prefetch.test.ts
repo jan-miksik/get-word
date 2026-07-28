@@ -6,6 +6,10 @@ import {
   prefetchAudio,
 } from '../audio-prefetch';
 
+const clipCacheMocks = vi.hoisted(() => ({ getClipForAudioUrl: vi.fn() }));
+
+vi.mock('@/lib/audio-clip-cache', () => clipCacheMocks);
+
 describe('audio prefetch', () => {
   const load = vi.fn();
   const pause = vi.fn();
@@ -18,6 +22,8 @@ describe('audio prefetch', () => {
     pause.mockClear();
     cacheMatch.mockClear();
     cachePut.mockClear();
+    clipCacheMocks.getClipForAudioUrl.mockReset();
+    clipCacheMocks.getClipForAudioUrl.mockResolvedValue(null);
     nextBlobId = 0;
     vi.stubGlobal('fetch', vi.fn(async () => (
       new Response(new Blob(['audio-bytes'], { type: 'audio/mpeg' }), { status: 200 })
@@ -66,6 +72,19 @@ describe('audio prefetch', () => {
     expect(Audio).toHaveBeenCalledTimes(8);
     expect(load).toHaveBeenCalledTimes(8);
     expect(fetch).toHaveBeenCalledTimes(8);
+  });
+
+  it('serves a locally stored clip without any network request', async () => {
+    clipCacheMocks.getClipForAudioUrl.mockResolvedValue(
+      new Blob(['fresh-bytes'], { type: 'audio/mpeg' }),
+    );
+
+    await prefetchAudio(['/api/audio/hash-fresh']);
+
+    expect(fetch).not.toHaveBeenCalled();
+    expect(getPrefetchedAudioUrl('/api/audio/hash-fresh')).toBe('blob:audio-1');
+    // The local bytes still populate the Cache API so offline playback works.
+    expect(cachePut).toHaveBeenCalledTimes(1);
   });
 
   it('keeps only a bounded window of media elements alive', async () => {

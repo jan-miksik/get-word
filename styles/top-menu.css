@@ -40,7 +40,11 @@
 .top-menu {
   display: flex;
   flex-wrap: nowrap;
-  align-items: center;
+  /* The left block stacks the beta badge over the score/due chips, so centring
+     pushes the shortcuts and the menu button halfway down the bar — noticeably
+     below the top of the screen on a phone. Align everything to the first row
+     instead and let the taller stats block hang below it. */
+  align-items: start;
   gap: 8px;
   width: 100%;
   padding-inline: 16px;

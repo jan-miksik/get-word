@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useI18n } from '@/components/I18nProvider';
-import { SettingsIcon } from '@/components/icons/AppIcons';
-import { getLocalizedLanguageName, normalizeLanguageCode } from '@/lib/i18n/languages';
-import { bundledMessages } from '@/lib/i18n/messages';
+import { PencilIcon, SettingsIcon } from '@/components/icons/AppIcons';
+import { getLocalizedLanguageName } from '@/lib/i18n/languages';
 import type { I18nKey } from '@/lib/i18n/locales/en';
+import { buildFollowUpChips } from '../followUpChips';
 import type { WordChatHistory, WordChatPreferencePatch } from '../hooks/useWordChat';
 import { splitWordChatLevelLabel, wordChatLevelLabelKey } from '../levelLabels';
 import type {
@@ -16,7 +16,8 @@ import type {
 } from '../types';
 import { WORD_CHAT_LANGUAGE_LEVELS } from '../preferences';
 import { ChatSettingsModal } from './ChatSettingsModal';
-import { TypingDots, TypingText } from './TypingText';
+import { SalutationGenderIcon } from './SalutationGenderIcon';
+import { StreamedText, TypingDots, TypingText } from './TypingText';
 
 type ProfileSetupStep = 'address' | 'level' | 'salutation';
 
@@ -24,11 +25,10 @@ type ProfileSetupStep = 'address' | 'level' | 'salutation';
  * Starter chips. Short labels so they scan on a phone; the full brief is what
  * gets sent, so the model still gets something concrete to work with.
  *
- * The full brief lands in the transcript as the learner's own message. Resolve
- * it in the known language rather than blindly using the UI locale: those can
- * differ, and an English UI must not put English words in a Czech learner's
- * mouth. For languages without a bundled dictionary, the UI translation is the
- * readable fallback.
+ * Both halves come from the interface catalog. The brief lands in the
+ * transcript as the learner's own message, and the chat is written in the
+ * interface language, so anything else would put a sentence in their mouth in
+ * a language the rest of the screen is not using.
  */
 type StarterChip = { labelKey: I18nKey; promptKey: I18nKey };
 
@@ -41,18 +41,6 @@ const STARTER_CHIPS: StarterChip[] = [
   { labelKey: 'wordChat.chipFamily', promptKey: 'wordChat.chipFamilyPrompt' },
   { labelKey: 'wordChat.chipTravel', promptKey: 'wordChat.chipTravelPrompt' },
 ];
-
-function resolveStarterPrompt(
-  promptKey: I18nKey,
-  languageFrom: string,
-  uiLanguage: string,
-  translateUi: (key: I18nKey) => string,
-): string {
-  const knownLanguage = normalizeLanguageCode(languageFrom);
-  const normalizedUiLanguage = normalizeLanguageCode(uiLanguage);
-  if (!knownLanguage || knownLanguage === normalizedUiLanguage) return translateUi(promptKey);
-  return bundledMessages[knownLanguage]?.[promptKey] ?? translateUi(promptKey);
-}
 
 type Props = {
   languageFrom: string;
@@ -68,11 +56,13 @@ type Props = {
   addressRegisterApplies: boolean;
   salutationGenderApplies: boolean;
   onPreferencesChange: (patch: WordChatPreferencePatch) => void | Promise<void>;
+  onLanguagePairChange: (pair: { from: string; to: string }) => void | Promise<void>;
   settingsPlacement?: 'inline' | 'screen-header';
   busy: 'chat' | 'propose' | null;
   /** What earlier sessions left behind; null while unknown or on a first visit. */
   history: WordChatHistory | null;
   onSend: (text: string) => void;
+  onStartManualEntry?: () => void;
   active?: boolean;
   embedded?: boolean;
 };
@@ -91,10 +81,12 @@ export function ChatStep({
   addressRegisterApplies,
   salutationGenderApplies,
   onPreferencesChange,
+  onLanguagePairChange,
   settingsPlacement = 'inline',
   busy,
   history,
   onSend,
+  onStartManualEntry,
   active = true,
   embedded = false,
 }: Props) {
@@ -113,7 +105,9 @@ export function ChatStep({
   const endRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const locale = languageFrom || uiLanguage;
+  // The target language's name is dropped into i18n copy, so it has to be
+  // localized the same way that copy is — see `chatLanguage` in `useWordChat`.
+  const locale = uiLanguage || languageFrom;
   const targetName = getLocalizedLanguageName(languageTo, locale) ?? languageTo.toUpperCase();
 
   const scrollToEnd = useCallback(() => {
@@ -122,14 +116,21 @@ export function ChatStep({
   }, [active]);
   const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
-  // The streamed reply grows inside the last message rather than adding one, so
-  // its length has to be a dependency too — otherwise the view stops following
-  // the answer as soon as the first delta lands.
-  const streamingReplyLength = messages[messages.length - 1]?.content.length ?? 0;
+  // The reply is revealed a few characters at a frame, so following it means
+  // scrolling as it is drawn rather than when the text arrives — the message
+  // grows for a moment after the last delta has landed. Rate-limited: a smooth
+  // scroll restarted on every frame fights itself.
+  const lastFollowAtRef = useRef(0);
+  const followRevealedText = useCallback(() => {
+    const now = Date.now();
+    if (now - lastFollowAtRef.current < 120) return;
+    lastFollowAtRef.current = now;
+    scrollToEnd();
+  }, [scrollToEnd]);
 
   useEffect(() => {
     scrollToEnd();
-  }, [messages.length, streamingReplyLength, busy, scrollToEnd]);
+  }, [messages.length, busy, scrollToEnd]);
 
   // The input is disabled while a reply is in flight, which drops focus. Give it
   // back so the learner can just keep typing.
@@ -176,16 +177,68 @@ export function ChatStep({
   const returning = history?.hasHistory === true;
   // Three labels is enough to say "I remember"; more turns the opener into a list.
   const coveredSummary = (history?.coveredTopics ?? []).slice(0, 3).join(', ');
-  const followUpChips = returning ? (history?.missingTopics ?? []).slice(0, 4) : [];
+  // Chips for someone who has been here before come from their brief, so they
+  // follow on from the last session instead of repeating the generic starters.
+  const followUpChips = returning
+    ? buildFollowUpChips({
+        missingTopics: history?.missingTopics ?? [],
+        situations: history?.situations ?? [],
+        goals: history?.goals ?? [],
+        coveredTopics: history?.coveredTopics ?? [],
+      })
+    : [];
   const lastAssistantIndex = messages.reduce(
     (last, message, index) => (message.role === 'assistant' ? index : last),
     -1,
   );
+  const settingsButton = (
+    <button
+      type="button"
+      onClick={() => setSettingsOpen(true)}
+      className="onboarding-option-secondary flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
+      aria-label={t('wordChat.settings')}
+      title={t('wordChat.settings')}
+      aria-haspopup="dialog"
+    >
+      <SettingsIcon size={18} />
+    </button>
+  );
+  const settingsModal = (
+    <ChatSettingsModal
+      isOpen={active && settingsOpen}
+      languageFrom={languageFrom}
+      languageTo={languageTo}
+      addressRegister={addressRegister}
+      salutationGender={salutationGender}
+      languageLevel={languageLevel}
+      addressRegisterApplies={addressRegisterApplies}
+      salutationGenderApplies={salutationGenderApplies}
+      saving={preferencesSaving}
+      onChange={onPreferencesChange}
+      onLanguagePairChange={onLanguagePairChange}
+      onClose={closeSettings}
+    />
+  );
+  const settingsControls =
+    settingsPlacement === 'screen-header' ? (
+      <div className="absolute right-3 top-3 z-20 sm:right-7 sm:top-7">
+        {settingsButton}
+        {settingsModal}
+      </div>
+    ) : (
+      <div className="relative flex justify-end">
+        {settingsButton}
+        {settingsModal}
+      </div>
+    );
 
   if (showProfileSetup && preferencesLoading) {
     return (
-      <div className="flex min-h-24 items-center justify-center">
-        <TypingDots label={t('wordChat.thinking')} />
+      <div>
+        {settingsControls}
+        <div className="flex min-h-24 items-center justify-center">
+          <TypingDots label={t('wordChat.thinking')} />
+        </div>
       </div>
     );
   }
@@ -206,6 +259,7 @@ export function ChatStep({
 
     return (
       <div className="space-y-5">
+        {settingsControls}
         <div className="flex items-center justify-between gap-4">
           <p className="text-base font-bold">
             <TypingText text={t('wordChat.profileTitle')} animate />
@@ -351,8 +405,10 @@ export function ChatStep({
                       style={{ animationDelay: `${60 + index * 45}ms` }}
                     >
                       <span className="min-w-0">
-                        <span className="block text-sm font-black">{levelLabel.code}</span>
-                        <span className="mt-0.5 block text-xs font-bold leading-snug onboarding-text-soft">
+                        <span className="block text-[11px] font-bold uppercase tracking-wide onboarding-text-soft">
+                          {levelLabel.code}
+                        </span>
+                        <span className="mt-0.5 block text-base font-extrabold leading-snug sm:text-lg">
                           {levelLabel.description}
                         </span>
                       </span>
@@ -383,16 +439,24 @@ export function ChatStep({
                     ].join(' ')}
                     style={{ animationDelay: `${80 + index * 55}ms` }}
                   >
-                    <span className="text-sm font-extrabold">
-                      {value === 'female'
-                        ? t('wordChat.salutationFemale')
-                        : value === 'male'
-                          ? t('wordChat.salutationMale')
-                          : t('wordChat.salutationNeutral')}
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <span
+                        aria-hidden="true"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--ob-accent)_14%,transparent)] text-[var(--ob-accent)]"
+                      >
+                        <SalutationGenderIcon gender={value} />
+                      </span>
+                      <span className="text-sm font-extrabold">
+                        {value === 'female'
+                          ? t('wordChat.salutationFemale')
+                          : value === 'male'
+                            ? t('wordChat.salutationMale')
+                            : t('wordChat.salutationNeutral')}
+                      </span>
                     </span>
                     <span
                       aria-hidden="true"
-                      className="translate-x-0 text-lg transition-transform duration-200 group-hover:translate-x-1"
+                      className="shrink-0 translate-x-0 text-lg transition-transform duration-200 group-hover:translate-x-1"
                     >
                       →
                     </span>
@@ -406,58 +470,45 @@ export function ChatStep({
             {t('wordChat.profileSaving')}
           </p>
         ) : null}
+        {onStartManualEntry ? (
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={onStartManualEntry}
+              disabled={preferencesSaving}
+              className="onboarding-option-secondary inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-50"
+            >
+              <PencilIcon size={14} />
+              <span>{t('wordChat.manualStart')}</span>
+            </button>
+          </div>
+        ) : null}
       </div>
     );
   }
 
   return (
     <div className="space-y-4">
-      {preferencesComplete ? (
-        <div
-          className={
-            settingsPlacement === 'screen-header'
-              ? 'absolute right-4 top-4 z-20 flex justify-end sm:right-7 sm:top-7'
-              : 'relative flex justify-end'
-          }
-        >
-          <button
-            type="button"
-            onClick={() => setSettingsOpen(true)}
-            className="onboarding-option-secondary flex h-10 w-10 items-center justify-center rounded-full"
-            aria-label={t('wordChat.settings')}
-            title={t('wordChat.settings')}
-            aria-haspopup="dialog"
-          >
-            <SettingsIcon size={18} />
-          </button>
-          <ChatSettingsModal
-            isOpen={active && settingsOpen}
-            addressRegister={addressRegister}
-            salutationGender={salutationGender}
-            languageLevel={languageLevel}
-            addressRegisterApplies={addressRegisterApplies}
-            salutationGenderApplies={salutationGenderApplies}
-            saving={preferencesSaving}
-            onChange={onPreferencesChange}
-            onClose={closeSettings}
-          />
-        </div>
-      ) : null}
+      {settingsControls}
 
-      {showIntro ? (
-        <div className="space-y-2">
-          <p className="text-base font-bold">
-            {/* A first-time opener can type in. Returning copy is already-known
-                context, so reopening the chat must render it immediately. */}
-            <TypingText
-              text={
-                returning
-                  ? t('wordChat.returningGreeting')
-                  : t(introGreetingKey, { language: targetName })
-              }
-              animate={!returning}
-            />
-          </p>
+      {/* The opener stays above the transcript once the conversation starts: it
+          is the only thing on screen that says what this chat is for and which
+          language it is about, and losing it after the first message left the
+          learner looking at a bare exchange with no framing. */}
+      <div className="space-y-2">
+        <p className={showIntro ? 'text-base font-bold' : 'text-sm font-bold'}>
+          {/* A first-time opener can type in. Returning copy is already-known
+              context, so reopening the chat must render it immediately. */}
+          <TypingText
+            text={
+              returning
+                ? t('wordChat.returningGreeting')
+                : t(introGreetingKey, { language: targetName })
+            }
+            animate={showIntro && !returning}
+          />
+        </p>
+        {showIntro ? (
           <p className="text-sm leading-relaxed onboarding-text-soft">
             {returning
               ? coveredSummary
@@ -470,8 +521,8 @@ export function ChatStep({
                 : t(useFormalUiCopy ? 'wordChat.returningBodyFormal' : 'wordChat.returningBody')
               : t(useFormalUiCopy ? 'wordChat.introBodyFormal' : 'wordChat.introBody')}
           </p>
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
       {messages.length > 0 ? (
         <div className={`${embedded ? '' : 'max-h-[45vh] overflow-y-auto'} space-y-3 pr-1`}>
@@ -501,7 +552,19 @@ export function ChatStep({
                       : 'word-chat-assistant-message',
                   ].join(' ')}
                 >
-                  {message.content}
+                  {message.role === 'assistant' ? (
+                    <StreamedText
+                      text={message.content}
+                      // Only a reply that is still being streamed when its
+                      // bubble appears types itself out; anything already
+                      // finished (an earlier turn, a restored draft) is text
+                      // the learner has seen and must not replay.
+                      animate={message.incomplete === true}
+                      onReveal={followRevealedText}
+                    />
+                  ) : (
+                    message.content
+                  )}
                 </p>
               </div>
             );
@@ -521,52 +584,72 @@ export function ChatStep({
       ) : null}
 
       {!busy && (showIntro || suggestions.length > 0) ? (
-        <div className="flex flex-wrap gap-2">
-          {showIntro
-            ? followUpChips.length > 0
-              ? // Things the learner said they wanted but never studied. Far
-                // better starting points than the generic situations.
-                followUpChips.map((topic) => (
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-2">
+            {showIntro
+              ? followUpChips.length > 0
+                ? // What this learner told us, minus what they already studied.
+                  // Far better starting points than the generic situations.
+                  followUpChips.map(({ topic, kind }) => (
+                    <button
+                      key={`${kind}-${topic}`}
+                      type="button"
+                      onClick={() =>
+                        onSend(
+                          t(
+                            kind === 'continue'
+                              ? useFormalUiCopy
+                                ? 'wordChat.continueTopicPromptFormal'
+                                : 'wordChat.continueTopicPrompt'
+                              : useFormalUiCopy
+                                ? 'wordChat.followUpPromptFormal'
+                                : 'wordChat.followUpPrompt',
+                            { topic },
+                          ),
+                        )
+                      }
+                      className="onboarding-option rounded-full px-3 py-1.5 text-xs font-bold"
+                    >
+                      {kind === 'continue' ? t('wordChat.chipContinueTopic', { topic }) : topic}
+                    </button>
+                  ))
+                : STARTER_CHIPS.map((chip) => (
+                    <button
+                      key={chip.labelKey}
+                      type="button"
+                      onClick={() =>
+                        // The chip's label and the message it sends are the same
+                        // sentence in two lengths, so both come from the
+                        // interface catalog — the language the chat itself now
+                        // speaks.
+                        onSend(t(chip.promptKey))
+                      }
+                      className="onboarding-option rounded-full px-3 py-1.5 text-xs font-bold"
+                    >
+                      {t(chip.labelKey)}
+                    </button>
+                  ))
+              : suggestions.map((suggestion) => (
                   <button
-                    key={topic}
+                    key={suggestion}
                     type="button"
-                    onClick={() =>
-                      onSend(
-                        t(
-                          useFormalUiCopy
-                            ? 'wordChat.followUpPromptFormal'
-                            : 'wordChat.followUpPrompt',
-                          { topic },
-                        ),
-                      )
-                    }
+                    onClick={() => onSend(suggestion)}
                     className="onboarding-option rounded-full px-3 py-1.5 text-xs font-bold"
                   >
-                    {topic}
+                    {suggestion}
                   </button>
-                ))
-              : STARTER_CHIPS.map((chip) => (
-                  <button
-                    key={chip.labelKey}
-                    type="button"
-                    onClick={() =>
-                      onSend(resolveStarterPrompt(chip.promptKey, languageFrom, uiLanguage, t))
-                    }
-                    className="onboarding-option rounded-full px-3 py-1.5 text-xs font-bold"
-                  >
-                    {t(chip.labelKey)}
-                  </button>
-                ))
-            : suggestions.map((suggestion) => (
-                <button
-                  key={suggestion}
-                  type="button"
-                  onClick={() => onSend(suggestion)}
-                  className="onboarding-option rounded-full px-3 py-1.5 text-xs font-bold"
-                >
-                  {suggestion}
-                </button>
-              ))}
+                ))}
+          </div>
+          {showIntro && onStartManualEntry ? (
+            <button
+              type="button"
+              onClick={onStartManualEntry}
+              className="onboarding-option-secondary inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold"
+            >
+              <PencilIcon size={14} />
+              <span>{t('wordChat.manualStart')}</span>
+            </button>
+          ) : null}
         </div>
       ) : null}
 

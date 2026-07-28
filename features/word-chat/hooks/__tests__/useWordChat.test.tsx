@@ -52,6 +52,16 @@ function wrapper({ children }: { children: ReactNode }) {
   return <I18nProvider language="en">{children}</I18nProvider>;
 }
 
+/**
+ * The chat is written in the interface language, so gendered address and the
+ * formal/casual split are decided by that language — not by the study pair.
+ * English has neither, so anything asserting those preferences needs a UI
+ * language that does.
+ */
+function czechUiWrapper({ children }: { children: ReactNode }) {
+  return <I18nProvider language="cs">{children}</I18nProvider>;
+}
+
 async function waitForPreferences(result: { current: { preferencesLoading: boolean } }) {
   await waitFor(() => expect(result.current.preferencesLoading).toBe(false));
 }
@@ -100,6 +110,7 @@ describe('useWordChat', () => {
         reply: 'Připravím návrh.',
         suggestions: [],
         ready_to_propose: true,
+        language_change: null,
         metadata_valid: true,
         diagnostics: null,
       };
@@ -145,7 +156,7 @@ describe('useWordChat', () => {
     act(() => result.current.backToChat());
 
     expect(result.current.step).toBe('chat');
-    expect(result.current.messages).toEqual([
+    expect(result.current.messages).toMatchObject([
       { role: 'user', content: 'Kavárna' },
       { role: 'assistant', content: 'Připravím návrh.' },
     ]);
@@ -153,10 +164,56 @@ describe('useWordChat', () => {
     expect(mocks.clearDraft).not.toHaveBeenCalled();
   });
 
-  it('sends the chosen chat preferences to the chat endpoint', async () => {
+  it('keeps the streamed bubble identity when the finished reply lands', async () => {
+    mocks.sendChatMessageStream.mockReset();
+    let releaseReply: () => void = () => {};
+    const replyReleased = new Promise<void>((resolve) => {
+      releaseReply = resolve;
+    });
+    mocks.sendChatMessageStream.mockImplementationOnce(async (_input, handlers) => {
+      handlers.onDelta('Připravím ');
+      await replyReleased;
+      return {
+        reply: 'Připravím návrh.',
+        suggestions: [],
+        ready_to_propose: false,
+        metadata_valid: true,
+        diagnostics: null,
+      };
+    });
+
     const { result } = renderHook(
       () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
       { wrapper },
+    );
+    await waitForPreferences(result);
+
+    let turn: Promise<void> | null = null;
+    act(() => {
+      turn = result.current.sendMessage('Kavárna');
+    });
+    await waitFor(() => expect(result.current.messages[1]?.content).toBe('Připravím '));
+    const streamedId = result.current.messages[1]?.id;
+    expect(streamedId).toBeTruthy();
+
+    await act(async () => {
+      releaseReply();
+      await turn;
+    });
+
+    // Same id as the placeholder it replaces: React updates the bubble in place
+    // instead of remounting it with the complete answer.
+    expect(result.current.messages[1]).toMatchObject({
+      role: 'assistant',
+      content: 'Připravím návrh.',
+      id: streamedId,
+    });
+  });
+
+  it('sends the chosen chat preferences to the chat endpoint', async () => {
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
+      { wrapper: czechUiWrapper },
     );
     await waitForPreferences(result);
 
@@ -182,6 +239,88 @@ describe('useWordChat', () => {
       salutationGender: 'neutral',
       languageLevel: 'A1',
     });
+  });
+
+  it('writes the chat in the interface language, not the pair source language', async () => {
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'fr', languageTo: 'es', onCommitted: vi.fn() }),
+      { wrapper: czechUiWrapper },
+    );
+    await waitForPreferences(result);
+
+    await act(() => result.current.sendMessage('Chci mluvit s partnerkou'));
+
+    expect(mocks.sendChatMessageStream.mock.calls[0][0]).toMatchObject({
+      chatLanguage: 'cs',
+      languageFrom: 'fr',
+      languageTo: 'es',
+    });
+  });
+
+  it('applies an explicit language change returned by the chat', async () => {
+    const onLanguagePairChange = vi.fn();
+    mocks.sendChatMessageStream.mockResolvedValueOnce({
+      reply: 'Přepínám na češtinu a španělštinu.',
+      suggestions: [],
+      ready_to_propose: false,
+      language_change: { from: 'cs', to: 'es' },
+      metadata_valid: true,
+      diagnostics: null,
+    });
+
+    const { result } = renderHook(
+      () =>
+        useWordChat({
+          languageFrom: 'fr',
+          languageTo: 'vi',
+          onLanguagePairChange,
+          onCommitted: vi.fn(),
+        }),
+      { wrapper: czechUiWrapper },
+    );
+    await waitForPreferences(result);
+
+    await act(() => result.current.sendMessage('Znám česky a chci se učit španělsky.'));
+
+    expect(onLanguagePairChange).toHaveBeenCalledWith({ from: 'cs', to: 'es' });
+    expect(mocks.requestProposal).not.toHaveBeenCalled();
+  });
+
+  it('stages the selected words for the new pair before the flow remounts', async () => {
+    const onLanguagePairChange = vi.fn();
+    const { result } = renderHook(
+      () =>
+        useWordChat({
+          languageFrom: 'cs',
+          languageTo: 'vi',
+          onLanguagePairChange,
+          onCommitted: vi.fn(),
+        }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+    await act(() => result.current.sendMessage('Kavárna'));
+    act(() => result.current.toggleSelected(result.current.proposals[1]));
+    expect(result.current.selectedCount).toBe(1);
+    mocks.saveDraft.mockClear();
+
+    await act(() =>
+      result.current.changeLanguagePair({ from: 'cs', to: 'es' }),
+    );
+
+    expect(onLanguagePairChange).toHaveBeenCalledWith({ from: 'cs', to: 'es' });
+    const migratedCall = mocks.saveDraft.mock.calls.find(
+      ([from, to]) => from === 'cs' && to === 'es',
+    );
+    expect(migratedCall?.[2]).toMatchObject({
+      step: 'select',
+      proposals: [
+        { source: 'generated', text: 'Dám si kávu.' },
+        { source: 'generated', text: 'káva' },
+      ],
+      reviewItems: [],
+    });
+    expect(migratedCall?.[2].selectedKeys).toHaveLength(1);
   });
 
   it('restores the saved chat preferences without asking again', async () => {

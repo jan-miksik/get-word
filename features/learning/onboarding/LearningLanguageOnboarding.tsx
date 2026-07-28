@@ -11,6 +11,7 @@ import { LanguageCombobox } from '@/features/shared/languages/LanguageCombobox';
 import { OnboardingLanguageSwitcher } from './OnboardingLanguageSwitcher';
 import { useLearningOnboardingActions } from './useLearningOnboardingActions';
 import { useLearningOnboardingData } from './useLearningOnboardingData';
+import { LanguagePairChangedBanner } from '@/features/word-chat/components/LanguagePairChangedBanner';
 import { WordChatFlow } from '@/features/word-chat/components/WordChatFlow';
 import type { WordChatStep } from '@/features/word-chat/hooks/useWordChat';
 
@@ -93,6 +94,8 @@ export function LearningLanguageOnboarding({
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [wordChatOpen, setWordChatOpen] = useState(autoOpenWordChat);
   const [wordChatStep, setWordChatStep] = useState<WordChatStep>('chat');
+  const [wordChatChangedPair, setWordChatChangedPair] =
+    useState<{ from: string; to: string } | null>(null);
   const [wordChatBackAction, setWordChatBackAction] = useState<(() => void) | null>(null);
   const updateWordChatBackAction = useCallback((action: (() => void) | null) => {
     setWordChatBackAction(() => action);
@@ -282,9 +285,22 @@ export function LearningLanguageOnboarding({
               )}
               <span />
             </div>
+            {wordChatChangedPair ? (
+              <LanguagePairChangedBanner
+                pair={wordChatChangedPair}
+                onDismiss={() => setWordChatChangedPair(null)}
+              />
+            ) : null}
             <WordChatFlow
+              key={`${languageFrom}\u0000${languageTo}`}
               languageFrom={languageFrom}
               languageTo={languageTo}
+              onLanguagePairChange={({ from, to }) => {
+                setLanguageFrom(from);
+                setLanguageTo(to);
+                setWordChatChangedPair({ from, to });
+                setWordChatStep('chat');
+              }}
               onStepChange={setWordChatStep}
               onHeaderBackActionChange={updateWordChatBackAction}
               settingsPlacement="screen-header"

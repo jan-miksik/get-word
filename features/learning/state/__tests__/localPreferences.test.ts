@@ -13,9 +13,9 @@ describe('quick-add local preference', () => {
     expect(readQuickAddPreference()).toBe(true);
   });
 
-  it('respects explicit enabled and disabled choices', () => {
+  it('stays enabled even when an old disabled choice is stored', () => {
     localStorage.setItem(LEARNING_LOCAL_PREFERENCE_KEYS.quickAdd, 'false');
-    expect(readQuickAddPreference()).toBe(false);
+    expect(readQuickAddPreference()).toBe(true);
     localStorage.setItem(LEARNING_LOCAL_PREFERENCE_KEYS.quickAdd, 'true');
     expect(readQuickAddPreference()).toBe(true);
   });

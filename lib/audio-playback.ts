@@ -2,6 +2,8 @@
 
 import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
 import { getCachedPlayableAudioUrl } from '@/lib/audio-availability';
+import { hashFromAudioUrl } from '@/lib/audio-clip-cache';
+import { getWarmedClipUrl } from '@/lib/audio-clip-playback';
 import { withAudioDebugParam } from '@/lib/audio-debug';
 import { isAudioNetworkOffline } from '@/lib/audio-network-policy';
 import { getPrefetchedAudioUrl } from '@/lib/audio-prefetch';
@@ -39,10 +41,20 @@ function getPlaybackCandidates(audioSrc: string | string[] | null): string[] {
   const downloadedCandidates = [...warmedCandidates, ...gatewayCandidates]
     .map(getPrefetchedAudioUrl)
     .filter((src): src is string => Boolean(src));
+  // Bytes held in the shared clip store, looked up synchronously so the tap
+  // that triggered playback still counts as user activation. A clip generated
+  // moments ago is only here — the proxy would spend seconds on gateways it
+  // cannot serve from yet.
+  const localClipCandidates = sources
+    .map(hashFromAudioUrl)
+    .filter((hash): hash is string => Boolean(hash))
+    .map(getWarmedClipUrl)
+    .filter((src): src is string => Boolean(src));
 
   return Array.from(
     new Set(
       [
+        ...localClipCandidates,
         ...downloadedCandidates,
         ...warmedCandidates,
         ...gatewayCandidates,

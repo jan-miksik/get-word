@@ -26,6 +26,11 @@ import {
   WordChatReplyStreamError,
   WordChatReplyStreamParser,
 } from "./reply-stream-parser";
+import {
+  COMMON_LANGUAGES,
+  GOOGLE_TRANSLATE_LANGUAGES,
+  normalizeLanguageCode,
+} from "@/lib/i18n/languages";
 import type {
   ChatTurnResult,
   WordChatAddressRegister,
@@ -34,6 +39,35 @@ import type {
   WordChatSalutationGender,
 } from "../types";
 import { readAddressRegister, readLanguageLevel, readSalutationGender } from "../preferences";
+
+const SUPPORTED_LANGUAGE_CODES = new Set(
+  [...COMMON_LANGUAGES, ...GOOGLE_TRANSLATE_LANGUAGES].map((language) =>
+    normalizeLanguageCode(language.code),
+  ),
+);
+const LANGUAGE_CODE_RE = /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/i;
+
+function parseLanguageChange(value: unknown): ChatTurnResult["languageChange"] {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const candidate = value as { from?: unknown; to?: unknown };
+  if (typeof candidate.from !== "string" || typeof candidate.to !== "string") return null;
+  const rawFrom = candidate.from.trim();
+  const rawTo = candidate.to.trim();
+  // `normalizeLanguageCode` intentionally falls back to English for malformed
+  // UI values. That is useful for rendering, but unsafe for an action: a model
+  // typo must be rejected, never silently converted into a language change.
+  if (!LANGUAGE_CODE_RE.test(rawFrom) || !LANGUAGE_CODE_RE.test(rawTo)) return null;
+  const from = normalizeLanguageCode(rawFrom);
+  const to = normalizeLanguageCode(rawTo);
+  if (
+    from === to ||
+    !SUPPORTED_LANGUAGE_CODES.has(from) ||
+    !SUPPORTED_LANGUAGE_CODES.has(to)
+  ) {
+    return null;
+  }
+  return { from, to };
+}
 
 export class WordChatUnavailableError extends Error {
   readonly code = "WORD_CHAT_UNAVAILABLE";
@@ -92,6 +126,7 @@ function parseChatTurn(content: string): ChatTurnResult {
     reply,
     suggestions,
     readyToPropose: parsed?.readyToPropose === true,
+    languageChange: parseLanguageChange(parsed?.languageChange),
   };
 }
 
@@ -102,6 +137,7 @@ export type WordChatStreamEvent =
       reply: string;
       suggestions: string[];
       readyToPropose: boolean;
+      languageChange: ChatTurnResult["languageChange"];
       metadataValid: boolean;
       diagnostics: WordChatCallDiagnostics;
     };
@@ -303,6 +339,7 @@ export async function streamChatTurn(input: {
               reply: fallbackReply ?? parser.completeReply.trim(),
               suggestions: [],
               readyToPropose: false,
+              languageChange: null,
             };
           }
 
@@ -340,6 +377,7 @@ export async function streamChatTurn(input: {
             reply: value.reply,
             suggestions: value.suggestions,
             readyToPropose: value.readyToPropose,
+            languageChange: value.languageChange,
             metadataValid,
             diagnostics,
           };
@@ -376,6 +414,7 @@ export async function streamChatTurn(input: {
                 reply: partialReply,
                 suggestions: [],
                 readyToPropose: false,
+                languageChange: null,
                 metadataValid: false,
                 diagnostics,
               };

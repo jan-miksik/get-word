@@ -4,9 +4,20 @@ import { clearAudioAvailabilityCache, getPlayableAudioUrl } from '../audio-avail
 import { playUserInitiatedAudio } from '../audio-playback';
 import { clearPrefetchCache, prefetchAudio } from '../audio-prefetch';
 
+const clipPlaybackMocks = vi.hoisted(() => ({
+  getWarmedClipUrl: vi.fn(),
+  getLocalClipUrl: vi.fn(),
+}));
+
+vi.mock('@/lib/audio-clip-playback', () => clipPlaybackMocks);
+
 describe('playUserInitiatedAudio', () => {
   beforeEach(() => {
     clearAudioAvailabilityCache();
+    clipPlaybackMocks.getWarmedClipUrl.mockReset();
+    clipPlaybackMocks.getWarmedClipUrl.mockReturnValue(null);
+    clipPlaybackMocks.getLocalClipUrl.mockReset();
+    clipPlaybackMocks.getLocalClipUrl.mockResolvedValue(null);
   });
 
   afterEach(() => {
@@ -150,5 +161,32 @@ describe('playUserInitiatedAudio', () => {
     await playUserInitiatedAudio({ current: null }, source);
 
     expect(attemptedSources[0]).toBe('blob:ready-audio');
+  });
+
+  it('prefers clip-store bytes over the proxy for a freshly generated clip', async () => {
+    clipPlaybackMocks.getWarmedClipUrl.mockImplementation((hash: string) =>
+      hash === 'hash-fresh' ? 'blob:fresh-clip' : null,
+    );
+
+    const attemptedSources: string[] = [];
+    vi.stubGlobal(
+      'Audio',
+      vi.fn().mockImplementation(function FakeAudio(this: {
+        src: string;
+        play: () => Promise<void>;
+        pause: () => void;
+      }, src: string) {
+        this.src = src;
+        this.play = () => {
+          attemptedSources.push(this.src);
+          return Promise.resolve();
+        };
+        this.pause = () => {};
+      }),
+    );
+
+    await playUserInitiatedAudio({ current: null }, '/api/audio/hash-fresh');
+
+    expect(attemptedSources[0]).toBe('blob:fresh-clip');
   });
 });

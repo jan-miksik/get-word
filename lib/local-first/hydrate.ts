@@ -26,6 +26,7 @@ type SyncUser = SyncResponse['user'];
 type PendingPreferencePayload = {
   field?: string;
   value?: unknown;
+  values?: Record<string, unknown>;
 };
 
 type PendingProgressPayload = {
@@ -106,6 +107,12 @@ function applyPendingPreference(
   payload: PendingPreferencePayload,
   op: OutboxOp
 ): void {
+  if (isObject(payload.values)) {
+    for (const [field, value] of Object.entries(payload.values)) {
+      applyPendingPreference(user, { field, value }, op);
+    }
+    return;
+  }
   switch (payload.field) {
     case 'show_english':
       if (typeof payload.value === 'boolean') user.show_english = payload.value;

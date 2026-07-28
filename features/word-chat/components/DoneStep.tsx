@@ -8,6 +8,7 @@ type Props = {
   refreshStatus: 'idle' | 'pending' | 'success' | 'error';
   onRetryRefresh: () => Promise<void>;
   onDone?: () => void;
+  doneLabel?: string;
 };
 
 export function DoneStep({
@@ -15,6 +16,7 @@ export function DoneStep({
   refreshStatus,
   onRetryRefresh,
   onDone,
+  doneLabel,
 }: Props) {
   const { t } = useI18n();
   return (
@@ -55,7 +57,7 @@ export function DoneStep({
           disabled={refreshStatus === 'pending'}
           className="onboarding-option onboarding-option-highlight w-full rounded-xl px-5 py-3 text-center text-sm font-extrabold disabled:opacity-50"
         >
-          {t('wordChat.backToStudy')}
+          {doneLabel ?? t('wordChat.backToStudy')}
         </button>
       ) : null}
     </div>
