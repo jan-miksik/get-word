@@ -37,7 +37,14 @@ type Props = {
    * own heading, so the outer screen title would only repeat it.
    */
   onStepChange?: (step: WordChatStep) => void;
+  /**
+   * Lets the host Back button move one step inside the flow when possible.
+   * `null` means the host should use its normal close/exit action.
+   */
+  onHeaderBackActionChange?: (action: (() => void) | null) => void;
   settingsPlacement?: 'inline' | 'screen-header';
+  active?: boolean;
+  embedded?: boolean;
 };
 
 export function WordChatFlow({
@@ -49,7 +56,10 @@ export function WordChatFlow({
   onUseReadyMade,
   onCommitted,
   onStepChange,
+  onHeaderBackActionChange,
   settingsPlacement,
+  active = true,
+  embedded = false,
 }: Props) {
   const { t } = useI18n();
   const chat = useWordChat({
@@ -59,10 +69,32 @@ export function WordChatFlow({
     onCommitted,
     refreshAfterCommit,
   });
+  const resetChat = chat.reset;
 
   useEffect(() => {
     onStepChange?.(chat.step);
   }, [chat.step, onStepChange]);
+
+  useEffect(() => {
+    const action =
+      chat.step === 'select'
+        ? chat.backToChat
+        : chat.step === 'review'
+          ? chat.backToSelect
+          : null;
+    onHeaderBackActionChange?.(action);
+    return () => onHeaderBackActionChange?.(null);
+  }, [chat.backToChat, chat.backToSelect, chat.step, onHeaderBackActionChange]);
+
+  useEffect(() => {
+    if (chat.step !== 'done' || chat.refreshStatus !== 'success' || !onDone) return;
+
+    // The in-app surface stays mounted after it is hidden. Reset before
+    // returning to study so reopening "Add words" starts with a fresh chat
+    // instead of the previous session's completion screen.
+    resetChat();
+    onDone();
+  }, [chat.refreshStatus, chat.step, onDone, resetChat]);
 
   if (chat.unavailable) {
     return (
@@ -160,7 +192,8 @@ export function WordChatFlow({
           busy={chat.busy === 'chat' || chat.busy === 'propose' ? chat.busy : null}
           history={chat.history}
           onSend={chat.sendMessage}
-          onUseReadyMade={onUseReadyMade}
+          active={active}
+          embedded={embedded}
         />
       ) : null}
 
@@ -191,7 +224,7 @@ export function WordChatFlow({
           overMonthlyLimit={chat.overMonthlyLimit}
           atSelectionLimit={chat.atSelectionLimit}
           busy={chat.busy === 'translate'}
-          onBack={chat.reset}
+          onBack={chat.backToChat}
           onContinue={chat.continueToReview}
         />
       ) : null}

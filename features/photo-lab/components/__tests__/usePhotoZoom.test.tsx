@@ -3,9 +3,9 @@ import { useRef } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { usePhotoZoom } from '@/features/photo-lab/components/usePhotoZoom';
 
-function Host({ onLabelClick }: { onLabelClick: () => void }) {
+function Host({ onLabelClick, active = true }: { onLabelClick: () => void; active?: boolean }) {
   const viewportRef = useRef<HTMLDivElement>(null);
-  const { handlers } = usePhotoZoom(viewportRef);
+  const { handlers } = usePhotoZoom(viewportRef, active);
 
   return (
     <div ref={viewportRef} data-testid="viewport" {...handlers}>
@@ -41,5 +41,22 @@ describe('usePhotoZoom', () => {
     fireEvent.pointerDown(viewport, { pointerId: 2, clientX: 30, clientY: 30 });
 
     expect(setPointerCapture).toHaveBeenCalledWith(2);
+  });
+
+  it('does not keep a resize observer active while the photo surface is hidden', () => {
+    const observe = vi.fn();
+    const disconnect = vi.fn();
+    const original = globalThis.ResizeObserver;
+    globalThis.ResizeObserver = class {
+      observe = observe;
+      disconnect = disconnect;
+      unobserve = vi.fn();
+    } as unknown as typeof ResizeObserver;
+
+    render(<Host active={false} onLabelClick={() => undefined} />);
+    expect(observe).not.toHaveBeenCalled();
+    expect(disconnect).not.toHaveBeenCalled();
+
+    globalThis.ResizeObserver = original;
   });
 });

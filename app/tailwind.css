@@ -179,3 +179,39 @@
     transform: scale(1.5);
   }
 }
+
+/* Word-chat profile setup: each answer replaces the card with the next short
+   question. The motion keeps that reveal conversational without slowing the
+   learner down; every animation is disabled by Tailwind's motion-safe variant
+   when reduced motion is preferred. */
+@keyframes word-chat-setup-enter {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes word-chat-setup-option-in {
+  from {
+    opacity: 0;
+    transform: translateY(7px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes word-chat-setup-spark {
+  0%,
+  100% {
+    transform: rotate(-5deg) scale(1);
+  }
+  50% {
+    transform: rotate(7deg) scale(1.08);
+  }
+}

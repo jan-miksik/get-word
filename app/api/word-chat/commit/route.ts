@@ -5,6 +5,10 @@ import { sanitizeMessages } from "@/features/word-chat/server/chat";
 import { canSeeWordChatDiagnostics } from "@/features/word-chat/server/config";
 import { wordChatErrorResponse } from "../errors";
 import type { ReviewItem } from "@/features/word-chat/types";
+import {
+  MAX_WORD_CHAT_ID_CHARS,
+  MAX_WORD_CHAT_ITEM_CHARS,
+} from "@/features/word-chat/server/config";
 
 export const runtime = "nodejs";
 
@@ -19,8 +23,14 @@ type IncomingItem = {
 };
 
 function toReviewItem(item: IncomingItem): ReviewItem | null {
-  const textKnown = typeof item.text_known === "string" ? item.text_known : "";
-  const textTarget = typeof item.text_target === "string" ? item.text_target : "";
+  const textKnown =
+    typeof item.text_known === "string"
+      ? item.text_known.slice(0, MAX_WORD_CHAT_ITEM_CHARS)
+      : "";
+  const textTarget =
+    typeof item.text_target === "string"
+      ? item.text_target.slice(0, MAX_WORD_CHAT_ITEM_CHARS)
+      : "";
   if (!textKnown.trim() || !textTarget.trim()) return null;
   return {
     kind: item.kind === "sentence" ? "sentence" : "word",
@@ -49,8 +59,14 @@ export async function POST(request: NextRequest) {
   if (!user) return unauthorizedResponse();
 
   const body = await request.json().catch(() => ({}));
-  const creationKey = typeof body.creation_key === "string" ? body.creation_key.trim() : "";
-  const sessionId = typeof body.session_id === "string" ? body.session_id.trim() : "";
+  const creationKey =
+    typeof body.creation_key === "string"
+      ? body.creation_key.trim().slice(0, MAX_WORD_CHAT_ID_CHARS)
+      : "";
+  const sessionId =
+    typeof body.session_id === "string"
+      ? body.session_id.trim().slice(0, MAX_WORD_CHAT_ID_CHARS)
+      : "";
 
   if (!creationKey) {
     return NextResponse.json({ error: "creation_key is required" }, { status: 400 });

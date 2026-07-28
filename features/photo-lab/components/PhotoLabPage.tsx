@@ -6,6 +6,10 @@ import Link from 'next/link';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLanguage';
 import { useSupportedLanguages } from '@/features/shared/languages/useSupportedLanguages';
+import {
+  ADDRESS_REGISTER_CHANGED_EVENT,
+  readAddressRegisterPreference,
+} from '@/features/shared/user-preferences/address-register';
 import { readPhotoLabPreference } from '@/features/photo-lab/client/preferences';
 import { WARM_PALETTE, warmPaletteVars } from '@/features/shared/theme/warm-palette';
 import { getLanguageFlag, getLocalizedLanguageName } from '@/lib/i18n/languages';
@@ -87,21 +91,31 @@ type PhotoLabPageProps = {
    * route, where back is a plain link home.
    */
   onClose?: () => void;
+  variant?: 'standalone' | 'embedded';
+  /** Mounted workspace panels stay alive; visual-only effects pause while hidden. */
+  active?: boolean;
 };
 
-export function PhotoLabPage({ onClose }: PhotoLabPageProps) {
+export function PhotoLabPage({
+  onClose,
+  variant = 'standalone',
+  active = true,
+}: PhotoLabPageProps) {
   const settingsLanguage = useSettingsLanguage();
+  const content = <PhotoLabContent onClose={onClose} variant={variant} active={active} />;
 
   return (
     <I18nProvider language={settingsLanguage}>
-      <PhotoLabShell>
-        <PhotoLabContent onClose={onClose} />
-      </PhotoLabShell>
+      {variant === 'standalone' ? <PhotoLabShell>{content}</PhotoLabShell> : content}
     </I18nProvider>
   );
 }
 
-function PhotoLabContent({ onClose }: PhotoLabPageProps) {
+function PhotoLabContent({
+  onClose,
+  variant = 'standalone',
+  active = true,
+}: PhotoLabPageProps) {
   const { t } = useI18n();
   // null = not yet known (first client render); avoids a hydration mismatch.
   const [enabled, setEnabled] = useState<boolean | null>(null);
@@ -115,7 +129,11 @@ function PhotoLabContent({ onClose }: PhotoLabPageProps) {
   if (enabled === null) return null;
   if (!enabled) {
     return (
-      <main className="flex min-h-dvh items-center justify-center p-6">
+      <div
+        className={`flex items-center justify-center p-6 ${
+          variant === 'standalone' ? 'min-h-dvh' : 'min-h-full'
+        }`}
+      >
         <div className="flex max-w-sm flex-col gap-3 rounded-xl border-2 border-[color:var(--ob-ink)] p-6 text-center">
           <p className="m-0 text-sm">{t('photoLab.enableHint')}</p>
           {onClose ? (
@@ -132,10 +150,10 @@ function PhotoLabContent({ onClose }: PhotoLabPageProps) {
             </Link>
           )}
         </div>
-      </main>
+      </div>
     );
   }
-  return <PhotoLabStudio onClose={onClose} />;
+  return <PhotoLabStudio onClose={onClose} variant={variant} active={active} />;
 }
 
 const BACK_LINK_CLASS =
@@ -153,7 +171,11 @@ const BACK_LINK_CLASS =
  * Without that param — a bookmark, a shared link, a new tab — the plain link
  * home is still the right answer.
  */
-export function BackLink({ onClose }: { onClose?: () => void }) {
+export function BackLink({
+  onClose,
+}: {
+  onClose?: () => void;
+}) {
   const { t } = useI18n();
   const [fromStudy, setFromStudy] = useState(false);
 
@@ -293,9 +315,15 @@ function DeletePhotoConfirmModal({
   );
 }
 
-function PhotoLabStudio({ onClose }: PhotoLabPageProps) {
+function PhotoLabStudio({
+  onClose,
+  variant = 'standalone',
+  active = true,
+}: PhotoLabPageProps) {
   const { t } = useI18n();
   const { languages } = useSupportedLanguages();
+  const [addressRegister, setAddressRegister] =
+    useState<ReturnType<typeof readAddressRegisterPreference>>(null);
   const {
     langFrom,
     langTo,
@@ -321,7 +349,7 @@ function PhotoLabStudio({ onClose }: PhotoLabPageProps) {
     removeSession,
     requestDelete,
     cancelDelete,
-  } = usePhotoLabStudio();
+  } = usePhotoLabStudio(active);
   const analysisRemainingSeconds = Math.max(
     1,
     ANALYSIS_ESTIMATE_SECONDS - analysisElapsedSeconds,
@@ -330,27 +358,42 @@ function PhotoLabStudio({ onClose }: PhotoLabPageProps) {
     analysisElapsedSeconds < ANALYSIS_ESTIMATE_SECONDS
       ? t('photoLab.analyzingWithEta', { seconds: analysisRemainingSeconds })
       : t('photoLab.analyzingTakingLonger');
+  const historyTitle = t(
+    addressRegister === 'casual'
+      ? 'photoLab.historyCasual'
+      : 'photoLab.historyFormal',
+  );
+
+  useEffect(() => {
+    const update = () => setAddressRegister(readAddressRegisterPreference());
+    const timeoutId = window.setTimeout(update, 0);
+    window.addEventListener(ADDRESS_REGISTER_CHANGED_EVENT, update);
+    window.addEventListener('storage', update);
+    return () => {
+      window.clearTimeout(timeoutId);
+      window.removeEventListener(ADDRESS_REGISTER_CHANGED_EVENT, update);
+      window.removeEventListener('storage', update);
+    };
+  }, []);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[1800px] flex-col gap-4 px-3 pb-[max(3rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:pt-6 lg:px-8">
-      <header className="flex w-full flex-col gap-5 animate-[photo-lab-rise_0.5s_ease-out_both] motion-reduce:animate-none">
+    <div
+      style={variant === 'embedded' ? warmPaletteVars : undefined}
+      className={`mx-auto flex w-full flex-col gap-3 px-3 pb-[max(3rem,env(safe-area-inset-bottom))] sm:px-4 ${
+        variant === 'standalone'
+          ? 'min-h-dvh max-w-[1800px] pt-[max(1rem,env(safe-area-inset-top))] sm:px-6 sm:pt-6 lg:px-8'
+          : 'max-w-[1800px] text-[color:var(--ob-ink)]'
+      }`}
+    >
+      <header className="mx-auto w-full max-w-[800px] px-1 animate-[photo-lab-rise_0.5s_ease-out_both] motion-reduce:animate-none md:px-4">
         <div className="flex items-center justify-between gap-3">
           <BackLink onClose={onClose} />
           <LanguagePairSummary from={langFrom} to={langTo} onOpen={openLanguageModal} />
         </div>
-        <div className="flex flex-col gap-2.5">
-          <h1 className="m-0 text-3xl font-bold tracking-tight [font-family:var(--font-photo-display),system-ui] sm:text-5xl">
-            {t('photoLab.title')}
-          </h1>
-          <div
-            aria-hidden="true"
-            className="h-2 w-24 -rotate-1 rounded-full bg-[var(--ob-accent)] sm:h-2.5 sm:w-36"
-          />
-        </div>
       </header>
 
       <LanguagePairModal
-        isOpen={langModalOpen}
+        isOpen={active && langModalOpen}
         languages={languages}
         loading={languages.length === 0}
         from={langFrom}
@@ -367,24 +410,6 @@ function PhotoLabStudio({ onClose }: PhotoLabPageProps) {
         className="hidden"
         onChange={handleFileChange}
       />
-      <div className="flex flex-wrap items-center gap-2 animate-[photo-lab-rise_0.5s_ease-out_80ms_both] motion-reduce:animate-none sm:gap-3">
-        <button
-          type="button"
-          // Once the allowance is spent the analysis can only fail, so the
-          // button stops here instead of starting a doomed upload.
-          disabled={!languagesReady || analyzing || limitReached}
-          title={limitReached ? t('photoLab.limitReachedHint') : undefined}
-          onClick={() => fileInputRef.current?.click()}
-          className="rounded-2xl border-2 border-[color:var(--ob-ink)] bg-[var(--ob-accent)] px-5 py-3 text-sm font-bold text-white shadow-lg shadow-[#1E6FA8]/25 transition hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#1E6FA8]/30 active:translate-y-0 active:shadow-md disabled:translate-y-0 disabled:opacity-40 disabled:shadow-none sm:text-base"
-        >
-          📷 {t('photoLab.pickPhoto')}
-        </button>
-        {limitReached && (
-          <span className="text-xs font-medium text-[#B91C1C] sm:text-sm">
-            {t('photoLab.limitReachedHint')}
-          </span>
-        )}
-      </div>
 
       {analyzing && (
         <div
@@ -407,7 +432,7 @@ function PhotoLabStudio({ onClose }: PhotoLabPageProps) {
                 draggable={false}
                 // Safari can let a blurred child leak past the parent's rounded
                 // overflow clip; round the image itself to the inner radius too.
-                className="block w-full select-none opacity-90 blur-[3px] sm:rounded-[14px]"
+                className="block max-h-[calc(100dvh-10rem)] w-full select-none object-contain opacity-90 blur-[3px] sm:rounded-[14px]"
               />
               <div aria-hidden="true" className="absolute inset-0 bg-black/25" />
               <div
@@ -468,74 +493,81 @@ function PhotoLabStudio({ onClose }: PhotoLabPageProps) {
           imageUrl={current.imageUrl}
           labels={current.session.labels}
           audioHashes={current.session.audioHashes}
+          active={active}
         />
       )}
 
-      <section className="mt-4 flex w-full max-w-5xl flex-col gap-4 animate-[photo-lab-rise_0.5s_ease-out_160ms_both] motion-reduce:animate-none">
+      <section className="mt-2 flex w-full max-w-5xl flex-col gap-4 animate-[photo-lab-rise_0.5s_ease-out_160ms_both] motion-reduce:animate-none">
         <div className="flex flex-col gap-1">
           <h2 className="m-0 text-base font-semibold text-[color:var(--ob-ink)] [font-family:var(--font-photo-display),system-ui] sm:text-lg">
-            {t('photoLab.history')}
+            {historyTitle}
           </h2>
           <p className="m-0 text-xs text-[color:var(--ob-ink-soft)]">
             {t('photoLab.historyNote')}
           </p>
         </div>
-        {history.length === 0 ? (
-          <div className="flex flex-col items-center gap-1.5 rounded-2xl border-2 border-dashed border-[color:var(--ob-ink)]/30 px-4 py-8 text-center">
-            <span aria-hidden="true" className="text-2xl">
-              📷
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
+          <button
+            type="button"
+            disabled={!languagesReady || analyzing || limitReached}
+            title={limitReached ? t('photoLab.limitReachedHint') : undefined}
+            onClick={() => fileInputRef.current?.click()}
+            className="flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[color:var(--ob-ink)]/45 bg-[var(--ob-accent)]/8 px-3 text-center text-[color:var(--ob-ink)] transition hover:-translate-y-1 hover:border-[color:var(--ob-ink)] hover:bg-[var(--ob-accent)]/15 hover:shadow-lg hover:shadow-[#2A2218]/15 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
+          >
+            <span aria-hidden="true" className="text-4xl font-light leading-none text-[var(--ob-accent)]">
+              +
             </span>
-            <p className="m-0 text-xs text-[color:var(--ob-ink-soft)]">
-              {t('photoLab.historyEmpty')}
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-            {history.map((session) => (
-              <div key={session.id} className="group relative">
-                <button
-                  type="button"
-                  onClick={() => void openSession(session)}
-                  className="relative block w-full overflow-hidden rounded-xl border-2 border-[color:var(--ob-ink)]/25 transition group-hover:-translate-y-1 group-hover:border-[color:var(--ob-ink)] group-hover:shadow-lg group-hover:shadow-[#2A2218]/15"
-                >
-                  {thumbUrls.get(session.id) ? (
-                    // eslint-disable-next-line @next/next/no-img-element -- local blob URL
-                    <img
-                      src={thumbUrls.get(session.id)}
-                      alt=""
-                      className="block aspect-square w-full object-cover"
-                    />
-                  ) : (
-                    <span className="block aspect-square w-full bg-[#2A2218]/10" />
-                  )}
-                  <span className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-gradient-to-t from-black/65 to-transparent px-2 pb-1.5 pt-7 text-[11px] font-medium text-white">
-                    <span aria-hidden="true">{getLanguageFlag(session.languageFrom)}</span>
-                    <span aria-hidden="true">→</span>
-                    <span aria-hidden="true">{getLanguageFlag(session.languageTo)}</span>
-                    <span className="ml-auto tabular-nums">{session.labels.length}</span>
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => requestDelete(session.id)}
-                  aria-label={t('photoLab.deletePhoto')}
-                  className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-white/40 bg-black/60 text-[11px] text-white transition hover:bg-black/80"
-                >
-                  ✕
-                </button>
-              </div>
-            ))}
-          </div>
+            <span className="text-xs font-bold sm:text-sm">{t('photoLab.pickPhoto')}</span>
+          </button>
+          {history.map((session) => (
+            <div key={session.id} className="group relative">
+              <button
+                type="button"
+                onClick={() => void openSession(session)}
+                className="relative block w-full overflow-hidden rounded-xl border-2 border-[color:var(--ob-ink)]/25 transition group-hover:-translate-y-1 group-hover:border-[color:var(--ob-ink)] group-hover:shadow-lg group-hover:shadow-[#2A2218]/15"
+              >
+                {thumbUrls.get(session.id) ? (
+                  // eslint-disable-next-line @next/next/no-img-element -- local blob URL
+                  <img
+                    src={thumbUrls.get(session.id)}
+                    alt=""
+                    className="block aspect-square w-full object-cover"
+                  />
+                ) : (
+                  <span className="block aspect-square w-full bg-[#2A2218]/10" />
+                )}
+                <span className="absolute inset-x-0 bottom-0 flex items-center gap-1 bg-gradient-to-t from-black/65 to-transparent px-2 pb-1.5 pt-7 text-[11px] font-medium text-white">
+                  <span aria-hidden="true">{getLanguageFlag(session.languageFrom)}</span>
+                  <span aria-hidden="true">→</span>
+                  <span aria-hidden="true">{getLanguageFlag(session.languageTo)}</span>
+                  <span className="ml-auto tabular-nums">{session.labels.length}</span>
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => requestDelete(session.id)}
+                aria-label={t('photoLab.deletePhoto')}
+                className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-white/40 bg-black/60 text-[11px] text-white transition hover:bg-black/80"
+              >
+                ✕
+              </button>
+            </div>
+          ))}
+        </div>
+        {limitReached && (
+          <span className="text-xs font-medium text-[#B91C1C] sm:text-sm">
+            {t('photoLab.limitReachedHint')}
+          </span>
         )}
         {usage && <UsageBadge usage={usage} />}
       </section>
 
-      {confirmDeleteId && (
+      {active && confirmDeleteId && (
         <DeletePhotoConfirmModal
           onConfirm={() => void removeSession(confirmDeleteId)}
           onCancel={cancelDelete}
         />
       )}
-    </main>
+    </div>
   );
 }

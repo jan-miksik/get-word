@@ -75,7 +75,7 @@
 
 @media (min-width: 768px) {
   .app {
-    padding-top: 32px;
+    padding-top: max(4px, env(safe-area-inset-top, 0px));
   }
 
   .app-header-bar {
@@ -95,6 +95,10 @@
   min-width: 0;
   overscroll-behavior-y: contain;
   -webkit-overflow-scrolling: touch;
+}
+
+.app > main.app-workspace-main {
+  padding-bottom: 0;
 }
 
 @media (min-width: 767px) {

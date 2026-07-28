@@ -11,14 +11,17 @@ import {
   OPENROUTER_RETRY_BASE_DELAY_MS,
   OPENROUTER_TIMEOUT_MS,
   EXCLUSION_PROMPT_LIMIT,
+  MAX_WORD_CHAT_ITEM_CHARS,
   PROPOSAL_MAX_TOKENS,
+  PROPOSAL_REASONING,
   TARGET_ITEM_COUNT,
   WORD_CHAT_PROPOSAL_MODEL,
-  WORD_CHAT_PROVIDER_PREFERENCES,
+  WORD_CHAT_PROPOSAL_PROVIDER_PREFERENCES,
   getServerApiKey,
 } from "./config";
 import { WordChatUnavailableError } from "./chat";
 import { buildProposalPrompt } from "./prompt";
+import { proposalDifficultyIssue } from "../difficulty";
 import { buildCallDiagnostics, type WordChatCallDiagnostics } from "./diagnostics";
 import {
   dedupKey,
@@ -36,7 +39,13 @@ import type {
 } from "../types";
 
 const MAX_CATEGORY_NAME_CHARS = 60;
-const MAX_ITEM_CHARS = 200;
+
+/**
+ * How many attempts may be rejected for being below the requested level before
+ * the guard stands down. One fresh attempt is worth paying for; spending the
+ * whole budget on a heuristic would turn a usable list into an error screen.
+ */
+const DIFFICULTY_RETRY_BUDGET = 1;
 
 type RawItem = {
   kind?: unknown;
@@ -204,7 +213,9 @@ function normalizeConfidence(value: unknown): number {
 }
 
 function cleanItemText(value: unknown): string {
-  return typeof value === "string" ? value.trim().replace(/\s+/g, " ").slice(0, MAX_ITEM_CHARS) : "";
+  return typeof value === "string"
+    ? value.trim().replace(/\s+/g, " ").slice(0, MAX_WORD_CHAT_ITEM_CHARS)
+    : "";
 }
 
 /** Reuse lookup: comparison key → the row to snap a matching proposal onto. */
@@ -239,7 +250,20 @@ export function corpusPoolByText(pool: CorpusEntry[]): Map<string, CorpusMatch> 
   return byText;
 }
 
-function parseProposal(content: string): {
+function parseProposal(
+  content: string,
+  input: {
+    languageFrom: string;
+    languageLevel: WordChatLanguageLevel;
+    /**
+     * False once the difficulty retry budget is spent. The guard is a
+     * heuristic, so a batch it dislikes is still a usable list; failing the
+     * whole request over it would trade slightly-too-easy words for a generic
+     * error screen.
+     */
+    enforceDifficulty: boolean;
+  },
+): {
   categoryName: string;
   reviewLabel: string;
   raw: RawItem[];
@@ -248,6 +272,19 @@ function parseProposal(content: string): {
   const raw = Array.isArray(parsed?.items) ? (parsed.items as RawItem[]) : null;
   if (!raw || raw.length === 0) {
     throw new OpenRouterChatError("Word chat returned no proposed items.", true);
+  }
+  const difficultyIssue = input.enforceDifficulty
+    ? proposalDifficultyIssue({
+        level: input.languageLevel,
+        languageFrom: input.languageFrom,
+        items: raw,
+      })
+    : null;
+  if (difficultyIssue) {
+    throw new OpenRouterChatError(
+      `Word chat returned a proposal below the requested level: ${difficultyIssue}.`,
+      true,
+    );
   }
   return {
     categoryName: cleanLabel(parsed?.categoryName, "My words", MAX_CATEGORY_NAME_CHARS),
@@ -405,6 +442,10 @@ export async function proposeItems(input: {
     { role: "user" as const, content: user },
   ];
 
+  // `parse` runs once per attempt inside the shared retry loop, so counting
+  // calls here is what tells the guard which attempt it is on.
+  let difficultyAttempts = 0;
+
   const { value, meta } = await callOpenRouterChatParsedWithMeta(
     {
       apiKey,
@@ -414,11 +455,19 @@ export async function proposeItems(input: {
       retryBaseDelayMs: OPENROUTER_RETRY_BASE_DELAY_MS,
       timeoutMs: OPENROUTER_TIMEOUT_MS,
       maxTokens: PROPOSAL_MAX_TOKENS,
+      reasoning: { ...PROPOSAL_REASONING },
       responseFormat: { type: "json_object" },
-      provider: { ...WORD_CHAT_PROVIDER_PREFERENCES },
+      provider: { ...WORD_CHAT_PROPOSAL_PROVIDER_PREFERENCES },
       messages,
     },
-    parseProposal,
+    (content) => {
+      difficultyAttempts += 1;
+      return parseProposal(content, {
+        languageFrom: input.languageFrom,
+        languageLevel: input.languageLevel,
+        enforceDifficulty: difficultyAttempts <= DIFFICULTY_RETRY_BUDGET,
+      });
+    },
   );
 
   // An entry the learner already studies is not reuse material: matching onto it
@@ -463,7 +512,7 @@ export async function proposeItems(input: {
         ? {
             request: {
               maxTokens: PROPOSAL_MAX_TOKENS,
-              provider: WORD_CHAT_PROVIDER_PREFERENCES,
+              provider: WORD_CHAT_PROPOSAL_PROVIDER_PREFERENCES,
               messages,
             },
           }

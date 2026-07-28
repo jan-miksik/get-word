@@ -20,6 +20,7 @@ import {
   clearPendingCommonListAudio,
   readPendingCommonListAudio,
 } from '@/features/learning/onboarding/pendingCommonListAudio';
+import type { AppSurface } from '@/features/workspace/surface-history';
 
 interface AppLayoutProps {
   // Page-level UI state (localStorage-only, not in context)
@@ -41,6 +42,10 @@ interface AppLayoutProps {
   onOpenWordChat?: () => void;
   /** Opens photo lab in place, the same way. */
   onOpenPhotoLab?: () => void;
+  /** Active content surface shown below the persistent app chrome. */
+  activeSurface?: AppSurface;
+  /** Navigates between study, chat, and photo lab without tearing down the shell. */
+  onSurfaceChange?: (surface: AppSurface) => void;
   // Page-computed values (differ between main and edit page)
   categories: Array<{ name: string; count: number }>;
   progressStats: ProgressStats;
@@ -61,6 +66,8 @@ export function AppLayout({
   school,
   onOpenWordChat,
   onOpenPhotoLab,
+  activeSurface = 'study',
+  onSurfaceChange,
   categories,
   progressStats,
   header,
@@ -150,6 +157,8 @@ export function AppLayout({
           school={school}
           onOpenWordChat={onOpenWordChat}
           onOpenPhotoLab={onOpenPhotoLab}
+          activeSurface={activeSurface}
+          onSurfaceChange={onSurfaceChange}
           quickAddEnabled={quickAddEnabled}
           centerContent={
             isAuthenticated

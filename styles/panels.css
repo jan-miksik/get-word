@@ -1259,17 +1259,6 @@
   color: var(--ob-ink, #2A2218);
 }
 
-.word-chat-stream-caret {
-  display: inline-block;
-  width: 0.45em;
-  height: 1em;
-  margin-left: 0.12em;
-  border-radius: 999px;
-  background: currentColor;
-  transform: translateY(0.16em);
-  animation: word-chat-caret-blink 1s steps(2, jump-none) infinite;
-}
-
 /* Word chat: the tick on a proposed item.
    The whole row is the hit target, so this is presentation only — but it has to
    read as a checkbox at a glance, on both a plain and a selected (accent-filled)
@@ -1324,14 +1313,8 @@
   40% { opacity: 0.9; transform: translateY(-2px); }
 }
 
-@keyframes word-chat-caret-blink {
-  0%, 55% { opacity: 0.75; }
-  56%, 100% { opacity: 0; }
-}
-
 @media (prefers-reduced-motion: reduce) {
-  .word-chat-dot,
-  .word-chat-stream-caret {
+  .word-chat-dot {
     animation: none;
     opacity: 0.6;
   }

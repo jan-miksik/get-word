@@ -6,6 +6,7 @@ import type {
   WordChatMessage,
   WordChatSalutationGender,
 } from '../types';
+import { proposalDifficultyIssue } from '../difficulty';
 
 /**
  * Draft persistence for an in-progress word-chat session.
@@ -19,8 +20,11 @@ import type {
  */
 
 const STORAGE_PREFIX = 'get-word-word-chat-draft';
-// v4: first-chat preferences include register, salutation gender, and level.
-const SCHEMA_VERSION = 4;
+// v5: proposals added CEFR-specific quality guards. The loader selectively
+// migrates valid v4 work instead of throwing every paid-for in-progress
+// proposal away.
+const SCHEMA_VERSION = 5;
+const PREVIOUS_SCHEMA_VERSION = 4;
 const TTL_MS = 24 * 60 * 60 * 1000;
 
 type WordChatDraftStep = 'chat' | 'select' | 'review';
@@ -58,12 +62,31 @@ export function loadDraft(
     const raw = window.localStorage.getItem(storageKey(languageFrom, languageTo));
     if (!raw) return null;
     const parsed = JSON.parse(raw) as WordChatDraft;
-    if (parsed?.version !== SCHEMA_VERSION) return null;
+    if (
+      parsed?.version !== SCHEMA_VERSION &&
+      parsed?.version !== PREVIOUS_SCHEMA_VERSION
+    ) {
+      return null;
+    }
     if (!parsed.savedAt || Date.now() - parsed.savedAt > TTL_MS) {
       clearDraft(languageFrom, languageTo);
       return null;
     }
-    return parsed;
+    if (
+      parsed.version === PREVIOUS_SCHEMA_VERSION &&
+      parsed.languageLevel &&
+      proposalDifficultyIssue({
+        level: parsed.languageLevel,
+        languageFrom,
+        items: parsed.proposals,
+      })
+    ) {
+      clearDraft(languageFrom, languageTo);
+      return null;
+    }
+    return parsed.version === SCHEMA_VERSION
+      ? parsed
+      : { ...parsed, version: SCHEMA_VERSION };
   } catch {
     return null;
   }

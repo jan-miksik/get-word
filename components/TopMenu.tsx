@@ -18,9 +18,10 @@ import {
   WordChatIcon,
   WordListsIcon,
 } from '@/components/icons/AppIcons';
+import type { AppSurface } from '@/features/workspace/surface-history';
 
-/** Photo lab is its own page; `from=study` tells it to go back rather than to `/`. */
-const PHOTO_LAB_FROM_STUDY_HREF = '/photo-lab?from=study';
+const CHAT_SURFACE_HREF = '/?surface=chat';
+const PHOTO_SURFACE_HREF = '/?surface=photo';
 
 interface TopMenuProps {
   onShowAll: () => void;
@@ -50,6 +51,10 @@ interface TopMenuProps {
   onOpenPhotoLab?: () => void;
   /** Mirrors the two word-input paths as icons in the centre of the bar. */
   quickAddEnabled?: boolean;
+  /** Active workspace destination, used for persistent navigation state. */
+  activeSurface?: AppSurface;
+  /** Switches workspace content while keeping the app shell mounted. */
+  onSurfaceChange?: (surface: AppSurface) => void;
 }
 
 function shortenListName(name: string): string {
@@ -134,11 +139,15 @@ function TelegramIcon({ size = 15 }: { size?: number }) {
 // invisible until hover. The `--tm-*` vars are scoped to `.top-menu`.
 const QUICK_ADD_BUTTON_CLASS =
   'inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border-0 bg-transparent text-[var(--tm-ink-soft)] transition-colors hover:bg-[var(--tm-surface)] hover:text-[var(--tm-ink)]';
+const QUICK_ADD_BUTTON_ACTIVE_CLASS =
+  '!bg-[var(--tm-accent)] !text-[var(--tm-surface)] shadow-[0_2px_0_rgba(42,34,24,0.18)]';
 
 interface QuickAddButtonsProps {
   photoLabEnabled?: boolean;
   onOpenWordChat?: () => void;
   onOpenPhotoLab?: () => void;
+  activeSurface: AppSurface;
+  onSurfaceChange?: (surface: AppSurface) => void;
 }
 
 /**
@@ -150,47 +159,56 @@ function QuickAddButtons({
   photoLabEnabled,
   onOpenWordChat,
   onOpenPhotoLab,
+  activeSurface,
+  onSurfaceChange,
 }: QuickAddButtonsProps) {
   const { t } = useI18n();
 
   return (
-    <div className="flex items-center gap-1.5">
-      <button
-        type="button"
-        className={QUICK_ADD_BUTTON_CLASS}
+    <nav className="flex items-center gap-1.5" aria-label={t('top.quickAddLabel')}>
+      <a
+        href={CHAT_SURFACE_HREF}
+        className={`${QUICK_ADD_BUTTON_CLASS} ${
+          activeSurface === 'chat' ? QUICK_ADD_BUTTON_ACTIVE_CLASS : ''
+        }`}
+        aria-current={activeSurface === 'chat' ? 'page' : undefined}
         aria-label={t('top.quickAddChat')}
         title={t('top.quickAddChat')}
-        onClick={() => {
-          if (onOpenWordChat) {
-            onOpenWordChat();
-            return;
-          }
-          window.location.assign('/?onboarding=1&wordChat=1');
+        onClick={(event) => {
+          if (!onSurfaceChange && !onOpenWordChat) return;
+          if (event.defaultPrevented || event.button !== 0) return;
+          if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+          event.preventDefault();
+          if (activeSurface === 'chat') return;
+          if (onSurfaceChange) onSurfaceChange('chat');
+          else onOpenWordChat?.();
         }}
       >
         <WordChatIcon size={25} />
-      </button>
+      </a>
       {photoLabEnabled && (
         <a
-          href={PHOTO_LAB_FROM_STUDY_HREF}
-          className={QUICK_ADD_BUTTON_CLASS}
+          href={PHOTO_SURFACE_HREF}
+          className={`${QUICK_ADD_BUTTON_CLASS} ${
+            activeSurface === 'photo' ? QUICK_ADD_BUTTON_ACTIVE_CLASS : ''
+          }`}
+          aria-current={activeSurface === 'photo' ? 'page' : undefined}
           aria-label={t('top.quickAddPhoto')}
           title={t('top.quickAddPhoto')}
-          // Stays an anchor so a modifier click still opens the lab in its own
-          // tab; a plain click opens it over the study view instead, leaving
-          // the deck running behind it.
           onClick={(event) => {
-            if (!onOpenPhotoLab) return;
+            if (!onSurfaceChange && !onOpenPhotoLab) return;
             if (event.defaultPrevented || event.button !== 0) return;
             if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
             event.preventDefault();
-            onOpenPhotoLab();
+            if (activeSurface === 'photo') return;
+            if (onSurfaceChange) onSurfaceChange('photo');
+            else onOpenPhotoLab?.();
           }}
         >
           <PhotoLabIcon size={25} />
         </a>
       )}
-    </div>
+    </nav>
   );
 }
 
@@ -382,6 +400,8 @@ interface MenuDropdownProps {
   school?: SchoolMembership | null;
   onOpenWordChat?: () => void;
   onOpenPhotoLab?: () => void;
+  activeSurface: AppSurface;
+  onSurfaceChange?: (surface: AppSurface) => void;
 }
 
 function MenuDropdown({
@@ -397,6 +417,8 @@ function MenuDropdown({
   school,
   onOpenWordChat,
   onOpenPhotoLab,
+  activeSurface,
+  onSurfaceChange,
 }: MenuDropdownProps) {
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
@@ -417,7 +439,15 @@ function MenuDropdown({
   type PanelItem = { kind: 'panel'; icon: ReactNode; label: string; panel: MenuPanel; active: boolean; badge: string | null };
   type LinkItem = { kind: 'link'; icon: ReactNode; label: string; href: string; external?: boolean };
   type ActionItem = { kind: 'action'; icon: ReactNode; label: string; onSelect: () => void; trailing?: string | null };
-  type MenuItem = PanelItem | LinkItem | ActionItem;
+  type SurfaceItem = {
+    kind: 'surface';
+    icon: ReactNode;
+    label: string;
+    href: string;
+    surface: AppSurface;
+    onSelect: () => void;
+  };
+  type MenuItem = PanelItem | LinkItem | ActionItem | SurfaceItem;
 
   const hasLists = !!(lists && lists.length > 0 && onListChange);
   const activeList = hasLists ? lists!.find((l) => l.id === activeListId) ?? null : null;
@@ -439,19 +469,15 @@ function MenuDropdown({
         ]
       : []),
     {
-      kind: 'action',
+      kind: 'surface',
       icon: <WordListsIcon size={15} />,
       label: t('wordChat.addWords'),
-      // An in-app action, not a link: the learning page reads `?wordChat=1` once
-      // on mount, so a client-side navigation to it from inside the app changes
-      // the URL and nothing else. The URL stays as the fallback for hosts that
-      // do not own the flow (and for a fresh load).
+      href: CHAT_SURFACE_HREF,
+      surface: 'chat',
       onSelect: () => {
-        if (onOpenWordChat) {
-          onOpenWordChat();
-          return;
-        }
-        window.location.assign('/?onboarding=1&wordChat=1');
+        if (onSurfaceChange) onSurfaceChange('chat');
+        else if (onOpenWordChat) onOpenWordChat();
+        else window.location.assign(CHAT_SURFACE_HREF);
       },
     },
     {
@@ -465,19 +491,15 @@ function MenuDropdown({
     ...(photoLabEnabled
       ? [
           {
-            kind: 'action' as const,
+            kind: 'surface' as const,
             icon: <PhotoLabIcon size={15} />,
             label: t('top.photoLab'),
-            // Opened over the study view, like the word chat — a route
-            // navigation would tear the deck down and strand the learner in a
-            // page that no longer looks like the app. The URL stays as the
-            // fallback for hosts that do not own the flow.
+            href: PHOTO_SURFACE_HREF,
+            surface: 'photo' as const,
             onSelect: () => {
-              if (onOpenPhotoLab) {
-                onOpenPhotoLab();
-                return;
-              }
-              window.location.assign(PHOTO_LAB_FROM_STUDY_HREF);
+              if (onSurfaceChange) onSurfaceChange('photo');
+              else if (onOpenPhotoLab) onOpenPhotoLab();
+              else window.location.assign(PHOTO_SURFACE_HREF);
             },
           },
         ]
@@ -577,6 +599,29 @@ function MenuDropdown({
               </div>
             )}
             {items.map((item) => {
+              if (item.kind === 'surface') {
+                const current = item.surface === activeSurface;
+                return (
+                  <a
+                    key={item.label}
+                    href={item.href}
+                    role="menuitem"
+                    aria-current={current ? 'page' : undefined}
+                    className={`menu-item${current ? ' is-active' : ''}`}
+                    onClick={(event) => {
+                      if (event.defaultPrevented || event.button !== 0) return;
+                      if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+                      event.preventDefault();
+                      if (!current) item.onSelect();
+                      setOpen(false);
+                    }}
+                  >
+                    <span className="menu-item-icon">{item.icon}</span>
+                    <span className="menu-item-label">{item.label}</span>
+                    {current ? <span className="menu-item-active-dot" /> : null}
+                  </a>
+                );
+              }
               if (item.kind === 'link') {
                 return (
                   <a
@@ -670,9 +715,14 @@ export function TopMenu({
   onOpenWordChat,
   onOpenPhotoLab,
   quickAddEnabled,
+  activeSurface = 'study',
+  onSurfaceChange,
 }: TopMenuProps) {
   return (
-    <div className="top-menu" aria-label="Top menu">
+    <div
+      className={`top-menu${quickAddEnabled ? ' top-menu--quick-add' : ''}`}
+      aria-label="Top menu"
+    >
       {/* The stats block is `flex-shrink: 0` by default and eats the whole bar
           on a narrow phone. When the shortcuts are on it has to give way — the
           score/due chips wrap instead, which is the cheaper loss. */}
@@ -691,18 +741,14 @@ export function TopMenu({
           in it, `min-width: 0` would starve them into the `overflow: hidden`
           clip on a narrow phone — a content floor keeps them whole and still
           lets the slot grow to centre them when the bar has room. */}
-      <div
-        className={`top-menu-center flex items-center justify-center min-w-0 flex-1 gap-1 ${
-          quickAddEnabled
-            ? '!min-w-fit !overflow-visible self-start -mt-2 md:-mt-8'
-            : ''
-        }`}
-      >
+      <div className={`top-menu-center ${quickAddEnabled ? 'top-menu-center--quick-add' : ''}`}>
         {quickAddEnabled && (
           <QuickAddButtons
             photoLabEnabled={photoLabEnabled}
             onOpenWordChat={onOpenWordChat}
             onOpenPhotoLab={onOpenPhotoLab}
+            activeSurface={activeSurface}
+            onSurfaceChange={onSurfaceChange}
           />
         )}
       </div>
@@ -720,6 +766,8 @@ export function TopMenu({
           school={school}
           onOpenWordChat={onOpenWordChat}
           onOpenPhotoLab={onOpenPhotoLab}
+          activeSurface={activeSurface}
+          onSurfaceChange={onSurfaceChange}
         />
       </div>
     </div>

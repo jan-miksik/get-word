@@ -160,7 +160,10 @@ describe('SelectStep', () => {
     expect(onToggle).toHaveBeenCalledWith(proposal);
     expect(onUpdateProposal).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Edit: káva' }));
+    const editButton = screen.getByRole('button', { name: 'Edit: káva' });
+    expect(editButton).toHaveClass('sm:opacity-0', 'sm:group-hover:opacity-70');
+
+    fireEvent.click(editButton);
     expect(onToggle).toHaveBeenCalledOnce();
 
     fireEvent.change(screen.getByDisplayValue('káva'), { target: { value: 'silná káva' } });

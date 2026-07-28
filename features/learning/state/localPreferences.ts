@@ -44,10 +44,10 @@ export const readTiltGamePreference = () =>
   readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.tiltGame) === 'true';
 
 // Shortcut icons for the two word-input paths (chat, photo lab) in the top bar.
-// Opt-in while we watch whether the top bar is the right home for them; the
-// menu entries stay in place either way.
+// They are part of the main workspace by default; an explicit stored `false`
+// still respects someone who turned them off.
 export const readQuickAddPreference = () =>
-  readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.quickAdd) === 'true';
+  readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.quickAdd) !== 'false';
 
 export const readRevealModePreference = (): RevealMode =>
   readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.revealMode) === 'press' ? 'press' : 'scratch';

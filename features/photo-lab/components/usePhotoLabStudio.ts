@@ -29,7 +29,7 @@ import type { PhotoLabSession } from '../types';
 
 const HISTORY_LIMIT = 20;
 
-export function usePhotoLabStudio() {
+export function usePhotoLabStudio(active = true) {
   const [langFrom, setLangFrom] = useState('');
   const [langTo, setLangTo] = useState('');
   const [langModalOpen, setLangModalOpen] = useState(false);
@@ -92,13 +92,13 @@ export function usePhotoLabStudio() {
   }, []);
 
   useEffect(() => {
-    if (analysisStartedAt === null) return undefined;
+    if (analysisStartedAt === null || !active) return undefined;
     const updateElapsed = () =>
       setAnalysisElapsedSeconds(Math.floor((Date.now() - analysisStartedAt) / 1000));
     updateElapsed();
     const intervalId = window.setInterval(updateElapsed, 1000);
     return () => window.clearInterval(intervalId);
-  }, [analysisStartedAt]);
+  }, [active, analysisStartedAt]);
 
   useEffect(() => {
     const timeoutId = window.setTimeout(() => void loadUsage(), 0);

@@ -132,6 +132,27 @@ describe('useWordChat', () => {
     expect(result.current.selectedCount).toBe(0);
   });
 
+  it('moves one step back from selection to chat without clearing the session', async () => {
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+
+    await act(() => result.current.sendMessage('Kavárna'));
+    expect(result.current.step).toBe('select');
+
+    act(() => result.current.backToChat());
+
+    expect(result.current.step).toBe('chat');
+    expect(result.current.messages).toEqual([
+      { role: 'user', content: 'Kavárna' },
+      { role: 'assistant', content: 'Připravím návrh.' },
+    ]);
+    expect(result.current.proposals).toHaveLength(2);
+    expect(mocks.clearDraft).not.toHaveBeenCalled();
+  });
+
   it('sends the chosen chat preferences to the chat endpoint', async () => {
     const { result } = renderHook(
       () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
@@ -398,6 +419,62 @@ describe('useWordChat', () => {
     expect(result.current.reviewItems[0].audioAssetId).toBe('asset-1');
     expect(result.current.reviewItems[0].audioHash).toBe('hash-1');
     expect(result.current.reviewItems[0].audioStatus).toBe('ready');
+  });
+
+  it('starts audio automatically for a manually added item after opening review', async () => {
+    mocks.translateSelection.mockResolvedValue({
+      items: [
+        {
+          kind: 'sentence',
+          text_known: 'Zavolej Anně.',
+          text_target: 'Gọi cho Anna.',
+          corpus_item_id: null,
+          audio_asset_id: null,
+          audio_hash: null,
+          known_audio_asset_id: null,
+          warnings: [],
+          reused: false,
+        },
+      ],
+      translation_diagnostics: {
+        model: 'test',
+        input_tokens: 10,
+        output_tokens: 5,
+        estimated_cost_usd: 0,
+      },
+    });
+    mocks.generateAudio.mockResolvedValue({
+      results: [
+        {
+          key: '0',
+          status: 'ok',
+          asset_id: 'asset-private-reviewed',
+          content_hash: 'hash-private-reviewed',
+          audio_base64: null,
+          error: null,
+        },
+      ],
+      quota_exhausted: null,
+    });
+
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+    await act(() => result.current.sendMessage('Rodina'));
+
+    act(() => result.current.addCustomItem('Zavolej Anně.'));
+    await act(() => result.current.continueToReview());
+
+    expect(mocks.generateAudio).toHaveBeenCalledTimes(1);
+    await waitFor(() =>
+      expect(result.current.reviewItems[0]).toMatchObject({
+        audioStatus: 'ready',
+        audioAssetId: 'asset-private-reviewed',
+        audioHash: 'hash-private-reviewed',
+      }),
+    );
   });
 
   it('keeps the conversation and offers a retry after a transient failure', async () => {

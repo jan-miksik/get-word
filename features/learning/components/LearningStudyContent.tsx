@@ -10,6 +10,8 @@ import type { MinigameFrequencyRange, MiniGameConfig } from '@/features/learning
 import type { NormalizedWord } from '@/lib/words';
 import type { ProgressStats } from '@/lib/progress-stats';
 import type { ViewMode } from '../app-state/types';
+import { AppSurfacePanel } from '@/features/workspace/AppSurfacePanel';
+import type { AppSurface } from '@/features/workspace/surface-history';
 
 interface LearningStudyContentProps {
   viewMode: ViewMode;
@@ -24,6 +26,10 @@ interface LearningStudyContentProps {
   onOpenWordChat?: () => void;
   /** Opens photo lab over the study view instead of navigating to `/photo-lab`. */
   onOpenPhotoLab?: () => void;
+  activeSurface?: AppSurface;
+  onSurfaceChange?: (surface: AppSurface) => void;
+  chatContent?: React.ReactNode;
+  photoContent?: React.ReactNode;
   categories: Array<{ name: string; count: number }>;
   progressStats: ProgressStats;
   phrasesCallbackRef: (node: HTMLElement | null) => void;
@@ -64,6 +70,10 @@ export function LearningStudyContent({
   onSignOut,
   onOpenWordChat,
   onOpenPhotoLab,
+  activeSurface = 'study',
+  onSurfaceChange,
+  chatContent,
+  photoContent,
   categories,
   progressStats,
   phrasesCallbackRef,
@@ -98,60 +108,87 @@ export function LearningStudyContent({
       onSignOut={onSignOut}
       onOpenWordChat={onOpenWordChat}
       onOpenPhotoLab={onOpenPhotoLab}
+      activeSurface={activeSurface}
+      onSurfaceChange={onSurfaceChange}
       categories={categories}
       progressStats={progressStats}
     >
       <main
-        className={`flex flex-col flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden ${viewMode === 'card' ? 'learning-card-main' : ''}`}
-        ref={phrasesCallbackRef}
+        className="app-workspace-main flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden"
         aria-live="polite"
       >
-        {viewMode === 'card' ? (
-          <div className="learning-card-viewport relative flex h-full w-full flex-col max-w-[800px] mx-auto">
-            <CardDeckView
-              groupedWords={cardDeckGroups}
-              interstitialCard={interstitialCard}
-              onWordCardCompleted={onDeckWordCardCompleted}
-              swipeActions={deckSwipeActions}
-              allowHorizontalSwipe={deckHorizontalSwipeEnabled}
-              renderCard={renderCardForDeck}
-              renderMiniGame={renderMiniGameForDeck}
-            />
-          </div>
-        ) : (
-          <div className="app-content-column flex flex-col gap-[18px] flex-1 min-h-0">
-            {interstitialCard ? (
-              <div className="shrink-0">
-                {interstitialCard}
-              </div>
-            ) : null}
-            {filteredWords.length === 0 ? (
-              <div className="p-8 text-center text-text-soft">{t('learning.noFilterMatches')}</div>
-            ) : (
-              <VirtualizedWordList
-                dataTab="stream"
-                groupedWords={streamGroupedWords}
-                renderCard={renderCard}
-                renderMiniGame={renderMiniGame}
-                showHeaders={false}
-                scrollElement={phrasesScrollElement}
-                emptyMessage={t('learning.noWords')}
-                stageFooter={(stageIndex) => {
-                  const repeatsInStream = dueWordsCount + (showNotReady ? settlingCount : 0);
-                  const footerStageIndex = repeatsInStream > 0 ? 0 : 1;
-                  if (stageIndex !== footerStageIndex || settlingCount === 0) return null;
-                  return (
-                    <SettlingWordsFooter
-                      showNotReady={showNotReady}
-                      settlingCount={settlingCount}
-                      onToggle={onToggleShowNotReady}
-                    />
-                  );
-                }}
+        <AppSurfacePanel
+          surface="study"
+          active={activeSurface === 'study'}
+          label={t('auth.brand')}
+          panelRef={phrasesCallbackRef}
+          className={viewMode === 'card' ? 'learning-card-main' : ''}
+        >
+          {viewMode === 'card' ? (
+            <div className="learning-card-viewport relative flex h-full w-full flex-col max-w-[800px] mx-auto">
+              <CardDeckView
+                groupedWords={cardDeckGroups}
+                interstitialCard={interstitialCard}
+                onWordCardCompleted={onDeckWordCardCompleted}
+                swipeActions={deckSwipeActions}
+                allowHorizontalSwipe={deckHorizontalSwipeEnabled}
+                renderCard={renderCardForDeck}
+                renderMiniGame={renderMiniGameForDeck}
               />
-            )}
-          </div>
-        )}
+            </div>
+          ) : (
+            <div className="app-content-column flex flex-col gap-[18px] flex-1 min-h-0">
+              {interstitialCard ? (
+                <div className="shrink-0">
+                  {interstitialCard}
+                </div>
+              ) : null}
+              {filteredWords.length === 0 ? (
+                <div className="p-8 text-center text-text-soft">{t('learning.noFilterMatches')}</div>
+              ) : (
+                <VirtualizedWordList
+                  dataTab="stream"
+                  groupedWords={streamGroupedWords}
+                  renderCard={renderCard}
+                  renderMiniGame={renderMiniGame}
+                  showHeaders={false}
+                  scrollElement={phrasesScrollElement}
+                  emptyMessage={t('learning.noWords')}
+                  stageFooter={(stageIndex) => {
+                    const repeatsInStream = dueWordsCount + (showNotReady ? settlingCount : 0);
+                    const footerStageIndex = repeatsInStream > 0 ? 0 : 1;
+                    if (stageIndex !== footerStageIndex || settlingCount === 0) return null;
+                    return (
+                      <SettlingWordsFooter
+                        showNotReady={showNotReady}
+                        settlingCount={settlingCount}
+                        onToggle={onToggleShowNotReady}
+                      />
+                    );
+                  }}
+                />
+              )}
+            </div>
+          )}
+        </AppSurfacePanel>
+        {chatContent ? (
+          <AppSurfacePanel
+            surface="chat"
+            active={activeSurface === 'chat'}
+            label={t('wordChat.addWords')}
+          >
+            {chatContent}
+          </AppSurfacePanel>
+        ) : null}
+        {photoContent ? (
+          <AppSurfacePanel
+            surface="photo"
+            active={activeSurface === 'photo'}
+            label={t('photoLab.title')}
+          >
+            {photoContent}
+          </AppSurfacePanel>
+        ) : null}
       </main>
     </AppLayout>
   );

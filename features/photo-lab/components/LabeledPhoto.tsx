@@ -6,6 +6,7 @@ import { useI18n } from '@/components/I18nProvider';
 import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
 import { matchAnswer } from '@/features/learning/minigames/answer-match';
 import type { PhotoLabLabel } from '@/features/photo-lab/types';
+import { getWarmedClipUrl, prefetchClips } from '@/lib/audio-clip-playback';
 import { playUserInitiatedAudio } from '@/lib/audio-playback';
 import { resolveChipCollisions } from './resolveChipCollisions';
 import { TypeAnswerBar, type TypeFeedback } from './TypeAnswerBar';
@@ -116,11 +117,13 @@ export function LabeledPhoto({
   imageUrl,
   labels,
   audioHashes,
+  active = true,
 }: {
   imageUrl: string;
   labels: PhotoLabLabel[];
   /** label.id → audio content hash, filled in asynchronously after analysis. */
   audioHashes?: Record<string, string>;
+  active?: boolean;
 }) {
   const { t } = useI18n();
   const [mode, setMode] = useState<PhotoLabMode>(readStoredMode);
@@ -136,7 +139,7 @@ export function LabeledPhoto({
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const closeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const { transform, animating, handlers } = usePhotoZoom(viewportRef);
+  const { transform, animating, handlers } = usePhotoZoom(viewportRef, active);
   const placedLabels = useMemo(() => resolveChipCollisions(labels), [labels]);
   const activeLabel = placedLabels.find((label) => label.id === activeLabelId) ?? null;
 
@@ -154,6 +157,11 @@ export function LabeledPhoto({
       audioRef.current = null;
     };
   }, []);
+
+  useEffect(() => {
+    if (!active || !audioHashes) return;
+    void prefetchClips(Object.values(audioHashes));
+  }, [active, audioHashes]);
 
   const closeAnswerBar = () => {
     clearCloseTimer();
@@ -233,7 +241,11 @@ export function LabeledPhoto({
 
   const playAudio = (hash: string) => {
     // Must start synchronously from the tap (mobile autoplay policy).
-    void playUserInitiatedAudio(audioRef, `/api/audio/${hash}`);
+    const warmedUrl = getWarmedClipUrl(hash);
+    void playUserInitiatedAudio(
+      audioRef,
+      warmedUrl ? [warmedUrl, `/api/audio/${hash}`] : `/api/audio/${hash}`,
+    );
   };
 
   const chipState = (label: PhotoLabLabel): ChipState => {
@@ -248,7 +260,7 @@ export function LabeledPhoto({
 
   return (
     <section className="flex w-full flex-col gap-3 animate-[photo-lab-rise_0.45s_ease-out_both] motion-reduce:animate-none">
-      <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="mx-auto flex w-full max-w-[800px] flex-wrap items-center justify-between gap-2 px-1 md:px-4">
         <div
           role="group"
           aria-label={t('photoLab.title')}
@@ -278,15 +290,16 @@ export function LabeledPhoto({
         )}
       </div>
 
-      <div className="relative grid items-end">
+      <div className="relative -mx-3 grid items-end justify-items-center sm:mx-0">
         <div
           ref={viewportRef}
           {...handlers}
-          className={`relative -mx-3 select-none overflow-hidden bg-black/5 shadow-lg [grid-area:1/1] sm:mx-0 sm:rounded-2xl sm:border-2 sm:border-[color:var(--ob-ink)] sm:shadow-xl sm:shadow-[#2A2218]/10 ${
+          className={`relative inline-grid max-w-full select-none overflow-hidden bg-black/5 shadow-lg [grid-area:1/1] sm:rounded-2xl sm:border-2 sm:border-[color:var(--ob-ink)] sm:shadow-xl sm:shadow-[#2A2218]/10 ${
             transform.scale > 1 ? 'touch-none' : 'touch-pan-y'
           }`}
         >
           <div
+            className="relative inline-grid max-w-full"
             style={{
               transform: `translate(${transform.tx}px, ${transform.ty}px) scale(${transform.scale})`,
               transformOrigin: '0 0',
@@ -294,7 +307,12 @@ export function LabeledPhoto({
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element -- local blob/data URL, next/image cannot optimize it */}
-            <img src={imageUrl} alt="" draggable={false} className="block w-full" />
+            <img
+              src={imageUrl}
+              alt=""
+              draggable={false}
+              className="block h-auto max-h-[calc(100dvh-10rem)] w-auto max-w-full"
+            />
             {placedLabels.map((label) => (
               <LabelChip
                 key={label.id}

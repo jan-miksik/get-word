@@ -89,7 +89,7 @@ describe('TopMenu', () => {
       />
     );
 
-    expect(screen.queryByRole('button', { name: /Add words by chatting/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: /Add words by chatting/i })).toBeNull();
     expect(screen.queryByRole('link', { name: /Add words from a photo/i })).toBeNull();
   });
 
@@ -107,12 +107,12 @@ describe('TopMenu', () => {
       />
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Add words by chatting/i }));
+    fireEvent.click(screen.getByRole('link', { name: /Add words by chatting/i }));
 
     expect(onOpenWordChat).toHaveBeenCalledTimes(1);
   });
 
-  it('sends the photo-lab shortcut off with the marker that brings the learner back', () => {
+  it('uses the canonical integrated photo-lab URL', () => {
     render(
       <TopMenu
         showAll={false}
@@ -127,7 +127,7 @@ describe('TopMenu', () => {
 
     expect(screen.getByRole('link', { name: /Add words from a photo/i })).toHaveAttribute(
       'href',
-      '/photo-lab?from=study'
+      '/?surface=photo'
     );
   });
 
@@ -205,8 +205,41 @@ describe('TopMenu', () => {
       />
     );
 
-    expect(screen.getByRole('button', { name: /Add words by chatting/i })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Add words by chatting/i })).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: /Add words from a photo/i })).toBeNull();
+  });
+
+  it('marks the active shortcut as current and treats another shortcut as navigation', () => {
+    const onSurfaceChange = vi.fn();
+    render(
+      <TopMenu
+        showAll={false}
+        onShowAll={vi.fn()}
+        onMenuAction={vi.fn()}
+        categoryCount={0}
+        categoryActive={false}
+        quickAddEnabled
+        photoLabEnabled
+        activeSurface="chat"
+        onSurfaceChange={onSurfaceChange}
+      />
+    );
+
+    const chat = screen.getByRole('link', { name: /Add words by chatting/i });
+    const photo = screen.getByRole('link', { name: /Add words from a photo/i });
+    expect(chat).toHaveAttribute('aria-current', 'page');
+    expect(photo).not.toHaveAttribute('aria-current');
+
+    fireEvent.click(screen.getByRole('button', { name: /open menu/i }));
+    expect(screen.getByRole('menuitem', { name: /^Add words$/i })).toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+
+    fireEvent.click(chat);
+    expect(onSurfaceChange).not.toHaveBeenCalled();
+    fireEvent.click(photo);
+    expect(onSurfaceChange).toHaveBeenCalledWith('photo');
   });
 
   it('confirms school membership and links teachers to the dashboard', () => {

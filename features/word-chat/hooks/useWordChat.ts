@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
+import { storeAddressRegisterPreference } from '@/features/shared/user-preferences/address-register';
 import { hasRegisterDistinction } from '../registerLanguages';
 import {
   WordChatApiError,
@@ -21,6 +22,7 @@ import type {
   CommitResult,
   ProposedItem,
   ReviewItem,
+  TakeoverReference,
   WordChatAddressRegister,
   WordChatLanguageLevel,
   WordChatMessage,
@@ -122,6 +124,13 @@ function completeTranscript(messages: WordChatMessage[]): WordChatMessage[] {
 
 /** Both identifiers of one generated clip: the id is saved, the hash is played. */
 type GeneratedClip = { assetId: string; contentHash: string | null };
+
+type SelectedTranslationItem = {
+  kind: 'sentence' | 'word';
+  text: string;
+  corpusItemId?: string;
+  takeoverCandidate?: TakeoverReference;
+};
 
 async function generateAudioWithRetries(
   items: { key: string; text: string; language: string }[],
@@ -360,6 +369,7 @@ export function useWordChat({
           context.address_register === 'formal'
         ) {
           setAddressRegister(context.address_register);
+          storeAddressRegisterPreference(context.address_register);
         }
         if (
           context.salutation_gender === 'female' ||
@@ -469,7 +479,7 @@ export function useWordChat({
     };
   }, []);
 
-  const selectedItems = useMemo(() => {
+  const selectedItems = useMemo<SelectedTranslationItem[]>(() => {
     const keys = new Set(selectedKeys);
     const fromProposals = proposals
       .filter((item) => keys.has(proposalKey(item)))
@@ -1041,6 +1051,18 @@ export function useWordChat({
     setError(null);
   }, []);
 
+  const backToChat = useCallback(() => {
+    activeChatAbortRef.current?.abort();
+    activeChatAbortRef.current = null;
+    activeAssistantIdRef.current = null;
+    setStep('chat');
+    setBusy(null);
+    setError(null);
+    setUnavailable(false);
+    setCanRetry(false);
+    retryTargetRef.current = null;
+  }, []);
+
   const reset = useCallback(() => {
     clearDraft(languageFrom, languageTo);
     activeChatAbortRef.current?.abort();
@@ -1076,7 +1098,10 @@ export function useWordChat({
 
   const savePreferences = useCallback(
     async (patch: WordChatPreferencePatch) => {
-      if (patch.addressRegister) setAddressRegister(patch.addressRegister);
+      if (patch.addressRegister) {
+        setAddressRegister(patch.addressRegister);
+        storeAddressRegisterPreference(patch.addressRegister);
+      }
       if (patch.salutationGender) setSalutationGender(patch.salutationGender);
       if (patch.languageLevel) setLanguageLevel(patch.languageLevel);
       setPreferencesSaving(true);
@@ -1157,6 +1182,7 @@ export function useWordChat({
     commitResult,
     refreshStatus,
     retryRefresh,
+    backToChat,
     backToSelect,
     reset,
   };

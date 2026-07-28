@@ -48,21 +48,64 @@ export const OPENROUTER_TIMEOUT_MS = 90_000;
  * the same budget, and a strong model spends them freely. A cap that is merely
  * tight produces `finish_reason: "length"`, which the shared client classifies
  * as retryable: every attempt is paid for in full, and the learner waits for all
- * of them before seeing a generic error. Set these well above the expected
- * answer size; the model stops when it is done, so headroom is free.
+ * of them before seeing a generic error. Keep enough room for valid structured
+ * output, while explicitly budgeting reasoning on models that enable it by
+ * default.
  */
 export const CHAT_MAX_TOKENS = 2_000;
-export const PROPOSAL_MAX_TOKENS = 8_000;
+export const CHAT_REASONING = {
+  // Sonnet 5 defaults to adaptive thinking. A conversational turn is a small
+  // structured response, so high effort only increases latency and the chance
+  // that reasoning consumes the output budget before the JSON is complete.
+  effort: "low",
+  exclude: true,
+} as const;
+
+/**
+ * Enforce the wire shape instead of merely asking for "some JSON". The reply
+ * property intentionally comes first because the streaming parser can show it
+ * while the model is still producing the metadata fields.
+ */
+export const CHAT_RESPONSE_FORMAT = {
+  type: "json_schema",
+  json_schema: {
+    name: "word_chat_turn",
+    strict: true,
+    schema: {
+      type: "object",
+      properties: {
+        reply: { type: "string" },
+        suggestions: {
+          type: "array",
+          items: { type: "string" },
+        },
+        readyToPropose: { type: "boolean" },
+      },
+      required: ["reply", "suggestions", "readyToPropose"],
+      additionalProperties: false,
+    },
+  },
+} as const;
+
+/**
+ * Sonnet 5 enables high-effort adaptive reasoning by default. The proposal is a
+ * small ten-row JSON document, so explicitly using low effort and a 4k combined
+ * reasoning/answer budget avoids spending most of the wait on hidden thinking
+ * while preserving ample room for the final payload.
+ */
+export const PROPOSAL_MAX_TOKENS = 4_000;
+export const PROPOSAL_REASONING = {
+  effort: "low",
+  exclude: true,
+} as const;
 export const BRIEF_MAX_TOKENS = 2_000;
 
 /**
- * Item sizing. ~3 sentences + ~7 supporting words: the supporting words are the
- * content words OF those sentences, so a bigger sentence count multiplies into
- * far more items than a learner can absorb in one sitting.
+ * Every level gets the same compact card budget. Its sentence/supporting-item
+ * split stays fixed at 3 sentences and 7 vocabulary items; CEFR calibration
+ * happens in the proposal prompt.
  */
-export const TARGET_SENTENCE_COUNT = 3;
-export const TARGET_WORD_COUNT = 7;
-export const TARGET_ITEM_COUNT = TARGET_SENTENCE_COUNT + TARGET_WORD_COUNT;
+export const TARGET_ITEM_COUNT = 10;
 
 /** Hard ceiling on one session. Not a ceiling on the personal list itself. */
 export const MAX_ITEMS_PER_SESSION = parsePositiveIntEnv(
@@ -111,6 +154,10 @@ export const GLOBAL_CHAT_TURNS_PER_DAY = parsePositiveIntEnv(
 /** Longest single learner message accepted, in characters. */
 export const MAX_USER_MESSAGE_CHARS = 1_000;
 
+// Re-exported so server callers keep importing every limit from one module,
+// while the browser reads the same numbers without pulling this file in.
+export { MAX_WORD_CHAT_ID_CHARS, MAX_WORD_CHAT_ITEM_CHARS } from "../limits";
+
 /**
  * How many existing items are loaded as reuse candidates.
  *
@@ -153,6 +200,17 @@ export const EXCLUSION_PROMPT_LIMIT = parsePositiveIntEnv(
 export const WORD_CHAT_PROVIDER_PREFERENCES = {
   zdr: true,
   data_collection: "deny",
+} as const;
+
+/**
+ * Proposal generation is the only non-streamed call on the onboarding critical
+ * path. Keep the same privacy requirements and ask OpenRouter to prefer the
+ * endpoint with the best current token throughput instead of its default
+ * price-weighted routing.
+ */
+export const WORD_CHAT_PROPOSAL_PROVIDER_PREFERENCES = {
+  ...WORD_CHAT_PROVIDER_PREFERENCES,
+  sort: "throughput",
 } as const;
 
 /**

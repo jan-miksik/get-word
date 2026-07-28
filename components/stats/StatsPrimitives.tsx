@@ -12,15 +12,17 @@ export function Section({
   title,
   note,
   actions,
+  className = '',
   children,
 }: {
   title: string;
   note?: string;
   actions?: React.ReactNode;
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="space-y-4">
+    <section className={`space-y-4 ${className}`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold">{title}</h2>

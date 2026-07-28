@@ -45,15 +45,18 @@ async function openAdvanced() {
 }
 
 async function completeWordChatProfile() {
-  const beginnerLevel = await screen.findByRole('button', { name: /^A0\b/i });
+  await waitFor(() => {
+    expect(
+      screen.queryByRole('button', { name: /Use casual address/i })
+        ?? screen.queryByRole('button', { name: /^A0\b/i }),
+    ).not.toBeNull();
+  });
   const casualAddress = screen.queryByRole('button', { name: /Use casual address/i });
   if (casualAddress) fireEvent.click(casualAddress);
+  const beginnerLevel = await screen.findByRole('button', { name: /^A0\b/i });
+  fireEvent.click(beginnerLevel);
   const neutralSalutation = screen.queryByRole('button', { name: /^Neutral$/i });
   if (neutralSalutation) fireEvent.click(neutralSalutation);
-  fireEvent.click(beginnerLevel);
-  const continueButton = screen.getByRole('button', { name: /^Continue$/i });
-  await waitFor(() => expect(continueButton).toBeEnabled());
-  fireEvent.click(continueButton);
 }
 
 describe('LearningLanguageOnboarding', () => {
@@ -314,7 +317,7 @@ describe('LearningLanguageOnboarding', () => {
     expect(await screen.findByText('Could not load lists')).toBeInTheDocument();
   });
 
-  it('continues by subscribing to the recommended list before completing onboarding', async () => {
+  it('opens the word chat without the ready-made shortcut for a recommended list', async () => {
     const recommendedList = {
       id: 'recommended-en-vi',
       ownerId: null,
@@ -368,26 +371,24 @@ describe('LearningLanguageOnboarding', () => {
         expect.any(Object),
       );
     });
-    // Continue now opens the word chat. The old behaviour — subscribe to the
-    // recommended exact-direction list — is the chat's ready-made escape hatch,
-    // which must still work and must still subscribe before completing.
+    // Continue opens the word chat. The old ready-made escape link should not
+    // be offered in the normal chat anymore.
     fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
     await completeWordChatProfile();
-    fireEvent.click(
-      await screen.findByRole('button', { name: /Use a ready-made list instead/i }),
-    );
+    expect(
+      await screen.findByPlaceholderText('Tell me about your situation…'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Use a ready-made list instead/i }),
+    ).not.toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(onComplete).toHaveBeenCalledWith('en', 'vi');
-    });
-    expect(onSelectList).toHaveBeenCalledWith('recommended-en-vi');
-    const subscribeCall = fetchMock.mock.calls.findIndex(
-      ([url]) => String(url) === '/api/lists/recommended-en-vi/subscribe',
-    );
-    expect(subscribeCall).toBeGreaterThanOrEqual(0);
-    expect(fetchMock.mock.invocationCallOrder[subscribeCall]).toBeLessThan(
-      onComplete.mock.invocationCallOrder[0],
-    );
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(onSelectList).not.toHaveBeenCalled();
+    expect(
+      fetchMock.mock.calls.some(
+        ([url]) => String(url) === '/api/lists/recommended-en-vi/subscribe',
+      ),
+    ).toBe(false);
   });
 
   it.skip('keeps list choices after the language step when no list is selected', async () => {
@@ -677,27 +678,30 @@ describe('LearningLanguageOnboarding', () => {
     // The reverse-direction source list must never appear as a selectable card;
     // it is offered only via the "flip into your direction" autogenerate action.
     expect(screen.queryByText('Common Czech Vietnamese')).not.toBeInTheDocument();
-    // Continue opens the word chat; the ready-made escape hatch is what falls
-    // through to autogeneration when there is no exact-direction recommendation.
+    // Continue opens the word chat; the ready-made escape link should not be
+    // offered in the normal chat anymore.
     fireEvent.click(screen.getByRole('button', { name: /Continue/i }));
     await completeWordChatProfile();
-    fireEvent.click(
-      await screen.findByRole('button', { name: /Use a ready-made list instead/i }),
-    );
+    expect(
+      await screen.findByPlaceholderText('Tell me about your situation…'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: /Use a ready-made list instead/i }),
+    ).not.toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(onComplete).toHaveBeenCalledWith('vi', 'cs');
-    });
-    expect(onSelectList).toHaveBeenCalledWith('generated-vi-cs');
+    expect(onComplete).not.toHaveBeenCalled();
+    expect(onSelectList).not.toHaveBeenCalled();
+    expect(
+      fetchMock.mock.calls.some(([url]) =>
+        String(url).includes('/api/lists/autogenerate-common'),
+      ),
+    ).toBe(false);
     expect(
       fetchMock.mock.calls.some(([url]) => String(url).includes('/subscribe')),
     ).toBe(false);
     expect(
       fetchMock.mock.calls.some(([url]) => String(url).includes('/fork')),
     ).toBe(false);
-    expect(
-      fetchMock.mock.calls.some(([url]) => String(url) === '/api/lists/autogenerate-common'),
-    ).toBe(true);
   });
 
   it('shows only the no-matches message when no lists exist for the selected languages', async () => {

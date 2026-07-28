@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { isReverseDirectionList } from '@/features/learning/onboarding/listRecommendations';
 import { formatNumber } from '@/features/learning/onboarding/commonListAudioGeneration';
 import { useI18n } from '@/components/I18nProvider';
@@ -93,6 +93,10 @@ export function LearningLanguageOnboarding({
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const [wordChatOpen, setWordChatOpen] = useState(autoOpenWordChat);
   const [wordChatStep, setWordChatStep] = useState<WordChatStep>('chat');
+  const [wordChatBackAction, setWordChatBackAction] = useState<(() => void) | null>(null);
+  const updateWordChatBackAction = useCallback((action: (() => void) | null) => {
+    setWordChatBackAction(() => action);
+  }, []);
 
   // Reverse-direction lists are never offered for direct selection: subscribing
   // to one would study it the wrong way round. They are surfaced only as the
@@ -107,10 +111,9 @@ export function LearningLanguageOnboarding({
   // replaces the old behaviour of silently subscribing to a recommended list or
   // autogenerating a ~120-word common one.
   //
-  // Those paths are not gone — they are what `useReadyMadeList` below does, and
-  // the chat surfaces them as an explicit choice ("just the common words") and
+  // Those paths are not gone — `startReadyMadeList` below keeps them available
   // as the fallback when the model is unavailable. Nobody is trapped in a
-  // conversation, and onboarding still completes if the LLM is down.
+  // conversation if the LLM is down.
   function handleContinue() {
     if (!canContinue || loadingMatches || matchesLoadFailed || workingId !== null) return;
     setWordChatOpen(true);
@@ -152,12 +155,32 @@ export function LearningLanguageOnboarding({
     </>
   );
 
+  const handleWordChatBack = () => {
+    if (wordChatBackAction) {
+      wordChatBackAction();
+      return;
+    }
+    if (onExit) onExit();
+    else setWordChatOpen(false);
+  };
+
   return (
-    <div className="onboarding-screen min-h-screen flex items-start justify-center px-4 py-8 sm:py-14">
+    <div
+      className={[
+        'onboarding-screen min-h-screen flex items-start justify-center py-8 sm:py-14',
+        wordChatOpen ? 'px-1 sm:px-4' : 'px-4',
+      ].join(' ')}
+    >
       <RisingLettersBackground variant="ambient" className="z-0" />
       <SupportButton />
       {generationStatus ? <OnboardingGenerationOverlay status={generationStatus} /> : null}
-      <section className="onboarding-card relative z-10 w-full max-w-3xl p-5 sm:p-7">
+      <section
+        className={[
+          'onboarding-card relative z-10 w-full max-w-3xl sm:p-7',
+          wordChatOpen ? 'p-4' : 'p-5',
+        ].join(' ')}
+      >
+        {!wordChatOpen ? (
         <div className="mb-4 flex items-center justify-between gap-3">
           {accountEmail && onSignOut ? (
             <div className="relative flex min-w-0 items-center">
@@ -237,30 +260,34 @@ export function LearningLanguageOnboarding({
           )}
           <OnboardingLanguageSwitcher />
         </div>
+        ) : null}
         {wordChatOpen ? (
           <>
-            <div className="mb-4 flex items-center justify-between gap-3">
+            <div className="mb-5 grid min-h-10 grid-cols-[1fr_auto_1fr] items-center gap-3">
+              <button
+                type="button"
+                onClick={handleWordChatBack}
+                className="justify-self-start text-xs font-bold underline onboarding-text-soft"
+              >
+                {t('wordChat.back')}
+              </button>
               {/* Only the chat needs a screen title; the later steps carry their
                   own heading, and two stacked titles just say the same thing. */}
               {wordChatStep === 'chat' ? (
-                <h1 className="text-sm font-extrabold uppercase tracking-wide">
+                <h1 className="text-center text-sm font-extrabold uppercase tracking-wide">
                   {t('wordChat.title')}
                 </h1>
               ) : (
                 <span />
               )}
-              <button
-                type="button"
-                onClick={() => (onExit ? onExit() : setWordChatOpen(false))}
-                className="text-xs font-bold underline onboarding-text-soft"
-              >
-                {t('wordChat.back')}
-              </button>
+              <span />
             </div>
             <WordChatFlow
               languageFrom={languageFrom}
               languageTo={languageTo}
               onStepChange={setWordChatStep}
+              onHeaderBackActionChange={updateWordChatBackAction}
+              settingsPlacement="screen-header"
               onUseReadyMade={() => {
                 setWordChatOpen(false);
                 startReadyMadeList();

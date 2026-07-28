@@ -107,4 +107,52 @@ describe('usePhotoLabStudio allowance gating', () => {
 
     expect(mockRequestPhotoAnalysis).toHaveBeenCalled();
   });
+
+  it('pauses the ETA timer while hidden but lets one analysis finish in the background', async () => {
+    mockRequestPhotoLabUsage.mockResolvedValue(null);
+    let resolveAnalysis: ((labels: []) => void) | undefined;
+    mockRequestPhotoAnalysis.mockImplementation(
+      () =>
+        new Promise<[]>((resolve) => {
+          resolveAnalysis = resolve;
+        }),
+    );
+    const now = vi.spyOn(Date, 'now').mockReturnValue(1_000);
+    const interval = vi.spyOn(window, 'setInterval');
+    const clearInterval = vi.spyOn(window, 'clearInterval');
+    const photo = { blob: new Blob(), dataUrl: 'data:,', hash: 'h1' };
+
+    const { result, rerender } = renderHook(
+      ({ active }) => usePhotoLabStudio(active),
+      { initialProps: { active: true } },
+    );
+    await waitFor(() => expect(result.current.languagesReady).toBe(true));
+
+    act(() => {
+      void result.current.analyze(photo);
+    });
+    await waitFor(() => expect(result.current.analyzing).toBe(true));
+    expect(interval).toHaveBeenCalled();
+
+    rerender({ active: false });
+    expect(clearInterval).toHaveBeenCalled();
+
+    now.mockReturnValue(7_000);
+    rerender({ active: true });
+    await waitFor(() => expect(result.current.analysisElapsedSeconds).toBe(6));
+
+    rerender({ active: false });
+    await act(async () => {
+      resolveAnalysis?.([]);
+      await Promise.resolve();
+    });
+
+    await waitFor(() => expect(result.current.analyzing).toBe(false));
+    expect(result.current.current?.session.id).toBe('session-1');
+    expect(mockRequestPhotoAnalysis).toHaveBeenCalledTimes(1);
+
+    now.mockRestore();
+    interval.mockRestore();
+    clearInterval.mockRestore();
+  });
 });

@@ -14,6 +14,7 @@ import { reserveChatTurn } from "@/features/word-chat/server/rate-limit";
 import { serializeDiagnostics } from "@/features/word-chat/server/diagnostics";
 import {
   WORD_CHAT_CHAT_MODEL,
+  MAX_WORD_CHAT_ID_CHARS,
   canSeeWordChatDiagnostics,
   resolveSelectedModel,
 } from "@/features/word-chat/server/config";
@@ -38,7 +39,10 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const languageFrom = normalizeLanguageCode(body.language_from);
   const languageTo = normalizeLanguageCode(body.language_to);
-  const sessionId = typeof body.session_id === "string" ? body.session_id.trim() : "";
+  const sessionId =
+    typeof body.session_id === "string"
+      ? body.session_id.trim().slice(0, MAX_WORD_CHAT_ID_CHARS)
+      : "";
 
   if (!languageFrom || !languageTo || languageFrom === languageTo) {
     return NextResponse.json(

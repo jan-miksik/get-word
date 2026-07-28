@@ -7,6 +7,7 @@ import { getLocalizedLanguageName, normalizeLanguageCode } from '@/lib/i18n/lang
 import { bundledMessages } from '@/lib/i18n/messages';
 import type { I18nKey } from '@/lib/i18n/locales/en';
 import type { WordChatHistory, WordChatPreferencePatch } from '../hooks/useWordChat';
+import { splitWordChatLevelLabel, wordChatLevelLabelKey } from '../levelLabels';
 import type {
   WordChatAddressRegister,
   WordChatLanguageLevel,
@@ -14,7 +15,10 @@ import type {
   WordChatSalutationGender,
 } from '../types';
 import { WORD_CHAT_LANGUAGE_LEVELS } from '../preferences';
+import { ChatSettingsModal } from './ChatSettingsModal';
 import { TypingDots, TypingText } from './TypingText';
+
+type ProfileSetupStep = 'address' | 'level' | 'salutation';
 
 /**
  * Starter chips. Short labels so they scan on a phone; the full brief is what
@@ -26,7 +30,12 @@ import { TypingDots, TypingText } from './TypingText';
  * mouth. For languages without a bundled dictionary, the UI translation is the
  * readable fallback.
  */
-const STARTER_CHIPS: { labelKey: I18nKey; promptKey: I18nKey }[] = [
+type StarterChip = { labelKey: I18nKey; promptKey: I18nKey };
+
+// The learner's level calibrates the proposed vocabulary, not what they might
+// need it for. Keep these broad situations stable across every CEFR level so a
+// level change never hides an otherwise relevant starting point.
+const STARTER_CHIPS: StarterChip[] = [
   { labelKey: 'wordChat.chipCustomers', promptKey: 'wordChat.chipCustomersPrompt' },
   { labelKey: 'wordChat.chipOffice', promptKey: 'wordChat.chipOfficePrompt' },
   { labelKey: 'wordChat.chipFamily', promptKey: 'wordChat.chipFamilyPrompt' },
@@ -64,11 +73,8 @@ type Props = {
   /** What earlier sessions left behind; null while unknown or on a first visit. */
   history: WordChatHistory | null;
   onSend: (text: string) => void;
-  /**
-   * The ready-made-list escape hatch. Omitted inside the app, where the learner
-   * already has lists and a subscribe shortcut would just be noise.
-   */
-  onUseReadyMade?: () => void;
+  active?: boolean;
+  embedded?: boolean;
 };
 
 export function ChatStep({
@@ -89,17 +95,21 @@ export function ChatStep({
   busy,
   history,
   onSend,
-  onUseReadyMade,
+  active = true,
+  embedded = false,
 }: Props) {
   const { t, language: uiLanguage } = useI18n();
   const [input, setInput] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
-  const [setupAddressRegisterOverride, setSetupAddressRegister] =
+  const [setupAddressRegister, setSetupAddressRegister] =
     useState<WordChatAddressRegister | null>(null);
-  const [setupSalutationGenderOverride, setSetupSalutationGender] =
+  const [setupSalutationGender, setSetupSalutationGender] =
     useState<WordChatSalutationGender | null>(null);
-  const [setupLanguageLevelOverride, setSetupLanguageLevel] =
+  const [setupLanguageLevel, setSetupLanguageLevel] =
     useState<WordChatLanguageLevel | null>(null);
+  const [profileSetupStep, setProfileSetupStep] = useState<ProfileSetupStep>(
+    addressRegisterApplies ? 'address' : 'level',
+  );
   const endRef = useRef<HTMLDivElement | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
@@ -107,18 +117,35 @@ export function ChatStep({
   const targetName = getLocalizedLanguageName(languageTo, locale) ?? languageTo.toUpperCase();
 
   const scrollToEnd = useCallback(() => {
+    if (!active) return;
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
-  }, []);
+  }, [active]);
+  const closeSettings = useCallback(() => setSettingsOpen(false), []);
+
+  // The streamed reply grows inside the last message rather than adding one, so
+  // its length has to be a dependency too — otherwise the view stops following
+  // the answer as soon as the first delta lands.
+  const streamingReplyLength = messages[messages.length - 1]?.content.length ?? 0;
 
   useEffect(() => {
     scrollToEnd();
-  }, [messages.length, busy, scrollToEnd]);
+  }, [messages.length, streamingReplyLength, busy, scrollToEnd]);
 
   // The input is disabled while a reply is in flight, which drops focus. Give it
   // back so the learner can just keep typing.
   useEffect(() => {
-    if (busy === null) inputRef.current?.focus();
-  }, [busy]);
+    if (active && !embedded && busy === null) inputRef.current?.focus();
+  }, [active, busy, embedded]);
+
+  // The surface stays mounted when the learner switches away, so settings left
+  // open would silently reappear on their next visit. Adjusted during render
+  // (React's documented pattern for deriving state from a prop change) rather
+  // than in an effect, which would cost an extra render pass.
+  const [wasActive, setWasActive] = useState(active);
+  if (wasActive !== active) {
+    setWasActive(active);
+    if (!active) setSettingsOpen(false);
+  }
 
   function submit(event: FormEvent) {
     event.preventDefault();
@@ -129,9 +156,6 @@ export function ChatStep({
 
   const showIntro = messages.length === 0;
   const showProfileSetup = showIntro && !preferencesComplete;
-  const setupAddressRegister = setupAddressRegisterOverride ?? addressRegister;
-  const setupSalutationGender = setupSalutationGenderOverride ?? salutationGender;
-  const setupLanguageLevel = setupLanguageLevelOverride ?? languageLevel;
   const useFormalUiCopy = addressRegisterApplies && addressRegister === 'formal';
   const introGreetingKey: I18nKey =
     salutationGenderApplies && salutationGender
@@ -141,11 +165,14 @@ export function ChatStep({
       : useFormalUiCopy
         ? 'wordChat.introGreetingFormal'
         : 'wordChat.introGreeting';
-  const setupReady = Boolean(
-    setupLanguageLevel &&
-      (!addressRegisterApplies || setupAddressRegister) &&
-      (!salutationGenderApplies || setupSalutationGender),
-  );
+  const profileSetupSteps: ProfileSetupStep[] = [
+    ...(addressRegisterApplies ? (['address'] as const) : []),
+    'level',
+    ...(salutationGenderApplies ? (['salutation'] as const) : []),
+  ];
+  const profileSetupStepIndex = Math.max(0, profileSetupSteps.indexOf(profileSetupStep));
+  const profileSetupProgress =
+    ((profileSetupStepIndex + 1) / profileSetupSteps.length) * 100;
   const returning = history?.hasHistory === true;
   // Three labels is enough to say "I remember"; more turns the opener into a list.
   const coveredSummary = (history?.coveredTopics ?? []).slice(0, 3).join(', ');
@@ -164,110 +191,221 @@ export function ChatStep({
   }
 
   if (showProfileSetup) {
+    const saveSetupPreferences = (
+      finalPatch: Pick<
+        WordChatPreferencePatch,
+        'languageLevel' | 'salutationGender'
+      >,
+    ) => {
+      void onPreferencesChange({
+        ...(setupAddressRegister ? { addressRegister: setupAddressRegister } : {}),
+        ...(setupLanguageLevel ? { languageLevel: setupLanguageLevel } : {}),
+        ...finalPatch,
+      });
+    };
+
     return (
-      <div className="space-y-4">
-        <div className="space-y-2">
+      <div className="space-y-5">
+        <div className="flex items-center justify-between gap-4">
           <p className="text-base font-bold">
             <TypingText text={t('wordChat.profileTitle')} animate />
           </p>
-          <p className="text-sm leading-relaxed onboarding-text-soft">
-            {t('wordChat.profileBody')}
-          </p>
+          <span
+            aria-hidden="true"
+            className="shrink-0 rounded-full border border-[color:color-mix(in_srgb,var(--ob-ink)_24%,transparent)] px-2.5 py-1 text-[11px] font-black tabular-nums onboarding-text-soft"
+          >
+            {profileSetupStepIndex + 1} / {profileSetupSteps.length}
+          </span>
         </div>
-        {addressRegisterApplies ? (
-          <section className="space-y-2">
-            <p className="text-xs font-black uppercase tracking-wide onboarding-text-soft">
-              {t('wordChat.addressTitle')}
-            </p>
-            <div className="grid gap-2 sm:grid-cols-2">
-              {(['casual', 'formal'] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setSetupAddressRegister(value)}
-                  className={[
-                    'onboarding-option rounded-xl px-4 py-3 text-left',
-                    setupAddressRegister === value ? 'onboarding-option-highlight' : '',
-                  ].join(' ')}
-                >
-                  <span className="block text-sm font-extrabold">
-                    {value === 'casual'
-                      ? t('wordChat.addressCasual')
-                      : t('wordChat.addressFormal')}
-                  </span>
-                </button>
-              ))}
-            </div>
-            <p className="text-xs leading-relaxed onboarding-text-soft">
-              {t('wordChat.addressBody')}
-            </p>
-          </section>
+        <div
+          role="progressbar"
+          aria-label={t('wordChat.profileTitle')}
+          aria-valuemin={1}
+          aria-valuemax={profileSetupSteps.length}
+          aria-valuenow={profileSetupStepIndex + 1}
+          className="h-1.5 overflow-hidden rounded-full bg-[color:color-mix(in_srgb,var(--ob-ink)_12%,transparent)]"
+        >
+          <div
+            className="h-full rounded-full bg-[var(--ob-accent)] transition-[width] duration-500 ease-out motion-reduce:transition-none"
+            style={{ width: `${profileSetupProgress}%` }}
+          />
+        </div>
+
+        {profileSetupStepIndex > 0 ? (
+          <div className="flex">
+            <button
+              type="button"
+              disabled={preferencesSaving}
+              aria-label={t('wordChat.profileBack')}
+              onClick={() => {
+                const previousStep = profileSetupSteps[profileSetupStepIndex - 1];
+                if (previousStep) setProfileSetupStep(previousStep);
+              }}
+              className="onboarding-option-secondary inline-flex min-h-11 items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-extrabold shadow-sm transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 disabled:opacity-50"
+            >
+              <span aria-hidden="true" className="text-lg leading-none">←</span>
+              <span>{t('wordChat.back')}</span>
+            </button>
+          </div>
         ) : null}
-        {salutationGenderApplies ? (
-          <section className="space-y-2">
-            <p className="text-xs font-black uppercase tracking-wide onboarding-text-soft">
-              {t('wordChat.salutationTitle')}
-            </p>
-            <div className="grid gap-2 sm:grid-cols-3">
-              {(['female', 'male', 'neutral'] as const).map((value) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setSetupSalutationGender(value)}
-                  className={[
-                    'onboarding-option rounded-xl px-4 py-3 text-left',
-                    setupSalutationGender === value ? 'onboarding-option-highlight' : '',
-                  ].join(' ')}
-                >
-                  <span className="block text-sm font-extrabold">
-                    {value === 'female'
-                      ? t('wordChat.salutationFemale')
-                      : value === 'male'
-                        ? t('wordChat.salutationMale')
-                        : t('wordChat.salutationNeutral')}
-                  </span>
-                </button>
-              ))}
-            </div>
-          </section>
-        ) : null}
-        <section className="space-y-2">
-          <p className="text-xs font-black uppercase tracking-wide onboarding-text-soft">
-            {t('wordChat.levelTitle')}
-          </p>
-          <div className="grid gap-2">
-            {WORD_CHAT_LANGUAGE_LEVELS.map((value) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setSetupLanguageLevel(value)}
-                className={[
-                  'onboarding-option rounded-xl px-4 py-3 text-left',
-                  setupLanguageLevel === value ? 'onboarding-option-highlight' : '',
-                ].join(' ')}
-              >
-                <span className="block text-sm font-extrabold">
-                  {t(`wordChat.level${value}` as I18nKey)}
-                </span>
-              </button>
-            ))}
+
+        <section
+          key={profileSetupStep}
+          className="relative space-y-4 overflow-hidden rounded-3xl border border-[color:color-mix(in_srgb,var(--ob-ink)_18%,transparent)] bg-[color:color-mix(in_srgb,var(--ob-surface)_82%,white)] p-4 shadow-[0_14px_35px_color-mix(in_srgb,var(--ob-ink)_9%,transparent)] motion-safe:animate-[word-chat-setup-enter_320ms_cubic-bezier(0.16,1,0.3,1)_both] sm:p-5"
+        >
+          <div
+            aria-hidden="true"
+            className="pointer-events-none absolute -right-6 -top-7 h-24 w-24 rounded-full bg-[var(--ob-accent)] opacity-[0.08] blur-2xl"
+          />
+          <div className="relative flex items-start gap-3">
+            <span
+              aria-hidden="true"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--ob-accent)] text-sm text-[var(--ob-surface)] shadow-sm motion-safe:animate-[word-chat-setup-spark_2.4s_ease-in-out_infinite]"
+            >
+              ✦
+            </span>
+            <h2 className="pt-1.5 text-base font-black leading-snug">
+              {profileSetupStep === 'address'
+                ? t('wordChat.addressTitle')
+                : profileSetupStep === 'level'
+                  ? t(
+                      setupAddressRegister === 'casual'
+                        ? 'wordChat.levelTitleCasual'
+                        : setupAddressRegister === 'formal'
+                          ? 'wordChat.levelTitleFormal'
+                          : 'wordChat.levelTitle',
+                    )
+                  : t(
+                      setupAddressRegister === 'casual'
+                        ? 'wordChat.salutationTitleCasual'
+                        : setupAddressRegister === 'formal'
+                          ? 'wordChat.salutationTitleFormal'
+                          : 'wordChat.salutationTitle',
+                    )}
+            </h2>
+          </div>
+
+          <div
+            className={[
+              'relative grid gap-2',
+              profileSetupStep === 'address' ? 'sm:grid-cols-2' : '',
+              profileSetupStep === 'salutation' ? 'sm:grid-cols-3' : '',
+            ].join(' ')}
+          >
+            {profileSetupStep === 'address'
+              ? (['casual', 'formal'] as const).map((value, index) => (
+                  <button
+                    key={value}
+                    type="button"
+                    disabled={preferencesSaving}
+                    onClick={() => {
+                      setSetupAddressRegister(value);
+                      setProfileSetupStep('level');
+                    }}
+                    className={[
+                      'onboarding-option group flex items-center justify-between rounded-2xl px-4 py-3.5 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] motion-safe:animate-[word-chat-setup-option-in_260ms_ease-out_both]',
+                      setupAddressRegister === value ? 'onboarding-option-highlight' : '',
+                    ].join(' ')}
+                    style={{ animationDelay: `${80 + index * 55}ms` }}
+                  >
+                    <span className="text-sm font-extrabold">
+                      {value === 'casual'
+                        ? t('wordChat.addressCasual')
+                        : t('wordChat.addressFormal')}
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className="translate-x-0 text-lg transition-transform duration-200 group-hover:translate-x-1"
+                    >
+                      →
+                    </span>
+                  </button>
+                ))
+              : null}
+
+            {profileSetupStep === 'level'
+              ? WORD_CHAT_LANGUAGE_LEVELS.map((value, index) => {
+                  const levelLabel = splitWordChatLevelLabel(
+                    value,
+                    t(wordChatLevelLabelKey(value)),
+                  );
+                  const accessibleLabel = t(wordChatLevelLabelKey(value));
+                  return (
+                    <button
+                      key={value}
+                      type="button"
+                      aria-label={accessibleLabel}
+                      disabled={preferencesSaving}
+                      onClick={() => {
+                        setSetupLanguageLevel(value);
+                        if (salutationGenderApplies) {
+                          setProfileSetupStep('salutation');
+                          return;
+                        }
+                        saveSetupPreferences({ languageLevel: value });
+                      }}
+                      className={[
+                        'onboarding-option group flex items-center justify-between gap-3 rounded-2xl px-4 py-3.5 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] motion-safe:animate-[word-chat-setup-option-in_260ms_ease-out_both]',
+                        setupLanguageLevel === value ? 'onboarding-option-highlight' : '',
+                      ].join(' ')}
+                      style={{ animationDelay: `${60 + index * 45}ms` }}
+                    >
+                      <span className="min-w-0">
+                        <span className="block text-sm font-black">{levelLabel.code}</span>
+                        <span className="mt-0.5 block text-xs font-bold leading-snug onboarding-text-soft">
+                          {levelLabel.description}
+                        </span>
+                      </span>
+                      <span
+                        aria-hidden="true"
+                        className="shrink-0 translate-x-0 text-lg transition-transform duration-200 group-hover:translate-x-1"
+                      >
+                        →
+                      </span>
+                    </button>
+                  );
+                })
+              : null}
+
+            {profileSetupStep === 'salutation'
+              ? (['female', 'male', 'neutral'] as const).map((value, index) => (
+                  <button
+                    key={value}
+                    type="button"
+                    disabled={preferencesSaving}
+                    onClick={() => {
+                      setSetupSalutationGender(value);
+                      saveSetupPreferences({ salutationGender: value });
+                    }}
+                    className={[
+                      'onboarding-option group flex items-center justify-between rounded-2xl px-4 py-3.5 text-left transition-[transform,box-shadow] duration-200 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.99] motion-safe:animate-[word-chat-setup-option-in_260ms_ease-out_both]',
+                      setupSalutationGender === value ? 'onboarding-option-highlight' : '',
+                    ].join(' ')}
+                    style={{ animationDelay: `${80 + index * 55}ms` }}
+                  >
+                    <span className="text-sm font-extrabold">
+                      {value === 'female'
+                        ? t('wordChat.salutationFemale')
+                        : value === 'male'
+                          ? t('wordChat.salutationMale')
+                          : t('wordChat.salutationNeutral')}
+                    </span>
+                    <span
+                      aria-hidden="true"
+                      className="translate-x-0 text-lg transition-transform duration-200 group-hover:translate-x-1"
+                    >
+                      →
+                    </span>
+                  </button>
+                ))
+              : null}
           </div>
         </section>
-        <button
-          type="button"
-          disabled={!setupReady || preferencesSaving}
-          onClick={() => {
-            if (!setupLanguageLevel) return;
-            void onPreferencesChange({
-              ...(setupAddressRegister ? { addressRegister: setupAddressRegister } : {}),
-              ...(setupSalutationGender ? { salutationGender: setupSalutationGender } : {}),
-              languageLevel: setupLanguageLevel,
-            });
-          }}
-          className="onboarding-option onboarding-option-highlight w-full rounded-xl px-5 py-3 text-center text-sm font-extrabold disabled:opacity-50"
-        >
-          {preferencesSaving ? t('wordChat.profileSaving') : t('wordChat.profileContinue')}
-        </button>
+        {preferencesSaving ? (
+          <p className="text-center text-xs font-bold onboarding-text-soft">
+            {t('wordChat.profileSaving')}
+          </p>
+        ) : null}
       </div>
     );
   }
@@ -284,121 +422,40 @@ export function ChatStep({
         >
           <button
             type="button"
-            onClick={() => setSettingsOpen((open) => !open)}
-            className="onboarding-option-secondary flex h-9 w-9 items-center justify-center rounded-full"
+            onClick={() => setSettingsOpen(true)}
+            className="onboarding-option-secondary flex h-10 w-10 items-center justify-center rounded-full"
             aria-label={t('wordChat.settings')}
             title={t('wordChat.settings')}
-            aria-expanded={settingsOpen}
+            aria-haspopup="dialog"
           >
-            <SettingsIcon size={16} />
+            <SettingsIcon size={18} />
           </button>
-          {settingsOpen ? (
-            <div
-              role="radiogroup"
-              aria-label={t('wordChat.addressSettingLabel')}
-              className="absolute right-0 top-full z-30 mt-2 w-[min(16rem,calc(100vw-2rem))] space-y-2 rounded-xl border-2 border-[var(--ob-ink)] bg-[var(--ob-surface)] p-3 text-[var(--ob-ink)] shadow-lg isolate"
-            >
-              <p className="m-0 px-1 pb-1 text-xs font-black uppercase tracking-wide text-[var(--ob-ink)]">
-                {t('wordChat.settings')}
-              </p>
-              {addressRegisterApplies ? (
-              <div className="grid gap-2">
-                <p className="px-1 text-[11px] font-black uppercase onboarding-text-soft">
-                  {t('wordChat.addressSettingLabel')}
-                </p>
-                {(['casual', 'formal'] as const).map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    aria-checked={addressRegister === value}
-                    onClick={() => {
-                      void onPreferencesChange({ addressRegister: value });
-                      setSettingsOpen(false);
-                    }}
-                    className={[
-                      'onboarding-option rounded-lg px-3 py-2 text-left text-sm font-bold',
-                      addressRegister === value ? 'onboarding-option-highlight' : '',
-                    ].join(' ')}
-                  >
-                    {value === 'casual'
-                      ? t('wordChat.addressCasual')
-                      : t('wordChat.addressFormal')}
-                  </button>
-                ))}
-              </div>
-              ) : null}
-              {salutationGenderApplies ? (
-                <div className="grid gap-2">
-                  <p className="px-1 text-[11px] font-black uppercase onboarding-text-soft">
-                    {t('wordChat.salutationSettingLabel')}
-                  </p>
-                  {(['female', 'male', 'neutral'] as const).map((value) => (
-                    <button
-                      key={value}
-                      type="button"
-                      role="radio"
-                      aria-checked={salutationGender === value}
-                      onClick={() => {
-                        void onPreferencesChange({ salutationGender: value });
-                        setSettingsOpen(false);
-                      }}
-                      className={[
-                        'onboarding-option rounded-lg px-3 py-2 text-left text-sm font-bold',
-                        salutationGender === value ? 'onboarding-option-highlight' : '',
-                      ].join(' ')}
-                    >
-                      {value === 'female'
-                        ? t('wordChat.salutationFemale')
-                        : value === 'male'
-                          ? t('wordChat.salutationMale')
-                          : t('wordChat.salutationNeutral')}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
-              <div className="grid gap-2">
-                <p className="px-1 text-[11px] font-black uppercase onboarding-text-soft">
-                  {t('wordChat.levelSettingLabel')}
-                </p>
-                {WORD_CHAT_LANGUAGE_LEVELS.map((value) => (
-                  <button
-                    key={value}
-                    type="button"
-                    role="radio"
-                    aria-checked={languageLevel === value}
-                    onClick={() => {
-                      void onPreferencesChange({ languageLevel: value });
-                      setSettingsOpen(false);
-                    }}
-                    className={[
-                      'onboarding-option rounded-lg px-3 py-2 text-left text-sm font-bold',
-                      languageLevel === value ? 'onboarding-option-highlight' : '',
-                    ].join(' ')}
-                  >
-                    {value}
-                  </button>
-                ))}
-              </div>
-            </div>
-          ) : null}
+          <ChatSettingsModal
+            isOpen={active && settingsOpen}
+            addressRegister={addressRegister}
+            salutationGender={salutationGender}
+            languageLevel={languageLevel}
+            addressRegisterApplies={addressRegisterApplies}
+            salutationGenderApplies={salutationGenderApplies}
+            saving={preferencesSaving}
+            onChange={onPreferencesChange}
+            onClose={closeSettings}
+          />
         </div>
       ) : null}
 
       {showIntro ? (
         <div className="space-y-2">
           <p className="text-base font-bold">
-            {/* The opener animates too — it is the first thing the learner sees,
-                and a static wall of text reads less like a conversation.
-                Someone who has done this before is picked up mid-thread instead
-                of being introduced to the feature again. */}
+            {/* A first-time opener can type in. Returning copy is already-known
+                context, so reopening the chat must render it immediately. */}
             <TypingText
               text={
                 returning
                   ? t('wordChat.returningGreeting')
                   : t(introGreetingKey, { language: targetName })
               }
-              animate
+              animate={!returning}
             />
           </p>
           <p className="text-sm leading-relaxed onboarding-text-soft">
@@ -417,41 +474,38 @@ export function ChatStep({
       ) : null}
 
       {messages.length > 0 ? (
-        <div className="max-h-[45vh] space-y-3 overflow-y-auto pr-1">
-          {messages.map((message, index) => (
-            <div
-              key={message.id ?? `${message.role}-${index}`}
-              className={message.role === 'user' ? 'flex justify-end' : 'flex justify-start'}
-            >
-              <p
-                className={[
-                  'max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm leading-relaxed',
-                  message.role === 'assistant' && index === lastAssistantIndex
-                    ? 'motion-safe:animate-[word-chat-message-in_180ms_ease-out_both]'
-                    : '',
-                  message.role === 'user'
-                    ? 'onboarding-option onboarding-option-highlight'
-                    : 'word-chat-assistant-message',
-                ].join(' ')}
+        <div className={`${embedded ? '' : 'max-h-[45vh] overflow-y-auto'} space-y-3 pr-1`}>
+          {messages.map((message, index) => {
+            // The in-flight assistant entry starts empty. The working status
+            // below already communicates progress, so do not render a blank
+            // speech bubble (previously it contained only a blinking caret).
+            if (message.role === 'assistant' && message.incomplete && !message.content) {
+              return null;
+            }
+
+            return (
+              <div
+                key={message.id ?? `${message.role}-${index}`}
+                className={message.role === 'user' ? 'flex justify-end' : 'flex justify-start'}
               >
-                {message.role === 'assistant' && message.incomplete ? (
-                  <>
-                    {message.content}
-                    <span className="word-chat-stream-caret" aria-hidden="true" />
-                  </>
-                ) : message.role === 'assistant' ? (
-                  <TypingText
-                    text={message.content}
-                    animate={index === lastAssistantIndex}
-                    animationKey={message.id ?? `${index}:${message.content}`}
-                    onTick={scrollToEnd}
-                  />
-                ) : (
-                  message.content
-                )}
-              </p>
-            </div>
-          ))}
+                <p
+                  className={[
+                    'max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm leading-relaxed',
+                    message.role === 'assistant' &&
+                    message.incomplete &&
+                    index === lastAssistantIndex
+                      ? 'motion-safe:animate-[word-chat-message-in_180ms_ease-out_both]'
+                      : '',
+                    message.role === 'user'
+                      ? 'onboarding-option onboarding-option-highlight'
+                      : 'word-chat-assistant-message',
+                  ].join(' ')}
+                >
+                  {message.content}
+                </p>
+              </div>
+            );
+          })}
           {busy ? (
             <div className="flex items-center gap-2 text-xs onboarding-text-soft">
               <TypingDots
@@ -516,7 +570,14 @@ export function ChatStep({
         </div>
       ) : null}
 
-      <form onSubmit={submit} className="flex gap-2">
+      <form
+        onSubmit={submit}
+        className={`flex gap-2 ${
+          embedded
+            ? 'sticky bottom-0 z-10 -mx-2 bg-[var(--ob-surface)]/95 px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur'
+            : ''
+        }`}
+      >
         <input
           ref={inputRef}
           type="text"
@@ -528,7 +589,7 @@ export function ChatStep({
           disabled={busy !== null}
           maxLength={1000}
           // The chat is the point of this screen, so the caret starts here.
-          autoFocus
+          autoFocus={!embedded}
           className="word-chat-input min-w-0 flex-1 px-3 py-2.5 text-sm disabled:opacity-50"
         />
         <button
@@ -539,21 +600,6 @@ export function ChatStep({
           {t('wordChat.send')}
         </button>
       </form>
-
-      {/* Onboarding only, and deliberately an escape hatch rather than a sixth,
-          equally prominent answer. Inside the app the caller omits it. */}
-      {onUseReadyMade ? (
-      <div className="flex justify-center">
-        <button
-          type="button"
-          onClick={onUseReadyMade}
-          disabled={busy !== null}
-          className="text-[11px] onboarding-text-soft opacity-50 transition-opacity hover:opacity-100 hover:underline disabled:cursor-not-allowed disabled:opacity-25"
-        >
-          {t('wordChat.readyMadeLink')}
-        </button>
-      </div>
-      ) : null}
     </div>
   );
 }

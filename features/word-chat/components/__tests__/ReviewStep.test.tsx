@@ -186,4 +186,75 @@ describe('ReviewStep', () => {
 
     vi.unstubAllGlobals();
   });
+
+  it('neutralizes spreadsheet formulas in copied learner text', async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    vi.stubGlobal('navigator', { clipboard: { writeText } });
+
+    render(
+      <I18nProvider language="en">
+        <ReviewStep
+          listName="My words"
+          categoryName="Test"
+          items={[{ kind: 'word', textKnown: '=HYPERLINK("bad")', textTarget: '+1' }]}
+          warningsByKnown={{}}
+          translationDiagnostics={null}
+          isPublic={false}
+          busy={false}
+          onUpdate={vi.fn()}
+          onRemove={vi.fn()}
+          onEnsureAudio={vi.fn()}
+          onBack={vi.fn()}
+          onSave={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Copy all' }));
+    await waitFor(() =>
+      expect(writeText).toHaveBeenCalledWith(`'=HYPERLINK("bad")\t'+1`),
+    );
+
+    vi.unstubAllGlobals();
+  });
+
+  it('does not show the old privacy gate in review', () => {
+    const onEnsureAudio = vi.fn();
+    const onSave = vi.fn();
+    render(
+      <I18nProvider language="en">
+        <ReviewStep
+          listName="My words"
+          categoryName="Family"
+          items={[
+            {
+              kind: 'sentence',
+              textKnown: 'Call Anna at 555-1234.',
+              textTarget: 'Zavolejte Anně na číslo 555-1234.',
+              audioStatus: 'idle',
+              audioAssetId: null,
+            },
+          ]}
+          warningsByKnown={{}}
+          translationDiagnostics={null}
+          isPublic={false}
+          busy={false}
+          onUpdate={vi.fn()}
+          onRemove={vi.fn()}
+          onEnsureAudio={onEnsureAudio}
+          onBack={vi.fn()}
+          onSave={onSave}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save to my words' })).toBeEnabled();
+
+    fireEvent.blur(screen.getByDisplayValue('Zavolejte Anně na číslo 555-1234.'));
+    expect(onEnsureAudio).toHaveBeenCalledWith(0);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save to my words' }));
+    expect(onSave).toHaveBeenCalledOnce();
+  });
 });

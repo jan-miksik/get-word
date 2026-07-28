@@ -25,7 +25,6 @@ import { useAuth } from '@/features/auth/client/useAuth';
 import { AppStateProvider } from '@/context/AppStateContext';
 import { I18nProvider } from '@/components/I18nProvider';
 import { LearningLanguageOnboarding } from '@/features/learning/onboarding/LearningLanguageOnboarding';
-import { AddWordsScreen } from '@/features/word-chat/components/AddWordsScreen';
 import {
   readLandingLanguagePair,
   markLandingLanguagePairConsumed,
@@ -35,61 +34,35 @@ import { PWAInstallIntroCard } from '@/features/learning/components/PWAInstallIn
 import { AddPersonalWordsPrompt } from '@/features/learning/components/AddPersonalWordsPrompt';
 import { usePWAInstallIntro } from '@/features/learning/hooks/usePWAInstallIntro';
 import { shouldOfferMorePersonalWords } from '@/features/learning/personalWordsPrompt';
+import { useAppSurface } from '@/features/workspace/useAppSurface';
 
 const BOOT_LOADING_TIMEOUT_MS = 12_000;
+
+// A surface now swaps in place instead of replacing the screen, so an empty
+// panel while its chunk downloads just reads as broken. Say something instead.
+function SurfaceLoading() {
+  return (
+    <div className="flex min-h-40 items-center justify-center p-8">
+      <span
+        aria-hidden="true"
+        className="h-8 w-8 animate-spin rounded-full border-2 border-current border-t-transparent opacity-40 motion-reduce:animate-none"
+      />
+    </div>
+  );
+}
+
+const AddWordsScreen = dynamic(
+  () => import('@/features/word-chat/components/AddWordsScreen').then((m) => m.AddWordsScreen),
+  { ssr: false, loading: SurfaceLoading },
+);
 
 // Photo lab is a whole second UI (camera flow, IndexedDB store, zoom canvas).
 // Opening it in place must not put any of that in the study page's bundle, so
 // it is fetched the first time a learner actually opens it.
 const PhotoLabPage = dynamic(
   () => import('@/features/photo-lab/components/PhotoLabPage').then((m) => m.PhotoLabPage),
-  { ssr: false, loading: () => null },
+  { ssr: false, loading: SurfaceLoading },
 );
-
-/** History state marker for the in-place photo lab; see `usePhotoLabOverlay`. */
-const PHOTO_LAB_HISTORY_MARKER = 'photo-lab';
-
-/**
- * Opens photo lab over the study view and gives it its own history entry, so
- * the phone's back gesture (and the browser's back button) closes the lab
- * instead of leaving the app. Closing pops that entry back off.
- */
-function usePhotoLabOverlay() {
-  const [isOpen, setIsOpen] = useState(false);
-  // Survives the effect re-run that Strict Mode does on mount, so one open
-  // never stacks up two history entries.
-  const pushedEntryRef = useRef(false);
-
-  useEffect(() => {
-    if (!isOpen) return;
-    if (!pushedEntryRef.current) {
-      window.history.pushState(
-        { ...window.history.state, getWordOverlay: PHOTO_LAB_HISTORY_MARKER },
-        '',
-      );
-      pushedEntryRef.current = true;
-    }
-    const handlePopState = () => {
-      pushedEntryRef.current = false;
-      setIsOpen(false);
-    };
-    window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
-  }, [isOpen]);
-
-  const close = useCallback(() => {
-    // Leaving our own entry behind would mean back "returns" to the study view
-    // the learner is already looking at. The popstate handler above is what
-    // actually closes the lab.
-    if (pushedEntryRef.current) {
-      window.history.back();
-      return;
-    }
-    setIsOpen(false);
-  }, []);
-
-  return { isOpen, open: useCallback(() => setIsOpen(true), []), close };
-}
 
 // The learning app now runs entirely on synced word_list_items; there is no
 // legacy seed word set. Stable identity avoids needless memo recomputes.
@@ -121,7 +94,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     () => {
       if (typeof window === 'undefined') return false;
       const params = new URLSearchParams(window.location.search);
-      return params.get('onboarding') === '1' || params.get('wordChat') === '1';
+      return params.get('onboarding') === '1';
     }
   );
   const [forceWordChat, setForceWordChat] = useState(
@@ -129,14 +102,6 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       typeof window !== 'undefined' &&
       new URLSearchParams(window.location.search).get('wordChat') === '1',
   );
-  // Photo lab used to be a plain link to `/photo-lab`, which swapped out the
-  // whole app and left no obvious way back. Like the word chat, it now opens
-  // over the study view and closes back onto the deck it left running.
-  const {
-    isOpen: showPhotoLab,
-    open: openPhotoLab,
-    close: closePhotoLab,
-  } = usePhotoLabOverlay();
   const [completedDeckWordCards, setCompletedDeckWordCards] = useState(0);
   const [memoryHooksIntroDismissedForSession, setMemoryHooksIntroDismissedForSession] = useState(false);
   const [addWordsPromptDismissedForSession, setAddWordsPromptDismissedForSession] =
@@ -217,7 +182,15 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     subscribedLists,
     isEditor,
     refreshFullSnapshot,
+    photoLabEnabled,
   } = appState;
+  const {
+    activeSurface,
+    navigateSurface,
+    replaceSurface,
+    returnToStudy,
+    visitedSurfaces,
+  } = useAppSurface(photoLabEnabled);
 
   // The app runs on synced words (from word_list_items).
   const activeWords = syncedWords ?? EMPTY_WORDS;
@@ -505,8 +478,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   const addWordsPrompt = shouldShowAddWordsPrompt ? (
     <AddPersonalWordsPrompt
       onAddWords={() => {
-        setForceWordChat(true);
-        setForceOnboarding(true);
+        navigateSurface('chat');
       }}
       onDismiss={() => setAddWordsPromptDismissedForSession(true)}
     />
@@ -519,23 +491,12 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       learningLanguageTo &&
       subscribedLists.length === 0
   );
-  // "Add words" from the app menu: same chat, different screen. Someone who is
-  // already studying has answered everything onboarding asks, so they get the
-  // chat alone rather than the whole first-run flow around it.
-  const showAddWords = Boolean(
-    forceWordChat &&
-      onboardingCompletedAt &&
-      learningLanguageFrom &&
-      learningLanguageTo &&
-      !hasNoSelectedWordList
-  );
   const needsLanguageOnboarding = Boolean(
-    !showAddWords &&
-      (forceOnboarding ||
-        hasNoSelectedWordList ||
-        !onboardingCompletedAt ||
-        !learningLanguageFrom ||
-        !learningLanguageTo)
+    forceOnboarding ||
+      hasNoSelectedWordList ||
+      !onboardingCompletedAt ||
+      !learningLanguageFrom ||
+      !learningLanguageTo
   );
   const landingPairFrom = landingLanguagePair?.from ?? null;
   const landingPairTo = landingLanguagePair?.to ?? null;
@@ -561,6 +522,19 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     if (shouldOpenWordChatFromLandingPair) markLandingLanguagePairConsumed();
   }, [shouldOpenWordChatFromLandingPair]);
 
+  useEffect(() => {
+    if (needsLanguageOnboarding || typeof window === 'undefined') return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('wordChat') !== '1') return;
+    replaceSurface('chat');
+    // Deferred only because a synchronous setState in an effect body is a lint
+    // error here, and deliberately NOT cancelled on cleanup: `replaceSurface`
+    // has already stripped the param, so a re-run cannot repeat this, while
+    // cancelling would leave the flag armed and auto-open the chat again on a
+    // later onboarding visit.
+    window.setTimeout(() => setForceWordChat(false), 0);
+  }, [needsLanguageOnboarding, replaceSurface]);
+
   return (
     <AppStateProvider value={appState}>
       <I18nProvider language={appState.settingsLanguage}>
@@ -577,22 +551,8 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
           // screen rather than flashing app chrome; `bootFailed` above breaks
           // the tie if it never arrives.
           <LoadingScreen />
-        ) : isListRefreshPending ? (
+        ) : isListRefreshPending && !onboardingCompletedAt ? (
           <LoadingScreen />
-        ) : showAddWords ? (
-          <AddWordsScreen
-            languageFrom={learningLanguageFrom as string}
-            languageTo={learningLanguageTo as string}
-            baseListId={
-              appState.activeList?.isOwnedPersonal ? null : appState.activeListId
-            }
-            refreshAfterCommit={refreshFullSnapshot}
-            onClose={() => {
-              setForceWordChat(false);
-              setForceOnboarding(false);
-            }}
-            onCommitted={() => undefined}
-          />
         ) : needsLanguageOnboarding ? (
           <LearningLanguageOnboarding
             initialFrom={onboardingInitialFrom}
@@ -623,13 +583,13 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
                 const url = new URL(window.location.href);
                 url.searchParams.delete('onboarding');
                 url.searchParams.delete('wordChat');
-                window.history.replaceState(null, '', url.toString());
+                window.history.replaceState(window.history.state, '', url.toString());
               }
+              if (forceWordChat) replaceSurface('chat');
             }}
             onSelectList={setActiveListId}
           />
         ) : (
-          <>
             <LearningStudyContent
               // Force card view when previewing the PWA install screen — the
               // interstitial only renders inside the card deck.
@@ -641,14 +601,36 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               school={school}
               authAddress={displayAddress}
               onSignOut={signOut}
-              // "Add words" from the menu. The `?wordChat=1` params are read once,
-              // on mount, so switching here in state is what actually opens the
-              // chat for someone already inside the app.
-              onOpenWordChat={() => {
-                setForceWordChat(true);
-                setForceOnboarding(true);
-              }}
-              onOpenPhotoLab={openPhotoLab}
+              onOpenWordChat={() => navigateSurface('chat')}
+              onOpenPhotoLab={() => navigateSurface('photo')}
+              activeSurface={activeSurface}
+              onSurfaceChange={navigateSurface}
+              chatContent={
+                visitedSurfaces.has('chat') ? (
+                  <AddWordsScreen
+                    languageFrom={learningLanguageFrom as string}
+                    languageTo={learningLanguageTo as string}
+                    baseListId={
+                      appState.activeList?.isOwnedPersonal ? null : appState.activeListId
+                    }
+                    refreshAfterCommit={refreshFullSnapshot}
+                    onClose={returnToStudy}
+                    active={activeSurface === 'chat'}
+                    onCommitted={() => undefined}
+                  />
+                ) : undefined
+              }
+              photoContent={
+                visitedSurfaces.has('photo') && photoLabEnabled ? (
+                  <div className={photoDisplayFontClass ?? ''}>
+                    <PhotoLabPage
+                      onClose={returnToStudy}
+                      variant="embedded"
+                      active={activeSurface === 'photo'}
+                    />
+                  </div>
+                ) : undefined
+              }
               categories={categories}
               progressStats={progressStats}
               phrasesCallbackRef={phrasesCallbackRef}
@@ -669,16 +651,6 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               settlingCount={settlingWords.length}
               onToggleShowNotReady={() => setShowNotReady(!showNotReady)}
             />
-            {showPhotoLab ? (
-              <div
-                className={`fixed inset-0 z-[100] overflow-y-auto bg-[#F4EFE2] ${
-                  photoDisplayFontClass ?? ''
-                }`}
-              >
-                <PhotoLabPage onClose={closePhotoLab} />
-              </div>
-            ) : null}
-          </>
         )}
       </I18nProvider>
     </AppStateProvider>

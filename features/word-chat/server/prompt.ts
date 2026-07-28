@@ -2,11 +2,8 @@ import { getLocalizedLanguageName } from "@/lib/i18n/languages";
 import { hasRegisterDistinction } from "../registerLanguages";
 import { LIST_GENERATION_RULES } from "@/lib/translation-prompt";
 import { isLearnerBriefEmpty, type LearnerBrief } from "@/lib/learner-brief";
-import {
-  TARGET_ITEM_COUNT,
-  TARGET_SENTENCE_COUNT,
-  TARGET_WORD_COUNT,
-} from "./config";
+import { TARGET_ITEM_COUNT } from "./config";
+import { proposalDifficultyProfile } from "../difficulty";
 import type {
   WordChatAddressRegister,
   WordChatLanguageLevel,
@@ -56,9 +53,92 @@ function levelDescription(level: WordChatLanguageLevel): string {
     case "A2":
       return "A2: they can manage simple situations; include practical everyday sentences.";
     case "B1":
-      return "B1: they can handle ordinary conversation; include natural standalone sentences.";
+      return "B1: they already know routine survival vocabulary and can deal with most travel and everyday situations. Teach them to explain problems, give reasons, compare options, make specific requests, and handle complications with connected natural language.";
     case "B2":
-      return "B2: they speak fluently and want nuance; include natural phrasing, register, and useful subtleties.";
+      return "B2: they already communicate independently and fluently. Teach precise wording, negotiation, tact, nuance, register, and idiomatic but broadly useful expression.";
+  }
+}
+
+/**
+ * One unified per-level profile used by the proposal prompt.
+ *
+ * Every level is described along the same four axes, so the model gets a
+ * symmetric picture instead of ad-hoc bullets per level:
+ *   1. word-item frequency band — a CEILING for A0-A2 (nothing above it),
+ *      a FLOOR for B1-B2 (nothing below it),
+ *   2. communicative functions in the sense of the CEFR descriptors,
+ *   3. grammar ceiling/floor for the sentences,
+ *   4. what TYPE of word item is typical for the level.
+ *
+ * There are no official CEFR word lists for most language pairs we serve
+ * (none exist for Vietnamese at all), so frequency bands are the proxy for
+ * "vocabulary typical of the level"; functions and grammar come from the
+ * CEFR Companion Volume descriptors, which the model knows well.
+ */
+function proposalDifficultyGuidance(level: WordChatLanguageLevel, target: string): string {
+  switch (level) {
+    case "A0":
+      return `A0 profile:
+  - Word-item frequency band (CEILING): the underlying ${target} expression of every word item must be among roughly the 300-500 most frequent words, or a fixed survival chunk built from them. Nothing rarer.
+  - CEFR functions to teach: greeting, saying yes/no, stating an immediate need, asking for one thing, saying you do not understand.
+  - Sentence grammar: fixed formulaic patterns only. No tenses beyond the default form, no subordinate clauses, no connectors.
+  - Typical word items: concrete survival nouns (places, people, food, transport, numbers) and a few essential fixed chunks.`;
+    case "A1":
+      return `A1 profile:
+  - Word-item frequency band (CEILING): the underlying ${target} expression of every word item must be among roughly the 1000 most frequent words. Nothing rarer.
+  - CEFR functions to teach: introducing oneself, expressing simple needs and preferences, asking and answering simple concrete questions.
+  - Sentence grammar: short, concrete, mostly present-tense sentences. No subordinate clauses; "and" is the only connector.
+  - Typical word items: concrete high-frequency nouns and basic verbs; a short fixed phrase only when it is clearly more natural than a single word.`;
+    case "A2":
+      return `A2 profile:
+  - Word-item frequency band (CEILING): the underlying ${target} expression of every word item must be among roughly the 2000 most frequent words, or a very common collocation of such words. No specialist or low-frequency vocabulary unless the learner's situation explicitly requires it.
+  - CEFR functions to teach: handling routine transactions, simple descriptions of people/places/plans, simple statements about past and future.
+  - Sentence grammar: past and future forms are welcome; simple connectors such as "because", "but", "when", "before". Still concrete and direct — no chained subordinate clauses.
+  - Typical word items: everyday verbs, common adjectives, and simple collocations for predictable situations.`;
+    case "B1":
+      return `B1 profile:
+  - Word-item frequency band (FLOOR): the underlying ${target} expression of every word item must sit OUTSIDE the ~2000 most frequent words (roughly the 2000-4000 band), or be a compact collocation whose meaning is not obvious from its parts. Assume the learner ALREADY KNOWS basic labels like "flight", "coffee", "please", "help" — never spend a word slot on them.
+  - CEFR functions to teach: explaining a problem and its cause, requesting a specific remedy, comparing options, clarifying conditions, responding when the normal plan fails.
+  - Sentence grammar: natural connected sentences using useful B1 grammar — a subordinate clause, condition, reported information, or reason/result — where the situation supports it. Sentences MAY be built largely from lower-level words; that is fine scaffolding. A sentence that merely combines beginner words with no B1 function is still beginner content.
+  - Typical word items: precise verbs, problem words, useful adjectives/adverbs, compact collocations. Single words are fine when genuinely B1-useful; do not force every item into a phrase.`;
+    case "B2":
+      return `B2 profile:
+  - Word-item frequency band (FLOOR): the underlying ${target} expression of every word item must sit outside the ~4000 most frequent words (roughly the 4000-8000 band), or be an idiomatic / register-sensitive collocation. Assume all routine A1-B1 vocabulary for the topic is known. Avoid obscure, literary, or narrowly specialist terms unless the learner asked for that domain.
+  - CEFR functions to teach: hedging, tactful disagreement, negotiation, qualifying a claim, precise nuanced description, adjusting register.
+  - Sentence grammar: hedging constructions, passives, nominalisation, and complex qualification are welcome where natural. Sentences may freely reuse lower-level vocabulary as scaffolding around the B2 target expression.
+  - Typical word items: qualifiers, hedges, register-sensitive phrasing, precise verbs, idiomatic but broadly useful collocations. Single-word items are allowed when the word itself is the B2 learning target; otherwise prefer compact reusable chunks. Never bare topic labels.`;
+  }
+}
+
+function proposalContrastCalibration(level: WordChatLanguageLevel): string {
+  switch (level) {
+    case "A0":
+      return `A0 calibration examples on another topic; do NOT copy them:
+  - ABOVE LEVEL: "Could you recommend something less spicy?" -> too much grammar and nuance.
+  - ON LEVEL: "Water, please." -> survival phrase.
+  - ON LEVEL: "I don't understand." -> essential fixed pattern.`;
+    case "A1":
+      return `A1 calibration examples on another topic; do NOT copy them:
+  - ABOVE LEVEL: "I reserved a table, but I need to change the time." -> too many linked ideas.
+  - ON LEVEL: "I have a reservation." -> simple everyday sentence.
+  - ON LEVEL: "the bill" -> very common useful vocabulary.`;
+    case "A2":
+      return `A2 calibration examples on another topic; do NOT copy them:
+  - BELOW LEVEL: "Coffee, please." -> A1 survival phrase, too easy.
+  - ABOVE LEVEL: "The charge seems to have been added by mistake." -> B1 problem-solving.
+  - ON LEVEL: "Can I pay by card?" -> practical everyday sentence.`;
+    case "B1":
+      return `B1 calibration examples on another topic; do NOT copy them:
+  - BELOW LEVEL: "The soup is very good." -> longer beginner words are still beginner content.
+  - BELOW LEVEL: "the bill" -> basic topic label the learner likely knows.
+  - ON LEVEL: "Could you split this between two bills?" -> specific request with a complication.
+  - ON LEVEL: "It seems this item was charged twice." -> useful problem explanation.`;
+    case "B2":
+      return `B2 calibration examples on another topic; do NOT copy them:
+  - BELOW LEVEL: "Could you split this between two bills?" -> useful B1, but too routine for B2.
+  - BELOW LEVEL: "charged twice" -> clear but not nuanced enough as a B2 word item.
+  - ON LEVEL: "I may have misunderstood the pricing, but this charge seems inconsistent with the menu." -> tact, qualification, precise wording.
+  - ON LEVEL: "inconsistent with" -> compact reusable B2 expression.`;
   }
 }
 
@@ -136,6 +216,9 @@ export function buildProposalPrompt(input: {
 }): { system: string; user: string } {
   const target = languageName(input.languageTo, input.chatLanguage);
   const known = languageName(input.languageFrom, input.chatLanguage);
+  const difficulty = proposalDifficultyProfile(input.languageLevel);
+  const guidance = proposalDifficultyGuidance(input.languageLevel, target);
+  const calibration = proposalContrastCalibration(input.languageLevel);
 
   const system = `
 You are a language-learning content editor choosing someone's first ${target} study items. They know ${known}.
@@ -143,17 +226,23 @@ You are a language-learning content editor choosing someone's first ${target} st
 Rules:
 ${LIST_GENERATION_RULES}
 
+Precedence: the rules above are generic defaults. Wherever they conflict with the ${input.languageLevel} profile below — sentence length, grammar complexity, subordinate clauses, passives, or idiomatic expressions — the level profile wins.
+
 Additional rules for this task:
-- Propose EXACTLY ${TARGET_ITEM_COUNT} items: about ${TARGET_SENTENCE_COUNT} sentences and ${TARGET_WORD_COUNT} single words or short phrases.
-- The word items MUST be content words taken from the sentences you propose. Never add vocabulary that does not appear in them.
+- Propose EXACTLY ${TARGET_ITEM_COUNT} items: EXACTLY ${difficulty.sentenceCount} sentences and EXACTLY ${difficulty.supportCount} ${difficulty.supportKind}.
+- Every word or short-phrase item MUST be taken from the sentences you propose. Never add vocabulary that does not appear in them.
 - Order every item by how likely this specific learner is to actually need it, most likely first.
 - Write EVERY item in ${known}, the language the learner already knows. Do not translate anything; a later step does that.
-- Prefer the ordinary, canonical way to say something over a clever or unusual phrasing. Write what a phrasebook would write.
+- Anchor before generating. Silently decide first: (a) which 2-3 communicative functions from the ${input.languageLevel} profile below this topic calls for, (b) which natural ${target} expressions inside the profile's frequency band would genuinely teach them. Only then write faithful ${known} equivalents of those exact meanings. The visible ${known} wording being common does not make a beginner ${target} expression suitable for a higher level.
+- Prefer the ordinary, canonical way to express the level-appropriate meaning over clever, literary, or unusual phrasing.
 - Never propose anything in the exclusion list, and never propose two items with the same meaning.
 - "confidence" is your estimate of how useful the item is for THIS learner, between 0 and 1.
 - "categoryName" is a short label (2-4 words) in ${known} for what this set is about.
 - "reviewLabel" is a NEUTRAL English topic label for an internal reviewer, e.g. "Doctor appointment" or "Salon small talk". It must contain no names, employers, addresses, health details, or anything identifying. It is not the learner's category name.
-- Calibrate difficulty to this level: ${levelDescription(input.languageLevel)}
+- Learner level: ${levelDescription(input.languageLevel)}
+- ${guidance}
+- ${calibration}
+- Final audit before answering: silently assign a CEFR level to the underlying ${target} expression of EACH word item. If any item falls outside the ${input.languageLevel} profile's frequency band — for A0-A2 above the ceiling, for B1/B2 below the floor — replace it and re-check, unless the profile itself grants an exception for it (such as A2 specialist vocabulary the learner's situation explicitly requires). Do not raise difficulty merely by making a basic sentence longer — difficulty comes from the function and the vocabulary band, not from length.
 
 Return only valid JSON, no markdown:
 {

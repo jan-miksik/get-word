@@ -19,9 +19,28 @@ vi.mock("../usage", () => ({
 
 vi.mock("../config", () => ({
   CHAT_MAX_TOKENS: 600,
+  CHAT_REASONING: { effort: "low", exclude: true },
+  CHAT_RESPONSE_FORMAT: {
+    type: "json_schema",
+    json_schema: {
+      name: "word_chat_turn",
+      strict: true,
+      schema: {
+        type: "object",
+        properties: {
+          reply: { type: "string" },
+          suggestions: { type: "array", items: { type: "string" } },
+          readyToPropose: { type: "boolean" },
+        },
+        required: ["reply", "suggestions", "readyToPropose"],
+        additionalProperties: false,
+      },
+    },
+  },
+  MAX_MESSAGES_PER_SESSION: 12,
   MAX_USER_MESSAGE_CHARS: 500,
   OPENROUTER_API_URL: "https://openrouter.test/chat/completions",
-  OPENROUTER_MAX_ATTEMPTS: 1,
+  OPENROUTER_MAX_ATTEMPTS: 2,
   OPENROUTER_RETRY_BASE_DELAY_MS: 1,
   OPENROUTER_TIMEOUT_MS: 1_000,
   WORD_CHAT_CHAT_MODEL: "test/chat",
@@ -60,6 +79,8 @@ async function collectTurn(chunks: string[]) {
 describe("streamChatTurn", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.streamOpenRouterCompletion.mockReset();
+    mocks.recordWordChatUsage.mockReset();
     process.env.OPENROUTER_SERVER_API_KEY = "test-key";
   });
 
@@ -79,6 +100,58 @@ describe("streamChatTurn", () => {
     expect(mocks.recordWordChatUsage).toHaveBeenCalledWith(
       expect.objectContaining({ callType: "chat", model: expect.any(String) }),
     );
+    expect(mocks.streamOpenRouterCompletion).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reasoning: { effort: "low", exclude: true },
+        responseFormat: expect.objectContaining({ type: "json_schema" }),
+      }),
+    );
+  });
+
+  it("keeps a partial visible reply when the stream ends mid-reply", async () => {
+    const events = await collectTurn(['{"reply":"Skoro hot']);
+
+    expect(events).toEqual([
+      { type: "delta", text: "Skoro hot" },
+      expect.objectContaining({
+        type: "done",
+        reply: "Skoro hot",
+        suggestions: [],
+        readyToPropose: false,
+        metadataValid: false,
+      }),
+    ]);
+  });
+
+  it("retries parser failures before any visible reply", async () => {
+    mocks.streamOpenRouterCompletion
+      .mockResolvedValueOnce(modelStream(["not-json"]))
+      .mockResolvedValueOnce(modelStream(['{"reply":"Hotovo","suggestions":[]}']));
+
+    const stream = await streamChatTurn({
+      userId: "user-1",
+      sessionId: "session-1",
+      languageFrom: "cs",
+      languageTo: "vi",
+      chatLanguage: "cs",
+      addressRegister: "casual",
+      salutationGender: "neutral",
+      languageLevel: "A0",
+      brief: null,
+      messages: [{ role: "user", content: "Kavárna" }],
+    });
+    const events = [];
+    for await (const event of stream) events.push(event);
+
+    expect(mocks.streamOpenRouterCompletion).toHaveBeenCalledTimes(2);
+    expect(events).toEqual([
+      { type: "delta", text: "Hotovo" },
+      expect.objectContaining({
+        type: "done",
+        reply: "Hotovo",
+        metadataValid: true,
+      }),
+    ]);
   });
 
   it("fails when the streamed JSON never contains reply", async () => {

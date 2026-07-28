@@ -14,7 +14,11 @@ import { normalizeLanguageCode } from "@/lib/i18n/languages";
 import { buildContentKeyInput, computeContentKey } from "@/lib/progress-key";
 import { personalListName } from "../personal-list-name";
 import type { LearnerBrief } from "@/lib/learner-brief";
-import { MAX_ITEMS_PER_SESSION } from "./config";
+import {
+  MAX_ITEMS_PER_SESSION,
+  MAX_WORD_CHAT_ID_CHARS,
+  MAX_WORD_CHAT_ITEM_CHARS,
+} from "./config";
 import { regenerateLearnerBrief } from "./brief";
 import { getPersonalList } from "./personal-list";
 import {
@@ -57,8 +61,10 @@ export function sanitizeReviewItems(items: ReviewItem[]): ReviewItem[] {
   const seen = new Set<string>();
   const result: ReviewItem[] = [];
   for (const item of items) {
-    const textKnown = item.textKnown?.trim().replace(/\s+/g, " ") ?? "";
-    const textTarget = item.textTarget?.trim().replace(/\s+/g, " ") ?? "";
+    const textKnown =
+      item.textKnown?.trim().replace(/\s+/g, " ").slice(0, MAX_WORD_CHAT_ITEM_CHARS) ?? "";
+    const textTarget =
+      item.textTarget?.trim().replace(/\s+/g, " ").slice(0, MAX_WORD_CHAT_ITEM_CHARS) ?? "";
     const key = buildContentKeyInput({
       languageFrom: "_from",
       languageTo: "_to",
@@ -234,7 +240,7 @@ export async function commitWordChatSession(input: {
     throw new WordChatCommitError("A valid language pair is required.");
   }
 
-  const creationKey = request.creationKey?.trim();
+  const creationKey = request.creationKey?.trim().slice(0, MAX_WORD_CHAT_ID_CHARS);
   if (!creationKey) throw new WordChatCommitError("A creation key is required.");
 
   const existingCommit = await committedResult({

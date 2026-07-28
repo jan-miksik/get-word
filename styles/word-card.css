@@ -1048,7 +1048,7 @@
     min-height: max(100%, calc(100dvh - 8rem));
   }
 
-  .app > main.learning-card-main {
+  .app .learning-card-main {
     padding-bottom: 0;
   }
 
@@ -1177,14 +1177,14 @@
      jump-to-top on shorter windows — overrides the max-height:650 flex-start).
    - Buttons keep a stable resting gap on tall windows and slide gently toward
      the bottom as the window shortens, reclaiming vertical room for the word.
-   - The top chrome (beta badge / menu / counters) tightens upward as the
-     window shortens so the card centre tracks the true middle.
+   - The top chrome (beta badge / menu / counters) stays close to the top edge
+     so the card gets the full remaining viewport height.
    ────────────────────────────────────────────────────────────────────────── */
 @media (min-width: 768px) {
   /* Resting gap under the buttons: caps at 9rem on tall windows (~900px+),
      then shrinks proportionally so the buttons drift toward the bottom as the
      window gets shorter. */
-  .app > main.learning-card-main {
+  .app .learning-card-main {
     padding-bottom: max(env(safe-area-inset-bottom, 0px), clamp(2rem, 16dvh, 9rem));
   }
 
@@ -1195,10 +1195,11 @@
     padding-top: 0;
   }
 
-  /* Pull top chrome up as the window shortens (card view only): 32px on tall
-     windows (~800px+), easing down to ~10px on short ones. */
+  /* Keep the persistent menu close to the viewport edge. This rule is loaded
+     after layout.css, so it must preserve the same compact inset instead of
+     restoring the former 10–32px responsive padding. */
   .app[data-view-mode="card"] {
-    padding-top: clamp(10px, 4dvh, 32px);
+    padding-top: max(4px, env(safe-area-inset-top, 0px));
   }
 
   /* Reset the mobile `100dvh - 8rem` viewport-height hack (from the
@@ -1217,7 +1218,7 @@
    `.phrase-card` selector beats the shorthand `padding` set for
    `.word-card--fullscreen` in minigames.css (loaded later). */
 @media (min-width: 768px) and (max-height: 600px) {
-  .app > main.learning-card-main {
+  .app .learning-card-main {
     padding-bottom: max(env(safe-area-inset-bottom, 0px), 0.75rem);
   }
 

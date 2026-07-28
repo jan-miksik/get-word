@@ -11,6 +11,7 @@ import {
 } from "@/lib/translation-prompt";
 import {
   MAX_ITEMS_PER_SESSION,
+  MAX_WORD_CHAT_ITEM_CHARS,
   SESSIONS_PER_DAY,
   EDITOR_SESSIONS_PER_DAY,
   WORD_CHAT_TRANSLATION_MODEL,
@@ -91,7 +92,10 @@ export async function translateSelection(input: {
   const languageTo = normalizeLanguageCode(input.languageTo);
 
   const items = input.items
-    .map((item) => ({ ...item, text: item.text.trim().replace(/\s+/g, " ") }))
+    .map((item) => ({
+      ...item,
+      text: item.text.trim().replace(/\s+/g, " ").slice(0, MAX_WORD_CHAT_ITEM_CHARS),
+    }))
     .filter((item) => item.text)
     .slice(0, MAX_ITEMS_PER_SESSION);
   if (items.length === 0) {

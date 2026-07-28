@@ -9,7 +9,7 @@ import { generateAudioForItem } from "@/features/audio/server/batch/generate-ite
 import { AUDIO_FORMAT, INLINE_TOTAL_MAX_BYTES } from "@/features/audio/server/batch/types";
 import { getGoogleChirp3HdVoices } from "@/lib/language-catalog";
 import { pickVoiceForText } from "@/lib/tts-voice-mix";
-import { MAX_ITEMS_PER_SESSION } from "./config";
+import { MAX_ITEMS_PER_SESSION, MAX_WORD_CHAT_ITEM_CHARS } from "./config";
 
 /**
  * Audio for a word-chat session, generated during Review — before the items
@@ -81,9 +81,13 @@ export async function generateWordChatAudio(input: {
   voiceId?: string;
 }): Promise<{ results: WordChatAudioResult[]; quotaExhausted?: string }> {
   const items = input.items
-    .map((item) => ({ ...item, text: item.text.trim() }))
+    .map((item) => ({
+      ...item,
+      key: item.key.slice(0, 64),
+      text: item.text.trim().slice(0, MAX_WORD_CHAT_ITEM_CHARS),
+    }))
     .filter((item) => item.text && item.language)
-    .slice(0, MAX_ITEMS_PER_SESSION * 2);
+    .slice(0, MAX_ITEMS_PER_SESSION);
   if (items.length === 0) return { results: [] };
 
   // Same voice treatment as the list editor and the photo lab: all Chirp3-HD

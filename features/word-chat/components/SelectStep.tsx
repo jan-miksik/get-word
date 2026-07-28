@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useI18n } from '@/components/I18nProvider';
+import { PencilIcon } from '@/components/icons/AppIcons';
 import { getLocalizedLanguageName } from '@/lib/i18n/languages';
 import type { ProposedItem } from '../types';
 import type { WordChatLimits } from '../hooks/useWordChat';
@@ -158,7 +159,7 @@ export function SelectStep({
             <li key={key}>
               <div
                 className={[
-                  'onboarding-option flex w-full items-center gap-2 rounded-xl p-1.5 pl-3 text-left',
+                  'onboarding-option group flex w-full items-center gap-2 rounded-xl p-1.5 pl-3 text-left',
                   selected ? 'onboarding-option-highlight' : '',
                 ].join(' ')}
               >
@@ -225,16 +226,11 @@ export function SelectStep({
                   <button
                     type="button"
                     onClick={() => setEditingKey(key)}
-                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full opacity-70 transition-opacity hover:bg-black/10 hover:opacity-100 focus:opacity-100"
+                    className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full opacity-70 transition-opacity hover:bg-black/10 hover:opacity-100 focus:opacity-100 sm:opacity-0 sm:group-hover:opacity-70 sm:focus:opacity-100"
                     aria-label={`${t('lists.edit')}: ${item.text}`}
                     title={t('lists.edit')}
                   >
-                    <svg width="15" height="15" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                      <path
-                        d="M4 14.5V16h1.5L14.2 7.3l-1.5-1.5L4 14.5zM13.5 5l1.5-1.5 1.5 1.5L15 6.5 13.5 5z"
-                        fill="currentColor"
-                      />
-                    </svg>
+                    <PencilIcon size={15} />
                   </button>
                 ) : null}
               </div>

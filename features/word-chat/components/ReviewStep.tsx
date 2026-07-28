@@ -3,6 +3,7 @@
 import { useCallback, useRef, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { resolveClipUrl } from '../client/clip-playback';
+import { MAX_WORD_CHAT_ITEM_CHARS } from '../limits';
 import type { TranslationDiagnostics } from '../hooks/useWordChat';
 import type { ReviewItem } from '../types';
 
@@ -70,8 +71,18 @@ function MissingAudio() {
 }
 
 /**
- * The single confirmation step. Translations and audio are already generated;
- * the learner edits anything that looks wrong and saves once.
+ * "Copy all" is intentionally spreadsheet-friendly. Neutralize leading formula
+ * markers so a learner-authored value cannot become a formula when pasted into
+ * Excel or Google Sheets.
+ */
+function safeSpreadsheetCell(value: string): string {
+  return /^\s*[=+\-@]/.test(value) ? `'${value}` : value;
+}
+
+/**
+ * The single confirmation step. Translations are already generated; audio is
+ * prepared in the background. The learner edits anything that looks wrong and
+ * saves once.
  *
  * Editing the target text clears that row's audio (the clip no longer says what
  * the row says); leaving the field triggers a fresh best-effort clip.
@@ -101,7 +112,10 @@ export function ReviewStep({
    */
   const copyAll = useCallback(async () => {
     const text = items
-      .map((item) => `${item.textKnown}\t${item.textTarget}`)
+      .map(
+        (item) =>
+          `${safeSpreadsheetCell(item.textKnown)}\t${safeSpreadsheetCell(item.textTarget)}`,
+      )
       .join('\n');
     try {
       await navigator.clipboard.writeText(text);
@@ -211,6 +225,7 @@ export function ReviewStep({
                     type="text"
                     value={item.textKnown}
                     onChange={(event) => onUpdate(index, { textKnown: event.target.value })}
+                    maxLength={MAX_WORD_CHAT_ITEM_CHARS}
                     className="w-full bg-transparent text-base outline-none sm:text-lg"
                     aria-label={t('wordChat.badgeWord')}
                   />
@@ -218,8 +233,11 @@ export function ReviewStep({
                     type="text"
                     value={item.textTarget}
                     onChange={(event) => onUpdate(index, { textTarget: event.target.value })}
+                    maxLength={MAX_WORD_CHAT_ITEM_CHARS}
                     onBlur={() => {
-                      if (!item.audioAssetId) onEnsureAudio(index);
+                      if (!item.audioAssetId) {
+                        onEnsureAudio(index);
+                      }
                     }}
                     className="w-full bg-transparent text-base font-bold outline-none sm:text-lg"
                     aria-label={t('wordChat.badgeSentence')}

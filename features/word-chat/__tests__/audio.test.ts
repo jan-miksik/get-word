@@ -35,6 +35,7 @@ vi.mock('@/features/audio/server/batch/generate-item', () => ({
 }));
 
 import { generateWordChatAudio } from '../server/audio';
+import { MAX_WORD_CHAT_ITEM_CHARS } from '../server/config';
 
 describe('generateWordChatAudio', () => {
   beforeEach(() => {
@@ -81,5 +82,27 @@ describe('generateWordChatAudio', () => {
     expect(result.results).toEqual([
       { key: '0', status: 'ok', assetId: 'asset-1', contentHash: 'hash-1' },
     ]);
+  });
+
+  it('caps audio text server-side before hashing or sending it to TTS', async () => {
+    const oversized = 'x'.repeat(MAX_WORD_CHAT_ITEM_CHARS + 100);
+
+    await generateWordChatAudio({
+      userId: 'user-1',
+      items: [{ key: '0', text: oversized, language: 'vi' }],
+    });
+
+    expect(mocks.computeContentHash).toHaveBeenCalledWith(
+      'x'.repeat(MAX_WORD_CHAT_ITEM_CHARS),
+      'vi',
+      'google_tts',
+      expect.any(Object),
+    );
+    expect(mocks.generateAudioForItem).toHaveBeenCalledWith(
+      expect.objectContaining({
+        item: expect.objectContaining({ text: 'x'.repeat(MAX_WORD_CHAT_ITEM_CHARS) }),
+      }),
+      expect.any(Object),
+    );
   });
 });

@@ -146,6 +146,15 @@ export function SettingsIcon(props: IconProps) {
   );
 }
 
+export function PencilIcon(props: IconProps) {
+  return (
+    <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
+      <path d="M4 20h4.5L19.25 9.25a2.12 2.12 0 0 0 0-3L17.75 4.75a2.12 2.12 0 0 0-3 0L4 15.5V20Z" />
+      <path d="m13.5 6 4.5 4.5" />
+    </Glyph>
+  );
+}
+
 export function InstallAppIcon(props: IconProps) {
   return (
     <Glyph {...props}>

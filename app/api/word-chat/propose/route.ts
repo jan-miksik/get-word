@@ -13,6 +13,7 @@ import {
 } from "@/features/word-chat/server/rate-limit";
 import {
   MAX_ITEMS_PER_SESSION,
+  MAX_WORD_CHAT_ID_CHARS,
   SOFT_ITEM_WARNING_THRESHOLD,
   WORD_CHAT_PROPOSAL_MODEL,
   canSeeWordChatDiagnostics,
@@ -33,7 +34,10 @@ export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}));
   const languageFrom = normalizeLanguageCode(body.language_from);
   const languageTo = normalizeLanguageCode(body.language_to);
-  const sessionId = typeof body.session_id === "string" ? body.session_id.trim() : "";
+  const sessionId =
+    typeof body.session_id === "string"
+      ? body.session_id.trim().slice(0, MAX_WORD_CHAT_ID_CHARS)
+      : "";
 
   if (!languageFrom || !languageTo || languageFrom === languageTo) {
     return NextResponse.json(
@@ -58,28 +62,41 @@ export async function POST(request: NextRequest) {
     // allowance so "press suggest repeatedly" is not an unmetered loop.
     await reserveChatTurn({ userId: user.id, sessionId, role });
 
-    const [brief, askVisibility, usage] = await Promise.all([
-      loadLearnerBrief({ userId: user.id, languageFrom, languageTo }),
-      needsVisibilityChoice({ userId: user.id, languageFrom, languageTo }),
-      getMonthlyItemUsage({ userId: user.id, role }),
-    ]);
-
-    const proposal = await proposeItems({
+    const briefPromise = loadLearnerBrief({ userId: user.id, languageFrom, languageTo });
+    const askVisibilityPromise = needsVisibilityChoice({
       userId: user.id,
-      sessionId,
       languageFrom,
       languageTo,
-      chatLanguage: normalizeLanguageCode(body.chat_language) || languageFrom,
-      languageLevel: readLanguageLevel(body.language_level) ?? "A0",
-      brief,
-      messages,
-      baseListId:
-        typeof body.base_list_id === "string" && UUID_RE.test(body.base_list_id)
-          ? body.base_list_id
-          : undefined,
-      model: canDebug ? resolveSelectedModel(body.model, WORD_CHAT_PROPOSAL_MODEL) : undefined,
-      includeRequest: canDebug,
     });
+    const usagePromise = getMonthlyItemUsage({ userId: user.id, role });
+
+    // Only the brief is an input to the model. Visibility and quota metadata
+    // can finish alongside the slow provider call instead of delaying its
+    // start.
+    const proposalPromise = briefPromise.then((brief) =>
+      proposeItems({
+        userId: user.id,
+        sessionId,
+        languageFrom,
+        languageTo,
+        chatLanguage: normalizeLanguageCode(body.chat_language) || languageFrom,
+        languageLevel: readLanguageLevel(body.language_level) ?? "A0",
+        brief,
+        messages,
+        baseListId:
+          typeof body.base_list_id === "string" && UUID_RE.test(body.base_list_id)
+            ? body.base_list_id
+            : undefined,
+        model: canDebug ? resolveSelectedModel(body.model, WORD_CHAT_PROPOSAL_MODEL) : undefined,
+        includeRequest: canDebug,
+      }),
+    );
+
+    const [proposal, askVisibility, usage] = await Promise.all([
+      proposalPromise,
+      askVisibilityPromise,
+      usagePromise,
+    ]);
 
     return NextResponse.json({
       diagnostics: canDebug ? serializeDiagnostics(proposal.diagnostics) : null,

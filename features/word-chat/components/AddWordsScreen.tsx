@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
-import { RisingLettersBackground } from '@/components/RisingLettersBackground';
 import { WordChatFlow } from './WordChatFlow';
 import type { WordChatStep } from '../hooks/useWordChat';
 
@@ -13,6 +12,8 @@ type Props = {
   refreshAfterCommit?: () => Promise<void>;
   /** Back to studying. */
   onClose: () => void;
+  /** Whether this mounted workspace surface is currently visible. */
+  active?: boolean;
   onCommitted: (result: {
     listId: string;
     categoryId: string | null;
@@ -38,27 +39,22 @@ export function AddWordsScreen({
   baseListId,
   refreshAfterCommit,
   onClose,
+  active = true,
   onCommitted,
 }: Props) {
   const { t } = useI18n();
   const [step, setStep] = useState<WordChatStep>('chat');
 
   return (
-    // Full-bleed on a phone: the card frame costs ~36px of horizontal room on
-    // each side, which the word rows and the chat need more than the framing.
-    // From `sm` up it becomes a card again, centred on the background.
-    <div className="onboarding-screen flex min-h-screen items-start justify-center sm:px-4 sm:py-14">
-      <RisingLettersBackground variant="ambient" className="z-0" />
-      {/* `.onboarding-card` lives outside Tailwind's layers, so its border and
-          radius beat plain utilities — dropping the frame needs `!`. */}
-      <section className="onboarding-card relative z-10 min-h-screen w-full max-w-3xl rounded-none! border-0! p-4 sm:min-h-0 sm:rounded-2xl! sm:border-2! sm:p-7">
+    <div className="mx-auto flex w-full max-w-[800px] flex-col px-3 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-4 sm:pb-8">
+      <section className="onboarding-card relative w-full rounded-2xl! border-2! p-4 sm:p-7">
         <div className="mb-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
           <button
             type="button"
             onClick={onClose}
-            className="justify-self-start text-xs font-bold underline onboarding-text-soft"
+            className="justify-self-start rounded-full border-2 border-[#2A2218]/60 bg-[#F4EFE2]/70 px-3.5 py-2 text-xs font-bold text-[#2A2218] transition hover:-translate-y-0.5 hover:border-[#2A2218] hover:bg-[#FFF8E8] hover:shadow-md"
           >
-            {t('wordChat.back')}
+            ← {t('wordChat.back')}
           </button>
           {/* Every step past the chat carries its own heading. */}
           {step === 'chat' ? (
@@ -79,6 +75,8 @@ export function AddWordsScreen({
           onDone={onClose}
           onStepChange={setStep}
           settingsPlacement="screen-header"
+          active={active}
+          embedded
           onCommitted={onCommitted}
         />
       </section>

@@ -35,7 +35,10 @@ type PointerHandlers = {
  * working, the browser does no native pinch), `none` while zoomed so our pan
  * owns all directions.
  */
-export function usePhotoZoom(viewportRef: React.RefObject<HTMLDivElement | null>) {
+export function usePhotoZoom(
+  viewportRef: React.RefObject<HTMLDivElement | null>,
+  active = true,
+) {
   const [transform, setTransformState] = useState<ZoomTransform>(IDENTITY_TRANSFORM);
   const [animating, setAnimating] = useState(false);
   const transformRef = useRef<ZoomTransform>(IDENTITY_TRANSFORM);
@@ -84,6 +87,7 @@ export function usePhotoZoom(viewportRef: React.RefObject<HTMLDivElement | null>
 
   // Keep the transform valid across viewport resizes / device rotation.
   useEffect(() => {
+    if (!active) return;
     const viewport = viewportRef.current;
     if (!viewport || typeof ResizeObserver === 'undefined') return;
     const observer = new ResizeObserver(() => {
@@ -92,7 +96,7 @@ export function usePhotoZoom(viewportRef: React.RefObject<HTMLDivElement | null>
     });
     observer.observe(viewport);
     return () => observer.disconnect();
-  }, [setTransform, viewportRef]);
+  }, [active, setTransform, viewportRef]);
 
   useEffect(
     () => () => {

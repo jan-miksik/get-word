@@ -7,6 +7,9 @@ import {
 import type { LearnerBrief } from "@/lib/learner-brief";
 import {
   CHAT_MAX_TOKENS,
+  CHAT_REASONING,
+  CHAT_RESPONSE_FORMAT,
+  MAX_MESSAGES_PER_SESSION,
   MAX_USER_MESSAGE_CHARS,
   OPENROUTER_API_URL,
   OPENROUTER_MAX_ATTEMPTS,
@@ -54,7 +57,10 @@ export function sanitizeMessages(input: unknown): WordChatMessage[] {
     if (!trimmed) continue;
     messages.push({ role, content: trimmed });
   }
-  return messages;
+  // One turn normally contributes a user and an assistant message. A direct
+  // API caller must not be able to submit an unbounded transcript and turn one
+  // metered request into an unbounded prompt.
+  return messages.slice(-(MAX_MESSAGES_PER_SESSION * 2));
 }
 
 export function sanitizeAddressRegister(input: unknown): WordChatAddressRegister {
@@ -166,7 +172,8 @@ export async function runChatTurn(input: {
       retryBaseDelayMs: OPENROUTER_RETRY_BASE_DELAY_MS,
       timeoutMs: OPENROUTER_TIMEOUT_MS,
       maxTokens: CHAT_MAX_TOKENS,
-      responseFormat: { type: "json_object" },
+      reasoning: { ...CHAT_REASONING },
+      responseFormat: CHAT_RESPONSE_FORMAT,
       provider: { ...WORD_CHAT_PROVIDER_PREFERENCES },
       messages,
     },
@@ -226,92 +233,172 @@ export async function streamChatTurn(input: {
   if (!apiKey) throw new WordChatUnavailableError();
 
   const model = input.model || WORD_CHAT_CHAT_MODEL;
-  const startedAt = Date.now();
   const messages = buildChatRequest(input);
-  const upstream = await streamOpenRouterCompletion({
-    apiKey,
-    model,
-    apiUrl: OPENROUTER_API_URL,
-    maxAttempts: OPENROUTER_MAX_ATTEMPTS,
-    retryBaseDelayMs: OPENROUTER_RETRY_BASE_DELAY_MS,
-    timeoutMs: OPENROUTER_TIMEOUT_MS,
-    maxTokens: CHAT_MAX_TOKENS,
-    responseFormat: { type: "json_object" },
-    provider: { ...WORD_CHAT_PROVIDER_PREFERENCES },
-    messages,
-    signal: input.signal,
-  });
 
   return {
     async *[Symbol.asyncIterator]() {
-      const parser = new WordChatReplyStreamParser();
-      let fullContent = "";
-      let meta = {};
+      let lastError: OpenRouterChatError | null = null;
+      const maxAttempts = Math.max(1, OPENROUTER_MAX_ATTEMPTS);
 
-      for await (const event of upstream) {
-        if (event.type === "delta") {
-          fullContent += event.text;
-          for (const text of parser.feed(event.text)) {
-            yield { type: "delta", text };
-          }
-          continue;
-        }
-        meta = event.meta;
-      }
+      for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+        const startedAt = Date.now();
+        const parser = new WordChatReplyStreamParser();
+        let fullContent = "";
+        let meta = {};
+        let emittedVisibleReply = false;
 
-      try {
-        parser.finish();
-      } catch (err) {
-        if (err instanceof WordChatReplyStreamError) throw new OpenRouterChatError(err.message, false);
-        throw err;
-      }
+        try {
+          const upstream = await streamOpenRouterCompletion({
+            apiKey,
+            model,
+            apiUrl: OPENROUTER_API_URL,
+            // Retry the whole streaming turn here so parser failures before the
+            // first visible reply get a fresh model attempt. Once text has been
+            // yielded to the learner, retrying would duplicate the answer.
+            maxAttempts: 1,
+            retryBaseDelayMs: OPENROUTER_RETRY_BASE_DELAY_MS,
+            timeoutMs: OPENROUTER_TIMEOUT_MS,
+            maxTokens: CHAT_MAX_TOKENS,
+            reasoning: { ...CHAT_REASONING },
+            responseFormat: CHAT_RESPONSE_FORMAT,
+            provider: { ...WORD_CHAT_PROVIDER_PREFERENCES },
+            messages,
+            signal: input.signal,
+          });
 
-      let value: ChatTurnResult;
-      let metadataValid = true;
-      try {
-        value = parseChatTurn(fullContent);
-      } catch {
-        metadataValid = false;
-        value = {
-          reply: parser.completeReply.trim(),
-          suggestions: [],
-          readyToPropose: false,
-        };
-      }
-
-      const diagnostics = buildCallDiagnostics({
-        callType: "chat",
-        model,
-        meta,
-        startedAt,
-        ...(input.includeRequest
-          ? {
-              request: {
-                maxTokens: CHAT_MAX_TOKENS,
-                provider: WORD_CHAT_PROVIDER_PREFERENCES,
-                messages,
-              },
+          for await (const event of upstream) {
+            if (event.type === "delta") {
+              fullContent += event.text;
+              for (const text of parser.feed(event.text)) {
+                emittedVisibleReply = true;
+                yield { type: "delta", text };
+              }
+              continue;
             }
-          : {}),
-      });
+            meta = event.meta;
+          }
 
-      await recordWordChatUsage({
-        userId: input.userId,
-        sessionId: input.sessionId,
-        callType: "chat",
-        stage: "started",
-        model,
-        meta,
-      });
+          let fallbackReply: string | null = null;
+          let metadataValid = true;
+          try {
+            parser.finish();
+          } catch (err) {
+            const partialReply = parser.completeReply.trim();
+            if (!partialReply) {
+              if (err instanceof WordChatReplyStreamError) {
+                throw new OpenRouterChatError(err.message, true);
+              }
+              throw err;
+            }
+            fallbackReply = partialReply;
+            metadataValid = false;
+          }
 
-      yield {
-        type: "done",
-        reply: value.reply,
-        suggestions: value.suggestions,
-        readyToPropose: value.readyToPropose,
-        metadataValid,
-        diagnostics,
-      };
+          let value: ChatTurnResult;
+          try {
+            value = parseChatTurn(fullContent);
+          } catch {
+            metadataValid = false;
+            value = {
+              reply: fallbackReply ?? parser.completeReply.trim(),
+              suggestions: [],
+              readyToPropose: false,
+            };
+          }
+
+          if (!value.reply.trim()) {
+            throw new OpenRouterChatError("Word chat returned no reply.", true);
+          }
+
+          const diagnostics = buildCallDiagnostics({
+            callType: "chat",
+            model,
+            meta,
+            startedAt,
+            ...(input.includeRequest
+              ? {
+                  request: {
+                    maxTokens: CHAT_MAX_TOKENS,
+                    provider: WORD_CHAT_PROVIDER_PREFERENCES,
+                    messages,
+                  },
+                }
+              : {}),
+          });
+
+          await recordWordChatUsage({
+            userId: input.userId,
+            sessionId: input.sessionId,
+            callType: "chat",
+            stage: "started",
+            model,
+            meta,
+          });
+
+          yield {
+            type: "done",
+            reply: value.reply,
+            suggestions: value.suggestions,
+            readyToPropose: value.readyToPropose,
+            metadataValid,
+            diagnostics,
+          };
+          return;
+        } catch (err) {
+          if (emittedVisibleReply) {
+            const partialReply = parser.completeReply.trim();
+            if (partialReply) {
+              const diagnostics = buildCallDiagnostics({
+                callType: "chat",
+                model,
+                meta,
+                startedAt,
+                ...(input.includeRequest
+                  ? {
+                      request: {
+                        maxTokens: CHAT_MAX_TOKENS,
+                        provider: WORD_CHAT_PROVIDER_PREFERENCES,
+                        messages,
+                      },
+                    }
+                  : {}),
+              });
+              await recordWordChatUsage({
+                userId: input.userId,
+                sessionId: input.sessionId,
+                callType: "chat",
+                stage: "started",
+                model,
+                meta,
+              });
+              yield {
+                type: "done",
+                reply: partialReply,
+                suggestions: [],
+                readyToPropose: false,
+                metadataValid: false,
+                diagnostics,
+              };
+              return;
+            }
+          }
+
+          const retryableError =
+            err instanceof OpenRouterChatError
+              ? err
+              : err instanceof WordChatReplyStreamError
+                ? new OpenRouterChatError(err.message, true)
+                : null;
+          if (!retryableError || !retryableError.retryable || input.signal?.aborted) throw err;
+          lastError = retryableError;
+          if (attempt >= maxAttempts - 1) break;
+          await new Promise((resolve) =>
+            setTimeout(resolve, OPENROUTER_RETRY_BASE_DELAY_MS * 2 ** attempt),
+          );
+        }
+      }
+
+      throw lastError ?? new OpenRouterChatError("OpenRouter request failed.", true);
     },
   };
 }

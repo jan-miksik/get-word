@@ -4,7 +4,10 @@ import { vi } from "vitest";
 vi.mock("@/lib/db/client", () => ({ db: {} }));
 
 import { sanitizeReviewItems } from "../server/commit";
-import { MAX_ITEMS_PER_SESSION } from "../server/config";
+import {
+  MAX_ITEMS_PER_SESSION,
+  MAX_WORD_CHAT_ITEM_CHARS,
+} from "../server/config";
 import type { ReviewItem } from "../types";
 
 function item(textKnown: string, textTarget = "target"): ReviewItem {
@@ -47,6 +50,15 @@ describe("sanitizeReviewItems", () => {
     );
 
     expect(sanitizeReviewItems(many)).toHaveLength(MAX_ITEMS_PER_SESSION);
+  });
+
+  it("enforces item length on the server, independently of browser maxLength", () => {
+    const result = sanitizeReviewItems([
+      item("a".repeat(MAX_WORD_CHAT_ITEM_CHARS + 50), "b".repeat(MAX_WORD_CHAT_ITEM_CHARS + 50)),
+    ]);
+
+    expect(result[0].textKnown).toHaveLength(MAX_WORD_CHAT_ITEM_CHARS);
+    expect(result[0].textTarget).toHaveLength(MAX_WORD_CHAT_ITEM_CHARS);
   });
 
   it("preserves audio asset references so commit can attach them", () => {

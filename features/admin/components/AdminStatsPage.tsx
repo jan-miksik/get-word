@@ -523,7 +523,14 @@ function AdminStatsContent() {
           </CardGrid>
         </Section>
 
-        <Section title={t('adminStats.sectionUsers')} note={t('adminStats.usersNote')}>
+        <Section
+          title={t('adminStats.sectionUsers')}
+          note={t('adminStats.usersNote')}
+          // Full-bleed so the wide users table escapes the content column. The
+          // 2rem inset is wider than any classic scrollbar, so `100vw` cannot
+          // push the page into a horizontal scroll.
+          className="relative left-1/2 w-[calc(100vw-2rem)] -translate-x-1/2"
+        >
           {stats.users.length === 0 ? (
             <p className="text-sm text-text-soft">{t('adminStats.usersEmpty')}</p>
           ) : (

@@ -69,6 +69,27 @@
   overflow: hidden;
 }
 
+.top-menu-center--quick-add {
+  display: flex;
+  width: max-content;
+  min-width: max-content;
+  overflow: visible;
+}
+
+.top-menu--quick-add {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) max-content minmax(0, 1fr);
+}
+
+.top-menu--quick-add .top-menu-left {
+  width: 100%;
+}
+
+.top-menu--quick-add .top-menu-right {
+  justify-self: end;
+  margin-left: 0;
+}
+
 .top-menu-right {
   flex-shrink: 0;
 }
@@ -295,6 +316,11 @@
 .menu-item:active {
   background: var(--tm-accent);
   color: var(--tm-surface);
+}
+
+.menu-item.is-active {
+  background: rgba(30, 111, 168, 0.14);
+  color: var(--tm-ink);
 }
 
 /* Icon pill */
