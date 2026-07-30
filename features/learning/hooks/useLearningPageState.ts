@@ -20,6 +20,8 @@ interface UseLearningPageStateOptions {
   categoryOrder: string[];
   /** Categories whose words lead the stream; server-owned, see lib/words.ts. */
   pinnedCategoryIds?: string[];
+  /** The learner's personal list items lead the stream ahead of repeats. */
+  ownedPersonalListIds?: ReadonlySet<string>;
   dueTimerRevision?: number;
   typingModeEnabled?: boolean;
   tiltGameEnabled?: boolean;
@@ -81,6 +83,7 @@ export function useLearningPageState({
   minigameFrequency,
   categoryOrder,
   pinnedCategoryIds,
+  ownedPersonalListIds,
   dueTimerRevision = 0,
   typingModeEnabled = false,
   tiltGameEnabled = false,
@@ -124,9 +127,10 @@ export function useLearningPageState({
     categoryOrder,
     dueTimerRevision,
     pinnedCategoryIds,
+    ownedPersonalListIds,
   );
   // "Review due" means repeats. The learner's own words lead the stream, but a
-  // word they have never studied is not something to review, so only the pinned
+  // word they have never studied is not something to review, so only priority
   // words that are genuinely due count here.
   const readyCount = priorityDueCount + dueWords.length;
 

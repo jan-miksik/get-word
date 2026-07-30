@@ -93,6 +93,10 @@ export function useAppState(
     () => subscribedLists.find((list) => list.id === activeListId) ?? null,
     [activeListId, subscribedLists],
   );
+  const ownedPersonalListIds = useMemo(
+    () => new Set(subscribedLists.filter((list) => list.isOwnedPersonal).map((list) => list.id)),
+    [subscribedLists],
+  );
   const personalOverlayListIds = useMemo(() => {
     if (!activeList || activeList.isOwnedPersonal) return new Set<string>();
     const from = normalizeLanguageCode(activeList.languageFrom);
@@ -204,6 +208,7 @@ export function useAppState(
     subscribedLists,
     activeList,
     activeListId,
+    ownedPersonalListIds,
     setActiveListId,
   };
 }

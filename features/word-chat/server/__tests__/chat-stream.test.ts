@@ -28,11 +28,13 @@ vi.mock("../config", () => ({
       schema: {
         type: "object",
         properties: {
-          reply: { type: "string" },
-          suggestions: { type: "array", items: { type: "string" } },
           readyToPropose: { type: "boolean" },
+          contentMode: { anyOf: [{ type: "string" }, { type: "null" }] },
+          suggestions: { type: "array", items: { type: "string" } },
+          languageChange: { type: "null" },
+          reply: { type: "string" },
         },
-        required: ["reply", "suggestions", "readyToPropose"],
+        required: ["readyToPropose", "contentMode", "suggestions", "languageChange", "reply"],
         additionalProperties: false,
       },
     },
@@ -51,13 +53,17 @@ vi.mock("../config", () => ({
 
 import { OpenRouterChatError } from "@/lib/openrouter-chat";
 import { streamChatTurn } from "../chat";
+import type { WordChatMessage } from "../../types";
 
 async function* modelStream(chunks: string[]) {
   for (const text of chunks) yield { type: "delta" as const, text };
   yield { type: "done" as const, meta: { id: "call-1" } };
 }
 
-async function collectTurn(chunks: string[]) {
+async function collectTurn(
+  chunks: string[],
+  messages: WordChatMessage[] = [{ role: "user", content: "Kavárna" }],
+) {
   mocks.streamOpenRouterCompletion.mockResolvedValue(modelStream(chunks));
   const stream = await streamChatTurn({
     userId: "user-1",
@@ -69,12 +75,19 @@ async function collectTurn(chunks: string[]) {
     salutationGender: "neutral",
     languageLevel: "A0",
     brief: null,
-    messages: [{ role: "user", content: "Kavárna" }],
+    messages,
   });
   const events = [];
   for await (const event of stream) events.push(event);
   return events;
 }
+
+/** A transcript in which the learner has already answered one follow-up. */
+const answeredFollowUp: WordChatMessage[] = [
+  { role: "user", content: "Kavárna" },
+  { role: "assistant", content: "S kým tam nejčastěji mluvíte?" },
+  { role: "user", content: "Se stálými zákazníky." },
+];
 
 describe("streamChatTurn", () => {
   beforeEach(() => {
@@ -84,22 +97,10 @@ describe("streamChatTurn", () => {
     process.env.OPENROUTER_SERVER_API_KEY = "test-key";
   });
 
-  it("keeps a complete reply when final metadata is invalid", async () => {
-    const events = await collectTurn(['{"reply":"Hotovo",']);
-
-    expect(events).toEqual([
-      { type: "delta", text: "Hotovo" },
-      expect.objectContaining({
-        type: "done",
-        reply: "Hotovo",
-        suggestions: [],
-        readyToPropose: false,
-        metadataValid: false,
-      }),
-    ]);
-    expect(mocks.recordWordChatUsage).toHaveBeenCalledWith(
-      expect.objectContaining({ callType: "chat", model: expect.any(String) }),
-    );
+  it("does not expose a reply when gate metadata is invalid", async () => {
+    await expect(
+      collectTurn(['{"readyToPropose":true,"contentMode":null,"suggestions":[],"languageChange":null,"reply":"Hotovo"}']),
+    ).rejects.toBeInstanceOf(OpenRouterChatError);
     expect(mocks.streamOpenRouterCompletion).toHaveBeenCalledWith(
       expect.objectContaining({
         reasoning: { effort: "low", exclude: true },
@@ -108,8 +109,8 @@ describe("streamChatTurn", () => {
     );
   });
 
-  it("keeps a partial visible reply when the stream ends mid-reply", async () => {
-    const events = await collectTurn(['{"reply":"Skoro hot']);
+  it("keeps a partial visible reply only after valid gate metadata", async () => {
+    const events = await collectTurn(['{"readyToPropose":false,"contentMode":null,"suggestions":[],"languageChange":null,"reply":"Skoro hot']);
 
     expect(events).toEqual([
       { type: "delta", text: "Skoro hot" },
@@ -126,7 +127,7 @@ describe("streamChatTurn", () => {
   it("retries parser failures before any visible reply", async () => {
     mocks.streamOpenRouterCompletion
       .mockResolvedValueOnce(modelStream(["not-json"]))
-      .mockResolvedValueOnce(modelStream(['{"reply":"Hotovo","suggestions":[]}']));
+      .mockResolvedValueOnce(modelStream(['{"readyToPropose":false,"contentMode":null,"suggestions":[],"languageChange":null,"reply":"Hotovo"}']));
 
     const stream = await streamChatTurn({
       userId: "user-1",
@@ -162,9 +163,8 @@ describe("streamChatTurn", () => {
 
   it("returns a validated language-pair action after the reply", async () => {
     const events = await collectTurn([
-      '{"reply":"Přepínám na češtinu a španělštinu.",',
-      '"suggestions":[],"readyToPropose":false,',
-      '"languageChange":{"from":"cs","to":"es"}}',
+      '{"readyToPropose":false,"contentMode":null,"suggestions":[],',
+      '"languageChange":{"from":"cs","to":"es"},"reply":"Přepínám na češtinu a španělštinu."}',
     ]);
 
     expect(events.at(-1)).toMatchObject({
@@ -175,11 +175,47 @@ describe("streamChatTurn", () => {
     });
   });
 
+  it("requires a finalized mode after the one follow-up is answered", async () => {
+    // The prompt allows a single follow-up question. Once its answer is in the
+    // transcript, a model that keeps interviewing would spend the learner's
+    // turns on questions they never asked for.
+    const events = await collectTurn(
+      ['{"readyToPropose":true,"contentMode":"situation","suggestions":[],"languageChange":null,"reply":"Připravím návrh."}'],
+      answeredFollowUp,
+    );
+
+    expect(events.at(-1)).toMatchObject({ type: "done", readyToPropose: true });
+  });
+
+  it("still lets the first turn decide for itself", async () => {
+    const events = await collectTurn([
+      '{"readyToPropose":false,"contentMode":null,"suggestions":["Se zákazníky"],"languageChange":null,"reply":"S kým tam mluvíte?"}',
+    ]);
+
+    expect(events.at(-1)).toMatchObject({ type: "done", readyToPropose: false });
+  });
+
+  it("never forces a proposal on a language-change turn", async () => {
+    // Proposing here would generate words for the pair the learner just left.
+    const events = await collectTurn(
+      [
+        '{"readyToPropose":false,"contentMode":null,"suggestions":[],',
+        '"languageChange":{"from":"cs","to":"es"},"reply":"Přepínám na španělštinu."}',
+      ],
+      answeredFollowUp,
+    );
+
+    expect(events.at(-1)).toMatchObject({
+      type: "done",
+      readyToPropose: false,
+      languageChange: { from: "cs", to: "es" },
+    });
+  });
+
   it("drops a malformed language action instead of defaulting it to English", async () => {
     const events = await collectTurn([
-      '{"reply":"Nemohu ten jazyk rozpoznat.",',
-      '"suggestions":[],"readyToPropose":false,',
-      '"languageChange":{"from":"not a code","to":"es"}}',
+      '{"readyToPropose":false,"contentMode":null,"suggestions":[],',
+      '"languageChange":{"from":"not a code","to":"es"},"reply":"Nemohu ten jazyk rozpoznat."}',
     ]);
 
     expect(events.at(-1)).toMatchObject({

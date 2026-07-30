@@ -380,8 +380,15 @@ function PhotoLabStudio({
       }`}
     >
       <header className="mx-auto w-full max-w-[800px] px-1 animate-[photo-lab-rise_0.5s_ease-out_both] motion-reduce:animate-none md:px-4">
-        <div className="flex items-center justify-between gap-3">
-          <BackLink onClose={onClose} />
+        {/* Embedded in the app workspace, the top menu already switches surfaces,
+            so a back button here is redundant — it only earns its place on the
+            standalone route. */}
+        <div
+          className={`flex items-center gap-3 ${
+            variant === 'standalone' ? 'justify-between' : 'justify-end'
+          }`}
+        >
+          {variant === 'standalone' ? <BackLink onClose={onClose} /> : null}
           <LanguagePairSummary from={langFrom} to={langTo} onOpen={openLanguageModal} />
         </div>
       </header>

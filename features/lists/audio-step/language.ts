@@ -9,11 +9,19 @@ export type TtsLanguageOption = {
 };
 
 export function formatLanguage(code: string, t: TranslateFn): string {
-  const normalized = code.toLowerCase();
-  if (normalized === 'cs' || normalized === 'cz') return t('languageName.cs');
-  if (normalized === 'vi') return t('languageName.vi');
-  if (normalized === 'en') return t('languageName.en');
-  return code.toUpperCase();
+  const [base, region] = code.toLowerCase().split('-');
+  const label =
+    base === 'cs' || base === 'cz'
+      ? t('languageName.cs')
+      : base === 'vi'
+        ? t('languageName.vi')
+        : base === 'en'
+          ? t('languageName.en')
+          : null;
+  if (!label) return code.toUpperCase();
+  // A regional variant keeps its region visible ("angličtina (US)"), otherwise
+  // an American list would be indistinguishable from a British one here.
+  return region ? `${label} (${region.toUpperCase()})` : label;
 }
 
 export function getBaseLanguage(code: string): string {

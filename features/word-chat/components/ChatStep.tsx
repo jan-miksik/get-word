@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useI18n } from '@/components/I18nProvider';
-import { PencilIcon, SettingsIcon } from '@/components/icons/AppIcons';
+import { ArrowUpIcon, PencilIcon } from '@/components/icons/AppIcons';
+import type { WordList } from '@/features/lists/types';
 import { getLocalizedLanguageName } from '@/lib/i18n/languages';
 import type { I18nKey } from '@/lib/i18n/locales/en';
 import { buildFollowUpChips } from '../followUpChips';
@@ -15,32 +16,23 @@ import type {
   WordChatSalutationGender,
 } from '../types';
 import { WORD_CHAT_LANGUAGE_LEVELS } from '../preferences';
-import { ChatSettingsModal } from './ChatSettingsModal';
-import { SalutationGenderIcon } from './SalutationGenderIcon';
+import { WordChatSettingsControls } from './WordChatSettingsControls';
+import { SalutationGenderBadge } from './SalutationGenderIcon';
 import { StreamedText, TypingDots, TypingText } from './TypingText';
 
 type ProfileSetupStep = 'address' | 'level' | 'salutation';
 
-/**
- * Starter chips. Short labels so they scan on a phone; the full brief is what
- * gets sent, so the model still gets something concrete to work with.
- *
- * Both halves come from the interface catalog. The brief lands in the
- * transcript as the learner's own message, and the chat is written in the
- * interface language, so anything else would put a sentence in their mouth in
- * a language the rest of the screen is not using.
- */
-type StarterChip = { labelKey: I18nKey; promptKey: I18nKey };
+/** How tall the composer may grow before it starts scrolling instead. */
+const COMPOSER_MAX_ROWS = 6;
 
-// The learner's level calibrates the proposed vocabulary, not what they might
-// need it for. Keep these broad situations stable across every CEFR level so a
-// level change never hides an otherwise relevant starting point.
-const STARTER_CHIPS: StarterChip[] = [
-  { labelKey: 'wordChat.chipCustomers', promptKey: 'wordChat.chipCustomersPrompt' },
-  { labelKey: 'wordChat.chipOffice', promptKey: 'wordChat.chipOfficePrompt' },
-  { labelKey: 'wordChat.chipFamily', promptKey: 'wordChat.chipFamilyPrompt' },
-  { labelKey: 'wordChat.chipTravel', promptKey: 'wordChat.chipTravelPrompt' },
-];
+/**
+ * A suggested answer is a whole sentence often enough that a pill which clips it
+ * is worse than no chip at all: the learner is choosing between texts they can
+ * only half read. So a chip wraps onto as many lines as it needs, and the rounded
+ * corners drop from a pill to a radius that survives being two lines tall.
+ */
+const CHIP_CLASS =
+  'onboarding-option max-w-full whitespace-normal break-words rounded-2xl px-3.5 py-2 text-left text-xs font-bold leading-snug';
 
 type Props = {
   languageFrom: string;
@@ -57,12 +49,26 @@ type Props = {
   salutationGenderApplies: boolean;
   onPreferencesChange: (patch: WordChatPreferencePatch) => void | Promise<void>;
   onLanguagePairChange: (pair: { from: string; to: string }) => void | Promise<void>;
+  /**
+   * The already-saved personal list, when there is one. Passed straight through
+   * to the settings controls, which put a share button beside the gear — the
+   * chat step needs it as much as the select step does, since a learner who
+   * wants to hand their list out should not have to walk forward a step first.
+  */
+  shareList?: WordList | null;
+  onShareListUpdated?: (list: WordList) => void;
   settingsPlacement?: 'inline' | 'screen-header';
+  /** Controlled open state for the settings gear; see WordChatFlow. */
+  settingsOpen?: boolean;
+  onSettingsOpenChange?: (open: boolean) => void;
   busy: 'chat' | 'propose' | null;
   /** What earlier sessions left behind; null while unknown or on a first visit. */
   history: WordChatHistory | null;
-  onSend: (text: string) => void;
+  /** False means the chat rejected the message before starting a turn. */
+  onSend: (text: string) => void | boolean | Promise<void | boolean>;
   onStartManualEntry?: () => void;
+  /** An on-screen keyboard is covering the lower part of a phone screen. */
+  keyboardOpen?: boolean;
   active?: boolean;
   embedded?: boolean;
 };
@@ -82,17 +88,21 @@ export function ChatStep({
   salutationGenderApplies,
   onPreferencesChange,
   onLanguagePairChange,
+  shareList,
+  onShareListUpdated,
   settingsPlacement = 'inline',
+  settingsOpen,
+  onSettingsOpenChange,
   busy,
   history,
   onSend,
   onStartManualEntry,
+  keyboardOpen = false,
   active = true,
   embedded = false,
 }: Props) {
   const { t, language: uiLanguage } = useI18n();
   const [input, setInput] = useState('');
-  const [settingsOpen, setSettingsOpen] = useState(false);
   const [setupAddressRegister, setSetupAddressRegister] =
     useState<WordChatAddressRegister | null>(null);
   const [setupSalutationGender, setSetupSalutationGender] =
@@ -103,7 +113,7 @@ export function ChatStep({
     addressRegisterApplies ? 'address' : 'level',
   );
   const endRef = useRef<HTMLDivElement | null>(null);
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const inputRef = useRef<HTMLTextAreaElement | null>(null);
 
   // The target language's name is dropped into i18n copy, so it has to be
   // localized the same way that copy is — see `chatLanguage` in `useWordChat`.
@@ -114,7 +124,6 @@ export function ChatStep({
     if (!active) return;
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [active]);
-  const closeSettings = useCallback(() => setSettingsOpen(false), []);
 
   // The reply is revealed a few characters at a frame, so following it means
   // scrolling as it is drawn rather than when the text arrives — the message
@@ -132,31 +141,75 @@ export function ChatStep({
     scrollToEnd();
   }, [messages.length, busy, scrollToEnd]);
 
+  // Opening the keyboard collapses the chrome above and shortens the visible
+  // area from below; without this the last reply ends up behind the keys.
+  useEffect(() => {
+    if (!keyboardOpen) return;
+    const frame = window.requestAnimationFrame(() => scrollToEnd());
+    return () => window.cancelAnimationFrame(frame);
+  }, [keyboardOpen, scrollToEnd]);
+
   // The input is disabled while a reply is in flight, which drops focus. Give it
   // back so the learner can just keep typing.
   useEffect(() => {
     if (active && !embedded && busy === null) inputRef.current?.focus();
   }, [active, busy, embedded]);
 
-  // The surface stays mounted when the learner switches away, so settings left
-  // open would silently reappear on their next visit. Adjusted during render
-  // (React's documented pattern for deriving state from a prop change) rather
-  // than in an effect, which would cost an extra render pass.
-  const [wasActive, setWasActive] = useState(active);
-  if (wasActive !== active) {
-    setWasActive(active);
-    if (!active) setSettingsOpen(false);
+  // Grow the composer with what is being typed, up to a few rows. The height has
+  // to be released first: `scrollHeight` on an element with an explicit height
+  // never reports anything smaller than that height, so deleting text would
+  // leave the field stuck at its tallest.
+  const resizeComposer = useCallback(() => {
+    const node = inputRef.current;
+    if (!node) return;
+    node.style.height = 'auto';
+    const styles = window.getComputedStyle(node);
+    const lineHeight = Number.parseFloat(styles.lineHeight) || 20;
+    const frame =
+      Number.parseFloat(styles.paddingTop) +
+      Number.parseFloat(styles.paddingBottom) +
+      Number.parseFloat(styles.borderTopWidth) +
+      Number.parseFloat(styles.borderBottomWidth);
+    const framePx = Number.isFinite(frame) ? frame : 0;
+    const maxHeight = lineHeight * COMPOSER_MAX_ROWS + framePx;
+    // One row is the floor. The workspace keeps this screen mounted and
+    // `display: none` behind the study stream, where a field measures as zero —
+    // written back unclamped, that collapsed the composer to a sliver which
+    // survived the surface coming back. Now the worst a bogus measurement can
+    // do is one row, and the effect below re-measures once the field is on
+    // screen again.
+    const minHeight = lineHeight + framePx;
+    const borders =
+      Number.parseFloat(styles.borderTopWidth) + Number.parseFloat(styles.borderBottomWidth);
+    const contentHeight = node.scrollHeight + (Number.isFinite(borders) ? borders : 0);
+    node.style.height = `${Math.min(Math.max(contentHeight, minHeight), maxHeight)}px`;
+    node.style.overflowY = contentHeight > maxHeight ? 'auto' : 'hidden';
+  }, []);
+
+  // Re-measure on the text, and again whenever the field could have been
+  // measured under conditions that no longer hold: the surface was hidden, or
+  // the phone keyboard opened and reflowed the screen around it.
+  useEffect(() => {
+    resizeComposer();
+  }, [input, active, keyboardOpen, resizeComposer]);
+
+  async function sendInput() {
+    if (!input.trim() || busy) return;
+    const submitted = input;
+    const accepted = await onSend(submitted);
+    if (accepted !== false) setInput('');
   }
 
   function submit(event: FormEvent) {
     event.preventDefault();
-    if (!input.trim() || busy) return;
-    onSend(input);
-    setInput('');
+    void sendInput();
   }
 
   const showIntro = messages.length === 0;
-  const showProfileSetup = showIntro && !preferencesComplete;
+  // A restored draft can contain messages from before profile fields became
+  // required. Do not render an apparently usable composer while the hook will
+  // reject every message for missing preferences.
+  const showProfileSetup = !preferencesComplete;
   const useFormalUiCopy = addressRegisterApplies && addressRegister === 'formal';
   const introGreetingKey: I18nKey =
     salutationGenderApplies && salutationGender
@@ -177,37 +230,31 @@ export function ChatStep({
   const returning = history?.hasHistory === true;
   // Three labels is enough to say "I remember"; more turns the opener into a list.
   const coveredSummary = (history?.coveredTopics ?? []).slice(0, 3).join(', ');
-  // Chips for someone who has been here before come from their brief, so they
-  // follow on from the last session instead of repeating the generic starters.
+  // A first-time learner gets no chips at all: generic situations ("Travel",
+  // "At the office") were guesses that steered the conversation more than they
+  // helped it. Someone who has been here before gets a single chip built from
+  // their own brief — one concrete next step, not a menu.
   const followUpChips = returning
-    ? buildFollowUpChips({
-        missingTopics: history?.missingTopics ?? [],
-        situations: history?.situations ?? [],
-        goals: history?.goals ?? [],
-        coveredTopics: history?.coveredTopics ?? [],
-      })
+    ? buildFollowUpChips(
+        {
+          missingTopics: history?.missingTopics ?? [],
+          situations: history?.situations ?? [],
+          goals: history?.goals ?? [],
+          coveredTopics: history?.coveredTopics ?? [],
+        },
+        1,
+      )
     : [];
   const lastAssistantIndex = messages.reduce(
     (last, message, index) => (message.role === 'assistant' ? index : last),
     -1,
   );
-  const settingsButton = (
-    <button
-      type="button"
-      onClick={() => setSettingsOpen(true)}
-      className="onboarding-option-secondary flex h-10 w-10 shrink-0 items-center justify-center rounded-full"
-      aria-label={t('wordChat.settings')}
-      title={t('wordChat.settings')}
-      aria-haspopup="dialog"
-    >
-      <SettingsIcon size={18} />
-    </button>
-  );
-  const settingsModal = (
-    <ChatSettingsModal
-      isOpen={active && settingsOpen}
+  const settingsControls = (
+    <WordChatSettingsControls
       languageFrom={languageFrom}
       languageTo={languageTo}
+      shareList={shareList}
+      onShareListUpdated={onShareListUpdated}
       addressRegister={addressRegister}
       salutationGender={salutationGender}
       languageLevel={languageLevel}
@@ -216,21 +263,12 @@ export function ChatStep({
       saving={preferencesSaving}
       onChange={onPreferencesChange}
       onLanguagePairChange={onLanguagePairChange}
-      onClose={closeSettings}
+      placement={settingsPlacement}
+      active={active}
+      open={settingsOpen}
+      onOpenChange={onSettingsOpenChange}
     />
   );
-  const settingsControls =
-    settingsPlacement === 'screen-header' ? (
-      <div className="absolute right-3 top-3 z-20 sm:right-7 sm:top-7">
-        {settingsButton}
-        {settingsModal}
-      </div>
-    ) : (
-      <div className="relative flex justify-end">
-        {settingsButton}
-        {settingsModal}
-      </div>
-    );
 
   if (showProfileSetup && preferencesLoading) {
     return (
@@ -258,7 +296,9 @@ export function ChatStep({
     };
 
     return (
-      <div className="space-y-5">
+      <div
+        className={`space-y-5 ${embedded ? 'min-h-0 flex-1 overflow-y-auto overflow-x-hidden' : ''}`}
+      >
         {settingsControls}
         <div className="flex items-center justify-between gap-4">
           <p className="text-base font-bold">
@@ -440,12 +480,10 @@ export function ChatStep({
                     style={{ animationDelay: `${80 + index * 55}ms` }}
                   >
                     <span className="flex min-w-0 items-center gap-2.5">
-                      <span
-                        aria-hidden="true"
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--ob-accent)_14%,transparent)] text-[var(--ob-accent)]"
-                      >
-                        <SalutationGenderIcon gender={value} />
-                      </span>
+                      <SalutationGenderBadge
+                        gender={value}
+                        selected={setupSalutationGender === value}
+                      />
                       <span className="text-sm font-extrabold">
                         {value === 'female'
                           ? t('wordChat.salutationFemale')
@@ -488,108 +526,121 @@ export function ChatStep({
   }
 
   return (
-    <div className="space-y-4">
+    // Embedded, this is a chat screen rather than a page: the surface hands it a
+    // fixed height, the conversation is the only thing that scrolls, and the
+    // composer is a static last row. It used to be `sticky bottom-0` inside the
+    // surface's own scroller, which let the padding below the card push it back
+    // up over the last stretch of the scroll.
+    <div className={embedded ? 'flex min-h-0 flex-1 flex-col gap-4' : 'space-y-4'}>
       {settingsControls}
 
-      {/* The opener stays above the transcript once the conversation starts: it
-          is the only thing on screen that says what this chat is for and which
-          language it is about, and losing it after the first message left the
-          learner looking at a bare exchange with no framing. */}
-      <div className="space-y-2">
-        <p className={showIntro ? 'text-base font-bold' : 'text-sm font-bold'}>
-          {/* A first-time opener can type in. Returning copy is already-known
-              context, so reopening the chat must render it immediately. */}
-          <TypingText
-            text={
-              returning
-                ? t('wordChat.returningGreeting')
-                : t(introGreetingKey, { language: targetName })
-            }
-            animate={showIntro && !returning}
-          />
-        </p>
-        {showIntro ? (
-          <p className="text-sm leading-relaxed onboarding-text-soft">
-            {returning
-              ? coveredSummary
-                ? t(
-                    useFormalUiCopy
-                      ? 'wordChat.returningBodyCoveredFormal'
-                      : 'wordChat.returningBodyCovered',
-                    { topics: coveredSummary },
-                  )
-                : t(useFormalUiCopy ? 'wordChat.returningBodyFormal' : 'wordChat.returningBody')
-              : t(useFormalUiCopy ? 'wordChat.introBodyFormal' : 'wordChat.introBody')}
+      <div
+        className={
+          embedded
+            ? 'flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden'
+            : 'space-y-4'
+        }
+      >
+        {/* The opener stays above the transcript once the conversation starts: it
+            is the only thing on screen that says what this chat is for and which
+            language it is about, and losing it after the first message left the
+            learner looking at a bare exchange with no framing. The exception is a
+            phone with the keyboard up — mid-conversation, those two lines cost
+            the learner the replies they are answering. */}
+        <div className={`space-y-2 ${keyboardOpen && !showIntro ? 'hidden' : ''}`}>
+          <p className={showIntro ? 'text-base font-bold' : 'text-sm font-bold'}>
+            {/* A first-time opener can type in. Returning copy is already-known
+                context, so reopening the chat must render it immediately. */}
+            <TypingText
+              text={
+                returning
+                  ? t('wordChat.returningGreeting')
+                  : t(introGreetingKey, { language: targetName })
+              }
+              animate={showIntro && !returning}
+            />
           </p>
-        ) : null}
-      </div>
-
-      {messages.length > 0 ? (
-        <div className={`${embedded ? '' : 'max-h-[45vh] overflow-y-auto'} space-y-3 pr-1`}>
-          {messages.map((message, index) => {
-            // The in-flight assistant entry starts empty. The working status
-            // below already communicates progress, so do not render a blank
-            // speech bubble (previously it contained only a blinking caret).
-            if (message.role === 'assistant' && message.incomplete && !message.content) {
-              return null;
-            }
-
-            return (
-              <div
-                key={message.id ?? `${message.role}-${index}`}
-                className={message.role === 'user' ? 'flex justify-end' : 'flex justify-start'}
-              >
-                <p
-                  className={[
-                    'max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm leading-relaxed',
-                    message.role === 'assistant' &&
-                    message.incomplete &&
-                    index === lastAssistantIndex
-                      ? 'motion-safe:animate-[word-chat-message-in_180ms_ease-out_both]'
-                      : '',
-                    message.role === 'user'
-                      ? 'onboarding-option onboarding-option-highlight'
-                      : 'word-chat-assistant-message',
-                  ].join(' ')}
-                >
-                  {message.role === 'assistant' ? (
-                    <StreamedText
-                      text={message.content}
-                      // Only a reply that is still being streamed when its
-                      // bubble appears types itself out; anything already
-                      // finished (an earlier turn, a restored draft) is text
-                      // the learner has seen and must not replay.
-                      animate={message.incomplete === true}
-                      onReveal={followRevealedText}
-                    />
-                  ) : (
-                    message.content
-                  )}
-                </p>
-              </div>
-            );
-          })}
-          {busy ? (
-            <div className="flex items-center gap-2 text-xs onboarding-text-soft">
-              <TypingDots
-                label={busy === 'propose' ? t('wordChat.suggesting') : t('wordChat.thinking')}
-              />
-              <span className="italic">
-                {busy === 'propose' ? t('wordChat.suggesting') : t('wordChat.thinking')}
-              </span>
-            </div>
+          {showIntro ? (
+            <p className="text-sm leading-relaxed onboarding-text-soft">
+              {returning
+                ? coveredSummary
+                  ? t(
+                      useFormalUiCopy
+                        ? 'wordChat.returningBodyCoveredFormal'
+                        : 'wordChat.returningBodyCovered',
+                      { topics: coveredSummary },
+                    )
+                  : t(useFormalUiCopy ? 'wordChat.returningBodyFormal' : 'wordChat.returningBody')
+                : t(useFormalUiCopy ? 'wordChat.introBodyFormal' : 'wordChat.introBody')}
+            </p>
           ) : null}
-          <div ref={endRef} />
         </div>
-      ) : null}
 
-      {!busy && (showIntro || suggestions.length > 0) ? (
-        <div className="space-y-2">
-          <div className="flex flex-wrap gap-2">
-            {showIntro
-              ? followUpChips.length > 0
+        {messages.length > 0 ? (
+          <div className={`${embedded ? '' : 'max-h-[45vh] overflow-y-auto'} space-y-3 pr-1`}>
+            {messages.map((message, index) => {
+              // The in-flight assistant entry starts empty. The working status
+              // below already communicates progress, so do not render a blank
+              // speech bubble (previously it contained only a blinking caret).
+              if (message.role === 'assistant' && message.incomplete && !message.content) {
+                return null;
+              }
+
+              return (
+                <div
+                  key={message.id ?? `${message.role}-${index}`}
+                  className={message.role === 'user' ? 'flex justify-end' : 'flex justify-start'}
+                >
+                  <p
+                    className={[
+                      'max-w-[85%] whitespace-pre-wrap rounded-2xl px-3.5 py-2 text-sm leading-relaxed',
+                      message.role === 'assistant' &&
+                      message.incomplete &&
+                      index === lastAssistantIndex
+                        ? 'motion-safe:animate-[word-chat-message-in_180ms_ease-out_both]'
+                        : '',
+                      message.role === 'user'
+                        ? 'onboarding-option onboarding-option-highlight'
+                        : 'word-chat-assistant-message',
+                    ].join(' ')}
+                  >
+                    {message.role === 'assistant' ? (
+                      <StreamedText
+                        text={message.content}
+                        // Only a reply that is still being streamed when its
+                        // bubble appears types itself out; anything already
+                        // finished (an earlier turn, a restored draft) is text
+                        // the learner has seen and must not replay.
+                        animate={message.incomplete === true}
+                        onReveal={followRevealedText}
+                      />
+                    ) : (
+                      message.content
+                    )}
+                  </p>
+                </div>
+              );
+            })}
+            {busy ? (
+              <div className="flex items-center gap-2 text-xs onboarding-text-soft">
+                <TypingDots
+                  label={busy === 'propose' ? t('wordChat.suggesting') : t('wordChat.thinking')}
+                />
+                <span className="italic">
+                  {busy === 'propose' ? t('wordChat.suggesting') : t('wordChat.thinking')}
+                </span>
+              </div>
+            ) : null}
+            <div ref={endRef} />
+          </div>
+        ) : null}
+
+        {!busy && (showIntro || suggestions.length > 0) ? (
+          <div className="space-y-2">
+            <div className="flex flex-wrap gap-2">
+              {showIntro
                 ? // What this learner told us, minus what they already studied.
-                  // Far better starting points than the generic situations.
+                  // Empty for a first visit, where we know nothing yet.
                   followUpChips.map(({ topic, kind }) => (
                     <button
                       key={`${kind}-${topic}`}
@@ -608,64 +659,64 @@ export function ChatStep({
                           ),
                         )
                       }
-                      className="onboarding-option rounded-full px-3 py-1.5 text-xs font-bold"
+                      className={CHIP_CLASS}
                     >
                       {kind === 'continue' ? t('wordChat.chipContinueTopic', { topic }) : topic}
                     </button>
                   ))
-                : STARTER_CHIPS.map((chip) => (
+                : suggestions.map((suggestion) => (
                     <button
-                      key={chip.labelKey}
+                      key={suggestion}
                       type="button"
-                      onClick={() =>
-                        // The chip's label and the message it sends are the same
-                        // sentence in two lengths, so both come from the
-                        // interface catalog — the language the chat itself now
-                        // speaks.
-                        onSend(t(chip.promptKey))
-                      }
-                      className="onboarding-option rounded-full px-3 py-1.5 text-xs font-bold"
+                      onClick={() => onSend(suggestion)}
+                      className={CHIP_CLASS}
                     >
-                      {t(chip.labelKey)}
+                      {suggestion}
                     </button>
-                  ))
-              : suggestions.map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() => onSend(suggestion)}
-                    className="onboarding-option rounded-full px-3 py-1.5 text-xs font-bold"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
+                  ))}
+            </div>
+            {showIntro && onStartManualEntry ? (
+              <button
+                type="button"
+                onClick={onStartManualEntry}
+                className="onboarding-option-secondary inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold"
+              >
+                <PencilIcon size={14} />
+                <span>{t('wordChat.manualStart')}</span>
+              </button>
+            ) : null}
           </div>
-          {showIntro && onStartManualEntry ? (
-            <button
-              type="button"
-              onClick={onStartManualEntry}
-              className="onboarding-option-secondary inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold"
-            >
-              <PencilIcon size={14} />
-              <span>{t('wordChat.manualStart')}</span>
-            </button>
-          ) : null}
-        </div>
-      ) : null}
+        ) : null}
+      </div>
 
       <form
         onSubmit={submit}
-        className={`flex gap-2 ${
-          embedded
-            ? 'sticky bottom-0 z-10 -mx-2 bg-[var(--ob-surface)]/95 px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] backdrop-blur'
-            : ''
+        className={`flex items-end gap-2 ${
+          // No rule above it: the field's own border already sets the composer
+          // apart from the transcript, and a second line across the screen only
+          // narrowed what little height a phone has left.
+          embedded ? 'shrink-0 pt-2' : ''
         }`}
       >
-        <input
+        {/* A textarea, not a single-line input: someone describing their
+            situation writes two or three lines, and a single line scrolls the
+            beginning of that out of sight while they are still typing it. It
+            starts one row tall and grows with the text up to `COMPOSER_MAX_ROWS`,
+            after which it scrolls — same as every chat people already use. */}
+        <textarea
           ref={inputRef}
-          type="text"
+          rows={1}
           value={input}
           onChange={(event) => setInput(event.target.value)}
+          onKeyDown={(event) => {
+            // Enter sends, Shift+Enter breaks the line. `isComposing` guards the
+            // IME candidate window, where Enter means "accept this word".
+            if (event.key !== 'Enter' || event.shiftKey || event.nativeEvent.isComposing) {
+              return;
+            }
+            event.preventDefault();
+            void sendInput();
+          }}
           placeholder={t(
             useFormalUiCopy ? 'wordChat.inputPlaceholderFormal' : 'wordChat.inputPlaceholder',
           )}
@@ -673,14 +724,24 @@ export function ChatStep({
           maxLength={1000}
           // The chat is the point of this screen, so the caret starts here.
           autoFocus={!embedded}
-          className="word-chat-input min-w-0 flex-1 px-3 py-2.5 text-sm disabled:opacity-50"
+          // Phone keyboards otherwise offer a plain return key, which several
+          // of them treat as "new line" rather than submit.
+          enterKeyHint="send"
+          // 16px on a phone: iOS zooms the page into any field it considers
+          // too small to read, and never zooms back out.
+          className="word-chat-input min-w-0 flex-1 resize-none px-3 py-2.5 text-base leading-snug sm:text-sm disabled:opacity-50"
         />
+        {/* A phone has no room for a word here: the label costs the input about
+            a fifth of its width, and an arrow in a circle is what every chat
+            has trained people to look for. From `sm` up the word comes back. */}
         <button
           type="submit"
           disabled={busy !== null || !input.trim()}
-          className="onboarding-option onboarding-option-highlight shrink-0 rounded-full px-4 py-2.5 text-sm font-extrabold disabled:opacity-50"
+          aria-label={t('wordChat.send')}
+          className="onboarding-option onboarding-option-highlight flex h-11 w-11 shrink-0 items-center justify-center rounded-full p-0 text-sm font-extrabold disabled:opacity-50 sm:h-auto sm:w-auto sm:px-4 sm:py-2.5"
         >
-          {t('wordChat.send')}
+          <ArrowUpIcon size={20} className="sm:hidden" />
+          <span className="hidden sm:inline">{t('wordChat.send')}</span>
         </button>
       </form>
     </div>

@@ -12,15 +12,13 @@ const limits = {
 };
 
 describe('SelectStep', () => {
-  it('opens a focused manual-entry surface without proposal controls', () => {
+  it('opens manual entry on one word at a time, with bulk behind a toggle', () => {
     const onAddCustom = vi.fn();
     render(
       <I18nProvider language="en">
         <SelectStep
           mode="manual"
-          languageFrom="cs"
           listName="Moje slovíčka — Vietnamština"
-          onListNameChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
@@ -30,11 +28,6 @@ describe('SelectStep', () => {
           customItems={[]}
           onAddCustom={onAddCustom}
           onRemoveCustom={vi.fn()}
-          categoryName="My words"
-          onCategoryNameChange={vi.fn()}
-          askVisibility={false}
-          isPublic={false}
-          onVisibilityChange={vi.fn()}
           limits={limits}
           selectedCount={0}
           overSoftLimit={false}
@@ -52,14 +45,63 @@ describe('SelectStep', () => {
     expect(screen.getByRole('heading', { name: 'Add your own words' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Select all' })).not.toBeInTheDocument();
 
-    const input = screen.getByPlaceholderText('One word or sentence per line');
+    const input = screen.getByPlaceholderText('Type a word or sentence');
     expect(input).toHaveFocus();
+    expect(
+      screen.queryByPlaceholderText('One word or sentence per line'),
+    ).not.toBeInTheDocument();
 
-    fireEvent.change(input, { target: { value: 'káva\nmléko' } });
+    fireEvent.change(input, { target: { value: 'káva' } });
     fireEvent.click(screen.getByRole('button', { name: 'Add' }));
 
-    expect(onAddCustom).toHaveBeenCalledWith('káva');
+    expect(onAddCustom).toHaveBeenCalledExactlyOnceWith('káva');
+
+    // A prepared batch is still one toggle away, and pastes a line at a time.
+    fireEvent.click(screen.getByRole('button', { name: 'Add several at once' }));
+    const textarea = screen.getByPlaceholderText('One word or sentence per line');
+    expect(textarea).toHaveFocus();
+
+    fireEvent.change(textarea, { target: { value: 'mléko\ncukr' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }));
+
     expect(onAddCustom).toHaveBeenCalledWith('mléko');
+    expect(onAddCustom).toHaveBeenCalledWith('cukr');
+  });
+
+  it('offers the chat as the other way in, and no Back when it is the first step', () => {
+    const onStartChat = vi.fn();
+    render(
+      <I18nProvider language="en">
+        <SelectStep
+          mode="manual"
+          listName="Moje slovíčka — Vietnamština"
+          proposals={[]}
+          isSelected={() => false}
+          onToggle={vi.fn()}
+          onUpdateProposal={vi.fn()}
+          onSelectAll={vi.fn()}
+          onClearSelection={vi.fn()}
+          customItems={[]}
+          onAddCustom={vi.fn()}
+          onRemoveCustom={vi.fn()}
+          limits={limits}
+          selectedCount={0}
+          overSoftLimit={false}
+          atHardCap={false}
+          monthlyRemaining={60}
+          overMonthlyLimit={false}
+          atSelectionLimit={false}
+          busy={false}
+          onStartChat={onStartChat}
+          onContinue={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.queryByRole('button', { name: 'Back' })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Suggest words with AI bot' }));
+    expect(onStartChat).toHaveBeenCalledOnce();
   });
 
   it('offers explicit bulk selection without word and sentence badges', () => {
@@ -68,9 +110,7 @@ describe('SelectStep', () => {
     render(
       <I18nProvider language="en">
         <SelectStep
-          languageFrom="cs"
           listName="Moje slovíčka — Vietnamština"
-          onListNameChange={vi.fn()}
           proposals={[
             { kind: 'sentence', source: 'generated', text: 'Dám si kávu.', confidence: 0.9 },
             {
@@ -90,11 +130,6 @@ describe('SelectStep', () => {
           customItems={[]}
           onAddCustom={vi.fn()}
           onRemoveCustom={vi.fn()}
-          categoryName="Café"
-          onCategoryNameChange={vi.fn()}
-          askVisibility={false}
-          isPublic={false}
-          onVisibilityChange={vi.fn()}
           limits={limits}
           selectedCount={0}
           overSoftLimit={false}
@@ -125,9 +160,7 @@ describe('SelectStep', () => {
     render(
       <I18nProvider language="en">
         <SelectStep
-          languageFrom="cs"
           listName="Moje slovíčka — Vietnamština"
-          onListNameChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
@@ -137,11 +170,6 @@ describe('SelectStep', () => {
           customItems={[]}
           onAddCustom={vi.fn()}
           onRemoveCustom={vi.fn()}
-          categoryName="Café"
-          onCategoryNameChange={vi.fn()}
-          askVisibility={false}
-          isPublic={false}
-          onVisibilityChange={vi.fn()}
           limits={{ ...limits, monthlyUsed: 58 }}
           selectedCount={3}
           overSoftLimit={false}
@@ -173,9 +201,7 @@ describe('SelectStep', () => {
     render(
       <I18nProvider language="en">
         <SelectStep
-          languageFrom="cs"
           listName="Moje slovíčka — Vietnamština"
-          onListNameChange={vi.fn()}
           proposals={[proposal]}
           isSelected={() => true}
           onToggle={onToggle}
@@ -185,11 +211,6 @@ describe('SelectStep', () => {
           customItems={[]}
           onAddCustom={vi.fn()}
           onRemoveCustom={vi.fn()}
-          categoryName="Café"
-          onCategoryNameChange={vi.fn()}
-          askVisibility={false}
-          isPublic={false}
-          onVisibilityChange={vi.fn()}
           limits={limits}
           selectedCount={1}
           overSoftLimit={false}
@@ -219,5 +240,52 @@ describe('SelectStep', () => {
     fireEvent.change(screen.getByDisplayValue('káva'), { target: { value: 'silná káva' } });
 
     expect(onUpdateProposal).toHaveBeenCalledWith(proposal, 'silná káva');
+  });
+
+  it('shows a proposed sentence in full, and edits it in a field that wraps', () => {
+    // The sentence is the thing being decided on; half of it is not enough to
+    // decide with, and it is not enough to edit with either.
+    const sentence =
+      'Zdá se, že tato položka byla na účtu naúčtována dvakrát, můžete to prosím zkontrolovat?';
+    const proposal = {
+      kind: 'sentence' as const,
+      source: 'generated' as const,
+      text: sentence,
+      confidence: 0.9,
+    };
+
+    render(
+      <I18nProvider language="en">
+        <SelectStep
+          listName="Moje slovíčka — Vietnamština"
+          proposals={[proposal]}
+          isSelected={() => true}
+          onToggle={vi.fn()}
+          onUpdateProposal={vi.fn()}
+          onSelectAll={vi.fn()}
+          onClearSelection={vi.fn()}
+          customItems={[]}
+          onAddCustom={vi.fn()}
+          onRemoveCustom={vi.fn()}
+          limits={limits}
+          selectedCount={1}
+          overSoftLimit={false}
+          atHardCap={false}
+          monthlyRemaining={60}
+          overMonthlyLimit={false}
+          atSelectionLimit={false}
+          busy={false}
+          onBack={vi.fn()}
+          onContinue={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    const text = screen.getByText(sentence);
+    expect(text).not.toHaveClass('truncate');
+    expect(text).toHaveClass('break-words');
+
+    fireEvent.click(screen.getByRole('button', { name: `Edit: ${sentence}` }));
+    expect(screen.getByDisplayValue(sentence).tagName).toBe('TEXTAREA');
   });
 });

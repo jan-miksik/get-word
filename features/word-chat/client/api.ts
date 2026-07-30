@@ -1,6 +1,7 @@
 import { deviceJsonFetch } from '@/features/shared/http/device-json-fetch';
 import type {
   WordChatAddressRegister,
+  WordChatContentMode,
   WordChatLanguageLevel,
   ProposedItem,
   ReviewItem,
@@ -110,6 +111,8 @@ export type WordChatContextResponse = {
   covered_topics: string[];
   missing_topics: string[];
   personal_list_name: string | null;
+  personal_list_id: string | null;
+  personal_list_is_public: boolean | null;
   address_register: WordChatAddressRegister | null;
   salutation_gender: WordChatSalutationGender | null;
   language_level: WordChatLanguageLevel | null;
@@ -185,6 +188,7 @@ type ChatMessageResponse = {
   reply: string;
   suggestions: string[];
   ready_to_propose: boolean;
+  content_mode: WordChatContentMode | null;
   language_change: { from: string; to: string } | null;
   diagnostics: CallDiagnostics | null;
 };
@@ -200,6 +204,7 @@ type RawChatStreamEvent =
       reply?: unknown;
       suggestions?: unknown;
       ready_to_propose?: unknown;
+      content_mode?: unknown;
       language_change?: unknown;
       metadata_valid?: unknown;
       diagnostics?: unknown;
@@ -314,6 +319,12 @@ export async function sendChatMessageStream(
             ? event.suggestions.filter((entry): entry is string => typeof entry === 'string')
             : [],
           ready_to_propose: event.ready_to_propose === true,
+          content_mode:
+            event.content_mode === 'category_inventory' ||
+            event.content_mode === 'situation' ||
+            event.content_mode === 'mixed'
+              ? event.content_mode
+              : null,
           language_change:
             rawLanguageChange &&
             typeof rawLanguageChange.from === 'string' &&
@@ -366,6 +377,7 @@ export function requestProposal(input: {
   languageTo: string;
   chatLanguage: string;
   languageLevel: WordChatLanguageLevel;
+  contentMode: WordChatContentMode;
   messages: WordChatMessage[];
   baseListId?: string | null;
   model?: string | null;
@@ -376,6 +388,7 @@ export function requestProposal(input: {
     language_to: input.languageTo,
     chat_language: input.chatLanguage,
     language_level: input.languageLevel,
+    content_mode: input.contentMode,
     messages: input.messages,
     ...(input.baseListId ? { base_list_id: input.baseListId } : {}),
     ...(input.model ? { model: input.model } : {}),

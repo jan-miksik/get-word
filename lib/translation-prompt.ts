@@ -7,6 +7,8 @@
  * improved in one place takes effect in both.
  */
 
+import { describeLanguageVariant } from "@/lib/language-variants";
+
 /** System message for any translation/list-generation call. */
 export const TRANSLATION_SYSTEM_PROMPT = `
 You are a professional translator and language-learning content editor.
@@ -42,10 +44,35 @@ export const TRANSLATION_QUALITY_RULES = `
 - If the source omits a noun (e.g. "the white one", "I'll take the small one"), produce a natural, grammatical phrase in the target language, not a bare adjective.
 - Preserve elements that are part of the source item: ellipses ("…" / "..."), names, numbers, and emoji.
 - A parenthetical in the source — e.g. "English (language)", "you (informal singular)", "light (color)" — is a disambiguation / sense / register hint, NOT text to translate. Use it to choose the correct meaning and register, but NEVER carry it into the target: the target is the plain translation of the core word only ("Inglés", "tú", "luz"), with no parentheses, translated or otherwise. The note can be surfaced later as a separate study comment; it must not appear in the translation.
-- Do not add romanization, pronunciation, parenthetical glosses, or slash-separated alternatives. The target must contain no parentheses unless an actual parenthesis is part of the source word itself (e.g. a name or fixed expression that literally includes one).
+- Do not add romanization, pronunciation, parenthetical glosses, or slash-separated alternatives. The target must contain no parentheses unless an actual parenthesis is part of the source word itself (e.g. a name or fixed expression that literally includes one), and no slash between two alternative wordings ("vé máy bay / vé"): choose the single best one.
 - Never output text in the wrong language and never leave an item untranslated.
 - Before returning the JSON, silently verify every row: the target belongs to this exact source row, no source meaning was lost, no optional meaning or invented context was added, standalone vocabulary works as a standalone learning item, related anchors and parallel examples are consistent, and the output contains only the requested target text.
 `.trim();
+
+/**
+ * Rules pinning the regional variant of either side, for languages the app
+ * teaches as separate variants (British vs American English). Empty for every
+ * other pair, so the prompt is unchanged where there is nothing to pin.
+ */
+export function buildLanguageVariantRules(input: {
+  fromLang: string;
+  toLang: string;
+}): string {
+  const lines: string[] = [];
+  const target = describeLanguageVariant(input.toLang);
+  if (target) {
+    lines.push(
+      `- The target is ${target}. Apply it to EVERY item and never mix in another regional variant, whichever variant the source happens to use.`,
+    );
+  }
+  const source = describeLanguageVariant(input.fromLang);
+  if (source) {
+    lines.push(
+      `- The source is ${source}. Read it as that variant; it does not change which variant the target uses.`,
+    );
+  }
+  return lines.join("\n");
+}
 
 type TranslationContextPair = {
   source: string;
@@ -71,11 +98,16 @@ ${JSON.stringify(previousPairs)}
 Use this context to keep terminology, pronouns, register, and parallel sentence patterns stable across batches. Do not return these context pairs; translate only the numbered items below.`
       : "";
 
+  const variantRules = buildLanguageVariantRules({
+    fromLang: input.fromLang,
+    toLang: input.toLang,
+  });
+
   return `
 Translate the following ${input.texts.length} items from ${input.fromLang} to ${input.toLang}.${contextBlock}
 
 Rules:
-${TRANSLATION_QUALITY_RULES}
+${variantRules ? `${variantRules}\n` : ""}${TRANSLATION_QUALITY_RULES}
 - Translate each item independently and echo its "index" unchanged.
 - Return only valid JSON, with no markdown or commentary.
 

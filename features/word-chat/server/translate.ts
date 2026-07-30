@@ -23,6 +23,7 @@ import { buildCallDiagnostics, type WordChatCallDiagnostics } from "./diagnostic
 import { recordWordChatUsage } from "./usage";
 import { getMonthlyItemUsage, type WordChatRole } from "./rate-limit";
 import { computeContentKey } from "@/lib/progress-key";
+import { toPlainItemText } from "../plainItemText";
 import type { ReviewItem, TakeoverReference } from "../types";
 
 /**
@@ -224,7 +225,10 @@ export async function translateSelection(input: {
       );
       pending.forEach((item, index) => {
         const result = results[index];
-        const target = result?.translated?.trim() ?? "";
+        // Parenthetical glosses and "one / the other" alternatives are asked
+        // against in the translation prompt; strip them here so a model that
+        // adds one anyway cannot put it on a card or into the spoken clip.
+        const target = toPlainItemText(result?.translated ?? "");
         if (!target) return;
 
         // Deterministic formatting first, warnings second: a missing capital or

@@ -1,9 +1,9 @@
 'use client';
 
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
-import { LanguagePairChangedBanner } from './LanguagePairChangedBanner';
 import { WordChatFlow } from './WordChatFlow';
+import { useMobileKeyboardOpen } from '../hooks/useMobileKeyboardOpen';
 import type { WordChatStep } from '../hooks/useWordChat';
 
 type Props = {
@@ -40,36 +40,87 @@ export function AddWordsScreen({
   baseListId,
   refreshAfterCommit,
   onLanguagePairChange,
+  onClose,
   active = true,
   onCommitted,
 }: Props) {
   const { t } = useI18n();
-  const [step, setStep] = useState<WordChatStep>('chat');
+  const [step, setStep] = useState<WordChatStep>('select');
   const [headerBackAction, setHeaderBackAction] = useState<(() => void) | null>(null);
-  const [changedPair, setChangedPair] = useState<{ from: string; to: string } | null>(null);
+  // Held above the keyed WordChatFlow so the settings modal survives the remount
+  // a language-pair change forces — the learner can change both languages in one
+  // sitting instead of having the modal close after the first.
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const screenRef = useRef<HTMLDivElement | null>(null);
+  const keyboardOpen = useMobileKeyboardOpen(screenRef, active);
+  // No confirmation banner: the pickers in the settings modal already show which
+  // pair is in force, so announcing the change a second time on the screen
+  // behind them only took a line away from the chat.
   const changeLanguagePair = useCallback(
     async (nextPair: { from: string; to: string }) => {
       if (nextPair.from === languageFrom && nextPair.to === languageTo) return;
       await onLanguagePairChange(nextPair);
-      setChangedPair(nextPair);
-      setStep('chat');
+      setStep('select');
     },
     [languageFrom, languageTo, onLanguagePairChange],
   );
-  const stayInChatAfterDone = useCallback(() => {
-    setStep('chat');
-  }, []);
+  // Saving words is the end of this errand, not a prompt to start another one:
+  // hand the learner straight back to the study stream the new words just
+  // landed in. The flow has already reset itself, so reopening Add words starts
+  // from a fresh chat.
+  const returnToStudyAfterDone = useCallback(() => {
+    setStep('select');
+    onClose();
+  }, [onClose]);
   const handleHeaderBackActionChange = useCallback((action: (() => void) | null) => {
     setHeaderBackAction(action ? () => action : null);
   }, []);
+
+  // While the keyboard is up on a phone there is barely a third of the screen
+  // left, and the top menu is not usable mid-sentence anyway. Hand its space to
+  // this screen (see `[data-app-keyboard]` in `styles/layout.css`).
+  useEffect(() => {
+    if (!keyboardOpen) return;
+    const root = document.documentElement;
+    root.dataset.appKeyboard = 'open';
+    return () => {
+      delete root.dataset.appKeyboard;
+    };
+  }, [keyboardOpen]);
+
+  // The chat step is a screen, not a document: it takes the height the surface
+  // gives it, scrolls the conversation inside itself and keeps the composer on
+  // the bottom edge. Everything below the card — the wrapper's padding included
+  // — would otherwise be slack the composer slides up into at the end of a
+  // scroll. The later steps stay ordinary documents the surface scrolls.
+  const fullHeight = step === 'chat';
 
   return (
     // Full-bleed on a phone: the chat is the whole screen there, so the card's
     // side gutters and rounded corners only cost width that word chips, inputs
     // and the transcript can use. From `sm` up it goes back to a card.
-    <div className="mx-auto flex w-full max-w-[800px] flex-col px-0 pb-[max(2rem,env(safe-area-inset-bottom))] sm:px-4 sm:pb-8">
-      <section className="onboarding-card relative w-full rounded-2xl! border-2! p-4 max-sm:rounded-none! max-sm:border-x-0! max-sm:border-t-0! max-sm:px-3 sm:p-7">
-        <div className="mb-4 grid grid-cols-[1fr_auto_1fr] items-center gap-3">
+    <div
+      ref={screenRef}
+      className={[
+        'mx-auto flex w-full max-w-[800px] flex-col px-0 sm:px-4 sm:pb-8',
+        fullHeight ? 'min-h-0 flex-1 pb-0' : 'pb-[max(2rem,env(safe-area-inset-bottom))]',
+      ].join(' ')}
+    >
+      <section
+        className={[
+          'onboarding-card relative w-full rounded-2xl! border-2! p-4 max-sm:rounded-none! max-sm:border-x-0! max-sm:border-t-0! max-sm:px-3 sm:p-7',
+          keyboardOpen ? 'max-sm:pt-2' : '',
+          fullHeight
+            ? 'flex min-h-0 flex-1 flex-col max-sm:pb-[max(0.5rem,env(safe-area-inset-bottom))]'
+            : '',
+        ].join(' ')}
+      >
+        <div
+          className={[
+            'grid grid-cols-[1fr_auto_1fr] items-center gap-3',
+            keyboardOpen ? 'mb-2' : 'mb-4',
+          ].join(' ')}
+        >
           {headerBackAction ? (
             <button
               type="button"
@@ -81,8 +132,10 @@ export function AddWordsScreen({
           ) : (
             <span />
           )}
-          {/* Every step past the chat carries its own heading. */}
-          {step === 'chat' ? (
+          {/* Every step past the chat carries its own heading — and with the
+              keyboard up, even the one heading is a line the transcript needs
+              more than the learner does. */}
+          {step === 'chat' && !keyboardOpen ? (
             <h1 className="text-center text-sm font-extrabold uppercase tracking-wide">
               {t('wordChat.addWords')}
             </h1>
@@ -92,13 +145,6 @@ export function AddWordsScreen({
           <span />
         </div>
 
-        {changedPair ? (
-          <LanguagePairChangedBanner
-            pair={changedPair}
-            onDismiss={() => setChangedPair(null)}
-          />
-        ) : null}
-
         <WordChatFlow
           key={`${languageFrom}\u0000${languageTo}`}
           languageFrom={languageFrom}
@@ -106,11 +152,16 @@ export function AddWordsScreen({
           baseListId={baseListId}
           refreshAfterCommit={refreshAfterCommit}
           onLanguagePairChange={changeLanguagePair}
-          onDone={stayInChatAfterDone}
-          doneActionLabel={t('wordChat.back')}
+          onDone={returnToStudyAfterDone}
           onStepChange={setStep}
           onHeaderBackActionChange={handleHeaderBackActionChange}
           settingsPlacement="screen-header"
+          settingsOpen={settingsOpen}
+          onSettingsOpenChange={setSettingsOpen}
+          // Typing your own words is the plain way in; the conversation waits
+          // behind a button on that step for when the learner wants ideas.
+          entryStep="manual"
+          keyboardOpen={keyboardOpen}
           active={active}
           embedded
           onCommitted={onCommitted}

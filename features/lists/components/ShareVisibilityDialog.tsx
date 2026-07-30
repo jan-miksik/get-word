@@ -1,11 +1,37 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n } from '@/components/I18nProvider';
 import { deviceJsonFetch } from '@/features/shared/http/device-json-fetch';
+import { WARM_PALETTE } from '@/features/shared/theme/warm-palette';
 import { HoldButton } from './HoldButton';
 import type { WordList } from '@/features/lists/types';
+
+/**
+ * Which palette the dialog wears. `app` (default) inherits the app theme's
+ * semantic tokens — the dark navy the list editor lives in. `warm` remaps those
+ * same tokens to the beige onboarding palette so the dialog matches the warm
+ * "Add words" surface it is opened from there.
+ */
+export type ShareDialogAppearance = 'app' | 'warm';
+
+/**
+ * The dialog is styled entirely through the app's semantic color tokens
+ * (`--bg`, `--text`, …). Rebinding those variables on the card is all it takes
+ * to re-skin every element inside it, so the markup never has to branch on the
+ * appearance.
+ */
+const WARM_TOKEN_OVERRIDES: CSSProperties = {
+  '--bg': WARM_PALETTE.surface,
+  '--bg-elevated': WARM_PALETTE.surfaceHover,
+  '--text': WARM_PALETTE.ink,
+  '--text-soft': WARM_PALETTE.inkSoft,
+  '--border-subtle': 'rgba(42, 34, 24, 0.18)',
+  '--accent': WARM_PALETTE.accent,
+  '--danger': WARM_PALETTE.wrong,
+  '--done': WARM_PALETTE.correct,
+} as CSSProperties;
 
 interface ShareVisibilityDialogProps {
   list: WordList;
@@ -15,6 +41,8 @@ interface ShareVisibilityDialogProps {
    * dialog in copy-only mode.
    */
   canManage: boolean;
+  /** Palette to render in; defaults to the app theme. See {@link ShareDialogAppearance}. */
+  appearance?: ShareDialogAppearance;
   onClose: () => void;
   onListUpdated?: (list: WordList) => void;
 }
@@ -37,6 +65,7 @@ interface ShareVisibilityDialogProps {
 export function ShareVisibilityDialog({
   list,
   canManage,
+  appearance = 'app',
   onClose,
   onListUpdated,
 }: ShareVisibilityDialogProps) {
@@ -45,6 +74,7 @@ export function ShareVisibilityDialog({
       key={list.id}
       list={list}
       canManage={canManage}
+      appearance={appearance}
       onClose={onClose}
       onListUpdated={onListUpdated}
     />
@@ -54,6 +84,7 @@ export function ShareVisibilityDialog({
 function ShareVisibilityDialogContent({
   list,
   canManage,
+  appearance = 'app',
   onClose,
   onListUpdated,
 }: ShareVisibilityDialogProps) {
@@ -174,6 +205,7 @@ function ShareVisibilityDialogContent({
     >
       <div
         className="relative w-full max-w-sm rounded-2xl border border-border-subtle bg-background p-6 shadow-xl"
+        style={appearance === 'warm' ? WARM_TOKEN_OVERRIDES : undefined}
         onClick={(e) => e.stopPropagation()}
       >
         <button

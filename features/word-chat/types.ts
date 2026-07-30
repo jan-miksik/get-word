@@ -15,7 +15,20 @@ export type WordChatAddressRegister = "casual" | "formal";
 export type WordChatSalutationGender = "female" | "male" | "neutral";
 
 /** Learner's current knowledge of the target language. */
-export type WordChatLanguageLevel = "A0" | "A1" | "A2" | "B1" | "B2";
+export type WordChatLanguageLevel = "A0" | "A1" | "A2" | "B1" | "B2" | "C1";
+
+/** The learner's requested shape of content, finalized by the chat before proposing. */
+export const WORD_CHAT_CONTENT_MODES = [
+  "category_inventory",
+  "situation",
+  "mixed",
+] as const;
+
+export type WordChatContentMode = (typeof WORD_CHAT_CONTENT_MODES)[number];
+
+export function isWordChatContentMode(value: unknown): value is WordChatContentMode {
+  return typeof value === "string" && WORD_CHAT_CONTENT_MODES.includes(value as WordChatContentMode);
+}
 
 /**
  * One proposed study item, in the learner's KNOWN language only. Translation
@@ -82,6 +95,8 @@ export type ChatTurnResult = {
   suggestions: string[];
   /** True once the model has enough to propose; the UI surfaces the button. */
   readyToPropose: boolean;
+  /** Null until the same turn that makes the proposal ready. */
+  contentMode: WordChatContentMode | null;
   /**
    * A reversible app action requested explicitly by the learner. The model may
    * suggest words for the current pair, but it may only populate this field

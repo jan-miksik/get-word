@@ -382,4 +382,5 @@ export class WordChatReplyStreamParser {
       throw new WordChatReplyStreamError("Unexpected text after JSON object.");
     }
   }
+
 }

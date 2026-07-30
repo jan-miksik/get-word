@@ -2,17 +2,17 @@
 
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useI18n } from '@/components/I18nProvider';
-import { PencilIcon } from '@/components/icons/AppIcons';
-import { getLocalizedLanguageName } from '@/lib/i18n/languages';
+import { PencilIcon, RobotIcon } from '@/components/icons/AppIcons';
 import type { ProposedItem } from '../types';
 import type { WordChatLimits } from '../hooks/useWordChat';
 
 type Props = {
   mode?: 'suggestions' | 'manual';
-  languageFrom: string;
-  /** The personal list these words are saved into, by name. */
+  /**
+   * The personal list these words are saved into, by name. Read-only here —
+   * naming the list (and its category) now lives behind the settings gear.
+   */
   listName: string;
-  onListNameChange: (value: string) => void;
   proposals: ProposedItem[];
   isSelected: (item: ProposedItem) => boolean;
   onToggle: (item: ProposedItem) => void;
@@ -22,11 +22,6 @@ type Props = {
   customItems: { kind: 'sentence' | 'word'; text: string }[];
   onAddCustom: (text: string) => void;
   onRemoveCustom: (text: string) => void;
-  categoryName: string;
-  onCategoryNameChange: (value: string) => void;
-  askVisibility: boolean;
-  isPublic: boolean | null;
-  onVisibilityChange: (value: boolean) => void;
   limits: WordChatLimits;
   selectedCount: number;
   overSoftLimit: boolean;
@@ -35,7 +30,12 @@ type Props = {
   overMonthlyLimit: boolean;
   atSelectionLimit: boolean;
   busy: boolean;
-  onBack: () => void;
+  /** An on-screen keyboard is covering the lower part of a phone screen. */
+  keyboardOpen?: boolean;
+  /** Omitted when this step is the first one: there is nothing behind it. */
+  onBack?: () => void;
+  /** Manual entry only: hand the word-finding over to the conversation. */
+  onStartChat?: () => void;
   onContinue: () => void;
 };
 
@@ -45,9 +45,7 @@ function getProposalKey(item: ProposedItem) {
 
 export function SelectStep({
   mode = 'suggestions',
-  languageFrom,
   listName,
-  onListNameChange,
   proposals,
   isSelected,
   onToggle,
@@ -57,11 +55,6 @@ export function SelectStep({
   customItems,
   onAddCustom,
   onRemoveCustom,
-  categoryName,
-  onCategoryNameChange,
-  askVisibility,
-  isPublic,
-  onVisibilityChange,
   limits,
   selectedCount,
   overSoftLimit,
@@ -70,23 +63,25 @@ export function SelectStep({
   overMonthlyLimit,
   atSelectionLimit,
   busy,
+  keyboardOpen = false,
   onBack,
+  onStartChat,
   onContinue,
 }: Props) {
-  const { t, language: uiLanguage } = useI18n();
+  const { t } = useI18n();
   const [customInput, setCustomInput] = useState('');
+  // Typing one word, adding it, seeing it land is the whole loop for most
+  // people, so that is what manual entry opens on. Pasting a prepared batch is
+  // the rarer errand and waits behind the toggle.
+  const [bulkEntry, setBulkEntry] = useState(false);
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const customTextareaRef = useRef<HTMLTextAreaElement | null>(null);
   const customInputRef = useRef<HTMLInputElement | null>(null);
-  const editInputRef = useRef<HTMLInputElement | null>(null);
+  const editInputRef = useRef<HTMLTextAreaElement | null>(null);
 
-  const knownName =
-    getLocalizedLanguageName(languageFrom, languageFrom || uiLanguage) ??
-    languageFrom.toUpperCase();
-
-  // The visibility choice is asked once, on the first session, and belongs to
-  // the list from then on. Nothing may be saved before it is answered.
-  const visibilityAnswered = !askVisibility || isPublic !== null;
+  // Who sees the list is a property of the list, not a step in adding words: it
+  // is asked (and changed) behind the settings gear, private until told
+  // otherwise, so nothing on this step waits on an answer.
   const monthlyExhausted = monthlyRemaining <= 0;
   const remainingSelections = Math.max(
     0,
@@ -103,12 +98,18 @@ export function SelectStep({
       .slice(0, Math.max(1, remainingSelections));
     for (const entry of entries) onAddCustom(entry);
     setCustomInput('');
+    // One at a time is a loop — type, add, type the next one — so the cursor
+    // goes back where the next word is typed even when Add was clicked.
+    if (!bulkEntry) customInputRef.current?.focus();
   }
 
+  // The field the learner is meant to type in gets the cursor: on arrival, and
+  // again whenever the toggle swaps one field for the other.
   useEffect(() => {
     if (mode !== 'manual') return;
-    customTextareaRef.current?.focus();
-  }, [mode]);
+    if (bulkEntry) customTextareaRef.current?.focus();
+    else customInputRef.current?.focus();
+  }, [bulkEntry, mode]);
 
   useEffect(() => {
     if (!editingKey) return;
@@ -116,42 +117,34 @@ export function SelectStep({
     editInputRef.current?.select();
   }, [editingKey]);
 
+  // Keep the open editor as tall as its text. Height is released first because
+  // `scrollHeight` never reports less than an explicitly set height, so deleting
+  // words would otherwise leave the field stuck at its tallest.
+  const editedText = proposals.find((item) => getProposalKey(item) === editingKey)?.text ?? '';
+  useEffect(() => {
+    const node = editInputRef.current;
+    if (!node) return;
+    node.style.height = 'auto';
+    node.style.height = `${node.scrollHeight}px`;
+  }, [editedText, editingKey]);
+
   return (
     <div className="space-y-4">
-      <div>
+      {/* The settings gear floats in this corner on the select step in both
+          modes now, so the heading keeps clear of it either way. */}
+      <div className="pr-12 sm:pr-14">
         <h2 className="text-base font-extrabold">
           {t(mode === 'manual' ? 'wordChat.manualTitle' : 'wordChat.selectTitle')}
         </h2>
-        <p className="mt-1 text-sm onboarding-text-soft">
-          {t(mode === 'manual' ? 'wordChat.manualHint' : 'wordChat.selectHint')}
-        </p>
+        {/* The single-entry step needs no line of instruction — the field and
+            its Add button say it. Only the suggestions list and the bulk paste
+            box carry a hint. */}
+        {mode !== 'manual' || bulkEntry ? (
+          <p className="mt-1 text-sm onboarding-text-soft">
+            {t(mode !== 'manual' ? 'wordChat.selectHint' : 'wordChat.manualHint')}
+          </p>
+        ) : null}
       </div>
-
-      <label className="block">
-        <span className="mb-1 block text-xs font-bold uppercase tracking-wide onboarding-text-soft">
-          {t('wordChat.listNameLabel')}
-        </span>
-        <input
-          type="text"
-          value={listName}
-          onChange={(event) => onListNameChange(event.target.value)}
-          maxLength={80}
-          className="word-chat-input w-full rounded-xl px-3 py-2.5 text-sm font-bold"
-        />
-      </label>
-
-      <label className="block">
-        <span className="mb-1 block text-xs font-bold uppercase tracking-wide onboarding-text-soft">
-          {t('wordChat.categoryLabel')}
-        </span>
-        <input
-          type="text"
-          value={categoryName}
-          onChange={(event) => onCategoryNameChange(event.target.value)}
-          maxLength={60}
-          className="word-chat-input w-full rounded-xl px-3 py-2.5 text-sm font-bold"
-        />
-      </label>
 
       {proposals.length > 0 ? (
         <>
@@ -200,19 +193,24 @@ export function SelectStep({
                     >
                       {selected ? '✓' : ''}
                     </span>
-                    <input
+                    {/* Editing a sentence in a one-line field hides the half
+                        being edited, so this grows with the text too. Enter
+                        commits (a study item is never multi-line), Escape
+                        leaves. */}
+                    <textarea
                       ref={editInputRef}
-                      type="text"
+                      rows={1}
                       value={item.text}
                       onChange={(event) => onUpdateProposal(item, event.target.value)}
                       onBlur={() => setEditingKey(null)}
                       onKeyDown={(event) => {
                         if (event.key === 'Enter' || event.key === 'Escape') {
+                          event.preventDefault();
                           event.currentTarget.blur();
                         }
                       }}
                       maxLength={200}
-                      className="word-chat-input min-w-0 flex-1 rounded-lg px-2 py-1.5 text-sm font-bold"
+                      className="word-chat-input min-w-0 flex-1 resize-none rounded-lg px-2 py-1.5 text-base font-bold leading-snug sm:text-sm"
                     />
                   </>
                 ) : (
@@ -234,7 +232,10 @@ export function SelectStep({
                     >
                       {selected ? '✓' : ''}
                     </span>
-                    <span className="min-w-0 flex-1 truncate text-sm leading-snug">
+                    {/* Wraps rather than truncates: a proposed sentence is the
+                        thing being decided on, and half of it is not enough to
+                        decide with. The row grows instead. */}
+                    <span className="min-w-0 flex-1 break-words text-sm leading-snug">
                       {item.text}
                     </span>
                   </button>
@@ -285,12 +286,22 @@ export function SelectStep({
         ))}
       </ul>
 
-      <form onSubmit={submitCustom} className="space-y-1.5">
-        <span className="block text-xs font-bold uppercase tracking-wide onboarding-text-soft">
-          {t('wordChat.addOwnLabel', { language: knownName })}
-        </span>
+      {/* Typing a word here is a loop — type, add, watch it join the list — so
+          with the keyboard up the field stays pinned to the bottom of the
+          visible area and the list keeps scrolling behind it. Sticky releases
+          at the form's natural place, so the totals and Continue below it are
+          still reachable. */}
+      <form
+        onSubmit={submitCustom}
+        className={[
+          'space-y-1.5',
+          keyboardOpen
+            ? 'max-sm:sticky max-sm:bottom-0 max-sm:z-10 max-sm:-mx-1 max-sm:bg-[var(--ob-surface)]/95 max-sm:px-1 max-sm:py-2 max-sm:backdrop-blur'
+            : '',
+        ].join(' ')}
+      >
         <div className="flex gap-2">
-          {mode === 'manual' ? (
+          {mode === 'manual' && bulkEntry ? (
             <textarea
               ref={customTextareaRef}
               value={customInput}
@@ -299,7 +310,7 @@ export function SelectStep({
               disabled={atSelectionLimit}
               maxLength={1200}
               rows={4}
-              className="word-chat-input min-w-0 flex-1 resize-y rounded-xl px-3 py-2.5 text-sm disabled:opacity-50"
+              className="word-chat-input min-w-0 flex-1 resize-y rounded-xl px-3 py-2.5 text-base sm:text-sm disabled:opacity-50"
             />
           ) : (
             <input
@@ -310,7 +321,7 @@ export function SelectStep({
               placeholder={t('wordChat.addOwnPlaceholder')}
               disabled={atSelectionLimit}
               maxLength={200}
-              className="word-chat-input min-w-0 flex-1 rounded-xl px-3 py-2.5 text-sm disabled:opacity-50"
+              className="word-chat-input min-w-0 flex-1 rounded-xl px-3 py-2.5 text-base sm:text-sm disabled:opacity-50"
             />
           )}
           <button
@@ -321,12 +332,37 @@ export function SelectStep({
             {t('wordChat.add')}
           </button>
         </div>
+        {/* Pasting a prepared batch is the rarer errand, so it sits quietly
+            under the field rather than competing with it. Beside it, the other
+            way to get words: letting the AI bot propose them — a model call, so
+            it waits here rather than leading. Manual entry only — on the
+            suggestions step the field is a small addition, not the way words
+            get in. */}
+        {mode === 'manual' ? (
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setBulkEntry((current) => !current)}
+              className="onboarding-option-secondary rounded-full px-3 py-1.5 text-[11px] font-bold"
+              aria-pressed={bulkEntry}
+            >
+              {t(bulkEntry ? 'wordChat.manualSingleToggle' : 'wordChat.manualBulkToggle')}
+            </button>
+            {onStartChat ? (
+              <button
+                type="button"
+                onClick={onStartChat}
+                className="onboarding-option-secondary inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold"
+              >
+                <RobotIcon size={14} />
+                <span>{t('wordChat.chatStart')}</span>
+              </button>
+            ) : null}
+          </div>
+        ) : null}
       </form>
 
       <div className="space-y-2 text-xs">
-        <p className="font-bold onboarding-text-soft">
-          {t('wordChat.selectedCount', { count: selectedCount })}
-        </p>
         {overSoftLimit ? (
           <p className="onboarding-notice rounded-md px-3 py-2 leading-relaxed">
             {t('wordChat.softWarning')}
@@ -342,61 +378,19 @@ export function SelectStep({
             {t('wordChat.monthlySelectionLimit', { remaining: monthlyRemaining })}
           </p>
         ) : null}
-        <p className="onboarding-text-soft">
-          {monthlyExhausted
-            ? t('wordChat.monthlyReached', { limit: limits.monthlyLimit })
-            : t('wordChat.monthlyUsage', {
-                used: limits.monthlyUsed,
-                limit: limits.monthlyLimit,
-              })}
-        </p>
       </div>
 
-      {askVisibility ? (
-        <fieldset className="space-y-2">
-          <legend className="text-xs font-bold uppercase tracking-wide onboarding-text-soft">
-            {t('wordChat.visibilityTitle')}
-          </legend>
-          {/* Which list, by name. The choice is made once and then belongs to
-              this list forever, so "this list" should not be an abstraction. */}
-          <p className="mb-1 text-sm font-bold">{listName}</p>
-          {[false, true].map((value) => (
-            <button
-              key={String(value)}
-              type="button"
-              role="radio"
-              aria-checked={isPublic === value}
-              onClick={() => onVisibilityChange(value)}
-              className={[
-                'onboarding-option block w-full rounded-xl px-3 py-2.5 text-left',
-                isPublic === value ? 'onboarding-option-highlight' : '',
-              ].join(' ')}
-            >
-              <span className="block text-sm font-extrabold">
-                {value ? t('wordChat.visibilityPublic') : t('wordChat.visibilityPrivate')}
-              </span>
-              <span className="mt-1 block text-xs leading-relaxed onboarding-text-soft">
-                {value
-                  ? t('wordChat.visibilityPublicHint')
-                  : t('wordChat.visibilityPrivateHint')}
-              </span>
-            </button>
-          ))}
-          <p className="text-[11px] leading-relaxed onboarding-text-soft">
-            {t('wordChat.visibilityChangeLater')}
-          </p>
-        </fieldset>
-      ) : null}
-
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={onBack}
-          disabled={busy}
-          className="onboarding-option-secondary shrink-0 rounded-xl px-4 py-3 text-sm font-bold disabled:opacity-50"
-        >
-          {t('wordChat.back')}
-        </button>
+      <div className="flex gap-2 pt-4">
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            disabled={busy}
+            className="onboarding-option-secondary shrink-0 rounded-xl px-4 py-3 text-sm font-bold disabled:opacity-50"
+          >
+            {t('wordChat.back')}
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={onContinue}
@@ -404,7 +398,6 @@ export function SelectStep({
             busy ||
             !listName.trim() ||
             selectedCount === 0 ||
-            !visibilityAnswered ||
             monthlyExhausted ||
             overMonthlyLimit
           }
@@ -413,6 +406,18 @@ export function SelectStep({
           {busy ? t('wordChat.translating') : t('wordChat.continueToReview')}
         </button>
       </div>
+
+      {/* The monthly allowance is a running total, not an action — it belongs
+          under the button that spends it, where it reads as a receipt rather
+          than a gate. */}
+      <p className="text-xs onboarding-text-soft">
+        {monthlyExhausted
+          ? t('wordChat.monthlyReached', { limit: limits.monthlyLimit })
+          : t('wordChat.monthlyUsage', {
+              used: limits.monthlyUsed,
+              limit: limits.monthlyLimit,
+            })}
+      </p>
     </div>
   );
 }

@@ -10,25 +10,39 @@ import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
 import type { WordChatPreferencePatch } from '../hooks/useWordChat';
 import { splitWordChatLevelLabel, wordChatLevelLabelKey } from '../levelLabels';
 import { WORD_CHAT_LANGUAGE_LEVELS } from '../preferences';
-import { SalutationGenderIcon } from './SalutationGenderIcon';
+import { SalutationGenderBadge } from './SalutationGenderIcon';
 import type {
   WordChatAddressRegister,
   WordChatLanguageLevel,
   WordChatSalutationGender,
 } from '../types';
 
+/**
+ * One look for every section heading in this modal, with a little more air under
+ * it than the `space-y` alone gave: the headings are what the learner scans, and
+ * sitting almost on top of their own controls made the modal read as one list.
+ */
+const SECTION_HEADING_CLASS =
+  'mt-0 mb-2.5 text-xs font-black uppercase tracking-wide onboarding-text-soft';
+
 type LanguagePairSettingsProps = {
   languageFrom: string;
   languageTo: string;
   onLanguagePairChange: (pair: { from: string; to: string }) => void | Promise<void>;
-  onClose: () => void;
 };
 
+/**
+ * The study pair, applied as it is picked.
+ *
+ * Picking a language in a settings selector is the decision — a separate
+ * "use these languages" button asked the learner to confirm what they had just
+ * said. The two sides are still applied as one pair, so switching only the
+ * target keeps the known side as it was.
+ */
 function LanguagePairSettings({
   languageFrom,
   languageTo,
   onLanguagePairChange,
-  onClose,
 }: LanguagePairSettingsProps) {
   const { t } = useI18n();
   const { languages, loading: languagesLoading } = useSupportedLanguages();
@@ -36,6 +50,23 @@ function LanguagePairSettings({
   const [draftTo, setDraftTo] = useState(languageTo);
   const [pairSaving, setPairSaving] = useState(false);
   const [pairError, setPairError] = useState(false);
+
+  const applyPair = async (pair: { from: string; to: string }) => {
+    setDraftFrom(pair.from);
+    setDraftTo(pair.to);
+    // Same pair, or one side still empty: nothing has been decided yet.
+    if (!pair.from || !pair.to || pair.from === pair.to) return;
+    if (pair.from === languageFrom && pair.to === languageTo) return;
+    setPairSaving(true);
+    setPairError(false);
+    try {
+      await onLanguagePairChange(pair);
+    } catch {
+      setPairError(true);
+    } finally {
+      setPairSaving(false);
+    }
+  };
 
   return (
     <section className="space-y-3">
@@ -46,7 +77,7 @@ function LanguagePairSettings({
           value={draftFrom}
           languages={languages}
           loading={languagesLoading}
-          onChange={setDraftFrom}
+          onChange={(from) => void applyPair({ from, to: draftTo })}
           disabledCodes={draftTo ? [draftTo] : []}
         />
         <LanguageCombobox
@@ -55,46 +86,23 @@ function LanguagePairSettings({
           value={draftTo}
           languages={languages}
           loading={languagesLoading}
-          onChange={setDraftTo}
+          onChange={(to) => void applyPair({ from: draftFrom, to })}
           disabledCodes={draftFrom ? [draftFrom] : []}
         />
       </div>
       <p className="m-0 text-xs leading-relaxed onboarding-text-soft">
         {t('wordChat.studyPairHint')}
       </p>
+      {pairSaving ? (
+        <p className="m-0 text-xs onboarding-text-soft" role="status">
+          {t('wordChat.profileSaving')}
+        </p>
+      ) : null}
       {pairError ? (
         <p className="onboarding-error m-0 text-xs" role="alert">
           {t('wordChat.languageChangeFailed')}
         </p>
       ) : null}
-      <button
-        type="button"
-        disabled={
-          pairSaving ||
-          languagesLoading ||
-          !draftFrom ||
-          !draftTo ||
-          draftFrom === draftTo ||
-          (draftFrom === languageFrom && draftTo === languageTo)
-        }
-        onClick={async () => {
-          setPairSaving(true);
-          setPairError(false);
-          try {
-            await onLanguagePairChange({ from: draftFrom, to: draftTo });
-            onClose();
-          } catch {
-            setPairError(true);
-          } finally {
-            setPairSaving(false);
-          }
-        }}
-        className="onboarding-option onboarding-option-highlight min-h-11 rounded-xl px-4 py-2.5 text-sm font-extrabold disabled:opacity-50"
-      >
-        {pairSaving
-          ? t('wordChat.profileSaving')
-          : t('wordChat.applyLanguagePair')}
-      </button>
     </section>
   );
 }
@@ -103,6 +111,22 @@ type Props = {
   isOpen: boolean;
   languageFrom: string;
   languageTo: string;
+  /**
+   * The list and category names, edited here rather than on the select step.
+   * Optional: the chat step opens the same modal before a list is being named,
+   * and omits them.
+   */
+  listName?: string;
+  categoryName?: string;
+  onListNameChange?: (value: string) => void;
+  onCategoryNameChange?: (value: string) => void;
+  /**
+   * The list's visibility, editable here so a learner can change it after the
+   * one-time question on the select step. Omitted where no list is being named
+   * yet (the chat step opens the same modal before there is a list).
+   */
+  isPublic?: boolean | null;
+  onVisibilityChange?: (value: boolean) => void;
   addressRegister: WordChatAddressRegister | null;
   salutationGender: WordChatSalutationGender | null;
   languageLevel: WordChatLanguageLevel | null;
@@ -118,6 +142,12 @@ export function ChatSettingsModal({
   isOpen,
   languageFrom,
   languageTo,
+  listName,
+  categoryName,
+  onListNameChange,
+  onCategoryNameChange,
+  isPublic,
+  onVisibilityChange,
   addressRegister,
   salutationGender,
   languageLevel,
@@ -215,12 +245,17 @@ export function ChatSettingsModal({
             </button>
           </div>
 
-          <div className="mt-6 space-y-7">
-            <section className="space-y-3">
-              <h3 className="m-0 text-xs font-black uppercase tracking-wide onboarding-text-soft">
+          <div className="mt-6 space-y-8">
+            {/* Languages first: which language the app speaks, then the pair
+                being studied. Everything below is a detail of how these words
+                get written — these two decide what the screen even says. */}
+            <section>
+              <h3 className={SECTION_HEADING_CLASS}>
                 {t('onboarding.interfaceLanguageLabel')}
               </h3>
-              <AppInterfaceLanguageSelector compact className="w-full" />
+              {/* Not `compact`: full width made a button as wide as the modal for
+                  a flag and one short word. */}
+              <AppInterfaceLanguageSelector />
             </section>
 
             <LanguagePairSettings
@@ -228,8 +263,74 @@ export function ChatSettingsModal({
               languageFrom={languageFrom}
               languageTo={languageTo}
               onLanguagePairChange={onLanguagePairChange}
-              onClose={onClose}
             />
+
+            {onListNameChange || onCategoryNameChange ? (
+              <section className="space-y-3">
+                {onListNameChange ? (
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-black uppercase tracking-wide onboarding-text-soft">
+                      {t('wordChat.listNameLabel')}
+                    </span>
+                    <input
+                      type="text"
+                      value={listName ?? ''}
+                      onChange={(event) => onListNameChange(event.target.value)}
+                      maxLength={80}
+                      className="word-chat-input w-full rounded-xl px-3 py-2.5 text-base font-bold sm:text-sm"
+                    />
+                  </label>
+                ) : null}
+                {onCategoryNameChange ? (
+                  <label className="block">
+                    <span className="mb-1 block text-xs font-black uppercase tracking-wide onboarding-text-soft">
+                      {t('wordChat.categoryLabel')}
+                    </span>
+                    <input
+                      type="text"
+                      value={categoryName ?? ''}
+                      onChange={(event) => onCategoryNameChange(event.target.value)}
+                      maxLength={60}
+                      className="word-chat-input w-full rounded-xl px-3 py-2.5 text-base font-bold sm:text-sm"
+                    />
+                  </label>
+                ) : null}
+              </section>
+            ) : null}
+
+            {onVisibilityChange ? (
+              <section
+                role="radiogroup"
+                aria-label={t('wordChat.visibilityTitle')}
+                className="space-y-3"
+              >
+                <h3 className={SECTION_HEADING_CLASS}>
+                  {t('wordChat.visibilityTitle')}
+                </h3>
+                {[false, true].map((value) => (
+                  <button
+                    key={String(value)}
+                    type="button"
+                    role="radio"
+                    aria-checked={isPublic === value}
+                    onClick={() => onVisibilityChange(value)}
+                    className={[
+                      'onboarding-option block w-full rounded-xl px-4 py-3 text-left',
+                      isPublic === value ? 'onboarding-option-highlight' : '',
+                    ].join(' ')}
+                  >
+                    <span className="block text-sm font-extrabold">
+                      {value ? t('wordChat.visibilityPublic') : t('wordChat.visibilityPrivate')}
+                    </span>
+                    <span className="mt-1 block text-xs leading-relaxed onboarding-text-soft">
+                      {value
+                        ? t('wordChat.visibilityPublicHint')
+                        : t('wordChat.visibilityPrivateHint')}
+                    </span>
+                  </button>
+                ))}
+              </section>
+            ) : null}
 
             {addressRegisterApplies ? (
               <section
@@ -237,7 +338,7 @@ export function ChatSettingsModal({
                 aria-label={t('wordChat.addressSettingLabel')}
                 className="space-y-3"
               >
-                <h3 className="m-0 text-xs font-black uppercase tracking-wide onboarding-text-soft">
+                <h3 className={SECTION_HEADING_CLASS}>
                   {t('wordChat.addressSettingLabel')}
                 </h3>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -269,7 +370,7 @@ export function ChatSettingsModal({
                 aria-label={t('wordChat.salutationSettingLabel')}
                 className="space-y-3"
               >
-                <h3 className="m-0 text-xs font-black uppercase tracking-wide onboarding-text-soft">
+                <h3 className={SECTION_HEADING_CLASS}>
                   {t('wordChat.salutationSettingLabel')}
                 </h3>
                 <div className="grid gap-3 sm:grid-cols-3">
@@ -282,16 +383,14 @@ export function ChatSettingsModal({
                       disabled={saving}
                       onClick={() => void onChange({ salutationGender: value })}
                       className={[
-                        'onboarding-option flex min-h-12 items-center gap-2.5 rounded-xl px-4 py-3 text-left text-sm font-extrabold disabled:opacity-50',
+                        'onboarding-option group flex min-h-12 items-center gap-2.5 rounded-xl px-4 py-3 text-left text-sm font-extrabold disabled:opacity-50',
                         salutationGender === value ? 'onboarding-option-highlight' : '',
                       ].join(' ')}
                     >
-                      <span
-                        aria-hidden="true"
-                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[color:color-mix(in_srgb,var(--ob-accent)_14%,transparent)] text-[var(--ob-accent)]"
-                      >
-                        <SalutationGenderIcon gender={value} />
-                      </span>
+                      <SalutationGenderBadge
+                        gender={value}
+                        selected={salutationGender === value}
+                      />
                       <span className="min-w-0">
                         {value === 'female'
                           ? t('wordChat.salutationFemale')
@@ -310,7 +409,7 @@ export function ChatSettingsModal({
               aria-label={t('wordChat.levelSettingLabel')}
               className="space-y-3"
             >
-              <h3 className="m-0 text-xs font-black uppercase tracking-wide onboarding-text-soft">
+              <h3 className={SECTION_HEADING_CLASS}>
                 {t('wordChat.levelSettingLabel')}
               </h3>
               <div className="grid gap-3 sm:grid-cols-2">

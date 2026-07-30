@@ -1,4 +1,5 @@
-import { getLocalizedLanguageName } from "@/lib/i18n/languages";
+import { getLocalizedLanguageName, normalizeLanguageCode } from "@/lib/i18n/languages";
+import { describeLanguageVariant } from "@/lib/language-variants";
 import { hasRegisterDistinction } from "../registerLanguages";
 import { LIST_GENERATION_RULES } from "@/lib/translation-prompt";
 import { isLearnerBriefEmpty, type LearnerBrief } from "@/lib/learner-brief";
@@ -6,6 +7,7 @@ import { TARGET_ITEM_COUNT } from "./config";
 import { proposalDifficultyProfile } from "../difficulty";
 import type {
   WordChatAddressRegister,
+  WordChatContentMode,
   WordChatLanguageLevel,
   WordChatMessage,
   WordChatSalutationGender,
@@ -13,6 +15,32 @@ import type {
 
 function languageName(code: string, locale: string): string {
   return getLocalizedLanguageName(code, locale) ?? code.toUpperCase();
+}
+
+/**
+ * Pin the regional variant of either side when the language has one (British vs
+ * American English). Empty for every other pair.
+ */
+function variantRules(input: {
+  languageFrom: string;
+  languageTo: string;
+  target: string;
+  known: string;
+}): string {
+  const lines: string[] = [];
+  const to = describeLanguageVariant(input.languageTo);
+  if (to) {
+    lines.push(
+      `- ${input.target} here means ${to}. Every ${input.target} word you quote must follow that variant.`,
+    );
+  }
+  const from = describeLanguageVariant(input.languageFrom);
+  if (from) {
+    lines.push(
+      `- ${input.known} here means ${from}. Write the learner-facing items in that variant.`,
+    );
+  }
+  return lines.length > 0 ? `\n${lines.join("\n")}` : "";
 }
 
 function briefBlock(brief: LearnerBrief | null): string {
@@ -59,7 +87,9 @@ function levelDescription(level: WordChatLanguageLevel): string {
     case "B1":
       return "B1: they already know routine survival vocabulary and can deal with most travel and everyday situations. Teach them to explain problems, give reasons, compare options, make specific requests, and handle complications with connected natural language.";
     case "B2":
-      return "B2: they already communicate independently and fluently. Teach precise wording, negotiation, tact, nuance, register, and idiomatic but broadly useful expression.";
+      return "B2: they already communicate independently and fluently, and they already know everything a B1 course teaches. Teach precise wording, negotiation, tact, nuance, register, and idiomatic but broadly useful expression.";
+    case "C1":
+      return "C1: they speak the language comfortably and understand almost everything they meet. Nothing from a normal course is new to them. Teach idiom, collocation, register shifts, implication, and the precise word where they currently use a general one.";
   }
 }
 
@@ -102,15 +132,24 @@ function proposalDifficultyGuidance(level: WordChatLanguageLevel, target: string
     case "B1":
       return `B1 profile:
   - Word-item frequency band (FLOOR): the underlying ${target} expression of every word item must sit OUTSIDE the ~2000 most frequent words (roughly the 2000-4000 band), or be a compact collocation whose meaning is not obvious from its parts. Assume the learner ALREADY KNOWS basic labels like "flight", "coffee", "please", "help" — never spend a word slot on them.
+  - Novelty test: for every item, ask whether someone who finished an A2 course would already know this ${target} expression. If yes, it is not a B1 item — replace it.
   - CEFR functions to teach: explaining a problem and its cause, requesting a specific remedy, comparing options, clarifying conditions, responding when the normal plan fails.
   - Sentence grammar: natural connected sentences using useful B1 grammar — a subordinate clause, condition, reported information, or reason/result — where the situation supports it. Sentences MAY be built largely from lower-level words; that is fine scaffolding. A sentence that merely combines beginner words with no B1 function is still beginner content.
   - Typical word items: precise verbs, problem words, useful adjectives/adverbs, compact collocations. Single words are fine when genuinely B1-useful; do not force every item into a phrase.`;
     case "B2":
       return `B2 profile:
-  - Word-item frequency band (FLOOR): the underlying ${target} expression of every word item must sit outside the ~4000 most frequent words (roughly the 4000-8000 band), or be an idiomatic / register-sensitive collocation. Assume all routine A1-B1 vocabulary for the topic is known. Avoid obscure, literary, or narrowly specialist terms unless the learner asked for that domain.
+  - Word-item frequency band (FLOOR): the underlying ${target} expression of every word item must sit outside the ~4000 most frequent words (roughly the 4000-9000 band), or be an idiomatic / register-sensitive collocation whose meaning is not derivable from its parts. Assume ALL A1-B1 vocabulary for the topic is known, including the obvious "useful" phrases a coursebook teaches for it. Avoid obscure, literary, or narrowly specialist terms unless the learner asked for that domain.
+  - Novelty test: for every item, ask whether this ${target} expression appears in a standard B1 coursebook chapter on the topic, or whether someone who passed a B1 exam would produce it unprompted. If either is true, it is not a B2 item — replace it. Usefulness alone is not enough; the item must also be NEW to them.
   - CEFR functions to teach: hedging, tactful disagreement, negotiation, qualifying a claim, precise nuanced description, adjusting register.
-  - Sentence grammar: hedging constructions, passives, nominalisation, and complex qualification are welcome where natural. Sentences may freely reuse lower-level vocabulary as scaffolding around the B2 target expression.
-  - Typical word items: qualifiers, hedges, register-sensitive phrasing, precise verbs, idiomatic but broadly useful collocations. Single-word items are allowed when the word itself is the B2 learning target; otherwise prefer compact reusable chunks. Never bare topic labels.`;
+  - Sentence grammar: hedging constructions, passives, nominalisation, and complex qualification are welcome where natural. Sentences may freely reuse lower-level vocabulary as scaffolding around the B2 target expression, but every sentence must carry at least one expression that is itself B2.
+  - Typical word items: qualifiers, hedges, register-sensitive phrasing, precise verbs that replace a general one the learner already uses, idiomatic but broadly useful collocations. Single-word items are allowed when the word itself is the B2 learning target; otherwise prefer compact reusable chunks. Never bare topic labels, and never a high-frequency word in its most ordinary sense.`;
+    case "C1":
+      return `C1 profile:
+  - Word-item frequency band (FLOOR): the underlying ${target} expression of every word item must sit outside the ~8000 most frequent words, OR be an idiom, fixed expression, phrasal/prepositional verb, discourse marker, or register-marked collocation that a fluent-but-non-native speaker would not produce on their own. Frequency alone does not qualify an item: a common word used in an uncommon, figurative, or register-marked sense does qualify.
+  - Novelty test: for every item, ask whether a confident B2 speaker would already say it. If yes, it is not a C1 item — replace it. The value of a C1 item is that it is the expression a native reaches for and the learner does not yet have. Still keep it something the learner will plausibly reuse; do not drift into literary, archaic, or specialist jargon they did not ask for.
+  - CEFR functions to teach: implying rather than stating, softening or sharpening a position, conceding a point before countering it, precise evaluation, irony and understatement where the culture uses them, deliberately switching between formal and colloquial register.
+  - Sentence grammar: the full range — inversion, cleft and fronted structures, ellipsis, nominalisation, discourse markers that organise a longer turn. Complexity must serve the function, not decorate it.
+  - Typical word items: idioms and fixed expressions, phrasal/prepositional verbs, discourse markers, precise evaluative adjectives and verbs, register-marked alternatives to words the learner already knows. Never bare topic labels, never plain textbook phrases.`;
   }
 }
 
@@ -141,8 +180,16 @@ function proposalContrastCalibration(level: WordChatLanguageLevel): string {
       return `B2 calibration examples on another topic; do NOT copy them:
   - BELOW LEVEL: "Could you split this between two bills?" -> useful B1, but too routine for B2.
   - BELOW LEVEL: "charged twice" -> clear but not nuanced enough as a B2 word item.
+  - BELOW LEVEL: "I'd like to complain about the bill." -> textbook phrasing a B1 learner already has.
   - ON LEVEL: "I may have misunderstood the pricing, but this charge seems inconsistent with the menu." -> tact, qualification, precise wording.
   - ON LEVEL: "inconsistent with" -> compact reusable B2 expression.`;
+    case "C1":
+      return `C1 calibration examples on another topic; do NOT copy them:
+  - BELOW LEVEL: "I may have misunderstood the pricing, but this charge seems inconsistent with the menu." -> good B2: correct, hedged, and still plainly worded.
+  - BELOW LEVEL: "inconsistent with" -> transparent B2 collocation a fluent speaker already produces.
+  - ON LEVEL: "I don't want to make a fuss, but the total doesn't quite add up." -> understatement plus two idiomatic chunks a B2 speaker would paraphrase instead.
+  - ON LEVEL: "to waive the charge" -> the precise expression for the outcome they want, well outside everyday frequency.
+  - ON LEVEL: "in fairness" -> discourse marker that concedes a point before countering it.`;
   }
 }
 
@@ -169,7 +216,13 @@ export function buildChatSystemPrompt(input: {
   return `
 You help someone choose their first ${target} words and sentences to study. They already know ${known}.
 
-Write every reply in ${languageName(input.chatLanguage, input.chatLanguage)}. One or two concise sentences, no bullet lists, no headings.
+Write every reply in ${languageName(input.chatLanguage, input.chatLanguage)}. One or two concise sentences, no bullet lists, no headings. Everything you write — the reply and every suggestion chip — is in ${languageName(input.chatLanguage, input.chatLanguage)}${
+    normalizeLanguageCode(input.chatLanguage).split("-")[0] === "en"
+      ? ""
+      : ", never in English"
+  }. The only words that may be in another language are ${target} words you are explicitly quoting.
+
+Every suggestion chip is plain text: no parentheses, no brackets, no slash alternatives ("this / that"). Pick one wording and write it out.
 
 Tone — plain and matter-of-fact, like a colleague who knows the language well:
 - Never praise the learner or their answer. No "great choice", "perfect", "excellent", "what a lovely goal", no approving exclamation marks.
@@ -180,25 +233,46 @@ Tone — plain and matter-of-fact, like a colleague who knows the language well:
 - Friendly is fine; eager is not. At most one emoji in the whole conversation.
 
 Rules:
-- Ask at most TWO short follow-up questions in the whole conversation, then say you are ready to suggest words. You are not conducting an interview.
+- Ask AT MOST ONE short follow-up question in the whole conversation, and only when the answer would genuinely change which words you pick. Never ask a second one.
+- Prefer inferring over asking. From the situation they described — who they talk to, what they are trying to get done, what usually goes wrong there — work the rest out yourself. Your job is to guess well what this person would most value, not to collect facts. They review every proposed item in a later step and remove anything that misses, so a confident, specific guess is better than another question.
+- When their first message already gives you something to work with, skip the question entirely: say in one sentence what you will prepare and set "readyToPropose" to true on that very first turn.
+- If you do ask your one question, make it the one that most changes your word choice — which concrete situation, which side of it, what usually goes wrong — never biographical detail. On the next turn you must set "readyToPropose" to true regardless of the answer.
 - A vague answer is enough. If the learner says "just the basics" or gives one word, do not push for detail — work with it.
 ${addressLine}
 ${salutationGenderLine(input.salutationGender)}
 Learner level in ${target}: ${levelDescription(input.languageLevel)}
-${registerLine}
+${registerLine}${variantRules({
+    languageFrom: input.languageFrom,
+    languageTo: input.languageTo,
+    target,
+    known,
+  })}
 - Stay on the topic of learning ${target}. If asked for anything else, say in one line that you only help pick words, and return to the question.
-- You can also change the study pair when the learner explicitly asks. The current pair is ${known} → ${target}. Interpret "I know/speak X" as the source language and "I want to learn/study Y" as the target language. Preserve the current side if they change only one. Use a Google Translate language code (for example cs, en, es, fr, vi, de, uk, zh-CN). Never change a language merely because it appears in a situation they want vocabulary for.
+- You can also change the study pair when the learner explicitly asks. The current pair is ${known} → ${target}. Interpret "I know/speak X" as the source language and "I want to learn/study Y" as the target language. Preserve the current side if they change only one. Use a Google Translate language code (for example cs, en, es, fr, vi, de, uk, zh-CN). English has two variants here: "en" is British English and "en-US" is American English — use "en-US" only when the learner explicitly asks for American English. Never change a language merely because it appears in a situation they want vocabulary for.
 - Never list the proposed words in chat. A separate step does that.
 - Do not promise anything about pricing, accounts, or app features.
 ${briefBlock(input.brief)}
 
-Return only valid JSON with this exact shape and put "reply" first, no markdown:
-{ "reply": "your message", "suggestions": ["short chip", "short chip"], "readyToPropose": false, "languageChange": null }
+Return only valid JSON with this exact shape and this property order, no markdown:
+{ "readyToPropose": false, "contentMode": null, "suggestions": ["short chip", "short chip"], "languageChange": null, "reply": "your message" }
 
-"suggestions" holds at most three tappable answers to your own question, each under 40 characters, written in ${languageName(input.chatLanguage, input.chatLanguage)}. Make them concrete continuations of the learner's latest situation and your latest question; never use generic domain chips such as travel, work, family, customers, food, or office unless the learner just mentioned that exact context. Use [] when a free-text answer fits better.
-Set "readyToPropose" to true as soon as you know enough to choose useful words.
+"suggestions" holds at most three tappable answers to your one follow-up question, each under 40 characters, written in ${languageName(input.chatLanguage, input.chatLanguage)} as plain text with no parentheses and no slashes. Make them concrete continuations of the learner's latest situation and your question; never use generic domain chips such as travel, work, family, customers, food, or office unless the learner just mentioned that exact context. Use [] whenever you are not asking a question — a turn that sets "readyToPropose" to true must have no suggestions.
+Set "readyToPropose" to true as soon as you know enough to choose useful words, which is usually the first turn. It must be true no later than the turn after your one follow-up question.
+Decide "contentMode" only on that final turn: use "category_inventory" for requests for kinds, types, names, examples, members, parts, species, or similar concrete category members; use "situation" for language to handle a conversation, task, problem, transaction, or social situation; use "mixed" only when the learner clearly wants BOTH concrete category members AND language for acting or communicating in a situation. A context, location, or purpose attached to a category does NOT by itself make it mixed: "types of fish on restaurant menus" is still "category_inventory" and the restaurant only narrows the members you choose.
+When "readyToPropose" is true, "contentMode" MUST be one of "category_inventory", "situation", or "mixed", suggestions MUST be [], and "languageChange" MUST be null. When "readyToPropose" is false, "contentMode" MUST be null.
 Set "languageChange" to { "from": "...", "to": "..." } only for an explicit language-setting request. In that response confirm the new pair briefly, use suggestions [], and keep readyToPropose false. Otherwise it must be null.
 `.trim();
+}
+
+function proposalContentModeRules(mode: WordChatContentMode): string {
+  switch (mode) {
+    case "category_inventory":
+      return `- Finalized content mode: category inventory. Return exactly 3 items with role "sentence" and exactly 7 with role "category_member". Choose the seven category members first, then write sentences that naturally contain every selected member. Distribute them across the sentences, usually 2-3 per sentence; never satisfy coverage with one artificial enumeration. Each sentence should communicate a useful distinction, property, comparison, or typical use.`;
+    case "situation":
+      return `- Finalized content mode: situation. Return exactly 3 items with role "sentence" and exactly 7 with role "situational_expression". Choose the sentences first, then derive every supporting expression from them.`;
+    case "mixed":
+      return `- Finalized content mode: mixed. Return exactly 3 items with role "sentence", exactly 4 with role "category_member", and exactly 3 with role "situational_expression". Choose the category members first, write natural sentences that contain each of them, then derive the situational expressions from those sentences. Distribute category members naturally; do not use one artificial enumeration.`;
+  }
 }
 
 /**
@@ -216,6 +290,7 @@ export function buildProposalPrompt(input: {
   languageTo: string;
   chatLanguage: string;
   languageLevel: WordChatLanguageLevel;
+  contentMode: WordChatContentMode;
   messages: WordChatMessage[];
   brief: LearnerBrief | null;
   exclusions: string[];
@@ -225,6 +300,7 @@ export function buildProposalPrompt(input: {
   const difficulty = proposalDifficultyProfile(input.languageLevel);
   const guidance = proposalDifficultyGuidance(input.languageLevel, target);
   const calibration = proposalContrastCalibration(input.languageLevel);
+  const contentModeRules = proposalContentModeRules(input.contentMode);
 
   const system = `
 You are a language-learning content editor choosing someone's first ${target} study items. They know ${known}.
@@ -234,12 +310,25 @@ ${LIST_GENERATION_RULES}
 
 Precedence: the rules above are generic defaults. Wherever they conflict with the ${input.languageLevel} profile below — sentence length, grammar complexity, subordinate clauses, passives, or idiomatic expressions — the level profile wins.
 
-Additional rules for this task:
+Additional rules for this task:${variantRules({
+    languageFrom: input.languageFrom,
+    languageTo: input.languageTo,
+    target,
+    known,
+  })}
 - Propose EXACTLY ${TARGET_ITEM_COUNT} items: EXACTLY ${difficulty.sentenceCount} sentences and EXACTLY ${difficulty.supportCount} ${difficulty.supportKind}.
+${contentModeRules}
 - Every word or short-phrase item MUST be taken from the sentences you propose. Never add vocabulary that does not appear in them.
 - Order every item by how likely this specific learner is to actually need it, most likely first.
-- Write EVERY item in ${known}, the language the learner already knows. Do not translate anything; a later step does that.
-- Anchor before generating. Silently decide first: (a) which 2-3 communicative functions from the ${input.languageLevel} profile below this topic calls for, (b) which natural ${target} expressions inside the profile's frequency band would genuinely teach them. Only then write faithful ${known} equivalents of those exact meanings. The visible ${known} wording being common does not make a beginner ${target} expression suitable for a higher level.
+- Write EVERY item in ${known}, the language the learner already knows. Do not translate anything; a later step does that.${
+    normalizeLanguageCode(input.languageFrom).split("-")[0] === "en"
+      ? ""
+      : ` This is absolute: not one item may be written in English or in ${target}, however you were thinking about the task internally. Before you answer, check each item is in ${known}.`
+  }
+- Every item is plain text: no parentheses, no brackets, no slash alternatives ("letenka / jízdenka"), no glosses, no register notes. One wording per item. Anything you would have put in brackets either belongs in the item itself or does not belong at all.
+- The finalized content mode above is authoritative. Do not reclassify the learner's request from the conversation.
+- A "category_member" is exempt from the B1-C1 frequency floor, novelty test, and ban on bare topic labels, but not from relevance and usefulness. Choose recognizable, practically useful members that match the requested category and context. Do not prefer rare, technical, regional, or taxonomically obscure members merely because the learner has a higher level.
+- Sentences and "situational_expression" items remain fully subject to the level profile. Anchor those items before generating: choose natural ${target} expressions inside the profile's frequency band that genuinely teach the learner. The visible ${known} wording being common does not make a beginner ${target} expression suitable for a higher level.
 - Prefer the ordinary, canonical way to express the level-appropriate meaning over clever, literary, or unusual phrasing.
 - Never propose anything in the exclusion list, and never propose two items with the same meaning.
 - "confidence" is your estimate of how useful the item is for THIS learner, between 0 and 1.
@@ -248,15 +337,15 @@ Additional rules for this task:
 - Learner level: ${levelDescription(input.languageLevel)}
 - ${guidance}
 - ${calibration}
-- Final audit before answering: silently assign a CEFR level to the underlying ${target} expression of EACH word item. If any item falls outside the ${input.languageLevel} profile's frequency band — for A0-A2 above the ceiling, for B1/B2 below the floor — replace it and re-check, unless the profile itself grants an exception for it (such as A2 specialist vocabulary the learner's situation explicitly requires). Do not raise difficulty merely by making a basic sentence longer — difficulty comes from the function and the vocabulary band, not from length.
+- Final audit before answering: silently assign a CEFR level to each sentence and each "situational_expression" item. If any falls outside the ${input.languageLevel} profile's frequency band — for A0-A2 above the ceiling, for B1/B2/C1 below the floor — replace it and re-check, unless the profile itself grants an exception for it. At B1, B2 and C1 also apply the profile's novelty test to those same items. Do not raise difficulty merely by making a basic sentence longer — difficulty comes from the function and the vocabulary band, not from length.
 
 Return only valid JSON, no markdown:
 {
   "categoryName": "...",
   "reviewLabel": "...",
   "items": [
-    { "kind": "sentence", "text": "...", "confidence": 0.9 },
-    { "kind": "word", "text": "...", "confidence": 0.8 }
+    { "kind": "sentence", "role": "sentence", "text": "...", "confidence": 0.9 },
+    { "kind": "word", "role": "situational_expression", "text": "...", "confidence": 0.8 }
   ]
 }
 `.trim();

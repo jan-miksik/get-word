@@ -6,6 +6,7 @@ import {
   corpusPoolByText,
   materializeProposedItems,
   selectPromptExclusions,
+  validateProposalStructure,
 } from "../server/propose";
 import { dedupKey, type CorpusEntry } from "../server/corpus";
 
@@ -222,5 +223,65 @@ describe("materializeProposedItems", () => {
     });
 
     expect(items.map((item) => item.confidence)).toEqual([1, 0]);
+  });
+});
+
+describe("validateProposalStructure", () => {
+  const sentences = Array.from({ length: 3 }, (_, index) => ({
+    kind: "sentence",
+    role: "sentence",
+    text: `Věta číslo ${index + 1}.`,
+  }));
+
+  it("accepts the explicit 4 + 3 mixed distribution", () => {
+    const items = validateProposalStructure({
+      contentMode: "mixed",
+      raw: [
+        ...sentences,
+        ...["losos", "treska", "makrela", "pstruh"].map((text) => ({
+          kind: "word",
+          role: "category_member",
+          text,
+        })),
+        ...["vykostit", "grilovat", "příloha"].map((text) => ({
+          kind: "word",
+          role: "situational_expression",
+          text,
+        })),
+      ],
+    });
+
+    expect(items).toHaveLength(10);
+  });
+
+  it("rejects role counts and kind-role mismatches", () => {
+    expect(() =>
+      validateProposalStructure({
+        contentMode: "mixed",
+        raw: [
+          ...sentences,
+          ...Array.from({ length: 7 }, (_, index) => ({
+            kind: "word",
+            role: "category_member",
+            text: `ryba ${index}`,
+          })),
+        ],
+      }),
+    ).toThrow("role distribution");
+
+    expect(() =>
+      validateProposalStructure({
+        contentMode: "situation",
+        raw: [
+          { kind: "sentence", role: "category_member", text: "Losos je ryba." },
+          ...sentences.slice(1),
+          ...Array.from({ length: 7 }, (_, index) => ({
+            kind: "word",
+            role: "situational_expression",
+            text: `výraz ${index}`,
+          })),
+        ],
+      }),
+    ).toThrow("role does not match");
   });
 });

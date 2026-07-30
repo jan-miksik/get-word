@@ -1175,25 +1175,13 @@
   cursor: pointer;
 }
 
-.onboarding-option:hover:not(:disabled) {
-  background: var(--ob-accent, #1E6FA8);
-  color: var(--ob-surface, #F4EFE2);
-}
-
-.onboarding-option:hover:not(:disabled) .onboarding-text-soft {
-  color: var(--ob-surface, #F4EFE2);
-  opacity: 0.8;
-}
-
-.onboarding-option-highlight,
-.onboarding-option-highlight:hover:not(:disabled) {
+.onboarding-option-highlight {
   background: var(--ob-accent, #1E6FA8);
   border-color: var(--ob-accent, #1E6FA8);
   color: var(--ob-surface, #F4EFE2);
 }
 
-.onboarding-option-highlight .onboarding-text-soft,
-.onboarding-option-highlight:hover:not(:disabled) .onboarding-text-soft {
+.onboarding-option-highlight .onboarding-text-soft {
   color: var(--ob-surface, #F4EFE2);
   opacity: 0.82;
 }
@@ -1208,13 +1196,6 @@
   color: var(--ob-ink, #2A2218);
 }
 
-.onboarding-option-recommended:hover:not(:disabled) {
-  background: var(--ob-accent, #1E6FA8);
-  border-color: var(--ob-accent, #1E6FA8);
-  box-shadow: none;
-  color: var(--ob-surface, #F4EFE2);
-}
-
 .onboarding-option-secondary {
   background: var(--ob-surface, #F4EFE2);
   border: 2px solid var(--ob-ink, #2A2218);
@@ -1224,9 +1205,42 @@
   cursor: pointer;
 }
 
-.onboarding-option-secondary:hover:not(:disabled) {
-  background: var(--ob-accent, #1E6FA8);
-  color: var(--ob-surface, #F4EFE2);
+/* Same guard as the combobox options above: on touch, `:hover` sticks to the
+   last-tapped button, so a tap that advances the flow leaves the button it came
+   from filled with the accent as if it were hovered (or focused). */
+@media (hover: hover) {
+  .onboarding-option:hover:not(:disabled) {
+    background: var(--ob-accent, #1E6FA8);
+    color: var(--ob-surface, #F4EFE2);
+  }
+
+  .onboarding-option:hover:not(:disabled) .onboarding-text-soft {
+    color: var(--ob-surface, #F4EFE2);
+    opacity: 0.8;
+  }
+
+  .onboarding-option-highlight:hover:not(:disabled) {
+    background: var(--ob-accent, #1E6FA8);
+    border-color: var(--ob-accent, #1E6FA8);
+    color: var(--ob-surface, #F4EFE2);
+  }
+
+  .onboarding-option-highlight:hover:not(:disabled) .onboarding-text-soft {
+    color: var(--ob-surface, #F4EFE2);
+    opacity: 0.82;
+  }
+
+  .onboarding-option-recommended:hover:not(:disabled) {
+    background: var(--ob-accent, #1E6FA8);
+    border-color: var(--ob-accent, #1E6FA8);
+    box-shadow: none;
+    color: var(--ob-surface, #F4EFE2);
+  }
+
+  .onboarding-option-secondary:hover:not(:disabled) {
+    background: var(--ob-accent, #1E6FA8);
+    color: var(--ob-surface, #F4EFE2);
+  }
 }
 
 /* Word chat: the message field.

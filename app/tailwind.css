@@ -215,3 +215,15 @@
     transform: rotate(7deg) scale(1.08);
   }
 }
+
+/* Word-chat handoff: the study stream is being rebuilt with the words that were
+   just saved. Indeterminate on purpose — the work is a round trip, not a
+   measurable amount of progress. */
+@keyframes word-chat-handoff-rail {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(250%);
+  }
+}

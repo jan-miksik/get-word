@@ -2,7 +2,14 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
-import { storeAddressRegisterPreference } from '@/features/shared/user-preferences/address-register';
+import {
+  readAddressRegisterPreference,
+  storeAddressRegisterPreference,
+} from '@/features/shared/user-preferences/address-register';
+import {
+  readSalutationGenderPreference,
+  storeSalutationGenderPreference,
+} from '@/features/shared/user-preferences/salutation-gender';
 import { hasRegisterDistinction } from '../registerLanguages';
 import {
   WordChatApiError,
@@ -24,11 +31,12 @@ import type {
   ReviewItem,
   TakeoverReference,
   WordChatAddressRegister,
+  WordChatContentMode,
   WordChatLanguageLevel,
   WordChatMessage,
   WordChatSalutationGender,
 } from '../types';
-import { hasGenderedSalutation } from '../preferences';
+import { hasGenderedSalutation, readLanguageLevel } from '../preferences';
 
 export type WordChatStep = 'chat' | 'select' | 'review' | 'done';
 
@@ -84,6 +92,14 @@ export type TranslationDiagnostics = {
 const MAX_CONSECUTIVE_FAILURES = 3;
 
 /**
+ * The review label a manually typed batch is committed under. Not learner-facing
+ * (it is a workbench label on the session), so it stays English — and because it
+ * is persisted in the draft, it is also what tells a restored session that it was
+ * a manual one.
+ */
+const MANUAL_REVIEW_LABEL = 'Manual entry';
+
+/**
  * Which step to run again after a failure, as data rather than a stored
  * closure: a step can then name itself as its own retry without a
  * self-reference, and `retry` stays an ordinary callback over the steps it
@@ -91,7 +107,7 @@ const MAX_CONSECUTIVE_FAILURES = 3;
  */
 type RetryTarget =
   | { kind: 'chat'; conversation: WordChatMessage[] }
-  | { kind: 'propose'; conversation: WordChatMessage[] }
+  | { kind: 'propose'; conversation: WordChatMessage[]; contentMode: WordChatContentMode }
   | { kind: 'translate' }
   | { kind: 'commit' };
 
@@ -189,6 +205,22 @@ export type UseWordChatOptions = {
   }) => void;
   /** In-app only: refresh the learning snapshot after the commit is known saved. */
   refreshAfterCommit?: () => Promise<void>;
+  /**
+   * Whether this screen is the one the learner is looking at. The in-app
+   * "Add words" surface stays mounted behind the study stream, so this is what
+   * separates "opened again" from "still here" — the brief is re-read on every
+   * return, and never while the screen is parked.
+   */
+  active?: boolean;
+  /**
+   * Which way in the learner arrives.
+   *
+   * `manual` opens straight on the entry step with an empty selection — typing
+   * your own words is the plain, free, always-available way to add them, and the
+   * conversation is the option you reach for when you want ideas. `chat` is the
+   * onboarding route, where the conversation is the point.
+   */
+  entryStep?: 'chat' | 'manual';
 };
 
 export function useWordChat({
@@ -198,16 +230,26 @@ export function useWordChat({
   onLanguagePairChange,
   onCommitted,
   refreshAfterCommit,
+  active = true,
+  entryStep = 'chat',
 }: UseWordChatOptions) {
   const { t, language: uiLanguage } = useI18n();
 
-  const [step, setStep] = useState<WordChatStep>('chat');
+  const [step, setStep] = useState<WordChatStep>(
+    entryStep === 'manual' ? 'select' : 'chat',
+  );
   const [messages, setMessages] = useState<WordChatMessage[]>([]);
   const [suggestions, setSuggestions] = useState<string[]>([]);
-  const [addressRegister, setAddressRegister] =
-    useState<WordChatAddressRegister | null>(null);
-  const [salutationGender, setSalutationGender] =
-    useState<WordChatSalutationGender | null>(null);
+  // Both address form and salutation gender belong to the learner, not to one
+  // chat, so a new session opens with the last choice already selected — seeded
+  // from the local cache immediately and reconciled with the server once the
+  // context call answers.
+  const [addressRegister, setAddressRegister] = useState<WordChatAddressRegister | null>(
+    () => readAddressRegisterPreference(),
+  );
+  const [salutationGender, setSalutationGender] = useState<WordChatSalutationGender | null>(
+    () => readSalutationGenderPreference(),
+  );
   const [languageLevel, setLanguageLevel] = useState<WordChatLanguageLevel | null>(null);
   const [loadedPreferencesKey, setLoadedPreferencesKey] = useState<string | null>(null);
   const [preferencesSaving, setPreferencesSaving] = useState(false);
@@ -216,11 +258,30 @@ export function useWordChat({
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [customItems, setCustomItems] = useState<{ kind: 'sentence' | 'word'; text: string }[]>([]);
   const [listName, setListName] = useState(() => personalListName(languageFrom, languageTo));
-  const [categoryName, setCategoryName] = useState('');
-  const [reviewLabel, setReviewLabel] = useState('');
-  const [askVisibility, setAskVisibility] = useState(false);
-  const [isPublic, setIsPublic] = useState<boolean | null>(null);
+  const [categoryName, setCategoryName] = useState(() =>
+    entryStep === 'manual' ? t('wordChat.manualCategoryName') : '',
+  );
+  const [reviewLabel, setReviewLabel] = useState(() =>
+    entryStep === 'manual' ? MANUAL_REVIEW_LABEL : '',
+  );
+  const [proposedVisibilityAsk, setAskVisibility] = useState(false);
+  // Private is the safe default and the one most personal lists want, so it is
+  // pre-selected rather than left blank — the learner opts into public, they do
+  // not have to answer to get past the step.
+  const [isPublic, setIsPublic] = useState<boolean | null>(false);
   const [hasPersonalList, setHasPersonalList] = useState<boolean | null>(null);
+  // The already-saved personal list for this pair, when one exists — its id and
+  // current visibility are what the share dialog needs. Null until the context
+  // call answers, and null throughout for a learner who has none yet.
+  const [existingList, setExistingList] = useState<{ id: string; isPublic: boolean } | null>(
+    null,
+  );
+  // Manual entry has no proposal response to carry the server's answer, so the
+  // visibility question follows the brief instead: it is asked only once we know
+  // there is no personal list yet. Unknown (the brief failed to load) means not
+  // asking, and an unanswered list is saved private.
+  const [manualEntry, setManualEntry] = useState(entryStep === 'manual');
+  const askVisibility = manualEntry ? hasPersonalList === false : proposedVisibilityAsk;
 
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
   const [commitResult, setCommitResult] = useState<CommitResult | null>(null);
@@ -306,16 +367,17 @@ export function useWordChat({
     setListName(draft.listName || personalListName(languageFrom, languageTo));
     setCategoryName(draft.categoryName);
     setReviewLabel(draft.reviewLabel);
+    setManualEntry(draft.reviewLabel === MANUAL_REVIEW_LABEL);
     setReviewItems(draft.reviewItems);
     setIsPublic(draft.isPublic);
     /* eslint-enable react-hooks/set-state-in-effect */
   }, [languageFrom, languageTo]);
 
   // Persist after every meaningful change. Cheap, and the alternative is losing
-  // a paid-for proposal to an accidental reload.
+  // a paid-for proposal — or a dozen hand-typed words — to an accidental reload.
   useEffect(() => {
     if (!languageFrom || !languageTo || step === 'done') return;
-    if (messages.length === 0 && proposals.length === 0) return;
+    if (messages.length === 0 && proposals.length === 0 && customItems.length === 0) return;
     saveDraft(languageFrom, languageTo, {
       sessionId,
       creationKey,
@@ -486,9 +548,14 @@ export function useWordChat({
     void prefetchClips(reviewItems.map((row) => row.audioHash));
   }, [step, reviewItems]);
 
-  // Load the brief once per open. No model call, so it costs nothing to ask, and
+  // Load the brief on every open. No model call, so it costs nothing to ask, and
   // the answer decides whether the learner sees an opener or a follow-up.
+  //
+  // "Open" is not "mount": the in-app screen stays mounted for the session, so a
+  // brief read once would still be the one from before the last batch was saved
+  // — and the follow-up chip would keep offering a topic already on the list.
   useEffect(() => {
+    if (!active) return;
     if (!languageFrom || !languageTo) return;
     const defaultListName = personalListName(languageFrom, languageTo);
     let cancelled = false;
@@ -515,16 +582,9 @@ export function useWordChat({
           context.salutation_gender === 'neutral'
         ) {
           setSalutationGender(context.salutation_gender);
+          storeSalutationGenderPreference(context.salutation_gender);
         }
-        const savedLanguageLevel =
-          context.language_level === 'A0' ||
-          context.language_level === 'A1' ||
-          context.language_level === 'A2' ||
-          context.language_level === 'B1' ||
-          context.language_level === 'B2'
-            ? context.language_level
-            : null;
-        setLanguageLevel(savedLanguageLevel);
+        setLanguageLevel(readLanguageLevel(context.language_level));
         setLimits((current) => ({
           ...current,
           monthlyUsed: context.monthly_used,
@@ -532,6 +592,14 @@ export function useWordChat({
         }));
         const existingListName = context.personal_list_name;
         setHasPersonalList(Boolean(existingListName));
+        setExistingList(
+          context.personal_list_id
+            ? {
+                id: context.personal_list_id,
+                isPublic: context.personal_list_is_public === true,
+              }
+            : null,
+        );
         if (existingListName) {
           setListName((current) =>
             current === defaultListName ? existingListName : current,
@@ -560,7 +628,7 @@ export function useWordChat({
     return () => {
       cancelled = true;
     };
-  }, [baseListId, languageFrom, languageTo, preferencesKey]);
+  }, [active, baseListId, languageFrom, languageTo, preferencesKey]);
 
   // The panel is a log, not a summary: keep every call in order so an editor can
   // see the sequence, not just the total.
@@ -642,7 +710,10 @@ export function useWordChat({
   const overMonthlyLimit = selectedCount > monthlyRemaining;
   const atSelectionLimit = selectedCount >= selectionLimit;
 
-  const proposeMessages = useCallback(async (conversation: WordChatMessage[]) => {
+  const proposeMessages = useCallback(async (
+    conversation: WordChatMessage[],
+    contentMode: WordChatContentMode,
+  ) => {
     setBusy('propose');
     try {
       const response = await requestProposal({
@@ -651,6 +722,7 @@ export function useWordChat({
         languageTo,
         chatLanguage,
         languageLevel: effectiveLanguageLevel,
+        contentMode,
         messages: conversation,
         baseListId,
         model: modelOverrides.proposal,
@@ -674,7 +746,7 @@ export function useWordChat({
       });
       setStep('select');
     } catch (err) {
-      handleError(err, { kind: 'propose', conversation });
+      handleError(err, { kind: 'propose', conversation, contentMode });
     } finally {
       // The proposal can run on its own (a retry) or inside a chat turn, so it
       // has to release the spinner itself rather than rely on its caller.
@@ -774,7 +846,9 @@ export function useWordChat({
       // event-driven request chain instead of bouncing through an effect that
       // synchronously mutates state and can retrigger on unrelated renders.
       if (response.ready_to_propose && response.metadata_valid) {
-        await proposeMessages(conversationWithReply);
+        if (response.content_mode) {
+          await proposeMessages(conversationWithReply, response.content_mode);
+        }
       }
     } catch (err) {
       if (flushTimer) clearTimeout(flushTimer);
@@ -811,7 +885,7 @@ export function useWordChat({
   const sendMessage = useCallback(
     async (text: string) => {
       const trimmed = text.trim();
-      if (!trimmed || busy || !preferencesComplete) return;
+      if (!trimmed || busy || !preferencesComplete) return false;
       setError(null);
       const nextMessages: WordChatMessage[] = [
         ...completeTranscript(messages),
@@ -820,6 +894,7 @@ export function useWordChat({
       setMessages(nextMessages);
       setSuggestions([]);
       await runChatTurn(nextMessages);
+      return true;
     },
     [busy, messages, preferencesComplete, runChatTurn],
   );
@@ -913,10 +988,10 @@ export function useWordChat({
     setCategoryName((current) =>
       current.trim() ? current : t('wordChat.manualCategoryName'),
     );
-    setReviewLabel('Manual entry');
-    setAskVisibility(hasPersonalList !== true);
+    setReviewLabel(MANUAL_REVIEW_LABEL);
+    setManualEntry(true);
     setStep('select');
-  }, [hasPersonalList, t]);
+  }, [t]);
 
   /**
    * Translate everything, then voice it, then show Review. One step from the
@@ -1210,6 +1285,13 @@ export function useWordChat({
     }
   }, [refreshAfterCommit, refreshStatus]);
 
+  /** Keep the header share control in sync after it changes the saved list. */
+  const updateExistingList = useCallback((updated: { id: string; isPublic: boolean }) => {
+    setExistingList((current) =>
+      current?.id === updated.id ? { ...current, isPublic: updated.isPublic } : current,
+    );
+  }, []);
+
   /**
    * Run the failed step again, from wherever the learner already was. Nothing
    * is rebuilt: the same conversation, the same selection, the same rows.
@@ -1221,7 +1303,7 @@ export function useWordChat({
     setUnavailable(false);
     setCanRetry(false);
     if (target.kind === 'chat') await runChatTurn(target.conversation);
-    else if (target.kind === 'propose') await proposeMessages(target.conversation);
+    else if (target.kind === 'propose') await proposeMessages(target.conversation, target.contentMode);
     else if (target.kind === 'translate') await continueToReview();
     else await commit();
   }, [commit, continueToReview, proposeMessages, runChatTurn]);
@@ -1231,10 +1313,16 @@ export function useWordChat({
     setError(null);
   }, []);
 
-  const backToChat = useCallback(() => {
+  /**
+   * Open the conversation — as a step forward from manual entry, or as a step
+   * back from a proposal the learner is done with. Either way the chat takes
+   * over the visibility question again, so the manual answer stops applying.
+   */
+  const openChat = useCallback(() => {
     activeChatAbortRef.current?.abort();
     activeChatAbortRef.current = null;
     activeAssistantIdRef.current = null;
+    setManualEntry(false);
     setStep('chat');
     setBusy(null);
     setError(null);
@@ -1251,17 +1339,19 @@ export function useWordChat({
     setSessionId(newId());
     setCreationKey(newId());
     translatedSignatureRef.current = null;
-    setStep('chat');
+    // Back to whichever door the learner came in by, not always the chat.
+    setStep(entryStep === 'manual' ? 'select' : 'chat');
+    setManualEntry(entryStep === 'manual');
     setMessages([]);
     setSuggestions([]);
     setProposals([]);
     setSelectedKeys([]);
     setCustomItems([]);
     setListName(personalListName(languageFrom, languageTo));
-    setCategoryName('');
-    setReviewLabel('');
+    setCategoryName(entryStep === 'manual' ? t('wordChat.manualCategoryName') : '');
+    setReviewLabel(entryStep === 'manual' ? MANUAL_REVIEW_LABEL : '');
     setAskVisibility(false);
-    setIsPublic(null);
+    setIsPublic(false);
     setReviewItems([]);
     setCommitResult(null);
     setRefreshStatus('idle');
@@ -1274,7 +1364,7 @@ export function useWordChat({
     setCanRetry(false);
     retryTargetRef.current = null;
     failureCountRef.current = 0;
-  }, [languageFrom, languageTo]);
+  }, [entryStep, languageFrom, languageTo, t]);
 
   const savePreferences = useCallback(
     async (patch: WordChatPreferencePatch) => {
@@ -1282,7 +1372,10 @@ export function useWordChat({
         setAddressRegister(patch.addressRegister);
         storeAddressRegisterPreference(patch.addressRegister);
       }
-      if (patch.salutationGender) setSalutationGender(patch.salutationGender);
+      if (patch.salutationGender) {
+        setSalutationGender(patch.salutationGender);
+        storeSalutationGenderPreference(patch.salutationGender);
+      }
       if (patch.languageLevel) setLanguageLevel(patch.languageLevel);
       setPreferencesSaving(true);
       setError(null);
@@ -1326,6 +1419,8 @@ export function useWordChat({
     askVisibility,
     isPublic,
     setIsPublic,
+    existingList,
+    updateExistingList,
     reviewItems,
     warningsByKnown,
     translationDiagnostics,
@@ -1364,8 +1459,11 @@ export function useWordChat({
     commitResult,
     refreshStatus,
     retryRefresh,
-    backToChat,
+    openChat,
     backToSelect,
     reset,
+    /** The entry step is the manual one and nothing is behind it yet. */
+    manualEntry,
+    canReturnToChat: entryStep === 'chat' || messages.length > 0,
   };
 }

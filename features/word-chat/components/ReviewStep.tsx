@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { resolveClipUrl } from '../client/clip-playback';
 import { MAX_WORD_CHAT_ITEM_CHARS } from '../limits';
@@ -77,6 +77,59 @@ function MissingAudio() {
  */
 function safeSpreadsheetCell(value: string): string {
   return /^\s*[=+\-@]/.test(value) ? `'${value}` : value;
+}
+
+/**
+ * The editable text of one review row.
+ *
+ * A textarea rather than an input because these rows are sentences as often as
+ * they are words: a single-line input scrolls the tail of a long sentence out of
+ * sight, so the learner is asked to confirm a translation they cannot read. This
+ * wraps and grows the row instead, and still behaves like a one-line field —
+ * Enter is not a newline here, it is "done".
+ */
+function AutoGrowingText({
+  value,
+  onChange,
+  onBlur,
+  className,
+  ariaLabel,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  onBlur?: () => void;
+  className: string;
+  ariaLabel: string;
+}) {
+  const ref = useRef<HTMLTextAreaElement | null>(null);
+
+  // Height follows content on every change — including the ones this component
+  // does not cause, such as a regenerated translation arriving from the server.
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    node.style.height = 'auto';
+    node.style.height = `${node.scrollHeight}px`;
+  }, [value]);
+
+  return (
+    <textarea
+      ref={ref}
+      rows={1}
+      value={value}
+      onChange={(event) => onChange(event.target.value)}
+      onBlur={onBlur}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter') {
+          event.preventDefault();
+          event.currentTarget.blur();
+        }
+      }}
+      maxLength={MAX_WORD_CHAT_ITEM_CHARS}
+      aria-label={ariaLabel}
+      className={`w-full resize-none overflow-hidden break-words bg-transparent outline-none ${className}`}
+    />
+  );
 }
 
 /**
@@ -162,11 +215,11 @@ export function ReviewStep({
         </p>
         {translationDiagnostics ? (
           <p className="mt-1.5 text-[10px] font-medium onboarding-text-soft">
+            {/* Which model wrote these translations, and nothing else. Spend is
+                a workbench number — it lives in the debug panel and in
+                `word_chat_usage`, not on the learner's review screen. */}
             {t('wordChat.translationDiagnostics', {
               model: translationDiagnostics.model,
-              cost: translationDiagnostics.estimatedCostUsd.toFixed(6),
-              input: translationDiagnostics.inputTokens,
-              output: translationDiagnostics.outputTokens,
             })}
           </p>
         ) : null}
@@ -221,26 +274,22 @@ export function ReviewStep({
                 )}
 
                 <div className="min-w-0 flex-1 space-y-1.5">
-                  <input
-                    type="text"
+                  <AutoGrowingText
                     value={item.textKnown}
-                    onChange={(event) => onUpdate(index, { textKnown: event.target.value })}
-                    maxLength={MAX_WORD_CHAT_ITEM_CHARS}
-                    className="w-full bg-transparent text-base outline-none sm:text-lg"
-                    aria-label={t('wordChat.badgeWord')}
+                    onChange={(value) => onUpdate(index, { textKnown: value })}
+                    className="text-base leading-snug sm:text-lg"
+                    ariaLabel={t('wordChat.badgeWord')}
                   />
-                  <input
-                    type="text"
+                  <AutoGrowingText
                     value={item.textTarget}
-                    onChange={(event) => onUpdate(index, { textTarget: event.target.value })}
-                    maxLength={MAX_WORD_CHAT_ITEM_CHARS}
+                    onChange={(value) => onUpdate(index, { textTarget: value })}
                     onBlur={() => {
                       if (!item.audioAssetId) {
                         onEnsureAudio(index);
                       }
                     }}
-                    className="w-full bg-transparent text-base font-bold outline-none sm:text-lg"
-                    aria-label={t('wordChat.badgeSentence')}
+                    className="text-base font-bold leading-snug sm:text-lg"
+                    ariaLabel={t('wordChat.badgeSentence')}
                   />
                 </div>
               </div>

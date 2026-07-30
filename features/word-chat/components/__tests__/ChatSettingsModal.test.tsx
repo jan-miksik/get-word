@@ -57,7 +57,7 @@ describe('ChatSettingsModal', () => {
   it('groups chat preferences and the interface language in a modal', () => {
     const { onChange } = renderModal();
 
-    const dialog = screen.getByRole('dialog', { name: 'Nastavení chatu' });
+    const dialog = screen.getByRole('dialog', { name: 'Nastavení pro přidání vlastních slovíček' });
     expect(dialog).toBeInTheDocument();
     expect(dialog).toHaveClass('max-w-2xl', 'overflow-visible');
     expect(dialog).toHaveStyle('--ob-surface: #F4EFE2');
@@ -84,8 +84,56 @@ describe('ChatSettingsModal', () => {
 
     expect(onChange).toHaveBeenCalledWith({ addressRegister: 'casual' });
     expect(
-      screen.getByRole('dialog', { name: 'Nastavení chatu' }),
+      screen.getByRole('dialog', { name: 'Nastavení pro přidání vlastních slovíček' }),
     ).toBeInTheDocument();
+  });
+
+  it('edits the list and category names when the callbacks are provided', () => {
+    const onListNameChange = vi.fn<(value: string) => void>();
+    const onCategoryNameChange = vi.fn<(value: string) => void>();
+    const appState = {
+      settingsLanguage: 'cs',
+      setSettingsLanguage: vi.fn(),
+    } as unknown as AppStateContextValue;
+
+    render(
+      <AppStateProvider value={appState}>
+        <I18nProvider language="cs">
+          <ChatSettingsModal
+            isOpen
+            languageFrom="cs"
+            languageTo="es"
+            listName="Moje slovíčka"
+            categoryName="Káva"
+            onListNameChange={onListNameChange}
+            onCategoryNameChange={onCategoryNameChange}
+            addressRegister="formal"
+            salutationGender="male"
+            languageLevel="B1"
+            addressRegisterApplies
+            salutationGenderApplies
+            saving={false}
+            onChange={vi.fn()}
+            onLanguagePairChange={vi.fn()}
+            onClose={vi.fn()}
+          />
+        </I18nProvider>
+      </AppStateProvider>,
+    );
+
+    const listInput = screen.getByDisplayValue('Moje slovíčka');
+    fireEvent.change(listInput, { target: { value: 'Nový název' } });
+    expect(onListNameChange).toHaveBeenCalledWith('Nový název');
+
+    const categoryInput = screen.getByDisplayValue('Káva');
+    fireEvent.change(categoryInput, { target: { value: 'Nápoje' } });
+    expect(onCategoryNameChange).toHaveBeenCalledWith('Nápoje');
+  });
+
+  it('omits the naming fields when no naming callbacks are passed', () => {
+    renderModal();
+    expect(screen.queryByText('Název slovníku')).not.toBeInTheDocument();
+    expect(screen.queryByText('Název kategorie')).not.toBeInTheDocument();
   });
 
   it('closes on Escape', () => {
@@ -96,16 +144,19 @@ describe('ChatSettingsModal', () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
-  it('changes the study pair directly from chat settings', async () => {
+  it('changes the study pair as soon as a language is picked', async () => {
     const { onLanguagePairChange } = renderModal();
 
     const targetPicker = screen.getByRole('combobox', { name: 'Učím se language' });
     fireEvent.focus(targetPicker);
     fireEvent.click(screen.getByRole('option', { name: /vietnamština/i }));
-    fireEvent.click(screen.getByRole('button', { name: 'Použít tyto jazyky' }));
 
     await waitFor(() => {
       expect(onLanguagePairChange).toHaveBeenCalledWith({ from: 'cs', to: 'vi' });
     });
+    // The picked language is the decision; no separate confirmation step.
+    expect(
+      screen.queryByRole('button', { name: 'Použít tyto jazyky' }),
+    ).not.toBeInTheDocument();
   });
 });

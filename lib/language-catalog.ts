@@ -6,6 +6,10 @@ import {
   type SupportedLanguage,
 } from "@/lib/i18n/languages";
 import { fetchGoogleSupportedLanguages } from "@/lib/i18n/server";
+import {
+  LEARNING_LANGUAGE_VARIANTS,
+  resolveLanguageVariantLocale,
+} from "@/lib/language-variants";
 
 export type LearningLanguage = SupportedLanguage & {
   ttsAvailable: boolean;
@@ -149,6 +153,22 @@ function getBaseLanguage(code: string): string {
   return normalizeLanguageCode(code).split("-")[0];
 }
 
+/**
+ * Does this Google voice belong to the requested learning language?
+ *
+ * Matching is by base language, so Google's regional voice buckets (en-AU,
+ * pt-BR, cmn-CN…) all serve their base. For a regionally split language the
+ * match narrows to the exact locale, so a British list is never read by an
+ * Australian or Indian voice.
+ */
+function voiceMatchesLanguage(voice: GoogleVoice, base: string, locale: string | null): boolean {
+  return (voice.languageCodes ?? []).some((code) => {
+    const rawBase = getBaseLanguage(code);
+    if ((TTS_BASE_ALIASES[rawBase] ?? rawBase) !== base) return false;
+    return locale ? normalizeLanguageCode(code) === locale : true;
+  });
+}
+
 function getFeaturedRank(code: string): number {
   return FEATURED_LANGUAGE_BASE_RANKS.get(getBaseLanguage(code)) ?? Number.POSITIVE_INFINITY;
 }
@@ -211,13 +231,9 @@ export async function getGoogleFallbackVoices(
 ): Promise<{ studio: string | null; standard: string | null }> {
   const voices = await fetchGoogleTtsVoices().catch(() => []);
   const base = getBaseLanguage(languageCode);
+  const locale = resolveLanguageVariantLocale(languageCode);
 
-  const forBase = voices.filter((voice) =>
-    (voice.languageCodes ?? []).some((code) => {
-      const rawBase = getBaseLanguage(code);
-      return (TTS_BASE_ALIASES[rawBase] ?? rawBase) === base;
-    }),
-  );
+  const forBase = voices.filter((voice) => voiceMatchesLanguage(voice, base, locale));
 
   const pick = (marker: string): string | null => {
     const matches = forBase
@@ -239,15 +255,13 @@ export async function getGoogleFallbackVoices(
 export async function getGoogleChirp3HdVoices(languageCode: string): Promise<string[]> {
   const voices = await fetchGoogleTtsVoices().catch(() => []);
   const base = getBaseLanguage(languageCode);
+  const locale = resolveLanguageVariantLocale(languageCode);
 
   const names = voices
     .filter(
       (voice) =>
         (voice.name ?? "").toLowerCase().includes("chirp3-hd") &&
-        (voice.languageCodes ?? []).some((code) => {
-          const rawBase = getBaseLanguage(code);
-          return (TTS_BASE_ALIASES[rawBase] ?? rawBase) === base;
-        }),
+        voiceMatchesLanguage(voice, base, locale),
     )
     .map((voice) => voice.name)
     .filter((name): name is string => Boolean(name));
@@ -298,15 +312,23 @@ export async function getLearningLanguageCatalog(target = "en"): Promise<Learnin
     }
   }
 
-  return mergeLanguages(COMMON_LANGUAGES, translateLanguages)
+  // Variants go first: `mergeLanguages` keeps the first entry per code, so the
+  // labelled British entry wins over the plain "English" in COMMON_LANGUAGES.
+  return mergeLanguages(LEARNING_LANGUAGE_VARIANTS, COMMON_LANGUAGES, translateLanguages)
     .filter((language) => {
       const normalizedCode = normalizeLanguageCode(language.code);
       return !EXCLUDED_LEARNING_LANGUAGE_CODES.has(normalizedCode);
     })
     .map((language): LearningLanguage => {
       const base = getBaseLanguage(language.code);
+      const locale = resolveLanguageVariantLocale(language.code);
+      const candidates = voicesByBase.get(base) ?? [];
 
-      const voices = (voicesByBase.get(base) ?? []).sort(
+      const voices = (
+        locale
+          ? candidates.filter((voice) => voiceMatchesLanguage(voice, base, locale))
+          : candidates
+      ).sort(
         (a, b) =>
           scoreVoice(a) - scoreVoice(b) ||
           String(a.name).localeCompare(String(b.name)),

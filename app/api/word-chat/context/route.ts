@@ -92,6 +92,8 @@ export async function GET(request: NextRequest) {
       covered_topics: brief?.coveredTopics ?? [],
       missing_topics: brief?.missingTopics ?? [],
       personal_list_name: personalList?.name ?? null,
+      personal_list_id: personalList?.id ?? null,
+      personal_list_is_public: personalList?.isPublic ?? null,
       address_register: addressRegister,
       salutation_gender: salutationGender,
       language_level: languageLevel,

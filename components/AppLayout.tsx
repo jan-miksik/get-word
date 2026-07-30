@@ -138,6 +138,10 @@ export function AppLayout({
     <div
       className="app bg-[#dcd1b9]"
       data-view-mode={viewMode}
+      // Which surface is showing, so the app chrome can match it — on a phone
+      // the add-words screen is a cream sheet the darker sand bar cut a line
+      // across (see `[data-app-surface='chat']` in `styles/layout.css`).
+      data-app-surface={activeSurface}
     >
       <SpeckledBackground showRisingLetters={false} />
       {header}
@@ -162,7 +166,12 @@ export function AppLayout({
           quickAddEnabled={quickAddEnabled}
           centerContent={
             isAuthenticated
-              ? <ProgressSummary progressStats={progressStats} />
+              ? // Due-review count belongs to studying. On the add-words and
+                // photo-lab surfaces it is a number about somewhere else,
+                // pulling attention out of the task at hand.
+                activeSurface === 'study'
+                ? <ProgressSummary progressStats={progressStats} />
+                : null
               : (
                   <div className="flex justify-center">
                     <AuthButton

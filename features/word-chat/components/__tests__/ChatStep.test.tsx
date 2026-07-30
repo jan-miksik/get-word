@@ -1,6 +1,7 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@/components/I18nProvider';
+import type { WordList } from '@/features/lists/types';
 import { ChatStep } from '../ChatStep';
 import type { WordChatPreferencePatch } from '../../hooks/useWordChat';
 
@@ -21,10 +22,12 @@ function renderChatStep({
   languageLevel = 'B1',
   preferencesComplete = true,
   messages = [],
+  suggestions = [],
   busy = null,
   onSend,
   onStartManualEntry,
   onPreferencesChange,
+  shareList = null,
   active = true,
   embedded = false,
 }: {
@@ -41,10 +44,12 @@ function renderChatStep({
     id?: string;
     incomplete?: boolean;
   }>;
+  suggestions?: string[];
   busy?: 'chat' | 'propose' | null;
-  onSend?: (text: string) => void;
+  onSend?: (text: string) => void | boolean | Promise<void | boolean>;
   onStartManualEntry?: () => void;
   onPreferencesChange?: (patch: WordChatPreferencePatch) => void;
+  shareList?: WordList | null;
   active?: boolean;
   embedded?: boolean;
 } = {}) {
@@ -56,7 +61,7 @@ function renderChatStep({
         languageFrom={languageFrom}
         languageTo="vi"
         messages={messages}
-        suggestions={[]}
+        suggestions={suggestions}
         addressRegister={addressRegister}
         salutationGender={salutationGender}
         languageLevel={languageLevel}
@@ -67,6 +72,7 @@ function renderChatStep({
         salutationGenderApplies={languageFrom === 'cs'}
         onPreferencesChange={changePreferences}
         onLanguagePairChange={vi.fn()}
+        shareList={shareList}
         busy={busy}
         history={history}
         onSend={send}
@@ -93,7 +99,7 @@ describe('ChatStep', () => {
     });
 
     expect(screen.queryByPlaceholderText('Tell me about your situation…')).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Chat settings' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Settings for adding words' })).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /I know: Czech/ })).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Use casual address' })).not.toHaveClass(
       'onboarding-option-highlight',
@@ -116,6 +122,19 @@ describe('ChatStep', () => {
       salutationGender: 'neutral',
       languageLevel: 'A1',
     });
+  });
+
+  it('shows missing profile setup even when an older transcript was restored', () => {
+    renderChatStep({
+      preferencesComplete: false,
+      languageLevel: null,
+      messages: [{ role: 'user', content: 'Starší zpráva' }],
+    });
+
+    expect(
+      screen.getByRole('progressbar', { name: 'Set up the chat first' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText('Tell me about your situation…')).not.toBeInTheDocument();
   });
 
   it('uses the selected Czech address in the following questions', () => {
@@ -168,45 +187,17 @@ describe('ChatStep', () => {
     );
   });
 
-  it('sends a starter brief in the interface language, whatever the pair is', () => {
-    // The chat answers in the interface language, so the message the chip puts
-    // in the learner's mouth has to be in that same language.
-    const { onSend } = renderChatStep({ uiLanguage: 'en', languageFrom: 'fr' });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Talking to customers' }));
-
-    expect(onSend).toHaveBeenCalledWith(
-      'I work with clients — salon, shop, café — and I want to talk to them properly.',
-    );
-  });
-
-  it('renders starter chips in Czech when the UI and known language are Czech', () => {
-    const { onSend } = renderChatStep({ uiLanguage: 'cs', languageFrom: 'cs' });
-
-    fireEvent.click(screen.getByRole('button', { name: 'Mluvení se zákazníky' }));
+  it('offers a first-time learner no topic chips at all', () => {
+    // Generic situations were guesses that steered the conversation more than
+    // they helped it. The only thing next to the input is the manual escape.
+    renderChatStep({ onStartManualEntry: vi.fn() });
 
     expect(screen.queryByRole('button', { name: 'Talking to customers' })).not.toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Na úřadě' })).toBeInTheDocument();
-    expect(onSend).toHaveBeenCalledWith(
-      'Pracuju se zákazníky — salon, obchod, kavárna — a chci s nimi mluvit pořádně.',
-    );
-  });
-
-  it('keeps starter chips the same for every language level', () => {
-    renderChatStep({ languageLevel: 'A0' });
-
-    expect(screen.getByRole('button', { name: 'Talking to customers' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'At the office' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: "My partner's family" })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Vacation abroad' })).toBeInTheDocument();
-
-    cleanup();
-    renderChatStep({ languageLevel: 'B2' });
-
-    expect(screen.getByRole('button', { name: 'Talking to customers' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'At the office' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: "My partner's family" })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Vacation abroad' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'At the office' })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Vacation abroad' })).not.toBeInTheDocument();
+    expect(
+      screen.getByRole('button', { name: 'I already have my own words' }),
+    ).toBeInTheDocument();
   });
 
   it('lets the learner skip the AI suggestions and enter words manually', () => {
@@ -247,7 +238,7 @@ describe('ChatStep', () => {
 
     expect(screen.queryByRole('button', { name: 'Use formal address' })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Chat settings' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Settings for adding words' }));
     expect(
       screen.getByRole('radiogroup', { name: 'Chat address' }),
     ).toBeInTheDocument();
@@ -355,7 +346,7 @@ describe('ChatStep', () => {
     expect(onSend).toHaveBeenCalledWith("I'd like to work on: Booking appointments");
   });
 
-  it('builds returning chips from the situations and goals in the brief', () => {
+  it('offers a returning learner exactly one chip, the most specific one', () => {
     renderChatStep({
       history: {
         hasHistory: true,
@@ -367,8 +358,10 @@ describe('ChatStep', () => {
     });
 
     expect(screen.getByRole('button', { name: 'Doctor visits' })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Talk to salon clients' })).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: 'Vacation abroad' })).not.toBeInTheDocument();
+    // One chip, not a menu: the goal is a weaker suggestion than the situation.
+    expect(
+      screen.queryByRole('button', { name: 'Talk to salon clients' }),
+    ).not.toBeInTheDocument();
   });
 
   it('offers a deeper pass over the last topic when the brief has nothing else', () => {
@@ -381,9 +374,6 @@ describe('ChatStep', () => {
         missingTopics: [],
       },
     });
-
-    // The generic starters are for someone who has never been here before.
-    expect(screen.queryByRole('button', { name: 'Talking to customers' })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'More on Morals and ethics' }));
     expect(onSend).toHaveBeenCalledWith(
@@ -398,5 +388,83 @@ describe('ChatStep', () => {
     expect(input).toHaveFocus();
     expect(input).toHaveClass('word-chat-input');
     expect(input).not.toHaveClass('onboarding-option');
+  });
+
+  it('wraps what is being typed instead of scrolling it out of sight', () => {
+    // Someone describing their situation writes more than one line; a single-line
+    // field hides the beginning of it while they are still writing.
+    renderChatStep();
+    const input = screen.getByPlaceholderText('Tell me about your situation…');
+
+    expect(input.tagName).toBe('TEXTAREA');
+    expect(input).toHaveAttribute('rows', '1');
+  });
+
+  it('sends on Enter and breaks the line on Shift+Enter', () => {
+    const { onSend } = renderChatStep();
+    const input = screen.getByPlaceholderText('Tell me about your situation…');
+
+    fireEvent.change(input, { target: { value: 'Jedu do Vietnamu za rodinou' } });
+    fireEvent.keyDown(input, { key: 'Enter', shiftKey: true });
+    expect(onSend).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(input, { key: 'Enter' });
+    expect(onSend).toHaveBeenCalledWith('Jedu do Vietnamu za rodinou');
+  });
+
+  it('keeps the typed message when the hook rejects it before starting a turn', async () => {
+    renderChatStep({ onSend: () => false });
+    const input = screen.getByPlaceholderText<HTMLTextAreaElement>(
+      'Tell me about your situation…',
+    );
+
+    fireEvent.change(input, { target: { value: 'Druhy ryb' } });
+    fireEvent.keyDown(input, { key: 'Enter' });
+
+    await waitFor(() => expect(input).toHaveValue('Druhy ryb'));
+  });
+
+  it('shows a long suggestion in full rather than clipping it to a pill', () => {
+    const suggestion = 'Domlouvám se s lékařem o výsledcích vyšetření a dalším postupu';
+    renderChatStep({
+      messages: [
+        { role: 'user', content: 'Ahoj' },
+        { role: 'assistant', content: 'Co potřebujete zvládnout?' },
+      ],
+      suggestions: [suggestion],
+    });
+
+    const chip = screen.getByRole('button', { name: suggestion });
+    expect(chip).toHaveClass('whitespace-normal', 'break-words');
+    expect(chip).not.toHaveClass('truncate');
+  });
+
+  it('offers the share button beside the gear once a list exists', () => {
+    const list: WordList = {
+      id: 'list-1',
+      ownerId: null,
+      name: 'My words — Vietnamese',
+      description: null,
+      languageFrom: 'cs',
+      languageTo: 'vi',
+      isPublic: false,
+      isOwner: true,
+    };
+
+    renderChatStep({ shareList: list });
+    expect(screen.getByRole('button', { name: 'Share & visibility' })).toBeInTheDocument();
+  });
+
+  it('keeps the composer at least one row tall', () => {
+    renderChatStep({ embedded: true });
+    const input = screen.getByPlaceholderText<HTMLTextAreaElement>(
+      'Tell me about your situation…',
+    );
+
+    fireEvent.change(input, { target: { value: 'Ahoj' } });
+
+    // jsdom reports a zero `scrollHeight`, which is exactly the bogus
+    // measurement the floor exists for.
+    expect(Number.parseFloat(input.style.height)).toBeGreaterThanOrEqual(20);
   });
 });

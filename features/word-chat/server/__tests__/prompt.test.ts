@@ -13,6 +13,7 @@ describe('word-chat proposal prompt', () => {
       languageTo: 'en',
       chatLanguage: 'cs',
       languageLevel: 'B1',
+      contentMode: 'situation',
       messages: [{ role: 'user', content: 'Letiště a doprava' }],
       brief: null,
       exclusions: [],

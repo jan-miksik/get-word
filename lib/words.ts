@@ -254,11 +254,17 @@ export function createWordCategoryOrderComparer(categoryOrder: string[] = []) {
  * over a week or two) rather than a permanent boolean pin. Replacing the
  * predicate below is all that would take.
  */
-export function createPriorityPredicate(pinnedCategoryIds: readonly string[] = []) {
+export function createPriorityPredicate(
+  pinnedCategoryIds: readonly string[] = [],
+  ownedPersonalListIds: ReadonlySet<string> = new Set(),
+) {
   const pinned = new Set(pinnedCategoryIds);
-  if (pinned.size === 0) return () => false;
+  if (pinned.size === 0 && ownedPersonalListIds.size === 0) return () => false;
   return (word: NormalizedWord): boolean =>
-    Boolean(word.categoryId && pinned.has(word.categoryId));
+    Boolean(
+      (word.listId && ownedPersonalListIds.has(word.listId)) ||
+        (word.categoryId && pinned.has(word.categoryId)),
+    );
 }
 
 export function matchesCategoryFilter(word: NormalizedWord, selectedCategories: Set<string>): boolean {

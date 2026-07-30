@@ -3,11 +3,12 @@ import { describe, expect, it, vi } from 'vitest';
 vi.mock('@/lib/db/client', () => ({ db: {} }));
 
 import {
+  CHAT_REASONING,
   PROPOSAL_MAX_TOKENS,
   PROPOSAL_REASONING,
   WORD_CHAT_CHAT_MODEL,
   WORD_CHAT_PROPOSAL_MODEL,
-  WORD_CHAT_PROPOSAL_PROVIDER_PREFERENCES,
+  WORD_CHAT_PROVIDER_PREFERENCES,
   WORD_CHAT_TRANSLATION_MODEL,
 } from '../server/config';
 import {
@@ -36,7 +37,27 @@ describe('buildChatSystemPrompt', () => {
     expect(prompt).toContain('never use generic domain chips');
     expect(prompt).toContain('You can also change the study pair');
     expect(prompt).toContain('"languageChange": null');
+    expect(prompt).toContain('"contentMode"');
+    expect(prompt).toContain('types of fish on restaurant menus');
     expect(prompt).toContain('only for an explicit language-setting request');
+  });
+
+  it('allows one follow-up question and pushes the model to infer the rest', () => {
+    const prompt = buildChatSystemPrompt({
+      languageFrom: 'cs',
+      languageTo: 'vi',
+      chatLanguage: 'cs',
+      addressRegister: 'casual',
+      salutationGender: 'neutral',
+      languageLevel: 'B1',
+      brief: null,
+    });
+
+    expect(prompt).toContain('Ask AT MOST ONE short follow-up question');
+    expect(prompt).toContain('Never ask a second one');
+    expect(prompt).toContain('Prefer inferring over asking');
+    expect(prompt).toContain('set "readyToPropose" to true on that very first turn');
+    expect(prompt).not.toContain('at most TWO short follow-up questions');
   });
 
   it('pins formal chat address when the learner chooses it', () => {
@@ -60,6 +81,7 @@ describe('buildChatSystemPrompt', () => {
       languageTo: 'vi',
       chatLanguage: 'cs',
       languageLevel: 'A0',
+      contentMode: 'situation',
       messages: [{ role: 'user', content: 'Kavárna' }],
       brief: null,
       exclusions: [],
@@ -69,6 +91,7 @@ describe('buildChatSystemPrompt', () => {
       languageTo: 'en',
       chatLanguage: 'cs',
       languageLevel: 'B1',
+      contentMode: 'situation',
       messages: [{ role: 'user', content: 'Letiště a doprava' }],
       brief: null,
       exclusions: [],
@@ -91,9 +114,82 @@ describe('buildChatSystemPrompt', () => {
     expect(b1.system).toContain('CEFR functions to teach: explaining a problem');
     expect(b1.system).toContain('Single words are fine when genuinely B1-useful');
     expect(b1.system).toContain('Wherever they conflict with the B1 profile below');
-    expect(a0.system).toContain('for A0-A2 above the ceiling, for B1/B2 below the floor');
+    expect(a0.system).toContain('for A0-A2 above the ceiling, for B1/B2/C1 below the floor');
     expect(a0.system).toContain('unless the profile itself grants an exception');
     expect(b1.system).toContain('Do not raise difficulty merely by making a basic sentence longer');
+  });
+
+  it('uses content-mode roles to preserve category inventories without weakening sentences', () => {
+    const { system } = buildProposalPrompt({
+      languageFrom: 'cs',
+      languageTo: 'en',
+      chatLanguage: 'cs',
+      languageLevel: 'B2',
+      contentMode: 'mixed',
+      messages: [{ role: 'user', content: 'Druhy ryb a jak si je objednat' }],
+      brief: null,
+      exclusions: [],
+    });
+
+    expect(system).toContain('exactly 4 with role "category_member"');
+    expect(system).toContain('exactly 3 with role "situational_expression"');
+    expect(system).toContain('B1-C1 frequency floor, novelty test, and ban on bare topic labels');
+    expect(system).toContain('Sentences and "situational_expression" items remain fully subject');
+    expect(system).toContain('rare, technical, regional, or taxonomically obscure');
+  });
+
+  it('does not treat category members as beginner padding in higher-level checks', () => {
+    const categoryBatch = [
+      { kind: 'sentence', role: 'sentence', text: 'Losos má výraznější chuť než treska.' },
+      { kind: 'sentence', role: 'sentence', text: 'Makrela patří mezi tučnější ryby.' },
+      { kind: 'sentence', role: 'sentence', text: 'Pstruh se často připravuje celý.' },
+      ...['losos', 'treska', 'makrela', 'pstruh', 'tuňák', 'sardinka', 'kapr'].map((text) => ({
+        kind: 'word',
+        role: 'category_member',
+        text,
+      })),
+    ];
+
+    expect(
+      proposalDifficultyIssue({ level: 'B2', languageFrom: 'cs', items: categoryBatch }),
+    ).toBeNull();
+  });
+
+  it('gives the top levels a novelty test, not just a frequency floor', () => {
+    // The complaint this answers: at the highest level the proposals were
+    // still words the learner plainly already knew. Useful is not enough — an
+    // item has to be new, and the prompt has to say so per level.
+    const b2 = buildProposalPrompt({
+      languageFrom: 'cs',
+      languageTo: 'en',
+      chatLanguage: 'cs',
+      languageLevel: 'B2',
+      contentMode: 'situation',
+      messages: [{ role: 'user', content: 'Jednání s dodavateli' }],
+      brief: null,
+      exclusions: [],
+    });
+    const c1 = buildProposalPrompt({
+      languageFrom: 'cs',
+      languageTo: 'en',
+      chatLanguage: 'cs',
+      languageLevel: 'C1',
+      contentMode: 'situation',
+      messages: [{ role: 'user', content: 'Jednání s dodavateli' }],
+      brief: null,
+      exclusions: [],
+    });
+
+    expect(b2.system).toContain('B2 profile');
+    expect(b2.system).toContain('Novelty test');
+    expect(b2.system).toContain('Usefulness alone is not enough');
+    expect(c1.system).toContain('C1 profile');
+    expect(c1.system).toContain('outside the ~8000 most frequent words');
+    expect(c1.system).toContain('ask whether a confident B2 speaker would already say it');
+    expect(c1.system).toContain('C1 calibration examples');
+    expect(c1.system).toContain('Learner level: C1');
+    // The floor is a floor for every higher level, so the audit has to name it.
+    expect(c1.system).toContain('for B1/B2/C1 below the floor');
   });
 
   it('rejects a starter-like B1 batch but accepts the fixed 3/7 shape', () => {
@@ -190,6 +286,7 @@ describe('buildChatSystemPrompt', () => {
       languageTo: 'vi',
       chatLanguage: 'cs',
       languageLevel: 'A2',
+      contentMode: 'situation',
       messages: [{ role: 'user', content: 'Kavárna' }],
       brief: null,
       exclusions: ['dobrý den'],
@@ -213,10 +310,17 @@ describe('buildChatSystemPrompt', () => {
   it('keeps the non-streamed proposal on a low-latency reasoning budget', () => {
     expect(PROPOSAL_MAX_TOKENS).toBe(4_000);
     expect(PROPOSAL_REASONING).toEqual({ effort: 'low', exclude: true });
-    expect(WORD_CHAT_PROPOSAL_PROVIDER_PREFERENCES).toMatchObject({
+    expect(WORD_CHAT_PROVIDER_PREFERENCES).toMatchObject({
       zdr: true,
       data_collection: 'deny',
       sort: 'throughput',
     });
+  });
+
+  it('takes the chat turn off reasoning entirely', () => {
+    // The learner watches this reply stream in, and nothing visible can appear
+    // until the thinking block ends. The turn asks one question or says it is
+    // ready — there is nothing here to deliberate about.
+    expect(CHAT_REASONING).toEqual({ enabled: false, exclude: true });
   });
 });

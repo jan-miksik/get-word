@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildLanguageVariantRules,
+  buildOpenRouterTranslationPrompt,
   LIST_GENERATION_RULES,
   COMMENT_GENERATION_RULES,
   COMMENT_SYSTEM_PROMPT,
@@ -44,6 +46,45 @@ describe("list generation rules", () => {
     );
     expect(LIST_GENERATION_RULES).toContain("Both sides must be natural");
     expect(LIST_GENERATION_RULES).toContain("A learner should not repeatedly encounter");
+  });
+});
+
+describe("regional variant rules", () => {
+  it("pins the target's English variant", () => {
+    const rules = buildLanguageVariantRules({ fromLang: "cs", toLang: "en-US" });
+
+    expect(rules).toContain("The target is American English");
+    expect(rules).toContain("never mix in another regional variant");
+    // Czech has no variant split, so nothing is claimed about the source.
+    expect(rules).not.toContain("The source is");
+  });
+
+  it("treats bare English as the British variant", () => {
+    expect(buildLanguageVariantRules({ fromLang: "cs", toLang: "en" })).toContain(
+      "The target is British English",
+    );
+  });
+
+  it("marks the source variant without letting it drive the target", () => {
+    const rules = buildLanguageVariantRules({ fromLang: "en-US", toLang: "cs" });
+
+    expect(rules).toContain("The source is American English");
+    expect(rules).toContain("does not change which variant the target uses");
+  });
+
+  it("adds nothing for a pair with no variant to enforce", () => {
+    expect(buildLanguageVariantRules({ fromLang: "cs", toLang: "vi" })).toBe("");
+  });
+
+  it("carries the rule into the translation prompt itself", () => {
+    const prompt = buildOpenRouterTranslationPrompt({
+      texts: ["barva"],
+      fromLang: "cs",
+      toLang: "en-US",
+    });
+
+    expect(prompt).toContain("The target is American English");
+    expect(prompt).toContain("Preserve ALL AND ONLY the meaning of the source");
   });
 });
 

@@ -2,6 +2,7 @@
 
 import { useI18n } from '@/components/I18nProvider';
 import { getLanguageFlag, getLocalizedLanguageName } from '@/lib/i18n/languages';
+import { getLanguageVariantTag } from '@/lib/language-variants';
 
 type Props = {
   /** The language the learner already knows — the source side of the pair. */
@@ -27,9 +28,13 @@ export function LanguagePairSummary({ from, to, onOpen, className = '' }: Props)
 
   const describe = (code: string, fallbackLabel: string) => {
     if (!code) return { flag: '🌐', name: fallbackLabel };
+    const name = getLocalizedLanguageName(code, uiLanguage) ?? code.toUpperCase();
+    // British and American English localize to the same word in most interface
+    // languages, so the pair badge names the variant it means: "EN-GB"/"EN-US".
+    const tag = getLanguageVariantTag(code);
     return {
       flag: getLanguageFlag(code),
-      name: getLocalizedLanguageName(code, uiLanguage) ?? code.toUpperCase(),
+      name: tag ? `${name} · ${tag}` : name,
     };
   };
   const source = describe(from, t('photoLab.knownLanguage'));

@@ -16,12 +16,14 @@ import {
   PROPOSAL_REASONING,
   TARGET_ITEM_COUNT,
   WORD_CHAT_PROPOSAL_MODEL,
-  WORD_CHAT_PROPOSAL_PROVIDER_PREFERENCES,
+  WORD_CHAT_PROVIDER_PREFERENCES,
   getServerApiKey,
 } from "./config";
 import { WordChatUnavailableError } from "./chat";
 import { buildProposalPrompt } from "./prompt";
 import { proposalDifficultyIssue } from "../difficulty";
+import { proposalLanguageIssue } from "../proposalLanguage";
+import { toPlainItemText } from "../plainItemText";
 import { buildCallDiagnostics, type WordChatCallDiagnostics } from "./diagnostics";
 import {
   dedupKey,
@@ -34,6 +36,7 @@ import { recordWordChatUsage } from "./usage";
 import type {
   ProposalResult,
   ProposedItem,
+  WordChatContentMode,
   WordChatLanguageLevel,
   WordChatMessage,
 } from "../types";
@@ -41,16 +44,33 @@ import type {
 const MAX_CATEGORY_NAME_CHARS = 60;
 
 /**
- * How many attempts may be rejected for being below the requested level before
- * the guard stands down. One fresh attempt is worth paying for; spending the
- * whole budget on a heuristic would turn a usable list into an error screen.
+ * How many attempts may be rejected by the content guards — below the requested
+ * level, or written in English instead of the learner's language — before they
+ * stand down. One fresh attempt is worth paying for; spending the whole budget
+ * on a heuristic would turn a usable list into an error screen.
  */
-const DIFFICULTY_RETRY_BUDGET = 1;
+const QUALITY_RETRY_BUDGET = 1;
 
 type RawItem = {
   kind?: unknown;
+  role?: unknown;
   text?: unknown;
   confidence?: unknown;
+};
+
+type ProposalItemRole = "sentence" | "category_member" | "situational_expression";
+
+type ValidatedRawItem = {
+  kind: "sentence" | "word";
+  role: ProposalItemRole;
+  text: string;
+  confidence?: unknown;
+};
+
+type ValidatedInternalProposal = {
+  categoryName: string;
+  reviewLabel: string;
+  items: ValidatedRawItem[];
 };
 
 const TOKEN_STOPWORDS = new Set([
@@ -214,7 +234,7 @@ function normalizeConfidence(value: unknown): number {
 
 function cleanItemText(value: unknown): string {
   return typeof value === "string"
-    ? value.trim().replace(/\s+/g, " ").slice(0, MAX_WORD_CHAT_ITEM_CHARS)
+    ? toPlainItemText(value).slice(0, MAX_WORD_CHAT_ITEM_CHARS)
     : "";
 }
 
@@ -250,46 +270,99 @@ export function corpusPoolByText(pool: CorpusEntry[]): Map<string, CorpusMatch> 
   return byText;
 }
 
+export function validateProposalStructure(input: {
+  contentMode: WordChatContentMode;
+  raw: RawItem[];
+}): ValidatedRawItem[] {
+  const items = input.raw.map((entry): ValidatedRawItem => {
+    const role = entry.role;
+    const kind = entry.kind;
+    const text = cleanItemText(entry.text);
+    const validRole =
+      role === "sentence" || role === "category_member" || role === "situational_expression";
+    if (!validRole || !text) {
+      throw new OpenRouterChatError("Word chat returned an item with an invalid role or text.", true);
+    }
+    if (
+      (role === "sentence" && kind !== "sentence") ||
+      (role !== "sentence" && kind !== "word")
+    ) {
+      throw new OpenRouterChatError("Word chat returned an item whose role does not match its kind.", true);
+    }
+    return { kind: kind as "sentence" | "word", role, text, confidence: entry.confidence };
+  });
+
+  const counts = items.reduce(
+    (current, item) => ({ ...current, [item.role]: current[item.role] + 1 }),
+    { sentence: 0, category_member: 0, situational_expression: 0 } as Record<ProposalItemRole, number>,
+  );
+  const expected =
+    input.contentMode === "category_inventory"
+      ? { sentence: 3, category_member: 7, situational_expression: 0 }
+      : input.contentMode === "situation"
+        ? { sentence: 3, category_member: 0, situational_expression: 7 }
+        : { sentence: 3, category_member: 4, situational_expression: 3 };
+  if (
+    items.length !== TARGET_ITEM_COUNT ||
+    counts.sentence !== expected.sentence ||
+    counts.category_member !== expected.category_member ||
+    counts.situational_expression !== expected.situational_expression
+  ) {
+    throw new OpenRouterChatError("Word chat returned an invalid proposal role distribution.", true);
+  }
+  return items;
+}
+
 function parseProposal(
   content: string,
   input: {
     languageFrom: string;
     languageLevel: WordChatLanguageLevel;
+    contentMode: WordChatContentMode;
     /**
-     * False once the difficulty retry budget is spent. The guard is a
-     * heuristic, so a batch it dislikes is still a usable list; failing the
-     * whole request over it would trade slightly-too-easy words for a generic
-     * error screen.
+     * False once the retry budget is spent. Both guards are heuristics, so a
+     * batch they dislike is still a usable list; failing the whole request over
+     * one would trade slightly-too-easy words for a generic error screen.
      */
-    enforceDifficulty: boolean;
+    enforceQuality: boolean;
   },
-): {
-  categoryName: string;
-  reviewLabel: string;
-  raw: RawItem[];
-} {
+): ValidatedInternalProposal {
   const parsed = parseJsonLoose(content) as Record<string, unknown> | null;
   const raw = Array.isArray(parsed?.items) ? (parsed.items as RawItem[]) : null;
   if (!raw || raw.length === 0) {
     throw new OpenRouterChatError("Word chat returned no proposed items.", true);
   }
-  const difficultyIssue = input.enforceDifficulty
-    ? proposalDifficultyIssue({
-        level: input.languageLevel,
-        languageFrom: input.languageFrom,
-        items: raw,
-      })
-    : null;
-  if (difficultyIssue) {
-    throw new OpenRouterChatError(
-      `Word chat returned a proposal below the requested level: ${difficultyIssue}.`,
-      true,
-    );
+  const items = validateProposalStructure({ contentMode: input.contentMode, raw });
+  if (input.enforceQuality) {
+    // Language first: a batch in the wrong language is unusable, whatever its
+    // level, and a retry is the only thing that can fix it.
+    const languageIssue = proposalLanguageIssue({
+      languageFrom: input.languageFrom,
+      items,
+    });
+    if (languageIssue) {
+      throw new OpenRouterChatError(
+        `Word chat returned a proposal in the wrong language: ${languageIssue}.`,
+        true,
+      );
+    }
+
+    const difficultyIssue = proposalDifficultyIssue({
+      level: input.languageLevel,
+      languageFrom: input.languageFrom,
+      items,
+    });
+    if (difficultyIssue) {
+      throw new OpenRouterChatError(
+        `Word chat returned a proposal below the requested level: ${difficultyIssue}.`,
+        true,
+      );
+    }
   }
   return {
     categoryName: cleanLabel(parsed?.categoryName, "My words", MAX_CATEGORY_NAME_CHARS),
     reviewLabel: cleanLabel(parsed?.reviewLabel, "General vocabulary", MAX_CATEGORY_NAME_CHARS),
-    raw,
+    items,
   };
 }
 
@@ -360,6 +433,24 @@ export function materializeProposedItems(input: {
 }
 
 /**
+ * Public boundary for a proposal. Roles exist only on the validated internal
+ * document; everything after this point is the established client item shape.
+ */
+export function materializeProposal(input: {
+  validated: ValidatedInternalProposal;
+  exclusionKeys: Set<string>;
+  maxItems?: number;
+  corpusTextRefs?: Map<string, CorpusMatch>;
+}): ProposedItem[] {
+  return materializeProposedItems({
+    raw: input.validated.items,
+    exclusionKeys: input.exclusionKeys,
+    maxItems: input.maxItems,
+    corpusTextRefs: input.corpusTextRefs,
+  });
+}
+
+/**
  * Build the proposal: conversation + exclusions in, ~10 known-language items
  * out, then matched against existing content on the way back.
  *
@@ -374,6 +465,7 @@ export async function proposeItems(input: {
   languageTo: string;
   chatLanguage: string;
   languageLevel: WordChatLanguageLevel;
+  contentMode: WordChatContentMode;
   brief: LearnerBrief | null;
   messages: WordChatMessage[];
   baseListId?: string;
@@ -432,6 +524,7 @@ export async function proposeItems(input: {
     languageTo: input.languageTo,
     chatLanguage: input.chatLanguage,
     languageLevel: input.languageLevel,
+    contentMode: input.contentMode,
     messages: input.messages,
     brief: input.brief,
     exclusions: promptExclusions,
@@ -443,8 +536,8 @@ export async function proposeItems(input: {
   ];
 
   // `parse` runs once per attempt inside the shared retry loop, so counting
-  // calls here is what tells the guard which attempt it is on.
-  let difficultyAttempts = 0;
+  // calls here is what tells the guards which attempt they are on.
+  let qualityAttempts = 0;
 
   const { value, meta } = await callOpenRouterChatParsedWithMeta(
     {
@@ -457,15 +550,16 @@ export async function proposeItems(input: {
       maxTokens: PROPOSAL_MAX_TOKENS,
       reasoning: { ...PROPOSAL_REASONING },
       responseFormat: { type: "json_object" },
-      provider: { ...WORD_CHAT_PROPOSAL_PROVIDER_PREFERENCES },
+      provider: { ...WORD_CHAT_PROVIDER_PREFERENCES },
       messages,
     },
     (content) => {
-      difficultyAttempts += 1;
+      qualityAttempts += 1;
       return parseProposal(content, {
         languageFrom: input.languageFrom,
         languageLevel: input.languageLevel,
-        enforceDifficulty: difficultyAttempts <= DIFFICULTY_RETRY_BUDGET,
+        contentMode: input.contentMode,
+        enforceQuality: qualityAttempts <= QUALITY_RETRY_BUDGET,
       });
     },
   );
@@ -476,8 +570,8 @@ export async function proposeItems(input: {
     (await corpusPoolPromise).filter((entry) => !exclusionKeys.has(dedupKey(entry.text))),
   );
 
-  const items = materializeProposedItems({
-    raw: value.raw,
+  const items = materializeProposal({
+    validated: value,
     exclusionKeys,
     corpusTextRefs,
     // Ask for ~10 but accept a couple more rather than discarding good items;
@@ -512,7 +606,7 @@ export async function proposeItems(input: {
         ? {
             request: {
               maxTokens: PROPOSAL_MAX_TOKENS,
-              provider: WORD_CHAT_PROPOSAL_PROVIDER_PREFERENCES,
+              provider: WORD_CHAT_PROVIDER_PREFERENCES,
               messages,
             },
           }

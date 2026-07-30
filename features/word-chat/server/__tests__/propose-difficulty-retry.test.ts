@@ -40,11 +40,12 @@ const STARTER_BATCH = JSON.stringify({
   categoryName: "Kavárna",
   reviewLabel: "Cafe basics",
   items: [
-    { kind: "sentence", text: "Dám si kávu.", confidence: 0.9 },
-    { kind: "sentence", text: "Chci čaj.", confidence: 0.9 },
-    { kind: "sentence", text: "Kde je účet?", confidence: 0.9 },
+    { kind: "sentence", role: "sentence", text: "Dám si kávu.", confidence: 0.9 },
+    { kind: "sentence", role: "sentence", text: "Chci čaj.", confidence: 0.9 },
+    { kind: "sentence", role: "sentence", text: "Kde je účet?", confidence: 0.9 },
     ...["káva", "čaj", "účet", "mléko", "cukr", "voda", "stůl"].map((text) => ({
       kind: "word",
+      role: "situational_expression",
       text,
       confidence: 0.8,
     })),
@@ -80,6 +81,7 @@ const INPUT = {
   languageTo: "vi",
   chatLanguage: "cs",
   languageLevel: "B1" as const,
+  contentMode: "situation" as const,
   brief: null,
   messages: [{ role: "user" as const, content: "Kavárna" }],
 };
@@ -122,6 +124,47 @@ describe("proposeItems difficulty guard", () => {
     await proposeItems(INPUT);
 
     expect(parseCalls).toBe(2);
+  });
+
+  it("spends a fresh attempt when the batch came back in English", async () => {
+    // The learner reads Czech. A batch in English is unusable at any level, and
+    // a retry is the only thing that can fix it.
+    const englishBatch = JSON.stringify({
+      categoryName: "Cafe",
+      reviewLabel: "Cafe basics",
+      items: [
+        { kind: "sentence", role: "sentence", text: "Could you split the bill?", confidence: 0.9 },
+        { kind: "sentence", role: "sentence", text: "I think this item was charged twice.", confidence: 0.9 },
+        { kind: "sentence", role: "sentence", text: "Where is the entrance?", confidence: 0.9 },
+        ...["bill", "receipt", "change", "table", "tip", "menu", "waiter"].map((text) => ({
+          kind: "word",
+          role: "situational_expression",
+          text,
+          confidence: 0.8,
+        })),
+      ],
+    });
+
+    let parseCalls = 0;
+    mocks.callOpenRouterChatParsedWithMeta.mockImplementation(
+      async (_options: unknown, parse: (raw: string) => unknown) => {
+        const attempt = () => {
+          parseCalls += 1;
+          return parse(englishBatch);
+        };
+        try {
+          return { value: attempt(), meta: {} };
+        } catch {
+          // The guard stands down on the second attempt, so this one lands.
+          return { value: attempt(), meta: {} };
+        }
+      },
+    );
+
+    const result = await proposeItems({ ...INPUT, languageLevel: "A1" });
+
+    expect(parseCalls).toBe(2);
+    expect(result.items.length).toBeGreaterThan(0);
   });
 
   it("never rejects an A-level batch for difficulty", async () => {

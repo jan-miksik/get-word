@@ -110,6 +110,7 @@ describe('useWordChat', () => {
         reply: 'Připravím návrh.',
         suggestions: [],
         ready_to_propose: true,
+        content_mode: 'situation',
         language_change: null,
         metadata_valid: true,
         diagnostics: null,
@@ -143,6 +144,80 @@ describe('useWordChat', () => {
     expect(result.current.selectedCount).toBe(0);
   });
 
+  it('opens on manual entry, with the chat a step forward rather than back', async () => {
+    const { result } = renderHook(
+      () =>
+        useWordChat({
+          languageFrom: 'cs',
+          languageTo: 'vi',
+          entryStep: 'manual',
+          onCommitted: vi.fn(),
+        }),
+      { wrapper },
+    );
+
+    expect(result.current.step).toBe('select');
+    expect(result.current.proposals).toHaveLength(0);
+    expect(result.current.categoryName).toBe('My words');
+    // Nothing is behind manual entry until the learner opens the chat, so the
+    // host keeps its own close action instead of a step-back.
+    expect(result.current.canReturnToChat).toBe(false);
+    await waitForPreferences(result);
+    expect(mocks.sendChatMessageStream).not.toHaveBeenCalled();
+
+    act(() => result.current.openChat());
+    expect(result.current.step).toBe('chat');
+  });
+
+  it('asks about visibility from manual entry only when there is no personal list yet', async () => {
+    const first = renderHook(
+      () =>
+        useWordChat({
+          languageFrom: 'cs',
+          languageTo: 'vi',
+          entryStep: 'manual',
+          onCommitted: vi.fn(),
+        }),
+      { wrapper },
+    );
+
+    // Unknown while the brief is in flight: an unanswered list is saved private,
+    // so a question that flashes past is worse than no question.
+    expect(first.result.current.askVisibility).toBe(false);
+    await waitForPreferences(first.result);
+    expect(first.result.current.askVisibility).toBe(true);
+
+    mocks.fetchWordChatContext.mockResolvedValue({
+      has_history: false,
+      goals: [],
+      covered_topics: [],
+      missing_topics: [],
+      personal_list_name: 'Moje slovíčka — Vietnamština',
+      address_register: 'casual',
+      salutation_gender: 'neutral',
+      language_level: 'A0',
+      preferences_complete: { global: true, language: true },
+      monthly_used: 0,
+      monthly_limit: 60,
+      is_editor: false,
+      models: null,
+    });
+    const second = renderHook(
+      () =>
+        useWordChat({
+          languageFrom: 'cs',
+          languageTo: 'vi',
+          entryStep: 'manual',
+          onCommitted: vi.fn(),
+        }),
+      { wrapper },
+    );
+    await waitForPreferences(second.result);
+
+    // The list already exists, so its visibility was settled long ago.
+    expect(second.result.current.askVisibility).toBe(false);
+  });
+
   it('moves one step back from selection to chat without clearing the session', async () => {
     const { result } = renderHook(
       () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
@@ -153,7 +228,7 @@ describe('useWordChat', () => {
     await act(() => result.current.sendMessage('Kavárna'));
     expect(result.current.step).toBe('select');
 
-    act(() => result.current.backToChat());
+    act(() => result.current.openChat());
 
     expect(result.current.step).toBe('chat');
     expect(result.current.messages).toMatchObject([
@@ -177,6 +252,7 @@ describe('useWordChat', () => {
         reply: 'Připravím návrh.',
         suggestions: [],
         ready_to_propose: false,
+        content_mode: null,
         metadata_valid: true,
         diagnostics: null,
       };
@@ -188,7 +264,7 @@ describe('useWordChat', () => {
     );
     await waitForPreferences(result);
 
-    let turn: Promise<void> | null = null;
+    let turn: Promise<boolean> | null = null;
     act(() => {
       turn = result.current.sendMessage('Kavárna');
     });
@@ -263,6 +339,7 @@ describe('useWordChat', () => {
       reply: 'Přepínám na češtinu a španělštinu.',
       suggestions: [],
       ready_to_propose: false,
+      content_mode: null,
       language_change: { from: 'cs', to: 'es' },
       metadata_valid: true,
       diagnostics: null,
@@ -350,6 +427,70 @@ describe('useWordChat', () => {
     expect(result.current.salutationGender).toBe('female');
     expect(result.current.languageLevel).toBe('B1');
     expect(result.current.preferencesComplete).toBe(true);
+  });
+
+  it('re-reads the brief when the parked screen is opened again', async () => {
+    // "Add words" stays mounted behind the study stream, so a brief read only on
+    // mount kept describing the state before the last batch was saved — and the
+    // follow-up chip kept offering a topic that was already on the list.
+    mocks.fetchWordChatContext
+      .mockResolvedValueOnce({
+        has_history: true,
+        goals: [],
+        situations: [],
+        covered_topics: [],
+        missing_topics: ['Na úřadě'],
+        personal_list_name: 'Moje slovíčka',
+        address_register: 'casual',
+        salutation_gender: 'neutral',
+        language_level: 'A0',
+        preferences_complete: { global: true, language: true },
+        monthly_used: 0,
+        monthly_limit: 60,
+        is_editor: false,
+        models: null,
+      })
+      .mockResolvedValueOnce({
+        has_history: true,
+        goals: [],
+        situations: [],
+        covered_topics: ['Na úřadě'],
+        missing_topics: [],
+        personal_list_name: 'Moje slovíčka',
+        address_register: 'casual',
+        salutation_gender: 'neutral',
+        language_level: 'A0',
+        preferences_complete: { global: true, language: true },
+        monthly_used: 0,
+        monthly_limit: 60,
+        is_editor: false,
+        models: null,
+      });
+
+    const { result, rerender } = renderHook(
+      ({ active }) =>
+        useWordChat({
+          languageFrom: 'cs',
+          languageTo: 'vi',
+          onCommitted: vi.fn(),
+          active,
+        }),
+      { initialProps: { active: true }, wrapper },
+    );
+
+    await waitFor(() =>
+      expect(result.current.history?.missingTopics).toEqual(['Na úřadě']),
+    );
+
+    // Parked: no call while the learner is somewhere else.
+    rerender({ active: false });
+    expect(mocks.fetchWordChatContext).toHaveBeenCalledTimes(1);
+
+    rerender({ active: true });
+    await waitFor(() =>
+      expect(result.current.history?.coveredTopics).toEqual(['Na úřadě']),
+    );
+    expect(mocks.fetchWordChatContext).toHaveBeenCalledTimes(2);
   });
 
   it('reloads the per-target language level when the active list changes', async () => {
@@ -626,6 +767,7 @@ describe('useWordChat', () => {
           reply: 'Připravím návrh.',
           suggestions: [],
           ready_to_propose: true,
+          content_mode: 'situation',
           metadata_valid: true,
           diagnostics: null,
         };
@@ -655,6 +797,9 @@ describe('useWordChat', () => {
     expect(mocks.sendChatMessageStream.mock.calls[1][0].messages).toEqual([
       { role: 'user', content: 'Kavárna' },
     ]);
+    expect(mocks.requestProposal).toHaveBeenLastCalledWith(
+      expect.objectContaining({ contentMode: 'situation' }),
+    );
     expect(result.current.step).toBe('select');
     expect(result.current.error).toBeNull();
     expect(result.current.canRetry).toBe(false);

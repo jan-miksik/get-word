@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { resolveLanguageVariantLocale } from "@/lib/language-variants";
 
 // Re-exported for server callers that already import from "@/lib/audio". Client
 // components should import it from "@/lib/audio-constants" to avoid pulling in
@@ -77,13 +78,16 @@ export async function googleTTS(
     throw new Error("GOOGLE_TTS_API_KEY environment variable is not set");
   }
 
-  // Map language codes to Google TTS language codes
+  // Map language codes to Google TTS language codes. A regionally split
+  // language resolves through its variant first: bare "en" is the British
+  // entry, so its name-less default voice must be British too, not the
+  // American one Google would hand out for "en-US".
   const langMap: Record<string, string> = {
     vi: "vi-VN",
     cs: "cs-CZ",
-    en: "en-US",
   };
-  const langCode = langMap[language] ?? language;
+  const langCode =
+    resolveLanguageVariantLocale(language) ?? langMap[language] ?? language;
   const requestedVoiceId = voiceId?.trim();
   const requestedVoiceLanguageCode = inferGoogleVoiceLanguageCode(requestedVoiceId);
   const voiceLanguageCode = requestedVoiceLanguageCode ?? langCode;

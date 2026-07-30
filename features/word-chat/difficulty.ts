@@ -19,6 +19,7 @@ export function proposalDifficultyProfile(
 
 type DifficultyCandidate = {
   kind?: unknown;
+  role?: unknown;
   text?: unknown;
 };
 
@@ -54,7 +55,7 @@ export function proposalDifficultyIssue(input: {
   languageFrom: string;
   items: DifficultyCandidate[];
 }): string | null {
-  if (input.level !== "B1" && input.level !== "B2") return null;
+  if (input.level !== "B1" && input.level !== "B2" && input.level !== "C1") return null;
 
   const profile = proposalDifficultyProfile(input.level);
   // Item count on its own is a shape problem, not a difficulty one, and
@@ -75,7 +76,10 @@ export function proposalDifficultyIssue(input: {
   }
 
   const supportItems = input.items.filter(
-    (item) => item.kind !== "sentence" && typeof item.text === "string",
+    (item) =>
+      item.kind !== "sentence" &&
+      item.role !== "category_member" &&
+      typeof item.text === "string",
   );
   const bareSupportCount = supportItems.filter(
     (item) => lexicalTokenCount(item.text as string) <= 1,

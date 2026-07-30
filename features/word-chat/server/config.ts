@@ -54,17 +54,20 @@ export const OPENROUTER_TIMEOUT_MS = 90_000;
  */
 export const CHAT_MAX_TOKENS = 2_000;
 export const CHAT_REASONING = {
-  // Sonnet 5 defaults to adaptive thinking. A conversational turn is a small
-  // structured response, so high effort only increases latency and the chance
-  // that reasoning consumes the output budget before the JSON is complete.
-  effort: "low",
+  // Reasoning is off entirely for the conversational turn. Sonnet 5 defaults to
+  // adaptive thinking, and even at low effort that is dead air in front of a
+  // two-sentence reply the learner is watching stream in — the visible text
+  // cannot start until the thinking block ends. Nothing here needs deliberation:
+  // the turn asks a question or says it is ready. The proposal, which does need
+  // judgement, keeps its budget.
+  enabled: false,
   exclude: true,
 } as const;
 
 /**
- * Enforce the wire shape instead of merely asking for "some JSON". The reply
- * property intentionally comes first because the streaming parser can show it
- * while the model is still producing the metadata fields.
+ * Enforce the wire shape instead of merely asking for "some JSON". Gate
+ * metadata is ordered before the reply, so streaming can validate the turn
+ * before any learner-facing text is released.
  */
 export const CHAT_RESPONSE_FORMAT = {
   type: "json_schema",
@@ -74,12 +77,17 @@ export const CHAT_RESPONSE_FORMAT = {
     schema: {
       type: "object",
       properties: {
-        reply: { type: "string" },
+        readyToPropose: { type: "boolean" },
+        contentMode: {
+          anyOf: [
+            { enum: ["category_inventory", "situation", "mixed"] },
+            { type: "null" },
+          ],
+        },
         suggestions: {
           type: "array",
           items: { type: "string" },
         },
-        readyToPropose: { type: "boolean" },
         languageChange: {
           anyOf: [
             {
@@ -94,8 +102,9 @@ export const CHAT_RESPONSE_FORMAT = {
             { type: "null" },
           ],
         },
+        reply: { type: "string" },
       },
-      required: ["reply", "suggestions", "readyToPropose", "languageChange"],
+      required: ["readyToPropose", "contentMode", "suggestions", "languageChange", "reply"],
       additionalProperties: false,
     },
   },
@@ -210,20 +219,15 @@ export const EXCLUSION_PROMPT_LIMIT = parsePositiveIntEnv(
  * providers set their own retention. Learners type free text here — where they
  * work, who they live with — so zero-data-retention and no training collection
  * are requested at the request level, not merely promised in the privacy policy.
+ *
+ * Every one of these calls is on a screen someone is waiting at, so routing asks
+ * for the endpoint with the best current token throughput instead of
+ * OpenRouter's default price-weighted choice. The models are allowlisted, so
+ * "fastest endpoint" cannot become "some other model".
  */
 export const WORD_CHAT_PROVIDER_PREFERENCES = {
   zdr: true,
   data_collection: "deny",
-} as const;
-
-/**
- * Proposal generation is the only non-streamed call on the onboarding critical
- * path. Keep the same privacy requirements and ask OpenRouter to prefer the
- * endpoint with the best current token throughput instead of its default
- * price-weighted routing.
- */
-export const WORD_CHAT_PROPOSAL_PROVIDER_PREFERENCES = {
-  ...WORD_CHAT_PROVIDER_PREFERENCES,
   sort: "throughput",
 } as const;
 

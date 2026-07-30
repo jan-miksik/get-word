@@ -66,11 +66,47 @@
   width: 100%;
 }
 
+/* Add words, narrow screens only: there the chat is a cream sheet running edge
+   to edge, and a sand bar above it would draw a hard line across its top — so
+   the bar wears the sheet's own colour and the screen reads as one surface from
+   the menu down. The same treatment on a wide screen just paints the menu strip
+   cream around an inset card, so from `sm` up the bar stays sand. Gated on the
+   card's own full-bleed breakpoint (Tailwind `sm`, 640px), not on 767px, so the
+   bar and the sheet change together. For the same reason the gap below the bar
+   and the app's own notch padding go: they would leave sand stripes inside the
+   cream, and the top menu carries its own notch padding anyway. */
+@media (max-width: 639.98px) {
+  .app[data-app-surface='chat'] .app-header-bar {
+    background: #f4efe2;
+  }
+
+  .app[data-app-surface='chat'] {
+    gap: 0;
+    padding-top: 0;
+  }
+}
+
 .auth-row {
   display: flex;
   justify-content: flex-end;
   align-items: center;
   padding: 0 16px 6px;
+}
+
+/* A phone with the on-screen keyboard up has roughly a third of its screen
+   left, and the top menu is not something anyone reaches for mid-sentence.
+   Full-screen writing surfaces set `data-app-keyboard="open"` on <html> while a
+   text field of theirs holds focus (see `useMobileKeyboardOpen`), and the menu
+   hands its rows to the content until the field is left. */
+@media (max-width: 767px) {
+  html[data-app-keyboard='open'] .app {
+    gap: 0;
+    padding-top: 0;
+  }
+
+  html[data-app-keyboard='open'] .app-header-bar {
+    display: none;
+  }
 }
 
 @media (min-width: 768px) {

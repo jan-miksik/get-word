@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n } from '@/components/I18nProvider';
+import { getLanguageVariantTag } from '@/lib/language-variants';
 import {
   getLanguageFlag,
   getLocalizedLanguageName,
@@ -16,9 +17,12 @@ import type { SupportedLearningLanguage } from './types';
 // language, and its own native/origin name (e.g. "Vietnamese" + "Tiếng Việt").
 function resolveNames(language: SupportedLearningLanguage, uiLanguage: string) {
   const code = normalizeLanguageCode(language.code);
-  const localized = getLocalizedLanguageName(code, uiLanguage) ?? language.name;
-  const native = getNativeLanguageName(code);
-  return { code, localized, native };
+  // Regional variants label through `displayCode`, so British and American
+  // English read as two distinct names instead of two identical "English" rows.
+  const labelCode = normalizeLanguageCode(language.displayCode ?? language.code);
+  const localized = getLocalizedLanguageName(labelCode, uiLanguage) ?? language.name;
+  const native = getNativeLanguageName(labelCode);
+  return { code, localized, native, tag: getLanguageVariantTag(language.code) };
 }
 
 function filterLanguages(
@@ -30,8 +34,8 @@ function filterLanguages(
   if (!rawQuery) return languages;
   const foldedQuery = normalizeLanguageSearchText(query);
   return languages.filter((language) => {
-    const { code, localized, native } = resolveNames(language, uiLanguage);
-    const names = [language.name, code, localized, native].filter(
+    const { code, localized, native, tag } = resolveNames(language, uiLanguage);
+    const names = [language.name, code, localized, native, tag].filter(
       (value): value is string => Boolean(value && value.trim()),
     );
     return names.some((name) => {
@@ -96,7 +100,11 @@ export function LanguageCombobox({
   const selectedFlag = hasSelection
     ? selectedLanguage?.flag ?? getLanguageFlag(value) ?? '•'
     : '';
-  const selectedPrimary = selectedNames?.localized ?? value.toUpperCase();
+  // The closed field carries the variant tag too, so a picked "English" says
+  // which English it is without reopening the list.
+  const selectedTag = hasSelection ? getLanguageVariantTag(value) : null;
+  const selectedName = selectedNames?.localized ?? value.toUpperCase();
+  const selectedPrimary = selectedTag ? `${selectedName} · ${selectedTag}` : selectedName;
 
   function selectLanguage(code: string) {
     if (disabledCodeSet.has(normalizeLanguageCode(code))) return;
@@ -200,7 +208,12 @@ export function LanguageCombobox({
               </span>
             ) : null}
           </span>
-          <span className="text-xs uppercase onboarding-text-soft">{language.code}</span>
+          {/* Regional variants label through their locale ("EN-GB", "EN-US"):
+              the stored code for British English is a bare "en", which next to
+              "en-US" reads as plain English versus a regional one. */}
+          <span className="text-xs uppercase onboarding-text-soft">
+            {getLanguageVariantTag(language.code) ?? language.code}
+          </span>
         </button>
       );
     })

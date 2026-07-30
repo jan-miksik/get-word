@@ -1,11 +1,11 @@
 /**
- * What a returning learner is offered as tappable chips before they type.
+ * What a returning learner is offered as a tappable chip before they type.
  *
- * The four starter chips are written for someone who has never used the chat.
- * Showing them again to a learner whose opener literally says "last time we did
- * X" is a wasted prompt: the brief already knows what they said they wanted and
- * which situations they described. Those are far better next steps, so the
- * starter chips become the fallback for when the brief carries nothing usable.
+ * A first visit gets no chips: generic starter situations ("Travel", "At the
+ * office") were guesses that steered the conversation more than they helped it.
+ * A learner whose opener says "last time we did X" is different — the brief
+ * already knows what they said they wanted and which situations they described,
+ * so one chip from it is a concrete next step rather than a guess.
  *
  * Pure and model-free — this runs on every open, from data the context call
  * already returns.
@@ -32,7 +32,12 @@ export type FollowUpChip = {
   kind: 'topic' | 'continue';
 };
 
-export const FOLLOW_UP_CHIP_LIMIT = 4;
+/**
+ * One chip, not a row of them. The intro is meant to read as an invitation to
+ * say what you actually need; a menu of topics turns it into a picker, and the
+ * second-best suggestion is rarely worth that.
+ */
+export const FOLLOW_UP_CHIP_LIMIT = 1;
 
 /**
  * Fold away case and diacritics so "Úřední slovníček" and "urední slovnicek"
@@ -65,8 +70,8 @@ function sameTopic(a: string, b: string): boolean {
  * they still want, then the situations they described, then their goals.
  * Anything already covered is dropped — it is on their list already.
  *
- * Returns an empty array when the brief has nothing to offer; the caller falls
- * back to the starter chips.
+ * Returns an empty array when the brief has nothing to offer; the caller then
+ * shows no chip at all.
  */
 export function buildFollowUpChips(
   source: FollowUpChipSource,

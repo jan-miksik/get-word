@@ -4,23 +4,35 @@ import { buildFollowUpChips } from '../followUpChips';
 const empty = { missingTopics: [], situations: [], goals: [], coveredTopics: [] };
 
 describe('buildFollowUpChips', () => {
-  it('offers nothing when the brief is empty, so the starter chips stay in charge', () => {
+  it('offers nothing when the brief is empty, so the intro stays chip-free', () => {
     expect(buildFollowUpChips(empty)).toEqual([]);
   });
 
   it('puts what the learner asked for but never studied first', () => {
     expect(
-      buildFollowUpChips({
-        ...empty,
-        missingTopics: ['Booking appointments'],
-        situations: ['Salon small talk'],
-        goals: ['Talk to salon clients'],
-      }),
+      buildFollowUpChips(
+        {
+          ...empty,
+          missingTopics: ['Booking appointments'],
+          situations: ['Salon small talk'],
+          goals: ['Talk to salon clients'],
+        },
+        3,
+      ),
     ).toEqual([
       { topic: 'Booking appointments', kind: 'topic' },
       { topic: 'Salon small talk', kind: 'topic' },
       { topic: 'Talk to salon clients', kind: 'topic' },
     ]);
+  });
+
+  it('offers a single chip by default, not a row of topics', () => {
+    expect(
+      buildFollowUpChips({
+        ...empty,
+        missingTopics: ['Booking appointments', 'Doctor visits'],
+      }),
+    ).toEqual([{ topic: 'Booking appointments', kind: 'topic' }]);
   });
 
   it('drops topics already on the list, ignoring case and diacritics', () => {
@@ -53,20 +65,19 @@ describe('buildFollowUpChips', () => {
 
   it('deduplicates the same topic arriving from two brief fields', () => {
     expect(
-      buildFollowUpChips({
-        ...empty,
-        missingTopics: ['Booking appointments'],
-        situations: ['booking appointments'],
-      }),
+      buildFollowUpChips(
+        { ...empty, missingTopics: ['Booking appointments'], situations: ['booking appointments'] },
+        3,
+      ),
     ).toEqual([{ topic: 'Booking appointments', kind: 'topic' }]);
   });
 
-  it('caps the chips so the row still fits a phone', () => {
+  it('honours an explicit cap', () => {
     expect(
-      buildFollowUpChips({
-        ...empty,
-        missingTopics: ['One', 'Two', 'Three', 'Four', 'Five'],
-      }),
+      buildFollowUpChips(
+        { ...empty, missingTopics: ['One', 'Two', 'Three', 'Four', 'Five'] },
+        4,
+      ),
     ).toHaveLength(4);
   });
 

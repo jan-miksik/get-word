@@ -1,12 +1,14 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
+import type { WordList } from '@/features/lists/types';
 import { ChatStep } from './ChatStep';
 import { SelectStep } from './SelectStep';
 import { ReviewStep } from './ReviewStep';
 import { DoneStep } from './DoneStep';
 import { WordChatDebugPanel } from './WordChatDebugPanel';
+import { WordChatSettingsControls } from './WordChatSettingsControls';
 import { useWordChat, type WordChatStep } from '../hooks/useWordChat';
 
 type Props = {
@@ -15,7 +17,6 @@ type Props = {
   baseListId?: string | null;
   refreshAfterCommit?: () => Promise<void>;
   onDone?: () => void;
-  doneActionLabel?: string;
   /**
    * The escape hatch: subscribe to the ready-made list for this pair. Owned by
    * the caller (onboarding already has the matched-list data loaded) and used
@@ -46,9 +47,32 @@ type Props = {
    */
   onHeaderBackActionChange?: (action: (() => void) | null) => void;
   settingsPlacement?: 'inline' | 'screen-header';
+  /**
+   * Controlled open state for the settings modal, owned by the host so it can
+   * outlive the remount a language-pair change forces (the host keys this whole
+   * flow by the pair). Left undefined, the gear keeps its own local state.
+   */
+  settingsOpen?: boolean;
+  onSettingsOpenChange?: (open: boolean) => void;
+  /** An on-screen keyboard is covering the lower part of a phone screen. */
+  keyboardOpen?: boolean;
   active?: boolean;
   embedded?: boolean;
+  /**
+   * Which way the learner comes in. `manual` opens on typing your own words and
+   * keeps the conversation one button away; `chat` (the onboarding route) opens
+   * on the conversation.
+   */
+  entryStep?: 'chat' | 'manual';
 };
+
+/**
+ * How long the handoff screen stays up once everything is saved and the study
+ * stream has been refreshed. Committing can finish in a blink, and a success
+ * screen that flashes past reads as a glitch rather than as a confirmation —
+ * this is the beat that lets the learner see what they just added.
+ */
+const HANDOFF_MIN_MS = 1100;
 
 export function WordChatFlow({
   languageFrom,
@@ -56,17 +80,21 @@ export function WordChatFlow({
   baseListId,
   refreshAfterCommit,
   onDone,
-  doneActionLabel,
   onUseReadyMade,
   onLanguagePairChange,
   onCommitted,
   onStepChange,
   onHeaderBackActionChange,
   settingsPlacement,
+  settingsOpen,
+  onSettingsOpenChange,
+  keyboardOpen = false,
   active = true,
   embedded = false,
+  entryStep = 'chat',
 }: Props) {
   const { t } = useI18n();
+  const [handoffSettled, setHandoffSettled] = useState(false);
   const chat = useWordChat({
     languageFrom,
     languageTo,
@@ -74,6 +102,8 @@ export function WordChatFlow({
     onLanguagePairChange,
     onCommitted,
     refreshAfterCommit,
+    active,
+    entryStep,
   });
   const resetChat = chat.reset;
 
@@ -81,23 +111,50 @@ export function WordChatFlow({
     onStepChange?.(chat.step);
   }, [chat.step, onStepChange]);
 
+  // Back moves one step inside the flow — but only where there is a step to move
+  // to. Entering on manual entry means nothing is behind it until the learner
+  // has actually opened the chat, so the host keeps its own close action.
   useEffect(() => {
     const action =
       chat.step === 'select'
-        ? chat.backToChat
+        ? chat.canReturnToChat
+          ? chat.openChat
+          : null
         : chat.step === 'review'
           ? chat.backToSelect
           : null;
     onHeaderBackActionChange?.(action);
     return () => onHeaderBackActionChange?.(null);
-  }, [chat.backToChat, chat.backToSelect, chat.step, onHeaderBackActionChange]);
+  }, [
+    chat.backToSelect,
+    chat.canReturnToChat,
+    chat.openChat,
+    chat.step,
+    onHeaderBackActionChange,
+  ]);
+
+  // Adjusted during render (React's documented pattern for deriving state from
+  // a changed input) so leaving the completion step cannot leave a settled
+  // handoff armed for the next one.
+  const [settledStep, setSettledStep] = useState(chat.step);
+  if (settledStep !== chat.step) {
+    setSettledStep(chat.step);
+    if (handoffSettled) setHandoffSettled(false);
+  }
 
   useEffect(() => {
-    if (chat.step !== 'done' || chat.refreshStatus !== 'success' || !onDone) return;
+    if (chat.step !== 'done') return;
+    const timer = window.setTimeout(() => setHandoffSettled(true), HANDOFF_MIN_MS);
+    return () => window.clearTimeout(timer);
+  }, [chat.step]);
+
+  useEffect(() => {
+    if (chat.step !== 'done' || chat.refreshStatus !== 'success' || !handoffSettled) return;
+    if (!onDone) return;
 
     resetChat();
     onDone();
-  }, [chat.refreshStatus, chat.step, onDone, resetChat]);
+  }, [chat.refreshStatus, chat.step, handoffSettled, onDone, resetChat]);
 
   const completeDoneStep = () => {
     resetChat();
@@ -151,8 +208,68 @@ export function WordChatFlow({
     );
   }
 
+  // The embedded chat is a fixed-height screen (see `ChatStep`), so every box
+  // between the surface and the composer has to pass the height down. The other
+  // steps are ordinary documents that grow and let the surface scroll them.
+  const fillsHeight = embedded && chat.step === 'chat';
+  // Nothing to pick from means there is nothing to select: the step is the
+  // learner typing their own words, whether they arrived here directly or came
+  // back from a conversation that produced nothing.
+  const manualMode = chat.step === 'select' && chat.proposals.length === 0;
+
+  // A personal list that already exists can be shared from the header. Built
+  // from the study pair and the list's saved name/visibility — enough for the
+  // share dialog, which fetches its own link and manages visibility by id.
+  const shareList: WordList | null = chat.existingList
+    ? {
+        id: chat.existingList.id,
+        ownerId: null,
+        name: chat.listName,
+        description: null,
+        languageFrom,
+        languageTo,
+        isPublic: chat.existingList.isPublic,
+        isOwner: true,
+      }
+    : null;
+
   return (
-    <div className="space-y-4">
+    <div className={fillsHeight ? 'flex min-h-0 flex-1 flex-col gap-4' : 'space-y-4'}>
+      {/* The chat carries its own gear; the select step needs the same one in
+          the same place, for both entry modes — the list and category names now
+          live behind it, alongside the settings that decide how these words get
+          translated. */}
+      {chat.step === 'select' ? (
+        <WordChatSettingsControls
+          languageFrom={languageFrom}
+          languageTo={languageTo}
+          listName={chat.listName}
+          categoryName={chat.categoryName}
+          onListNameChange={chat.setListName}
+          onCategoryNameChange={chat.setCategoryName}
+          // Who sees the list lives here and nowhere else — the select step used
+          // to ask it inline, which put a question about the list in the middle
+          // of adding words to it. Offered while there is no list yet; an
+          // existing one changes visibility through the share dialog.
+          isPublic={chat.askVisibility ? chat.isPublic : undefined}
+          onVisibilityChange={chat.askVisibility ? chat.setIsPublic : undefined}
+          shareList={shareList}
+          onShareListUpdated={chat.updateExistingList}
+          addressRegister={chat.addressRegister}
+          salutationGender={chat.salutationGender}
+          languageLevel={chat.languageLevel}
+          addressRegisterApplies={chat.addressRegisterApplies}
+          salutationGenderApplies={chat.salutationGenderApplies}
+          saving={chat.preferencesSaving}
+          onChange={chat.savePreferences}
+          onLanguagePairChange={chat.changeLanguagePair}
+          placement={settingsPlacement}
+          active={active}
+          open={settingsOpen}
+          onOpenChange={onSettingsOpenChange}
+        />
+      ) : null}
+
       {/* Editors get a live view of model, spend and prompts. Nobody else is
           even told the panel exists — the server withholds the diagnostics. */}
       {chat.isEditor ? (
@@ -197,11 +314,16 @@ export function WordChatFlow({
           salutationGenderApplies={chat.salutationGenderApplies}
           onPreferencesChange={chat.savePreferences}
           onLanguagePairChange={chat.changeLanguagePair}
+          shareList={shareList}
+          onShareListUpdated={chat.updateExistingList}
           settingsPlacement={settingsPlacement}
           busy={chat.busy === 'chat' || chat.busy === 'propose' ? chat.busy : null}
           history={chat.history}
           onSend={chat.sendMessage}
           onStartManualEntry={chat.startManualEntry}
+          settingsOpen={settingsOpen}
+          onSettingsOpenChange={onSettingsOpenChange}
+          keyboardOpen={keyboardOpen}
           active={active}
           embedded={embedded}
         />
@@ -209,10 +331,8 @@ export function WordChatFlow({
 
       {chat.step === 'select' ? (
         <SelectStep
-          mode={chat.proposals.length === 0 ? 'manual' : 'suggestions'}
-          languageFrom={languageFrom}
+          mode={manualMode ? 'manual' : 'suggestions'}
           listName={chat.listName}
-          onListNameChange={chat.setListName}
           proposals={chat.proposals}
           isSelected={chat.isSelected}
           onToggle={chat.toggleSelected}
@@ -222,11 +342,6 @@ export function WordChatFlow({
           customItems={chat.customItems}
           onAddCustom={chat.addCustomItem}
           onRemoveCustom={chat.removeCustomItem}
-          categoryName={chat.categoryName}
-          onCategoryNameChange={chat.setCategoryName}
-          askVisibility={chat.askVisibility}
-          isPublic={chat.isPublic}
-          onVisibilityChange={chat.setIsPublic}
           limits={chat.limits}
           selectedCount={chat.selectedCount}
           overSoftLimit={chat.overSoftLimit}
@@ -235,7 +350,9 @@ export function WordChatFlow({
           overMonthlyLimit={chat.overMonthlyLimit}
           atSelectionLimit={chat.atSelectionLimit}
           busy={chat.busy === 'translate'}
-          onBack={chat.backToChat}
+          keyboardOpen={keyboardOpen}
+          onBack={chat.canReturnToChat ? chat.openChat : undefined}
+          onStartChat={manualMode ? chat.openChat : undefined}
           onContinue={chat.continueToReview}
         />
       ) : null}
@@ -261,9 +378,11 @@ export function WordChatFlow({
         <DoneStep
           result={chat.commitResult}
           refreshStatus={chat.refreshStatus}
+          // The button only matters when the automatic handoff cannot happen —
+          // while the refresh is still running, or after it failed.
+          handingOff={chat.refreshStatus !== 'error' && onDone !== undefined}
           onRetryRefresh={chat.retryRefresh}
           onDone={onDone ? completeDoneStep : undefined}
-          doneLabel={doneActionLabel}
         />
       ) : null}
     </div>

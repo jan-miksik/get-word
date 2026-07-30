@@ -379,6 +379,13 @@
       "when": 1785373200000,
       "tag": "0053_admin_device_profile",
       "breakpoints": true
+    },
+    {
+      "idx": 54,
+      "version": "7",
+      "when": 1785459600000,
+      "tag": "0054_word_chat_level_c1",
+      "breakpoints": true
     }
   ]
 }

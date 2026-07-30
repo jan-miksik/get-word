@@ -79,6 +79,23 @@ export function WordChatIcon(props: IconProps) {
   );
 }
 
+/** A friendly bot head — the AI that proposes words, distinct from the plain
+    speech bubble WordChatIcon uses for the conversation itself. */
+export function RobotIcon(props: IconProps) {
+  return (
+    <Glyph {...props} strokeWidth={props.strokeWidth ?? 1.8}>
+      <rect x="4.5" y="8.5" width="15" height="10.5" rx="2.75" />
+      <path d="M12 5.25V8.5" />
+      <circle cx="12" cy="4.25" r="1.15" />
+      <path d="M2.75 12.25v3" />
+      <path d="M21.25 12.25v3" />
+      <circle cx="9.25" cy="13.25" r="1.1" />
+      <circle cx="14.75" cy="13.25" r="1.1" />
+      <path d="M9.5 16.25h5" />
+    </Glyph>
+  );
+}
+
 /** A deck of word cards — the study flow itself, next to the two ways words
     get *into* it (chat, photo). Deliberately a stack rather than the single
     sheet WordListsIcon uses, so "where I learn" reads apart from "my lists". */
@@ -160,11 +177,34 @@ export function SettingsIcon(props: IconProps) {
   );
 }
 
+/** Three linked nodes — the standard "share" graph, matching the icon the
+    list rows use to open the same share-and-visibility dialog. */
+export function ShareIcon(props: IconProps) {
+  return (
+    <Glyph {...props} strokeWidth={props.strokeWidth ?? 1.8}>
+      <circle cx="17.5" cy="6" r="2.6" />
+      <circle cx="6.5" cy="12" r="2.6" />
+      <circle cx="17.5" cy="18" r="2.6" />
+      <path d="M15.2 7.3 8.8 10.7" />
+      <path d="M8.8 13.3 15.2 16.7" />
+    </Glyph>
+  );
+}
+
 export function PencilIcon(props: IconProps) {
   return (
     <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
       <path d="M4 20h4.5L19.25 9.25a2.12 2.12 0 0 0 0-3L17.75 4.75a2.12 2.12 0 0 0-3 0L4 15.5V20Z" />
       <path d="m13.5 6 4.5 4.5" />
+    </Glyph>
+  );
+}
+
+export function ArrowUpIcon(props: IconProps) {
+  return (
+    <Glyph {...props} strokeWidth={props.strokeWidth ?? 2.4}>
+      <path d="M12 19V5.75" />
+      <path d="m6.25 11.5 5.75-5.75 5.75 5.75" />
     </Glyph>
   );
 }

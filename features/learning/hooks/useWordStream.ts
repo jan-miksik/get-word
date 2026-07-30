@@ -11,9 +11,10 @@ import {
 
 export interface WordStream {
   /**
-   * Words from the learner's own pinned categories, served before everything
-   * else — including due repeats. See `createPriorityPredicate` in lib/words.ts
-   * for why, and for the one place to change it.
+   * Words from the learner's own personal lists or pinned categories, served
+   * before everything else — including due repeats. See
+   * `createPriorityPredicate` in lib/words.ts for why, and for the one place
+   * to change it.
    */
   priorityWords: NormalizedWord[];
   /**
@@ -30,6 +31,7 @@ export interface WordStream {
 
 const DEFAULT_CATEGORY_ORDER: string[] = [];
 const DEFAULT_PINNED_CATEGORY_IDS: string[] = [];
+const DEFAULT_OWNED_PERSONAL_LIST_IDS = new Set<string>();
 
 /**
  * Buckets filtered words into priority / due / new / settling streams.
@@ -42,9 +44,11 @@ export function useWordStream(
   categoryOrder: string[] = DEFAULT_CATEGORY_ORDER,
   dueTimerRevision = 0,
   pinnedCategoryIds: string[] = DEFAULT_PINNED_CATEGORY_IDS,
+  ownedPersonalListIds: ReadonlySet<string> = DEFAULT_OWNED_PERSONAL_LIST_IDS,
 ): WordStream {
   // Key by value so a fresh array identity per render doesn't rebucket.
   const pinnedKey = pinnedCategoryIds.join(',');
+  const ownedPersonalListIdsKey = Array.from(ownedPersonalListIds).sort().join(',');
 
   return useMemo(() => {
     // The revision intentionally invalidates this time-sensitive bucketing even
@@ -65,7 +69,10 @@ export function useWordStream(
     const compareStable = (a: NormalizedWord, b: NormalizedWord) =>
       compareByCategoryOrder(a, b) || (originalIndex.get(a.id) ?? 0) - (originalIndex.get(b.id) ?? 0);
     const orderedWords = [...filteredWords].sort(compareStable);
-    const isPriority = createPriorityPredicate(pinnedKey ? pinnedKey.split(',') : []);
+    const isPriority = createPriorityPredicate(
+      pinnedKey ? pinnedKey.split(',') : [],
+      new Set(ownedPersonalListIdsKey ? ownedPersonalListIdsKey.split(',') : []),
+    );
     const priorityDue: NormalizedWord[] = [];
     const priorityNew: NormalizedWord[] = [];
     const due: NormalizedWord[] = [];
@@ -105,5 +112,13 @@ export function useWordStream(
       newWords,
       settlingWords: settling,
     };
-  }, [filteredWords, progress, isHydrated, categoryOrder, dueTimerRevision, pinnedKey]);
+  }, [
+    filteredWords,
+    progress,
+    isHydrated,
+    categoryOrder,
+    dueTimerRevision,
+    pinnedKey,
+    ownedPersonalListIdsKey,
+  ]);
 }

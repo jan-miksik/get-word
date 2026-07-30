@@ -31,18 +31,22 @@ import {
   GOOGLE_TRANSLATE_LANGUAGES,
   normalizeLanguageCode,
 } from "@/lib/i18n/languages";
+import { LEARNING_LANGUAGE_VARIANTS } from "@/lib/language-variants";
+import { isWordChatContentMode } from "../types";
 import type {
   ChatTurnResult,
   WordChatAddressRegister,
+  WordChatContentMode,
   WordChatLanguageLevel,
   WordChatMessage,
   WordChatSalutationGender,
 } from "../types";
 import { readAddressRegister, readLanguageLevel, readSalutationGender } from "../preferences";
+import { toPlainItemText } from "../plainItemText";
 
 const SUPPORTED_LANGUAGE_CODES = new Set(
-  [...COMMON_LANGUAGES, ...GOOGLE_TRANSLATE_LANGUAGES].map((language) =>
-    normalizeLanguageCode(language.code),
+  [...COMMON_LANGUAGES, ...GOOGLE_TRANSLATE_LANGUAGES, ...LEARNING_LANGUAGE_VARIANTS].map(
+    (language) => normalizeLanguageCode(language.code),
   ),
 );
 const LANGUAGE_CODE_RE = /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/i;
@@ -109,25 +113,72 @@ export function sanitizeLanguageLevel(input: unknown): WordChatLanguageLevel {
   return readLanguageLevel(input) ?? "A0";
 }
 
-function parseChatTurn(content: string): ChatTurnResult {
+type ChatTurnMetadata = Omit<ChatTurnResult, "reply">;
+
+/**
+ * Validate the fields that decide whether the chat can advance before exposing
+ * its visible reply. A plausible sentence paired with incompatible metadata is
+ * a malformed model result, not a harmless no-op: otherwise the learner sees a
+ * promise to prepare a list and then nothing happens.
+ */
+function parseChatTurnMetadata(
+  parsed: Record<string, unknown> | null,
+  options: { requireProposal: boolean },
+): ChatTurnMetadata {
+  if (!parsed || typeof parsed.readyToPropose !== "boolean") {
+    throw new OpenRouterChatError("Word chat returned invalid ready metadata.", true);
+  }
+  if (!Array.isArray(parsed.suggestions) || !parsed.suggestions.every((entry) => typeof entry === "string")) {
+    throw new OpenRouterChatError("Word chat returned invalid suggestion metadata.", true);
+  }
+
+  const readyToPropose = parsed.readyToPropose;
+  const contentMode = isWordChatContentMode(parsed.contentMode) ? parsed.contentMode : null;
+  const rawContentModeIsNull = parsed.contentMode === null;
+  const languageChange = parseLanguageChange(parsed.languageChange);
+  const suggestions = parsed.suggestions.map((entry) => toPlainItemText(entry)).filter(Boolean).slice(0, 3);
+
+  if (readyToPropose) {
+    if (!contentMode || parsed.suggestions.length > 0 || parsed.languageChange !== null) {
+      throw new OpenRouterChatError("Word chat returned inconsistent final-turn metadata.", true);
+    }
+  } else if (!rawContentModeIsNull) {
+    throw new OpenRouterChatError("Word chat returned a content mode before the proposal was ready.", true);
+  }
+
+  if (options.requireProposal && !readyToPropose && !languageChange) {
+    throw new OpenRouterChatError("Word chat did not finalize after its follow-up question.", true);
+  }
+
+  return { suggestions, readyToPropose, contentMode, languageChange };
+}
+
+function parseChatTurn(
+  content: string,
+  options: { requireProposal: boolean },
+): ChatTurnResult {
   const parsed = parseJsonLoose(content) as Record<string, unknown> | null;
   const reply = typeof parsed?.reply === "string" ? parsed.reply.trim() : "";
   if (!reply) {
     throw new OpenRouterChatError("Word chat returned no reply.", true);
   }
-  const suggestions = Array.isArray(parsed?.suggestions)
-    ? parsed.suggestions
-        .filter((entry): entry is string => typeof entry === "string")
-        .map((entry) => entry.trim())
-        .filter(Boolean)
-        .slice(0, 3)
-    : [];
-  return {
-    reply,
-    suggestions,
-    readyToPropose: parsed?.readyToPropose === true,
-    languageChange: parseLanguageChange(parsed?.languageChange),
-  };
+  return { reply, ...parseChatTurnMetadata(parsed, options) };
+}
+
+/**
+ * The chat is allowed one follow-up question, and the prompt says so — but a
+ * model that keeps interviewing costs the learner turns they never asked for.
+ * By the time a second learner message is in the transcript, the answer to that
+ * one question is in, so the next step is the proposal whatever the model
+ * decided. Proposed items are reviewed and removed one screen later, so an
+ * early proposal is recoverable; another question is not.
+ *
+ * A turn that changes the study language is exempt: it is a settings change,
+ * not an answer, and proposing on it would generate words for the pair the
+ * learner just left.
+ */
+function shouldForceProposal(messages: WordChatMessage[]): boolean {
+  return messages.filter((message) => message.role === "user").length >= 2;
 }
 
 export type WordChatStreamEvent =
@@ -137,6 +188,7 @@ export type WordChatStreamEvent =
       reply: string;
       suggestions: string[];
       readyToPropose: boolean;
+      contentMode: WordChatContentMode | null;
       languageChange: ChatTurnResult["languageChange"];
       metadataValid: boolean;
       diagnostics: WordChatCallDiagnostics;
@@ -213,7 +265,7 @@ export async function runChatTurn(input: {
       provider: { ...WORD_CHAT_PROVIDER_PREFERENCES },
       messages,
     },
-    parseChatTurn,
+    (content) => parseChatTurn(content, { requireProposal: shouldForceProposal(input.messages) }),
   );
 
   await recordWordChatUsage({
@@ -305,10 +357,12 @@ export async function streamChatTurn(input: {
           for await (const event of upstream) {
             if (event.type === "delta") {
               fullContent += event.text;
-              for (const text of parser.feed(event.text)) {
-                emittedVisibleReply = true;
-                yield { type: "delta", text };
-              }
+              // Keep parsing the reply while it arrives, but do not expose it
+              // until the complete JSON result passes its cross-field checks.
+              // Providers do not guarantee object-property order, so validating
+              // a metadata prefix before `reply` made otherwise valid replies
+              // disappear whenever they emitted `reply` first.
+              parser.feed(event.text);
               continue;
             }
             meta = event.meta;
@@ -331,16 +385,26 @@ export async function streamChatTurn(input: {
           }
 
           let value: ChatTurnResult;
-          try {
-            value = parseChatTurn(fullContent);
-          } catch {
-            metadataValid = false;
-            value = {
-              reply: fallbackReply ?? parser.completeReply.trim(),
-              suggestions: [],
-              readyToPropose: false,
-              languageChange: null,
-            };
+          if (metadataValid) {
+            // A complete but inconsistent result is retryable and must never
+            // materialize as a visible reply.
+            value = parseChatTurn(fullContent, {
+              requireProposal: shouldForceProposal(input.messages),
+            });
+          } else {
+            try {
+              value = parseChatTurn(fullContent, {
+                requireProposal: shouldForceProposal(input.messages),
+              });
+            } catch {
+              value = {
+                reply: fallbackReply ?? parser.completeReply.trim(),
+                suggestions: [],
+                readyToPropose: false,
+                contentMode: null,
+                languageChange: null,
+              };
+            }
           }
 
           if (!value.reply.trim()) {
@@ -372,11 +436,18 @@ export async function streamChatTurn(input: {
             meta,
           });
 
+          // The transport remains an NDJSON stream, but this first visible
+          // event only follows a valid complete result. It avoids a stuck empty
+          // assistant bubble while preserving the metadata safety boundary.
+          emittedVisibleReply = true;
+          yield { type: "delta", text: value.reply };
+
           yield {
             type: "done",
             reply: value.reply,
             suggestions: value.suggestions,
             readyToPropose: value.readyToPropose,
+            contentMode: value.contentMode,
             languageChange: value.languageChange,
             metadataValid,
             diagnostics,
@@ -414,6 +485,7 @@ export async function streamChatTurn(input: {
                 reply: partialReply,
                 suggestions: [],
                 readyToPropose: false,
+                contentMode: null,
                 languageChange: null,
                 metadataValid: false,
                 diagnostics,

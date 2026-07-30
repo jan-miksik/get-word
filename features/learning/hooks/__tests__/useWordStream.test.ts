@@ -56,6 +56,29 @@ describe('useWordStream priority bucketing', () => {
     expect(result.current.newWords).toEqual([]);
   });
 
+  it('pulls own personal-list words ahead of due dictionary repeats without a pinned category', () => {
+    const personal = { ...own, listId: 'personal-list', categoryId: 'cat-unpinned' };
+    const dictionary = { ...other, listId: 'dictionary-list' };
+    const progress = progressFor({
+      'other-2': { stageIndex: 2, nextDueAt: Date.now() - HOUR },
+    });
+
+    const { result } = renderHook(() =>
+      useWordStream(
+        [personal, dictionary],
+        progress,
+        true,
+        [],
+        0,
+        [],
+        new Set(['personal-list']),
+      ),
+    );
+
+    expect(result.current.priorityWords.map((word) => word.id)).toEqual(['own-0']);
+    expect(result.current.dueWords.map((word) => word.id)).toEqual(['other-2']);
+  });
+
   it('serves a due pinned word before an unseen pinned word', () => {
     const progress = progressFor({
       'own-0': { stageIndex: 2, nextDueAt: Date.now() - HOUR },

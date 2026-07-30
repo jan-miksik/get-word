@@ -326,7 +326,7 @@ export const userLanguagePreferences = pgTable(
     ),
     check(
       "user_language_preferences_language_level_check",
-      sql`${table.languageLevel} in ('A0', 'A1', 'A2', 'B1', 'B2')`,
+      sql`${table.languageLevel} in ('A0', 'A1', 'A2', 'B1', 'B2', 'C1')`,
     ),
   ],
 );

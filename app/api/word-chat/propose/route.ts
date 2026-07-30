@@ -21,6 +21,7 @@ import {
 } from "@/features/word-chat/server/config";
 import { serializeDiagnostics } from "@/features/word-chat/server/diagnostics";
 import { readLanguageLevel } from "@/features/word-chat/preferences";
+import { isWordChatContentMode } from "@/features/word-chat/types";
 import { wordChatErrorResponse } from "../errors";
 
 export const runtime = "nodejs";
@@ -53,6 +54,9 @@ export async function POST(request: NextRequest) {
   if (messages.length === 0) {
     return NextResponse.json({ error: "messages is required" }, { status: 400 });
   }
+  if (!isWordChatContentMode(body.content_mode)) {
+    return NextResponse.json({ error: "content_mode is required" }, { status: 400 });
+  }
 
   const role = user.userRole === "editor" ? "editor" : "user";
   const canDebug = canSeeWordChatDiagnostics(role);
@@ -81,6 +85,7 @@ export async function POST(request: NextRequest) {
         languageTo,
         chatLanguage: normalizeLanguageCode(body.chat_language) || languageFrom,
         languageLevel: readLanguageLevel(body.language_level) ?? "A0",
+        contentMode: body.content_mode,
         brief,
         messages,
         baseListId:

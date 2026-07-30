@@ -11,6 +11,7 @@ import {
   GOOGLE_TRANSLATE_LANGUAGES,
   normalizeLanguageCode,
 } from "@/lib/i18n/languages";
+import { LEARNING_LANGUAGE_VARIANTS } from "@/lib/language-variants";
 import { normalizeListLanguageCode } from "@/lib/db/queries/word-list-items/lists";
 import type { WordChatLanguageLevel } from "../types";
 import { readLanguageLevel } from "../preferences";
@@ -18,8 +19,8 @@ import { readLanguageLevel } from "../preferences";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 const LANGUAGE_CODE_RE = /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/i;
 const SUPPORTED_LANGUAGE_CODES = new Set(
-  [...COMMON_LANGUAGES, ...GOOGLE_TRANSLATE_LANGUAGES].map((language) =>
-    normalizeLanguageCode(language.code),
+  [...COMMON_LANGUAGES, ...GOOGLE_TRANSLATE_LANGUAGES, ...LEARNING_LANGUAGE_VARIANTS].map(
+    (language) => normalizeLanguageCode(language.code),
   ),
 );
 

@@ -15,6 +15,7 @@ import {
   buildOpenRouterTranslationPrompt,
   TRANSLATION_SYSTEM_PROMPT,
 } from "@/lib/translation-prompt";
+import { toBaseLanguageForTranslationApi } from "@/lib/language-variants";
 import {
   validateTranslation,
   type TranslationValidationWarning,
@@ -55,6 +56,12 @@ export async function googleTranslate(
   const results: TranslationResult[] = [];
   const BATCH_SIZE = 128;
 
+  // Google Translate v2 knows no regional English: "en-US" is a 400. Its own
+  // regional targets ("zh-CN", "pt-BR") are left untouched. The variant is not
+  // lost — it is enforced by the LLM path, which is where lists are written.
+  const source = toBaseLanguageForTranslationApi(fromLang);
+  const target = toBaseLanguageForTranslationApi(toLang);
+
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
     const batch = texts.slice(i, i + BATCH_SIZE);
     try {
@@ -65,8 +72,8 @@ export async function googleTranslate(
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             q: batch,
-            source: fromLang,
-            target: toLang,
+            source,
+            target,
             format: "text",
           }),
         },

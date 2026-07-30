@@ -97,6 +97,9 @@ export function LearningLanguageOnboarding({
   const [wordChatChangedPair, setWordChatChangedPair] =
     useState<{ from: string; to: string } | null>(null);
   const [wordChatBackAction, setWordChatBackAction] = useState<(() => void) | null>(null);
+  // Above the keyed WordChatFlow, so the settings modal survives the remount a
+  // language-pair change forces.
+  const [wordChatSettingsOpen, setWordChatSettingsOpen] = useState(false);
   const updateWordChatBackAction = useCallback((action: (() => void) | null) => {
     setWordChatBackAction(() => action);
   }, []);
@@ -304,6 +307,8 @@ export function LearningLanguageOnboarding({
               onStepChange={setWordChatStep}
               onHeaderBackActionChange={updateWordChatBackAction}
               settingsPlacement="screen-header"
+              settingsOpen={wordChatSettingsOpen}
+              onSettingsOpenChange={setWordChatSettingsOpen}
               onUseReadyMade={() => {
                 setWordChatOpen(false);
                 startReadyMadeList();

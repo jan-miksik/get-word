@@ -38,7 +38,11 @@ describe('ReviewStep', () => {
       </I18nProvider>,
     );
 
-    expect(screen.getByText(/deepseek\/deepseek-v4-flash/)).toHaveTextContent('$0.000018');
+    // Which model wrote the translations, and nothing about what it cost.
+    expect(screen.getByText(/deepseek\/deepseek-v4-flash/)).toHaveTextContent(
+      'Test translation: deepseek/deepseek-v4-flash',
+    );
+    expect(screen.queryByText(/\$0\./)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Regenerate audio/i })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Remove' }));
@@ -216,6 +220,51 @@ describe('ReviewStep', () => {
     );
 
     vi.unstubAllGlobals();
+  });
+
+  it('wraps a long row instead of scrolling its tail out of sight', () => {
+    const onUpdate = vi.fn();
+    const longSentence =
+      'Dobrý den, chtěl bych se zeptat, jestli byste mi mohl doporučit něco k jídlu.';
+    render(
+      <I18nProvider language="en">
+        <ReviewStep
+          listName="My words"
+          categoryName="Restaurant"
+          items={[
+            {
+              kind: 'sentence',
+              textKnown: longSentence,
+              textTarget: `${longSentence} (target)`,
+              audioStatus: 'idle',
+              audioAssetId: null,
+            },
+          ]}
+          warningsByKnown={{}}
+          translationDiagnostics={null}
+          isPublic={false}
+          busy={false}
+          onUpdate={onUpdate}
+          onRemove={vi.fn()}
+          onEnsureAudio={vi.fn()}
+          onBack={vi.fn()}
+          onSave={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    const field = screen.getByDisplayValue(longSentence);
+    // A textarea, so the row grows to fit the sentence being confirmed.
+    expect(field.tagName).toBe('TEXTAREA');
+    expect(field).toHaveClass('resize-none');
+
+    // Still a one-line field in spirit: Enter leaves it rather than adding a
+    // newline the saved item would carry.
+    fireEvent.keyDown(field, { key: 'Enter' });
+    expect(onUpdate).not.toHaveBeenCalled();
+
+    fireEvent.change(field, { target: { value: 'kratší věta' } });
+    expect(onUpdate).toHaveBeenCalledWith(0, { textKnown: 'kratší věta' });
   });
 
   it('does not show the old privacy gate in review', () => {

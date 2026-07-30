@@ -6,6 +6,13 @@ export type SupportedLanguage = {
   name: string;
   flag?: string;
   source?: "common" | "google";
+  /**
+   * Code used only to LABEL this language, when the stored code is ambiguous on
+   * its own. `en` means British English here, so it is labelled through
+   * "en-GB" — otherwise Intl renders both English variants as plain "English".
+   * Never use it as the language's identity; that stays `code`.
+   */
+  displayCode?: string;
 };
 
 export const DEFAULT_SETTINGS_LANGUAGE = "en";
