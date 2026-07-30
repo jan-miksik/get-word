@@ -22,6 +22,7 @@ import {
 import { serializeDiagnostics } from "@/features/word-chat/server/diagnostics";
 import { readLanguageLevel } from "@/features/word-chat/preferences";
 import { isWordChatContentMode } from "@/features/word-chat/types";
+import { assertWordChatSpendAvailable } from "@/features/word-chat/server/usage";
 import { wordChatErrorResponse } from "../errors";
 
 export const runtime = "nodejs";
@@ -64,6 +65,7 @@ export async function POST(request: NextRequest) {
   try {
     // A proposal is a model call like any other; it comes out of the same turn
     // allowance so "press suggest repeatedly" is not an unmetered loop.
+    await assertWordChatSpendAvailable(user.id);
     await reserveChatTurn({ userId: user.id, sessionId, role });
 
     const briefPromise = loadLearnerBrief({ userId: user.id, languageFrom, languageTo });

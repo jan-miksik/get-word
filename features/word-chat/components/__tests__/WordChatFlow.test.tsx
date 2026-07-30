@@ -1,5 +1,5 @@
-import { act, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { fireEvent, render, screen } from '@testing-library/react';
+import { describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '@/components/I18nProvider';
 import { useWordChat } from '../../hooks/useWordChat';
 import { WordChatFlow } from '../WordChatFlow';
@@ -53,24 +53,26 @@ function renderFlow(onDone: () => void) {
 }
 
 describe('WordChatFlow completion', () => {
-  beforeEach(() => {
-    vi.useFakeTimers();
-  });
-
-  afterEach(() => {
-    vi.useRealTimers();
-  });
-
-  it('resets the mounted flow and returns to study after the snapshot refresh succeeds', async () => {
+  it('keeps the saved receipt visible until the learner returns to study', () => {
     const reset = vi.fn();
     const onDone = vi.fn();
     mockedUseWordChat.mockReturnValue(doneChat('success', reset));
 
     renderFlow(onDone);
 
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(2000);
-    });
+    expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Zpět ke studiu' })).toBeEnabled();
+    expect(reset).not.toHaveBeenCalled();
+    expect(onDone).not.toHaveBeenCalled();
+  });
+
+  it('resets the mounted flow and returns to study after explicit confirmation', () => {
+    const reset = vi.fn();
+    const onDone = vi.fn();
+    mockedUseWordChat.mockReturnValue(doneChat('success', reset));
+
+    renderFlow(onDone);
+    fireEvent.click(screen.getByRole('button', { name: 'Zpět ke studiu' }));
 
     expect(reset).toHaveBeenCalledOnce();
     expect(onDone).toHaveBeenCalledOnce();
@@ -79,32 +81,12 @@ describe('WordChatFlow completion', () => {
     );
   });
 
-  it('shows the saved words for a beat before handing over to study', async () => {
-    const reset = vi.fn();
-    const onDone = vi.fn();
-    mockedUseWordChat.mockReturnValue(doneChat('success', reset));
-
-    renderFlow(onDone);
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(300);
-    });
-
-    expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument();
-    expect(screen.getByRole('progressbar')).toBeInTheDocument();
-    expect(onDone).not.toHaveBeenCalled();
-  });
-
-  it('stays on the completion step when refreshing the study stream fails', async () => {
+  it('stays on the completion step when refreshing the study stream fails', () => {
     const reset = vi.fn();
     const onDone = vi.fn();
     mockedUseWordChat.mockReturnValue(doneChat('error', reset));
 
     renderFlow(onDone);
-
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(2000);
-    });
 
     expect(reset).not.toHaveBeenCalled();
     expect(onDone).not.toHaveBeenCalled();

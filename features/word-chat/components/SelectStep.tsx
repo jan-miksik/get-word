@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { PencilIcon, RobotIcon } from '@/components/icons/AppIcons';
+import { MAX_WORD_CHAT_ITEM_CHARS } from '../limits';
 import type { ProposedItem } from '../types';
 import type { WordChatLimits } from '../hooks/useWordChat';
 
@@ -41,6 +42,10 @@ type Props = {
 
 function getProposalKey(item: ProposedItem) {
   return item.source === 'corpus' ? `corpus:${item.corpusItemId}` : `gen:${item.draftId ?? item.text}`;
+}
+
+function normalizeCustomText(text: string) {
+  return text.trim().replace(/\s+/g, ' ');
 }
 
 export function SelectStep({
@@ -87,15 +92,40 @@ export function SelectStep({
     0,
     Math.min(limits.maxItemsPerSession, monthlyRemaining) - selectedCount,
   );
+  const selectionLimit = selectedCount + remainingSelections;
+  const bulkLines = customInput
+    .split(/\r?\n/)
+    .map((text, index) => ({
+      text: normalizeCustomText(text),
+      line: index + 1,
+      characterCount: text.trim().length,
+    }))
+    .filter((entry) => entry.text.length > 0);
+  const firstOverlongBulkLine = bulkLines.find(
+    (entry) => entry.characterCount > MAX_WORD_CHAT_ITEM_CHARS,
+  );
+  const existingTexts = new Set(
+    [
+      ...customItems.map((item) => item.text),
+      ...proposals.filter(isSelected).map((item) => item.text),
+    ].map((text) => normalizeCustomText(text).toLowerCase()),
+  );
+  const newBulkEntries = bulkLines.filter((entry) => {
+    const key = entry.text.toLowerCase();
+    if (existingTexts.has(key)) return false;
+    existingTexts.add(key);
+    return true;
+  });
+  const projectedSelectedCount = selectedCount + newBulkEntries.length;
+  const bulkOverLimit = projectedSelectedCount > selectionLimit;
+  const bulkInputInvalid = Boolean(firstOverlongBulkLine) || bulkOverLimit;
 
   function submitCustom(event: FormEvent) {
     event.preventDefault();
-    if (!customInput.trim() || atSelectionLimit) return;
-    const entries = customInput
-      .split(/\r?\n/)
-      .map((entry) => entry.trim())
-      .filter(Boolean)
-      .slice(0, Math.max(1, remainingSelections));
+    if (!customInput.trim() || atSelectionLimit || (bulkEntry && bulkInputInvalid)) return;
+    const entries = bulkEntry
+      ? newBulkEntries.map((entry) => entry.text)
+      : [normalizeCustomText(customInput)];
     for (const entry of entries) onAddCustom(entry);
     setCustomInput('');
     // One at a time is a loop — type, add, type the next one — so the cursor
@@ -308,7 +338,7 @@ export function SelectStep({
               onChange={(event) => setCustomInput(event.target.value)}
               placeholder={t('wordChat.manualAddPlaceholder')}
               disabled={atSelectionLimit}
-              maxLength={1200}
+              aria-invalid={bulkInputInvalid}
               rows={4}
               className="word-chat-input min-w-0 flex-1 resize-y rounded-xl px-3 py-2.5 text-base sm:text-sm disabled:opacity-50"
             />
@@ -326,12 +356,36 @@ export function SelectStep({
           )}
           <button
             type="submit"
-            disabled={atSelectionLimit || !customInput.trim()}
+            disabled={atSelectionLimit || !customInput.trim() || (bulkEntry && bulkInputInvalid)}
             className="onboarding-option shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold disabled:opacity-50"
           >
             {t('wordChat.add')}
           </button>
         </div>
+        {mode === 'manual' && bulkEntry ? (
+          <div className="space-y-1 text-xs" aria-live="polite">
+            <p className={bulkInputInvalid ? 'text-danger' : 'onboarding-text-soft'}>
+              {t('wordChat.manualBulkCount', {
+                count: projectedSelectedCount,
+                limit: selectionLimit,
+              })}
+            </p>
+            {firstOverlongBulkLine ? (
+              <p className="text-danger">
+                {t('wordChat.manualBulkLineTooLong', {
+                  line: firstOverlongBulkLine.line,
+                  count: firstOverlongBulkLine.characterCount,
+                  limit: MAX_WORD_CHAT_ITEM_CHARS,
+                })}
+              </p>
+            ) : null}
+            {bulkOverLimit ? (
+              <p className="text-danger">
+                {t('wordChat.manualBulkTooMany', { limit: selectionLimit })}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         {/* Pasting a prepared batch is the rarer errand, so it sits quietly
             under the field rather than competing with it. Beside it, the other
             way to get words: letting the AI bot propose them — a model call, so

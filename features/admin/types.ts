@@ -41,6 +41,16 @@ export interface PhotoUsageWeekBucket {
   partial?: boolean;
 }
 
+export interface WordChatUsageAccountRow {
+  handle: string;
+  email: string | null;
+  registered: boolean;
+  calls: number;
+  inputTokens: number;
+  outputTokens: number;
+  estimatedCostUsd: number;
+}
+
 /** One day in the app-wide GitHub-style activity heatmap. */
 export interface ActivityHeatmapDay {
   date: string; // YYYY-MM-DD (UTC)
@@ -141,6 +151,15 @@ export interface UsageStats {
     trackedSince: string;
     firstEventAt: string | null;
     weekly: PhotoUsageWeekBucket[];
+  };
+  wordChat: {
+    monthStart: string;
+    monthlyLimitUsd: number;
+    calls: number;
+    inputTokens: number;
+    outputTokens: number;
+    estimatedCostUsd: number;
+    accounts: WordChatUsageAccountRow[];
   };
   activityHeatmap: ActivityHeatmapDay[]; // sparse: only days with activity, last 53 weeks
   users: AdminUserRow[];

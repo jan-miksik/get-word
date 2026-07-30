@@ -104,6 +104,12 @@ function AdminStatsContent() {
     const hours = Math.floor(minutes / 60);
     return `${hours} h ${minutes % 60} min`;
   };
+  const formatTokens = (tokens: number) => new Intl.NumberFormat().format(tokens);
+  const formatUsd = (amount: number) =>
+    `$${amount.toLocaleString(undefined, {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: amount > 0 && amount < 0.01 ? 4 : 2,
+    })}`;
 
   const platformLabel = (platform: DevicePlatform) => {
     switch (platform) {
@@ -434,6 +440,94 @@ function AdminStatsContent() {
               partial: week.partial,
             }))}
           />
+        </Section>
+
+        <Section
+          title={t('adminStats.sectionWordChat')}
+          note={t('adminStats.wordChatNote', {
+            date: new Date(stats.wordChat.monthStart).toLocaleDateString(),
+          })}
+        >
+          <CardGrid>
+            <StatCard
+              label={t('adminStats.wordChatCost')}
+              value={formatUsd(stats.wordChat.estimatedCostUsd)}
+              highlight
+            />
+            <StatCard
+              label={t('adminStats.wordChatLimit')}
+              value={formatUsd(stats.wordChat.monthlyLimitUsd)}
+            />
+            <StatCard
+              label={t('adminStats.wordChatTokens')}
+              value={formatTokens(stats.wordChat.inputTokens + stats.wordChat.outputTokens)}
+            />
+            <StatCard label={t('adminStats.wordChatCalls')} value={stats.wordChat.calls} />
+            <StatCard
+              label={t('adminStats.wordChatAccounts')}
+              value={stats.wordChat.accounts.length}
+            />
+          </CardGrid>
+          {stats.wordChat.accounts.length === 0 ? (
+            <p className="text-sm text-text-soft">{t('adminStats.wordChatNoUsage')}</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-border-subtle">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-text-soft bg-background-elevated">
+                    <th className="px-3 py-2 font-medium">{t('adminStats.userHandle')}</th>
+                    <th className="px-3 py-2 font-medium">{t('adminStats.wordChatAccountType')}</th>
+                    <th className="px-3 py-2 font-medium text-right">{t('adminStats.wordChatCalls')}</th>
+                    <th className="px-3 py-2 font-medium text-right">{t('adminStats.wordChatInputTokens')}</th>
+                    <th className="px-3 py-2 font-medium text-right">{t('adminStats.wordChatOutputTokens')}</th>
+                    <th className="px-3 py-2 font-medium text-right">{t('adminStats.wordChatTotalTokens')}</th>
+                    <th className="px-3 py-2 font-medium text-right">{t('adminStats.wordChatEstimatedCost')}</th>
+                    <th className="px-3 py-2 font-medium">{t('adminStats.userEmail')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.wordChat.accounts.map((account) => (
+                    <tr key={account.handle} className="border-t border-border-subtle">
+                      <td className="px-3 py-2 whitespace-nowrap font-mono text-xs">
+                        {account.handle}
+                      </td>
+                      <td className="px-3 py-2 text-text-soft whitespace-nowrap">
+                        {t(
+                          account.registered
+                            ? 'adminStats.wordChatRegistered'
+                            : 'adminStats.wordChatAnonymous'
+                        )}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">{account.calls}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{formatTokens(account.inputTokens)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{formatTokens(account.outputTokens)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {formatTokens(account.inputTokens + account.outputTokens)}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums font-medium">
+                        {formatUsd(account.estimatedCostUsd)}
+                      </td>
+                      <td className="px-3 py-2 whitespace-nowrap">
+                        {!account.email ? (
+                          '—'
+                        ) : revealedEmails.has(account.handle) ? (
+                          <span className="select-all">{account.email}</span>
+                        ) : (
+                          <button
+                            type="button"
+                            className="text-accent underline"
+                            onClick={() => revealEmail(account.handle)}
+                          >
+                            {t('adminStats.revealEmail')}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </Section>
 
         <Section title={t('adminStats.sectionContent')}>

@@ -21,7 +21,12 @@ import {
 } from "./config";
 import { buildChatSystemPrompt } from "./prompt";
 import { buildCallDiagnostics, type WordChatCallDiagnostics } from "./diagnostics";
-import { recordWordChatUsage } from "./usage";
+import {
+  aggregateWordChatUsage,
+  recordWordChatUsage,
+  reserveWordChatSpend,
+  runReservedWordChatCall,
+} from "./usage";
 import {
   WordChatReplyStreamError,
   WordChatReplyStreamParser,
@@ -250,23 +255,49 @@ export async function runChatTurn(input: {
   const startedAt = Date.now();
 
   const messages = buildChatRequest(input);
-
-  const { value, meta } = await callOpenRouterChatParsedWithMeta(
+  const request = {
+    maxTokens: CHAT_MAX_TOKENS,
+    reasoning: CHAT_REASONING,
+    responseFormat: CHAT_RESPONSE_FORMAT,
+    provider: WORD_CHAT_PROVIDER_PREFERENCES,
+    messages,
+  };
+  const paid = await runReservedWordChatCall(
     {
-      apiKey,
+      userId: input.userId,
+      sessionId: input.sessionId,
+      callType: "chat",
+      stage: "started",
       model,
-      apiUrl: OPENROUTER_API_URL,
+      request,
+      maxOutputTokens: CHAT_MAX_TOKENS,
       maxAttempts: OPENROUTER_MAX_ATTEMPTS,
-      retryBaseDelayMs: OPENROUTER_RETRY_BASE_DELAY_MS,
-      timeoutMs: OPENROUTER_TIMEOUT_MS,
-      maxTokens: CHAT_MAX_TOKENS,
-      reasoning: { ...CHAT_REASONING },
-      responseFormat: CHAT_RESPONSE_FORMAT,
-      provider: { ...WORD_CHAT_PROVIDER_PREFERENCES },
-      messages,
     },
-    (content) => parseChatTurn(content, { requireProposal: shouldForceProposal(input.messages) }),
+    ({ onResponse, onAttemptStart }) =>
+      callOpenRouterChatParsedWithMeta(
+        {
+          apiKey,
+          model,
+          apiUrl: OPENROUTER_API_URL,
+          maxAttempts: OPENROUTER_MAX_ATTEMPTS,
+          retryBaseDelayMs: OPENROUTER_RETRY_BASE_DELAY_MS,
+          timeoutMs: OPENROUTER_TIMEOUT_MS,
+          maxTokens: CHAT_MAX_TOKENS,
+          reasoning: { ...CHAT_REASONING },
+          responseFormat: CHAT_RESPONSE_FORMAT,
+          provider: { ...WORD_CHAT_PROVIDER_PREFERENCES },
+          messages,
+          onResponse,
+          onAttemptStart,
+        },
+        (content) =>
+          parseChatTurn(content, {
+            requireProposal: shouldForceProposal(input.messages),
+          }),
+      ),
   );
+  const { value } = paid.result;
+  const meta = paid.meta;
 
   await recordWordChatUsage({
     userId: input.userId,
@@ -275,6 +306,8 @@ export async function runChatTurn(input: {
     stage: "started",
     model,
     meta,
+    reservation: paid.reservation,
+    minimumCostUsd: paid.minimumCostUsd,
   });
 
   return {
@@ -322,17 +355,54 @@ export async function streamChatTurn(input: {
 
   const model = input.model || WORD_CHAT_CHAT_MODEL;
   const messages = buildChatRequest(input);
+  const reservation = await reserveWordChatSpend({
+    userId: input.userId,
+    sessionId: input.sessionId,
+    callType: "chat",
+    stage: "started",
+    model,
+    request: {
+      maxTokens: CHAT_MAX_TOKENS,
+      reasoning: CHAT_REASONING,
+      responseFormat: CHAT_RESPONSE_FORMAT,
+      provider: WORD_CHAT_PROVIDER_PREFERENCES,
+      messages,
+    },
+    maxOutputTokens: CHAT_MAX_TOKENS,
+    maxAttempts: OPENROUTER_MAX_ATTEMPTS,
+  });
 
   return {
     async *[Symbol.asyncIterator]() {
       let lastError: OpenRouterChatError | null = null;
       const maxAttempts = Math.max(1, OPENROUTER_MAX_ATTEMPTS);
+      const responseMetas: import("@/lib/openrouter-chat").OpenRouterChatMeta[] = [];
+      let attemptCount = 0;
+      const observedMeta = () => aggregateWordChatUsage(responseMetas);
+      const minimumCostUsd = () => {
+        const observedAttempts = responseMetas.filter((meta) => meta.usage).length;
+        const unknownAttempts = Math.max(0, attemptCount - observedAttempts);
+        return (
+          (reservation.reservedUsd * unknownAttempts) /
+          reservation.maxAttempts
+        );
+      };
+      const recordObservedUsage = () =>
+        recordWordChatUsage({
+          userId: input.userId,
+          sessionId: input.sessionId,
+          callType: "chat",
+          stage: "started",
+          model,
+          meta: observedMeta(),
+          reservation,
+          minimumCostUsd: minimumCostUsd(),
+        });
 
       for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
         const startedAt = Date.now();
         const parser = new WordChatReplyStreamParser();
         let fullContent = "";
-        let meta = {};
         let emittedVisibleReply = false;
 
         try {
@@ -352,6 +422,10 @@ export async function streamChatTurn(input: {
             provider: { ...WORD_CHAT_PROVIDER_PREFERENCES },
             messages,
             signal: input.signal,
+            onResponse: (responseMeta) => responseMetas.push(responseMeta),
+            onAttemptStart: () => {
+              attemptCount += 1;
+            },
           });
 
           for await (const event of upstream) {
@@ -365,7 +439,6 @@ export async function streamChatTurn(input: {
               parser.feed(event.text);
               continue;
             }
-            meta = event.meta;
           }
 
           let fallbackReply: string | null = null;
@@ -414,7 +487,7 @@ export async function streamChatTurn(input: {
           const diagnostics = buildCallDiagnostics({
             callType: "chat",
             model,
-            meta,
+            meta: observedMeta(),
             startedAt,
             ...(input.includeRequest
               ? {
@@ -433,7 +506,9 @@ export async function streamChatTurn(input: {
             callType: "chat",
             stage: "started",
             model,
-            meta,
+            meta: observedMeta(),
+            reservation,
+            minimumCostUsd: minimumCostUsd(),
           });
 
           // The transport remains an NDJSON stream, but this first visible
@@ -460,7 +535,7 @@ export async function streamChatTurn(input: {
               const diagnostics = buildCallDiagnostics({
                 callType: "chat",
                 model,
-                meta,
+                meta: observedMeta(),
                 startedAt,
                 ...(input.includeRequest
                   ? {
@@ -478,7 +553,9 @@ export async function streamChatTurn(input: {
                 callType: "chat",
                 stage: "started",
                 model,
-                meta,
+                meta: observedMeta(),
+                reservation,
+                minimumCostUsd: minimumCostUsd(),
               });
               yield {
                 type: "done",
@@ -500,7 +577,10 @@ export async function streamChatTurn(input: {
               : err instanceof WordChatReplyStreamError
                 ? new OpenRouterChatError(err.message, true)
                 : null;
-          if (!retryableError || !retryableError.retryable || input.signal?.aborted) throw err;
+          if (!retryableError || !retryableError.retryable || input.signal?.aborted) {
+            if (responseMetas.length > 0) await recordObservedUsage();
+            throw err;
+          }
           lastError = retryableError;
           if (attempt >= maxAttempts - 1) break;
           await new Promise((resolve) =>
@@ -509,6 +589,7 @@ export async function streamChatTurn(input: {
         }
       }
 
+      if (responseMetas.length > 0) await recordObservedUsage();
       throw lastError ?? new OpenRouterChatError("OpenRouter request failed.", true);
     },
   };

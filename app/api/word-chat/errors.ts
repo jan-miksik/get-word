@@ -3,6 +3,7 @@ import { OpenRouterChatError } from "@/lib/openrouter-chat";
 import { DailyLimitError } from "@/lib/rate-limit/daily-bucket";
 import { WordChatUnavailableError } from "@/features/word-chat/server/chat";
 import { WordChatCommitError } from "@/features/word-chat/server/commit";
+import { WordChatSpendLimitError } from "@/features/word-chat/server/usage";
 
 /**
  * Shared error mapping for every word-chat route.
@@ -36,6 +37,20 @@ export function wordChatErrorResponse(
     includeDetail?: boolean;
   } = {},
 ): NextResponse {
+  if (err instanceof WordChatSpendLimitError) {
+    return NextResponse.json(
+      {
+        error: err.message,
+        code: err.code,
+        retryable: false,
+        used_usd: err.usedUsd,
+        limit_usd: err.limitUsd,
+        reset_at: err.resetAt.toISOString(),
+      },
+      { status: 429 },
+    );
+  }
+
   if (err instanceof DailyLimitError) {
     return NextResponse.json(
       { error: err.message, code: err.code, retryable: false },

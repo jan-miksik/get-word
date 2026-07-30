@@ -76,6 +76,14 @@ export interface OpenRouterChatOptions {
   retryBaseDelayMs?: number;
   timeoutMs?: number;
   signal?: AbortSignal;
+  /**
+   * Called for every successful HTTP response before caller-specific parsing.
+   * Server-key callers use this to retain usage from paid responses that are
+   * later rejected as malformed and retried.
+   */
+  onResponse?: (meta: OpenRouterChatMeta) => void;
+  /** Called immediately before each HTTP attempt, including retries. */
+  onAttemptStart?: () => void;
 }
 
 // 402 = out of credits, 4xx (except the few below) = caller error: retrying
@@ -101,6 +109,7 @@ async function callOnce(options: OpenRouterChatOptions): Promise<{ content: stri
 
   let res: Response;
   try {
+    options.onAttemptStart?.();
     res = await fetch(options.apiUrl ?? DEFAULT_OPENROUTER_API_URL, {
       method: "POST",
       signal: controller.signal,
@@ -147,6 +156,13 @@ async function callOnce(options: OpenRouterChatOptions): Promise<{ content: stri
 
   const data = await res.json().catch(() => null);
   const choice = data?.choices?.[0];
+  const meta: OpenRouterChatMeta = {
+    id: typeof data?.id === "string" ? data.id : undefined,
+    usage: data?.usage && typeof data.usage === "object"
+      ? data.usage as Record<string, unknown>
+      : undefined,
+  };
+  options.onResponse?.(meta);
 
   // A truncated response cannot be reliably repaired: the JSON is cut mid-item.
   // Surface it as retryable so a fresh attempt (or smaller batch) can recover.
@@ -163,12 +179,7 @@ async function callOnce(options: OpenRouterChatOptions): Promise<{ content: stri
   }
   return {
     content,
-    meta: {
-      id: typeof data?.id === "string" ? data.id : undefined,
-      usage: data?.usage && typeof data.usage === "object"
-        ? data.usage as Record<string, unknown>
-        : undefined,
-    },
+    meta,
   };
 }
 
@@ -248,6 +259,7 @@ async function openStreamOnce(options: OpenRouterChatOptions): Promise<{
   };
 
   try {
+    options.onAttemptStart?.();
     const response = await fetch(options.apiUrl ?? DEFAULT_OPENROUTER_API_URL, {
       method: "POST",
       signal: controller.signal,
@@ -369,6 +381,7 @@ export async function streamOpenRouterCompletion(
         if (buffer.trim()) {
           for (const event of handleEventBlock(buffer)) yield event;
         }
+        if (sawDone) options.onResponse?.(lastMeta);
         yield { type: "done", meta: lastMeta };
       } finally {
         cleanup();

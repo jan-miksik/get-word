@@ -32,7 +32,10 @@ import {
   loadTakeoverCandidates,
   type CorpusEntry,
 } from "./corpus";
-import { recordWordChatUsage } from "./usage";
+import {
+  recordWordChatUsage,
+  runReservedWordChatCall,
+} from "./usage";
 import type {
   ProposalResult,
   ProposedItem,
@@ -539,30 +542,53 @@ export async function proposeItems(input: {
   // calls here is what tells the guards which attempt they are on.
   let qualityAttempts = 0;
 
-  const { value, meta } = await callOpenRouterChatParsedWithMeta(
+  const paid = await runReservedWordChatCall(
     {
-      apiKey,
+      userId: input.userId,
+      sessionId: input.sessionId,
+      callType: "proposal",
+      stage: "proposal_completed",
       model,
-      apiUrl: OPENROUTER_API_URL,
+      request: {
+        maxTokens: PROPOSAL_MAX_TOKENS,
+        reasoning: PROPOSAL_REASONING,
+        responseFormat: { type: "json_object" },
+        provider: WORD_CHAT_PROVIDER_PREFERENCES,
+        messages,
+      },
+      maxOutputTokens: PROPOSAL_MAX_TOKENS,
       maxAttempts: OPENROUTER_MAX_ATTEMPTS,
-      retryBaseDelayMs: OPENROUTER_RETRY_BASE_DELAY_MS,
-      timeoutMs: OPENROUTER_TIMEOUT_MS,
-      maxTokens: PROPOSAL_MAX_TOKENS,
-      reasoning: { ...PROPOSAL_REASONING },
-      responseFormat: { type: "json_object" },
-      provider: { ...WORD_CHAT_PROVIDER_PREFERENCES },
-      messages,
     },
-    (content) => {
-      qualityAttempts += 1;
-      return parseProposal(content, {
-        languageFrom: input.languageFrom,
-        languageLevel: input.languageLevel,
-        contentMode: input.contentMode,
-        enforceQuality: qualityAttempts <= QUALITY_RETRY_BUDGET,
-      });
-    },
+    ({ onResponse, onAttemptStart }) =>
+      callOpenRouterChatParsedWithMeta(
+        {
+          apiKey,
+          model,
+          apiUrl: OPENROUTER_API_URL,
+          maxAttempts: OPENROUTER_MAX_ATTEMPTS,
+          retryBaseDelayMs: OPENROUTER_RETRY_BASE_DELAY_MS,
+          timeoutMs: OPENROUTER_TIMEOUT_MS,
+          maxTokens: PROPOSAL_MAX_TOKENS,
+          reasoning: { ...PROPOSAL_REASONING },
+          responseFormat: { type: "json_object" },
+          provider: { ...WORD_CHAT_PROVIDER_PREFERENCES },
+          messages,
+          onResponse,
+          onAttemptStart,
+        },
+        (content) => {
+          qualityAttempts += 1;
+          return parseProposal(content, {
+            languageFrom: input.languageFrom,
+            languageLevel: input.languageLevel,
+            contentMode: input.contentMode,
+            enforceQuality: qualityAttempts <= QUALITY_RETRY_BUDGET,
+          });
+        },
+      ),
   );
+  const { value } = paid.result;
+  const meta = paid.meta;
 
   // An entry the learner already studies is not reuse material: matching onto it
   // would only produce an item the exclusion check drops a line later.
@@ -587,6 +613,8 @@ export async function proposeItems(input: {
     model,
     meta,
     itemCount: items.length,
+    reservation: paid.reservation,
+    minimumCostUsd: paid.minimumCostUsd,
   });
 
   if (items.length === 0) {

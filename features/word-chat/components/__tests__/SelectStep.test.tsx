@@ -104,6 +104,94 @@ describe('SelectStep', () => {
     expect(onStartChat).toHaveBeenCalledOnce();
   });
 
+  it('keeps an over-limit bulk paste intact instead of silently dropping lines', () => {
+    const onAddCustom = vi.fn();
+    render(
+      <I18nProvider language="en">
+        <SelectStep
+          mode="manual"
+          listName="My words"
+          proposals={[]}
+          isSelected={() => false}
+          onToggle={vi.fn()}
+          onUpdateProposal={vi.fn()}
+          onSelectAll={vi.fn()}
+          onClearSelection={vi.fn()}
+          customItems={[]}
+          onAddCustom={onAddCustom}
+          onRemoveCustom={vi.fn()}
+          limits={limits}
+          selectedCount={0}
+          overSoftLimit={false}
+          atHardCap={false}
+          monthlyRemaining={60}
+          overMonthlyLimit={false}
+          atSelectionLimit={false}
+          busy={false}
+          onContinue={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add several at once' }));
+    const textarea = screen.getByPlaceholderText('One word or sentence per line');
+    const pasted = Array.from({ length: 31 }, (_, index) => `word ${index + 1}`).join('\n');
+    fireEvent.change(textarea, { target: { value: pasted } });
+
+    expect(screen.getByText('31 / 30 items in this round')).toBeInTheDocument();
+    expect(screen.getByText(/One round can contain at most 30 items/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
+
+    fireEvent.submit(textarea.closest('form')!);
+    expect(onAddCustom).not.toHaveBeenCalled();
+    expect(textarea).toHaveValue(pasted);
+  });
+
+  it('validates the 200-character limit per pasted line without changing the text', () => {
+    const onAddCustom = vi.fn();
+    render(
+      <I18nProvider language="en">
+        <SelectStep
+          mode="manual"
+          listName="My words"
+          proposals={[]}
+          isSelected={() => false}
+          onToggle={vi.fn()}
+          onUpdateProposal={vi.fn()}
+          onSelectAll={vi.fn()}
+          onClearSelection={vi.fn()}
+          customItems={[]}
+          onAddCustom={onAddCustom}
+          onRemoveCustom={vi.fn()}
+          limits={limits}
+          selectedCount={0}
+          overSoftLimit={false}
+          atHardCap={false}
+          monthlyRemaining={60}
+          overMonthlyLimit={false}
+          atSelectionLimit={false}
+          busy={false}
+          onContinue={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Add several at once' }));
+    const textarea = screen.getByPlaceholderText('One word or sentence per line');
+    const pasted = `short\n${'x'.repeat(201)}`;
+    fireEvent.change(textarea, { target: { value: pasted } });
+
+    expect(
+      screen.getByText('Line 2 has 201 characters. The maximum is 200.'),
+    ).toBeInTheDocument();
+    expect(textarea).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByRole('button', { name: 'Add' })).toBeDisabled();
+
+    fireEvent.submit(textarea.closest('form')!);
+    expect(onAddCustom).not.toHaveBeenCalled();
+    expect(textarea).toHaveValue(pasted);
+  });
+
   it('offers explicit bulk selection without word and sentence badges', () => {
     const onSelectAll = vi.fn();
     const onClearSelection = vi.fn();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import type { WordList } from '@/features/lists/types';
 import { ChatStep } from './ChatStep';
@@ -66,14 +66,6 @@ type Props = {
   entryStep?: 'chat' | 'manual';
 };
 
-/**
- * How long the handoff screen stays up once everything is saved and the study
- * stream has been refreshed. Committing can finish in a blink, and a success
- * screen that flashes past reads as a glitch rather than as a confirmation —
- * this is the beat that lets the learner see what they just added.
- */
-const HANDOFF_MIN_MS = 1100;
-
 export function WordChatFlow({
   languageFrom,
   languageTo,
@@ -94,7 +86,6 @@ export function WordChatFlow({
   entryStep = 'chat',
 }: Props) {
   const { t } = useI18n();
-  const [handoffSettled, setHandoffSettled] = useState(false);
   const chat = useWordChat({
     languageFrom,
     languageTo,
@@ -132,29 +123,6 @@ export function WordChatFlow({
     chat.step,
     onHeaderBackActionChange,
   ]);
-
-  // Adjusted during render (React's documented pattern for deriving state from
-  // a changed input) so leaving the completion step cannot leave a settled
-  // handoff armed for the next one.
-  const [settledStep, setSettledStep] = useState(chat.step);
-  if (settledStep !== chat.step) {
-    setSettledStep(chat.step);
-    if (handoffSettled) setHandoffSettled(false);
-  }
-
-  useEffect(() => {
-    if (chat.step !== 'done') return;
-    const timer = window.setTimeout(() => setHandoffSettled(true), HANDOFF_MIN_MS);
-    return () => window.clearTimeout(timer);
-  }, [chat.step]);
-
-  useEffect(() => {
-    if (chat.step !== 'done' || chat.refreshStatus !== 'success' || !handoffSettled) return;
-    if (!onDone) return;
-
-    resetChat();
-    onDone();
-  }, [chat.refreshStatus, chat.step, handoffSettled, onDone, resetChat]);
 
   const completeDoneStep = () => {
     resetChat();
@@ -378,9 +346,6 @@ export function WordChatFlow({
         <DoneStep
           result={chat.commitResult}
           refreshStatus={chat.refreshStatus}
-          // The button only matters when the automatic handoff cannot happen —
-          // while the refresh is still running, or after it failed.
-          handingOff={chat.refreshStatus !== 'error' && onDone !== undefined}
           onRetryRefresh={chat.retryRefresh}
           onDone={onDone ? completeDoneStep : undefined}
         />

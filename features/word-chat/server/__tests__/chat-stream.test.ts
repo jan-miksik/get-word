@@ -3,6 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   streamOpenRouterCompletion: vi.fn(),
   recordWordChatUsage: vi.fn(),
+  reserveWordChatSpend: vi.fn(async () => ({
+    id: "reservation-1",
+    model: "test/chat",
+    reservedUsd: 0.1,
+    maxAttempts: 2,
+  })),
 }));
 
 vi.mock("@/lib/openrouter-chat", async (importOriginal) => {
@@ -14,7 +20,9 @@ vi.mock("@/lib/openrouter-chat", async (importOriginal) => {
 });
 
 vi.mock("../usage", () => ({
+  aggregateWordChatUsage: (metas: unknown[]) => metas.at(-1) ?? {},
   recordWordChatUsage: mocks.recordWordChatUsage,
+  reserveWordChatSpend: mocks.reserveWordChatSpend,
 }));
 
 vi.mock("../config", () => ({
@@ -94,6 +102,7 @@ describe("streamChatTurn", () => {
     vi.clearAllMocks();
     mocks.streamOpenRouterCompletion.mockReset();
     mocks.recordWordChatUsage.mockReset();
+    mocks.reserveWordChatSpend.mockClear();
     process.env.OPENROUTER_SERVER_API_KEY = "test-key";
   });
 

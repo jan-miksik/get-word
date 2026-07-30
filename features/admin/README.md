@@ -10,4 +10,9 @@ Owns editor-only operational statistics.
 - `app/api/admin/stats/route.ts` authorizes editors and returns the query result.
 - `lib/db/queries/usage-stats.ts` contains the database aggregation.
 
+The Word Chat section reports current UTC calendar-month input/output tokens and
+estimated USD spend from `word_chat_usage`, including device-only accounts that
+made a paid call. The per-account monthly ceiling comes from
+`WORD_CHAT_MONTHLY_SPEND_LIMIT_USD` (default: 2 USD).
+
 Keep authorization in the API shell and database aggregation out of client UI.

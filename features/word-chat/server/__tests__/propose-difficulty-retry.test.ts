@@ -5,6 +5,30 @@ vi.mock("@/lib/db/client", () => ({ db: {} }));
 const mocks = vi.hoisted(() => ({
   callOpenRouterChatParsedWithMeta: vi.fn(),
   recordWordChatUsage: vi.fn(async () => undefined),
+  runReservedWordChatCall: vi.fn(
+    async (
+      _input: unknown,
+      run: (hooks: {
+        onResponse: (meta: unknown) => void;
+        onAttemptStart: () => void;
+      }) => Promise<unknown>,
+    ) => ({
+      result: await run({
+        onResponse: () => undefined,
+        onAttemptStart: () => undefined,
+      }),
+      reservation: {
+        id: "reservation-1",
+        model: "test/model",
+        reservedUsd: 0.1,
+        maxAttempts: 3,
+      },
+      meta: {},
+      responseCount: 1,
+      usageObserved: false,
+      minimumCostUsd: 0,
+    }),
+  ),
 }));
 
 vi.mock("@/lib/openrouter-chat", async () => {
@@ -17,7 +41,10 @@ vi.mock("@/lib/openrouter-chat", async () => {
   };
 });
 
-vi.mock("../usage", () => ({ recordWordChatUsage: mocks.recordWordChatUsage }));
+vi.mock("../usage", () => ({
+  recordWordChatUsage: mocks.recordWordChatUsage,
+  runReservedWordChatCall: mocks.runReservedWordChatCall,
+}));
 
 vi.mock("../corpus", async () => {
   const actual = await vi.importActual<typeof import("../corpus")>("../corpus");

@@ -12,6 +12,7 @@ import {
 import { loadLearnerBrief } from "@/features/word-chat/server/personal-list";
 import { reserveChatTurn } from "@/features/word-chat/server/rate-limit";
 import { serializeDiagnostics } from "@/features/word-chat/server/diagnostics";
+import { assertWordChatSpendAvailable } from "@/features/word-chat/server/usage";
 import {
   WORD_CHAT_CHAT_MODEL,
   MAX_WORD_CHAT_ID_CHARS,
@@ -66,7 +67,9 @@ export async function POST(request: NextRequest) {
   const canDebug = canSeeWordChatDiagnostics(role);
 
   try {
-    // Reserve before the model call: an over-limit turn must cost nothing.
+    // Check spend before reserving a turn: a monthly-limit rejection must not
+    // consume any of the daily/session allowance either.
+    await assertWordChatSpendAvailable(user.id);
     await reserveChatTurn({ userId: user.id, sessionId, role });
 
     const brief = await loadLearnerBrief({ userId: user.id, languageFrom, languageTo });

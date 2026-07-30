@@ -1,5 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { callOpenRouterChatParsed } from "@/lib/openrouter-chat";
+import {
+  callOpenRouterChatParsed,
+  OpenRouterChatError,
+} from "@/lib/openrouter-chat";
 
 describe("callOpenRouterChatParsed", () => {
   const originalFetch = global.fetch;
@@ -42,5 +45,66 @@ describe("callOpenRouterChatParsed", () => {
       reasoning: { enabled: false },
       response_format: { type: "json_schema", json_schema: { name: "test" } },
     }));
+  });
+
+  it("reports usage for a paid response even when parsing rejects and retries it", async () => {
+    const onResponse = vi.fn();
+    const onAttemptStart = vi.fn();
+    global.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            usage: { prompt_tokens: 100, completion_tokens: 20 },
+            choices: [{ finish_reason: "stop", message: { content: "not-json" } }],
+          }),
+          { status: 200 },
+        ),
+      )
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            usage: { prompt_tokens: 110, completion_tokens: 25 },
+            choices: [
+              {
+                finish_reason: "stop",
+                message: { content: '{"items":[]}' },
+              },
+            ],
+          }),
+          { status: 200 },
+        ),
+      ) as typeof fetch;
+
+    await expect(
+      callOpenRouterChatParsed(
+        {
+          apiKey: "test-key",
+          apiUrl: "https://openrouter.test/chat/completions",
+          model: "anthropic/claude-sonnet-5",
+          messages: [{ role: "user", content: "Return JSON" }],
+          maxAttempts: 2,
+          retryBaseDelayMs: 0,
+          onResponse,
+          onAttemptStart,
+        },
+        (content) => {
+          try {
+            return JSON.parse(content);
+          } catch {
+            throw new OpenRouterChatError("Malformed model JSON.", true);
+          }
+        },
+      ),
+    ).resolves.toEqual({ items: [] });
+
+    expect(onResponse).toHaveBeenCalledTimes(2);
+    expect(onAttemptStart).toHaveBeenCalledTimes(2);
+    expect(onResponse).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        usage: { prompt_tokens: 100, completion_tokens: 20 },
+      }),
+    );
   });
 });

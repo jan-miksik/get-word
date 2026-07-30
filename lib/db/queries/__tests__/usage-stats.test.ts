@@ -31,6 +31,7 @@ function mockAllQueries({
   activityHeatmap = [] as Record<string, unknown>[],
   photo = [{ total_analyses: 0, photo_users: 0, repeat_users: 0, first_event_at: null }] as Record<string, unknown>[],
   photoWeekly = [] as Record<string, unknown>[],
+  wordChatAccounts = [] as Record<string, unknown>[],
   users = [] as Record<string, unknown>[],
   userDaily = [] as Record<string, unknown>[],
 } = {}) {
@@ -49,6 +50,7 @@ function mockAllQueries({
     .mockResolvedValueOnce(retention)
     .mockResolvedValueOnce(photo)
     .mockResolvedValueOnce(photoWeekly)
+    .mockResolvedValueOnce(wordChatAccounts)
     .mockResolvedValueOnce(users)
     .mockResolvedValueOnce(userDaily);
 }
@@ -78,7 +80,7 @@ describe('getUsageStats', () => {
 
     const stats = await getUsageStats();
 
-    expect(mockExecute).toHaveBeenCalledTimes(16);
+    expect(mockExecute).toHaveBeenCalledTimes(17);
     expect(stats.generatedAt).toBe(NOW.toISOString());
     expect(stats.registrations).toMatchObject({
       total: 10,
@@ -134,6 +136,15 @@ describe('getUsageStats', () => {
       d1: { eligible: 10, returned: 6 },
       d7: { eligible: 9, returned: 4 },
       d30: { eligible: 8, returned: 2 },
+    });
+    expect(stats.wordChat).toEqual({
+      monthStart: '2026-07-01T00:00:00.000Z',
+      monthlyLimitUsd: 2,
+      calls: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      estimatedCostUsd: 0,
+      accounts: [],
     });
   });
 
@@ -260,6 +271,61 @@ describe('getUsageStats', () => {
 
     expect(stats.photo.repeatRate).toBe(0);
     expect(stats.photo.firstEventAt).toBeNull();
+  });
+
+  it('aggregates current-month Word Chat tokens and estimated spend per account', async () => {
+    mockAllQueries({
+      wordChatAccounts: [
+        {
+          id: '11111111-1111-1111-1111-111111111111',
+          email: 'a@example.com',
+          registered: true,
+          calls: 3,
+          input_tokens: '1200',
+          output_tokens: '300',
+          estimated_cost_usd: '0.005400',
+        },
+        {
+          id: '22222222-2222-2222-2222-222222222222',
+          email: null,
+          registered: false,
+          calls: 1,
+          input_tokens: '200',
+          output_tokens: '50',
+          estimated_cost_usd: '0.000900',
+        },
+      ],
+    });
+
+    const stats = await getUsageStats();
+
+    expect(stats.wordChat).toMatchObject({
+      monthStart: '2026-07-01T00:00:00.000Z',
+      monthlyLimitUsd: 2,
+      calls: 4,
+      inputTokens: 1400,
+      outputTokens: 350,
+      estimatedCostUsd: 0.0063,
+    });
+    expect(stats.wordChat.accounts).toEqual([
+      expect.objectContaining({
+        email: 'a@example.com',
+        registered: true,
+        calls: 3,
+        inputTokens: 1200,
+        outputTokens: 300,
+        estimatedCostUsd: 0.0054,
+      }),
+      expect.objectContaining({
+        email: null,
+        registered: false,
+        calls: 1,
+        inputTokens: 200,
+        outputTokens: 50,
+        estimatedCostUsd: 0.0009,
+      }),
+    ]);
+    expect(stats.wordChat.accounts[0].handle).toMatch(/^user_[0-9a-f]{12}$/);
   });
 
   it('maps per-user rows to a pseudonymous handle, keeping the e-mail and nullable timestamps', async () => {

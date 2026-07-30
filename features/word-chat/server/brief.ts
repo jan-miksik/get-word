@@ -17,7 +17,10 @@ import {
   getServerApiKey,
 } from "./config";
 import { buildBriefPrompt } from "./prompt";
-import { recordWordChatUsage } from "./usage";
+import {
+  recordWordChatUsage,
+  runReservedWordChatCall,
+} from "./usage";
 import type { WordChatMessage } from "../types";
 
 /**
@@ -53,26 +56,48 @@ export async function regenerateLearnerBrief(input: {
       chatLanguage: input.chatLanguage,
     });
 
-    const { value, meta } = await callOpenRouterChatParsedWithMeta(
+    const messages = [
+      { role: "system" as const, content: system },
+      { role: "user" as const, content: user },
+    ];
+    const paid = await runReservedWordChatCall(
       {
-        apiKey,
+        userId: input.userId,
+        sessionId: input.sessionId,
+        callType: "brief",
+        stage: "review_completed",
         model: WORD_CHAT_BRIEF_MODEL,
-        apiUrl: OPENROUTER_API_URL,
+        request: {
+          maxTokens: BRIEF_MAX_TOKENS,
+          responseFormat: { type: "json_object" },
+          provider: WORD_CHAT_PROVIDER_PREFERENCES,
+          messages,
+        },
+        maxOutputTokens: BRIEF_MAX_TOKENS,
         // One attempt: the local fallback is already correct enough, so retrying
         // only delays a commit the learner is waiting on.
         maxAttempts: 1,
-        retryBaseDelayMs: OPENROUTER_RETRY_BASE_DELAY_MS,
-        timeoutMs: OPENROUTER_TIMEOUT_MS,
-        maxTokens: BRIEF_MAX_TOKENS,
-        responseFormat: { type: "json_object" },
-        provider: { ...WORD_CHAT_PROVIDER_PREFERENCES },
-        messages: [
-          { role: "system", content: system },
-          { role: "user", content: user },
-        ],
       },
-      (content) => normalizeLearnerBrief(parseJsonLoose(content)),
+      ({ onResponse, onAttemptStart }) =>
+        callOpenRouterChatParsedWithMeta(
+          {
+            apiKey,
+            model: WORD_CHAT_BRIEF_MODEL,
+            apiUrl: OPENROUTER_API_URL,
+            maxAttempts: 1,
+            retryBaseDelayMs: OPENROUTER_RETRY_BASE_DELAY_MS,
+            timeoutMs: OPENROUTER_TIMEOUT_MS,
+            maxTokens: BRIEF_MAX_TOKENS,
+            responseFormat: { type: "json_object" },
+            provider: { ...WORD_CHAT_PROVIDER_PREFERENCES },
+            messages,
+            onResponse,
+            onAttemptStart,
+          },
+          (content) => normalizeLearnerBrief(parseJsonLoose(content)),
+        ),
     );
+    const { value } = paid.result;
 
     await recordWordChatUsage({
       userId: input.userId,
@@ -80,7 +105,9 @@ export async function regenerateLearnerBrief(input: {
       callType: "brief",
       stage: "review_completed",
       model: WORD_CHAT_BRIEF_MODEL,
-      meta,
+      meta: paid.meta,
+      reservation: paid.reservation,
+      minimumCostUsd: paid.minimumCostUsd,
     });
 
     // Even a good model reply must contain the topic just committed.

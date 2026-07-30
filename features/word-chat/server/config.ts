@@ -123,6 +123,9 @@ export const PROPOSAL_REASONING = {
 } as const;
 export const BRIEF_MAX_TOKENS = 2_000;
 
+/** Output ceiling for one Word Chat translation batch (at most 30 items). */
+export const TRANSLATION_MAX_TOKENS = 4_000;
+
 /**
  * Every level gets the same compact card budget. Its sentence/supporting-item
  * split stays fixed at 3 sentences and 7 vocabulary items; CEFR calibration
@@ -152,6 +155,16 @@ export const EDITOR_MONTHLY_ITEM_LIMIT = parsePositiveIntEnv(
   process.env.WORD_CHAT_EDITOR_MONTHLY_ITEM_LIMIT,
   600,
 );
+
+/**
+ * Estimated server-paid model spend allowed per account in one UTC calendar
+ * month. This is deliberately independent of the item quota: chat turns and
+ * abandoned proposals still cost money even when the learner saves nothing.
+ */
+export const WORD_CHAT_MONTHLY_SPEND_LIMIT_USD = (() => {
+  const parsed = Number(process.env.WORD_CHAT_MONTHLY_SPEND_LIMIT_USD);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : 2;
+})();
 
 export const MAX_MESSAGES_PER_SESSION = parsePositiveIntEnv(
   process.env.WORD_CHAT_MAX_MESSAGES_PER_SESSION,
@@ -289,6 +302,31 @@ export function estimateCostUsd(
   const cost =
     (inputTokens * price.input) / 1_000_000 + (outputTokens * price.output) / 1_000_000;
   return Math.round(cost * 1_000_000) / 1_000_000;
+}
+
+/**
+ * Conservative price used before a paid request starts. Environment overrides
+ * may point at a model that is not in the editor allowlist; in that case use
+ * the most expensive known rates instead of silently reserving zero dollars.
+ */
+export function estimateMaximumCostUsd(
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+): number {
+  const knownPrice = MODEL_PRICES_USD_PER_MILLION[model];
+  const fallbackPrice = Object.values(MODEL_PRICES_USD_PER_MILLION).reduce(
+    (maximum, price) => ({
+      input: Math.max(maximum.input, price.input),
+      output: Math.max(maximum.output, price.output),
+    }),
+    { input: 0, output: 0 },
+  );
+  const price = knownPrice ?? fallbackPrice;
+  const cost =
+    (inputTokens * price.input) / 1_000_000 +
+    (outputTokens * price.output) / 1_000_000;
+  return Math.ceil(cost * 1_000_000) / 1_000_000;
 }
 
 export function getServerApiKey(): string | null {

@@ -11,9 +11,11 @@ import type {
   UsageStatsOptions,
   UsageWeekBucket,
   UserActivityDay,
+  WordChatUsageAccountRow,
 } from '@/features/admin/types';
 import { PHOTO_ANALYSIS_TRACKING_STARTED_AT } from '@/features/photo-lab/server/analysis-events';
 import { userHandle } from '@/features/admin/server/userHandle';
+import { WORD_CHAT_MONTHLY_SPEND_LIMIT_USD } from '@/features/word-chat/server/config';
 import { db } from '../client';
 import {
   TREND_WEEKS,
@@ -126,6 +128,12 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
   const d1Cutoff = dayAgo;
   const d7Cutoff = weekAgo;
   const d30Cutoff = monthAgo;
+  const currentMonthStart = new Date(
+    Date.UTC(generatedAt.getUTCFullYear(), generatedAt.getUTCMonth(), 1)
+  );
+  const nextMonthStart = new Date(
+    Date.UTC(generatedAt.getUTCFullYear(), generatedAt.getUTCMonth() + 1, 1)
+  );
 
   const currentWeekStart = getUtcMonday(generatedAt);
   const oldestWeekStart = new Date(currentWeekStart.getTime() - (TREND_WEEKS - 1) * WEEK_MS);
@@ -385,6 +393,41 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
     ORDER BY 1
   `);
 
+  // Current UTC calendar-month server-paid Word Chat usage. This includes
+  // registered and device-only accounts that actually made a model call.
+  // `model = 'n/a'` rows are funnel markers written at commit time, while
+  // `__reserved__:*` rows are fail-closed budget holds whose real usage was not
+  // observed. Neither is reported as a completed provider call.
+  const wordChatAccountRows = await db.execute(sql`
+    SELECT wcu.user_id::text AS id,
+           u.email AS email,
+           (u.supabase_auth_id IS NOT NULL) AS registered,
+           count(*) FILTER (
+             WHERE wcu.model <> 'n/a' AND left(wcu.model, 13) <> '__reserved__:'
+           )::int AS calls,
+           coalesce(sum(wcu.input_tokens) FILTER (
+             WHERE left(wcu.model, 13) <> '__reserved__:'
+           ), 0)::bigint AS input_tokens,
+           coalesce(sum(wcu.output_tokens) FILTER (
+             WHERE left(wcu.model, 13) <> '__reserved__:'
+           ), 0)::bigint AS output_tokens,
+           coalesce(sum(wcu.estimated_cost_usd) FILTER (
+             WHERE left(wcu.model, 13) <> '__reserved__:'
+           ), 0)::text AS estimated_cost_usd
+    FROM word_chat_usage wcu
+    JOIN users u ON u.id = wcu.user_id
+    WHERE ${includedUserCondition('u', exclusionOptions)}
+      AND wcu.created_at >= ${currentMonthStart.toISOString()}::timestamp
+      AND wcu.created_at < ${nextMonthStart.toISOString()}::timestamp
+    GROUP BY wcu.user_id, u.email, u.supabase_auth_id
+    HAVING count(*) FILTER (
+      WHERE wcu.model <> 'n/a' AND left(wcu.model, 13) <> '__reserved__:'
+    ) > 0
+    ORDER BY sum(wcu.estimated_cost_usd) FILTER (
+      WHERE left(wcu.model, 13) <> '__reserved__:'
+    ) DESC, wcu.user_id
+  `);
+
   // Per-user "who to write to" rows: registered users with an e-mail, including
   // one-time users (no activity filter). Each behavioural source is aggregated
   // to one row per user BEFORE the joins, so a user with several devices,
@@ -554,6 +597,28 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
     };
   });
 
+  const wordChatAccounts: WordChatUsageAccountRow[] = wordChatAccountRows.map((raw) => {
+    const row = raw as Record<string, unknown>;
+    return {
+      handle: userHandle(String(row.id ?? '')),
+      email: row.email == null ? null : String(row.email),
+      registered: row.registered === true || row.registered === 'true',
+      calls: numberFromRow(row, 'calls'),
+      inputTokens: numberFromRow(row, 'input_tokens'),
+      outputTokens: numberFromRow(row, 'output_tokens'),
+      estimatedCostUsd: numberFromRow(row, 'estimated_cost_usd'),
+    };
+  });
+  const wordChatTotals = wordChatAccounts.reduce(
+    (totals, account) => ({
+      calls: totals.calls + account.calls,
+      inputTokens: totals.inputTokens + account.inputTokens,
+      outputTokens: totals.outputTokens + account.outputTokens,
+      estimatedCostUsd: totals.estimatedCostUsd + account.estimatedCostUsd,
+    }),
+    { calls: 0, inputTokens: 0, outputTokens: 0, estimatedCostUsd: 0 }
+  );
+
   const platformBreakdown30d: DeviceBreakdownBucket[] = devicePlatformRows.map((raw) => {
     const row = raw as Record<string, unknown>;
     return {
@@ -652,6 +717,12 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
       trackedSince: PHOTO_ANALYSIS_TRACKING_STARTED_AT,
       firstEventAt: toIso(photo.first_event_at),
       weekly: zeroFillWeeks<PhotoUsageWeekBucket>(starts, photoWeekMap, { analyses: 0, users: 0 }),
+    },
+    wordChat: {
+      monthStart: currentMonthStart.toISOString(),
+      monthlyLimitUsd: WORD_CHAT_MONTHLY_SPEND_LIMIT_USD,
+      ...wordChatTotals,
+      accounts: wordChatAccounts,
     },
     activityHeatmap,
     users,

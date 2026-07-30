@@ -1,6 +1,9 @@
 import { findExistingTranslations } from "@/lib/db";
 import { openRouterTranslate } from "@/lib/translation";
-import { OpenRouterChatError } from "@/lib/openrouter-chat";
+import {
+  OpenRouterChatError,
+  type OpenRouterChatMeta,
+} from "@/lib/openrouter-chat";
 import { normalizeLanguageCode } from "@/lib/i18n/languages";
 import { DailyLimitError, reserveDailyBuckets } from "@/lib/rate-limit/daily-bucket";
 import { validateTranslation } from "@/lib/translation-validate";
@@ -14,13 +17,19 @@ import {
   MAX_WORD_CHAT_ITEM_CHARS,
   SESSIONS_PER_DAY,
   EDITOR_SESSIONS_PER_DAY,
+  OPENROUTER_MAX_ATTEMPTS,
   WORD_CHAT_TRANSLATION_MODEL,
+  TRANSLATION_MAX_TOKENS,
   getServerApiKey,
 } from "./config";
 import { WordChatUnavailableError } from "./chat";
 import { loadCorpusItems } from "./corpus";
 import { buildCallDiagnostics, type WordChatCallDiagnostics } from "./diagnostics";
-import { recordWordChatUsage } from "./usage";
+import {
+  recordWordChatUsage,
+  runReservedWordChatCall,
+  type WordChatSpendReservation,
+} from "./usage";
 import { getMonthlyItemUsage, type WordChatRole } from "./rate-limit";
 import { computeContentKey } from "@/lib/progress-key";
 import { toPlainItemText } from "../plainItemText";
@@ -141,8 +150,14 @@ export async function translateSelection(input: {
 
   const resolved = new Map<string, TranslatedRow>();
   const pending: typeof items = [];
-  let inputTokens = 0;
-  let outputTokens = 0;
+  let paidUsage: {
+    result: Awaited<ReturnType<typeof openRouterTranslate>>;
+    reservation: WordChatSpendReservation;
+    meta: OpenRouterChatMeta;
+    responseCount: number;
+    usageObserved: boolean;
+    minimumCostUsd: number;
+  } | null = null;
 
   for (const item of items) {
     const corpusRow = item.corpusItemId ? corpusItems.get(item.corpusItemId) : undefined;
@@ -208,21 +223,46 @@ export async function translateSelection(input: {
   // 3. Only genuinely new text reaches the model.
   if (pending.length > 0) {
     try {
-      const results = await openRouterTranslate(
-        pending.map((item) => item.text),
-        languageFrom,
-        languageTo,
-        apiKey,
-        model,
-        (meta) => {
-          const promptTokens = Number(meta.usage?.prompt_tokens ?? 0);
-          const completionTokens = Number(meta.usage?.completion_tokens ?? 0);
-          if (Number.isFinite(promptTokens) && promptTokens > 0) inputTokens += promptTokens;
-          if (Number.isFinite(completionTokens) && completionTokens > 0) {
-            outputTokens += completionTokens;
-          }
+      const texts = pending.map((item) => item.text);
+      const prompt = buildOpenRouterTranslationPrompt({
+        texts,
+        fromLang: languageFrom,
+        toLang: languageTo,
+        previousPairs: [],
+      });
+      paidUsage = await runReservedWordChatCall(
+        {
+          userId: input.userId,
+          sessionId: input.sessionId,
+          callType: "translation",
+          stage: "review_completed",
+          model,
+          request: {
+            maxTokens: TRANSLATION_MAX_TOKENS,
+            system: TRANSLATION_SYSTEM_PROMPT,
+            prompt,
+          },
+          maxOutputTokens: TRANSLATION_MAX_TOKENS,
+          maxAttempts: OPENROUTER_MAX_ATTEMPTS,
+          itemCount: pending.length,
         },
+        ({ onResponse, onAttemptStart }) =>
+          openRouterTranslate(
+            texts,
+            languageFrom,
+            languageTo,
+            apiKey,
+            model,
+            undefined,
+            {
+              maxTokens: TRANSLATION_MAX_TOKENS,
+              maxAttempts: OPENROUTER_MAX_ATTEMPTS,
+              onResponse,
+              onAttemptStart,
+            },
+          ),
       );
+      const results = paidUsage.result;
       pending.forEach((item, index) => {
         const result = results[index];
         // Parenthetical glosses and "one / the other" alternatives are asked
@@ -268,20 +308,22 @@ export async function translateSelection(input: {
     }
   }
 
-  await recordWordChatUsage({
-    userId: input.userId,
-    sessionId: input.sessionId,
-    callType: "translation",
-    stage: "review_completed",
-    model,
-    meta: {
-      usage: {
-        prompt_tokens: inputTokens,
-        completion_tokens: outputTokens,
-      },
-    },
-    itemCount: pending.length,
-  });
+  if (
+    paidUsage &&
+    (paidUsage.usageObserved || paidUsage.minimumCostUsd > 0)
+  ) {
+    await recordWordChatUsage({
+      userId: input.userId,
+      sessionId: input.sessionId,
+      callType: "translation",
+      stage: "review_completed",
+      model,
+      meta: paidUsage.meta,
+      itemCount: pending.length,
+      reservation: paidUsage.reservation,
+      minimumCostUsd: paidUsage.minimumCostUsd,
+    });
+  }
 
   // Preserve the learner's ordering; drop anything that failed to translate
   // rather than showing an empty row they cannot act on.
@@ -294,7 +336,7 @@ export async function translateSelection(input: {
     diagnostics: buildCallDiagnostics({
       callType: "translation",
       model,
-      meta: { usage: { prompt_tokens: inputTokens, completion_tokens: outputTokens } },
+      meta: paidUsage?.meta,
       startedAt,
       // `openRouterTranslate` builds and batches its own prompts; rebuilding the
       // first batch here is the honest way to show what was sent without
@@ -302,7 +344,7 @@ export async function translateSelection(input: {
       ...(input.includeRequest && pending.length > 0
         ? {
             request: {
-              maxTokens: 0,
+              maxTokens: TRANSLATION_MAX_TOKENS,
               provider: null,
               messages: [
                 { role: "system", content: TRANSLATION_SYSTEM_PROMPT },

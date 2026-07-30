@@ -138,6 +138,12 @@ export async function openRouterTranslate(
   apiKey: string,
   model = DEFAULT_OPENROUTER_TRANSLATION_MODEL,
   onMeta?: (meta: OpenRouterChatMeta) => void,
+  requestOptions: {
+    maxTokens?: number;
+    maxAttempts?: number;
+    onResponse?: (meta: OpenRouterChatMeta) => void;
+    onAttemptStart?: () => void;
+  } = {},
 ): Promise<TranslationResult[]> {
   const results: TranslationResult[] = [];
   // Larger batches give the model more of the list at once (helps teaching-anchor
@@ -169,6 +175,10 @@ export async function openRouterTranslate(
           apiKey,
           model,
           temperature: 0.1,
+          maxTokens: requestOptions.maxTokens,
+          maxAttempts: requestOptions.maxAttempts,
+          onResponse: requestOptions.onResponse,
+          onAttemptStart: requestOptions.onAttemptStart,
           messages: [
             { role: "system", content: TRANSLATION_SYSTEM_PROMPT },
             { role: "user", content: prompt },
