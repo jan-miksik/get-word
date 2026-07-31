@@ -99,18 +99,46 @@ Manual release means you press the button once it is approved. Automatic means
 it appears the moment review passes. Manual is the safer default for a first
 release.
 
+### A10. Create the Sign in with Apple key and deploy it
+
+Apple Developer portal → Certificates, Identifiers & Profiles → Keys → **+**.
+Name it something like "Get Word sign-in", tick **Sign in with Apple**,
+configure it for the primary App ID `app.getword`, and download the `.p8`.
+
+**Apple lets you download that file exactly once.** Store it somewhere you will
+still have it in two years.
+
+Then set three production environment variables:
+
+| Variable | Value |
+| --- | --- |
+| `APPLE_TEAM_ID` | `HLWJ75QQ8B` |
+| `APPLE_SIGN_IN_KEY_ID` | the Key ID shown next to the key |
+| `APPLE_SIGN_IN_PRIVATE_KEY` | the entire contents of the `.p8`, `-----BEGIN PRIVATE KEY-----` included |
+
+The private key may keep its real line breaks or use `\n` escapes; both are
+accepted. `APPLE_CLIENT_ID` defaults to `app.getword` and only needs setting if
+the bundle id ever changes.
+
+Also apply **migration 0057** (`users.apple_refresh_token`) to production.
+
+Until all of this is live, account deletion works but revokes nothing, which is
+the case Apple can reject.
+
 ---
 
 ## Part B — my side
 
-### B1. Sign in with Apple token revocation — the one that can get us rejected
+### B1. Sign in with Apple token revocation — done, needs a key from you
 
-Apps that offer Sign in with Apple must call Apple's token revocation endpoint
-when a user deletes their account. Our deletion removes the Supabase auth user,
-which is not the same thing. I need to check whether Supabase does the
-revocation for us and implement it if not.
+Implemented: the native client forwards Apple's one-time authorization code, the
+server trades it for a refresh token, stores it encrypted, and posts it to
+Apple's revoke endpoint when the account is deleted. Supabase could not do this
+for us — the id_token sign-in never produces a refresh token on their side.
 
-This is a known rejection reason under guideline 5.1.1(v), so it is first.
+**Your part (A10 above):** the exchange needs a Sign in with Apple key
+from the developer portal. Until it is deployed, every Apple call is a logged
+no-op, so nothing breaks — but nothing is revoked either.
 
 ### B2. Privacy manifest
 
