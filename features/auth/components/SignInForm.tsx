@@ -7,6 +7,7 @@ import { useI18n } from '@/components/I18nProvider';
 import { getBrowserPublicOrigin } from '@/features/auth/app-url';
 import { isSupabaseConfigured } from '@/features/auth/supabase/env';
 import { getDeviceId } from '@/lib/device-id';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 type Phase = 'idle' | 'sendingOtp' | 'awaitingOtp' | 'verifying' | 'redirecting';
 
@@ -243,7 +244,7 @@ export function SignInForm({
         return;
       }
       setPhase('redirecting');
-      const res = await fetch('/api/auth/sync-user', {
+      const res = await apiFetch('/api/auth/sync-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-device-id': getDeviceId() },
         body: JSON.stringify({ deviceId: getDeviceId() }),
@@ -316,7 +317,7 @@ export function SignInForm({
       }
       // Supabase cookies are now set; mint the app session (with device claim).
       setPhase('redirecting');
-      const res = await fetch('/api/auth/sync-user', {
+      const res = await apiFetch('/api/auth/sync-user', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-device-id': getDeviceId() },
         body: JSON.stringify({ deviceId: getDeviceId() }),

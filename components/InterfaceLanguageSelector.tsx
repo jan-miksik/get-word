@@ -16,6 +16,7 @@ import {
   type SupportedLanguage,
 } from '@/lib/i18n/languages';
 import { REVIEWED_LANGUAGES } from '@/lib/i18n/messages';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 interface InterfaceLanguageSelectorProps {
   value: string;
@@ -113,7 +114,7 @@ export function InterfaceLanguageSelector({
     let cancelled = false;
     const params = new URLSearchParams({ target: language });
     if (query.trim()) params.set('q', query.trim());
-    fetch(`/api/settings-languages?${params.toString()}`)
+    apiFetch(`/api/settings-languages?${params.toString()}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Failed'))))
       .then((data) => {
         if (cancelled) return;

@@ -11,6 +11,7 @@ import {
   type ModerationReportRow,
 } from '@/features/moderation/types';
 import type { I18nKey } from '@/lib/i18n/locales/en';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 type LoadState =
   | { status: 'loading' }
@@ -63,7 +64,7 @@ function AdminModerationContent() {
 
   const fetchReports = useCallback(async (): Promise<LoadState> => {
     try {
-      const response = await fetch(`/api/admin/moderation/reports?status=${showAll ? 'all' : 'pending'}`, {
+      const response = await apiFetch(`/api/admin/moderation/reports?status=${showAll ? 'all' : 'pending'}`, {
         credentials: 'same-origin',
         cache: 'no-store',
       });
@@ -96,7 +97,7 @@ function AdminModerationContent() {
     if (action === 'restrict' && !window.confirm(t('moderation.adminRestrictConfirm'))) return;
     setBusyId(report.id);
     try {
-      const response = await fetch(`/api/admin/moderation/reports/${report.id}`, {
+      const response = await apiFetch(`/api/admin/moderation/reports/${report.id}`, {
         method: 'PATCH',
         credentials: 'same-origin',
         headers: { 'Content-Type': 'application/json' },

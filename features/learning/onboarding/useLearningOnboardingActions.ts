@@ -23,6 +23,7 @@ import {
   isReverseDirectionList,
   type MatchedWordList,
 } from './listRecommendations';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 // Rough size of a typical recommended common list, used only for the provisional
 // progress estimate shown before the real item count is known.
@@ -79,7 +80,7 @@ export function useLearningOnboardingActions({
     setError(null);
     try {
       if (!list.isOwner) {
-        const res = await fetch(`/api/lists/${list.id}/subscribe`, { method: 'POST' });
+        const res = await apiFetch(`/api/lists/${list.id}/subscribe`, { method: 'POST' });
         if (!res.ok && res.status !== 409) {
           const data = await res.json().catch(() => ({}));
           throw new Error(data.error ?? 'Subscribe failed');
@@ -226,7 +227,7 @@ export function useLearningOnboardingActions({
     let didComplete = false;
     try {
       if (!(await savePreferencesForListNavigation())) return;
-      const createRes = await fetch('/api/lists/autogenerate-common', {
+      const createRes = await apiFetch('/api/lists/autogenerate-common', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

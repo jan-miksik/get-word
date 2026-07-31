@@ -8,6 +8,7 @@ import type {
   SyncReviewEventItem,
   SyncResponse,
 } from "@/features/sync/types";
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 // In-memory only: set from API responses, passed as hint to API. No localStorage.
 let lastKnownUserId: string | null = null;
@@ -188,7 +189,7 @@ export async function fetchUserData(options?: {
 
   try {
     const profile = getClientDeviceProfile();
-    const response = await fetch(query ? `/api/sync?${query}` : '/api/sync', {
+    const response = await apiFetch(query ? `/api/sync?${query}` : '/api/sync', {
       headers: deviceId
         ? { 'x-device-id': deviceId, ...deviceProfileHeaders(profile) }
         : deviceProfileHeaders(profile),
@@ -239,7 +240,7 @@ export async function linkWallet(
   const deviceId = getDeviceId();
 
   try {
-    const response = await fetch('/api/auth/link-wallet', {
+    const response = await apiFetch('/api/auth/link-wallet', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -328,7 +329,7 @@ export async function syncUserData(
   const sessionId = getSessionId();
   const deviceProfile = getClientDeviceProfile();
 
-  const response = await fetch("/api/sync", {
+  const response = await apiFetch("/api/sync", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...deviceProfileHeaders(deviceProfile) },
     body: JSON.stringify({

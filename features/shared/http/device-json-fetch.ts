@@ -1,12 +1,11 @@
-import { getDeviceId } from '@/lib/device-id';
+import { apiFetch } from './api-runtime';
 
 export function deviceJsonFetch(path: string, options: RequestInit = {}) {
-  return fetch(path, {
+  return apiFetch(path, {
     ...options,
     cache: options.cache ?? 'no-store',
     headers: {
       'Content-Type': 'application/json',
-      'x-device-id': getDeviceId(),
       ...options.headers,
     },
   });

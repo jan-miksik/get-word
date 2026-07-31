@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLanguage';
 import type { SchoolSummary } from '@/features/schools/types';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 type LoadState =
   | { status: 'loading' }
@@ -30,7 +31,7 @@ function AdminSchoolsContent() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/admin/schools', { credentials: 'same-origin' })
+    apiFetch('/api/admin/schools', { credentials: 'same-origin' })
       .then(async (response) => {
         if (cancelled) return;
         if (response.status === 401) return setState({ status: 'unauthorized' });

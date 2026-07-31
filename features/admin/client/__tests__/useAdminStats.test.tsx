@@ -23,9 +23,10 @@ describe('useAdminStats', () => {
     const { result } = renderHook(() => useAdminStats());
 
     await waitFor(() => expect(result.current.state.status).toBe('ready'));
-    expect(fetch).toHaveBeenCalledWith('/api/admin/stats?activityWindow=rolling', {
-      credentials: 'same-origin',
-    });
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/admin/stats?activityWindow=rolling',
+      expect.objectContaining({ credentials: 'same-origin' }),
+    );
 
     act(() => result.current.changeActivityWindow('calendar'));
     expect(result.current.state.status).toBe('loading');

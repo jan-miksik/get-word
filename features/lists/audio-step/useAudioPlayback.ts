@@ -24,6 +24,7 @@ import {
   hashFromAudioUrl,
   putClip,
 } from '@/lib/audio-clip-cache';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 function base64ToBlob(base64: string, contentType: string): Blob {
   const binary = atob(base64);
@@ -236,7 +237,7 @@ export function useAudioPlayback({ rows, t, onLinkedSourceFailed }: UseAudioPlay
       for (const candidateUrl of candidateUrls) {
         let response: Response;
         try {
-          response = await fetch(candidateUrl, {
+          response = await apiFetch(candidateUrl, {
             cache: 'force-cache',
             headers: {
               Accept: 'audio/mpeg,audio/*;q=0.9,*/*;q=0.1',

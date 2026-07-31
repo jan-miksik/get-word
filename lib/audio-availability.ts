@@ -5,6 +5,7 @@ import { hashFromAudioUrl } from '@/lib/audio-clip-cache';
 import { getLocalClipUrl } from '@/lib/audio-clip-playback';
 import { reportAudioStorageResponse, withAudioDebugParam } from '@/lib/audio-debug';
 import { isAudioNetworkOffline } from '@/lib/audio-network-policy';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 type AudioAvailabilityCacheEntry = {
   promise: Promise<string | null>;
@@ -69,7 +70,7 @@ async function probeWithTimeout(url: string): Promise<boolean> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), GATEWAY_TIMEOUT_MS);
   try {
-    const headResponse = await fetch(url, { method: 'HEAD', signal: controller.signal });
+    const headResponse = await apiFetch(url, { method: 'HEAD', signal: controller.signal });
     reportAudioStorageResponse(headResponse, url);
     if (headResponse.ok) return true;
     if (headResponse.status === 404) {
@@ -92,7 +93,7 @@ async function probeWithTimeout(url: string): Promise<boolean> {
   const getController = new AbortController();
   const getTimer = setTimeout(() => getController.abort(), GATEWAY_TIMEOUT_MS);
   try {
-    const getResponse = await fetch(url, { method: 'GET', signal: getController.signal });
+    const getResponse = await apiFetch(url, { method: 'GET', signal: getController.signal });
     reportAudioStorageResponse(getResponse, url);
     return getResponse.ok;
   } catch {

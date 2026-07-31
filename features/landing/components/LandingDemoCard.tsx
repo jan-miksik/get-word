@@ -19,6 +19,7 @@ import {
   getLandingDemoStaticAudioEntries,
 } from '@/lib/landing-demo-words';
 import type { I18nKey } from '@/lib/i18n/messages';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 /**
  * Interactive demo study card for the public landing page. Self-contained
@@ -147,7 +148,7 @@ export function LandingDemoCard({
     const controller = new AbortController();
     let request: Promise<Response>;
     try {
-      request = fetch(`/api/audio/demo?lang=${encodeURIComponent(audioLang)}`, {
+      request = apiFetch(`/api/audio/demo?lang=${encodeURIComponent(audioLang)}`, {
         signal: controller.signal,
       });
     } catch {

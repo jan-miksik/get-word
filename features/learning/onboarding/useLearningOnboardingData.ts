@@ -13,6 +13,7 @@ import {
 } from './listRecommendations';
 import type { LearningLanguage } from '@/features/shared/languages/types';
 import { useSupportedLanguages } from '@/features/shared/languages/useSupportedLanguages';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 type CommonListEstimate = {
   status: 'loading' | 'ready' | 'unavailable';
@@ -104,7 +105,7 @@ export function useLearningOnboardingData({
     if (!languagePairKey) return;
 
     const controller = new AbortController();
-    fetch(
+    apiFetch(
       `/api/lists/matches?from=${encodeURIComponent(languageFrom)}&to=${encodeURIComponent(languageTo)}`,
       { signal: controller.signal },
     )
@@ -179,7 +180,7 @@ export function useLearningOnboardingData({
 
     async function loadCommonListEstimate() {
       try {
-        const listsRes = await fetch('/api/lists');
+        const listsRes = await apiFetch('/api/lists');
         if (!listsRes.ok) throw new Error('Could not load seed lists');
         const listsData = await listsRes.json();
         if (cancelled) return;
@@ -193,7 +194,7 @@ export function useLearningOnboardingData({
           return;
         }
 
-        const seedDetailsRes = await fetch(`/api/lists/${seedList.id}?include_media=false`);
+        const seedDetailsRes = await apiFetch(`/api/lists/${seedList.id}?include_media=false`);
         if (!seedDetailsRes.ok) throw new Error('Could not load seed list size');
         const seedDetails = await seedDetailsRes.json();
         if (cancelled) return;

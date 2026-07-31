@@ -25,7 +25,12 @@ describe('shared audio clip playback cache', () => {
 
     await prefetchClips(['hash-1']);
 
-    expect(fetch).toHaveBeenCalledWith('/api/audio/hash-1');
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/audio/hash-1',
+      expect.objectContaining({
+        headers: expect.objectContaining({ 'x-device-id': expect.any(String) }),
+      }),
+    );
     expect(cacheMocks.putClip).toHaveBeenCalledWith('hash-1', expect.any(Blob));
     expect(getWarmedClipUrl('hash-1')).toBe('blob:warmed-clip');
   });

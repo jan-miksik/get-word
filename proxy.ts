@@ -1,8 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { handleApiCors } from "@/features/shared/routes/api-cors";
 import { GET_WORD_SESSION_COOKIE_NAME, verifySession } from "@/lib/session";
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // API routes authenticate per request (cookie or bearer). They are matched
+  // only so the native client's cross-origin calls get their CORS headers, and
+  // must never go through the page auth gate below — that would redirect an
+  // unauthenticated API call to the home page instead of returning its 401.
+  if (pathname.startsWith("/api/")) {
+    return handleApiCors(request);
+  }
 
   const token = request.cookies.get(GET_WORD_SESSION_COOKIE_NAME)?.value;
   const session = await verifySession(token);
@@ -24,6 +33,7 @@ export async function proxy(request: NextRequest) {
 export const config = {
   matcher: [
     "/",
+    "/api/:path*",
     "/edit/:path*",
     "/lists/:path*",
     "/login",

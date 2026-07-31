@@ -1,0 +1,17 @@
+/*
+ * Fonts that the web app loads through `next/font`. The native bundle has no
+ * font loader, so the same faces are declared here and exposed under the class
+ * names produced by `src/next-shims/font-local.ts`.
+ */
+@font-face {
+  font-family: 'Unbounded';
+  src: url('../../features/photo-lab/fonts/Unbounded-VariableFont_wght.ttf')
+    format('truetype');
+  font-weight: 200 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+.gw-font-photo-display {
+  --font-photo-display: 'Unbounded', system-ui, sans-serif;
+}

@@ -247,7 +247,7 @@ describe('LearningLanguageOnboarding', () => {
     expect(screen.queryByRole('button', { name: /Automatically generate a list of words and phrases/i })).not.toBeInTheDocument();
 
     await waitFor(() => {
-      expect(fetch).toHaveBeenCalledWith('/api/languages');
+      expect(fetch).toHaveBeenCalledWith('/api/languages', expect.anything());
     });
     expect(vi.mocked(fetch).mock.calls.some(([url]) => String(url).startsWith('/api/lists/matches'))).toBe(false);
   });

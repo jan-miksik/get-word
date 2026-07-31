@@ -33,10 +33,18 @@ describe("proxy auth gate", () => {
   it("matches the guarded routes", () => {
     expect(config.matcher).toEqual([
       "/",
+      "/api/:path*",
       "/edit/:path*",
       "/lists/:path*",
       "/login",
     ]);
+  });
+
+  it("never runs the page auth gate on API routes", async () => {
+    const response = await proxy(makeRequest("/api/sync"));
+
+    expect(mockVerifySession).not.toHaveBeenCalled();
+    expectNextResponse(response);
   });
 
   it("allows anonymous users to access the home page", async () => {

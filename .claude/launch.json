@@ -7,6 +7,16 @@
       "runtimeArgs": ["run", "dev"],
       "port": 3000,
       "autoPort": false
+    },
+    {
+      "name": "mobile",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["./node_modules/vite/bin/vite.js", "--config", "mobile/vite.config.ts", "mobile"],
+      "env": {
+        "VITE_GET_WORD_API_ORIGIN": "http://localhost:3000"
+      },
+      "port": 4174,
+      "autoPort": false
     }
   ]
 }

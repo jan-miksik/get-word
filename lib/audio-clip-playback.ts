@@ -1,6 +1,7 @@
 'use client';
 
 import { getClip, putClip } from '@/lib/audio-clip-cache';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 /**
  * Shared content-hash audio playback cache.
@@ -95,7 +96,7 @@ export async function prefetchClips(
           if (!objectUrls.has(hash)) rememberObjectUrl(hash, URL.createObjectURL(stored));
           continue;
         }
-        const response = await fetch(`/api/audio/${hash}`);
+        const response = await apiFetch(`/api/audio/${hash}`);
         if (!response.ok) continue;
         const blob = await response.blob();
         if (blob.size === 0) continue;

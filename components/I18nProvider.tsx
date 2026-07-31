@@ -18,6 +18,7 @@ import {
   type I18nMessages,
 } from '@/lib/i18n/messages';
 import { normalizeLanguageCode } from '@/lib/i18n/languages';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 type I18nContextValue = {
   language: string;
@@ -74,7 +75,7 @@ function RemoteI18nProvider({
 
   useEffect(() => {
     let cancelled = false;
-    fetch(`/api/i18n/messages?language=${encodeURIComponent(language)}`)
+    apiFetch(`/api/i18n/messages?language=${encodeURIComponent(language)}`)
       .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Failed to load messages'))))
       .then((data) => {
         if (cancelled) return;

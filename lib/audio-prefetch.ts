@@ -8,6 +8,7 @@ import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
 import { getClipForAudioUrl } from '@/lib/audio-clip-cache';
 import { reportAudioStorageResponse, withAudioDebugParam } from '@/lib/audio-debug';
 import { getAudioPrefetchLimit } from '@/lib/audio-network-policy';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 const PREFETCH_COUNT = 4;
 const MAX_RETAINED_AUDIO = 12;
@@ -60,7 +61,7 @@ async function readAudioResponse(url: string): Promise<Response | null> {
   }
 
   try {
-    const response = await fetch(url, {
+    const response = await apiFetch(url, {
       cache: 'force-cache',
       credentials: 'same-origin',
     });

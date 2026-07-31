@@ -12,6 +12,7 @@ import {
   serializeVoiceSelection,
   type VoiceSelection,
 } from './voiceMix';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 type LanguageScopedSelection = {
   languageCode: string;
@@ -59,7 +60,7 @@ export function useGoogleTtsVoiceSelection(activeLanguageCode: string) {
     async function loadVoices() {
       setLoadingVoices(true);
       try {
-        const res = await fetch('/api/languages');
+        const res = await apiFetch('/api/languages');
         if (!res.ok) throw new Error('Failed to load Google TTS voices');
         const data = await res.json();
         const languages = Array.isArray(data.languages)

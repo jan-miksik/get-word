@@ -6,6 +6,7 @@ import { deleteDeviceId, getDeviceId } from '@/lib/device-id'
 import { clearLearningCache } from '@/lib/local-learning-cache'
 import { clearPendingSync, resetSyncIdentity } from '@/lib/sync'
 import { isSupabaseConfigured } from '@/features/auth/supabase/env'
+import { apiFetch } from '@/features/shared/http/api-runtime'
 
 type AuthStatus = 'connected' | 'disconnected' | 'connecting'
 
@@ -95,7 +96,7 @@ export function useAuth(): UseAuthReturn {
 
   useEffect(() => {
     let active = true
-    fetch('/api/auth/me', {
+    apiFetch('/api/auth/me', {
       credentials: 'same-origin',
       signal: AbortSignal.timeout(ME_FETCH_TIMEOUT_MS),
     })
@@ -141,7 +142,7 @@ export function useAuth(): UseAuthReturn {
     signingOut.current = true
     const deviceId = getDeviceId()
     try {
-      await fetch('/api/auth/logout', {
+      await apiFetch('/api/auth/logout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ deviceId }),

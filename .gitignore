@@ -1,9 +1,14 @@
 app/.generated/
 # dependencies
-/node_modules
+# Not anchored: the mobile package gets its own node_modules for Vite's
+# pre-bundled dependency cache, even though the deps themselves are hoisted.
+node_modules/
 /.pnp
 .pnp.js
 .pnpm-store/
+
+# build caches
+.vite/
 
 # testing
 /coverage

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { ActivityWindow } from '@/lib/stats/types';
 import type { SchoolUsageStats } from '@/features/schools/types';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 export type SchoolStatsLoadState =
   | { status: 'loading' }
@@ -18,7 +19,7 @@ async function requestSchoolStats(
 ): Promise<SchoolStatsLoadState> {
   try {
     const params = new URLSearchParams({ activityWindow });
-    const response = await fetch(`${endpoint}?${params}`, { credentials: 'same-origin' });
+    const response = await apiFetch(`${endpoint}?${params}`, { credentials: 'same-origin' });
     if (response.status === 401) return { status: 'unauthorized' };
     if (response.status === 403) return { status: 'forbidden' };
     if (response.status === 404) return { status: 'notFound' };

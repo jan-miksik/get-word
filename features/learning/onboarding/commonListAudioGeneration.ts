@@ -18,6 +18,7 @@ import {
 } from '@/features/lists/audio-step/language';
 import type { I18nKey } from '@/lib/i18n/messages';
 import { estimateCommonListGenerationSeconds } from './listRecommendations';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 const AUTOGENERATE_AUDIO_QUOTA_NOTICE =
   'Audio for this list needs {requested} Google TTS characters, but this account has {remaining} free characters left this month. I generated as much as the free quota allows, so only part of the list may have audio. Contact our tech support and we can help finish it or raise the limit.';
@@ -79,7 +80,7 @@ export function getCommonListAudioFailureNotice(summary: AudioGenerationSummary)
 
 async function loadTtsLanguageOptions(): Promise<TtsLanguageOption[]> {
   try {
-    const res = await fetch('/api/languages');
+    const res = await apiFetch('/api/languages');
     if (!res.ok) return [];
     const data = await res.json().catch(() => ({}));
     return Array.isArray(data.languages) ? data.languages : [];
@@ -128,7 +129,7 @@ function hasPlayableAudioUrl(url: string | null | undefined, urls: string[] | un
 
 async function loadTtsRemainingQuota(): Promise<number | null> {
   try {
-    const usageRes = await fetch('/api/google-usage');
+    const usageRes = await apiFetch('/api/google-usage');
     if (!usageRes.ok) return null;
     const usageData: GoogleUsageResponse = await usageRes.json();
     const ttsUsage = usageData.account.find((scope) => scope.scope === 'tts');
@@ -151,7 +152,7 @@ export async function generateCommonListAudio({
   const audioFailureNotice =
     'The common list is ready, but audio generation could not finish. Audio can be added from the lists editor later.';
 
-  const detailsRes = await fetch(`/api/lists/${list.id}`);
+  const detailsRes = await apiFetch(`/api/lists/${list.id}`);
   if (!detailsRes.ok) {
     return {
       notice: audioFailureNotice,
@@ -280,7 +281,7 @@ export async function generateCommonListAudio({
       let data: Record<string, unknown> = {};
       let res: Response;
       try {
-        res = await fetch('/api/audio/generate/batch', {
+        res = await apiFetch('/api/audio/generate/batch', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

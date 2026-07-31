@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { SupportedLearningLanguage } from './types';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 type SupportedLanguagesState = {
   languages: SupportedLearningLanguage[];
@@ -17,7 +18,7 @@ export function useSupportedLanguages(): SupportedLanguagesState {
   useEffect(() => {
     let cancelled = false;
 
-    fetch('/api/languages')
+    apiFetch('/api/languages')
       .then((response) => response.json())
       .then((data) => {
         if (!cancelled) {

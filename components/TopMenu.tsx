@@ -20,6 +20,7 @@ import {
   WordListsIcon,
 } from '@/components/icons/AppIcons';
 import type { AppSurface } from '@/features/workspace/surface-history';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 const STUDY_SURFACE_HREF = '/';
 const CHAT_SURFACE_HREF = '/?surface=chat';
@@ -286,7 +287,7 @@ function ListSelectModal({
     if (!languagePair) return;
     const controller = new AbortController();
     const subscribedIds = new Set(lists.map((list) => list.id));
-    fetch(
+    apiFetch(
       `/api/lists/matches?from=${encodeURIComponent(languagePair.from)}&to=${encodeURIComponent(languagePair.to)}`,
       { signal: controller.signal },
     )
@@ -316,7 +317,7 @@ function ListSelectModal({
     if (subscribingId) return;
     setSubscribingId(id);
     try {
-      const res = await fetch(`/api/lists/${id}/subscribe`, { method: 'POST' });
+      const res = await apiFetch(`/api/lists/${id}/subscribe`, { method: 'POST' });
       if (!res.ok && res.status !== 409) throw new Error('Subscribe failed');
       onListChange(id);
       window.location.reload();

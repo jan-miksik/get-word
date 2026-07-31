@@ -1,0 +1,20 @@
+/*
+ * Stylesheet entry for the native bundle: the same CSS the web app loads from
+ * `app/layout.tsx`, plus the native-only additions.
+ */
+@import '../../app/globals.css';
+@import '../../app/tailwind.css';
+@import './fonts.css';
+@import './styles.css';
+
+/*
+ * Tailwind scans for class names relative to the stylesheet that imports it,
+ * which here is inside `mobile/`. Point it at the shared source tree so the
+ * native build emits the same utilities as the Next build.
+ */
+@source '../../app';
+@source '../../components';
+@source '../../features';
+@source '../../hooks';
+@source '../../lib';
+@source './';

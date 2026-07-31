@@ -11,6 +11,7 @@ import {
   subscribeAudioNetworkChanges,
 } from '@/lib/audio-network-policy';
 import { DB_NAME, STORE_KV, openDb as openSharedDb } from '@/lib/local-first/db';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 const STORE_NAME = STORE_KV;
 const STORAGE_PREF_KEY = 'get-word-local-learning-cache-enabled';
@@ -307,7 +308,7 @@ export async function cacheActiveListAudio(words: NormalizedWord[]): Promise<Aud
       if (controller.signal.aborted || isAudioNetworkOffline()) return 'stopped';
 
       try {
-        const response = await fetch(candidate, {
+        const response = await apiFetch(candidate, {
           credentials: 'same-origin',
           signal: controller.signal,
         });

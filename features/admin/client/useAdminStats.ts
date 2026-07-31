@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import type { ActivityWindow, UsageStats } from '@/features/admin/types';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 export type AdminStatsLoadState =
   | { status: 'loading' }
@@ -13,7 +14,7 @@ export type AdminStatsLoadState =
 async function requestAdminStats(activityWindow: ActivityWindow): Promise<AdminStatsLoadState> {
   try {
     const params = new URLSearchParams({ activityWindow });
-    const response = await fetch(`/api/admin/stats?${params}`, { credentials: 'same-origin' });
+    const response = await apiFetch(`/api/admin/stats?${params}`, { credentials: 'same-origin' });
     if (response.status === 401) return { status: 'unauthorized' };
     if (response.status === 403) return { status: 'forbidden' };
     if (!response.ok) return { status: 'error' };

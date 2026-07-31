@@ -6,6 +6,7 @@ import type { SyncReviewEventItem } from '@/features/sync/types';
 import { getSessionId } from '@/lib/session-id';
 import { isAuthRequiredError, syncUserData } from '@/lib/sync';
 import { isLocalFirstAvailableSync } from '@/lib/local-first/availability';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 
 export type SyncReason =
   | 'app_open'
@@ -196,7 +197,7 @@ function urgentFlush(reason: SyncReason): void {
 
   emit({ lastAttemptAt: Date.now(), lastReason: reason });
 
-  void fetch('/api/sync', {
+  void apiFetch('/api/sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body,
