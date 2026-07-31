@@ -23,6 +23,12 @@ export function fetchMobileIdentity(sessionToken?: string | null) {
 export function exchangeSupabaseSession(input: {
   accessToken: string;
   deviceId: string;
+  /**
+   * Apple's one-time authorization code. The server trades it for a refresh
+   * token it can revoke when the account is deleted, which Sign in with Apple
+   * requires and the id_token flow alone cannot provide.
+   */
+  appleAuthorizationCode?: string;
 }) {
   return mobileApiRequest<MobileSession>('/api/auth/sync-user', {
     method: 'POST',
@@ -30,6 +36,7 @@ export function exchangeSupabaseSession(input: {
     body: {
       client: 'ios',
       deviceId: input.deviceId,
+      appleAuthorizationCode: input.appleAuthorizationCode,
     },
   });
 }

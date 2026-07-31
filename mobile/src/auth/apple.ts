@@ -99,6 +99,7 @@ export async function signInWithApple(): Promise<MobileSession | null> {
     const appSession = await exchangeSupabaseSession({
       accessToken: data.session.access_token,
       deviceId: await getOrCreateDeviceId(),
+      appleAuthorizationCode: credential.authorizationCode,
     });
     await storeAppSessionToken(appSession.sessionToken);
 

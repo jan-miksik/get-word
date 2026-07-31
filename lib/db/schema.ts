@@ -315,6 +315,9 @@ export const users = pgTable("users", {
   email: text("email").unique(), // Email (when signed in with email/Google/social)
   walletAddress: text("wallet_address").unique(), // Web3 embedded wallet (dormant; future stake/payment)
   authProvider: text("auth_provider"), // "email" | "google" | "apple" | "wallet" etc.
+  // Encrypted Apple refresh token, kept only so account deletion can revoke it
+  // as Sign in with Apple requires. See features/auth/server/apple-token.ts.
+  appleRefreshToken: text("apple_refresh_token"),
   registeredAt: timestamp("registered_at"), // set once when supabase_auth_id is first attached (created_at = first app use, which may be earlier)
   userRole: text("user_role").notNull().default("user"), // "user" or "editor"
   // Operator-set photo-lab allowance. NULL = whatever the account's normal path

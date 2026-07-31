@@ -30,6 +30,18 @@ vi.mock('@/features/auth/supabase/admin', () => ({
   deleteSupabaseAuthUser: (...a: unknown[]) => mockDeleteSupabaseAuthUser(...a),
 }))
 
+const mockRevokeAppleRefreshToken = vi.fn()
+vi.mock('../apple-token', () => ({
+  revokeAppleRefreshToken: (...a: unknown[]) => mockRevokeAppleRefreshToken(...a),
+}))
+
+vi.mock('@/lib/providers/crypto', () => ({
+  decryptProviderSecret: (cipherText: string) => ({
+    secret: cipherText.replace('encrypted:', ''),
+    wasEncrypted: true,
+  }),
+}))
+
 import { deleteAccount } from '../delete-account'
 
 const SUPA_ID = 'supabase-auth-1'
@@ -162,5 +174,48 @@ describe('deleteAccount', () => {
     expect(result).toEqual({ status: 'completing' })
     expect(mockDeleteJob).not.toHaveBeenCalled()
     expect(mockBumpJob).toHaveBeenCalledWith(SUPA_ID, expect.stringContaining('supabase down'))
+  })
+  it('revokes the Apple refresh token, as Sign in with Apple requires', async () => {
+    mockGetUserById.mockResolvedValue({
+      id: 'u1',
+      supabaseAuthId: SUPA_ID,
+      appleRefreshToken: 'encrypted:apple-refresh-1',
+    })
+    mockGetOwnedLists.mockResolvedValue([])
+    mockDeleteSupabaseAuthUser.mockResolvedValue(undefined)
+
+    const result = await deleteAccount('u1')
+
+    expect(mockRevokeAppleRefreshToken).toHaveBeenCalledWith('apple-refresh-1')
+    expect(result).toEqual({ status: 'deleted' })
+  })
+
+  it('does not call Apple for an account that never signed in with it', async () => {
+    mockGetUserById.mockResolvedValue({
+      id: 'u1',
+      supabaseAuthId: SUPA_ID,
+      appleRefreshToken: null,
+    })
+    mockGetOwnedLists.mockResolvedValue([])
+
+    await deleteAccount('u1')
+
+    expect(mockRevokeAppleRefreshToken).not.toHaveBeenCalled()
+  })
+
+  it('still completes the erasure when Apple revocation fails', async () => {
+    mockGetUserById.mockResolvedValue({
+      id: 'u1',
+      supabaseAuthId: SUPA_ID,
+      appleRefreshToken: 'encrypted:apple-refresh-1',
+    })
+    mockGetOwnedLists.mockResolvedValue([])
+    mockDeleteSupabaseAuthUser.mockResolvedValue(undefined)
+    mockRevokeAppleRefreshToken.mockRejectedValue(new Error('apple unreachable'))
+
+    const result = await deleteAccount('u1')
+
+    expect(mockDeleteUser).toHaveBeenCalled()
+    expect(result).toEqual({ status: 'deleted' })
   })
 })

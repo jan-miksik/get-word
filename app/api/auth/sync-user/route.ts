@@ -2,6 +2,9 @@ import { NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/features/auth/supabase/server'
 import { createSupabaseTokenVerifier } from '@/features/auth/supabase/token-verifier'
 import { resolveAndAttachSupabaseUser } from '@/features/auth/server/resolve-supabase-user'
+import { exchangeAppleAuthorizationCode } from '@/features/auth/server/apple-token'
+import { encryptProviderSecret } from '@/lib/providers/crypto'
+import { updateUserFields } from '@/lib/db'
 import { withSessionCookie } from '@/features/shared/routes/session'
 import { readBearerToken, signSession } from '@/lib/session'
 import { NextResponse } from 'next/server'
@@ -9,6 +12,13 @@ import { NextResponse } from 'next/server'
 type SyncUserBody = {
   deviceId?: string
   client?: 'web' | 'ios'
+  /**
+   * One-time code from a native Sign in with Apple credential. Traded for a
+   * refresh token that exists only so account deletion can revoke it, as Apple
+   * requires. Supabase cannot supply one: the native client signs in with an
+   * id_token, so Supabase never runs the code exchange itself.
+   */
+  appleAuthorizationCode?: string
 }
 
 /**
@@ -19,6 +29,28 @@ type SyncUserBody = {
  * login can claim existing device progress without merging/deleting rows —
  * then mint `get_word_session`.
  */
+/**
+ * Best-effort: a learner who has just proved their identity must be signed in
+ * even if Apple is unreachable or the signing key is not deployed. The cost of
+ * failure is that this account cannot be revoked on deletion, which is logged.
+ */
+async function storeAppleRefreshToken(
+  userId: string,
+  authorizationCode: string | undefined,
+): Promise<void> {
+  if (!authorizationCode) return
+
+  try {
+    const refreshToken = await exchangeAppleAuthorizationCode(authorizationCode)
+    if (!refreshToken) return
+    await updateUserFields(userId, {
+      appleRefreshToken: encryptProviderSecret(refreshToken),
+    })
+  } catch (error) {
+    console.error('[auth/sync-user] Could not store the Apple refresh token', error)
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = await request
@@ -68,6 +100,8 @@ export async function POST(request: NextRequest) {
       authProvider: (user.app_metadata?.provider as string | undefined) ?? null,
       deviceId,
     })
+
+    await storeAppleRefreshToken(appUser.id, body.appleAuthorizationCode)
 
     const payload: Record<string, unknown> = {
       success: true,

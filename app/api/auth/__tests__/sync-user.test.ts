@@ -6,6 +6,8 @@ const mockBearerGetUser = vi.fn()
 const mockResolveAndAttachSupabaseUser = vi.fn()
 const mockSignSession = vi.fn()
 const mockWithSessionCookie = vi.fn()
+const mockUpdateUserFields = vi.fn()
+const mockExchangeAppleAuthorizationCode = vi.fn()
 
 vi.mock('@/features/auth/supabase/server', () => ({
   createSupabaseServerClient: async () => ({
@@ -26,6 +28,17 @@ vi.mock('@/features/auth/supabase/token-verifier', () => ({
 vi.mock('@/features/auth/server/resolve-supabase-user', () => ({
   resolveAndAttachSupabaseUser: (...args: unknown[]) =>
     mockResolveAndAttachSupabaseUser(...args),
+}))
+
+// The route stores the Apple refresh token, so the db barrel is in its import
+// graph and would otherwise demand a real DATABASE_URL.
+vi.mock('@/lib/db', () => ({
+  updateUserFields: (...args: unknown[]) => mockUpdateUserFields(...args),
+}))
+
+vi.mock('@/features/auth/server/apple-token', () => ({
+  exchangeAppleAuthorizationCode: (...args: unknown[]) =>
+    mockExchangeAppleAuthorizationCode(...args),
 }))
 
 vi.mock('@/features/shared/routes/session', () => ({
@@ -75,6 +88,7 @@ describe('POST /api/auth/sync-user', () => {
       userRole: 'user',
     })
     mockSignSession.mockResolvedValue('signed-mobile-session')
+    mockExchangeAppleAuthorizationCode.mockResolvedValue('apple-refresh-token')
     mockWithSessionCookie.mockImplementation(async (payload: Record<string, unknown>) =>
       Response.json(payload),
     )

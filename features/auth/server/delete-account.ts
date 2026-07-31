@@ -10,6 +10,8 @@ import {
   bumpAccountDeletionJobAttempt,
 } from '@/lib/db'
 import { deleteSupabaseAuthUser } from '../supabase/admin'
+import { revokeAppleRefreshToken } from './apple-token'
+import { decryptProviderSecret } from '@/lib/providers/crypto'
 
 type DeleteAccountStatus = 'deleted' | 'completing'
 export interface DeleteAccountResult {
@@ -30,16 +32,39 @@ export interface DeleteAccountResult {
  *     process crashes right after commit. Finally delete the user row (cascades
  *     all personal-data tables). Lists are processed *before* the user delete so
  *     the FK `ON DELETE SET NULL` can't silently orphan delete-set lists.
- *  3. After commit, delete the Supabase `auth.users` row. On success, clear the
- *     job and report "deleted". On failure, leave the job pending for the retry
- *     processor and report "completing" (never claim full deletion yet).
+ *  3. After commit, revoke the user's Apple refresh token if we hold one — Sign
+ *     in with Apple requires this on deletion — and delete the Supabase
+ *     `auth.users` row. On success, clear the job and report "deleted". On
+ *     failure, leave the job pending for the retry processor and report
+ *     "completing" (never claim full deletion yet).
  *
  * Idempotent: a missing user is treated as already deleted.
  */
+/**
+ * Apple requires the app to revoke the user's tokens when they delete their
+ * account. The erasure itself has already committed by the time this runs, so a
+ * failure here must not resurrect the account or fail the request — it is
+ * logged loudly instead, and the user's Apple ID keeps showing the app until
+ * they remove it themselves.
+ */
+async function revokeAppleAccess(encryptedRefreshToken: string | null): Promise<void> {
+  if (!encryptedRefreshToken) return
+
+  try {
+    const { secret } = decryptProviderSecret(encryptedRefreshToken)
+    await revokeAppleRefreshToken(secret)
+  } catch (error) {
+    // TODO(alert): emit an explicit Sentry/alerting event here.
+    console.error('[delete-account] Apple token revocation failed', error)
+  }
+}
+
 export async function deleteAccount(userId: string): Promise<DeleteAccountResult> {
   const user = await getUserById(userId)
   if (!user) return { status: 'deleted' }
   const supabaseAuthId = user.supabaseAuthId
+  // Read before the row is gone; revoked after the erasure has committed.
+  const appleRefreshToken = user.appleRefreshToken
 
   await db.transaction(async (tx) => {
     const ownedLists = await getOwnedListsWithSubscriberCounts(userId, tx, {
@@ -63,6 +88,8 @@ export async function deleteAccount(userId: string): Promise<DeleteAccountResult
 
     await deleteUser(userId, tx)
   })
+
+  await revokeAppleAccess(appleRefreshToken)
 
   // Device-only user with no Supabase identity: nothing external to delete.
   if (!supabaseAuthId) return { status: 'deleted' }
