@@ -125,6 +125,15 @@ function proposalKey(item: ProposedItem): string {
   return item.source === 'corpus' ? `corpus:${item.corpusItemId}` : `gen:${item.draftId ?? item.text}`;
 }
 
+/**
+ * A multi-word entry is treated as a sentence only when it reads like one; this
+ * classification guides proposal/translation semantics but is not shown as a
+ * redundant badge in the selection UI.
+ */
+function classifyCustomItem(text: string): 'sentence' | 'word' {
+  return /\s/.test(text) && text.length > 20 ? 'sentence' : 'word';
+}
+
 function newId(): string {
   if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) return crypto.randomUUID();
   return `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -970,14 +979,10 @@ export function useWordChat({
     (text: string) => {
       const trimmed = text.trim().replace(/\s+/g, ' ');
       if (!trimmed || atSelectionLimit) return;
-      // A multi-word entry is treated as a sentence only when it reads like one;
-      // this classification guides proposal/translation semantics but is not
-      // shown as a redundant badge in the selection UI.
-      const kind: 'sentence' | 'word' = /\s/.test(trimmed) && trimmed.length > 20 ? 'sentence' : 'word';
       setCustomItems((current) =>
         current.some((entry) => entry.text.toLowerCase() === trimmed.toLowerCase())
           ? current
-          : [...current, { kind, text: trimmed }],
+          : [...current, { kind: classifyCustomItem(trimmed), text: trimmed }],
       );
     },
     [atSelectionLimit],
@@ -1011,12 +1016,33 @@ export function useWordChat({
    * Translate everything, then voice it, then show Review. One step from the
    * learner's side — two model-backed calls from ours.
    */
-  const continueToReview = useCallback(async () => {
-    if (busy || selectedItems.length === 0 || overMonthlyLimit) return;
+  const continueToReview = useCallback(async (pendingTexts: string[] = []) => {
+    // Words still sitting in the entry field count as typed. They are merged
+    // here rather than pushed through `addCustomItem` first, because a state
+    // update would not have landed by the time this call reads the selection —
+    // and nobody should have to press + before Translate for a word that is
+    // already on screen.
+    const seen = new Set(selectedItems.map((item) => item.text.toLowerCase()));
+    const room = Math.max(0, selectionLimit - selectedItems.length);
+    const extras: { kind: 'sentence' | 'word'; text: string }[] = [];
+    for (const raw of pendingTexts) {
+      if (extras.length >= room) break;
+      const text = raw.trim().replace(/\s+/g, ' ');
+      if (!text || seen.has(text.toLowerCase())) continue;
+      seen.add(text.toLowerCase());
+      extras.push({ kind: classifyCustomItem(text), text });
+    }
+    const itemsToTranslate = [...selectedItems, ...extras];
+
+    if (busy || itemsToTranslate.length === 0) return;
+    if (itemsToTranslate.length > monthlyRemaining) return;
     // The target language words its phrases differently depending on who is
     // being spoken to, and nobody has said which. Translating now would produce
     // a guess the learner would have to re-read every row to catch.
     if (translationRegisterMissing) return;
+    // Recorded only once the round is actually going ahead, so a refused one
+    // does not leave half-added rows behind.
+    if (extras.length > 0) setCustomItems((current) => [...current, ...extras]);
     setError(null);
 
     // Nothing changed since the last translation: the rows are still valid, so
@@ -1028,7 +1054,7 @@ export function useWordChat({
       // Part of the signature, not just the request: changing the register
       // after a first pass has to re-translate rather than show the old rows.
       register: translationRegister,
-      items: selectedItems.map((item) => [
+      items: itemsToTranslate.map((item) => [
         item.kind,
         item.text,
         'corpusItemId' in item ? item.corpusItemId : null,
@@ -1045,7 +1071,7 @@ export function useWordChat({
         sessionId,
         languageFrom,
         languageTo,
-        items: selectedItems,
+        items: itemsToTranslate,
         addressRegister: translationRegister,
         model: modelOverrides.translation,
       });
@@ -1139,11 +1165,12 @@ export function useWordChat({
     languageFrom,
     languageTo,
     modelOverrides.translation,
+    monthlyRemaining,
     noteSuccess,
-    overMonthlyLimit,
     recordDiagnostics,
     reviewItems.length,
     selectedItems,
+    selectionLimit,
     sessionId,
     translationRegister,
     translationRegisterMissing,

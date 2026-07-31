@@ -124,7 +124,11 @@ export function AddWordsScreen({
         // back to `currentColor`, painting dark patches on the beige.
         style={warmPaletteVars}
         className={[
-          'onboarding-card relative w-full rounded-2xl! border-2! p-4 max-sm:rounded-none! max-sm:border-x-0! max-sm:border-t-0! max-sm:px-3 sm:p-7',
+          // Borderless on a phone: the sheet and the page are one cream surface
+          // there (see `[data-app-surface='chat']` in `styles/layout.css`), and
+          // a leftover edge would draw a dark line across it. From `sm` up it is
+          // an inset card on sand again and keeps its full border.
+          'onboarding-card relative w-full rounded-2xl! border-2! p-4 max-sm:rounded-none! max-sm:border-0! max-sm:px-3 sm:p-7',
           keyboardOpen ? 'max-sm:pt-2' : '',
           fullHeight
             ? 'flex min-h-0 flex-1 flex-col max-sm:pb-[max(0.5rem,env(safe-area-inset-bottom))]'

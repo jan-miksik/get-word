@@ -41,7 +41,11 @@ type Props = {
   saving: boolean;
   onChange: (patch: WordChatPreferencePatch) => void | Promise<void>;
   onLanguagePairChange: (pair: { from: string; to: string }) => void | Promise<void>;
-  placement?: 'inline' | 'screen-header';
+  /**
+   * `none` renders the modal without any trigger of its own — for surfaces that
+   * open it from somewhere else, such as the select step's overflow menu.
+   */
+  placement?: 'inline' | 'screen-header' | 'none';
   /** Whether the surface holding this button is the one on screen. */
   active?: boolean;
   /**
@@ -174,6 +178,15 @@ export function WordChatSettingsControls({
       onClose={close}
     />
   );
+
+  if (placement === 'none') {
+    return (
+      <>
+        {modal}
+        {shareModal}
+      </>
+    );
+  }
 
   return placement === 'screen-header' ? (
     <div className="absolute right-3 top-3 z-20 flex items-center gap-2 sm:right-7 sm:top-7">

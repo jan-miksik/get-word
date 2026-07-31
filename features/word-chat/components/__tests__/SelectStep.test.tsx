@@ -73,6 +73,97 @@ describe('SelectStep', () => {
     expect(onAddCustom).toHaveBeenCalledWith('cukr');
   });
 
+  it('translates a word that was typed but never added, and hands it over', () => {
+    const onContinue = vi.fn();
+    const onAddCustom = vi.fn();
+    render(
+      <I18nProvider language="en">
+        <SelectStep
+          mode="manual"
+          listName="My words"
+          languageTo="vi"
+          registerApplies={false}
+          register={null}
+          onRegisterChange={vi.fn()}
+          proposals={[]}
+          isSelected={() => false}
+          onToggle={vi.fn()}
+          onUpdateProposal={vi.fn()}
+          onSelectAll={vi.fn()}
+          onClearSelection={vi.fn()}
+          customItems={[]}
+          onAddCustom={onAddCustom}
+          onRemoveCustom={vi.fn()}
+          limits={limits}
+          selectedCount={0}
+          overSoftLimit={false}
+          atHardCap={false}
+          monthlyRemaining={60}
+          overMonthlyLimit={false}
+          atSelectionLimit={false}
+          busy={false}
+          onContinue={onContinue}
+        />
+      </I18nProvider>,
+    );
+
+    const translate = screen.getByRole('button', { name: 'Translate and continue' });
+    expect(translate).toBeDisabled();
+
+    // One character in the field is enough — pressing + first is optional.
+    fireEvent.change(screen.getByPlaceholderText('Type a word or sentence'), {
+      target: { value: 'káva' },
+    });
+    expect(translate).toBeEnabled();
+
+    fireEvent.click(translate);
+    expect(onAddCustom).not.toHaveBeenCalled();
+    expect(onContinue).toHaveBeenCalledExactlyOnceWith(['káva']);
+  });
+
+  it('opens the settings from the heading menu instead of a gear of its own', () => {
+    const onOpenSettings = vi.fn();
+    render(
+      <I18nProvider language="en">
+        <SelectStep
+          mode="manual"
+          listName="My words"
+          languageTo="vi"
+          registerApplies={false}
+          register={null}
+          onRegisterChange={vi.fn()}
+          proposals={[]}
+          isSelected={() => false}
+          onToggle={vi.fn()}
+          onUpdateProposal={vi.fn()}
+          onSelectAll={vi.fn()}
+          onClearSelection={vi.fn()}
+          customItems={[]}
+          onAddCustom={vi.fn()}
+          onRemoveCustom={vi.fn()}
+          limits={limits}
+          selectedCount={0}
+          overSoftLimit={false}
+          atHardCap={false}
+          monthlyRemaining={60}
+          overMonthlyLimit={false}
+          atSelectionLimit={false}
+          busy={false}
+          onOpenSettings={onOpenSettings}
+          onContinue={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    expect(
+      screen.queryByRole('button', { name: 'Settings for adding words' }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /Settings/ }));
+    expect(onOpenSettings).toHaveBeenCalledOnce();
+  });
+
   it('offers the chat as the other way in, and no Back when it is the first step', () => {
     const onStartChat = vi.fn();
     render(

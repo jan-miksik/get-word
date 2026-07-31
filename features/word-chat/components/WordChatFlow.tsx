@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import type { WordList } from '@/features/lists/types';
 import { ChatStep } from './ChatStep';
@@ -97,6 +97,29 @@ export function WordChatFlow({
     entryStep,
   });
   const resetChat = chat.reset;
+
+  // The select step opens the settings from its overflow menu rather than a gear
+  // of its own, so the flow needs a handle on the modal's open state even when
+  // the host does not own one.
+  const [localSettingsOpen, setLocalSettingsOpen] = useState(false);
+  const settingsIsOpen = settingsOpen ?? localSettingsOpen;
+  const setSettingsIsOpen = useCallback(
+    (next: boolean) => {
+      onSettingsOpenChange?.(next);
+      if (settingsOpen === undefined) setLocalSettingsOpen(next);
+    },
+    [onSettingsOpenChange, settingsOpen],
+  );
+  const openSettings = useCallback(() => setSettingsIsOpen(true), [setSettingsIsOpen]);
+
+  // This surface stays mounted when the learner switches away, so a locally-held
+  // open flag left set would silently reappear on their next visit. Adjusted
+  // during render, React's documented pattern for deriving state from a prop.
+  const [wasActive, setWasActive] = useState(active);
+  if (wasActive !== active) {
+    setWasActive(active);
+    if (!active && localSettingsOpen) setLocalSettingsOpen(false);
+  }
 
   useEffect(() => {
     onStepChange?.(chat.step);
@@ -203,10 +226,10 @@ export function WordChatFlow({
 
   return (
     <div className={fillsHeight ? 'flex min-h-0 flex-1 flex-col gap-4' : 'space-y-4'}>
-      {/* The chat carries its own gear; the select step needs the same one in
-          the same place, for both entry modes — the list and category names now
-          live behind it, alongside the settings that decide how these words get
-          translated. */}
+      {/* The chat carries its own gear; on the select step the same settings sit
+          in the heading's overflow menu (see `SelectStep`), so only the modal is
+          rendered here. The list and category names live behind it, alongside
+          the settings that decide how these words get translated. */}
       {chat.step === 'select' ? (
         <WordChatSettingsControls
           languageFrom={languageFrom}
@@ -231,10 +254,10 @@ export function WordChatFlow({
           saving={chat.preferencesSaving}
           onChange={chat.savePreferences}
           onLanguagePairChange={chat.changeLanguagePair}
-          placement={settingsPlacement}
+          placement="none"
           active={active}
-          open={settingsOpen}
-          onOpenChange={onSettingsOpenChange}
+          open={settingsIsOpen}
+          onOpenChange={setSettingsIsOpen}
         />
       ) : null}
 
@@ -289,8 +312,8 @@ export function WordChatFlow({
           history={chat.history}
           onSend={chat.sendMessage}
           onStartManualEntry={chat.startManualEntry}
-          settingsOpen={settingsOpen}
-          onSettingsOpenChange={onSettingsOpenChange}
+          settingsOpen={settingsIsOpen}
+          onSettingsOpenChange={setSettingsIsOpen}
           keyboardOpen={keyboardOpen}
           active={active}
           embedded={embedded}
@@ -327,6 +350,7 @@ export function WordChatFlow({
           onRegisterChange={chat.setTranslationRegister}
           onBack={chat.canReturnToChat ? chat.openChat : undefined}
           onStartChat={manualMode ? chat.openChat : undefined}
+          onOpenSettings={openSettings}
           onContinue={chat.continueToReview}
         />
       ) : null}

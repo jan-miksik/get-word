@@ -2,7 +2,13 @@
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useI18n } from '@/components/I18nProvider';
-import { KebabIcon, PencilIcon, RobotIcon, ShareIcon } from '@/components/icons/AppIcons';
+import {
+  KebabIcon,
+  PencilIcon,
+  RobotIcon,
+  SettingsIcon,
+  ShareIcon,
+} from '@/components/icons/AppIcons';
 import { ShareVisibilityDialog } from '@/features/lists/components/ShareVisibilityDialog';
 import { getLocalizedLanguageName } from '@/lib/i18n/languages';
 import type { WordList } from '@/features/lists/types';
@@ -59,14 +65,20 @@ type Props = {
   onBack?: () => void;
   /** Manual entry only: hand the word-finding over to the conversation. */
   onStartChat?: () => void;
-  onContinue: () => void;
+  /** Opens the settings modal, which now lives in this step's overflow menu. */
+  onOpenSettings?: () => void;
+  /**
+   * Anything still typed in the entry field is handed over here, so a learner
+   * who typed a word and pressed Translate does not lose it to an unpressed +.
+   */
+  onContinue: (pendingTexts: string[]) => void;
 };
 
 /**
- * The heading's overflow menu.
+ * The heading's overflow menu, sitting in the top-right corner of the card.
  *
- * The two things it holds — pasting a prepared batch, and handing the list out —
- * are both occasional errands. As buttons under the input they competed for
+ * Everything it holds — the settings, pasting a prepared batch, handing the list
+ * out — is an occasional errand. As buttons on the step itself they competed for
  * attention with the one thing this step is for: typing a word and adding it.
  */
 function HeadingMenu({ label, children }: { label: string; children: ReactNode }) {
@@ -106,7 +118,7 @@ function HeadingMenu({ label, children }: { label: string; children: ReactNode }
         <div
           role="menu"
           onClick={() => setOpen(false)}
-          className="onboarding-combobox-list absolute left-0 z-30 mt-1 w-60 max-w-[calc(100vw-2rem)] overflow-hidden p-1"
+          className="onboarding-combobox-list absolute right-0 z-30 mt-1 w-60 max-w-[calc(100vw-2rem)] overflow-hidden p-1"
         >
           {children}
         </div>
@@ -174,6 +186,7 @@ export function SelectStep({
   onRegisterChange,
   onBack,
   onStartChat,
+  onOpenSettings,
   onContinue,
 }: Props) {
   const { t, language: uiLanguage } = useI18n();
@@ -198,7 +211,11 @@ export function SelectStep({
     Math.min(limits.maxItemsPerSession, monthlyRemaining) - selectedCount,
   );
   const selectionLimit = selectedCount + remainingSelections;
-  const bulkLines = customInput
+  // The same reading of the field in both modes: one line is one item, so the
+  // single-line field simply yields at most one. What is typed but not yet added
+  // is a pending entry — it counts towards the round either way, whether the
+  // learner presses + or goes straight to Translate.
+  const typedLines = customInput
     .split(/\r?\n/)
     .map((text, index) => ({
       text: normalizeCustomText(text),
@@ -206,7 +223,7 @@ export function SelectStep({
       characterCount: text.trim().length,
     }))
     .filter((entry) => entry.text.length > 0);
-  const firstOverlongBulkLine = bulkLines.find(
+  const firstOverlongLine = typedLines.find(
     (entry) => entry.characterCount > MAX_WORD_CHAT_ITEM_CHARS,
   );
   const existingTexts = new Set(
@@ -215,27 +232,33 @@ export function SelectStep({
       ...proposals.filter(isSelected).map((item) => item.text),
     ].map((text) => normalizeCustomText(text).toLowerCase()),
   );
-  const newBulkEntries = bulkLines.filter((entry) => {
-    const key = entry.text.toLowerCase();
-    if (existingTexts.has(key)) return false;
-    existingTexts.add(key);
-    return true;
-  });
-  const projectedSelectedCount = selectedCount + newBulkEntries.length;
-  const bulkOverLimit = projectedSelectedCount > selectionLimit;
-  const bulkInputInvalid = Boolean(firstOverlongBulkLine) || bulkOverLimit;
+  const pendingEntries = typedLines
+    .filter((entry) => {
+      const key = entry.text.toLowerCase();
+      if (existingTexts.has(key)) return false;
+      existingTexts.add(key);
+      return true;
+    })
+    .map((entry) => entry.text);
+  const projectedSelectedCount = selectedCount + pendingEntries.length;
+  const overSelectionLimit = projectedSelectedCount > selectionLimit;
+  const inputInvalid = Boolean(firstOverlongLine) || overSelectionLimit;
+  const canAddTyped = Boolean(customInput.trim()) && !atSelectionLimit && !inputInvalid;
 
   function submitCustom(event: FormEvent) {
     event.preventDefault();
-    if (!customInput.trim() || atSelectionLimit || (bulkEntry && bulkInputInvalid)) return;
-    const entries = bulkEntry
-      ? newBulkEntries.map((entry) => entry.text)
-      : [normalizeCustomText(customInput)];
-    for (const entry of entries) onAddCustom(entry);
+    if (!canAddTyped) return;
+    for (const entry of pendingEntries) onAddCustom(entry);
     setCustomInput('');
     // One at a time is a loop — type, add, type the next one — so the cursor
-    // goes back where the next word is typed even when Add was clicked.
+    // goes back to the empty field even when + was clicked rather than pressed.
     if (!bulkEntry) customInputRef.current?.focus();
+  }
+
+  function handleContinue() {
+    // Whatever is in the field goes with it; the caller adds it to the round.
+    onContinue(pendingEntries);
+    setCustomInput('');
   }
 
   // The field the learner is meant to type in gets the cursor: on arrival, and
@@ -265,17 +288,26 @@ export function SelectStep({
 
   return (
     <div className="space-y-4">
-      {/* The settings gear floats in this corner on the select step in both
-          modes now, so the heading keeps clear of it either way. */}
-      <div className="pr-12 sm:pr-14">
-        <div className="flex items-center gap-2">
-          <h2 className="min-w-0 text-base font-extrabold">
+      <div>
+        {/* One control in the corner, not two: the settings that used to float
+            here as a gear are the first item of this menu now. */}
+        <div className="flex items-start gap-2">
+          <h2 className="min-w-0 flex-1 text-base font-extrabold">
             {t(mode === 'manual' ? 'wordChat.manualTitle' : 'wordChat.selectTitle')}
           </h2>
-          {/* Nothing to offer when there is neither a bulk field to switch to
-              nor a saved list to hand out — an empty menu is worse than none. */}
-          {mode === 'manual' || shareList ? (
+          {/* Nothing to offer when there is no settings modal to open, no bulk
+              field to switch to and no saved list to hand out — an empty menu is
+              worse than none. */}
+          {onOpenSettings || mode === 'manual' || shareList ? (
             <HeadingMenu label={t('wordChat.moreActions')}>
+              {onOpenSettings ? (
+                <HeadingMenuItem onClick={onOpenSettings} icon={<SettingsIcon size={16} />}>
+                  {/* Short here on purpose: the gear's own long label spelled
+                      out which settings these are because it was an icon with
+                      no text. In a menu on this card, that is already clear. */}
+                  {t('common.settings')}
+                </HeadingMenuItem>
+              ) : null}
               {mode === 'manual' ? (
                 <HeadingMenuItem onClick={() => setBulkEntry((current) => !current)}>
                   {t(bulkEntry ? 'wordChat.manualSingleToggle' : 'wordChat.manualBulkToggle')}
@@ -293,12 +325,25 @@ export function SelectStep({
           ) : null}
         </div>
         {/* The single-entry step needs no line of instruction — the field and
-            its Add button say it. Only the suggestions list and the bulk paste
-            box carry a hint. */}
+            its + say it. Only the suggestions list and the bulk paste box carry
+            a hint. */}
         {mode !== 'manual' || bulkEntry ? (
           <p className="mt-1 text-sm onboarding-text-soft">
             {t(mode !== 'manual' ? 'wordChat.selectHint' : 'wordChat.manualHint')}
           </p>
+        ) : null}
+        {/* The other way to get words: letting the AI bot propose them. It sits
+            directly under the heading, as the alternative to the whole step
+            rather than an afterthought under the field. */}
+        {mode === 'manual' && onStartChat ? (
+          <button
+            type="button"
+            onClick={onStartChat}
+            className="onboarding-option-secondary mt-3 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold"
+          >
+            <RobotIcon size={14} />
+            <span>{t('wordChat.chatStart')}</span>
+          </button>
         ) : null}
       </div>
 
@@ -456,83 +501,71 @@ export function SelectStep({
             : '',
         ].join(' ')}
       >
-        <div className="flex gap-2">
-          {mode === 'manual' && bulkEntry ? (
-            <textarea
-              ref={customTextareaRef}
-              value={customInput}
-              onChange={(event) => setCustomInput(event.target.value)}
-              placeholder={t('wordChat.manualAddPlaceholder')}
-              disabled={atSelectionLimit}
-              aria-invalid={bulkInputInvalid}
-              rows={4}
-              className="word-chat-input min-w-0 flex-1 resize-y rounded-xl px-3 py-2.5 text-base sm:text-sm disabled:opacity-50"
-            />
-          ) : (
-            <input
-              ref={customInputRef}
-              type="text"
-              value={customInput}
-              onChange={(event) => setCustomInput(event.target.value)}
-              placeholder={t('wordChat.addOwnPlaceholder')}
-              disabled={atSelectionLimit}
-              maxLength={200}
-              className="word-chat-input min-w-0 flex-1 rounded-xl px-3 py-2.5 text-base sm:text-sm disabled:opacity-50"
-            />
-          )}
+        {mode === 'manual' && bulkEntry ? (
+          <textarea
+            ref={customTextareaRef}
+            value={customInput}
+            onChange={(event) => setCustomInput(event.target.value)}
+            placeholder={t('wordChat.manualAddPlaceholder')}
+            disabled={atSelectionLimit}
+            aria-invalid={inputInvalid}
+            rows={4}
+            className="word-chat-input w-full resize-y rounded-xl px-3 py-2.5 text-base sm:text-sm disabled:opacity-50"
+          />
+        ) : (
+          <input
+            ref={customInputRef}
+            type="text"
+            value={customInput}
+            onChange={(event) => setCustomInput(event.target.value)}
+            placeholder={t('wordChat.addOwnPlaceholder')}
+            disabled={atSelectionLimit}
+            maxLength={200}
+            className="word-chat-input w-full rounded-xl px-3 py-2.5 text-base sm:text-sm disabled:opacity-50"
+          />
+        )}
+        {/* Under the field, not beside it: typing a word and continuing is the
+            through-line, and + is the optional detour for a second one. */}
+        <div className="flex items-center gap-2">
           <button
             type="submit"
-            // Pressing Add used to take two taps on a phone: the first blurred
+            // Pressing + used to take two taps on a phone: the first blurred
             // the field, the keyboard closed, the sticky form slid down the
             // reflowed viewport, and the tap never landed on the button that
             // had moved. Suppressing the default of the press keeps focus (and
             // the keyboard) exactly where it was, so the click lands the first
             // time — and the learner can type the next word straight away.
             onMouseDown={(event) => event.preventDefault()}
-            disabled={atSelectionLimit || !customInput.trim() || (bulkEntry && bulkInputInvalid)}
-            className="onboarding-option shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold disabled:opacity-50"
+            disabled={!canAddTyped}
+            aria-label={t('wordChat.add')}
+            title={t('wordChat.add')}
+            className="onboarding-option flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xl font-bold leading-none disabled:opacity-50"
           >
-            {t('wordChat.add')}
+            <span aria-hidden="true">+</span>
           </button>
         </div>
         {mode === 'manual' && bulkEntry ? (
           <div className="space-y-1 text-xs" aria-live="polite">
-            <p className={bulkInputInvalid ? 'text-danger' : 'onboarding-text-soft'}>
+            <p className={inputInvalid ? 'text-danger' : 'onboarding-text-soft'}>
               {t('wordChat.manualBulkCount', {
                 count: projectedSelectedCount,
                 limit: selectionLimit,
               })}
             </p>
-            {firstOverlongBulkLine ? (
+            {firstOverlongLine ? (
               <p className="text-danger">
                 {t('wordChat.manualBulkLineTooLong', {
-                  line: firstOverlongBulkLine.line,
-                  count: firstOverlongBulkLine.characterCount,
+                  line: firstOverlongLine.line,
+                  count: firstOverlongLine.characterCount,
                   limit: MAX_WORD_CHAT_ITEM_CHARS,
                 })}
               </p>
             ) : null}
-            {bulkOverLimit ? (
+            {overSelectionLimit ? (
               <p className="text-danger">
                 {t('wordChat.manualBulkTooMany', { limit: selectionLimit })}
               </p>
             ) : null}
-          </div>
-        ) : null}
-        {/* The other way to get words: letting the AI bot propose them — a
-            model call, so it waits here rather than leading. Pasting a prepared
-            batch moved into the heading's overflow menu; it is the rarer errand
-            of the two and was crowding this one. */}
-        {mode === 'manual' && onStartChat ? (
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={onStartChat}
-              className="onboarding-option-secondary inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold"
-            >
-              <RobotIcon size={14} />
-              <span>{t('wordChat.chatStart')}</span>
-            </button>
           </div>
         ) : null}
       </form>
@@ -618,13 +651,22 @@ export function SelectStep({
         ) : null}
         <button
           type="button"
-          onClick={onContinue}
+          onClick={handleContinue}
+          // Same first-tap problem as +: with the keyboard up, letting the press
+          // blur the field closes the keyboard, the page reflows under the
+          // finger and the tap lands where the button no longer is. Keeping
+          // focus means one tap is enough.
+          onMouseDown={(event) => event.preventDefault()}
+          // One typed character is enough: a word that is on screen counts,
+          // whether or not + was pressed for it.
           disabled={
             busy ||
             !listName.trim() ||
-            selectedCount === 0 ||
+            projectedSelectedCount === 0 ||
             monthlyExhausted ||
             overMonthlyLimit ||
+            projectedSelectedCount > monthlyRemaining ||
+            inputInvalid ||
             registerMissing
           }
           className="onboarding-option onboarding-option-highlight flex-1 rounded-xl px-5 py-3 text-center text-base font-extrabold disabled:cursor-not-allowed disabled:opacity-50"
