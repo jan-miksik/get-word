@@ -1,0 +1,17 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "HLWJ75QQ8B.app.getword"
+        ],
+        "components": [
+          {
+            "/": "/join/*",
+            "comment": "Open shared Get Word lists in the iOS app."
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
+import Link from 'next/link';
 import { useI18n } from '@/components/I18nProvider';
 import { deviceJsonFetch } from '@/features/shared/http/device-json-fetch';
 import { deleteDeviceId } from '@/lib/device-id';
@@ -189,14 +190,14 @@ function DeleteAccountModalContent({ onClose, authEmail }: Omit<DeleteAccountMod
               <p className="mt-2 text-sm text-danger">{t('account.deleteError')}</p>
             )}
 
-            <a
+            <Link
               href="/privacy"
               target="_blank"
               rel="noopener noreferrer"
               className="mt-3 inline-block text-xs text-text-soft/70 underline hover:text-text"
             >
               {t('account.deletePrivacyLink')}
-            </a>
+            </Link>
 
             <div className="mt-5 flex justify-end gap-2">
               <button

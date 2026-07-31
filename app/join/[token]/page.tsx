@@ -9,6 +9,7 @@ import { LoadingScreen } from '@/components/LoadingScreen';
 import { SpeckledBackground } from '@/components/SpeckledBackground';
 import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLanguage';
 import { deviceJsonFetch } from '@/features/shared/http/device-json-fetch';
+import { apiFetch } from '@/features/shared/http/api-runtime';
 import { persistActiveListId } from '@/features/learning/app-state/storage';
 
 type SharePreview = {
@@ -106,7 +107,7 @@ function JoinContent() {
 
   useEffect(() => {
     let cancelled = false;
-    fetch('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' })
+    apiFetch('/api/auth/me', { credentials: 'same-origin', cache: 'no-store' })
       .then((res) => (res.ok ? res.json() : { authenticated: false }))
       .then((data: AuthMeResponse) => {
         if (cancelled) return;

@@ -96,6 +96,7 @@ select {
 h1 {
   max-width: 12ch;
   margin: 22px 0 12px;
+  color: #2a2218;
   font-size: clamp(2rem, 9vw, 3rem);
   line-height: 0.96;
   letter-spacing: -0.045em;
@@ -132,6 +133,7 @@ p {
 .status-list dd {
   min-width: 0;
   margin: 0;
+  color: #2a2218;
   overflow-wrap: anywhere;
   font-size: 0.9rem;
   font-weight: 650;

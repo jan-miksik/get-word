@@ -53,7 +53,7 @@ export function SignInScreen({
           disabled={busy || !hasMobileAuthConfiguration() || !isNativeApp()}
           onClick={onSignIn}
         >
-          <span className="apple-mark" aria-hidden="true"></span>
+          <span className="apple-mark" aria-hidden="true"></span>
           {busy ? busyLabel : 'Pokračovat přes Apple'}
         </button>
 

@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, repoRoot, ['NEXT_PUBLIC_']);
   const processEnv = {
     NODE_ENV: mode === 'production' ? 'production' : 'development',
+    NEXT_PUBLIC_NATIVE_APP: '1',
     ...env,
   };
 

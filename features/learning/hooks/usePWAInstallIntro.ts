@@ -12,6 +12,7 @@ import {
   isStandalone,
   type SimulatedPlatform,
 } from '@/lib/pwa-install';
+import { isNativeAppRuntime } from '@/lib/runtime-platform';
 
 type PWAInstallIntroOptions = {
   viewMode: ViewMode;
@@ -82,13 +83,14 @@ export function usePWAInstallIntro({
     previewPWAInstallIntro.enabled && isPWAVisibleForViewport && !previewPWADismissed;
 
   const shouldShowPWAInstallIntro =
-    isPreviewPWAActive ||
-    (viewMode === 'card' &&
-      environment.isOnMobileDevice &&
-      !shouldShowMemoryHooksIntro &&
-      !environment.promptAnswered &&
-      !environment.isInstalled &&
-      completedDeckWordCards >= 10);
+    !isNativeAppRuntime() &&
+    (isPreviewPWAActive ||
+      (viewMode === 'card' &&
+        environment.isOnMobileDevice &&
+        !shouldShowMemoryHooksIntro &&
+        !environment.promptAnswered &&
+        !environment.isInstalled &&
+        completedDeckWordCards >= 10));
 
   return {
     dismissPWAInstallIntro,

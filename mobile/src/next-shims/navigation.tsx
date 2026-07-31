@@ -38,6 +38,19 @@ export function useSearchParams(): URLSearchParams {
   return useMemo(() => new URLSearchParams(path.split('?')[1] ?? ''), [path]);
 }
 
+export function useParams<T extends Record<string, string | string[]>>(): T {
+  const pathname = usePathname();
+  return useMemo(() => {
+    const joinMatch = /^\/join\/([^/]+)\/?$/.exec(pathname);
+    if (!joinMatch) return {} as T;
+    try {
+      return { token: decodeURIComponent(joinMatch[1]) } as unknown as T;
+    } catch {
+      return {} as T;
+    }
+  }, [pathname]);
+}
+
 export function redirect(href: string): never {
   navigate(href, 'replace');
   throw new Error(`NEXT_REDIRECT:${href}`);

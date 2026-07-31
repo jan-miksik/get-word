@@ -66,7 +66,9 @@ export async function signInWithApple(): Promise<MobileSession | null> {
   try {
     const credential = await AppleSignIn.signIn({
       nonce: appleNonce,
-      scopes: [SignInScope.Email, SignInScope.FullName],
+      // The app identifies and displays accounts by email. Do not request or
+      // retain a person's name when the product does not use it.
+      scopes: [SignInScope.Email],
     });
     if (!credential.idToken) {
       throw new Error('Apple neposkytl ověřovací token. Zkus to prosím znovu.');
@@ -102,21 +104,6 @@ export async function signInWithApple(): Promise<MobileSession | null> {
       appleAuthorizationCode: credential.authorizationCode,
     });
     await storeAppSessionToken(appSession.sessionToken);
-
-    // Apple returns the name only on the first authorization. Updating this
-    // optional metadata must not block persistence of the app session.
-    if (credential.givenName || credential.familyName) {
-      const fullName = [credential.givenName, credential.familyName]
-        .filter(Boolean)
-        .join(' ');
-      await supabase.auth.updateUser({
-        data: {
-          full_name: fullName,
-          given_name: credential.givenName,
-          family_name: credential.familyName,
-        },
-      }).catch(() => undefined);
-    }
 
     await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
     return appSession;

@@ -1,4 +1,6 @@
-import { useEffect, useState } from 'react';
+import { App as CapacitorApp } from '@capacitor/app';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { LoadingScreen } from '@/components/LoadingScreen';
 import { fetchMobileIdentity } from './api/auth';
 import { signInWithApple } from './auth/apple';
 import {
@@ -6,10 +8,17 @@ import {
   readAppSessionToken,
 } from './auth/secure-session';
 import { setSessionToken } from './auth/session-state';
-import { isNativeApp, tapFeedback } from './native';
-import { getRoutePath, navigate, subscribeToRoute } from './router';
+import { routeForAppUrl } from './deep-links';
+import { isNativeApp, setNativeStatusBarStyle, tapFeedback } from './native';
+import { getRoutePath, navigate, subscribeToRoute, useRoutePath } from './router';
 import { LearningApp } from './screens/LearningApp';
 import { SignInScreen } from './screens/SignInScreen';
+
+const ListsPage = lazy(() => import('@/app/lists/page'));
+const JoinPage = lazy(() => import('@/app/join/[token]/page'));
+const ReportsPage = lazy(() => import('@/app/reports/page'));
+const PrivacyPage = lazy(() => import('@/app/privacy/page'));
+const SchoolOverviewPage = lazy(() => import('@/app/school/overview/page'));
 
 type ConnectionState = 'online' | 'offline';
 type AuthState = 'restoring' | 'signed-out' | 'signing-in' | 'signed-in';
@@ -24,6 +33,7 @@ function readableError(error: unknown): string {
 }
 
 export function App() {
+  const routePath = useRoutePath();
   const [connection, setConnection] = useState<ConnectionState>(readConnectionState);
   const [authState, setAuthState] = useState<AuthState>('restoring');
   const [authError, setAuthError] = useState<string | null>(null);
@@ -35,6 +45,35 @@ export function App() {
     return () => {
       window.removeEventListener('online', updateConnection);
       window.removeEventListener('offline', updateConnection);
+    };
+  }, []);
+
+  useEffect(() => {
+    const pathname = routePath.split(/[?#]/, 1)[0];
+    void setNativeStatusBarStyle(pathname === '/privacy' ? 'light' : 'dark');
+  }, [routePath]);
+
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    let disposed = false;
+
+    const openAppUrl = (url: string, mode: 'push' | 'replace') => {
+      const route = routeForAppUrl(url);
+      if (route) navigate(route, mode);
+    };
+
+    const listener = CapacitorApp.addListener('appUrlOpen', ({ url }) => {
+      if (!disposed) openAppUrl(url, 'push');
+    });
+    void CapacitorApp.getLaunchUrl()
+      .then((launch) => {
+        if (!disposed && launch?.url) openAppUrl(launch.url, 'replace');
+      })
+      .catch(() => undefined);
+
+    return () => {
+      disposed = true;
+      void listener.then((handle) => handle.remove());
     };
   }, []);
 
@@ -107,7 +146,11 @@ export function App() {
   };
 
   if (authState === 'signed-in') {
-    return <LearningApp />;
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <NativeRoute routePath={routePath} />
+      </Suspense>
+    );
   }
 
   return (
@@ -122,4 +165,15 @@ export function App() {
       }}
     />
   );
+}
+
+function NativeRoute({ routePath }: { routePath: string }) {
+  const pathname = routePath.split(/[?#]/, 1)[0] || '/';
+
+  if (pathname === '/lists') return <ListsPage />;
+  if (/^\/join\/[^/]+\/?$/.test(pathname)) return <JoinPage />;
+  if (pathname === '/reports') return <ReportsPage />;
+  if (pathname === '/privacy') return <PrivacyPage />;
+  if (pathname === '/school/overview') return <SchoolOverviewPage />;
+  return <LearningApp />;
 }

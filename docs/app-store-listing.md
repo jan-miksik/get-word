@@ -272,9 +272,8 @@ Reporting and per-account blocking are available on any public list.
 
 **Before submitting with this positioning:** the reviewer will try the chat,
 because the listing now leads with it. Confirm the word chat and its audio
-generation work in the shipped iOS build against production (the undeployed
-CORS proxy noted in the iOS work blocks the simulator against prod), and that
-the OpenRouter key has quota. If the chat cannot be relied on at review time,
+generation work in the shipped iOS build against production, and that the
+OpenRouter key has quota. If the chat cannot be relied on at review time,
 fall back to the previous SRS-first copy at the bottom of this file rather than
 shipping a claim the reviewer cannot reproduce.
 
@@ -292,7 +291,7 @@ tracking, so answer **"Data is not used to track you"** for every type.
 | User Content → Other User Content | Yes | Yes | App Functionality (lists, notes, mnemonics) |
 | Identifiers → User ID | Yes | Yes | App Functionality |
 | Identifiers → Device ID | Yes | Yes | App Functionality |
-| Usage Data → Product Interaction | Yes | Yes | Analytics, App Functionality |
+| Usage Data → Product Interaction | Yes | Yes | Analytics, App Functionality, Product Personalization |
 
 Not collected: location, contacts, health, financial info, browsing history,
 search history, advertising data, crash/performance diagnostics.

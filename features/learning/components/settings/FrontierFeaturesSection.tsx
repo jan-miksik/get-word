@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useI18n } from '@/components/I18nProvider';
 import { useAppStateContext } from '@/context/AppStateContext';
 import { Section, ToggleSwitch } from '@/components/settings/primitives';
@@ -29,9 +30,9 @@ export function FrontierFeaturesSection() {
       <div className="flex flex-col gap-0.5">
         <span className="text-sm text-text">{t('settings.photoLab')}</span>
         <p className="m-0 text-xs text-text-soft/60">{t('settings.photoLabNotice')}</p>
-        <a href="/photo-lab" className="text-xs text-accent underline">
+        <Link href="/photo-lab" className="text-xs text-accent underline">
           {t('settings.photoLabOpen')}
-        </a>
+        </Link>
       </div>
     </Section>
   );

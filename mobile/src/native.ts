@@ -9,8 +9,16 @@ export function isNativeApp(): boolean {
 export async function configureNativeShell(): Promise<void> {
   if (!isNativeApp()) return;
 
-  await StatusBar.setStyle({ style: Style.Dark }).catch(() => undefined);
+  await setNativeStatusBarStyle('dark');
   await StatusBar.setOverlaysWebView({ overlay: false }).catch(() => undefined);
+}
+
+export async function setNativeStatusBarStyle(theme: 'dark' | 'light'): Promise<void> {
+  if (!isNativeApp()) return;
+  // Capacitor names these after the background they suit: Style.Light means
+  // dark glyphs on a light background, and Style.Dark means light glyphs.
+  await StatusBar.setStyle({ style: theme === 'light' ? Style.Dark : Style.Light })
+    .catch(() => undefined);
 }
 
 export async function tapFeedback(): Promise<void> {

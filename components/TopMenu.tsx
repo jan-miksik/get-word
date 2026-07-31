@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import type { MenuPanel } from '@/hooks/useMenuPanels';
 import type { SchoolMembership } from '@/features/auth/client/useAuth';
 import { PWAInstallMenuItem } from '@/components/PWAInstallMenuItem';
@@ -661,19 +662,34 @@ function MenuDropdown({
                 );
               }
               if (item.kind === 'link') {
-                return (
+                const content = (
+                  <>
+                    <span className="menu-item-icon">{item.icon}</span>
+                    <span className="menu-item-label">{item.label}</span>
+                  </>
+                );
+                return item.external ? (
                   <a
                     key={item.label}
                     href={item.href}
-                    target={item.external ? '_blank' : undefined}
-                    rel={item.external ? 'noopener noreferrer' : undefined}
+                    target="_blank"
+                    rel="noopener noreferrer"
                     role="menuitem"
                     className="menu-item word-lists-editor-item"
                     onClick={() => setOpen(false)}
                   >
-                    <span className="menu-item-icon">{item.icon}</span>
-                    <span className="menu-item-label">{item.label}</span>
+                    {content}
                   </a>
+                ) : (
+                  <Link
+                    key={item.label}
+                    href={item.href}
+                    role="menuitem"
+                    className="menu-item word-lists-editor-item"
+                    onClick={() => setOpen(false)}
+                  >
+                    {content}
+                  </Link>
                 );
               }
               if (item.kind === 'action') {

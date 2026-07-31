@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import Link from 'next/link';
 import { isReverseDirectionList } from '@/features/learning/onboarding/listRecommendations';
 import { formatNumber } from '@/features/learning/onboarding/commonListAudioGeneration';
 import { useI18n } from '@/components/I18nProvider';
@@ -645,12 +646,12 @@ export function LearningLanguageOnboarding({
                 {t('onboarding.errorHelpTelegram')}
               </a>{' '}
               {t('onboarding.errorHelpOrFinish')}{' '}
-              <a
+              <Link
                 href="/lists"
                 className="font-black text-[color:var(--ob-ink)] underline decoration-[color:var(--ob-accent)] decoration-2 underline-offset-2"
               >
                 {t('onboarding.errorHelpEditor')}
-              </a>
+              </Link>
               .
             </p>
           </div>
