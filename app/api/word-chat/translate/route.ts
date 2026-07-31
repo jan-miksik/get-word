@@ -3,6 +3,7 @@ import { resolveUserFromRequest, unauthorizedResponse } from "@/lib/auth";
 import { normalizeLanguageCode } from "@/lib/i18n/languages";
 import { translateSelection } from "@/features/word-chat/server/translate";
 import { serializeDiagnostics } from "@/features/word-chat/server/diagnostics";
+import { readAddressRegister } from "@/features/word-chat/preferences";
 import {
   WORD_CHAT_TRANSLATION_MODEL,
   MAX_WORD_CHAT_ID_CHARS,
@@ -83,6 +84,7 @@ export async function POST(request: NextRequest) {
       languageFrom,
       languageTo,
       items,
+      addressRegister: readAddressRegister(body.address_register),
       model: canDebug
         ? resolveSelectedModel(body.model, WORD_CHAT_TRANSLATION_MODEL)
         : undefined,

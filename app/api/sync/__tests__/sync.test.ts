@@ -61,6 +61,11 @@ vi.mock('@/lib/db', () => ({
 vi.mock('@/lib/session', () => ({
   verifySession: (...args: unknown[]) => mockVerifySession(...args),
   signSession: (...args: unknown[]) => mockSignSession(...args),
+  readSessionToken: (request: NextRequest) => {
+    const authorization = request.headers.get('authorization')
+    if (authorization) return authorization.replace(/^Bearer\s+/i, '')
+    return request.cookies.get('get_word_session')?.value ?? null
+  },
   GET_WORD_SESSION_COOKIE_NAME: 'get_word_session',
   GET_WORD_SESSION_TTL_SECONDS: 60 * 60 * 24 * 30,
 }))

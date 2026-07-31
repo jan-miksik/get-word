@@ -274,12 +274,14 @@ export function ReviewStep({
                 )}
 
                 <div className="min-w-0 flex-1 space-y-1.5">
-                  <AutoGrowingText
-                    value={item.textKnown}
-                    onChange={(value) => onUpdate(index, { textKnown: value })}
-                    className="text-base leading-snug sm:text-lg"
-                    ariaLabel={t('wordChat.badgeWord')}
-                  />
+                  {/* The source side is what the learner asked for — they typed
+                      it, or picked it off the proposal list. Editing it here
+                      would leave a translation of something else standing
+                      underneath it, so it is shown, not offered. Changing it is
+                      a step back, where re-translating is the point. */}
+                  <p className="break-words text-base leading-snug sm:text-lg">
+                    {item.textKnown}
+                  </p>
                   <AutoGrowingText
                     value={item.textTarget}
                     onChange={(value) => onUpdate(index, { textTarget: value })}

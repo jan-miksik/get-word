@@ -1,10 +1,15 @@
 .app {
   /* 100dvh = visible viewport height, accounting for mobile browser bars.
-     100vh fallback for older browsers that don't support dvh units. */
+     100vh fallback for older browsers that don't support dvh units.
+     --app-viewport-height is the measured `visualViewport.height` (see
+     `useVisualViewportHeight`); it wins where it is set, because iOS Safari
+     leaves dvh stale under its own toolbar and under the keyboard. */
   height: 100vh;
   height: 100dvh;
+  height: var(--app-viewport-height, 100dvh);
   min-height: 100vh;
   min-height: 100dvh;
+  min-height: var(--app-viewport-height, 100dvh);
   margin: 0 auto;
   display: flex;
   flex-direction: column;
@@ -101,7 +106,11 @@
 @media (max-width: 767px) {
   html[data-app-keyboard='open'] .app {
     gap: 0;
-    padding-top: 0;
+    /* The notch inset comes back here. Normally the top menu carries it (see
+       `.top-menu`), and the add-words surface drops it from the shell for that
+       reason — but the menu is the thing being hidden, so without this the
+       heading and the first line of the chat end up under the status bar. */
+    padding-top: env(safe-area-inset-top, 0px);
   }
 
   html[data-app-keyboard='open'] .app-header-bar {

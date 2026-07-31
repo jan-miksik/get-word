@@ -5,7 +5,10 @@
     // Operator-facing commands are entrypoints; modules under scripts/lib are
     // regular project files and must remain reachable from one of these commands.
     "scripts/*.{ts,js}",
-    "ralph/index.js"
+    "ralph/index.js",
+    "mobile/src/main.tsx",
+    "mobile/vite.config.ts",
+    "mobile/capacitor.config.ts"
   ],
   "project": [
     "**/*.{ts,tsx,js,mjs,cjs}",
@@ -14,10 +17,15 @@
     "!**/.pnpm-store/**",
     "!**/.worktrees/**",
     "!app/.generated/**",
-    "!coverage/**"
+    "!coverage/**",
+    "!mobile/dist/**",
+    "!mobile/ios/App/App/public/**"
   ],
   // Operator audio scripts invoke these system tools through child_process.
   "ignoreBinaries": ["ffmpeg", "ffprobe"],
+  // The native platform package is consumed by Capacitor's CLI rather than a
+  // JavaScript import, so static analysis cannot observe the dependency edge.
+  "ignoreDependencies": ["@capacitor/ios"],
   // Generated locale data is selected through a runtime language-code lookup,
   // which Knip cannot follow as a static import graph.
   "ignore": [

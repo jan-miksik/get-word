@@ -100,4 +100,28 @@ describe("comment prompt rules", () => {
     );
     expect(COMMENT_GENERATION_RULES).toContain("Never write meta-comments");
   });
+  it("carries the learner's chosen address form into the prompt, only when given", () => {
+    const base = {
+      texts: ["Where is the station?"],
+      fromLang: "en",
+      toLang: "cs",
+    };
+
+    const neutral = buildOpenRouterTranslationPrompt(base);
+    expect(neutral).not.toContain("Where the source does not itself mark an address form");
+
+    const formal = buildOpenRouterTranslationPrompt({
+      ...base,
+      addressRegister: "formal",
+    });
+    expect(formal).toContain("use the target's polite/formal address");
+    // A source item that marks its own register still wins over the default.
+    expect(formal).toContain("still honour any item whose own source explicitly marks");
+
+    const casual = buildOpenRouterTranslationPrompt({
+      ...base,
+      addressRegister: "casual",
+    });
+    expect(casual).toContain("use the target's casual/informal address");
+  });
 });

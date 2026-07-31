@@ -148,19 +148,6 @@
   color: var(--tm-ink);
 }
 
-.stat-chip-icon--repeat {
-  color: var(--tm-ink);
-}
-
-.stat-chip-pulse {
-  width: 9px;
-  height: 9px;
-  border-radius: 999px;
-  background: var(--tm-accent);
-  box-shadow: 0 0 0 4px rgba(30, 111, 168, 0.18);
-  animation: countdown-pulse 1.8s ease-in-out infinite;
-}
-
 .stat-chip-copy {
   display: inline-flex;
   align-items: baseline;
@@ -174,15 +161,6 @@
   line-height: 1;
   font-variant-numeric: tabular-nums;
   color: var(--tm-ink);
-}
-
-.stat-chip-label {
-  color: var(--tm-ink-soft);
-  font-size: 0.62rem;
-  font-weight: 800;
-  line-height: 1;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
 }
 
 .stat-chip-delta {

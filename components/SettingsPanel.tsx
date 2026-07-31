@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useI18n } from '@/components/I18nProvider';
 import { LanguageSection } from '@/components/settings/LanguageSection';
 import { AppInstallSection } from '@/components/settings/AppInstallSection';
@@ -60,6 +61,18 @@ export function SettingsPanel({
             authAddress={authAddress}
             onSignOut={onSignOut}
           />
+
+          <Link
+            href="/reports"
+            onClick={onClose}
+            className="flex items-center justify-between rounded-xl border border-border-subtle bg-background-elevated px-4 py-3 text-sm text-text transition-colors hover:border-accent/40"
+          >
+            <span>
+              <span className="block font-medium">{t('moderation.myReportsTitle')}</span>
+              <span className="mt-0.5 block text-xs text-text-soft">{t('moderation.myReportsSettingsHint')}</span>
+            </span>
+            <span aria-hidden>→</span>
+          </Link>
 
           {process.env.NEXT_PUBLIC_APP_VERSION && (
             <p className="m-0 text-center text-[0.6rem] text-text-soft/30 font-mono">

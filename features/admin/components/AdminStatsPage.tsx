@@ -248,6 +248,9 @@ function AdminStatsContent() {
         <header className="flex flex-wrap items-baseline justify-between gap-2">
           <h1 className="text-2xl font-semibold">{t('adminStats.title')}</h1>
           <div className="flex items-baseline gap-3 text-sm text-text-soft">
+            <Link href="/admin/moderation" className="text-accent underline">
+              {t('moderation.adminNavLink')}
+            </Link>
             <Link href="/admin/schools" className="text-accent underline">
               {t('adminStats.schoolsLink')}
             </Link>

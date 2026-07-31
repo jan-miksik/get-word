@@ -20,6 +20,7 @@ const mockReorderCategories = vi.fn()
 const mockDeleteCategory = vi.fn()
 const mockResolveUserFromRequest = vi.fn()
 const mockScanListAudio = vi.fn()
+const mockIsBlockedBetweenUsers = vi.fn((..._args: unknown[]) => false)
 
 vi.mock('@/lib/db', () => ({
   getUserLists: (...args: unknown[]) => mockGetUserLists(...args),
@@ -51,6 +52,7 @@ vi.mock('@/lib/db', () => ({
   getSubscriberCountsForLists: () => mockGetSubscriberCountsForLists(),
   createList: (...args: unknown[]) => mockCreateList(...args),
   getListById: (...args: unknown[]) => mockGetListById(...args),
+  isBlockedBetweenUsers: (...args: unknown[]) => mockIsBlockedBetweenUsers(...args),
   isUserSubscribed: () => mockIsUserSubscribed(),
   updateList: (...args: unknown[]) => mockUpdateList(...args),
   deleteList: (...args: unknown[]) => mockDeleteList(...args),

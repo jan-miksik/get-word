@@ -253,7 +253,12 @@ describe('ReviewStep', () => {
       </I18nProvider>,
     );
 
-    const field = screen.getByDisplayValue(longSentence);
+    // The source side is read-only here: it is what was asked for, and editing
+    // it would leave a translation of something else standing under it.
+    expect(screen.queryByDisplayValue(longSentence)).not.toBeInTheDocument();
+    expect(screen.getByText(longSentence)).toHaveClass('break-words');
+
+    const field = screen.getByDisplayValue(`${longSentence} (target)`);
     // A textarea, so the row grows to fit the sentence being confirmed.
     expect(field.tagName).toBe('TEXTAREA');
     expect(field).toHaveClass('resize-none');
@@ -264,7 +269,7 @@ describe('ReviewStep', () => {
     expect(onUpdate).not.toHaveBeenCalled();
 
     fireEvent.change(field, { target: { value: 'kratší věta' } });
-    expect(onUpdate).toHaveBeenCalledWith(0, { textKnown: 'kratší věta' });
+    expect(onUpdate).toHaveBeenCalledWith(0, { textTarget: 'kratší věta' });
   });
 
   it('does not show the old privacy gate in review', () => {

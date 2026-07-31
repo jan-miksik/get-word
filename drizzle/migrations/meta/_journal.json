@@ -386,6 +386,20 @@
       "when": 1785459600000,
       "tag": "0054_word_chat_level_c1",
       "breakpoints": true
+    },
+    {
+      "idx": 55,
+      "version": "7",
+      "when": 1785546000000,
+      "tag": "0055_content_moderation",
+      "breakpoints": true
+    },
+    {
+      "idx": 56,
+      "version": "7",
+      "when": 1785632400000,
+      "tag": "0056_moderation_decisions",
+      "breakpoints": true
     }
   ]
 }

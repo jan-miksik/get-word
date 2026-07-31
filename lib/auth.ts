@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getOrCreateUserByDeviceId, getUserById, type User } from "@/lib/db";
-import { GET_WORD_SESSION_COOKIE_NAME, verifySession } from "@/lib/session";
+import { readSessionToken, verifySession } from "@/lib/session";
 
 /**
  * Resolve the user from a request.
@@ -9,12 +9,16 @@ import { GET_WORD_SESSION_COOKIE_NAME, verifySession } from "@/lib/session";
 export async function resolveUserFromRequest(
   request: NextRequest
 ): Promise<User | null> {
-  const sessionToken = request.cookies.get(GET_WORD_SESSION_COOKIE_NAME)?.value;
+  const sessionToken = readSessionToken(request);
   const session = await verifySession(sessionToken);
   if (session?.userId) {
     const sessionUser = await getUserById(session.userId);
     if (sessionUser) return sessionUser;
   }
+
+  // An explicit Authorization header is an authentication attempt. Never
+  // downgrade an invalid bearer token to an anonymous device identity.
+  if (request.headers.get("authorization")) return null;
 
   const deviceId =
     request.headers.get("x-device-id") ||
@@ -29,7 +33,7 @@ export async function resolveUserFromRequest(
 export async function resolveAuthenticatedUser(
   request: NextRequest
 ): Promise<User | null> {
-  const sessionToken = request.cookies.get(GET_WORD_SESSION_COOKIE_NAME)?.value;
+  const sessionToken = readSessionToken(request);
   const session = await verifySession(sessionToken);
   if (!session?.userId) return null;
   return getUserById(session.userId);

@@ -6,9 +6,11 @@ const mockIsUserSubscribed = vi.fn()
 const mockCreateUserSubscription = vi.fn()
 const mockUnsubscribeFromList = vi.fn()
 const mockResolveUserFromRequest = vi.fn()
+const mockIsBlockedBetweenUsers = vi.fn((..._args: unknown[]) => false)
 
 vi.mock('@/lib/db', () => ({
   getListById: (...args: unknown[]) => mockGetListById(...args),
+  isBlockedBetweenUsers: (...args: unknown[]) => mockIsBlockedBetweenUsers(...args),
   isUserSubscribed: (...args: unknown[]) => mockIsUserSubscribed(...args),
   createUserSubscription: (...args: unknown[]) => mockCreateUserSubscription(...args),
   unsubscribeFromList: (...args: unknown[]) => mockUnsubscribeFromList(...args),

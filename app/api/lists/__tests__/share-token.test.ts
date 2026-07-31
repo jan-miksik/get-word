@@ -6,9 +6,11 @@ const mockIsUserSubscribed = vi.fn()
 const mockCreateUserSubscription = vi.fn()
 const mockUpdateUserPreferences = vi.fn()
 const mockResolveUserFromRequest = vi.fn()
+const mockIsBlockedBetweenUsers = vi.fn((..._args: unknown[]) => false)
 
 vi.mock('@/lib/db', () => ({
   getListByShareToken: (...args: unknown[]) => mockGetListByShareToken(...args),
+  isBlockedBetweenUsers: (...args: unknown[]) => mockIsBlockedBetweenUsers(...args),
   isUserSubscribed: (...args: unknown[]) => mockIsUserSubscribed(...args),
   createUserSubscription: (...args: unknown[]) => mockCreateUserSubscription(...args),
   updateUserPreferences: (...args: unknown[]) => mockUpdateUserPreferences(...args),
@@ -93,6 +95,20 @@ describe('GET /api/lists/share/[token]', () => {
     const res = await GET(req(VALID_TOKEN), params(VALID_TOKEN))
     const data = await res.json()
     expect(data.isOwner).toBe(true)
+    expect(mockIsUserSubscribed).not.toHaveBeenCalled()
+  })
+
+  it('does not expose a moderated list through an anonymous preview', async () => {
+    mockGetListByShareToken.mockResolvedValue({
+      ...privateList,
+      moderationStatus: 'under_review',
+    })
+    mockResolveUserFromRequest.mockResolvedValue(null)
+
+    const res = await GET(req(VALID_TOKEN), params(VALID_TOKEN))
+
+    expect(res.status).toBe(404)
+    expect(mockIsBlockedBetweenUsers).not.toHaveBeenCalled()
     expect(mockIsUserSubscribed).not.toHaveBeenCalled()
   })
 })

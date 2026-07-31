@@ -221,8 +221,8 @@ export function WordChatFlow({
           // existing one changes visibility through the share dialog.
           isPublic={chat.askVisibility ? chat.isPublic : undefined}
           onVisibilityChange={chat.askVisibility ? chat.setIsPublic : undefined}
-          shareList={shareList}
-          onShareListUpdated={chat.updateExistingList}
+          // Sharing lives in the heading's overflow menu on this step (see
+          // `SelectStep`), so the gear does not carry a second copy of it.
           addressRegister={chat.addressRegister}
           salutationGender={chat.salutationGender}
           languageLevel={chat.languageLevel}
@@ -319,6 +319,12 @@ export function WordChatFlow({
           atSelectionLimit={chat.atSelectionLimit}
           busy={chat.busy === 'translate'}
           keyboardOpen={keyboardOpen}
+          shareList={shareList}
+          onShareListUpdated={chat.updateExistingList}
+          languageTo={languageTo}
+          registerApplies={chat.translationRegisterApplies}
+          register={chat.translationRegister}
+          onRegisterChange={chat.setTranslationRegister}
           onBack={chat.canReturnToChat ? chat.openChat : undefined}
           onStartChat={manualMode ? chat.openChat : undefined}
           onContinue={chat.continueToReview}

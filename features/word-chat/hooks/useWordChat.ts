@@ -35,6 +35,7 @@ import type {
   WordChatLanguageLevel,
   WordChatMessage,
   WordChatSalutationGender,
+  WordChatTranslationRegister,
 } from '../types';
 import { hasGenderedSalutation, readLanguageLevel } from '../preferences';
 
@@ -251,6 +252,10 @@ export function useWordChat({
     () => readSalutationGenderPreference(),
   );
   const [languageLevel, setLanguageLevel] = useState<WordChatLanguageLevel | null>(null);
+  // Deliberately session-only, and deliberately not seeded from anything: the
+  // learner says who this particular set of phrases is for, every time.
+  const [translationRegister, setTranslationRegister] =
+    useState<WordChatTranslationRegister | null>(null);
   const [loadedPreferencesKey, setLoadedPreferencesKey] = useState<string | null>(null);
   const [preferencesSaving, setPreferencesSaving] = useState(false);
 
@@ -333,6 +338,12 @@ export function useWordChat({
   const chatLanguage = uiLanguage || languageFrom;
   const addressRegisterApplies = hasRegisterDistinction(chatLanguage);
   const salutationGenderApplies = hasGenderedSalutation(chatLanguage);
+  // Who this batch of phrases is addressed to. Nothing to do with the chat's
+  // own tone (`addressRegister` above): this is a property of the words being
+  // translated, so it starts blank on every batch, is never pre-filled from a
+  // previous one, and is never written to the learner's account.
+  const translationRegisterApplies = hasRegisterDistinction(languageTo);
+  const translationRegisterMissing = translationRegisterApplies && !translationRegister;
   const preferencesKey = `${baseListId ?? ''}\u0000${languageFrom}\u0000${languageTo}`;
   const preferencesLoaded = loadedPreferencesKey === preferencesKey;
   const currentLanguageLevel = preferencesLoaded ? languageLevel : null;
@@ -358,8 +369,11 @@ export function useWordChat({
     setCreationKey(draft.creationKey);
     setStep(draft.step);
     setMessages(completeTranscript(draft.messages));
-    setAddressRegister(draft.addressRegister ?? null);
-    setSalutationGender(draft.salutationGender ?? null);
+    // A draft saved before the learner answered must not un-answer it: these
+    // two belong to the learner, not to one interrupted session, so the stored
+    // preference wins over the draft's blank.
+    setAddressRegister(draft.addressRegister ?? readAddressRegisterPreference());
+    setSalutationGender(draft.salutationGender ?? readSalutationGenderPreference());
     setLanguageLevel(draft.languageLevel ?? null);
     setProposals(withDraftIds(draft.proposals));
     setSelectedKeys(draft.selectedKeys);
@@ -999,6 +1013,10 @@ export function useWordChat({
    */
   const continueToReview = useCallback(async () => {
     if (busy || selectedItems.length === 0 || overMonthlyLimit) return;
+    // The target language words its phrases differently depending on who is
+    // being spoken to, and nobody has said which. Translating now would produce
+    // a guess the learner would have to re-read every row to catch.
+    if (translationRegisterMissing) return;
     setError(null);
 
     // Nothing changed since the last translation: the rows are still valid, so
@@ -1007,6 +1025,9 @@ export function useWordChat({
     const signature = JSON.stringify({
       languageFrom,
       languageTo,
+      // Part of the signature, not just the request: changing the register
+      // after a first pass has to re-translate rather than show the old rows.
+      register: translationRegister,
       items: selectedItems.map((item) => [
         item.kind,
         item.text,
@@ -1025,6 +1046,7 @@ export function useWordChat({
         languageFrom,
         languageTo,
         items: selectedItems,
+        addressRegister: translationRegister,
         model: modelOverrides.translation,
       });
       noteSuccess();
@@ -1123,6 +1145,8 @@ export function useWordChat({
     reviewItems.length,
     selectedItems,
     sessionId,
+    translationRegister,
+    translationRegisterMissing,
   ]);
 
   /**
@@ -1347,6 +1371,8 @@ export function useWordChat({
     setProposals([]);
     setSelectedKeys([]);
     setCustomItems([]);
+    // Who the next batch is for is a fresh question, not a carried-over answer.
+    setTranslationRegister(null);
     setListName(personalListName(languageFrom, languageTo));
     setCategoryName(entryStep === 'manual' ? t('wordChat.manualCategoryName') : '');
     setReviewLabel(entryStep === 'manual' ? MANUAL_REVIEW_LABEL : '');
@@ -1407,6 +1433,9 @@ export function useWordChat({
     preferencesSaving,
     addressRegisterApplies,
     salutationGenderApplies,
+    translationRegister,
+    setTranslationRegister,
+    translationRegisterApplies,
     savePreferences,
     changeLanguagePair,
     proposals,

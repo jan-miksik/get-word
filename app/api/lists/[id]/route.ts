@@ -7,6 +7,7 @@ import {
   deleteList,
   getMediaAssetsByIds,
   isUserSubscribed,
+  isBlockedBetweenUsers,
 } from "@/lib/db";
 import {
   resolveUserFromRequest,
@@ -71,6 +72,17 @@ export async function GET(request: NextRequest, context: RouteContext) {
   const list = await getListById(id);
   if (!list) {
     return NextResponse.json({ error: "List not found" }, { status: 404 });
+  }
+
+  const isOwner = list.ownerId === user.id;
+  const editor = isEditor(user);
+  if (!isOwner && !editor) {
+    if (list.moderationStatus && list.moderationStatus !== "visible") {
+      return NextResponse.json({ error: "List not found" }, { status: 404 });
+    }
+    if (await isBlockedBetweenUsers(user.id, list.ownerId)) {
+      return forbiddenResponse("This content is unavailable");
+    }
   }
 
   // Read access: public, owner, or a subscriber (a student who joined a shared
@@ -155,6 +167,12 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   }
   if ((commonRequested || recommendedRequested) && !isEditor(user)) {
     return forbiddenResponse("Editor role required");
+  }
+  if (body.is_public === true && list.moderationStatus && list.moderationStatus !== "visible" && !isEditor(user)) {
+    return NextResponse.json(
+      { error: "This list cannot be made public while moderation is pending" },
+      { status: 409 },
+    );
   }
 
   const updated = await updateList(id, {

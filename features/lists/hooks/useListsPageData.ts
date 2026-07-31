@@ -136,6 +136,25 @@ export function useListsPageData({
     }
   }, [setError, t]);
 
+  const hideListFromView = useCallback((listId: string) => {
+    setLists((prev) => {
+      const next = prev.filter((list) => list.id !== listId);
+      setSelectedListIdState((current) => {
+        if (current !== listId) return current;
+        const nextOwned = next.find((list) => list.isOwner ?? list.ownerId !== null);
+        const nextSelectedListId = nextOwned?.id ?? next[0]?.id ?? null;
+        writeStoredSelectedListId(nextSelectedListId);
+        return nextSelectedListId;
+      });
+      return next;
+    });
+    setSubscribedListIds((prev) => {
+      const next = new Set(prev);
+      next.delete(listId);
+      return next;
+    });
+  }, []);
+
   const subscribeToList = useCallback(async (listId: string) => {
     try {
       await listActions.subscribeToList(listId);
@@ -170,6 +189,7 @@ export function useListsPageData({
     addListAndSelect,
     applyUpdatedList,
     deleteList,
+    hideListFromView,
     subscribeToList,
     unsubscribeFromList,
   };

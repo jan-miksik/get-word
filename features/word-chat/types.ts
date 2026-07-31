@@ -11,6 +11,15 @@ export type WordChatMessage = {
 /** How the assistant addresses the learner in the chat itself. */
 export type WordChatAddressRegister = "casual" | "formal";
 
+/**
+ * Who the *studied phrases* are addressed to, which many target languages word
+ * differently. Deliberately NOT `WordChatAddressRegister`: that one is about the
+ * chat's own tone towards the learner and is remembered on their account. This
+ * one describes the batch being translated, is chosen fresh every time, and is
+ * never stored — the next batch can be for a different audience entirely.
+ */
+export type WordChatTranslationRegister = "casual" | "formal";
+
 /** Grammatical form to use when the chat language genders direct address. */
 export type WordChatSalutationGender = "female" | "male" | "neutral";
 

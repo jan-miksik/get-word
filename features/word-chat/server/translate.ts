@@ -33,7 +33,11 @@ import {
 import { getMonthlyItemUsage, type WordChatRole } from "./rate-limit";
 import { computeContentKey } from "@/lib/progress-key";
 import { toPlainItemText } from "../plainItemText";
-import type { ReviewItem, TakeoverReference } from "../types";
+import type {
+  ReviewItem,
+  TakeoverReference,
+  WordChatAddressRegister,
+} from "../types";
 
 /**
  * Translation for word-chat runs on the donated server key, so it is metered
@@ -87,6 +91,11 @@ export async function translateSelection(input: {
     corpusItemId?: string;
     takeoverCandidate?: TakeoverReference;
   }[];
+  /**
+   * Which address form the target should use where the source does not mark
+   * one. Null for targets that draw no such distinction.
+   */
+  addressRegister?: WordChatAddressRegister | null;
   /** Editor override from the debug panel; falls back to the configured model. */
   model?: string;
   /** Include the exact request in the diagnostics. Editors only. */
@@ -229,6 +238,7 @@ export async function translateSelection(input: {
         fromLang: languageFrom,
         toLang: languageTo,
         previousPairs: [],
+        addressRegister: input.addressRegister ?? null,
       });
       paidUsage = await runReservedWordChatCall(
         {
@@ -355,6 +365,7 @@ export async function translateSelection(input: {
                     fromLang: languageFrom,
                     toLang: languageTo,
                     previousPairs: [],
+                    addressRegister: input.addressRegister ?? null,
                   }),
                 },
               ],

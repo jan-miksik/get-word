@@ -1,10 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useI18n } from '@/components/I18nProvider';
-import { PencilIcon, RobotIcon } from '@/components/icons/AppIcons';
+import { KebabIcon, PencilIcon, RobotIcon, ShareIcon } from '@/components/icons/AppIcons';
+import { ShareVisibilityDialog } from '@/features/lists/components/ShareVisibilityDialog';
+import { getLocalizedLanguageName } from '@/lib/i18n/languages';
+import type { WordList } from '@/features/lists/types';
 import { MAX_WORD_CHAT_ITEM_CHARS } from '../limits';
-import type { ProposedItem } from '../types';
+import type { ProposedItem, WordChatTranslationRegister } from '../types';
 import type { WordChatLimits } from '../hooks/useWordChat';
 
 type Props = {
@@ -33,12 +36,106 @@ type Props = {
   busy: boolean;
   /** An on-screen keyboard is covering the lower part of a phone screen. */
   keyboardOpen?: boolean;
+  /**
+   * The already-saved personal list, when there is one. Its presence puts Share
+   * in the heading's overflow menu.
+   */
+  shareList?: WordList | null;
+  onShareListUpdated?: (list: WordList) => void;
+  /** The study pair's target, named in the register question. */
+  languageTo: string;
+  /**
+   * Whether the target language words a phrase differently depending on who is
+   * being addressed. When it does, the choice below is required before anything
+   * can be translated — the model would otherwise have to guess, on every row.
+   *
+   * This describes THIS batch of words, not the learner: it is asked again for
+   * every batch, because the next set can be for a different audience.
+   */
+  registerApplies: boolean;
+  register: WordChatTranslationRegister | null;
+  onRegisterChange: (value: WordChatTranslationRegister) => void;
   /** Omitted when this step is the first one: there is nothing behind it. */
   onBack?: () => void;
   /** Manual entry only: hand the word-finding over to the conversation. */
   onStartChat?: () => void;
   onContinue: () => void;
 };
+
+/**
+ * The heading's overflow menu.
+ *
+ * The two things it holds — pasting a prepared batch, and handing the list out —
+ * are both occasional errands. As buttons under the input they competed for
+ * attention with the one thing this step is for: typing a word and adding it.
+ */
+function HeadingMenu({ label, children }: { label: string; children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(event: MouseEvent) {
+      if (ref.current && !ref.current.contains(event.target as Node)) setOpen(false);
+    }
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [open]);
+
+  return (
+    <div ref={ref} className="relative shrink-0">
+      <button
+        type="button"
+        onClick={() => setOpen((current) => !current)}
+        aria-label={label}
+        title={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className="onboarding-option-secondary flex h-8 w-8 items-center justify-center rounded-full"
+      >
+        <KebabIcon size={16} />
+      </button>
+      {open ? (
+        <div
+          role="menu"
+          onClick={() => setOpen(false)}
+          className="onboarding-combobox-list absolute left-0 z-30 mt-1 w-60 max-w-[calc(100vw-2rem)] overflow-hidden p-1"
+        >
+          {children}
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+function HeadingMenuItem({
+  onClick,
+  icon,
+  children,
+}: {
+  onClick: () => void;
+  icon?: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={onClick}
+      className="onboarding-combobox-option flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-sm font-bold"
+    >
+      {icon ? <span className="shrink-0">{icon}</span> : null}
+      <span className="min-w-0">{children}</span>
+    </button>
+  );
+}
 
 function getProposalKey(item: ProposedItem) {
   return item.source === 'corpus' ? `corpus:${item.corpusItemId}` : `gen:${item.draftId ?? item.text}`;
@@ -69,12 +166,19 @@ export function SelectStep({
   atSelectionLimit,
   busy,
   keyboardOpen = false,
+  shareList,
+  onShareListUpdated,
+  languageTo,
+  registerApplies,
+  register,
+  onRegisterChange,
   onBack,
   onStartChat,
   onContinue,
 }: Props) {
-  const { t } = useI18n();
+  const { t, language: uiLanguage } = useI18n();
   const [customInput, setCustomInput] = useState('');
+  const [shareOpen, setShareOpen] = useState(false);
   // Typing one word, adding it, seeing it land is the whole loop for most
   // people, so that is what manual entry opens on. Pasting a prepared batch is
   // the rarer errand and waits behind the toggle.
@@ -88,6 +192,7 @@ export function SelectStep({
   // is asked (and changed) behind the settings gear, private until told
   // otherwise, so nothing on this step waits on an answer.
   const monthlyExhausted = monthlyRemaining <= 0;
+  const registerMissing = registerApplies && !register;
   const remainingSelections = Math.max(
     0,
     Math.min(limits.maxItemsPerSession, monthlyRemaining) - selectedCount,
@@ -163,9 +268,30 @@ export function SelectStep({
       {/* The settings gear floats in this corner on the select step in both
           modes now, so the heading keeps clear of it either way. */}
       <div className="pr-12 sm:pr-14">
-        <h2 className="text-base font-extrabold">
-          {t(mode === 'manual' ? 'wordChat.manualTitle' : 'wordChat.selectTitle')}
-        </h2>
+        <div className="flex items-center gap-2">
+          <h2 className="min-w-0 text-base font-extrabold">
+            {t(mode === 'manual' ? 'wordChat.manualTitle' : 'wordChat.selectTitle')}
+          </h2>
+          {/* Nothing to offer when there is neither a bulk field to switch to
+              nor a saved list to hand out — an empty menu is worse than none. */}
+          {mode === 'manual' || shareList ? (
+            <HeadingMenu label={t('wordChat.moreActions')}>
+              {mode === 'manual' ? (
+                <HeadingMenuItem onClick={() => setBulkEntry((current) => !current)}>
+                  {t(bulkEntry ? 'wordChat.manualSingleToggle' : 'wordChat.manualBulkToggle')}
+                </HeadingMenuItem>
+              ) : null}
+              {shareList ? (
+                <HeadingMenuItem
+                  onClick={() => setShareOpen(true)}
+                  icon={<ShareIcon size={16} />}
+                >
+                  {t('share.manageTitle')}
+                </HeadingMenuItem>
+              ) : null}
+            </HeadingMenu>
+          ) : null}
+        </div>
         {/* The single-entry step needs no line of instruction — the field and
             its Add button say it. Only the suggestions list and the bulk paste
             box carry a hint. */}
@@ -356,6 +482,13 @@ export function SelectStep({
           )}
           <button
             type="submit"
+            // Pressing Add used to take two taps on a phone: the first blurred
+            // the field, the keyboard closed, the sticky form slid down the
+            // reflowed viewport, and the tap never landed on the button that
+            // had moved. Suppressing the default of the press keeps focus (and
+            // the keyboard) exactly where it was, so the click lands the first
+            // time — and the learner can type the next word straight away.
+            onMouseDown={(event) => event.preventDefault()}
             disabled={atSelectionLimit || !customInput.trim() || (bulkEntry && bulkInputInvalid)}
             className="onboarding-option shrink-0 rounded-xl px-4 py-2.5 text-sm font-bold disabled:opacity-50"
           >
@@ -386,35 +519,73 @@ export function SelectStep({
             ) : null}
           </div>
         ) : null}
-        {/* Pasting a prepared batch is the rarer errand, so it sits quietly
-            under the field rather than competing with it. Beside it, the other
-            way to get words: letting the AI bot propose them — a model call, so
-            it waits here rather than leading. Manual entry only — on the
-            suggestions step the field is a small addition, not the way words
-            get in. */}
-        {mode === 'manual' ? (
+        {/* The other way to get words: letting the AI bot propose them — a
+            model call, so it waits here rather than leading. Pasting a prepared
+            batch moved into the heading's overflow menu; it is the rarer errand
+            of the two and was crowding this one. */}
+        {mode === 'manual' && onStartChat ? (
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => setBulkEntry((current) => !current)}
-              className="onboarding-option-secondary rounded-full px-3 py-1.5 text-[11px] font-bold"
-              aria-pressed={bulkEntry}
+              onClick={onStartChat}
+              className="onboarding-option-secondary inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold"
             >
-              {t(bulkEntry ? 'wordChat.manualSingleToggle' : 'wordChat.manualBulkToggle')}
+              <RobotIcon size={14} />
+              <span>{t('wordChat.chatStart')}</span>
             </button>
-            {onStartChat ? (
-              <button
-                type="button"
-                onClick={onStartChat}
-                className="onboarding-option-secondary inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11px] font-bold"
-              >
-                <RobotIcon size={14} />
-                <span>{t('wordChat.chatStart')}</span>
-              </button>
-            ) : null}
           </div>
         ) : null}
       </form>
+
+      {/* Who these phrases are spoken to decides how the target words them, so
+          it is asked here — right above the button that spends a translation —
+          rather than being guessed row by row. Never pre-filled: it describes
+          this batch, and the next batch can be for someone else entirely. */}
+      {registerApplies ? (
+        <section
+          role="radiogroup"
+          aria-label={t('wordChat.targetRegisterTitle')}
+          className="space-y-2 rounded-xl border-2 border-dashed border-[color:color-mix(in_srgb,var(--ob-ink)_30%,transparent)] p-3"
+        >
+          <div>
+            <h3 className="text-xs font-black uppercase tracking-wide onboarding-text-soft">
+              {t('wordChat.targetRegisterTitle')}
+            </h3>
+            <p className="mt-1 text-xs leading-relaxed onboarding-text-soft">
+              {t('wordChat.targetRegisterHint', {
+                language:
+                  getLocalizedLanguageName(languageTo, uiLanguage) ?? languageTo.toUpperCase(),
+              })}
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {(['casual', 'formal'] as const).map((value) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={register === value}
+                onClick={() => onRegisterChange(value)}
+                className={[
+                  'onboarding-option min-h-12 rounded-xl px-3 py-2.5 text-left',
+                  register === value ? 'onboarding-option-highlight' : '',
+                ].join(' ')}
+              >
+                <span className="block text-sm font-extrabold">
+                  {value === 'casual'
+                    ? t('wordChat.targetRegisterCasual')
+                    : t('wordChat.targetRegisterFormal')}
+                </span>
+                <span className="mt-0.5 block text-[11px] leading-snug onboarding-text-soft">
+                  {value === 'casual'
+                    ? t('wordChat.targetRegisterCasualHint')
+                    : t('wordChat.targetRegisterFormalHint')}
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
 
       <div className="space-y-2 text-xs">
         {overSoftLimit ? (
@@ -453,7 +624,8 @@ export function SelectStep({
             !listName.trim() ||
             selectedCount === 0 ||
             monthlyExhausted ||
-            overMonthlyLimit
+            overMonthlyLimit ||
+            registerMissing
           }
           className="onboarding-option onboarding-option-highlight flex-1 rounded-xl px-5 py-3 text-center text-base font-extrabold disabled:cursor-not-allowed disabled:opacity-50"
         >
@@ -472,6 +644,16 @@ export function SelectStep({
               limit: limits.monthlyLimit,
             })}
       </p>
+
+      {shareList && shareOpen ? (
+        <ShareVisibilityDialog
+          list={shareList}
+          canManage
+          appearance="warm"
+          onClose={() => setShareOpen(false)}
+          onListUpdated={onShareListUpdated}
+        />
+      ) : null}
     </div>
   );
 }

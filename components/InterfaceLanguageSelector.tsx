@@ -220,7 +220,11 @@ export function InterfaceLanguageSelector({
               setFailed(false);
               setQuery(event.target.value);
             }}
-            className="mb-1.5 h-10 w-full rounded-xl border-2 border-[var(--ob-ink)] bg-[var(--ob-surface)] px-3 text-sm text-[color:var(--ob-ink)] outline-none transition-colors placeholder:text-[color:var(--ob-ink-soft)] placeholder:opacity-70 focus:bg-[var(--ob-surface-hover)]"
+            // 16px on a phone: iOS Safari auto-zooms into any focused field
+            // under that, and this one takes focus the moment the dropdown
+            // opens — so the page arrived zoomed in and clipped at the sides.
+            // Back to 14px from `sm` up, where no browser zooms.
+            className="mb-1.5 h-10 w-full rounded-xl border-2 border-[var(--ob-ink)] bg-[var(--ob-surface)] px-3 text-base text-[color:var(--ob-ink)] outline-none transition-colors placeholder:text-[color:var(--ob-ink-soft)] placeholder:opacity-70 focus:bg-[var(--ob-surface-hover)] sm:text-sm"
           />
           <div className="onboarding-combobox-list overflow-hidden">
             <ul

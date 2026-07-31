@@ -249,6 +249,16 @@ export function ChatStep({
     (last, message, index) => (message.role === 'assistant' ? index : last),
     -1,
   );
+  // A chat reads from the bottom up. Before the first exchange there is only the
+  // opener and a chip or two, and left at the top of a tall scroller they sat a
+  // screen away from the field they are asking the learner to type in — and on a
+  // phone with the keyboard up, off the top of it entirely. An auto top margin
+  // takes up whatever slack there is and hands the opener to the composer;
+  // once the transcript is long enough to overflow, the margin resolves to zero
+  // and scrolling behaves as before.
+  const introHidden = keyboardOpen && !showIntro;
+  const introAnchorsToBottom = embedded && !introHidden;
+
   const settingsControls = (
     <WordChatSettingsControls
       languageFrom={languageFrom}
@@ -547,7 +557,13 @@ export function ChatStep({
             learner looking at a bare exchange with no framing. The exception is a
             phone with the keyboard up — mid-conversation, those two lines cost
             the learner the replies they are answering. */}
-        <div className={`space-y-2 ${keyboardOpen && !showIntro ? 'hidden' : ''}`}>
+        <div
+          className={[
+            'space-y-2',
+            introHidden ? 'hidden' : '',
+            introAnchorsToBottom ? 'mt-auto' : '',
+          ].join(' ')}
+        >
           <p className={showIntro ? 'text-base font-bold' : 'text-sm font-bold'}>
             {/* A first-time opener can type in. Returning copy is already-known
                 context, so reopening the chat must render it immediately. */}
@@ -577,7 +593,13 @@ export function ChatStep({
         </div>
 
         {messages.length > 0 ? (
-          <div className={`${embedded ? '' : 'max-h-[45vh] overflow-y-auto'} space-y-3 pr-1`}>
+          <div
+            className={[
+              embedded ? '' : 'max-h-[45vh] overflow-y-auto',
+              embedded && introHidden ? 'mt-auto' : '',
+              'space-y-3 pr-1',
+            ].join(' ')}
+          >
             {messages.map((message, index) => {
               // The in-flight assistant entry starts empty. The working status
               // below already communicates progress, so do not render a blank

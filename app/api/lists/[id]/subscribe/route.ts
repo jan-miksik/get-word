@@ -4,6 +4,7 @@ import {
   isUserSubscribed,
   createUserSubscription,
   unsubscribeFromList,
+  isBlockedBetweenUsers,
 } from "@/lib/db";
 import {
   resolveUserFromRequest,
@@ -34,6 +35,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const sourceList = await getListById(sourceListId);
   if (!sourceList) {
     return NextResponse.json({ error: "List not found" }, { status: 404 });
+  }
+  if (
+    sourceList.ownerId !== user.id &&
+    ((sourceList.moderationStatus && sourceList.moderationStatus !== "visible") ||
+      (await isBlockedBetweenUsers(user.id, sourceList.ownerId)))
+  ) {
+    return NextResponse.json({ error: "This list is unavailable" }, { status: 403 });
   }
   if (!sourceList.isPublic && sourceList.ownerId !== user.id) {
     return NextResponse.json(

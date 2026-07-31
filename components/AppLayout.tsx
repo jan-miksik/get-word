@@ -8,9 +8,9 @@ import { SettingsPanel } from '@/components/SettingsPanel';
 import { LearningSettingsPanel } from '@/features/learning/components/LearningSettingsPanel';
 import { CategoryPanel } from '@/features/learning/components/CategoryPanel';
 import { MemoryHooksPanel } from '@/features/learning/components/MemoryHooksPanel';
-import { ProgressSummary } from '@/features/learning/components/ProgressSummary';
 import { UpcomingPanel } from '@/features/learning/components/UpcomingPanel';
 import { useMenuPanels } from '@/hooks/useMenuPanels';
+import { useVisualViewportHeight } from '@/hooks/useVisualViewportHeight';
 import { useAppStateContext } from '@/context/AppStateContext';
 import { PWAInstallBanner } from '@/components/PWAInstallBanner';
 import { SpeckledBackground } from '@/components/SpeckledBackground';
@@ -99,6 +99,9 @@ export function AppLayout({
   const [pendingAudioListId, setPendingAudioListId] = useState<string | null>(() =>
     readPendingCommonListAudio()?.listId ?? null,
   );
+  // The shell is sized off a measured viewport, not `100dvh` — iOS Safari
+  // leaves that unit stale under its own toolbar and under the keyboard.
+  useVisualViewportHeight();
 
   const activeList = subscribedLists.find((list) => list.id === activeListId) ?? null;
   const activeListLanguagePair = activeList
@@ -166,12 +169,11 @@ export function AppLayout({
           quickAddEnabled={quickAddEnabled}
           centerContent={
             isAuthenticated
-              ? // Due-review count belongs to studying. On the add-words and
-                // photo-lab surfaces it is a number about somewhere else,
-                // pulling attention out of the task at hand.
-                activeSurface === 'study'
-                ? <ProgressSummary progressStats={progressStats} />
-                : null
+              ? // The due-review count used to sit here. It is a number nobody
+                // acts on mid-study — the stream already serves due words first
+                // — and the Upcoming panel is where it belongs when it is
+                // actually wanted.
+                null
               : (
                   <div className="flex justify-center">
                     <AuthButton

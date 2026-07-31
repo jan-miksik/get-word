@@ -4,6 +4,7 @@ import {
   isUserSubscribed,
   createUserSubscription,
   updateUserPreferences,
+  isBlockedBetweenUsers,
 } from "@/lib/db";
 import { resolveUserFromRequest, unauthorizedResponse } from "@/lib/auth";
 
@@ -35,6 +36,13 @@ export async function GET(request: NextRequest, context: RouteContext) {
   // Only now resolve (and possibly create) the device user.
   const user = await resolveUserFromRequest(request);
   const isOwner = !!user && list.ownerId === user.id;
+  if (
+    !isOwner &&
+    ((list.moderationStatus && list.moderationStatus !== "visible") ||
+      (user && (await isBlockedBetweenUsers(user.id, list.ownerId))))
+  ) {
+    return NextResponse.json({ error: "Invalid link" }, { status: 404 });
+  }
   const alreadySubscribed =
     !!user && !isOwner && (await isUserSubscribed(user.id, list.id));
 
@@ -68,6 +76,14 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
   const user = await resolveUserFromRequest(request);
   if (!user) return unauthorizedResponse();
+
+  if (
+    list.ownerId !== user.id &&
+    ((list.moderationStatus && list.moderationStatus !== "visible") ||
+      (await isBlockedBetweenUsers(user.id, list.ownerId)))
+  ) {
+    return NextResponse.json({ error: "Invalid link" }, { status: 404 });
+  }
 
   const body = await request
     .json()

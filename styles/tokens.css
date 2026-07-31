@@ -61,6 +61,10 @@ body {
   margin: 0;
   min-height: 100vh;
   min-height: 100dvh;
+  /* Matches `.app`: while the on-screen keyboard is up the document must not
+     stay taller than what is visible, or the browser has room to scroll the
+     app out from under itself again. */
+  min-height: var(--app-viewport-height, 100dvh);
   overflow-x: hidden;
   overscroll-behavior: none;
   font-family: var(--font-sans);

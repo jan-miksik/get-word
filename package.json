@@ -10,6 +10,10 @@
     "dev:fast": "next dev --disable-source-maps",
     "build": "next build",
     "start": "next start",
+    "mobile:dev": "corepack pnpm --dir mobile run dev",
+    "mobile:build": "corepack pnpm --dir mobile run build",
+    "mobile:sync:ios": "corepack pnpm --dir mobile run sync:ios",
+    "mobile:open:ios": "corepack pnpm --dir mobile run open:ios",
     "lint": "eslint . --max-warnings=0",
     "typecheck": "tsc --noEmit --incremental false",
     "check:dead-code": "knip",
@@ -40,6 +44,11 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@capacitor/app": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/haptics": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
+    "@capacitor/status-bar": "^8.0.0",
     "@ardrive/turbo-sdk": "^1.41.3",
     "@supabase/ssr": "^0.10.3",
     "@supabase/supabase-js": "^2.90.1",
@@ -52,6 +61,7 @@
     "react-dom": "19.2.6"
   },
   "devDependencies": {
+    "@capacitor/cli": "^8.0.0",
     "@tailwindcss/postcss": "^4.1.0",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.2",
@@ -70,6 +80,7 @@
     "tailwindcss": "^4.1.0",
     "tsx": "^4.21.0",
     "typescript": "^5.9.0",
+    "vite": "^7.3.5",
     "vitest": "^4.1.0"
   },
   "pnpm": {

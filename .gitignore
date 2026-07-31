@@ -12,6 +12,7 @@ app/.generated/
 /.next/
 /.next-dev/
 /out/
+/mobile/dist/
 
 # production
 /build

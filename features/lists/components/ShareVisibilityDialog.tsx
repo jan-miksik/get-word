@@ -17,10 +17,17 @@ import type { WordList } from '@/features/lists/types';
 export type ShareDialogAppearance = 'app' | 'warm';
 
 /**
- * The dialog is styled entirely through the app's semantic color tokens
- * (`--bg`, `--text`, …). Rebinding those variables on the card is all it takes
- * to re-skin every element inside it, so the markup never has to branch on the
- * appearance.
+ * The dialog is styled entirely through the app's semantic color tokens, so
+ * rebinding those on the card re-skins every element inside it and the markup
+ * never has to branch on the appearance.
+ *
+ * Both spellings of each token are needed. The `--*` names are what plain CSS
+ * in `styles/*.css` reads. The `--color-*` names are Tailwind v4's theme
+ * variables, and `@theme` declares them on `:root` as `var(--bg)` and friends —
+ * custom properties are substituted at computed-value time, so what descendants
+ * inherit is the *resolved* dark value, and overriding `--bg` further down the
+ * tree does not reach a `bg-background` utility. Setting `--color-background`
+ * itself does.
  */
 const WARM_TOKEN_OVERRIDES: CSSProperties = {
   '--bg': WARM_PALETTE.surface,
@@ -31,6 +38,14 @@ const WARM_TOKEN_OVERRIDES: CSSProperties = {
   '--accent': WARM_PALETTE.accent,
   '--danger': WARM_PALETTE.wrong,
   '--done': WARM_PALETTE.correct,
+  '--color-background': WARM_PALETTE.surface,
+  '--color-background-elevated': WARM_PALETTE.surfaceHover,
+  '--color-text': WARM_PALETTE.ink,
+  '--color-text-soft': WARM_PALETTE.inkSoft,
+  '--color-border-subtle': 'rgba(42, 34, 24, 0.18)',
+  '--color-accent': WARM_PALETTE.accent,
+  '--color-danger': WARM_PALETTE.wrong,
+  '--color-done': WARM_PALETTE.correct,
 } as CSSProperties;
 
 interface ShareVisibilityDialogProps {
@@ -260,6 +275,16 @@ function ShareVisibilityDialogContent({
                 {copied ? t('share.copied') : t('share.copyLink')}
               </button>
             </div>
+            {/* What the link does belongs to the link, not to the button that
+                changes visibility: it explains what has just been copied, so it
+                reads directly under the copy row rather than inside the
+                make-public box further down. */}
+            {!isPublic && (
+              <p className="mt-1.5 flex items-start gap-1.5 text-xs text-text-soft">
+                <span aria-hidden>🔒</span>
+                <span>{t('share.privateCaveat')}</span>
+              </p>
+            )}
             {resetDone && (
               <p className="mt-1.5 text-xs text-done">{t('share.newLinkReady')}</p>
             )}
@@ -274,16 +299,12 @@ function ShareVisibilityDialogContent({
               <div className="mt-4 space-y-3 border-t border-border-subtle pt-4">
                 {!isPublic && (
                   <div className="rounded-lg border border-border-subtle bg-background-elevated p-3">
-                    <p className="flex items-start gap-1.5 text-xs text-text-soft">
-                      <span aria-hidden>🔒</span>
-                      <span>{t('share.privateCaveat')}</span>
-                    </p>
                     <HoldButton
                       variant="neutral"
                       durationMs={2000}
                       disabled={busy}
                       onConfirm={() => setVisibility(true)}
-                      className="mt-3 w-full"
+                      className="w-full"
                     >
                       {t('share.makePublicCta')}
                     </HoldButton>

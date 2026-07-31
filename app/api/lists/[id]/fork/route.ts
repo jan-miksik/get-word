@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { resolveUserFromRequest, unauthorizedResponse } from "@/lib/auth";
-import { getListById } from "@/lib/db";
+import { getListById, isBlockedBetweenUsers } from "@/lib/db";
 import {
   createForkListStream,
   ForkListInputError,
@@ -16,6 +16,13 @@ export async function POST(request: NextRequest, context: RouteContext) {
   const sourceList = await getListById(sourceListId);
   if (!sourceList) {
     return NextResponse.json({ error: "List not found" }, { status: 404 });
+  }
+  if (
+    sourceList.ownerId !== user.id &&
+    ((sourceList.moderationStatus && sourceList.moderationStatus !== "visible") ||
+      (await isBlockedBetweenUsers(user.id, sourceList.ownerId)))
+  ) {
+    return NextResponse.json({ error: "Cannot fork this list" }, { status: 403 });
   }
   if (!sourceList.isPublic && sourceList.ownerId !== user.id) {
     return NextResponse.json({ error: "Cannot fork this list" }, { status: 403 });

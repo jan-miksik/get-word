@@ -14,7 +14,7 @@ import { applySyncMutations } from "@/features/sync/server/apply-mutations";
 import { readSyncPayload } from "@/features/sync/server/read-payload";
 import { resolveSyncUser } from "@/features/sync/server/resolve-user";
 import {
-  GET_WORD_SESSION_COOKIE_NAME,
+  readSessionToken,
   verifySession,
 } from "@/lib/session";
 import { isGoogleSupportedLanguage } from "@/lib/i18n/server";
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "deviceId or userId is required" }, { status: 400 });
     }
 
-    const sessionToken = request.cookies.get(GET_WORD_SESSION_COOKIE_NAME)?.value;
+    const sessionToken = readSessionToken(request);
     const session = await verifySession(sessionToken);
     timer.mark("verify_session");
     if (!session?.userId) {
@@ -144,7 +144,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    const sessionToken = request.cookies.get(GET_WORD_SESSION_COOKIE_NAME)?.value;
+    const sessionToken = readSessionToken(request);
     const session = await verifySession(sessionToken);
     timer.mark("verify_session");
     if (!session?.userId) {

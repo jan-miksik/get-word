@@ -13,6 +13,36 @@ export const GET_WORD_SESSION_COOKIE_NAME = "get_word_session";
 // (/api/sync). Revisit when motivational stake/payments are added.
 export const GET_WORD_SESSION_TTL_SECONDS = 60 * 60 * 24 * 365; // 365 days
 
+type SessionRequestLike = {
+  headers: {
+    get(name: string): string | null;
+  };
+  cookies: {
+    get(name: string): { value: string } | undefined;
+  };
+};
+
+export function readBearerToken(request: Pick<SessionRequestLike, "headers">): string | null {
+  const authorization = request.headers.get("authorization");
+  if (!authorization) return null;
+
+  const match = authorization.match(/^Bearer\s+(\S+)$/i);
+  return match?.[1] ?? null;
+}
+
+/**
+ * App sessions use an HttpOnly cookie on the web and a bearer token in the
+ * native client. Keeping both transports on the same signed token format lets
+ * every API route resolve the same server-side identity without duplicating
+ * mobile-only auth logic.
+ */
+export function readSessionToken(request: SessionRequestLike): string | null {
+  if (request.headers.get("authorization")) {
+    return readBearerToken(request);
+  }
+  return request.cookies.get(GET_WORD_SESSION_COOKIE_NAME)?.value ?? null;
+}
+
 function getSessionSecret(): string | null {
   const configured = process.env.APP_SESSION_SECRET;
   if (configured && configured.length > 0) return configured;

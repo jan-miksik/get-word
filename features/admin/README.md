@@ -8,6 +8,10 @@ Owns editor-only operational statistics.
   states, refresh, and activity-window selection.
 - `features/admin/types.ts` is the client/server statistics contract.
 - `app/api/admin/stats/route.ts` authorizes editors and returns the query result.
+- `app/admin/moderation/page.tsx` and `app/api/admin/moderation/reports/*`
+  provide the editor-only public-content review queue.
+  Moderators keep internal notes separate from the public decision reason and
+  optional explanation shown to reporters and affected list owners.
 - `lib/db/queries/usage-stats.ts` contains the database aggregation.
 
 The Word Chat section reports current UTC calendar-month input/output tokens and

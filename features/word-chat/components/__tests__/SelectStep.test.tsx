@@ -19,6 +19,10 @@ describe('SelectStep', () => {
         <SelectStep
           mode="manual"
           listName="Moje slovíčka — Vietnamština"
+          languageTo="vi"
+          registerApplies={false}
+          register={null}
+          onRegisterChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
@@ -57,7 +61,8 @@ describe('SelectStep', () => {
     expect(onAddCustom).toHaveBeenCalledExactlyOnceWith('káva');
 
     // A prepared batch is still one toggle away, and pastes a line at a time.
-    fireEvent.click(screen.getByRole('button', { name: 'Add several at once' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add several at once' }));
     const textarea = screen.getByPlaceholderText('One word or sentence per line');
     expect(textarea).toHaveFocus();
 
@@ -75,6 +80,10 @@ describe('SelectStep', () => {
         <SelectStep
           mode="manual"
           listName="Moje slovíčka — Vietnamština"
+          languageTo="vi"
+          registerApplies={false}
+          register={null}
+          onRegisterChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
@@ -111,6 +120,10 @@ describe('SelectStep', () => {
         <SelectStep
           mode="manual"
           listName="My words"
+          languageTo="vi"
+          registerApplies={false}
+          register={null}
+          onRegisterChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
@@ -133,7 +146,8 @@ describe('SelectStep', () => {
       </I18nProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add several at once' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add several at once' }));
     const textarea = screen.getByPlaceholderText('One word or sentence per line');
     const pasted = Array.from({ length: 31 }, (_, index) => `word ${index + 1}`).join('\n');
     fireEvent.change(textarea, { target: { value: pasted } });
@@ -154,6 +168,10 @@ describe('SelectStep', () => {
         <SelectStep
           mode="manual"
           listName="My words"
+          languageTo="vi"
+          registerApplies={false}
+          register={null}
+          onRegisterChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
@@ -176,7 +194,8 @@ describe('SelectStep', () => {
       </I18nProvider>,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: 'Add several at once' }));
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    fireEvent.click(screen.getByRole('menuitem', { name: 'Add several at once' }));
     const textarea = screen.getByPlaceholderText('One word or sentence per line');
     const pasted = `short\n${'x'.repeat(201)}`;
     fireEvent.change(textarea, { target: { value: pasted } });
@@ -199,6 +218,10 @@ describe('SelectStep', () => {
       <I18nProvider language="en">
         <SelectStep
           listName="Moje slovíčka — Vietnamština"
+          languageTo="vi"
+          registerApplies={false}
+          register={null}
+          onRegisterChange={vi.fn()}
           proposals={[
             { kind: 'sentence', source: 'generated', text: 'Dám si kávu.', confidence: 0.9 },
             {
@@ -249,6 +272,10 @@ describe('SelectStep', () => {
       <I18nProvider language="en">
         <SelectStep
           listName="Moje slovíčka — Vietnamština"
+          languageTo="vi"
+          registerApplies={false}
+          register={null}
+          onRegisterChange={vi.fn()}
           proposals={[]}
           isSelected={() => false}
           onToggle={vi.fn()}
@@ -290,6 +317,10 @@ describe('SelectStep', () => {
       <I18nProvider language="en">
         <SelectStep
           listName="Moje slovíčka — Vietnamština"
+          languageTo="vi"
+          registerApplies={false}
+          register={null}
+          onRegisterChange={vi.fn()}
           proposals={[proposal]}
           isSelected={() => true}
           onToggle={onToggle}
@@ -346,6 +377,10 @@ describe('SelectStep', () => {
       <I18nProvider language="en">
         <SelectStep
           listName="Moje slovíčka — Vietnamština"
+          languageTo="vi"
+          registerApplies={false}
+          register={null}
+          onRegisterChange={vi.fn()}
           proposals={[proposal]}
           isSelected={() => true}
           onToggle={vi.fn()}
@@ -375,5 +410,170 @@ describe('SelectStep', () => {
 
     fireEvent.click(screen.getByRole('button', { name: `Edit: ${sentence}` }));
     expect(screen.getByDisplayValue(sentence).tagName).toBe('TEXTAREA');
+  });
+  it('will not translate into a register-sensitive target until the register is chosen', () => {
+    const onContinue = vi.fn();
+    const onRegisterChange = vi.fn();
+    const { rerender } = render(
+      <I18nProvider language="en">
+        <SelectStep
+          mode="manual"
+          listName="My words"
+          languageTo="cs"
+          registerApplies
+          register={null}
+          onRegisterChange={onRegisterChange}
+          proposals={[]}
+          isSelected={() => false}
+          onToggle={vi.fn()}
+          onUpdateProposal={vi.fn()}
+          onSelectAll={vi.fn()}
+          onClearSelection={vi.fn()}
+          customItems={[{ kind: 'word', text: 'coffee' }]}
+          onAddCustom={vi.fn()}
+          onRemoveCustom={vi.fn()}
+          limits={limits}
+          selectedCount={1}
+          overSoftLimit={false}
+          atHardCap={false}
+          monthlyRemaining={60}
+          overMonthlyLimit={false}
+          atSelectionLimit={false}
+          busy={false}
+          onContinue={onContinue}
+        />
+      </I18nProvider>,
+    );
+
+    const translate = screen.getByRole('button', { name: 'Translate and continue' });
+    expect(translate).toBeDisabled();
+    fireEvent.click(translate);
+    expect(onContinue).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('radio', { name: /Politely/ }));
+    expect(onRegisterChange).toHaveBeenCalledExactlyOnceWith('formal');
+
+    // Answered — here or on any earlier language — and the gate is gone.
+    rerender(
+      <I18nProvider language="en">
+        <SelectStep
+          mode="manual"
+          listName="My words"
+          languageTo="cs"
+          registerApplies
+          register="formal"
+          onRegisterChange={onRegisterChange}
+          proposals={[]}
+          isSelected={() => false}
+          onToggle={vi.fn()}
+          onUpdateProposal={vi.fn()}
+          onSelectAll={vi.fn()}
+          onClearSelection={vi.fn()}
+          customItems={[{ kind: 'word', text: 'coffee' }]}
+          onAddCustom={vi.fn()}
+          onRemoveCustom={vi.fn()}
+          limits={limits}
+          selectedCount={1}
+          overSoftLimit={false}
+          atHardCap={false}
+          monthlyRemaining={60}
+          overMonthlyLimit={false}
+          atSelectionLimit={false}
+          busy={false}
+          onContinue={onContinue}
+        />
+      </I18nProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Translate and continue' }));
+    expect(onContinue).toHaveBeenCalledOnce();
+  });
+
+  it('says nothing about register for a target that does not mark one', () => {
+    render(
+      <I18nProvider language="en">
+        <SelectStep
+          mode="manual"
+          listName="My words"
+          languageTo="en"
+          registerApplies={false}
+          register={null}
+          onRegisterChange={vi.fn()}
+          proposals={[]}
+          isSelected={() => false}
+          onToggle={vi.fn()}
+          onUpdateProposal={vi.fn()}
+          onSelectAll={vi.fn()}
+          onClearSelection={vi.fn()}
+          customItems={[{ kind: 'word', text: 'coffee' }]}
+          onAddCustom={vi.fn()}
+          onRemoveCustom={vi.fn()}
+          limits={limits}
+          selectedCount={1}
+          overSoftLimit={false}
+          atHardCap={false}
+          monthlyRemaining={60}
+          overMonthlyLimit={false}
+          atSelectionLimit={false}
+          busy={false}
+          onContinue={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.queryByRole('radio', { name: /Politely/ })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Translate and continue' })).toBeEnabled();
+  });
+
+  it('keeps sharing a saved list in the heading menu, not beside the field', () => {
+    render(
+      <I18nProvider language="en">
+        <SelectStep
+          mode="manual"
+          listName="My words"
+          languageTo="vi"
+          registerApplies={false}
+          register={null}
+          onRegisterChange={vi.fn()}
+          shareList={{
+            id: 'list-1',
+            ownerId: null,
+            name: 'My words',
+            description: null,
+            languageFrom: 'en',
+            languageTo: 'vi',
+            isPublic: false,
+            isOwner: true,
+          }}
+          proposals={[]}
+          isSelected={() => false}
+          onToggle={vi.fn()}
+          onUpdateProposal={vi.fn()}
+          onSelectAll={vi.fn()}
+          onClearSelection={vi.fn()}
+          customItems={[]}
+          onAddCustom={vi.fn()}
+          onRemoveCustom={vi.fn()}
+          limits={limits}
+          selectedCount={0}
+          overSoftLimit={false}
+          atHardCap={false}
+          monthlyRemaining={60}
+          overMonthlyLimit={false}
+          atSelectionLimit={false}
+          busy={false}
+          onContinue={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    expect(screen.queryByText('Share & visibility')).not.toBeInTheDocument();
+    expect(screen.queryByText('Add several at once')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'More options' }));
+    expect(screen.getByRole('menuitem', { name: 'Add several at once' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('menuitem', { name: /Share & visibility/ }),
+    ).toBeInTheDocument();
   });
 });

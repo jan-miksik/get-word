@@ -81,11 +81,28 @@ type TranslationContextPair = {
 
 const OPENROUTER_TRANSLATION_CONTEXT_LIMIT = 150;
 
+/**
+ * The learner's answer to "who are you saying this to?", for targets that word
+ * a phrase differently depending on it (tykání/vykání, tu/vous, 반말/존댓말…).
+ *
+ * It only decides the *unmarked* case. An item whose own source text marks a
+ * register still keeps that marking — the quality rules above are explicit that
+ * per-item register is preserved, and this must not override them.
+ */
+function addressRegisterRule(register: "casual" | "formal" | null | undefined): string {
+  if (!register) return "";
+  return register === "formal"
+    ? `- Where the source does not itself mark an address form, use the target's polite/formal address (vykání, vous, usted, and the equivalent in any other target). Apply it consistently across the whole batch; still honour any item whose own source explicitly marks informal address.\n`
+    : `- Where the source does not itself mark an address form, use the target's casual/informal address (tykání, tu, and the equivalent in any other target). Apply it consistently across the whole batch; still honour any item whose own source explicitly marks formal address.\n`;
+}
+
 export function buildOpenRouterTranslationPrompt(input: {
   texts: string[];
   fromLang: string;
   toLang: string;
   previousPairs?: TranslationContextPair[];
+  /** Chosen address form for the target; omit to keep the neutral default. */
+  addressRegister?: "casual" | "formal" | null;
 }): string {
   const previousPairs = input.previousPairs?.slice(-OPENROUTER_TRANSLATION_CONTEXT_LIMIT) ?? [];
   const contextBlock =
@@ -107,7 +124,7 @@ Use this context to keep terminology, pronouns, register, and parallel sentence 
 Translate the following ${input.texts.length} items from ${input.fromLang} to ${input.toLang}.${contextBlock}
 
 Rules:
-${variantRules ? `${variantRules}\n` : ""}${TRANSLATION_QUALITY_RULES}
+${variantRules ? `${variantRules}\n` : ""}${addressRegisterRule(input.addressRegister)}${TRANSLATION_QUALITY_RULES}
 - Translate each item independently and echo its "index" unchanged.
 - Return only valid JSON, with no markdown or commentary.
 

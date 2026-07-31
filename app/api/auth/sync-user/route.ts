@@ -2,7 +2,13 @@ import { NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/features/auth/supabase/server'
 import { resolveAndAttachSupabaseUser } from '@/features/auth/server/resolve-supabase-user'
 import { withSessionCookie } from '@/features/shared/routes/session'
+import { readBearerToken, signSession } from '@/lib/session'
 import { NextResponse } from 'next/server'
+
+type SyncUserBody = {
+  deviceId?: string
+  client?: 'web' | 'ios'
+}
 
 /**
  * Client-initiated mint of the app session after a Supabase sign-in (email OTP,
@@ -13,18 +19,21 @@ import { NextResponse } from 'next/server'
  */
 export async function POST(request: NextRequest) {
   try {
+    const body = await request
+      .json()
+      .then((value: SyncUserBody | null) => value ?? {})
+      .catch(() => ({} as SyncUserBody))
     const deviceId =
       request.headers.get('x-device-id') ||
-      (await request
-        .json()
-        .then((b: { deviceId?: string } | null) => b?.deviceId ?? null)
-        .catch(() => null))
+      body.deviceId ||
+      null
 
     const supabase = await createSupabaseServerClient()
+    const supabaseAccessToken = readBearerToken(request)
     const {
       data: { user },
       error,
-    } = await supabase.auth.getUser()
+    } = await supabase.auth.getUser(supabaseAccessToken ?? undefined)
 
     if (error || !user) {
       return NextResponse.json(
@@ -40,17 +49,26 @@ export async function POST(request: NextRequest) {
       deviceId,
     })
 
-    return withSessionCookie(
-      {
-        success: true,
+    const payload: Record<string, unknown> = {
+      success: true,
+      userId: appUser.id,
+      email: appUser.email ?? null,
+      authProvider: appUser.authProvider ?? null,
+      userRole: appUser.userRole,
+    }
+
+    // WKWebView runs under a local Capacitor origin, so it cannot rely on the
+    // same-origin HttpOnly cookie used by the web app. Return the same signed
+    // app-session format as an explicit bearer token after Supabase has verified
+    // the native access token. The mobile client must store this in Keychain.
+    if (body.client === 'ios') {
+      payload.sessionToken = await signSession({
         userId: appUser.id,
-        email: appUser.email ?? null,
-        authProvider: appUser.authProvider ?? null,
-        userRole: appUser.userRole,
-      },
-      appUser.id,
-      appUser.userRole
-    )
+        userRole: appUser.userRole === 'editor' ? 'editor' : 'user',
+      })
+    }
+
+    return withSessionCookie(payload, appUser.id, appUser.userRole)
   } catch (err) {
     console.error('[auth/sync-user] Failed to sync Supabase user:', err)
     return NextResponse.json(

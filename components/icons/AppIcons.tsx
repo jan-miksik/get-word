@@ -191,6 +191,17 @@ export function ShareIcon(props: IconProps) {
   );
 }
 
+/** Vertical ellipsis — the "more actions" affordance next to a heading. */
+export function KebabIcon(props: IconProps) {
+  return (
+    <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>
+      <circle cx="12" cy="5.25" r="1.35" fill="currentColor" />
+      <circle cx="12" cy="12" r="1.35" fill="currentColor" />
+      <circle cx="12" cy="18.75" r="1.35" fill="currentColor" />
+    </Glyph>
+  );
+}
+
 export function PencilIcon(props: IconProps) {
   return (
     <Glyph {...props} strokeWidth={props.strokeWidth ?? 2}>

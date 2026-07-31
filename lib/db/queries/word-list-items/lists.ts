@@ -1,14 +1,33 @@
 import crypto from 'node:crypto';
-import { and, eq, or, sql, inArray } from 'drizzle-orm';
+import { and, eq, or, sql, inArray, isNull, notExists } from 'drizzle-orm';
 import { db } from '../../client';
 import type { Executor } from '../executor';
 import {
   wordLists,
   wordListItems,
   userListSubscriptions,
+  userBlocks,
   type WordList,
   type NewWordList,
 } from '../../schema';
+
+function noBlockBetweenListOwnerAndUser(userId: string) {
+  return or(
+    isNull(wordLists.ownerId),
+    eq(wordLists.ownerId, userId),
+    notExists(
+      db
+        .select({ id: userBlocks.id })
+        .from(userBlocks)
+        .where(
+          or(
+            and(eq(userBlocks.blockerId, userId), eq(userBlocks.blockedId, wordLists.ownerId)),
+            and(eq(userBlocks.blockerId, wordLists.ownerId), eq(userBlocks.blockedId, userId)),
+          ),
+        ),
+    ),
+  );
+}
 
 export async function getUserLists(userId: string): Promise<WordList[]> {
   // owned ∪ public ∪ subscribed (including private lists joined via a share
@@ -25,13 +44,19 @@ export async function getUserLists(userId: string): Promise<WordList[]> {
     .where(
       or(
         eq(wordLists.ownerId, userId),
-        and(eq(wordLists.isPublic, true), eq(wordLists.isPersonal, false)),
-        inArray(
-          wordLists.id,
-          db
-            .select({ id: userListSubscriptions.listId })
-            .from(userListSubscriptions)
-            .where(eq(userListSubscriptions.userId, userId)),
+        and(
+          eq(wordLists.moderationStatus, 'visible'),
+          noBlockBetweenListOwnerAndUser(userId),
+          or(
+            and(eq(wordLists.isPublic, true), eq(wordLists.isPersonal, false)),
+            inArray(
+              wordLists.id,
+              db
+                .select({ id: userListSubscriptions.listId })
+                .from(userListSubscriptions)
+                .where(eq(userListSubscriptions.userId, userId)),
+            ),
+          ),
         ),
       ),
     );
@@ -64,7 +89,12 @@ export async function getUserListsByLanguagePair(
         // "matching list for this language pair", even when it is public.
         or(
           eq(wordLists.ownerId, userId),
-          and(eq(wordLists.isPublic, true), eq(wordLists.isPersonal, false)),
+          and(
+            eq(wordLists.isPublic, true),
+            eq(wordLists.isPersonal, false),
+            eq(wordLists.moderationStatus, 'visible'),
+            noBlockBetweenListOwnerAndUser(userId),
+          ),
         ),
       ),
     );
@@ -373,12 +403,16 @@ export async function getUserStudyLists(
     .where(
       or(
         eq(wordLists.ownerId, userId),
-        inArray(
-          wordLists.id,
-          db
-            .select({ id: userListSubscriptions.listId })
-            .from(userListSubscriptions)
-            .where(eq(userListSubscriptions.userId, userId)),
+        and(
+          eq(wordLists.moderationStatus, 'visible'),
+          noBlockBetweenListOwnerAndUser(userId),
+          inArray(
+            wordLists.id,
+            db
+              .select({ id: userListSubscriptions.listId })
+              .from(userListSubscriptions)
+              .where(eq(userListSubscriptions.userId, userId)),
+          ),
         ),
       ),
     );

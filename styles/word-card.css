@@ -584,20 +584,6 @@
   transform: translateY(0);
 }
 
-@keyframes countdown-pulse {
-  0% {
-    transform: scale(0.9);
-    opacity: 0.6;
-  }
-  50% {
-    transform: scale(1.1);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(0.9);
-    opacity: 0.6;
-  }
-}
 
 .phrase-card {
   will-change: transform, opacity, margin, padding, max-height;

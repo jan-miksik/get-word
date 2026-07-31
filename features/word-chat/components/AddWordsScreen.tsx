@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
+import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
 import { WordChatFlow } from './WordChatFlow';
 import { useMobileKeyboardOpen } from '../hooks/useMobileKeyboardOpen';
 import type { WordChatStep } from '../hooks/useWordChat';
@@ -103,16 +104,31 @@ export function AddWordsScreen({
       ref={screenRef}
       className={[
         'mx-auto flex w-full max-w-[800px] flex-col px-0 sm:px-4 sm:pb-8',
-        fullHeight ? 'min-h-0 flex-1 pb-0' : 'pb-[max(2rem,env(safe-area-inset-bottom))]',
+        fullHeight
+          ? 'min-h-0 flex-1 pb-0'
+          : // On a phone the card is the screen at every step, not just the
+            // chat: it grows into whatever height is left so the paper-coloured
+            // background runs to the bottom edge instead of stopping under the
+            // last row with app background showing below it. The bottom breathing
+            // room moves inside the card for the same reason. From `sm` up
+            // nothing changes — it stays a card on the page.
+            'max-sm:flex-1 sm:pb-[max(2rem,env(safe-area-inset-bottom))]',
       ].join(' ')}
     >
       <section
+        // The `.onboarding-*` classes and every `var(--ob-…)` in this subtree
+        // read these. They are declared on `.onboarding-screen`, which this
+        // in-app surface is not inside — so without them the ones written
+        // without a fallback (the sticky composer's background, the dashed and
+        // hairline borders built with `color-mix`) resolved to nothing and fell
+        // back to `currentColor`, painting dark patches on the beige.
+        style={warmPaletteVars}
         className={[
           'onboarding-card relative w-full rounded-2xl! border-2! p-4 max-sm:rounded-none! max-sm:border-x-0! max-sm:border-t-0! max-sm:px-3 sm:p-7',
           keyboardOpen ? 'max-sm:pt-2' : '',
           fullHeight
             ? 'flex min-h-0 flex-1 flex-col max-sm:pb-[max(0.5rem,env(safe-area-inset-bottom))]'
-            : '',
+            : 'max-sm:flex-1 max-sm:pb-[max(2rem,env(safe-area-inset-bottom))]',
         ].join(' ')}
       >
         <div

@@ -427,12 +427,19 @@ export function translateSelection(input: {
     corpusItemId?: string;
     takeoverCandidate?: TakeoverReference;
   }[];
+  /**
+   * How the target language should address whoever the phrases are spoken to.
+   * Null where the target draws no such distinction — the prompt then keeps its
+   * own neutral default.
+   */
+  addressRegister?: WordChatAddressRegister | null;
   model?: string | null;
 }) {
   return post<TranslateResponse>('/api/word-chat/translate', {
     session_id: input.sessionId,
     language_from: input.languageFrom,
     language_to: input.languageTo,
+    ...(input.addressRegister ? { address_register: input.addressRegister } : {}),
     ...(input.model ? { model: input.model } : {}),
     items: input.items.map((item) => ({
       kind: item.kind,

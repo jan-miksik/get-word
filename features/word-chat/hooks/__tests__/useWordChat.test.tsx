@@ -668,6 +668,9 @@ describe('useWordChat', () => {
 
     await act(() => result.current.sendMessage('Kavárna'));
     act(() => result.current.toggleSelected(result.current.proposals[1]));
+    // Vietnamese words a phrase differently depending on who it is for, so
+    // the batch has to say who before anything can be translated.
+    act(() => result.current.setTranslationRegister('casual'));
     await act(() => result.current.continueToReview());
 
     expect(result.current.step).toBe('review');
@@ -745,6 +748,9 @@ describe('useWordChat', () => {
     await act(() => result.current.sendMessage('Rodina'));
 
     act(() => result.current.addCustomItem('Zavolej Anně.'));
+    // Vietnamese words a phrase differently depending on who it is for, so
+    // the batch has to say who before anything can be translated.
+    act(() => result.current.setTranslationRegister('casual'));
     await act(() => result.current.continueToReview());
 
     expect(mocks.generateAudio).toHaveBeenCalledTimes(1);
@@ -874,12 +880,18 @@ describe('useWordChat', () => {
 
     await act(() => result.current.sendMessage('Kavárna'));
     act(() => result.current.toggleSelected(result.current.proposals[1]));
+    // Vietnamese words a phrase differently depending on who it is for, so
+    // the batch has to say who before anything can be translated.
+    act(() => result.current.setTranslationRegister('casual'));
     await act(() => result.current.continueToReview());
     expect(mocks.translateSelection).toHaveBeenCalledTimes(1);
 
     // Back to the selection, then forward again with nothing changed: the rows
     // are still valid, so the expensive call must not repeat.
     act(() => result.current.backToSelect());
+    // Vietnamese words a phrase differently depending on who it is for, so
+    // the batch has to say who before anything can be translated.
+    act(() => result.current.setTranslationRegister('casual'));
     await act(() => result.current.continueToReview());
 
     expect(mocks.translateSelection).toHaveBeenCalledTimes(1);
@@ -887,6 +899,9 @@ describe('useWordChat', () => {
 
     // Changing the selection does invalidate them.
     act(() => result.current.toggleSelected(result.current.proposals[0]));
+    // Vietnamese words a phrase differently depending on who it is for, so
+    // the batch has to say who before anything can be translated.
+    act(() => result.current.setTranslationRegister('casual'));
     await act(() => result.current.continueToReview());
     expect(mocks.translateSelection).toHaveBeenCalledTimes(2);
   });
@@ -934,6 +949,9 @@ describe('useWordChat', () => {
       result.current.setListName('Úřední vietnamština');
       result.current.toggleSelected(result.current.proposals[1]);
     });
+    // Vietnamese words a phrase differently depending on who it is for, so
+    // the batch has to say who before anything can be translated.
+    act(() => result.current.setTranslationRegister('casual'));
     await act(() => result.current.continueToReview());
     await act(() => result.current.commit());
 
@@ -1002,6 +1020,9 @@ describe('useWordChat', () => {
 
     await act(() => result.current.sendMessage('Kavárna'));
     act(() => result.current.toggleSelected(result.current.proposals[1]));
+    // Vietnamese words a phrase differently depending on who it is for, so
+    // the batch has to say who before anything can be translated.
+    act(() => result.current.setTranslationRegister('casual'));
     await act(() => result.current.continueToReview());
     await act(() => result.current.commit());
 
@@ -1014,5 +1035,63 @@ describe('useWordChat', () => {
     expect(result.current.refreshStatus).toBe('success');
     expect(refreshAfterCommit).toHaveBeenCalledTimes(2);
     expect(mocks.commitSession).toHaveBeenCalledTimes(1);
+  });
+  it("will not translate into a register-sensitive target until the batch says who it is for", async () => {
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+
+    await act(() => result.current.sendMessage('Kavárna'));
+    act(() => result.current.toggleSelected(result.current.proposals[1]));
+
+    expect(result.current.translationRegisterApplies).toBe(true);
+    expect(result.current.translationRegister).toBeNull();
+
+    await act(() => result.current.continueToReview());
+    expect(mocks.translateSelection).not.toHaveBeenCalled();
+    expect(result.current.step).toBe('select');
+
+    act(() => result.current.setTranslationRegister('formal'));
+    await act(() => result.current.continueToReview());
+
+    expect(result.current.step).toBe('review');
+    expect(mocks.translateSelection.mock.calls[0][0]).toMatchObject({
+      addressRegister: 'formal',
+    });
+  });
+
+  it('asks again for the next batch instead of reusing the last answer', async () => {
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+
+    act(() => result.current.setTranslationRegister('casual'));
+    expect(result.current.translationRegister).toBe('casual');
+
+    act(() => result.current.reset());
+    expect(result.current.translationRegister).toBeNull();
+  });
+
+  it('leaves the register question out for a target that does not mark one', async () => {
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'fi', languageTo: 'et', onCommitted: vi.fn() }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+
+    expect(result.current.translationRegisterApplies).toBe(false);
+
+    await act(() => result.current.sendMessage('Kavárna'));
+    act(() => result.current.toggleSelected(result.current.proposals[1]));
+    await act(() => result.current.continueToReview());
+
+    expect(result.current.step).toBe('review');
+    expect(mocks.translateSelection.mock.calls[0][0]).toMatchObject({
+      addressRegister: null,
+    });
   });
 });

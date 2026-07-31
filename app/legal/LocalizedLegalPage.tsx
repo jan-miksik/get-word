@@ -6,7 +6,7 @@ import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { usePreferredPublicLanguage } from '@/lib/i18n/client-language';
 import type { I18nKey } from '@/lib/i18n/messages';
 
-const LAST_UPDATED_DATE = new Date('2026-07-24T00:00:00.000Z');
+const LAST_UPDATED_DATE = new Date('2026-07-31T00:00:00.000Z');
 const SUPPORT_EMAIL = 'support@getword.app';
 
 type LegalPageKind = 'terms' | 'privacy';
@@ -40,12 +40,19 @@ const PRIVACY_SECTIONS: TextSection[] = [
       'privacy.infoDevice',
       'privacy.infoSession',
       'privacy.infoContent',
+      'privacy.infoModeration',
       'privacy.infoProviders',
     ],
   },
   {
     title: 'privacy.useTitle',
-    bullets: ['privacy.useAuth', 'privacy.useSync', 'privacy.useOperate', 'privacy.useFeedback'],
+    bullets: [
+      'privacy.useAuth',
+      'privacy.useSync',
+      'privacy.useOperate',
+      'privacy.useSafety',
+      'privacy.useFeedback',
+    ],
     paragraphs: ['privacy.useNoSell'],
   },
   { title: 'privacy.legalBasisTitle', paragraphs: ['privacy.legalBasisBody'] },

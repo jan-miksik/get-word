@@ -230,13 +230,17 @@ describe('server sync echo guards', () => {
   });
 
   it('does not let an older focus snapshot roll back a confirmed language pair', async () => {
+    const now = Date.now();
+    const olderSnapshotAt = new Date(now - 60_000).toISOString();
+    const confirmingSnapshotAt = new Date(now).toISOString();
+    const newerSnapshotAt = new Date(now + 60_000).toISOString();
     mockSyncUserData.mockResolvedValueOnce({
       success: true,
       user: {
         id: 'user-1',
         language_from: 'cs',
         language_to: 'vi',
-        onboarding_completed_at: '2026-07-28T12:00:00.000Z',
+        onboarding_completed_at: confirmingSnapshotAt,
       },
     } as SyncResponse);
     const isUpdatingFromServerRef = { current: false };
@@ -251,7 +255,7 @@ describe('server sync echo guards', () => {
         ...baseUser,
         language_from: 'fr',
         language_to: 'es',
-        onboarding_completed_at: '2026-07-27T12:00:00.000Z',
+        onboarding_completed_at: olderSnapshotAt,
       });
     });
 
@@ -264,7 +268,7 @@ describe('server sync echo guards', () => {
         ...baseUser,
         language_from: 'de',
         language_to: 'en',
-        onboarding_completed_at: '2026-07-29T12:00:00.000Z',
+        onboarding_completed_at: newerSnapshotAt,
       });
     });
     expect(result.current.learningLanguageFrom).toBe('de');

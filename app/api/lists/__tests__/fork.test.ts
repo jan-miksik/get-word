@@ -10,6 +10,7 @@ const mockCreateCategory = vi.fn()
 const mockDeleteList = vi.fn()
 const mockFindMediaByHashes = vi.fn()
 const mockGetMediaAssetsByIds = vi.fn()
+const mockIsBlockedBetweenUsers = vi.fn((..._args: unknown[]) => false)
 const mockGoogleTranslate = vi.fn()
 const mockOpenRouterTranslate = vi.fn()
 const mockGetUserApiKey = vi.fn()
@@ -28,6 +29,7 @@ vi.mock('@/lib/auth', () => ({
 
 vi.mock('@/lib/db', () => ({
   getListById: (...args: unknown[]) => mockGetListById(...args),
+  isBlockedBetweenUsers: (...args: unknown[]) => mockIsBlockedBetweenUsers(...args),
   getListCategories: (...args: unknown[]) => mockGetListCategories(...args),
   getListItems: (...args: unknown[]) => mockGetListItems(...args),
   createList: (...args: unknown[]) => mockCreateList(...args),
