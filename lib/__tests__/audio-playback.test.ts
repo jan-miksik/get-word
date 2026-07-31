@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { clearAudioAvailabilityCache, getPlayableAudioUrl } from '../audio-availability';
-import { playUserInitiatedAudio } from '../audio-playback';
+import { playUserInitiatedAudio, resetAudioRepeatState } from '../audio-playback';
 import { clearPrefetchCache, prefetchAudio } from '../audio-prefetch';
 
 const clipPlaybackMocks = vi.hoisted(() => ({
@@ -14,6 +14,7 @@ vi.mock('@/lib/audio-clip-playback', () => clipPlaybackMocks);
 describe('playUserInitiatedAudio', () => {
   beforeEach(() => {
     clearAudioAvailabilityCache();
+    resetAudioRepeatState();
     clipPlaybackMocks.getWarmedClipUrl.mockReset();
     clipPlaybackMocks.getWarmedClipUrl.mockReturnValue(null);
     clipPlaybackMocks.getLocalClipUrl.mockReset();
@@ -79,7 +80,7 @@ describe('playUserInitiatedAudio', () => {
       '/speech/vi/dog.mp3',
     ]);
 
-    expect(result).toEqual({ ok: true, interrupted: false });
+    expect(result).toEqual({ ok: true, interrupted: false, rate: 1 });
     expect(attemptedSources).toEqual([
       '/speech/vi/missing.mp3',
       '/speech/vi/dog.mp3',
@@ -188,5 +189,91 @@ describe('playUserInitiatedAudio', () => {
     await playUserInitiatedAudio({ current: null }, '/api/audio/hash-fresh');
 
     expect(attemptedSources[0]).toBe('blob:fresh-clip');
+  });
+
+  describe('slow replay on a repeated press', () => {
+    const stubAudio = (rates: number[]) => {
+      vi.stubGlobal(
+        'Audio',
+        vi.fn().mockImplementation(function FakeAudio(this: {
+          playbackRate: number;
+          defaultPlaybackRate: number;
+          preservesPitch: boolean;
+          play: () => Promise<void>;
+          pause: () => void;
+        }) {
+          this.playbackRate = 1;
+          this.defaultPlaybackRate = 1;
+          this.preservesPitch = false;
+          this.play = () => {
+            rates.push(this.playbackRate);
+            return Promise.resolve();
+          };
+          this.pause = () => {};
+        }),
+      );
+    };
+
+    it('halves the rate on the second press and returns to normal on the third', async () => {
+      const rates: number[] = [];
+      stubAudio(rates);
+      const audioRef = { current: null };
+
+      const first = await playUserInitiatedAudio(audioRef, '/speech/vi/dog.mp3');
+      const second = await playUserInitiatedAudio(audioRef, '/speech/vi/dog.mp3');
+      const third = await playUserInitiatedAudio(audioRef, '/speech/vi/dog.mp3');
+
+      expect(rates).toEqual([1, 0.5, 1]);
+      expect([first.rate, second.rate, third.rate]).toEqual([1, 0.5, 1]);
+    });
+
+    it('keeps pitch while playing at half speed', async () => {
+      const rates: number[] = [];
+      stubAudio(rates);
+      const audioRef = { current: null as HTMLAudioElement | null };
+
+      await playUserInitiatedAudio(audioRef, '/speech/vi/dog.mp3');
+      await playUserInitiatedAudio(audioRef, '/speech/vi/dog.mp3');
+
+      expect(audioRef.current?.preservesPitch).toBe(true);
+      expect(audioRef.current?.defaultPlaybackRate).toBe(0.5);
+    });
+
+    it('starts at normal speed when a different word is played in between', async () => {
+      const rates: number[] = [];
+      stubAudio(rates);
+      const audioRef = { current: null };
+
+      await playUserInitiatedAudio(audioRef, '/speech/vi/dog.mp3');
+      await playUserInitiatedAudio(audioRef, '/speech/vi/cat.mp3');
+      await playUserInitiatedAudio(audioRef, '/speech/vi/dog.mp3');
+
+      expect(rates).toEqual([1, 1, 1]);
+    });
+
+    it('starts at normal speed when the repeat window has passed', async () => {
+      const rates: number[] = [];
+      stubAudio(rates);
+      const audioRef = { current: null };
+      const now = Date.now();
+      const nowSpy = vi.spyOn(Date, 'now').mockReturnValue(now);
+
+      await playUserInitiatedAudio(audioRef, '/speech/vi/dog.mp3');
+      nowSpy.mockReturnValue(now + 60_000);
+      await playUserInitiatedAudio(audioRef, '/speech/vi/dog.mp3');
+
+      expect(rates).toEqual([1, 1]);
+    });
+
+    it('stays at normal speed when the caller opts out', async () => {
+      const rates: number[] = [];
+      stubAudio(rates);
+      const audioRef = { current: null };
+
+      await playUserInitiatedAudio(audioRef, '/speech/vi/dog.mp3', { slowOnRepeat: false });
+      await playUserInitiatedAudio(audioRef, '/speech/vi/dog.mp3', { slowOnRepeat: false });
+
+      expect(rates).toEqual([1, 1]);
+    });
   });
 });

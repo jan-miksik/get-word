@@ -82,10 +82,15 @@ export const WordCard = memo(function WordCard({
   const hookInputRef = useRef<HTMLInputElement>(null);
   const hookDisplayRef = useRef<HTMLDivElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const [slowPlayback, setSlowPlayback] = useState(false);
 
   useEffect(() => {
     setHookValue(memoryHook);
   }, [memoryHook]);
+
+  useEffect(() => {
+    setSlowPlayback(false);
+  }, [word.id]);
 
   useEffect(() => {
     if (!showMemoryHook) setEditingHook(false);
@@ -134,7 +139,16 @@ export const WordCard = memo(function WordCard({
   };
 
   const playAudio = (src: string | string[]) => {
-    void playUserInitiatedAudio(audioRef, src);
+    void playUserInitiatedAudio(audioRef, src).then(({ ok, rate }) => {
+      const isSlow = ok && rate < 1;
+      setSlowPlayback(isSlow);
+      if (!isSlow) return;
+      audioRef.current?.addEventListener(
+        'ended',
+        () => setSlowPlayback(false),
+        { once: true },
+      );
+    });
   };
 
   const audioSrc = getLearningAudioSrc(role, word);
@@ -367,6 +381,14 @@ export const WordCard = memo(function WordCard({
             aria-label={t('card.playAudio')}
           >
             <SpeakerIcon size={23} />
+            {slowPlayback && (
+              <span
+                className="pointer-events-none absolute -bottom-1.5 -right-1.5 text-[17px] leading-none"
+                aria-hidden="true"
+              >
+                🐢
+              </span>
+            )}
           </button>
         )}
         <div

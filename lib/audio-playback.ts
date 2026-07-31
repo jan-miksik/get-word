@@ -11,7 +11,57 @@ import { getPrefetchedAudioUrl } from '@/lib/audio-prefetch';
 export type AudioPlaybackResult = {
   ok: boolean;
   interrupted: boolean;
+  /** Rate the clip was started at: 1 for normal, 0.5 for the slow replay. */
+  rate: number;
 };
+
+export const SLOW_PLAYBACK_RATE = 0.5;
+
+/**
+ * How long after a press the next press on the same clip still counts as a
+ * replay. Long enough to hear a word and decide to listen again, short enough
+ * that coming back to a card later starts at normal speed.
+ */
+const REPEAT_WINDOW_MS = 12_000;
+
+let lastPressKey: string | null = null;
+let lastPressAt = 0;
+let lastPressRate = 1;
+
+function repeatKeyFor(audioSrc: string | string[] | null): string {
+  return Array.isArray(audioSrc) ? audioSrc.join('|') : String(audioSrc);
+}
+
+/**
+ * Pressing play again on the same clip alternates normal → slow → normal,
+ * the familiar "tap twice to slow it down" behaviour of language apps.
+ */
+function resolvePlaybackRate(audioSrc: string | string[] | null): number {
+  const key = repeatKeyFor(audioSrc);
+  const now = Date.now();
+  const isRepeat = key === lastPressKey && now - lastPressAt <= REPEAT_WINDOW_MS;
+  const rate = isRepeat && lastPressRate === 1 ? SLOW_PLAYBACK_RATE : 1;
+
+  lastPressKey = key;
+  lastPressAt = now;
+  lastPressRate = rate;
+  return rate;
+}
+
+export function resetAudioRepeatState(): void {
+  lastPressKey = null;
+  lastPressAt = 0;
+  lastPressRate = 1;
+}
+
+function applyPlaybackRate(audio: HTMLAudioElement, rate: number): void {
+  // `load()` resets playbackRate to defaultPlaybackRate, so set both — the
+  // fallback candidates re-load the same element.
+  audio.defaultPlaybackRate = rate;
+  audio.playbackRate = rate;
+  // Keep the voice recognisable at half speed instead of dropping an octave.
+  audio.preservesPitch = true;
+}
 
 export type AudioPlaybackDebugEvent =
   | { type: 'empty' }
@@ -72,13 +122,15 @@ function getPlaybackCandidates(audioSrc: string | string[] | null): string[] {
 export function playUserInitiatedAudio(
   audioRef: AudioElementRef,
   audioSrc: string | string[] | null,
-  options: { onDebug?: AudioPlaybackDebugHandler } = {},
+  options: { onDebug?: AudioPlaybackDebugHandler; slowOnRepeat?: boolean } = {},
 ): Promise<AudioPlaybackResult> {
   const candidates = getPlaybackCandidates(audioSrc);
   if (candidates.length === 0) {
     options.onDebug?.({ type: 'empty' });
-    return Promise.resolve({ ok: false, interrupted: false });
+    return Promise.resolve({ ok: false, interrupted: false, rate: 1 });
   }
+
+  const rate = options.slowOnRepeat === false ? 1 : resolvePlaybackRate(audioSrc);
 
   if (audioRef.current) {
     audioRef.current.pause();
@@ -87,6 +139,7 @@ export function playUserInitiatedAudio(
 
   const audio = new Audio(candidates[0]);
   audio.preload = 'auto';
+  applyPlaybackRate(audio, rate);
   audioRef.current = audio;
 
   return new Promise((resolve) => {
@@ -107,7 +160,7 @@ export function playUserInitiatedAudio(
           candidateIndex,
           src: candidates[candidateIndex],
         });
-        done({ ok: false, interrupted: true });
+        done({ ok: false, interrupted: true, rate });
         return;
       }
       if (isAudioNetworkOffline()) {
@@ -116,7 +169,7 @@ export function playUserInitiatedAudio(
           candidateIndex,
           src: candidates[candidateIndex],
         });
-        done({ ok: false, interrupted: false });
+        done({ ok: false, interrupted: false, rate });
         return;
       }
 
@@ -127,12 +180,13 @@ export function playUserInitiatedAudio(
           candidateIndex: candidateIndex - 1,
           src: candidates[candidateIndex - 1],
         });
-        done({ ok: false, interrupted: false });
+        done({ ok: false, interrupted: false, rate });
         return;
       }
 
       audio.src = candidates[candidateIndex];
       audio.load();
+      applyPlaybackRate(audio, rate);
       beginAttempt();
     };
 
@@ -162,7 +216,8 @@ export function playUserInitiatedAudio(
               candidateIndex,
               src: candidates[candidateIndex],
             });
-            done({ ok: true, interrupted: false });
+            applyPlaybackRate(audio, rate);
+            done({ ok: true, interrupted: false, rate });
           })
           .catch((err) => {
             if (currentAttempt !== attempt || settled) return;
@@ -173,7 +228,7 @@ export function playUserInitiatedAudio(
                 candidateIndex,
                 src: candidates[candidateIndex],
               });
-              done({ ok: false, interrupted: true });
+              done({ ok: false, interrupted: true, rate });
               return;
             }
             options.onDebug?.({
