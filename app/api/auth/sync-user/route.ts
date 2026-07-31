@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { createSupabaseServerClient } from '@/features/auth/supabase/server'
+import { createSupabaseTokenVerifier } from '@/features/auth/supabase/token-verifier'
 import { resolveAndAttachSupabaseUser } from '@/features/auth/server/resolve-supabase-user'
 import { withSessionCookie } from '@/features/shared/routes/session'
 import { readBearerToken, signSession } from '@/lib/session'
@@ -11,11 +12,12 @@ type SyncUserBody = {
 }
 
 /**
- * Client-initiated mint of the app session after a Supabase sign-in (email OTP,
- * or a re-sync). The client must already hold a Supabase session (its cookies
- * are sent with this request). We verify with getUser(), resolve/attach the app
- * user — passing the device id so a first-time login can claim existing device
- * progress without merging/deleting rows — then mint `get_word_session`.
+ * Client-initiated mint of the app session after a Supabase sign-in. Web
+ * clients authenticate with Supabase cookies; native clients send their
+ * short-lived Supabase access token as a bearer token. We verify with
+ * getUser(), resolve/attach the app user — passing the device id so a first-time
+ * login can claim existing device progress without merging/deleting rows —
+ * then mint `get_word_session`.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -28,16 +30,34 @@ export async function POST(request: NextRequest) {
       body.deviceId ||
       null
 
-    const supabase = await createSupabaseServerClient()
     const supabaseAccessToken = readBearerToken(request)
-    const {
-      data: { user },
-      error,
-    } = await supabase.auth.getUser(supabaseAccessToken ?? undefined)
+    if (body.client === 'ios' && !supabaseAccessToken) {
+      return NextResponse.json(
+        { success: false, error: 'Missing Supabase bearer token' },
+        { status: 401 }
+      )
+    }
+
+    const verification = supabaseAccessToken
+      ? await createSupabaseTokenVerifier().auth.getUser(supabaseAccessToken)
+      : await (await createSupabaseServerClient()).auth.getUser()
+    const { user } = verification.data
+    const { error } = verification
 
     if (error || !user) {
+      console.warn('[auth/sync-user] Supabase session verification failed', {
+        source: supabaseAccessToken ? 'bearer' : 'cookie',
+        code: error?.code,
+        status: error?.status,
+        message: error?.message,
+      })
       return NextResponse.json(
-        { success: false, error: 'No verified Supabase session' },
+        {
+          success: false,
+          error: supabaseAccessToken
+            ? 'Supabase bearer token was rejected by the API'
+            : 'No verified Supabase session',
+        },
         { status: 401 }
       )
     }

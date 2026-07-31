@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 
-const mockGetUser = vi.fn()
+const mockCookieGetUser = vi.fn()
+const mockBearerGetUser = vi.fn()
 const mockResolveAndAttachSupabaseUser = vi.fn()
 const mockSignSession = vi.fn()
 const mockWithSessionCookie = vi.fn()
@@ -9,7 +10,15 @@ const mockWithSessionCookie = vi.fn()
 vi.mock('@/features/auth/supabase/server', () => ({
   createSupabaseServerClient: async () => ({
     auth: {
-      getUser: (...args: unknown[]) => mockGetUser(...args),
+      getUser: (...args: unknown[]) => mockCookieGetUser(...args),
+    },
+  }),
+}))
+
+vi.mock('@/features/auth/supabase/token-verifier', () => ({
+  createSupabaseTokenVerifier: () => ({
+    auth: {
+      getUser: (...args: unknown[]) => mockBearerGetUser(...args),
     },
   }),
 }))
@@ -47,7 +56,7 @@ function request(body: Record<string, unknown>, accessToken?: string) {
 describe('POST /api/auth/sync-user', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    mockGetUser.mockResolvedValue({
+    const verifiedUser = {
       data: {
         user: {
           id: 'supabase-1',
@@ -56,7 +65,9 @@ describe('POST /api/auth/sync-user', () => {
         },
       },
       error: null,
-    })
+    }
+    mockCookieGetUser.mockResolvedValue(verifiedUser)
+    mockBearerGetUser.mockResolvedValue(verifiedUser)
     mockResolveAndAttachSupabaseUser.mockResolvedValue({
       id: 'app-user-1',
       email: 'learner@example.com',
@@ -74,7 +85,8 @@ describe('POST /api/auth/sync-user', () => {
       request({ client: 'ios', deviceId: 'ios-device-1' }, 'supabase-access-token'),
     )
 
-    expect(mockGetUser).toHaveBeenCalledWith('supabase-access-token')
+    expect(mockBearerGetUser).toHaveBeenCalledWith('supabase-access-token')
+    expect(mockCookieGetUser).not.toHaveBeenCalled()
     expect(mockResolveAndAttachSupabaseUser).toHaveBeenCalledWith({
       supabaseAuthId: 'supabase-1',
       email: 'learner@example.com',
@@ -95,9 +107,45 @@ describe('POST /api/auth/sync-user', () => {
   it('does not expose a bearer session to the web client', async () => {
     const response = await POST(request({ client: 'web', deviceId: 'web-device-1' }))
 
-    expect(mockGetUser).toHaveBeenCalledWith(undefined)
+    expect(mockCookieGetUser).toHaveBeenCalledWith()
+    expect(mockBearerGetUser).not.toHaveBeenCalled()
     expect(mockSignSession).not.toHaveBeenCalled()
     const payload = await response.json()
     expect(payload.sessionToken).toBeUndefined()
+  })
+
+  it('rejects an iOS request when the Authorization header is missing', async () => {
+    const response = await POST(request({ client: 'ios', deviceId: 'ios-device-1' }))
+
+    expect(response.status).toBe(401)
+    expect(mockCookieGetUser).not.toHaveBeenCalled()
+    expect(mockBearerGetUser).not.toHaveBeenCalled()
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      error: 'Missing Supabase bearer token',
+    })
+  })
+
+  it('rejects a bearer token that the API Supabase project cannot verify', async () => {
+    mockBearerGetUser.mockResolvedValue({
+      data: { user: null },
+      error: {
+        code: 'bad_jwt',
+        status: 401,
+        message: 'Invalid JWT',
+      },
+    })
+
+    const response = await POST(
+      request({ client: 'ios', deviceId: 'ios-device-1' }, 'invalid-access-token'),
+    )
+
+    expect(response.status).toBe(401)
+    expect(mockBearerGetUser).toHaveBeenCalledWith('invalid-access-token')
+    expect(mockResolveAndAttachSupabaseUser).not.toHaveBeenCalled()
+    await expect(response.json()).resolves.toEqual({
+      success: false,
+      error: 'Supabase bearer token was rejected by the API',
+    })
   })
 })

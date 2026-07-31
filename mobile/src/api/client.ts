@@ -2,7 +2,7 @@ import { CapacitorHttp, type HttpOptions } from '@capacitor/core';
 import { apiUrl } from '../config';
 import { isNativeApp } from '../native';
 
-class MobileApiError extends Error {
+export class MobileApiError extends Error {
   constructor(
     message: string,
     readonly status: number,
@@ -11,6 +11,19 @@ class MobileApiError extends Error {
     super(message);
     this.name = 'MobileApiError';
   }
+}
+
+function readErrorMessage(payload: unknown): string | null {
+  if (!payload || typeof payload !== 'object' || !('error' in payload)) {
+    return null;
+  }
+  const error = payload.error;
+  return typeof error === 'string' && error.trim() ? error.trim() : null;
+}
+
+function apiErrorMessage(status: number, payload: unknown): string {
+  const serverMessage = readErrorMessage(payload);
+  return `${serverMessage ?? 'Get Word API request failed'} (HTTP ${status})`;
 }
 
 type MobileApiOptions = {
@@ -55,7 +68,11 @@ export async function mobileApiRequest<T>(
     const response = await CapacitorHttp.request(nativeOptions);
     const payload = parsePayload(response.data);
     if (response.status < 200 || response.status >= 300) {
-      throw new MobileApiError('Get Word API request failed', response.status, payload);
+      throw new MobileApiError(
+        apiErrorMessage(response.status, payload),
+        response.status,
+        payload,
+      );
     }
     return payload as T;
   }
@@ -67,7 +84,11 @@ export async function mobileApiRequest<T>(
   });
   const payload = parsePayload(await response.text());
   if (!response.ok) {
-    throw new MobileApiError('Get Word API request failed', response.status, payload);
+    throw new MobileApiError(
+      apiErrorMessage(response.status, payload),
+      response.status,
+      payload,
+    );
   }
   return payload as T;
 }

@@ -7,7 +7,7 @@ export type MobileIdentity = {
   userRole?: 'user' | 'editor' | null;
 };
 
-type MobileSessionResponse = {
+export type MobileSession = {
   success: true;
   userId: string;
   email: string | null;
@@ -24,7 +24,7 @@ export function exchangeSupabaseSession(input: {
   accessToken: string;
   deviceId: string;
 }) {
-  return mobileApiRequest<MobileSessionResponse>('/api/auth/sync-user', {
+  return mobileApiRequest<MobileSession>('/api/auth/sync-user', {
     method: 'POST',
     sessionToken: input.accessToken,
     body: {

@@ -11,11 +11,14 @@
     "open:ios": "cap open ios"
   },
   "dependencies": {
+    "@aparajita/capacitor-secure-storage": "^8.0.0",
     "@capacitor/app": "^8.0.0",
     "@capacitor/core": "^8.0.0",
     "@capacitor/haptics": "^8.0.0",
     "@capacitor/ios": "^8.0.0",
     "@capacitor/status-bar": "^8.0.0",
+    "@capawesome/capacitor-apple-sign-in": "^0.1.2",
+    "@supabase/supabase-js": "^2.90.1",
     "react": "19.2.6",
     "react-dom": "19.2.6"
   },
