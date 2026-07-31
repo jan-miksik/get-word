@@ -176,6 +176,7 @@ export function SiteFooter({ showLogin = true }: { showLogin?: boolean }) {
           {t('landing.footer.github')}
         </a>
         <a href={`mailto:${CONTACT_EMAIL}`} className="lp-foot-link">{t('landing.footer.contact')}</a>
+        <Link href="/support" className="lp-foot-link">{t('landing.footer.support')}</Link>
         <Link href="/privacy" className="lp-foot-link">{t('landing.footer.privacy')}</Link>
         <Link href="/terms" className="lp-foot-link">{t('landing.footer.terms')}</Link>
       </nav>

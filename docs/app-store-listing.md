@@ -21,7 +21,7 @@ free today without promising it will always be.
 | Primary language | English (U.S.) |
 | Localizations | English (U.S.), Czech |
 | Copyright | © 2026 Jan Mikšík |
-| Support URL | https://getword.app/ (or a dedicated page — see the open question below) |
+| Support URL | https://getword.app/support |
 | Marketing URL | https://getword.app/ |
 | Privacy Policy URL | https://getword.app/privacy |
 | Price | Free |
@@ -33,13 +33,16 @@ free today without promising it will always be.
 ### Name — 30 max
 
 ```
-Get Word: Learn Vocabulary
+Get Word
 ```
 
 ### Subtitle — 30 max
 
+The subtitle is indexed for search just like the name, so it carries the
+searchable term the name no longer does.
+
 ```
-Words that stay, any language
+Learn vocabulary that stays
 ```
 
 ### Promotional text — 170 max (editable without a review)
@@ -114,13 +117,13 @@ First release of Get Word for iPhone and iPad.
 ### Name — 30 max
 
 ```
-Get Word: Učení slovíček
+Get Word
 ```
 
 ### Subtitle — 30 max
 
 ```
-Slova, která zůstanou
+Slovíčka, která zůstanou
 ```
 
 ### Promotional text — 170 max
@@ -241,15 +244,11 @@ search history, advertising data, crash/performance diagnostics.
 
 ---
 
-## Open questions for you
+## Settled
 
-1. **Support URL.** Apple wants a page where a user can get help. The landing
-   page has a `contact@getword.app` link in the footer, which may be enough, but
-   a small `/support` page with the mail address and a link to GitHub issues
-   reads better to a reviewer.
-2. **App name.** "Get Word: Learn Vocabulary" trades brand purity for search
-   visibility. Plain "Get Word" is cleaner if you would rather keep it.
-3. **Photo Lab in v1.** It is the one feature that pulls camera and photo
-   permissions, an AI provider, and user-generated content into the review. It
-   is in scope by your decision — worth re-confirming that you want it in the
-   first submission rather than the second.
+- **Name** is plain `Get Word`. The searchable terms live in the subtitle,
+  keywords, and description instead.
+- **Support URL** is `https://getword.app/support`, a real page linked from the
+  landing footer.
+- **Photo Lab** ships in the first version, so the review covers the camera and
+  photo-library permissions and the AI provider behind it.

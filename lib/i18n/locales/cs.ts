@@ -39,6 +39,24 @@ export const csMessages: I18nMessages = {
   "legal.lastUpdated": "Naposledy aktualizováno: {date}",
   "legal.seeAlsoPrivacy": "Viz také naše {privacy}.",
   "legal.seeAlsoTerms": "Viz také naše {terms}.",
+  "landing.footer.support": "Podpora",
+  "support.title": "Podpora",
+  "support.intro":
+    "Něco nefunguje, nebo máte otázku k účtu? Tady je, kde začít.",
+  "support.helpTitle": "Získat pomoc",
+  "support.helpBody":
+    "Napište nám, co se stalo, na jakém zařízení a s jakou verzí aplikace nebo prohlížeče, a co jste čekali místo toho. Odpovídáme česky i anglicky, obvykle do několika pracovních dnů.",
+  "support.bugTitle": "Nahlásit chybu nebo navrhnout funkci",
+  "support.bugBody":
+    "Get Word je open source, takže chyby a nápady je nejlepší založit jako issue — můžete pak sledovat, co se s nimi děje: github.com/jan-miksik/get-word/issues",
+  "support.accountTitle": "Váš účet a vaše data",
+  "support.accountBody":
+    "Otevřete menu, pak Nastavení a Účet. Můžete si tam vyexportovat data ze svého učení a taky smazat účet i s daty. Smazání je trvalé.",
+  "support.privacyTitle": "Co ukládáme",
+  "support.privacyBody":
+    "Zásady ochrany osobních údajů popisují, co Get Word ukládá, proč a jaká k tomu máte práva.",
+  "support.contactTitle": "Kontakt",
+  "support.contactBody": "Zastihnete nás na",
   "landing.hero.title": "Slova, která zůstanou",
   "landing.hero.subtitle":
     "Get Word pomáhá zapamatovat si slovíčka a fráze pomocí efektivního opakování a audio výslovnosti. Můžete využít hotové seznamy slovíček a frází nebo si vytvořit vlastní. Pro libovolnou kombinaci jazyků.",

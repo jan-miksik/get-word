@@ -39,6 +39,24 @@ export const viMessages: I18nMessages = {
   "legal.lastUpdated": "Cập nhật lần cuối: {date}",
   "legal.seeAlsoPrivacy": "Xem thêm {privacy} của chúng tôi.",
   "legal.seeAlsoTerms": "Xem thêm {terms} của chúng tôi.",
+  "landing.footer.support": "Hỗ trợ",
+  "support.title": "Hỗ trợ",
+  "support.intro":
+    "Có gì đó không hoạt động, hoặc bạn có câu hỏi về tài khoản? Hãy bắt đầu từ đây.",
+  "support.helpTitle": "Nhận trợ giúp",
+  "support.helpBody":
+    "Hãy viết cho chúng tôi biết điều gì đã xảy ra, bạn dùng thiết bị và phiên bản ứng dụng hay trình duyệt nào, và bạn mong đợi điều gì. Chúng tôi trả lời bằng tiếng Anh và tiếng Séc, thường trong vài ngày làm việc.",
+  "support.bugTitle": "Báo lỗi hoặc đề xuất tính năng",
+  "support.bugBody":
+    "Get Word là mã nguồn mở, nên lỗi và ý tưởng tốt nhất nên được tạo thành issue — bạn có thể theo dõi tiến trình của chúng: github.com/jan-miksik/get-word/issues",
+  "support.accountTitle": "Tài khoản và dữ liệu của bạn",
+  "support.accountBody":
+    "Mở menu, chọn Cài đặt rồi Tài khoản. Ở đó bạn có thể xuất dữ liệu học tập và xóa tài khoản cùng dữ liệu. Việc xóa là vĩnh viễn.",
+  "support.privacyTitle": "Chúng tôi lưu những gì",
+  "support.privacyBody":
+    "Chính sách quyền riêng tư mô tả Get Word lưu gì, vì sao, và bạn có những quyền nào.",
+  "support.contactTitle": "Liên hệ",
+  "support.contactBody": "Bạn có thể liên hệ với chúng tôi tại",
   "landing.hero.title": "Những từ ở lại với bạn",
   "landing.hero.subtitle":
     "Get Word giúp bạn ghi nhớ từ và cụm từ bằng phương pháp lặp lại ngắt quãng, phát âm bằng âm thanh, cùng các danh sách có sẵn hoặc tự tạo. Cho mọi cặp ngôn ngữ.",

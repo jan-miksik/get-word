@@ -37,6 +37,24 @@ export const enMessages = {
   "legal.lastUpdated": "Last updated: {date}",
   "legal.seeAlsoPrivacy": "See also our {privacy}.",
   "legal.seeAlsoTerms": "See also our {terms}.",
+  "landing.footer.support": "Support",
+  "support.title": "Support",
+  "support.intro":
+    "Something is not working, or you have a question about your account? Here is where to start.",
+  "support.helpTitle": "Get help",
+  "support.helpBody":
+    "Write to us with what happened, which device and app or browser version you were using, and what you expected instead. We reply in English and Czech, usually within a few working days.",
+  "support.bugTitle": "Report a bug or suggest a feature",
+  "support.bugBody":
+    "Get Word is open source, so bugs and ideas are best filed as an issue — you can then follow what happens to them: github.com/jan-miksik/get-word/issues",
+  "support.accountTitle": "Your account and your data",
+  "support.accountBody":
+    "Open the menu, then Settings, then Account. You can export your learning data there, and delete your account together with its data. Deletion is permanent.",
+  "support.privacyTitle": "What we store",
+  "support.privacyBody":
+    "The Privacy Policy describes what Get Word stores, why, and which rights you have over it.",
+  "support.contactTitle": "Contact",
+  "support.contactBody": "You can reach us at",
   "landing.hero.title": "Words that stay",
   "landing.hero.subtitle":
     "Get Word helps you memorize words and phrases with spaced repetition, audio pronunciation, and curated lists or your own custom lists. For any language pair.",

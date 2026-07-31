@@ -9,12 +9,29 @@ import type { I18nKey } from '@/lib/i18n/messages';
 const LAST_UPDATED_DATE = new Date('2026-07-31T00:00:00.000Z');
 const SUPPORT_EMAIL = 'support@getword.app';
 
-type LegalPageKind = 'terms' | 'privacy';
+/**
+ * Support is not a legal document, but it is the same thing structurally: a
+ * static, localized, standalone page reachable from the footer. It shares this
+ * shell rather than growing a near-identical second one.
+ */
+type LegalPageKind = 'terms' | 'privacy' | 'support';
 
 type TextSection = {
   title: I18nKey;
   paragraphs?: I18nKey[];
   bullets?: I18nKey[];
+};
+
+type PageConfig = {
+  title: I18nKey;
+  intro: I18nKey;
+  sections: TextSection[];
+  contactTitle: I18nKey;
+  contactBody: I18nKey;
+  /** Cross-link in the footer: a template with one `{marker}` placeholder. */
+  seeAlso: { template: I18nKey; marker: string; href: string; label: I18nKey };
+  /** Only the two documents that can be revised carry an effective date. */
+  showLastUpdated?: boolean;
 };
 
 const TERMS_SECTIONS: TextSection[] = [
@@ -66,6 +83,57 @@ const PRIVACY_SECTIONS: TextSection[] = [
   { title: 'privacy.changesTitle', paragraphs: ['privacy.changesBody'] },
 ];
 
+const SUPPORT_SECTIONS: TextSection[] = [
+  { title: 'support.helpTitle', paragraphs: ['support.helpBody'] },
+  { title: 'support.bugTitle', paragraphs: ['support.bugBody'] },
+  { title: 'support.accountTitle', paragraphs: ['support.accountBody'] },
+  { title: 'support.privacyTitle', paragraphs: ['support.privacyBody'] },
+];
+
+const PAGES: Record<LegalPageKind, PageConfig> = {
+  terms: {
+    title: 'terms.title',
+    intro: 'terms.intro',
+    sections: TERMS_SECTIONS,
+    contactTitle: 'terms.contactTitle',
+    contactBody: 'terms.contactBody',
+    seeAlso: {
+      template: 'legal.seeAlsoPrivacy',
+      marker: '{privacy}',
+      href: '/privacy',
+      label: 'privacy.title',
+    },
+    showLastUpdated: true,
+  },
+  privacy: {
+    title: 'privacy.title',
+    intro: 'privacy.intro',
+    sections: PRIVACY_SECTIONS,
+    contactTitle: 'privacy.contactTitle',
+    contactBody: 'privacy.contactBody',
+    seeAlso: {
+      template: 'legal.seeAlsoTerms',
+      marker: '{terms}',
+      href: '/terms',
+      label: 'terms.title',
+    },
+    showLastUpdated: true,
+  },
+  support: {
+    title: 'support.title',
+    intro: 'support.intro',
+    sections: SUPPORT_SECTIONS,
+    contactTitle: 'support.contactTitle',
+    contactBody: 'support.contactBody',
+    seeAlso: {
+      template: 'legal.seeAlsoPrivacy',
+      marker: '{privacy}',
+      href: '/privacy',
+      label: 'privacy.title',
+    },
+  },
+};
+
 export function LocalizedLegalPage({ kind }: { kind: LegalPageKind }) {
   const language = usePreferredPublicLanguage();
   return (
@@ -77,11 +145,11 @@ export function LocalizedLegalPage({ kind }: { kind: LegalPageKind }) {
 
 function LegalArticle({ kind }: { kind: LegalPageKind }) {
   const { t, language } = useI18n();
-  const isTerms = kind === 'terms';
-  const title = t(isTerms ? 'terms.title' : 'privacy.title');
-  const intro = t(isTerms ? 'terms.intro' : 'privacy.intro');
+  const page = PAGES[kind];
+  const title = t(page.title);
+  const intro = t(page.intro);
   const date = formatLastUpdated(language);
-  const sections = isTerms ? TERMS_SECTIONS : PRIVACY_SECTIONS;
+  const sections = page.sections;
 
   return (
     <main lang={language} className="mx-auto min-h-screen max-w-2xl bg-[#0b1220] px-6 py-12 text-[#e7e2d6]">
@@ -94,9 +162,11 @@ function LegalArticle({ kind }: { kind: LegalPageKind }) {
             &larr; {t('legal.backHome')}
           </Link>
           <h1 className="m-0 text-3xl font-semibold text-white">{title}</h1>
-          <p className="m-0 text-sm text-[#9aa6b8]">
-            {t('legal.lastUpdated', { date })}
-          </p>
+          {page.showLastUpdated ? (
+            <p className="m-0 text-sm text-[#9aa6b8]">
+              {t('legal.lastUpdated', { date })}
+            </p>
+          ) : null}
         </header>
 
         <p>{intro}</p>
@@ -121,10 +191,10 @@ function LegalArticle({ kind }: { kind: LegalPageKind }) {
 
         <section className="flex flex-col gap-2">
           <h2 className="m-0 text-xl font-semibold text-white">
-            {t(isTerms ? 'terms.contactTitle' : 'privacy.contactTitle')}
+            {t(page.contactTitle)}
           </h2>
           <p className="m-0">
-            {t(isTerms ? 'terms.contactBody' : 'privacy.contactBody')}{' '}
+            {t(page.contactBody)}{' '}
             <span
               className="cursor-text select-text font-medium text-[#9fb6cc]"
               style={{
@@ -139,21 +209,12 @@ function LegalArticle({ kind }: { kind: LegalPageKind }) {
         </section>
 
         <footer className="mt-4 border-t border-white/10 pt-4 text-sm text-[#9aa6b8]">
-          {isTerms ? (
-            <LinkedTemplate
-              template={t('legal.seeAlsoPrivacy')}
-              marker="{privacy}"
-              href="/privacy"
-              label={t('privacy.title')}
-            />
-          ) : (
-            <LinkedTemplate
-              template={t('legal.seeAlsoTerms')}
-              marker="{terms}"
-              href="/terms"
-              label={t('terms.title')}
-            />
-          )}
+          <LinkedTemplate
+            template={t(page.seeAlso.template)}
+            marker={page.seeAlso.marker}
+            href={page.seeAlso.href}
+            label={t(page.seeAlso.label)}
+          />
         </footer>
       </article>
     </main>
