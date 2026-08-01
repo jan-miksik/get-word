@@ -1,20 +1,5 @@
-:root {
-  color: #2a2218;
-  background: #0b1220;
-  font-family:
-    ui-rounded,
-    "SF Pro Rounded",
-    -apple-system,
-    BlinkMacSystemFont,
-    "Segoe UI",
-    sans-serif;
-  font-synthesis: none;
-  text-rendering: optimizeLegibility;
-}
-
-* {
-  box-sizing: border-box;
-}
+/* Native-only styling. Keep every visual rule scoped to the signed-out shell:
+   shared screens already own their CSS and must not inherit button/card styles. */
 
 html,
 body,
@@ -28,277 +13,293 @@ body {
   overscroll-behavior: none;
 }
 
-button,
-input,
-textarea,
-select {
-  font: inherit;
-}
-
-.mobile-shell {
+.native-sign-in {
   position: relative;
+  z-index: 0;
   display: grid;
   min-height: 100dvh;
   place-items: center;
   overflow-x: hidden;
   overflow-y: auto;
   padding:
-    calc(28px + env(safe-area-inset-top))
-    calc(20px + env(safe-area-inset-right))
-    calc(28px + env(safe-area-inset-bottom))
-    calc(20px + env(safe-area-inset-left));
+    calc(16px + env(safe-area-inset-top))
+    calc(14px + env(safe-area-inset-right))
+    calc(18px + env(safe-area-inset-bottom))
+    calc(14px + env(safe-area-inset-left));
   background: #dcd1b9;
+  color: #2a2218;
+  font-family:
+    ui-rounded,
+    "SF Pro Rounded",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    sans-serif;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
 }
 
-.pattern {
-  position: absolute;
-  inset: 0;
-  opacity: 0.12;
-  background:
-    radial-gradient(circle at 20% 10%, #1e6fa8 0 2px, transparent 3px),
-    radial-gradient(circle at 80% 30%, #2a2218 0 1px, transparent 2px);
-  background-size: 38px 38px, 31px 31px;
+.native-sign-in__letters {
+  z-index: -1;
 }
 
-.welcome-card {
+.native-sign-in__card {
   position: relative;
   width: min(100%, 440px);
-  padding: 28px;
+  padding: 24px;
   border: 2px solid #2a2218;
-  border-radius: 30px;
+  border-radius: 28px;
   background: rgb(244 239 226 / 96%);
-  box-shadow: 0 18px 50px rgb(42 34 24 / 18%);
+  backdrop-filter: blur(5px);
 }
 
-.eyebrow {
-  display: block;
-  margin-bottom: 18px;
+.native-sign-in__header {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 22px;
+  text-align: center;
+}
+
+.native-sign-in__logo {
+  justify-content: center;
+}
+
+.native-sign-in__brand {
+  margin: 0 0 8px;
   color: #6b5e48;
   font-size: 0.72rem;
-  font-weight: 750;
-  letter-spacing: 0.18em;
+  font-weight: 650;
+  letter-spacing: 0.28em;
   text-transform: uppercase;
 }
 
-.mark {
-  display: grid;
-  width: 64px;
-  height: 64px;
-  place-items: center;
-  border: 2px solid #2a2218;
-  border-radius: 22px 22px 28px 22px;
-  background: #e9c4aa;
-  color: #2a2218;
-  font-size: 2rem;
-  font-weight: 800;
-  transform: rotate(-3deg);
-}
-
-h1 {
-  max-width: 12ch;
-  margin: 22px 0 12px;
-  color: #2a2218;
-  font-size: clamp(2rem, 9vw, 3rem);
-  line-height: 0.96;
-  letter-spacing: -0.045em;
-}
-
-p {
+.native-sign-in h1 {
   margin: 0;
-  color: #5c5141;
-  font-size: 0.98rem;
+  color: #2a2218;
+  font-size: 1.9rem;
+  font-weight: 650;
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.native-sign-in__subtitle {
+  max-width: 34ch;
+  margin: 8px auto 0;
+  color: #6b5e48;
+  font-size: 0.9rem;
   line-height: 1.55;
 }
 
-.status-list {
-  display: grid;
-  gap: 10px;
-  margin: 24px 0;
+.native-sign-in button,
+.native-sign-in input {
+  font: inherit;
 }
 
-.status-list div {
-  display: grid;
-  grid-template-columns: 92px minmax(0, 1fr);
-  gap: 12px;
-  align-items: baseline;
-  padding-bottom: 10px;
-  border-bottom: 1px solid rgb(42 34 24 / 16%);
-}
-
-.status-list dt {
-  color: #6b5e48;
-  font-size: 0.78rem;
-  font-weight: 700;
-}
-
-.status-list dd {
-  min-width: 0;
-  margin: 0;
-  color: #2a2218;
-  overflow-wrap: anywhere;
-  font-size: 0.9rem;
-  font-weight: 650;
-  text-align: right;
-}
-
-.status-list dd[data-state="online"] {
-  color: #23704d;
-}
-
-.status-list dd[data-state="offline"] {
-  color: #9b3f32;
-}
-
-button {
-  width: 100%;
-  min-height: 52px;
-  padding: 12px 18px;
-  border: 2px solid #155987;
-  border-radius: 18px;
-  background: #1e6fa8;
-  color: #f4efe2;
-  font-weight: 750;
-  cursor: pointer;
+.native-sign-in button {
   -webkit-tap-highlight-color: transparent;
 }
 
-button:active {
-  transform: translateY(1px);
-  background: #155987;
-}
-
-button:disabled {
+.native-sign-in button:disabled {
   cursor: wait;
-  opacity: 0.65;
+  opacity: 0.6;
 }
 
-.action-stack {
-  display: grid;
+.native-sign-in__apple-button,
+.native-sign-in__email-submit {
+  display: inline-flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  justify-content: center;
+  padding: 11px 18px;
+  border-radius: 16px;
+  font-weight: 650;
+  cursor: pointer;
+}
+
+.native-sign-in__apple-button {
   gap: 10px;
-}
-
-.secondary-button {
-  border-color: rgb(42 34 24 / 35%);
-  background: transparent;
+  border: 2px solid #2a2218;
+  background: #fff8e8;
   color: #2a2218;
 }
 
-.secondary-button:active {
-  background: rgb(42 34 24 / 8%);
+.native-sign-in__apple-button:active {
+  background: #fbefd0;
 }
 
-.apple-button {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  border-color: #000;
-  border-radius: 14px;
-  background: #000;
-  color: #fff;
-}
-
-.apple-button:active {
-  background: #222;
-}
-
-.apple-mark {
+.native-sign-in__apple-mark {
+  color: #000;
   font-family: -apple-system, BlinkMacSystemFont, sans-serif;
-  font-size: 1.45rem;
+  font-size: 1.35rem;
   font-weight: 400;
   line-height: 1;
 }
 
-.sign-in-divider {
+.native-sign-in__divider {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin: 16px 0;
+  gap: 12px;
+  margin: 15px 0;
   color: #6b5e48;
-  font-size: 0.72rem;
-  font-weight: 700;
+  font-size: 0.7rem;
+  font-weight: 650;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
 }
 
-.sign-in-divider span {
+.native-sign-in__divider span {
   height: 1px;
   flex: 1;
-  background: rgb(42 34 24 / 18%);
+  background: rgb(42 34 24 / 15%);
 }
 
-.email-login-form {
-  display: grid;
-  gap: 12px;
+.native-sign-in__email-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
-.email-login-form label {
-  display: grid;
-  gap: 6px;
-  color: #6b5e48;
-  font-size: 0.78rem;
-  font-weight: 700;
+.native-sign-in__email-form label {
+  display: block;
 }
 
-.email-login-form input {
+.native-sign-in__email-form input {
   width: 100%;
-  min-height: 46px;
-  padding: 10px 12px;
-  border: 2px solid rgb(42 34 24 / 28%);
-  border-radius: 14px;
+  min-height: 48px;
+  padding: 11px 14px;
+  border: 2px solid rgb(42 34 24 / 30%);
+  border-radius: 16px;
+  outline: none;
   background: #fff8e8;
   color: #2a2218;
   font-size: 1rem;
-  outline: none;
 }
 
-.email-login-form input:focus {
+.native-sign-in__email-form input::placeholder {
+  color: rgb(107 94 72 / 64%);
+}
+
+.native-sign-in__email-form input:focus {
   border-color: #1e6fa8;
 }
 
-.email-login-submit {
-  min-height: 48px;
+.native-sign-in__email-submit {
+  border: 2px solid #1e6fa8;
+  background: #1e6fa8;
+  color: #f4efe2;
 }
 
-.email-code-note {
+.native-sign-in__email-submit:active {
+  border-color: #155987;
+  background: #155987;
+}
+
+.native-sign-in__code-note {
+  margin: 0 0 2px;
+  color: #6b5e48;
   font-size: 0.84rem;
+  line-height: 1.45;
 }
 
-.change-email-button {
-  width: fit-content;
-  min-height: auto;
-  padding: 0;
+.native-sign-in__email-form input[autocomplete="one-time-code"] {
+  text-align: center;
+  font-size: 1.1rem;
+  letter-spacing: 0.28em;
+}
+
+.native-sign-in__change-email {
+  align-self: center;
+  padding: 4px 8px;
   border: 0;
   background: transparent;
-  color: #155987;
-  font-size: 0.8rem;
+  color: #6b5e48;
+  font-size: 0.82rem;
   text-decoration: underline;
   text-underline-offset: 3px;
 }
 
-.change-email-button:active {
-  background: transparent;
-}
-
-.error-message,
-.setup-note {
-  margin: -8px 0 16px;
+.native-sign-in .error-message,
+.native-sign-in .setup-note {
+  margin: 0 0 14px;
   padding: 10px 12px;
   border-radius: 12px;
   font-size: 0.84rem;
+  line-height: 1.45;
 }
 
-.error-message {
-  background: rgb(155 63 50 / 11%);
-  color: #842f25;
+.native-sign-in .error-message {
+  border: 1px solid rgb(185 28 28 / 20%);
+  background: rgb(185 28 28 / 8%);
+  color: #8a1c1c;
 }
 
-.setup-note {
-  margin: 14px 0 0;
+.native-sign-in .setup-note {
+  margin-top: 12px;
   background: rgb(107 94 72 / 10%);
+  color: #6b5e48;
+}
+
+.native-sign-in__legal {
+  margin: 20px 0 0;
+  color: #6b5e48;
+  font-size: 0.76rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.native-sign-in__legal a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.native-sign-in__visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+@media (max-height: 720px) {
+  .native-sign-in__card {
+    padding: 18px 20px;
+  }
+
+  .native-sign-in__header {
+    flex-direction: row;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 16px;
+    text-align: left;
+  }
+
+  .native-sign-in__header > div:last-child {
+    min-width: 0;
+  }
+
+  .native-sign-in__brand {
+    margin-bottom: 4px;
+  }
+
+  .native-sign-in__subtitle {
+    margin-top: 4px;
+  }
+
+  .native-sign-in__legal {
+    margin-top: 14px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  button:active {
-    transform: none;
+  .native-sign-in__letters {
+    display: none;
   }
 }

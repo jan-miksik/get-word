@@ -18,14 +18,10 @@ const ListsPage = lazy(() => import('@/app/lists/page'));
 const JoinPage = lazy(() => import('@/app/join/[token]/page'));
 const ReportsPage = lazy(() => import('@/app/reports/page'));
 const PrivacyPage = lazy(() => import('@/app/privacy/page'));
+const TermsPage = lazy(() => import('@/app/terms/page'));
 const SchoolOverviewPage = lazy(() => import('@/app/school/overview/page'));
 
-type ConnectionState = 'online' | 'offline';
 type AuthState = 'restoring' | 'signed-out' | 'signing-in' | 'signed-in';
-
-function readConnectionState(): ConnectionState {
-  return navigator.onLine ? 'online' : 'offline';
-}
 
 function readableError(error: unknown): string {
   if (error instanceof Error && error.message) return error.message;
@@ -34,23 +30,14 @@ function readableError(error: unknown): string {
 
 export function App() {
   const routePath = useRoutePath();
-  const [connection, setConnection] = useState<ConnectionState>(readConnectionState);
   const [authState, setAuthState] = useState<AuthState>('restoring');
   const [authError, setAuthError] = useState<string | null>(null);
 
   useEffect(() => {
-    const updateConnection = () => setConnection(readConnectionState());
-    window.addEventListener('online', updateConnection);
-    window.addEventListener('offline', updateConnection);
-    return () => {
-      window.removeEventListener('online', updateConnection);
-      window.removeEventListener('offline', updateConnection);
-    };
-  }, []);
-
-  useEffect(() => {
     const pathname = routePath.split(/[?#]/, 1)[0];
-    void setNativeStatusBarStyle(pathname === '/privacy' ? 'light' : 'dark');
+    void setNativeStatusBarStyle(
+      pathname === '/privacy' || pathname === '/terms' ? 'light' : 'dark',
+    );
   }, [routePath]);
 
   useEffect(() => {
@@ -151,6 +138,18 @@ export function App() {
     setAuthState('signed-in');
   };
 
+  const pathname = routePath.split(/[?#]/, 1)[0] || '/';
+
+  // Legal documents must remain reachable from the sign-in screen without an
+  // account. Their back link returns to `/`, where this auth gate resumes.
+  if (pathname === '/privacy' || pathname === '/terms') {
+    return (
+      <Suspense fallback={<LoadingScreen />}>
+        <NativeRoute routePath={routePath} />
+      </Suspense>
+    );
+  }
+
   if (authState === 'signed-in') {
     return (
       <Suspense fallback={<LoadingScreen />}>
@@ -163,7 +162,6 @@ export function App() {
     <SignInScreen
       busy={authState === 'restoring' || authState === 'signing-in'}
       busyLabel={authState === 'restoring' ? 'Obnovuji přihlášení…' : 'Přihlašuji…'}
-      connection={connection}
       error={authError}
       onSignIn={() => {
         if (!isNativeApp()) return;
@@ -181,6 +179,7 @@ function NativeRoute({ routePath }: { routePath: string }) {
   if (/^\/join\/[^/]+\/?$/.test(pathname)) return <JoinPage />;
   if (pathname === '/reports') return <ReportsPage />;
   if (pathname === '/privacy') return <PrivacyPage />;
+  if (pathname === '/terms') return <TermsPage />;
   if (pathname === '/school/overview') return <SchoolOverviewPage />;
   return <LearningApp />;
 }

@@ -45,7 +45,6 @@ function renderScreen(onAuthenticated = vi.fn()) {
     <SignInScreen
       busy={false}
       busyLabel="Přihlašuji…"
-      connection="online"
       error={null}
       onSignIn={vi.fn()}
       onAuthenticated={onAuthenticated}
@@ -60,6 +59,19 @@ describe('SignInScreen email flow', () => {
     requestEmailSignInCode.mockResolvedValue(undefined);
     signInWithEmailCode.mockResolvedValue(session);
     signInReviewAccountWithPassword.mockResolvedValue(session);
+  });
+
+  it('uses the Get Word branding and exposes both legal documents', () => {
+    renderScreen();
+
+    expect(screen.getByRole('img', { name: 'Get Word logo' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Vítejte' })).toBeTruthy();
+    expect(screen.queryByText('Připojení')).toBeNull();
+    expect(screen.queryByText('Server')).toBeNull();
+    expect(screen.getByRole('link', { name: 'Podmínkami služby' })).toBeTruthy();
+    expect(
+      screen.getByRole('link', { name: 'Zásadami ochrany soukromí' }),
+    ).toBeTruthy();
   });
 
   it('sends and verifies a one-time code for a regular email address', async () => {

@@ -1,17 +1,19 @@
 import { useState } from 'react';
+import { AppLogo } from '@/components/AppLogo';
+import { RisingLettersBackground } from '@/components/RisingLettersBackground';
 import {
   isReviewAccountEmail,
   requestEmailSignInCode,
   signInReviewAccountWithPassword,
   signInWithEmailCode,
 } from '../auth/email';
-import { apiOrigin, hasMobileAuthConfiguration } from '../config';
+import { hasMobileAuthConfiguration } from '../config';
 import { isNativeApp } from '../native';
+import { navigate } from '../router';
 
 type SignInScreenProps = {
   busy: boolean;
   busyLabel: string;
-  connection: 'online' | 'offline';
   error: string | null;
   onSignIn: () => void;
   onAuthenticated: (sessionToken: string) => void;
@@ -27,7 +29,6 @@ function readableError(error: unknown): string {
 export function SignInScreen({
   busy,
   busyLabel,
-  connection,
   error,
   onSignIn,
   onAuthenticated,
@@ -66,29 +67,25 @@ export function SignInScreen({
   };
 
   return (
-    <main className="mobile-shell">
-      <div className="pattern" aria-hidden="true" />
-      <section className="welcome-card">
-        <span className="eyebrow">Get Word for iOS</span>
-        <div className="mark" aria-hidden="true">G</div>
-        <h1>Tvoje slovíčka vždy po ruce</h1>
-        <p>
-          Přihlas se přes Apple nebo e-mailem. Relace Get Word zůstane bezpečně
-          uložená v iOS Keychain.
-        </p>
-
-        <dl className="status-list">
+    <main className="native-sign-in">
+      <RisingLettersBackground
+        variant="ambient"
+        count={48}
+        snapToMouse={false}
+        className="native-sign-in__letters"
+      />
+      <section className="native-sign-in__card">
+        <header className="native-sign-in__header">
+          <AppLogo size={72} className="native-sign-in__logo" />
           <div>
-            <dt>Připojení</dt>
-            <dd data-state={connection}>
-              {connection === 'online' ? 'Online' : 'Offline'}
-            </dd>
+            <p className="native-sign-in__brand">Get Word</p>
+            <h1>Vítejte</h1>
+            <p className="native-sign-in__subtitle">
+              Zadejte e-mail a pošleme vám kód – funguje pro nové i existující
+              účty.
+            </p>
           </div>
-          <div>
-            <dt>Server</dt>
-            <dd>{apiOrigin}</dd>
-          </div>
-        </dl>
+        </header>
 
         {emailError || error ? (
           <p className="error-message" role="alert">
@@ -98,22 +95,22 @@ export function SignInScreen({
 
         <button
           type="button"
-          className="apple-button"
+          className="native-sign-in__apple-button"
           disabled={disabled}
           onClick={onSignIn}
         >
-          <span className="apple-mark" aria-hidden="true"></span>
+          <span className="native-sign-in__apple-mark" aria-hidden="true"></span>
           {busy ? busyLabel : 'Pokračovat přes Apple'}
         </button>
 
-        <div className="sign-in-divider" aria-hidden="true">
+        <div className="native-sign-in__divider" aria-hidden="true">
           <span />
           nebo
           <span />
         </div>
 
         <form
-          className="email-login-form"
+          className="native-sign-in__email-form"
           onSubmit={(event) => {
             event.preventDefault();
             void submitEmail();
@@ -122,11 +119,12 @@ export function SignInScreen({
           {emailPhase === 'address' ? (
             <>
               <label>
-                E-mail
+                <span className="native-sign-in__visually-hidden">E-mail</span>
                 <input
                   type="email"
                   inputMode="email"
                   autoComplete="username"
+                  placeholder="you@example.com"
                   value={email}
                   onChange={(event) => {
                     const nextEmail = event.target.value;
@@ -140,10 +138,11 @@ export function SignInScreen({
               </label>
               {reviewerMode ? (
                 <label>
-                  Password
+                  <span className="native-sign-in__visually-hidden">Password</span>
                   <input
                     type="password"
                     autoComplete="current-password"
+                    placeholder="Password"
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     disabled={busy || emailBusy}
@@ -154,37 +153,42 @@ export function SignInScreen({
             </>
           ) : (
             <>
-              <p className="email-code-note">Kód jsme poslali na {email.trim()}.</p>
-            <label>
-              Přihlašovací kód
-              <input
-                type="text"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
+              <p className="native-sign-in__code-note">
+                Kód jsme poslali na {email.trim()}.
+              </p>
+              <label>
+                <span className="native-sign-in__visually-hidden">
+                  Přihlašovací kód
+                </span>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  placeholder="12345678"
+                  value={code}
+                  onChange={(event) => setCode(event.target.value)}
+                  disabled={busy || emailBusy}
+                  required
+                />
+              </label>
+              <button
+                type="button"
+                className="native-sign-in__change-email"
                 disabled={busy || emailBusy}
-                required
-              />
-            </label>
-            <button
-              type="button"
-              className="change-email-button"
-              disabled={busy || emailBusy}
-              onClick={() => {
-                setEmailPhase('address');
-                setCode('');
-                setEmailError(null);
-              }}
-            >
-              Použít jiný e-mail
-            </button>
+                onClick={() => {
+                  setEmailPhase('address');
+                  setCode('');
+                  setEmailError(null);
+                }}
+              >
+                Použít jiný e-mail
+              </button>
             </>
           )}
 
           <button
             type="submit"
-            className="email-login-submit"
+            className="native-sign-in__email-submit"
             disabled={
               disabled ||
               !email.trim() ||
@@ -208,6 +212,30 @@ export function SignInScreen({
             Chybí veřejné nastavení Supabase pro mobilní build.
           </p>
         ) : null}
+
+        <p className="native-sign-in__legal">
+          Pokračováním souhlasíte s našimi{' '}
+          <a
+            href="/terms"
+            onClick={(event) => {
+              event.preventDefault();
+              navigate('/terms');
+            }}
+          >
+            Podmínkami služby
+          </a>{' '}
+          a{' '}
+          <a
+            href="/privacy"
+            onClick={(event) => {
+              event.preventDefault();
+              navigate('/privacy');
+            }}
+          >
+            Zásadami ochrany soukromí
+          </a>
+          .
+        </p>
       </section>
     </main>
   );
