@@ -241,34 +241,22 @@ notes.
 **Notes to reviewer — draft:**
 
 ```
-Get Word is a vocabulary app. Users create their own study material — they type
-the words and phrases they want to learn, or describe a situation to an AI chat
-that suggests vocabulary they can pick from — and the app then reviews that
-material with spaced repetition.
+Sign-in: tap "App Review login" below "Continue with Apple" and use the demo
+credentials supplied in Sign-in Information.
 
-Signing in: on the first screen, tap "App Review login" below "Continue with
-Apple". Enter the demo username and password supplied in the Sign-in
-information fields. The demo account has access to the complete app. Regular
-users sign in with Apple.
+Adding words: Menu → "Add words" opens manual entry first. To try the optional
+AI flow, tap "Suggest words with AI". Users review and select every
+suggestion before saving it; AI-generated words are never published
+automatically.
 
-Adding words: Menu → "Add words". The screen offers two paths. "I already have
-my own words" lets you type or paste your own items. The chat path asks a few
-short questions (how much of the language you know, and how you would like to
-be addressed), then takes a free-text description of a situation and proposes
-around ten words and phrases; you select which ones to keep. Translations and
-pronunciation audio are generated for whatever you keep. The AI only proposes
-vocabulary for the user to choose from — it does not publish anything.
+Photo Lab: tap the camera icon in the top bar. A chosen photo is sent to an AI
+provider to generate object labels, translations, and audio. Photos are stored
+only on the device, not on our servers.
 
-Account deletion: Menu → Settings → Account → Delete account. It permanently
-erases the account and its learning data.
+Public word lists include controls for reporting content and blocking its
+creator.
 
-Camera and photo library: used only by Photo Lab, an optional feature that
-labels the objects in a photo you choose, in the language you are learning. It
-is reachable from the camera icon in the top bar. Photos are sent to an AI
-provider to produce the labels and are not used for anything else.
-
-User-generated content: word lists can be published and shared between users.
-Reporting and per-account blocking are available on any public list.
+Account deletion: Menu → Settings → Account → Delete account.
 ```
 
 **Before submitting with this positioning:** the reviewer will try the chat,
