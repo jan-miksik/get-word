@@ -255,9 +255,9 @@ provider to generate object labels, translations, and audio. Photos are stored
 only on the device, not on our servers.
 
 Public-list moderation: Menu → "Word Lists Editor". On iPhone, open the left
-sidebar, scroll to "Public lists", and select a list you do not own. Open the
-three-dot menu beside the list heading to find "Report content" and "Block
-author".
+sidebar, scroll to "Public lists", and select a list you do not own. After its
+detail opens, use the three-dot menu beside the detail heading—not the menu on
+the list row—to find "Report content" and "Block author".
 
 Account deletion: Menu → Settings → Account → Delete account.
 ```
