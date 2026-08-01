@@ -253,8 +253,10 @@ Photo Lab: tap the camera icon in the top bar. A chosen photo is sent to an AI
 provider to generate object labels, translations, and audio. Photos are stored
 only on the device, not on our servers.
 
-Public word lists include controls for reporting content and blocking its
-creator.
+Public-list moderation: Menu → "Word Lists Editor". On iPhone, open the left
+sidebar, scroll to "Public lists", and select a list you do not own. Open the
+three-dot menu beside the list heading to find "Report content" and "Block
+author".
 
 Account deletion: Menu → Settings → Account → Delete account.
 ```
