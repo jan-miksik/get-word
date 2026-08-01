@@ -8,6 +8,8 @@ Written 2026-07-31.
 Done:
 
 - Native Apple sign-in, exchanged for a Get Word bearer session in the Keychain.
+- Reusable App Review email/password sign-in, using credentials supplied only
+  through App Store Connect (no password is embedded in the app).
 - The shared web learning UI runs inside the Capacitor bundle — one UI, two
   builds. Verified against a dev server.
 - CORS for `capacitor://localhost` deployed and verified on getword.app.
@@ -164,6 +166,10 @@ and is registered in the Xcode Resources build phase. The checked application
 and plugin code does not call a required-reason API. Capacitor and Cordova ship
 their own valid manifests. Generate and review Xcode's aggregated privacy report
 from the release archive before upload.
+
+Its purpose flags match the App Privacy answers completed in App Store Connect:
+email, user content, identifiers, and product interaction are used only for the
+declared analytics, personalization, and/or app-functionality purposes.
 
 ### B3. Native routing and deep links — code done
 

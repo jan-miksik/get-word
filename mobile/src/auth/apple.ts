@@ -3,33 +3,10 @@ import {
   ErrorCode,
   SignInScope,
 } from '@capawesome/capacitor-apple-sign-in';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { exchangeSupabaseSession, type MobileSession } from '../api/auth';
-import {
-  hasMobileAuthConfiguration,
-  supabasePublishableKey,
-  supabaseUrl,
-} from '../config';
 import { isNativeApp } from '../native';
 import { getOrCreateDeviceId, storeAppSessionToken } from './secure-session';
-
-let supabaseClient: SupabaseClient | null = null;
-
-function getSupabaseClient(): SupabaseClient {
-  if (!hasMobileAuthConfiguration()) {
-    throw new Error('Mobilní přihlášení zatím nemá nastavené připojení k Supabase.');
-  }
-  if (!supabaseClient) {
-    supabaseClient = createClient(supabaseUrl, supabasePublishableKey, {
-      auth: {
-        autoRefreshToken: false,
-        detectSessionInUrl: false,
-        persistSession: false,
-      },
-    });
-  }
-  return supabaseClient;
-}
+import { getMobileSupabaseClient } from './supabase';
 
 function createNonce(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(32));
@@ -74,7 +51,7 @@ export async function signInWithApple(): Promise<MobileSession | null> {
       throw new Error('Apple neposkytl ověřovací token. Zkus to prosím znovu.');
     }
 
-    const supabase = getSupabaseClient();
+    const supabase = getMobileSupabaseClient();
     const { data, error } = await supabase.auth.signInWithIdToken({
       provider: 'apple',
       token: credential.idToken,

@@ -17,6 +17,7 @@ import { getLanguageFlag } from '@/lib/i18n/languages';
 import { cleanupPhotoLab } from '../client/photoStore';
 import { LabeledPhoto } from './LabeledPhoto';
 import { LanguagePairModal } from './LanguagePairModal';
+import { SaveWordsModal } from './SaveWordsModal';
 import { usePhotoLabStudio } from './usePhotoLabStudio';
 
 // Calibrated to the pro-tier vision model (see PHOTO_LAB_MODEL).
@@ -243,6 +244,38 @@ export function BackLink({
   );
 }
 
+/** One square "add a photo" tile in the history grid. */
+function PhotoSourceTile({
+  icon,
+  label,
+  disabled,
+  title,
+  className = '',
+  onClick,
+}: {
+  icon: string;
+  label: string;
+  disabled: boolean;
+  title?: string;
+  className?: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      title={title}
+      onClick={onClick}
+      className={`flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[color:var(--ob-ink)]/45 bg-[var(--ob-accent)]/8 px-3 text-center text-[color:var(--ob-ink)] transition hover:-translate-y-1 hover:border-[color:var(--ob-ink)] hover:bg-[var(--ob-accent)]/15 hover:shadow-lg hover:shadow-[#2A2218]/15 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none ${className}`}
+    >
+      <span aria-hidden="true" className="text-4xl font-light leading-none text-[var(--ob-accent)]">
+        {icon}
+      </span>
+      <span className="text-xs font-bold sm:text-sm">{label}</span>
+    </button>
+  );
+}
+
 /** Small confirmation dialog shown before a photo (and its session) is deleted. */
 function DeletePhotoConfirmModal({
   onConfirm,
@@ -314,6 +347,7 @@ function PhotoLabStudio({
   const { languages } = useSupportedLanguages();
   const [addressRegister, setAddressRegister] =
     useState<ReturnType<typeof readAddressRegisterPreference>>(null);
+  const [saveOpen, setSaveOpen] = useState(false);
   const {
     langFrom,
     langTo,
@@ -327,6 +361,7 @@ function PhotoLabStudio({
     confirmDeleteId,
     thumbUrls,
     fileInputRef,
+    cameraInputRef,
     pendingPhoto,
     limitReached,
     languagesReady,
@@ -403,8 +438,18 @@ function PhotoLabStudio({
         onClose={closeLanguageModal}
       />
 
+      {/* Gallery first: the camera input carries `capture`, which makes the OS
+          skip the picker entirely — so choosing an existing photo needs an
+          input of its own. */}
       <input
         ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+      <input
+        ref={cameraInputRef}
         type="file"
         accept="image/*"
         capture="environment"
@@ -489,13 +534,32 @@ function PhotoLabStudio({
       )}
 
       {current && !analyzing && (
-        <LabeledPhoto
-          key={current.session.id}
-          imageUrl={current.imageUrl}
-          labels={current.session.labels}
-          audioHashes={current.session.audioHashes}
-          active={active}
-        />
+        <>
+          <LabeledPhoto
+            key={current.session.id}
+            imageUrl={current.imageUrl}
+            labels={current.session.labels}
+            audioHashes={current.session.audioHashes}
+            active={active}
+          />
+          {current.session.labels.length > 0 && (
+            // Directly under the photo, full width on a phone: keeping the words
+            // is the natural next step once the labels have been worked through,
+            // and a right-aligned outline button was easy to scroll past.
+            <div className="mx-auto flex w-full max-w-[800px] px-1 md:px-4">
+              <button
+                type="button"
+                onClick={() => setSaveOpen(true)}
+                className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-[color:var(--ob-ink)] bg-[var(--ob-accent)]/10 px-4 py-2.5 text-sm font-semibold text-[color:var(--ob-ink)] transition hover:-translate-y-0.5 hover:bg-[var(--ob-accent)]/20 hover:shadow-md hover:shadow-[color:var(--ob-ink)]/10 sm:w-auto sm:text-base"
+              >
+                <span aria-hidden="true" className="text-lg leading-none text-[var(--ob-accent)]">
+                  ＋
+                </span>
+                {t('photoLab.saveWords')}
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       <section className="mt-2 flex w-full max-w-5xl flex-col gap-4 animate-[photo-lab-rise_0.5s_ease-out_160ms_both] motion-reduce:animate-none">
@@ -508,18 +572,23 @@ function PhotoLabStudio({
           </p>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-          <button
-            type="button"
+          {/* Hidden where the pointer is a mouse: there the camera tile would
+              open the same file dialog as the gallery tile. */}
+          <PhotoSourceTile
+            icon="📷"
+            label={t('photoLab.takePhoto')}
+            className="[@media(pointer:fine)]:hidden"
+            disabled={!languagesReady || analyzing || limitReached}
+            title={limitReached ? t('photoLab.limitReachedHint') : undefined}
+            onClick={() => cameraInputRef.current?.click()}
+          />
+          <PhotoSourceTile
+            icon="+"
+            label={t('photoLab.choosePhoto')}
             disabled={!languagesReady || analyzing || limitReached}
             title={limitReached ? t('photoLab.limitReachedHint') : undefined}
             onClick={() => fileInputRef.current?.click()}
-            className="flex aspect-square w-full flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed border-[color:var(--ob-ink)]/45 bg-[var(--ob-accent)]/8 px-3 text-center text-[color:var(--ob-ink)] transition hover:-translate-y-1 hover:border-[color:var(--ob-ink)] hover:bg-[var(--ob-accent)]/15 hover:shadow-lg hover:shadow-[#2A2218]/15 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
-          >
-            <span aria-hidden="true" className="text-4xl font-light leading-none text-[var(--ob-accent)]">
-              +
-            </span>
-            <span className="text-xs font-bold sm:text-sm">{t('photoLab.pickPhoto')}</span>
-          </button>
+          />
           {history.map((session) => (
             <div key={session.id} className="group relative">
               <button
@@ -568,6 +637,10 @@ function PhotoLabStudio({
           onConfirm={() => void removeSession(confirmDeleteId)}
           onCancel={cancelDelete}
         />
+      )}
+
+      {active && saveOpen && current && (
+        <SaveWordsModal session={current.session} onClose={() => setSaveOpen(false)} />
       )}
     </div>
   );

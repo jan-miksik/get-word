@@ -100,11 +100,11 @@ export function LanguageCombobox({
   const selectedFlag = hasSelection
     ? selectedLanguage?.flag ?? getLanguageFlag(value) ?? '•'
     : '';
-  // The closed field carries the variant tag too, so a picked "English" says
-  // which English it is without reopening the list.
-  const selectedTag = hasSelection ? getLanguageVariantTag(value) : null;
-  const selectedName = selectedNames?.localized ?? value.toUpperCase();
-  const selectedPrimary = selectedTag ? `${selectedName} · ${selectedTag}` : selectedName;
+  // No locale tag on the closed field: the localized name already carries the
+  // region ("angličtina (Velká Británie)" vs "angličtina (USA)"), so a trailing
+  // "· EN-GB" only repeated it. The tag stays in the option rows, where names
+  // are truncated and the column tells the two variants apart at a glance.
+  const selectedPrimary = selectedNames?.localized ?? value.toUpperCase();
 
   function selectLanguage(code: string) {
     if (disabledCodeSet.has(normalizeLanguageCode(code))) return;

@@ -10,7 +10,40 @@ and keeps a bounded device-local history.
 - Client workflow and blob URL lifecycle: `features/photo-lab/components/usePhotoLabStudio.ts`
 - IndexedDB history: `features/photo-lab/client/photoStore.ts`
 - Analysis/audio services: `features/photo-lab/server/analyze.ts`, `audio.ts`
+- Save-to-list service: `features/photo-lab/server/save-to-list.ts`
 - Thin HTTP routes: `app/api/photo-lab/*/route.ts`
+
+## Picking a photo
+
+Two hidden file inputs, one `handleFileChange`. `capture="environment"` makes
+the OS open the camera directly and skip its own picker, so an input carrying it
+can never offer the gallery — the gallery tile needs an input without it. The
+camera tile is hidden by a `pointer:fine` media query rather than a JS check, so
+there is no post-mount flash: on a mouse-driven machine it would open the same
+file dialog as the gallery tile.
+
+## Saving words into a list
+
+Labels already carry both sides, so `POST /api/photo-lab/save-to-list` inserts
+them as `translated` items and they never enter the translation queue. Existing
+label audio is linked by content hash, which is what lets a just-saved word be
+pronounced without a second TTS run.
+
+There is no destination picker. A learner has exactly one personal list per
+direction — the same row the word chat writes to — which they study alongside
+whatever public lists they subscribe to, so the save has only one place to go.
+`GET` on the route names that list (existing, or the name it would get) purely
+so the dialog can show it before the learner commits. Photo Lab may create the
+row, and then picks the conservative answers (private, no editor review) to the
+two questions the word chat would have asked.
+
+Duplicates are decided by content key inside a transaction that holds the list
+row, so saving the same photo twice adds nothing the second time. The verdict is
+returned per word, never as a batch message: "this one is already there" has to
+name the pair it is about.
+
+Nothing is pre-ticked in the dialog. Saving all 25 labels is rarely what a
+learner wants, and a pre-filled list makes the picking step easy to walk past.
 
 ## Entry points
 

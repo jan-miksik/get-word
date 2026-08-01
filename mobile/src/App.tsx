@@ -3,6 +3,7 @@ import { lazy, Suspense, useEffect, useState } from 'react';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { fetchMobileIdentity } from './api/auth';
 import { signInWithApple } from './auth/apple';
+import { signInReviewerAccount } from './auth/reviewer';
 import {
   clearAppSessionToken,
   readAppSessionToken,
@@ -145,6 +146,20 @@ export function App() {
     }
   };
 
+  const handleReviewerSignIn = async (email: string, password: string) => {
+    await tapFeedback();
+    setAuthError(null);
+    setAuthState('signing-in');
+    try {
+      const session = await signInReviewerAccount(email, password);
+      setSessionToken(session.sessionToken);
+      setAuthState('signed-in');
+    } catch (error) {
+      setAuthError(readableError(error));
+      setAuthState('signed-out');
+    }
+  };
+
   if (authState === 'signed-in') {
     return (
       <Suspense fallback={<LoadingScreen />}>
@@ -162,6 +177,10 @@ export function App() {
       onSignIn={() => {
         if (!isNativeApp()) return;
         void handleAppleSignIn();
+      }}
+      onReviewerSignIn={(email, password) => {
+        if (!isNativeApp()) return;
+        void handleReviewerSignIn(email, password);
       }}
     />
   );

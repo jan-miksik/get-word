@@ -233,10 +233,10 @@ První verze Get Word pro iPhone a iPad.
 
 **Sign-in required:** yes.
 
-**Demo account:** not needed. The app signs in with Sign in with Apple, which
-the reviewer can complete with their own Apple ID; an account is created
-automatically on first sign-in. If the review team prefers a prepared account,
-we can supply one on request.
+**Demo account:** required. Enter `play-review@getword.app` and its existing
+password in App Store Connect → App Review Information → Sign-in information.
+Never put the password in this file, source control, or the free-text review
+notes.
 
 **Notes to reviewer — draft:**
 
@@ -246,9 +246,10 @@ the words and phrases they want to learn, or describe a situation to an AI chat
 that suggests vocabulary they can pick from — and the app then reviews that
 material with spaced repetition.
 
-Signing in: tap "Continue with Apple" on the first screen. Sign in with Apple is
-the only sign-in method in this version, so no demo credentials are required —
-an account is created on first sign-in and can be used immediately.
+Signing in: on the first screen, tap "App Review login" below "Continue with
+Apple". Enter the demo username and password supplied in the Sign-in
+information fields. The demo account has access to the complete app. Regular
+users sign in with Apple.
 
 Adding words: Menu → "Add words". The screen offers two paths. "I already have
 my own words" lets you type or paste your own items. The chat path asks a few
@@ -286,11 +287,11 @@ tracking, so answer **"Data is not used to track you"** for every type.
 
 | Data type | Collected | Linked to identity | Purpose |
 | --- | --- | --- | --- |
-| Contact Info → Email Address | Yes | Yes | App Functionality |
+| Contact Info → Email Address | Yes | Yes | Analytics, App Functionality |
 | User Content → Photos or Videos | Yes | Yes | App Functionality (Photo Lab) |
-| User Content → Other User Content | Yes | Yes | App Functionality (lists, notes, mnemonics) |
-| Identifiers → User ID | Yes | Yes | App Functionality |
-| Identifiers → Device ID | Yes | Yes | App Functionality |
+| User Content → Other User Content | Yes | Yes | Analytics, App Functionality, Product Personalization (lists, notes, mnemonics) |
+| Identifiers → User ID | Yes | Yes | Analytics, App Functionality, Product Personalization |
+| Identifiers → Device ID | Yes | Yes | Analytics, App Functionality |
 | Usage Data → Product Interaction | Yes | Yes | Analytics, App Functionality, Product Personalization |
 
 Not collected: location, contacts, health, financial info, browsing history,

@@ -208,6 +208,60 @@ button:disabled {
   line-height: 1;
 }
 
+.review-login-toggle {
+  min-height: auto;
+  margin-top: 12px;
+  padding: 6px;
+  border: 0;
+  background: transparent;
+  color: #6b5e48;
+  font-size: 0.78rem;
+  font-weight: 650;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.review-login-toggle:active {
+  background: transparent;
+  color: #2a2218;
+}
+
+.review-login-form {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+  padding-top: 16px;
+  border-top: 1px solid rgb(42 34 24 / 16%);
+}
+
+.review-login-form label {
+  display: grid;
+  gap: 6px;
+  color: #6b5e48;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.review-login-form input {
+  width: 100%;
+  min-height: 46px;
+  padding: 10px 12px;
+  border: 2px solid rgb(42 34 24 / 28%);
+  border-radius: 14px;
+  background: #fff8e8;
+  color: #2a2218;
+  font-size: 1rem;
+  outline: none;
+}
+
+.review-login-form input:focus {
+  border-color: #1e6fa8;
+}
+
+.review-login-submit {
+  min-height: 48px;
+}
+
 .error-message,
 .setup-note {
   margin: -8px 0 16px;

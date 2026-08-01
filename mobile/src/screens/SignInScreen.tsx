@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { apiOrigin, hasMobileAuthConfiguration } from '../config';
 import { isNativeApp } from '../native';
 
@@ -7,6 +8,7 @@ type SignInScreenProps = {
   connection: 'online' | 'offline';
   error: string | null;
   onSignIn: () => void;
+  onReviewerSignIn: (email: string, password: string) => void;
 };
 
 export function SignInScreen({
@@ -15,7 +17,13 @@ export function SignInScreen({
   connection,
   error,
   onSignIn,
+  onReviewerSignIn,
 }: SignInScreenProps) {
+  const [showReviewerLogin, setShowReviewerLogin] = useState(false);
+  const [reviewEmail, setReviewEmail] = useState('');
+  const [reviewPassword, setReviewPassword] = useState('');
+  const authAvailable = hasMobileAuthConfiguration() && isNativeApp();
+
   return (
     <main className="mobile-shell">
       <div className="pattern" aria-hidden="true" />
@@ -50,12 +58,63 @@ export function SignInScreen({
         <button
           type="button"
           className="apple-button"
-          disabled={busy || !hasMobileAuthConfiguration() || !isNativeApp()}
+          disabled={busy || !authAvailable}
           onClick={onSignIn}
         >
           <span className="apple-mark" aria-hidden="true"></span>
           {busy ? busyLabel : 'Pokračovat přes Apple'}
         </button>
+
+        <button
+          type="button"
+          className="review-login-toggle"
+          aria-expanded={showReviewerLogin}
+          onClick={() => setShowReviewerLogin((visible) => !visible)}
+          disabled={busy}
+        >
+          App Review login
+        </button>
+
+        {showReviewerLogin ? (
+          <form
+            className="review-login-form"
+            onSubmit={(event) => {
+              event.preventDefault();
+              onReviewerSignIn(reviewEmail, reviewPassword);
+            }}
+          >
+            <label>
+              Review email
+              <input
+                type="email"
+                inputMode="email"
+                autoComplete="username"
+                value={reviewEmail}
+                onChange={(event) => setReviewEmail(event.target.value)}
+                disabled={busy}
+                required
+              />
+            </label>
+            <label>
+              Review password
+              <input
+                type="password"
+                autoComplete="current-password"
+                value={reviewPassword}
+                onChange={(event) => setReviewPassword(event.target.value)}
+                disabled={busy}
+                required
+              />
+            </label>
+            <button
+              type="submit"
+              className="review-login-submit"
+              disabled={busy || !authAvailable || !reviewEmail.trim() || !reviewPassword}
+            >
+              {busy ? busyLabel : 'Sign in for App Review'}
+            </button>
+          </form>
+        ) : null}
 
         {!hasMobileAuthConfiguration() ? (
           <p className="setup-note">
