@@ -40,7 +40,8 @@ select {
   display: grid;
   min-height: 100dvh;
   place-items: center;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   padding:
     calc(28px + env(safe-area-inset-top))
     calc(20px + env(safe-area-inset-right))
@@ -208,33 +209,29 @@ button:disabled {
   line-height: 1;
 }
 
-.review-login-toggle {
-  min-height: auto;
-  margin-top: 12px;
-  padding: 6px;
-  border: 0;
-  background: transparent;
+.sign-in-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0;
   color: #6b5e48;
-  font-size: 0.78rem;
-  font-weight: 650;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
 }
 
-.review-login-toggle:active {
-  background: transparent;
-  color: #2a2218;
+.sign-in-divider span {
+  height: 1px;
+  flex: 1;
+  background: rgb(42 34 24 / 18%);
 }
 
-.review-login-form {
+.email-login-form {
   display: grid;
   gap: 12px;
-  margin-top: 12px;
-  padding-top: 16px;
-  border-top: 1px solid rgb(42 34 24 / 16%);
 }
 
-.review-login-form label {
+.email-login-form label {
   display: grid;
   gap: 6px;
   color: #6b5e48;
@@ -242,7 +239,7 @@ button:disabled {
   font-weight: 700;
 }
 
-.review-login-form input {
+.email-login-form input {
   width: 100%;
   min-height: 46px;
   padding: 10px 12px;
@@ -254,12 +251,32 @@ button:disabled {
   outline: none;
 }
 
-.review-login-form input:focus {
+.email-login-form input:focus {
   border-color: #1e6fa8;
 }
 
-.review-login-submit {
+.email-login-submit {
   min-height: 48px;
+}
+
+.email-code-note {
+  font-size: 0.84rem;
+}
+
+.change-email-button {
+  width: fit-content;
+  min-height: auto;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #155987;
+  font-size: 0.8rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.change-email-button:active {
+  background: transparent;
 }
 
 .error-message,

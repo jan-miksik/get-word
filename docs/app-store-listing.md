@@ -241,8 +241,9 @@ notes.
 **Notes to reviewer — draft:**
 
 ```
-Sign-in: tap "App Review login" below "Continue with Apple" and use the demo
-credentials supplied in Sign-in Information.
+Sign-in: enter the demo username from Sign-in Information in the regular Email
+field. For this review address, the app shows a Password field instead of
+sending a one-time code. Enter the supplied password and submit the form.
 
 Adding words: Menu → "Add words" opens manual entry first. To try the optional
 AI flow, tap "Suggest words with AI". Users review and select every

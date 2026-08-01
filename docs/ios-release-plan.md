@@ -8,8 +8,11 @@ Written 2026-07-31.
 Done:
 
 - Native Apple sign-in, exchanged for a Get Word bearer session in the Keychain.
+- Native passwordless email sign-in, using the same one-time-code flow as the
+  web app. Google OAuth remains web-only for version 1.0.
 - Reusable App Review email/password sign-in, using credentials supplied only
-  through App Store Connect (no password is embedded in the app).
+  through App Store Connect and the regular email form (no password is embedded
+  in the app and there is no separate reviewer-only link).
 - The shared web learning UI runs inside the Capacitor bundle — one UI, two
   builds. Verified against a dev server.
 - CORS for `capacitor://localhost` deployed and verified on getword.app.

@@ -39,9 +39,11 @@ overridden with `VITE_SUPABASE_URL` and
 - The Next.js app remains the hosted web product and server/API deployment.
 - Mobile API calls will use an explicit API origin and mobile session token;
   they must not rely on same-origin browser cookies.
-- Native Apple sign-in exchanges its short-lived Supabase session for a Get
-  Word bearer session. The bearer token and device id are stored in the iOS
-  Keychain and are not synchronized through iCloud.
+- Native Apple sign-in and passwordless email codes exchange their short-lived
+  Supabase sessions for a Get Word bearer session. The documented App Review
+  address uses its reusable password inside the same email form. The bearer
+  token and device id are stored in the iOS Keychain and are not synchronized
+  through iCloud.
 - Reusable domain modules may move into a framework-neutral package as the
   study UI is connected. Server-only modules and Next route components stay in
   the web app.

@@ -1,4 +1,10 @@
 import { useState } from 'react';
+import {
+  isReviewAccountEmail,
+  requestEmailSignInCode,
+  signInReviewAccountWithPassword,
+  signInWithEmailCode,
+} from '../auth/email';
 import { apiOrigin, hasMobileAuthConfiguration } from '../config';
 import { isNativeApp } from '../native';
 
@@ -8,8 +14,15 @@ type SignInScreenProps = {
   connection: 'online' | 'offline';
   error: string | null;
   onSignIn: () => void;
-  onReviewerSignIn: (email: string, password: string) => void;
+  onAuthenticated: (sessionToken: string) => void;
 };
+
+type EmailPhase = 'address' | 'code';
+
+function readableError(error: unknown): string {
+  if (error instanceof Error && error.message) return error.message;
+  return 'Přihlášení se nepodařilo. Zkus to prosím znovu.';
+}
 
 export function SignInScreen({
   busy,
@@ -17,12 +30,40 @@ export function SignInScreen({
   connection,
   error,
   onSignIn,
-  onReviewerSignIn,
+  onAuthenticated,
 }: SignInScreenProps) {
-  const [showReviewerLogin, setShowReviewerLogin] = useState(false);
-  const [reviewEmail, setReviewEmail] = useState('');
-  const [reviewPassword, setReviewPassword] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [code, setCode] = useState('');
+  const [emailPhase, setEmailPhase] = useState<EmailPhase>('address');
+  const [emailBusy, setEmailBusy] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
   const authAvailable = hasMobileAuthConfiguration() && isNativeApp();
+  const reviewerMode = isReviewAccountEmail(email);
+  const disabled = busy || emailBusy || !authAvailable;
+
+  const submitEmail = async () => {
+    setEmailError(null);
+    setEmailBusy(true);
+    try {
+      if (emailPhase === 'code') {
+        const session = await signInWithEmailCode(email, code);
+        onAuthenticated(session.sessionToken);
+        return;
+      }
+      if (reviewerMode) {
+        const session = await signInReviewAccountWithPassword(email, password);
+        onAuthenticated(session.sessionToken);
+        return;
+      }
+      await requestEmailSignInCode(email);
+      setEmailPhase('code');
+    } catch (authError) {
+      setEmailError(readableError(authError));
+    } finally {
+      setEmailBusy(false);
+    }
+  };
 
   return (
     <main className="mobile-shell">
@@ -32,8 +73,8 @@ export function SignInScreen({
         <div className="mark" aria-hidden="true">G</div>
         <h1>Tvoje slovíčka vždy po ruce</h1>
         <p>
-          Přihlas se přes Apple. Relace Get Word zůstane bezpečně uložená v iOS
-          Keychain.
+          Přihlas se přes Apple nebo e-mailem. Relace Get Word zůstane bezpečně
+          uložená v iOS Keychain.
         </p>
 
         <dl className="status-list">
@@ -49,72 +90,118 @@ export function SignInScreen({
           </div>
         </dl>
 
-        {error ? (
+        {emailError || error ? (
           <p className="error-message" role="alert">
-            {error}
+            {emailError ?? error}
           </p>
         ) : null}
 
         <button
           type="button"
           className="apple-button"
-          disabled={busy || !authAvailable}
+          disabled={disabled}
           onClick={onSignIn}
         >
           <span className="apple-mark" aria-hidden="true"></span>
           {busy ? busyLabel : 'Pokračovat přes Apple'}
         </button>
 
-        <button
-          type="button"
-          className="review-login-toggle"
-          aria-expanded={showReviewerLogin}
-          onClick={() => setShowReviewerLogin((visible) => !visible)}
-          disabled={busy}
-        >
-          App Review login
-        </button>
+        <div className="sign-in-divider" aria-hidden="true">
+          <span />
+          nebo
+          <span />
+        </div>
 
-        {showReviewerLogin ? (
-          <form
-            className="review-login-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              onReviewerSignIn(reviewEmail, reviewPassword);
-            }}
-          >
+        <form
+          className="email-login-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void submitEmail();
+          }}
+        >
+          {emailPhase === 'address' ? (
+            <>
+              <label>
+                E-mail
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="username"
+                  value={email}
+                  onChange={(event) => {
+                    const nextEmail = event.target.value;
+                    setEmail(nextEmail);
+                    if (!isReviewAccountEmail(nextEmail)) setPassword('');
+                    setEmailError(null);
+                  }}
+                  disabled={busy || emailBusy}
+                  required
+                />
+              </label>
+              {reviewerMode ? (
+                <label>
+                  Password
+                  <input
+                    type="password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    disabled={busy || emailBusy}
+                    required
+                  />
+                </label>
+              ) : null}
+            </>
+          ) : (
+            <>
+              <p className="email-code-note">Kód jsme poslali na {email.trim()}.</p>
             <label>
-              Review email
+              Přihlašovací kód
               <input
-                type="email"
-                inputMode="email"
-                autoComplete="username"
-                value={reviewEmail}
-                onChange={(event) => setReviewEmail(event.target.value)}
-                disabled={busy}
-                required
-              />
-            </label>
-            <label>
-              Review password
-              <input
-                type="password"
-                autoComplete="current-password"
-                value={reviewPassword}
-                onChange={(event) => setReviewPassword(event.target.value)}
-                disabled={busy}
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={code}
+                onChange={(event) => setCode(event.target.value)}
+                disabled={busy || emailBusy}
                 required
               />
             </label>
             <button
-              type="submit"
-              className="review-login-submit"
-              disabled={busy || !authAvailable || !reviewEmail.trim() || !reviewPassword}
+              type="button"
+              className="change-email-button"
+              disabled={busy || emailBusy}
+              onClick={() => {
+                setEmailPhase('address');
+                setCode('');
+                setEmailError(null);
+              }}
             >
-              {busy ? busyLabel : 'Sign in for App Review'}
+              Použít jiný e-mail
             </button>
-          </form>
-        ) : null}
+            </>
+          )}
+
+          <button
+            type="submit"
+            className="email-login-submit"
+            disabled={
+              disabled ||
+              !email.trim() ||
+              (emailPhase === 'code' ? !code.trim() : reviewerMode && !password)
+            }
+          >
+            {emailBusy
+              ? emailPhase === 'code' || reviewerMode
+                ? 'Přihlašuji…'
+                : 'Odesílám kód…'
+              : emailPhase === 'code'
+                ? 'Ověřit kód'
+                : reviewerMode
+                  ? 'Přihlásit se'
+                  : 'Poslat přihlašovací kód'}
+          </button>
+        </form>
 
         {!hasMobileAuthConfiguration() ? (
           <p className="setup-note">
