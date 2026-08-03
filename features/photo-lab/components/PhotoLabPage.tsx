@@ -276,6 +276,80 @@ function PhotoSourceTile({
   );
 }
 
+export function usesAndroidPhotoSourceChooser(userAgent: string) {
+  return /Android/i.test(userAgent);
+}
+
+/** Android's file picker often omits the camera, so give it an explicit source sheet. */
+export function PhotoSourcePickerDialog({
+  onCamera,
+  onLibrary,
+  onCancel,
+}: {
+  onCamera: () => void;
+  onLibrary: () => void;
+  onCancel: () => void;
+}) {
+  const { t } = useI18n();
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') onCancel();
+    }
+    document.addEventListener('keydown', handleKey);
+    return () => document.removeEventListener('keydown', handleKey);
+  }, [onCancel]);
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[80] flex items-end justify-center bg-black/60 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:items-center sm:p-4"
+      onClick={onCancel}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="photo-lab-source-title"
+        style={warmPaletteVars}
+        className="w-full max-w-sm rounded-2xl border-2 border-[color:var(--ob-ink)] bg-[var(--ob-surface)] p-4 text-[color:var(--ob-ink)] shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <h2 id="photo-lab-source-title" className="m-0 px-1 text-base font-semibold">
+          {t('photoLab.choosePhoto')}
+        </h2>
+        <div className="mt-3 flex flex-col gap-2">
+          <button
+            type="button"
+            autoFocus
+            className="flex w-full items-center gap-3 rounded-xl border-2 border-[color:var(--ob-ink)] px-4 py-3 text-left text-sm font-semibold transition-colors hover:bg-[var(--ob-surface-hover)]"
+            onClick={onCamera}
+          >
+            <span aria-hidden="true" className="text-xl">📷</span>
+            {t('photoLab.takePhoto')}
+          </button>
+          <button
+            type="button"
+            className="flex w-full items-center gap-3 rounded-xl border-2 border-[color:var(--ob-ink)] px-4 py-3 text-left text-sm font-semibold transition-colors hover:bg-[var(--ob-surface-hover)]"
+            onClick={onLibrary}
+          >
+            <span aria-hidden="true" className="text-xl">▧</span>
+            {t('photoLab.chooseFromLibrary')}
+          </button>
+          <button
+            type="button"
+            className="mt-1 w-full rounded-xl px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[var(--ob-surface-hover)]"
+            onClick={onCancel}
+          >
+            {t('common.cancel')}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 /** Small confirmation dialog shown before a photo (and its session) is deleted. */
 function DeletePhotoConfirmModal({
   onConfirm,
@@ -348,6 +422,7 @@ function PhotoLabStudio({
   const [addressRegister, setAddressRegister] =
     useState<ReturnType<typeof readAddressRegisterPreference>>(null);
   const [saveOpen, setSaveOpen] = useState(false);
+  const [photoSourceOpen, setPhotoSourceOpen] = useState(false);
   const {
     langFrom,
     langTo,
@@ -361,6 +436,7 @@ function PhotoLabStudio({
     confirmDeleteId,
     thumbUrls,
     fileInputRef,
+    cameraInputRef,
     pendingPhoto,
     limitReached,
     languagesReady,
@@ -404,6 +480,14 @@ function PhotoLabStudio({
     };
   }, []);
 
+  const openPhotoSource = () => {
+    if (usesAndroidPhotoSourceChooser(window.navigator.userAgent)) {
+      setPhotoSourceOpen(true);
+      return;
+    }
+    fileInputRef.current?.click();
+  };
+
   return (
     <div
       style={variant === 'embedded' ? warmPaletteVars : undefined}
@@ -437,12 +521,20 @@ function PhotoLabStudio({
         onClose={closeLanguageModal}
       />
 
-      {/* One input deliberately has no `capture`: iOS then offers its native
-          camera/library/files source menu instead of forcing one path. */}
+      {/* iOS gets its native camera/library/files source menu from the first
+          input. Android's explicit source sheet can target either input. */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+      <input
+        ref={cameraInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
         className="hidden"
         onChange={handleFileChange}
       />
@@ -567,7 +659,7 @@ function PhotoLabStudio({
             label={t('photoLab.choosePhoto')}
             disabled={!languagesReady || analyzing || limitReached}
             title={limitReached ? t('photoLab.limitReachedHint') : undefined}
-            onClick={() => fileInputRef.current?.click()}
+            onClick={openPhotoSource}
           />
           {history.map((session) => (
             <div key={session.id} className="group relative">
@@ -616,6 +708,20 @@ function PhotoLabStudio({
         <DeletePhotoConfirmModal
           onConfirm={() => void removeSession(confirmDeleteId)}
           onCancel={cancelDelete}
+        />
+      )}
+
+      {active && photoSourceOpen && (
+        <PhotoSourcePickerDialog
+          onCamera={() => {
+            setPhotoSourceOpen(false);
+            cameraInputRef.current?.click();
+          }}
+          onLibrary={() => {
+            setPhotoSourceOpen(false);
+            fileInputRef.current?.click();
+          }}
+          onCancel={() => setPhotoSourceOpen(false)}
         />
       )}
 

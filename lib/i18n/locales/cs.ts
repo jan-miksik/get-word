@@ -297,6 +297,7 @@ export const csMessages: I18nMessages = {
   "photoLab.backToStudy": "Zpět k učení",
   "photoLab.takePhoto": "Vyfotit",
   "photoLab.choosePhoto": "Přidat fotku",
+  "photoLab.chooseFromLibrary": "Vybrat z galerie",
   "photoLab.saveWords": "Přidat mezi moje slovíčka",
   "photoLab.saveModalTitle": "Přidat mezi moje slovíčka",
   "photoLab.saveDestination": "Uloží se do tvého seznamu: {list}",

@@ -883,7 +883,7 @@ function CategoryBrowserContent({
                   </button>
 
                   {headerMenuOpen && (
-                    <div className="absolute right-0 top-full mt-1 z-50 min-w-[140px] rounded-lg border border-border-subtle bg-background shadow-lg py-1">
+                    <div className="absolute left-0 top-full z-50 mt-1 min-w-[200px] rounded-lg border border-border-subtle bg-background py-1 shadow-lg sm:left-auto sm:right-0">
                       {onFork && (
                         <button
                           type="button"

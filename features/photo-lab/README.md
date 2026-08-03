@@ -15,10 +15,12 @@ and keeps a bounded device-local history.
 
 ## Picking a photo
 
-One hidden image input feeds `handleFileChange`. It deliberately omits
-`capture`: iOS can therefore present its native source menu (camera, photo
-library, or files) from the single visible tile, while desktop browsers open a
-normal file picker.
+One visible tile feeds two hidden image inputs into the same `handleFileChange`.
+The default input deliberately omits `capture`: iOS can therefore present its
+native source menu (camera, photo library, or files), while desktop browsers
+open a normal file picker. Android first gets an in-app source sheet because
+its default file picker does not consistently expose the camera; the camera
+choice targets a second input with `capture="environment"`.
 
 ## Saving words into a list
 

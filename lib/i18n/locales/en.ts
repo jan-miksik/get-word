@@ -321,6 +321,7 @@ export const enMessages = {
   "photoLab.backToStudy": "Back to studying",
   "photoLab.takePhoto": "Take a photo",
   "photoLab.choosePhoto": "Add a photo",
+  "photoLab.chooseFromLibrary": "Choose from library",
   "photoLab.saveWords": "Add to my words",
   "photoLab.saveModalTitle": "Add to my words",
   "photoLab.saveDestination": "Goes into your own list: {list}",

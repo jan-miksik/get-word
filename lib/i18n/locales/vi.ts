@@ -297,6 +297,7 @@ export const viMessages: I18nMessages = {
   "photoLab.backToStudy": "Quay lại học",
   "photoLab.takePhoto": "Chụp ảnh",
   "photoLab.choosePhoto": "Thêm ảnh",
+  "photoLab.chooseFromLibrary": "Chọn từ thư viện",
   "photoLab.saveWords": "Thêm vào từ của tôi",
   "photoLab.saveModalTitle": "Thêm vào từ của tôi",
   "photoLab.saveDestination": "Lưu vào danh sách của bạn: {list}",

@@ -297,6 +297,7 @@ export const ukMessages: I18nMessages = {
   "photoLab.backToStudy": "Назад до навчання",
   "photoLab.takePhoto": "Зробити фото",
   "photoLab.choosePhoto": "Додати фото",
+  "photoLab.chooseFromLibrary": "Вибрати з галереї",
   "photoLab.saveWords": "Додати до моїх слів",
   "photoLab.saveModalTitle": "Додати до моїх слів",
   "photoLab.saveDestination": "Збережеться до вашого списку: {list}",
