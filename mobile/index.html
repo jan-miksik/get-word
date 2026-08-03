@@ -2,9 +2,15 @@
 <html lang="cs">
   <head>
     <meta charset="UTF-8" />
+    <!--
+      `maximum-scale=1, user-scalable=no` is what keeps this a native app rather
+      than a zoomable page. WKWebView otherwise scales the whole app up when a
+      text field under 16px takes focus, and the fixed full-screen layout leaves
+      no way to pinch back out — the app stays zoomed until it is relaunched.
+    -->
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1, viewport-fit=cover"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
     />
     <meta name="theme-color" content="#0b1220" />
     <title>Get Word</title>
