@@ -518,19 +518,6 @@ export function ChatStep({
             {t('wordChat.profileSaving')}
           </p>
         ) : null}
-        {onStartManualEntry ? (
-          <div className="flex justify-center">
-            <button
-              type="button"
-              onClick={onStartManualEntry}
-              disabled={preferencesSaving}
-              className="onboarding-option-secondary inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold disabled:opacity-50"
-            >
-              <PencilIcon size={14} />
-              <span>{t('wordChat.manualStart')}</span>
-            </button>
-          </div>
-        ) : null}
       </div>
     );
   }

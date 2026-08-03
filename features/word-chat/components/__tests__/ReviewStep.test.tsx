@@ -40,7 +40,7 @@ describe('ReviewStep', () => {
 
     // Which model wrote the translations, and nothing about what it cost.
     expect(screen.getByText(/deepseek\/deepseek-v4-flash/)).toHaveTextContent(
-      'Test translation: deepseek/deepseek-v4-flash',
+      'Translated by: deepseek/deepseek-v4-flash',
     );
     expect(screen.queryByText(/\$0\./)).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: /Regenerate audio/i })).not.toBeInTheDocument();

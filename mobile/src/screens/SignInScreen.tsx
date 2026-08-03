@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { AppLogo } from '@/components/AppLogo';
+import { useI18n } from '@/components/I18nProvider';
 import { RisingLettersBackground } from '@/components/RisingLettersBackground';
 import {
   isReviewAccountEmail,
@@ -21,9 +22,9 @@ type SignInScreenProps = {
 
 type EmailPhase = 'address' | 'code';
 
-function readableError(error: unknown): string {
+function readableError(error: unknown, fallback: string): string {
   if (error instanceof Error && error.message) return error.message;
-  return 'Přihlášení se nepodařilo. Zkus to prosím znovu.';
+  return fallback;
 }
 
 export function SignInScreen({
@@ -33,6 +34,7 @@ export function SignInScreen({
   onSignIn,
   onAuthenticated,
 }: SignInScreenProps) {
+  const { t } = useI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
@@ -60,11 +62,12 @@ export function SignInScreen({
       await requestEmailSignInCode(email);
       setEmailPhase('code');
     } catch (authError) {
-      setEmailError(readableError(authError));
+      setEmailError(readableError(authError, t('auth.errorSignIn')));
     } finally {
       setEmailBusy(false);
     }
   };
+  const legalParts = t('auth.legalNotice').split(/(\{terms\}|\{privacy\})/);
 
   return (
     <main className="native-sign-in">
@@ -78,12 +81,9 @@ export function SignInScreen({
         <header className="native-sign-in__header">
           <AppLogo size={72} className="native-sign-in__logo" />
           <div>
-            <p className="native-sign-in__brand">Get Word</p>
-            <h1>Vítejte</h1>
-            <p className="native-sign-in__subtitle">
-              Zadejte e-mail a pošleme vám kód – funguje pro nové i existující
-              účty.
-            </p>
+            <p className="native-sign-in__brand">{t('auth.brand')}</p>
+            <h1>{t('auth.signInTitle')}</h1>
+            <p className="native-sign-in__subtitle">{t('auth.signInSubtitle')}</p>
           </div>
         </header>
 
@@ -100,12 +100,12 @@ export function SignInScreen({
           onClick={onSignIn}
         >
           <span className="native-sign-in__apple-mark" aria-hidden="true"></span>
-          {busy ? busyLabel : 'Pokračovat přes Apple'}
+          {busy ? busyLabel : t('auth.continueWithApple')}
         </button>
 
         <div className="native-sign-in__divider" aria-hidden="true">
           <span />
-          nebo
+          {t('auth.or')}
           <span />
         </div>
 
@@ -119,7 +119,7 @@ export function SignInScreen({
           {emailPhase === 'address' ? (
             <>
               <label>
-                <span className="native-sign-in__visually-hidden">E-mail</span>
+                <span className="native-sign-in__visually-hidden">{t('auth.emailLabel')}</span>
                 <input
                   type="email"
                   inputMode="email"
@@ -138,11 +138,13 @@ export function SignInScreen({
               </label>
               {reviewerMode ? (
                 <label>
-                  <span className="native-sign-in__visually-hidden">Password</span>
+                  <span className="native-sign-in__visually-hidden">
+                    {t('auth.passwordLabel')}
+                  </span>
                   <input
                     type="password"
                     autoComplete="current-password"
-                    placeholder="Password"
+                    placeholder={t('auth.passwordLabel')}
                     value={password}
                     onChange={(event) => setPassword(event.target.value)}
                     disabled={busy || emailBusy}
@@ -154,11 +156,11 @@ export function SignInScreen({
           ) : (
             <>
               <p className="native-sign-in__code-note">
-                Kód jsme poslali na {email.trim()}.
+                {t('auth.enterCodeSentTo', { email: email.trim() })}
               </p>
               <label>
                 <span className="native-sign-in__visually-hidden">
-                  Přihlašovací kód
+                  {t('auth.codeLabel')}
                 </span>
                 <input
                   type="text"
@@ -181,7 +183,7 @@ export function SignInScreen({
                   setEmailError(null);
                 }}
               >
-                Použít jiný e-mail
+                {t('auth.useDifferentEmail')}
               </button>
             </>
           )}
@@ -197,44 +199,52 @@ export function SignInScreen({
           >
             {emailBusy
               ? emailPhase === 'code' || reviewerMode
-                ? 'Přihlašuji…'
-                : 'Odesílám kód…'
+                ? t('auth.signingIn')
+                : t('auth.sendingCode')
               : emailPhase === 'code'
-                ? 'Ověřit kód'
+                ? t('auth.verifyAndContinue')
                 : reviewerMode
-                  ? 'Přihlásit se'
-                  : 'Poslat přihlašovací kód'}
+                  ? t('auth.signIn')
+                  : t('auth.emailMeCode')}
           </button>
         </form>
 
         {!hasMobileAuthConfiguration() ? (
-          <p className="setup-note">
-            Chybí veřejné nastavení Supabase pro mobilní build.
-          </p>
+          <p className="setup-note">{t('auth.mobileNotConfigured')}</p>
         ) : null}
 
         <p className="native-sign-in__legal">
-          Pokračováním souhlasíte s našimi{' '}
-          <a
-            href="/terms"
-            onClick={(event) => {
-              event.preventDefault();
-              navigate('/terms');
-            }}
-          >
-            Podmínkami služby
-          </a>{' '}
-          a{' '}
-          <a
-            href="/privacy"
-            onClick={(event) => {
-              event.preventDefault();
-              navigate('/privacy');
-            }}
-          >
-            Zásadami ochrany soukromí
-          </a>
-          .
+          {legalParts.map((part, index) => {
+            if (part === '{terms}') {
+              return (
+                <a
+                  key={index}
+                  href="/terms"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    navigate('/terms');
+                  }}
+                >
+                  {t('auth.termsOfService')}
+                </a>
+              );
+            }
+            if (part === '{privacy}') {
+              return (
+                <a
+                  key={index}
+                  href="/privacy"
+                  onClick={(event) => {
+                    event.preventDefault();
+                    navigate('/privacy');
+                  }}
+                >
+                  {t('auth.privacyPolicy')}
+                </a>
+              );
+            }
+            return part;
+          })}
         </p>
       </section>
     </main>

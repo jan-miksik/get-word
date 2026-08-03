@@ -1,6 +1,8 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { I18nProvider } from '@/components/I18nProvider';
 import { configureApiRuntime } from '@/features/shared/http/api-runtime';
+import { usePreferredPublicLanguage } from '@/lib/i18n/client-language';
 import { App } from './App';
 import { getSessionToken } from './auth/session-state';
 import { apiOrigin } from './config';
@@ -19,12 +21,21 @@ configureApiRuntime({ origin: apiOrigin, readSessionToken: getSessionToken });
 
 void configureNativeShell();
 
+function NativeApp() {
+  const language = usePreferredPublicLanguage();
+  return (
+    <I18nProvider language={language}>
+      <App />
+    </I18nProvider>
+  );
+}
+
 // The device id has to be reconciled with the Keychain before the shared code
 // reads it, so the first render waits for it either way.
 void adoptNativeDeviceId().finally(() => {
   createRoot(rootElement).render(
     <StrictMode>
-      <App />
+      <NativeApp />
     </StrictMode>,
   );
 });

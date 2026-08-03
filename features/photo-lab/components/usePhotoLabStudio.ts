@@ -73,11 +73,10 @@ export function usePhotoLabStudio(
   const thumbUrlsRef = useRef<Map<string, string>>(new Map());
   const historyRefreshIdRef = useRef(0);
   const [thumbUrls, setThumbUrls] = useState<Map<string, string>>(() => new Map());
-  // Two inputs, one file handler: `capture` on an input forces the camera on
-  // mobile, so a single shared input can offer either the camera or the gallery
-  // — never both.
+  // Without `capture`, iOS presents its native source menu (camera, library,
+  // files) from one control. Desktop browsers use the same input as a normal
+  // file picker.
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   // Held for "try again" so a failed analysis doesn't force re-picking the photo.
   const [pendingPhoto, setPendingPhoto] = useState<DownscaledPhoto | null>(null);
   const createdUrlsRef = useRef<string[]>([]);
@@ -338,7 +337,6 @@ export function usePhotoLabStudio(
     confirmDeleteId,
     thumbUrls,
     fileInputRef,
-    cameraInputRef,
     pendingPhoto,
     // Unknown usage (offline, first load) must not block the button — the
     // server is still the authority and answers with a 429.

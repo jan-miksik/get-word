@@ -209,19 +209,18 @@ describe('ChatStep', () => {
     expect(onStartManualEntry).toHaveBeenCalledOnce();
   });
 
-  it('does not require chat preference setup before manual entry', () => {
-    const onStartManualEntry = vi.fn();
+  it('keeps the initial chat setup focused on the profile questions', () => {
     renderChatStep({
       addressRegister: null,
       salutationGender: null,
       languageLevel: null,
       preferencesComplete: false,
-      onStartManualEntry,
+      onStartManualEntry: vi.fn(),
     });
 
-    fireEvent.click(screen.getByRole('button', { name: 'I already have my own words' }));
-
-    expect(onStartManualEntry).toHaveBeenCalledOnce();
+    expect(
+      screen.queryByRole('button', { name: 'I already have my own words' }),
+    ).not.toBeInTheDocument();
   });
 
   it('does not show the ready-made list shortcut in the normal chat', () => {

@@ -1,5 +1,6 @@
 import { App as CapacitorApp } from '@capacitor/app';
 import { lazy, Suspense, useEffect, useState } from 'react';
+import { useI18n } from '@/components/I18nProvider';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { fetchMobileIdentity } from './api/auth';
 import { signInWithApple } from './auth/apple';
@@ -29,6 +30,7 @@ function readableError(error: unknown): string {
 }
 
 export function App() {
+  const { t } = useI18n();
   const routePath = useRoutePath();
   const [authState, setAuthState] = useState<AuthState>('restoring');
   const [authError, setAuthError] = useState<string | null>(null);
@@ -161,7 +163,7 @@ export function App() {
   return (
     <SignInScreen
       busy={authState === 'restoring' || authState === 'signing-in'}
-      busyLabel={authState === 'restoring' ? 'Obnovuji přihlášení…' : 'Přihlašuji…'}
+      busyLabel={authState === 'restoring' ? t('app.loading') : t('auth.signingIn')}
       error={authError}
       onSignIn={() => {
         if (!isNativeApp()) return;

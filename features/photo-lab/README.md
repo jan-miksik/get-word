@@ -15,12 +15,10 @@ and keeps a bounded device-local history.
 
 ## Picking a photo
 
-Two hidden file inputs, one `handleFileChange`. `capture="environment"` makes
-the OS open the camera directly and skip its own picker, so an input carrying it
-can never offer the gallery — the gallery tile needs an input without it. The
-camera tile is hidden by a `pointer:fine` media query rather than a JS check, so
-there is no post-mount flash: on a mouse-driven machine it would open the same
-file dialog as the gallery tile.
+One hidden image input feeds `handleFileChange`. It deliberately omits
+`capture`: iOS can therefore present its native source menu (camera, photo
+library, or files) from the single visible tile, while desktop browsers open a
+normal file picker.
 
 ## Saving words into a list
 

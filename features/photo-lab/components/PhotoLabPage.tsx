@@ -361,7 +361,6 @@ function PhotoLabStudio({
     confirmDeleteId,
     thumbUrls,
     fileInputRef,
-    cameraInputRef,
     pendingPhoto,
     limitReached,
     languagesReady,
@@ -438,21 +437,12 @@ function PhotoLabStudio({
         onClose={closeLanguageModal}
       />
 
-      {/* Gallery first: the camera input carries `capture`, which makes the OS
-          skip the picker entirely — so choosing an existing photo needs an
-          input of its own. */}
+      {/* One input deliberately has no `capture`: iOS then offers its native
+          camera/library/files source menu instead of forcing one path. */}
       <input
         ref={fileInputRef}
         type="file"
         accept="image/*"
-        className="hidden"
-        onChange={handleFileChange}
-      />
-      <input
-        ref={cameraInputRef}
-        type="file"
-        accept="image/*"
-        capture="environment"
         className="hidden"
         onChange={handleFileChange}
       />
@@ -572,18 +562,8 @@ function PhotoLabStudio({
           </p>
         </div>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-          {/* Hidden where the pointer is a mouse: there the camera tile would
-              open the same file dialog as the gallery tile. */}
           <PhotoSourceTile
             icon="📷"
-            label={t('photoLab.takePhoto')}
-            className="[@media(pointer:fine)]:hidden"
-            disabled={!languagesReady || analyzing || limitReached}
-            title={limitReached ? t('photoLab.limitReachedHint') : undefined}
-            onClick={() => cameraInputRef.current?.click()}
-          />
-          <PhotoSourceTile
-            icon="+"
             label={t('photoLab.choosePhoto')}
             disabled={!languagesReady || analyzing || limitReached}
             title={limitReached ? t('photoLab.limitReachedHint') : undefined}

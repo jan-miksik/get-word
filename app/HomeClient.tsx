@@ -108,6 +108,11 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   const [memoryHooksIntroDismissedForSession, setMemoryHooksIntroDismissedForSession] = useState(false);
   const [addWordsPromptDismissedForSession, setAddWordsPromptDismissedForSession] =
     useState(false);
+  // Completing onboarding updates the language preference synchronously, but
+  // the new list reaches the study stream through a fresh snapshot. Keep the
+  // global loader up across that handoff so the empty deck cannot flash
+  // "All done" between those two state updates.
+  const [isOnboardingHandoffPending, setIsOnboardingHandoffPending] = useState(false);
   const [landingLanguagePair] = useState(() =>
     typeof window !== 'undefined' ? readLandingLanguagePair() : null,
   );
@@ -590,6 +595,8 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
           // screen rather than flashing app chrome; `bootFailed` above breaks
           // the tie if it never arrives.
           <LoadingScreen />
+        ) : isOnboardingHandoffPending ? (
+          <LoadingScreen />
         ) : isListRefreshPending && !onboardingCompletedAt ? (
           <LoadingScreen />
         ) : needsLanguageOnboarding ? (
@@ -615,16 +622,25 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
                   }
             }
             onComplete={async (from, to) => {
-              await setLearningLanguages(from, to);
-              if (forceOnboarding) {
-                setForceOnboarding(false);
-                // Drop the `?onboarding=1` param so a refresh doesn't replay it.
-                const url = new URL(window.location.href);
-                url.searchParams.delete('onboarding');
-                url.searchParams.delete('wordChat');
-                window.history.replaceState(window.history.state, '', url.toString());
+              setIsOnboardingHandoffPending(true);
+              try {
+                await setLearningLanguages(from, to);
+                // Apply the snapshot directly instead of only dispatching a
+                // background refresh event: clearing the loader must mean the
+                // new words are already in React state.
+                await refreshFullSnapshot();
+                if (forceOnboarding) {
+                  setForceOnboarding(false);
+                  // Drop the `?onboarding=1` param so a refresh doesn't replay it.
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete('onboarding');
+                  url.searchParams.delete('wordChat');
+                  window.history.replaceState(window.history.state, '', url.toString());
+                }
+                if (forceWordChat) replaceSurface('chat');
+              } finally {
+                setIsOnboardingHandoffPending(false);
               }
-              if (forceWordChat) replaceSurface('chat');
             }}
             onSelectList={setActiveListId}
           />
