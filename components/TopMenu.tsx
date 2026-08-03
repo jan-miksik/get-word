@@ -261,12 +261,18 @@ interface ListSelectModalProps {
 
 type SuggestedList = { id: string; name: string; itemCount?: number };
 
-function createListHref(languagePair?: { from: string; to: string } | null): string {
-  const params = new URLSearchParams({ create: '1' });
-  if (languagePair) {
-    params.set('languageFrom', languagePair.from);
-    params.set('languageTo', languagePair.to);
-  }
+/**
+ * Opens the list library rather than the creation wizard: most people looking
+ * for another list want to pick a ready-made one, and creating is one click
+ * away there. The language pair rides along so the wizard still starts from the
+ * current pair if they do choose to create.
+ */
+function browseListsHref(languagePair?: { from: string; to: string } | null): string {
+  if (!languagePair) return '/lists';
+  const params = new URLSearchParams({
+    languageFrom: languagePair.from,
+    languageTo: languagePair.to,
+  });
   return `/lists?${params.toString()}`;
 }
 
@@ -416,12 +422,12 @@ function ListSelectModal({
         </div>
         <div className="list-select-footer">
           <Link
-            href={createListHref(languagePair)}
+            href={browseListsHref(languagePair)}
             className="list-select-add"
             onClick={onClose}
           >
             <span className="list-select-add-icon" aria-hidden="true">+</span>
-            {t('lists.addNewWordList')}
+            {t('lists.browseWordLists')}
           </Link>
         </div>
       </div>

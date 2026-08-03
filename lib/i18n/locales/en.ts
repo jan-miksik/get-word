@@ -585,7 +585,7 @@ export const enMessages = {
   "lists.filterDone": "Done",
   "lists.selectWordList": "Select word list",
   "lists.selectWordListTitle": "Choose a word list",
-  "lists.addNewWordList": "Add new word list",
+  "lists.browseWordLists": "Browse word lists",
   "lists.suggestedHeading": "Switch to another list",
   "lists.addingList": "Adding...",
   "lists.apiKeys": "API keys",

@@ -561,7 +561,7 @@ export const csMessages: I18nMessages = {
   "lists.filterDone": "Hotovo",
   "lists.selectWordList": "Vybrat seznam slov",
   "lists.selectWordListTitle": "Vyberte seznam slov",
-  "lists.addNewWordList": "Přidat nový seznam slov",
+  "lists.browseWordLists": "Procházet seznamy slov",
   "lists.suggestedHeading": "Přepnout na jiný seznam",
   "lists.addingList": "Přidávání...",
   "lists.apiKeys": "API klíče",

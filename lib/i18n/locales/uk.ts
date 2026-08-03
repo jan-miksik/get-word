@@ -561,7 +561,7 @@ export const ukMessages: I18nMessages = {
   "lists.filterDone": "Готово",
   "lists.selectWordList": "Вибрати список слів",
   "lists.selectWordListTitle": "Виберіть список слів",
-  "lists.addNewWordList": "Додати новий список слів",
+  "lists.browseWordLists": "Переглянути списки слів",
   "lists.suggestedHeading": "Перемкнутися на інший список",
   "lists.addingList": "Додавання...",
   "lists.apiKeys": "Ключі API",
