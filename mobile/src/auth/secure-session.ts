@@ -24,30 +24,50 @@ function configureNativeStorage(): Promise<void> {
   return nativeStorageSetup;
 }
 
-export async function readAppSessionToken(): Promise<string | null> {
-  if (!isNativeApp()) return sessionStorage.getItem(APP_SESSION_KEY);
+/**
+ * `SecureStorage.set()` stores `JSON.stringify(value)`, so it must be paired
+ * with `get()`, which parses it back. Reading the same key with `getItem()`
+ * returns the raw keychain string — a token still wrapped in quotes, which the
+ * API rejects. Every read here goes through this helper for that reason.
+ */
+async function readSecureString(key: string): Promise<string | null> {
   await configureNativeStorage();
-  return SecureStorage.getItem(APP_SESSION_KEY);
+  try {
+    const value = await SecureStorage.get(key, false);
+    return typeof value === 'string' ? value : null;
+  } catch {
+    // Unreadable/corrupt entry: treat it as absent rather than failing boot.
+    return null;
+  }
 }
 
-export async function storeAppSessionToken(token: string): Promise<void> {
-  if (!isNativeApp()) {
-    sessionStorage.setItem(APP_SESSION_KEY, token);
-    return;
-  }
+async function writeSecureString(key: string, value: string): Promise<void> {
   await configureNativeStorage();
   await SecureStorage.set(
-    APP_SESSION_KEY,
-    token,
-    true,
+    key,
+    value,
+    false,
     false,
     KeychainAccess.whenUnlockedThisDeviceOnly,
   );
 }
 
+export async function readAppSessionToken(): Promise<string | null> {
+  if (!isNativeApp()) return localStorage.getItem(APP_SESSION_KEY);
+  return readSecureString(APP_SESSION_KEY);
+}
+
+export async function storeAppSessionToken(token: string): Promise<void> {
+  if (!isNativeApp()) {
+    localStorage.setItem(APP_SESSION_KEY, token);
+    return;
+  }
+  await writeSecureString(APP_SESSION_KEY, token);
+}
+
 export async function clearAppSessionToken(): Promise<void> {
   if (!isNativeApp()) {
-    sessionStorage.removeItem(APP_SESSION_KEY);
+    localStorage.removeItem(APP_SESSION_KEY);
     return;
   }
   await configureNativeStorage();
@@ -63,17 +83,10 @@ export async function getOrCreateDeviceId(): Promise<string> {
     return created;
   }
 
-  await configureNativeStorage();
-  const existing = await SecureStorage.getItem(DEVICE_ID_KEY);
+  const existing = await readSecureString(DEVICE_ID_KEY);
   if (existing) return existing;
 
   const created = crypto.randomUUID();
-  await SecureStorage.set(
-    DEVICE_ID_KEY,
-    created,
-    true,
-    false,
-    KeychainAccess.whenUnlockedThisDeviceOnly,
-  );
+  await writeSecureString(DEVICE_ID_KEY, created);
   return created;
 }
