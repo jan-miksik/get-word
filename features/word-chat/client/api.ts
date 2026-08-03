@@ -359,6 +359,7 @@ export async function sendChatMessageStream(
 export type ProposeResponse = {
   diagnostics: CallDiagnostics | null;
   category_name: string;
+  topic_label: string;
   review_label: string;
   items: ProposedItem[];
   ask_visibility: boolean;
@@ -489,6 +490,7 @@ export function commitSession(input: {
   baseListId?: string;
   listName: string;
   categoryName: string;
+  topicLabel: string;
   reviewLabel: string;
   isPublic: boolean;
   items: ReviewItem[];
@@ -503,6 +505,7 @@ export function commitSession(input: {
     base_list_id: input.baseListId ?? null,
     list_name: input.listName,
     category_name: input.categoryName,
+    topic_label: input.topicLabel,
     review_label: input.reviewLabel,
     is_public: input.isPublic,
     review_opt_in: true,

@@ -1,3 +1,5 @@
+import { isGenericTopicLabel } from './topicLabels';
+
 /**
  * What a returning learner is offered as a tappable chip before they type.
  *
@@ -77,13 +79,16 @@ export function buildFollowUpChips(
   source: FollowUpChipSource,
   limit = FOLLOW_UP_CHIP_LIMIT,
 ): FollowUpChip[] {
-  const covered = source.coveredTopics.filter((topic) => topic.trim().length > 0);
+  // Old briefs may contain the personal-list/category fallback ("My words",
+  // "Moje slovíčka", ...). It describes the container, not a topic, and must
+  // never become a learner-facing continuation chip.
+  const covered = source.coveredTopics.filter((topic) => !isGenericTopicLabel(topic));
   const chips: FollowUpChip[] = [];
 
   for (const topic of [...source.missingTopics, ...source.situations, ...source.goals]) {
     if (chips.length >= limit) break;
     const trimmed = topic.trim();
-    if (!trimmed) continue;
+    if (!trimmed || isGenericTopicLabel(trimmed)) continue;
     if (covered.some((entry) => sameTopic(entry, trimmed))) continue;
     if (chips.some((chip) => sameTopic(chip.topic, trimmed))) continue;
     chips.push({ topic: trimmed, kind: 'topic' });

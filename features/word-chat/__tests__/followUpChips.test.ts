@@ -87,6 +87,19 @@ describe('buildFollowUpChips', () => {
     ).toEqual([{ topic: 'Morálka a etika', kind: 'continue' }]);
   });
 
+  it('ignores generic personal-list labels left by older sessions', () => {
+    expect(
+      buildFollowUpChips({
+        ...empty,
+        coveredTopics: ['Objednání v kavárně', 'Moje slovíčka'],
+      }),
+    ).toEqual([{ topic: 'Objednání v kavárně', kind: 'continue' }]);
+
+    expect(
+      buildFollowUpChips({ ...empty, coveredTopics: ['My words — Vietnamese'] }),
+    ).toEqual([]);
+  });
+
   it('does not offer the deeper pass once there is somewhere new to go', () => {
     expect(
       buildFollowUpChips({

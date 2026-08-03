@@ -16,7 +16,7 @@ import { ChatSettingsModal } from './ChatSettingsModal';
 type Props = {
   languageFrom: string;
   languageTo: string;
-  /** List/category naming, shown in the modal only when these are provided. */
+  /** List/category naming, shared by the AI-chat and manual-entry surfaces. */
   listName?: string;
   categoryName?: string;
   onListNameChange?: (value: string) => void;

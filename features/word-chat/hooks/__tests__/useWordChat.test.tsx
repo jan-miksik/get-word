@@ -69,6 +69,7 @@ async function waitForPreferences(result: { current: { preferencesLoading: boole
 function proposal() {
   return {
     category_name: 'Café',
+    topic_label: 'Kavárna',
     review_label: 'Café conversation',
     items: [
       { kind: 'sentence', source: 'generated', text: 'Dám si kávu.', confidence: 0.9 },
@@ -167,6 +168,42 @@ describe('useWordChat', () => {
 
     act(() => result.current.openChat());
     expect(result.current.step).toBe('chat');
+  });
+
+  it('keeps a category explicitly named in settings while retaining the AI topic', async () => {
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+
+    act(() => result.current.setCategoryName('Moje návštěva kavárny'));
+    await act(() => result.current.sendMessage('Kavárna'));
+
+    expect(result.current.categoryName).toBe('Moje návštěva kavárny');
+    expect(result.current.topicLabel).toBe('Kavárna');
+  });
+
+  it('replaces an earlier AI category when the conversation moves to a new topic', async () => {
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+
+    await act(() => result.current.sendMessage('Kavárna'));
+    expect(result.current.categoryName).toBe('Café');
+
+    act(() => result.current.openChat());
+    mocks.requestProposal.mockResolvedValue({
+      ...proposal(),
+      category_name: 'Restaurant',
+      topic_label: 'Restaurace',
+    });
+    await act(() => result.current.sendMessage('Teď restaurace'));
+
+    expect(result.current.categoryName).toBe('Restaurant');
+    expect(result.current.topicLabel).toBe('Restaurace');
   });
 
   it('asks about visibility from manual entry only when there is no personal list yet', async () => {
@@ -958,6 +995,7 @@ describe('useWordChat', () => {
     expect(mocks.commitSession.mock.calls[0][0]).toMatchObject({
       listName: 'Úřední vietnamština',
       chatLanguage: 'cs',
+      topicLabel: 'Kavárna',
     });
     expect(onCommitted).toHaveBeenCalledWith({
       listId: 'list-1',

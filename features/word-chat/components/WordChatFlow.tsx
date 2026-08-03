@@ -305,6 +305,10 @@ export function WordChatFlow({
           salutationGenderApplies={chat.salutationGenderApplies}
           onPreferencesChange={chat.savePreferences}
           onLanguagePairChange={chat.changeLanguagePair}
+          listName={chat.listName}
+          categoryName={chat.categoryName}
+          onListNameChange={chat.setListName}
+          onCategoryNameChange={chat.setCategoryName}
           shareList={shareList}
           onShareListUpdated={chat.updateExistingList}
           settingsPlacement={settingsPlacement}

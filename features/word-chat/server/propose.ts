@@ -43,6 +43,7 @@ import type {
   WordChatLanguageLevel,
   WordChatMessage,
 } from "../types";
+import { firstMeaningfulTopicLabel } from "../topicLabels";
 
 const MAX_CATEGORY_NAME_CHARS = 60;
 
@@ -72,6 +73,7 @@ type ValidatedRawItem = {
 
 type ValidatedInternalProposal = {
   categoryName: string;
+  topicLabel: string;
   reviewLabel: string;
   items: ValidatedRawItem[];
 };
@@ -362,8 +364,17 @@ function parseProposal(
       );
     }
   }
+  const rawCategoryName = cleanLabel(parsed?.categoryName, "", MAX_CATEGORY_NAME_CHARS);
+  const rawTopicLabel = cleanLabel(parsed?.topicLabel, "", MAX_CATEGORY_NAME_CHARS);
+  const categoryName =
+    firstMeaningfulTopicLabel(rawCategoryName, rawTopicLabel) || "My words";
   return {
-    categoryName: cleanLabel(parsed?.categoryName, "My words", MAX_CATEGORY_NAME_CHARS),
+    categoryName,
+    // Do not fall back to the editable category here: it may intentionally
+    // contain a person's name. The dedicated topic is privacy-constrained by
+    // the prompt; if it is absent, the brief pass can infer a safe label from
+    // the conversation instead.
+    topicLabel: firstMeaningfulTopicLabel(rawTopicLabel),
     reviewLabel: cleanLabel(parsed?.reviewLabel, "General vocabulary", MAX_CATEGORY_NAME_CHARS),
     items,
   };
@@ -623,6 +634,7 @@ export async function proposeItems(input: {
 
   return {
     categoryName: value.categoryName,
+    topicLabel: value.topicLabel,
     reviewLabel: value.reviewLabel,
     items,
     diagnostics: buildCallDiagnostics({

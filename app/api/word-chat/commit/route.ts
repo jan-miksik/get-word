@@ -96,6 +96,7 @@ export async function POST(request: NextRequest) {
         baseListId: typeof body.base_list_id === "string" ? body.base_list_id : undefined,
         listName: typeof body.list_name === "string" ? body.list_name : undefined,
         categoryName: typeof body.category_name === "string" ? body.category_name : "",
+        topicLabel: typeof body.topic_label === "string" ? body.topic_label : undefined,
         reviewLabel: typeof body.review_label === "string" ? body.review_label : undefined,
         isPublic: body.is_public === true,
         reviewOptIn: body.review_opt_in !== false,

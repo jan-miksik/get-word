@@ -108,6 +108,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       diagnostics: canDebug ? serializeDiagnostics(proposal.diagnostics) : null,
       category_name: proposal.categoryName,
+      topic_label: proposal.topicLabel,
       review_label: proposal.reviewLabel,
       items: proposal.items,
       ask_visibility: askVisibility,

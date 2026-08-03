@@ -65,6 +65,7 @@ import { proposeItems } from "../propose";
  */
 const STARTER_BATCH = JSON.stringify({
   categoryName: "Kavárna",
+  topicLabel: "Kavárna",
   reviewLabel: "Cafe basics",
   items: [
     { kind: "sentence", role: "sentence", text: "Dám si kávu.", confidence: 0.9 },
@@ -130,6 +131,7 @@ describe("proposeItems difficulty guard", () => {
     const result = await proposeItems(INPUT);
 
     expect(result.items.length).toBeGreaterThan(0);
+    expect(result.topicLabel).toBe("Kavárna");
   });
 
   it("still spends one fresh attempt trying to get a harder batch", async () => {
@@ -158,6 +160,7 @@ describe("proposeItems difficulty guard", () => {
     // a retry is the only thing that can fix it.
     const englishBatch = JSON.stringify({
       categoryName: "Cafe",
+      topicLabel: "Cafe",
       reviewLabel: "Cafe basics",
       items: [
         { kind: "sentence", role: "sentence", text: "Could you split the bill?", confidence: 0.9 },

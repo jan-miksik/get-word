@@ -113,8 +113,8 @@ type Props = {
   languageTo: string;
   /**
    * The list and category names, edited here rather than on the select step.
-   * Optional: the chat step opens the same modal before a list is being named,
-   * and omits them.
+   * The same controls are available during both AI chat and manual entry; the
+   * AI can still fill a blank category later from the conversation.
    */
   listName?: string;
   categoryName?: string;
@@ -122,8 +122,7 @@ type Props = {
   onCategoryNameChange?: (value: string) => void;
   /**
    * The list's visibility, editable here so a learner can change it after the
-   * one-time question on the select step. Omitted where no list is being named
-   * yet (the chat step opens the same modal before there is a list).
+   * one-time question on the select step.
    */
   isPublic?: boolean | null;
   onVisibilityChange?: (value: boolean) => void;

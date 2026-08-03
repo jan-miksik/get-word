@@ -27,6 +27,10 @@ function renderChatStep({
   onSend,
   onStartManualEntry,
   onPreferencesChange,
+  listName,
+  categoryName,
+  onListNameChange,
+  onCategoryNameChange,
   shareList = null,
   active = true,
   embedded = false,
@@ -49,6 +53,10 @@ function renderChatStep({
   onSend?: (text: string) => void | boolean | Promise<void | boolean>;
   onStartManualEntry?: () => void;
   onPreferencesChange?: (patch: WordChatPreferencePatch) => void;
+  listName?: string;
+  categoryName?: string;
+  onListNameChange?: (value: string) => void;
+  onCategoryNameChange?: (value: string) => void;
   shareList?: WordList | null;
   active?: boolean;
   embedded?: boolean;
@@ -72,6 +80,10 @@ function renderChatStep({
         salutationGenderApplies={languageFrom === 'cs'}
         onPreferencesChange={changePreferences}
         onLanguagePairChange={vi.fn()}
+        listName={listName}
+        categoryName={categoryName}
+        onListNameChange={onListNameChange}
+        onCategoryNameChange={onCategoryNameChange}
         shareList={shareList}
         busy={busy}
         history={history}
@@ -90,6 +102,28 @@ function renderChatStep({
 }
 
 describe('ChatStep', () => {
+  it('lets the AI-chat settings edit the destination list and category names', () => {
+    const onListNameChange = vi.fn();
+    const onCategoryNameChange = vi.fn();
+    renderChatStep({
+      listName: 'My words — Vietnamese',
+      categoryName: 'Coffee shop',
+      onListNameChange,
+      onCategoryNameChange,
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings for adding words' }));
+    fireEvent.change(screen.getByDisplayValue('My words — Vietnamese'), {
+      target: { value: 'Useful Vietnamese' },
+    });
+    fireEvent.change(screen.getByDisplayValue('Coffee shop'), {
+      target: { value: 'Ordering coffee' },
+    });
+
+    expect(onListNameChange).toHaveBeenCalledWith('Useful Vietnamese');
+    expect(onCategoryNameChange).toHaveBeenCalledWith('Ordering coffee');
+  });
+
   it('reveals chat preferences one at a time without preselecting casual address', () => {
     const { onPreferencesChange } = renderChatStep({
       addressRegister: 'casual',

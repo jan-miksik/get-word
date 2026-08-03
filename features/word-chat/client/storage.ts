@@ -42,6 +42,10 @@ export type WordChatDraft = {
   languageLevel: WordChatLanguageLevel | null;
   listName: string;
   categoryName: string;
+  /** True only when the learner, rather than the proposal model, named it. */
+  categoryNameEdited?: boolean;
+  /** Specific AI-derived topic used by the next-session continuation chip. */
+  topicLabel?: string;
   reviewLabel: string;
   proposals: ProposedItem[];
   selectedKeys: string[];

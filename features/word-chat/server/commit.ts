@@ -13,6 +13,7 @@ import {
 import { normalizeLanguageCode } from "@/lib/i18n/languages";
 import { buildContentKeyInput, computeContentKey } from "@/lib/progress-key";
 import { personalListName } from "../personal-list-name";
+import { firstMeaningfulTopicLabel } from "../topicLabels";
 import type { LearnerBrief } from "@/lib/learner-brief";
 import {
   MAX_ITEMS_PER_SESSION,
@@ -255,6 +256,9 @@ export async function commitWordChatSession(input: {
   if (items.length === 0) throw new WordChatCommitError("There is nothing to save.");
 
   const categoryName = request.categoryName?.trim().slice(0, 60) || "My words";
+  // The category is editable and may contain a name; only the dedicated,
+  // privacy-constrained label is safe to feed into the cross-session brief.
+  const topicLabel = firstMeaningfulTopicLabel(request.topicLabel?.trim().slice(0, 60));
   const reviewLabel = request.reviewLabel?.trim().slice(0, 60) || null;
   const listName =
     request.listName?.trim().replace(/\s+/g, " ").slice(0, 80) ||
@@ -271,7 +275,7 @@ export async function commitWordChatSession(input: {
     sessionId: request.sessionId,
     previousBrief,
     messages: request.messages ?? [],
-    committedTopic: categoryName,
+    committedTopic: topicLabel,
     chatLanguage,
   });
 

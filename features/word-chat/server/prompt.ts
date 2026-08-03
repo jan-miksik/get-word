@@ -332,7 +332,8 @@ ${contentModeRules}
 - Prefer the ordinary, canonical way to express the level-appropriate meaning over clever, literary, or unusual phrasing.
 - Never propose anything in the exclusion list, and never propose two items with the same meaning.
 - "confidence" is your estimate of how useful the item is for THIS learner, between 0 and 1.
-- "categoryName" is a short label (2-4 words) in ${known} for what this set is about.
+- "categoryName" is a short, specific label (2-4 words) in ${known} for what this conversation's set is about. Name the actual situation or subject, e.g. "Doctor appointment" or "Ordering at a café". Never use a container/fallback name such as "My words", "My vocabulary", "General vocabulary", or a translation of those phrases.
+- "topicLabel" describes the same specific topic in ${languageName(input.chatLanguage, input.chatLanguage)}. It is shown in a future follow-up chip, so it must make sense after "More on …" and must never be a list/container name. Keep it privacy-safe: omit names, employers, addresses, diagnoses, and other identifying details.
 - "reviewLabel" is a NEUTRAL English topic label for an internal reviewer, e.g. "Doctor appointment" or "Salon small talk". It must contain no names, employers, addresses, health details, or anything identifying. It is not the learner's category name.
 - Learner level: ${levelDescription(input.languageLevel)}
 - ${guidance}
@@ -342,6 +343,7 @@ ${contentModeRules}
 Return only valid JSON, no markdown:
 {
   "categoryName": "...",
+  "topicLabel": "...",
   "reviewLabel": "...",
   "items": [
     { "kind": "sentence", "role": "sentence", "text": "...", "confidence": 0.9 },
@@ -382,7 +384,8 @@ Rules:
 - Every entry is a short topical label under 80 characters. At most 12 entries per array.
 - Write every visible topical label in ${visibleLanguage}. These labels are shown back to the learner as chips in the next session. Translate or rewrite older profile entries into ${visibleLanguage} instead of keeping English.
 - NEVER include names, addresses, employers, contact details, health details, or anything that identifies a person. Write "partner's family", not "Anna's parents". Write "medical appointments", not a diagnosis.
-- "coveredTopics" must include the topic just committed.
+- "coveredTopics" must include the actual subject of the conversation just completed.
+- Never put list or category fallback names such as "My words", "My vocabulary", "General vocabulary", or translations of those phrases into any profile field. Infer the concrete privacy-safe topic from the conversation instead.
 - "missingTopics" holds things the learner said they want but has not studied yet. Omit it when empty.
 - "preferredRegister" is "formal", "neutral" or "casual", only when the learner actually expressed a preference.
 
@@ -406,6 +409,6 @@ Return only valid JSON, no markdown:
 
   return {
     system,
-    user: `${previous}\n\nJust committed topic: ${input.committedTopic}\n\nThis session's conversation:\n${conversation}`,
+    user: `${previous}\n\nProposed topic label for the session: ${input.committedTopic || 'none; infer it from the conversation'}\n\nThis session's conversation:\n${conversation}`,
   };
 }

@@ -49,6 +49,11 @@ type Props = {
   salutationGenderApplies: boolean;
   onPreferencesChange: (patch: WordChatPreferencePatch) => void | Promise<void>;
   onLanguagePairChange: (pair: { from: string; to: string }) => void | Promise<void>;
+  /** Editable destination names, shared with the manual-entry settings. */
+  listName?: string;
+  categoryName?: string;
+  onListNameChange?: (value: string) => void;
+  onCategoryNameChange?: (value: string) => void;
   /**
    * The already-saved personal list, when there is one. Passed straight through
    * to the settings controls, which put a share button beside the gear — the
@@ -88,6 +93,10 @@ export function ChatStep({
   salutationGenderApplies,
   onPreferencesChange,
   onLanguagePairChange,
+  listName,
+  categoryName,
+  onListNameChange,
+  onCategoryNameChange,
   shareList,
   onShareListUpdated,
   settingsPlacement = 'inline',
@@ -263,6 +272,10 @@ export function ChatStep({
     <WordChatSettingsControls
       languageFrom={languageFrom}
       languageTo={languageTo}
+      listName={listName}
+      categoryName={categoryName}
+      onListNameChange={onListNameChange}
+      onCategoryNameChange={onCategoryNameChange}
       shareList={shareList}
       onShareListUpdated={onShareListUpdated}
       addressRegister={addressRegister}

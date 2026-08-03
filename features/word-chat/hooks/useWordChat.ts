@@ -272,9 +272,17 @@ export function useWordChat({
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
   const [customItems, setCustomItems] = useState<{ kind: 'sentence' | 'word'; text: string }[]>([]);
   const [listName, setListName] = useState(() => personalListName(languageFrom, languageTo));
-  const [categoryName, setCategoryName] = useState(() =>
+  const [categoryName, setCategoryNameState] = useState(() =>
     entryStep === 'manual' ? t('wordChat.manualCategoryName') : '',
   );
+  const categoryNameEditedRef = useRef(false);
+  const setCategoryName = useCallback((value: string) => {
+    categoryNameEditedRef.current = true;
+    setCategoryNameState(value);
+  }, []);
+  // Separate from the editable category: this stays a concrete description of
+  // the conversation even if the learner later renames the category.
+  const [topicLabel, setTopicLabel] = useState('');
   const [reviewLabel, setReviewLabel] = useState(() =>
     entryStep === 'manual' ? MANUAL_REVIEW_LABEL : '',
   );
@@ -388,7 +396,9 @@ export function useWordChat({
     setSelectedKeys(draft.selectedKeys);
     setCustomItems(draft.customItems);
     setListName(draft.listName || personalListName(languageFrom, languageTo));
-    setCategoryName(draft.categoryName);
+    setCategoryNameState(draft.categoryName);
+    categoryNameEditedRef.current = draft.categoryNameEdited === true;
+    setTopicLabel(draft.topicLabel ?? '');
     setReviewLabel(draft.reviewLabel);
     setManualEntry(draft.reviewLabel === MANUAL_REVIEW_LABEL);
     setReviewItems(draft.reviewItems);
@@ -411,6 +421,8 @@ export function useWordChat({
       languageLevel: currentLanguageLevel,
       listName,
       categoryName,
+      categoryNameEdited: categoryNameEditedRef.current,
+      topicLabel,
       reviewLabel,
       proposals,
       selectedKeys,
@@ -430,6 +442,7 @@ export function useWordChat({
     currentLanguageLevel,
     listName,
     categoryName,
+    topicLabel,
     reviewLabel,
     proposals,
     selectedKeys,
@@ -470,6 +483,8 @@ export function useWordChat({
         languageLevel: currentLanguageLevel,
         listName,
         categoryName,
+        categoryNameEdited: categoryNameEditedRef.current,
+        topicLabel,
         reviewLabel,
         proposals,
         selectedKeys,
@@ -510,6 +525,8 @@ export function useWordChat({
         languageLevel: currentLanguageLevel,
         listName: personalListName(pair.from, pair.to),
         categoryName,
+        categoryNameEdited: categoryNameEditedRef.current,
+        topicLabel,
         reviewLabel,
         proposals: migratedProposals,
         selectedKeys: migratedSelectedKeys,
@@ -522,6 +539,7 @@ export function useWordChat({
     [
       addressRegister,
       categoryName,
+      topicLabel,
       creationKey,
       currentLanguageLevel,
       customItems,
@@ -757,7 +775,10 @@ export function useWordChat({
       // Suggestions start neutral. The learner can select individual items or
       // use the explicit select-all action without the UI deciding for them.
       setSelectedKeys([]);
-      setCategoryName(response.category_name);
+      // A name explicitly entered in settings wins. Blank and legacy generic
+      // fallbacks are replaced by the concrete title generated from this chat.
+      if (!categoryNameEditedRef.current) setCategoryNameState(response.category_name);
+      setTopicLabel(response.topic_label);
       setReviewLabel(response.review_label);
       setAskVisibility(response.ask_visibility);
       setLimits({
@@ -1004,13 +1025,12 @@ export function useWordChat({
     retryTargetRef.current = null;
     setProposals([]);
     setSelectedKeys([]);
-    setCategoryName((current) =>
-      current.trim() ? current : t('wordChat.manualCategoryName'),
-    );
+    if (!categoryName.trim()) setCategoryNameState(t('wordChat.manualCategoryName'));
     setReviewLabel(MANUAL_REVIEW_LABEL);
+    setTopicLabel('');
     setManualEntry(true);
     setStep('select');
-  }, [t]);
+  }, [categoryName, t]);
 
   /**
    * Translate everything, then voice it, then show Review. One step from the
@@ -1261,6 +1281,7 @@ export function useWordChat({
         baseListId: baseListId ?? undefined,
         listName,
         categoryName,
+        topicLabel,
         reviewLabel,
         isPublic: isPublic === true,
         items: reviewItems,
@@ -1309,6 +1330,7 @@ export function useWordChat({
     busy,
     baseListId,
     categoryName,
+    topicLabel,
     chatLanguage,
     creationKey,
     handleError,
@@ -1401,7 +1423,9 @@ export function useWordChat({
     // Who the next batch is for is a fresh question, not a carried-over answer.
     setTranslationRegister(null);
     setListName(personalListName(languageFrom, languageTo));
-    setCategoryName(entryStep === 'manual' ? t('wordChat.manualCategoryName') : '');
+    categoryNameEditedRef.current = false;
+    setCategoryNameState(entryStep === 'manual' ? t('wordChat.manualCategoryName') : '');
+    setTopicLabel('');
     setReviewLabel(entryStep === 'manual' ? MANUAL_REVIEW_LABEL : '');
     setAskVisibility(false);
     setIsPublic(false);
@@ -1472,6 +1496,7 @@ export function useWordChat({
     setListName,
     categoryName,
     setCategoryName,
+    topicLabel,
     askVisibility,
     isPublic,
     setIsPublic,

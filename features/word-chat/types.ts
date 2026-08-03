@@ -89,6 +89,8 @@ export type ProposedItem = ProposedItemBase &
 export type ProposalResult = {
   /** AI-suggested, learner-editable. */
   categoryName: string;
+  /** Specific conversation topic in the interface language, used for follow-up chips. */
+  topicLabel: string;
   /**
    * Neutral topic label for the editor review queue. Generated separately from
    * `categoryName` because the learner may rename their category to something
@@ -155,6 +157,8 @@ export type CommitRequest = {
   /** Optional custom name for the learner's personal word-chat list. */
   listName?: string;
   categoryName: string;
+  /** Conversation topic kept separate from an editable/category fallback name. */
+  topicLabel?: string;
   reviewLabel?: string;
   /** Only asked on the first session; ignored once the personal list exists. */
   isPublic?: boolean;
