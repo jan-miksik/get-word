@@ -305,6 +305,30 @@ describe('TopMenu', () => {
     expect(screen.queryByRole('menuitem', { name: /School overview/i })).toBeNull();
   });
 
+  it('opens the native-safe new-list flow with the active language pair', () => {
+    render(
+      <TopMenu
+        showAll={false}
+        onShowAll={vi.fn()}
+        onMenuAction={vi.fn()}
+        categoryCount={0}
+        categoryActive={false}
+        lists={[{ id: 'list-1', name: 'My list' }]}
+        activeListId="list-1"
+        onListChange={vi.fn()}
+        activeListLanguagePair={{ from: 'cs', to: 'vi' }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /open menu/i }));
+    fireEvent.click(screen.getByRole('menuitem', { name: /select word list/i }));
+
+    expect(screen.getByRole('link', { name: /add new word list/i })).toHaveAttribute(
+      'href',
+      '/lists?create=1&languageFrom=cs&languageTo=vi',
+    );
+  });
+
   it('shows nothing school-related for an account with no membership', () => {
     render(
       <TopMenu

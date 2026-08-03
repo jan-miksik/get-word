@@ -261,6 +261,15 @@ interface ListSelectModalProps {
 
 type SuggestedList = { id: string; name: string; itemCount?: number };
 
+function createListHref(languagePair?: { from: string; to: string } | null): string {
+  const params = new URLSearchParams({ create: '1' });
+  if (languagePair) {
+    params.set('languageFrom', languagePair.from);
+    params.set('languageTo', languagePair.to);
+  }
+  return `/lists?${params.toString()}`;
+}
+
 function ListSelectModal({
   lists,
   activeListId,
@@ -406,19 +415,14 @@ function ListSelectModal({
           )}
         </div>
         <div className="list-select-footer">
-          <button
-            type="button"
+          <Link
+            href={createListHref(languagePair)}
             className="list-select-add"
-            onClick={() => {
-              // Reuse the language-onboarding screen as the "create a new list"
-              // entry point: it picks the known/learning languages and then
-              // routes into list selection/creation for that pair.
-              window.location.assign('/?onboarding=1');
-            }}
+            onClick={onClose}
           >
             <span className="list-select-add-icon" aria-hidden="true">+</span>
             {t('lists.addNewWordList')}
-          </button>
+          </Link>
         </div>
       </div>
     </div>
