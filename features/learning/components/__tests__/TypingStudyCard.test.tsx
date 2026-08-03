@@ -188,68 +188,15 @@ describe('TypingStudyCard', () => {
       .not.toHaveClass('max-md:invisible');
   });
 
-  it('centers the input between the top of the study area and the iOS keyboard', async () => {
+  // `useVisualViewportHeight` already sizes the shell to the area the keyboard
+  // leaves, so the card must not subtract the keyboard a second time. Measured
+  // on a 375x812 viewport with a 336px keyboard, the padding this card used to
+  // add put the answer input at y=-26, cut off above the top of the screen.
+  it('leaves the keyboard inset to the app shell', async () => {
     stubMobileLayout(true);
     vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue('iPhone');
     const visualViewport = Object.assign(new EventTarget(), {
       height: 800,
-      offsetTop: 0,
-    });
-    vi.stubGlobal('visualViewport', visualViewport);
-    vi.stubGlobal('innerHeight', 800);
-
-    render(
-      <main className="learning-card-main">
-        <TypingStudyCard
-          word={WORD}
-          progress={PROGRESS}
-          role="knownLanguage"
-          writeIn="foreign"
-          audioPromptEnabled={false}
-          prefillPunctuation
-          modeIndex={0}
-          onOutcome={vi.fn()}
-        />
-      </main>,
-    );
-
-    const main = document.querySelector('.learning-card-main') as HTMLElement;
-    const scrollIntoView = vi.fn();
-    input().scrollIntoView = scrollIntoView;
-    // jsdom has no layout, so scrollTop cannot be observed by reading it back.
-    const setScrollTop = vi.fn();
-    Object.defineProperty(main, 'scrollTop', {
-      configurable: true,
-      get: () => 120,
-      set: setScrollTop,
-    });
-
-    fireEvent.focus(input());
-    visualViewport.height = 500;
-    visualViewport.dispatchEvent(new Event('resize'));
-
-    await waitFor(() => expect(main.style.paddingBottom).toBe('364px'));
-    expect(main.style.scrollPaddingBottom).toBe('364px');
-    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(1));
-    expect(scrollIntoView).toHaveBeenCalledWith({
-      behavior: 'auto',
-      block: 'center',
-      inline: 'nearest',
-    });
-
-    fireEvent.blur(input());
-    expect(main.style.paddingBottom).toBe('');
-    expect(main.style.scrollPaddingBottom).toBe('');
-    // Checking an answer blurs the input; forcing the scroller back to 0 there
-    // threw the view to the top of the card.
-    expect(setScrollTop).not.toHaveBeenCalled();
-  });
-
-  it('keeps the keyboard inset for the memory-hook field and centers it', async () => {
-    stubMobileLayout(true);
-    vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue('iPhone');
-    const visualViewport = Object.assign(new EventTarget(), {
-      height: 500,
       offsetTop: 0,
     });
     vi.stubGlobal('visualViewport', visualViewport);
@@ -273,15 +220,32 @@ describe('TypingStudyCard', () => {
     );
 
     const main = document.querySelector('.learning-card-main') as HTMLElement;
+    // The memory hook adds a second textbox, so the answer field is taken by class.
+    const answerInput = document.querySelector('input.game-input') as HTMLInputElement;
     const hookInput = document.querySelector('.memory-hook-input') as HTMLInputElement;
     const scrollIntoView = vi.fn();
+    answerInput.scrollIntoView = scrollIntoView;
     hookInput.scrollIntoView = scrollIntoView;
+    // jsdom has no layout, so scrollTop cannot be observed by reading it back.
+    const setScrollTop = vi.fn();
+    Object.defineProperty(main, 'scrollTop', {
+      configurable: true,
+      get: () => 120,
+      set: setScrollTop,
+    });
 
+    fireEvent.focus(answerInput);
+    visualViewport.height = 500;
+    visualViewport.dispatchEvent(new Event('resize'));
+    fireEvent.blur(answerInput);
     fireEvent.focus(hookInput);
     visualViewport.dispatchEvent(new Event('resize'));
 
-    await waitFor(() => expect(main.style.paddingBottom).toBe('364px'));
-    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
+    await new Promise((resolve) => window.setTimeout(resolve, 600));
+    expect(main.style.paddingBottom).toBe('');
+    expect(main.style.scrollPaddingBottom).toBe('');
+    expect(scrollIntoView).not.toHaveBeenCalled();
+    expect(setScrollTop).not.toHaveBeenCalled();
   });
 
   it('lets Android resize the page without applying a second keyboard scroll', async () => {

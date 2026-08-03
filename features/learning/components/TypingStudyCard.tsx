@@ -70,16 +70,6 @@ const isMobileLayout = () =>
   typeof window !== 'undefined' &&
   window.matchMedia?.('(max-width: 767px)').matches === true;
 
-const isIOSBrowser = () => {
-  if (typeof navigator === 'undefined') return false;
-  return /iPad|iPhone|iPod/i.test(navigator.userAgent)
-    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-};
-
-// iOS does not consistently subtract the keyboard suggestion/accessory bar
-// from visualViewport.height. Reserve enough room for that bar explicitly.
-const MOBILE_KEYBOARD_ACCESSORY_RESERVE_PX = 64;
-
 // Case/accent-insensitive single-character compare for per-slot feedback.
 // Mirrors matchAnswer's strip (incl. đ→d) so slot colours match the verdict.
 const normalizeChar = (ch: string) =>
@@ -203,116 +193,14 @@ export function TypingStudyCard({
     if (shouldAutoFocus) inputRef.current?.focus({ preventScroll: true });
   }, [autoFocus, autoFocusOnMobile, word.id]);
 
-  // Which field the on-screen keyboard was opened for. Tracked at the card
-  // level rather than from the answer input's own focus state: the memory-hook
-  // field opens the same keyboard, and reacting only to the answer input left
-  // that one sitting underneath it.
-  const [keyboardField, setKeyboardField] = useState<HTMLElement | null>(null);
-
-  useEffect(() => {
-    const article = articleRef.current;
-    if (!article || !isMobileLayout()) return;
-
-    const fieldOrNull = (node: EventTarget | null) =>
-      (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement) &&
-      article.contains(node)
-        ? node
-        : null;
-
-    let settleTimerId = 0;
-    // focus/blur do not bubble, so both are captured on the card itself.
-    const handleFocus = (event: FocusEvent) => {
-      window.clearTimeout(settleTimerId);
-      setKeyboardField(fieldOrNull(event.target));
-    };
-    const handleBlur = (event: FocusEvent) => {
-      const next = fieldOrNull(event.relatedTarget);
-      setKeyboardField(next);
-      // Tapping the memory-hook row blurs with no relatedTarget and focuses its
-      // input a tick later. Re-read once so that reads as a field swap rather
-      // than the keyboard closing.
-      if (next) return;
-      window.clearTimeout(settleTimerId);
-      settleTimerId = window.setTimeout(
-        () => setKeyboardField(fieldOrNull(document.activeElement)),
-        0,
-      );
-    };
-
-    setKeyboardField(fieldOrNull(document.activeElement));
-    article.addEventListener('focus', handleFocus, true);
-    article.addEventListener('blur', handleBlur, true);
-    return () => {
-      window.clearTimeout(settleTimerId);
-      article.removeEventListener('focus', handleFocus, true);
-      article.removeEventListener('blur', handleBlur, true);
-    };
-  }, [word.id]);
-
-  useEffect(() => {
-    if (!keyboardField || !isMobileLayout() || !isIOSBrowser()) return;
-    const article = articleRef.current;
-    const input = keyboardField;
-    const scrollContainer = article?.closest<HTMLElement>('.learning-card-main');
-    if (!article || !scrollContainer) return;
-
-    const viewport = window.visualViewport;
-    const owner = `${word.id}-${Date.now()}`;
-    scrollContainer.dataset.typingKeyboardOwner = owner;
-    let settleTimerId = 0;
-
-    const alignTypingRegion = () => {
-      const layoutHeight = Math.max(
-        window.innerHeight,
-        document.documentElement.clientHeight,
-      );
-      const viewportTop = viewport?.offsetTop ?? 0;
-      const viewportHeight = viewport?.height ?? window.innerHeight;
-      const viewportBottom = viewportTop + viewportHeight;
-      const keyboardInset = Math.max(0, layoutHeight - viewportBottom);
-
-      // Shrink this scroll surface by exactly the keyboard overlap. The card
-      // can then reflow naturally instead of being translated as a whole. The
-      // extra reserve accounts for the iOS accessory bar above the keys.
-      scrollContainer.style.paddingBottom = `${Math.ceil(
-        keyboardInset + MOBILE_KEYBOARD_ACCESSORY_RESERVE_PX,
-      )}px`;
-      scrollContainer.style.scrollPaddingBottom = `${Math.ceil(
-        keyboardInset + MOBILE_KEYBOARD_ACCESSORY_RESERVE_PX,
-      )}px`;
-
-      // Apply the final layout and scroll before the browser paints. A smooth
-      // scroll here creates a second visible movement after the keyboard.
-      input.scrollIntoView({
-        behavior: 'auto',
-        block: 'center',
-        inline: 'nearest',
-      });
-    };
-
-    const scheduleAlignment = (delay = 120) => {
-      window.clearTimeout(settleTimerId);
-      settleTimerId = window.setTimeout(alignTypingRegion, delay);
-    };
-
-    const scheduleAfterResize = () => scheduleAlignment(120);
-    scheduleAlignment(450);
-    window.addEventListener('resize', scheduleAfterResize);
-    viewport?.addEventListener('resize', scheduleAfterResize);
-
-    return () => {
-      window.clearTimeout(settleTimerId);
-      window.removeEventListener('resize', scheduleAfterResize);
-      viewport?.removeEventListener('resize', scheduleAfterResize);
-      if (scrollContainer.dataset.typingKeyboardOwner !== owner) return;
-      delete scrollContainer.dataset.typingKeyboardOwner;
-      scrollContainer.style.removeProperty('padding-bottom');
-      scrollContainer.style.removeProperty('scroll-padding-bottom');
-      // Deliberately no scrollTop reset: dropping the padding already lets a
-      // card that now fits settle back to the top, while forcing 0 threw the
-      // view to the top of the card the moment an answer was checked.
-    };
-  }, [keyboardField, word.id]);
+  // No keyboard handling lives here on purpose. `useVisualViewportHeight`
+  // already sizes the whole shell to `visualViewport.height`, so the card is
+  // laid out inside the area the keyboard leaves and nothing needs scrolling.
+  // The padding + scrollIntoView this card used to add subtracted the keyboard
+  // a second time: measured on a 375x812 viewport with a 336px keyboard, it
+  // pushed the answer input to y=-26 (cut off above the top) and left the
+  // memory-hook field out of reach. Without it the input lands at 209, the hook
+  // at 353 and the actions at 408 — all clear of the keyboard at 476.
 
   useEffect(() => {
     return () => {
@@ -803,7 +691,7 @@ export function TypingStudyCard({
             <button
               ref={compactContinueRef}
               type="button"
-              className="typing-continue-enter srs-btn srs-btn--okay mx-auto !hidden w-full !max-w-md items-center justify-center rounded-xl border-2 !border-[#1E6FA8] !bg-[#1E6FA8] px-3 !text-[#F4EFE2] shadow-none hover:!border-[#17608f] hover:!bg-[#17608f] hover:!text-[#F4EFE2] focus-visible:!border-[#17608f] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#1E6FA8] md:absolute md:right-0 md:top-0 md:mx-0 md:!flex md:!h-[72px] md:!min-h-[72px] md:!w-64 md:!max-w-64 md:[@media(max-height:800px)]:!h-14 md:[@media(max-height:800px)]:!min-h-14"
+              className="typing-continue-enter srs-btn srs-btn--okay mx-auto !hidden w-full !max-w-md items-center justify-center rounded-xl border-2 !border-[#2A2218] !bg-[#2A2218] px-3 !text-[#F4EFE2] shadow-none hover:!border-[#3D3226] hover:!bg-[#3D3226] hover:!text-[#F4EFE2] focus-visible:!border-[#3D3226] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#2A2218] md:absolute md:right-0 md:top-0 md:mx-0 md:!flex md:!h-[72px] md:!min-h-[72px] md:!w-64 md:!max-w-64 md:[@media(max-height:800px)]:!h-14 md:[@media(max-height:800px)]:!min-h-14"
               onClick={handleContinue}
             >
               <span className="srs-btn-copy">
@@ -861,7 +749,7 @@ export function TypingStudyCard({
       {result && (
         <button
           type="button"
-          className="typing-mobile-continue-enter absolute inset-x-0 bottom-0 z-10 flex min-h-[60px] w-full items-center justify-center border-0 border-t-2 border-[#1E6FA8] bg-[#1E6FA8] px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] text-[#F4EFE2] shadow-[0_-6px_18px_rgba(0,0,0,0.18)] md:hidden"
+          className="typing-mobile-continue-enter absolute inset-x-0 bottom-0 z-10 flex min-h-[60px] w-full items-center justify-center border-0 border-t-2 border-[#2A2218] bg-[#2A2218] px-4 pt-3 pb-[max(env(safe-area-inset-bottom),0.75rem)] text-[#F4EFE2] shadow-[0_-6px_18px_rgba(0,0,0,0.18)] md:hidden"
           onClick={handleContinue}
         >
           <span className="srs-btn-copy gap-1">

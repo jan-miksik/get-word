@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import {
   limitMemoryHookLength,
@@ -29,29 +29,6 @@ export function TypingMemoryHook({
   const inputRef = useRef<HTMLInputElement>(null);
   const lastTapAtRef = useRef(0);
   const displayHook = memoryHook || (suggestedHook ? `💡 ${suggestedHook}` : null);
-
-  // This field sits at the bottom of the card, so the keyboard opens straight
-  // over it. In card mode TypingStudyCard already re-centres whichever field
-  // has focus; everywhere else (stream mode) the input has to ask for itself.
-  useEffect(() => {
-    if (!editing || typeof window === 'undefined') return;
-    const input = inputRef.current;
-    if (!input) return;
-    const cardScroller = input.closest<HTMLElement>('.learning-card-main');
-    if (cardScroller?.dataset.typingKeyboardOwner) return;
-
-    const scrollIntoCenter = () => {
-      input.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    };
-
-    const viewport = window.visualViewport;
-    if (viewport) {
-      viewport.addEventListener('resize', scrollIntoCenter);
-      return () => viewport.removeEventListener('resize', scrollIntoCenter);
-    }
-    const timer = window.setTimeout(scrollIntoCenter, 350);
-    return () => window.clearTimeout(timer);
-  }, [editing]);
 
   const startEditing = () => {
     if (!onChange) return;
