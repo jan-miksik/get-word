@@ -20,7 +20,7 @@ import {
   DEFAULT_AUDIO_USER_DAILY_LIMIT,
   DEFAULT_GLOBAL_DAILY_LIMIT,
   DEFAULT_USER_DAILY_LIMIT,
-  DEFAULT_USER_WEEKLY_LIMIT,
+  DEFAULT_USER_MONTHLY_LIMIT,
   PHOTO_LAB_AUDIO_RATE_BUCKET_PREFIX,
   PHOTO_LAB_RATE_BUCKET_PREFIX,
 } from "./config";
@@ -70,7 +70,7 @@ function normalizeLimitOverride(limitOverride: number | null | undefined): numbe
 }
 
 /**
- * Editors keep a daily allowance; regular users get a small weekly one.
+ * Editors keep a daily allowance; regular users get a small monthly one.
  * Separate bucket keys per period so a role change never mixes windows.
  */
 function userAnalysisBucket(userId: string, isEditor: boolean, limitOverride: number | null) {
@@ -87,22 +87,24 @@ function userAnalysisBucket(userId: string, isEditor: boolean, limitOverride: nu
       message: "Daily photo analysis limit reached for this account.",
     };
   }
+  // A distinct key from the former `:user-week:` bucket: switching the window
+  // must start a fresh count rather than inherit a partly spent week.
   return {
-    key: `${PHOTO_LAB_RATE_BUCKET_PREFIX}:user-week:${userId}`,
-    period: "week" as BucketPeriod,
+    key: `${PHOTO_LAB_RATE_BUCKET_PREFIX}:user-month:${userId}`,
+    period: "month" as BucketPeriod,
     limit:
       limitOverride ??
       parsePositiveIntEnv(
-        process.env.OPENROUTER_PHOTO_LAB_USER_WEEKLY_LIMIT,
-        DEFAULT_USER_WEEKLY_LIMIT,
+        process.env.OPENROUTER_PHOTO_LAB_USER_MONTHLY_LIMIT,
+        DEFAULT_USER_MONTHLY_LIMIT,
       ),
-    message: "Weekly photo analysis limit reached for this account.",
+    message: "Monthly photo analysis limit reached for this account.",
   };
 }
 
 /**
  * Ceiling on what an abuser can spend on the shared server key: free accounts
- * are cheap to create (a new device id is enough) and carry only a small weekly
+ * are cheap to create (a new device id is enough) and carry only a small monthly
  * allowance each. It is not a capacity limit for ordinary use, and school
  * members are exempt — they are identity-verified and metered monthly instead.
  */

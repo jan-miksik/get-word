@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { configureApiRuntime } from '@/features/shared/http/api-runtime';
 import { clearAudioAvailabilityCache, getPlayableAudioUrl } from '../audio-availability';
 import { playUserInitiatedAudio, resetAudioRepeatState } from '../audio-playback';
 import { clearPrefetchCache, prefetchAudio } from '../audio-prefetch';
@@ -85,6 +86,36 @@ describe('playUserInitiatedAudio', () => {
       '/speech/vi/missing.mp3',
       '/speech/vi/dog.mp3',
     ]);
+  });
+
+  it('points app-relative sources at the API host for the native client', async () => {
+    const attemptedSources: string[] = [];
+    vi.stubGlobal(
+      'Audio',
+      vi.fn().mockImplementation(function FakeAudio(this: {
+        src: string;
+        play: () => Promise<void>;
+        pause: () => void;
+      }, src: string) {
+        this.src = src;
+        this.play = () => {
+          attemptedSources.push(this.src);
+          return Promise.resolve();
+        };
+        this.pause = () => {};
+      }),
+    );
+
+    configureApiRuntime({ origin: 'https://getword.app' });
+    try {
+      const audioRef = { current: null };
+      // An <audio> src is resolved against the page, so the bundle's own
+      // capacitor:// origin would 404 on every clip served by the proxy.
+      await playUserInitiatedAudio(audioRef, '/api/audio/hash-1');
+      expect(attemptedSources).toEqual(['https://getword.app/api/audio/hash-1']);
+    } finally {
+      configureApiRuntime({ origin: '' });
+    }
   });
 
   it('starts playback with the gateway already verified by warmup', async () => {

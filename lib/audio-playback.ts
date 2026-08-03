@@ -1,5 +1,6 @@
 'use client';
 
+import { apiUrl } from '@/features/shared/http/api-runtime';
 import { getArweaveGatewayUrlCandidates } from '@/lib/arweave-gateways';
 import { getCachedPlayableAudioUrl } from '@/lib/audio-availability';
 import { hashFromAudioUrl } from '@/lib/audio-clip-cache';
@@ -110,7 +111,15 @@ function getPlaybackCandidates(audioSrc: string | string[] | null): string[] {
         ...gatewayCandidates,
       ],
     ),
+    // An `<audio>` src is resolved against the page, not through `apiFetch`, so
+    // an app-relative `/api/audio/[hash]` points at the native bundle's own
+    // origin and never loads. No-op on the web, where the API is same-origin.
+    toPlayableUrl,
   );
+}
+
+function toPlayableUrl(candidate: string): string {
+  return candidate.startsWith('/') ? apiUrl(candidate) : candidate;
 }
 
 /**

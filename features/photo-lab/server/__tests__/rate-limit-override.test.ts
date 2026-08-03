@@ -62,7 +62,7 @@ describe('photo lab per-account limit override', () => {
     });
   });
 
-  it('replaces the weekly allowance of a free account', async () => {
+  it('replaces the monthly allowance of a free account', async () => {
     mockGetActiveSchoolEntitlement.mockResolvedValue(null);
 
     await reservePhotoLabRateLimit('user-1', false, 40);

@@ -7,6 +7,7 @@ import { clearLearningCache } from '@/lib/local-learning-cache'
 import { clearPendingSync, resetSyncIdentity } from '@/lib/sync'
 import { isSupabaseConfigured } from '@/features/auth/supabase/env'
 import { apiFetch } from '@/features/shared/http/api-runtime'
+import { runSignOutHandler } from './sign-out-runtime'
 
 type AuthStatus = 'connected' | 'disconnected' | 'connecting'
 
@@ -170,6 +171,18 @@ export function useAuth(): UseAuthReturn {
     deleteDeviceId()
     document.cookie = 'get_word_user_role=;path=/;max-age=0;SameSite=Lax'
     await withTimeout(clearLearningCache(), 2000, '[useAuth] clearLearningCache timed out')
+
+    // The native shell owns the last step: its session lives in the Keychain,
+    // and a reload would restore it. Only the web falls through to the reload.
+    try {
+      if (await runSignOutHandler()) return
+    } catch (error) {
+      console.error('[useAuth] Shell sign-out handler failed:', error)
+      return
+    } finally {
+      signingOut.current = false
+    }
+
     // Hard navigation: discards the entire authed React tree (and its in-memory
     // caches) in one step. A client-side `setMe` + `router.replace` would instead
     // flash the signed-out LandingPage — replaying its load animations — before

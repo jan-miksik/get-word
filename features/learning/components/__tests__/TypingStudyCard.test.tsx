@@ -216,6 +216,13 @@ describe('TypingStudyCard', () => {
     const main = document.querySelector('.learning-card-main') as HTMLElement;
     const scrollIntoView = vi.fn();
     input().scrollIntoView = scrollIntoView;
+    // jsdom has no layout, so scrollTop cannot be observed by reading it back.
+    const setScrollTop = vi.fn();
+    Object.defineProperty(main, 'scrollTop', {
+      configurable: true,
+      get: () => 120,
+      set: setScrollTop,
+    });
 
     fireEvent.focus(input());
     visualViewport.height = 500;
@@ -233,6 +240,48 @@ describe('TypingStudyCard', () => {
     fireEvent.blur(input());
     expect(main.style.paddingBottom).toBe('');
     expect(main.style.scrollPaddingBottom).toBe('');
+    // Checking an answer blurs the input; forcing the scroller back to 0 there
+    // threw the view to the top of the card.
+    expect(setScrollTop).not.toHaveBeenCalled();
+  });
+
+  it('keeps the keyboard inset for the memory-hook field and centers it', async () => {
+    stubMobileLayout(true);
+    vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue('iPhone');
+    const visualViewport = Object.assign(new EventTarget(), {
+      height: 500,
+      offsetTop: 0,
+    });
+    vi.stubGlobal('visualViewport', visualViewport);
+    vi.stubGlobal('innerHeight', 800);
+
+    render(
+      <main className="learning-card-main">
+        <TypingStudyCard
+          word={WORD}
+          progress={PROGRESS}
+          role="knownLanguage"
+          writeIn="foreign"
+          audioPromptEnabled={false}
+          prefillPunctuation
+          modeIndex={0}
+          onOutcome={vi.fn()}
+          showMemoryHook
+          onMemoryHookChange={vi.fn()}
+        />
+      </main>,
+    );
+
+    const main = document.querySelector('.learning-card-main') as HTMLElement;
+    const hookInput = document.querySelector('.memory-hook-input') as HTMLInputElement;
+    const scrollIntoView = vi.fn();
+    hookInput.scrollIntoView = scrollIntoView;
+
+    fireEvent.focus(hookInput);
+    visualViewport.dispatchEvent(new Event('resize'));
+
+    await waitFor(() => expect(main.style.paddingBottom).toBe('364px'));
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
   });
 
   it('lets Android resize the page without applying a second keyboard scroll', async () => {

@@ -2,6 +2,7 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { LoadingScreen } from '@/components/LoadingScreen';
+import { configureSignOutHandler } from '@/features/auth/client/sign-out-runtime';
 import { fetchMobileIdentity } from './api/auth';
 import { signInWithApple } from './auth/apple';
 import {
@@ -101,9 +102,23 @@ export function App() {
     };
   }, []);
 
-  // The shared app signs out by routing to `/login`, a page this bundle does
-  // not have. Treat arriving there as "the session is gone" and fall back to
-  // the native sign-in screen.
+  // Sign-out has to end here, not in a page reload: the shared web path clears
+  // a cookie, while this client's session is the Keychain token. Without this
+  // the reload would find that token and sign the account straight back in.
+  useEffect(() => {
+    configureSignOutHandler(async () => {
+      await clearAppSessionToken();
+      setSessionToken(null);
+      setAuthError(null);
+      setAuthState('signed-out');
+      navigate('/', 'replace');
+    });
+    return () => configureSignOutHandler(null);
+  }, []);
+
+  // The shared app also reaches the account page by routing to `/login`, which
+  // this bundle does not have. Treat arriving there as "the session is gone"
+  // and fall back to the native sign-in screen.
   useEffect(
     () =>
       subscribeToRoute(() => {

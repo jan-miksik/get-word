@@ -1,7 +1,7 @@
 'use client';
 
 import { getClip, putClip } from '@/lib/audio-clip-cache';
-import { apiFetch } from '@/features/shared/http/api-runtime';
+import { apiFetch, apiUrl } from '@/features/shared/http/api-runtime';
 
 /**
  * Shared content-hash audio playback cache.
@@ -144,7 +144,11 @@ export async function getLocalClipUrl(contentHash: string): Promise<string | nul
   }
 }
 
-/** Resolve the best source for components that can await before assigning src. */
+/**
+ * Resolve the best source for components that can await before assigning src.
+ * The proxy fallback is absolute: an `<audio>` src resolves against the page,
+ * which on the native client is its own bundle rather than the API host.
+ */
 export async function resolveClipUrl(contentHash: string): Promise<string> {
-  return (await getLocalClipUrl(contentHash)) ?? `/api/audio/${contentHash}`;
+  return (await getLocalClipUrl(contentHash)) ?? apiUrl(`/api/audio/${contentHash}`);
 }

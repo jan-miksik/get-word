@@ -203,12 +203,58 @@ export function TypingStudyCard({
     if (shouldAutoFocus) inputRef.current?.focus({ preventScroll: true });
   }, [autoFocus, autoFocusOnMobile, word.id]);
 
+  // Which field the on-screen keyboard was opened for. Tracked at the card
+  // level rather than from the answer input's own focus state: the memory-hook
+  // field opens the same keyboard, and reacting only to the answer input left
+  // that one sitting underneath it.
+  const [keyboardField, setKeyboardField] = useState<HTMLElement | null>(null);
+
   useEffect(() => {
-    if (!isFocused || result !== null || !isMobileLayout() || !isIOSBrowser()) return;
     const article = articleRef.current;
-    const input = inputRef.current;
+    if (!article || !isMobileLayout()) return;
+
+    const fieldOrNull = (node: EventTarget | null) =>
+      (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement) &&
+      article.contains(node)
+        ? node
+        : null;
+
+    let settleTimerId = 0;
+    // focus/blur do not bubble, so both are captured on the card itself.
+    const handleFocus = (event: FocusEvent) => {
+      window.clearTimeout(settleTimerId);
+      setKeyboardField(fieldOrNull(event.target));
+    };
+    const handleBlur = (event: FocusEvent) => {
+      const next = fieldOrNull(event.relatedTarget);
+      setKeyboardField(next);
+      // Tapping the memory-hook row blurs with no relatedTarget and focuses its
+      // input a tick later. Re-read once so that reads as a field swap rather
+      // than the keyboard closing.
+      if (next) return;
+      window.clearTimeout(settleTimerId);
+      settleTimerId = window.setTimeout(
+        () => setKeyboardField(fieldOrNull(document.activeElement)),
+        0,
+      );
+    };
+
+    setKeyboardField(fieldOrNull(document.activeElement));
+    article.addEventListener('focus', handleFocus, true);
+    article.addEventListener('blur', handleBlur, true);
+    return () => {
+      window.clearTimeout(settleTimerId);
+      article.removeEventListener('focus', handleFocus, true);
+      article.removeEventListener('blur', handleBlur, true);
+    };
+  }, [word.id]);
+
+  useEffect(() => {
+    if (!keyboardField || !isMobileLayout() || !isIOSBrowser()) return;
+    const article = articleRef.current;
+    const input = keyboardField;
     const scrollContainer = article?.closest<HTMLElement>('.learning-card-main');
-    if (!article || !input || !scrollContainer) return;
+    if (!article || !scrollContainer) return;
 
     const viewport = window.visualViewport;
     const owner = `${word.id}-${Date.now()}`;
@@ -262,9 +308,11 @@ export function TypingStudyCard({
       delete scrollContainer.dataset.typingKeyboardOwner;
       scrollContainer.style.removeProperty('padding-bottom');
       scrollContainer.style.removeProperty('scroll-padding-bottom');
-      scrollContainer.scrollTop = 0;
+      // Deliberately no scrollTop reset: dropping the padding already lets a
+      // card that now fits settle back to the top, while forcing 0 threw the
+      // view to the top of the card the moment an answer was checked.
     };
-  }, [isFocused, result, word.id]);
+  }, [keyboardField, word.id]);
 
   useEffect(() => {
     return () => {

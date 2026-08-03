@@ -12,12 +12,12 @@ export const MAX_LABELS = 25;
 export const PHOTO_LAB_MAX_TOKENS = 4000;
 
 export const PHOTO_LAB_RATE_BUCKET_PREFIX = "photo_lab_analyze";
-// Editors keep a daily allowance; regular users get a small weekly one.
+// Editors keep a daily allowance; regular users get a small monthly one.
 export const DEFAULT_USER_DAILY_LIMIT = 10;
-export const DEFAULT_USER_WEEKLY_LIMIT = 5;
+export const DEFAULT_USER_MONTHLY_LIMIT = 5;
 // Abuse ceiling for the free path only — school members are exempt (see
-// reservePhotoLabRateLimit). At roughly $0.015 per analysis this caps a runaway
-// day at about $15 on the shared server key.
+// reservePhotoLabRateLimit). At roughly $0.02 per analysis this caps a runaway
+// day at about $20 on the shared server key.
 export const DEFAULT_GLOBAL_DAILY_LIMIT = 1000;
 
 // Label TTS: counted per generated clip (cache hits are free), so the budget

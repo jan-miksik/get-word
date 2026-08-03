@@ -61,7 +61,7 @@ deck was left behind.
 ## Allowances
 
 `features/photo-lab/server/rate-limit.ts` picks one of three paths per account:
-editors get a daily bucket, free accounts a weekly one, and school members their
+editors get a daily bucket, free accounts a monthly one, and school members their
 plan's monthly quota in `school_feature_usage`. A free/editor account is also
 subject to a shared daily global bucket — an abuse ceiling on the server key,
 not a per-user allowance.
