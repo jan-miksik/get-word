@@ -43,6 +43,19 @@ export function isEditor(user: User): boolean {
   return user.userRole === "editor";
 }
 
+/**
+ * Whether a user may publish a list to everyone.
+ *
+ * App Store guideline 1.2 wants user-generated content filtered *before* it is
+ * published, not only reported after the fact. Until a moderation queue exists,
+ * publishing is an editor-only action: everyone else keeps their lists private
+ * and hands them out with the `/join/{token}` link, which is a capability rather
+ * than public content.
+ */
+export function canPublishPublicList(user: User): boolean {
+  return isEditor(user);
+}
+
 export function unauthorizedResponse(message = "Authentication required") {
   return NextResponse.json({ error: message }, { status: 401 });
 }

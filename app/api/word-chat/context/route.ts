@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
-import { resolveUserFromRequest, unauthorizedResponse } from "@/lib/auth";
+import {
+  canPublishPublicList,
+  resolveUserFromRequest,
+  unauthorizedResponse,
+} from "@/lib/auth";
 import { db } from "@/lib/db/client";
 import { users } from "@/lib/db/schema";
 import {
@@ -103,6 +107,10 @@ export async function GET(request: NextRequest) {
       },
       monthly_used: usage.used,
       monthly_limit: usage.limit,
+      // Whether the visibility question is worth asking at all. Separate from
+      // `is_editor` below, which is loosened in development for the debug panel
+      // and must never decide what can be published.
+      can_publish_public_lists: canPublishPublicList(user),
       // Everything below drives the debug panel.
       is_editor: canDebug,
       models: canDebug

@@ -41,6 +41,51 @@ target iOS 15.
 
 ---
 
+## Public 1.0 gate — 2026-08-03
+
+Build 5 was a TestFlight build. Two things had to change in code before the same
+app can go in front of the public store, plus a set of console-only fields.
+
+Done in code (build 6):
+
+- **The "Beta" badge is gone** from the top bar. Guideline 2.2 keeps beta,
+  demo, and trial versions in TestFlight rather than the App Store, and the
+  badge said "beta" on every screen and in the iPad screenshots.
+- **Lists can no longer be published by their author.** Guideline 1.2 wants
+  user-generated content filtered *before* it is published, not only reported
+  afterwards. `canPublishPublicList()` in [`lib/auth.ts`](../lib/auth.ts) is the
+  single knob: publishing is editor-only, and every write path that could set
+  `is_public` honours it — list create, list update, the word-chat commit, and
+  the `promote-common` route (which now also refuses anything that was not
+  generated). Reporting and blocking are unchanged; the `/join/{token}` link
+  still shares a private list with named people, which is a capability rather
+  than published content.
+- **Build number is 6**, marketing version stays 1.0.
+- **Screenshots**: [`scripts/prepare-app-store-screenshots.ts`](../scripts/prepare-app-store-screenshots.ts)
+  strips the alpha channel every iOS capture carries and verifies the slot's
+  pixel dimensions. Captures live in `app-store-assets/<slot>/`, uploadables in
+  `app-store-assets/upload/<slot>/`. The current iPad captures still show the
+  Beta badge — recapture them from build 6 and re-run the script.
+
+Still to do by hand: the gate stops new publications, but anything a learner
+published before it went in is still public. Audit production once and unpublish
+or review what comes back:
+
+```sql
+select l.id, l.name, l.owner_id, u.email, l.created_at
+from word_lists l
+join users u on u.id = l.owner_id
+where l.is_public
+  and u.user_role <> 'editor'
+order by l.created_at desc;
+```
+
+Loosening the publish gate later means either an editor-approval queue or
+pre-publication filtering plus follow-up moderation; the constant is that
+nothing user-written reaches the public list library unreviewed.
+
+---
+
 ## Part A — your side
 
 ### A1. Reserve the name and create the app record — do this first

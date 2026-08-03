@@ -1108,6 +1108,8 @@ export const viMessages: I18nMessages = {
   "share.creatingLink": "Đang tạo liên kết…",
   "share.error": "Đã xảy ra lỗi. Vui lòng thử lại.",
   "share.makePublicCta": "Công khai danh sách này",
+  "share.publishReviewedNote":
+    "Danh sách công khai cho mọi người sẽ được duyệt trước. Hãy viết cho chúng tôi nếu bạn muốn công khai danh sách của mình — trong lúc chờ, hãy chia sẻ bằng đường liên kết.",
   "share.publicNotice": "Danh sách này công khai — ai cũng có thể tìm và học.",
   "share.resetTypeToConfirm": "Nhập \"reset\" để xác nhận",
   "share.newLinkReady": "Liên kết mới đã sẵn sàng — gửi cho học viên của bạn",

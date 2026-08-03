@@ -303,7 +303,12 @@ export function useWordChat({
   // there is no personal list yet. Unknown (the brief failed to load) means not
   // asking, and an unanswered list is saved private.
   const [manualEntry, setManualEntry] = useState(entryStep === 'manual');
-  const askVisibility = manualEntry ? hasPersonalList === false : proposedVisibilityAsk;
+  // Publishing is editor-only until lists are reviewed before they go public
+  // (see `canPublishPublicList`), so for everyone else the question has one
+  // possible answer and is not asked at all.
+  const [canPublishPublicLists, setCanPublishPublicLists] = useState(false);
+  const askVisibility =
+    canPublishPublicLists && (manualEntry ? hasPersonalList === false : proposedVisibilityAsk);
 
   const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
   const [commitResult, setCommitResult] = useState<CommitResult | null>(null);
@@ -646,6 +651,7 @@ export function useWordChat({
             current === defaultListName ? existingListName : current,
           );
         }
+        setCanPublishPublicLists(context.can_publish_public_lists === true);
         setIsEditor(context.is_editor === true);
         setModelSettings(
           context.models

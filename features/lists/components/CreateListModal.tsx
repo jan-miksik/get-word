@@ -208,6 +208,12 @@ type CreateListModalProps = {
     langTo: string,
     options: CreateListOptions,
   ) => Promise<void>;
+  /**
+   * Whether this account may publish a list to everyone. Publishing is reviewed
+   * (editor-only) until a moderation queue exists, so for everyone else the
+   * visibility choice is not offered — the server refuses a public create.
+   */
+  canPublish?: boolean;
 };
 
 export function CreateListModal({
@@ -217,6 +223,7 @@ export function CreateListModal({
   initialLangTo,
   onClose,
   onCreate,
+  canPublish = false,
 }: CreateListModalProps) {
   if (!isOpen) return null;
   return (
@@ -226,7 +233,47 @@ export function CreateListModal({
       initialLangTo={initialLangTo}
       onClose={onClose}
       onCreate={onCreate}
+      canPublish={canPublish}
     />
+  );
+}
+
+/** Private/public toggle, shown only to accounts allowed to publish. */
+function VisibilityChoice({
+  isPublic,
+  onChange,
+}: {
+  isPublic: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  const { t } = useI18n();
+  return (
+    <>
+      <div
+        role="radiogroup"
+        className="grid grid-cols-2 gap-1 rounded-lg border border-border-subtle bg-background p-1"
+      >
+        {[false, true].map((value) => (
+          <button
+            key={String(value)}
+            type="button"
+            role="radio"
+            aria-checked={isPublic === value}
+            className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+              isPublic === value
+                ? 'bg-accent text-background shadow-sm'
+                : 'text-text-soft hover:text-text'
+            }`}
+            onClick={() => onChange(value)}
+          >
+            {value ? t('share.visibilityPublic') : t('share.visibilityPrivate')}
+          </button>
+        ))}
+      </div>
+      <p className="mt-1.5 text-xs text-text-soft">
+        {isPublic ? t('lists.publicListHelp') : t('share.visibilityPrivateSub')}
+      </p>
+    </>
   );
 }
 
@@ -236,6 +283,7 @@ function CreateListModalContent({
   initialLangTo,
   onClose,
   onCreate,
+  canPublish = false,
 }: Omit<CreateListModalProps, 'isOpen'>) {
   const { t } = useI18n();
   const [name, setName] = useState('');
@@ -352,40 +400,16 @@ function CreateListModalContent({
             <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-text-soft">
               {t('share.manageTitle')}
             </span>
-            <div
-              role="radiogroup"
-              className="grid grid-cols-2 gap-1 rounded-lg border border-border-subtle bg-background p-1"
-            >
-              <button
-                type="button"
-                role="radio"
-                aria-checked={!isPublic}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                  !isPublic
-                    ? 'bg-accent text-background shadow-sm'
-                    : 'text-text-soft hover:text-text'
-                }`}
-                onClick={() => setIsPublic(false)}
-              >
-                {t('share.visibilityPrivate')}
-              </button>
-              <button
-                type="button"
-                role="radio"
-                aria-checked={isPublic}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                  isPublic
-                    ? 'bg-accent text-background shadow-sm'
-                    : 'text-text-soft hover:text-text'
-                }`}
-                onClick={() => setIsPublic(true)}
-              >
-                {t('share.visibilityPublic')}
-              </button>
-            </div>
-            <p className="mt-1.5 text-xs text-text-soft">
-              {isPublic ? t('lists.publicListHelp') : t('share.visibilityPrivateSub')}
-            </p>
+            {canPublish ? (
+              <VisibilityChoice isPublic={isPublic} onChange={setIsPublic} />
+            ) : (
+              <p className="flex items-start gap-1.5 rounded-lg border border-border-subtle bg-background px-3 py-2.5 text-xs text-text-soft">
+                <span aria-hidden>🔒</span>
+                <span>
+                  {t('share.visibilityPrivateSub')} {t('share.publishReviewedNote')}
+                </span>
+              </p>
+            )}
           </div>
         </div>
 

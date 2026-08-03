@@ -67,6 +67,7 @@ vi.mock('@/lib/db', () => ({
 vi.mock('@/lib/auth', () => ({
   resolveUserFromRequest: (...args: unknown[]) => mockResolveUserFromRequest(...args),
   isEditor: (user: { userRole?: string }) => user.userRole === 'editor',
+  canPublishPublicList: (user: { userRole?: string }) => user.userRole === 'editor',
   unauthorizedResponse: () => new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401, headers: { 'content-type': 'application/json' } }),
   forbiddenResponse: () => new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403, headers: { 'content-type': 'application/json' } }),
 }))
@@ -316,6 +317,41 @@ describe('POST /api/lists', () => {
     const res = await POST(req)
     expect(res.status).toBe(400)
   })
+
+  it('refuses to create a public list for a regular user', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    const req = new NextRequest('http://localhost:3000/api/lists', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'Public',
+        language_from: 'cz',
+        language_to: 'vi',
+        is_public: true,
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(403)
+    expect(mockCreateList).not.toHaveBeenCalled()
+  })
+
+  it('lets an editor create a public list', async () => {
+    mockResolveUserFromRequest.mockResolvedValue({ ...testUser, userRole: 'editor' })
+    mockCreateList.mockResolvedValue({ ...testList, isPublic: true })
+    const req = new NextRequest('http://localhost:3000/api/lists', {
+      method: 'POST',
+      body: JSON.stringify({
+        name: 'Public',
+        language_from: 'cz',
+        language_to: 'vi',
+        is_public: true,
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    expect(mockCreateList).toHaveBeenCalledWith(expect.objectContaining({ isPublic: true }))
+  })
 })
 
 describe('GET /api/lists/[id]', () => {
@@ -435,6 +471,46 @@ describe('PUT /api/lists/[id]', () => {
     const data = await res.json()
     expect(res.status).toBe(200)
     expect(data.list.name).toBe('Updated')
+  })
+
+  it('refuses to publish an owned list for a regular user', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetListById.mockResolvedValue({ ...testList, isPublic: false })
+    const req = new NextRequest('http://localhost:3000/api/lists/list-1', {
+      method: 'PUT',
+      body: JSON.stringify({ is_public: true }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await PUT(req, { params: Promise.resolve({ id: 'list-1' }) })
+    expect(res.status).toBe(403)
+    expect(mockUpdateList).not.toHaveBeenCalled()
+  })
+
+  it('still lets the owner of an already-public list edit its metadata', async () => {
+    mockResolveUserFromRequest.mockResolvedValue(testUser)
+    mockGetListById.mockResolvedValue({ ...testList, isPublic: true })
+    mockUpdateList.mockResolvedValue({ ...testList, isPublic: true, name: 'Updated' })
+    const req = new NextRequest('http://localhost:3000/api/lists/list-1', {
+      method: 'PUT',
+      body: JSON.stringify({ name: 'Updated', is_public: true }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await PUT(req, { params: Promise.resolve({ id: 'list-1' }) })
+    expect(res.status).toBe(200)
+  })
+
+  it('lets an editor publish a list', async () => {
+    mockResolveUserFromRequest.mockResolvedValue({ ...testUser, userRole: 'editor' })
+    mockGetListById.mockResolvedValue({ ...testList, isPublic: false })
+    mockUpdateList.mockResolvedValue({ ...testList, isPublic: true })
+    const req = new NextRequest('http://localhost:3000/api/lists/list-1', {
+      method: 'PUT',
+      body: JSON.stringify({ is_public: true }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+    const res = await PUT(req, { params: Promise.resolve({ id: 'list-1' }) })
+    expect(res.status).toBe(200)
+    expect(mockUpdateList).toHaveBeenCalledWith('list-1', expect.objectContaining({ isPublic: true }))
   })
 
   it('passes language changes through metadata update so item sides can be cleared', async () => {

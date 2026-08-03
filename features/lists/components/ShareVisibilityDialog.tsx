@@ -110,6 +110,10 @@ function ShareVisibilityDialogContent({
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [isPublic, setIsPublic] = useState(list.isPublic);
+  // Answered by the share endpoint. Publishing is reviewed (editor-only) until
+  // a moderation queue exists, so for everyone else the make-public action is
+  // not offered — the server would refuse it anyway.
+  const [canPublish, setCanPublish] = useState(false);
   const [resetDone, setResetDone] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -123,8 +127,9 @@ function ShareVisibilityDialogContent({
           setError(true);
           return;
         }
-        const data = (await res.json()) as { url: string };
+        const data = (await res.json()) as { url: string; canPublish?: boolean };
         setUrl(data.url);
+        setCanPublish(data.canPublish === true);
       })
       .catch(() => {
         if (!cancelled) setError(true);
@@ -297,7 +302,7 @@ function ShareVisibilityDialogContent({
                 they aren't front-and-center. */}
             {canManage && (
               <div className="mt-4 space-y-3 border-t border-border-subtle pt-4">
-                {!isPublic && (
+                {!isPublic && canPublish && (
                   <div className="rounded-lg border border-border-subtle bg-background-elevated p-3">
                     <HoldButton
                       variant="neutral"
@@ -310,6 +315,15 @@ function ShareVisibilityDialogContent({
                     </HoldButton>
                     <p className="mt-1.5 text-center text-[0.65rem] text-text-soft/70">{t('share.holdHint')}</p>
                   </div>
+                )}
+
+                {/* Nobody is left wondering where the button went: the review
+                    rule is stated where the action used to be. */}
+                {!isPublic && !canPublish && (
+                  <p className="flex items-start gap-1.5 rounded-lg bg-background-elevated px-3 py-2.5 text-xs text-text-soft">
+                    <span aria-hidden>📝</span>
+                    <span>{t('share.publishReviewedNote')}</span>
+                  </p>
                 )}
 
                 {hasAdvanced && (

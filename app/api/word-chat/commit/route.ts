@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolveUserFromRequest, unauthorizedResponse } from "@/lib/auth";
+import {
+  canPublishPublicList,
+  resolveUserFromRequest,
+  unauthorizedResponse,
+} from "@/lib/auth";
 import { commitWordChatSession } from "@/features/word-chat/server/commit";
 import { sanitizeMessages } from "@/features/word-chat/server/chat";
 import { canSeeWordChatDiagnostics } from "@/features/word-chat/server/config";
@@ -98,7 +102,10 @@ export async function POST(request: NextRequest) {
         categoryName: typeof body.category_name === "string" ? body.category_name : "",
         topicLabel: typeof body.topic_label === "string" ? body.topic_label : undefined,
         reviewLabel: typeof body.review_label === "string" ? body.review_label : undefined,
-        isPublic: body.is_public === true,
+        // Same publish gate as the list routes: a chat-created list can only be
+        // born public for someone allowed to publish. Coerced rather than
+        // refused — the words are already written and worth saving privately.
+        isPublic: body.is_public === true && canPublishPublicList(user),
         reviewOptIn: body.review_opt_in !== false,
         items,
         // Used once, to regenerate the structured brief. Never stored.

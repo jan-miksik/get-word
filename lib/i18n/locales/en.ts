@@ -1106,6 +1106,8 @@ export const enMessages = {
   "share.creatingLink": "Creating link…",
   "share.error": "Something went wrong. Please try again.",
   "share.makePublicCta": "Make this list publicly available",
+  "share.publishReviewedNote":
+    "Lists published to everyone are reviewed first. Write to us if you would like yours published — until then, share it with its link.",
   "share.publicNotice": "This list is public — anyone can find and study it.",
   "share.resetTypeToConfirm": "Type \"reset\" to confirm",
   "share.newLinkReady": "New link ready — send it to your students",

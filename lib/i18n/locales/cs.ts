@@ -1108,6 +1108,8 @@ export const csMessages: I18nMessages = {
   "share.creatingLink": "Vytvářím odkaz…",
   "share.error": "Něco se pokazilo. Zkus to prosím znovu.",
   "share.makePublicCta": "Zpřístupnit tento seznam veřejně",
+  "share.publishReviewedNote":
+    "Seznamy zveřejněné pro všechny nejdřív procházejí kontrolou. Napiš nám, pokud chceš ten svůj zveřejnit — do té doby ho sdílej odkazem.",
   "share.publicNotice": "Tento seznam je veřejný — kdokoli ho může najít a učit se z něj.",
   "share.resetTypeToConfirm": "Pro potvrzení napiš „reset“",
   "share.newLinkReady": "Nový odkaz je připraven — pošli ho studentům",

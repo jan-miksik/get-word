@@ -206,7 +206,40 @@ describe('useWordChat', () => {
     expect(result.current.topicLabel).toBe('Restaurace');
   });
 
+  it('never asks about visibility when the account cannot publish', async () => {
+    // Publishing is editor-only until lists are reviewed before going public,
+    // so the question has one possible answer and is not asked at all.
+    const { result } = renderHook(
+      () =>
+        useWordChat({
+          languageFrom: 'cs',
+          languageTo: 'vi',
+          entryStep: 'manual',
+          onCommitted: vi.fn(),
+        }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+    expect(result.current.askVisibility).toBe(false);
+  });
+
   it('asks about visibility from manual entry only when there is no personal list yet', async () => {
+    mocks.fetchWordChatContext.mockResolvedValue({
+      has_history: false,
+      goals: [],
+      covered_topics: [],
+      missing_topics: [],
+      personal_list_name: null,
+      address_register: 'casual',
+      salutation_gender: 'neutral',
+      language_level: 'A0',
+      preferences_complete: { global: true, language: true },
+      monthly_used: 0,
+      monthly_limit: 60,
+      can_publish_public_lists: true,
+      is_editor: false,
+      models: null,
+    });
     const first = renderHook(
       () =>
         useWordChat({
@@ -236,6 +269,7 @@ describe('useWordChat', () => {
       preferences_complete: { global: true, language: true },
       monthly_used: 0,
       monthly_limit: 60,
+      can_publish_public_lists: true,
       is_editor: false,
       models: null,
     });

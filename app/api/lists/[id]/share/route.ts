@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getListById, getOrCreateListShareToken } from "@/lib/db";
 import {
+  canPublishPublicList,
   resolveUserFromRequest,
   unauthorizedResponse,
   forbiddenResponse,
@@ -53,5 +54,8 @@ export async function POST(request: NextRequest, context: RouteContext) {
     token,
     url: buildShareUrl(request, token),
     isPublic: list.isPublic,
+    // Lets the share dialog hide the make-public action for callers the PUT
+    // route would refuse, instead of offering a button that always fails.
+    canPublish: canPublishPublicList(user),
   });
 }

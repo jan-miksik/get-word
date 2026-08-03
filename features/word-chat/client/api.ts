@@ -122,6 +122,7 @@ export type WordChatContextResponse = {
   };
   monthly_used: number;
   monthly_limit: number;
+  can_publish_public_lists: boolean;
   is_editor: boolean;
   models: {
     defaults: { chat: string; proposal: string; translation: string };

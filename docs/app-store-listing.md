@@ -30,7 +30,7 @@ this file for comparison.
 | Secondary category | Reference |
 | Primary language | English (U.S.) |
 | Localizations | English (U.S.), Czech |
-| Copyright | © 2026 Jan Mikšík |
+| Copyright | `2026 Jan Mikšík` (type it without the ©; App Store Connect adds the symbol) |
 | Support URL | https://getword.app/support |
 | Marketing URL | https://getword.app/ |
 | Privacy Policy URL | https://getword.app/privacy |
@@ -254,10 +254,15 @@ Photo Lab: tap the camera icon in the top bar. A chosen photo is sent to an AI
 provider to generate object labels, translations, and audio. Photos are stored
 only on the device, not on our servers.
 
-Public-list moderation: Menu → "Word Lists Editor". On iPhone, open the left
-sidebar, scroll to "Public lists", and select a list you do not own. After its
-detail opens, use the three-dot menu beside the detail heading—not the menu on
-the list row—to find "Report content" and "Block author".
+Public-list moderation: lists a user creates are private. They can be handed to
+named people with a share link, but they cannot be published to the public list
+library — publishing is reserved for reviewed, editor-owned lists, so no
+unreviewed user content is publicly visible. On top of that, every public list
+can be reported and its author blocked: Menu → "Word Lists Editor". On iPhone,
+open the left sidebar, scroll to "Public lists", and select a list you do not
+own. After its detail opens, use the three-dot menu beside the detail heading—not
+the menu on the list row—to find "Report content" and "Block author". Support
+contact: https://getword.app/support.
 
 Account deletion: Menu → Settings → Account → Delete account.
 ```

@@ -6,6 +6,8 @@ import {
   createList,
 } from "@/lib/db";
 import {
+  canPublishPublicList,
+  forbiddenResponse,
   isEditor,
   resolveUserFromRequest,
   unauthorizedResponse,
@@ -48,6 +50,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(
       { error: "name, language_from, and language_to are required" },
       { status: 400 }
+    );
+  }
+
+  // Publishing is gated (see `canPublishPublicList`): a list that asks to be
+  // born public is refused outright rather than quietly created private, so the
+  // client never shows a list as public when the server disagrees.
+  if (is_public === true && !canPublishPublicList(user)) {
+    return forbiddenResponse(
+      "Public lists are reviewed before publishing. Create the list privately and share it with its link.",
     );
   }
 

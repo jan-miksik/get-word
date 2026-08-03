@@ -6,6 +6,7 @@ const mockGetOrCreateListShareToken = vi.fn()
 const mockResetListShareTokenAndDeleteSubscriptions = vi.fn()
 const mockResolveUserFromRequest = vi.fn()
 const mockIsEditor = vi.fn()
+const mockCanPublishPublicList = vi.fn()
 
 vi.mock('@/lib/db', () => ({
   getListById: (...args: unknown[]) => mockGetListById(...args),
@@ -17,6 +18,7 @@ vi.mock('@/lib/db', () => ({
 vi.mock('@/lib/auth', () => ({
   resolveUserFromRequest: (...args: unknown[]) => mockResolveUserFromRequest(...args),
   isEditor: (...args: unknown[]) => mockIsEditor(...args),
+  canPublishPublicList: (...args: unknown[]) => mockCanPublishPublicList(...args),
   unauthorizedResponse: () =>
     new Response(JSON.stringify({ error: 'Authentication required' }), { status: 401 }),
   forbiddenResponse: (msg: string) =>
@@ -44,6 +46,7 @@ describe('POST /api/lists/[id]/share', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     mockIsEditor.mockReturnValue(false)
+    mockCanPublishPublicList.mockReturnValue(false)
   })
 
   it('401 without a user', async () => {

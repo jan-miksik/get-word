@@ -10,6 +10,7 @@ import {
   isBlockedBetweenUsers,
 } from "@/lib/db";
 import {
+  canPublishPublicList,
   resolveUserFromRequest,
   unauthorizedResponse,
   forbiddenResponse,
@@ -167,6 +168,14 @@ export async function PUT(request: NextRequest, context: RouteContext) {
   }
   if ((commonRequested || recommendedRequested) && !isEditor(user)) {
     return forbiddenResponse("Editor role required");
+  }
+  // Going public is a publishing act, so it needs the publish gate — but only
+  // when it actually changes visibility. An owner re-saving name/description on
+  // an already-public list keeps working.
+  if (body.is_public === true && !list.isPublic && !canPublishPublicList(user)) {
+    return forbiddenResponse(
+      "Public lists are reviewed before publishing. Keep this list private and share it with its link.",
+    );
   }
   if (body.is_public === true && list.moderationStatus && list.moderationStatus !== "visible" && !isEditor(user)) {
     return NextResponse.json(

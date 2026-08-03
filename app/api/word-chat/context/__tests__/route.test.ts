@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
 
 vi.mock("@/lib/auth", () => ({
   resolveUserFromRequest: mocks.resolveUserFromRequest,
+  canPublishPublicList: (user: { userRole?: string }) => user.userRole === "editor",
   unauthorizedResponse: () =>
     Response.json({ error: "Authentication required" }, { status: 401 }),
 }));

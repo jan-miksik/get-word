@@ -755,6 +755,7 @@ export function ListSidebar({
         initialLangTo={createWorkflow.languageTo}
         onClose={createWorkflow.close}
         onCreate={onCreateList}
+        canPublish={canManageCommonLists}
       />
 
       <ListFilterModal
