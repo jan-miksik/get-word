@@ -51,7 +51,7 @@ const baseProps = {
 };
 
 describe('LearningSettingsPanel', () => {
-  it('renders the learning-method sections in order with frontier features last', () => {
+  it('renders the learning-method sections in order with advanced features last', () => {
     render(<LearningSettingsPanel {...baseProps} />);
 
     const labels = [
@@ -60,7 +60,7 @@ describe('LearningSettingsPanel', () => {
       /^study notes$/i,
       /^how to reveal words$/i,
       /^quizzes$/i,
-      /^frontier features$/i,
+      /^advanced features$/i,
     ].map((pattern) => screen.getAllByText(pattern)[0]);
     labels.forEach((label) => expect(label).toBeInTheDocument());
     for (let i = 1; i < labels.length; i++) {
@@ -75,10 +75,10 @@ describe('LearningSettingsPanel', () => {
     expect(screen.queryByText(/mini-games/i)).not.toBeInTheDocument();
   });
 
-  it('visually separates the frontier features section', () => {
+  it('visually separates the advanced features section', () => {
     render(<LearningSettingsPanel {...baseProps} />);
-    const frontierWrap = screen.getByText(/^frontier features$/i).closest('.border-dashed');
-    expect(frontierWrap).not.toBeNull();
+    const advancedWrap = screen.getByText(/^advanced features$/i).closest('.border-dashed');
+    expect(advancedWrap).not.toBeNull();
   });
 
   it('does not render general app sections (kept in Settings)', () => {

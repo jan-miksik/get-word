@@ -194,7 +194,7 @@ export const enMessages = {
   "privacy.useNoSell": "We do not sell your personal information, and we do not use it for advertising.",
   "privacy.legalBasisTitle": "Legal bases",
   "privacy.legalBasisBody":
-    "Where GDPR applies, we process account, session, learning, and user-submitted content mainly to provide the app and sync service you request (performance of a contract), to keep the service secure and reliable (legitimate interests), to comply with legal obligations, and, where a feature asks for an optional choice such as connecting a provider or enabling an experimental feature, based on that choice or consent where required.",
+    "Where GDPR applies, we process account, session, learning, and user-submitted content mainly to provide the app and sync service you request (performance of a contract), to keep the service secure and reliable (legitimate interests), to comply with legal obligations, and, where a feature asks for an optional choice such as connecting a provider or enabling an optional feature, based on that choice or consent where required.",
   "privacy.storageTitle": "How your data is stored",
   "privacy.storageBody":
     "Your account and learning data are stored in a managed PostgreSQL database (Supabase), and authentication is handled through Supabase Auth. Offline learning data, cached audio, and Photo Lab history may also be stored locally in your browser. We retain server-side account data for as long as your account is active, unless a shorter or longer period is required for security, legal, backup, or abuse-prevention reasons.",
@@ -304,8 +304,8 @@ export const enMessages = {
   "settings.connected": "Connected",
   "settings.copyWalletAddress": "Copy wallet address",
   "settings.hideAfterInterval": "Hide after interval",
-  "settings.frontierFeatures": "Frontier features",
-  "settings.frontierFeaturesNotice": "Experimental features we're still testing. They may change or disappear.",
+  "settings.frontierFeatures": "Advanced features",
+  "settings.frontierFeaturesNotice": "More ways to customize how you study and add vocabulary.",
   "settings.swipeCards": "Swipe cards",
   "settings.swipeCardsNotice": "Swipe the card right if you know it, left if you don't, up if you know it perfectly.",
   "settings.swipeCardsMobileOnly": "Works only on mobile.",
@@ -350,7 +350,7 @@ export const enMessages = {
   "photoLab.errorTooLarge": "The photo is too large. Please try another one.",
   "photoLab.errorTimeout": "The analysis took too long and was cancelled. Check your connection and try again.",
   "photoLab.errorUnauthorized": "Could not verify this device. Reload the page and try again.",
-  "photoLab.enableHint": "Photo lab is an experimental feature. Enable it in Settings → Frontier features.",
+  "photoLab.enableHint": "Photo Lab is turned off on this device.",
   "photoLab.retry": "Try again",
   "photoLab.knownLanguage": "I know",
   "photoLab.targetLanguage": "I'm learning",

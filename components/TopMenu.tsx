@@ -45,7 +45,7 @@ interface TopMenuProps {
   onListChange?: (id: string | null) => void;
   /** Language pair of the active list, used to suggest other lists to switch to. */
   activeListLanguagePair?: { from: string; to: string } | null;
-  /** When the photo-lab beta is enabled, surface it as a main-menu destination. */
+  /** When Photo Lab is available, surface it as a main-menu destination. */
   photoLabEnabled?: boolean;
   /** Active school membership; drives the school row and the teacher dashboard link. */
   school?: SchoolMembership | null;

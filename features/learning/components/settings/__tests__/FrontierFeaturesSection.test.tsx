@@ -26,7 +26,7 @@ describe('FrontierFeaturesSection', () => {
 
   it('renders the section with the swipe toggle off by default', () => {
     render(<FrontierFeaturesSection />);
-    expect(screen.getByText(/frontier features/i)).toBeInTheDocument();
+    expect(screen.getByText(/advanced features/i)).toBeInTheDocument();
     const toggle = screen.getByRole('switch', { name: /swipe cards/i });
     expect(toggle).toHaveAttribute('aria-checked', 'false');
   });

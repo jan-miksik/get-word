@@ -1,5 +1,5 @@
 /**
- * Photo Lab is a frontier feature: an AI vision model labels objects in a
+ * Photo Lab uses an AI vision model to label objects in a
  * user's photo with the known-language word (shown) and the learning-language
  * word (revealed on tap). Sessions live only on the device (IndexedDB).
  */

@@ -196,7 +196,7 @@ export const viMessages: I18nMessages = {
   "privacy.useNoSell": "Chúng tôi không bán thông tin cá nhân của bạn và không dùng thông tin đó cho quảng cáo.",
   "privacy.legalBasisTitle": "Cơ sở pháp lý",
   "privacy.legalBasisBody":
-    "Khi GDPR áp dụng, chúng tôi xử lý dữ liệu tài khoản, phiên, học tập và nội dung do người dùng gửi chủ yếu để cung cấp ứng dụng và dịch vụ đồng bộ bạn yêu cầu (thực hiện hợp đồng), giữ dịch vụ an toàn và đáng tin cậy (lợi ích hợp pháp), tuân thủ nghĩa vụ pháp lý, và với tính năng tùy chọn như kết nối nhà cung cấp hoặc bật tính năng thử nghiệm, dựa trên lựa chọn hoặc sự đồng ý của bạn khi cần.",
+    "Khi GDPR áp dụng, chúng tôi xử lý dữ liệu tài khoản, phiên, học tập và nội dung do người dùng gửi chủ yếu để cung cấp ứng dụng và dịch vụ đồng bộ bạn yêu cầu (thực hiện hợp đồng), giữ dịch vụ an toàn và đáng tin cậy (lợi ích hợp pháp), tuân thủ nghĩa vụ pháp lý, và với tính năng tùy chọn như kết nối nhà cung cấp hoặc bật một tính năng tùy chọn, dựa trên lựa chọn hoặc sự đồng ý của bạn khi cần.",
   "privacy.storageTitle": "Cách dữ liệu của bạn được lưu trữ",
   "privacy.storageBody":
     "Dữ liệu tài khoản và học tập của bạn được lưu trong cơ sở dữ liệu PostgreSQL được quản lý (Supabase), và xác thực được xử lý qua Supabase Auth. Dữ liệu học ngoại tuyến, âm thanh được cache và lịch sử Photo Lab cũng có thể được lưu cục bộ trong trình duyệt của bạn. Chúng tôi giữ dữ liệu tài khoản phía máy chủ trong thời gian tài khoản còn hoạt động, trừ khi cần thời hạn ngắn hơn hoặc dài hơn vì lý do bảo mật, pháp lý, sao lưu hoặc chống lạm dụng.",
@@ -280,8 +280,8 @@ export const viMessages: I18nMessages = {
   "settings.connected": "Đã kết nối",
   "settings.copyWalletAddress": "Sao chép địa chỉ ví",
   "settings.hideAfterInterval": "Ẩn sau khoảng thời gian",
-  "settings.frontierFeatures": "Tính năng thử nghiệm",
-  "settings.frontierFeaturesNotice": "Các tính năng thử nghiệm đang được kiểm tra. Chúng có thể thay đổi hoặc biến mất.",
+  "settings.frontierFeatures": "Tính năng nâng cao",
+  "settings.frontierFeaturesNotice": "Các tùy chọn bổ sung để tùy chỉnh cách học và thêm từ vựng.",
   "settings.swipeCards": "Vuốt thẻ",
   "settings.swipeCardsNotice": "Vuốt thẻ sang phải nếu bạn biết từ, sang trái nếu không, vuốt lên nếu bạn đã thuộc lòng.",
   "settings.swipeCardsMobileOnly": "Chỉ hoạt động trên điện thoại.",
@@ -326,7 +326,7 @@ export const viMessages: I18nMessages = {
   "photoLab.errorTooLarge": "Ảnh quá lớn. Vui lòng thử ảnh khác.",
   "photoLab.errorTimeout": "Phân tích mất quá nhiều thời gian và đã bị hủy. Kiểm tra kết nối rồi thử lại.",
   "photoLab.errorUnauthorized": "Không thể xác minh thiết bị này. Hãy tải lại trang và thử lại.",
-  "photoLab.enableHint": "Phòng thí nghiệm ảnh là tính năng thử nghiệm. Bật nó trong Cài đặt → Tính năng thử nghiệm.",
+  "photoLab.enableHint": "Phòng thí nghiệm ảnh đang tắt trên thiết bị này.",
   "photoLab.retry": "Thử lại",
   "photoLab.knownLanguage": "Tôi biết",
   "photoLab.targetLanguage": "Tôi đang học",

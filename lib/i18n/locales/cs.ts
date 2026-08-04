@@ -196,7 +196,7 @@ export const csMessages: I18nMessages = {
   "privacy.useNoSell": "Vaše osobní údaje neprodáváme a nepoužíváme je k reklamě.",
   "privacy.legalBasisTitle": "Právní základy",
   "privacy.legalBasisBody":
-    "Pokud se použije GDPR, zpracováváme údaje o účtu, relaci, učení a uživatelem zadaný obsah hlavně proto, abychom poskytli aplikaci a synchronizační službu, kterou používáte (plnění smlouvy), udrželi službu bezpečnou a spolehlivou (oprávněný zájem), splnili právní povinnosti a u volitelných funkcí, jako je připojení poskytovatele nebo zapnutí experimentální funkce, na základě vaší volby nebo souhlasu tam, kde je vyžadován.",
+    "Pokud se použije GDPR, zpracováváme údaje o účtu, relaci, učení a uživatelem zadaný obsah hlavně proto, abychom poskytli aplikaci a synchronizační službu, kterou používáte (plnění smlouvy), udrželi službu bezpečnou a spolehlivou (oprávněný zájem), splnili právní povinnosti a u volitelných funkcí, jako je připojení poskytovatele nebo zapnutí volitelné funkce, na základě vaší volby nebo souhlasu tam, kde je vyžadován.",
   "privacy.storageTitle": "Jak jsou vaše data uložena",
   "privacy.storageBody":
     "Údaje o účtu a učení jsou uloženy ve spravované databázi PostgreSQL (Supabase) a ověřování zajišťuje Supabase Auth. Offline učicí data, uložené audio a historie Foto laboratoře mohou být také uloženy místně ve vašem prohlížeči. Serverová data účtu uchováváme po dobu, kdy je váš účet aktivní, pokud není z bezpečnostních, právních, zálohovacích nebo protiabuzních důvodů nutná kratší či delší doba.",
@@ -280,8 +280,8 @@ export const csMessages: I18nMessages = {
   "settings.connected": "Připojeno",
   "settings.copyWalletAddress": "Kopírovat adresu peněženky",
   "settings.hideAfterInterval": "Skrýt po intervalu",
-  "settings.frontierFeatures": "Experimentální funkce",
-  "settings.frontierFeaturesNotice": "Experimentální funkce, které stále testujeme. Mohou se změnit nebo zmizet.",
+  "settings.frontierFeatures": "Pokročilé funkce",
+  "settings.frontierFeaturesNotice": "Další možnosti, jak si přizpůsobit učení a přidávání slovní zásoby.",
   "settings.swipeCards": "Ovládání karet tahem",
   "settings.swipeCardsNotice": "Přejeďte kartu doprava, pokud slovo znáte, doleva, pokud ne, a nahoru, pokud ho umíte perfektně.",
   "settings.swipeCardsMobileOnly": "Funguje jen na mobilu.",
@@ -326,7 +326,7 @@ export const csMessages: I18nMessages = {
   "photoLab.errorTooLarge": "Fotka je příliš velká. Zkuste prosím jinou.",
   "photoLab.errorTimeout": "Analýza trvala příliš dlouho a byla zrušena. Zkontrolujte připojení a zkuste to znovu.",
   "photoLab.errorUnauthorized": "Zařízení se nepodařilo ověřit. Obnovte stránku a zkuste to znovu.",
-  "photoLab.enableHint": "Foto laboratoř je experimentální funkce. Zapněte ji v Nastavení → Experimentální funkce.",
+  "photoLab.enableHint": "Foto laboratoř je na tomto zařízení vypnutá.",
   "photoLab.retry": "Zkusit znovu",
   "photoLab.knownLanguage": "Znám",
   "photoLab.targetLanguage": "Učím se",

@@ -60,12 +60,12 @@ Done in code (build 6):
   generated). Reporting and blocking are unchanged; the `/join/{token}` link
   still shares a private list with named people, which is a capability rather
   than published content.
-- **Build number is 6**, marketing version stays 1.0.
+- **The public release candidate will be build 11**, marketing version stays 1.0.
 - **Screenshots**: [`scripts/prepare-app-store-screenshots.ts`](../scripts/prepare-app-store-screenshots.ts)
   strips the alpha channel every iOS capture carries and verifies the slot's
   pixel dimensions. Captures live in `app-store-assets/<slot>/`, uploadables in
-  `app-store-assets/upload/<slot>/`. The current iPad captures still show the
-  Beta badge — recapture them from build 6 and re-run the script.
+  `app-store-assets/upload/<slot>/`. The current iPad captures no longer show
+  the Beta badge; the iPhone set still needs to be captured for build 11.
 
 Still to do by hand: the gate stops new publications, but anything a learner
 published before it went in is still public. Audit production once and unpublish
@@ -270,7 +270,7 @@ Captured from the simulator at the required sizes, for you to approve.
 
 ### B10. Version and build numbers, then archive and upload
 
-Marketing version `1.0.0`, build `1`, incrementing on every upload.
+Marketing version `1.0`, release build `11`, incrementing on every later upload.
 
 ---
 
