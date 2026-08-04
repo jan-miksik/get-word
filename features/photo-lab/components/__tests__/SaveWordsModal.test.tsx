@@ -13,6 +13,8 @@ vi.mock('@/features/photo-lab/client/saveToList', () => ({
 import { SaveWordsModal } from '@/features/photo-lab/components/SaveWordsModal';
 import type { PhotoLabSession } from '@/features/photo-lab/types';
 
+const LIST_REFRESH_MARKER_KEY = 'get-word-refresh-lists-on-learning-return';
+
 function session(): PhotoLabSession {
   return {
     id: 'session-1',
@@ -31,6 +33,7 @@ function session(): PhotoLabSession {
 
 describe('SaveWordsModal', () => {
   beforeEach(() => {
+    window.sessionStorage.clear();
     fetchPhotoLabSaveList.mockReset().mockResolvedValue({
       name: 'Moje slovíčka — vietnamština',
       exists: true,
@@ -98,6 +101,52 @@ describe('SaveWordsModal', () => {
     expect(duplicateRow).toHaveTextContent('•');
     expect(addedRow).toHaveTextContent('✓');
     expect(screen.getByText('1 added, 1 already there')).toBeInTheDocument();
+  });
+
+  it('tells the study view behind it to re-read after a save that added words', async () => {
+    const onSaved = vi.fn();
+    const user = userEvent.setup();
+    render(<SaveWordsModal session={session()} onClose={vi.fn()} onSaved={onSaved} />);
+
+    await user.click(screen.getByRole('checkbox', { name: /okno/ }));
+    await user.click(screen.getByRole('button', { name: 'Save 1' }));
+
+    await waitFor(() =>
+      expect(onSaved).toHaveBeenCalledWith(expect.objectContaining({ listId: 'list-1' })),
+    );
+    expect(window.sessionStorage.getItem(LIST_REFRESH_MARKER_KEY)).toBeNull();
+  });
+
+  it('leaves a refresh marker when no study view is mounted to refresh', async () => {
+    const user = userEvent.setup();
+    render(<SaveWordsModal session={session()} onClose={vi.fn()} />);
+
+    await user.click(screen.getByRole('checkbox', { name: /okno/ }));
+    await user.click(screen.getByRole('button', { name: 'Save 1' }));
+
+    await waitFor(() =>
+      expect(window.sessionStorage.getItem(LIST_REFRESH_MARKER_KEY)).toBeTruthy(),
+    );
+  });
+
+  it('does not refresh when every picked word was already there', async () => {
+    savePhotoLabWordsToList.mockResolvedValue({
+      listId: 'list-1',
+      listName: 'Moje slovíčka — vietnamština',
+      addedCount: 0,
+      duplicateCount: 1,
+      items: [{ known: 'okno', target: 'cửa sổ', outcome: 'duplicate' }],
+    });
+    const onSaved = vi.fn();
+    const user = userEvent.setup();
+    render(<SaveWordsModal session={session()} onClose={vi.fn()} onSaved={onSaved} />);
+
+    await user.click(screen.getByRole('checkbox', { name: /okno/ }));
+    await user.click(screen.getByRole('button', { name: 'Save 1' }));
+
+    expect(await screen.findByText('0 added, 1 already there')).toBeInTheDocument();
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(window.sessionStorage.getItem(LIST_REFRESH_MARKER_KEY)).toBeNull();
   });
 
   it('reports a failed save and keeps the picked words', async () => {

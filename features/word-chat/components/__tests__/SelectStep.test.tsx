@@ -50,7 +50,8 @@ describe('SelectStep', () => {
     expect(screen.queryByRole('button', { name: 'Select all' })).not.toBeInTheDocument();
 
     const input = screen.getByPlaceholderText('Type a word or sentence');
-    expect(input).toHaveFocus();
+    // Arriving here does not open the phone keyboard over the screen.
+    expect(input).not.toHaveFocus();
     expect(
       screen.queryByPlaceholderText('One word or sentence per line'),
     ).not.toBeInTheDocument();

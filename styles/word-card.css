@@ -227,6 +227,26 @@
   visibility: hidden;
 }
 
+/* Typing a mnemonic on a phone leaves under 300px of screen, and the answer
+   row is the one block on the card that is useless in that moment — nobody
+   grades a word mid-sentence, and the row plus the audio button that floats
+   above it is what the hook field was being pushed underneath. It comes back
+   the moment the field is left. */
+@media (max-width: 767px) {
+  .phrase-card.word-card--editing-hook .card-actions {
+    display: none;
+  }
+}
+
+/* The audio button floats over the bottom of the card (`.audio-btn--floating`,
+   z-index 2) and with the keyboard up the hook row is pushed into its band, so
+   the two overlap and the button used to win — over the field being typed into.
+   Only while editing: the rest of the time the button is the more important
+   control and the full-width hook row must not swallow taps meant for it. */
+.memory-hook-container.editing {
+  z-index: 3;
+}
+
 .memory-hook-input {
   position: absolute;
   left: 0;
@@ -1031,7 +1051,13 @@
   .learning-card-viewport,
   .card-deck-view,
   .card-deck-item {
-    min-height: max(100%, calc(100dvh - 8rem));
+    /* `--app-viewport-height` and not `100dvh`: media queries and `dvh` both
+       read the layout viewport, which the keyboard does not shrink, so on a
+       small phone this floor kept sizing the deck to the *screen* while the
+       shell had been cut to a third of it. The card then ran out of the bottom
+       of the shell — the memory-hook field landing under the keyboard, and the
+       scroll to the caret that yanked it up on the first keystroke. */
+    min-height: max(100%, calc(var(--app-viewport-height, 100dvh) - 8rem));
   }
 
   .app .learning-card-main {

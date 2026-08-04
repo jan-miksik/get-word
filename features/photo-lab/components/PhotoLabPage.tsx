@@ -17,6 +17,7 @@ import { getLanguageFlag } from '@/lib/i18n/languages';
 import { cleanupPhotoLab } from '../client/photoStore';
 import { LabeledPhoto } from './LabeledPhoto';
 import { LanguagePairModal } from './LanguagePairModal';
+import type { PhotoLabSaveWordsResult } from '../client/saveToList';
 import { SaveWordsModal } from './SaveWordsModal';
 import { usePhotoLabStudio } from './usePhotoLabStudio';
 
@@ -100,6 +101,13 @@ type PhotoLabPageProps = {
   languageFrom?: string;
   languageTo?: string;
   onLanguagePairChange?: (pair: { from: string; to: string }) => void | Promise<void>;
+  /**
+   * Embedded, the study view behind the lab is holding a snapshot taken before
+   * the save: it has to re-read for the new words (and the category counts) to
+   * show up. Absent on the standalone route, where the learning page boots
+   * fresh on return and reads the refresh marker the save leaves instead.
+   */
+  onSavedToList?: (result: PhotoLabSaveWordsResult) => void;
 };
 
 export function PhotoLabPage({
@@ -109,6 +117,7 @@ export function PhotoLabPage({
   languageFrom,
   languageTo,
   onLanguagePairChange,
+  onSavedToList,
 }: PhotoLabPageProps) {
   const settingsLanguage = useSettingsLanguage();
   const content = (
@@ -119,6 +128,7 @@ export function PhotoLabPage({
       languageFrom={languageFrom}
       languageTo={languageTo}
       onLanguagePairChange={onLanguagePairChange}
+      onSavedToList={onSavedToList}
     />
   );
 
@@ -136,6 +146,7 @@ function PhotoLabContent({
   languageFrom,
   languageTo,
   onLanguagePairChange,
+  onSavedToList,
 }: PhotoLabPageProps) {
   const { t } = useI18n();
   // null = not yet known (first client render); avoids a hydration mismatch.
@@ -182,6 +193,7 @@ function PhotoLabContent({
       languageFrom={languageFrom}
       languageTo={languageTo}
       onLanguagePairChange={onLanguagePairChange}
+      onSavedToList={onSavedToList}
     />
   );
 }
@@ -416,6 +428,7 @@ function PhotoLabStudio({
   languageFrom,
   languageTo,
   onLanguagePairChange,
+  onSavedToList,
 }: PhotoLabPageProps) {
   const { t } = useI18n();
   const { languages } = useSupportedLanguages();
@@ -726,7 +739,11 @@ function PhotoLabStudio({
       )}
 
       {active && saveOpen && current && (
-        <SaveWordsModal session={current.session} onClose={() => setSaveOpen(false)} />
+        <SaveWordsModal
+          session={current.session}
+          onClose={() => setSaveOpen(false)}
+          onSaved={onSavedToList}
+        />
       )}
     </div>
   );

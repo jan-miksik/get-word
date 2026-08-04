@@ -1086,8 +1086,11 @@ function CategoryBrowserContent({
                   >
                     <path d="M6 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" fill="none" strokeLinecap="round" />
                   </svg>
-                  <span className="font-medium text-text text-sm flex-1 truncate">{category.name}</span>
-                  <span className="text-xs text-text-soft">{t('lists.wordsCount', { count: catItems.length })}</span>
+                  {/* Wraps rather than truncates: a category name is what the
+                      learner picks the row by, and on a phone the ellipsis fell
+                      before the part that tells two categories apart. */}
+                  <span className="font-medium text-text text-sm min-w-0 flex-1 break-words">{category.name}</span>
+                  <span className="shrink-0 text-xs text-text-soft">{t('lists.wordsCount', { count: catItems.length })}</span>
                 </button>
               )}
 

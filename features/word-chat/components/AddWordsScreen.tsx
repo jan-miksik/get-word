@@ -83,6 +83,11 @@ export function AddWordsScreen({
   useEffect(() => {
     if (!keyboardOpen) return;
     const root = document.documentElement;
+    // The menu slides out instead of blinking away, and a negative margin is
+    // the only collapse that animates from an `auto` height — so it needs the
+    // bar's real height, measured here while it is still open.
+    const headerHeight = document.querySelector<HTMLElement>('.app-header-bar')?.offsetHeight;
+    if (headerHeight) root.style.setProperty('--app-header-height', `${headerHeight}px`);
     root.dataset.appKeyboard = 'open';
     return () => {
       delete root.dataset.appKeyboard;
@@ -129,6 +134,10 @@ export function AddWordsScreen({
           // a leftover edge would draw a dark line across it. From `sm` up it is
           // an inset card on sand again and keeps its full border.
           'onboarding-card relative w-full rounded-2xl! border-2! p-4 max-sm:rounded-none! max-sm:border-0! max-sm:px-3 sm:p-7',
+          // The card tightens up as the keyboard arrives; it does so over the
+          // same beat as the menu sliding away above it, so the screen settles
+          // rather than snaps.
+          'motion-safe:transition-[padding] motion-safe:duration-200',
           keyboardOpen ? 'max-sm:pt-2' : '',
           fullHeight
             ? 'flex min-h-0 flex-1 flex-col max-sm:pb-[max(0.5rem,env(safe-area-inset-bottom))]'
@@ -138,6 +147,7 @@ export function AddWordsScreen({
         <div
           className={[
             'grid grid-cols-[1fr_auto_1fr] items-center gap-3',
+            'motion-safe:transition-[margin] motion-safe:duration-200',
             keyboardOpen ? 'mb-2' : 'mb-4',
           ].join(' ')}
         >

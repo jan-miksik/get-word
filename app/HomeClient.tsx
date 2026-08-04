@@ -695,6 +695,14 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
                       languageFrom={learningLanguageFrom as string}
                       languageTo={learningLanguageTo as string}
                       onLanguagePairChange={changeLearningLanguagePair}
+                      onSavedToList={(result) => {
+                        // Same rule as the word chat: personal words overlay
+                        // the current base list, so keep studying it — unless
+                        // it belongs to another pair, in which case the list
+                        // just saved into is the only surface showing them.
+                        if (!activeListMatchesLearningPair) setActiveListId(result.listId);
+                        void refreshFullSnapshot();
+                      }}
                     />
                   </div>
                 ) : undefined

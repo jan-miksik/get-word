@@ -154,26 +154,12 @@ export const WordCard = memo(function WordCard({
   const audioSrc = getLearningAudioSrc(role, word);
   const shouldRenderMemoryHook = showMemoryHook;
 
-  // Scroll the focused input into view after the keyboard finishes opening
-  useEffect(() => {
-    if (!editingHook || typeof window === 'undefined') return;
-    const el = hookInputRef.current;
-    if (!el) return;
-
-    const scrollIntoCenter = () => {
-      el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    };
-
-    // visualViewport fires when the keyboard opens/resizes on mobile
-    const vv = window.visualViewport;
-    if (vv) {
-      vv.addEventListener('resize', scrollIntoCenter);
-      return () => vv.removeEventListener('resize', scrollIntoCenter);
-    }
-    // Fallback: scroll after a short delay on browsers without visualViewport
-    const timer = setTimeout(scrollIntoCenter, 350);
-    return () => clearTimeout(timer);
-  }, [editingHook]);
+  // Nothing scrolls the field into view from here. `useVisualViewportHeight`
+  // sizes the shell to the area the keyboard leaves, so the card — hook row
+  // included — is laid out inside it and is already in view. The centring
+  // `scrollIntoView` that used to run on every keyboard resize centred the
+  // field in a *container* that still ran under the keyboard, which is what
+  // threw it up near the top of the screen the moment typing began.
 
   // Memory hook editing
   const startEditing = () => {
@@ -272,7 +258,11 @@ export const WordCard = memo(function WordCard({
   );
   const cardTextSizeClass = getWordTextSize(cardMaxTextLen);
   return (
-    <article className={`phrase-card ${isMoved ? 'card-moved' : ''} ${fullscreen ? 'word-card--fullscreen' : ''}`} data-word-id={word.id} data-stage-group={stageGroup}>
+    <article
+      className={`phrase-card ${isMoved ? 'card-moved' : ''} ${fullscreen ? 'word-card--fullscreen' : ''} ${editingHook ? 'word-card--editing-hook' : ''}`}
+      data-word-id={word.id}
+      data-stage-group={stageGroup}
+    >
       {/* Category badges */}
       {shouldShowCategoryBadges && orderedDisplayCategories.length > 0 && (
         <div className="word-categories">

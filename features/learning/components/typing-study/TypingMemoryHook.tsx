@@ -15,12 +15,14 @@ type TypingMemoryHookProps = {
   memoryHook: string;
   suggestedHook: string;
   onChange?: (hook: string) => void;
+  onEditingChange?: (editing: boolean) => void;
 };
 
 export function TypingMemoryHook({
   memoryHook,
   suggestedHook,
   onChange,
+  onEditingChange,
 }: TypingMemoryHookProps) {
   const { t } = useI18n();
   const [editing, setEditing] = useState(false);
@@ -34,6 +36,7 @@ export function TypingMemoryHook({
     if (!onChange) return;
     setDraft(memoryHook);
     setEditing(true);
+    onEditingChange?.(true);
     // Focus stays inside the tap gesture so iOS opens the keyboard on the first
     // tap; the input is hidden by opacity, which keeps it focusable here.
     inputRef.current?.focus();
@@ -41,11 +44,13 @@ export function TypingMemoryHook({
 
   const finishEditing = () => {
     setEditing(false);
+    onEditingChange?.(false);
     onChange?.(draft);
   };
 
   const cancelEditing = () => {
     setEditing(false);
+    onEditingChange?.(false);
   };
 
   const handleTap = () => {

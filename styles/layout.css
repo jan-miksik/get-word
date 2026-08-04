@@ -115,6 +115,18 @@
    text field of theirs holds focus (see `useMobileKeyboardOpen`), and the menu
    hands its rows to the content until the field is left. */
 @media (max-width: 767px) {
+  .app,
+  .app-header-bar {
+    /* Only the properties the collapse below moves: `height` is deliberately
+       left out, because it tracks the visual viewport and animating it would
+       lag the keyboard on every open and close. */
+    transition:
+      gap var(--transition-med),
+      padding-top var(--transition-med),
+      margin-top var(--transition-med),
+      opacity var(--transition-fast);
+  }
+
   html[data-app-keyboard='open'] .app {
     gap: 0;
     /* The notch inset comes back here. Normally the top menu carries it (see
@@ -124,8 +136,35 @@
     padding-top: env(safe-area-inset-top, 0px);
   }
 
+  /* The menu slides out under the top edge rather than blinking away with
+     `display: none` — the same rows are freed either way, but the screen
+     settles into its taller shape instead of snapping into it. The bar's
+     measured height is published as `--app-header-height` by the surface that
+     opens the keyboard (see `AddWordsScreen`); `auto` heights are not
+     animatable, so the collapse rides on a negative margin against it, and
+     `.app`'s own `overflow: hidden` clips what slides past the edge. */
   html[data-app-keyboard='open'] .app-header-bar {
-    display: none;
+    margin-top: calc(-1 * var(--app-header-height, 120px));
+    opacity: 0;
+    pointer-events: none;
+    /* Out of the tab order once it has finished leaving — `display: none` used
+       to do that for free. */
+    visibility: hidden;
+    transition:
+      gap var(--transition-med),
+      padding-top var(--transition-med),
+      margin-top var(--transition-med),
+      opacity var(--transition-fast),
+      /* Duration spelled out: a delay takes a plain time, and the token
+         carries an easing keyword too. Matches `--transition-med`. */
+      visibility 0s linear 220ms;
+  }
+}
+
+@media (max-width: 767px) and (prefers-reduced-motion: reduce) {
+  .app,
+  .app-header-bar {
+    transition: none;
   }
 }
 

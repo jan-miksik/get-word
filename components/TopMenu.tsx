@@ -187,11 +187,12 @@ interface QuickAddButtonsProps {
 }
 
 /**
- * The app's surfaces as icons: studying itself, plus the two ways new words get
- * into it. Study leads because a learner who wandered into the chat or the
- * photo lab needs the way back to be as obvious as the way in — the Back button
- * inside those screens is the only other route. Behind a settings toggle while
- * we decide whether the top bar is where they belong.
+ * The app's surfaces as icons: studying itself, flanked by the two ways new
+ * words get into it. Study sits in the middle so the app's main screen is the
+ * one under the centre of the bar — a learner who wandered into the chat or the
+ * photo lab needs the way back to be as obvious as the way in, and the Back
+ * button inside those screens is the only other route. Behind a settings toggle
+ * while we decide whether the top bar is where they belong.
  */
 function SurfaceNavButtons({
   photoLabEnabled,
@@ -205,15 +206,6 @@ function SurfaceNavButtons({
   return (
     <nav className="flex items-center gap-1.5" aria-label={t('top.surfaceNavLabel')}>
       <SurfaceNavLink
-        href={STUDY_SURFACE_HREF}
-        surface="study"
-        activeSurface={activeSurface}
-        label={t('top.surfaceStudy')}
-        onSurfaceChange={onSurfaceChange}
-      >
-        <StudyIcon size={25} />
-      </SurfaceNavLink>
-      <SurfaceNavLink
         href={CHAT_SURFACE_HREF}
         surface="chat"
         activeSurface={activeSurface}
@@ -222,6 +214,15 @@ function SurfaceNavButtons({
         onSurfaceChange={onSurfaceChange}
       >
         <WordChatIcon size={25} />
+      </SurfaceNavLink>
+      <SurfaceNavLink
+        href={STUDY_SURFACE_HREF}
+        surface="study"
+        activeSurface={activeSurface}
+        label={t('top.surfaceStudy')}
+        onSurfaceChange={onSurfaceChange}
+      >
+        <StudyIcon size={25} />
       </SurfaceNavLink>
       {photoLabEnabled && (
         <SurfaceNavLink

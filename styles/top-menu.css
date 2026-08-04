@@ -40,11 +40,11 @@
 .top-menu {
   display: flex;
   flex-wrap: nowrap;
-  /* The left block stacks the beta badge over the score/due chips, so centring
-     pushes the shortcuts and the menu button halfway down the bar — noticeably
-     below the top of the screen on a phone. Align everything to the first row
-     instead and let the taller stats block hang below it. */
-  align-items: start;
+  /* Everything in the bar is one row tall now that the beta badge is gone (it
+     used to stack over the stats and dragged the whole bar down when centred),
+     so the score chip lines up with the surface icons and the menu button
+     instead of riding above them. */
+  align-items: center;
   gap: 8px;
   width: 100%;
   padding-inline: 16px;
@@ -200,6 +200,17 @@
   .menu-toggle-icon svg {
     width: 16px;
     height: 16px;
+  }
+}
+
+/* A phone keyboard leaves about 280px of screen, and a study card with its
+   answer buttons does not fit under a menu bar as well. Nobody reaches for the
+   menu mid-word, so it stands down while a field is being typed into (the flag
+   comes from `useVisualViewportHeight`). Study surface only: the other screens
+   either have room or hide the bar themselves. */
+@media (max-width: 767px) {
+  html[data-app-typing] .app[data-app-surface='study'] .app-header-bar {
+    display: none;
   }
 }
 

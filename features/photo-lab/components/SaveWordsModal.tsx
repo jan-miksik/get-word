@@ -4,10 +4,12 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n } from '@/components/I18nProvider';
 import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
+import { markListsChangedForLearningSync } from '@/features/shared/sync/list-refresh-marker';
 import {
   fetchPhotoLabSaveList,
   savePhotoLabWordsToList,
   type PhotoLabSavedWord,
+  type PhotoLabSaveWordsResult,
 } from '../client/saveToList';
 import type { PhotoLabLabel, PhotoLabSession } from '../types';
 
@@ -61,9 +63,16 @@ function WordPair({
 export function SaveWordsModal({
   session,
   onClose,
+  onSaved,
 }: {
   session: PhotoLabSession;
   onClose: () => void;
+  /**
+   * Present when the lab is open over the study view, which is holding a synced
+   * snapshot taken before this save: the words land in the database but the
+   * deck and the category counts keep showing the old set until it re-reads.
+   */
+  onSaved?: (result: PhotoLabSaveWordsResult) => void;
 }) {
   const { t } = useI18n();
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -129,6 +138,12 @@ export function SaveWordsModal({
       return;
     }
     setState({ status: 'saved', listName: result.listName, items: result.items });
+    if (result.addedCount > 0) {
+      // Standalone, the learning page is not mounted; the marker is what its
+      // boot reads to skip the conditional fetch and pull the new words in.
+      if (onSaved) onSaved(result);
+      else markListsChangedForLearningSync(null);
+    }
   };
 
   if (typeof document === 'undefined') return null;

@@ -124,6 +124,7 @@ export function TypingStudyCard({
   const [result, setResult] = useState<TypingResult | null>(null);
   const [caretIndex, setCaretIndex] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
+  const [isMemoryHookEditing, setIsMemoryHookEditing] = useState(false);
   const articleRef = useRef<HTMLElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -679,7 +680,7 @@ export function TypingStudyCard({
   return (
     <article
       ref={articleRef}
-      className={`phrase-card relative ${fullscreen ? 'word-card--fullscreen' : ''}`}
+      className={`phrase-card relative ${fullscreen ? 'word-card--fullscreen' : ''} ${isMemoryHookEditing ? 'word-card--editing-hook' : ''}`}
       style={GAME_PALETTE}
       data-word-id={word.id}
       data-stage-group={stageGroup}
@@ -758,6 +759,7 @@ export function TypingStudyCard({
             memoryHook={memoryHook}
             suggestedHook={suggestedHook}
             onChange={onMemoryHookChange}
+            onEditingChange={setIsMemoryHookEditing}
           />
         )}
       </div>

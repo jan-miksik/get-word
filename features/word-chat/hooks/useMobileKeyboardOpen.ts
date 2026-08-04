@@ -1,26 +1,9 @@
 'use client';
 
 import { useEffect, useState, type RefObject } from 'react';
+import { isTypingField } from '@/lib/typing-field';
 
 const MOBILE_QUERY = '(max-width: 767px)';
-
-const NON_TYPING_INPUT_TYPES = new Set([
-  'button',
-  'checkbox',
-  'color',
-  'file',
-  'image',
-  'radio',
-  'range',
-  'reset',
-  'submit',
-]);
-
-function isTypingField(node: EventTarget | null): boolean {
-  if (node instanceof HTMLTextAreaElement) return true;
-  if (node instanceof HTMLInputElement) return !NON_TYPING_INPUT_TYPES.has(node.type);
-  return node instanceof HTMLElement && node.isContentEditable;
-}
 
 /**
  * True while the on-screen keyboard is (as good as certainly) covering the

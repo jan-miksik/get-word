@@ -261,10 +261,16 @@ export function SelectStep({
     setCustomInput('');
   }
 
-  // The field the learner is meant to type in gets the cursor: on arrival, and
-  // again whenever the toggle swaps one field for the other.
+  // Arriving on the step no longer takes the cursor. On a phone that threw the
+  // keyboard up over the screen before the learner had read a word of it, and
+  // tapping the field is a single tap away. The cursor still follows a
+  // deliberate switch between the single-line and bulk fields, where the
+  // learner has just said which one they mean to type in.
+  const focusedEntryModeRef = useRef(bulkEntry);
   useEffect(() => {
     if (mode !== 'manual') return;
+    if (focusedEntryModeRef.current === bulkEntry) return;
+    focusedEntryModeRef.current = bulkEntry;
     if (bulkEntry) customTextareaRef.current?.focus();
     else customInputRef.current?.focus();
   }, [bulkEntry, mode]);
@@ -496,6 +502,10 @@ export function SelectStep({
         onSubmit={submitCustom}
         className={[
           'space-y-1.5',
+          // Pinning to the bottom is instant by nature, but the padding and the
+          // backing it grows do not have to be — they fade in with the rest of
+          // the screen's reflow.
+          'motion-safe:transition-[padding,background-color] motion-safe:duration-200',
           keyboardOpen
             ? 'max-sm:sticky max-sm:bottom-0 max-sm:z-10 max-sm:-mx-1 max-sm:bg-[var(--ob-surface)]/95 max-sm:px-1 max-sm:py-2 max-sm:backdrop-blur'
             : '',

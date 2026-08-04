@@ -188,6 +188,26 @@ describe('TypingStudyCard', () => {
       .not.toHaveClass('max-md:invisible');
   });
 
+  it('hides the card actions while the memory hook is being edited', () => {
+    stubMobileLayout(true);
+    renderCard({
+      showMemoryHook: true,
+      memoryHook: 'dog with a cone',
+      onMemoryHookChange: vi.fn(),
+    });
+
+    const card = document.querySelector('article') as HTMLElement;
+    const hookDisplay = screen.getByText('dog with a cone');
+    const hookInput = document.querySelector('.memory-hook-input') as HTMLInputElement;
+
+    fireEvent.doubleClick(hookDisplay);
+    expect(card).toHaveClass('word-card--editing-hook');
+    expect(hookInput).toHaveFocus();
+
+    fireEvent.blur(hookInput);
+    expect(card).not.toHaveClass('word-card--editing-hook');
+  });
+
   // `useVisualViewportHeight` already sizes the shell to the area the keyboard
   // leaves, so the card must not subtract the keyboard a second time. Measured
   // on a 375x812 viewport with a 336px keyboard, the padding this card used to
