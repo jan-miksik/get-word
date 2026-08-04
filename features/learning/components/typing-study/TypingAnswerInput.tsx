@@ -8,6 +8,8 @@ import type { TypingResult } from './evaluation';
 
 type TypingAnswerInputProps = {
   inputRef: RefObject<HTMLInputElement | null>;
+  /** Owned by TypingStudyCard, which attaches native touch handlers to it. */
+  hintButtonRef: RefObject<HTMLButtonElement | null>;
   isComposingRef: MutableRefObject<boolean>;
   useFreeAnswerInput: boolean;
   result: TypingResult | null;
@@ -29,6 +31,7 @@ type TypingAnswerInputProps = {
 
 export function TypingAnswerInput({
   inputRef,
+  hintButtonRef,
   isComposingRef,
   useFreeAnswerInput,
   result,
@@ -50,6 +53,7 @@ export function TypingAnswerInput({
   const { t } = useI18n();
   const hintButton = result === null ? (
     <button
+      ref={hintButtonRef}
       type="button"
       className="game-hint-btn !flex !h-11 !min-h-11 !w-11 !min-w-11 !items-center !justify-center !rounded-full !border-0 !bg-[#F4EFE2] !p-0 !text-2xl !font-bold !normal-case !tracking-normal !text-[#2A2218] shadow-none hover:!bg-[#FFF8E8] disabled:!opacity-50"
       onClick={onReveal}

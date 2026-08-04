@@ -248,6 +248,66 @@ describe('TypingStudyCard', () => {
     expect(setScrollTop).not.toHaveBeenCalled();
   });
 
+  // The keyboard leaves the card's content box ~25px shorter than its content.
+  // Riding it to the bottom is what keeps the hint button and the memory-hook
+  // row in view; without it the hook sat behind the custom-interval button.
+  it('shows the bottom of the card content while the keyboard is open', () => {
+    stubMobileLayout(true);
+    render(
+      <main className="learning-card-main">
+        <TypingStudyCard
+          word={WORD}
+          progress={PROGRESS}
+          role="knownLanguage"
+          writeIn="foreign"
+          audioPromptEnabled={false}
+          prefillPunctuation
+          modeIndex={0}
+          onOutcome={vi.fn()}
+          showMemoryHook
+          onMemoryHookChange={vi.fn()}
+        />
+      </main>,
+    );
+
+    const content = document.querySelector('.word-card-content') as HTMLElement;
+    // jsdom has no layout, so the overflow the keyboard causes is declared.
+    Object.defineProperty(content, 'scrollHeight', { configurable: true, value: 267 });
+    Object.defineProperty(content, 'clientHeight', { configurable: true, value: 242 });
+    const setScrollTop = vi.fn();
+    Object.defineProperty(content, 'scrollTop', {
+      configurable: true,
+      get: () => 0,
+      set: setScrollTop,
+    });
+
+    fireEvent.focus(document.querySelector('input.game-input') as HTMLInputElement);
+
+    expect(setScrollTop).toHaveBeenCalledWith(267);
+  });
+
+  it('keeps the keyboard when the hint button is tapped', () => {
+    stubMobileLayout(true);
+    renderCard({ autoFocus: true, autoFocusOnMobile: true });
+
+    const hint = document.querySelector('.game-hint-btn') as HTMLButtonElement;
+    expect(input()).toHaveFocus();
+
+    // React's synthetic pointerdown is too late to stop iOS closing the
+    // keyboard, so the card owns a non-passive native touchstart instead.
+    const touchStart = new Event('touchstart', { bubbles: true, cancelable: true });
+    hint.dispatchEvent(touchStart);
+
+    expect(touchStart.defaultPrevented).toBe(true);
+    expect(input()).toHaveFocus();
+    // The reveal happened in touchstart; the click it generates must not
+    // reveal a second letter.
+    const revealed = input().getAttribute('value') ?? (input() as HTMLInputElement).value;
+    fireEvent.click(hint);
+    expect((input() as HTMLInputElement).value).toBe(revealed);
+    expect(input()).toHaveFocus();
+  });
+
   it('lets Android resize the page without applying a second keyboard scroll', async () => {
     stubMobileLayout(true);
     vi.spyOn(window.navigator, 'userAgent', 'get').mockReturnValue('Android');

@@ -125,8 +125,12 @@ export function TypingStudyCard({
   const [caretIndex, setCaretIndex] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
   const articleRef = useRef<HTMLElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const audioButtonRef = useRef<HTMLButtonElement>(null);
+  const hintButtonRef = useRef<HTMLButtonElement>(null);
+  const hintPressStartedAtRef = useRef(Number.NEGATIVE_INFINITY);
+  const hintTouchActiveRef = useRef(false);
   const compactContinueRef = useRef<HTMLButtonElement>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioPressStartedAtRef = useRef(Number.NEGATIVE_INFINITY);
@@ -193,14 +197,32 @@ export function TypingStudyCard({
     if (shouldAutoFocus) inputRef.current?.focus({ preventScroll: true });
   }, [autoFocus, autoFocusOnMobile, word.id]);
 
-  // No keyboard handling lives here on purpose. `useVisualViewportHeight`
-  // already sizes the whole shell to `visualViewport.height`, so the card is
-  // laid out inside the area the keyboard leaves and nothing needs scrolling.
-  // The padding + scrollIntoView this card used to add subtracted the keyboard
-  // a second time: measured on a 375x812 viewport with a 336px keyboard, it
-  // pushed the answer input to y=-26 (cut off above the top) and left the
-  // memory-hook field out of reach. Without it the input lands at 209, the hook
-  // at 353 and the actions at 408 — all clear of the keyboard at 476.
+  // The shell is never touched from here. `useVisualViewportHeight` already
+  // sizes it to `visualViewport.height`; padding it again by the keyboard inset
+  // subtracted the keyboard twice and pushed the answer input off the top.
+  //
+  // What is left for the card is its own content box, which the keyboard leaves
+  // about 25px too short. Ride it to the bottom so the hint button and the
+  // memory-hook row stay in view — the prompt word is short enough to survive
+  // the nudge (measured at 95..140 inside an 80..322 box). A ResizeObserver
+  // rather than a viewport listener, so this always runs after the shell has
+  // resized and never races it.
+  useEffect(() => {
+    const content = contentRef.current;
+    if (!content || !isFocused || result !== null || !isMobileLayout()) return;
+
+    const showBottom = () => {
+      if (content.scrollHeight > content.clientHeight) {
+        content.scrollTop = content.scrollHeight;
+      }
+    };
+
+    showBottom();
+    if (typeof ResizeObserver === 'undefined') return;
+    const observer = new ResizeObserver(showBottom);
+    observer.observe(content);
+    return () => observer.disconnect();
+  }, [isFocused, result]);
 
   useEffect(() => {
     return () => {
@@ -258,7 +280,11 @@ export function TypingStudyCard({
   };
 
   const handleTypingBlur = () => {
-    if (audioTouchActiveRef.current && isMobileLayout() && result === null) {
+    if (
+      (audioTouchActiveRef.current || hintTouchActiveRef.current)
+      && isMobileLayout()
+      && result === null
+    ) {
       refocusTypingInput();
       return;
     }
@@ -462,6 +488,61 @@ export function TypingStudyCard({
     (slotIdx, editableIdx) => (typedChars[editableIdx] ?? '') === slots[slotIdx],
   );
 
+  // React's synthetic `onPointerDown` is attached at the root and fires too late
+  // to stop iOS dismissing the keyboard, which is why the audio button already
+  // owns a non-passive native `touchstart`. The hint button needs the same or a
+  // hint costs the learner their keyboard mid-word.
+  useEffect(() => {
+    const button = hintButtonRef.current;
+    if (!button) return;
+
+    const handleTouchStart = (event: TouchEvent) => {
+      if (
+        !isMobileLayout()
+        || result !== null
+        || (!isFocused && document.activeElement !== inputRef.current)
+      ) return;
+      event.preventDefault();
+      hintTouchActiveRef.current = true;
+      refocusTypingInput();
+      // iOS can emit touchstart twice for one tap; the window also suppresses
+      // the click that follows from revealing a second letter.
+      if (event.timeStamp - hintPressStartedAtRef.current < 250) return;
+      hintPressStartedAtRef.current = event.timeStamp;
+      revealNextLetter();
+    };
+    const handleTouchEnd = (event: TouchEvent) => {
+      if (!hintTouchActiveRef.current) return;
+      event.preventDefault();
+      refocusTypingInput();
+      hintTouchActiveRef.current = false;
+    };
+    const handleTouchCancel = () => {
+      if (!hintTouchActiveRef.current) return;
+      refocusTypingInput();
+      hintTouchActiveRef.current = false;
+    };
+
+    button.addEventListener('touchstart', handleTouchStart, { passive: false });
+    button.addEventListener('touchend', handleTouchEnd, { passive: false });
+    button.addEventListener('touchcancel', handleTouchCancel);
+    return () => {
+      button.removeEventListener('touchstart', handleTouchStart);
+      button.removeEventListener('touchend', handleTouchEnd);
+      button.removeEventListener('touchcancel', handleTouchCancel);
+    };
+  });
+
+  const handleHintClick = () => {
+    // A mobile touch already revealed synchronously in touchstart.
+    if (performance.now() - hintPressStartedAtRef.current < 1000) {
+      refocusTypingInput();
+      hintTouchActiveRef.current = false;
+      return;
+    }
+    revealNextLetter();
+  };
+
   const preserveTypingFocus = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (!isMobileLayout() || document.activeElement !== inputRef.current) return;
     event.preventDefault();
@@ -603,7 +684,14 @@ export function TypingStudyCard({
       data-word-id={word.id}
       data-stage-group={stageGroup}
     >
-      <div className={`word-card-content flex flex-col gap-2 md:[@media(max-height:800px)]:gap-1 ${fullscreen ? 'md:translate-y-4 md:[@media(max-height:800px)]:!translate-y-0' : ''}`}>
+      {/* min-h-0 + overflow-y-auto: with the keyboard open this box is ~25px
+          shorter than its content, and without them the overflow spilled out
+          under `.card-actions` — the memory-hook row ended up behind the
+          custom-interval button, invisible and untappable. */}
+      <div
+        ref={contentRef}
+        className={`word-card-content flex min-h-0 flex-col gap-2 overflow-y-auto md:[@media(max-height:800px)]:gap-1 ${fullscreen ? 'md:translate-y-4 md:[@media(max-height:800px)]:!translate-y-0' : ''}`}
+      >
         <div
           role={result ? 'status' : undefined}
           aria-hidden={result ? undefined : true}
@@ -645,6 +733,7 @@ export function TypingStudyCard({
         )}
         <TypingAnswerInput
           inputRef={inputRef}
+          hintButtonRef={hintButtonRef}
           isComposingRef={isComposingRef}
           useFreeAnswerInput={useFreeAnswerInput}
           result={result}
@@ -660,7 +749,7 @@ export function TypingStudyCard({
           onBlur={handleTypingBlur}
           onUpdateCaret={updateCaret}
           onSelectSlot={selectSlotFromPointer}
-          onReveal={revealNextLetter}
+          onReveal={handleHintClick}
           onPreserveFocus={preserveTypingFocus}
         />
 
