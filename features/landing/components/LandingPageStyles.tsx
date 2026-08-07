@@ -139,15 +139,27 @@ export function LandingPageStyles() {
   }
 }
 
+/* Same palette as the interface-language picker in the header, so the controls
+   on this screen read as one set — and this cooler cream matches the contour
+   map underneath better than the warmer --card did.
+
+   Set as the combobox's own variables rather than as a background on the field,
+   so everything the component paints follows: the closed field, its focus
+   state, and the dropdown list, which otherwise stayed on --card and no longer
+   matched the field it opened from. (The touch bottom-sheet is portaled to the
+   body, where these variables do not reach, but its CSS fallback is already
+   this same #F4EFE2.)
+
+   The literals are deliberate: InterfaceLanguageSelector pins these exact
+   values inline on its own wrapper, so var(--ob-surface) here would resolve to
+   .lp-root's --card and quietly break the match. */
 .lp-hero-picker{
   padding:0;
+  --ob-surface:#F4EFE2;
+  --ob-surface-hover:#FFF8E8;
 }
 .lp-hero-picker .onboarding-combobox{
-  background:rgba(243,234,213,.78);
   box-shadow:0 16px 34px -28px rgba(33,26,15,.5);
-}
-.lp-hero-picker .onboarding-combobox:focus-within{
-  background:var(--card-2);
 }
 
 .lp-heading-rule::after{
