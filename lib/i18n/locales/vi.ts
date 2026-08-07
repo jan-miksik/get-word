@@ -87,23 +87,13 @@ export const viMessages: I18nMessages = {
   "landing.features.install.title": "Dùng như một ứng dụng",
   "landing.features.install.body":
     "Thêm Get Word vào màn hình chính và dùng gần giống một ứng dụng thông thường.",
-  "landing.how.title": "Ba bước đến những từ đầu tiên của bạn",
-  "landing.how.pickPair.title": "Chọn ngôn ngữ",
-  "landing.how.pickPair.body":
-    "Trước hết, chọn ngôn ngữ bạn biết và ngôn ngữ bạn muốn học. Sau đó bắt đầu từ danh sách có sẵn hoặc tạo danh sách riêng.",
-  "landing.how.studyDaily.title": "Học ngắn mỗi ngày",
-  "landing.how.studyDaily.body":
-    "Bạn học bằng thẻ, phát âm và cách đánh dấu đơn giản những gì mình đã biết. Ứng dụng dựa vào đó để lên lịch ôn tiếp theo.",
-  "landing.how.remember.title": "Ghi nhớ dần dần",
-  "landing.how.remember.body":
-    "Từ vựng quay lại nhiều lần, nhưng không phải lúc nào cũng với cùng tần suất. Càng nhớ tốt, khoảng cách ôn càng dài hơn và vốn từ dần đi vào trí nhớ dài hạn.",
   "landing.openSource.title": "Mã nguồn mở",
   "landing.openSource.body":
     "Get Word được xây dựng như một ứng dụng mã nguồn mở. Đọc mã, báo lỗi hoặc đóng góp - tất cả đều có trên GitHub.",
   "landing.openSource.cta": "Gắn sao trên GitHub",
   "landing.cta.title": "Bạn có thể bắt đầu trong vài phút",
   "landing.cta.body":
-    "Chỉ cần chọn cặp ngôn ngữ và mở danh sách đầu tiên. Bạn có thể dùng nội dung có sẵn hoặc tự tạo danh sách riêng.",
+    "Chỉ cần chọn cặp ngôn ngữ và cho biết bạn muốn nói về điều gì. Get Word sẽ chuẩn bị những từ đầu tiên cho bạn.",
   "landing.cta.button": "Bắt đầu học",
   "landing.demo.title": "Hãy tự thử",
   "landing.demo.captionIntro": "Thử thẻ học giống trong ứng dụng.",

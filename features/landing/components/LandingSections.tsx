@@ -15,7 +15,6 @@ import {
 
 const GITHUB_URL = 'https://github.com/jan-miksik/get-word';
 const CONTACT_EMAIL = 'contact@getword.app';
-const STEP_NUMBERS = ['01', '02', '03'];
 const FEATURE_ICONS: ((props: { className?: string }) => React.ReactNode)[] = [
   IconBrain,
   IconCards,
@@ -42,11 +41,6 @@ const LANDING_FEATURES = [
   { title: 'landing.features.memoryGames.title', body: 'landing.features.memoryGames.body' },
   { title: 'landing.features.sync.title', body: 'landing.features.sync.body' },
   { title: 'landing.features.install.title', body: 'landing.features.install.body' },
-] satisfies Array<{ title: I18nKey; body: I18nKey }>;
-const LANDING_STEPS = [
-  { title: 'landing.how.pickPair.title', body: 'landing.how.pickPair.body' },
-  { title: 'landing.how.studyDaily.title', body: 'landing.how.studyDaily.body' },
-  { title: 'landing.how.remember.title', body: 'landing.how.remember.body' },
 ] satisfies Array<{ title: I18nKey; body: I18nKey }>;
 
 export function Features() {
@@ -76,33 +70,6 @@ export function Features() {
           );
         })}
       </div>
-    </section>
-  );
-}
-
-export function HowItWorks() {
-  const { t } = useI18n();
-  return (
-    <section className="py-12 sm:py-20">
-      <SectionHeading title={t('landing.how.title')} />
-      <ol className="mt-10 grid grid-cols-1 gap-6 sm:grid-cols-3">
-        {LANDING_STEPS.map((step, index) => (
-          <li
-            key={STEP_NUMBERS[index]}
-            className="lp-reveal lp-step"
-            style={{ '--d': `${index * 80}ms` } as React.CSSProperties}
-          >
-            <span className="lp-step-n lp-display">{STEP_NUMBERS[index]}</span>
-            <h3 className="lp-display mt-4 text-xl font-semibold text-[var(--ink)]">
-              {t(step.title)}
-            </h3>
-            <p className="mt-2 text-[0.95rem] leading-6 text-[var(--ink-2)]">{t(step.body)}</p>
-            {index < LANDING_STEPS.length - 1 && (
-              <IconArrow className="lp-step-arrow" aria-hidden />
-            )}
-          </li>
-        ))}
-      </ol>
     </section>
   );
 }

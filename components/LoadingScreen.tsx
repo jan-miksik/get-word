@@ -2,11 +2,23 @@
 
 import { AppLogo } from '@/components/AppLogo';
 import { RisingLettersBackground } from '@/components/RisingLettersBackground';
+import {
+  ScratchField,
+  ScratchFieldBase,
+  ScratchFieldRevealTint,
+  useLettersLayer,
+} from '@/components/ScratchField';
 
 export function LoadingScreen() {
   return (
     <div className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden bg-[#fefff5fa]">
-      <RisingLettersBackground variant="loader" count={48} className="z-0" />
+      {/* Same experiment as the landing page: the loader is a scratch field.
+          Bottom to top: reveal tint → second motif → cover → logo, with the
+          rising letters either side of the cover per the chosen config. */}
+      <ScratchFieldRevealTint className="z-0" />
+      <ScratchFieldBase className="z-0" />
+      <LoaderRisingLetters />
+      <ScratchField className="z-[2]" />
 
       <div className="relative z-10 flex flex-col items-center">
         <LoaderB />
@@ -21,6 +33,22 @@ export function LoadingScreen() {
         }
       `}</style>
     </div>
+  );
+}
+
+/**
+ * No mouse snapping here: the scratch field owns pointer movement on this
+ * screen, and letters chasing the cursor fought the rubbing.
+ */
+function LoaderRisingLetters() {
+  const layer = useLettersLayer();
+  return (
+    <RisingLettersBackground
+      variant="loader"
+      count={48}
+      snapToMouse={false}
+      className={layer === 'cover' ? 'z-[3]' : 'z-[1]'}
+    />
   );
 }
 

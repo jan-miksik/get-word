@@ -85,23 +85,13 @@ export const enMessages = {
   "landing.features.install.title": "Use it like an app",
   "landing.features.install.body":
     "Add Get Word to your home screen and use it much like a regular app.",
-  "landing.how.title": "Three steps to your first words",
-  "landing.how.pickPair.title": "Choose your languages",
-  "landing.how.pickPair.body":
-    "First choose the language you know and the language you want to learn. Then start from a prepared list or create your own.",
-  "landing.how.studyDaily.title": "Short daily study",
-  "landing.how.studyDaily.body":
-    "Study with cards, pronunciation, and simple marks for what you already know. Get Word uses that to plan the next reviews.",
-  "landing.how.remember.title": "Gradual remembering",
-  "landing.how.remember.body":
-    "Words return again and again, but not always at the same pace. As you know them better, the intervals grow and vocabulary moves into long-term memory.",
   "landing.openSource.title": "Open source",
   "landing.openSource.body":
     "Get Word is built as open-source app. Read the code, file an issue, or contribute - it's all on GitHub.",
   "landing.openSource.cta": "Star on GitHub",
   "landing.cta.title": "You can start in a few minutes",
   "landing.cta.body":
-    "Choose a language pair and open your first list. Use prepared content or make something of your own.",
+    "Choose your language pair, say what you want to talk about, and Get Word puts together your first words.",
   "landing.cta.button": "Start learning",
   "landing.demo.title": "Try it yourself",
   "landing.demo.captionIntro": "Try the app-style study card.",

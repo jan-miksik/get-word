@@ -87,23 +87,13 @@ export const csMessages: I18nMessages = {
   "landing.features.install.title": "Použití jako aplikace",
   "landing.features.install.body":
     "Get Word si můžete přidat na domovskou obrazovku a používat ho podobně jako běžnou aplikaci.",
-  "landing.how.title": "Tři kroky k vašim prvním slovům",
-  "landing.how.pickPair.title": "Výběr jazyků",
-  "landing.how.pickPair.body":
-    "Nejdřív si zvolíte jazyk, který znáte, a jazyk, který se chcete učit. Potom můžete začít z připraveného seznamu, nebo si vytvořit vlastní.",
-  "landing.how.studyDaily.title": "Krátké každodenní studium",
-  "landing.how.studyDaily.body":
-    "Slova se učíte pomocí kartiček, výslovnosti a jednoduchého označování toho, co už znáte. Aplikace podle toho plánuje další opakování.",
-  "landing.how.remember.title": "Postupné zapamatování",
-  "landing.how.remember.body":
-    "Slova se vracejí opakovaně, ale ne pořád stejně často. Čím lépe je znáte, tím víc se intervaly prodlužují a slovní zásoba se postupně přesouvá do dlouhodobé paměti.",
   "landing.openSource.title": "Open source",
   "landing.openSource.body":
     "Get Word je vytvořen jako open-source aplikace. Přečtěte si kód, nahlaste problém nebo přispějte - vše najdete na GitHubu.",
   "landing.openSource.cta": "Dejte hvězdu na GitHubu",
   "landing.cta.title": "Začít se dá během pár minut",
   "landing.cta.body":
-    "Stačí vybrat jazykovou kombinaci a otevřít první seznam. Můžete použít připravený obsah, nebo si vytvořit vlastní.",
+    "Stačí vybrat jazykovou kombinaci a říct, o čem chcete mluvit. Get Word z toho poskládá vaše první slova.",
   "landing.cta.button": "Začít se učit",
   "landing.demo.title": "Vyzkoušejte si to",
   "landing.demo.captionIntro": "Vyzkoušejte si kartičku jako v aplikaci.",

@@ -11,13 +11,16 @@ import { IconArrow } from './LandingIcons';
 import {
   Features,
   FinalCta,
-  HowItWorks,
   OpenSource,
   SectionHeading,
   SiteFooter,
 } from './LandingSections';
 import { getLandingDemoFallbackTo } from './demo/demo-set';
-import { SpeckledBackground } from '@/components/SpeckledBackground';
+import {
+  LandingAmbientLetters,
+  LandingScratchLayers,
+  useDoubleActivate,
+} from './LandingScratchBackground';
 import { LanguageCombobox } from '@/features/shared/languages/LanguageCombobox';
 import { useSupportedLanguages } from '@/features/shared/languages/useSupportedLanguages';
 import {
@@ -77,6 +80,9 @@ function LandingPageContent({
   );
   const [fromOverride, setFromOverride] = useState<string | null>(null);
   const [toOverride, setToOverride] = useState<string | null>(null);
+  // The scratch-field easter egg. Local state on purpose: it is not persisted,
+  // so a reload always returns the page to the quiet static background.
+  const [scratchMode, setScratchMode] = useState(false);
   const languageFrom = fromOverride ?? savedFrom;
   const languageTo = toOverride ?? '';
   const effectiveLanguageFrom = languageFrom || lang;
@@ -103,10 +109,12 @@ function LandingPageContent({
   return (
     <div className="lp-root" lang={lang}>
       <LandingPageStyles />
-      <SpeckledBackground
-        className="lp-frame-background"
-        snapRisingLettersToMouse={false}
-      />
+      {/* Background, bottom to top: the static contour map (`.lp-root`'s own
+          background) → ambient rising letters (-z-9) → content. Double-clicking
+          the logo fades in the scratch-field easter egg over the top of all of
+          it; see LandingScratchBackground. */}
+      {scratchMode ? null : <LandingAmbientLetters />}
+      <LandingScratchLayers active={scratchMode} />
 
       <div className="relative mx-auto flex w-full max-w-5xl flex-col px-4 sm:px-6">
         <SiteHeader
@@ -114,6 +122,7 @@ function LandingPageContent({
           onLangChange={onLangChange}
           onBeforeLogin={persistLandingPair}
           showLogin={!isFirefoxAndroid}
+          onLogoDoubleActivate={() => setScratchMode((on) => !on)}
         />
         {isFirefoxAndroid ? <FirefoxUnsupportedNotice /> : null}
         <Hero
@@ -133,7 +142,6 @@ function LandingPageContent({
           />
         )}
         <Features />
-        <HowItWorks />
         <OpenSource />
         {isFirefoxAndroid ? null : <FinalCta />}
         <SiteFooter showLogin={!isFirefoxAndroid} />
@@ -229,21 +237,32 @@ function SiteHeader({
   onLangChange,
   onBeforeLogin,
   showLogin,
+  onLogoDoubleActivate,
 }: {
   lang: string;
   onLangChange: (next: string) => void;
   onBeforeLogin: () => void;
   showLogin: boolean;
+  onLogoDoubleActivate: () => void;
 }) {
   const { t } = useI18n();
+  const doubleActivate = useDoubleActivate(onLogoDoubleActivate);
   return (
-    <header className="lp-site-header sticky top-0 z-50 -mx-4 flex items-center justify-between gap-2 px-4 py-4 sm:-mx-6 sm:gap-6 sm:px-6 sm:py-6">
+    // Not sticky: with the scratch field running behind it the header has no
+    // background of its own, so pinning it left the copy scrolling underneath
+    // bare text. It now flows with the page like every other section.
+    <header className="lp-site-header relative z-50 -mx-4 flex items-center justify-between gap-2 px-4 py-4 sm:-mx-6 sm:gap-6 sm:px-6 sm:py-6">
       <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-        <AppLogo
-          size={38}
-          className="[&>svg]:h-[34px] [&>svg]:w-[34px] sm:[&>svg]:h-[38px] sm:[&>svg]:w-[38px]"
-        />
-        <span className="lp-display whitespace-nowrap text-base font-semibold tracking-tight text-[var(--ink)] sm:text-lg">
+        {/* Double-click / double-tap target for the scratch-field easter egg.
+            Left as a plain span: nothing is gated behind it, and announcing a
+            decorative toggle to assistive tech would be noise. */}
+        <span className="lp-logo-egg" {...doubleActivate}>
+          <AppLogo
+            size={38}
+            className="[&>svg]:h-[34px] [&>svg]:w-[34px] sm:[&>svg]:h-[38px] sm:[&>svg]:w-[38px]"
+          />
+        </span>
+        <span className="lp-brand-label lp-display whitespace-nowrap text-base font-semibold tracking-tight text-[var(--ink)] sm:text-lg">
           Get&nbsp;Word
         </span>
       </div>

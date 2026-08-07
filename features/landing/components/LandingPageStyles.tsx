@@ -17,7 +17,17 @@ export function LandingPageStyles() {
   min-height:100dvh;
   width:100%;
   color:var(--ink);
-  background:var(--paper);
+  /* The contour map, generated fresh per visit. It sits on .lp-root itself
+     rather than on a layer of its own so it always covers the *whole* page:
+     in standalone (PWA) display mode .lp-root becomes the scroll container, and
+     background-attachment:local is what makes the background span the scrolled
+     area there instead of a single viewport. --paper shows until it loads. */
+  background-color:var(--paper);
+  background-image:url('/api/backgrounds/topo');
+  background-repeat:no-repeat;
+  background-position:top center;
+  background-size:cover;
+  background-attachment:local;
   font-family:var(--font-hanken),system-ui,sans-serif;
   -webkit-font-smoothing:antialiased;
   /* overflow-x hidden computes the other axis to auto, which makes this a second
@@ -34,26 +44,40 @@ export function LandingPageStyles() {
     -webkit-overflow-scrolling:touch;
   }
 }
-@media (max-width:639px){
-  .lp-frame-background{
-    display:none;
-  }
-}
-@media (max-width:639px) and (display-mode: standalone), (max-width:639px) and (display-mode: fullscreen){
-  .lp-frame-background{
-    display:block;
-  }
-}
 .lp-display{ font-family:system-ui,-apple-system,"Segoe UI",sans-serif; letter-spacing:-0.01em; }
 .lp-mono{ font-family:var(--font-mono-accent),ui-monospace,monospace; }
 .italic{ font-style:italic; }
 .lp-root ::selection{ background:var(--blue); color:var(--card-2); }
+
+/* The easter-egg target. touch-action:manipulation kills iOS double-tap-to-zoom
+   so the second tap reaches the handler; without user-select:none a double
+   click on desktop also selects the brand label next to it. */
+.lp-logo-egg{
+  display:inline-flex;
+  touch-action:manipulation;
+  -webkit-user-select:none; user-select:none;
+  -webkit-tap-highlight-color:transparent;
+}
+
+/* The cross-fade in and out of the easter egg. An animation rather than a
+   transition so the layers can mount already fading, and so the animationend
+   event tells the component when it is safe to unmount them again. */
+.lp-scratch-layers{ opacity:0; }
+.lp-scratch-in{ animation:lp-scratch-fade 320ms ease forwards; }
+.lp-scratch-out{ animation:lp-scratch-fade 320ms ease reverse forwards; }
+@keyframes lp-scratch-fade{ from{ opacity:0 } to{ opacity:1 } }
+@media (prefers-reduced-motion: reduce){
+  /* Not animation:none — without an animationend event the faded-out layers
+     would stay mounted forever. */
+  .lp-scratch-in, .lp-scratch-out{ animation-duration:1ms; }
+}
 .lp-demo-caption-mark{ font-weight:700; color:var(--ink); }
 
+/* Scratch-field experiment: the header is part of the scratch surface, so it
+   carries no background of its own — the foil (and whatever has been rubbed off
+   it) runs uninterrupted from the very top of the page. */
 .lp-site-header{
-  background:color-mix(in srgb, var(--paper) 88%, transparent);
-  backdrop-filter:blur(10px);
-  -webkit-backdrop-filter:blur(10px);
+  background:transparent;
 }
 .lp-site-header::after{
   content:""; position:absolute; left:1rem; right:1rem; bottom:0; height:1px;
@@ -62,9 +86,6 @@ export function LandingPageStyles() {
   transition:opacity .18s ease;
 }
 .lp-site-header:is(:hover,:focus-within)::after{ opacity:1; }
-@supports not (backdrop-filter:blur(1px)){
-  .lp-site-header{ background:var(--paper); }
-}
 
 .lp-btn-primary,.lp-btn-cream,.lp-btn-ghost,.lp-btn-outline{
   display:inline-flex; align-items:center; justify-content:center; gap:.55rem;
@@ -107,6 +128,16 @@ export function LandingPageStyles() {
     min-height:2.3rem; padding:.38rem .68rem; font-size:.8rem;
   }
 }
+@media (max-width:359px){
+  .lp-brand-label{ display:none; }
+}
+@media (max-width:639px){
+  .scratch-field-switcher{
+    left:.75rem;
+    bottom:max(.75rem,env(safe-area-inset-bottom));
+    max-width:calc(100vw - 1.5rem);
+  }
+}
 
 .lp-hero-picker{
   padding:0;
@@ -138,11 +169,6 @@ export function LandingPageStyles() {
 .lp-feature:hover .lp-feature-icon{ transform:translateY(-3px) rotate(-4deg); }
 .lp-accent-blue{ background:rgba(30,111,168,.14); color:var(--blue-deep); }
 .lp-accent-rust{ background:rgba(191,71,42,.14); color:var(--rust-deep); }
-
-.lp-step{ position:relative; background:var(--card); border:2px solid var(--ink); border-radius:20px; padding:1.5rem 1.4rem 1.6rem; }
-.lp-step-n{ font-size:2.4rem; font-weight:700; color:var(--rust); line-height:1; }
-.lp-step-arrow{ position:absolute; right:-26px; top:50%; width:26px; height:26px; color:var(--ink-soft); transform:translateY(-50%); z-index:5; }
-@media (max-width:639px){ .lp-step-arrow{ display:none } }
 
 .lp-opensource{
   display:flex; flex-direction:column; gap:1.4rem; align-items:flex-start;
