@@ -30,7 +30,7 @@ interface PreferenceOperation {
 interface CategoryFiltersOperation {
   entity: 'category_filters';
   opType: 'replace';
-  payload: { filters: string[]; baseRevision?: string };
+  payload: { filters: string[] };
 }
 
 interface GameScoreOperation {

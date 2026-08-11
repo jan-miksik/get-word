@@ -43,6 +43,12 @@ type BootTimers = {
   warmFallback?: ReturnType<typeof setTimeout>;
 };
 
+function toEpochMs(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
 function clearBootTimers(timers: BootTimers): void {
   clearTimeout(timers.hydration);
   clearTimeout(timers.warmFallback);
@@ -350,6 +356,8 @@ export function useServerSync({
         await rebaseBlockedPreferenceOps({
           settingsLanguageRevision: snapshot.user.settings_language_revision ?? 0,
           languagePairRevision: snapshot.user.language_pair_revision ?? 0,
+          settingsLanguageChosenAt: toEpochMs(snapshot.user.settings_language_selected_at),
+          languagePairChosenAt: toEpochMs(snapshot.user.onboarding_completed_at),
         });
         await flushOutboxBeforeRead();
         await syncEngine.pull({ forceFull: true });

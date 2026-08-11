@@ -64,6 +64,8 @@ describe('outbox conflict recovery', () => {
     const rebased = rebaseBlockedPreferenceOperation(blocked, {
       settingsLanguageRevision: 8,
       languagePairRevision: 11,
+      settingsLanguageChosenAt: null,
+      languagePairChosenAt: null,
     });
 
     expect(rebased.status).toBe('pending');
@@ -95,7 +97,47 @@ describe('outbox conflict recovery', () => {
     expect(rebaseBlockedPreferenceOperation(blocked, {
       settingsLanguageRevision: 8,
       languagePairRevision: 11,
+      settingsLanguageChosenAt: null,
+      languagePairChosenAt: null,
     })).toBe(blocked);
+  });
+
+  // Rebasing bypasses the server's choice-time comparison, so it must not be
+  // applied to an op the learner has already superseded elsewhere.
+  it('leaves a conflict blocked when another device chose more recently', () => {
+    const blocked = {
+      clientOpId: 'lang-1',
+      clientCreatedAt: '2026-08-10T00:00:00.000Z',
+      deviceId: 'device-1',
+      entity: 'preference',
+      opType: 'set',
+      payload: { field: 'settings_language', value: 'cs', baseRevision: 2 },
+      attempts: 1,
+      status: 'blocked',
+      diagnostic: {
+        kind: 'conflict',
+        reasonCode: 'STALE_REVISION',
+        message: 'stale',
+        failedAt: '2026-08-10T00:00:01.000Z',
+      },
+    } satisfies OutboxOp;
+
+    expect(rebaseBlockedPreferenceOperation(blocked, {
+      settingsLanguageRevision: 8,
+      languagePairRevision: 11,
+      settingsLanguageChosenAt: Date.parse('2026-08-11T00:00:00.000Z'),
+      languagePairChosenAt: null,
+    })).toBe(blocked);
+
+    const rebased = rebaseBlockedPreferenceOperation(blocked, {
+      settingsLanguageRevision: 8,
+      languagePairRevision: 11,
+      settingsLanguageChosenAt: Date.parse('2026-08-09T00:00:00.000Z'),
+      languagePairChosenAt: null,
+    });
+    expect(rebased.status).toBe('pending');
+    if (rebased.entity !== 'preference') throw new Error('Expected preference op');
+    expect(rebased.payload.baseRevision).toBe(8);
   });
 });
 

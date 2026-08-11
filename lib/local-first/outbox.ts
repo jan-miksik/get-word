@@ -2,6 +2,7 @@
 
 import { openDb, STORE_OUTBOX } from './db';
 import type { OutboxOperation } from './operations';
+import type { SyncRevisionDomain } from '@/packages/domain/sync/revision';
 
 export type { OutboxOperation } from './operations';
 
@@ -78,12 +79,39 @@ export async function appendOp(input: OutboxOperation & {
     status: 'pending',
   } as OutboxOp;
 
+  // A second choice about the same thing replaces the first rather than
+  // queueing behind it. Each revision-bearing op is sent alone and carries the
+  // base revision it was created with, so two of them would go out as two
+  // requests: the first bumps the server revision and the second is rejected
+  // against a base that is now stale — blocked, needing an explicit rebase,
+  // while the device kept showing the value it never managed to save. Only
+  // unclaimed ops are superseded; one with a batchId may already be in flight,
+  // and its outcome is not ours to assume.
+  const supersededDomain = revisionDomainOf(op);
+
   const db = await openDb();
   if (!db) return null;
   return new Promise((resolve) => {
     try {
       const tx = db.transaction(STORE_OUTBOX, 'readwrite');
-      tx.objectStore(STORE_OUTBOX).put(op, op.clientOpId);
+      const store = tx.objectStore(STORE_OUTBOX);
+      store.put(op, op.clientOpId);
+      if (supersededDomain) {
+        const cursorRequest = store.openCursor();
+        cursorRequest.onsuccess = () => {
+          const cursor = cursorRequest.result;
+          if (!cursor) return;
+          const stored = cursor.value as OutboxOp;
+          if (
+            stored.clientOpId !== op.clientOpId &&
+            !stored.batchId &&
+            revisionDomainOf(stored) === supersededDomain
+          ) {
+            cursor.delete();
+          }
+          cursor.continue();
+        };
+      }
       tx.oncomplete = () => {
         db.close();
         notifyStatusChanged();
@@ -144,24 +172,40 @@ function sortByEnqueueOrder(ops: OutboxOp[]): OutboxOp[] {
 }
 
 /**
+ * Which server-side revision an operation is arbitrated by, or null when it is
+ * not revision-bearing. This is the single definition of "what this op is a
+ * choice about" — batching, superseding, and rebasing all key off it, and they
+ * have to agree or an op gets isolated by one rule and rebased by another.
+ */
+function revisionDomainOf(op: OutboxOperation): SyncRevisionDomain | null {
+  if (op.entity !== 'preference') return null;
+  const values = op.payload.values;
+  const touchesSettings = op.payload.field === 'settings_language' ||
+    Boolean(values && (
+      'settings_language' in values || 'settings_language_base_revision' in values
+    ));
+  // Settings language wins a tie deliberately: an op carrying both is stamped
+  // with the settings revision by the payload builder, so it must be batched
+  // and rebased as a settings-language choice to stay consistent with the
+  // request that actually goes out.
+  if (touchesSettings) return 'settings_language';
+  const touchesPair = op.opType === 'set_language_pair' ||
+    Boolean(values && (
+      'language_from' in values ||
+      'language_to' in values ||
+      'onboarding_completed' in values ||
+      'language_pair_base_revision' in values
+    ));
+  return touchesPair ? 'language_pair' : null;
+}
+
+/**
  * Operations whose payload can be rejected as a whole because its base
  * revision is stale. Keep each one in its own request so a preference
  * conflict can never strand unrelated progress or review writes.
  */
 export function isRevisionAwareOperation(op: OutboxOp): boolean {
-  if (op.entity === 'category_filters') return op.payload.baseRevision !== undefined;
-  if (op.entity !== 'preference') return false;
-  if (op.opType === 'set_language_pair' || typeof op.payload.baseRevision === 'number') return true;
-  if (op.payload.field === 'settings_language') return true;
-  const values = op.payload.values;
-  return Boolean(values && (
-    'settings_language' in values ||
-    'settings_language_base_revision' in values ||
-    'language_from' in values ||
-    'language_to' in values ||
-    'onboarding_completed' in values ||
-    'language_pair_base_revision' in values
-  ));
+  return revisionDomainOf(op) !== null;
 }
 
 export function selectReadyOpsForBatch(
@@ -394,16 +438,21 @@ export async function retryBlockedOps(clientOpIds?: string[]): Promise<void> {
   });
 }
 
-export async function rebaseBlockedPreferenceOps(revisions: {
+export interface SyncRevisionState {
   settingsLanguageRevision: number;
   languagePairRevision: number;
-}): Promise<void> {
+  /** Epoch ms the server records for the stored choice, or null if unknown. */
+  settingsLanguageChosenAt: number | null;
+  languagePairChosenAt: number | null;
+}
+
+export async function rebaseBlockedPreferenceOps(revisions: SyncRevisionState): Promise<void> {
   await updateOps((op) => rebaseBlockedPreferenceOperation(op, revisions));
 }
 
 export function rebaseBlockedPreferenceOperation(
   op: OutboxOp,
-  revisions: { settingsLanguageRevision: number; languagePairRevision: number },
+  revisions: SyncRevisionState,
 ): OutboxOp {
   if (
     op.status !== 'blocked' ||
@@ -411,15 +460,33 @@ export function rebaseBlockedPreferenceOperation(
     op.entity !== 'preference'
   ) return op;
 
+  const domain = revisionDomainOf(op);
+  if (!domain) return op;
+  const touchesSettings = domain === 'settings_language';
   const values = op.payload.values;
-  const touchesSettings = op.payload.field === 'settings_language' ||
-    Boolean(values && 'settings_language' in values);
-  const touchesPair = Boolean(values && (
+  const touchesPair = op.opType === 'set_language_pair' || Boolean(values && (
     'language_from' in values ||
     'language_to' in values ||
     'onboarding_completed' in values
   ));
-  if (!touchesSettings && !touchesPair) return op;
+
+  // Rebasing re-sends the same value against a fresh base revision, so the
+  // server applies it unconditionally — the base-revision path deliberately
+  // skips the choice-time comparison. That is right when the revision moved
+  // because of our own earlier write, and wrong when another device made a
+  // newer choice: rebasing then would quietly overwrite it. Only advance an op
+  // whose own intent is at least as recent as what the server holds. Anything
+  // older stays blocked and visible, for the learner to discard.
+  const storedChosenAt = touchesSettings
+    ? revisions.settingsLanguageChosenAt
+    : revisions.languagePairChosenAt;
+  const opChosenAt = new Date(op.clientCreatedAt).getTime();
+  if (
+    storedChosenAt !== null &&
+    Number.isFinite(opChosenAt) &&
+    opChosenAt < storedChosenAt
+  ) return op;
+
   const baseRevision = touchesSettings
     ? revisions.settingsLanguageRevision
     : revisions.languagePairRevision;
