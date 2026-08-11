@@ -13,10 +13,12 @@ vi.mock('../local-first/stores', () => ({
   getAllMemoryHookRows: vi.fn(),
   getCategoryFilterRow: vi.fn(),
   getPrefsRow: vi.fn(),
+  getContentRow: vi.fn(),
   putProgressRow: vi.fn(),
   putMemoryHookRow: vi.fn(),
   putCategoryFilterRow: vi.fn(),
   putPrefsRow: vi.fn(),
+  putContentRow: vi.fn(),
   putMeta: vi.fn(),
 }));
 
@@ -35,15 +37,18 @@ import {
   getCategoryFilterRow,
   getMeta,
   getPrefsRow,
+  getContentRow,
   putCategoryFilterRow,
   putMemoryHookRow,
   putMeta,
   putPrefsRow,
+  putContentRow,
   putProgressRow,
 } from '../local-first/stores';
 import { getSnapshot } from '../local-learning-cache';
 import { listOps } from '../local-first/outbox';
 import {
+  checkpointAcknowledgedOps,
   applyPendingOutboxToSyncResponse,
   loadAllDomainsFromIdb,
   persistDeltaToIdb,
@@ -56,11 +61,13 @@ const mockGetAllProgressRows = vi.mocked(getAllProgressRows);
 const mockGetAllMemoryHookRows = vi.mocked(getAllMemoryHookRows);
 const mockGetCategoryFilterRow = vi.mocked(getCategoryFilterRow);
 const mockGetPrefsRow = vi.mocked(getPrefsRow);
+const mockGetContentRow = vi.mocked(getContentRow);
 const mockGetSnapshot = vi.mocked(getSnapshot);
 const mockPutProgressRow = vi.mocked(putProgressRow);
 const mockPutMemoryHookRow = vi.mocked(putMemoryHookRow);
 const mockPutCategoryFilterRow = vi.mocked(putCategoryFilterRow);
 const mockPutPrefsRow = vi.mocked(putPrefsRow);
+const mockPutContentRow = vi.mocked(putContentRow);
 const mockPutMeta = vi.mocked(putMeta);
 const mockListOps = vi.mocked(listOps);
 
@@ -76,11 +83,13 @@ beforeEach(() => {
   mockGetAllMemoryHookRows.mockResolvedValue([]);
   mockGetCategoryFilterRow.mockResolvedValue(null);
   mockGetPrefsRow.mockResolvedValue(null);
+  mockGetContentRow.mockResolvedValue(null);
   mockGetSnapshot.mockResolvedValue(null);
   mockPutProgressRow.mockResolvedValue(true);
   mockPutMemoryHookRow.mockResolvedValue(true);
   mockPutCategoryFilterRow.mockResolvedValue(true);
   mockPutPrefsRow.mockResolvedValue(true);
+  mockPutContentRow.mockResolvedValue(true);
   mockPutMeta.mockResolvedValue(true);
   mockListOps.mockResolvedValue([]);
 });
@@ -261,6 +270,53 @@ describe('persistDomainsToIdb', () => {
       '',
       expect.objectContaining({ deletedAt: expect.any(String) }),
     );
+  });
+});
+
+describe('checkpointAcknowledgedOps', () => {
+  it('projects an acked operation into domain stores without consulting the remaining outbox', async () => {
+    const user = { id: 'u-1', settings_language_revision: 4 } as SyncResponse['user'];
+    mockGetPrefsRow.mockResolvedValueOnce({
+      schemaVersion: META_SCHEMA_VERSION,
+      updatedAt: '2026-08-10T00:00:00.000Z',
+      value: user,
+    });
+
+    const result = await checkpointAcknowledgedOps({
+      success: true,
+      is_delta: true,
+      user: { ...user, settings_language_revision: 5 },
+    } as SyncResponse, [{
+      clientOpId: 'progress-1',
+      batchId: 'batch-1',
+      clientCreatedAt: '2026-08-10T00:00:01.000Z',
+      deviceId: 'device-1',
+      attempts: 0,
+      status: 'pending',
+      entity: 'progress',
+      opType: 'upsert',
+      payload: {
+        word_id: 'word-1',
+        stage_index: 3,
+        known_count: 2,
+        unknown_count: 1,
+        last_known_at: null,
+        last_unknown_at: null,
+        next_due_at: null,
+      },
+    }]);
+
+    expect(result?.progress['word-1']).toMatchObject({ stageIndex: 3, knownCount: 2 });
+    expect(mockPutProgressRow).toHaveBeenCalledWith(
+      'word-1',
+      expect.objectContaining({ stageIndex: 3, knownCount: 2 }),
+      expect.any(Object),
+    );
+    expect(mockPutPrefsRow).toHaveBeenCalledWith(
+      'user',
+      expect.objectContaining({ settings_language_revision: 5 }),
+    );
+    expect(mockListOps).not.toHaveBeenCalled();
   });
 });
 

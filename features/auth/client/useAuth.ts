@@ -14,8 +14,6 @@ type AuthStatus = 'connected' | 'disconnected' | 'connecting'
 interface UseAuthReturn {
   /** App-authenticated (signed in via Supabase-backed login → app session). */
   isConnected: boolean
-  /** Reserved for future wallet linking; always undefined for now. */
-  address: string | undefined
   email: string | undefined
   /** Auth provider, e.g. "google" | "email". */
   authProvider: string | undefined
@@ -195,7 +193,6 @@ export function useAuth(): UseAuthReturn {
 
   return {
     isConnected,
-    address: undefined,
     email: me?.email ?? undefined,
     authProvider: me?.authProvider ?? undefined,
     school: me?.school ?? null,

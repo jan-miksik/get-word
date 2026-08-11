@@ -384,8 +384,8 @@ describe('TranslationStep Google usage gating', () => {
 
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith('hello\txin chào\nworld\tthế giới');
+      expect(screen.getByRole('status')).toHaveTextContent('Copied');
     });
-    expect(screen.getByRole('status')).toHaveTextContent('Copied');
   });
 
   it('copies source, translated texts, and notes when notes exist', async () => {

@@ -16,7 +16,7 @@ export type AudioPlaybackResult = {
   rate: number;
 };
 
-export const SLOW_PLAYBACK_RATE = 0.5;
+const SLOW_PLAYBACK_RATE = 0.5;
 
 /**
  * How long after a press the next press on the same clip still counts as a

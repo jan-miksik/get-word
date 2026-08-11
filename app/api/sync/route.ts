@@ -18,15 +18,31 @@ import {
   verifySession,
 } from "@/lib/session";
 import { isGoogleSupportedLanguage } from "@/lib/i18n/server";
-import type { DeviceProfile } from "@/features/admin/types";
+import type { DeviceProfile } from "@/packages/contracts/src/device";
+import type { ApiErrorEnvelope } from "@/packages/contracts/src/errors";
+import { SyncRequestSchema } from "@/packages/contracts/src/sync";
+import { SyncRevisionConflictError } from '@/packages/domain/sync/revision';
+
+function syncError(
+  error: string,
+  code: string,
+  status: number,
+  details?: unknown,
+): NextResponse {
+  return NextResponse.json(
+    { success: false, error, code, ...(details === undefined ? {} : { details }) },
+    { status },
+  );
+}
 
 async function validateSyncLanguages(body: SyncRequest): Promise<NextResponse | null> {
   if (body.settings_language !== undefined) {
     const supported = await isGoogleSupportedLanguage(body.settings_language).catch(() => false);
     if (!supported) {
-      return NextResponse.json(
-        { error: "settings_language must be supported by Google Translate" },
-        { status: 400 },
+      return syncError(
+        "settings_language must be supported by Google Translate",
+        "INVALID_SETTINGS_LANGUAGE",
+        400,
       );
     }
   }
@@ -38,9 +54,11 @@ async function validateSyncLanguages(body: SyncRequest): Promise<NextResponse | 
     if (value === undefined || value === null) continue;
     const supported = await isGoogleSupportedLanguage(value).catch(() => false);
     if (!supported) {
-      return NextResponse.json(
-        { error: `${field} must be supported by Google Translate` },
-        { status: 400 },
+      return syncError(
+        `${field} must be supported by Google Translate`,
+        "INVALID_LANGUAGE_PAIR",
+        400,
+        { field },
       );
     }
   }
@@ -62,24 +80,41 @@ function readDeviceProfile(request: NextRequest, body?: SyncRequest): DeviceProf
 
 export async function POST(request: NextRequest) {
   const timer = createRouteTimer();
+  let parsedRequest: SyncRequest | null = null;
   try {
-    const body: SyncRequest = await request.json();
+    const rawBody = await request.json().catch(() => null);
+    const parsedBody = SyncRequestSchema.safeParse(rawBody);
+    if (!parsedBody.success) {
+      const errorEnvelope: ApiErrorEnvelope = {
+        error: "Invalid sync request",
+        code: "INVALID_SYNC_REQUEST",
+        details: parsedBody.error.issues,
+      };
+      return timer.applyHeaders(
+        NextResponse.json(
+          {
+            success: false,
+            ...errorEnvelope,
+          },
+          { status: 400 },
+        ),
+      );
+    }
+    const body: SyncRequest = parsedBody.data;
+    parsedRequest = body;
     timer.mark("parse_body");
     const deviceId = body.deviceId;
     const userId = body.userId;
 
     if (!deviceId && !userId) {
-      return NextResponse.json({ error: "deviceId or userId is required" }, { status: 400 });
+      return syncError("deviceId or userId is required", "SYNC_IDENTITY_REQUIRED", 400);
     }
 
     const sessionToken = readSessionToken(request);
     const session = await verifySession(sessionToken);
     timer.mark("verify_session");
     if (!session?.userId) {
-      const unauthorized = NextResponse.json(
-        { success: false, error: "Authentication required" },
-        { status: 401 },
-      );
+      const unauthorized = syncError("Authentication required", "AUTH_REQUIRED", 401);
       timer.mark("return_unauthorized");
       return timer.applyHeaders(unauthorized);
     }
@@ -92,10 +127,7 @@ export async function POST(request: NextRequest) {
     );
     timer.mark("resolve_user");
     if (!resolvedUser) {
-      const failed = NextResponse.json(
-        { error: "Failed to get or create user" },
-        { status: 500 },
-      );
+      const failed = syncError("Failed to get or create user", "SYNC_USER_RESOLUTION_FAILED", 500);
       timer.mark("return_user_error");
       return timer.applyHeaders(failed);
     }
@@ -108,6 +140,7 @@ export async function POST(request: NextRequest) {
       buildSyncAckPayload(result.user, {
         applied_review_event_ids: result.appliedReviewEventIds,
         applied_client_op_ids: result.clientOpIds,
+        op_results: result.opResults,
       }),
       result.user.id,
       result.user.userRole,
@@ -116,13 +149,27 @@ export async function POST(request: NextRequest) {
     return timer.applyHeaders(response);
   } catch (error) {
     timer.mark("error");
+    if (error instanceof SyncRevisionConflictError) {
+      const clientOpIds = parsedRequest?.client_op_ids ?? [];
+      return timer.applyHeaders(NextResponse.json({
+        success: false,
+        error: error.message,
+        code: 'SYNC_CONFLICT',
+        details: { domain: error.domain },
+        op_results: clientOpIds.map((clientOpId) => ({
+          clientOpId,
+          status: 'conflict' as const,
+          code: 'STALE_REVISION',
+        })),
+      }, { status: 409 }));
+    }
     if (isTransientDatabaseError(error)) {
       return databaseUnavailableResponse(timer, error, "Sync database unavailable:");
     }
     console.error("Sync error:", error);
     const errorMessage = error instanceof Error ? error.message : "Failed to sync data";
     return timer.applyHeaders(
-      NextResponse.json({ success: false, error: errorMessage }, { status: 500 }),
+      syncError(errorMessage, "SYNC_INTERNAL_ERROR", 500),
     );
   }
 }
@@ -138,20 +185,14 @@ export async function GET(request: NextRequest) {
     const contentRev = searchParams.get("contentRev");
 
     if (!deviceId && !userId) {
-      return NextResponse.json(
-        { success: false, error: "deviceId or userId is required" },
-        { status: 400 },
-      );
+      return syncError("deviceId or userId is required", "SYNC_IDENTITY_REQUIRED", 400);
     }
 
     const sessionToken = readSessionToken(request);
     const session = await verifySession(sessionToken);
     timer.mark("verify_session");
     if (!session?.userId) {
-      const unauthorized = NextResponse.json(
-        { success: false, error: "Authentication required" },
-        { status: 401 },
-      );
+      const unauthorized = syncError("Authentication required", "AUTH_REQUIRED", 401);
       timer.mark("return_unauthorized");
       return timer.applyHeaders(unauthorized);
     }
@@ -165,10 +206,7 @@ export async function GET(request: NextRequest) {
         hasDeviceId: Boolean(deviceId),
         hasUserId: Boolean(userId),
       });
-      const failed = NextResponse.json(
-        { success: false, error: "Failed to get or create user" },
-        { status: 500 },
-      );
+      const failed = syncError("Failed to get or create user", "SYNC_USER_RESOLUTION_FAILED", 500);
       timer.mark("return_user_error");
       return timer.applyHeaders(failed);
     }
@@ -191,7 +229,7 @@ export async function GET(request: NextRequest) {
     console.error("Fetch error:", error);
     const errorMessage = error instanceof Error ? error.message : "Failed to fetch data";
     return timer.applyHeaders(
-      NextResponse.json({ success: false, error: errorMessage }, { status: 500 }),
+      syncError(errorMessage, "SYNC_INTERNAL_ERROR", 500),
     );
   }
 }

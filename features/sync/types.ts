@@ -1,74 +1,15 @@
 import type { WordItemComment } from "@/lib/word-item-comment";
-import type { DeviceProfile } from "@/features/admin/types";
-
-export type { DeviceProfile };
-
-export type SyncReviewEventAction = "known" | "really_known" | "unknown";
-
-export interface SyncProgressItem {
-  word_id?: string;
-  word_list_item_id?: string;
-  stage_index: number;
-  known_count: number;
-  unknown_count: number;
-  last_known_at: number | null;
-  last_unknown_at: number | null;
-  next_due_at: number | null;
-  /**
-   * Wall-clock timestamp (ms) when the client produced this write. Used
-   * server-side as a last-write-wins guard: the upsert only overwrites the
-   * existing row if this value is strictly greater than the row's updatedAt.
-   * Optional — when absent, the server infers from last_known_at /
-   * last_unknown_at and finally falls back to epoch so stale legacy writes do
-   * not clobber fresher review-event state.
-   */
-  client_updated_at?: number;
-}
-
-export interface SyncReviewEventItem {
-  client_event_id: string;
-  word_id?: string;
-  word_list_item_id?: string;
-  action: SyncReviewEventAction;
-  client_created_at: number;
-}
-
-export interface SyncRequest {
-  deviceId?: string;
-  deviceProfile?: DeviceProfile;
-  sessionId?: string;
-  userId?: string;
-  show_english?: boolean;
-  show_category_badges?: boolean;
-  show_pronunciation?: boolean;
-  memory_hooks_enabled?: boolean;
-  memory_hooks_intro_answered?: boolean;
-  memory_hook_disable_from_stage?: number;
-  study_notes_enabled?: boolean;
-  study_note_minimize_from_stage?: number;
-  settings_language?: string;
-  language_from?: string | null;
-  language_to?: string | null;
-  onboarding_completed?: boolean;
-  game_score?: number;
-  category_order?: string[];
-  progress?: SyncProgressItem[];
-  review_events?: SyncReviewEventItem[];
-  memory_hooks?: Record<string, string | null>;
-  category_filters?: string[];
-  /**
-   * Stable identifiers for the outbox ops that produced this payload. The
-   * server echoes these back as `applied_client_op_ids` so the client can
-   * clear the corresponding ops from its outbox. All mutations are
-   * individually retry-safe (idempotent), so re-sending a batch is harmless.
-   */
-  client_op_ids?: string[];
-}
-
-export type SyncMutationPayload = Omit<
+export type {
+  SyncOperationResult,
+  SyncMutationPayload,
+  SyncProgressItem,
   SyncRequest,
-  "deviceId" | "deviceProfile" | "sessionId" | "userId"
->;
+  SyncReviewEventAction,
+  SyncReviewEventItem,
+} from '@/packages/contracts/src/sync';
+export type { DeviceProfile } from '@/packages/contracts/src/device';
+import type { SyncReviewEventItem } from '@/packages/contracts/src/sync';
+import type { SyncOperationResult } from '@/packages/contracts/src/sync';
 
 export interface SyncWordListItem {
   id: string;
@@ -122,6 +63,7 @@ export interface SyncResponse {
   applied_client_op_ids?: string[];
   submitted_review_events?: SyncReviewEventItem[];
   op_errors?: Record<string, string>;
+  op_results?: SyncOperationResult[];
   sync_revision?: number;
   /**
    * Marks a delta response from GET /api/sync?since=<cursor>. When true,
@@ -152,9 +94,11 @@ export interface SyncResponse {
     study_note_minimize_from_stage?: number;
     settings_language?: string | null;
     settings_language_selected_at?: string | null;
+    settings_language_revision?: number;
     language_from?: string | null;
     language_to?: string | null;
     onboarding_completed_at?: string | null;
+    language_pair_revision?: number;
     wallet_address?: string | null;
     email?: string | null;
     auth_provider?: string | null;

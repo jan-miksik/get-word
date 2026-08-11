@@ -9,7 +9,7 @@ import { ConfirmModal } from '@/components/ConfirmModal';
 import { copyTextToClipboard } from '@/lib/clipboard';
 import { listsApiFetch } from '@/features/lists/api';
 import { ReportContentDialog } from '@/features/moderation/components/ReportContentDialog';
-import type { ModerationDecisionCode } from '@/features/moderation/types';
+import type { ModerationDecisionCode } from '@/features/moderation/contracts';
 import type { I18nKey } from '@/lib/i18n/locales/en';
 import { ShareVisibilityDialog } from '../ShareVisibilityDialog';
 import { ForkIcon, ListBadges } from './ListMetadata';

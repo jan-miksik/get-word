@@ -173,6 +173,48 @@ describe('server sync echo guards', () => {
       type: 'preferences_changed',
       patch: expect.objectContaining({ settingsLanguage: 'de' }),
     });
+    expect(mockEnqueueOp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: { field: 'settings_language', value: 'de', baseRevision: 0 },
+      })
+    );
+    expect(localStorage.getItem('get-word-landing-lang')).toBe('de');
+  });
+
+  it('still queues an interface-language change made while a server refetch is in flight', () => {
+    // The write used to ride a state-watching effect that bailed out whenever
+    // this ref was set, and nothing retried it — so a change made during a
+    // background refetch was lost and the old value came back on the next boot.
+    const isUpdatingFromServerRef = { current: true };
+    const { result } = renderHook(() => usePreferences(true, isUpdatingFromServerRef));
+
+    act(() => {
+      result.current.setSettingsLanguage('de');
+    });
+
+    expect(mockEnqueueOp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        payload: { field: 'settings_language', value: 'de', baseRevision: 0 },
+      })
+    );
+  });
+
+  it('does not let a stale server language beat a local choice made before this mount', () => {
+    localStorage.setItem('get-word-landing-lang', 'de');
+    localStorage.setItem(
+      'get-word-landing-lang-selected-at',
+      '2026-06-01T00:00:00.000Z'
+    );
+    const isUpdatingFromServerRef = { current: false };
+    const { result } = renderHook(() => usePreferences(true, isUpdatingFromServerRef));
+
+    act(() => {
+      // baseUser was stamped a month earlier: a snapshot that predates the
+      // choice this device is still holding must not overwrite it.
+      result.current.applyServerPreferences(baseUser);
+    });
+
+    expect(result.current.settingsLanguage).toBe('de');
   });
 
   it('persists the memory hooks intro answer locally and across tabs', () => {
@@ -205,6 +247,8 @@ describe('server sync echo guards', () => {
       language_from: 'en',
       language_to: 'cs',
       onboarding_completed: true,
+      language_pair_selected_at: expect.any(Number),
+      language_pair_base_revision: 0,
     });
     expect(mockEnqueueOp).toHaveBeenCalledWith({
       entity: 'preference',
@@ -214,12 +258,17 @@ describe('server sync echo guards', () => {
           language_from: 'en',
           language_to: 'cs',
           onboarding_completed: true,
+          language_pair_selected_at: expect.any(Number),
+          language_pair_base_revision: 0,
         },
+        baseRevision: 0,
       },
       legacyPayload: {
         language_from: 'en',
         language_to: 'cs',
         onboarding_completed: true,
+        language_pair_selected_at: expect.any(Number),
+        language_pair_base_revision: 0,
       },
     });
     expect(mockEnqueueOp).not.toHaveBeenCalledWith(

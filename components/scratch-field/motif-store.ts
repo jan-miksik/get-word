@@ -151,10 +151,6 @@ export function configFromSnapshot(value: string): ScratchFieldConfig {
   });
 }
 
-export function getScratchConfig(): ScratchFieldConfig {
-  return read();
-}
-
 export function setScratchConfig(patch: Partial<ScratchFieldConfig>) {
   const next = normalise({ ...read(), ...patch });
   const current = read();

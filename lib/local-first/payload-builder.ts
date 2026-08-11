@@ -10,38 +10,7 @@ import type { OutboxOp } from './outbox';
 export interface BuiltPayload {
   payload: SyncMutationPayload & { client_op_ids: string[] };
   clientOpIds: string[];
-}
-
-interface ProgressOpPayload {
-  word_id?: string;
-  word_list_item_id?: string;
-  stage_index: number;
-  known_count: number;
-  unknown_count: number;
-  last_known_at: number | null;
-  last_unknown_at: number | null;
-  next_due_at: number | null;
-  client_updated_at?: number;
-}
-
-interface MemoryHookOpPayload {
-  id: string;
-  text: string | null;
-}
-
-interface PreferenceOpPayload {
-  field?: keyof SyncMutationPayload;
-  value?: unknown;
-  /** Several preferences that must reach the server atomically. */
-  values?: Partial<SyncMutationPayload>;
-}
-
-interface CategoryFiltersOpPayload {
-  filters: string[];
-}
-
-interface GameScoreOpPayload {
-  score: number;
+  invalidClientOpIds: string[];
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
@@ -58,37 +27,44 @@ export function buildPayloadFromOps(ops: OutboxOp[]): BuiltPayload | null {
   const progressByKey = new Map<string, SyncProgressItem>();
   const memoryHooks: Record<string, string | null> = {};
   const reviewEventsByClientId = new Map<string, SyncReviewEventItem>();
+  const invalidClientOpIds: string[] = [];
   let maxGameScore: number | null = null;
   let lastCategoryFilters: string[] | null = null;
 
   for (const op of ops) {
-    payload.client_op_ids.push(op.clientOpId);
+    let accepted = false;
     switch (op.entity) {
       case 'progress':
-        applyProgressOp(progressByKey, op);
+        accepted = applyProgressOp(progressByKey, op);
         break;
       case 'memory_hook':
-        applyMemoryHookOp(memoryHooks, op);
+        accepted = applyMemoryHookOp(memoryHooks, op);
         break;
       case 'preference':
-        applyPreferenceOp(payload, op);
+        accepted = applyPreferenceOp(payload, op);
         break;
       case 'category_filters': {
-        const p = op.payload as CategoryFiltersOpPayload | undefined;
-        if (p && Array.isArray(p.filters)) lastCategoryFilters = p.filters.slice();
+        const p = op.payload;
+        if (p && Array.isArray(p.filters) && p.filters.every((value) => typeof value === 'string')) {
+          lastCategoryFilters = p.filters.slice();
+          accepted = true;
+        }
         break;
       }
       case 'game_score': {
-        const p = op.payload as GameScoreOpPayload | undefined;
+        const p = op.payload;
         if (p && typeof p.score === 'number') {
           maxGameScore = maxGameScore === null ? p.score : Math.max(maxGameScore, p.score);
+          accepted = true;
         }
         break;
       }
       case 'review_event':
-        applyReviewEventOp(reviewEventsByClientId, op);
+        accepted = applyReviewEventOp(reviewEventsByClientId, op);
         break;
     }
+    if (accepted) payload.client_op_ids.push(op.clientOpId);
+    else invalidClientOpIds.push(op.clientOpId);
   }
 
   if (progressByKey.size > 0) {
@@ -107,18 +83,18 @@ export function buildPayloadFromOps(ops: OutboxOp[]): BuiltPayload | null {
     payload.review_events = Array.from(reviewEventsByClientId.values());
   }
 
-  return { payload, clientOpIds: payload.client_op_ids };
+  return { payload, clientOpIds: payload.client_op_ids, invalidClientOpIds };
 }
 
 function applyProgressOp(
   bucket: Map<string, SyncProgressItem>,
-  op: OutboxOp
-): void {
-  if (!isObject(op.payload)) return;
-  const p = op.payload as Partial<ProgressOpPayload>;
+  op: Extract<OutboxOp, { entity: 'progress' }>
+): boolean {
+  if (!isObject(op.payload)) return false;
+  const p = op.payload;
   const key = p.word_list_item_id ?? p.word_id;
-  if (!key) return;
-  if (typeof p.stage_index !== 'number') return;
+  if (typeof key !== 'string' || !key) return false;
+  if (typeof p.stage_index !== 'number') return false;
   bucket.set(key, {
     ...(p.word_list_item_id ? { word_list_item_id: p.word_list_item_id } : {}),
     ...(p.word_id && !p.word_list_item_id ? { word_id: p.word_id } : {}),
@@ -133,28 +109,31 @@ function applyProgressOp(
     // timestamp, which is the freshest user intent for that word.
     ...(typeof p.client_updated_at === 'number' ? { client_updated_at: p.client_updated_at } : {}),
   });
+  return true;
 }
 
 function applyMemoryHookOp(
   bucket: Record<string, string | null>,
-  op: OutboxOp
-): void {
-  if (!isObject(op.payload)) return;
-  const p = op.payload as Partial<MemoryHookOpPayload>;
-  if (typeof p.id !== 'string' || p.id.length === 0) return;
+  op: Extract<OutboxOp, { entity: 'memory_hook' }>
+): boolean {
+  if (!isObject(op.payload)) return false;
+  const p = op.payload;
+  if (typeof p.id !== 'string' || p.id.length === 0) return false;
+  if (typeof p.text !== 'string' && p.text !== null) return false;
   bucket[p.id] = p.text ?? null;
+  return true;
 }
 
 function applyReviewEventOp(
   bucket: Map<string, SyncReviewEventItem>,
-  op: OutboxOp
-): void {
-  if (!isObject(op.payload)) return;
+  op: Extract<OutboxOp, { entity: 'review_event' }>
+): boolean {
+  if (!isObject(op.payload)) return false;
   const p = op.payload as Partial<SyncReviewEventItem>;
-  if (typeof p.client_event_id !== 'string' || p.client_event_id.length === 0) return;
-  if (p.action !== 'known' && p.action !== 'really_known' && p.action !== 'unknown') return;
-  if (typeof p.client_created_at !== 'number') return;
-  if (typeof p.word_id !== 'string' && typeof p.word_list_item_id !== 'string') return;
+  if (typeof p.client_event_id !== 'string' || p.client_event_id.length === 0) return false;
+  if (p.action !== 'known' && p.action !== 'really_known' && p.action !== 'unknown') return false;
+  if (typeof p.client_created_at !== 'number') return false;
+  if (typeof p.word_id !== 'string' && typeof p.word_list_item_id !== 'string') return false;
   bucket.set(p.client_event_id, {
     client_event_id: p.client_event_id,
     ...(p.word_list_item_id ? { word_list_item_id: p.word_list_item_id } : {}),
@@ -162,19 +141,84 @@ function applyReviewEventOp(
     action: p.action,
     client_created_at: p.client_created_at,
   });
+  return true;
 }
+
+const PREFERENCE_FIELDS = new Set<keyof SyncMutationPayload>([
+  'show_english',
+  'show_category_badges',
+  'show_pronunciation',
+  'memory_hooks_enabled',
+  'memory_hooks_intro_answered',
+  'memory_hook_disable_from_stage',
+  'study_notes_enabled',
+  'study_note_minimize_from_stage',
+  'settings_language',
+  'language_from',
+  'language_to',
+  'onboarding_completed',
+  'category_order',
+  'settings_language_selected_at',
+  'language_pair_selected_at',
+  'settings_language_base_revision',
+  'language_pair_base_revision',
+]);
 
 function applyPreferenceOp(
   payload: SyncMutationPayload & { client_op_ids: string[] },
+  op: Extract<OutboxOp, { entity: 'preference' }>
+): boolean {
+  if (!isObject(op.payload)) return false;
+  const p = op.payload;
+  if (isObject(p.values)) {
+    const entries = Object.entries(p.values).filter(([field]) => PREFERENCE_FIELDS.has(field));
+    if (entries.length === 0 || entries.length !== Object.keys(p.values).length) return false;
+    Object.assign(payload, Object.fromEntries(entries));
+    if (typeof p.baseRevision === 'number') {
+      if (entries.some(([field]) => field === 'settings_language')) {
+        payload.settings_language_base_revision = p.baseRevision;
+      }
+      if (entries.some(([field]) =>
+        field === 'language_from' || field === 'language_to' || field === 'onboarding_completed'
+      )) {
+        payload.language_pair_base_revision = p.baseRevision;
+      }
+    }
+    stampLanguageChoiceTime(payload, entries.map(([field]) => field), op);
+    return true;
+  }
+  if (typeof p.field !== 'string' || !PREFERENCE_FIELDS.has(p.field)) return false;
+  (payload as Record<string, unknown>)[p.field] = p.value;
+  if (p.field === 'settings_language' && typeof p.baseRevision === 'number') {
+    payload.settings_language_base_revision = p.baseRevision;
+  }
+  stampLanguageChoiceTime(payload, [p.field], op);
+  return true;
+}
+
+/**
+ * Carry the moment the op was enqueued alongside the language fields it sets.
+ * The outbox is durable across sessions and devices, so arrival order says
+ * nothing about intent: without this the server would let an op queued offline
+ * days ago overwrite a language the learner has since picked elsewhere. Ops are
+ * applied oldest-first, so the last write for a field also leaves the newest
+ * timestamp here.
+ */
+function stampLanguageChoiceTime(
+  payload: SyncMutationPayload & { client_op_ids: string[] },
+  fields: string[],
   op: OutboxOp
 ): void {
-  if (!isObject(op.payload)) return;
-  const p = op.payload as Partial<PreferenceOpPayload>;
-  if (isObject(p.values)) {
-    Object.assign(payload, p.values);
-    return;
+  const chosenAt = new Date(op.clientCreatedAt).getTime();
+  if (!Number.isFinite(chosenAt)) return;
+  if (fields.includes('settings_language')) {
+    payload.settings_language_selected_at = chosenAt;
   }
-  if (typeof p.field !== 'string') return;
-  // Trust caller-typed shape; this is a controlled internal API.
-  (payload as Record<string, unknown>)[p.field] = p.value;
+  if (
+    fields.includes('language_from') ||
+    fields.includes('language_to') ||
+    fields.includes('onboarding_completed')
+  ) {
+    payload.language_pair_selected_at = chosenAt;
+  }
 }

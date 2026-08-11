@@ -4,7 +4,6 @@
 // same shared content-hash cache, so a clip warmed anywhere is instant elsewhere.
 export {
   forgetClip,
-  getWarmedClipUrl,
   prefetchClips,
   resolveClipUrl,
   storeClipBytes,

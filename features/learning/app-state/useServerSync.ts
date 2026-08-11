@@ -2,8 +2,6 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
-  fetchUserData,
-  linkWalletWithRetry,
   clearPendingSync,
   isAuthRequiredError,
   markServerSnapshotApplied,
@@ -11,19 +9,22 @@ import {
 import { installSyncLifecycle } from '@/lib/sync-coordinator';
 import { flushOutboxBeforeRead, startDrainer } from '@/lib/local-first/drainer';
 import {
+  rebaseBlockedPreferenceOps,
+  resumeAuthRequiredOps,
+} from '@/lib/local-first/outbox';
+import {
   applyPendingOutboxToSyncResponse,
-  loadAllDomainsFromIdb,
-  persistDeltaToIdb,
-  persistDomainsToIdb,
 } from '@/lib/local-first/hydrate';
-import { getMeta, putMeta } from '@/lib/local-first/stores';
-import { getSnapshot, getStoragePreference, saveSnapshot } from '@/lib/local-learning-cache';
 import { consumeListsChangedForLearningSync } from '@/features/shared/sync/list-refresh-marker';
-import type { SyncResponse } from '@/features/sync/types';
+import type { SyncResponse } from '@/features/sync/contracts';
 import type { NormalizedWord } from '@/lib/words';
 import { wordListItemsToNormalizedWords } from '@/lib/words';
 import { readStoredActiveListId } from './storage';
-import type { LinkPayload } from './types';
+import {
+  createLearningSyncEngine,
+  subscribeLearningRefreshSignals,
+  type LearningSyncEngine,
+} from './syncEngineRuntime';
 
 // Collapses the focus/visibilitychange/pageshow event burst (returning to the
 // app fires all three) into one conditional refetch.
@@ -51,8 +52,6 @@ interface UseServerSyncOptions {
   words: NormalizedWord[];
   isHydrated: boolean;
   setIsHydrated: React.Dispatch<React.SetStateAction<boolean>>;
-  walletAddress?: string;
-  linkPayload?: LinkPayload;
   isUpdatingFromServerRef: React.MutableRefObject<boolean>;
   applyServerProgress: (progress: SyncResponse['progress']) => void;
   mergeServerProgress: (progress: SyncResponse['progress']) => void;
@@ -80,8 +79,6 @@ export function useServerSync({
   words,
   isHydrated,
   setIsHydrated,
-  walletAddress,
-  linkPayload,
   isUpdatingFromServerRef,
   applyServerProgress,
   mergeServerProgress,
@@ -96,17 +93,13 @@ export function useServerSync({
   setSubscribedLists,
   setActiveListId,
 }: UseServerSyncOptions) {
-  const [isLinkingWallet, setIsLinkingWallet] = useState(false);
-  const [linkWalletError, setLinkWalletError] = useState<string | null>(null);
-  const [linkRetryNonce, setLinkRetryNonce] = useState(0);
   const [isInitialServerSyncPending, setIsInitialServerSyncPending] = useState(true);
   const [isListRefreshPending, setIsListRefreshPending] = useState(false);
   const isHydratedRef = useRef(false);
   const hasLoadedRef = useRef(false);
   const bootTimersRef = useRef<BootTimers>({});
   const lastRefetchAtRef = useRef(0);
-  const linkedIdentityRef = useRef<string | null>(null);
-  const linkAttemptRef = useRef(0);
+  const [syncEngine] = useState(createLearningSyncEngine);
   const applyCachedActiveListId = useCallback((cachedActiveListId: string | null | undefined) => {
     if (!cachedActiveListId) return;
     if (readStoredActiveListId()) return;
@@ -115,7 +108,7 @@ export function useServerSync({
 
   const applyServerData = useCallback(async (
     serverData: SyncResponse,
-    options: { clearPending?: boolean; persistSnapshot?: boolean; markServerSnapshot?: boolean; persistDomains?: boolean } = {}
+    options: { clearPending?: boolean; markServerSnapshot?: boolean } = {}
   ): Promise<void> => {
     if (options.clearPending ?? true) {
       clearPendingSync();
@@ -158,36 +151,6 @@ export function useServerSync({
     if (options.markServerSnapshot ?? true) {
       markServerSnapshotApplied();
     }
-    if (getStoragePreference()) {
-      const shouldPersistSnapshot = options.persistSnapshot ?? true;
-      const shouldPersistDomains = options.persistDomains ?? true;
-      const [snapshotSaved, domainsSaved] = await Promise.all([
-        shouldPersistSnapshot
-          ? saveSnapshot(serverData, readStoredActiveListId()).catch(() => false)
-          : Promise.resolve(true),
-        shouldPersistDomains
-          ? persistDomainsToIdb(serverData).catch(() => false)
-          : Promise.resolve(true),
-      ]);
-
-      // A cursor may only describe data that is already durable. If either
-      // persistence path failed, retain the old cursor so the next GET safely
-      // replays the snapshot/delta instead of reporting unchanged.
-      if (!snapshotSaved || !domainsSaved) return;
-
-      const metaPatch: { lastSinceCursor?: string; lastContentRevision?: string } = {};
-      if (typeof serverData.sync_revision === 'number') {
-        metaPatch.lastSinceCursor = String(serverData.sync_revision);
-      }
-      // Only full snapshots carry content_revision; storing it marks the
-      // cached word lists as matching that server state.
-      if (typeof serverData.content_revision === 'string') {
-        metaPatch.lastContentRevision = serverData.content_revision;
-      }
-      if (Object.keys(metaPatch).length > 0) {
-        await putMeta(metaPatch).catch(() => false);
-      }
-    }
   }, [
     applyServerCategories,
     applyServerGameScore,
@@ -211,9 +174,6 @@ export function useServerSync({
     }
     if (delta.user?.game_score !== undefined) {
       applyServerGameScore(delta.user.game_score);
-    }
-    if (getStoragePreference()) {
-      await persistDeltaToIdb(delta).catch(() => false);
     }
   }, [
     applyServerCategories,
@@ -259,21 +219,13 @@ export function useServerSync({
     if (forceFullRefresh) {
       setIsListRefreshPending(true);
     }
-    (async () => {
+    void (async () => {
       // Send before reading: the drainer answers the same focus/visibility
       // events this refetch does, and a read that overtakes the write comes
       // back describing state from before the user's last review.
       await flushOutboxBeforeRead();
-      let since: string | undefined;
-      let contentRev: string | undefined;
-      if (getStoragePreference()) {
-        const meta = await getMeta().catch(() => null);
-        if (meta?.lastSinceCursor) since = meta.lastSinceCursor;
-        if (meta?.lastContentRevision) contentRev = meta.lastContentRevision;
-      }
-      return fetchUserData(!forceFullRefresh && since ? { since, contentRev } : undefined);
+      await syncEngine.pull({ forceFull: forceFullRefresh });
     })()
-      .then(applyFreshServerData)
       .catch((error) => {
         if (!isAuthRequiredError(error)) {
           console.error('[useServerSync] Failed to refresh:', error);
@@ -284,23 +236,60 @@ export function useServerSync({
           setIsListRefreshPending(false);
         }
       });
-  }, [applyFreshServerData, setActiveListId]);
+  }, [setActiveListId, syncEngine]);
 
   /** Awaited, unconditional snapshot used after a successful word-chat commit. */
   const refreshFullSnapshot = useCallback(async () => {
     await flushOutboxBeforeRead();
-    const serverData = await fetchUserData();
-    await applyFreshServerData(serverData);
-  }, [applyFreshServerData]);
+    await syncEngine.pull({ forceFull: true });
+  }, [syncEngine]);
+
+  const handleEngineData = useCallback(async (
+    event: Parameters<Parameters<LearningSyncEngine['onData']>[0]>[0],
+  ): Promise<void> => {
+    const timers = bootTimersRef.current;
+    if (event.source === 'cache') {
+      if (isHydratedRef.current) return;
+      isUpdatingFromServerRef.current = true;
+      await applyServerData(event.value.syncResponse, {
+        clearPending: false,
+        markServerSnapshot: false,
+      });
+      applyCachedActiveListId(event.value.activeListId);
+      isHydratedRef.current = true;
+      setIsHydrated(true);
+      // Cache is usable immediately, while the card order remains frozen for a
+      // short grace period so a quick server response cannot reshuffle it.
+      timers.warmFallback = setTimeout(() => {
+        setIsInitialServerSyncPending(false);
+      }, WARM_START_SYNC_GRACE_MS);
+      requestAnimationFrame(() => {
+        isUpdatingFromServerRef.current = false;
+      });
+      return;
+    }
+
+    clearBootTimers(timers);
+    await applyFreshServerData(event.value);
+    isHydratedRef.current = true;
+    setIsHydrated(true);
+    setIsInitialServerSyncPending(false);
+  }, [
+    applyCachedActiveListId,
+    applyFreshServerData,
+    applyServerData,
+    isUpdatingFromServerRef,
+    setIsHydrated,
+  ]);
+
+  useEffect(
+    () => syncEngine.onData(handleEngineData),
+    [handleEngineData, syncEngine],
+  );
 
   useEffect(() => {
     if (hasLoadedRef.current) return;
     hasLoadedRef.current = true;
-
-    // Timer handles live in a ref, not in this closure. `hasLoadedRef` makes
-    // the boot a singleton, but the effect's deps still change (applyServerData
-    // is memoized on `words`), so it re-runs — and a cleanup that owned these
-    // handles would clear the very safety nets meant to unstick a stalled boot.
     const timers = bootTimersRef.current;
 
     timers.hydration = setTimeout(() => {
@@ -312,98 +301,10 @@ export function useServerSync({
       }
     }, HYDRATION_TIMEOUT_MS);
 
-    const warmFromIdb = async () => {
-      const idbHydration = await loadAllDomainsFromIdb().catch(() => null);
-      if (isHydratedRef.current) return true;
-      if (idbHydration) {
-        isUpdatingFromServerRef.current = true;
-        await applyServerData(idbHydration.syncResponse, {
-          clearPending: false,
-          persistSnapshot: false,
-          persistDomains: false,
-          markServerSnapshot: false,
-        });
-        applyCachedActiveListId(idbHydration.activeListId);
-        isHydratedRef.current = true;
-        setIsHydrated(true);
-        // Deliberately do NOT release `isInitialServerSyncPending` here: the
-        // study plan is memoized on it, so starting from the cache and then
-        // reshuffling once the server answers would move cards under the user.
-        // Instead shorten the ceiling — the cache is a complete, usable state,
-        // so there is no reason to wait the full cold-boot budget for a network
-        // that may never answer.
-        timers.warmFallback = setTimeout(() => {
-          setIsInitialServerSyncPending(false);
-        }, WARM_START_SYNC_GRACE_MS);
-        requestAnimationFrame(() => {
-          isUpdatingFromServerRef.current = false;
-        });
-        return true;
-      }
-      return false;
-    };
-
-    const boot = async () => {
-      // When the cache warm-start succeeds, the boot fetch can be conditional:
-      // the server sends the full snapshot only if the cursors no longer match.
-      let conditional: { since: string; contentRev: string } | undefined;
-      const listRefreshMarker = consumeListsChangedForLearningSync();
-      if (listRefreshMarker?.listId) {
-        setActiveListId(listRefreshMarker.listId);
-      }
-      if (getStoragePreference()) {
-        const warmed = await warmFromIdb().catch(() => false);
-        if (!warmed && !isHydratedRef.current) {
-          await getSnapshot()
-            .then(async (snapshot) => {
-              if (!snapshot || isHydratedRef.current) return;
-              isUpdatingFromServerRef.current = true;
-              await applyServerData(
-                { success: true, ...snapshot.data } as SyncResponse,
-                { clearPending: false, persistSnapshot: false, persistDomains: false, markServerSnapshot: false }
-              );
-              applyCachedActiveListId(snapshot.activeListId);
-              isHydratedRef.current = true;
-              setIsHydrated(true);
-              requestAnimationFrame(() => {
-                isUpdatingFromServerRef.current = false;
-              });
-            })
-            .catch(() => undefined);
-        }
-        if (warmed && !listRefreshMarker) {
-          const meta = await getMeta().catch(() => null);
-          if (meta?.lastSinceCursor && meta.lastContentRevision) {
-            conditional = {
-              since: meta.lastSinceCursor,
-              contentRev: meta.lastContentRevision,
-            };
-          }
-        }
-      }
-
-      const serverData = await fetchUserData(conditional);
-      clearBootTimers(timers);
-      isUpdatingFromServerRef.current = true;
-      const overlaidServerData = await applyPendingOutboxToSyncResponse(
-        serverData,
-        serverData.submitted_review_events ?? []
-      ).catch(() => serverData);
-      const freshServerData = reconcileServerProgress(overlaidServerData);
-      if (serverData.is_delta) {
-        await applyServerDelta(freshServerData);
-      } else {
-        await applyServerData(freshServerData);
-      }
-      isHydratedRef.current = true;
-      setIsHydrated(true);
-      setIsInitialServerSyncPending(false);
-      requestAnimationFrame(() => {
-        isUpdatingFromServerRef.current = false;
-      });
-    };
-
-    boot().catch((error) => {
+    syncEngine.start();
+    const listRefreshMarker = consumeListsChangedForLearningSync();
+    if (listRefreshMarker?.listId) setActiveListId(listRefreshMarker.listId);
+    void syncEngine.boot({ forceFull: Boolean(listRefreshMarker) }).catch((error) => {
       clearBootTimers(timers);
       if (!isAuthRequiredError(error)) {
         console.error('[useServerSync] Failed to fetch:', error);
@@ -414,19 +315,18 @@ export function useServerSync({
       isUpdatingFromServerRef.current = false;
     });
 
-  }, [
-    applyCachedActiveListId,
-    applyServerData,
-    applyServerDelta,
-    isUpdatingFromServerRef,
-    reconcileServerProgress,
-    setActiveListId,
-    setIsHydrated,
-  ]);
+    return () => {
+      syncEngine.stop();
+    };
+  }, [isUpdatingFromServerRef, setActiveListId, setIsHydrated, syncEngine]);
 
   useEffect(() => {
     if (!isHydrated) return;
     const lifecycle = startDrainer();
+    // A successful app boot proves the session is usable again. Resume only
+    // auth-paused operations; conflicts and permanent failures remain visible
+    // until their explicit recovery path is chosen.
+    void resumeAuthRequiredOps().then(() => flushOutboxBeforeRead());
     const cleanup = installSyncLifecycle();
     return () => {
       cleanup();
@@ -437,91 +337,37 @@ export function useServerSync({
   useEffect(() => {
     const onServerSync = (event: Event) => {
       const detail = (event as CustomEvent<SyncResponse>).detail;
-      if (detail?.success) void applyFreshServerData(detail);
+      if (detail?.success) {
+        void syncEngine.ingest(detail).catch((error) => {
+          console.error('[useServerSync] Failed to persist pushed snapshot:', error);
+        });
+      }
     };
-    const onVisibilityChange = () => {
-      if (document.visibilityState === 'visible') refetchServerData();
+    const unsubscribeRefresh = subscribeLearningRefreshSignals(refetchServerData);
+    const onRebaseConflicts = () => {
+      void syncEngine.pull({ forceFull: true }).then(async (snapshot) => {
+        if (!snapshot) return;
+        await rebaseBlockedPreferenceOps({
+          settingsLanguageRevision: snapshot.user.settings_language_revision ?? 0,
+          languagePairRevision: snapshot.user.language_pair_revision ?? 0,
+        });
+        await flushOutboxBeforeRead();
+        await syncEngine.pull({ forceFull: true });
+      }).catch((error) => {
+        console.error('[useServerSync] Failed to rebase conflicts:', error);
+      });
     };
-    const onFocus = () => refetchServerData();
-    const onPageShow = () => refetchServerData();
-    const onOnline = () => refetchServerData();
-
     window.addEventListener('get-word:server-sync', onServerSync);
-    document.addEventListener('visibilitychange', onVisibilityChange);
-    window.addEventListener('focus', onFocus);
-    window.addEventListener('pageshow', onPageShow);
-    window.addEventListener('online', onOnline);
+    window.addEventListener('get-word:rebase-sync-conflicts', onRebaseConflicts);
     return () => {
       window.removeEventListener('get-word:server-sync', onServerSync);
-      document.removeEventListener('visibilitychange', onVisibilityChange);
-      window.removeEventListener('focus', onFocus);
-      window.removeEventListener('pageshow', onPageShow);
-      window.removeEventListener('online', onOnline);
+      window.removeEventListener('get-word:rebase-sync-conflicts', onRebaseConflicts);
+      unsubscribeRefresh();
     };
-  }, [applyFreshServerData, refetchServerData]);
-
-  const retryLinkWallet = useCallback(() => {
-    linkedIdentityRef.current = null;
-    setLinkWalletError(null);
-    setLinkRetryNonce((nonce) => nonce + 1);
-  }, []);
-
-  useEffect(() => {
-    if (!isHydrated || !walletAddress) return;
-    const identityKey = [
-      walletAddress.toLowerCase(),
-      linkPayload?.email?.trim().toLowerCase() ?? '',
-      linkPayload?.authProvider?.trim().toLowerCase() ?? '',
-    ].join('|');
-    if (linkedIdentityRef.current === identityKey) return;
-    linkedIdentityRef.current = identityKey;
-    const attemptId = linkAttemptRef.current + 1;
-    linkAttemptRef.current = attemptId;
-    setLinkWalletError(null);
-    setIsLinkingWallet(true);
-    isUpdatingFromServerRef.current = true;
-    clearPendingSync();
-
-    linkWalletWithRetry(walletAddress, {
-      email: linkPayload?.email ?? undefined,
-      authProvider: linkPayload?.authProvider ?? undefined,
-    })
-      .then(async (serverData) => {
-        if (linkAttemptRef.current !== attemptId) return;
-        await applyServerData(serverData);
-        requestAnimationFrame(() => {
-          if (linkAttemptRef.current !== attemptId) return;
-          isUpdatingFromServerRef.current = false;
-          setIsLinkingWallet(false);
-        });
-      })
-      .catch((error) => {
-        if (linkAttemptRef.current !== attemptId) return;
-        console.error('[useServerSync] Failed to link wallet:', error);
-        isUpdatingFromServerRef.current = false;
-        linkedIdentityRef.current = null;
-        setIsLinkingWallet(false);
-        setLinkWalletError(
-          'We connected your account, but could not finish signing you in. Please try again.'
-        );
-      });
-  }, [applyServerData, isHydrated, isUpdatingFromServerRef, linkPayload?.authProvider, linkPayload?.email, linkRetryNonce, walletAddress]);
-
-  useEffect(() => {
-    if (!walletAddress) {
-      linkAttemptRef.current += 1;
-      linkedIdentityRef.current = null;
-    }
-  }, [walletAddress]);
-
-  const visibleLinkWalletError = walletAddress ? linkWalletError : null;
+  }, [refetchServerData, syncEngine]);
 
   return {
     isInitialServerSyncPending,
-    isLinkingWallet: Boolean(walletAddress) && isLinkingWallet,
-    hasLinkWalletError: visibleLinkWalletError !== null,
-    linkWalletError: visibleLinkWalletError,
-    retryLinkWallet,
     isListRefreshPending,
     refreshFullSnapshot,
   };

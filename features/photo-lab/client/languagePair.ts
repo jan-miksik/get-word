@@ -4,6 +4,3 @@ export {
   readLearningLanguagePair as readPhotoLabLanguagePair,
   storeLearningLanguagePair as storePhotoLabLanguagePair,
 } from '@/features/shared/languages/learningPairStorage';
-export type {
-  LearningLanguagePair as PhotoLabLanguagePair,
-} from '@/features/shared/languages/learningPairStorage';

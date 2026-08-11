@@ -55,7 +55,7 @@ The learning app has no seed-word fallback or `/api/words` loader. Its study
 items come from subscribed and owned `word_lists`, hydrated through `/api/sync`.
 
 **`useAppState`** (`hooks/useAppState.ts`) is now a thin orchestrator over feature-owned state:
-- `features/learning/app-state/*` for hydration, wallet-link sync, and local UI persistence
+- `features/learning/app-state/*` for hydration, offline sync adaptation, and local UI persistence
 - `features/learning/state/*` for progress, preferences, memory hooks, category filters, and game score
 - `features/auth/state/userProfile.ts` for synced identity fields
 
@@ -104,7 +104,7 @@ View mode stored in `localStorage` under `get-word-view-mode`.
 - `app/page.tsx` — thin learning-page composition shell
   - behavior lives in `features/learning/components/LearningStudyContent.tsx`
   - page state lives in `features/learning/hooks/useLearningPageState.ts`
-- `app/lists/page.tsx` — list browser/editor and creation wizard coordinator
+- `features/lists/screens/ListsScreen.tsx` — shared list browser/editor and creation wizard coordinator; `app/lists/page.tsx` is a thin route entrypoint
 - `app/edit/page.tsx` — compatibility redirect to `/lists`
 - `app/admin/stats/page.tsx` — thin shell for `features/admin/components/AdminStatsPage.tsx`
 - `app/photo-lab/page.tsx` — metadata/font shell for `features/photo-lab/components/PhotoLabPage.tsx`
@@ -114,6 +114,11 @@ View mode stored in `localStorage` under `get-word-view-mode`.
   - mutation application: `features/sync/server/apply-mutations.ts`
   - conditional/full payload reads: `features/sync/server/read-payload.ts`
   - session/device identity fallback: `features/sync/server/resolve-user.ts`
+- `packages/contracts/src/*` — runtime Zod contracts and transport DTOs
+- `packages/domain/*` — framework-neutral business policies
+- `packages/product/shared/*` — framework-neutral client runtime ports such as navigation and `SyncEngine`
+- Cross-feature UI imports use `features/<feature>/public.client.ts`; server routes use `public.server.ts`. Do not add a catch-all feature barrel.
+- `pnpm check:boundaries` rejects new cross-feature internal imports. `config/feature-boundary-allowlist.json` is a ratchet: resolving an old edge requires deleting its exact entry, and adding a new entry is architectural debt that must not happen casually.
 - `app/api/lists/*` — list, category, item, translation, subscription, and fork APIs
 - `app/api/auth/callback/route.ts` — GET; Supabase OAuth/magic-link callback that mints the app session
 - `app/api/auth/sync-user/route.ts` — POST; mints the app session after an email OTP verify

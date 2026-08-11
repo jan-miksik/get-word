@@ -87,13 +87,14 @@ export class AuthRequiredError extends Error {
   }
 }
 
-class LinkWalletRequestError extends Error {
+export class SyncRequestError extends Error {
   constructor(
     message: string,
-    readonly status: number
+    readonly status: number,
+    readonly payload?: unknown,
   ) {
     super(message);
-    this.name = "LinkWalletRequestError";
+    this.name = 'SyncRequestError';
   }
 }
 
@@ -232,95 +233,10 @@ export async function fetchUserData(options?: {
   }
 }
 
-/** Link a wallet (and optionally email/auth provider) to the current device user. */
-export async function linkWallet(
-  walletAddress: string,
-  opts?: { email?: string | null; authProvider?: string | null }
-): Promise<SyncResponse> {
-  const deviceId = getDeviceId();
-
-  try {
-    const response = await apiFetch('/api/auth/link-wallet', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        deviceId,
-        walletAddress,
-        ...(opts?.email != null && { email: opts.email }),
-        ...(opts?.authProvider != null && { authProvider: opts.authProvider }),
-      }),
-    });
-
-    if (!response.ok) {
-      const errorMessage = await readResponseError(
-        response,
-        `Failed to link wallet: ${response.status} ${response.statusText}`
-      );
-      throw new LinkWalletRequestError(errorMessage, response.status);
-    }
-
-    const result = await response.json();
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to link wallet: Unknown error');
-    }
-    if (result.user?.id) {
-      lastKnownUserId = result.user.id;
-      authRequired = false;
-    }
-    return result;
-  } catch (error) {
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error(toNetworkErrorMessage("Failed to link wallet", error));
-  }
-}
-
-/**
- * Complete the AppKit-to-app-session handoff with brief retries.
- *
- * Social and embedded-wallet sign-in may finish before the server or network
- * is ready for the linking request. Keep this bounded so a real failure is
- * surfaced promptly and remains retryable from the UI.
- */
-export async function linkWalletWithRetry(
-  walletAddress: string,
-  opts?: { email?: string | null; authProvider?: string | null },
-  retryOptions?: { maxAttempts?: number; baseDelayMs?: number }
-): Promise<SyncResponse> {
-  const maxAttempts = Math.max(1, retryOptions?.maxAttempts ?? 3);
-  const baseDelayMs = Math.max(0, retryOptions?.baseDelayMs ?? 350);
-  let lastError: unknown;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-    try {
-      return await linkWallet(walletAddress, opts);
-    } catch (error) {
-      lastError = error;
-      if (
-        error instanceof LinkWalletRequestError &&
-        error.status < 500 &&
-        error.status !== 408 &&
-        error.status !== 429
-      ) {
-        throw error;
-      }
-      if (attempt < maxAttempts) {
-        await new Promise<void>((resolve) => {
-          window.setTimeout(resolve, baseDelayMs * 2 ** (attempt - 1));
-        });
-      }
-    }
-  }
-
-  throw lastError instanceof Error
-    ? lastError
-    : new Error('Failed to complete sign in');
-}
-
 // Sync data to server (DB-only; no localStorage).
 export async function syncUserData(
-  data: SyncMutationPayload & { review_events?: SyncReviewEventItem[] }
+  data: SyncMutationPayload & { review_events?: SyncReviewEventItem[] },
+  options: { emitEvent?: boolean } = {},
 ): Promise<SyncResponse> {
   if (authRequired) {
     throw new AuthRequiredError("Failed to sync data");
@@ -346,11 +262,25 @@ export async function syncUserData(
       authRequired = true;
       throw new AuthRequiredError("Failed to sync data");
     }
-    const errorMessage = await readResponseError(
-      response,
-      `Failed to sync data: ${response.status} ${response.statusText}`
-    );
-    throw new Error(errorMessage);
+    const fallback = `Failed to sync data: ${response.status} ${response.statusText}`;
+    const contentType = response.headers.get('content-type') ?? '';
+    let payload: unknown;
+    let errorMessage = fallback;
+    try {
+      if (contentType.includes('application/json')) {
+        payload = await response.json();
+        const body = payload as { error?: unknown; message?: unknown };
+        if (typeof body?.error === 'string' && body.error.trim()) errorMessage = body.error.trim();
+        else if (typeof body?.message === 'string' && body.message.trim()) errorMessage = body.message.trim();
+      } else {
+        const text = (await response.text()).trim();
+        payload = text || undefined;
+        if (text) errorMessage = summarizeTextError(text, fallback);
+      }
+    } catch {
+      // Preserve the status fallback when an invalid error body cannot parse.
+    }
+    throw new SyncRequestError(errorMessage, response.status, payload);
   }
 
   const result = await response.json();
@@ -358,17 +288,20 @@ export async function syncUserData(
     lastKnownUserId = result.user.id;
     authRequired = false;
   }
-  if (typeof window !== "undefined") {
-    const detail =
-      data.review_events && data.review_events.length > 0
-        ? { ...result, submitted_review_events: data.review_events }
-        : result;
-    window.dispatchEvent(
-      new CustomEvent("get-word:server-sync", { detail })
-    );
-  }
+  if (options.emitEvent !== false) publishSyncResponse(result, data.review_events);
   clearAppliedReviewEvents(result.applied_review_event_ids);
   return result;
+}
+
+export function publishSyncResponse(
+  result: SyncResponse,
+  submittedReviewEvents?: SyncReviewEventItem[],
+): void {
+  if (typeof window === 'undefined') return;
+  const detail = submittedReviewEvents && submittedReviewEvents.length > 0
+    ? { ...result, submitted_review_events: submittedReviewEvents }
+    : result;
+  window.dispatchEvent(new CustomEvent('get-word:server-sync', { detail }));
 }
 
 /**

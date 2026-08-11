@@ -1,9 +1,24 @@
 'use client';
 
-import { syncUserData, isAuthRequiredError } from '@/lib/sync';
+import {
+  syncUserData,
+  isAuthRequiredError,
+  publishSyncResponse,
+  SyncRequestError,
+} from '@/lib/sync';
 import { buildPayloadFromOps } from './payload-builder';
-import { deleteOps, markFailed, peekReadyOps } from './outbox';
+import {
+  claimReadyBatch,
+  deleteOps,
+  isRevisionAwareOperation,
+  markFailed,
+  releaseOpsToPending,
+  type OutboxFailureKind,
+  type OutboxOp,
+} from './outbox';
 import { ensureLocalFirstAvailability } from './availability';
+import { checkpointAcknowledgedOps } from './hydrate';
+import type { SyncOperationResult, SyncResponse } from '@/features/sync/types';
 
 const MAX_BATCH = 25;
 const DEBOUNCE_MS = 30_000;
@@ -50,7 +65,7 @@ async function doDrain(): Promise<void> {
   const available = await ensureLocalFirstAvailability();
   if (!available) return;
 
-  const ops = await peekReadyOps(MAX_BATCH);
+  const ops = await claimReadyBatch(MAX_BATCH);
   if (ops.length === 0) return;
 
   const built = buildPayloadFromOps(ops);
@@ -59,39 +74,189 @@ async function doDrain(): Promise<void> {
     return;
   }
 
-  try {
-    const response = await syncUserData(built.payload);
-    const applied = new Set<string>(
-      Array.isArray(response?.applied_client_op_ids) ? response.applied_client_op_ids : []
-    );
-    // When the server lacks per-op idempotency support, treat a successful
-    // 2xx as "all ops in batch applied" so retries don't accumulate.
-    const toDelete = applied.size > 0
-      ? built.clientOpIds.filter((id) => applied.has(id))
-      : built.clientOpIds;
-    const failed = built.clientOpIds.filter((id) => !toDelete.includes(id));
+  if (built.invalidClientOpIds.length > 0) {
+    await markFailed(built.invalidClientOpIds, {
+      kind: 'permanent',
+      reasonCode: 'INVALID_OUTBOX_PAYLOAD',
+      message: 'Stored operation payload is malformed and requires user recovery',
+    });
+  }
+  if (built.clientOpIds.length === 0) return;
 
-    await deleteOps(toDelete);
-    if (failed.length > 0) {
-      const errMap: Record<string, string> = {};
-      const opErrors = (response as { op_errors?: Record<string, string> })?.op_errors;
-      if (opErrors) {
-        for (const id of failed) {
-          if (opErrors[id]) errMap[id] = opErrors[id];
-        }
-      }
-      await markFailed(failed, errMap);
-    }
+  try {
+    // The low-level transport must not publish the raw ack: it intentionally
+    // omits most domains. Publish only after acknowledged operations have been
+    // projected durably and removed from the outbox.
+    const response = await syncUserData(built.payload, { emitEvent: false });
+    await handleSuccessfulResponse(response, ops, built.clientOpIds, built.payload.review_events);
   } catch (error) {
     if (isAuthRequiredError(error)) {
-      // Auth required: leave ops in place; they'll drain after sign-in.
+      await markFailed(built.clientOpIds, {
+        kind: 'auth_required',
+        reasonCode: 'AUTH_REQUIRED',
+        message: error instanceof Error ? error.message : 'Authentication required',
+        httpStatus: 401,
+      });
+      return;
+    }
+    if (error instanceof SyncRequestError && error.status === 409) {
+      await handleConflictResponse(error, ops, built.clientOpIds);
       return;
     }
     const message = error instanceof Error ? error.message : String(error);
-    const errMap: Record<string, string> = {};
-    for (const id of built.clientOpIds) errMap[id] = message;
-    await markFailed(built.clientOpIds, errMap);
+    const classification = classifySyncFailure(error);
+    await markFailed(built.clientOpIds, {
+      ...classification,
+      message,
+    });
   }
+}
+
+function operationResults(payload: unknown): SyncOperationResult[] {
+  if (!payload || typeof payload !== 'object') return [];
+  const results = (payload as { op_results?: unknown }).op_results;
+  if (!Array.isArray(results)) return [];
+  return results.filter((result): result is SyncOperationResult => Boolean(
+    result &&
+    typeof result === 'object' &&
+    typeof (result as { clientOpId?: unknown }).clientOpId === 'string' &&
+    ['applied', 'duplicate', 'blocked', 'conflict'].includes(
+      String((result as { status?: unknown }).status),
+    )
+  ));
+}
+
+async function handleSuccessfulResponse(
+  response: SyncResponse,
+  ops: OutboxOp[],
+  clientOpIds: string[],
+  submittedReviewEvents?: Parameters<typeof publishSyncResponse>[1],
+): Promise<void> {
+  const results = operationResults(response);
+  const completed = new Set(
+    results
+      .filter((result) => result.status === 'applied' || result.status === 'duplicate')
+      .map((result) => result.clientOpId),
+  );
+  const blocked = results.filter((result) => result.status === 'blocked');
+  const conflicts = results.filter((result) => result.status === 'conflict');
+  const applied = new Set<string>(
+    completed.size > 0
+      ? completed
+      : Array.isArray(response.applied_client_op_ids) ? response.applied_client_op_ids : [],
+  );
+  // Legacy 2xx responses without per-op acks mean the complete aggregate was
+  // accepted. Keep this compatibility behavior until every deployed server
+  // emits op_results.
+  const toDelete = applied.size > 0
+    ? clientOpIds.filter((id) => applied.has(id))
+    : clientOpIds;
+  const acknowledgedOps = ops.filter((op) => toDelete.includes(op.clientOpId));
+  const failed = clientOpIds.filter((id) => !toDelete.includes(id));
+
+  if (acknowledgedOps.length > 0) {
+    const reconciled = await checkpointAcknowledgedOps(response, acknowledgedOps);
+    if (!reconciled) {
+      await markFailed(toDelete, {
+        kind: 'retryable',
+        reasonCode: 'LOCAL_CHECKPOINT_FAILED',
+        message: 'Server acknowledged the operation but its local projection could not be saved',
+      });
+    } else {
+      await deleteOps(toDelete);
+      publishSyncResponse(reconciled, submittedReviewEvents);
+    }
+  }
+
+  for (const result of blocked) {
+    await markFailed([result.clientOpId], {
+      kind: 'permanent',
+      reasonCode: result.code ?? 'SERVER_BLOCKED',
+      message: 'Server blocked the operation',
+    });
+  }
+  for (const result of conflicts) {
+    await markFailed([result.clientOpId], {
+      kind: 'conflict',
+      reasonCode: result.code ?? 'SYNC_CONFLICT',
+      message: 'Operation requires refresh or rebase',
+    });
+  }
+  if (failed.length === 0) return;
+  const explicitlyHandled = new Set([...blocked, ...conflicts].map((result) => result.clientOpId));
+  const unclassified = failed.filter((id) => !explicitlyHandled.has(id));
+  if (unclassified.length === 0) return;
+  const message = failed
+    .map((id) => response.op_errors?.[id])
+    .find(Boolean) ?? 'Server did not acknowledge operation';
+  await markFailed(unclassified, {
+    kind: 'unknown',
+    reasonCode: 'SYNC_NOT_ACKNOWLEDGED',
+    message,
+  });
+}
+
+async function handleConflictResponse(
+  error: SyncRequestError,
+  ops: OutboxOp[],
+  clientOpIds: string[],
+): Promise<void> {
+  const byId = new Map(ops.map((op) => [op.clientOpId, op]));
+  const results = operationResults(error.payload);
+  const reportedIds = new Set(results.map((result) => result.clientOpId));
+  const conflictingIds = clientOpIds.filter((id) => {
+    const op = byId.get(id);
+    return Boolean(op && isRevisionAwareOperation(op));
+  });
+  const unrelatedIds = clientOpIds.filter((id) => !conflictingIds.includes(id));
+
+  // A revision conflict aborts the aggregate transaction. Even if an older
+  // server labels every id as conflict, only revision-aware commands require
+  // rebase; unrelated commands were not applied and return to a fresh cohort.
+  await releaseOpsToPending(unrelatedIds);
+  for (const id of conflictingIds) {
+    const result = results.find((candidate) => candidate.clientOpId === id);
+    await markFailed([id], {
+      kind: 'conflict',
+      reasonCode: result?.code ?? 'SYNC_CONFLICT',
+      message: error.message || 'Operation requires refresh or rebase',
+      httpStatus: error.status,
+    });
+  }
+
+  // A malformed/legacy 409 without a revision-aware operation cannot be
+  // safely transformed into a permanent block. Preserve its per-op body for
+  // diagnostics, but retry the exact operation set as a fresh cohort.
+  if (conflictingIds.length === 0) {
+    await releaseOpsToPending(clientOpIds);
+  } else if (results.length > 0) {
+    const unreported = clientOpIds.filter((id) => !reportedIds.has(id));
+    await releaseOpsToPending(unreported.filter((id) => !conflictingIds.includes(id)));
+  }
+}
+
+export function classifySyncFailure(error: unknown): {
+  kind: OutboxFailureKind;
+  reasonCode: string;
+  httpStatus?: number;
+} {
+  if (!(error instanceof SyncRequestError)) {
+    const message = error instanceof Error ? error.message.toLowerCase() : '';
+    if (message.includes('network') || message.includes('timeout') || message.includes('timed out')) {
+      return { kind: 'retryable', reasonCode: 'NETWORK_OR_TIMEOUT' };
+    }
+    return { kind: 'unknown', reasonCode: 'UNCLASSIFIED_SYNC_ERROR' };
+  }
+  if (error.status === 409) {
+    return { kind: 'conflict', reasonCode: 'SYNC_CONFLICT', httpStatus: error.status };
+  }
+  if (error.status === 408 || error.status === 429 || error.status >= 500) {
+    return { kind: 'retryable', reasonCode: `HTTP_${error.status}`, httpStatus: error.status };
+  }
+  if ([400, 403, 404, 410, 422].includes(error.status)) {
+    return { kind: 'permanent', reasonCode: `HTTP_${error.status}`, httpStatus: error.status };
+  }
+  return { kind: 'unknown', reasonCode: `HTTP_${error.status}`, httpStatus: error.status };
 }
 
 interface DrainerLifecycle {

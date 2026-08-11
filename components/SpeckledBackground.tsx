@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { RisingLettersBackground } from '@/components/RisingLettersBackground';
-import { isNativeAppRuntime } from '@/lib/runtime-platform';
+import { usePlatformCapabilities } from '@/packages/product/shared/platform/capabilities';
 
 interface SpeckledBackgroundProps {
   className?: string;
@@ -17,7 +17,7 @@ export function SpeckledBackground({
   snapRisingLettersToMouse = true,
   showRisingLetters = true,
 }: SpeckledBackgroundProps) {
-  const nativeApp = isNativeAppRuntime();
+  const nativeApp = usePlatformCapabilities().runtime === 'native';
   const cls = [
     'speckled-background pointer-events-none fixed left-0 top-0 -z-10 w-full max-w-[stretch] bg-[#dcd1b9] object-fill',
     className,

@@ -8,7 +8,7 @@ vi.mock('../session-id', () => ({
   getSessionId: () => 'session-1',
 }));
 
-import { fetchUserData, linkWalletWithRetry, resetSyncIdentity, syncUserData } from '../sync';
+import { fetchUserData, resetSyncIdentity, SyncRequestError, syncUserData } from '../sync';
 
 const nextErrorHtml = `<!DOCTYPE html><html><body><div id="__next"></div><script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"statusCode":500}},"page":"/_error","err":{"name":"Internal Server Error.","message":"500 - Internal Server Error.","statusCode":500}}</script></body></html>`;
 
@@ -46,6 +46,27 @@ describe('sync client errors', () => {
     await expect(syncUserData({ language_from: 'en' })).rejects.toThrow(
       'Failed to sync data: 500 Internal Server Error. Server returned 500: 500 - Internal Server Error.',
     );
+  });
+
+  it('preserves structured per-operation results on a rejected sync response', async () => {
+    const payload = {
+      success: false,
+      error: 'Stale revision',
+      code: 'SYNC_CONFLICT',
+      op_results: [{ clientOpId: 'language-1', status: 'conflict', code: 'STALE_REVISION' }],
+    };
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify(payload), {
+        status: 409,
+        headers: { 'content-type': 'application/json' },
+      })),
+    );
+
+    const error = await syncUserData({ settings_language: 'cs' }).catch((caught) => caught);
+
+    expect(error).toBeInstanceOf(SyncRequestError);
+    expect(error).toMatchObject({ status: 409, payload });
   });
 
   it('bounds the hydration fetch so a stalled request cannot hang the boot', async () => {
@@ -91,48 +112,24 @@ describe('sync client errors', () => {
     window.removeEventListener('get-word:server-sync', listener);
   });
 
-  it('retries the login session handoff after a transient failure', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ error: 'temporary failure' }), {
-        status: 503,
-        headers: { 'content-type': 'application/json' },
-      }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({
+  it('can defer publication until the outbox has checkpointed its ack', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response(JSON.stringify({
         success: true,
         user: { id: 'user-1' },
       }), {
         status: 200,
         headers: { 'content-type': 'application/json' },
-      }));
-    vi.stubGlobal('fetch', fetchMock);
-
-    const result = await linkWalletWithRetry(
-      '0x1234567890abcdef1234567890abcdef12345678',
-      undefined,
-      { baseDelayMs: 0 }
+      })),
     );
+    const listener = vi.fn();
+    window.addEventListener('get-word:server-sync', listener);
 
-    expect(result.user?.id).toBe('user-1');
-    expect(fetchMock).toHaveBeenCalledTimes(2);
+    await syncUserData({ game_score: 1 }, { emitEvent: false });
+
+    expect(listener).not.toHaveBeenCalled();
+    window.removeEventListener('get-word:server-sync', listener);
   });
 
-  it('does not retry a rejected login session request', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ error: 'Invalid wallet address format' }), {
-        status: 400,
-        headers: { 'content-type': 'application/json' },
-      })
-    );
-    vi.stubGlobal('fetch', fetchMock);
-
-    await expect(
-      linkWalletWithRetry(
-        'invalid-wallet',
-        undefined,
-        { baseDelayMs: 0 }
-      )
-    ).rejects.toThrow('Invalid wallet address format');
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-  });
 });

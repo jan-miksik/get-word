@@ -53,7 +53,10 @@ subsystem decisions and data-model notes.
 ### Learning state and sync
 
 - App state orchestrator: `hooks/useAppState.ts`
-- Server hydration/link sync: `features/learning/app-state/useServerSync.ts`
+- Server hydration and React sync adapter: `features/learning/app-state/useServerSync.ts`
+- Framework-neutral sync state machine: `packages/product/shared/sync/engine.ts`
+- Typed durable outbox and recovery: `lib/local-first/operations.ts`, `lib/local-first/outbox.ts`, `lib/local-first/drainer.ts`
+- Runtime sync contracts: `packages/contracts/src/sync.ts`
 - Progress/preferences/hooks/filter state: `features/learning/state/*`
 - Sync API route: `app/api/sync/route.ts`
 - Sync mutation service: `features/sync/server/apply-mutations.ts`
@@ -68,7 +71,7 @@ subsystem decisions and data-model notes.
 
 ### Lists editor
 
-- Current page shell and wizard coordinator: `app/lists/page.tsx`
+- Shared page shell and wizard coordinator: `features/lists/screens/ListsScreen.tsx` (`app/lists/page.tsx` is the Next route adapter)
 - Legacy editor redirect: `app/edit/page.tsx` redirects to `/lists`
 - Wizard step state + handlers: `features/lists/hooks/useListsWizard.ts`
 - List API client actions: `features/lists/client/actions.ts`
@@ -158,7 +161,7 @@ subsystem decisions and data-model notes.
 
 ## Current Hotspots
 
-- `app/lists/page.tsx` is a route composition shell. Lists UI lives under `features/lists/components`, while page data, maintenance actions, pending-audio state, forking, and wizard state live in focused `features/lists/hooks/*` hooks.
+- `features/lists/screens/ListsScreen.tsx` is the shared web/mobile composition shell. Lists UI lives under `features/lists/components`, while page data, maintenance actions, pending-audio state, forking, and wizard state live in focused `features/lists/hooks/*` hooks. Consumers enter through `features/lists/public.client.ts`.
 - `features/lists/components/translation-step/TranslationStep.tsx` remains the largest lists shell. Provider workflow, pure transformations, row UI, editors, and dialogs are separate modules in the same folder; extend those modules instead of adding another responsibility to the shell.
 - `app/api/sync/route.ts` is the stable HTTP/auth shell. Legacy item/word ID mutation compatibility lives in `features/sync/server/apply-mutations.ts`; conditional/delta/full reads live in `features/sync/server/read-payload.ts`.
 - `features/learning/onboarding/LearningLanguageOnboarding.tsx` is now mostly the onboarding UI shell. Data loading and derived list state live in `features/learning/onboarding/useLearningOnboardingData.ts`; subscribe/fork/create/autogenerate navigation actions live in `features/learning/onboarding/useLearningOnboardingActions.ts`.
@@ -173,7 +176,9 @@ subsystem decisions and data-model notes.
 
 - `app/*/page.tsx` files should stay composition shells.
 - API route files should parse requests, authorize, call feature/server services, and return responses.
-- Import sync payload types directly from `features/sync/types`; `lib/sync.ts` is the runtime client transport compatibility surface.
+- Import runtime sync request contracts from `packages/contracts/src/sync.ts`; response compatibility remains in `features/sync/types.ts` and `lib/sync.ts` remains the low-level transport surface.
+- Mobile must never import `app/**`. Shared screens are exposed through narrow `public.client.ts` entrypoints. Inside a feature, import internals directly rather than routing through its public entrypoint.
+- Run `pnpm check:boundaries` after changing feature imports. It permits public client/server and contract entrypoints, rejects new internal cross-feature edges, and rejects stale allowlist entries after an edge is fixed.
 - New feature-specific types belong in `features/<feature>/types.ts`, not page files.
 - New list browser HTTP calls should go through `features/lists/api.ts` or `features/lists/client/actions.ts`.
 - New learning state belongs under `features/learning/state` or `features/learning/app-state`.

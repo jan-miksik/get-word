@@ -10,14 +10,10 @@ import {
   resolveUserFromRequest,
   unauthorizedResponse,
   forbiddenResponse,
-  isEditor,
 } from "@/lib/auth";
+import { canManageListContent } from '@/features/lists/public.server';
 
 type RouteContext = { params: Promise<{ id: string; catId: string }> };
-
-function canManageListContent(list: Awaited<ReturnType<typeof getListById>>, user: NonNullable<Awaited<ReturnType<typeof resolveUserFromRequest>>>) {
-  return Boolean(list && (list.ownerId === user.id || (list.isCommon && isEditor(user))));
-}
 
 export async function POST(request: NextRequest, context: RouteContext) {
   const user = await resolveUserFromRequest(request);

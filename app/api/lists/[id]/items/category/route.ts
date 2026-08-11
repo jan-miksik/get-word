@@ -1,20 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { assignItemsToCategory, getListById } from "@/lib/db";
+import { assignItemsToCategory, getListById } from '@/lib/db';
 import {
   resolveUserFromRequest,
   unauthorizedResponse,
   forbiddenResponse,
-  isEditor,
 } from "@/lib/auth";
+import { canManageListContent } from '@/features/lists/public.server';
+import { AssignItemsToCategoryRequestSchema } from '@/features/lists/contracts';
 
 type RouteContext = { params: Promise<{ id: string }> };
-
-function canManageListContent(
-  list: Awaited<ReturnType<typeof getListById>>,
-  user: NonNullable<Awaited<ReturnType<typeof resolveUserFromRequest>>>,
-) {
-  return Boolean(list && (list.ownerId === user.id || (list.isCommon && isEditor(user))));
-}
 
 // Move one or more items into an existing category of the same list. Used by the
 // review step to fix words that ended up with no category. Only `categoryId`
@@ -33,27 +27,28 @@ export async function POST(request: NextRequest, context: RouteContext) {
     return forbiddenResponse("Only the list owner can modify items");
   }
 
-  const body = await request.json();
-  const itemIds: unknown = body?.itemIds;
-  const categoryId: unknown = body?.categoryId;
-  if (!Array.isArray(itemIds) || itemIds.some((value) => typeof value !== "string")) {
+  const parsed = AssignItemsToCategoryRequestSchema.safeParse(
+    await request.json().catch(() => null),
+  );
+  if (!parsed.success) {
     return NextResponse.json(
-      { error: "itemIds must be an array of strings" },
-      { status: 400 },
-    );
-  }
-  if (typeof categoryId !== "string" || !categoryId) {
-    return NextResponse.json(
-      { error: "categoryId must be a non-empty string" },
+      {
+        error: 'itemIds and categoryId are required',
+        code: 'INVALID_ASSIGN_CATEGORY_REQUEST',
+        details: parsed.error.issues,
+      },
       { status: 400 },
     );
   }
 
-  const updated = await assignItemsToCategory(id, itemIds as string[], categoryId);
+  const updated = await assignItemsToCategory(id, parsed.data.itemIds, parsed.data.categoryId);
   if (updated.length === 0) {
     // Either no item matched or the category does not belong to this list.
     return NextResponse.json(
-      { error: "No items were updated (unknown category or items)" },
+      {
+        error: "No items were updated (unknown category or items)",
+        code: 'CATEGORY_OR_ITEMS_NOT_FOUND',
+      },
       { status: 400 },
     );
   }

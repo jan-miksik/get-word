@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { ProgressData, SyncResponse, SyncReviewEventItem } from '@/features/sync/types';
+import type { ProgressData, SyncResponse, SyncReviewEventItem } from '@/features/sync/contracts';
 import { enqueueOp } from '@/lib/local-first/enqueue';
 import { progressActivityAt } from '@/lib/progress-freshness';
 import { STAGES } from '@/lib/words';

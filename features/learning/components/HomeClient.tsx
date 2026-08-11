@@ -17,11 +17,11 @@ import {
 } from '@/lib/words';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { BootErrorScreen } from '@/components/BootErrorScreen';
-import { LandingPage } from '@/features/landing/components/LandingPage';
+import { LandingPage } from '@/features/landing/public.client';
 import { AudioStorageDebugBadge } from '@/components/AudioStorageDebugBadge';
 import { setAudioStorageLoggingEnabled } from '@/lib/audio-debug';
 import { useDueTimer } from '@/hooks/useDueTimer';
-import { useAuth } from '@/features/auth/client/useAuth';
+import { useAuth } from '@/features/auth/public.client';
 import { AppStateProvider } from '@/context/AppStateContext';
 import { I18nProvider } from '@/components/I18nProvider';
 import { LearningLanguageOnboarding } from '@/features/learning/onboarding/LearningLanguageOnboarding';
@@ -34,7 +34,7 @@ import { PWAInstallIntroCard } from '@/features/learning/components/PWAInstallIn
 import { AddPersonalWordsPrompt } from '@/features/learning/components/AddPersonalWordsPrompt';
 import { usePWAInstallIntro } from '@/features/learning/hooks/usePWAInstallIntro';
 import { shouldOfferMorePersonalWords } from '@/features/learning/personalWordsPrompt';
-import { useAppSurface } from '@/features/workspace/useAppSurface';
+import { useAppSurface } from '@/features/workspace/public.client';
 import { migrateDraftToLanguagePair } from '@/features/word-chat/client/storage';
 import { normalizeLanguageCode } from '@/lib/i18n/languages';
 
@@ -120,20 +120,13 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     isConnected,
     isAuthLoading,
     email,
-    authProvider,
-    address: walletAddress,
     school,
     hasAuthError,
     retryAuth,
     signOut,
   } = useAuth();
 
-  const linkPayload = useMemo(
-    () => (walletAddress ? { email: email ?? null, authProvider: authProvider ?? null } : undefined),
-    [walletAddress, email, authProvider]
-  );
-
-  const appState = useAppState(EMPTY_WORDS, walletAddress, linkPayload);
+  const appState = useAppState(EMPTY_WORDS);
   const {
     role,
     getWordDisplayMode,
@@ -171,9 +164,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     ownedPersonalListIds,
     isHydrated,
     isInitialServerSyncPending,
-    isLinkingWallet,
     isListRefreshPending,
-    hasLinkWalletError,
     setGameScore,
     syncedWords,
     allSyncedWords,
@@ -264,23 +255,19 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   // Safe while the check is still in flight too: a confirmed signed-out visitor
   // is routed to the landing page below before this ever gates a render.
   const hasOfflineSession = Boolean(userId && (hasAuthError || isAuthLoading));
-  const isAuthenticated = Boolean(
-    (isConnected || hasOfflineSession) && userId && !hasLinkWalletError
-  );
-  const isWaitingForLinkedProfile = Boolean(
-    isConnected &&
-      walletAddress &&
-      !userId &&
-      (!hasLinkWalletError || isLinkingWallet)
-  );
+  const isAuthenticated = Boolean((isConnected || hasOfflineSession) && userId);
   const appReady =
     isHydrated &&
     !isInitialServerSyncPending &&
     (!isAuthLoading || hasOfflineSession) &&
-    !isLinkingWallet &&
-    !isWaitingForLinkedProfile;
+    // The identity is part of being ready, not a second gate after the loader
+    // has already been dismissed. Waiting for it here means the loader is shown
+    // once, for the boot, and never thrown back over a running app because this
+    // flag dipped for a render — which is a blink, not a load. A boot where the
+    // identity never arrives still ends at `bootFailed` below.
+    isAuthenticated;
   const displayEmail = userEmail ?? email ?? undefined;
-  const displayAddress = userWalletAddress ?? walletAddress ?? undefined;
+  const displayAddress = userWalletAddress ?? undefined;
 
   const { minigameFrequency, setMinigameFrequency } = useMinigameFrequencyPreference();
   const { viewMode } = useViewModePreference();
@@ -589,11 +576,6 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
           // Public landing page: explains the app without requiring a login.
           <LandingPage />
         ) : !loaderDismissed ? (
-          <LoadingScreen />
-        ) : !isAuthenticated ? (
-          // Authed-but-still-hydrating → waiting on userId. Hold the loading
-          // screen rather than flashing app chrome; `bootFailed` above breaks
-          // the tie if it never arrives.
           <LoadingScreen />
         ) : isOnboardingHandoffPending ? (
           <LoadingScreen />

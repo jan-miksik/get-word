@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { LocalizedLegalPage } from '@/app/legal/LocalizedLegalPage';
+import { LocalizedLegalPage } from '@/features/legal/public.client';
 
 export const metadata: Metadata = {
   title: 'Privacy Policy — Get Word',

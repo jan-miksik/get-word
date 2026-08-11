@@ -7,7 +7,7 @@ import { useWordStream } from '@/features/learning/hooks/useWordStream';
 import { ProgressStatsContent } from './progress/ProgressStatsContent';
 import type { ProgressStats } from '@/lib/progress-stats';
 import type { NormalizedWord } from '@/lib/words';
-import type { ProgressData } from '@/features/sync/types';
+import type { ProgressData } from '@/features/sync/contracts';
 import type { Role } from '@/features/learning/state';
 
 interface UpcomingPanelProps {

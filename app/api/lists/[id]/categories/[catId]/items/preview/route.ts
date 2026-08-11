@@ -4,14 +4,10 @@ import {
   resolveUserFromRequest,
   unauthorizedResponse,
   forbiddenResponse,
-  isEditor,
 } from "@/lib/auth";
+import { canManageListContent } from '@/features/lists/public.server';
 
 type RouteContext = { params: Promise<{ id: string; catId: string }> };
-
-function canManageListContent(list: Awaited<ReturnType<typeof getListById>>, user: NonNullable<Awaited<ReturnType<typeof resolveUserFromRequest>>>) {
-  return Boolean(list && (list.ownerId === user.id || (list.isCommon && isEditor(user))));
-}
 
 function normalize(text: string): string {
   return text.trim().replace(/\s+/g, " ").toLowerCase();

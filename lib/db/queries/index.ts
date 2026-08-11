@@ -13,4 +13,5 @@ export * from "./multi-device-insights";
 export * from "./usage-stats";
 export * from "./school-usage-stats";
 export * from "./sync-revision";
+export * from "./sync-operations";
 export * from "./moderation";

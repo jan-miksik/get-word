@@ -16,12 +16,36 @@ import { getRoutePath, navigate, subscribeToRoute, useRoutePath } from './router
 import { LearningApp } from './screens/LearningApp';
 import { SignInScreen } from './screens/SignInScreen';
 
-const ListsPage = lazy(() => import('@/app/lists/page'));
-const JoinPage = lazy(() => import('@/app/join/[token]/page'));
-const ReportsPage = lazy(() => import('@/app/reports/page'));
-const PrivacyPage = lazy(() => import('@/app/privacy/page'));
-const TermsPage = lazy(() => import('@/app/terms/page'));
-const SchoolOverviewPage = lazy(() => import('@/app/school/overview/page'));
+const ListsPage = lazy(() =>
+  import('@/features/lists/public.client').then((module) => ({ default: module.ListsScreen })),
+);
+const JoinPage = lazy(() =>
+  import('@/features/lists/public.client').then((module) => ({ default: module.JoinSharedListScreen })),
+);
+const ReportsPage = lazy(() =>
+  import('@/features/moderation/public.client').then((module) => ({ default: module.MyReportsPage })),
+);
+const PrivacyPage = lazy(() =>
+  import('@/features/legal/public.client').then((module) => ({
+    default: () => <module.LocalizedLegalPage kind="privacy" />,
+  })),
+);
+const TermsPage = lazy(() =>
+  import('@/features/legal/public.client').then((module) => ({
+    default: () => <module.LocalizedLegalPage kind="terms" />,
+  })),
+);
+const SchoolOverviewPage = lazy(() =>
+  import('@/features/schools/public.client').then((module) => ({
+    default: () => (
+      <module.SchoolStatsPage
+        endpoint="/api/schools/me/stats"
+        backHref="/"
+        backLabelKey="schoolStats.backToApp"
+      />
+    ),
+  })),
+);
 
 type AuthState = 'restoring' | 'signed-out' | 'signing-in' | 'signed-in';
 

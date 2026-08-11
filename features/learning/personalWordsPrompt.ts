@@ -1,4 +1,4 @@
-import type { ProgressData } from '@/features/sync/types';
+import type { ProgressData } from '@/features/sync/contracts';
 import { isDue, type NormalizedWord } from '@/lib/words';
 
 /**

@@ -18,12 +18,12 @@ import {
   TOPO_LINE,
 } from '@/lib/topo-contours';
 
-export type MotifPaintOptions = {
+type MotifPaintOptions = {
   /** Relative amount of repeated detail; 1 is the original density. */
   density?: number;
 };
 
-export type MotifPainter = (
+type MotifPainter = (
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number,
@@ -1418,7 +1418,7 @@ export const SCRATCH_MOTIFS: ScratchMotif[] = [
   { id: 'chalkboard', label: 'Chalkboard', group: 'texture', note: 'slate + dust', paint: chalkboard },
 ];
 
-export const DEFAULT_MOTIF_ID = 'pewter';
+const DEFAULT_MOTIF_ID = 'pewter';
 
 export function getMotif(id: string): ScratchMotif {
   return (

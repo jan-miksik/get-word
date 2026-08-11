@@ -39,7 +39,7 @@ export type FollowUpChip = {
  * say what you actually need; a menu of topics turns it into a picker, and the
  * second-best suggestion is rarely worth that.
  */
-export const FOLLOW_UP_CHIP_LIMIT = 1;
+const FOLLOW_UP_CHIP_LIMIT = 1;
 
 /**
  * Fold away case and diacritics so "Úřední slovníček" and "urední slovnicek"

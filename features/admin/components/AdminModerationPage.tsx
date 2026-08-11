@@ -9,7 +9,7 @@ import {
   type ContentReportReason,
   type ModerationDecisionCode,
   type ModerationReportRow,
-} from '@/features/moderation/types';
+} from '@/features/moderation/contracts';
 import type { I18nKey } from '@/lib/i18n/locales/en';
 import { apiFetch } from '@/features/shared/http/api-runtime';
 

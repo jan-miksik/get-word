@@ -153,9 +153,25 @@ export function RisingLettersBackground({
   }, [particles, snapToMouse]);
 
   useEffect(() => {
+    // Nothing to chase, nothing to run. `--ix`/`--iy` only ever leave zero via
+    // the follow branch, so without a cursor to follow this loop spent every
+    // frame reading 48 bounding boxes — a forced layout — and writing back the
+    // zeros that were already there. Those custom properties sit inside the
+    // `transform` of a running CSS animation, so rewriting them each frame also
+    // pulled the letters off the compositor and onto the main thread. On the
+    // loading screen, where the main thread is busy with the boot fetch and
+    // hydration, that is what made the letters stutter.
+    if (!snapToMouse) {
+      for (const el of particleRefs.current) {
+        if (!el) continue;
+        el.style.setProperty('--ix', '0px');
+        el.style.setProperty('--iy', '0px');
+      }
+      return;
+    }
     rafRef.current = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [animate]);
+  }, [animate, snapToMouse]);
 
   const releaseFollowingParticles = useCallback(() => {
     releaseCooldownUntilRef.current = performance.now() + RELEASE_COOLDOWN_MS;

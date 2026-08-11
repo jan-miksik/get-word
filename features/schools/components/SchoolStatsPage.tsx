@@ -1,6 +1,6 @@
 'use client';
 
-import Link from 'next/link';
+import { PlatformLink as Link } from '@/packages/product/shared/platform/navigation';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import {
   ActivityWindowToggle,

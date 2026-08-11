@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo, memo } from 'react';
 import { playUserInitiatedAudio } from '@/lib/audio-playback';
 import { NormalizedWord, STAGES, shouldMinimizeStudyNoteForStage } from '@/lib/words';
-import type { ProgressData } from '@/features/sync/types';
+import type { ProgressData } from '@/features/sync/contracts';
 import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
 import { useI18n } from '@/components/I18nProvider';
 import { useOptionalAppStateContext } from '@/context/AppStateContext';

@@ -5,7 +5,7 @@ import type { WordChatSalutationGender } from '../types';
  * Decorative marker for a salutation choice. The visible label carries the
  * meaning, so this is always `aria-hidden` via the underlying glyphs.
  */
-export function SalutationGenderIcon({
+function SalutationGenderIcon({
   gender,
   size = 19,
 }: {

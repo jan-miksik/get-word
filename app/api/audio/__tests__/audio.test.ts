@@ -88,7 +88,7 @@ vi.mock('@/lib/audio-quality', () => ({
 
 import { POST } from '../generate/batch/route'
 import { POST as POST_REUSE } from '../reuse/batch/route'
-import { GET } from '../[hash]/route'
+import { GET, HEAD } from '../[hash]/route'
 
 const testUser = {
   id: 'user-1',
@@ -840,6 +840,48 @@ describe('POST /api/audio/reuse/batch', () => {
   })
 })
 
+describe('HEAD /api/audio/[hash]', () => {
+  beforeEach(() => {
+    vi.clearAllMocks()
+    mockGetObjectAudio.mockResolvedValue(null)
+    mockGetActiveProvider.mockReturnValue('b2')
+  })
+
+  it('answers existence from the asset row without reading object storage', async () => {
+    mockFindMediaByHash.mockResolvedValue({
+      id: 'asset-1',
+      contentHash: 'abc123',
+      storageType: 'object_store',
+      storageProvider: 'b2',
+      storageRef: 'audio/abc123.mp3',
+      language: 'vi',
+      textReference: 'xin chào',
+      provider: 'google_tts',
+    })
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+
+    const req = new NextRequest('http://localhost:3000/api/audio/abc123', { method: 'HEAD' })
+    const res = await HEAD(req, { params: Promise.resolve({ hash: 'abc123' }) })
+
+    expect(res.status).toBe(200)
+    // The whole point: the client probes availability per word, and running the
+    // GET handler for each one downloaded a clip from B2 to discard it.
+    expect(mockGetObjectAudio).not.toHaveBeenCalled()
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
+
+  it('reports a missing clip as 404', async () => {
+    mockFindMediaByHash.mockResolvedValue(null)
+
+    const req = new NextRequest('http://localhost:3000/api/audio/nope', { method: 'HEAD' })
+    const res = await HEAD(req, { params: Promise.resolve({ hash: 'nope' }) })
+
+    expect(res.status).toBe(404)
+    expect(mockGetObjectAudio).not.toHaveBeenCalled()
+  })
+})
+
 describe('GET /api/audio/[hash]', () => {
   beforeEach(() => {
     vi.clearAllMocks()
@@ -858,6 +900,33 @@ describe('GET /api/audio/[hash]', () => {
     const req = new NextRequest('http://localhost:3000/api/audio/abc123')
     const res = await GET(req, { params: Promise.resolve({ hash: 'abc123' }) })
     expect(res.status).toBe(404)
+  })
+
+  it('lets the edge cache a served clip, not just the browser', async () => {
+    mockFindMediaByHash.mockResolvedValue({
+      id: 'asset-1',
+      contentHash: 'abc123',
+      storageType: 'arweave',
+      storageRef: 'tx123',
+      language: 'vi',
+      textReference: 'xin chào',
+      provider: 'google_tts',
+    })
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue(
+        new Response(Buffer.from('audio-data'), {
+          status: 200,
+          headers: { 'content-type': 'audio/mpeg' },
+        }),
+      ),
+    )
+
+    const req = new NextRequest('http://localhost:3000/api/audio/abc123')
+    const res = await GET(req, { params: Promise.resolve({ hash: 'abc123' }) })
+
+    // Without s-maxage every device's first play walked through to storage.
+    expect(res.headers.get('cache-control')).toContain('s-maxage=31536000')
   })
 
   it('returns asset metadata for local dev when the object store is unconfigured', async () => {

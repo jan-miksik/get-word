@@ -47,6 +47,18 @@ function publishedHeight(): string {
   return document.documentElement.style.getPropertyValue('--app-viewport-height');
 }
 
+/**
+ * Focus a field the way a learner does: a tap first. The hook only credits a
+ * keyboard it cannot measure when the focus rode a real gesture, so a bare
+ * `.focus()` in a test models the programmatic case, not this one.
+ */
+function tapFocus(field: HTMLElement) {
+  act(() => {
+    field.dispatchEvent(new Event('pointerdown', { bubbles: true }));
+    field.focus();
+  });
+}
+
 /** Runs the rAF the hook schedules plus any timers that fell due. */
 function flush() {
   act(() => {
@@ -112,9 +124,7 @@ describe('useVisualViewportHeight', () => {
     const { getByTestId } = render(<Harness />);
     flush();
 
-    act(() => {
-      getByTestId('field').focus();
-    });
+    tapFocus(getByTestId('field'));
     // Neither viewport moves — the case that left the bottom of the card, hint
     // button and memory-hook field included, drawn behind the keyboard.
     act(() => {
@@ -123,6 +133,55 @@ describe('useVisualViewportHeight', () => {
 
     // 812 less the 48% a portrait keyboard and its accessory bar cover.
     expect(publishedHeight()).toBe('422px');
+  });
+
+  it('keeps the full height for a field focused without the learner asking', () => {
+    const { getByTestId } = render(<Harness />);
+    flush();
+
+    // What a typing card does as each new word mounts. No gesture, so no
+    // keyboard is coming — surrendering half the screen to it left the content
+    // shifted up with nothing to type on.
+    act(() => {
+      getByTestId('field').focus();
+    });
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+
+    expect(publishedHeight()).toBe('812px');
+    expect(document.documentElement.dataset.appTyping).toBeUndefined();
+  });
+
+  it('stops assuming a keyboard once the browser has shown that it reports them', () => {
+    const { getByTestId } = render(<Harness />);
+    flush();
+
+    // A first, real keyboard: this browser does move the viewport.
+    tapFocus(getByTestId('field'));
+    viewport.height = REPORTED_VISIBLE_HEIGHT;
+    act(() => {
+      viewport.emit('resize');
+      vi.advanceTimersByTime(400);
+    });
+
+    act(() => {
+      getByTestId('field').blur();
+    });
+    viewport.height = SCREEN_HEIGHT;
+    act(() => {
+      viewport.emit('resize');
+      vi.advanceTimersByTime(400);
+    });
+
+    // Second focus, tapped, but the viewport stays put. From a browser that has
+    // reported before, silence means there is no keyboard.
+    tapFocus(getByTestId('field'));
+    act(() => {
+      vi.advanceTimersByTime(400);
+    });
+
+    expect(publishedHeight()).toBe('812px');
   });
 
   it('restores the full height once the field is left', () => {

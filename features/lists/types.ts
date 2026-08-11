@@ -14,7 +14,7 @@ export type WordList = {
   isOwner?: boolean;
   moderationStatus?: 'visible' | 'under_review' | 'rejected';
   moderationUpdatedAt?: string | Date | null;
-  moderationDecisionCode?: import('@/features/moderation/types').ModerationDecisionCode | null;
+  moderationDecisionCode?: import('@/features/moderation/contracts').ModerationDecisionCode | null;
   moderationPublicNote?: string | null;
   audioIncomplete?: boolean;
   /** Distinct other learners subscribed to this list (owner excluded). */

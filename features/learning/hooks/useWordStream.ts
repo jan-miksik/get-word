@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import type { ProgressData } from '@/features/sync/types';
+import type { ProgressData } from '@/features/sync/contracts';
 import {
   createPriorityPredicate,
   createWordCategoryOrderComparer,

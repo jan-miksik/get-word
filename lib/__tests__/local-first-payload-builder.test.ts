@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import { buildPayloadFromOps } from '../local-first/payload-builder';
-import type { OutboxOp } from '../local-first/outbox';
+import type { OutboxOp, OutboxOperation } from '../local-first/outbox';
 
-function makeOp(partial: Partial<OutboxOp> & Pick<OutboxOp, 'entity' | 'opType' | 'payload'>): OutboxOp {
+function makeOp(partial: OutboxOperation & Partial<OutboxOp>): OutboxOp {
   return {
     clientOpId: partial.clientOpId ?? crypto.randomUUID(),
     entity: partial.entity,
@@ -14,7 +14,7 @@ function makeOp(partial: Partial<OutboxOp> & Pick<OutboxOp, 'entity' | 'opType' 
     attempts: partial.attempts ?? 0,
     lastError: partial.lastError,
     nextAttemptAt: partial.nextAttemptAt,
-  };
+  } as OutboxOp;
 }
 
 describe('payload builder', () => {
@@ -67,7 +67,9 @@ describe('payload builder', () => {
             language_from: 'cs',
             language_to: 'vi',
             onboarding_completed: true,
+            language_pair_base_revision: 9,
           },
+          baseRevision: 9,
         },
       }),
     ]);
@@ -76,7 +78,9 @@ describe('payload builder', () => {
       language_from: 'cs',
       language_to: 'vi',
       onboarding_completed: true,
+      language_pair_base_revision: 9,
     });
+    expect(built?.invalidClientOpIds).toEqual([]);
   });
 
   it('keeps the last value when the same preference field is set twice', () => {
@@ -196,8 +200,10 @@ describe('payload builder', () => {
         entity: 'review_event',
         opType: 'event',
         payload: { client_event_id: 'b', word_id: 'w', client_created_at: 0 },
-      }),
+      } as unknown as OutboxOperation),
     ]);
     expect(built?.payload.review_events).toBeUndefined();
+    expect(built?.invalidClientOpIds).toHaveLength(2);
+    expect(built?.clientOpIds).toHaveLength(0);
   });
 });

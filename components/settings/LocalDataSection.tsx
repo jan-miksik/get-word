@@ -12,6 +12,12 @@ import {
   type AudioCacheStatus,
 } from '@/lib/local-learning-cache';
 import { subscribeSyncStatus, type SyncStatus } from '@/lib/sync-coordinator';
+import {
+  discardBlockedOps,
+  retryBlockedOps,
+  subscribeOutboxStatus,
+  type OutboxStatus,
+} from '@/lib/local-first/outbox';
 import { Section, ToggleSwitch } from './primitives';
 import { formatByteSize, formatSyncTime } from './format';
 
@@ -27,17 +33,28 @@ const INITIAL_SYNC_STATUS: SyncStatus = {
   lastReason: null,
 };
 
+const INITIAL_OUTBOX_STATUS: OutboxStatus = {
+  total: 0,
+  ready: 0,
+  inBackoff: 0,
+  blocked: 0,
+  authRequired: 0,
+  conflicts: 0,
+};
+
 export function LocalDataSection({ isOpen }: { isOpen: boolean }) {
   const { t, language } = useI18n();
   const { syncedWords } = useAppStateContext();
 
   const [syncStatus, setSyncStatus] = useState<SyncStatus>(INITIAL_SYNC_STATUS);
+  const [outboxStatus, setOutboxStatus] = useState<OutboxStatus>(INITIAL_OUTBOX_STATUS);
   const [audioCacheEnabled, setAudioCacheEnabled] = useState(false);
   const [audioCacheStatus, setAudioCacheStatus] = useState<AudioCacheStatus | null>(null);
   const [cacheMessage, setCacheMessage] = useState<string | null>(null);
   const [cacheBusy, setCacheBusy] = useState(false);
 
   useEffect(() => subscribeSyncStatus(setSyncStatus), []);
+  useEffect(() => subscribeOutboxStatus(setOutboxStatus), []);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -84,8 +101,15 @@ export function LocalDataSection({ isOpen }: { isOpen: boolean }) {
   }, [t]);
 
   const formattedSyncTime = formatSyncTime(syncStatus.lastSyncedAt, t);
-  const syncLabel = syncStatus.pendingCount > 0
-    ? t('settings.syncPending', { count: syncStatus.pendingCount })
+  const pendingCount = Math.max(syncStatus.pendingCount, outboxStatus.total);
+  const manuallyRetryableBlocked = Math.max(
+    0,
+    outboxStatus.blocked - outboxStatus.conflicts - outboxStatus.authRequired,
+  );
+  const syncLabel = outboxStatus.blocked > 0
+    ? t('settings.syncBlocked', { count: outboxStatus.blocked })
+    : pendingCount > 0
+    ? t('settings.syncPending', { count: pendingCount })
     : syncStatus.isRetrying
       ? t('settings.syncRetrying')
       : formattedSyncTime
@@ -122,6 +146,35 @@ export function LocalDataSection({ isOpen }: { isOpen: boolean }) {
         )}
         {cacheMessage && <span className="text-accent">{cacheMessage}</span>}
       </div>
+      {outboxStatus.blocked > 0 && (
+        <div className="flex flex-wrap gap-2">
+          {outboxStatus.conflicts > 0 && (
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event('get-word:rebase-sync-conflicts'))}
+              className="rounded-lg border border-border-subtle bg-background px-3 py-2 text-xs font-semibold text-text-soft"
+            >
+              {t('settings.rebaseBlockedSync')}
+            </button>
+          )}
+          {manuallyRetryableBlocked > 0 && (
+            <button
+              type="button"
+              onClick={() => void retryBlockedOps()}
+              className="rounded-lg border border-border-subtle bg-background px-3 py-2 text-xs font-semibold text-text-soft"
+            >
+              {t('settings.retryBlockedSync')}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={() => void discardBlockedOps()}
+            className="rounded-lg border border-danger/40 bg-background px-3 py-2 text-xs font-semibold text-danger"
+          >
+            {t('settings.discardBlockedSync')}
+          </button>
+        </div>
+      )}
       <button
         type="button"
         onClick={() => void handleClearLocalCache()}

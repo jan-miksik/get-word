@@ -1,5 +1,5 @@
 import type { NormalizedWord } from "@/lib/words";
-import type { ProgressData } from "@/features/sync/types";
+import type { ProgressData } from "@/features/sync/contracts";
 
 export function buildProgressBindings(
   words: NormalizedWord[],

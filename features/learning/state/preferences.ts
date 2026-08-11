@@ -1,15 +1,19 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import type { SyncResponse } from '@/features/sync/types';
+import type { SyncResponse } from '@/features/sync/contracts';
 import { hasReceivedServerSnapshot } from '@/lib/sync';
 import { enqueueOp } from '@/lib/local-first/enqueue';
-import type { SyncMutationPayload } from '@/features/sync/types';
+import type { SyncMutationPayload } from '@/features/sync/contracts';
 import { postTabMessage, subscribeTabMessages } from '@/lib/tab-sync';
 import {
   getDetectedSettingsLanguage,
   isSimulatedFirstOpenEnabled,
 } from '@/lib/i18n/languages';
+import {
+  readPreferredPublicLanguageSelectedAt,
+  writePreferredPublicLanguage,
+} from '@/lib/i18n/public-language';
 import {
   DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
   DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE,
@@ -96,11 +100,11 @@ function normalizeCategoryOrderValue(value: unknown): string[] {
   );
 }
 
-function enqueuePreference(field: string, value: unknown): Promise<unknown> {
+function enqueuePreference(field: string, value: unknown, baseRevision?: number): Promise<unknown> {
   return enqueueOp({
     entity: 'preference',
     opType: 'set',
-    payload: { field, value },
+    payload: { field, value, baseRevision },
     legacyPayload: { [field]: value } as unknown as SyncMutationPayload,
   }).catch((e) => console.error(`[usePreferences] enqueue ${field}:`, e));
 }
@@ -160,8 +164,15 @@ export function usePreferences(
   const [settingsLanguage, setSettingsLanguageState] = useState<SettingsLanguage>(() =>
     normalizeSettingsLanguage(getDetectedSettingsLanguage())
   );
-  const [settingsLanguageSelectedAt, setSettingsLanguageSelectedAt] = useState<string | null>(null);
+  // Seeded from the device mirror, not null. A reload used to forget when the
+  // learner last picked their interface language, which made every incoming
+  // server value newer by default — including a stale one whose replacement had
+  // not synced yet, which is how a saved choice came back overwritten.
+  const [settingsLanguageSelectedAt, setSettingsLanguageSelectedAt] = useState<string | null>(
+    readPreferredPublicLanguageSelectedAt
+  );
   const settingsLanguageSelectedAtRef = useRef<string | null>(null);
+  const settingsLanguageRevisionRef = useRef(0);
   useEffect(() => {
     settingsLanguageSelectedAtRef.current = settingsLanguageSelectedAt;
   }, [settingsLanguageSelectedAt]);
@@ -174,6 +185,7 @@ export function usePreferences(
   const learningLanguageFromRef = useRef<string | null>(null);
   const learningLanguageToRef = useRef<string | null>(null);
   const learningPairRevisionMsRef = useRef(0);
+  const learningPairServerRevisionRef = useRef(0);
   const pendingLearningPairRef = useRef<PendingLearningLanguagePair | null>(
     readPendingLearningLanguagePair(),
   );
@@ -318,11 +330,15 @@ export function usePreferences(
     void enqueuePreference('category_order', categoryOrder);
   }, [categoryOrder, isHydrated, isUpdatingFromServerRef]);
 
-  useEffect(() => {
-    if (!isHydrated || isUpdatingFromServerRef.current) return;
-    if (!hasReceivedServerSnapshot()) return;
-    void enqueuePreference('settings_language', settingsLanguage);
-  }, [settingsLanguage, isHydrated, isUpdatingFromServerRef]);
+  // No effect mirrors `settingsLanguage` to the server. The other preferences
+  // above can afford to, because a dropped write only costs a display toggle;
+  // this one is the whole interface. Those guards drop the enqueue outright
+  // when a background refetch happens to be in flight, or when the boot never
+  // reached the server (offline, slow network) — and nothing retries it, so the
+  // choice was lost and the next boot restored the old server value. The
+  // explicit enqueue in `setSettingsLanguage` is unconditional instead: it is a
+  // deliberate user action, and the outbox is durable enough to hold it until
+  // the network comes back.
 
   const setRole = useCallback((newRole: Role) => {
     setRoleState(newRole);
@@ -385,6 +401,10 @@ export function usePreferences(
     const selectedAt = new Date().toISOString();
     setSettingsLanguageState(normalized);
     setSettingsLanguageSelectedAt(selectedAt);
+    // Both mirrors, so a reload knows the choice *and* when it was made before
+    // any server snapshot arrives. Without the timestamp the boot comparison
+    // starts from zero and the server always wins, even holding an older value.
+    writePreferredPublicLanguage(normalized);
     postTabMessage({
       type: 'preferences_changed',
       patch: {
@@ -392,6 +412,11 @@ export function usePreferences(
         settingsLanguageSelectedAt: selectedAt,
       },
     });
+    void enqueuePreference(
+      'settings_language',
+      normalized,
+      settingsLanguageRevisionRef.current,
+    );
   }, []);
 
   const queueLearningLanguagePair = useCallback(
@@ -421,6 +446,7 @@ export function usePreferences(
         from: normalizeSettingsLanguage(languageFrom),
         to: normalizeSettingsLanguage(languageTo),
         changedAt: new Date().toISOString(),
+        baseRevision: learningPairServerRevisionRef.current,
       };
       pendingLearningPairRef.current = pending;
       storePendingLearningLanguagePair(pending);
@@ -458,6 +484,8 @@ export function usePreferences(
   }, [queueLearningLanguagePair]);
 
   const applyServerPreferences = useCallback((user: SyncResponse['user']) => {
+    settingsLanguageRevisionRef.current = user.settings_language_revision ?? 0;
+    learningPairServerRevisionRef.current = user.language_pair_revision ?? 0;
     const simulateFirstOpen = isSimulatedFirstOpenEnabled();
     const simulateLearningOnboarding =
       simulateFirstOpen && !hasCompletedLearningOnboardingInSession();
@@ -501,7 +529,18 @@ export function usePreferences(
         incomingFrom === pendingPair.from &&
         incomingTo === pendingPair.to,
     );
-    if (confirmsPendingPair) {
+    // A snapshot the server stamped no earlier than our choice has already seen
+    // it — either it is ours, or a newer pair replaced it from another device.
+    // Either way the marker's work is done. Without this second exit it could
+    // only ever clear on an exact value match, so a pair the server normalized
+    // differently (or one a later choice elsewhere superseded) left the marker
+    // behind for good, re-queued on every start, overwriting the newer choice.
+    const supersedesPendingPair = Boolean(
+      pendingPair &&
+        incomingRevisionMs > 0 &&
+        incomingRevisionMs >= new Date(pendingPair.changedAt).getTime(),
+    );
+    if (confirmsPendingPair || supersedesPendingPair) {
       pendingLearningPairRef.current = null;
       clearPendingLearningLanguagePair();
     }
@@ -513,7 +552,7 @@ export function usePreferences(
       learningPairRevisionMsRef.current > 0 &&
       (!Number.isFinite(incomingRevisionMs) ||
         incomingRevisionMs < learningPairRevisionMsRef.current);
-    if (conflictsWithPendingPair && pendingPair) {
+    if (conflictsWithPendingPair && !supersedesPendingPair && pendingPair) {
       learningLanguageFromRef.current = pendingPair.from;
       learningLanguageToRef.current = pendingPair.to;
       setLearningLanguageFrom(pendingPair.from);

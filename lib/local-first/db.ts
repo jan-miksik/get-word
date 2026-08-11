@@ -1,7 +1,8 @@
 'use client';
 
 export const DB_NAME = 'get-word-learning-cache';
-const DB_VERSION = 2;
+export const DB_VERSION = 4;
+export const OLDEST_SUPPORTED_DB_VERSION = 1;
 
 export const STORE_KV = 'kv';
 export const STORE_PROGRESS = 'progress';
@@ -10,11 +11,12 @@ export const STORE_CATEGORY_FILTERS = 'category_filters';
 export const STORE_PREFS = 'prefs';
 export const STORE_OUTBOX = 'outbox';
 export const STORE_META = 'meta';
+export const STORE_CONTENT = 'content';
 
 export const META_KEY = 'meta';
 const LEGACY_SNAPSHOT_KEY = 'learning-snapshot';
 
-export const META_SCHEMA_VERSION = 2;
+export const META_SCHEMA_VERSION = 3;
 
 const ALL_STORES = [
   STORE_KV,
@@ -24,6 +26,7 @@ const ALL_STORES = [
   STORE_PREFS,
   STORE_OUTBOX,
   STORE_META,
+  STORE_CONTENT,
 ] as const;
 
 export type StoreName = (typeof ALL_STORES)[number];
@@ -62,6 +65,22 @@ interface LegacySnapshot {
   savedAt: number;
   activeListId: string | null;
   data: LegacySnapshotData;
+}
+
+export function migrationVersionsFrom(oldVersion: number): number[] {
+  const first = Math.max(1, Math.floor(oldVersion) + 1);
+  const versions: number[] = [];
+  for (let version = first; version <= DB_VERSION; version += 1) versions.push(version);
+  return versions;
+}
+
+export function normalizeLegacyOutboxRecord(value: unknown): unknown {
+  if (!value || typeof value !== 'object') return value;
+  const record = value as Record<string, unknown>;
+  if (record.status === 'pending' || record.status === 'retrying' || record.status === 'blocked') {
+    return value;
+  }
+  return { ...record, status: 'pending' };
 }
 
 function migrateLegacySnapshot(
@@ -112,6 +131,78 @@ function migrateLegacySnapshot(
   };
 }
 
+function migrateLegacyContent(transaction: IDBTransaction): void {
+  try {
+    const legacyStore = transaction.objectStore(STORE_KV);
+    const contentStore = transaction.objectStore(STORE_CONTENT);
+    const request = legacyStore.get(LEGACY_SNAPSHOT_KEY);
+    request.onsuccess = () => {
+      const snapshot = request.result as LegacySnapshot | undefined;
+      if (!snapshot?.data) return;
+      contentStore.put(
+        {
+          schemaVersion: META_SCHEMA_VERSION,
+          updatedAt: new Date(snapshot.savedAt || Date.now()).toISOString(),
+          deletedAt: null,
+          value: {
+            word_list_items: snapshot.data.word_list_items,
+            categories: snapshot.data.categories,
+            lists: snapshot.data.lists,
+            sync_revision: snapshot.data.sync_revision,
+          },
+        } satisfies DomainRow<unknown>,
+        'sync-content',
+      );
+    };
+  } catch {
+    // Keep the legacy snapshot untouched. The compatibility reader can still
+    // use it and a later successful server hydration will populate content.
+  }
+}
+
+function migrateOutboxLifecycle(transaction: IDBTransaction): void {
+  let store: IDBObjectStore;
+  try {
+    store = transaction.objectStore(STORE_OUTBOX);
+  } catch {
+    return;
+  }
+  const request = store.openCursor();
+  request.onsuccess = () => {
+    const cursor = request.result;
+    if (!cursor) return;
+    try {
+      cursor.update(normalizeLegacyOutboxRecord(cursor.value));
+    } catch {
+      // Never delete the old record on conversion failure. A future boot can
+      // still normalize the missing status while reading it.
+    }
+    cursor.continue();
+  };
+}
+
+function migrateMetaVersion(transaction: IDBTransaction): void {
+  try {
+    const store = transaction.objectStore(STORE_META);
+    const request = store.get(META_KEY);
+    request.onsuccess = () => {
+      const current = request.result as Partial<MetaRow> | undefined;
+      store.put(
+        {
+          deviceId: null,
+          lastSinceCursor: null,
+          ...current,
+          schemaVersion: META_SCHEMA_VERSION,
+        } satisfies MetaRow,
+        META_KEY,
+      );
+    };
+  } catch {
+    // A missing/corrupt meta row only disables warm boot; server hydration can
+    // recreate it without deleting usable domain stores.
+  }
+}
+
 function extractKey(row: unknown, candidates: string[]): string | null {
   if (!row || typeof row !== 'object') return null;
   const obj = row as Record<string, unknown>;
@@ -160,6 +251,14 @@ export function openDb(): Promise<IDBDatabase | null> {
         } catch {
           // Meta row is best-effort; subsequent boots will write it.
         }
+      }
+      if (oldVersion < 3) {
+        migrateOutboxLifecycle(txn);
+        migrateMetaVersion(txn);
+      }
+      if (oldVersion < 4) {
+        migrateLegacyContent(txn);
+        migrateMetaVersion(txn);
       }
     };
 

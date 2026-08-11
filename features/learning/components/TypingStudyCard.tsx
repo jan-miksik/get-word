@@ -2,8 +2,9 @@
 
 import React, { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { playUserInitiatedAudio } from '@/lib/audio-playback';
+import { isAppKeyboardOpen } from '@/hooks/useVisualViewportHeight';
 import { STAGES, type NormalizedWord } from '@/lib/words';
-import type { ProgressData } from '@/features/sync/types';
+import type { ProgressData } from '@/features/sync/contracts';
 import {
   getAcceptedAnswerCandidates,
   requiresExplicitTypingCheck,
@@ -213,6 +214,12 @@ export function TypingStudyCard({
     if (!content || !isFocused || result !== null || !isMobileLayout()) return;
 
     const showBottom = () => {
+      // Focus is not a keyboard. A card that focuses its input as it mounts
+      // gets no keyboard on the web unless the learner's own tap brought it up,
+      // and scrolling the prompt out of view to clear room for keys that never
+      // arrive is the whole complaint. `useVisualViewportHeight` publishes the
+      // corroborated answer; the observer re-runs this the moment it flips.
+      if (!isAppKeyboardOpen()) return;
       if (content.scrollHeight > content.clientHeight) {
         content.scrollTop = content.scrollHeight;
       }

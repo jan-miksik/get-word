@@ -450,7 +450,7 @@ export function materializeProposedItems(input: {
  * Public boundary for a proposal. Roles exist only on the validated internal
  * document; everything after this point is the established client item shape.
  */
-export function materializeProposal(input: {
+function materializeProposal(input: {
   validated: ValidatedInternalProposal;
   exclusionKeys: Set<string>;
   maxItems?: number;

@@ -15,12 +15,12 @@ interface AuthButtonProps {
 }
 
 export function AuthButton({ isAuthenticated: propAuthenticated, authEmail: propEmail, authAddress: propAddress, size = 'default' }: AuthButtonProps = {}) {
-  const { isConnected, email, address, signIn, openAccountMenu } = useAuth()
+  const { isConnected, email, signIn, openAccountMenu } = useAuth()
   const { t } = useI18n()
 
   const isAuthenticated = propAuthenticated ?? isConnected
   const displayEmail = propEmail ?? email
-  const displayAddress = propAddress ?? address
+  const displayAddress = propAddress
 
   if (isAuthenticated) {
     const displayName =

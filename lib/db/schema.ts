@@ -334,8 +334,10 @@ export const users = pgTable("users", {
   studyNoteMinimizeFromStage: integer("study_note_minimize_from_stage").default(2).notNull(),
   settingsLanguage: text("settings_language"),
   settingsLanguageSelectedAt: timestamp("settings_language_selected_at"),
+  settingsLanguageRevision: integer("settings_language_revision").notNull().default(0),
   languageFrom: text("language_from"),
   languageTo: text("language_to"),
+  languagePairRevision: integer("language_pair_revision").notNull().default(0),
   onboardingCompletedAt: timestamp("onboarding_completed_at"),
   // How the word chat addresses the learner. Persisted independently from a
   // draft so every new category (and every device) keeps the earlier choice.
@@ -622,6 +624,25 @@ export const reviewEvents = pgTable(
       table.userId,
       table.serverCreatedAt,
     ),
+  ],
+);
+
+// Durable acknowledgement ledger for local-first mutations. The composite
+// uniqueness is user-scoped because client operation ids are generated on the
+// device and need only be stable within one account.
+export const syncAppliedOperations = pgTable(
+  "sync_applied_operations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    clientOpId: text("client_op_id").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    unique("sync_applied_operations_user_op_unique").on(table.userId, table.clientOpId),
+    index("sync_applied_operations_created_idx").on(table.createdAt),
   ],
 );
 

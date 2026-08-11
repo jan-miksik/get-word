@@ -2,7 +2,7 @@ import { cookies } from 'next/headers';
 import { GET_WORD_SESSION_COOKIE_NAME, verifySession } from '@/lib/session';
 import { LandingPage } from '@/features/landing/components/LandingPage';
 import { photoDisplayFont } from '@/features/photo-lab/font';
-import { HomeClient } from './HomeClient';
+import { HomeClient } from '@/features/learning/public.client';
 
 /**
  * Home route entry. Signed-out visitors get the public, server-rendered

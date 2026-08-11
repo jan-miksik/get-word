@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { createPortal } from 'react-dom';
-import Link from 'next/link';
+import { PlatformLink as Link } from '@/packages/product/shared/platform/navigation';
 import { useI18n } from '@/components/I18nProvider';
 import { listsApiFetch } from '@/features/lists/api';
 import type { WordList } from '@/features/lists/types';

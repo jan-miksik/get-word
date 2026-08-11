@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { MyReportsPage } from '@/features/moderation/components/MyReportsPage';
+import { MyReportsPage } from '@/features/moderation/public.client';
 
 export const metadata: Metadata = {
   title: 'Content reports — Get Word',

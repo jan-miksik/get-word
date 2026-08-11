@@ -2,7 +2,7 @@ import { CapacitorHttp, type HttpOptions } from '@capacitor/core';
 import { apiUrl } from '../config';
 import { isNativeApp } from '../native';
 
-export class MobileApiError extends Error {
+class MobileApiError extends Error {
   constructor(
     message: string,
     readonly status: number,

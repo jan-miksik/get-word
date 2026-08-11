@@ -4,14 +4,13 @@ import { AppLayout } from '@/components/AppLayout';
 import { CardDeckView, type CardDeckSwipeActions } from './CardDeckView';
 import { VirtualizedWordList } from './VirtualizedWordList';
 import { SettlingWordsFooter } from './SettlingWordsFooter';
-import type { SchoolMembership } from '@/features/auth/client/useAuth';
+import type { SchoolMembership } from '@/features/auth/public.client';
 import { useI18n } from '@/components/I18nProvider';
 import type { MinigameFrequencyRange, MiniGameConfig } from '@/features/learning/minigames';
 import type { NormalizedWord } from '@/lib/words';
 import type { ProgressStats } from '@/lib/progress-stats';
 import type { ViewMode } from '../app-state/types';
-import { AppSurfacePanel } from '@/features/workspace/AppSurfacePanel';
-import type { AppSurface } from '@/features/workspace/surface-history';
+import { AppSurfacePanel, type AppSurface } from '@/features/workspace/public.client';
 
 interface LearningStudyContentProps {
   viewMode: ViewMode;

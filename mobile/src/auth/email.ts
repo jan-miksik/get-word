@@ -3,7 +3,7 @@ import { exchangeSupabaseSession, type MobileSession } from '../api/auth';
 import { getOrCreateDeviceId, storeAppSessionToken } from './secure-session';
 import { getMobileSupabaseClient } from './supabase';
 
-export const REVIEW_ACCOUNT_EMAIL = 'play-review@getword.app';
+const REVIEW_ACCOUNT_EMAIL = 'play-review@getword.app';
 
 export function isReviewAccountEmail(email: string): boolean {
   return email.trim().toLowerCase() === REVIEW_ACCOUNT_EMAIL;

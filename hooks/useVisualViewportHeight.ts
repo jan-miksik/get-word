@@ -26,6 +26,32 @@ const KEYBOARD_DETECTION_THRESHOLD = 80;
 const PLATFORM_REPORT_GRACE_MS = 350;
 
 /**
+ * How recently the learner must have tapped or typed for a field taking focus
+ * to count as *their* doing.
+ *
+ * Focus alone does not raise a keyboard on the web. Every mobile browser — and
+ * an installed PWA in particular — only opens one for a focus that happens
+ * inside a user gesture; a `focus()` call on its own moves the caret and
+ * nothing else. The typing card focuses each new word's input as it mounts, so
+ * without this check a card that appeared on its own was read as "keyboard
+ * open" and the shell gave up half the screen to a keyboard that never came:
+ * the content slid up, nothing to type on. React commits discrete events
+ * synchronously, so a focus that genuinely rides the learner's tap lands well
+ * inside this window.
+ */
+const GESTURE_WINDOW_MS = 1000;
+
+/**
+ * Whether a mobile keyboard is actually up, as judged by `useVisualViewportHeight`
+ * (see `markKeyboardVisible`). Read it instead of a field's focus state before
+ * giving screen space away: on the web the two are not the same thing.
+ */
+export function isAppKeyboardOpen(): boolean {
+  if (typeof document === 'undefined') return false;
+  return document.documentElement.dataset.appTyping === 'true';
+}
+
+/**
  * Publishes the height of the *actually usable* viewport as
  * `--app-viewport-height` on `<html>`, for `.app` to size itself by (see
  * `styles/layout.css`).
@@ -70,6 +96,25 @@ export function useVisualViewportHeight() {
      * shrunken number.
      */
     let baseHeight = window.innerHeight;
+    /** Timestamp of the last tap/keypress, for judging who moved the focus. */
+    let lastGestureAt = Number.NEGATIVE_INFINITY;
+    /** Whether the focus currently held by a text field came from a gesture. */
+    let focusWasUserInitiated = false;
+    /**
+     * Set the first time this browser is seen shrinking the viewport for a
+     * keyboard. From then on its silence is an answer — no keyboard — so the
+     * assumption below stops applying. Only a platform that has never once
+     * reported (iOS Safari in some builds) still needs to be guessed at.
+     */
+    let platformReportsKeyboard = false;
+
+    const markKeyboardVisible = () => {
+      // The surfaces that can give rows up read this and do (see
+      // `styles/top-menu.css`, `styles/word-card.css`). Distinct from the
+      // `data-app-keyboard` the add-words screen sets for itself: this one is
+      // the app-wide fact, not that screen's own layout switch.
+      root.dataset.appTyping = 'true';
+    };
 
     const apply = () => {
       frame = 0;
@@ -96,8 +141,19 @@ export function useVisualViewportHeight() {
         const platformReported =
           reported <= baseHeight - KEYBOARD_DETECTION_THRESHOLD ||
           window.innerHeight <= baseHeight - KEYBOARD_DETECTION_THRESHOLD;
+        if (platformReported) {
+          // Proof, not a guess: this browser does move the viewport for a
+          // keyboard, and there is one up right now.
+          platformReportsKeyboard = true;
+          markKeyboardVisible();
+        }
+        // Guessing is only ever right for a keyboard the learner asked for on a
+        // platform that has never reported one. A field focused without a tap
+        // has no keyboard to hide behind, and a browser that has reported
+        // before would have reported this time too.
+        const mayAssume = assumeKeyboard && focusWasUserInitiated && !platformReportsKeyboard;
         const visible =
-          platformReported || !assumeKeyboard
+          platformReported || !mayAssume
             ? reported
             : baseHeight - Math.round(baseHeight * ASSUMED_KEYBOARD_SHARE);
         root.style.setProperty('--app-viewport-height', `${Math.max(240, visible)}px`);
@@ -128,14 +184,17 @@ export function useVisualViewportHeight() {
       keyboardOpen = open;
       window.clearTimeout(graceTimer);
       assumeKeyboard = false;
+      focusWasUserInitiated =
+        open && performance.now() - lastGestureAt < GESTURE_WINDOW_MS;
       // What is left of a phone screen under a keyboard is not enough for a
       // study card with its answer buttons and the menu above it, so the
-      // surfaces that can give rows up read this and do (see
-      // `styles/top-menu.css`, `styles/word-card.css`). Distinct from the
-      // `data-app-keyboard` the add-words screen sets for itself: this one is
-      // the app-wide fact, not that screen's own layout switch.
-      if (open) root.dataset.appTyping = 'true';
-      else delete root.dataset.appTyping;
+      // surfaces that can give rows up read this and do. A focus the learner
+      // did not ask for is not that moment: the keyboard is not coming, and
+      // compacting the card for it is the "everything slid up and there is
+      // nothing to type on" bug. Such a focus can still earn the flag later —
+      // `apply` sets it the instant the viewport actually moves.
+      if (focusWasUserInitiated) markKeyboardVisible();
+      else if (!open) delete root.dataset.appTyping;
       if (open) {
         graceTimer = window.setTimeout(() => {
           assumeKeyboard = true;
@@ -159,7 +218,17 @@ export function useVisualViewportHeight() {
       focusTimer = window.setTimeout(syncKeyboard, 0);
     };
 
+    // Capture phase, so a handler that stops propagation cannot hide the
+    // learner's tap from us and turn their own focus into a phantom one.
+    const noteGesture = () => {
+      lastGestureAt = performance.now();
+    };
+    const gestureEvents = ['pointerdown', 'touchstart', 'keydown'] as const;
+
     apply();
+    for (const type of gestureEvents) {
+      document.addEventListener(type, noteGesture, { capture: true, passive: true });
+    }
     document.addEventListener('focusin', handleFocusChange);
     document.addEventListener('focusout', handleFocusChange);
     viewport?.addEventListener('resize', schedule);
@@ -173,6 +242,9 @@ export function useVisualViewportHeight() {
       if (frame) window.cancelAnimationFrame(frame);
       window.clearTimeout(graceTimer);
       window.clearTimeout(focusTimer);
+      for (const type of gestureEvents) {
+        document.removeEventListener(type, noteGesture, { capture: true });
+      }
       document.removeEventListener('focusin', handleFocusChange);
       document.removeEventListener('focusout', handleFocusChange);
       viewport?.removeEventListener('resize', schedule);

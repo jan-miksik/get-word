@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import type { SyncResponse } from '@/features/sync/types';
+import type { SyncResponse } from '@/features/sync/contracts';
 
 export function useUserProfile() {
   const [userId, setUserId] = useState<string | null>(null);

@@ -50,12 +50,16 @@ export default defineConfig(({ mode }) => {
       outDir: 'dist',
       emptyOutDir: true,
       sourcemap: true,
+      // Ratchet around the current shared learning shell. Lower this whenever
+      // a surface is split; a future regression above the baseline warns CI.
+      chunkSizeWarningLimit: 1450,
       rollupOptions: {
         onwarn(warning, warn) {
           // Shared components carry Next's "use client" directive. It is
           // meaningless in a single-bundle build and would otherwise drown the
           // output in one warning per file.
           if (warning.code === 'MODULE_LEVEL_DIRECTIVE') return;
+          if (warning.code === 'SOURCEMAP_ERROR') return;
           warn(warning);
         },
       },

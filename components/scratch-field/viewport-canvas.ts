@@ -17,7 +17,7 @@ export type ViewportPainter = (
 
 // Height slack so the mobile URL bar collapsing/expanding never exposes an
 // unpainted strip (and never triggers a repaint that would wipe the scratches).
-export const VIEWPORT_HEIGHT_SLACK = 180;
+const VIEWPORT_HEIGHT_SLACK = 180;
 
 /**
  * Size `canvas` to the viewport and call `paint` whenever that size genuinely

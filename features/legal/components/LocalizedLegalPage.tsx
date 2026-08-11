@@ -1,7 +1,7 @@
 'use client';
 
 import { Fragment } from 'react';
-import Link from 'next/link';
+import { PlatformLink as Link } from '@/packages/product/shared/platform/navigation';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { usePreferredPublicLanguage } from '@/lib/i18n/client-language';
 import type { I18nKey } from '@/lib/i18n/messages';

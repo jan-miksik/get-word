@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import type { DeviceFormFactor, DevicePlatform, DeviceProfile } from "@/features/admin/types";
+import type { DeviceFormFactor, DevicePlatform, DeviceProfile } from "@/packages/contracts/src/device";
 import { db } from "../client";
 import { userDevices } from "../schema";
 

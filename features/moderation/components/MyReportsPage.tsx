@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import Link from 'next/link';
+import { PlatformLink as Link } from '@/packages/product/shared/platform/navigation';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { listsApiFetch } from '@/features/lists/api';
 import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLanguage';

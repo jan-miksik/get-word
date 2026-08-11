@@ -92,9 +92,11 @@ type SyncUserShape = {
   studyNoteMinimizeFromStage?: number | null;
   settingsLanguage?: string | null;
   settingsLanguageSelectedAt?: Date | string | null;
+  settingsLanguageRevision?: number | null;
   languageFrom?: string | null;
   languageTo?: string | null;
   onboardingCompletedAt?: Date | string | null;
+  languagePairRevision?: number | null;
   gameScore: number | null;
   categoryOrder?: string[] | null;
   pinnedCategoryIds?: string[] | null;
@@ -182,11 +184,13 @@ function buildSyncUser(user: SyncUserShape) {
     settings_language_selected_at: user.settingsLanguageSelectedAt
       ? new Date(user.settingsLanguageSelectedAt).toISOString()
       : null,
+    settings_language_revision: user.settingsLanguageRevision ?? 0,
     language_from: user.languageFrom ?? null,
     language_to: user.languageTo ?? null,
     onboarding_completed_at: user.onboardingCompletedAt
       ? new Date(user.onboardingCompletedAt).toISOString()
       : null,
+    language_pair_revision: user.languagePairRevision ?? 0,
     game_score: user.gameScore ?? 0,
     category_order: user.categoryOrder ?? [],
     // Server-owned: set by a word-chat commit, read-only on the client.

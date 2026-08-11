@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next';
 import { PWARegister } from '@/components/PWARegister';
+import { WebPlatformProvider } from './WebPlatformProvider';
 import './globals.css';
 import './tailwind.css';
 
@@ -87,7 +88,7 @@ export default function RootLayout({
     <html lang="en" translate="no" className="notranslate">
       <body translate="no" className="notranslate">
         <PWARegister />
-        {children}
+        <WebPlatformProvider>{children}</WebPlatformProvider>
       </body>
     </html>
   );

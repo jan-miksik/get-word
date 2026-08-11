@@ -5,6 +5,7 @@ import {
   META_KEY,
   META_SCHEMA_VERSION,
   STORE_CATEGORY_FILTERS,
+  STORE_CONTENT,
   STORE_MEMORY_HOOKS,
   STORE_META,
   STORE_PREFS,
@@ -138,6 +139,14 @@ export function getPrefsRow<T>(key = 'user') {
 }
 export function putPrefsRow<T>(key: string, value: T, options?: { updatedAt?: string }) {
   return writeOne(STORE_PREFS, key, stamp(value, options));
+}
+
+// Synced list/category content (single atomic snapshot row).
+export function getContentRow<T>() {
+  return readOne<T>(STORE_CONTENT, 'sync-content');
+}
+export function putContentRow<T>(value: T, options?: { updatedAt?: string }) {
+  return writeOne(STORE_CONTENT, 'sync-content', stamp(value, options));
 }
 
 // Meta

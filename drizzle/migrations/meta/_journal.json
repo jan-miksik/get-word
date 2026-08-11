@@ -407,6 +407,13 @@
       "when": 1785718800000,
       "tag": "0057_apple_refresh_token",
       "breakpoints": true
+    },
+    {
+      "idx": 58,
+      "version": "7",
+      "when": 1786372144381,
+      "tag": "0058_sync_domain_revisions",
+      "breakpoints": true
     }
   ]
 }

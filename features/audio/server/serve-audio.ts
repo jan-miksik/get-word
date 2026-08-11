@@ -7,7 +7,17 @@ import {
 } from "@/lib/object-storage";
 
 const ARWEAVE_AUDIO_GATEWAY_TIMEOUT_MS = 3_500;
-const HASHED_AUDIO_CACHE_CONTROL = "public, max-age=31536000, immutable";
+/**
+ * These URLs are content-addressed, so a body can never change under a hash and
+ * every layer may keep it forever.
+ *
+ * `s-maxage` is the part that matters for cost: without it Vercel's edge treats
+ * a function response as private and every device's first play of a clip walks
+ * all the way through to the object store. `max-age` alone only ever reached the
+ * browser. One edge copy per region now serves the rest.
+ */
+const HASHED_AUDIO_CACHE_CONTROL =
+  "public, max-age=31536000, s-maxage=31536000, immutable";
 
 export type AudioServeResult =
   | { kind: "json"; body: object; status: number; cacheControl: string }
@@ -63,6 +73,35 @@ function logObjectServe(
     path,
     provider,
   });
+}
+
+/**
+ * HEAD /api/audio/[hash] — does this clip exist?
+ *
+ * Answered from `media_assets` alone. Without its own handler a HEAD is served
+ * by running the GET, which downloads the whole clip from the object store just
+ * to throw the bytes away — and the client probes availability per word before
+ * a minigame, so a single round of them cost one object-store read each. The
+ * row is the right answer for the question actually being asked ("is there
+ * audio for this word"); playback still walks the full gateway and mirror
+ * fallbacks, so a row whose bytes turn out to be unreachable is caught there.
+ */
+export async function headAudioByHash(hash: string): Promise<{
+  status: number;
+  headers: Record<string, string>;
+}> {
+  const asset = await findMediaByHash(hash);
+  if (!asset) {
+    return { status: 404, headers: { "Cache-Control": "no-store" } };
+  }
+  return {
+    status: 200,
+    headers: {
+      "Content-Type": "audio/mpeg",
+      "Cache-Control": HASHED_AUDIO_CACHE_CONTROL,
+      "X-Audio-Storage": "metadata",
+    },
+  };
 }
 
 export async function serveAudioByHash(hash: string, debug = false): Promise<AudioServeResult> {

@@ -21,7 +21,7 @@ export const viewport: Viewport = {
 /**
  * Standalone entry: bookmarks, shared links, and the settings link. Opening the
  * lab from the study view renders the same page in place instead (see
- * `app/HomeClient.tsx`), so the deck is still there on the way back.
+ * `features/learning/components/HomeClient.tsx`), so the deck is still there on the way back.
  */
 export default function PhotoLabRoute() {
   return (

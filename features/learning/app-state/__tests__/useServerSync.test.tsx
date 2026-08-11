@@ -11,7 +11,6 @@ const mockPersistDomainsToIdb = vi.fn<() => Promise<boolean>>(async () => true);
 const mockPersistDeltaToIdb = vi.fn<(_data: SyncResponse) => Promise<boolean>>(async () => true);
 const mockGetStoragePreference = vi.fn(() => false);
 const mockGetSnapshot = vi.fn(async () => null);
-const mockSaveSnapshot = vi.fn(async () => true);
 const mockGetMeta = vi.fn(async () => null as {
   lastSinceCursor?: string | null;
   lastContentRevision?: string | null;
@@ -20,7 +19,6 @@ const mockPutMeta = vi.fn<(_patch: unknown) => Promise<boolean>>(async () => tru
 
 vi.mock('@/lib/sync', () => ({
   fetchUserData: (options?: { since?: number | string; contentRev?: string }) => mockFetchUserData(options),
-  linkWalletWithRetry: vi.fn(),
   clearPendingSync: vi.fn(),
   isAuthRequiredError: vi.fn(() => false),
   markServerSnapshotApplied: vi.fn(),
@@ -32,6 +30,11 @@ vi.mock('@/lib/sync-coordinator', () => ({
 
 vi.mock('@/lib/local-first/drainer', () => ({
   startDrainer: vi.fn(() => ({ stop: vi.fn() })),
+  flushOutboxBeforeRead: vi.fn(async () => undefined),
+}));
+
+vi.mock('@/lib/local-first/outbox', () => ({
+  resumeAuthRequiredOps: vi.fn(async () => undefined),
 }));
 
 vi.mock('@/lib/local-first/hydrate', () => ({
@@ -50,7 +53,6 @@ vi.mock('@/lib/local-first/stores', () => ({
 vi.mock('@/lib/local-learning-cache', () => ({
   getSnapshot: () => mockGetSnapshot(),
   getStoragePreference: () => mockGetStoragePreference(),
-  saveSnapshot: () => mockSaveSnapshot(),
 }));
 
 import { markListsChangedForLearningSync } from '@/features/shared/sync/list-refresh-marker';
@@ -225,7 +227,7 @@ describe('useServerSync', () => {
     expect(setActiveListId).toHaveBeenCalledWith('new-list');
   });
 
-  it('stores full-snapshot cursors only after the snapshot and domains are durable', async () => {
+  it('stores full-snapshot cursors only after the domain snapshot is durable', async () => {
     mockGetStoragePreference.mockReturnValue(true);
     const fullResponse: SyncResponse = {
       ...syncResponse,
@@ -234,11 +236,11 @@ describe('useServerSync', () => {
     };
     mockFetchUserData.mockResolvedValueOnce(fullResponse);
     const snapshotPersistence = deferred<boolean>();
-    mockSaveSnapshot.mockReturnValueOnce(snapshotPersistence.promise);
+    mockPersistDomainsToIdb.mockReturnValueOnce(snapshotPersistence.promise);
 
     const { result } = renderHook(() => useServerSyncHarness());
 
-    await waitFor(() => expect(mockSaveSnapshot).toHaveBeenCalled());
+    await waitFor(() => expect(mockPersistDomainsToIdb).toHaveBeenCalled());
     expect(mockPutMeta).not.toHaveBeenCalled();
     expect(result.current.isInitialServerSyncPending).toBe(true);
 

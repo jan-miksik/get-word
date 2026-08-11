@@ -14,7 +14,7 @@ import type { WordList } from '@/features/lists/types';
  * same tokens to the beige onboarding palette so the dialog matches the warm
  * "Add words" surface it is opened from there.
  */
-export type ShareDialogAppearance = 'app' | 'warm';
+type ShareDialogAppearance = 'app' | 'warm';
 
 /**
  * The dialog is styled entirely through the app's semantic color tokens, so

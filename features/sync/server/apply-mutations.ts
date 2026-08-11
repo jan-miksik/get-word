@@ -5,6 +5,8 @@ import {
   deleteMemoryHook,
   deleteMemoryHookByItemId,
   getContentKeysForItemIds,
+  getAppliedSyncClientOpIds,
+  recordAppliedSyncClientOpIds,
   setUserCategoryFilters,
   updateUserPreferences,
   upsertMemoryHook,
@@ -12,7 +14,7 @@ import {
 } from '@/lib/db';
 import type { User } from '@/lib/db/schema';
 import { isUuid } from '@/features/shared/sync/identity';
-import type { SyncProgressItem, SyncRequest } from '@/features/sync/types';
+import type { SyncOperationResult, SyncProgressItem, SyncRequest } from '@/features/sync/types';
 
 function toFiniteDate(value: unknown): Date | null {
   if (typeof value !== 'number' || !Number.isFinite(value)) return null;
@@ -30,7 +32,12 @@ function getClientProgressUpdatedAt(progress: SyncProgressItem): Date {
 export async function applySyncMutations(input: {
   user: User;
   request: SyncRequest;
-}): Promise<{ user: User; appliedReviewEventIds: string[]; clientOpIds: string[] }> {
+}): Promise<{
+  user: User;
+  appliedReviewEventIds: string[];
+  clientOpIds: string[];
+  opResults: SyncOperationResult[];
+}> {
   let { user } = input;
   const body = input.request;
   const {
@@ -48,6 +55,10 @@ export async function applySyncMutations(input: {
     language_from,
     language_to,
     onboarding_completed,
+    settings_language_selected_at,
+    language_pair_selected_at,
+    settings_language_base_revision,
+    language_pair_base_revision,
     game_score,
     category_order,
     progress,
@@ -57,8 +68,35 @@ export async function applySyncMutations(input: {
     client_op_ids,
   } = body;
   const clientOpIds = Array.isArray(client_op_ids)
-    ? client_op_ids.filter((id): id is string => typeof id === 'string' && id.length > 0)
+    ? [...new Set(client_op_ids.filter((id): id is string => typeof id === 'string' && id.length > 0))]
     : [];
+  const duplicateClientOpIds = await getAppliedSyncClientOpIds(user.id, clientOpIds);
+  if (clientOpIds.length > 0 && duplicateClientOpIds.size === clientOpIds.length) {
+    return {
+      user,
+      appliedReviewEventIds: [],
+      clientOpIds,
+      opResults: clientOpIds.map((clientOpId) => ({ clientOpId, status: 'duplicate' })),
+    };
+  }
+  if (duplicateClientOpIds.size > 0) {
+    // The legacy wire shape aggregates a whole batch into one payload, so it
+    // cannot safely remove the effects belonging to only the replayed ids.
+    // Refuse the new subset explicitly instead of risking a second effect.
+    // The next-generation operation-shaped protocol can remove this guard.
+    return {
+      user,
+      appliedReviewEventIds: [],
+      clientOpIds: clientOpIds.filter((id) => duplicateClientOpIds.has(id)),
+      opResults: clientOpIds.map((clientOpId) => duplicateClientOpIds.has(clientOpId)
+        ? { clientOpId, status: 'duplicate' }
+        : {
+            clientOpId,
+            status: 'conflict',
+            code: 'MIXED_REPLAY_REQUIRES_REBASE',
+          }),
+    };
+  }
 
   if (
     show_english !== undefined ||
@@ -89,6 +127,10 @@ export async function applySyncMutations(input: {
       language_from,
       language_to,
       onboarding_completed,
+      settings_language_selected_at,
+      language_pair_selected_at,
+      settings_language_base_revision,
+      language_pair_base_revision,
       game_score: game_score === undefined ? undefined : Math.max(user.gameScore ?? 0, game_score),
       category_order,
     });
@@ -171,5 +213,15 @@ export async function applySyncMutations(input: {
     await setUserCategoryFilters(user.id, category_filters);
   }
 
-  return { user, appliedReviewEventIds, clientOpIds };
+  const newClientOpIds = clientOpIds.filter((id) => !duplicateClientOpIds.has(id));
+  await recordAppliedSyncClientOpIds(user.id, newClientOpIds);
+  return {
+    user,
+    appliedReviewEventIds,
+    clientOpIds,
+    opResults: clientOpIds.map((clientOpId) => ({
+      clientOpId,
+      status: duplicateClientOpIds.has(clientOpId) ? 'duplicate' : 'applied',
+    })),
+  };
 }

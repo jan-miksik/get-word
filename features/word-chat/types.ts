@@ -27,7 +27,7 @@ export type WordChatSalutationGender = "female" | "male" | "neutral";
 export type WordChatLanguageLevel = "A0" | "A1" | "A2" | "B1" | "B2" | "C1";
 
 /** The learner's requested shape of content, finalized by the chat before proposing. */
-export const WORD_CHAT_CONTENT_MODES = [
+const WORD_CHAT_CONTENT_MODES = [
   "category_inventory",
   "situation",
   "mixed",

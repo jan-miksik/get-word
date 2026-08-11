@@ -301,9 +301,49 @@ describe('TypingStudyCard', () => {
       set: setScrollTop,
     });
 
+    document.documentElement.dataset.appTyping = 'true';
     fireEvent.focus(document.querySelector('input.game-input') as HTMLInputElement);
 
     expect(setScrollTop).toHaveBeenCalledWith(267);
+    delete document.documentElement.dataset.appTyping;
+  });
+
+  // A card focuses its input as it mounts, which on the web raises no keyboard
+  // unless the learner's own tap brought it up. Scrolling the prompt away to
+  // clear room for keys that never arrive is the "everything slid up and there
+  // is nothing to type on" report.
+  it('leaves the card content alone when focus did not open a keyboard', () => {
+    stubMobileLayout(true);
+    render(
+      <main className="learning-card-main">
+        <TypingStudyCard
+          word={WORD}
+          progress={PROGRESS}
+          role="knownLanguage"
+          writeIn="foreign"
+          audioPromptEnabled={false}
+          prefillPunctuation
+          modeIndex={0}
+          onOutcome={vi.fn()}
+          showMemoryHook
+          onMemoryHookChange={vi.fn()}
+        />
+      </main>,
+    );
+
+    const content = document.querySelector('.word-card-content') as HTMLElement;
+    Object.defineProperty(content, 'scrollHeight', { configurable: true, value: 267 });
+    Object.defineProperty(content, 'clientHeight', { configurable: true, value: 242 });
+    const setScrollTop = vi.fn();
+    Object.defineProperty(content, 'scrollTop', {
+      configurable: true,
+      get: () => 0,
+      set: setScrollTop,
+    });
+
+    fireEvent.focus(document.querySelector('input.game-input') as HTMLInputElement);
+
+    expect(setScrollTop).not.toHaveBeenCalled();
   });
 
   it('keeps the keyboard when the hint button is tapped', () => {

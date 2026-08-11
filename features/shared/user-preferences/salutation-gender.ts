@@ -1,7 +1,7 @@
 'use client';
 
 const STORAGE_KEY = 'get-word-salutation-gender';
-export const SALUTATION_GENDER_CHANGED_EVENT = 'get-word-salutation-gender-changed';
+const SALUTATION_GENDER_CHANGED_EVENT = 'get-word-salutation-gender-changed';
 
 export type SalutationGender = 'female' | 'male' | 'neutral';
 

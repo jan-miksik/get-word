@@ -22,15 +22,22 @@ export async function queuePendingLearningLanguagePair(
 ): Promise<void> {
   storePendingLearningLanguagePair(pair);
   storeLearningLanguagePair({ from: pair.from, to: pair.to });
+  const changedAtMs = new Date(pair.changedAt).getTime();
   const payload = {
     language_from: pair.from,
     language_to: pair.to,
     onboarding_completed: true,
+    // Lets the server arbitrate against a pair chosen on another device rather
+    // than trusting whichever request happens to land last.
+    ...(Number.isFinite(changedAtMs) ? { language_pair_selected_at: changedAtMs } : {}),
+    ...(typeof pair.baseRevision === 'number'
+      ? { language_pair_base_revision: pair.baseRevision }
+      : {}),
   } as const;
   const queued = await enqueueOp({
     entity: 'preference',
     opType: 'set_language_pair',
-    payload: { values: payload },
+    payload: { values: payload, baseRevision: pair.baseRevision },
     legacyPayload: payload,
   }).catch((error) => {
     console.error('[learningPairSync] queue:', error);

@@ -26,6 +26,8 @@ const mockApplyNewReviewEvents = vi.fn()
 const mockGetUserMemoryHooksDelta = vi.fn()
 const mockGetUserSyncRevision = vi.fn()
 const mockGetContentRevision = vi.fn()
+const mockGetAppliedSyncClientOpIds = vi.fn()
+const mockRecordAppliedSyncClientOpIds = vi.fn()
 const mockVerifySession = vi.fn()
 const mockSignSession = vi.fn()
 const mockIsGoogleSupportedLanguage = vi.fn()
@@ -56,6 +58,8 @@ vi.mock('@/lib/db', () => ({
   getUserMemoryHooksDelta: (...args: unknown[]) => mockGetUserMemoryHooksDelta(...args),
   getUserSyncRevision: (...args: unknown[]) => mockGetUserSyncRevision(...args),
   getContentRevision: (...args: unknown[]) => mockGetContentRevision(...args),
+  getAppliedSyncClientOpIds: (...args: unknown[]) => mockGetAppliedSyncClientOpIds(...args),
+  recordAppliedSyncClientOpIds: (...args: unknown[]) => mockRecordAppliedSyncClientOpIds(...args),
 }))
 
 vi.mock('@/lib/session', () => ({
@@ -142,6 +146,8 @@ describe('GET /api/sync', () => {
     mockGetUserMemoryHooksDelta.mockResolvedValue([])
     mockGetUserSyncRevision.mockResolvedValue(1779480000000)
     mockGetContentRevision.mockResolvedValue('v1:content-rev-1')
+    mockGetAppliedSyncClientOpIds.mockResolvedValue(new Set())
+    mockRecordAppliedSyncClientOpIds.mockResolvedValue(undefined)
     mockIsGoogleSupportedLanguage.mockResolvedValue(true)
   })
 
@@ -533,6 +539,55 @@ describe('POST /api/sync', () => {
     expect(data.applied_client_op_ids).toEqual(['op-a', 'op-b'])
   })
 
+  it('acknowledges a replayed client operation without applying its effect twice', async () => {
+    mockGetAppliedSyncClientOpIds.mockResolvedValueOnce(new Set(['op-a']))
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: 'dev-123',
+        game_score: 42,
+        client_op_ids: ['op-a'],
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.op_results).toEqual([{ clientOpId: 'op-a', status: 'duplicate' }])
+    expect(mockUpdateUserPreferences).not.toHaveBeenCalled()
+    expect(mockRecordAppliedSyncClientOpIds).not.toHaveBeenCalled()
+  })
+
+  it('does not reapply an aggregate payload containing both replayed and new operations', async () => {
+    mockGetAppliedSyncClientOpIds.mockResolvedValueOnce(new Set(['op-a']))
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({
+        deviceId: 'dev-123',
+        game_score: 42,
+        client_op_ids: ['op-a', 'op-b'],
+      }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req)
+    const data = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(data.applied_client_op_ids).toEqual(['op-a'])
+    expect(data.op_results).toEqual([
+      { clientOpId: 'op-a', status: 'duplicate' },
+      {
+        clientOpId: 'op-b',
+        status: 'conflict',
+        code: 'MIXED_REPLAY_REQUIRES_REBASE',
+      },
+    ])
+    expect(mockUpdateUserPreferences).not.toHaveBeenCalled()
+  })
+
   it('returns an ack-only delta payload without advancing the GET cursor', async () => {
     const req = new NextRequest('http://localhost:3000/api/sync', {
       method: 'POST',
@@ -575,6 +630,10 @@ describe('POST /api/sync', () => {
 
     expect(res.status).toBe(200)
     expect(data.applied_client_op_ids).toEqual(['valid-id', 'another-id'])
+    expect(data.op_results).toEqual([
+      { clientOpId: 'valid-id', status: 'applied' },
+      { clientOpId: 'another-id', status: 'applied' },
+    ])
   })
 
   it('returns empty applied_client_op_ids when none are provided (legacy sync path)', async () => {

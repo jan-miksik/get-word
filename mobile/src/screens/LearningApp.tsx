@@ -1,4 +1,4 @@
-import { HomeClient } from '@/app/HomeClient';
+import { HomeClient } from '@/features/learning/public.client';
 import { photoDisplayFont } from '@/features/photo-lab/font';
 
 /**

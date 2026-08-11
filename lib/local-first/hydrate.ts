@@ -11,9 +11,11 @@ import {
   getAllMemoryHookRows,
   getAllProgressRows,
   getCategoryFilterRow,
+  getContentRow,
   getMeta,
   getPrefsRow,
   putCategoryFilterRow,
+  putContentRow,
   putMemoryHookRow,
   putMeta,
   putPrefsRow,
@@ -22,6 +24,10 @@ import {
 
 type ProgressEntry = SyncResponse['progress'][string];
 type SyncUser = SyncResponse['user'];
+type SyncContent = Pick<
+  SyncResponse,
+  'word_list_items' | 'categories' | 'lists' | 'content_revision' | 'sync_revision'
+>;
 
 type PendingPreferencePayload = {
   field?: string;
@@ -261,6 +267,14 @@ export async function applyPendingOutboxToSyncResponse(
 ): Promise<SyncResponse> {
   const available = await ensureLocalFirstAvailability();
   const ops = available ? pendingOpsInApplyOrder(await listOps()) : [];
+  return applyOutboxOpsToSyncResponse(data, ops, submittedReviewEvents);
+}
+
+function applyOutboxOpsToSyncResponse(
+  data: SyncResponse,
+  ops: OutboxOp[],
+  submittedReviewEvents: SyncReviewEventItem[] = [],
+): SyncResponse {
   if (ops.length === 0 && submittedReviewEvents.length === 0) return data;
 
   const next = cloneSyncResponse(data);
@@ -346,22 +360,25 @@ export async function applyPendingOutboxToSyncResponse(
  * Returns null when local-first is unavailable, the schema doesn't match, or
  * there's not enough data to be worth a warm apply.
  */
-export async function loadAllDomainsFromIdb(): Promise<IdbHydration | null> {
+async function loadStoredDomainsFromIdb(
+  fallbackUser?: SyncUser,
+): Promise<IdbHydration | null> {
   const available = await ensureLocalFirstAvailability();
   if (!available) return null;
 
   const meta = await getMeta();
   if (!meta || meta.schemaVersion !== META_SCHEMA_VERSION) return null;
 
-  const [progressRows, memoryRows, categoryRow, prefsRow, snapshot] = await Promise.all([
+  const [progressRows, memoryRows, categoryRow, prefsRow, contentRow, snapshot] = await Promise.all([
     getAllProgressRows<ProgressEntry>(),
     getAllMemoryHookRows<string>(),
     getCategoryFilterRow<string[]>('all'),
     getPrefsRow<SyncUser>('user'),
+    getContentRow<SyncContent>(),
     getSnapshot().catch(() => null),
   ]);
 
-  const user = prefsRow?.value ?? snapshot?.data.user;
+  const user = prefsRow?.value ?? snapshot?.data.user ?? fallbackUser;
   if (!user) return null;
 
   const progress: SyncResponse['progress'] = {};
@@ -398,19 +415,68 @@ export async function loadAllDomainsFromIdb(): Promise<IdbHydration | null> {
     progress,
     memory_hooks,
     category_filters,
-    word_list_items: snapshot?.data.word_list_items as SyncResponse['word_list_items'],
-    categories: snapshot?.data.categories as SyncResponse['categories'],
-    lists: snapshot?.data.lists as SyncResponse['lists'],
+    word_list_items:
+      contentRow?.value.word_list_items ?? snapshot?.data.word_list_items as SyncResponse['word_list_items'],
+    categories:
+      contentRow?.value.categories ?? snapshot?.data.categories as SyncResponse['categories'],
+    lists: contentRow?.value.lists ?? snapshot?.data.lists as SyncResponse['lists'],
+    content_revision: contentRow?.value.content_revision,
     sync_revision:
-      typeof snapshot?.data.sync_revision === 'number'
+      typeof contentRow?.value.sync_revision === 'number'
+        ? contentRow.value.sync_revision
+        : typeof snapshot?.data.sync_revision === 'number'
         ? snapshot.data.sync_revision
         : undefined,
   };
 
   return {
-    syncResponse: await applyPendingOutboxToSyncResponse(syncResponse).catch(() => syncResponse),
+    syncResponse,
     activeListId: snapshot?.activeListId ?? null,
   };
+}
+
+export async function loadAllDomainsFromIdb(): Promise<IdbHydration | null> {
+  const stored = await loadStoredDomainsFromIdb();
+  if (!stored) return null;
+  return {
+    ...stored,
+    syncResponse: await applyPendingOutboxToSyncResponse(stored.syncResponse)
+      .catch(() => stored.syncResponse),
+  };
+}
+
+/**
+ * Project acknowledged operations into domain stores before their only
+ * durable command records are removed from the outbox. A crash during these
+ * writes leaves the outbox untouched, so replay is safe; deletion happens in
+ * the drainer only after this function reports success.
+ */
+export async function checkpointAcknowledgedOps(
+  acknowledgement: SyncResponse,
+  acknowledgedOps: OutboxOp[],
+): Promise<SyncResponse | null> {
+  const stored = await loadStoredDomainsFromIdb(acknowledgement.user);
+  const cached = stored?.syncResponse;
+  const base = {
+    ...(cached ?? {}),
+    ...acknowledgement,
+    success: true,
+    user: { ...(cached?.user ?? {}), ...(acknowledgement.user ?? {}) },
+    progress: acknowledgement.progress
+      ? { ...(cached?.progress ?? {}), ...acknowledgement.progress }
+      : (cached?.progress ?? {}),
+    memory_hooks: acknowledgement.memory_hooks
+      ? { ...(cached?.memory_hooks ?? {}), ...acknowledgement.memory_hooks }
+      : (cached?.memory_hooks ?? {}),
+    category_filters: acknowledgement.category_filters ?? cached?.category_filters ?? [],
+    word_list_items: acknowledgement.word_list_items ?? cached?.word_list_items,
+    categories: acknowledgement.categories ?? cached?.categories,
+    lists: acknowledgement.lists ?? cached?.lists,
+    content_revision: acknowledgement.content_revision ?? cached?.content_revision,
+    sync_revision: acknowledgement.sync_revision ?? cached?.sync_revision,
+  } as SyncResponse;
+  const reconciled = applyOutboxOpsToSyncResponse(base, acknowledgedOps);
+  return await persistDomainsToIdb(reconciled) ? reconciled : null;
 }
 
 /**
@@ -454,6 +520,15 @@ export async function persistDomainsToIdb(data: SyncResponse): Promise<boolean> 
 
   if (data.user) {
     writes.push(putPrefsRow('user', data.user).catch(() => false));
+  }
+  if (data.word_list_items || data.categories || data.lists) {
+    writes.push(putContentRow<SyncContent>({
+      word_list_items: data.word_list_items,
+      categories: data.categories,
+      lists: data.lists,
+      content_revision: data.content_revision,
+      sync_revision: data.sync_revision,
+    }).catch(() => false));
   }
 
   const results = await Promise.all(writes);

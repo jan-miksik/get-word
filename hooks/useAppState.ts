@@ -7,19 +7,12 @@ import { useActiveListState } from '@/features/learning/app-state/useActiveListS
 import { buildProgressBindings } from '@/features/learning/app-state/progressBindings';
 import { useServerSync } from '@/features/learning/app-state/useServerSync';
 import { useCategoryFilter, useGameScore, useMemoryHooks, usePreferences, useProgress } from '@/features/learning/state';
-import type { LinkPayload } from '@/features/learning/app-state/types';
 import type { NormalizedWord } from '@/lib/words';
 import { cacheActiveListAudio } from '@/lib/local-learning-cache';
 import { subscribeAudioNetworkChanges } from '@/lib/audio-network-policy';
 import { normalizeLanguageCode } from '@/lib/i18n/languages';
 
-export type { LinkPayload } from '@/features/learning/app-state/types';
-
-export function useAppState(
-  words: NormalizedWord[],
-  walletAddress?: string | undefined,
-  linkPayload?: LinkPayload
-) {
+export function useAppState(words: NormalizedWord[]) {
   const [isHydrated, setIsHydrated] = useState(false);
   const [syncedWords, setSyncedWords] = useState<NormalizedWord[] | null>(null);
   const [subscribedLists, setSubscribedLists] = useState<{
@@ -155,18 +148,12 @@ export function useAppState(
 
   const {
     isInitialServerSyncPending,
-    isLinkingWallet,
     isListRefreshPending,
-    hasLinkWalletError,
-    linkWalletError,
-    retryLinkWallet,
     refreshFullSnapshot,
   } = useServerSync({
     words,
     isHydrated,
     setIsHydrated,
-    walletAddress,
-    linkPayload,
     isUpdatingFromServerRef,
     applyServerProgress: progressState.applyServerProgress,
     mergeServerProgress: progressState.mergeServerProgress,
@@ -197,11 +184,7 @@ export function useAppState(
     lastMovedId,
     isHydrated,
     isInitialServerSyncPending,
-    isLinkingWallet,
     isListRefreshPending,
-    hasLinkWalletError,
-    linkWalletError,
-    retryLinkWallet,
     refreshFullSnapshot,
     syncedWords: filteredSyncedWords,
     allSyncedWords: syncedWords,

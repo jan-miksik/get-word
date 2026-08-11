@@ -37,7 +37,7 @@ export function apiUrl(path: string): string {
   return `${runtime.origin}${path}`;
 }
 
-export function apiAuthHeaders(): Record<string, string> {
+function apiAuthHeaders(): Record<string, string> {
   const token = runtime.readSessionToken();
   return token ? { Authorization: `Bearer ${token}` } : {};
 }

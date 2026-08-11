@@ -7,11 +7,14 @@
     "scripts/*.{ts,js}",
     "ralph/index.js",
     "mobile/src/main.tsx",
+    // Vite resolves these through regex aliases rather than static imports, so
+    // Knip needs to treat them as build entrypoints to follow their real graph.
+    "mobile/src/next-shims/*.{ts,tsx}",
     "mobile/vite.config.ts",
     "mobile/capacitor.config.ts"
   ],
   "project": [
-    "**/*.{ts,tsx,js,mjs,cjs}",
+    "**/*.{ts,tsx,js,mjs,cjs,css}",
     "!**/.claude/**",
     "!**/.next*/**",
     "!**/.pnpm-store/**",

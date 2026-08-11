@@ -1,4 +1,4 @@
-import { SchoolStatsPage } from '@/features/schools/components/SchoolStatsPage';
+import { SchoolStatsPage } from '@/features/schools/public.client';
 
 export const metadata = { title: 'School overview' };
 

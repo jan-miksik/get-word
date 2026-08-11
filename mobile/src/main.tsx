@@ -4,6 +4,7 @@ import { I18nProvider } from '@/components/I18nProvider';
 import { configureApiRuntime } from '@/features/shared/http/api-runtime';
 import { usePreferredPublicLanguage } from '@/lib/i18n/client-language';
 import { App } from './App';
+import { MobilePlatformProvider } from './PlatformProvider';
 import { getSessionToken } from './auth/session-state';
 import { apiOrigin } from './config';
 import { configureNativeShell } from './native';
@@ -25,7 +26,9 @@ function NativeApp() {
   const language = usePreferredPublicLanguage();
   return (
     <I18nProvider language={language}>
-      <App />
+      <MobilePlatformProvider>
+        <App />
+      </MobilePlatformProvider>
     </I18nProvider>
   );
 }

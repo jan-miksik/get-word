@@ -2,6 +2,7 @@
 
 import type { MutableRefObject, PointerEvent, ReactNode, RefObject } from 'react';
 import { useI18n } from '@/components/I18nProvider';
+import { isAppKeyboardOpen } from '@/hooks/useVisualViewportHeight';
 import { ClipboardCheckIcon } from '@/components/icons/ClipboardCheckIcon';
 import { LightbulbIcon } from '@/components/icons/LightbulbIcon';
 import type { TypingResult } from './evaluation';
@@ -139,9 +140,22 @@ export function TypingAnswerInput({
                   }
                 }}
                 onPointerDown={(event) => {
+                  // The default tap is cancelled so the caret lands on the slot
+                  // the learner aimed at rather than wherever the browser puts
+                  // it — but cancelling it also cancels the browser's own
+                  // "raise the keyboard" behaviour, and re-focusing an element
+                  // that already has focus is a no-op. A card that focused this
+                  // input as it mounted therefore left the learner tapping a
+                  // field that could never open a keyboard. Dropping the focus
+                  // first makes the re-focus a real one, inside their gesture,
+                  // which is what every mobile browser asks for.
                   event.preventDefault();
-                  event.currentTarget.focus({ preventScroll: true });
-                  onSelectSlot(event.currentTarget, event.clientX, event.clientY);
+                  const input = event.currentTarget;
+                  if (document.activeElement === input && !isAppKeyboardOpen()) {
+                    input.blur();
+                  }
+                  input.focus({ preventScroll: true });
+                  onSelectSlot(input, event.clientX, event.clientY);
                 }}
                 onKeyUp={(event) => onUpdateCaret(event.currentTarget)}
                 onSelect={(event) => onUpdateCaret(event.currentTarget)}

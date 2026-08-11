@@ -123,49 +123,8 @@ async function idbGet<T>(key: string): Promise<T | null> {
   });
 }
 
-async function idbSet<T>(key: string, value: T): Promise<boolean> {
-  const db = await openDb();
-  if (!db) return false;
-
-  return new Promise((resolve) => {
-    const tx = db.transaction(STORE_NAME, 'readwrite');
-    tx.objectStore(STORE_NAME).put(value, key);
-    tx.oncomplete = () => {
-      db.close();
-      resolve(true);
-    };
-    tx.onerror = () => {
-      db.close();
-      resolve(false);
-    };
-  });
-}
-
 export function getSnapshot(): Promise<LearningSnapshot | null> {
   return idbGet<LearningSnapshot>('learning-snapshot');
-}
-
-export async function saveSnapshot(
-  data: SyncResponse,
-  activeListId: string | null
-): Promise<boolean> {
-  if (!getStoragePreference()) return false;
-
-  const snapshot: LearningSnapshot = {
-    savedAt: Date.now(),
-    activeListId,
-    data: {
-      user: data.user,
-      progress: data.progress,
-      memory_hooks: data.memory_hooks,
-      category_filters: data.category_filters,
-      word_list_items: data.word_list_items,
-      categories: data.categories,
-      lists: data.lists,
-      sync_revision: data.sync_revision,
-    },
-  };
-  return idbSet('learning-snapshot', snapshot);
 }
 
 function deleteIndexedDb(): Promise<void> {

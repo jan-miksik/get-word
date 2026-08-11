@@ -3,17 +3,14 @@
 import { getDeviceId } from '@/lib/device-id';
 import { debouncedSync } from '@/lib/sync';
 import type { SyncMutationPayload } from '@/features/sync/types';
-import { appendOp, type OutboxEntity, type OutboxOp } from './outbox';
+import { appendOp, type OutboxOp, type OutboxOperation } from './outbox';
 import { ensureLocalFirstAvailability, isLocalFirstAvailableSync } from './availability';
 import { scheduleDrain } from './drainer';
 
-interface EnqueueInput {
-  entity: OutboxEntity;
-  opType: string;
-  payload: unknown;
+type EnqueueInput = OutboxOperation & {
   /** Legacy fallback payload used when local-first is unavailable. */
   legacyPayload?: SyncMutationPayload;
-}
+};
 
 /**
  * Persist a mutation as an outbox op (durable) and schedule a drain.
@@ -34,9 +31,7 @@ export async function enqueueOp(input: EnqueueInput): Promise<OutboxOp | null> {
   }
 
   const op = await appendOp({
-    entity: input.entity,
-    opType: input.opType,
-    payload: input.payload,
+    ...input,
     deviceId: safeDeviceId(),
   });
 

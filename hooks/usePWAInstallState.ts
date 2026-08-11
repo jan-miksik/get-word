@@ -10,7 +10,7 @@ import {
   type BeforeInstallPromptEvent,
   type SimulatedPlatform,
 } from '@/lib/pwa-install';
-import { isNativeAppRuntime } from '@/lib/runtime-platform';
+import { usePlatformCapabilities } from '@/packages/product/shared/platform/capabilities';
 
 const noopSubscribe = () => () => {};
 const serverFalse = () => false;
@@ -31,17 +31,19 @@ const readMobileViewport = () =>
   window.matchMedia?.('(max-width: 900px)').matches === true;
 
 export function useStandaloneStatus(): boolean {
+  const { runtime } = usePlatformCapabilities();
   return useSyncExternalStore(
     subscribeToInstalled,
-    () => isNativeAppRuntime() || isStandalone(),
+    () => runtime === 'native' || isStandalone(),
     serverFalse,
   );
 }
 
 export function useMobileViewport(): boolean {
+  const { canInstallPwa } = usePlatformCapabilities();
   return useSyncExternalStore(
     subscribeToMobileViewport,
-    () => !isNativeAppRuntime() && readMobileViewport(),
+    () => canInstallPwa && readMobileViewport(),
     serverFalse,
   );
 }

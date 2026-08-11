@@ -1,27 +1,19 @@
 import type { ActivityWindow, StudyWeekBucket, UsageWeekBucket } from '@/lib/stats/types';
+import type {
+  DeviceFormFactor,
+  DevicePlatform,
+} from '@/packages/contracts/src/device';
 
 export type { ActivityWindow, StudyWeekBucket, UsageWeekBucket };
+export type {
+  DeviceFormFactor,
+  DevicePlatform,
+} from '@/packages/contracts/src/device';
 
 export interface UsageStatsOptions {
   activityWindow?: ActivityWindow;
   excludedUserIds?: string[];
   excludedUserEmails?: string[];
-}
-
-export type DevicePlatform =
-  | 'ios'
-  | 'android'
-  | 'macos'
-  | 'windows'
-  | 'linux'
-  | 'other'
-  | 'unknown';
-
-export type DeviceFormFactor = 'mobile' | 'tablet' | 'desktop' | 'unknown';
-
-export interface DeviceProfile {
-  platform?: DevicePlatform;
-  formFactor?: DeviceFormFactor;
 }
 
 interface RetentionBucket {

@@ -5,6 +5,7 @@ const PENDING_LEARNING_LANGUAGE_PAIR_STORAGE_KEY =
 export type LearningLanguagePair = { from: string; to: string };
 export type PendingLearningLanguagePair = LearningLanguagePair & {
   changedAt: string;
+  baseRevision?: number;
 };
 
 /**
@@ -57,6 +58,7 @@ export function readPendingLearningLanguagePair(): PendingLearningLanguagePair |
       from: parsed.from,
       to: parsed.to,
       changedAt: parsed.changedAt,
+      ...(typeof parsed.baseRevision === 'number' ? { baseRevision: parsed.baseRevision } : {}),
     };
   } catch {
     return null;

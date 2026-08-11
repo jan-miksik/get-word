@@ -46,12 +46,14 @@ describe('learningPairSync', () => {
           language_from: 'cs',
           language_to: 'vi',
           onboarding_completed: true,
+          language_pair_selected_at: Date.parse(pair.changedAt),
         },
       },
       legacyPayload: {
         language_from: 'cs',
         language_to: 'vi',
         onboarding_completed: true,
+        language_pair_selected_at: Date.parse(pair.changedAt),
       },
     });
     expect(mocks.flushOutboxBeforeRead).toHaveBeenCalledOnce();
@@ -73,6 +75,7 @@ describe('learningPairSync', () => {
       language_from: 'cs',
       language_to: 'vi',
       onboarding_completed: true,
+      language_pair_selected_at: Date.parse(pair.changedAt),
     });
     expect(readPendingLearningLanguagePair()).toBeNull();
   });

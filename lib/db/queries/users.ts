@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { and, eq, sql, type SQL } from "drizzle-orm";
 import { db } from "../client";
 import type { Executor } from "./executor";
 import { users, type User, type NewUser } from "../schema";
@@ -6,6 +6,7 @@ import {
   normalizeMemoryHookDisableFromStage,
   normalizeStudyNoteMinimizeFromStage,
 } from "@/lib/words";
+import { SyncRevisionConflictError } from '@/packages/domain/sync/revision';
 
 const LANGUAGE_CODE_PATTERN = /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/;
 
@@ -15,6 +16,27 @@ function normalizeSettingsLanguage(value: unknown): string | undefined {
   if (!LANGUAGE_CODE_PATTERN.test(trimmed)) return undefined;
   const [base, region] = trimmed.split("-");
   return region ? `${base.toLowerCase()}-${region.toUpperCase()}` : base.toLowerCase();
+}
+
+/**
+ * A client-reported choice time, or null when the client did not send one.
+ * Clamped to now: a device with a fast clock must not be able to park a value
+ * in the future and win every later comparison.
+ */
+function toChoiceDate(value: unknown): Date | null {
+  if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return null;
+  return new Date(Math.min(value, Date.now()));
+}
+
+/**
+ * True when an incoming choice predates the one already stored, i.e. it is a
+ * replay of an op that was queued before the current value was chosen. Equal
+ * timestamps apply, so re-sending the same op stays idempotent, and a client
+ * that reports no timestamp keeps the old newest-arrival-wins behaviour.
+ */
+function isStaleChoice(chosenAt: Date | null, storedAt: Date | null | undefined): boolean {
+  if (!chosenAt || !storedAt) return false;
+  return chosenAt.getTime() < storedAt.getTime();
 }
 
 // Get user by ID
@@ -95,6 +117,11 @@ export async function updateUserPreferences(
     language_from?: string | null;
     language_to?: string | null;
     onboarding_completed?: boolean;
+    /** See SyncRequest: epoch ms of the client-side choice, for LWW. */
+    settings_language_selected_at?: number;
+    language_pair_selected_at?: number;
+    settings_language_base_revision?: number;
+    language_pair_base_revision?: number;
     game_score?: number;
     category_order?: string[];
   }
@@ -110,9 +137,11 @@ export async function updateUserPreferences(
     studyNoteMinimizeFromStage?: number;
     settingsLanguage?: string;
     settingsLanguageSelectedAt?: Date;
+    settingsLanguageRevision?: number | SQL;
     languageFrom?: string | null;
     languageTo?: string | null;
     onboardingCompletedAt?: Date | null;
+    languagePairRevision?: number | SQL;
     gameScore?: number;
     categoryOrder?: string[];
     updatedAt: Date;
@@ -139,23 +168,62 @@ export async function updateUserPreferences(
       prefs.study_note_minimize_from_stage
     );
   }
-  if (prefs.settings_language !== undefined) {
+  const touchesSettingsLanguage = prefs.settings_language !== undefined;
+  const touchesLanguagePair =
+    prefs.language_from !== undefined ||
+    prefs.language_to !== undefined ||
+    prefs.onboarding_completed !== undefined;
+  // Revision-aware clients never use their wall clock for arbitration. A row
+  // read remains only for legacy clients that supplied a choice timestamp but
+  // no base revision.
+  const needsLegacyRead =
+    (touchesSettingsLanguage &&
+      prefs.settings_language_base_revision === undefined &&
+      prefs.settings_language_selected_at !== undefined) ||
+    (touchesLanguagePair &&
+      prefs.language_pair_base_revision === undefined &&
+      prefs.language_pair_selected_at !== undefined);
+  const current = needsLegacyRead
+    ? await getUserById(userId)
+    : null;
+
+  if (touchesSettingsLanguage) {
     const normalized = normalizeSettingsLanguage(prefs.settings_language);
-    if (normalized) {
+    const chosenAt = toChoiceDate(prefs.settings_language_selected_at);
+    const revisionAuthoritative = prefs.settings_language_base_revision !== undefined;
+    if (
+      normalized &&
+      (revisionAuthoritative || !isStaleChoice(chosenAt, current?.settingsLanguageSelectedAt))
+    ) {
       updates.settingsLanguage = normalized;
-      updates.settingsLanguageSelectedAt = new Date();
+      updates.settingsLanguageSelectedAt = chosenAt ?? new Date();
+      updates.settingsLanguageRevision = sql`${users.settingsLanguageRevision} + 1`;
     }
   }
-  if (prefs.language_from !== undefined) {
-    const normalized = normalizeSettingsLanguage(prefs.language_from);
-    updates.languageFrom = normalized || null;
-  }
-  if (prefs.language_to !== undefined) {
-    const normalized = normalizeSettingsLanguage(prefs.language_to);
-    updates.languageTo = normalized || null;
-  }
-  if (prefs.onboarding_completed !== undefined) {
-    updates.onboardingCompletedAt = prefs.onboarding_completed ? new Date() : null;
+  const pairChosenAt = toChoiceDate(prefs.language_pair_selected_at);
+  // The pair is one decision: from, to and the completion stamp must win or
+  // lose together, or a half-applied replay leaves a mismatched pair.
+  const pairIsStale =
+    touchesLanguagePair &&
+    prefs.language_pair_base_revision === undefined &&
+    isStaleChoice(pairChosenAt, current?.onboardingCompletedAt);
+  if (!pairIsStale) {
+    if (touchesLanguagePair) {
+      updates.languagePairRevision = sql`${users.languagePairRevision} + 1`;
+    }
+    if (prefs.language_from !== undefined) {
+      const normalized = normalizeSettingsLanguage(prefs.language_from);
+      updates.languageFrom = normalized || null;
+    }
+    if (prefs.language_to !== undefined) {
+      const normalized = normalizeSettingsLanguage(prefs.language_to);
+      updates.languageTo = normalized || null;
+    }
+    if (prefs.onboarding_completed !== undefined) {
+      updates.onboardingCompletedAt = prefs.onboarding_completed
+        ? pairChosenAt ?? new Date()
+        : null;
+    }
   }
   if (prefs.game_score !== undefined) updates.gameScore = Math.max(0, Math.floor(prefs.game_score));
   if (prefs.category_order !== undefined) {
@@ -167,11 +235,29 @@ export async function updateUserPreferences(
     updates.categoryOrder = Array.from(new Set(normalized)).slice(0, 500);
   }
   if (Object.keys(updates).length === 1) return getUserById(userId);
+  const revisionPredicates = [eq(users.id, userId)];
+  if (touchesSettingsLanguage && prefs.settings_language_base_revision !== undefined) {
+    revisionPredicates.push(
+      eq(users.settingsLanguageRevision, prefs.settings_language_base_revision),
+    );
+  }
+  if (touchesLanguagePair && prefs.language_pair_base_revision !== undefined) {
+    revisionPredicates.push(
+      eq(users.languagePairRevision, prefs.language_pair_base_revision),
+    );
+  }
   const results = await db
     .update(users)
     .set(updates)
-    .where(eq(users.id, userId))
+    .where(and(...revisionPredicates))
     .returning();
+  if (results.length === 0) {
+    throw new SyncRevisionConflictError(
+      prefs.settings_language_base_revision !== undefined
+        ? 'settings_language'
+        : 'language_pair',
+    );
+  }
   return results[0] || null;
 }
 
