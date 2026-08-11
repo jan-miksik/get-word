@@ -1,11 +1,11 @@
 'use client';
 
-import type { SyncMutationPayload, SyncResponse } from '@/features/sync/contracts';
+import type { SyncResponse } from '@/features/sync/contracts';
 import {
   SyncEngine,
   type ConnectivitySource,
 } from '@/packages/product/shared/sync/engine';
-import { fetchUserData, syncUserData } from '@/lib/sync';
+import { fetchUserData } from '@/lib/sync';
 import {
   loadAllDomainsFromIdb,
   persistDeltaToIdb,
@@ -68,12 +68,11 @@ async function persistSnapshot(
 }
 
 export function createLearningSyncEngine() {
-  return new SyncEngine<IdbHydration, SyncResponse, SyncMutationPayload>({
+  return new SyncEngine<IdbHydration, SyncResponse>({
     transport: {
       pull: (cursor) => fetchUserData(
         cursor ? { since: cursor.since, contentRev: cursor.contentRevision } : undefined,
       ),
-      push: (mutation) => syncUserData(mutation),
     },
     repository: {
       load: loadCachedHydration,

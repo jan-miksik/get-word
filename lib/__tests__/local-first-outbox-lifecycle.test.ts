@@ -1,7 +1,13 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { IDBFactory } from 'fake-indexeddb';
 
-import { appendOp, claimReadyBatch, listOps } from '../local-first/outbox';
+import {
+  appendOp,
+  claimReadyBatch,
+  listOps,
+  markFailed,
+  resumeAuthRequiredOps,
+} from '../local-first/outbox';
 
 /**
  * A revision-bearing op carries the base revision it was created with, and each
@@ -83,5 +89,64 @@ describe('outbox supersedes an unsent choice about the same thing', () => {
     const ops = await listOps();
     expect(ops).toHaveLength(2);
     expect(ops.map((op) => op.clientOpId)).toContain(claimedOp?.clientOpId);
+  });
+});
+
+describe('resuming writes paused by an expired session', () => {
+  beforeEach(() => {
+    globalThis.indexedDB = new IDBFactory();
+  });
+
+  it('starts the attempt tally over so the next hiccup cannot block the write', async () => {
+    const queued = await appendOp({
+      entity: 'game_score',
+      opType: 'max',
+      payload: { score: 10 },
+      deviceId: 'device-1',
+    });
+    const id = queued!.clientOpId;
+
+    // Three failed attempts while signed out — enough that one more unknown
+    // failure would trip MAX_UNKNOWN_ATTEMPTS and block the op for good.
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await markFailed([id], {
+        kind: 'auth_required',
+        reasonCode: 'AUTH_REQUIRED',
+        message: 'signed out',
+        httpStatus: 401,
+      });
+    }
+    const blocked = (await listOps())[0];
+    expect(blocked?.status).toBe('blocked');
+    expect(blocked?.attempts).toBe(3);
+
+    await resumeAuthRequiredOps();
+
+    const resumed = (await listOps())[0];
+    expect(resumed?.status).toBe('pending');
+    expect(resumed?.attempts).toBe(0);
+    expect(resumed?.diagnostic).toBeUndefined();
+    expect(resumed?.nextAttemptAt).toBeUndefined();
+  });
+
+  it('leaves failures that signing in does not resolve alone', async () => {
+    const queued = await appendOp({
+      entity: 'game_score',
+      opType: 'max',
+      payload: { score: 10 },
+      deviceId: 'device-1',
+    });
+    await markFailed([queued!.clientOpId], {
+      kind: 'permanent',
+      reasonCode: 'HTTP_400',
+      message: 'rejected',
+      httpStatus: 400,
+    });
+
+    await resumeAuthRequiredOps();
+
+    const stored = (await listOps())[0];
+    expect(stored?.status).toBe('blocked');
+    expect(stored?.diagnostic?.kind).toBe('permanent');
   });
 });

@@ -515,7 +515,18 @@ export function rebaseBlockedPreferenceOperation(
 export async function resumeAuthRequiredOps(): Promise<void> {
   await updateOps((op) => {
     if (op.status !== 'blocked' || op.diagnostic?.kind !== 'auth_required') return op;
-    return { ...op, status: 'pending', diagnostic: undefined, nextAttemptAt: undefined };
+    // Attempts start over. They count failures against MAX_UNKNOWN_ATTEMPTS,
+    // and every attempt this op has made so far failed for a reason that is now
+    // resolved. Carrying the tally forward meant a write paused across a long
+    // signed-out stretch could be blocked again by its very next hiccup.
+    return {
+      ...op,
+      status: 'pending',
+      attempts: 0,
+      diagnostic: undefined,
+      lastError: undefined,
+      nextAttemptAt: undefined,
+    };
   });
 }
 

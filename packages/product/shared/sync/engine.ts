@@ -2,7 +2,6 @@ export type SyncEnginePhase =
   | 'booting'
   | 'ready'
   | 'pulling'
-  | 'pushing'
   | 'offline'
   | 'degraded';
 
@@ -12,9 +11,8 @@ export interface SyncEngineState {
   lastError: string | null;
 }
 
-export interface ApiTransport<TSnapshot, TMutation> {
+export interface ApiTransport<TSnapshot> {
   pull(cursor?: { since: string; contentRevision?: string }): Promise<TSnapshot>;
-  push(mutation: TMutation): Promise<TSnapshot>;
 }
 
 export interface LocalRepository<TCached, TSnapshot> {
@@ -45,7 +43,7 @@ type DataListener<TCached, TSnapshot> = (
  * Framework-neutral coordinator for sync I/O. React and browser lifecycle
  * events live in adapters; ordering and observable state live here.
  */
-export class SyncEngine<TCached, TSnapshot, TMutation> {
+export class SyncEngine<TCached, TSnapshot> {
   private state: SyncEngineState;
   private readonly stateListeners = new Set<StateListener>();
   private readonly dataListeners = new Set<DataListener<TCached, TSnapshot>>();
@@ -54,7 +52,7 @@ export class SyncEngine<TCached, TSnapshot, TMutation> {
 
   constructor(
     private readonly ports: {
-      transport: ApiTransport<TSnapshot, TMutation>;
+      transport: ApiTransport<TSnapshot>;
       repository: LocalRepository<TCached, TSnapshot>;
       clock: EngineClock;
       connectivity: ConnectivitySource;
@@ -112,10 +110,7 @@ export class SyncEngine<TCached, TSnapshot, TMutation> {
           ? undefined
           : await this.ports.repository.readCursor().catch(() => undefined);
         const remote = await this.ports.transport.pull(cursor);
-        const persisted = await this.ports.repository.persist(remote);
-        if (!persisted) throw new Error('Sync snapshot could not be persisted');
-        await this.emitData({ source: 'server', value: remote });
-        this.transition('ready');
+        await this.publish(remote);
       } catch (error) {
         this.transition(this.ports.connectivity.isOnline() ? 'degraded' : 'offline', error);
         throw error;
@@ -135,10 +130,7 @@ export class SyncEngine<TCached, TSnapshot, TMutation> {
           ? undefined
           : await this.ports.repository.readCursor().catch(() => undefined);
         const snapshot = await this.ports.transport.pull(cursor);
-        const persisted = await this.ports.repository.persist(snapshot);
-        if (!persisted) throw new Error('Sync snapshot could not be persisted');
-        await this.emitData({ source: 'server', value: snapshot });
-        this.transition('ready');
+        await this.publish(snapshot);
         return snapshot;
       } catch (error) {
         this.transition(this.ports.connectivity.isOnline() ? 'degraded' : 'offline', error);
@@ -147,40 +139,42 @@ export class SyncEngine<TCached, TSnapshot, TMutation> {
     });
   }
 
-  async push(mutation: TMutation): Promise<TSnapshot | null> {
-    return this.exclusive(async () => {
-      if (!this.ports.connectivity.isOnline()) {
-        this.transition('offline');
-        return null;
-      }
-      this.transition('pushing');
-      try {
-        const snapshot = await this.ports.transport.push(mutation);
-        const persisted = await this.ports.repository.persist(snapshot);
-        if (!persisted) throw new Error('Sync acknowledgement could not be persisted');
-        await this.emitData({ source: 'server', value: snapshot });
-        this.transition('ready');
-        return snapshot;
-      } catch (error) {
-        this.transition(this.ports.connectivity.isOnline() ? 'degraded' : 'offline', error);
-        throw error;
-      }
-    });
-  }
+  // No push(). Mutations leave through the outbox drainer, which needs
+  // per-operation acknowledgement handling — lifecycle, conflict classification
+  // and the durable checkpoint before an op is deleted — none of which this
+  // generic engine models. A push() here would have been a second, quieter way
+  // out that skipped the outbox entirely, so the payload would be lost on any
+  // failure rather than retried.
 
   /** Accept a snapshot produced outside the engine (for example a low-level
-   * streaming or keepalive transport) while preserving persist-before-publish. */
+   * streaming or keepalive transport) through the same publish path. */
   async ingest(snapshot: TSnapshot): Promise<void> {
-    return this.exclusive(async () => {
-      const persisted = await this.ports.repository.persist(snapshot);
-      if (!persisted) {
-        const error = new Error('Sync snapshot could not be persisted');
-        this.transition('degraded', error);
-        throw error;
-      }
-      await this.emitData({ source: 'server', value: snapshot });
-      this.transition(this.ports.connectivity.isOnline() ? 'ready' : 'offline');
-    });
+    return this.exclusive(() => this.publish(snapshot));
+  }
+
+  /**
+   * Cache the snapshot, then hand it to listeners either way.
+   *
+   * A failed cache write is not a reason to withhold fresh server state from
+   * the app. The repository advances the read cursor only once the domain
+   * writes have succeeded, so a failure already costs nothing more than the
+   * next pull being a full snapshot instead of a delta — whereas dropping the
+   * payload leaves the learner looking at stale data on a device whose storage
+   * is merely full or evicted, with only a console error to show for it. The
+   * durability that does matter belongs to the outbox, which owns unsent
+   * mutations and is untouched by this path.
+   *
+   * The phase still tells the truth: `degraded` means the app is live but not
+   * warm-bootable, which is exactly the state a failed cache write leaves.
+   */
+  private async publish(snapshot: TSnapshot): Promise<void> {
+    const persisted = await this.ports.repository.persist(snapshot).catch(() => false);
+    await this.emitData({ source: 'server', value: snapshot });
+    if (!persisted) {
+      this.transition('degraded', new Error('Sync snapshot could not be cached locally'));
+      return;
+    }
+    this.transition(this.ports.connectivity.isOnline() ? 'ready' : 'offline');
   }
 
   private async exclusive<T>(operation: () => Promise<T>): Promise<T> {

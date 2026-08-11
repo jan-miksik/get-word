@@ -213,6 +213,44 @@ function extractKey(row: unknown, candidates: string[]): string | null {
   return null;
 }
 
+/**
+ * One entry per schema version, applied in order for every version the open
+ * database has not seen. Keyed rather than written as a chain of
+ * `if (oldVersion < n)` blocks so that `migrationVersionsFrom` decides what
+ * runs — the same function the migration tests assert against, which otherwise
+ * describes a sequence nothing actually follows. Adding version 5 means adding
+ * a key here; a gap is a no-op, so versions that only add object stores (those
+ * are created above) need no entry at all.
+ */
+const UPGRADE_STEPS: Record<
+  number,
+  (db: IDBDatabase, txn: IDBTransaction) => void
+> = {
+  2: (db, txn) => {
+    migrateLegacySnapshot(db, txn);
+    try {
+      txn.objectStore(STORE_META).put(
+        {
+          schemaVersion: META_SCHEMA_VERSION,
+          deviceId: null,
+          lastSinceCursor: null,
+        } satisfies MetaRow,
+        META_KEY
+      );
+    } catch {
+      // Meta row is best-effort; subsequent boots will write it.
+    }
+  },
+  3: (_db, txn) => {
+    migrateOutboxLifecycle(txn);
+    migrateMetaVersion(txn);
+  },
+  4: (_db, txn) => {
+    migrateLegacyContent(txn);
+    migrateMetaVersion(txn);
+  },
+};
+
 export function openDb(): Promise<IDBDatabase | null> {
   if (!hasIndexedDb()) return Promise.resolve(null);
 
@@ -236,29 +274,8 @@ export function openDb(): Promise<IDBDatabase | null> {
         }
       }
 
-      const oldVersion = event.oldVersion ?? 0;
-      if (oldVersion < 2) {
-        migrateLegacySnapshot(db, txn);
-        try {
-          txn.objectStore(STORE_META).put(
-            {
-              schemaVersion: META_SCHEMA_VERSION,
-              deviceId: null,
-              lastSinceCursor: null,
-            } satisfies MetaRow,
-            META_KEY
-          );
-        } catch {
-          // Meta row is best-effort; subsequent boots will write it.
-        }
-      }
-      if (oldVersion < 3) {
-        migrateOutboxLifecycle(txn);
-        migrateMetaVersion(txn);
-      }
-      if (oldVersion < 4) {
-        migrateLegacyContent(txn);
-        migrateMetaVersion(txn);
+      for (const version of migrationVersionsFrom(event.oldVersion ?? 0)) {
+        UPGRADE_STEPS[version]?.(db, txn);
       }
     };
 

@@ -89,15 +89,39 @@ describe('SyncEngine', () => {
     test.engine.stop();
   });
 
-  it('moves to degraded when persistence cannot make the pull durable', async () => {
+  // A device whose storage is full or evicted still deserves fresh data. The
+  // read cursor is what must not advance, and the repository owns that; the
+  // payload itself is published either way, with the phase reporting that the
+  // app is live but no longer warm-bootable.
+  it('still publishes a pull it could not cache, and reports degraded', async () => {
     const test = harness();
+    const listener = vi.fn();
+    test.engine.onData(listener);
     test.repository.persist.mockResolvedValueOnce(false);
 
-    await expect(test.engine.pull()).rejects.toThrow('could not be persisted');
+    await expect(test.engine.pull()).resolves.toEqual({ value: 'server' });
+    expect(listener).toHaveBeenCalledWith({
+      source: 'server',
+      value: { value: 'server' },
+    });
     expect(test.engine.getState()).toMatchObject({
       phase: 'degraded',
-      lastError: 'Sync snapshot could not be persisted',
+      lastError: 'Sync snapshot could not be cached locally',
     });
+  });
+
+  it('does not let a throwing cache write lose the payload', async () => {
+    const test = harness();
+    const listener = vi.fn();
+    test.engine.onData(listener);
+    test.repository.persist.mockRejectedValueOnce(new Error('QuotaExceededError'));
+
+    await expect(test.engine.pull()).resolves.toEqual({ value: 'server' });
+    expect(listener).toHaveBeenCalledWith({
+      source: 'server',
+      value: { value: 'server' },
+    });
+    expect(test.engine.getState().phase).toBe('degraded');
   });
 
   it('persists an external acknowledgement before publishing it', async () => {
