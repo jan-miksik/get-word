@@ -178,4 +178,29 @@ describe("updateUserPreferences language arbitration", () => {
       domain: "language_pair",
     }));
   });
+
+  // Without a revision predicate the `where` is the user id alone, so an empty
+  // result means the row is gone — an account deleted while a sync was in
+  // flight — not a stale revision. Calling that a conflict sent the client a
+  // 409, which blocks every operation in the batch; progress and review writes
+  // have no rebase path out of that state, only discard.
+  it("returns null rather than a conflict when no revision was checked", async () => {
+    mockUpdateReturning.mockResolvedValueOnce([]);
+
+    await expect(
+      updateUserPreferences("user-1", { show_english: true }),
+    ).resolves.toBeNull();
+  });
+
+  it("still reports a conflict for the domain whose revision was checked", async () => {
+    mockUpdateReturning.mockResolvedValueOnce([]);
+
+    await expect(updateUserPreferences("user-1", {
+      settings_language: "en",
+      settings_language_base_revision: 2,
+    })).rejects.toEqual(expect.objectContaining({
+      name: "SyncRevisionConflictError",
+      domain: "settings_language",
+    }));
+  });
 });

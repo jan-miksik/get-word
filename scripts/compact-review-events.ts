@@ -7,6 +7,9 @@
  *     client dedupe is by clientEventId on the same row, not by anything
  *     in this table.
  *   - user_memory_hooks tombstones (deletedAt set) older than 365 days.
+ *   - sync_applied_operations older than 30 days. The replay ledger only needs
+ *     to cover the window in which a device might still resend an operation;
+ *     see SYNC_LEDGER_RETENTION_DAYS for why expiring one early is safe.
  *
  * Usage:
  *   pnpm tsx scripts/compact-review-events.ts            # dry run, prints counts
@@ -29,6 +32,19 @@ void __dirname;
 
 const REVIEW_EVENTS_RETENTION_DAYS = 30;
 const MEMORY_HOOK_TOMBSTONE_RETENTION_DAYS = 365;
+/**
+ * A ledger row only has to outlive the gap between a device applying an
+ * operation and replaying it after a lost acknowledgement — bounded by how long
+ * a device can sit offline holding an unsent op. Past that the row is dead
+ * weight, and this is the highest-insert-rate table in the schema: one row per
+ * client operation, so an active learner produces thousands a month.
+ *
+ * Dropping a row early is safe, not lossy: every mutation domain is idempotent
+ * (see applySyncMutations), so an unrecognised replay re-applies to the same
+ * result. The only cost is that the client is told 'applied' where it could
+ * have been told 'duplicate', which it treats identically.
+ */
+const SYNC_LEDGER_RETENTION_DAYS = 30;
 
 function daysAgo(days: number): Date {
   const ms = Date.now() - days * 24 * 60 * 60 * 1000;
@@ -52,10 +68,12 @@ async function main() {
 
   const reviewCutoff = daysAgo(REVIEW_EVENTS_RETENTION_DAYS);
   const tombstoneCutoff = daysAgo(MEMORY_HOOK_TOMBSTONE_RETENTION_DAYS);
+  const syncLedgerCutoff = daysAgo(SYNC_LEDGER_RETENTION_DAYS);
 
   console.log("[compact] cutoffs:", {
     reviewEvents: reviewCutoff.toISOString(),
     memoryHookTombstones: tombstoneCutoff.toISOString(),
+    syncAppliedOperations: syncLedgerCutoff.toISOString(),
   });
 
   if (!apply) {
@@ -80,6 +98,12 @@ async function main() {
         )
         .returning({ id: schema.userMemoryHooks.id });
       console.log(`[compact] user_memory_hooks tombstones deleted: ${tombstonesDeleted.length}`);
+
+      const ledgerDeleted = await db
+        .delete(schema.syncAppliedOperations)
+        .where(lt(schema.syncAppliedOperations.createdAt, syncLedgerCutoff))
+        .returning({ clientOpId: schema.syncAppliedOperations.clientOpId });
+      console.log(`[compact] sync_applied_operations deleted: ${ledgerDeleted.length}`);
     } else {
       const reviewCandidates = await db
         .select({ id: schema.reviewEvents.id })
@@ -97,6 +121,12 @@ async function main() {
           ),
         );
       console.log(`[compact] user_memory_hooks tombstones would delete: ${tombstoneCandidates.length}`);
+
+      const ledgerCandidates = await db
+        .select({ clientOpId: schema.syncAppliedOperations.clientOpId })
+        .from(schema.syncAppliedOperations)
+        .where(lt(schema.syncAppliedOperations.createdAt, syncLedgerCutoff));
+      console.log(`[compact] sync_applied_operations would delete: ${ledgerCandidates.length}`);
     }
   } finally {
     await client.end();

@@ -8,6 +8,7 @@ import {
   unique,
   uniqueIndex,
   index,
+  primaryKey,
   check,
   pgEnum,
   jsonb,
@@ -630,10 +631,15 @@ export const reviewEvents = pgTable(
 // Durable acknowledgement ledger for local-first mutations. The composite
 // uniqueness is user-scoped because client operation ids are generated on the
 // device and need only be stable within one account.
+//
+// (userId, clientOpId) is the primary key rather than a surrogate uuid: it is
+// the only way this table is ever read, and it is the highest-insert-rate table
+// in the schema (one row per client operation). A surrogate would add a column
+// and a second btree that nothing queries. Rows are pruned by age — see
+// scripts/compact-review-events.ts — which is what the createdAt index serves.
 export const syncAppliedOperations = pgTable(
   "sync_applied_operations",
   {
-    id: uuid("id").primaryKey().defaultRandom(),
     userId: uuid("user_id")
       .notNull()
       .references(() => users.id, { onDelete: "cascade" }),
@@ -641,7 +647,10 @@ export const syncAppliedOperations = pgTable(
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },
   (table) => [
-    unique("sync_applied_operations_user_op_unique").on(table.userId, table.clientOpId),
+    primaryKey({
+      name: "sync_applied_operations_pkey",
+      columns: [table.userId, table.clientOpId],
+    }),
     index("sync_applied_operations_created_idx").on(table.createdAt),
   ],
 );

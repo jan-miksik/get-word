@@ -560,7 +560,7 @@ describe('POST /api/sync', () => {
     expect(mockRecordAppliedSyncClientOpIds).not.toHaveBeenCalled()
   })
 
-  it('does not reapply an aggregate payload containing both replayed and new operations', async () => {
+  it('applies an aggregate payload containing both replayed and new operations', async () => {
     mockGetAppliedSyncClientOpIds.mockResolvedValueOnce(new Set(['op-a']))
     const req = new NextRequest('http://localhost:3000/api/sync', {
       method: 'POST',
@@ -575,17 +575,22 @@ describe('POST /api/sync', () => {
     const res = await POST(req)
     const data = await res.json()
 
+    // The payload is applied in full rather than refused. Re-running the
+    // replayed id's effect is a no-op — every domain is idempotent — and
+    // refusing the new id instead stranded it as a permanent conflict that
+    // only preference operations had any way to recover from.
     expect(res.status).toBe(200)
-    expect(data.applied_client_op_ids).toEqual(['op-a'])
+    expect(data.applied_client_op_ids).toEqual(['op-a', 'op-b'])
     expect(data.op_results).toEqual([
       { clientOpId: 'op-a', status: 'duplicate' },
-      {
-        clientOpId: 'op-b',
-        status: 'conflict',
-        code: 'MIXED_REPLAY_REQUIRES_REBASE',
-      },
+      { clientOpId: 'op-b', status: 'applied' },
     ])
-    expect(mockUpdateUserPreferences).not.toHaveBeenCalled()
+    expect(mockUpdateUserPreferences).toHaveBeenCalled()
+    // Only the genuinely new id is added to the ledger.
+    expect(mockRecordAppliedSyncClientOpIds).toHaveBeenCalledWith(
+      expect.anything(),
+      ['op-b'],
+    )
   })
 
   it('returns an ack-only delta payload without advancing the GET cursor', async () => {

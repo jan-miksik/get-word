@@ -6,7 +6,10 @@ import {
   normalizeMemoryHookDisableFromStage,
   normalizeStudyNoteMinimizeFromStage,
 } from "@/lib/words";
-import { SyncRevisionConflictError } from '@/packages/domain/sync/revision';
+import {
+  SyncRevisionConflictError,
+  type SyncRevisionDomain,
+} from '@/packages/domain/sync/revision';
 
 const LANGUAGE_CODE_PATTERN = /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/;
 
@@ -236,15 +239,23 @@ export async function updateUserPreferences(
   }
   if (Object.keys(updates).length === 1) return getUserById(userId);
   const revisionPredicates = [eq(users.id, userId)];
+  // Which domain a zero-row result would mean. Without one of these the `where`
+  // is the id alone, so no rows means the user is gone (a deletion racing an
+  // in-flight sync) — not a stale revision. Reporting that as a conflict would
+  // send the client a 409, which blocks every operation in the batch and, for
+  // anything but a preference, leaves it with no recovery but discarding.
+  let conflictDomain: SyncRevisionDomain | null = null;
   if (touchesSettingsLanguage && prefs.settings_language_base_revision !== undefined) {
     revisionPredicates.push(
       eq(users.settingsLanguageRevision, prefs.settings_language_base_revision),
     );
+    conflictDomain = 'settings_language';
   }
   if (touchesLanguagePair && prefs.language_pair_base_revision !== undefined) {
     revisionPredicates.push(
       eq(users.languagePairRevision, prefs.language_pair_base_revision),
     );
+    conflictDomain ??= 'language_pair';
   }
   const results = await db
     .update(users)
@@ -252,11 +263,8 @@ export async function updateUserPreferences(
     .where(and(...revisionPredicates))
     .returning();
   if (results.length === 0) {
-    throw new SyncRevisionConflictError(
-      prefs.settings_language_base_revision !== undefined
-        ? 'settings_language'
-        : 'language_pair',
-    );
+    if (conflictDomain) throw new SyncRevisionConflictError(conflictDomain);
+    return null;
   }
   return results[0] || null;
 }

@@ -79,24 +79,15 @@ export async function applySyncMutations(input: {
       opResults: clientOpIds.map((clientOpId) => ({ clientOpId, status: 'duplicate' })),
     };
   }
-  if (duplicateClientOpIds.size > 0) {
-    // The legacy wire shape aggregates a whole batch into one payload, so it
-    // cannot safely remove the effects belonging to only the replayed ids.
-    // Refuse the new subset explicitly instead of risking a second effect.
-    // The next-generation operation-shaped protocol can remove this guard.
-    return {
-      user,
-      appliedReviewEventIds: [],
-      clientOpIds: clientOpIds.filter((id) => duplicateClientOpIds.has(id)),
-      opResults: clientOpIds.map((clientOpId) => duplicateClientOpIds.has(clientOpId)
-        ? { clientOpId, status: 'duplicate' }
-        : {
-            clientOpId,
-            status: 'conflict',
-            code: 'MIXED_REPLAY_REQUIRES_REBASE',
-          }),
-    };
-  }
+  // A partially replayed batch (some ids already applied, some new) is applied
+  // in full. The aggregate wire shape cannot subtract the replayed ids' effects
+  // from the payload, but it does not need to: every domain below is
+  // individually idempotent — progress upserts are last-write-wins, review
+  // events dedupe on clientEventId, memory hooks and category filters are
+  // replace-by-key, and game_score takes a max. Re-applying a duplicate is a
+  // no-op. The revision-bearing preference writes are the one exception, and
+  // their base-revision predicate arbitrates them on its own; a fully replayed
+  // batch returns above without reaching them at all.
 
   if (
     show_english !== undefined ||
