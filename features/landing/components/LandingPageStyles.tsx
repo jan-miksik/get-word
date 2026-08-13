@@ -65,6 +65,17 @@ export function LandingPageStyles() {
   background-position:top center;
   background-size:100% auto;
 }
+/* Installed as a PWA, .lp-root is the scroll container (see above), and an
+   absolutely positioned child of a scroll container is sized against its
+   padding box — one viewport — and then scrolls away with the content, leaving
+   bare paper below the first screen. Pinned to the viewport instead: the map
+   stops scrolling with the page there, which is invisible on a repeating
+   texture, and it is under the whole page again.
+   After .lp-backdrop, not inside the block above: a media query adds no
+   specificity, so the plain rule would win on order. */
+@media (display-mode: standalone), (display-mode: fullscreen){
+  .lp-backdrop{ position:fixed; }
+}
 .lp-display{ font-family:system-ui,-apple-system,"Segoe UI",sans-serif; letter-spacing:-0.01em; }
 .lp-mono{ font-family:var(--font-mono-accent),ui-monospace,"SF Mono",monospace; }
 .italic{ font-style:italic; }
@@ -202,6 +213,14 @@ export function LandingPageStyles() {
        which is a price the headline can pay. */
     max-width:68rem; margin-inline:auto;
   }
+}
+/* Unsupported browsers get neither the pickers nor the demo, so the right-hand
+   track has nothing to hold: the pitch takes the whole row rather than being
+   squeezed into 60% of it beside an empty column. Specificity, not order, is
+   what puts this over the rule above. */
+.lp-hero--copy-only .lp-hero-top{
+  grid-template-columns:minmax(0,1fr);
+  max-width:46rem;
 }
 /* Stacked, the pitch is a column of its own like every section below it, so it
    centres with them — but only down to the phone, where everything goes back to
@@ -357,7 +376,16 @@ export function LandingPageStyles() {
   text-align:center;
 }
 @media (min-width:768px){
-  .lp-section{ --breakout:clamp(1rem,7vw,8rem); }
+  /* Second term: the room actually free beside the 52rem column, so the cards
+     can never break out past the window. The breakpoint alone was not enough —
+     between 768px and ~980px the column already fills the container, and 7vw of
+     break-out put ~30px of every card outside the viewport, where .lp-root's
+     overflow-x:clip cut its border and corners off. 56rem rather than 52 keeps
+     a little air at the edges and covers a classic scrollbar, which 100vw
+     counts and the window does not. */
+  .lp-section{
+    --breakout:min(clamp(1rem,7vw,8rem), max(0px, (100vw - 56rem) / 2));
+  }
 }
 .lp-section-head{ display:flex; justify-content:center; }
 /* Deliberately near-poster size: five headings carry the whole page, and at

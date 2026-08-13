@@ -113,11 +113,11 @@ function LandingPageContent({
   return (
     <div className="lp-root" lang={lang}>
       <LandingPageStyles />
-      {/* Background, bottom to top: the static contour map (-z-10, fixed to the
-          viewport so page-height changes cannot move it) → ambient rising
-          letters (-z-9) → content. Double-clicking the logo fades in the
-          scratch-field easter egg over the top of all of it; see
-          LandingScratchBackground. */}
+      {/* Background, bottom to top: the contour map on a layer of its own
+          (-z-10, running the length of the page; sized from the width so page
+          height cannot rescale it) → ambient rising letters (-z-9) → content.
+          Double-clicking the logo fades in the scratch-field easter egg over
+          the top of all of it; see LandingScratchBackground. */}
       <div aria-hidden="true" className="lp-backdrop" />
       {scratchMode ? null : <LandingAmbientLetters />}
       <LandingScratchLayers active={scratchMode} />
