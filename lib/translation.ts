@@ -20,6 +20,10 @@ import {
   validateTranslation,
   type TranslationValidationWarning,
 } from "@/lib/translation-validate";
+import {
+  recordGoogleApiUsageEvent,
+  type GoogleApiUsageContext,
+} from "@/lib/google-api-usage-events";
 
 export type TranslationResult = {
   text: string;
@@ -42,6 +46,7 @@ export async function googleTranslate(
   texts: string[],
   fromLang: string,
   toLang: string,
+  usage: GoogleApiUsageContext,
 ): Promise<TranslationResult[]> {
   const apiKey = process.env.GOOGLE_TRANSLATE_API_KEY;
   if (!apiKey) {
@@ -94,6 +99,14 @@ export async function googleTranslate(
 
       const data = await res.json();
       const translations = data.data?.translations ?? [];
+
+      await recordGoogleApiUsageEvent({
+        ...usage,
+        scope: "translate",
+        model: "nmt-v2",
+        units: batch.reduce((total, text) => total + Array.from(text).length, 0),
+        requestCount: 1,
+      });
 
       for (let j = 0; j < batch.length; j++) {
         const translation = translations[j];

@@ -161,7 +161,10 @@ export async function translateBatch(input: {
           429,
         );
       }
-      apiResults = await googleTranslate(textsToTranslate, fromLang, toLang);
+      apiResults = await googleTranslate(textsToTranslate, fromLang, toLang, {
+        source: "translation_batch",
+        userId,
+      });
     } else if (provider === "openrouter" && openRouterKey) {
       try {
         apiResults = await openRouterTranslate(

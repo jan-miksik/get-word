@@ -7,9 +7,14 @@ import { enqueueOp } from '@/lib/local-first/enqueue';
 import type { SyncMutationPayload } from '@/features/sync/contracts';
 import { postTabMessage, subscribeTabMessages } from '@/lib/tab-sync';
 import {
+  COMMON_LANGUAGES,
+  GOOGLE_TRANSLATE_LANGUAGES,
   getDetectedSettingsLanguage,
   isSimulatedFirstOpenEnabled,
+  mergeLanguages,
+  normalizeLanguageCode,
 } from '@/lib/i18n/languages';
+import { BUNDLED_UI_LANGUAGE_CODES } from '@/lib/i18n/messages';
 import {
   readPreferredPublicLanguageSelectedAt,
   writePreferredPublicLanguage,
@@ -60,15 +65,31 @@ export type SettingsLanguage = string;
 export type { RevealMode, TypingWriteIn } from './localPreferences';
 
 const DEFAULT_SETTINGS_LANGUAGE = 'en';
+const BUNDLED_UI_LANGUAGE_CODE_SET = new Set(
+  BUNDLED_UI_LANGUAGE_CODES.map(normalizeLanguageCode),
+);
+const BUNDLED_UI_LANGUAGES = mergeLanguages(COMMON_LANGUAGES, GOOGLE_TRANSLATE_LANGUAGES)
+  .filter((item) => BUNDLED_UI_LANGUAGE_CODE_SET.has(normalizeLanguageCode(item.code)));
 const LEARNING_ONBOARDING_COMPLETED_SESSION_KEY = 'get-word-learning-onboarding-completed';
+
+/**
+ * The *interface* language, which must have a bundled dictionary — anything
+ * else has no messages to render and falls back to English.
+ *
+ * Not for learning languages: those are the content the learner chose to study
+ * and are constrained by what the translation and audio providers support, not
+ * by which UI dictionaries happen to ship. Use `normalizeLearningLanguage`.
+ */
 function normalizeSettingsLanguage(value: unknown): SettingsLanguage {
-  if (typeof value !== 'string') return DEFAULT_SETTINGS_LANGUAGE;
-  const trimmed = value.trim();
-  if (!/^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/.test(trimmed)) {
-    return DEFAULT_SETTINGS_LANGUAGE;
-  }
-  const [base, region] = trimmed.split('-');
-  return region ? `${base.toLowerCase()}-${region.toUpperCase()}` : base.toLowerCase();
+  const normalized = normalizeLanguageCode(value);
+  return BUNDLED_UI_LANGUAGE_CODE_SET.has(normalized)
+    ? normalized
+    : DEFAULT_SETTINGS_LANGUAGE;
+}
+
+/** A learning-pair side: shape and legacy aliases only, never narrowed to the UI bundles. */
+function normalizeLearningLanguage(value: unknown): string {
+  return normalizeLanguageCode(value);
 }
 
 function hasCompletedLearningOnboardingInSession(): boolean {
@@ -162,7 +183,7 @@ export function usePreferences(
     DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE
   );
   const [settingsLanguage, setSettingsLanguageState] = useState<SettingsLanguage>(() =>
-    normalizeSettingsLanguage(getDetectedSettingsLanguage())
+    normalizeSettingsLanguage(getDetectedSettingsLanguage(BUNDLED_UI_LANGUAGES))
   );
   // Seeded from the device mirror, not null. A reload used to forget when the
   // learner last picked their interface language, which made every incoming
@@ -443,8 +464,8 @@ export function usePreferences(
   const setLearningLanguages = useCallback(
     async (languageFrom: string, languageTo: string) => {
       const pending: PendingLearningLanguagePair = {
-        from: normalizeSettingsLanguage(languageFrom),
-        to: normalizeSettingsLanguage(languageTo),
+        from: normalizeLearningLanguage(languageFrom),
+        to: normalizeLearningLanguage(languageTo),
         changedAt: new Date().toISOString(),
         baseRevision: learningPairServerRevisionRef.current,
       };
@@ -489,7 +510,9 @@ export function usePreferences(
     const simulateFirstOpen = isSimulatedFirstOpenEnabled();
     const simulateLearningOnboarding =
       simulateFirstOpen && !hasCompletedLearningOnboardingInSession();
-    const detectedLanguage = normalizeSettingsLanguage(getDetectedSettingsLanguage());
+    const detectedLanguage = normalizeSettingsLanguage(
+      getDetectedSettingsLanguage(BUNDLED_UI_LANGUAGES),
+    );
     setShowEnglish(false);
     setShowCategoryBadges(false);
     setShowPronunciation(false);

@@ -92,6 +92,14 @@ async function fetchGoogleVoices(apiKey: string): Promise<GoogleVoice[]> {
   if (!res.ok) {
     throw new Error(`Google TTS voices request failed: ${res.status} ${res.statusText}`);
   }
+  const { recordGoogleApiUsageEvent } = await import("../lib/google-api-usage-events");
+  await recordGoogleApiUsageEvent({
+    scope: "tts",
+    source: "tts_voice_catalog",
+    model: "voices-v1",
+    units: 0,
+    requestCount: 1,
+  });
   const data = (await res.json()) as { voices?: GoogleVoice[] };
   return Array.isArray(data.voices) ? data.voices : [];
 }
@@ -280,7 +288,9 @@ async function main() {
 
         for (const candidateVoiceId of orderedVoiceAttempts(voiceId, pool)) {
           const candidate = await runGoogleTtsWithRetry(() =>
-            googleTTS(word.text, lang, candidateVoiceId),
+            googleTTS(word.text, lang, candidateVoiceId, {
+              source: "landing_demo_audio_script",
+            }),
           );
           if (!candidate) {
             console.warn(`  ! "${word.text}" — ${candidateVoiceId} returned no audio`);

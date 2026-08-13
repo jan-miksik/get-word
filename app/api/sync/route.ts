@@ -18,10 +18,16 @@ import {
   verifySession,
 } from "@/lib/session";
 import { isGoogleSupportedLanguage } from "@/lib/i18n/server";
+import { normalizeLanguageCode } from "@/lib/i18n/languages";
+import { BUNDLED_UI_LANGUAGE_CODES } from "@/lib/i18n/messages";
 import type { DeviceProfile } from "@/packages/contracts/src/device";
 import type { ApiErrorEnvelope } from "@/packages/contracts/src/errors";
 import { SyncRequestSchema } from "@/packages/contracts/src/sync";
 import { SyncRevisionConflictError } from '@/packages/domain/sync/revision';
+
+const BUNDLED_UI_LANGUAGE_CODE_SET = new Set(
+  BUNDLED_UI_LANGUAGE_CODES.map(normalizeLanguageCode),
+);
 
 function syncError(
   error: string,
@@ -37,10 +43,12 @@ function syncError(
 
 async function validateSyncLanguages(body: SyncRequest): Promise<NextResponse | null> {
   if (body.settings_language !== undefined) {
-    const supported = await isGoogleSupportedLanguage(body.settings_language).catch(() => false);
+    const supported = BUNDLED_UI_LANGUAGE_CODE_SET.has(
+      normalizeLanguageCode(body.settings_language),
+    );
     if (!supported) {
       return syncError(
-        "settings_language must be supported by Google Translate",
+        "settings_language must have a bundled interface translation",
         "INVALID_SETTINGS_LANGUAGE",
         400,
       );

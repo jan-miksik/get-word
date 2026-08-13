@@ -26,6 +26,10 @@ import {
   putAudioResult,
 } from "@/lib/object-storage";
 import { getErrorDetail } from "./errors";
+import type {
+  GoogleApiUsageContext,
+  GoogleApiUsageSource,
+} from "@/lib/google-api-usage-events";
 import {
   INLINE_MAX_BYTES,
   type AudioField,
@@ -44,6 +48,8 @@ export type GenerateItemContext = {
    * exists. In that case return the asset but do not try to update a fake item id.
    */
   linkToItem?: boolean;
+  googleUsageSource: GoogleApiUsageSource;
+  googleUsageUserId?: string | null;
 };
 
 function hasUsableArweaveRef(
@@ -82,6 +88,7 @@ async function generateGoogleAudioWithAutofix(
   text: string,
   language: string,
   requestedVoiceLabel: string | undefined,
+  usage: GoogleApiUsageContext,
 ): Promise<GoogleAutofixResult | null> {
   // "default" (legacy) and the DEFAULT_GOOGLE_TTS_VOICE_ID sentinel both mean the
   // name-less default voice — never pass either to Google as a real voice name.
@@ -106,7 +113,7 @@ async function generateGoogleAudioWithAutofix(
     label: string,
   ): Promise<GoogleAttempt | null> => {
     const clip = await runGoogleTtsWithRetry(() =>
-      voiceParam ? googleTTS(text, language, voiceParam) : googleTTS(text, language),
+      googleTTS(text, language, voiceParam, usage),
     );
     if (!clip) return null;
     const { durationMs, frameCount } = analyzeMp3(clip.audio);
@@ -222,6 +229,10 @@ export async function generateAudioForItem(
         item.text,
         item.language,
         requestedVoiceLabel,
+        {
+          source: ctx.googleUsageSource,
+          userId: ctx.googleUsageUserId,
+        },
       );
       if (autofixed) {
         result = { audio: autofixed.audio, sizeBytes: autofixed.sizeBytes };

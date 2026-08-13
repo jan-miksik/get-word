@@ -286,7 +286,10 @@ export async function createForkListStream({
               const chunk = texts.slice(i, i + chunkSize);
               const results =
                 translationProvider === "google"
-                  ? await googleTranslate(chunk, pair.from, pair.to)
+                  ? await googleTranslate(chunk, pair.from, pair.to, {
+                      source: "list_fork",
+                      userId,
+                    })
                   : await openRouterTranslate(
                       chunk,
                       pair.from,

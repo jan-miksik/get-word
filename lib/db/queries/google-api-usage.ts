@@ -1,6 +1,7 @@
 import { and, eq, sql } from "drizzle-orm";
 import { db } from "../client";
-import { googleApiUsage } from "../schema";
+import type { GoogleApiUsageEvent } from "@/lib/google-api-usage-events";
+import { googleApiUsage, googleApiUsageEvents } from "../schema";
 
 export type GoogleApiScope = "translate" | "tts";
 
@@ -267,4 +268,16 @@ export async function recordGoogleApiUsage(input: {
         updated_at = now()
     `,
   );
+}
+
+/** Record a provider call that completed successfully, including system calls. */
+export async function appendGoogleApiUsageEvent(input: GoogleApiUsageEvent): Promise<void> {
+  await db.insert(googleApiUsageEvents).values({
+    userId: input.userId ?? null,
+    scope: input.scope,
+    source: input.source,
+    model: input.model ?? null,
+    units: Math.max(0, Math.floor(input.units)),
+    requestCount: Math.max(0, Math.floor(input.requestCount ?? 1)),
+  });
 }

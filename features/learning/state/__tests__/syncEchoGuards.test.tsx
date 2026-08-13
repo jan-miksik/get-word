@@ -164,21 +164,21 @@ describe('server sync echo guards', () => {
     const { result } = renderHook(() => usePreferences(true, isUpdatingFromServerRef));
 
     act(() => {
-      result.current.setSettingsLanguage('de');
+      result.current.setSettingsLanguage('cs');
     });
 
-    expect(result.current.settingsLanguage).toBe('de');
+    expect(result.current.settingsLanguage).toBe('cs');
     expect(result.current.settingsLanguageSelectedAt).toEqual(expect.any(String));
     expect(mockPostTabMessage).toHaveBeenCalledWith({
       type: 'preferences_changed',
-      patch: expect.objectContaining({ settingsLanguage: 'de' }),
+      patch: expect.objectContaining({ settingsLanguage: 'cs' }),
     });
     expect(mockEnqueueOp).toHaveBeenCalledWith(
       expect.objectContaining({
-        payload: { field: 'settings_language', value: 'de', baseRevision: 0 },
+        payload: { field: 'settings_language', value: 'cs', baseRevision: 0 },
       })
     );
-    expect(localStorage.getItem('get-word-landing-lang')).toBe('de');
+    expect(localStorage.getItem('get-word-landing-lang')).toBe('cs');
   });
 
   it('still queues an interface-language change made while a server refetch is in flight', () => {
@@ -189,18 +189,18 @@ describe('server sync echo guards', () => {
     const { result } = renderHook(() => usePreferences(true, isUpdatingFromServerRef));
 
     act(() => {
-      result.current.setSettingsLanguage('de');
+      result.current.setSettingsLanguage('cs');
     });
 
     expect(mockEnqueueOp).toHaveBeenCalledWith(
       expect.objectContaining({
-        payload: { field: 'settings_language', value: 'de', baseRevision: 0 },
+        payload: { field: 'settings_language', value: 'cs', baseRevision: 0 },
       })
     );
   });
 
   it('does not let a stale server language beat a local choice made before this mount', () => {
-    localStorage.setItem('get-word-landing-lang', 'de');
+    localStorage.setItem('get-word-landing-lang', 'cs');
     localStorage.setItem(
       'get-word-landing-lang-selected-at',
       '2026-06-01T00:00:00.000Z'
@@ -214,7 +214,7 @@ describe('server sync echo guards', () => {
       result.current.applyServerPreferences(baseUser);
     });
 
-    expect(result.current.settingsLanguage).toBe('de');
+    expect(result.current.settingsLanguage).toBe('cs');
   });
 
   it('persists the memory hooks intro answer locally and across tabs', () => {
@@ -230,6 +230,25 @@ describe('server sync echo guards', () => {
       type: 'preferences_changed',
       patch: { memoryHooksIntroAnswered: true },
     });
+  });
+
+  it('keeps a learning language that has no bundled interface dictionary', async () => {
+    // The learning pair is content the learner picked; it is bounded by what the
+    // translation and audio providers support, not by which UI dictionaries we
+    // happen to ship. Normalising it through the interface-language allowlist
+    // silently rewrote every such choice to English.
+    const isUpdatingFromServerRef = { current: false };
+    const { result } = renderHook(() => usePreferences(true, isUpdatingFromServerRef));
+
+    await act(async () => {
+      await result.current.setLearningLanguages('cs', 'es');
+    });
+
+    expect(result.current.learningLanguageFrom).toBe('cs');
+    expect(result.current.learningLanguageTo).toBe('es');
+    expect(mockSyncUserData).toHaveBeenCalledWith(
+      expect.objectContaining({ language_from: 'cs', language_to: 'es' }),
+    );
   });
 
   it('persists learning language onboarding immediately', async () => {

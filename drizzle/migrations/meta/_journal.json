@@ -414,6 +414,20 @@
       "when": 1786372144381,
       "tag": "0058_sync_domain_revisions",
       "breakpoints": true
+    },
+    {
+      "idx": 59,
+      "version": "7",
+      "when": 1786579200000,
+      "tag": "0059_google_api_usage_events",
+      "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "7",
+      "when": 1786665600000,
+      "tag": "0060_ui_language_requests",
+      "breakpoints": true
     }
   ]
 }

@@ -32,6 +32,8 @@ function mockAllQueries({
   photo = [{ total_analyses: 0, photo_users: 0, repeat_users: 0, first_event_at: null }] as Record<string, unknown>[],
   photoWeekly = [] as Record<string, unknown>[],
   wordChatAccounts = [] as Record<string, unknown>[],
+  googleApi = [] as Record<string, unknown>[],
+  uiLanguageRequests = [] as Record<string, unknown>[],
   users = [] as Record<string, unknown>[],
   userDaily = [] as Record<string, unknown>[],
 } = {}) {
@@ -51,6 +53,8 @@ function mockAllQueries({
     .mockResolvedValueOnce(photo)
     .mockResolvedValueOnce(photoWeekly)
     .mockResolvedValueOnce(wordChatAccounts)
+    .mockResolvedValueOnce(googleApi)
+    .mockResolvedValueOnce(uiLanguageRequests)
     .mockResolvedValueOnce(users)
     .mockResolvedValueOnce(userDaily);
 }
@@ -80,7 +84,7 @@ describe('getUsageStats', () => {
 
     const stats = await getUsageStats();
 
-    expect(mockExecute).toHaveBeenCalledTimes(17);
+    expect(mockExecute).toHaveBeenCalledTimes(19);
     expect(stats.generatedAt).toBe(NOW.toISOString());
     expect(stats.registrations).toMatchObject({
       total: 10,
@@ -146,6 +150,17 @@ describe('getUsageStats', () => {
       estimatedCostUsd: 0,
       accounts: [],
     });
+    expect(stats.googleApi).toEqual({
+      monthStart: '2026-07-01T00:00:00.000Z',
+      translateFreeUnits: 500000,
+      ttsFreeUnits: 1000000,
+      translateUnits: 0,
+      ttsUnits: 0,
+      requests: 0,
+      estimatedTranslationCostUsd: 0,
+      sources: [],
+    });
+    expect(stats.uiLanguageRequests).toEqual({ totalRequests: 0, languages: [] });
   });
 
   it('returns exactly 12 zero-filled weeks with only the last marked partial', async () => {
@@ -326,6 +341,79 @@ describe('getUsageStats', () => {
       }),
     ]);
     expect(stats.wordChat.accounts[0].handle).toMatch(/^user_[0-9a-f]{12}$/);
+  });
+
+  it('aggregates completed Google API calls by source and estimates NMT overage', async () => {
+    mockAllQueries({
+      googleApi: [
+        {
+          scope: 'translate',
+          source: 'ui_locale_runtime',
+          model: 'nmt-v2',
+          units: '526000',
+          requests: '12',
+        },
+        {
+          scope: 'tts',
+          source: 'audio_batch',
+          model: 'cs-CZ-Chirp3-HD-Aoede',
+          units: '1400',
+          requests: '20',
+        },
+      ],
+    });
+
+    const stats = await getUsageStats();
+
+    expect(stats.googleApi).toMatchObject({
+      translateUnits: 526000,
+      ttsUnits: 1400,
+      requests: 32,
+      estimatedTranslationCostUsd: 0.52,
+    });
+    expect(stats.googleApi.sources).toEqual([
+      {
+        scope: 'translate',
+        source: 'ui_locale_runtime',
+        model: 'nmt-v2',
+        units: 526000,
+        requests: 12,
+      },
+      {
+        scope: 'tts',
+        source: 'audio_batch',
+        model: 'cs-CZ-Chirp3-HD-Aoede',
+        units: 1400,
+        requests: 20,
+      },
+    ]);
+  });
+
+  it('ranks requested interface languages without double-counting repeated taps', async () => {
+    mockAllQueries({
+      uiLanguageRequests: [
+        {
+          language_code: 'de',
+          requesters: 4,
+          last_requested_at: '2026-07-14T10:00:00.000Z',
+        },
+        {
+          language_code: 'hi',
+          requesters: 2,
+          last_requested_at: '2026-07-13T10:00:00.000Z',
+        },
+      ],
+    });
+
+    const stats = await getUsageStats();
+
+    expect(stats.uiLanguageRequests).toEqual({
+      totalRequests: 6,
+      languages: [
+        { languageCode: 'de', requesters: 4, lastRequestedAt: '2026-07-14T10:00:00.000Z' },
+        { languageCode: 'hi', requesters: 2, lastRequestedAt: '2026-07-13T10:00:00.000Z' },
+      ],
+    });
   });
 
   it('maps per-user rows to a pseudonymous handle, keeping the e-mail and nullable timestamps', async () => {

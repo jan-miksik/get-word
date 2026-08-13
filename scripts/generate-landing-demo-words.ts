@@ -21,6 +21,7 @@ import {
   normalizeLanguageCode,
 } from "../lib/i18n/languages";
 import { LANDING_DEMO_WORD_DATA } from "../lib/landing-demo-word-data";
+import { googleTranslate } from "../lib/translation";
 
 dotenv.config({ path: ".env.local" });
 
@@ -59,35 +60,26 @@ function decodeHtmlEntities(value: string): string {
 }
 
 async function googleTranslateTexts(texts: string[], fromLang: string, toLang: string) {
-  const apiKey = process.env.GOOGLE_TRANSLATE_API_KEY;
-  if (!apiKey) {
-    throw new Error("GOOGLE_TRANSLATE_API_KEY is not set");
-  }
+  const results = await googleTranslate(texts, fromLang, toLang, {
+    source: "landing_demo_words_script",
+  });
 
-  const response = await fetch(
-    `https://translation.googleapis.com/language/translate/v2?key=${apiKey}`,
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        q: texts,
-        source: fromLang,
-        target: toLang,
-        format: "text",
-      }),
-    },
+  // googleTranslate reports failures per item instead of throwing. Falling back
+  // to `result.text` here would write the English source into the generated
+  // file and exit 0, so a missing key or a Google outage would silently ship
+  // untranslated demo words to the landing page. Fail the run instead.
+  const failures = results.filter(
+    (result) => result.status !== "ok" || !result.translated,
   );
-
-  if (!response.ok) {
-    const body = await response.text().catch(() => "");
-    throw new Error(`Google Translate API error: ${response.status} ${body.slice(0, 200)}`);
+  if (failures.length > 0) {
+    const reason = failures[0].error ?? "no translation returned";
+    throw new Error(
+      `Google Translate failed for ${failures.length}/${results.length} texts ` +
+        `(${fromLang} -> ${toLang}): ${reason}`,
+    );
   }
 
-  const data = (await response.json()) as {
-    data?: { translations?: { translatedText?: string }[] };
-  };
-  const translations = data.data?.translations ?? [];
-  return texts.map((text, index) => translations[index]?.translatedText ?? text);
+  return results.map((result) => result.translated as string);
 }
 
 function toTs(data: Record<string, { text: string }[]>): string {

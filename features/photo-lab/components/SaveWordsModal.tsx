@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { useI18n } from '@/components/I18nProvider';
+import { noTranslateProps } from '@/lib/i18n/no-translate';
 import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
 import { markListsChangedForLearningSync } from '@/features/shared/sync/list-refresh-marker';
 import {
@@ -41,7 +42,7 @@ function WordPair({
   muted?: boolean;
 }) {
   return (
-    <span className="flex min-w-0 flex-1 flex-col leading-tight">
+    <span {...noTranslateProps('flex min-w-0 flex-1 flex-col leading-tight')}>
       <span className={`truncate font-medium ${muted ? '' : 'text-[color:var(--ob-ink)]'}`}>
         {target}
       </span>

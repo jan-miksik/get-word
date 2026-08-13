@@ -427,7 +427,11 @@ export function LandingDemoCard({
         ) : (
           <>
             <div className="lp-demo-words">
-              <div className="lp-demo-front" lang={set.fromLang}>
+              <div
+                className="lp-demo-front notranslate"
+                lang={set.fromLang}
+                translate="no"
+              >
                 {word.front.text}
               </div>
 

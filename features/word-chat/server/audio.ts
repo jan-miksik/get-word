@@ -176,6 +176,8 @@ export async function generateWordChatAudio(input: {
         encryptedKey: null,
         audioField: "target",
         force: false,
+        googleUsageSource: "word_chat_audio",
+        googleUsageUserId: input.userId,
         // Word-chat review rows are still drafts; commit links the returned
         // asset id after the learner confirms the whole set.
         linkToItem: false,

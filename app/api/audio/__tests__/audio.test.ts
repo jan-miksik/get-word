@@ -289,7 +289,10 @@ describe('POST /api/audio/generate/batch', () => {
     expect(data.results[0].arweave_url).toBe('https://turbo-gateway.com/tx123')
     expect(data.results[0].arweave_urls).toEqual(['https://turbo-gateway.com/tx123', 'https://arweave.net/tx123'])
     expect(data.results[0].storage_ref).toBe('tx123')
-    expect(mockGoogleTTS).toHaveBeenCalledWith('hello', 'vi')
+    expect(mockGoogleTTS).toHaveBeenCalledWith('hello', 'vi', undefined, {
+      source: 'audio_batch',
+      userId: 'user-1',
+    })
     expect(mockReserveGoogleApiUsage).toHaveBeenCalledWith({
       userId: 'user-1',
       scope: 'tts',
@@ -355,7 +358,10 @@ describe('POST /api/audio/generate/batch', () => {
     }))
 
     expect(res.status).toBe(200)
-    expect(mockGoogleTTS).toHaveBeenCalledWith('hello', 'vi', 'vi-VN-Neural2-A')
+    expect(mockGoogleTTS).toHaveBeenCalledWith('hello', 'vi', 'vi-VN-Neural2-A', {
+      source: 'audio_batch',
+      userId: 'user-1',
+    })
     expect(mockComputeContentHash).toHaveBeenCalledWith('hello', 'vi', 'google_tts', {
       voiceId: 'vi-VN-Neural2-A',
       audioFormat: 'mp3',
@@ -444,7 +450,10 @@ describe('POST /api/audio/generate/batch', () => {
     expect(data.results[1].status).toBe('error')
     expect(data.results[1].error).toMatch(/Only part of the list/)
     expect(mockGoogleTTS).toHaveBeenCalledTimes(1)
-    expect(mockGoogleTTS).toHaveBeenCalledWith('hello', 'vi')
+    expect(mockGoogleTTS).toHaveBeenCalledWith('hello', 'vi', undefined, {
+      source: 'audio_batch',
+      userId: 'user-1',
+    })
   })
 
   it('continues generation with a warning when google TTS quota tracking fails', async () => {
@@ -472,7 +481,10 @@ describe('POST /api/audio/generate/batch', () => {
     expect(data.quota_warning.detail).toContain('google_api_usage')
     expect(data.quota_warning.hint).toMatch(/database migrations/)
     expect(data.generated_count).toBe(1)
-    expect(mockGoogleTTS).toHaveBeenCalledWith('hello', 'vi')
+    expect(mockGoogleTTS).toHaveBeenCalledWith('hello', 'vi', undefined, {
+      source: 'audio_batch',
+      userId: 'user-1',
+    })
     expect(mockBatchLinkAudioToItems).toHaveBeenCalledWith([
       { itemId: 'item-1', audioAssetId: 'asset-new', audioStatus: 'ready' },
     ])

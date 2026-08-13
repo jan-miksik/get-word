@@ -1,4 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+
+const { recordGoogleApiUsageEvent } = vi.hoisted(() => ({
+  recordGoogleApiUsageEvent: vi.fn(),
+}));
+
+vi.mock("@/lib/google-api-usage-events", () => ({
+  recordGoogleApiUsageEvent,
+}));
+
 import { googleTTS } from "@/lib/audio";
 
 describe("googleTTS", () => {
@@ -18,7 +27,15 @@ describe("googleTTS", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await googleTTS("hello", "en", "en-AU-Neural2-A");
+    await googleTTS("hello", "en", "en-AU-Neural2-A", { source: "audio_batch" });
+
+    expect(recordGoogleApiUsageEvent).toHaveBeenCalledWith({
+      scope: "tts",
+      source: "audio_batch",
+      model: "en-AU-Neural2-A",
+      units: 5,
+      requestCount: 1,
+    });
 
     const request = fetchMock.mock.calls[0]?.[1];
     expect(request).toBeDefined();
@@ -39,8 +56,8 @@ describe("googleTTS", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await googleTTS("colour", "en");
-    await googleTTS("color", "en-US");
+    await googleTTS("colour", "en", undefined, { source: "audio_batch" });
+    await googleTTS("color", "en-US", undefined, { source: "audio_batch" });
 
     const languageCodes = fetchMock.mock.calls.map(
       (call) => JSON.parse(String(call[1]?.body)).voice.languageCode,

@@ -181,7 +181,10 @@ describe('POST /api/lists/[id]/fork', () => {
     expect(res.status).toBe(200)
     // Item word + category title are batched into one cs -> fr call.
     expect(mockGoogleTranslate).toHaveBeenCalledTimes(1)
-    expect(mockGoogleTranslate).toHaveBeenCalledWith(['ahoj', 'Basics'], 'cs', 'fr')
+    expect(mockGoogleTranslate).toHaveBeenCalledWith(['ahoj', 'Basics'], 'cs', 'fr', {
+      source: 'list_fork',
+      userId: 'user-1',
+    })
     expect(mockValues).toHaveBeenCalledWith([
       expect.objectContaining({
         textKnown: 'ahoj',
@@ -396,8 +399,14 @@ describe('POST /api/lists/[id]/fork', () => {
     await drainStream(res)
 
     expect(res.status).toBe(200)
-    expect(mockGoogleTranslate).toHaveBeenNthCalledWith(1, ['hello', 'Basics'], 'en', 'cs')
-    expect(mockGoogleTranslate).toHaveBeenNthCalledWith(2, ['hello', 'Basics'], 'en', 'fr')
+    expect(mockGoogleTranslate).toHaveBeenNthCalledWith(1, ['hello', 'Basics'], 'en', 'cs', {
+      source: 'list_fork',
+      userId: 'user-1',
+    })
+    expect(mockGoogleTranslate).toHaveBeenNthCalledWith(2, ['hello', 'Basics'], 'en', 'fr', {
+      source: 'list_fork',
+      userId: 'user-1',
+    })
     expect(mockValues).toHaveBeenCalledWith([
       expect.objectContaining({
         textKnown: 'ahoj',
@@ -583,7 +592,10 @@ describe('POST /api/lists/[id]/fork', () => {
 
     // 'ahoj' appears 3x but is translated once (alongside the 'Basics' category title).
     expect(mockGoogleTranslate).toHaveBeenCalledTimes(1)
-    expect(mockGoogleTranslate).toHaveBeenCalledWith(['ahoj', 'Basics'], 'cs', 'fr')
+    expect(mockGoogleTranslate).toHaveBeenCalledWith(['ahoj', 'Basics'], 'cs', 'fr', {
+      source: 'list_fork',
+      userId: 'user-1',
+    })
     // Counts still reflect all three item target sides.
     expect(result?.copied).toBe(3)
     expect(result?.translated).toBe(3)

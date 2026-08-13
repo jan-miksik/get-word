@@ -43,6 +43,20 @@ export interface WordChatUsageAccountRow {
   estimatedCostUsd: number;
 }
 
+export interface GoogleApiUsageSourceRow {
+  scope: 'translate' | 'tts';
+  source: string;
+  model: string | null;
+  units: number;
+  requests: number;
+}
+
+export interface UiLanguageRequestRow {
+  languageCode: string;
+  requesters: number;
+  lastRequestedAt: string;
+}
+
 /** One day in the app-wide GitHub-style activity heatmap. */
 export interface ActivityHeatmapDay {
   date: string; // YYYY-MM-DD (UTC)
@@ -152,6 +166,20 @@ export interface UsageStats {
     outputTokens: number;
     estimatedCostUsd: number;
     accounts: WordChatUsageAccountRow[];
+  };
+  googleApi: {
+    monthStart: string;
+    translateFreeUnits: number;
+    ttsFreeUnits: number;
+    translateUnits: number;
+    ttsUnits: number;
+    requests: number;
+    estimatedTranslationCostUsd: number;
+    sources: GoogleApiUsageSourceRow[];
+  };
+  uiLanguageRequests: {
+    totalRequests: number;
+    languages: UiLanguageRequestRow[];
   };
   activityHeatmap: ActivityHeatmapDay[]; // sparse: only days with activity, last 53 weeks
   users: AdminUserRow[];

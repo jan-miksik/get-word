@@ -1,6 +1,7 @@
 'use client';
 
 import { useI18n } from '@/components/I18nProvider';
+import { noTranslateProps } from '@/lib/i18n/no-translate';
 import type { PhotoLabLabel } from '@/features/photo-lab/types';
 
 export type TypeFeedback = 'correct' | 'close' | 'wrong' | null;
@@ -57,7 +58,11 @@ export function TypeAnswerBar({
         </p>
       )}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <span className="max-w-full truncate text-lg font-semibold text-[color:var(--ob-ink)] sm:max-w-[25%]">
+        <span
+          {...noTranslateProps(
+            'max-w-full truncate text-lg font-semibold text-[color:var(--ob-ink)] sm:max-w-[25%]',
+          )}
+        >
           {label.known}
         </span>
         <input

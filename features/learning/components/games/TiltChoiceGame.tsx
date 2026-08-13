@@ -10,6 +10,7 @@ import {
 } from 'react';
 
 import { useI18n } from '@/components/I18nProvider';
+import { noTranslateProps } from '@/lib/i18n/no-translate';
 import { useDeviceTilt } from '@/features/learning/hooks/useDeviceTilt';
 import { playUserInitiatedAudio } from '@/lib/audio-playback';
 import type { NormalizedWord } from '@/lib/words';
@@ -401,7 +402,9 @@ export function TiltChoiceGame({
           <div className="flex justify-center">
             <div
               ref={promptRef}
-              className="game-prompt relative z-[1] max-w-[70%] pb-1.5 will-change-transform"
+              {...noTranslateProps(
+                'game-prompt relative z-[1] max-w-[70%] pb-1.5 will-change-transform',
+              )}
             >
               {effectivePromptMode === 'audio' ? (
                 <button
@@ -438,7 +441,7 @@ export function TiltChoiceGame({
                 className="tilt-choice-fill"
                 aria-hidden="true"
               />
-              <span className="relative z-[1]">{option.label}</span>
+              <span {...noTranslateProps('relative z-[1]')}>{option.label}</span>
             </button>
           );
         })}
@@ -446,17 +449,14 @@ export function TiltChoiceGame({
 
       {selected ? (
         <div className="game-feedback">
-          <span
-            className={
-              options.find((option) => option.id === selected)?.isCorrect
-                ? 'game-feedback--exact'
-                : 'game-feedback--wrong'
-            }
-          >
-            {options.find((option) => option.id === selected)?.isCorrect
-              ? `✓ ${t('game.correct')}`
-              : `✗  ${correctAnswer}`}
-          </span>
+          {/* The two branches are separate elements so the wrong-answer one can
+              carry the study-text opt-out on a single text node, rather than
+              splitting the line around an inner span. */}
+          {options.find((option) => option.id === selected)?.isCorrect ? (
+            <span className="game-feedback--exact">{`✓ ${t('game.correct')}`}</span>
+          ) : (
+            <span {...noTranslateProps('game-feedback--wrong')}>{`✗  ${correctAnswer}`}</span>
+          )}
         </div>
       ) : (
         <div className="min-h-[44px]" aria-hidden="true" />

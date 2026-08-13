@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { flushSync } from 'react-dom';
 import { useI18n } from '@/components/I18nProvider';
+import { noTranslateProps } from '@/lib/i18n/no-translate';
 import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
 import { matchAnswer } from '@/features/learning/minigames/answer-match';
 import type { PhotoLabLabel } from '@/features/photo-lab/types';
@@ -87,9 +88,11 @@ function LabelChip({
         type="button"
         onClick={onPress}
         aria-pressed={showTarget}
-        className={`min-w-0 truncate py-1 pl-2.5 text-xs text-white sm:py-1.5 sm:pl-3 sm:text-base ${
-          showTarget && audioHash ? 'pr-1 sm:pr-1.5' : 'pr-2.5 sm:pr-3'
-        }`}
+        {...noTranslateProps(
+          `min-w-0 truncate py-1 pl-2.5 text-xs text-white sm:py-1.5 sm:pl-3 sm:text-base ${
+            showTarget && audioHash ? 'pr-1 sm:pr-1.5' : 'pr-2.5 sm:pr-3'
+          }`,
+        )}
       >
         {showTarget ? label.target : label.known}
         {state === 'hidden' && (

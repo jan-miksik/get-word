@@ -6,8 +6,6 @@ import type { CommitResult } from '../types';
 type Props = {
   result: CommitResult;
   refreshStatus: 'idle' | 'pending' | 'success' | 'error';
-  /** The host navigates away on its own once the refresh lands. */
-  handingOff?: boolean;
   onRetryRefresh: () => Promise<void>;
   onDone?: () => void;
 };
@@ -23,16 +21,13 @@ type Props = {
 export function DoneStep({
   result,
   refreshStatus,
-  handingOff = false,
   onRetryRefresh,
   onDone,
 }: Props) {
   const { t } = useI18n();
   const failed = refreshStatus === 'error';
+  const preparing = refreshStatus === 'idle' || refreshStatus === 'pending';
   const carriedOver = result.takeoverCount + result.upgradedTakeoverCount > 0;
-  // With an automatic handoff running, a button is one more thing to read in
-  // the second before the screen changes on its own.
-  const showAction = onDone !== undefined && (failed || !handingOff);
 
   return (
     <div className="flex flex-col items-center gap-6 py-8 text-center motion-safe:animate-[word-chat-setup-enter_320ms_cubic-bezier(0.16,1,0.3,1)_both]">
@@ -67,7 +62,7 @@ export function DoneStep({
             {t('wordChat.retryRefresh')}
           </button>
         </div>
-      ) : (
+      ) : preparing ? (
         <div className="w-full max-w-xs space-y-2">
           <div
             role="progressbar"
@@ -80,9 +75,13 @@ export function DoneStep({
             {t('wordChat.preparingStudy')}
           </p>
         </div>
+      ) : (
+        <p className="text-xs font-bold onboarding-text-soft" role="status">
+          {t('wordChat.studyReady')}
+        </p>
       )}
 
-      {showAction ? (
+      {onDone ? (
         <button
           type="button"
           onClick={onDone}

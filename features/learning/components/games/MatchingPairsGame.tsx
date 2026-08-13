@@ -15,6 +15,7 @@ import {
   type WordSide,
 } from './types';
 import { useI18n } from '@/components/I18nProvider';
+import { noTranslateProps } from '@/lib/i18n/no-translate';
 import { shuffleGameItems } from '@/features/learning/minigames';
 
 interface Props {
@@ -187,7 +188,9 @@ export function MatchingPairsGame({
               <button
                 key={w.id}
                 type="button"
-                className={`game-match-btn game-match-btn--${state}${getMatchColorClass(w.id, state)}`}
+                {...noTranslateProps(
+                  `game-match-btn game-match-btn--${state}${getMatchColorClass(w.id, state)}`,
+                )}
                 onClick={() => handleLeft(w.id)}
                 disabled={matched.has(w.id) || !!wrongPair}
                 aria-label={
@@ -210,7 +213,9 @@ export function MatchingPairsGame({
               <button
                 key={w.id}
                 type="button"
-                className={`game-match-btn game-match-btn--${state}${getMatchColorClass(w.id, state)}`}
+                {...noTranslateProps(
+                  `game-match-btn game-match-btn--${state}${getMatchColorClass(w.id, state)}`,
+                )}
                 onClick={() => handleRight(w.id)}
                 disabled={matched.has(w.id) || !!wrongPair}
               >

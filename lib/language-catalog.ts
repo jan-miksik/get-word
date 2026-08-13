@@ -10,6 +10,8 @@ import {
   LEARNING_LANGUAGE_VARIANTS,
   resolveLanguageVariantLocale,
 } from "@/lib/language-variants";
+import { recordGoogleApiUsageEvent } from "@/lib/google-api-usage-events";
+import { unstable_cache } from "next/cache";
 
 export type LearningLanguage = SupportedLanguage & {
   ttsAvailable: boolean;
@@ -27,6 +29,7 @@ type GoogleVoice = {
 };
 
 let ttsVoiceCache: { expiresAt: number; voices: GoogleVoice[] } | null = null;
+const GOOGLE_TTS_VOICE_SNAPSHOT_SECONDS = 14 * 24 * 60 * 60;
 
 const EXCLUDED_LEARNING_LANGUAGE_CODES = new Set([
   "pt-PT",
@@ -173,6 +176,38 @@ function getFeaturedRank(code: string): number {
   return FEATURED_LANGUAGE_BASE_RANKS.get(getBaseLanguage(code)) ?? Number.POSITIVE_INFINITY;
 }
 
+async function requestGoogleTtsVoices(): Promise<GoogleVoice[]> {
+  const apiKey = process.env.GOOGLE_TTS_API_KEY;
+  if (!apiKey) return [];
+
+  const url = new URL("https://texttospeech.googleapis.com/v1/voices");
+  url.searchParams.set("key", apiKey);
+
+  const res = await fetch(url);
+  if (!res.ok) {
+    throw new Error(`Google TTS voices request failed: ${res.status} ${res.statusText}`);
+  }
+  await recordGoogleApiUsageEvent({
+    scope: "tts",
+    source: "tts_voice_catalog",
+    model: "voices-v1",
+    units: 0,
+    requestCount: 1,
+  });
+
+  const data = await res.json();
+  return Array.isArray(data?.voices) ? data.voices : [];
+}
+
+// Next's data cache persists across serverless instances, unlike a module-level
+// variable. The snapshot therefore survives cold starts and reaches Google at
+// most once per deployment cache every two weeks.
+const readPersistentGoogleTtsVoiceSnapshot = unstable_cache(
+  requestGoogleTtsVoices,
+  ["google-tts-voices-v1"],
+  { revalidate: GOOGLE_TTS_VOICE_SNAPSHOT_SECONDS },
+);
+
 async function fetchGoogleTtsVoices(): Promise<GoogleVoice[]> {
   const now = Date.now();
 
@@ -183,17 +218,21 @@ async function fetchGoogleTtsVoices(): Promise<GoogleVoice[]> {
   const apiKey = process.env.GOOGLE_TTS_API_KEY;
   if (!apiKey) return [];
 
-  const url = new URL("https://texttospeech.googleapis.com/v1/voices");
-  url.searchParams.set("key", apiKey);
-
-  const res = await fetch(url);
-  if (!res.ok) return [];
-
-  const data = await res.json();
-  const voices = Array.isArray(data?.voices) ? data.voices : [];
+  let voices: GoogleVoice[];
+  try {
+    voices = await readPersistentGoogleTtsVoiceSnapshot();
+  } catch (error) {
+    // `language-catalog` is also used by tests and maintenance scripts outside
+    // a Next request, where the incremental cache context does not exist.
+    // Those explicit invocations may fetch directly; production requests use
+    // the persistent snapshot above.
+    const message = error instanceof Error ? error.message : String(error);
+    if (!message.includes("incrementalCache missing")) throw error;
+    voices = await requestGoogleTtsVoices();
+  }
 
   ttsVoiceCache = {
-    expiresAt: now + 24 * 60 * 60 * 1000,
+    expiresAt: now + GOOGLE_TTS_VOICE_SNAPSHOT_SECONDS * 1000,
     voices,
   };
 
@@ -250,7 +289,7 @@ export async function getGoogleFallbackVoices(
 /**
  * All Chirp3-HD voice names for a language's base, stably sorted. Photo-lab
  * mixes these per word; empty when the language has none (caller falls back to
- * the default voice). Reuses the shared 24h voice cache.
+ * the default voice). Reuses the shared two-week voice snapshot.
  */
 export async function getGoogleChirp3HdVoices(languageCode: string): Promise<string[]> {
   const voices = await fetchGoogleTtsVoices().catch(() => []);

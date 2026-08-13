@@ -20,6 +20,7 @@ async function translateSide(input: {
   texts: string[];
   sourceLanguage: string;
   targetLanguage: string;
+  userId: string;
 }) {
   if (input.sourceLanguage === input.targetLanguage) {
     return input.texts.map((text) => cleanText(text));
@@ -29,6 +30,7 @@ async function translateSide(input: {
     input.texts,
     input.sourceLanguage,
     input.targetLanguage,
+    { source: "common_list_autogenerate", userId: input.userId },
   );
   return results.map((result) =>
     result.status === "ok" ? cleanText(result.translated) : "",
@@ -36,6 +38,7 @@ async function translateSide(input: {
 }
 
 export async function generateFromGoogleTranslateSeed(input: {
+  userId: string;
   languageFrom: string;
   languageTo: string;
   sourceLanguage: string;
@@ -47,11 +50,13 @@ export async function generateFromGoogleTranslateSeed(input: {
       texts: sourceTexts,
       sourceLanguage: input.sourceLanguage,
       targetLanguage: input.languageFrom,
+      userId: input.userId,
     }),
     translateSide({
       texts: sourceTexts,
       sourceLanguage: input.sourceLanguage,
       targetLanguage: input.languageTo,
+      userId: input.userId,
     }),
   ]);
 

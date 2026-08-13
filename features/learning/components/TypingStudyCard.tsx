@@ -25,6 +25,7 @@ import { CustomStagePopover } from './word-card/CustomStagePopover';
 import { formatNextReviewHint, getWordTextSize } from './word-card/helpers';
 import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
 import { useI18n } from '@/components/I18nProvider';
+import { noTranslateProps } from '@/lib/i18n/no-translate';
 import type { TypingWriteIn } from '@/features/learning/state/preferences';
 import { TypingMemoryHook } from './typing-study/TypingMemoryHook';
 import { TypingAnswerInput } from './typing-study/TypingAnswerInput';
@@ -668,12 +669,14 @@ export function TypingStudyCard({
     exact: `✓ ${t('game.perfect')}`,
     close: (
       <>
-        ~ {t('game.close')} <strong>{result?.matchedAnswer ?? correctAnswer}</strong>
+        ~ {t('game.close')}{' '}
+        <strong {...noTranslateProps()}>{result?.matchedAnswer ?? correctAnswer}</strong>
       </>
     ),
     wrong: (
       <>
-        ✗ {t('game.correctAnswer')} <strong>{result?.matchedAnswer ?? correctAnswer}</strong>
+        ✗ {t('game.correctAnswer')}{' '}
+        <strong {...noTranslateProps()}>{result?.matchedAnswer ?? correctAnswer}</strong>
       </>
     ),
   };
@@ -725,7 +728,7 @@ export function TypingStudyCard({
               <SpeakerIcon size={23} />
             </button>
             {knownMeaningText && (
-              <div className="text-center text-lg font-medium text-[#6B5E48]">
+              <div {...noTranslateProps('text-center text-lg font-medium text-[#6B5E48]')}>
                 {knownMeaningText}
               </div>
             )}
@@ -733,7 +736,9 @@ export function TypingStudyCard({
         ) : (
           <div className="flex items-center justify-center">
             <div
-              className={`text-center font-bold leading-tight text-[#2A2218] md:[@media(max-height:800px)]:!text-[2rem] ${getWordTextSize(promptText.length)}`}
+              {...noTranslateProps(
+                `text-center font-bold leading-tight text-[#2A2218] md:[@media(max-height:800px)]:!text-[2rem] ${getWordTextSize(promptText.length)}`,
+              )}
             >
               {promptText}
             </div>

@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { getLearningLanguageCatalog } from "@/lib/language-catalog";
 
+vi.mock("@/lib/google-api-usage-events", () => ({
+  recordGoogleApiUsageEvent: vi.fn(),
+}));
+
 vi.mock("@/lib/i18n/server", () => ({
   fetchGoogleSupportedLanguages: () => Promise.resolve([
     { code: "en", name: "English", source: "google" },
@@ -82,7 +86,7 @@ describe("learning language catalog", () => {
     );
 
     try {
-      // Fresh module instance: the catalog caches Google's voice list for 24h.
+      // Fresh module instance: the catalog snapshots Google's voice list for two weeks.
       vi.resetModules();
       const { getLearningLanguageCatalog: freshCatalog } = await import("@/lib/language-catalog");
       const languages = await freshCatalog("en");

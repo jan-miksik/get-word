@@ -2,7 +2,11 @@ import { createHash } from "crypto";
 import { writeFile } from "fs/promises";
 import path from "path";
 import { enMessages, type I18nMessages } from "@/lib/i18n/locales/en";
-import { TOP_PREGENERATED_UI_LANGUAGE_CODES } from "@/lib/i18n/pre-generated-languages";
+import { generatedBundledMessages } from "@/lib/i18n/generated-bundled-messages";
+import {
+  TOP_PREGENERATED_UI_LANGUAGE_CODES,
+  UI_TRANSLATION_WAVES,
+} from "@/lib/i18n/pre-generated-languages";
 import { normalizeLanguageCode } from "@/lib/i18n/languages";
 import { googleTranslate } from "@/lib/translation";
 
@@ -16,7 +20,21 @@ function sourceHash(): string {
 function resolveTargetCodes(): string[] {
   const requested = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
   const includeSeeded = process.argv.includes("--include-seeded");
-  const source = requested.length > 0 ? requested : [...TOP_PREGENERATED_UI_LANGUAGE_CODES];
+  const waveArgument = process.argv.find((arg) => arg.startsWith("--wave="));
+  // `!== undefined` rather than a truthiness check so TypeScript narrows the
+  // value to the wave keys for the lookup below.
+  const wave = waveArgument?.slice("--wave=".length);
+  if (wave !== undefined && wave !== "1" && wave !== "2") {
+    throw new Error(`[ui-locales] Unknown wave ${wave}; expected --wave=1 or --wave=2.`);
+  }
+  if (wave && requested.length > 0) {
+    throw new Error("[ui-locales] Pass either explicit language codes or --wave, not both.");
+  }
+  const source = requested.length > 0
+    ? requested
+    : wave
+      ? [...UI_TRANSLATION_WAVES[wave]]
+      : [...TOP_PREGENERATED_UI_LANGUAGE_CODES];
   const codes = source.map(normalizeLanguageCode);
   return Array.from(new Set(codes)).filter(
     (code) => includeSeeded || !EXISTING_BUNDLED_LANGUAGES.has(code),
@@ -37,7 +55,9 @@ export const generatedBundledMessages = ${JSON.stringify(messages, null, 2)} sat
 async function generateLanguage(code: string): Promise<I18nMessages> {
   const keys = Object.keys(enMessages) as Array<keyof typeof enMessages>;
   const values = keys.map((key) => enMessages[key]);
-  const translated = await googleTranslate(values, "en", code);
+  const translated = await googleTranslate(values, "en", code, {
+    source: "ui_locale_script",
+  });
   const messages: I18nMessages = { ...enMessages };
 
   translated.forEach((result, index) => {
@@ -61,14 +81,20 @@ async function main() {
     return;
   }
 
-  const generated: Record<string, I18nMessages> = {};
+  // A later release wave must add to the languages already shipped, not replace
+  // them. `--replace` remains available for an intentional full regeneration.
+  const generated: Record<string, I18nMessages> = process.argv.includes("--replace")
+    ? {}
+    : { ...generatedBundledMessages };
   for (const code of codes) {
     console.log(`[ui-locales] Generating ${code}...`);
     generated[code] = await generateLanguage(code);
   }
 
   await writeFile(OUTPUT_PATH, toTsString(generated), "utf8");
-  console.log(`[ui-locales] Wrote ${codes.length} generated UI locale(s) to ${OUTPUT_PATH}`);
+  console.log(
+    `[ui-locales] Generated ${codes.length}; wrote ${Object.keys(generated).length} bundled UI locale(s) to ${OUTPUT_PATH}`,
+  );
 }
 
 main().catch((error) => {

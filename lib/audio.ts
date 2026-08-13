@@ -1,5 +1,9 @@
 import crypto from "crypto";
 import { resolveLanguageVariantLocale } from "@/lib/language-variants";
+import {
+  recordGoogleApiUsageEvent,
+  type GoogleApiUsageContext,
+} from "@/lib/google-api-usage-events";
 
 // Re-exported for server callers that already import from "@/lib/audio". Client
 // components should import it from "@/lib/audio-constants" to avoid pulling in
@@ -71,7 +75,8 @@ function inferGoogleVoiceLanguageCode(voiceId: string | undefined): string | nul
 export async function googleTTS(
   text: string,
   language: string,
-  voiceId?: string,
+  voiceId: string | undefined,
+  usage: GoogleApiUsageContext,
 ): Promise<{ audio: Buffer; sizeBytes: number } | null> {
   const apiKey = process.env.GOOGLE_TTS_API_KEY;
   if (!apiKey) {
@@ -150,6 +155,13 @@ export async function googleTTS(
     if (audio.length === 0) {
       throw new Error("Google TTS returned empty audio");
     }
+    await recordGoogleApiUsageEvent({
+      ...usage,
+      scope: "tts",
+      model: requestedVoiceId || "default-female",
+      units: Array.from(text).length,
+      requestCount: 1,
+    });
     return { audio, sizeBytes: audio.length };
   } catch (err) {
     if (err instanceof Error) throw err;

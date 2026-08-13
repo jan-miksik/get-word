@@ -339,6 +339,8 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
           encryptedKey,
           audioField,
           force,
+          googleUsageSource: "audio_batch",
+          googleUsageUserId: user.id,
         });
         if (quotaExhausted) {
           quotaExhaustedMessage = quotaExhausted;

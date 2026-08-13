@@ -80,7 +80,7 @@ export async function generatePhotoLabAudio({
       const outcomes = await Promise.all(
         batch.map(async (candidate) => {
           if (halted) return { hash: candidate.hash, ok: false, halt: false };
-          return generateClip(candidate.hash, candidate.text, language, candidate.voiceId);
+          return generateClip(userId, candidate.hash, candidate.text, language, candidate.voiceId);
         }),
       );
       for (const outcome of outcomes) {
@@ -137,6 +137,7 @@ async function reserveAudioBudget(
 type ClipOutcome = { hash: string; ok: boolean; halt: boolean };
 
 async function generateClip(
+  userId: string,
   hash: string,
   text: string,
   language: string,
@@ -144,7 +145,12 @@ async function generateClip(
 ): Promise<ClipOutcome> {
   const namedVoice = voiceId !== DEFAULT_VOICE_ID ? voiceId : undefined;
   try {
-    const result = await runGoogleTtsWithRetry(() => googleTTS(text, language, namedVoice));
+    const result = await runGoogleTtsWithRetry(() =>
+      googleTTS(text, language, namedVoice, {
+        source: "photo_lab_audio",
+        userId,
+      }),
+    );
     if (!result) return { hash, ok: false, halt: false };
 
     const [uploadResult, mirrorResult] = await Promise.allSettled([

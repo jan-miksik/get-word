@@ -12,10 +12,13 @@ import type {
   UsageWeekBucket,
   UserActivityDay,
   WordChatUsageAccountRow,
+  GoogleApiUsageSourceRow,
+  UiLanguageRequestRow,
 } from '@/features/admin/types';
 import { PHOTO_ANALYSIS_TRACKING_STARTED_AT } from '@/features/photo-lab/server/analysis-events';
 import { userHandle } from '@/features/admin/server/userHandle';
 import { WORD_CHAT_MONTHLY_SPEND_LIMIT_USD } from '@/features/word-chat/server/config';
+import { getGoogleApiFreeMonthlyUnits } from './google-api-usage';
 import { db } from '../client';
 import {
   TREND_WEEKS,
@@ -96,6 +99,24 @@ function excludedUserCondition(alias: string, options: Required<Pick<UsageStatsO
 
 function includedUserCondition(alias: string, options: Required<Pick<UsageStatsOptions, 'excludedUserIds' | 'excludedUserEmails'>>): SQL {
   return sql`NOT (${excludedUserCondition(alias, options)})`;
+}
+
+/**
+ * Run one panel's query, degrading to an empty panel instead of a dead page.
+ *
+ * Migrations here are applied by hand, so a deploy can legitimately run ahead
+ * of its table for a while. Without this, one missing relation turns the whole
+ * dashboard — registrations, retention, devices, spend — into a 500.
+ */
+async function executeOrEmpty(query: SQL, context: string): Promise<Record<string, unknown>[]> {
+  try {
+    return (await db.execute(query)) as unknown as Record<string, unknown>[];
+  } catch (error) {
+    console.error(`[usage-stats] ${context} unavailable`, {
+      error: error instanceof Error ? error.message : String(error),
+    });
+    return [];
+  }
 }
 
 /**
@@ -428,6 +449,49 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
     ) DESC, wcu.user_id
   `);
 
+  // Successful Google provider calls, including system/operator work without a
+  // user id. This event ledger is distinct from the per-user reservation table:
+  // it represents calls that actually reached Google and therefore explains the
+  // Cloud Billing total by feature source.
+  //
+  // Degrades to an empty section rather than taking the whole dashboard down:
+  // migrations here are applied by hand, so between deploying this code and
+  // running 0059 the table does not exist yet. The write path in
+  // `recordGoogleApiUsageEvent` swallows the same error for the same reason.
+  const googleApiRows = await executeOrEmpty(
+    sql`
+      SELECT gaue.scope::text AS scope,
+             gaue.source AS source,
+             gaue.model AS model,
+             coalesce(sum(gaue.units), 0)::bigint AS units,
+             coalesce(sum(gaue.request_count), 0)::bigint AS requests
+      FROM google_api_usage_events gaue
+      LEFT JOIN users u ON u.id = gaue.user_id
+      WHERE ${includedUserCondition('u', exclusionOptions)}
+        AND gaue.created_at >= ${currentMonthStart.toISOString()}::timestamp
+        AND gaue.created_at < ${nextMonthStart.toISOString()}::timestamp
+      GROUP BY gaue.scope, gaue.source, gaue.model
+      ORDER BY sum(gaue.units) DESC, sum(gaue.request_count) DESC, gaue.source
+    `,
+    'google_api_usage_events',
+  );
+
+  // Demand for new bundled interface languages. Like the Google ledger above,
+  // this panel remains empty until its hand-run migration has been deployed.
+  const uiLanguageRequestRows = await executeOrEmpty(
+    sql`
+      SELECT uilr.language_code,
+             count(*)::int AS requesters,
+             max(uilr.updated_at) AS last_requested_at
+      FROM ui_language_requests uilr
+      JOIN users u ON u.id = uilr.user_id
+      WHERE ${includedUserCondition('u', exclusionOptions)}
+      GROUP BY uilr.language_code
+      ORDER BY count(*) DESC, max(uilr.updated_at) DESC, uilr.language_code
+    `,
+    'ui_language_requests',
+  );
+
   // Per-user "who to write to" rows: registered users with an e-mail, including
   // one-time users (no activity filter). Each behavioural source is aggregated
   // to one row per user BEFORE the joins, so a user with several devices,
@@ -619,6 +683,31 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
     { calls: 0, inputTokens: 0, outputTokens: 0, estimatedCostUsd: 0 }
   );
 
+  const googleApiSources: GoogleApiUsageSourceRow[] = googleApiRows.map((raw) => {
+    const row = raw as Record<string, unknown>;
+    return {
+      scope: row.scope === 'tts' ? 'tts' : 'translate',
+      source: String(row.source ?? 'unknown'),
+      model: row.model == null ? null : String(row.model),
+      units: numberFromRow(row, 'units'),
+      requests: numberFromRow(row, 'requests'),
+    };
+  });
+  const translateUnits = googleApiSources
+    .filter((row) => row.scope === 'translate')
+    .reduce((total, row) => total + row.units, 0);
+  const ttsUnits = googleApiSources
+    .filter((row) => row.scope === 'tts')
+    .reduce((total, row) => total + row.units, 0);
+  const googleApiRequests = googleApiSources.reduce((total, row) => total + row.requests, 0);
+  const translateFreeUnits = getGoogleApiFreeMonthlyUnits('translate');
+  const ttsFreeUnits = getGoogleApiFreeMonthlyUnits('tts');
+  const uiLanguageRequestLanguages: UiLanguageRequestRow[] = uiLanguageRequestRows.map((row) => ({
+    languageCode: String(row.language_code ?? ''),
+    requesters: numberFromRow(row, 'requesters'),
+    lastRequestedAt: toIso(row.last_requested_at) ?? '',
+  }));
+
   const platformBreakdown30d: DeviceBreakdownBucket[] = devicePlatformRows.map((raw) => {
     const row = raw as Record<string, unknown>;
     return {
@@ -723,6 +812,24 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
       monthlyLimitUsd: WORD_CHAT_MONTHLY_SPEND_LIMIT_USD,
       ...wordChatTotals,
       accounts: wordChatAccounts,
+    },
+    googleApi: {
+      monthStart: currentMonthStart.toISOString(),
+      translateFreeUnits,
+      ttsFreeUnits,
+      translateUnits,
+      ttsUnits,
+      requests: googleApiRequests,
+      estimatedTranslationCostUsd:
+        Math.max(0, translateUnits - translateFreeUnits) * 20 / 1_000_000,
+      sources: googleApiSources,
+    },
+    uiLanguageRequests: {
+      totalRequests: uiLanguageRequestLanguages.reduce(
+        (total, row) => total + row.requesters,
+        0,
+      ),
+      languages: uiLanguageRequestLanguages,
     },
     activityHeatmap,
     users,

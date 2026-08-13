@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import { useI18n } from '@/components/I18nProvider';
+import { noTranslateProps } from '@/lib/i18n/no-translate';
 import {
   KebabIcon,
   PencilIcon,
@@ -442,7 +443,7 @@ export function SelectStep({
                     {/* Wraps rather than truncates: a proposed sentence is the
                         thing being decided on, and half of it is not enough to
                         decide with. The row grows instead. */}
-                    <span className="min-w-0 flex-1 break-words text-sm leading-snug">
+                    <span {...noTranslateProps('min-w-0 flex-1 break-words text-sm leading-snug')}>
                       {item.text}
                     </span>
                   </button>

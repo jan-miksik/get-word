@@ -20,6 +20,7 @@ describe("generateFromGoogleTranslateSeed", () => {
     ]);
 
     const result = await generateFromGoogleTranslateSeed({
+      userId: "user-1",
       languageFrom: "en",
       languageTo: "cs",
       sourceLanguage: "en",
@@ -33,6 +34,7 @@ describe("generateFromGoogleTranslateSeed", () => {
       ["hello", "thank you"],
       "en",
       "cs",
+      { source: "common_list_autogenerate", userId: "user-1" },
     );
     expect(result).toEqual([
       { sourceIndex: 0, known: "hello", target: "ahoj", category: "Greetings" },
@@ -50,14 +52,27 @@ describe("generateFromGoogleTranslateSeed", () => {
       ]);
 
     const result = await generateFromGoogleTranslateSeed({
+      userId: "user-1",
       languageFrom: "en",
       languageTo: "cs",
       sourceLanguage: "de",
       sourceItems: [{ sourceIndex: 2, source: "hallo", category: "" }],
     });
 
-    expect(mockGoogleTranslate).toHaveBeenNthCalledWith(1, ["hallo"], "de", "en");
-    expect(mockGoogleTranslate).toHaveBeenNthCalledWith(2, ["hallo"], "de", "cs");
+    expect(mockGoogleTranslate).toHaveBeenNthCalledWith(
+      1,
+      ["hallo"],
+      "de",
+      "en",
+      { source: "common_list_autogenerate", userId: "user-1" },
+    );
+    expect(mockGoogleTranslate).toHaveBeenNthCalledWith(
+      2,
+      ["hallo"],
+      "de",
+      "cs",
+      { source: "common_list_autogenerate", userId: "user-1" },
+    );
     expect(result).toEqual([
       { sourceIndex: 2, known: "hello", target: "ahoj", category: "Common" },
     ]);
@@ -69,6 +84,7 @@ describe("generateFromGoogleTranslateSeed", () => {
     ]);
 
     const result = await generateFromGoogleTranslateSeed({
+      userId: "user-1",
       languageFrom: "en",
       languageTo: "cs",
       sourceLanguage: "en",

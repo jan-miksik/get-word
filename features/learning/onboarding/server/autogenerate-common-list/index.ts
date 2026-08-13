@@ -274,6 +274,7 @@ async function buildPreparedItems(input: {
         languageTo: input.languageTo,
       });
       const fallback = await generateFromGoogleTranslateSeed({
+        userId: input.userId,
         languageFrom: input.languageFrom,
         languageTo: input.languageTo,
         sourceLanguage,

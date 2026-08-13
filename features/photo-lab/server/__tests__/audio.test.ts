@@ -161,7 +161,10 @@ describe('generatePhotoLabAudio', () => {
     });
 
     const expectedVoice = pickVoiceForText('pes', voices);
-    expect(mocks.googleTTS).toHaveBeenCalledWith('pes', 'cs', expectedVoice);
+    expect(mocks.googleTTS).toHaveBeenCalledWith('pes', 'cs', expectedVoice, {
+      source: 'photo_lab_audio',
+      userId: 'user-5',
+    });
     expect(mocks.computeContentHash).toHaveBeenCalledWith(
       'pes',
       'cs',
@@ -184,7 +187,10 @@ describe('generatePhotoLabAudio', () => {
       items: [{ id: 'a', text: 'pes' }],
     });
 
-    expect(mocks.googleTTS).toHaveBeenCalledWith('pes', 'cs', undefined);
+    expect(mocks.googleTTS).toHaveBeenCalledWith('pes', 'cs', undefined, {
+      source: 'photo_lab_audio',
+      userId: 'user-6',
+    });
     expect(mocks.createMediaAsset).toHaveBeenCalledWith(
       expect.objectContaining({ voiceId: null }),
     );

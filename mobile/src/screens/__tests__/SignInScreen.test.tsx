@@ -68,7 +68,7 @@ describe('SignInScreen email flow', () => {
     renderScreen();
 
     expect(screen.getByRole('img', { name: 'Get Word logo' })).toBeTruthy();
-    expect(screen.getByRole('heading', { name: 'Vítejte' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Vítej' })).toBeTruthy();
     expect(
       screen.getByText('Všechny způsoby přihlášení fungují pro nové i existující účty.'),
     ).toBeTruthy();

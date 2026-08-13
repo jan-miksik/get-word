@@ -15,6 +15,7 @@ import {
   type WordSide,
 } from './types';
 import { useI18n } from '@/components/I18nProvider';
+import { noTranslateProps } from '@/lib/i18n/no-translate';
 import { shuffleGameItems } from '@/features/learning/minigames';
 
 interface Props {
@@ -112,7 +113,7 @@ export function MultipleChoiceGame({
           </button>
         </div>
       ) : (
-        <div className="game-prompt">{prompt}</div>
+        <div {...noTranslateProps('game-prompt')}>{prompt}</div>
       )}
       <div className="game-options-grid">
         {options.map(opt => {
@@ -126,7 +127,7 @@ export function MultipleChoiceGame({
             <button
               key={opt.id}
               type="button"
-              className={`game-option game-option--${state}`}
+              {...noTranslateProps(`game-option game-option--${state}`)}
               onClick={() => handleSelect(opt.id)}
               disabled={answered}
             >
@@ -137,9 +138,14 @@ export function MultipleChoiceGame({
       </div>
       {answered ? (
         <div className="game-feedback">
-          <span className={options.find(o => o.id === selected)?.isCorrect ? 'game-feedback--exact' : 'game-feedback--wrong'}>
-            {options.find(o => o.id === selected)?.isCorrect ? `✓ ${t('game.correct')}` : `✗  ${correctAnswer}`}
-          </span>
+          {/* The two branches are separate elements so the wrong-answer one can
+              carry the study-text opt-out on a single text node, rather than
+              splitting the line around an inner span. */}
+          {options.find(o => o.id === selected)?.isCorrect ? (
+            <span className="game-feedback--exact">{`✓ ${t('game.correct')}`}</span>
+          ) : (
+            <span {...noTranslateProps('game-feedback--wrong')}>{`✗  ${correctAnswer}`}</span>
+          )}
         </div>
       ) : (
         <div className="min-h-[44px]" aria-hidden="true" />

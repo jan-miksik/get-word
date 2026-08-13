@@ -14,6 +14,7 @@ import {
 import { useAdminStats } from '@/features/admin/client/useAdminStats';
 import type { AdminUserRow, DeviceFormFactor, DevicePlatform } from '@/features/admin/types';
 import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLanguage';
+import { getLanguageFlag, getLocalizedLanguageName } from '@/lib/i18n/languages';
 
 type SortDirection = 'asc' | 'desc';
 type UserSortKey =
@@ -67,7 +68,7 @@ export function AdminStatsPage() {
 }
 
 function AdminStatsContent() {
-  const { t } = useI18n();
+  const { t, language } = useI18n();
   const { state, activityWindow, reload, changeActivityWindow } = useAdminStats();
   const [revealedEmails, setRevealedEmails] = useState<Set<string>>(new Set());
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
@@ -140,6 +141,39 @@ function AdminStatsContent() {
         return t('adminStats.deviceFormDesktop');
       case 'unknown':
         return t('adminStats.deviceFormUnknown');
+    }
+  };
+
+  const googleUsageSourceLabel = (source: string) => {
+    switch (source) {
+      case 'audio_batch':
+        return t('adminStats.googleApiSourceAudioBatch');
+      case 'audio_repair':
+        return t('adminStats.googleApiSourceAudioRepair');
+      case 'common_list_autogenerate':
+        return t('adminStats.googleApiSourceCommonList');
+      case 'landing_demo_audio_script':
+        return t('adminStats.googleApiSourceDemoAudio');
+      case 'landing_demo_words_script':
+        return t('adminStats.googleApiSourceDemoWords');
+      case 'list_fork':
+        return t('adminStats.googleApiSourceListFork');
+      case 'photo_lab_audio':
+        return t('adminStats.googleApiSourcePhotoLab');
+      case 'supported_languages':
+        return t('adminStats.googleApiSourceLanguages');
+      case 'translation_batch':
+        return t('adminStats.googleApiSourceListTranslation');
+      case 'tts_voice_catalog':
+        return t('adminStats.googleApiSourceVoiceCatalog');
+      case 'ui_locale_runtime':
+        return t('adminStats.googleApiSourceUiRuntime');
+      case 'ui_locale_script':
+        return t('adminStats.googleApiSourceUiScript');
+      case 'word_chat_audio':
+        return t('adminStats.googleApiSourceWordChat');
+      default:
+        return source;
     }
   };
 
@@ -524,6 +558,126 @@ function AdminStatsContent() {
                             {t('adminStats.revealEmail')}
                           </button>
                         )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Section>
+
+        <Section
+          title={t('adminStats.sectionGoogleApi')}
+          note={t('adminStats.googleApiNote', {
+            date: new Date(stats.googleApi.monthStart).toLocaleDateString(),
+          })}
+        >
+          <CardGrid>
+            <StatCard
+              label={t('adminStats.googleApiTranslate')}
+              value={formatTokens(stats.googleApi.translateUnits)}
+              highlight
+              note={`${Math.round((stats.googleApi.translateUnits / Math.max(1, stats.googleApi.translateFreeUnits)) * 100)}% · ${formatTokens(stats.googleApi.translateFreeUnits)}`}
+            />
+            <StatCard
+              label={t('adminStats.googleApiTts')}
+              value={formatTokens(stats.googleApi.ttsUnits)}
+              note={`${Math.round((stats.googleApi.ttsUnits / Math.max(1, stats.googleApi.ttsFreeUnits)) * 100)}% · ${formatTokens(stats.googleApi.ttsFreeUnits)}`}
+            />
+            <StatCard
+              label={t('adminStats.googleApiRequests')}
+              value={stats.googleApi.requests}
+            />
+            <StatCard
+              label={t('adminStats.googleApiEstimatedTranslateCost')}
+              value={formatUsd(stats.googleApi.estimatedTranslationCostUsd)}
+            />
+          </CardGrid>
+          {stats.googleApi.sources.length === 0 ? (
+            <p className="text-sm text-text-soft">{t('adminStats.googleApiNoUsage')}</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-border-subtle">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-text-soft bg-background-elevated">
+                    <th className="px-3 py-2 font-medium">{t('adminStats.googleApiScope')}</th>
+                    <th className="px-3 py-2 font-medium">{t('adminStats.googleApiSource')}</th>
+                    <th className="px-3 py-2 font-medium">{t('adminStats.googleApiModel')}</th>
+                    <th className="px-3 py-2 font-medium text-right">{t('adminStats.googleApiUnits')}</th>
+                    <th className="px-3 py-2 font-medium text-right">{t('adminStats.googleApiRequests')}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.googleApi.sources.map((row) => (
+                    <tr
+                      key={`${row.scope}:${row.source}:${row.model ?? ''}`}
+                      className="border-t border-border-subtle"
+                    >
+                      <td className="px-3 py-2">{row.scope === 'tts' ? 'TTS' : 'Translate'}</td>
+                      <td className="px-3 py-2">
+                        <span className="block">{googleUsageSourceLabel(row.source)}</span>
+                        <span className="block font-mono text-[10px] text-text-soft">
+                          {row.source}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-text-soft">{row.model ?? '—'}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{formatTokens(row.units)}</td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.requests}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </Section>
+
+        <Section
+          title={t('adminStats.sectionUiLanguageRequests')}
+          note={t('adminStats.uiLanguageRequestsNote')}
+        >
+          <CardGrid>
+            <StatCard
+              label={t('adminStats.uiLanguageRequestsTotal')}
+              value={stats.uiLanguageRequests.totalRequests}
+              highlight
+            />
+            <StatCard
+              label={t('adminStats.uiLanguageRequestsLanguages')}
+              value={stats.uiLanguageRequests.languages.length}
+            />
+          </CardGrid>
+          {stats.uiLanguageRequests.languages.length === 0 ? (
+            <p className="text-sm text-text-soft">{t('adminStats.uiLanguageRequestsEmpty')}</p>
+          ) : (
+            <div className="overflow-x-auto rounded-lg border border-border-subtle">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-text-soft bg-background-elevated">
+                    <th className="px-3 py-2 font-medium">{t('adminStats.uiLanguage')}</th>
+                    <th className="px-3 py-2 font-medium text-right">
+                      {t('adminStats.uiLanguageRequesters')}
+                    </th>
+                    <th className="px-3 py-2 font-medium text-right">
+                      {t('adminStats.uiLanguageLastRequested')}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.uiLanguageRequests.languages.map((row) => (
+                    <tr key={row.languageCode} className="border-t border-border-subtle">
+                      <td className="px-3 py-2">
+                        <span className="mr-2" aria-hidden="true">
+                          {getLanguageFlag(row.languageCode) ?? '🌐'}
+                        </span>
+                        {getLocalizedLanguageName(row.languageCode, language) ?? row.languageCode}
+                        <span className="ml-2 font-mono text-[10px] text-text-soft">
+                          {row.languageCode}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">{row.requesters}</td>
+                      <td className="px-3 py-2 text-right text-text-soft whitespace-nowrap">
+                        {formatDate(row.lastRequestedAt)}
                       </td>
                     </tr>
                   ))}

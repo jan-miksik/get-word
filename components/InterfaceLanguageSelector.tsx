@@ -6,6 +6,7 @@ import { useI18n } from '@/components/I18nProvider';
 import { writePreferredPublicLanguage } from '@/lib/i18n/public-language';
 import {
   COMMON_LANGUAGES,
+  GOOGLE_TRANSLATE_LANGUAGES,
   getLanguageFlag,
   getLocalizedLanguageName,
   getNativeLanguageName,
@@ -15,8 +16,9 @@ import {
   orderSettingsLanguages,
   type SupportedLanguage,
 } from '@/lib/i18n/languages';
-import { REVIEWED_LANGUAGES } from '@/lib/i18n/messages';
-import { apiFetch } from '@/features/shared/http/api-runtime';
+import { BUNDLED_UI_LANGUAGE_CODES, REVIEWED_LANGUAGES } from '@/lib/i18n/messages';
+import { UiLanguageRequestPanel } from '@/features/shared/languages/UiLanguageRequestPanel';
+import { usePlatformCapabilities } from '@/packages/product/shared/platform/capabilities';
 
 interface InterfaceLanguageSelectorProps {
   value: string;
@@ -37,6 +39,12 @@ const onboardingVars = {
   '--ob-accent': '#1E6FA8',
 } as CSSProperties;
 
+const BUNDLED_UI_LANGUAGE_CODE_SET = new Set(
+  BUNDLED_UI_LANGUAGE_CODES.map(normalizeLanguageCode),
+);
+const BUNDLED_UI_LANGUAGES = mergeLanguages(COMMON_LANGUAGES, GOOGLE_TRANSLATE_LANGUAGES)
+  .filter((item) => BUNDLED_UI_LANGUAGE_CODE_SET.has(normalizeLanguageCode(item.code)));
+
 export function InterfaceLanguageSelector({
   value,
   onChange,
@@ -47,15 +55,14 @@ export function InterfaceLanguageSelector({
   languages: providedLanguages,
 }: InterfaceLanguageSelectorProps) {
   const { t, language } = useI18n();
+  const { runtime } = usePlatformCapabilities();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
-  const [fetchedLanguages, setFetchedLanguages] = useState<SupportedLanguage[]>(COMMON_LANGUAGES);
-  const [failed, setFailed] = useState(false);
+  const [view, setView] = useState<'available' | 'request'>('available');
   const ref = useRef<HTMLDivElement>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const dropdownShiftRef = useRef(0);
-  const languages = providedLanguages ?? fetchedLanguages;
-  const showFailed = !providedLanguages && failed;
+  const languages = providedLanguages ?? BUNDLED_UI_LANGUAGES;
 
   useEffect(() => {
     if (!open) return;
@@ -109,29 +116,12 @@ export function InterfaceLanguageSelector({
     };
   }, [open]);
 
-  useEffect(() => {
-    if (providedLanguages || !open) return;
-    let cancelled = false;
-    const params = new URLSearchParams({ target: language });
-    if (query.trim()) params.set('q', query.trim());
-    apiFetch(`/api/settings-languages?${params.toString()}`)
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('Failed'))))
-      .then((data) => {
-        if (cancelled) return;
-        setFailed(false);
-        setFetchedLanguages(mergeLanguages(COMMON_LANGUAGES, data.languages ?? []));
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setFailed(true);
-        setFetchedLanguages(COMMON_LANGUAGES);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, language, providedLanguages, query]);
-
-  const normalizedValue = normalizeLanguageCode(value);
+  const requestedValue = normalizeLanguageCode(value);
+  const normalizedValue = languages.some(
+    (item) => normalizeLanguageCode(item.code) === requestedValue,
+  )
+    ? requestedValue
+    : 'en';
   const getDisplayName = useCallback(
     (item: SupportedLanguage) =>
       getLocalizedLanguageName(item.code, language) ?? item.name,
@@ -168,7 +158,10 @@ export function InterfaceLanguageSelector({
 
   function toggleOpen() {
     const opening = !open;
-    if (opening) setFailed(false);
+    if (opening) {
+      setView('available');
+      setQuery('');
+    }
     setOpen(opening);
   }
 
@@ -211,33 +204,35 @@ export function InterfaceLanguageSelector({
           ref={dropdownRef}
           className={`absolute ${dropdownAlign} z-30 mt-2 w-80 max-w-[calc(100vw-1.5rem)]`}
         >
-          <input
-            type="search"
-            value={query}
-            autoFocus
-            placeholder={t('onboarding.searchLanguages')}
-            aria-label={t('language.selectorLabel')}
-            onChange={(event) => {
-              setFailed(false);
-              setQuery(event.target.value);
-            }}
-            // 16px on a phone: iOS Safari auto-zooms into any focused field
-            // under that, and this one takes focus the moment the dropdown
-            // opens — so the page arrived zoomed in and clipped at the sides.
-            // Back to 14px from `sm` up, where no browser zooms.
-            className="mb-1.5 h-10 w-full rounded-xl border-2 border-[var(--ob-ink)] bg-[var(--ob-surface)] px-3 text-base text-[color:var(--ob-ink)] outline-none transition-colors placeholder:text-[color:var(--ob-ink-soft)] placeholder:opacity-70 focus:bg-[var(--ob-surface-hover)] sm:text-sm"
-          />
-          <div className="onboarding-combobox-list overflow-hidden">
+          {view === 'request' ? (
+            <UiLanguageRequestPanel
+              supportedCodes={BUNDLED_UI_LANGUAGE_CODE_SET}
+              onBack={() => {
+                setView('available');
+                setQuery('');
+              }}
+            />
+          ) : (
+            <>
+              <input
+                type="search"
+                value={query}
+                autoFocus
+                placeholder={t('onboarding.searchLanguages')}
+                aria-label={t('language.selectorLabel')}
+                onChange={(event) => setQuery(event.target.value)}
+                // 16px on a phone: iOS Safari auto-zooms into any focused field
+                // under that, and this one takes focus the moment the dropdown
+                // opens — so the page arrived zoomed in and clipped at the sides.
+                // Back to 14px from `sm` up, where no browser zooms.
+                className="mb-1.5 h-10 w-full rounded-xl border-2 border-[var(--ob-ink)] bg-[var(--ob-surface)] px-3 text-base text-[color:var(--ob-ink)] outline-none transition-colors placeholder:text-[color:var(--ob-ink-soft)] placeholder:opacity-70 focus:bg-[var(--ob-surface-hover)] sm:text-sm"
+              />
+              <div className="onboarding-combobox-list overflow-hidden">
             <ul
               role="listbox"
               aria-label={t('language.selectorLabel')}
               className="max-h-80 overflow-y-auto p-1"
             >
-              {showFailed ? (
-                <li className="px-3 py-2 text-xs onboarding-text-soft">
-                  {t('language.unavailable')}
-                </li>
-              ) : null}
               {visibleLanguages.length === 0 ? (
                 <li className="px-3 py-2 text-sm onboarding-text-soft">
                   {t('onboarding.noLanguagesFound')}
@@ -289,7 +284,26 @@ export function InterfaceLanguageSelector({
                 {t('language.autogeneratedBadgeHelp')}
               </div>
             ) : null}
-          </div>
+                <div className="border-t-2 border-[var(--ob-ink)] p-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setView('request');
+                      setQuery('');
+                    }}
+                    className="w-full rounded-lg px-2 py-1.5 text-left text-xs font-bold text-[color:var(--ob-accent)] hover:bg-[var(--ob-surface-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--ob-accent)]"
+                  >
+                    + {t('language.requestButton')}
+                  </button>
+                  {runtime === 'web' ? (
+                    <p className="mb-0 mt-1.5 px-2 text-[0.68rem] leading-snug onboarding-text-soft">
+                      {t('language.browserTranslateHelp')}
+                    </p>
+                  ) : null}
+                </div>
+              </div>
+            </>
+          )}
         </div>
       ) : null}
     </div>

@@ -2,6 +2,7 @@
 
 import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
+import { noTranslateProps } from '@/lib/i18n/no-translate';
 import { resolveClipUrl } from '../client/clip-playback';
 import { MAX_WORD_CHAT_ITEM_CHARS } from '../limits';
 import type { TranslationDiagnostics } from '../hooks/useWordChat';
@@ -279,7 +280,7 @@ export function ReviewStep({
                       would leave a translation of something else standing
                       underneath it, so it is shown, not offered. Changing it is
                       a step back, where re-translating is the point. */}
-                  <p className="break-words text-base leading-snug sm:text-lg">
+                  <p {...noTranslateProps('break-words text-base leading-snug sm:text-lg')}>
                     {item.textKnown}
                   </p>
                   <AutoGrowingText

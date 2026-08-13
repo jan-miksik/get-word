@@ -529,6 +529,31 @@ export const uiTranslationCache = pgTable(
   (table) => [index("ui_translation_cache_source_hash_idx").on(table.sourceHash)],
 );
 
+// One row per user and requested interface language. Repeated taps refresh the
+// timestamp but never inflate demand from the same person.
+export const uiLanguageRequests = pgTable(
+  "ui_language_requests",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    languageCode: text("language_code").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    unique("ui_language_requests_user_language_unique").on(
+      table.userId,
+      table.languageCode,
+    ),
+    index("ui_language_requests_language_updated_idx").on(
+      table.languageCode,
+      table.updatedAt,
+    ),
+  ],
+);
+
 // User progress - tracks spaced repetition for each word
 export const userProgress = pgTable(
   "user_progress",
@@ -869,6 +894,34 @@ export const googleApiUsage = pgTable(
   ],
 );
 
+// Append-only provider-call ledger. Unlike google_api_usage (the per-user
+// reservation/cap table), this records calls that actually reached Google and
+// also supports system/operator work where there is no user to charge.
+export const googleApiUsageEvents = pgTable(
+  "google_api_usage_events",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").references(() => users.id, { onDelete: "set null" }),
+    scope: googleApiScopeEnum("scope").notNull(),
+    source: text("source").notNull(),
+    model: text("model"),
+    units: integer("units").notNull().default(0),
+    requestCount: integer("request_count").notNull().default(1),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("google_api_usage_events_created_idx").on(table.createdAt),
+    index("google_api_usage_events_scope_created_idx").on(table.scope, table.createdAt),
+    index("google_api_usage_events_source_created_idx").on(table.source, table.createdAt),
+    index("google_api_usage_events_user_created_idx").on(table.userId, table.createdAt),
+    check("google_api_usage_events_units_nonnegative", sql`${table.units} >= 0`),
+    check(
+      "google_api_usage_events_request_count_nonnegative",
+      sql`${table.requestCount} >= 0`,
+    ),
+  ],
+);
+
 // User list subscriptions - tracks which curated lists a user follows
 export const userListSubscriptions = pgTable(
   "user_list_subscriptions",
@@ -1004,6 +1057,8 @@ export type UserLanguagePreference = typeof userLanguagePreferences.$inferSelect
 export type NewUserLanguagePreference = typeof userLanguagePreferences.$inferInsert;
 export type UiTranslationCache = typeof uiTranslationCache.$inferSelect;
 export type NewUiTranslationCache = typeof uiTranslationCache.$inferInsert;
+export type UiLanguageRequest = typeof uiLanguageRequests.$inferSelect;
+export type NewUiLanguageRequest = typeof uiLanguageRequests.$inferInsert;
 export type UserProgress = typeof userProgress.$inferSelect;
 export type NewUserProgress = typeof userProgress.$inferInsert;
 export type ReviewEvent = typeof reviewEvents.$inferSelect;

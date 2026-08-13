@@ -836,7 +836,7 @@ describe('POST /api/sync', () => {
   it('syncs settings language when supported', async () => {
     mockUpdateUserPreferences.mockResolvedValue({
       ...baseUser,
-      settingsLanguage: 'de',
+      settingsLanguage: 'cs',
       settingsLanguageSelectedAt: new Date('2026-05-01T12:00:00.000Z'),
     })
 
@@ -844,7 +844,7 @@ describe('POST /api/sync', () => {
       method: 'POST',
       body: JSON.stringify({
         deviceId: 'dev-123',
-        settings_language: 'de',
+        settings_language: 'cs',
       }),
       headers: { 'Content-Type': 'application/json' },
     })
@@ -852,13 +852,27 @@ describe('POST /api/sync', () => {
     const data = await res.json()
 
     expect(res.status).toBe(200)
-    expect(mockIsGoogleSupportedLanguage).toHaveBeenCalledWith('de')
+    expect(mockIsGoogleSupportedLanguage).not.toHaveBeenCalled()
     expect(mockUpdateUserPreferences).toHaveBeenCalledWith(
       'uuid-A',
-      expect.objectContaining({ settings_language: 'de' })
+      expect.objectContaining({ settings_language: 'cs' })
     )
-    expect(data.user.settings_language).toBe('de')
+    expect(data.user.settings_language).toBe('cs')
     expect(data.user.settings_language_selected_at).toBe('2026-05-01T12:00:00.000Z')
+  })
+
+  it('rejects an interface language until its translation is bundled', async () => {
+    const req = new NextRequest('http://localhost:3000/api/sync', {
+      method: 'POST',
+      body: JSON.stringify({ deviceId: 'dev-123', settings_language: 'de' }),
+      headers: { 'Content-Type': 'application/json' },
+    })
+
+    const res = await POST(req)
+
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ code: 'INVALID_SETTINGS_LANGUAGE' })
+    expect(mockUpdateUserPreferences).not.toHaveBeenCalled()
   })
 
   it('saves game_score without lowering existing score', async () => {

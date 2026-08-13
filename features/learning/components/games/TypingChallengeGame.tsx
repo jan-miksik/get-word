@@ -22,6 +22,7 @@ import {
 } from './types';
 import { getTypingTargetLanguageLabel } from './target-language-label';
 import { useI18n } from '@/components/I18nProvider';
+import { noTranslateProps } from '@/lib/i18n/no-translate';
 
 // Case/accent-insensitive single-character compare for per-slot feedback.
 // Mirrors matchAnswer's strip (incl. đ→d) so slot colours match the verdict.
@@ -166,12 +167,12 @@ export function TypingChallengeGame({
     exact: `✓ ${t('game.perfect')}`,
     close: (
       <>
-        ~ {t('game.close')} <strong>{matchedAnswer}</strong>
+        ~ {t('game.close')} <strong {...noTranslateProps()}>{matchedAnswer}</strong>
       </>
     ),
     wrong: (
       <>
-        ✗ {t('game.correctAnswer')} <strong>{matchedAnswer}</strong>
+        ✗ {t('game.correctAnswer')} <strong {...noTranslateProps()}>{matchedAnswer}</strong>
       </>
     ),
   };
@@ -191,7 +192,7 @@ export function TypingChallengeGame({
           </button>
         </div>
       ) : (
-        <div className="game-prompt">{prompt}</div>
+        <div {...noTranslateProps('game-prompt')}>{prompt}</div>
       )}
       <div className="game-typing-area">
         <div
@@ -201,7 +202,7 @@ export function TypingChallengeGame({
             isFocused ? 'is-focused' : '',
           ].filter(Boolean).join(' ')}
         >
-          {!useFreeAnswerInput && <div className="game-typing-mask" aria-hidden="true">
+          {!useFreeAnswerInput && <div {...noTranslateProps('game-typing-mask')} aria-hidden="true">
             {(() => {
               const groups: React.ReactNode[] = [];
               let word: React.ReactNode[] = [];

@@ -1,8 +1,20 @@
 import { useEffect, useState } from 'react';
+import { BUNDLED_UI_LANGUAGE_CODES } from '@/lib/i18n/messages';
+import { normalizeLanguageCode } from '@/lib/i18n/languages';
 import { usePreferredPublicLanguage } from '@/lib/i18n/client-language';
 import { readPreferredPublicLanguageSelectedAt } from '@/lib/i18n/public-language';
 import { fetchUserData } from '@/lib/sync';
 import { subscribeTabMessages } from '@/lib/tab-sync';
+
+const BUNDLED_UI_LANGUAGE_CODE_SET = new Set(
+  BUNDLED_UI_LANGUAGE_CODES.map(normalizeLanguageCode),
+);
+
+function supportedSettingsLanguage(value: unknown): string | null {
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const normalized = normalizeLanguageCode(value);
+  return BUNDLED_UI_LANGUAGE_CODE_SET.has(normalized) ? normalized : null;
+}
 
 function timestampMs(value: string | null | undefined): number {
   if (!value) return 0;
@@ -24,8 +36,8 @@ export function useSettingsLanguage(): string {
     void fetchUserData()
       .then((data) => {
         if (cancelled) return;
-        const language = data.user?.settings_language;
-        if (typeof language === 'string' && language.trim()) {
+        const language = supportedSettingsLanguage(data.user?.settings_language);
+        if (language) {
           const serverSelectedAt = data.user?.settings_language_selected_at ?? null;
           const localSelectedAt = readPreferredPublicLanguageSelectedAt();
           if (timestampMs(serverSelectedAt) < timestampMs(localSelectedAt)) return;
@@ -38,8 +50,8 @@ export function useSettingsLanguage(): string {
 
     const unsubscribe = subscribeTabMessages((message) => {
       if (message.type !== 'preferences_changed') return;
-      const language = message.patch.settingsLanguage;
-      if (typeof language === 'string' && language.trim()) {
+      const language = supportedSettingsLanguage(message.patch.settingsLanguage);
+      if (language) {
         setSyncedSettingsLanguage(language);
       }
     });

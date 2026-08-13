@@ -2,6 +2,7 @@
 
 import type { MutableRefObject, PointerEvent, ReactNode, RefObject } from 'react';
 import { useI18n } from '@/components/I18nProvider';
+import { noTranslateProps } from '@/lib/i18n/no-translate';
 import { isAppKeyboardOpen } from '@/hooks/useVisualViewportHeight';
 import { ClipboardCheckIcon } from '@/components/icons/ClipboardCheckIcon';
 import { LightbulbIcon } from '@/components/icons/LightbulbIcon';
@@ -113,7 +114,12 @@ export function TypingAnswerInput({
                 isFocused ? 'is-focused' : '',
               ].filter(Boolean).join(' ')}
             >
-              <div className="game-typing-mask !px-2 !py-1 !text-[1.5rem] sm:!text-[2.5rem] md:[@media(max-height:800px)]:!min-h-[2.7em] md:[@media(max-height:800px)]:!text-[2rem]" aria-hidden="true">
+              <div
+                {...noTranslateProps(
+                  'game-typing-mask !px-2 !py-1 !text-[1.5rem] sm:!text-[2.5rem] md:[@media(max-height:800px)]:!min-h-[2.7em] md:[@media(max-height:800px)]:!text-[2rem]',
+                )}
+                aria-hidden="true"
+              >
                 {mask}
               </div>
               <input

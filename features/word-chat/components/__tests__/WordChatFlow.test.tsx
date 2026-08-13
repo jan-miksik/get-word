@@ -61,9 +61,24 @@ describe('WordChatFlow completion', () => {
     renderFlow(onDone);
 
     expect(screen.getByRole('heading', { level: 2 })).toBeInTheDocument();
+    expect(screen.queryByRole('progressbar')).not.toBeInTheDocument();
+    expect(screen.getByRole('status')).toHaveTextContent('Studijní stream je připravený.');
     expect(screen.getByRole('button', { name: 'Zpět ke studiu' })).toBeEnabled();
     expect(reset).not.toHaveBeenCalled();
     expect(onDone).not.toHaveBeenCalled();
+  });
+
+  it('shows progress only while the study stream refresh is pending', () => {
+    const reset = vi.fn();
+    const onDone = vi.fn();
+    mockedUseWordChat.mockReturnValue(doneChat('pending', reset));
+
+    renderFlow(onDone);
+
+    expect(
+      screen.getByRole('progressbar', { name: 'Připravuji studijní stream…' }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Zpět ke studiu' })).toBeDisabled();
   });
 
   it('resets the mounted flow and returns to study after explicit confirmation', () => {

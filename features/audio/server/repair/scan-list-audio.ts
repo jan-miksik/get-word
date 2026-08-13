@@ -216,7 +216,14 @@ export async function repairListAudio(
             replaceExisting: true,
             voiceId: requestVoice,
           },
-          { provider, voiceId: requestVoice, encryptedKey: null, audioField: side, force: true },
+          {
+            provider,
+            voiceId: requestVoice,
+            encryptedKey: null,
+            audioField: side,
+            force: true,
+            googleUsageSource: "audio_repair",
+          },
         );
 
         return {

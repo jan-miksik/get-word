@@ -48,11 +48,6 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
-  // Disable browser auto-translation (Chrome/Edge). This is a multi-language
-  // learning app, so machine-translating the UI and word content corrupts it.
-  other: {
-    google: 'notranslate',
-  },
   icons: {
     icon: [
       { url: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
@@ -85,8 +80,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" translate="no" className="notranslate">
-      <body translate="no" className="notranslate">
+    <html lang="en">
+      <body>
         <PWARegister />
         <WebPlatformProvider>{children}</WebPlatformProvider>
       </body>

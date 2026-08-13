@@ -98,7 +98,8 @@ export function DemoMatchingGame({
                 key={id}
                 type="button"
                 lang={fromLang}
-                className={`lp-demo-match-btn lp-demo-match-btn--${state} lp-demo-match-btn--pair${id}`}
+                translate="no"
+                className={`notranslate lp-demo-match-btn lp-demo-match-btn--${state} lp-demo-match-btn--pair${id}`}
                 onClick={() => handleLeft(id)}
                 disabled={matched.has(id) || !!wrongPair}
               >
@@ -115,7 +116,8 @@ export function DemoMatchingGame({
                 key={id}
                 type="button"
                 lang={toLang}
-                className={`lp-demo-match-btn lp-demo-match-btn--${state} lp-demo-match-btn--pair${id}`}
+                translate="no"
+                className={`notranslate lp-demo-match-btn lp-demo-match-btn--${state} lp-demo-match-btn--pair${id}`}
                 onClick={() => handleRight(id)}
                 disabled={matched.has(id) || !!wrongPair}
               >

@@ -3,6 +3,7 @@
 import { type ReactNode } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { useOptionalAppStateContext } from '@/context/AppStateContext';
+import { noTranslateProps } from '@/lib/i18n/no-translate';
 import { RevealHint } from './RevealHint';
 import { ScratchCover } from '@/components/ScratchCover';
 
@@ -35,12 +36,10 @@ export function LanguageRow({
           className={`cover-target relative cursor-pointer touch-manipulation select-none max-sm:w-full ${isPressCovered ? 'is-covered max-sm:py-4' : ''} ${isScratch ? 'is-scratch' : ''}`}
           data-lang={lang}
         >
-          {/* translate="no" keeps generated study text intact even if the user
-              manually triggers Chrome translation (the page-level guard only
-              blocks the automatic offer). */}
+          {/* There is no page-level guard any more — the interface is left
+              translatable on purpose — so the study text has to opt out here. */}
           <span
-            className={`lang-text notranslate inline-block relative min-h-[1.4em] ${textSizeClass}`}
-            translate="no"
+            {...noTranslateProps(`lang-text inline-block relative min-h-[1.4em] ${textSizeClass}`)}
           >
             {children}
           </span>

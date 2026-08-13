@@ -2,20 +2,19 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { I18nProvider } from '../I18nProvider';
 import { InterfaceLanguageSelector } from '../InterfaceLanguageSelector';
+import { PlatformCapabilitiesProvider } from '@/packages/product/shared/platform/capabilities';
 
 describe('InterfaceLanguageSelector', () => {
   beforeEach(() => {
     localStorage.clear();
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({
-        languages: [
-          { code: 'en', name: 'English', source: 'common', flag: '🇬🇧' },
-          { code: 'cs', name: 'Czech', source: 'google', flag: '🇨🇿' },
-          { code: 'de', name: 'German', source: 'google', flag: '🇩🇪' },
-        ],
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({
+        ok: true,
+        status: 201,
+        json: async () => ({ languageCode: 'de' }),
       }),
-    }));
+    );
   });
 
   it('shows flags in the trigger and language rows', async () => {
@@ -105,9 +104,65 @@ describe('InterfaceLanguageSelector', () => {
     );
 
     fireEvent.click(screen.getByRole('button', { name: 'App language' }));
+    fireEvent.click(await screen.findByRole('option', { name: /Vietnamese/i }));
+
+    expect(onChange).toHaveBeenCalledWith('vi');
+    expect(localStorage.getItem('get-word-landing-lang')).toBe('vi');
+  });
+
+  it('shows only bundled languages and records a request for a missing one', async () => {
+    render(
+      <I18nProvider language="en">
+        <InterfaceLanguageSelector value="en" onChange={vi.fn()} />
+      </I18nProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'App language' }));
+    expect(screen.queryByRole('option', { name: /German/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: /Request another app language/i }));
+    fireEvent.change(screen.getByRole('searchbox', { name: 'Search requestable languages' }), {
+      target: { value: 'German' },
+    });
     fireEvent.click(await screen.findByRole('option', { name: /German/i }));
 
-    expect(onChange).toHaveBeenCalledWith('de');
-    expect(localStorage.getItem('get-word-landing-lang')).toBe('de');
+    await waitFor(() => {
+      expect(screen.getByRole('status')).toHaveTextContent(/request for German has been saved/i);
+    });
+    expect(fetch).toHaveBeenCalledWith(
+      '/api/ui-language-requests',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ languageCode: 'de' }),
+      }),
+    );
+  });
+
+  it('shows browser-translation help on web but not in the native app', () => {
+    const { unmount } = render(
+      <I18nProvider language="en">
+        <InterfaceLanguageSelector value="en" onChange={vi.fn()} />
+      </I18nProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'App language' }));
+    expect(screen.getByText(/translate the whole page from your browser menu/i)).toBeInTheDocument();
+    unmount();
+
+    render(
+      <PlatformCapabilitiesProvider
+        value={{
+          runtime: 'native',
+          canInstallPwa: false,
+          hasSecureTokenStorage: true,
+          hasNativeHaptics: true,
+        }}
+      >
+        <I18nProvider language="en">
+          <InterfaceLanguageSelector value="en" onChange={vi.fn()} />
+        </I18nProvider>
+      </PlatformCapabilitiesProvider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'App language' }));
+    expect(screen.queryByText(/translate the whole page from your browser menu/i)).not.toBeInTheDocument();
   });
 });

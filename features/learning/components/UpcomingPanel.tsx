@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAppStateContext } from '@/context/AppStateContext';
 import { useI18n } from '@/components/I18nProvider';
+import { noTranslateProps } from '@/lib/i18n/no-translate';
 import { useWordStream } from '@/features/learning/hooks/useWordStream';
 import { ProgressStatsContent } from './progress/ProgressStatsContent';
 import type { ProgressStats } from '@/lib/progress-stats';
@@ -62,7 +63,7 @@ function WordRow({
   return (
     <li className="flex items-center gap-2 px-2.5 py-[5px] min-h-[28px] rounded-[10px] border-2 border-[#2A2218] bg-[#FFF8E8]">
       <span className={`block w-[3px] h-4 rounded-pill flex-none ${stageBarStyle(stageIdx)}`} aria-hidden />
-      <span className="flex-1 flex items-baseline gap-1.5 min-w-0">
+      <span {...noTranslateProps('flex-1 flex items-baseline gap-1.5 min-w-0')}>
         <span className="text-[0.875rem] leading-tight font-semibold text-[#2A2218] truncate">
           {source}
         </span>

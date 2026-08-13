@@ -1,5 +1,5 @@
 const SUPPORT_TEXT = 'Contact our tech support';
-const SUPPORT_LINK_TEXT = 'Kontaktujte technickou podporu';
+const SUPPORT_LINK_TEXT = 'Kontaktuj technickou podporu';
 const SUPPORT_URL = 'https://t.me/janmiksik';
 
 export function ErrorMessage({ message }: { message: string }) {

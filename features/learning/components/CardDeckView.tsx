@@ -413,7 +413,9 @@ export function CardDeckView({
   if (isDone && !showDoneOverlay) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-2xl font-semibold opacity-60">{t('card.allDone')}</p>
+        <p className="text-2xl font-semibold text-[#2A2218] opacity-70">
+          {t('card.allDone')}
+        </p>
       </div>
     );
   }
@@ -421,7 +423,9 @@ export function CardDeckView({
   if (!item) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-2xl font-semibold opacity-60">{t('card.allDone')}</p>
+        <p className="text-2xl font-semibold text-[#2A2218] opacity-70">
+          {t('card.allDone')}
+        </p>
       </div>
     );
   }
