@@ -64,41 +64,69 @@ export const csMessages: I18nMessages = {
     "Zásady ochrany osobních údajů popisují, co Get Word ukládá, proč a jaká k tomu máte práva.",
   "support.contactTitle": "Kontakt",
   "support.contactBody": "Zastihnete nás na",
-  "landing.hero.title": "Slova, která zůstanou",
-  "landing.hero.subtitle":
-    "Get Word pomáhá zapamatovat si slovíčka a fráze pomocí efektivního opakování a audio výslovnosti. Můžete využít hotové seznamy slovíček a frází nebo si vytvořit vlastní. Pro libovolnou kombinaci jazyků.",
+  "landing.hero.title": "Slovíčka, která ti zůstanou",
+  "landing.hero.subtitle": "Get Word - Aplikace pro studium cizích jazyků",
+  "landing.hero.bonus":
+    "Mini bonus: když dvakrát klikneš na logo Get Word, tak na tebe čeká malé překvapení :)",
   "landing.hero.getStarted": "Začít",
-  "landing.features.title": "Méně náhodného učení, opakování ve správnou chvíli",
-  "landing.features.spacedRepetition.title": "Rozložené opakování",
-  "landing.features.spacedRepetition.body":
-    "Slova se vracejí ve chvíli, kdy je dobré si je znovu připomenout. Díky tomu není potřeba opakovat náhodně ani zbytečně často.",
-  "landing.features.ownLists.title": "Vlastní seznamy",
-  "landing.features.ownLists.body":
-    "Můžete si vytvořit vlastní seznam pro jazykovou kombinaci, kterou právě potřebujete. Překlady a zvukovou výslovnost vám aplikace pomůže připravit, aby se s nimi dalo rovnou pracovat.",
-  "landing.features.audio.title": "Výslovnost",
-  "landing.features.audio.body":
-    "Ke slovům a frázím je možné si pustit zvukovou výslovnost. Pomáhá to vnímat nejen význam, ale i to, jak jazyk opravdu zní.",
-  "landing.features.memoryGames.title": "Paměťové pomůcky a krátká cvičení",
-  "landing.features.memoryGames.body":
-    "Slova se lépe pamatují, když se spojí s představou, asociací nebo jednoduchou hrou. Ke slovům je možné přidávat mnemotechniky a během opakování se objevují drobná cvičení.",
-  "landing.features.sync.title": "Synchronizace mezi zařízeními",
-  "landing.features.sync.body":
-    "Po přihlášení zůstávají seznamy, pokrok i nastavení dostupné na telefonu, tabletu i počítači.",
-  "landing.features.install.title": "Použití jako aplikace",
-  "landing.features.install.body":
-    "Get Word si můžete přidat na domovskou obrazovku a používat ho podobně jako běžnou aplikaci.",
+  "landing.marathon.title": "Je to spíš maraton",
+  "landing.marathon.sliderLabel": "Kolik slovíček týdně",
+  "landing.marathon.wordsPerWeek.one": "nové slovíčko týdně",
+  "landing.marathon.wordsPerWeek.few": "nová slovíčka týdně",
+  "landing.marathon.wordsPerWeek.many": "nových slovíček týdně",
+  "landing.marathon.minutesPerDay.one": "minuta denně",
+  "landing.marathon.minutesPerDay.few": "minuty denně",
+  "landing.marathon.minutesPerDay.many": "minut denně",
+  "landing.marathon.wordsInHorizon.one": "slovíčko",
+  "landing.marathon.wordsInHorizon.few": "slovíčka",
+  "landing.marathon.wordsInHorizon.many": "slovíček",
+  "landing.marathon.horizonLabel": "Za jak dlouho",
+  "landing.marathon.horizon.month": "za měsíc",
+  "landing.marathon.horizon.quarter": "za tři měsíce",
+  "landing.marathon.horizon.halfYear": "za půl roku",
+  "landing.marathon.horizon.year": "za rok",
+  "landing.marathon.coverageValue": "{low}–{high} %",
+  "landing.marathon.coverageLabel": "slov v běžné řeči",
+  "landing.marathon.coverageNote":
+    "Nejčastější slova se opakují pořád dokola, proto pokrytí ze začátku roste rychle a poslední procenta nejpomaleji.",
+  "landing.marathon.methodTitle": "Více",
+  "landing.marathon.methodCurve":
+    "Odhad vychází z naměřené křivky pro mluvenou angličtinu: prvních 100 nejčastějších slov pokrývá kolem 64 % běžné řeči, 500 slov kolem 84 %, 1 000 slov kolem 89 % a 3 000 slov kolem 95 %.",
+  "landing.marathon.methodLastPercent":
+    "Poslední procenta znamenají víc, než vypadají. Rozdíl mezi 95 a 98 % pokrytí je rozdíl mezi jedním neznámým slovem z dvaceti a jedním z padesáti, víc než dvojnásobek. A čím míň neznámých slov kolem sebe máš, tím snáz jejich význam odhadneš z toho, co je obklopuje.",
+  "landing.marathon.methodCoverageMeaning":
+    "Pokrytí tady znamená celkové pokrytí jazyka podle frekvence slov od těch nejčastějších po nejméně časté. Nicméně pokrytí se nerovná porozumění. Pokrytí odhaduje, jak často narazíš na neznámé slovo, ne kolik z řečeného nakonec pochopíš. Pochopení může hodně ovlivnit taky gramatika, rychlost řeči a znalost tématu. U známých témat bude stačit výrazně menší celkové pokrytí a naopak u neznámých témat může mít i velké pokrytí citelné mezery.",
+  "landing.marathon.methodSources": "Zdroje",
+  "landing.marathon.body":
+    "Díky rozloženému opakování se ti nebude dít, že bys úplně zapomněl-a na to, co ses už naučil-a, nebo zbytečně opakoval-a to, co už umíš.",
+  "landing.choice.title": "Výběr řídíš ty",
+  "landing.choice.body":
+    "Nemá tolik smysl učit se slova nebo fráze, které použiješ jednou za 5 let nebo je už dobře znáš, a vynechávat ty, které teď používáš skoro každý den. Toto je pro každého dost jiné, každý máme trochu jinou práci a koníčky. Proto se výběr řídí tím, co určíš ty.",
+  "landing.growth.title": "Růst z více stran",
+  "landing.growth.intro":
+    "Můžeš přidat slovíčka: z fotky, psaním, AI botem, nebo z rozhovoru (na tom zrovna děláme).",
+  "landing.growth.photo.title": "Z fotky",
+  "landing.growth.photo.body":
+    "Z vlastní nahrané fotky AI určí, co je co, udělá překlady, vygeneruje zvuk, a ty si pak můžeš vybrat, která slova se chceš naučit.",
+  "landing.growth.typing.title": "Psaním",
+  "landing.growth.typing.body":
+    "Jenom napíšeš, co chceš umět v cizím jazyce → vytvoří se překlad, vygeneruje zvuk a slovíčko nebo věta se přidá do tvého slovníčku.",
+  "landing.growth.bot.title": "AI botem",
+  "landing.growth.bot.body":
+    "Když napíšeš AI botovi, co bys rád-a uměl-a, tak ti připraví seznam, ze kterého se pak dá vybrat to, co potřebuješ nebo chceš.",
+  "landing.growth.conversation.title": "Z rozhovoru",
+  "landing.growth.conversation.body":
+    "Je to zrovna ve vývoji. Troufám si říct, že to může neskutečně usnadnit přidávání nových slovíček.",
+  "landing.growth.inProgress": "ve vývoji",
+  "landing.pairs.title": "Skoro všechno se vším",
+  "landing.pairs.body":
+    "Podporujeme kombinace jakýchkoli jazyků. Kdybychom měli být úplně přesní, tak asi pro 99 % jazyků, kterými se mluví. Pradávné jazyky jako je staroperština nebo babylonština tam teď nejsou, ale určitě se ozvi, kdybys o něco podobného měl-a zájem, a podíváme se na to.",
   "landing.openSource.title": "Open source",
   "landing.openSource.body":
-    "Get Word je vytvořen jako open-source aplikace. Přečtěte si kód, nahlaste problém nebo přispějte - vše najdete na GitHubu.",
-  "landing.openSource.cta": "Dejte hvězdu na GitHubu",
-  "landing.cta.title": "Začít se dá během pár minut",
-  "landing.cta.body":
-    "Stačí vybrat jazykovou kombinaci a říct, o čem chcete mluvit. Get Word z toho poskládá vaše první slova.",
-  "landing.cta.button": "Začít se učit",
-  "landing.demo.title": "Vyzkoušejte si to",
-  "landing.demo.captionIntro": "Vyzkoušejte si kartičku jako v aplikaci.",
-  "landing.demo.captionScratch": "Setřete zakrytý překlad",
-  "landing.demo.captionRest": "a vyberte, za jak dlouho se má slovíčko zopakovat.",
+    "Jsme open-source app. Budeme rádi za přispění do kódu, hvězdičku na GitHubu nebo nahlášení problému.",
+  "landing.cta.button": "Tak já to zkusím",
+  "landing.demo.caption":
+    "Malá ukázka z aplikace. Stačí setřít zakrytý překlad a vybrat, za jak dlouho se má slovíčko zopakovat.",
   "landing.demo.soon": "hned znovu",
   "landing.demo.comesBack": "„{word}“ se vrátí za {time}",
   "landing.demo.againSoon": "„{word}“ se vrátí za chvíli",

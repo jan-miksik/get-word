@@ -65,40 +65,68 @@ export const viMessages: I18nMessages = {
   "support.contactTitle": "Liên hệ",
   "support.contactBody": "Bạn có thể liên hệ với chúng tôi tại",
   "landing.hero.title": "Những từ ở lại với bạn",
-  "landing.hero.subtitle":
-    "Get Word giúp bạn ghi nhớ từ và cụm từ bằng phương pháp lặp lại ngắt quãng, phát âm bằng âm thanh, cùng các danh sách có sẵn hoặc tự tạo. Cho mọi cặp ngôn ngữ.",
+  "landing.hero.subtitle": "Get Word - Ứng dụng để học ngoại ngữ",
+  "landing.hero.bonus":
+    "Phần thưởng nhỏ: nhấp đúp vào logo Get Word và một bất ngờ nhỏ đang đợi bạn :)",
   "landing.hero.getStarted": "Bắt đầu",
-  "landing.features.title": "Học ít ngẫu nhiên hơn, ôn tập khi thật sự cần",
-  "landing.features.spacedRepetition.title": "Lặp lại ngắt quãng",
-  "landing.features.spacedRepetition.body":
-    "Từ vựng quay lại vào lúc bạn nên ôn lại chúng. Nhờ vậy bạn không cần ôn một cách ngẫu nhiên hay quá thường xuyên.",
-  "landing.features.ownLists.title": "Danh sách của riêng bạn",
-  "landing.features.ownLists.body":
-    "Tạo danh sách riêng cho cặp ngôn ngữ bạn đang cần. Get Word giúp chuẩn bị bản dịch và âm thanh phát âm để bạn có thể dùng danh sách ngay.",
-  "landing.features.audio.title": "Phát âm",
-  "landing.features.audio.body":
-    "Bạn có thể nghe phát âm cho từng từ và cụm từ. Điều này giúp bạn cảm nhận không chỉ nghĩa, mà cả cách ngôn ngữ thật sự vang lên.",
-  "landing.features.memoryGames.title": "Gợi ý ghi nhớ và bài tập ngắn",
-  "landing.features.memoryGames.body":
-    "Từ dễ nhớ hơn khi được gắn với hình ảnh, liên tưởng hoặc một trò chơi đơn giản. Bạn có thể thêm mẹo ghi nhớ và gặp các bài tập nhỏ trong lúc ôn.",
-  "landing.features.sync.title": "Đồng bộ giữa các thiết bị",
-  "landing.features.sync.body":
-    "Sau khi đăng nhập, danh sách, tiến độ và cài đặt của bạn vẫn có trên điện thoại, máy tính bảng và máy tính.",
-  "landing.features.install.title": "Dùng như một ứng dụng",
-  "landing.features.install.body":
-    "Thêm Get Word vào màn hình chính và dùng gần giống một ứng dụng thông thường.",
+  "landing.marathon.title": "Nó giống một cuộc chạy marathon hơn",
+  "landing.marathon.sliderLabel": "Bao nhiêu từ mỗi tuần",
+  "landing.marathon.wordsPerWeek.one": "từ mới mỗi tuần",
+  "landing.marathon.wordsPerWeek.few": "từ mới mỗi tuần",
+  "landing.marathon.wordsPerWeek.many": "từ mới mỗi tuần",
+  "landing.marathon.minutesPerDay.one": "phút mỗi ngày",
+  "landing.marathon.minutesPerDay.few": "phút mỗi ngày",
+  "landing.marathon.minutesPerDay.many": "phút mỗi ngày",
+  "landing.marathon.wordsInHorizon.one": "từ",
+  "landing.marathon.wordsInHorizon.few": "từ",
+  "landing.marathon.wordsInHorizon.many": "từ",
+  "landing.marathon.horizonLabel": "Trong bao lâu",
+  "landing.marathon.horizon.month": "trong một tháng",
+  "landing.marathon.horizon.quarter": "trong ba tháng",
+  "landing.marathon.horizon.halfYear": "trong nửa năm",
+  "landing.marathon.horizon.year": "trong một năm",
+  "landing.marathon.coverageValue": "{low}–{high}%",
+  "landing.marathon.coverageLabel": "số từ trong lời nói thường ngày",
+  "landing.marathon.coverageNote":
+    "Những từ thường gặp nhất lặp lại liên tục, nên mức bao phủ tăng nhanh ở đầu và những phần trăm cuối đến chậm nhất.",
+  "landing.marathon.methodTitle": "Thêm",
+  "landing.marathon.methodCurve":
+    "Ước lượng dựa trên một đường cong đo được cho tiếng Anh nói: 100 từ thường gặp nhất đầu tiên bao phủ khoảng 64 % lời nói thường ngày, 500 từ khoảng 84 %, 1 000 từ khoảng 89 % và 3 000 từ khoảng 95 %.",
+  "landing.marathon.methodLastPercent":
+    "Những phần trăm cuối đáng giá hơn vẻ ngoài của chúng. Khác biệt giữa mức bao phủ 95 % và 98 % là khác biệt giữa một từ chưa biết trong hai mươi và một trong năm mươi, ít hơn hơn hai lần. Và càng ít từ chưa biết quanh bạn, bạn càng dễ đoán nghĩa của chúng từ những gì bao quanh.",
+  "landing.marathon.methodCoverageMeaning":
+    "Bao phủ ở đây nghĩa là mức bao phủ toàn bộ ngôn ngữ theo tần suất từ, từ những từ thường gặp nhất đến hiếm nhất. Tuy vậy bao phủ không bằng hiểu. Nó ước lượng bạn gặp một từ chưa biết thường xuyên đến mức nào, chứ không phải cuối cùng bạn hiểu được bao nhiêu điều đã nói. Việc hiểu còn chịu ảnh hưởng lớn từ ngữ pháp, tốc độ nói và mức độ quen thuộc với chủ đề. Với chủ đề quen thuộc, mức bao phủ tổng thể thấp hơn nhiều cũng đủ, còn với chủ đề lạ thì ngay cả mức bao phủ cao vẫn có thể để lại những khoảng trống rõ rệt.",
+  "landing.marathon.methodSources": "Nguồn",
+  "landing.marathon.body":
+    "Nhờ lặp lại ngắt quãng, sẽ không xảy ra chuyện bạn quên hẳn những gì đã học, hay ôn lại một cách không cần thiết những gì đã biết.",
+  "landing.choice.title": "Bạn quyết định chọn gì",
+  "landing.choice.body":
+    "Không có nhiều ý nghĩa khi học những từ hay câu bạn chỉ dùng năm năm một lần hoặc đã biết rõ, mà lại bỏ qua những từ bạn dùng gần như mỗi ngày. Điều này khá khác nhau với mỗi người, công việc và sở thích của mỗi người mỗi khác. Vì vậy lựa chọn dựa trên những gì bạn quyết định.",
+  "landing.growth.title": "Phát triển từ nhiều phía",
+  "landing.growth.intro":
+    "Bạn có thể thêm từ: từ ảnh, bằng cách gõ, bằng bot AI, hoặc từ cuộc trò chuyện (chúng tôi đang làm phần này).",
+  "landing.growth.photo.title": "Từ ảnh",
+  "landing.growth.photo.body":
+    "Từ tấm ảnh bạn tải lên, AI sẽ nhận ra đâu là gì, tạo bản dịch, tạo âm thanh, rồi bạn chọn những từ mình muốn học.",
+  "landing.growth.typing.title": "Bằng cách gõ",
+  "landing.growth.typing.body":
+    "Bạn chỉ cần viết điều muốn nói được bằng ngoại ngữ → bản dịch được tạo, âm thanh được tạo và từ hay câu đó được thêm vào sổ từ của bạn.",
+  "landing.growth.bot.title": "Bằng bot AI",
+  "landing.growth.bot.body":
+    "Khi bạn viết cho bot AI điều mình muốn nói được, nó sẽ chuẩn bị một danh sách để bạn chọn ra những gì cần hoặc muốn.",
+  "landing.growth.conversation.title": "Từ cuộc trò chuyện",
+  "landing.growth.conversation.body":
+    "Phần này đang được phát triển. Tôi dám nói rằng nó có thể giúp việc thêm từ mới dễ hơn rất nhiều.",
+  "landing.growth.inProgress": "đang phát triển",
+  "landing.pairs.title": "Gần như mọi thứ với mọi thứ",
+  "landing.pairs.body":
+    "Chúng tôi hỗ trợ tổ hợp của hai ngôn ngữ bất kỳ. Nếu muốn thật chính xác thì khoảng 99 % các ngôn ngữ đang được nói. Những ngôn ngữ cổ như tiếng Ba Tư cổ hay tiếng Babylon hiện chưa có, nhưng cứ liên hệ nếu bạn quan tâm đến điều tương tự và chúng tôi sẽ xem xét.",
   "landing.openSource.title": "Mã nguồn mở",
   "landing.openSource.body":
-    "Get Word được xây dựng như một ứng dụng mã nguồn mở. Đọc mã, báo lỗi hoặc đóng góp - tất cả đều có trên GitHub.",
-  "landing.openSource.cta": "Gắn sao trên GitHub",
-  "landing.cta.title": "Bạn có thể bắt đầu trong vài phút",
-  "landing.cta.body":
-    "Chỉ cần chọn cặp ngôn ngữ và cho biết bạn muốn nói về điều gì. Get Word sẽ chuẩn bị những từ đầu tiên cho bạn.",
-  "landing.cta.button": "Bắt đầu học",
-  "landing.demo.title": "Hãy tự thử",
-  "landing.demo.captionIntro": "Thử thẻ học giống trong ứng dụng.",
-  "landing.demo.captionScratch": "Cào lớp phủ để hiện bản dịch",
-  "landing.demo.captionRest": "rồi chọn sau bao lâu từ sẽ được ôn lại.",
+    "Chúng tôi là một ứng dụng mã nguồn mở. Chúng tôi rất vui nếu bạn đóng góp mã, tặng một ngôi sao trên GitHub hoặc báo lỗi.",
+  "landing.cta.button": "Vậy thì tôi thử xem",
+  "landing.demo.caption":
+    "Một ví dụ nhỏ từ ứng dụng. Chỉ cần cào lớp phủ để hiện bản dịch và chọn sau bao lâu từ sẽ được ôn lại.",
   "landing.demo.soon": "quay lại ngay",
   "landing.demo.comesBack": "“{word}” sẽ quay lại sau {time}",
   "landing.demo.againSoon": "“{word}” sẽ sớm quay lại",

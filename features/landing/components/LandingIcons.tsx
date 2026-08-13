@@ -12,61 +12,43 @@ function svgProps(className?: string) {
   };
 }
 
-export function IconBrain({ className }: { className?: string }) {
+export function IconCamera({ className }: { className?: string }) {
   return (
     <svg {...svgProps(className)}>
-      <path d="M12 5.5a2.5 2.5 0 0 0-5 .2 2.4 2.4 0 0 0-2 3.3A2.5 2.5 0 0 0 5.5 14 2.4 2.4 0 0 0 8 17.5a2.5 2.5 0 0 0 4 .9Z" />
-      <path d="M12 5.5a2.5 2.5 0 0 1 5 .2 2.4 2.4 0 0 1 2 3.3A2.5 2.5 0 0 1 18.5 14 2.4 2.4 0 0 1 16 17.5a2.5 2.5 0 0 1-4 .9Z" />
-      <path d="M12 5.5v13" />
+      <path d="M3.5 8.5A1.8 1.8 0 0 1 5.3 6.7h1.9l1.2-2h7.2l1.2 2h1.9a1.8 1.8 0 0 1 1.8 1.8v8.2a1.8 1.8 0 0 1-1.8 1.8H5.3a1.8 1.8 0 0 1-1.8-1.8Z" />
+      <circle cx="12" cy="12.4" r="3.4" />
     </svg>
   );
 }
 
-export function IconCards({ className }: { className?: string }) {
+export function IconPen({ className }: { className?: string }) {
   return (
     <svg {...svgProps(className)}>
-      <rect x="3" y="6" width="13" height="13" rx="2.2" />
-      <path d="M8 3.5h10.2A1.8 1.8 0 0 1 20 5.3V15" />
-      <path d="M6.5 11h6M6.5 14.2h4" />
+      <path d="M15.6 4.4a2 2 0 0 1 2.9 2.9L8.9 16.9l-3.9 1 1-3.9Z" />
+      <path d="M14 6l4 4" />
+      <path d="M4.5 20.5h15" />
     </svg>
   );
 }
 
-export function IconSpeaker({ className }: { className?: string }) {
+export function IconBot({ className }: { className?: string }) {
   return (
     <svg {...svgProps(className)}>
-      <path d="M4 9v6h3l5 4V5L7 9Z" />
-      <path d="M15.5 9.2a4 4 0 0 1 0 5.6M18 7a7 7 0 0 1 0 10" />
+      <rect x="4" y="8" width="16" height="10.5" rx="3" />
+      <path d="M12 4v4" />
+      <circle cx="12" cy="3.4" r="1.2" />
+      <path d="M9 12.4v1.4M15 12.4v1.4" />
+      <path d="M1.8 12.5v2M22.2 12.5v2" />
     </svg>
   );
 }
 
-export function IconSpark({ className }: { className?: string }) {
+export function IconMic({ className }: { className?: string }) {
   return (
     <svg {...svgProps(className)}>
-      <path d="M12 3.5 13.7 9 19 10.5 13.7 12 12 17.5 10.3 12 5 10.5 10.3 9Z" />
-      <path d="M18.5 4.5v3M20 6h-3M5.5 16v2.5M6.75 17.25h-2.5" />
-    </svg>
-  );
-}
-
-export function IconSync({ className }: { className?: string }) {
-  return (
-    <svg {...svgProps(className)}>
-      <path d="M4 12a8 8 0 0 1 13.7-5.6L20 8.5" />
-      <path d="M20 4v4.5h-4.5" />
-      <path d="M20 12a8 8 0 0 1-13.7 5.6L4 15.5" />
-      <path d="M4 20v-4.5h4.5" />
-    </svg>
-  );
-}
-
-export function IconInstall({ className }: { className?: string }) {
-  return (
-    <svg {...svgProps(className)}>
-      <path d="M12 3.5v10" />
-      <path d="m8 10 4 4 4-4" />
-      <path d="M5 17.5v1A2 2 0 0 0 7 20.5h10a2 2 0 0 0 2-2v-1" />
+      <rect x="9" y="2.8" width="6" height="10.5" rx="3" />
+      <path d="M5.5 11.5a6.5 6.5 0 0 0 13 0" />
+      <path d="M12 18v3.2M9 21.2h6" />
     </svg>
   );
 }

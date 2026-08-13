@@ -9,10 +9,12 @@ import { LandingPageStyles } from './LandingPageStyles';
 import { LandingDemoCard } from './LandingDemoCard';
 import { IconArrow } from './LandingIcons';
 import {
-  Features,
+  Choice,
   FinalCta,
+  Growth,
+  Marathon,
   OpenSource,
-  SectionHeading,
+  Pairs,
   SiteFooter,
 } from './LandingSections';
 import { getLandingDemoFallbackTo } from './demo/demo-set';
@@ -40,10 +42,12 @@ import { isAndroid, isFirefox } from '@/lib/pwa-install';
  * a login, then — on the client — it switches to the visitor's browser
  * language (or a remembered manual choice) and offers a language switcher.
  *
- * Aesthetic: the app's signature speckled-parchment "frame" (SpeckledBackground)
- * with bordered cream panels and an editorial serif, accented in ink-blue and
- * rust-red. All motion is pure-CSS on-load so content is never hidden for
- * no-JS crawlers/reviewers.
+ * Aesthetic: the signed-in app's grammar — one large radius, pill controls,
+ * hairline borders, wide soft shadows (see styles/tokens.css) — in a parchment
+ * skin, laid over a contour map. Text sits in soft cream fields rather than in
+ * frames, so the map stays visible and nothing needs an edge drawn round it.
+ * All motion is pure-CSS on-load so content is never hidden for no-JS
+ * crawlers/reviewers.
  */
 export function LandingPage() {
   const [lang, setLandingLang] = useLandingLanguage();
@@ -109,14 +113,21 @@ function LandingPageContent({
   return (
     <div className="lp-root" lang={lang}>
       <LandingPageStyles />
-      {/* Background, bottom to top: the static contour map (`.lp-root`'s own
-          background) → ambient rising letters (-z-9) → content. Double-clicking
-          the logo fades in the scratch-field easter egg over the top of all of
-          it; see LandingScratchBackground. */}
+      {/* Background, bottom to top: the static contour map (-z-10, fixed to the
+          viewport so page-height changes cannot move it) → ambient rising
+          letters (-z-9) → content. Double-clicking the logo fades in the
+          scratch-field easter egg over the top of all of it; see
+          LandingScratchBackground. */}
+      <div aria-hidden="true" className="lp-backdrop" />
       {scratchMode ? null : <LandingAmbientLetters />}
       <LandingScratchLayers active={scratchMode} />
 
-      <div className="relative mx-auto flex w-full max-w-5xl flex-col px-4 sm:px-6">
+      {/* max-w-6xl rather than 5xl so the hero's type column can hold the
+          headline on two lines in the longer languages (Ukrainian needs ~584px
+          at its desktop size). The sections below keep their own narrower
+          measures, so only the hero, the header and the footer use the extra
+          room. */}
+      <div className="relative mx-auto flex w-full max-w-6xl flex-col px-4 sm:px-6">
         <SiteHeader
           lang={lang}
           onLangChange={onLangChange}
@@ -126,31 +137,36 @@ function LandingPageContent({
         />
         {isFirefoxAndroid ? <FirefoxUnsupportedNotice /> : null}
         <Hero
+          lang={lang}
           languageFrom={languageFrom}
           languageTo={languageTo}
           effectiveLanguageFrom={effectiveLanguageFrom}
+          demoLanguageFrom={effectiveLanguageFrom}
+          demoLanguageTo={effectiveLanguageTo}
           onPairChange={updateLandingPair}
           onBeforeLogin={persistLandingPair}
           showLogin={!isFirefoxAndroid}
         />
-        {isFirefoxAndroid ? null : (
-          <TryIt
-            lang={lang}
-            languageFrom={effectiveLanguageFrom}
-            languageTo={effectiveLanguageTo}
-            onBeforeLogin={persistLandingPair}
-          />
-        )}
-        <Features />
+        <Marathon />
+        <Choice />
+        <Growth />
+        <Pairs />
         <OpenSource />
         {isFirefoxAndroid ? null : <FinalCta />}
-        <SiteFooter showLogin={!isFirefoxAndroid} />
+        {/* Last line before the footer rule. Outside FinalCta so it survives on
+            Firefox-Android, where the closing button is hidden but the egg
+            still works. */}
+        <p className="lp-finish-bonus">{t('landing.hero.bonus')}</p>
+        <SiteFooter
+          showLogin={!isFirefoxAndroid}
+          onLogoDoubleActivate={() => setScratchMode((on) => !on)}
+        />
       </div>
       {isLoading ? (
         <div
           role="status"
           aria-live="polite"
-          className="fixed right-4 top-4 z-40 inline-flex items-center gap-2 rounded-full border-2 border-[var(--ink)] bg-[var(--card-2)] px-3.5 py-2 text-xs font-semibold text-[var(--ink)] shadow-[0_14px_34px_-18px_rgba(33,26,15,.55)]"
+          className="fixed right-4 top-4 z-40 inline-flex items-center gap-2 rounded-full border border-[var(--line)] bg-[var(--card-2)] px-3.5 py-2 text-xs font-semibold text-[var(--ink)] shadow-[0_18px_45px_-28px_rgba(33,26,15,.55)]"
         >
           <span
             aria-hidden="true"
@@ -252,16 +268,18 @@ function SiteHeader({
     // background of its own, so pinning it left the copy scrolling underneath
     // bare text. It now flows with the page like every other section.
     <header className="lp-site-header relative z-50 -mx-4 flex items-center justify-between gap-2 px-4 py-4 sm:-mx-6 sm:gap-6 sm:px-6 sm:py-6">
-      <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-        {/* Double-click / double-tap target for the scratch-field easter egg.
-            Left as a plain span: nothing is gated behind it, and announcing a
-            decorative toggle to assistive tech would be noise. */}
-        <span className="lp-logo-egg" {...doubleActivate}>
-          <AppLogo
-            size={38}
-            className="[&>svg]:h-[34px] [&>svg]:w-[34px] sm:[&>svg]:h-[38px] sm:[&>svg]:w-[38px]"
-          />
-        </span>
+      {/* Double-click / double-tap target for the scratch-field easter egg —
+          mark and wordmark together, matching the footer. Left as a plain span:
+          nothing is gated behind it, and announcing a decorative toggle to
+          assistive tech would be noise. */}
+      <div
+        className="lp-logo-egg flex min-w-0 items-center gap-2 sm:gap-3"
+        {...doubleActivate}
+      >
+        <AppLogo
+          size={38}
+          className="[&>svg]:h-[34px] [&>svg]:w-[34px] sm:[&>svg]:h-[38px] sm:[&>svg]:w-[38px]"
+        />
         <span className="lp-brand-label lp-display whitespace-nowrap text-base font-semibold tracking-tight text-[var(--ink)] sm:text-lg">
           Get&nbsp;Word
         </span>
@@ -281,17 +299,30 @@ function SiteHeader({
   );
 }
 
+/**
+ * The opening screen holds exactly two objects — the language pair and the demo
+ * card, both on the right — and everything on the left is plain type. That
+ * ratio is the whole point: earlier versions framed the headline, the
+ * subheadline and the TL;DR as separate blocks too, and seven competing objects
+ * in one screen read as clutter no amount of spacing could fix.
+ */
 function Hero({
+  lang,
   languageFrom,
   languageTo,
   effectiveLanguageFrom,
+  demoLanguageFrom,
+  demoLanguageTo,
   onPairChange,
   onBeforeLogin,
   showLogin,
 }: {
+  lang: string;
   languageFrom: string;
   languageTo: string;
   effectiveLanguageFrom: string;
+  demoLanguageFrom: string;
+  demoLanguageTo: string;
   onPairChange: (next: { from?: string; to?: string }) => void;
   onBeforeLogin: () => void;
   showLogin: boolean;
@@ -300,83 +331,60 @@ function Hero({
   return (
     // `relative z-10`: the hero and the sections below it all create stacking
     // contexts (CSS load animations), so without an explicit z-index the later
-    // sections paint over the hero's open language dropdowns.
-    <section className="lp-fade-in relative z-10 min-w-0 py-10 sm:py-16">
-      {/* On unsupported browsers (Firefox-Android) the language pickers and their
-          login CTA are hidden, so the hero collapses to just the pitch. */}
-      <div
-        className={
-          showLogin
-            ? 'grid items-center gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(320px,420px)] lg:gap-14'
-            : ''
-        }
-      >
-        <div className="min-w-0">
-          <h1
-            className="lp-display m-0 text-[clamp(2.6rem,7vw,5rem)] font-bold leading-[1.02] tracking-[-0.025em] text-[var(--ink)]"
-          >
-            {t('landing.hero.title')}
-          </h1>
-
-          <p
-            className="m-0 mt-6 max-w-2xl text-[1.05rem] leading-7 text-[var(--ink-2)] sm:text-[1.2rem] sm:leading-8"
-          >
-            {t('landing.hero.subtitle')}
+    // sections paint over the open language dropdowns.
+    <section
+      className={`lp-hero lp-fade-in relative z-10 ${showLogin ? '' : 'lp-hero--copy-only'}`}
+    >
+      <div className="lp-hero-top">
+        <div className="lp-hero-lead lp-haze">
+          <h1 className="lp-hero-title lp-display">{t('landing.hero.title')}</h1>
+          <p className="lp-hero-subtitle">
+            {/* On its own dark plaque: the one line that says what this is has
+                to survive being read over a contour map at any scroll position,
+                and the haze alone was not enough contrast for it. */}
+            <span className="lp-plaque">{t('landing.hero.subtitle')}</span>
           </p>
         </div>
 
+        {/* On unsupported browsers (Firefox-Android) the demo and the language
+            pickers are both hidden, so the hero collapses to just the pitch. */}
         {showLogin ? (
-          <HeroLanguagePicker
-            languageFrom={languageFrom}
-            languageTo={languageTo}
-            effectiveLanguageFrom={effectiveLanguageFrom}
-            onPairChange={onPairChange}
-            onBeforeLogin={onBeforeLogin}
-          />
+          <div className="lp-hero-controls">
+            <HeroLanguagePicker
+              languageFrom={languageFrom}
+              languageTo={languageTo}
+              effectiveLanguageFrom={effectiveLanguageFrom}
+              onPairChange={onPairChange}
+              onBeforeLogin={onBeforeLogin}
+            />
+          </div>
         ) : null}
-      </div>
-    </section>
-  );
-}
 
-/**
- * "Try it yourself" — the interactive demo card in its own quiet section
- * under the hero, so the hero stays a two-beat pitch (headline → pickers)
- * and the card gets room to be played with instead of competing for
- * attention next to the CTA.
- */
-function TryIt({
-  lang,
-  languageFrom,
-  languageTo,
-  onBeforeLogin,
-}: {
-  lang: string;
-  languageFrom: string;
-  languageTo: string;
-  onBeforeLogin: () => void;
-}) {
-  const { t } = useI18n();
-  return (
-    <section className="py-12 sm:py-16">
-      <SectionHeading title={t('landing.demo.title')} />
-      <p className="lp-reveal m-0 mt-4 max-w-xl text-[0.98rem] leading-6 text-[var(--ink-2)]">
-        {t('landing.demo.captionIntro')}{' '}
-        <strong className="lp-demo-caption-mark">{t('landing.demo.captionScratch')}</strong>{' '}
-        {t('landing.demo.captionRest')}
-      </p>
-      <div
-        className="lp-reveal mx-auto mt-10 w-full max-w-lg"
-        style={{ '--d': '80ms' } as React.CSSProperties}
-      >
-        <LandingDemoCard
-          key={`${languageFrom}-${languageTo}-${lang}`}
-          lang={lang}
-          fromLang={languageFrom}
-          toLang={languageTo}
-          onContinueToApp={onBeforeLogin}
-        />
+        {/* The first screen is a full viewport tall, so something has to say
+            that it is not the whole page. Decorative on purpose: it carries no
+            information the scrollbar does not already give, and announcing it
+            would just be noise. */}
+        <span aria-hidden="true" className="lp-scroll-cue">
+          <span className="lp-scroll-cue-track">
+            <span className="lp-scroll-cue-dot" />
+          </span>
+        </span>
       </div>
+
+      {showLogin ? (
+        <div className="lp-hero-demo">
+          <LandingDemoCard
+            key={`${demoLanguageFrom}-${demoLanguageTo}-${lang}`}
+            lang={lang}
+            fromLang={demoLanguageFrom}
+            toLang={demoLanguageTo}
+            onContinueToApp={onBeforeLogin}
+          />
+          <p className="lp-demo-caption">
+            <span className="lp-plaque lp-plaque--sm">{t('landing.demo.caption')}</span>
+          </p>
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -421,7 +429,10 @@ function HeroLanguagePicker({
 
   return (
     <div className="lp-hero-picker mx-auto w-full max-w-md min-w-0 lg:mx-0 lg:max-w-none">
-      <div className="grid gap-3 sm:grid-cols-2">
+      {/* lp-hero-pair: the two pickers share row tracks, so a label that wraps
+          to two lines (English "I want to learn" does at this column width) does
+          not push its own field half a line below its neighbour. */}
+      <div className="lp-hero-pair grid gap-3 sm:grid-cols-2">
         <LanguageCombobox
           id="landing-language-from"
           label={t('onboarding.iKnow')}

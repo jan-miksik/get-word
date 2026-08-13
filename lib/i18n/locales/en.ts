@@ -62,41 +62,69 @@ export const enMessages = {
     "The Privacy Policy describes what Get Word stores, why, and which rights you have over it.",
   "support.contactTitle": "Contact",
   "support.contactBody": "You can reach us at",
-  "landing.hero.title": "Words that stay",
-  "landing.hero.subtitle":
-    "Get Word helps you memorize words and phrases with spaced repetition, audio pronunciation, and curated lists or your own custom lists. For any language pair.",
+  "landing.hero.title": "Words that stay with you",
+  "landing.hero.subtitle": "Get Word - An app for studying languages",
+  "landing.hero.bonus":
+    "Mini bonus: double-click the Get Word logo and a small surprise is waiting for you :)",
   "landing.hero.getStarted": "Get started",
-  "landing.features.title": "Study less randomly, review when it matters",
-  "landing.features.spacedRepetition.title": "Spaced repetition",
-  "landing.features.spacedRepetition.body":
-    "Words come back when they are worth seeing again. That means less random drilling and fewer unnecessary reviews.",
-  "landing.features.ownLists.title": "Your own lists",
-  "landing.features.ownLists.body":
-    "Create a list for the language pair you need right now. Get Word helps prepare translations and pronunciation audio so the list is ready to use.",
-  "landing.features.audio.title": "Pronunciation",
-  "landing.features.audio.body":
-    "Play audio for words and phrases whenever you need it. It helps you learn not only what a word means, but how the language actually sounds.",
-  "landing.features.memoryGames.title": "Memory aids and short exercises",
-  "landing.features.memoryGames.body":
-    "Words stick better when they connect to an image, association, or simple game. Add mnemonics to words and meet small exercises during review.",
-  "landing.features.sync.title": "Sync across devices",
-  "landing.features.sync.body":
-    "After you sign in, your lists, progress, and settings stay available on phone, tablet, and computer.",
-  "landing.features.install.title": "Use it like an app",
-  "landing.features.install.body":
-    "Add Get Word to your home screen and use it much like a regular app.",
+  "landing.marathon.title": "It is more of a marathon",
+  "landing.marathon.sliderLabel": "How many words a week",
+  "landing.marathon.wordsPerWeek.one": "new word a week",
+  "landing.marathon.wordsPerWeek.few": "new words a week",
+  "landing.marathon.wordsPerWeek.many": "new words a week",
+  "landing.marathon.minutesPerDay.one": "minute a day",
+  "landing.marathon.minutesPerDay.few": "minutes a day",
+  "landing.marathon.minutesPerDay.many": "minutes a day",
+  "landing.marathon.wordsInHorizon.one": "word",
+  "landing.marathon.wordsInHorizon.few": "words",
+  "landing.marathon.wordsInHorizon.many": "words",
+  "landing.marathon.horizonLabel": "Over how long",
+  "landing.marathon.horizon.month": "in a month",
+  "landing.marathon.horizon.quarter": "in three months",
+  "landing.marathon.horizon.halfYear": "in half a year",
+  "landing.marathon.horizon.year": "in a year",
+  "landing.marathon.coverageValue": "{low}–{high}%",
+  "landing.marathon.coverageLabel": "of the words in everyday speech",
+  "landing.marathon.coverageNote":
+    "The most frequent words keep coming back, which is why coverage grows quickly at the start and the last few percent come slowest.",
+  "landing.marathon.methodTitle": "More",
+  "landing.marathon.methodCurve":
+    "The estimate comes from a measured curve for spoken English: the first 100 most frequent words cover around 64% of everyday speech, 500 words around 84%, 1 000 words around 89% and 3 000 words around 95%.",
+  "landing.marathon.methodLastPercent":
+    "The last few percent are worth more than they look. The difference between 95% and 98% coverage is the difference between one unknown word in twenty and one in fifty, more than twice as few. And the fewer unknown words you have around you, the easier it is to work out what they mean from what surrounds them.",
+  "landing.marathon.methodCoverageMeaning":
+    "Coverage here means overall coverage of the language by word frequency, from the most frequent words down to the rarest. Coverage is not the same as understanding, though. It estimates how often you run into a word you do not know, not how much of what was said you end up following. Understanding is also shaped by grammar, by how fast people speak and by how well you know the topic. On a familiar topic much lower overall coverage is enough, while on an unfamiliar one even high coverage can leave noticeable gaps.",
+  "landing.marathon.methodSources": "Sources",
+  "landing.marathon.body":
+    "Thanks to spaced repetition you will not completely forget what you have already learned, or needlessly repeat what you already know.",
+  "landing.choice.title": "You steer the selection",
+  "landing.choice.body":
+    "There is not much point in learning words or phrases you will use once in five years, or already know well, and skipping the ones you use almost every day. This is quite different for everyone, we all have a slightly different job and different hobbies. That is why the selection follows what you decide.",
+  "landing.growth.title": "Growing from several sides",
+  "landing.growth.intro":
+    "You can add words: from a photo, by typing, with an AI bot, or from a conversation (we are working on that one).",
+  "landing.growth.photo.title": "From a photo",
+  "landing.growth.photo.body":
+    "From a photo you upload, the AI works out what is what, makes the translations, generates the audio, and you then pick which words you want to learn.",
+  "landing.growth.typing.title": "By typing",
+  "landing.growth.typing.body":
+    "You just write what you want to be able to say in the other language → a translation is created, audio is generated, and the word or sentence is added to your vocabulary.",
+  "landing.growth.bot.title": "With an AI bot",
+  "landing.growth.bot.body":
+    "When you tell the AI bot what you would like to be able to say, it prepares a list you can then pick from — whatever you need or want.",
+  "landing.growth.conversation.title": "From a conversation",
+  "landing.growth.conversation.body":
+    "This one is in development. I would go as far as saying it can make adding new words incredibly easy.",
+  "landing.growth.inProgress": "in development",
+  "landing.pairs.title": "Almost everything with everything",
+  "landing.pairs.body":
+    "We support combinations of any two languages. To be completely precise, for about 99% of the languages that are spoken. Ancient languages such as Old Persian or Babylonian are not there right now, but do get in touch if you would be interested in something like that and we will look into it.",
   "landing.openSource.title": "Open source",
   "landing.openSource.body":
-    "Get Word is built as open-source app. Read the code, file an issue, or contribute - it's all on GitHub.",
-  "landing.openSource.cta": "Star on GitHub",
-  "landing.cta.title": "You can start in a few minutes",
-  "landing.cta.body":
-    "Choose your language pair, say what you want to talk about, and Get Word puts together your first words.",
-  "landing.cta.button": "Start learning",
-  "landing.demo.title": "Try it yourself",
-  "landing.demo.captionIntro": "Try the app-style study card.",
-  "landing.demo.captionScratch": "Scratch off the covered translation",
-  "landing.demo.captionRest": "and choose how soon the word should come back.",
+    "We are an open-source app. We will be glad for a contribution to the code, a star on GitHub, or a reported problem.",
+  "landing.cta.button": "All right, I will give it a try",
+  "landing.demo.caption":
+    "A small sample from the app. Just scratch off the covered translation and choose how soon the word should come back.",
   "landing.demo.soon": "right away",
   "landing.demo.comesBack": "“{word}” comes back in {time}",
   "landing.demo.againSoon": "“{word}” will come back in a moment",

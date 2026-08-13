@@ -87,9 +87,15 @@ function renderTopoSvg(seed: string, density: number): string {
     `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" ` +
     `viewBox="0 0 ${WIDTH} ${HEIGHT}">` +
     `<defs>` +
+    // Top and bottom are the same colour, with the darker tone in the middle.
+    // The landing repeats this map down the page (background-repeat: repeat-y),
+    // and a gradient that ended on a different colour than it started put a
+    // visible horizontal band at every tile boundary. Mirrored, the tiles meet
+    // on the same value and the seam disappears.
     `<linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">` +
     `<stop offset="0" stop-color="${TOPO_BASE_TOP}"/>` +
-    `<stop offset="1" stop-color="${TOPO_BASE_BOTTOM}"/>` +
+    `<stop offset="0.5" stop-color="${TOPO_BASE_BOTTOM}"/>` +
+    `<stop offset="1" stop-color="${TOPO_BASE_TOP}"/>` +
     `</linearGradient>` +
     `<filter id="grain" x="0" y="0" width="${GRAIN_TILE}" height="${GRAIN_TILE}" filterUnits="userSpaceOnUse">` +
     `<feTurbulence type="fractalNoise" baseFrequency="0.8" numOctaves="2" stitchTiles="stitch" seed="${grainSeed}"/>` +

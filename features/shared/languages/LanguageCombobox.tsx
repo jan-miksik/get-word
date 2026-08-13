@@ -246,7 +246,7 @@ export function LanguageCombobox({
   if (isTouch) {
     return (
       <div ref={rootRef} className="relative block min-w-0">
-        <span className="mb-2 block text-lg font-extrabold uppercase tracking-wide sm:text-xl">
+        <span className="block text-lg font-extrabold uppercase tracking-wide sm:text-xl">
           {label}
         </span>
         <button
@@ -330,70 +330,78 @@ export function LanguageCombobox({
           clicks to the input in browser-specific ways. Tapping the heading is
           deliberately not an open trigger. */}
       <span
-        className="mb-2 block text-lg font-extrabold uppercase tracking-wide sm:text-xl"
+        className="block text-lg font-extrabold uppercase tracking-wide sm:text-xl"
         onPointerDown={() => setOpen(false)}
       >
         {label}
       </span>
-      <div
-        className={`onboarding-combobox min-h-[66px] px-3 py-2 ${
-          highlight && !hasSelection ? 'onboarding-combobox-highlight' : ''
-        }`}
-        onPointerDown={(event) => {
-          if (event.target === inputRef.current) return;
-          event.preventDefault();
-          focusInput();
-        }}
-      >
-        <div className="mb-1 flex h-7 min-w-0 items-center gap-2 font-bold">
-          {hasSelection ? (
-            <span className="inline-flex min-w-6 justify-center text-xl leading-none" aria-hidden="true">
-              {selectedFlag}
-            </span>
-          ) : null}
-          <span
-            className={`min-w-0 flex-1 truncate text-lg ${
-              hasSelection ? '' : 'onboarding-text-soft text-base'
-            }`}
-          >
-            {hasSelection ? selectedPrimary : t('onboarding.selectLanguage')}
-          </span>
-        </div>
-        <input
-          ref={inputRef}
-          id={id}
-          type="search"
-          role="combobox"
-          value={query}
-          autoComplete="off"
-          placeholder={placeholder}
-          aria-label={`${label} language`}
-          aria-autocomplete="list"
-          aria-expanded={open}
-          aria-controls={`${id}-options`}
-          className="onboarding-combobox-input w-full bg-transparent text-sm outline-none"
-          onPointerDown={() => setOpen(true)}
-          onClick={() => setOpen(true)}
-          onFocus={() => setOpen(true)}
-          onChange={(event) => {
-            setQuery(event.target.value);
-            setOpen(true);
-          }}
-          onKeyDown={(event) => {
-            if (event.key === 'Escape') setOpen(false);
-          }}
-        />
-      </div>
-      {open ? (
+      {/* The list is anchored to this wrapper rather than to the root. Where a
+          caller aligns two pickers with subgrid — the landing hero does — the
+          root is a grid container, and an absolutely positioned child of a grid
+          container takes the container's padding box as its containing block
+          instead of its place in the flow. The list was landing at top:0, over
+          the field and its heading, rather than under the field. */}
+      <div className="relative min-w-0">
         <div
-          id={`${id}-options`}
-          role="listbox"
-          className="onboarding-combobox-list absolute z-30 mt-2 max-h-72 w-full overflow-y-auto p-1"
-          style={{ overscrollBehavior: 'contain', touchAction: 'pan-y' }}
+          className={`onboarding-combobox min-h-[66px] px-3 py-2 ${
+            highlight && !hasSelection ? 'onboarding-combobox-highlight' : ''
+          }`}
+          onPointerDown={(event) => {
+            if (event.target === inputRef.current) return;
+            event.preventDefault();
+            focusInput();
+          }}
         >
-          {optionRows}
+          <div className="mb-1 flex h-7 min-w-0 items-center gap-2 font-bold">
+            {hasSelection ? (
+              <span className="inline-flex min-w-6 justify-center text-xl leading-none" aria-hidden="true">
+                {selectedFlag}
+              </span>
+            ) : null}
+            <span
+              className={`min-w-0 flex-1 truncate text-lg ${
+                hasSelection ? '' : 'onboarding-text-soft text-base'
+              }`}
+            >
+              {hasSelection ? selectedPrimary : t('onboarding.selectLanguage')}
+            </span>
+          </div>
+          <input
+            ref={inputRef}
+            id={id}
+            type="search"
+            role="combobox"
+            value={query}
+            autoComplete="off"
+            placeholder={placeholder}
+            aria-label={`${label} language`}
+            aria-autocomplete="list"
+            aria-expanded={open}
+            aria-controls={`${id}-options`}
+            className="onboarding-combobox-input w-full bg-transparent text-sm outline-none"
+            onPointerDown={() => setOpen(true)}
+            onClick={() => setOpen(true)}
+            onFocus={() => setOpen(true)}
+            onChange={(event) => {
+              setQuery(event.target.value);
+              setOpen(true);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === 'Escape') setOpen(false);
+            }}
+          />
         </div>
-      ) : null}
+        {open ? (
+          <div
+            id={`${id}-options`}
+            role="listbox"
+            className="onboarding-combobox-list absolute left-0 top-full z-30 mt-2 max-h-72 w-full overflow-y-auto p-1"
+            style={{ overscrollBehavior: 'contain', touchAction: 'pan-y' }}
+          >
+            {optionRows}
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 }

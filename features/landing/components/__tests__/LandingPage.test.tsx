@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LandingPage } from '../LandingPage';
 
@@ -145,14 +145,21 @@ describe('LandingPage language selector', () => {
   it('does not open the hero language list from the label tap target', async () => {
     render(<LandingPage />);
 
-    fireEvent.pointerDown(screen.getAllByText('I know')[0]);
+    // Scoped to the picker: the demo card's "I know" rating button carries the
+    // same label and sits earlier in the document.
+    const knownLabel = () =>
+      within(document.querySelector('.lp-hero-picker') as HTMLElement).getAllByText(
+        'I know'
+      )[0];
+
+    fireEvent.pointerDown(knownLabel());
 
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
 
     fireEvent.focus(screen.getByRole('combobox', { name: /I know language/i }));
     expect(await screen.findByRole('listbox')).toBeInTheDocument();
 
-    fireEvent.pointerDown(screen.getAllByText('I know')[0]);
+    fireEvent.pointerDown(knownLabel());
 
     await waitFor(() => {
       expect(screen.queryByRole('listbox')).not.toBeInTheDocument();
@@ -213,7 +220,9 @@ describe('LandingPage language selector', () => {
     // The search input lives inside the sheet and still filters the list.
     const search = screen.getByRole('combobox', { name: /I know language/i });
     fireEvent.change(search, { target: { value: 'span' } });
-    const filtered = screen.getAllByRole('option');
+    // Scoped to the sheet: the pace equation further down the page has a native
+    // <select>, whose <option>s are also in the a11y tree as options.
+    const filtered = within(listbox).getAllByRole('option');
     expect(filtered).toHaveLength(1);
     expect(filtered[0]).toHaveTextContent(/es/i);
 
