@@ -6,6 +6,7 @@ import { LanguageSection } from '@/components/settings/LanguageSection';
 import { AppInstallSection } from '@/components/settings/AppInstallSection';
 import { LocalDataSection } from '@/components/settings/LocalDataSection';
 import { AccountSection } from '@/components/settings/AccountSection';
+import { RateAppLink } from '@/components/settings/RateAppLink';
 
 interface SettingsPanelProps {
   isOpen: boolean;
@@ -61,6 +62,8 @@ export function SettingsPanel({
             authAddress={authAddress}
             onSignOut={onSignOut}
           />
+
+          <RateAppLink onNavigate={onClose} />
 
           <Link
             href="/reports"

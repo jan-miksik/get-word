@@ -304,6 +304,13 @@ export const viMessages: I18nMessages = {
   "languageNameIn.vi": "tiếng Việt",
   "settings.account": "Tài khoản",
   "settings.app": "Ứng dụng",
+  "settings.rateApp": "Đánh giá ứng dụng",
+  "settings.rateAppHint": "Mở trang ứng dụng trên cửa hàng. Đánh giá thành thật, dù tốt hay xấu, đều giúp người khác quyết định.",
+  "rateApp.promptTitle": "Bạn đánh giá Get Word nhé?",
+  "rateApp.promptBody":
+    "Bạn đã học ở đây một thời gian nên biết ứng dụng này thế nào. Một đánh giá trên cửa hàng — dù nội dung là gì — sẽ giúp người khác quyết định có nên thử hay không.",
+  "rateApp.promptAction": "Đánh giá ứng dụng",
+  "rateApp.promptDismiss": "Để sau",
   "settings.cardsBetweenGames": "Số thẻ giữa các bài trắc nghiệm",
   "settings.connected": "Đã kết nối",
   "settings.copyWalletAddress": "Sao chép địa chỉ ví",

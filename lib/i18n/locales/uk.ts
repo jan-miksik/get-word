@@ -304,6 +304,13 @@ export const ukMessages: I18nMessages = {
   "languageNameIn.vi": "в'єтнамською",
   "settings.account": "Акаунт",
   "settings.app": "Застосунок",
+  "settings.rateApp": "Оцінити застосунок",
+  "settings.rateAppHint": "Відкриє сторінку в магазині. Чесна оцінка, хороша чи погана, допоможе іншим зробити вибір.",
+  "rateApp.promptTitle": "Оціните Get Word?",
+  "rateApp.promptBody":
+    "Ви вчитеся тут уже певний час, тож знаєте, який застосунок насправді. Оцінка в магазині — хоч би якою вона була — допоможе іншим вирішити, чи варто спробувати.",
+  "rateApp.promptAction": "Оцінити застосунок",
+  "rateApp.promptDismiss": "Не зараз",
   "settings.cardsBetweenGames": "Карток між квізами",
   "settings.connected": "Підключено",
   "settings.copyWalletAddress": "Копіювати адресу гаманця",

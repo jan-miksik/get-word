@@ -304,6 +304,13 @@ export const csMessages: I18nMessages = {
   "languageNameIn.vi": "vietnamštině",
   "settings.account": "Účet",
   "settings.app": "Aplikace",
+  "settings.rateApp": "Ohodnotit aplikaci",
+  "settings.rateAppHint": "Otevře stránku v obchodě. Upřímné hodnocení, dobré i špatné, pomůže ostatním se rozhodnout.",
+  "rateApp.promptTitle": "Ohodnotíš Get Word?",
+  "rateApp.promptBody":
+    "Učíš se tu už nějakou dobu, takže víš, jaká aplikace je. Hodnocení v obchodě — ať říká cokoli — pomůže ostatním se rozhodnout, jestli ji zkusit.",
+  "rateApp.promptAction": "Ohodnotit aplikaci",
+  "rateApp.promptDismiss": "Teď ne",
   "settings.cardsBetweenGames": "Karet mezi kvízy",
   "settings.connected": "Připojeno",
   "settings.copyWalletAddress": "Kopírovat adresu peněženky",

@@ -32,7 +32,13 @@ import {
 import { MemoryHooksIntroCard } from '@/features/learning/components/MemoryHooksIntroCard';
 import { PWAInstallIntroCard } from '@/features/learning/components/PWAInstallIntroCard';
 import { AddPersonalWordsPrompt } from '@/features/learning/components/AddPersonalWordsPrompt';
+import { RateAppPromptCard } from '@/features/learning/components/RateAppPromptCard';
 import { usePWAInstallIntro } from '@/features/learning/hooks/usePWAInstallIntro';
+import { useRateAppPrompt } from '@/features/learning/hooks/useRateAppPrompt';
+import {
+  readStudyMilestone,
+  recordStudiedCard,
+} from '@/features/learning/app-state/storage';
 import { shouldOfferMorePersonalWords } from '@/features/learning/personalWordsPrompt';
 import { useAppSurface } from '@/features/workspace/public.client';
 import { migrateDraftToLanguagePair } from '@/features/word-chat/client/storage';
@@ -107,6 +113,9 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       new URLSearchParams(window.location.search).get('wordChat') === '1',
   );
   const [completedDeckWordCards, setCompletedDeckWordCards] = useState(0);
+  // Session-independent study history, unlike `completedDeckWordCards`. The
+  // rating prompt needs to tell a long first sitting apart from weeks of use.
+  const [studyMilestone, setStudyMilestone] = useState(readStudyMilestone);
   const [memoryHooksIntroDismissedForSession, setMemoryHooksIntroDismissedForSession] = useState(false);
   const [addWordsPromptDismissedForSession, setAddWordsPromptDismissedForSession] =
     useState(false);
@@ -526,8 +535,20 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       onDismiss={() => setAddWordsPromptDismissedForSession(true)}
     />
   ) : null;
+  const { dismissRateAppPrompt, rateAppUrl, shouldShowRateAppPrompt } = useRateAppPrompt({
+    viewMode,
+    studyMilestone,
+  });
+
+  const rateAppPromptCard =
+    shouldShowRateAppPrompt && rateAppUrl ? (
+      <RateAppPromptCard rateAppUrl={rateAppUrl} onDismiss={dismissRateAppPrompt} />
+    ) : null;
+
+  // Last in the chain on purpose: every other interstitial either teaches the
+  // app or unblocks the learner, and both beat asking for a favour.
   const interstitialCard =
-    memoryHooksIntroCard ?? pwaInstallIntroCard ?? addWordsPrompt;
+    memoryHooksIntroCard ?? pwaInstallIntroCard ?? addWordsPrompt ?? rateAppPromptCard;
   const hasNoSelectedWordList = Boolean(
     onboardingCompletedAt &&
       learningLanguageFrom &&
@@ -714,7 +735,10 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               phrasesScrollElement={phrasesScrollElement}
               filteredWords={filteredWords}
               interstitialCard={interstitialCard}
-              onDeckWordCardCompleted={() => setCompletedDeckWordCards((count) => count + 1)}
+              onDeckWordCardCompleted={() => {
+                setStudyMilestone(recordStudiedCard());
+                setCompletedDeckWordCards((count) => count + 1);
+              }}
               deckSwipeActions={deckSwipeActions}
               deckHorizontalSwipeEnabled={!typingModeEnabled}
               cardDeckGroups={cardDeckGroups}

@@ -327,6 +327,13 @@ export const enMessages = {
   "account.dangerZoneNotice": "Permanently delete your account and learning data. This can't be undone.",
   "settings.account": "Account",
   "settings.app": "App",
+  "settings.rateApp": "Rate the app",
+  "settings.rateAppHint": "Opens the store listing. Honest ratings, good or bad, help other learners decide.",
+  "rateApp.promptTitle": "Would you rate Get Word?",
+  "rateApp.promptBody":
+    "You have been studying here for a while, so you know what the app is like. A rating in the store — whatever it says — helps other learners decide whether to try it.",
+  "rateApp.promptAction": "Rate the app",
+  "rateApp.promptDismiss": "Not now",
   "settings.deleteAccount": "Delete account",
   "settings.cardsBetweenGames": "Cards between quizzes",
   "settings.connected": "Connected",
