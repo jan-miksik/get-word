@@ -28,7 +28,12 @@ interface LearningStudyContentProps {
   onOpenPhotoLab?: () => void;
   learningLanguagePair?: { from: string; to: string } | null;
   onLearningLanguagePairChange?: (pair: { from: string; to: string }) => void | Promise<void>;
-  hasPersonalWordsForPair: boolean;
+  /**
+   * The study surface is deliberately empty for this pair: the active list is
+   * the default catalogue and the learner has no personal words yet. Not the
+   * same as "no words match the filters", which keeps its own message.
+   */
+  studyGatedForPair: boolean;
   activeSurface?: AppSurface;
   onSurfaceChange?: (surface: AppSurface) => void;
   chatContent?: React.ReactNode;
@@ -75,7 +80,7 @@ export function LearningStudyContent({
   onOpenPhotoLab,
   learningLanguagePair,
   onLearningLanguagePairChange,
-  hasPersonalWordsForPair,
+  studyGatedForPair,
   activeSurface = 'study',
   onSurfaceChange,
   chatContent,
@@ -104,7 +109,7 @@ export function LearningStudyContent({
   const personalPairLabel = learningLanguagePair
     ? `${getLocalizedLanguageName(learningLanguagePair.from, uiLanguage) ?? learningLanguagePair.from.toUpperCase()} → ${getLocalizedLanguageName(learningLanguagePair.to, uiLanguage) ?? learningLanguagePair.to.toUpperCase()}`
     : '';
-  const noPersonalWordsState = !hasPersonalWordsForPair && learningLanguagePair ? (
+  const noPersonalWordsState = studyGatedForPair && learningLanguagePair ? (
     <div className="flex h-full flex-col items-center justify-center gap-4 px-6 py-12 text-center">
       <p className="m-0 max-w-md text-lg font-semibold text-[#2A2218]">
         {t('learning.noPersonalWords', { pair: personalPairLabel })}

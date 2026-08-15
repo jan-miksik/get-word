@@ -125,6 +125,27 @@ describe('checkpoint instance scoping', () => {
     expect(op.payload.active_ms).toBe(300_000);
   });
 
+  it('stamps a newly opened checkpoint when the owner was known before startup', async () => {
+    // A warm SPA can already have an account in `getSyncOwner()` before the
+    // activity provider mounts. In that case no later owner-change event is
+    // guaranteed, so the tracker itself must receive the initial owner.
+    vi.useFakeTimers();
+    try {
+      syncOwner = 'user-1';
+      stop = startActivityTracking();
+      window.dispatchEvent(new Event('pointerdown'));
+      // Open checkpoints are intentionally throttled; advance across the
+      // second five-second tracker tick that reaches the ten-second write.
+      await vi.advanceTimersByTimeAsync(10_000);
+
+      const raw = localStorage.getItem(`${CHECKPOINT_PREFIX}${sessionStorage.getItem(INSTANCE_KEY)}`);
+      expect(raw).not.toBeNull();
+      expect(JSON.parse(raw as string).owner).toBe('user-1');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('waits for duplicate-tab claiming before recovering the shared instance key', async () => {
     class ClaimingChannel {
       onmessage: ((event: MessageEvent) => void) | null = null;
@@ -188,6 +209,33 @@ describe('account scoping', () => {
     // Nothing is posted: user-1's activity must not land under user-2.
     expect(appendOp).not.toHaveBeenCalled();
     expect(localStorage.getItem(`${CHECKPOINT_PREFIX}instance-mine`)).toBeNull();
+  });
+
+  it('recovers a checkpoint written before the account is known at boot', async () => {
+    // The real boot order: `getSyncOwner()` is null until the first sync
+    // response names the account, so recovery has to wait for it instead of
+    // comparing every stored checkpoint against null and deleting the lot.
+    sessionStorage.setItem(INSTANCE_KEY, 'instance-mine');
+    writeForeignCheckpoint('instance-mine', { owner: 'user-1' });
+
+    syncOwner = null;
+    stop = startActivityTracking();
+    await Promise.resolve();
+
+    // Nothing recovered yet, and — crucially — nothing thrown away either. The
+    // record is parked under a closed-segment key so this instance's own
+    // checkpoint writes cannot clear it while it waits.
+    expect(appendOp).not.toHaveBeenCalled();
+    expect(
+      checkpointKeys().filter((key) => key.startsWith(`${CHECKPOINT_PREFIX}instance-mine`)),
+    ).toEqual([`${CHECKPOINT_PREFIX}instance-mine:closed:segment-foreign`]);
+
+    setActivityOwner('user-1');
+    await Promise.resolve();
+
+    expect(appendOp).toHaveBeenCalledTimes(1);
+    expect(appendOp.mock.calls[0][0].payload.client_segment_id).toBe('segment-foreign');
+    expect(appendOp.mock.calls[0][0].payload.owner).toBe('user-1');
   });
 
   it('measures nothing while signed out', async () => {

@@ -11,7 +11,7 @@ import type { NormalizedWord } from '@/lib/words';
 import { cacheActiveListAudio } from '@/lib/local-learning-cache';
 import { subscribeAudioNetworkChanges } from '@/lib/audio-network-policy';
 import { normalizeLanguageCode } from '@/lib/i18n/languages';
-import { resolveActiveStudyWords } from '@/features/learning/state/study-list-selection';
+import { isStudyGated, resolveActiveStudyWords } from '@/features/learning/state/study-list-selection';
 
 export function useAppState(words: NormalizedWord[]) {
   const [isHydrated, setIsHydrated] = useState(false);
@@ -138,9 +138,15 @@ export function useAppState(words: NormalizedWord[]) {
       personalWordsForActivePair.length > 0,
     [personalWordsForActivePair],
   );
-  // The non-personal list is a compatibility layer only. Until the learner has
+  // The default catalogue is a compatibility layer only. Until the learner has
   // at least one personal word for this pair, the main study surface stays empty
   // and points them to Add words instead of silently starting the old catalogue.
+  // Lists they chose themselves — a teacher's `/join` link, a school
+  // assignment, a public list they subscribed to — are never held back.
+  const isStudyGatedForPair = useMemo(
+    () => isStudyGated(activeList, hasPersonalWordsForActivePair),
+    [activeList, hasPersonalWordsForActivePair],
+  );
   const activeWords = useMemo(
     () => resolveActiveStudyWords(
       activeList,
@@ -240,7 +246,7 @@ export function useAppState(words: NormalizedWord[]) {
     activeList,
     activeListId,
     ownedPersonalListIds,
-    hasPersonalWordsForActivePair,
+    isStudyGatedForPair,
     setActiveListId,
   };
 }

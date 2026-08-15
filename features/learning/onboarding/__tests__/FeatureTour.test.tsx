@@ -100,6 +100,30 @@ describe('FeatureTour', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it('finds anchors that commit in the same render as the tour', () => {
+    // How `?previewFeatureTour` actually mounts: the tour and the surface that
+    // owns the anchors appear together, so nothing is in the DOM yet while the
+    // tour's own render runs.
+    function Anchor() {
+      const ref = (element: HTMLButtonElement | null) => {
+        if (element) {
+          element.getBoundingClientRect = () =>
+            ({ top: 10, left: 40, width: 48, height: 48 }) as DOMRect;
+        }
+      };
+      return <button data-tour="study" ref={ref} />;
+    }
+
+    render(
+      <I18nProvider language="cs">
+        <FeatureTour onFinish={vi.fn()} />
+        <Anchor />
+      </I18nProvider>
+    );
+
+    expect(screen.getByText('Krok 1 z 1')).toBeInTheDocument();
+  });
+
   it('ends the tour after the last available step when photo lab is off', () => {
     mountAnchors(['study', 'chat']);
     const onFinish = vi.fn();

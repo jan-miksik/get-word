@@ -10,7 +10,6 @@ import { useWordStream } from './useWordStream';
 import type { ViewMode } from '../app-state/types';
 
 interface UseLearningPageStateOptions {
-  activeWords: NormalizedWord[];
   filteredWords: NormalizedWord[];
   selectedCategories: Set<string>;
   progress: Record<string, ProgressData>;
@@ -75,7 +74,6 @@ function useResettableLearningUiState(resetKey: string): {
 }
 
 export function useLearningPageState({
-  activeWords: _activeWords,
   filteredWords,
   selectedCategories,
   progress,
@@ -114,11 +112,6 @@ export function useLearningPageState({
     dismissedGames,
     setDismissedGames,
   } = useResettableLearningUiState(uiResetKey);
-
-  const statsWords = useMemo(
-    () => filteredWords,
-    [filteredWords]
-  );
 
   const { priorityWords, priorityDueCount, dueWords, newWords, settlingWords } = useWordStream(
     filteredWords,
@@ -183,8 +176,8 @@ export function useLearningPageState({
   );
 
   const progressStats = useMemo(
-    () => calculateProgressStats(statsWords, progress, readyCount),
-    [statsWords, progress, readyCount]
+    () => calculateProgressStats(filteredWords, progress, readyCount),
+    [filteredWords, progress, readyCount]
   );
 
   return {

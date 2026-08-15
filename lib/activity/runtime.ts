@@ -70,6 +70,8 @@ interface RuntimeState {
   pendingSegmentWrites: number;
   /** Recovery and measurement stay paused until duplicate-tab claiming ends. */
   instanceClaimSettled: boolean;
+  /** Recovery runs once, on the first tick where claim and owner are both known. */
+  recoveryDone: boolean;
   /** Successfully appended recovery records retained only across pagehide. */
   appendedCheckpointKeys: Set<string>;
   tickTimer: ReturnType<typeof setInterval> | null;
@@ -153,7 +155,15 @@ function guardInstanceIdCollision(current: RuntimeState): void {
   const settleClaim = () => {
     if (current.instanceClaimSettled || state !== current) return;
     current.instanceClaimSettled = true;
-    recoverOwnCheckpoint(current);
+    adoptInheritedOpenCheckpoint(current);
+    // `current.owner` may already be populated from a previous sync in this
+    // SPA. The tracker has its own owner field, though, and needs the value as
+    // well so any checkpoint opened before the next server-sync event remains
+    // recoverable under that account. Do this only after parking an inherited
+    // open record: setOwner emits checkpoint(null), which clears the bare key.
+    current.tracker.setOwner(current.owner);
+    sweepForeignCheckpoints(current);
+    maybeRecoverCheckpoints(current);
     applyActive(current);
   };
 
@@ -254,14 +264,78 @@ function recoverOwnCheckpoint(current: RuntimeState): void {
     // Never adopt activity measured under a different account.
     if (checkpoint.owner === current.owner) current.tracker.restore(checkpoint);
   }
+}
 
+/**
+ * Moves a checkpoint inherited from the previous page life off the live
+ * open-segment key and onto a closed-segment one.
+ *
+ * Recovery waits for the account, but this instance starts writing immediately:
+ * the first `checkpoint(null)` — which `tracker.setOwner()` produces as soon as
+ * identity arrives — removes the bare key, taking the inherited record with it
+ * before anything could restore it. Closed-segment keys are only ever written
+ * per segment id and never blanket-removed, so parking it there makes it immune
+ * while keeping it durable if the page dies before the account resolves.
+ */
+function adoptInheritedOpenCheckpoint(current: RuntimeState): void {
+  const store = storage();
+  if (!store) return;
+  const openKey = checkpointKey(current.instanceId);
+  const inherited = parseCheckpoint(store.getItem(openKey));
+  if (!inherited) return;
+  try {
+    store.setItem(
+      closedCheckpointKey(current.instanceId, inherited.client_segment_id),
+      JSON.stringify(inherited),
+    );
+    store.removeItem(openKey);
+  } catch {
+    // Could not park it; leave the original in place — recovery reads that key
+    // too, it is merely exposed to being cleared first.
+  }
+}
+
+/**
+ * Recovery is deferred until the account is known.
+ *
+ * `getSyncOwner()` is null until the first sync response names the account, so
+ * running recovery at boot would compare every stored checkpoint against null,
+ * match nothing, and delete the lot — silently discarding exactly the segments
+ * the durability model promises to redeliver. Waiting costs one round trip and
+ * nothing else: measurement is suspended while the owner is unknown anyway.
+ *
+ * Own records left behind by a page life that never signed in again are aged
+ * out by `sweepForeignCheckpoints` instead.
+ */
+function maybeRecoverCheckpoints(current: RuntimeState): void {
+  if (current.recoveryDone) return;
+  if (!current.instanceClaimSettled || current.owner === null) return;
+  current.recoveryDone = true;
+  recoverOwnCheckpoint(current);
+}
+
+/**
+ * Garbage-collects checkpoints this instance will never recover: another
+ * instance's records once they are older than the TTL, and our own once they
+ * are that old too — at which point no sign-in is coming for them.
+ *
+ * Safe to run before recovery: at claim time nothing has opened a segment yet
+ * (measurement needs both a settled claim and an owner), so every own record in
+ * storage was written by an earlier page life.
+ */
+function sweepForeignCheckpoints(current: RuntimeState): void {
+  const store = storage();
+  if (!store) return;
   const now = Date.now();
   const stale: string[] = [];
   for (let index = 0; index < store.length; index += 1) {
     const key = store.key(index);
     if (!key || !key.startsWith(CHECKPOINT_PREFIX)) continue;
-    if (isOwnCheckpointKey(key, current.instanceId)) continue;
     const parsed = parseCheckpoint(store.getItem(key));
+    if (isOwnCheckpointKey(key, current.instanceId)) {
+      // Ours: only drop it once it is too old to be worth redelivering.
+      if (parsed && now - parsed.checkpointed_at <= ORPHAN_TTL_MS) continue;
+    }
     if (!parsed || now - parsed.checkpointed_at > ORPHAN_TTL_MS) stale.push(key);
   }
   for (const key of stale) store.removeItem(key);
@@ -512,6 +586,7 @@ export function startActivityTracking(): () => void {
     holdCheckpoint: false,
     pendingSegmentWrites: 0,
     instanceClaimSettled: false,
+    recoveryDone: false,
     appendedCheckpointKeys: new Set(),
     tickTimer: null,
     recomputeQueued: false,
@@ -631,8 +706,14 @@ export function setNativeAppActive(active: boolean): void {
  */
 export function setActivityOwner(owner: string | null): void {
   if (!state || state.owner === owner) return;
+  // Closes the open segment while `state.owner` is still the previous account,
+  // so the emitted segment is attributed to whoever measured it.
   state.tracker.setOwner(owner);
   state.owner = owner;
+  // The first response to name the account is also the first moment a stored
+  // checkpoint can be matched against it, so this is where recovery happens on
+  // an ordinary load.
+  maybeRecoverCheckpoints(state);
   // Gaining or losing an identity flips whether tracking runs at all.
   applyActive(state);
   writeCheckpointNow(state);

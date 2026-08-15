@@ -48,7 +48,6 @@ describe('useLearningPageState', () => {
     const { result, rerender } = renderHook(
       ({ filteredWords }) =>
         useLearningPageState({
-          activeWords: filteredWords,
           filteredWords,
           selectedCategories,
           progress: {},
@@ -74,7 +73,6 @@ describe('useLearningPageState', () => {
     const { result, rerender } = renderHook(
       ({ filteredWords }) =>
         useLearningPageState({
-          activeWords: filteredWords,
           filteredWords,
           selectedCategories,
           progress: {},
@@ -103,7 +101,6 @@ describe('useLearningPageState', () => {
 
     const { result } = renderHook(() =>
       useLearningPageState({
-        activeWords: words,
         filteredWords: words,
         selectedCategories: new Set<string>(),
         progress: {},
@@ -130,7 +127,6 @@ describe('useLearningPageState', () => {
 
     const { result } = renderHook(() =>
       useLearningPageState({
-        activeWords: words,
         filteredWords: words,
         selectedCategories: new Set<string>(),
         progress: {},
@@ -159,7 +155,6 @@ describe('useLearningPageState', () => {
 
     const { result } = renderHook(() =>
       useLearningPageState({
-        activeWords: [first, second],
         filteredWords: [first, second],
         selectedCategories: new Set<string>(),
         progress: {},
@@ -201,7 +196,6 @@ describe('useLearningPageState', () => {
     const { result, rerender } = renderHook(
       ({ progress }) =>
         useLearningPageState({
-          activeWords: words,
           filteredWords: words,
           selectedCategories,
           progress,
@@ -235,7 +229,6 @@ describe('useLearningPageState', () => {
     const { result, rerender } = renderHook(
       ({ dueTimerRevision }) =>
         useLearningPageState({
-          activeWords: words,
           filteredWords: words,
           selectedCategories: new Set<string>(),
           progress,
@@ -280,7 +273,6 @@ describe('useLearningPageState', () => {
     const { result, rerender } = renderHook(
       ({ progress }) =>
         useLearningPageState({
-          activeWords: words,
           filteredWords: words,
           selectedCategories,
           progress,
@@ -313,7 +305,6 @@ describe('useLearningPageState', () => {
 
     const { result } = renderHook(() =>
       useLearningPageState({
-        activeWords: words,
         filteredWords: words,
         selectedCategories: new Set<string>(),
         progress: {},
@@ -342,7 +333,6 @@ describe('useLearningPageState', () => {
     const { result, rerender } = renderHook(
       ({ typingModeEnabled }) =>
         useLearningPageState({
-          activeWords: words,
           filteredWords: words,
           selectedCategories: new Set<string>(),
           progress: {},
@@ -382,7 +372,6 @@ describe('useLearningPageState', () => {
     const { result, rerender } = renderHook(
       ({ tiltGameEnabled }) =>
         useLearningPageState({
-          activeWords: words,
           filteredWords: words,
           selectedCategories: new Set<string>(),
           progress: {},

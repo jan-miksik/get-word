@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { calculateProgressStats, getProgressStatsWords } from '../progress-stats';
+import { calculateProgressStats } from '../progress-stats';
 import type { NormalizedWord } from '../words';
 
 const words: NormalizedWord[] = [
@@ -9,16 +9,10 @@ const words: NormalizedWord[] = [
 ];
 
 describe('progress-stats', () => {
-  it('filters words by selected categories', () => {
-    expect(getProgressStatsWords(words, new Set(['noun'])).map((w) => w.id)).toEqual([
-      'w1',
-      'w2',
-    ]);
-    expect(getProgressStatsWords(words, new Set(['noun', 'verb'])).length).toBe(3);
-  });
-
   it('computes totals and readyCount over the filtered set', () => {
-    const filtered = getProgressStatsWords(words, new Set(['noun', 'verb']));
+    // The caller passes the already category-filtered set; the stats never
+    // filter again.
+    const filtered = words;
     const progress = {
       w1: { stageIndex: 1, knownCount: 1, unknownCount: 0, nextDueAt: Date.now() - 1000 },
       w2: { stageIndex: 1, knownCount: 1, unknownCount: 0, nextDueAt: Date.now() + 100_000 },

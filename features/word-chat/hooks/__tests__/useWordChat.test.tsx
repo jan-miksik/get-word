@@ -834,6 +834,55 @@ describe('useWordChat', () => {
     );
   });
 
+  it('keeps audio muted on the right item when the server drops one', async () => {
+    // The server returns only what it managed to translate, in order, and may
+    // polish the text it echoes back — so neither the position in the array nor
+    // an exact string match identifies the item the learner muted.
+    mocks.translateSelection.mockResolvedValue({
+      items: [
+        {
+          kind: 'word',
+          text_known: 'Čaj',
+          text_target: 'trà',
+          corpus_item_id: null,
+          audio_asset_id: null,
+          audio_hash: null,
+          known_audio_asset_id: null,
+          warnings: [],
+          reused: false,
+        },
+      ],
+      translation_diagnostics: {
+        model: 'test',
+        input_tokens: 10,
+        output_tokens: 5,
+        estimated_cost_usd: 0,
+      },
+    });
+
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+    await act(() => result.current.sendMessage('Nápoje'));
+
+    act(() => result.current.addCustomItem('káva'));
+    act(() => result.current.addCustomItem('čaj'));
+    // Only the second item is muted; the first is the one the server drops.
+    act(() => result.current.toggleAudioDisabled('custom:čaj'));
+    act(() => result.current.setTranslationRegister('casual'));
+    await act(() => result.current.continueToReview());
+
+    expect(result.current.reviewItems).toHaveLength(1);
+    expect(result.current.reviewItems[0]).toMatchObject({
+      textKnown: 'Čaj',
+      audioStatus: 'idle',
+      audioDisabled: true,
+    });
+    expect(mocks.generateAudio).not.toHaveBeenCalled();
+  });
+
   it('keeps the conversation and offers a retry after a transient failure', async () => {
     mocks.sendChatMessageStream.mockReset();
     mocks.sendChatMessageStream

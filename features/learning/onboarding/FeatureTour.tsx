@@ -59,15 +59,28 @@ export function FeatureTour({ onFinish }: Props) {
   // Frozen at mount: which controls exist can change while the tour is open
   // (the menu opens, the surface switches), and a step list that shrinks
   // underneath the learner would jump them mid-sentence.
-  const [steps] = useState<FeatureTourStep[]>(() => resolveAvailableTourSteps(document));
+  const [steps, setSteps] = useState<FeatureTourStep[]>(() =>
+    resolveAvailableTourSteps(document),
+  );
   const [rect, setRect] = useState<AnchorRect | null>(null);
 
   const step = steps[stepIndex] ?? null;
   const isLastStep = stepIndex >= steps.length - 1;
 
   useEffect(() => {
-    if (!step) return;
-    const sync = () => setRect(readAnchorRect(step));
+    const sync = () => {
+      // The anchors live in sibling subtrees that commit after this component's
+      // own render, so the pass during render finds nothing whenever the tour
+      // and the study surface appear in the same commit — which is exactly what
+      // `?previewFeatureTour` does. Resolve once more now that the tree is on
+      // screen, then freeze as described above.
+      if (steps.length === 0) {
+        const resolved = resolveAvailableTourSteps(document);
+        if (resolved.length > 0) setSteps(resolved);
+        return;
+      }
+      if (step) setRect(readAnchorRect(step));
+    };
     sync();
     window.addEventListener('resize', sync);
     window.addEventListener('scroll', sync, true);
@@ -75,7 +88,7 @@ export function FeatureTour({ onFinish }: Props) {
       window.removeEventListener('resize', sync);
       window.removeEventListener('scroll', sync, true);
     };
-  }, [step]);
+  }, [step, steps.length]);
 
   const finish = useCallback(() => onFinish(), [onFinish]);
 

@@ -160,6 +160,22 @@ type SelectedTranslationItem = {
   audioDisabled?: boolean;
 };
 
+/**
+ * Joins a translated row back to the item it was submitted as.
+ *
+ * The server keys its results on the text it received but may return a polished
+ * variant of it — capitalisation, collapsed spacing, a sentence's final period.
+ * Polishing never rewords, so ignoring exactly those three is enough to match
+ * the pair reliably without depending on the response's ordering.
+ */
+function audioMatchKey(text: string): string {
+  return text
+    .toLocaleLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+    .replace(/[.!?]+$/, '');
+}
+
 async function generateAudioWithRetries(
   items: { key: string; text: string; language: string }[],
   maxAttempts = 3,
@@ -1136,22 +1152,29 @@ export function useWordChat({
         estimatedCostUsd: translated.translation_diagnostics.estimated_cost_usd,
       });
 
-      const rows: ReviewItem[] = translated.items.map((row, index) => ({
-        kind: row.kind,
-        textKnown: row.text_known,
-        textTarget: row.text_target,
-        ...(row.corpus_item_id ? { corpusItemId: row.corpus_item_id } : {}),
-        ...(row.takeover ? { takeover: row.takeover } : {}),
-        audioStatus: row.audio_asset_id
-          ? 'ready'
-          : itemsToTranslate[index]?.audioDisabled
-            ? 'idle'
-            : 'pending',
-        audioAssetId: row.audio_asset_id,
-        audioHash: row.audio_hash,
-        knownAudioAssetId: row.known_audio_asset_id,
-        audioDisabled: itemsToTranslate[index]?.audioDisabled,
-      }));
+      // Matched by text, never by position: the server drops anything that
+      // failed to translate, so the returned rows are a subsequence of what was
+      // sent and the indexes no longer line up.
+      const mutedKnownTexts = new Set(
+        itemsToTranslate
+          .filter((item) => item.audioDisabled === true)
+          .map((item) => audioMatchKey(item.text)),
+      );
+      const rows: ReviewItem[] = translated.items.map((row) => {
+        const audioDisabled = mutedKnownTexts.has(audioMatchKey(row.text_known));
+        return {
+          kind: row.kind,
+          textKnown: row.text_known,
+          textTarget: row.text_target,
+          ...(row.corpus_item_id ? { corpusItemId: row.corpus_item_id } : {}),
+          ...(row.takeover ? { takeover: row.takeover } : {}),
+          audioStatus: row.audio_asset_id ? 'ready' : audioDisabled ? 'idle' : 'pending',
+          audioAssetId: row.audio_asset_id,
+          audioHash: row.audio_hash,
+          knownAudioAssetId: row.known_audio_asset_id,
+          audioDisabled,
+        };
+      });
       setWarningsByKnown(
         Object.fromEntries(
           translated.items

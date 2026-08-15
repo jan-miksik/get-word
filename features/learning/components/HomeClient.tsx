@@ -172,7 +172,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     setGameScore,
     syncedWords,
     allSyncedWords,
-    hasPersonalWordsForActivePair,
+    isStudyGatedForPair,
     userId,
     userEmail,
     userWalletAddress,
@@ -327,7 +327,6 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     progressStats,
     upcomingAudioWords,
   } = useLearningPageState({
-    activeWords,
     filteredWords,
     selectedCategories,
     progress,
@@ -666,7 +665,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
                   ? { from: learningLanguageFrom, to: learningLanguageTo }
                   : null
               }
-              hasPersonalWordsForPair={hasPersonalWordsForActivePair}
+              studyGatedForPair={isStudyGatedForPair}
               onLearningLanguagePairChange={changeLearningLanguagePair}
               activeSurface={activeSurface}
               onSurfaceChange={navigateSurface}
