@@ -57,6 +57,26 @@ const progressOp = {
   },
 } satisfies OutboxOp;
 
+const segmentOp = {
+  clientOpId: 'segment-1',
+  batchId: 'batch-1',
+  clientCreatedAt: '2026-08-10T00:00:02.000Z',
+  deviceId: 'device-1',
+  attempts: 0,
+  status: 'pending',
+  entity: 'activity_segment',
+  opType: 'event',
+  payload: {
+    owner: null,
+    client_segment_id: 'segment-1',
+    session_id: 'session-1',
+    surface: 'study',
+    started_at: 1_760_000_000_000,
+    ended_at: 1_760_000_060_000,
+    active_ms: 60_000,
+  },
+} satisfies OutboxOp;
+
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.ensure.mockResolvedValue(true);
@@ -120,5 +140,77 @@ describe('local-first drainer acknowledgements', () => {
       ['progress-1'],
       expect.objectContaining({ kind: 'conflict' }),
     );
+  });
+  it('keeps an operation the server deferred, and everything else in its batch', async () => {
+    // The server stores measurement separately from the rest of the batch, so a
+    // failed segment write comes back beside acknowledged progress.
+    mocks.claim.mockResolvedValue([progressOp, segmentOp]);
+    const acknowledgement = {
+      success: true,
+      is_delta: true,
+      user: { id: 'user-1' },
+      applied_client_op_ids: ['progress-1'],
+      op_results: [
+        { clientOpId: 'progress-1', status: 'applied' },
+        { clientOpId: 'segment-1', status: 'retry' },
+      ],
+    };
+    mocks.sync.mockResolvedValue(acknowledgement);
+    mocks.checkpoint.mockResolvedValue(acknowledgement);
+
+    await flushOutboxBeforeRead();
+
+    expect(mocks.delete).toHaveBeenCalledWith(['progress-1']);
+    // Retryable, not blocked: nothing about it needs the user's attention.
+    expect(mocks.markFailed).toHaveBeenCalledWith(['segment-1'], expect.objectContaining({
+      kind: 'retryable',
+      reasonCode: 'SERVER_DEFERRED',
+    }));
+  });
+
+  it('does not read an all-deferred response as a legacy accept-everything', async () => {
+    // The compatibility path for servers that predate op_results deletes the
+    // whole batch. A server that answered and acknowledged nothing means the
+    // opposite, and an activity-only batch is exactly that shape.
+    mocks.claim.mockResolvedValue([segmentOp]);
+    const acknowledgement = {
+      success: true,
+      is_delta: true,
+      user: { id: 'user-1' },
+      applied_client_op_ids: [],
+      op_results: [{ clientOpId: 'segment-1', status: 'retry' }],
+    };
+    mocks.sync.mockResolvedValue(acknowledgement);
+    // Reconciles fine — so nothing but the acknowledgement itself decides
+    // whether the operation may be forgotten.
+    mocks.checkpoint.mockResolvedValue(acknowledgement);
+
+    await flushOutboxBeforeRead();
+
+    expect(mocks.delete).not.toHaveBeenCalled();
+    expect(mocks.markFailed).toHaveBeenCalledWith(['segment-1'], expect.objectContaining({
+      kind: 'retryable',
+      reasonCode: 'SERVER_DEFERRED',
+    }));
+  });
+
+  it('treats a present empty op_results array as the current acknowledgement protocol', async () => {
+    mocks.claim.mockResolvedValue([segmentOp]);
+    const acknowledgement = {
+      success: true,
+      is_delta: true,
+      user: { id: 'user-1' },
+      applied_client_op_ids: [],
+      op_results: [],
+    };
+    mocks.sync.mockResolvedValue(acknowledgement);
+
+    await flushOutboxBeforeRead();
+
+    expect(mocks.delete).not.toHaveBeenCalled();
+    expect(mocks.markFailed).toHaveBeenCalledWith(['segment-1'], expect.objectContaining({
+      kind: 'unknown',
+      reasonCode: 'SYNC_NOT_ACKNOWLEDGED',
+    }));
   });
 });

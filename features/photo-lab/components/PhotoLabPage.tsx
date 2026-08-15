@@ -510,17 +510,22 @@ function PhotoLabStudio({
           : 'max-w-[1800px] text-[color:var(--ob-ink)]'
       }`}
     >
-      <header className="mx-auto w-full max-w-[800px] px-1 animate-[photo-lab-rise_0.5s_ease-out_both] motion-reduce:animate-none md:px-4">
+      <header className="relative z-10 mx-auto w-full max-w-[800px] overflow-visible px-1 animate-[photo-lab-rise_0.5s_ease-out_both] motion-reduce:animate-none md:px-4">
         {/* Embedded in the app workspace, the top menu already switches surfaces,
             so a back button here is redundant — it only earns its place on the
             standalone route. */}
         <div
-          className={`flex items-center gap-3 ${
+          className={`relative z-10 flex items-center gap-3 overflow-visible ${
             variant === 'standalone' ? 'justify-between' : 'justify-end'
           }`}
         >
           {variant === 'standalone' ? <BackLink onClose={onClose} /> : null}
-          <LanguagePairSummary from={langFrom} to={langTo} onOpen={openLanguageModal} />
+          <LanguagePairSummary
+            from={langFrom}
+            to={langTo}
+            onOpen={openLanguageModal}
+            className="relative z-20"
+          />
         </div>
       </header>
 

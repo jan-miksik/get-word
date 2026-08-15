@@ -138,6 +138,8 @@ export type ReviewItem = {
    */
   audioHash?: string | null;
   knownAudioAssetId?: string | null;
+  /** Temporary QA switch: leave this item without fresh target audio. */
+  audioDisabled?: boolean;
 };
 
 export type CommitRequest = {

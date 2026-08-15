@@ -55,6 +55,24 @@ describe('TopMenu', () => {
     expect(screen.queryByRole('menuitem', { name: /^progress$/i })).not.toBeInTheDocument();
   });
 
+  it('offers the globally persisted study-pair switcher in the main menu', () => {
+    render(
+      <TopMenu
+        showAll={false}
+        onShowAll={vi.fn()}
+        onMenuAction={vi.fn()}
+        categoryCount={0}
+        categoryActive={false}
+        learningLanguagePair={{ from: 'cs', to: 'vi' }}
+        onLearningLanguagePairChange={vi.fn()}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /open menu/i }));
+
+    expect(screen.getByRole('menuitem', { name: /change languages/i })).toBeInTheDocument();
+  });
+
   it('opens the word chat in place from the app menu', () => {
     // A link would only change the URL: the learning page reads `?wordChat=1`
     // once on mount, so an in-app navigation to it does nothing visible.

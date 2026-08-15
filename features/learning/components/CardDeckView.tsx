@@ -82,6 +82,7 @@ export interface CardDeckSwipeActions {
 interface CardDeckViewProps {
   groupedWords: (NormalizedWord | MiniGameConfig)[][];
   interstitialCard?: ReactNode | null;
+  emptyState?: ReactNode | null;
   onWordCardCompleted?: (word: NormalizedWord) => void;
   /** When set, word cards can be swiped right = known / left = forgotten (frontier feature). */
   swipeActions?: CardDeckSwipeActions;
@@ -102,6 +103,7 @@ interface CardDeckViewProps {
 export function CardDeckView({
   groupedWords,
   interstitialCard = null,
+  emptyState = null,
   onWordCardCompleted,
   swipeActions,
   allowHorizontalSwipe = true,
@@ -413,9 +415,11 @@ export function CardDeckView({
   if (isDone && !showDoneOverlay) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-2xl font-semibold text-[#2A2218] opacity-70">
-          {t('card.allDone')}
-        </p>
+        {emptyState ?? (
+          <p className="text-2xl font-semibold text-[#2A2218] opacity-70">
+            {t('card.allDone')}
+          </p>
+        )}
       </div>
     );
   }
@@ -423,9 +427,11 @@ export function CardDeckView({
   if (!item) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-2xl font-semibold text-[#2A2218] opacity-70">
-          {t('card.allDone')}
-        </p>
+        {emptyState ?? (
+          <p className="text-2xl font-semibold text-[#2A2218] opacity-70">
+            {t('card.allDone')}
+          </p>
+        )}
       </div>
     );
   }

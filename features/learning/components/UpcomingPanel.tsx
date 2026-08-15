@@ -5,6 +5,7 @@ import { useAppStateContext } from '@/context/AppStateContext';
 import { useI18n } from '@/components/I18nProvider';
 import { noTranslateProps } from '@/lib/i18n/no-translate';
 import { useWordStream } from '@/features/learning/hooks/useWordStream';
+import { includePersonalWordsForActivePair } from '@/features/learning/state/personal-overview';
 import { ProgressStatsContent } from './progress/ProgressStatsContent';
 import type { ProgressStats } from '@/lib/progress-stats';
 import type { NormalizedWord } from '@/lib/words';
@@ -109,9 +110,28 @@ function Section({
 
 export function UpcomingPanel({ isOpen, onClose, progressStats }: UpcomingPanelProps) {
   const { t } = useI18n();
-  const { filteredWords, progress, isHydrated, role, categoryOrder } = useAppStateContext();
-  const { dueWords, newWords, settlingWords } = useWordStream(
+  const {
     filteredWords,
+    allSyncedWords,
+    subscribedLists,
+    activeListId,
+    progress,
+    isHydrated,
+    role,
+    categoryOrder,
+  } = useAppStateContext();
+  const overviewWords = useMemo(
+    () =>
+      includePersonalWordsForActivePair(
+        filteredWords,
+        allSyncedWords ?? filteredWords,
+        subscribedLists,
+        activeListId,
+      ),
+    [activeListId, allSyncedWords, filteredWords, subscribedLists],
+  );
+  const { dueWords, newWords, settlingWords } = useWordStream(
+    overviewWords,
     progress,
     isHydrated,
     categoryOrder

@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
 import type { ProgressData } from '@/features/sync/contracts';
-import { calculateProgressStats, getProgressStatsWords } from '@/lib/progress-stats';
+import { calculateProgressStats } from '@/lib/progress-stats';
 import type { NormalizedWord } from '@/lib/words';
 import type { MinigameFrequencyRange } from '@/features/learning/minigames';
 import { useLearningStreamGroups } from './useLearningStreamGroups';
@@ -75,7 +75,7 @@ function useResettableLearningUiState(resetKey: string): {
 }
 
 export function useLearningPageState({
-  activeWords,
+  activeWords: _activeWords,
   filteredWords,
   selectedCategories,
   progress,
@@ -116,8 +116,8 @@ export function useLearningPageState({
   } = useResettableLearningUiState(uiResetKey);
 
   const statsWords = useMemo(
-    () => getProgressStatsWords(activeWords, selectedCategories),
-    [activeWords, selectedCategories]
+    () => filteredWords,
+    [filteredWords]
   );
 
   const { priorityWords, priorityDueCount, dueWords, newWords, settlingWords } = useWordStream(
@@ -169,6 +169,19 @@ export function useLearningPageState({
     progressPlanRevision,
   });
 
+  // Keep the background audio repair aligned with the same ordering the learner
+  // sees. Minigames are deliberately excluded: they are derived UI, not study
+  // items, and must never cause extra TTS work.
+  const upcomingAudioWords = useMemo(
+    () => [
+      ...priorityWords,
+      ...dueWords,
+      ...newWords,
+      ...(showNotReady ? settlingWords : []),
+    ].slice(0, 5),
+    [dueWords, newWords, priorityWords, settlingWords, showNotReady],
+  );
+
   const progressStats = useMemo(
     () => calculateProgressStats(statsWords, progress, readyCount),
     [statsWords, progress, readyCount]
@@ -183,6 +196,7 @@ export function useLearningPageState({
     settlingWords,
     streamGroupedWords,
     cardDeckGroups: streamGroupedWords,
+    upcomingAudioWords,
     progressStats,
   };
 }

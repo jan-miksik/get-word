@@ -11,6 +11,7 @@ import type { NormalizedWord } from '@/lib/words';
 import { cacheActiveListAudio } from '@/lib/local-learning-cache';
 import { subscribeAudioNetworkChanges } from '@/lib/audio-network-policy';
 import { normalizeLanguageCode } from '@/lib/i18n/languages';
+import { resolveActiveStudyWords } from '@/features/learning/state/study-list-selection';
 
 export function useAppState(words: NormalizedWord[]) {
   const [isHydrated, setIsHydrated] = useState(false);
@@ -116,7 +117,39 @@ export function useAppState(words: NormalizedWord[]) {
         : syncedWords,
     [activeListId, personalOverlayListIds, syncedWords],
   );
-  const activeWords = filteredSyncedWords ?? words;
+  const personalOverlayWords = useMemo(
+    () =>
+      activeList && !activeList.isOwnedPersonal && syncedWords
+        ? syncedWords.filter(
+            (word) => word.listId && personalOverlayListIds.has(word.listId),
+          )
+        : [],
+    [activeList, personalOverlayListIds, syncedWords],
+  );
+  const personalWordsForActivePair = useMemo(
+    () =>
+      activeList?.isOwnedPersonal && filteredSyncedWords
+        ? filteredSyncedWords.filter((word) => word.listId === activeList.id)
+        : personalOverlayWords,
+    [activeList, filteredSyncedWords, personalOverlayWords],
+  );
+  const hasPersonalWordsForActivePair = useMemo(
+    () =>
+      personalWordsForActivePair.length > 0,
+    [personalWordsForActivePair],
+  );
+  // The non-personal list is a compatibility layer only. Until the learner has
+  // at least one personal word for this pair, the main study surface stays empty
+  // and points them to Add words instead of silently starting the old catalogue.
+  const activeWords = useMemo(
+    () => resolveActiveStudyWords(
+      activeList,
+      hasPersonalWordsForActivePair,
+      filteredSyncedWords,
+      words,
+    ),
+    [activeList, filteredSyncedWords, hasPersonalWordsForActivePair, words],
+  );
   const categoryScopeKey = activeListId ?? '__default__';
   const categories = useCategoryFilter(
     activeWords,
@@ -124,6 +157,18 @@ export function useAppState(words: NormalizedWord[]) {
     isUpdatingFromServerRef,
     categoryScopeKey
   );
+  // A personal list is the learner's primary layer when a larger, non-personal
+  // list is selected. Its categories are namespaced to that list, so applying
+  // the base list's category filter to the overlay would silently hide newly
+  // added personal words from the study stream and the word overview.
+  const filteredWords = useMemo(() => {
+    if (personalWordsForActivePair.length === 0) return categories.filteredWords;
+    const visibleIds = new Set(categories.filteredWords.map((word) => word.id));
+    return [
+      ...categories.filteredWords,
+      ...personalWordsForActivePair.filter((word) => !visibleIds.has(word.id)),
+    ];
+  }, [categories.filteredWords, personalWordsForActivePair]);
   const gameScore = useGameScore(isHydrated, isUpdatingFromServerRef);
 
   // Warm the active list only on a suitable network, resuming after reconnect
@@ -175,6 +220,9 @@ export function useAppState(words: NormalizedWord[]) {
     ...preferences,
     ...memoryHooks,
     ...categories,
+    // Keep the personal overlay visible even when the selected category filter
+    // belongs to the non-personal base list.
+    filteredWords,
     ...gameScore,
     progress,
     markKnown,
@@ -192,6 +240,7 @@ export function useAppState(words: NormalizedWord[]) {
     activeList,
     activeListId,
     ownedPersonalListIds,
+    hasPersonalWordsForActivePair,
     setActiveListId,
   };
 }

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ACTIVITY_SURFACES, MAX_SEGMENT_MS } from './activity';
 import { DeviceProfileSchema } from './device';
 
 const SyncReviewEventActionSchema = z.enum([
@@ -31,6 +32,39 @@ const SyncReviewEventItemSchema = z.object({
   client_created_at: finiteTimestamp,
 });
 
+/**
+ * Forward-compatible without masking malformed input. A plain `.catch('other')`
+ * would swallow every validation failure, so a client sending `surface: 12345`
+ * would silently produce a valid row — unacceptable when the client is
+ * explicitly untrusted. An unknown *string* degrades to 'other' (a newer client
+ * added a surface); a non-string is still a validation error.
+ */
+const ActivitySurfaceSchema = z
+  .string()
+  .max(32)
+  .transform((value) =>
+    (ACTIVITY_SURFACES as readonly string[]).includes(value) ? value : 'other',
+  );
+
+const SyncActivitySegmentSchema = z.object({
+  client_segment_id: z.string().min(1).max(64),
+  session_id: z.string().min(1).max(64),
+  surface: ActivitySurfaceSchema,
+  started_at: finiteTimestamp,
+  ended_at: finiteTimestamp,
+  // Clamped, not rejected — the same treatment `surface` gets above, and what
+  // `normalizeActivitySegment` already does server-side. A segment that measured
+  // itself a few milliseconds past the cap is a client-side fault in a
+  // measurement-only field; rejecting it would fail the entire batch, and that
+  // batch also carries the user's progress.
+  active_ms: z
+    .number()
+    .int()
+    .nonnegative()
+    .transform((value) => Math.min(value, MAX_SEGMENT_MS)),
+  interactions: z.number().int().nonnegative().max(100_000).optional(),
+});
+
 const SyncMutationPayloadSchema = z.object({
   show_english: z.boolean().optional(),
   show_category_badges: z.boolean().optional(),
@@ -54,6 +88,7 @@ const SyncMutationPayloadSchema = z.object({
   category_order: z.array(z.string()).optional(),
   progress: z.array(SyncProgressItemSchema).optional(),
   review_events: z.array(SyncReviewEventItemSchema).optional(),
+  activity_segments: z.array(SyncActivitySegmentSchema).max(200).optional(),
   memory_hooks: z.record(z.string(), z.string().nullable()).optional(),
   category_filters: z.array(z.string()).optional(),
   // Legacy clients could include null/empty entries. Preserve the route's
@@ -72,7 +107,12 @@ export const SyncRequestSchema = SyncMutationPayloadSchema.extend({
 
 export const SyncOperationResultSchema = z.object({
   clientOpId: z.string().min(1),
-  status: z.enum(['applied', 'duplicate', 'blocked', 'conflict']),
+  // 'retry' is the server saying it accepted the request but could not store
+  // this particular operation — a transient database fault, or a table whose
+  // migration has not been applied yet. Unlike 'blocked' it is not the client's
+  // fault and needs no user recovery: the op stays in the outbox and goes out
+  // again on the normal backoff.
+  status: z.enum(['applied', 'duplicate', 'blocked', 'conflict', 'retry']),
   code: z.string().optional(),
   details: z.unknown().optional(),
 });
@@ -80,6 +120,7 @@ export const SyncOperationResultSchema = z.object({
 export type SyncReviewEventAction = z.infer<typeof SyncReviewEventActionSchema>;
 export type SyncProgressItem = z.infer<typeof SyncProgressItemSchema>;
 export type SyncReviewEventItem = z.infer<typeof SyncReviewEventItemSchema>;
+export type SyncActivitySegment = z.infer<typeof SyncActivitySegmentSchema>;
 export type SyncRequest = z.infer<typeof SyncRequestSchema>;
 export type SyncMutationPayload = z.infer<typeof SyncMutationPayloadSchema>;
 export type SyncOperationResult = z.infer<typeof SyncOperationResultSchema>;

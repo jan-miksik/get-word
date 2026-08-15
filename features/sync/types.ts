@@ -1,5 +1,6 @@
 import type { WordItemComment } from "@/lib/word-item-comment";
 export type {
+  SyncActivitySegment,
   SyncOperationResult,
   SyncMutationPayload,
   SyncProgressItem,

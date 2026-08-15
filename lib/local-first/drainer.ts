@@ -2,6 +2,7 @@
 
 import {
   syncUserData,
+  getSyncOwner,
   isAuthRequiredError,
   publishSyncResponse,
   SyncRequestError,
@@ -53,6 +54,19 @@ export async function flushOutboxBeforeRead(): Promise<void> {
   await drainOnce().catch(() => undefined);
 }
 
+/**
+ * Push the outbox now, for callers that are shutting down rather than reading.
+ *
+ * Exists so lifecycle handlers outside this module do not have to rely on
+ * being registered before the drainer's own `pagehide` listener — an ordering
+ * that is an accident of import order and that a refactor could silently
+ * invert. Best-effort by nature: the browser may end execution at any point,
+ * which is why durability rests on local persistence rather than on this call.
+ */
+export async function flushOutboxNow(): Promise<void> {
+  await drainOnce().catch(() => undefined);
+}
+
 async function drainOnce(): Promise<void> {
   if (drainInFlight) return drainInFlight;
   drainInFlight = doDrain().finally(() => {
@@ -68,10 +82,17 @@ async function doDrain(): Promise<void> {
   const ops = await claimReadyBatch(MAX_BATCH);
   if (ops.length === 0) return;
 
-  const built = buildPayloadFromOps(ops);
+  const built = buildPayloadFromOps(ops, { owner: getSyncOwner() });
   if (!built) {
     await deleteOps(ops.map((op) => op.clientOpId));
     return;
+  }
+
+  // Not a failure worth surfacing: activity measured under a previous account
+  // simply has nowhere to go, so it is dropped instead of being flagged for
+  // recovery like a malformed payload.
+  if (built.discardedClientOpIds.length > 0) {
+    await deleteOps(built.discardedClientOpIds);
   }
 
   if (built.invalidClientOpIds.length > 0) {
@@ -120,7 +141,7 @@ function operationResults(payload: unknown): SyncOperationResult[] {
     result &&
     typeof result === 'object' &&
     typeof (result as { clientOpId?: unknown }).clientOpId === 'string' &&
-    ['applied', 'duplicate', 'blocked', 'conflict'].includes(
+    ['applied', 'duplicate', 'blocked', 'conflict', 'retry'].includes(
       String((result as { status?: unknown }).status),
     )
   ));
@@ -140,15 +161,19 @@ async function handleSuccessfulResponse(
   );
   const blocked = results.filter((result) => result.status === 'blocked');
   const conflicts = results.filter((result) => result.status === 'conflict');
+  const deferred = results.filter((result) => result.status === 'retry');
+  // Legacy 2xx responses without per-op acks mean the complete aggregate was
+  // accepted. Keep this compatibility behavior until every deployed server
+  // emits op_results — but key it on the server having said nothing at all, not
+  // on the acknowledged set being empty. A response that spoke and acknowledged
+  // nothing (every op deferred or blocked) means the opposite of "accepted".
+  const spoke = Array.isArray(response.op_results);
   const applied = new Set<string>(
-    completed.size > 0
+    spoke
       ? completed
       : Array.isArray(response.applied_client_op_ids) ? response.applied_client_op_ids : [],
   );
-  // Legacy 2xx responses without per-op acks mean the complete aggregate was
-  // accepted. Keep this compatibility behavior until every deployed server
-  // emits op_results.
-  const toDelete = applied.size > 0
+  const toDelete = spoke || applied.size > 0
     ? clientOpIds.filter((id) => applied.has(id))
     : clientOpIds;
   const acknowledgedOps = ops.filter((op) => toDelete.includes(op.clientOpId));
@@ -182,8 +207,19 @@ async function handleSuccessfulResponse(
       message: 'Operation requires refresh or rebase',
     });
   }
+  // Retryable rather than blocked: the server could not store it yet and said
+  // so, which is a condition that clears itself without the user doing anything.
+  for (const result of deferred) {
+    await markFailed([result.clientOpId], {
+      kind: 'retryable',
+      reasonCode: result.code ?? 'SERVER_DEFERRED',
+      message: 'Server accepted the request but could not store this operation yet',
+    });
+  }
   if (failed.length === 0) return;
-  const explicitlyHandled = new Set([...blocked, ...conflicts].map((result) => result.clientOpId));
+  const explicitlyHandled = new Set(
+    [...blocked, ...conflicts, ...deferred].map((result) => result.clientOpId),
+  );
   const unclassified = failed.filter((id) => !explicitlyHandled.has(id));
   if (unclassified.length === 0) return;
   const message = failed

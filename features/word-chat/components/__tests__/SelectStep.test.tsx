@@ -668,4 +668,44 @@ describe('SelectStep', () => {
       screen.getByRole('menuitem', { name: /Share & visibility/ }),
     ).toBeInTheDocument();
   });
+
+  it('shows a direct audio skip control for manually added items', () => {
+    const onToggleAudioDisabled = vi.fn();
+    render(
+      <I18nProvider language="en">
+        <SelectStep
+          mode="manual"
+          listName="My words"
+          languageTo="vi"
+          registerApplies={false}
+          register={null}
+          onRegisterChange={vi.fn()}
+          proposals={[]}
+          isSelected={() => false}
+          onToggle={vi.fn()}
+          onToggleAudioDisabled={onToggleAudioDisabled}
+          audioDisabledKeys={[]}
+          onUpdateProposal={vi.fn()}
+          onSelectAll={vi.fn()}
+          onClearSelection={vi.fn()}
+          customItems={[{ kind: 'word', text: 'coffee' }]}
+          onAddCustom={vi.fn()}
+          onRemoveCustom={vi.fn()}
+          limits={limits}
+          selectedCount={1}
+          overSoftLimit={false}
+          atHardCap={false}
+          monthlyRemaining={60}
+          overMonthlyLimit={false}
+          atSelectionLimit={false}
+          busy={false}
+          onContinue={vi.fn()}
+        />
+      </I18nProvider>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Skip audio generation' }));
+
+    expect(onToggleAudioDisabled).toHaveBeenCalledExactlyOnceWith('custom:coffee');
+  });
 });

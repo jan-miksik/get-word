@@ -6,6 +6,7 @@ import {
   deleteMemoryHookByItemId,
   getContentKeysForItemIds,
   getAppliedSyncClientOpIds,
+  recordActivitySegmentsIfNew,
   recordAppliedSyncClientOpIds,
   setUserCategoryFilters,
   updateUserPreferences,
@@ -63,6 +64,7 @@ export async function applySyncMutations(input: {
     category_order,
     progress,
     review_events,
+    activity_segments,
     memory_hooks,
     category_filters,
     client_op_ids,
@@ -138,6 +140,32 @@ export async function applySyncMutations(input: {
     });
   }
 
+  // Ops the request carried but the server did not store. They are reported
+  // back as 'retry' instead of being acknowledged, so the client keeps them.
+  const unstoredClientOpIds = new Set<string>();
+
+  if (activity_segments && activity_segments.length > 0) {
+    // Measurement only: nothing downstream depends on it, so a failure here
+    // must not cost the user their progress writes in the same batch. It must
+    // not be reported as success either — an acknowledged op is deleted from
+    // the outbox, and the expected failure here is a deploy that ran ahead of
+    // migration 0061, which resolves on its own within minutes.
+    try {
+      await recordActivitySegmentsIfNew({
+        userId: user.id,
+        deviceId,
+        segments: activity_segments,
+      });
+    } catch (error) {
+      console.error('[sync] failed to record activity segments:', error);
+      // A segment is queued under its own id, so these are exactly the ops that
+      // carried the segments — every other domain in the batch still acks.
+      for (const segment of activity_segments) {
+        unstoredClientOpIds.add(segment.client_segment_id);
+      }
+    }
+  }
+
   if (progress && progress.length > 0) {
     const legacyProgress = progress.filter((row) => row.word_id && !row.word_list_item_id);
     const itemProgress = progress.filter((row) => row.word_list_item_id);
@@ -204,15 +232,23 @@ export async function applySyncMutations(input: {
     await setUserCategoryFilters(user.id, category_filters);
   }
 
-  const newClientOpIds = clientOpIds.filter((id) => !duplicateClientOpIds.has(id));
+  const newClientOpIds = clientOpIds.filter(
+    (id) => !duplicateClientOpIds.has(id) && !unstoredClientOpIds.has(id),
+  );
   await recordAppliedSyncClientOpIds(user.id, newClientOpIds);
   return {
     user,
     appliedReviewEventIds,
-    clientOpIds,
+    // The ack hint lists only what the client may forget; the per-op results
+    // below still mention the rest so it knows to send them again.
+    clientOpIds: clientOpIds.filter((id) => !unstoredClientOpIds.has(id)),
     opResults: clientOpIds.map((clientOpId) => ({
       clientOpId,
-      status: duplicateClientOpIds.has(clientOpId) ? 'duplicate' : 'applied',
+      status: unstoredClientOpIds.has(clientOpId)
+        ? 'retry'
+        : duplicateClientOpIds.has(clientOpId)
+          ? 'duplicate'
+          : 'applied',
     })),
   };
 }

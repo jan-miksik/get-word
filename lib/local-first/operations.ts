@@ -1,4 +1,5 @@
 import type {
+  SyncActivitySegment,
   SyncMutationPayload,
   SyncProgressItem,
   SyncReviewEventItem,
@@ -45,10 +46,24 @@ interface ReviewEventOperation {
   payload: SyncReviewEventItem;
 }
 
+/**
+ * `owner` is the auth subject the segment was measured under. Sign-out normally
+ * destroys the whole outbox database, but that delete resolves without effect
+ * when another tab holds the connection open, so a segment can outlive the
+ * account it belongs to. The drainer drops non-matching owners rather than
+ * posting one person's activity under another's id.
+ */
+interface ActivitySegmentOperation {
+  entity: 'activity_segment';
+  opType: 'event';
+  payload: SyncActivitySegment & { owner?: string | null };
+}
+
 export type OutboxOperation =
   | ProgressOperation
   | MemoryHookOperation
   | PreferenceOperation
   | CategoryFiltersOperation
   | GameScoreOperation
-  | ReviewEventOperation;
+  | ReviewEventOperation
+  | ActivitySegmentOperation;

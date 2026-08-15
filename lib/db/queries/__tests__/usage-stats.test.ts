@@ -36,6 +36,14 @@ function mockAllQueries({
   uiLanguageRequests = [] as Record<string, unknown>[],
   users = [] as Record<string, unknown>[],
   userDaily = [] as Record<string, unknown>[],
+  // Measured-activity rollups; the two queries run after the user list.
+  activitySessions = [
+    { active_seconds: 0, sessions: 0, users_with_activity: 0, median_session_seconds: 0 },
+  ] as Record<string, unknown>[],
+  activityBySurface = [] as Record<string, unknown>[],
+  userActivity = [] as Record<string, unknown>[],
+  /** Simulates the activity table not existing yet (migration applied by hand). */
+  activityFails = false,
 } = {}) {
   mockExecute
     .mockResolvedValueOnce(registrations)
@@ -57,6 +65,20 @@ function mockAllQueries({
     .mockResolvedValueOnce(uiLanguageRequests)
     .mockResolvedValueOnce(users)
     .mockResolvedValueOnce(userDaily);
+
+  const activityError = () =>
+    Promise.reject(new Error('relation "activity_segments" does not exist'));
+  if (activityFails) {
+    mockExecute
+      .mockImplementationOnce(activityError)
+      .mockImplementationOnce(activityError)
+      .mockImplementationOnce(activityError);
+  } else {
+    mockExecute
+      .mockResolvedValueOnce(activitySessions)
+      .mockResolvedValueOnce(activityBySurface)
+      .mockResolvedValueOnce(userActivity);
+  }
 }
 
 describe('getUsageStats', () => {
@@ -84,7 +106,9 @@ describe('getUsageStats', () => {
 
     const stats = await getUsageStats();
 
-    expect(mockExecute).toHaveBeenCalledTimes(19);
+    // 19 pre-existing + 2 app-wide activity rollups. The per-user activity
+    // query short-circuits without hitting the database when no users match.
+    expect(mockExecute).toHaveBeenCalledTimes(21);
     expect(stats.generatedAt).toBe(NOW.toISOString());
     expect(stats.registrations).toMatchObject({
       total: 10,
@@ -464,6 +488,86 @@ describe('getUsageStats', () => {
     expect(row.dailyActivity).toEqual([{ date: '2026-07-02', count: 3 }]);
   });
 
+  it('maps measured activity onto user rows and the app-wide panel', async () => {
+    const userId = '22222222-2222-2222-2222-222222222222';
+    mockAllQueries({
+      users: [
+        {
+          id: userId,
+          email: 'b@example.com',
+          first_seen_at: '2026-07-01T00:00:00.000Z',
+          registered_at: '2026-07-02T00:00:00.000Z',
+          last_seen_at: null,
+          last_device_platform: 'ios',
+          last_device_form_factor: 'mobile',
+          device_count: 1,
+          game_score: 0,
+          review_count: 5,
+          active_days: 2,
+          study_sessions: 2,
+          est_active_study_seconds: 300,
+          photo_analyses: 0,
+        },
+      ],
+      activitySessions: [
+        {
+          active_seconds: 7200,
+          sessions: 12,
+          users_with_activity: 4,
+          median_session_seconds: 480,
+        },
+      ],
+      activityBySurface: [
+        { surface: 'study', active_seconds: 5400, sessions: 9 },
+        { surface: 'lists', active_seconds: 1800, sessions: 4 },
+      ],
+      userActivity: [
+        {
+          user_id: userId,
+          active_seconds: 1500,
+          sessions: 3,
+          median_session_seconds: 420,
+        },
+      ],
+    });
+
+    const stats = await getUsageStats();
+
+    expect(stats.users[0]).toMatchObject({
+      activeSeconds30d: 1500,
+      sessions30d: 3,
+      medianSessionSeconds: 420,
+      // The inferred estimate stays alongside the measured figure so the two
+      // can be compared during the overlap period.
+      estActiveStudySeconds: 300,
+    });
+    expect(stats.activity30d).toMatchObject({
+      activeSeconds: 7200,
+      sessions: 12,
+      usersWithActivity: 4,
+      medianSessionSeconds: 480,
+    });
+    expect(stats.activity30d.bySurface).toEqual([
+      { surface: 'study', activeSeconds: 5400, sessions: 9 },
+      { surface: 'lists', activeSeconds: 1800, sessions: 4 },
+    ]);
+  });
+
+  it('leaves measured activity at zero when the table is unavailable', async () => {
+    // Migration 0061 is applied by hand, so a deploy can run ahead of its table.
+    // The dashboard must degrade to an empty panel, not a 500.
+    mockAllQueries({ activityFails: true });
+
+    const stats = await getUsageStats();
+
+    expect(stats.activity30d).toMatchObject({
+      activeSeconds: 0,
+      sessions: 0,
+      usersWithActivity: 0,
+      bySurface: [],
+    });
+  });
+
   it('maps the app-wide activity heatmap and leaves it empty when there is no data', async () => {
     mockAllQueries({
       activityHeatmap: [
@@ -483,5 +587,114 @@ describe('getUsageStats', () => {
     mockAllQueries();
     const empty = await getUsageStats();
     expect(empty.activityHeatmap).toEqual([]);
+  });
+});
+
+/**
+ * Splits a drizzle `sql` template into its literal text and its bound values,
+ * so a test can assert what a query filters on without pinning its exact
+ * wording. Nested fragments (the shared exclusion condition is one) are walked.
+ */
+function describeQuery(query: unknown): { text: string; values: unknown[] } {
+  const text: string[] = [];
+  const values: unknown[] = [];
+
+  const walk = (node: unknown): void => {
+    const chunks = (node as { queryChunks?: unknown[] })?.queryChunks;
+    if (!Array.isArray(chunks)) return;
+    for (const chunk of chunks) {
+      if (chunk && typeof chunk === 'object') {
+        if (Array.isArray((chunk as { queryChunks?: unknown[] }).queryChunks)) {
+          walk(chunk);
+          continue;
+        }
+        // A literal chunk holds its SQL as an array of strings; a parameter
+        // object holds the value it binds.
+        const literal = (chunk as { value?: unknown }).value;
+        if (Array.isArray(literal)) {
+          text.push(literal.join(''));
+          continue;
+        }
+        values.push(literal);
+        continue;
+      }
+      // Interpolated primitives are bound values.
+      values.push(chunk);
+    }
+  };
+
+  walk(query);
+  // Collapsed so an assertion does not depend on the template's indentation.
+  return { text: text.join(' ').replace(/\s+/g, ' '), values };
+}
+
+describe('estimated study time', () => {
+  beforeEach(() => {
+    mockExecute.mockReset();
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('measures gaps inside a session, never across two of them', async () => {
+    mockAllQueries();
+
+    await getUsageStats();
+
+    const sessionQuery = mockExecute.mock.calls
+      .map((call) => describeQuery(call[0]))
+      .find((query) => query.text.includes('session_marked'));
+
+    expect(sessionQuery).toBeDefined();
+    // Leading across the whole user partition charges every session boundary
+    // the full inactivity cap, so a user with many sessions collects hours that
+    // nobody spent.
+    expect(sessionQuery?.text).toContain(
+      'lead(answered_at) OVER ( PARTITION BY user_id, session_no ORDER BY answered_at )',
+    );
+  });
+});
+
+describe('test-account exclusions', () => {
+  beforeEach(() => {
+    mockExecute.mockReset();
+    vi.useFakeTimers();
+    vi.setSystemTime(NOW);
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('applies them to the app-wide activity panel too', async () => {
+    mockAllQueries();
+
+    await getUsageStats({
+      excludedUserIds: [],
+      excludedUserEmails: ['Team@example.com'],
+    });
+
+    const activityQueries = mockExecute.mock.calls
+      .map((call) => describeQuery(call[0]))
+      .filter((query) => query.text.includes('activity_segments'));
+
+    // The session rollup and the surface breakdown; the per-user rollup is
+    // already restricted to the user list, which is filtered upstream.
+    expect(activityQueries.length).toBeGreaterThanOrEqual(2);
+    for (const query of activityQueries) {
+      const restricted =
+        query.text.includes('JOIN users') || query.text.includes('ANY(');
+      expect(restricted).toBe(true);
+    }
+    const joined = activityQueries.filter((query) => query.text.includes('JOIN users'));
+    expect(joined).toHaveLength(2);
+    for (const query of joined) {
+      // Panels that skip the exclusions report a different population than the
+      // per-user table right beneath them.
+      expect(query.values).toContain('team@example.com');
+    }
   });
 });

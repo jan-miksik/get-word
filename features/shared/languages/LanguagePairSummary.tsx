@@ -41,7 +41,7 @@ export function LanguagePairSummary({ from, to, onOpen, className = '' }: Props)
   const target = describe(to, t('photoLab.targetLanguage'));
 
   const shell = [
-    'flex max-w-full items-center gap-1 rounded-full border-2 border-[color:var(--ob-ink)]/60 bg-[#F4EFE2]/70 px-3.5 py-2 text-sm font-semibold text-[color:var(--ob-ink)] sm:gap-2',
+    'flex max-w-full shrink-0 items-center gap-1 whitespace-nowrap rounded-full border-2 border-[color:var(--ob-ink)]/60 bg-[#F4EFE2]/70 px-3.5 py-2 text-sm font-semibold text-[color:var(--ob-ink)] sm:gap-2',
     onOpen
       ? 'transition hover:-translate-y-0.5 hover:border-[color:var(--ob-ink)] hover:bg-[var(--ob-surface-hover)] hover:shadow-md hover:shadow-[#2A2218]/10'
       : '',
@@ -53,17 +53,10 @@ export function LanguagePairSummary({ from, to, onOpen, className = '' }: Props)
   const body = (
     <>
       <span aria-hidden="true">{source.flag}</span>
-      <span className={onOpen ? 'hidden truncate sm:inline' : 'truncate'}>{source.name}</span>
       <span aria-hidden="true" className="text-[color:var(--ob-ink-soft)]">
         →
       </span>
       <span aria-hidden="true">{target.flag}</span>
-      <span className={onOpen ? 'hidden truncate sm:inline' : 'truncate'}>{target.name}</span>
-      {onOpen ? (
-        <span aria-hidden="true" className="text-xs text-[color:var(--ob-ink-soft)]">
-          ✎
-        </span>
-      ) : null}
     </>
   );
 

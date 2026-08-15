@@ -207,3 +207,64 @@ describe('payload builder', () => {
     expect(built?.clientOpIds).toHaveLength(0);
   });
 });
+
+describe('activity segments', () => {
+  function segmentOp(overrides: Record<string, unknown> = {}, clientOpId?: string) {
+    return makeOp({
+      clientOpId,
+      entity: 'activity_segment',
+      opType: 'event',
+      payload: {
+        client_segment_id: 'seg-1',
+        session_id: 'session-1',
+        surface: 'study',
+        started_at: 1_000,
+        ended_at: 61_000,
+        active_ms: 60_000,
+        interactions: 12,
+        ...overrides,
+      },
+    } as unknown as OutboxOperation);
+  }
+
+  it('collapses a redelivered segment id to a single entry', () => {
+    const built = buildPayloadFromOps([
+      segmentOp({}, 'op-a'),
+      segmentOp({ active_ms: 60_000 }, 'op-b'),
+    ]);
+
+    expect(built?.payload.activity_segments).toHaveLength(1);
+    // Both ops are still acknowledged so neither lingers in the outbox.
+    expect(built?.clientOpIds).toEqual(['op-a', 'op-b']);
+  });
+
+  it('rejects a segment that ends before it starts', () => {
+    const built = buildPayloadFromOps([segmentOp({ started_at: 9_000, ended_at: 1_000 })]);
+
+    expect(built?.payload.activity_segments).toBeUndefined();
+    expect(built?.invalidClientOpIds).toHaveLength(1);
+  });
+
+  it('discards segments measured under a different account', () => {
+    const built = buildPayloadFromOps(
+      [
+        segmentOp({ owner: 'user-1' }, 'mine'),
+        segmentOp({ client_segment_id: 'seg-2', owner: 'user-2' }, 'theirs'),
+      ],
+      { owner: 'user-1' }
+    );
+
+    expect(built?.payload.activity_segments).toHaveLength(1);
+    expect(built?.clientOpIds).toEqual(['mine']);
+    // Dropped quietly rather than flagged for recovery — nothing is malformed.
+    expect(built?.discardedClientOpIds).toEqual(['theirs']);
+    expect(built?.invalidClientOpIds).toHaveLength(0);
+  });
+
+  it('sends unowned segments so pre-existing ops are not stranded', () => {
+    const built = buildPayloadFromOps([segmentOp()], { owner: 'user-1' });
+
+    expect(built?.payload.activity_segments).toHaveLength(1);
+    expect(built?.discardedClientOpIds).toHaveLength(0);
+  });
+});

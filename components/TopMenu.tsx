@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import type { MenuPanel } from '@/hooks/useMenuPanels';
 import type { SchoolMembership } from '@/features/auth/client/useAuth';
@@ -22,6 +23,10 @@ import {
 } from '@/components/icons/AppIcons';
 import type { AppSurface } from '@/features/workspace/surface-history';
 import { apiFetch } from '@/features/shared/http/api-runtime';
+import { LanguageCombobox } from '@/features/shared/languages/LanguageCombobox';
+import { LanguagePairSummary } from '@/features/shared/languages/LanguagePairSummary';
+import { useSupportedLanguages } from '@/features/shared/languages/useSupportedLanguages';
+import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
 
 const STUDY_SURFACE_HREF = '/';
 const CHAT_SURFACE_HREF = '/?surface=chat';
@@ -45,6 +50,10 @@ interface TopMenuProps {
   onListChange?: (id: string | null) => void;
   /** Language pair of the active list, used to suggest other lists to switch to. */
   activeListLanguagePair?: { from: string; to: string } | null;
+  /** The globally persisted study pair, shown in the main menu. */
+  learningLanguagePair?: { from: string; to: string } | null;
+  /** Persists a new study pair through the app-state sync path. */
+  onLearningLanguagePairChange?: (pair: { from: string; to: string }) => void | Promise<void>;
   /** When Photo Lab is available, surface it as a main-menu destination. */
   photoLabEnabled?: boolean;
   /** Active school membership; drives the school row and the teacher dashboard link. */
@@ -424,6 +433,95 @@ function ListSelectModal({
   );
 }
 
+function LearningLanguagePairModal({
+  from,
+  to,
+  onChange,
+  onClose,
+}: {
+  from: string;
+  to: string;
+  onChange: (pair: { from: string; to: string }) => void | Promise<void>;
+  onClose: () => void;
+}) {
+  const { t } = useI18n();
+  const { languages, loading } = useSupportedLanguages();
+  const [draftFrom, setDraftFrom] = useState(from);
+  const [draftTo, setDraftTo] = useState(to);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(false);
+
+  async function choose(pair: { from: string; to: string }) {
+    setDraftFrom(pair.from);
+    setDraftTo(pair.to);
+    if (!pair.from || !pair.to || pair.from === pair.to) return;
+    if (pair.from === from && pair.to === to) return;
+    setSaving(true);
+    setError(false);
+    try {
+      await onChange(pair);
+      onClose();
+    } catch {
+      setError(true);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
+    <div
+      className="fixed inset-0 z-[220] flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={t('photoLab.languagesModalTitle')}
+        style={warmPaletteVars}
+        className="w-full max-w-sm rounded-2xl border-2 border-[color:var(--ob-ink)] bg-[var(--ob-surface)] p-5 text-[color:var(--ob-ink)] shadow-xl"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="m-0 text-base font-semibold">{t('photoLab.languagesModalTitle')}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={t('common.close')}
+            className="rounded-full px-2 text-2xl leading-none"
+          >
+            ×
+          </button>
+        </div>
+        <div className="mt-4 flex flex-col gap-4">
+          <LanguageCombobox
+            id="menu-language-from"
+            label={t('photoLab.knownLanguage')}
+            value={draftFrom}
+            languages={languages}
+            loading={loading}
+            onChange={(value) => void choose({ from: value, to: draftTo })}
+            disabledCodes={draftTo ? [draftTo] : []}
+          />
+          <LanguageCombobox
+            id="menu-language-to"
+            label={t('photoLab.targetLanguage')}
+            value={draftTo}
+            languages={languages}
+            loading={loading}
+            onChange={(value) => void choose({ from: draftFrom, to: value })}
+            disabledCodes={draftFrom ? [draftFrom] : []}
+          />
+        </div>
+        {saving ? <p className="mt-3 mb-0 text-xs opacity-70" role="status">{t('wordChat.profileSaving')}</p> : null}
+        {error ? <p className="mt-3 mb-0 text-xs text-red-700" role="alert">{t('wordChat.languageChangeFailed')}</p> : null}
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 interface MenuDropdownProps {
   onMenuAction: (panel: MenuPanel) => void;
   categoryActive: boolean;
@@ -434,6 +532,8 @@ interface MenuDropdownProps {
   activeListId?: string | null;
   onListChange?: (id: string | null) => void;
   activeListLanguagePair?: { from: string; to: string } | null;
+  learningLanguagePair?: { from: string; to: string } | null;
+  onLearningLanguagePairChange?: (pair: { from: string; to: string }) => void | Promise<void>;
   photoLabEnabled?: boolean;
   school?: SchoolMembership | null;
   onOpenWordChat?: () => void;
@@ -451,6 +551,8 @@ function MenuDropdown({
   activeListId,
   onListChange,
   activeListLanguagePair,
+  learningLanguagePair,
+  onLearningLanguagePairChange,
   photoLabEnabled,
   school,
   onOpenWordChat,
@@ -461,6 +563,7 @@ function MenuDropdown({
   const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [listModalOpen, setListModalOpen] = useState(false);
+  const [languageModalOpen, setLanguageModalOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -476,7 +579,7 @@ function MenuDropdown({
 
   type PanelItem = { kind: 'panel'; icon: ReactNode; label: string; panel: MenuPanel; active: boolean; badge: string | null };
   type LinkItem = { kind: 'link'; icon: ReactNode; label: string; href: string; external?: boolean };
-  type ActionItem = { kind: 'action'; icon: ReactNode; label: string; onSelect: () => void; trailing?: string | null };
+  type ActionItem = { kind: 'action'; icon: ReactNode; label: string; onSelect: () => void; trailing?: ReactNode };
   type SurfaceItem = {
     kind: 'surface';
     icon: ReactNode;
@@ -489,8 +592,28 @@ function MenuDropdown({
 
   const hasLists = !!(lists && lists.length > 0 && onListChange);
   const activeList = hasLists ? lists!.find((l) => l.id === activeListId) ?? null : null;
+  const hasLearningPair = Boolean(
+    learningLanguagePair?.from && learningLanguagePair?.to && onLearningLanguagePairChange,
+  );
 
   const items: MenuItem[] = [
+    ...(hasLearningPair
+      ? [
+          {
+            kind: 'action' as const,
+            icon: <TuneIcon size={15} />,
+            label: t('photoLab.changeLanguages'),
+            onSelect: () => setLanguageModalOpen(true),
+            trailing: (
+              <LanguagePairSummary
+                from={learningLanguagePair!.from}
+                to={learningLanguagePair!.to}
+                className="!border-0 !bg-transparent !p-0 !shadow-none"
+              />
+            ),
+          },
+        ]
+      : []),
     ...(hasLists
       ? [
           {
@@ -748,6 +871,14 @@ function MenuDropdown({
           languagePair={activeListLanguagePair}
         />
       )}
+      {languageModalOpen && hasLearningPair && (
+        <LearningLanguagePairModal
+          from={learningLanguagePair!.from}
+          to={learningLanguagePair!.to}
+          onChange={onLearningLanguagePairChange!}
+          onClose={() => setLanguageModalOpen(false)}
+        />
+      )}
     </>
   );
 }
@@ -763,6 +894,8 @@ export function TopMenu({
   activeListId,
   onListChange,
   activeListLanguagePair,
+  learningLanguagePair,
+  onLearningLanguagePairChange,
   photoLabEnabled,
   school,
   onOpenWordChat,
@@ -814,6 +947,8 @@ export function TopMenu({
           activeListId={activeListId}
           onListChange={onListChange}
           activeListLanguagePair={activeListLanguagePair}
+          learningLanguagePair={learningLanguagePair}
+          onLearningLanguagePairChange={onLearningLanguagePairChange}
           photoLabEnabled={photoLabEnabled}
           school={school}
           onOpenWordChat={onOpenWordChat}

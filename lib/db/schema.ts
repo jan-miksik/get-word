@@ -653,6 +653,55 @@ export const reviewEvents = pgTable(
   ],
 );
 
+// Measured foreground time, one row per contiguous run of activity on one
+// device. This replaces inferring study time from gaps between review-event
+// sync timestamps, which measured how often the outbox flushed rather than how
+// long anyone studied.
+//
+// `timestamptz` throughout, unlike the older tables here: the client sends
+// epoch milliseconds and rollups reason about day boundaries, so a naive
+// timestamp would invite timezone bugs the moment a per-day figure is shown.
+//
+// The interval is stored, not just the duration, because `active_ms` alone
+// cannot be summed across a user's devices without double-counting overlap.
+// Every row satisfies `ended_at - started_at ≈ active_ms` (the tracker closes a
+// segment at any interruption), so [started_at, ended_at] is a real activity
+// interval that a later user-facing rollup can union.
+export const activitySegments = pgTable(
+  "activity_segments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    // Client-generated; the idempotency key for redelivery, exactly as
+    // `client_event_id` works for review events.
+    clientSegmentId: text("client_segment_id").notNull(),
+    deviceId: text("device_id"),
+    // Activity separated by less than 30 minutes of inactivity. Unrelated to
+    // `review_events.session_id`, which is really a browser-tab id.
+    sessionId: text("session_id").notNull(),
+    surface: text("surface").notNull(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull(),
+    endedAt: timestamp("ended_at", { withTimezone: true }).notNull(),
+    activeMs: integer("active_ms").notNull(),
+    interactions: integer("interactions").notNull().default(0),
+    serverCreatedAt: timestamp("server_created_at", { withTimezone: true })
+      .defaultNow()
+      .notNull(),
+  },
+  (table) => [
+    unique("activity_segments_user_client_unique").on(
+      table.userId,
+      table.clientSegmentId,
+    ),
+    index("activity_segments_user_started_idx").on(
+      table.userId,
+      table.startedAt,
+    ),
+  ],
+);
+
 // Durable acknowledgement ledger for local-first mutations. The composite
 // uniqueness is user-scoped because client operation ids are generated on the
 // device and need only be stable within one account.
@@ -1063,6 +1112,8 @@ export type UserProgress = typeof userProgress.$inferSelect;
 export type NewUserProgress = typeof userProgress.$inferInsert;
 export type ReviewEvent = typeof reviewEvents.$inferSelect;
 export type NewReviewEvent = typeof reviewEvents.$inferInsert;
+export type ActivitySegmentRow = typeof activitySegments.$inferSelect;
+export type NewActivitySegment = typeof activitySegments.$inferInsert;
 export type UserDevice = typeof userDevices.$inferSelect;
 export type NewUserDevice = typeof userDevices.$inferInsert;
 export type UserMemoryHook = typeof userMemoryHooks.$inferSelect;

@@ -157,6 +157,7 @@ type SelectedTranslationItem = {
   text: string;
   corpusItemId?: string;
   takeoverCandidate?: TakeoverReference;
+  audioDisabled?: boolean;
 };
 
 async function generateAudioWithRetries(
@@ -270,6 +271,7 @@ export function useWordChat({
 
   const [proposals, setProposals] = useState<ProposedItem[]>([]);
   const [selectedKeys, setSelectedKeys] = useState<string[]>([]);
+  const [audioDisabledKeys, setAudioDisabledKeys] = useState<string[]>([]);
   const [customItems, setCustomItems] = useState<{ kind: 'sentence' | 'word'; text: string }[]>([]);
   const [listName, setListName] = useState(() => personalListName(languageFrom, languageTo));
   const [categoryName, setCategoryNameState] = useState(() =>
@@ -745,9 +747,16 @@ export function useWordChat({
         ...(item.source === 'corpus' && item.takeoverCandidate
           ? { takeoverCandidate: item.takeoverCandidate }
           : {}),
+        audioDisabled: audioDisabledKeys.includes(proposalKey(item)),
       }));
-    return [...fromProposals, ...customItems];
-  }, [proposals, selectedKeys, customItems]);
+    return [
+      ...fromProposals,
+      ...customItems.map((item) => ({
+        ...item,
+        audioDisabled: audioDisabledKeys.includes(`custom:${item.text}`),
+      })),
+    ];
+  }, [audioDisabledKeys, proposals, selectedKeys, customItems]);
 
   const selectedCount = selectedItems.length;
   const overSoftLimit = selectedCount > limits.softItemWarningThreshold;
@@ -781,6 +790,7 @@ export function useWordChat({
       // Suggestions start neutral. The learner can select individual items or
       // use the explicit select-all action without the UI deciding for them.
       setSelectedKeys([]);
+      setAudioDisabledKeys([]);
       // A name explicitly entered in settings wins. Blank and legacy generic
       // fallbacks are replaced by the concrete title generated from this chat.
       if (!categoryNameEditedRef.current) setCategoryNameState(response.category_name);
@@ -977,6 +987,14 @@ export function useWordChat({
     setSelectedKeys([]);
   }, []);
 
+  const toggleAudioDisabled = useCallback((key: string) => {
+    setAudioDisabledKeys((current) =>
+      current.includes(key)
+        ? current.filter((entry) => entry !== key)
+        : [...current, key],
+    );
+  }, []);
+
   const updateProposal = useCallback((item: ProposedItem, text: string) => {
     const oldKey = proposalKey(item);
     const draftId = item.draftId ?? newId();
@@ -1000,6 +1018,11 @@ export function useWordChat({
         ? current.map((entry) => (entry === oldKey ? nextKey : entry))
         : current,
     );
+    setAudioDisabledKeys((current) =>
+      current.includes(oldKey)
+        ? current.map((entry) => (entry === oldKey ? nextKey : entry))
+        : current,
+    );
   }, []);
 
   const addCustomItem = useCallback(
@@ -1017,6 +1040,7 @@ export function useWordChat({
 
   const removeCustomItem = useCallback((text: string) => {
     setCustomItems((current) => current.filter((entry) => entry.text !== text));
+    setAudioDisabledKeys((current) => current.filter((entry) => entry !== `custom:${text}`));
   }, []);
 
   const startManualEntry = useCallback(() => {
@@ -1031,6 +1055,7 @@ export function useWordChat({
     retryTargetRef.current = null;
     setProposals([]);
     setSelectedKeys([]);
+    setAudioDisabledKeys([]);
     if (!categoryName.trim()) setCategoryNameState(t('wordChat.manualCategoryName'));
     setReviewLabel(MANUAL_REVIEW_LABEL);
     setTopicLabel('');
@@ -1050,7 +1075,7 @@ export function useWordChat({
     // already on screen.
     const seen = new Set(selectedItems.map((item) => item.text.toLowerCase()));
     const room = Math.max(0, selectionLimit - selectedItems.length);
-    const extras: { kind: 'sentence' | 'word'; text: string }[] = [];
+    const extras: SelectedTranslationItem[] = [];
     for (const raw of pendingTexts) {
       if (extras.length >= room) break;
       const text = raw.trim().replace(/\s+/g, ' ');
@@ -1084,6 +1109,7 @@ export function useWordChat({
         item.kind,
         item.text,
         'corpusItemId' in item ? item.corpusItemId : null,
+        item.audioDisabled === true,
       ]),
     });
     if (signature === translatedSignatureRef.current && reviewItems.length > 0) {
@@ -1110,16 +1136,21 @@ export function useWordChat({
         estimatedCostUsd: translated.translation_diagnostics.estimated_cost_usd,
       });
 
-      const rows: ReviewItem[] = translated.items.map((row) => ({
+      const rows: ReviewItem[] = translated.items.map((row, index) => ({
         kind: row.kind,
         textKnown: row.text_known,
         textTarget: row.text_target,
         ...(row.corpus_item_id ? { corpusItemId: row.corpus_item_id } : {}),
         ...(row.takeover ? { takeover: row.takeover } : {}),
-        audioStatus: row.audio_asset_id ? 'ready' : 'pending',
+        audioStatus: row.audio_asset_id
+          ? 'ready'
+          : itemsToTranslate[index]?.audioDisabled
+            ? 'idle'
+            : 'pending',
         audioAssetId: row.audio_asset_id,
         audioHash: row.audio_hash,
         knownAudioAssetId: row.known_audio_asset_id,
+        audioDisabled: itemsToTranslate[index]?.audioDisabled,
       }));
       setWarningsByKnown(
         Object.fromEntries(
@@ -1144,7 +1175,7 @@ export function useWordChat({
       // background. Reused corpus rows usually arrive voiced.
       const needsAudio = rows
         .map((row, index) => ({ row, index }))
-        .filter(({ row }) => !row.audioAssetId);
+        .filter(({ row }) => !row.audioAssetId && !row.audioDisabled);
       if (needsAudio.length > 0) {
         const audioRequests = needsAudio.map(({ row, index }) => ({
           key: String(index),
@@ -1248,7 +1279,9 @@ export function useWordChat({
       if (!row?.textTarget) return;
       setReviewItems((current) =>
         current.map((entry, entryIndex) =>
-          entryIndex === index ? { ...entry, audioStatus: 'pending' } : entry,
+          entryIndex === index
+            ? { ...entry, audioStatus: 'pending', audioDisabled: false }
+            : entry,
         ),
       );
       const assets = await generateAudioWithRetries([
@@ -1262,10 +1295,11 @@ export function useWordChat({
               ? {
                   ...entry,
                   audioStatus: 'ready',
+                  audioDisabled: false,
                   audioAssetId: clip.assetId,
                   audioHash: clip.contentHash,
                 }
-              : { ...entry, audioStatus: 'failed' }
+              : { ...entry, audioStatus: 'failed', audioDisabled: false }
             : entry,
         ),
       );
@@ -1425,6 +1459,7 @@ export function useWordChat({
     setSuggestions([]);
     setProposals([]);
     setSelectedKeys([]);
+    setAudioDisabledKeys([]);
     setCustomItems([]);
     // Who the next batch is for is a fresh question, not a carried-over answer.
     setTranslationRegister(null);
@@ -1497,6 +1532,7 @@ export function useWordChat({
     changeLanguagePair,
     proposals,
     selectedKeys,
+    audioDisabledKeys,
     customItems,
     listName,
     setListName,
@@ -1531,6 +1567,7 @@ export function useWordChat({
     retry,
     sendMessage,
     toggleSelected,
+    toggleAudioDisabled,
     isSelected,
     selectAll,
     clearSelection,

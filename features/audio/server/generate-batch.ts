@@ -42,16 +42,19 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
   if (!user) return unauthorizedResponse();
 
   const body = await request.json();
-  const { items, provider, voice_id } = body as {
+  const { items: requestedItems, provider, voice_id } = body as {
     items?: AudioItem[];
     provider?: string;
     voice_id?: string;
     force?: boolean;
     allow_partial?: boolean;
+    allow_partial_auth?: boolean;
     audio_field?: "known" | "target";
   };
+  let items = requestedItems;
   const force = body.force === true;
   const allowPartial = body.allow_partial === true;
+  const allowPartialAuth = body.allow_partial_auth === true;
   const audioField = body.audio_field === "known" ? "known" : "target";
 
   if (!items || !Array.isArray(items) || items.length === 0) {
@@ -77,7 +80,18 @@ export async function handleGenerateAudioBatch(request: NextRequest) {
     user,
   );
   if (unauthorized.length > 0) {
-    return forbiddenResponse("Not authorized to generate audio for one or more items");
+    if (!allowPartialAuth) {
+      return forbiddenResponse("Not authorized to generate audio for one or more items");
+    }
+    const unauthorizedIds = new Set(unauthorized);
+    items = items.filter((item) => !unauthorizedIds.has(item.id));
+    if (items.length === 0) {
+      return NextResponse.json({
+        results: [],
+        generated_count: 0,
+        skipped_unauthorized_count: unauthorized.length,
+      });
+    }
   }
 
   if (!provider || !["google_tts", "elevenlabs"].includes(provider)) {

@@ -12,6 +12,7 @@ import {
 } from '@/components/icons/AppIcons';
 import { ShareVisibilityDialog } from '@/features/lists/components/ShareVisibilityDialog';
 import { getLocalizedLanguageName } from '@/lib/i18n/languages';
+import { LanguagePairSummary } from '@/features/shared/languages/LanguagePairSummary';
 import type { WordList } from '@/features/lists/types';
 import { MAX_WORD_CHAT_ITEM_CHARS } from '../limits';
 import type { ProposedItem, WordChatTranslationRegister } from '../types';
@@ -27,6 +28,10 @@ type Props = {
   proposals: ProposedItem[];
   isSelected: (item: ProposedItem) => boolean;
   onToggle: (item: ProposedItem) => void;
+  audioDisabledKeys?: string[];
+  onToggleAudioDisabled?: (key: string) => void;
+  languageFrom?: string;
+  onOpenLanguagePair?: () => void;
   onUpdateProposal: (item: ProposedItem, text: string) => void;
   onSelectAll: () => void;
   onClearSelection: () => void;
@@ -164,6 +169,10 @@ export function SelectStep({
   proposals,
   isSelected,
   onToggle,
+  audioDisabledKeys = [],
+  onToggleAudioDisabled = () => {},
+  languageFrom,
+  onOpenLanguagePair,
   onUpdateProposal,
   onSelectAll,
   onClearSelection,
@@ -298,10 +307,18 @@ export function SelectStep({
       <div>
         {/* One control in the corner, not two: the settings that used to float
             here as a gear are the first item of this menu now. */}
-        <div className="flex items-start gap-2">
-          <h2 className="min-w-0 flex-1 text-base font-extrabold">
+        <div className="flex min-w-0 items-center gap-2">
+          <h2 className="min-w-0 flex-1 truncate whitespace-nowrap text-sm font-extrabold sm:text-base">
             {t(mode === 'manual' ? 'wordChat.manualTitle' : 'wordChat.selectTitle')}
           </h2>
+          {languageFrom && onOpenLanguagePair ? (
+            <LanguagePairSummary
+              from={languageFrom}
+              to={languageTo}
+              onOpen={onOpenLanguagePair}
+              className="!gap-0.5 !border !px-2 !py-1.5 !text-xs sm:!gap-1"
+            />
+          ) : null}
           {/* Nothing to offer when there is no settings modal to open, no bulk
               field to switch to and no saved list to hand out — an empty menu is
               worse than none. */}
@@ -481,6 +498,26 @@ export function SelectStep({
             <span className="block min-w-0 py-2.5 pl-3 pr-10 text-sm">
               {item.text}
             </span>
+            {mode === 'manual' ? (
+              <button
+                type="button"
+                aria-pressed={audioDisabledKeys.includes(`custom:${item.text}`)}
+                aria-label={t(
+                  audioDisabledKeys.includes(`custom:${item.text}`)
+                    ? 'wordChat.generateAudio'
+                    : 'wordChat.skipAudio',
+                )}
+                title={t(
+                  audioDisabledKeys.includes(`custom:${item.text}`)
+                    ? 'wordChat.generateAudio'
+                    : 'wordChat.skipAudio',
+                )}
+                onClick={() => onToggleAudioDisabled(`custom:${item.text}`)}
+                className="absolute right-9 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full text-sm transition-colors hover:bg-black/10"
+              >
+                {audioDisabledKeys.includes(`custom:${item.text}`) ? '🔇' : '🔊'}
+              </button>
+            ) : null}
             <button
               type="button"
               onClick={() => onRemoveCustom(item.text)}

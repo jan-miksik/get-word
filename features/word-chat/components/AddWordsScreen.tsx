@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { warmPaletteVars } from '@/features/shared/theme/warm-palette';
+import { LanguagePairSummary } from '@/features/shared/languages/LanguagePairSummary';
 import { WordChatFlow } from './WordChatFlow';
 import { useMobileKeyboardOpen } from '../hooks/useMobileKeyboardOpen';
 import type { WordChatStep } from '../hooks/useWordChat';
@@ -144,7 +145,7 @@ export function AddWordsScreen({
             : 'max-sm:flex-1 max-sm:pb-[max(2rem,env(safe-area-inset-bottom))]',
         ].join(' ')}
       >
-        <div
+        {step !== 'select' ? <div
           className={[
             'grid grid-cols-[1fr_auto_1fr] items-center gap-3',
             'motion-safe:transition-[margin] motion-safe:duration-200',
@@ -172,8 +173,13 @@ export function AddWordsScreen({
           ) : (
             <span />
           )}
-          <span />
-        </div>
+          <LanguagePairSummary
+            from={languageFrom}
+            to={languageTo}
+            onOpen={() => setSettingsOpen(true)}
+            className="justify-self-end"
+          />
+        </div> : null}
 
         <WordChatFlow
           key={`${languageFrom}\u0000${languageTo}`}

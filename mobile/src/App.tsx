@@ -2,6 +2,7 @@ import { App as CapacitorApp } from '@capacitor/app';
 import { lazy, Suspense, useEffect, useState } from 'react';
 import { useI18n } from '@/components/I18nProvider';
 import { LoadingScreen } from '@/components/LoadingScreen';
+import { setNativeAppActive } from '@/lib/activity/runtime';
 import { configureSignOutHandler } from '@/features/auth/client/sign-out-runtime';
 import { fetchMobileIdentity } from './api/auth';
 import { signInWithApple } from './auth/apple';
@@ -84,6 +85,26 @@ export function App() {
         if (!disposed && launch?.url) openAppUrl(launch.url, 'replace');
       })
       .catch(() => undefined);
+
+    return () => {
+      disposed = true;
+      void listener.then((handle) => handle.remove());
+    };
+  }, []);
+
+  // Activity measurement needs an authoritative foreground signal. In WKWebView
+  // `visibilitychange` does fire on backgrounding, but JS timers freeze with it,
+  // so the last partial tick is lost and a resumed segment can look like it ran
+  // all night. `appStateChange` is the signal that is actually trustworthy here,
+  // and the first call also switches the runtime off focus/blur, which WKWebView
+  // does not report dependably.
+  useEffect(() => {
+    if (!isNativeApp()) return;
+    let disposed = false;
+
+    const listener = CapacitorApp.addListener('appStateChange', ({ isActive }) => {
+      if (!disposed) setNativeAppActive(isActive);
+    });
 
     return () => {
       disposed = true;

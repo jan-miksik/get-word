@@ -37,6 +37,8 @@ import { shouldOfferMorePersonalWords } from '@/features/learning/personalWordsP
 import { useAppSurface } from '@/features/workspace/public.client';
 import { migrateDraftToLanguagePair } from '@/features/word-chat/client/storage';
 import { normalizeLanguageCode } from '@/lib/i18n/languages';
+import { useBackgroundTargetAudioRepair } from '@/features/learning/hooks/useBackgroundTargetAudioRepair';
+import { chooseBaseStudyListForPair } from '@/features/learning/state/study-list-selection';
 
 const BOOT_LOADING_TIMEOUT_MS = 12_000;
 
@@ -168,6 +170,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     setGameScore,
     syncedWords,
     allSyncedWords,
+    hasPersonalWordsForActivePair,
     userId,
     userEmail,
     userWalletAddress,
@@ -210,12 +213,9 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
         );
       }
       await setLearningLanguages(from, to);
-      const matchingList = subscribedLists.find(
-        (list) =>
-          normalizeLanguageCode(list.languageFrom) === normalizeLanguageCode(from) &&
-          normalizeLanguageCode(list.languageTo) === normalizeLanguageCode(to),
+      setActiveListId(
+        chooseBaseStudyListForPair(subscribedLists, appState.activeListId, from, to),
       );
-      if (matchingList) setActiveListId(matchingList.id);
     },
     [
       learningLanguageFrom,
@@ -223,6 +223,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       setActiveListId,
       setLearningLanguages,
       subscribedLists,
+      appState.activeListId,
     ],
   );
 
@@ -322,6 +323,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     streamGroupedWords,
     cardDeckGroups,
     progressStats,
+    upcomingAudioWords,
   } = useLearningPageState({
     activeWords,
     filteredWords,
@@ -337,6 +339,16 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     typingModeEnabled,
     tiltGameEnabled,
     progressPlanRevision: isInitialServerSyncPending ? 'pending' : 'ready',
+  });
+
+  useBackgroundTargetAudioRepair({
+    words: upcomingAudioWords,
+    // The background request can contain a mix of owned and subscribed items.
+    // The server filters that mix to the caller's actual write permissions;
+    // keeping the client broad means an owned public list is not missed merely
+    // because its metadata does not expose ownership here.
+    enabled: Boolean(appState.activeList),
+    onRefresh: refreshFullSnapshot,
   });
 
   const {
@@ -640,6 +652,13 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               onSignOut={signOut}
               onOpenWordChat={() => navigateSurface('chat')}
               onOpenPhotoLab={() => navigateSurface('photo')}
+              learningLanguagePair={
+                learningLanguageFrom && learningLanguageTo
+                  ? { from: learningLanguageFrom, to: learningLanguageTo }
+                  : null
+              }
+              hasPersonalWordsForPair={hasPersonalWordsForActivePair}
+              onLearningLanguagePairChange={changeLearningLanguagePair}
               activeSurface={activeSurface}
               onSurfaceChange={navigateSurface}
               chatContent={

@@ -6,6 +6,7 @@ import { VirtualizedWordList } from './VirtualizedWordList';
 import { SettlingWordsFooter } from './SettlingWordsFooter';
 import type { SchoolMembership } from '@/features/auth/public.client';
 import { useI18n } from '@/components/I18nProvider';
+import { getLocalizedLanguageName } from '@/lib/i18n/languages';
 import type { MinigameFrequencyRange, MiniGameConfig } from '@/features/learning/minigames';
 import type { NormalizedWord } from '@/lib/words';
 import type { ProgressStats } from '@/lib/progress-stats';
@@ -25,6 +26,9 @@ interface LearningStudyContentProps {
   onOpenWordChat?: () => void;
   /** Opens photo lab over the study view instead of navigating to `/photo-lab`. */
   onOpenPhotoLab?: () => void;
+  learningLanguagePair?: { from: string; to: string } | null;
+  onLearningLanguagePairChange?: (pair: { from: string; to: string }) => void | Promise<void>;
+  hasPersonalWordsForPair: boolean;
   activeSurface?: AppSurface;
   onSurfaceChange?: (surface: AppSurface) => void;
   chatContent?: React.ReactNode;
@@ -69,6 +73,9 @@ export function LearningStudyContent({
   onSignOut,
   onOpenWordChat,
   onOpenPhotoLab,
+  learningLanguagePair,
+  onLearningLanguagePairChange,
+  hasPersonalWordsForPair,
   activeSurface = 'study',
   onSurfaceChange,
   chatContent,
@@ -93,7 +100,26 @@ export function LearningStudyContent({
   settlingCount,
   onToggleShowNotReady,
 }: LearningStudyContentProps) {
-  const { t } = useI18n();
+  const { t, language: uiLanguage } = useI18n();
+  const personalPairLabel = learningLanguagePair
+    ? `${getLocalizedLanguageName(learningLanguagePair.from, uiLanguage) ?? learningLanguagePair.from.toUpperCase()} → ${getLocalizedLanguageName(learningLanguagePair.to, uiLanguage) ?? learningLanguagePair.to.toUpperCase()}`
+    : '';
+  const noPersonalWordsState = !hasPersonalWordsForPair && learningLanguagePair ? (
+    <div className="flex h-full flex-col items-center justify-center gap-4 px-6 py-12 text-center">
+      <p className="m-0 max-w-md text-lg font-semibold text-[#2A2218]">
+        {t('learning.noPersonalWords', { pair: personalPairLabel })}
+      </p>
+      {onOpenWordChat ? (
+        <button
+          type="button"
+          onClick={onOpenWordChat}
+          className="onboarding-option onboarding-option-highlight rounded-full px-5 py-2.5 text-sm font-extrabold"
+        >
+          {t('wordChat.addWords')}
+        </button>
+      ) : null}
+    </div>
+  ) : null;
 
   return (
     <AppLayout
@@ -107,6 +133,8 @@ export function LearningStudyContent({
       onSignOut={onSignOut}
       onOpenWordChat={onOpenWordChat}
       onOpenPhotoLab={onOpenPhotoLab}
+      learningLanguagePair={learningLanguagePair}
+      onLearningLanguagePairChange={onLearningLanguagePairChange}
       activeSurface={activeSurface}
       onSurfaceChange={onSurfaceChange}
       categories={categories}
@@ -128,6 +156,7 @@ export function LearningStudyContent({
               <CardDeckView
                 groupedWords={cardDeckGroups}
                 interstitialCard={interstitialCard}
+                emptyState={noPersonalWordsState}
                 onWordCardCompleted={onDeckWordCardCompleted}
                 swipeActions={deckSwipeActions}
                 allowHorizontalSwipe={deckHorizontalSwipeEnabled}
@@ -143,7 +172,9 @@ export function LearningStudyContent({
                 </div>
               ) : null}
               {filteredWords.length === 0 ? (
-                <div className="p-8 text-center text-text-soft">{t('learning.noFilterMatches')}</div>
+                noPersonalWordsState ?? (
+                  <div className="p-8 text-center text-text-soft">{t('learning.noFilterMatches')}</div>
+                )
               ) : (
                 <VirtualizedWordList
                   dataTab="stream"

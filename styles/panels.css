@@ -1140,7 +1140,10 @@
 .onboarding-combobox-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  /* Language pickers are portalled to body. Keep the sheet above the language
+     pair modal that opened it (z-index 220), otherwise the backdrop and its
+     options end up behind the modal on touch devices. */
+  z-index: 600;
   background: color-mix(in srgb, var(--ob-ink, #2A2218) 32%, transparent);
   display: flex;
   align-items: flex-end;

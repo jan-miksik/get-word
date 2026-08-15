@@ -1,4 +1,5 @@
 import { useMemo, type ReactNode } from 'react';
+import { ActivityTrackingProvider } from '@/components/ActivityTrackingProvider';
 import {
   NavigationProvider,
   type Navigation,
@@ -28,7 +29,9 @@ export function MobilePlatformProvider({ children }: { children: ReactNode }) {
   }), [pathname]);
   return (
     <PlatformCapabilitiesProvider value={NATIVE_CAPABILITIES}>
-      <NavigationProvider value={navigation}>{children}</NavigationProvider>
+      <NavigationProvider value={navigation}>
+        <ActivityTrackingProvider>{children}</ActivityTrackingProvider>
+      </NavigationProvider>
     </PlatformCapabilitiesProvider>
   );
 }

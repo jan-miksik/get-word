@@ -1,17 +1,24 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { fireEvent, render, screen } from '@testing-library/react';
 import { UpcomingPanel } from '../UpcomingPanel';
 import { STAGES } from '@/lib/words';
 import type { ProgressStats } from '@/lib/progress-stats';
 
-vi.mock('@/context/AppStateContext', () => ({
-  useAppStateContext: () => ({
+const { appState } = vi.hoisted(() => ({
+  appState: {
     filteredWords: [],
+    allSyncedWords: [],
+    subscribedLists: [],
+    activeListId: null,
     progress: {},
     isHydrated: true,
     role: 'knownLanguage',
     categoryOrder: [],
-  }),
+  } as Record<string, unknown>,
+}));
+
+vi.mock('@/context/AppStateContext', () => ({
+  useAppStateContext: () => appState,
 }));
 
 const progressStats: ProgressStats = {
@@ -27,6 +34,19 @@ const progressStats: ProgressStats = {
 };
 
 describe('UpcomingPanel progress section', () => {
+  beforeEach(() => {
+    Object.assign(appState, {
+      filteredWords: [],
+      allSyncedWords: [],
+      subscribedLists: [],
+      activeListId: null,
+      progress: {},
+      isHydrated: true,
+      role: 'knownLanguage',
+      categoryOrder: [],
+    });
+  });
+
   it('starts collapsed and expands the stats behind the toggle button', () => {
     const { container } = render(
       <UpcomingPanel isOpen onClose={vi.fn()} progressStats={progressStats} />
@@ -50,5 +70,36 @@ describe('UpcomingPanel progress section', () => {
 
     expect(screen.getByText(/nothing to learn yet/i)).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /learning progress/i })).toBeInTheDocument();
+  });
+
+  it('shows a personal word for the active pair even when it is absent from filtered words', () => {
+    Object.assign(appState, {
+      filteredWords: [],
+      allSyncedWords: [
+        {
+          id: 'personal-word',
+          listId: 'personal-cs-vi',
+          category: ['word'],
+          cz: 'radost',
+          en: '',
+          vi: 'niềm vui',
+        },
+      ],
+      subscribedLists: [
+        { id: 'catalog-cs-vi', languageFrom: 'cs', languageTo: 'vi' },
+        {
+          id: 'personal-cs-vi',
+          languageFrom: 'cz',
+          languageTo: 'vi',
+          isOwnedPersonal: true,
+        },
+      ],
+      activeListId: 'catalog-cs-vi',
+    });
+
+    render(<UpcomingPanel isOpen onClose={vi.fn()} progressStats={progressStats} />);
+
+    expect(screen.getByText('radost')).toBeInTheDocument();
+    expect(screen.getByText('niềm vui')).toBeInTheDocument();
   });
 });

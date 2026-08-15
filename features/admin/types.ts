@@ -87,7 +87,17 @@ export interface AdminUserRow {
   reviewCount: number;
   activeDays: number;
   studySessions: number;
+  /** Inferred from review-event gaps; the only figure available historically. */
   estActiveStudySeconds: number;
+  /**
+   * Measured foreground time over the last 30 days. Device-time: concurrent
+   * tabs and devices are summed, not unioned, so this is an operator figure
+   * rather than one to show a learner.
+   */
+  activeSeconds30d: number;
+  sessions30d: number;
+  /** Median session length, defined as summed active time per session. */
+  medianSessionSeconds: number;
   photoAnalyses: number;
   dailyActivity: UserActivityDay[]; // sparse: only days with >=1 review, last 53 weeks
 }
@@ -130,6 +140,19 @@ export interface UsageStats {
     unknown30d: number;
     studyingUsers30d: number;
     weekly: StudyWeekBucket[];
+  };
+  /**
+   * Measured foreground time over the last 30 days, as opposed to
+   * `AdminUserRow.estActiveStudySeconds`, which is inferred from review-event
+   * gaps. Empty until enough clients have shipped the tracker.
+   */
+  activity30d: {
+    /** Device-time: concurrent tabs/devices are summed, not unioned. */
+    activeSeconds: number;
+    sessions: number;
+    usersWithActivity: number;
+    medianSessionSeconds: number;
+    bySurface: { surface: string; activeSeconds: number; sessions: number }[];
   };
   content: {
     totalLists: number;

@@ -1,6 +1,7 @@
 'use client';
 
 import type {
+  SyncActivitySegment,
   SyncMutationPayload,
   SyncProgressItem,
   SyncReviewEventItem,
@@ -11,13 +12,27 @@ export interface BuiltPayload {
   payload: SyncMutationPayload & { client_op_ids: string[] };
   clientOpIds: string[];
   invalidClientOpIds: string[];
+  /**
+   * Ops that are well-formed but must not be sent — currently activity
+   * measured under a different account. Callers delete these silently rather
+   * than flagging them for recovery like `invalidClientOpIds`.
+   */
+  discardedClientOpIds: string[];
+}
+
+export interface BuildPayloadOptions {
+  /** Auth subject the flush will be attributed to, or null when signed out. */
+  owner?: string | null;
 }
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
-export function buildPayloadFromOps(ops: OutboxOp[]): BuiltPayload | null {
+export function buildPayloadFromOps(
+  ops: OutboxOp[],
+  options: BuildPayloadOptions = {}
+): BuiltPayload | null {
   if (ops.length === 0) return null;
 
   const payload: SyncMutationPayload & { client_op_ids: string[] } = {
@@ -27,7 +42,9 @@ export function buildPayloadFromOps(ops: OutboxOp[]): BuiltPayload | null {
   const progressByKey = new Map<string, SyncProgressItem>();
   const memoryHooks: Record<string, string | null> = {};
   const reviewEventsByClientId = new Map<string, SyncReviewEventItem>();
+  const activitySegmentsByClientId = new Map<string, SyncActivitySegment>();
   const invalidClientOpIds: string[] = [];
+  const discardedClientOpIds: string[] = [];
   let maxGameScore: number | null = null;
   let lastCategoryFilters: string[] | null = null;
 
@@ -62,6 +79,18 @@ export function buildPayloadFromOps(ops: OutboxOp[]): BuiltPayload | null {
       case 'review_event':
         accepted = applyReviewEventOp(reviewEventsByClientId, op);
         break;
+      case 'activity_segment': {
+        // Activity is the one entity that carries its own owner, because a
+        // segment posted under the wrong account is silently wrong data rather
+        // than a visible failure.
+        const segmentOwner = isObject(op.payload) ? op.payload.owner : undefined;
+        if (segmentOwner !== undefined && segmentOwner !== (options.owner ?? null)) {
+          discardedClientOpIds.push(op.clientOpId);
+          continue;
+        }
+        accepted = applyActivitySegmentOp(activitySegmentsByClientId, op);
+        break;
+      }
     }
     if (accepted) payload.client_op_ids.push(op.clientOpId);
     else invalidClientOpIds.push(op.clientOpId);
@@ -82,8 +111,16 @@ export function buildPayloadFromOps(ops: OutboxOp[]): BuiltPayload | null {
   if (reviewEventsByClientId.size > 0) {
     payload.review_events = Array.from(reviewEventsByClientId.values());
   }
+  if (activitySegmentsByClientId.size > 0) {
+    payload.activity_segments = Array.from(activitySegmentsByClientId.values());
+  }
 
-  return { payload, clientOpIds: payload.client_op_ids, invalidClientOpIds };
+  return {
+    payload,
+    clientOpIds: payload.client_op_ids,
+    invalidClientOpIds,
+    discardedClientOpIds,
+  };
 }
 
 function applyProgressOp(
@@ -140,6 +177,32 @@ function applyReviewEventOp(
     ...(p.word_id && !p.word_list_item_id ? { word_id: p.word_id } : {}),
     action: p.action,
     client_created_at: p.client_created_at,
+  });
+  return true;
+}
+
+function applyActivitySegmentOp(
+  bucket: Map<string, SyncActivitySegment>,
+  op: Extract<OutboxOp, { entity: 'activity_segment' }>
+): boolean {
+  if (!isObject(op.payload)) return false;
+  const p = op.payload as Partial<SyncActivitySegment>;
+  if (typeof p.client_segment_id !== 'string' || p.client_segment_id.length === 0) return false;
+  if (typeof p.session_id !== 'string' || p.session_id.length === 0) return false;
+  if (typeof p.surface !== 'string') return false;
+  if (typeof p.started_at !== 'number' || typeof p.ended_at !== 'number') return false;
+  if (typeof p.active_ms !== 'number' || p.active_ms < 0) return false;
+  if (p.ended_at < p.started_at) return false;
+  // Segments are immutable once closed, so a repeat of the same id is a
+  // redelivery rather than an update — keeping either copy is equivalent.
+  bucket.set(p.client_segment_id, {
+    client_segment_id: p.client_segment_id,
+    session_id: p.session_id,
+    surface: p.surface,
+    started_at: p.started_at,
+    ended_at: p.ended_at,
+    active_ms: p.active_ms,
+    ...(typeof p.interactions === 'number' ? { interactions: p.interactions } : {}),
   });
   return true;
 }

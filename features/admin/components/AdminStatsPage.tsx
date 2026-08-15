@@ -24,6 +24,9 @@ type UserSortKey =
   | 'activeDays'
   | 'studySessions'
   | 'estActiveStudySeconds'
+  | 'activeSeconds30d'
+  | 'sessions30d'
+  | 'medianSessionSeconds'
   | 'photoAnalyses'
   | 'gameScore'
   | 'deviceCount';
@@ -251,6 +254,12 @@ function AdminStatsContent() {
         return user.studySessions;
       case 'estActiveStudySeconds':
         return user.estActiveStudySeconds;
+      case 'activeSeconds30d':
+        return user.activeSeconds30d;
+      case 'sessions30d':
+        return user.sessions30d;
+      case 'medianSessionSeconds':
+        return user.medianSessionSeconds;
       case 'photoAnalyses':
         return user.photoAnalyses;
       case 'gameScore':
@@ -449,6 +458,68 @@ function AdminStatsContent() {
               partial: week.partial,
             }))}
           />
+        </Section>
+
+        <Section
+          title={t('adminStats.sectionActivityTime')}
+          note={t('adminStats.activityTimeNote')}
+        >
+          {stats.activity30d.usersWithActivity === 0 ? (
+            <p className="text-sm text-text-soft">{t('adminStats.activityTimeEmpty')}</p>
+          ) : (
+            <>
+              <CardGrid>
+                <StatCard
+                  label={t('adminStats.activityPerUser')}
+                  value={formatStudyTime(
+                    Math.round(stats.activity30d.activeSeconds / stats.activity30d.usersWithActivity),
+                  )}
+                  highlight
+                />
+                <StatCard
+                  label={t('adminStats.activityMedianSession')}
+                  value={formatStudyTime(stats.activity30d.medianSessionSeconds)}
+                />
+                <StatCard
+                  label={t('adminStats.activitySessions')}
+                  value={stats.activity30d.sessions}
+                  note={t('adminStats.activityUsersNote', {
+                    users: stats.activity30d.usersWithActivity,
+                  })}
+                />
+              </CardGrid>
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[28rem] text-sm">
+                  <thead className="text-text-soft">
+                    <tr className="text-left">
+                      <th className="px-3 py-2 font-medium">{t('adminStats.activitySurface')}</th>
+                      <th className="px-3 py-2 font-medium text-right">
+                        {t('adminStats.userActiveTime')}
+                      </th>
+                      <th className="px-3 py-2 font-medium text-right">
+                        {t('adminStats.activityShare')}
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {stats.activity30d.bySurface.map((row) => (
+                      <tr key={row.surface} className="border-t border-border-subtle">
+                        <td className="px-3 py-2">{row.surface}</td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {formatStudyTime(row.activeSeconds)}
+                        </td>
+                        <td className="px-3 py-2 text-right tabular-nums">
+                          {stats.activity30d.activeSeconds === 0
+                            ? '—'
+                            : `${Math.round((row.activeSeconds / stats.activity30d.activeSeconds) * 100)}%`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
         </Section>
 
         <Section
@@ -925,6 +996,39 @@ function AdminStatsContent() {
                         </th>
                         <th className="px-3 py-2 font-medium text-right">
                           <SortHeader
+                            active={userSort.key === 'activeSeconds30d'}
+                            direction={userSort.direction}
+                            onClick={() => toggleUserSort('activeSeconds30d')}
+                            className="justify-end"
+                            title={t('adminStats.userActiveTimeHint')}
+                          >
+                            {t('adminStats.userActiveTime')}
+                          </SortHeader>
+                        </th>
+                        <th className="px-3 py-2 font-medium text-right">
+                          <SortHeader
+                            active={userSort.key === 'sessions30d'}
+                            direction={userSort.direction}
+                            onClick={() => toggleUserSort('sessions30d')}
+                            className="justify-end"
+                            title={t('adminStats.userActiveSessionsHint')}
+                          >
+                            {t('adminStats.userActiveSessions')}
+                          </SortHeader>
+                        </th>
+                        <th className="px-3 py-2 font-medium text-right">
+                          <SortHeader
+                            active={userSort.key === 'medianSessionSeconds'}
+                            direction={userSort.direction}
+                            onClick={() => toggleUserSort('medianSessionSeconds')}
+                            className="justify-end"
+                            title={t('adminStats.userMedianSessionHint')}
+                          >
+                            {t('adminStats.userMedianSession')}
+                          </SortHeader>
+                        </th>
+                        <th className="px-3 py-2 font-medium text-right">
+                          <SortHeader
                             active={userSort.key === 'photoAnalyses'}
                             direction={userSort.direction}
                             onClick={() => toggleUserSort('photoAnalyses')}
@@ -967,6 +1071,15 @@ function AdminStatsContent() {
                               <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
                                 {formatStudyTime(user.estActiveStudySeconds)}
                               </td>
+                              <td className="px-3 py-2 text-right tabular-nums">
+                                {formatStudyTime(user.activeSeconds30d)}
+                              </td>
+                              <td className="px-3 py-2 text-right tabular-nums">
+                                {user.sessions30d || '—'}
+                              </td>
+                              <td className="px-3 py-2 text-right tabular-nums">
+                                {formatStudyTime(user.medianSessionSeconds)}
+                              </td>
                               <td className="px-3 py-2 text-right tabular-nums">{user.photoAnalyses}</td>
                               <td className="px-3 py-2 whitespace-nowrap">
                                 {revealedEmails.has(user.handle) ? (
@@ -984,7 +1097,7 @@ function AdminStatsContent() {
                             </tr>
                             {expanded && (
                               <tr className="bg-background-elevated/50">
-                                <td colSpan={12} className="px-3 py-3">
+                                <td colSpan={15} className="px-3 py-3">
                                   <ActivityHeatmap
                                     compact
                                     days={user.dailyActivity.map((day) => ({ date: day.date, value: day.count }))}

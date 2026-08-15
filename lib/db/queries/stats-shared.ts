@@ -1,4 +1,40 @@
+import { sql, type SQL } from 'drizzle-orm';
+
 import type { ActivityWindow } from '@/lib/stats/types';
+
+/** Binds a string list as a text[] so it can be used with `= ANY(...)`. */
+export function sqlTextArray(values: string[]): SQL {
+  return sql`ARRAY[${sql.join(values.map((value) => sql`${value}`), sql`, `)}]::text[]`;
+}
+
+/**
+ * Test accounts named out of the statistics, by app user id or by email.
+ * Structurally compatible with the resolved `UsageStatsOptions` fields, kept
+ * here so panels that live outside `usage-stats.ts` apply the same filter
+ * instead of quietly reporting a different population.
+ */
+export interface UserExclusions {
+  excludedUserIds: string[];
+  excludedUserEmails: string[];
+}
+
+/** True for a row that must be left out. `alias` is a `users` table alias. */
+export function excludedUserCondition(alias: string, options: UserExclusions): SQL {
+  const checks: SQL[] = [];
+  const quotedAlias = sql.raw(alias);
+  if (options.excludedUserIds.length > 0) {
+    checks.push(sql`${quotedAlias}.id::text = ANY(${sqlTextArray(options.excludedUserIds)})`);
+  }
+  if (options.excludedUserEmails.length > 0) {
+    checks.push(sql`lower(coalesce(${quotedAlias}.email, '')) = ANY(${sqlTextArray(options.excludedUserEmails)})`);
+  }
+  if (checks.length === 0) return sql`false`;
+  return sql`coalesce((${sql.join(checks, sql` OR `)}), false)`;
+}
+
+export function includedUserCondition(alias: string, options: UserExclusions): SQL {
+  return sql`NOT (${excludedUserCondition(alias, options)})`;
+}
 
 /** Time/bucket helpers shared by the app-wide and per-school usage statistics. */
 

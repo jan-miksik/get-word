@@ -18,6 +18,7 @@ import type {
 import { PHOTO_ANALYSIS_TRACKING_STARTED_AT } from '@/features/photo-lab/server/analysis-events';
 import { userHandle } from '@/features/admin/server/userHandle';
 import { WORD_CHAT_MONTHLY_SPEND_LIMIT_USD } from '@/features/word-chat/server/config';
+import { getActivityTotals, getUserActivityTotals } from './activity-stats';
 import { getGoogleApiFreeMonthlyUnits } from './google-api-usage';
 import { db } from '../client';
 import {
@@ -26,20 +27,39 @@ import {
   firstRow,
   getActivityWindowStarts,
   getUtcMonday,
+  includedUserCondition,
   normalizeActivityWindow,
   numberFromRow,
+  sqlTextArray,
   weekStarts,
   zeroFillWeeks,
 } from './stats-shared';
 
 /**
- * Cap on the gap between two consecutive answers in a study session when
- * estimating active study time. A longer pause counts as a break, not study —
- * this keeps a session that survives a multi-day background gap from reporting
- * days of "study". The cap is deliberately coarse; `activeDays` is the primary,
- * background-proof engagement signal and this is only a supplement.
+ * Cap on the gap between two consecutive answers when estimating active study
+ * time. A longer pause counts as a break, not study.
+ *
+ * This whole estimate is an inference, superseded by the measured figures in
+ * `activity_segments`. It is kept because it is the only signal that exists for
+ * historical data, and because an overlap period lets the two be compared.
+ * Compare it only against measured activity restricted to `surface = 'study'`,
+ * and expect no fixed ordering between them: a learner answering every three
+ * minutes has each gap credited almost in full here (under the cap) while the
+ * tracker stops counting after 60 s of idle.
  */
 const STUDY_INACTIVITY_CAP_SECONDS = 300;
+
+/**
+ * Inactivity that separates two study sessions. Matches `SESSION_GAP_MS` in the
+ * activity tracker so "session" means the same thing in both figures.
+ */
+const STUDY_SESSION_GAP_SECONDS = 30 * 60;
+
+/**
+ * A client clock this far from the server's is not believable, so those rows
+ * fall back to `server_created_at`.
+ */
+const CLIENT_CLOCK_TRUST_WINDOW = '2 days';
 
 /** Weeks shown in the GitHub-style activity heatmap (≈ one year). */
 const HEATMAP_WEEKS = 53;
@@ -66,10 +86,6 @@ function getEnvExcludedUserEmails(): string[] {
   return parseEnvList(process.env.ADMIN_STATS_EXCLUDED_USER_EMAILS, (email) => email.toLowerCase());
 }
 
-function sqlTextArray(values: string[]): SQL {
-  return sql`ARRAY[${sql.join(values.map((value) => sql`${value}`), sql`, `)}]::text[]`;
-}
-
 function normalizeDevicePlatform(value: unknown): DevicePlatform {
   const normalized = String(value ?? 'unknown').toLowerCase();
   return DEVICE_PLATFORMS.includes(normalized as DevicePlatform)
@@ -82,23 +98,6 @@ function normalizeDeviceFormFactor(value: unknown): DeviceFormFactor {
   return DEVICE_FORM_FACTORS.includes(normalized as DeviceFormFactor)
     ? (normalized as DeviceFormFactor)
     : 'unknown';
-}
-
-function excludedUserCondition(alias: string, options: Required<Pick<UsageStatsOptions, 'excludedUserIds' | 'excludedUserEmails'>>): SQL {
-  const checks: SQL[] = [];
-  const quotedAlias = sql.raw(alias);
-  if (options.excludedUserIds.length > 0) {
-    checks.push(sql`${quotedAlias}.id::text = ANY(${sqlTextArray(options.excludedUserIds)})`);
-  }
-  if (options.excludedUserEmails.length > 0) {
-    checks.push(sql`lower(coalesce(${quotedAlias}.email, '')) = ANY(${sqlTextArray(options.excludedUserEmails)})`);
-  }
-  if (checks.length === 0) return sql`false`;
-  return sql`coalesce((${sql.join(checks, sql` OR `)}), false)`;
-}
-
-function includedUserCondition(alias: string, options: Required<Pick<UsageStatsOptions, 'excludedUserIds' | 'excludedUserEmails'>>): SQL {
-  return sql`NOT (${excludedUserCondition(alias, options)})`;
 }
 
 /**
@@ -525,23 +524,75 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
              count(DISTINCT (server_created_at)::date) AS active_days
       FROM review_events GROUP BY user_id
     ),
+    -- client_created_at is when the learner actually answered.
+    -- server_created_at is when the sync batch was inserted, and the outbox
+    -- debounces 30 s and batches up to 25 ops, so consecutive answers land
+    -- within milliseconds of each other. Measuring gaps on the server clock
+    -- therefore reported flush cadence rather than study time. Rows whose
+    -- client clock is implausible fall back to the server clock.
+    answer_times AS (
+      SELECT user_id,
+             CASE
+               WHEN client_created_at IS NULL
+                 OR abs(EXTRACT(EPOCH FROM (client_created_at - server_created_at)))
+                    > EXTRACT(EPOCH FROM INTERVAL ${sql.raw(`'${CLIENT_CLOCK_TRUST_WINDOW}'`)})
+               THEN server_created_at
+               ELSE client_created_at
+             END AS answered_at
+      FROM review_events
+    ),
+    -- Sessions are derived from the gaps themselves. The stored session_id is a
+    -- payload-level value taken from sessionStorage at flush time, so it
+    -- identifies a browser tab — which in a PWA can live for weeks — and not a
+    -- study session. Deriving them here also stops excluding users whose events
+    -- carried no session id at all.
     session_gaps AS (
       SELECT user_id,
-             server_created_at,
-             lead(server_created_at) OVER (
-               PARTITION BY user_id, session_id ORDER BY server_created_at
-             ) AS next_at,
-             session_id
-      FROM review_events
-      WHERE session_id IS NOT NULL
+             answered_at,
+             CASE
+               WHEN lag(answered_at) OVER w IS NULL
+                 OR EXTRACT(EPOCH FROM (answered_at - lag(answered_at) OVER w))
+                    > ${STUDY_SESSION_GAP_SECONDS}
+               THEN 1 ELSE 0
+             END AS is_new_session
+      FROM answer_times
+      WINDOW w AS (PARTITION BY user_id ORDER BY answered_at)
+    ),
+    session_marked AS (
+      SELECT user_id,
+             answered_at,
+             sum(is_new_session) OVER (
+               PARTITION BY user_id ORDER BY answered_at
+               ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+             ) AS session_no
+      FROM session_gaps
+    ),
+    -- The gap to the next answer is study time only when that answer is in the
+    -- same session, so the lead is taken inside the session and not across the
+    -- whole user. Taken across the user it would charge every session boundary
+    -- the full inactivity cap — a week between two sessions is not five minutes
+    -- of studying — and a user with a hundred sessions would collect eight
+    -- invented hours. The last answer of a session now contributes nothing,
+    -- which undercounts by one card's thinking time and invents none.
+    session_spans AS (
+      SELECT user_id,
+             session_no,
+             answered_at,
+             lead(answered_at) OVER (
+               PARTITION BY user_id, session_no ORDER BY answered_at
+             ) AS next_at
+      FROM session_marked
     ),
     session_stats AS (
       SELECT user_id,
-             count(DISTINCT session_id) AS study_sessions,
+             count(DISTINCT session_no) AS study_sessions,
              coalesce(sum(
-               LEAST(EXTRACT(EPOCH FROM (next_at - server_created_at)), ${STUDY_INACTIVITY_CAP_SECONDS})
+               LEAST(
+                 GREATEST(EXTRACT(EPOCH FROM (next_at - answered_at)), 0),
+                 ${STUDY_INACTIVITY_CAP_SECONDS}
+               )
              ) FILTER (WHERE next_at IS NOT NULL), 0) AS est_active_seconds
-      FROM session_gaps GROUP BY user_id
+      FROM session_spans GROUP BY user_id
     ),
     photo_counts AS (
       SELECT user_id, count(*) AS photo_analyses
@@ -586,6 +637,19 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
     GROUP BY 1, 2
     ORDER BY 1, 2
   `);
+
+  // Measured activity. Guarded like the other panels: migration 0061 is applied
+  // by hand, so a deploy can legitimately run ahead of the table and must not
+  // take the whole dashboard down with it.
+  const [activityTotals, userActivityTotals] = await Promise.all([
+    getActivityTotals(new Date(monthAgo), exclusionOptions).catch((error) => {
+      console.error('[usage-stats] activity totals unavailable', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return null;
+    }),
+    getUserActivityTotals(userRowIds, new Date(monthAgo)).catch(() => null),
+  ]);
 
   const registration = firstRow(registrationRows);
   const activity = firstRow(activityRows);
@@ -656,6 +720,9 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
       activeDays: numberFromRow(row, 'active_days'),
       studySessions: numberFromRow(row, 'study_sessions'),
       estActiveStudySeconds: numberFromRow(row, 'est_active_study_seconds'),
+      activeSeconds30d: userActivityTotals?.get(id)?.activeSeconds ?? 0,
+      sessions30d: userActivityTotals?.get(id)?.sessions ?? 0,
+      medianSessionSeconds: userActivityTotals?.get(id)?.medianSessionSeconds ?? 0,
       photoAnalyses: numberFromRow(row, 'photo_analyses'),
       dailyActivity: dailyActivityByUser.get(id) ?? [],
     };
@@ -767,6 +834,13 @@ export async function getUsageStats(options: UsageStatsOptions = {}): Promise<Us
       unknown30d: numberFromRow(study, 'unknown_30d'),
       studyingUsers30d: numberFromRow(study, 'studying_users_30d'),
       weekly: zeroFillWeeks<StudyWeekBucket>(starts, studyWeekMap, { reviews: 0, activeUsers: 0 }),
+    },
+    activity30d: {
+      activeSeconds: activityTotals?.activeSeconds ?? 0,
+      sessions: activityTotals?.sessions ?? 0,
+      usersWithActivity: activityTotals?.usersWithActivity ?? 0,
+      medianSessionSeconds: activityTotals?.medianSessionSeconds ?? 0,
+      bySurface: activityTotals?.bySurface ?? [],
     },
     content: {
       totalLists: numberFromRow(content, 'total_lists'),

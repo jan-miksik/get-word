@@ -110,6 +110,15 @@ export function resetSyncIdentity(): void {
   hasServerSnapshot = false;
 }
 
+/**
+ * The account the client currently believes it is syncing as, or null before
+ * the first server response (and after sign-out). Used to keep activity
+ * measured under one account from being flushed under another.
+ */
+export function getSyncOwner(): string | null {
+  return lastKnownUserId;
+}
+
 /** True once a server snapshot has been applied this session. */
 export function hasReceivedServerSnapshot(): boolean {
   return hasServerSnapshot;
@@ -252,7 +261,11 @@ export async function syncUserData(
       deviceId,
       deviceProfile,
       sessionId,
-      userId: lastKnownUserId,
+      // Omitted rather than sent as null before the first server response: the
+      // contract types this as an optional string, so an explicit null fails
+      // validation and the whole POST is rejected. Only signed-out clients hit
+      // this, which nothing posted from until activity segments existed.
+      ...(lastKnownUserId ? { userId: lastKnownUserId } : {}),
       ...data,
     }),
   });

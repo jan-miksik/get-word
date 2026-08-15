@@ -42,6 +42,10 @@ interface AppLayoutProps {
   onOpenWordChat?: () => void;
   /** Opens photo lab in place, the same way. */
   onOpenPhotoLab?: () => void;
+  /** Globally persisted study language pair. */
+  learningLanguagePair?: { from: string; to: string } | null;
+  /** Persists a new study language pair. */
+  onLearningLanguagePairChange?: (pair: { from: string; to: string }) => void | Promise<void>;
   /** Active content surface shown below the persistent app chrome. */
   activeSurface?: AppSurface;
   /** Navigates between study, chat, and photo lab without tearing down the shell. */
@@ -66,6 +70,8 @@ export function AppLayout({
   school,
   onOpenWordChat,
   onOpenPhotoLab,
+  learningLanguagePair,
+  onLearningLanguagePairChange,
   activeSurface = 'study',
   onSurfaceChange,
   categories,
@@ -160,6 +166,8 @@ export function AppLayout({
           activeListId={activeListId}
           onListChange={setActiveListId}
           activeListLanguagePair={activeListLanguagePair}
+          learningLanguagePair={learningLanguagePair}
+          onLearningLanguagePairChange={onLearningLanguagePairChange}
           photoLabEnabled={photoLabEnabled}
           school={school}
           onOpenWordChat={onOpenWordChat}

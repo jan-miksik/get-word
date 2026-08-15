@@ -331,6 +331,10 @@ export function WordChatFlow({
           proposals={chat.proposals}
           isSelected={chat.isSelected}
           onToggle={chat.toggleSelected}
+          audioDisabledKeys={chat.audioDisabledKeys}
+          onToggleAudioDisabled={chat.toggleAudioDisabled}
+          languageFrom={languageFrom}
+          onOpenLanguagePair={openSettings}
           onUpdateProposal={chat.updateProposal}
           onSelectAll={chat.selectAll}
           onClearSelection={chat.clearSelection}
