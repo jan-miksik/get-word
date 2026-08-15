@@ -1,10 +1,9 @@
 // Single source of truth for the app's public store identity, used by the
 // rate-the-app entry in Settings and by the study-deck rating prompt.
 
-// The Android package name. It is permanent after the first upload to Play, so
-// confirm this against Play Console -> App information before shipping a build
-// that links to it. `docs/google-play-twa.md` recommends this value.
-export const PLAY_PACKAGE_ID = 'app.getword.mobile';
+// The Android package name, as registered in Play Console. It is permanent
+// after the first upload, so it is a constant rather than a setting.
+export const PLAY_PACKAGE_ID = 'app.getword';
 
 // Apple assigns the numeric app id when the app record is created in App Store
 // Connect (Apple ID, on the App Information page). Until it is filled in here,

@@ -16,17 +16,17 @@ Activity (TWA).
 - Service worker exists at `public/sw.js`
 - Missing before TWA verification: `https://getword.app/.well-known/assetlinks.json`
 
-## Recommended Android Identity
+## Android Identity
 
-Use this package name unless there is already a different package ID reserved in
-Play Console:
+The package name registered in Play Console:
 
 ```text
-app.getword.mobile
+app.getword
 ```
 
-The package name is effectively permanent after the first upload to a Play app,
-so confirm it before creating the first release artifact.
+The package name is permanent after the first upload, so it is also a constant
+in the app — `PLAY_PACKAGE_ID` in `lib/store-listing.ts`, which builds the
+rate-the-app link in Settings.
 
 ## PWABuilder Values
 
@@ -36,7 +36,7 @@ Use PWABuilder's Android package flow with:
 PWA URL: https://getword.app
 App name: Get Word
 Launcher name: Get Word
-Package ID: app.getword.mobile
+Package ID: app.getword
 Version name: 1.0.0
 Version code: 1
 Start URL: https://getword.app/?source=pwa

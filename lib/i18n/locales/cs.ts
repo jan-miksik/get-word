@@ -306,11 +306,20 @@ export const csMessages: I18nMessages = {
   "settings.app": "Aplikace",
   "settings.rateApp": "Ohodnotit aplikaci",
   "settings.rateAppHint": "Otevře stránku v obchodě. Upřímné hodnocení, dobré i špatné, pomůže ostatním se rozhodnout.",
-  "rateApp.promptTitle": "Ohodnotíš Get Word?",
-  "rateApp.promptBody":
-    "Učíš se tu už nějakou dobu, takže víš, jaká aplikace je. Hodnocení v obchodě — ať říká cokoli — pomůže ostatním se rozhodnout, jestli ji zkusit.",
-  "rateApp.promptAction": "Ohodnotit aplikaci",
-  "rateApp.promptDismiss": "Teď ne",
+  "tour.label": "Krátká prohlídka aplikace",
+  "tour.progress": "Krok {current} z {total}",
+  "tour.next": "Dál",
+  "tour.done": "Jasně",
+  "tour.skip": "Přeskočit",
+  "tour.studyTitle": "Jak probíhá učení",
+  "tour.studyBody":
+    "Odkryješ překlad a pak řekneš, jestli sis vzpomněl. Podle toho aplikace naplánuje, kdy se slovo vrátí — čím líp ho znáš, tím později.",
+  "tour.chatTitle": "Nevíš, co se učit?",
+  "tour.chatBody":
+    "Popiš situaci, která tě čeká, a chat k ní navrhne slova a fráze. Co si necháš, jde rovnou do učení.",
+  "tour.photoTitle": "Uč se, co máš kolem sebe",
+  "tour.photoBody":
+    "Vyfoť, co vidíš, a aplikace ti objekty na fotce pojmenuje v jazyce, který se učíš — s překladem i výslovností.",
   "settings.cardsBetweenGames": "Karet mezi kvízy",
   "settings.connected": "Připojeno",
   "settings.copyWalletAddress": "Kopírovat adresu peněženky",

@@ -306,11 +306,20 @@ export const viMessages: I18nMessages = {
   "settings.app": "Ứng dụng",
   "settings.rateApp": "Đánh giá ứng dụng",
   "settings.rateAppHint": "Mở trang ứng dụng trên cửa hàng. Đánh giá thành thật, dù tốt hay xấu, đều giúp người khác quyết định.",
-  "rateApp.promptTitle": "Bạn đánh giá Get Word nhé?",
-  "rateApp.promptBody":
-    "Bạn đã học ở đây một thời gian nên biết ứng dụng này thế nào. Một đánh giá trên cửa hàng — dù nội dung là gì — sẽ giúp người khác quyết định có nên thử hay không.",
-  "rateApp.promptAction": "Đánh giá ứng dụng",
-  "rateApp.promptDismiss": "Để sau",
+  "tour.label": "Giới thiệu nhanh về ứng dụng",
+  "tour.progress": "Bước {current}/{total}",
+  "tour.next": "Tiếp",
+  "tour.done": "Đã hiểu",
+  "tour.skip": "Bỏ qua",
+  "tour.studyTitle": "Việc học diễn ra thế nào",
+  "tour.studyBody":
+    "Mở đáp án rồi cho biết bạn có nhớ không. Ứng dụng dựa vào đó để hẹn lần ôn tiếp theo — bạn càng nhớ rõ, từ đó càng lâu mới quay lại.",
+  "tour.chatTitle": "Chưa biết học gì?",
+  "tour.chatBody":
+    "Mô tả tình huống bạn sắp gặp và cuộc trò chuyện sẽ gợi ý từ và cụm từ cho nó. Những gì bạn giữ lại sẽ vào thẳng phần học.",
+  "tour.photoTitle": "Học những gì quanh bạn",
+  "tour.photoBody":
+    "Chụp một tấm ảnh và các vật thể trong đó sẽ được gắn tên bằng ngôn ngữ bạn đang học, kèm bản dịch và âm thanh.",
   "settings.cardsBetweenGames": "Số thẻ giữa các bài trắc nghiệm",
   "settings.connected": "Đã kết nối",
   "settings.copyWalletAddress": "Sao chép địa chỉ ví",

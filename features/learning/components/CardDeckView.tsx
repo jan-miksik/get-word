@@ -406,7 +406,12 @@ export function CardDeckView({
 
   if (interstitialCard) {
     return (
-      <div className="card-deck-view relative flex h-full w-full flex-col overflow-visible">
+      // `data-tour` anchors the study step of the new-user feature tour; see
+    // `features/learning/onboarding/featureTourSteps.ts`.
+    <div
+      data-tour="study"
+      className="card-deck-view relative flex h-full w-full flex-col overflow-visible"
+    >
         {interstitialCard}
       </div>
     );
@@ -473,7 +478,12 @@ export function CardDeckView({
   const swipeFullyKnownLabel = t('card.fullyKnownNoRepeat');
 
   return (
-    <div className="card-deck-view relative flex h-full w-full flex-col overflow-visible">
+    // `data-tour` anchors the study step of the new-user feature tour; see
+    // `features/learning/onboarding/featureTourSteps.ts`.
+    <div
+      data-tour="study"
+      className="card-deck-view relative flex h-full w-full flex-col overflow-visible"
+    >
       <div
         key={itemKey}
         ref={swipeActive ? swipeCardRef : undefined}

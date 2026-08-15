@@ -329,11 +329,20 @@ export const enMessages = {
   "settings.app": "App",
   "settings.rateApp": "Rate the app",
   "settings.rateAppHint": "Opens the store listing. Honest ratings, good or bad, help other learners decide.",
-  "rateApp.promptTitle": "Would you rate Get Word?",
-  "rateApp.promptBody":
-    "You have been studying here for a while, so you know what the app is like. A rating in the store — whatever it says — helps other learners decide whether to try it.",
-  "rateApp.promptAction": "Rate the app",
-  "rateApp.promptDismiss": "Not now",
+  "tour.label": "Quick tour of the app",
+  "tour.progress": "Step {current} of {total}",
+  "tour.next": "Next",
+  "tour.done": "Got it",
+  "tour.skip": "Skip",
+  "tour.studyTitle": "How studying works",
+  "tour.studyBody":
+    "Reveal the answer, then say whether you knew it. Your answer sets when the word comes back — the better you know it, the longer it waits.",
+  "tour.chatTitle": "Not sure what to learn?",
+  "tour.chatBody":
+    "Describe a situation you are heading into and the chat suggests words and phrases for it. Keep the ones you want and they go straight into your study.",
+  "tour.photoTitle": "Learn what is around you",
+  "tour.photoBody":
+    "Take a photo and the objects in it get labelled in the language you are learning, with translations and audio.",
   "settings.deleteAccount": "Delete account",
   "settings.cardsBetweenGames": "Cards between quizzes",
   "settings.connected": "Connected",

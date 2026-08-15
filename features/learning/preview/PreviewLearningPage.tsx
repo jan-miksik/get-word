@@ -6,6 +6,7 @@ import { I18nProvider } from '@/components/I18nProvider';
 import { WordCard } from '@/features/learning/components/WordCard';
 import { AppStateProvider, type AppStateContextValue } from '@/context/AppStateContext';
 import { TypingStudyCard } from '@/features/learning/components/TypingStudyCard';
+import { FeatureTour } from '@/features/learning/onboarding/FeatureTour';
 import type { TypingWriteIn } from '@/features/learning/state/preferences';
 import type { LearningRole } from '@/features/learning/state/learningRole';
 import type { ProgressData } from '@/features/sync/contracts';
@@ -172,6 +173,13 @@ function PreviewStudy({
   // repeatedly (the real app advances the stream instead).
   const [typingRound, setTypingRound] = useState(0);
   const [gameScore, setGameScore] = useState(12);
+  // `?previewFeatureTour` also works on the real study page; here it needs no
+  // session or study history, which is what makes it useful for design review.
+  const [showFeatureTour, setShowFeatureTour] = useState(
+    () =>
+      typeof window !== 'undefined' &&
+      new URLSearchParams(window.location.search).has('previewFeatureTour'),
+  );
   const [minigameFrequency, setMinigameFrequency] = useState<MinigameFrequencyRange>({
     min: 2,
     max: 3,
@@ -321,6 +329,7 @@ function PreviewStudy({
 
   return (
     <AppStateProvider value={previewState}>
+      {showFeatureTour && <FeatureTour onFinish={() => setShowFeatureTour(false)} />}
       <AppLayout
         viewMode="card"
         minigameFrequency={minigameFrequency}
@@ -374,7 +383,9 @@ function PreviewStudy({
                 />
               </div>
             ) : currentWord ? (
-              <div className="h-full flex flex-col justify-end md:justify-start relative">
+              // Stands in for the card deck's own `data-tour` anchor so the
+              // feature tour can be exercised here; see `featureTourSteps.ts`.
+              <div data-tour="study" className="h-full flex flex-col justify-end md:justify-start relative">
                 <WordCard
                   word={currentWord}
                   progress={progress[currentWord.id]}

@@ -168,6 +168,11 @@ function SurfaceNavLink({
   return (
     <a
       href={href}
+      // Anchors the chat and photo steps of the new-user feature tour; see
+      // `featureTourSteps.ts`. Study is deliberately not anchored here — that
+      // step points at the card deck itself, which is what the learner has to
+      // understand, not the button that returns to it.
+      data-tour={surface === 'study' ? undefined : surface}
       className={`${QUICK_ADD_BUTTON_CLASS} ${current ? QUICK_ADD_BUTTON_ACTIVE_CLASS : ''}`}
       aria-current={current ? 'page' : undefined}
       aria-label={label}

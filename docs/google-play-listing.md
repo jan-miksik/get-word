@@ -240,9 +240,9 @@ Učící aplikace je zdarma.
 
 ## Before you paste
 
-- **Package name.** `docs/google-play-twa.md` recommends `app.getword.mobile`,
-  but the value that matters is whatever is actually registered in Play Console.
-  Confirm it — the rate-the-app link in Settings is built from it.
+- **Package name.** `app.getword`, as registered in Play Console. The
+  rate-the-app link in Settings is built from `PLAY_PACKAGE_ID` in
+  `lib/store-listing.ts`; the two must not drift apart.
 - **Localizations.** Decide which store localizations you want. The app bundles
   English, Czech, Ukrainian and Vietnamese UI; the listing only has EN and CS
   copy here. Uk and Vi listings would need the same treatment, or Play will show
