@@ -18,6 +18,8 @@ node_modules/
 /.next-dev/
 /out/
 /mobile/dist/
+/mobile/ios/build/
+/mobile/ios/.derived-data/
 
 # production
 /build

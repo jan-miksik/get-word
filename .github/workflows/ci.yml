@@ -113,4 +113,5 @@ jobs:
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm run db:migrate:run
+      - run: pnpm run test:db
       - run: pnpm test -- lib/db/__tests__/sync-postgres.integration.test.ts
