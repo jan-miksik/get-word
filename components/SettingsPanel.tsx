@@ -6,6 +6,7 @@ import { LanguageSection } from '@/components/settings/LanguageSection';
 import { AppInstallSection } from '@/components/settings/AppInstallSection';
 import { LocalDataSection } from '@/components/settings/LocalDataSection';
 import { AccountSection } from '@/components/settings/AccountSection';
+import { QualityReviewSection } from '@/components/settings/QualityReviewSection';
 import { RateAppLink } from '@/components/settings/RateAppLink';
 
 interface SettingsPanelProps {
@@ -56,6 +57,7 @@ export function SettingsPanel({
           <LanguageSection />
           <AppInstallSection />
           <LocalDataSection isOpen={isOpen} />
+          <QualityReviewSection />
           <AccountSection
             isAuthenticated={isAuthenticated}
             authEmail={authEmail}

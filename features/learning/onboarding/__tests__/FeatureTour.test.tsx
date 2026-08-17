@@ -66,7 +66,9 @@ describe('FeatureTour', () => {
     expect(screen.getByRole('heading', { name: 'Jak probíhá učení' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Dál' }));
-    expect(screen.getByRole('heading', { name: 'Nevíš, co se učit?' })).toBeInTheDocument();
+    expect(
+      screen.getByRole('heading', { name: 'Jak přidat slovíčka a fráze?' })
+    ).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Dál' }));
     expect(screen.getByText('Krok 3 z 3')).toBeInTheDocument();

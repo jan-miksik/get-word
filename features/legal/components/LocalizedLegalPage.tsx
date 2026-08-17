@@ -78,6 +78,10 @@ const PRIVACY_SECTIONS: TextSection[] = [
   { title: 'privacy.thirdPartyTitle', paragraphs: ['privacy.thirdPartyBody'] },
   { title: 'privacy.transfersTitle', paragraphs: ['privacy.transfersBody'] },
   { title: 'privacy.publicTitle', paragraphs: ['privacy.publicBody'] },
+  {
+    title: 'privacy.qualityReviewTitle',
+    paragraphs: ['privacy.qualityReviewBody1', 'privacy.qualityReviewBody2'],
+  },
   { title: 'privacy.rightsTitle', paragraphs: ['privacy.rightsBody1', 'privacy.rightsBody2'] },
   { title: 'privacy.childrenTitle', paragraphs: ['privacy.childrenBody'] },
   { title: 'privacy.changesTitle', paragraphs: ['privacy.changesBody'] },

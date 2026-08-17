@@ -17,6 +17,7 @@ import {
 import { sql } from "drizzle-orm";
 import type { WordItemComment } from "@/lib/word-item-comment";
 import type { LearnerBrief } from "@/lib/learner-brief";
+import type { QualityHeuristicFlag } from "@/lib/quality-flags";
 
 // Enums
 export const translationStatusEnum = pgEnum("translation_status", [
@@ -325,6 +326,15 @@ export const users = pgTable("users", {
   // grants; a number replaces that limit (school quota included). See
   // scripts/user-limits.ts and features/photo-lab/server/rate-limit.ts.
   photoLabLimitOverride: integer("photo_lab_limit_override"),
+  // Account-wide half of the quality-review consent; the per-list half is
+  // `wordLists.reviewOptIn`. BOTH must be true for a pair to reach the editor
+  // pool, so switching this off does not overwrite the per-list `false` that
+  // photo lab sets, and switching it on does not resurrect it.
+  reviewOptIn: boolean("review_opt_in").notNull().default(true),
+  // Separate, stricter consent: the pair may leave for a third-party LLM
+  // (OpenRouter) to be audited automatically. Defaults to false — an editor
+  // reading the pair and a provider receiving it are not the same ask.
+  aiReviewOptIn: boolean("ai_review_opt_in").notNull().default(false),
   showEnglish: boolean("show_english").default(true).notNull(),
   showCategoryBadges: boolean("show_category_badges").default(false).notNull(),
   showPronunciation: boolean("show_pronunciation").default(false).notNull(),
@@ -1073,6 +1083,112 @@ export const contentReports = pgTable(
       "content_reports_excerpt_length_check",
       sql`${table.contentExcerpt} is null or char_length(${table.contentExcerpt}) <= 8000`,
     ),
+  ],
+).enableRLS();
+
+export const QUALITY_REVIEW_VERDICTS = [
+  "unreviewed",
+  "ok",
+  "suspect",
+  "suggested",
+] as const;
+
+// The quality pool: one row per normalized word pair found in private owned
+// lists, so editors can catch missing audio and bad translations across the
+// whole corpus at once. Rows carry NO author identity, list name, or learner
+// category name — the pool aggregates by content and counts occurrences.
+//
+// Not "anonymized": identity and names are stripped, but the text is whatever
+// the learner typed and can contain personal detail. Hence the lifecycle below
+// and the wording used in the privacy policy.
+//
+// Gated by `users.reviewOptIn` AND `wordLists.reviewOptIn`; the LLM audit needs
+// `users.aiReviewOptIn` from every owner of the pair on top of that.
+export const contentQualityReviews = pgTable(
+  "content_quality_reviews",
+  {
+    // `p1:` + md5 over a length-prefixed [langFrom, langTo, known, target].
+    // Defined once as a SQL fragment in lib/db/queries/quality-pool.ts and
+    // computed nowhere else — see the note there before touching it.
+    poolKey: text("pool_key").primaryKey(),
+    languageFrom: text("language_from").notNull(),
+    languageTo: text("language_to").notNull(),
+    textKnown: text("text_known").notNull(),
+    textTarget: text("text_target").notNull(),
+    heuristicFlags: jsonb("heuristic_flags")
+      .$type<QualityHeuristicFlag[]>()
+      .notNull()
+      .default(sql`'[]'::jsonb`),
+    heuristicVersion: integer("heuristic_version"),
+    heuristicScannedAt: timestamp("heuristic_scanned_at"),
+    // 0..100, higher is better. Cache is keyed by `llmAuditVersion`, so bumping
+    // the constant invalidates every old score without a migration.
+    llmScore: integer("llm_score"),
+    llmReason: text("llm_reason"),
+    llmSuggestedTarget: text("llm_suggested_target"),
+    llmModel: text("llm_model"),
+    llmAuditVersion: integer("llm_audit_version"),
+    llmCheckedAt: timestamp("llm_checked_at"),
+    verdict: text("verdict").notNull().default("unreviewed"),
+    // Both generations are snapshotted: an editor judges from heuristics,
+    // audio, the LLM, and their own knowledge, so one number would lie about
+    // what the verdict was actually based on. Null LLM version = never audited.
+    reviewedHeuristicVersion: integer("reviewed_heuristic_version"),
+    reviewedLlmAuditVersion: integer("reviewed_llm_audit_version"),
+    suggestedKnown: text("suggested_known"),
+    suggestedTarget: text("suggested_target"),
+    suggestionNote: text("suggestion_note"),
+    // Bumped whenever the suggestion's content changes, so a learner who
+    // dismissed an earlier draft still gets shown an improved one.
+    suggestionVersion: integer("suggestion_version").notNull().default(0),
+    // The only user id here, and it is the editor — never the author.
+    reviewedBy: uuid("reviewed_by").references(() => users.id, { onDelete: "set null" }),
+    reviewedAt: timestamp("reviewed_at"),
+    // Informational only. Rows are NEVER purged by this timestamp: a scan runs
+    // with a limit, so most live rows carry a stale one at any given moment.
+    // `purgeStaleQualityReviews` checks for a live source row instead.
+    lastSeenAt: timestamp("last_seen_at").defaultNow().notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => [
+    index("content_quality_reviews_verdict_idx").on(table.verdict),
+    index("content_quality_reviews_llm_score_idx").on(table.llmScore),
+    check(
+      "content_quality_reviews_verdict_check",
+      sql`${table.verdict} in ('unreviewed', 'ok', 'suspect', 'suggested')`,
+    ),
+    check(
+      "content_quality_reviews_llm_score_check",
+      sql`${table.llmScore} is null or (${table.llmScore} >= 0 and ${table.llmScore} <= 100)`,
+    ),
+    check(
+      "content_quality_reviews_suggestion_note_length_check",
+      sql`${table.suggestionNote} is null or char_length(${table.suggestionNote}) <= 1000`,
+    ),
+  ],
+).enableRLS();
+
+// A learner declining one specific version of a suggestion. Keyed on the
+// version so an improved suggestion is shown again instead of staying buried.
+// The FK cascade is what keeps a purge from leaving orphans behind.
+export const contentQualityDismissals = pgTable(
+  "content_quality_dismissals",
+  {
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    poolKey: text("pool_key")
+      .notNull()
+      .references(() => contentQualityReviews.poolKey, { onDelete: "cascade" }),
+    suggestionVersion: integer("suggestion_version").notNull(),
+    createdAt: timestamp("created_at").defaultNow().notNull(),
+  },
+  (table) => [
+    primaryKey({
+      name: "content_quality_dismissals_pkey",
+      columns: [table.userId, table.poolKey, table.suggestionVersion],
+    }),
   ],
 ).enableRLS();
 

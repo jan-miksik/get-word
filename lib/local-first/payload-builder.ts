@@ -216,6 +216,8 @@ const PREFERENCE_FIELDS = new Set<keyof SyncMutationPayload>([
   'memory_hook_disable_from_stage',
   'study_notes_enabled',
   'study_note_minimize_from_stage',
+  'review_opt_in',
+  'ai_review_opt_in',
   'settings_language',
   'language_from',
   'language_to',

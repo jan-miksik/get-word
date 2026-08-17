@@ -138,6 +138,14 @@ function applyPendingPreference(
     case 'memory_hook_disable_from_stage':
       if (typeof payload.value === 'number') user.memory_hook_disable_from_stage = payload.value;
       break;
+    // Consent switches are mirrored offline so a toggle does not appear to
+    // revert while the mutation is still queued.
+    case 'review_opt_in':
+      if (typeof payload.value === 'boolean') user.review_opt_in = payload.value;
+      break;
+    case 'ai_review_opt_in':
+      if (typeof payload.value === 'boolean') user.ai_review_opt_in = payload.value;
+      break;
     case 'settings_language':
       if (typeof payload.value === 'string') {
         user.settings_language = payload.value;

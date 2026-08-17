@@ -183,7 +183,7 @@ function capitalizeFirstLetter(text: string): string {
  * clause. Cross-pair mirroring is layered on top in `polishPair`; this function
  * judges one field in isolation.
  */
-function isAuthoredSentence(cleaned: string, lang: string): boolean {
+export function isAuthoredSentence(cleaned: string, lang: string): boolean {
   if (!cleaned) return false;
   if (terminalPunctuation(cleaned) !== null) return true;
   const tokens = tokenize(cleaned);

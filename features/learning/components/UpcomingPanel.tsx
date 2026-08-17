@@ -119,6 +119,8 @@ export function UpcomingPanel({ isOpen, onClose, progressStats }: UpcomingPanelP
     isHydrated,
     role,
     categoryOrder,
+    pinnedCategoryIds,
+    ownedPersonalListIds,
   } = useAppStateContext();
   const overviewWords = useMemo(
     () =>
@@ -130,11 +132,26 @@ export function UpcomingPanel({ isOpen, onClose, progressStats }: UpcomingPanelP
       ),
     [activeListId, allSyncedWords, filteredWords, subscribedLists],
   );
-  const { dueWords, newWords, settlingWords } = useWordStream(
+  // The same bucketing the study stream uses, with the same priority inputs —
+  // the overview must list words in the order they will actually be served.
+  const { priorityWords, priorityDueCount, dueWords, newWords, settlingWords } = useWordStream(
     overviewWords,
     progress,
     isHydrated,
-    categoryOrder
+    categoryOrder,
+    0,
+    pinnedCategoryIds,
+    ownedPersonalListIds,
+  );
+  // `priorityWords` is [...priorityDue, ...priorityNew]; split it back so each
+  // half leads its own section, mirroring the stream's order.
+  const dueNowWords = useMemo(
+    () => [...priorityWords.slice(0, priorityDueCount), ...dueWords],
+    [dueWords, priorityDueCount, priorityWords],
+  );
+  const newWordsOrdered = useMemo(
+    () => [...priorityWords.slice(priorityDueCount), ...newWords],
+    [newWords, priorityDueCount, priorityWords],
   );
 
   // Initialized collapsed; intentionally not reset when the panel closes,
@@ -167,7 +184,7 @@ export function UpcomingPanel({ isOpen, onClose, progressStats }: UpcomingPanelP
     return { upcoming: up, done: dn };
   }, [settlingWords, progress]);
 
-  const total = dueWords.length + upcoming.length + newWords.length + done.length;
+  const total = dueNowWords.length + upcoming.length + newWordsOrdered.length + done.length;
 
   return (
     <section
@@ -225,8 +242,8 @@ export function UpcomingPanel({ isOpen, onClose, progressStats }: UpcomingPanelP
               <p className="m-0 text-text-soft">{t('upcoming.empty')}</p>
             ) : (
               <>
-                <Section label={t('upcoming.dueNow')} count={dueWords.length}>
-                  {dueWords.map((w) => (
+                <Section label={t('upcoming.dueNow')} count={dueNowWords.length}>
+                  {dueNowWords.map((w) => (
                     <WordRow key={w.id} word={w} progress={progress[w.id]} role={role} now={now} />
                   ))}
                 </Section>
@@ -235,8 +252,8 @@ export function UpcomingPanel({ isOpen, onClose, progressStats }: UpcomingPanelP
                     <WordRow key={w.id} word={w} progress={progress[w.id]} role={role} now={now} />
                   ))}
                 </Section>
-                <Section label={t('upcoming.new')} count={newWords.length}>
-                  {newWords.map((w) => (
+                <Section label={t('upcoming.new')} count={newWordsOrdered.length}>
+                  {newWordsOrdered.map((w) => (
                     <WordRow key={w.id} word={w} progress={progress[w.id]} role={role} now={now} />
                   ))}
                 </Section>

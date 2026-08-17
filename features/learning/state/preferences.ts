@@ -182,6 +182,10 @@ export function usePreferences(
   const [studyNoteMinimizeFromStage, setStudyNoteMinimizeFromStageState] = useState<number>(
     DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE
   );
+  // Quality-review consents. Defaults mirror the DB: editor review on, sending
+  // the pair to a third-party model off until the learner says otherwise.
+  const [reviewOptIn, setReviewOptInState] = useState(true);
+  const [aiReviewOptIn, setAiReviewOptInState] = useState(false);
   const [settingsLanguage, setSettingsLanguageState] = useState<SettingsLanguage>(() =>
     normalizeSettingsLanguage(getDetectedSettingsLanguage(BUNDLED_UI_LANGUAGES))
   );
@@ -339,6 +343,18 @@ export function usePreferences(
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
     if (!hasReceivedServerSnapshot()) return;
+    void enqueuePreference('review_opt_in', reviewOptIn);
+  }, [reviewOptIn, isHydrated, isUpdatingFromServerRef]);
+
+  useEffect(() => {
+    if (!isHydrated || isUpdatingFromServerRef.current) return;
+    if (!hasReceivedServerSnapshot()) return;
+    void enqueuePreference('ai_review_opt_in', aiReviewOptIn);
+  }, [aiReviewOptIn, isHydrated, isUpdatingFromServerRef]);
+
+  useEffect(() => {
+    if (!isHydrated || isUpdatingFromServerRef.current) return;
+    if (!hasReceivedServerSnapshot()) return;
     void enqueuePreference(
       'study_note_minimize_from_stage',
       normalizeStudyNoteMinimizeFromStage(studyNoteMinimizeFromStage)
@@ -399,6 +415,14 @@ export function usePreferences(
   const setStudyNotesEnabled = useCallback((value: boolean) => {
     setStudyNotesEnabledState(value);
     postTabMessage({ type: 'preferences_changed', patch: { studyNotesEnabled: value } });
+  }, []);
+  const setReviewOptIn = useCallback((value: boolean) => {
+    setReviewOptInState(value);
+    postTabMessage({ type: 'preferences_changed', patch: { reviewOptIn: value } });
+  }, []);
+  const setAiReviewOptIn = useCallback((value: boolean) => {
+    setAiReviewOptInState(value);
+    postTabMessage({ type: 'preferences_changed', patch: { aiReviewOptIn: value } });
   }, []);
   const setStudyNoteMinimizeFromStage = useCallback((stage: number) => {
     const normalized = normalizeStudyNoteMinimizeFromStage(stage);
@@ -525,6 +549,8 @@ export function usePreferences(
     setStudyNoteMinimizeFromStageState(
       normalizeStudyNoteMinimizeFromStage(user.study_note_minimize_from_stage)
     );
+    setReviewOptInState(user.review_opt_in ?? true);
+    setAiReviewOptInState(user.ai_review_opt_in ?? false);
     const serverSelectedAt = simulateFirstOpen ? null : user.settings_language_selected_at ?? null;
     const localSelectedAt = settingsLanguageSelectedAtRef.current;
     const serverSelectedAtMs = serverSelectedAt ? new Date(serverSelectedAt).getTime() : 0;
@@ -639,6 +665,12 @@ export function usePreferences(
       }
       if (typeof patch.studyNotesEnabled === 'boolean') {
         setStudyNotesEnabledState(patch.studyNotesEnabled);
+      }
+      if (typeof patch.reviewOptIn === 'boolean') {
+        setReviewOptInState(patch.reviewOptIn);
+      }
+      if (typeof patch.aiReviewOptIn === 'boolean') {
+        setAiReviewOptInState(patch.aiReviewOptIn);
       }
       if (typeof patch.studyNoteMinimizeFromStage === 'number') {
         setStudyNoteMinimizeFromStageState(
@@ -774,6 +806,10 @@ export function usePreferences(
     setStudyNotesEnabled,
     studyNoteMinimizeFromStage,
     setStudyNoteMinimizeFromStage,
+    reviewOptIn,
+    setReviewOptIn,
+    aiReviewOptIn,
+    setAiReviewOptIn,
     categoryOrder,
     setCategoryOrder,
     pinnedCategoryIds,

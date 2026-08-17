@@ -93,6 +93,8 @@ export interface SyncResponse {
     memory_hook_disable_from_stage?: number;
     study_notes_enabled?: boolean;
     study_note_minimize_from_stage?: number;
+    review_opt_in?: boolean;
+    ai_review_opt_in?: boolean;
     settings_language?: string | null;
     settings_language_selected_at?: string | null;
     settings_language_revision?: number;

@@ -52,6 +52,8 @@ export async function applySyncMutations(input: {
     memory_hook_disable_from_stage,
     study_notes_enabled,
     study_note_minimize_from_stage,
+    review_opt_in,
+    ai_review_opt_in,
     settings_language,
     language_from,
     language_to,
@@ -99,6 +101,8 @@ export async function applySyncMutations(input: {
     memory_hooks_intro_answered !== undefined ||
     memory_hook_disable_from_stage !== undefined ||
     study_notes_enabled !== undefined ||
+    review_opt_in !== undefined ||
+    ai_review_opt_in !== undefined ||
     study_note_minimize_from_stage !== undefined ||
     settings_language !== undefined ||
     language_from !== undefined ||
@@ -116,6 +120,8 @@ export async function applySyncMutations(input: {
       memory_hook_disable_from_stage,
       study_notes_enabled,
       study_note_minimize_from_stage,
+      review_opt_in,
+      ai_review_opt_in,
       settings_language,
       language_from,
       language_to,

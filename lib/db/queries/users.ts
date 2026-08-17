@@ -115,6 +115,8 @@ export async function updateUserPreferences(
     memory_hooks_intro_answered?: boolean;
     memory_hook_disable_from_stage?: number;
     study_notes_enabled?: boolean;
+    review_opt_in?: boolean;
+    ai_review_opt_in?: boolean;
     study_note_minimize_from_stage?: number;
     settings_language?: string;
     language_from?: string | null;
@@ -137,6 +139,8 @@ export async function updateUserPreferences(
     memoryHooksIntroAnswered?: boolean;
     memoryHookDisableFromStage?: number;
     studyNotesEnabled?: boolean;
+    reviewOptIn?: boolean;
+    aiReviewOptIn?: boolean;
     studyNoteMinimizeFromStage?: number;
     settingsLanguage?: string;
     settingsLanguageSelectedAt?: Date;
@@ -166,6 +170,8 @@ export async function updateUserPreferences(
   if (prefs.study_notes_enabled !== undefined) {
     updates.studyNotesEnabled = prefs.study_notes_enabled;
   }
+  if (prefs.review_opt_in !== undefined) updates.reviewOptIn = prefs.review_opt_in;
+  if (prefs.ai_review_opt_in !== undefined) updates.aiReviewOptIn = prefs.ai_review_opt_in;
   if (prefs.study_note_minimize_from_stage !== undefined) {
     updates.studyNoteMinimizeFromStage = normalizeStudyNoteMinimizeFromStage(
       prefs.study_note_minimize_from_stage

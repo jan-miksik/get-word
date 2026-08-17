@@ -435,6 +435,13 @@
       "when": 1786752000000,
       "tag": "0061_activity_segments",
       "breakpoints": true
+    },
+    {
+      "idx": 62,
+      "version": "7",
+      "when": 1786838400000,
+      "tag": "0062_quality_pool",
+      "breakpoints": true
     }
   ]
 }

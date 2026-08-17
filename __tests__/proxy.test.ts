@@ -35,9 +35,27 @@ describe("proxy auth gate", () => {
       "/",
       "/api/:path*",
       "/edit/:path*",
+      "/admin/:path*",
       "/lists/:path*",
       "/login",
     ]);
+  });
+
+  /**
+   * `/admin` was absent from the matcher, so the admin pages rendered for
+   * anyone and the only real barrier was the 403 their API calls returned.
+   */
+  it("redirects a non-editor away from an admin page", async () => {
+    mockVerifySession.mockResolvedValue({ userId: "u1", userRole: "user" });
+    const response = await proxy(makeRequest("/admin/quality"));
+    expect(response.status).toBe(307);
+    expect(response.headers.get("location")).toBe("http://localhost:3000/");
+  });
+
+  it("lets an editor through to an admin page", async () => {
+    mockVerifySession.mockResolvedValue({ userId: "u1", userRole: "editor" });
+    const response = await proxy(makeRequest("/admin/quality"));
+    expect(response.headers.get("location")).toBeNull();
   });
 
   it("never runs the page auth gate on API routes", async () => {

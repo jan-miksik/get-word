@@ -74,6 +74,10 @@ const SyncMutationPayloadSchema = z.object({
   memory_hook_disable_from_stage: z.number().int().optional(),
   study_notes_enabled: z.boolean().optional(),
   study_note_minimize_from_stage: z.number().int().optional(),
+  // Quality-review consents. Two separate switches on purpose: an editor
+  // reading the pair and a third-party LLM receiving it are different asks.
+  review_opt_in: z.boolean().optional(),
+  ai_review_opt_in: z.boolean().optional(),
   settings_language: z.string().optional(),
   language_from: z.string().nullable().optional(),
   language_to: z.string().nullable().optional(),

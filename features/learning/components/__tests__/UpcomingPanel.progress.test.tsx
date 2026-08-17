@@ -102,4 +102,46 @@ describe('UpcomingPanel progress section', () => {
     expect(screen.getByText('radost')).toBeInTheDocument();
     expect(screen.getByText('niềm vui')).toBeInTheDocument();
   });
+
+  it('lists personal new words before catalog ones, like the study stream does', () => {
+    Object.assign(appState, {
+      filteredWords: [
+        {
+          id: 'catalog-word',
+          listId: 'catalog-cs-vi',
+          category: ['word'],
+          cz: 'kniha',
+          en: '',
+          vi: 'sách',
+        },
+        {
+          id: 'personal-word',
+          listId: 'personal-cs-vi',
+          category: ['word'],
+          cz: 'radost',
+          en: '',
+          vi: 'niềm vui',
+        },
+      ],
+      subscribedLists: [
+        { id: 'catalog-cs-vi', languageFrom: 'cs', languageTo: 'vi' },
+        {
+          id: 'personal-cs-vi',
+          languageFrom: 'cs',
+          languageTo: 'vi',
+          isOwnedPersonal: true,
+        },
+      ],
+      activeListId: 'catalog-cs-vi',
+      ownedPersonalListIds: new Set(['personal-cs-vi']),
+    });
+
+    const { container } = render(
+      <UpcomingPanel isOpen onClose={vi.fn()} progressStats={progressStats} />
+    );
+
+    const rows = Array.from(container.querySelectorAll('li')).map((li) => li.textContent ?? '');
+    expect(rows[0]).toContain('radost');
+    expect(rows[1]).toContain('kniha');
+  });
 });

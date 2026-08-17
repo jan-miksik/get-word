@@ -23,7 +23,13 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
-  if (pathname.startsWith("/edit") && session.userRole !== "editor") {
+  // Editor-only page areas. `/admin` used to be absent from both this check
+  // and the matcher, so the pages rendered for anyone and the only real
+  // barrier was the 403 their API calls came back with.
+  if (
+    (pathname.startsWith("/edit") || pathname.startsWith("/admin")) &&
+    session.userRole !== "editor"
+  ) {
     return NextResponse.redirect(new URL("/", request.url));
   }
 
@@ -35,6 +41,7 @@ export const config = {
     "/",
     "/api/:path*",
     "/edit/:path*",
+    "/admin/:path*",
     "/lists/:path*",
     "/login",
   ],

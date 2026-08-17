@@ -90,6 +90,8 @@ type SyncUserShape = {
   memoryHookDisableFromStage?: number | null;
   studyNotesEnabled?: boolean | null;
   studyNoteMinimizeFromStage?: number | null;
+  reviewOptIn?: boolean | null;
+  aiReviewOptIn?: boolean | null;
   settingsLanguage?: string | null;
   settingsLanguageSelectedAt?: Date | string | null;
   settingsLanguageRevision?: number | null;
@@ -180,6 +182,9 @@ function buildSyncUser(user: SyncUserShape) {
     study_notes_enabled: user.studyNotesEnabled ?? true,
     study_note_minimize_from_stage:
       user.studyNoteMinimizeFromStage ?? DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE,
+    // Defaults mirror the DB: editor review on, third-party AI review off.
+    review_opt_in: user.reviewOptIn ?? true,
+    ai_review_opt_in: user.aiReviewOptIn ?? false,
     settings_language: user.settingsLanguage ?? null,
     settings_language_selected_at: user.settingsLanguageSelectedAt
       ? new Date(user.settingsLanguageSelectedAt).toISOString()
