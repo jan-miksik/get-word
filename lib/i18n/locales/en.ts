@@ -490,6 +490,8 @@ export const enMessages = {
   "learning.noFilterMatches": "No words match your current filters.",
   "learning.noWords": "No words to display.",
   "learning.noPersonalWords": "You do not have any words for {pair} yet.",
+  "learning.noPersonalWordsHint": "Add your first words in the chat, or snap a photo and let the photo lab name what is in it.",
+  "learning.noPersonalWordsPhotoLab": "Take a photo",
   "category.aria": "Category filter",
   "category.title": "Categories:",
   "category.close": "Close categories",

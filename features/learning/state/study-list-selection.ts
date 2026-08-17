@@ -55,6 +55,26 @@ export function isStudyGated(
 }
 
 /**
+ * True when this language pair has nothing to study — as opposed to a deck the
+ * learner has emptied, which is the "All done" case.
+ *
+ * Switching to a pair the learner has no list for leaves `activeList` null; a
+ * list that exists can still hold no items; and the default catalogue stays
+ * gated until a personal word exists. All three end on a blank surface that
+ * must offer a way to add words instead of congratulating the learner for
+ * finishing a pair they never started.
+ */
+export function isStudyEmptyForPair(
+  activeList: StudyListChoice | null,
+  hasPersonalWordsForActivePair: boolean,
+  activeWordCount: number,
+): boolean {
+  return (
+    activeWordCount === 0 || isStudyGated(activeList, hasPersonalWordsForActivePair)
+  );
+}
+
+/**
  * Pick the list that acts as the base layer for a language pair.
  *
  * Personal words are overlaid automatically when a non-personal list exists,

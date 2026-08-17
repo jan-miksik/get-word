@@ -29,11 +29,14 @@ interface LearningStudyContentProps {
   learningLanguagePair?: { from: string; to: string } | null;
   onLearningLanguagePairChange?: (pair: { from: string; to: string }) => void | Promise<void>;
   /**
-   * The study surface is deliberately empty for this pair: the active list is
-   * the default catalogue and the learner has no personal words yet. Not the
-   * same as "no words match the filters", which keeps its own message.
+   * This pair has no study words at all — no list selected for it, a list with
+   * no items yet, or the default catalogue held back until the learner adds a
+   * personal word. Not the same as "no words match the filters", which keeps
+   * its own message, and not the same as an emptied deck, which is All done.
    */
-  studyGatedForPair: boolean;
+  studyEmptyForPair: boolean;
+  /** Whether the photo lab may be offered as a way to collect first words. */
+  photoLabAvailable?: boolean;
   activeSurface?: AppSurface;
   onSurfaceChange?: (surface: AppSurface) => void;
   chatContent?: React.ReactNode;
@@ -80,7 +83,8 @@ export function LearningStudyContent({
   onOpenPhotoLab,
   learningLanguagePair,
   onLearningLanguagePairChange,
-  studyGatedForPair,
+  studyEmptyForPair,
+  photoLabAvailable = false,
   activeSurface = 'study',
   onSurfaceChange,
   chatContent,
@@ -109,20 +113,37 @@ export function LearningStudyContent({
   const personalPairLabel = learningLanguagePair
     ? `${getLocalizedLanguageName(learningLanguagePair.from, uiLanguage) ?? learningLanguagePair.from.toUpperCase()} → ${getLocalizedLanguageName(learningLanguagePair.to, uiLanguage) ?? learningLanguagePair.to.toUpperCase()}`
     : '';
-  const noPersonalWordsState = studyGatedForPair && learningLanguagePair ? (
+  const showPhotoLabOffer = photoLabAvailable && Boolean(onOpenPhotoLab);
+  const noPersonalWordsState = studyEmptyForPair && learningLanguagePair ? (
     <div className="flex h-full flex-col items-center justify-center gap-4 px-6 py-12 text-center">
       <p className="m-0 max-w-md text-lg font-semibold text-[#2A2218]">
         {t('learning.noPersonalWords', { pair: personalPairLabel })}
       </p>
-      {onOpenWordChat ? (
-        <button
-          type="button"
-          onClick={onOpenWordChat}
-          className="onboarding-option onboarding-option-highlight rounded-full px-5 py-2.5 text-sm font-extrabold"
-        >
-          {t('wordChat.addWords')}
-        </button>
+      {onOpenWordChat || showPhotoLabOffer ? (
+        <p className="m-0 max-w-md text-sm text-[#2A2218] opacity-70">
+          {t('learning.noPersonalWordsHint')}
+        </p>
       ) : null}
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        {onOpenWordChat ? (
+          <button
+            type="button"
+            onClick={onOpenWordChat}
+            className="onboarding-option onboarding-option-highlight rounded-full px-5 py-2.5 text-sm font-extrabold"
+          >
+            {t('wordChat.addWords')}
+          </button>
+        ) : null}
+        {showPhotoLabOffer ? (
+          <button
+            type="button"
+            onClick={onOpenPhotoLab}
+            className="onboarding-option rounded-full px-5 py-2.5 text-sm font-extrabold"
+          >
+            {t('learning.noPersonalWordsPhotoLab')}
+          </button>
+        ) : null}
+      </div>
     </div>
   ) : null;
 

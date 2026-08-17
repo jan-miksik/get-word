@@ -11,7 +11,7 @@ import type { NormalizedWord } from '@/lib/words';
 import { cacheActiveListAudio } from '@/lib/local-learning-cache';
 import { subscribeAudioNetworkChanges } from '@/lib/audio-network-policy';
 import { normalizeLanguageCode } from '@/lib/i18n/languages';
-import { isStudyGated, resolveActiveStudyWords } from '@/features/learning/state/study-list-selection';
+import { isStudyEmptyForPair, resolveActiveStudyWords } from '@/features/learning/state/study-list-selection';
 
 export function useAppState(words: NormalizedWord[]) {
   const [isHydrated, setIsHydrated] = useState(false);
@@ -143,10 +143,6 @@ export function useAppState(words: NormalizedWord[]) {
   // and points them to Add words instead of silently starting the old catalogue.
   // Lists they chose themselves — a teacher's `/join` link, a school
   // assignment, a public list they subscribed to — are never held back.
-  const isStudyGatedForPair = useMemo(
-    () => isStudyGated(activeList, hasPersonalWordsForActivePair),
-    [activeList, hasPersonalWordsForActivePair],
-  );
   const activeWords = useMemo(
     () => resolveActiveStudyWords(
       activeList,
@@ -155,6 +151,12 @@ export function useAppState(words: NormalizedWord[]) {
       words,
     ),
     [activeList, filteredSyncedWords, hasPersonalWordsForActivePair, words],
+  );
+  // Drives the "nothing here yet" surface rather than the All done screen.
+  const studyEmptyForPair = isStudyEmptyForPair(
+    activeList,
+    hasPersonalWordsForActivePair,
+    activeWords.length,
   );
   const categoryScopeKey = activeListId ?? '__default__';
   const categories = useCategoryFilter(
@@ -246,7 +248,7 @@ export function useAppState(words: NormalizedWord[]) {
     activeList,
     activeListId,
     ownedPersonalListIds,
-    isStudyGatedForPair,
+    isStudyEmptyForPair: studyEmptyForPair,
     setActiveListId,
   };
 }

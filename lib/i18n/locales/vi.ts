@@ -466,6 +466,8 @@ export const viMessages: I18nMessages = {
   "learning.noFilterMatches": "Không có từ nào khớp với bộ lọc hiện tại.",
   "learning.noWords": "Không có từ để hiển thị.",
   "learning.noPersonalWords": "Bạn chưa có từ nào cho {pair}.",
+  "learning.noPersonalWordsHint": "Thêm những từ đầu tiên trong phần trò chuyện, hoặc chụp một tấm ảnh để phòng ảnh gọi tên những gì có trong đó.",
+  "learning.noPersonalWordsPhotoLab": "Chụp ảnh",
   "category.aria": "Bộ lọc danh mục",
   "category.title": "Danh mục:",
   "category.close": "Đóng danh mục",

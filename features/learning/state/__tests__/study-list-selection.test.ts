@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   chooseBaseStudyListForPair,
+  isStudyEmptyForPair,
   isStudyGated,
   resolveActiveStudyWords,
 } from '../study-list-selection';
@@ -88,5 +89,24 @@ describe('isStudyGated', () => {
     expect(isStudyGated(lists[0], false)).toBe(false);
     expect(isStudyGated({ id: 'x', languageFrom: 'cs', languageTo: 'vi' }, false)).toBe(false);
     expect(isStudyGated(null, false)).toBe(false);
+  });
+});
+
+describe('isStudyEmptyForPair', () => {
+  it('reports a pair the learner has no list for at all', () => {
+    expect(isStudyEmptyForPair(null, false, 0)).toBe(true);
+  });
+
+  it('reports a list that exists but holds no items yet', () => {
+    expect(isStudyEmptyForPair(lists[0], true, 0)).toBe(true);
+  });
+
+  it('reports the gated default catalogue even before its words are resolved', () => {
+    expect(isStudyEmptyForPair(lists[1], false, 5)).toBe(true);
+  });
+
+  it('leaves a pair with words alone so an emptied deck still reads as done', () => {
+    expect(isStudyEmptyForPair(lists[0], true, 5)).toBe(false);
+    expect(isStudyEmptyForPair(lists[1], true, 5)).toBe(false);
   });
 });

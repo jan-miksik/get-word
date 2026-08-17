@@ -172,7 +172,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     setGameScore,
     syncedWords,
     allSyncedWords,
-    isStudyGatedForPair,
+    isStudyEmptyForPair,
     userId,
     userEmail,
     userWalletAddress,
@@ -665,7 +665,8 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
                   ? { from: learningLanguageFrom, to: learningLanguageTo }
                   : null
               }
-              studyGatedForPair={isStudyGatedForPair}
+              studyEmptyForPair={isStudyEmptyForPair}
+              photoLabAvailable={photoLabEnabled}
               onLearningLanguagePairChange={changeLearningLanguagePair}
               activeSurface={activeSurface}
               onSurfaceChange={navigateSurface}
