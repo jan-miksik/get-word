@@ -123,6 +123,8 @@ export type QualityAudioResult = {
   linked_items: number;
   /** Items sharing the pool key whose exact text was not audio-equivalent. */
   skipped_items: number;
+  /** Items left untouched because they already had a playable clip. */
+  kept_items: number;
   content_hash: string | null;
   error?: string;
 };

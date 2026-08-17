@@ -441,6 +441,7 @@ function CategoryBrowserContent({
   const {
     suggestions: qualitySuggestions,
     busyItemId: suggestionBusyItemId,
+    failedItemId: suggestionFailedItemId,
     accept: acceptSuggestion,
     dismiss: dismissSuggestion,
   } = useQualitySuggestions(list.id, isOwner);
@@ -1042,7 +1043,12 @@ function CategoryBrowserContent({
                             <QualitySuggestionNotice
                               suggestion={suggestion}
                               busy={suggestionBusyItemId === item.id}
-                              onAccept={() => void acceptSuggestion(suggestion).then(onItemsChanged)}
+                              failed={suggestionFailedItemId === item.id}
+                              onAccept={() =>
+                                void acceptSuggestion(suggestion).then(
+                                  (ok) => ok && onItemsChanged?.(),
+                                )
+                              }
                               onDismiss={() => void dismissSuggestion(suggestion)}
                             />
                           )}
@@ -1224,7 +1230,12 @@ function CategoryBrowserContent({
                               <QualitySuggestionNotice
                                 suggestion={suggestion}
                                 busy={suggestionBusyItemId === item.id}
-                                onAccept={() => void acceptSuggestion(suggestion).then(onItemsChanged)}
+                                failed={suggestionFailedItemId === item.id}
+                                onAccept={() =>
+                                  void acceptSuggestion(suggestion).then(
+                                    (ok) => ok && onItemsChanged?.(),
+                                  )
+                                }
                                 onDismiss={() => void dismissSuggestion(suggestion)}
                               />
                             )}

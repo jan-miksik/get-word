@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 
 const apiFetch = vi.fn();
 vi.mock('@/features/shared/http/api-runtime', () => ({
@@ -126,5 +126,54 @@ describe('quality suggestions in the list editor', () => {
     );
     expect(suggestionCalls).toHaveLength(0);
     expect(screen.queryByText(/suggested correction/)).toBeNull();
+  });
+});
+
+describe('a failed accept or dismiss', () => {
+  /**
+   * `deviceJsonFetch` is a plain fetch wrapper: a 4xx or 5xx resolves rather
+   * than throwing. Both actions used to drop the suggestion from local state
+   * without reading `response.ok`, so a rejected save — including the 409 a
+   * changed suggestion now returns — looked exactly like success.
+   */
+  it('keeps the suggestion on screen when the server rejects it', async () => {
+    respondWithSuggestion();
+    renderBrowser();
+
+    await waitFor(() => expect(screen.getByText(/1 suggested correction/)).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Show them' }));
+
+    // From here on every write fails, while the re-read still returns the
+    // suggestion. Reads and the dismiss POST share a URL, so the two are told
+    // apart by method rather than by path.
+    apiFetch.mockImplementation(async (url: string, options?: RequestInit) => {
+      const isRead = String(url).includes('quality-suggestions') && !options?.method;
+      if (isRead) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            suggestions: [
+              {
+                item_id: ITEM_ID,
+                pool_key: 'p1:abc',
+                suggestion_version: 1,
+                current_target: 'a grater',
+                suggested_known: null,
+                suggested_target: 'a grater and a whisk',
+                note: 'sounds unnatural',
+              },
+            ],
+          }),
+        };
+      }
+      return { ok: false, status: 500, json: async () => ({ error: 'nope' }) };
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept' }));
+
+    await waitFor(() => expect(screen.getByText('Save failed')).toBeTruthy());
+    // Still offered, because nothing was actually saved.
+    expect(screen.getByRole('button', { name: 'Accept' })).toBeTruthy();
   });
 });

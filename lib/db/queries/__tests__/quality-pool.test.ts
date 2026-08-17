@@ -191,7 +191,23 @@ describe('audio aggregation', () => {
     expect(lastQueries().rows).toContain('p.known_ready_count = 0 AND p.target_ready_count = 0');
 
     await getQualityPool({ audio: 'incomplete' });
-    expect(lastQueries().rows).toContain('p.known_missing_count > 0 AND p.known_ready_count > 0');
+    expect(lastQueries().rows).toContain(
+      'p.known_ready_count > 0 AND p.known_ready_count < p.occurrences',
+    );
+  });
+
+  /**
+   * `audio_status` is an enum of four. Naming the failure states (missing = 0
+   * AND failed = 0) left `pending` uncounted, so a pair whose clips were still
+   * being generated passed the filter as fully recorded. Only the positive
+   * form — every occurrence ready — is exhaustive.
+   */
+  it('does not call a pair with pending clips fully recorded', async () => {
+    await getQualityPool({ audio: 'ready' });
+    const { rows } = lastQueries();
+    expect(rows).toContain('p.known_ready_count = p.occurrences');
+    expect(rows).toContain('p.target_ready_count = p.occurrences');
+    expect(rows).not.toContain('p.known_missing_count = 0');
   });
 });
 

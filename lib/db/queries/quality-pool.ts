@@ -407,15 +407,21 @@ function audioFilterCondition(filter: PoolAudioFilter): SQL | null {
       return sql`p.known_ready_count = 0 AND p.target_ready_count = 0`;
     case 'incomplete':
       // Some items have it, some do not — the case a boolean would have hidden.
-      return sql`(p.known_missing_count > 0 AND p.known_ready_count > 0)
-              OR (p.target_missing_count > 0 AND p.target_ready_count > 0)`;
+      // Stated as "ready, but not all of them" rather than by counting the ways
+      // an item can lack audio, so `pending` cannot slip through as complete.
+      return sql`(p.known_ready_count > 0 AND p.known_ready_count < p.occurrences)
+              OR (p.target_ready_count > 0 AND p.target_ready_count < p.occurrences)`;
     case 'failed':
       return sql`p.known_failed_count > 0 OR p.target_failed_count > 0`;
     case 'legacy':
       return sql`p.known_legacy_count > 0 OR p.target_legacy_count > 0`;
     case 'ready':
-      return sql`p.known_missing_count = 0 AND p.target_missing_count = 0
-             AND p.known_failed_count = 0 AND p.target_failed_count = 0`;
+      // Every occurrence ready on both sides. Listing the failure states
+      // instead (missing = 0 AND failed = 0) let a pair whose clips were still
+      // `pending` pass as fully recorded — the statuses are an enum of four, so
+      // only the positive form is exhaustive.
+      return sql`p.known_ready_count = p.occurrences
+             AND p.target_ready_count = p.occurrences`;
     case 'any':
     default:
       return null;
@@ -618,6 +624,19 @@ export function rowSuspicion(row: PoolRow): number {
  * Items behind one pool row
  * ------------------------------------------------------------------ */
 
+/**
+ * Enough of a media asset to decide whether it is worth keeping.
+ *
+ * `isPlayableAudioAsset` is the judge, and it reads exactly these fields — a
+ * legacy `r2` row is linked but unplayable, so an item can be `ready` and
+ * still have nothing a learner can hear.
+ */
+export type PoolItemAsset = {
+  contentHash: string;
+  storageType: string;
+  storageRef: string;
+};
+
 export type PoolItem = {
   itemId: string;
   listId: string;
@@ -628,14 +647,18 @@ export type PoolItem = {
   languageTo: string;
   knownAudioStatus: string;
   targetAudioStatus: string;
+  /** The clip each side currently points at, if any. */
+  knownAsset: PoolItemAsset | null;
+  targetAsset: PoolItemAsset | null;
 };
 
 /**
  * The individual items a pool row aggregates.
  *
- * The audio action needs these for two things the aggregate cannot give it:
- * choosing a canonical spelling from the real variants, and checking each
- * item's own text before linking a shared clip to it.
+ * The audio action needs these for three things the aggregate cannot give it:
+ * choosing a canonical spelling from the real variants, checking each item's
+ * own text before linking a shared clip to it, and seeing whether the item
+ * already has a playable clip that must not be overwritten.
  *
  * Still gated by the same consent condition — this returns item ids, so it is
  * the one query in the pool that could leak reach beyond what a learner
@@ -645,12 +668,30 @@ export async function getPoolItems(poolKey: string): Promise<PoolItem[]> {
   const rows = (await db.execute(sql`
     SELECT i.id, i.list_id, i.text_known, i.text_target,
            l.language_from, l.language_to,
-           i.known_audio_status, i.audio_status
+           i.known_audio_status, i.audio_status,
+           ka.content_hash AS known_hash, ka.storage_type AS known_storage,
+           ka.storage_ref  AS known_ref,
+           ta.content_hash AS target_hash, ta.storage_type AS target_storage,
+           ta.storage_ref  AS target_ref
     FROM word_list_items i
     JOIN word_lists l ON l.id = i.list_id
     JOIN users u      ON u.id = l.owner_id
+    LEFT JOIN media_assets ka ON ka.id = i.known_audio_asset_id
+    LEFT JOIN media_assets ta ON ta.id = i.audio_asset_id
     WHERE ${poolSourceCondition()}
       AND ${itemPoolKey()} = ${poolKey}`)) as unknown as Record<string, unknown>[];
+
+  const asset = (
+    row: Record<string, unknown>,
+    prefix: 'known' | 'target',
+  ): PoolItemAsset | null =>
+    row[`${prefix}_storage`] === null || row[`${prefix}_storage`] === undefined
+      ? null
+      : {
+          contentHash: String(row[`${prefix}_hash`] ?? ''),
+          storageType: String(row[`${prefix}_storage`]),
+          storageRef: String(row[`${prefix}_ref`] ?? ''),
+        };
 
   return rows.map((row) => ({
     itemId: String(row.id),
@@ -661,6 +702,8 @@ export async function getPoolItems(poolKey: string): Promise<PoolItem[]> {
     languageTo: String(row.language_to ?? ''),
     knownAudioStatus: String(row.known_audio_status ?? 'none'),
     targetAudioStatus: String(row.audio_status ?? 'none'),
+    knownAsset: asset(row, 'known'),
+    targetAsset: asset(row, 'target'),
   }));
 }
 

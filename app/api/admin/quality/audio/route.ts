@@ -25,7 +25,8 @@ function withNoStore(response: NextResponse) {
  * and attach it to every item that may share it. Editor-only.
  *
  * Nobody's text is modified: `media_assets` is content-addressed, so this only
- * ever fills a gap.
+ * ever fills a gap. Items that already have a playable clip keep it — the
+ * action never replaces a recording a learner already has.
  */
 export async function POST(request: NextRequest) {
   const user = await resolveAuthenticatedUser(request);
@@ -58,6 +59,7 @@ export async function POST(request: NextRequest) {
       generated: outcome.generated,
       linked_items: outcome.linkedItems,
       skipped_items: outcome.skippedItems,
+      kept_items: outcome.keptItems,
       content_hash: outcome.contentHash,
       ...(outcome.error ? { error: outcome.error } : {}),
     };

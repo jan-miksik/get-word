@@ -34,6 +34,8 @@ type WireSuggestion = {
 export function useQualitySuggestions(listId: string | null, enabled: boolean) {
   const [suggestions, setSuggestions] = useState<QualitySuggestion[]>([]);
   const [busyItemId, setBusyItemId] = useState<string | null>(null);
+  /** Item whose last accept/dismiss did not go through. */
+  const [failedItemId, setFailedItemId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!listId || !enabled) {
@@ -74,16 +76,51 @@ export function useQualitySuggestions(listId: string | null, enabled: boolean) {
   }, [load]);
 
   /**
+   * Run one accept/dismiss request and clear the suggestion only if the server
+   * actually accepted it.
+   *
+   * `deviceJsonFetch` is a plain fetch wrapper: a 4xx or 5xx resolves, it does
+   * not throw. Dropping the suggestion without reading `response.ok` therefore
+   * showed the learner a correction as applied when nothing had been saved —
+   * and a 409 from a changed suggestion looked exactly like success.
+   */
+  const runAction = useCallback(
+    async (suggestion: QualitySuggestion, request: () => Promise<Response>) => {
+      if (!listId) return false;
+      setBusyItemId(suggestion.itemId);
+      setFailedItemId(null);
+      try {
+        const response = await request();
+        if (!response.ok) {
+          setFailedItemId(suggestion.itemId);
+          // Re-read rather than guess: a 409 means the suggestion moved on, and
+          // the fresh copy is the one worth showing.
+          await load();
+          return false;
+        }
+        setSuggestions((previous) =>
+          previous.filter((entry) => entry.itemId !== suggestion.itemId),
+        );
+        return true;
+      } catch {
+        setFailedItemId(suggestion.itemId);
+        return false;
+      } finally {
+        setBusyItemId(null);
+      }
+    },
+    [listId, load],
+  );
+
+  /**
    * Accepting goes through the ordinary translation-edit endpoint, so it
    * behaves exactly as if the learner had retyped the word themselves —
    * including disconnecting audio when the change is more than cosmetic.
    */
   const accept = useCallback(
-    async (suggestion: QualitySuggestion) => {
-      if (!listId) return;
-      setBusyItemId(suggestion.itemId);
-      try {
-        await deviceJsonFetch(`/api/lists/${listId}/items/translations`, {
+    (suggestion: QualitySuggestion) =>
+      runAction(suggestion, () =>
+        deviceJsonFetch(`/api/lists/${listId}/items/translations`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -99,41 +136,26 @@ export function useQualitySuggestions(listId: string | null, enabled: boolean) {
               },
             ],
           }),
-        });
-        // The edit changes the pair, so the suggestion no longer matches it.
-        setSuggestions((previous) =>
-          previous.filter((entry) => entry.itemId !== suggestion.itemId),
-        );
-      } finally {
-        setBusyItemId(null);
-      }
-    },
-    [listId],
+        }),
+      ),
+    [listId, runAction],
   );
 
   /** Declining silences this version only; an improved one comes back. */
   const dismiss = useCallback(
-    async (suggestion: QualitySuggestion) => {
-      if (!listId) return;
-      setBusyItemId(suggestion.itemId);
-      try {
-        await deviceJsonFetch(`/api/lists/${listId}/quality-suggestions`, {
+    (suggestion: QualitySuggestion) =>
+      runAction(suggestion, () =>
+        deviceJsonFetch(`/api/lists/${listId}/quality-suggestions`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             poolKey: suggestion.poolKey,
             suggestionVersion: suggestion.suggestionVersion,
           }),
-        });
-        setSuggestions((previous) =>
-          previous.filter((entry) => entry.itemId !== suggestion.itemId),
-        );
-      } finally {
-        setBusyItemId(null);
-      }
-    },
-    [listId],
+        }),
+      ),
+    [listId, runAction],
   );
 
-  return { suggestions, busyItemId, accept, dismiss, reload: load };
+  return { suggestions, busyItemId, failedItemId, accept, dismiss, reload: load };
 }

@@ -14,11 +14,14 @@ import type { QualitySuggestion } from '@/features/lists/hooks/useQualitySuggest
 export function QualitySuggestionNotice({
   suggestion,
   busy,
+  failed,
   onAccept,
   onDismiss,
 }: {
   suggestion: QualitySuggestion;
   busy: boolean;
+  /** The last accept/dismiss for this item did not reach the server. */
+  failed?: boolean;
   onAccept: () => void;
   onDismiss: () => void;
 }) {
@@ -33,6 +36,7 @@ export function QualitySuggestionNotice({
         <span className="text-text">{suggestion.suggestedTarget ?? suggestion.suggestedKnown}</span>
       </p>
       {suggestion.note && <p className="m-0 mt-1 text-text-soft">{suggestion.note}</p>}
+      {failed && <p className="m-0 mt-1 text-fresh">{t('lists.saveFailedShort')}</p>}
       <div className="mt-2 flex gap-2">
         <button
           type="button"

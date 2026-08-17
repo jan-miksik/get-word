@@ -2,7 +2,27 @@ import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/db/client', () => ({ db: { execute: vi.fn() } }));
 
-import { pickCanonicalText, mayLink } from '../quality-audio';
+import { pickCanonicalText, mayLink, hasUsableAudio } from '../quality-audio';
+import type { PoolItem } from '@/lib/db/queries/quality-pool';
+
+function item(overrides: Partial<PoolItem> = {}): PoolItem {
+  return {
+    itemId: 'i1',
+    listId: 'l1',
+    textKnown: 'pes',
+    textTarget: 'dog',
+    languageFrom: 'cs',
+    languageTo: 'en',
+    knownAudioStatus: 'none',
+    targetAudioStatus: 'none',
+    knownAsset: null,
+    targetAsset: null,
+    ...overrides,
+  };
+}
+
+const playable = { contentHash: 'h', storageType: 'object_store', storageRef: 'ref' };
+const legacyR2 = { contentHash: 'h', storageType: 'r2', storageRef: 'ref' };
 
 describe('pickCanonicalText', () => {
   /**
@@ -55,5 +75,54 @@ describe('clip sharing gate', () => {
     const nfd = 'unavený'.normalize('NFD');
     expect(nfc).not.toBe(nfd);
     expect(mayLink(nfd, nfc)).toBe(true);
+  });
+});
+
+describe('overwrite gate', () => {
+  /**
+   * The regression this exists for: the admin button appears as soon as ONE
+   * occurrence lacks audio, and linking every text-equivalent item would then
+   * replace the good clips of everyone else in the pair — editors overwriting
+   * recordings inside private lists to fix somebody else's gap.
+   */
+  it('keeps a clip a learner can already play', () => {
+    expect(
+      hasUsableAudio(item({ targetAudioStatus: 'ready', targetAsset: playable }), 'target'),
+    ).toBe(true);
+  });
+
+  it('treats every non-ready status as a gap to fill', () => {
+    for (const status of ['none', 'pending', 'failed']) {
+      expect(
+        hasUsableAudio(item({ targetAudioStatus: status, targetAsset: playable }), 'target'),
+      ).toBe(false);
+    }
+  });
+
+  /**
+   * `ready` alone is not enough. A legacy `r2` row is linked but unplayable —
+   * the serve route 404s for it — and repairing exactly those is half the
+   * point of the tool, so the asset is judged rather than the status column.
+   */
+  it('replaces a ready-but-unplayable legacy clip', () => {
+    expect(
+      hasUsableAudio(item({ targetAudioStatus: 'ready', targetAsset: legacyR2 }), 'target'),
+    ).toBe(false);
+  });
+
+  it('reads a status with no asset behind it as a gap', () => {
+    expect(
+      hasUsableAudio(item({ targetAudioStatus: 'ready', targetAsset: null }), 'target'),
+    ).toBe(false);
+  });
+
+  it('judges each side on its own', () => {
+    const oneSided = item({
+      knownAudioStatus: 'ready',
+      knownAsset: playable,
+      targetAudioStatus: 'none',
+    });
+    expect(hasUsableAudio(oneSided, 'known')).toBe(true);
+    expect(hasUsableAudio(oneSided, 'target')).toBe(false);
   });
 });

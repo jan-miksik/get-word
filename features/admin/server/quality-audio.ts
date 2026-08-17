@@ -11,6 +11,7 @@
 
 import { computeContentHash } from '@/lib/audio';
 import { isAudioTextEquivalent } from '@/lib/audio-text-match';
+import { isPlayableAudioAsset } from '@/lib/audio-assets';
 import { generateAudioForItem } from '@/features/audio/public.server';
 import {
   getPoolItems,
@@ -32,6 +33,8 @@ export interface GenerateAudioOutcome {
   linkedItems: number;
   /** Items under this pool key whose own text was not audio-equivalent. */
   skippedItems: number;
+  /** Items left alone because they already had a playable clip. */
+  keptItems: number;
   contentHash: string | null;
   error?: string;
 }
@@ -93,6 +96,25 @@ export function mayLink(itemText: string, canonical: string): boolean {
   return isAudioTextEquivalent(itemText.normalize('NFC'), canonical.normalize('NFC'));
 }
 
+/**
+ * Does this side already have a clip a learner can actually hear?
+ *
+ * This gate exists because the action fills gaps — it must never replace a
+ * recording someone already has. The admin button appears as soon as ONE
+ * occurrence is missing audio, so without this check a pair that is 9/10
+ * recorded would have all nine good clips overwritten to fix the tenth.
+ *
+ * `ready` alone is not enough. A legacy `r2` row is linked but unplayable
+ * (`isPlayableAudioAsset` rejects it, the serve route 404s), and repairing
+ * exactly those is half the point of the tool — so the asset is judged, not
+ * just the status column. `pending` and `failed` hold nothing worth keeping.
+ */
+export function hasUsableAudio(item: PoolItem, side: AudioSide): boolean {
+  const status = side === 'known' ? item.knownAudioStatus : item.targetAudioStatus;
+  if (status !== 'ready') return false;
+  return isPlayableAudioAsset(side === 'known' ? item.knownAsset : item.targetAsset);
+}
+
 export async function generatePoolAudio(
   options: GenerateAudioOptions,
 ): Promise<GenerateAudioOutcome> {
@@ -104,6 +126,7 @@ export async function generatePoolAudio(
       generated: false,
       linkedItems: 0,
       skippedItems: 0,
+      keptItems: 0,
       contentHash: null,
       error: 'No eligible items for this pair.',
     };
@@ -115,6 +138,7 @@ export async function generatePoolAudio(
       generated: false,
       linkedItems: 0,
       skippedItems: items.length,
+      keptItems: 0,
       contentHash: null,
       error: 'Nothing to speak on this side.',
     };
@@ -156,6 +180,7 @@ export async function generatePoolAudio(
         generated: false,
         linkedItems: 0,
         skippedItems: 0,
+        keptItems: 0,
         contentHash: hash,
         error: result.error ?? 'Audio generation failed.',
       };
@@ -167,13 +192,17 @@ export async function generatePoolAudio(
         generated: false,
         linkedItems: 0,
         skippedItems: 0,
+        keptItems: 0,
         contentHash: hash,
         error: 'Audio was generated but the asset could not be found.',
       };
     }
   }
 
-  const linkable = items.filter((item) => mayLink(textFor(item, side), canonical));
+  const equivalent = items.filter((item) => mayLink(textFor(item, side), canonical));
+  // Fill gaps only. An item that already has a playable clip keeps it — the
+  // editor is repairing missing audio, not replacing what learners have.
+  const linkable = equivalent.filter((item) => !hasUsableAudio(item, side));
 
   await batchLinkAudioToItems(
     linkable.map((item) => ({
@@ -187,7 +216,8 @@ export async function generatePoolAudio(
   return {
     generated: true,
     linkedItems: linkable.length,
-    skippedItems: items.length - linkable.length,
+    skippedItems: items.length - equivalent.length,
+    keptItems: equivalent.length - linkable.length,
     contentHash: hash,
   };
 }

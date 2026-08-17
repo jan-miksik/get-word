@@ -93,15 +93,28 @@ export async function POST(request: NextRequest, context: RouteContext) {
   // not a server fault — reporting it as a 500 would send the client looking
   // in the wrong place.
   const suggestions = await getListQualitySuggestions(id, user.id);
-  if (!suggestions.some((suggestion) => suggestion.poolKey === body.poolKey)) {
+  const open = suggestions.find((suggestion) => suggestion.poolKey === body.poolKey);
+  if (!open) {
     return NextResponse.json(
       { error: "No open suggestion for this pair in this list" },
       { status: 404, headers: NO_STORE },
     );
   }
 
+  // The version has to match what is actually on offer. `getListQualitySuggestions`
+  // hides a pair whose dismissal version is `>= ` the review's, so a client that
+  // sent an arbitrarily high number would bury every FUTURE correction for this
+  // pair as well — the opposite of what versioned dismissals are for.
+  if (Math.trunc(body.suggestionVersion) !== open.suggestionVersion) {
+    return NextResponse.json(
+      { error: "This suggestion has changed — reload before dismissing it" },
+      { status: 409, headers: NO_STORE },
+    );
+  }
+
   try {
-    await dismissQualitySuggestion(user.id, body.poolKey, Math.trunc(body.suggestionVersion));
+    // The server's own number, never the client's.
+    await dismissQualitySuggestion(user.id, body.poolKey, open.suggestionVersion);
   } catch (error) {
     console.error("Failed to dismiss a quality suggestion", error);
     return NextResponse.json(
