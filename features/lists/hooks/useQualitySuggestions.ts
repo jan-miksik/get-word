@@ -37,6 +37,19 @@ export function useQualitySuggestions(listId: string | null, enabled: boolean) {
   /** Item whose last accept/dismiss did not go through. */
   const [failedItemId, setFailedItemId] = useState<string | null>(null);
 
+  /**
+   * Re-read the list's suggestions.
+   *
+   * A failed read leaves the last known state ALONE rather than emptying it.
+   * Clearing on failure is what let a rejected accept still hide the
+   * suggestion: the write returned 500, the re-read that followed also failed,
+   * and the notice vanished as though the correction had been applied. There
+   * is only one honest reading of a failed fetch — "no news" — and an empty
+   * list is a claim, not an absence of one.
+   *
+   * Having no list, or not owning it, is different: there genuinely are no
+   * suggestions then, so that branch still clears.
+   */
   const load = useCallback(async () => {
     if (!listId || !enabled) {
       setSuggestions([]);
@@ -44,10 +57,7 @@ export function useQualitySuggestions(listId: string | null, enabled: boolean) {
     }
     try {
       const response = await deviceJsonFetch(`/api/lists/${listId}/quality-suggestions`);
-      if (!response.ok) {
-        setSuggestions([]);
-        return;
-      }
+      if (!response.ok) return;
       const body = (await response.json()) as { suggestions?: WireSuggestion[] };
       setSuggestions(
         (body.suggestions ?? []).map((entry) => ({
@@ -62,7 +72,6 @@ export function useQualitySuggestions(listId: string | null, enabled: boolean) {
       );
     } catch {
       // A suggestion is an optional nicety; never let it break the editor.
-      setSuggestions([]);
     }
   }, [listId, enabled]);
 

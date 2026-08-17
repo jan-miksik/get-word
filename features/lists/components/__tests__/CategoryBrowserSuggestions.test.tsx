@@ -177,3 +177,33 @@ describe('a failed accept or dismiss', () => {
     expect(screen.getByRole('button', { name: 'Accept' })).toBeTruthy();
   });
 });
+
+describe('a failed re-read', () => {
+  /**
+   * The tail of the failed-write path. After a rejected accept the hook
+   * re-reads, and that read emptying the list on failure hid the suggestion
+   * anyway — write 500, read 500, notice gone, nothing saved. A failed fetch
+   * means "no news", so the last known state has to survive it.
+   */
+  it('keeps the suggestion when both the write and the re-read fail', async () => {
+    respondWithSuggestion();
+    renderBrowser();
+
+    await waitFor(() => expect(screen.getByText(/1 suggested correction/)).toBeTruthy());
+    fireEvent.click(screen.getByRole('button', { name: 'Show them' }));
+    const accept = await screen.findByRole('button', { name: 'Accept' });
+
+    // Everything from here on fails, the re-read included.
+    apiFetch.mockImplementation(async () => ({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: 'nope' }),
+    }));
+
+    fireEvent.click(accept);
+
+    await waitFor(() => expect(screen.getByText('Save failed')).toBeTruthy());
+    expect(screen.getByText('a grater and a whisk')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Accept' })).toBeTruthy();
+  });
+});

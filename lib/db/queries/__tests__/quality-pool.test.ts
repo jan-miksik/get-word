@@ -209,6 +209,19 @@ describe('audio aggregation', () => {
     expect(rows).toContain('p.target_ready_count = p.occurrences');
     expect(rows).not.toContain('p.known_missing_count = 0');
   });
+
+  /**
+   * `ready` is a status, not a promise of playability: a legacy `r2` asset is
+   * linked and ready while the serve route 404s for it. Without this a pair
+   * landed in "Fully recorded" and "Legacy" at the same time, and disagreed
+   * with `generatePoolAudio`, which treats exactly that case as a gap.
+   */
+  it('does not call a pair with unplayable legacy clips fully recorded', async () => {
+    await getQualityPool({ audio: 'ready' });
+    const { rows } = lastQueries();
+    expect(rows).toContain('p.known_legacy_count = 0');
+    expect(rows).toContain('p.target_legacy_count = 0');
+  });
 });
 
 describe('sorting and filters', () => {

@@ -416,12 +416,25 @@ function audioFilterCondition(filter: PoolAudioFilter): SQL | null {
     case 'legacy':
       return sql`p.known_legacy_count > 0 OR p.target_legacy_count > 0`;
     case 'ready':
-      // Every occurrence ready on both sides. Listing the failure states
-      // instead (missing = 0 AND failed = 0) let a pair whose clips were still
-      // `pending` pass as fully recorded — the statuses are an enum of four, so
-      // only the positive form is exhaustive.
+      // Every occurrence ready on both sides, with nothing legacy behind them.
+      //
+      // Two separate holes were here. Listing the failure states instead
+      // (missing = 0 AND failed = 0) let a pair whose clips were still
+      // `pending` pass as fully recorded — the statuses are an enum of four,
+      // so only the positive form is exhaustive. And `ready` says nothing
+      // about playability: a legacy `r2` asset is linked and ready while the
+      // serve route 404s for it, which put such a pair in "Fully recorded" and
+      // "Legacy" at once. `generatePoolAudio` already treats that case as a
+      // gap to repair; this agrees with it.
+      //
+      // `legacy_count` keys on `storage_type = 'r2'`, which is marginally
+      // broader than `isPlayableAudioAsset` (that one still accepts an r2 row
+      // carrying an absolute http storage_ref). Matching the `legacy` bucket
+      // is the point — a row must not sit in both filters.
       return sql`p.known_ready_count = p.occurrences
-             AND p.target_ready_count = p.occurrences`;
+             AND p.target_ready_count = p.occurrences
+             AND p.known_legacy_count = 0
+             AND p.target_legacy_count = 0`;
     case 'any':
     default:
       return null;
