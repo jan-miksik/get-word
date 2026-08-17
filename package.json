@@ -42,6 +42,7 @@
     "audio:prod:repair-object-to-arweave": "bash scripts/production-db.sh repair-object-to-arweave",
     "audio:repair-object-to-arweave": "tsx scripts/repair-object-to-arweave.ts",
     "test": "vitest run",
+    "test:db": "RUN_DB_TESTS=1 vitest run .db.test",
     "test:watch": "vitest"
   },
   "dependencies": {

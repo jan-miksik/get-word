@@ -207,3 +207,51 @@ describe('a failed re-read', () => {
     expect(screen.getByRole('button', { name: 'Accept' })).toBeTruthy();
   });
 });
+
+describe('a refused read', () => {
+  /**
+   * The counterweight to "a failed read keeps the last known state". A 5xx
+   * says nothing about access, but 401/403/404 are the server answering: the
+   * session ended, the list changed hands, or it is gone. Holding stale rows
+   * on screen there would keep showing content that access to has just been
+   * explicitly refused.
+   */
+  it.each([401, 403, 404])('clears the suggestions on %i', async (status) => {
+    respondWithSuggestion();
+    renderBrowser();
+
+    await waitFor(() => expect(screen.getByText(/1 suggested correction/)).toBeTruthy());
+
+    apiFetch.mockImplementation(async () => ({
+      ok: false,
+      status,
+      json: async () => ({ error: 'denied' }),
+    }));
+
+    // The write fails too; what matters is the re-read that follows it.
+    fireEvent.click(screen.getByRole('button', { name: 'Show them' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept' }));
+
+    await waitFor(() => expect(screen.queryByText(/suggested correction/)).toBeNull());
+    expect(screen.queryByRole('button', { name: 'Accept' })).toBeNull();
+  });
+
+  it('holds on through a 500, which is not an answer about access', async () => {
+    respondWithSuggestion();
+    renderBrowser();
+
+    await waitFor(() => expect(screen.getByText(/1 suggested correction/)).toBeTruthy());
+
+    apiFetch.mockImplementation(async () => ({
+      ok: false,
+      status: 500,
+      json: async () => ({ error: 'boom' }),
+    }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Show them' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept' }));
+
+    await waitFor(() => expect(screen.getByText('Save failed')).toBeTruthy());
+    expect(screen.getByText(/1 suggested correction/)).toBeTruthy();
+  });
+});

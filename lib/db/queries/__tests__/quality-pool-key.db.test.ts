@@ -7,7 +7,12 @@
  * to reproduce. Only a real PostgreSQL can settle that — `normalize(t, NFC)`,
  * `regexp_replace`, and `char_length` have no faithful stand-in.
  *
- * Skipped when no database is reachable, so the suite still runs offline.
+ * Run with `pnpm test:db`, not by `pnpm test`. The `.db.test.ts` suffix keeps
+ * it out of the main suite (see vitest.config.ts): it needs a live database,
+ * and running it alongside ~270 other files opened connections that
+ * intermittently timed out, failing the suite for reasons unrelated to the
+ * code. `skipIf` below is a second guard for a missing DATABASE_URL — it does
+ * not test reachability, so it cannot stand in for the exclusion.
  */
 
 import * as dotenv from 'dotenv';

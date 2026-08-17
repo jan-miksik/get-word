@@ -13,6 +13,13 @@ export type QualitySuggestion = {
   note: string | null;
 };
 
+/**
+ * Answers that settle the question rather than fail to reach it: no session,
+ * not the owner, no such list. Anything else — 5xx, a timeout, a rate limit —
+ * leaves what is already on screen alone.
+ */
+const ACCESS_DENIED_STATUSES = new Set([401, 403, 404]);
+
 type WireSuggestion = {
   item_id: string;
   pool_key: string;
@@ -40,15 +47,20 @@ export function useQualitySuggestions(listId: string | null, enabled: boolean) {
   /**
    * Re-read the list's suggestions.
    *
-   * A failed read leaves the last known state ALONE rather than emptying it.
-   * Clearing on failure is what let a rejected accept still hide the
-   * suggestion: the write returned 500, the re-read that followed also failed,
-   * and the notice vanished as though the correction had been applied. There
-   * is only one honest reading of a failed fetch — "no news" — and an empty
-   * list is a claim, not an absence of one.
+   * Two kinds of failure, and they must not be conflated.
    *
-   * Having no list, or not owning it, is different: there genuinely are no
-   * suggestions then, so that branch still clears.
+   * A 5xx, a network drop or a bad body says nothing about the learner's
+   * access — the honest reading is "no news", so the last known state stays.
+   * Emptying on those is what let a rejected accept hide the suggestion
+   * anyway: the write returned 500, the re-read that followed also failed, and
+   * the notice vanished as though the correction had been applied.
+   *
+   * The statuses below are the opposite: the server has answered, and the
+   * answer is that these suggestions are not this person's to see — the
+   * session ended, the list changed hands, or it is gone. Keeping stale rows
+   * on screen there would show content access has been explicitly refused.
+   * These three are exactly what the route returns; a 429 is deliberately not
+   * among them, being a "come back later" rather than a denial.
    */
   const load = useCallback(async () => {
     if (!listId || !enabled) {
@@ -57,7 +69,10 @@ export function useQualitySuggestions(listId: string | null, enabled: boolean) {
     }
     try {
       const response = await deviceJsonFetch(`/api/lists/${listId}/quality-suggestions`);
-      if (!response.ok) return;
+      if (!response.ok) {
+        if (ACCESS_DENIED_STATUSES.has(response.status)) setSuggestions([]);
+        return;
+      }
       const body = (await response.json()) as { suggestions?: WireSuggestion[] };
       setSuggestions(
         (body.suggestions ?? []).map((entry) => ({
