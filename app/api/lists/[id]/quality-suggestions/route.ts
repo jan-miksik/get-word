@@ -75,13 +75,39 @@ export async function POST(request: NextRequest, context: RouteContext) {
     suggestionVersion?: unknown;
   };
 
-  if (typeof body.poolKey !== "string" || typeof body.suggestionVersion !== "number") {
+  if (
+    typeof body.poolKey !== "string" ||
+    body.poolKey === "" ||
+    typeof body.suggestionVersion !== "number" ||
+    !Number.isFinite(body.suggestionVersion) ||
+    body.suggestionVersion < 0
+  ) {
     return NextResponse.json(
       { error: "poolKey and suggestionVersion are required" },
       { status: 400, headers: NO_STORE },
     );
   }
 
-  await dismissQualitySuggestion(user.id, body.poolKey, Math.trunc(body.suggestionVersion));
+  // The dismissal's pool_key has a foreign key into the review table, so a key
+  // that names no review raises rather than inserting. That is a bad request,
+  // not a server fault — reporting it as a 500 would send the client looking
+  // in the wrong place.
+  const suggestions = await getListQualitySuggestions(id, user.id);
+  if (!suggestions.some((suggestion) => suggestion.poolKey === body.poolKey)) {
+    return NextResponse.json(
+      { error: "No open suggestion for this pair in this list" },
+      { status: 404, headers: NO_STORE },
+    );
+  }
+
+  try {
+    await dismissQualitySuggestion(user.id, body.poolKey, Math.trunc(body.suggestionVersion));
+  } catch (error) {
+    console.error("Failed to dismiss a quality suggestion", error);
+    return NextResponse.json(
+      { error: "Failed to dismiss the suggestion" },
+      { status: 500, headers: NO_STORE },
+    );
+  }
   return NextResponse.json({ dismissed: true }, { headers: NO_STORE });
 }

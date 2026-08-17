@@ -199,6 +199,12 @@ export type PoolSort =
 export interface QualityPoolOptions {
   languageFrom?: string;
   languageTo?: string;
+  /**
+   * Restrict to these exact pairs. Filtering in SQL rather than trimming a
+   * page afterwards: a key outside whatever page happened to be fetched would
+   * otherwise vanish without a word.
+   */
+  poolKeys?: string[];
   search?: string;
   audio?: PoolAudioFilter;
   /** Only rows carrying at least one of these heuristic codes. */
@@ -424,6 +430,18 @@ function buildFilters(options: QualityPoolOptions): SQL {
   }
   if (options.languageTo) {
     conditions.push(sql`lower(p.language_to) = lower(${options.languageTo})`);
+  }
+  if (options.poolKeys) {
+    // An empty list means "none of them", never "all of them" — a caller that
+    // asked for specific pairs and named none must not get the whole pool.
+    conditions.push(
+      options.poolKeys.length === 0
+        ? sql`FALSE`
+        : sql`p.pool_key = ANY(${sql`ARRAY[${sql.join(
+            options.poolKeys.map((key) => sql`${key}`),
+            sql`, `,
+          )}]::text[]`})`,
+    );
   }
   if (options.search && options.search.trim() !== '') {
     const needle = `%${options.search.trim()}%`;

@@ -1204,6 +1204,8 @@ export const ukMessages: I18nMessages = {
   "adminQuality.actionNoteLabel": "Примітка для того, хто вчиться",
   "adminQuality.actionSuggest": "Запропонувати виправлення",
   "adminQuality.actionSuggestHint": "Пропозицію буде показано в редакторі його списку. Його слова ніколи не змінюються замість нього.",
+  "adminQuality.navLink": "Пул якості",
+  "adminQuality.back": "Назад до статистики",
   "adminQuality.title": "Пул якості",
   "adminQuality.subtitle": "Усі пари слів із приватних списків, згруповані за вмістом, зі станом аудіо та перекладу.",
   "adminQuality.privacyNote": "Не показуються обліковий запис, назва списку чи назва навчальної категорії. Самі слова — точно такі, як їх написали.",

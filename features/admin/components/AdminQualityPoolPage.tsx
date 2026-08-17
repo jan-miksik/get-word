@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState, Fragment } from 'react';
+import Link from 'next/link';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLanguage';
 import { useQualityPool } from '@/features/admin/client/useQualityPool';
@@ -195,7 +196,12 @@ function AdminQualityPoolContent() {
     <div className="min-h-screen bg-background text-text">
       <div className="mx-auto max-w-6xl px-4 py-8 space-y-6">
         <header className="space-y-1">
-          <h1 className="m-0 text-xl font-semibold">{t('adminQuality.title')}</h1>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h1 className="m-0 text-xl font-semibold">{t('adminQuality.title')}</h1>
+            <Link href="/admin/stats" className="text-sm text-accent underline">
+              {t('adminQuality.back')}
+            </Link>
+          </div>
           <p className="m-0 text-sm text-text-soft">{t('adminQuality.subtitle')}</p>
           <p className="m-0 text-xs text-text-soft/70">{t('adminQuality.privacyNote')}</p>
         </header>
@@ -561,7 +567,8 @@ function RowDetail({ row }: { row: QualityPoolRow }) {
 
 /**
  * `/api/audio/:hash` is keyed by the media asset's content hash, not its row
- * id, so the pool query returns the hash in the `id` field for playback.
+ * id — hence `asset.content_hash` here, with `asset.id` used only as the React
+ * key. An asset whose hash is null has nothing to play and is skipped.
  */
 function AudioPreview({ hash, label }: { hash: string; label: string }) {
   return (

@@ -1204,6 +1204,8 @@ export const csMessages: I18nMessages = {
   "adminQuality.actionNoteLabel": "Poznámka pro učícího se",
   "adminQuality.actionSuggest": "Navrhnout opravu",
   "adminQuality.actionSuggestHint": "Návrh se učícímu se nabídne v editoru jeho seznamu. Jeho slova se nikdy nemění za něj.",
+  "adminQuality.navLink": "Pool kvality",
+  "adminQuality.back": "Zpět na statistiky",
   "adminQuality.title": "Pool kvality",
   "adminQuality.subtitle": "Všechny dvojice slov ze soukromých seznamů, seskupené podle obsahu, se stavem zvuku a překladu.",
   "adminQuality.privacyNote": "Nezobrazuje se účet, název seznamu ani název učební kategorie. Samotná slova jsou přesně tak, jak je člověk napsal.",

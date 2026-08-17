@@ -297,6 +297,9 @@ function AdminStatsContent() {
             <Link href="/admin/schools" className="text-accent underline">
               {t('adminStats.schoolsLink')}
             </Link>
+            <Link href="/admin/quality" className="text-accent underline">
+              {t('adminQuality.navLink')}
+            </Link>
             <span>
               {t('adminStats.generatedAt', {
                 time: new Date(stats.generatedAt).toLocaleString(),

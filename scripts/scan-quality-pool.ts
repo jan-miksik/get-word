@@ -32,6 +32,7 @@ type Args = {
   confirm: boolean;
   force: boolean;
   limit: number;
+  offset: number;
   graceDays: number;
 };
 
@@ -42,6 +43,7 @@ function parseArgs(argv: string[]): Args {
     confirm: false,
     force: false,
     limit: 500,
+    offset: 0,
     graceDays: 30,
   };
 
@@ -54,7 +56,12 @@ function parseArgs(argv: string[]): Args {
     else if (arg === "--confirm") args.confirm = true;
     else if (arg === "--force") args.force = true;
     else if (arg === "--limit") args.limit = Number.parseInt(argv[++i] ?? "", 10) || args.limit;
-    else if (arg === "--grace-days") {
+    else if (arg === "--offset") {
+      // `|| args.offset` would swallow a deliberate `--offset 0`, so the parse
+      // is checked instead of defaulted through a falsy test.
+      const parsed = Number.parseInt(argv[++i] ?? "", 10);
+      args.offset = Number.isFinite(parsed) && parsed >= 0 ? parsed : args.offset;
+    } else if (arg === "--grace-days") {
       args.graceDays = Number.parseInt(argv[++i] ?? "", 10) || args.graceDays;
     }
   }
@@ -96,9 +103,13 @@ async function main() {
 
   if (args.modes.has("scan")) {
     if (!args.apply) {
-      console.log(`scan: would visit up to ${args.limit} pairs`);
+      console.log(`scan: would visit up to ${args.limit} pairs from offset ${args.offset}`);
     } else {
-      const result = await scanQualityPool({ limit: args.limit, force: args.force });
+      const result = await scanQualityPool({
+        limit: args.limit,
+        offset: args.offset,
+        force: args.force,
+      });
       console.log(
         `scan: ${result.scanned} visited, ${result.flagged} flagged, ` +
           `${result.unchanged} unchanged` +

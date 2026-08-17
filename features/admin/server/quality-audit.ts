@@ -88,7 +88,11 @@ function parseJudgements(parsed: unknown, batchLength: number): Judgement[] {
     throw new OpenRouterChatError('Quality audit returned no results array.', true);
   }
 
-  const judgements: Judgement[] = [];
+  // Keyed by index, not appended: a model that echoes the same index twice
+  // would otherwise produce two entries for one pool key, and PostgreSQL
+  // rejects an INSERT … ON CONFLICT DO UPDATE that touches a row twice —
+  // failing the whole batch over one duplicated line. First answer wins.
+  const judgements = new Map<number, Judgement>();
   for (const entry of results) {
     if (!entry || typeof entry !== 'object') continue;
     const record = entry as Record<string, unknown>;
@@ -96,20 +100,21 @@ function parseJudgements(parsed: unknown, batchLength: number): Judgement[] {
     const score = Number(record.score);
     if (!Number.isInteger(index) || index < 0 || index >= batchLength) continue;
     if (!Number.isFinite(score)) continue;
+    if (judgements.has(index)) continue;
 
     const suggestion =
       typeof record.suggestion === 'string' && record.suggestion.trim() !== ''
         ? record.suggestion.trim()
         : null;
 
-    judgements.push({
+    judgements.set(index, {
       index,
       score: Math.min(Math.max(Math.round(score), 0), 100),
       reason: typeof record.reason === 'string' ? record.reason.slice(0, 160) : '',
       suggestion,
     });
   }
-  return judgements;
+  return [...judgements.values()];
 }
 
 async function auditBatch(rows: PoolRow[]): Promise<Judgement[]> {
@@ -160,15 +165,19 @@ function auditPriority(row: PoolRow): number {
 export async function auditQualityPool(options: AuditOptions = {}): Promise<AuditResult> {
   const maxItems = Math.min(Math.max(options.maxItems ?? 50, 1), MAX_AUDIT_ITEMS);
 
-  // One page wide enough to choose from; the pool is aggregated, so this is
-  // distinct pairs rather than items.
-  const page = await getQualityPool({ sort: 'suspicion', limit: 200, offset: 0 });
+  // Named pairs are selected in SQL. Filtering a suspicion-sorted page instead
+  // would silently drop any key that did not happen to land on it, and report
+  // `audited: 0` with nothing to explain it.
+  //
+  // Otherwise: one page wide enough to choose from. The pool is aggregated, so
+  // this is distinct pairs rather than items.
+  const page = await getQualityPool(
+    options.poolKeys
+      ? { poolKeys: options.poolKeys, sort: 'suspicion', limit: MAX_AUDIT_ITEMS, offset: 0 }
+      : { sort: 'suspicion', limit: 200, offset: 0 },
+  );
 
   let candidates = page.rows;
-  if (options.poolKeys && options.poolKeys.length > 0) {
-    const wanted = new Set(options.poolKeys);
-    candidates = candidates.filter((row) => wanted.has(row.poolKey));
-  }
 
   // The consent gate. Counted before anything else so the caller can report
   // honestly why a pair was left alone.

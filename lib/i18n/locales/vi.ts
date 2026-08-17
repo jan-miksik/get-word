@@ -1204,6 +1204,8 @@ export const viMessages: I18nMessages = {
   "adminQuality.actionNoteLabel": "Ghi chú cho người học",
   "adminQuality.actionSuggest": "Đề xuất sửa",
   "adminQuality.actionSuggestHint": "Đề xuất sẽ hiện trong trình sửa danh sách của người học. Từ ngữ của họ không bao giờ bị thay đổi thay cho họ.",
+  "adminQuality.navLink": "Kho chất lượng",
+  "adminQuality.back": "Quay lại thống kê",
   "adminQuality.title": "Nhóm chất lượng",
   "adminQuality.subtitle": "Mọi cặp từ trong danh sách riêng tư, nhóm theo nội dung, kèm trạng thái âm thanh và bản dịch.",
   "adminQuality.privacyNote": "Không hiển thị tài khoản, tên danh sách hay tên danh mục học. Bản thân các từ đúng như người học đã gõ.",

@@ -143,3 +143,57 @@ describe('audit cost control', () => {
     expect(result.audited).toBe(5);
   });
 });
+
+describe('malformed model output', () => {
+  /**
+   * A model that echoes one index twice used to produce two upsert entries for
+   * the same pool key, and PostgreSQL rejects an INSERT … ON CONFLICT DO UPDATE
+   * that touches a row twice — losing the whole batch over one duplicated line.
+   */
+  it('keeps one judgement per index when the model repeats one', async () => {
+    pool([
+      { poolKey: 'p1:a', aiConsent: true },
+      { poolKey: 'p1:b', aiConsent: true },
+    ]);
+    callOpenRouterChatParsed.mockImplementation(
+      async (_options: unknown, parse: (content: string) => unknown) =>
+        parse(
+          JSON.stringify({
+            results: [
+              { index: 0, score: 90, reason: 'first', suggestion: null },
+              { index: 0, score: 10, reason: 'duplicate', suggestion: 'nope' },
+              { index: 1, score: 80, reason: 'second', suggestion: null },
+            ],
+          }),
+        ),
+    );
+
+    const result = await auditQualityPool({ maxItems: 10 });
+
+    const entries = upsertQualityAudit.mock.calls[0][0] as { poolKey: string; score: number }[];
+    expect(entries).toHaveLength(2);
+    expect(entries.map((entry) => entry.poolKey).sort()).toEqual(['p1:a', 'p1:b']);
+    // First answer wins, so the duplicate does not overwrite the real score.
+    expect(entries.find((entry) => entry.poolKey === 'p1:a')?.score).toBe(90);
+    expect(result.audited).toBe(2);
+  });
+});
+
+describe('auditing named pairs', () => {
+  /**
+   * Selecting by key has to happen in SQL. Trimming a suspicion-sorted page
+   * afterwards silently dropped any key that did not land on it, and reported
+   * `audited: 0` with nothing to explain why.
+   */
+  it('asks the database for the named keys instead of filtering a page', async () => {
+    pool([{ poolKey: 'p1:wanted', aiConsent: true }]);
+    respondOk();
+
+    const result = await auditQualityPool({ poolKeys: ['p1:wanted'], maxItems: 10 });
+
+    expect(getQualityPool).toHaveBeenCalledWith(
+      expect.objectContaining({ poolKeys: ['p1:wanted'] }),
+    );
+    expect(result.audited).toBe(1);
+  });
+});

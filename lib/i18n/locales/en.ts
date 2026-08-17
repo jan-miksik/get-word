@@ -1202,6 +1202,8 @@ export const enMessages = {
   "adminQuality.actionNoteLabel": "Note for the learner",
   "adminQuality.actionSuggest": "Suggest correction",
   "adminQuality.actionSuggestHint": "A suggestion is offered to the learner in their list editor. Their words are never changed for them.",
+  "adminQuality.navLink": "Quality pool",
+  "adminQuality.back": "Back to statistics",
   "adminQuality.title": "Quality pool",
   "adminQuality.subtitle": "Every word pair in private lists, grouped by content, with its audio and translation state.",
   "adminQuality.privacyNote": "No account, list name, or learner category name is shown. The words themselves are as the learner typed them.",

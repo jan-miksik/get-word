@@ -4,6 +4,7 @@ import {
   timestamp,
   uuid,
   integer,
+  smallint,
   boolean,
   unique,
   uniqueIndex,
@@ -1121,9 +1122,11 @@ export const contentQualityReviews = pgTable(
       .default(sql`'[]'::jsonb`),
     heuristicVersion: integer("heuristic_version"),
     heuristicScannedAt: timestamp("heuristic_scanned_at"),
-    // 0..100, higher is better. Cache is keyed by `llmAuditVersion`, so bumping
-    // the constant invalidates every old score without a migration.
-    llmScore: integer("llm_score"),
+    // 0..100, higher is better. `smallint` to match migration 0062 — an
+    // `integer` here reads identically at runtime but shows up as drift the
+    // next time drizzle-kit generates. Cache is keyed by `llmAuditVersion`, so
+    // bumping the constant invalidates every old score without a migration.
+    llmScore: smallint("llm_score"),
     llmReason: text("llm_reason"),
     llmSuggestedTarget: text("llm_suggested_target"),
     llmModel: text("llm_model"),

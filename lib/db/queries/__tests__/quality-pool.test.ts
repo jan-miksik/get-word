@@ -218,6 +218,25 @@ describe('sorting and filters', () => {
     const page = await getQualityPool({ limit: 10_000 });
     expect(page.limit).toBe(200);
   });
+
+  it('selects named pairs in SQL rather than leaving it to the caller', async () => {
+    await getQualityPool({ poolKeys: ['p1:a', 'p1:b'] });
+    const { rows } = lastQueries();
+    expect(rows).toContain('p.pool_key = ANY(');
+    expect(rows).toContain('p1:a');
+    expect(rows).toContain('p1:b');
+  });
+
+  /**
+   * A caller that asked for specific pairs and named none wants nothing back.
+   * Reading an empty list as "no filter" would hand it the entire pool.
+   */
+  it('returns nothing for an empty key list instead of everything', async () => {
+    await getQualityPool({ poolKeys: [] });
+    const { rows } = lastQueries();
+    expect(rows).toContain('FALSE');
+    expect(rows).not.toContain('p.pool_key = ANY(');
+  });
 });
 
 describe('purge', () => {
