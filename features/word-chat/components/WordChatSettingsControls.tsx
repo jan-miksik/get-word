@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { useI18n } from '@/components/I18nProvider';
 import { SettingsIcon, ShareIcon } from '@/components/icons/AppIcons';
 import { ShareVisibilityDialog } from '@/features/lists/components/ShareVisibilityDialog';
@@ -46,6 +47,13 @@ type Props = {
    * open it from somewhere else, such as the select step's overflow menu.
    */
   placement?: 'inline' | 'screen-header' | 'none';
+  /**
+   * Where a `screen-header` cluster should be rendered. Hosts that keep a real
+   * header row hand over the element holding it, so these buttons line up
+   * beside whatever else lives there instead of floating on top of it. Without
+   * one the cluster falls back to the card's top-right corner.
+   */
+  headerSlot?: HTMLElement | null;
   /** Whether the surface holding this button is the one on screen. */
   active?: boolean;
   /**
@@ -86,6 +94,7 @@ export function WordChatSettingsControls({
   onChange,
   onLanguagePairChange,
   placement = 'inline',
+  headerSlot,
   active = true,
   open: controlledOpen,
   onOpenChange,
@@ -188,14 +197,29 @@ export function WordChatSettingsControls({
     );
   }
 
-  return placement === 'screen-header' ? (
-    <div className="absolute right-3 top-3 z-20 flex items-center gap-2 sm:right-7 sm:top-7">
-      {shareButton}
-      {button}
-      {modal}
-      {shareModal}
-    </div>
-  ) : (
+  if (placement === 'screen-header') {
+    const cluster = (
+      <>
+        {shareButton}
+        {button}
+      </>
+    );
+    return (
+      <>
+        {headerSlot ? (
+          createPortal(cluster, headerSlot)
+        ) : (
+          <div className="absolute right-3 top-3 z-20 flex items-center gap-2 sm:right-7 sm:top-7">
+            {cluster}
+          </div>
+        )}
+        {modal}
+        {shareModal}
+      </>
+    );
+  }
+
+  return (
     <div className="relative flex items-center justify-end gap-2">
       {shareButton}
       {button}

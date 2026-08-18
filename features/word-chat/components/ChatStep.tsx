@@ -63,6 +63,8 @@ type Props = {
   shareList?: WordList | null;
   onShareListUpdated?: (list: WordList) => void;
   settingsPlacement?: 'inline' | 'screen-header';
+  /** Header element a `screen-header` cluster renders into; see WordChatFlow. */
+  headerSlot?: HTMLElement | null;
   /** Controlled open state for the settings gear; see WordChatFlow. */
   settingsOpen?: boolean;
   onSettingsOpenChange?: (open: boolean) => void;
@@ -100,6 +102,7 @@ export function ChatStep({
   shareList,
   onShareListUpdated,
   settingsPlacement = 'inline',
+  headerSlot,
   settingsOpen,
   onSettingsOpenChange,
   busy,
@@ -287,6 +290,7 @@ export function ChatStep({
       onChange={onPreferencesChange}
       onLanguagePairChange={onLanguagePairChange}
       placement={settingsPlacement}
+      headerSlot={headerSlot}
       active={active}
       open={settingsOpen}
       onOpenChange={onSettingsOpenChange}

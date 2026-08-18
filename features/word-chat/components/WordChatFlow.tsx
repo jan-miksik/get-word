@@ -48,6 +48,12 @@ type Props = {
   onHeaderBackActionChange?: (action: (() => void) | null) => void;
   settingsPlacement?: 'inline' | 'screen-header';
   /**
+   * The header element a `screen-header` settings cluster belongs in. Hosts with
+   * a header row of their own pass it so the gear and share button sit in that
+   * row; without one the cluster floats in the card's top-right corner.
+   */
+  headerSlot?: HTMLElement | null;
+  /**
    * Controlled open state for the settings modal, owned by the host so it can
    * outlive the remount a language-pair change forces (the host keys this whole
    * flow by the pair). Left undefined, the gear keeps its own local state.
@@ -78,6 +84,7 @@ export function WordChatFlow({
   onStepChange,
   onHeaderBackActionChange,
   settingsPlacement,
+  headerSlot,
   settingsOpen,
   onSettingsOpenChange,
   keyboardOpen = false,
@@ -312,6 +319,7 @@ export function WordChatFlow({
           shareList={shareList}
           onShareListUpdated={chat.updateExistingList}
           settingsPlacement={settingsPlacement}
+          headerSlot={headerSlot}
           busy={chat.busy === 'chat' || chat.busy === 'propose' ? chat.busy : null}
           history={chat.history}
           onSend={chat.sendMessage}

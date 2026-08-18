@@ -53,6 +53,10 @@ export function AddWordsScreen({
   // a language-pair change forces — the learner can change both languages in one
   // sitting instead of having the modal close after the first.
   const [settingsOpen, setSettingsOpen] = useState(false);
+  // The chat step's gear and share button used to be pinned to the card's
+  // top-right corner, which is exactly where this header puts the language
+  // pair — they landed on top of it. They render into this row instead.
+  const [headerSlot, setHeaderSlot] = useState<HTMLDivElement | null>(null);
   const screenRef = useRef<HTMLDivElement | null>(null);
   const keyboardOpen = useMobileKeyboardOpen(screenRef, active);
   // No confirmation banner: the pickers in the settings modal already show which
@@ -147,7 +151,10 @@ export function AddWordsScreen({
       >
         {step !== 'select' ? <div
           className={[
-            'grid grid-cols-[1fr_auto_1fr] items-center gap-3',
+            // Title left, controls right — the same reading order as the select
+            // step's own heading, so the two steps do not shuffle their titles
+            // around as the learner moves between them.
+            'flex items-center gap-3',
             'motion-safe:transition-[margin] motion-safe:duration-200',
             keyboardOpen ? 'mb-2' : 'mb-4',
           ].join(' ')}
@@ -156,29 +163,29 @@ export function AddWordsScreen({
             <button
               type="button"
               onClick={headerBackAction}
-              className="justify-self-start rounded-full border-2 border-[#2A2218]/60 bg-[#F4EFE2]/70 px-3.5 py-2 text-xs font-bold text-[#2A2218] transition hover:-translate-y-0.5 hover:border-[#2A2218] hover:bg-[#FFF8E8] hover:shadow-md"
+              className="shrink-0 rounded-full border-2 border-[#2A2218]/60 bg-[#F4EFE2]/70 px-3.5 py-2 text-xs font-bold text-[#2A2218] transition hover:-translate-y-0.5 hover:border-[#2A2218] hover:bg-[#FFF8E8] hover:shadow-md"
             >
               ← {t('wordChat.back')}
             </button>
-          ) : (
-            <span />
-          )}
+          ) : null}
           {/* Every step past the chat carries its own heading — and with the
               keyboard up, even the one heading is a line the transcript needs
-              more than the learner does. */}
+              more than the learner does. The empty spacer keeps the controls on
+              the right edge when there is no title to push them there. */}
           {step === 'chat' && !keyboardOpen ? (
-            <h1 className="text-center text-sm font-extrabold uppercase tracking-wide">
+            <h1 className="min-w-0 flex-1 truncate text-sm font-extrabold uppercase tracking-wide">
               {t('wordChat.addWords')}
             </h1>
           ) : (
-            <span />
+            <span className="flex-1" />
           )}
-          <LanguagePairSummary
-            from={languageFrom}
-            to={languageTo}
-            onOpen={() => setSettingsOpen(true)}
-            className="justify-self-end"
-          />
+          <div ref={setHeaderSlot} className="flex shrink-0 items-center gap-2">
+            <LanguagePairSummary
+              from={languageFrom}
+              to={languageTo}
+              onOpen={() => setSettingsOpen(true)}
+            />
+          </div>
         </div> : null}
 
         <WordChatFlow
@@ -192,6 +199,7 @@ export function AddWordsScreen({
           onStepChange={setStep}
           onHeaderBackActionChange={handleHeaderBackActionChange}
           settingsPlacement="screen-header"
+          headerSlot={headerSlot}
           settingsOpen={settingsOpen}
           onSettingsOpenChange={setSettingsOpen}
           // Typing your own words is the plain way in; the conversation waits
