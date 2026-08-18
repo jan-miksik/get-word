@@ -90,10 +90,3 @@ const WEIGHT_POINTS: Record<QualityFlagWeight, number> = {
 export function suspicionScore(flags: QualityHeuristicFlag[]): number {
   return flags.reduce((total, flag) => total + WEIGHT_POINTS[flag.weight], 0);
 }
-
-export function isQualityFlagCode(value: unknown): value is QualityFlagCode {
-  return (
-    typeof value === "string" &&
-    (QUALITY_FLAG_CODES as readonly string[]).includes(value)
-  );
-}

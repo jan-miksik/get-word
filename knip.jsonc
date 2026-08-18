@@ -22,7 +22,9 @@
     "!app/.generated/**",
     "!coverage/**",
     "!mobile/dist/**",
-    "!mobile/ios/App/App/public/**"
+    "!mobile/ios/App/App/public/**",
+    // Xcode archives: gitignored copies of an already-analysed bundle.
+    "!mobile/ios/**/build/**"
   ],
   // Operator audio scripts invoke these system tools through child_process.
   "ignoreBinaries": ["ffmpeg", "ffprobe"],

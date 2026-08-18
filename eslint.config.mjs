@@ -138,6 +138,10 @@ const eslintConfig = defineConfig([
     "build/**",
     "mobile/dist/**",
     "mobile/ios/App/App/public/**",
+    // Xcode archives. Gitignored, so CI never sees them, but locally they hold
+    // a copy of every bundled asset — minified web output that lints as
+    // thousands of findings and buries the ones that matter.
+    "mobile/ios/**/build/**",
     "next-env.d.ts",
   ]),
 ]);

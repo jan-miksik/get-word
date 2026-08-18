@@ -27,7 +27,7 @@ const SURFACE_BY_PREFIX: ReadonlyArray<readonly [string, ActivitySurface]> = [
   ['/onboarding', 'onboarding'],
 ];
 
-export function surfaceFromPath(pathname: string): ActivitySurface {
+function surfaceFromPath(pathname: string): ActivitySurface {
   // The learning screen lives at the root, which would prefix-match everything.
   if (pathname === '/' || pathname === '') return 'study';
   for (const [prefix, surface] of SURFACE_BY_PREFIX) {

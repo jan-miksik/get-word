@@ -14,7 +14,7 @@ export type QualityPoolLoadState =
   | { status: 'error' }
   | { status: 'ready'; page: QualityPoolResponse };
 
-export const DEFAULT_PAGE_SIZE = 50;
+const DEFAULT_PAGE_SIZE = 50;
 
 /** Server caps the page at 200 (`MAX_LIMIT` in the pool query). */
 export const PAGE_SIZE_OPTIONS = [25, 50, 100, 200] as const;

@@ -19,7 +19,7 @@ export interface UserExclusions {
 }
 
 /** True for a row that must be left out. `alias` is a `users` table alias. */
-export function excludedUserCondition(alias: string, options: UserExclusions): SQL {
+function excludedUserCondition(alias: string, options: UserExclusions): SQL {
   const checks: SQL[] = [];
   const quotedAlias = sql.raw(alias);
   if (options.excludedUserIds.length > 0) {

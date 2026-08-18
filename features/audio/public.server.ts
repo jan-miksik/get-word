@@ -7,14 +7,4 @@
  * quota stays inside the feature.
  */
 
-export {
-  generateAudioForItem,
-  type GenerateItemContext,
-} from './server/batch/generate-item';
-
-export type {
-  AudioField,
-  AudioItem,
-  GeneratedResult,
-  GenerationCandidate,
-} from './server/batch/types';
+export { generateAudioForItem } from './server/batch/generate-item';

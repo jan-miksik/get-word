@@ -34,10 +34,10 @@ export interface NormalizedSegment {
 }
 
 /** Segments older than this are refused outright rather than clamped. */
-export const MAX_BACKDATE_MS = 30 * 24 * 60 * 60 * 1000;
+const MAX_BACKDATE_MS = 30 * 24 * 60 * 60 * 1000;
 /** Tolerance for a device clock that runs slightly fast. */
-export const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
-export const MAX_INTERACTIONS = 100_000;
+const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
+const MAX_INTERACTIONS = 100_000;
 
 /**
  * Best-effort ceiling on a single user-day. Not an invariant: two devices

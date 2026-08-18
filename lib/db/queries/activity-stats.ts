@@ -30,7 +30,7 @@ export interface UserActivityTotals {
   medianSessionSeconds: number;
 }
 
-export interface SurfaceTotal {
+interface SurfaceTotal {
   surface: ActivitySurface | string;
   activeSeconds: number;
   sessions: number;

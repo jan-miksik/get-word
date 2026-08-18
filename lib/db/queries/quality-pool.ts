@@ -18,7 +18,6 @@
 import { sql, type SQL } from 'drizzle-orm';
 import { db } from '../client';
 import {
-  suspicionScore,
   type QualityHeuristicFlag,
   type QualityFlagCode,
 } from '@/lib/quality-flags';
@@ -56,7 +55,7 @@ function poolNormalize(column: SQL): SQL {
  * the purge, and the learner-facing suggestion lookup all call it, which is
  * what keeps them from drifting apart.
  */
-export function poolKeyExpression(
+function poolKeyExpression(
   languageFrom: SQL,
   languageTo: SQL,
   textKnown: SQL,
@@ -75,7 +74,7 @@ export function poolKeyExpression(
 }
 
 /** The pool key for a `word_list_items i` joined to `word_lists l`. */
-export function itemPoolKey(itemAlias = 'i', listAlias = 'l'): SQL {
+function itemPoolKey(itemAlias = 'i', listAlias = 'l'): SQL {
   const i = sql.raw(itemAlias);
   const l = sql.raw(listAlias);
   return poolKeyExpression(
@@ -118,7 +117,7 @@ export function poolSourceCondition(
  * Types
  * ------------------------------------------------------------------ */
 
-export type PoolAudioAsset = {
+type PoolAudioAsset = {
   id: string;
   /** `media_assets.content_hash` — what `/api/audio/:hash` is keyed by. */
   hash: string | null;
@@ -162,7 +161,7 @@ export type PoolRow = {
   review: PoolReview | null;
 };
 
-export type PoolReview = {
+type PoolReview = {
   heuristicFlags: QualityHeuristicFlag[];
   heuristicVersion: number | null;
   heuristicScannedAt: string | null;
@@ -366,7 +365,7 @@ function audioSideColumns(prefix: 'known' | 'target', statusColumn: string, asse
 }
 
 /** The `pool` CTE: every eligible item folded into one row per pair. */
-export function poolAggregateCte(): SQL {
+function poolAggregateCte(): SQL {
   return sql`
     pool AS (
       SELECT
@@ -650,11 +649,6 @@ export async function getQualityPoolRow(poolKey: string): Promise<PoolRow | null
   return row ? parseRow(row) : null;
 }
 
-/** Sort key used by the UI; kept next to the SQL order so the two agree. */
-export function rowSuspicion(row: PoolRow): number {
-  return row.review ? suspicionScore(row.review.heuristicFlags) : 0;
-}
-
 /* ------------------------------------------------------------------ *
  * Items behind one pool row
  * ------------------------------------------------------------------ */
@@ -666,7 +660,7 @@ export function rowSuspicion(row: PoolRow): number {
  * legacy `r2` row is linked but unplayable, so an item can be `ready` and
  * still have nothing a learner can hear.
  */
-export type PoolItemAsset = {
+type PoolItemAsset = {
   contentHash: string;
   storageType: string;
   storageRef: string;
@@ -1033,19 +1027,4 @@ export async function purgeStaleQualityReviews(
             AND d.suggestion_version >= r.suggestion_version))
     RETURNING r.pool_key`)) as unknown as Record<string, unknown>[];
   return result.length;
-}
-
-/**
- * Refresh `last_seen_at` for the pairs the scan just visited. Informational
- * only — nothing deletes by it.
- */
-export async function touchQualityReviews(poolKeys: string[]): Promise<void> {
-  if (poolKeys.length === 0) return;
-  await db.execute(sql`
-    UPDATE content_quality_reviews
-    SET last_seen_at = now()
-    WHERE pool_key = ANY(${sql`ARRAY[${sql.join(
-      poolKeys.map((key) => sql`${key}`),
-      sql`, `,
-    )}]::text[]`})`);
 }

@@ -19,7 +19,6 @@ import {
 } from '@/packages/contracts/src/activity';
 
 export { MAX_SEGMENT_MS };
-export type { ActivitySurface };
 
 export const IDLE_TIMEOUT_MS = 60_000;
 export const TICK_MS = 5_000;
@@ -30,7 +29,7 @@ export const CLOCK_SLIP_TOLERANCE_MS = 5_000;
  * Why a segment ended. Only `max_segment` and `day_rollover` continue straight
  * into a successor segment; the rest wait for the next credited activity.
  */
-export type SegmentCloseReason =
+type SegmentCloseReason =
   | 'idle'
   | 'inactive'
   | 'surface_change'

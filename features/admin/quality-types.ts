@@ -30,7 +30,7 @@ export type QualitySort =
   | 'newest'
   | 'alphabetical';
 
-export type QualityAudioAsset = {
+type QualityAudioAsset = {
   id: string;
   /** Content hash — the key `/api/audio/:hash` serves by. */
   content_hash: string | null;

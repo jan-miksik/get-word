@@ -29,7 +29,7 @@ const API_URL = process.env.OPENROUTER_API_BASE_URL?.replace(/\/+$/, '')
   ? `${process.env.OPENROUTER_API_BASE_URL.replace(/\/+$/, '')}/chat/completions`
   : 'https://openrouter.ai/api/v1/chat/completions';
 
-export const QUALITY_AUDIT_MODEL =
+const QUALITY_AUDIT_MODEL =
   process.env.OPENROUTER_QUALITY_AUDIT_MODEL ?? 'google/gemini-2.5-pro';
 
 const BATCH_SIZE = 25;

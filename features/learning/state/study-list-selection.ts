@@ -18,7 +18,7 @@ export type StudyListChoice = {
  * learner subscribed to deliberately is not this — someone chose it, and
  * emptying it out from under them would be a regression rather than a nudge.
  */
-export function isDefaultCatalogueList(list: StudyListChoice): boolean {
+function isDefaultCatalogueList(list: StudyListChoice): boolean {
   return list.isRecommended === true;
 }
 

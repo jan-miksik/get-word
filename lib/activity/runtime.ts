@@ -718,8 +718,3 @@ export function setActivityOwner(owner: string | null): void {
   applyActive(state);
   writeCheckpointNow(state);
 }
-
-/** Test seam. */
-export function __getActivityRuntimeForTests() {
-  return state;
-}
