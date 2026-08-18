@@ -18,8 +18,15 @@ describe('shared audio clip playback cache', () => {
 
   it('downloads and persists a clip before first playback', async () => {
     cacheMocks.getClip.mockResolvedValue(null);
+    // Bytes rather than a Blob: jsdom's `Blob` and the `Response` the runner
+    // provides come from different realms, so a Blob body fails `Response`'s
+    // own brand check and is stringified into "[object Blob]" — the request
+    // under test would then be persisting 13 bytes of text, not audio.
     vi.mocked(fetch).mockResolvedValue(
-      new Response(new Blob(['audio'], { type: 'audio/mpeg' }), { status: 200 }),
+      new Response(new Uint8Array([0xff, 0xfb, 0x90, 0x64, 0x00]), {
+        status: 200,
+        headers: { 'content-type': 'audio/mpeg' },
+      }),
     );
     const { getWarmedClipUrl, prefetchClips } = await import('../audio-clip-playback');
 
@@ -31,7 +38,14 @@ describe('shared audio clip playback cache', () => {
         headers: expect.objectContaining({ 'x-device-id': expect.any(String) }),
       }),
     );
-    expect(cacheMocks.putClip).toHaveBeenCalledWith('hash-1', expect.any(Blob));
+    // `expect.any(Blob)` would test against jsdom's constructor, and a body read
+    // back out of the runner's own fetch implementation is not an instance of
+    // it. Size and type state what that assertion was reaching for anyway.
+    expect(cacheMocks.putClip).toHaveBeenCalledTimes(1);
+    const [storedHash, storedBlob] = cacheMocks.putClip.mock.calls[0] as [string, Blob];
+    expect(storedHash).toBe('hash-1');
+    expect(storedBlob.size).toBe(5);
+    expect(storedBlob.type).toBe('audio/mpeg');
     expect(getWarmedClipUrl('hash-1')).toBe('blob:warmed-clip');
   });
 

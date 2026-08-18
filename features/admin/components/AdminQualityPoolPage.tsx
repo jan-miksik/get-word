@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState, Fragment } from 'react';
+import { useMemo, useState, Fragment } from 'react';
 import Link from 'next/link';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLanguage';
@@ -200,20 +200,20 @@ function AdminQualityPoolContent() {
     });
   };
 
-  const rows = state.status === 'ready' ? state.page.rows : [];
+  // Memoised so the empty case does not hand `selectedRows` a fresh array on
+  // every render.
+  const rows = useMemo(
+    () => (state.status === 'ready' ? state.page.rows : []),
+    [state],
+  );
 
   // A selection only ever means rows the editor can still see. Paging or
   // changing a filter loads a different set, and acting on a pair that scrolled
-  // out of the page is exactly the kind of surprise a bulk button must not have.
-  useEffect(() => {
-    if (state.status !== 'ready') return;
-    const visible = new Set(state.page.rows.map((row) => row.pool_key));
-    setSelected((previous) => {
-      const next = new Set([...previous].filter((key) => visible.has(key)));
-      return next.size === previous.size ? previous : next;
-    });
-  }, [state]);
-
+  // out of the page is exactly the kind of surprise a bulk button must not
+  // have — so this intersection, recomputed every render, is what every count
+  // and every bulk request is built from. An effect pruning `selected` to match
+  // could only run once a paint had already shown the stale selection, and it
+  // bought nothing the filter here does not already guarantee.
   const selectedRows = useMemo(
     () => rows.filter((row) => selected.has(row.pool_key)),
     [rows, selected],
