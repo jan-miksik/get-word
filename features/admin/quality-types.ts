@@ -17,7 +17,11 @@ export type QualityAudioFilter =
   | 'incomplete'
   | 'failed'
   | 'legacy'
-  | 'ready';
+  | 'ready'
+  /** The known side still needs recording somewhere. */
+  | 'known_gap'
+  /** The target side still needs recording somewhere. */
+  | 'target_gap';
 
 export type QualitySort =
   | 'suspicion'
@@ -55,8 +59,6 @@ export type QualityPoolRow = {
   /** A count only. List ids never leave the database. */
   list_count: number;
   topics: string[];
-  /** Every owner of this pair allows the third-party AI audit. */
-  ai_consent: boolean;
   known: QualityAudioSide;
   target: QualityAudioSide;
   heuristic_flags: QualityHeuristicFlag[];
@@ -113,10 +115,25 @@ export type QualityScanResult = {
 export type QualityAuditResult = {
   audited: number;
   cached: number;
-  /** Pairs left out because an owner has not allowed third-party AI review. */
-  skipped_no_consent: number;
   model: string;
 };
+
+/**
+ * Does this side still need recording? The client mirror of `sideGapCondition`
+ * in `lib/db/queries/quality-pool.ts`, and of what `generatePoolAudio` will
+ * actually act on.
+ *
+ * The three must agree. The row button, the `known_gap` / `target_gap` filters
+ * and the bulk action are all driven by this, so a row the filter listed is a
+ * row the button offers and the action changes — a mismatch shows up as a
+ * bulk run that reports failures for rows the editor never chose.
+ *
+ * `ready_count < occurrences` covers a partly recorded pair; `legacy_count`
+ * covers a clip that is linked and `ready` but unplayable (`r2`).
+ */
+export function hasAudioGap(side: QualityAudioSide, occurrences: number): boolean {
+  return side.ready_count < occurrences || side.legacy_count > 0;
+}
 
 export type QualityAudioResult = {
   generated: boolean;

@@ -234,7 +234,7 @@ export const viMessages: I18nMessages = {
   "privacy.qualityReviewBody1":
     "Nếu bạn để bật kiểm tra chất lượng, các cặp từ trong danh sách riêng tư của bạn có thể được hiển thị cho biên tập viên Get Word để tìm và sửa những bản ghi âm phát âm còn thiếu và lỗi dịch. Các cặp từ được nhóm theo văn bản và hiển thị mà không kèm tài khoản của bạn, tên danh sách và tên các danh mục riêng của bạn. Điều đó loại bỏ thông tin ai đã viết cặp từ, nhưng không làm cho cặp từ trở nên ẩn danh: các từ đúng là những gì bạn đã gõ, nên bất cứ điều gì riêng tư bên trong một từ thì biên tập viên cũng sẽ thấy.",
   "privacy.qualityReviewBody2":
-    "Kiểm tra tự động bằng AI là một công tắc riêng và mặc định tắt cho đến khi bạn bật. Khi bật, chính các cặp từ đó cũng có thể được gửi tới nhà cung cấp AI bên ngoài (OpenRouter) để chấm điểm chất lượng tự động. Cả hai công tắc đều nằm trong Cài đặt và có thể tắt bất cứ lúc nào; tắt kiểm tra chất lượng cũng khiến các đề xuất sửa lỗi không còn hiển thị cho bạn. Chúng tôi chỉ giữ bản ghi kiểm tra cho một cặp từ trong khi cặp đó vẫn tồn tại trong một danh sách tham gia, cộng thêm một khoảng thời gian ngắn sau đó.",
+    "Biên tập viên xem các cặp từ được chia sẻ theo cách này, và những cặp đó cũng có thể được gửi tới nhà cung cấp AI để chấm điểm và chỉ ra lỗi dịch có thể có. Chỉ bản thân các cặp từ được gửi đi, theo từng lô, không kèm tài khoản, tên danh sách hay tên danh mục của bạn. Kiểm tra chất lượng nằm trong Cài đặt và có thể tắt bất cứ lúc nào; tắt nó cũng khiến các đề xuất sửa lỗi không còn hiển thị cho bạn. Chúng tôi chỉ giữ bản ghi kiểm tra cho một cặp từ trong khi cặp đó vẫn tồn tại trong một danh sách tham gia, cộng thêm một khoảng thời gian ngắn sau đó.",
   "privacy.rightsTitle": "Lựa chọn và quyền của bạn",
   "privacy.rightsBody1":
     "Tùy nơi bạn sống, bạn có thể có quyền truy cập, chỉnh sửa, xóa, xuất, hạn chế hoặc phản đối việc xử lý dữ liệu cá nhân của mình. Khi việc xử lý dựa trên sự đồng ý của bạn, bạn có thể rút lại sự đồng ý đó bất cứ lúc nào — ví dụ bằng cách tắt tính năng tùy chọn liên quan hoặc liên hệ với chúng tôi — mà không ảnh hưởng đến tính hợp pháp của việc xử lý được thực hiện trước khi rút lại. Bạn cũng có thể có quyền khiếu nại với cơ quan bảo vệ dữ liệu địa phương. Để thực hiện các quyền này, hãy liên hệ với chúng tôi qua thông tin liên hệ bên dưới.",
@@ -542,10 +542,7 @@ export const viMessages: I18nMessages = {
   "settings.qualityReview": "Kiểm tra chất lượng",
   "settings.qualityReviewEditor": "Giúp cải thiện bản dịch",
   "settings.qualityReviewEditorHint":
-    "Các cặp từ của bạn có thể được hiển thị cho biên tập viên để kiểm tra — không kèm tên bạn, tên danh sách hay tên danh mục của bạn.",
-  "settings.qualityReviewAi": "Kiểm tra tự động bằng AI",
-  "settings.qualityReviewAiHint":
-    "Gửi thêm các cặp từ đó tới nhà cung cấp AI bên ngoài để chấm điểm chất lượng tự động.",
+    "Các cặp từ của bạn có thể được hiển thị cho biên tập viên để kiểm tra, hoặc được AI kiểm tra — không kèm tên bạn, tên danh sách hay tên danh mục của bạn.",
   "settings.qualityReviewNote":
     "Chỉ hai từ được chia sẻ, không bao giờ chia sẻ ai đã viết chúng. Những gì bạn gõ vào một từ sẽ được chia sẻ nguyên trạng.",
   "settings.qualityReviewPrivacyLink": "Chính sách quyền riêng tư",
@@ -1227,6 +1224,8 @@ export const viMessages: I18nMessages = {
   "adminQuality.audioFailed": "Tạo thất bại",
   "adminQuality.audioLegacy": "Lưu trữ cũ",
   "adminQuality.audioReady": "Đã thu đầy đủ",
+  "adminQuality.audioKnownGap": "Thiếu âm thanh tiếng đã biết",
+  "adminQuality.audioTargetGap": "Thiếu âm thanh tiếng đang học",
   "adminQuality.sortSuspicion": "Có thể dịch sai",
   "adminQuality.sortOccurrences": "Dùng nhiều nhất",
   "adminQuality.sortAudio": "Âm thanh tệ nhất",
@@ -1248,9 +1247,19 @@ export const viMessages: I18nMessages = {
   "adminQuality.badgeLegacy": "cũ",
   "adminQuality.badgeSuspiciousClip": "bản ghi có vẻ quá ngắn",
   "adminQuality.llmReason": "Lý giải của AI",
-  "adminQuality.noAiConsent": "Không gửi cho AI kiểm tra — ít nhất một chủ sở hữu của cặp từ này chưa cho phép.",
   "adminQuality.previous": "Trước",
   "adminQuality.next": "Sau",
+  "adminQuality.filterPageSize": "Số dòng mỗi trang",
+  "adminQuality.selectAll": "Chọn mọi dòng trên trang này",
+  "adminQuality.bulkSelected": "Đã chọn: {count}",
+  "adminQuality.bulkGenerateKnown": "Thu âm bên đã biết",
+  "adminQuality.bulkGenerateTarget": "Thu âm bên đang học",
+  "adminQuality.bulkMarkOk": "Đánh dấu là ổn",
+  "adminQuality.bulkAiCheck": "Kiểm tra bằng AI",
+  "adminQuality.aiCheckDone": "Kiểm tra AI: {audited} đã chấm, {cached} vẫn còn mới.",
+  "adminQuality.bulkClear": "Bỏ chọn",
+  "adminQuality.bulkProgress": "Đang xử lý… {done}/{total}",
+  "adminQuality.bulkDone": "Xong: {ok} đã đổi, {failed} lỗi.",
   "adminQuality.flagLooksUntranslated": "Sai hệ chữ viết cho ngôn ngữ đích",
   "adminQuality.flagCapitalization": "Câu không bắt đầu bằng chữ hoa",
   "adminQuality.flagArticle": "Danh từ tiếng Đức thiếu mạo từ",

@@ -32,7 +32,6 @@ function poolRow(overrides: Partial<PoolRow> = {}): PoolRow {
     occurrences: 1,
     listCount: 1,
     topics: [],
-    aiConsent: false,
     known: { ...EMPTY_SIDE },
     target: { ...EMPTY_SIDE },
     review: null,

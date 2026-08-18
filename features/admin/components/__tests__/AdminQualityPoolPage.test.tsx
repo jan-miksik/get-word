@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import type { QualityPoolResponse, QualityPoolRow } from '@/features/admin/quality-types';
 
 const apiFetch = vi.fn();
@@ -24,7 +24,6 @@ function row(overrides: Partial<QualityPoolRow> = {}): QualityPoolRow {
     occurrences: 12,
     list_count: 7,
     topics: [],
-    ai_consent: false,
     known: {
       ready_count: 4,
       missing_count: 8,
@@ -75,6 +74,32 @@ function respondWith(rows: QualityPoolRow[]) {
     ok: true,
     json: async () => body,
   });
+}
+
+/**
+ * Pool reads answered from `rows`, every write answered as a success. Lets a
+ * test assert what a bulk action actually posted.
+ */
+function respondWithWrites(rows: QualityPoolRow[]) {
+  const body: QualityPoolResponse = {
+    rows,
+    total: rows.length,
+    limit: 50,
+    offset: 0,
+    heuristic_version: 1,
+    llm_audit_version: 1,
+  };
+  apiFetch.mockImplementation(async (url: string) => ({
+    status: 200,
+    ok: true,
+    json: async () => (url.startsWith('/api/admin/quality?') ? body : { linked_items: 1 }),
+  }));
+}
+
+function writesTo(path: string): unknown[] {
+  return apiFetch.mock.calls
+    .filter((call) => String(call[0]) === path)
+    .map((call) => JSON.parse(String((call[1] as { body?: string }).body)));
 }
 
 beforeEach(() => {
@@ -172,21 +197,74 @@ describe('AdminQualityPoolPage', () => {
     await waitFor(() => expect(screen.getByText('Editor role required.')).toBeTruthy());
   });
 
-  it('says so when a pair may not be sent for AI review', async () => {
-    respondWith([row({ ai_consent: false })]);
+  /**
+   * The count on a bulk button is what the action would actually change, not
+   * how many rows are ticked. `row()` is already fully recorded on the target
+   * side, so selecting it offers a known-side repair and nothing on the target
+   * — otherwise pressing it would post a request per row and collect 422s for
+   * pairs that needed nothing.
+   */
+  it('counts only the selected pairs a bulk action can change', async () => {
+    respondWithWrites([row()]);
     const { container } = render(<AdminQualityPoolPage />);
+    const body = await tableBody(container);
 
-    const pairRow = await waitFor(() => {
-      const found = container.querySelector('tbody tr');
-      if (!found) throw new Error('no row yet');
-      return found as HTMLElement;
+    const checkbox = within(body).getByRole('checkbox');
+    await act(async () => {
+      fireEvent.click(checkbox);
     });
-    pairRow.click();
+
+    expect(screen.getByText('1 selected')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Record known side (1)' })).toBeTruthy();
+    const targetButton = screen.getByRole('button', {
+      name: 'Record target side (0)',
+    }) as HTMLButtonElement;
+    expect(targetButton.disabled).toBe(true);
+  });
+
+  /** Select-all covers the page, and each pair is its own request. */
+  it('records the known side of every selected pair, one request each', async () => {
+    respondWithWrites([
+      row({ pool_key: 'p1:a' }),
+      row({ pool_key: 'p1:b', text_known: 'kočka', text_target: 'cat' }),
+    ]);
+    const { container } = render(<AdminQualityPoolPage />);
+    await tableBody(container);
+
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText('Select every row on this page'));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Record known side (2)' }));
+    });
 
     await waitFor(() =>
-      expect(
-        screen.getByText(/at least one owner of this pair has not allowed it/),
-      ).toBeTruthy(),
+      expect(writesTo('/api/admin/quality/audio')).toEqual([
+        { poolKey: 'p1:a', side: 'known' },
+        { poolKey: 'p1:b', side: 'known' },
+      ]),
+    );
+    // The selection is spent once the run finishes.
+    await waitFor(() => expect(screen.queryByText('2 selected')).toBeNull());
+  });
+
+  /** The AI check runs over whatever the editor selected, in one request. */
+  it('sends the whole selection to the AI check at once', async () => {
+    respondWithWrites([row({ pool_key: 'p1:a' }), row({ pool_key: 'p1:b' })]);
+    const { container } = render(<AdminQualityPoolPage />);
+    await tableBody(container);
+
+    await act(async () => {
+      fireEvent.click(screen.getByLabelText('Select every row on this page'));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'AI check (2)' }));
+    });
+
+    await waitFor(() =>
+      expect(writesTo('/api/admin/quality/audit')).toEqual([
+        { poolKeys: ['p1:a', 'p1:b'], maxItems: 2 },
+      ]),
     );
   });
 });

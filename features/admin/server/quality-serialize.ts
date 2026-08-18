@@ -61,7 +61,6 @@ export function serializeQualityRow(row: PoolRow): QualityPoolRow {
     occurrences: row.occurrences,
     list_count: row.listCount,
     topics: row.topics,
-    ai_consent: row.aiConsent,
     known: serializeSide(row.known, row.textKnown),
     target: serializeSide(row.target, row.textTarget),
     heuristic_flags: review?.heuristicFlags ?? [],

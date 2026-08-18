@@ -5,8 +5,14 @@
  *
  * Consent is a two-key lock, and BOTH keys are checked in SQL rather than in
  * application code: `users.review_opt_in` (the account switch) AND
- * `word_lists.review_opt_in` (the per-list flag photo lab sets to false). The
- * LLM audit needs a third, stricter key — see `poolAiConsentExpression`.
+ * `word_lists.review_opt_in` (the per-list flag photo lab sets to false).
+ *
+ * There is no third key for the LLM audit any more. It used to require
+ * `users.ai_review_opt_in` from every owner of a pair, a switch nobody could
+ * reach, so the audit had nothing to work on. What the audit reads is the same
+ * two words an editor already reads here, and the same two words the
+ * translation step sends to a machine translator in the first place — so it is
+ * gated by the same consent.
  */
 
 import { sql, type SQL } from 'drizzle-orm';
@@ -108,15 +114,6 @@ export function poolSourceCondition(
     AND btrim(${i}.text_known) <> ''`;
 }
 
-/**
- * Whether a pair may leave for a third-party model. `bool_and` over every
- * owner contributing to the pair: one owner without the AI consent blocks the
- * whole aggregated row, because we cannot send "part of" a pair.
- */
-export function poolAiConsentExpression(userAlias = 'u'): SQL {
-  return sql`bool_and(${sql.raw(userAlias)}.ai_review_opt_in)`;
-}
-
 /* ------------------------------------------------------------------ *
  * Types
  * ------------------------------------------------------------------ */
@@ -160,7 +157,6 @@ export type PoolRow = {
   listCount: number;
   /** Neutral, PII-free topic labels from `word_categories.review_label`. */
   topics: string[];
-  aiConsent: boolean;
   known: PoolAudioSide;
   target: PoolAudioSide;
   review: PoolReview | null;
@@ -187,7 +183,15 @@ export type PoolReview = {
   lastSeenAt: string | null;
 };
 
-export type PoolAudioFilter = 'any' | 'missing' | 'failed' | 'legacy' | 'incomplete' | 'ready';
+export type PoolAudioFilter =
+  | 'any'
+  | 'missing'
+  | 'failed'
+  | 'legacy'
+  | 'incomplete'
+  | 'ready'
+  | 'known_gap'
+  | 'target_gap';
 
 export type PoolSort =
   | 'suspicion'
@@ -321,8 +325,7 @@ function parseRow(row: Record<string, unknown>): PoolRow {
     occurrences: numberFrom(row.occurrences),
     listCount: numberFrom(row.list_count),
     topics: Array.isArray(row.topics) ? row.topics.map(String) : [],
-    aiConsent: row.ai_consent === true,
-    known: parseSide(row, 'known'),
+      known: parseSide(row, 'known'),
     target: parseSide(row, 'target'),
     review: parseReview(row),
   };
@@ -386,7 +389,6 @@ export function poolAggregateCte(): SQL {
           array_agg(DISTINCT c.review_label) FILTER (WHERE c.review_label IS NOT NULL),
           '{}'::text[]
         ) AS topics,
-        ${poolAiConsentExpression()} AS ai_consent,
         ${audioSideColumns('known', 'known_audio_status', 'ka')},
         ${audioSideColumns('target', 'audio_status', 'ta')}
       FROM word_list_items i
@@ -400,8 +402,28 @@ export function poolAggregateCte(): SQL {
     )`;
 }
 
+/**
+ * "This side still needs recording", per side.
+ *
+ * Deliberately the same condition `generatePoolAudio` acts on, not a narrower
+ * "no audio at all": a pair recorded in 9 of its 10 items still has a learner
+ * hearing nothing, and a legacy `r2` clip is linked and `ready` while the
+ * serve route 404s for it. Both are gaps the repair fills, so both belong in
+ * the filter an editor uses to queue that repair — otherwise selecting the
+ * page and pressing the bulk button would skip exactly the rows it listed.
+ */
+function sideGapCondition(prefix: 'known' | 'target'): SQL {
+  const ready = sql.raw(`p.${prefix}_ready_count`);
+  const legacy = sql.raw(`p.${prefix}_legacy_count`);
+  return sql`${ready} < p.occurrences OR ${legacy} > 0`;
+}
+
 function audioFilterCondition(filter: PoolAudioFilter): SQL | null {
   switch (filter) {
+    case 'known_gap':
+      return sql`(${sideGapCondition('known')})`;
+    case 'target_gap':
+      return sql`(${sideGapCondition('target')})`;
     case 'missing':
       // No audio at all on either side.
       return sql`p.known_ready_count = 0 AND p.target_ready_count = 0`;
@@ -558,7 +580,7 @@ export async function getQualityPool(
     SELECT
       p.pool_key, p.language_from, p.language_to,
       p.text_known, p.text_target, p.norm_known, p.norm_target,
-      p.occurrences, p.list_count, p.topics, p.ai_consent,
+      p.occurrences, p.list_count, p.topics,
       p.known_ready_count, p.known_missing_count, p.known_failed_count,
       p.known_pending_count, p.known_legacy_count, p.known_assets,
       p.target_ready_count, p.target_missing_count, p.target_failed_count,
@@ -608,7 +630,7 @@ export async function getQualityPoolRow(poolKey: string): Promise<PoolRow | null
     SELECT
       p.pool_key, p.language_from, p.language_to,
       p.text_known, p.text_target, p.norm_known, p.norm_target,
-      p.occurrences, p.list_count, p.topics, p.ai_consent,
+      p.occurrences, p.list_count, p.topics,
       p.known_ready_count, p.known_missing_count, p.known_failed_count,
       p.known_pending_count, p.known_legacy_count, p.known_assets,
       p.target_ready_count, p.target_missing_count, p.target_failed_count,

@@ -287,25 +287,40 @@ export async function getGoogleFallbackVoices(
 }
 
 /**
+ * Every Google voice name available for a language, stably sorted.
+ *
+ * Unlike the helpers above this does NOT swallow a catalog failure: an empty
+ * result means Google offers no voice for the language (Māori, say), which a
+ * caller may want to report instead of spending a synthesis call that can only
+ * fail. A caller that cannot tell the two apart should keep using
+ * `getGoogleChirp3HdVoices`, which degrades to the default voice.
+ */
+export async function getGoogleVoicesForLanguage(languageCode: string): Promise<string[]> {
+  const voices = await fetchGoogleTtsVoices();
+  const base = getBaseLanguage(languageCode);
+  const locale = resolveLanguageVariantLocale(languageCode);
+
+  const names = voices
+    .filter((voice) => voiceMatchesLanguage(voice, base, locale))
+    .map((voice) => voice.name)
+    .filter((name): name is string => Boolean(name));
+
+  return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
+}
+
+/** The Chirp3-HD subset of a voice list. */
+export function filterChirp3HdVoices(voiceNames: string[]): string[] {
+  return voiceNames.filter((name) => name.toLowerCase().includes("chirp3-hd"));
+}
+
+/**
  * All Chirp3-HD voice names for a language's base, stably sorted. Photo-lab
  * mixes these per word; empty when the language has none (caller falls back to
  * the default voice). Reuses the shared two-week voice snapshot.
  */
 export async function getGoogleChirp3HdVoices(languageCode: string): Promise<string[]> {
-  const voices = await fetchGoogleTtsVoices().catch(() => []);
-  const base = getBaseLanguage(languageCode);
-  const locale = resolveLanguageVariantLocale(languageCode);
-
-  const names = voices
-    .filter(
-      (voice) =>
-        (voice.name ?? "").toLowerCase().includes("chirp3-hd") &&
-        voiceMatchesLanguage(voice, base, locale),
-    )
-    .map((voice) => voice.name)
-    .filter((name): name is string => Boolean(name));
-
-  return Array.from(new Set(names)).sort((a, b) => a.localeCompare(b));
+  const voices = await getGoogleVoicesForLanguage(languageCode).catch(() => []);
+  return filterChirp3HdVoices(voices);
 }
 
 function compareLearningLanguages(left: LearningLanguage, right: LearningLanguage): number {

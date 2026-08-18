@@ -127,8 +127,7 @@ async function main() {
       const result = await auditQualityPool({ maxItems: args.limit, force: args.force });
       console.log(
         `audit: ${result.audited} scored with ${result.model}, ` +
-          `${result.cached} already current, ` +
-          `${result.skippedNoConsent} skipped (owner has not allowed AI review)`,
+          `${result.cached} already current`,
       );
     }
   }

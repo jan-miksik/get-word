@@ -33,6 +33,8 @@ const AUDIO_FILTERS: PoolAudioFilter[] = [
   "failed",
   "legacy",
   "ready",
+  "known_gap",
+  "target_gap",
 ];
 
 const SORTS: PoolSort[] = [

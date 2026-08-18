@@ -6,18 +6,21 @@ import { useAppStateContext } from '@/context/AppStateContext';
 import { Section, ToggleSwitch } from '@/components/settings/primitives';
 
 /**
- * The two quality-review consents.
+ * The quality-review consent: letting a project editor read a word pair.
  *
- * They are deliberately not one switch: letting a project editor read a word
- * pair and shipping that pair to a third-party model are different asks, so
- * the AI one is off by default and stays independently revocable. The account
- * switch is only half the gate — `word_lists.review_opt_in` is the other half,
- * which is why turning this on never resurrects a list that opted out.
+ * The account switch is only half the gate — `word_lists.review_opt_in` is the
+ * other half, which is why turning this on never resurrects a list that opted
+ * out.
+ *
+ * There is deliberately no second switch for the AI check. It is not a
+ * separate ask: it reads pairs this consent already covers, on the same two
+ * words the translation step sends to a machine translator anyway.
+ * `users.ai_review_opt_in` is left over from when it was a switch and nothing
+ * reads it.
  */
 export function QualityReviewSection() {
   const { t } = useI18n();
-  const { reviewOptIn, setReviewOptIn, aiReviewOptIn, setAiReviewOptIn } =
-    useAppStateContext();
+  const { reviewOptIn, setReviewOptIn } = useAppStateContext();
 
   return (
     <Section label={t('settings.qualityReview')}>
@@ -32,18 +35,6 @@ export function QualityReviewSection() {
           checked={reviewOptIn}
           onChange={setReviewOptIn}
           ariaLabel={t('settings.qualityReviewEditor')}
-        />
-      </div>
-
-      <div className="flex items-start justify-between gap-3 py-0.5">
-        <span className="flex flex-col gap-0.5">
-          <span className="text-sm text-text">{t('settings.qualityReviewAi')}</span>
-          <span className="text-xs text-text-soft">{t('settings.qualityReviewAiHint')}</span>
-        </span>
-        <ToggleSwitch
-          checked={aiReviewOptIn}
-          onChange={setAiReviewOptIn}
-          ariaLabel={t('settings.qualityReviewAi')}
         />
       </div>
 

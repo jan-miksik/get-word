@@ -1,8 +1,22 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@/lib/db/client', () => ({ db: { execute: vi.fn() } }));
 
-import { pickCanonicalText, mayLink, hasUsableAudio } from '../quality-audio';
+const getGoogleVoicesForLanguage = vi.fn();
+vi.mock('@/lib/language-catalog', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/language-catalog')>();
+  return {
+    ...actual,
+    getGoogleVoicesForLanguage: (...args: [string]) => getGoogleVoicesForLanguage(...args),
+  };
+});
+
+import {
+  pickCanonicalText,
+  mayLink,
+  hasUsableAudio,
+  resolvePoolVoice,
+} from '../quality-audio';
 import type { PoolItem } from '@/lib/db/queries/quality-pool';
 
 function item(overrides: Partial<PoolItem> = {}): PoolItem {
@@ -124,5 +138,82 @@ describe('overwrite gate', () => {
     });
     expect(hasUsableAudio(oneSided, 'known')).toBe(true);
     expect(hasUsableAudio(oneSided, 'target')).toBe(false);
+  });
+});
+
+describe('resolvePoolVoice', () => {
+  beforeEach(() => {
+    getGoogleVoicesForLanguage.mockReset();
+  });
+
+  /**
+   * The pool must speak with the same voices as the list editor. A clip
+   * recorded here under Google's default voice hashes differently from the
+   * same word recorded from a list, so every pair would be synthesized twice
+   * and read by a different narrator depending on where it came from.
+   */
+  it('picks a Chirp3-HD voice and ignores the rest of the catalog', async () => {
+    getGoogleVoicesForLanguage.mockResolvedValue([
+      'cs-CZ-Standard-A',
+      'cs-CZ-Chirp3-HD-Aoede',
+      'cs-CZ-Chirp3-HD-Puck',
+      'cs-CZ-Wavenet-B',
+    ]);
+
+    const voice = await resolvePoolVoice('pes', 'cs');
+    expect(voice).toEqual({
+      supported: true,
+      voiceId: expect.stringContaining('Chirp3-HD'),
+    });
+  });
+
+  /** Same text, same voice — that is what keeps the content hash reusable. */
+  it('is deterministic for the same text', async () => {
+    getGoogleVoicesForLanguage.mockResolvedValue([
+      'cs-CZ-Chirp3-HD-Aoede',
+      'cs-CZ-Chirp3-HD-Puck',
+    ]);
+
+    const first = await resolvePoolVoice('pes', 'cs');
+    const second = await resolvePoolVoice('pes', 'cs');
+    expect(first).toEqual(second);
+  });
+
+  /**
+   * Māori is the case that prompted this: Google offers no voice at all, and
+   * the pool used to spend a synthesis call to come back with a bare 422.
+   */
+  it('reports a language Google cannot speak instead of trying anyway', async () => {
+    getGoogleVoicesForLanguage.mockResolvedValue([]);
+    expect(await resolvePoolVoice('hiahia', 'mi')).toEqual({ supported: false });
+  });
+
+  /**
+   * A catalog that could not be fetched says nothing about what Google can
+   * speak — that must not be mistaken for an unsupported language.
+   */
+  it('degrades to the default voice when the catalog cannot be read', async () => {
+    getGoogleVoicesForLanguage.mockRejectedValue(new Error('network'));
+    expect(await resolvePoolVoice('pes', 'cs')).toEqual({
+      supported: true,
+      voiceId: 'default',
+    });
+  });
+
+  it('uses an explicitly requested voice without consulting the catalog', async () => {
+    expect(await resolvePoolVoice('pes', 'cs', 'cs-CZ-Studio-A')).toEqual({
+      supported: true,
+      voiceId: 'cs-CZ-Studio-A',
+    });
+    expect(getGoogleVoicesForLanguage).not.toHaveBeenCalled();
+  });
+
+  /** A language with voices but no Chirp3-HD one still gets recorded. */
+  it('falls back to the default voice when the language has no Chirp3-HD voice', async () => {
+    getGoogleVoicesForLanguage.mockResolvedValue(['vi-VN-Standard-A']);
+    expect(await resolvePoolVoice('xin chào', 'vi')).toEqual({
+      supported: true,
+      voiceId: 'default',
+    });
   });
 });

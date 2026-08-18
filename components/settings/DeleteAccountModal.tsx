@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useI18n } from '@/components/I18nProvider';
@@ -49,6 +49,9 @@ function DeleteAccountModalContent({ onClose, authEmail }: Omit<DeleteAccountMod
   const [preview, setPreview] = useState<Preview | null>(null);
   const [confirmation, setConfirmation] = useState('');
   const [phase, setPhase] = useState<Phase>('confirm');
+  const inputRef = useRef<HTMLInputElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const isDone = phase === 'deleted' || phase === 'completing';
 
   const expected = authEmail ?? 'DELETE';
 
@@ -74,6 +77,52 @@ function DeleteAccountModalContent({ onClose, authEmail }: Omit<DeleteAccountMod
     document.addEventListener('keydown', handleKey);
     return () => document.removeEventListener('keydown', handleKey);
   }, [onClose, phase]);
+
+  // iOS raises the keyboard *over* the page instead of shrinking it, so a
+  // dialog centred in the layout viewport keeps its confirmation field — the
+  // last thing in a long modal — behind the keys, with no way to see what is
+  // being typed. The shell already publishes the visible height as
+  // `--app-viewport-height` (see `useVisualViewportHeight`); the dialog is
+  // centred inside *that* and its body scrolls, and the field is pulled back
+  // into the body whenever the visible area moves while it has focus.
+  useEffect(() => {
+    const input = inputRef.current;
+    const body = bodyRef.current;
+    if (!input || !body) return;
+
+    let frame = 0;
+    const reveal = () => {
+      if (document.activeElement !== input) return;
+      if (frame) return;
+      // After the shell has resized for the keyboard, not during: the body's
+      // own height is what the field has to be centred in.
+      frame = window.requestAnimationFrame(() => {
+        frame = 0;
+        const field = input.getBoundingClientRect();
+        const view = body.getBoundingClientRect();
+        // Only the modal body is scrolled. `scrollIntoView` would also move the
+        // window, which does nothing for a fixed dialog and leaves the page
+        // behind it shifted.
+        body.scrollTop += field.top + field.height / 2 - (view.top + view.height / 2);
+      });
+    };
+
+    const viewport = window.visualViewport ?? null;
+    input.addEventListener('focus', reveal);
+    viewport?.addEventListener('resize', reveal);
+    viewport?.addEventListener('scroll', reveal);
+    // The shell resize is what the platforms that do report a keyboard give us;
+    // the observer catches it after layout rather than racing it.
+    const observer = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(reveal);
+    observer?.observe(body);
+    return () => {
+      if (frame) window.cancelAnimationFrame(frame);
+      input.removeEventListener('focus', reveal);
+      viewport?.removeEventListener('resize', reveal);
+      viewport?.removeEventListener('scroll', reveal);
+      observer?.disconnect();
+    };
+  }, [isDone]);
 
   if (typeof document === 'undefined') return null;
 
@@ -101,15 +150,18 @@ function DeleteAccountModalContent({ onClose, authEmail }: Omit<DeleteAccountMod
     }
   }
 
-  const isDone = phase === 'deleted' || phase === 'completing';
-
   const modal = (
     <div
-      className="fixed inset-0 z-[80] flex items-center justify-center bg-black/60 p-4"
+      className="fixed inset-0 z-[80] bg-black/60"
       onClick={() => phase === 'confirm' && onClose()}
     >
       <div
-        className="panel-token-scope w-full max-w-md overflow-hidden rounded-2xl border border-border-subtle bg-background-elevated text-text shadow-xl"
+        data-testid="delete-account-frame"
+        className="flex items-center justify-center p-4"
+        style={{ height: 'var(--app-viewport-height, 100dvh)' }}
+      >
+      <div
+        className="panel-token-scope flex max-h-full w-full max-w-md flex-col overflow-hidden rounded-2xl border border-border-subtle bg-background-elevated text-text shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         {isDone ? (
@@ -125,7 +177,7 @@ function DeleteAccountModalContent({ onClose, authEmail }: Omit<DeleteAccountMod
           </div>
         ) : (
           <>
-            <div className="flex items-center gap-3 border-b border-danger/20 bg-danger/[0.06] px-6 py-4">
+            <div className="flex shrink-0 items-center gap-3 border-b border-danger/20 bg-danger/[0.06] px-6 py-4">
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-danger/15 text-danger">
                 <svg viewBox="0 0 20 20" fill="none" aria-hidden className="h-4 w-4">
                   <path d="M10 7v4m0 3h.01M8.6 3.2L1.7 15a1.6 1.6 0 001.4 2.4h13.8a1.6 1.6 0 001.4-2.4L11.4 3.2a1.6 1.6 0 00-2.8 0z" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
@@ -138,7 +190,11 @@ function DeleteAccountModalContent({ onClose, authEmail }: Omit<DeleteAccountMod
               </h2>
             </div>
 
-            <div className="p-6">
+            <div
+              ref={bodyRef}
+              data-testid="delete-account-body"
+              className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6"
+            >
             <p className="mt-0 text-sm text-text-soft">{t('account.deleteIntro')}</p>
 
             <div className="mt-4 rounded-xl border border-danger/20 bg-danger/[0.04] p-3">
@@ -177,10 +233,15 @@ function DeleteAccountModalContent({ onClose, authEmail }: Omit<DeleteAccountMod
                 ? t('account.deleteConfirmEmailLabel')
                 : t('account.deleteConfirmWordLabel')}
               <input
+                ref={inputRef}
                 type="text"
                 value={confirmation}
                 onChange={(e) => setConfirmation(e.target.value)}
                 autoComplete="off"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                inputMode={authEmail ? 'email' : 'text'}
                 className="mt-1 w-full rounded-lg border border-border-subtle bg-background px-3 py-2 text-sm text-text transition-colors focus:border-danger/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-danger/40"
                 placeholder={authEmail ?? 'DELETE'}
               />
@@ -220,6 +281,7 @@ function DeleteAccountModalContent({ onClose, authEmail }: Omit<DeleteAccountMod
             </div>
           </>
         )}
+      </div>
       </div>
     </div>
   );

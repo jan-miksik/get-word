@@ -232,7 +232,7 @@ export const enMessages = {
   "privacy.qualityReviewBody1":
     "If you leave quality review on, the word pairs in your private lists may be shown to a Get Word editor so that missing pronunciation audio and translation mistakes can be found and fixed. Pairs are grouped by their text and shown without your account, your list name, and your own category names. That removes who wrote a pair, but it does not make the pair anonymous: the words are exactly what you typed, so anything personal you put inside a word is part of what an editor sees.",
   "privacy.qualityReviewBody2":
-    "Automatic AI checking is a separate switch and is off unless you turn it on. With it on, the same pairs may also be sent to an external AI provider (OpenRouter) for an automatic quality score. Both switches are in Settings and can be turned off at any time; turning quality review off also stops correction suggestions from being shown to you. We keep a review record for a pair only while that pair still exists in a participating list, plus a short period afterwards.",
+    "An editor looks at the pairs shared this way, and those pairs may also be sent to an AI provider to be scored for likely translation mistakes. Only the pairs themselves are sent, in batches, without your account, your list name, or your category names. Quality review is in Settings and can be turned off at any time; turning it off also stops correction suggestions from being shown to you. We keep a review record for a pair only while that pair still exists in a participating list, plus a short period afterwards.",
   "privacy.rightsTitle": "Your choices and rights",
   "privacy.rightsBody1":
     "Depending on where you live, you may have rights to access, correct, delete, export, restrict, or object to the processing of your personal data. Where processing is based on your consent, you can withdraw that consent at any time — for example by turning off the relevant optional feature or contacting us — without affecting the lawfulness of processing carried out before withdrawal. You may also have the right to lodge a complaint with your local data protection authority. To exercise these rights, contact us using the contact details below.",
@@ -566,10 +566,7 @@ export const enMessages = {
   "settings.qualityReview": "Quality review",
   "settings.qualityReviewEditor": "Help improve translations",
   "settings.qualityReviewEditorHint":
-    "Your word pairs can be shown to an editor for checking — without your name, your list name, or your category names.",
-  "settings.qualityReviewAi": "Automatic AI check",
-  "settings.qualityReviewAiHint":
-    "Also send those pairs to an external AI provider for an automatic quality score.",
+    "Your word pairs can be shown to an editor for checking, or checked by AI — without your name, your list name, or your category names.",
   "settings.qualityReviewNote":
     "Only the two words are shared, never who wrote them. Whatever you typed into a word is shared as it is.",
   "settings.qualityReviewPrivacyLink": "Privacy policy",
@@ -1225,6 +1222,8 @@ export const enMessages = {
   "adminQuality.audioFailed": "Generation failed",
   "adminQuality.audioLegacy": "Legacy storage",
   "adminQuality.audioReady": "Fully recorded",
+  "adminQuality.audioKnownGap": "Known side needs recording",
+  "adminQuality.audioTargetGap": "Target side needs recording",
   "adminQuality.sortSuspicion": "Likely bad translation",
   "adminQuality.sortOccurrences": "Most used",
   "adminQuality.sortAudio": "Worst audio",
@@ -1246,9 +1245,19 @@ export const enMessages = {
   "adminQuality.badgeLegacy": "legacy",
   "adminQuality.badgeSuspiciousClip": "clip looks too short",
   "adminQuality.llmReason": "AI reasoning",
-  "adminQuality.noAiConsent": "Not sent for AI review — at least one owner of this pair has not allowed it.",
   "adminQuality.previous": "Previous",
   "adminQuality.next": "Next",
+  "adminQuality.filterPageSize": "Rows per page",
+  "adminQuality.selectAll": "Select every row on this page",
+  "adminQuality.bulkSelected": "{count} selected",
+  "adminQuality.bulkGenerateKnown": "Record known side",
+  "adminQuality.bulkGenerateTarget": "Record target side",
+  "adminQuality.bulkMarkOk": "Mark as fine",
+  "adminQuality.bulkAiCheck": "AI check",
+  "adminQuality.aiCheckDone": "AI check: {audited} scored, {cached} already up to date.",
+  "adminQuality.bulkClear": "Clear selection",
+  "adminQuality.bulkProgress": "Working… {done}/{total}",
+  "adminQuality.bulkDone": "Done: {ok} changed, {failed} failed.",
   "adminQuality.flagLooksUntranslated": "Wrong script for the target language",
   "adminQuality.flagCapitalization": "Sentence does not start with a capital",
   "adminQuality.flagArticle": "German noun without an article",

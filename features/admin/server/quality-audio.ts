@@ -12,6 +12,11 @@
 import { computeContentHash } from '@/lib/audio';
 import { isAudioTextEquivalent } from '@/lib/audio-text-match';
 import { isPlayableAudioAsset } from '@/lib/audio-assets';
+import {
+  filterChirp3HdVoices,
+  getGoogleVoicesForLanguage,
+} from '@/lib/language-catalog';
+import { pickVoiceForText } from '@/lib/tts-voice-mix';
 import { generateAudioForItem } from '@/features/audio/public.server';
 import {
   getPoolItems,
@@ -20,6 +25,9 @@ import {
 import { batchLinkAudioToItems, findMediaByHash } from '@/lib/db/queries/media-assets';
 
 export type AudioSide = 'known' | 'target';
+
+/** What "no explicit voice" looks like to `computeContentHash` and to Google. */
+const DEFAULT_VOICE_ID = 'default';
 
 export interface GenerateAudioOptions {
   poolKey: string;
@@ -97,6 +105,48 @@ export function mayLink(itemText: string, canonical: string): boolean {
 }
 
 /**
+ * Which Google voice speaks this clip — or that the language has none.
+ *
+ * The voice treatment is the same as the list editor, the photo lab and the
+ * word chat: the Chirp3-HD voices for the language, one picked
+ * deterministically from the text. Deterministic matters twice — a set of
+ * clips gets a mix of voices instead of one narrator, and the content hash
+ * (`text + language + provider + voice`) keeps matching, so a pair the list
+ * editor already recorded is found in `media_assets` here instead of being
+ * synthesized again under a different voice. Before this, the pool spoke
+ * everything in Google's default voice: worse to listen to, and a guaranteed
+ * cache miss against the same word recorded from a list.
+ *
+ * `supported: false` means Google offers no voice at all for the language
+ * (Māori, for one). That is worth reporting as itself — otherwise the request
+ * spends a synthesis call to come back as a bare "no audio", and an editor
+ * pressing the button on a whole page of such a language sees a row of
+ * identical failures with no reason in them.
+ *
+ * An unreachable voice catalog is NOT the same answer: it degrades to the
+ * default voice and lets the attempt proceed, because a fetch that failed says
+ * nothing about what Google can speak.
+ */
+export type PoolVoiceResolution =
+  | { supported: true; voiceId: string }
+  | { supported: false };
+
+export async function resolvePoolVoice(
+  text: string,
+  language: string,
+  explicitVoiceId?: string,
+): Promise<PoolVoiceResolution> {
+  const explicit = explicitVoiceId?.trim();
+  if (explicit) return { supported: true, voiceId: explicit };
+
+  const catalog = await getGoogleVoicesForLanguage(language).catch(() => null);
+  if (catalog === null) return { supported: true, voiceId: DEFAULT_VOICE_ID };
+  if (catalog.length === 0) return { supported: false };
+
+  return { supported: true, voiceId: pickVoiceForText(text, filterChirp3HdVoices(catalog)) };
+}
+
+/**
  * Does this side already have a clip a learner can actually hear?
  *
  * This gate exists because the action fills gaps — it must never replace a
@@ -145,8 +195,22 @@ export async function generatePoolAudio(
   }
 
   const language = languageFor(items[0], side);
+  const voice = await resolvePoolVoice(canonical, language, voiceId);
+  if (!voice.supported) {
+    return {
+      generated: false,
+      linkedItems: 0,
+      skippedItems: 0,
+      keptItems: 0,
+      contentHash: null,
+      error: `Google has no text-to-speech voice for "${language}".`,
+    };
+  }
+
+  // The sentinel means "no explicit voice"; anything else is a real voice name.
+  const namedVoice = voice.voiceId === DEFAULT_VOICE_ID ? undefined : voice.voiceId;
   const hash = computeContentHash(canonical, language, 'google_tts', {
-    voiceId: voiceId ?? null,
+    voiceId: voice.voiceId,
     audioFormat: 'mp3',
   });
 
@@ -161,11 +225,11 @@ export async function generatePoolAudio(
         // it, and linking is done below against the items that pass the gate.
         item: { id: `pool:${poolKey}`, text: canonical, language },
         hash,
-        voiceId,
+        voiceId: namedVoice,
       },
       {
         provider: 'google_tts',
-        voiceId,
+        voiceId: namedVoice,
         encryptedKey: null,
         audioField: side,
         force: false,

@@ -1103,8 +1103,9 @@ export const QUALITY_REVIEW_VERDICTS = [
 // the learner typed and can contain personal detail. Hence the lifecycle below
 // and the wording used in the privacy policy.
 //
-// Gated by `users.reviewOptIn` AND `wordLists.reviewOptIn`; the LLM audit needs
-// `users.aiReviewOptIn` from every owner of the pair on top of that.
+// Gated by `users.reviewOptIn` AND `wordLists.reviewOptIn`. The editor-run LLM
+// audit uses the same two keys; `users.aiReviewOptIn` is a legacy column that
+// nothing reads any more (it is still synced, and is due for removal).
 export const contentQualityReviews = pgTable(
   "content_quality_reviews",
   {

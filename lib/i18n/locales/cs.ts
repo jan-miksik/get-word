@@ -234,7 +234,7 @@ export const csMessages: I18nMessages = {
   "privacy.qualityReviewBody1":
     "Pokud necháte kontrolu kvality zapnutou, mohou být dvojice slov z vašich soukromých seznamů zobrazeny editorovi Get Word, aby se daly najít a opravit chybějící výslovnostní nahrávky a chyby v překladu. Dvojice se seskupují podle textu a zobrazují se bez vašeho účtu, bez názvu seznamu a bez názvů vašich vlastních kategorií. Tím se odstraní, kdo dvojici napsal, ale dvojice se tím nestává anonymní: slova jsou přesně to, co jste napsali, takže cokoli osobního uvnitř slova editor uvidí také.",
   "privacy.qualityReviewBody2":
-    "Automatickou kontrolu pomocí AI řídí samostatný přepínač a je vypnutý, dokud ho nezapnete. Když ho zapnete, mohou být tytéž dvojice navíc odeslány externímu poskytovateli AI (OpenRouter) k automatickému ohodnocení kvality. Oba přepínače najdete v Nastavení a lze je kdykoli vypnout; vypnutím kontroly kvality se vám zároveň přestanou zobrazovat návrhy oprav. Záznam o kontrole u dvojice uchováváme jen po dobu, kdy tato dvojice ještě existuje v některém zapojeném seznamu, plus krátkou dobu poté.",
+    "Dvojice sdílené tímto způsobem si prohlíží editor a mohou se také poslat poskytovateli AI, aby je ohodnotil a upozornil na pravděpodobné chyby v překladu. Posílají se jen samotné dvojice slov, po dávkách a bez tvého účtu, bez názvu seznamu i bez názvů tvých kategorií. Kontrolu kvality najdeš v Nastavení a můžeš ji kdykoli vypnout; vypnutím se ti zároveň přestanou zobrazovat návrhy oprav. Záznam o kontrole u dvojice uchováváme jen po dobu, kdy tato dvojice ještě existuje v některém zapojeném seznamu, plus krátkou dobu poté.",
   "privacy.rightsTitle": "Vaše možnosti a práva",
   "privacy.rightsBody1":
     "Podle toho, kde žijete, můžete mít právo na přístup, opravu, výmaz, export, omezení nebo námitku proti zpracování svých osobních údajů. Pokud je zpracování založeno na vašem souhlasu, můžete tento souhlas kdykoli odvolat — například vypnutím příslušné volitelné funkce nebo tím, že nás kontaktujete — aniž by tím byla dotčena zákonnost zpracování provedeného před odvoláním. Můžete mít také právo podat stížnost u místního úřadu pro ochranu osobních údajů (v České republice ÚOOÚ). Pro uplatnění těchto práv nás kontaktujte pomocí kontaktních údajů níže.",
@@ -542,10 +542,7 @@ export const csMessages: I18nMessages = {
   "settings.qualityReview": "Kontrola kvality",
   "settings.qualityReviewEditor": "Pomáhat se zlepšováním překladů",
   "settings.qualityReviewEditorHint":
-    "Tvoje dvojice slov se můžou ukázat editorovi ke kontrole — bez tvého jména, bez názvu seznamu a bez názvů tvých kategorií.",
-  "settings.qualityReviewAi": "Automatická kontrola přes AI",
-  "settings.qualityReviewAiHint":
-    "Posílat ty dvojice navíc externímu poskytovateli AI, který jim dá skóre kvality.",
+    "Tvoje dvojice slov se můžou ukázat editorovi ke kontrole nebo je zkontroluje AI — bez tvého jména, bez názvu seznamu a bez názvů tvých kategorií.",
   "settings.qualityReviewNote":
     "Sdílí se jen ta dvě slova, nikdy to, kdo je napsal. Co sis do slova napsal, se sdílí tak, jak to je.",
   "settings.qualityReviewPrivacyLink": "Zásady ochrany soukromí",
@@ -1227,6 +1224,8 @@ export const csMessages: I18nMessages = {
   "adminQuality.audioFailed": "Generování selhalo",
   "adminQuality.audioLegacy": "Staré úložiště",
   "adminQuality.audioReady": "Kompletně nahráno",
+  "adminQuality.audioKnownGap": "Chybí zvuk známého jazyka",
+  "adminQuality.audioTargetGap": "Chybí zvuk cílového jazyka",
   "adminQuality.sortSuspicion": "Pravděpodobně špatný překlad",
   "adminQuality.sortOccurrences": "Nejpoužívanější",
   "adminQuality.sortAudio": "Nejhorší zvuk",
@@ -1248,9 +1247,19 @@ export const csMessages: I18nMessages = {
   "adminQuality.badgeLegacy": "staré",
   "adminQuality.badgeSuspiciousClip": "nahrávka vypadá příliš krátká",
   "adminQuality.llmReason": "Zdůvodnění AI",
-  "adminQuality.noAiConsent": "Neposláno na kontrolu AI — aspoň jeden vlastník téhle dvojice to nepovolil.",
   "adminQuality.previous": "Předchozí",
   "adminQuality.next": "Další",
+  "adminQuality.filterPageSize": "Řádků na stránku",
+  "adminQuality.selectAll": "Vybrat všechny řádky na stránce",
+  "adminQuality.bulkSelected": "Vybráno: {count}",
+  "adminQuality.bulkGenerateKnown": "Nahrát známou stranu",
+  "adminQuality.bulkGenerateTarget": "Nahrát cílovou stranu",
+  "adminQuality.bulkMarkOk": "Označit jako v pořádku",
+  "adminQuality.bulkAiCheck": "Kontrola AI",
+  "adminQuality.aiCheckDone": "Kontrola AI: {audited} ohodnoceno, {cached} už bylo aktuální.",
+  "adminQuality.bulkClear": "Zrušit výběr",
+  "adminQuality.bulkProgress": "Zpracovávám… {done}/{total}",
+  "adminQuality.bulkDone": "Hotovo: {ok} změněno, {failed} selhalo.",
   "adminQuality.flagLooksUntranslated": "Špatné písmo pro cílový jazyk",
   "adminQuality.flagCapitalization": "Věta nezačíná velkým písmenem",
   "adminQuality.flagArticle": "Německé podstatné jméno bez členu",

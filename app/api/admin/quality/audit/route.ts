@@ -22,8 +22,11 @@ function withNoStore(response: NextResponse) {
 
 /**
  * POST /api/admin/quality/audit — score pairs with an external model.
- * Editor-only, and additionally gated per pair on every owner's
- * `ai_review_opt_in`; that check lives in SQL, not here.
+ *
+ * Editor-only. The caller names the pairs or accepts the worst candidates;
+ * today that caller is the pool page and `scripts/scan-quality-pool.ts`. The
+ * consent behind it is the same two-key lock that puts a pair in the pool at
+ * all, checked in SQL, not here.
  */
 export async function POST(request: NextRequest) {
   const user = await resolveAuthenticatedUser(request);
@@ -61,7 +64,6 @@ export async function POST(request: NextRequest) {
     const payload: QualityAuditResult = {
       audited: result.audited,
       cached: result.cached,
-      skipped_no_consent: result.skippedNoConsent,
       model: result.model,
     };
     return NextResponse.json(payload, { headers: NO_STORE });

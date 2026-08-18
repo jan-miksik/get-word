@@ -1,16 +1,21 @@
 'use client';
 
-import { useMemo, useState, Fragment } from 'react';
+import { useEffect, useMemo, useState, Fragment } from 'react';
 import Link from 'next/link';
 import { I18nProvider, useI18n } from '@/components/I18nProvider';
 import { useSettingsLanguage } from '@/features/shared/languages/useSettingsLanguage';
-import { useQualityPool } from '@/features/admin/client/useQualityPool';
-import type {
-  QualityAudioFilter,
-  QualityAudioSide,
-  QualityPoolRow,
-  QualitySort,
-  QualityVerdict,
+import {
+  PAGE_SIZE_OPTIONS,
+  useQualityPool,
+  type BulkProgress,
+} from '@/features/admin/client/useQualityPool';
+import {
+  hasAudioGap,
+  type QualityAudioFilter,
+  type QualityAudioSide,
+  type QualityPoolRow,
+  type QualitySort,
+  type QualityVerdict,
 } from '@/features/admin/quality-types';
 import type { QualityFlagCode } from '@/lib/quality-flags';
 import type { I18nKey } from '@/lib/i18n/locales/en';
@@ -33,6 +38,8 @@ const FLAG_LABELS: Record<QualityFlagCode, I18nKey> = {
 const AUDIO_FILTERS: { value: QualityAudioFilter; key: I18nKey }[] = [
   { value: 'any', key: 'adminQuality.audioAny' },
   { value: 'missing', key: 'adminQuality.audioMissing' },
+  { value: 'known_gap', key: 'adminQuality.audioKnownGap' },
+  { value: 'target_gap', key: 'adminQuality.audioTargetGap' },
   { value: 'incomplete', key: 'adminQuality.audioIncomplete' },
   { value: 'failed', key: 'adminQuality.audioFailed' },
   { value: 'legacy', key: 'adminQuality.audioLegacy' },
@@ -151,13 +158,26 @@ export function AdminQualityPoolPage() {
 
 function AdminQualityPoolContent() {
   const { t } = useI18n();
-  const { state, query, updateQuery, goToOffset, pagination, saveVerdict, generateAudio } =
-    useQualityPool();
+  const {
+    state,
+    query,
+    updateQuery,
+    goToOffset,
+    pagination,
+    saveVerdict,
+    generateAudio,
+    generateAudioBulk,
+    markOkBulk,
+    auditPairs,
+  } = useQualityPool();
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   // One row at a time, like the moderation queue: its buttons disable while
   // the request is in flight so a double click cannot fire two writes.
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkProgress, setBulkProgress] = useState<BulkProgress | null>(null);
+  const [bulkResult, setBulkResult] = useState<string | null>(null);
 
   const runAction = async (poolKey: string, action: () => Promise<unknown>) => {
     setBusyKey(poolKey);
@@ -181,6 +201,102 @@ function AdminQualityPoolContent() {
   };
 
   const rows = state.status === 'ready' ? state.page.rows : [];
+
+  // A selection only ever means rows the editor can still see. Paging or
+  // changing a filter loads a different set, and acting on a pair that scrolled
+  // out of the page is exactly the kind of surprise a bulk button must not have.
+  useEffect(() => {
+    if (state.status !== 'ready') return;
+    const visible = new Set(state.page.rows.map((row) => row.pool_key));
+    setSelected((previous) => {
+      const next = new Set([...previous].filter((key) => visible.has(key)));
+      return next.size === previous.size ? previous : next;
+    });
+  }, [state]);
+
+  const selectedRows = useMemo(
+    () => rows.filter((row) => selected.has(row.pool_key)),
+    [rows, selected],
+  );
+
+  const toggleSelected = (poolKey: string) => {
+    setSelected((previous) => {
+      const next = new Set(previous);
+      if (next.has(poolKey)) next.delete(poolKey);
+      else next.add(poolKey);
+      return next;
+    });
+  };
+
+  const allSelected = rows.length > 0 && selectedRows.length === rows.length;
+
+  const toggleSelectAll = () => {
+    setSelected(allSelected ? new Set() : new Set(rows.map((row) => row.pool_key)));
+  };
+
+  const runBulk = async (
+    keys: string[],
+    action: (
+      poolKeys: string[],
+      onProgress: (progress: BulkProgress) => void,
+    ) => Promise<{ ok: number; failures: { poolKey: string; error: string }[] }>,
+  ) => {
+    if (keys.length === 0) return;
+    setActionError(null);
+    setBulkResult(null);
+    setBulkProgress({ done: 0, total: keys.length });
+    try {
+      const outcome = await action(keys, setBulkProgress);
+      setBulkResult(
+        t('adminQuality.bulkDone', {
+          ok: outcome.ok,
+          failed: outcome.failures.length,
+        }),
+      );
+      if (outcome.failures.length > 0) {
+        setActionError(outcome.failures[0].error);
+      }
+      setSelected(new Set());
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBulkProgress(null);
+    }
+  };
+
+  /**
+   * The AI check is one request for the whole selection, so it does not go
+   * through `runBulk` — there is no per-pair progress to report, only a run
+   * that is either in flight or finished.
+   */
+  const runAudit = async () => {
+    const keys = selectedRows.map((row) => row.pool_key);
+    if (keys.length === 0) return;
+    setActionError(null);
+    setBulkResult(null);
+    setBulkProgress({ done: 0, total: keys.length });
+    try {
+      const result = await auditPairs(keys);
+      setBulkResult(
+        t('adminQuality.aiCheckDone', {
+          audited: result.audited ?? 0,
+          cached: result.cached ?? 0,
+        }),
+      );
+      setSelected(new Set());
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : String(error));
+    } finally {
+      setBulkProgress(null);
+    }
+  };
+
+  /** Only the selected pairs this action can actually change. */
+  const selectedWithGap = (side: 'known' | 'target') =>
+    selectedRows
+      .filter((row) => hasAudioGap(side === 'known' ? row.known : row.target, row.occurrences))
+      .map((row) => row.pool_key);
+
   const versions = useMemo(
     () =>
       state.status === 'ready'
@@ -270,6 +386,21 @@ function AdminQualityPoolContent() {
             </select>
           </label>
 
+          <label className="flex flex-col gap-1 text-xs text-text-soft">
+            {t('adminQuality.filterPageSize')}
+            <select
+              value={String(query.limit ?? PAGE_SIZE_OPTIONS[1])}
+              onChange={(event) => updateQuery({ limit: Number(event.target.value) })}
+              className="rounded-md border border-border-subtle bg-background px-3 py-2 text-sm text-text outline-none focus:border-accent"
+            >
+              {PAGE_SIZE_OPTIONS.map((size) => (
+                <option key={size} value={size}>
+                  {size}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <label className="flex items-center gap-2 text-xs text-text-soft sm:col-span-2">
             <input
               type="checkbox"
@@ -286,6 +417,66 @@ function AdminQualityPoolContent() {
         </div>
 
         {actionError && <Notice>{actionError}</Notice>}
+        {bulkResult && <Notice>{bulkResult}</Notice>}
+
+        {selectedRows.length > 0 && (
+          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-accent/40 bg-background-elevated px-4 py-3 text-sm">
+            <span className="text-text">
+              {t('adminQuality.bulkSelected', { count: selectedRows.length })}
+            </span>
+            {bulkProgress ? (
+              <span className="tabular-nums text-text-soft">
+                {t('adminQuality.bulkProgress', {
+                  done: bulkProgress.done,
+                  total: bulkProgress.total,
+                })}
+              </span>
+            ) : (
+              <>
+                <BulkButton
+                  count={selectedWithGap('target').length}
+                  label={t('adminQuality.bulkGenerateTarget')}
+                  onClick={() =>
+                    runBulk(selectedWithGap('target'), (keys, onProgress) =>
+                      generateAudioBulk(keys, 'target', onProgress),
+                    )
+                  }
+                />
+                <BulkButton
+                  count={selectedWithGap('known').length}
+                  label={t('adminQuality.bulkGenerateKnown')}
+                  onClick={() =>
+                    runBulk(selectedWithGap('known'), (keys, onProgress) =>
+                      generateAudioBulk(keys, 'known', onProgress),
+                    )
+                  }
+                />
+                <BulkButton
+                  count={selectedRows.length}
+                  label={t('adminQuality.bulkAiCheck')}
+                  onClick={runAudit}
+                />
+                <BulkButton
+                  count={selectedRows.length}
+                  label={t('adminQuality.bulkMarkOk')}
+                  onClick={() =>
+                    runBulk(
+                      selectedRows.map((row) => row.pool_key),
+                      (keys, onProgress) => markOkBulk(keys, onProgress),
+                    )
+                  }
+                />
+                <button
+                  type="button"
+                  onClick={() => setSelected(new Set())}
+                  className="ml-auto text-xs text-text-soft underline"
+                >
+                  {t('adminQuality.bulkClear')}
+                </button>
+              </>
+            )}
+          </div>
+        )}
 
         {state.status === 'loading' && (
           <p className="text-sm text-text-soft">{t('adminQuality.loading')}</p>
@@ -300,6 +491,14 @@ function AdminQualityPoolContent() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-background-elevated text-left text-text-soft">
+                  <th className="w-8 px-3 py-2 font-medium">
+                    <input
+                      type="checkbox"
+                      checked={allSelected}
+                      onChange={toggleSelectAll}
+                      aria-label={t('adminQuality.selectAll')}
+                    />
+                  </th>
                   <th className="px-3 py-2 font-medium">{t('adminQuality.colPair')}</th>
                   <th className="px-3 py-2 text-right font-medium">
                     {t('adminQuality.colUses')}
@@ -319,6 +518,17 @@ function AdminQualityPoolContent() {
                       className="cursor-pointer border-t border-border-subtle hover:bg-background-elevated/60"
                       onClick={() => toggleExpanded(row.pool_key)}
                     >
+                      {/* Stops the click from also expanding the row — a
+                          checkbox that unfolds a detail panel makes selecting
+                          a page unreadable. */}
+                      <td className="px-3 py-2" onClick={(event) => event.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={selected.has(row.pool_key)}
+                          onChange={() => toggleSelected(row.pool_key)}
+                          aria-label={`${row.text_known} → ${row.text_target}`}
+                        />
+                      </td>
                       <td className="px-3 py-2">
                         <span className="block">
                           {row.text_known}{' '}
@@ -365,7 +575,7 @@ function AdminQualityPoolContent() {
                     </tr>
                     {expanded.has(row.pool_key) && (
                       <tr className="border-t border-border-subtle bg-background-elevated/40">
-                        <td colSpan={6} className="px-3 py-3">
+                        <td colSpan={7} className="px-3 py-3">
                           <RowDetail row={row} />
                           <RowActions
                             row={row}
@@ -444,8 +654,10 @@ function RowActions({
   const [target, setTarget] = useState(row.suggested_target ?? row.llm_suggested_target ?? '');
   const [note, setNote] = useState(row.suggestion_note ?? '');
 
-  const knownIncomplete = row.known.ready_count < row.occurrences;
-  const targetIncomplete = row.target.ready_count < row.occurrences;
+  // Same predicate as the `known_gap` / `target_gap` filters and the bulk
+  // action, so a row those list is a row this offers to repair.
+  const knownIncomplete = hasAudioGap(row.known, row.occurrences);
+  const targetIncomplete = hasAudioGap(row.target, row.occurrences);
 
   return (
     <div className="mt-3 flex flex-col gap-3 border-t border-border-subtle pt-3">
@@ -545,10 +757,6 @@ function RowDetail({ row }: { row: QualityPoolRow }) {
         </p>
       )}
 
-      {!row.ai_consent && (
-        <p className="m-0 text-xs text-text-soft">{t('adminQuality.noAiConsent')}</p>
-      )}
-
       <div className="flex flex-wrap gap-4">
         {row.known.assets.map((asset) =>
           asset.content_hash ? (
@@ -576,6 +784,33 @@ function AudioPreview({ hash, label }: { hash: string; label: string }) {
       <span>{label}</span>
       <audio controls preload="none" src={`/api/audio/${hash}`} className="h-8" />
     </span>
+  );
+}
+
+/**
+ * A bulk button carries the number of selected pairs it would actually change,
+ * which is not always the number selected — recording the target side skips
+ * pairs already fully recorded. Showing the real count, and disabling at zero,
+ * is what keeps "17 selected" from producing 3 requests with no explanation.
+ */
+function BulkButton({
+  count,
+  label,
+  onClick,
+}: {
+  count: number;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      disabled={count === 0}
+      onClick={onClick}
+      className="rounded-md border border-border-subtle px-3 py-1.5 text-xs text-text disabled:opacity-40"
+    >
+      {label} ({count})
+    </button>
   );
 }
 

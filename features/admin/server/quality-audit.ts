@@ -1,10 +1,14 @@
 /**
  * Batched LLM audit of pool pairs.
  *
- * This is the only part of the pool that sends anything outside the system, so
- * it carries its own, stricter consent: `users.ai_review_opt_in`, defaulting to
- * off, checked in SQL across EVERY owner of a pair. A pair is either sendable
- * in full or not sent at all — there is no partial pair.
+ * This is the only part of the pool that sends anything outside the system.
+ * It used to carry its own, stricter consent (`users.ai_review_opt_in`), but
+ * that switch was unreachable and false for everyone, so the audit had nothing
+ * to work on. It now runs on the same two-key consent that puts a pair in the
+ * pool at all — the model reads the same two words an editor reads, and the
+ * same two words the translation step already sends to a machine translator.
+ * Today every run is started by an editor; nothing here assumes that, so a
+ * scheduled caller would need no change in the consent story.
  *
  * Cost control is the tabled cache keyed on `(pool_key, LLM_AUDIT_VERSION)`
  * plus a hard per-run ceiling. The audit judges against the same rules the
@@ -46,8 +50,6 @@ export interface AuditResult {
   audited: number;
   /** Already scored at this audit version, so not paid for again. */
   cached: number;
-  /** Left out because an owner has not allowed third-party AI review. */
-  skippedNoConsent: number;
   model: string;
 }
 
@@ -179,11 +181,6 @@ export async function auditQualityPool(options: AuditOptions = {}): Promise<Audi
 
   let candidates = page.rows;
 
-  // The consent gate. Counted before anything else so the caller can report
-  // honestly why a pair was left alone.
-  const withoutConsent = candidates.filter((row) => !row.aiConsent);
-  candidates = candidates.filter((row) => row.aiConsent);
-
   const cached = options.force
     ? []
     : candidates.filter((row) => row.review?.llmAuditVersion === LLM_AUDIT_VERSION);
@@ -228,7 +225,6 @@ export async function auditQualityPool(options: AuditOptions = {}): Promise<Audi
   return {
     audited,
     cached: cached.length,
-    skippedNoConsent: withoutConsent.length,
     model: QUALITY_AUDIT_MODEL,
   };
 }

@@ -20,7 +20,6 @@ import { LLM_AUDIT_VERSION } from '../quality-versions';
 
 type Row = {
   poolKey: string;
-  aiConsent: boolean;
   occurrences?: number;
   review?: { llmAuditVersion: number | null; heuristicFlags: [] } | null;
 };
@@ -38,7 +37,6 @@ function pool(rows: Row[]) {
       occurrences: row.occurrences ?? 1,
       listCount: 1,
       topics: [],
-      aiConsent: row.aiConsent,
       known: { readyCount: 0, missingCount: 1, failedCount: 0, pendingCount: 0, legacyCount: 0, assets: [] },
       target: { readyCount: 0, missingCount: 1, failedCount: 0, pendingCount: 0, legacyCount: 0, assets: [] },
       review: row.review ?? null,
@@ -71,46 +69,27 @@ beforeEach(() => {
 
 describe('AI review consent', () => {
   /**
-   * The only place in the pool that sends content to a third party. A pair is
-   * either fully sendable or not sent at all, so one owner without the
-   * consent must keep the whole aggregated pair back.
+   * The audit no longer carries a consent key of its own. The pool query is
+   * the gate — a pair only appears there when the account switch and the list
+   * flag are both on — so everything the audit is handed is sendable, and an
+   * editor starting a run is what makes it happen at all.
    */
-  it('never sends a pair whose owners have not all opted in', async () => {
-    pool([
-      { poolKey: 'p1:no', aiConsent: false },
-      { poolKey: 'p1:yes', aiConsent: true },
-    ]);
+  it('audits the pairs the pool hands it', async () => {
+    pool([{ poolKey: 'p1:a' }, { poolKey: 'p1:b' }]);
     respondOk();
 
     const result = await auditQualityPool({ maxItems: 10 });
 
-    expect(result.skippedNoConsent).toBe(1);
-    expect(result.audited).toBe(1);
-
-    const sent = callOpenRouterChatParsed.mock.calls
-      .map((call) => (call[0] as { messages: { content: string }[] }).messages[1].content)
-      .join('\n');
-    expect(sent).not.toContain('p1:no');
-    expect(upsertQualityAudit.mock.calls[0][0]).toHaveLength(1);
-  });
-
-  it('sends nothing at all when no pair has consent', async () => {
-    pool([{ poolKey: 'p1:a', aiConsent: false }, { poolKey: 'p1:b', aiConsent: false }]);
-    respondOk();
-
-    const result = await auditQualityPool({ maxItems: 10 });
-
-    expect(result.audited).toBe(0);
-    expect(result.skippedNoConsent).toBe(2);
-    expect(callOpenRouterChatParsed).not.toHaveBeenCalled();
+    expect(result.audited).toBe(2);
+    expect(callOpenRouterChatParsed).toHaveBeenCalledTimes(1);
   });
 });
 
 describe('audit cost control', () => {
   it('does not pay twice for a pair already scored at this version', async () => {
     pool([
-      { poolKey: 'p1:cached', aiConsent: true, review: { llmAuditVersion: LLM_AUDIT_VERSION, heuristicFlags: [] } },
-      { poolKey: 'p1:fresh', aiConsent: true },
+      { poolKey: 'p1:cached', review: { llmAuditVersion: LLM_AUDIT_VERSION, heuristicFlags: [] } },
+      { poolKey: 'p1:fresh' },
     ]);
     respondOk();
 
@@ -123,7 +102,7 @@ describe('audit cost control', () => {
   /** Bumping the audit version has to invalidate every stored score. */
   it('re-audits a pair scored by an older generation', async () => {
     pool([
-      { poolKey: 'p1:old', aiConsent: true, review: { llmAuditVersion: LLM_AUDIT_VERSION - 1, heuristicFlags: [] } },
+      { poolKey: 'p1:old', review: { llmAuditVersion: LLM_AUDIT_VERSION - 1, heuristicFlags: [] } },
     ]);
     respondOk();
 
@@ -135,7 +114,7 @@ describe('audit cost control', () => {
 
   it('honours the per-run ceiling', async () => {
     pool(
-      Array.from({ length: 40 }, (_, index) => ({ poolKey: `p1:${index}`, aiConsent: true })),
+      Array.from({ length: 40 }, (_, index) => ({ poolKey: `p1:${index}` })),
     );
     respondOk();
 
@@ -152,8 +131,8 @@ describe('malformed model output', () => {
    */
   it('keeps one judgement per index when the model repeats one', async () => {
     pool([
-      { poolKey: 'p1:a', aiConsent: true },
-      { poolKey: 'p1:b', aiConsent: true },
+      { poolKey: 'p1:a' },
+      { poolKey: 'p1:b' },
     ]);
     callOpenRouterChatParsed.mockImplementation(
       async (_options: unknown, parse: (content: string) => unknown) =>
@@ -186,7 +165,7 @@ describe('auditing named pairs', () => {
    * `audited: 0` with nothing to explain why.
    */
   it('asks the database for the named keys instead of filtering a page', async () => {
-    pool([{ poolKey: 'p1:wanted', aiConsent: true }]);
+    pool([{ poolKey: 'p1:wanted' }]);
     respondOk();
 
     const result = await auditQualityPool({ poolKeys: ['p1:wanted'], maxItems: 10 });

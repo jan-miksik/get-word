@@ -82,9 +82,15 @@ describe('quality pool consent gating', () => {
     expect(rows).toContain('c.review_label');
   });
 
-  it('gates the AI audit on every owner of the pair, not just one', async () => {
+  /**
+   * The audit used to need a third key, `users.ai_review_opt_in`, which no
+   * switch could set — so it was false everywhere and the audit had nothing to
+   * work on. It now runs on the same two keys as the pool, so the SQL must not
+   * grow that gate back by accident.
+   */
+  it('does not gate on the retired third consent key', async () => {
     await getQualityPool();
-    expect(lastQueries().rows).toContain('bool_and(u.ai_review_opt_in)');
+    expect(lastQueries().rows).not.toContain('ai_review_opt_in');
   });
 });
 
@@ -148,7 +154,6 @@ describe('audio aggregation', () => {
         occurrences: 14,
         list_count: 9,
         topics: ['Animals'],
-        ai_consent: false,
         known_ready_count: 4,
         known_missing_count: 10,
         known_failed_count: 0,
@@ -208,6 +213,31 @@ describe('audio aggregation', () => {
     expect(rows).toContain('p.known_ready_count = p.occurrences');
     expect(rows).toContain('p.target_ready_count = p.occurrences');
     expect(rows).not.toContain('p.known_missing_count = 0');
+  });
+
+  /**
+   * The per-side filters exist so an editor can queue "everything still
+   * missing the target recording" and act on it in bulk. They therefore have
+   * to match what the repair acts on — a partly recorded pair and an
+   * unplayable legacy clip are both gaps — or selecting the page would post a
+   * request per row and collect failures for pairs that needed nothing.
+   */
+  it('filters one side at a time on the same gap the repair fills', async () => {
+    // Asserted on the WHERE fragment: both sides' counters appear in the
+    // SELECT list regardless of the filter.
+    await getQualityPool({ audio: 'target_gap' });
+    let { rows } = lastQueries();
+    expect(rows).toContain(
+      'WHERE (p.target_ready_count < p.occurrences OR p.target_legacy_count > 0)',
+    );
+    expect(rows).not.toContain('p.known_ready_count < p.occurrences');
+
+    await getQualityPool({ audio: 'known_gap' });
+    ({ rows } = lastQueries());
+    expect(rows).toContain(
+      'WHERE (p.known_ready_count < p.occurrences OR p.known_legacy_count > 0)',
+    );
+    expect(rows).not.toContain('p.target_ready_count < p.occurrences');
   });
 
   /**
