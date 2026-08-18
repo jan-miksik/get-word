@@ -18,6 +18,8 @@ type Props = {
   translationDiagnostics: TranslationDiagnostics | null;
   isPublic: boolean | null;
   busy: boolean;
+  /** Saving is holding for clips that are still being generated. */
+  waitingForAudio?: boolean;
   onUpdate: (index: number, patch: Partial<Pick<ReviewItem, 'textKnown' | 'textTarget'>>) => void;
   onRemove: (index: number) => void;
   onEnsureAudio: (index: number) => void;
@@ -149,6 +151,7 @@ export function ReviewStep({
   translationDiagnostics,
   isPublic,
   busy,
+  waitingForAudio = false,
   onUpdate,
   onRemove,
   onEnsureAudio,
@@ -339,7 +342,11 @@ export function ReviewStep({
           disabled={busy || items.length === 0}
           className="onboarding-option onboarding-option-highlight flex-1 rounded-xl px-5 py-3 text-center text-base font-extrabold disabled:cursor-not-allowed disabled:opacity-50"
         >
-          {busy ? t('wordChat.saving') : t('wordChat.save')}
+          {busy
+            ? waitingForAudio
+              ? t('wordChat.audioPreparing')
+              : t('wordChat.saving')
+            : t('wordChat.save')}
         </button>
       </div>
     </div>

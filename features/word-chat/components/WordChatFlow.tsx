@@ -379,7 +379,8 @@ export function WordChatFlow({
           warningsByKnown={chat.warningsByKnown}
           translationDiagnostics={chat.translationDiagnostics}
           isPublic={chat.isPublic}
-          busy={chat.busy === 'commit'}
+          busy={chat.busy === 'commit' || chat.busy === 'audio'}
+          waitingForAudio={chat.busy === 'audio'}
           onUpdate={chat.updateReviewItem}
           onRemove={chat.removeReviewItem}
           onEnsureAudio={chat.regenerateAudio}

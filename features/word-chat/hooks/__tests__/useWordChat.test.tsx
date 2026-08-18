@@ -775,6 +775,90 @@ describe('useWordChat', () => {
     expect(result.current.reviewItems[0].audioStatus).toBe('ready');
   });
 
+  it('holds the save until the in-flight clip lands, then commits it with the row', async () => {
+    let resolveAudio: (value: unknown) => void = () => {};
+    const audioPromise = new Promise((resolve) => {
+      resolveAudio = resolve;
+    });
+    mocks.translateSelection.mockResolvedValue({
+      items: [
+        {
+          kind: 'word',
+          text_known: 'káva',
+          text_target: 'cà phê',
+          corpus_item_id: null,
+          audio_asset_id: null,
+          audio_hash: null,
+          known_audio_asset_id: null,
+          warnings: [],
+          reused: false,
+        },
+      ],
+      translation_diagnostics: {
+        model: 'deepseek/deepseek-v4-flash',
+        input_tokens: 100,
+        output_tokens: 20,
+        estimated_cost_usd: 0.000013,
+      },
+    });
+    mocks.generateAudio.mockReturnValue(audioPromise);
+    mocks.commitSession.mockResolvedValue({
+      list_id: 'list-1',
+      category_id: 'category-1',
+      item_count: 1,
+      already_committed: false,
+      monthly_used: 1,
+      monthly_limit: 60,
+    });
+
+    const { result } = renderHook(
+      () => useWordChat({ languageFrom: 'cs', languageTo: 'vi', onCommitted: vi.fn() }),
+      { wrapper },
+    );
+    await waitForPreferences(result);
+
+    await act(() => result.current.sendMessage('Kavárna'));
+    act(() => result.current.toggleSelected(result.current.proposals[1]));
+    act(() => result.current.setTranslationRegister('casual'));
+    await act(() => result.current.continueToReview());
+
+    expect(result.current.reviewItems[0].audioStatus).toBe('pending');
+
+    // Saved while the clip is still being made: without the wait this is the
+    // press that stores a word with no audio.
+    let commitCall: Promise<void> = Promise.resolve();
+    await act(async () => {
+      commitCall = result.current.commit();
+      await Promise.resolve();
+    });
+    expect(mocks.commitSession).not.toHaveBeenCalled();
+    expect(result.current.busy).toBe('audio');
+
+    await act(async () => {
+      resolveAudio({
+        results: [
+          {
+            key: '0',
+            status: 'ok',
+            asset_id: 'asset-1',
+            content_hash: 'hash-1',
+            audio_base64: null,
+            error: null,
+          },
+        ],
+        quota_exhausted: null,
+      });
+      await commitCall;
+    });
+
+    expect(mocks.commitSession).toHaveBeenCalledTimes(1);
+    expect(mocks.commitSession.mock.calls[0][0].items[0]).toMatchObject({
+      textTarget: 'cà phê',
+      audioAssetId: 'asset-1',
+      audioHash: 'hash-1',
+    });
+  });
+
   it('starts audio automatically for a manually added item after opening review', async () => {
     mocks.translateSelection.mockResolvedValue({
       items: [

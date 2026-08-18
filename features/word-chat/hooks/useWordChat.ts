@@ -93,6 +93,14 @@ export type TranslationDiagnostics = {
 const MAX_CONSECUTIVE_FAILURES = 3;
 
 /**
+ * How long Save waits for clips that are still being generated. Generous on
+ * purpose — a batch of a dozen rows plus its retries is slower than it sounds —
+ * but bounded, so a wedged request degrades to "saved without audio" instead of
+ * a button that never finishes.
+ */
+const AUDIO_WAIT_TIMEOUT_MS = 60_000;
+
+/**
  * The review label a manually typed batch is committed under. Not learner-facing
  * (it is a workbench label on the session), so it stays English — and because it
  * is persisted in the draft, it is also what tells a restored session that it was
@@ -328,7 +336,59 @@ export function useWordChat({
   const askVisibility =
     canPublishPublicLists && (manualEntry ? hasPersonalList === false : proposedVisibilityAsk);
 
-  const [reviewItems, setReviewItems] = useState<ReviewItem[]>([]);
+  const [reviewItems, setReviewItemsState] = useState<ReviewItem[]>([]);
+  // A synchronous mirror of `reviewItems`. Saving waits for the audio jobs to
+  // finish and then has to read the rows they just wrote; a `useState` value is
+  // still the pre-await one at that point, so the commit would post the rows
+  // without their fresh `audioAssetId`s and save silent words.
+  const reviewItemsRef = useRef<ReviewItem[]>([]);
+  const setReviewItems = useCallback(
+    (update: ReviewItem[] | ((current: ReviewItem[]) => ReviewItem[])) => {
+      const next =
+        typeof update === 'function' ? update(reviewItemsRef.current) : update;
+      reviewItemsRef.current = next;
+      setReviewItemsState(next);
+    },
+    [],
+  );
+
+  // Audio generation started in the background, so Review can open while clips
+  // are still being made. Saving awaits whatever is in flight — a row committed
+  // before its clip lands is stored without audio and needs a manual repair
+  // pass later.
+  const audioJobsRef = useRef(new Set<Promise<unknown>>());
+  const trackAudioJob = useCallback(<T,>(job: Promise<T>): Promise<T> => {
+    const jobs = audioJobsRef.current;
+    jobs.add(job);
+    void job.catch(() => undefined).finally(() => {
+      jobs.delete(job);
+    });
+    return job;
+  }, []);
+  /**
+   * Resolves once no audio job is running. Jobs can queue further jobs (a retry
+   * batch), so the set is drained rather than awaited once. The cap keeps a
+   * wedged request from holding the save button hostage forever; passing it
+   * falls back to the old behaviour of committing what is voiced so far.
+   */
+  const waitForAudioJobs = useCallback(async () => {
+    const deadline = Date.now() + AUDIO_WAIT_TIMEOUT_MS;
+    while (audioJobsRef.current.size > 0) {
+      const remaining = deadline - Date.now();
+      if (remaining <= 0) return;
+      let timer: ReturnType<typeof setTimeout> | undefined;
+      try {
+        await Promise.race([
+          Promise.all([...audioJobsRef.current].map((job) => job.catch(() => undefined))),
+          new Promise<void>((resolve) => {
+            timer = setTimeout(resolve, remaining);
+          }),
+        ]);
+      } finally {
+        if (timer) clearTimeout(timer);
+      }
+    }
+  }, []);
   const [commitResult, setCommitResult] = useState<CommitResult | null>(null);
   const [refreshStatus, setRefreshStatus] =
     useState<'idle' | 'pending' | 'success' | 'error'>('idle');
@@ -349,7 +409,7 @@ export function useWordChat({
   }>({ chat: null, proposal: null, translation: null });
   const [debugLog, setDebugLog] = useState<WordChatDebugEntry[]>([]);
   const [limits, setLimits] = useState<WordChatLimits>(DEFAULT_LIMITS);
-  const [busy, setBusy] = useState<null | 'chat' | 'propose' | 'translate' | 'commit'>(null);
+  const [busy, setBusy] = useState<null | 'chat' | 'propose' | 'translate' | 'audio' | 'commit'>(null);
   const [error, setError] = useState<string | null>(null);
   const [unavailable, setUnavailable] = useState(false);
   const [canRetry, setCanRetry] = useState(false);
@@ -427,7 +487,7 @@ export function useWordChat({
     setReviewItems(draft.reviewItems);
     setIsPublic(draft.isPublic);
     /* eslint-enable react-hooks/set-state-in-effect */
-  }, [languageFrom, languageTo]);
+  }, [languageFrom, languageTo, setReviewItems]);
 
   // Persist after every meaningful change. Cheap, and the alternative is losing
   // a paid-for proposal — or a dozen hand-typed words — to an accidental reload.
@@ -1193,9 +1253,10 @@ export function useWordChat({
 
       setStep('review');
 
-      // Audio is best-effort. Review should not wait for fresh TTS/storage: the
-      // learner can already check translations while clips are generated in the
-      // background. Reused corpus rows usually arrive voiced.
+      // Review does not wait for fresh TTS/storage: the learner can already
+      // check translations while clips are generated in the background. Saving
+      // does wait (see `commit`), so a row cannot be committed silent. Reused
+      // corpus rows usually arrive voiced.
       const needsAudio = rows
         .map((row, index) => ({ row, index }))
         .filter(({ row }) => !row.audioAssetId && !row.audioDisabled);
@@ -1207,32 +1268,38 @@ export function useWordChat({
           textKnown: row.textKnown,
           textTarget: row.textTarget,
         }));
-        void generateAudioWithRetries(
-          audioRequests.map(({ key, text, language }) => ({
-            key,
-            text,
-            language,
-          })),
-        ).then((assets) => {
-          setReviewItems((current) =>
-            current.map((row) => {
-              const request = audioRequests.find(
-                (entry) =>
-                  entry.textKnown === row.textKnown && entry.textTarget === row.textTarget,
-              );
-              const clip = request ? assets.get(request.key) : undefined;
-              if (!request || row.audioAssetId) return row;
-              return clip
-                ? {
-                    ...row,
-                    audioStatus: 'ready',
-                    audioAssetId: clip.assetId,
-                    audioHash: clip.contentHash,
-                  }
-                : { ...row, audioStatus: 'failed' };
-            }),
-          );
-        });
+        // The tracked job covers the row update too, not just the request:
+        // Save reads the rows the moment the job settles, and a promise that
+        // resolves one tick before the clips are written in is a promise that
+        // resolves too early.
+        void trackAudioJob(
+          generateAudioWithRetries(
+            audioRequests.map(({ key, text, language }) => ({
+              key,
+              text,
+              language,
+            })),
+          ).then((assets) => {
+            setReviewItems((current) =>
+              current.map((row) => {
+                const request = audioRequests.find(
+                  (entry) =>
+                    entry.textKnown === row.textKnown && entry.textTarget === row.textTarget,
+                );
+                const clip = request ? assets.get(request.key) : undefined;
+                if (!request || row.audioAssetId) return row;
+                return clip
+                  ? {
+                      ...row,
+                      audioStatus: 'ready',
+                      audioAssetId: clip.assetId,
+                      audioHash: clip.contentHash,
+                    }
+                  : { ...row, audioStatus: 'failed' };
+              }),
+            );
+          }),
+        );
       }
     } catch (err) {
       handleError(err, { kind: 'translate' });
@@ -1242,6 +1309,8 @@ export function useWordChat({
   }, [
     busy,
     handleError,
+    setReviewItems,
+    trackAudioJob,
     languageFrom,
     languageTo,
     modelOverrides.translation,
@@ -1289,16 +1358,19 @@ export function useWordChat({
         }),
       );
     },
-    [],
+    [setReviewItems],
   );
 
-  const removeReviewItem = useCallback((index: number) => {
-    setReviewItems((current) => current.filter((_, rowIndex) => rowIndex !== index));
-  }, []);
+  const removeReviewItem = useCallback(
+    (index: number) => {
+      setReviewItems((current) => current.filter((_, rowIndex) => rowIndex !== index));
+    },
+    [setReviewItems],
+  );
 
   const regenerateAudio = useCallback(
     async (index: number) => {
-      const row = reviewItems[index];
+      const row = reviewItemsRef.current[index];
       if (!row?.textTarget) return;
       setReviewItems((current) =>
         current.map((entry, entryIndex) =>
@@ -1307,32 +1379,46 @@ export function useWordChat({
             : entry,
         ),
       );
-      const assets = await generateAudioWithRetries([
-        { key: String(index), text: row.textTarget, language: languageTo },
-      ]);
-      const clip = assets.get(String(index));
-      setReviewItems((current) =>
-        current.map((entry, entryIndex) =>
-          entryIndex === index
-            ? clip
-              ? {
-                  ...entry,
-                  audioStatus: 'ready',
-                  audioDisabled: false,
-                  audioAssetId: clip.assetId,
-                  audioHash: clip.contentHash,
-                }
-              : { ...entry, audioStatus: 'failed', audioDisabled: false }
-            : entry,
-        ),
+      // Tracked like the batch job: an edited row usually means the learner is
+      // about to press Save, and that press has to wait for this clip.
+      await trackAudioJob(
+        (async () => {
+          const assets = await generateAudioWithRetries([
+            { key: String(index), text: row.textTarget, language: languageTo },
+          ]);
+          const clip = assets.get(String(index));
+          setReviewItems((current) =>
+            current.map((entry, entryIndex) =>
+              entryIndex === index
+                ? clip
+                  ? {
+                      ...entry,
+                      audioStatus: 'ready',
+                      audioDisabled: false,
+                      audioAssetId: clip.assetId,
+                      audioHash: clip.contentHash,
+                    }
+                  : { ...entry, audioStatus: 'failed', audioDisabled: false }
+                : entry,
+            ),
+          );
+        })(),
       );
     },
-    [languageTo, reviewItems],
+    [languageTo, setReviewItems, trackAudioJob],
   );
 
   const commit = useCallback(async () => {
-    if (busy || reviewItems.length === 0) return;
+    if (busy || reviewItemsRef.current.length === 0) return;
     setError(null);
+    // Clips still being generated are part of the word: committing now would
+    // store the rows with a null asset id, and the learner would have to come
+    // back later to generate audio for words that were already on their way to
+    // having it.
+    if (audioJobsRef.current.size > 0) {
+      setBusy('audio');
+      await waitForAudioJobs();
+    }
     setBusy('commit');
     try {
       const result = await commitSession({
@@ -1347,7 +1433,7 @@ export function useWordChat({
         topicLabel,
         reviewLabel,
         isPublic: isPublic === true,
-        items: reviewItems,
+        items: reviewItemsRef.current,
         messages: completeTranscript(messages),
       });
       noteSuccess();
@@ -1404,10 +1490,10 @@ export function useWordChat({
     messages,
     noteSuccess,
     onCommitted,
-    reviewItems,
     reviewLabel,
     refreshAfterCommit,
     sessionId,
+    waitForAudioJobs,
   ]);
 
   const retryRefresh = useCallback(async () => {
@@ -1505,7 +1591,7 @@ export function useWordChat({
     setCanRetry(false);
     retryTargetRef.current = null;
     failureCountRef.current = 0;
-  }, [entryStep, languageFrom, languageTo, t]);
+  }, [entryStep, languageFrom, languageTo, setReviewItems, t]);
 
   const savePreferences = useCallback(
     async (patch: WordChatPreferencePatch) => {
