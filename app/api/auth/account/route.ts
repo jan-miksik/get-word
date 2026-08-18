@@ -3,15 +3,27 @@ import { resolveUserFromRequest, unauthorizedResponse } from "@/lib/auth";
 import { GET_WORD_SESSION_COOKIE_NAME } from "@/lib/session";
 import { consumeRateLimit, getClientIp } from "@/lib/providers/rate-limit";
 import { deleteAccount } from "@/features/auth/server/delete-account";
+import { NATIVE_APP_ORIGINS } from "@/features/shared/routes/api-cors";
 
 /**
  * Reject cross-site requests to this destructive endpoint. The session cookie is
  * SameSite=Lax (already strong for a JSON DELETE), and this Origin/Referer check
  * is a cheap additional guard.
+ *
+ * The native client is a legitimate cross-origin caller: it runs on
+ * `capacitor://localhost` and authenticates with the Keychain bearer token, not
+ * the cookie, so it is allowed by the same allowlist the CORS layer uses.
+ * Allowing it costs nothing extra — a hostile page on one of those origins
+ * still cannot send the cookie (SameSite) and gets no credentialed CORS grant.
  */
-function isSameOrigin(request: NextRequest): boolean {
+function isAllowedOrigin(request: NextRequest): boolean {
+  const originHeader = request.headers.get("origin");
+  // Compared as the raw header: `new URL("capacitor://localhost").origin` is
+  // the string "null" for a non-special scheme, so parsing loses the identity.
+  if (originHeader && NATIVE_APP_ORIGINS.has(originHeader)) return true;
+
   const expectedHost = request.headers.get("host");
-  const source = request.headers.get("origin") ?? request.headers.get("referer");
+  const source = originHeader ?? request.headers.get("referer");
   if (!source) return true; // no Origin/Referer (e.g. same-origin non-browser) — allow
   try {
     return new URL(source).host === expectedHost;
@@ -29,16 +41,21 @@ function isSameOrigin(request: NextRequest): boolean {
  * deletion on `"deleted"`.
  */
 export async function DELETE(request: NextRequest) {
-  if (!isSameOrigin(request)) {
+  if (!isAllowedOrigin(request)) {
     return NextResponse.json({ error: "Cross-origin request rejected" }, { status: 403 });
   }
 
+  // Anti-hammering only — the real gate is the session plus a confirmation
+  // re-validated against the loaded user. The budget is spent by *failed*
+  // attempts too (a mistyped email, a rejected origin), so the window is short:
+  // a user who has just been shown an error must be able to try again soon,
+  // and the key is a shared carrier IP for most native clients.
   const ip = getClientIp(request.headers);
   const rate = await consumeRateLimit({
     key: ip,
     endpoint: "delete-account",
     limit: 5,
-    windowSeconds: 3600,
+    windowSeconds: 600,
   });
   if (!rate.allowed) {
     return NextResponse.json(

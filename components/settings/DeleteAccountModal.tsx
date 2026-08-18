@@ -5,6 +5,7 @@ import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { useI18n } from '@/components/I18nProvider';
 import { deviceJsonFetch } from '@/features/shared/http/device-json-fetch';
+import { runSignOutHandler } from '@/features/auth/client/sign-out-runtime';
 import { deleteDeviceId } from '@/lib/device-id';
 
 interface DeleteAccountModalProps {
@@ -140,10 +141,15 @@ function DeleteAccountModalContent({ onClose, authEmail }: Omit<DeleteAccountMod
       const data = (await res.json()) as { status: 'deleted' | 'completing' };
       clearGetWordLocalStorage();
       setPhase(data.status === 'completing' ? 'completing' : 'deleted');
-      // Give the user a moment to read the confirmation, then hard-reload to a
-      // fully signed-out, fresh state.
+      // Give the user a moment to read the confirmation, then drop into a fully
+      // signed-out state. On the web that is a hard reload once the session
+      // cookie is expired; the native shell owns its Keychain session, so it
+      // has to be the one to end it — reloading there would boot straight back
+      // into a token whose account no longer exists.
       setTimeout(() => {
-        window.location.href = '/';
+        void runSignOutHandler().then((handled) => {
+          if (!handled) window.location.href = '/';
+        });
       }, 2500);
     } catch {
       setPhase('error');

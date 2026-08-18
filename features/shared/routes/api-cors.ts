@@ -12,7 +12,7 @@ import { NextResponse, type NextRequest } from 'next/server';
  *
  * The web app is same-origin and never reaches this logic.
  */
-const NATIVE_APP_ORIGINS = new Set([
+export const NATIVE_APP_ORIGINS = new Set([
   // Capacitor iOS (and the older Ionic scheme, in case a build predates it).
   'capacitor://localhost',
   'ionic://localhost',

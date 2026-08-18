@@ -78,62 +78,31 @@ Transparency prompts to record in version 1.0.
 ```text
 Hello App Review,
 
-Thank you for your message. Please find all requested information below.
+Thank you for your message. The requested information is below.
 
-1. PHYSICAL-DEVICE SCREEN RECORDING
+1. VIDEO
+The attached recording was made on a physical iPhone SE running iOS 26.6, with submitted build [BUILD NUMBER]. It starts from launch and shows sign-in, vocabulary study and audio, manual and AI-assisted word entry, Photo Lab with its camera/photo permission prompt, public-list reporting/blocking, and account deletion. The app has no IAP, subscriptions, paid content, ads, or ATT prompt.
 
-Video is in attachment.
+2. TESTING
+Physical iPhone SE — iOS 26.6
+iPad Pro (12.9-inch, 6th generation) — iPadOS 26.6.1
 
-The recording was captured on a physical iPhone SE running iOS 26.6, using submitted build [BUILD NUMBER]. It begins with launching Get Word and shows sign-in/account access, the normal vocabulary study flow, pronunciation audio, adding words manually and with AI assistance, Photo Lab and its camera/photo access prompt, public-list reporting and author blocking, and the in-app account-deletion flow.
+3. APP AND AUDIENCE
+Get Word is a vocabulary-learning app for learners of any level, including students, travelers, and people preparing for daily or work situations. Users create relevant vocabulary from manual entry, prepared lists, AI suggestions, or photo labels. The app provides translations, pronunciation audio, short exercises, memory aids, spaced-repetition review, list management, and sync across iPhone, iPad, and web.
 
-Get Word has no in-app purchases, subscriptions, paid content, advertising, or App Tracking Transparency prompt.
+4. ACCESS
+Internet is required for sign-in, initial sync, AI, translation, and new audio. Use the credentials in App Review Information → Sign-in information. Enter the review username in the regular Email field; for this review address, a Password field appears instead of email OTP. There is no separate registration form. If onboarding appears, choose known and target languages, then select a prepared list or add words; no sample file is needed.
 
-2. TEST DEVICES AND OPERATING SYSTEMS
+Paths: Study opens after sign-in. Add words: Menu → Add words → “Suggest words with AI bot”. Photo Lab: “Add words from a photo”/photo action. Report or block: Menu → Word Lists Editor → sidebar on iPhone → Public lists → select a list not owned by the reviewer → detail three-dot menu → Report content / Block author. Delete: Menu → Settings → Account → Delete account. User lists are private unless shared by link; ordinary users cannot publish unreviewed lists.
 
-- iPhone SE — iOS 26.6
+5. EXTERNAL SERVICES
+Sign in with Apple (authentication); Supabase (email authentication and managed database); Vercel (hosting/API); OpenRouter (AI suggestions, some translations, Photo Lab analysis); Google Cloud Translation and Text-to-Speech; Backblaze B2 and Arweave (pronunciation-audio storage/delivery). Photo Lab sends a downscaled selected image to the AI provider; original photos are not retained on our servers.
 
+6. REGIONS
+Features and policies are consistent in all distributed regions. There are no regional feature differences or payments; UI/content varies only by selected language and language pair. Online features require provider availability.
 
-3. FUNCTIONS, TARGET AUDIENCE, PROBLEM, AND VALUE
-
-Get Word is a vocabulary-learning app for language learners at any level, including students, travelers, and people preparing for everyday or work situations. Users choose the words and phrases relevant to them instead of following only a fixed course. They can enter words manually, ask the AI-assisted word chat for suggestions based on a real situation, use a prepared list, or use Photo Lab to label objects in a photo. The app prepares translations and pronunciation audio and schedules later reviews using spaced repetition. Users can also add memory aids, complete short exercises, manage vocabulary lists, and sync their lists, progress, and settings across iPhone, iPad, and the web app.
-
-4. SETUP AND ACCESS INSTRUCTIONS
-
-An internet connection is required for sign-in, initial synchronization, AI assistance, translation, and new audio generation.
-
-Use the username and password supplied in App Store Connect under App Review Information → Sign-in information. On the normal Get Word sign-in screen, enter the supplied review username in the Email field. For this review address, a Password field appears instead of sending the one-time email code. Enter the supplied password and submit.
-
-There is no separate registration form. A normal user account is created on first successful Sign in with Apple or passwordless email-code sign-in. The reusable password flow exists only for the App Review account and is presented within the same regular sign-in screen.
-
-If language onboarding is shown, select a language the user knows and a language to learn, then select a prepared list or add personal words. No sample file is required. Photo Lab can use any ordinary non-sensitive photo selected from the library or taken with the camera.
-
-Main-feature navigation:
-- Study: the initial screen after sign-in; reveal a card, play its audio, and mark the answer known or unknown.
-- Add words: Menu → Add words. Manual entry is shown first; tap “Suggest words with AI bot” for AI suggestions. The user reviews and selects suggestions before saving.
-- Photo Lab: tap “Add words from a photo” / the photo action, then take or choose a photo.
-- Public-content safety: Menu → Word Lists Editor → open the left sidebar on iPhone → Public lists → select a list not owned by the review account → three-dot menu beside the detail heading → Report content or Block author.
-- Account deletion: Menu → Settings → Account → Delete account.
-
-User-created lists are private and may be shared with named recipients by link. Ordinary users cannot publish unreviewed lists to the public library. Public lists are editor-owned/reviewed, and the app still provides reporting and author-blocking controls.
-
-5. EXTERNAL SERVICES, TOOLS, AND PLATFORMS
-
-- Apple Sign in with Apple: native account authentication.
-- Supabase: passwordless email authentication and managed PostgreSQL storage for accounts, vocabulary lists, learning progress, and settings.
-- Vercel: hosting and server/API runtime for Get Word.
-- OpenRouter: AI-assisted word suggestions, some translation workflows, and Photo Lab image analysis. Users review generated vocabulary before saving it.
-- Google Cloud Translation and Text-to-Speech: translations and pronunciation audio.
-- Backblaze B2 and Arweave: storage and delivery of generated/shared pronunciation audio. Audio is content-addressed and is not linked publicly to an account.
-
-Photo Lab sends a downscaled selected image to the AI provider for analysis. Photo history and image blobs are stored locally on the device; Get Word does not retain the original photos on its servers.
-
-6. REGIONAL DIFFERENCES
-
-The app functions consistently in all regions where it is distributed. There are no region-locked features, region-specific payments, or different content policies. The interface and learning content vary only according to the user’s selected interface language and language pair, not the user’s geographic region. Internet access and availability of the listed external services are required for online features.
-
-7. REGULATED INDUSTRY / PROTECTED THIRD-PARTY MATERIAL
-
-Get Word is an education/vocabulary app. It does not provide a regulated service or professional medical, financial, or legal advice. It does not include protected third-party material that requires authorization. No additional licenses or professional credentials are applicable.
+7. REGULATION / RIGHTS
+Get Word is an education app, not a regulated service, and provides no medical, financial, or legal advice. It includes no protected third-party material requiring authorization; no additional credentials apply.
 
 Support: https://getword.app/support
 Privacy Policy: https://getword.app/privacy
@@ -155,7 +124,7 @@ Recorded on physical iPhone SE, iOS 26.6, build [BUILD]. It begins with app laun
 
 TESTED DEVICES
 iPhone SE — iOS 26.6
-[PHYSICAL DEVICE + OS]
+iPad Pro (12.9-inch, 6th generation) — iPadOS 26.6.1
 
 PURPOSE AND AUDIENCE
 Get Word is for language learners at any level, including students, travelers, and people preparing for everyday/work situations. Users build relevant vocabulary by manual entry, AI-assisted suggestions, prepared lists, or labels generated from a photo. The app provides translation, pronunciation, short exercises, memory aids, spaced-repetition scheduling, list management, and progress/settings sync across iPhone, iPad, and web.
