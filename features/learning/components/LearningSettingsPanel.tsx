@@ -2,7 +2,7 @@
 
 import type { MinigameFrequencyRange } from '@/features/learning/minigames';
 import { useI18n } from '@/components/I18nProvider';
-import { TypingModeSection } from './settings/TypingModeSection';
+import { FineTuneSection } from './settings/FineTuneSection';
 import { MemoryHooksSection } from './settings/MemoryHooksSection';
 import { StudyNotesSection } from './settings/StudyNotesSection';
 import { RevealSection } from './settings/RevealSection';
@@ -50,7 +50,7 @@ export function LearningSettingsPanel({
             )}
           </div>
 
-          <TypingModeSection />
+          <FineTuneSection />
           <MemoryHooksSection />
           <StudyNotesSection />
           <RevealSection />

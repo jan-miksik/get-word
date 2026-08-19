@@ -109,10 +109,6 @@ export interface FineTuneConfig {
   stages: StageConfig[];
 }
 
-/** The three weight steps offered in the UI. Kept coarse on purpose. */
-export const WEIGHT_STEPS = [1, 2, 4] as const;
-export type WeightStep = (typeof WEIGHT_STEPS)[number];
-
 export const MIN_WEIGHT = 1;
 export const MAX_WEIGHT = 4;
 

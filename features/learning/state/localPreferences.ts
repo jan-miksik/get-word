@@ -1,5 +1,4 @@
 export type RevealMode = 'press' | 'scratch';
-export type TypingWriteIn = 'foreign' | 'both' | 'known';
 
 export const LEARNING_LOCAL_PREFERENCE_KEYS = {
   progressiveReveal: 'get-word-progressive-reveal-enabled',
@@ -7,9 +6,9 @@ export const LEARNING_LOCAL_PREFERENCE_KEYS = {
   swipeCards: 'get-word-swipe-cards-enabled',
   tiltGame: 'get-word-tilt-game-enabled',
   quickAdd: 'get-word-quick-add-enabled',
+  /** Retired global switch; kept only so the one-shot fine-tune migration
+   * can still see what the learner used to have. */
   typingMode: 'get-word-typing-mode-enabled',
-  typingWriteIn: 'get-word-typing-write-in',
-  typingAudioPrompt: 'get-word-typing-audio-prompt-enabled',
   typingPrefillPunctuation: 'get-word-typing-prefill-punctuation',
   typingMobileKeyboardAutoFocus: 'get-word-typing-mobile-keyboard-autofocus',
   typingPlayAudioAfterCheck: 'get-word-typing-play-audio-after-check',
@@ -49,17 +48,6 @@ export const readQuickAddPreference = () => true;
 
 export const readRevealModePreference = (): RevealMode =>
   readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.revealMode) === 'press' ? 'press' : 'scratch';
-
-export const readTypingModePreference = () =>
-  readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.typingMode) === 'true';
-
-export function readTypingWriteInPreference(): TypingWriteIn {
-  const stored = readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.typingWriteIn);
-  return stored === 'both' || stored === 'known' ? stored : 'foreign';
-}
-
-export const readTypingAudioPromptPreference = () =>
-  readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.typingAudioPrompt) === 'true';
 
 export const readTypingPrefillPunctuationPreference = () =>
   readStorage(LEARNING_LOCAL_PREFERENCE_KEYS.typingPrefillPunctuation) === 'true';

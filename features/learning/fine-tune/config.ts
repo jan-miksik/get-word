@@ -18,11 +18,11 @@ import {
   type TypingVariant,
 } from './types';
 
-export const STAGE_COUNT = STAGES.length;
+const STAGE_COUNT = STAGES.length;
 
 export const PRESET_IDS = ['calm', 'balanced', 'demanding'] as const;
 export type PresetId = (typeof PRESET_IDS)[number];
-export const DEFAULT_PRESET: PresetId = 'balanced';
+const DEFAULT_PRESET: PresetId = 'balanced';
 
 const method = <V extends string>(weight: number, variants: V[]): MethodConfig<V> => ({
   weight,
@@ -120,7 +120,7 @@ function cloneStage(stage: StageConfig): StageConfig {
  * means "treat a 7-day word the way balanced treats a 3-day one", harder means
  * the opposite. Derivation keeps all three presets honest against one table.
  */
-export function presetStageConfigs(preset: PresetId): StageConfig[] {
+function presetStageConfigs(preset: PresetId): StageConfig[] {
   const shift = preset === 'calm' ? -1 : preset === 'demanding' ? 1 : 0;
   return BALANCED_STAGE_CONFIGS.map((stage, index) => {
     if (shift === 0) return cloneStage(stage);
@@ -268,7 +268,7 @@ export function detectPreset(config: FineTuneConfig): PresetId | 'custom' {
   return 'custom';
 }
 
-export function isMethodActive(stage: StageConfig, id: MethodId): boolean {
+function isMethodActive(stage: StageConfig, id: MethodId): boolean {
   return stage[id].variants.length > 0;
 }
 

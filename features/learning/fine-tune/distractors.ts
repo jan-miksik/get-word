@@ -13,7 +13,7 @@ import { hasDistinctVisibleAnswers, sharesLearningScope } from '@/features/learn
  * six-option question, whereas silently shrinking it to four would change the
  * exercise the learner asked for.
  */
-export const BAND_DEGRADATION_ORDER: readonly SimilarityBand[] = ['III', 'II', 'I'];
+const BAND_DEGRADATION_ORDER: readonly SimilarityBand[] = ['III', 'II', 'I'];
 
 /**
  * How many distractors must genuinely sit in the requested band before the
@@ -36,7 +36,7 @@ export const MIN_IN_BAND_PAIRS = (pairCount: number): number =>
  * net — near-twins are rare — but the work must stay bounded on long lists, so
  * we scan a generous slice centred on the word's own position.
  */
-export const DISTRACTOR_SCAN_LIMIT = 400;
+const DISTRACTOR_SCAN_LIMIT = 400;
 
 export interface ResolvedDistractors {
   distractors: NormalizedWord[];

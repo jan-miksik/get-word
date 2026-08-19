@@ -48,26 +48,23 @@ import {
   readQuickAddPreference,
   readSwipeCardsPreference,
   readTiltGamePreference,
-  readTypingAudioPromptPreference,
   readTypingCheckButtonPreference,
   readTypingMobileKeyboardAutoFocusPreference,
-  readTypingModePreference,
   readTypingPlayAudioAfterCheckPreference,
   readTypingPrefillPunctuationPreference,
-  readTypingWriteInPreference,
   storeLearningLocalPreference,
   type RevealMode,
-  type TypingWriteIn,
 } from './localPreferences';
 import {
   DEFAULT_FINE_TUNE_CONFIG,
   normalizeFineTuneConfig,
 } from '@/features/learning/fine-tune/config';
+import { migrateLegacyTypingMode } from '@/features/learning/fine-tune/migration';
 import type { FineTuneConfig } from '@/features/learning/fine-tune/types';
 
 export type Role = LearningRole;
 export type SettingsLanguage = string;
-export type { RevealMode, TypingWriteIn } from './localPreferences';
+export type { RevealMode } from './localPreferences';
 export type { FineTuneConfig } from '@/features/learning/fine-tune/types';
 
 const DEFAULT_SETTINGS_LANGUAGE = 'en';
@@ -162,11 +159,6 @@ export function usePreferences(
   const [tiltGameEnabled, setTiltGameEnabled] = useState(readTiltGamePreference);
   const [photoLabEnabled, setPhotoLabEnabled] = useState(readPhotoLabPreference);
   const [quickAddEnabled, setQuickAddEnabled] = useState(readQuickAddPreference);
-  const [typingModeEnabled, setTypingModeEnabled] = useState(readTypingModePreference);
-  const [typingWriteIn, setTypingWriteIn] = useState<TypingWriteIn>(readTypingWriteInPreference);
-  const [typingAudioPromptEnabled, setTypingAudioPromptEnabled] = useState(
-    readTypingAudioPromptPreference
-  );
   const [typingPrefillPunctuation, setTypingPrefillPunctuation] = useState(
     readTypingPrefillPunctuationPreference
   );
@@ -187,6 +179,7 @@ export function usePreferences(
   const [learningFineTune, setLearningFineTuneState] = useState<FineTuneConfig>(
     DEFAULT_FINE_TUNE_CONFIG
   );
+  const hasServerFineTuneRef = useRef(false);
   const [studyNotesEnabled, setStudyNotesEnabledState] = useState(true);
   const [studyNoteMinimizeFromStage, setStudyNoteMinimizeFromStageState] = useState<number>(
     DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE
@@ -254,21 +247,6 @@ export function usePreferences(
   useEffect(() => {
     storeLearningLocalPreference(LEARNING_LOCAL_PREFERENCE_KEYS.quickAdd, quickAddEnabled);
   }, [quickAddEnabled]);
-
-  useEffect(() => {
-    storeLearningLocalPreference(LEARNING_LOCAL_PREFERENCE_KEYS.typingMode, typingModeEnabled);
-  }, [typingModeEnabled]);
-
-  useEffect(() => {
-    storeLearningLocalPreference(LEARNING_LOCAL_PREFERENCE_KEYS.typingWriteIn, typingWriteIn);
-  }, [typingWriteIn]);
-
-  useEffect(() => {
-    storeLearningLocalPreference(
-      LEARNING_LOCAL_PREFERENCE_KEYS.typingAudioPrompt,
-      typingAudioPromptEnabled,
-    );
-  }, [typingAudioPromptEnabled]);
 
   useEffect(() => {
     storeLearningLocalPreference(
@@ -348,6 +326,17 @@ export function usePreferences(
     if (!hasReceivedServerSnapshot()) return;
     void enqueuePreference('learning_fine_tune', learningFineTune);
   }, [learningFineTune, isHydrated, isUpdatingFromServerRef]);
+
+  // One-shot carry-over from the retired global typing mode. Setting the state
+  // is enough to sync it: the enqueue effect above watches the same value.
+  const fineTuneMigratedRef = useRef(false);
+  useEffect(() => {
+    if (!isHydrated || fineTuneMigratedRef.current) return;
+    if (!hasReceivedServerSnapshot()) return;
+    fineTuneMigratedRef.current = true;
+    const migrated = migrateLegacyTypingMode(hasServerFineTuneRef.current);
+    if (migrated) setLearningFineTuneState(migrated);
+  }, [isHydrated]);
 
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
@@ -567,6 +556,7 @@ export function usePreferences(
     );
     // Null means the learner has never opened the settings, so the default
     // preset applies rather than an empty config.
+    hasServerFineTuneRef.current = Boolean(user.learning_fine_tune);
     setLearningFineTuneState(
       user.learning_fine_tune ? normalizeFineTuneConfig(user.learning_fine_tune) : DEFAULT_FINE_TUNE_CONFIG
     );
@@ -810,12 +800,6 @@ export function usePreferences(
     setPhotoLabEnabled,
     quickAddEnabled,
     setQuickAddEnabled,
-    typingModeEnabled,
-    setTypingModeEnabled,
-    typingWriteIn,
-    setTypingWriteIn,
-    typingAudioPromptEnabled,
-    setTypingAudioPromptEnabled,
     typingPrefillPunctuation,
     setTypingPrefillPunctuation,
     typingMobileKeyboardAutoFocus,

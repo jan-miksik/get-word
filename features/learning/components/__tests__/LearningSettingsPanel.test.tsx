@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { LearningSettingsPanel } from '../LearningSettingsPanel';
+import { DEFAULT_FINE_TUNE_CONFIG } from '@/features/learning/fine-tune/config';
 
 const contextOverrides: Record<string, unknown> = {};
 
@@ -22,12 +24,8 @@ vi.mock('@/context/AppStateContext', () => ({
     setTiltGameEnabled: vi.fn(),
     photoLabEnabled: false,
     setPhotoLabEnabled: vi.fn(),
-    typingModeEnabled: false,
-    setTypingModeEnabled: vi.fn(),
-    typingWriteIn: 'foreign',
-    setTypingWriteIn: vi.fn(),
-    typingAudioPromptEnabled: true,
-    setTypingAudioPromptEnabled: vi.fn(),
+    learningFineTune: DEFAULT_FINE_TUNE_CONFIG,
+    setLearningFineTune: vi.fn(),
     typingPrefillPunctuation: true,
     setTypingPrefillPunctuation: vi.fn(),
     typingMobileKeyboardAutoFocus: false,
@@ -55,7 +53,7 @@ describe('LearningSettingsPanel', () => {
     render(<LearningSettingsPanel {...baseProps} />);
 
     const labels = [
-      /^learning by typing$/i,
+      /^tutoring$/i,
       /^memory hooks$/i,
       /^study notes$/i,
       /^how to reveal words$/i,
@@ -89,51 +87,45 @@ describe('LearningSettingsPanel', () => {
     expect(screen.queryByText(/interface language/i)).not.toBeInTheDocument();
   });
 
-  it('hides the typing sub-settings while the main toggle is off', () => {
+  it('lists every repetition level with the exercises it uses', () => {
     render(<LearningSettingsPanel {...baseProps} />);
-    expect(screen.getByRole('switch', { name: /learning by typing/i })).toBeInTheDocument();
-    expect(screen.queryByRole('radiogroup', { name: /write in/i })).not.toBeInTheDocument();
-    expect(screen.queryByRole('switch', { name: /audio prompts/i })).not.toBeInTheDocument();
+    // The overview names the levels, not the individual variants: the detail
+    // only appears once a level is opened.
+    expect(screen.getByRole('button', { name: /new \/ forgotten/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /60 days/i })).toBeInTheDocument();
+    expect(screen.queryByRole('checkbox', { name: /see the foreign word/i })).not.toBeInTheDocument();
+  });
+
+  it('starts on the balanced preset', () => {
+    render(<LearningSettingsPanel {...baseProps} />);
+    expect(screen.getByRole('radio', { name: /^balanced$/i })).toHaveAttribute(
+      'aria-checked',
+      'true',
+    );
+  });
+
+  it('opens a level to reveal its exercises, with typing options under Advanced', async () => {
+    const user = userEvent.setup();
+    render(<LearningSettingsPanel {...baseProps} />);
+
+    await user.click(screen.getByRole('button', { name: /3 days/i }));
+
+    expect(screen.getByRole('checkbox', { name: /see your own language/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole('checkbox', { name: /first letter shown, hint available/i }),
+    ).toBeInTheDocument();
+    // Matching is configurable here but says plainly that it is practice only.
+    expect(
+      screen.getByText(/matching never changes when a word comes back/i),
+    ).toBeInTheDocument();
+
+    // The mechanical typing switches moved under Advanced.
     expect(
       screen.queryByRole('switch', { name: /prefill commas, periods and spaces/i }),
     ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('switch', { name: /autofocus keyboard on mobile/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('switch', { name: /play audio after checking/i }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('switch', { name: /show check button/i }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('shows the write-in radio and typing options without audio prompts', () => {
-    contextOverrides.typingModeEnabled = true;
-    render(<LearningSettingsPanel {...baseProps} />);
-    const radios = screen.getAllByRole('radio');
-    const writeInRadios = radios.filter((radio) =>
-      /foreign language only|both languages|known language only/i.test(radio.textContent ?? ''),
-    );
-    expect(writeInRadios).toHaveLength(3);
-    expect(
-      writeInRadios.find((radio) => /foreign language only/i.test(radio.textContent ?? '')),
-    ).toHaveAttribute('aria-checked', 'true');
-    expect(screen.queryByRole('switch', { name: /audio prompts/i })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: /^advanced$/i }));
     expect(
       screen.getByRole('switch', { name: /prefill commas, periods and spaces/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('switch', { name: /autofocus keyboard on mobile/i }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('switch', { name: /play audio after checking/i }),
-    ).not.toBeChecked();
-    expect(
-      screen.getByRole('switch', { name: /check the answer with a button/i }),
-    ).not.toBeChecked();
-    expect(
-      screen.getByText(/the answer is not checked automatically after you type the last letter/i),
     ).toBeInTheDocument();
   });
 });

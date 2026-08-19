@@ -7,7 +7,7 @@ import type { NormalizedWord } from '@/lib/words';
  */
 const STRUCTURAL_CATEGORIES = new Set(['word', 'phrase']);
 
-export function visibleAnswerSignature(value: string): string {
+function visibleAnswerSignature(value: string): string {
   const normalized = value
     .trim()
     .toLocaleLowerCase()
@@ -29,7 +29,7 @@ export function hasDistinctVisibleAnswers(left: NormalizedWord, right: Normalize
   );
 }
 
-export function getLearningCategories(word: NormalizedWord): string[] {
+function getLearningCategories(word: NormalizedWord): string[] {
   return word.category.filter((category) => !STRUCTURAL_CATEGORIES.has(category));
 }
 

@@ -162,13 +162,13 @@ function PreviewStudy({
     DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
   );
   const [showAll, setShowAll] = useState(false);
-  const [typingAudioPromptEnabled, setTypingAudioPromptEnabled] = useState(false);
   const [typingPrefillPunctuation, setTypingPrefillPunctuation] = useState(false);
   const [typingMobileKeyboardAutoFocus, setTypingMobileKeyboardAutoFocus] = useState(false);
   const [typingPlayAudioAfterCheck, setTypingPlayAudioAfterCheck] = useState(false);
   const [typingCheckButtonEnabled, setTypingCheckButtonEnabled] = useState(false);
   // Remounts the typing card after each answer so the preview can be exercised
   // repeatedly (the real app advances the stream instead).
+  const [fineTuneConfig, setFineTuneConfig] = useState(DEFAULT_FINE_TUNE_CONFIG);
   const [typingRound, setTypingRound] = useState(0);
   const [gameScore, setGameScore] = useState(12);
   // `?previewFeatureTour` also works on the real study page; here it needs no
@@ -186,7 +186,7 @@ function PreviewStudy({
   const activeWords = useMemo(() => getListWords(activeListId), [activeListId]);
   // The preview drives the real dispatcher, so it exercises the same per-stage
   // method selection the app uses rather than a parallel code path.
-  const resolveExercise = useExerciseResolver(DEFAULT_FINE_TUNE_CONFIG, activeWords);
+  const resolveExercise = useExerciseResolver(fineTuneConfig, activeWords);
   const categories = useMemo(() => getAvailableCategories(activeWords), [activeWords]);
   const filteredWords = useMemo(
     () => activeWords.filter((word) => matchesCategoryFilter(word, selectedCategories)),
@@ -269,8 +269,8 @@ function PreviewStudy({
     setMemoryHooksIntroAnswered: () => undefined,
     memoryHookDisableFromStage,
     setMemoryHookDisableFromStage,
-    typingAudioPromptEnabled,
-    setTypingAudioPromptEnabled,
+    learningFineTune: fineTuneConfig,
+    setLearningFineTune: setFineTuneConfig,
     typingPrefillPunctuation,
     setTypingPrefillPunctuation,
     typingMobileKeyboardAutoFocus,

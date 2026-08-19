@@ -16,7 +16,7 @@ import { knownSideForRole, learningSideForRole } from './games/types';
  *   stay    — right but scaffolded (a hint, a near-miss), repeat at this stage
  *   unknown — wrong, move the word down a stage
  */
-export type ExerciseOutcome = TypingOutcome;
+type ExerciseOutcome = TypingOutcome;
 
 export interface StudyExerciseCardProps {
   word: NormalizedWord;

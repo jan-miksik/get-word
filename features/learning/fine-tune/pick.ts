@@ -64,7 +64,7 @@ function createRng(rawSeed: number): () => number {
  * always lands on the same exercise while answering the card naturally reshuffles
  * it for next time.
  */
-export function exerciseSeed(wordId: string, reviewCount: number): number {
+function exerciseSeed(wordId: string, reviewCount: number): number {
   return hashString(`${wordId}:${reviewCount}`);
 }
 
@@ -185,7 +185,7 @@ export function pickExerciseForWord({
  * learners whose settings deliberately drop it at the long intervals, so it is
  * upward only: past the last configured stage, matching simply stops.
  */
-export function matchVariantsForStage(
+function matchVariantsForStage(
   config: FineTuneConfig,
   stageIndex: number,
 ): MatchVariant[] {
