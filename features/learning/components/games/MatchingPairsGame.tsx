@@ -19,6 +19,7 @@ import { noTranslateProps } from '@/lib/i18n/no-translate';
 import { shuffleGameItems } from '@/features/learning/minigames';
 
 interface Props {
+  /** One button pair per word; 4, 6 or 8 of them depending on the variant. */
   words: NormalizedWord[];
   role: LearningRole;
   sourceLang?: WordSide;
@@ -26,10 +27,13 @@ interface Props {
   soundEnabled?: boolean;
   level?: 1 | 2;
   onResult?: (delta: number) => void;
+  /** Drop the outer card frame so the round reads as part of the study flow. */
+  frameless?: boolean;
 }
 
 type MatchState = 'idle' | 'selected' | 'matched' | 'wrong';
-type MatchColor = 1 | 2 | 3 | 4;
+type MatchColor = 1 | 2 | 3 | 4 | 5 | 6;
+const MATCH_COLOR_COUNT = 6;
 
 export function MatchingPairsGame({
   words,
@@ -39,6 +43,7 @@ export function MatchingPairsGame({
   soundEnabled = false,
   level = 1,
   onResult,
+  frameless = false,
 }: Props) {
   const { t } = useI18n();
   const [rightOrderIds] = useState(() => shuffleGameItems(words.map((word) => word.id)));
@@ -110,7 +115,7 @@ export function MatchingPairsGame({
       setMatchColors(prev => {
         if (prev.has(lId)) return prev;
         const next = new Map(prev);
-        const nextColor = ((prev.size % 4) + 1) as MatchColor;
+        const nextColor = ((prev.size % MATCH_COLOR_COUNT) + 1) as MatchColor;
         next.set(lId, nextColor);
         return next;
       });
@@ -177,7 +182,9 @@ export function MatchingPairsGame({
   };
 
   return (
-    <article className="phrase-card game-card game-card--matching">
+    <article
+      className={`phrase-card game-card game-card--matching${frameless ? ' game-card--bare' : ''}`}
+    >
       <div className="game-badge">🔗 {t('game.match')}</div>
 
       <div className="game-match-grid">

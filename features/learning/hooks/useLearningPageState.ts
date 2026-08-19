@@ -5,6 +5,7 @@ import type { ProgressData } from '@/features/sync/contracts';
 import { calculateProgressStats } from '@/lib/progress-stats';
 import type { NormalizedWord } from '@/lib/words';
 import type { MinigameFrequencyRange } from '@/features/learning/minigames';
+import type { FineTuneConfig } from '@/features/learning/fine-tune/types';
 import { useLearningStreamGroups } from './useLearningStreamGroups';
 import { useWordStream } from './useWordStream';
 import type { ViewMode } from '../app-state/types';
@@ -22,8 +23,8 @@ interface UseLearningPageStateOptions {
   /** The learner's personal list items lead the stream ahead of repeats. */
   ownedPersonalListIds?: ReadonlySet<string>;
   dueTimerRevision?: number;
-  typingModeEnabled?: boolean;
   tiltGameEnabled?: boolean;
+  fineTuneConfig?: FineTuneConfig;
   progressPlanRevision?: string | number;
 }
 
@@ -83,8 +84,8 @@ export function useLearningPageState({
   pinnedCategoryIds,
   ownedPersonalListIds,
   dueTimerRevision = 0,
-  typingModeEnabled = false,
   tiltGameEnabled = false,
+  fineTuneConfig,
   progressPlanRevision = 0,
 }: UseLearningPageStateOptions) {
   const [minigameSeed] = useState<number>(() => Math.floor(Math.random() * 1_000_000_000));
@@ -150,15 +151,12 @@ export function useLearningPageState({
     selectedCategoriesKey,
     wordsResetKey,
     // Temporary QA mode: enabling the frontier tilt quiz makes it the only
-    // scheduled minigame. Turning it off restores the normal rotation (with
-    // typing still excluded when typing is the primary study mode).
-    excludeGameTypes: tiltGameEnabled
-      ? ['multipleChoice', 'typing', 'matching']
-      : typingModeEnabled
-        ? ['typing']
-        : [],
+    // scheduled minigame. Turning it off restores the normal rotation, which is
+    // matching alone — the other games are study cards now.
+    excludeGameTypes: tiltGameEnabled ? ['multipleChoice', 'typing', 'matching'] : [],
     includeGameTypes: tiltGameEnabled ? ['tiltChoice'] : [],
     getStageIndex,
+    fineTuneConfig,
     progressPlanRevision,
   });
 

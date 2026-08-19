@@ -320,49 +320,41 @@ describe('useLearningPageState', () => {
       .filter((item): item is MiniGameConfig => '_isMinigame' in item)
       .map((item) => item.anchorOriginalIndex);
 
-    expect(gameAnchors).toEqual([1, 3, 5, 7, 9]);
+    // Anchor 3 is dropped because its round would repeat anchor 1's word set:
+    // with only ten words in the list, both draw from the same handful, and a
+    // round is never shown twice in a row. Real lists give the 14-word window
+    // plenty to vary.
+    expect(gameAnchors).toEqual([1, 5, 7, 9]);
   });
 
-  it('recomputes the minigame plan without typing quizzes when typing mode toggles on', () => {
-    // Enough anchors (~30) that the seeded no-repeat rotation is virtually
-    // guaranteed to include a typing quiz in the default configuration.
+  it('only ever schedules matching between cards', () => {
+    // Multiple choice and typing became study cards, so scheduling them as
+    // interludes too would grade the same word twice: the anchor pool is drawn
+    // from words the learner has just answered.
     const words = Array.from({ length: 60 }, (_, index) =>
       makeWord(`new-${index}`, 'list-a', 'basics', 0, index)
     );
 
-    const { result, rerender } = renderHook(
-      ({ typingModeEnabled }) =>
-        useLearningPageState({
-          filteredWords: words,
-          selectedCategories: new Set<string>(),
-          progress: {},
-          isHydrated: true,
-          viewMode: 'stream',
-          minigameFrequency: { min: 2, max: 2 },
-          categoryOrder: [],
-          typingModeEnabled,
-        }),
-      { initialProps: { typingModeEnabled: false } }
+    const { result } = renderHook(() =>
+      useLearningPageState({
+        filteredWords: words,
+        selectedCategories: new Set<string>(),
+        progress: {},
+        isHydrated: true,
+        viewMode: 'stream',
+        minigameFrequency: { min: 2, max: 2 },
+        categoryOrder: [],
+      })
     );
 
-    const gamesOf = (groups: ReturnType<typeof useLearningPageState>['streamGroupedWords']) =>
-      groups.flat().filter((item): item is MiniGameConfig => '_isMinigame' in item);
+    const games = result.current.streamGroupedWords
+      .flat()
+      .filter((item): item is MiniGameConfig => '_isMinigame' in item);
 
-    // Enough anchors with a tight interval that the default rotation includes typing.
-    expect(gamesOf(result.current.streamGroupedWords).some((game) => game.gameType === 'typing'))
-      .toBe(true);
-
-    rerender({ typingModeEnabled: true });
-
-    const typingModeGames = gamesOf(result.current.streamGroupedWords);
-    expect(typingModeGames.length).toBeGreaterThan(0);
-    expect(typingModeGames.every((game) => game.gameType !== 'typing')).toBe(true);
-
-    rerender({ typingModeEnabled: false });
-
-    expect(gamesOf(result.current.streamGroupedWords).some((game) => game.gameType === 'typing'))
-      .toBe(true);
+    expect(games.length).toBeGreaterThan(0);
+    expect(games.every((game) => game.gameType === 'matching')).toBe(true);
   });
+
 
   it('temporarily schedules only tiltChoice while its frontier toggle is enabled', () => {
     const words = Array.from({ length: 60 }, (_, index) =>

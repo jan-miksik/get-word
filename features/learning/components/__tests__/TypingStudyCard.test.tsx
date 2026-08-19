@@ -74,10 +74,9 @@ function renderCard(props?: Partial<React.ComponentProps<typeof TypingStudyCard>
       word={WORD}
       progress={PROGRESS}
       role="knownLanguage"
-      writeIn="foreign"
+      variant="hint"
       audioPromptEnabled={false}
       prefillPunctuation
-      modeIndex={0}
       onScore={onScore}
       onOutcome={onOutcome}
       onCustomStage={onCustomStage}
@@ -137,10 +136,9 @@ describe('TypingStudyCard', () => {
         word={WORD}
         progress={PROGRESS}
         role="knownLanguage"
-        writeIn="foreign"
+        variant="hint"
         audioPromptEnabled={false}
         prefillPunctuation
-        modeIndex={0}
         onOutcome={onOutcome}
         autoFocus
         autoFocusOnMobile={false}
@@ -153,10 +151,9 @@ describe('TypingStudyCard', () => {
         word={WORD}
         progress={PROGRESS}
         role="knownLanguage"
-        writeIn="foreign"
+        variant="hint"
         audioPromptEnabled={false}
         prefillPunctuation
-        modeIndex={0}
         onOutcome={onOutcome}
         autoFocus
         autoFocusOnMobile
@@ -228,10 +225,9 @@ describe('TypingStudyCard', () => {
           word={WORD}
           progress={PROGRESS}
           role="knownLanguage"
-          writeIn="foreign"
+          variant="hint"
           audioPromptEnabled={false}
           prefillPunctuation
-          modeIndex={0}
           onOutcome={vi.fn()}
           showMemoryHook
           onMemoryHookChange={vi.fn()}
@@ -279,10 +275,9 @@ describe('TypingStudyCard', () => {
           word={WORD}
           progress={PROGRESS}
           role="knownLanguage"
-          writeIn="foreign"
+          variant="hint"
           audioPromptEnabled={false}
           prefillPunctuation
-          modeIndex={0}
           onOutcome={vi.fn()}
           showMemoryHook
           onMemoryHookChange={vi.fn()}
@@ -320,10 +315,9 @@ describe('TypingStudyCard', () => {
           word={WORD}
           progress={PROGRESS}
           role="knownLanguage"
-          writeIn="foreign"
+          variant="hint"
           audioPromptEnabled={false}
           prefillPunctuation
-          modeIndex={0}
           onOutcome={vi.fn()}
           showMemoryHook
           onMemoryHookChange={vi.fn()}
@@ -384,10 +378,9 @@ describe('TypingStudyCard', () => {
           word={WORD}
           progress={PROGRESS}
           role="knownLanguage"
-          writeIn="foreign"
+          variant="hint"
           audioPromptEnabled={false}
           prefillPunctuation
-          modeIndex={0}
           onOutcome={vi.fn()}
         />
       </main>,
@@ -615,17 +608,17 @@ describe('TypingStudyCard', () => {
     expect(onOutcome).toHaveBeenCalledWith('stay');
   });
 
-  it('types the known side when writeIn=known and shows the write-in badge', () => {
-    const { onOutcome } = renderCard({ writeIn: 'known' });
-    expect(screen.getByText('⌨️ Type in Czech')).toBeInTheDocument();
-    // Prompt is the foreign text (audio prompt disabled).
-    expect(screen.getByText('con chó')).toBeInTheDocument();
-    fireEvent.change(input(), { target: { value: 'pes' } });
+  it('always answers on the foreign side', () => {
+    // Typing the learner's own language was dropped: there is no direction to
+    // configure any more, so the answer is the foreign word whatever the stage.
+    const { onOutcome } = renderCard();
+    expect(screen.getByText('pes')).toBeInTheDocument();
+    fireEvent.change(input(), { target: { value: 'con chó' } });
     fireEvent.click(continueOverlay());
     expect(onOutcome).toHaveBeenCalledWith('known');
   });
 
-  it('hides the write-in badge in the default foreign mode', () => {
+  it('never shows a write-in badge', () => {
     renderCard();
     expect(screen.queryByText(/Type in/)).not.toBeInTheDocument();
   });
@@ -639,26 +632,11 @@ describe('TypingStudyCard', () => {
     expect(onOutcome).toHaveBeenCalledWith('known');
   });
 
-  it('picks the side from modeIndex when writeIn=both', () => {
-    renderCard({ writeIn: 'both', modeIndex: 1 });
-    // modeIndex 1 → known side (cz); the prompt shows the foreign text.
-    expect(screen.getByText('⌨️ Type in Czech')).toBeInTheDocument();
-    fireEvent.change(input(), { target: { value: 'pes' } });
-    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
-  });
-
   it('shows the audio prompt with the known meaning under it', () => {
     renderCard({ audioPromptEnabled: true });
     expect(screen.getByRole('button', { name: /replay prompt audio/i })).toBeInTheDocument();
     // Dictation still carries the meaning in the known language.
     expect(screen.getByText('pes')).toBeInTheDocument();
-  });
-
-  it('hides the known meaning under the audio prompt when the known side is the answer', () => {
-    renderCard({ audioPromptEnabled: true, writeIn: 'known' });
-    expect(screen.getByRole('button', { name: /replay prompt audio/i })).toBeInTheDocument();
-    // Showing 'pes' would reveal exactly what the user has to type.
-    expect(screen.queryByText('pes')).not.toBeInTheDocument();
   });
 
   it('shows a floating play button when audio exists but the audio prompt is off', () => {
@@ -791,10 +769,9 @@ describe('TypingStudyCard', () => {
         word={VI_WORD}
         progress={PROGRESS}
         role="knownLanguage"
-        writeIn="foreign"
+        variant="hint"
         audioPromptEnabled={false}
         prefillPunctuation
-        modeIndex={0}
         onOutcome={vi.fn()}
         onCustomStage={vi.fn()}
         checkButtonEnabled
@@ -999,7 +976,9 @@ describe('TypingStudyCard', () => {
   });
 
   it('keeps auto-check when the answer side is not a multi-key language', () => {
-    renderCard({ word: VI_WORD, writeIn: 'known' });
+    // The reversed role puts Czech on the learning side, so the answer is not
+    // the multi-key Vietnamese text.
+    renderCard({ word: VI_WORD, role: 'languageToLearn' });
     // Answer is the Czech side; the check button stays hidden.
     expect(screen.queryByRole('button', { name: /check/i })).not.toBeInTheDocument();
     fireEvent.change(input(), { target: { value: 'pes' } });

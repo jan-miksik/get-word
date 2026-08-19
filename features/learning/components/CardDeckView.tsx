@@ -88,6 +88,8 @@ interface CardDeckViewProps {
   swipeActions?: CardDeckSwipeActions;
   /** False keeps only the upward fully-known gesture. */
   allowHorizontalSwipe?: boolean;
+  /** Veto swipe for individual cards (a typing card owns the keyboard). */
+  isSwipeBlockedForWord?: (wordId: string) => boolean;
   renderCard: (
     word: NormalizedWord,
     stageIndex: number,
@@ -107,6 +109,7 @@ export function CardDeckView({
   onWordCardCompleted,
   swipeActions,
   allowHorizontalSwipe = true,
+  isSwipeBlockedForWord,
   renderCard,
   renderMiniGame,
 }: CardDeckViewProps) {
@@ -352,8 +355,9 @@ export function CardDeckView({
     const currentItems = itemsRef.current;
     const currentItem = currentItems[currentIndexRef.current] ?? lastItemRef.current;
     if (!currentItem || '_isMinigame' in currentItem) return null;
+    if (isSwipeBlockedForWord?.(currentItem.id)) return null;
     return currentItem.id;
-  }, []);
+  }, [isSwipeBlockedForWord]);
   const swipeConfigured = Boolean(swipeActions);
   const swipeEnabled = swipeConfigured && !interstitialCard && !showDoneOverlay && !exitAnim;
   const swipe = useSwipeGesture({

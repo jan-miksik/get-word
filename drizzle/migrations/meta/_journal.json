@@ -442,6 +442,13 @@
       "when": 1786838400000,
       "tag": "0062_quality_pool",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "7",
+      "when": 1786924800000,
+      "tag": "0063_learning_fine_tune",
+      "breakpoints": true
     }
   ]
 }

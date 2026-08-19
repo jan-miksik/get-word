@@ -20,6 +20,8 @@ type TypingAnswerInputProps = {
   isFocused: boolean;
   mask: ReactNode;
   isManualAnswerComplete: boolean;
+  /** The hardest typing variant offers no hint at all. */
+  hintEnabled: boolean;
   hintExhausted: boolean;
   onApplyValue: (value: string) => void;
   onSubmit: () => void;
@@ -42,6 +44,7 @@ export function TypingAnswerInput({
   isFocused,
   mask,
   isManualAnswerComplete,
+  hintEnabled,
   hintExhausted,
   onApplyValue,
   onSubmit,
@@ -53,7 +56,8 @@ export function TypingAnswerInput({
   onPreserveFocus,
 }: TypingAnswerInputProps) {
   const { t } = useI18n();
-  const hintButton = result === null ? (
+  // The hardest typing variant offers no way out: no first letter, no hint.
+  const hintButton = result === null && hintEnabled ? (
     <button
       ref={hintButtonRef}
       type="button"

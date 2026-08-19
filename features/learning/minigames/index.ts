@@ -21,6 +21,7 @@ export {
 export type {
   GameAnchor,
   GameType,
+  InjectMinigamesOptions,
   MiniGameConfig,
   MinigameFrequencyRange,
 } from './types';

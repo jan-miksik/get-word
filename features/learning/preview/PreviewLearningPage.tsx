@@ -3,11 +3,11 @@
 import { useCallback, useMemo, useState } from 'react';
 import { AppLayout } from '@/components/AppLayout';
 import { I18nProvider } from '@/components/I18nProvider';
-import { WordCard } from '@/features/learning/components/WordCard';
 import { AppStateProvider, type AppStateContextValue } from '@/context/AppStateContext';
-import { TypingStudyCard } from '@/features/learning/components/TypingStudyCard';
+import { StudyExerciseCard } from '@/features/learning/components/StudyExerciseCard';
+import { useExerciseResolver } from '@/features/learning/hooks/useExerciseResolver';
 import { FeatureTour } from '@/features/learning/onboarding/FeatureTour';
-import type { TypingWriteIn } from '@/features/learning/state/preferences';
+import { DEFAULT_FINE_TUNE_CONFIG } from '@/features/learning/fine-tune/config';
 import type { LearningRole } from '@/features/learning/state/learningRole';
 import type { ProgressData } from '@/features/sync/contracts';
 import type { MinigameFrequencyRange } from '@/features/learning/minigames';
@@ -162,8 +162,6 @@ function PreviewStudy({
     DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
   );
   const [showAll, setShowAll] = useState(false);
-  const [typingModeEnabled, setTypingModeEnabled] = useState(false);
-  const [typingWriteIn, setTypingWriteIn] = useState<TypingWriteIn>('foreign');
   const [typingAudioPromptEnabled, setTypingAudioPromptEnabled] = useState(false);
   const [typingPrefillPunctuation, setTypingPrefillPunctuation] = useState(false);
   const [typingMobileKeyboardAutoFocus, setTypingMobileKeyboardAutoFocus] = useState(false);
@@ -186,6 +184,9 @@ function PreviewStudy({
   });
 
   const activeWords = useMemo(() => getListWords(activeListId), [activeListId]);
+  // The preview drives the real dispatcher, so it exercises the same per-stage
+  // method selection the app uses rather than a parallel code path.
+  const resolveExercise = useExerciseResolver(DEFAULT_FINE_TUNE_CONFIG, activeWords);
   const categories = useMemo(() => getAvailableCategories(activeWords), [activeWords]);
   const filteredWords = useMemo(
     () => activeWords.filter((word) => matchesCategoryFilter(word, selectedCategories)),
@@ -268,10 +269,6 @@ function PreviewStudy({
     setMemoryHooksIntroAnswered: () => undefined,
     memoryHookDisableFromStage,
     setMemoryHookDisableFromStage,
-    typingModeEnabled,
-    setTypingModeEnabled,
-    typingWriteIn,
-    setTypingWriteIn,
     typingAudioPromptEnabled,
     setTypingAudioPromptEnabled,
     typingPrefillPunctuation,
@@ -347,19 +344,28 @@ function PreviewStudy({
       >
         <main className="learning-card-main flex flex-col flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden" aria-live="polite">
           <div className="learning-card-viewport relative flex h-full w-full flex-col max-w-[800px] mx-auto">
-            {currentWord && typingModeEnabled ? (
-              <div className="h-full flex flex-col justify-end md:justify-start relative">
-                <TypingStudyCard
-                  key={`typing-${currentWord.id}-${typingRound}`}
+            {currentWord ? (
+              // Stands in for the card deck's own `data-tour` anchor so the
+              // feature tour can be exercised here; see `featureTourSteps.ts`.
+              <div data-tour="study" className="h-full flex flex-col justify-end md:justify-start relative">
+                <StudyExerciseCard
+                  key={`exercise-${currentWord.id}-${typingRound}`}
                   word={currentWord}
                   progress={progress[currentWord.id]}
                   role={role}
-                  writeIn={typingWriteIn}
-                  audioPromptEnabled={false}
-                  prefillPunctuation={typingPrefillPunctuation}
-                  playAudioAfterCheck={typingPlayAudioAfterCheck}
-                  checkButtonEnabled={typingCheckButtonEnabled}
-                  modeIndex={(typingRound % 2) as 0 | 1}
+                  exercise={resolveExercise(currentWord, progress[currentWord.id])}
+                  showAll={showAll}
+                  memoryHook={memoryHooks[currentWord.id] ?? ''}
+                  suggestedHook={currentWord.czHint ?? ''}
+                  onMemoryHookChange={(hook) => setMemoryHook(currentWord, hook)}
+                  showMemoryHook={memoryHooksEnabled && progress[currentWord.id].stageIndex < memoryHookDisableFromStage}
+                  onKnown={() => changeProgress(currentWord.id, 'known')}
+                  onReallyKnown={() => changeProgress(currentWord.id, { stageIndex: STAGES.length - 1 })}
+                  onUnknown={() => changeProgress(currentWord.id, 'unknown')}
+                  onCustomStage={(stageIndex, opts) => {
+                    changeProgress(currentWord.id, { stageIndex, noRepeat: opts?.noRepeat });
+                    setTypingRound((round) => round + 1);
+                  }}
                   onScore={(points) => setGameScore((score) => Math.max(0, score + points))}
                   onOutcome={(outcome) => {
                     if (outcome === 'known') changeProgress(currentWord.id, 'known');
@@ -370,42 +376,17 @@ function PreviewStudy({
                       });
                     setTypingRound((round) => round + 1);
                   }}
-                  onCustomStage={(stageIndex, opts) => {
-                    changeProgress(currentWord.id, { stageIndex, noRepeat: opts?.noRepeat });
-                    setTypingRound((round) => round + 1);
-                  }}
-                  memoryHook={memoryHooks[currentWord.id] ?? ''}
-                  suggestedHook={currentWord.czHint ?? ''}
-                  onMemoryHookChange={(hook) => setMemoryHook(currentWord, hook)}
-                  showMemoryHook={memoryHooksEnabled && progress[currentWord.id].stageIndex < memoryHookDisableFromStage}
-                  fullscreen
-                  autoFocusOnMobile={typingMobileKeyboardAutoFocus}
-                />
-              </div>
-            ) : currentWord ? (
-              // Stands in for the card deck's own `data-tour` anchor so the
-              // feature tour can be exercised here; see `featureTourSteps.ts`.
-              <div data-tour="study" className="h-full flex flex-col justify-end md:justify-start relative">
-                <WordCard
-                  word={currentWord}
-                  progress={progress[currentWord.id]}
-                  role={role}
-                  modeIndex={0}
-                  showAll={showAll}
-                  memoryHook={memoryHooks[currentWord.id] ?? ''}
-                  suggestedHook={currentWord.czHint ?? ''}
-                  onKnown={() => changeProgress(currentWord.id, 'known')}
-                  onCustomStage={(stageIndex, opts) =>
-                    changeProgress(currentWord.id, { stageIndex, noRepeat: opts?.noRepeat })
-                  }
-                  onUnknown={() => changeProgress(currentWord.id, 'unknown')}
-                  onMemoryHookChange={(hook) => setMemoryHook(currentWord, hook)}
                   showEnglish={false}
                   showCategoryBadges={false}
                   showPronunciation
                   categoryOrder={categoryOrder}
-                  showMemoryHook={memoryHooksEnabled && progress[currentWord.id].stageIndex < memoryHookDisableFromStage}
+                  studyNotesEnabled={false}
+                  studyNoteMinimizeFromStage={2}
+                  typingPrefillPunctuation={typingPrefillPunctuation}
+                  typingPlayAudioAfterCheck={typingPlayAudioAfterCheck}
+                  typingCheckButtonEnabled={typingCheckButtonEnabled}
                   fullscreen
+                  autoFocusOnMobile={typingMobileKeyboardAutoFocus}
                 />
               </div>
             ) : (

@@ -1,10 +1,11 @@
 'use client';
 
 import { useCallback, useRef } from 'react';
-import { WordCard } from '@/features/learning/components/WordCard';
 import { MiniGameCard } from '@/features/learning/components/MiniGameCard';
-import { TypingStudyCard, type TypingOutcome } from '@/features/learning/components/TypingStudyCard';
-import type { TypingWriteIn } from '@/features/learning/state/preferences';
+import type { TypingOutcome } from '@/features/learning/components/TypingStudyCard';
+import { StudyExerciseCard } from '@/features/learning/components/StudyExerciseCard';
+import type { FineTuneConfig } from '@/features/learning/fine-tune/types';
+import { useExerciseResolver } from './useExerciseResolver';
 import type { ProgressData } from '@/features/sync/contracts';
 import type { MiniGameConfig } from '@/features/learning/minigames';
 import type { NormalizedWord } from '@/lib/words';
@@ -17,7 +18,6 @@ const isMobileLayout = () =>
 interface UseLearningRenderersOptions {
   progress: Record<string, ProgressData>;
   role: LearningRole;
-  getWordDisplayMode: (wordId: string) => 0 | 1;
   showAll: boolean;
   getMemoryHook: (word: Pick<NormalizedWord, 'id' | 'canonicalWordId'>) => string;
   getSuggestedMemoryHook: (word: NormalizedWord) => string;
@@ -35,8 +35,9 @@ interface UseLearningRenderersOptions {
   studyNotesEnabled: boolean;
   studyNoteMinimizeFromStage: number;
   swipeCardsEnabled: boolean;
-  typingModeEnabled: boolean;
-  typingWriteIn: TypingWriteIn;
+  fineTuneConfig: FineTuneConfig;
+  /** Every word in the current study set, used to draw quiz distractors from. */
+  distractorPool: NormalizedWord[];
   typingPrefillPunctuation: boolean;
   typingMobileKeyboardAutoFocus: boolean;
   typingPlayAudioAfterCheck: boolean;
@@ -49,7 +50,6 @@ interface UseLearningRenderersOptions {
 export function useLearningRenderers({
   progress,
   role,
-  getWordDisplayMode,
   showAll,
   getMemoryHook,
   getSuggestedMemoryHook,
@@ -67,8 +67,8 @@ export function useLearningRenderers({
   studyNotesEnabled,
   studyNoteMinimizeFromStage,
   swipeCardsEnabled,
-  typingModeEnabled,
-  typingWriteIn,
+  fineTuneConfig,
+  distractorPool,
   typingPrefillPunctuation,
   typingMobileKeyboardAutoFocus,
   typingPlayAudioAfterCheck,
@@ -77,23 +77,23 @@ export function useLearningRenderers({
   setDismissedGames,
   setGameScore,
 }: UseLearningRenderersOptions) {
-  const lockedDeckCardStateRef = useRef<Map<string, { modeIndex: number; progress: ProgressData }>>(
-    new Map()
-  );
+  const lockedDeckCardStateRef = useRef<Map<string, { progress: ProgressData }>>(new Map());
 
-  // Typing mode wires quiz-style results into the spaced-repetition stages:
-  // clean success advances, a hinted/near answer reschedules at the same
-  // stage, and a failure steps the word down.
-  // Score lands as soon as the answer is checked; the SR stage moves only
-  // when the card advances (continue tap), so the two are wired separately.
-  const applyTypingScore = useCallback(
+  const resolveExercise = useExerciseResolver(fineTuneConfig, distractorPool);
+
+  // Every exercise — reveal, choice or typing — feeds the same spaced-repetition
+  // stages: a clean success advances, a hinted or near answer reschedules at the
+  // same stage, and a failure steps the word down.
+  // Score lands as soon as the answer is checked; the SR stage moves only when
+  // the card advances (continue tap), so the two are wired separately.
+  const applyExerciseScore = useCallback(
     (points: number) => {
       if (points > 0) setGameScore((prev) => Math.max(0, prev + points));
     },
     [setGameScore]
   );
 
-  const applyTypingOutcome = useCallback(
+  const applyExerciseOutcome = useCallback(
     (wordId: string, stageIndex: number, outcome: TypingOutcome) => {
       if (outcome === 'known') markKnown(wordId);
       else if (outcome === 'unknown') markUnknown(wordId);
@@ -105,59 +105,38 @@ export function useLearningRenderers({
   const renderCard = useCallback((word: NormalizedWord, _stageIndex?: number) => {
     void _stageIndex;
     const prog = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
-    if (typingModeEnabled) {
-      return (
-        <div key={word.id} className="pt-8">
-          <TypingStudyCard
-            word={word}
-            progress={prog}
-            role={role}
-            writeIn={typingWriteIn}
-            audioPromptEnabled={false}
-            prefillPunctuation={typingPrefillPunctuation}
-            playAudioAfterCheck={typingPlayAudioAfterCheck}
-            checkButtonEnabled={typingCheckButtonEnabled}
-            modeIndex={getWordDisplayMode(word.id)}
-            onScore={applyTypingScore}
-            onOutcome={(outcome) =>
-              applyTypingOutcome(word.id, prog.stageIndex, outcome)
-            }
-            onCustomStage={(stageIndex, opts) => setCustomStage(word.id, stageIndex, opts)}
-            memoryHook={getMemoryHook(word)}
-            suggestedHook={getSuggestedMemoryHook(word)}
-            onMemoryHookChange={(hook) => setMemoryHook(word, hook)}
-            showMemoryHook={shouldRenderMemoryHook(word.id)}
-          />
-        </div>
-      );
-    }
     return (
       <div key={word.id} className="pt-8">
-        <WordCard
+        <StudyExerciseCard
           word={word}
           progress={prog}
           role={role}
-          modeIndex={getWordDisplayMode(word.id)}
+          exercise={resolveExercise(word, prog)}
           showAll={showAll}
           memoryHook={getMemoryHook(word)}
           suggestedHook={getSuggestedMemoryHook(word)}
+          onMemoryHookChange={(hook) => setMemoryHook(word, hook)}
+          showMemoryHook={shouldRenderMemoryHook(word.id)}
           onKnown={() => markKnown(word.id)}
           onReallyKnown={() => markReallyKnown(word.id)}
-          onCustomStage={(stageIndex, opts) => setCustomStage(word.id, stageIndex, opts)}
           onUnknown={() => markUnknown(word.id)}
-          onMemoryHookChange={(hook) => setMemoryHook(word, hook)}
+          onCustomStage={(stageIndex, opts) => setCustomStage(word.id, stageIndex, opts)}
+          onScore={applyExerciseScore}
+          onOutcome={(outcome) => applyExerciseOutcome(word.id, prog.stageIndex, outcome)}
           isMoved={lastMovedId === word.id}
           showEnglish={showEnglish}
           showCategoryBadges={showCategoryBadges}
           showPronunciation={showPronunciation}
           categoryOrder={categoryOrder}
-          showMemoryHook={shouldRenderMemoryHook(word.id)}
           studyNotesEnabled={studyNotesEnabled}
           studyNoteMinimizeFromStage={studyNoteMinimizeFromStage}
+          typingPrefillPunctuation={typingPrefillPunctuation}
+          typingPlayAudioAfterCheck={typingPlayAudioAfterCheck}
+          typingCheckButtonEnabled={typingCheckButtonEnabled}
         />
       </div>
     );
-  }, [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, typingModeEnabled, typingWriteIn, typingPrefillPunctuation, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyTypingScore, applyTypingOutcome]);
+  }, [progress, role, resolveExercise, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, lastMovedId, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, typingPrefillPunctuation, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyExerciseScore, applyExerciseOutcome]);
 
   const renderMiniGame = useCallback((config: MiniGameConfig, isActive = false) => {
     if (dismissedGames.has(config.id)) return null;
@@ -187,97 +166,65 @@ export function useLearningRenderers({
       opts?: { isExiting: boolean }
     ) => {
       const liveProg = progress[word.id] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
-      const liveModeIndex = getWordDisplayMode(word.id);
       const isExiting = opts?.isExiting ?? false;
+      // While a card animates out it must keep showing the answer the learner
+      // just gave, not the progress the answer produced.
       const locked = lockedDeckCardStateRef.current.get(word.id);
       if (isExiting) {
-        if (!locked) {
-          lockedDeckCardStateRef.current.set(word.id, {
-            modeIndex: liveModeIndex,
-            progress: liveProg,
-          });
-        }
+        if (!locked) lockedDeckCardStateRef.current.set(word.id, { progress: liveProg });
       } else if (locked) {
         lockedDeckCardStateRef.current.delete(word.id);
       }
-      const cardState = isExiting
-        ? lockedDeckCardStateRef.current.get(word.id)
-        : null;
-      const prog = cardState?.progress ?? liveProg;
-      const modeIndex = cardState?.modeIndex ?? liveModeIndex;
-      if (typingModeEnabled) {
-        return (
-          <div key={word.id} className="h-full flex flex-col justify-end md:justify-start relative">
-            <TypingStudyCard
-              word={word}
-              progress={prog}
-              role={role}
-              writeIn={typingWriteIn}
-              audioPromptEnabled={false}
-              prefillPunctuation={typingPrefillPunctuation}
-              playAudioAfterCheck={typingPlayAudioAfterCheck}
-              checkButtonEnabled={typingCheckButtonEnabled}
-              modeIndex={modeIndex as 0 | 1}
-              onScore={applyTypingScore}
-              onOutcome={(outcome) => {
-                onComplete(
-                  () => applyTypingOutcome(word.id, prog.stageIndex, outcome),
-                  {
-                    // iOS only raises the keyboard reliably while the Continue
-                    // tap is still active, so mobile typing skips the deck exit.
-                    skipAnimation: typingMobileKeyboardAutoFocus && isMobileLayout(),
-                  },
-                );
-              }}
-              onCustomStage={(stageIndex, opts) => {
-                onComplete(
-                  () => setCustomStage(word.id, stageIndex, opts),
-                  {
-                    skipAnimation: typingMobileKeyboardAutoFocus && isMobileLayout(),
-                  },
-                );
-              }}
-              memoryHook={getMemoryHook(word)}
-              suggestedHook={getSuggestedMemoryHook(word)}
-              onMemoryHookChange={(hook) => setMemoryHook(word, hook)}
-              showMemoryHook={shouldRenderMemoryHook(word.id)}
-              fullscreen
-              autoFocus={!isExiting}
-              autoFocusOnMobile={typingMobileKeyboardAutoFocus}
-            />
-          </div>
-        );
-      }
+      const prog = (isExiting ? lockedDeckCardStateRef.current.get(word.id)?.progress : null) ?? liveProg;
+      const exercise = resolveExercise(word, prog);
+      // iOS only raises the keyboard reliably while the Continue tap is still
+      // active, so a typing round on mobile skips the deck exit animation.
+      const skipAnimation =
+        exercise.method === 'typing' && typingMobileKeyboardAutoFocus && isMobileLayout();
+
       return (
         <div key={word.id} className="h-full flex flex-col justify-end md:justify-start relative">
-          <WordCard
+          <StudyExerciseCard
             word={word}
             progress={prog}
             role={role}
-            modeIndex={modeIndex}
+            exercise={exercise}
             showAll={showAll}
             memoryHook={getMemoryHook(word)}
             suggestedHook={getSuggestedMemoryHook(word)}
+            onMemoryHookChange={(hook) => setMemoryHook(word, hook)}
+            showMemoryHook={shouldRenderMemoryHook(word.id)}
             onKnown={() => { onComplete(() => markKnown(word.id)); }}
             onReallyKnown={() => { onComplete(() => markReallyKnown(word.id)); }}
-            onCustomStage={(stageIndex, opts) => { onComplete(() => setCustomStage(word.id, stageIndex, opts)); }}
             onUnknown={() => { onComplete(() => markUnknown(word.id)); }}
-            onMemoryHookChange={(hook) => setMemoryHook(word, hook)}
-            isMoved={false}
+            onCustomStage={(stageIndex, options) => {
+              onComplete(() => setCustomStage(word.id, stageIndex, options), { skipAnimation });
+            }}
+            onScore={applyExerciseScore}
+            onOutcome={(outcome) => {
+              onComplete(
+                () => applyExerciseOutcome(word.id, prog.stageIndex, outcome),
+                { skipAnimation },
+              );
+            }}
             showEnglish={showEnglish}
             showCategoryBadges={showCategoryBadges}
             showPronunciation={showPronunciation}
             categoryOrder={categoryOrder}
-            showMemoryHook={shouldRenderMemoryHook(word.id)}
             studyNotesEnabled={studyNotesEnabled}
             studyNoteMinimizeFromStage={studyNoteMinimizeFromStage}
+            typingPrefillPunctuation={typingPrefillPunctuation}
+            typingPlayAudioAfterCheck={typingPlayAudioAfterCheck}
+            typingCheckButtonEnabled={typingCheckButtonEnabled}
             mobileCustomActionOnly={swipeCardsEnabled}
             fullscreen
+            autoFocus={!isExiting}
+            autoFocusOnMobile={typingMobileKeyboardAutoFocus}
           />
         </div>
       );
     },
-    [progress, role, getWordDisplayMode, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, swipeCardsEnabled, typingModeEnabled, typingWriteIn, typingPrefillPunctuation, typingMobileKeyboardAutoFocus, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyTypingScore, applyTypingOutcome]
+    [progress, role, resolveExercise, showAll, getMemoryHook, getSuggestedMemoryHook, markKnown, markReallyKnown, markUnknown, setCustomStage, setMemoryHook, showEnglish, showCategoryBadges, showPronunciation, categoryOrder, shouldRenderMemoryHook, studyNotesEnabled, studyNoteMinimizeFromStage, swipeCardsEnabled, typingPrefillPunctuation, typingMobileKeyboardAutoFocus, typingPlayAudioAfterCheck, typingCheckButtonEnabled, applyExerciseScore, applyExerciseOutcome]
   );
 
   const renderMiniGameForDeck = useCallback(
@@ -300,10 +247,24 @@ export function useLearningRenderers({
     [role, setDismissedGames, setGameScore]
   );
 
+  // Typing raises the mobile keyboard, and a vertical drag with the keyboard up
+  // can discard a word by accident. Typing is per-stage now rather than a global
+  // mode, so the deck has to ask card by card instead of once for the session.
+  const isTypingCard = useCallback(
+    (wordId: string) => {
+      const word = distractorPool.find((entry) => entry.id === wordId);
+      if (!word) return false;
+      const prog = progress[wordId] || { stageIndex: 0, knownCount: 0, unknownCount: 0 };
+      return resolveExercise(word, prog).method === 'typing';
+    },
+    [distractorPool, progress, resolveExercise],
+  );
+
   return {
     renderCard,
     renderMiniGame,
     renderCardForDeck,
     renderMiniGameForDeck,
+    isTypingCard,
   };
 }

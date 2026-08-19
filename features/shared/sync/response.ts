@@ -90,6 +90,7 @@ type SyncUserShape = {
   memoryHookDisableFromStage?: number | null;
   studyNotesEnabled?: boolean | null;
   studyNoteMinimizeFromStage?: number | null;
+  learningFineTune?: unknown;
   reviewOptIn?: boolean | null;
   aiReviewOptIn?: boolean | null;
   settingsLanguage?: string | null;
@@ -182,6 +183,9 @@ function buildSyncUser(user: SyncUserShape) {
     study_notes_enabled: user.studyNotesEnabled ?? true,
     study_note_minimize_from_stage:
       user.studyNoteMinimizeFromStage ?? DEFAULT_STUDY_NOTE_MINIMIZE_FROM_STAGE,
+    // Null until the learner touches the settings; the client fills in the
+    // default preset rather than the server baking one into every response.
+    learning_fine_tune: user.learningFineTune ?? null,
     // Defaults mirror the DB: editor review on, third-party AI review off.
     review_opt_in: user.reviewOptIn ?? true,
     ai_review_opt_in: user.aiReviewOptIn ?? false,

@@ -74,6 +74,9 @@ const SyncMutationPayloadSchema = z.object({
   memory_hook_disable_from_stage: z.number().int().optional(),
   study_notes_enabled: z.boolean().optional(),
   study_note_minimize_from_stage: z.number().int().optional(),
+  // Shape is validated by normalizeFineTuneConfig on both sides; the schema
+  // only has to let the object through.
+  learning_fine_tune: z.unknown().optional(),
   // Quality-review consents. Two separate switches on purpose: an editor
   // reading the pair and a third-party LLM receiving it are different asks.
   review_opt_in: z.boolean().optional(),

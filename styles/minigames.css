@@ -93,6 +93,18 @@
 .game-card--typing::before  { background: var(--fresh); }
 .game-card--matching::before { background: var(--game-correct); }
 .game-card--tilt::before     { display: none; }
+.game-card--bare::before     { display: none; }
+
+/* Choice and matching are part of the study flow, not visitors inside it, so
+   they drop the outer frame and sit straight on the app background. The padding
+   and the --game-* palette stay: the inner layout and the option states are
+   built on them. */
+.phrase-card.game-card--bare {
+  background: transparent;
+  border: none;
+  box-shadow: none;
+  overflow: visible;
+}
 
 /* The tilt game is frameless: it sits directly on the beige app background
    and keeps the shared .game-card ink palette, which is tuned for it. */
@@ -233,10 +245,37 @@
 }
 
 /* Multiple choice */
+/* Two columns is the right shape for most rounds, but the option count is
+   configurable from 2 to 8. An odd count would leave a lone stretched button on
+   the last row, so those fall back to a single column, and the roomiest rounds
+   get narrower cells rather than eight full-width bars. */
 .game-options-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.game-options-grid[data-option-count='2'],
+.game-options-grid[data-option-count='3'],
+.game-options-grid[data-option-count='5'],
+.game-options-grid[data-option-count='7'] {
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 480px) {
+  .game-options-grid[data-option-count='3'],
+  .game-options-grid[data-option-count='5'],
+  .game-options-grid[data-option-count='6'],
+  .game-options-grid[data-option-count='7'],
+  .game-options-grid[data-option-count='8'] {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+.game-options-grid[data-option-count='7'] > :last-child,
+.game-options-grid[data-option-count='5'] > :last-child,
+.game-options-grid[data-option-count='3'] > :last-child {
+  grid-column: 1 / -1;
 }
 
 .game-option {
@@ -530,6 +569,18 @@
 }
 .game-match-btn--matched.game-match-btn--c4 {
   background: rgb(var(--match-4) / 0.18);
+  border-color: var(--game-ink);
+  color: var(--game-ink);
+}
+/* Rounds go up to eight pairs, so four colours would repeat twice and make two
+   unrelated pairs look connected. */
+.game-match-btn--matched.game-match-btn--c5 {
+  background: rgb(var(--match-5) / 0.20);
+  border-color: var(--game-ink);
+  color: var(--game-ink);
+}
+.game-match-btn--matched.game-match-btn--c6 {
+  background: rgb(var(--match-6) / 0.20);
   border-color: var(--game-ink);
   color: var(--game-ink);
 }

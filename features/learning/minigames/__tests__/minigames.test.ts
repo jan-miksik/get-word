@@ -5,8 +5,8 @@ import {
   getAcceptedAnswerCandidates,
   matchAnswerAgainstCandidates,
   requiresExplicitTypingCheck,
-  injectMinigames,
-  computeGameAnchors,
+  injectMinigames as injectMinigamesRaw,
+  computeGameAnchors as computeGameAnchorsRaw,
   composeStream,
   enforceMinigameMinGap,
   pruneAnchorsForCurrentSize,
@@ -14,10 +14,35 @@ import {
 } from '@/features/learning/minigames';
 import type { NormalizedWord } from '@/lib/words';
 import type { MiniGameConfig } from '@/features/learning/minigames';
+import { MATCH_PAIR_COUNTS } from '@/features/learning/fine-tune/types';
+
+import type { InjectMinigamesOptions } from '@/features/learning/minigames';
 
 const makeWord = (id: string, cz: string, vi: string): NormalizedWord => ({
   id, cz, vi, en: '', category: ['word'],
 });
+
+// Matching is the only scheduled game now, and its variants come from the
+// learner's stage — the default preset offers none at stage 0, because a round
+// of words you have never seen is not review practice. These tests are about
+// anchoring mechanics, so they study words that have been reviewed at least once.
+const REVIEWED_STAGE = 3;
+const withStage = (options?: InjectMinigamesOptions): InjectMinigamesOptions => ({
+  getStageIndex: () => REVIEWED_STAGE,
+  ...options,
+});
+const injectMinigames = (
+  words: NormalizedWord[],
+  learnedPool: NormalizedWord[],
+  seed?: number,
+  options?: InjectMinigamesOptions,
+) => injectMinigamesRaw(words, learnedPool, seed, withStage(options));
+const computeGameAnchors = (
+  words: NormalizedWord[],
+  learnedPool: NormalizedWord[],
+  seed: number,
+  options?: InjectMinigamesOptions,
+) => computeGameAnchorsRaw(words, learnedPool, seed, withStage(options));
 
 describe('matchAnswer', () => {
   it('returns exact for identical strings', () => {
@@ -132,7 +157,7 @@ describe('injectMinigames', () => {
     const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
     expect(games.length).toBeGreaterThan(0);
     games.forEach(game => {
-      expect(game.words.length).toBe(4);
+      expect(MATCH_PAIR_COUNTS).toContain(game.words.length);
       // Words should come from the stream above this anchor
       const anchorIdx = game.anchorOriginalIndex ?? 0;
       const prefixIds = new Set(words.slice(0, anchorIdx + 1).map(w => w.id));
@@ -144,7 +169,7 @@ describe('injectMinigames', () => {
     const result = injectMinigames(words, words.slice(0, 3), 42, { minInterval: 5, maxInterval: 5 });
     const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
     expect(games.length).toBeGreaterThan(0);
-    games.forEach(game => expect(game.words.length).toBe(4));
+    games.forEach(game => expect(MATCH_PAIR_COUNTS).toContain(game.words.length));
   });
 
   it('uses only stream-above words even when a larger learned pool exists', () => {
@@ -152,7 +177,7 @@ describe('injectMinigames', () => {
     const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
     expect(games.length).toBeGreaterThan(0);
     games.forEach(game => {
-      expect(game.words.length).toBe(4);
+      expect(MATCH_PAIR_COUNTS).toContain(game.words.length);
       const anchorIdx = game.anchorOriginalIndex ?? 0;
       const prefixIds = new Set(words.slice(0, anchorIdx + 1).map(w => w.id));
       game.words.forEach(w => expect(prefixIds.has(w.id)).toBe(true));
@@ -241,25 +266,28 @@ describe('injectMinigames', () => {
     }
   });
 
-  it('each game has exactly 4 words', () => {
+  it('sizes each round to one of the configured pair counts', () => {
     const result = injectMinigames(words, words, 42);
     result.forEach(item => {
       if ('_isMinigame' in item) {
-        expect(item.words.length).toBe(4);
+        expect(MATCH_PAIR_COUNTS).toContain(item.words.length);
       }
     });
   });
 
-  it('uses varied game types without repeating the same type back-to-back', () => {
+  it('varies the words between consecutive rounds', () => {
+    // Multiple choice and typing are study cards now, so matching is the only
+    // scheduled game and the old "never repeat the type" rule has nothing left
+    // to vary. What still matters is that two rounds in a row are not identical.
     const manyWords = Array.from({ length: 50 }, (_, i) => makeWord(`w${i}`, `cz${i}`, `vi${i}`));
     const result = injectMinigames(manyWords, manyWords, 1);
     const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
-    if (games.length >= 2) {
-      for (let i = 1; i < games.length; i++) {
-        expect(games[i].gameType).not.toBe(games[i - 1].gameType);
-      }
+    expect(games.length).toBeGreaterThan(1);
+    const signature = (game: MiniGameConfig) =>
+      game.words.map((word) => word.id).sort().join('|');
+    for (let i = 1; i < games.length; i++) {
+      expect(signature(games[i])).not.toBe(signature(games[i - 1]));
     }
-    expect(new Set(games.map((game) => game.gameType)).size).toBeGreaterThan(1);
   });
 
   it('anchors ID and anchorOriginalIndex to the preceding word position and seed', () => {
@@ -319,29 +347,21 @@ describe('injectMinigames', () => {
     });
   });
 
-  it('skips level 2 when there are no similar words in the pool', () => {
-    const distinctPool = [
-      makeWord('d0', 'alpha', 'xehoi'),
-      makeWord('d1', 'bravo', 'concho'),
-      makeWord('d2', 'charlie', 'nuoctrong'),
-      makeWord('d3', 'delta', 'banbe'),
-      makeWord('d4', 'echo', 'hoanghon'),
-      makeWord('d5', 'foxtrot', 'mattroi'),
-      makeWord('d6', 'golf', 'dongho'),
-      makeWord('d7', 'hotel', 'thuyenbuom'),
-      makeWord('d8', 'india', 'xedap'),
-      makeWord('d9', 'juliet', 'khoailang'),
-      makeWord('d10', 'kilo', 'tranguyen'),
-      makeWord('d11', 'lima', 'phongtam'),
-    ];
+  it('stays at level 1 when the pool holds no similar words', () => {
+    // Both sides must be unrelated: a band is the more confusable of the two,
+    // and "over half the letters shared" is enough to reach band II, so words
+    // sharing a stem on either side would not make this pool distinct.
+    const cz = ['pes', 'stul', 'kolo', 'mesto', 'ryba', 'chleb', 'zahrada', 'oblak', 'kniha', 'vlak', 'jablko', 'hodiny'];
+    const vi = ['cho', 'ban', 'xedap', 'thanhpho', 'ca', 'banhmi', 'khuvuon', 'may', 'sach', 'tauhoa', 'quatao', 'donghoo'];
+    const distinctPool = cz.map((word, index) => makeWord(`d${index}`, word, vi[index]));
 
     const result = injectMinigames(distinctPool, distinctPool, 17, {
       minInterval: 1,
       maxInterval: 1,
     });
     const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
-    const eligible = games.filter((g) => g.gameType === 'multipleChoice' || g.gameType === 'matching');
-    expect(eligible.some((g) => g.level === 2)).toBe(false);
+    expect(games.length).toBeGreaterThan(0);
+    expect(games.some((g) => g.level === 2)).toBe(false);
   });
 });
 
@@ -418,8 +438,14 @@ describe('pruneAnchorsForCurrentSize', () => {
   });
 
   it('does not drop valid late anchors from a full new-word run', () => {
+    // Asserting against the generated anchors rather than a fixed list: the
+    // point here is that pruning keeps everything when it all fits, not which
+    // anchors the generator happened to produce.
     const result = pruneAnchorsForCurrentSize(anchors10, words10.length, 2);
-    expect(result.map((anchor) => anchor.anchorOriginalIndex)).toEqual([1, 3, 5, 7, 9]);
+    expect(result.map((anchor) => anchor.anchorOriginalIndex)).toEqual(
+      anchors10.map((anchor) => anchor.anchorOriginalIndex),
+    );
+    expect(result.length).toBeGreaterThan(1);
   });
 
   it('caps anchors to available spaced slots after cards disappear', () => {
@@ -509,13 +535,13 @@ describe('computeGameAnchors excludeGameTypes', () => {
     expect(anchors).toEqual([]);
   });
 
-  it('schedules all game types when nothing is excluded', () => {
+  it('schedules matching and nothing else', () => {
     const anchors = computeGameAnchors(words, [], 42, {
       minInterval: 2,
       maxInterval: 2,
     });
-    const types = new Set(anchors.map((anchor) => anchor.gameType));
-    expect(types.size).toBeGreaterThan(1);
+    expect(anchors.length).toBeGreaterThan(0);
+    expect(new Set(anchors.map((anchor) => anchor.gameType))).toEqual(new Set(['matching']));
   });
 });
 

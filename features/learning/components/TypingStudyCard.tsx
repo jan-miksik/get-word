@@ -20,13 +20,12 @@ import {
   type LearningRole,
   type WordSide,
 } from './games/types';
-import { getTypingTargetLanguageLabel } from './games/target-language-label';
 import { CustomStagePopover } from './word-card/CustomStagePopover';
 import { formatNextReviewHint, getWordTextSize } from './word-card/helpers';
 import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
 import { useI18n } from '@/components/I18nProvider';
 import { noTranslateProps } from '@/lib/i18n/no-translate';
-import type { TypingWriteIn } from '@/features/learning/state/preferences';
+import { typingVariantMechanics, type TypingVariant } from '@/features/learning/fine-tune/types';
 import { TypingMemoryHook } from './typing-study/TypingMemoryHook';
 import { TypingAnswerInput } from './typing-study/TypingAnswerInput';
 
@@ -43,13 +42,12 @@ interface TypingStudyCardProps {
   word: NormalizedWord;
   progress: ProgressData;
   role: LearningRole;
-  writeIn: TypingWriteIn;
+  /** How much scaffolding the answer gets; see TypingVariant. */
+  variant: TypingVariant;
   audioPromptEnabled: boolean;
   prefillPunctuation: boolean;
   playAudioAfterCheck?: boolean;
   checkButtonEnabled?: boolean;
-  /** Stable per-appearance coin flip (getWordDisplayMode); picks the side in 'both'. */
-  modeIndex: 0 | 1;
   /** Fires as soon as the answer is checked, so the score updates immediately. */
   onScore?: (points: number) => void;
   /** Fires on tap-to-continue; SR stage moves only when the card advances. */
@@ -102,12 +100,11 @@ export function TypingStudyCard({
   word,
   progress,
   role,
-  writeIn,
+  variant,
   audioPromptEnabled,
   prefillPunctuation,
   playAudioAfterCheck = false,
   checkButtonEnabled = false,
-  modeIndex,
   onScore,
   onOutcome,
   onCustomStage,
@@ -119,10 +116,20 @@ export function TypingStudyCard({
   onMemoryHookChange,
   showMemoryHook = false,
 }: TypingStudyCardProps) {
-  const { language, t } = useI18n();
+  const { t } = useI18n();
   // value holds only the user's characters for editable slots (fixed
   // punctuation/space slots are never part of it).
-  const [value, setValue] = useState('');
+  // The first letter is seeded as already-typed rather than as a fixed slot:
+  // fixed slots are excluded from the input value and only the punctuation
+  // sanitiser knows how to put them back, so a fixed letter would desynchronise
+  // the mask the moment the learner typed it themselves. Seeding the value
+  // keeps every slot editable — they can even delete it — and costs no hint.
+  const [value, setValue] = useState(() => {
+    if (variant !== 'firstLetterWithHint') return '';
+    const answer = getWordTextBySide(word, learningSideForRole(role)).trim().normalize('NFC');
+    const first = splitGraphemes(answer)[0] ?? '';
+    return first && !PREFILL_CHAR_RE.test(first) ? first : '';
+  });
   const [result, setResult] = useState<TypingResult | null>(null);
   const [caretIndex, setCaretIndex] = useState(0);
   const [isFocused, setIsFocused] = useState(false);
@@ -143,15 +150,11 @@ export function TypingStudyCard({
   const continuedRef = useRef(false);
   const autoFocusedWordIdRef = useRef<string | null>(null);
 
+  // Typing is always known → foreign. Practising how to spell your own
+  // language is not what people come here for, so there is no direction to pick.
   const foreignSide: WordSide = learningSideForRole(role);
-  const answerSide: WordSide =
-    writeIn === 'foreign'
-      ? foreignSide
-      : writeIn === 'known'
-        ? knownSideForRole(role)
-        : modeIndex === 0
-          ? foreignSide
-          : knownSideForRole(role);
+  const answerSide: WordSide = foreignSide;
+  const { hintEnabled } = typingVariantMechanics(variant);
   const promptTextSide: WordSide = flipSide(answerSide);
   const correctAnswer = getWordTextBySide(word, answerSide).trim().normalize('NFC');
   const answerCandidates = getAcceptedAnswerCandidates(
@@ -592,8 +595,6 @@ export function TypingStudyCard({
         : clampedStageIndex;
   const continueHint = formatNextReviewHint(STAGES[nextStageIndex]?.intervalMs ?? 0, t);
 
-  const targetLanguageLabel = getTypingTargetLanguageLabel(word, answerSide, t, language);
-  const showWriteInBadge = writeIn !== 'foreign';
   const showTypingAudio = hasAudioSource && !usesAudioPrompt;
   // Which slot the caret sits in (fixed slots are skipped by mapping the caret
   // through the editable slot list).
@@ -710,11 +711,6 @@ export function TypingStudyCard({
         >
           {result ? resultLabels[result.match] : '\u00A0'}
         </div>
-        {showWriteInBadge && (
-          <div className="game-badge self-center">
-            {`⌨️ ${t('game.typeIn', { language: targetLanguageLabel })}`}
-          </div>
-        )}
         {usesAudioPrompt ? (
           <div className="flex flex-col items-center gap-2 py-1">
             <button
@@ -755,6 +751,7 @@ export function TypingStudyCard({
           isFocused={isFocused}
           mask={maskGroups}
           isManualAnswerComplete={isManualAnswerComplete}
+          hintEnabled={hintEnabled}
           hintExhausted={hintExhausted}
           onApplyValue={applyInputValue}
           onSubmit={submitCheck}

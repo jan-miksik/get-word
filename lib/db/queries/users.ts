@@ -10,6 +10,10 @@ import {
   SyncRevisionConflictError,
   type SyncRevisionDomain,
 } from '@/packages/domain/sync/revision';
+import {
+  normalizeFineTuneConfig,
+} from '@/features/learning/fine-tune/config';
+import type { FineTuneConfig } from '@/features/learning/fine-tune/types';
 
 const LANGUAGE_CODE_PATTERN = /^[a-z]{2,3}(?:-[A-Za-z0-9]{2,8})?$/;
 
@@ -118,6 +122,7 @@ export async function updateUserPreferences(
     review_opt_in?: boolean;
     ai_review_opt_in?: boolean;
     study_note_minimize_from_stage?: number;
+    learning_fine_tune?: unknown;
     settings_language?: string;
     language_from?: string | null;
     language_to?: string | null;
@@ -142,6 +147,7 @@ export async function updateUserPreferences(
     reviewOptIn?: boolean;
     aiReviewOptIn?: boolean;
     studyNoteMinimizeFromStage?: number;
+    learningFineTune?: FineTuneConfig;
     settingsLanguage?: string;
     settingsLanguageSelectedAt?: Date;
     settingsLanguageRevision?: number | SQL;
@@ -176,6 +182,11 @@ export async function updateUserPreferences(
     updates.studyNoteMinimizeFromStage = normalizeStudyNoteMinimizeFromStage(
       prefs.study_note_minimize_from_stage
     );
+  }
+  if (prefs.learning_fine_tune !== undefined) {
+    // Normalising server-side too is the point: a hand-edited request must not
+    // be able to persist something that later breaks a card render.
+    updates.learningFineTune = normalizeFineTuneConfig(prefs.learning_fine_tune);
   }
   const touchesSettingsLanguage = prefs.settings_language !== undefined;
   const touchesLanguagePair =

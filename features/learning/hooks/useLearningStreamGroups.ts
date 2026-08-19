@@ -13,6 +13,7 @@ import {
   type MinigameFrequencyRange,
 } from '@/features/learning/minigames';
 import { STAGES, type NormalizedWord } from '@/lib/words';
+import type { FineTuneConfig } from '@/features/learning/fine-tune/types';
 
 type SegmentKind = 'priority' | 'repeat' | 'settling' | 'new';
 
@@ -67,6 +68,7 @@ type UseLearningStreamGroupsArgs = {
   excludeGameTypes?: GameType[];
   includeGameTypes?: GameType[];
   getStageIndex?: (wordId: string) => number;
+  fineTuneConfig?: FineTuneConfig;
   progressPlanRevision?: string | number;
 };
 
@@ -86,6 +88,7 @@ export function useLearningStreamGroups({
   excludeGameTypes,
   includeGameTypes,
   getStageIndex,
+  fineTuneConfig,
   progressPlanRevision = 0,
 }: UseLearningStreamGroupsArgs) {
   const [planCache] = useState(() => new SegmentPlanCache());
@@ -103,6 +106,12 @@ export function useLearningStreamGroups({
     [excludeGameTypesKey],
   );
   const includeGameTypesKey = Array.from(new Set(includeGameTypes ?? [])).sort().join(',');
+  // Anchor plans are cached per segment, so changing the learning settings has
+  // to invalidate them or the old matching variants would stick around.
+  const fineTuneKey = useMemo(
+    () => (fineTuneConfig ? JSON.stringify(fineTuneConfig.stages.map((stage) => stage.match.variants)) : ''),
+    [fineTuneConfig],
+  );
   const stableIncludeGameTypes = useMemo(
     () => (includeGameTypesKey ? (includeGameTypesKey.split(',') as GameType[]) : []),
     [includeGameTypesKey],
@@ -137,7 +146,7 @@ export function useLearningStreamGroups({
           if (words.length === 0) return [] as (NormalizedWord | MiniGameConfig)[];
 
           const seed = segmentSeed(kind);
-          const configKey = `${seed}|${min}|${max}|${excludeGameTypesKey}|${includeGameTypesKey}|${progressPlanRevision}`;
+          const configKey = `${seed}|${min}|${max}|${excludeGameTypesKey}|${includeGameTypesKey}|${fineTuneKey}|${progressPlanRevision}`;
           const resetKey = `${baseResetKey}|${kind}`;
           const existing = planCache.get(kind);
 
@@ -172,6 +181,7 @@ export function useLearningStreamGroups({
               excludeGameTypes: stableExcludeGameTypes,
               includeGameTypes: stableIncludeGameTypes,
               getStageIndex,
+              fineTuneConfig,
             });
           }
 
@@ -242,6 +252,8 @@ export function useLearningStreamGroups({
     getStageIndex,
     isHydrated,
     learnedPool,
+    fineTuneConfig,
+    fineTuneKey,
     minigameFrequency,
     minigameSeed,
     newWords,

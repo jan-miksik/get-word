@@ -1,4 +1,5 @@
 import type { NormalizedWord } from '@/lib/words';
+import type { FineTuneConfig } from '@/features/learning/fine-tune/types';
 
 export type GameType = 'multipleChoice' | 'typing' | 'matching' | 'tiltChoice';
 export type GameDifficultyLevel = 1 | 2;
@@ -32,6 +33,8 @@ export interface InjectMinigamesOptions {
   includeGameTypes?: readonly GameType[];
   /** Snapshot of the current SRS stage, used only to choose game difficulty. */
   getStageIndex?: (wordId: string) => number;
+  /** Per-stage settings; supplies the matching pair count and similarity band. */
+  fineTuneConfig?: FineTuneConfig;
 }
 
 export interface GameAnchor {

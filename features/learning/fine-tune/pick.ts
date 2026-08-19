@@ -1,0 +1,253 @@
+import type { NormalizedWord } from '@/lib/words';
+import type { SimilarityBand } from '@/features/learning/minigames/similarity';
+import { stageConfigAt } from './config';
+import {
+  MIN_IN_BAND_OPTIONS,
+  MIN_IN_BAND_PAIRS,
+  canBuildVariant,
+  resolveVariantDistractors,
+} from './distractors';
+import {
+  METHOD_IDS,
+  parseChoiceVariant,
+  parseMatchVariant,
+  type ChoiceVariant,
+  type FineTuneConfig,
+  type MatchVariant,
+  type MethodId,
+  type ResolvedExercise,
+  type RevealVariant,
+  type StageConfig,
+  type TypingVariant,
+} from './types';
+
+/** The gentlest exercise there is, and therefore the universal fallback. */
+const FALLBACK_EXERCISE: ResolvedExercise = { method: 'reveal', variant: 'foreign' };
+
+function hashString(input: string): number {
+  let hash = 0;
+  for (let i = 0; i < input.length; i += 1) {
+    hash = ((hash << 5) - hash + input.charCodeAt(i)) | 0;
+  }
+  return hash;
+}
+
+/**
+ * Avalanche the seed before it reaches the generator. Our seeds are highly
+ * correlated by construction — neighbouring word ids, review counts that differ
+ * by one — and a bare Lehmer LCG leaks that structure straight into its first
+ * output, which is the one that chooses the method. Mixing first is what makes
+ * the weighted pick actually hit its configured shares.
+ */
+function mixSeed(raw: number): number {
+  let mixed = Math.floor(raw) >>> 0;
+  mixed ^= mixed >>> 16;
+  mixed = Math.imul(mixed, 0x7feb352d);
+  mixed ^= mixed >>> 15;
+  mixed = Math.imul(mixed, 0x846ca68b);
+  mixed ^= mixed >>> 16;
+  return mixed >>> 0;
+}
+
+function createRng(rawSeed: number): () => number {
+  const mod = 2147483647;
+  const normalized = mixSeed(rawSeed) % mod;
+  let state = normalized <= 0 ? normalized + (mod - 1) : normalized;
+  return () => {
+    state = (state * 16807) % mod;
+    return (state - 1) / (mod - 1);
+  };
+}
+
+/**
+ * Seeded by the word plus how many times it has been reviewed, so a re-render
+ * always lands on the same exercise while answering the card naturally reshuffles
+ * it for next time.
+ */
+export function exerciseSeed(wordId: string, reviewCount: number): number {
+  return hashString(`${wordId}:${reviewCount}`);
+}
+
+function pickUniform<T>(items: readonly T[], random: () => number): T {
+  return items[Math.min(items.length - 1, Math.floor(random() * items.length))];
+}
+
+/**
+ * Weighted pick over methods, NOT over variants. This is the whole point of the
+ * two-step model: a stage that allows seven kinds of multiple choice and one
+ * kind of reveal must still show reveal as often as its weight says, instead of
+ * being drowned out seven to one.
+ */
+function pickWeightedMethod(
+  candidates: MethodId[],
+  stage: StageConfig,
+  random: () => number,
+): MethodId | null {
+  if (candidates.length === 0) return null;
+  const total = candidates.reduce((sum, id) => sum + Math.max(1, stage[id].weight), 0);
+  let ticket = random() * total;
+  for (const id of candidates) {
+    ticket -= Math.max(1, stage[id].weight);
+    if (ticket <= 0) return id;
+  }
+  return candidates[candidates.length - 1];
+}
+
+function feasibleChoiceVariants(
+  variants: ChoiceVariant[],
+  target: NormalizedWord,
+  pool: NormalizedWord[],
+): ChoiceVariant[] {
+  return variants.filter((variant) => {
+    const { options } = parseChoiceVariant(variant);
+    return canBuildVariant({ target, pool, count: options - 1 });
+  });
+}
+
+export interface PickExerciseInput {
+  word: NormalizedWord;
+  stageIndex: number;
+  knownCount: number;
+  unknownCount: number;
+  config: FineTuneConfig;
+  /** Every word available to draw distractors from, in list order. */
+  distractorPool: NormalizedWord[];
+}
+
+/**
+ * Choose the exercise for one word: first the method (by weight), then one of
+ * its variants (uniformly). Variants that cannot be built for this particular
+ * word drop out beforehand, and a method with nothing left to offer drops out
+ * with them so the remaining weights simply share it out.
+ */
+export function pickExerciseForWord({
+  word,
+  stageIndex,
+  knownCount,
+  unknownCount,
+  config,
+  distractorPool,
+}: PickExerciseInput): ResolvedExercise {
+  // A word the learner has never got right has nothing to be quizzed on yet —
+  // show them the answer whatever the stage is configured to do.
+  if (knownCount <= 0) return FALLBACK_EXERCISE;
+
+  const stage = stageConfigAt(config, stageIndex);
+  const random = createRng(exerciseSeed(word.id, knownCount + unknownCount));
+
+  const usableChoice = feasibleChoiceVariants(stage.choice.variants, word, distractorPool);
+  const candidates = METHOD_IDS.filter((id) => {
+    if (id === 'choice') return usableChoice.length > 0;
+    return stage[id].variants.length > 0;
+  });
+
+  const method = pickWeightedMethod(candidates, stage, random);
+  if (!method) return FALLBACK_EXERCISE;
+
+  if (method === 'reveal') {
+    return { method: 'reveal', variant: pickUniform(stage.reveal.variants, random) as RevealVariant };
+  }
+
+  if (method === 'typing') {
+    return { method: 'typing', variant: pickUniform(stage.typing.variants, random) as TypingVariant };
+  }
+
+  const variant = pickUniform(usableChoice, random);
+  const { options, band } = parseChoiceVariant(variant);
+  const resolved = resolveVariantDistractors({
+    target: word,
+    pool: distractorPool,
+    count: options - 1,
+    band,
+    minInBand: MIN_IN_BAND_OPTIONS,
+    random,
+  });
+
+  if (!resolved) return FALLBACK_EXERCISE;
+
+  return {
+    method: 'choice',
+    variant,
+    requestedBand: resolved.requestedBand,
+    effectiveBand: resolved.effectiveBand,
+    distractors: resolved.distractors,
+  };
+}
+
+/**
+ * Matching variants for a stage, searching *upward* when the stage itself
+ * configures none.
+ *
+ * The direction matters. A round is drawn from the words just above it in the
+ * stream — words the learner has seen moments ago — so a stage-0 neighbourhood
+ * still deserves an interlude, and it borrows the gentlest round configured
+ * above it. Searching downward would do the opposite and resurrect matching for
+ * learners whose settings deliberately drop it at the long intervals, so it is
+ * upward only: past the last configured stage, matching simply stops.
+ */
+export function matchVariantsForStage(
+  config: FineTuneConfig,
+  stageIndex: number,
+): MatchVariant[] {
+  for (let stage = Math.max(0, stageIndex); stage < config.stages.length; stage += 1) {
+    const variants = stageConfigAt(config, stage).match.variants;
+    if (variants.length > 0) return variants;
+  }
+  return [];
+}
+
+export interface ResolvedMatchRound {
+  variant: MatchVariant;
+  requestedBand: SimilarityBand;
+  effectiveBand: SimilarityBand;
+  words: NormalizedWord[];
+}
+
+/**
+ * Matching lives outside the review pool — it never moves a word's stage —
+ * so it is picked separately, keyed off the stage of the word it is anchored to.
+ * Returns `null` when that stage allows no matching at all, which is how the
+ * long intervals opt out of it in the balanced preset.
+ */
+export function pickMatchRound({
+  anchor,
+  stageIndex,
+  config,
+  pool,
+  seed,
+}: {
+  anchor: NormalizedWord;
+  stageIndex: number;
+  config: FineTuneConfig;
+  pool: NormalizedWord[];
+  seed: number;
+}): ResolvedMatchRound | null {
+  const variants = matchVariantsForStage(config, stageIndex);
+  if (variants.length === 0) return null;
+
+  const random = createRng(seed);
+  const usable = variants.filter((variant) => {
+    const { pairs } = parseMatchVariant(variant);
+    return canBuildVariant({ target: anchor, pool, count: pairs - 1 });
+  });
+  if (usable.length === 0) return null;
+
+  const variant = pickUniform(usable, random);
+  const { pairs, band } = parseMatchVariant(variant);
+  const resolved = resolveVariantDistractors({
+    target: anchor,
+    pool,
+    count: pairs - 1,
+    band,
+    minInBand: MIN_IN_BAND_PAIRS,
+    random,
+  });
+  if (!resolved) return null;
+
+  return {
+    variant,
+    requestedBand: resolved.requestedBand,
+    effectiveBand: resolved.effectiveBand,
+    words: [anchor, ...resolved.distractors],
+  };
+}

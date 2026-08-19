@@ -59,10 +59,16 @@ import {
   type RevealMode,
   type TypingWriteIn,
 } from './localPreferences';
+import {
+  DEFAULT_FINE_TUNE_CONFIG,
+  normalizeFineTuneConfig,
+} from '@/features/learning/fine-tune/config';
+import type { FineTuneConfig } from '@/features/learning/fine-tune/types';
 
 export type Role = LearningRole;
 export type SettingsLanguage = string;
 export type { RevealMode, TypingWriteIn } from './localPreferences';
+export type { FineTuneConfig } from '@/features/learning/fine-tune/types';
 
 const DEFAULT_SETTINGS_LANGUAGE = 'en';
 const BUNDLED_UI_LANGUAGE_CODE_SET = new Set(
@@ -177,6 +183,9 @@ export function usePreferences(
   const [memoryHooksIntroAnswered, setMemoryHooksIntroAnswered] = useState(false);
   const [memoryHookDisableFromStage, setMemoryHookDisableFromStageState] = useState<number>(
     DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE
+  );
+  const [learningFineTune, setLearningFineTuneState] = useState<FineTuneConfig>(
+    DEFAULT_FINE_TUNE_CONFIG
   );
   const [studyNotesEnabled, setStudyNotesEnabledState] = useState(true);
   const [studyNoteMinimizeFromStage, setStudyNoteMinimizeFromStageState] = useState<number>(
@@ -337,6 +346,12 @@ export function usePreferences(
   useEffect(() => {
     if (!isHydrated || isUpdatingFromServerRef.current) return;
     if (!hasReceivedServerSnapshot()) return;
+    void enqueuePreference('learning_fine_tune', learningFineTune);
+  }, [learningFineTune, isHydrated, isUpdatingFromServerRef]);
+
+  useEffect(() => {
+    if (!isHydrated || isUpdatingFromServerRef.current) return;
+    if (!hasReceivedServerSnapshot()) return;
     void enqueuePreference('study_notes_enabled', studyNotesEnabled);
   }, [studyNotesEnabled, isHydrated, isUpdatingFromServerRef]);
 
@@ -411,6 +426,11 @@ export function usePreferences(
       type: 'preferences_changed',
       patch: { memoryHookDisableFromStage: normalized },
     });
+  }, []);
+  const setLearningFineTune = useCallback((value: FineTuneConfig) => {
+    const normalized = normalizeFineTuneConfig(value);
+    setLearningFineTuneState(normalized);
+    postTabMessage({ type: 'preferences_changed', patch: { learningFineTune: normalized } });
   }, []);
   const setStudyNotesEnabled = useCallback((value: boolean) => {
     setStudyNotesEnabledState(value);
@@ -545,6 +565,11 @@ export function usePreferences(
     setMemoryHookDisableFromStageState(
       normalizeMemoryHookDisableFromStage(user.memory_hook_disable_from_stage)
     );
+    // Null means the learner has never opened the settings, so the default
+    // preset applies rather than an empty config.
+    setLearningFineTuneState(
+      user.learning_fine_tune ? normalizeFineTuneConfig(user.learning_fine_tune) : DEFAULT_FINE_TUNE_CONFIG
+    );
     setStudyNotesEnabledState(user.study_notes_enabled ?? true);
     setStudyNoteMinimizeFromStageState(
       normalizeStudyNoteMinimizeFromStage(user.study_note_minimize_from_stage)
@@ -662,6 +687,9 @@ export function usePreferences(
         setMemoryHookDisableFromStageState(
           normalizeMemoryHookDisableFromStage(patch.memoryHookDisableFromStage)
         );
+      }
+      if (patch.learningFineTune && typeof patch.learningFineTune === 'object') {
+        setLearningFineTuneState(normalizeFineTuneConfig(patch.learningFineTune));
       }
       if (typeof patch.studyNotesEnabled === 'boolean') {
         setStudyNotesEnabledState(patch.studyNotesEnabled);
@@ -800,6 +828,8 @@ export function usePreferences(
     setMemoryHooksEnabled: setMemoryHooksEnabledPreference,
     memoryHooksIntroAnswered,
     setMemoryHooksIntroAnswered: setMemoryHooksIntroAnsweredPreference,
+    learningFineTune,
+    setLearningFineTune,
     memoryHookDisableFromStage,
     setMemoryHookDisableFromStage,
     studyNotesEnabled,

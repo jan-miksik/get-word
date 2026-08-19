@@ -133,7 +133,6 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   const appState = useAppState(EMPTY_WORDS);
   const {
     role,
-    getWordDisplayMode,
     showAll,
     progress,
     selectedCategories,
@@ -148,8 +147,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     studyNoteMinimizeFromStage,
     swipeCardsEnabled,
     tiltGameEnabled,
-    typingModeEnabled,
-    typingWriteIn,
+    learningFineTune,
     typingPrefillPunctuation,
     typingMobileKeyboardAutoFocus,
     typingPlayAudioAfterCheck,
@@ -233,12 +231,13 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   const activeWords = syncedWords ?? EMPTY_WORDS;
 
   // Swipe-to-answer (frontier feature): right = known, left = forgotten,
-  // up = fully known / no repeat. Typing mode disables the gesture entirely so
-  // vertical movement with the mobile keyboard cannot discard a word. The
+  // up = fully known / no repeat. Typing cards opt out per card (see
+  // isTypingCard) so vertical movement with the mobile keyboard cannot discard
+  // a word. The
   // deck's own group index is a stream-section index (due/new), not the SRS stage.
   const deckSwipeActions = useMemo(
     () =>
-      swipeCardsEnabled && !typingModeEnabled
+      swipeCardsEnabled
         ? {
             markKnown,
             markUnknown,
@@ -247,7 +246,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
             getStageIndex: (wordId: string) => progress[wordId]?.stageIndex ?? 0,
           }
         : undefined,
-    [swipeCardsEnabled, typingModeEnabled, markKnown, markUnknown, setCustomStage, progress]
+    [swipeCardsEnabled, markKnown, markUnknown, setCustomStage, progress]
   );
 
   // A cached profile means this device completed a sync while signed in, and
@@ -337,8 +336,8 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     pinnedCategoryIds,
     ownedPersonalListIds,
     dueTimerRevision,
-    typingModeEnabled,
     tiltGameEnabled,
+    fineTuneConfig: learningFineTune,
     progressPlanRevision: isInitialServerSyncPending ? 'pending' : 'ready',
   });
 
@@ -357,10 +356,10 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     renderMiniGame,
     renderCardForDeck,
     renderMiniGameForDeck,
+    isTypingCard,
   } = useLearningRenderers({
     progress,
     role,
-    getWordDisplayMode,
     showAll,
     getMemoryHook,
     getSuggestedMemoryHook,
@@ -378,8 +377,8 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     studyNotesEnabled,
     studyNoteMinimizeFromStage,
     swipeCardsEnabled,
-    typingModeEnabled,
-    typingWriteIn,
+    fineTuneConfig: learningFineTune,
+    distractorPool: filteredWords,
     typingPrefillPunctuation,
     typingMobileKeyboardAutoFocus,
     typingPlayAudioAfterCheck,
@@ -725,7 +724,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               interstitialCard={interstitialCard}
               onDeckWordCardCompleted={() => setCompletedDeckWordCards((count) => count + 1)}
               deckSwipeActions={deckSwipeActions}
-              deckHorizontalSwipeEnabled={!typingModeEnabled}
+              isSwipeBlockedForWord={isTypingCard}
               cardDeckGroups={cardDeckGroups}
               streamGroupedWords={streamGroupedWords}
               renderCardForDeck={renderCardForDeck}

@@ -138,6 +138,17 @@ function applyPendingPreference(
     case 'memory_hook_disable_from_stage':
       if (typeof payload.value === 'number') user.memory_hook_disable_from_stage = payload.value;
       break;
+    case 'study_notes_enabled':
+      if (typeof payload.value === 'boolean') user.study_notes_enabled = payload.value;
+      break;
+    case 'study_note_minimize_from_stage':
+      if (typeof payload.value === 'number') user.study_note_minimize_from_stage = payload.value;
+      break;
+    case 'learning_fine_tune':
+      if (payload.value && typeof payload.value === 'object') {
+        user.learning_fine_tune = payload.value;
+      }
+      break;
     // Consent switches are mirrored offline so a toggle does not appear to
     // revert while the mutation is still queued.
     case 'review_opt_in':

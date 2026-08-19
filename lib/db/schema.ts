@@ -344,6 +344,9 @@ export const users = pgTable("users", {
   memoryHookDisableFromStage: integer("memory_hook_disable_from_stage").default(5).notNull(),
   studyNotesEnabled: boolean("study_notes_enabled").default(true).notNull(),
   studyNoteMinimizeFromStage: integer("study_note_minimize_from_stage").default(2).notNull(),
+  // Per-stage learning methods, weights and variants. Null means "never
+  // touched", which the client reads as the default preset.
+  learningFineTune: jsonb("learning_fine_tune"),
   settingsLanguage: text("settings_language"),
   settingsLanguageSelectedAt: timestamp("settings_language_selected_at"),
   settingsLanguageRevision: integer("settings_language_revision").notNull().default(0),

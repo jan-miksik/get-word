@@ -19,6 +19,7 @@ import { noTranslateProps } from '@/lib/i18n/no-translate';
 import { shuffleGameItems } from '@/features/learning/minigames';
 
 interface Props {
+  /** Correct word first, distractors after. Length sets the option count (2–8). */
   words: NormalizedWord[];
   role: LearningRole;
   sourceLang?: WordSide;
@@ -26,6 +27,13 @@ interface Props {
   soundEnabled?: boolean;
   level?: 1 | 2;
   onResult?: (delta: number) => void;
+  /**
+   * Fired once with the review outcome when the game stands in for a study
+   * card. Separate from onResult, which is only ever about the score.
+   */
+  onOutcome?: (outcome: 'known' | 'unknown') => void;
+  /** Drop the outer card frame so the round reads as part of the study flow. */
+  frameless?: boolean;
 }
 
 export function MultipleChoiceGame({
@@ -36,6 +44,8 @@ export function MultipleChoiceGame({
   soundEnabled = false,
   level = 1,
   onResult,
+  onOutcome,
+  frameless = false,
 }: Props) {
   const { t } = useI18n();
   const [selected, setSelected] = useState<string | null>(null);
@@ -84,6 +94,7 @@ export function MultipleChoiceGame({
     }
     setSelected(optionId);
     onResult?.(isCorrect ? (level === 2 ? 2 : 1) : -1);
+    onOutcome?.(isCorrect ? 'known' : 'unknown');
   };
 
   const playAudio = (audioSrc: string | string[] | null) => {
@@ -95,7 +106,9 @@ export function MultipleChoiceGame({
   };
 
   return (
-    <article className="phrase-card game-card game-card--choice">
+    <article
+      className={`phrase-card game-card game-card--choice${frameless ? ' game-card--bare' : ''}`}
+    >
       <div className="game-badge">
         {effectivePromptMode === 'audio'
           ? `🎯 ${t('game.choose')}`
@@ -115,7 +128,7 @@ export function MultipleChoiceGame({
       ) : (
         <div {...noTranslateProps('game-prompt')}>{prompt}</div>
       )}
-      <div className="game-options-grid">
+      <div className="game-options-grid" data-option-count={options.length}>
         {options.map(opt => {
           let state: 'idle' | 'correct' | 'wrong' | 'reveal' = 'idle';
           if (answered) {

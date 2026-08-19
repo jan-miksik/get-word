@@ -1,6 +1,9 @@
 import type { NormalizedWord } from '@/lib/words';
 
 import { buildSimilarPairs, hasAtLeastOneSimilarPair } from './similarity';
+import { hasDistinctVisibleAnswers, sharesLearningScope } from './word-pool';
+import { DEFAULT_FINE_TUNE_CONFIG } from '@/features/learning/fine-tune/config';
+import { pickMatchRound } from '@/features/learning/fine-tune/pick';
 import type {
   GameAnchor,
   GameDifficultyLevel,
@@ -8,15 +11,18 @@ import type {
   InjectMinigamesOptions,
 } from './types';
 
-const GAME_TYPES: GameType[] = ['multipleChoice', 'typing', 'matching'];
+// Multiple choice and typing are study cards now, not interludes: scheduling
+// them between cards as well would grade the same word twice, since the anchor
+// pool is drawn from words the learner has just answered. Matching stays, and
+// stays score-only — one round covers 4–8 words, so no single word's stage can
+// be attributed to the result.
+const GAME_TYPES: GameType[] = ['matching'];
 const MIN_POOL_SIZE: Record<GameType, number> = {
   multipleChoice: 4,
   typing: 4,
   matching: 4,
   tiltChoice: 2,
 };
-const STRUCTURAL_CATEGORIES = new Set(['word', 'phrase']);
-
 // The tilt card renders the prompt on the seesaw plank and both answers in the
 // bottom corners, so long phrases overflow the layout. Either study direction
 // may be shown, which is why both sides must stay short.
@@ -27,41 +33,6 @@ function isTiltEligibleWord(word: NormalizedWord): boolean {
     word.cz.trim().length <= TILT_MAX_TEXT_LENGTH &&
     word.vi.trim().length <= TILT_MAX_TEXT_LENGTH
   );
-}
-
-function visibleAnswerSignature(value: string): string {
-  const normalized = value
-    .trim()
-    .toLocaleLowerCase()
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^\p{L}\p{N}]+/gu, '');
-  return normalized || value.trim().toLocaleLowerCase();
-}
-
-function hasDistinctVisibleAnswers(left: NormalizedWord, right: NormalizedWord): boolean {
-  // MiniGameCard chooses either study direction deterministically. Requiring
-  // both sides to differ guarantees that the distractor is valid either way.
-  return (
-    visibleAnswerSignature(left.cz) !== visibleAnswerSignature(right.cz) &&
-    visibleAnswerSignature(left.vi) !== visibleAnswerSignature(right.vi)
-  );
-}
-
-function getLearningCategories(word: NormalizedWord): string[] {
-  return word.category.filter((category) => !STRUCTURAL_CATEGORIES.has(category));
-}
-
-function sharesLearningScope(anchor: NormalizedWord, candidate: NormalizedWord): boolean {
-  const anchorCategories = getLearningCategories(anchor);
-  const candidateCategories = getLearningCategories(candidate);
-
-  if (anchorCategories.length === 0 || candidateCategories.length === 0) {
-    return anchorCategories.length === candidateCategories.length;
-  }
-
-  const candidateSet = new Set(candidateCategories);
-  return anchorCategories.some((category) => candidateSet.has(category));
 }
 
 function buildGameWordPool(
@@ -318,6 +289,35 @@ export function computeGameAnchors(
         continue;
       }
 
+      if (gameType === 'matching') {
+        // Pair count and distractor similarity come from the stage of the word
+        // the round is anchored to, so matching gets harder alongside everything
+        // else — even though its result never moves a stage.
+        // A round covers 4–8 words, so its difficulty follows the most advanced
+        // word in it rather than the anchor alone. A round made purely of
+        // brand-new words gets no matching at all, which is what the default
+        // preset asks for: matching is review practice, not an introduction.
+        const roundStage = pool.reduce(
+          (highest, word) => Math.max(highest, options?.getStageIndex?.(word.id) ?? 0),
+          0,
+        );
+        const round = pickMatchRound({
+          anchor: originalWords[anchorIndex],
+          stageIndex: roundStage,
+          config: options?.fineTuneConfig ?? DEFAULT_FINE_TUNE_CONFIG,
+          pool,
+          seed: mixSeed(baseSeed, mixSeed(anchorIndex + 1, 6000 + attempt)),
+        });
+        if (!round) break;
+        chosen = round.words;
+        chosenLevel = round.effectiveBand === 'I' ? 1 : 2;
+        signature = signatureOf(chosen);
+        if (signature !== lastSignature) break;
+        chosen = null;
+        attempt += 1;
+        continue;
+      }
+
       const randLevel = createRng(mixSeed(baseSeed, mixSeed(anchorIndex + 1, 5000 + attempt)));
       const shouldAttemptLevel2 = level2Eligible && randLevel() < 0.5;
       const level2Candidate = shouldAttemptLevel2
@@ -338,6 +338,13 @@ export function computeGameAnchors(
 
     if (!chosen) {
       const randPick = createRng(mixSeed(baseSeed, mixSeed(anchorIndex + 1, 999)));
+      if (gameType === 'matching') {
+        // No usable variant for this stage (the long intervals drop matching
+        // entirely in the default preset) — leave the slot empty rather than
+        // inventing a round the settings did not ask for.
+        anchors.push(null);
+        continue;
+      }
       if (gameType === 'tiltChoice') {
         const fallback = pickTiltChoiceWords(pool, similarPairs, randPick);
         if (!fallback) {

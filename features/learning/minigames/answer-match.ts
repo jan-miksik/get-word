@@ -5,6 +5,7 @@ import {
   normalizeAnswerExactKey,
   type AnswerVerdict,
 } from '@/lib/answer-normalization';
+import { levenshtein } from '@/lib/levenshtein';
 
 export type AnswerCandidate = {
   answer: string;
@@ -19,27 +20,6 @@ export type AnswerMatchResult = {
 
 export function matchAnswer(input: string, correct: string): AnswerVerdict {
   return getAnswerVerdict(input, correct);
-}
-
-function levenshtein(a: string, b: string): number {
-  if (a === b) return 0;
-  if (a.length === 0) return b.length;
-  if (b.length === 0) return a.length;
-  const prev = Array.from({ length: b.length + 1 }, (_, index) => index);
-  const curr = Array.from({ length: b.length + 1 }, () => 0);
-  for (let i = 1; i <= a.length; i += 1) {
-    curr[0] = i;
-    for (let j = 1; j <= b.length; j += 1) {
-      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-      curr[j] = Math.min(
-        curr[j - 1] + 1,
-        prev[j] + 1,
-        prev[j - 1] + cost,
-      );
-    }
-    for (let j = 0; j <= b.length; j += 1) prev[j] = curr[j];
-  }
-  return prev[b.length];
 }
 
 function rankVerdict(verdict: AnswerVerdict): number {

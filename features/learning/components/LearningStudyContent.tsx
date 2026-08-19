@@ -50,6 +50,7 @@ interface LearningStudyContentProps {
   onDeckWordCardCompleted?: (word: NormalizedWord) => void;
   deckSwipeActions?: CardDeckSwipeActions;
   deckHorizontalSwipeEnabled?: boolean;
+  isSwipeBlockedForWord?: (wordId: string) => boolean;
   cardDeckGroups: (NormalizedWord | MiniGameConfig)[][];
   streamGroupedWords: (NormalizedWord | MiniGameConfig)[][];
   renderCardForDeck: (
@@ -98,6 +99,7 @@ export function LearningStudyContent({
   onDeckWordCardCompleted,
   deckSwipeActions,
   deckHorizontalSwipeEnabled = true,
+  isSwipeBlockedForWord,
   cardDeckGroups,
   streamGroupedWords,
   renderCardForDeck,
@@ -186,6 +188,7 @@ export function LearningStudyContent({
                 onWordCardCompleted={onDeckWordCardCompleted}
                 swipeActions={deckSwipeActions}
                 allowHorizontalSwipe={deckHorizontalSwipeEnabled}
+                isSwipeBlockedForWord={isSwipeBlockedForWord}
                 renderCard={renderCardForDeck}
                 renderMiniGame={renderMiniGameForDeck}
               />
