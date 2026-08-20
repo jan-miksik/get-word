@@ -106,6 +106,12 @@
   overflow: visible;
 }
 
+/* Without a card corner to sit in, a left-aligned badge floats. Centre it so it
+   reads as a heading for the round. */
+.game-card--bare .game-badge {
+  align-self: center;
+}
+
 /* The tilt game is frameless: it sits directly on the beige app background
    and keeps the shared .game-card ink palette, which is tuned for it. */
 .phrase-card.game-card--tilt {

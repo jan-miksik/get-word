@@ -109,11 +109,16 @@ export function MultipleChoiceGame({
     <article
       className={`phrase-card game-card game-card--choice${frameless ? ' game-card--bare' : ''}`}
     >
-      <div className="game-badge">
-        {effectivePromptMode === 'audio'
-          ? `🎯 ${t('game.choose')}`
-          : `🎯 ${t('game.choice')}`}
-      </div>
+      {/* As a study card the round needs no label: the reveal and typing cards
+          it alternates with carry none either, and a lone pill floating above a
+          frameless layout reads as a leftover. */}
+      {!frameless && (
+        <div className="game-badge">
+          {effectivePromptMode === 'audio'
+            ? `🎯 ${t('game.choose')}`
+            : `🎯 ${t('game.choice')}`}
+        </div>
+      )}
       {effectivePromptMode === 'audio' ? (
         <div className="game-audio-prompt">
           <button

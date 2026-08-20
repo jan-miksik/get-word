@@ -286,6 +286,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult, isActive = tru
         key={config.id}
         {...gameProps}
         soundEnabled={!skipSound}
+        frameless
         {...(matchingPromptMode === 'audio'
           ? { sourceLang: verifiedMatchingAudioSide!, promptMode: 'audio' as const }
           : { promptMode: 'text' as const })}

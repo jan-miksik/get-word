@@ -68,6 +68,11 @@ describe('StudyExerciseCard — choice', () => {
     expect(card?.className).toContain('game-card--bare');
   });
 
+  it('drops the quiz badge, matching the cards it alternates with', () => {
+    renderCard(choiceExercise('I'));
+    expect(document.querySelector('.game-badge')).toBeNull();
+  });
+
   it('offers exactly as many options as the variant asks for', () => {
     renderCard(choiceExercise('I'));
     expect(document.querySelectorAll('.game-option')).toHaveLength(4);
