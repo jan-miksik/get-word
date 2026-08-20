@@ -74,4 +74,11 @@ describe('activity segment clamps', () => {
     expect(normalizeActivitySegment(segment({ active_ms: Number.NaN }), NOW)).toBeNull();
     expect(normalizeActivitySegment(segment({ started_at: Number.NaN }), NOW)).toBeNull();
   });
+
+  it('drops an invalid source timezone for direct callers', () => {
+    expect(normalizeActivitySegment(
+      segment({ timezone_at_creation: 'Not/A_Real_Zone' }),
+      NOW,
+    )?.timezoneAtCreation).toBeNull();
+  });
 });

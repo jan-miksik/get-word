@@ -50,6 +50,7 @@
     "backups",
     "build",
     "coverage",
-    "out"
+    "out",
+    "supabase/functions"
   ]
 }

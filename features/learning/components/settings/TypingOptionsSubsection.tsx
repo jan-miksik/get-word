@@ -25,7 +25,7 @@ export function TypingOptionsSubsection() {
 
   return (
     <div className="flex flex-col gap-2">
-      <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft/70">
+      <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft">
         {t('settings.typingMode')}
       </p>
       <div className="flex items-center justify-between gap-3 py-0.5">
@@ -55,7 +55,7 @@ export function TypingOptionsSubsection() {
       <div className="flex items-start justify-between gap-3 py-0.5">
         <div className="min-w-0">
           <p className="m-0 text-xs text-text">{t('settings.typingCheckButton')}</p>
-          <p className="m-0 mt-0.5 text-[0.65rem] leading-snug text-text-soft/80">
+          <p className="m-0 mt-0.5 text-[0.65rem] leading-snug text-text-soft">
             {t('settings.typingCheckButtonNotice')}
           </p>
         </div>

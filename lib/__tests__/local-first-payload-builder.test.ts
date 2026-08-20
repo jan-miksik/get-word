@@ -57,6 +57,16 @@ describe('payload builder', () => {
     expect(built?.payload.memory_hooks_intro_answered).toBe(true);
   });
 
+  it('lets the learning fine tune config through the preference allowlist', () => {
+    // A field missing from PREFERENCE_FIELDS is dropped in silence, so this is
+    // the assertion that keeps the setting from quietly never syncing.
+    const config = { version: 1, stages: [] };
+    const built = buildPayloadFromOps([
+      makeOp({ entity: 'preference', opType: 'set', payload: { field: 'learning_fine_tune', value: config } }),
+    ]);
+    expect(built?.payload.learning_fine_tune).toEqual(config);
+  });
+
   it('keeps a language-pair preference atomic in one outbox op', () => {
     const built = buildPayloadFromOps([
       makeOp({

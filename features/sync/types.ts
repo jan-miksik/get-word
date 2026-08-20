@@ -7,6 +7,7 @@ export type {
   SyncRequest,
   SyncReviewEventAction,
   SyncReviewEventItem,
+  StudyGoalMutation,
 } from '@/packages/contracts/src/sync';
 export type { DeviceProfile } from '@/packages/contracts/src/device';
 import type { SyncReviewEventItem } from '@/packages/contracts/src/sync';
@@ -94,6 +95,14 @@ export interface SyncResponse {
     study_notes_enabled?: boolean;
     study_note_minimize_from_stage?: number;
     learning_fine_tune?: unknown;
+    study_goal?: {
+      active: unknown | null;
+      pending: unknown | null;
+      revision: number;
+    };
+    goal_reminder_enabled?: boolean;
+    goal_reminder_local_minutes?: number | null;
+    goal_intro_answered?: boolean;
     review_opt_in?: boolean;
     ai_review_opt_in?: boolean;
     settings_language?: string | null;

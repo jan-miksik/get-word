@@ -212,7 +212,7 @@ function DeleteAccountModalContent({ onClose, authEmail }: Omit<DeleteAccountMod
 
             {preview && preview.keptLists.length > 0 ? (
               <div className="mt-4">
-                <p className="m-0 text-[0.7rem] font-semibold uppercase tracking-wider text-text-soft/70">
+                <p className="m-0 text-[0.7rem] font-semibold uppercase tracking-wider text-text-soft">
                   {t('account.deleteKeptHeading')}
                 </p>
                 <p className="mt-1 text-sm text-text-soft">{t('account.deleteKeptIntro')}</p>
@@ -226,7 +226,7 @@ function DeleteAccountModalContent({ onClose, authEmail }: Omit<DeleteAccountMod
                     </li>
                   ))}
                 </ul>
-                <p className="mt-2 text-xs leading-relaxed text-text-soft/80">
+                <p className="mt-2 text-xs leading-relaxed text-text-soft">
                   {t('account.deleteRenameWarning')}
                 </p>
               </div>
@@ -261,7 +261,7 @@ function DeleteAccountModalContent({ onClose, authEmail }: Omit<DeleteAccountMod
               href="/privacy"
               target="_blank"
               rel="noopener noreferrer"
-              className="mt-3 inline-block text-xs text-text-soft/70 underline hover:text-text"
+              className="mt-3 inline-block text-xs text-text-soft underline hover:text-text"
             >
               {t('account.deletePrivacyLink')}
             </Link>

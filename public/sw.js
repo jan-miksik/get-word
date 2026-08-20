@@ -70,6 +70,54 @@ self.addEventListener('message', (event) => {
   }
 });
 
+self.addEventListener('push', (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    // A malformed payload must not prevent the learner seeing a generic study
+    // reminder. The server owns the payload, but workers are a trust boundary.
+  }
+  const title = typeof payload.title === 'string' ? payload.title : 'Get Word';
+  const body = typeof payload.body === 'string'
+    ? payload.body
+    : 'A short study session is ready.';
+  const url = typeof payload.url === 'string'
+    && payload.url.startsWith('/')
+    && !payload.url.startsWith('//')
+    ? payload.url
+    : '/?source=study-reminder';
+  event.waitUntil(self.registration.showNotification(title, {
+    body,
+    icon: '/icons/icon-192.png',
+    badge: '/icons/maskable-192.png',
+    tag: 'get-word-study-reminder',
+    renotify: false,
+    data: { url },
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const candidateUrl = event.notification.data?.url;
+  const relativeUrl = typeof candidateUrl === 'string'
+    && candidateUrl.startsWith('/')
+    && !candidateUrl.startsWith('//')
+    ? candidateUrl
+    : '/?source=study-reminder';
+  const targetUrl = new URL(relativeUrl, self.location.origin).href;
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const existing = windows.find((client) => client.url.startsWith(self.location.origin));
+    if (existing) {
+      await existing.focus();
+      if ('navigate' in existing) await existing.navigate(targetUrl);
+      return;
+    }
+    await self.clients.openWindow(targetUrl);
+  })());
+});
+
 function isSameOrigin(url) {
   return url.origin === self.location.origin;
 }

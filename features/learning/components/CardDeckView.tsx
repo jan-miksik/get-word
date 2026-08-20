@@ -4,6 +4,7 @@ import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
 import type { AnimationEvent, CSSProperties, ReactNode } from 'react';
 import { STAGES, type NormalizedWord } from '@/lib/words';
 import type { MiniGameConfig } from '@/features/learning/minigames';
+import type { LearningStreamGroup } from '@/features/learning/types';
 import { getPlayableAudioUrl } from '@/lib/audio-availability';
 import { prefetchAudio } from '@/lib/audio-prefetch';
 import {
@@ -80,7 +81,10 @@ export interface CardDeckSwipeActions {
 }
 
 interface CardDeckViewProps {
-  groupedWords: (NormalizedWord | MiniGameConfig)[][];
+  /** Preferred structured stream shape. */
+  streamGroups?: LearningStreamGroup[];
+  /** Transitional compatibility for direct component consumers and older tests. */
+  groupedWords?: (NormalizedWord | MiniGameConfig)[][];
   interstitialCard?: ReactNode | null;
   emptyState?: ReactNode | null;
   onWordCardCompleted?: (word: NormalizedWord) => void;
@@ -103,6 +107,7 @@ interface CardDeckViewProps {
 }
 
 export function CardDeckView({
+  streamGroups,
   groupedWords,
   interstitialCard = null,
   emptyState = null,
@@ -122,7 +127,17 @@ export function CardDeckView({
   // to "All done!" — the user taps the overlay to confirm.
   const [showDoneOverlay, setShowDoneOverlay] = useState(false);
 
-  const items: StreamItem[] = useMemo(() => groupedWords.flat(), [groupedWords]);
+  const normalizedGroups = useMemo<LearningStreamGroup[]>(
+    () => streamGroups ?? (groupedWords ?? []).map((items, blockIndex) => ({
+      key: `legacy-${blockIndex}`,
+      kind: 'review',
+      blockIndex,
+      items,
+    })),
+    [groupedWords, streamGroups],
+  );
+  const itemGroups = useMemo(() => normalizedGroups.map((group) => group.items), [normalizedGroups]);
+  const items: StreamItem[] = useMemo(() => itemGroups.flat(), [itemGroups]);
 
   // Keep a snapshot of the last successfully rendered item so we can still
   // show it after items[] shrinks (words are removed from the queue once marked).
@@ -131,7 +146,7 @@ export function CardDeckView({
   // Lock the card being animated out so its content doesn't swap mid-animation
   // if the underlying item list changes after the word is marked.
   const [lockedItem, setLockedItem] = useState<StreamItem | null>(null);
-  const [lockedStageIndex, setLockedStageIndex] = useState(0);
+  const [lockedBlockIndex, setLockedBlockIndex] = useState(0);
   const pendingAfterExitRef = useRef<(() => void) | null>(null);
   // True while an exit animation is in flight. Guards against re-entrant advance
   // calls (double taps) and lets the fallback timer know there's something to
@@ -147,13 +162,13 @@ export function CardDeckView({
   // even when called from a stale closure captured during an earlier render.
   const currentIndexRef = useRef(currentIndex);
   const itemsRef = useRef(items);
-  const groupedWordsRef = useRef(groupedWords);
+  const itemGroupsRef = useRef(itemGroups);
 
   useEffect(() => {
     currentIndexRef.current = currentIndex;
     itemsRef.current = items;
-    groupedWordsRef.current = groupedWords;
-  }, [currentIndex, groupedWords, items]);
+    itemGroupsRef.current = itemGroups;
+  }, [currentIndex, itemGroups, items]);
 
   const updateLastItem = useCallback((item: StreamItem | null) => {
     lastItemRef.current = item;
@@ -304,14 +319,14 @@ export function CardDeckView({
 
     if (currentItem) {
       setLockedItem(currentItem);
-      let lockedStage = 0;
+      let lockedBlock = 0;
       let count = 0;
-      const grouped = groupedWordsRef.current;
+      const grouped = itemGroupsRef.current;
       for (let g = 0; g < grouped.length; g++) {
         count += grouped[g].length;
-        if (idx < count) { lockedStage = g; break; }
+        if (idx < count) { lockedBlock = normalizedGroups[g]?.blockIndex ?? g; break; }
       }
-      setLockedStageIndex(lockedStage);
+      setLockedBlockIndex(lockedBlock);
     }
 
     const hasAnotherItem = currentItems.some(
@@ -329,7 +344,7 @@ export function CardDeckView({
 
     beginExit(opts?.exitAnim);
     return 'exit';
-  }, [onWordCardCompleted, beginExit, updateLastItem]);
+  }, [onWordCardCompleted, beginExit, normalizedGroups, updateLastItem]);
 
   const handleMiniGameComplete = useCallback(() => {
     advance({ skipAnimation: true });
@@ -445,15 +460,15 @@ export function CardDeckView({
     );
   }
 
-  // Determine stageIndex from which group currentIndex falls into
-  let stageIndex = 0;
+  // Determine the block index from which group currentIndex falls into.
+  let blockIndex = 0;
   if (exitAnim && lockedItem) {
-    stageIndex = lockedStageIndex;
+    blockIndex = lockedBlockIndex;
   } else {
     let count = 0;
-    for (let g = 0; g < groupedWords.length; g++) {
-      count += groupedWords[g].length;
-      if (effectiveCurrentIndex < count) { stageIndex = g; break; }
+    for (let g = 0; g < itemGroups.length; g++) {
+      count += itemGroups[g].length;
+      if (effectiveCurrentIndex < count) { blockIndex = normalizedGroups[g]?.blockIndex ?? g; break; }
     }
   }
 
@@ -465,8 +480,8 @@ export function CardDeckView({
 
   // Swipe badges show when the word comes back rather than a right/wrong
   // verdict — deliberately neutral so a left swipe doesn't read as "mistake".
-  // Mirrors the okay/forgot hint math in WordCard. Note: `stageIndex` above is
-  // a stream-section index (due/new), not the SRS stage — ask the caller.
+  // Mirrors the okay/forgot hint math in WordCard. `blockIndex` is only stream
+  // position, never the SRS stage.
   const swipeWordStage =
     horizontalSwipeActive && swipeActions
       ? swipeActions.getStageIndex((item as NormalizedWord).id)
@@ -514,7 +529,7 @@ export function CardDeckView({
               )
             : renderCard(
                 item as NormalizedWord,
-                stageIndex,
+                blockIndex,
                 // eslint-disable-next-line react-hooks/refs -- The render contract passes this callback to an event prop; it is never invoked during render.
                 handleCardComplete,
                 { isExiting },

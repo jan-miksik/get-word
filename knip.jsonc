@@ -11,7 +11,8 @@
     // Knip needs to treat them as build entrypoints to follow their real graph.
     "mobile/src/next-shims/*.{ts,tsx}",
     "mobile/vite.config.ts",
-    "mobile/capacitor.config.ts"
+    "mobile/capacitor.config.ts",
+    "supabase/functions/*/index.ts"
   ],
   "project": [
     "**/*.{ts,tsx,js,mjs,cjs,css}",
@@ -30,7 +31,7 @@
   "ignoreBinaries": ["ffmpeg", "ffprobe"],
   // The native platform package is consumed by Capacitor's CLI rather than a
   // JavaScript import, so static analysis cannot observe the dependency edge.
-  "ignoreDependencies": ["@capacitor/ios"],
+  "ignoreDependencies": ["@capacitor/ios", "web-push"],
   // Generated locale data is selected through a runtime language-code lookup,
   // which Knip cannot follow as a static import graph.
   "ignore": [

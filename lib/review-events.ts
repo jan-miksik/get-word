@@ -3,6 +3,7 @@ import { scheduleDrain } from "@/lib/local-first/drainer";
 import { isLocalFirstAvailableSync, ensureLocalFirstAvailability } from "@/lib/local-first/availability";
 import { getDeviceId } from "@/lib/device-id";
 import { createBrowserId } from "@/lib/browser-id";
+import { localDayKeyAt } from '@/lib/local-day';
 import {
   appendPendingReviewEvent,
   clearAppliedReviewEvents,
@@ -28,6 +29,7 @@ export function createReviewEvent(
     ...(isItemId ? { word_list_item_id: wordId } : { word_id: wordId }),
     action,
     client_created_at: now,
+    local_day_key: localDayKeyAt(now),
   };
 }
 

@@ -6,14 +6,17 @@ import {
   deleteMemoryHookByItemId,
   getContentKeysForItemIds,
   getAppliedSyncClientOpIds,
+  getUserById,
   recordActivitySegmentsIfNew,
   recordAppliedSyncClientOpIds,
   setUserCategoryFilters,
   updateUserPreferences,
+  recomputeUserDayStat,
   upsertMemoryHook,
   upsertMemoryHookByItemId,
 } from '@/lib/db';
 import type { User } from '@/lib/db/schema';
+import { normalizeIanaTimezone } from '@/lib/local-day';
 import { isUuid } from '@/features/shared/sync/identity';
 import type { SyncOperationResult, SyncProgressItem, SyncRequest } from '@/features/sync/types';
 
@@ -53,6 +56,11 @@ export async function applySyncMutations(input: {
     study_notes_enabled,
     study_note_minimize_from_stage,
     learning_fine_tune,
+    study_goal,
+    study_goal_base_revision,
+    goal_reminder_enabled,
+    goal_reminder_local_minutes,
+    goal_intro_answered,
     review_opt_in,
     ai_review_opt_in,
     settings_language,
@@ -94,6 +102,18 @@ export async function applySyncMutations(input: {
   // their base-revision predicate arbitrates them on its own; a fully replayed
   // batch returns above without reaching them at all.
 
+  if (study_goal !== undefined) {
+    const { saveStudyGoal } = await import('@/lib/db/queries/study-goals');
+    await saveStudyGoal(
+      user.id,
+      study_goal,
+      study_goal_base_revision,
+      study_goal.timezone ?? 'UTC',
+    );
+    const refreshed = await getUserById(user.id);
+    if (refreshed) user = refreshed;
+  }
+
   if (
     show_english !== undefined ||
     show_category_badges !== undefined ||
@@ -105,7 +125,10 @@ export async function applySyncMutations(input: {
     review_opt_in !== undefined ||
     ai_review_opt_in !== undefined ||
     study_note_minimize_from_stage !== undefined ||
-    learning_fine_tune !== undefined ||
+    (learning_fine_tune !== undefined && study_goal === undefined) ||
+    goal_reminder_enabled !== undefined ||
+    goal_reminder_local_minutes !== undefined ||
+    goal_intro_answered !== undefined ||
     settings_language !== undefined ||
     language_from !== undefined ||
     language_to !== undefined ||
@@ -122,7 +145,10 @@ export async function applySyncMutations(input: {
       memory_hook_disable_from_stage,
       study_notes_enabled,
       study_note_minimize_from_stage,
-      learning_fine_tune,
+      learning_fine_tune: study_goal === undefined ? learning_fine_tune : undefined,
+      goal_reminder_enabled,
+      goal_reminder_local_minutes,
+      goal_intro_answered,
       review_opt_in,
       ai_review_opt_in,
       settings_language,
@@ -172,6 +198,29 @@ export async function applySyncMutations(input: {
       for (const segment of activity_segments) {
         unstoredClientOpIds.add(segment.client_segment_id);
       }
+    }
+  }
+
+  // Rollups are derived data: a failed refresh must never reject study
+  // progress. The summary endpoint repeats this work for stale recent days.
+  const affectedDayKeys = new Set<string>();
+  for (const event of review_events ?? []) {
+    if (event.local_day_key) affectedDayKeys.add(event.local_day_key);
+  }
+  for (const segment of activity_segments ?? []) {
+    if (segment.local_day_key) affectedDayKeys.add(segment.local_day_key);
+  }
+  if (affectedDayKeys.size > 0) {
+    const timezone = normalizeIanaTimezone(
+      activity_segments?.find((segment) => segment.timezone_at_creation)
+        ?.timezone_at_creation ?? user.timezone,
+    );
+    try {
+      await Promise.all([...affectedDayKeys].map((dayKey) =>
+        recomputeUserDayStat(user.id, dayKey, timezone),
+      ));
+    } catch (error) {
+      console.error('[sync] failed to recompute goal day stats:', error);
     }
   }
 

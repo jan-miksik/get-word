@@ -26,6 +26,7 @@ const stage = (overrides: Partial<StageConfig>): StageConfig => ({
   reveal: { weight: 1, variants: [] },
   choice: { weight: 1, variants: [] },
   typing: { weight: 1, variants: [] },
+  assembly: { weight: 1, variants: [] },
   match: { variants: [] },
   ...overrides,
 });
@@ -33,7 +34,7 @@ const stage = (overrides: Partial<StageConfig>): StageConfig => ({
 const configWithStage = (stageIndex: number, value: StageConfig): FineTuneConfig => {
   const stages = DEFAULT_FINE_TUNE_CONFIG.stages.map((entry) => entry);
   stages[stageIndex] = value;
-  return { version: 1, stages };
+  return { version: 3, stages };
 };
 
 const distribution = (
@@ -52,6 +53,7 @@ const distribution = (
       unknownCount: 0,
       config,
       distractorPool: pool,
+      role: 'knownLanguage',
     });
     counts[exercise.method] = (counts[exercise.method] ?? 0) + 1;
   }
@@ -80,15 +82,17 @@ describe('pickExerciseForWord — method weighting', () => {
     expect(shares.choice).toBeLessThan(0.58);
   });
 
-  it('splits 50/25/25 on the balanced 3-day stage', () => {
+  it('shares the balanced 3-day stage across its available methods', () => {
     const pool = distinctPool(12);
     const shares = distribution(DEFAULT_FINE_TUNE_CONFIG, 3, pool);
-    expect(shares.reveal).toBeGreaterThan(0.44);
-    expect(shares.reveal).toBeLessThan(0.56);
-    expect(shares.typing).toBeGreaterThan(0.19);
-    expect(shares.typing).toBeLessThan(0.31);
-    expect(shares.choice).toBeGreaterThan(0.19);
-    expect(shares.choice).toBeLessThan(0.31);
+    expect(shares.reveal).toBeGreaterThan(0.34);
+    expect(shares.reveal).toBeLessThan(0.46);
+    expect(shares.typing).toBeGreaterThan(0.14);
+    expect(shares.typing).toBeLessThan(0.26);
+    expect(shares.choice).toBeGreaterThan(0.14);
+    expect(shares.choice).toBeLessThan(0.26);
+    expect(shares.assembly).toBeGreaterThan(0.14);
+    expect(shares.assembly).toBeLessThan(0.26);
   });
 
   it('redistributes weight when a method drops out for lack of words', () => {
@@ -118,6 +122,7 @@ describe('pickExerciseForWord — determinism and fallbacks', () => {
       unknownCount: 1,
       config: DEFAULT_FINE_TUNE_CONFIG,
       distractorPool: pool,
+      role: 'knownLanguage' as const,
     };
     const first = pickExerciseForWord(input);
     const second = pickExerciseForWord(input);
@@ -132,6 +137,7 @@ describe('pickExerciseForWord — determinism and fallbacks', () => {
       unknownCount: 0,
       config: DEFAULT_FINE_TUNE_CONFIG,
       distractorPool: pool,
+      role: 'knownLanguage' as const,
     };
     const seen = new Set(
       Array.from({ length: 20 }, (_, i) =>
@@ -151,13 +157,14 @@ describe('pickExerciseForWord — determinism and fallbacks', () => {
         unknownCount: 3,
         config: DEFAULT_FINE_TUNE_CONFIG,
         distractorPool: pool,
+        role: 'knownLanguage',
       }),
     ).toEqual({ method: 'reveal', variant: 'foreign' });
   });
 
   it('falls back to reveal when a stage somehow has nothing to offer', () => {
     const config = normalizeFineTuneConfig({
-      version: 1,
+      version: 3,
       stages: [stage({}), stage({}), stage({}), stage({}), stage({}), stage({}), stage({}), stage({})],
     });
     const pool = distinctPool(12);
@@ -168,6 +175,7 @@ describe('pickExerciseForWord — determinism and fallbacks', () => {
       unknownCount: 0,
       config,
       distractorPool: pool,
+      role: 'knownLanguage',
     });
     expect(exercise).toEqual({ method: 'reveal', variant: 'foreign' });
   });
@@ -184,6 +192,7 @@ describe('pickExerciseForWord — similarity degradation', () => {
       unknownCount: 0,
       config,
       distractorPool: pool,
+      role: 'knownLanguage',
     });
 
     expect(exercise.method).toBe('choice');
@@ -209,12 +218,65 @@ describe('pickExerciseForWord — similarity degradation', () => {
       unknownCount: 0,
       config,
       distractorPool: pool,
+      role: 'knownLanguage',
     });
 
     expect(exercise.method).toBe('choice');
     if (exercise.method !== 'choice') return;
     expect(exercise.effectiveBand).toBe('III');
     expect(exercise.distractors).toHaveLength(2);
+  });
+});
+
+describe('pickExerciseForWord — assembly', () => {
+  it('builds a letter round with exactly the target letters when configured', () => {
+    const pool = [word('a', 'dog', 'mèo'), ...distinctPool(4)];
+    const config = configWithStage(
+      4,
+      stage({ assembly: { weight: 1, variants: ['letters:exact'] } }),
+    );
+    const exercise = pickExerciseForWord({
+      word: pool[0],
+      stageIndex: 4,
+      knownCount: 2,
+      unknownCount: 0,
+      config,
+      distractorPool: pool,
+      role: 'knownLanguage',
+    });
+
+    expect(exercise).toEqual({
+      method: 'assembly',
+      variant: 'letters:exact',
+      answerParts: ['m', 'è', 'o'],
+      distractorParts: [],
+    });
+  });
+
+  it('uses word tiles for a phrase and adds noise on the harder variant', () => {
+    const pool = [
+      word('a', 'good day', 'xin chào bạn'),
+      word('b', 'thank you', 'cảm ơn nhiều'),
+      word('c', 'see you', 'hẹn gặp lại'),
+    ];
+    const config = configWithStage(
+      4,
+      stage({ assembly: { weight: 1, variants: ['words:extra'] } }),
+    );
+    const exercise = pickExerciseForWord({
+      word: pool[0],
+      stageIndex: 4,
+      knownCount: 2,
+      unknownCount: 0,
+      config,
+      distractorPool: pool,
+      role: 'knownLanguage',
+    });
+
+    expect(exercise.method).toBe('assembly');
+    if (exercise.method !== 'assembly') return;
+    expect(exercise.answerParts).toEqual(['xin', 'chào', 'bạn']);
+    expect(exercise.distractorParts.length).toBeGreaterThan(0);
   });
 });
 

@@ -26,6 +26,7 @@ vi.mock('@/lib/db', () => ({
 import { applySyncMutations } from '../apply-mutations';
 import type { SyncRequest } from '@/features/sync/types';
 import type { User } from '@/lib/db/schema';
+import { presetConfig } from '@/features/learning/fine-tune/config';
 
 const user = { id: 'user-1', gameScore: 0, userRole: 'user' } as unknown as User;
 
@@ -84,5 +85,41 @@ describe('activity segments in a mixed batch', () => {
     // segment must be left out of both the ack hint and the applied ledger.
     expect(result.clientOpIds).toEqual(['pref-1']);
     expect(recordAppliedSyncClientOpIds).toHaveBeenCalledWith('user-1', ['pref-1']);
+  });
+});
+
+describe('learning fine tune', () => {
+  it('passes the config through to the preference write', async () => {
+    const config = presetConfig('demanding');
+    await applySyncMutations({
+      user,
+      request: {
+        deviceId: 'device-1',
+        learning_fine_tune: config,
+        client_op_ids: ['pref-1'],
+      } as unknown as SyncRequest,
+    });
+
+    expect(updateUserPreferences).toHaveBeenCalledTimes(1);
+    const prefs = (updateUserPreferences.mock.calls[0] as unknown as unknown[])[1] as {
+      learning_fine_tune?: unknown;
+    };
+    expect(prefs.learning_fine_tune).toEqual(config);
+  });
+
+  it('leaves the stored config alone when the request does not mention it', async () => {
+    await applySyncMutations({
+      user,
+      request: {
+        deviceId: 'device-1',
+        show_english: true,
+        client_op_ids: ['pref-1'],
+      } as unknown as SyncRequest,
+    });
+
+    const prefs = (updateUserPreferences.mock.calls[0] as unknown as unknown[])[1] as {
+      learning_fine_tune?: unknown;
+    };
+    expect(prefs.learning_fine_tune).toBeUndefined();
   });
 });

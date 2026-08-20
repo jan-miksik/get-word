@@ -18,6 +18,7 @@ export interface IncomingReviewEvent {
   word_list_item_id?: string;
   action: ReviewProgressAction;
   client_created_at: number;
+  local_day_key?: string;
 }
 
 function toClientDate(timestamp: number): Date {
@@ -71,6 +72,7 @@ async function recordReviewEventIfNew(
         wordListItemId: event.word_list_item_id ?? null,
         action: event.action,
         clientCreatedAt: toClientDate(event.client_created_at),
+        localDayKey: event.local_day_key ?? null,
       })
       .onConflictDoNothing()
       .returning({ id: reviewEvents.id });

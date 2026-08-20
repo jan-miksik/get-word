@@ -3,9 +3,10 @@ import {
   isSlotCompatibleAlternative,
   normalizeAnswerCloseKey,
   normalizeAnswerExactKey,
+  splitGraphemes,
   type AnswerVerdict,
 } from '@/lib/answer-normalization';
-import { levenshtein } from '@/lib/levenshtein';
+import { levenshtein, levenshteinTokens } from '@/lib/levenshtein';
 
 export type AnswerCandidate = {
   answer: string;
@@ -16,6 +17,8 @@ export type AnswerMatchResult = {
   verdict: AnswerVerdict;
   matchedAnswer: string;
   isAlternative: boolean;
+  /** Grapheme distance using diacritic-sensitive normalisation. */
+  nearestExactDistance: number;
 };
 
 export function matchAnswer(input: string, correct: string): AnswerVerdict {
@@ -66,6 +69,14 @@ export function matchAnswerAgainstCandidates(
 ): AnswerMatchResult {
   const usable = candidates.filter((candidate) => candidate.answer.trim());
   const fallback = usable[0] ?? { answer: '', isAlternative: false };
+  const inputExactTokens = splitGraphemes(normalizeAnswerExactKey(input));
+  const nearestExactDistance = usable.reduce(
+    (nearest, candidate) => Math.min(
+      nearest,
+      levenshteinTokens(inputExactTokens, splitGraphemes(normalizeAnswerExactKey(candidate.answer))),
+    ),
+    Number.POSITIVE_INFINITY,
+  );
   let best: AnswerMatchResult | null = null;
   for (const candidate of usable) {
     const verdict = getAnswerVerdict(input, candidate.answer);
@@ -74,6 +85,7 @@ export function matchAnswerAgainstCandidates(
         verdict,
         matchedAnswer: candidate.answer,
         isAlternative: candidate.isAlternative,
+        nearestExactDistance,
       };
     }
     if (best.verdict === 'exact' && !best.isAlternative) break;
@@ -94,5 +106,6 @@ export function matchAnswerAgainstCandidates(
     verdict: 'wrong',
     matchedAnswer: nearest.answer || normalizeAnswerExactKey(fallback.answer),
     isAlternative: nearest.isAlternative,
+    nearestExactDistance,
   };
 }

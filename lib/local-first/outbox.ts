@@ -196,7 +196,11 @@ function revisionDomainOf(op: OutboxOperation): SyncRevisionDomain | null {
       'onboarding_completed' in values ||
       'language_pair_base_revision' in values
     ));
-  return touchesPair ? 'language_pair' : null;
+  if (touchesPair) return 'language_pair';
+  const touchesGoal = op.opType === 'set_study_goal' ||
+    op.payload.field === 'study_goal' ||
+    Boolean(values && ('study_goal' in values || 'study_goal_base_revision' in values));
+  return touchesGoal ? 'study_goal' : null;
 }
 
 /**

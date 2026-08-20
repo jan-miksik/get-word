@@ -14,6 +14,7 @@ import {
   pgEnum,
   jsonb,
   numeric,
+  date,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
 import type { WordItemComment } from "@/lib/word-item-comment";
@@ -347,6 +348,12 @@ export const users = pgTable("users", {
   // Per-stage learning methods, weights and variants. Null means "never
   // touched", which the client reads as the default preset.
   learningFineTune: jsonb("learning_fine_tune"),
+  goalRevision: integer("goal_revision").notNull().default(0),
+  goalReminderEnabled: boolean("goal_reminder_enabled").notNull().default(true),
+  goalReminderLocalMinutes: integer("goal_reminder_local_minutes"),
+  goalIntroAnswered: boolean("goal_intro_answered").notNull().default(false),
+  studyPacingSeededAt: timestamp("study_pacing_seeded_at", { withTimezone: true }),
+  timezone: text("timezone"),
   settingsLanguage: text("settings_language"),
   settingsLanguageSelectedAt: timestamp("settings_language_selected_at"),
   settingsLanguageRevision: integer("settings_language_revision").notNull().default(0),
@@ -653,6 +660,9 @@ export const reviewEvents = pgTable(
     ),
     action: reviewActionEnum("action").notNull(),
     clientCreatedAt: timestamp("client_created_at").notNull(),
+    // Immutable client-local day; historical rows fall back to the user's
+    // current timezone when a rollup needs them.
+    localDayKey: date("local_day_key", { mode: "string" }),
     serverCreatedAt: timestamp("server_created_at").defaultNow().notNull(),
   },
   (table) => [
@@ -700,6 +710,8 @@ export const activitySegments = pgTable(
     endedAt: timestamp("ended_at", { withTimezone: true }).notNull(),
     activeMs: integer("active_ms").notNull(),
     interactions: integer("interactions").notNull().default(0),
+    localDayKey: date("local_day_key", { mode: "string" }),
+    timezoneAtCreation: text("timezone_at_creation"),
     serverCreatedAt: timestamp("server_created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),
@@ -713,6 +725,90 @@ export const activitySegments = pgTable(
       table.userId,
       table.startedAt,
     ),
+  ],
+);
+
+/** Versioned instead of overwritten so a goal change scheduled for tomorrow
+ * cannot retroactively alter an offline event from today. */
+export const userStudyGoalVersions = pgTable(
+  "user_study_goal_versions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    effectiveFromDay: date("effective_from_day", { mode: "string" }).notNull(),
+    enabled: boolean("enabled").notNull().default(true),
+    goalDaysPerWeek: integer("goal_days_per_week").notNull(),
+    goalMinutesPerDay: integer("goal_minutes_per_day").notNull(),
+    goalWordsPerDay: integer("goal_words_per_day").notNull(),
+    goalPreset: text("goal_preset").notNull(),
+    pacing: jsonb("pacing").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [
+    unique("user_study_goal_versions_user_day_unique").on(table.userId, table.effectiveFromDay),
+    index("user_study_goal_versions_user_day_idx").on(table.userId, table.effectiveFromDay),
+  ],
+);
+
+export const userDayStats = pgTable(
+  "user_day_stats",
+  {
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    dayKey: date("day_key", { mode: "string" }).notNull(),
+    timezone: text("timezone").notNull(),
+    activeMs: integer("active_ms").notNull().default(0),
+    answeredWords: integer("answered_words").notNull().default(0),
+    goalVersionId: uuid("goal_version_id").references(() => userStudyGoalVersions.id, { onDelete: "set null" }),
+    goalDaysPerWeek: integer("goal_days_per_week"),
+    goalMinutes: integer("goal_minutes"),
+    goalWords: integer("goal_words"),
+    met: boolean("met").notNull().default(false),
+    firstActivityAt: timestamp("first_activity_at", { withTimezone: true }),
+    lastActivityAt: timestamp("last_activity_at", { withTimezone: true }),
+    computedAt: timestamp("computed_at", { withTimezone: true }).defaultNow().notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.userId, table.dayKey] })],
+);
+
+/** Browser push endpoints are capability URLs, so they stay server-only and
+ * are never included in the sync payload. One endpoint is owned by exactly
+ * one account; re-subscribing moves it safely if the browser identity changes. */
+export const webPushSubscriptions = pgTable(
+  "web_push_subscriptions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    endpoint: text("endpoint").notNull(),
+    p256dh: text("p256dh").notNull(),
+    auth: text("auth").notNull(),
+    userAgent: text("user_agent"),
+    createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+    lastSuccessAt: timestamp("last_success_at", { withTimezone: true }),
+    lastFailureAt: timestamp("last_failure_at", { withTimezone: true }),
+    failureCount: integer("failure_count").notNull().default(0),
+  },
+  (table) => [
+    unique("web_push_subscriptions_endpoint_unique").on(table.endpoint),
+    index("web_push_subscriptions_user_updated_idx").on(table.userId, table.updatedAt),
+  ],
+);
+
+export const webPushReminderDeliveries = pgTable(
+  "web_push_reminder_deliveries",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    subscriptionId: uuid("subscription_id").references(() => webPushSubscriptions.id, { onDelete: "set null" }),
+    dayKey: date("day_key", { mode: "string" }).notNull(),
+    scheduledFor: timestamp("scheduled_for", { withTimezone: true }).notNull(),
+    claimedAt: timestamp("claimed_at", { withTimezone: true }).defaultNow().notNull(),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (table) => [
+    unique("web_push_reminder_deliveries_user_day_unique").on(table.userId, table.dayKey),
+    index("web_push_reminder_deliveries_subscription_idx").on(table.subscriptionId, table.dayKey),
   ],
 );
 

@@ -45,4 +45,51 @@ describe('SyncRequestSchema', () => {
       code: 'STALE_REVISION',
     })).toMatchObject({ status: 'conflict', code: 'STALE_REVISION' });
   });
+
+  it('rejects an invalid study-goal timezone', () => {
+    const result = SyncRequestSchema.safeParse({
+      study_goal: {
+        enabled: true,
+        goal_days_per_week: 4,
+        goal_minutes_per_day: 10,
+        goal_preset: 'medium',
+        reveal_mode: 'scratch',
+        minigame_frequency: 'off',
+        timezone: 'Not/A_Real_Zone',
+        learning_fine_tune: {},
+      },
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects an invalid activity-segment timezone', () => {
+    const result = SyncRequestSchema.safeParse({
+      activity_segments: [{
+        client_segment_id: 'segment-1',
+        session_id: 'session-1',
+        surface: 'study',
+        started_at: 1,
+        ended_at: 2,
+        active_ms: 1,
+        timezone_at_creation: 'Not/A_Real_Zone',
+      }],
+    });
+
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects a calendar-invalid local day', () => {
+    const result = SyncRequestSchema.safeParse({
+      review_events: [{
+        client_event_id: 'event-1',
+        word_list_item_id: 'item-1',
+        action: 'known',
+        client_created_at: 1,
+        local_day_key: '2026-02-30',
+      }],
+    });
+
+    expect(result.success).toBe(false);
+  });
 });

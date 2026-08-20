@@ -4,23 +4,26 @@ import { useRef, useMemo, useState, useEffect, useCallback, ReactNode } from 're
 import { useVirtualizer } from '@tanstack/react-virtual';
 import { NormalizedWord, STAGES } from '@/lib/words';
 import type { MiniGameConfig } from '@/features/learning/minigames';
+import type { LearningStreamGroup } from '@/features/learning/types';
 
 /** Fixed height for minigame rows so completion state (feedback + overlay) doesn't cause layout jump. */
 const MINIGAME_ROW_HEIGHT = 520;
 
-type Stage = (typeof STAGES)[number];
-
 type VirtualItem =
-  | { type: 'header'; stage: Stage; stageIndex: number }
+  | { type: 'header'; label: string; stageIndex: number }
   | { type: 'card'; word: NormalizedWord; stageIndex: number }
   | { type: 'minigame'; config: MiniGameConfig; stageIndex: number }
   | { type: 'footer'; stageIndex: number; content: ReactNode };
 
 interface VirtualizedWordListProps {
-  groupedWords: (NormalizedWord | MiniGameConfig)[][];
+  streamGroups?: LearningStreamGroup[];
+  /** Transitional compatibility for direct component consumers and older tests. */
+  groupedWords?: (NormalizedWord | MiniGameConfig)[][];
   renderCard: (word: NormalizedWord, stageIndex: number) => ReactNode;
   renderMiniGame?: (config: MiniGameConfig, isActive: boolean) => ReactNode;
   stageFooter?: (stageIndex: number) => ReactNode | null;
+  groupFooter?: (group: LearningStreamGroup) => ReactNode | null;
+  groupLabel?: (group: LearningStreamGroup) => string;
   className?: string;
   emptyMessage?: string;
   scrollElement?: HTMLElement | null;
@@ -31,10 +34,13 @@ interface VirtualizedWordListProps {
 }
 
 export function VirtualizedWordList({
+  streamGroups,
   groupedWords,
   renderCard,
   renderMiniGame,
   stageFooter,
+  groupFooter,
+  groupLabel,
   className = '',
   emptyMessage = 'No words to display.',
   scrollElement,
@@ -45,15 +51,28 @@ export function VirtualizedWordList({
   const stickyHeaderRef = useRef<HTMLDivElement>(null);
   const [activeStageIndex, setActiveStageIndex] = useState(0);
   const [activeMiniGameId, setActiveMiniGameId] = useState<string | null>(null);
+  const groups = useMemo<LearningStreamGroup[]>(
+    () => streamGroups ?? (groupedWords ?? []).map((items, blockIndex) => ({
+      key: `legacy-${blockIndex}`,
+      kind: 'review',
+      blockIndex,
+      items,
+    })),
+    [groupedWords, streamGroups],
+  );
 
   // Flatten items: headers (optional) + cards + optional footers
   const items = useMemo(() => {
     const flat: VirtualItem[] = [];
-    STAGES.forEach((stage, stageIndex) => {
-      const words = groupedWords[stageIndex] || [];
+    groups.forEach((group, stageIndex) => {
+      const words = group.items;
       if (words.length > 0) {
         if (showHeaders) {
-          flat.push({ type: 'header', stage, stageIndex });
+          flat.push({
+            type: 'header',
+            label: groupLabel?.(group) ?? STAGES[group.blockIndex]?.name ?? group.kind,
+            stageIndex,
+          });
         }
         words.forEach(item => {
           if ('_isMinigame' in item) {
@@ -62,22 +81,22 @@ export function VirtualizedWordList({
             flat.push({ type: 'card', word: item, stageIndex });
           }
         });
-        const footerContent = stageFooter?.(stageIndex);
+        const footerContent = groupFooter?.(group) ?? stageFooter?.(stageIndex);
         if (footerContent) {
           flat.push({ type: 'footer', stageIndex, content: footerContent });
         }
       }
     });
     return flat;
-  }, [groupedWords, stageFooter, showHeaders]);
+  }, [groupFooter, groupLabel, groups, showHeaders, stageFooter]);
 
   // Find the first non-empty stage for initial active stage
   useEffect(() => {
-    const firstNonEmpty = STAGES.findIndex((_, idx) => (groupedWords[idx]?.length || 0) > 0);
+    const firstNonEmpty = groups.findIndex((group) => group.items.length > 0);
     if (firstNonEmpty >= 0) {
       setActiveStageIndex(firstNonEmpty);
     }
-  }, [groupedWords]);
+  }, [groups]);
 
   // Measure the actual offset of the container from the scroll element.
   // In tanstack virtual v3, scrollMargin is added to item `start` values,
@@ -187,16 +206,16 @@ export function VirtualizedWordList({
     return () => el.removeEventListener('scroll', updateActiveStage);
   }, [updateActiveStage, scrollElement]);
 
-  const activeStage = STAGES[activeStageIndex];
+  const activeStage = groups[activeStageIndex];
   const virtualItems = virtualizer.getVirtualItems();
 
   // Total word count (excludes injected minigame items so empty-state check is unaffected)
   const totalWords = useMemo(() => {
-    return groupedWords.reduce(
-      (sum, items) => sum + (items?.filter(i => !('_isMinigame' in i)).length || 0),
+    return groups.reduce(
+      (sum, group) => sum + group.items.filter((item) => !('_isMinigame' in item)).length,
       0
     );
-  }, [groupedWords]);
+  }, [groups]);
 
   // Debug: log virtualization stats
   const isDev = process.env.NODE_ENV === 'development';
@@ -318,7 +337,7 @@ export function VirtualizedWordList({
       {scrollElement && showHeaders && (
         <div ref={stickyHeaderRef} className="sticky top-0 z-10 bg-background backdrop-blur-[12px] border-b border-border-subtle py-3 px-4 mb-2">
           <h2 className="m-0 text-base font-semibold text-accent">
-            {activeStage?.name || 'Loading...'}
+            {activeStage ? (groupLabel?.(activeStage) ?? STAGES[activeStage.blockIndex]?.name ?? activeStage.kind) : 'Loading...'}
           </h2>
         </div>
       )}
@@ -356,7 +375,7 @@ export function VirtualizedWordList({
                   className={`text-[0.7rem] uppercase tracking-[0.12em] text-text-soft m-0 mb-1 mx-0.5 opacity-90 py-4 px-4 text-sm ${item.stageIndex > 0 ? 'border-t border-border-subtle' : ''}`}
                   style={{ marginTop: item.stageIndex > 0 ? '32px' : '0', paddingTop: item.stageIndex > 0 ? '20px' : '16px' }}
                 >
-                  {item.stage.name}
+                  {item.label}
                 </h2>
               </div>
             );

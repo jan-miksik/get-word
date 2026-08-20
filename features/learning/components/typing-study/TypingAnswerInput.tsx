@@ -20,7 +20,7 @@ type TypingAnswerInputProps = {
   isFocused: boolean;
   mask: ReactNode;
   isManualAnswerComplete: boolean;
-  /** The hardest typing variant offers no hint at all. */
+  /** Variants with a positive reveal budget expose the hint button. */
   hintEnabled: boolean;
   hintExhausted: boolean;
   onApplyValue: (value: string) => void;
@@ -56,7 +56,7 @@ export function TypingAnswerInput({
   onPreserveFocus,
 }: TypingAnswerInputProps) {
   const { t } = useI18n();
-  // The hardest typing variant offers no way out: no first letter, no hint.
+  // The two hardest rungs have no reveal budget, so no hint button is rendered.
   const hintButton = result === null && hintEnabled ? (
     <button
       ref={hintButtonRef}

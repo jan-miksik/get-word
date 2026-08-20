@@ -97,6 +97,8 @@ export async function recordActivitySegmentsIfNew(
         endedAt: segment.endedAt,
         activeMs: segment.activeMs,
         interactions: segment.interactions,
+        localDayKey: segment.localDayKey,
+        timezoneAtCreation: segment.timezoneAtCreation,
       })),
     )
     .onConflictDoNothing()

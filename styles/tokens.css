@@ -23,6 +23,13 @@
   --match-4: 244 114 182;  /* pink */
   --match-5: 52 211 153;   /* emerald */
   --match-6: 251 146 60;   /* orange */
+  /* Session rail. The study surface is the warm sand sheet in every theme
+     (`.app-background`, `SpeckledBackground`), so these are fixed warm values
+     rather than theme-swapped ones, and they reuse the same scale the Upcoming
+     panel's stage ticks already draw with. Blue is maintenance, green growth. */
+  --rail-track: rgba(42, 34, 24, 0.13);
+  --rail-review: #1e6fa8;
+  --rail-new: #3f8f4d;
   --radius-lg: 18px;
   --radius-pill: 999px;
   --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.75);

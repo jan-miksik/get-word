@@ -395,12 +395,12 @@ export function SelectStep({
       ) : null}
 
       <ul className="space-y-2">
-        {proposals.map((item) => {
+        {proposals.map((item, index) => {
           const selected = isSelected(item);
           const key = getProposalKey(item);
           const editing = editingKey === key;
           return (
-            <li key={key}>
+            <li key={key} className="word-chat-row" style={{ ['--row-index' as string]: index }}>
               <div
                 className={[
                   'onboarding-option group flex w-full items-center gap-2 rounded-xl p-1.5 pl-3 text-left',
@@ -435,7 +435,7 @@ export function SelectStep({
                         }
                       }}
                       maxLength={200}
-                      className="word-chat-input min-w-0 flex-1 resize-none rounded-lg px-2 py-1.5 text-base font-bold leading-snug sm:text-sm"
+                      className="word-chat-input min-h-10 min-w-0 flex-1 resize-none rounded-lg px-2 py-1.5 text-base font-bold leading-snug sm:text-sm"
                     />
                   </>
                 ) : (

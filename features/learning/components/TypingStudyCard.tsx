@@ -25,7 +25,11 @@ import { formatNextReviewHint, getWordTextSize } from './word-card/helpers';
 import { SpeakerIcon } from '@/components/icons/SpeakerIcon';
 import { useI18n } from '@/components/I18nProvider';
 import { noTranslateProps } from '@/lib/i18n/no-translate';
-import { typingVariantMechanics, type TypingVariant } from '@/features/learning/fine-tune/types';
+import {
+  parseTypingVariant,
+  typingScaffold,
+  type TypingVariant,
+} from '@/features/learning/fine-tune/types';
 import { TypingMemoryHook } from './typing-study/TypingMemoryHook';
 import { TypingAnswerInput } from './typing-study/TypingAnswerInput';
 
@@ -117,18 +121,47 @@ export function TypingStudyCard({
   showMemoryHook = false,
 }: TypingStudyCardProps) {
   const { t } = useI18n();
+  // Typing is always known → foreign. Practising how to spell your own
+  // language is not what people come here for, so there is no direction to pick.
+  const foreignSide: WordSide = learningSideForRole(role);
+  const answerSide: WordSide = foreignSide;
+  const correctAnswer = getWordTextBySide(word, answerSide).trim().normalize('NFC');
+  const answerCandidates = getAcceptedAnswerCandidates(
+    correctAnswer,
+    getWordAcceptedAnswersBySide(word, answerSide),
+  );
+  const useFreeAnswerInput = requiresExplicitTypingCheck(answerCandidates);
+  // Scaffold geometry belongs to the primary answer and never changes after an
+  // accepted alternative is shown in the result state.
+  const baseSlots = splitGraphemes(correctAnswer);
+  const baseFixedFlags = baseSlots.map((ch) => prefillPunctuation && PREFILL_CHAR_RE.test(ch));
+  const baseEditableIndices = baseSlots.map((_, idx) => idx).filter((idx) => !baseFixedFlags[idx]);
+  // A space is free even if punctuation prefill is switched off. It remains in
+  // the input to preserve mask alignment, but must not let a 90% scaffold show
+  // every actual letter.
+  const baseScaffoldCount = baseEditableIndices.filter((idx) => baseSlots[idx] !== ' ').length;
+  const requestedScaffold = typingScaffold({
+    ...parseTypingVariant(variant),
+    editableCount: baseScaffoldCount,
+  });
+  const scaffold = useFreeAnswerInput
+    ? { prefillCount: 0, hintCap: 0, hintBudget: 0 }
+    : requestedScaffold;
+  const { prefillCount, hintBudget } = scaffold;
   // value holds only the user's characters for editable slots (fixed
   // punctuation/space slots are never part of it).
-  // The first letter is seeded as already-typed rather than as a fixed slot:
-  // fixed slots are excluded from the input value and only the punctuation
-  // sanitiser knows how to put them back, so a fixed letter would desynchronise
-  // the mask the moment the learner typed it themselves. Seeding the value
-  // keeps every slot editable — they can even delete it — and costs no hint.
   const [value, setValue] = useState(() => {
-    if (variant !== 'firstLetterWithHint') return '';
-    const answer = getWordTextBySide(word, learningSideForRole(role)).trim().normalize('NFC');
-    const first = splitGraphemes(answer)[0] ?? '';
-    return first && !PREFILL_CHAR_RE.test(first) ? first : '';
+    if (useFreeAnswerInput || prefillCount === 0) return '';
+    let revealedLetters = 0;
+    return baseEditableIndices.map((slotIndex) => {
+      const character = baseSlots[slotIndex] ?? '';
+      // Spaces remain free when punctuation prefilling is disabled, matching
+      // hint behavior and preserving the input's slot alignment.
+      if (character === ' ') return character;
+      if (revealedLetters >= prefillCount) return '';
+      revealedLetters += 1;
+      return character;
+    }).join('');
   });
   const [result, setResult] = useState<TypingResult | null>(null);
   const [caretIndex, setCaretIndex] = useState(0);
@@ -147,24 +180,15 @@ export function TypingStudyCard({
   const audioTouchActiveRef = useRef(false);
   const isComposingRef = useRef(false);
   const hintsRef = useRef(0);
+  const [hintsUsed, setHintsUsed] = useState(0);
   const continuedRef = useRef(false);
   const autoFocusedWordIdRef = useRef<string | null>(null);
 
-  // Typing is always known → foreign. Practising how to spell your own
-  // language is not what people come here for, so there is no direction to pick.
-  const foreignSide: WordSide = learningSideForRole(role);
-  const answerSide: WordSide = foreignSide;
-  const { hintEnabled } = typingVariantMechanics(variant);
+  const hintEnabled = hintBudget > 0;
   const promptTextSide: WordSide = flipSide(answerSide);
-  const correctAnswer = getWordTextBySide(word, answerSide).trim().normalize('NFC');
-  const answerCandidates = getAcceptedAnswerCandidates(
-    correctAnswer,
-    getWordAcceptedAnswersBySide(word, answerSide),
-  );
   // Alternatives that fit the primary's slot mask (same grapheme count, same
   // punctuation slots) keep the masked input; only an incompatible alternative
   // forces the free-text fallback.
-  const useFreeAnswerInput = requiresExplicitTypingCheck(answerCandidates);
   const manualCheck = checkButtonEnabled;
   const displayedAnswer = result?.matchedAnswer ?? correctAnswer;
   const slots = splitGraphemes(displayedAnswer);
@@ -344,10 +368,9 @@ export function TypingStudyCard({
   }, [foreignSide, isFocused, result, word]);
 
   const typedChars = splitGraphemes(value);
-  const minimumAnswerLengthForCheck = getMinimumTypingAnswerLength(
-    answerCandidates,
-    useFreeAnswerInput,
-    editableCount,
+  const minimumAnswerLengthForCheck = Math.max(
+    getMinimumTypingAnswerLength(answerCandidates, useFreeAnswerInput, editableCount),
+    prefillCount + 1,
   );
   const isManualAnswerComplete =
     minimumAnswerLengthForCheck > 0 && typedChars.length >= minimumAnswerLengthForCheck;
@@ -370,7 +393,12 @@ export function TypingStudyCard({
     if (typed.length === 0 || editableCount === 0) return;
     const merged =
       useFreeAnswerInput || typed.length > editableCount ? nextValue : buildMergedAnswer(typed);
-    const nextResult = evaluateTypingAnswer(merged, answerCandidates, hintsRef.current);
+    const nextResult = evaluateTypingAnswer(
+      merged,
+      answerCandidates,
+      hintsRef.current,
+      !useFreeAnswerInput,
+    );
     // A checked card no longer needs the keyboard. Blur synchronously so mobile
     // browsers start closing it before the result layout is painted.
     inputRef.current?.blur();
@@ -469,7 +497,7 @@ export function TypingStudyCard({
   // (prefilled) slots are not part of the typed value; bare spaces (prefill
   // off) are filled without consuming a hint, mirroring the quiz behavior.
   const revealNextLetter = () => {
-    if (result !== null) return;
+    if (result !== null || !hintEnabled || hintsRef.current >= hintBudget) return;
     const typed = splitGraphemes(value);
     let caretPos = -1;
     for (let editableIdx = 0; editableIdx < editableCount; editableIdx += 1) {
@@ -478,6 +506,7 @@ export function TypingStudyCard({
       typed[editableIdx] = expected;
       if (expected === ' ') continue;
       hintsRef.current += 1;
+      setHintsUsed(hintsRef.current);
       caretPos = editableIdx + 1;
       break;
     }
@@ -496,7 +525,7 @@ export function TypingStudyCard({
     finishCheck(nextValue);
   };
 
-  const hintExhausted = editableSlotIndices.every(
+  const hintExhausted = hintsUsed >= hintBudget || editableSlotIndices.every(
     (slotIdx, editableIdx) => (typedChars[editableIdx] ?? '') === slots[slotIdx],
   );
 
@@ -619,7 +648,7 @@ export function TypingStudyCard({
   // After a non-perfect check every slot gains a small second row: the
   // expected character under each wrong/close letter (blank elsewhere, kept
   // for equal slot heights so wrapped lines stay aligned).
-  const showCorrections = result !== null && result.match !== 'exact';
+  const showCorrections = result !== null && result.presentation !== 'exact';
   slots.forEach((ch, idx) => {
     const isFixed = fixedFlags[idx];
     if (!isFixed) editableRenderIdx += 1;
@@ -629,7 +658,8 @@ export function TypingStudyCard({
     // Once checked, colour each character: green when it matches exactly,
     // yellow when only the accent differs, highlighted red when it is wrong
     // or missing.
-    const state = result === null || isSpace ? null : slotState(typedChar, ch);
+    const rawState = result === null || isSpace ? null : slotState(typedChar, ch);
+    const state = result?.presentation === 'typo' && rawState === 'bad' ? 'close' : rawState;
     const reservesCorrectionRow = true;
     const needsCorrection = showCorrections && state !== null && state !== 'correct';
     const span = (
@@ -666,9 +696,15 @@ export function TypingStudyCard({
   });
   flushWord();
 
-  const resultLabels: Record<'exact' | 'close' | 'wrong', React.ReactNode> = {
+  const resultLabels: Record<TypingResult['presentation'], React.ReactNode> = {
     exact: `✓ ${t('game.perfect')}`,
     close: (
+      <>
+        ~ {t('game.close')}{' '}
+        <strong {...noTranslateProps()}>{result?.matchedAnswer ?? correctAnswer}</strong>
+      </>
+    ),
+    typo: (
       <>
         ~ {t('game.close')}{' '}
         <strong {...noTranslateProps()}>{result?.matchedAnswer ?? correctAnswer}</strong>
@@ -682,9 +718,9 @@ export function TypingStudyCard({
     ),
   };
   const feedbackToneClass =
-    result?.match === 'close'
+    result?.presentation === 'close' || result?.presentation === 'typo'
       ? '!border-[#C28A24] !bg-[#FFF0BD] !text-[#5B3A00] shadow-[0_2px_0_rgba(91,58,0,0.12)]'
-      : result?.match === 'wrong'
+      : result?.presentation === 'wrong'
         ? '!border-[#B91C1C]/30 !bg-[#B91C1C]/10 !text-[#8F1515]'
         : '!text-[#187A43]';
 
@@ -707,9 +743,9 @@ export function TypingStudyCard({
         <div
           role={result ? 'status' : undefined}
           aria-hidden={result ? undefined : true}
-          className={`game-feedback self-center min-h-[3.25rem] w-[min(34rem,calc(100vw-2rem))] !justify-center !border !border-transparent !px-3 !py-1.5 text-center !text-[1rem] leading-tight sm:!text-[1.1rem] md:[@media(max-height:800px)]:min-h-10 md:[@media(max-height:800px)]:!py-1 [&_strong]:font-extrabold ${result ? `game-feedback--${result.match} ${feedbackToneClass}` : 'invisible'}`}
+          className={`game-feedback self-center min-h-[3.25rem] w-[min(34rem,calc(100vw-2rem))] !justify-center !border !border-transparent !px-3 !py-1.5 text-center !text-[1rem] leading-tight sm:!text-[1.1rem] md:[@media(max-height:800px)]:min-h-10 md:[@media(max-height:800px)]:!py-1 [&_strong]:font-extrabold ${result ? `game-feedback--${result.presentation === 'typo' ? 'close' : result.presentation} ${feedbackToneClass}` : 'invisible'}`}
         >
-          {result ? resultLabels[result.match] : '\u00A0'}
+          {result ? resultLabels[result.presentation] : '\u00A0'}
         </div>
         {usesAudioPrompt ? (
           <div className="flex flex-col items-center gap-2 py-1">

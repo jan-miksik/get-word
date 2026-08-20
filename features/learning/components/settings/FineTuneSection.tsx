@@ -9,6 +9,7 @@ import { Section } from '@/components/settings/primitives';
 import { SIMILARITY_BANDS, type SimilarityBand } from '@/features/learning/minigames/similarity';
 import {
   CHOICE_OPTION_COUNTS,
+  ASSEMBLY_VARIANTS,
   MATCH_PAIR_COUNTS,
   METHOD_IDS,
   REVEAL_VARIANTS,
@@ -16,6 +17,7 @@ import {
   choiceVariant,
   matchVariant,
   type ChoiceOptionCount,
+  type AssemblyVariant,
   type ChoiceVariant,
   type FineTuneConfig,
   type MatchPairCount,
@@ -38,6 +40,7 @@ const METHOD_LABEL_KEY: Record<MethodId, I18nKey> = {
   reveal: 'settings.fineTuneMethodReveal',
   choice: 'settings.fineTuneMethodChoice',
   typing: 'settings.fineTuneMethodTyping',
+  assembly: 'settings.fineTuneMethodAssembly',
 };
 
 const PRESET_LABEL_KEY: Record<PresetId | 'custom', I18nKey> = {
@@ -53,9 +56,19 @@ const REVEAL_LABEL_KEY = {
 } as const;
 
 const TYPING_LABEL_KEY = {
-  firstLetterWithHint: 'settings.fineTuneTypingFirstLetterWithHint',
-  hint: 'settings.fineTuneTypingHint',
-  bare: 'settings.fineTuneTypingBare',
+  '90:90': 'settings.fineTuneTyping90_90',
+  '50:90': 'settings.fineTuneTyping50_90',
+  '20:50': 'settings.fineTuneTyping20_50',
+  '0:20': 'settings.fineTuneTyping0_20',
+  '0:10': 'settings.fineTuneTyping0_10',
+  '0:0': 'settings.fineTuneTyping0_0',
+} as const;
+
+const ASSEMBLY_LABEL_KEY = {
+  'letters:exact': 'settings.fineTuneAssemblyLettersExact',
+  'letters:extra': 'settings.fineTuneAssemblyLettersExtra',
+  'words:exact': 'settings.fineTuneAssemblyWordsExact',
+  'words:extra': 'settings.fineTuneAssemblyWordsExtra',
 } as const;
 
 // Coarse on purpose: sliders that renormalise against each other are unusable
@@ -94,7 +107,7 @@ export function FineTuneSection() {
       <div
         role="radiogroup"
         aria-label={t('settings.fineTunePreset')}
-        className="inline-flex w-full gap-1 rounded-xl border border-border-subtle bg-background/30 p-1"
+        className="inline-flex w-full gap-1 rounded-xl border border-border-subtle bg-background-elevated p-1"
       >
         {PRESET_IDS.map((id) => {
           const selected = preset === id;
@@ -147,7 +160,7 @@ export function FineTuneSection() {
                   </span>
                   <span
                     aria-hidden
-                    className={`text-text-soft/70 transition-transform ${isOpen ? 'rotate-90' : ''}`}
+                    className={`text-text-soft transition-transform ${isOpen ? 'rotate-90' : ''}`}
                   >
                     ›
                   </span>
@@ -190,7 +203,7 @@ function StageDetail({
   return (
     <div className="flex flex-col gap-4 border-t border-border-subtle/60 px-3 py-3">
       <div className="flex flex-col gap-2">
-        <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft/70">
+        <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft">
           {t('settings.fineTuneMethodReveal')}
         </p>
         <div className="flex flex-wrap gap-1.5">
@@ -206,7 +219,24 @@ function StageDetail({
       </div>
 
       <div className="flex flex-col gap-2">
-        <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft/70">
+        <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft">
+          {t('settings.fineTuneMethodAssembly')}
+        </p>
+        <div className="flex flex-wrap gap-1.5">
+          {ASSEMBLY_VARIANTS.map((variant) => (
+            <Chip
+              key={variant}
+              selected={stageConfig.assembly.variants.includes(variant)}
+              label={t(ASSEMBLY_LABEL_KEY[variant])}
+              onClick={() => setVariants('assembly', toggle(stageConfig.assembly.variants, variant as AssemblyVariant))}
+            />
+          ))}
+        </div>
+        <p className="m-0 text-[0.65rem] text-text-soft">{t('settings.fineTuneAssemblyNote')}</p>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft">
           {t('settings.fineTuneMethodTyping')}
         </p>
         <div className="flex flex-col gap-1.5">
@@ -219,7 +249,7 @@ function StageDetail({
             />
           ))}
         </div>
-        <p className="m-0 text-[0.65rem] text-text-soft/70">{t('settings.fineTuneTypingNote')}</p>
+        <p className="m-0 text-[0.65rem] text-text-soft">{t('settings.fineTuneTypingNote')}</p>
       </div>
 
       <VariantGrid
@@ -247,10 +277,10 @@ function StageDetail({
             })
           }
         />
-        <p className="m-0 text-[0.65rem] text-text-soft/70">{t('settings.fineTuneMatchNote')}</p>
+        <p className="m-0 text-[0.65rem] text-text-soft">{t('settings.fineTuneMatchNote')}</p>
       </div>
 
-      <p className="m-0 text-[0.65rem] text-text-soft/70">{t('settings.fineTuneBandLegend')}</p>
+      <p className="m-0 text-[0.65rem] text-text-soft">{t('settings.fineTuneBandLegend')}</p>
 
       <div>
         <button
@@ -268,14 +298,14 @@ function StageDetail({
         {advancedOpen && (
           <div className="mt-2 flex flex-col gap-3">
             <div className="flex flex-col gap-2">
-              <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft/70">
+              <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft">
                 {t('settings.fineTuneWeight')}
               </p>
               {METHOD_IDS.filter((id) => stageConfig[id].variants.length > 0).map((id) => (
                 <div key={id} className="flex items-center justify-between gap-2">
                   <span className="text-xs text-text">
                     {t(METHOD_LABEL_KEY[id])}
-                    <span className="ml-1.5 tabular-nums text-text-soft/70">
+                    <span className="ml-1.5 tabular-nums text-text-soft">
                       {Math.round((shares[id] ?? 0) * 100)}%
                     </span>
                   </span>
@@ -324,21 +354,21 @@ function VariantGrid({
   const selectedSet = new Set(selected);
   return (
     <div className="flex flex-col gap-2">
-      <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft/70">
+      <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft">
         {title}
       </p>
       <div
         className="grid gap-1"
         style={{ gridTemplateColumns: `minmax(2.5rem, auto) repeat(${SIMILARITY_BANDS.length}, 1fr)` }}
       >
-        <span aria-hidden className="text-[0.6rem] uppercase tracking-wide text-text-soft/60">
+        <span aria-hidden className="text-[0.6rem] uppercase tracking-wide text-text-soft">
           {countLabel}
         </span>
         {SIMILARITY_BANDS.map((band) => (
           <span
             key={band}
             aria-hidden
-            className="text-center text-[0.6rem] font-semibold uppercase tracking-wide text-text-soft/60"
+            className="text-center text-[0.6rem] font-semibold uppercase tracking-wide text-text-soft"
           >
             {band}
           </span>
@@ -385,11 +415,11 @@ function Row({
             className={`h-7 rounded-md border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${
               selected
                 ? 'border-accent bg-accent text-white'
-                : 'border-border-subtle bg-background/40 hover:border-accent/60'
+                : 'border-border-subtle/70 bg-background-elevated text-text-soft hover:border-accent hover:text-text'
             }`}
           >
             <span aria-hidden className="text-xs">
-              {selected ? '✓' : ''}
+              {selected ? '✓' : '·'}
             </span>
           </button>
         );
@@ -416,7 +446,7 @@ function Chip({
       className={`rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${
         selected
           ? 'border-accent bg-accent text-white'
-          : 'border-border-subtle bg-background/40 text-text-soft hover:border-accent/60 hover:text-text'
+          : 'border-border-subtle/70 bg-background-elevated text-text-soft hover:border-accent hover:text-text'
       }`}
     >
       {label}

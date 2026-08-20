@@ -11,6 +11,8 @@ import { MultipleChoiceGame } from './games/MultipleChoiceGame';
 import { TypingChallengeGame } from './games/TypingChallengeGame';
 import { MatchingPairsGame } from './games/MatchingPairsGame';
 import { TiltChoiceGame } from './games/TiltChoiceGame';
+import { BubbleChoiceGame } from './games/BubbleChoiceGame';
+import { SimilarWordsPromptGame } from './games/SimilarWordsPromptGame';
 import {
   getWordAudioSrcBySide,
   type LearningRole,
@@ -59,6 +61,17 @@ interface Props {
   role: LearningRole;
   onDismiss: () => void;
   onResult?: (delta: number) => void;
+  onReviewOutcome?: (wordId: string, outcome: 'known' | 'unknown') => void;
+  /** Fallback when there is no personal list to save generated words into. */
+  onAddSimilarWords?: () => void;
+  /** Everything the inline similar-words generator needs to run in place. */
+  similarWordsContext?: {
+    pool: NormalizedWord[];
+    languageFrom: string;
+    languageTo: string;
+    baseListId: string | null;
+    onSaved?: () => void | Promise<void>;
+  };
   isActive?: boolean;
 }
 
@@ -165,11 +178,12 @@ function pickCachedVerifiedAudioSideForMatching(
   return null;
 }
 
-export function MiniGameCard({ config, role, onDismiss, onResult, isActive = true }: Props) {
+export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcome, onAddSimilarWords, similarWordsContext, isActive = true }: Props) {
   const { t } = useI18n();
   const [finished, setFinished] = useState<{ delta: number } | null>(null);
   const [skipSound, setSkipSound] = useState<boolean>(() => readSkipSound());
   const level = config.level ?? 1;
+  const standardLevel: 1 | 2 = level === 3 ? 2 : level;
 
   const toggleSkipSound = useCallback(() => {
     setSkipSound((prev) => {
@@ -192,7 +206,7 @@ export function MiniGameCard({ config, role, onDismiss, onResult, isActive = tru
     setFinished({ delta });
   };
 
-  const gameProps = { words: config.words, role, level, onResult: handleResult };
+  const gameProps = { words: config.words, role, level: standardLevel, onResult: handleResult };
   const questionWord = config.words[0];
   const requestedQuestionAudioSide = useMemo(
     () => (shouldUseAudioPrompt ? pickAudioSideForQuestion(questionWord) : null),
@@ -303,14 +317,50 @@ export function MiniGameCard({ config, role, onDismiss, onResult, isActive = tru
         isActive={isActive}
       />
     );
+  } else if (config.gameType === 'bubbleChoice') {
+    game = (
+      <BubbleChoiceGame
+        key={config.id}
+        words={config.words}
+        role={role}
+        level={level}
+        onScore={(delta) => onResult?.(delta)}
+        onReviewOutcome={onReviewOutcome}
+        onComplete={() => setFinished({ delta: 0 })}
+      />
+    );
+  } else if (config.gameType === 'similarWordsPrompt') {
+    const word = config.words[0];
+    game = word ? (
+      <SimilarWordsPromptGame
+        word={word}
+        role={role}
+        pool={similarWordsContext?.pool ?? [word]}
+        languageFrom={similarWordsContext?.languageFrom ?? ''}
+        languageTo={similarWordsContext?.languageTo ?? ''}
+        baseListId={similarWordsContext?.baseListId ?? null}
+        onOpenChat={() => onAddSimilarWords?.()}
+        onSaved={similarWordsContext?.onSaved}
+        onDismiss={onDismiss}
+      />
+    ) : null;
   }
 
   if (!game) return null;
 
+  // The bubble field is a play space, not a card: it takes the whole study area
+  // edge to edge, with no frame of its own, while every other game keeps the
+  // centred, width-constrained card treatment.
+  const fullBleed = config.gameType === 'bubbleChoice';
+
   return (
     <div className="relative flex items-center justify-center h-full w-full">
-      <div className="relative w-full">
-        <SoundToggle skipSound={skipSound} onToggle={toggleSkipSound} />
+      {/* The study column is clamped to 800px; the bubble field escapes it so the
+          play space really does run to the edges of the window. */}
+      <div className={fullBleed ? 'relative mx-[calc(50%-50vw)] h-full w-screen' : 'relative w-full'}>
+        {config.gameType !== 'similarWordsPrompt' && (
+          <SoundToggle skipSound={skipSound} onToggle={toggleSkipSound} />
+        )}
         {game}
       </div>
       {finished && (

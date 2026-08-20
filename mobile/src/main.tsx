@@ -8,6 +8,7 @@ import { MobilePlatformProvider } from './PlatformProvider';
 import { getSessionToken } from './auth/session-state';
 import { apiOrigin } from './config';
 import { configureNativeShell } from './native';
+import { configureNativeNotifications } from './notifications';
 import { adoptNativeDeviceId } from './native-device-id';
 import './app.css';
 
@@ -21,6 +22,7 @@ if (!rootElement) {
 configureApiRuntime({ origin: apiOrigin, readSessionToken: getSessionToken });
 
 void configureNativeShell();
+configureNativeNotifications();
 
 function NativeApp() {
   const language = usePreferredPublicLanguage();

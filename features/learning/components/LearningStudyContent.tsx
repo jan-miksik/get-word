@@ -4,10 +4,13 @@ import { AppLayout } from '@/components/AppLayout';
 import { CardDeckView, type CardDeckSwipeActions } from './CardDeckView';
 import { VirtualizedWordList } from './VirtualizedWordList';
 import { SettlingWordsFooter } from './SettlingWordsFooter';
+import { SessionRail } from './SessionRail';
 import type { SchoolMembership } from '@/features/auth/public.client';
 import { useI18n } from '@/components/I18nProvider';
 import { getLocalizedLanguageName } from '@/lib/i18n/languages';
 import type { MinigameFrequencyRange, MiniGameConfig } from '@/features/learning/minigames';
+import type { LearningStreamGroup } from '@/features/learning/types';
+import type { SessionFlowState } from '@/features/learning/session/flow';
 import type { NormalizedWord } from '@/lib/words';
 import type { ProgressStats } from '@/lib/progress-stats';
 import type { ViewMode } from '../app-state/types';
@@ -51,8 +54,8 @@ interface LearningStudyContentProps {
   deckSwipeActions?: CardDeckSwipeActions;
   deckHorizontalSwipeEnabled?: boolean;
   isSwipeBlockedForWord?: (wordId: string) => boolean;
-  cardDeckGroups: (NormalizedWord | MiniGameConfig)[][];
-  streamGroupedWords: (NormalizedWord | MiniGameConfig)[][];
+  streamGroups: LearningStreamGroup[];
+  sessionFlow?: SessionFlowState;
   renderCardForDeck: (
     word: NormalizedWord,
     stageIndex: number,
@@ -65,7 +68,6 @@ interface LearningStudyContentProps {
   renderMiniGameForDeck: (config: MiniGameConfig, onComplete: () => void) => React.ReactNode;
   renderCard: (word: NormalizedWord, stageIndex?: number) => React.ReactNode;
   renderMiniGame: (config: MiniGameConfig, isActive: boolean) => React.ReactNode;
-  dueWordsCount: number;
   showNotReady: boolean;
   settlingCount: number;
   onToggleShowNotReady: () => void;
@@ -100,13 +102,12 @@ export function LearningStudyContent({
   deckSwipeActions,
   deckHorizontalSwipeEnabled = true,
   isSwipeBlockedForWord,
-  cardDeckGroups,
-  streamGroupedWords,
+  streamGroups,
+  sessionFlow,
   renderCardForDeck,
   renderMiniGameForDeck,
   renderCard,
   renderMiniGame,
-  dueWordsCount,
   showNotReady,
   settlingCount,
   onToggleShowNotReady,
@@ -169,9 +170,10 @@ export function LearningStudyContent({
       progressStats={progressStats}
     >
       <main
-        className="app-workspace-main flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden"
+        className="app-workspace-main relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden"
         aria-live="polite"
       >
+        {sessionFlow && activeSurface === 'study' ? <SessionRail flow={sessionFlow} /> : null}
         <AppSurfacePanel
           surface="study"
           active={activeSurface === 'study'}
@@ -180,18 +182,20 @@ export function LearningStudyContent({
           className={viewMode === 'card' ? 'learning-card-main' : ''}
         >
           {viewMode === 'card' ? (
-            <div className="learning-card-viewport relative flex h-full w-full flex-col max-w-[800px] mx-auto">
-              <CardDeckView
-                groupedWords={cardDeckGroups}
-                interstitialCard={interstitialCard}
-                emptyState={noPersonalWordsState}
-                onWordCardCompleted={onDeckWordCardCompleted}
-                swipeActions={deckSwipeActions}
-                allowHorizontalSwipe={deckHorizontalSwipeEnabled}
-                isSwipeBlockedForWord={isSwipeBlockedForWord}
-                renderCard={renderCardForDeck}
-                renderMiniGame={renderMiniGameForDeck}
-              />
+            <div className="learning-card-viewport relative mx-auto flex h-full w-full max-w-[800px] flex-col gap-2">
+              <div className="min-h-0 flex-1">
+                <CardDeckView
+                  streamGroups={streamGroups}
+                  interstitialCard={interstitialCard}
+                  emptyState={noPersonalWordsState}
+                  onWordCardCompleted={onDeckWordCardCompleted}
+                  swipeActions={deckSwipeActions}
+                  allowHorizontalSwipe={deckHorizontalSwipeEnabled}
+                  isSwipeBlockedForWord={isSwipeBlockedForWord}
+                  renderCard={renderCardForDeck}
+                  renderMiniGame={renderMiniGameForDeck}
+                />
+              </div>
             </div>
           ) : (
             <div className="app-content-column flex flex-col gap-[18px] flex-1 min-h-0">
@@ -207,16 +211,15 @@ export function LearningStudyContent({
               ) : (
                 <VirtualizedWordList
                   dataTab="stream"
-                  groupedWords={streamGroupedWords}
+                  streamGroups={streamGroups}
                   renderCard={renderCard}
                   renderMiniGame={renderMiniGame}
                   showHeaders={false}
                   scrollElement={phrasesScrollElement}
                   emptyMessage={t('learning.noWords')}
-                  stageFooter={(stageIndex) => {
-                    const repeatsInStream = dueWordsCount + (showNotReady ? settlingCount : 0);
-                    const footerStageIndex = repeatsInStream > 0 ? 0 : 1;
-                    if (stageIndex !== footerStageIndex || settlingCount === 0) return null;
+                  groupFooter={(group) => {
+                    const lastGroup = streamGroups.at(-1);
+                    if (group.key !== lastGroup?.key || settlingCount === 0) return null;
                     return (
                       <SettlingWordsFooter
                         showNotReady={showNotReady}

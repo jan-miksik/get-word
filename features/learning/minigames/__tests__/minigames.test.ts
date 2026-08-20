@@ -78,6 +78,7 @@ describe('matchAnswerAgainstCandidates', () => {
       verdict: 'exact',
       matchedAnswer: 'dobře',
       isAlternative: true,
+      nearestExactDistance: 0,
     });
   });
 
@@ -90,6 +91,7 @@ describe('matchAnswerAgainstCandidates', () => {
       verdict: 'exact',
       matchedAnswer: 'dobré',
       isAlternative: true,
+      nearestExactDistance: 0,
     });
   });
 
@@ -102,6 +104,7 @@ describe('matchAnswerAgainstCandidates', () => {
       verdict: 'close',
       matchedAnswer: 'dobrý',
       isAlternative: false,
+      nearestExactDistance: 1,
     });
   });
 
@@ -114,6 +117,7 @@ describe('matchAnswerAgainstCandidates', () => {
       verdict: 'close',
       matchedAnswer: 'dobrá',
       isAlternative: true,
+      nearestExactDistance: 1,
     });
     const wrong = matchAnswerAgainstCandidates(
       'dobrx',
@@ -362,6 +366,33 @@ describe('injectMinigames', () => {
     const games = result.filter(item => '_isMinigame' in item) as MiniGameConfig[];
     expect(games.length).toBeGreaterThan(0);
     expect(games.some((g) => g.level === 2)).toBe(false);
+  });
+});
+
+describe('similar-word prompts', () => {
+  it('inserts an actionable prompt only when a game pool has no similar pair', () => {
+    const unrelated = [
+      makeWord('a', 'pes', 'con chó'),
+      makeWord('b', 'auto', 'xe hơi'),
+      makeWord('c', 'kniha', 'quyển sách'),
+      makeWord('d', 'voda', 'nước'),
+    ];
+    const prompts = computeGameAnchorsRaw(unrelated, [], 5, {
+      minInterval: 2,
+      maxInterval: 2,
+      excludeGameTypes: ['matching'],
+      includeGameTypes: ['similarWordsPrompt'],
+    });
+    expect(prompts.some((anchor) => anchor.gameType === 'similarWordsPrompt')).toBe(true);
+
+    const withTwins = [...unrelated.slice(0, 3), makeWord('d', 'pesa', 'nuoc')];
+    const noPrompt = computeGameAnchorsRaw(withTwins, [], 5, {
+      minInterval: 2,
+      maxInterval: 2,
+      excludeGameTypes: ['matching'],
+      includeGameTypes: ['similarWordsPrompt'],
+    });
+    expect(noPrompt).toEqual([]);
   });
 });
 

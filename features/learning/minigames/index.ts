@@ -10,7 +10,7 @@ export {
   readStoredMinigameFrequency,
 } from './frequency';
 export { computeGameAnchors } from './anchors';
-export { hasAtLeastOneSimilarPair } from './similarity';
+export { hasAtLeastOneSimilarPair, pickThinPoolWords } from './similarity';
 export { shuffleGameItems } from './shuffle';
 export {
   composeStream,

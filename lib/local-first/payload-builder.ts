@@ -177,6 +177,7 @@ function applyReviewEventOp(
     ...(p.word_id && !p.word_list_item_id ? { word_id: p.word_id } : {}),
     action: p.action,
     client_created_at: p.client_created_at,
+    ...(typeof p.local_day_key === 'string' ? { local_day_key: p.local_day_key } : {}),
   });
   return true;
 }
@@ -203,6 +204,10 @@ function applyActivitySegmentOp(
     ended_at: p.ended_at,
     active_ms: p.active_ms,
     ...(typeof p.interactions === 'number' ? { interactions: p.interactions } : {}),
+    ...(typeof p.local_day_key === 'string' ? { local_day_key: p.local_day_key } : {}),
+    ...(typeof p.timezone_at_creation === 'string'
+      ? { timezone_at_creation: p.timezone_at_creation }
+      : {}),
   });
   return true;
 }
@@ -217,6 +222,11 @@ const PREFERENCE_FIELDS = new Set<keyof SyncMutationPayload>([
   'study_notes_enabled',
   'study_note_minimize_from_stage',
   'learning_fine_tune',
+  'study_goal',
+  'study_goal_base_revision',
+  'goal_reminder_enabled',
+  'goal_reminder_local_minutes',
+  'goal_intro_answered',
   'review_opt_in',
   'ai_review_opt_in',
   'settings_language',
@@ -249,6 +259,9 @@ function applyPreferenceOp(
       )) {
         payload.language_pair_base_revision = p.baseRevision;
       }
+      if (entries.some(([field]) => field === 'study_goal')) {
+        payload.study_goal_base_revision = p.baseRevision;
+      }
     }
     stampLanguageChoiceTime(payload, entries.map(([field]) => field), op);
     return true;
@@ -257,6 +270,9 @@ function applyPreferenceOp(
   (payload as Record<string, unknown>)[p.field] = p.value;
   if (p.field === 'settings_language' && typeof p.baseRevision === 'number') {
     payload.settings_language_base_revision = p.baseRevision;
+  }
+  if (p.field === 'study_goal' && typeof p.baseRevision === 'number') {
+    payload.study_goal_base_revision = p.baseRevision;
   }
   stampLanguageChoiceTime(payload, [p.field], op);
   return true;

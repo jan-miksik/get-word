@@ -10,6 +10,20 @@ const SyncReviewEventActionSchema = z.enum([
 
 const finiteTimestamp = z.number().finite();
 
+const IanaTimezoneSchema = z.string().min(1).max(100).refine((value) => {
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: value }).format(0);
+    return true;
+  } catch {
+    return false;
+  }
+}, 'Invalid IANA timezone');
+
+const LocalDayKeySchema = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((value) => {
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
+}, 'Invalid local day');
+
 const SyncProgressItemSchema = z.object({
   word_id: z.string().optional(),
   word_list_item_id: z.string().optional(),
@@ -30,6 +44,7 @@ const SyncReviewEventItemSchema = z.object({
   word_list_item_id: z.string().optional(),
   action: SyncReviewEventActionSchema,
   client_created_at: finiteTimestamp,
+  local_day_key: LocalDayKeySchema.optional(),
 });
 
 /**
@@ -63,6 +78,24 @@ const SyncActivitySegmentSchema = z.object({
     .nonnegative()
     .transform((value) => Math.min(value, MAX_SEGMENT_MS)),
   interactions: z.number().int().nonnegative().max(100_000).optional(),
+  local_day_key: LocalDayKeySchema.optional(),
+  timezone_at_creation: IanaTimezoneSchema.optional(),
+});
+
+const GoalMinigameFrequencySchema = z.union([
+  z.literal('off'),
+  z.object({ min: z.number().int().min(1).max(30), max: z.number().int().min(1).max(30) }),
+]);
+
+const StudyGoalMutationSchema = z.object({
+  enabled: z.boolean(),
+  goal_days_per_week: z.number().int().min(1).max(7),
+  goal_minutes_per_day: z.number().int().min(1).max(240),
+  goal_preset: z.enum(['light', 'medium', 'intense', 'custom']),
+  reveal_mode: z.enum(['scratch', 'press']),
+  minigame_frequency: GoalMinigameFrequencySchema,
+  timezone: IanaTimezoneSchema.optional(),
+  learning_fine_tune: z.unknown(),
 });
 
 const SyncMutationPayloadSchema = z.object({
@@ -77,6 +110,11 @@ const SyncMutationPayloadSchema = z.object({
   // Shape is validated by normalizeFineTuneConfig on both sides; the schema
   // only has to let the object through.
   learning_fine_tune: z.unknown().optional(),
+  study_goal: StudyGoalMutationSchema.optional(),
+  study_goal_base_revision: z.number().int().nonnegative().optional(),
+  goal_reminder_enabled: z.boolean().optional(),
+  goal_reminder_local_minutes: z.number().int().min(0).max(1439).nullable().optional(),
+  goal_intro_answered: z.boolean().optional(),
   // Quality-review consents. Two separate switches on purpose: an editor
   // reading the pair and a third-party LLM receiving it are different asks.
   review_opt_in: z.boolean().optional(),
@@ -131,3 +169,4 @@ export type SyncActivitySegment = z.infer<typeof SyncActivitySegmentSchema>;
 export type SyncRequest = z.infer<typeof SyncRequestSchema>;
 export type SyncMutationPayload = z.infer<typeof SyncMutationPayloadSchema>;
 export type SyncOperationResult = z.infer<typeof SyncOperationResultSchema>;
+export type StudyGoalMutation = z.infer<typeof StudyGoalMutationSchema>;

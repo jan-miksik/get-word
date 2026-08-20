@@ -5,6 +5,7 @@ import type { NormalizedWord } from '@/lib/words';
 import type { ProgressData } from '@/features/sync/contracts';
 import type { FineTuneConfig, ResolvedExercise } from '@/features/learning/fine-tune/types';
 import { pickExerciseForWord } from '@/features/learning/fine-tune/pick';
+import type { LearningRole } from '@/features/learning/state/learningRole';
 
 export type ExerciseResolver = (word: NormalizedWord, progress: ProgressData) => ResolvedExercise;
 
@@ -22,6 +23,7 @@ export type ExerciseResolver = (word: NormalizedWord, progress: ProgressData) =>
 export function useExerciseResolver(
   config: FineTuneConfig,
   distractorPool: NormalizedWord[],
+  role: LearningRole,
 ): ExerciseResolver {
   const lockRef = useRef<Map<string, { key: string; exercise: ResolvedExercise }>>(new Map());
 
@@ -41,10 +43,11 @@ export function useExerciseResolver(
         unknownCount,
         config,
         distractorPool,
+        role,
       });
       lockRef.current.set(word.id, { key, exercise });
       return exercise;
     },
-    [config, distractorPool],
+    [config, distractorPool, role],
   );
 }

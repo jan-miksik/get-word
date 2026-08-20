@@ -88,7 +88,7 @@ export function AccountSection({
   return (
     <div className="border-t border-border-subtle pt-4 flex flex-col gap-4">
       <div className="flex flex-col gap-2">
-        <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft/70">
+        <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft">
           {t('settings.account')}
         </p>
         {isAuthenticated ? (
@@ -105,7 +105,7 @@ export function AccountSection({
               <button
                 type="button"
                 onClick={onSignOut}
-                className="self-start text-xs text-text-soft/70 underline cursor-pointer bg-transparent border-none p-0 text-left hover:text-text"
+                className="self-start text-xs text-text-soft underline cursor-pointer bg-transparent border-none p-0 text-left hover:text-text"
               >
                 {t('common.signOut')}
               </button>
@@ -115,19 +115,19 @@ export function AccountSection({
           <div className="flex flex-col gap-1">
             <span className="text-xs text-text-soft">{t('settings.notSignedIn')}</span>
             {userEmail && (
-              <code className="text-xs text-text-soft/60 font-mono break-all">{userEmail}</code>
+              <code className="text-xs text-text-soft font-mono break-all">{userEmail}</code>
             )}
           </div>
         )}
         {userId && (
-          <code className="text-[0.6rem] text-text-soft/40 font-mono break-all">
+          <code className="text-[0.6rem] text-text-soft font-mono break-all">
             {userId}
           </code>
         )}
       </div>
 
       <div className="rounded-xl border border-border-subtle bg-background p-4 flex flex-col gap-2">
-        <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft/70">
+        <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft">
           {t('account.dataExport')}
         </p>
         <p className="m-0 text-xs leading-relaxed text-text-soft">

@@ -48,6 +48,9 @@ dependencies:
   '@capacitor/ios':
     specifier: ^8.0.0
     version: 8.4.2(@capacitor/core@8.4.2)
+  '@capacitor/local-notifications':
+    specifier: ^8.0.0
+    version: 8.0.0(@capacitor/core@8.4.2)
   '@capacitor/status-bar':
     specifier: ^8.0.0
     version: 8.0.3(@capacitor/core@8.4.2)
@@ -534,6 +537,14 @@ packages:
 
   /@capacitor/keyboard@8.0.5(@capacitor/core@8.4.2):
     resolution: {integrity: sha512-oFXygC4eKYA5l2MdpTR06L2M/4x6e2SLD5yS1T9+UBDKTkzyvhWKEhbYLUaTIBPpLKqlfGudJw1X73S1H9eUzQ==}
+    peerDependencies:
+      '@capacitor/core': '>=8.0.0'
+    dependencies:
+      '@capacitor/core': 8.4.2
+    dev: false
+
+  /@capacitor/local-notifications@8.0.0(@capacitor/core@8.4.2):
+    resolution: {integrity: sha512-Jn2IJs13vhRyOUtYni7PIPdMDYMILb4uI/rRAi7PmGg2lnaKbM5aWBmHZWt0laTYyVApYIbCWmdgBqWx/IH4dQ==}
     peerDependencies:
       '@capacitor/core': '>=8.0.0'
     dependencies:

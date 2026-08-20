@@ -106,7 +106,7 @@ export function MinigamesSection({
               aria-label={t('settings.maxCardsBetweenGames')}
             />
           </div>
-          <div className="flex items-center justify-between text-[0.65rem] font-medium uppercase tracking-wide text-text-soft/60">
+          <div className="flex items-center justify-between text-[0.65rem] font-medium uppercase tracking-wide text-text-soft">
             <span>{MINIGAME_FREQUENCY_MIN}</span>
             <span>{MINIGAME_FREQUENCY_MAX}</span>
           </div>

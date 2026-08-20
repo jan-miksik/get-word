@@ -320,17 +320,14 @@ describe('useLearningPageState', () => {
       .filter((item): item is MiniGameConfig => '_isMinigame' in item)
       .map((item) => item.anchorOriginalIndex);
 
-    // Anchor 3 is dropped because its round would repeat anchor 1's word set:
-    // with only ten words in the list, both draw from the same handful, and a
-    // round is never shown twice in a row. Real lists give the 14-word window
-    // plenty to vary.
-    expect(gameAnchors).toEqual([1, 5, 7, 9]);
+    // A repeated matching round is still dropped, but its slot may now be used
+    // by the explicit similar-word suggestion when the local pool has no twins.
+    expect(gameAnchors).toEqual([1, 3, 5, 7, 9]);
   });
 
-  it('only ever schedules matching between cards', () => {
-    // Multiple choice and typing became study cards, so scheduling them as
-    // interludes too would grade the same word twice: the anchor pool is drawn
-    // from words the learner has just answered.
+  it('schedules matching and bubble-review interludes between cards', () => {
+    // Choice and typing are study cards. Matching remains practice-only while
+    // the bubble game attributes its individual answers back to SR.
     const words = Array.from({ length: 60 }, (_, index) =>
       makeWord(`new-${index}`, 'list-a', 'basics', 0, index)
     );
@@ -352,11 +349,12 @@ describe('useLearningPageState', () => {
       .filter((item): item is MiniGameConfig => '_isMinigame' in item);
 
     expect(games.length).toBeGreaterThan(0);
-    expect(games.every((game) => game.gameType === 'matching')).toBe(true);
+    expect(games.every((game) => ['matching', 'bubbleChoice', 'similarWordsPrompt'].includes(game.gameType))).toBe(true);
+    expect(games.some((game) => game.gameType === 'bubbleChoice')).toBe(true);
   });
 
 
-  it('temporarily schedules only tiltChoice while its frontier toggle is enabled', () => {
+  it('adds tiltChoice to the bubble-review rotation while its frontier toggle is enabled', () => {
     const words = Array.from({ length: 60 }, (_, index) =>
       makeWord(`new-${index}`, 'list-a', 'basics', 0, index)
     );
@@ -379,13 +377,14 @@ describe('useLearningPageState', () => {
     const gamesOf = (groups: ReturnType<typeof useLearningPageState>['streamGroupedWords']) =>
       groups.flat().filter((item): item is MiniGameConfig => '_isMinigame' in item);
 
-    expect(gamesOf(result.current.streamGroupedWords).some((game) => game.gameType !== 'tiltChoice'))
+    expect(gamesOf(result.current.streamGroupedWords).some((game) => game.gameType === 'bubbleChoice'))
       .toBe(true);
 
     rerender({ tiltGameEnabled: true });
 
-    const tiltOnlyGames = gamesOf(result.current.streamGroupedWords);
-    expect(tiltOnlyGames.length).toBeGreaterThan(0);
-    expect(tiltOnlyGames.every((game) => game.gameType === 'tiltChoice')).toBe(true);
+    const tiltAndBubbleGames = gamesOf(result.current.streamGroupedWords);
+    expect(tiltAndBubbleGames.length).toBeGreaterThan(0);
+    expect(tiltAndBubbleGames.every((game) => ['tiltChoice', 'bubbleChoice', 'similarWordsPrompt'].includes(game.gameType))).toBe(true);
+    expect(tiltAndBubbleGames.some((game) => game.gameType === 'tiltChoice')).toBe(true);
   });
 });

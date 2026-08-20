@@ -712,6 +712,19 @@
   --accent: #1E6FA8;
   --accent-soft: rgba(30, 111, 168, 0.12);
   --accent-strong: #1E6FA8;
+
+  /* Tailwind v4 resolves `--color-*` where `@theme` declares them, i.e. at
+     `:root`, so redefining `--accent` above re-skins hand-written CSS but not
+     the utilities. Without these, `border-accent` inside a panel kept painting
+     the dark theme's sky blue on the warm cream while `bg-accent` did not. */
+  --color-background: var(--bg);
+  --color-background-elevated: var(--bg-elevated);
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-accent-strong: var(--accent-strong);
+  --color-text: var(--text);
+  --color-text-soft: var(--text-soft);
+  --color-border-subtle: var(--border-subtle);
 }
 
 .settings-panel,
@@ -1373,4 +1386,36 @@
     animation: none;
     opacity: 0.6;
   }
+}
+
+/* Word selection: the proposals arrive as a wave rather than as a block, and
+   the checkbox acknowledges a tap. Both are short — this is a list to work
+   through, not a thing to watch. */
+@media (prefers-reduced-motion: no-preference) {
+  .word-chat-row {
+    animation: word-chat-row-in 260ms ease-out backwards;
+    /* Capped so a long proposal list does not take a second to finish arriving. */
+    animation-delay: calc(min(var(--row-index, 0), 12) * 28ms);
+  }
+
+  .word-chat-checkbox-checked {
+    animation: word-chat-check-pop 220ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+}
+
+@keyframes word-chat-row-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes word-chat-check-pop {
+  0% { transform: scale(0.6); }
+  60% { transform: scale(1.18); }
+  100% { transform: scale(1); }
 }

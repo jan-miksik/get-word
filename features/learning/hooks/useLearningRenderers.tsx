@@ -45,6 +45,14 @@ interface UseLearningRenderersOptions {
   dismissedGames: Set<string>;
   setDismissedGames: React.Dispatch<React.SetStateAction<Set<string>>>;
   setGameScore: React.Dispatch<React.SetStateAction<number>>;
+  onAddSimilarWords: () => void;
+  similarWordsContext?: {
+    pool: NormalizedWord[];
+    languageFrom: string;
+    languageTo: string;
+    baseListId: string | null;
+    onSaved?: () => void | Promise<void>;
+  };
 }
 
 export function useLearningRenderers({
@@ -76,10 +84,12 @@ export function useLearningRenderers({
   dismissedGames,
   setDismissedGames,
   setGameScore,
+  onAddSimilarWords,
+  similarWordsContext,
 }: UseLearningRenderersOptions) {
   const lockedDeckCardStateRef = useRef<Map<string, { progress: ProgressData }>>(new Map());
 
-  const resolveExercise = useExerciseResolver(fineTuneConfig, distractorPool);
+  const resolveExercise = useExerciseResolver(fineTuneConfig, distractorPool, role);
 
   // Every exercise — reveal, choice or typing — feeds the same spaced-repetition
   // stages: a clean success advances, a hinted or near answer reschedules at the
@@ -148,12 +158,18 @@ export function useLearningRenderers({
             role={role}
             onDismiss={() => setDismissedGames((prev) => new Set([...prev, config.id]))}
             onResult={(delta) => setGameScore((prev) => Math.max(0, prev + delta))}
+            onReviewOutcome={(wordId, outcome) => {
+              const stageIndex = progress[wordId]?.stageIndex ?? 0;
+              applyExerciseOutcome(wordId, stageIndex, outcome);
+            }}
+            onAddSimilarWords={onAddSimilarWords}
+            similarWordsContext={similarWordsContext}
             isActive={isActive}
           />
         </div>
       </div>
     );
-  }, [dismissedGames, role, setDismissedGames, setGameScore]);
+  }, [dismissedGames, role, setDismissedGames, setGameScore, progress, applyExerciseOutcome, onAddSimilarWords, similarWordsContext]);
 
   const renderCardForDeck = useCallback(
     (
@@ -240,11 +256,17 @@ export function useLearningRenderers({
           onResult={(delta) => {
             setGameScore((prev) => Math.max(0, prev + delta));
           }}
+          onReviewOutcome={(wordId, outcome) => {
+            const stageIndex = progress[wordId]?.stageIndex ?? 0;
+            applyExerciseOutcome(wordId, stageIndex, outcome);
+          }}
+          onAddSimilarWords={onAddSimilarWords}
+          similarWordsContext={similarWordsContext}
           isActive
         />
       </div>
     ),
-    [role, setDismissedGames, setGameScore]
+    [role, setDismissedGames, setGameScore, progress, applyExerciseOutcome, onAddSimilarWords, similarWordsContext]
   );
 
   // Typing raises the mobile keyboard, and a vertical drag with the keyboard up

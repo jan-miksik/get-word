@@ -4,10 +4,12 @@ export function ToggleSwitch({
   checked,
   onChange,
   ariaLabel,
+  disabled = false,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   ariaLabel: string;
+  disabled?: boolean;
 }) {
   return (
     <button
@@ -15,8 +17,9 @@ export function ToggleSwitch({
       role="switch"
       aria-checked={checked}
       aria-label={ariaLabel}
+      disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 ${
+      className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full border-none transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/60 disabled:cursor-wait disabled:opacity-60 ${
         checked ? 'bg-accent' : 'bg-white/20'
       }`}
     >
@@ -41,7 +44,7 @@ export function Section({
   return (
     <div className="rounded-xl border border-border-subtle bg-background-elevated/50 p-4 flex flex-col gap-3">
       <div className="flex items-center justify-between gap-3">
-        <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft/70">
+        <p className="m-0 text-[0.65rem] font-semibold uppercase tracking-wider text-text-soft">
           {label}
         </p>
         {action}

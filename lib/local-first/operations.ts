@@ -19,7 +19,7 @@ interface MemoryHookOperation {
 
 interface PreferenceOperation {
   entity: 'preference';
-  opType: 'set' | 'set_language_pair';
+  opType: 'set' | 'set_language_pair' | 'set_study_goal';
   payload: {
     field?: keyof SyncMutationPayload;
     value?: unknown;

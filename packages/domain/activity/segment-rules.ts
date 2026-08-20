@@ -21,6 +21,8 @@ export interface IncomingActivitySegment {
   ended_at: number;
   active_ms: number;
   interactions?: number;
+  local_day_key?: string;
+  timezone_at_creation?: string;
 }
 
 export interface NormalizedSegment {
@@ -31,6 +33,8 @@ export interface NormalizedSegment {
   endedAt: Date;
   activeMs: number;
   interactions: number;
+  localDayKey: string | null;
+  timezoneAtCreation: string | null;
 }
 
 /** Segments older than this are refused outright rather than clamped. */
@@ -38,6 +42,24 @@ const MAX_BACKDATE_MS = 30 * 24 * 60 * 60 * 1000;
 /** Tolerance for a device clock that runs slightly fast. */
 const MAX_FUTURE_SKEW_MS = 5 * 60 * 1000;
 const MAX_INTERACTIONS = 100_000;
+
+function validTimezoneOrNull(value: string | undefined): string | null {
+  if (!value || value.length > 100) return null;
+  try {
+    new Intl.DateTimeFormat('en', { timeZone: value }).format(0);
+    return value;
+  } catch {
+    return null;
+  }
+}
+
+function validDayKeyOrNull(value: string | undefined): string | null {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value ?? '')) return null;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value
+    ? value!
+    : null;
+}
 
 /**
  * Best-effort ceiling on a single user-day. Not an invariant: two devices
@@ -88,6 +110,8 @@ export function normalizeActivitySegment(
       Number.isFinite(interactions) && interactions > 0
         ? Math.min(Math.floor(interactions), MAX_INTERACTIONS)
         : 0,
+    localDayKey: validDayKeyOrNull(segment.local_day_key),
+    timezoneAtCreation: validTimezoneOrNull(segment.timezone_at_creation),
   };
 }
 

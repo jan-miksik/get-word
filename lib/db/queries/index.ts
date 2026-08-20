@@ -17,3 +17,6 @@ export * from "./sync-revision";
 export * from "./sync-operations";
 export * from "./moderation";
 export * from "./quality-pool";
+export * from "./study-goals";
+export * from "./day-stats";
+export * from "./web-push";

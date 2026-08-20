@@ -123,6 +123,9 @@ export async function updateUserPreferences(
     ai_review_opt_in?: boolean;
     study_note_minimize_from_stage?: number;
     learning_fine_tune?: unknown;
+    goal_reminder_enabled?: boolean;
+    goal_reminder_local_minutes?: number | null;
+    goal_intro_answered?: boolean;
     settings_language?: string;
     language_from?: string | null;
     language_to?: string | null;
@@ -148,6 +151,9 @@ export async function updateUserPreferences(
     aiReviewOptIn?: boolean;
     studyNoteMinimizeFromStage?: number;
     learningFineTune?: FineTuneConfig;
+    goalReminderEnabled?: boolean;
+    goalReminderLocalMinutes?: number | null;
+    goalIntroAnswered?: boolean;
     settingsLanguage?: string;
     settingsLanguageSelectedAt?: Date;
     settingsLanguageRevision?: number | SQL;
@@ -188,6 +194,11 @@ export async function updateUserPreferences(
     // be able to persist something that later breaks a card render.
     updates.learningFineTune = normalizeFineTuneConfig(prefs.learning_fine_tune);
   }
+  if (prefs.goal_reminder_enabled !== undefined) updates.goalReminderEnabled = prefs.goal_reminder_enabled;
+  if (prefs.goal_reminder_local_minutes !== undefined) {
+    updates.goalReminderLocalMinutes = prefs.goal_reminder_local_minutes;
+  }
+  if (prefs.goal_intro_answered !== undefined) updates.goalIntroAnswered = prefs.goal_intro_answered;
   const touchesSettingsLanguage = prefs.settings_language !== undefined;
   const touchesLanguagePair =
     prefs.language_from !== undefined ||

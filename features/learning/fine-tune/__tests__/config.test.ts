@@ -25,11 +25,12 @@ describe('preset table', () => {
     }
   });
 
-  it('splits the 3-day stage 50/25/25', () => {
+  it('shares the 3-day stage across all enabled review methods', () => {
     const shares = methodShares(DEFAULT_FINE_TUNE_CONFIG.stages[3]);
-    expect(shares.reveal).toBeCloseTo(0.5);
-    expect(shares.typing).toBeCloseTo(0.25);
-    expect(shares.choice).toBeCloseTo(0.25);
+    expect(shares.reveal).toBeCloseTo(0.4);
+    expect(shares.typing).toBeCloseTo(0.2);
+    expect(shares.choice).toBeCloseTo(0.2);
+    expect(shares.assembly).toBeCloseTo(0.2);
   });
 
   it('gives the 7-day stage the same weights as the 3-day one', () => {
@@ -63,7 +64,7 @@ describe('detectPreset', () => {
     const config = presetConfig('balanced');
     config.stages[2] = {
       ...config.stages[2],
-      typing: { weight: 2, variants: ['bare'] },
+      typing: { weight: 2, variants: ['0:0'] },
     };
     expect(detectPreset(config)).toBe('custom');
   });
@@ -78,12 +79,13 @@ describe('normalizeFineTuneConfig', () => {
 
   it('drops variant codes it does not recognise', () => {
     const normalized = normalizeFineTuneConfig({
-      version: 1,
+      version: 3,
       stages: [
         {
           reveal: { weight: 2, variants: ['foreign', 'sideways'] },
           choice: { weight: 1, variants: ['4:II', '9:II', '4:IV', 'nonsense'] },
-          typing: { weight: 1, variants: ['bare', 'telepathy'] },
+          typing: { weight: 1, variants: ['0:0', 'telepathy'] },
+          assembly: { weight: 1, variants: ['letters:exact', 'bad'] },
           match: { variants: ['6:III', '5:III'] },
         },
       ],
@@ -91,13 +93,14 @@ describe('normalizeFineTuneConfig', () => {
 
     expect(normalized.stages[0].reveal.variants).toEqual(['foreign']);
     expect(normalized.stages[0].choice.variants).toEqual(['4:II']);
-    expect(normalized.stages[0].typing.variants).toEqual(['bare']);
+    expect(normalized.stages[0].typing.variants).toEqual(['0:0']);
+    expect(normalized.stages[0].assembly.variants).toEqual(['letters:exact']);
     expect(normalized.stages[0].match.variants).toEqual(['6:III']);
   });
 
   it('clamps weights into range', () => {
     const normalized = normalizeFineTuneConfig({
-      version: 1,
+      version: 3,
       stages: [{ reveal: { weight: 9999, variants: ['foreign'] } }],
     });
     expect(normalized.stages[0].reveal.weight).toBe(4);
@@ -105,11 +108,12 @@ describe('normalizeFineTuneConfig', () => {
 
   it('guarantees at least one active method per stage', () => {
     const normalized = normalizeFineTuneConfig({
-      version: 1,
+      version: 3,
       stages: Array.from({ length: 8 }, () => ({
         reveal: { weight: 1, variants: [] },
         choice: { weight: 1, variants: [] },
         typing: { weight: 1, variants: [] },
+        assembly: { weight: 1, variants: [] },
         match: { variants: [] },
       })),
     });
@@ -119,7 +123,7 @@ describe('normalizeFineTuneConfig', () => {
   });
 
   it('pads a short stage list up to the full ladder', () => {
-    const normalized = normalizeFineTuneConfig({ version: 1, stages: [] });
+    const normalized = normalizeFineTuneConfig({ version: 3, stages: [] });
     expect(normalized.stages).toHaveLength(STAGES.length);
     expect(detectPreset(normalized)).toBe('balanced');
   });
@@ -127,5 +131,20 @@ describe('normalizeFineTuneConfig', () => {
   it('is idempotent', () => {
     const once = normalizeFineTuneConfig(DEFAULT_FINE_TUNE_CONFIG);
     expect(normalizeFineTuneConfig(once)).toEqual(once);
+  });
+
+  it('upgrades legacy typing methods while preserving the other customisations', () => {
+    const normalized = normalizeFineTuneConfig({
+      version: 1,
+      stages: [{
+        reveal: { weight: 4, variants: [] },
+        choice: { weight: 2, variants: ['4:II'] },
+        typing: { weight: 4, variants: ['bare'] },
+        match: { variants: ['6:III'] },
+      }],
+    });
+    expect(normalized.version).toBe(3);
+    expect(normalized.stages[0].choice).toEqual({ weight: 2, variants: ['4:II'] });
+    expect(normalized.stages[0].typing).toEqual(DEFAULT_FINE_TUNE_CONFIG.stages[0].typing);
   });
 });

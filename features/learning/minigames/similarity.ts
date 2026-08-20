@@ -135,3 +135,38 @@ export function buildSimilarPairs(pool: NormalizedWord[]): Array<[number, number
 export function hasAtLeastOneSimilarPair(words: NormalizedWord[]): boolean {
   return buildSimilarPairs(words).length > 0;
 }
+
+/**
+ * How wide a slice of the list is examined when looking for words with no
+ * confusable neighbour. The comparison is quadratic, and this runs on the study
+ * surface, so it stays bounded — a slice this size is already far more context
+ * than a single round needs.
+ */
+const THIN_POOL_SCAN_LIMIT = 120;
+
+/**
+ * Words in the neighbourhood of `anchor` that have no similar partner at all.
+ *
+ * These are exactly the words that make choice and matching rounds feel easy
+ * for the wrong reason: there is nothing in the list to confuse them with, so
+ * every distractor is obviously wrong. Generating neighbours for a few of them
+ * at once produces a better set than doing it one word at a time.
+ */
+export function pickThinPoolWords(
+  pool: NormalizedWord[],
+  anchor: NormalizedWord,
+  limit: number,
+): NormalizedWord[] {
+  const anchorIndex = Math.max(0, pool.findIndex((word) => word.id === anchor.id));
+  const half = Math.floor(THIN_POOL_SCAN_LIMIT / 2);
+  const start = Math.max(0, Math.min(Math.max(0, pool.length - THIN_POOL_SCAN_LIMIT), anchorIndex - half));
+  const slice = pool.slice(start, start + THIN_POOL_SCAN_LIMIT);
+
+  const paired = new Set<number>();
+  for (const [left, right] of buildSimilarPairs(slice)) {
+    paired.add(left);
+    paired.add(right);
+  }
+  const thin = slice.filter((word, index) => !paired.has(index) && word.id !== anchor.id);
+  return [anchor, ...thin].slice(0, Math.max(1, limit));
+}

@@ -8,6 +8,7 @@ import { StudyNotesSection } from './settings/StudyNotesSection';
 import { RevealSection } from './settings/RevealSection';
 import { MinigamesSection } from './settings/MinigamesSection';
 import { FrontierFeaturesSection } from './settings/FrontierFeaturesSection';
+import { StudyGoalSection } from './settings/StudyGoalSection';
 
 interface LearningSettingsPanelProps {
   minigameFrequency: MinigameFrequencyRange;
@@ -50,6 +51,7 @@ export function LearningSettingsPanel({
             )}
           </div>
 
+          <StudyGoalSection minigameFrequency={minigameFrequency} />
           <FineTuneSection />
           <MemoryHooksSection />
           <StudyNotesSection />

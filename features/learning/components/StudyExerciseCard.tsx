@@ -8,6 +8,7 @@ import type { ResolvedExercise } from '@/features/learning/fine-tune/types';
 import { WordCard } from './WordCard';
 import { TypingStudyCard, type TypingOutcome } from './TypingStudyCard';
 import { MultipleChoiceGame } from './games/MultipleChoiceGame';
+import { WordAssemblyGame } from './games/WordAssemblyGame';
 import { knownSideForRole, learningSideForRole } from './games/types';
 
 /**
@@ -124,6 +125,17 @@ export function StudyExerciseCard({
     );
   }
 
+  if (exercise.method === 'assembly') {
+    return (
+      <AssemblyExercise
+        word={word}
+        role={role}
+        exercise={exercise}
+        onOutcome={onOutcome}
+      />
+    );
+  }
+
   return (
     <WordCard
       word={word}
@@ -151,6 +163,32 @@ export function StudyExerciseCard({
       mobileCustomActionOnly={mobileCustomActionOnly}
       fullscreen={fullscreen}
     />
+  );
+}
+
+function AssemblyExercise({
+  word,
+  role,
+  exercise,
+  onOutcome,
+}: {
+  word: NormalizedWord;
+  role: LearningRole;
+  exercise: Extract<ResolvedExercise, { method: 'assembly' }>;
+  onOutcome: (outcome: ExerciseOutcome) => void;
+}) {
+  return (
+    <div className="flex h-full flex-col justify-center">
+      <WordAssemblyGame
+        key={`${word.id}:${exercise.variant}`}
+        word={word}
+        role={role}
+        variant={exercise.variant}
+        answerParts={exercise.answerParts}
+        distractorParts={exercise.distractorParts}
+        onOutcome={onOutcome}
+      />
+    </div>
   );
 }
 

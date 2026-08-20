@@ -19,7 +19,7 @@ export function RevealSection() {
       <div
         role="radiogroup"
         aria-label={t('settings.reveal')}
-        className="inline-flex w-full gap-1 rounded-xl border border-border-subtle bg-background/30 p-1"
+        className="inline-flex w-full gap-1 rounded-xl border border-border-subtle bg-background-elevated p-1"
       >
         {modeOptions.map((option) => {
           const selected = revealMode === option.value;

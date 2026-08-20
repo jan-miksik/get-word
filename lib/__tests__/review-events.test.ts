@@ -28,6 +28,7 @@ describe('review event outbox', () => {
       word_list_item_id: '123e4567-e89b-12d3-a456-426614174000',
       action: 'known',
       client_created_at: 1776944510000,
+      local_day_key: expect.any(String),
     });
   });
 

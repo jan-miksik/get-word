@@ -43,13 +43,5 @@ export function migrateLegacyTypingMode(hasServerConfig: boolean): FineTuneConfi
   markMigrated();
   if (!hadTypingMode) return null;
 
-  const config = presetConfig('balanced');
-  const TYPING_FROM_STAGE = 2; // "1 day"
-  return {
-    ...config,
-    stages: config.stages.map((stage, index) => {
-      if (index < TYPING_FROM_STAGE || stage.typing.variants.length > 0) return stage;
-      return { ...stage, typing: { ...stage.typing, variants: ['firstLetterWithHint'] } };
-    }),
-  };
+  return presetConfig('balanced');
 }

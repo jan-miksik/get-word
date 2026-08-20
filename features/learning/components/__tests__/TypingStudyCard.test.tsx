@@ -74,7 +74,7 @@ function renderCard(props?: Partial<React.ComponentProps<typeof TypingStudyCard>
       word={WORD}
       progress={PROGRESS}
       role="knownLanguage"
-      variant="hint"
+      variant="0:20"
       audioPromptEnabled={false}
       prefillPunctuation
       onScore={onScore}
@@ -136,7 +136,7 @@ describe('TypingStudyCard', () => {
         word={WORD}
         progress={PROGRESS}
         role="knownLanguage"
-        variant="hint"
+        variant="0:20"
         audioPromptEnabled={false}
         prefillPunctuation
         onOutcome={onOutcome}
@@ -151,7 +151,7 @@ describe('TypingStudyCard', () => {
         word={WORD}
         progress={PROGRESS}
         role="knownLanguage"
-        variant="hint"
+        variant="0:20"
         audioPromptEnabled={false}
         prefillPunctuation
         onOutcome={onOutcome}
@@ -225,7 +225,7 @@ describe('TypingStudyCard', () => {
           word={WORD}
           progress={PROGRESS}
           role="knownLanguage"
-          variant="hint"
+          variant="0:20"
           audioPromptEnabled={false}
           prefillPunctuation
           onOutcome={vi.fn()}
@@ -275,7 +275,7 @@ describe('TypingStudyCard', () => {
           word={WORD}
           progress={PROGRESS}
           role="knownLanguage"
-          variant="hint"
+          variant="0:20"
           audioPromptEnabled={false}
           prefillPunctuation
           onOutcome={vi.fn()}
@@ -315,7 +315,7 @@ describe('TypingStudyCard', () => {
           word={WORD}
           progress={PROGRESS}
           role="knownLanguage"
-          variant="hint"
+          variant="0:20"
           audioPromptEnabled={false}
           prefillPunctuation
           onOutcome={vi.fn()}
@@ -378,7 +378,7 @@ describe('TypingStudyCard', () => {
           word={WORD}
           progress={PROGRESS}
           role="knownLanguage"
-          variant="hint"
+          variant="0:20"
           audioPromptEnabled={false}
           prefillPunctuation
           onOutcome={vi.fn()}
@@ -477,6 +477,42 @@ describe('TypingStudyCard', () => {
     expect(onOutcome).toHaveBeenCalledWith('stay');
   });
 
+  it('seeds a percentage scaffold without ever completing the answer', () => {
+    renderCard({ variant: '90:90' });
+    expect(input()).toHaveValue('conch');
+
+    renderCard({ variant: '90:90', prefillPunctuation: false });
+    expect(screen.getAllByRole('textbox')[1]).toHaveValue('con ch');
+  });
+
+  it('does not prefill or auto-check the free-text alternative input', () => {
+    renderCard({
+      variant: '90:90',
+      word: makeWord('free-alt', 'pes', 'con chó', { acceptedTarget: ['cya'] }),
+    });
+    expect(input()).toHaveValue('');
+    fireEvent.change(input(), { target: { value: 'c' } });
+    expect(queryContinueOverlay()).not.toBeInTheDocument();
+  });
+
+  it('disables a hint once its variant budget is spent', () => {
+    renderCard({ variant: '0:10' });
+    const hint = screen.getByRole('button', { name: 'Hint' });
+    fireEvent.click(hint);
+    expect(hint).toBeDisabled();
+  });
+
+  it('keeps a prefixed Telex composition alive until the IME commits', () => {
+    renderCard({ variant: '50:90' });
+    expect(input()).toHaveValue('con');
+    fireEvent.compositionStart(input());
+    fireEvent.change(input(), { target: { value: 'conchos' } });
+    expect(queryContinueOverlay()).not.toBeInTheDocument();
+    fireEvent.change(input(), { target: { value: 'conchó' } });
+    fireEvent.compositionEnd(input());
+    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+  });
+
   it('keeps the mobile keyboard focused when a hint is tapped', () => {
     stubMobileLayout(true);
     renderCard();
@@ -541,14 +577,14 @@ describe('TypingStudyCard', () => {
     expect(onOutcome).toHaveBeenCalledWith('stay');
   });
 
-  it('reports unknown with no score after two hints even when the answer ends up correct', () => {
+  it('keeps the word at its current stage after two hints and a correct answer', () => {
     const { onOutcome, onScore } = renderCard();
     fireEvent.click(screen.getByRole('button', { name: 'Hint' }));
     fireEvent.click(screen.getByRole('button', { name: 'Hint' }));
     fireEvent.change(input(), { target: { value: 'conchó' } });
     fireEvent.click(continueOverlay());
-    expect(onOutcome).toHaveBeenCalledWith('unknown');
-    expect(onScore).not.toHaveBeenCalled();
+    expect(onOutcome).toHaveBeenCalledWith('stay');
+    expect(onScore).toHaveBeenCalledWith(1);
   });
 
   it('shows the correct answer on a wrong attempt and reports unknown after the tap', () => {
@@ -769,7 +805,7 @@ describe('TypingStudyCard', () => {
         word={VI_WORD}
         progress={PROGRESS}
         role="knownLanguage"
-        variant="hint"
+        variant="0:20"
         audioPromptEnabled={false}
         prefillPunctuation
         onOutcome={vi.fn()}

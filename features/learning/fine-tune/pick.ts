@@ -1,4 +1,6 @@
 import type { NormalizedWord } from '@/lib/words';
+import { splitGraphemes } from '@/lib/answer-normalization';
+import type { LearningRole } from '@/features/learning/state/learningRole';
 import type { SimilarityBand } from '@/features/learning/minigames/similarity';
 import { stageConfigAt } from './config';
 import {
@@ -10,8 +12,10 @@ import {
 import {
   METHOD_IDS,
   parseChoiceVariant,
+  parseAssemblyVariant,
   parseMatchVariant,
   type ChoiceVariant,
+  type AssemblyVariant,
   type FineTuneConfig,
   type MatchVariant,
   type MethodId,
@@ -104,6 +108,69 @@ function feasibleChoiceVariants(
   });
 }
 
+function answerParts(value: string, unit: 'letters' | 'words'): string[] {
+  if (unit === 'letters') {
+    return splitGraphemes(value).filter((part) => /[\p{L}\p{N}]/u.test(part));
+  }
+  return value.match(/[\p{L}\p{N}][\p{L}\p{N}'’\-]*/gu) ?? [];
+}
+
+function learningAnswerForRole(word: NormalizedWord, role: LearningRole): string {
+  return role === 'knownLanguage' ? word.vi : word.cz;
+}
+
+function feasibleAssemblyVariants(
+  variants: AssemblyVariant[],
+  target: NormalizedWord,
+  role: LearningRole,
+): AssemblyVariant[] {
+  const answer = learningAnswerForRole(target, role);
+  return variants.filter((variant) => {
+    const { unit } = parseAssemblyVariant(variant);
+    const count = answerParts(answer, unit).length;
+    return unit === 'letters' ? count >= 2 && !/\s/u.test(answer.trim()) : count >= 2;
+  });
+}
+
+function fallbackExtraParts(answer: string, unit: 'letters' | 'words'): string[] {
+  if (unit === 'words') return ['…', '…'];
+  const used = new Set(answer.toLocaleLowerCase());
+  return [...'abcdefghijklmnopqrstuvwxyz'].filter((letter) => !used.has(letter)).slice(0, 3);
+}
+
+function resolveAssemblyParts({
+  target,
+  pool,
+  role,
+  variant,
+  random,
+}: {
+  target: NormalizedWord;
+  pool: NormalizedWord[];
+  role: LearningRole;
+  variant: AssemblyVariant;
+  random: () => number;
+}): { answerParts: string[]; distractorParts: string[] } {
+  const { unit, distractors } = parseAssemblyVariant(variant);
+  const correct = answerParts(learningAnswerForRole(target, role), unit);
+  if (!distractors) return { answerParts: correct, distractorParts: [] };
+
+  const correctKeys = new Set(correct.map((part) => part.toLocaleLowerCase()));
+  const candidates = pool
+    .filter((word) => word.id !== target.id)
+    .flatMap((word) => answerParts(learningAnswerForRole(word, role), unit))
+    .filter((part) => !correctKeys.has(part.toLocaleLowerCase()));
+  const needed = Math.min(3, Math.max(1, Math.ceil(correct.length / 3)));
+  const extras: string[] = [];
+  while (candidates.length > 0 && extras.length < needed) {
+    extras.push(candidates.splice(Math.floor(random() * candidates.length), 1)[0]);
+  }
+  return {
+    answerParts: correct,
+    distractorParts: extras.length > 0 ? extras : fallbackExtraParts(correct.join(''), unit).slice(0, needed),
+  };
+}
+
 export interface PickExerciseInput {
   word: NormalizedWord;
   stageIndex: number;
@@ -112,6 +179,7 @@ export interface PickExerciseInput {
   config: FineTuneConfig;
   /** Every word available to draw distractors from, in list order. */
   distractorPool: NormalizedWord[];
+  role: LearningRole;
 }
 
 /**
@@ -127,6 +195,7 @@ export function pickExerciseForWord({
   unknownCount,
   config,
   distractorPool,
+  role,
 }: PickExerciseInput): ResolvedExercise {
   // A word the learner has never got right has nothing to be quizzed on yet —
   // show them the answer whatever the stage is configured to do.
@@ -136,8 +205,10 @@ export function pickExerciseForWord({
   const random = createRng(exerciseSeed(word.id, knownCount + unknownCount));
 
   const usableChoice = feasibleChoiceVariants(stage.choice.variants, word, distractorPool);
+  const usableAssembly = feasibleAssemblyVariants(stage.assembly.variants, word, role);
   const candidates = METHOD_IDS.filter((id) => {
     if (id === 'choice') return usableChoice.length > 0;
+    if (id === 'assembly') return usableAssembly.length > 0;
     return stage[id].variants.length > 0;
   });
 
@@ -150,6 +221,15 @@ export function pickExerciseForWord({
 
   if (method === 'typing') {
     return { method: 'typing', variant: pickUniform(stage.typing.variants, random) as TypingVariant };
+  }
+
+  if (method === 'assembly') {
+    const variant = pickUniform(usableAssembly, random);
+    return {
+      method: 'assembly',
+      variant,
+      ...resolveAssemblyParts({ target: word, pool: distractorPool, role, variant, random }),
+    };
   }
 
   const variant = pickUniform(usableChoice, random);

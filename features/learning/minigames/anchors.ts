@@ -1,9 +1,11 @@
 import type { NormalizedWord } from '@/lib/words';
 
 import { buildSimilarPairs, hasAtLeastOneSimilarPair } from './similarity';
+import { isAuthoredSentence } from '@/lib/formatting-polish';
 import { hasDistinctVisibleAnswers, sharesLearningScope } from './word-pool';
 import { DEFAULT_FINE_TUNE_CONFIG } from '@/features/learning/fine-tune/config';
 import { pickMatchRound } from '@/features/learning/fine-tune/pick';
+import { resolveVariantDistractors } from '@/features/learning/fine-tune/distractors';
 import type {
   GameAnchor,
   GameDifficultyLevel,
@@ -22,11 +24,32 @@ const MIN_POOL_SIZE: Record<GameType, number> = {
   typing: 4,
   matching: 4,
   tiltChoice: 2,
+  bubbleChoice: 6,
+  similarWordsPrompt: 1,
 };
 // The tilt card renders the prompt on the seesaw plank and both answers in the
 // bottom corners, so long phrases overflow the layout. Either study direction
 // may be shown, which is why both sides must stay short.
 const TILT_MAX_TEXT_LENGTH = 18;
+
+/** Bubbles on screen = these plus the answer itself. */
+const BUBBLE_DISTRACTORS = 9;
+const BUBBLE_MIN_DISTRACTORS = 3;
+
+/**
+ * Whether asking for words similar to this one makes any sense.
+ *
+ * Sentences are excluded: "similar sentences" is not a thing a learner wants,
+ * and the generator would answer it with paraphrases rather than with the
+ * confusable neighbours the distractor pool is actually short of.
+ */
+function isSimilarWordsCandidate(word: NormalizedWord): boolean {
+  const known = (word.cz ?? '').trim();
+  const learning = (word.vi ?? '').trim();
+  if (!known || !learning) return false;
+  return !isAuthoredSentence(known, word.languageFrom ?? 'cs')
+    && !isAuthoredSentence(learning, word.languageTo ?? 'vi');
+}
 
 function isTiltEligibleWord(word: NormalizedWord): boolean {
   return (
@@ -246,6 +269,36 @@ export function computeGameAnchors(
     return null;
   };
 
+  const pickBubbleWords = (
+    pool: NormalizedWord[],
+    anchor: NormalizedWord,
+    rand: () => number,
+  ): { words: NormalizedWord[]; level: GameDifficultyLevel } | null => {
+    const stage = options?.getStageIndex?.(anchor.id) ?? 0;
+    const requestedBand = stage >= 5 ? 'III' : stage >= 3 ? 'II' : 'I';
+    // A bubble field wants to look like a field, not like a four-option quiz.
+    // Short lists still get a playable round: the count degrades to whatever
+    // the pool can actually supply rather than dropping the game entirely.
+    const count = Math.max(BUBBLE_MIN_DISTRACTORS, Math.min(BUBBLE_DISTRACTORS, pool.length - 1));
+    const resolved = resolveVariantDistractors({
+      target: anchor,
+      pool,
+      count,
+      band: requestedBand,
+      // Only a couple of genuine near-twins are needed to make the field read
+      // carefully; demanding nine of them would be unsatisfiable on real lists.
+      minInBand: () => requestedBand === 'I' ? 0 : requestedBand === 'II' ? 2 : 3,
+      random: rand,
+    });
+    if (!resolved) return null;
+    const level: GameDifficultyLevel = resolved.effectiveBand === 'III'
+      ? 3
+      : resolved.effectiveBand === 'II'
+        ? 2
+        : 1;
+    return { words: [anchor, ...resolved.distractors], level };
+  };
+
   let lastSignature: string | null = null;
   let lastGameType: GameType | null = null;
   const anchors: Array<GameAnchor | null> = [];
@@ -254,7 +307,10 @@ export function computeGameAnchors(
     const anchorIndex = anchorIndices[slotIndex];
     const pool = buildGameWordPool(originalWords, anchorIndex, streamAboveWindow);
     const candidatesForPool = availableGameTypes.filter(
-      (type) => pool.length >= MIN_POOL_SIZE[type],
+      (type) =>
+        pool.length >= MIN_POOL_SIZE[type] &&
+        (type !== 'similarWordsPrompt'
+          || (!hasAtLeastOneSimilarPair(pool) && isSimilarWordsCandidate(originalWords[anchorIndex]))),
     );
     if (candidatesForPool.length === 0) {
       anchors.push(null);
@@ -287,6 +343,25 @@ export function computeGameAnchors(
         chosen = null;
         attempt += 1;
         continue;
+      }
+
+      if (gameType === 'bubbleChoice') {
+        const bubbleCandidate = pickBubbleWords(pool, originalWords[anchorIndex], randPick);
+        if (!bubbleCandidate) break;
+        chosen = bubbleCandidate.words;
+        chosenLevel = bubbleCandidate.level;
+        signature = signatureOf(chosen);
+        if (signature !== lastSignature) break;
+        chosen = null;
+        attempt += 1;
+        continue;
+      }
+
+      if (gameType === 'similarWordsPrompt') {
+        chosen = [originalWords[anchorIndex]];
+        chosenLevel = 1;
+        signature = `similar-words:${chosen[0].id}`;
+        break;
       }
 
       if (gameType === 'matching') {
@@ -354,6 +429,19 @@ export function computeGameAnchors(
         chosen = fallback.words;
         signature = signatureOf(fallback.words);
         chosenLevel = fallback.level;
+      } else if (gameType === 'bubbleChoice') {
+        const fallback = pickBubbleWords(pool, originalWords[anchorIndex], randPick);
+        if (!fallback) {
+          anchors.push(null);
+          continue;
+        }
+        chosen = fallback.words;
+        signature = signatureOf(fallback.words);
+        chosenLevel = fallback.level;
+      } else if (gameType === 'similarWordsPrompt') {
+        chosen = [originalWords[anchorIndex]];
+        signature = `similar-words:${chosen[0].id}`;
+        chosenLevel = 1;
       } else {
         const fallback = pickDistinctWords(pool, randPick);
         chosen = fallback;

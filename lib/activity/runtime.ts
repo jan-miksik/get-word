@@ -8,6 +8,7 @@ import {
   isLocalFirstAvailableSync,
 } from '@/lib/local-first/availability';
 import { getDeviceId } from '@/lib/device-id';
+import { currentIanaTimezone, localDayKeyAt } from '@/lib/local-day';
 import { getSyncOwner } from '@/lib/sync';
 import type { ActivitySurface } from '@/packages/contracts/src/activity';
 import {
@@ -74,6 +75,12 @@ interface RuntimeState {
   recoveryDone: boolean;
   /** Successfully appended recovery records retained only across pagehide. */
   appendedCheckpointKeys: Set<string>;
+  /**
+   * The IANA zone belongs to the source segment, rather than the moment an
+   * asynchronous outbox write happens. A learner can cross a timezone while a
+   * segment is open (or before its write is scheduled).
+   */
+  segmentTimezones: Map<string, string>;
   tickTimer: ReturnType<typeof setInterval> | null;
   recomputeQueued: boolean;
   teardown: Array<() => void>;
@@ -415,6 +422,9 @@ function writeCheckpointNow(current: RuntimeState): void {
 }
 
 function onCheckpoint(current: RuntimeState, next: ActivityCheckpoint | null): void {
+  if (next && !current.segmentTimezones.has(next.client_segment_id)) {
+    current.segmentTimezones.set(next.client_segment_id, currentIanaTimezone());
+  }
   current.pendingCheckpoint = next;
   // Throttled: interactions can arrive many times a second and localStorage
   // writes are synchronous. Closing a segment always writes immediately.
@@ -439,6 +449,9 @@ function onSegment(current: RuntimeState, segment: ActivitySegment): void {
   const owner = current.owner;
   // Nothing to attribute it to, and no endpoint that would accept it.
   if (owner === null) return;
+  const timezoneAtCreation =
+    current.segmentTimezones.get(segment.client_segment_id) ?? currentIanaTimezone();
+  current.segmentTimezones.delete(segment.client_segment_id);
   const recoveryKey = persistClosedSegment(current, segment, owner);
   current.pendingSegmentWrites += 1;
   void (async () => {
@@ -451,7 +464,12 @@ function onSegment(current: RuntimeState, segment: ActivitySegment): void {
       const queued = await appendOp({
         entity: 'activity_segment',
         opType: 'event',
-        payload: { ...segment, owner },
+        payload: {
+          ...segment,
+          owner,
+          local_day_key: localDayKeyAt(segment.started_at, timezoneAtCreation),
+          timezone_at_creation: timezoneAtCreation,
+        },
         clientOpId: segment.client_segment_id,
         deviceId: safeDeviceId(),
       });
@@ -588,6 +606,7 @@ export function startActivityTracking(): () => void {
     instanceClaimSettled: false,
     recoveryDone: false,
     appendedCheckpointKeys: new Set(),
+    segmentTimezones: new Map(),
     tickTimer: null,
     recomputeQueued: false,
     teardown: [],

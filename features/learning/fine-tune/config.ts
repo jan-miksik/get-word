@@ -2,6 +2,7 @@ import { STAGES } from '@/lib/words';
 import { SIMILARITY_BANDS } from '@/features/learning/minigames/similarity';
 import {
   CHOICE_OPTION_COUNTS,
+  ASSEMBLY_VARIANTS,
   MATCH_PAIR_COUNTS,
   MAX_WEIGHT,
   METHOD_IDS,
@@ -9,6 +10,7 @@ import {
   REVEAL_VARIANTS,
   TYPING_VARIANTS,
   type ChoiceVariant,
+  type AssemblyVariant,
   type FineTuneConfig,
   type MatchVariant,
   type MethodConfig,
@@ -32,6 +34,7 @@ const method = <V extends string>(weight: number, variants: V[]): MethodConfig<V
 const NO_REVEAL = method<RevealVariant>(1, []);
 const NO_CHOICE = method<ChoiceVariant>(1, []);
 const NO_TYPING = method<TypingVariant>(1, []);
+const NO_ASSEMBLY = method<AssemblyVariant>(1, []);
 
 /**
  * The "balanced" ladder, and the single table the other presets are derived
@@ -53,6 +56,7 @@ export const BALANCED_STAGE_CONFIGS: StageConfig[] = [
     reveal: method<RevealVariant>(2, ['foreign']),
     choice: NO_CHOICE,
     typing: NO_TYPING,
+    assembly: NO_ASSEMBLY,
     match: { variants: [] },
   },
   // 1 — 5 minutes
@@ -60,48 +64,55 @@ export const BALANCED_STAGE_CONFIGS: StageConfig[] = [
     reveal: method<RevealVariant>(2, ['foreign']),
     choice: method<ChoiceVariant>(2, ['2:I']),
     typing: NO_TYPING,
+    assembly: NO_ASSEMBLY,
     match: { variants: ['4:I'] },
   },
   // 2 — 1 day
   {
     reveal: method<RevealVariant>(2, ['foreign']),
     choice: method<ChoiceVariant>(2, ['2:II', '3:I', '4:I']),
-    typing: NO_TYPING,
+    typing: method<TypingVariant>(1, ['90:90']),
+    assembly: method<AssemblyVariant>(1, ['letters:exact', 'words:exact']),
     match: { variants: ['4:II', '6:I'] },
   },
   // 3 — 3 days
   {
     reveal: method<RevealVariant>(2, ['known']),
     choice: method<ChoiceVariant>(1, ['2:III', '3:II', '4:II', '5:I', '6:I', '7:I', '8:I']),
-    typing: method<TypingVariant>(1, ['firstLetterWithHint']),
+    typing: method<TypingVariant>(1, ['50:90']),
+    assembly: method<AssemblyVariant>(1, ['letters:extra', 'words:exact']),
     match: { variants: ['4:III', '6:II', '8:I'] },
   },
   // 4 — 7 days
   {
     reveal: method<RevealVariant>(2, ['known']),
     choice: method<ChoiceVariant>(1, ['3:III', '4:III', '5:II', '6:II', '7:II', '8:II']),
-    typing: method<TypingVariant>(1, ['firstLetterWithHint']),
+    typing: method<TypingVariant>(1, ['20:50']),
+    assembly: method<AssemblyVariant>(1, ['letters:extra', 'words:extra']),
     match: { variants: ['6:III', '8:II'] },
   },
   // 5 — 14 days
   {
     reveal: NO_REVEAL,
     choice: method<ChoiceVariant>(2, ['5:III', '6:III', '7:III', '8:III']),
-    typing: method<TypingVariant>(2, ['hint']),
+    typing: method<TypingVariant>(2, ['0:20']),
+    assembly: method<AssemblyVariant>(1, ['letters:extra', 'words:extra']),
     match: { variants: ['8:III'] },
   },
   // 6 — 30 days
   {
     reveal: NO_REVEAL,
     choice: method<ChoiceVariant>(2, ['8:III']),
-    typing: method<TypingVariant>(4, ['bare']),
+    typing: method<TypingVariant>(4, ['0:10']),
+    assembly: method<AssemblyVariant>(1, ['letters:extra', 'words:extra']),
     match: { variants: [] },
   },
   // 7 — 60 days
   {
     reveal: NO_REVEAL,
     choice: NO_CHOICE,
-    typing: method<TypingVariant>(2, ['bare']),
+    typing: method<TypingVariant>(2, ['0:0']),
+    assembly: method<AssemblyVariant>(1, ['letters:extra', 'words:extra']),
     match: { variants: [] },
   },
 ];
@@ -111,6 +122,7 @@ function cloneStage(stage: StageConfig): StageConfig {
     reveal: { weight: stage.reveal.weight, variants: [...stage.reveal.variants] },
     choice: { weight: stage.choice.weight, variants: [...stage.choice.variants] },
     typing: { weight: stage.typing.weight, variants: [...stage.typing.variants] },
+    assembly: { weight: stage.assembly.weight, variants: [...stage.assembly.variants] },
     match: { variants: [...stage.match.variants] },
   };
 }
@@ -131,7 +143,7 @@ function presetStageConfigs(preset: PresetId): StageConfig[] {
 }
 
 export function presetConfig(preset: PresetId): FineTuneConfig {
-  return { version: 1, stages: presetStageConfigs(preset) };
+  return { version: 3, stages: presetStageConfigs(preset) };
 }
 
 export const DEFAULT_FINE_TUNE_CONFIG: FineTuneConfig = presetConfig(DEFAULT_PRESET);
@@ -145,6 +157,7 @@ const TYPING_SET = new Set<string>(TYPING_VARIANTS);
 const BAND_SET = new Set<string>(SIMILARITY_BANDS);
 const CHOICE_COUNT_SET = new Set<number>(CHOICE_OPTION_COUNTS);
 const MATCH_COUNT_SET = new Set<number>(MATCH_PAIR_COUNTS);
+const ASSEMBLY_SET = new Set<string>(ASSEMBLY_VARIANTS);
 
 function isChoiceVariant(value: unknown): value is ChoiceVariant {
   if (typeof value !== 'string') return false;
@@ -156,6 +169,10 @@ function isMatchVariant(value: unknown): value is MatchVariant {
   if (typeof value !== 'string') return false;
   const [count, band] = value.split(':');
   return MATCH_COUNT_SET.has(Number(count)) && BAND_SET.has(band);
+}
+
+function isAssemblyVariant(value: unknown): value is AssemblyVariant {
+  return typeof value === 'string' && ASSEMBLY_SET.has(value);
 }
 
 function normalizeWeight(value: unknown, fallback: number): number {
@@ -189,7 +206,12 @@ function normalizeMethod<V extends string>(
   };
 }
 
-function normalizeStage(value: unknown, fallback: StageConfig): StageConfig {
+function normalizeStage(
+  value: unknown,
+  fallback: StageConfig,
+  upgradeTyping: boolean,
+  upgradeAssembly: boolean,
+): StageConfig {
   if (!value || typeof value !== 'object') return cloneStage(fallback);
   const raw = value as Record<string, unknown>;
 
@@ -201,6 +223,7 @@ function normalizeStage(value: unknown, fallback: StageConfig): StageConfig {
     typing: normalizeMethod(raw.typing, fallback.typing, (candidate): candidate is TypingVariant =>
       typeof candidate === 'string' && TYPING_SET.has(candidate),
     ),
+    assembly: normalizeMethod(raw.assembly, fallback.assembly, isAssemblyVariant),
     match: {
       variants: normalizeVariants(
         (raw.match as { variants?: unknown } | undefined)?.variants,
@@ -208,6 +231,12 @@ function normalizeStage(value: unknown, fallback: StageConfig): StageConfig {
       ),
     },
   };
+
+  // Version 1 has no honest typing-rung equivalent. Preserve the learner's
+  // other customisations but replace this method wholesale before the active
+  // method repair below can turn an old typing-only stage into reveal.
+  if (upgradeTyping) stage.typing = { ...fallback.typing, variants: [...fallback.typing.variants] };
+  if (upgradeAssembly) stage.assembly = { ...fallback.assembly, variants: [...fallback.assembly.variants] };
 
   // A stage with no active review method has nothing to render. Rather than
   // failing later inside the card, fall back to the gentlest exercise there is.
@@ -225,13 +254,22 @@ function normalizeStage(value: unknown, fallback: StageConfig): StageConfig {
  */
 export function normalizeFineTuneConfig(value: unknown): FineTuneConfig {
   const raw =
-    value && typeof value === 'object' ? (value as { stages?: unknown }) : { stages: undefined };
+    value && typeof value === 'object'
+      ? (value as { version?: unknown; stages?: unknown })
+      : { version: undefined, stages: undefined };
   const rawStages = Array.isArray(raw.stages) ? raw.stages : [];
+  const upgradeTyping = raw.version !== 2 && raw.version !== 3;
+  const upgradeAssembly = raw.version !== 3;
 
   return {
-    version: 1,
+    version: 3,
     stages: BALANCED_STAGE_CONFIGS.map((fallback, index) =>
-      normalizeStage(rawStages[index], DEFAULT_FINE_TUNE_CONFIG.stages[index] ?? fallback),
+      normalizeStage(
+        rawStages[index],
+        DEFAULT_FINE_TUNE_CONFIG.stages[index] ?? fallback,
+        upgradeTyping,
+        upgradeAssembly,
+      ),
     ),
   };
 }

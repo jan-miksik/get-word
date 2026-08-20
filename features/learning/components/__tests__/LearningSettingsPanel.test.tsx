@@ -112,7 +112,7 @@ describe('LearningSettingsPanel', () => {
 
     expect(screen.getByRole('checkbox', { name: /see your own language/i })).toBeInTheDocument();
     expect(
-      screen.getByRole('checkbox', { name: /first letter shown, hint available/i }),
+      screen.getByRole('checkbox', { name: /50% shown, hints up to 90%/i }),
     ).toBeInTheDocument();
     // Matching is configurable here but says plainly that it is practice only.
     expect(

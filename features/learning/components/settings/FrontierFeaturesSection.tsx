@@ -11,7 +11,7 @@ export function FrontierFeaturesSection() {
 
   return (
     <Section label={t('settings.frontierFeatures')}>
-      <p className="m-0 text-xs text-text-soft/80">{t('settings.frontierFeaturesNotice')}</p>
+      <p className="m-0 text-xs text-text-soft">{t('settings.frontierFeaturesNotice')}</p>
       {/* Swipe cards still has an on/off toggle. Photo lab graduated to the main
           menu (always on), so it keeps only a description + link here, no toggle;
           the tilt quiz was retired entirely. */}
@@ -24,12 +24,12 @@ export function FrontierFeaturesSection() {
             ariaLabel={t('settings.swipeCards')}
           />
         </div>
-        <p className="m-0 text-xs text-text-soft/60">{t('settings.swipeCardsNotice')}</p>
-        <p className="m-0 text-xs font-medium text-text-soft/70">{t('settings.swipeCardsMobileOnly')}</p>
+        <p className="m-0 text-xs text-text-soft">{t('settings.swipeCardsNotice')}</p>
+        <p className="m-0 text-xs font-medium text-text-soft">{t('settings.swipeCardsMobileOnly')}</p>
       </div>
       <div className="flex flex-col gap-0.5">
         <span className="text-sm text-text">{t('settings.photoLab')}</span>
-        <p className="m-0 text-xs text-text-soft/60">{t('settings.photoLabNotice')}</p>
+        <p className="m-0 text-xs text-text-soft">{t('settings.photoLabNotice')}</p>
         <Link href="/photo-lab" className="text-xs text-accent underline">
           {t('settings.photoLabOpen')}
         </Link>

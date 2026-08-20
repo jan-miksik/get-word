@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useMemo, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { AppLayout } from '@/components/AppLayout';
 import { I18nProvider } from '@/components/I18nProvider';
 import { AppStateProvider, type AppStateContextValue } from '@/context/AppStateContext';
@@ -11,6 +12,11 @@ import { DEFAULT_FINE_TUNE_CONFIG } from '@/features/learning/fine-tune/config';
 import type { LearningRole } from '@/features/learning/state/learningRole';
 import type { ProgressData } from '@/features/sync/contracts';
 import type { MinigameFrequencyRange } from '@/features/learning/minigames';
+import { BubbleChoiceGame } from '@/features/learning/components/games/BubbleChoiceGame';
+import { SessionRail } from '@/features/learning/components/SessionRail';
+import { SessionBreatherCard } from '@/features/learning/components/SessionBreatherCard';
+import { resolveSessionFlow } from '@/features/learning/session/flow';
+import type { SessionBlockProgress } from '@/features/learning/session/dayProgress';
 import {
   DEFAULT_MEMORY_HOOK_DISABLE_FROM_STAGE,
   STAGES,
@@ -183,10 +189,22 @@ function PreviewStudy({
     max: 3,
   });
 
+  // Dev-only harness switches: `?preview=bubbles` and `?preview=session` render
+  // the two surfaces that are otherwise only reachable mid-session in the real
+  // app, which makes them impossible to iterate on visually.
+  const previewSurface = useSearchParams().get('preview');
+  const [breatherStep, setBreatherStep] = useState(0);
+  const previewBlocks = useMemo<SessionBlockProgress[]>(() => ([
+    { key: 'review-0', kind: 'review', total: 6, done: Math.min(6, breatherStep * 3), liveRemaining: Math.max(0, 6 - breatherStep * 3), unavailable: 0 },
+    { key: 'new-0', kind: 'new', total: 4, done: 0, liveRemaining: 4, unavailable: 0 },
+    { key: 'review-1', kind: 'review', total: 12, done: 0, liveRemaining: 12, unavailable: 0 },
+  ]), [breatherStep]);
+  const previewFlow = useMemo(() => resolveSessionFlow(previewBlocks), [previewBlocks]);
+
   const activeWords = useMemo(() => getListWords(activeListId), [activeListId]);
   // The preview drives the real dispatcher, so it exercises the same per-stage
   // method selection the app uses rather than a parallel code path.
-  const resolveExercise = useExerciseResolver(fineTuneConfig, activeWords);
+  const resolveExercise = useExerciseResolver(fineTuneConfig, activeWords, role);
   const categories = useMemo(() => getAvailableCategories(activeWords), [activeWords]);
   const filteredWords = useMemo(
     () => activeWords.filter((word) => matchesCategoryFilter(word, selectedCategories)),
@@ -344,7 +362,30 @@ function PreviewStudy({
       >
         <main className="learning-card-main flex flex-col flex-1 min-h-0 min-w-0 w-full overflow-y-auto overflow-x-hidden" aria-live="polite">
           <div className="learning-card-viewport relative flex h-full w-full flex-col max-w-[800px] mx-auto">
-            {currentWord ? (
+            <SessionRail flow={previewFlow} />
+            {previewSurface === 'session' ? (
+              <div className="relative h-full">
+                <SessionBreatherCard
+                  breather={{
+                    kind: 'between',
+                    finished: previewBlocks[0],
+                    next: previewBlocks[1],
+                    flow: previewFlow,
+                  }}
+                  onContinue={() => setBreatherStep((step) => (step + 1) % 3)}
+                />
+              </div>
+            ) : previewSurface === 'bubbles' ? (
+              <div className="relative mx-[calc(50%-50vw)] h-full w-screen">
+                <BubbleChoiceGame
+                  words={filteredWords}
+                  role={role}
+                  level={1}
+                  onScore={(points) => setGameScore((score) => Math.max(0, score + points))}
+                  onComplete={() => setTypingRound((round) => round + 1)}
+                />
+              </div>
+            ) : currentWord ? (
               // Stands in for the card deck's own `data-tour` anchor so the
               // feature tour can be exercised here; see `featureTourSteps.ts`.
               <div data-tour="study" className="h-full flex flex-col justify-end md:justify-start relative">

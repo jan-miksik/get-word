@@ -121,14 +121,31 @@ describe('StudyExerciseCard — reveal', () => {
 
 describe('StudyExerciseCard — typing', () => {
   it('renders the typing card for a typing exercise', () => {
-    renderCard({ method: 'typing', variant: 'bare' });
+    renderCard({ method: 'typing', variant: '0:0' });
     expect(document.querySelector('article input')).toBeInTheDocument();
     // The hardest rung offers no way out.
     expect(document.querySelector('.game-hint-btn')).toBeNull();
   });
 
   it('keeps the hint button on the scaffolded rungs', () => {
-    renderCard({ method: 'typing', variant: 'hint' });
+    renderCard({ method: 'typing', variant: '0:20' });
     expect(document.querySelector('.game-hint-btn')).not.toBeNull();
+  });
+});
+
+describe('StudyExerciseCard — assembly', () => {
+  it('moves SR only after the assembled phrase is checked', () => {
+    const { onOutcome } = renderCard({
+      method: 'assembly',
+      variant: 'words:exact',
+      answerParts: ['con', 'chó'],
+      distractorParts: [],
+    });
+
+    fireEvent.click(screen.getByText('con'));
+    fireEvent.click(screen.getByText('chó'));
+    expect(onOutcome).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: '→' }));
+    expect(onOutcome).toHaveBeenCalledWith('known');
   });
 });

@@ -1,8 +1,8 @@
 import type { NormalizedWord } from '@/lib/words';
 import type { FineTuneConfig } from '@/features/learning/fine-tune/types';
 
-export type GameType = 'multipleChoice' | 'typing' | 'matching' | 'tiltChoice';
-export type GameDifficultyLevel = 1 | 2;
+export type GameType = 'multipleChoice' | 'typing' | 'matching' | 'tiltChoice' | 'bubbleChoice' | 'similarWordsPrompt';
+export type GameDifficultyLevel = 1 | 2 | 3;
 export type MinigameFrequencyRange = { min: number; max: number } | 'off';
 
 export const DEFAULT_MINIGAME_FREQUENCY = { min: 2, max: 5 } satisfies Exclude<

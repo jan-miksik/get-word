@@ -746,3 +746,171 @@
 .word-card--fullscreen .memory-hook-text {
   font-size: 1rem;
 }
+
+/* ── Bubble choice ──────────────────────────────────────────────────────────
+   The field is a scatter, not a list of options, so each bubble drifts on its
+   own clock and the whole thing reacts to a tap. Written in plain CSS rather
+   than Tailwind because it is all keyframes and per-element custom properties. */
+
+.bubble {
+  background: linear-gradient(
+    160deg,
+    color-mix(in srgb, #ffffff 82%, transparent),
+    color-mix(in srgb, var(--rail-review) 16%, #ffffff)
+  );
+  color: #1f1a12;
+  border: 2px solid color-mix(in srgb, var(--rail-review) 34%, transparent);
+  box-shadow:
+    0 6px 18px rgba(42, 34, 24, 0.16),
+    inset 0 6px 12px rgba(255, 255, 255, 0.7);
+  transition:
+    transform 180ms cubic-bezier(0.34, 1.56, 0.64, 1),
+    opacity 220ms ease,
+    border-color 180ms ease;
+  will-change: transform;
+}
+
+.bubble:hover {
+  border-color: var(--rail-review);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .bubble {
+    animation: bubble-float var(--bubble-float-duration, 4s) ease-in-out var(--bubble-float-delay, 0s) infinite;
+  }
+
+  .bubble:active {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes bubble-float {
+  0%,
+  100% {
+    transform: translate(-50%, calc(-50% - var(--bubble-float-shift, 8px)));
+  }
+  50% {
+    transform: translate(-50%, calc(-50% + var(--bubble-float-shift, 8px)));
+  }
+}
+
+/* Correct: the bubble bursts outward and takes a ring of its own with it. */
+.bubble-pop {
+  animation: bubble-pop 400ms cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  pointer-events: none;
+  z-index: 2;
+}
+
+.bubble-pop::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
+  border-radius: 999px;
+  border: 3px solid var(--rail-new);
+  animation: bubble-ring 400ms ease-out forwards;
+}
+
+@keyframes bubble-pop {
+  0% {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  35% {
+    transform: translate(-50%, -50%) scale(1.28);
+    opacity: 1;
+    border-color: var(--rail-new);
+    background: color-mix(in srgb, var(--rail-new) 22%, #ffffff);
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(0.2);
+    opacity: 0;
+  }
+}
+
+@keyframes bubble-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(2.1);
+    opacity: 0;
+  }
+}
+
+/* Wrong: the bubble hardens and refuses, and the field flinches with it. */
+.bubble-wrong {
+  animation: bubble-wrong 500ms ease-out;
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 20%, #ffffff);
+  color: #6b1f2a;
+}
+
+@keyframes bubble-wrong {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+  20% {
+    transform: translate(calc(-50% - 7px), -50%) rotate(-5deg);
+  }
+  45% {
+    transform: translate(calc(-50% + 7px), -50%) rotate(5deg);
+  }
+  70% {
+    transform: translate(calc(-50% - 4px), -50%) rotate(-3deg);
+  }
+}
+
+.bubble-dim {
+  opacity: 0.35;
+}
+
+.bubble-field-shake {
+  animation: bubble-field-shake 420ms ease-out;
+}
+
+@keyframes bubble-field-shake {
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+  25% {
+    transform: translateX(-5px);
+  }
+  55% {
+    transform: translateX(5px);
+  }
+  80% {
+    transform: translateX(-2px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bubble-pop,
+  .bubble-wrong,
+  .bubble-field-shake {
+    animation-duration: 1ms;
+  }
+}
+
+/* Session rail: the block name appears at a boundary and then leaves. Driven by
+   a keyed remount in `SessionRail`, so the animation is the whole behaviour. */
+.session-rail-label {
+  opacity: 0;
+  animation: session-rail-label-flash 2600ms ease-out forwards;
+}
+
+@keyframes session-rail-label-flash {
+  0% { opacity: 0; transform: translateX(-6px); }
+  8% { opacity: 1; transform: translateX(0); }
+  78% { opacity: 1; transform: translateX(0); }
+  100% { opacity: 0; transform: translateX(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .session-rail-label {
+    animation-duration: 2600ms;
+    animation-timing-function: step-end;
+  }
+}

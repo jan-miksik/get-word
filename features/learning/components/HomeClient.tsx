@@ -8,6 +8,9 @@ import { useMinigameFrequencyPreference } from '@/features/learning/hooks/useMin
 import { useLearningPageState } from '@/features/learning/hooks/useLearningPageState';
 import { usePressHandlers } from '@/features/learning/hooks/usePressHandlers';
 import { useLearningRenderers } from '@/features/learning/hooks/useLearningRenderers';
+import { resolveSessionFlow } from '@/features/learning/session/flow';
+import { useSessionBreather } from '@/features/learning/session/useSessionBreather';
+import { SessionBreatherCard } from '@/features/learning/components/SessionBreatherCard';
 import { useAppState } from '@/hooks/useAppState';
 import {
   getAvailableCategories,
@@ -41,6 +44,10 @@ import { migrateDraftToLanguagePair } from '@/features/word-chat/client/storage'
 import { normalizeLanguageCode } from '@/lib/i18n/languages';
 import { useBackgroundTargetAudioRepair } from '@/features/learning/hooks/useBackgroundTargetAudioRepair';
 import { chooseBaseStudyListForPair } from '@/features/learning/state/study-list-selection';
+import { flushOutboxBeforeRead } from '@/lib/local-first/drainer';
+import { useGoalSummary } from '@/features/learning/goals/useGoalSummary';
+import { useGoalReminders } from '@/features/learning/goals/useGoalReminders';
+import type { StudyGoalVersion } from '@/packages/domain/goals/goal';
 
 const BOOT_LOADING_TIMEOUT_MS = 12_000;
 
@@ -258,9 +265,16 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   // is routed to the landing page below before this ever gates a render.
   const hasOfflineSession = Boolean(userId && (hasAuthError || isAuthLoading));
   const isAuthenticated = Boolean((isConnected || hasOfflineSession) && userId);
+  const {
+    summary: goalSummary,
+    isLoading: isGoalSummaryLoading,
+    refresh: refreshGoalSummary,
+  } = useGoalSummary(Boolean(userId && isHydrated), userId ?? 'anonymous');
+  useGoalReminders(goalSummary);
   const appReady =
     isHydrated &&
     !isInitialServerSyncPending &&
+    !isGoalSummaryLoading &&
     (!isAuthLoading || hasOfflineSession) &&
     // The identity is part of being ready, not a second gate after the loader
     // has already been dismissed. Waiting for it here means the loader is shown
@@ -314,15 +328,40 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     [progress, memoryHooksEnabled, memoryHookDisableFromStage]
   );
 
+  const personalListIds = useMemo(
+    () =>
+      new Set(
+        subscribedLists
+          .filter(
+            (list) =>
+              list.isPersonal === true &&
+              list.languageFrom === learningLanguageFrom &&
+              list.languageTo === learningLanguageTo,
+          )
+          .map((list) => list.id),
+      ),
+    [learningLanguageFrom, learningLanguageTo, subscribedLists],
+  );
+
+  // Fills the thin-distractor prompt in place instead of handing the learner off
+  // to the chat. The pool travels rather than a ready-made seed list: only the
+  // prompt knows which word it is about, and the batch is picked around it.
+  const similarWordsContext = useMemo(() => ({
+    pool: filteredWords,
+    languageFrom: learningLanguageFrom ?? '',
+    languageTo: learningLanguageTo ?? '',
+    baseListId: [...personalListIds][0] ?? null,
+    onSaved: refreshFullSnapshot,
+  }), [filteredWords, learningLanguageFrom, learningLanguageTo, personalListIds, refreshFullSnapshot]);
+
   const {
     showNotReady,
     setShowNotReady,
     dismissedGames,
     setDismissedGames,
-    dueWords,
     settlingWords,
-    streamGroupedWords,
-    cardDeckGroups,
+    streamGroups,
+    sessionBlockProgress,
     progressStats,
     upcomingAudioWords,
   } = useLearningPageState({
@@ -339,6 +378,12 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     tiltGameEnabled,
     fineTuneConfig: learningFineTune,
     progressPlanRevision: isInitialServerSyncPending ? 'pending' : 'ready',
+    studyGoal: (goalSummary?.goal.active as StudyGoalVersion | null | undefined) ?? null,
+    isSessionDataReady:
+      isHydrated &&
+      !isInitialServerSyncPending &&
+      (!isGoalSummaryLoading || bootTimedOut),
+    sessionScopeKey: `pair:${normalizeLanguageCode(learningLanguageFrom ?? 'unknown')}:${normalizeLanguageCode(learningLanguageTo ?? 'unknown')}`,
   });
 
   useBackgroundTargetAudioRepair({
@@ -386,6 +431,8 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     dismissedGames,
     setDismissedGames,
     setGameScore,
+    onAddSimilarWords: () => navigateSurface('chat'),
+    similarWordsContext,
   });
 
   // No app session: signed-out visitors see the public landing page (below),
@@ -488,20 +535,6 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     />
   ) : null;
 
-  const personalListIds = useMemo(
-    () =>
-      new Set(
-        subscribedLists
-          .filter(
-            (list) =>
-              list.isPersonal === true &&
-              list.languageFrom === learningLanguageFrom &&
-              list.languageTo === learningLanguageTo,
-          )
-          .map((list) => list.id),
-      ),
-    [learningLanguageFrom, learningLanguageTo, subscribedLists],
-  );
   const shouldShowAddWordsPrompt = useMemo(
     () =>
       !addWordsPromptDismissedForSession &&
@@ -531,8 +564,23 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     completedDeckWordCards,
   });
 
+  // The session flow drives both edge rails and the pause between blocks. The
+  // breather takes the interstitial slot ahead of every other card: it is the
+  // seam in the learner's own session, so nothing else should cut in front.
+  const sessionFlow = useMemo(() => resolveSessionFlow(sessionBlockProgress), [sessionBlockProgress]);
+  useEffect(() => {
+    if (!sessionFlow.complete) return;
+    void flushOutboxBeforeRead()
+      .catch(() => undefined)
+      .then(() => refreshGoalSummary());
+  }, [refreshGoalSummary, sessionFlow.complete]);
+  const { breather, dismiss: dismissBreather } = useSessionBreather(sessionFlow, sessionBlockProgress);
+  const sessionBreatherCard = breather ? (
+    <SessionBreatherCard breather={breather} onContinue={dismissBreather} />
+  ) : null;
+
   const interstitialCard =
-    memoryHooksIntroCard ?? pwaInstallIntroCard ?? addWordsPrompt;
+    sessionBreatherCard ?? memoryHooksIntroCard ?? pwaInstallIntroCard ?? addWordsPrompt;
   const hasNoSelectedWordList = Boolean(
     onboardingCompletedAt &&
       learningLanguageFrom &&
@@ -725,13 +773,12 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               onDeckWordCardCompleted={() => setCompletedDeckWordCards((count) => count + 1)}
               deckSwipeActions={deckSwipeActions}
               isSwipeBlockedForWord={isTypingCard}
-              cardDeckGroups={cardDeckGroups}
-              streamGroupedWords={streamGroupedWords}
+              streamGroups={streamGroups}
+              sessionFlow={sessionFlow}
               renderCardForDeck={renderCardForDeck}
               renderMiniGameForDeck={renderMiniGameForDeck}
               renderCard={renderCard}
               renderMiniGame={renderMiniGame}
-              dueWordsCount={dueWords.length}
               showNotReady={showNotReady}
               settlingCount={settlingWords.length}
               onToggleShowNotReady={() => setShowNotReady(!showNotReady)}

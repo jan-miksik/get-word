@@ -103,7 +103,10 @@ export function App() {
     let disposed = false;
 
     const listener = CapacitorApp.addListener('appStateChange', ({ isActive }) => {
-      if (!disposed) setNativeAppActive(isActive);
+      if (!disposed) {
+        setNativeAppActive(isActive);
+        if (isActive) window.dispatchEvent(new Event('get-word:refresh-goal-summary'));
+      }
     });
 
     return () => {

@@ -1,4 +1,4 @@
-export type SyncRevisionDomain = 'settings_language' | 'language_pair';
+export type SyncRevisionDomain = 'settings_language' | 'language_pair' | 'study_goal';
 
 /**
  * Raised when a mutation was based on a server revision that is no longer

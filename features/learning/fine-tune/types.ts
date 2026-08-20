@@ -11,9 +11,9 @@ export type { SimilarityBand };
  * once, so a single result cannot be attributed to one word; it stays a
  * practice-only interlude with its own frequency, outside this pool.
  */
-export type MethodId = 'reveal' | 'choice' | 'typing';
+export type MethodId = 'reveal' | 'choice' | 'typing' | 'assembly';
 
-export const METHOD_IDS = ['reveal', 'choice', 'typing'] as const satisfies readonly MethodId[];
+export const METHOD_IDS = ['reveal', 'choice', 'typing', 'assembly'] as const satisfies readonly MethodId[];
 
 /** Which side the learner sees first. */
 export type RevealVariant = 'foreign' | 'known';
@@ -30,30 +30,66 @@ export const REVEAL_VARIANTS = ['foreign', 'known'] as const satisfies readonly 
  * makes that state unrepresentable, and the config travels through synced JSON
  * where a one-line schema is worth a lot.
  */
-export type TypingVariant = 'firstLetterWithHint' | 'hint' | 'bare';
+export type TypingVariant = '90:90' | '50:90' | '20:50' | '0:20' | '0:10' | '0:0';
 
 export const TYPING_VARIANTS = [
-  'firstLetterWithHint',
-  'hint',
-  'bare',
+  '90:90',
+  '50:90',
+  '20:50',
+  '0:20',
+  '0:10',
+  '0:0',
 ] as const satisfies readonly TypingVariant[];
 
-/** How the enum maps onto the two mechanisms the typing card actually has. */
-export function typingVariantMechanics(variant: TypingVariant): {
-  prefillFirstLetter: boolean;
-  hintEnabled: boolean;
+export function parseTypingVariant(variant: TypingVariant): {
+  prefillPct: number;
+  hintCapPct: number;
 } {
+  const [prefillPct, hintCapPct] = variant.split(':').map(Number);
   return {
-    prefillFirstLetter: variant === 'firstLetterWithHint',
-    hintEnabled: variant !== 'bare',
+    prefillPct: prefillPct ?? 0,
+    hintCapPct: hintCapPct ?? 0,
   };
+}
+
+/** Calculate the frozen scaffold for one answer, always leaving one slot to type. */
+export function typingScaffold({
+  prefillPct,
+  hintCapPct,
+  editableCount,
+}: {
+  prefillPct: number;
+  hintCapPct: number;
+  editableCount: number;
+}): { prefillCount: number; hintCap: number; hintBudget: number } {
+  const maxReveal = Math.max(0, editableCount - 1);
+  const prefillCount = Math.min(Math.max(0, Math.floor(editableCount * prefillPct / 100)), maxReveal);
+  const hintCap = hintCapPct > prefillPct
+    ? Math.min(Math.max(1, Math.ceil(editableCount * hintCapPct / 100)), maxReveal)
+    : prefillCount;
+  return { prefillCount, hintCap, hintBudget: Math.max(0, hintCap - prefillCount) };
 }
 
 export type ChoiceOptionCount = 2 | 3 | 4 | 5 | 6 | 7 | 8;
 export type MatchPairCount = 4 | 6 | 8;
+export type AssemblyVariant = 'letters:exact' | 'letters:extra' | 'words:exact' | 'words:extra';
 
 export const CHOICE_OPTION_COUNTS = [2, 3, 4, 5, 6, 7, 8] as const;
 export const MATCH_PAIR_COUNTS = [4, 6, 8] as const;
+export const ASSEMBLY_VARIANTS = [
+  'letters:exact',
+  'letters:extra',
+  'words:exact',
+  'words:extra',
+] as const satisfies readonly AssemblyVariant[];
+
+export function parseAssemblyVariant(variant: AssemblyVariant): {
+  unit: 'letters' | 'words';
+  distractors: boolean;
+} {
+  const [unit, difficulty] = variant.split(':') as ['letters' | 'words', 'exact' | 'extra'];
+  return { unit, distractors: difficulty === 'extra' };
+}
 
 /** `'4:II'` — four options, distractors that look fairly alike. */
 export type ChoiceVariant = `${ChoiceOptionCount}:${SimilarityBand}`;
@@ -99,12 +135,13 @@ export interface StageConfig {
   reveal: MethodConfig<RevealVariant>;
   choice: MethodConfig<ChoiceVariant>;
   typing: MethodConfig<TypingVariant>;
+  assembly: MethodConfig<AssemblyVariant>;
   /** No weight: matching sits outside the review pool, on its own frequency. */
   match: { variants: MatchVariant[] };
 }
 
 export interface FineTuneConfig {
-  version: 1;
+  version: 3;
   /** Exactly 8 entries, indexed by `STAGES[i].id`. */
   stages: StageConfig[];
 }
@@ -123,4 +160,12 @@ export type ResolvedExercise =
       /** May be lower than requested when the list ran out of similar words. */
       effectiveBand: SimilarityBand;
       distractors: NormalizedWord[];
+    }
+  | {
+      method: 'assembly';
+      variant: AssemblyVariant;
+      /** The answer-side units, in their required order. */
+      answerParts: string[];
+      /** Additional selectable units for the harder variant. */
+      distractorParts: string[];
     };

@@ -27,6 +27,24 @@ export function levenshtein(a: string, b: string): number {
   return prev[b.length];
 }
 
+/** Levenshtein distance over already-segmented tokens (for example graphemes). */
+export function levenshteinTokens(a: readonly string[], b: readonly string[]): number {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+
+  let previous = Array.from({ length: b.length + 1 }, (_, index) => index);
+  for (let row = 1; row <= a.length; row += 1) {
+    const current = [row];
+    for (let column = 1; column <= b.length; column += 1) {
+      current[column] = a[row - 1] === b[column - 1]
+        ? previous[column - 1]
+        : Math.min(previous[column] + 1, current[column - 1] + 1, previous[column - 1] + 1);
+    }
+    previous = current;
+  }
+  return previous[b.length] ?? 0;
+}
+
 /**
  * Normalized similarity in [0, 1]: 1 = identical, 0 = nothing in common.
  */
