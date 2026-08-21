@@ -227,3 +227,103 @@
     transform: translateX(250%);
   }
 }
+
+/* Success mark: the shared "this card is done" badge that sits in a reserved
+   slot at the top of every study/game card. Each keyframe below is one look the
+   badge can arrive with; the active one is picked in `successMarkVariant.ts`
+   and can be switched at runtime from `/dev/success-mark`.
+
+   Ring scale stays at or below 1.35 on purpose: framed game cards clip with
+   `overflow: hidden`, and a wider ring would be cut off against the card's top
+   edge. */
+@keyframes success-mark-pop {
+  0% {
+    transform: scale(0.55);
+    opacity: 0;
+  }
+  55% {
+    transform: scale(1.14);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes success-mark-ring {
+  0% {
+    transform: scale(1);
+    opacity: 0.5;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
+  }
+}
+
+@keyframes success-mark-stamp {
+  0% {
+    transform: scale(1.7) rotate(-16deg);
+    opacity: 0;
+  }
+  45% {
+    transform: scale(0.92) rotate(4deg);
+    opacity: 1;
+  }
+  70% {
+    transform: scale(1.05) rotate(-2deg);
+  }
+  100% {
+    transform: scale(1) rotate(0deg);
+  }
+}
+
+@keyframes success-mark-drop {
+  0% {
+    transform: translateY(-34px) scale(0.9);
+    opacity: 0;
+  }
+  55% {
+    transform: translateY(3px) scale(1.04);
+    opacity: 1;
+  }
+  78% {
+    transform: translateY(-3px) scale(0.99);
+  }
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes success-mark-fade {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Stroke draw-on. The dash lengths are baked in rather than passed as custom
+   properties so that a reduced-motion viewer, who never runs the animation,
+   simply sees the finished shape. */
+@keyframes success-mark-draw-tick {
+  from {
+    stroke-dashoffset: 40;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes success-mark-draw-circle {
+  from {
+    stroke-dashoffset: 132;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}

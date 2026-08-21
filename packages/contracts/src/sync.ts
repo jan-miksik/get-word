@@ -89,13 +89,22 @@ const GoalMinigameFrequencySchema = z.union([
 
 const StudyGoalMutationSchema = z.object({
   enabled: z.boolean(),
+  mode: z.enum(['words', 'minutes']).default('minutes'),
   goal_days_per_week: z.number().int().min(1).max(7),
-  goal_minutes_per_day: z.number().int().min(1).max(240),
+  goal_minutes_per_day: z.number().int().min(1).max(240).optional(),
+  goal_new_words_per_day: z.number().int().min(1).max(30).optional(),
   goal_preset: z.enum(['light', 'medium', 'intense', 'custom']),
   reveal_mode: z.enum(['scratch', 'press']),
   minigame_frequency: GoalMinigameFrequencySchema,
   timezone: IanaTimezoneSchema.optional(),
   learning_fine_tune: z.unknown(),
+}).superRefine((value, context) => {
+  if (value.mode === 'minutes' && value.goal_minutes_per_day === undefined) {
+    context.addIssue({ code: 'custom', path: ['goal_minutes_per_day'], message: 'Minutes goal requires minutes' });
+  }
+  if (value.mode === 'words' && value.goal_new_words_per_day === undefined) {
+    context.addIssue({ code: 'custom', path: ['goal_new_words_per_day'], message: 'Words goal requires new words' });
+  }
 });
 
 const SyncMutationPayloadSchema = z.object({

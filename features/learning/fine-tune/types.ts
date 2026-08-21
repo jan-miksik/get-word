@@ -71,11 +71,11 @@ export function typingScaffold({
 }
 
 export type ChoiceOptionCount = 2 | 3 | 4 | 5 | 6 | 7 | 8;
-export type MatchPairCount = 4 | 6 | 8;
+export type MatchPairCount = 4 | 6;
 export type AssemblyVariant = 'letters:exact' | 'letters:extra' | 'words:exact' | 'words:extra';
 
 export const CHOICE_OPTION_COUNTS = [2, 3, 4, 5, 6, 7, 8] as const;
-export const MATCH_PAIR_COUNTS = [4, 6, 8] as const;
+export const MATCH_PAIR_COUNTS = [4, 6] as const;
 export const ASSEMBLY_VARIANTS = [
   'letters:exact',
   'letters:extra',

@@ -54,6 +54,7 @@ export interface ProgressData {
   stageIndex: number;
   knownCount: number;
   unknownCount: number;
+  introducedAt?: number;
   lastKnownAt?: number;
   lastUnknownAt?: number;
   nextDueAt?: number;
@@ -133,6 +134,7 @@ export interface SyncResponse {
       lastKnownAt: string | null;
       lastUnknownAt: string | null;
       nextDueAt: string | null;
+      introducedAt?: string | null;
       createdAt: string;
       updatedAt: string;
     }

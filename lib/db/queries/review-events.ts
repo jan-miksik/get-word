@@ -1,8 +1,10 @@
+import { eq } from 'drizzle-orm';
 import { db } from "../client";
 import { reviewEvents } from "../schema";
 import { applyReviewEventToProgress, type ReviewProgressAction } from "./progress";
+import { reviewCountsTowardSnapshot, type DayGoalSnapshot } from './day-stats';
 
-type RecordReviewEventResult = "inserted" | "duplicate" | "skipped";
+type RecordReviewEventResult = { status: "inserted" | "duplicate" | "skipped"; id?: string };
 
 /**
  * Same shape as `lib/db/queries/progress.ts`: accepts either the top-level `db`
@@ -57,8 +59,8 @@ async function recordReviewEventIfNew(
 ): Promise<RecordReviewEventResult> {
   const { userId, deviceId, sessionId, event } = args;
   const clientEventId = String(event.client_event_id ?? "").trim();
-  if (!clientEventId) return "skipped";
-  if (!event.word_id && !event.word_list_item_id) return "skipped";
+  if (!clientEventId) return { status: 'skipped' };
+  if (!event.word_id && !event.word_list_item_id) return { status: 'skipped' };
 
   try {
     const inserted = await executor
@@ -77,10 +79,10 @@ async function recordReviewEventIfNew(
       .onConflictDoNothing()
       .returning({ id: reviewEvents.id });
 
-    return inserted.length > 0 ? "inserted" : "duplicate";
+    return inserted[0] ? { status: 'inserted', id: inserted[0].id } : { status: 'duplicate' };
   } catch (error) {
     if (isReviewTargetForeignKeyViolation(error)) {
-      return "skipped";
+      return { status: 'skipped' };
     }
     throw error;
   }
@@ -91,6 +93,7 @@ export async function applyNewReviewEvents(args: {
   deviceId?: string | null;
   sessionId?: string | null;
   events: IncomingReviewEvent[];
+  snapshotsByDay?: ReadonlyMap<string, DayGoalSnapshot | null>;
 }): Promise<string[]> {
   const applied: string[] = [];
 
@@ -121,9 +124,9 @@ export async function applyNewReviewEvents(args: {
         },
         tx
       );
-      if (insertResult !== "inserted") return insertResult;
+      if (insertResult.status !== "inserted" || !insertResult.id) return insertResult.status;
 
-      await applyReviewEventToProgress(
+      const transition = await applyReviewEventToProgress(
         {
           userId: args.userId,
           wordId: event.word_id ?? null,
@@ -133,7 +136,15 @@ export async function applyNewReviewEvents(args: {
         },
         tx
       );
-      return insertResult;
+      if (transition) {
+        const snapshot = event.local_day_key ? args.snapshotsByDay?.get(event.local_day_key) ?? undefined : undefined;
+        await tx.update(reviewEvents).set({
+          eventKind: transition.eventKind,
+          previousDueAt: transition.previousDueAt,
+          countsTowardDailyReview: reviewCountsTowardSnapshot(snapshot ?? undefined, transition),
+        }).where(eq(reviewEvents.id, insertResult.id));
+      }
+      return insertResult.status;
     });
 
     // "duplicate" means a prior transaction already committed both writes →

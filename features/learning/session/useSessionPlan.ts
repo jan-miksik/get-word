@@ -53,6 +53,7 @@ export function useSessionPlan(args: {
   scopeKey: string;
   absenceDays?: number;
   continueAnyway?: boolean;
+  dayTargets?: { resolvedNewTarget: number | null; resolvedReviewTarget: number | null; resolvedItemBudget: number | null } | null;
 }): ResolvedSessionPlan {
   const absenceDays = args.absenceDays ?? deriveAbsenceDays(args.progress, args.dayKey, args.timezone);
   const candidate = useMemo(() => planSession({
@@ -62,7 +63,8 @@ export function useSessionPlan(args: {
     newWords: args.stream.newWords,
     progress: args.progress,
     absenceDays,
-  }), [absenceDays, args.goal, args.progress, args.stream]);
+    dayTargets: args.dayTargets,
+  }), [absenceDays, args.dayTargets, args.goal, args.progress, args.stream]);
   const storageScope = useMemo<SessionPlanStorageScope | null>(() => {
     if (!args.goal?.enabled) return null;
     return { dayKey: args.dayKey, scopeKey: args.scopeKey, goalVersionId: args.goal.id };

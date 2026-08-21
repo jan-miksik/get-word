@@ -84,9 +84,27 @@ export function TypingAnswerInput({
     spellCheck: false,
   } as const;
 
+  // From `md` up, the hint/check buttons hang off the right edge of the input
+  // box, which is `w-fit` and centred. That only works while the box leaves
+  // room beside it: a long sentence grows to the full card width, and the
+  // buttons end up outside it — clipped away by the card's own scroll box.
+  //
+  // So cap the box at the width where the buttons still fit, and reserve the
+  // same amount on the left. The input is centred, so its right edge sits at
+  // `(container + box) / 2`; keeping that plus the buttons inside the container
+  // means the box may be at most `container - 2 × (offset + buttons)` wide.
+  // A long sentence wraps onto another line instead, which the mask supports.
+  // The classes are spelled out rather than computed because Tailwind only
+  // generates the arbitrary values it can find in the source.
+  const actionsReserve = manualCheck
+    // 1.5rem offset + hint 2.75rem + 0.75rem gap + check 2.75rem, doubled.
+    ? (hintEnabled ? 'md:max-w-[calc(100%-15.5rem)]' : 'md:max-w-[calc(100%-8.5rem)]')
+    // 2.5rem offset + hint 2.75rem, doubled.
+    : 'md:max-w-[calc(100%-10.5rem)]';
+
   return (
     <div className="game-typing-area !gap-2">
-      <div className="relative mx-auto w-fit max-w-full">
+      <div className={`relative mx-auto w-fit max-w-full ${actionsReserve}`}>
         <div className={`min-w-0 mx-auto ${useFreeAnswerInput ? 'w-[min(26rem,calc(100vw-7rem))]' : 'w-fit max-w-full'}`}>
           {useFreeAnswerInput ? (
             <input

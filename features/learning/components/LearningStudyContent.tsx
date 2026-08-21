@@ -5,6 +5,7 @@ import { CardDeckView, type CardDeckSwipeActions } from './CardDeckView';
 import { VirtualizedWordList } from './VirtualizedWordList';
 import { SettlingWordsFooter } from './SettlingWordsFooter';
 import { SessionRail } from './SessionRail';
+import { SessionDoneCard } from './SessionDoneCard';
 import type { SchoolMembership } from '@/features/auth/public.client';
 import { useI18n } from '@/components/I18nProvider';
 import { getLocalizedLanguageName } from '@/lib/i18n/languages';
@@ -50,6 +51,7 @@ interface LearningStudyContentProps {
   phrasesScrollElement: HTMLElement | null;
   filteredWords: NormalizedWord[];
   interstitialCard?: React.ReactNode;
+  goalCountdown?: React.ReactNode;
   onDeckWordCardCompleted?: (word: NormalizedWord) => void;
   deckSwipeActions?: CardDeckSwipeActions;
   deckHorizontalSwipeEnabled?: boolean;
@@ -98,6 +100,7 @@ export function LearningStudyContent({
   phrasesScrollElement,
   filteredWords,
   interstitialCard,
+  goalCountdown,
   onDeckWordCardCompleted,
   deckSwipeActions,
   deckHorizontalSwipeEnabled = true,
@@ -150,6 +153,21 @@ export function LearningStudyContent({
     </div>
   ) : null;
 
+  // The deck emptying is never a dead end: the same card that says there is
+  // nothing due also carries the ways to keep going. `noPersonalWordsState`
+  // still wins where the pair has no words at all, because that needs its own
+  // explanation before the same offers make sense.
+  const sessionDoneState = (title?: string) => (
+    <SessionDoneCard
+      title={title}
+      settlingCount={settlingCount}
+      showNotReady={showNotReady}
+      onToggleShowNotReady={onToggleShowNotReady}
+      onOpenWordChat={onOpenWordChat}
+      onOpenPhotoLab={showPhotoLabOffer ? onOpenPhotoLab : undefined}
+    />
+  );
+
   return (
     <AppLayout
       viewMode={viewMode}
@@ -173,13 +191,20 @@ export function LearningStudyContent({
         className="app-workspace-main relative flex min-h-0 min-w-0 w-full flex-1 flex-col overflow-hidden"
         aria-live="polite"
       >
+        {activeSurface === 'study' ? goalCountdown : null}
         {sessionFlow && activeSurface === 'study' ? <SessionRail flow={sessionFlow} /> : null}
         <AppSurfacePanel
           surface="study"
           active={activeSurface === 'study'}
           label={t('auth.brand')}
           panelRef={phrasesCallbackRef}
-          className={viewMode === 'card' ? 'learning-card-main' : ''}
+          // On a phone the deck otherwise runs to both screen edges, right over
+          // the session rails — and a scratch cover reaching the bezel is both
+          // hard to erase and impossible to read the rails beside. The gutter
+          // is inside padding, so the absolutely positioned rails stay pinned
+          // to the real edges. Stream mode already has `app-content-column`
+          // padding, so only the deck needs it.
+          className={viewMode === 'card' ? 'learning-card-main px-3 sm:px-0' : ''}
         >
           {viewMode === 'card' ? (
             <div className="learning-card-viewport relative mx-auto flex h-full w-full max-w-[800px] flex-col gap-2">
@@ -187,7 +212,7 @@ export function LearningStudyContent({
                 <CardDeckView
                   streamGroups={streamGroups}
                   interstitialCard={interstitialCard}
-                  emptyState={noPersonalWordsState}
+                  emptyState={noPersonalWordsState ?? sessionDoneState()}
                   onWordCardCompleted={onDeckWordCardCompleted}
                   swipeActions={deckSwipeActions}
                   allowHorizontalSwipe={deckHorizontalSwipeEnabled}
@@ -205,9 +230,7 @@ export function LearningStudyContent({
                 </div>
               ) : null}
               {filteredWords.length === 0 ? (
-                noPersonalWordsState ?? (
-                  <div className="p-8 text-center text-text-soft">{t('learning.noFilterMatches')}</div>
-                )
+                noPersonalWordsState ?? sessionDoneState(t('learning.noFilterMatches'))
               ) : (
                 <VirtualizedWordList
                   dataTab="stream"

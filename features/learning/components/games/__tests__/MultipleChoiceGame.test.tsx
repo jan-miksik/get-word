@@ -82,6 +82,30 @@ describe('MultipleChoiceGame', () => {
     // no assertion needed - just must not throw
   });
 
+  it.each([
+    [2, 'split'],
+    [4, 'cards'],
+    [8, 'compact'],
+  ] as const)('uses the %s-option %s layout', (count, layout) => {
+    const words = Array.from({ length: count }, (_, index) =>
+      makeWord(String(index), `source ${index}`, `answer ${index}`),
+    );
+    const { container } = render(
+      <MultipleChoiceGame words={words} role="knownLanguage" />,
+    );
+
+    expect(container.querySelector('[data-choice-layout]'))
+      .toHaveAttribute('data-choice-layout', layout);
+  });
+
+  it('replaces the Correct label with the shared circular success mark', () => {
+    render(<MultipleChoiceGame words={WORDS} role="knownLanguage" />);
+    fireEvent.click(screen.getByText('con chó'));
+
+    expect(screen.getByRole('img', { name: 'Correct!' })).toBeInTheDocument();
+    expect(screen.queryByText('✓ Correct!')).not.toBeInTheDocument();
+  });
+
   it('supports sourceLang override for random direction', () => {
     const onResult = vi.fn();
     render(

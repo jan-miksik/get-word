@@ -1,3 +1,7 @@
+'use client';
+
+import { useI18n } from '@/components/I18nProvider';
+
 type SettlingWordsFooterProps = {
   showNotReady: boolean;
   settlingCount: number;
@@ -9,17 +13,19 @@ export function SettlingWordsFooter({
   settlingCount,
   onToggle,
 }: SettlingWordsFooterProps) {
+  const { t } = useI18n();
   if (settlingCount === 0) return null;
 
   return (
-    <div className="p-4 px-4 text-center border-t border-border-subtle mt-4">
+    <div className="study-ink-scope mt-4 border-t border-border-subtle p-4 px-4 text-center">
       <button
         type="button"
-        className="bg-background-elevated border border-border-subtle rounded-lg px-6 py-3 text-sm text-text cursor-pointer transition-all font-medium hover:bg-background-elevated"
+        className="cursor-pointer rounded-lg border border-border-subtle bg-background-elevated px-6 py-3 text-sm font-medium text-text transition-all"
         onClick={onToggle}
       >
-        {showNotReady ? 'Hide' : 'Show'} {settlingCount} word{settlingCount !== 1 ? 's' : ''}{' '}
-        settling in before repeat
+        {showNotReady
+          ? t('learning.settlingHide')
+          : t('learning.settlingShow', { count: settlingCount })}
       </button>
     </div>
   );

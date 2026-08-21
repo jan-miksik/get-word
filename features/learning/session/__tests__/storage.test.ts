@@ -6,7 +6,8 @@ import { pruneSessionPlans, readSessionPlan, sessionPlanStorageKey, storeSession
 const scope = { dayKey: '2026-08-20', scopeKey: 'pair:cs:vi|categories:all', goalVersionId: 'goal-1' };
 const plan: SessionPlan = {
   enabled: true, sessionItemCap: 5, priorityIds: [], dueIds: ['r0'], newIds: ['n0'],
-  deferredDueCount: 0, reason: 'normal', blocks: planSessionBlocks(['r0'], ['n0']),
+  deferredDueCount: 0, shortfall: 0, newShortfall: 0, reason: 'normal',
+  blocks: planSessionBlocks({ warmUpIds: ['r0'], newIds: ['n0'], closingReviewIds: [] }),
 };
 
 describe('session-plan storage', () => {

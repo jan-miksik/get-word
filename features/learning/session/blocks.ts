@@ -5,18 +5,32 @@ export interface SessionBlock {
   key: string;
   kind: SessionBlockKind;
   ids: string[];
+  /**
+   * How many answers today each id owes this block. Everything is a single
+   * pass except a same-day repeat of words first met earlier in the very same
+   * session — the only review a learner with no repeats due can get, and the
+   * reason a first day is still shaped `new → review` rather than one long
+   * march through unknown words.
+   */
+  pass?: number;
 }
 
-export interface SessionBlockOptions {
-  /** Returning learners start with a new-word block, but still finish on review. */
-  leadWithNew?: boolean;
+export interface SessionBlockPlanInput {
+  /** Repeats that open the day. Empty on a first day, or after a long absence. */
+  warmUpIds: readonly string[];
+  newIds: readonly string[];
+  /** Repeats that close the day and carry it to the goal. */
+  closingReviewIds: readonly string[];
+  /**
+   * Fill a closing block with same-day repeats of the new words just seen when
+   * real repeats run out. Without this a beginner's day is new words only.
+   */
+  fillWithRepeats?: boolean;
 }
 
 /** Heuristic for cadence, not a maximum size of an individual block. */
-const TARGET_ITEMS_PER_NEW_BLOCK = 18;
-const MIN_NEW_BLOCKS = 2;
-const MAX_NEW_BLOCKS = 5;
-const WARM_UP_WEIGHT = 0.5;
+const TARGET_NEW_PER_BATCH = 8;
+const MAX_NEW_BATCHES = 3;
 
 function clamp(value: number, minimum: number, maximum: number): number {
   return Math.max(minimum, Math.min(maximum, value));
@@ -29,66 +43,66 @@ function splitEvenly(total: number, parts: number): number[] {
   return Array.from({ length: parts }, (_, index) => base + (index < remainder ? 1 : 0));
 }
 
-function splitReviews(total: number, parts: number, warmUp: boolean): number[] {
-  if (!warmUp || parts === 1) return splitEvenly(total, parts);
-  const first = Math.max(
-    1,
-    Math.round((total * WARM_UP_WEIGHT) / (WARM_UP_WEIGHT + parts - 1)),
-  );
-  return [first, ...splitEvenly(total - first, parts - 1)];
+function slice(ids: readonly string[], sizes: readonly number[]): string[][] {
+  let offset = 0;
+  return sizes.map((size) => {
+    const part = ids.slice(offset, offset + size);
+    offset += size;
+    return part;
+  });
 }
 
-function nextKey(blocks: readonly SessionBlock[], kind: SessionBlockKind): string {
-  return `${kind}-${blocks.filter((block) => block.kind === kind).length}`;
+function push(blocks: SessionBlock[], kind: SessionBlockKind, ids: string[], pass?: number): void {
+  if (ids.length === 0) return;
+  const key = `${kind}-${blocks.filter((block) => block.kind === kind).length}`;
+  blocks.push(pass && pass > 1 ? { key, kind, ids, pass } : { key, kind, ids });
 }
 
 /**
- * Splits already-selected IDs into alternating blocks without changing their order.
- * A normal plan is R N ... R; a returning plan is N R ... N R.
+ * Shapes an already-selected day into blocks without reordering anything.
+ *
+ * The day reads `review → new → review`: warm up on words already known, meet
+ * the new ones while attention is freshest, then close on repeats — so the last
+ * thing the day does is consolidate rather than pile on. A large batch of new
+ * words is split across up to three passes with review in between, because
+ * twenty unknown words in one unbroken run is the hardest possible way to meet
+ * them.
+ *
+ * Whatever repeats are left over after the day's plan is deliberately NOT here:
+ * it is a bonus offered once the day is closed, not a fourth block the learner
+ * has to finish to be done.
  */
-export function planSessionBlocks(
-  reviewIds: readonly string[],
-  newIds: readonly string[],
-  options: SessionBlockOptions = {},
-): SessionBlock[] {
-  if (reviewIds.length === 0 && newIds.length === 0) return [];
-  if (reviewIds.length === 0) return [{ key: 'new-0', kind: 'new', ids: [...newIds] }];
-  if (newIds.length === 0) return [{ key: 'review-0', kind: 'review', ids: [...reviewIds] }];
+export function planSessionBlocks(input: SessionBlockPlanInput): SessionBlock[] {
+  const warmUpIds = [...input.warmUpIds];
+  const newIds = [...input.newIds];
+  const closingReviewIds = [...input.closingReviewIds];
+  if (warmUpIds.length === 0 && newIds.length === 0 && closingReviewIds.length === 0) return [];
 
-  // A one-item review bucket cannot both start and finish a non-empty normal plan.
-  const leadWithNew = options.leadWithNew || reviewIds.length < 2;
-  const desiredNewBlockCount = clamp(
-    Math.round((reviewIds.length + newIds.length) / TARGET_ITEMS_PER_NEW_BLOCK),
-    MIN_NEW_BLOCKS,
-    MAX_NEW_BLOCKS,
-  );
-  const newBlockCount = leadWithNew
-    ? Math.min(desiredNewBlockCount, newIds.length, reviewIds.length)
-    : Math.min(desiredNewBlockCount, newIds.length, reviewIds.length - 1);
-  const reviewBlockCount = leadWithNew ? newBlockCount : newBlockCount + 1;
-  const reviewSizes = splitReviews(reviewIds.length, reviewBlockCount, !leadWithNew);
-  const newSizes = splitEvenly(newIds.length, newBlockCount);
   const blocks: SessionBlock[] = [];
-  let reviewOffset = 0;
-  let newOffset = 0;
-  const add = (kind: SessionBlockKind, source: readonly string[], size: number, offset: number) => {
-    const ids = source.slice(offset, offset + size);
-    if (ids.length > 0) blocks.push({ key: nextKey(blocks, kind), kind, ids });
-  };
+  push(blocks, 'review', warmUpIds);
 
-  for (let index = 0; index < newBlockCount; index += 1) {
-    if (leadWithNew) {
-      add('new', newIds, newSizes[index], newOffset);
-      newOffset += newSizes[index];
-      add('review', reviewIds, reviewSizes[index], reviewOffset);
-      reviewOffset += reviewSizes[index];
-    } else {
-      add('review', reviewIds, reviewSizes[index], reviewOffset);
-      reviewOffset += reviewSizes[index];
-      add('new', newIds, newSizes[index], newOffset);
-      newOffset += newSizes[index];
-    }
+  if (newIds.length === 0) {
+    push(blocks, 'review', closingReviewIds);
+    return blocks;
   }
-  if (!leadWithNew) add('review', reviewIds, reviewIds.length - reviewOffset, reviewOffset);
+
+  // Every new batch must have something to close on, or the day would end on
+  // unknown words. Without same-day repeats to fall back on, the number of
+  // batches is capped by how many real repeats there are to space them with.
+  const desiredBatches = clamp(Math.round(newIds.length / TARGET_NEW_PER_BATCH), 1, MAX_NEW_BATCHES);
+  const batchCount = input.fillWithRepeats
+    ? desiredBatches
+    : Math.min(desiredBatches, Math.max(1, closingReviewIds.length));
+  const newBatches = slice(newIds, splitEvenly(newIds.length, batchCount));
+  const reviewParts = slice(closingReviewIds, splitEvenly(closingReviewIds.length, batchCount));
+
+  newBatches.forEach((batch, index) => {
+    push(blocks, 'new', batch);
+    const review = reviewParts[index] ?? [];
+    if (review.length > 0) push(blocks, 'review', review);
+    // A day with no repeats of its own still closes on review: the words from
+    // the batch just seen come back for a second pass.
+    else if (input.fillWithRepeats) push(blocks, 'review', batch, 2);
+  });
   return blocks;
 }

@@ -11,6 +11,7 @@ import {
 
 import { useI18n } from '@/components/I18nProvider';
 import { noTranslateProps } from '@/lib/i18n/no-translate';
+import { SuccessMarkSlot } from './SuccessMark';
 import { useDeviceTilt } from '@/features/learning/hooks/useDeviceTilt';
 import { playUserInitiatedAudio } from '@/lib/audio-playback';
 import type { NormalizedWord } from '@/lib/words';
@@ -373,6 +374,11 @@ export function TiltChoiceGame({
       onPointerMove={handlePointerMove}
       onPointerLeave={handlePointerLeave}
     >
+      <SuccessMarkSlot
+        show={Boolean(selected && options.find((option) => option.id === selected)?.isCorrect)}
+        label={t('game.correct')}
+        rollKey={questionWord?.id}
+      />
       <div className="flex items-center justify-between gap-3">
         <div className="game-badge">🧭 {t('game.tiltChoice')}</div>
         {support === 'needs-permission' && isActive && !reducedMotion && (
@@ -447,16 +453,12 @@ export function TiltChoiceGame({
         })}
       </div>
 
-      {selected ? (
+      {selected && !options.find((option) => option.id === selected)?.isCorrect ? (
         <div className="game-feedback">
           {/* The two branches are separate elements so the wrong-answer one can
               carry the study-text opt-out on a single text node, rather than
               splitting the line around an inner span. */}
-          {options.find((option) => option.id === selected)?.isCorrect ? (
-            <span className="game-feedback--exact">{`✓ ${t('game.correct')}`}</span>
-          ) : (
-            <span {...noTranslateProps('game-feedback--wrong')}>{`✗  ${correctAnswer}`}</span>
-          )}
+          <span {...noTranslateProps('game-feedback--wrong')}>{`✗  ${correctAnswer}`}</span>
         </div>
       ) : (
         <div className="min-h-[44px]" aria-hidden="true" />

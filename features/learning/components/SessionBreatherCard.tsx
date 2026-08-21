@@ -13,15 +13,30 @@ import type { SessionBreather } from '@/features/learning/session/useSessionBrea
 export function SessionBreatherCard({
   breather,
   onContinue,
+  shortfall = 0,
+  extraReviewCount = 0,
+  onAddWords,
+  onContinueExtra,
 }: {
   breather: SessionBreather;
   onContinue: () => void;
+  /**
+   * How far the day's plan fell short of the goal for want of words. A day that
+   * ran out of words is not a day earned, so it is not celebrated as one — it
+   * ends on the way to get more instead.
+   */
+  shortfall?: number;
+  /** Repeats deliberately left out of the day; offered, never required. */
+  extraReviewCount?: number;
+  onAddWords?: () => void;
+  onContinueExtra?: () => void;
 }) {
   const { t } = useI18n();
   const { flow } = breather;
   const dayPercent = flow.dayTotal > 0 ? Math.min(100, Math.round((flow.dayDone / flow.dayTotal) * 100)) : 0;
   const remaining = Math.max(0, flow.dayTotal - flow.dayDone);
   const complete = breather.kind === 'complete';
+  const shortOfGoal = complete && shortfall > 0;
 
   const kindColor = (kind: 'review' | 'new') =>
     kind === 'review' ? 'var(--rail-review)' : 'var(--rail-new)';
@@ -29,10 +44,14 @@ export function SessionBreatherCard({
   return (
     <div className="flex h-full min-h-64 items-center justify-center px-4 py-6">
       <section className="w-full max-w-xl rounded-2xl p-6 text-center text-[#1f1a12] sm:p-8">
-        <div className="text-4xl" aria-hidden>{complete ? '🎉' : '✓'}</div>
+        <div className="text-4xl" aria-hidden>{shortOfGoal ? '🌱' : complete ? '🎉' : '✓'}</div>
 
         <h2 className="m-0 mt-3 text-2xl font-black leading-tight text-[#1f1a12]">
-          {complete ? t('learning.sessionDayDoneTitle') : t('learning.sessionBreatherTitle')}
+          {shortOfGoal
+            ? t('learning.sessionDayShortTitle')
+            : complete
+              ? t('learning.sessionDayDoneTitle')
+              : t('learning.sessionBreatherTitle')}
         </h2>
 
         <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-[#4a4032]">
@@ -43,7 +62,9 @@ export function SessionBreatherCard({
                   : 'learning.sessionBreatherBodyNew',
                 { count: breather.finished.done },
               )
-            : t('learning.sessionDayDoneBody')}
+            : shortOfGoal
+              ? t('learning.sessionDayShortBody', { count: shortfall })
+              : t('learning.sessionDayDoneBody')}
         </p>
 
         {/* Where the day stands — the number the rail deliberately does not carry. */}
@@ -89,13 +110,35 @@ export function SessionBreatherCard({
         ) : null}
 
         <div className="mx-auto mt-6 flex max-w-sm flex-col gap-2">
+          {shortOfGoal && onAddWords ? (
+            <button
+              type="button"
+              onClick={onAddWords}
+              className="onboarding-option onboarding-option-highlight rounded-xl px-5 py-3 text-base font-extrabold"
+            >
+              {t('learning.sessionDayAddWords')}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={onContinue}
-            className="onboarding-option onboarding-option-highlight rounded-xl px-5 py-3 text-base font-extrabold"
+            className={`onboarding-option rounded-xl px-5 py-3 text-base font-extrabold${
+              shortOfGoal && onAddWords ? '' : ' onboarding-option-highlight'
+            }`}
           >
             {complete ? t('learning.sessionDayDoneAction') : t('learning.sessionBreatherAction')}
           </button>
+          {/* The repeats left over past the day's plan: an offer once the day is
+              closed, never a fourth block standing between here and done. */}
+          {complete && extraReviewCount > 0 && onContinueExtra ? (
+            <button
+              type="button"
+              onClick={onContinueExtra}
+              className="onboarding-option rounded-xl px-5 py-3 text-base font-extrabold"
+            >
+              {t('learning.sessionDayExtraAction', { count: extraReviewCount })}
+            </button>
+          ) : null}
         </div>
       </section>
     </div>

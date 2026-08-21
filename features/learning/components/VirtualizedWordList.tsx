@@ -255,7 +255,7 @@ export function VirtualizedWordList({
   if (totalWords === 0) {
     return (
       <div
-        className={`${className} p-8 text-center text-text-soft`}
+        className={`${className} study-ink-scope p-8 text-center text-text-soft`}
         data-virtualized="true"
         data-tab={dataTab}
         data-total-items={0}
@@ -335,7 +335,7 @@ export function VirtualizedWordList({
       )}
       {/* Sticky header showing current stage - only shown when using parent scroll and headers enabled */}
       {scrollElement && showHeaders && (
-        <div ref={stickyHeaderRef} className="sticky top-0 z-10 bg-background backdrop-blur-[12px] border-b border-border-subtle py-3 px-4 mb-2">
+        <div ref={stickyHeaderRef} className="study-ink-scope sticky top-0 z-10 bg-background backdrop-blur-[12px] border-b border-border-subtle py-3 px-4 mb-2">
           <h2 className="m-0 text-base font-semibold text-accent">
             {activeStage ? (groupLabel?.(activeStage) ?? STAGES[activeStage.blockIndex]?.name ?? activeStage.kind) : 'Loading...'}
           </h2>
@@ -372,7 +372,7 @@ export function VirtualizedWordList({
               >
                 {/* Inline header for scroll position tracking - with more spacing */}
                 <h2
-                  className={`text-[0.7rem] uppercase tracking-[0.12em] text-text-soft m-0 mb-1 mx-0.5 opacity-90 py-4 px-4 text-sm ${item.stageIndex > 0 ? 'border-t border-border-subtle' : ''}`}
+                  className={`study-ink-scope text-[0.7rem] uppercase tracking-[0.12em] text-text-soft m-0 mb-1 mx-0.5 opacity-90 py-4 px-4 text-sm ${item.stageIndex > 0 ? 'border-t border-border-subtle' : ''}`}
                   style={{ marginTop: item.stageIndex > 0 ? '32px' : '0', paddingTop: item.stageIndex > 0 ? '20px' : '16px' }}
                 >
                   {item.label}

@@ -30,6 +30,9 @@
   --rail-track: rgba(42, 34, 24, 0.13);
   --rail-review: #1e6fa8;
   --rail-new: #3f8f4d;
+  /* The right rail is the whole day rather than one block, so it stays out of
+     the blue/green pair and reads as a quieter, warmer summary. */
+  --rail-day: #b8763a;
   --radius-lg: 18px;
   --radius-pill: 999px;
   --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.75);

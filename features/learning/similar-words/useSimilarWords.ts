@@ -3,11 +3,7 @@
 import { useCallback, useState } from 'react';
 
 import { createBrowserId } from '@/lib/browser-id';
-import {
-  commitSession,
-  requestProposal,
-  translateSelection,
-} from '@/features/word-chat/public.client';
+import { commitSession, requestSimilarWords } from '@/features/word-chat/public.client';
 import type { NormalizedWord } from '@/lib/words';
 
 export interface SimilarProposal {
@@ -18,29 +14,28 @@ export interface SimilarProposal {
 
 export type SimilarWordsStatus = 'idle' | 'loading' | 'ready' | 'saving' | 'saved' | 'error';
 
-/** Enough for a useful batch without turning the interlude into a work session. */
-export const MAX_SIMILAR_SEEDS = 4;
-const PER_SEED = 3;
-
 /**
- * Generates confusable neighbours for the words whose distractor pool is thin,
- * and saves the chosen ones into the learner's personal list — without leaving
- * the study surface.
+ * Generates the words that are easy to confuse with the one on screen, and
+ * saves the chosen ones into the learner's personal list — without leaving the
+ * study surface.
  *
- * It rides the word-chat pipeline rather than growing a parallel generator: the
- * rate limiting, monthly cap, translation quality checks and the commit path
- * into a personal list are all already there. Seeds are batched because the
- * thin-pool words tend to come in groups, one call beats four, and the model
- * writes a more coherent set when it can see them together.
+ * One seed, two or three neighbours. Batching several thin-pool words into one
+ * call used to look like a saving, but the answer then belonged to the batch
+ * rather than to the card in front of the learner: asking about "một trăm" came
+ * back with words from four other topics. The interlude is about this word.
+ *
+ * The commit path is the word chat's, because the rate limiting, the monthly
+ * cap and the write into a personal list already live there.
  */
 export function useSimilarWords({
-  seeds,
+  seed,
   languageFrom,
   languageTo,
   chatLanguage,
   baseListId,
 }: {
-  seeds: NormalizedWord[];
+  /** The word the learner is looking at; neighbours are found for this one. */
+  seed: NormalizedWord | null;
   languageFrom: string;
   languageTo: string;
   chatLanguage: string;
@@ -53,50 +48,22 @@ export function useSimilarWords({
   const [session, setSession] = useState<string | null>(null);
 
   const generate = useCallback(async () => {
-    if (seeds.length === 0) return;
+    const known = seed?.cz.trim() ?? '';
+    const learning = seed?.vi.trim() ?? '';
+    if (!known || !learning) return;
     const sessionId = createBrowserId('similar');
     setSession(sessionId);
     setStatus('loading');
     try {
-      const list = seeds.map((word) => word.cz).filter(Boolean).join(', ');
-      const proposal = await requestProposal({
+      const response = await requestSimilarWords({
         sessionId,
         languageFrom,
         languageTo,
         chatLanguage,
-        // The learner's own level is a chat preference; this interlude has no
-        // access to it and should not guess high, so it asks for the floor.
-        languageLevel: 'A0',
-        contentMode: 'category_inventory',
-        messages: [{
-          role: 'user',
-          content:
-            `About ${PER_SEED} words for each of these that are easy to mix up with it — ` +
-            `close in meaning, form or sound, and worth knowing on their own: ${list}. ` +
-            'Single words or short set phrases only, never sentences.',
-        }],
-        ...(baseListId ? { baseListId } : {}),
+        seedKnown: known,
+        seedTarget: learning,
       });
-
-      // Proposals are known-side text only; the pair is made by the translate
-      // step, which is also where the quality validators run.
-      const wordItems = proposal.items.filter((item) => item.kind === 'word');
-      if (wordItems.length === 0) {
-        setProposals([]);
-        setStatus('error');
-        return;
-      }
-      const translated = await translateSelection({
-        sessionId,
-        languageFrom,
-        languageTo,
-        items: wordItems.map((item) => ({
-          kind: 'word' as const,
-          text: item.text,
-          ...(item.source === 'corpus' ? { corpusItemId: item.corpusItemId } : {}),
-        })),
-      });
-      const mapped = translated.items
+      const mapped = response.items
         .filter((item) => item.text_known.trim() && item.text_target.trim())
         .map((item, index) => ({
           id: `${sessionId}:${index}`,
@@ -105,11 +72,13 @@ export function useSimilarWords({
         }));
       setProposals(mapped);
       setSelected(new Set(mapped.map((item) => item.id)));
+      // No neighbours is a real answer for a word that has none, but there is
+      // nothing to show for it, so it lands on the same retry surface.
       setStatus(mapped.length > 0 ? 'ready' : 'error');
     } catch {
       setStatus('error');
     }
-  }, [baseListId, chatLanguage, languageFrom, languageTo, seeds]);
+  }, [chatLanguage, languageFrom, languageTo, seed]);
 
   const toggle = useCallback((id: string) => {
     setSelected((previous) => {

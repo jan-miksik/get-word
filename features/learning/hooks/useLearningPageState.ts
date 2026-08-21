@@ -36,6 +36,16 @@ interface UseLearningPageStateOptions {
   isSessionDataReady?: boolean;
   /** Canonical language-pair part of the persisted daily-plan scope. */
   sessionScopeKey?: string;
+  /** The learner asked to carry on past the day's plan; the stream stops being capped. */
+  continueAnyway?: boolean;
+  /**
+   * Cards answered in the deck whose SRS write is still queued behind the exit
+   * animation. They count towards the rails immediately, so marking an answer
+   * moves the progress on the tap rather than when the card has flown away.
+   */
+  pendingAnsweredIds?: ReadonlySet<string>;
+  /** Immutable target claimed by the server for the current local day. */
+  dayTargets?: { resolvedNewTarget: number | null; resolvedReviewTarget: number | null; resolvedItemBudget: number | null } | null;
 }
 
 type LearningUiState = {
@@ -107,6 +117,9 @@ export function useLearningPageState({
   studyGoal = null,
   isSessionDataReady,
   sessionScopeKey = 'pair:unknown',
+  continueAnyway = false,
+  pendingAnsweredIds,
+  dayTargets = null,
 }: UseLearningPageStateOptions) {
   const [sessionDay, setSessionDay] = useState<SessionDay>(readSessionDay);
   useEffect(() => {
@@ -152,7 +165,10 @@ export function useLearningPageState({
   );
   const baseStream = { priorityWords, priorityDueCount, dueWords, newWords, settlingWords };
   const { timezone: sessionTimezone, dayKey: sessionDayKey } = sessionDay;
-  const canonicalScopeKey = `${sessionScopeKey}|categories:${selectedCategoriesKey || 'all'}`;
+  const targetScope = dayTargets
+    ? `targets:${dayTargets.resolvedNewTarget ?? '-'}:${dayTargets.resolvedReviewTarget ?? '-'}:${dayTargets.resolvedItemBudget ?? '-'}`
+    : 'targets:pending';
+  const canonicalScopeKey = `${sessionScopeKey}|categories:${selectedCategoriesKey || 'all'}|${targetScope}`;
   const session = useSessionPlan({
     stream: baseStream,
     progress,
@@ -161,12 +177,22 @@ export function useLearningPageState({
     dayKey: sessionDayKey,
     timezone: sessionTimezone,
     scopeKey: canonicalScopeKey,
+    continueAnyway,
+    dayTargets,
   });
   const liveById = useMemo(() => {
     const words = new Map<string, NormalizedWord>();
     for (const word of [...priorityWords, ...dueWords, ...newWords]) words.set(word.id, word);
     return words;
   }, [dueWords, newWords, priorityWords]);
+  // A same-day repeat block asks for words answered minutes ago, which are
+  // settling rather than due. They are off-limits to every other block — that
+  // is what "not ready" means — but a second pass is precisely their point.
+  const settlingById = useMemo(() => {
+    const words = new Map<string, NormalizedWord>();
+    for (const word of settlingWords) words.set(word.id, word);
+    return words;
+  }, [settlingWords]);
   const streamBlocks = useMemo<LearningStreamBlock[]>(() => {
     if (session.streamMode !== 'planned' || !session.dailyPlan) {
       return [
@@ -179,10 +205,12 @@ export function useLearningPageState({
         key: block.key,
         kind: block.kind,
         blockIndex,
-        words: block.ids.map((id) => liveById.get(id)).filter((word): word is NormalizedWord => Boolean(word)),
+        words: block.ids
+          .map((id) => liveById.get(id) ?? ((block.pass ?? 1) > 1 ? settlingById.get(id) : undefined))
+          .filter((word): word is NormalizedWord => Boolean(word)),
       }))
       .filter((block) => block.words.length > 0);
-  }, [dueWords, liveById, newWords, priorityWords, session.dailyPlan, session.streamMode]);
+  }, [dueWords, liveById, newWords, priorityWords, session.dailyPlan, session.streamMode, settlingById]);
   const plannedPriorityWords = session.dailyPlan
     ? priorityWords.filter((word) => session.dailyPlan!.priorityIds.includes(word.id))
     : priorityWords;
@@ -234,14 +262,16 @@ export function useLearningPageState({
     [settlingWords, showNotReady, streamBlocks],
   );
   const sessionBlockProgress = useMemo(
-    () => computeBlockProgress(
-      session.dailyPlan?.blocks ?? [],
+    () => computeBlockProgress(session.dailyPlan?.blocks ?? [], {
       progress,
-      new Set(streamBlocks.flatMap((block) => block.words.map((word) => word.id))),
-      sessionDayKey,
-      sessionTimezone,
-    ),
-    [progress, session.dailyPlan, sessionDayKey, sessionTimezone, streamBlocks],
+      liveIds: new Set(liveById.keys()),
+      settlingIds: new Set(settlingById.keys()),
+      dayKey: sessionDayKey,
+      timezone: sessionTimezone,
+      pendingIds: pendingAnsweredIds,
+      answerBaseline: session.dailyPlan?.answerBaseline,
+    }),
+    [liveById, pendingAnsweredIds, progress, session.dailyPlan, sessionDayKey, sessionTimezone, settlingById],
   );
 
   const progressStats = useMemo(

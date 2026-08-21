@@ -15,11 +15,12 @@ import {
   type WordSide,
 } from './types';
 import { useI18n } from '@/components/I18nProvider';
+import { SuccessMarkSlot } from './SuccessMark';
 import { noTranslateProps } from '@/lib/i18n/no-translate';
 import { shuffleGameItems } from '@/features/learning/minigames';
 
 interface Props {
-  /** One button pair per word; 4, 6 or 8 of them depending on the variant. */
+  /** One button pair per word; 4 or 6 of them depending on the variant. */
   words: NormalizedWord[];
   role: LearningRole;
   sourceLang?: WordSide;
@@ -185,6 +186,7 @@ export function MatchingPairsGame({
     <article
       className={`phrase-card game-card game-card--matching${frameless ? ' game-card--bare' : ''}`}
     >
+      <SuccessMarkSlot show={isComplete} label={t('game.allMatched')} rollKey={words[0]?.id} />
       <div className="game-badge">🔗 {t('game.match')}</div>
 
       <div className="game-match-grid">
@@ -234,7 +236,7 @@ export function MatchingPairsGame({
       </div>
 
       {isComplete ? (
-        <div className="game-feedback game-feedback--exact">✓ {t('game.allMatched')}</div>
+        <div className="game-feedback game-feedback--exact">{t('game.allMatched')}</div>
       ) : (
         <div className="min-h-[44px]" aria-hidden="true" />
       )}

@@ -8,8 +8,8 @@ import {
 import type { ViewMode } from '@/features/learning/app-state/types';
 import {
   isMobileDevice,
+  isRunningInstalled,
   isSmallScreen,
-  isStandalone,
   type SimulatedPlatform,
 } from '@/lib/pwa-install';
 import { usePlatformCapabilities } from '@/packages/product/shared/platform/capabilities';
@@ -42,7 +42,7 @@ function readPreviewPWAInstallIntro(): { enabled: boolean; simulated: SimulatedP
 function readPWAInstallEnvironment(): PWAInstallEnvironment {
   return {
     promptAnswered: readPWAInstallPromptAnswered(),
-    isInstalled: isStandalone(),
+    isInstalled: isRunningInstalled(),
     isOnMobileDevice: isMobileDevice(),
     isOnSmallScreen: isSmallScreen(),
   };

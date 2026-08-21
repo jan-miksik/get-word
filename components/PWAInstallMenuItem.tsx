@@ -3,14 +3,13 @@
 import { openPWAInstallHelp } from '@/lib/pwa-install';
 import { InstallAppIcon } from '@/components/icons/AppIcons';
 import { useI18n } from '@/components/I18nProvider';
-import { useMobileViewport, useStandaloneStatus } from '@/hooks/usePWAInstallState';
+import { useHomeScreenInvite } from '@/hooks/usePWAInstallState';
 
 export function PWAInstallMenuItem({ onClick }: { onClick?: () => void }) {
   const { t } = useI18n();
-  const installed = useStandaloneStatus();
-  const isMobileViewport = useMobileViewport();
+  const showInvite = useHomeScreenInvite();
 
-  if (!isMobileViewport || installed) return null;
+  if (!showInvite) return null;
 
   const handleClick = () => {
     // Always open the in-app guide modal; the modal itself picks the right

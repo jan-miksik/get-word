@@ -47,7 +47,12 @@ import { chooseBaseStudyListForPair } from '@/features/learning/state/study-list
 import { flushOutboxBeforeRead } from '@/lib/local-first/drainer';
 import { useGoalSummary } from '@/features/learning/goals/useGoalSummary';
 import { useGoalReminders } from '@/features/learning/goals/useGoalReminders';
-import type { StudyGoalVersion } from '@/packages/domain/goals/goal';
+import { type StudyGoalVersion, type StudyPacing } from '@/packages/domain/goals/goal';
+import { normalizeFineTuneConfig } from '@/features/learning/fine-tune/config';
+import { StudyGoalSetupCard } from '@/features/learning/components/goals/StudyGoalSetupCard';
+import { StudyCountdown } from '@/features/learning/components/goals/StudyCountdown';
+import { useSaveStudyGoal } from '@/features/learning/goals/useSaveStudyGoal';
+import { syncUserData } from '@/lib/sync';
 
 const BOOT_LOADING_TIMEOUT_MS = 12_000;
 
@@ -116,6 +121,16 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       new URLSearchParams(window.location.search).get('wordChat') === '1',
   );
   const [completedDeckWordCards, setCompletedDeckWordCards] = useState(0);
+  // The deck writes the SRS answer only once its exit animation ends, which
+  // left the rails frozen for the length of that animation after every answer.
+  // An answered card joins this set on the tap and is counted for display until
+  // the real progress entry lands (see `computeBlockProgress`).
+  const [pendingAnsweredIds, setPendingAnsweredIds] = useState<ReadonlySet<string>>(
+    () => new Set<string>(),
+  );
+  // Set from the closing card: the day is already earned, and the learner chose
+  // to keep going through the repeats it deliberately left out.
+  const [continueAnyway, setContinueAnyway] = useState(false);
   const [memoryHooksIntroDismissedForSession, setMemoryHooksIntroDismissedForSession] = useState(false);
   const [addWordsPromptDismissedForSession, setAddWordsPromptDismissedForSession] =
     useState(false);
@@ -149,6 +164,8 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     revealMode,
     memoryHooksEnabled,
     memoryHooksIntroAnswered,
+    goalIntroAnswered,
+    setGoalIntroAnswered,
     memoryHookDisableFromStage,
     studyNotesEnabled,
     studyNoteMinimizeFromStage,
@@ -265,11 +282,24 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   // is routed to the landing page below before this ever gates a render.
   const hasOfflineSession = Boolean(userId && (hasAuthError || isAuthLoading));
   const isAuthenticated = Boolean((isConnected || hasOfflineSession) && userId);
+  const { minigameFrequency, setMinigameFrequency } = useMinigameFrequencyPreference();
+  const { viewMode } = useViewModePreference();
   const {
     summary: goalSummary,
     isLoading: isGoalSummaryLoading,
     refresh: refreshGoalSummary,
   } = useGoalSummary(Boolean(userId && isHydrated), userId ?? 'anonymous');
+  const goalDay = goalSummary?.days.find((day) => day.dayKey === goalSummary.today) ?? null;
+  const goalPacing = useMemo<StudyPacing>(() => ({
+    revealMode,
+    minigameFrequency,
+    fineTune: normalizeFineTuneConfig(learningFineTune),
+  }), [learningFineTune, minigameFrequency, revealMode]);
+  const { save: saveStudyGoal, pending: isSavingStudyGoal } = useSaveStudyGoal({
+    revision: goalSummary?.goal.revision,
+    pacing: goalPacing,
+    onSaved: refreshGoalSummary,
+  });
   useGoalReminders(goalSummary);
   const appReady =
     isHydrated &&
@@ -284,9 +314,6 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     isAuthenticated;
   const displayEmail = userEmail ?? email ?? undefined;
   const displayAddress = userWalletAddress ?? undefined;
-
-  const { minigameFrequency, setMinigameFrequency } = useMinigameFrequencyPreference();
-  const { viewMode } = useViewModePreference();
 
   const categories = useMemo(
     () => getAvailableCategories(activeWords),
@@ -344,15 +371,14 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   );
 
   // Fills the thin-distractor prompt in place instead of handing the learner off
-  // to the chat. The pool travels rather than a ready-made seed list: only the
-  // prompt knows which word it is about, and the batch is picked around it.
+  // to the chat. The prompt already carries the word it is about; all that
+  // travels here is where the generated pair belongs and in which pair.
   const similarWordsContext = useMemo(() => ({
-    pool: filteredWords,
     languageFrom: learningLanguageFrom ?? '',
     languageTo: learningLanguageTo ?? '',
     baseListId: [...personalListIds][0] ?? null,
     onSaved: refreshFullSnapshot,
-  }), [filteredWords, learningLanguageFrom, learningLanguageTo, personalListIds, refreshFullSnapshot]);
+  }), [learningLanguageFrom, learningLanguageTo, personalListIds, refreshFullSnapshot]);
 
   const {
     showNotReady,
@@ -361,6 +387,7 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
     setDismissedGames,
     settlingWords,
     streamGroups,
+    session,
     sessionBlockProgress,
     progressStats,
     upcomingAudioWords,
@@ -384,6 +411,13 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       !isInitialServerSyncPending &&
       (!isGoalSummaryLoading || bootTimedOut),
     sessionScopeKey: `pair:${normalizeLanguageCode(learningLanguageFrom ?? 'unknown')}:${normalizeLanguageCode(learningLanguageTo ?? 'unknown')}`,
+    pendingAnsweredIds,
+    continueAnyway,
+    dayTargets: goalDay ? {
+      resolvedNewTarget: goalDay.resolvedNewTarget,
+      resolvedReviewTarget: goalDay.resolvedReviewTarget,
+      resolvedItemBudget: goalDay.resolvedItemBudget,
+    } : null,
   });
 
   useBackgroundTargetAudioRepair({
@@ -576,7 +610,20 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
   }, [refreshGoalSummary, sessionFlow.complete]);
   const { breather, dismiss: dismissBreather } = useSessionBreather(sessionFlow, sessionBlockProgress);
   const sessionBreatherCard = breather ? (
-    <SessionBreatherCard breather={breather} onContinue={dismissBreather} />
+    <SessionBreatherCard
+      breather={breather}
+      onContinue={dismissBreather}
+      shortfall={session.dailyPlan?.shortfall ?? 0}
+      extraReviewCount={session.dailyPlan?.deferredDueCount ?? 0}
+      onAddWords={() => {
+        dismissBreather();
+        navigateSurface('chat');
+      }}
+      onContinueExtra={() => {
+        setContinueAnyway(true);
+        dismissBreather();
+      }}
+    />
   ) : null;
 
   const interstitialCard =
@@ -593,6 +640,12 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
       !onboardingCompletedAt ||
       !learningLanguageFrom ||
       !learningLanguageTo
+  );
+  const needsStudyGoal = Boolean(
+      !needsLanguageOnboarding &&
+      goalSummary !== null &&
+      !goalSummary.goal.active?.enabled &&
+      !goalIntroAnswered,
   );
   const landingPairFrom = landingLanguagePair?.from ?? null;
   const landingPairTo = landingLanguagePair?.to ?? null;
@@ -691,6 +744,16 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
             }}
             onSelectList={setActiveListId}
           />
+        ) : needsStudyGoal ? (
+          <StudyGoalSetupCard
+            pacing={goalPacing}
+            pending={isSavingStudyGoal}
+            onSave={(value) => void saveStudyGoal(value)}
+            onSkip={() => void (async () => {
+              await syncUserData({ goal_intro_answered: true }, { emitEvent: false });
+              setGoalIntroAnswered(true);
+            })()}
+          />
         ) : (
           <>
             {shouldShowFeatureTour && <FeatureTour onFinish={finishFeatureTour} />}
@@ -770,7 +833,11 @@ export function HomeClient({ photoDisplayFontClass }: HomeClientProps = {}) {
               phrasesScrollElement={phrasesScrollElement}
               filteredWords={filteredWords}
               interstitialCard={interstitialCard}
-              onDeckWordCardCompleted={() => setCompletedDeckWordCards((count) => count + 1)}
+              goalCountdown={<StudyCountdown day={goalDay} enabled={Boolean(goalSummary?.goal.active?.enabled)} />}
+              onDeckWordCardCompleted={(word) => {
+                setCompletedDeckWordCards((count) => count + 1);
+                setPendingAnsweredIds((previous) => new Set(previous).add(word.id));
+              }}
               deckSwipeActions={deckSwipeActions}
               isSwipeBlockedForWord={isTypingCard}
               streamGroups={streamGroups}

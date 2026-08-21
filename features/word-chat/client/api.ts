@@ -397,6 +397,37 @@ export function requestProposal(input: {
   });
 }
 
+export type SimilarWordsResponse = {
+  diagnostics: CallDiagnostics | null;
+  items: { text_known: string; text_target: string }[];
+};
+
+/**
+ * Words that are easy to confuse with one the learner is studying. Both sides
+ * come back translated, so there is no separate translate step: similarity is a
+ * property of the target-language pair, and re-deriving one side from the other
+ * would not preserve it.
+ */
+export function requestSimilarWords(input: {
+  sessionId: string;
+  languageFrom: string;
+  languageTo: string;
+  chatLanguage: string;
+  seedKnown: string;
+  seedTarget: string;
+  model?: string | null;
+}) {
+  return post<SimilarWordsResponse>('/api/word-chat/similar', {
+    session_id: input.sessionId,
+    language_from: input.languageFrom,
+    language_to: input.languageTo,
+    chat_language: input.chatLanguage,
+    seed_known: input.seedKnown,
+    seed_target: input.seedTarget,
+    ...(input.model ? { model: input.model } : {}),
+  });
+}
+
 export type TranslateResponse = {
   items: {
     kind: 'sentence' | 'word';

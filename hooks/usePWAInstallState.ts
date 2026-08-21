@@ -4,7 +4,8 @@ import { useEffect, useSyncExternalStore } from 'react';
 import {
   getCapturedBeforeInstallPrompt,
   installGlobalPWACapture,
-  isStandalone,
+  isMobileDevice,
+  isRunningInstalled,
   onBeforeInstallPromptCaptured,
   readSimulatedPlatformFromUrl,
   type BeforeInstallPromptEvent,
@@ -34,9 +35,24 @@ export function useStandaloneStatus(): boolean {
   const { runtime } = usePlatformCapabilities();
   return useSyncExternalStore(
     subscribeToInstalled,
-    () => runtime === 'native' || isStandalone(),
+    () => runtime === 'native' || isRunningInstalled(),
     serverFalse,
   );
+}
+
+/**
+ * Whether to offer "add to home screen" at all. The invitation only makes
+ * sense on a phone that is looking at the site in a browser: the iOS shell and
+ * the Play wrapper are already the installed app, and a narrow desktop window
+ * is not a home screen.
+ */
+export function useHomeScreenInvite(): boolean {
+  const installed = useStandaloneStatus();
+  // Carries the native-runtime check through `canInstallPwa`.
+  const isMobileViewport = useMobileViewport();
+  // UA-derived and constant for the session, hence the no-op subscribe.
+  const onMobileDevice = useSyncExternalStore(noopSubscribe, isMobileDevice, serverFalse);
+  return !installed && isMobileViewport && onMobileDevice;
 }
 
 export function useMobileViewport(): boolean {

@@ -47,7 +47,6 @@ interface UseLearningRenderersOptions {
   setGameScore: React.Dispatch<React.SetStateAction<number>>;
   onAddSimilarWords: () => void;
   similarWordsContext?: {
-    pool: NormalizedWord[];
     languageFrom: string;
     languageTo: string;
     baseListId: string | null;

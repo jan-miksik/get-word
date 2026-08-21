@@ -129,6 +129,8 @@ describe('TiltChoiceGame', () => {
     fireEvent.click(screen.getByRole('button', { name: 'con mèo' }));
     expect(correct).toHaveBeenCalledTimes(1);
     expect(correct).toHaveBeenCalledWith(1);
+    expect(screen.getByRole('img', { name: 'Correct!' })).toBeInTheDocument();
+    expect(screen.queryByText('✓ Correct!')).not.toBeInTheDocument();
     first.unmount();
 
     const levelTwo = vi.fn();

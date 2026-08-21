@@ -23,6 +23,7 @@ const mockGetMediaAssetsByIds = vi.fn()
 const mockGetCategoriesForLists = vi.fn()
 const mockTouchUserDevice = vi.fn()
 const mockApplyNewReviewEvents = vi.fn()
+const mockEnsureDayGoalSnapshot = vi.fn()
 const mockGetUserMemoryHooksDelta = vi.fn()
 const mockGetUserSyncRevision = vi.fn()
 const mockGetContentRevision = vi.fn()
@@ -55,6 +56,7 @@ vi.mock('@/lib/db', () => ({
   getCategoriesForLists: (...args: unknown[]) => mockGetCategoriesForLists(...args),
   touchUserDevice: (...args: unknown[]) => mockTouchUserDevice(...args),
   applyNewReviewEvents: (...args: unknown[]) => mockApplyNewReviewEvents(...args),
+  ensureDayGoalSnapshot: (...args: unknown[]) => mockEnsureDayGoalSnapshot(...args),
   getUserMemoryHooksDelta: (...args: unknown[]) => mockGetUserMemoryHooksDelta(...args),
   getUserSyncRevision: (...args: unknown[]) => mockGetUserSyncRevision(...args),
   getContentRevision: (...args: unknown[]) => mockGetContentRevision(...args),
@@ -143,6 +145,7 @@ describe('GET /api/sync', () => {
     mockGetCategoriesForLists.mockResolvedValue([])
     mockTouchUserDevice.mockResolvedValue(undefined)
     mockApplyNewReviewEvents.mockResolvedValue([])
+    mockEnsureDayGoalSnapshot.mockResolvedValue(null)
     mockGetUserMemoryHooksDelta.mockResolvedValue([])
     mockGetUserSyncRevision.mockResolvedValue(1779480000000)
     mockGetContentRevision.mockResolvedValue('v1:content-rev-1')
@@ -918,6 +921,7 @@ describe('POST /api/sync', () => {
       events: expect.arrayContaining([
         expect.objectContaining({ client_event_id: 'event-1', action: 'known' }),
       ]),
+      snapshotsByDay: expect.any(Map),
     })
     expect(data.applied_review_event_ids).toEqual(['event-1'])
     expect(data.sync_revision).toBeUndefined()

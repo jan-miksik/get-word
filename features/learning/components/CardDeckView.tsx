@@ -124,7 +124,7 @@ export function CardDeckView({
   const [enterAnim, setEnterAnim] = useState<string | null>(null);
   const [audioNetworkRevision, setAudioNetworkRevision] = useState(0);
   // When the last card completes we show an overlay instead of jumping straight
-  // to "All done!" — the user taps the overlay to confirm.
+  // to the done screen — the user taps the overlay to confirm.
   const [showDoneOverlay, setShowDoneOverlay] = useState(false);
 
   const normalizedGroups = useMemo<LearningStreamGroup[]>(
@@ -441,7 +441,7 @@ export function CardDeckView({
       <div className="flex h-full items-center justify-center">
         {emptyState ?? (
           <p className="text-2xl font-semibold text-[#2A2218] opacity-70">
-            {t('card.allDone')}
+            {t('learning.sessionDoneTitle')}
           </p>
         )}
       </div>
@@ -453,7 +453,7 @@ export function CardDeckView({
       <div className="flex h-full items-center justify-center">
         {emptyState ?? (
           <p className="text-2xl font-semibold text-[#2A2218] opacity-70">
-            {t('card.allDone')}
+            {t('learning.sessionDoneTitle')}
           </p>
         )}
       </div>
@@ -597,7 +597,7 @@ export function CardDeckView({
             className="flex items-center justify-center w-full px-4 py-4 rounded-b-xl max-sm:rounded-b-none"
             style={{ animation: 'deck-done-slide 0.3s cubic-bezier(0.34, 1.56, 0.64, 1) forwards' }}
           >
-            <span className="text-sm text-text font-medium">{t('card.tapToContinue')}</span>
+            <span className="text-sm font-medium text-[#2A2218]">{t('card.tapToContinue')}</span>
           </div>
           <style>{`
             @keyframes deck-done-slide {

@@ -12,10 +12,11 @@ import { syncUserData } from '@/lib/sync';
 import { currentIanaTimezone } from '@/lib/local-day';
 import { requestReminderPermission } from '@/lib/notifications/runtime';
 import { subscribeToStudyWebPush, unsubscribeFromStudyWebPush } from '@/features/learning/goals/web-push';
-import { calculateWordGoal, sessionItemCapFromWordGoal } from '@/packages/domain/goals/calibration';
+import { calculateWordGoal, resolveGoalTargets, sessionItemCapFromWordGoal } from '@/packages/domain/goals/calibration';
 import { clampGoalDays, clampGoalMinutes, type GoalPreset, type StudyPacing } from '@/packages/domain/goals/goal';
+import { StudyGoalPicker } from '@/features/learning/components/goals/StudyGoalPicker';
 
-type GoalShape = { days: number; minutes: number; preset: GoalPreset };
+type GoalShape = { days: number; minutes: number; preset: GoalPreset; mode?: 'words' | 'minutes'; newWords?: number };
 
 const PRESETS: Array<GoalShape & { id: Exclude<GoalPreset, 'custom'> }> = [
   { id: 'light', preset: 'light', days: 3, minutes: 5 },
@@ -52,10 +53,10 @@ export function StudyGoalSection({ minigameFrequency }: { minigameFrequency: Min
   // otherwise what is running today. Editing anything else would quietly
   // discard a change they already made.
   const editing = pendingGoal ?? active;
-  const [customDays, setCustomDays] = useState<number | null>(null);
-  const [customMinutes, setCustomMinutes] = useState<number | null>(null);
-  const days = customDays ?? editing?.daysPerWeek ?? 4;
-  const minutes = customMinutes ?? editing?.minutesPerDay ?? 10;
+  const days = editing?.daysPerWeek ?? 4;
+  const minutes = editing?.minutesPerDay ?? 10;
+  const mode = editing?.mode ?? 'minutes';
+  const newWords = editing?.newWordsPerDay ?? 10;
 
   const pacing = useMemo<StudyPacing>(() => ({
     revealMode,
@@ -81,8 +82,11 @@ export function StudyGoalSection({ minigameFrequency }: { minigameFrequency: Min
       await syncUserData({
         study_goal: {
           enabled,
+          mode: shape.mode ?? 'minutes',
           goal_days_per_week: clampGoalDays(shape.days),
-          goal_minutes_per_day: clampGoalMinutes(shape.minutes),
+          ...((shape.mode ?? 'minutes') === 'words'
+            ? { goal_new_words_per_day: shape.newWords ?? 10 }
+            : { goal_minutes_per_day: clampGoalMinutes(shape.minutes) }),
           goal_preset: shape.preset,
           reveal_mode: revealMode,
           minigame_frequency: minigameFrequency,
@@ -97,8 +101,6 @@ export function StudyGoalSection({ minigameFrequency }: { minigameFrequency: Min
       }
       window.dispatchEvent(new Event('get-word:reschedule-reminders'));
       await refresh();
-      setCustomDays(null);
-      setCustomMinutes(null);
     } catch (error) {
       console.error('[study-goal] failed to save goal:', error);
     } finally { setPending(false); }
@@ -135,7 +137,7 @@ export function StudyGoalSection({ minigameFrequency }: { minigameFrequency: Min
         <ToggleSwitch
           checked={goalOn}
           onChange={(enabled) => void save(
-            { days, minutes, preset: activePreset ?? 'medium' },
+            { days, minutes, mode, newWords, preset: activePreset ?? 'medium' },
             enabled,
           )}
           ariaLabel={t('settings.studyGoalToggle')}
@@ -145,7 +147,9 @@ export function StudyGoalSection({ minigameFrequency }: { minigameFrequency: Min
     >
       <p className="m-0 text-xs text-text-soft">
         {goalOn && active
-          ? t('settings.studyGoalSummary', {
+          ? active.mode === 'words'
+            ? `${active.newWordsPerDay ?? 0} nových · ${resolveGoalTargets({ ...active, pacing: active.pacing as StudyPacing }).desiredReviewTarget} opakování · ${active.daysPerWeek}× týdně`
+            : t('settings.studyGoalSummary', {
               minutes: active.minutesPerDay,
               // The active version is frozen. Recalculating it from today's
               // Fine Tune settings can advertise a different session length
@@ -202,39 +206,12 @@ export function StudyGoalSection({ minigameFrequency }: { minigameFrequency: Min
       </button>
 
       {customOpen ? (
-        <div className="flex flex-col gap-3 rounded-lg border border-border-subtle bg-background-elevated p-3">
-          <label className="flex flex-col gap-1 text-xs font-semibold text-text">
-            {t('settings.studyGoalDays', { days })}
-            <input
-              type="range" min={1} max={7} step={1} value={days}
-              onChange={(event) => setCustomDays(Number(event.target.value))}
-              className="accent-accent"
-            />
-          </label>
-          <label className="flex flex-col gap-1 text-xs font-semibold text-text">
-            {t('settings.studyGoalMinutes', { minutes })}
-            <input
-              type="range" min={2} max={60} step={1} value={minutes}
-              onChange={(event) => setCustomMinutes(Number(event.target.value))}
-              className="accent-accent"
-            />
-          </label>
-          <p className="m-0 text-xs text-text-soft">
-            {t('settings.studyGoalCustomPreview', {
-              items: describe(minutes).items,
-              fresh: describe(minutes).fresh,
-              review: describe(minutes).review,
-            })}
-          </p>
-          <button
-            type="button"
-            disabled={!summary || pending}
-            onClick={() => void save({ days, minutes, preset: 'custom' })}
-            className="self-start rounded-lg bg-accent px-4 py-2 text-xs font-bold text-white disabled:opacity-60"
-          >
-            {t('settings.studyGoalSave')}
-          </button>
-        </div>
+        <StudyGoalPicker
+          pacing={pacing}
+          pending={!summary || pending}
+          initial={{ daysPerWeek: days, minutesPerDay: minutes, mode: editing?.mode ?? 'words', newWordsPerDay: editing?.newWordsPerDay ?? 10 }}
+          onSubmit={(value) => void save({ days: value.daysPerWeek, minutes: value.minutesPerDay, newWords: value.newWordsPerDay, mode: value.mode, preset: 'custom' })}
+        />
       ) : null}
 
       {pendingGoal ? (

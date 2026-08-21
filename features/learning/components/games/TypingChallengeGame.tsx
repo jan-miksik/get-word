@@ -23,6 +23,7 @@ import {
 import { getTypingTargetLanguageLabel } from './target-language-label';
 import { useI18n } from '@/components/I18nProvider';
 import { noTranslateProps } from '@/lib/i18n/no-translate';
+import { SuccessMarkSlot } from './SuccessMark';
 
 // Case/accent-insensitive single-character compare for per-slot feedback.
 // Mirrors matchAnswer's strip (incl. đ→d) so slot colours match the verdict.
@@ -163,8 +164,7 @@ export function TypingChallengeGame({
     setHasAudioPlaybackError(true);
   };
 
-  const resultLabels: Record<'exact' | 'close' | 'wrong', React.ReactNode> = {
-    exact: `✓ ${t('game.perfect')}`,
+  const resultLabels: Record<'close' | 'wrong', React.ReactNode> = {
     close: (
       <>
         ~ {t('game.close')} <strong {...noTranslateProps()}>{matchedAnswer}</strong>
@@ -179,6 +179,7 @@ export function TypingChallengeGame({
 
   return (
     <article className="phrase-card game-card game-card--typing">
+      <SuccessMarkSlot show={result === 'exact'} label={t('game.perfect')} rollKey={questionWord.id} />
       <div className="game-badge">{`⌨️ ${t('game.typeIn', { language: targetLanguageLabel })}`}</div>
       {effectivePromptMode === 'audio' ? (
         <div className="game-audio-prompt">
@@ -301,12 +302,12 @@ export function TypingChallengeGame({
           </div>
         )}
       </div>
-      {result !== null ? (
+      {result !== null && result !== 'exact' ? (
         <div className={`game-feedback game-feedback--${result}`}>
           {resultLabels[result]}
         </div>
       ) : (
-        <div aria-hidden="true" />
+        <div className="min-h-[44px]" aria-hidden="true" />
       )}
     </article>
   );

@@ -81,12 +81,37 @@ interface RuntimeState {
    * segment is open (or before its write is scheduled).
    */
   segmentTimezones: Map<string, string>;
+  /** Closed local time since the last server total was seeded. */
+  dayLocalMs: Map<string, number>;
   tickTimer: ReturnType<typeof setInterval> | null;
   recomputeQueued: boolean;
   teardown: Array<() => void>;
 }
 
 let state: RuntimeState | null = null;
+
+// The server is the durable source of truth.  The UI deliberately replaces
+// this baseline on every summary refresh instead of adding it to a running
+// client total; doing the latter double-counts a segment as soon as sync lands.
+const seededDayTotals = new Map<string, number>();
+
+export function seedActivityDayTotal(dayKey: string, activeMs: number): void {
+  seededDayTotals.set(dayKey, Math.max(0, Math.round(activeMs)));
+  state?.dayLocalMs.delete(dayKey);
+}
+
+/** Best-known local display value; it is not a persistence or reporting API. */
+export function getBestKnownDayActiveMs(dayKey: string): number {
+  const seed = seededDayTotals.get(dayKey) ?? 0;
+  const closedLocal = state?.dayLocalMs.get(dayKey) ?? 0;
+  const open = state?.tracker.peek();
+  // An open segment only belongs to the current local day for display. Closed
+  // segments carry their own source timezone and are registered in onSegment.
+  const openLocal = open?.open && localDayKeyAt(Date.now(), currentIanaTimezone()) === dayKey
+    ? open.activeMs
+    : 0;
+  return Math.max(0, Math.round(seed + closedLocal + openLocal));
+}
 
 function storage(): Storage | null {
   try {
@@ -452,6 +477,8 @@ function onSegment(current: RuntimeState, segment: ActivitySegment): void {
   const timezoneAtCreation =
     current.segmentTimezones.get(segment.client_segment_id) ?? currentIanaTimezone();
   current.segmentTimezones.delete(segment.client_segment_id);
+  const dayKey = localDayKeyAt(segment.started_at, timezoneAtCreation);
+  current.dayLocalMs.set(dayKey, (current.dayLocalMs.get(dayKey) ?? 0) + segment.active_ms);
   const recoveryKey = persistClosedSegment(current, segment, owner);
   current.pendingSegmentWrites += 1;
   void (async () => {
@@ -607,6 +634,7 @@ export function startActivityTracking(): () => void {
     recoveryDone: false,
     appendedCheckpointKeys: new Set(),
     segmentTimezones: new Map(),
+    dayLocalMs: new Map(),
     tickTimer: null,
     recomputeQueued: false,
     teardown: [],

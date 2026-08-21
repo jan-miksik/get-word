@@ -81,7 +81,7 @@ export const BALANCED_STAGE_CONFIGS: StageConfig[] = [
     choice: method<ChoiceVariant>(1, ['2:III', '3:II', '4:II', '5:I', '6:I', '7:I', '8:I']),
     typing: method<TypingVariant>(1, ['50:90']),
     assembly: method<AssemblyVariant>(1, ['letters:extra', 'words:exact']),
-    match: { variants: ['4:III', '6:II', '8:I'] },
+    match: { variants: ['4:III', '6:II'] },
   },
   // 4 — 7 days
   {
@@ -89,7 +89,7 @@ export const BALANCED_STAGE_CONFIGS: StageConfig[] = [
     choice: method<ChoiceVariant>(1, ['3:III', '4:III', '5:II', '6:II', '7:II', '8:II']),
     typing: method<TypingVariant>(1, ['20:50']),
     assembly: method<AssemblyVariant>(1, ['letters:extra', 'words:extra']),
-    match: { variants: ['6:III', '8:II'] },
+    match: { variants: ['6:III'] },
   },
   // 5 — 14 days
   {
@@ -97,7 +97,7 @@ export const BALANCED_STAGE_CONFIGS: StageConfig[] = [
     choice: method<ChoiceVariant>(2, ['5:III', '6:III', '7:III', '8:III']),
     typing: method<TypingVariant>(2, ['0:20']),
     assembly: method<AssemblyVariant>(1, ['letters:extra', 'words:extra']),
-    match: { variants: ['8:III'] },
+    match: { variants: ['6:III'] },
   },
   // 6 — 30 days
   {
@@ -171,6 +171,21 @@ function isMatchVariant(value: unknown): value is MatchVariant {
   return MATCH_COUNT_SET.has(Number(count)) && BAND_SET.has(band);
 }
 
+const MAX_MATCH_PAIRS = Math.max(...MATCH_PAIR_COUNTS);
+
+/**
+ * Eight pairs turned out to be more board than anyone can hold at once, so the
+ * ladder now stops at six. Stored eights are clamped rather than dropped: the
+ * learner who picked the biggest board still gets the biggest board, and a
+ * stage whose only variant was `8:III` keeps its matching instead of silently
+ * losing it. Duplicates collapse in `normalizeVariants`.
+ */
+function clampMatchPairs(value: unknown): unknown {
+  if (typeof value !== 'string') return value;
+  const [count, band] = value.split(':');
+  return Number(count) > MAX_MATCH_PAIRS ? `${MAX_MATCH_PAIRS}:${band}` : value;
+}
+
 function isAssemblyVariant(value: unknown): value is AssemblyVariant {
   return typeof value === 'string' && ASSEMBLY_SET.has(value);
 }
@@ -206,6 +221,11 @@ function normalizeMethod<V extends string>(
   };
 }
 
+function matchVariantsOf(value: unknown): unknown {
+  const variants = (value as { variants?: unknown } | undefined)?.variants;
+  return Array.isArray(variants) ? variants.map(clampMatchPairs) : variants;
+}
+
 function normalizeStage(
   value: unknown,
   fallback: StageConfig,
@@ -226,7 +246,7 @@ function normalizeStage(
     assembly: normalizeMethod(raw.assembly, fallback.assembly, isAssemblyVariant),
     match: {
       variants: normalizeVariants(
-        (raw.match as { variants?: unknown } | undefined)?.variants,
+        matchVariantsOf(raw.match),
         isMatchVariant,
       ),
     },

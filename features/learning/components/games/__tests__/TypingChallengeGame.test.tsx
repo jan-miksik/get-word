@@ -127,7 +127,7 @@ describe('TypingChallengeGame', () => {
     expect(screen.getByText('con chó')).toBeInTheDocument();
     fireEvent.change(screen.getByRole('textbox'), { target: { value: 'pes' } });
     fireEvent.click(screen.getByText('Check'));
-    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Perfect!' })).toBeInTheDocument();
   });
 
   it('renders replay-only listening prompt and hides source text in audio mode', async () => {

@@ -7,6 +7,7 @@ import { noTranslateProps } from '@/lib/i18n/no-translate';
 import type { NormalizedWord } from '@/lib/words';
 import type { LearningRole } from '@/features/learning/state/learningRole';
 import { getWordTextBySide, knownSideForRole } from './types';
+import { SuccessMarkSlot } from './SuccessMark';
 
 export type AssemblyOutcome = 'known' | 'unknown';
 
@@ -63,7 +64,8 @@ export function WordAssemblyGame({
   };
 
   return (
-    <article className="flex w-full max-w-2xl flex-col items-center gap-5 px-3 py-6 text-center">
+    <article className="study-ink-scope relative mx-auto flex w-full max-w-2xl flex-col items-center gap-5 px-3 py-6 text-center">
+      <SuccessMarkSlot show={outcome === 'known'} label={t('game.correct')} rollKey={word.id} />
       <p className="m-0 text-xs font-bold uppercase tracking-[0.12em] text-text-soft">
         {t('game.assemble')}
       </p>
@@ -100,7 +102,9 @@ export function WordAssemblyGame({
       )}
       {outcome && (
         <div className={outcome === 'known' ? 'text-sm font-bold text-emerald-700' : 'text-sm font-bold text-rose-700'}>
-          {outcome === 'known' ? `✓ ${t('game.correct')}` : `✗ ${answerParts.join(variant.startsWith('letters') ? '' : ' ')}`}
+          {outcome === 'known'
+            ? null
+            : `✗ ${answerParts.join(variant.startsWith('letters') ? '' : ' ')}`}
           <button
             type="button"
             className="ml-4 rounded-xl border-2 border-[#1E6FA8] bg-[#1E6FA8] px-5 py-2 text-sm font-bold text-[#F4EFE2]"

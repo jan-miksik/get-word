@@ -2,12 +2,11 @@
 
 import { useI18n } from '@/components/I18nProvider';
 import { noTranslateProps } from '@/lib/i18n/no-translate';
-import { useMemo } from 'react';
-import { pickThinPoolWords } from '@/features/learning/minigames';
-import { MAX_SIMILAR_SEEDS, useSimilarWords } from '@/features/learning/similar-words/useSimilarWords';
+import { useSimilarWords } from '@/features/learning/similar-words/useSimilarWords';
 import type { NormalizedWord } from '@/lib/words';
 import type { LearningRole } from '@/features/learning/state/learningRole';
 import { getWordTextBySide, learningSideForRole } from './types';
+import { SuccessMark } from './SuccessMark';
 
 /**
  * Offers to fill in the confusable neighbours a word is missing, and — once the
@@ -19,7 +18,6 @@ import { getWordTextBySide, learningSideForRole } from './types';
  */
 export function SimilarWordsPromptGame({
   word,
-  pool,
   role,
   languageFrom,
   languageTo,
@@ -29,8 +27,6 @@ export function SimilarWordsPromptGame({
   onDismiss,
 }: {
   word: NormalizedWord;
-  /** The study list this word sits in; the batch is picked out of it. */
-  pool: NormalizedWord[];
   role: LearningRole;
   languageFrom: string;
   languageTo: string;
@@ -42,9 +38,8 @@ export function SimilarWordsPromptGame({
   onDismiss: () => void;
 }) {
   const { t, language } = useI18n();
-  const seeds = useMemo(() => pickThinPoolWords(pool, word, MAX_SIMILAR_SEEDS), [pool, word]);
   const { status, proposals, selected, savedCount, generate, toggle, save } = useSimilarWords({
-    seeds,
+    seed: word,
     languageFrom,
     languageTo,
     chatLanguage: language,
@@ -52,7 +47,7 @@ export function SimilarWordsPromptGame({
   });
 
   const shell = (children: React.ReactNode) => (
-    <article className="mx-auto flex min-h-80 max-w-xl flex-col items-center justify-center gap-5 px-6 py-8 text-center">
+    <article className="study-ink-scope mx-auto flex min-h-80 max-w-xl flex-col items-center justify-center gap-5 px-6 py-8 text-center">
       {children}
     </article>
   );
@@ -60,7 +55,7 @@ export function SimilarWordsPromptGame({
   if (status === 'saved') {
     return shell(
       <>
-        <div className="text-4xl" aria-hidden>✓</div>
+        <SuccessMark label="" size="large" />
         <h2 className="m-0 text-2xl font-extrabold text-text">
           {t('game.similarWordsSaved', { count: savedCount })}
         </h2>

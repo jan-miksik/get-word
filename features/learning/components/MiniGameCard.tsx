@@ -66,7 +66,6 @@ interface Props {
   onAddSimilarWords?: () => void;
   /** Everything the inline similar-words generator needs to run in place. */
   similarWordsContext?: {
-    pool: NormalizedWord[];
     languageFrom: string;
     languageTo: string;
     baseListId: string | null;
@@ -335,7 +334,6 @@ export function MiniGameCard({ config, role, onDismiss, onResult, onReviewOutcom
       <SimilarWordsPromptGame
         word={word}
         role={role}
-        pool={similarWordsContext?.pool ?? [word]}
         languageFrom={similarWordsContext?.languageFrom ?? ''}
         languageTo={similarWordsContext?.languageTo ?? ''}
         baseListId={similarWordsContext?.baseListId ?? null}

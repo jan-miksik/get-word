@@ -2,20 +2,18 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import {
-  isStandalone,
+  isRunningInstalled,
   PWA_INSTALL_HELP_EVENT,
 } from '@/lib/pwa-install';
 import { PWAInstallIntroCard } from '@/features/learning/components/PWAInstallIntroCard';
 import {
-  useMobileViewport,
+  useHomeScreenInvite,
   useSimulatedInstallPlatform,
-  useStandaloneStatus,
 } from '@/hooks/usePWAInstallState';
 
 export function PWAInstallBanner() {
-  const installed = useStandaloneStatus();
   const [helpOpen, setHelpOpen] = useState(false);
-  const isMobileViewport = useMobileViewport();
+  const showInvite = useHomeScreenInvite();
   const simulatedPlatform = useSimulatedInstallPlatform();
 
   useEffect(() => {
@@ -24,7 +22,7 @@ export function PWAInstallBanner() {
       // even if some upstream code dispatches the event.
       if (typeof window === 'undefined') return;
       if (window.matchMedia?.('(max-width: 900px)')?.matches !== true) return;
-      if (isStandalone()) return;
+      if (isRunningInstalled()) return;
       setHelpOpen(true);
     };
     window.addEventListener(PWA_INSTALL_HELP_EVENT, openHelp);
@@ -43,7 +41,9 @@ export function PWAInstallBanner() {
     };
   }, [helpOpen]);
 
-  if (!isMobileViewport || installed) return null;
+  // The `?previewPWAInstallIntro=` parameter is the only way to look at the
+  // guide from a desktop browser, so it deliberately outranks the gate.
+  if (!showInvite && !simulatedPlatform) return null;
   if (!helpOpen) return null;
 
   return (

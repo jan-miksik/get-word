@@ -6,6 +6,7 @@ import {
   type GoalFineTuneConfig,
   type GoalMinigameFrequency,
   type GoalRevealMode,
+  type StudyGoalConfig,
   type StudyPacing,
 } from './goal';
 
@@ -30,32 +31,34 @@ function revealSeconds(revealMode: GoalRevealMode): number {
   return ESTIMATED_SECONDS_PER_ITEM[revealMode] ?? ESTIMATED_SECONDS_PER_ITEM.press;
 }
 
-function frequencyGap(frequency: GoalMinigameFrequency): number | null {
+function frequencyGap(frequency: GoalMinigameFrequency | null | undefined): number | null {
   if (frequency === 'off') return null;
+  if (!frequency || typeof frequency !== 'object') return null;
   const min = Math.max(1, Math.round(frequency.min));
   const max = Math.max(min, Math.round(frequency.max));
   return (min + max) / 2;
 }
 
-function stageSeconds(stage: GoalFineTuneConfig['stages'][number], revealMode: GoalRevealMode): number {
+function stageSeconds(stage: GoalFineTuneConfig['stages'][number] | null | undefined, revealMode: GoalRevealMode): number {
   const methods = [
-    { weight: stage.reveal.weight, active: stage.reveal.variants.length > 0, seconds: revealSeconds(revealMode) },
-    { weight: stage.choice.weight, active: stage.choice.variants.length > 0, seconds: ESTIMATED_SECONDS_PER_ITEM.choice },
-    { weight: stage.typing.weight, active: stage.typing.variants.length > 0, seconds: ESTIMATED_SECONDS_PER_ITEM.typing },
-    { weight: stage.assembly.weight, active: stage.assembly.variants.length > 0, seconds: ESTIMATED_SECONDS_PER_ITEM.assembly },
-  ].filter((method) => method.active && Number.isFinite(method.weight) && method.weight > 0);
+    { weight: stage?.reveal?.weight, active: (stage?.reveal?.variants?.length ?? 0) > 0, seconds: revealSeconds(revealMode) },
+    { weight: stage?.choice?.weight, active: (stage?.choice?.variants?.length ?? 0) > 0, seconds: ESTIMATED_SECONDS_PER_ITEM.choice },
+    { weight: stage?.typing?.weight, active: (stage?.typing?.variants?.length ?? 0) > 0, seconds: ESTIMATED_SECONDS_PER_ITEM.typing },
+    { weight: stage?.assembly?.weight, active: (stage?.assembly?.variants?.length ?? 0) > 0, seconds: ESTIMATED_SECONDS_PER_ITEM.assembly },
+  ].filter((method) => method.active && Number.isFinite(method.weight) && (method.weight ?? 0) > 0);
   if (methods.length === 0) return revealSeconds(revealMode);
-  const total = methods.reduce((sum, method) => sum + method.weight, 0);
-  return methods.reduce((sum, method) => sum + method.seconds * method.weight, 0) / total;
+  const total = methods.reduce((sum, method) => sum + (method.weight ?? 0), 0);
+  return methods.reduce((sum, method) => sum + method.seconds * (method.weight ?? 0), 0) / total;
 }
 
 /** Stable pacing estimate; it intentionally does not depend on today's backlog. */
 export function estimateSecondsPerItem(pacing: StudyPacing): number {
-  const stages = pacing.fineTune.stages;
+  const stages = Array.isArray(pacing?.fineTune?.stages) ? pacing.fineTune.stages : [];
+  const revealMode = pacing?.revealMode ?? 'press';
   const reviewSeconds = stages.length > 0
-    ? stages.reduce((sum, stage) => sum + stageSeconds(stage, pacing.revealMode), 0) / stages.length
-    : revealSeconds(pacing.revealMode);
-  const gap = frequencyGap(pacing.minigameFrequency);
+    ? stages.reduce((sum, stage) => sum + stageSeconds(stage, revealMode), 0) / stages.length
+    : revealSeconds(revealMode);
+  const gap = frequencyGap(pacing?.minigameFrequency);
   const total = reviewSeconds + (gap ? ESTIMATED_SECONDS_PER_ITEM.minigame / gap : 0);
   return Number.isFinite(total) && total > 0 ? total : ESTIMATED_SECONDS_PER_ITEM.press;
 }
@@ -92,4 +95,67 @@ export function calculateWordGoal(minutesPerDay: number, pacing: StudyPacing): {
  */
 export function sessionItemCapFromWordGoal(goalWords: number): number {
   return Math.max(BASE_ITEMS_MIN, Math.round(goalWords / WORDS_TARGET_SLACK));
+}
+
+export interface ResolvedGoalTargets {
+  /** New words asked for before today's availability/backlog snapshot. */
+  desiredNew: number;
+  /** Unique item slots, not answer events. */
+  itemBudget: number;
+  desiredReviewTarget: number;
+  /** Display-only time budget, derived when words are canonical. */
+  minutesPerDay: number;
+  /** Compatibility/display word total. */
+  wordsPerDay: number;
+}
+
+/**
+ * The one translation layer between a durable goal and session planning.
+ * Words mode deliberately keeps a 30/70 new/review split before today's
+ * availability and backlog policy are applied.
+ */
+export function resolveGoalTargets(
+  goal: Pick<StudyGoalConfig, 'mode' | 'minutesPerDay' | 'wordsPerDay' | 'newWordsPerDay' | 'pacing'>,
+): ResolvedGoalTargets {
+  if (goal.mode === 'words') {
+    const desiredNew = Math.max(0, Math.round(goal.newWordsPerDay ?? goal.wordsPerDay));
+    const itemBudget = desiredNew > 0 ? Math.round(desiredNew / 0.3) : 0;
+    return {
+      desiredNew,
+      itemBudget,
+      desiredReviewTarget: Math.max(0, itemBudget - desiredNew),
+      minutesPerDay: Math.max(1, Math.ceil((itemBudget * estimateSecondsPerItem(goal.pacing)) / 60)),
+      wordsPerDay: desiredNew,
+    };
+  }
+  // Minutes mode predates canonical words targets. Its persisted display word
+  // goal is also the frozen session cap, and retaining that inverse preserves
+  // its planner/met behavior across this feature.
+  const storedWords = Number.isFinite(goal.wordsPerDay) && goal.wordsPerDay > 0
+    ? Math.round(goal.wordsPerDay)
+    : 0;
+  const calculated = storedWords > 0 ? null : calculateWordGoal(goal.minutesPerDay, goal.pacing);
+  const itemBudget = storedWords > 0
+    ? sessionItemCapFromWordGoal(storedWords)
+    : calculated!.sessionItemCap;
+  return {
+    desiredNew: 0,
+    itemBudget,
+    desiredReviewTarget: itemBudget,
+    minutesPerDay: goal.minutesPerDay,
+    wordsPerDay: storedWords || calculated!.goalWords,
+  };
+}
+
+/** Shared by the live planner and the development forecast. */
+export function adjustNewTargetForBacklog(
+  desiredNew: number,
+  dueReviewCount: number,
+  itemBudget: number,
+): number {
+  if (desiredNew <= 0) return 0;
+  const pressure = itemBudget > 0 ? Math.max(0, dueReviewCount) / itemBudget : 0;
+  const ratio = Math.max(0.2, 1 - 0.4 * Math.max(0, pressure - 2));
+  const minNew = Math.max(1, Math.ceil(desiredNew * 0.2));
+  return Math.max(minNew, Math.round(desiredNew * ratio));
 }

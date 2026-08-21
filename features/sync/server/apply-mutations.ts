@@ -12,11 +12,12 @@ import {
   setUserCategoryFilters,
   updateUserPreferences,
   recomputeUserDayStat,
+  ensureDayGoalSnapshot,
   upsertMemoryHook,
   upsertMemoryHookByItemId,
 } from '@/lib/db';
 import type { User } from '@/lib/db/schema';
-import { normalizeIanaTimezone } from '@/lib/local-day';
+import { localDayKeyAt, normalizeIanaTimezone } from '@/lib/local-day';
 import { isUuid } from '@/features/shared/sync/identity';
 import type { SyncOperationResult, SyncProgressItem, SyncRequest } from '@/features/sync/types';
 
@@ -165,13 +166,35 @@ export async function applySyncMutations(input: {
     if (updated) user = updated;
   }
 
+  // Old/offline clients may not have sent a local key. Derive one server-side
+  // rather than let that omission bypass the immutable day snapshot.
+  const reviewEventsWithDay = review_events?.map((event) => ({
+    ...event,
+    local_day_key: event.local_day_key ?? localDayKeyAt(event.client_created_at, normalizeIanaTimezone(user.timezone)),
+  }));
+
+  // A goal target is claimed before either an activity segment or an answer is
+  // persisted. This makes concurrent devices converge on the same daily budget.
+  const snapshotDayKeys = new Set<string>();
+  for (const event of reviewEventsWithDay ?? []) if (event.local_day_key) snapshotDayKeys.add(event.local_day_key);
+  for (const segment of activity_segments ?? []) if (segment.local_day_key) snapshotDayKeys.add(segment.local_day_key);
+  const snapshotTimezone = normalizeIanaTimezone(
+    activity_segments?.find((segment) => segment.timezone_at_creation)?.timezone_at_creation ?? user.timezone,
+  );
+  const snapshotEntries = await Promise.all([...snapshotDayKeys].map(async (dayKey) => [
+    dayKey,
+    await ensureDayGoalSnapshot(user.id, dayKey, snapshotTimezone),
+  ] as const));
+  const snapshotsByDay = new Map(snapshotEntries);
+
   let appliedReviewEventIds: string[] = [];
-  if (review_events && review_events.length > 0) {
+  if (reviewEventsWithDay && reviewEventsWithDay.length > 0) {
     appliedReviewEventIds = await applyNewReviewEvents({
       userId: user.id,
       deviceId,
       sessionId,
-      events: review_events,
+      events: reviewEventsWithDay,
+      snapshotsByDay,
     });
   }
 
@@ -204,7 +227,7 @@ export async function applySyncMutations(input: {
   // Rollups are derived data: a failed refresh must never reject study
   // progress. The summary endpoint repeats this work for stale recent days.
   const affectedDayKeys = new Set<string>();
-  for (const event of review_events ?? []) {
+  for (const event of reviewEventsWithDay ?? []) {
     if (event.local_day_key) affectedDayKeys.add(event.local_day_key);
   }
   for (const segment of activity_segments ?? []) {

@@ -240,7 +240,7 @@ describe('CardDeckView', () => {
       />
     );
     await userEvent.click(screen.getByText('Complete'));
-    expect(screen.getByText(/all done/i)).toBeInTheDocument();
+    expect(screen.getByText(/nothing due right now/i)).toBeInTheDocument();
   });
 
   it('calls onWordCardCompleted for word cards but not minigames', async () => {
@@ -305,7 +305,7 @@ describe('CardDeckView', () => {
     );
 
     expect(screen.getByTestId('intro-card')).toBeInTheDocument();
-    expect(screen.queryByText(/all done/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/nothing due right now/i)).not.toBeInTheDocument();
   });
 
   // The default test env short-circuits the exit animation; these drive the real
@@ -436,7 +436,7 @@ describe('CardDeckView', () => {
         expect(screen.getByTestId('card-w1')).toBeInTheDocument();
 
         fireExitAnimationEnd(animating!);
-        expect(screen.getByText(/all done/i)).toBeInTheDocument();
+        expect(screen.getByText(/nothing due right now/i)).toBeInTheDocument();
         expect(warn).not.toHaveBeenCalled();
       } finally {
         warn.mockRestore();
@@ -715,7 +715,7 @@ describe('CardDeckView', () => {
     );
 
     await userEvent.click(screen.getByText('Complete'));
-    expect(screen.getByText(/all done/i)).toBeInTheDocument();
+    expect(screen.getByText(/nothing due right now/i)).toBeInTheDocument();
 
     rerender(
       <CardDeckView
@@ -726,7 +726,7 @@ describe('CardDeckView', () => {
     );
 
     expect(screen.getByTestId('card-w2')).toBeInTheDocument();
-    expect(screen.queryByText(/all done/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/nothing due right now/i)).not.toBeInTheDocument();
   });
 
   it('keeps the current card visible while prioritizing a newly due card next', async () => {

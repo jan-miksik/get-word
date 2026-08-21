@@ -601,6 +601,8 @@ export const userProgress = pgTable(
     lastKnownAt: timestamp("last_known_at"),
     lastUnknownAt: timestamp("last_unknown_at"),
     nextDueAt: timestamp("next_due_at"),
+    /** Immutable first introduction; a forgotten item can later be stage 0. */
+    introducedAt: timestamp("introduced_at"),
     archivedAt: timestamp("archived_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
     updatedAt: timestamp("updated_at").defaultNow().notNull(),
@@ -642,6 +644,11 @@ export const reviewActionEnum = pgEnum("review_action", [
   "unknown",
 ]);
 
+export const reviewEventKindEnum = pgEnum("review_event_kind", [
+  "introduction",
+  "review",
+]);
+
 export const reviewEvents = pgTable(
   "review_events",
   {
@@ -659,6 +666,11 @@ export const reviewEvents = pgTable(
       { onDelete: "set null" },
     ),
     action: reviewActionEnum("action").notNull(),
+    /** Server-derived from progress before this event is folded. */
+    eventKind: reviewEventKindEnum("event_kind"),
+    previousDueAt: timestamp("previous_due_at"),
+    /** Whether this event counts toward the immutable day review target. */
+    countsTowardDailyReview: boolean("counts_toward_daily_review").notNull().default(false),
     clientCreatedAt: timestamp("client_created_at").notNull(),
     // Immutable client-local day; historical rows fall back to the user's
     // current timezone when a rollup needs them.
@@ -737,9 +749,12 @@ export const userStudyGoalVersions = pgTable(
     userId: uuid("user_id").notNull().references(() => users.id, { onDelete: "cascade" }),
     effectiveFromDay: date("effective_from_day", { mode: "string" }).notNull(),
     enabled: boolean("enabled").notNull().default(true),
+    goalMode: text("goal_mode").notNull().default("minutes"),
     goalDaysPerWeek: integer("goal_days_per_week").notNull(),
-    goalMinutesPerDay: integer("goal_minutes_per_day").notNull(),
-    goalWordsPerDay: integer("goal_words_per_day").notNull(),
+    goalMinutesPerDay: integer("goal_minutes_per_day"),
+    goalNewWordsPerDay: integer("goal_new_words_per_day"),
+    /** Deprecated derived value retained only for pre-words-mode history. */
+    goalWordsPerDay: integer("goal_words_per_day"),
     goalPreset: text("goal_preset").notNull(),
     pacing: jsonb("pacing").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -763,6 +778,17 @@ export const userDayStats = pgTable(
     goalDaysPerWeek: integer("goal_days_per_week"),
     goalMinutes: integer("goal_minutes"),
     goalWords: integer("goal_words"),
+    goalMode: text("goal_mode"),
+    goalStatus: text("goal_status").notNull().default("active"),
+    snapshotCreatedAt: timestamp("snapshot_created_at", { withTimezone: true }),
+    availableNewWords: integer("available_new_words"),
+    dueReviewCount: integer("due_review_count"),
+    resolvedNewTarget: integer("resolved_new_target"),
+    resolvedReviewTarget: integer("resolved_review_target"),
+    resolvedItemBudget: integer("resolved_item_budget"),
+    resolvedMinutesBudget: integer("resolved_minutes_budget"),
+    introducedWords: integer("introduced_words").notNull().default(0),
+    reviewedWords: integer("reviewed_words").notNull().default(0),
     met: boolean("met").notNull().default(false),
     firstActivityAt: timestamp("first_activity_at", { withTimezone: true }),
     lastActivityAt: timestamp("last_activity_at", { withTimezone: true }),

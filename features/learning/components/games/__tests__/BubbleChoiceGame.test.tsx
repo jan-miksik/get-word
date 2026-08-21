@@ -40,3 +40,66 @@ describe('BubbleChoiceGame review reporting', () => {
     expect(onReviewOutcome).toHaveBeenCalledWith(prompt!.id, 'unknown');
   });
 });
+
+describe('BubbleChoiceGame field stability', () => {
+  afterEach(() => vi.useRealTimers());
+
+  function bubbleLabels(): string[] {
+    return screen
+      .getAllByRole('button')
+      .map((button) => button.textContent ?? '')
+      .filter((label) => label.startsWith('learning-'));
+  }
+
+  function promptWord(): NormalizedWord {
+    const found = words.find((word) => screen.queryByText(word.cz));
+    expect(found).toBeDefined();
+    return found!;
+  }
+
+  it('removes only the answered bubble and leaves the rest of the field alone', () => {
+    vi.useFakeTimers();
+    render(
+      <BubbleChoiceGame words={words} role="knownLanguage" onScore={vi.fn()} onComplete={vi.fn()} />,
+    );
+
+    const before = bubbleLabels();
+    const answered = promptWord();
+    expect(before).toHaveLength(words.length);
+
+    fireEvent.click(screen.getByRole('button', { name: answered.vi }));
+    act(() => vi.advanceTimersByTime(800));
+
+    expect(bubbleLabels()).toEqual(before.filter((label) => label !== answered.vi));
+    expect(promptWord().id).not.toBe(answered.id);
+  });
+
+  it('does not remove a bubble on a wrong answer', () => {
+    vi.useFakeTimers();
+    render(
+      <BubbleChoiceGame words={words} role="knownLanguage" onScore={vi.fn()} onComplete={vi.fn()} />,
+    );
+
+    const before = bubbleLabels();
+    const answered = promptWord();
+    const wrong = words.find((word) => word.id !== answered.id)!;
+
+    fireEvent.click(screen.getByRole('button', { name: wrong.vi }));
+    act(() => vi.advanceTimersByTime(800));
+
+    expect(bubbleLabels()).toEqual(before);
+    expect(promptWord().id).toBe(answered.id);
+  });
+
+  it('counts down the bubbles still to clear', () => {
+    vi.useFakeTimers();
+    render(
+      <BubbleChoiceGame words={words} role="knownLanguage" onScore={vi.fn()} onComplete={vi.fn()} />,
+    );
+
+    expect(screen.getByRole('img', { name: `${words.length}/${words.length}` })).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: promptWord().vi }));
+    act(() => vi.advanceTimersByTime(800));
+    expect(screen.getByRole('img', { name: `${words.length - 1}/${words.length}` })).toBeTruthy();
+  });
+});

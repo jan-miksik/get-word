@@ -11,6 +11,8 @@ export interface SessionFlowState {
   /** Items answered today across the whole plan, and the plan's length. */
   dayDone: number;
   dayTotal: number;
+  /** Answered but not yet committed to progress; display-only, see `pending`. */
+  dayPending: number;
   complete: boolean;
 }
 
@@ -22,6 +24,7 @@ const EMPTY: SessionFlowState = {
   blockCount: 0,
   dayDone: 0,
   dayTotal: 0,
+  dayPending: 0,
   complete: false,
 };
 
@@ -39,10 +42,11 @@ export function resolveSessionFlow(blocks: readonly SessionBlockProgress[]): Ses
 
   const dayDone = blocks.reduce((sum, block) => sum + block.done, 0);
   const dayTotal = blocks.reduce((sum, block) => sum + block.total, 0);
+  const dayPending = blocks.reduce((sum, block) => sum + block.pending, 0);
   const index = blocks.findIndex((block) => block.done < block.total && block.liveRemaining > 0);
 
   if (index === -1) {
-    return { ...EMPTY, blockCount: blocks.length, dayDone, dayTotal, complete: true };
+    return { ...EMPTY, blockCount: blocks.length, dayDone, dayTotal, dayPending, complete: true };
   }
   return {
     index,
@@ -52,6 +56,7 @@ export function resolveSessionFlow(blocks: readonly SessionBlockProgress[]): Ses
     blockCount: blocks.length,
     dayDone,
     dayTotal,
+    dayPending,
     complete: false,
   };
 }

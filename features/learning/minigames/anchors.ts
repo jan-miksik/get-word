@@ -16,7 +16,7 @@ import type {
 // Multiple choice and typing are study cards now, not interludes: scheduling
 // them between cards as well would grade the same word twice, since the anchor
 // pool is drawn from words the learner has just answered. Matching stays, and
-// stays score-only — one round covers 4–8 words, so no single word's stage can
+// stays score-only — one round covers 4–6 words, so no single word's stage can
 // be attributed to the result.
 const GAME_TYPES: GameType[] = ['matching'];
 const MIN_POOL_SIZE: Record<GameType, number> = {
@@ -368,7 +368,7 @@ export function computeGameAnchors(
         // Pair count and distractor similarity come from the stage of the word
         // the round is anchored to, so matching gets harder alongside everything
         // else — even though its result never moves a stage.
-        // A round covers 4–8 words, so its difficulty follows the most advanced
+        // A round covers 4–6 words, so its difficulty follows the most advanced
         // word in it rather than the anchor alone. A round made purely of
         // brand-new words gets no matching at all, which is what the default
         // preset asks for: matching is review practice, not an introduction.

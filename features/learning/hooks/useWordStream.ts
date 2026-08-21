@@ -8,6 +8,7 @@ import {
   isDue,
   type NormalizedWord,
 } from '@/lib/words';
+import { hasIntroducedWord } from '@/packages/domain/goals/goal';
 
 export interface WordStream {
   /**
@@ -81,12 +82,12 @@ export function useWordStream(
 
     orderedWords.forEach((word) => {
       const wordProgress = progress[word.id];
-      const isNew = !wordProgress || wordProgress.stageIndex === 0;
+      const isNew = !hasIntroducedWord(wordProgress);
       const priority = isPriority(word);
 
       if (isNew) {
         (priority ? priorityNew : newWords).push(word);
-      } else if (isDue(wordProgress)) {
+      } else if (wordProgress.stageIndex === 0 || isDue(wordProgress)) {
         (priority ? priorityDue : due).push(word);
       } else {
         // A settling word is not overdue and has nothing to prove; leave it to

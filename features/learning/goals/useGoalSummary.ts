@@ -48,6 +48,13 @@ export function useGoalSummary(enabled: boolean, scopeKey = 'default') {
 
   useEffect(() => {
     if (!enabled) return;
+    const onServerSync = () => void refresh();
+    window.addEventListener('get-word:server-sync', onServerSync);
+    return () => window.removeEventListener('get-word:server-sync', onServerSync);
+  }, [enabled, refresh]);
+
+  useEffect(() => {
+    if (!enabled) return;
     const onRefresh = () => void refresh();
     window.addEventListener('get-word:refresh-goal-summary', onRefresh);
     return () => window.removeEventListener('get-word:refresh-goal-summary', onRefresh);

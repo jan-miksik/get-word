@@ -8,6 +8,7 @@ function block(partial: Partial<SessionBlockProgress> & { key: string }): Sessio
     kind: 'review',
     total: 6,
     done: 0,
+    pending: 0,
     liveRemaining: 6,
     unavailable: 0,
     ...partial,

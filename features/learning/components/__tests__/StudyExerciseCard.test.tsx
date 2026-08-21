@@ -76,7 +76,7 @@ describe('StudyExerciseCard — choice', () => {
   it('offers exactly as many options as the variant asks for', () => {
     renderCard(choiceExercise('I'));
     expect(document.querySelectorAll('.game-option')).toHaveLength(4);
-    expect(document.querySelector('.game-options-grid')).toHaveAttribute('data-option-count', '4');
+    expect(document.querySelector('[data-choice-layout]')).toHaveAttribute('data-option-count', '4');
   });
 
   it('reports a right first answer as a completed review', () => {

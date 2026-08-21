@@ -65,6 +65,40 @@ export function isStandalone() {
   );
 }
 
+const TWA_SESSION_KEY = 'get-word-twa';
+
+/**
+ * True inside the Play Store wrapper (a Trusted Web Activity).
+ *
+ * Android names the launching app in `document.referrer` as
+ * `android-app://<package>`, but only on the document it launched — a reload
+ * inside the wrapper looks exactly like an ordinary Chrome tab — so the answer
+ * is remembered for the session. The wrapper is a browser engine without a
+ * browser around it: there is no menu to install from, and the app is already
+ * on the home screen, so every install invitation is noise there.
+ */
+export function isTrustedWebActivity() {
+  if (typeof window === 'undefined' || typeof document === 'undefined') return false;
+  const launchedByApp = document.referrer.startsWith('android-app://');
+  try {
+    const store = window.sessionStorage;
+    if (launchedByApp) store.setItem(TWA_SESSION_KEY, '1');
+    return launchedByApp || store.getItem(TWA_SESSION_KEY) === '1';
+  } catch {
+    // Hardened contexts throw on sessionStorage; the referrer alone still
+    // identifies the launch document, which is where the invitations render.
+    return launchedByApp;
+  }
+}
+
+/**
+ * Running outside a browser tab: an installed standalone PWA, or the Play
+ * wrapper. Either way there is nothing left to add to a home screen.
+ */
+export function isRunningInstalled() {
+  return isStandalone() || isTrustedWebActivity();
+}
+
 export type SimulatedPlatform = 'ios' | 'ios-non-safari' | 'android' | null;
 
 export function getInstallPlatform(simulated?: SimulatedPlatform) {

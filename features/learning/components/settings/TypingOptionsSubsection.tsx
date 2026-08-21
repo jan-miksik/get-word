@@ -19,8 +19,6 @@ export function TypingOptionsSubsection() {
     setTypingMobileKeyboardAutoFocus,
     typingPlayAudioAfterCheck,
     setTypingPlayAudioAfterCheck,
-    typingCheckButtonEnabled,
-    setTypingCheckButtonEnabled,
   } = useAppStateContext();
 
   return (
@@ -50,19 +48,6 @@ export function TypingOptionsSubsection() {
           checked={typingPlayAudioAfterCheck}
           onChange={setTypingPlayAudioAfterCheck}
           ariaLabel={t('settings.typingPlayAudioAfterCheck')}
-        />
-      </div>
-      <div className="flex items-start justify-between gap-3 py-0.5">
-        <div className="min-w-0">
-          <p className="m-0 text-xs text-text">{t('settings.typingCheckButton')}</p>
-          <p className="m-0 mt-0.5 text-[0.65rem] leading-snug text-text-soft">
-            {t('settings.typingCheckButtonNotice')}
-          </p>
-        </div>
-        <ToggleSwitch
-          checked={typingCheckButtonEnabled}
-          onChange={setTypingCheckButtonEnabled}
-          ariaLabel={t('settings.typingCheckButton')}
         />
       </div>
     </div>

@@ -6,7 +6,7 @@ import { useI18n } from '@/components/I18nProvider';
 import {
   clearCapturedBeforeInstallPrompt,
   getInstallPlatform,
-  isStandalone,
+  isRunningInstalled,
   type BeforeInstallPromptEvent,
   type SimulatedPlatform,
 } from '@/lib/pwa-install';
@@ -43,7 +43,7 @@ export function PWAInstallIntroCard({ onDismiss, simulatedPlatform }: PWAInstall
 
   useEffect(() => {
     if (simulatedPlatform) return;
-    if (isStandalone()) {
+    if (isRunningInstalled()) {
       onDismiss();
       return;
     }

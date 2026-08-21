@@ -262,6 +262,7 @@ export async function batchUpsertProgress(
           lastKnownAt: sql`excluded.last_known_at`,
           lastUnknownAt: sql`excluded.last_unknown_at`,
           nextDueAt: sql`excluded.next_due_at`,
+          introducedAt: sql`coalesce(${userProgress.introducedAt}, excluded.introduced_at)`,
           archivedAt: null,
           updatedAt,
         },
@@ -302,6 +303,7 @@ export async function batchUpsertProgressByContentKey(
           lastKnownAt: sql`excluded.last_known_at`,
           lastUnknownAt: sql`excluded.last_unknown_at`,
           nextDueAt: sql`excluded.next_due_at`,
+          introducedAt: sql`coalesce(${userProgress.introducedAt}, excluded.introduced_at)`,
           archivedAt: null,
           updatedAt,
         },
@@ -312,6 +314,13 @@ export async function batchUpsertProgressByContentKey(
 
 export type ReviewProgressAction = "known" | "really_known" | "unknown";
 
+export interface ReviewProgressTransition {
+  eventKind: 'introduction' | 'review';
+  previousDueAt: Date | null;
+  previousStageIndex: number;
+  introducedAt: Date;
+}
+
 export async function applyReviewEventToProgress(
   args: {
     userId: string;
@@ -321,9 +330,9 @@ export async function applyReviewEventToProgress(
     occurredAt: Date;
   },
   executor: Executor = db
-): Promise<void> {
+): Promise<ReviewProgressTransition | null> {
   const { userId, wordId, wordListItemId, action, occurredAt } = args;
-  if (!wordId && !wordListItemId) return;
+  if (!wordId && !wordListItemId) return null;
 
   // New path: identity is the content key. Resolve it server-side from the item.
   // If the item can't form a key (empty target), skip progress entirely.
@@ -331,7 +340,7 @@ export async function applyReviewEventToProgress(
   if (wordListItemId) {
     const keys = await getContentKeysForItemIds([wordListItemId], executor);
     contentKey = keys.get(wordListItemId) ?? null;
-    if (!contentKey) return;
+    if (!contentKey) return null;
   }
 
   const current = contentKey
@@ -341,6 +350,10 @@ export async function applyReviewEventToProgress(
   const currentStageIndex = current?.stageIndex ?? 0;
   const knownCount = current?.knownCount ?? 0;
   const unknownCount = current?.unknownCount ?? 0;
+  const alreadyIntroduced = Boolean(current?.introducedAt) || knownCount + unknownCount > 0;
+  const introducedAt = current?.introducedAt ?? (alreadyIntroduced
+    ? (current?.lastKnownAt ?? current?.lastUnknownAt ?? current?.createdAt ?? occurredAt)
+    : occurredAt);
 
   let stageIndex = currentStageIndex;
   let nextKnownCount = knownCount;
@@ -378,6 +391,7 @@ export async function applyReviewEventToProgress(
     lastKnownAt,
     lastUnknownAt,
     nextDueAt,
+    introducedAt,
   };
 
   // Guard the fold against reverting a newer client write (e.g. a manual
@@ -392,4 +406,10 @@ export async function applyReviewEventToProgress(
   } else {
     await batchUpsertProgress([values], executor, { eventOccurredAt: occurredAt });
   }
+  return {
+    eventKind: alreadyIntroduced ? 'review' : 'introduction',
+    previousDueAt: current?.nextDueAt ?? null,
+    previousStageIndex: currentStageIndex,
+    introducedAt,
+  };
 }

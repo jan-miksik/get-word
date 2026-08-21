@@ -44,6 +44,7 @@ function applyEventToEntry(
     lastKnownAt: event.action === 'unknown' ? base.lastKnownAt : now,
     lastUnknownAt: event.action === 'unknown' ? now : base.lastUnknownAt,
     nextDueAt,
+    introducedAt: base.introducedAt ?? now,
   };
 }
 
@@ -110,6 +111,7 @@ function toServerShape(
     lastKnownAt: toIsoOrNull(local.lastKnownAt),
     lastUnknownAt: toIsoOrNull(local.lastUnknownAt),
     nextDueAt: toIsoOrNull(local.nextDueAt),
+    introducedAt: local.introducedAt ? new Date(local.introducedAt).toISOString() : null,
     createdAt: existing?.createdAt ?? updatedAt,
     updatedAt,
   };
@@ -167,6 +169,7 @@ export function useProgress(
           lastKnownAt: progressEntry.lastKnownAt ? new Date(progressEntry.lastKnownAt).getTime() : undefined,
           lastUnknownAt: progressEntry.lastUnknownAt ? new Date(progressEntry.lastUnknownAt).getTime() : undefined,
           nextDueAt: progressEntry.nextDueAt ? new Date(progressEntry.nextDueAt).getTime() : undefined,
+          introducedAt: progressEntry.introducedAt ? new Date(progressEntry.introducedAt).getTime() : undefined,
         };
       }
       // Replay outbox-pending events on top so the user doesn't see their
@@ -194,6 +197,7 @@ export function useProgress(
             lastKnownAt: progressEntry.lastKnownAt ? new Date(progressEntry.lastKnownAt).getTime() : undefined,
             lastUnknownAt: progressEntry.lastUnknownAt ? new Date(progressEntry.lastUnknownAt).getTime() : undefined,
             nextDueAt: progressEntry.nextDueAt ? new Date(progressEntry.nextDueAt).getTime() : undefined,
+            introducedAt: progressEntry.introducedAt ? new Date(progressEntry.introducedAt).getTime() : undefined,
           };
         }
         // Same outbox replay as the full-snapshot path: a delta can carry rows
@@ -369,6 +373,7 @@ export function useProgress(
         lastKnownAt,
         lastUnknownAt,
         nextDueAt,
+        introducedAt: current.introducedAt ?? now,
       };
       progressRef.current = { ...prev, [wordId]: nextEntry };
       setProgress(progressRef.current);

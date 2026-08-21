@@ -87,6 +87,8 @@ function renderCard(props?: Partial<React.ComponentProps<typeof TypingStudyCard>
 }
 
 const input = () => screen.getByRole('textbox');
+const checkAnswer = () => fireEvent.click(screen.getByRole('button', { name: 'Check' }));
+const perfectMark = () => screen.getByRole('img', { name: 'Perfect!' });
 // The continue control renders twice (mobile full-width bar + compact desktop
 // button); breakpoint CSS hides one, but jsdom sees both, so grab the first.
 const continueOverlay = () => screen.getAllByRole('button', { name: /continue/i })[0];
@@ -399,18 +401,21 @@ describe('TypingStudyCard', () => {
     stubMobileLayout(true);
     renderCard({ autoFocus: true, autoFocusOnMobile: true });
     fireEvent.change(input(), { target: { value: 'conchó' } });
+    checkAnswer();
 
-    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    expect(perfectMark()).toBeInTheDocument();
     expect(input()).not.toHaveFocus();
     expect(input()).toBeDisabled();
     expect(input()).toHaveAttribute('aria-disabled', 'true');
   });
 
-  it('auto-checks on the last character, scores immediately, and reports known only after tapping continue', () => {
+  it('checks on confirmation, scores immediately, and reports known only after tapping continue', () => {
     const { onOutcome, onScore } = renderCard();
     // Space is prefilled, so only the letters are typed.
     fireEvent.change(input(), { target: { value: 'conchó' } });
-    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Perfect!' })).not.toBeInTheDocument();
+    checkAnswer();
+    expect(perfectMark()).toBeInTheDocument();
     // Points land at evaluation time, before the continue tap.
     expect(onScore).toHaveBeenCalledTimes(1);
     expect(onScore).toHaveBeenCalledWith(2);
@@ -424,21 +429,22 @@ describe('TypingStudyCard', () => {
   it('plays the word audio after checking only when enabled', () => {
     renderCard({ playAudioAfterCheck: true });
     fireEvent.change(input(), { target: { value: 'conchó' } });
+    checkAnswer();
 
-    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    expect(perfectMark()).toBeInTheDocument();
     expect(playCalls).toBe(1);
     expect(audioSources).toContain('/speech/vi/con-cho.mp3');
   });
 
-  it('waits for the check button when explicit checking is enabled', () => {
-    renderCard({ checkButtonEnabled: true });
+  it('always waits for the check button', () => {
+    renderCard();
     fireEvent.change(input(), { target: { value: 'conchó' } });
 
-    expect(screen.queryByText('✓ Perfect!')).not.toBeInTheDocument();
+    expect(screen.queryByRole('img', { name: 'Perfect!' })).not.toBeInTheDocument();
     const checkButton = screen.getByRole('button', { name: 'Check' });
     expect(checkButton).toBeEnabled();
     fireEvent.click(checkButton);
-    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    expect(perfectMark()).toBeInTheDocument();
   });
 
   it('closes the mobile input after an explicit check', () => {
@@ -460,6 +466,7 @@ describe('TypingStudyCard', () => {
   it('reports the outcome only once on a rapid double tap', () => {
     const { onOutcome } = renderCard();
     fireEvent.change(input(), { target: { value: 'conchó' } });
+    checkAnswer();
     const overlay = continueOverlay();
     fireEvent.click(overlay);
     fireEvent.click(overlay);
@@ -471,6 +478,7 @@ describe('TypingStudyCard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Hint' }));
     expect(onOutcome).not.toHaveBeenCalled();
     fireEvent.change(input(), { target: { value: 'conchó' } });
+    checkAnswer();
     expect(onScore).toHaveBeenCalledWith(1);
     expect(onOutcome).not.toHaveBeenCalled();
     fireEvent.click(continueOverlay());
@@ -485,7 +493,7 @@ describe('TypingStudyCard', () => {
     expect(screen.getAllByRole('textbox')[1]).toHaveValue('con ch');
   });
 
-  it('does not prefill or auto-check the free-text alternative input', () => {
+  it('does not prefill or check the free-text alternative before confirmation', () => {
     renderCard({
       variant: '90:90',
       word: makeWord('free-alt', 'pes', 'con chó', { acceptedTarget: ['cya'] }),
@@ -510,7 +518,8 @@ describe('TypingStudyCard', () => {
     expect(queryContinueOverlay()).not.toBeInTheDocument();
     fireEvent.change(input(), { target: { value: 'conchó' } });
     fireEvent.compositionEnd(input());
-    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    checkAnswer();
+    expect(perfectMark()).toBeInTheDocument();
   });
 
   it('keeps the mobile keyboard focused when a hint is tapped', () => {
@@ -568,6 +577,7 @@ describe('TypingStudyCard', () => {
   it('reports stay and scores 1 for a close (diacritics-only) mistake', () => {
     const { onOutcome, onScore } = renderCard();
     fireEvent.change(input(), { target: { value: 'concho' } });
+    checkAnswer();
     expect(screen.getByText(/Close! Correct:/)).toBeInTheDocument();
     expect(screen.getByRole('status').className).toContain('!bg-[#FFF0BD]');
     expect(screen.getByRole('status').className).toContain('!text-[#5B3A00]');
@@ -582,6 +592,7 @@ describe('TypingStudyCard', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Hint' }));
     fireEvent.click(screen.getByRole('button', { name: 'Hint' }));
     fireEvent.change(input(), { target: { value: 'conchó' } });
+    checkAnswer();
     fireEvent.click(continueOverlay());
     expect(onOutcome).toHaveBeenCalledWith('stay');
     expect(onScore).toHaveBeenCalledWith(1);
@@ -590,6 +601,7 @@ describe('TypingStudyCard', () => {
   it('shows the correct answer on a wrong attempt and reports unknown after the tap', () => {
     const { onOutcome, onScore } = renderCard();
     fireEvent.change(input(), { target: { value: 'xxxxxx' } });
+    checkAnswer();
     expect(screen.getByText(/Correct:/)).toBeInTheDocument();
     expect(screen.getByText('con chó')).toBeInTheDocument();
     expect(onOutcome).not.toHaveBeenCalled();
@@ -598,20 +610,23 @@ describe('TypingStudyCard', () => {
     expect(onScore).not.toHaveBeenCalled();
   });
 
-  it('does not auto-check while an IME composition is in progress', () => {
+  it('does not check while an IME composition is in progress', () => {
     renderCard();
     fireEvent.compositionStart(input());
     fireEvent.change(input(), { target: { value: 'conchó' } });
     expect(queryContinueOverlay()).not.toBeInTheDocument();
     fireEvent.compositionEnd(input());
+    expect(queryContinueOverlay()).not.toBeInTheDocument();
+    checkAnswer();
     expect(continueOverlay()).toBeInTheDocument();
-    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    expect(perfectMark()).toBeInTheDocument();
   });
 
   it('accepts a pasted answer that includes the prefilled punctuation', () => {
     const { onOutcome } = renderCard();
     fireEvent.change(input(), { target: { value: 'con chó' } });
-    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    checkAnswer();
+    expect(perfectMark()).toBeInTheDocument();
     fireEvent.click(continueOverlay());
     expect(onOutcome).toHaveBeenCalledWith('known');
   });
@@ -619,6 +634,7 @@ describe('TypingStudyCard', () => {
   it('does not ignore extra editable characters pasted after the correct answer', () => {
     const { onOutcome } = renderCard();
     fireEvent.change(input(), { target: { value: 'con chóxyz' } });
+    checkAnswer();
     expect(screen.getByText(/Correct:/)).toBeInTheDocument();
     fireEvent.click(continueOverlay());
     expect(onOutcome).toHaveBeenCalledWith('unknown');
@@ -629,8 +645,9 @@ describe('TypingStudyCard', () => {
     fireEvent.change(input(), { target: { value: 'conchó' } });
     expect(queryContinueOverlay()).not.toBeInTheDocument();
     fireEvent.change(input(), { target: { value: 'con chó' } });
+    checkAnswer();
     expect(continueOverlay()).toBeInTheDocument();
-    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    expect(perfectMark()).toBeInTheDocument();
   });
 
   it('does not count a space filled by the hint as a hint when prefill is disabled', () => {
@@ -639,6 +656,7 @@ describe('TypingStudyCard', () => {
     fireEvent.change(input(), { target: { value: 'con' } });
     fireEvent.click(screen.getByRole('button', { name: 'Hint' }));
     fireEvent.change(input(), { target: { value: 'con chó' } });
+    checkAnswer();
     fireEvent.click(continueOverlay());
     // One consumed hint (the letter) → stay, not unknown.
     expect(onOutcome).toHaveBeenCalledWith('stay');
@@ -650,6 +668,7 @@ describe('TypingStudyCard', () => {
     const { onOutcome } = renderCard();
     expect(screen.getByText('pes')).toBeInTheDocument();
     fireEvent.change(input(), { target: { value: 'con chó' } });
+    checkAnswer();
     fireEvent.click(continueOverlay());
     expect(onOutcome).toHaveBeenCalledWith('known');
   });
@@ -664,6 +683,7 @@ describe('TypingStudyCard', () => {
     // languageToLearn: learning side is 'from' (cz) → the answer is 'pes'.
     expect(screen.getByText('con chó')).toBeInTheDocument();
     fireEvent.change(input(), { target: { value: 'pes' } });
+    checkAnswer();
     fireEvent.click(continueOverlay());
     expect(onOutcome).toHaveBeenCalledWith('known');
   });
@@ -730,12 +750,14 @@ describe('TypingStudyCard', () => {
   it('does not play audio after a wrong answer', () => {
     renderCard();
     fireEvent.change(input(), { target: { value: 'xxxxxx' } });
+    checkAnswer();
     expect(playCalls).toBe(0);
   });
 
   it('shows the expected character under each wrong slot after the check', () => {
     renderCard();
     fireEvent.change(input(), { target: { value: 'xxxxxx' } });
+    checkAnswer();
     const corrections = Array.from(document.querySelectorAll('.game-typing-correction'));
     // One correction row per slot (6 letters + the fixed space placeholder).
     expect(corrections).toHaveLength(7);
@@ -746,6 +768,7 @@ describe('TypingStudyCard', () => {
   it('shows the accented character under a close (diacritics-only) slot', () => {
     renderCard();
     fireEvent.change(input(), { target: { value: 'concho' } });
+    checkAnswer();
     const visible = Array.from(
       document.querySelectorAll('.game-typing-correction'),
     ).filter((el) => !el.className.includes('invisible'));
@@ -755,14 +778,16 @@ describe('TypingStudyCard', () => {
   it('shows no correction row after a perfect answer', () => {
     renderCard();
     fireEvent.change(input(), { target: { value: 'conchó' } });
+    checkAnswer();
     expect(document.querySelectorAll('.game-typing-correction')).toHaveLength(0);
   });
 
-  it('auto-checks a Vietnamese answer when the check button is disabled', () => {
+  it('shows a check button for a Vietnamese answer', () => {
     const { onScore } = renderCard({ word: VI_WORD });
     fireEvent.change(input(), { target: { value: 'conchó' } });
-    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /check/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /check/i })).toBeInTheDocument();
+    checkAnswer();
+    expect(perfectMark()).toBeInTheDocument();
     expect(onScore).toHaveBeenCalledWith(2);
   });
 
@@ -771,7 +796,7 @@ describe('TypingStudyCard', () => {
     fireEvent.change(input(), { target: { value: 'conchó' } });
     expect(queryContinueOverlay()).not.toBeInTheDocument();
     fireEvent.keyDown(input(), { key: 'Enter' });
-    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    expect(perfectMark()).toBeInTheDocument();
     expect(onScore).toHaveBeenCalledWith(2);
   });
 
@@ -791,7 +816,7 @@ describe('TypingStudyCard', () => {
     fireEvent.change(input(), { target: { value: 'conchó' } });
     expect(checkButton).toBeEnabled();
     fireEvent.click(checkButton);
-    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    expect(perfectMark()).toBeInTheDocument();
     const continueButtons = screen.getAllByRole('button', { name: /continue/i });
     expect(continueButtons).toHaveLength(2);
     expect(continueButtons[1].className).toContain('absolute');
@@ -964,17 +989,18 @@ describe('TypingStudyCard', () => {
     expect(onMemoryHookChange).toHaveBeenCalledWith('x'.repeat(160));
   });
 
-  it('keeps the letter mask and auto-check for a slot-compatible alternative', () => {
+  it('keeps the letter mask and explicit check for a slot-compatible alternative', () => {
     const { onScore } = renderCard({
       // 'see you' matches 'con chó' slot-for-slot (7 graphemes, space at idx 3).
       word: makeWord('alt', 'pes', 'con chó', { acceptedTarget: ['see you'] }),
     });
     expect(document.querySelector('.game-typing-mask')).toBeInTheDocument();
-    expect(screen.queryByRole('button', { name: /check/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /check/i })).toBeInTheDocument();
     // Prefilled space → only the letters are typed; the merged answer is the
     // alternative and scores as a perfect (alternative) match.
     fireEvent.change(input(), { target: { value: 'seeyou' } });
-    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    checkAnswer();
+    expect(perfectMark()).toBeInTheDocument();
     expect(onScore).toHaveBeenCalledWith(2);
   });
 
@@ -988,7 +1014,7 @@ describe('TypingStudyCard', () => {
     expect(document.querySelector('.game-typing-mask')).not.toBeInTheDocument();
     fireEvent.change(input(), { target: { value: 'see you later' } });
     fireEvent.click(screen.getByRole('button', { name: /check/i }));
-    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    expect(perfectMark()).toBeInTheDocument();
   });
 
   it('falls back to the free input when any alternative has a different length', () => {
@@ -997,7 +1023,8 @@ describe('TypingStudyCard', () => {
     });
     expect(document.querySelector('.game-typing-mask')).not.toBeInTheDocument();
     fireEvent.change(input(), { target: { value: 'cya' } });
-    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    checkAnswer();
+    expect(perfectMark()).toBeInTheDocument();
   });
 
   it('lets a Telex intermediate value exceed the slot count before the manual check', () => {
@@ -1008,17 +1035,18 @@ describe('TypingStudyCard', () => {
     // …the keyboard then rewrites the value and the user confirms.
     fireEvent.change(input(), { target: { value: 'conchó' } });
     fireEvent.keyDown(input(), { key: 'Enter' });
-    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    expect(perfectMark()).toBeInTheDocument();
   });
 
-  it('keeps auto-check when the answer side is not a multi-key language', () => {
+  it('keeps explicit check when the answer side is not a multi-key language', () => {
     // The reversed role puts Czech on the learning side, so the answer is not
     // the multi-key Vietnamese text.
     renderCard({ word: VI_WORD, role: 'languageToLearn' });
-    // Answer is the Czech side; the check button stays hidden.
-    expect(screen.queryByRole('button', { name: /check/i })).not.toBeInTheDocument();
+    // Answer is the Czech side; confirmation is still explicit.
+    expect(screen.getByRole('button', { name: /check/i })).toBeInTheDocument();
     fireEvent.change(input(), { target: { value: 'pes' } });
-    expect(screen.getByText('✓ Perfect!')).toBeInTheDocument();
+    checkAnswer();
+    expect(perfectMark()).toBeInTheDocument();
   });
 
   it('renders only the repeat-after action, without the Forgotten/OK buttons', () => {
@@ -1026,6 +1054,6 @@ describe('TypingStudyCard', () => {
     expect(screen.getByRole('button', { name: /custom interval/i })).toBeInTheDocument();
     expect(screen.queryByText("Don't know")).not.toBeInTheDocument();
     expect(screen.queryByText('I know')).not.toBeInTheDocument();
-    expect(screen.queryByText('Check')).not.toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Check' })).toBeInTheDocument();
   });
 });

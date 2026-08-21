@@ -3,11 +3,13 @@ import { and, desc, eq, gt, lte } from 'drizzle-orm';
 import {
   clampGoalDays,
   clampGoalMinutes,
+  clampGoalWords,
+  type GoalMode,
   type StudyGoalState,
   type StudyGoalVersion,
   type StudyPacing,
 } from '@/packages/domain/goals/goal';
-import { calculateWordGoal } from '@/packages/domain/goals/calibration';
+import { resolveGoalTargets } from '@/packages/domain/goals/calibration';
 import type { StudyGoalMutation } from '@/packages/contracts/src/sync';
 import { SyncRevisionConflictError } from '@/packages/domain/sync/revision';
 import { normalizeFineTuneConfig } from '@/features/learning/fine-tune/config';
@@ -40,15 +42,28 @@ function tomorrowInTimezone(timezone: string, now = new Date()): string {
 }
 
 function toVersion(row: typeof userStudyGoalVersions.$inferSelect): StudyGoalVersion {
+  const mode: GoalMode = row.goalMode === 'words' ? 'words' : 'minutes';
+  const pacing = row.pacing as StudyPacing;
+  const canonicalMinutes = row.goalMinutesPerDay ?? 10;
+  const canonicalNewWords = mode === 'words' ? (row.goalNewWordsPerDay ?? row.goalWordsPerDay ?? 1) : null;
+  const resolved = resolveGoalTargets({
+    mode,
+    minutesPerDay: canonicalMinutes,
+    wordsPerDay: row.goalWordsPerDay ?? canonicalNewWords ?? 1,
+    newWordsPerDay: canonicalNewWords,
+    pacing,
+  });
   return {
     id: row.id,
     effectiveFromDay: row.effectiveFromDay,
     enabled: row.enabled,
+    mode,
     daysPerWeek: row.goalDaysPerWeek,
-    minutesPerDay: row.goalMinutesPerDay,
-    wordsPerDay: row.goalWordsPerDay,
+    minutesPerDay: resolved.minutesPerDay,
+    wordsPerDay: resolved.wordsPerDay,
+    newWordsPerDay: canonicalNewWords,
     preset: row.goalPreset as StudyGoalVersion['preset'],
-    pacing: row.pacing as StudyPacing,
+    pacing,
     createdAt: row.createdAt.toISOString(),
   };
 }
@@ -83,6 +98,15 @@ export async function getGoalVersionForDay(userId: string, dayKey: string): Prom
   return rows[0] ? toVersion(rows[0]) : null;
 }
 
+/** Ordered history used to evaluate historical streaks against the version
+ * actually in force on each local day, rather than today's settings. */
+export async function getStudyGoalVersions(userId: string): Promise<StudyGoalVersion[]> {
+  const rows = await db.select().from(userStudyGoalVersions)
+    .where(eq(userStudyGoalVersions.userId, userId))
+    .orderBy(userStudyGoalVersions.effectiveFromDay);
+  return rows.map(toVersion);
+}
+
 export async function saveStudyGoal(
   userId: string,
   mutation: StudyGoalMutation,
@@ -106,15 +130,31 @@ export async function saveStudyGoal(
       minigameFrequency: mutation.minigame_frequency,
       fineTune: normalizeFineTuneConfig(mutation.learning_fine_tune),
     };
-    const goalMinutes = clampGoalMinutes(mutation.goal_minutes_per_day);
-    const goal = calculateWordGoal(goalMinutes, pacing);
+    const mode: GoalMode = mutation.mode;
+    const goalMinutes = mode === 'minutes'
+      ? clampGoalMinutes(mutation.goal_minutes_per_day ?? 10)
+      : null;
+    const goalNewWords = mode === 'words'
+      ? clampGoalWords(mutation.goal_new_words_per_day ?? 1)
+      : null;
+    const goal = resolveGoalTargets({
+      mode,
+      minutesPerDay: goalMinutes ?? 10,
+      wordsPerDay: goalNewWords ?? 1,
+      newWordsPerDay: goalNewWords,
+      pacing,
+    });
     const values = {
       userId,
       effectiveFromDay,
       enabled: mutation.enabled,
+      goalMode: mode,
       goalDaysPerWeek: clampGoalDays(mutation.goal_days_per_week),
       goalMinutesPerDay: goalMinutes,
-      goalWordsPerDay: goal.goalWords,
+      goalNewWordsPerDay: goalNewWords,
+      // Legacy display/history field. New business logic only uses the
+      // canonical mode-specific field above.
+      goalWordsPerDay: mode === 'minutes' ? goal.wordsPerDay : null,
       goalPreset: mutation.goal_preset,
       pacing,
       updatedAt: new Date(),
@@ -124,8 +164,10 @@ export async function saveStudyGoal(
         target: [userStudyGoalVersions.userId, userStudyGoalVersions.effectiveFromDay],
         set: {
           enabled: values.enabled,
+          goalMode: values.goalMode,
           goalDaysPerWeek: values.goalDaysPerWeek,
           goalMinutesPerDay: values.goalMinutesPerDay,
+          goalNewWordsPerDay: values.goalNewWordsPerDay,
           goalWordsPerDay: values.goalWordsPerDay,
           goalPreset: values.goalPreset,
           pacing: values.pacing,

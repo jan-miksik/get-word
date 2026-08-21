@@ -102,6 +102,7 @@ function applyPendingProgress(
     lastKnownAt: toIso(payload.last_known_at),
     lastUnknownAt: toIso(payload.last_unknown_at),
     nextDueAt: toIso(payload.next_due_at),
+    introducedAt: existing?.introducedAt ?? null,
     createdAt: existing?.createdAt ?? updatedAt,
     updatedAt,
   };
@@ -264,6 +265,7 @@ function applyPendingReviewEvent(
     lastKnownAt: event.action === 'unknown' ? existing?.lastKnownAt ?? null : occurredAt,
     lastUnknownAt: event.action === 'unknown' ? occurredAt : existing?.lastUnknownAt ?? null,
     nextDueAt,
+    introducedAt: existing?.introducedAt ?? occurredAt,
     createdAt: existing?.createdAt ?? fallbackCreatedAt,
     updatedAt: occurredAt,
   };

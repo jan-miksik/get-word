@@ -32,6 +32,7 @@ import {
 } from '@/features/learning/fine-tune/types';
 import { TypingMemoryHook } from './typing-study/TypingMemoryHook';
 import { TypingAnswerInput } from './typing-study/TypingAnswerInput';
+import { SuccessMark } from './games/SuccessMark';
 
 import {
   evaluateTypingAnswer,
@@ -51,6 +52,7 @@ interface TypingStudyCardProps {
   audioPromptEnabled: boolean;
   prefillPunctuation: boolean;
   playAudioAfterCheck?: boolean;
+  /** @deprecated Typing answers now always use explicit confirmation. */
   checkButtonEnabled?: boolean;
   /** Fires as soon as the answer is checked, so the score updates immediately. */
   onScore?: (points: number) => void;
@@ -108,7 +110,6 @@ export function TypingStudyCard({
   audioPromptEnabled,
   prefillPunctuation,
   playAudioAfterCheck = false,
-  checkButtonEnabled = false,
   onScore,
   onOutcome,
   onCustomStage,
@@ -153,18 +154,26 @@ export function TypingStudyCard({
   const [value, setValue] = useState(() => {
     if (useFreeAnswerInput || prefillCount === 0) return '';
     let revealedLetters = 0;
+    let exhausted = false;
     return baseEditableIndices.map((slotIndex) => {
       const character = baseSlots[slotIndex] ?? '';
       // Spaces remain free when punctuation prefilling is disabled, matching
-      // hint behavior and preserving the input's slot alignment.
-      if (character === ' ') return character;
-      if (revealedLetters >= prefillCount) return '';
+      // hint behavior. Only the ones inside the scaffold, though: the value is
+      // a gapless run of filled slots, so a space handed out past the last
+      // revealed letter would slide every later slot one place left.
+      if (character === ' ') return exhausted ? '' : character;
+      if (revealedLetters >= prefillCount) {
+        exhausted = true;
+        return '';
+      }
       revealedLetters += 1;
       return character;
     }).join('');
   });
   const [result, setResult] = useState<TypingResult | null>(null);
-  const [caretIndex, setCaretIndex] = useState(0);
+  // A scaffolded card starts with letters already in the input, so the caret
+  // starts after them — on the first slot the learner still has to fill.
+  const [caretIndex, setCaretIndex] = useState(() => splitGraphemes(value).length);
   const [isFocused, setIsFocused] = useState(false);
   const [isMemoryHookEditing, setIsMemoryHookEditing] = useState(false);
   const articleRef = useRef<HTMLElement>(null);
@@ -189,7 +198,7 @@ export function TypingStudyCard({
   // Alternatives that fit the primary's slot mask (same grapheme count, same
   // punctuation slots) keep the masked input; only an incompatible alternative
   // forces the free-text fallback.
-  const manualCheck = checkButtonEnabled;
+  const manualCheck = true;
   const displayedAnswer = result?.matchedAnswer ?? correctAnswer;
   const slots = splitGraphemes(displayedAnswer);
   const fixedFlags = slots.map((ch) => prefillPunctuation && PREFILL_CHAR_RE.test(ch));
@@ -224,7 +233,14 @@ export function TypingStudyCard({
     const shouldAutoFocus = isMobileLayout()
       ? (autoFocusOnMobile ?? autoFocus)
       : autoFocus;
-    if (shouldAutoFocus) inputRef.current?.focus({ preventScroll: true });
+    const input = inputRef.current;
+    if (shouldAutoFocus) input?.focus({ preventScroll: true });
+    // Focusing an input puts the caret at offset 0, which on a prefilled card
+    // means typing in front of letters the learner never typed. Move it to the
+    // end of the scaffold — the value only ever holds already-filled slots, so
+    // its end IS the first empty one. Set after focus: WebKit re-places the
+    // caret on focus and would undo a selection made before it.
+    if (input) input.setSelectionRange(input.value.length, input.value.length);
   }, [autoFocus, autoFocusOnMobile, word.id]);
 
   // The shell is never touched from here. `useVisualViewportHeight` already
@@ -409,16 +425,8 @@ export function TypingStudyCard({
     if (nextResult.points > 0) onScore?.(nextResult.points);
   };
 
-  // Auto path: fires when enough editable text is present. The check button
-  // preference is the single switch that opts into explicit confirmation.
-  const finishCheck = (nextValue: string) => {
-    if (manualCheck) return;
-    if (splitGraphemes(nextValue).length < minimumAnswerLengthForCheck) return;
-    evaluateAnswer(nextValue);
-  };
-
   const submitCheck = () => {
-    if (!value.trim() || (manualCheck && !isManualAnswerComplete)) return;
+    if (!value.trim() || !isManualAnswerComplete) return;
     evaluateAnswer(value);
   };
 
@@ -433,7 +441,6 @@ export function TypingStudyCard({
       ? raw.normalize('NFC').replace(PREFILL_STRIP_RE, '')
       : raw.normalize('NFC');
     setValue(sanitized);
-    finishCheck(sanitized);
   };
 
   const updateCaret = (target: HTMLInputElement) => {
@@ -522,7 +529,6 @@ export function TypingStudyCard({
         updateCaret(input);
       }
     });
-    finishCheck(nextValue);
   };
 
   const hintExhausted = hintsUsed >= hintBudget || editableSlotIndices.every(
@@ -697,7 +703,14 @@ export function TypingStudyCard({
   flushWord();
 
   const resultLabels: Record<TypingResult['presentation'], React.ReactNode> = {
-    exact: `✓ ${t('game.perfect')}`,
+    // Absolutely centred rather than in flow: the feedback box is a fixed
+    // reserved slot, and with the keyboard open there is no room for it to grow
+    // by the badge's height the moment an answer lands.
+    exact: (
+      <span className="absolute inset-0 flex items-center justify-center">
+        <SuccessMark key={word.id} label={t('game.perfect')} />
+      </span>
+    ),
     close: (
       <>
         ~ {t('game.close')}{' '}
@@ -722,7 +735,7 @@ export function TypingStudyCard({
       ? '!border-[#C28A24] !bg-[#FFF0BD] !text-[#5B3A00] shadow-[0_2px_0_rgba(91,58,0,0.12)]'
       : result?.presentation === 'wrong'
         ? '!border-[#B91C1C]/30 !bg-[#B91C1C]/10 !text-[#8F1515]'
-        : '!text-[#187A43]';
+        : '!border-transparent !bg-transparent !text-[#187A43] !shadow-none';
 
   return (
     <article
@@ -743,7 +756,7 @@ export function TypingStudyCard({
         <div
           role={result ? 'status' : undefined}
           aria-hidden={result ? undefined : true}
-          className={`game-feedback self-center min-h-[3.25rem] w-[min(34rem,calc(100vw-2rem))] !justify-center !border !border-transparent !px-3 !py-1.5 text-center !text-[1rem] leading-tight sm:!text-[1.1rem] md:[@media(max-height:800px)]:min-h-10 md:[@media(max-height:800px)]:!py-1 [&_strong]:font-extrabold ${result ? `game-feedback--${result.presentation === 'typo' ? 'close' : result.presentation} ${feedbackToneClass}` : 'invisible'}`}
+          className={`game-feedback relative self-center min-h-[3.25rem] w-[min(34rem,calc(100vw-2rem))] !justify-center !border !border-transparent !px-3 !py-1.5 text-center !text-[1rem] leading-tight sm:!text-[1.1rem] md:[@media(max-height:800px)]:min-h-10 md:[@media(max-height:800px)]:!py-1 [&_strong]:font-extrabold ${result ? `game-feedback--${result.presentation === 'typo' ? 'close' : result.presentation} ${feedbackToneClass}` : 'invisible'}`}
         >
           {result ? resultLabels[result.presentation] : '\u00A0'}
         </div>

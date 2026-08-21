@@ -195,9 +195,9 @@ function PreviewStudy({
   const previewSurface = useSearchParams().get('preview');
   const [breatherStep, setBreatherStep] = useState(0);
   const previewBlocks = useMemo<SessionBlockProgress[]>(() => ([
-    { key: 'review-0', kind: 'review', total: 6, done: Math.min(6, breatherStep * 3), liveRemaining: Math.max(0, 6 - breatherStep * 3), unavailable: 0 },
-    { key: 'new-0', kind: 'new', total: 4, done: 0, liveRemaining: 4, unavailable: 0 },
-    { key: 'review-1', kind: 'review', total: 12, done: 0, liveRemaining: 12, unavailable: 0 },
+    { key: 'review-0', kind: 'review', total: 6, done: Math.min(6, breatherStep * 3), pending: 0, liveRemaining: Math.max(0, 6 - breatherStep * 3), unavailable: 0 },
+    { key: 'new-0', kind: 'new', total: 4, done: 0, pending: 0, liveRemaining: 4, unavailable: 0 },
+    { key: 'review-1', kind: 'review', total: 12, done: 0, pending: 0, liveRemaining: 12, unavailable: 0 },
   ]), [breatherStep]);
   const previewFlow = useMemo(() => resolveSessionFlow(previewBlocks), [previewBlocks]);
 
